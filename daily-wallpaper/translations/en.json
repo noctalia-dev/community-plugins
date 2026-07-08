@@ -1,0 +1,9 @@
+{
+  "notify.applied": "Wallpaper applied",
+  "notify.failed": "Daily wallpaper failed",
+  "settings.locale.description": "Bing market locale such as en-US, de-DE, or fr-FR. Empty uses en-US.",
+  "settings.locale.label": "Locale",
+  "settings.source.label": "Source",
+  "settings.source.options.bing": "Bing",
+  "settings.source.options.nasa": "NASA"
+}
