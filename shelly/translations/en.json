@@ -1,0 +1,64 @@
+{
+  "title": "Shelly",
+  "notify": {
+    "new_updates": {
+      "title": "New Updates Available",
+      "description": "There are {count} new updates available for your system."
+    }
+  },
+  "bar": {
+    "text": {
+      "error": "?",
+      "updates": {
+        "one": "{count} Update",
+        "other": "{count} Updates"
+      }
+    },
+    "tooltip": {
+      "aur_title": "AUR",
+      "flatpak_title": "Flatpak",
+      "packages_title": "Packages",
+      "no_updates": "System is up to date",
+      "error": {
+        "decode_json": "Failed to decode output from `shelly check-updates --json`"
+      }
+    },
+    "click_handler": {
+      "error": {
+        "missing_gui": "Shelly GUI is not installed. Please install it to use this feature.",
+        "missing_cli": "Shelly CLI is not installed. Please install it to use this feature."
+      }
+    }
+  },
+  "settings": {
+    "interval": {
+      "label": "Refresh Seconds",
+      "description": "How often the service checks for updates in the background."
+    },
+    "notify": {
+      "label": "Notify",
+      "description": "Whether to show a notification when new updates are available."
+    },
+    "click_action": {
+      "label": "Click Action",
+      "description": "What happens when you click on the bar.",
+      "options": {
+        "none": "Nothing",
+        "open_gui": "Open Shelly GUI",
+        "open_updater": "Start Update in Terminal"
+      }
+    },
+    "color": {
+      "label": "Color",
+      "description": "The color of the bar text."
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "The glyph shown before the label."
+    },
+    "glyph_color": {
+      "label": "Glyph Color",
+      "description": "The color of the glyph."
+    }
+  }
+}

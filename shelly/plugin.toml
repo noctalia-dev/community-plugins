@@ -1,0 +1,66 @@
+id           = "joshuaslate/shelly"
+name         = "Shelly"
+icon         = "package"
+version      = "1.0.0"
+min_noctalia = "5.0.0"
+author       = "joshuaslate"
+dependencies = ["shelly"]
+description = "A plugin that provides a widget for displaying system update information."
+tags         = ["updates", "pacman", "package", "aur", "flatpak", "shelly"]
+deprecated = false
+
+[[setting]]
+key     = "interval"
+type    = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 300
+min = 0
+
+[[setting]]
+key     = "notify"
+type    = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = false
+
+[[service]]
+id = "update_poller"
+entry = "poller.luau"
+
+[[widget]]
+id    = "shelly"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.color.label"
+  description_key = "settings.color.description"
+  default = "on_surface"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "package"
+
+  [[widget.setting]]
+  key = "glyph_color"
+  type = "color"
+  label_key = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  default = "on_surface"
+
+  [[widget.setting]]
+  key = "click_action"
+  type = "select"
+  label_key = "settings.click_action.label"
+  description_key = "settings.click_action.description"
+  default = "open_gui"
+  options = [
+    { value = "none", label_key = "settings.click_action.options.none" },
+    { value = "open_gui", label_key = "settings.click_action.options.open_gui" },
+    { value = "open_updater", label_key = "settings.click_action.options.open_updater" }
+  ]
