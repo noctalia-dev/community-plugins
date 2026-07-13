@@ -1,0 +1,12 @@
+{
+  "settings.battery-device": "Appareil de batterie",
+  "settings.battery-device-desc": "Batterie pour laquelle configurer le seuil",
+  "settings.charge-threshold": "Seuil de charge",
+  "settings.charge-threshold-desc": "Le pourcentage auquel la batterie doit s'arrêter de charger",
+  "settings.no-battery-device": "Aucune batterie configurable n'est disponible sur ce système",
+  "actions.widget-settings": "Paramètres du widget",
+  "panel.title": "Seuil de batterie",
+  "panel.not-available": "Non disponible sur ce système",
+  "panel.adjust-limit": "Faites glisser pour ajuster la limite",
+  "panel.read-only": "Lecture seule : installez la règle udev pour l'accès en écriture"
+}
