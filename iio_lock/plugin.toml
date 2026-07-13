@@ -1,0 +1,85 @@
+id = "my_plugins/iio_lock"
+name = "iio-Lock"
+version = "0.1.0"
+min_noctalia = "5.0.0"
+author = "nikolaj"
+license = "MIT"
+dependencies = []
+tags = ["hyprland","iio"]
+icon = "lock"
+description = ""
+
+
+[[setting]]
+key     = "iio"
+type = "string"
+label_key = "iio tool"
+description_key = "iio handler"
+default = "iio-hyprland"
+
+[[setting]]
+key     = "transform-order"
+type = "string"
+label_key = "Transform order"
+description_key = "Transform order"
+default = "0,1,2,3"
+
+[[setting]]
+key     = "vm"
+type = "string"
+label_key = "Transform order"
+description_key = "Transform order"
+default = "hyprland"
+
+[[setting]]
+key = "locked"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "lock"
+
+[[setting]]
+key = "unlocked"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "lock-open-2"
+
+
+
+
+[[widget]]
+id = "lock"
+entry = "iio_lock.luau"
+
+[[widget]]
+id = "lock_panel"
+entry = "iio_panel.luau"
+
+[[widget.setting]]
+key = "unlocked"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "rotate-rectangle"
+
+[[widget.setting]]
+key = "locked"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "rotate-rectangle"
+
+
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 410
+placement = "floating"
+position = "center"
