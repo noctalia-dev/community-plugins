@@ -1,6 +1,6 @@
 id = "nikolaj-zwergius/iio_lock"
 name = "iio-lock"
-version = "0.1.0"
+version = "1.0.0"
 min_noctalia = "5.0.0"
 author = "nikolaj-zwergius"
 license = "MIT"
