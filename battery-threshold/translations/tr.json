@@ -1,12 +1,18 @@
 {
-  "settings.battery-device": "Batarya Cihazı",
-  "settings.battery-device-desc": "Alt Sınırı ayarlanacak batarya",
-  "settings.charge-threshold": "Batarya Alt Sınırı",
-  "settings.charge-threshold-desc": "Bataryanın şarj etmeyi durduracağı yüzde",
-  "settings.no-battery-device": "Bu cihazda ayarlanabilecek batarya bulunamadı",
-  "actions.widget-settings": "Widget Ayarları",
-  "panel.title": "Batarya Alt Sınırı",
-  "panel.not-available": "Bu cihazda kullanılamaz",
-  "panel.adjust-limit": "Sınırı ayarlamak için kaydırıcıyı sürükleyin",
-  "panel.read-only": "Salt-okunur: Yazma erişimi için udev kurallarını yükleyin"
+  "settings": {
+    "battery-device": "Batarya Cihazı",
+    "battery-device-desc": "Alt Sınırı ayarlanacak batarya",
+    "charge-threshold": "Batarya Alt Sınırı",
+    "charge-threshold-desc": "Bataryanın şarj etmeyi durduracağı yüzde",
+    "no-battery-device": "Bu cihazda ayarlanabilecek batarya bulunamadı"
+  },
+  "actions": {
+    "widget-settings": "Widget Ayarları"
+  },
+  "panel": {
+    "title": "Batarya Alt Sınırı",
+    "not-available": "Bu cihazda kullanılamaz",
+    "adjust-limit": "Sınırı ayarlamak için kaydırıcıyı sürükleyin",
+    "read-only": "Salt-okunur: Yazma erişimi için udev kurallarını yükleyin"
+  }
 }

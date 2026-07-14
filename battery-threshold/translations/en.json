@@ -1,12 +1,18 @@
 {
-  "settings.battery-device": "Battery Device",
-  "settings.battery-device-desc": "Battery to configure threshold for",
-  "settings.charge-threshold": "Charge Threshold",
-  "settings.charge-threshold-desc": "The percentage at which the battery should stop charging",
-  "settings.no-battery-device": "No configurable batteries are available on this system",
-  "actions.widget-settings": "Widget Settings",
-  "panel.title": "Battery Threshold",
-  "panel.not-available": "Not available on this system",
-  "panel.adjust-limit": "Drag slider to adjust limit",
-  "panel.read-only": "Read-only: Install udev rule for write access"
+  "settings": {
+    "battery-device": "Battery Device",
+    "battery-device-desc": "Battery to configure threshold for",
+    "charge-threshold": "Charge Threshold",
+    "charge-threshold-desc": "The percentage at which the battery should stop charging",
+    "no-battery-device": "No configurable batteries are available on this system"
+  },
+  "actions": {
+    "widget-settings": "Widget Settings"
+  },
+  "panel": {
+    "title": "Battery Threshold",
+    "not-available": "Not available on this system",
+    "adjust-limit": "Drag slider to adjust limit",
+    "read-only": "Read-only: Install udev rule for write access"
+  }
 }
