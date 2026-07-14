@@ -80,7 +80,7 @@ local function check_status()
 
     local model_name = ""
     local content, err = noctalia.readFile(battery .. "/model_name")
-    if content then
+    if content and not err then
         model_name = noctalia.string.trim(content)
     end
     noctalia.state.set("battery_model_name", model_name)
