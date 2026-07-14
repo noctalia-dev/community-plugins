@@ -9,7 +9,7 @@
 -- CONSTANTS
 --==============================================
 local MAX_HISTORY = 7 -- selected color (index 1) + 6 recent
-local STATE_DIR = "~/.local/state/noctalia/plugin-cache/color-picker"
+local STATE_DIR = "~/.local/state/noctalia/plugin-cache/color_picker"
 local HISTORY_FILE = STATE_DIR .. "/history.json"
 
 local tr_color_picker = noctalia.tr("color_picker")
@@ -263,7 +263,7 @@ end
 function onIpc(event: string, payload: string?)
   if event == "pick" then
     handlePick()
-  elseif event == "color-picker" then
+  elseif event == "picker-dialog" then
     handleNativePicker()
   elseif event == "pick-panel" then
     handlePickFromPanel()

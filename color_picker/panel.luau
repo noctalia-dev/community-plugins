@@ -13,7 +13,7 @@
 --==============================================
 -- CONSTANTS
 --==============================================
-local SERVICE = "oldirtty/color-picker:service"
+local SERVICE = "oldirtty/color_picker:service"
 local swatch_radius = noctalia.getConfig("swatch-radius")
 local tr_color_picker = noctalia.tr("color_picker")
 
@@ -359,7 +359,7 @@ function onPickClickedFromPanel()
 end
 
 function onNativePickerClicked()
-  sendToService("color-picker")
+  sendToService("picker-dialog")
 end
 
 function onCloseClicked()

@@ -1,11 +1,14 @@
 author       = "oldirtty"
-id           = "oldirtty/color-picker"
+id           = "oldirtty/color_picker"
 name         = "Color Picker"
 description  = "Pick a color from your screen with hyprpicker."
+license      = "MIT"
 version      = "1.0.0"
 min_noctalia = "5.0.0"
 icon         = "palette"
 dependencies = ["hyprpicker"]
+tags         = ["color", "utility"]
+
 
 [[setting]]
 key = "hyprpicker-format"
@@ -95,6 +98,7 @@ height = 240
 placement = "floating"
 position = "center"
 
+# Headless background service: owns the hyprpicker backend
 [[service]]
 id = "service"
 entry = "service.luau"

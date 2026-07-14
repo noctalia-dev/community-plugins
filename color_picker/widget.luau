@@ -12,11 +12,11 @@ local function render()
 end
 
 function onClick()
-  noctalia.togglePanel("oldirtty/color-picker:panel")
+  noctalia.togglePanel("oldirtty/color_picker:panel")
 end
 
 function onRightClick()
-  noctalia.runAsync("noctalia msg plugin oldirtty/color-picker:service all pick", function(result)
+  noctalia.runAsync("noctalia msg plugin oldirtty/color_picker:service all pick", function(result)
     if result.exitCode ~= 0 then
       noctalia.notifyError(tr_color_picker, noctalia.tr("could_not_parse"))
     end
