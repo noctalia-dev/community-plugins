@@ -1,80 +1,90 @@
-id = "my_plugins/iio_lock"
-name = "iio-Lock"
+id = "nikolaj-zwergius/iio_lock"
+name = "iio-lock"
 version = "0.1.0"
 min_noctalia = "5.0.0"
-author = "nikolaj"
+author = "nikolaj-zwergius"
 license = "MIT"
-dependencies = []
-tags = ["hyprland","iio"]
+dependencies = ["pgrep","pkill","iio-hyprland","iio-sway","hyprctl","swaymsg"]
+tags = ["hyprland","sway","desktop","utility"]
 icon = "lock"
-description = ""
+description = "Orientation lock for 2‑in‑1 devices using iio-hyprland and similar."
 
 
 [[setting]]
 key     = "iio"
-type = "string"
-label_key = "iio tool"
-description_key = "iio handler"
+type = "select"
+label_key = "setting.iio.label"
+description_key = "settings.iio.description"
 default = "iio-hyprland"
+options = [
+  { value = "iio-hyprland", label_key = "settings.iio.options.hyprland" },
+  { value = "iio-sway", label_key = "settings.iio.options.sway" },
+]
 
 [[setting]]
 key     = "transform-order"
 type = "string"
-label_key = "Transform order"
-description_key = "Transform order"
+label_key = "settings.transform.label"
+description_key = "settings.transform.description"
 default = "0,1,2,3"
 
 [[setting]]
 key     = "vm"
-type = "string"
-label_key = "Transform order"
-description_key = "Transform order"
+type = "select"
+label_key = "setting.wm.label"
+description_key = "setting.wm.label"
 default = "hyprland"
+options = [
+  { value = "hyprland", label_key = "settings.wm.options.hyprland" },
+  { value = "sway", label_key = "settings.wm.options.sway" },
+]
 
 [[setting]]
 key = "locked"
 type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
+label_key = "settings.glyph.locked.label"
+description_key = "settings.glyph.locked.description"
 default = "lock"
 
 [[setting]]
 key = "unlocked"
 type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
+label_key = "settings.glyph.unlocked.label"
+description_key = "settings.glyph.unlocked.description"
 default = "lock-open-2"
 
 
-
-
-[[widget]]
-id = "lock"
-entry = "iio_lock.luau"
+[[service]]
+id = "iio-service"
+entry = "iio-service.luau"
 
 [[widget]]
-id = "lock_panel"
-entry = "iio_panel.luau"
+id = "iio-lock"
+entry = "iio-lock.luau"
+
+[[widget]]
+id = "lock-panel"
+entry = "iio-panel.luau"
 
 [[widget.setting]]
 key = "unlocked"
 type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
+label_key = "settings.glyph.unlocked.label"
+description_key = "settings.glyph.unlocked.description"
 default = "rotate-rectangle"
 
 [[widget.setting]]
 key = "locked"
 type = "glyph"
-label_key = "settings.glyph.label"
-description_key = "settings.glyph.description"
+label_key = "settings.glyph.locked.label"
+description_key = "settings.glyph.locked.description"
 default = "rotate-rectangle"
 
 
 
 [[shortcut]]
 id = "toggle"
-entry = "shortcut.luau"
+entry = "cc-toggle.luau"
 
 [[panel]]
 id = "panel"
