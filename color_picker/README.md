@@ -67,4 +67,3 @@ noctalia msg plugin oldirtty/color_picker:service all pick
 ## Notes
 
 - There is a known behavior where invoking `hyprpicker` through the plugin's background service imposes a timeout. The picker will close prematurely if a color is not selected within a certain timeframe, rather than staying open indefinitely waiting for a click.
-- There is a slight delay in the current color swatch updating at open when opening the panel. This is a known state synchronization and UI mounting timing issue within the declarative UI cycle, and I haven't found a proper solution for it yet.

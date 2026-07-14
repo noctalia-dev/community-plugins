@@ -240,7 +240,6 @@ local function renderColorspaceColumn(name: string, value: string, onSubmit: str
         value = value,
         textAlign = text_align,
         flexGrow = 1,
-        focus = true, -- fix this
         onSubmit = onSubmit,
       }),
       ui.button({ glyph = "copy", variant = "ghost", onClick = onCopy }),
@@ -273,8 +272,11 @@ local function render()
         ui.label({ text = tr("opacity"), fontSize = 14, color = "on_surface_variant" }),
         ui.slider({ min = 0, max = 1, step = 0.01, value = opacity, onChange = "onOpacityChange", onDragEnd = "onOpacityChange" }),
       }),
+      -- Render current swatch
       ui.box({
-        fill = hexWithAlpha(current, opacity),
+        width = 128,
+        height = 64,
+        fill =  hexWithAlpha(current, opacity),
         radius = swatch_radius,
         border = "outline",
         borderWidth = 2,
