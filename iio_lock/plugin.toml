@@ -13,7 +13,7 @@ description = "Orientation lock for 2‑in‑1 devices using iio-hyprland and si
 [[setting]]
 key     = "iio"
 type = "select"
-label_key = "setting.iio.label"
+label_key = "settings.iio.label"
 description_key = "settings.iio.description"
 default = "iio-hyprland"
 options = [
@@ -31,8 +31,8 @@ default = "0,1,2,3"
 [[setting]]
 key     = "vm"
 type = "select"
-label_key = "setting.wm.label"
-description_key = "setting.wm.label"
+label_key = "settings.wm.label"
+description_key = "settings.wm.description"
 default = "hyprland"
 options = [
   { value = "hyprland", label_key = "settings.wm.options.hyprland" },
