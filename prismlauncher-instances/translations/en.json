@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "prismlauncher_path": {
+      "label": "PrismLauncher path",
+      "description": "Path to PrismLauncher"
+    }
+  },
+  "no_instances": {
+    "title": "No instances found",
+    "subtitle": "Filter: "
+  }
+}

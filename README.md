@@ -6,7 +6,7 @@
 
 ---
 
-This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia-shell). Every
+This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia). Every
 plugin merged here is listed in the shell's plugin store and on
 [noctalia.dev/plugins](https://noctalia.dev/plugins), and users can install it without adding a source of their own.
 
@@ -106,6 +106,20 @@ your plugin, set the title, category tag and accent color, then export the 960×
 
 Write `translations/en.json` only. Every `label_key` and `description_key` in your manifest must resolve to a key in
 it, and CI checks this. Do not add machine-translated locales; other languages are handled separately.
+
+### Tags
+
+The `tags` in `plugin.toml` are used for catalog search. Tags must be lowercase and selected from this list:
+
+- Surfaces: `bar`, `desktop`, `launcher`, `panel`, `service`, `shortcut`
+- Purpose: `ai`, `animation`, `audio`, `clock`, `countdown`, `demo`, `development`, `emoticon`, `fun`, `gaming`,
+  `hardware`, `indicator`, `language`, `media`, `music`, `network`, `privacy`, `productivity`, `recording`, `system`,
+  `theming`, `time`, `utility`, `video`, `wallpaper`
+- Compositors: `hyprland`, `labwc`, `mangowc`, `niri`, `sway`
+- Distributions: `arch`, `debian`, `fedora`, `gentoo`, `nixos`, `opensuse`, `void`
+
+If your plugin does not fit any existing tag, propose a new one in your pull request rather than inventing a tag in
+the manifest.
 
 ## Submitting
 

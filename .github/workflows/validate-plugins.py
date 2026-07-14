@@ -13,6 +13,52 @@ from typing import Any
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+LAUNCHER_PREFIX_RE = re.compile(r"^[a-z]+$")
+ALLOWED_TAGS = {
+    "ai",
+    "animation",
+    "arch",
+    "audio",
+    "bar",
+    "clock",
+    "countdown",
+    "demo",
+    "debian",
+    "desktop",
+    "development",
+    "emoticon",
+    "fedora",
+    "fun",
+    "gaming",
+    "gentoo",
+    "hardware",
+    "hyprland",
+    "indicator",
+    "labwc",
+    "language",
+    "launcher",
+    "mangowc",
+    "media",
+    "music",
+    "network",
+    "niri",
+    "nixos",
+    "opensuse",
+    "panel",
+    "privacy",
+    "productivity",
+    "recording",
+    "service",
+    "shortcut",
+    "sway",
+    "system",
+    "theming",
+    "time",
+    "utility",
+    "video",
+    "void",
+    "wallpaper",
+}
 
 # An id segment must be a lowercase flat identifier: the part after the "/" is also the
 # plugin's directory here, its export directory on disk, and its slug on the website.
@@ -24,8 +70,15 @@ RESERVED_NAMES = {"license", "readme", "index", "api", "admin", "static", "asset
 # the thumbnail as its card, and the English catalog backs every label_key.
 REQUIRED_PLUGIN_FILES = ("README.md", "thumbnail.webp", "translations/en.json")
 THUMBNAIL_MAX_BYTES = 512 * 1024
+# The store and the website lay out plugin cards on a fixed 16:9 grid, so the thumbnail
+# generator exports exactly this.
+THUMBNAIL_SIZE = (960, 540)
+THUMBNAIL_GENERATOR_URL = "https://assets.noctalia.dev/plugins/thumbnail-generator.html"
 WEBP_MAGIC_PREFIX = b"RIFF"
 WEBP_MAGIC_FORMAT = b"WEBP"
+# Enough of the file to cover the RIFF header plus the first chunk header and the widest
+# dimension field of any WebP variant.
+WEBP_HEADER_BYTES = 32
 
 ROOT_STRING_FIELDS = (
     "id",
@@ -86,6 +139,22 @@ SETTING_FIELDS = {
 OPTION_FIELDS = {"value", "label_key"}
 VISIBLE_WHEN_FIELDS = {"key", "values"}
 
+# Raw HTML is not supported on plugin pages. Markdown autolinks such as
+# <https://example.com> do not match this expression.
+HTML_RE = re.compile(
+    r"<!--|<\?|<!\[CDATA\[|<![A-Z]|"
+    r"</[A-Za-z][A-Za-z0-9-]*\s*>|"
+    r"<[A-Za-z][A-Za-z0-9-]*"
+    r"(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*"
+    r"(?:\s*=\s*(?:[^\s\"'=<>`]+|'[^']*'|\"[^\"]*\"))?)*\s*/?>",
+    re.DOTALL,
+)
+INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)", re.DOTALL)
+FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+OBSOLETE_CONFIG_ACCESSOR_RE = re.compile(
+    r"\b(barWidget|desktopWidget|panel|launcher)\s*\.\s*getConfig\b"
+)
+
 
 def is_non_empty_string(value: Any) -> bool:
     return isinstance(value, str) and value.strip() != ""
@@ -104,6 +173,139 @@ def rel(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def raw_html_line(markdown: str) -> int | None:
+    """Return the first line containing raw HTML outside Markdown code, if any."""
+    visible: list[str] = []
+    fence_char = ""
+    fence_length = 0
+
+    for line in markdown.splitlines(keepends=True):
+        if fence_char:
+            closing = rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}\s*$"
+            if re.match(closing, line.rstrip("\r\n")):
+                fence_char = ""
+                fence_length = 0
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        opening = FENCE_OPEN_RE.match(line)
+        if opening:
+            fence = opening.group(1)
+            fence_char = fence[0]
+            fence_length = len(fence)
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        visible.append(line)
+
+    text = "".join(visible)
+    text = INLINE_CODE_RE.sub(
+        lambda match: "".join("\n" if char == "\n" else " " for char in match.group(0)),
+        text,
+    )
+    match = HTML_RE.search(text)
+    if match is None:
+        return None
+    return text.count("\n", 0, match.start()) + 1
+
+
+def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
+    """Find removed entry-specific getConfig aliases outside Luau comments and strings."""
+    visible = list(source)
+    length = len(source)
+    index = 0
+
+    def mask(start: int, end: int) -> None:
+        for offset in range(start, end):
+            if visible[offset] not in "\r\n":
+                visible[offset] = " "
+
+    while index < length:
+        if source.startswith("--[[", index):
+            end = source.find("]]", index + 4)
+            end = length if end == -1 else end + 2
+            mask(index, end)
+            index = end
+            continue
+
+        if source.startswith("--", index):
+            end = source.find("\n", index + 2)
+            end = length if end == -1 else end
+            mask(index, end)
+            index = end
+            continue
+
+        if source.startswith("[[", index):
+            end = source.find("]]", index + 2)
+            end = length if end == -1 else end + 2
+            mask(index, end)
+            index = end
+            continue
+
+        if source[index] in "\"'":
+            quote = source[index]
+            end = index + 1
+            while end < length:
+                if source[end] == "\\" and end + 1 < length:
+                    end += 2
+                    continue
+                end += 1
+                if source[end - 1] == quote:
+                    break
+            mask(index, end)
+            index = end
+            continue
+
+        index += 1
+
+    code = "".join(visible)
+    return [
+        (f"{match.group(1)}.getConfig", code.count("\n", 0, match.start()) + 1)
+        for match in OBSOLETE_CONFIG_ACCESSOR_RE.finditer(code)
+    ]
+
+
+def webp_dimensions(header: bytes) -> tuple[int, int] | None:
+    """Width and height from a WebP header, or None if it is not one we can read.
+
+    The three container variants each store the size differently, and the generator's
+    output is only one of them, so all three are handled.
+    """
+    if len(header) < 16 or header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
+        return None
+
+    fourcc = header[12:16]
+    payload = header[20:]
+
+    if fourcc == b"VP8X":
+        # Extended: 4 bytes of flags, then canvas width and height as 24-bit values,
+        # each stored as size minus one.
+        if len(payload) < 10:
+            return None
+        width = int.from_bytes(payload[4:7], "little") + 1
+        height = int.from_bytes(payload[7:10], "little") + 1
+        return width, height
+
+    if fourcc == b"VP8 ":
+        # Lossy: a 3-byte frame tag, the start code, then two 14-bit dimensions.
+        if len(payload) < 10 or payload[3:6] != b"\x9d\x01\x2a":
+            return None
+        width = int.from_bytes(payload[6:8], "little") & 0x3FFF
+        height = int.from_bytes(payload[8:10], "little") & 0x3FFF
+        return width, height
+
+    if fourcc == b"VP8L":
+        # Lossless: a signature byte, then both dimensions minus one packed into 28 bits.
+        if len(payload) < 5 or payload[0] != 0x2F:
+            return None
+        bits = int.from_bytes(payload[1:5], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+
+    return None
 
 
 def has_key_path(data: Any, dotted_key: str) -> bool:
@@ -215,6 +417,19 @@ class Validator:
                 self.add_context_error(manifest_path, context, f"{field} contains duplicate '{item}'")
             seen.add(item)
 
+    def validate_tags(self, manifest_path: Path, value: Any) -> None:
+        self.validate_string_list(manifest_path, "root", "tags", value, allow_empty=False)
+        if not isinstance(value, list):
+            return
+
+        for index, tag in enumerate(value):
+            if is_non_empty_string(tag) and tag not in ALLOWED_TAGS:
+                self.add_context_error(
+                    manifest_path,
+                    "root",
+                    f"tags[{index}] '{tag}' is not an allowed tag",
+                )
+
     def validate_root_fields(self, manifest_path: Path, manifest: dict[str, Any]) -> None:
         unknown = sorted(set(manifest) - ROOT_FIELDS)
         for field in unknown:
@@ -240,7 +455,7 @@ class Validator:
             )
 
         if "tags" in manifest:
-            self.validate_string_list(manifest_path, "root", "tags", manifest["tags"], allow_empty=False)
+            self.validate_tags(manifest_path, manifest["tags"])
 
         if "deprecated" in manifest and not isinstance(manifest["deprecated"], bool):
             self.add_error(manifest_path, "root field 'deprecated' must be a bool")
@@ -296,6 +511,14 @@ class Validator:
         for field in ("prefix", "glyph"):
             if field in entry and not is_non_empty_string(entry[field]):
                 self.add_context_error(manifest_path, context, f"{field} must be a non-empty string")
+
+        prefix = entry.get("prefix")
+        if is_non_empty_string(prefix) and not LAUNCHER_PREFIX_RE.fullmatch(prefix):
+            self.add_context_error(
+                manifest_path,
+                context,
+                "prefix must contain only lowercase letters (a-z), without a leading symbol",
+            )
 
         if "include_in_global_search" in entry and not isinstance(entry["include_in_global_search"], bool):
             self.add_context_error(
@@ -679,9 +902,56 @@ class Validator:
             )
 
         with thumbnail.open("rb") as handle:
-            header = handle.read(12)
+            header = handle.read(WEBP_HEADER_BYTES)
         if header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
             self.add_error(manifest_path, "thumbnail.webp is not a WebP image")
+            return
+
+        dimensions = webp_dimensions(header)
+        expected = f"{THUMBNAIL_SIZE[0]}x{THUMBNAIL_SIZE[1]}"
+        if dimensions is None:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp dimensions could not be read; export a {expected} WebP "
+                f"with {THUMBNAIL_GENERATOR_URL}",
+            )
+            return
+
+        if dimensions != THUMBNAIL_SIZE:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp is {dimensions[0]}x{dimensions[1]}; it must be {expected}. "
+                f"Export one with {THUMBNAIL_GENERATOR_URL}",
+            )
+
+    def validate_readme(self, plugin_dir: Path) -> None:
+        readme = plugin_dir / "README.md"
+        if not readme.is_file():
+            return
+
+        try:
+            contents = readme.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            self.add_error(readme, "must be UTF-8 text")
+            return
+
+        line = raw_html_line(contents)
+        if line is not None:
+            self.add_error(readme, f"raw HTML on line {line} is not allowed; use Markdown instead")
+
+    def validate_luau_api(self, plugin_dir: Path) -> None:
+        for source_path in sorted(plugin_dir.rglob("*.luau")):
+            try:
+                source = source_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                self.add_error(source_path, "must be UTF-8 text")
+                continue
+
+            for accessor, line in obsolete_config_accessors(source):
+                self.add_error(
+                    source_path,
+                    f"'{accessor}' on line {line} was removed; use noctalia.getConfig",
+                )
 
     def validate_no_symlinks(self, manifest_path: Path, plugin_dir: Path) -> None:
         for path in plugin_dir.rglob("*"):
@@ -699,6 +969,8 @@ class Validator:
         self.validate_root_fields(manifest_path, manifest)
         self.validate_required_files(manifest_path, plugin_dir)
         self.validate_thumbnail(manifest_path, plugin_dir)
+        self.validate_readme(plugin_dir)
+        self.validate_luau_api(plugin_dir)
         self.validate_no_symlinks(manifest_path, plugin_dir)
 
         if "setting" in manifest:

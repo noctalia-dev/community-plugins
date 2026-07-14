@@ -5,3 +5,116 @@
 # and compat-check the list. The per-plugin plugin.toml stays authoritative; the
 # host re-reads it on enable. Keep one [[plugin]] row per plugin subdirectory.
 
+[[plugin]]
+id = "neuro/upbeat"
+name = "Upbeat"
+version = "1.0.1"
+author = "neuro"
+license = "MIT"
+icon = "at"
+description = "A bar widget that displays Swatch Internet (.beat) Time"
+deprecated = false
+min_noctalia = "5.0.0"
+tags = ["fun", "clock", "utility", "time"]
+
+[[plugin]]
+id = "whyoolw/sharednd"
+name = "ShareDND"
+version = "1.1.0"
+author = "whyoolw"
+license = "MIT"
+icon = "screen-share"
+description = "Enables notification Do Not Disturb while the screen is shared (niri screencast) and turns notifications back on when sharing stops. Requires niri."
+min_noctalia = "5.0.0"
+tags = ["privacy", "niri"]
+
+[[plugin]]
+id = "nzlov/daily-wallpaper"
+name = "Daily Wallpaper"
+version = "1.0.0"
+author = "nzlov"
+license = "MIT"
+icon = "photo"
+description = "Fetches a new daily wallpaper from Bing or NASA."
+min_noctalia = "5.0.0"
+tags = ["wallpaper", "desktop"]
+
+[[plugin]]
+id = "joshuaslate/shelly"
+name = "Shelly"
+version = "1.0.1"
+author = "joshuaslate"
+license = "MIT"
+icon = "package"
+description = "A plugin that provides a widget for displaying system update information."
+deprecated = false
+min_noctalia = "5.0.0"
+tags = ["system", "arch"]
+
+[[plugin]]
+id = "lucasoe/proton-pass"
+name = "Proton Pass"
+version = "0.1.0"
+author = "LucasOe"
+license = "MIT"
+icon = "lock"
+description = "Access Proton Pass from the launcher"
+min_noctalia = "5.0.0"
+tags = ["launcher"]
+
+[[plugin]]
+id = "gambled23/mangowm-keymode"
+name = "Mangowm Keymode"
+version = "1.0.1"
+author = "gambled23"
+license = "MIT"
+icon = "keyboard"
+description = "Mangowm keymode notifier"
+deprecated = false
+min_noctalia = "5.0.0"
+tags = ["bar", "mangowc"]
+
+[[plugin]]
+id = "oldirtty/color_picker"
+name = "Color Picker"
+version = "1.0.1"
+author = "oldirtty"
+license = "MIT"
+icon = "palette"
+description = "Pick a color from your screen with hyprpicker."
+min_noctalia = "5.0.0"
+tags = ["theming", "utility", "bar", "panel"]
+
+[[plugin]]
+id = "nikolaj-zwergius/iio_lock"
+name = "iio-lock"
+version = "1.0.0"
+author = "nikolaj-zwergius"
+license = "MIT"
+icon = "lock"
+description = "Orientation lock for 2‑in‑1 devices using iio-hyprland and similar."
+min_noctalia = "5.0.0"
+tags = ["hyprland", "sway", "desktop", "utility"]
+
+[[plugin]]
+id = "radimous/prismlauncher-instances"
+name = "PrismLauncher Instances"
+version = "1.0.0"
+author = "radimous"
+license = "MIT"
+icon = "nut"
+description = "A launcher provider that adds PrismLauncher instances to the noctalia launcher."
+deprecated = false
+min_noctalia = "5.0.0"
+tags = ["gaming", "launcher"]
+
+[[plugin]]
+id = "avivbintangaringga/nix-monitor"
+name = "Nix Monitor"
+version = "1.0.0"
+author = "avivbintangaringga"
+license = "MIT"
+icon = "package"
+description = "Nixpkgs update monitor"
+min_noctalia = "5.0.0"
+tags = ["nixos", "utility"]

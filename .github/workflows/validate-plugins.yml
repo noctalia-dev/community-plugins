@@ -23,3 +23,6 @@ jobs:
 
       - name: Validate plugin manifests
         run: python3 .github/workflows/validate-plugins.py
+
+      - name: Test plugin validator
+        run: python3 -m unittest discover -s .github/workflows -p 'test_*.py'

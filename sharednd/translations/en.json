@@ -1,0 +1,9 @@
+{
+  "title": "ShareDND",
+  "settings.only_active.label": "Only active streams",
+  "settings.only_active.description": "Count only screencasts that are actively streaming. When off, any open screencast session (even one paused or showing nothing) keeps Do Not Disturb enabled.",
+  "settings.always_off_after.label": "Always disable DND after sharing",
+  "settings.always_off_after.description": "Turn Do Not Disturb off when sharing ends even if it was already enabled before sharing started. When off, DND is only disabled if this plugin enabled it.",
+  "notify.no_niri_title": "ShareDND: niri not found",
+  "notify.no_niri_body": "This looks like a niri session (NIRI_SOCKET is set), but the niri binary is not in PATH, so screen sharing cannot be detected."
+}

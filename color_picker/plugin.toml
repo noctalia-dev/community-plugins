@@ -1,0 +1,104 @@
+author = "oldirtty"
+id = "oldirtty/color_picker"
+name = "Color Picker"
+description  = "Pick a color from your screen with hyprpicker."
+license = "MIT"
+version = "1.0.1"
+min_noctalia = "5.0.0"
+icon = "palette"
+dependencies = ["hyprpicker"]
+tags = ["theming", "utility", "bar", "panel"] 
+
+
+[[setting]]
+key = "hyprpicker-format"
+type = "select"
+default = "hex"
+label_key = "settings.hyprpicker_format.label"
+description_key = "settings.hyprpicker_format.description"
+options = [
+  { value = "hex", label_key = "hex" },
+  { value = "rgb", label_key = "rgb" }
+]
+
+[[setting]]
+key = "hyprpicker-lowercase"
+type = "bool"
+label_key = "settings.hyprpicker_lowercase.label"
+description_key = "settings.hyprpicker_lowercase.description"
+visible_when = { key = "hyprpicker-format", values = ["hex"]}
+default = false
+
+[[setting]]
+key = "swatch-radius"
+type = "int"
+label_key = "settings.swatch_radius.label"
+description_key = "settings.swatch_radius.description"
+default = 8
+min = 0
+max = 64
+
+[[setting]]
+key = "hyprpicker-no-zoom"
+type = "bool"
+label_key = "settings.hyprpicker_no_zoom.label"
+description_key = "settings.hyprpicker_no_zoom.description"
+default = false
+
+[[setting]]
+key = "hyprpicker-scale"
+type = "int"
+label_key = "settings.hyprpicker_scale.label"
+description_key = "settings.hyprpicker_scale.description"
+visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+default = 10
+min = 1
+max = 10
+
+[[setting]]
+key = "hyprpicker-radius"
+type = "int"
+label_key = "settings.hyprpicker_radius.label"
+description_key = "settings.hyprpicker_radius.description"
+visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+default = 100
+min = 1
+max = 1000
+
+[[setting]]
+key = "hyprpicker-disable-preview"
+type = "bool"
+label_key = "settings.hyprpicker_disable_preview.label"
+description_key = "settings.hyprpicker_disable_preview.description"
+visible_when = { key = "hyprpicker-no-zoom", values = ["false"]}
+default = false
+
+[[setting]]
+key = "hyprpicker-cursor"
+type = "bool"
+label_key = "settings.hyprpicker_cursor.label"
+description_key = "settings.hyprpicker_cursor.description"
+default = false
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "glyph"
+  default = "palette"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 720
+height = 240
+placement = "floating"
+position = "center"
+
+# Headless background service: owns the hyprpicker backend
+[[service]]
+id = "service"
+entry = "service.luau"

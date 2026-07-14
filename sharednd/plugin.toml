@@ -1,0 +1,41 @@
+# ShareDND — automatic Do Not Disturb while the screen is being shared.
+#
+# A headless [[service]] follows `niri msg -j event-stream` and re-queries
+# `niri msg -j casts` on every Cast* event. When the first screencast
+# appears, notification DND is enabled through the host IPC
+# (notification-dnd-set); when the last one disappears, DND is restored.
+# If DND was already on before sharing started, the plugin does not take
+# ownership and leaves it on afterwards (configurable). Detection only
+# starts inside a niri session (NIRI_SOCKET + niri binary present); on
+# other compositors the service is inert and spawns nothing.
+#
+# External requirements: niri (screencast events come from niri IPC).
+
+id = "whyoolw/sharednd"
+name = "ShareDND"
+version = "1.1.0"
+min_noctalia = "5.0.0"
+author = "whyoolw"
+license = "MIT"
+dependencies = ["niri"]
+tags = ["privacy", "niri"]
+icon = "screen-share"
+description = "Enables notification Do Not Disturb while the screen is shared (niri screencast) and turns notifications back on when sharing stops. Requires niri."
+
+[[setting]]
+key = "only_active"
+type = "bool"
+label_key = "settings.only_active.label"
+description_key = "settings.only_active.description"
+default = false
+
+[[setting]]
+key = "always_off_after"
+type = "bool"
+label_key = "settings.always_off_after.label"
+description_key = "settings.always_off_after.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"

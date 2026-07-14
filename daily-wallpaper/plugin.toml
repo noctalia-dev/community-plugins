@@ -1,0 +1,31 @@
+id = "nzlov/daily-wallpaper"
+name = "Daily Wallpaper"
+version = "1.0.0"
+min_noctalia = "5.0.0"
+author = "nzlov"
+license = "MIT"
+dependencies = []
+tags = ["wallpaper", "desktop"]
+icon = "photo"
+description = "Fetches a new daily wallpaper from Bing or NASA."
+
+[[setting]]
+key = "source"
+type = "select"
+label_key = "settings.source.label"
+default = "bing"
+options = [
+  { value = "bing", label_key = "settings.source.options.bing" },
+  { value = "nasa", label_key = "settings.source.options.nasa" },
+]
+
+[[setting]]
+key = "locale"
+type = "string"
+label_key = "settings.locale.label"
+description_key = "settings.locale.description"
+default = ""
+
+[[service]]
+id = "service"
+entry = "daily_wallpaper.luau"
