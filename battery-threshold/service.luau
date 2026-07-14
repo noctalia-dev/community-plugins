@@ -173,9 +173,7 @@ noctalia.state.watch("set_threshold_request", function(val)
 end)
 
 function onIpc(event, payload)
-    if event == "togglePanel" then
-        noctalia.togglePanel("damian-ds7/battery-threshold:panel")
-    elseif event == "set" then
+    if event == "set" then
         if payload then
             local val = tonumber(payload)
             if val and val >= 40 and val <= 100 then
