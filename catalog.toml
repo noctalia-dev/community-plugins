@@ -5,3 +5,14 @@
 # and compat-check the list. The per-plugin plugin.toml stays authoritative; the
 # host re-reads it on enable. Keep one [[plugin]] row per plugin subdirectory.
 
+[[plugin]]
+id = "neuro/upbeat"
+name = "Upbeat"
+version = "1.0.0"
+author = "neuro"
+license = "MIT"
+icon = "at"
+description = "A bar widget that displays Swatch Internet (.beat) Time"
+deprecated = false
+min_noctalia = "5.0.0"
+tags = ["fun", "clock", "utility", "time"]

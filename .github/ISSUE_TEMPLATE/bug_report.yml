@@ -14,7 +14,7 @@ body:
           required: true
         - label: I am using the latest available version of Noctalia and of the plugin.
           required: true
-        - label: This is a bug in a community plugin, not in Noctalia itself (those belong in the noctalia-shell repo).
+        - label: This is a bug in a community plugin, not in Noctalia itself (those belong in the noctalia repo).
           required: true
 
   - type: input

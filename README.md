@@ -6,7 +6,7 @@
 
 ---
 
-This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia-shell). Every
+This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia). Every
 plugin merged here is listed in the shell's plugin store and on
 [noctalia.dev/plugins](https://noctalia.dev/plugins), and users can install it without adding a source of their own.
 

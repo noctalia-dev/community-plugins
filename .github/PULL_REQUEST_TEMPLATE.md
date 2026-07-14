@@ -35,6 +35,7 @@
 
 - [ ] The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.
 - [ ] It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.
+- [ ] I created `thumbnail.webp` with the [thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-generator.html).
 - [ ] `version` follows semver and is bumped in this PR; `min_noctalia` is the version I tested against.
 - [ ] I only added or edited `translations/en.json` (no machine-translated locales).
 - [ ] I did not edit `catalog.toml`; CI generates it.

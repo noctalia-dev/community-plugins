@@ -24,8 +24,15 @@ RESERVED_NAMES = {"license", "readme", "index", "api", "admin", "static", "asset
 # the thumbnail as its card, and the English catalog backs every label_key.
 REQUIRED_PLUGIN_FILES = ("README.md", "thumbnail.webp", "translations/en.json")
 THUMBNAIL_MAX_BYTES = 512 * 1024
+# The store and the website lay out plugin cards on a fixed 16:9 grid, so the thumbnail
+# generator exports exactly this.
+THUMBNAIL_SIZE = (960, 540)
+THUMBNAIL_GENERATOR_URL = "https://assets.noctalia.dev/plugins/thumbnail-generator.html"
 WEBP_MAGIC_PREFIX = b"RIFF"
 WEBP_MAGIC_FORMAT = b"WEBP"
+# Enough of the file to cover the RIFF header plus the first chunk header and the widest
+# dimension field of any WebP variant.
+WEBP_HEADER_BYTES = 32
 
 ROOT_STRING_FIELDS = (
     "id",
@@ -86,6 +93,19 @@ SETTING_FIELDS = {
 OPTION_FIELDS = {"value", "label_key"}
 VISIBLE_WHEN_FIELDS = {"key", "values"}
 
+# Raw HTML is not supported on plugin pages. Markdown autolinks such as
+# <https://example.com> do not match this expression.
+HTML_RE = re.compile(
+    r"<!--|<\?|<!\[CDATA\[|<![A-Z]|"
+    r"</[A-Za-z][A-Za-z0-9-]*\s*>|"
+    r"<[A-Za-z][A-Za-z0-9-]*"
+    r"(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*"
+    r"(?:\s*=\s*(?:[^\s\"'=<>`]+|'[^']*'|\"[^\"]*\"))?)*\s*/?>",
+    re.DOTALL,
+)
+INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)", re.DOTALL)
+FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
 
 def is_non_empty_string(value: Any) -> bool:
     return isinstance(value, str) and value.strip() != ""
@@ -104,6 +124,83 @@ def rel(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def raw_html_line(markdown: str) -> int | None:
+    """Return the first line containing raw HTML outside Markdown code, if any."""
+    visible: list[str] = []
+    fence_char = ""
+    fence_length = 0
+
+    for line in markdown.splitlines(keepends=True):
+        if fence_char:
+            closing = rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}\s*$"
+            if re.match(closing, line.rstrip("\r\n")):
+                fence_char = ""
+                fence_length = 0
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        opening = FENCE_OPEN_RE.match(line)
+        if opening:
+            fence = opening.group(1)
+            fence_char = fence[0]
+            fence_length = len(fence)
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        visible.append(line)
+
+    text = "".join(visible)
+    text = INLINE_CODE_RE.sub(
+        lambda match: "".join("\n" if char == "\n" else " " for char in match.group(0)),
+        text,
+    )
+    match = HTML_RE.search(text)
+    if match is None:
+        return None
+    return text.count("\n", 0, match.start()) + 1
+
+
+def webp_dimensions(header: bytes) -> tuple[int, int] | None:
+    """Width and height from a WebP header, or None if it is not one we can read.
+
+    The three container variants each store the size differently, and the generator's
+    output is only one of them, so all three are handled.
+    """
+    if len(header) < 16 or header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
+        return None
+
+    fourcc = header[12:16]
+    payload = header[20:]
+
+    if fourcc == b"VP8X":
+        # Extended: 4 bytes of flags, then canvas width and height as 24-bit values,
+        # each stored as size minus one.
+        if len(payload) < 10:
+            return None
+        width = int.from_bytes(payload[4:7], "little") + 1
+        height = int.from_bytes(payload[7:10], "little") + 1
+        return width, height
+
+    if fourcc == b"VP8 ":
+        # Lossy: a 3-byte frame tag, the start code, then two 14-bit dimensions.
+        if len(payload) < 10 or payload[3:6] != b"\x9d\x01\x2a":
+            return None
+        width = int.from_bytes(payload[6:8], "little") & 0x3FFF
+        height = int.from_bytes(payload[8:10], "little") & 0x3FFF
+        return width, height
+
+    if fourcc == b"VP8L":
+        # Lossless: a signature byte, then both dimensions minus one packed into 28 bits.
+        if len(payload) < 5 or payload[0] != 0x2F:
+            return None
+        bits = int.from_bytes(payload[1:5], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+
+    return None
 
 
 def has_key_path(data: Any, dotted_key: str) -> bool:
@@ -679,9 +776,42 @@ class Validator:
             )
 
         with thumbnail.open("rb") as handle:
-            header = handle.read(12)
+            header = handle.read(WEBP_HEADER_BYTES)
         if header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
             self.add_error(manifest_path, "thumbnail.webp is not a WebP image")
+            return
+
+        dimensions = webp_dimensions(header)
+        expected = f"{THUMBNAIL_SIZE[0]}x{THUMBNAIL_SIZE[1]}"
+        if dimensions is None:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp dimensions could not be read; export a {expected} WebP "
+                f"with {THUMBNAIL_GENERATOR_URL}",
+            )
+            return
+
+        if dimensions != THUMBNAIL_SIZE:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp is {dimensions[0]}x{dimensions[1]}; it must be {expected}. "
+                f"Export one with {THUMBNAIL_GENERATOR_URL}",
+            )
+
+    def validate_readme(self, plugin_dir: Path) -> None:
+        readme = plugin_dir / "README.md"
+        if not readme.is_file():
+            return
+
+        try:
+            contents = readme.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            self.add_error(readme, "must be UTF-8 text")
+            return
+
+        line = raw_html_line(contents)
+        if line is not None:
+            self.add_error(readme, f"raw HTML on line {line} is not allowed; use Markdown instead")
 
     def validate_no_symlinks(self, manifest_path: Path, plugin_dir: Path) -> None:
         for path in plugin_dir.rglob("*"):
@@ -699,6 +829,7 @@ class Validator:
         self.validate_root_fields(manifest_path, manifest)
         self.validate_required_files(manifest_path, plugin_dir)
         self.validate_thumbnail(manifest_path, plugin_dir)
+        self.validate_readme(plugin_dir)
         self.validate_no_symlinks(manifest_path, plugin_dir)
 
         if "setting" in manifest:

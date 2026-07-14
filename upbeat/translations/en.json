@@ -1,0 +1,16 @@
+{
+    "settings": {
+        "show_centibeats": {
+            "label": "Display subbeats",
+            "description": "Toggle subbeat display (.xx)"
+        },
+        "beat_display": {
+            "label": "Display .beats",
+            "description": "Toggle internet time notation (.beats)"
+        },
+        "time_format_toggle": {
+            "label": "Toggle 24HR time",
+            "description": "Display 24 hour time"
+        }
+    }
+        }
