@@ -4,11 +4,17 @@
 local used_vm = panel.getConfig("vm")
 local transform_order_string = panel.getConfig("transform-order")
 local transform_order = {}
-local index = 0
-for i in string.gmatch(transform_order_string, "%d+") do
-   transform_order[index] = tonumber(i)
-   index += 1
+
+
+local function set_transform_order(order_string)
+    local index = 0
+    for i in string.gmatch(order_string, "%d+") do
+       transform_order[index] = tonumber(i)
+       index += 1
+    end
 end
+
+set_transform_order(transform_order_string)
 
 --vm functions
 function hl(value,screen)
@@ -78,23 +84,53 @@ end
 function onUp()
     wm[used_vm](transform_order[0])
     noctalia.state.set("iio-state",true)
+    set_transform_order(table.concat({
+        transform_order[0],
+        transform_order[1],
+        transform_order[2],
+        transform_order[3],
+    }, ","))
     panel.close()
 end
 function onLeft()
     wm[used_vm](transform_order[1])
     noctalia.state.set("iio-state",true)
+    set_transform_order(table.concat({
+        transform_order[1],
+        transform_order[2],
+        transform_order[3],
+        transform_order[0],
+    }, ","))
     panel.close()
 end
 function onDown()
     wm[used_vm](transform_order[2])
     noctalia.state.set("iio-state",true)
+    set_transform_order(table.concat({
+        transform_order[2],
+        transform_order[3],
+        transform_order[0],
+        transform_order[1],
+    }, ","))
     panel.close()
 end
 function onRight()
     wm[used_vm](transform_order[3])
     noctalia.state.set("iio-state",true)
+    set_transform_order(table.concat({
+        transform_order[3], --up
+        transform_order[0], --left
+        transform_order[1], --rig
+        transform_order[2], --down
+    }, ","))
     panel.close()
 end
 function onCloseClicked()
   panel.close()
 end
+
+noctalia.state.watch("iio-state", function (value)
+    if not value then
+        set_transform_order(transform_order_string)
+    end
+end)
