@@ -7,7 +7,7 @@ license = "MIT"
 author       = "joshuaslate"
 dependencies = ["shelly"]
 description = "A plugin that provides a widget for displaying system update information."
-tags         = ["updates", "pacman", "package", "aur", "flatpak", "shelly"]
+tags         = ["updates", "shelly"]
 deprecated = false
 
 [[setting]]
