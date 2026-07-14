@@ -5,6 +5,7 @@ min_noctalia = "5.0.0"
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
 tags         = ["Battery", "Threshold", "Charge"]
+dependencies = ["polkit"]
 
 [[service]]
 id    = "service"
