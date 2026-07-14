@@ -3,6 +3,7 @@ name         = "Shelly"
 icon         = "package"
 version      = "1.0.0"
 min_noctalia = "5.0.0"
+license = "MIT"
 author       = "joshuaslate"
 dependencies = ["shelly"]
 description = "A plugin that provides a widget for displaying system update information."
