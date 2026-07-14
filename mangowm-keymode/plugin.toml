@@ -3,6 +3,12 @@ name         = "Mangowm Keymode"
 version      = "1.0.0"
 min_noctalia = "5.0.0"
 author       = "gambled23"
+license = "MIT"
+dependencies = []
+icon = "keyboard"
+deprecated = false
+description = "Mangowm keymode notifier"
+tags = ["bar", "WM", "keyboard"]
 
 [[widget]]
 id    = "mangowm-keymode"
