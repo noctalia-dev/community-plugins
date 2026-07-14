@@ -193,5 +193,4 @@ function update()
     check_status()
 end
 
-noctalia.setUpdateInterval(5000)
 check_status()
