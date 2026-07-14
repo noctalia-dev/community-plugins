@@ -24,8 +24,12 @@ end
 noctalia.state.watch("current_threshold", render_widget)
 noctalia.state.watch("is_available", render_widget)
 
-function onClick() noctalia.togglePanel("damian-ds7/battery-threshold:panel") end
+function onClick()
+    noctalia.togglePanel("damian-ds7/battery-threshold:panel")
+end
 
-function update() render_widget() end
+function update()
+    render_widget()
+end
 
 render_widget()
