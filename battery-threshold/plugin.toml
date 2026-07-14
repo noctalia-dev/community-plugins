@@ -4,6 +4,8 @@ version      = "1.0.0"
 min_noctalia = "5.0.0"
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
+license      = "MIT"
+icon         = "battery-eco"
 tags         = ["Battery", "Threshold", "Charge"]
 dependencies = ["polkit"]
 
