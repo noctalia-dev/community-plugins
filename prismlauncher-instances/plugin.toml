@@ -1,0 +1,26 @@
+id = "radimous/prismlauncher-instances"
+name = "PrismLauncher Instances"
+version = "1.0.0"
+min_noctalia = "5.0.0"
+author = "radimous"
+license = "MIT"
+dependencies = []
+icon = "nut"
+deprecated = false
+description = "A launcher provider that adds PrismLauncher instances to the noctalia launcher."
+tags = ["prism", "prismlauncher", "minecraft"]
+
+[[launcher_provider]]
+id = "prismlauncher-instances"
+entry = "prismlauncher-instances.luau"
+prefix = "/pl"
+glyph = "nut"
+include_in_global_search = false
+debounce_ms = 0
+
+[[setting]]
+key = "prism_path"
+type = "string"
+label_key = "settings.prismlauncher_path.label"
+description_key = "settings.prismlauncher_path.description"
+default = "~/.local/share/PrismLauncher"
