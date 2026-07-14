@@ -63,7 +63,7 @@ local function render_panel()
                 ui.column({ gap = 8 }, {
                     ui.row({ align = "center", justify = "space_between" }, {
                         ui.label({
-                            text = noctalia.tr("panel.title"),
+                            text = title_text,
                             fontSize = 14,
                             color = "on_surface",
                         }),
@@ -114,7 +114,7 @@ local function render_panel()
                         maxLines = 2,
                     }),
                     ui.button({
-                        text = "Configure Permissions",
+                        text = noctalia.tr("panel.button"),
                         glyph = "shield-lock",
                         variant = "primary",
                         onClick = "onRunSetup",
