@@ -6,7 +6,7 @@
 
 ---
 
-This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia-shell). Every
+This repo is the **community** plugin source for [Noctalia](https://github.com/noctalia-dev/noctalia). Every
 plugin merged here is listed in the shell's plugin store and on
 [noctalia.dev/plugins](https://noctalia.dev/plugins), and users can install it without adding a source of their own.
 
@@ -102,10 +102,52 @@ the **[thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-genera
 your plugin, set the title, category tag and accent color, then export the 960×540 WebP and commit it as
 `<plugin>/thumbnail.webp`.
 
+### README
+
+`README.md` is the plugin's public page, so it must tell a user how to access every entry instead of only describing
+the implementation. Follow [`README_TEMPLATE.md`](README_TEMPLATE.md), which mirrors the structure used by the
+official plugins:
+
+- Start with a title, a short explanation, a `Plugin` table, and practical `Usage` instructions.
+- Copy the plugin id and every entry id exactly from `plugin.toml`.
+- If the plugin declares a panel, include the exact command
+  `noctalia msg panel-toggle <author>/<plugin>:<panel-id>`.
+- If it declares a launcher provider, document its `/<prefix>` and give an example query.
+- Mention every manifest dependency under `Requirements`, using the exact dependency name.
+- Document declared settings, including units or non-obvious effects.
+- Use `IPC` and `Notes` when the plugin exposes extra events or has important filesystem, network, process, privacy,
+  hardware, or compositor behavior.
+
+CI derives ids, panel commands, launcher prefixes, dependencies, and whether settings exist from `plugin.toml`. Its
+error messages show the exact missing value, while maintainers review the usefulness and accuracy of the prose.
+
 ### Translations
 
 Write `translations/en.json` only. Every `label_key` and `description_key` in your manifest must resolve to a key in
 it, and CI checks this. Do not add machine-translated locales; other languages are handled separately.
+
+To test the latest translated locales from [Noctalia Translate](https://i18n.noctalia.dev) in a working checkout, run:
+
+```sh
+./.tools/i18n-pull.sh
+```
+
+The command asks for confirmation and overwrites the locale files returned by the translation service. It does not
+delete local locale files that are absent from the export. Review the resulting diff before committing anything.
+
+### Tags
+
+The `tags` in `plugin.toml` are used for catalog search. Tags must be lowercase and selected from this list:
+
+- Surfaces: `bar`, `desktop`, `launcher`, `panel`, `service`, `shortcut`
+- Purpose: `ai`, `animation`, `audio`, `clock`, `countdown`, `demo`, `development`, `emoticon`, `fun`, `gaming`,
+  `hardware`, `indicator`, `language`, `media`, `music`, `network`, `privacy`, `productivity`, `recording`, `system`,
+  `theming`, `time`, `utility`, `video`, `wallpaper`
+- Compositors: `hyprland`, `labwc`, `mangowc`, `niri`, `sway`
+- Distributions: `arch`, `debian`, `fedora`, `gentoo`, `nixos`, `opensuse`, `void`
+
+If your plugin does not fit any existing tag, propose a new one in your pull request rather than inventing a tag in
+the manifest.
 
 ## Submitting
 
@@ -114,8 +156,9 @@ Open a PR against `main`. CI validates your manifest, entry scripts, required fi
 - **One plugin per PR.**
 - The directory name matches the part of `id` after the `/` in `plugin.toml` **exactly**.
 - `version` is semver and gets bumped on every change to the plugin.
-- `min_noctalia` is the Noctalia version you actually tested against. Users on older builds are then told the plugin
-  needs an upgrade instead of getting a broken install.
+- `plugin_api` is the oldest Noctalia plugin API level the plugin requires. Use the current documented level for a new
+  plugin, and increase it only when the plugin adopts a capability from a newer API level.
+- `description` is concise catalog copy, limited to 120 characters. Put feature details in the plugin's README.
 - `license` is set in `plugin.toml`. You keep the copyright on your plugin; if it is not MIT, put a `LICENSE` file in
   your plugin directory. There is no repo-wide license covering contributed plugins.
 - Screenshots or a short video for anything with a visual surface.

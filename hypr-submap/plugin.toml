@@ -1,0 +1,37 @@
+id = "k4n4t4/hypr-submap"
+name = "Hyprland Submap"
+version = "1.0.0"
+plugin_api = 6
+author = "k4n4t4"
+license = "MIT"
+dependencies = ["socat", "stdbuf", "hyprctl"]
+deprecated = false
+tags = ["hyprland", "bar"]
+icon = "keyboard"
+description = "Hyprland submap plugin for Noctalia"
+
+
+[[widget]]
+id = "hypr-submap"
+entry = "submap.luau"
+
+  [[widget.setting]]
+  key = "hide_when_default"
+  type = "bool"
+  label_key = "settings.hide_when_default.label"
+  description_key = "settings.hide_when_default.description"
+  default = false
+
+  [[widget.setting]]
+  key = "prefix"
+  type = "string"
+  label_key = "settings.prefix.label"
+  description_key = "settings.prefix.description"
+  default = ""
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "keyboard"

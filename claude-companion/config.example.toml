@@ -1,0 +1,14 @@
+# Backend config — claude only in v1. The seam (one chokepoint in claude.luau) means
+# adding a backend later is a config block + a parse() branch, with no call-site
+# change. This file documents the seam; it is NOT read yet (claude.luau hardcodes claude).
+
+default_backend = "claude"
+
+[backends.claude]
+command = "claude"
+# capability + locality flags — defined now, trivial in v1. The locality flag gates
+# the perception tier: remote -> low/medium senses; local -> high tier allowed.
+agentic = true
+tools = true
+streaming = true
+is_local = false   # remote/frontier (use is_local, not the `local` keyword)

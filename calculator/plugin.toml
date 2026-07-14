@@ -1,0 +1,59 @@
+id = "yuuto/calculator"
+name = "Calculator"
+version = "1.0.0"
+plugin_api = 3
+author = "yuuto"
+license = "MIT"
+icon = "calculator"
+description = "A theme-aware calculator with a bar widget and a panel: full expression evaluation, a button grid, and typed input."
+dependencies = []
+tags = ["utility", "productivity", "bar", "panel"]
+
+[[setting]]
+key = "precision"
+type = "int"
+label_key = "settings.precision.label"
+description_key = "settings.precision.description"
+default = 8
+min = 0
+max = 10
+
+[[setting]]
+key = "angle_unit"
+type = "select"
+label_key = "settings.angle_unit.label"
+description_key = "settings.angle_unit.description"
+default = "rad"
+options = [
+  { value = "rad", label_key = "settings.angle_unit.options.rad" },
+  { value = "deg", label_key = "settings.angle_unit.options.deg" },
+]
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_bar_value"
+  type = "bool"
+  label_key = "settings.show_bar_value.label"
+  description_key = "settings.show_bar_value.description"
+  default = true
+
+  [[widget.setting]]
+  key = "max_bar_length"
+  type = "int"
+  label_key = "settings.max_bar_length.label"
+  description_key = "settings.max_bar_length.description"
+  default = 9
+  min = 3
+  max = 20
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 320
+height = 452
+placement = "attached"
+position = "auto"
+open_near_click = true

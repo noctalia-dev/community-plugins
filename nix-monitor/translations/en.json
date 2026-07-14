@@ -1,0 +1,156 @@
+{
+  "bar": {
+    "checking": "Checking...",
+    "unknown": "Unknown",
+    "up_to_date": "Up to date",
+    "update_available": "Update available!"
+  },
+  "notification": {
+    "checking_update": "Checking NixOS update...",
+    "clean_command_is_empty": "Clean command is empty!",
+    "optimize_command_is_empty": "Optimize command is empty!",
+    "update_check_completed": "NixOS update check completed!",
+    "update_command_is_empty": "Update command is empty!",
+    "update_is_available": "NixOS update is available!"
+  },
+  "panel": {
+    "cancel": "Cancel",
+    "check": "Check",
+    "clean": "Clean",
+    "closure_size": "Closure size",
+    "current": "Current",
+    "last_checked": "Last checked",
+    "local": "Local",
+    "optimize": "Optimize",
+    "remote": "Remote",
+    "store_size": "Store size",
+    "title": "Nix Monitor",
+    "update": "Update"
+  },
+  "setting": {
+    "branch": {
+      "description": "Which nixpkgs branch to use",
+      "label": "Branch"
+    },
+    "clean_command": {
+      "description": "Command to run when clicking Clean button",
+      "label": "Clean command"
+    },
+    "close_on_enter": {
+      "description": "Add 'Press enter to exit' on the terminal window",
+      "label": "Close on press Enter"
+    },
+    "hide_clean_button": {
+      "description": "Whether to hide the clean button on the panel",
+      "label": "Hide clean button"
+    },
+    "hide_optimize_button": {
+      "description": "Whether to hide the optimize button on the panel",
+      "label": "Hide optimize button"
+    },
+    "hide_update_button": {
+      "description": "Whether to hide the update button on the panel",
+      "label": "Hide update button"
+    },
+    "optimize_command": {
+      "description": "Command to run when clicking Optimize button",
+      "label": "Optimize command"
+    },
+    "option": {
+      "branch": {
+        "master": "Master",
+        "nixos_23_05": "NixOS 23.05",
+        "nixos_23_05_small": "NixOS 23.05 Small",
+        "nixos_23_11": "NixOS 23.11",
+        "nixos_23_11_small": "NixOS 23.11 Small",
+        "nixos_24_05": "NixOS 24.05",
+        "nixos_24_05_small": "NixOS 24.05 Small",
+        "nixos_24_11": "NixOS 24.11",
+        "nixos_24_11_small": "NixOS 24.11 Small",
+        "nixos_25_05": "NixOS 25.05",
+        "nixos_25_05_small": "NixOS 25.05 Small",
+        "nixos_25_11": "NixOS 25.11",
+        "nixos_25_11_small": "NixOS 25.11 Small",
+        "nixos_26_05": "NixOS 26.05",
+        "nixos_26_05_small": "NixOS 26.05 Small",
+        "nixos_unstable": "NixOS Unstable",
+        "nixos_unstable_small": "NixOS Unstable Small"
+      }
+    },
+    "show_update_available_notification": {
+      "description": "Whether to show a notification whenever an update is available",
+      "label": "Show update available notification"
+    },
+    "show_update_check_notification": {
+      "description": "Whether to show a notification whenever update check is in progress and completed",
+      "label": "Show update check notification"
+    },
+    "system_stats_check_duration_threshold": {
+      "description": "Cancel system stats check if it took too long (in minutes)",
+      "label": "System stats check duration threshold"
+    },
+    "system_stats_check_interval": {
+      "description": "How often to check for system stats (in minutes)",
+      "label": "System stats check interval"
+    },
+    "update_check_duration_threshold": {
+      "description": "Cancel update check if it took too long (in minutes)",
+      "label": "Update check duration threshold"
+    },
+    "update_check_interval": {
+      "description": "How often to check for updates (in minutes)",
+      "label": "Update check interval"
+    },
+    "update_command": {
+      "description": "Command to run when clicking Update button",
+      "label": "Update command"
+    },
+    "widget": {
+      "checking_color": {
+        "label": "Checking color"
+      },
+      "checking_glyph": {
+        "label": "Checking glyph"
+      },
+      "colorize_glyph": {
+        "label": "Colorize glyph"
+      },
+      "colorize_text": {
+        "label": "Colorize text"
+      },
+      "panel_card_background_color": {
+        "label": "Panel card background color"
+      },
+      "panel_card_background_opacity": {
+        "label": "Panel card background opacity"
+      },
+      "show_glyph": {
+        "label": "Show glyph"
+      },
+      "show_text": {
+        "label": "Show text"
+      },
+      "unknown_color": {
+        "label": "Unknown status color"
+      },
+      "unknown_glyph": {
+        "label": "Unknown status glyph"
+      },
+      "up_to_date_color": {
+        "label": "Up to date color"
+      },
+      "up_to_date_glyph": {
+        "label": "Up to date glyph"
+      },
+      "update_available_color": {
+        "label": "Update available color"
+      },
+      "update_available_glyph": {
+        "label": "Update available glyph"
+      }
+    }
+  },
+  "terminal": {
+    "press_enter_to_exit": "Press enter to exit..."
+  }
+}

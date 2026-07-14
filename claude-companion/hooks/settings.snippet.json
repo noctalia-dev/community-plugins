@@ -1,0 +1,26 @@
+{
+  "_comment": "Merge into ~/.claude/settings.json. The attention reflex: Claude Code lifecycle hooks invoke hooks/pulse.py <event>, which reads the hook JSON on stdin, computes live model + token-burn telemetry from the session transcript, and dispatches into the pulse bar widget via `noctalia msg plugin lowcache/claude-companion:pulse all <event> [payload]` (target `all` = every monitor's instance; `focused`/bare connector error when the widget is on multiple bars). payload is a space-free CSV `model,in,out,cacheCreate,cacheRead,session` whose trailing `session` (short id) tags every event, so the widget tracks each concurrent session separately and renders the most urgent state + a per-session token-burn tooltip. SessionEnd fires `session_end`, retiring that session in the widget and dropping its token cache. The dispatcher is fail-open: if noctalia is offline or the transcript is unreadable it fires the bare event (or nothing) and never errors. Path assumes the plugin is installed/symlinked at ~/.local/share/noctalia/plugins/claude-companion. Verified against noctalia 5.0.0 (`noctalia msg --help`). SessionStart registers the session at idle; the lifecycle drives turn_start -> tool_start -> turn_end; SessionEnd removes it. For the MCP shim (senses/hands), wire it separately via mcpServers/--mcp-config once shim/noctalia-mcp.py is in use.",
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py idle" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py tool_start" } ] }
+    ],
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start" } ] }
+    ],
+    "Notification": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py needs_attention" } ] }
+    ],
+    "Stop": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_end" } ] }
+    ],
+    "SessionEnd": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py session_end" } ] }
+    ]
+  }
+}

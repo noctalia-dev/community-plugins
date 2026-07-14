@@ -1,0 +1,17 @@
+{
+  "applied": "Lightbar set to #{color}",
+  "apply": "Apply",
+  "bad_color": "Invalid hex color.",
+  "ds4_color": "DS4 Color",
+  "no_controller": "No DualShock 4 detected.",
+  "presets": "Presets",
+  "save": "Save",
+  "saved": "Color #{color} saved",
+  "settings": {
+    "glyph": {
+      "description": "Icon shown on the bar button.",
+      "label": "Bar Glyph"
+    }
+  },
+  "write_error": "Failed to write to controller."
+}

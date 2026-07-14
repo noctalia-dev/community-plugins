@@ -1,0 +1,68 @@
+{
+  "bar": {
+    "click_handler": {
+      "error": {
+        "missing_cli": "Shelly CLI is not installed. Please install it to use this feature.",
+        "missing_gui": "Shelly GUI is not installed. Please install it to use this feature."
+      }
+    },
+    "text": {
+      "error": "?",
+      "updates": {
+        "one": "{count} Update",
+        "other": "{count} Updates"
+      }
+    },
+    "tooltip": {
+      "aur_title": "AUR",
+      "error": {
+        "decode_json": "Failed to decode output from `shelly check-updates --json`"
+      },
+      "flatpak_title": "Flatpak",
+      "no_updates": "System is up to date",
+      "packages_title": "Packages"
+    }
+  },
+  "notify": {
+    "new_updates": {
+      "description": "There are {count} new updates available for your system.",
+      "title": "New Updates Available"
+    }
+  },
+  "settings": {
+    "click_action": {
+      "description": "What happens when you click on the bar.",
+      "label": "Click Action",
+      "options": {
+        "none": "Nothing",
+        "open_gui": "Open Shelly GUI",
+        "open_updater": "Start Update in Terminal"
+      }
+    },
+    "color": {
+      "description": "The color of the bar text.",
+      "label": "Color"
+    },
+    "glyph": {
+      "description": "The glyph shown before the label.",
+      "label": "Glyph"
+    },
+    "glyph_color": {
+      "description": "The color of the glyph.",
+      "label": "Glyph Color"
+    },
+    "hide_when_up_to_date": {
+      "description": "Whether to hide the bar when there are no updates available.",
+      "label": "Hide When Up-to-Date"
+    },
+    "interval": {
+      "description": "How often the service checks for updates in the background.",
+      "label": "Refresh Seconds"
+    },
+    "notify": {
+      "description": "Whether to show a notification when new updates are available.",
+      "label": "Notify"
+    }
+  },
+  "title": "Shelly"
+}

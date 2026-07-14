@@ -1,0 +1,59 @@
+id = "yocraft/web-launcher"
+name = "Web Launcher"
+version = "1.0.1"
+plugin_api = 3
+author = "yocraft"
+license = "MIT"
+deprecated = false
+icon = "world"
+description = "Quickly open your favorite websites from the launcher."
+tags = ["launcher", "utility", "network", "productivity"]
+dependencies = [ "xdg-utils" ]
+
+[[launcher_provider]]
+id = "web-launcher"
+entry = "launcher.luau"
+prefix = "web"
+glyph = "world"
+include_in_global_search = false
+
+[[setting]]
+key = "links"
+type = "string_list"
+label_key = "settings.links.label"
+description_key = "settings.links.description"
+default = [
+    "GitHub|https://github.com",
+    "GitLab|https://gitlab.com",
+    "Codeberg|https://codeberg.org",
+    "Reddit|https://reddit.com",
+    "YouTube|https://youtube.com",
+    "Gmail|https://mail.google.com",
+]
+
+[[setting]]
+key = "command"
+type = "string"
+label_key = "settings.command.label"
+description_key = "settings.command.description"
+default = "xdg-open"
+advanced = true
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "icon_provider"
+type = "select"
+label_key = "settings.icon_provider.label"
+description_key = "settings.icon_provider.description"
+default = "google"
+options = [
+    { value = "google", label_key = "settings.icon_provider.google" },
+    { value = "duckduckgo", label_key = "settings.icon_provider.duckduckgo" },
+    { value = "direct", label_key = "settings.icon_provider.direct" },
+]

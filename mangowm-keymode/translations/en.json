@@ -1,0 +1,13 @@
+{
+  "settings": {
+    "hide_on_default": {
+      "label": "Hide on default keymode"
+    },
+    "notify_change": {
+      "label": "Notify change"
+    },
+    "show_text": {
+      "label": "Show text on bar"
+    }
+  }
+}

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import re
 import sys
 import tomllib
@@ -13,6 +14,53 @@ from typing import Any
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+$")
+LAUNCHER_PREFIX_RE = re.compile(r"^[a-z]+$")
+DESCRIPTION_MAX_CHARS = 120
+ALLOWED_TAGS = {
+    "ai",
+    "animation",
+    "arch",
+    "audio",
+    "bar",
+    "clock",
+    "countdown",
+    "demo",
+    "debian",
+    "desktop",
+    "development",
+    "emoticon",
+    "fedora",
+    "fun",
+    "gaming",
+    "gentoo",
+    "hardware",
+    "hyprland",
+    "indicator",
+    "labwc",
+    "language",
+    "launcher",
+    "mangowc",
+    "media",
+    "music",
+    "network",
+    "niri",
+    "nixos",
+    "opensuse",
+    "panel",
+    "privacy",
+    "productivity",
+    "recording",
+    "service",
+    "shortcut",
+    "sway",
+    "system",
+    "theming",
+    "time",
+    "utility",
+    "video",
+    "void",
+    "wallpaper",
+}
 
 # An id segment must be a lowercase flat identifier: the part after the "/" is also the
 # plugin's directory here, its export directory on disk, and its slug on the website.
@@ -20,18 +68,40 @@ ID_SEGMENT_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 # Names the website reserves for its own routes; a plugin folder cannot take one.
 RESERVED_NAMES = {"license", "readme", "index", "api", "admin", "static", "assets"}
 
+# The store flattens every plugin's translations under its id and rejects keys that are not
+# lowercase. A dotted label_key is a path of segments; each segment allows a-z, 0-9, dashes,
+# and underscores, but an underscore may not lead a segment. Uppercase (e.g. "zh-Hans") is out.
+TRANSLATION_KEY_SEGMENT_RE = re.compile(r"[a-z0-9-][a-z0-9_-]*")
+# Rule for a dotted path, as written in a manifest label_key/description_key.
+TRANSLATION_KEY_RULE = (
+    "keys must be lowercase and contain only a-z, 0-9, dots, dashes, and non-leading underscores"
+)
+# Rule for a single object key inside translations/en.json. The dot is a path separator, so it
+# cannot appear inside a key: the i18n platform expands "a.b" into nested objects on the next
+# sync, and a flat dotted key would silently churn. Nest with objects instead.
+TRANSLATION_SEGMENT_RULE = (
+    "each translations/en.json key must be a single lowercase segment (a-z, 0-9, dashes, "
+    "non-leading underscores) with no dots; express nesting with objects, not dotted keys"
+)
+
 # Files every published plugin ships: the site renders the README as the plugin page and
 # the thumbnail as its card, and the English catalog backs every label_key.
 REQUIRED_PLUGIN_FILES = ("README.md", "thumbnail.webp", "translations/en.json")
 THUMBNAIL_MAX_BYTES = 512 * 1024
+# The store and the website lay out plugin cards on a fixed 16:9 grid, so the thumbnail
+# generator exports exactly this.
+THUMBNAIL_SIZE = (960, 540)
+THUMBNAIL_GENERATOR_URL = "https://assets.noctalia.dev/plugins/thumbnail-generator.html"
 WEBP_MAGIC_PREFIX = b"RIFF"
 WEBP_MAGIC_FORMAT = b"WEBP"
+# Enough of the file to cover the RIFF header plus the first chunk header and the widest
+# dimension field of any WebP variant.
+WEBP_HEADER_BYTES = 32
 
 ROOT_STRING_FIELDS = (
     "id",
     "name",
     "version",
-    "min_noctalia",
     "author",
     "license",
     "icon",
@@ -40,8 +110,32 @@ ROOT_STRING_FIELDS = (
 ROOT_ARRAY_FIELDS = ("dependencies", "tags")
 ENTRY_TYPES = ("widget", "panel", "shortcut", "desktop_widget", "launcher_provider", "service")
 SETTING_OWNER_TYPES = ("widget", "panel", "desktop_widget", "launcher_provider")
-SETTING_TYPES = {"string", "string_list", "bool", "glyph", "select", "folder", "file", "int", "color"}
+SETTING_TYPES = {
+    "string",
+    "string_list",
+    "string_map",
+    "bool",
+    "glyph",
+    "select",
+    "folder",
+    "file",
+    "int",
+    "double",
+    "color",
+}
 PANEL_PLACEMENTS = {"attached", "floating"}
+PANEL_KEYBOARD_FOCUS = {"on_demand", "exclusive", "none"}
+WIDGET_GESTURES = {
+    "left",
+    "right",
+    "middle",
+    "back",
+    "forward",
+    "scroll_up",
+    "scroll_down",
+    "scroll_left",
+    "scroll_right",
+}
 PANEL_POSITIONS = {
     "auto",
     "center",
@@ -58,11 +152,24 @@ PANEL_POSITIONS = {
 ROOT_FIELDS = set(ROOT_STRING_FIELDS) | set(ROOT_ARRAY_FIELDS) | set(ENTRY_TYPES) | {
     "setting",
     "deprecated",
+    "plugin_api",
 }
 BASE_ENTRY_FIELDS = {"id", "entry"}
 ENTRY_FIELDS = {
-    "widget": BASE_ENTRY_FIELDS | {"setting"},
-    "panel": BASE_ENTRY_FIELDS | {"setting", "width", "height", "placement", "position", "open_near_click"},
+    "widget": BASE_ENTRY_FIELDS | {"setting", "actions"},
+    "panel": BASE_ENTRY_FIELDS
+    | {
+        "setting",
+        "width",
+        "height",
+        "placement",
+        "position",
+        "open_near_click",
+        "dismiss_on_outside_click",
+        "keyboard_focus",
+        "persistent",
+        "capture_keys",
+    },
     "desktop_widget": BASE_ENTRY_FIELDS | {"setting"},
     "service": BASE_ENTRY_FIELDS,
     "shortcut": BASE_ENTRY_FIELDS,
@@ -77,6 +184,7 @@ SETTING_FIELDS = {
     "description_key",
     "default",
     "options",
+    "extensions",
     "min",
     "max",
     "step",
@@ -85,6 +193,23 @@ SETTING_FIELDS = {
 }
 OPTION_FIELDS = {"value", "label_key"}
 VISIBLE_WHEN_FIELDS = {"key", "values"}
+
+# Raw HTML is not supported on plugin pages. Markdown autolinks such as
+# <https://example.com> do not match this expression.
+HTML_RE = re.compile(
+    r"<!--|<\?|<!\[CDATA\[|<![A-Z]|"
+    r"</[A-Za-z][A-Za-z0-9-]*\s*>|"
+    r"<[A-Za-z][A-Za-z0-9-]*"
+    r"(?:\s+[A-Za-z_:][A-Za-z0-9_.:-]*"
+    r"(?:\s*=\s*(?:[^\s\"'=<>`]+|'[^']*'|\"[^\"]*\"))?)*\s*/?>",
+    re.DOTALL,
+)
+INLINE_CODE_RE = re.compile(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)", re.DOTALL)
+FENCE_OPEN_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+ATX_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
+OBSOLETE_CONFIG_ACCESSOR_RE = re.compile(
+    r"\b(barWidget|desktopWidget|panel|launcher)\s*\.\s*getConfig\b"
+)
 
 
 def is_non_empty_string(value: Any) -> bool:
@@ -104,6 +229,210 @@ def rel(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return path.as_posix()
+
+
+def raw_html_line(markdown: str) -> int | None:
+    """Return the first line containing raw HTML outside Markdown code, if any."""
+    visible: list[str] = []
+    fence_char = ""
+    fence_length = 0
+
+    for line in markdown.splitlines(keepends=True):
+        if fence_char:
+            closing = rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}\s*$"
+            if re.match(closing, line.rstrip("\r\n")):
+                fence_char = ""
+                fence_length = 0
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        opening = FENCE_OPEN_RE.match(line)
+        if opening:
+            fence = opening.group(1)
+            fence_char = fence[0]
+            fence_length = len(fence)
+            visible.append("\n" if line.endswith(("\n", "\r")) else "")
+            continue
+
+        visible.append(line)
+
+    text = "".join(visible)
+    text = INLINE_CODE_RE.sub(
+        lambda match: "".join("\n" if char == "\n" else " " for char in match.group(0)),
+        text,
+    )
+    match = HTML_RE.search(text)
+    if match is None:
+        return None
+    return text.count("\n", 0, match.start()) + 1
+
+
+def markdown_headings(markdown: str) -> list[tuple[int, str, int, int]]:
+    """Return ATX headings outside fenced code as (level, title, start, end)."""
+    headings: list[tuple[int, str, int, int]] = []
+    fence_char = ""
+    fence_length = 0
+    offset = 0
+
+    for line in markdown.splitlines(keepends=True):
+        stripped = line.rstrip("\r\n")
+        if fence_char:
+            closing = rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}\s*$"
+            if re.match(closing, stripped):
+                fence_char = ""
+                fence_length = 0
+            offset += len(line)
+            continue
+
+        opening = FENCE_OPEN_RE.match(line)
+        if opening:
+            fence = opening.group(1)
+            fence_char = fence[0]
+            fence_length = len(fence)
+            offset += len(line)
+            continue
+
+        match = ATX_HEADING_RE.match(stripped)
+        if match:
+            headings.append((len(match.group(1)), match.group(2).strip(), offset, offset + len(line)))
+        offset += len(line)
+
+    return headings
+
+
+def section_body(markdown: str, headings: list[tuple[int, str, int, int]], index: int) -> str:
+    """Return a heading's body, including nested subsections."""
+    level, _title, _start, body_start = headings[index]
+    body_end = len(markdown)
+    for next_level, _next_title, next_start, _next_end in headings[index + 1 :]:
+        if next_level <= level:
+            body_end = next_start
+            break
+    return markdown[body_start:body_end].strip()
+
+
+def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
+    """Find removed entry-specific getConfig aliases outside Luau comments and strings."""
+    visible = list(source)
+    length = len(source)
+    index = 0
+
+    def mask(start: int, end: int) -> None:
+        for offset in range(start, end):
+            if visible[offset] not in "\r\n":
+                visible[offset] = " "
+
+    while index < length:
+        if source.startswith("--[[", index):
+            end = source.find("]]", index + 4)
+            end = length if end == -1 else end + 2
+            mask(index, end)
+            index = end
+            continue
+
+        if source.startswith("--", index):
+            end = source.find("\n", index + 2)
+            end = length if end == -1 else end
+            mask(index, end)
+            index = end
+            continue
+
+        if source.startswith("[[", index):
+            end = source.find("]]", index + 2)
+            end = length if end == -1 else end + 2
+            mask(index, end)
+            index = end
+            continue
+
+        if source[index] in "\"'":
+            quote = source[index]
+            end = index + 1
+            while end < length:
+                if source[end] == "\\" and end + 1 < length:
+                    end += 2
+                    continue
+                end += 1
+                if source[end - 1] == quote:
+                    break
+            mask(index, end)
+            index = end
+            continue
+
+        index += 1
+
+    code = "".join(visible)
+    return [
+        (f"{match.group(1)}.getConfig", code.count("\n", 0, match.start()) + 1)
+        for match in OBSOLETE_CONFIG_ACCESSOR_RE.finditer(code)
+    ]
+
+
+def webp_dimensions(header: bytes) -> tuple[int, int] | None:
+    """Width and height from a WebP header, or None if it is not one we can read.
+
+    The three container variants each store the size differently, and the generator's
+    output is only one of them, so all three are handled.
+    """
+    if len(header) < 16 or header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
+        return None
+
+    fourcc = header[12:16]
+    payload = header[20:]
+
+    if fourcc == b"VP8X":
+        # Extended: 4 bytes of flags, then canvas width and height as 24-bit values,
+        # each stored as size minus one.
+        if len(payload) < 10:
+            return None
+        width = int.from_bytes(payload[4:7], "little") + 1
+        height = int.from_bytes(payload[7:10], "little") + 1
+        return width, height
+
+    if fourcc == b"VP8 ":
+        # Lossy: a 3-byte frame tag, the start code, then two 14-bit dimensions.
+        if len(payload) < 10 or payload[3:6] != b"\x9d\x01\x2a":
+            return None
+        width = int.from_bytes(payload[6:8], "little") & 0x3FFF
+        height = int.from_bytes(payload[8:10], "little") & 0x3FFF
+        return width, height
+
+    if fourcc == b"VP8L":
+        # Lossless: a signature byte, then both dimensions minus one packed into 28 bits.
+        if len(payload) < 5 or payload[0] != 0x2F:
+            return None
+        bits = int.from_bytes(payload[1:5], "little")
+        width = (bits & 0x3FFF) + 1
+        height = ((bits >> 14) & 0x3FFF) + 1
+        return width, height
+
+    return None
+
+
+def is_valid_key_segment(segment: str) -> bool:
+    """True if a single translation key segment is lowercase and dot-free."""
+    return TRANSLATION_KEY_SEGMENT_RE.fullmatch(segment) is not None
+
+
+def is_valid_translation_key(key: str) -> bool:
+    """True if a dotted label_key path obeys the store's lowercase key rule."""
+    return all(is_valid_key_segment(part) for part in key.split("."))
+
+
+def invalid_translation_keys(node: Any, prefix: str = "") -> list[str]:
+    """Return dotted paths in a translations tree whose own object key breaks the segment rule.
+
+    Each object key must be one segment: a dot inside a key is rejected because the i18n
+    platform expands it into nested objects, so a flat "a.b" key is normalized away on sync.
+    """
+    invalid: list[str] = []
+    if not isinstance(node, dict):
+        return invalid
+    for key, value in node.items():
+        path = f"{prefix}.{key}" if prefix else key
+        if not isinstance(key, str) or not is_valid_key_segment(key):
+            invalid.append(path)
+        invalid.extend(invalid_translation_keys(value, path))
+    return invalid
 
 
 def has_key_path(data: Any, dotted_key: str) -> bool:
@@ -171,6 +500,14 @@ class Validator:
             self.add_context_error(manifest_path, context, f"{field} must be a non-empty string")
             return
 
+        if not is_valid_translation_key(value):
+            self.add_context_error(
+                manifest_path,
+                context,
+                f"{field} '{value}' is not a valid translation key: {TRANSLATION_KEY_RULE}",
+            )
+            return
+
         if translations is None:
             self.add_context_error(
                 manifest_path,
@@ -215,6 +552,31 @@ class Validator:
                 self.add_context_error(manifest_path, context, f"{field} contains duplicate '{item}'")
             seen.add(item)
 
+    def validate_tags(self, manifest_path: Path, value: Any) -> None:
+        self.validate_string_list(manifest_path, "root", "tags", value, allow_empty=False)
+        if not isinstance(value, list):
+            return
+
+        for index, tag in enumerate(value):
+            if is_non_empty_string(tag) and tag not in ALLOWED_TAGS:
+                self.add_context_error(
+                    manifest_path,
+                    "root",
+                    f"tags[{index}] '{tag}' is not an allowed tag",
+                )
+
+    def validate_description(self, manifest_path: Path, value: Any) -> None:
+        if not is_non_empty_string(value):
+            return
+
+        length = len(value)
+        if length > DESCRIPTION_MAX_CHARS:
+            self.add_error(
+                manifest_path,
+                f"root field 'description' is {length} characters; "
+                f"keep catalog descriptions at or below {DESCRIPTION_MAX_CHARS}",
+            )
+
     def validate_root_fields(self, manifest_path: Path, manifest: dict[str, Any]) -> None:
         unknown = sorted(set(manifest) - ROOT_FIELDS)
         for field in unknown:
@@ -240,10 +602,19 @@ class Validator:
             )
 
         if "tags" in manifest:
-            self.validate_string_list(manifest_path, "root", "tags", manifest["tags"], allow_empty=False)
+            self.validate_tags(manifest_path, manifest["tags"])
+
+        if "description" in manifest:
+            self.validate_description(manifest_path, manifest["description"])
 
         if "deprecated" in manifest and not isinstance(manifest["deprecated"], bool):
             self.add_error(manifest_path, "root field 'deprecated' must be a bool")
+
+        plugin_api = manifest.get("plugin_api")
+        if "plugin_api" not in manifest:
+            self.add_error(manifest_path, "missing required root field 'plugin_api'")
+        elif not is_int(plugin_api) or plugin_api <= 0:
+            self.add_error(manifest_path, "root field 'plugin_api' must be a positive integer")
 
         # A plugin id is "<author>/<plugin>", and the part after the "/" is the directory
         # it lives in - so a folder name is taken once for the whole repo.
@@ -263,10 +634,9 @@ class Validator:
         if folder in RESERVED_NAMES:
             self.add_error(manifest_path, f"'{folder}' is a reserved name and cannot be a plugin directory")
 
-        for field in ("version", "min_noctalia"):
-            value = manifest.get(field)
-            if is_non_empty_string(value) and not SEMVER_RE.fullmatch(value):
-                self.add_error(manifest_path, f"root field '{field}' must use MAJOR.MINOR.PATCH")
+        version = manifest.get("version")
+        if is_non_empty_string(version) and not SEMVER_RE.fullmatch(version):
+            self.add_error(manifest_path, "root field 'version' must use MAJOR.MINOR.PATCH")
 
     def validate_entry_path(self, manifest_path: Path, context: str, plugin_dir: Path, value: Any) -> None:
         if not is_non_empty_string(value):
@@ -296,6 +666,14 @@ class Validator:
         for field in ("prefix", "glyph"):
             if field in entry and not is_non_empty_string(entry[field]):
                 self.add_context_error(manifest_path, context, f"{field} must be a non-empty string")
+
+        prefix = entry.get("prefix")
+        if is_non_empty_string(prefix) and not LAUNCHER_PREFIX_RE.fullmatch(prefix):
+            self.add_context_error(
+                manifest_path,
+                context,
+                "prefix must contain only lowercase letters (a-z), without a leading symbol",
+            )
 
         if "include_in_global_search" in entry and not isinstance(entry["include_in_global_search"], bool):
             self.add_context_error(
@@ -346,7 +724,13 @@ class Validator:
             if not is_non_empty_string(category.get("glyph")):
                 self.add_context_error(manifest_path, category_context, "glyph must be a non-empty string")
 
-    def validate_panel_fields(self, manifest_path: Path, context: str, entry: dict[str, Any]) -> None:
+    def validate_panel_fields(
+        self,
+        manifest_path: Path,
+        context: str,
+        entry: dict[str, Any],
+        plugin_api: Any,
+    ) -> None:
         # Mirrors the shell parser: a positive number (logical px) or the
         # literal string "fill" (span the output's available extent; requires
         # floating placement).
@@ -385,6 +769,79 @@ class Validator:
 
         if "open_near_click" in entry and not isinstance(entry["open_near_click"], bool):
             self.add_context_error(manifest_path, context, "open_near_click must be a bool")
+
+        if "dismiss_on_outside_click" in entry:
+            if not is_int(plugin_api) or plugin_api < 8:
+                self.add_context_error(
+                    manifest_path,
+                    context,
+                    "dismiss_on_outside_click requires plugin_api >= 8",
+                )
+            elif not isinstance(entry["dismiss_on_outside_click"], bool):
+                self.add_context_error(manifest_path, context, "dismiss_on_outside_click must be a bool")
+
+        if "keyboard_focus" in entry:
+            if not is_int(plugin_api) or plugin_api < 10:
+                self.add_context_error(manifest_path, context, "keyboard_focus requires plugin_api >= 10")
+            elif entry["keyboard_focus"] not in PANEL_KEYBOARD_FOCUS:
+                valid = ", ".join(sorted(PANEL_KEYBOARD_FOCUS))
+                self.add_context_error(manifest_path, context, f"keyboard_focus must be one of: {valid}")
+
+        if "persistent" in entry:
+            if not is_int(plugin_api) or plugin_api < 11:
+                self.add_context_error(manifest_path, context, "persistent requires plugin_api >= 11")
+            elif not isinstance(entry["persistent"], bool):
+                self.add_context_error(manifest_path, context, "persistent must be a bool")
+
+        if "capture_keys" in entry:
+            if not is_int(plugin_api) or plugin_api < 13:
+                self.add_context_error(manifest_path, context, "capture_keys requires plugin_api >= 13")
+            elif not isinstance(entry["capture_keys"], list) or not all(
+                is_non_empty_string(chord) for chord in entry["capture_keys"]
+            ):
+                self.add_context_error(
+                    manifest_path, context, "capture_keys must be an array of key chord strings"
+                )
+
+    def validate_widget_fields(
+        self,
+        manifest_path: Path,
+        context: str,
+        entry: dict[str, Any],
+        plugin_api: Any,
+    ) -> None:
+        if "actions" not in entry:
+            return
+
+        if not is_int(plugin_api) or plugin_api < 14:
+            self.add_context_error(manifest_path, context, "actions requires plugin_api >= 14")
+            return
+
+        actions = entry["actions"]
+        if not isinstance(actions, dict):
+            self.add_context_error(
+                manifest_path, context, "actions must be a table of gesture bindings"
+            )
+            return
+
+        for gesture, action in actions.items():
+            if gesture not in WIDGET_GESTURES:
+                valid = ", ".join(sorted(WIDGET_GESTURES))
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture} is not a gesture (expected one of: {valid})"
+                )
+                continue
+            if not is_non_empty_string(action):
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture} must be a non-empty string"
+                )
+                continue
+            # The shell resolves the verb against its live IPC registry, which is not available
+            # here, so only the grammar is checked: "<verb> [args]", "exec <command>", or "none".
+            if action.split()[0] == "exec" and len(action.split(maxsplit=1)) < 2:
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture}: exec needs a command line"
+                )
 
     def validate_entries(
         self,
@@ -431,7 +888,10 @@ class Validator:
                     self.validate_launcher_fields(manifest_path, context, entry)
 
                 if entry_type == "panel":
-                    self.validate_panel_fields(manifest_path, context, entry)
+                    self.validate_panel_fields(manifest_path, context, entry, manifest.get("plugin_api"))
+
+                if entry_type == "widget":
+                    self.validate_widget_fields(manifest_path, context, entry, manifest.get("plugin_api"))
 
                 if entry_type in SETTING_OWNER_TYPES and "setting" in entry:
                     self.validate_settings(
@@ -439,6 +899,7 @@ class Validator:
                         translations,
                         entry["setting"],
                         f"{context}.setting",
+                        manifest.get("plugin_api"),
                     )
 
         if entry_count == 0:
@@ -461,8 +922,23 @@ class Validator:
             return
 
         default = setting["default"]
-        if setting_type in {"string", "folder", "file"} and not isinstance(default, str):
-            self.add_context_error(manifest_path, context, "default must be a string")
+        if setting_type in {"string", "folder", "file"}:
+            if not isinstance(default, str):
+                self.add_context_error(manifest_path, context, "default must be a string")
+        elif setting_type == "double":
+            if not is_number(default) or not math.isfinite(default):
+                self.add_context_error(manifest_path, context, "default must be a finite number")
+        elif setting_type == "string_map":
+            if not isinstance(default, dict):
+                self.add_context_error(manifest_path, context, "default must be a table of string values")
+            else:
+                for key, value in default.items():
+                    if not isinstance(value, str):
+                        self.add_context_error(
+                            manifest_path,
+                            context,
+                            f"default.{key} must be a string",
+                        )
         elif setting_type in {"glyph", "color"} and not is_non_empty_string(default):
             self.add_context_error(manifest_path, context, "default must be a non-empty string")
         elif setting_type == "string_list":
@@ -537,18 +1013,24 @@ class Validator:
 
         return values
 
-    def validate_int_bounds(self, manifest_path: Path, context: str, setting: dict[str, Any]) -> None:
+    def validate_numeric_bounds(self, manifest_path: Path, context: str, setting: dict[str, Any]) -> None:
         setting_type = setting.get("type")
-        bound_values: dict[str, int] = {}
+        bound_values: dict[str, int | float] = {}
 
         for field in ("min", "max", "step"):
             if field not in setting:
                 continue
             value = setting[field]
-            if setting_type != "int":
-                self.add_context_error(manifest_path, context, f"{field} is only valid for int settings")
-            elif not is_int(value):
+            if setting_type not in {"int", "double"}:
+                self.add_context_error(
+                    manifest_path,
+                    context,
+                    f"{field} is only valid for int or double settings",
+                )
+            elif setting_type == "int" and not is_int(value):
                 self.add_context_error(manifest_path, context, f"{field} must be an integer")
+            elif setting_type == "double" and (not is_number(value) or not math.isfinite(value)):
+                self.add_context_error(manifest_path, context, f"{field} must be a finite number")
             else:
                 bound_values[field] = value
 
@@ -559,7 +1041,10 @@ class Validator:
             self.add_context_error(manifest_path, context, "step must be greater than zero")
 
         default = setting.get("default")
-        if setting_type == "int" and is_int(default):
+        valid_default = (setting_type == "int" and is_int(default)) or (
+            setting_type == "double" and is_number(default) and math.isfinite(default)
+        )
+        if valid_default:
             if "min" in bound_values and default < bound_values["min"]:
                 self.add_context_error(manifest_path, context, "default must be greater than or equal to min")
             if "max" in bound_values and default > bound_values["max"]:
@@ -603,6 +1088,7 @@ class Validator:
         translations: Any | None,
         settings: Any,
         context_prefix: str,
+        plugin_api: Any,
     ) -> None:
         if not isinstance(settings, list):
             self.add_context_error(manifest_path, context_prefix, "must be an array of tables")
@@ -654,12 +1140,38 @@ class Validator:
             option_values = self.validate_options(manifest_path, translations, context, setting)
             if setting_type in SETTING_TYPES:
                 self.validate_default(manifest_path, context, setting_type, setting, option_values)
-
-            self.validate_int_bounds(manifest_path, context, setting)
+            self.validate_numeric_bounds(manifest_path, context, setting)
+            if setting_type == "string_map" and (not is_int(plugin_api) or plugin_api < 6):
+                self.add_context_error(manifest_path, context, "string_map requires plugin_api >= 6")
             self.validate_visible_when(manifest_path, context, setting.get("visible_when"))
+
+            if "extensions" in setting:
+                if setting_type != "file":
+                    self.add_context_error(manifest_path, context, "extensions is only valid for file settings")
+                self.validate_string_list(
+                    manifest_path,
+                    context,
+                    "extensions",
+                    setting["extensions"],
+                    allow_empty=True,
+                )
 
             if "advanced" in setting and not isinstance(setting["advanced"], bool):
                 self.add_context_error(manifest_path, context, "advanced must be a bool")
+
+    def validate_translation_keys(self, plugin_dir: Path, translations: Any | None) -> None:
+        # The store rejects the whole plugin if any translation key is not lowercase, so catch
+        # bad keys (e.g. "zh-Hans") here even when no label_key references them.
+        if not isinstance(translations, dict):
+            return
+
+        invalid = invalid_translation_keys(translations)
+        if invalid:
+            path = plugin_dir / "translations" / "en.json"
+            self.add_error(
+                path,
+                f"invalid translation key format: {', '.join(invalid)}; {TRANSLATION_SEGMENT_RULE}",
+            )
 
     def validate_required_files(self, manifest_path: Path, plugin_dir: Path) -> None:
         for required in REQUIRED_PLUGIN_FILES:
@@ -679,9 +1191,159 @@ class Validator:
             )
 
         with thumbnail.open("rb") as handle:
-            header = handle.read(12)
+            header = handle.read(WEBP_HEADER_BYTES)
         if header[:4] != WEBP_MAGIC_PREFIX or header[8:12] != WEBP_MAGIC_FORMAT:
             self.add_error(manifest_path, "thumbnail.webp is not a WebP image")
+            return
+
+        dimensions = webp_dimensions(header)
+        expected = f"{THUMBNAIL_SIZE[0]}x{THUMBNAIL_SIZE[1]}"
+        if dimensions is None:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp dimensions could not be read; export a {expected} WebP "
+                f"with {THUMBNAIL_GENERATOR_URL}",
+            )
+            return
+
+        if dimensions != THUMBNAIL_SIZE:
+            self.add_error(
+                manifest_path,
+                f"thumbnail.webp is {dimensions[0]}x{dimensions[1]}; it must be {expected}. "
+                f"Export one with {THUMBNAIL_GENERATOR_URL}",
+            )
+
+    def validate_readme(self, plugin_dir: Path, manifest: dict[str, Any]) -> None:
+        readme = plugin_dir / "README.md"
+        if not readme.is_file():
+            return
+
+        try:
+            contents = readme.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            self.add_error(readme, "must be UTF-8 text")
+            return
+
+        line = raw_html_line(contents)
+        if line is not None:
+            self.add_error(readme, f"raw HTML on line {line} is not allowed; use Markdown instead")
+
+        headings = markdown_headings(contents)
+        h1_indexes = [index for index, heading in enumerate(headings) if heading[0] == 1]
+        if not h1_indexes:
+            self.add_error(readme, "missing a level-one plugin title ('# Plugin Name')")
+        else:
+            h1_index = h1_indexes[0]
+            intro_start = headings[h1_index][3]
+            intro_end = headings[h1_index + 1][2] if h1_index + 1 < len(headings) else len(contents)
+            intro = contents[intro_start:intro_end]
+            intro_words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'_-]*", intro)
+            if len(intro_words) < 8:
+                self.add_error(readme, "add a short introduction below the title explaining what the plugin does")
+
+        h2_by_name = {
+            title.casefold(): index
+            for index, (level, title, _start, _end) in enumerate(headings)
+            if level == 2
+        }
+        for section in ("Plugin", "Usage"):
+            index = h2_by_name.get(section.casefold())
+            if index is None:
+                self.add_error(readme, f"missing required '## {section}' section")
+            elif not section_body(contents, headings, index):
+                self.add_error(readme, f"'## {section}' section must not be empty")
+
+        plugin_section_index = h2_by_name.get("plugin")
+        plugin_section = (
+            section_body(contents, headings, plugin_section_index)
+            if plugin_section_index is not None
+            else ""
+        )
+
+        plugin_id = manifest.get("id")
+        if not is_non_empty_string(plugin_id):
+            return
+
+        documented_id = f"`{plugin_id}`"
+        if documented_id not in plugin_section:
+            self.add_error(readme, f"Plugin section must document the manifest id as {documented_id}")
+
+        for entry_type in ENTRY_TYPES:
+            entries = manifest.get(entry_type, [])
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict) or not is_non_empty_string(entry.get("id")):
+                    continue
+                entry_id = entry["id"]
+                documented_entry = f"`{entry_id}`"
+                if documented_entry not in plugin_section:
+                    self.add_error(
+                        readme,
+                        f"Plugin section must document {entry_type} entry '{entry_id}' as {documented_entry}",
+                    )
+
+                if entry_type == "panel":
+                    command = f"noctalia msg panel-toggle {plugin_id}:{entry_id}"
+                    if command not in contents:
+                        self.add_error(
+                            readme,
+                            f"missing panel IPC command; add: {command}",
+                        )
+
+                if entry_type == "launcher_provider" and is_non_empty_string(entry.get("prefix")):
+                    prefix = f"`/{entry['prefix']}`"
+                    if prefix not in plugin_section:
+                        self.add_error(
+                            readme,
+                            f"missing launcher prefix {prefix} for entry '{entry_id}'",
+                        )
+
+        dependencies = manifest.get("dependencies", [])
+        if isinstance(dependencies, list) and dependencies:
+            requirements_index = h2_by_name.get("requirements")
+            if requirements_index is None:
+                self.add_error(readme, "plugins with dependencies require a '## Requirements' section")
+                requirements = ""
+            else:
+                requirements = section_body(contents, headings, requirements_index)
+                if not requirements:
+                    self.add_error(readme, "'## Requirements' section must not be empty")
+            for dependency in dependencies:
+                if is_non_empty_string(dependency) and f"`{dependency}`" not in requirements:
+                    self.add_error(
+                        readme,
+                        f"Requirements must mention manifest dependency `{dependency}`",
+                    )
+
+        has_settings = bool(manifest.get("setting"))
+        for entry_type in SETTING_OWNER_TYPES:
+            entries = manifest.get(entry_type, [])
+            if isinstance(entries, list) and any(
+                isinstance(entry, dict) and bool(entry.get("setting")) for entry in entries
+            ):
+                has_settings = True
+                break
+        if has_settings:
+            settings_index = h2_by_name.get("settings")
+            if settings_index is None:
+                self.add_error(readme, "plugins with settings require a '## Settings' section")
+            elif not section_body(contents, headings, settings_index):
+                self.add_error(readme, "'## Settings' section must not be empty")
+
+    def validate_luau_api(self, plugin_dir: Path) -> None:
+        for source_path in sorted(plugin_dir.rglob("*.luau")):
+            try:
+                source = source_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                self.add_error(source_path, "must be UTF-8 text")
+                continue
+
+            for accessor, line in obsolete_config_accessors(source):
+                self.add_error(
+                    source_path,
+                    f"'{accessor}' on line {line} was removed; use noctalia.getConfig",
+                )
 
     def validate_no_symlinks(self, manifest_path: Path, plugin_dir: Path) -> None:
         for path in plugin_dir.rglob("*"):
@@ -697,12 +1359,21 @@ class Validator:
         translations = self.load_english_translations(plugin_dir)
 
         self.validate_root_fields(manifest_path, manifest)
+        self.validate_translation_keys(plugin_dir, translations)
         self.validate_required_files(manifest_path, plugin_dir)
         self.validate_thumbnail(manifest_path, plugin_dir)
+        self.validate_readme(plugin_dir, manifest)
+        self.validate_luau_api(plugin_dir)
         self.validate_no_symlinks(manifest_path, plugin_dir)
 
         if "setting" in manifest:
-            self.validate_settings(manifest_path, translations, manifest["setting"], "setting")
+            self.validate_settings(
+                manifest_path,
+                translations,
+                manifest["setting"],
+                "setting",
+                manifest.get("plugin_api"),
+            )
 
         self.validate_entries(manifest_path, manifest, translations)
 

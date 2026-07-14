@@ -1,0 +1,115 @@
+{
+  "action_check": "Check Updates",
+  "action_dismiss": "Dismiss",
+  "action_update": "Update",
+  "caption_checked": "checked {time}",
+  "caption_config": "config {path}",
+  "caption_config_default": "topgrade defaults",
+  "caption_excluded": {
+    "one": "1 step excluded",
+    "other": "{count} steps excluded"
+  },
+  "count": {
+    "apt": "APT",
+    "aur_paru": "AUR (paru)",
+    "aur_yay": "AUR (yay)",
+    "brew": "Homebrew",
+    "cargo": "Cargo",
+    "dnf": "DNF",
+    "flatpak": "Flatpak",
+    "gem": "RubyGems",
+    "npm": "npm",
+    "pacman": "Pacman",
+    "pip": "pip",
+    "snap": "Snap",
+    "zypper": "Zypper"
+  },
+  "err_dry_failed": "topgrade could not list its steps",
+  "err_dry_timeout": "Timed out while listing the topgrade steps",
+  "err_no_terminal": "No terminal emulator found — set one in the plugin settings",
+  "err_no_topgrade": "topgrade not found — install it and check your PATH",
+  "err_spawn": "Could not run topgrade",
+  "hover_hint": "Hover a package for its full versions",
+  "more_packages": "+{count} more",
+  "notify_updates": {
+    "one": "1 package to upgrade",
+    "other": "{count} packages to upgrade"
+  },
+  "settings": {
+    "assume_yes": {
+      "description": "Pass --yes so package managers do not ask for confirmation. Off means you confirm each one in the terminal window.",
+      "label": "Answer yes automatically"
+    },
+    "auto_check_hours": {
+      "description": "Check for updates automatically every N hours. 0 (default) never checks on its own — nothing runs until you ask for it.",
+      "label": "Auto-check interval (hours)"
+    },
+    "exclude_mode": {
+      "description": "Where skipped steps come from. 'topgrade configuration' uses only the disable list in your topgrade.toml. 'Override with the list below' also passes the steps you list as --disable; note that --disable can only add exclusions, never re-enable a step your topgrade.toml already disables.",
+      "label": "Excluded steps source",
+      "options": {
+        "config": "topgrade configuration",
+        "override": "Override with the list below"
+      }
+    },
+    "exclude_steps": {
+      "description": "topgrade step ids to skip, e.g. flatpak, cargo, containers. Passed on the command line; the config file is never modified. Run 'topgrade --help' for the full list of ids.",
+      "label": "Excluded steps"
+    },
+    "glyph": {
+      "description": "The glyph shown for the topgrade widget on the bar.",
+      "label": "Bar glyph"
+    },
+    "keep_terminal_open": {
+      "description": "Pass --keep so the terminal window waits for a key press instead of closing when the run ends.",
+      "label": "Keep the terminal open"
+    },
+    "notify_on_updates": {
+      "description": "Send a desktop notification when a check finds packages to upgrade.",
+      "label": "Notify when updates are found"
+    },
+    "show_count": {
+      "description": "Show the number of pending updates next to the bar glyph.",
+      "label": "Show the update count"
+    },
+    "show_versions": {
+      "description": "Show `installed → available` beside each package when a manager row is expanded. Off lists names only; hovering a package still shows its full versions under the list either way.",
+      "label": "Show package versions"
+    },
+    "sudo_loop": {
+      "description": "Pass --sudoloop so topgrade refreshes the sudo timestamp and asks for your password once. Leaves a sudo session open for the whole run.",
+      "label": "Keep sudo alive"
+    },
+    "terminal": {
+      "description": "Terminal command used for the update run, e.g. kitty or ghostty. Empty (default) uses Noctalia's terminal detection ($TERMINAL, then the common emulators).",
+      "label": "Terminal"
+    },
+    "topgrade_config": {
+      "description": "Alternative topgrade configuration file, passed as --config. Empty (default) lets topgrade find its own, which is what the update count reflects.",
+      "label": "topgrade configuration"
+    }
+  },
+  "status_checking": "Checking for updates…",
+  "status_checking_step": "Checking {step}…",
+  "status_clean": "Everything is up to date",
+  "status_error": "Update check failed",
+  "status_idle": "Not checked yet",
+  "status_missing": "topgrade is not installed",
+  "status_ready": {
+    "one": "1 package to upgrade",
+    "other": "{count} packages to upgrade"
+  },
+  "status_running": "topgrade is running in a terminal…",
+  "step_planning": "topgrade steps",
+  "step_unnamed": "topgrade",
+  "tip_check": "Check for updates now",
+  "tip_close": "Close",
+  "tip_update": "Run topgrade in a terminal window",
+  "title": "Topgrade Wrapper",
+  "tooltip_checked": "Checked",
+  "tooltip_hints": "click: panel · right: check now",
+  "tooltip_pending": "Pending",
+  "tooltip_status": "Status",
+  "uncounted": "Not counted: {steps}",
+  "up_to_date": "Up to date: {steps}"
+}

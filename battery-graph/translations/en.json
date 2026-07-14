@@ -1,0 +1,19 @@
+{
+	"settings": {
+		"graph_time": {
+			"label": "Graph timeframe",
+			"description": "How long of a timeframe does the graph plot in hours"
+		},
+		"battery_path": {
+			"label": "Battery path",
+			"description": "Dbus path to the upower battery device"
+		},
+		"interpol_time": {
+			"label": "Time between points",
+			"description": "How long should the thime between points be in minutes"
+		}
+	},
+	"text": {
+		"graph_name": "Battery"
+	}
+}

@@ -25,7 +25,8 @@
 - [ ] Tested on Hyprland
 - [ ] Tested on Sway
 - [ ] Tested on another compositor:
-- **Noctalia version tested against:** <!-- must be >= min_noctalia in plugin.toml -->
+- **Noctalia version tested against:**
+- **Plugin API level:** <!-- must match plugin_api in plugin.toml -->
 
 ## Screenshots / Videos
 
@@ -35,8 +36,13 @@
 
 - [ ] The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.
 - [ ] It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.
-- [ ] `version` follows semver and is bumped in this PR; `min_noctalia` is the version I tested against.
-- [ ] I only added or edited `translations/en.json` (no machine-translated locales).
+- [ ] `README.md` follows the
+      [README template](https://github.com/noctalia-dev/community-plugins/blob/main/README_TEMPLATE.md), documents
+      every entry id and dependency, and includes exact panel IPC commands and launcher prefixes where applicable.
+- [ ] I created `thumbnail.webp` with the [thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-generator.html).
+- [ ] `version` follows semver and is bumped in this PR; `plugin_api` is the oldest API level this plugin requires.
+- [ ] Every non-English translation in this PR uses a locale supported by Noctalia core, and I can read, write, and
+      understand that language well enough to review and maintain it (no unreviewed machine/LLM translations).
 - [ ] I did not edit `catalog.toml`; CI generates it.
 - [ ] This PR touches exactly one plugin directory.
 

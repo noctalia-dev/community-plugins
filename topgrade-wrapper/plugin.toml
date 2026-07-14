@@ -1,0 +1,142 @@
+# Topgrade Wrapper — drive topgrade (https://github.com/topgrade-rs/topgrade)
+# from the bar. The bar glyph shows how many packages are waiting; the panel
+# runs the check and starts the upgrade.
+#
+# The check is a `topgrade --dry-run` (which reports the steps topgrade would
+# run, honoring the user's own topgrade.toml) followed by one read-only query per
+# package manager it found, each listing what that manager has pending — so the
+# number on the bar and the list a panel row expands into are the same answer.
+# The upgrade itself is never run in the background: it opens a terminal window,
+# so package managers can prompt and sudo can ask for the password on the tty.
+
+id = "nightwatch75/topgrade-wrapper"
+name = "Topgrade Wrapper"
+version = "0.0.2"
+plugin_api = 9
+author = "nightwatch75"
+license = "MIT"
+dependencies = ["topgrade"]
+tags = ["bar", "panel", "service", "system", "utility"]
+icon = "package"
+description = "Check how many packages topgrade would upgrade, then run the upgrade in a terminal window."
+
+# Plugin-level settings: shared by the engine (service.luau, which builds every
+# topgrade command line) and the panel (which shows the active config).
+
+# Empty = let topgrade resolve its own configuration file, which is what the
+# count is meant to reflect. Set this only to point at an alternative file.
+[[setting]]
+key = "topgrade_config"
+type = "file"
+label_key = "settings.topgrade_config.label"
+description_key = "settings.topgrade_config.description"
+
+# Where step exclusions come from: topgrade's own configuration alone, or that
+# plus the list below. In "override" the ids are passed as `--disable <step>` on
+# the command line — the config file itself is never rewritten.
+[[setting]]
+key = "exclude_mode"
+type = "select"
+label_key = "settings.exclude_mode.label"
+description_key = "settings.exclude_mode.description"
+default = "config"
+options = [
+  { value = "config", label_key = "settings.exclude_mode.options.config" },
+  { value = "override", label_key = "settings.exclude_mode.options.override" },
+]
+
+[[setting]]
+key = "exclude_steps"
+type = "string_list"
+label_key = "settings.exclude_steps.label"
+description_key = "settings.exclude_steps.description"
+default = []
+visible_when = { key = "exclude_mode", values = ["override"] }
+
+[[setting]]
+key = "auto_check_hours"
+type = "int"
+label_key = "settings.auto_check_hours.label"
+description_key = "settings.auto_check_hours.description"
+default = 0
+min = 0
+max = 168
+
+[[setting]]
+key = "notify_on_updates"
+type = "bool"
+label_key = "settings.notify_on_updates.label"
+description_key = "settings.notify_on_updates.description"
+default = true
+
+# Off makes an expanded manager a plain list of names. The hover line under the
+# list still spells out the versions of whatever row the pointer is on, so this
+# only decides how much each row carries at rest.
+[[setting]]
+key = "show_versions"
+type = "bool"
+label_key = "settings.show_versions.label"
+description_key = "settings.show_versions.description"
+default = true
+
+# Empty = Noctalia's own terminal discovery ($TERMINAL, then the usual
+# emulators). Set a command to force one, e.g. "kitty" or "ghostty".
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+
+[[setting]]
+key = "assume_yes"
+type = "bool"
+label_key = "settings.assume_yes.label"
+description_key = "settings.assume_yes.description"
+default = false
+
+[[setting]]
+key = "sudo_loop"
+type = "bool"
+label_key = "settings.sudo_loop.label"
+description_key = "settings.sudo_loop.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "keep_terminal_open"
+type = "bool"
+label_key = "settings.keep_terminal_open.label"
+description_key = "settings.keep_terminal_open.description"
+default = false
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 500
+placement = "attached"
+open_near_click = true
+
+[[widget]]
+id = "topgrade-wrapper"
+entry = "topgrade-wrapper.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "package"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true

@@ -1,0 +1,236 @@
+id              = "avivbintangaringga/nix-monitor"
+name            = "Nix Monitor"
+version         = "1.2.0"
+plugin_api      = 3
+icon            = "package"
+author          = "avivbintangaringga"
+description     = "Nixpkgs update monitor"
+tags            = [ "nixos", "utility" ]
+dependencies    = [ "nix", "nixos-version", "nixos-rebuild", "nix-store", "git", "du", "cat", "echo", "read", "awk", "grep", "tail", "wc", "kill", "pkill" ]
+license         = "MIT"
+
+[[widget]]
+id      = "nix-monitor"
+entry   = "nix_monitor.luau"
+
+[[widget.setting]]
+key         = "show_text"
+type        = "bool"
+label_key   = "setting.widget.show_text.label"
+default     = true
+
+[[widget.setting]]
+key         = "colorize_text"
+type        = "bool"
+label_key   = "setting.widget.colorize_text.label"
+default     = false
+
+[[widget.setting]]
+key         = "show_glyph"
+type        = "bool"
+label_key   = "setting.widget.show_glyph.label"
+default     = true
+
+[[widget.setting]]
+key         = "colorize_glyph"
+type        = "bool"
+label_key   = "setting.widget.colorize_glyph.label"
+default     = true
+
+[[widget.setting]]
+key         = "up_to_date_glyph"
+type        = "glyph"
+label_key   = "setting.widget.up_to_date_glyph.label"
+default     = "rosette-discount-check"
+
+[[widget.setting]]
+key         = "up_to_date_color"
+type        = "color"
+label_key   = "setting.widget.up_to_date_color.label"
+default     = "#57ff57"
+
+[[widget.setting]]
+key         = "checking_glyph"
+type        = "glyph"
+label_key   = "setting.widget.checking_glyph.label"
+default     = "loader-3"
+
+[[widget.setting]]
+key         = "checking_color"
+type        = "color"
+label_key   = "setting.widget.checking_color.label"
+default     = "#ffeb57"
+
+[[widget.setting]]
+key         = "update_available_glyph"
+type        = "glyph"
+label_key   = "setting.widget.update_available_glyph.label"
+default     = "cloud-download"
+
+[[widget.setting]]
+key         = "update_available_color"
+type        = "color"
+label_key   = "setting.widget.update_available_color.label"
+default     = "#ff5757"
+
+[[widget.setting]]
+key         = "unknown_glyph"
+type        = "glyph"
+label_key   = "setting.widget.unknown_glyph.label"
+default     = "cloud-question"
+
+[[widget.setting]]
+key         = "unknown_color"
+type        = "color"
+label_key   = "setting.widget.unknown_color.label"
+default     = "on_surface"
+
+[[setting]]
+key             = "branch"
+type            = "select"
+label_key       = "setting.branch.label"
+description_key = "setting.branch.description"
+options         = [
+    { value = "master", label_key = "setting.option.branch.master" },
+    { value = "nixos-unstable", label_key = "setting.option.branch.nixos_unstable" },
+    { value = "nixos-unstable-small", label_key = "setting.option.branch.nixos_unstable_small" },
+    { value = "nixos-26.05", label_key = "setting.option.branch.nixos_26_05" },
+    { value = "nixos-25.11", label_key = "setting.option.branch.nixos_25_11" },
+    { value = "nixos-25.05", label_key = "setting.option.branch.nixos_25_05" },
+    { value = "nixos-24.11", label_key = "setting.option.branch.nixos_24_11" },
+    { value = "nixos-24.05", label_key = "setting.option.branch.nixos_24_05" },
+    { value = "nixos-23.11", label_key = "setting.option.branch.nixos_23_11" },
+    { value = "nixos-23.05", label_key = "setting.option.branch.nixos_23_05" },
+    { value = "nixos-26.05-small", label_key = "setting.option.branch.nixos_26_05_small" },
+    { value = "nixos-25.11-small", label_key = "setting.option.branch.nixos_25_11_small" },
+    { value = "nixos-25.05-small", label_key = "setting.option.branch.nixos_25_05_small" },
+    { value = "nixos-24.11-small", label_key = "setting.option.branch.nixos_24_11_small" },
+    { value = "nixos-24.05-small", label_key = "setting.option.branch.nixos_24_05_small" },
+    { value = "nixos-23.11-small", label_key = "setting.option.branch.nixos_23_11_small" },
+    { value = "nixos-23.05-small", label_key = "setting.option.branch.nixos_23_05_small" },
+]
+default         = "nixos-unstable"
+
+[[setting]]
+key             = "update_check_interval"
+type            = "int"
+label_key       = "setting.update_check_interval.label"
+description_key = "setting.update_check_interval.description"
+default         = 60
+min             = 10
+
+[[setting]]
+key             = "update_check_duration_threshold"
+type            = "int"
+label_key       = "setting.update_check_duration_threshold.label"
+description_key = "setting.update_check_duration_threshold.description"
+default         = 5
+min             = 1
+max             = 30
+
+[[setting]]
+key             = "system_stats_check_interval"
+type            = "int"
+label_key       = "setting.system_stats_check_interval.label"
+description_key = "setting.system_stats_check_interval.description"
+default         = 10
+min             = 5
+
+[[setting]]
+key             = "system_stats_check_duration_threshold"
+type            = "int"
+label_key       = "setting.system_stats_check_duration_threshold.label"
+description_key = "setting.system_stats_check_duration_threshold.description"
+default         = 5
+min             = 1
+max             = 30
+
+[[setting]]
+key             = "panel_card_color"
+type            = "color"
+label_key       = "setting.widget.panel_card_background_color.label"
+default         = "surface_variant"
+
+[[setting]]
+key             = "panel_card_opacity"
+type            = "int"
+label_key       = "setting.widget.panel_card_background_opacity.label"
+default         = 70
+min             = 0
+max             = 100
+
+[[setting]]
+key             = "show_update_check_notification"
+type            = "bool"
+label_key       = "setting.show_update_check_notification.label"
+description_key = "setting.show_update_check_notification.description"
+default         = false
+
+[[setting]]
+key             = "show_update_available_notification"
+type            = "bool"
+label_key       = "setting.show_update_available_notification.label"
+description_key = "setting.show_update_available_notification.description"
+default         = true
+
+[[setting]]
+key             = "update_command"
+type            = "string"
+label_key       = "setting.update_command.label"
+description_key = "setting.update_command.description"
+default         = ""
+
+[[setting]]
+key             = "optimize_command"
+type            = "string"
+label_key       = "setting.optimize_command.label"
+description_key = "setting.optimize_command.description"
+default         = "nix-store --optimise -vv"
+
+[[setting]]
+key             = "clean_command"
+type            = "string"
+label_key       = "setting.clean_command.label"
+description_key = "setting.clean_command.description"
+default         = "nix-collect-garbage -d"
+
+[[setting]]
+key             = "hide_update_button"
+type            = "bool"
+label_key       = "setting.hide_update_button.label"
+description_key = "setting.hide_update_button.description"
+default         = false
+
+[[setting]]
+key             = "hide_optimize_button"
+type            = "bool"
+label_key       = "setting.hide_optimize_button.label"
+description_key = "setting.hide_optimize_button.description"
+default         = false
+
+[[setting]]
+key             = "hide_clean_button"
+type            = "bool"
+label_key       = "setting.hide_clean_button.label"
+description_key = "setting.hide_clean_button.description"
+default         = false
+
+[[setting]]
+key             = "close_on_enter"
+type            = "bool"
+label_key       = "setting.close_on_enter.label"
+description_key = "setting.close_on_enter.description"
+default         = true
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+width           = 430
+height          = 350
+
+[[service]]
+id      = "service"
+entry   = "nix_monitor_service.luau"

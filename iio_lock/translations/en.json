@@ -1,0 +1,45 @@
+{
+  "panel": {
+    "lock": "Toggle Lock",
+    "title": "iio-lock"
+  },
+  "settings": {
+    "glyph": {
+      "locked": {
+        "description": "Icon displayed when the device is locked.",
+        "label": "Locked Glyph"
+      },
+      "unlocked": {
+        "description": "Icon displayed when the device is unlocked.",
+        "label": "Unlocked Glyph"
+      }
+    },
+    "iio": {
+      "description": "Executable used to control orientation",
+      "label": "IIO Tool",
+      "options": {
+        "hyprland": "iio-hyprland",
+        "sway": "iio-sway"
+      }
+    },
+    "transform": {
+      "description": "Rotation values for Up, Left, Down, Right.",
+      "label": "Transform Order"
+    },
+    "wm": {
+      "description": "Choose the window manager backend.",
+      "label": "Window Manager",
+      "options": {
+        "hyprland": "Hyprland",
+        "sway": "Sway"
+      }
+    }
+  },
+  "toggle": {
+    "description": "Toggle orientation lock"
+  },
+  "widget": {
+    "locked": "Locked",
+    "unlocked": "Unlocked"
+  }
+}
