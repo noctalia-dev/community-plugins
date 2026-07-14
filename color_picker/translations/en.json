@@ -9,6 +9,8 @@
   "hyprpicker_not_installed": "hyprpicker is not installed.",
   "could_not_parse": "could not parse hyprpicker output.",
   "glyph": "Glyph",
+  "hex": "HEX",
+  "rgb": "RGB",
 
   "settings.hyprpicker_format.label": "Default Format",
   "settings.hyprpicker_format.description": "Default color format to copy to clipboard (Hex or RGB).",

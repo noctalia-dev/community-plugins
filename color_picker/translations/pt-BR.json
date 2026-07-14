@@ -9,6 +9,8 @@
   "hyprpicker_not_installed": "hyprpicker não está instalado.",
   "could_not_parse": "não foi possível extrair a saída do hyprpicker.",
   "glyph": "Símbolo",
+  "hex": "HEX",
+  "rgb": "RGB",
 
   "settings.hyprpicker_format.label": "Formato Padrão",
   "settings.hyprpicker_format.description": "Formato de cor padrão para copiar para a área de transferência (Hex ou RGB).",
