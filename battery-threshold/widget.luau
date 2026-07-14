@@ -28,5 +28,4 @@ function onClick() noctalia.togglePanel("damian-ds7/battery-threshold:panel") en
 
 function update() render_widget() end
 
-noctalia.setUpdateInterval(10000)
 render_widget()
