@@ -6,6 +6,13 @@
     "charge-threshold-desc": "Der Prozentsatz, bei dem das Laden gestoppt werden soll",
     "no-battery-device": "Für dieses System sind keine konfigurierbaren Akkus verfügbar"
   },
+  "notification": {
+    "error-title": "Ladegrenze-Fehler",
+    "error-msg": "Fehler beim Schreiben der Ladegrenze in {file}",
+    "setup-title": "Ladegrenzen-Einrichtung",
+    "setup-fail": "Fehler beim Konfigurieren der Berechtigungen.",
+    "setup-success": "Berechtigungen konfiguriert. Bitte melden Sie sich ab und wieder an, damit die Gruppenänderungen wirksam werden."
+  },
   "actions": {
     "widget-settings": "Widget-Einstellungen"
   },
@@ -13,6 +20,7 @@
     "title": "Ladegrenze",
     "not-available": "Auf diesem System nicht verfügbar",
     "adjust-limit": "Zieh den Schieberegler, um den Grenzwert anzupassen",
-    "read-only": "Nur-Lese-Zugriff: udev-Regel für Schreibzugriff installieren"
+    "read-only": "Nur-Lese-Zugriff: udev-Regel für Schreibzugriff installieren",
+    "button": "Berechtigungen konfigurieren"
   }
 }

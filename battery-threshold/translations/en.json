@@ -6,6 +6,13 @@
     "charge-threshold-desc": "The percentage at which the battery should stop charging",
     "no-battery-device": "No configurable batteries are available on this system"
   },
+  "notification": {
+    "error-title": "Battery Threshold Error",
+    "error-msg": "Failed to write battery threshold to {file}",
+    "setup-title": "Battery Threshold Setup",
+    "setup-fail": "Failed to configure permissions.",
+    "setup-success": "Permissions configured. Please log out and back in for group changes to take effect."
+  },
   "actions": {
     "widget-settings": "Widget Settings"
   },
@@ -13,6 +20,7 @@
     "title": "Battery Threshold",
     "not-available": "Not available on this system",
     "adjust-limit": "Drag slider to adjust limit",
-    "read-only": "Read-only: Install udev rule for write access"
+    "read-only": "Read-only: Install udev rule for write access",
+    "button": "Configure Permissions"
   }
 }

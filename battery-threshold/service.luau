@@ -60,8 +60,8 @@ local function set_threshold(value: number)
     else
         noctalia.log("Failed to write threshold: " .. tostring(err))
         noctalia.notifyError(
-            "Battery Threshold Error",
-            "Failed to write battery threshold to " .. threshold_file
+            noctalia.tr("notification.error-title"),
+            noctalia.tr("notification.error-msg", { file = threshold_file })
         )
     end
 end
@@ -142,15 +142,15 @@ local function run_setup()
         if result.exitCode == 0 then
             noctalia.log("Setup completed successfully")
             noctalia.notify(
-                "Battery Threshold Setup",
-                "Permissions configured. Please log out and back in for group changes to take effect."
+                noctalia.tr("notification.setup-title"),
+                noctalia.tr("notification.setup-success")
             )
             check_status()
         else
             noctalia.log("Setup failed with exit code " .. tostring(result.exitCode))
             noctalia.notifyError(
-                "Battery Threshold Setup",
-                "Failed to configure permissions."
+                noctalia.tr("notification.setup-title"),
+                noctalia.tr("notification.setup-fail")
             )
         end
         noctalia.state.set("run_setup_request", false)
