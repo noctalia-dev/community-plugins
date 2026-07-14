@@ -1,0 +1,21 @@
+id           = "gambled23/mangowm-keymode"
+name         = "Mangowm Keymode"
+version      = "1.0.0"
+min_noctalia = "5.0.0"
+author       = "gambled23"
+
+[[widget]]
+id    = "mangowm-keymode"
+entry = "keymode.luau"
+
+  [[widget.setting]]
+  key       = "show_text"
+  type      = "bool"
+  label_key = "settings.show_text.label"
+  default   = true
+
+  [[widget.setting]]
+  key       = "notify_change"
+  type      = "bool"
+  label_key = "settings.notify_change.label"
+  default   = true
