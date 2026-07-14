@@ -160,7 +160,7 @@ key             = "clean_command"
 type            = "string"
 label_key       = "setting.clean_command.label"
 description_key = "setting.clean_command.description"
-default         = "nh clean all"
+default         = "nix-collect-garbage -d"
 
 [[setting]]
 key             = "close_on_enter"
