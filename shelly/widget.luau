@@ -4,6 +4,7 @@ local color = barWidget.getConfig("color") or "on_surface"
 local glyphColor = barWidget.getConfig("glyph_color") or color
 local updateError = noctalia.state.get("update_error")
 local notifyOnNewUpdates = barWidget.getConfig("notify")
+local hideWhenUpToDate = barWidget.getConfig("hide_when_up_to_date")
 local click_action = barWidget.getConfig("click_action") or "open_gui"
 local updates = noctalia.state.get("updates") or { Packages = {}, Aur = {}, Flatpak = {} }
 
@@ -44,13 +45,11 @@ local function appendUpdateSection(rows, title, list)
     end
 end
 
-local function updateTooltip()
+local function updateTooltip(count)
   if updateError then
     barWidget.setTooltip(updateError)
     return
   end
-
-  local count = countUpdates(updates)
 
   if count == 0 then
     barWidget.setTooltip(noctalia.tr("bar.tooltip.no_updates"))
@@ -69,12 +68,14 @@ end
 local function render()
   local container = barWidget.isVertical() and ui.column or ui.row
 
-  barWidget.render(container({ gap = 6, align = "center" }, {
+  local count = countUpdates(updates)
+
+  barWidget.render(container({ gap = 6, align = "center", visible = not hideWhenUpToDate or count > 0 }, {
     ui.glyph({ name = glyph, size = 14, color = glyphColor, visible = glyph ~= "" }),
-    ui.label({ text = noctalia.trp("bar.text.updates", countUpdates(updates)), color = color }),
+    ui.label({ text = noctalia.trp("bar.text.updates", count), color = color }),
   }))
 
-  updateTooltip()
+  updateTooltip(count)
 end
 
 noctalia.state.watch("updates", function(value)

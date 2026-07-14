@@ -34,6 +34,13 @@ id    = "shelly"
 entry = "widget.luau"
 
   [[widget.setting]]
+  key = "hide_when_up_to_date"
+  type = "bool"
+  label_key = "settings.hide_when_up_to_date.label"
+  description_key = "settings.hide_when_up_to_date.description"
+  default = false
+
+  [[widget.setting]]
   key = "color"
   type = "color"
   label_key = "settings.color.label"

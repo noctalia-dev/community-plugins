@@ -48,6 +48,10 @@
         "open_updater": "Start Update in Terminal"
       }
     },
+    "hide_when_up_to_date": {
+      "label": "Hide When Up-to-Date",
+      "description": "Whether to hide the bar when there are no updates available."
+    },
     "color": {
       "label": "Color",
       "description": "The color of the bar text."
