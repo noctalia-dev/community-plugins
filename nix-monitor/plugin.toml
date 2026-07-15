@@ -6,7 +6,7 @@ icon            = "package"
 author          = "avivbintangaringga"
 description     = "Nixpkgs update monitor"
 tags            = [ "nixos", "utility" ]
-dependencies    = [ "nixos-version", "git", "pkill" ]
+dependencies    = [ "nix", "nixos-version", "nixos-rebuild", "git", "du", "cat", "awk", "grep", "tail", "wc", "pkill" ]
 license         = "MIT"
 
 [[widget]]
