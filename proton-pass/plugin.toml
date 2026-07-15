@@ -12,6 +12,6 @@ dependencies = ["proton-pass-cli"]
 [[launcher_provider]]
 id = "proton-pass"
 entry = "launcher.luau"
-prefix = "/pass"
+prefix = "pass"
 glyph  = "lock"
 include_in_global_search = false

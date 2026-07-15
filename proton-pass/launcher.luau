@@ -8,8 +8,6 @@ type Vaults = { [number]: Vault }
 type Item = { id: string, share_id: string, vault_id: string, state: string, title: string, item_type: string }
 type Items = { [number]: Item }
 
-local PREFIX = "/pass"
-
 -- Caches to avoid repeated CLI calls while the launcher session is active
 local cachedVaults: Vaults = {}
 local cachedItems: { [string]: Items } = {}
@@ -136,6 +134,7 @@ local function vaultRows(pattern: string, callback)
 				title = vault.name,
 				glyph = "folder",
 				score = score,
+				query = `{vault.name} `,
 			}
 		end))
 	end)
@@ -190,11 +189,6 @@ end
 
 function onActivate(_id: string)
 	local id: { type: string, id: string } = noctalia.json.decode(_id)
-
-	if id.type == "vault" then
-		launcher.setQuery(`{PREFIX} {id.id} `)
-		return
-	end
 
 	if id.type == "item" then
 		local item = searchCachedItems(id.id)
