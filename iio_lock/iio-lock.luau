@@ -1,7 +1,7 @@
  --!nonstrict
  -- Config
- local glyph_unlocked = barWidget.getConfig("unlocked")
- local glyph_locked   = barWidget.getConfig("locked")
+ local glyph_unlocked = noctalia.getConfig("unlocked")
+ local glyph_locked   = noctalia.getConfig("locked")
 
  -- State
  local locked = false

@@ -1,8 +1,8 @@
 --!nonstrict
 
 --config
-local used_vm = panel.getConfig("vm")
-local transform_order_string = panel.getConfig("transform-order")
+local used_vm = noctalia.getConfig("vm")
+local transform_order_string = noctalia.getConfig("transform-order")
 local transform_order = {}
 
 

@@ -1,8 +1,8 @@
  --!nonstrict
 
 local locked = noctalia.state.get("iio-state")
-local glyph_unlocked = barWidget.getConfig("unlocked")
-local glyph_locked = barWidget.getConfig("locked")
+local glyph_unlocked = noctalia.getConfig("unlocked")
+local glyph_locked = noctalia.getConfig("locked")
 local locked_text = noctalia.tr("widget.locked")
 local unlocked_text = noctalia.tr("widget.unlocked")
 

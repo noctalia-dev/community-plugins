@@ -1,6 +1,6 @@
 --!nonstrict
 
-local iio_tool = barWidget.getConfig("iio")
+local iio_tool = noctalia.getConfig("iio")
 local locked = false
 
 -- Detect initial state by checking whether the IIO tool is running
