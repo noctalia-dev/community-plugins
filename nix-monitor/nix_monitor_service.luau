@@ -28,6 +28,7 @@ local checkDurationThreshold = cfg("check_duration_threshold")
 local systemStatsCheckInterval = cfg("system_stats_check_interval")
 local stateDir = "/tmp/nix-monitor"
 local remoteHashFile = stateDir .. "/remoteHash"
+local remotePidFile = stateDir .. "/remoteHash.pid"
 local storeSizeFile = stateDir .. "/storeSize"
 local closureSizeFile = stateDir .. "/closureSize"
 local showUpdateNotification = true
@@ -89,7 +90,7 @@ function checkRemoteHash(delay: number?)
     setState("lastRemoteCheckRunTime", os.time())
 
     noctalia.writeFile(remoteHashFile, "")
-    noctalia.runAsync(`sleep {delay} && {remoteHashCmd} > {remoteHashFile} &`)
+    noctalia.runAsync(`sleep {delay} && {remoteHashCmd} > {remoteHashFile} & echo $! > {remotePidFile}`)
 end
 
 -- Check if the remoteHash check command is finished by reading the file
@@ -114,7 +115,14 @@ end
 
 function cancelRemoteCheck()
     setState("isRemoteCheckRunning", false)
-    noctalia.runAsync(`kill $(ps -ef | grep "git ls-remote https://github.com/NixOS/nixpkgs" | grep -v grep | awk '\{print $2\}')`)
+    if noctalia.fileExists(remotePidFile) then
+        local pid = noctalia.string.trim(noctalia.readFile(remotePidFile))
+
+        if type(pid) == "string" and pid ~= "" then
+            noctalia.runAsync(`pkill -9 -P {pid}`)
+        end
+        noctalia.removeFile(remotePidFile)
+    end
 end
 
 -- Generation check
