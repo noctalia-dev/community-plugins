@@ -1,0 +1,45 @@
+# To Do — a prioritised task list on the bar. Click the glyph to toggle a panel
+# of editable task rows: add with +, tick to complete (the text is struck
+# through), delete, and click each row's colour chip to cycle its priority
+# (important → medium → low). A header toggle switches ordering between priority
+# (auto-sorted) and manual, where a ☰ grip on each row reorders it by clicking.
+# The whole list is a single JSON file in the configured folder; no external
+# commands are run.
+
+id = "nightwatch75/todo"
+name = "To Do"
+version = "0.0.6"
+min_noctalia = "5.0.0"
+author = "nightwatch75"
+license = "MIT"
+dependencies = []
+tags = ["bar", "panel", "productivity"]
+icon = "checklist"
+description = "A prioritised to-do list in a bar panel: editable tasks with low/medium/important colour chips, a done/to-do toggle that strikes completed text through, and ordering that switches between priority-sorted and manual (drag-free ☰ grip reorder)."
+
+# Plugin-level setting: the folder holding the task file, shared by the panel
+# (reads/writes it) and the bar widget (reads it for the pending count).
+[[setting]]
+key = "todo_folder"
+type = "folder"
+label_key = "settings.todo_folder.label"
+description_key = "settings.todo_folder.description"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 460
+placement = "attached"
+open_near_click = true
+
+[[widget]]
+id = "todo"
+entry = "todo.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "checklist"
