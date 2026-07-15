@@ -12,13 +12,14 @@ dependencies = ["fan_state"]
 [[setting]]
 key = "show_label"
 type = "bool"
-label_key = "show_label"
+label_key = "show_label.label"
 default = false
 
 [[setting]]
 key = "poll_interval"
 type = "int"
-label_key = "poll_interval"
+label_key = "poll_interval.label"
+description_key="poll_interval.description"
 default = 2000
 min = 250
 max = 60000
