@@ -1,4 +1,5 @@
 {
   "settings.show_text.label": "Show text on bar",
-  "settings.notify_change.label": "Notify change"
+  "settings.notify_change.label": "Notify change",
+  "settings.hide_on_default.label": "Hide on default keymode"
 }

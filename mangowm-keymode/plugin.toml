@@ -1,6 +1,6 @@
 id           = "gambled23/mangowm-keymode"
 name         = "Mangowm Keymode"
-version      = "1.0.1"
+version      = "1.0.2"
 min_noctalia = "5.0.0"
 author       = "gambled23"
 license = "MIT"
@@ -13,6 +13,12 @@ tags = ["bar", "mangowc"]
 [[widget]]
 id    = "mangowm-keymode"
 entry = "keymode.luau"
+
+  [[widget.setting]]
+  key       = "hide_on_default"
+  type      = "bool"
+  label_key = "settings.hide_on_default.label"
+  default   = false
 
   [[widget.setting]]
   key       = "show_text"

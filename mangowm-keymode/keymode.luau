@@ -1,5 +1,6 @@
 local showText = noctalia.getConfig("show_text")
 local notifyChange = noctalia.getConfig("notify_change")
+local hideOnDefault = noctalia.getConfig("hide_on_default")
 
 local currentKeymode = "default"
 
@@ -17,11 +18,16 @@ end)
 
 function update()
   noctalia.setUpdateInterval(1000)
-  barWidget.setGlyph("keyboard")
-  if showText then
-    barWidget.setText(currentKeymode)
+  if hideOnDefault and currentKeymode == "default" then
+    barWidget.setVisible(false)
   else
-    barWidget.setText("")
+    barWidget.setVisible(true)
+    barWidget.setGlyph("keyboard")
+    if showText then
+      barWidget.setText(currentKeymode)
+    else
+      barWidget.setText("")
+    end
   end
 end
 
