@@ -1,0 +1,14 @@
+id           = "lux/ideapad-conservation-mode"
+name         = "IdeaPad Conservation Mode"
+version      = "0.3.0"
+min_noctalia = "5.0.0"
+author       = "lux"
+license      = "MIT"
+tags         = ["hardware", "shortcut", "system"]
+icon         = "laptop"
+description  = "Toggles battery conservation mode via the ideapad_acpi driver, on Lenovo IdeaPad and Legion laptops."
+dependencies = ["sudo"]
+
+[[shortcut]]
+id    = "conservation-mode"
+entry = "conservation_mode.luau"
