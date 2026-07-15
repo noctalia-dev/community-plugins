@@ -11,7 +11,11 @@
  - Customizable clean and update command
 
  ## Requirements
-  - Git
-  - NixOS commands (`nix`, `nixos-rebuild`, `nixos-version`)
-  - Linux tools (`du`, `cat`, `awk`, `grep`, `tail`, `wc`, `pkill`)
-  - Optionally `home-manager`
+ - Git
+ - NixOS commands (`nix`, `nixos-rebuild`, `nixos-version`)
+ - Linux tools (`du`, `cat`, `awk`, `grep`, `tail`, `wc`, `kill`, `pkill`)
+ - Optionally `home-manager`
+
+## Notes
+ - You need to change the update command in the setting
+ - By default, clean command executes `nix-collect-garbage -d`, you can change it too!
