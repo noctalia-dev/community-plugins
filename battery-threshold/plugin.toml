@@ -6,7 +6,7 @@ author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
 license      = "MIT"
 icon         = "battery-eco"
-tags         = ["battery", "threshold", "charge"]
+tags         = ["hardware", "system", "utility", "bar", "panel"]
 dependencies = ["polkit"]
 
 [[service]]
