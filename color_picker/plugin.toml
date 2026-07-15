@@ -1,13 +1,13 @@
-author       = "oldirtty"
-id           = "oldirtty/color_picker"
-name         = "Color Picker"
+author = "oldirtty"
+id = "oldirtty/color_picker"
+name = "Color Picker"
 description  = "Pick a color from your screen with hyprpicker."
-license      = "MIT"
-version      = "1.0.0"
+license = "MIT"
+version = "1.0.0"
 min_noctalia = "5.0.0"
-icon         = "palette"
+icon = "palette"
 dependencies = ["hyprpicker"]
-tags         = ["color", "utility"]
+tags = ["theming", "utility", "bar", "panel"] 
 
 
 [[setting]]
