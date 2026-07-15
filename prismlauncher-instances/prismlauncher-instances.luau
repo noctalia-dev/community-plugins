@@ -5,7 +5,7 @@ local function getPrismPath()
     return noctalia.expandPath(prismPath)
 end
 
-local function getInstanceDir()
+local function getInstancesDir()
     local prismPath = getPrismPath()
 
     local configuredInstanceDir = getCfgValue(prismPath .. "/prismlauncher.cfg", "InstanceDir")
@@ -21,25 +21,22 @@ local function getInstanceDir()
     return instances
 end
 
-local function loadInstances(onDone)
-   local cmd = string.format("for d in " .. getInstanceDir() .. "/*/; do basename \"$d\"; done")
-
-  noctalia.runAsync(cmd, function(result)
+local function loadInstances()
     local instances = {}
-    if result.exitCode == 0 and type(result.stdout) == "string" then
-      for line in result.stdout:gmatch("[^\n]+") do
-        local path = noctalia.string.trim(line)
-        if path ~= "" and noctalia.fileExists(getInstanceDir() .. "/" .. path .. "/instance.cfg") then -- same check as prism to only show instance dirs
-          table.insert(instances, path)
+    local list = noctalia.listDir(getInstancesDir())
+      if list ~= nil then
+        for _, name in ipairs(list) do
+            local instanceDir = getInstancesDir() .. "/" .. name
+            if name ~= "" and noctalia.fileExists(instanceDir .. "/instance.cfg") then -- same check as prism to only show instance dirs
+                table.insert(instances, name)
+            end
         end
       end
-    end
-    onDone(instances)
-  end)
+    return instances
 end
 
 local function instanceName(path)
-  local instanceCfg = getInstanceDir() .. "/" .. path .. "/instance.cfg"
+  local instanceCfg = getInstancesDir() .. "/" .. path .. "/instance.cfg"
   local configuredName = getCfgValue(instanceCfg, "name")
   if configuredName ~= nil then
       return configuredName
@@ -86,10 +83,7 @@ end
 
 function onQuery(query)
   local filter = noctalia.string.trim(query)
-
-  loadInstances(function(instances)
-    showResults(query, instances, filter)
-  end)
+  showResults(query,  loadInstances(), filter)
 end
 
 local function shellQuote(s)
@@ -106,7 +100,7 @@ end
 -- change icon to manually provided icon or to icon from mod provider => OK
 -- change icon to different default icon baked into prism binary => NOK, old icon will be shown because <instance>/minecraft/icon.png isn't updated
 function getIcon(instancePath)
-    local instanceFullPath = getInstanceDir() .. "/" .. instancePath
+    local instanceFullPath = getInstancesDir() .. "/" .. instancePath
     local defaultIcon =  instanceFullPath .. "/minecraft/icon.png"
     local cfgPath = instanceFullPath .. "/instance.cfg"
     local iconVal = getCfgValue(cfgPath, "iconKey")
