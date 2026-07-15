@@ -42,6 +42,10 @@ choice is remembered.
 - **Manual** — rows keep the order you give them. Each row grows a ☰ grip on the
   left; here changing a priority only recolours the chip and never moves the row.
 
+Priority mode is only a view: the stored order is always the manual one, so
+switching between the two modes (as often as you like) never loses your custom
+ordering.
+
 ### Reordering in manual mode
 
 The noctalia plugin UI exposes no drag callbacks (only clicks), so the ☰ grip

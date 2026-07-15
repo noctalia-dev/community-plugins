@@ -3,17 +3,18 @@
 --
 -- A task is { id, text, priority, done }. The whole list is persisted to
 -- <todo_folder>/todo.json (noctalia.json) as an object { version, sort, tasks }:
--- `tasks` is the array (in on-disk = manual order) and `sort` records the
--- chosen ordering mode. A legacy plain-array file is still read (treated as
--- manual order, sort defaulting to "priority"). Empty (blank-text) tasks are
--- never written: they only exist transiently while being entered.
+-- `tasks` is the array — ALWAYS in manual order — and `sort` records the chosen
+-- display mode. A legacy plain-array file is still read (treated as manual
+-- order, sort defaulting to "priority"). Empty (blank-text) tasks are never
+-- written: they only exist transiently while being entered.
 --
--- Ordering has two modes, switched from a header toggle:
---   * "priority" — a stable sort by priority (important → medium → low).
---     "Stable" means equal-priority rows keep their current relative order, so
---     re-prioritising a row only nudges it into its group and never reshuffles
---     its peers. No drag handles are shown.
---   * "manual" — the on-disk array order is used verbatim. A ☰ grip on each row
+-- Ordering has two modes, switched from a header toggle. `items` (and the disk
+-- array) hold the manual order in both; priority mode is a VIEW — a stable sort
+-- applied at render time only — so switching modes never rewrites the user's
+-- manual order:
+--   * "priority" — rows display sorted important → medium → low; equal-priority
+--     rows keep their manual relative order. No drag handles are shown.
+--   * "manual" — the stored order is shown verbatim. A ☰ grip on each row
 --     reorders it (see below); changing a priority only recolours the chip and
 --     never moves the row. Because the noctalia plugin UI exposes no pointer
 --     drag callbacks (only onClick), the grip works as a two-click grab/drop:
@@ -37,7 +38,7 @@ local COLORS = { important = "#e06c75", medium = "#e5c07b", low = "#98c379" }
 local FILE_NAME = "todo.json"
 local AUTOSAVE_IDLE_TICKS = 2 -- 1s panel ticks with no edits before a flush
 
-local items = {} -- array, kept in display order (priority sort, or manual)
+local items = {} -- array, ALWAYS in manual order (priority mode sorts a copy for display)
 local nextId = 1 -- monotonic id source (identity only, not a sort key)
 local folder = ""
 local filePath = ""
@@ -98,11 +99,14 @@ local function normalizePriority(value)
     return RANK[value] ~= nil and value or "medium"
 end
 
--- Stable sort by priority: equal-priority rows keep their current relative
--- order (decorate-by-index makes table.sort stable), and the result becomes the
--- new `items` order. Called after every mutation, so `items` is always the
--- display order and re-prioritising a row only nudges it into its group.
-local function sortItems()
+-- The rows to render, in display order. `items` itself is never reordered by
+-- priority mode: it sorts a COPY (stable by priority via decorate-by-index, so
+-- equal-priority rows keep their manual relative order). Keeping the sort out
+-- of the model is what preserves the manual order across mode switches.
+local function displayItems()
+    if sortMode ~= "priority" then
+        return items
+    end
     local decorated = {}
     for index, item in ipairs(items) do
         decorated[index] = { item = item, index = index }
@@ -112,13 +116,13 @@ local function sortItems()
         if ra ~= rb then
             return ra < rb
         end
-        return a.index < b.index -- stable: keep the current within-priority order
+        return a.index < b.index -- stable: keep the manual within-priority order
     end)
     local sorted = {}
     for index, entry in ipairs(decorated) do
         sorted[index] = entry.item
     end
-    items = sorted
+    return sorted
 end
 
 local function findItem(id)
@@ -177,10 +181,7 @@ local function load()
             end
         end
     end
-    -- Manual mode preserves the on-disk order verbatim; only priority mode sorts.
-    if sortMode == "priority" then
-        sortItems()
-    end
+    -- The on-disk order IS the manual order; priority mode sorts at render time.
     loaded = true
 end
 
@@ -210,10 +211,9 @@ end
 local function addItem()
     local item = { id = nextId, text = "", priority = "medium", done = false }
     nextId += 1
+    -- Appended at the foot of the manual order; the priority view shows it at
+    -- the foot of its group.
     table.insert(items, item)
-    if sortMode == "priority" then
-        sortItems() -- manual mode leaves the new task at the foot, unshuffled
-    end
     editingId = item.id -- new task opens straight into edit mode
     render()
 end
@@ -269,28 +269,23 @@ end
 local function cyclePriority(id)
     local item = findItem(id)
     if item ~= nil then
-        -- important → medium → low → important
+        -- important → medium → low → important. The manual position is
+        -- untouched; the priority view re-sorts on render.
         item.priority = PRIORITIES[(RANK[item.priority] % #PRIORITIES) + 1]
-        -- Only priority mode reorders; manual mode just recolours the chip.
-        if sortMode == "priority" then
-            sortItems()
-        end
         save()
         render()
     end
 end
 
--- Switch ordering mode. Entering priority mode re-sorts immediately; either way
--- any half-finished grab is dropped and the choice is persisted.
+-- Switch ordering mode. Only the `sort` choice is persisted — the task array
+-- is never rewritten, so the manual order survives any number of round trips
+-- through priority mode. Any half-finished grab is dropped.
 local function setSortMode(mode)
     if mode ~= "manual" and mode ~= "priority" then
         return
     end
     sortMode = mode
     grabbedId = nil
-    if sortMode == "priority" then
-        sortItems()
-    end
     save()
     render()
 end
@@ -553,7 +548,7 @@ render = function()
         })
     else
         local rows = {}
-        for _, item in ipairs(items) do
+        for _, item in ipairs(displayItems()) do
             table.insert(rows, taskRow(item))
         end
         body = ui.scroll({ flexGrow = 1, gap = 6 }, rows)
