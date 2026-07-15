@@ -83,7 +83,7 @@ function checkLocalHash()
     setState("lastLocalCheckTime", os.time())
     noctalia.runAsync(localHashCmd, function(res)
         if res.exitCode == 0 then
-            setState("localHash", res.stdout)
+            setState("localHash", noctalia.string.trim(res.stdout))
         end
     end)
 end
