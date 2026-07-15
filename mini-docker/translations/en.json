@@ -1,0 +1,116 @@
+{
+  "title": "Mini Docker",
+  "widget": {
+    "running": "Running containers: {count}",
+    "unavailable": "Docker is not available",
+    "refresh_requested": "Docker refresh requested"
+  },
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often Mini Docker refreshes Docker state, in seconds."
+    },
+    "default_network": {
+      "label": "Default network",
+      "description": "Network selected when running an image."
+    },
+    "show_count": {
+      "label": "Show running count",
+      "description": "Show the number of running containers beside the Docker icon."
+    },
+    "glyph_color": {
+      "label": "Icon color",
+      "description": "Theme color used by the Docker icon."
+    },
+    "status_mode": {
+      "label": "Status indicator",
+      "description": "Choose when the status dot is visible.",
+      "options": {
+        "always": "Always",
+        "running_only": "Only while containers are running",
+        "hidden": "Hidden"
+      }
+    },
+    "active_color": {
+      "label": "Active indicator color",
+      "description": "Color used when at least one container is running."
+    },
+    "inactive_color": {
+      "label": "Inactive indicator color",
+      "description": "Color used when no containers are running."
+    }
+  },
+  "colors": {
+    "default": "Default",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "tertiary": "Tertiary",
+    "success": "Success",
+    "error": "Error",
+    "muted": "Muted"
+  },
+  "tabs": {
+    "containers": "Containers",
+    "images": "Images",
+    "volumes": "Volumes",
+    "networks": "Networks"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "select": "Select",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart",
+    "remove": "Remove",
+    "run": "Run",
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "panel": {
+    "loading": "Loading Docker state…",
+    "busy": "Docker command in progress…",
+    "updated": "Last updated: {time}",
+    "select_hint": "Select an item to see available actions.",
+    "no_containers": "No containers found.",
+    "no_images": "No images found.",
+    "no_volumes": "No volumes found.",
+    "no_networks": "No networks found.",
+    "showing_limit": "Showing the first {count} items.",
+    "default_network": "Built-in network",
+    "image_in_use": "Used by a container",
+    "image_unused": "Not used by a container"
+  },
+  "details": {
+    "image": "Image: {value}",
+    "status": "Status: {value}",
+    "ports": "Ports: {value}",
+    "id": "ID: {value}",
+    "created": "Created: {value}",
+    "size": "Size: {value}",
+    "driver": "Driver: {value}",
+    "mountpoint": "Mountpoint: {value}",
+    "scope": "Scope: {value}"
+  },
+  "run_form": {
+    "title": "Run {image}",
+    "container_name": "Container name (optional)",
+    "container_name_placeholder": "my-container",
+    "network": "Network",
+    "publish_port": "Publish a port",
+    "port": "Host and container port",
+    "port_placeholder": "8080",
+    "environment": "Environment variables",
+    "environment_placeholder": "KEY=value\nANOTHER_KEY=value",
+    "environment_help": "Enter one KEY=value pair per line.",
+    "invalid_name": "Container names may contain letters, numbers, dots, underscores, and hyphens.",
+    "invalid_port": "Port must be a number from 1 to 65535.",
+    "invalid_environment": "Invalid environment-variable line: {line}"
+  },
+  "result": {
+    "success": "Docker command completed.",
+    "failed": "Docker command failed: {error}",
+    "docker_missing": "The Docker CLI is not installed.",
+    "docker_unreachable": "Could not reach the Docker daemon.",
+    "command_busy": "Another Docker command is still running."
+  }
+}
