@@ -13,7 +13,7 @@ tags = ["prism", "prismlauncher", "minecraft"]
 [[launcher_provider]]
 id = "prismlauncher-instances"
 entry = "prismlauncher-instances.luau"
-prefix = "/pl"
+prefix = "pl"
 glyph = "nut"
 include_in_global_search = false
 debounce_ms = 0
