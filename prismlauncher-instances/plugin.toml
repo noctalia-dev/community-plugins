@@ -8,7 +8,7 @@ dependencies = ["prismlauncher"]
 icon = "nut"
 deprecated = false
 description = "A launcher provider that adds PrismLauncher instances to the noctalia launcher."
-tags = ["prism", "prismlauncher", "minecraft"]
+tags = ["gaming", "launcher"]
 
 [[launcher_provider]]
 id = "prismlauncher-instances"
