@@ -118,3 +118,14 @@ icon = "package"
 description = "Nixpkgs update monitor"
 min_noctalia = "5.0.0"
 tags = ["nixos", "utility"]
+
+[[plugin]]
+id = "nightwatch75/todo"
+name = "To Do"
+version = "0.0.7"
+author = "nightwatch75"
+license = "MIT"
+icon = "checklist"
+description = "A prioritised to-do list in a bar panel: editable tasks with low/medium/important colour chips, a done/to-do toggle that strikes completed text through, and ordering that switches between priority-sorted and manual (drag-free ☰ grip reorder)."
+min_noctalia = "5.0.0"
+tags = ["bar", "panel", "productivity"]
