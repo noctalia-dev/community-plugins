@@ -4,20 +4,21 @@ version = "1.0.6"
 min_noctalia = "5.0.0"
 author = "ThatOneCalculator"
 license = "MIT"
-tags = ["asus", "hardware", "system"]
+tags = ["hardware"]
 icon = "car-fan"
 description = "Set the fan state on the ZenBook S 16 UM5606."
+dependencies = ["fan_state"]
 
 [[setting]]
 key = "show_label"
 type = "bool"
-label_key = "Show label"
+label_key = "show_label"
 default = false
 
 [[setting]]
 key = "poll_interval"
 type = "int"
-label_key = "Poll interval"
+label_key = "poll_interval"
 default = 2000
 min = 250
 max = 60000
