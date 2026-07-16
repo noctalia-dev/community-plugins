@@ -1,6 +1,6 @@
 id = "yihao/locate-files"
 name = "Locate Files"
-version = "1.5.0"
+version = "1.5.1"
 plugin_api = 3
 author = "yihao"
 license = "MIT"
@@ -66,7 +66,7 @@ advanced = true
 
 [[setting]]
 key = "global_score_bias"
-type = "double"
+type = "int"
 label_key = "settings.global_score_bias.label"
 description_key = "settings.global_score_bias.description"
 default = -100
@@ -77,7 +77,7 @@ advanced = true
 
 [[setting]]
 key = "file_weight"
-type = "double"
+type = "int"
 label_key = "settings.file_weight.label"
 description_key = "settings.file_weight.description"
 default = 0
@@ -88,7 +88,7 @@ advanced = true
 
 [[setting]]
 key = "directory_weight"
-type = "double"
+type = "int"
 label_key = "settings.directory_weight.label"
 description_key = "settings.directory_weight.description"
 default = 0
