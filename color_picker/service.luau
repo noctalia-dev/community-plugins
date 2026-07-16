@@ -9,9 +9,9 @@
 -- CONSTANTS
 --==============================================
 local MAX_HISTORY = 6
-local STATE_DIR = "~/.local/state/noctalia/plugin-cache/community/color_picker"
-local HISTORY_FILE = STATE_DIR .. "/history.json"
-local SELECTED_FILE = STATE_DIR .. "/selected.json"
+local PERSISTENT_DIR = noctalia.pluginDataDir()
+local HISTORY_FILE = PERSISTENT_DIR .. "/history.json"
+local SELECTED_FILE = PERSISTENT_DIR .. "/selected.json"
 local tr_color_picker = noctalia.tr("color_picker")
 
 --==============================================
@@ -101,11 +101,9 @@ end
 --==============================================
 -- STATE MODEL
 --
--- selectedColor / selectedOpacity: ephemeral, what the panel is currently
--- showing. Set here on every successful pick; also updated by the panel
--- itself for pure-UI interactions (history swatch click, field edit,
--- opacity slider) that don't touch hyprpicker or disk.
---
+-- selectedColor / selectedOpacity: persisted color, state is saved once
+-- per panel session when closed.
+
 -- colorHistory: persisted list.
 -- Only mutated by pushCurrentColor(), called on immediate-commit picks
 -- (widget right-click) and on "commit" (panel close).
@@ -139,37 +137,37 @@ local function pushCurrentColor(hex: string, opacity: number)
 end
 
 local function loadHistoryFromDisk()
-  local content = noctalia.readFile(HISTORY_FILE)
-  if content == nil or content == "" then return end
+    local raw = noctalia.readFile(HISTORY_FILE)
+    if raw == nil or raw == "" then return end
 
-  local decoded = noctalia.json.decode(content)
-  if type(decoded) ~= "table" then return end
+    local decoded = noctalia.json.decode(raw)
+    if type(decoded) ~= "table" then return end
 
-  noctalia.state.set("colorHistory", decoded)
+    noctalia.state.set("colorHistory", decoded)
 end
 
 local function saveHistoryToDisk()
-  local history = noctalia.state.get("colorHistory") or {}
-  local encoded = noctalia.json.encode(history)
-  if encoded ~= nil then
-    noctalia.writeFile(HISTORY_FILE, encoded)
-  end
+    local history = noctalia.state.get("colorHistory") or {}
+    local encoded = noctalia.json.encode(history)
+    if encoded ~= nil then
+        noctalia.writeFile(HISTORY_FILE, encoded)
+    end
 end
 
 local function loadSelectedFromDisk()
-    local content = noctalia.readFile(SELECTED_FILE)
-    if content == nil or content == "" then return end
-    
-    local decoded = noctalia.json.decode(content)
+    local raw = noctalia.readFile(SELECTED_FILE)
+    if raw == nil or raw == "" then return end
+
+    local decoded = noctalia.json.decode(raw)
     if type(decoded) ~= "table" or decoded.hex == nil then return end
-    
+
     setSelected(decoded.hex, decoded.opacity or 1)
 end
 
 local function saveSelectedToDisk()
     local hex = noctalia.state.get("selectedColor")
     if hex == nil then return end
-    
+
     local opacity = tonumber(noctalia.state.get("selectedOpacity")) or 1
     local encoded = noctalia.json.encode({ hex = hex, opacity = opacity })
     if encoded ~= nil then
@@ -291,7 +289,7 @@ end
 --==============================================
 
 function load()
-    noctalia.mkdirAll(STATE_DIR)
+    noctalia.mkdirAll(PERSISTENT_DIR)
     loadHistoryFromDisk()
     loadSelectedFromDisk()
 end
