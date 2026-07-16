@@ -83,8 +83,11 @@ index is shared with the panel and built on demand when missing.
 ## Requirements
 
 - noctalia ≥ 5.0.0
-- [`fzf`](https://github.com/junegunn/fzf)
-- GNU `findutils` and `xdg-open` (`xdg-utils`) — standard on Linux desktops
+- [`fzf`](https://github.com/junegunn/fzf) — the fuzzy matcher
+- `find` (GNU findutils) — walks the search folder into the index
+- `xdg-open` (xdg-utils) — opens results with the MIME association
+- `mkdir`, `mktemp`, `mv`, `wc`, `head`, `rm` — GNU coreutils, standard on
+  any Linux desktop
 
 ## Install
 
@@ -103,7 +106,15 @@ noctalia msg plugins enable nightwatch75/file-search
 ## Notes
 
 - The index lives in `${XDG_CACHE_HOME:-~/.cache}/noctalia/file-search.list`
-  and is a plain list of paths relative to the search folder.
+  and is a plain list of paths relative to the search folder. A sidecar
+  `file-search.meta` records which folder and exclusions built it, so both
+  the panel and the launcher rebuild automatically after a settings change.
+- Both files are written to `mktemp`-created private files and renamed into
+  place, so a rebuild never writes through a symlink planted at the cache
+  path.
+- Names containing a newline are excluded from the index (they would break
+  the one-record-per-line format), and every record is validated against
+  the search root before being opened.
 - Excluded entries match by folder/file *name* (`find -name`), not by path;
   entries containing `/` are skipped and logged.
 - With hidden entries off, anything starting with a dot is pruned — both

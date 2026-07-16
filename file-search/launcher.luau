@@ -10,7 +10,11 @@
 
 local MAX_RESULTS = 9
 
-local CACHE_SH = 'CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia/file-search.list"'
+-- The .meta sidecar holds the settings fingerprint the cache was built
+-- with, so the panel and the launcher can both tell a stale index apart.
+local CACHE_SH = 'CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia"\n'
+    .. 'CACHE="$CACHE_DIR/file-search.list"\n'
+    .. 'META="$CACHE_DIR/file-search.meta"'
 
 local searching = false
 local indexing = false
@@ -44,12 +48,12 @@ local function searchRoot()
     return dir
 end
 
-local function cachePath()
+local function metaPath()
     local base = noctalia.getenv("XDG_CACHE_HOME")
     if base == nil or base == "" then
         base = (noctalia.getenv("HOME") or "/tmp") .. "/.cache"
     end
-    return base .. "/noctalia/file-search.list"
+    return base .. "/noctalia/file-search.meta"
 end
 
 -- Same exclusion set as the panel: names from the setting plus hidden
@@ -72,6 +76,33 @@ local function excludeNames()
     return names
 end
 
+-- Must build the same string as the panel's indexKey(): the fingerprint in
+-- the .meta sidecar is how the two entries recognize each other's index.
+local function indexKey()
+    return searchRoot() .. "\n" .. table.concat(excludeNames(), "\n")
+end
+
+-- The cache on disk is current when its fingerprint matches the settings,
+-- whether the panel or the launcher built it.
+local function cacheFresh()
+    return noctalia.readFile(metaPath()) == indexKey()
+end
+
+-- One cache record, about to be joined to the search root. The cache is a
+-- plain user-editable file, so records are untrusted: reject anything that
+-- could resolve outside the root.
+local function safeRel(rel)
+    if rel == "" or rel:sub(1, 1) == "/" or rel:find("\n", 1, true) then
+        return false
+    end
+    for part in rel:gmatch("[^/]+") do
+        if part == ".." then
+            return false
+        end
+    end
+    return true
+end
+
 local function noopRow(titleKey)
     return { id = "noop", title = tr(titleKey), glyph = "info-circle" }
 end
@@ -84,19 +115,29 @@ local function buildIndex(query)
     indexing = true
     pendingQuery = query
 
-    local prune = ""
-    local names = {}
+    local key = indexKey()
+    -- Names containing a newline would each forge extra one-per-fragment
+    -- records (a crafted name can smuggle '..' lines into the index), so
+    -- they are pruned unconditionally, before the user's exclusions.
+    local names = { "-name " .. shellQuote("*\n*") }
     for _, name in ipairs(excludeNames()) do
         table.insert(names, "-name " .. shellQuote(name))
     end
-    if #names > 0 then
-        prune = "\\( " .. table.concat(names, " -o ") .. " \\) -prune -o "
-    end
+    local prune = "\\( " .. table.concat(names, " -o ") .. " \\) -prune -o "
+    -- find's own exit status is ignored, so permission errors inside the
+    -- tree don't fail the build. Cache and fingerprint are written to
+    -- mktemp-created private files and renamed into place: rename replaces
+    -- a planted symlink at the predictable destination instead of
+    -- following it.
     local cmd = CACHE_SH
-        .. '\nmkdir -p "$(dirname "$CACHE")"\n'
+        .. '\nmkdir -p "$CACHE_DIR"\n'
+        .. 'TMP=$(mktemp "$CACHE_DIR/file-search.list.XXXXXX") || exit 1\n'
         .. "find " .. shellQuote(searchRoot()) .. " -mindepth 1 " .. prune
-        .. "-type d -printf '%P/\\n' -o -printf '%P\\n' > \"$CACHE\" 2>/dev/null\n"
-        .. 'wc -l >/dev/null < "$CACHE"'
+        .. "-type d -printf '%P/\\n' -o -printf '%P\\n' > \"$TMP\" 2>/dev/null\n"
+        .. 'mv -f "$TMP" "$CACHE" || exit 1\n'
+        .. 'TMPM=$(mktemp "$CACHE_DIR/file-search.meta.XXXXXX") || exit 1\n'
+        .. "printf '%s' " .. shellQuote(key) .. ' > "$TMPM"\n'
+        .. 'mv -f "$TMPM" "$META" || exit 1'
 
     launcher.setResults(query, { noopRow("launcher.indexing") })
     local ok = noctalia.runAsync(cmd, function(result)
@@ -176,7 +217,10 @@ function onQuery(query)
         launcher.setResults(query, { noopRow("err_no_fzf") })
         return
     end
-    if not noctalia.fileExists(cachePath()) then
+    -- A missing or stale index (no meta, or built with a different root or
+    -- exclusion set) is rebuilt before searching: stale relative paths
+    -- joined to a new root could resolve to unrelated files.
+    if not cacheFresh() then
         buildIndex(query)
         return
     end
@@ -185,14 +229,20 @@ end
 
 function onActivate(id)
     if id == "reindex" then
-        -- Drop the cache so the next keystroke rebuilds against fresh disk state.
-        noctalia.runAsync(CACHE_SH .. '\nrm -f "$CACHE"', function(_result)
+        -- Drop cache and fingerprint so the next keystroke rebuilds against
+        -- fresh disk state (a surviving .meta would read as a fresh index).
+        noctalia.runAsync(CACHE_SH .. '\nrm -f "$CACHE" "$META"', function(_result)
             noctalia.notify(tr("title"), tr("launcher.reindex_done"))
         end)
         return
     end
     local rel = id:match("^open:(.+)$")
     if rel == nil then
+        return
+    end
+    if not safeRel(rel) then
+        noctalia.log("file-search: refusing unsafe index record: " .. rel)
+        noctalia.notify(tr("title"), tr("err_bad_record"))
         return
     end
     local path = searchRoot()

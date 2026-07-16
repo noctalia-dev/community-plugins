@@ -12,7 +12,11 @@
 -- demand via the refresh button. The bar widget mirrors the panel's open
 -- state through the shared "file_search_open" state key.
 
-local CACHE_SH = 'CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia/file-search.list"'
+-- The .meta sidecar holds the settings fingerprint the cache was built
+-- with, so the panel and the launcher can both tell a stale index apart.
+local CACHE_SH = 'CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia"\n'
+    .. 'CACHE="$CACHE_DIR/file-search.list"\n'
+    .. 'META="$CACHE_DIR/file-search.meta"'
 
 local query = ""
 local results = {}      -- relative paths; directories keep a trailing "/"
@@ -22,7 +26,7 @@ local searching = false
 local errMsg = nil
 local fzfMissing = false
 local inputRev = 0      -- bumped to reseed the query input on open
-local indexedKey = nil  -- settings fingerprint of the cache on disk
+local haveIndex = false -- the cache on disk matches the current settings
 
 local render
 local runSearch
@@ -95,6 +99,35 @@ local function indexKey()
     return searchRoot() .. "\n" .. table.concat(excludeNames(), "\n")
 end
 
+local function metaPath()
+    local base = noctalia.getenv("XDG_CACHE_HOME")
+    if base == nil or base == "" then
+        base = (noctalia.getenv("HOME") or "/tmp") .. "/.cache"
+    end
+    return base .. "/noctalia/file-search.meta"
+end
+
+-- The cache on disk is current when its fingerprint matches the settings,
+-- whether the panel or the launcher built it.
+local function cacheFresh()
+    return noctalia.readFile(metaPath()) == indexKey()
+end
+
+-- One cache record, about to be joined to the search root. The cache is a
+-- plain user-editable file, so records are untrusted: reject anything that
+-- could resolve outside the root.
+local function safeRel(rel)
+    if rel == "" or rel:sub(1, 1) == "/" or rel:find("\n", 1, true) then
+        return false
+    end
+    for part in rel:gmatch("[^/]+") do
+        if part == ".." then
+            return false
+        end
+    end
+    return true
+end
+
 buildIndex = function()
     if fzfMissing or indexing then
         return
@@ -103,28 +136,36 @@ buildIndex = function()
     errMsg = nil
     local key = indexKey()
 
-    local prune = ""
-    local names = {}
+    -- Names containing a newline would each forge extra one-per-fragment
+    -- records (a crafted name can smuggle '..' lines into the index), so
+    -- they are pruned unconditionally, before the user's exclusions.
+    local names = { "-name " .. shellQuote("*\n*") }
     for _, name in ipairs(excludeNames()) do
         table.insert(names, "-name " .. shellQuote(name))
     end
-    if #names > 0 then
-        prune = "\\( " .. table.concat(names, " -o ") .. " \\) -prune -o "
-    end
+    local prune = "\\( " .. table.concat(names, " -o ") .. " \\) -prune -o "
     -- %P prints paths relative to the root; the trailing '/' marks
-    -- directories so rows get the right glyph. Exit status is wc's, so
-    -- permission errors inside the tree don't fail the build.
+    -- directories so rows get the right glyph. find's own exit status is
+    -- ignored, so permission errors inside the tree don't fail the build.
+    -- Cache and fingerprint are written to mktemp-created private files and
+    -- renamed into place: rename replaces a planted symlink at the
+    -- predictable destination instead of following it.
     local cmd = CACHE_SH
-        .. '\nmkdir -p "$(dirname "$CACHE")"\n'
+        .. '\nmkdir -p "$CACHE_DIR"\n'
+        .. 'TMP=$(mktemp "$CACHE_DIR/file-search.list.XXXXXX") || exit 1\n'
         .. "find " .. shellQuote(searchRoot()) .. " -mindepth 1 " .. prune
-        .. "-type d -printf '%P/\\n' -o -printf '%P\\n' > \"$CACHE\" 2>/dev/null\n"
+        .. "-type d -printf '%P/\\n' -o -printf '%P\\n' > \"$TMP\" 2>/dev/null\n"
+        .. 'mv -f "$TMP" "$CACHE" || exit 1\n'
+        .. 'TMPM=$(mktemp "$CACHE_DIR/file-search.meta.XXXXXX") || exit 1\n'
+        .. "printf '%s' " .. shellQuote(key) .. ' > "$TMPM"\n'
+        .. 'mv -f "$TMPM" "$META" || exit 1\n'
         .. 'wc -l < "$CACHE"'
 
     render()
     local ok = noctalia.runAsync(cmd, function(result)
         indexing = false
         if result.exitCode == 0 and not result.timedOut then
-            indexedKey = key
+            haveIndex = true
             total = tonumber(trim(result.stdout or "")) or 0
             if indexKey() ~= key then
                 buildIndex() -- settings changed while the walk was running
@@ -132,7 +173,7 @@ buildIndex = function()
                 runSearch()
             end
         else
-            indexedKey = nil
+            haveIndex = false
             errMsg = tr("err_index")
         end
         render()
@@ -145,7 +186,7 @@ buildIndex = function()
 end
 
 runSearch = function()
-    if fzfMissing or indexing or searching or indexedKey == nil then
+    if fzfMissing or indexing or searching or not haveIndex then
         return
     end
     searching = true
@@ -180,6 +221,11 @@ runSearch = function()
 end
 
 local function openEntry(rel)
+    if not safeRel(rel) then
+        noctalia.log("file-search: refusing unsafe index record: " .. rel)
+        noctalia.notify(tr("title"), tr("err_bad_record"))
+        return
+    end
     local path = searchRoot()
     if path ~= "/" then
         path = path .. "/"
@@ -269,7 +315,8 @@ function onOpen(_context)
     inputRev += 1
     noctalia.state.set("file_search_open", true)
     if not fzfMissing then
-        if indexedKey ~= indexKey() then
+        haveIndex = cacheFresh()
+        if not haveIndex then
             buildIndex()
         else
             runSearch()
@@ -286,7 +333,8 @@ function onConfigChanged()
     if fzfMissing or indexing then
         return
     end
-    if indexedKey ~= indexKey() then
+    haveIndex = cacheFresh()
+    if not haveIndex then
         buildIndex()
     else
         runSearch()
@@ -306,7 +354,7 @@ function onOpenFirst(value)
 end
 
 function onRefreshIndex()
-    indexedKey = nil
+    haveIndex = false
     buildIndex()
 end
 

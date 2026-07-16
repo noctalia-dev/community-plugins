@@ -10,6 +10,7 @@
   "err_index": "Failed to index the search folder",
   "err_no_fzf": "fzf not found — install fzf to use this plugin",
   "err_spawn": "Could not run the search command",
+  "err_bad_record": "Ignored an invalid index record — rebuild the index",
   "tip_refresh": "Rebuild the file index",
   "tip_close": "Close",
   "launcher.indexing": "Indexing files…",

@@ -6,11 +6,13 @@
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.7"
+version = "0.0.8"
 min_noctalia = "5.0.0"
 author = "nightwatch75"
 license = "MIT"
-dependencies = ["fzf", "findutils", "xdg-utils"]
+# The exact commands the plugin spawns (fzf aside, findutils + coreutils +
+# xdg-utils on any Linux desktop).
+dependencies = ["fzf", "find", "mkdir", "mktemp", "mv", "wc", "head", "rm", "xdg-open"]
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
