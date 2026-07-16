@@ -14,7 +14,7 @@ Writing that attribute needs root by default. The first time you click the tile 
 
 ## Requirements
 
-The bundled setup script (`scripts/setup-permissions.sh`) shells out to `sudo`, `dirname`, `command`, `chgrp`, `chmod`, `getent`, `groupadd`, `usermod`, `cat`, and `udevadm`. All of these ship by default on essentially every mainstream Linux distribution (coreutils, util-linux, shadow-utils, systemd/udev).
+The bundled setup script (`scripts/setup-permissions.sh`) shells out to `sudo`, `dirname`, `env`, `bash`, `chgrp`, `chmod`, `getent`, `groupadd`, `usermod`, `cat`, and `udevadm`. All of these ship by default on essentially every mainstream Linux distribution (coreutils, util-linux, shadow-utils, systemd/udev).
 
 ## Usage
 
