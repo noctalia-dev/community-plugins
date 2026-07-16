@@ -1,6 +1,6 @@
 id = "yihao/locate-files"
 name = "Locate Files"
-version = "1.5.1"
+version = "0.1.0"
 plugin_api = 3
 author = "yihao"
 license = "MIT"
