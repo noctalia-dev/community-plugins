@@ -62,7 +62,7 @@ local function readState()
 end
 
 local function render(on, enabled)
-  shortcut.setLabel(if on then "Conservation On" else "Conservation Off")
+  shortcut.setLabel(noctalia.tr(if on then "shortcut.on" else "shortcut.off"))
   shortcut.setIcon("battery-charging", "battery")
   shortcut.setActive(on)
   shortcut.setEnabled(enabled)
@@ -71,19 +71,19 @@ end
 local on = readState()
 render(on == true, on ~= nil)
 if on == nil then
-  shortcut.setLabel("Conservation N/A")
+  shortcut.setLabel(noctalia.tr("shortcut.na"))
 end
 
 function onClick()
   local path = attrPath()
   if not path then
-    noctalia.notifyError("Conservation Mode", "Could not find the ideapad_acpi conservation_mode sysfs file on this machine.")
+    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.device_not_found"))
     return
   end
 
   local current = readState()
   if current == nil then
-    noctalia.notifyError("Conservation Mode", "Could not read the current conservation_mode state.")
+    noctalia.notifyError(noctalia.tr("title"), noctalia.tr("error.read_failed"))
     return
   end
 
@@ -92,14 +92,22 @@ function onClick()
   if ok then
     render(flipped, true)
     noctalia.notify(
-      "Conservation Mode",
-      if flipped then "Enabled - charging capped for battery health." else "Disabled - charging to 100%."
+      noctalia.tr("title"),
+      noctalia.tr(if flipped then "notify.enabled" else "notify.disabled")
     )
     return
   end
 
   render(current, true)
   runSetup(err)
+end
+
+-- POSIX single-quote escaping: wraps s in '...', turning any embedded ' into
+-- '\'' so the result is safe to splice into a shell command string. Needed
+-- because pluginDir and $USER are attacker/environment-influenced strings
+-- spliced into a command that runs through sh -lc.
+local function shQuote(s)
+  return "'" .. string.gsub(s, "'", "'\\''") .. "'"
 end
 
 -- Not set up yet (or permissions regressed): run the bundled setup script in
@@ -111,8 +119,8 @@ function runSetup(writeErr)
   local pluginDir = noctalia.pluginDir()
   if not pluginDir then
     noctalia.notifyError(
-      "Conservation Mode",
-      "Failed to write conservation_mode (" .. (writeErr or "permission denied") .. ") and could not locate the plugin directory to run setup."
+      noctalia.tr("title"),
+      noctalia.tr("error.write_failed", { error = writeErr or "permission denied" })
     )
     return
   end
@@ -120,17 +128,17 @@ function runSetup(writeErr)
   local setupScript = pluginDir .. "/scripts/setup-permissions.sh"
   local user = noctalia.string.trim(noctalia.getenv("USER") or "")
   local cmd = "sudo "
-    .. setupScript
+    .. shQuote(setupScript)
     .. " "
-    .. user
+    .. shQuote(user)
     .. " && echo && echo 'Setup complete. Log out and back in, then click the tile again.' && read -r -p 'Press Enter to close...'"
 
   if noctalia.runInTerminal(cmd) then
-    noctalia.notify("Conservation Mode", "One-time setup needed - check the terminal window that just opened.")
+    noctalia.notify(noctalia.tr("title"), noctalia.tr("notify.setup_needed"))
   else
     noctalia.notifyError(
-      "Conservation Mode",
-      "Failed to write conservation_mode (" .. (writeErr or "permission denied") .. "). Run scripts/setup-permissions.sh with sudo manually, then log out and back in."
+      noctalia.tr("title"),
+      noctalia.tr("error.write_failed_manual", { error = writeErr or "permission denied" })
     )
   end
 end

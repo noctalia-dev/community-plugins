@@ -1,1 +1,19 @@
-{}
+{
+  "title": "Conservation Mode",
+  "shortcut": {
+    "on": "Conservation On",
+    "off": "Conservation Off",
+    "na": "Conservation N/A"
+  },
+  "notify": {
+    "enabled": "Enabled - charging capped for battery health.",
+    "disabled": "Disabled - charging to 100%.",
+    "setup_needed": "One-time setup needed - check the terminal window that just opened."
+  },
+  "error": {
+    "device_not_found": "Could not find the ideapad_acpi conservation_mode sysfs file on this machine.",
+    "read_failed": "Could not read the current conservation_mode state.",
+    "write_failed": "Failed to write conservation_mode ({error}) and could not locate the plugin directory to run setup.",
+    "write_failed_manual": "Failed to write conservation_mode ({error}). Run scripts/setup-permissions.sh with sudo manually, then log out and back in."
+  }
+}

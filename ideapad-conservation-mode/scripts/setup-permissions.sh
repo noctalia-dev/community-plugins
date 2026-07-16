@@ -41,7 +41,7 @@ usermod -aG "$GROUP_NAME" "$TARGET_USER"
 
 echo "Writing $RULE_FILE..."
 cat >"$RULE_FILE" <<EOF
-ACTION=="add|change", SUBSYSTEM=="platform", KERNEL=="VPC2004:00", DRIVER=="ideapad_acpi", RUN+="$CHGRP_BIN $GROUP_NAME /sys%p/conservation_mode", RUN+="$CHMOD_BIN 664 /sys%p/conservation_mode"
+ACTION=="add|change", SUBSYSTEM=="platform", DRIVER=="ideapad_acpi", RUN+="$CHGRP_BIN $GROUP_NAME /sys%p/conservation_mode", RUN+="$CHMOD_BIN 664 /sys%p/conservation_mode"
 EOF
 
 echo "Reloading udev rules..."
