@@ -83,8 +83,8 @@ index is shared with the panel and built on demand when missing.
 ## Requirements
 
 - noctalia ≥ 5.0.0
-- [fzf](https://github.com/junegunn/fzf)
-- GNU findutils and `xdg-open` (`xdg-utils`) — standard on Linux desktops
+- [`fzf`](https://github.com/junegunn/fzf)
+- GNU `findutils` and `xdg-open` (`xdg-utils`) — standard on Linux desktops
 
 ## Install
 
