@@ -1,0 +1,53 @@
+# Claude Companion — a Claude Code companion for Noctalia v5.
+# Not a chat client: the terminal does the agentic work; this is the shell-side
+# body — senses, hands, and an attention pulse. See README.md for the design.
+
+id = "lowcache/claude-companion"
+name = "Claude Companion"
+version = "1.0.0"
+# Oldest plugin API level this plugin needs (the [[panel]] kind, ui controls,
+# plugin IPC dispatch, the barWidget/onIpc surface). Bump when adopting a newer API.
+plugin_api = 3
+author = "lowcache"
+license = "MIT"
+icon = "robot"
+description = "Claude Code companion: /claude launch + a telemetry-driven attention pulse."
+# The compositor CLI is one-of: the shim detects and speaks whichever of niri /
+# Hyprland / Sway is running Noctalia (so exactly one of niri/hyprctl/swaymsg is
+# present). See README "Requirements".
+dependencies = ["claude", "python3", "niri", "hyprctl", "swaymsg", "playerctl", "notify-send", "nmcli"]
+tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher", "niri", "hyprland", "sway"]
+
+# The attention pulse — the visual centerpiece. Reads agent state from
+# noctalia.state ("claude.state") and from hook signals (onIpc), reflects it in the
+# bar as a glyph + a sine-breath brightness glow (folded in from the barpulse
+# A/B prototype; barpulse.luau stays in-repo as the experiment record, unregistered).
+[[widget]]
+id = "pulse"
+entry = "pulse.luau"
+
+# The presence orb — the ambient desktop half of the pulse. A softly breathing disc
+# that mirrors the bar dot's rollup (published to noctalia.state "claude.pulse"); pure
+# view, no hooks of its own. Per-frame motion via setNeedsFrameTick/onFrameTick.
+[[desktop_widget]]
+id = "orb"
+entry = "orb.luau"
+
+# The answer panel — full-length scrollable surface for /claude ? quick-ask answers
+# (a notification toast clips long bodies; it carries only a preview). Opens on
+# a click on the bar pulse, from the "Show last answer" launcher row, or via
+# `noctalia msg panel-toggle lowcache/claude-companion:answer`.
+[[panel]]
+id = "answer"
+entry = "answer.luau"
+width = 460
+height = 420
+
+# /claude — launch a real Claude Code session in the terminal, or a one-shot ask.
+# The single backend chokepoint (invoke/parse) is inlined here: v5 has no plugin
+# module system, and this is the only entry that talks to a model.
+[[launcher_provider]]
+id = "claude"
+entry = "claude.luau"
+prefix = "claude"
+glyph = "robot"
