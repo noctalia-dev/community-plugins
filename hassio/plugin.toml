@@ -1,0 +1,96 @@
+id = "pozzoo/hassio"
+name = "Home Assistant"
+version = "2.0.0"
+min_noctalia = "5.0.0"
+plugin_api = 1
+author = "Pozzoo"
+license = "MIT"
+tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]
+icon = "smart-home"
+dependencies = ["curl"]
+description = "Monitor and control Home Assistant entities from the bar. Displays entity states and provides quick toggles."
+
+[[setting]]
+key = "ha_url"
+type = "string"
+label_key = "settings.url.label"
+description_key = "settings.url.description"
+default = ""
+
+[[setting]]
+key = "ha_token"
+type = "string"
+label_key = "settings.token.label"
+description_key = "settings.token.description"
+default = ""
+
+[[setting]]
+key = "shortcut_entity_1"
+type = "string"
+label_key = "settings.shortcut_entity_1.label"
+description_key = "settings.shortcut_entity.description"
+default = ""
+
+[[setting]]
+key = "shortcut_entity_2"
+type = "string"
+label_key = "settings.shortcut_entity_2.label"
+description_key = "settings.shortcut_entity.description"
+default = ""
+
+[[setting]]
+key = "shortcut_entity_3"
+type = "string"
+label_key = "settings.shortcut_entity_3.label"
+description_key = "settings.shortcut_entity.description"
+default = ""
+
+[[setting]]
+key = "shortcut_entity_4"
+type = "string"
+label_key = "settings.shortcut_entity_4.label"
+description_key = "settings.shortcut_entity.description"
+default = ""
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_entity_count"
+  type = "bool"
+  label_key = "settings.show_entity_count.label"
+  default = false
+
+# SSE-based background service maintaining a live connection to HA
+[[service]]
+id = "connection"
+entry = "service_sse.luau"
+
+[[shortcut]]
+id = "ha_toggle_1"
+entry = "shortcut.luau"
+
+[[shortcut]]
+id = "ha_toggle_2"
+entry = "shortcut_2.luau"
+
+[[shortcut]]
+id = "ha_toggle_3"
+entry = "shortcut_3.luau"
+
+[[shortcut]]
+id = "ha_toggle_4"
+entry = "shortcut_4.luau"
+
+[[shortcut]]
+id = "ha_panel"
+entry = "shortcut_panel.luau"
+
+[[panel]]
+id = "entity_manager"
+entry = "panel.luau"
+width = 450
+height = 560
+placement = "floating"
+position = "center"

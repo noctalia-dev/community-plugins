@@ -1,0 +1,43 @@
+{
+  "widget": {
+    "status_connected": "Conectado",
+    "status_disconnected": "Desconectado",
+    "status_connecting": "Conectando",
+    "status_auth_failed": "Falha de Autenticação",
+    "status_unconfigured": "Não Configurado",
+    "tooltip": "Home Assistant: {status}",
+    "tooltip_entities": "Home Assistant: {status} ({count} entidades)"
+  },
+  "shortcut": {
+    "title": "Home Assistant",
+    "no_entities": "Nenhuma entidade configurada",
+    "toggle": "Alternar {entity}"
+  },
+  "settings": {
+    "url": {
+      "label": "URL do Home Assistant",
+      "description": "A URL para sua instância do Home Assistant (e.g., http://homeassistant.local:8123)"
+    },
+    "token": {
+      "label": "Token de Acesso Longo",
+      "description": "Crie um token no Home Assistant em Profile → Security → Long-lived access tokens"
+    },
+    "shortcut_entity": {
+      "description": "ID da entidade do Home Assistant para mostrar e alternar neste espaço (e.g. light.living_room)."
+    },
+    "shortcut_entity_1": { "label": "Botão Rápido 1 - ID da Entidade" },
+    "shortcut_entity_2": { "label": "Botão Rápido 2 - ID da Entidade" },
+    "shortcut_entity_3": { "label": "Botão Rápido 3 - ID da Entidade" },
+    "shortcut_entity_4": { "label": "Botão Rápido 4 - ID da Entidade" },
+    "show_entity_count": {
+      "label": "Mostrar o Número de Entidades"
+    }
+  },
+  "notifications": {
+    "connected": "Conectado ao Home Assistant",
+    "disconnected": "Falha na conexão com o Home Assistant",
+    "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
+    "entity_toggled": "Alternado {entity}",
+    "reconnect_failed": "Não foi possível reconectar ao Home Assistant após {count} tentativas."
+  }
+}

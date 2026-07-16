@@ -1,0 +1,43 @@
+{
+  "widget": {
+    "status_connected": "Connected",
+    "status_disconnected": "Disconnected",
+    "status_connecting": "Connecting",
+    "status_auth_failed": "Auth Failed",
+    "status_unconfigured": "Not Configured",
+    "tooltip": "Home Assistant: {status}",
+    "tooltip_entities": "Home Assistant: {status} ({count} entities)"
+  },
+  "shortcut": {
+    "title": "Home Assistant",
+    "no_entities": "No entities configured",
+    "toggle": "Toggle {entity}"
+  },
+  "settings": {
+    "url": {
+      "label": "Home Assistant URL",
+      "description": "The URL to your Home Assistant instance (e.g., http://homeassistant.local:8123)"
+    },
+    "token": {
+      "label": "Long-Lived Access Token",
+      "description": "Create a token in Home Assistant under Profile → Security → Long-lived access tokens"
+    },
+"shortcut_entity": {
+      "description": "Home Assistant entity ID to show and toggle on this tile (e.g. light.living_room)."
+    },
+    "shortcut_entity_1": { "label": "Quick Toggle 1 - Entity ID" },
+    "shortcut_entity_2": { "label": "Quick Toggle 2 - Entity ID" },
+    "shortcut_entity_3": { "label": "Quick Toggle 3 - Entity ID" },
+    "shortcut_entity_4": { "label": "Quick Toggle 4 - Entity ID" },
+    "show_entity_count": {
+      "label": "Show entity count in widget"
+    }
+  },
+  "notifications": {
+    "connected": "Connected to Home Assistant",
+    "disconnected": "Lost connection to Home Assistant",
+    "auth_failed": "Authentication failed. Check your access token.",
+    "entity_toggled": "Toggled {entity}",
+    "reconnect_failed": "Unable to reconnect to Home Assistant after {count} attempts."
+  }
+}
