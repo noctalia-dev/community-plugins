@@ -7,7 +7,7 @@
 id = "nightwatch75/file-search"
 name = "File Search"
 version = "0.0.8"
-min_noctalia = "5.0.0"
+plugin_api = 3
 author = "nightwatch75"
 license = "MIT"
 # The exact commands the plugin spawns (fzf aside, findutils + coreutils +
