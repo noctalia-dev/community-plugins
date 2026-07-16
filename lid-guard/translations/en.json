@@ -1,0 +1,28 @@
+{
+  "title": "Lid Guard",
+  "tooltip": {
+    "active": "Lid Guard is on — closing the lid will not suspend the laptop",
+    "inactive": "Lid Guard is off — click to keep the laptop awake with the lid closed",
+    "changing": "Changing Lid Guard state…",
+    "unavailable": "Lid Guard requires systemd"
+  },
+  "shortcut": {
+    "active": "Lid Guard On",
+    "inactive": "Lid Guard Off"
+  },
+  "notification": {
+    "enabled": {
+      "title": "Lid Guard enabled",
+      "body": "Closing the laptop lid will no longer suspend it."
+    },
+    "disabled": {
+      "title": "Lid Guard disabled",
+      "body": "The normal lid-close behavior has been restored."
+    }
+  },
+  "error": {
+    "missing_dependencies": "systemctl, systemd-run, systemd-inhibit, and sleep are required.",
+    "command_failed": "The systemd command failed.",
+    "state_mismatch": "The requested state could not be confirmed."
+  }
+}
