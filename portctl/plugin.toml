@@ -1,0 +1,71 @@
+# portctl — inspect and kill listening ports from the bar.
+
+id           = "rxtsel/portctl"
+name         = "Portctl"
+version      = "0.2.0"
+min_noctalia = "5.0.0"
+author       = "Cristhian Melo"
+license      = "MIT"
+icon         = "plug"
+description  = "Inspect and kill listening TCP/UDP ports."
+tags         = ["network", "utility", "development", "indicator", "bar", "panel", "service"]
+dependencies = ["ss"]
+
+[[setting]]
+key             = "refresh_interval"
+type            = "int"
+label_key       = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default         = 5
+min             = 1
+max             = 60
+
+[[setting]]
+key             = "ignore_list"
+type            = "string"
+label_key       = "settings.ignore_list.label"
+description_key = "settings.ignore_list.description"
+default         = ""
+
+[[setting]]
+key             = "ignore_ports"
+type            = "string"
+label_key       = "settings.ignore_ports.label"
+description_key = "settings.ignore_ports.description"
+default         = ""
+
+[[setting]]
+key             = "hide_system_ports"
+type            = "bool"
+label_key       = "settings.hide_system_ports.label"
+description_key = "settings.hide_system_ports.description"
+default         = true
+
+[[setting]]
+key             = "hide_unknown_ports"
+type            = "bool"
+label_key       = "settings.hide_unknown_ports.label"
+description_key = "settings.hide_unknown_ports.description"
+default         = false
+
+[[service]]
+id    = "scanner"
+entry = "service.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 428
+height          = 280
+open_near_click = true
+
+[[widget]]
+id    = "indicator"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "plug"
