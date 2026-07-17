@@ -24,4 +24,15 @@ You can customize the list and order of websites in settings.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `links` | `string_list` |  | Websites list and order. |
+| `links` | `string_list` | `see below` | Websites list and order. |
+| `notify` | `bool` | `false` | Toggle notification when launching website. |
+
+Default links:
+```
+"GitHub|https://github.com",
+"GitLab|https://gitlab.com",
+"Codeberg|https://codeberg.org",
+"Reddit|https://reddit.com",
+"YouTube|https://youtube.com",
+"Gmail|https://mail.google.com",
+```
