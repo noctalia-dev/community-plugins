@@ -46,10 +46,23 @@ local ASK_NOTE = table.concat({
 }, " ")
 
 -- claude only; this is the single backend seam.
+-- A quick-ask is promised as read-only (README "Usage"), so it must NOT inherit
+-- the user's Claude config, where pre-authorized permissions would let a plain
+-- question run commands or edit files: --tools "" strips every built-in tool,
+-- --strict-mcp-config (with no --mcp-config) strips inherited MCP servers, and
+-- --setting-sources "" skips user/project settings and with them hooks, plugins,
+-- and permission grants. NOT --bare: it never reads OAuth logins, which are the
+-- auth path quick-ask depends on (see the auth guard below).
 local function backend_command(prompt)
   -- Claude Code: -p (print/non-interactive) requires --verbose for stream-json.
-  return PATH_PREFIX .. "claude --output-format stream-json --verbose"
-      .. " --append-system-prompt " .. shq(ASK_NOTE) .. " -p " .. shq(prompt)
+  -- `-p --` before the prompt is load-bearing: without the `--` end-of-options
+  -- marker, a question whose first token starts with `-` (e.g. pasted text
+  -- leading with `--dangerously-skip-permissions`) is parsed as CLI flags and
+  -- can undo the read-only sandbox above. `--` forces the prompt to be a
+  -- positional (verified: a prompt of "--version" is answered, not executed).
+  return PATH_PREFIX .. "claude --tools '' --strict-mcp-config --setting-sources ''"
+      .. " --output-format stream-json --verbose"
+      .. " --append-system-prompt " .. shq(ASK_NOTE) .. " -p -- " .. shq(prompt)
 end
 
 -- one stream-json line → an EVENT (or nil). Claude Code emits one JSON object per

@@ -20,7 +20,7 @@ Don't run Claude Code? The signal bus is agent-agnostic — any agent, CI job, o
 | Entries | Bar widget: `pulse`; desktop widget: `orb`; panel: `answer`; launcher: `claude` |
 | Launcher Prefix | `/claude` |
 
-Built and live-tested against Noctalia 5.0.0 (build `623210223c`), with an offline widget spec suite keeping the state machine honest.
+Built and live-tested against Noctalia 5.0.0 (build `623210223c`), with an offline spec suite (`tests/shim_spec.py`) pinning the shim's compositor seam and its injection guards.
 
 ## See it
 
@@ -47,7 +47,7 @@ And downstream is where the quiet parts live. `orb.luau` is pure view. It subscr
 - **Noctalia 5.0.0** on a supported Wayland compositor — **niri**, **Hyprland**, or **Sway**. The shim detects which one is running and speaks its IPC; the widgets themselves are compositor-agnostic. You only need the CLI for the compositor you actually run — `niri`, `hyprctl` (Hyprland), or `swaymsg` (Sway) — not all three.
 - **[Claude Code](https://claude.com/claude-code)** — the `claude` agent being visualized. Optional if you're driving the widgets from another agent via [PROTOCOL.md](PROTOCOL.md).
 - **`python3`** for the MCP shim (stdlib only, no pip installs)
-- On the PATH as the shim's senses need them: `playerctl`, `nmcli`, `notify-send`
+- On the PATH as the shim's senses need them: `playerctl`, `nmcli`, `notify-send`, `ps`
 
 ## Install
 
@@ -78,7 +78,7 @@ noctalia msg plugin lowcache/claude-companion:pulse all idle              # back
 
 ## Usage
 
-`/claude <task>` opens a real Claude Code session in your terminal, shim already wired in. Bare `/claude` picks up where you left off (`claude --continue`). And `/claude ? <question>` is the quick one — a read-only ask that comes back as a toast and lands, in full, in the answer panel.
+`/claude <task>` opens a real Claude Code session in your terminal, shim already wired in. Bare `/claude` picks up where you left off (`claude --continue`). And `/claude ? <question>` is the quick one — a read-only ask that comes back as a toast and lands, in full, in the answer panel. Read-only is enforced, not assumed: the ask launches with no built-in tools, no MCP servers, and none of your Claude settings (so no hooks, plugins, or pre-authorized permissions), leaving it nothing but the model and your question.
 
 That panel opens however you like it: click the pulse, use the "Show last answer" row under `/claude`, or toggle it from the CLI:
 

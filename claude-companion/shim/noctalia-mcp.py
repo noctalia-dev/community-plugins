@@ -69,6 +69,27 @@ def _ws_numeric(ref):
     return str(ref).lstrip("-").isdigit()
 
 
+# Caller-supplied identifiers are VALIDATED, not quoted: swaymsg concatenates its
+# argv into one command in Sway's command language, where `;`/`,` chain further
+# commands (`exec` included) — so a hostile ref could smuggle arbitrary execution
+# past a narrowly approved window/workspace action. Strict allowlists; every id
+# the compositors themselves emit fits (niri/Sway integer ids, Hyprland 0x-hex
+# addresses, workspace indices, single-word names).
+_WINDOW_ID_RE = re.compile(r"(?:0x[0-9A-Fa-f]+|[0-9]+)\Z")
+_WS_REF_RE = re.compile(r"[A-Za-z0-9._:+-]+\Z")
+
+
+def valid_window_id(wid):
+    """True iff wid is a compositor window id: decimal or 0x-prefixed hex."""
+    return _WINDOW_ID_RE.fullmatch(str(wid)) is not None
+
+
+def valid_workspace_ref(ref):
+    """True iff ref is a safe workspace index/name — no spaces and none of Sway's
+    command metacharacters (separators, quotes, criteria brackets)."""
+    return _WS_REF_RE.fullmatch(str(ref)) is not None
+
+
 def compositor_argv(comp, op, ref=None, wid=None):
     """Pure map (compositor, op) -> argv; no I/O, so it is directly unit-testable.
 
@@ -301,6 +322,8 @@ def _focus_window(a):
     wid = str(a.get("id") or "").strip()
     if not wid:
         return "error: 'id' is required"
+    if not valid_window_id(wid):
+        return "error: invalid window id (use the numeric or 0x-hex id from get_window)"
     comp = detect_compositor()
     if comp is None:
         return _no_comp()
@@ -311,6 +334,8 @@ def _switch_workspace(a):
     ref = str(a.get("reference") or "").strip()
     if not ref:
         return "error: 'reference' is required"
+    if not valid_workspace_ref(ref):
+        return "error: invalid workspace reference (letters/digits/._:+- only, no spaces)"
     comp = detect_compositor()
     if comp is None:
         return _no_comp()
@@ -321,6 +346,8 @@ def _move_to_workspace(a):
     ref = str(a.get("reference") or "").strip()
     if not ref:
         return "error: 'reference' is required"
+    if not valid_workspace_ref(ref):
+        return "error: invalid workspace reference (letters/digits/._:+- only, no spaces)"
     comp = detect_compositor()
     if comp is None:
         return _no_comp()

@@ -4,8 +4,9 @@
 --       noctalia msg plugin lowcache/claude-companion:pulse all <event> [payload]
 --     payload = "model,in,out,cacheCreate,cacheRead,session" (hooks/pulse.py).
 --     Each real session is tracked by its id; SessionEnd removes it.
---   • claude.luau writes "claude.state" (the launcher quick-ask) → watched here as one
---     ephemeral pseudo-session ("ask"), removed when the ask completes.
+--   • claude.luau writes "claude.state" (the launcher quick-ask) → POLLED here (bar
+--     widgets don't fire state.watch in v5 — D8 / README) as one ephemeral pseudo-
+--     session ("ask"), removed when the ask completes.
 --
 -- Bar plugin widgets have no per-frame tick (that's desktop-only), so the breath
 -- runs on noctalia.setUpdateInterval(ms) + the global update(): a raised-cosine
@@ -125,6 +126,7 @@ local PALETTE_EVERY = 128       -- re-resolve accents every ~7.7 s so theme chan
 local cur = "idle"              -- most-urgent state across sessions (drives glyph + tempo)
 local phase = VISUAL.idle.period / 2  -- breath clock, seconds; born at peak brightness
 local ticks = 0
+local last_ask = nil           -- last claude.state seen by the quick-ask poll (below)
 
 local function level_for(period) -- raised-cosine brightness in [BMIN, BMAX]
   local t = phase % period
@@ -273,15 +275,23 @@ end
 -- launcher quick-ask path (no session id, no telemetry). Ephemeral: shown while
 -- streaming, dropped when it finishes — the answer is delivered via notify, so a
 -- lingering "done" would only inflate the session count.
-noctalia.state.watch("claude.state", function(s)
-  if type(s) ~= "string" then return end
-  if s == "turn_end" or s == "error" then
+--
+-- POLLED, not watched: bar widgets don't fire noctalia.state.watch callbacks in
+-- v5 (D8 / README "Rough edges"), so update() reads claude.state each tick the
+-- same way it re-reads the palette. Only a *change* touches the session table and
+-- re-renders, so a steady state costs a single state.get and nothing more.
+local function poll_ask()
+  local s = noctalia.state.get and noctalia.state.get("claude.state")
+  if type(s) ~= "string" then s = nil end
+  if s == last_ask then return end
+  last_ask = s
+  if s == nil or s == "turn_end" or s == "error" then
     sessions["ask"] = nil
   else
     touch("ask", s, nil)
   end
   render()
-end)
+end
 
 -- hook reflex path: per-session state + token telemetry, full lifecycle. The
 -- dispatcher always tags the event with a session id; `session_end` (the Claude
@@ -326,6 +336,7 @@ function update()
   if phase > 1e6 then phase = 0 end
   ticks = ticks + 1
   if ticks % PALETTE_EVERY == 0 then resolve_accents() end
+  poll_ask()  -- surface quick-ask state changes (bar widgets can't watch)
   paint()
 end
 
