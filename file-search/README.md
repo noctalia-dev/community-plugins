@@ -86,8 +86,8 @@ index is shared with the panel and built on demand when missing.
 - [`fzf`](https://github.com/junegunn/fzf) — the fuzzy matcher
 - `find` (GNU findutils) — walks the search folder into the index
 - `xdg-open` (xdg-utils) — opens results with the MIME association
-- `mkdir`, `mktemp`, `mv`, `wc`, `head`, `rm` — GNU coreutils, standard on
-  any Linux desktop
+- `mktemp`, `mv`, `wc`, `head`, `rm` — GNU coreutils, standard on any Linux
+  desktop
 
 ## Install
 
@@ -105,10 +105,13 @@ noctalia msg plugins enable nightwatch75/file-search
 
 ## Notes
 
-- The index lives in `${XDG_CACHE_HOME:-~/.cache}/noctalia/file-search.list`
-  and is a plain list of paths relative to the search folder. A sidecar
-  `file-search.meta` records which folder and exclusions built it, so both
-  the panel and the launcher rebuild automatically after a settings change.
+- The index lives in the plugin's private data directory
+  (`noctalia.pluginDataDir()`, by default
+  `~/.local/state/noctalia/plugins/data/nightwatch75/file-search/` — honors
+  `NOCTALIA_STATE_HOME`/`XDG_STATE_HOME`): `index.list` is a plain list of
+  paths relative to the search folder, and `index.meta` records which folder
+  and exclusions built it, so both the panel and the launcher rebuild
+  automatically after a settings change.
 - Both files are written to `mktemp`-created private files and renamed into
   place, so a rebuild never writes through a symlink planted at the cache
   path.

@@ -10,12 +10,6 @@
 
 local MAX_RESULTS = 9
 
--- The .meta sidecar holds the settings fingerprint the cache was built
--- with, so the panel and the launcher can both tell a stale index apart.
-local CACHE_SH = 'CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia"\n'
-    .. 'CACHE="$CACHE_DIR/file-search.list"\n'
-    .. 'META="$CACHE_DIR/file-search.meta"'
-
 local searching = false
 local indexing = false
 local pendingQuery = nil -- latest query typed while a search/index ran
@@ -34,6 +28,25 @@ local function shellQuote(value)
     return "'" .. value:gsub("'", "'\\''") .. "'"
 end
 
+-- Private per-plugin storage (XDG state); the host creates the directory on
+-- every call. nil (with a log line) when no state directory resolves.
+local function dataDir()
+    local dir, err = noctalia.pluginDataDir()
+    if dir == nil then
+        noctalia.log("file-search: pluginDataDir failed: " .. tostring(err))
+        return nil
+    end
+    return dir
+end
+
+-- Shell header shared by every cache command. The .meta sidecar holds the
+-- settings fingerprint the cache was built with, so the panel and the
+-- launcher can both tell a stale index apart.
+local function cacheSh(dir)
+    return "CACHE_DIR=" .. shellQuote(dir)
+        .. '\nCACHE="$CACHE_DIR/index.list"\nMETA="$CACHE_DIR/index.meta"'
+end
+
 local function searchRoot()
     local dir = noctalia.getConfig("search_folder")
     if dir == nil or dir == "" then
@@ -48,13 +61,6 @@ local function searchRoot()
     return dir
 end
 
-local function metaPath()
-    local base = noctalia.getenv("XDG_CACHE_HOME")
-    if base == nil or base == "" then
-        base = (noctalia.getenv("HOME") or "/tmp") .. "/.cache"
-    end
-    return base .. "/noctalia/file-search.meta"
-end
 
 -- Same exclusion set as the panel: names from the setting plus hidden
 -- entries unless enabled.
@@ -84,8 +90,8 @@ end
 
 -- The cache on disk is current when its fingerprint matches the settings,
 -- whether the panel or the launcher built it.
-local function cacheFresh()
-    return noctalia.readFile(metaPath()) == indexKey()
+local function cacheFresh(dir)
+    return noctalia.readFile(dir .. "/index.meta") == indexKey()
 end
 
 -- One cache record, about to be joined to the search root. The cache is a
@@ -112,6 +118,11 @@ local function buildIndex(query)
         pendingQuery = query
         return
     end
+    local dir = dataDir()
+    if dir == nil then
+        launcher.setResults(query, { noopRow("err_index") })
+        return
+    end
     indexing = true
     pendingQuery = query
 
@@ -127,15 +138,14 @@ local function buildIndex(query)
     -- find's own exit status is ignored, so permission errors inside the
     -- tree don't fail the build. Cache and fingerprint are written to
     -- mktemp-created private files and renamed into place: rename replaces
-    -- a planted symlink at the predictable destination instead of
-    -- following it.
-    local cmd = CACHE_SH
-        .. '\nmkdir -p "$CACHE_DIR"\n'
-        .. 'TMP=$(mktemp "$CACHE_DIR/file-search.list.XXXXXX") || exit 1\n'
+    -- a planted symlink at the destination instead of following it. The
+    -- host guarantees $CACHE_DIR exists (created by pluginDataDir above).
+    local cmd = cacheSh(dir)
+        .. '\nTMP=$(mktemp "$CACHE_DIR/index.list.XXXXXX") || exit 1\n'
         .. "find " .. shellQuote(searchRoot()) .. " -mindepth 1 " .. prune
         .. "-type d -printf '%P/\\n' -o -printf '%P\\n' > \"$TMP\" 2>/dev/null\n"
         .. 'mv -f "$TMP" "$CACHE" || exit 1\n'
-        .. 'TMPM=$(mktemp "$CACHE_DIR/file-search.meta.XXXXXX") || exit 1\n'
+        .. 'TMPM=$(mktemp "$CACHE_DIR/index.meta.XXXXXX") || exit 1\n'
         .. "printf '%s' " .. shellQuote(key) .. ' > "$TMPM"\n'
         .. 'mv -f "$TMPM" "$META" || exit 1'
 
@@ -165,13 +175,18 @@ runQuery = function(query)
         pendingQuery = query
         return
     end
+    local dir = dataDir()
+    if dir == nil then
+        launcher.setResults(query, { noopRow("err_index") })
+        return
+    end
     searching = true
     local text = trim(query)
     local cmd
     if text == "" then
-        cmd = CACHE_SH .. '\nhead -n ' .. MAX_RESULTS .. ' "$CACHE" 2>/dev/null'
+        cmd = cacheSh(dir) .. '\nhead -n ' .. MAX_RESULTS .. ' "$CACHE" 2>/dev/null'
     else
-        cmd = CACHE_SH .. "\nfzf --filter=" .. shellQuote(text)
+        cmd = cacheSh(dir) .. "\nfzf --filter=" .. shellQuote(text)
             .. ' < "$CACHE" 2>/dev/null | head -n ' .. MAX_RESULTS
     end
     local ok = noctalia.runAsync(cmd, function(result)
@@ -217,10 +232,15 @@ function onQuery(query)
         launcher.setResults(query, { noopRow("err_no_fzf") })
         return
     end
+    local dir = dataDir()
+    if dir == nil then
+        launcher.setResults(query, { noopRow("err_index") })
+        return
+    end
     -- A missing or stale index (no meta, or built with a different root or
     -- exclusion set) is rebuilt before searching: stale relative paths
     -- joined to a new root could resolve to unrelated files.
-    if not cacheFresh() then
+    if not cacheFresh(dir) then
         buildIndex(query)
         return
     end
@@ -229,9 +249,13 @@ end
 
 function onActivate(id)
     if id == "reindex" then
+        local dir = dataDir()
+        if dir == nil then
+            return
+        end
         -- Drop cache and fingerprint so the next keystroke rebuilds against
         -- fresh disk state (a surviving .meta would read as a fresh index).
-        noctalia.runAsync(CACHE_SH .. '\nrm -f "$CACHE" "$META"', function(_result)
+        noctalia.runAsync(cacheSh(dir) .. '\nrm -f "$CACHE" "$META"', function(_result)
             noctalia.notify(tr("title"), tr("launcher.reindex_done"))
         end)
         return
