@@ -27,7 +27,7 @@
     },
     "active_color": {
       "label": "Active lyric color",
-      "description": "Color used for the current and already-sung lyric characters."
+      "description": "Color used for the current and already-sung lyric characters. Defaults to the interface text color."
     },
     "inactive_color": {
       "label": "Inactive lyric color",
@@ -56,6 +56,18 @@
     "cue_text": {
       "label": "Intro/interlude characters",
       "description": "Text or characters highlighted during intros and interludes."
+    },
+    "cue_font_mode": {
+      "label": "Intro/interlude font mode",
+      "description": "Choose whether intro and interlude characters follow Noctalia's interface font or use another installed font.",
+      "options": {
+        "follow": "Follow interface font",
+        "custom": "Custom font"
+      }
+    },
+    "cue_font_family": {
+      "label": "Intro/interlude font",
+      "description": "Installed font family used only for intro and interlude characters in custom-font mode."
     },
     "scroll_mode": {
       "label": "Scroll mode",

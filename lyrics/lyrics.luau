@@ -8,20 +8,23 @@ local showArtist = noctalia.getConfig("show_artist")
 local hideWhenPaused = noctalia.getConfig("hide_when_paused")
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end
-local activeColor = noctalia.getConfig("active_color") or "primary"
+local activeColor = noctalia.getConfig("active_color") or "on_surface"
 local inactiveColor = noctalia.getConfig("inactive_color") or "on_surface_variant"
 
 -- These are plugin settings, not per-widget settings.
 local scrollMode = noctalia.getConfig("scroll_mode") or "auto"
 local marqueeSpeed = tonumber(noctalia.getConfig("marquee_speed")) or 30
 local maxLines = tonumber(noctalia.getConfig("max_lines")) or 1
-local maxChars = tonumber(noctalia.getConfig("max_chars")) or 24
+local maxChars = tonumber(noctalia.getConfig("max_chars")) or 15
 local charWidth = tonumber(noctalia.getConfig("char_width")) or 9
 local gradientOn = noctalia.getConfig("gradient")
 if gradientOn == nil then gradientOn = true end
 local animation = noctalia.getConfig("animation") or "karaoke"
 local cueText = noctalia.getConfig("cue_text") or "•••••"
 if cueText == "" then cueText = "•••••" end
+local cueFontMode = noctalia.getConfig("cue_font_mode") or "follow"
+local cueFontFamily = noctalia.getConfig("cue_font_family") or "sans-serif"
+if cueFontFamily == "" then cueFontFamily = "sans-serif" end
 
 local track = nil
 local lyrics = nil
@@ -96,7 +99,7 @@ local function getLineInfo()
     return {
       key = "intro",
       index = 0,
-      line = { text = cueText },
+      line = { text = cueText, cue = true },
       progress = clamp(position / firstTime, 0, 1),
       synced = true,
       position = position,
@@ -135,7 +138,7 @@ local function getLineInfo()
     return {
       key = "interlude-" .. tostring(index),
       index = index,
-      line = { text = cueText },
+      line = { text = cueText, cue = true },
       progress = clamp((position - lineEnd) / (nextTime - lineEnd), 0, 1),
       synced = true,
       position = position,
@@ -226,6 +229,7 @@ local function buildLineRow(line, opts)
   opts = opts or {}
   local text = type(line) == "table" and line.text or line
   local times = type(line) == "table" and line.chars or nil
+  local isCue = opts.cue or (type(line) == "table" and line.cue == true)
   local chars = toChars(text or "")
   if #chars == 0 then chars = { " " } end
 
@@ -278,6 +282,7 @@ local function buildLineRow(line, opts)
       color = color,
       opacity = alpha,
       maxLines = 1,
+      fontFamily = isCue and cueFontMode == "custom" and cueFontFamily or nil,
     })
   end
 
@@ -349,6 +354,7 @@ local function render()
           cascade = shownLine == info.line and animation == "cascade",
           wave = shownLine == info.line and animation == "wave",
           opacity = opacity,
+          cue = shownLine == info.line and info.cue == true,
         })
       end
 

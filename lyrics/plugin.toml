@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.2.0"
+version = "1.3.0"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
@@ -64,6 +64,25 @@ description_key = "settings.cue_text.description"
 default = "•••••"
 
 [[setting]]
+key = "cue_font_mode"
+type = "select"
+label_key = "settings.cue_font_mode.label"
+description_key = "settings.cue_font_mode.description"
+default = "follow"
+options = [
+  { value = "follow", label_key = "settings.cue_font_mode.options.follow" },
+  { value = "custom", label_key = "settings.cue_font_mode.options.custom" },
+]
+
+[[setting]]
+key = "cue_font_family"
+type = "string"
+label_key = "settings.cue_font_family.label"
+description_key = "settings.cue_font_family.description"
+default = "sans-serif"
+visible_when = { key = "cue_font_mode", values = ["custom"] }
+
+[[setting]]
 key = "scroll_mode"
 type = "select"
 label_key = "settings.scroll_mode.label"
@@ -118,7 +137,7 @@ options = [
 key = "max_chars"
 type = "int"
 label_key = "settings.max_chars.label"
-default = 24
+default = 15
 min = 8
 max = 80
 description_key = "settings.max_chars.description"
@@ -172,7 +191,7 @@ entry = "lyrics.luau"
   type = "color"
   label_key = "settings.active_color.label"
   description_key = "settings.active_color.description"
-  default = "primary"
+  default = "on_surface"
 
   [[widget.setting]]
   key = "inactive_color"
