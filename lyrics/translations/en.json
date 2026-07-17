@@ -4,6 +4,14 @@
   "intro": "Intro",
   "instrumental": "Instrumental",
   "settings": {
+    "player_allowlist": {
+      "label": "Allowed players",
+      "description": "Only use matching MPRIS player names or instances. Supports * wildcards; leave empty to allow all players."
+    },
+    "player_blocklist": {
+      "label": "Blocked players",
+      "description": "Ignore matching MPRIS player names or instances. Supports * wildcards and takes priority over the allowlist."
+    },
     "glyph": {
       "label": "Glyph"
     },

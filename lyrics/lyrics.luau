@@ -29,6 +29,7 @@ local cover = nil
 local playing = false
 local showMode = "auto"
 local rendered = false
+local playerInstance = ""
 
 local baselinePosition = 0
 local baselineClock = os.clock()
@@ -47,6 +48,10 @@ local BLEND_MS = 350
 local INTERLUDE_GAP_MS = 7000
 local INTRO_MIN_MS = 6000
 local INTERLUDE_MIN_MS = 8000
+
+local function shellQuote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
 
 local function clamp(value, low, high)
   return math.min(high, math.max(low, value))
@@ -391,7 +396,8 @@ function onClick()
 end
 
 function onRightClick()
-  noctalia.runAsync("playerctl play-pause", function(result)
+  if playerInstance == "" then return end
+  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " play-pause", function(result)
     if result.exitCode == 0 then
       local wasPlaying = playing
       if wasPlaying then baselinePosition = getProgressMs() * 1000 end
@@ -412,6 +418,7 @@ function update()
   lyrics = noctalia.state.get("lyrics")
   cover = noctalia.state.get("cover")
   playing = noctalia.state.get("playing") == true
+  playerInstance = noctalia.state.get("player_instance") or ""
 
   local info = getLineInfo()
   local nextKey = info and info.key or "fallback"

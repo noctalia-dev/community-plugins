@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
@@ -8,6 +8,22 @@ dependencies = ["playerctl", "python3", "cp"]
 tags = ["bar", "service", "music", "media", "animation"]
 icon = "music"
 description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
+
+[[setting]]
+key = "player_allowlist"
+type = "string_list"
+label_key = "settings.player_allowlist.label"
+description_key = "settings.player_allowlist.description"
+default = []
+advanced = true
+
+[[setting]]
+key = "player_blocklist"
+type = "string_list"
+label_key = "settings.player_blocklist.label"
+description_key = "settings.player_blocklist.description"
+default = []
+advanced = true
 
 [[setting]]
 key = "lyrics_source"

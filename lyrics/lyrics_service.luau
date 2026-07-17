@@ -10,16 +10,85 @@ local coverCache = {}
 local lastTrackKey = ""
 local inFlight = nil
 local coverInFlight = nil
-local krcTmp = (noctalia.pluginDir() or "/tmp") .. "/.krc_cache.tmp"
+local pluginDir = noctalia.pluginDir() or "/tmp"
+local cacheDir = pluginDir .. "/.cache"
+noctalia.mkdirAll(cacheDir)
+local krcTmp = cacheDir .. "/krc.tmp"
 local lyricsSource = noctalia.getConfig("lyrics_source") or "auto"
 local customUrl = noctalia.getConfig("custom_url") or ""
 local customJsonField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
 local currentTrack = nil
 local currentEmbeddedLyrics = ""
+local currentPlayerInstance = ""
+
+local function normalizePatterns(value)
+  if type(value) ~= "table" then return {} end
+  local patterns = {}
+  for _, pattern in ipairs(value) do
+    pattern = tostring(pattern):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if pattern ~= "" then patterns[#patterns + 1] = pattern end
+  end
+  table.sort(patterns)
+  return patterns
+end
+
+local playerAllowlist = normalizePatterns(noctalia.getConfig("player_allowlist"))
+local playerBlocklist = normalizePatterns(noctalia.getConfig("player_blocklist"))
+
+local function trackKey(track)
+  return (track.playerInstance or "") .. "|" .. track.title .. "|" .. track.artist .. "|" .. track.album
+end
+
+local function patternMatches(value, pattern)
+  local luaPattern = "^" .. pattern:gsub("([%%%^%$%(%)%.%[%]%+%-%?])", "%%%1"):gsub("%*", ".*") .. "$"
+  return value:lower():match(luaPattern) ~= nil
+end
+
+local function matchesAny(player, patterns)
+  for _, pattern in ipairs(patterns) do
+    if patternMatches(player.name, pattern) or patternMatches(player.instance, pattern) then return true end
+  end
+  return false
+end
+
+local function playerAllowed(player)
+  if #playerAllowlist > 0 and not matchesAny(player, playerAllowlist) then return false end
+  return not matchesAny(player, playerBlocklist)
+end
+
+local function selectPlayer(players)
+  local best = nil
+  local bestRank = -1
+  for _, player in ipairs(players) do
+    if playerAllowed(player) then
+      local rank = player.status == "playing" and 2 or (player.status == "paused" and 1 or 0)
+      if rank > bestRank or (rank == bestRank and player.instance == currentPlayerInstance) then
+        best = player
+        bestRank = rank
+      end
+    end
+  end
+  return best
+end
+
+local function clearPlayerState()
+  currentPlayerInstance = ""
+  currentTrack = nil
+  currentEmbeddedLyrics = ""
+  lastTrackKey = ""
+  inFlight = nil
+  coverInFlight = nil
+  noctalia.state.set("player_instance", nil)
+  noctalia.state.set("player_name", nil)
+  noctalia.state.set("track", nil)
+  noctalia.state.set("lyrics", nil)
+  noctalia.state.set("cover", nil)
+  noctalia.state.set("playing", false)
+end
 
 local function coverPathFor(track)
   local safe = (track.artist .. "_" .. track.album .. "_" .. track.title):gsub("[^%w]+", "_")
-  return noctalia.pluginDir() .. "/cover_" .. safe .. ".jpg"
+  return cacheDir .. "/cover_" .. safe .. ".jpg"
 end
 
 local function shellQuote(value)
@@ -75,16 +144,15 @@ local function evictCache()
 end
 
 local function fetchLyricsNetEase(track, embeddedLyrics)
-  if inFlight then return end
-  inFlight = track
-
-  local tk = track.title .. "|" .. track.artist .. "|" .. track.album
+  local tk = trackKey(track)
+  if inFlight == tk then return end
+  inFlight = tk
 
   local function tryFetch(query, fallback)
     local searchUrl = "https://music.163.com/api/search/get?type=1&s=" .. noctalia.string.urlEncode(query) .. "&limit=5"
 
     noctalia.http({ url = searchUrl, headers = { "Referer: https://music.163.com" } }, function(r1)
-      if not inFlight then return end
+      if inFlight ~= tk then return end
       if tk ~= lastTrackKey then inFlight = nil; return end
 
       if not r1.ok or r1.status < 200 or r1.status >= 300 or not r1.body or #r1.body == 0 then
@@ -128,7 +196,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
       local lyricUrl = "https://music.163.com/api/song/lyric?id=" .. noctalia.string.urlEncode(songId) .. "&lv=1&kv=1&tv=-1"
 
       noctalia.http({ url = lyricUrl, headers = { "Referer: https://music.163.com" } }, function(r2)
-        if not inFlight then return end
+        if inFlight ~= tk then return end
         if tk ~= lastTrackKey then inFlight = nil; return end
 
     local lyrics = nil
@@ -150,7 +218,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
       if klyricStr ~= "" then
         local py = 'python3 "' .. noctalia.pluginDir() .. '/krc_decode.py" "' .. krcTmp .. '"'
         noctalia.runAsync(py, function(r3)
-          if not inFlight then return end
+          if inFlight ~= tk then return end
           if tk ~= lastTrackKey then inFlight = nil; return end
           local ok, parsed = pcall(noctalia.json.decode, r3.stdout or "")
           if ok and parsed and parsed.type == "krc" and parsed.lines then
@@ -201,7 +269,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
   end
 
   local query = track.title .. "\n" .. track.artist .. "\n" .. (track.album or "")
-  local qTmp = (noctalia.pluginDir() or "/tmp") .. "/.query_cache.tmp"
+  local qTmp = cacheDir .. "/query.tmp"
   noctalia.writeFile(qTmp, query)
   local dir = noctalia.pluginDir() or "/tmp"
 
@@ -228,7 +296,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
   local function runPy(script, cb)
     local py = 'python3 "' .. dir .. "/" .. script .. '" "' .. qTmp .. '"'
     noctalia.runAsync(py, function(r)
-      if not inFlight then return end
+      if inFlight ~= tk then return end
       if tk ~= lastTrackKey then inFlight = nil; return end
       local ok, parsed = pcall(noctalia.json.decode, r.stdout or "")
       cb(ok and parsed or nil)
@@ -317,13 +385,14 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
 end
 
 local function fetchCover(track, artUrl)
-  if coverInFlight then return end
-  coverInFlight = track.title .. "|" .. track.artist .. "|" .. track.album
+  local tk = trackKey(track)
+  if coverInFlight == tk then return end
+  coverInFlight = tk
 
   local dest = coverPathFor(track)
 
   local apply = function(path)
-    local tk = track.title .. "|" .. track.artist .. "|" .. track.album
+    if coverInFlight ~= tk then return end
     coverInFlight = nil
     if tk ~= lastTrackKey then return end
     coverCache[tk] = path
@@ -354,50 +423,69 @@ local function fetchCover(track, artUrl)
 end
 
 local function poll()
-  local cmd = [[playerctl metadata --format $'{{lc(status)}}\x1f{{title}}\x1f{{artist}}\x1f{{album}}\x1f{{position}}\x1f{{mpris:length}}\x1f{{mpris:artUrl}}\x1f{{xesam:asText}}' 2>/dev/null]]
+  local cmd = [[playerctl --all-players metadata --format $'{{playerInstance}}\x1f{{playerName}}\x1f{{lc(status)}}\x1f{{title}}\x1f{{artist}}\x1f{{album}}\x1f{{position}}\x1f{{mpris:length}}\x1f{{mpris:artUrl}}\x1f{{xesam:asText}}\x1e' 2>/dev/null]]
 
   noctalia.runAsync(cmd, function(r)
     if r.exitCode ~= 0 or not r.stdout or r.stdout == "" then
-      noctalia.state.set("track", nil)
-      noctalia.state.set("lyrics", nil)
-      noctalia.state.set("cover", nil)
-      noctalia.state.set("playing", false)
+      clearPlayerState()
       return
     end
 
-    local parts = {}
-    local separator = string.char(31)
-    for field in (r.stdout .. separator):gmatch("(.-)" .. separator) do
-      parts[#parts + 1] = field:gsub("^%s+", ""):gsub("%s+$", "")
+    local players = {}
+    local fieldSeparator = string.char(31)
+    local recordSeparator = string.char(30)
+    for record in (r.stdout .. recordSeparator):gmatch("(.-)" .. recordSeparator) do
+      if record ~= "" then
+        local parts = {}
+        for field in (record .. fieldSeparator):gmatch("(.-)" .. fieldSeparator) do
+          parts[#parts + 1] = field:gsub("^%s+", ""):gsub("%s+$", "")
+        end
+        local player = {
+          instance = parts[1] or "",
+          name = parts[2] or "",
+          status = parts[3] or "stopped",
+          title = parts[4] or "",
+          artist = parts[5] or "",
+          album = parts[6] or "",
+          position = tonumber(parts[7]) or 0,
+          duration = tonumber(parts[8]) or 0,
+          artUrl = parts[9] or "",
+          embeddedLyrics = parts[10] or "",
+        }
+        if player.instance ~= "" or player.name ~= "" then players[#players + 1] = player end
+      end
     end
 
-    local status = parts[1] or "stopped"
-    local title = parts[2] or ""
-    local artist = parts[3] or ""
-    local album = parts[4] or ""
-    local artUrl = parts[7] or ""
-    local embeddedLyrics = parts[8] or ""
-
-    if title == "" and artist == "" then
-      noctalia.state.set("track", nil)
-      noctalia.state.set("lyrics", nil)
-      noctalia.state.set("playing", status == "playing")
+    local selected = selectPlayer(players)
+    if not selected then
+      clearPlayerState()
       return
     end
 
-    local playing = status == "playing"
-    local tk = title .. "|" .. artist .. "|" .. album
+    currentPlayerInstance = selected.instance
+    noctalia.state.set("player_instance", selected.instance)
+    noctalia.state.set("player_name", selected.name)
 
+    if selected.title == "" and selected.artist == "" then
+      noctalia.state.set("track", nil)
+      noctalia.state.set("lyrics", nil)
+      noctalia.state.set("playing", selected.status == "playing")
+      return
+    end
+
+    local playing = selected.status == "playing"
     local t = {
-      title = title,
-      artist = artist,
-      album = album,
-      status = status,
-      position = tonumber(parts[5]) or 0,
-      duration = tonumber(parts[6]) or 0,
+      title = selected.title,
+      artist = selected.artist,
+      album = selected.album,
+      status = selected.status,
+      position = selected.position,
+      duration = selected.duration,
+      playerInstance = selected.instance,
     }
+    local tk = trackKey(t)
     currentTrack = t
-    currentEmbeddedLyrics = embeddedLyrics
+    currentEmbeddedLyrics = selected.embeddedLyrics
 
     noctalia.state.set("position", t.position)
 
@@ -411,7 +499,7 @@ local function poll()
         noctalia.state.set("lyrics", cached)
       else
         noctalia.state.set("lyrics", nil)
-        fetchLyricsNetEase(t, embeddedLyrics)
+        fetchLyricsNetEase(t, selected.embeddedLyrics)
       end
 
       local cachedCover = coverCache[tk]
@@ -419,7 +507,7 @@ local function poll()
         noctalia.state.set("cover", cachedCover)
       else
         noctalia.state.set("cover", nil)
-        fetchCover(t, artUrl)
+        fetchCover(t, selected.artUrl)
       end
     else
       noctalia.state.set("track", t)
@@ -443,11 +531,22 @@ function onConfigChanged()
   local nextSource = noctalia.getConfig("lyrics_source") or "auto"
   local nextUrl = noctalia.getConfig("custom_url") or ""
   local nextField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
+  local nextAllowlist = normalizePatterns(noctalia.getConfig("player_allowlist"))
+  local nextBlocklist = normalizePatterns(noctalia.getConfig("player_blocklist"))
   local sourceChanged = nextSource ~= lyricsSource or nextUrl ~= customUrl or nextField ~= customJsonField
+  local playersChanged = table.concat(nextAllowlist, "\n") ~= table.concat(playerAllowlist, "\n")
+    or table.concat(nextBlocklist, "\n") ~= table.concat(playerBlocklist, "\n")
   lyricsSource = nextSource
   customUrl = nextUrl
   customJsonField = nextField
-  if sourceChanged and currentTrack then
+  playerAllowlist = nextAllowlist
+  playerBlocklist = nextBlocklist
+  if playersChanged then
+    currentPlayerInstance = ""
+    inFlight = nil
+    poll()
+  end
+  if sourceChanged and currentTrack and not playersChanged then
     inFlight = nil
     cache = {}
     noctalia.state.set("lyrics", nil)
@@ -460,7 +559,12 @@ local function applyPushedLyrics(payload)
   if type(decoded) == "table" then
     if decoded.track then
       currentTrack = decoded.track
-      lastTrackKey = (decoded.track.title or "") .. "|" .. (decoded.track.artist or "") .. "|" .. (decoded.track.album or "")
+      lastTrackKey = trackKey({
+        playerInstance = decoded.track.playerInstance or "",
+        title = decoded.track.title or "",
+        artist = decoded.track.artist or "",
+        album = decoded.track.album or "",
+      })
       noctalia.state.set("track", decoded.track)
     end
     if decoded.lines then noctalia.state.set("lyrics", decoded.lines) end

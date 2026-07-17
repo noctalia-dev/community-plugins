@@ -33,6 +33,11 @@ settings. The background `service` detects the active MPRIS player, resolves
 lyrics, downloads or caches album artwork, and publishes playback state to the
 widget.
 
+When several players are available, the service prefers a playing player, then
+a paused player, and keeps the current player when priorities are equal. The
+optional allowlist and blocklist match player names or instances and support
+`*` wildcards.
+
 Left-click the widget to switch between lyrics and track information. Right-click
 to pause or resume the active player. Paused content is dimmed and all lyric,
 transition, and marquee animation stops until playback resumes.
@@ -55,6 +60,8 @@ Plugin settings:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `player_allowlist` | `string_list` | empty | Only uses matching MPRIS player names or instances; supports `*` wildcards. |
+| `player_blocklist` | `string_list` | empty | Ignores matching MPRIS player names or instances; takes priority over the allowlist. |
 | `lyrics_source` | `select` | `auto` | Selects automatic fallback, LRCLIB, public NetEase, MPRIS text, custom HTTP, or external IPC. |
 | `custom_url` | `string` | empty | HTTP URL template with `{title}`, `{artist}`, `{album}`, and `{duration}` placeholders. |
 | `custom_json_field` | `string` | `syncedLyrics` | Dotted field path containing an LRC string or timed-lines array in a JSON response. |
@@ -102,7 +109,7 @@ Automatic mode requests LRCLIB first, then the public NetEase Music API. Custom
 HTTP mode contacts only the configured endpoint. The plugin never reads browser
 cookies or player credentials.
 
-The service runs `playerctl` to read and control MPRIS playback, `python3` for the
+The service runs `playerctl` to select, read, and control MPRIS playback, `python3` for the
 LRCLIB helper and dynamic-lyric parser, and `cp` to preserve temporary local cover
 files. Public NetEase requests use Noctalia's HTTP API. Query scratch files and
 downloaded cover images are written inside the plugin runtime directory. Remote
