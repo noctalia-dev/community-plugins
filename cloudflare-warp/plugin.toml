@@ -6,9 +6,8 @@ author = "aurora-kid"
 icon = "brand-cloudflare"
 license = "MIT"
 tags = ["internet", "cloudflare", "warp", "privacy", "network"]
-icon = "brand-cloudflare"
 description = "Widget and shortcut to track and toggle Cloudflare WARP connection."
-dependencies = ["cloudflare-warp", "cloudflare-warp-bin"]
+dependencies = ["cloudflare-warp", "cloudflare-warp-bin", "warp-cli", "warp-taskbar"]
 
 [[setting]]
 key = "update_interval"
