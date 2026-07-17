@@ -48,7 +48,8 @@ noctalia msg panel-toggle pozzoo/hassio:entity_manager
 | `shortcut_entity_1` | `string` | `""` | Entity ID used by Quick Toggle 1 (e.g. `light.kitchen`). |
 | `shortcut_entity_2` | `string` | `""` | Entity ID used by Quick Toggle 2. |
 | `shortcut_entity_3` | `string` | `""` | Entity ID used by Quick Toggle 3. |
-| `shortcut_entity_4` | `string` | `""` | Entity ID used by Quick Toggle 4. 
+| `shortcut_entity_4` | `string` | `""` | Entity ID used by Quick Toggle 4. |
+| `show_entity_count` | `bool` | `false` | Show the number of monitored entities next to the connection status in the `status` bar widget. |
 
 ## IPC
 
@@ -70,6 +71,8 @@ Notes: the plugin forwards Home Assistant state updates internally and uses Noct
 
 ## Notes
 
-- The plugin maintains a live SSE connection to Home Assistant to receive real-time state changes and saves the pinned entity list to `managed_entities.json` inside the plugin directory.
-- The plugin issues HTTP requests to your HA instance and spawns `curl` for service calls; do not install untrusted plugins if you do not want them to access your network or tokens.
+- The plugin maintains a live SSE connection to Home Assistant to receive real-time state changes. `curl` is used only for this streaming connection; all other requests (fetching states, toggling entities, browsing) go through Noctalia's native HTTP API.
+- The pinned entity list is saved to `managed_entities.json` in the plugin's persistent data directory (`noctalia.pluginDataDir()`), so it survives plugin updates.
+- To authenticate the SSE connection without exposing the access token on the command line, the plugin briefly writes it to a temporary file (`ha_sse_auth.cfg`, also in the plugin's data directory) that `curl` reads via its config-file option. The file is deleted immediately after `curl` reads it, and as a safety net, on plugin shutdown.
+- The plugin issues HTTP requests to your HA instance; do not install untrusted plugins if you do not want them to access your network or tokens.
 - If authentication fails, generate a new long-lived access token in Home Assistant and paste it into plugin settings.
