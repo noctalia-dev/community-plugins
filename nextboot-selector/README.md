@@ -15,7 +15,7 @@ This plugin mainly requires `efibootmgr` but need to escalate using `pkexec` or 
 
 ## Usage
 
-Add the `nextboot-selector`
+Add the `nextboot-selector` widget to a bar. Click it to show a panel that lists all boot entries on your computer. Click one of the entry to change the next boot to it.
 
 Open the panel directly with:
 
