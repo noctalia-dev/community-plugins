@@ -1,0 +1,166 @@
+id = "h465855hgg/lyrics"
+name = "Lyrics"
+version = "1.1.0"
+plugin_api = 3
+author = "h465855hgg"
+license = "MIT"
+dependencies = ["playerctl", "python3", "cp"]
+tags = ["bar", "service", "music", "media", "animation"]
+icon = "music"
+description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
+
+[[setting]]
+key = "lyrics_source"
+type = "select"
+label_key = "settings.lyrics_source.label"
+description_key = "settings.lyrics_source.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.lyrics_source.options.auto" },
+  { value = "lrclib", label_key = "settings.lyrics_source.options.lrclib" },
+  { value = "netease", label_key = "settings.lyrics_source.options.netease" },
+  { value = "mpris", label_key = "settings.lyrics_source.options.mpris" },
+  { value = "custom", label_key = "settings.lyrics_source.options.custom" },
+  { value = "external", label_key = "settings.lyrics_source.options.external" },
+]
+
+[[setting]]
+key = "custom_url"
+type = "string"
+label_key = "settings.custom_url.label"
+description_key = "settings.custom_url.description"
+default = ""
+visible_when = { key = "lyrics_source", values = ["custom"] }
+
+[[setting]]
+key = "custom_json_field"
+type = "string"
+label_key = "settings.custom_json_field.label"
+description_key = "settings.custom_json_field.description"
+default = "syncedLyrics"
+visible_when = { key = "lyrics_source", values = ["custom"] }
+
+[[setting]]
+key = "cue_text"
+type = "string"
+label_key = "settings.cue_text.label"
+description_key = "settings.cue_text.description"
+default = "•••••"
+
+[[setting]]
+key = "scroll_mode"
+type = "select"
+label_key = "settings.scroll_mode.label"
+default = "auto"
+description_key = "settings.scroll_mode.description"
+options = [
+  { value = "auto", label_key = "settings.scroll_mode.options.auto" },
+  { value = "marquee", label_key = "settings.scroll_mode.options.marquee" },
+  { value = "static", label_key = "settings.scroll_mode.options.static" },
+]
+
+[[setting]]
+key = "marquee_speed"
+type = "int"
+label_key = "settings.marquee_speed.label"
+default = 30
+min = 10
+max = 120
+description_key = "settings.marquee_speed.description"
+
+[[setting]]
+key = "max_lines"
+type = "int"
+label_key = "settings.max_lines.label"
+default = 1
+min = 1
+max = 3
+description_key = "settings.max_lines.description"
+
+[[setting]]
+key = "gradient"
+type = "bool"
+label_key = "settings.gradient.label"
+default = true
+description_key = "settings.gradient.description"
+
+[[setting]]
+key = "animation"
+type = "select"
+label_key = "settings.animation.label"
+default = "karaoke"
+description_key = "settings.animation.description"
+options = [
+  { value = "karaoke", label_key = "settings.animation.options.karaoke" },
+  { value = "cascade", label_key = "settings.animation.options.cascade" },
+  { value = "wave", label_key = "settings.animation.options.wave" },
+  { value = "fade", label_key = "settings.animation.options.fade" },
+  { value = "none", label_key = "settings.animation.options.none" },
+]
+
+[[setting]]
+key = "max_chars"
+type = "int"
+label_key = "settings.max_chars.label"
+default = 24
+min = 8
+max = 80
+description_key = "settings.max_chars.description"
+
+[[setting]]
+key = "char_width"
+type = "int"
+label_key = "settings.char_width.label"
+default = 9
+min = 4
+max = 24
+description_key = "settings.char_width.description"
+
+# Headless background service: polls MPRIS metadata, fetches lyrics, publishes state.
+[[service]]
+id = "service"
+entry = "lyrics_service.luau"
+
+# Bar widget: thin presentation that mirrors the published lyrics state.
+[[widget]]
+id = "lyrics"
+entry = "lyrics.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "music"
+
+  [[widget.setting]]
+  key = "show_artist"
+  type = "bool"
+  label_key = "settings.show_artist.label"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_paused"
+  type = "bool"
+  label_key = "settings.hide_when_paused.label"
+  default = false
+
+  [[widget.setting]]
+  key = "show_cover"
+  type = "bool"
+  label_key = "settings.show_cover.label"
+  description_key = "settings.show_cover.description"
+  default = true
+
+  [[widget.setting]]
+  key = "active_color"
+  type = "color"
+  label_key = "settings.active_color.label"
+  description_key = "settings.active_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "inactive_color"
+  type = "color"
+  label_key = "settings.inactive_color.label"
+  description_key = "settings.inactive_color.description"
+  default = "on_surface_variant"
