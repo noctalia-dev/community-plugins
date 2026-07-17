@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "update_interval": {
+      "label": "Update interval",
+      "description": "Update check interval in seconds."
+    },
+    "notify_state": {
+      "label": "Notify state changes",
+      "description": "Show a notification when the connection state changes."
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "Glyph shown at bar."
+    }
+  },
+  "status": "Status",
+  "state": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting",
+    "unavailable": "Unavailable",
+    "error": "Error"
+  },
+  "commands": {
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "toggle_conn": "Toggle Connection",
+    "toggle_client": "Toggle Client"
+  },
+  "actions": {
+    "left_click": "Left Click",
+    "right_click": "Right Click"
+  },
+  "strings": {
+    "unavailable": "warp-cli is not available",
+    "found": "warp-cli is now available",
+    "unknown_err": "Unknown error"
+  }
+}
