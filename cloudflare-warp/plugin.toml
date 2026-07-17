@@ -5,9 +5,9 @@ plugin_api = 3
 author = "aurora-kid"
 icon = "brand-cloudflare"
 license = "MIT"
-tags = ["internet", "cloudflare", "warp", "privacy", "network"]
+tags = ["bar", "shortcut", "service", "privacy", "network"]
 description = "Widget and shortcut to track and toggle Cloudflare WARP connection."
-dependencies = ["cloudflare-warp", "cloudflare-warp-bin", "warp-cli", "warp-taskbar"]
+dependencies = ["cloudflare-warp", "cloudflare-warp-bin", "warp-cli", "warp-taskbar", "pkill"]
 
 [[setting]]
 key = "update_interval"

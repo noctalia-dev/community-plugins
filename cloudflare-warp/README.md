@@ -6,7 +6,7 @@ Plugin to check and toggle Cloudflare WARP connection and Client from a bar widg
 
 | Field | Value |
 | --- | --- |
-| ID | `sinisterkid/cloudflare-warp` |
+| ID | `aurora-kid/cloudflare-warp` |
 | Entries | Bar widget: `warp_widget`; service: `warp_service` | shortcut: `warp_shortcut` |
 
 ## Requirements
