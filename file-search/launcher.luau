@@ -155,7 +155,15 @@ local function buildIndex(query)
         local queued = pendingQuery
         pendingQuery = nil
         if result.exitCode == 0 and not result.timedOut then
-            runQuery(queued or query)
+            if indexKey() ~= key then
+                -- Settings changed while the walk was running: the cache
+                -- holds paths relative to the old root, and activation
+                -- would join them to the new one. Rebuild instead of
+                -- searching stale records (mirrors the panel).
+                buildIndex(queued or query)
+            else
+                runQuery(queued or query)
+            end
         else
             launcher.setResults(queued or query, { noopRow("err_index") })
         end
