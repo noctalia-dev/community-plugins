@@ -1,5 +1,6 @@
 --!nonstrict
 
+-- Simple and lazy
 local CONNECTED_ID = 1
 local UNAVAILABLE_ID = 4
 local TOGGLE_CMD_ID = 3

@@ -1,0 +1,46 @@
+id = "aurora-kid/cloudflare-warp"
+name = "Cloudflare WARP"
+version = "0.0.7"
+plugin_api = 3
+author = "aurora-kid"
+icon = "brand-cloudflare"
+license = "MIT"
+tags = ["internet", "cloudflare", "warp", "privacy", "network"]
+icon = "brand-cloudflare"
+description = "Widget and shortcut to track and toggle Cloudflare WARP connection."
+dependencies = ["cloudflare-warp", "cloudflare-warp-bin"]
+
+[[setting]]
+key = "update_interval"
+type = "int"
+label_key  = "settings.update_interval.label"
+description_key = "settings.update_interval.description"
+default = 5
+min = 1
+max = 300
+
+[[setting]]
+key = "notify_state"
+type = "bool"
+label_key = "settings.notify_state.label"
+description_key = "settings.notify_state.description"
+default = false
+
+[[widget]]
+id = "warp_widget"
+entry = "warp_widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "brand-cloudflare"
+
+[[service]]
+id = "warp_service"
+entry = "warp_service.luau"
+
+[[shortcut]]
+id = "warp_shortcut"
+entry = "warp_shortcut.luau"
