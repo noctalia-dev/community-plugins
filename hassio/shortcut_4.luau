@@ -93,8 +93,8 @@ function onClick()
         url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
         method = "POST",
         headers = {
-            ["Authorization"] = "Bearer " .. haToken,
-            ["Content-Type"] = "application/json",
+            "Authorization: Bearer " .. haToken,
+            "Content-Type: application/json",
         },
         body = encoded,
     }, function(response)end)

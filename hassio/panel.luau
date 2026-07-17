@@ -33,8 +33,8 @@ local function haPost(path, body)
         url = haUrl .. path,
         method = "POST",
         headers = {
-            ["Authorization"] = "Bearer " .. haToken,
-            ["Content-Type"] = "application/json",
+            "Authorization: Bearer " .. haToken,
+            "Content-Type: application/json",
         },
         body = encodedBody,
     }, function(response: HttpResponse)end)
@@ -95,7 +95,7 @@ local function fetchAllEntities()
     noctalia.http({
         url = haUrl .. "/api/states",
         headers = {
-            ["Authorization"] = "Bearer " .. haToken,
+            "Authorization: Bearer " .. haToken,
         }
     }, function(response: HttpResponse)
         browserLoading = false
