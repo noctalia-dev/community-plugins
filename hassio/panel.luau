@@ -11,7 +11,9 @@ local sliderDraft = {}
 local sliderDirty = {}
 
 local pendingToggle = {}
-local pendingAge = {} -- entity_id -> watch-fire count since toggle (for timeout)
+local pendingSince = {} -- entity_id -> os.clock() when toggle was requested
+
+local PENDING_TIMEOUT_SECONDS = 8
 
 local view = "list" -- "list" | "browser"
 local allEntities = {}
@@ -154,6 +156,29 @@ local function markDirty(key)
     sliderDirty[expandedEntityId][key] = true
 end
 
+local function clearPending(entityId)
+    pendingToggle[entityId] = nil
+    pendingSince[entityId] = nil
+end
+
+local function isPendingTimedOut(entityId, now)
+    local startedAt = pendingSince[entityId]
+    if not startedAt then return false end
+    return (now or os.clock()) - startedAt >= PENDING_TIMEOUT_SECONDS
+end
+
+local function reconcilePending(now)
+    local changed = false
+    for entityId, expected in pairs(pendingToggle) do
+        local real = entityStates[entityId]
+        if not real or real.state == expected or isPendingTimedOut(entityId, now) then
+            clearPending(entityId)
+            changed = true
+        end
+    end
+    return changed
+end
+
 -- _actN/_expN are per-slot callback targets referenced by index from the rendered rows below.
 -- In list view they act on the entity in that row's slot; in browser view _actN toggles its pin.
 local function actSlot(i)
@@ -171,7 +196,7 @@ local function actSlot(i)
     else
         local newState = entity.state == "on" and "off" or "on"
         pendingToggle[eid] = newState
-        pendingAge[eid] = 0
+        pendingSince[eid] = os.clock()
         callService(d, "toggle", eid)
         render()
     end
@@ -510,6 +535,8 @@ local function buildBrowserBody()
 end
 
 function render()
+    reconcilePending(os.clock())
+
     if view == "browser" then
         panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
             ui.row({ align = "center", gap = 8 }, {
@@ -542,8 +569,19 @@ function onOpen(_context)
     entityStates = noctalia.state.get("entities") or {}
     loadMonitoredEntities()
     panelOpenCount = panelOpenCount + 1
+    panel.setWantsSecondTicks(true)
     noctalia.state.set("panel_open_signal", panelOpenCount)
     render()
+end
+
+function onClose()
+    panel.setWantsSecondTicks(false)
+end
+
+function update()
+    if reconcilePending(os.clock()) then
+        render()
+    end
 end
 
 function onCloseClicked()
@@ -552,15 +590,7 @@ end
 
 noctalia.state.watch("entities", function(value)
     entityStates = value or {}
-    for eid, expected in pairs(pendingToggle) do
-        local age = (pendingAge[eid] or 0) + 1
-        pendingAge[eid] = age
-        local real = entityStates[eid]
-        if not real or real.state == expected or age > 20 then
-            pendingToggle[eid] = nil
-            pendingAge[eid] = nil
-        end
-    end
+    reconcilePending(os.clock())
     render()
 end)
 
