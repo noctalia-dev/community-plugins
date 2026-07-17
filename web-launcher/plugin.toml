@@ -1,10 +1,10 @@
 id = "yocraft/web-launcher"
-name = "Web launcher"
+name = "Web Launcher"
 version = "1.0.0"
 plugin_api = 3
 author = "yocraft"
 description = "Quickly open your favorite websites from the launcher."
-tags = ["web", "bookmarks"]
+tags = ["launcher", "utility", "network", "productivity"]
 
 [[launcher_provider]]
 id = "web-launcher"
