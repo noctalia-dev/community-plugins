@@ -1,0 +1,15 @@
+{
+  "settings.eyecare-active-duration.label": "Active Duration",
+  "settings.eyecare-active-duration.description": "Active screen time before triggering a break (minutes)",
+  "settings.eyecare-break-duration.label": "Break Duration",
+  "settings.eyecare-break-duration.description": "Required duration for eye-care breaks (seconds)",
+  "settings.eyecare-sound.label": "Enable Audio Feedback",
+  "settings.eyecare-sound.description": "Play notification sound when breaks start or finish",
+  "settings.eyecare-notifications.label": "Enable Notifications",
+  "settings.eyecare-notifications.description": "Show system-level notifications for reminders",
+  
+  "notifications.eyecare-break-title": "Time for a break",
+  "notifications.eyecare-break-body": "Focus on an object 20 feet away for 20 seconds.",
+  "notifications.eyecare-break-finished-title": "Break finished",
+  "notifications.eyecare-break-finished-body": "Your eyes are rested. You can return to your screen."
+}
