@@ -47,8 +47,8 @@ local function haRequest(endpoint, method, body, callback)
       method = method,
       body = jsonBody,
       headers = {
-        ["Authorization"] = "Bearer " .. cleanToken,
-        ["Content-Type"] = "application/json",
+        "Authorization: Bearer " .. cleanToken,
+        "Content-Type: application/json",
       }
   }, function(response: HttpResponse)
       if not response then
@@ -242,19 +242,57 @@ local function fetchInitialStates()
   end)
 end
 
+local SSE_AUTH_FILE = "ha_sse_auth.cfg"
+
+local function deleteSSEAuthFile()
+  local dir = noctalia.pluginDataDir()
+  if not dir then return end
+  noctalia.removeFile(dir .. "/" .. SSE_AUTH_FILE)
+end
+
 function startSSEStream()
   if suspended then return end
   if sseActive then return end
 
+  local dataDir, dirErr = noctalia.pluginDataDir()
+  if not dataDir then
+    noctalia.log("Cannot start SSE stream: no plugin data dir (" .. (dirErr or "unknown") .. ")")
+    return
+  end
+
+  local cleanToken = haToken:gsub("^%s+", ""):gsub("%s+$", "")
+  local authFilePath = dataDir .. "/" .. SSE_AUTH_FILE
+
+  -- curl reads -K synchronously before connecting, so the token only ever
+  -- touches disk for the brief window between this write and curl reading it.
+  -- It never appears in this (or any) process's argv/cmdline.
+  local ok, writeErr = noctalia.writeFile(authFilePath, 'header = "Authorization: Bearer ' .. cleanToken .. '"\n')
+  if not ok then
+    noctalia.log("Failed to write SSE auth file: " .. (writeErr or "unknown"))
+    return
+  end
+
   local url = haUrl .. "/api/stream?restrict=state_changed"
-  local cmd = "curl -N -H " .. escapeShellArg("Authorization: Bearer " .. haToken) ..
+  local cmd = "curl -N -K " .. escapeShellArg(authFilePath) ..
               " -H " .. escapeShellArg("Accept: text/event-stream") ..
               " " .. escapeShellArg(url)
 
   noctalia.log("Starting SSE stream")
   sseActive = true
 
-  noctalia.runStream(cmd, function(line)
+  local authFileDeleted = false
+  local function cleanupAuthFileOnce()
+    if authFileDeleted then return end
+    authFileDeleted = true
+    deleteSSEAuthFile()
+  end
+
+  local launched = noctalia.runStream(cmd, function(line)
+    -- Clean up as soon as possible: either curl has already read the config
+    -- (first line arrived, so the request went out) or the stream ended
+    -- without ever connecting (line == nil). Guarded so it only runs once.
+    cleanupAuthFileOnce()
+
     if line == nil then
       sseActive = false
       currentEvent = {}
@@ -262,6 +300,11 @@ function startSSEStream()
     end
     processSSELine(line)
   end)
+
+  if not launched then
+    sseActive = false
+    cleanupAuthFileOnce()
+  end
 end
 
 noctalia.state.watch("command", function(cmd)
@@ -319,6 +362,10 @@ function update()
     noctalia.state.set("connection_status", status)
     fetchInitialStates()
   end
+end
+
+function onExit()
+  deleteSSEAuthFile()
 end
 
 noctalia.state.set("connection_status", status)
