@@ -1,6 +1,6 @@
 # Next Boot Selector
 
-Next Boot Selector select which boot entry to boot for the next reboot only. Useful if you're dual-booting and goes back and forth to/from Windows.
+Next Boot Selector selects which boot entry to boot for the next reboot only. Useful if you're dual-booting and goes back and forth to/from Windows.
 
 ## Plugin
 
