@@ -7,7 +7,7 @@ license = "MIT"
 icon = "controller"
 description = "Set the DualShock 4 lightbar colour from a bar button and panel."
 tags = ["gaming", "hardware", "utility", "bar", "panel"]
-dependencies = ["ps4-colors"]
+dependencies = []
 
 [[widget]]
 id = "widget"
