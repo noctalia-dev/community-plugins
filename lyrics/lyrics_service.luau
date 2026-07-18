@@ -16,6 +16,8 @@ local coverInFlight = nil
 local pluginDir = noctalia.pluginDir() or "/tmp"
 local cacheDir = pluginDir .. "/.cache"
 noctalia.mkdirAll(cacheDir)
+local requestDir = cacheDir .. "/requests"
+noctalia.mkdirAll(requestDir)
 local krcTmp = cacheDir .. "/krc.tmp"
 local lyricsSource = noctalia.getConfig("lyrics_source") or "auto"
 local lyricsSources = noctalia.getConfig("lyrics_sources") or {
@@ -32,8 +34,8 @@ local currentEmbeddedLyrics = ""
 local currentPlayerInstance = ""
 local currentArtUrl = ""
 
-for _, name in ipairs(noctalia.listDir(cacheDir) or {}) do
-  if name:match("^source_request_.*%.json$") then noctalia.removeFile(cacheDir .. "/" .. name) end
+for _, name in ipairs(noctalia.listDir(requestDir) or {}) do
+  if name:match("^source_request_.*%.json$") then noctalia.removeFile(requestDir .. "/" .. name) end
 end
 
 local function normalizePatterns(value)
@@ -279,7 +281,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
         if not ok then klyricStr = "" end
       end
       if klyricStr ~= "" then
-        local py = 'python3 "' .. noctalia.pluginDir() .. '/krc_decode.py" "' .. krcTmp .. '"'
+        local py = "python3 " .. shellQuote(pluginDir .. "/krc_decode.py") .. " " .. shellQuote(krcTmp)
         noctalia.runAsync(py, function(r3)
           if inFlight ~= flight then return end
           if tk ~= lastTrackKey then inFlight = nil; return end
@@ -357,7 +359,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
   end
 
   local function runPy(script, cb)
-    local py = 'python3 "' .. dir .. "/" .. script .. '" "' .. qTmp .. '"'
+    local py = "python3 " .. shellQuote(dir .. "/" .. script) .. " " .. shellQuote(qTmp)
     noctalia.runAsync(py, function(r)
       if inFlight ~= flight then return end
       if tk ~= lastTrackKey then inFlight = nil; return end
@@ -436,7 +438,7 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
     return
   end
 
-  local requestPath = cacheDir .. "/source_request_" .. tostring(fetchGeneration) .. ".json"
+  local requestPath = requestDir .. "/source_request_" .. tostring(fetchGeneration) .. ".json"
   local sources = normalizedSources()
   local request = {
     track = track,
@@ -470,28 +472,41 @@ local function fetchLyricsNetEase(track, embeddedLyrics)
     request.source = source
     request.credentials = credentialsFor(source)
     local encoded = noctalia.json.encode(request)
-    if not encoded or not noctalia.writeFile(requestPath, encoded) then
+    if not encoded then
       trySource(index + 1)
       return
     end
-    local command = "chmod 600 " .. shellQuote(requestPath) .. " && python3 "
-      .. shellQuote(pluginDir .. "/lyric_sources.py") .. " " .. shellQuote(requestPath)
-    local started = noctalia.runAsync(command, function(result)
-      noctalia.removeFile(requestPath)
+
+    -- Secure the containing directory before any credentials are written.
+    local secured = noctalia.runAsync("chmod 700 " .. shellQuote(requestDir), function(chmodResult)
       if inFlight ~= flight or tk ~= lastTrackKey then return end
-      local parsed = noctalia.json.decode(result.stdout or "")
-      if type(parsed) == "table" and parsed.type == "lyrics" and type(parsed.lines) == "table" and #parsed.lines > 0 then
-        cache[tk] = parsed.lines
-        evictCache()
-        inFlight = nil
-        noctalia.state.set("lyrics", parsed.lines)
-        noctalia.state.set("lyrics_source_used", parsed.source or source)
-      else
+      if chmodResult.exitCode ~= 0 or not noctalia.writeFile(requestPath, encoded) then
+        trySource(index + 1)
+        return
+      end
+
+      local command = "python3 " .. shellQuote(pluginDir .. "/lyric_sources.py")
+        .. " " .. shellQuote(requestPath)
+      local started = noctalia.runAsync(command, function(result)
+        noctalia.removeFile(requestPath)
+        if inFlight ~= flight or tk ~= lastTrackKey then return end
+        local parsed = noctalia.json.decode(result.stdout or "")
+        if type(parsed) == "table" and parsed.type == "lyrics" and type(parsed.lines) == "table" and #parsed.lines > 0 then
+          cache[tk] = parsed.lines
+          evictCache()
+          inFlight = nil
+          noctalia.state.set("lyrics", parsed.lines)
+          noctalia.state.set("lyrics_source_used", parsed.source or source)
+        else
+          trySource(index + 1)
+        end
+      end, 30000)
+      if not started then
+        noctalia.removeFile(requestPath)
         trySource(index + 1)
       end
-    end, 30000)
-    if not started then
-      noctalia.removeFile(requestPath)
+    end, 5000)
+    if not secured then
       trySource(index + 1)
     end
   end

@@ -18,7 +18,8 @@ Install these commands on `PATH`:
 - `playerctl`: read and control MPRIS players.
 - `python3`: run the unified lyric-source adapter and dynamic lyric parser.
 - `cp`: preserve local MPRIS artwork in the plugin cache.
-- `chmod`: restrict temporary credential request files to the current user.
+- `chmod`: secures the temporary request directory before credentials are
+  written.
 
 ## Usage
 
@@ -106,7 +107,8 @@ Noctalia currently exposes these as normal string settings, not secret fields.
 Spotify, Apple Music, Musixmatch, and Qishui credentials may therefore be stored
 in plaintext in Noctalia's settings. The plugin never scans browser cookies,
 never logs credential values, and deletes its temporary credential request file
-as soon as the source adapter reads it.
+as soon as the source adapter reads it. The service applies mode `0700` to the
+request directory before writing any credential-bearing file.
 
 ## Settings
 
