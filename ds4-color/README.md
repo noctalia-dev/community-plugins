@@ -1,4 +1,4 @@
-# PS4 Colors
+# DS4 Color
 
 Set the LED lightbar colour on a connected PlayStation 4 DualShock 4 controller
 from a Noctalia bar button and a color panel. Click the bar icon to apply your
@@ -13,7 +13,7 @@ library is required. The plugin writes the HID output report straight to
 
 | Field | Value |
 | --- | --- |
-| ID | `Hy4ri/ps4-colors` |
+| ID | `Hy4ri/ds4-color` |
 | Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
 
 ## Requirements
@@ -40,12 +40,12 @@ Re-login or run `udevadm trigger` for the change to take effect.
 
 ## Usage
 
-**Left-click** the **PS4 Colors** bar button to instantly apply the last saved
+**Left-click** the **DS4 Color** bar button to instantly apply the last saved
 colour to every connected DualShock 4. **Right-click** the bar button (or run the
 command below) to open the panel:
 
 ```sh
-noctalia msg panel-toggle Hy4ri/ps4-colors:panel
+noctalia msg panel-toggle Hy4ri/ds4-color:panel
 ```
 
 In the panel: pick a colour with the native picker, type a hex value
@@ -63,8 +63,8 @@ colour survives restarts.
 ## IPC
 
 ```sh
-noctalia msg plugin Hy4ri/ps4-colors:service all apply <hex>
-noctalia msg plugin Hy4ri/ps4-colors:service all save <hex>
+noctalia msg plugin Hy4ri/ds4-color:service all apply <hex>
+noctalia msg plugin Hy4ri/ds4-color:service all save <hex>
 ```
 
 ## Notes

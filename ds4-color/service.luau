@@ -3,7 +3,7 @@
 --!nolint UnknownGlobal
 -- Headless service: implements the DualShock 4 lightbar protocol in pure Lua.
 -- No external binary needed — writes the HID output report to /dev/hidrawN.
-local tr = noctalia.tr("ps4_colors")
+local tr = noctalia.tr("ds4_color")
 
 -- pluginDataDir() may return nil (state home unset), so resolve it lazily and
 -- guard every use. Computing it at module top-level and concatenating would
