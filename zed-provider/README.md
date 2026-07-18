@@ -17,7 +17,7 @@ can reopen a project quickly without leaving the shell.
 
 Install [Zed](https://zed.dev) and ensure `zed` is available on `PATH` as
 `zeditor`. The `sqlite3` command must also be available to read Zed's workspace
-database.
+database. `nohup` command is required to launch Zed.
 
 ## Usage
 
