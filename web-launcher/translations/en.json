@@ -4,6 +4,10 @@
             "label": "Links",
             "description": "Format: Name|https://url"
         },
+        "command": {
+            "label": "Command",
+            "description": "Command that launches the website. Example: \"firefox --new-window\""
+        },
         "notify": {
             "label": "Notify",
             "description": "Notify when opening link."

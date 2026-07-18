@@ -12,7 +12,7 @@ Quickly open your favorite websites from the launcher. Favicons are downloaded a
 
 ## Requirements
 
-A browser and `xdg-utils`.
+A browser and `xdg-utils` (optional with advanced command setting).
 
 ## Usage
 
@@ -27,6 +27,7 @@ You can customize the list and order of websites in settings.
 | `links` | `string_list` | `see below` | Websites list and order. |
 | `notify` | `bool` | `true` | Toggle notification when launching website. |
 | `icon_provider` | `select` | `google` | Icon download source. |
+| `command` | `string` | `xdg-open` | Command that launches the website. |
 
 Default links:
 ```

@@ -32,6 +32,14 @@ default = [
 ]
 
 [[setting]]
+key = "command"
+type = "string"
+label_key = "settings.command.label"
+description_key = "settings.command.description"
+default = "xdg-open"
+advanced = true
+
+[[setting]]
 key = "notify"
 type = "bool"
 label_key = "settings.notify.label"
