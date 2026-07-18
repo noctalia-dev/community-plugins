@@ -14,7 +14,7 @@ local function currentColor()
   return noctalia.state.get("lastColor") or "990000"
 end
 
--- Build a click handler for preset index i that lives for the panel session.
+-- Build a click handler for preset index i; registered in onOpen.
 local function makePresetHandler(i)
   return function()
     local presets = noctalia.state.get("presets") or {}
@@ -31,15 +31,19 @@ local function render()
 
   local presetRow = {}
   for i, p in ipairs(presets) do
+    local selected = (p.hex:lower() == color:lower())
     table.insert(presetRow, ui.box({
-      width = 34, height = 34, fill = "#" .. p.hex, radius = 8,
-      border = (p.hex:lower() == color:lower()) and "primary" or "outline",
-      borderWidth = (p.hex:lower() == color:lower()) and 2 or 1,
+      width = 34,
+      height = 34,
+      fill = "#" .. p.hex,
+      radius = 8,
+      border = "outline",
+      borderWidth = selected and 3 or 1,
       onClick = "onPreset" .. i,
     }))
   end
 
-  panel.render(ui.column({ gap = 14, padding = 16 }, {
+  panel.render(ui.column({ gap = 12, padding = 16 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = tr, fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
@@ -47,11 +51,16 @@ local function render()
 
     -- Live swatch preview
     ui.box({
-      width = 200, height = 96, fill = "#" .. color, radius = 12,
-      border = "outline", borderWidth = 2,
+      width = 200,
+      height = 96,
+      fill = "#" .. color,
+      radius = 12,
+      border = "outline",
+      borderWidth = 2,
+      onClick = "onNativePicker",
     }),
 
-    -- Hex field + native picker
+    -- Hex field + native picker button
     ui.row({ gap = 8, align = "center" }, {
       ui.input({
         key = "hex-input",
@@ -64,7 +73,7 @@ local function render()
     }),
 
     ui.label({ text = noctalia.tr("presets"), fontSize = 13, color = "on_surface_variant" }),
-    ui.row({ gap = 8, align = "center", wrap = true }, presetRow),
+    ui.row({ gap = 8, align = "center" }, presetRow),
 
     ui.row({ gap = 8 }, {
       ui.button({
@@ -118,13 +127,9 @@ function onCloseClicked()
 end
 
 function onClose()
-  -- nothing to persist on close; service owns the file
 end
 
 function onOpen(context)
-  -- Register preset click handlers now that presets are loaded (service sets
-  -- them at load; guard anyway). Doing this here avoids ipairs(nil) at script
-  -- load, which would abort the whole panel.
   local presets = noctalia.state.get("presets") or {}
   for i = 1, #presets do
     _G["onPreset" .. i] = makePresetHandler(i)
