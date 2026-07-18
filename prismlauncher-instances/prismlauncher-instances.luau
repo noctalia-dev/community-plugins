@@ -5,10 +5,15 @@ local function getPrismPath()
     return noctalia.expandPath(prismPath)
 end
 
+local function getLauncherCommand()
+    local launcherCommand = noctalia.getConfig("launcher_exec_command")
+    return noctalia.expandPath(launcherCommand)
+end
+
 local function getInstancesDir()
     local prismPath = getPrismPath()
 
-    local configuredInstanceDir = getCfgValue(prismPath .. "/prismlauncher.cfg", "InstanceDir")
+    local configuredInstanceDir = getCfgValue(prismPath .. "/*.cfg", "InstanceDir")
 
     local instances
     if configuredInstanceDir == nil then -- default path
@@ -91,8 +96,10 @@ local function shellQuote(s)
 end
 
 function onActivate(id)
+  local launcherCommand = getLauncherCommand()
+
   if id == "" then return end
-  noctalia.runAsync(string.format("prismlauncher --launch %s &>/dev/null", shellQuote(id)))
+  noctalia.runAsync(string.format(launcherCommand .. " --launch %s &>/dev/null", shellQuote(id)))
 end
 
 -- doesn't handle icons that were changed to different default icon, rest is fine

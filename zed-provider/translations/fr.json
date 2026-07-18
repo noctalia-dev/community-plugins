@@ -1,0 +1,11 @@
+{
+	"loading": "Chargement…",
+	"loading-subtitle": "Lecture des projets Zed",
+	"no-projects-found": "Aucun projet trouvé",
+	"filter-empty": "Filtre : « {filter} »",
+	"database-empty": "La base Zed est vide ou introuvable",
+	"settings.db_path.label": "Chemin de la base Zed",
+	"settings.db_path.description": "Chemin vers le fichier db.sqlite de Zed.",
+	"settings.max_results.label": "Nombre maximum de résultats",
+	"settings.max_results.description": "Nombre maximum de projets à afficher."
+}

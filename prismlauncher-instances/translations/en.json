@@ -3,6 +3,10 @@
     "prismlauncher_path": {
       "label": "PrismLauncher path",
       "description": "Path to PrismLauncher"
+    },
+    "launcher_exec_command": {
+      "label": "Prism Executable",
+      "description": "Start Prismlauncher or fork of choice"
     }
   },
   "no_instances": {

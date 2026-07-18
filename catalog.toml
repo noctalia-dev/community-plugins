@@ -65,7 +65,7 @@ tags = ["launcher"]
 [[plugin]]
 id = "gambled23/mangowm-keymode"
 name = "Mangowm Keymode"
-version = "1.0.1"
+version = "1.0.2"
 author = "gambled23"
 license = "MIT"
 icon = "keyboard"
@@ -77,7 +77,7 @@ tags = ["bar", "mangowc"]
 [[plugin]]
 id = "oldirtty/color_picker"
 name = "Color Picker"
-version = "1.0.2"
+version = "1.0.3"
 author = "oldirtty"
 license = "MIT"
 icon = "palette"
@@ -99,11 +99,11 @@ tags = ["hyprland", "sway", "desktop", "utility"]
 [[plugin]]
 id = "radimous/prismlauncher-instances"
 name = "PrismLauncher Instances"
-version = "1.0.0"
+version = "1.0.1"
 author = "radimous"
 license = "MIT"
 icon = "nut"
-description = "A launcher provider that adds PrismLauncher instances to the noctalia launcher."
+description = "A launcher provider that adds PrismLauncher and PrismLauncher fork instances to the noctalia launcher."
 deprecated = false
 plugin_api = 3
 tags = ["gaming", "launcher"]
@@ -173,3 +173,58 @@ icon = "device-laptop"
 description = "Toggles battery conservation mode via the ideapad_acpi driver, on Lenovo IdeaPad and Legion laptops."
 plugin_api = 3
 tags = ["hardware", "shortcut", "system"]
+
+[[plugin]]
+id = "goodroot/noctwhspr"
+name = "noctwhspr"
+version = "1.0.0"
+author = "goodroot"
+license = "MIT"
+icon = "microphone"
+description = "Noctalia companion for hyprwhspr: shows dictation state, click to record, right-click to restart."
+plugin_api = 3
+tags = ["audio", "bar", "recording", "utility"]
+
+[[plugin]]
+id = "nightwatch75/file-search"
+name = "File Search"
+version = "0.0.10"
+author = "nightwatch75"
+license = "MIT"
+icon = "search"
+description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
+plugin_api = 3
+tags = ["bar", "launcher", "panel", "utility", "productivity"]
+
+[[plugin]]
+id = "h465855hgg/lyrics"
+name = "Lyrics"
+version = "1.3.0"
+author = "h465855hgg"
+license = "MIT"
+icon = "music"
+description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
+plugin_api = 3
+tags = ["bar", "service", "music", "media", "animation"]
+
+[[plugin]]
+id = "whyoolw/dropwall"
+name = "DropWall"
+version = "1.0.0"
+author = "whyoolw"
+license = "MIT"
+icon = "image"
+description = "Drag and drop an image onto the desktop to set it as wallpaper using Noctalia's wallpaper settings."
+plugin_api = 3
+tags = ["desktop", "wallpaper"]
+
+[[plugin]]
+id = "cleboost/zed-provider"
+name = "Zed Provider"
+version = "1.0.0"
+author = "cleboost"
+license = "MIT"
+icon = "folder-open"
+description = "Open a recent Zed project from the launcher. Type /zed to list your projects."
+plugin_api = 3
+tags = ["launcher", "development", "productivity"]

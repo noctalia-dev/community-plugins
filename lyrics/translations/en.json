@@ -1,0 +1,113 @@
+{
+  "title": "Lyrics",
+  "no_lyrics": "♪ No lyrics available",
+  "intro": "Intro",
+  "instrumental": "Instrumental",
+  "settings": {
+    "player_allowlist": {
+      "label": "Allowed players",
+      "description": "Only use matching MPRIS player names or instances. Supports * wildcards; leave empty to allow all players."
+    },
+    "player_blocklist": {
+      "label": "Blocked players",
+      "description": "Ignore matching MPRIS player names or instances. Supports * wildcards and takes priority over the allowlist."
+    },
+    "glyph": {
+      "label": "Glyph"
+    },
+    "show_artist": {
+      "label": "Show artist"
+    },
+    "hide_when_paused": {
+      "label": "Hide when paused"
+    },
+    "show_cover": {
+      "label": "Show album cover",
+      "description": "Display the song's album art next to the lyrics."
+    },
+    "active_color": {
+      "label": "Active lyric color",
+      "description": "Color used for the current and already-sung lyric characters. Defaults to the interface text color."
+    },
+    "inactive_color": {
+      "label": "Inactive lyric color",
+      "description": "Color used for upcoming lyrics, paused playback, and secondary lines."
+    },
+    "lyrics_source": {
+      "label": "Lyrics source",
+      "description": "Choose a preset source, local-player lyrics, a custom endpoint, or external push protocol.",
+      "options": {
+        "auto": "Automatic fallback",
+        "lrclib": "LRCLIB",
+        "netease": "NetEase Music (public API)",
+        "mpris": "Local player (MPRIS)",
+        "custom": "Custom HTTP endpoint",
+        "external": "External IPC push"
+      }
+    },
+    "custom_url": {
+      "label": "Custom endpoint URL",
+      "description": "Supports {title}, {artist}, {album}, and {duration} placeholders. Text responses may contain LRC directly."
+    },
+    "custom_json_field": {
+      "label": "JSON lyrics field",
+      "description": "Lyrics field in a JSON response, with dotted paths such as data.lyric. Leave empty for plain LRC."
+    },
+    "cue_text": {
+      "label": "Intro/interlude characters",
+      "description": "Text or characters highlighted during intros and interludes."
+    },
+    "cue_font_mode": {
+      "label": "Intro/interlude font mode",
+      "description": "Choose whether intro and interlude characters follow Noctalia's interface font or use another installed font.",
+      "options": {
+        "follow": "Follow interface font",
+        "custom": "Custom font"
+      }
+    },
+    "cue_font_family": {
+      "label": "Intro/interlude font",
+      "description": "Installed font family used only for intro and interlude characters in custom-font mode."
+    },
+    "scroll_mode": {
+      "label": "Scroll mode",
+      "description": "How lyrics scroll in the bar.",
+      "options": {
+        "auto": "Auto (synced)",
+        "marquee": "Marquee",
+        "static": "Static"
+      }
+    },
+    "marquee_speed": {
+      "label": "Marquee speed",
+      "description": "Pixels per second for long-line scrolling."
+    },
+    "max_lines": {
+      "label": "Max lines",
+      "description": "Maximum lyric lines to show at once."
+    },
+    "gradient": {
+      "label": "Per-character gradient",
+      "description": "Light up each character as the song progresses (karaoke style)."
+    },
+    "animation": {
+      "label": "Animation",
+      "description": "How lyrics animate on line change.",
+      "options": {
+        "karaoke": "Karaoke gradient + fade",
+        "cascade": "Character cascade",
+        "wave": "Character wave reveal",
+        "fade": "Fade only",
+        "none": "No animation"
+      }
+    },
+    "max_chars": {
+      "label": "Max characters",
+      "description": "Visible width before a long lyric line scrolls (marquee)."
+    },
+    "char_width": {
+      "label": "Character width (px)",
+      "description": "Approximate pixel width per character, used to fix the widget width and clip scrolling."
+    }
+  }
+}

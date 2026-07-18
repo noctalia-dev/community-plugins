@@ -26,3 +26,4 @@ MangoWC changes keymode; click it to show the current keymode in a notification.
 | --- | --- | --- | --- |
 | `show_text` | `bool` | `true` | Shows the current keymode beside the widget glyph. |
 | `notify_change` | `bool` | `true` | Sends a notification when the keymode changes. |
+| `hide_on_default` | `bool` | `false` | Hides the widget when default keymode is active. |
