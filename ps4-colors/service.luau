@@ -2,11 +2,22 @@
 --!nocheck
 --!nolint UnknownGlobal
 -- Headless service: implements the DualShock 4 lightbar protocol in pure Lua.
--- No external binary needed — writes the HID output report straight to
--- /dev/hidrawN via noctalia.writeFile (a Lua string is raw bytes).
+-- No external binary needed — writes the HID output report to /dev/hidrawN.
 local tr = noctalia.tr("ps4_colors")
-local PERSISTENT_DIR = noctalia.pluginDataDir()
-local LAST_FILE = PERSISTENT_DIR .. "/last.json"
+
+-- pluginDataDir() may return nil (state home unset), so resolve it lazily and
+-- guard every use. Computing it at module top-level and concatenating would
+-- throw on nil and kill the whole service entry (no onIpc -> IPC is a no-op).
+local function persistentDir()
+  local dir = noctalia.pluginDataDir()
+  return dir
+end
+
+local function lastFile()
+  local dir = persistentDir()
+  if dir == nil then return nil end
+  return dir .. "/last.json"
+end
 
 -- Sony DualShock 4 vendor / product IDs (from ps4-colors detect.c).
 local SONY_VID = 0x054C
@@ -137,17 +148,35 @@ local function detectControllers()
   return out
 end
 
---==== apply ====
+-- Write the report to the hidraw node. Noctalia's writeFile is file-oriented and
+-- may not open a char device O_WRONLY, so if it fails we fall back to a
+-- python3 one-liner that does a true binary O_WRONLY write (what hidraw needs).
 local function setLightbar(dev, r, g, b)
   local report = (dev.bus_type == BUS_BT)
     and buildBtReport(r, g, b)
     or buildUsbReport(r, g, b)
+  local hex = ""
+  for i = 1, #report do
+    hex = hex .. string.format("%02x", string.byte(report, i))
+  end
   local ok, err = noctalia.writeFile(dev.path, report)
-  return ok, err
+  if ok then return true, nil end
+  -- Fallback: raw binary write via python3 (open(path,'wb').write(...)).
+  local py = string.format(
+    "python3 -c \"import sys; open('%s','wb').write(bytes.fromhex('%s'))\"",
+    dev.path, hex)
+  local done = noctalia.runAsync(py, function(res)
+    if res == nil or res.exitCode ~= 0 then
+      noctalia.notifyError(tr, noctalia.tr("write_error") .. " (" .. dev.path .. ")")
+    end
+  end)
+  return done, err
 end
 
 local function loadLast()
-  local raw = noctalia.readFile(LAST_FILE)
+  local path = lastFile()
+  if path == nil then return "990000" end
+  local raw = noctalia.readFile(path)
   if raw == nil or raw == "" then return "990000" end
   local decoded = noctalia.json.decode(raw)
   if type(decoded) ~= "table" or type(decoded.hex) ~= "string" then return "990000" end
@@ -155,9 +184,11 @@ local function loadLast()
 end
 
 local function saveLast(hex)
-  noctalia.mkdirAll(PERSISTENT_DIR)
+  local path = lastFile()
+  if path == nil then return end
+  noctalia.mkdirAll(persistentDir())
   local encoded = noctalia.json.encode({ hex = hex })
-  if encoded ~= nil then noctalia.writeFile(LAST_FILE, encoded) end
+  if encoded ~= nil then noctalia.writeFile(path, encoded) end
 end
 
 local function hexToRgb(hex)
