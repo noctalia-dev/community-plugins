@@ -54,7 +54,6 @@ local function render()
       ui.input({
         key = "hex-input",
         value = "#" .. color,
-        textAlign = "left",
         flexGrow = 1,
         onSubmit = "onSubmitHex",
       }),
