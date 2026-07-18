@@ -262,3 +262,14 @@ icon = "refresh-dot"
 description = "Select boot entry for the next reboot"
 plugin_api = 3
 tags = ["utility"]
+
+[[plugin]]
+id = "apex077/eyecare"
+name = "Eye-Care Reminders"
+version = "1.0.0"
+author = "Apex077"
+license = "MIT"
+icon = "eye"
+description = "Periodically reminds you to take breaks using the 20-20-20 rule."
+plugin_api = 3
+tags = ["service", "bar", "utility", "productivity"]
