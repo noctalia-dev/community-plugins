@@ -32,7 +32,7 @@ local function render()
     }))
   end
 
-  panel.render(ui.column({ gap = 12, padding = 16 }, {
+  panel.render(ui.column({ gap = 10, padding = 12 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = tr, fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
@@ -41,7 +41,7 @@ local function render()
     -- Live swatch preview
     ui.box({
       width = 200,
-      height = 96,
+      height = 72,
       fill = "#" .. color,
       radius = 12,
       border = "outline",
