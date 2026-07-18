@@ -1,0 +1,16 @@
+{
+  "ps4_colors": "PS4 Colors",
+  "presets": "Presets",
+  "apply": "Apply",
+  "applied": "Lightbar set to #{color}",
+  "bad_color": "Invalid hex color.",
+  "no_controller": "No DualShock 4 detected.",
+  "write_error": "Failed to write to controller.",
+  "ps4_colors_missing": "ps4-colors is not installed. Build it from github.com/Hy4ri/ps4-colors.",
+  "settings": {
+    "glyph": {
+      "label": "Bar Glyph",
+      "description": "Icon shown on the bar button."
+    }
+  }
+}
