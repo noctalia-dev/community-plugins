@@ -14,17 +14,6 @@ local function currentColor()
   return noctalia.state.get("lastColor") or "990000"
 end
 
--- Build a click handler for preset index i; registered in onOpen.
-local function makePresetHandler(i)
-  return function()
-    local presets = noctalia.state.get("presets") or {}
-    local p = presets[i]
-    if p == nil then return end
-    noctalia.state.set("lastColor", p.hex:upper())
-    render()
-  end
-end
-
 local function render()
   local color = currentColor()
   local presets = noctalia.state.get("presets") or {}
@@ -129,12 +118,28 @@ end
 function onClose()
 end
 
-function onOpen(context)
+-- Presets are a fixed list, so define one global handler per index at module
+-- load (Noctalia's _G is read-only at runtime — no dynamic _G["onPreset"..i]
+-- assignment, which throws "attempt to modify a readonly table" in onOpen).
+local function applyPreset(i)
   local presets = noctalia.state.get("presets") or {}
-  for i = 1, #presets do
-    _G["onPreset" .. i] = makePresetHandler(i)
-  end
+  local p = presets[i]
+  if p == nil then return end
+  noctalia.state.set("lastColor", p.hex:upper())
+  render()
+end
 
+function onPreset1() applyPreset(1) end
+function onPreset2() applyPreset(2) end
+function onPreset3() applyPreset(3) end
+function onPreset4() applyPreset(4) end
+function onPreset5() applyPreset(5) end
+function onPreset6() applyPreset(6) end
+function onPreset7() applyPreset(7) end
+function onPreset8() applyPreset(8) end
+function onPreset9() applyPreset(9) end
+
+function onOpen(context)
   noctalia.state.watch("lastColor", function() render() end)
   render()
 end
