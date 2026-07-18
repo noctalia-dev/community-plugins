@@ -1,6 +1,6 @@
 --!nonstrict
 
-local haUrl = noctalia.getConfig("ha_url")
+local haUrlRaw = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 
 local entityStates = {}
@@ -22,6 +22,11 @@ local browserLoading = false
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
+
+local function getCleanUrl()
+  if type(haUrlRaw) ~= "string" then return "" end
+  return (haUrlRaw:gsub("/$", ""))
+end
 
 local function tr(key, subst)
       return noctalia.tr("panel." .. key, subst)
@@ -47,13 +52,14 @@ local function getCleanToken()
 end
 
 local function haPost(path, body)
-    if not haUrl or haUrl == "" then return end
+    local url = getCleanUrl()
+    if not url or url == "" then return end
     local cleanToken = getCleanToken()
     if cleanToken == "" then return end
     local encodedBody = noctalia.json.encode(body)
 
     noctalia.http({
-        url = haUrl .. path,
+        url = url .. path,
         method = "POST",
         headers = {
             "Authorization: Bearer " .. cleanToken,
@@ -132,7 +138,8 @@ end
 local function fetchAllEntities()
     if browserLoading then return end
     local cleanToken = getCleanToken()
-    if not haUrl or haUrl == "" or cleanToken == "" then
+    local url = getCleanUrl()
+    if not url or url == "" or cleanToken == "" then
         allEntities = {}
         browserLoading = false
         render()
@@ -143,7 +150,7 @@ local function fetchAllEntities()
     render()
 
     noctalia.http({
-        url = haUrl .. "/api/states",
+        url = url .. "/api/states",
         headers = {
             "Authorization: Bearer " .. cleanToken,
         }
@@ -500,7 +507,7 @@ local function getOrderedIds()
 end
 
 local function buildListBody(ids)
-    if not haUrl or haUrl == "" or getCleanToken() == "" then
+    if not getCleanUrl() or getCleanUrl() == "" or getCleanToken() == "" then
         return ui.label({ text = tr("not_configured"), color = "on_surface_variant" })
     end
     if status == "auth_failed" then

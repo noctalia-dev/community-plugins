@@ -1,9 +1,14 @@
 --!nonstrict
 
-local haUrl = noctalia.getConfig("ha_url")
+local haUrlRaw = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 
 local MANAGED_ENTITIES_FILE = "managed_entities.json"
+
+local function getCleanUrl()
+  if type(haUrlRaw) ~= "string" then return "" end
+  return (haUrlRaw:gsub("/$", ""))
+end
 
 local function loadManagedEntities()
   local dataDir, dirErr = noctalia.pluginDataDir()
@@ -49,13 +54,14 @@ local function syncUpdateInterval()
 end
 
 local function isConfigured()
-  return haUrl and haUrl ~= "" and getCleanToken() ~= ""
+  local url = getCleanUrl()
+  return url and url ~= "" and getCleanToken() ~= ""
 end
 
 local function haRequest(endpoint, method, body, callback)
   if not isConfigured() then return false end
 
-  local url = haUrl .. endpoint
+  local url = getCleanUrl() .. endpoint
   local cleanToken = getCleanToken()
 
   local jsonBody
@@ -296,7 +302,7 @@ function startSSEStream()
     return false
   end
 
-  local url = haUrl .. "/api/stream?restrict=state_changed"
+  local url = getCleanUrl() .. "/api/stream?restrict=state_changed"
 
   noctalia.log("Starting SSE stream")
   currentEvent = { data = "", event = "" }

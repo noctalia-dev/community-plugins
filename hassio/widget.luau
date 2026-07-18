@@ -1,12 +1,17 @@
 --!nonstrict
 
-local haUrl = noctalia.getConfig("ha_url")
+local haUrlRaw = noctalia.getConfig("ha_url")
 local showEntityCount = noctalia.getConfig("show_entity_count")
 
 local status = "unconfigured"
 local entityCount = 0
 
 local render
+
+local function getCleanUrl()
+  if type(haUrlRaw) ~= "string" then return "" end
+  return (haUrlRaw:gsub("/$", ""))
+end
 
 local function tr(key, subst)
   return noctalia.tr("widget." .. key, subst)
@@ -83,8 +88,9 @@ function onClick()
 end
 
 function onRightClick()
-  if haUrl and haUrl ~= "" then
-    noctalia.runAsync("xdg-open " .. ("'" .. haUrl:gsub("'", "'\\''") .. "'"))
+  local url = getCleanUrl()
+  if url and url ~= "" then
+    noctalia.runAsync("xdg-open " .. ("'" .. url:gsub("'", "'\\''") .. "'"))
   end
 end
 
