@@ -1,0 +1,246 @@
+id           = "ycf/mawaqit"
+name         = "Mawaqit"
+version      = "1.0.0"
+plugin_api   = 3
+author       = "ycf-anon"
+license      = "MIT"
+tags         = ["bar", "panel", "service", "time", "utility"]
+icon         = "building-mosque"
+description  = "Prayer times with live countdown, notifications, and azan."
+dependencies = ["paplay", "pw-cat"]
+
+# ── Plugin-level settings ─────────────────────────────────────────────────────
+
+[[setting]]
+key             = "city"
+type            = "string"
+label_key       = "settings.city.label"
+description_key = "settings.city.description"
+default         = "London"
+
+[[setting]]
+key             = "country"
+type            = "string"
+label_key       = "settings.country.label"
+description_key = "settings.country.description"
+default         = "UK"
+
+[[setting]]
+key             = "method"
+type            = "select"
+label_key       = "settings.method.label"
+description_key = "settings.method.description"
+default         = "3"
+options         = [
+    { value = "1",  label_key = "settings.method.karachi" },
+    { value = "2",  label_key = "settings.method.isna" },
+    { value = "3",  label_key = "settings.method.mwl" },
+    { value = "4",  label_key = "settings.method.makkah" },
+    { value = "5",  label_key = "settings.method.egypt" },
+    { value = "7",  label_key = "settings.method.tehran" },
+    { value = "8",  label_key = "settings.method.gulf" },
+    { value = "9",  label_key = "settings.method.kuwait" },
+    { value = "10", label_key = "settings.method.qatar" },
+    { value = "11", label_key = "settings.method.singapore" },
+    { value = "12", label_key = "settings.method.france" },
+    { value = "13", label_key = "settings.method.turkey" },
+    { value = "14", label_key = "settings.method.russia" },
+    { value = "15", label_key = "settings.method.moonsighting" },
+    { value = "16", label_key = "settings.method.dubai" },
+    { value = "17", label_key = "settings.method.malaysia" },
+    { value = "18", label_key = "settings.method.tunisia" },
+    { value = "19", label_key = "settings.method.algeria" },
+    { value = "20", label_key = "settings.method.indonesia" },
+    { value = "21", label_key = "settings.method.morocco" },
+    { value = "22", label_key = "settings.method.portugal" },
+    { value = "23", label_key = "settings.method.jordan" },
+]
+
+[[setting]]
+key             = "school"
+type            = "select"
+label_key       = "settings.school.label"
+description_key = "settings.school.description"
+default         = "0"
+options         = [
+    { value = "0", label_key = "settings.school.shafi" },
+    { value = "1", label_key = "settings.school.hanafi" },
+]
+
+[[setting]]
+key             = "hijriDayOffset"
+type            = "select"
+label_key       = "settings.hijriDayOffset.label"
+description_key = "settings.hijriDayOffset.description"
+default         = "0"
+options         = [
+    { value = "-1", label_key = "settings.hijriDayOffset.minus1" },
+    { value = "0",  label_key = "settings.hijriDayOffset.default" },
+    { value = "1",  label_key = "settings.hijriDayOffset.plus1" },
+]
+
+[[setting]]
+key             = "twelveHourFormat"
+type            = "bool"
+label_key       = "settings.twelveHourFormat.label"
+description_key = "settings.twelveHourFormat.description"
+default         = false
+
+[[setting]]
+key             = "showNotifications"
+type            = "bool"
+label_key       = "settings.showNotifications.label"
+description_key = "settings.showNotifications.description"
+default         = true
+
+[[setting]]
+key             = "playAzan"
+type            = "bool"
+label_key       = "settings.playAzan.label"
+description_key = "settings.playAzan.description"
+default         = false
+
+[[setting]]
+key             = "azanFile"
+type            = "select"
+label_key       = "settings.azanFile.label"
+description_key = "settings.azanFile.description"
+default         = "azan1.mp3"
+options         = [
+    { value = "azan1.mp3", label_key = "settings.azanFile.azan1" },
+    { value = "azan2.mp3", label_key = "settings.azanFile.azan2" },
+    { value = "azan3.mp3", label_key = "settings.azanFile.azan3" },
+]
+
+[[setting]]
+key             = "tune"
+type            = "bool"
+label_key       = "settings.tune.label"
+description_key = "settings.tune.description"
+default         = false
+
+[[setting]]
+key          = "tuneFajr"
+type         = "int"
+label_key    = "settings.tuneFajr.label"
+default      = 0
+min          = -60
+max          = 60
+advanced     = true
+visible_when = { key = "tune", values = ["true"] }
+
+[[setting]]
+key          = "tuneDhuhr"
+type         = "int"
+label_key    = "settings.tuneDhuhr.label"
+default      = 0
+min          = -60
+max          = 60
+advanced     = true
+visible_when = { key = "tune", values = ["true"] }
+
+[[setting]]
+key          = "tuneAsr"
+type         = "int"
+label_key    = "settings.tuneAsr.label"
+default      = 0
+min          = -60
+max          = 60
+advanced     = true
+visible_when = { key = "tune", values = ["true"] }
+
+[[setting]]
+key          = "tuneMaghrib"
+type         = "int"
+label_key    = "settings.tuneMaghrib.label"
+default      = 0
+min          = -60
+max          = 60
+advanced     = true
+visible_when = { key = "tune", values = ["true"] }
+
+[[setting]]
+key          = "tuneIsha"
+type         = "int"
+label_key    = "settings.tuneIsha.label"
+default      = 0
+min          = -60
+max          = 60
+advanced     = true
+visible_when = { key = "tune", values = ["true"] }
+
+# ── Background service ────────────────────────────────────────────────────────
+
+[[service]]
+id    = "fetcher"
+entry = "service.luau"
+
+# ── Panel ─────────────────────────────────────────────────────────────────────
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 380
+height          = 510
+placement       = "floating"
+position        = "auto"
+open_near_click = true
+
+# ── Bar widget ────────────────────────────────────────────────────────────────
+
+[[widget]]
+id    = "bar"
+entry = "bar_widget.luau"
+
+    [[widget.setting]]
+    key             = "showCountdown"
+    type            = "bool"
+    label_key       = "settings.showCountdown.label"
+    description_key = "settings.showCountdown.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "showElapsed"
+    type            = "bool"
+    label_key       = "settings.showElapsed.label"
+    description_key = "settings.showElapsed.description"
+    default         = false
+
+    [[widget.setting]]
+    key             = "hidePrayerName"
+    type            = "bool"
+    label_key       = "settings.hidePrayerName.label"
+    description_key = "settings.hidePrayerName.description"
+    default         = false
+
+    [[widget.setting]]
+    key       = "widgetIcon"
+    type      = "glyph"
+    label_key = "settings.widgetIcon.label"
+    default   = "building-mosque"
+
+    [[widget.setting]]
+    key             = "dynamicIcon"
+    type            = "bool"
+    label_key       = "settings.dynamicIcon.label"
+    description_key = "settings.dynamicIcon.description"
+    default         = false
+
+    [[widget.setting]]
+    key       = "textColor"
+    type      = "color"
+    label_key = "settings.textColor.label"
+    default   = "on_surface"
+
+    [[widget.setting]]
+    key       = "iconColor"
+    type      = "color"
+    label_key = "settings.iconColor.label"
+    default   = "on_surface"
+
+    [[widget.setting]]
+    key             = "activeColor"
+    type            = "color"
+    label_key       = "settings.activeColor.label"
+    description_key = "settings.activeColor.description"
+    default         = "primary"
