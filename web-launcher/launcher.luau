@@ -122,6 +122,9 @@ end
 
 function onActivate(id)
     local command = noctalia.getConfig("command")
+    if not command or command == "" then
+        command = "xdg-open"
+    end
     noctalia.runAsync(command .. " " .. shellEscape(id))
 
     if noctalia.getConfig("notify") then
