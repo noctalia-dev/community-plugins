@@ -53,6 +53,30 @@ local PRESETS = {
   { name = "Off",      hex = "000000" },
 }
 
+--==== bitwise helpers (math-only, Lua 5.x safe — no &/|/~/>>) ====
+local function band(a, m)
+  return a % (m + 1)
+end
+local function rshift(a, n)
+  return math.floor(a / (2 ^ n))
+end
+local function bxor(a, b)
+  local r = 0
+  local pow = 1
+  for _ = 1, 32 do
+    local ab = a % 2
+    local bb = b % 2
+    if ab ~= bb then r = r + pow end -- ~= is Lua not-equal, fine
+    a = math.floor(a / 2)
+    b = math.floor(b / 2)
+    pow = pow * 2
+  end
+  return r
+end
+local function bnot32(a)
+  return bxor(a, 0xFFFFFFFF)
+end
+
 --==== CRC32 (poly 0xEDB88320, reflected) ====
 local crc32_table = nil
 local function crc32_init()
@@ -60,10 +84,10 @@ local function crc32_init()
   for i = 0, 255 do
     local crc = i
     for _ = 1, 8 do
-      if crc & 1 ~= 0 then
-        crc = (crc >> 1) ~ 0xEDB88320
+      if band(crc, 1) ~= 0 then
+        crc = bxor(rshift(crc, 1), 0xEDB88320)
       else
-        crc = crc >> 1
+        crc = rshift(crc, 1)
       end
     end
     crc32_table[i] = crc
@@ -74,7 +98,7 @@ local function crc32_le(crc, buf, len)
   if crc32_table == nil then crc32_init() end
   for i = 1, len do
     local b = string.byte(buf, i)
-    crc = crc32_table[(crc ~ b) & 0xFF] ~ (crc >> 8)
+    crc = bxor(crc32_table[band(bxor(crc, b), 0xFF)], rshift(crc, 8))
   end
   return crc
 end
@@ -86,7 +110,7 @@ end
 
 local function setbyte(s, idx, val)
   -- 1-indexed Lua string; idx is 0-based report offset
-  return string.sub(s, 1, idx) .. string.char(val & 0xFF) .. string.sub(s, idx + 2)
+  return string.sub(s, 1, idx) .. string.char(band(val, 0xFF)) .. string.sub(s, idx + 2)
 end
 
 --==== report builders ====
@@ -107,11 +131,11 @@ local function buildBtReport(r, g, b)
   buf = setbyte(buf, DS4_BT_COMMON_OFFSET + COMMON_LIGHTBAR_B, b)
   -- CRC32 over bytes 0..73 with seed 0xA2, stored at 74..77 (little-endian).
   local crc = crc32_le(0xFFFFFFFF, string.char(PS_OUTPUT_CRC32_SEED), 1)
-  crc = (~crc32_le(crc, buf, DS4_BT_REPORT_LEN - 4)) & 0xFFFFFFFF
-  buf = setbyte(buf, 74, crc & 0xFF)
-  buf = setbyte(buf, 75, (crc >> 8) & 0xFF)
-  buf = setbyte(buf, 76, (crc >> 16) & 0xFF)
-  buf = setbyte(buf, 77, (crc >> 24) & 0xFF)
+  crc = band(bnot32(crc32_le(crc, buf, DS4_BT_REPORT_LEN - 4)), 0xFFFFFFFF)
+  buf = setbyte(buf, 74, band(crc, 0xFF))
+  buf = setbyte(buf, 75, band(rshift(crc, 8), 0xFF))
+  buf = setbyte(buf, 76, band(rshift(crc, 16), 0xFF))
+  buf = setbyte(buf, 77, band(rshift(crc, 24), 0xFF))
   return buf
 end
 
@@ -120,7 +144,7 @@ local function parseHidId(line)
   -- HID_ID=BBBB:VVVVVVVV:PPPPPPPP
   local bus, vendor, product = line:match("HID_ID=(%x+):(%x+):(%x+)")
   if bus == nil then return nil end
-  return tonumber(bus, 16), tonumber(vendor, 16) & 0xFFFF, tonumber(product, 16) & 0xFFFF
+  return tonumber(bus, 16), band(tonumber(vendor, 16), 0xFFFF), band(tonumber(product, 16), 0xFFFF)
 end
 
 local function detectControllers()
