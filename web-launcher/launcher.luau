@@ -72,8 +72,7 @@ local function downloadFavicon(domain, onDone)
     end)
 end
 
-function onQuery(query)
-    local text = noctalia.string.trim(query)
+local function makeResults(text, query)
     local results = {}
 
     for _, link in ipairs(links) do
@@ -85,7 +84,9 @@ function onQuery(query)
         local iconValue = hasIcon and iconPath or nil
 
         if not hasIcon then
-            downloadFavicon(domain, function() end)
+            downloadFavicon(domain, function()
+                launcher.setResults(query, makeResults(text, query))
+            end)
         end
 
         if text == "" then
@@ -107,7 +108,12 @@ function onQuery(query)
         end
     end
 
-    launcher.setResults(query, results)
+    return results
+end
+
+function onQuery(query)
+    local text = noctalia.string.trim(query)
+    launcher.setResults(query, makeResults(text, query))
 end
 
 local function shellEscape(raw)
