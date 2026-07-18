@@ -243,7 +243,7 @@ tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]
 [[plugin]]
 id = "yocraft/web-launcher"
 name = "Web Launcher"
-version = "1.0.0"
+version = "1.0.1"
 author = "yocraft"
 license = "MIT"
 icon = "world"
