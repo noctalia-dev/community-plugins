@@ -1,0 +1,79 @@
+id = "ioandev/cpu-bars"
+name = "CPU Bars"
+version = "1.0.0"
+plugin_api = 5
+author = "ioandev"
+license = "MIT"
+dependencies = []
+icon = "cpu"
+description = "A bar widget showing per-core CPU usage as vertical bars, turning red when a core saturates."
+deprecated = false
+tags = ["system", "bar", "hardware", "indicator"]
+
+[[widget]]
+id = "cpu-bars"
+entry = "cpu_bars.luau"
+
+  [[widget.setting]]
+  key = "bar_width"
+  type = "int"
+  label_key = "settings.bar_width.label"
+  description_key = "settings.bar_width.description"
+  default = 3
+  min = 1
+  max = 12
+
+  [[widget.setting]]
+  key = "bar_gap"
+  type = "int"
+  label_key = "settings.bar_gap.label"
+  description_key = "settings.bar_gap.description"
+  default = 2
+  min = 0
+  max = 8
+
+  [[widget.setting]]
+  key = "bar_height"
+  type = "int"
+  label_key = "settings.bar_height.label"
+  description_key = "settings.bar_height.description"
+  default = 16
+  min = 6
+  max = 40
+
+  [[widget.setting]]
+  key = "warn_threshold"
+  type = "int"
+  label_key = "settings.warn_threshold.label"
+  description_key = "settings.warn_threshold.description"
+  default = 90
+  min = 50
+  max = 100
+
+  [[widget.setting]]
+  key = "normal_color"
+  type = "color"
+  label_key = "settings.normal_color.label"
+  description_key = "settings.normal_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "warn_color"
+  type = "color"
+  label_key = "settings.warn_color.label"
+  description_key = "settings.warn_color.description"
+  default = "error"
+
+  [[widget.setting]]
+  key = "track_color"
+  type = "color"
+  label_key = "settings.track_color.label"
+  description_key = "settings.track_color.description"
+  default = "on_surface"
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+  default = true
