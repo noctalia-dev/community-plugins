@@ -13,7 +13,7 @@ library is required. The plugin writes the HID output report straight to
 
 | Field | Value |
 | --- | --- |
-| ID | `Hy4ri/ds4-color` |
+| ID | `hy4ri/ds4-color` |
 | Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
 
 ## Requirements
@@ -45,7 +45,7 @@ colour to every connected DualShock 4. **Right-click** the bar button (or run th
 command below) to open the panel:
 
 ```sh
-noctalia msg panel-toggle Hy4ri/ds4-color:panel
+noctalia msg panel-toggle hy4ri/ds4-color:panel
 ```
 
 In the panel: pick a colour with the native picker, type a hex value
@@ -63,8 +63,8 @@ colour survives restarts.
 ## IPC
 
 ```sh
-noctalia msg plugin Hy4ri/ds4-color:service all apply <hex>
-noctalia msg plugin Hy4ri/ds4-color:service all save <hex>
+noctalia msg plugin hy4ri/ds4-color:service all apply <hex>
+noctalia msg plugin hy4ri/ds4-color:service all save <hex>
 ```
 
 ## Notes

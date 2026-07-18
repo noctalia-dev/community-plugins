@@ -2,7 +2,7 @@
 --!nocheck
 --!nolint UnknownGlobal
 local tr = noctalia.tr("ds4_color")
-local SERVICE = "Hy4ri/ds4-color:service"
+local SERVICE = "hy4ri/ds4-color:service"
 
 local function sendToService(event, payload)
   local cmd = "noctalia msg plugin " .. SERVICE .. " all " .. event
