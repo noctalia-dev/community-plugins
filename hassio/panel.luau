@@ -595,7 +595,7 @@ function render()
 
         panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
             ui.row({ align = "center", gap = 8 }, {
-                ui.glyph({ glyph = "smart-home", color = "primary" }),
+                ui.glyph({ name = "smart-home", size = 20, color = "primary" }),
                 ui.label({ text = noctalia.tr("shortcut.title"), fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
                 ui.label({ text = getStatusText(), color = status == "connected" and "primary" or "on_surface_variant" }),
                 ui.button({ glyph = "list-search", onClick = "onOpenBrowser" }),
