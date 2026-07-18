@@ -14,6 +14,17 @@ local function currentColor()
   return noctalia.state.get("lastColor") or "990000"
 end
 
+-- Build a click handler for preset index i that lives for the panel session.
+local function makePresetHandler(i)
+  return function()
+    local presets = noctalia.state.get("presets") or {}
+    local p = presets[i]
+    if p == nil then return end
+    noctalia.state.set("lastColor", p.hex:upper())
+    render()
+  end
+end
+
 local function render()
   local color = currentColor()
   local presets = noctalia.state.get("presets") or {}
@@ -36,7 +47,7 @@ local function render()
 
     -- Live swatch preview
     ui.box({
-      width = "100%", height = 96, fill = "#" .. color, radius = 12,
+      width = 200, height = 96, fill = "#" .. color, radius = 12,
       border = "outline", borderWidth = 2,
     }),
 
@@ -110,20 +121,15 @@ function onClose()
   -- nothing to persist on close; service owns the file
 end
 
--- preset click handlers (1..N)
-local presets = noctalia.state.get("presets") or {}
-for i = 1, #presets do
-  _G["onPreset" .. i] = function()
-    noctalia.state.set("lastColor", presets[i].hex:upper())
-    render()
-  end
-end
-
 function onOpen(context)
-  -- ensure presets are loaded from the service
-  if #(noctalia.state.get("presets") or {}) == 0 then
-    sendToService("get-presets")
+  -- Register preset click handlers now that presets are loaded (service sets
+  -- them at load; guard anyway). Doing this here avoids ipairs(nil) at script
+  -- load, which would abort the whole panel.
+  local presets = noctalia.state.get("presets") or {}
+  for i = 1, #presets do
+    _G["onPreset" .. i] = makePresetHandler(i)
   end
+
   noctalia.state.watch("lastColor", function() render() end)
   render()
 end
