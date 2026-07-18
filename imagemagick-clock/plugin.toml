@@ -1,0 +1,37 @@
+id = "jinliu/imagemagick-clock"
+name = "ImageMagick Clock"
+version = "1.0.0"
+plugin_api = 3
+author = "Jin Liu"
+tags = ["clock"]
+icon = "clock"
+description = "A custom clock drawn with ImageMagick."
+dependencies = ["imagemagick"]
+license = "MIT"
+
+[[widget]]
+id = "clock"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "command_line"
+  type = "string"
+  label_key = "settings.cmdline.label"
+  description_key = "settings.cmdline.description"
+  default = "magick -size 270x100 canvas:black -transparent black -pointsize 128 -fill '#FF2400' -draw 'text 0,100 \"%H\"' -fill white -pointsize 84 -draw 'text 120,100 \":%M\"' -fill '#FF2400' -stroke '#FF2400' -strokewidth 5 -draw 'line 225,0 225,100' -strokewidth 0 -stroke white -fill white -pointsize 32 -draw 'text 235, 25 \"%m\"' -draw 'text 235, 60 \"%d\"' -stroke none -draw 'text 235, 95 \"%a\"' '%output_file'"
+
+  [[widget.setting]]
+  key = "image_width"
+  type = "int"
+  label_key = "settings.image_width.label"
+  default = 54
+  min = 1
+  max = 1000
+
+  [[widget.setting]]
+  key = "image_height"
+  type = "int"
+  label_key = "settings.image_height.label"
+  default = 20
+  min = 1
+  max = 1000

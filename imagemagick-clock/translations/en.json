@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "cmdline": {
+      "label": "Command line",
+      "description": "The command should generate an image file to be displayed as the clock. `%output_file` will be replaced with the path to the output file. Then `%H`, `%M`, etc. will be replaced with the current time values. See `man strftime` for more formatting options."
+    },
+    "image_width": {
+      "label": "Image width"
+    },
+    "image_height": {
+      "label": "Image height"
+    }
+  }
+}
