@@ -55,11 +55,19 @@ local function render()
     ui.label({ text = noctalia.tr("presets"), fontSize = 13, color = "on_surface_variant" }),
     ui.row({ gap = 8, align = "center", wrap = true }, presetRow),
 
-    ui.button({
-      text = noctalia.tr("apply"),
-      variant = "primary",
-      onClick = "onApply",
-      width = "100%",
+    ui.row({ gap = 8 }, {
+      ui.button({
+        text = noctalia.tr("save"),
+        variant = "ghost",
+        onClick = "onSave",
+        flexGrow = 1,
+      }),
+      ui.button({
+        text = noctalia.tr("apply"),
+        variant = "primary",
+        onClick = "onApply",
+        flexGrow = 1,
+      }),
     }),
   }))
 end
@@ -67,6 +75,10 @@ end
 --==== callbacks ====
 function onApply()
   sendToService("apply", "#" .. currentColor())
+end
+
+function onSave()
+  sendToService("save", "#" .. currentColor())
 end
 
 function onSubmitHex(text)

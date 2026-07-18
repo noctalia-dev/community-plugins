@@ -35,6 +35,7 @@ end
 
 -- Apply a hex color (RRGGBB, no #) to every connected DS4.
 local function apply(hex)
+  if hex == nil or hex == "" then return end
   if not noctalia.commandExists("ps4-colors") then
     noctalia.notifyError(tr, noctalia.tr("ps4_colors_missing"))
     return
@@ -54,9 +55,19 @@ local function apply(hex)
   end)
 end
 
+-- Persist the chosen color WITHOUT touching the controller.
+local function save(hex)
+  if hex == nil or hex == "" then return end
+  saveLast(hex)
+  noctalia.state.set("lastColor", hex)
+  noctalia.notify(tr, noctalia.tr("saved", { color = hex }))
+end
+
 function onIpc(event, payload)
   if event == "apply" and payload ~= nil then
     apply(payload:match("^#?(%x%x%x%x%x%x)$") or payload:match("^0x(%x%x%x%x%x%x)$") or "")
+  elseif event == "save" and payload ~= nil then
+    save(payload:match("^#?(%x%x%x%x%x%x)$") or payload:match("^0x(%x%x%x%x%x%x)$") or "")
   elseif event == "get-presets" then
     noctalia.state.set("presets", PRESETS)
   end

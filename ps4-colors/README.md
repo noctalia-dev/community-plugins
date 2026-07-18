@@ -24,15 +24,19 @@ documented in the ps4-colors README.
 
 ## Usage
 
-Click the **PS4 Colors** bar button to open the panel:
+**Left-click** the **PS4 Colors** bar button to instantly apply the last saved
+color to every connected DualShock 4. **Right-click** the bar button (or run the
+command below) to open the panel:
 
 ```sh
 noctalia msg panel-toggle Hy4ri/ps4-colors:panel
 ```
 
-In the panel: choose a color with the native picker, type a hex value
-(`RRGGBB` / `#RRGGBB` / `0xRRGGBB`), or tap a preset, then press **Apply**.
-The last applied color is remembered across restarts.
+In the panel: pick a color with the native picker, type a hex value
+(`RRGGBB` / `#RRGGBB` / `0xRRGGBB`), or tap a preset. **Save** persists the
+chosen color (so left-click reapplies it later) without touching the
+controller; **Apply** sets the lightbar immediately and also saves it. The saved
+color survives restarts.
 
 ## Settings
 
@@ -51,6 +55,8 @@ noctalia msg plugin Hy4ri/ps4-colors:service all apply <hex>
 - Shells out to `ps4-colors <hex>`, which writes `/dev/hidrawN` directly (no
   libraries). Requires read/write access to the DS4 hidraw node.
 - The last chosen color is persisted to the plugin data directory
-  (`last.json`) and restored on next open.
+  (`last.json`) and restored on next open. Left-clicking the bar button applies
+  the saved color; the panel's **Save** button updates it without writing to the
+  controller.
 - No network access. Only the locally detected DualShock 4 controllers are
   touched.

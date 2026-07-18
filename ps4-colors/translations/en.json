@@ -1,8 +1,10 @@
 {
   "ps4_colors": "PS4 Colors",
   "presets": "Presets",
+  "save": "Save",
   "apply": "Apply",
   "applied": "Lightbar set to #{color}",
+  "saved": "Color #{color} saved",
   "bad_color": "Invalid hex color.",
   "no_controller": "No DualShock 4 detected.",
   "write_error": "Failed to write to controller.",
