@@ -1,0 +1,11 @@
+{
+	"loading": "Loading…",
+	"loading-subtitle": "Reading Zed projects",
+	"no-projects-found": "No projects found",
+	"filter-empty": "Filter: \"{filter}\"",
+	"database-empty": "Zed database is empty or not found",
+	"settings.db_path.label": "Zed database path",
+	"settings.db_path.description": "Path to Zed's db.sqlite file.",
+	"settings.max_results.label": "Maximum results",
+	"settings.max_results.description": "Maximum number of projects to display."
+}
