@@ -3,7 +3,7 @@
 local haUrl = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 local configuredEntityId = noctalia.getConfig("shortcut_entity_1") or ""
-local SLOT_LABEL = "HA Toggle 1"
+local SLOT_LABEL = noctalia.tr("shortcut.label_1")
 
 local entityStates = {}
 local pendingToggle = {}

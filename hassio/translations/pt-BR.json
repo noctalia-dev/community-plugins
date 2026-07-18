@@ -6,12 +6,35 @@
     "status_auth_failed": "Falha de Autenticação",
     "status_unconfigured": "Não Configurado",
     "tooltip": "Home Assistant: {status}",
-    "tooltip_entities": "Home Assistant: {status} ({count} entidades)"
+    "tooltip_entities": "Home Assistant: {status} ({count} entidades)",
+    "refreshing_connection": "Atualizando conexão…"
   },
   "shortcut": {
     "title": "Home Assistant",
-    "no_entities": "Nenhuma entidade configurada",
-    "toggle": "Alternar {entity}"
+    "panel_label": "Gerenciador de Entidades",
+    "label_1": "Botão Rápido 1",
+    "label_2": "Botão Rápido 2",
+    "label_3": "Botão Rápido 3",
+    "label_4": "Botão Rápido 4"
+  },
+  "panel": {
+    "manage_entities_title": "Gerenciar Entidades",
+    "search_placeholder": "Buscar entidades…",
+    "not_configured": "Não configurado. Defina a URL e o token do Home Assistant nas configurações.",
+    "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
+    "connecting": "Conectando…",
+    "disconnected_reconnecting": "Desconectado. Reconectando…",
+    "no_entities_monitored": "Nenhuma entidade monitorada ainda. Use o navegador para adicionar.",
+    "status_fallback": "Status: {status}",
+    "loading_entities": "Carregando entidades…",
+    "no_entities_found": "Nenhuma entidade encontrada",
+    "no_entities_match": "Nenhuma entidade corresponde à sua busca",
+    "state_on_brightness": "Ligado · {percent}%",
+    "brightness": "Brilho",
+    "color_temp": "Temperatura de Cor",
+    "hue": "Matiz",
+    "save_failed": "Falha ao salvar as entidades monitoradas",
+    "save_failed_no_data_dir": "Não foi possível salvar: diretório de dados do plugin indisponível"
   },
   "settings": {
     "url": {
@@ -34,10 +57,7 @@
     }
   },
   "notifications": {
-    "connected": "Conectado ao Home Assistant",
-    "disconnected": "Falha na conexão com o Home Assistant",
     "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
-    "entity_toggled": "Alternado {entity}",
     "reconnect_failed": "Não foi possível reconectar ao Home Assistant após {count} tentativas."
   }
 }
