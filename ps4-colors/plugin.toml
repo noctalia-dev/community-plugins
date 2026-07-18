@@ -4,7 +4,7 @@ version = "0.1.0"
 plugin_api = 3
 author = "Hy4ri"
 license = "MIT"
-icon = "controller"
+icon = "device-gamepad-2"
 description = "Set the DualShock 4 lightbar colour from a bar button and panel."
 tags = ["gaming", "hardware", "utility", "bar", "panel"]
 dependencies = []
@@ -18,7 +18,7 @@ entry = "widget.luau"
   type = "glyph"
   label_key = "settings.glyph.label"
   description_key = "settings.glyph.description"
-  default = "controller"
+  default = "device-gamepad-2"
 
 [[panel]]
 id = "panel"

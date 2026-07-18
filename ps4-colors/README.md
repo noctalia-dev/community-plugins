@@ -58,7 +58,7 @@ colour survives restarts.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `glyph` | `glyph` | `controller` | Icon shown on the bar button. |
+| `glyph` | `glyph` | `device-gamepad-2` | Icon shown on the bar button. |
 
 ## IPC
 
