@@ -48,6 +48,7 @@ And downstream is where the quiet parts live. `orb.luau` is pure view. It subscr
 - **[Claude Code](https://claude.com/claude-code)** — the `claude` agent being visualized. Optional if you're driving the widgets from another agent via [PROTOCOL.md](PROTOCOL.md).
 - **`python3`** for the MCP shim (stdlib only, no pip installs)
 - On the PATH as the shim's senses need them: `playerctl`, `nmcli`, `notify-send`, `ps`
+- For the generic shell adapter (`hooks/pulse-emit`, only used when driving the widgets from a non-Claude agent): `tr` is required; `timeout` is optional — the adapter falls back to a direct dispatch when it's absent.
 
 ## Install
 
