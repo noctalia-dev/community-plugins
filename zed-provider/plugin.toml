@@ -7,7 +7,7 @@ license = "MIT"
 icon = "folder-open"
 description = "Open a recent Zed project from the launcher. Type /zed to list your projects."
 tags = ["launcher", "development", "productivity"]
-dependencies = ["sqlite3", "zed"]
+dependencies = ["sqlite3", "zed", "nohup"]
 
 [[setting]]
 key = "db_path"
