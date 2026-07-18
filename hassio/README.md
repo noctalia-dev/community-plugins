@@ -14,7 +14,6 @@ Monitor and control your Home Assistant entities from the Noctalia bar and contr
 
 - A running Home Assistant instance with API access enabled
 - A Long-lived Access Token (Profile → Security → Long-lived access tokens)
-- `curl` available on `PATH` (used by the plugin to initiate HA HTTP streaming)
 - `xdg-open` available on `PATH` (used to open the Home Assistant URL in your browser)
 
 ## Usage
@@ -71,8 +70,8 @@ Notes: the plugin forwards Home Assistant state updates internally and uses Noct
 
 ## Notes
 
-- The plugin maintains a live SSE connection to Home Assistant to receive real-time state changes. `curl` is used only for this streaming connection; all other requests (fetching states, toggling entities, browsing) go through Noctalia's native HTTP API.
+- The plugin maintains a live SSE connection to Home Assistant to receive real-time state changes. Noctalia's native HTTP streaming API is used for this connection; all other requests (fetching states, toggling entities, browsing) go through Noctalia's native HTTP API.
 - The pinned entity list is saved to `managed_entities.json` in the plugin's persistent data directory (`noctalia.pluginDataDir()`), so it survives plugin updates.
-- To authenticate the SSE connection without exposing the access token on the command line, the plugin briefly writes it to a temporary file (`ha_sse_auth.cfg`, also in the plugin's data directory) that `curl` reads via its config-file option. The file is deleted immediately after `curl` reads it, and as a safety net, on plugin shutdown.
+- To authenticate the SSE connection without exposing the access token on the command line, the plugin uses Noctalia's native streaming request headers.
 - The plugin issues HTTP requests to your HA instance; do not install untrusted plugins if you do not want them to access your network or tokens.
 - If authentication fails, generate a new long-lived access token in Home Assistant and paste it into plugin settings.

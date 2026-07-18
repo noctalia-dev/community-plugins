@@ -1,12 +1,12 @@
 id = "pozzoo/hassio"
 name = "Home Assistant"
 version = "2.0.0"
-plugin_api = 3
+plugin_api = 4
 author = "Pozzoo"
 license = "MIT"
 tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]
 icon = "smart-home"
-dependencies = ["curl", "xdg-open"]
+dependencies = ["xdg-open"]
 description = "Monitor and control Home Assistant entities from the bar. Displays entity states and provides quick toggles."
 
 [[setting]]
@@ -61,7 +61,7 @@ entry = "widget.luau"
   label_key = "settings.show_entity_count.label"
   default = false
 
-# SSE-based background service maintaining a live connection to HA
+# Native streaming background service maintaining a live connection to HA
 [[service]]
 id = "connection"
 entry = "service_sse.luau"
