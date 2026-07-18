@@ -220,5 +220,75 @@ Configure the update interval in plugin settings.
         self.assertTrue(any("## Settings" in error for error in self.validate_readme(without_settings)))
 
 
+class SettingUsageTests(unittest.TestCase):
+    """plugin.toml and the Luau sources must agree on which settings exist."""
+
+    def validate(self, manifest: dict, sources: dict[str, str]) -> list[str]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin_dir = root / "example"
+            plugin_dir.mkdir()
+            for name, contents in sources.items():
+                path = plugin_dir / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(contents, encoding="utf-8")
+            validator = validate_plugins.Validator(root)
+            validator.validate_setting_usage(plugin_dir / "plugin.toml", plugin_dir, manifest)
+            return validator.errors
+
+    def test_accepts_matching_manifest_and_source(self) -> None:
+        manifest = {"setting": [{"key": "interval"}, {"key": "notify"}]}
+        source = 'local a = noctalia.getConfig("interval")\nlocal b = noctalia.getConfig("notify")\n'
+        self.assertEqual(self.validate(manifest, {"main.luau": source}), [])
+
+    def test_rejects_reading_an_undeclared_setting(self) -> None:
+        manifest = {"setting": [{"key": "interval"}]}
+        source = 'local a = noctalia.getConfig("interval")\nlocal b = noctalia.getConfig("intervl")\n'
+        errors = self.validate(manifest, {"main.luau": source})
+        self.assertTrue(any("intervl" in error for error in errors))
+
+    def test_rejects_a_declared_setting_nothing_reads(self) -> None:
+        manifest = {"setting": [{"key": "interval"}, {"key": "orphan"}]}
+        source = 'local a = noctalia.getConfig("interval")\n'
+        errors = self.validate(manifest, {"main.luau": source})
+        self.assertTrue(any("orphan" in error for error in errors))
+
+    def test_collects_entry_level_settings(self) -> None:
+        manifest = {"widget": [{"id": "w", "entry": "w.luau", "setting": [{"key": "bar_width"}]}]}
+        source = 'local w = noctalia.getConfig("bar_width")\n'
+        self.assertEqual(self.validate(manifest, {"w.luau": source}), [])
+
+    def test_reads_across_multiple_sources(self) -> None:
+        manifest = {"setting": [{"key": "a"}, {"key": "b"}]}
+        sources = {"one.luau": 'noctalia.getConfig("a")\n', "two.luau": 'noctalia.getConfig("b")\n'}
+        self.assertEqual(self.validate(manifest, sources), [])
+
+    def test_ignores_getconfig_inside_comments(self) -> None:
+        manifest = {"setting": [{"key": "interval"}]}
+        source = 'noctalia.getConfig("interval")\n-- noctalia.getConfig("ghost")\n'
+        self.assertEqual(self.validate(manifest, {"main.luau": source}), [])
+
+    def test_ignores_getconfig_inside_block_comments(self) -> None:
+        manifest = {"setting": [{"key": "interval"}]}
+        source = 'noctalia.getConfig("interval")\n--[[ noctalia.getConfig("ghost") ]]\n'
+        self.assertEqual(self.validate(manifest, {"main.luau": source}), [])
+
+    def test_skips_unused_check_when_a_key_is_dynamic(self) -> None:
+        # A key read through a variable cannot be seen, so "declared but unread" would be a
+        # false positive. The undeclared-read check still applies.
+        manifest = {"setting": [{"key": "interval"}, {"key": "maybe_used"}]}
+        source = 'local k = "interval"\nnoctalia.getConfig(k)\n'
+        self.assertEqual(self.validate(manifest, {"main.luau": source}), [])
+
+    def test_still_flags_undeclared_reads_when_a_key_is_dynamic(self) -> None:
+        manifest = {"setting": [{"key": "interval"}]}
+        source = 'noctalia.getConfig(k)\nnoctalia.getConfig("ghost")\n'
+        errors = self.validate(manifest, {"main.luau": source})
+        self.assertTrue(any("ghost" in error for error in errors))
+
+    def test_accepts_a_plugin_with_no_settings(self) -> None:
+        self.assertEqual(self.validate({}, {"main.luau": "local x = 1\n"}), [])
+
+
 if __name__ == "__main__":
     unittest.main()
