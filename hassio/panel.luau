@@ -11,7 +11,9 @@ local sliderDraft = {}
 local sliderDirty = {}
 
 local pendingToggle = {}
-local pendingAge = {} -- entity_id -> watch-fire count since toggle (for timeout)
+local pendingSince = {} -- entity_id -> os.clock() when toggle was requested
+
+local PENDING_TIMEOUT_SECONDS = 8
 
 local view = "list" -- "list" | "browser"
 local allEntities = {}
@@ -21,31 +23,64 @@ local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
 
-local function escapeArg(s)
-    return "'" .. s:gsub("'", "'\\''" ) .. "'"
+local function tr(key, subst)
+      return noctalia.tr("panel." .. key, subst)
+end
+
+local function getStatusText()
+    if status == "connected" then
+        return noctalia.tr("widget.status_connected")
+    elseif status == "connecting" then
+        return noctalia.tr("widget.status_connecting")
+    elseif status == "disconnected" then
+        return noctalia.tr("widget.status_disconnected")
+    elseif status == "auth_failed" then
+        return noctalia.tr("widget.status_auth_failed")
+    else
+        return noctalia.tr("widget.status_unconfigured")
+    end
+end
+
+local function getCleanToken()
+    if type(haToken) ~= "string" then return "" end
+    return haToken:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
 local function haPost(path, body)
-    if not haUrl or haUrl == "" or not haToken or haToken == "" then return end
+    if not haUrl or haUrl == "" then return end
+    local cleanToken = getCleanToken()
+    if cleanToken == "" then return end
     local encodedBody = noctalia.json.encode(body)
-    local cmd = "curl -s -o /dev/null -X POST"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " -H " .. escapeArg("Content-Type: application/json")
-        .. " -d " .. escapeArg(encodedBody)
-        .. " " .. escapeArg(haUrl .. path)
-    noctalia.runAsync(cmd)
+
+    noctalia.http({
+        url = haUrl .. path,
+        method = "POST",
+        headers = {
+            "Authorization: Bearer " .. cleanToken,
+            "Content-Type: application/json",
+        },
+        body = encodedBody,
+    }, function(response: HttpResponse)end)
 end
 
 local function callService(domain, service, entityId)
     haPost("/api/services/" .. domain .. "/" .. service, { entity_id = entityId })
 end
 
-local function callLightHs(entityId, h, s)
-    haPost("/api/services/light/turn_on", { entity_id = entityId, hs_color = { h, s } })
+local MANAGED_ENTITIES_FILE = "managed_entities.json"
+
+local function managedEntitiesPath()
+    local dataDir, dirErr = noctalia.pluginDataDir()
+    if not dataDir then
+        noctalia.log("Cannot resolve plugin data dir: " .. (dirErr or "unknown"))
+        return nil
+    end
+    return dataDir .. "/" .. MANAGED_ENTITIES_FILE
 end
 
 local function loadMonitoredEntities()
-    local data = noctalia.readFile("managed_entities.json")
+    local path = managedEntitiesPath()
+    local data = path and noctalia.readFile(path)
     if data and data ~= "" then
         local parsed = noctalia.json.decode(data)
         if type(parsed) == "table" then
@@ -57,8 +92,19 @@ local function loadMonitoredEntities()
 end
 
 local function saveMonitoredEntities()
+    local path = managedEntitiesPath()
+    if not path then
+        noctalia.notifyError(noctalia.tr("shortcut.title"), tr("save_failed_no_data_dir"))
+        return
+    end
+
     local encodedEntities = noctalia.json.encode(monitoredEntities)
-    noctalia.writeFile("managed_entities.json", encodedEntities)
+    local ok, writeErr = noctalia.writeFile(path, encodedEntities)
+    if not ok then
+        noctalia.log("Failed to save managed entities: " .. (writeErr or "unknown"))
+        noctalia.notifyError(noctalia.tr("shortcut.title"), tr("save_failed"))
+        return
+    end
     noctalia.state.set("entities_override", monitoredEntities)
     noctalia.state.set("command", "reload_entities")
 end
@@ -85,15 +131,26 @@ end
 
 local function fetchAllEntities()
     if browserLoading then return end
+    local cleanToken = getCleanToken()
+    if not haUrl or haUrl == "" or cleanToken == "" then
+        allEntities = {}
+        browserLoading = false
+        render()
+        return
+    end
+
     browserLoading = true
     render()
-    local cmd = "curl -s"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " " .. escapeArg(haUrl .. "/api/states")
-    noctalia.runAsync(cmd, function(result)
+
+    noctalia.http({
+        url = haUrl .. "/api/states",
+        headers = {
+            "Authorization: Bearer " .. cleanToken,
+        }
+    }, function(response: HttpResponse)
         browserLoading = false
-        if result and result.stdout and result.stdout ~= "" then
-            local states = noctalia.json.decode(result.stdout)
+        if response and response.body and response.body ~= "" then
+            local states = noctalia.json.decode(response.body)
             if type(states) == "table" then
                 allEntities = {}
                 for _, s in ipairs(states) do
@@ -132,6 +189,29 @@ local function markDirty(key)
     sliderDirty[expandedEntityId][key] = true
 end
 
+local function clearPending(entityId)
+    pendingToggle[entityId] = nil
+    pendingSince[entityId] = nil
+end
+
+local function isPendingTimedOut(entityId, now)
+    local startedAt = pendingSince[entityId]
+    if not startedAt then return false end
+    return (now or os.clock()) - startedAt >= PENDING_TIMEOUT_SECONDS
+end
+
+local function reconcilePending(now)
+    local changed = false
+    for entityId, expected in pairs(pendingToggle) do
+        local real = entityStates[entityId]
+        if not real or real.state == expected or isPendingTimedOut(entityId, now) then
+            clearPending(entityId)
+            changed = true
+        end
+    end
+    return changed
+end
+
 -- _actN/_expN are per-slot callback targets referenced by index from the rendered rows below.
 -- In list view they act on the entity in that row's slot; in browser view _actN toggles its pin.
 local function actSlot(i)
@@ -149,7 +229,7 @@ local function actSlot(i)
     else
         local newState = entity.state == "on" and "off" or "on"
         pendingToggle[eid] = newState
-        pendingAge[eid] = 0
+        pendingSince[eid] = os.clock()
         callService(d, "toggle", eid)
         render()
     end
@@ -309,7 +389,8 @@ local function entityStateLabel(entity)
         return entity.state .. (entity.unit ~= "" and " " .. entity.unit or "")
     end
     if entity.domain == "light" and entity.state == "on" and entity.brightness >= 0 then
-        return "on · " .. math.floor(entity.brightness / 255 * 100 + 0.5) .. "%"
+        local pct = math.floor(entity.brightness / 255 * 100 + 0.5)
+        return tr("state_on_brightness", { percent = pct })
     end
     return entity.state
 end
@@ -323,7 +404,7 @@ local function buildExpandedSection(entity)
     if entity.supports_brightness then
         local bv = draft.brightness
         table.insert(rows, ui.row({ align = "center", gap = 8 }, {
-            ui.label({ text = "Brightness", color = "on_surface_variant" }),
+            ui.label({ text = tr("brightness"), color = "on_surface_variant" }),
             ui.slider({ min = 1, max = 255, step = 1, value = bv, onChange = "onBrightness", flexGrow = 1 }),
             ui.label({ text = math.floor(bv / 255 * 100 + 0.5) .. "%" }),
         }))
@@ -332,7 +413,7 @@ local function buildExpandedSection(entity)
     if entity.supports_color_temp then
         local ctk = draft.color_temp
         table.insert(rows, ui.row({ align = "center", gap = 8 }, {
-            ui.label({ text = "Color Temp", color = "on_surface_variant" }),
+            ui.label({ text = tr("color_temp"), color = "on_surface_variant" }),
             ui.slider({ min = 2000, max = 6500, step = 50, value = ctk, onChange = "onColorTemp", flexGrow = 1 }),
             ui.label({ text = math.floor(ctk) .. "K" }),
         }))
@@ -341,7 +422,7 @@ local function buildExpandedSection(entity)
     if entity.supports_rgb then
         local hv = draft.hue
         table.insert(rows, ui.row({ align = "center", gap = 8 }, {
-            ui.label({ text = "Hue", color = "on_surface_variant" }),
+            ui.label({ text = tr("hue"), color = "on_surface_variant" }),
             ui.slider({ min = 0, max = 360, step = 1, value = hv, onChange = "onHue", flexGrow = 1 }),
             ui.label({ text = math.floor(hv) .. "°" }),
         }))
@@ -419,23 +500,23 @@ local function getOrderedIds()
 end
 
 local function buildListBody(ids)
-    if not haUrl or haUrl == "" or not haToken or haToken == "" then
-        return ui.label({ text = "Plugin not configured. Set the HA URL and token in plugin settings.", color = "on_surface_variant" })
+    if not haUrl or haUrl == "" or getCleanToken() == "" then
+        return ui.label({ text = tr("not_configured"), color = "on_surface_variant" })
     end
     if status == "auth_failed" then
-        return ui.label({ text = "Authentication failed. Check your access token.", color = "error" })
+        return ui.label({ text = tr("auth_failed"), color = "error" })
     end
     if status == "connecting" then
-        return ui.label({ text = "Connecting to Home Assistant…", color = "on_surface_variant" })
+        return ui.label({ text = tr("connecting"), color = "on_surface_variant" })
     end
     if status == "disconnected" then
-        return ui.label({ text = "Disconnected. Reconnecting automatically…", color = "error" })
+        return ui.label({ text = tr("disconnected_reconnecting"), color = "error" })
     end
     if #ids == 0 then
         return ui.label({
             text = status == "connected"
-                and "No entities monitored. Use the list button in the header to add entities."
-                or ("Status: " .. status),
+                and tr("no_entities_monitored")
+                or tr("status_fallback", { status = status }),
             color = "on_surface_variant",
         })
     end
@@ -448,10 +529,10 @@ end
 
 local function buildBrowserBody()
     if browserLoading then
-        return ui.label({ text = "Loading entities from Home Assistant…", color = "on_surface_variant" })
+        return ui.label({ text = tr("loading_entities"), color = "on_surface_variant" })
     end
     if #allEntities == 0 then
-        return ui.label({ text = "No entities found.", color = "on_surface_variant" })
+        return ui.label({ text = tr("no_entities_found"), color = "on_surface_variant" })
     end
 
     local q = searchText:lower()
@@ -467,7 +548,7 @@ local function buildBrowserBody()
     end
 
     if #filtered == 0 then
-        return ui.label({ text = "No entities match your search.", color = "on_surface_variant" })
+        return ui.label({ text = tr("no_entities_match"), color = "on_surface_variant" })
     end
 
     browserSlots = {}
@@ -488,14 +569,16 @@ local function buildBrowserBody()
 end
 
 function render()
+    reconcilePending(os.clock())
+
     if view == "browser" then
         panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
             ui.row({ align = "center", gap = 8 }, {
                 ui.button({ glyph = "arrow-left", onClick = "onBackToList" }),
-                ui.label({ text = "Manage Entities", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
+                ui.label({ text = tr("manage_entities_title"), fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
                 ui.button({ glyph = "close", onClick = "onCloseClicked" }),
             }),
-            ui.input({ key = "entity_search", placeholder = "Search by name or entity ID…", onChange = "onSearchChange" }),
+            ui.input({ key = "entity_search", placeholder = tr("search_placeholder"), onChange = "onSearchChange" }),
             buildBrowserBody(),
         }))
     else
@@ -505,8 +588,8 @@ function render()
 
         panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
             ui.row({ align = "center", gap = 8 }, {
-                ui.label({ text = "Home Assistant", fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
-                ui.label({ text = status, color = status == "connected" and "primary" or "on_surface_variant" }),
+                ui.label({ text = noctalia.tr("shortcut.title"), fontSize = 16, fontWeight = "bold", color = "primary", flexGrow = 1 }),
+                ui.label({ text = getStatusText(), color = status == "connected" and "primary" or "on_surface_variant" }),
                 ui.button({ glyph = "list-search", onClick = "onOpenBrowser" }),
                 ui.button({ glyph = "close", onClick = "onCloseClicked" }),
             }),
@@ -520,8 +603,19 @@ function onOpen(_context)
     entityStates = noctalia.state.get("entities") or {}
     loadMonitoredEntities()
     panelOpenCount = panelOpenCount + 1
+    panel.setWantsSecondTicks(true)
     noctalia.state.set("panel_open_signal", panelOpenCount)
     render()
+end
+
+function onClose()
+    panel.setWantsSecondTicks(false)
+end
+
+function update()
+    if reconcilePending(os.clock()) then
+        render()
+    end
 end
 
 function onCloseClicked()
@@ -530,15 +624,7 @@ end
 
 noctalia.state.watch("entities", function(value)
     entityStates = value or {}
-    for eid, expected in pairs(pendingToggle) do
-        local age = (pendingAge[eid] or 0) + 1
-        pendingAge[eid] = age
-        local real = entityStates[eid]
-        if not real or real.state == expected or age > 20 then
-            pendingToggle[eid] = nil
-            pendingAge[eid] = nil
-        end
-    end
+    reconcilePending(os.clock())
     render()
 end)
 

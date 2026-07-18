@@ -3,14 +3,20 @@
 local haUrl = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 local configuredEntityId = noctalia.getConfig("shortcut_entity_4") or ""
-local SLOT_LABEL = "HA Toggle 4"
+local SLOT_LABEL = noctalia.tr("shortcut.label_4")
 
 local entityStates = {}
 local pendingToggle = {}
-local pendingAge = {}
+local pendingSince = {}
+local pendingTimerToken = {}
+local pendingTimerSeq = 0
 
-local function escapeArg(s)
-    return "'" .. s:gsub("'", "'\\''" ) .. "'"
+local PENDING_TIMEOUT_SECONDS = 8
+local render
+
+local function getCleanToken()
+    if type(haToken) ~= "string" then return "" end
+    return haToken:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
 local function stateGlyph(domain, isOn)
@@ -28,7 +34,45 @@ local function getEntity()
     return entityStates[configuredEntityId]
 end
 
-local function render()
+local function clearPending(entityId)
+    pendingToggle[entityId] = nil
+    pendingSince[entityId] = nil
+    pendingTimerToken[entityId] = nil
+end
+
+local function isPendingTimedOut(entityId, now)
+    local startedAt = pendingSince[entityId]
+    if not startedAt then return false end
+    return (now or os.clock()) - startedAt >= PENDING_TIMEOUT_SECONDS
+end
+
+local function reconcilePending(now)
+    for entityId, expected in pairs(pendingToggle) do
+        local real = entityStates[entityId]
+        if not real or real.state == expected or isPendingTimedOut(entityId, now) then
+            clearPending(entityId)
+        end
+    end
+end
+
+local function schedulePendingTimeout(entityId)
+    pendingTimerSeq = pendingTimerSeq + 1
+    local token = pendingTimerSeq
+    pendingSince[entityId] = os.clock()
+    pendingTimerToken[entityId] = token
+
+    noctalia.runAsync("sleep " .. tostring(PENDING_TIMEOUT_SECONDS), function(_result)
+        if pendingTimerToken[entityId] ~= token then return end
+        if pendingToggle[entityId] and isPendingTimedOut(entityId) then
+            clearPending(entityId)
+            render()
+        end
+    end)
+end
+
+render = function()
+    reconcilePending(os.clock())
+
     local entity = getEntity()
 
     if not entity then
@@ -59,39 +103,40 @@ end
 
 noctalia.state.watch("entities", function(value)
     entityStates = value or {}
-    for eid, expected in pairs(pendingToggle) do
-        local age = (pendingAge[eid] or 0) + 1
-        pendingAge[eid] = age
-        local real = entityStates[eid]
-        if not real or real.state == expected or age > 20 then
-            pendingToggle[eid] = nil
-            pendingAge[eid] = nil
-        end
-    end
+    reconcilePending(os.clock())
     render()
 end)
 
-noctalia.state.watch("connection_status", function() render() end)
+noctalia.state.watch("connection_status", function(_value)
+    render()
+end)
 
 function onClick()
+    reconcilePending(os.clock())
+
     local entity = getEntity()
-    if not entity or not haUrl or haUrl == "" or not haToken or haToken == "" then return end
+    local cleanToken = getCleanToken()
+    if not entity or not haUrl or haUrl == "" or cleanToken == "" then return end
 
     local eid = entity.entity_id
     if pendingToggle[eid] then return end
 
     local newState = entity.state == "on" and "off" or "on"
     pendingToggle[eid] = newState
-    pendingAge[eid] = 0
+    schedulePendingTimeout(eid)
 
     local encoded = noctalia.json.encode({ entity_id = eid })
 
-    local cmd = "curl -s -o /dev/null -X POST"
-        .. " -H " .. escapeArg("Authorization: Bearer " .. haToken)
-        .. " -H " .. escapeArg("Content-Type: application/json")
-        .. " -d " .. escapeArg(encoded)
-        .. " " .. escapeArg(haUrl .. "/api/services/" .. entity.domain .. "/toggle")
-    noctalia.runAsync(cmd)
+    noctalia.http({
+        url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
+        method = "POST",
+        headers = {
+            "Authorization: Bearer " .. cleanToken,
+            "Content-Type: application/json",
+        },
+        body = encoded,
+    }, function(response)end)
+
     render()
 end
 

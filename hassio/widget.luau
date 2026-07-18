@@ -8,6 +8,10 @@ local entityCount = 0
 
 local render
 
+local function tr(key, subst)
+  return noctalia.tr("widget." .. key, subst)
+end
+
 noctalia.state.watch("connection_status", function(value)
   status = value or "unconfigured"
   if render then render() end
@@ -20,15 +24,15 @@ end)
 
 local function getStatusText()
   if status == "connected" then
-    return noctalia.tr("widget.status_connected")
+    return tr("status_connected")
   elseif status == "connecting" then
-    return noctalia.tr("widget.status_connecting")
+    return tr("status_connecting")
   elseif status == "disconnected" then
-    return noctalia.tr("widget.status_disconnected")
+    return tr("status_disconnected")
   elseif status == "auth_failed" then
-    return noctalia.tr("widget.status_auth_failed")
+    return tr("status_auth_failed")
   else
-    return noctalia.tr("widget.status_unconfigured")
+    return tr("status_unconfigured")
   end
 end
 
@@ -50,12 +54,12 @@ render = function()
 
   if showEntityCount and entityCount > 0 then
     barWidget.setText(tostring(entityCount))
-    barWidget.setTooltip(noctalia.tr("widget.tooltip_entities", {
+    barWidget.setTooltip(tr("tooltip_entities", {
       status = getStatusText(),
       count = entityCount
     }))
   else
-    barWidget.setTooltip(noctalia.tr("widget.tooltip", {
+    barWidget.setTooltip(tr("tooltip", {
       status = getStatusText()
     }))
   end
@@ -80,13 +84,13 @@ end
 
 function onRightClick()
   if haUrl and haUrl ~= "" then
-    noctalia.runInTerminal("xdg-open " .. ("'" .. haUrl:gsub("'", "'\\''") .. "'"))
+    noctalia.runAsync("xdg-open " .. ("'" .. haUrl:gsub("'", "'\\''") .. "'"))
   end
 end
 
 function onIpc(event, payload)
   if event == "refresh" then
     noctalia.state.set("command", "refresh")
-    noctalia.notify("Home Assistant", "Refreshing connection...")
+    noctalia.notify(noctalia.tr("shortcut.title"), tr("refreshing_connection"))
   end
 end

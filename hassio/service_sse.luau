@@ -3,8 +3,16 @@
 local haUrl = noctalia.getConfig("ha_url")
 local haToken = noctalia.getConfig("ha_token")
 
+local MANAGED_ENTITIES_FILE = "managed_entities.json"
+
 local function loadManagedEntities()
-  local data = noctalia.readFile("managed_entities.json")
+  local dataDir, dirErr = noctalia.pluginDataDir()
+  if not dataDir then
+    noctalia.log("Cannot resolve plugin data dir: " .. (dirErr or "unknown"))
+    return {}
+  end
+
+  local data = noctalia.readFile(dataDir .. "/" .. MANAGED_ENTITIES_FILE)
   if data and data ~= "" then
     local parsed = noctalia.json.decode(data)
     if type(parsed) == "table" then return parsed end
@@ -17,59 +25,67 @@ local entities = loadManagedEntities()
 local status = "unconfigured"
 local entityStates = {}
 local sseActive = false
+local streamHandle = nil
 
 local MAX_RECONNECT_RETRIES = 10
+local CONNECTED_POLL_INTERVAL_MS = 30000
+local RECONNECT_POLL_INTERVAL_MS = 1000
 local retryCount = 0
 local maxRetriesNotified = false
 local suspended = false
+local connectionRequestInFlight = false
 
-local function escapeShellArg(arg)
-  return "'" .. arg:gsub("'", "'\\''" ) .. "'"
+local function getCleanToken()
+  if type(haToken) ~= "string" then return "" end
+  return noctalia.string.trim(haToken)
+end
+
+local function syncUpdateInterval()
+  if status == "connected" and sseActive then
+    noctalia.setUpdateInterval(CONNECTED_POLL_INTERVAL_MS)
+  else
+    noctalia.setUpdateInterval(RECONNECT_POLL_INTERVAL_MS)
+  end
 end
 
 local function isConfigured()
-  return haUrl and haUrl ~= "" and haToken and haToken ~= ""
+  return haUrl and haUrl ~= "" and getCleanToken() ~= ""
 end
 
 local function haRequest(endpoint, method, body, callback)
-  if not isConfigured() then return end
-
-  if not noctalia.commandExists("curl") then
-    noctalia.log("curl not found, cannot make HTTP requests")
-    return
-  end
+  if not isConfigured() then return false end
 
   local url = haUrl .. endpoint
-  local cleanToken = haToken:gsub("^%s+", ""):gsub("%s+$", "")
+  local cleanToken = getCleanToken()
 
-  local cmd = "curl -s -w '\nHTTP_STATUS:%{http_code}' -X " .. (method or "GET") ..
-              " -H " .. escapeShellArg("Authorization: Bearer " .. cleanToken) ..
-              " -H " .. escapeShellArg("Content-Type: application/json")
-
+  local jsonBody
   if body then
-    local jsonBody = noctalia.json.encode(body)
-    cmd = cmd .. " -d " .. escapeShellArg(jsonBody)
+    jsonBody = noctalia.json.encode(body)
   end
 
-  cmd = cmd .. " " .. escapeShellArg(url)
+  local launched = noctalia.http({
+      url = url,
+      method = method,
+      body = jsonBody,
+      headers = {
+        "Authorization: Bearer " .. cleanToken,
+        "Content-Type: application/json",
+      }
+  }, function(response: HttpResponse)
+      if not response then
+        callback({ ok = false, status = 0, body = "No response" })
+        return
+      end
 
-  noctalia.runAsync(cmd, function(result)
-    if not result then
-      callback({ ok = false, status = 0, body = "No response" })
-      return
-    end
-
-    local output = result.stdout or ""
-    local statusMatch = output:match("HTTP_STATUS:(%d+)")
-    local httpStatus = tonumber(statusMatch) or 0
-    local body = output:gsub("\nHTTP_STATUS:%d+$", "")
-
-    callback({
-      ok = httpStatus >= 200 and httpStatus < 300,
-      status = httpStatus,
-      body = body
-    })
+      callback({
+        ok = response.status >= 200 and response.status < 300,
+        status = response.status,
+        body = response.body
+      })
   end)
+
+  return launched
+
 end
 
 local function supportsColorMode(modes, targets)
@@ -181,19 +197,25 @@ local function processSSELine(line)
         end
       end
     end
-    currentEvent.data = (currentEvent.data or "") .. data
-  elseif line:match("^id:") then
-    lastEventId = line:match("^id:%s*(.+)") or ""
+    if currentEvent.data and currentEvent.data ~= "" then
+      currentEvent.data = currentEvent.data .. "\n" .. data
+    else
+      currentEvent.data = data
+    end
   end
 end
 
 local function fetchInitialStates()
-  if suspended then return end
-  haRequest("/api/states", "GET", nil, function(res)
+  if not isConfigured() or suspended or connectionRequestInFlight then return end
+  connectionRequestInFlight = true
+  local launched = haRequest("/api/states", "GET", nil, function(res)
+    connectionRequestInFlight = false
+
     if not res.body or res.body == "" then
       noctalia.log("Empty response body from /api/states")
       status = "disconnected"
       noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
       return
     end
 
@@ -202,6 +224,7 @@ local function fetchInitialStates()
       noctalia.log("Authentication failed - check your token")
       noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
       noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
       return
     end
 
@@ -209,6 +232,7 @@ local function fetchInitialStates()
       status = "disconnected"
       noctalia.log("HTTP request failed: status " .. (res.status or "unknown"))
       noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
       return
     end
 
@@ -217,6 +241,7 @@ local function fetchInitialStates()
       noctalia.log("Failed to parse states: " .. (err or "unknown error"))
       status = "disconnected"
       noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
       return
     end
 
@@ -244,41 +269,88 @@ local function fetchInitialStates()
     noctalia.state.set("entity_count", count)
 
     if status == "connected" then
-      startSSEStream()
+      if not startSSEStream() then
+        status = "disconnected"
+        noctalia.state.set("connection_status", status)
+        syncUpdateInterval()
+      else
+        syncUpdateInterval()
+      end
     end
   end)
+
+  if not launched then
+    connectionRequestInFlight = false
+    status = "disconnected"
+    noctalia.state.set("connection_status", status)
+    syncUpdateInterval()
+  end
 end
 
 function startSSEStream()
-  if suspended then return end
-  if sseActive then return end
+  if suspended then return false end
+  if sseActive then return true end
 
-  if not noctalia.commandExists("curl") then
-    noctalia.log("curl not found, cannot use SSE")
-    return
+  local cleanToken = getCleanToken()
+  if cleanToken == "" then
+    return false
   end
 
   local url = haUrl .. "/api/stream?restrict=state_changed"
-  local cmd = "curl -N -H " .. escapeShellArg("Authorization: Bearer " .. haToken) ..
-              " -H " .. escapeShellArg("Accept: text/event-stream") ..
-              " " .. escapeShellArg(url)
 
   noctalia.log("Starting SSE stream")
-  sseActive = true
+  currentEvent = { data = "", event = "" }
 
-  noctalia.runStream(cmd, function(line)
-    if line == nil then
-      sseActive = false
-      currentEvent = {}
+  local handle
+  handle = noctalia.httpStream({
+    url = url,
+    headers = {
+      "Accept: text/event-stream",
+      "Authorization: Bearer " .. cleanToken,
+    },
+  }, function(line)
+    processSSELine(line)
+  end, function(result)
+    if streamHandle ~= handle then return end
+
+    streamHandle = nil
+    sseActive = false
+    currentEvent = {}
+
+    if suspended then return end
+
+    if result and result.ok and result.status == 401 then
+      status = "auth_failed"
+      noctalia.log("Authentication failed - check your token")
+      noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
+      noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
       return
     end
-    processSSELine(line)
+
+    status = "disconnected"
+    noctalia.log("SSE stream closed")
+    noctalia.state.set("connection_status", status)
+    syncUpdateInterval()
   end)
+
+  if not handle then
+    noctalia.log("Failed to start SSE stream")
+    return false
+  end
+
+  streamHandle = handle
+  sseActive = true
+  syncUpdateInterval()
+  return true
 end
 
 noctalia.state.watch("command", function(cmd)
   if cmd == "refresh" then
-    sseActive = false
+    -- Just refetch a fresh snapshot over HTTP. Do NOT touch sseActive here:
+    -- the running stream (if any) is untouched by this, and forcing the
+    -- flag false would bypass startSSEStream()'s duplicate guard and spawn
+    -- a second stream on top of one that's still alive.
     fetchInitialStates()
   elseif cmd == "reload_entities" then
     local override = noctalia.state.get("entities_override")
@@ -287,7 +359,11 @@ noctalia.state.watch("command", function(cmd)
     else
       entities = loadManagedEntities()
     end
-    sseActive = false
+    -- Entity filtering happens client-side in updateEntity(), so the
+    -- existing stream keeps working for the new entity list as-is.
+    -- The initial snapshot needs refetching, though, to account for any
+    -- entities that were removed from the filter. See the note above for why
+    -- sseActive must not be forced here.
     fetchInitialStates()
   end
 end)
@@ -301,7 +377,7 @@ noctalia.state.watch("panel_open_signal", function(value)
 end)
 
 function update()
-  noctalia.setUpdateInterval(30000)
+  syncUpdateInterval()
 
   if not isConfigured() then
     status = "unconfigured"
@@ -314,7 +390,7 @@ function update()
     return
   end
 
-  if status ~= "connected" or not sseActive then
+  if status == "disconnected" then
     retryCount = retryCount + 1
     if retryCount >= MAX_RECONNECT_RETRIES then
       if not maxRetriesNotified then
@@ -331,6 +407,14 @@ function update()
     noctalia.state.set("connection_status", status)
     fetchInitialStates()
   end
+end
+
+function onExit()
+  if streamHandle then
+    streamHandle.stop()
+    streamHandle = nil
+  end
+  sseActive = false
 end
 
 noctalia.state.set("connection_status", status)
