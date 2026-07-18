@@ -9,6 +9,10 @@ local MIN_TICK_MS: number = 500
 -- reads the previous second's sample; this bias keeps every update on the correct side.
 local TARGET_OFFSET_MS: number = 6
 
+-- Whether a bar row has ever been drawn, so a later empty sample holds the last frame
+-- rather than blanking the widget.
+local hasRendered: boolean = false
+
 -- Tick alignment state. See scheduleNextTick().
 local lastOffset: number? = nil
 local lastRequest: number? = nil
@@ -59,13 +63,17 @@ function update()
 	end
 
 	local cores: { number } = stats.cpu.cores or {}
-	-- The first sample after enabling has no previous reading to diff against, so cores is
-	-- empty for one tick. Keep the widget hidden rather than flashing an empty row.
+	-- No sample yet: on the very first tick after enabling there is no previous reading to
+	-- diff against. Hold whatever is already drawn instead of hiding, so a momentary gap
+	-- never blanks the widget; only hide when nothing has ever been drawn.
 	if #cores == 0 then
-		barWidget.setVisible(false)
+		if not hasRendered then
+			barWidget.setVisible(false)
+		end
 		scheduleNextTick()
 		return
 	end
+	hasRendered = true
 	barWidget.setVisible(true)
 
 	local vertical: boolean = barWidget.isVertical()
