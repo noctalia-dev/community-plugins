@@ -6,6 +6,8 @@ local errorMsg = ""
 local scanCounter = 0
 
 local binary = noctalia.pluginDir() .. "/gamelauncher"
+local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
+local building = false
 local MAX_VISIBLE = 200
 
 local runnerMeta = {
@@ -161,6 +163,26 @@ end
 
 local function scanGames()
   if loading then return end
+  if not noctalia.fileExists(binary) then
+    if building then return end
+    building = true
+    loading = true
+    errorMsg = ""
+    scanCounter = scanCounter + 1
+    searchText = ""
+    render()
+    noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3 -lpthread", function(res)
+      building = false
+      loading = false
+      if res.exitCode == 0 then
+        scanGames()
+      else
+        errorMsg = "Failed to build gamelauncher. Install gcc and libsqlite3-dev."
+        render()
+      end
+    end)
+    return
+  end
   loading = true
   errorMsg = ""
   scanCounter = scanCounter + 1

@@ -12,24 +12,20 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 
 ## Requirements
 
-Install the build dependencies, then compile the scanner:
+Requires `libsqlite3-dev` and `curl` on PATH.
 
 ```sh
 # Debian/Ubuntu
-sudo apt install build-essential libsqlite3-dev curl
+sudo apt install libsqlite3-dev curl
 
 # Fedora
-sudo dnf install gcc sqlite-devel curl
+sudo dnf install sqlite-devel curl
 
 # Arch
-sudo pacman -S base-devel sqlite curl
+sudo pacman -S sqlite curl
 ```
 
-Build the scanner inside the plugin directory:
-
-```sh
-cc -o gamelauncher gamelauncher.c -lsqlite3 -lpthread
-```
+The scanner binary (`gamelauncher`) is compiled automatically on first use — the plugin runs `cc` to build it when needed. No manual build step required.
 
 ## Usage
 

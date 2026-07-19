@@ -1,10 +1,30 @@
 local games = {}
 local ready = false
 local binary = noctalia.pluginDir() .. "/gamelauncher"
+local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
 
 local function ensureGames(cb)
   if ready then
     cb()
+    return
+  end
+  if not noctalia.fileExists(binary) then
+    noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3 -lpthread", function(res)
+      if res.exitCode == 0 then
+        noctalia.runAsync(binary .. " --steam --lutris --heroic 2>/dev/null", function(res2)
+          if res2.exitCode == 0 and res2.stdout and #res2.stdout > 0 then
+            local parsed, err = noctalia.json.decode(res2.stdout)
+            if parsed then
+              games = parsed
+              ready = true
+            end
+          end
+          cb()
+        end)
+      else
+        cb()
+      end
+    end)
     return
   end
   noctalia.runAsync(binary .. " --steam --lutris --heroic 2>/dev/null", function(res)
