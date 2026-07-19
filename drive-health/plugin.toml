@@ -1,0 +1,148 @@
+id = "gustav0ar/drive-health"
+name = "Drive Health"
+version = "1.2.0"
+plugin_api = 3
+author = "Drive Health contributors"
+license = "MIT"
+deprecated = false
+dependencies = ["lsblk", "smartctl", "sh", "date", "dirname", "mkdir", "mktemp", "rm", "sed", "cat", "chmod", "mv", "sudo", "env", "bash", "install", "systemctl", "pkexec", "id", "tr"]
+tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+icon = "server-2"
+description = "SMART health, temperature, integrity, endurance, and storage monitoring for SSDs and hard drives."
+
+[[setting]]
+key = "system_collector_enabled"
+type = "bool"
+label_key = "settings.system_collector_enabled.label"
+description_key = "settings.system_collector_enabled.description"
+default = false
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 30
+min = 15
+max = 300
+
+[[setting]]
+key = "warning_temperature"
+type = "int"
+label_key = "settings.warning_temperature.label"
+description_key = "settings.warning_temperature.description"
+default = 65
+min = 40
+max = 90
+
+[[setting]]
+key = "critical_temperature"
+type = "int"
+label_key = "settings.critical_temperature.label"
+description_key = "settings.critical_temperature.description"
+default = 80
+min = 50
+max = 100
+
+[[setting]]
+key = "life_warning_percent"
+type = "int"
+label_key = "settings.life_warning_percent.label"
+description_key = "settings.life_warning_percent.description"
+default = 20
+min = 5
+max = 50
+
+[[setting]]
+key = "alerts_enabled"
+type = "bool"
+label_key = "settings.alerts_enabled.label"
+description_key = "settings.alerts_enabled.description"
+default = true
+
+[[setting]]
+key = "notify_recovery"
+type = "bool"
+label_key = "settings.notify_recovery.label"
+description_key = "settings.notify_recovery.description"
+default = true
+
+[[setting]]
+key = "show_hdd"
+type = "bool"
+label_key = "settings.show_hdd.label"
+description_key = "settings.show_hdd.description"
+default = true
+
+[[setting]]
+key = "alert_hdd"
+type = "bool"
+label_key = "settings.alert_hdd.label"
+description_key = "settings.alert_hdd.description"
+default = true
+
+[[setting]]
+key = "drive_missing_alerts"
+type = "bool"
+label_key = "settings.drive_missing_alerts.label"
+description_key = "settings.drive_missing_alerts.description"
+default = true
+
+[[setting]]
+key = "missing_grace_scans"
+type = "int"
+label_key = "settings.missing_grace_scans.label"
+description_key = "settings.missing_grace_scans.description"
+default = 3
+min = 1
+max = 20
+
+[[setting]]
+key = "use_hotspot_temperature"
+type = "bool"
+label_key = "settings.use_hotspot_temperature.label"
+description_key = "settings.use_hotspot_temperature.description"
+default = true
+
+[[setting]]
+key = "history_interval_minutes"
+type = "int"
+label_key = "settings.history_interval_minutes.label"
+description_key = "settings.history_interval_minutes.description"
+default = 60
+min = 15
+max = 1440
+
+[[setting]]
+key = "history_retention_days"
+type = "int"
+label_key = "settings.history_retention_days.label"
+description_key = "settings.history_retention_days.description"
+default = 30
+min = 1
+max = 365
+
+[[service]]
+id = "collector"
+entry = "collector.luau"
+
+[[service]]
+id = "alerts"
+entry = "service.luau"
+
+[[service]]
+id = "history"
+entry = "history.luau"
+
+[[widget]]
+id = "summary"
+entry = "widget.luau"
+
+[[panel]]
+id = "drives"
+entry = "panel.luau"
+width = 590
+height = 720
+placement = "floating"
+position = "center"
+open_near_click = true

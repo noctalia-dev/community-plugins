@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+device=""
+standby=false
+for argument in "$@"; do
+  device=$argument
+  if [ "$argument" = "--nocheck=standby,0" ]; then
+    standby=true
+  fi
+done
+
+case "$device" in
+  /dev/sda)
+    if [ "${SMARTCTL_EMPTY:-0}" = "1" ]; then
+      exit 2
+    fi
+    printf '%s\n' "{\"json_format_version\":[1,0],\"device\":{\"name\":\"/dev/sda\"},\"smart_status\":{\"passed\":true},\"temperature\":{\"current\":35},\"test_standby\":$standby}"
+    ;;
+  /dev/nvme0)
+    printf '%s\n' "{\"json_format_version\":[1,0],\"device\":{\"name\":\"/dev/nvme0\"},\"smart_status\":{\"passed\":true},\"temperature\":{\"current\":42},\"nvme_smart_health_information_log\":{\"percentage_used\":2,\"available_spare\":100,\"critical_warning\":0},\"test_standby\":$standby}"
+    ;;
+  *)
+    echo "unexpected smartctl device: $device" >&2
+    exit 2
+    ;;
+esac
