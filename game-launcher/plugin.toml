@@ -1,0 +1,37 @@
+id = "leo/game-launcher"
+name = "Game Launcher"
+version = "1.0.0"
+plugin_api = 4
+author = "Alexander"
+license = "MIT"
+icon = "device-gamepad-2"
+description = "Browse and launch games from Steam, Lutris, and Heroic. Requires building gamelauncher.c with libsqlite3."
+dependencies = ["cc", "libsqlite3-dev", "curl"]
+tags = ["gaming", "launcher", "utility"]
+
+[[widget]]
+id = "launcher"
+entry = "widget.luau"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+default = "device-gamepad-2"
+
+[[panel]]
+id = "browser"
+entry = "panel.luau"
+width = 720
+height = 520
+placement = "floating"
+position = "center"
+open_near_click = true
+
+[[launcher_provider]]
+id = "search"
+entry = "search.luau"
+prefix = "/g"
+glyph = "device-gamepad-2"
+include_in_global_search = true
+debounce_ms = 150
