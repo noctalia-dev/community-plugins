@@ -7,6 +7,7 @@ local CURRENT_CLOCK_FACE_PATH = OUTPUT_DIR .. "/current.png"
 local NEXT_CLOCK_FACE_PATH = OUTPUT_DIR .. "/next.png"
 
 local generatingClockFace = false
+local movingClockFace = false
 local nextClockFaceReady = false
 local nextClockFaceTimestamp = nil
 
@@ -42,13 +43,15 @@ local function drawNextClockFace()
 end
 
 function update()
-  if generatingClockFace or nextClockFaceTimestamp and os.time() < nextClockFaceTimestamp then
+  if generatingClockFace or movingClockFace or (nextClockFaceTimestamp and os.time() < nextClockFaceTimestamp) then
     return
   end
 
   if nextClockFaceReady then
+    nextClockFaceReady = false
+    movingClockFace = true
     noctalia.runAsync("mv -f '" .. NEXT_CLOCK_FACE_PATH .. "' '" .. CURRENT_CLOCK_FACE_PATH .. "'", function(result)
-      nextClockFaceReady = false
+      movingClockFace = false
       if result.exitCode == 0 then
         barWidget.setImage(CURRENT_CLOCK_FACE_PATH, true, IMAGE_WIDTH, IMAGE_HEIGHT)
       else
