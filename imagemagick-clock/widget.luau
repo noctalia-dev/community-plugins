@@ -34,6 +34,14 @@ local function drawClockFace(timestamp)
   end)
 end
 
+local function drawCurrentClockFace()
+  local timestamp = os.time()
+  local time = os.date("*t", timestamp)
+  local currentTimestamp = timestamp - time.sec
+  -- print("Drawing current clock face at " .. os.date("%H:%M:%S", nextTimestamp))
+  drawClockFace(currentTimestamp)
+end
+
 local function drawNextClockFace()
   local timestamp = os.time()
   local time = os.date("*t", timestamp)
@@ -43,7 +51,15 @@ local function drawNextClockFace()
 end
 
 function update()
-  if generatingClockFace or movingClockFace or (nextClockFaceTimestamp and os.time() < nextClockFaceTimestamp) then
+  local timestamp = os.time()
+  if generatingClockFace or movingClockFace or (nextClockFaceTimestamp and timestamp < nextClockFaceTimestamp and timestamp >= nextClockFaceTimestamp - 60) then
+    return
+  end
+
+  if not nextClockFaceTimestamp or timestamp >= nextClockFaceTimestamp + 60 or timestamp < nextClockFaceTimestamp - 60 then
+    -- Next clock face unavailable (startup), or doesn't match current time (resume from sleep, or system clock changed).
+    -- Either case, draw the current clock face immediately.
+    drawCurrentClockFace()
     return
   end
 
@@ -73,4 +89,3 @@ function onClick()
 end
 
 noctalia.setUpdateInterval(1000)
-drawClockFace(os.time())
