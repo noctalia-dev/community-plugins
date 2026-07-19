@@ -5,7 +5,7 @@ plugin_api = 3
 author = "hy4ri"
 license = "MIT"
 icon = "device-gamepad-2"
-description = "Set the DualShock 4 lightbar colour from a bar button and panel (requires python3 for the hidraw write fallback)."
+description = "Set the DualShock 4 lightbar colour from a bar button and panel."
 tags = ["gaming", "hardware", "utility", "bar", "panel"]
 dependencies = ["python3"]
 
