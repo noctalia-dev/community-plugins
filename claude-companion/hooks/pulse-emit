@@ -1,0 +1,43 @@
+#!/bin/sh
+# pulse-emit — generic, agent-agnostic emitter for the pulse protocol.
+# The whole contract lives in PROTOCOL.md; this is the reference adapter for
+# any agent that can run a shell command on its lifecycle hooks (gemini-cli,
+# codex, opencode, a CI job). Claude Code uses pulse.py instead (it enriches
+# events with transcript-derived token telemetry; this one just relays args).
+#
+#   pulse-emit <event> [session] [model] [in] [out] [cacheCreate] [cacheRead]
+#
+# With a session id the event carries the space-free CSV payload
+# "model,in,out,cacheCreate,cacheRead,session" (omitted fields -> ?/0).
+# Without one it sends a bare event, which lands in the widget's shared
+# "default" test slot — fine for a poke, wrong for a real integration.
+#
+# Env: PULSE_TARGET  plugin dispatch id (default lowcache/claude-companion:pulse)
+#      PULSE_DRYRUN  non-empty -> print the command instead of dispatching
+#
+# Fail-open by contract: exits 0 no matter what, output swallowed, dispatch
+# capped at 3 s. A hook must never block or error the agent driving it.
+
+TARGET="${PULSE_TARGET:-lowcache/claude-companion:pulse}"
+event="${1:-idle}"
+session="$2"
+
+# CSV fields must stay space- and comma-free (payload is one positional token).
+clean() { printf '%s' "$1" | tr -cd 'A-Za-z0-9._?-'; }
+
+payload=""
+if [ -n "$session" ]; then
+  payload="$(clean "${3:-?}"),$(clean "${4:-0}"),$(clean "${5:-0}"),$(clean "${6:-0}"),$(clean "${7:-0}"),$(clean "$session")"
+fi
+
+if [ -n "$PULSE_DRYRUN" ]; then
+  echo "noctalia msg plugin $TARGET all $event${payload:+ $payload}"
+  exit 0
+fi
+
+if command -v timeout >/dev/null 2>&1; then
+  timeout 3 noctalia msg plugin "$TARGET" all "$event" ${payload:+"$payload"} >/dev/null 2>&1
+else
+  noctalia msg plugin "$TARGET" all "$event" ${payload:+"$payload"} >/dev/null 2>&1
+fi
+exit 0
