@@ -2,8 +2,7 @@ local CMDLINE_TEMPLATE = noctalia.getConfig("command_line")
 local IMAGE_WIDTH = noctalia.getConfig("image_width")
 local IMAGE_HEIGHT = noctalia.getConfig("image_height")
 
-local RUNTIME_DIR = noctalia.getenv("XDG_RUNTIME_DIR") or "/tmp"
-local OUTPUT_DIR = RUNTIME_DIR .. "/imagemagick-clock"
+local OUTPUT_DIR = noctalia.pluginDataDir()
 local CURRENT_CLOCK_FACE_PATH = OUTPUT_DIR .. "/current.png"
 local NEXT_CLOCK_FACE_PATH = OUTPUT_DIR .. "/next.png"
 
@@ -20,8 +19,7 @@ local function drawClockFace(timestamp)
 
   local cmdline = string.gsub(CMDLINE_TEMPLATE, "%%output_file", NEXT_CLOCK_FACE_PATH)
   cmdline = os.date(cmdline, timestamp)
-  cmdline = "mkdir -p '" .. OUTPUT_DIR .. "' && " .. cmdline
-  print("Running command: " .. cmdline)
+  -- print("Running command: " .. cmdline)
 
   noctalia.runAsync(cmdline, function(result)
     generatingClockFace = false
@@ -35,6 +33,14 @@ local function drawClockFace(timestamp)
   end)
 end
 
+local function drawNextClockFace()
+  local timestamp = os.time()
+  local time = os.date("*t", timestamp)
+  local nextTimestamp = timestamp - time.sec + 60
+  -- print("Drawing next clock face at " .. os.date("%H:%M:%S", nextTimestamp))
+  drawClockFace(nextTimestamp)
+end
+
 function update()
   if generatingClockFace or nextClockFaceTimestamp and os.time() < nextClockFaceTimestamp then
     return
@@ -42,20 +48,17 @@ function update()
 
   if nextClockFaceReady then
     noctalia.runAsync("mv -f '" .. NEXT_CLOCK_FACE_PATH .. "' '" .. CURRENT_CLOCK_FACE_PATH .. "'", function(result)
+      nextClockFaceReady = false
       if result.exitCode == 0 then
         barWidget.setImage(CURRENT_CLOCK_FACE_PATH, true, IMAGE_WIDTH, IMAGE_HEIGHT)
       else
         print("Error moving new clock face: " .. result.stderr .. " (command: mv -f " .. NEXT_CLOCK_FACE_PATH .. " " .. CURRENT_CLOCK_FACE_PATH .. ") " .. "output: " .. result.stdout)
       end
+      drawNextClockFace()
     end)
-    nextClockFaceReady = false
+  else
+    drawNextClockFace()
   end
-
-  local timestamp = os.time()
-  local time = os.date("*t", timestamp)
-  local nextTimestamp = timestamp - time.sec + 60
-  print("Drawing next clock face at " .. os.date("%H:%M:%S", nextTimestamp))
-  drawClockFace(nextTimestamp)
 end
 
 function onClick()
