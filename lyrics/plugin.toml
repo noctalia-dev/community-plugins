@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.0"
+version = "1.4.1"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
@@ -35,6 +35,7 @@ options = [
   { value = "auto", label_key = "settings.lyrics_source.options.auto" },
   { value = "lrclib", label_key = "settings.lyrics_source.options.lrclib" },
   { value = "netease", label_key = "settings.lyrics_source.options.netease" },
+  { value = "splayer", label_key = "settings.lyrics_source.options.splayer" },
   { value = "qqmusic", label_key = "settings.lyrics_source.options.qqmusic" },
   { value = "kugou", label_key = "settings.lyrics_source.options.kugou" },
   { value = "qishui", label_key = "settings.lyrics_source.options.qishui" },
@@ -51,7 +52,7 @@ key = "lyrics_sources"
 type = "string_list"
 label_key = "settings.lyrics_sources.label"
 description_key = "settings.lyrics_sources.description"
-default = ["lrclib", "netease", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"]
+default = ["lrclib", "netease", "splayer", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"]
 visible_when = { key = "lyrics_source", values = ["auto"] }
 advanced = true
 
@@ -122,6 +123,15 @@ description_key = "settings.musixmatch_token.description"
 default = ""
 advanced = true
 visible_when = { key = "lyrics_source", values = ["musixmatch"] }
+
+[[setting]]
+key = "splayer_api_url"
+type = "string"
+label_key = "settings.splayer_api_url.label"
+description_key = "settings.splayer_api_url.description"
+default = "http://127.0.0.1:25884"
+advanced = true
+visible_when = { key = "lyrics_source", values = ["splayer"] }
 
 [[setting]]
 key = "qishui_api_url"

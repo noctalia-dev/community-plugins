@@ -171,8 +171,11 @@ local function getLineInfo()
     lineEnd = math.min(nextTime, startTime + line.duration)
   elseif nextTime - startTime >= INTERLUDE_GAP_MS then
     -- LRC only marks line starts. Do not stretch a lyric across a long instrumental gap.
+    local firstCharTime = line.chars and tonumber(line.chars[1]) or nil
     local lastCharTime = line.chars and tonumber(line.chars[#line.chars]) or nil
-    if lastCharTime and lastCharTime >= startTime and lastCharTime < nextTime then
+    local hasWordTiming = line.chars and #line.chars >= 2 and firstCharTime and lastCharTime
+      and lastCharTime > firstCharTime
+    if hasWordTiming and lastCharTime >= startTime and lastCharTime < nextTime then
       lineEnd = math.min(nextTime, lastCharTime + 600)
     else
       local estimatedDuration = clamp(#toChars(line.text) * 320, 3200, 6000)
@@ -545,7 +548,7 @@ local function render()
   end
 
   local sourceNames = {
-    lrclib = "LRCLIB", netease = "NetEase", qqmusic = "QQ Music", kugou = "Kugou",
+    lrclib = "LRCLIB", netease = "NetEase", splayer = "SPlayer", qqmusic = "QQ Music", kugou = "Kugou",
     qishui = "Qishui", apple_music = "Apple Music", spotify = "Spotify",
     musixmatch = "Musixmatch", mpris = "MPRIS", custom = "Custom", cache = "Cache",
   }

@@ -21,7 +21,7 @@ noctalia.mkdirAll(requestDir)
 local krcTmp = cacheDir .. "/krc.tmp"
 local lyricsSource = noctalia.getConfig("lyrics_source") or "auto"
 local lyricsSources = noctalia.getConfig("lyrics_sources") or {
-  "lrclib", "netease", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"
+  "lrclib", "netease", "splayer", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"
 }
 local customUrl = noctalia.getConfig("custom_url") or ""
 local customJsonField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
@@ -53,7 +53,8 @@ local playerAllowlist = normalizePatterns(noctalia.getConfig("player_allowlist")
 local playerBlocklist = normalizePatterns(noctalia.getConfig("player_blocklist"))
 
 local function trackKey(track)
-  return (track.playerInstance or "") .. "|" .. track.title .. "|" .. track.artist .. "|" .. track.album
+  return (track.playerInstance or "") .. "|" .. (track.trackId or "") .. "|"
+    .. track.title .. "|" .. track.artist .. "|" .. track.album
 end
 
 local function patternMatches(value, pattern)
@@ -177,6 +178,8 @@ local function credentialsFor(source)
       qishui_token = noctalia.getConfig("qishui_token") or "",
       qishui_api_url = noctalia.getConfig("qishui_api_url") or "",
     }
+  elseif source == "splayer" then
+    return { splayer_api_url = noctalia.getConfig("splayer_api_url") or "http://127.0.0.1:25884" }
   end
   return {}
 end
@@ -581,7 +584,7 @@ end
 local function poll()
   if pollInFlight then return end
   pollInFlight = true
-  local cmd = [[playerctl --all-players metadata --format $'{{playerInstance}}\x1f{{playerName}}\x1f{{lc(status)}}\x1f{{title}}\x1f{{artist}}\x1f{{album}}\x1f{{position}}\x1f{{mpris:length}}\x1f{{mpris:artUrl}}\x1f{{xesam:asText}}\x1e' 2>/dev/null]]
+  local cmd = [[playerctl --all-players metadata --format $'{{playerInstance}}\x1f{{playerName}}\x1f{{lc(status)}}\x1f{{title}}\x1f{{artist}}\x1f{{album}}\x1f{{position}}\x1f{{mpris:length}}\x1f{{mpris:artUrl}}\x1f{{mpris:trackid}}\x1f{{xesam:url}}\x1f{{xesam:asText}}\x1e' 2>/dev/null]]
 
   local started = noctalia.runAsync(cmd, function(r)
     pollInFlight = false
@@ -609,7 +612,9 @@ local function poll()
           position = tonumber(parts[7]) or 0,
           duration = tonumber(parts[8]) or 0,
           artUrl = parts[9] or "",
-          embeddedLyrics = parts[10] or "",
+          trackId = parts[10] or "",
+          mediaUrl = parts[11] or "",
+          embeddedLyrics = parts[12] or "",
         }
         if player.instance ~= "" or player.name ~= "" then players[#players + 1] = player end
       end
@@ -641,6 +646,8 @@ local function poll()
       position = selected.position,
       duration = selected.duration,
       playerInstance = selected.instance,
+      trackId = selected.trackId,
+      mediaUrl = selected.mediaUrl,
     }
     local tk = trackKey(t)
     currentTrack = t
@@ -716,6 +723,7 @@ function onConfigChanged()
     noctalia.getConfig("musixmatch_token") or "",
     noctalia.getConfig("qishui_token") or "",
     noctalia.getConfig("qishui_api_url") or "",
+    noctalia.getConfig("splayer_api_url") or "http://127.0.0.1:25884",
     noctalia.getConfig("translation_language") or "zh-Hans",
   }, "\0")
   local nextAllowlist = normalizePatterns(noctalia.getConfig("player_allowlist"))
@@ -758,6 +766,7 @@ local function applyPushedLyrics(payload)
       currentTrack = decoded.track
       lastTrackKey = trackKey({
         playerInstance = decoded.track.playerInstance or "",
+        trackId = decoded.track.trackId or "",
         title = decoded.track.title or "",
         artist = decoded.track.artist or "",
         album = decoded.track.album or "",

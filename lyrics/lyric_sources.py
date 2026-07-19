@@ -18,6 +18,7 @@ TIME_TAG = re.compile(r"\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]")
 KRC_LINE = re.compile(r"^\[(\d+),(\d+)\](.*)$")
 PREFIX_WORD = re.compile(r"(?:<|\()(\d+),(\d+)(?:,\d+)?(?:>|\))([^<(]*)")
 SUFFIX_WORD = re.compile(r"(.*?)<(\d+),(\d+)(?:,\d+)?>")
+QRC_SUFFIX_WORD = re.compile(r"(.*?)[(](\d+),(\d+)[)]")
 ENHANCED_WORD = re.compile(r"<(?:(\d+):)?(\d{1,2}(?:[.:]\d{1,3})?)>([^<]*)")
 META_TAG = re.compile(r"^\[(ar|al|ti|by|re|ve|length|offset):", re.I)
 CREDIT_LINE = re.compile(r"^(词|曲|作词|作曲|编曲|制作人|lyricist|composer|arranger)\s*[:：]", re.I)
@@ -68,6 +69,69 @@ def line(time=-1, duration=0, text="", translation="", romanization="", chars=No
     }
 
 
+def splayer_transmitted_lines(data):
+    if not isinstance(data, dict):
+        return []
+    source_lines = data.get("yrcData") or data.get("lrcData") or []
+    if not isinstance(source_lines, list):
+        return []
+    result = []
+    for line_index, source_line in enumerate(source_lines):
+        if not isinstance(source_line, dict):
+            continue
+        start = number(source_line.get("startTime"), -1)
+        end = number(source_line.get("endTime"), start)
+        words = source_line.get("words") if isinstance(source_line.get("words"), list) else []
+        text_parts = []
+        roman_parts = []
+        chars = []
+        word_timings = []
+        for word in words:
+            if not isinstance(word, dict):
+                continue
+            text = html.unescape(str(word.get("word", ""))).replace("\ufeff", "")
+            if not text:
+                continue
+            word_start = number(word.get("startTime"), start)
+            word_end = number(word.get("endTime"), word_start)
+            text_parts.append(text)
+            roman_word = clean_text(word.get("romanWord"))
+            if roman_word:
+                roman_parts.append(roman_word)
+            for index in range(len(text)):
+                chars.append(word_start + index * max(0, word_end - word_start) // max(1, len(text)))
+            word_timings.append({
+                "text": text,
+                "start": word_start,
+                "end": word_end,
+                "romanization": roman_word,
+            })
+        text = "".join(text_parts)
+        if not clean_text(text):
+            text = source_line.get("text", source_line.get("lyric", ""))
+        item = line(
+            start,
+            max(0, end - start),
+            text,
+            source_line.get("translatedLyric", source_line.get("translation", "")),
+            source_line.get("romanLyric", source_line.get("romanization", "")) or " ".join(roman_parts),
+            chars,
+        )
+        item["words"] = word_timings
+        item["is_background"] = source_line.get("isBG") is True
+        item["is_duet"] = source_line.get("isDuet") is True
+        next_line = source_lines[line_index + 1] if line_index + 1 < len(source_lines) else None
+        next_start = number(next_line.get("startTime"), -1) if isinstance(next_line, dict) else -1
+        if len(word_timings) == 1 and end - start >= 7000 and abs(next_start - end) <= 50:
+            word = word_timings[0]
+            if abs(word["start"] - start) <= 50 and abs(word["end"] - end) <= 50:
+                item["duration_inferred"] = True
+                item["chars"] = []
+        if item["text"] or item["translation"] or item["romanization"]:
+            result.append(item)
+    return finalize(result, number(data.get("duration"), 0))
+
+
 def finalize(lines, total_duration=0):
     cleaned = []
     for item in lines or []:
@@ -81,6 +145,12 @@ def finalize(lines, total_duration=0):
             item.get("romanization", item.get("romanized", item.get("romaji", ""))),
             item.get("chars", item.get("charTimes", [])),
         )
+        if isinstance(item.get("words"), list):
+            normalized["words"] = item["words"]
+        if item.get("is_background") is True:
+            normalized["is_background"] = True
+        if item.get("is_duet") is True:
+            normalized["is_duet"] = True
         if item.get("duration_inferred") is True:
             normalized["duration_inferred"] = True
         if normalized["text"] or normalized["translation"] or normalized["romanization"]:
@@ -136,18 +206,24 @@ def parse_lrc(text):
         if krc:
             start, duration, body = number(krc.group(1)), number(krc.group(2)), krc.group(3)
             words = PREFIX_WORD.findall(body) if re.match(r"^[<(]\d+,", body) else []
+            absolute_word_times = body.startswith("(")
             if words:
                 pieces = [(word, number(word_offset), number(word_duration))
                           for word_offset, word_duration, word in words]
             else:
+                suffix_words = SUFFIX_WORD.findall(body)
+                if not suffix_words:
+                    suffix_words = QRC_SUFFIX_WORD.findall(body)
+                    absolute_word_times = bool(suffix_words)
                 pieces = [(word, number(word_offset), number(word_duration))
-                          for word, word_offset, word_duration in SUFFIX_WORD.findall(body)]
+                          for word, word_offset, word_duration in suffix_words]
             if pieces:
                 content, chars = "", []
                 for word, word_offset, word_duration in pieces:
                     for index, character in enumerate(word):
                         content += character
-                        chars.append(start + word_offset + (index * word_duration // max(1, len(word))))
+                        word_start = word_offset if absolute_word_times else start + word_offset
+                        chars.append(word_start + (index * word_duration // max(1, len(word))))
                 if clean_text(content):
                     result.append(line(start + offset, duration, content, chars=chars))
                     continue
@@ -236,6 +312,22 @@ def parse_ttml(text):
     for item in primary:
         item.pop("_kind", None)
     return finalize(primary)
+
+
+def qrc_content(text):
+    text = str(text or "").strip()
+    if not text.startswith("<"):
+        return text
+    try:
+        root = ET.fromstring(text)
+        for node in root.iter():
+            for key, value in node.attrib.items():
+                if key.rsplit("}", 1)[-1].lower() == "lyriccontent":
+                    return value
+    except ET.ParseError:
+        pass
+    match = re.search(r'LyricContent\s*=\s*"([\s\S]*?)"\s*/?>', text, re.I)
+    return html.unescape(match.group(1)) if match else text
 
 
 def first_value(data, names):
@@ -449,6 +541,41 @@ def adapter_qqmusic(track, credentials, options):
     return success(source, lines, ["qqmusic: match"], duration_ms(track.get("duration")))
 
 
+def adapter_splayer(track, credentials, options):
+    source = "splayer"
+    base_url = clean_text(credentials.get("splayer_api_url")) or "http://127.0.0.1:25884"
+    parsed_url = urllib.parse.urlsplit(base_url)
+    if parsed_url.scheme not in ("http", "https") or not parsed_url.netloc:
+        return empty(source, "splayer: invalid API URL")
+    title = clean_text(track.get("title"))
+    artist = clean_text(track.get("artist"))
+    expected_duration = duration_ms(track.get("duration"))
+    song_info_endpoint = base_url.rstrip("/") + "/api/control/song-info"
+    last_state = "unavailable"
+    for attempt in range(12):
+        try:
+            response = request_json(song_info_endpoint)
+            current = response.get("data", {}) if isinstance(response, dict) else {}
+            current_title = current.get("name", current.get("playName", ""))
+            current_artist = current.get("artistName", current.get("artists", ""))
+            title_matches = normalize(current_title) == normalize(title)
+            artist_matches = not artist or not current_artist or (
+                normalize(artist) in normalize(current_artist) or normalize(current_artist) in normalize(artist)
+            )
+            if title_matches and artist_matches:
+                lines = splayer_transmitted_lines(current)
+                if lines:
+                    return success(source, lines, ["splayer: transmitted lyrics"], expected_duration)
+                last_state = "loading" if current.get("lyricLoading") is True else "empty"
+            else:
+                last_state = "track not ready"
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
+            last_state = "API unavailable"
+        if attempt < 11:
+            time.sleep(0.4)
+    return empty(source, "splayer: " + last_state)
+
+
 def adapter_kugou(track, credentials, options):
     source = "kugou"
     keyword = " ".join(filter(None, (track.get("title"), track.get("artist"))))
@@ -609,6 +736,7 @@ ADAPTERS = {
     "netease_public": adapter_netease,
     "qq": adapter_qqmusic,
     "qqmusic": adapter_qqmusic,
+    "splayer": adapter_splayer,
     "kugou": adapter_kugou,
     "qishui": adapter_qishui,
     "apple": adapter_apple_music,

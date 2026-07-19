@@ -167,11 +167,12 @@
         "netease": "NetEase Music (public API)",
         "qishui": "Qishui Music",
         "qqmusic": "QQ Music",
-        "spotify": "Spotify"
+        "spotify": "Spotify",
+        "splayer": "SPlayer"
       }
     },
     "lyrics_sources": {
-      "description": "Source IDs tried from top to bottom: lrclib, netease, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
+      "description": "Source IDs tried from top to bottom: lrclib, netease, splayer, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
       "label": "Automatic source order"
     },
     "marquee_speed": {
@@ -271,6 +272,10 @@
     "spotify_sp_dc": {
       "description": "Optional manually supplied Spotify web cookie. Stored as a normal plugin setting; never written to logs.",
       "label": "Spotify sp_dc"
+    },
+    "splayer_api_url": {
+      "description": "SPlayer local service URL. Defaults to http://127.0.0.1:25884 and reads the complete lyrics currently loaded by SPlayer.",
+      "label": "SPlayer API URL"
     },
     "translation_language": {
       "description": "Preferred translated-lyric language when supported by the source.",
