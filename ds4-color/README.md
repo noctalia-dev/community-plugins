@@ -18,8 +18,11 @@ library is required. The plugin writes the HID output report straight to
 
 ## Requirements
 
-No external dependencies. The plugin needs read/write access to the DualShock 4
-`/dev/hidrawN` node.
+Requires `python3` (declared in `dependencies`): if Noctalia's `writeFile` cannot
+open the `/dev/hidrawN` node `O_WRONLY`, the plugin falls back to a `python3`
+one-liner that performs the raw binary write. Systems without Python present cannot
+apply the colour when the direct write path fails. The plugin also needs
+read/write access to the DualShock 4 `/dev/hidrawN` node.
 
 On most modern Linux desktops with `systemd-logind` and `uaccess`, the device
 node is automatically accessible when you are logged in at the seat.

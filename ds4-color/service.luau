@@ -173,8 +173,8 @@ local function detectControllers()
 end
 
 -- Write the report to the hidraw node. Noctalia's writeFile is file-oriented and
--- may not open a char device O_WRONLY, so if it fails we fall back to a
--- python3 one-liner that does a true binary O_WRONLY write (what hidraw needs).
+-- may not open a char device O_WRONLY. If the direct write fails we fall back to
+-- python3 (declared in dependencies) which does a true binary O_WRONLY write.
 local function setLightbar(dev, r, g, b)
   local report = (dev.bus_type == BUS_BT)
     and buildBtReport(r, g, b)
