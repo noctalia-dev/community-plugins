@@ -4,6 +4,12 @@
 local tr = noctalia.tr("ds4_color")
 local SERVICE = "hy4ri/ds4-color:service"
 
+-- Validate a color is exactly 6 hex chars (no metachars / quote-breakers can
+-- survive this, so it is safe to interpolate into the runAsync shell string).
+local function isHex6(s)
+  return type(s) == "string" and s:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") ~= nil
+end
+
 local function sendToService(event, payload)
   local cmd = "noctalia msg plugin " .. SERVICE .. " all " .. event
   if payload ~= nil then cmd = cmd .. " '" .. payload .. "'" end
@@ -82,16 +88,19 @@ end
 
 --==== callbacks ====
 function onApply()
-  sendToService("apply", "#" .. currentColor())
+  local c = currentColor()
+  if isHex6(c) then sendToService("apply", c) end
 end
 
 function onSave()
-  sendToService("save", "#" .. currentColor())
+  local c = currentColor()
+  if isHex6(c) then sendToService("save", c) end
 end
 
 function onSubmitHex(text)
-  local hex = text:match("^#?(%x%x%x%x%x%x)$") or text:match("^0x(%x%x%x%x%x%x)$")
-  if hex == nil then
+  local hex = text:match("^#?([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+    or text:match("^0x([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+  if hex == nil or not isHex6(hex) then
     noctalia.notifyError(tr, noctalia.tr("bad_color"))
     return
   end

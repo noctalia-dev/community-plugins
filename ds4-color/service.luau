@@ -5,6 +5,13 @@
 -- No external binary needed — writes the HID output report to /dev/hidrawN.
 local tr = noctalia.tr("ds4_color")
 
+-- Validate a color is exactly 6 hex chars. With this guarantee, no value that
+-- reaches runAsync (via the IPC command string) can contain a quote-breaking or
+-- shell metacharacter, so the single-quote interpolation is safe.
+local function isHex6(s)
+  return type(s) == "string" and s:match("^[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]$") ~= nil
+end
+
 -- pluginDataDir() may return nil (state home unset), so resolve it lazily and
 -- guard every use. Computing it at module top-level and concatenating would
 -- throw on nil and kill the whole service entry (no onIpc -> IPC is a no-op).
@@ -204,6 +211,7 @@ local function loadLast()
   if raw == nil or raw == "" then return "990000" end
   local decoded = noctalia.json.decode(raw)
   if type(decoded) ~= "table" or type(decoded.hex) ~= "string" then return "990000" end
+  if not isHex6(decoded.hex) then return "990000" end
   return decoded.hex
 end
 
@@ -223,7 +231,7 @@ end
 
 -- Apply a hex color to every connected DS4.
 local function apply(hex)
-  if hex == nil or hex == "" then return end
+  if hex == nil or not isHex6(hex) then return end
   local r, g, b = hexToRgb(hex)
   local devs = detectControllers()
   if #devs == 0 then
@@ -248,7 +256,7 @@ end
 
 -- Persist the chosen color WITHOUT touching the controller.
 local function save(hex)
-  if hex == nil or hex == "" then return end
+  if hex == nil or not isHex6(hex) then return end
   saveLast(hex)
   noctalia.state.set("lastColor", hex)
   noctalia.notify(tr, noctalia.tr("saved", { color = hex }))
@@ -256,9 +264,15 @@ end
 
 function onIpc(event, payload)
   if event == "apply" and payload ~= nil then
-    apply(payload:match("^#?(%x%x%x%x%x%x)$") or payload:match("^0x(%x%x%x%x%x%x)$") or "")
+    local hex = payload:match("^#?([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+      or payload:match("^0x([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+      or ""
+    apply(hex)
   elseif event == "save" and payload ~= nil then
-    save(payload:match("^#?(%x%x%x%x%x%x)$") or payload:match("^0x(%x%x%x%x%x%x)$") or "")
+    local hex = payload:match("^#?([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+      or payload:match("^0x([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])$")
+      or ""
+    save(hex)
   elseif event == "get-presets" then
     noctalia.state.set("presets", PRESETS)
   end
