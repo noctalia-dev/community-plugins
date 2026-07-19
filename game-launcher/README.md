@@ -6,7 +6,7 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 
 | Field | Value |
 | --- | --- |
-| ID | `leo/game-launcher` |
+| ID | `Alexander/game-launcher` |
 | Entries | Bar widget: `launcher`; panel: `browser`; launcher provider: `search` |
 | Launcher Prefix | `/g` |
 
@@ -29,14 +29,14 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 ## Usage
 
-Add the bar widget `leo/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open the browser panel.
+Add the bar widget `Alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open the browser panel.
 
 In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it.
 
 To open the panel via IPC:
 
 ```sh
-noctalia msg panel-toggle leo/game-launcher:browser
+noctalia msg panel-toggle Alexander/game-launcher:browser
 ```
 
 From the launcher, type `/g` followed by a game name to search. Activate a result to launch the game.
