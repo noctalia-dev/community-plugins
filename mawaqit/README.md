@@ -1,78 +1,112 @@
-# Mawaqit for Noctalia
+# Mawaqit
 
-Prayer times for Noctalia v5 — live countdown, notifications, and azan playback, with a bar widget and a panel view.
+Prayer times for Noctalia, with a bar widget and panel: live countdown to the next
+prayer, notifications, optional azan playback, Hijri date, and per-prayer time
+offsets.
 
 ## Plugin
 
-| Entry | ID | Type |
-|---|---|---|
-| Bar widget | `ycf/mawaqit:bar` | `[[widget]]` |
-| Prayer times panel | `ycf/mawaqit:panel` | `[[panel]]` |
-| Background fetcher | `ycf/mawaqit:fetcher` | `[[service]]` |
-
-## Usage
-
-- **Left click** the bar widget → cycles display mode: countdown → static time → prayer name only
-- **Right click** the bar widget → open the prayer times panel
-
-Toggle the panel directly:
-```
-noctalia msg panel-toggle ycf/mawaqit:panel
-```
+| Field   | Value                                                        |
+| ------- | ------------------------------------------------------------ |
+| ID      | `ycf/mawaqit`                                                 |
+| Entries | Bar widget: `bar`; panel: `panel`; service: `fetcher`         |
 
 ## Requirements
 
-- `paplay` (PipeWire/PulseAudio) **or** `pw-cat` — only one is required, used for azan playback. If neither is installed, azan is silently skipped (a line is logged) and notifications still work normally.
+Install `paplay` (PipeWire/PulseAudio) **or** `pw-cat` on `PATH` — only one is
+required, used for azan playback. If neither is installed, azan is skipped (a
+line is logged) and everything else — countdown, panel, notifications — works
+normally.
+
+Azan audio is **not bundled**. To enable it:
+
+1. Get your own azan `.mp3` file(s) from wherever you like.
+2. Copy them into this plugin's `assets/` folder, named exactly `azan1.mp3`,
+   `azan2.mp3`, and/or `azan3.mp3` (only the ones you want to use — you don't
+   need all three).
+3. In Settings → Plugins → Mawaqit, turn on **Play Azan** and pick which of
+   the three slots to play from **Azan audio**.
+
+If the selected file isn't present, azan is silently skipped and a line is
+logged — nothing else is affected.
+
+## Usage
+
+- **Left click** the bar widget → open the prayer times panel.
+- **Right click** the bar widget → cycle its display mode: live countdown →
+  static time → prayer name only.
+
+Toggle the panel directly:
+
+```sh
+noctalia msg panel-toggle ycf/mawaqit:panel
+```
+
+The panel shows all five daily prayers plus Sunrise and, during Ramadan, Imsak,
+with a live countdown banner to whichever is next, the Gregorian and Hijri
+date, and a refresh button. If azan is playing, a stop button appears next to
+it.
 
 ## Settings
 
-Open **Settings → Plugins → Mawaqit** to configure:
+Plugin-level (Settings → Plugins → Mawaqit):
 
-| Setting | Description |
-|---|---|
-| City / Country | Location used for prayer time lookups |
-| Calculation method | One of the standard Islamic calculation conventions (MWL, ISNA, Makkah, Egypt, etc.) |
-| School | Asr calculation convention — Shafi or Hanafi |
-| Hijri day offset | Shift the displayed Hijri day by −1/0/+1 if the API date doesn't match local moon sighting |
-| 12-hour format | Show prayer times as 12-hour (e.g. `5:23 AM`) instead of 24-hour |
-| Show notifications | Notify at each prayer time |
-| Play azan | Play an azan audio file at each prayer time |
-| Azan file | Which of the three bundled azan tracks to play |
-| Prayer time offsets (tune) | Per-prayer minute adjustment, −60 to +60, applied after fetching |
+| Setting             | Type     | Default | Description                                                              |
+| -------------------- | -------- | ------- | -------------------------------------------------------------------------- |
+| `city`               | `string` | `London` | Your city name in English.                                                |
+| `country`            | `string` | `UK`     | Country name or 2-letter code.                                            |
+| `method`             | `select` | `3` (MWL) | Calculation authority followed in your region.                          |
+| `school`             | `select` | `0` (Shafi/Maliki/Hanbali) | Asr convention — Hanafi uses a later shadow factor.               |
+| `hijriDayOffset`     | `select` | `0`     | Shift the displayed Hijri day by −1/0/+1 if it doesn't match local moon sighting. |
+| `twelveHourFormat`   | `bool`   | `false` | Show prayer times as 12-hour (e.g. `5:23 AM`) instead of 24-hour.         |
+| `showNotifications`  | `bool`   | `true`  | Show a system notification when each prayer time begins.                 |
+| `playAzan`           | `bool`   | `false` | Play an azan audio file when each prayer time begins.                    |
+| `azanFile`           | `select` | `azan1.mp3` | Which bundled azan track to play (see Requirements for setup).      |
+| `tune`               | `bool`   | `false` | Enable the per-prayer minute offsets below.                              |
+| `tuneFajr`           | `int`    | `0`     | Fajr offset, in minutes (−60 to 60).                                     |
+| `tuneDhuhr`          | `int`    | `0`     | Dhuhr offset, in minutes.                                                |
+| `tuneAsr`            | `int`    | `0`     | Asr offset, in minutes.                                                  |
+| `tuneMaghrib`        | `int`    | `0`     | Maghrib offset, in minutes.                                              |
+| `tuneIsha`           | `int`    | `0`     | Isha offset, in minutes.                                                 |
 
-Bar widget settings (icon, colors, countdown/elapsed display, dynamic icon) are configured separately, from the widget's own settings menu.
+Bar widget settings (from the widget's own settings menu):
 
-## File structure
+| Setting            | Type     | Default            | Description                                                    |
+| ------------------- | -------- | ------------------- | ------------------------------------------------------------------ |
+| `showCountdown`     | `bool`   | `true`              | Show a live countdown to the next prayer instead of the static time. |
+| `showElapsed`       | `bool`   | `false`             | After a prayer begins, count up (`+`) for up to 1 hour.            |
+| `hidePrayerName`    | `bool`   | `false`             | Show only the time or countdown, without the prayer name.          |
+| `widgetIcon`        | `glyph`  | `building-mosque`   | Bar icon.                                                           |
+| `dynamicIcon`       | `bool`   | `false`             | Show a sun/moon icon matching the current prayer instead of the fixed icon. |
+| `textColor`         | `color`  | `on_surface`        | Bar text color.                                                     |
+| `iconColor`         | `color`  | `on_surface`        | Bar icon color.                                                     |
+| `activeColor`       | `color`  | `primary`           | Color used when a prayer is happening now or during elapsed mode.   |
 
-```
-mawaqit/
-├── plugin.toml
-├── bar_widget.luau
-├── panel.luau
-├── service.luau
-├── DecoType.ttf
-├── thumbnail.webp
-├── translations/
-│   └── en.json
-└── assets/
-    ├── azan1.mp3
-    ├── azan2.mp3
-    └── azan3.mp3
-```
+## IPC
 
-## Development
+Force an immediate refetch (both the service and the bar widget respond):
 
-To run this plugin from a local checkout while working on it:
-
-```
-noctalia msg plugins source add dev path ~/dev/mawaqit
-noctalia msg plugins enable ycf/mawaqit
+```sh
+noctalia msg plugin ycf/mawaqit:fetcher all refresh
 ```
 
-`.luau` edits hot-reload; manifest changes are picked up on the next config reload.
+Set the bar widget's display mode directly:
+
+```sh
+noctalia msg plugin ycf/mawaqit:bar all mode countdown|static|name
+```
 
 ## Notes
 
-- The background service fetches prayer times once daily from `api.aladhan.com`, sending the configured city/country/method/school as query parameters. It also fetches the following day's Fajr time in advance, for the countdown after Isha.
-- Azan playback runs `paplay` or `pw-cat` against a bundled file in `assets/`; the running process is force-stopped (`pkill`) when the plugin exits or is disabled, and can also be stopped manually from the panel while azan is playing.
-- `DecoType.ttf` is bundled and used to render the Arabic Hijri date and prayer-time announcement in the panel; it's loaded from the plugin's own directory.
+- The background service fetches prayer times once daily from
+  `api.aladhan.com`, sending the configured city/country/method/school as
+  query parameters, plus a second request for the next day's Fajr time (used
+  for the countdown after Isha).
+- Azan playback runs `paplay` or `pw-cat` against a file **you supply** (see
+  Requirements) — no audio is bundled with this plugin. Playback is stopped
+  by matching the exact file path being played (via `pkill -f`). Stopping happens when the plugin exits or is disabled, or
+  manually from the panel while azan is playing.
+- The Arabic Hijri date and prayer-time banner are rendered with the bundled
+  Reem Kufi font (`ReemKufi.ttf`), licensed under the SIL Open Font License —
+  see `OFL.txt`.
+- No compositor-specific behavior — works anywhere Noctalia's bar and panels do.

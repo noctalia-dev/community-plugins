@@ -14,6 +14,12 @@ local function shellQuote(s)
     return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
+-- Escapes POSIX ERE metacharacters so a path can be used as a `pkill -f`
+-- pattern without accidentally behaving as a regex.
+local function ereEscape(s)
+    return (s:gsub("([%.%*%+%?%(%)%[%]%^%$|\\{}])", "\\%1"))
+end
+
 local function reloadConfig()
     local c_city              = noctalia.getConfig("city")
     local c_country           = noctalia.getConfig("country")
@@ -72,7 +78,7 @@ local retryTicks      = 0
 local tomorrowFetched = false
 local lastNotified    = ""
 local lastAzanPlayed  = ""
-local azanProcess     = nil  -- track running azan process
+local playingAzanPath = ""  -- absolute path of the azan file currently playing, if any
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -138,10 +144,16 @@ local function buildUrl(offsetDays)
     )
 end
 
+-- Resolves the bundled azan file's absolute path from this plugin's own
+-- install directory (works for git-source and path-source installs alike).
 local function azanPath()
-    local home = noctalia.expandPath("~")
+    local pluginDir = noctalia.pluginDir()
+    if type(pluginDir) ~= "string" or pluginDir == "" then
+        noctalia.log("Mawaqit: could not resolve plugin directory for azan playback")
+        return ""
+    end
     local safe = azanFile:match("^[%w%.%-_]+$") and azanFile or "azan1.mp3"
-    return home .. "/.local/share/noctalia/plugins/mawaqit/assets/" .. safe
+    return pluginDir .. "/assets/" .. safe
 end
 
 -- ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -278,17 +290,26 @@ local function fetchTomorrowFajr()
     end)
 end
 
+-- ── Azan playback ─────────────────────────────────────────────────────────────
+
+-- Kills azan playback in progress. Matches on the exact absolute path this
+-- plugin passed to paplay/pw-cat (tracked in playingAzanPath), not a generic
+-- substring — so it can't touch an unrelated process that happens to share
+-- part of that path. This is an interim measure: runAsync doesn't return a
+-- PID, so command-line matching is the only way to terminate a detached
+-- process with the current API.
+local function stopAzan()
+    if playingAzanPath ~= "" then
+        local pattern = shellQuote(ereEscape(playingAzanPath))
+        noctalia.runAsync("pkill -f -- " .. pattern .. " 2>/dev/null || true")
+        playingAzanPath = ""
+    end
+    noctalia.state.set("azanPlaying", false)
+end
+
 -- ── Prayer events ─────────────────────────────────────────────────────────────
 
 local cachedPrayers = {}
-
--- Kills any azan playback in progress. Uses pkill -f matched against the fixed
--- player command names, not the (already validated) file path, so this is safe
--- regardless of azanFile's contents.
-local function stopAzan()
-    noctalia.runAsync("pkill -f 'paplay.*azan' 2>/dev/null; pkill -f 'pw-cat.*azan' 2>/dev/null || true")
-    noctalia.state.set("azanPlaying", false)
-end
 
 local function checkPrayerEvents()
     if #cachedPrayers == 0 then return end
@@ -306,9 +327,9 @@ local function checkPrayerEvents()
             if playAzan and lastAzanPlayed ~= key then
                 lastAzanPlayed = key
                 local path = azanPath()
-                -- noctalia.fileExists checks safely, no shell interpolation involved.
-                if noctalia.fileExists(path) then
+                if path ~= "" and noctalia.fileExists(path) then
                     noctalia.state.set("azanPlaying", true)
+                    playingAzanPath = path
                     local cmd
                     if paplayAvailable then
                         cmd = "paplay " .. shellQuote(path) .. " 2>/dev/null"
@@ -320,9 +341,10 @@ local function checkPrayerEvents()
                         return
                     end
                     noctalia.runAsync(cmd, function(_res)
+                        playingAzanPath = ""
                         noctalia.state.set("azanPlaying", false)
                     end)
-                else
+                elseif path ~= "" then
                     noctalia.log("Mawaqit: azan file not found: " .. path)
                 end
             end
@@ -337,7 +359,9 @@ end)
 -- Listen to panel commands via state (cleaner than shell IPC)
 noctalia.state.watch("command", function(cmd)
     if type(cmd) ~= "table" then return end
-    if cmd.action == "refresh" then onConfigChanged() end
+    if cmd.action == "refresh" then onConfigChanged()
+    elseif cmd.action == "stopAzan" then stopAzan()
+    end
 end)
 
 -- ── Main tick ─────────────────────────────────────────────────────────────────

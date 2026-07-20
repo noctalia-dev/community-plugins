@@ -3,11 +3,12 @@ name         = "Mawaqit"
 version      = "1.0.0"
 plugin_api   = 3
 author       = "ycf-anon"
-license      = "MIT"
+license      = "MIT"  # Applies to the plugin code. Bundled font (ReemKufi.ttf) is
+                       # SIL Open Font License — see OFL.txt.
 tags         = ["bar", "panel", "service", "time", "utility"]
 icon         = "building-mosque"
 description  = "Prayer times with live countdown, notifications, and azan."
-dependencies = ["paplay", "pw-cat"]
+dependencies = ["paplay", "pw-cat", "pkill"]
 
 # ── Plugin-level settings ─────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 --!nonstrict
--- panel.luau — Mawaqit prayer times panel (clean, no azan controls)
+-- panel.luau — Mawaqit prayer times panel (clean, no azan controls beyond stop)
 
 -- ── State ─────────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ local sunriseTime   = ""
 local imsakTime     = ""
 local azanPlaying   = false
 
-local decoFont = noctalia.loadFont("DecoType.ttf")
+local decoFont = noctalia.loadFont("ReemKufi.ttf")
 
 local PRAYER_ICONS = {
     Fajr    = "moon-stars",
@@ -307,7 +307,7 @@ function onRefresh()
 end
 
 function onStopAzan()
-    noctalia.runAsync("pkill -f 'paplay.*azan' 2>/dev/null; pkill -f 'pw-cat.*azan' 2>/dev/null || true")
+    noctalia.state.set("command", { action = "stopAzan" })
     azanPlaying = false
     noctalia.state.set("azanPlaying", false)
     render()

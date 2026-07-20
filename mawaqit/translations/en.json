@@ -56,7 +56,7 @@
   "settings.playAzan.label": "Play Azan",
   "settings.playAzan.description": "Play an azan audio file when each prayer time begins.",
   "settings.azanFile.label": "Azan audio",
-  "settings.azanFile.description": "Which azan to play. Files must be in the plugin assets/ folder.",
+  "settings.azanFile.description": "Which azan to play. Name your files azan1.mp3 / azan2.mp3 / azan3.mp3 and place them in the plugin's assets/ folder (see README).",
   "settings.azanFile.azan1": "Azan 1",
   "settings.azanFile.azan2": "Azan 2",
   "settings.azanFile.azan3": "Azan 3",
