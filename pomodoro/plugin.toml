@@ -12,7 +12,7 @@ tags = ["bar", "panel", "service", "productivity", "time"]
 key     = "work-duration"
 type    = "int"
 label_key = "settings.work-duration.label"
-description_key = "settings.workDuration.description"
+description_key = "settings.work-duration.description"
 default = 25
 
 [[setting]]
