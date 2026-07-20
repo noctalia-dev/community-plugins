@@ -12,8 +12,7 @@
   },
   "shortcut": {
     "na": "Conservation N/A",
-    "off": "Conservation",
-    "on": "Conservation"
+    "label": "Conservation"
   },
   "title": "Conservation mode"
 }

@@ -62,7 +62,7 @@ local function readState()
 end
 
 local function render(on, enabled)
-  shortcut.setLabel(noctalia.tr(if on then "shortcut.on" else "shortcut.off"))
+  shortcut.setLabel(noctalia.tr("shortcut.label"))
   shortcut.setIcon("battery-charging", "battery")
   shortcut.setActive(on)
   shortcut.setEnabled(enabled)
