@@ -1,0 +1,13 @@
+{
+  "widget": {
+    "toggle_mirror": {
+      "label": "Toggle Screen Mirror"
+    },
+    "source": {
+      "label": "Source Display"
+    },
+    "target": {
+      "label": "Target Display"
+    }
+  }
+}
