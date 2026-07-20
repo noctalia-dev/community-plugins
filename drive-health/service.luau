@@ -233,25 +233,6 @@ local function evaluateDrive(drive, previousActive, fullSmartExpected)
     ))
   end
 
-  local counters = {
-    { key = "media-errors", value = drive.media_errors, severity = "critical", translation = "alerts.media_errors" },
-    { key = "reallocated", value = drive.reallocated_sectors, severity = "warning", translation = "alerts.reallocated" },
-    { key = "pending", value = drive.pending_sectors, severity = "critical", translation = "alerts.pending" },
-    { key = "uncorrectable", value = drive.uncorrectable_errors, severity = "critical", translation = "alerts.uncorrectable" },
-    { key = "spin-retry", value = drive.spin_retry_count, severity = "critical", translation = "alerts.spin_retry" },
-    { key = "command-timeout", value = drive.command_timeout_count, severity = "warning", translation = "alerts.command_timeout" },
-    { key = "interface-crc", value = drive.interface_crc_errors, severity = "warning", translation = "alerts.interface_crc" },
-  }
-  for _, counter in ipairs(counters) do
-    local value = tonumber(counter.value)
-    if value ~= nil and value > 0 then
-      table.insert(issues, driveIssue(
-        drive, counter.key, counter.severity,
-        noctalia.tr(counter.translation, { drive = name, count = math.floor(value) }), value, true
-      ))
-    end
-  end
-
   local storage = tonumber(drive.storage_usage_percent)
   if storage ~= nil and storage >= 90 then
     local critical = storage >= 95
@@ -297,16 +278,34 @@ local function collectorIssue(snapshot)
   }
 end
 
-local function checkCounterIncrease(drive, counterKey, currentValue, translationKey, critical)
-  local key = driveIdentity(drive) .. ":" .. counterKey
-  local current = tonumber(currentValue)
+local MONOTONIC_COUNTERS = {
+  { key = "media-errors", field = "media_errors", translation = "alerts.media_errors", critical = true },
+  { key = "reallocated", field = "reallocated_sectors", translation = "alerts.reallocated", critical = false },
+  { key = "pending", field = "pending_sectors", translation = "alerts.pending", critical = true },
+  { key = "uncorrectable", field = "uncorrectable_errors", translation = "alerts.uncorrectable", critical = true },
+  { key = "spin-retry", field = "spin_retry_count", translation = "alerts.spin_retry", critical = true },
+  { key = "command-timeout", field = "command_timeout_count", translation = "alerts.command_timeout", critical = false },
+  { key = "interface-crc", field = "interface_crc_errors", translation = "alerts.interface_crc", critical = false },
+  { key = "unsafe-shutdowns", field = "unsafe_shutdowns", translation = "alerts.unsafe_shutdown_increase", critical = false },
+  { key = "error-log-entries", field = "error_log_entries", translation = "alerts.error_log_increase", critical = false },
+  { key = "warning-temperature-time", field = "warning_temperature_time_minutes", translation = "alerts.warning_temperature_time_increase", critical = false },
+  { key = "critical-temperature-time", field = "critical_temperature_time_minutes", translation = "alerts.critical_temperature_time_increase", critical = true },
+}
+local MONOTONIC_COUNTER_KINDS = {}
+for _, counter in ipairs(MONOTONIC_COUNTERS) do
+  MONOTONIC_COUNTER_KINDS[counter.key] = true
+end
+
+local function checkCounterIncrease(drive, counter)
+  local key = driveIdentity(drive) .. ":" .. counter.key
+  local current = tonumber(drive[counter.field])
   local previous = tonumber(alertState.counters[key])
   if current ~= nil and previous ~= nil and current > previous and boolConfig("alerts_enabled", true) then
     local title = noctalia.tr("alerts.drive_title", { drive = driveName(drive) })
-    local message = noctalia.tr(translationKey, {
+    local message = noctalia.tr(counter.translation, {
         drive = driveName(drive), count = math.floor(current - previous),
       })
-    if critical then
+    if counter.critical then
       noctalia.notifyError(title, message)
     else
       noctalia.notify(title, message)
@@ -318,13 +317,10 @@ local function checkCounterIncrease(drive, counterKey, currentValue, translation
   end
 end
 
-local function checkDiagnosticCounters(drive)
-  checkCounterIncrease(drive, "unsafe-shutdowns", drive.unsafe_shutdowns, "alerts.unsafe_shutdown_increase", false)
-  checkCounterIncrease(drive, "error-log-entries", drive.error_log_entries, "alerts.error_log_increase", false)
-  checkCounterIncrease(drive, "warning-temperature-time", drive.warning_temperature_time_minutes,
-    "alerts.warning_temperature_time_increase", false)
-  checkCounterIncrease(drive, "critical-temperature-time", drive.critical_temperature_time_minutes,
-    "alerts.critical_temperature_time_increase", true)
+local function checkMonotonicCounters(drive)
+  for _, counter in ipairs(MONOTONIC_COUNTERS) do
+    checkCounterIncrease(drive, counter)
+  end
 end
 
 local function processSnapshot(snapshot)
@@ -377,7 +373,7 @@ local function processSnapshot(snapshot)
         legacyMissingSnapshots[id] = nil
       end
       if eligibleKind and drive.alerts_enabled ~= false then
-        checkDiagnosticCounters(drive)
+        checkMonotonicCounters(drive)
         for _, issue in ipairs(evaluateDrive(drive, previousActive, fullSmartExpected)) do
           active[issue.id] = issue
           table.insert(issues, issue)
@@ -440,7 +436,8 @@ local function processSnapshot(snapshot)
 
   if boolConfig("alerts_enabled", true) and boolConfig("notify_recovery", true) then
     for id, previous in pairs(previousActive) do
-      if active[id] == nil and dismissed[id] == nil then
+      if active[id] == nil and dismissed[id] == nil
+          and MONOTONIC_COUNTER_KINDS[previous.kind] ~= true then
         noctalia.notify(
           noctalia.tr("alerts.recovered_title", { drive = tostring(previous.drive or noctalia.tr("panel.title")) }),
           noctalia.tr("alerts.recovered_body", { issue = tostring(previous.message or id) })

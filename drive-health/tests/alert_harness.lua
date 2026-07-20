@@ -15,6 +15,9 @@ local function translate(key, substitutions)
   for name, replacement in pairs(substitutions or {}) do
     value = value:gsub("{" .. name .. "}", tostring(replacement))
   end
+  if substitutions ~= nil and substitutions.count ~= nil then
+    value = value .. ":count=" .. tostring(substitutions.count)
+  end
   return value
 end
 
@@ -36,7 +39,9 @@ noctalia = {
     return values[key]
   end,
   pluginDataDir = function() return "/mock/plugin-data" end,
-  readFile = function(_path) return nil end,
+  readFile = function(path)
+    return path:match("alert%-state%.json$") and "{}" or nil
+  end,
   writeFile = function(path, _contents)
     table.insert(stateWrites, path)
     if failNextStateWrite then
@@ -68,7 +73,17 @@ noctalia = {
     watch = function(key, callback) watchers[key] = callback end,
   },
   json = {
-    decode = function(_raw) return nil end,
+    decode = function(_raw)
+      return {
+        active = {
+          ["SERIAL1:interface-crc"] = {
+            id = "SERIAL1:interface-crc", kind = "interface-crc",
+            drive = "Fixture SSD", message = "historical CRC total", severity = "warning",
+          },
+        },
+        counters = {}, inventory = {}, dismissed = {},
+      }
+    end,
     encode = function(_value, _pretty) return "{}" end,
   },
 }
@@ -92,7 +107,8 @@ local function drive(temperature)
     temperature_c = temperature, hotspot_temperature_c = temperature, remaining_life_percent = 95,
     available_spare_percent = 100, critical_warning = 0,
     media_errors = 0, reallocated_sectors = 0, pending_sectors = 0,
-    uncorrectable_errors = 0, unsafe_shutdowns = 12, error_log_entries = 5893,
+    uncorrectable_errors = 0, spin_retry_count = 0, command_timeout_count = 0,
+    interface_crc_errors = 0, unsafe_shutdowns = 12, error_log_entries = 5893,
     smart_completeness = "full", alerts_enabled = true, presence_alert_enabled = true,
     self_test_state = "passed",
   }
@@ -118,7 +134,7 @@ end
 
 publish(snapshot(drive(45)))
 assert(#state.snapshot.issues == 0, "healthy drive produced an alert")
-assert(#notifications == 0, "healthy drive produced a notification")
+assert(#notifications == 0, "healthy baseline or legacy counter cleanup produced a notification")
 assert(#stateWrites == 1 and #stateRenames == 1 and successfulStateCommits == 1,
   "first healthy baseline was not persisted as one atomic commit")
 
@@ -160,21 +176,75 @@ assert(#notifications == 4, "recurring temperature issue did not notify")
 publish(snapshot(drive(45)))
 assert(#notifications == 5, "temperature recovery did not notify")
 
-local multiple = drive(70)
-multiple.interface_crc_errors = 2
-publish(snapshot(multiple))
-assert(#state.snapshot.issues == 2, "multi-alert fixture did not produce two issues")
-publish(snapshot(drive(45)))
+local retiredFixture = drive(45)
+retiredFixture.presence_alert_enabled = false
+publish(snapshot(retiredFixture))
 
 local hddIssue = drive(35)
+hddIssue.id = "HDD-SERIAL"
 hddIssue.kind = "hdd"
 hddIssue.remaining_life_percent = nil
+hddIssue.presence_alert_enabled = false
 hddIssue.interface_crc_errors = 2
+local notificationsBeforeHddBaseline = #notifications
 publish(snapshot(hddIssue))
-assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "interface-crc",
-  "HDD interface integrity alert was missed")
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeHddBaseline,
+  "historical HDD interface CRC errors produced a false alert")
+hddIssue.interface_crc_errors = 3
+publish(snapshot(hddIssue))
+assert(#state.snapshot.issues == 0, "new HDD interface CRC errors produced a persistent issue")
+assert(#notifications == notificationsBeforeHddBaseline + 1
+    and notifications[#notifications].severity == "warning"
+    and notifications[#notifications].body:match("count=1"),
+  "new HDD interface CRC error did not produce one delta notification")
+publish(snapshot(hddIssue))
+assert(#notifications == notificationsBeforeHddBaseline + 1,
+  "unchanged HDD interface CRC total duplicated its notification")
 hddIssue.interface_crc_errors = 0
 publish(snapshot(hddIssue))
+assert(#notifications == notificationsBeforeHddBaseline + 1,
+  "decreased HDD interface CRC total produced a notification")
+
+local historicalErrors = drive(45)
+historicalErrors.id = "HISTORICAL-SERIAL"
+historicalErrors.presence_alert_enabled = false
+historicalErrors.media_errors = 8
+historicalErrors.reallocated_sectors = 4
+historicalErrors.pending_sectors = 2
+historicalErrors.uncorrectable_errors = 3
+historicalErrors.spin_retry_count = 1
+historicalErrors.command_timeout_count = 6
+historicalErrors.interface_crc_errors = 9
+historicalErrors.error_log_entries = 20
+local notificationsBeforeHistoricalBaseline = #notifications
+publish(snapshot(historicalErrors))
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeHistoricalBaseline,
+  "first observation of historical SMART counters produced false alerts")
+
+historicalErrors.uncorrectable_errors = 5
+historicalErrors.error_log_entries = 21
+historicalErrors.interface_crc_errors = 11
+publish(snapshot(historicalErrors))
+assert(#state.snapshot.issues == 0, "counter deltas produced persistent drive issues")
+assert(#notifications == notificationsBeforeHistoricalBaseline + 3,
+  "new SMART counter values did not produce exactly one notification per increase")
+assert(notifications[notificationsBeforeHistoricalBaseline + 1].severity == "critical"
+    and notifications[notificationsBeforeHistoricalBaseline + 1].body:match("count=2"),
+  "uncorrectable-error delta notification was incorrect")
+assert(notifications[notificationsBeforeHistoricalBaseline + 2].severity == "warning"
+    and notifications[notificationsBeforeHistoricalBaseline + 2].body:match("count=2"),
+  "interface CRC delta notification was incorrect")
+assert(notifications[notificationsBeforeHistoricalBaseline + 3].severity == "warning"
+    and notifications[notificationsBeforeHistoricalBaseline + 3].body:match("count=1"),
+  "error-log delta notification was incorrect")
+publish(snapshot(historicalErrors))
+local unchangedCounterNotifications = {}
+for index = notificationsBeforeHistoricalBaseline + 1, #notifications do
+  table.insert(unchangedCounterNotifications, notifications[index].body)
+end
+assert(#notifications == notificationsBeforeHistoricalBaseline + 3,
+  "unchanged SMART counter values duplicated notifications: " .. table.concat(unchangedCounterNotifications, ", "))
+publish(snapshot(drive(45)))
 
 local hotspot = drive(45)
 hotspot.hotspot_temperature_c = 70
