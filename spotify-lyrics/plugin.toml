@@ -1,6 +1,7 @@
 id = "noctalia/spotify-lyrics"
 name = "Spotify Lyrics"
 version = "1.2.0"
+plugin_api = 1
 min_noctalia = "5.0.0"
 author = "goatnath"
 license = "MIT"

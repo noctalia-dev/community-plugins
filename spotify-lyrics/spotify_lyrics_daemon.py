@@ -137,8 +137,10 @@ class SpotifyLyricsDaemon:
             if not player or not player["title"]:
                 # Write empty/inactive state
                 empty_state = {"status": "Stopped"}
-                with open(CURRENT_STATE_FILE, "w", encoding="utf-8") as f:
+                tmp_file = CURRENT_STATE_FILE.with_suffix('.tmp')
+                with open(tmp_file, "w", encoding="utf-8") as f:
                     json.dump(empty_state, f)
+                tmp_file.replace(CURRENT_STATE_FILE)
                 time.sleep(1.0)
                 continue
             
@@ -176,8 +178,10 @@ class SpotifyLyricsDaemon:
             }
             
             # Save state
-            with open(CURRENT_STATE_FILE, "w", encoding="utf-8") as f:
+            tmp_file = CURRENT_STATE_FILE.with_suffix('.tmp')
+            with open(tmp_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
+            tmp_file.replace(CURRENT_STATE_FILE)
             
             # Update more frequently if playing to maintain tight sync
             if player["status"] == "Playing":
