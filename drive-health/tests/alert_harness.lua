@@ -81,7 +81,7 @@ noctalia = {
             drive = "Fixture SSD", message = "historical CRC total", severity = "warning",
           },
         },
-        counters = {}, inventory = {}, dismissed = {},
+        counters = {}, inventory = {}, availability = {}, dismissed = {},
       }
     end,
     encode = function(_value, _pretty) return "{}" end,
@@ -272,14 +272,45 @@ publish(snapshot(unavailable))
 assert(#state.snapshot.issues == 0,
   "Basic mode produced a false SMART-unavailable warning")
 fullSmartEnabled = true
-publish(snapshot(unavailable))
+local notificationsBeforeUnavailable = #notifications
+local writesBeforeUnavailable = #stateWrites
+publish(snapshot(unavailable, "smart-unavailable-transient"))
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeUnavailable,
+  "a single transient SMART read failure produced an alert")
+assert(#stateWrites == writesBeforeUnavailable + 1,
+  "the first unavailable SMART scan did not persist its pending state")
+publish(snapshot(unavailable, "smart-unavailable-transient"))
+onConfigChanged()
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeUnavailable,
+  "reprocessing one unavailable SMART snapshot advanced its grace period")
+assert(#stateWrites == writesBeforeUnavailable + 1,
+  "reprocessing one unavailable SMART snapshot rewrote pending state")
+publish(snapshot(drive(45), "smart-available-reset"))
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeUnavailable,
+  "transient SMART availability recovery produced a notification")
+
+publish(snapshot(unavailable, "smart-unavailable-1"))
+publish(snapshot(unavailable, "smart-unavailable-2"))
+assert(#state.snapshot.issues == 0 and #notifications == notificationsBeforeUnavailable,
+  "SMART unavailability alerted before three completed scans")
+publish(snapshot(unavailable, "smart-unavailable-3"))
 assert(#state.snapshot.issues == 1 and state.snapshot.issues[1].kind == "smart-unavailable",
-  "Full SMART mode missed an unavailable-drive warning")
+  "sustained SMART unavailability did not alert after three completed scans")
+assert(#notifications == notificationsBeforeUnavailable + 1,
+  "sustained SMART unavailability did not produce exactly one notification")
+local writesAfterConfirmedUnavailable = #stateWrites
+publish(snapshot(unavailable, "smart-unavailable-4"))
+assert(#notifications == notificationsBeforeUnavailable + 1,
+  "continued SMART unavailability duplicated its notification")
+assert(#stateWrites == writesAfterConfirmedUnavailable,
+  "confirmed SMART unavailability rewrote stable alert state")
 local sleeping = drive(45)
 sleeping.smart_available = false
 sleeping.smart_sleeping = true
-publish(snapshot(sleeping))
-assert(#state.snapshot.issues == 0, "sleeping HDD produced a SMART-unavailable warning")
+publish(snapshot(sleeping, "smart-sleeping"))
+assert(#state.snapshot.issues == 0, "sleeping drive produced a SMART-unavailable warning")
+assert(#notifications == notificationsBeforeUnavailable + 2,
+  "confirmed SMART-unavailable recovery did not notify exactly once")
 fullSmartEnabled = false
 publish(snapshot(drive(45)))
 

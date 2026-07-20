@@ -55,6 +55,11 @@ authorization prompt, then runs in the background while progress and its final
 firmware result appear in the panel. Sleeping HDDs are not spun up merely to
 refresh their SMART data.
 
+Transient SMART read failures are stabilized across three distinct successful
+collector snapshots. The first failure establishes a pending state; an alert is
+created only if unavailability persists, so device passthrough and reattachment
+do not produce one-scan notification noise.
+
 ## Settings
 
 | Setting | Type | Default | Description |

@@ -3,9 +3,12 @@
 -- Alert service. Collection and SMART normalization are intentionally isolated
 -- in collector.luau; this entry only evaluates normalized snapshots.
 
-local alertState = { active = {}, counters = {}, inventory = {}, dismissed = {} }
+local SMART_UNAVAILABLE_GRACE_SCANS = 3
+
+local alertState = { active = {}, counters = {}, inventory = {}, availability = {}, dismissed = {} }
 local alertStateDirty = false
 local legacyMissingSnapshots = {}
+local legacyAvailabilitySnapshots = {}
 
 local function stateValuesEqual(left, right)
   if left == right then
@@ -80,6 +83,7 @@ local function loadAlertState()
     alertState.active = type(decoded.active) == "table" and decoded.active or {}
     alertState.counters = type(decoded.counters) == "table" and decoded.counters or {}
     alertState.inventory = type(decoded.inventory) == "table" and decoded.inventory or {}
+    alertState.availability = type(decoded.availability) == "table" and decoded.availability or {}
     alertState.dismissed = type(decoded.dismissed) == "table" and decoded.dismissed or {}
   end
   alertStateDirty = false
@@ -152,7 +156,7 @@ local function driveIssue(drive, kind, severity, message, value, monotonic)
   }
 end
 
-local function evaluateDrive(drive, previousActive, fullSmartExpected)
+local function evaluateDrive(drive, previousActive, smartUnavailableConfirmed)
   local issues = {}
   local name = driveName(drive)
   local warningTemperature = number(drive.warning_temperature, number(noctalia.getConfig("warning_temperature"), 65))
@@ -160,7 +164,7 @@ local function evaluateDrive(drive, previousActive, fullSmartExpected)
     number(drive.critical_temperature, number(noctalia.getConfig("critical_temperature"), 80)))
   local lifeWarning = number(drive.life_warning_percent, number(noctalia.getConfig("life_warning_percent"), 20))
 
-  if fullSmartExpected and drive.smart_available == false and drive.smart_sleeping ~= true then
+  if smartUnavailableConfirmed then
     table.insert(issues, driveIssue(
       drive, "smart-unavailable", "warning",
       noctalia.tr("alerts.smart_unavailable", { drive = name }), 1, false
@@ -323,6 +327,40 @@ local function checkMonotonicCounters(drive)
   end
 end
 
+local function updateSmartAvailability(availability, drive, snapshot, collectionHealthy, collectionId,
+    fullSmartExpected)
+  local id = driveIdentity(drive)
+  local unavailable = fullSmartExpected and drive.smart_available == false and drive.smart_sleeping ~= true
+  if not unavailable then
+    availability[id] = nil
+    legacyAvailabilitySnapshots[id] = nil
+    return false
+  end
+
+  local known = availability[id]
+  if type(known) ~= "table" then
+    known = { unavailable_scans = 0 }
+  end
+  if number(known.unavailable_scans, 0) >= SMART_UNAVAILABLE_GRACE_SCANS then
+    availability[id] = known
+    return true
+  end
+  local countScan = false
+  if collectionHealthy and collectionId ~= nil then
+    countScan = known.last_collection_id ~= collectionId
+    known.last_collection_id = collectionId
+    legacyAvailabilitySnapshots[id] = nil
+  elseif collectionHealthy and legacyAvailabilitySnapshots[id] ~= snapshot then
+    countScan = true
+    legacyAvailabilitySnapshots[id] = snapshot
+  end
+  if countScan then
+    known.unavailable_scans = number(known.unavailable_scans, 0) + 1
+  end
+  availability[id] = known
+  return known.unavailable_scans >= SMART_UNAVAILABLE_GRACE_SCANS
+end
+
 local function processSnapshot(snapshot)
   if type(snapshot) ~= "table" then
     return
@@ -336,7 +374,11 @@ local function processSnapshot(snapshot)
   local missingGrace = math.max(1, math.floor(number(noctalia.getConfig("missing_grace_scans"), 3)))
   local fullSmartExpected = noctalia.getConfig("system_collector_enabled") == true
   local inventory = copyStateValue(alertState.inventory or {})
+  local availability = copyStateValue(alertState.availability or {})
   local seen = {}
+  local collectionHealthy = snapshot.collecting ~= true and snapshot.collector_error == nil
+    and not (type(snapshot.dependencies) == "table" and snapshot.dependencies.blocking)
+  local collectionId = snapshotCollectionId(snapshot)
 
   local globals = {}
   local missingDependency = dependencyIssue(snapshot.dependencies)
@@ -373,18 +415,26 @@ local function processSnapshot(snapshot)
         legacyMissingSnapshots[id] = nil
       end
       if eligibleKind and drive.alerts_enabled ~= false then
+        local smartUnavailableConfirmed = updateSmartAvailability(
+          availability, drive, snapshot, collectionHealthy, collectionId, fullSmartExpected)
         checkMonotonicCounters(drive)
-        for _, issue in ipairs(evaluateDrive(drive, previousActive, fullSmartExpected)) do
+        for _, issue in ipairs(evaluateDrive(drive, previousActive, smartUnavailableConfirmed)) do
           active[issue.id] = issue
           table.insert(issues, issue)
         end
+      else
+        availability[id] = nil
+        legacyAvailabilitySnapshots[id] = nil
       end
     end
   end
 
-  local collectionHealthy = snapshot.collecting ~= true and snapshot.collector_error == nil
-    and not (type(snapshot.dependencies) == "table" and snapshot.dependencies.blocking)
-  local collectionId = snapshotCollectionId(snapshot)
+  for id in pairs(availability) do
+    if not seen[id] then
+      availability[id] = nil
+      legacyAvailabilitySnapshots[id] = nil
+    end
+  end
   if missingAlerts then
     for id, known in pairs(inventory) do
       local eligibleKind = known.kind == "ssd" or alertHdd
@@ -467,6 +517,7 @@ local function processSnapshot(snapshot)
 
   replaceAlertStateSection("active", active)
   replaceAlertStateSection("inventory", inventory)
+  replaceAlertStateSection("availability", availability)
   replaceAlertStateSection("dismissed", dismissed)
   snapshot.issues = visibleIssues
   snapshot.summary = snapshot.summary or {}
