@@ -1,0 +1,459 @@
+{
+  "title": "Keymap",
+  "widget": {
+    "tooltip": "Show system keybindings"
+  },
+  "panel": {
+    "bind_count": {
+      "one": "{count} keybinding",
+      "other": "{count} keybindings"
+    },
+    "category_count": {
+      "one": "{count} shortcut",
+      "other": "{count} shortcuts"
+    },
+    "search_results": {
+      "one": "{count} result",
+      "other": "{count} results"
+    },
+    "search_placeholder": "Search shortcuts, keys, categories, or actions…",
+    "clear_search": "Clear search",
+    "list_view": "Shortcut list",
+    "keyboard": {
+      "view": "Keyboard view",
+      "layout": "Keyboard size",
+      "layout_edit_hint": "Choose the physical keyboard shown by the editor.",
+      "layouts": {
+        "p100": "100%",
+        "p96": "96%",
+        "p80": "80% (TKL)",
+        "p75": "75%",
+        "p65": "65%",
+        "p60": "60%"
+      },
+      "layer": "Layer",
+      "clear_modifiers": "Clear modifiers",
+      "free": "Free",
+      "occupied": "Occupied",
+      "other_layer": "Used on another layer",
+      "no_modifiers": "No modifiers",
+      "summary": "{layer}: {count} occupied keys",
+      "outside": "{count} shortcuts outside the keyboard view",
+      "select_hint": "Select modifiers, then click a key to inspect that combination.",
+      "free_hint": "This combination is not used in the currently selected layer.",
+      "more_actions": "+{count} more actions"
+    },
+    "creator": {
+      "open": "Create a new keybinding in the current view",
+      "new_shortcut": "New shortcut",
+      "title": "Create keybinding",
+      "no_combination": "Select a key combination",
+      "trigger": "Run on",
+      "press": "Press",
+      "release": "Release",
+      "release_unavailable": "Niri does not support release-triggered keybindings.",
+      "category": "Category",
+      "new_category": "New category…",
+      "category_placeholder": "Category name",
+      "description_placeholder": "Shortcut description",
+      "command_placeholder": "Command to run",
+      "cancel": "Cancel",
+      "save": "Save keybinding",
+      "saving": "Saving…",
+      "saved": "Saved {chord}",
+      "list_hint": "Choose modifiers and enter the key or comma-separated key sequence. You can also create shortcuts from the keyboard view.",
+      "hyprland_hint": "Hyprland supports one or more ordinary keys. Click selected keys again to remove them.",
+      "niri_hint": "Niri supports one ordinary key and triggers bindings on press.",
+      "mangowc_hint": "MangoWC supports one ordinary key and can trigger on press or release.",
+      "errors": {
+        "conflict": "Already used by: {description}",
+        "conflict_blocked": "This combination is already occupied. Choose a free combination.",
+        "combination_required": "Select at least one ordinary key.",
+        "command_required": "Enter a command.",
+        "library_arguments_required": "Replace every command-library placeholder before saving.",
+        "library_entry_invalid": "The selected native action no longer matches the command library.",
+        "invalid_command_kind": "The selected command type is not supported.",
+        "native_update_unsupported": "Existing shortcuts cannot be converted to native actions safely.",
+        "description_required": "Enter a shortcut description.",
+        "category_required": "Select or enter a category.",
+        "single_key_only": "This compositor supports only one ordinary key per shortcut.",
+        "release_unsupported": "This compositor does not support release-triggered shortcuts.",
+        "invalid_request": "The writer received an invalid request.",
+        "invalid_compositor": "The active compositor is not supported by the writer.",
+        "invalid_operation": "The requested shortcut operation is not supported.",
+        "unsupported_compositor": "The active compositor is not supported by the writer.",
+        "source_unreadable": "The main compositor configuration could not be read.",
+        "source_changed": "The main configuration changed while the shortcut was being prepared. Refresh and try again.",
+        "target_changed": "This shortcut changed on disk. Refresh the list before editing it again.",
+        "target_not_found": "This shortcut is no longer present in the current configuration.",
+        "target_not_hidden": "This shortcut is no longer present in the hidden shortcuts list.",
+        "anchor_not_found": "The destination shortcut is no longer present. Refresh and try again.",
+        "anchor_ambiguous": "The destination shortcut could not be identified uniquely.",
+        "anchor_changed": "The destination shortcut changed on disk. Refresh and try again.",
+        "anchor_range_invalid": "The destination shortcut source location is no longer valid.",
+        "anchor_is_target": "Choose a different destination shortcut.",
+        "different_source": "These shortcuts are stored in different files and cannot be reordered safely.",
+        "target_anchor_overlap": "The source ranges of these shortcuts overlap and cannot be reordered safely.",
+        "target_not_editable": "This shortcut is generated dynamically or its source syntax cannot be edited safely.",
+        "hidden_block_invalid": "The hidden shortcut block is incomplete or damaged, so it was left unchanged.",
+        "target_range_invalid": "The shortcut source location is no longer valid. Refresh the list and try again.",
+        "description_not_editable": "The description in this shortcut cannot be changed safely.",
+        "command_not_editable": "The command in this shortcut cannot be changed safely.",
+        "activation_not_editable": "The activation mode in this shortcut cannot be changed safely.",
+        "category_edit_separate": "Moving shortcuts between categories will be available in the category editor.",
+        "managed_file_changed": "The generated shortcuts file changed while the shortcut was being prepared. Refresh and try again.",
+        "source_is_managed_file": "Select the main compositor configuration, not the generated shortcuts file.",
+        "stale_context": "The compositor configuration changed while the creator was open. Refresh and reopen the creator.",
+        "symlink_unsupported": "The main or managed configuration is a symbolic link. Saving is blocked to preserve the link safely.",
+        "preflight_failed": "The configuration safety check could not be started.",
+        "invalid_text": "The category, description, and command must be single-line text without control characters.",
+        "category_invalid": "The category name contains characters unsupported by the compositor format.",
+        "category_exists": "Another category already uses this name.",
+        "category_changed": "The category changed while its editor was open. Refresh and try again.",
+        "stale_category": "The category changed while its editor was open. Refresh and try again.",
+        "category_not_found": "This category is no longer present in the current configuration.",
+        "category_not_editable": "This category contains generated, grouped, or otherwise read-only shortcuts and cannot be renamed safely.",
+        "category_ambiguous": "The category could not be identified uniquely in the current snapshot.",
+        "category_ranges_overlap": "The category contains overlapping source ranges and cannot be renamed safely.",
+        "mango_command_hash_unsupported": "MangoWC commands containing # are not supported by this first writer version.",
+        "file_too_large": "The managed keybinding file is too large.",
+        "managed_file_too_large": "The managed keybinding file is too large.",
+        "managed_file_invalid": "The managed keybinding file has an invalid structure.",
+        "managed_file_unreadable": "The managed keybinding file could not be read.",
+        "managed_file_collision": "A file with the managed filename already exists and does not belong to this plugin.",
+        "managed_include_invalid": "The managed include block in the main configuration is incomplete or damaged.",
+        "write_failed": "The managed keybinding file could not be written.",
+        "managed_write_failed": "The managed keybinding file could not be written.",
+        "managed_rename_failed": "The managed keybinding file could not be installed atomically.",
+        "managed_temporary_collision": "A safe temporary filename could not be allocated.",
+        "integrate_failed": "The managed file could not be included from the main configuration.",
+        "source_write_failed": "The managed file could not be included from the main configuration.",
+        "source_rename_failed": "The main configuration could not be updated atomically.",
+        "source_temporary_collision": "A safe temporary filename could not be allocated.",
+        "verify_failed": "The compositor rejected the generated configuration.",
+        "verify_timeout": "Configuration validation timed out; no changes were kept.",
+        "verify_start_failed": "Configuration validation could not be started; no changes were kept.",
+        "validator_unavailable": "The compositor validation command is unavailable; no changes were kept.",
+        "reload_failed": "The compositor rejected the reload, so the previous configuration was restored.",
+        "reload_timeout": "Reloading the compositor timed out, so the previous configuration was restored.",
+        "reload_start_failed": "Reloading the compositor could not be started, so the previous configuration was restored.",
+        "rollback_failed": "The shortcut could not be saved and the automatic rollback was incomplete. Check the compositor configuration files.",
+        "recovery_reload_failed": "The previous files were restored, but reloading the restored compositor configuration also failed.",
+        "busy": "Another shortcut is currently being saved. Try again in a moment."
+      }
+    },
+    "command_library": {
+      "title": "Known commands",
+      "open": "Commands",
+      "open_hint": "Browse Noctalia commands and native actions for the active compositor",
+      "search_placeholder": "Search commands, actions, or categories",
+      "all_sources": "All sources",
+      "all_categories": "All categories",
+      "all_readiness": "All commands",
+      "ready": "Ready",
+      "requires_input": "Needs input",
+      "showing": "Showing {shown} of {total} matching commands",
+      "use": "Use",
+      "no_results": "No commands match these filters.",
+      "custom_command": "Custom command",
+      "native_action": "Native action",
+      "placeholder_hint": "Replace every placeholder in double braces before saving.",
+      "sources": {
+        "noctalia": "Noctalia",
+        "hyprland": "Hyprland",
+        "niri": "Niri",
+        "mangowc": "MangoWC"
+      },
+      "categories": {
+        "applications": "Applications",
+        "appearance": "Appearance",
+        "audio": "Audio",
+        "bars": "Bars",
+        "casting": "Casting",
+        "clipboard": "Clipboard",
+        "connectivity": "Connectivity",
+        "cursor": "Cursor",
+        "display": "Displays",
+        "focus": "Focus",
+        "groups": "Groups",
+        "input": "Input",
+        "layout": "Layout",
+        "media": "Media",
+        "monitors": "Monitors",
+        "notifications": "Notifications",
+        "panels": "Panels",
+        "plugins": "Plugins",
+        "power": "Power",
+        "screenshots": "Screenshots",
+        "session": "Session",
+        "system": "System",
+        "widgets": "Widgets",
+        "windows": "Windows",
+        "workspaces": "Workspaces"
+      }
+    },
+    "editor": {
+      "open": "Edit shortcuts",
+      "open_hint": "Show shortcut and category edit controls",
+      "drag": "Drag this shortcut to another category",
+      "edit": "Edit this shortcut",
+      "hide": "Hide this shortcut by commenting it out in the source file",
+      "restore": "Restore this shortcut",
+      "delete": "Delete this shortcut permanently",
+      "delete_hidden": "Delete this hidden shortcut permanently",
+      "confirm_delete": "Click again to confirm permanent deletion",
+      "confirm_delete_hidden": "Click again to permanently delete this hidden shortcut",
+      "cancel_delete": "Cancel deletion",
+      "hidden_title": "Hidden shortcuts",
+      "hidden_hint": "These shortcuts are inactive. Restore one to put its exact source text back, or delete it permanently.",
+      "hidden_count": {
+        "one": "One hidden shortcut",
+        "other": "{count} hidden shortcuts"
+      },
+      "title": "Edit keybinding",
+      "hint": "Update the combination, description, command, trigger mode, or category.",
+      "combination": "Combination",
+      "keys_placeholder": "Key, or comma-separated sequence",
+      "action_placeholder": "Native compositor action",
+      "save": "Update keybinding",
+      "updated": "The keybinding was updated.",
+      "moved": "The keybinding was moved to the selected category.",
+      "reordered": "The keybinding order was updated.",
+      "category_rename": "Rename this category",
+      "category_read_only": "This category contains generated, grouped, or read-only shortcuts and cannot be renamed safely",
+      "category_name_placeholder": "Category name",
+      "category_rename_cancel": "Cancel category rename",
+      "category_rename_save": "Save category name",
+      "category_renamed": "The category was renamed.",
+      "hidden": "The keybinding was hidden and can be restored from the editor.",
+      "restored": "The keybinding was restored.",
+      "deleted": "The keybinding was deleted.",
+      "read_only": "This entry is generated dynamically or cannot be edited safely.",
+      "native_command": "This shortcut uses a native compositor action. Its action is preserved; only supported fields can be changed."
+    },
+    "refresh": "Refresh keybindings",
+    "open_config_folder": "Open the current keybinding file's folder",
+    "config_folder_unavailable": "No readable keybinding source is available yet.",
+    "xdg_open_unavailable": "xdg-open is not installed or is not available on PATH.",
+    "config_folder_failed": "The keybinding folder could not be opened.",
+    "open_settings": "Open Keymap settings",
+    "settings_failed": "Noctalia settings could not be opened.",
+    "open_settings_action": "Open settings",
+    "path_hint": "If Keymap cannot find your keybindings automatically, open Keymap settings and enter the correct compositor configuration file path.",
+    "close": "Close",
+    "detecting": "Detecting compositor",
+    "retry": "Try again",
+    "updated": "Updated {time}",
+    "loading": "Loading keybindings",
+    "loading_hint": "Reading keybindings from the active compositor and its configuration.",
+    "load_failed": "Could not load keybindings",
+    "unknown_error": "The service returned an unknown error.",
+    "warning_count": {
+      "one": "One parser warning occurred. The list may be incomplete.",
+      "other": "{count} parser warnings occurred. The list may be incomplete."
+    },
+    "errors": {
+      "unknown": "The service returned an unknown error.",
+      "hyprctl_not_found": "hyprctl is not installed or is not available on PATH.",
+      "hyprctl_timeout": "Hyprland did not answer before the request timed out.",
+      "hyprctl_failed": "Hyprland rejected the request for live keybindings.",
+      "hyprctl_invalid_json": "Hyprland returned malformed keybinding data.",
+      "hyprctl_start_failed": "The hyprctl process could not be started.",
+      "compositor_unknown": "No supported compositor could be detected. Select one manually in the plugin settings.",
+      "niri_config_unreadable": "The configured Niri KDL file could not be read.",
+      "niri_required_include_missing": "A required Niri include could not be read. Fix the configuration path and try again.",
+      "niri_no_binds": "No active keybindings were found in the Niri configuration.",
+      "mangowc_config_unreadable": "The configured MangoWC file could not be read.",
+      "mangowc_required_source_missing": "A required MangoWC source could not be read. Fix the configuration path and try again.",
+      "mangowc_no_binds": "No keybindings were found in the MangoWC configuration."
+    },
+    "empty": "No keybindings found",
+    "empty_hint": "No shortcuts were found automatically. Open Keymap settings, enter the correct compositor configuration file path, and refresh the panel.",
+    "no_results": "No matching keybindings",
+    "no_results_hint": "Try a different description, key, category, or dispatcher.",
+    "uncategorized": "Other",
+    "no_description": "No description"
+  },
+  "category": {
+    "other": "Other",
+    "undescribed": "Without description",
+    "noctalia": "Noctalia",
+    "niri": {
+      "applications": "Applications",
+      "column_navigation": "Column navigation",
+      "window_focus": "Window focus",
+      "workspace_navigation": "Workspace navigation",
+      "workspace_management": "Workspace management",
+      "move_columns": "Move columns",
+      "move_windows": "Move windows",
+      "window_management": "Window management",
+      "column_management": "Column management",
+      "column_width": "Column width",
+      "window_size": "Window size",
+      "screenshots": "Screenshots",
+      "power": "Power",
+      "system": "System",
+      "animations": "Animations"
+    }
+  },
+  "actions": {
+    "run": "Run: {command}",
+    "run_command": "Run command",
+    "native": "Native action: {action}",
+    "with_argument": "{action} {argument}",
+    "view_tag": "View tag",
+    "view_tag_number": "View tag {tag}",
+    "move_to_tag": "Move to tag",
+    "move_to_tag_number": "Move to tag {tag}",
+    "set_layout": "Set layout",
+    "layout_value": "Layout: {layout}",
+    "set_key_mode": "Set key mode",
+    "key_mode_value": "Enter key mode: {mode}",
+    "mangowc": {
+      "killclient": "Close window",
+      "togglefullscreen": "Toggle fullscreen",
+      "togglefakefullscreen": "Toggle fake fullscreen",
+      "togglemaximizescreen": "Maximize",
+      "togglefloating": "Toggle floating",
+      "toggle_all_floating": "Toggle all floating",
+      "toggleglobal": "Toggle global window",
+      "toggleoverview": "Toggle overview",
+      "togglejump": "Toggle jump overview",
+      "toggleoverlay": "Toggle overlay",
+      "toggle_scratchpad": "Toggle scratchpad",
+      "minimized": "Minimize window",
+      "restore_minimized": "Restore minimized window",
+      "reload_config": "Reload config",
+      "quit": "Quit compositor",
+      "switch_proportion_preset": "Cycle column width",
+      "switch_keyboard_layout": "Switch keyboard layout",
+      "zoom": "Zoom",
+      "restart": "Restart",
+      "incnmaster": "Increase masters",
+      "switch_layout": "Switch layout",
+      "togglegaps": "Toggle gaps",
+      "dwindle_toggle_split_direction": "Toggle split direction",
+      "focusdir": "Focus",
+      "exchange_client": "Swap",
+      "focusmon": "Focus monitor",
+      "tagmon": "Send to monitor",
+      "groupjoin": "Join group",
+      "groupfocus": "Focus group",
+      "smartmovewin": "Move window",
+      "smartresizewin": "Resize window",
+      "scroller_stack": "Move in scroller stack"
+    }
+  },
+  "settings": {
+    "compositor": {
+      "label": "Compositor",
+      "description": "Detect the active compositor automatically or select one manually.",
+      "options": {
+        "auto": "Automatic",
+        "hyprland": "Hyprland (Lua)",
+        "niri": "Niri",
+        "mangowc": "MangoWC"
+      }
+    },
+    "hyprland_config": {
+      "label": "Hyprland Lua configuration",
+      "description": "Main Lua configuration file. Required modules are discovered from this file."
+    },
+    "niri_config": {
+      "label": "Niri configuration",
+      "description": "Main KDL configuration file. Include nodes are followed recursively."
+    },
+    "mangowc_config": {
+      "label": "MangoWC configuration",
+      "description": "Main config.conf file. Source directives are followed recursively."
+    },
+    "merge_sequential": {
+      "label": "Merge sequential shortcuts",
+      "description": "Combine related numbered shortcuts, such as workspaces 1–9, into one row."
+    },
+    "show_undescribed": {
+      "label": "Show shortcuts without descriptions",
+      "description": "Include Hyprland shortcuts without explicit descriptions. Niri and MangoWC use generated action descriptions."
+    },
+    "keyboard_layout": {
+      "label": "Default keyboard size",
+      "description": "Physical keyboard layout used when opening the Keymap keyboard view.",
+      "options": {
+        "p100": "100%",
+        "p96": "96%",
+        "p80": "80% (TKL)",
+        "p75": "75%",
+        "p65": "65%",
+        "p60": "60%"
+      }
+    },
+    "columns": {
+      "label": "Panel columns",
+      "description": "Number of category columns shown in the Keymap panel."
+    },
+    "card_color": {
+      "label": "Category card color",
+      "description": "Background role or custom color used for category cards."
+    },
+    "card_opacity": {
+      "label": "Category card opacity",
+      "description": "Opacity of category card backgrounds."
+    },
+    "category_color": {
+      "label": "Category heading color",
+      "description": "Theme role or custom color used for category headings."
+    },
+    "description_color": {
+      "label": "Description color",
+      "description": "Theme role or custom color used for shortcut descriptions."
+    },
+    "modifier_color": {
+      "description": "Theme role or custom background color for this modifier."
+    },
+    "modifier_text_color": {
+      "description": "Theme role or custom text color for this modifier."
+    },
+    "super_color": {
+      "label": "Super background"
+    },
+    "super_text_color": {
+      "label": "Super text"
+    },
+    "ctrl_color": {
+      "label": "Control background"
+    },
+    "ctrl_text_color": {
+      "label": "Control text"
+    },
+    "shift_color": {
+      "label": "Shift background"
+    },
+    "shift_text_color": {
+      "label": "Shift text"
+    },
+    "alt_color": {
+      "label": "Alt background"
+    },
+    "alt_text_color": {
+      "label": "Alt text"
+    },
+    "key_color": {
+      "label": "Key background",
+      "description": "Theme role or custom background color for non-modifier keys."
+    },
+    "key_text_color": {
+      "label": "Key text",
+      "description": "Theme role or custom text color for non-modifier keys."
+    },
+    "widget": {
+      "glyph": {
+        "label": "Glyph",
+        "description": "Glyph shown in the bar."
+      },
+      "show_label": {
+        "label": "Show label",
+        "description": "Show the plugin name next to the bar glyph."
+      }
+    }
+  }
+}
