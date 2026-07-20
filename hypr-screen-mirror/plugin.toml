@@ -14,17 +14,20 @@ id = "widget"
 entry = "widget.luau"
 
   [[widget.setting]]
-  key = "toggle_mirror"
-  type = "bool"
-  label_key = "widget.toggle_mirror.label"
-  default = false
+  key = "glyph"
+  type = "glyph"
+  label_key = "widget.glyph.label"
+  description_key = "widget.glyph.description"
+  default = "screen-share"
 
-  [[widget.setting]]
-  key = "source"
-  type = "select"
-  label_key = "widget.source.label"
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 300
+height = 265
+placement = "floating"
+position = "center"
 
-  [[widget.setting]]
-  key = "target"
-  type = "select"
-  label_key = "widget.target.label"
+[[service]]
+id = "service"
+entry = "service.luau"

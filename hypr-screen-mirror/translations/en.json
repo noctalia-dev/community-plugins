@@ -1,13 +1,21 @@
 {
   "widget": {
-    "toggle_mirror": {
-      "label": "Toggle Screen Mirror"
-    },
-    "source": {
-      "label": "Source Display"
-    },
-    "target": {
-      "label": "Target Display"
+    "glyph": {
+      "label": "Glyph",
+      "description": "Glyph shown in the bar"
     }
+  },
+  "notification": {
+    "monitor_list_failed": "Failed to list monitors",
+    "timeout": "Command timed out"
+  },
+  "panel": {
+    "title": "Hypr Screen Mirror",
+    "source_monitor": "Source Monitor",
+    "target_monitor": "Target Monitor",
+    "focused_monitor": "Current Monitor",
+    "start_mirroring": "Mirror",
+    "stop_mirroring": "Stop",
+    "refresh": "Refresh"
   }
 }
