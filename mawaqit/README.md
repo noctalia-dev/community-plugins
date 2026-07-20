@@ -18,6 +18,10 @@ required, used for azan playback. If neither is installed, azan is skipped (a
 line is logged) and everything else — countdown, panel, notifications — works
 normally.
 
+Also requires `pkill` (part of `procps`, present on virtually every distro by
+default) — used to stop azan playback, since neither player exposes its own
+stop control.
+
 Azan audio is **not bundled**. To enable it:
 
 1. Get your own azan `.mp3` file(s) from wherever you like.
@@ -104,7 +108,10 @@ noctalia msg plugin ycf/mawaqit:bar all mode countdown|static|name
   for the countdown after Isha).
 - Azan playback runs `paplay` or `pw-cat` against a file **you supply** (see
   Requirements) — no audio is bundled with this plugin. Playback is stopped
-  by matching the exact file path being played (via `pkill -f`). Stopping happens when the plugin exits or is disabled, or
+  by matching the exact file path being played (via `pkill -f`), not a
+  generic pattern — this is the only termination method available since the
+  plugin API doesn't currently expose a PID or stop handle for spawned
+  processes. Stopping happens when the plugin exits or is disabled, or
   manually from the panel while azan is playing.
 - The Arabic Hijri date and prayer-time banner are rendered with the bundled
   Reem Kufi font (`ReemKufi.ttf`), licensed under the SIL Open Font License —

@@ -71,46 +71,46 @@ options         = [
 [[setting]]
 key             = "hijriDayOffset"
 type            = "select"
-label_key       = "settings.hijriDayOffset.label"
-description_key = "settings.hijriDayOffset.description"
+label_key       = "settings.hijri_day_offset.label"
+description_key = "settings.hijri_day_offset.description"
 default         = "0"
 options         = [
-    { value = "-1", label_key = "settings.hijriDayOffset.minus1" },
-    { value = "0",  label_key = "settings.hijriDayOffset.default" },
-    { value = "1",  label_key = "settings.hijriDayOffset.plus1" },
+    { value = "-1", label_key = "settings.hijri_day_offset.minus1" },
+    { value = "0",  label_key = "settings.hijri_day_offset.default" },
+    { value = "1",  label_key = "settings.hijri_day_offset.plus1" },
 ]
 
 [[setting]]
 key             = "twelveHourFormat"
 type            = "bool"
-label_key       = "settings.twelveHourFormat.label"
-description_key = "settings.twelveHourFormat.description"
+label_key       = "settings.twelve_hour_format.label"
+description_key = "settings.twelve_hour_format.description"
 default         = false
 
 [[setting]]
 key             = "showNotifications"
 type            = "bool"
-label_key       = "settings.showNotifications.label"
-description_key = "settings.showNotifications.description"
+label_key       = "settings.show_notifications.label"
+description_key = "settings.show_notifications.description"
 default         = true
 
 [[setting]]
 key             = "playAzan"
 type            = "bool"
-label_key       = "settings.playAzan.label"
-description_key = "settings.playAzan.description"
+label_key       = "settings.play_azan.label"
+description_key = "settings.play_azan.description"
 default         = false
 
 [[setting]]
 key             = "azanFile"
 type            = "select"
-label_key       = "settings.azanFile.label"
-description_key = "settings.azanFile.description"
+label_key       = "settings.azan_file.label"
+description_key = "settings.azan_file.description"
 default         = "azan1.mp3"
 options         = [
-    { value = "azan1.mp3", label_key = "settings.azanFile.azan1" },
-    { value = "azan2.mp3", label_key = "settings.azanFile.azan2" },
-    { value = "azan3.mp3", label_key = "settings.azanFile.azan3" },
+    { value = "azan1.mp3", label_key = "settings.azan_file.azan1" },
+    { value = "azan2.mp3", label_key = "settings.azan_file.azan2" },
+    { value = "azan3.mp3", label_key = "settings.azan_file.azan3" },
 ]
 
 [[setting]]
@@ -123,7 +123,7 @@ default         = false
 [[setting]]
 key          = "tuneFajr"
 type         = "int"
-label_key    = "settings.tuneFajr.label"
+label_key    = "settings.tune_fajr.label"
 default      = 0
 min          = -60
 max          = 60
@@ -133,7 +133,7 @@ visible_when = { key = "tune", values = ["true"] }
 [[setting]]
 key          = "tuneDhuhr"
 type         = "int"
-label_key    = "settings.tuneDhuhr.label"
+label_key    = "settings.tune_dhuhr.label"
 default      = 0
 min          = -60
 max          = 60
@@ -143,7 +143,7 @@ visible_when = { key = "tune", values = ["true"] }
 [[setting]]
 key          = "tuneAsr"
 type         = "int"
-label_key    = "settings.tuneAsr.label"
+label_key    = "settings.tune_asr.label"
 default      = 0
 min          = -60
 max          = 60
@@ -153,7 +153,7 @@ visible_when = { key = "tune", values = ["true"] }
 [[setting]]
 key          = "tuneMaghrib"
 type         = "int"
-label_key    = "settings.tuneMaghrib.label"
+label_key    = "settings.tune_maghrib.label"
 default      = 0
 min          = -60
 max          = 60
@@ -163,7 +163,7 @@ visible_when = { key = "tune", values = ["true"] }
 [[setting]]
 key          = "tuneIsha"
 type         = "int"
-label_key    = "settings.tuneIsha.label"
+label_key    = "settings.tune_isha.label"
 default      = 0
 min          = -60
 max          = 60
@@ -196,52 +196,52 @@ entry = "bar_widget.luau"
     [[widget.setting]]
     key             = "showCountdown"
     type            = "bool"
-    label_key       = "settings.showCountdown.label"
-    description_key = "settings.showCountdown.description"
+    label_key       = "settings.show_countdown.label"
+    description_key = "settings.show_countdown.description"
     default         = true
 
     [[widget.setting]]
     key             = "showElapsed"
     type            = "bool"
-    label_key       = "settings.showElapsed.label"
-    description_key = "settings.showElapsed.description"
+    label_key       = "settings.show_elapsed.label"
+    description_key = "settings.show_elapsed.description"
     default         = false
 
     [[widget.setting]]
     key             = "hidePrayerName"
     type            = "bool"
-    label_key       = "settings.hidePrayerName.label"
-    description_key = "settings.hidePrayerName.description"
+    label_key       = "settings.hide_prayer_name.label"
+    description_key = "settings.hide_prayer_name.description"
     default         = false
 
     [[widget.setting]]
     key       = "widgetIcon"
     type      = "glyph"
-    label_key = "settings.widgetIcon.label"
+    label_key = "settings.widget_icon.label"
     default   = "building-mosque"
 
     [[widget.setting]]
     key             = "dynamicIcon"
     type            = "bool"
-    label_key       = "settings.dynamicIcon.label"
-    description_key = "settings.dynamicIcon.description"
+    label_key       = "settings.dynamic_icon.label"
+    description_key = "settings.dynamic_icon.description"
     default         = false
 
     [[widget.setting]]
     key       = "textColor"
     type      = "color"
-    label_key = "settings.textColor.label"
+    label_key = "settings.text_color.label"
     default   = "on_surface"
 
     [[widget.setting]]
     key       = "iconColor"
     type      = "color"
-    label_key = "settings.iconColor.label"
+    label_key = "settings.icon_color.label"
     default   = "on_surface"
 
     [[widget.setting]]
     key             = "activeColor"
     type            = "color"
-    label_key       = "settings.activeColor.label"
-    description_key = "settings.activeColor.description"
+    label_key       = "settings.active_color.label"
+    description_key = "settings.active_color.description"
     default         = "primary"
