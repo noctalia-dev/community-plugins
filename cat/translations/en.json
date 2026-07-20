@@ -1,0 +1,35 @@
+{
+  "title": "Cat",
+  "settings": {
+    "cat_size": {
+      "label": "Cat Size",
+      "description": "Sprite size in the bar, in pixels."
+    },
+    "show_cpu_percent": {
+      "label": "Show CPU Percentage",
+      "description": "Display the CPU percentage next to the cat."
+    },
+    "walk_threshold": {
+      "label": "Walk Threshold",
+      "description": "CPU percentage at which the cat wakes up and starts walking."
+    },
+    "run_threshold": {
+      "label": "Run Threshold",
+      "description": "CPU percentage at which the cat breaks into a run."
+    },
+    "poll_interval": {
+      "label": "CPU Poll Interval",
+      "description": "How often to sample CPU usage, in seconds."
+    },
+    "cat_color_mode": {
+      "label": "Cat Color",
+      "description": "Use the current theme color, or pick a custom color below.",
+      "option_theme": "Match Theme",
+      "option_custom": "Custom"
+    },
+    "cat_color": {
+      "label": "Custom Color",
+      "description": "Used when Cat Color is set to Custom."
+    }
+  }
+}
