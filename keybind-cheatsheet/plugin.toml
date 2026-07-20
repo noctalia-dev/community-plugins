@@ -1,0 +1,107 @@
+id = "kenn/keybind-cheatsheet"
+name = "Keybind Cheatsheet"
+version = "0.1.1"
+plugin_api = 4
+author = "kenn"
+license = "MIT"
+dependencies = ["hyprctl"]
+tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
+icon = "keyboard"
+description = "Searchable keybindings for Mango, Hyprland, and Niri."
+
+[[setting]]
+key = "compositor"
+type = "select"
+label_key = "settings.compositor.label"
+description_key = "settings.compositor.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.compositor.options.auto" },
+  { value = "mango", label_key = "settings.compositor.options.mango" },
+  { value = "hyprland", label_key = "settings.compositor.options.hyprland" },
+  { value = "niri", label_key = "settings.compositor.options.niri" },
+]
+
+[[setting]]
+key = "mango_config"
+type = "file"
+label_key = "settings.mango_config.label"
+description_key = "settings.mango_config.description"
+default = "~/.config/mango/config.conf"
+
+[[setting]]
+key = "hyprland_config"
+type = "file"
+label_key = "settings.hyprland_config.label"
+description_key = "settings.hyprland_config.description"
+default = "~/.config/hypr/hyprland.conf"
+
+[[setting]]
+key = "hyprland_lua_config"
+type = "file"
+label_key = "settings.hyprland_lua_config.label"
+description_key = "settings.hyprland_lua_config.description"
+default = "~/.config/hypr/hyprland.lua"
+
+[[setting]]
+key = "hyprland_parser"
+type = "select"
+label_key = "settings.hyprland_parser.label"
+description_key = "settings.hyprland_parser.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.hyprland_parser.options.auto" },
+  { value = "lua", label_key = "settings.hyprland_parser.options.lua" },
+  { value = "conf", label_key = "settings.hyprland_parser.options.conf" },
+]
+
+[[setting]]
+key = "niri_config"
+type = "file"
+label_key = "settings.niri_config.label"
+description_key = "settings.niri_config.description"
+default = "~/.config/niri/config.kdl"
+
+[[setting]]
+key = "columns"
+type = "int"
+label_key = "settings.columns.label"
+description_key = "settings.columns.description"
+default = 3
+min = 1
+max = 4
+step = 1
+
+[[setting]]
+key = "show_undescribed"
+type = "bool"
+label_key = "settings.show_undescribed.label"
+description_key = "settings.show_undescribed.description"
+default = true
+
+[[setting]]
+key = "show_actions"
+type = "bool"
+label_key = "settings.show_actions.label"
+description_key = "settings.show_actions.description"
+default = false
+
+[[panel]]
+id = "cheatsheet"
+entry = "panel.luau"
+width = 1500
+height = 760
+placement = "floating"
+position = "center"
+open_near_click = true
+
+[[widget]]
+id = "keybinds"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "keyboard"
