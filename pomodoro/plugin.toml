@@ -9,45 +9,45 @@ description = "Simple pomodoro timer."
 tags = ["bar", "panel", "service", "productivity", "time"]
 
 [[setting]]
-key     = "workDuration"
+key     = "work-duration"
 type    = "int"
-label_key = "settings.workDuration.label"
+label_key = "settings.work-duration.label"
 description_key = "settings.workDuration.description"
 default = 25
 
 [[setting]]
-key     = "shortBreakDuration"
+key     = "short-break-duration"
 type    = "int"
-label_key = "settings.shortBreakDuration.label"
-description_key = "settings.shortBreakDuration.description"
+label_key = "settings.short-break-duration.label"
+description_key = "settings.short-break-duration.description"
 default = 5
 
 [[setting]]
-key     = "longBreakDuration"
+key     = "long-break-duration"
 type    = "int"
-label_key = "settings.longBreakDuration.label"
-description_key = "settings.longBreakDuration.description"
+label_key = "settings.long-break-duration.label"
+description_key = "settings.long-break-duration.description"
 default = 15
 
 [[setting]]
-key     = "sessionsBeforeLongBreak"
+key     = "sessions-before-long-break"
 type    = "int"
-label_key = "settings.sessionsBeforeLongBreak.label"
-description_key = "settings.sessionsBeforeLongBreak.description"
+label_key = "settings.sessions-before-long-break.label"
+description_key = "settings.sessions-before-long-break.description"
 default = 4
 
 [[setting]]
-key     = "autoStartBreaks"
+key     = "auto-start-breaks"
 type    = "bool"
-label_key = "settings.autoStartBreaks.label"
-description_key = "settings.autoStartBreaks.description"
+label_key = "settings.auto-start-breaks.label"
+description_key = "settings.auto-start-breaks.description"
 default = false
 
 [[setting]]
-key     = "autoStartWork"
+key     = "auto-start-work"
 type    = "bool"
-label_key = "settings.autoStartWork.label"
-description_key = "settings.autoStartWork.description"
+label_key = "settings.auto-start-work.label"
+description_key = "settings.auto-start-work.description"
 default = false
 
 [[widget]]

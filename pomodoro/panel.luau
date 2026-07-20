@@ -39,9 +39,9 @@ local function render(state, sessionData)
         if stageNumber == 1 then
             noctalia.tr("work")
         else if sessionNumber < #sessionData then 
-            noctalia.tr("shortBreak")
+            noctalia.tr("short-break")
         else 
-            noctalia.tr("longBreak")
+            noctalia.tr("long-break")
 
     local startButtonText =
         if state.isRunning then
@@ -76,7 +76,7 @@ local function render(state, sessionData)
                 }),
 
                 ui.label({
-                    text = string.format("Session %d/%d", sessionNumber, #sessionData),
+                    text = string.format("%s %d/%d", noctalia.tr("session"), sessionNumber, #sessionData),
                     fontSize = 12,
                     color = "on_surface_variant",
                 }),
@@ -112,7 +112,7 @@ local function render(state, sessionData)
                     }),
 
                     ui.button({
-                        text = "Skip",
+                        text = noctalia.tr("buttin.skip"),
                         glyph = "player-skip-forward",
                         onClick = "onSkipButtonClick",
                         enabled = skipButtonEnabled,
@@ -122,7 +122,7 @@ local function render(state, sessionData)
 
                 ui.row({ gap = 8, justify = "space_between" }, {
                     ui.button({
-                        text = "Reset",
+                        text = noctalia.tr("button.reset"),
                         glyph = "refresh",
                         onClick = "onResetButtonClick",
                         enabled = resetButtonEnabled,
@@ -130,7 +130,7 @@ local function render(state, sessionData)
                     }),
 
                     ui.button({
-                        text = "Reset All",
+                        text = noctalia.tr("button.reset-all"),
                         glyph = "rotate",
                         onClick = "onResetAllButtonClick",
                         enabled = resetAllButtonEnabled,
@@ -153,11 +153,11 @@ local function notifyStageFinished(state, sessionData)
     local stageNumber = state.sessionPtr.stage
     local body =
         if stageNumber == 1 then
-            noctalia.tr("notification.workComplete")
+            noctalia.tr("notification.work-complete")
         elseif sessionNumber < #sessionData then
-            noctalia.tr("notification.shortBreakComplete")
+            noctalia.tr("notification.short-break-complete")
         else
-            noctalia.tr("notification.longBreakComplete")
+            noctalia.tr("notification.long-break-complete")
     noctalia.notify("Pomodoro Timer", body)
 end
 

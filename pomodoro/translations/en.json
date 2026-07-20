@@ -1,7 +1,7 @@
 {
     "work": "Work",
-    "shortBreak": "Short Break",
-    "longBreak": "Long Break",
+    "short-break": "Short Break",
+    "long-break": "Long Break",
     "session": "Session",
     "button": {
         "start": "Start",
@@ -9,35 +9,35 @@
         "pause": "Pause",
         "skip": "Skip",
         "reset": "Reset",
-        "resetAll": "Reset All"
+        "reset-all": "Reset All"
     },
     "notification": {
-        "workComplete": "Work session complete! Time for a break.",
-        "shortBreakComplete": "Break over! Ready to focus?",
-        "longBreakComplete": "Long break over! Ready for a new cycle?"
+        "work-complete": "Work session complete! Time for a break.",
+        "short-break-complete": "Break over! Ready to focus?",
+        "long-break-complete": "Long break over! Ready for a new cycle?"
     },
     "settings": {
-        "workDuration":{
+        "work-duration":{
             "label": "Work Duration",
             "description": "Duration of each work session in minutes"
         },
-        "shortBreakDuration":{
+        "short-break-duration":{
             "label": "Short Break Duration",
             "description": "Duration of short breaks in minutes"
         },
-        "longBreakDuration":{
+        "long-break-duration":{
             "label": "Long Break Duration",
             "description": "Duration of long breaks in minutes"
         },
-        "sessionsBeforeLongBreak":{
+        "sessions-before-long-break":{
             "label": "Sessions Before Long Break",
             "description": "Number of sessions before a long break"
         },
-        "autoStartWork":{
+        "auto-start-work":{
             "label": "Auto-start Work",
             "description": "Automatically start work timer after break"
         },
-        "autoStartBreaks":{
+        "auto-start-breaks":{
             "label": "Auto-start Breaks",
             "description": "Automatically start break timer after work session"
         }
