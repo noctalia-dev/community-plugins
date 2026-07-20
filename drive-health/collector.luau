@@ -6,6 +6,7 @@
 local SYSTEM_NAMESPACE = "noctalia-gustav0ar-drive-health"
 local SYSTEM_LIBEXEC = "/usr/local/libexec/" .. SYSTEM_NAMESPACE
 local RAW_CACHE = "/run/" .. SYSTEM_NAMESPACE .. "/raw.json"
+local LEGACY_RAW_CACHE = "/run/noctalia-smart-monitor/raw.json"
 local LEGACY_CACHE = "/run/noctalia-smart-monitor/smart.json"
 local CACHE_MAX_AGE_SECONDS = 180
 local NVME_DATA_UNIT_BYTES = 512000
@@ -1034,14 +1035,16 @@ local function collect()
   end
 
   if systemCollectorEnabled() then
-    local rawCache = freshJson(RAW_CACHE)
-    if type(rawCache) == "table" and tonumber(rawCache.schema) == 2 then
-      local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
-      if snapshot ~= nil then
-        publish(snapshot, dependencies)
-        return
+    for _, cachePath in ipairs({ RAW_CACHE, LEGACY_RAW_CACHE }) do
+      local rawCache = freshJson(cachePath)
+      if type(rawCache) == "table" and tonumber(rawCache.schema) == 2 then
+        local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
+        if snapshot ~= nil then
+          publish(snapshot, dependencies)
+          return
+        end
+        noctalia.log("Raw SMART cache rejected: " .. tostring(normalizeError))
       end
-      noctalia.log("Raw SMART cache rejected: " .. tostring(normalizeError))
     end
 
     local legacy = freshJson(LEGACY_CACHE)

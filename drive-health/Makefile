@@ -15,6 +15,7 @@ unit:
 	lua tests/collector_harness.lua probe-completes-during-collection
 	lua tests/collector_harness.lua raw-cache
 	lua tests/collector_harness.lua outdated-raw-cache
+	lua tests/collector_harness.lua legacy-raw-cache
 	lua tests/collector_harness.lua collector-disabled
 	lua tests/collector_harness.lua legacy-cache
 	lua tests/alert_harness.lua

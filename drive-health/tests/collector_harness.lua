@@ -13,7 +13,8 @@ local watchers = {}
 local pendingProbeCallback = nil
 local probeCalls = 0
 local probeAction = nil
-local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "legacy-cache"
+local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache"
+  or mode == "legacy-raw-cache" or mode == "legacy-cache"
 
 local available = {
   lsblk = mode ~= "missing-lsblk",
@@ -26,7 +27,8 @@ local available = {
 
 local rawFixture = {
   schema = 2,
-  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "2.0.0",
+  collector_version = mode == "outdated-raw-cache" and "0.6.0"
+    or mode == "legacy-raw-cache" and "1.0.0" or "2.0.0",
   collection_id = "fixture-collection-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} },
@@ -59,8 +61,11 @@ noctalia = {
   pluginDir = function() return "/mock/plugin" end,
   pluginDataDir = function() return "/mock/plugin-data" end,
   fileInfo = function(path)
+    if mode == "legacy-raw-cache" and path == "/run/noctalia-smart-monitor/raw.json" then
+      return { isDir = false, mtime = os.time() }
+    end
     if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
-        and path:match("raw%.json$") then
+        and path ~= "/run/noctalia-smart-monitor/raw.json" and path:match("raw%.json$") then
       return { isDir = false, mtime = os.time() }
     elseif mode == "legacy-cache" and path:match("smart%.json$") then
       return { isDir = false, mtime = os.time() }
@@ -70,8 +75,11 @@ noctalia = {
   fileExists = function(path) return files[path] ~= nil end,
   listDir = function(path) return directories[path] or {} end,
   readFile = function(path)
+    if mode == "legacy-raw-cache" and path == "/run/noctalia-smart-monitor/raw.json" then
+      return "raw-cache"
+    end
     if (mode == "raw-cache" or mode == "outdated-raw-cache" or mode == "collector-disabled")
-        and path:match("raw%.json$") then
+        and path ~= "/run/noctalia-smart-monitor/raw.json" and path:match("raw%.json$") then
       return "raw-cache"
     end
     if mode == "legacy-cache" and path:match("smart%.json$") then return "legacy-cache" end
@@ -210,6 +218,16 @@ elseif mode == "outdated-raw-cache" then
   assert(#notifications == 1 and notifications[1].title == "collector.update_title"
     and notifications[1].body == "collector.update_body",
     "enabled outdated collector did not produce one coordinated update notice")
+  print("collector initialization test passed: " .. mode)
+  return
+elseif mode == "legacy-raw-cache" then
+  assert(snapshot.source == "system-cache", "legacy raw cache was not normalized")
+  assert(snapshot.system_collector.status == "upgrade-required"
+    and snapshot.system_collector.version == "1.0.0"
+    and snapshot.system_collector.expected_version == "2.0.0",
+    "legacy raw collector cache did not request an upgrade")
+  assert(not (launchedCommand or ""):match("collect_raw%.sh"),
+    "collector launched despite a fresh legacy raw cache")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "collector-disabled" then
