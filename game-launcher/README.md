@@ -58,7 +58,7 @@ The plugin addresses all findings from Noctalia's security audit:
 
 **3. xdg-utils declared** — `xdg-utils` is listed in `plugin.toml` dependencies.
 
-**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The **steampoacher** Cloudflare Worker (third-party proxy at `steam-asset-proxy.steampoacher.workers.dev`) is **disabled by default** and must be explicitly enabled via the `steampoacher_enabled` setting in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy, which returns a CDN capsule URL on `shared.steamstatic.com`. Cover art for Heroic games uses the art URL from Heroic launcher metadata.
+**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The API only provides small `header_image` art (460×215). For high-resolution library capsule covers, enable the **steampoacher** Cloudflare Worker by setting `steampoacher_enabled` to `true` in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy at `steam-asset-proxy.steampoacher.workers.dev`, which returns a CDN capsule URL on `shared.steamstatic.com` with full-size 1200×450 art. Cover art for Heroic games uses the art URL from Heroic launcher metadata.
 
 ## Notes
 
