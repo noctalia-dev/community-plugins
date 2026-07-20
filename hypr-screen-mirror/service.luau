@@ -27,15 +27,45 @@ local function updateMonitors()
       return
     end
 
+    -- update monitor data
     noctalia.state.set("monitors", monitors)
     noctalia.state.set("focusedMonitor", focusedMonitor)
 
-    if not noctalia.state.get("sourceMonitor") then
-      noctalia.state.set("sourceMonitor", 0)
+    -- update source and target monitor indices if they are out of bounds or not set
+    local sourceMonitor = tonumber(noctalia.state.get("sourceMonitor") or 0)
+    local targetMonitor = tonumber(noctalia.state.get("targetMonitor") or 0)
+
+    if sourceMonitor >= #monitors then
+      sourceMonitor = 0
     end
-    if not noctalia.state.get("targetMonitor") then
-      noctalia.state.set("targetMonitor", 0)
+    if targetMonitor >= #monitors then
+      targetMonitor = 0
     end
+
+    -- check if there is an active mirror and set the source and target monitors accordingly
+    for _, monitor in ipairs(msg) do
+      if monitor.mirrorOf == "none" then
+        continue
+      end
+
+      local index = table.find(monitors, monitor.name)
+      targetMonitor = index - 1
+
+      for _, source in ipairs(msg) do
+        if source.id == monitor.mirrorOf then
+          local sourceIndex = table.find(monitors, source.name)
+          sourceMonitor = sourceIndex - 1
+          break
+        end
+      end
+
+      noctalia.state.set("isMirroring", true)
+
+      break
+    end
+
+    noctalia.state.set("sourceMonitor", sourceMonitor)
+    noctalia.state.set("targetMonitor", targetMonitor)
 
   end, 5000)
 end
