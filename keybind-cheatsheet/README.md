@@ -4,6 +4,8 @@ Keybind Cheatsheet opens a searchable Noctalia panel containing the active
 Mango, Hyprland, or Niri shortcuts. It follows split configuration files,
 formats common hardware keys, and keeps custom descriptions and hidden rows.
 
+![Keybind Cheatsheet panel](thumbnail.webp)
+
 ## Plugin
 
 | Field | Value |
