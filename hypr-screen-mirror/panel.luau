@@ -11,6 +11,7 @@ local function render()
 
   local buttonColor = isMirroring and "destructive" or "primary"
   local buttonGlyph = isMirroring and "player-stop" or "player-play"
+  local buttonText = isMirroring and tr("panel.stop_mirroring") or tr("panel.start_mirroring")
 
   panel.render(ui.column({ flexGrow = 1, gap = 8 }, {
     ui.row({ align = "center", justify = "space-between", gap = 8 }, {
@@ -23,15 +24,15 @@ local function render()
     }),
     ui.column({ gap = 4 }, {
       ui.label({ text = tr("panel.source_monitor"), fontSize = 14, color = "on_surface_variant" }),
-      ui.select({ options = monitors, onChange = "onSourceChange", selectedIndex = sourceMonitor }),
+      ui.select({ options = monitors, onChange = "onSourceChange", selectedIndex = sourceMonitor, enabled = not isMirroring  }),
     }),
     ui.column({ gap = 4 }, {
       ui.label({ text = tr("panel.target_monitor"), fontSize = 14, color = "on_surface_variant" }),
-      ui.select({ options = monitors, onChange = "onTargetChange", selectedIndex = targetMonitor }),
+      ui.select({ options = monitors, onChange = "onTargetChange", selectedIndex = targetMonitor, enabled = not isMirroring }),
     }),
     ui.row({ align = "center", justify = "space-between", gap = 8 }, {
       ui.button({ text = tr("panel.refresh"), glyph = "refresh", onClick = "onRefreshClicked", flexGrow = 1 }),
-      ui.button({ text = tr("panel.start_mirroring"), glyph = buttonGlyph, onClick = "onStartMirroringClicked", flexGrow = 1, variant = buttonColor  }),
+      ui.button({ text = buttonText, glyph = buttonGlyph, onClick = "onStartMirroringClicked", flexGrow = 1, variant = buttonColor, enabled = sourceMonitor ~= nil and targetMonitor ~= nil and sourceMonitor ~= targetMonitor  }),
     }),
   }))
 end
@@ -51,6 +52,15 @@ end
 
 function onTargetChange(selected)
   noctalia.state.set("targetMonitor", selected)
+  render()
+end
+
+function onRefreshClicked()
+  noctalia.state.set("monitor_refresh", os.clock())
+end
+
+function onStartMirroringClicked()
+  noctalia.state.set("isMirroring", not noctalia.state.get("isMirroring"))
   render()
 end
 

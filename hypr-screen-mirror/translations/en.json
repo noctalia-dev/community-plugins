@@ -7,7 +7,10 @@
   },
   "notification": {
     "monitor_list_failed": "Failed to list monitors",
-    "timeout": "Command timed out"
+    "timeout": "Command timed out",
+    "no_monitors_found": "No monitors found",
+    "stop_mirroring_failed": "Failed to stop mirroring",
+    "start_mirroring_failed": "Failed to start mirroring"
   },
   "panel": {
     "title": "Hypr Screen Mirror",
