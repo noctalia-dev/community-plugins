@@ -172,7 +172,7 @@
       }
     },
     "lyrics_sources": {
-      "description": "Source IDs tried from top to bottom: lrclib, netease, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
+      "description": "Source IDs tried from top to bottom: lrclib, netease, splayer, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
       "label": "Automatic source order"
     },
     "marquee_speed": {
