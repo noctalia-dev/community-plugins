@@ -1,0 +1,38 @@
+id = "thatonecalculator/um5606_fan_state"
+name = "ASUS UM5606 Fan State"
+version = "1.0.6"
+plugin_api = 3
+author = "ThatOneCalculator"
+license = "MIT"
+tags = ["hardware"]
+icon = "car-fan"
+description = "Set the fan state on the ZenBook S 16 UM5606."
+dependencies = ["fan_state"]
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+default = false
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key="settings.poll_interval.description"
+default = 2000
+min = 250
+max = 60000
+advanced = true
+
+[[service]]
+id = "service"
+entry = "fan_state_service.luau"
+
+[[widget]]
+id = "fan_state"
+entry = "fan_state_bar.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

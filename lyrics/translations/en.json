@@ -1,0 +1,294 @@
+{
+  "instrumental": "Instrumental",
+  "intro": "Intro",
+  "no_lyrics": "♪ No lyrics available",
+  "settings": {
+    "active_color": {
+      "description": "Color used for the current and already-sung lyric characters. Defaults to the interface text color.",
+      "label": "Active lyric color"
+    },
+    "animation": {
+      "description": "How lyrics animate on line change.",
+      "label": "Animation",
+      "options": {
+        "blink": "Blink reveal",
+        "cascade": "Character cascade",
+        "fade": "Fade only",
+        "karaoke": "Karaoke gradient + fade",
+        "none": "No animation",
+        "pulse": "Pulse fade",
+        "typewriter": "Typewriter reveal",
+        "wave": "Character wave reveal"
+      }
+    },
+    "apple_developer_token": {
+      "description": "Developer token used for Apple Music catalog and lyrics requests.",
+      "label": "Apple Music developer token"
+    },
+    "apple_storefront": {
+      "description": "Apple Music storefront code, for example us, cn, jp, or hk.",
+      "label": "Apple Music storefront"
+    },
+    "apple_user_token": {
+      "description": "Optional Music-User-Token for lyrics requiring a user subscription.",
+      "label": "Apple Music user token"
+    },
+    "char_width": {
+      "description": "Approximate pixel width per character, used to fix the widget width and clip scrolling.",
+      "label": "Character width (px)"
+    },
+    "cover_radius": {
+      "description": "Corner radius used by the custom cover shape.",
+      "label": "Cover corner radius"
+    },
+    "cover_shape": {
+      "description": "Shape of the album artwork.",
+      "label": "Cover shape",
+      "options": {
+        "circle": "Circle",
+        "custom": "Custom radius",
+        "rounded": "Rounded square",
+        "square": "Square"
+      }
+    },
+    "cover_size": {
+      "description": "Album artwork width and height in logical pixels.",
+      "label": "Cover size"
+    },
+    "cue_font_family": {
+      "description": "Installed font family used only for intro and interlude characters in custom-font mode.",
+      "label": "Intro/interlude font"
+    },
+    "cue_font_mode": {
+      "description": "Choose whether intro and interlude characters follow Noctalia's interface font or use another installed font.",
+      "label": "Intro/interlude font mode",
+      "options": {
+        "custom": "Custom font",
+        "follow": "Follow interface font"
+      }
+    },
+    "cue_text": {
+      "description": "Text or characters highlighted during intros and interludes.",
+      "label": "Intro/interlude characters"
+    },
+    "custom_json_field": {
+      "description": "Lyrics field in a JSON response, with dotted paths such as data.lyric. Leave empty for plain LRC.",
+      "label": "JSON lyrics field"
+    },
+    "custom_url": {
+      "description": "Supports {title}, {artist}, {album}, and {duration} placeholders. Text responses may contain LRC directly.",
+      "label": "Custom endpoint URL"
+    },
+    "display_mode": {
+      "description": "Always show lyrics, always show track information, or allow left-click switching.",
+      "label": "Display mode",
+      "options": {
+        "lyrics": "Lyrics only",
+        "toggle": "Click to switch",
+        "track": "Track title and artist only"
+      }
+    },
+    "double_line": {
+      "description": "Show translation or romanization below the current original lyric.",
+      "label": "Double-line lyrics"
+    },
+    "double_line_auto_fit": {
+      "description": "Reduce both font sizes and their gap on horizontal bars so capsule backgrounds do not clip the second line. Vertical bars are unchanged.",
+      "label": "Compact double lines"
+    },
+    "double_line_height_budget": {
+      "description": "Approximate total text height available on a horizontal bar. Lower values make both lines more compact.",
+      "label": "Double-line height budget"
+    },
+    "font_family": {
+      "description": "Installed font family for all lyrics. Leave empty to follow Noctalia.",
+      "label": "Lyrics font family"
+    },
+    "font_style": {
+      "description": "Text baseline style supported by the Noctalia renderer.",
+      "label": "Font layout style",
+      "options": {
+        "fixed": "Fixed text height",
+        "ink_centered": "Ink centered",
+        "normal": "Normal"
+      }
+    },
+    "font_weight": {
+      "description": "Weight used for primary lyrics.",
+      "label": "Lyrics font weight",
+      "options": {
+        "bold": "Bold",
+        "heavy": "Heavy",
+        "light": "Light",
+        "medium": "Medium",
+        "normal": "Normal",
+        "semibold": "Semibold",
+        "thin": "Thin"
+      }
+    },
+    "glyph": {
+      "label": "Glyph"
+    },
+    "gradient": {
+      "description": "Light up each character as the song progresses (karaoke style).",
+      "label": "Per-character gradient"
+    },
+    "hide_when_paused": {
+      "label": "Hide when paused"
+    },
+    "inactive_color": {
+      "description": "Color used for upcoming lyrics, paused playback, and secondary lines.",
+      "label": "Inactive lyric color"
+    },
+    "karaoke_enabled": {
+      "description": "Use source character timings or simulated line progress for per-character highlighting.",
+      "label": "Per-character karaoke"
+    },
+    "line_gap": {
+      "description": "Spacing between original, translation, romanization, and context lines.",
+      "label": "Line gap"
+    },
+    "lyrics_offset_ms": {
+      "description": "Positive values show lyrics earlier; negative values show them later.",
+      "label": "Lyrics offset (ms)"
+    },
+    "lyrics_source": {
+      "description": "Choose a preset source, local-player lyrics, a custom endpoint, or external push protocol.",
+      "label": "Lyrics source",
+      "options": {
+        "apple_music": "Apple Music",
+        "auto": "Automatic fallback",
+        "custom": "Custom HTTP endpoint",
+        "external": "External IPC push",
+        "kugou": "Kugou Music",
+        "lrclib": "LRCLIB",
+        "mpris": "Local player (MPRIS)",
+        "musixmatch": "Musixmatch",
+        "netease": "NetEase Music (public API)",
+        "qishui": "Qishui Music",
+        "qqmusic": "QQ Music",
+        "splayer": "SPlayer",
+        "spotify": "Spotify"
+      }
+    },
+    "lyrics_sources": {
+      "description": "Source IDs tried from top to bottom: lrclib, netease, qqmusic, kugou, qishui, apple_music, spotify, musixmatch, mpris, or custom.",
+      "label": "Automatic source order"
+    },
+    "marquee_speed": {
+      "description": "Pixels per second for long-line scrolling.",
+      "label": "Marquee speed"
+    },
+    "max_chars": {
+      "description": "Visible width before a long lyric line scrolls (marquee).",
+      "label": "Max characters"
+    },
+    "max_lines": {
+      "description": "Maximum lyric lines to show at once.",
+      "label": "Max lines"
+    },
+    "musixmatch_token": {
+      "description": "User token for the Musixmatch desktop subtitle endpoint.",
+      "label": "Musixmatch user token"
+    },
+    "padding_left": {
+      "description": "Empty space before the widget content.",
+      "label": "Left padding"
+    },
+    "padding_right": {
+      "description": "Empty space after the widget content.",
+      "label": "Right padding"
+    },
+    "player_allowlist": {
+      "description": "Only use matching MPRIS player names or instances. Supports * wildcards; leave empty to allow all players.",
+      "label": "Allowed players"
+    },
+    "player_blocklist": {
+      "description": "Ignore matching MPRIS player names or instances. Supports * wildcards and takes priority over the allowlist.",
+      "label": "Blocked players"
+    },
+    "poll_interval_ms": {
+      "description": "How often the service refreshes MPRIS metadata and playback position.",
+      "label": "Player polling interval (ms)"
+    },
+    "primary_font_size": {
+      "description": "Font size for the original lyric line. Zero follows Noctalia.",
+      "label": "Primary lyric font size"
+    },
+    "qishui_api_url": {
+      "description": "Endpoint template supporting {title}, {artist}, and {album}. Required because public Qishui endpoints vary.",
+      "label": "Qishui API URL"
+    },
+    "qishui_token": {
+      "description": "Optional Bearer token sent only to the configured Qishui endpoint.",
+      "label": "Qishui token"
+    },
+    "scroll_mode": {
+      "description": "How lyrics scroll in the bar.",
+      "label": "Scroll mode",
+      "options": {
+        "auto": "Auto (synced)",
+        "marquee": "Marquee",
+        "static": "Static"
+      }
+    },
+    "secondary_color": {
+      "description": "Color used for translation and romanization lines.",
+      "label": "Secondary lyric color"
+    },
+    "secondary_font_size": {
+      "description": "Font size for translations and romanization.",
+      "label": "Secondary font size"
+    },
+    "secondary_line_mode": {
+      "description": "Choose which additional lyric layer is preferred.",
+      "label": "Secondary line content",
+      "options": {
+        "romanization": "Romanization only",
+        "romanization_first": "Romanization, then translation",
+        "translation": "Translation only",
+        "translation_first": "Translation, then romanization"
+      }
+    },
+    "show_artist": {
+      "label": "Show artist"
+    },
+    "show_cover": {
+      "description": "Display the song's album art next to the lyrics.",
+      "label": "Show album cover"
+    },
+    "show_romanization": {
+      "description": "Allow romanized or transliterated lyrics to appear on the secondary line.",
+      "label": "Show romanization"
+    },
+    "show_translation": {
+      "description": "Allow translated lyrics to appear on the secondary line.",
+      "label": "Show translation"
+    },
+    "splayer_api_url": {
+      "description": "SPlayer local service URL. Defaults to http://127.0.0.1:25884 and reads the complete lyrics currently loaded by SPlayer.",
+      "label": "SPlayer API URL"
+    },
+    "spotify_access_token": {
+      "description": "Optional manually supplied Spotify access token. Takes priority over sp_dc.",
+      "label": "Spotify access token"
+    },
+    "spotify_sp_dc": {
+      "description": "Optional manually supplied Spotify web cookie. Stored as a normal plugin setting; never written to logs.",
+      "label": "Spotify sp_dc"
+    },
+    "translation_language": {
+      "description": "Preferred translated-lyric language when supported by the source.",
+      "label": "Translation language",
+      "options": {
+        "en": "English",
+        "ja": "Japanese",
+        "ko": "Korean",
+        "zh-hans": "Simplified Chinese",
+        "zh-hant": "Traditional Chinese"
+      }
+    }
+  },
+  "source_label": "Lyrics source",
+  "title": "Lyrics"
+}

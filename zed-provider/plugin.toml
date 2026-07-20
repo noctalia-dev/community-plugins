@@ -1,0 +1,34 @@
+id = "cleboost/zed-provider"
+name = "Zed Provider"
+version = "1.0.0"
+plugin_api = 3
+author = "cleboost"
+license = "MIT"
+icon = "folder-open"
+description = "Open a recent Zed project from the launcher. Type /zed to list your projects."
+tags = ["launcher", "development", "productivity"]
+dependencies = ["sqlite3", "zed", "nohup"]
+
+[[setting]]
+key = "db_path"
+type = "file"
+label_key = "settings.db_path.label"
+description_key = "settings.db_path.description"
+default = "~/.local/share/zed/db/0-stable/db.sqlite"
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 20
+min = 1
+max = 100
+
+[[launcher_provider]]
+id = "provider"
+entry = "zed_provider.luau"
+prefix = "zed"
+glyph = "bolt"
+include_in_global_search = false
+debounce_ms = 0

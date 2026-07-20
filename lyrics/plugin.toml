@@ -1,0 +1,540 @@
+id = "h465855hgg/lyrics"
+name = "Lyrics"
+version = "1.4.1"
+plugin_api = 3
+author = "h465855hgg"
+license = "MIT"
+dependencies = ["playerctl", "python3", "cp", "chmod"]
+tags = ["bar", "service", "music", "media", "animation"]
+icon = "music"
+description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
+
+[[setting]]
+key = "player_allowlist"
+type = "string_list"
+label_key = "settings.player_allowlist.label"
+description_key = "settings.player_allowlist.description"
+default = []
+advanced = true
+
+[[setting]]
+key = "player_blocklist"
+type = "string_list"
+label_key = "settings.player_blocklist.label"
+description_key = "settings.player_blocklist.description"
+default = []
+advanced = true
+
+[[setting]]
+key = "lyrics_source"
+type = "select"
+label_key = "settings.lyrics_source.label"
+description_key = "settings.lyrics_source.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.lyrics_source.options.auto" },
+  { value = "lrclib", label_key = "settings.lyrics_source.options.lrclib" },
+  { value = "netease", label_key = "settings.lyrics_source.options.netease" },
+  { value = "splayer", label_key = "settings.lyrics_source.options.splayer" },
+  { value = "qqmusic", label_key = "settings.lyrics_source.options.qqmusic" },
+  { value = "kugou", label_key = "settings.lyrics_source.options.kugou" },
+  { value = "qishui", label_key = "settings.lyrics_source.options.qishui" },
+  { value = "apple_music", label_key = "settings.lyrics_source.options.apple_music" },
+  { value = "spotify", label_key = "settings.lyrics_source.options.spotify" },
+  { value = "musixmatch", label_key = "settings.lyrics_source.options.musixmatch" },
+  { value = "mpris", label_key = "settings.lyrics_source.options.mpris" },
+  { value = "custom", label_key = "settings.lyrics_source.options.custom" },
+  { value = "external", label_key = "settings.lyrics_source.options.external" },
+]
+
+[[setting]]
+key = "lyrics_sources"
+type = "string_list"
+label_key = "settings.lyrics_sources.label"
+description_key = "settings.lyrics_sources.description"
+default = ["lrclib", "netease", "splayer", "qqmusic", "kugou", "qishui", "apple_music", "spotify", "musixmatch"]
+visible_when = { key = "lyrics_source", values = ["auto"] }
+advanced = true
+
+[[setting]]
+key = "translation_language"
+type = "select"
+label_key = "settings.translation_language.label"
+description_key = "settings.translation_language.description"
+default = "zh-Hans"
+options = [
+  { value = "zh-Hans", label_key = "settings.translation_language.options.zh-hans" },
+  { value = "zh-Hant", label_key = "settings.translation_language.options.zh-hant" },
+  { value = "en", label_key = "settings.translation_language.options.en" },
+  { value = "ja", label_key = "settings.translation_language.options.ja" },
+  { value = "ko", label_key = "settings.translation_language.options.ko" },
+]
+
+[[setting]]
+key = "spotify_sp_dc"
+type = "string"
+label_key = "settings.spotify_sp_dc.label"
+description_key = "settings.spotify_sp_dc.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["spotify"] }
+
+[[setting]]
+key = "spotify_access_token"
+type = "string"
+label_key = "settings.spotify_access_token.label"
+description_key = "settings.spotify_access_token.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["spotify"] }
+
+[[setting]]
+key = "apple_developer_token"
+type = "string"
+label_key = "settings.apple_developer_token.label"
+description_key = "settings.apple_developer_token.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["apple_music"] }
+
+[[setting]]
+key = "apple_user_token"
+type = "string"
+label_key = "settings.apple_user_token.label"
+description_key = "settings.apple_user_token.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["apple_music"] }
+
+[[setting]]
+key = "apple_storefront"
+type = "string"
+label_key = "settings.apple_storefront.label"
+description_key = "settings.apple_storefront.description"
+default = "us"
+advanced = true
+visible_when = { key = "lyrics_source", values = ["apple_music"] }
+
+[[setting]]
+key = "musixmatch_token"
+type = "string"
+label_key = "settings.musixmatch_token.label"
+description_key = "settings.musixmatch_token.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["musixmatch"] }
+
+[[setting]]
+key = "splayer_api_url"
+type = "string"
+label_key = "settings.splayer_api_url.label"
+description_key = "settings.splayer_api_url.description"
+default = "http://127.0.0.1:25884"
+advanced = true
+visible_when = { key = "lyrics_source", values = ["splayer"] }
+
+[[setting]]
+key = "qishui_api_url"
+type = "string"
+label_key = "settings.qishui_api_url.label"
+description_key = "settings.qishui_api_url.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["qishui"] }
+
+[[setting]]
+key = "qishui_token"
+type = "string"
+label_key = "settings.qishui_token.label"
+description_key = "settings.qishui_token.description"
+default = ""
+advanced = true
+visible_when = { key = "lyrics_source", values = ["qishui"] }
+
+[[setting]]
+key = "custom_url"
+type = "string"
+label_key = "settings.custom_url.label"
+description_key = "settings.custom_url.description"
+default = ""
+visible_when = { key = "lyrics_source", values = ["custom"] }
+
+[[setting]]
+key = "custom_json_field"
+type = "string"
+label_key = "settings.custom_json_field.label"
+description_key = "settings.custom_json_field.description"
+default = "syncedLyrics"
+visible_when = { key = "lyrics_source", values = ["custom"] }
+advanced = true
+
+[[setting]]
+key = "cue_text"
+type = "string"
+label_key = "settings.cue_text.label"
+description_key = "settings.cue_text.description"
+default = "•••••"
+
+[[setting]]
+key = "cue_font_mode"
+type = "select"
+label_key = "settings.cue_font_mode.label"
+description_key = "settings.cue_font_mode.description"
+default = "follow"
+advanced = true
+options = [
+  { value = "follow", label_key = "settings.cue_font_mode.options.follow" },
+  { value = "custom", label_key = "settings.cue_font_mode.options.custom" },
+]
+
+[[setting]]
+key = "cue_font_family"
+type = "string"
+label_key = "settings.cue_font_family.label"
+description_key = "settings.cue_font_family.description"
+default = "sans-serif"
+visible_when = { key = "cue_font_mode", values = ["custom"] }
+advanced = true
+
+[[setting]]
+key = "lyrics_offset_ms"
+type = "int"
+label_key = "settings.lyrics_offset_ms.label"
+description_key = "settings.lyrics_offset_ms.description"
+default = 0
+min = -10000
+max = 10000
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+label_key = "settings.poll_interval_ms.label"
+description_key = "settings.poll_interval_ms.description"
+default = 500
+min = 100
+max = 5000
+advanced = true
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "toggle"
+options = [
+  { value = "toggle", label_key = "settings.display_mode.options.toggle" },
+  { value = "lyrics", label_key = "settings.display_mode.options.lyrics" },
+  { value = "track", label_key = "settings.display_mode.options.track" },
+]
+
+[[setting]]
+key = "double_line"
+type = "bool"
+label_key = "settings.double_line.label"
+description_key = "settings.double_line.description"
+default = true
+
+[[setting]]
+key = "double_line_auto_fit"
+type = "bool"
+label_key = "settings.double_line_auto_fit.label"
+description_key = "settings.double_line_auto_fit.description"
+default = true
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "double_line_height_budget"
+type = "int"
+label_key = "settings.double_line_height_budget.label"
+description_key = "settings.double_line_height_budget.description"
+default = 26
+min = 18
+max = 40
+visible_when = { key = "double_line", values = ["true"] }
+advanced = true
+
+[[setting]]
+key = "show_translation"
+type = "bool"
+label_key = "settings.show_translation.label"
+description_key = "settings.show_translation.description"
+default = true
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "show_romanization"
+type = "bool"
+label_key = "settings.show_romanization.label"
+description_key = "settings.show_romanization.description"
+default = false
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "secondary_line_mode"
+type = "select"
+label_key = "settings.secondary_line_mode.label"
+description_key = "settings.secondary_line_mode.description"
+default = "translation_first"
+options = [
+  { value = "translation_first", label_key = "settings.secondary_line_mode.options.translation_first" },
+  { value = "romanization_first", label_key = "settings.secondary_line_mode.options.romanization_first" },
+  { value = "translation", label_key = "settings.secondary_line_mode.options.translation" },
+  { value = "romanization", label_key = "settings.secondary_line_mode.options.romanization" },
+]
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "karaoke_enabled"
+type = "bool"
+label_key = "settings.karaoke_enabled.label"
+description_key = "settings.karaoke_enabled.description"
+default = true
+
+[[setting]]
+key = "scroll_mode"
+type = "select"
+label_key = "settings.scroll_mode.label"
+default = "auto"
+description_key = "settings.scroll_mode.description"
+options = [
+  { value = "auto", label_key = "settings.scroll_mode.options.auto" },
+  { value = "marquee", label_key = "settings.scroll_mode.options.marquee" },
+  { value = "static", label_key = "settings.scroll_mode.options.static" },
+]
+
+[[setting]]
+key = "marquee_speed"
+type = "int"
+label_key = "settings.marquee_speed.label"
+default = 30
+min = 10
+max = 120
+description_key = "settings.marquee_speed.description"
+advanced = true
+
+[[setting]]
+key = "max_lines"
+type = "int"
+label_key = "settings.max_lines.label"
+default = 1
+min = 1
+max = 3
+description_key = "settings.max_lines.description"
+advanced = true
+
+[[setting]]
+key = "gradient"
+type = "bool"
+label_key = "settings.gradient.label"
+default = true
+description_key = "settings.gradient.description"
+
+[[setting]]
+key = "animation"
+type = "select"
+label_key = "settings.animation.label"
+default = "karaoke"
+description_key = "settings.animation.description"
+options = [
+  { value = "karaoke", label_key = "settings.animation.options.karaoke" },
+  { value = "cascade", label_key = "settings.animation.options.cascade" },
+  { value = "wave", label_key = "settings.animation.options.wave" },
+  { value = "fade", label_key = "settings.animation.options.fade" },
+  { value = "typewriter", label_key = "settings.animation.options.typewriter" },
+  { value = "pulse", label_key = "settings.animation.options.pulse" },
+  { value = "blink", label_key = "settings.animation.options.blink" },
+  { value = "none", label_key = "settings.animation.options.none" },
+]
+
+[[setting]]
+key = "max_chars"
+type = "int"
+label_key = "settings.max_chars.label"
+default = 15
+min = 8
+max = 80
+description_key = "settings.max_chars.description"
+advanced = true
+
+[[setting]]
+key = "char_width"
+type = "int"
+label_key = "settings.char_width.label"
+default = 9
+min = 4
+max = 24
+description_key = "settings.char_width.description"
+advanced = true
+
+[[setting]]
+key = "font_family"
+type = "string"
+label_key = "settings.font_family.label"
+description_key = "settings.font_family.description"
+default = ""
+
+[[setting]]
+key = "primary_font_size"
+type = "int"
+label_key = "settings.primary_font_size.label"
+description_key = "settings.primary_font_size.description"
+default = 0
+min = 0
+max = 48
+
+[[setting]]
+key = "font_weight"
+type = "select"
+label_key = "settings.font_weight.label"
+description_key = "settings.font_weight.description"
+default = "normal"
+options = [
+  { value = "thin", label_key = "settings.font_weight.options.thin" },
+  { value = "light", label_key = "settings.font_weight.options.light" },
+  { value = "normal", label_key = "settings.font_weight.options.normal" },
+  { value = "medium", label_key = "settings.font_weight.options.medium" },
+  { value = "semibold", label_key = "settings.font_weight.options.semibold" },
+  { value = "bold", label_key = "settings.font_weight.options.bold" },
+  { value = "heavy", label_key = "settings.font_weight.options.heavy" },
+]
+
+[[setting]]
+key = "secondary_font_size"
+type = "int"
+label_key = "settings.secondary_font_size.label"
+description_key = "settings.secondary_font_size.description"
+default = 10
+min = 6
+max = 36
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "font_style"
+type = "select"
+label_key = "settings.font_style.label"
+description_key = "settings.font_style.description"
+default = "normal"
+advanced = true
+options = [
+  { value = "normal", label_key = "settings.font_style.options.normal" },
+  { value = "fixed", label_key = "settings.font_style.options.fixed" },
+  { value = "ink_centered", label_key = "settings.font_style.options.ink_centered" },
+]
+
+[[setting]]
+key = "line_gap"
+type = "int"
+label_key = "settings.line_gap.label"
+description_key = "settings.line_gap.description"
+default = 2
+min = 0
+max = 24
+visible_when = { key = "double_line", values = ["true"] }
+
+[[setting]]
+key = "padding_left"
+type = "int"
+label_key = "settings.padding_left.label"
+description_key = "settings.padding_left.description"
+default = 0
+min = 0
+max = 64
+advanced = true
+
+[[setting]]
+key = "padding_right"
+type = "int"
+label_key = "settings.padding_right.label"
+description_key = "settings.padding_right.description"
+default = 0
+min = 0
+max = 64
+advanced = true
+
+# Headless background service: polls MPRIS metadata, fetches lyrics, publishes state.
+[[service]]
+id = "service"
+entry = "lyrics_service.luau"
+
+# Bar widget: thin presentation that mirrors the published lyrics state.
+[[widget]]
+id = "lyrics"
+entry = "lyrics.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "music"
+
+  [[widget.setting]]
+  key = "show_artist"
+  type = "bool"
+  label_key = "settings.show_artist.label"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_paused"
+  type = "bool"
+  label_key = "settings.hide_when_paused.label"
+  default = false
+
+  [[widget.setting]]
+  key = "show_cover"
+  type = "bool"
+  label_key = "settings.show_cover.label"
+  description_key = "settings.show_cover.description"
+  default = true
+
+  [[widget.setting]]
+  key = "cover_shape"
+  type = "select"
+  label_key = "settings.cover_shape.label"
+  description_key = "settings.cover_shape.description"
+  default = "circle"
+  options = [
+    { value = "circle", label_key = "settings.cover_shape.options.circle" },
+    { value = "rounded", label_key = "settings.cover_shape.options.rounded" },
+    { value = "square", label_key = "settings.cover_shape.options.square" },
+    { value = "custom", label_key = "settings.cover_shape.options.custom" },
+  ]
+
+  [[widget.setting]]
+  key = "cover_radius"
+  type = "int"
+  label_key = "settings.cover_radius.label"
+  description_key = "settings.cover_radius.description"
+  default = 5
+  min = 0
+  max = 32
+  visible_when = { key = "cover_shape", values = ["custom"] }
+
+  [[widget.setting]]
+  key = "cover_size"
+  type = "int"
+  label_key = "settings.cover_size.label"
+  description_key = "settings.cover_size.description"
+  default = 18
+  min = 12
+  max = 32
+
+  [[widget.setting]]
+  key = "active_color"
+  type = "color"
+  label_key = "settings.active_color.label"
+  description_key = "settings.active_color.description"
+  default = "on_surface"
+
+  [[widget.setting]]
+  key = "inactive_color"
+  type = "color"
+  label_key = "settings.inactive_color.label"
+  description_key = "settings.inactive_color.description"
+  default = "on_surface_variant"
+
+  [[widget.setting]]
+  key = "secondary_color"
+  type = "color"
+  label_key = "settings.secondary_color.label"
+  description_key = "settings.secondary_color.description"
+  default = "on_surface_variant"

@@ -1,0 +1,58 @@
+id              = "avivbintangaringga/nextboot-selector"
+name            = "Next Boot Selector"
+version         = "1.0.0"
+plugin_api      = 3
+icon            = "refresh-dot"
+author          = "avivbintangaringga"
+description     = "Select boot entry for the next reboot"
+tags            = [ "utility" ]
+dependencies    = [ "efibootmgr", "pkexec", "reboot", "sudo" ]
+license         = "MIT"
+
+[[widget]]
+id              = "nextboot-selector"
+entry           = "nextboot_selector.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+width           = 350
+height          = 250
+
+[[setting]]
+key             = "excluded_keywords"
+type            = "string_list"
+label_key       = "setting.excluded_keywords.label"
+description_key = "setting.excluded_keywords.description"
+default         = ["pxe", "uefi os", "uefi shell", "shell", "ipv4", "ipv6", "network", "diagnostics", "setup", "recovery"]
+
+[[setting]]
+key             = "privilege_command"
+type            = "string"
+label_key       = "setting.privilege_command.label"
+description_key = "setting.privilege_command.description"
+default         = "pkexec"
+
+[[setting]]
+key             = "close_on_select"
+type            = "bool"
+label_key       = "setting.close_on_select.label"
+description_key = "setting.close_on_select.description"
+default         = false
+
+[[setting]]
+key             = "reboot_on_select"
+type            = "bool"
+label_key       = "setting.reboot_on_select.label"
+description_key = "setting.reboot_on_select.description"
+default         = false
+
+[[setting]]
+key             = "reboot_command"
+type            = "string"
+label_key       = "setting.reboot_command.label"
+description_key = "setting.reboot_command.description"
+default         = "reboot"

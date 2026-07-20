@@ -1,0 +1,36 @@
+{
+  "clear_done_confirm": "Delete all done entries?",
+  "clear_done_no": "Cancel",
+  "clear_done_yes": "Delete",
+  "empty": "No tasks yet — add one with +",
+  "placeholder": "New task…",
+  "prio_important": "Important",
+  "prio_low": "Low",
+  "prio_medium": "Medium",
+  "save_failed": "Failed to save the task list",
+  "settings": {
+    "glyph": {
+      "description": "The glyph shown for the To Do widget on the bar.",
+      "label": "Bar glyph"
+    },
+    "todo_folder": {
+      "description": "Folder holding the task list (todo.json). Defaults to ~/Documents/Todo.",
+      "label": "To Do folder"
+    }
+  },
+  "sort_manual": "Manual",
+  "sort_priority": "Priority",
+  "tip_add": "Add a task",
+  "tip_clear_done": "Delete all done tasks",
+  "tip_close": "Close",
+  "tip_commit": "Save (Enter)",
+  "tip_delete": "Delete task",
+  "tip_done": "Mark as done",
+  "tip_edit": "Edit",
+  "tip_grip": "Reorder — click to pick this row up",
+  "tip_grip_drop": "Click another grip to drop here, or this one to cancel",
+  "tip_sort": "Switch ordering mode",
+  "tip_undone": "Mark as to do",
+  "title": "To Do",
+  "tooltip": "To Do — {count} to do"
+}

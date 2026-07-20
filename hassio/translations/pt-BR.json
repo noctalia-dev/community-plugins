@@ -1,0 +1,71 @@
+{
+  "notifications": {
+    "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
+    "reconnect_failed": "Não foi possível reconectar ao Home Assistant após {count} tentativas."
+  },
+  "panel": {
+    "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
+    "brightness": "Brilho",
+    "color_temp": "Temperatura de Cor",
+    "connecting": "Conectando…",
+    "disconnected_reconnecting": "Desconectado. Reconectando…",
+    "hue": "Matiz",
+    "loading_entities": "Carregando entidades…",
+    "manage_entities_title": "Gerenciar Entidades",
+    "no_entities_found": "Nenhuma entidade encontrada",
+    "no_entities_match": "Nenhuma entidade corresponde à sua busca",
+    "no_entities_monitored": "Nenhuma entidade monitorada ainda. Use o navegador para adicionar.",
+    "not_configured": "Não configurado. Defina a URL e o token do Home Assistant nas configurações.",
+    "save_failed": "Falha ao salvar as entidades monitoradas",
+    "save_failed_no_data_dir": "Não foi possível salvar: diretório de dados do plugin indisponível",
+    "search_placeholder": "Buscar entidades…",
+    "state_on_brightness": "Ligado · {percent}%",
+    "status_fallback": "Status: {status}"
+  },
+  "settings": {
+    "shortcut_entity": {
+      "description": "ID da entidade do Home Assistant para mostrar e alternar neste espaço (e.g. light.living_room)."
+    },
+    "shortcut_entity_1": {
+      "label": "Botão Rápido 1 - ID da Entidade"
+    },
+    "shortcut_entity_2": {
+      "label": "Botão Rápido 2 - ID da Entidade"
+    },
+    "shortcut_entity_3": {
+      "label": "Botão Rápido 3 - ID da Entidade"
+    },
+    "shortcut_entity_4": {
+      "label": "Botão Rápido 4 - ID da Entidade"
+    },
+    "show_entity_count": {
+      "label": "Mostrar o Número de Entidades"
+    },
+    "token": {
+      "description": "Crie um token no Home Assistant em Profile → Security → Long-lived access tokens",
+      "label": "Token de Acesso Longo"
+    },
+    "url": {
+      "description": "A URL para sua instância do Home Assistant (e.g., http://homeassistant.local:8123)",
+      "label": "URL do Home Assistant"
+    }
+  },
+  "shortcut": {
+    "label_1": "Botão Rápido 1",
+    "label_2": "Botão Rápido 2",
+    "label_3": "Botão Rápido 3",
+    "label_4": "Botão Rápido 4",
+    "panel_label": "Gerenciador de Entidades",
+    "title": "Home Assistant"
+  },
+  "widget": {
+    "refreshing_connection": "Atualizando conexão…",
+    "status_auth_failed": "Falha de Autenticação",
+    "status_connected": "Conectado",
+    "status_connecting": "Conectando",
+    "status_disconnected": "Desconectado",
+    "status_unconfigured": "Não Configurado",
+    "tooltip": "Home Assistant: {status}",
+    "tooltip_entities": "Home Assistant: {status} ({count} entidades)"
+  }
+}

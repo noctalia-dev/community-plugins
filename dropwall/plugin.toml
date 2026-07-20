@@ -1,0 +1,61 @@
+# DropWall — drag & drop an image anywhere onto the desktop to set it as the
+# wallpaper.
+#
+# A headless [[service]] owns a Python supervisor and a GTK3 + gtk-layer-shell
+# worker that keeps one transparent layer-shell surface per monitor as a drop
+# target. When an image is dropped, the worker reports the file and monitor
+# geometry; the service resolves the output connector and applies it through
+# noctalia.setWallpaper(), just like the built-in wallpaper panel.
+#
+# External requirements: python3, python-gobject, gtk3, gtk-layer-shell.
+
+id = "whyoolw/dropwall"
+name = "DropWall"
+version = "1.0.0"
+plugin_api = 3
+author = "whyoolw"
+license = "MIT"
+dependencies = ["python3", "python-gobject", "gtk3", "gtk-layer-shell"]
+tags = ["desktop", "wallpaper"]
+icon = "image"
+description = "Drag and drop an image onto the desktop to set it as wallpaper using Noctalia's wallpaper settings."
+
+[[setting]]
+key = "per_monitor"
+type = "bool"
+label_key = "settings.per_monitor.label"
+description_key = "settings.per_monitor.description"
+default = false
+
+[[setting]]
+key = "copy_to_wallpaper_dir"
+type = "bool"
+label_key = "settings.copy_to_wallpaper_dir.label"
+description_key = "settings.copy_to_wallpaper_dir.description"
+default = false
+
+[[setting]]
+key = "notify_on_set"
+type = "bool"
+label_key = "settings.notify_on_set.label"
+description_key = "settings.notify_on_set.description"
+default = true
+
+# Which layer-shell layer the invisible drop surface lives on. "background"
+# sits next to the wallpaper itself and is the least intrusive; switch to
+# "bottom" if drops don't register on your compositor because the wallpaper
+# surface swallows them. Changing it restarts the service automatically.
+[[setting]]
+key = "layer"
+type = "select"
+label_key = "settings.layer.label"
+description_key = "settings.layer.description"
+default = "background"
+options = [
+  { value = "background", label_key = "settings.layer.options.background" },
+  { value = "bottom", label_key = "settings.layer.options.bottom" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"

@@ -1,0 +1,78 @@
+# File Search — fuzzy file & folder search from the bar, powered by fzf.
+# The bar glyph toggles a search panel: the search folder is indexed with
+# `find` (honoring the excluded directories), every keystroke is matched
+# through `fzf --filter`, and picking a result opens it with the system
+# MIME association (xdg-open).
+
+id = "nightwatch75/file-search"
+name = "File Search"
+version = "0.0.10"
+plugin_api = 3
+author = "nightwatch75"
+license = "MIT"
+# The exact commands the plugin spawns (fzf aside, findutils + coreutils +
+# xdg-utils on any Linux desktop).
+dependencies = ["fzf", "find", "mktemp", "mv", "wc", "head", "rm", "xdg-open"]
+tags = ["bar", "launcher", "panel", "utility", "productivity"]
+icon = "search"
+description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
+
+# Plugin-level settings: shared by the bar widget (tooltip, folder actions)
+# and the panel (index + search).
+
+[[setting]]
+key = "search_folder"
+type = "folder"
+label_key = "settings.search_folder.label"
+description_key = "settings.search_folder.description"
+
+[[setting]]
+key = "exclude_dirs"
+type = "string"
+label_key = "settings.exclude_dirs.label"
+description_key = "settings.exclude_dirs.description"
+default = ".git, node_modules, .cache, .venv"
+
+[[setting]]
+key = "show_hidden"
+type = "bool"
+label_key = "settings.show_hidden.label"
+description_key = "settings.show_hidden.description"
+default = false
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 50
+min = 10
+max = 200
+
+# Keyboard-first flow: the noctalia launcher provides native arrows + Enter
+# navigation, which plugin panels cannot receive from the current Luau API.
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "fs"
+glyph = "search"
+include_in_global_search = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = 480
+placement = "attached"
+open_near_click = true
+
+[[widget]]
+id = "file-search"
+entry = "file-search.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "search"

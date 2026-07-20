@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "poll_interval": {
+      "description": "Poll interval in ms",
+      "label": "Poll interval"
+    },
+    "show_label": {
+      "label": "Show label"
+    }
+  },
+  "title": "ASUS UM5606 Fan State"
+}

@@ -1,0 +1,71 @@
+{
+  "notifications": {
+    "auth_failed": "Authentication failed. Check your access token.",
+    "reconnect_failed": "Unable to reconnect to Home Assistant after {count} attempts."
+  },
+  "panel": {
+    "auth_failed": "Authentication failed. Check your access token.",
+    "brightness": "Brightness",
+    "color_temp": "Color Temperature",
+    "connecting": "Connecting…",
+    "disconnected_reconnecting": "Disconnected. Reconnecting…",
+    "hue": "Hue",
+    "loading_entities": "Loading entities…",
+    "manage_entities_title": "Manage Entities",
+    "no_entities_found": "No entities found",
+    "no_entities_match": "No entities match your search",
+    "no_entities_monitored": "No entities monitored yet. Use the browser to add some.",
+    "not_configured": "Not configured. Set your Home Assistant URL and token in settings.",
+    "save_failed": "Failed to save monitored entities",
+    "save_failed_no_data_dir": "Could not save: plugin data directory unavailable",
+    "search_placeholder": "Search entities…",
+    "state_on_brightness": "On · {percent}%",
+    "status_fallback": "Status: {status}"
+  },
+  "settings": {
+    "shortcut_entity": {
+      "description": "Home Assistant entity ID to show and toggle on this tile (e.g. light.living_room)."
+    },
+    "shortcut_entity_1": {
+      "label": "Quick Toggle 1 - Entity ID"
+    },
+    "shortcut_entity_2": {
+      "label": "Quick Toggle 2 - Entity ID"
+    },
+    "shortcut_entity_3": {
+      "label": "Quick Toggle 3 - Entity ID"
+    },
+    "shortcut_entity_4": {
+      "label": "Quick Toggle 4 - Entity ID"
+    },
+    "show_entity_count": {
+      "label": "Show entity count in widget"
+    },
+    "token": {
+      "description": "Create a token in Home Assistant under Profile → Security → Long-lived access tokens",
+      "label": "Long-Lived Access Token"
+    },
+    "url": {
+      "description": "The URL to your Home Assistant instance (e.g., http://homeassistant.local:8123)",
+      "label": "Home Assistant URL"
+    }
+  },
+  "shortcut": {
+    "label_1": "Quick Toggle 1",
+    "label_2": "Quick Toggle 2",
+    "label_3": "Quick Toggle 3",
+    "label_4": "Quick Toggle 4",
+    "panel_label": "Entity Manager",
+    "title": "Home Assistant"
+  },
+  "widget": {
+    "refreshing_connection": "Refreshing connection…",
+    "status_auth_failed": "Auth Failed",
+    "status_connected": "Connected",
+    "status_connecting": "Connecting",
+    "status_disconnected": "Disconnected",
+    "status_unconfigured": "Not Configured",
+    "tooltip": "Home Assistant: {status}",
+    "tooltip_entities": "Home Assistant: {status} ({count} entities)"
+  }
+}

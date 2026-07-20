@@ -1,0 +1,126 @@
+name: Bug Report
+description: Report a bug in a community plugin
+title: "[BUG] "
+labels: ["bug"]
+
+body:
+  - type: checkboxes
+    id: submission-checklist
+    attributes:
+      label: Submission checklist
+      description: Please confirm the following before submitting.
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate.
+          required: true
+        - label: I am using the latest available version of Noctalia and of the plugin.
+          required: true
+        - label: This is a bug in a community plugin, not in Noctalia itself (those belong in the noctalia repo).
+          required: true
+
+  - type: input
+    id: plugin-id
+    attributes:
+      label: Plugin
+      description: The plugin id, as it appears in its plugin.toml.
+      placeholder: "author/plugin"
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: The version shown in the plugin's plugin.toml.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear and concise description of the issue.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Steps required to reproduce the issue.
+      placeholder: |
+        1. Enable ...
+        2. Click ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error output
+      description: |
+        Paste any relevant logs here. Plugin errors are logged by the shell.
+
+        Large outputs can be wrapped in a `<details>` block.
+      render: text
+
+  - type: input
+    id: noctalia-version
+    attributes:
+      label: Noctalia version
+      description: Enter the version shown by Noctalia, or the commit hash if you are running a development build.
+      placeholder: "v5.x.x (commit hash)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: compositor
+    attributes:
+      label: Compositor
+      description: Select the compositor where the issue occurs.
+      options:
+        - Niri
+        - Hyprland
+        - Sway
+        - Scroll
+        - Labwc
+        - Mango
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment information
+      description: |
+        Anything else about your system that matters: distribution, installation method, and any external
+        command the plugin depends on (and its version).
+
+        If you selected `Other` for compositor, please specify it here.
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: |
+        Add any other context, screenshots, or relevant information here.

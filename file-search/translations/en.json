@@ -1,0 +1,44 @@
+{
+  "copied_path": "Search folder path copied to clipboard",
+  "counts": "{shown} shown · {total} indexed",
+  "err_bad_record": "Ignored an invalid index record — rebuild the index",
+  "err_index": "Failed to index the search folder",
+  "err_no_fzf": "fzf not found — install fzf to use this plugin",
+  "err_spawn": "Could not run the search command",
+  "launcher": {
+    "indexing": "Indexing files…",
+    "no_results": "No matches",
+    "reindex_done": "Search index dropped — it rebuilds on the next search",
+    "reindex_title": "Rebuild search index"
+  },
+  "no_results": "No matches for \"{query}\"",
+  "search_placeholder": "Type to search files and folders…",
+  "settings": {
+    "exclude_dirs": {
+      "description": "Folder names skipped while indexing, separated by ',' or ';' (matched anywhere in the tree), e.g. '.git, node_modules, .cache'.",
+      "label": "Excluded folders"
+    },
+    "glyph": {
+      "description": "Icon shown on the bar.",
+      "label": "Glyph"
+    },
+    "max_results": {
+      "description": "How many matches the panel lists at most.",
+      "label": "Max results"
+    },
+    "search_folder": {
+      "description": "Root folder the search indexes. Defaults to your home folder when empty.",
+      "label": "Search folder"
+    },
+    "show_hidden": {
+      "description": "Index files and folders whose name starts with a dot.",
+      "label": "Include hidden entries"
+    }
+  },
+  "status_indexing": "Indexing {path}…",
+  "tip_close": "Close",
+  "tip_refresh": "Rebuild the file index",
+  "title": "File Search",
+  "tooltip_closed": "File search — {path}\nClick to search · right-click: folder · middle-click: copy path",
+  "tooltip_open": "File search open — {path}\nClick to close"
+}

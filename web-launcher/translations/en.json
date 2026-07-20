@@ -1,0 +1,27 @@
+{
+  "notify": {
+    "message": "Opening {name}",
+    "title": "Websites"
+  },
+  "settings": {
+    "command": {
+      "description": "Command that launches the website. Example: \"firefox --new-window\"",
+      "label": "Command"
+    },
+    "icon_provider": {
+      "description": "Icon download source.",
+      "direct": "Site's own favicon.ico",
+      "duckduckgo": "DuckDuckGo",
+      "google": "Google",
+      "label": "Icon Provider"
+    },
+    "links": {
+      "description": "Format: Name|https://url",
+      "label": "Links"
+    },
+    "notify": {
+      "description": "Notify when opening link.",
+      "label": "Notify"
+    }
+  }
+}

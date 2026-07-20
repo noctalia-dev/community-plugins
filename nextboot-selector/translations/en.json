@@ -1,0 +1,32 @@
+{
+  "notification": {
+    "failed_to_set_next_boot": "Failed to set next boot",
+    "timed_out": "Timed out"
+  },
+  "panel": {
+    "reset": "Reset",
+    "title": "Next Boot Selector"
+  },
+  "setting": {
+    "close_on_select": {
+      "description": "Whether to close the panel after selecting an entry",
+      "label": "Close on select"
+    },
+    "excluded_keywords": {
+      "description": "Keywords to exclude entries (case insensitive)",
+      "label": "Excluded keywords"
+    },
+    "privilege_command": {
+      "description": "Command to escalate the privilege of the efibootmgr command",
+      "label": "Privilege command"
+    },
+    "reboot_command": {
+      "description": "Command to be executed when reboot on select is enabled",
+      "label": "Reboot command"
+    },
+    "reboot_on_select": {
+      "description": "Whether to automatically reboot after selecting an entry",
+      "label": "Reboot on select"
+    }
+  }
+}

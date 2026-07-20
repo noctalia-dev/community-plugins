@@ -1,0 +1,49 @@
+name: Update Plugin Catalog
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - catalog.toml
+  workflow_dispatch:
+
+concurrency:
+  group: update-plugin-catalog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-catalog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: ${{ github.repository == 'noctalia-dev/community-plugins' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild catalog
+        run: python3 .github/workflows/update-catalog.py
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add catalog.toml
+          if git diff --cached --quiet catalog.toml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to catalog.toml"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in catalog.toml"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "chore: update plugin catalog [skip ci]"
+          git push
