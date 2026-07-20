@@ -4,39 +4,35 @@ local binary = noctalia.pluginDir() .. "/gamelauncher"
 local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
 
 local function ensureGames(cb)
+  local function runScan()
+    local ok = noctalia.runAsync(binary .. " --steam --lutris --heroic --force", function(res)
+      if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
+        local parsed, err = noctalia.json.decode(res.stdout)
+        if parsed then
+          games = parsed
+          ready = true
+        end
+      end
+      cb()
+    end)
+    if not ok then cb() end
+  end
   if ready then
     cb()
     return
   end
   if not noctalia.fileExists(binary) then
-    noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3 -lpthread", function(res)
+    local ok = noctalia.runAsync("/usr/bin/cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
       if res.exitCode == 0 then
-        noctalia.runAsync(binary .. " --steam --lutris --heroic 2>/dev/null", function(res2)
-          if res2.exitCode == 0 and res2.stdout and #res2.stdout > 0 then
-            local parsed, err = noctalia.json.decode(res2.stdout)
-            if parsed then
-              games = parsed
-              ready = true
-            end
-          end
-          cb()
-        end)
+        runScan()
       else
         cb()
       end
     end)
+    if not ok then cb() end
     return
   end
-  noctalia.runAsync(binary .. " --steam --lutris --heroic 2>/dev/null", function(res)
-    if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
-      local parsed, err = noctalia.json.decode(res.stdout)
-      if parsed then
-        games = parsed
-        ready = true
-      end
-    end
-    cb()
-  end)
+  runScan()
 end
 
 function onQuery(text)
@@ -65,10 +61,31 @@ function onQuery(text)
   end)
 end
 
+local function isValidProtocol(cmd)
+  local protocols = { "steam://", "lutris:", "heroic://" }
+  for _, p in ipairs(protocols) do
+    if cmd:sub(1, #p) == p then
+      local rest = cmd:sub(#p + 1)
+      if rest:match("^[%w_%-%.%/]+$") then return true end
+    end
+  end
+  return false
+end
+
 function onActivate(id)
   for _, g in ipairs(games) do
-    if g.id == id then
-      noctalia.runAsync(g.run_command)
+    if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
+      local url = g.run_command
+      local safe = ""
+      for i = 1, #url do
+        local c = url:sub(i, i)
+        if c:match("^[%w_%-%.%/]$") then
+          safe = safe .. c
+        end
+      end
+      if #safe > 0 then
+        noctalia.runAsync('xdg-open "' .. safe .. '"')
+      end
       return
     end
   end

@@ -8,11 +8,11 @@
 #include <sqlite3.h>
 #include <libgen.h>
 #include <ctype.h>
-#include <pthread.h>
+#include <time.h>
 
 #define MAX_GAMES 4096
 #define MAX_STR 1024
-#define MAX_PATH 4096
+#define MAX_PATH 8192
 #define MAX_RUN_CMD 4096
 
 typedef struct {
@@ -20,6 +20,7 @@ typedef struct {
     char name[MAX_STR];
     char runner[MAX_STR];
     char cover[MAX_PATH];
+    char cover_url[MAX_PATH];
     char run_command[MAX_RUN_CMD];
     char slug[MAX_STR];
 } Game;
@@ -31,10 +32,6 @@ typedef struct {
 } GameArray;
 
 GameArray ga = {0};
-
-char *json_extract_string(const char *json, const char *key);
-char *json_extract_int_as_string(const char *json, const char *key);
-int steampoacher(const char *appid, const char *output_path);
 
 void init_games() {
     ga.capacity = MAX_GAMES;
@@ -57,14 +54,15 @@ int game_exists(const char *name) {
 }
 
 void add_game(const char *id, const char *name, const char *runner,
-              const char *cover, const char *run_command, const char *slug) {
+              const char *cover, const char *cover_url, const char *run_command, const char *slug) {
     if (ga.count >= ga.capacity) return;
     Game *g = &ga.games[ga.count++];
     strncpy(g->id, id, MAX_STR - 1);
     strncpy(g->name, name, MAX_STR - 1);
     strncpy(g->runner, runner, MAX_STR - 1);
     strncpy(g->cover, cover ? cover : "", MAX_PATH - 1);
-    strncpy(g->run_command, run_command, MAX_RUN_CMD - 1);
+    strncpy(g->cover_url, cover_url ? cover_url : "", MAX_PATH - 1);
+    strncpy(g->run_command, run_command ? run_command : "", MAX_RUN_CMD - 1);
     strncpy(g->slug, slug ? slug : "", MAX_STR - 1);
 }
 
@@ -92,8 +90,14 @@ void print_json() {
         printf("    \"cover\": \"");
         print_json_escaped(g->cover);
         printf("\",\n");
+        printf("    \"cover_url\": \"");
+        print_json_escaped(g->cover_url);
+        printf("\",\n");
         printf("    \"run_command\": \"");
         print_json_escaped(g->run_command);
+        printf("\",\n");
+        printf("    \"slug\": \"");
+        print_json_escaped(g->slug);
         printf("\"\n");
         printf("  }%s\n", i < ga.count - 1 ? "," : "");
     }
@@ -132,117 +136,6 @@ char *get_xdg_cache_home() {
 int file_exists(const char *path) {
     struct stat st;
     return stat(path, &st) == 0;
-}
-
-void ensure_dir(const char *path) {
-    char cmd[MAX_PATH];
-    snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\"", path);
-    system(cmd);
-}
-
-int is_valid_image(const char *path) {
-    unsigned char magic[4];
-    FILE *f = fopen(path, "rb");
-    if (!f) return 0;
-    int n = fread(magic, 1, 4, f);
-    fclose(f);
-    if (n < 4) return 0;
-    return (magic[0] == 0xFF && magic[1] == 0xD8) ||
-           (magic[0] == 0x89 && magic[1] == 0x50 && magic[2] == 0x4E) ||
-           (magic[0] == 0x47 && magic[1] == 0x49 && magic[2] == 0x46);
-}
-
-int download_file(const char *url, const char *output_path) {
-    if (!url || !url[0]) return 0;
-    if (file_exists(output_path)) remove(output_path);
-    char cmd[MAX_PATH * 2];
-    snprintf(cmd, sizeof(cmd), "curl -sL --connect-timeout 10 -o \"%s\" \"%s\" 2>/dev/null", output_path, url);
-    system(cmd);
-    if (is_valid_image(output_path)) return 1;
-    remove(output_path);
-    snprintf(cmd, sizeof(cmd), "wget -q --timeout=10 -O \"%s\" \"%s\" 2>/dev/null", output_path, url);
-    system(cmd);
-    if (is_valid_image(output_path)) return 1;
-    remove(output_path);
-    return 0;
-}
-
-char *run_cmd_capture(const char *cmd) {
-    static char result[65536];
-    result[0] = '\0';
-    FILE *fp = popen(cmd, "r");
-    if (!fp) return result;
-    size_t total = 0;
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), fp)) {
-        size_t len = strlen(buf);
-        if (total + len < sizeof(result) - 1) {
-            memcpy(result + total, buf, len);
-            total += len;
-        }
-    }
-    result[total] = '\0';
-    pclose(fp);
-    return result;
-}
-
-int steampoacher(const char *appid, const char *output_path) {
-    /* Get hash-based library capsule URL from steampoacher proxy */
-    char cmd[8192];
-    snprintf(cmd, sizeof(cmd),
-        "curl -sL --connect-timeout 10 \"https://steam-asset-proxy.steampoacher.workers.dev?appid=%s\" 2>/dev/null",
-        appid);
-    char *resp = run_cmd_capture(cmd);
-    if (resp && resp[0]) {
-        /* Extract library_capsule_2x hash filename (600x900 portrait) */
-        char *filename = json_extract_string(resp, "library_capsule_2x");
-        if (!filename) filename = json_extract_string(resp, "library_capsule");
-        if (filename && filename[0]) {
-            char *fmt = json_extract_string(resp, "asset_url_format");
-            if (fmt) {
-                char url[MAX_PATH * 2];
-                char *placeholder = strstr(fmt, "${FILENAME}");
-                if (placeholder) {
-                    *placeholder = '\0';
-                    snprintf(url, sizeof(url),
-                        "https://shared.steamstatic.com/store_item_assets/%s%s%s",
-                        fmt, filename, placeholder + 11);
-                    *placeholder = '$';
-                } else {
-                    snprintf(url, sizeof(url),
-                        "https://shared.steamstatic.com/store_item_assets/%s/%s", fmt, filename);
-                }
-                if (download_file(url, output_path)) { free(filename); free(fmt); return 1; }
-                free(fmt);
-            }
-        }
-        free(filename);
-    }
-
-    /* Fallback: Steam Store API header (hash-based, always correct, 460x215) */
-    snprintf(cmd, sizeof(cmd),
-        "curl -sL --connect-timeout 10 \"https://store.steampowered.com/api/appdetails?appids=%s\" 2>/dev/null | "
-        "python3 -c \"import json,sys; d=json.load(sys.stdin).get('%s',{}).get('data',{}); print(d.get('header_image',''))\" 2>/dev/null",
-        appid, appid);
-    resp = run_cmd_capture(cmd);
-    if (resp && resp[0]) {
-        size_t l = strlen(resp);
-        while (l > 0 && (resp[l-1] == '\n' || resp[l-1] == '\r')) resp[--l] = '\0';
-        if (resp[0] && download_file(resp, output_path)) return 1;
-    }
-
-    /* Fallback: store page og:image capsule (hash-based, always correct, 616x353) */
-    snprintf(cmd, sizeof(cmd),
-        "curl -sL --connect-timeout 10 \"https://store.steampowered.com/app/%s\" 2>/dev/null | "
-        "grep -oP 'og:image[^>]+content=\"\\K[^\"]+'", appid);
-    resp = run_cmd_capture(cmd);
-    if (resp && resp[0]) {
-        size_t l = strlen(resp);
-        while (l > 0 && (resp[l-1] == '\n' || resp[l-1] == '\r')) resp[--l] = '\0';
-        if (resp[0] && download_file(resp, output_path)) return 1;
-    }
-
-    return 0;
 }
 
 void scan_steam_shortcuts() {
@@ -319,18 +212,11 @@ void scan_steam_shortcuts() {
                         unsigned long long short_appid = appid & 0xFFFFFFFFULL;
                         unsigned long long long_id = (short_appid << 32) | 0x02000000ULL;
 
-                        char run_cmd[MAX_RUN_CMD];
-                        snprintf(run_cmd, sizeof(run_cmd),
-                                 "xdg-open steam://rungameid/%llu", long_id);
+        char run_command[MAX_RUN_CMD];
+                         snprintf(run_command, sizeof(run_command),
+                                  "steam://rungameid/%llu", long_id);
 
-                        char slug[MAX_STR];
-                        for (int si = 0; appname[si]; si++) {
-                            slug[si] = isalnum((unsigned char)appname[si]) ?
-                                       tolower((unsigned char)appname[si]) : '-';
-                            slug[si + 1] = '\0';
-                        }
-
-                        add_game(appid_str, appname, "steam", "", run_cmd, slug);
+                        add_game(appid_str, appname, "steam", "", "", run_command, "");
                     }
                 }
                 p = appid_p;
@@ -392,7 +278,6 @@ void scan_steam() {
         }
     }
 
-    /* Also read libraryfolders.vdf for additional paths */
     for (int r = 0; steam_roots[r]; r++) {
         char vdf_path[MAX_PATH];
         snprintf(vdf_path, sizeof(vdf_path), "%s%s/steamapps/libraryfolders.vdf",
@@ -492,31 +377,15 @@ void scan_steam() {
             }
 
             if (!header[0]) {
-                char cache_dir[MAX_PATH];
-                snprintf(cache_dir, sizeof(cache_dir), "%s/gamelauncher/steam", get_xdg_cache_home());
-                ensure_dir(cache_dir);
-                char cached_file[MAX_PATH];
-                snprintf(cached_file, sizeof(cached_file), "%s/%s.jpg", cache_dir, appid_str);
-                if (file_exists(cached_file) && !is_valid_image(cached_file)) {
-                    remove(cached_file);
-                }
-                if (!file_exists(cached_file)) {
-                    steampoacher(appid_str, cached_file);
-                }
-                if (file_exists(cached_file)) strncpy(header, cached_file, MAX_PATH - 1);
+                snprintf(candidates, sizeof(candidates), "%s/gamelauncher/steam/%s.jpg",
+                         get_xdg_cache_home(), appid_str);
+                if (file_exists(candidates)) strncpy(header, candidates, MAX_PATH - 1);
             }
 
-            char run_cmd[MAX_RUN_CMD];
-            snprintf(run_cmd, sizeof(run_cmd), "xdg-open steam://rungameid/%s", appid_str);
+            char run_command[MAX_RUN_CMD];
+            snprintf(run_command, sizeof(run_command), "steam://rungameid/%s", appid_str);
 
-            char slug[MAX_STR];
-            for (int si = 0; name[si]; si++) {
-                slug[si] = isalnum((unsigned char)name[si]) ?
-                           tolower((unsigned char)name[si]) : '-';
-                slug[si + 1] = '\0';
-            }
-
-            add_game(appid_str, name, "steam", header, run_cmd, slug);
+            add_game(appid_str, name, "steam", header, "", run_command, "");
         }
         closedir(dir);
     }
@@ -667,13 +536,13 @@ void scan_lutris() {
             if (cover[0]) break;
         }
 
-        char run_cmd[MAX_RUN_CMD];
-        snprintf(run_cmd, sizeof(run_cmd), "xdg-open 'lutris:rungame/%s'", slug);
+        char run_command[MAX_RUN_CMD];
+        snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
 
         if (!id) id = "0";
         if (!runner) runner = "linux";
 
-        add_game(id, name, "lutris", cover, run_cmd, slug);
+        add_game(id, name, "lutris", cover, "", run_command, slug ? slug : "");
     }
 
     sqlite3_finalize(stmt);
@@ -725,10 +594,10 @@ void scan_lutris_manual_files() {
             slug[si + 1] = '\0';
         }
 
-        char run_cmd[MAX_RUN_CMD];
-        snprintf(run_cmd, sizeof(run_cmd), "xdg-open \"lutris:rungame/%s\"", slug);
+        char run_command[MAX_RUN_CMD];
+        snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
 
-        add_game("0", name, "lutris", "", run_cmd, slug);
+        add_game("0", name, "lutris", "", "", run_command, slug);
     }
     closedir(dir);
 }
@@ -810,26 +679,6 @@ char *json_extract_string(const char *json, const char *key) {
     return result;
 }
 
-char *json_extract_int_as_string(const char *json, const char *key) {
-    char search[128];
-    snprintf(search, sizeof(search), "\"%s\"", key);
-    const char *p = strstr(json, search);
-    if (!p) return NULL;
-    p += strlen(search);
-    while (*p && (*p == ' ' || *p == ':')) p++;
-    if (*p != ':') p--;  // went too far
-    while (*p && (*p == ' ' || *p == ':')) p++;
-    if (*p < '0' || *p > '9') return NULL;
-    const char *start = p;
-    while (*p >= '0' && *p <= '9') p++;
-    size_t len = p - start;
-    char *result = malloc(len + 1);
-    if (!result) return NULL;
-    strncpy(result, start, len);
-    result[len] = '\0';
-    return result;
-}
-
 int json_extract_bool(const char *json, const char *key) {
     char search[128];
     snprintf(search, sizeof(search), "\"%s\"", key);
@@ -882,29 +731,17 @@ void heroic_scan_sideloaded(const char *config_home) {
                     char *art_cover = json_extract_string(obj, "art_cover");
                     if (title && installed && !game_exists(title)) {
                         char cover_path[MAX_PATH] = "";
+                        char cover_url[MAX_PATH] = "";
                         if (art_cover && strstr(art_cover, "http")) {
-                            char cache_dir[MAX_PATH];
-                            snprintf(cache_dir, sizeof(cache_dir), "%s/gamelauncher/heroic", get_xdg_cache_home());
-                            ensure_dir(cache_dir);
-                            char cached_file[MAX_PATH];
-                            snprintf(cached_file, sizeof(cached_file), "%s/%s.jpg", cache_dir, app_name ? app_name : title);
-                            if (file_exists(cached_file) && !is_valid_image(cached_file)) {
-                                remove(cached_file);
-                            }
-                            if (!file_exists(cached_file)) {
-                                download_file(art_cover, cached_file);
-                            }
-                            if (file_exists(cached_file) && is_valid_image(cached_file)) {
-                                strncpy(cover_path, cached_file, MAX_PATH - 1);
-                            } else {
-                                strncpy(cover_path, art_cover, MAX_PATH - 1);
-                            }
+                            strncpy(cover_url, art_cover, MAX_PATH - 1);
                         } else if (art_cover) {
                             strncpy(cover_path, art_cover, MAX_PATH - 1);
                         }
-                        char run_cmd[MAX_RUN_CMD];
-                        snprintf(run_cmd, sizeof(run_cmd), "xdg-open heroic://launch/sideload/%s", app_name ? app_name : "");
-                        add_game(app_name ? app_name : "", title, "heroic", cover_path, run_cmd, "");
+                        char run_command[MAX_RUN_CMD];
+                        snprintf(run_command, sizeof(run_command),
+                                 "heroic://launch/sideload/%s", app_name ? app_name : "");
+                        add_game(app_name ? app_name : "", title, "heroic",
+                                 cover_path, cover_url, run_command, "");
                     }
                     free(app_name); free(title); free(art_cover); free(obj);
                     obj_start = NULL;
@@ -1093,6 +930,7 @@ void scan_heroic() {
         if (!title) continue;
         if (game_exists(title)) continue;
         char cover[MAX_PATH] = "";
+        char cover_url[MAX_PATH] = "";
         char icon_path[MAX_PATH];
         snprintf(icon_path, sizeof(icon_path), "%s/heroic/icons/%s.jpg", config_home, app_id);
         if (file_exists(icon_path)) strncpy(cover, icon_path, MAX_PATH - 1);
@@ -1109,38 +947,21 @@ void scan_heroic() {
                     }
                 }
                 closedir(cache_dir);
-                if (cover[0] && !is_valid_image(cover)) {
-                    remove(cover);
-                    cover[0] = '\0';
-                }
             }
-            if (!cover[0]) {
-                char *art = kv_get(&covers, app_id);
-                if (art) {
-                    if (strstr(art, "http")) {
-                        char cache_dir[MAX_PATH];
-                        snprintf(cache_dir, sizeof(cache_dir), "%s/gamelauncher/heroic", get_xdg_cache_home());
-                        ensure_dir(cache_dir);
-                        char cached_file[MAX_PATH];
-                        snprintf(cached_file, sizeof(cached_file), "%s/%s.jpg", cache_dir, app_id);
-                        if (file_exists(cached_file) && !is_valid_image(cached_file)) {
-                            remove(cached_file);
-                        }
-                        if (!file_exists(cached_file)) {
-                            download_file(art, cached_file);
-                        }
-                        if (file_exists(cached_file) && is_valid_image(cached_file)) {
-                            strncpy(cover, cached_file, MAX_PATH - 1);
-                        } else {
-                            strncpy(cover, art, MAX_PATH - 1);
-                        }
-                    } else strncpy(cover, art, MAX_PATH - 1);
+        }
+        if (!cover[0]) {
+            char *art = kv_get(&covers, app_id);
+            if (art) {
+                if (strstr(art, "http")) {
+                    strncpy(cover_url, art, MAX_PATH - 1);
+                } else {
+                    strncpy(cover, art, MAX_PATH - 1);
                 }
             }
         }
-        char run_cmd[MAX_RUN_CMD];
-        snprintf(run_cmd, sizeof(run_cmd), "xdg-open heroic://launch/%s", app_id);
-        add_game(app_id, title, "heroic", cover, run_cmd, "");
+        char run_command[MAX_RUN_CMD];
+        snprintf(run_command, sizeof(run_command), "heroic://launch/%s", app_id);
+        add_game(app_id, title, "heroic", cover, cover_url, run_command, "");
     }
     closedir(dir);
     kv_free(&titles); kv_free(&covers);
@@ -1245,7 +1066,13 @@ int load_cached_games() {
 void write_cache() {
     char dir[MAX_PATH];
     snprintf(dir, sizeof(dir), "%s/gamelauncher", get_xdg_cache_home());
-    ensure_dir(dir);
+    mkdir(dir, 0755);
+    char steam_dir[MAX_PATH];
+    snprintf(steam_dir, sizeof(steam_dir), "%s/steam", dir);
+    mkdir(steam_dir, 0755);
+    char heroic_dir[MAX_PATH];
+    snprintf(heroic_dir, sizeof(heroic_dir), "%s/heroic", dir);
+    mkdir(heroic_dir, 0755);
 
     char ts_path[MAX_PATH];
     snprintf(ts_path, sizeof(ts_path), "%s/cache_ts", dir);
@@ -1284,8 +1111,20 @@ void write_cache() {
             putc(*s, f);
         }
         fprintf(f, "\",\n");
+        fprintf(f, "    \"cover_url\": \"");
+        for (const char *s = g->cover_url; *s; s++) {
+            if (*s == '"' || *s == '\\') putc('\\', f);
+            putc(*s, f);
+        }
+        fprintf(f, "\",\n");
         fprintf(f, "    \"run_command\": \"");
         for (const char *s = g->run_command; *s; s++) {
+            if (*s == '"' || *s == '\\') putc('\\', f);
+            putc(*s, f);
+        }
+        fprintf(f, "\",\n");
+        fprintf(f, "    \"slug\": \"");
+        for (const char *s = g->slug; *s; s++) {
             if (*s == '"' || *s == '\\') putc('\\', f);
             putc(*s, f);
         }

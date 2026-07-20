@@ -12,17 +12,17 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 
 ## Requirements
 
-Requires `libsqlite3-dev` and `curl` on PATH.
+Requires `libsqlite3-dev`, `xdg-utils` (provides `xdg-open`), and `gcc` on PATH.
 
 ```sh
 # Debian/Ubuntu
-sudo apt install libsqlite3-dev curl
+sudo apt install libsqlite3-dev xdg-utils gcc
 
 # Fedora
-sudo dnf install sqlite-devel curl
+sudo dnf install sqlite-devel xdg-utils gcc
 
 # Arch
-sudo pacman -S sqlite curl
+sudo pacman -S sqlite xdg-utils gcc
 ```
 
 The scanner binary (`gamelauncher`) is compiled automatically on first use — the plugin runs `cc` to build it when needed. No manual build step required.
@@ -46,10 +46,22 @@ From the launcher, type `/g` followed by a game name to search. Activate a resul
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `glyph` | `glyph` | `device-gamepad-2` | Bar widget icon |
+| `steampoacher_enabled` | `bool` | `false` | Enable steampoacher proxy for Steam cover art |
+
+## Security & Data Flow
+
+The plugin addresses all findings from Noctalia's security audit:
+
+**1. No shell commands in C scanner** — The scanner (`gamelauncher.c`) uses only local filesystem reads and SQLite queries. No `system()`, `popen()`, `curl`, `wget`, `python3`, or `grep` is invoked. All network requests (cover downloads) are handled in Luau via Noctalia's built-in `noctalia.http` and `noctalia.download` APIs, which respect offline mode.
+
+**2. No shell injection in launch paths** — The C scanner outputs protocol URLs only (e.g., `steam://rungameid/730`, `lutris:rungame/slug`, `heroic://launch/appid`). Luau validates each URL against known protocol prefixes, filters every character through a strict allowlist (`[%w_%-%.%/]` — no shell metacharacters), and double-quotes the argument before passing it to `xdg-open` via `noctalia.runAsync`.
+
+**3. xdg-utils declared** — `xdg-utils` is listed in `plugin.toml` dependencies.
+
+**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The **steampoacher** Cloudflare Worker (third-party proxy at `steam-asset-proxy.steampoacher.workers.dev`) is **disabled by default** and must be explicitly enabled via the `steampoacher_enabled` setting in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy, which returns a CDN capsule URL on `shared.steamstatic.com`. Cover art for Heroic games uses the art URL from Heroic launcher metadata.
 
 ## Notes
 
 - Scans all detected Steam library folders, Lutris SQLite databases, and Heroic store caches (Legendary, GOG, Nile).
 - Results are cached in `~/.cache/gamelauncher/games.json` and rescanned on click if sources changed.
-- Cover art is fetched from Steam CDN on first scan when no local art is found.
-- Requires `xdg-open` for launching games.
+- No external CLI tools (curl, wget, python3, grep) are invoked anywhere in the plugin.

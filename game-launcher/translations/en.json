@@ -2,6 +2,9 @@
   "settings": {
     "glyph": {
       "label": "Icon"
+    },
+    "steampoacher_enabled": {
+      "label": "Steampoacher proxy for covers"
     }
   }
 }

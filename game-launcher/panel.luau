@@ -4,22 +4,63 @@ local searchText = ""
 local loading = false
 local errorMsg = ""
 local scanCounter = 0
+local building = false
+local MAX_VISIBLE = 200
+local initOk = true
+
+local steamCoverDir = ""
+local heroicCoverDir = ""
+local ok1, err1 = pcall(function()
+  local xdgCache = noctalia.getenv("XDG_CACHE_HOME")
+  local home = noctalia.getenv("HOME")
+  local cacheBase
+  if xdgCache and #xdgCache > 0 then
+    cacheBase = xdgCache .. "/gamelauncher"
+  elseif home and #home > 0 then
+    cacheBase = home .. "/.cache/gamelauncher"
+  else
+    cacheBase = "/tmp/gamelauncher"
+  end
+  steamCoverDir = cacheBase .. "/steam"
+  heroicCoverDir = cacheBase .. "/heroic"
+  local ok, err = noctalia.mkdirAll(steamCoverDir)
+  if not ok then noctalia.log("failed to create steam cover dir: " .. (err or "unknown")) end
+  ok, err = noctalia.mkdirAll(heroicCoverDir)
+  if not ok then noctalia.log("failed to create heroic cover dir: " .. (err or "unknown")) end
+end)
+if not ok1 then
+  initOk = false
+  noctalia.log("init error: " .. tostring(err1))
+end
 
 local binary = noctalia.pluginDir() .. "/gamelauncher"
 local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
-local building = false
-local MAX_VISIBLE = 200
 
-local runnerMeta = {
-  steam = { glyph = "brand-steam", color = "#66c0f4" },
-  lutris = { glyph = "device-gamepad", color = "#ff6600" },
-  heroic = { glyph = "app-window", color = "#a78bfa" },
-}
+local function isValidProtocol(cmd)
+  local protocols = { "steam://", "lutris:", "heroic://" }
+  for _, p in ipairs(protocols) do
+    if cmd:sub(1, #p) == p then
+      local rest = cmd:sub(#p + 1)
+      if rest:match("^[%w_%-%.%/]+$") then return true end
+    end
+  end
+  return false
+end
 
 local function launchGame(id)
   for _, g in ipairs(filtered) do
-    if g.id == id then
-      noctalia.runAsync(g.run_command)
+    if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
+      local url = g.run_command
+      local safe = ""
+      for i = 1, #url do
+        local c = url:sub(i, i)
+        if c:match("^[%w_%-%.%/]$") then
+          safe = safe .. c
+        end
+      end
+      if #safe > 0 then
+        noctalia.runAsync('xdg-open "' .. safe .. '"')
+      end
       return
     end
   end
@@ -40,13 +81,136 @@ local function filterGames(text)
   filtered = result
 end
 
+local function isImageFile(path)
+  return noctalia.fileExists(path)
+end
+
+local function fetchSteamStoreCover(g, dest, cb)
+  noctalia.http({ url = "https://store.steampowered.com/api/appdetails?appids=" .. g.id }, function(res2)
+    pcall(function()
+      if res2.ok and res2.status == 200 then
+        local ok2, data2 = pcall(noctalia.json.decode, res2.body)
+        if ok2 and data2 then
+          local appData = data2[g.id]
+          if appData and appData.data and appData.data.header_image then
+            noctalia.download(appData.data.header_image, dest, function(ok3)
+              pcall(function() if ok3 then g.cover = dest; render() end end)
+            end)
+            return
+        end
+      end
+      end
+    end)
+  end)
+end
+
+local function fetchSteampoacherCover(g, dest, fallback)
+  noctalia.http({ url = "https://steam-asset-proxy.steampoacher.workers.dev?appid=" .. g.id }, function(res)
+    pcall(function()
+      if res.ok and res.status == 200 then
+        local ok, data = pcall(noctalia.json.decode, res.body)
+        if ok and data and data.response and data.response.store_items then
+          local item = data.response.store_items[1]
+          if item and item.assets then
+            local assets = item.assets
+            local filename = assets.library_capsule_2x or assets.library_capsule or assets.header
+            local fmt = assets.asset_url_format
+            if filename and fmt then
+              local placeholder = "${FILENAME}"
+              local pos = fmt:find(placeholder, 1, true)
+              local cdnUrl
+              if pos then
+                local prefix = fmt:sub(1, pos - 1)
+                local suffix = fmt:sub(pos + #placeholder)
+                cdnUrl = "https://shared.steamstatic.com/store_item_assets/" .. prefix .. filename .. suffix
+              else
+                cdnUrl = "https://shared.steamstatic.com/store_item_assets/" .. fmt .. "/" .. filename
+              end
+              noctalia.download(cdnUrl, dest, function(ok2)
+                pcall(function()
+                  if ok2 then g.cover = dest; render() return end
+                  fallback()
+                end)
+              end)
+              return
+            end
+          end
+        end
+      end
+      pcall(function() fallback() end)
+    end)
+  end)
+end
+
+local function downloadSteamCover(g)
+  local ok, err = pcall(function()
+    if g.cover and #g.cover > 0 then return end
+    local dest = steamCoverDir .. "/" .. g.id .. ".jpg"
+    if isImageFile(dest) then
+      g.cover = dest
+      return
+    end
+    local steampoacherEnabled = false
+    local okc, val = pcall(noctalia.getConfig, "steampoacher_enabled")
+    if okc then
+      steampoacherEnabled = val == true or val == "true"
+    end
+    if steampoacherEnabled then
+      fetchSteampoacherCover(g, dest, function()
+        fetchSteamStoreCover(g, dest)
+      end)
+    else
+      fetchSteamStoreCover(g, dest)
+    end
+  end)
+  if not ok then
+    noctalia.log("downloadSteamCover error: " .. tostring(err))
+  end
+end
+
+local function downloadHeroicCover(g)
+  local ok, err = pcall(function()
+    if g.cover and #g.cover > 0 then return end
+    if not g.cover_url or #g.cover_url == 0 then return end
+    local dest = heroicCoverDir .. "/" .. g.id .. ".jpg"
+    if isImageFile(dest) then
+      g.cover = dest
+      return
+    end
+    noctalia.download(g.cover_url, dest, function(ok2)
+      pcall(function()
+        if ok2 then g.cover = dest; render() end
+      end)
+    end)
+  end)
+  if not ok then
+    noctalia.log("downloadHeroicCover error: " .. tostring(err))
+  end
+end
+
+local function fetchMissingCovers()
+  for _, g in ipairs(games) do
+    if g.runner == "steam" then
+      downloadSteamCover(g)
+    elseif g.runner == "heroic" then
+      downloadHeroicCover(g)
+    end
+  end
+end
+
+local runnerMeta = {
+  steam = { glyph = "brand-steam", color = "#66c0f4" },
+  lutris = { glyph = "device-gamepad", color = "#ff6600" },
+  heroic = { glyph = "app-window", color = "#a78bfa" },
+}
+
 local function renderHeader()
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "device-gamepad-2", size = 20, color = "primary" }),
     ui.label({ text = "Game Launcher", fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
     ui.label({ text = "(" .. #games .. " games)", color = "on_surface_variant", fontSize = 12 }),
     ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan" }),
-    ui.button({ glyph = "close", variant = "ghost", onClick = "onClose" }),
+    ui.button({ glyph = "close", variant = "ghost", onClick = "onClosePanel" }),
   })
 end
 
@@ -84,11 +248,19 @@ end
 
 local function renderGameRow(g, index)
   local meta = runnerMeta[g.runner] or { glyph = "app-window", color = "on_surface_variant" }
+  local cp = (g.cover and #g.cover > 0) and g.cover or nil
+  if not cp then
+    if g.runner == "steam" then
+      cp = steamCoverDir .. "/" .. g.id .. ".jpg"
+    elseif g.runner == "heroic" then
+      cp = heroicCoverDir .. "/" .. g.id .. ".jpg"
+    end
+  end
   local coverWidget
-  if g.cover and #g.cover > 0 and noctalia.fileExists(g.cover) then
-    coverWidget = ui.image({ path = g.cover, width = 56, height = 80, radius = 6, fit = "cover" })
+  if cp and noctalia.fileExists(cp) then
+    coverWidget = ui.image({ path = cp, width = 56, height = 80, radius = 6, fit = "cover" })
   else
-    coverWidget = ui.box({ width = 56, height = 80, radius = 6, fill = "surface_container" })
+    coverWidget = ui.box({ width = 56, height = 80, radius = 6, fill = "surface_variant" })
   end
   return ui.row({
     key = g.id .. "_" .. index,
@@ -152,35 +324,50 @@ local function renderBody(content)
 end
 
 local function render()
-  panel.render(ui.column({ flexGrow = 1, gap = 8 }, {
-    ui.column({ padding = 12, gap = 8 }, {
-      renderHeader(),
-      renderSearchBar(),
-    }),
-    ui.scroll({ flexGrow = 1, gap = 6, paddingH = 12 }, renderBody(renderGameList())),
-  }))
+  local ok, err = pcall(function()
+    panel.render(ui.column({ flexGrow = 1, gap = 8 }, {
+      ui.column({ padding = 12, gap = 8 }, {
+        renderHeader(),
+        renderSearchBar(),
+      }),
+      ui.scroll({ flexGrow = 1, gap = 6, paddingH = 12 }, renderBody(renderGameList())),
+    }))
+  end)
+  if not ok then
+    noctalia.log("render error: " .. tostring(err))
+  end
+end
+
+local function buildBinary()
+  if building then return end
+  building = true
+  loading = true
+  errorMsg = ""
+  render()
+  local ok = noctalia.runAsync("/usr/bin/cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
+    building = false
+    if res.exitCode == 0 then
+      loading = false
+      scanGames()
+    else
+      loading = false
+      errorMsg = "Failed to build gamelauncher. Install gcc and libsqlite3-dev. (exit " .. (res.exitCode or "?") .. ")"
+      noctalia.log("build failed: " .. (res.stderr or "no stderr"))
+      render()
+    end
+  end)
+  if not ok then
+    building = false
+    loading = false
+    errorMsg = "Failed to start build process"
+    render()
+  end
 end
 
 local function scanGames()
-  if loading then return end
+  if loading or building then return end
   if not noctalia.fileExists(binary) then
-    if building then return end
-    building = true
-    loading = true
-    errorMsg = ""
-    scanCounter = scanCounter + 1
-    searchText = ""
-    render()
-    noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3 -lpthread", function(res)
-      building = false
-      loading = false
-      if res.exitCode == 0 then
-        scanGames()
-      else
-        errorMsg = "Failed to build gamelauncher. Install gcc and libsqlite3-dev."
-        render()
-      end
-    end)
+    buildBinary()
     return
   end
   loading = true
@@ -188,23 +375,42 @@ local function scanGames()
   scanCounter = scanCounter + 1
   searchText = ""
   render()
-  noctalia.runAsync(binary .. " --steam --lutris --heroic 2>/dev/null", function(res)
-    loading = false
-    if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
-      local parsed, err = noctalia.json.decode(res.stdout)
-      if parsed then
-        games = parsed
+  local ok = noctalia.runAsync(binary .. " --steam --lutris --heroic --force", function(res)
+    local ok3, err3 = pcall(function()
+      loading = false
+      if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
+        local parsed, err2 = noctalia.json.decode(res.stdout)
+        if parsed then
+          games = parsed
+          fetchMissingCovers()
+        else
+          errorMsg = "Failed to parse game list: " .. (err2 or "unknown error")
+          noctalia.log("parse error on stdout: " .. res.stdout:sub(1, 200))
+          games = {}
+        end
       else
-        errorMsg = "Failed to parse game list: " .. (err or "unknown error")
+        errorMsg = "Game scan failed (exit " .. (res.exitCode or "?") .. ")"
+        if res.stderr and #res.stderr > 0 then
+          errorMsg = errorMsg .. ": " .. res.stderr:sub(1, 200)
+        end
         games = {}
       end
-    else
-      errorMsg = "Game scan failed (exit code " .. res.exitCode .. ")"
+      filtered = games
+    end)
+    if not ok3 then
+      loading = false
+      errorMsg = "Scan error: " .. tostring(err3)
       games = {}
+      filtered = games
+      noctalia.log("scan callback error: " .. tostring(err3))
     end
-    filtered = games
     render()
   end)
+  if not ok then
+    loading = false
+    errorMsg = "Failed to start game scan"
+    render()
+  end
 end
 
 function onLaunch_1() if filtered[1] then launchGame(filtered[1].id) end end
@@ -411,13 +617,23 @@ function onLaunch_200() if filtered[200] then launchGame(filtered[200].id) end e
 function onOpen(context)
   if #games == 0 then
     scanGames()
-  else
-    render()
+    return
   end
+  for _, g in ipairs(games) do
+    if (g.runner == "steam" or g.runner == "heroic") and (not g.cover or #g.cover == 0) then
+      scanGames()
+      return
+    end
+  end
+  filtered = games
+  render()
+end
+
+function onClosePanel()
+  noctalia.togglePanel("alexander/game-launcher:browser")
 end
 
 function onClose()
-  panel.close()
 end
 
 function onRescan()
