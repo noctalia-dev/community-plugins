@@ -210,7 +210,7 @@ local function renderHeader()
     ui.label({ text = "Game Launcher", fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
     ui.label({ text = "(" .. #games .. " games)", color = "on_surface_variant", fontSize = 12 }),
     ui.button({ glyph = "reload", variant = "ghost", onClick = "onRescan" }),
-    ui.button({ glyph = "close", variant = "ghost", onClick = "onClosePanel" }),
+    ui.button({ glyph = "close", variant = "ghost", onClick = "onClose" }),
   })
 end
 
@@ -629,11 +629,8 @@ function onOpen(context)
   render()
 end
 
-function onClosePanel()
-  noctalia.togglePanel("alexander/game-launcher:browser")
-end
-
 function onClose()
+  panel.close()
 end
 
 function onRescan()
