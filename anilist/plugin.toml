@@ -1,0 +1,67 @@
+id = "cleboost/anilist"
+name = "AniList"
+version = "0.1.0"
+plugin_api = 3
+author = "cleboost"
+license = "MIT"
+icon = "device-tv"
+description = "Browse and update your AniList anime and manga lists from a quick panel without opening the site."
+tags = ["media", "bar", "panel", "service", "network", "productivity"]
+dependencies = ["python3", "xdg-open"]
+
+[[setting]]
+key = "client_id"
+type = "string"
+label_key = "settings.client_id.label"
+description_key = "settings.client_id.description"
+default = ""
+
+[[setting]]
+key = "client_secret"
+type = "string"
+label_key = "settings.client_secret.label"
+description_key = "settings.client_secret.description"
+default = ""
+
+[[setting]]
+key = "access_token"
+type = "string"
+label_key = "settings.access_token.label"
+description_key = "settings.access_token.description"
+default = ""
+
+[[widget]]
+id = "tracker"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "device-tv"
+
+  [[widget.setting]]
+  key = "count_mode"
+  type = "select"
+  label_key = "settings.count_mode.label"
+  description_key = "settings.count_mode.description"
+  default = "current"
+  options = [
+    { value = "current", label_key = "settings.count_mode.options.current" },
+    { value = "completed", label_key = "settings.count_mode.options.completed" },
+    { value = "total", label_key = "settings.count_mode.options.total" },
+    { value = "in_progress", label_key = "settings.count_mode.options.in_progress" },
+    { value = "planning", label_key = "settings.count_mode.options.planning" }
+  ]
+
+[[panel]]
+id = "library"
+entry = "panel.luau"
+width = 720
+height = 640
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "api"
+entry = "service.luau"
