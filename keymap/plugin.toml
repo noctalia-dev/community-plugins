@@ -1,0 +1,229 @@
+id = "blackbartblues/keymap"
+name = "Keymap"
+version = "1.3.0"
+plugin_api = 5
+author = "blackbartblues"
+license = "MIT"
+dependencies = ["hyprctl", "Hyprland", "niri", "mango", "mmsg", "xdg-open"]
+tags = ["bar", "panel", "service", "hyprland", "niri", "mangowc", "productivity", "utility"]
+icon = "keyboard"
+description = "View, create, organize, and edit Hyprland, Niri, and MangoWC keybindings."
+
+[[setting]]
+key = "compositor"
+type = "select"
+label_key = "settings.compositor.label"
+description_key = "settings.compositor.description"
+options = [
+  { value = "auto", label_key = "settings.compositor.options.auto" },
+  { value = "hyprland", label_key = "settings.compositor.options.hyprland" },
+  { value = "niri", label_key = "settings.compositor.options.niri" },
+  { value = "mangowc", label_key = "settings.compositor.options.mangowc" },
+]
+default = "auto"
+
+[[setting]]
+key = "hyprland_config"
+type = "file"
+label_key = "settings.hyprland_config.label"
+description_key = "settings.hyprland_config.description"
+default = "~/.config/hypr/hyprland.lua"
+visible_when = { key = "compositor", values = ["auto", "hyprland"] }
+
+[[setting]]
+key = "niri_config"
+type = "file"
+label_key = "settings.niri_config.label"
+description_key = "settings.niri_config.description"
+default = "~/.config/niri/config.kdl"
+visible_when = { key = "compositor", values = ["auto", "niri"] }
+
+[[setting]]
+key = "mangowc_config"
+type = "file"
+label_key = "settings.mangowc_config.label"
+description_key = "settings.mangowc_config.description"
+default = "~/.config/mango/config.conf"
+visible_when = { key = "compositor", values = ["auto", "mangowc"] }
+
+[[setting]]
+key = "merge_sequential"
+type = "bool"
+label_key = "settings.merge_sequential.label"
+description_key = "settings.merge_sequential.description"
+default = true
+
+[[setting]]
+key = "show_undescribed"
+type = "bool"
+label_key = "settings.show_undescribed.label"
+description_key = "settings.show_undescribed.description"
+default = true
+
+[[setting]]
+key = "keyboard_layout"
+type = "select"
+label_key = "settings.keyboard_layout.label"
+description_key = "settings.keyboard_layout.description"
+options = [
+  { value = "100", label_key = "settings.keyboard_layout.options.p100" },
+  { value = "96", label_key = "settings.keyboard_layout.options.p96" },
+  { value = "80", label_key = "settings.keyboard_layout.options.p80" },
+  { value = "75", label_key = "settings.keyboard_layout.options.p75" },
+  { value = "65", label_key = "settings.keyboard_layout.options.p65" },
+  { value = "60", label_key = "settings.keyboard_layout.options.p60" },
+]
+default = "100"
+
+[[setting]]
+key = "columns"
+type = "int"
+label_key = "settings.columns.label"
+description_key = "settings.columns.description"
+default = 3
+min = 1
+max = 4
+step = 1
+
+[[setting]]
+key = "card_color"
+type = "color"
+label_key = "settings.card_color.label"
+description_key = "settings.card_color.description"
+default = "surface_variant"
+
+[[setting]]
+key = "card_opacity"
+type = "int"
+label_key = "settings.card_opacity.label"
+description_key = "settings.card_opacity.description"
+default = 35
+min = 0
+max = 100
+step = 5
+
+[[setting]]
+key = "category_color"
+type = "color"
+label_key = "settings.category_color.label"
+description_key = "settings.category_color.description"
+default = "primary"
+
+[[setting]]
+key = "description_color"
+type = "color"
+label_key = "settings.description_color.label"
+description_key = "settings.description_color.description"
+default = "on_surface"
+
+[[setting]]
+key = "super_color"
+type = "color"
+label_key = "settings.super_color.label"
+description_key = "settings.modifier_color.description"
+default = "primary"
+
+[[setting]]
+key = "super_text_color"
+type = "color"
+label_key = "settings.super_text_color.label"
+description_key = "settings.modifier_text_color.description"
+default = "on_primary"
+
+[[setting]]
+key = "ctrl_color"
+type = "color"
+label_key = "settings.ctrl_color.label"
+description_key = "settings.modifier_color.description"
+default = "secondary"
+
+[[setting]]
+key = "ctrl_text_color"
+type = "color"
+label_key = "settings.ctrl_text_color.label"
+description_key = "settings.modifier_text_color.description"
+default = "on_secondary"
+
+[[setting]]
+key = "shift_color"
+type = "color"
+label_key = "settings.shift_color.label"
+description_key = "settings.modifier_color.description"
+default = "tertiary"
+
+[[setting]]
+key = "shift_text_color"
+type = "color"
+label_key = "settings.shift_text_color.label"
+description_key = "settings.modifier_text_color.description"
+default = "on_tertiary"
+
+[[setting]]
+key = "alt_color"
+type = "color"
+label_key = "settings.alt_color.label"
+description_key = "settings.modifier_color.description"
+default = "surface_variant"
+
+[[setting]]
+key = "alt_text_color"
+type = "color"
+label_key = "settings.alt_text_color.label"
+description_key = "settings.modifier_text_color.description"
+default = "on_surface_variant"
+
+[[setting]]
+key = "key_color"
+type = "color"
+label_key = "settings.key_color.label"
+description_key = "settings.key_color.description"
+default = "surface"
+
+[[setting]]
+key = "key_text_color"
+type = "color"
+label_key = "settings.key_text_color.label"
+description_key = "settings.key_text_color.description"
+default = "on_surface"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.widget.glyph.label"
+  description_key = "settings.widget.glyph.description"
+  default = "keyboard"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.widget.show_label.label"
+  description_key = "settings.widget.show_label.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 1400
+height = 850
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[service]]
+id = "niri-service"
+entry = "niri_service.luau"
+
+[[service]]
+id = "mangowc-service"
+entry = "mangowc_service.luau"
+
+[[service]]
+id = "writer-service"
+entry = "writer_service.luau"
