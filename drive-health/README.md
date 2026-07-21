@@ -105,11 +105,11 @@ The plugin stores bounded local state in its Noctalia data directory:
 
 Full SMART mode installs these system files only after explicit approval:
 
-- `/usr/local/libexec/noctalia-gustav0ar-drive-health/collect_raw.sh`;
-- `/usr/local/libexec/noctalia-gustav0ar-drive-health/smart-action.sh`;
-- `/etc/systemd/system/noctalia-gustav0ar-drive-health.service`;
-- `/etc/systemd/system/noctalia-gustav0ar-drive-health.timer`;
-- `/run/noctalia-gustav0ar-drive-health/raw.json`.
+- `/usr/local/libexec/noctalia-drive-health/collect_raw.sh`;
+- `/usr/local/libexec/noctalia-drive-health/smart-action.sh`;
+- `/etc/systemd/system/noctalia-drive-health.service`;
+- `/etc/systemd/system/noctalia-drive-health.timer`;
+- `/run/noctalia-drive-health/raw.json`.
 
 The runtime directory is mode `0750`, the cache is mode `0640`, and access is
 limited to root plus the desktop user's primary group. SMART serials and mount

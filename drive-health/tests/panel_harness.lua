@@ -77,8 +77,8 @@ state.snapshot = {
   dependencies = { ready = true },
   system_collector = { enabled = true, installed = true, status = "healthy", version = "1.0.0",
     expected_version = "1.0.0", helper_available = true, authorization_available = true,
-    enable_command = "sudo systemctl enable --now noctalia-gustav0ar-drive-health.timer",
-    disable_command = "sudo systemctl disable --now noctalia-gustav0ar-drive-health.timer",
+    enable_command = "sudo systemctl enable --now noctalia-drive-health.timer",
+    disable_command = "sudo systemctl disable --now noctalia-drive-health.timer",
     install_command = "sudo '/mock/plugin/packaging/install-system-collector.sh'",
     uninstall_command = "sudo '/mock/plugin/packaging/uninstall-system-collector.sh'" },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
@@ -180,7 +180,7 @@ assert(containsText(rendered, "collector.settings_title")
   and containsText(rendered, "collector.full_features"),
   "collector settings did not explain Basic and Full SMART capabilities")
 onPauseCollectorClicked()
-assert(terminalCommand == "sudo systemctl disable --now noctalia-gustav0ar-drive-health.timer",
+assert(terminalCommand == "sudo systemctl disable --now noctalia-drive-health.timer",
   "collector settings did not expose the explicit service pause command")
 terminalCommand = nil
 onOpenPluginSettingsClicked()
@@ -246,7 +246,7 @@ onStartShortSelfTestClicked()
 assert(containsText(rendered, "self_test.confirm_action"), "self-test confirmation did not render")
 assert(terminalCommand == nil, "self-test started before confirmation")
 onConfirmSelfTestClicked()
-assert(asyncCommand:match("^pkexec /usr/local/libexec/noctalia%-gustav0ar%-drive%-health/smart%-action%.sh 'short' '/dev/nvme0'$"),
+assert(asyncCommand:match("^pkexec /usr/local/libexec/noctalia%-drive%-health/smart%-action%.sh 'short' '/dev/nvme0'$"),
   "self-test did not use Polkit, the fixed helper, and normalized controller")
 assert(terminalCommand == nil, "background self-test opened a terminal")
 assert(containsText(rendered, "self_test.authorizing"), "authorization state did not render")

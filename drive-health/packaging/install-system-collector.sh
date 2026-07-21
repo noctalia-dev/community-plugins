@@ -7,7 +7,7 @@ if (( EUID != 0 )); then
 fi
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-service_name="noctalia-gustav0ar-drive-health"
+service_name="noctalia-drive-health"
 target_user="${SUDO_USER:-${1:-}}"
 
 if [[ -z "$target_user" || "$target_user" == root ]] || ! id "$target_user" >/dev/null 2>&1; then

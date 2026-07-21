@@ -508,7 +508,7 @@ local oversizedId = assert(normalizeRaw({
 }, "test"))
 assert(oversizedId.collection_id == nil, "oversized collection ID was preserved")
 
-files["/usr/local/libexec/noctalia-gustav0ar-drive-health/collect_raw.sh"] = "installed"
+files["/usr/local/libexec/noctalia-drive-health/collect_raw.sh"] = "installed"
 collectorEnabled = true
 state.collector_snapshot = { summary = {}, system_collector = { status = "healthy" } }
 publishError("fixture failure", { ready = true, blocking = false })

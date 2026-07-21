@@ -5,9 +5,9 @@ After=local-fs.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh /usr/local/libexec/noctalia-gustav0ar-drive-health/collect_raw.sh --output /run/noctalia-gustav0ar-drive-health/raw.json
+ExecStart=/bin/sh /usr/local/libexec/noctalia-drive-health/collect_raw.sh --output /run/noctalia-drive-health/raw.json
 Group=@TARGET_GID@
-RuntimeDirectory=noctalia-gustav0ar-drive-health
+RuntimeDirectory=noctalia-drive-health
 RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 UMask=0027
@@ -33,4 +33,4 @@ SystemCallArchitectures=native
 LockPersonality=true
 MemoryDenyWriteExecute=true
 CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SYS_ADMIN CAP_SYS_RAWIO
-ReadWritePaths=/run/noctalia-gustav0ar-drive-health
+ReadWritePaths=/run/noctalia-drive-health

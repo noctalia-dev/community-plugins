@@ -5,7 +5,7 @@ Description=Refresh SMART data for Noctalia
 OnBootSec=20s
 OnUnitActiveSec=30s
 AccuracySec=5s
-Unit=noctalia-gustav0ar-drive-health.service
+Unit=noctalia-drive-health.service
 
 [Install]
 WantedBy=timers.target

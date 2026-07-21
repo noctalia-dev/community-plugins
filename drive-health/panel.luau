@@ -1418,7 +1418,7 @@ function onConfirmSelfTestClicked()
     baseline_signature = selfTestSignature(drive),
   }
   render()
-  local command = "pkexec /usr/local/libexec/noctalia-gustav0ar-drive-health/smart-action.sh "
+  local command = "pkexec /usr/local/libexec/noctalia-drive-health/smart-action.sh "
     .. shellQuote(request.kind) .. " " .. shellQuote(request.device)
   local launched = noctalia.runAsync(command, function(result)
     if selfTestLaunch == nil or selfTestLaunch.drive_id ~= request.drive_id then return end

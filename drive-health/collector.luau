@@ -3,7 +3,7 @@
 -- Collection and normalization service. Raw device access lives in the small
 -- POSIX script; this entry owns all platform-neutral SMART interpretation.
 
-local SYSTEM_NAMESPACE = "noctalia-gustav0ar-drive-health"
+local SYSTEM_NAMESPACE = "noctalia-drive-health"
 local SYSTEM_LIBEXEC = "/usr/local/libexec/" .. SYSTEM_NAMESPACE
 local RAW_CACHE = "/run/" .. SYSTEM_NAMESPACE .. "/raw.json"
 local CACHE_MAX_AGE_SECONDS = 180

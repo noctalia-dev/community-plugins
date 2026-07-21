@@ -6,7 +6,7 @@ if (( EUID != 0 )); then
   exit 1
 fi
 
-service_name="noctalia-gustav0ar-drive-health"
+service_name="noctalia-drive-health"
 
 systemctl disable --now "$service_name.timer" 2>/dev/null || true
 systemctl stop "$service_name.service" 2>/dev/null || true
