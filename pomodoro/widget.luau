@@ -1,5 +1,5 @@
 function onClick()
-    noctalia.togglePanel("thepunkoff/pomodoro-timer:panel")
+    noctalia.togglePanel("thepunkoff/pomodoro:panel")
 end
 
 local isUpdating = false
@@ -26,7 +26,6 @@ noctalia.state.watch("pomodoro.state", function(state)
     local stageIcon = if state.sessionPtr.stage == 1 then "brain" else "coffee"
     barWidget.setGlyph(stageIcon)
 
-    noctalia.log(`STATAE: {state.isRunning}`)
     if state.isRunning then
         barWidget.setGlyphColor("primary")
         barWidget.setColor("primary")

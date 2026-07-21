@@ -174,6 +174,5 @@ noctalia.state.watch("pomodoro.state", function(state)
         end
     end
 
-    local sessionData = noctalia.state.get("pomodoro.sessionData")
     render(state, sessionData)
 end)
