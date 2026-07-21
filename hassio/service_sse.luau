@@ -39,6 +39,7 @@ local retryCount = 0
 local maxRetriesNotified = false
 local suspended = false
 local connectionRequestInFlight = false
+local connectingSince = nil
 
 local function getCleanToken()
   if type(haToken) ~= "string" then return "" end
@@ -214,8 +215,10 @@ end
 local function fetchInitialStates()
   if not isConfigured() or suspended or connectionRequestInFlight then return end
   connectionRequestInFlight = true
+  connectingSince = os.clock()
   local launched = haRequest("/api/states", "GET", nil, function(res)
     connectionRequestInFlight = false
+    connectingSince = nil
 
     if not res.body or res.body == "" then
       noctalia.log("Empty response body from /api/states")
@@ -287,6 +290,7 @@ local function fetchInitialStates()
 
   if not launched then
     connectionRequestInFlight = false
+    connectingSince = nil
     status = "disconnected"
     noctalia.state.set("connection_status", status)
     syncUpdateInterval()
@@ -394,6 +398,14 @@ function update()
 
   if suspended then
     return
+  end
+
+  if status == "connecting" and connectingSince and (os.clock() - connectingSince) > 15 then
+    connectionRequestInFlight = false
+    connectingSince = nil
+    status = "disconnected"
+    noctalia.state.set("connection_status", status)
+    syncUpdateInterval()
   end
 
   if status == "disconnected" then
