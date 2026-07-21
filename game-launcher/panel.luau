@@ -50,17 +50,7 @@ end
 local function launchGame(id)
   for _, g in ipairs(filtered) do
     if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
-      local url = g.run_command
-      local safe = ""
-      for i = 1, #url do
-        local c = url:sub(i, i)
-        if c:match("^[%w_%-%.%/]$") then
-          safe = safe .. c
-        end
-      end
-      if #safe > 0 then
-        noctalia.runAsync('xdg-open "' .. safe .. '"')
-      end
+      noctalia.runAsync('xdg-open "' .. g.run_command .. '"')
       return
     end
   end

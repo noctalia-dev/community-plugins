@@ -58,8 +58,10 @@ The plugin addresses all findings from Noctalia's security audit:
 
 **3. xdg-utils declared** — `xdg-utils` is listed in `plugin.toml` dependencies.
 
-**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The API only provides small `header_image` art (460×215). For high-resolution library capsule covers, enable the **steampoacher** Cloudflare Worker by setting `steampoacher_enabled` to `true` in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy at `steam-asset-proxy.steampoacher.workers.dev`, which returns a CDN capsule URL on `shared.steamstatic.com` with full-size 600x900 art. Cover art for Heroic games uses the art URL from Heroic launcher metadata. (Covers from steam sometimes is even wrong, like for the wrong app entirely. I don't recommend it if you want the right cover, please use a **steampoacher**. )
+**4. Steampoacher opt-in & disclosure** — By default, Steam cover art is fetched directly from `store.steampowered.com/api/appdetails`. The API only provides small `header_image` art (460×215). For high-resolution library capsule covers, enable the **steampoacher** Cloudflare Worker by setting `steampoacher_enabled` to `true` in `~/.config/noctalia/plugins/game-launcher.json`. When enabled, Steam app IDs from your installed library are sent to the proxy at `steam-asset-proxy.steampoacher.workers.dev`, which returns a CDN capsule URL on `shared.steamstatic.com` with full-size 1200×450 art. Cover art for Heroic games uses the art URL from Heroic launcher metadata.
 
+> [!NOTE]
+> Without steampoacher enabled, Steam covers will be bad (600×900 instead of high resolution).
 
 ## Notes
 
