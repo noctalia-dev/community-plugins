@@ -13,10 +13,10 @@ systemctl stop "$service_name.service" 2>/dev/null || true
 
 rm -f \
   "/etc/systemd/system/$service_name.service" \
-  "/etc/systemd/system/$service_name.timer" \
-  "/usr/local/libexec/$service_name/collect_raw.sh" \
-  "/usr/local/libexec/$service_name/smart-action.sh"
-rm -rf "/run/$service_name"
+  "/etc/systemd/system/$service_name.timer"
+rm -rf \
+  "/usr/local/libexec/$service_name" \
+  "/run/$service_name"
 
 systemctl daemon-reload
 systemctl reset-failed "$service_name.service" 2>/dev/null || true
