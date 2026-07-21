@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.4.1
+# Noctalia Lyrics 1.4.2
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -105,6 +105,10 @@ IDs are:
 
 Source APIs can change or reject requests by region or account. Failure of one
 source in automatic mode moves to the next source without logging credentials.
+Album artwork uses MPRIS first, then the matched lyric source when available.
+LRCLIB, Qishui, and Musixmatch matches use the public iTunes Search API as an
+artwork fallback. Cached covers retain their detected image format and the
+oldest files are removed after the cache reaches 80 covers.
 
 ## Credential warning
 

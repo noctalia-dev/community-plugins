@@ -461,9 +461,66 @@ def best_match(items, track, title_key, artist_key, album_key=None):
     return best if best_score >= 3 else None
 
 
-def success(source, lines, diag, total=0):
+def first_cover(*values):
+    for value in values:
+        if isinstance(value, dict):
+            nested = first_cover(
+                value.get("url"), value.get("cover"), value.get("coverUrl"), value.get("picUrl"),
+                value.get("img"), value.get("image"), value.get("artwork"), value.get("albumArt"),
+            )
+            if nested:
+                return nested
+            continue
+        if isinstance(value, list):
+            for item in value:
+                nested = first_cover(item)
+                if nested:
+                    return nested
+            continue
+        text = clean_text(value)
+        if text.startswith("//"):
+            text = "https:" + text
+        if text.startswith("http://") or text.startswith("https://") or text.startswith("file://"):
+            return text
+    return ""
+
+
+def itunes_cover(track):
+    term = " ".join(filter(None, (clean_text(track.get("title")), clean_text(track.get("artist")))))
+    if not term:
+        return ""
+    try:
+        data = request_json(query_url("https://itunes.apple.com/search", {
+            "term": term, "media": "music", "entity": "song", "limit": 5,
+        }))
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError):
+        return ""
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return ""
+    best = best_match(
+        results, track,
+        lambda x: x.get("trackName", ""),
+        lambda x: x.get("artistName", ""),
+        lambda x: x.get("collectionName", ""),
+    )
+    if not best:
+        return ""
+    url = clean_text(best.get("artworkUrl100") or best.get("artworkUrl60"))
+    if not url:
+        return ""
+    return re.sub(r"/\d+x\d+bb\.", "/400x400bb.", url)
+
+
+def success(source, lines, diag, total=0, cover=""):
     lines = finalize(lines, total)
-    return {"type": "lyrics", "source": source, "lines": lines, "diag": diag} if lines else empty(source, *diag)
+    if not lines:
+        return empty(source, *diag)
+    payload = {"type": "lyrics", "source": source, "lines": lines, "diag": diag}
+    cover = clean_text(cover)
+    if cover:
+        payload["cover"] = cover
+    return payload
 
 
 def adapter_lrclib(track, credentials, options):
@@ -477,7 +534,10 @@ def adapter_lrclib(track, credentials, options):
     if not best:
         return empty(source, "lrclib: no match")
     lyrics = best.get("syncedLyrics") or best.get("plainLyrics") or ""
-    return success(source, parse_lrc(lyrics) or parse_plain(lyrics), ["lrclib: match"], duration_ms(track.get("duration")))
+    return success(
+        source, parse_lrc(lyrics) or parse_plain(lyrics), ["lrclib: match"],
+        duration_ms(track.get("duration")), itunes_cover(track),
+    )
 
 
 def adapter_netease(track, credentials, options):
@@ -491,6 +551,13 @@ def adapter_netease(track, credentials, options):
                       lambda x: x.get("album", {}).get("name", ""))
     if not best:
         return empty(source, "netease: no match")
+    album = best.get("album") if isinstance(best.get("album"), dict) else {}
+    cover = first_cover(album.get("picUrl"), album.get("blurPicUrl"), best.get("picUrl"), best.get("albumPic"))
+    if cover and "music.126.net" in cover:
+        if re.search(r"[?&]param=\d+y\d+", cover):
+            cover = re.sub(r"param=\d+y\d+", "param=400y400", cover)
+        else:
+            cover = cover + ("&" if "?" in cover else "?") + "param=400y400"
     data = request_json(query_url("https://music.163.com/api/song/lyric", {
         "id": best.get("id"), "lv": 1, "kv": 1, "tv": 1, "rv": 1, "yv": 1
     }), {"Referer": "https://music.163.com/"})
@@ -505,7 +572,7 @@ def adapter_netease(track, credentials, options):
     romanization = data.get("romalrc", {})
     merge_timed(lines, parse_lrc(translation.get("lyric", "") if isinstance(translation, dict) else translation), "translation")
     merge_timed(lines, parse_lrc(romanization.get("lyric", "") if isinstance(romanization, dict) else romanization), "romanization")
-    return success(source, lines, ["netease: match"], duration_ms(track.get("duration")))
+    return success(source, lines, ["netease: match"], duration_ms(track.get("duration")), cover)
 
 
 def adapter_qqmusic(track, credentials, options):
@@ -519,6 +586,11 @@ def adapter_qqmusic(track, credentials, options):
                       lambda x: x.get("albumname", ""))
     if not best:
         return empty(source, "qqmusic: no match")
+    albummid = clean_text(best.get("albummid") or best.get("albumMid"))
+    cover = ""
+    if albummid:
+        cover = "https://y.gtimg.cn/music/photo_new/T002R300x300M000" + albummid + ".jpg"
+    cover = first_cover(cover, best.get("albumPic"), best.get("pic"), best.get("strAlbumPic"))
     data = request_json(query_url("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg", {
         "songmid": best.get("songmid", best.get("mid", "")), "format": "json", "nobase64": 1,
         "g_tk": 5381
@@ -534,7 +606,7 @@ def adapter_qqmusic(track, credentials, options):
     lines = parse_lrc(decoded("lyric"))
     merge_timed(lines, parse_lrc(decoded("trans")), "translation")
     merge_timed(lines, parse_lrc(decoded("roma")), "romanization")
-    return success(source, lines, ["qqmusic: match"], duration_ms(track.get("duration")))
+    return success(source, lines, ["qqmusic: match"], duration_ms(track.get("duration")), cover)
 
 
 def adapter_splayer(track, credentials, options):
@@ -570,7 +642,12 @@ def adapter_splayer(track, credentials, options):
             if title_matches and artist_matches:
                 lines = splayer_transmitted_lines(current)
                 if lines:
-                    return success(source, lines, ["splayer: transmitted lyrics"], expected_duration)
+                    cover = first_cover(
+                        current.get("cover"), current.get("coverUrl"), current.get("picUrl"),
+                        current.get("albumCover"), current.get("albumArt"), current.get("img"),
+                        current.get("image"), current.get("al"),
+                    )
+                    return success(source, lines, ["splayer: transmitted lyrics"], expected_duration, cover)
                 last_state = "loading" if current.get("lyricLoading") is True else "empty"
             else:
                 last_state = "track not ready"
@@ -592,6 +669,9 @@ def adapter_kugou(track, credentials, options):
                       lambda x: x.get("singername", ""), lambda x: x.get("album_name", ""))
     if not best:
         return empty(source, "kugou: no match")
+    cover = first_cover(best.get("album_sizable_cover"), best.get("imgUrl"), best.get("album_img"), best.get("cover"))
+    if cover:
+        cover = cover.replace("{size}", "400")
     candidates = request_json(query_url("https://lyrics.kugou.com/search", {
         "ver": 1, "man": "yes", "client": "pc", "keyword": keyword,
         "duration": best.get("duration", duration_ms(track.get("duration"))), "hash": best.get("hash", "")
@@ -608,7 +688,7 @@ def adapter_kugou(track, credentials, options):
         content = base64.b64decode(content).decode("utf-8", "replace")
     except (ValueError, TypeError):
         pass
-    return success(source, parse_lrc(content), ["kugou: match"], duration_ms(track.get("duration")))
+    return success(source, parse_lrc(content), ["kugou: match"], duration_ms(track.get("duration")), cover)
 
 
 def adapter_qishui(track, credentials, options):
@@ -629,7 +709,10 @@ def adapter_qishui(track, credentials, options):
         headers["Authorization"] = "Bearer " + str(credentials["qishui_token"])
     body, charset = request_data(url, headers)
     lines = parse_payload(body.decode(charset, "replace"))
-    return success(source, lines, ["qishui: response parsed"], duration_ms(track.get("duration")))
+    return success(
+        source, lines, ["qishui: response parsed"],
+        duration_ms(track.get("duration")), itunes_cover(track),
+    )
 
 
 def spotify_token(credentials):
@@ -659,6 +742,9 @@ def adapter_spotify(track, credentials, options):
                       lambda x: x.get("album", {}).get("name", ""))
     if not best:
         return empty(source, "spotify: no match")
+    album = best.get("album") if isinstance(best.get("album"), dict) else {}
+    images = album.get("images") if isinstance(album.get("images"), list) else []
+    cover = first_cover(images, album.get("image"), best.get("image"))
     data = request_json(query_url("https://spclient.wg.spotify.com/color-lyrics/v2/track/" + urllib.parse.quote(best["id"]), {
         "format": "json", "market": "from_token"
     }), headers)
@@ -666,7 +752,7 @@ def adapter_spotify(track, credentials, options):
     alternatives = data.get("lyrics", {}).get("alternatives", [])
     if alternatives and isinstance(alternatives[0], dict):
         merge_timed(lines, parse_json_lines(alternatives[0].get("lines", [])), "translation")
-    return success(source, lines, ["spotify: match"], duration_ms(track.get("duration")))
+    return success(source, lines, ["spotify: match"], duration_ms(track.get("duration")), cover)
 
 
 def adapter_apple_music(track, credentials, options):
@@ -689,6 +775,13 @@ def adapter_apple_music(track, credentials, options):
                       lambda x: x.get("attributes", {}).get("albumName", ""))
     if not best:
         return empty(source, "apple_music: no match")
+    attrs = best.get("attributes") if isinstance(best.get("attributes"), dict) else {}
+    artwork = attrs.get("artwork") if isinstance(attrs.get("artwork"), dict) else {}
+    cover = ""
+    template = clean_text(artwork.get("url"))
+    if template:
+        cover = template.replace("{w}", "400").replace("{h}", "400")
+    cover = first_cover(cover, attrs.get("artworkUrl"), attrs.get("url"))
     body, charset = request_data(
         "https://amp-api.music.apple.com/v1/catalog/" + storefront + "/songs/" + urllib.parse.quote(str(best["id"])) + "/lyrics",
         headers,
@@ -700,7 +793,7 @@ def adapter_apple_music(track, credentials, options):
         lines = parse_payload(lyric_data) if lyric_data is not None else parse_json_lines(payload)
     except ValueError:
         lines = parse_ttml(text)
-    return success(source, lines, ["apple_music: match"], duration_ms(track.get("duration")))
+    return success(source, lines, ["apple_music: match"], duration_ms(track.get("duration")), cover)
 
 
 def adapter_musixmatch(track, credentials, options):
@@ -732,7 +825,10 @@ def adapter_musixmatch(track, credentials, options):
                 time = value.get("time", value.get("matched_line", -1))
                 translated_lines.append(line(time, text=text))
         merge_timed(lines, translated_lines, "translation")
-    return success(source, lines, ["musixmatch: match"], duration_ms(track.get("duration")))
+    return success(
+        source, lines, ["musixmatch: match"],
+        duration_ms(track.get("duration")), itunes_cover(track),
+    )
 
 
 ADAPTERS = {
