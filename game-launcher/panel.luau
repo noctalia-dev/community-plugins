@@ -207,7 +207,7 @@ end
 local function renderSearchBar()
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "search", size = 14, color = "on_surface_variant" }),
-    ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", value = searchText, flexGrow = 1 }),
+    ui.input({ key = "search_" .. scanCounter, placeholder = "Search games…", onChange = "onSearch", value = searchText, flexGrow = 1, focus = true }),
     ui.button({ glyph = "filter", variant = "ghost", visible = false }),
   })
 end
