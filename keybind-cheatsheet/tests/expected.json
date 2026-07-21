@@ -1,0 +1,18 @@
+{
+  "mango": {
+    "count": 9,
+    "descriptions": ["Terminal", "Close window", "Workspace 1", "Move window", "Focus left", "Lock on close"]
+  },
+  "hypr_conf": {
+    "count": 5,
+    "descriptions": ["Terminal", "Move window", "Close window", "Workspace 1"]
+  },
+  "hypr_lua": {
+    "count": 4,
+    "categories": ["Applications", "Workspaces", "Media", "Without Description"]
+  },
+  "niri": {
+    "count": 5,
+    "descriptions": ["Terminal", "Close window", "Workspace 1"]
+  }
+}

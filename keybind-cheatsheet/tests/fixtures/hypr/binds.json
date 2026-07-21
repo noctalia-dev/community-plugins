@@ -1,0 +1,6 @@
+[
+  {"locked":false,"mouse":false,"release":false,"repeat":false,"has_description":true,"modmask":64,"submap":"","key":"T","keycode":0,"description":"Terminal","dispatcher":"exec","arg":"foot"},
+  {"locked":false,"mouse":false,"release":false,"repeat":false,"has_description":true,"modmask":64,"submap":"","key":"1","keycode":0,"description":"Workspace 1","dispatcher":"workspace","arg":"1"},
+  {"locked":false,"mouse":false,"release":false,"repeat":false,"has_description":true,"modmask":0,"submap":"","key":"XF86AudioMute","keycode":0,"description":"Mute","dispatcher":"exec","arg":"wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"},
+  {"locked":false,"mouse":false,"release":false,"repeat":false,"has_description":false,"modmask":64,"submap":"","key":"Q","keycode":0,"description":"","dispatcher":"killactive","arg":""}
+]
