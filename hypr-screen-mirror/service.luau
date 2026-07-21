@@ -37,9 +37,9 @@ local function updateMonitors()
     noctalia.state.set("focusedMonitor", focusedMonitor)
 
     -- update source and target monitor indices if they are out of bounds or not set
-    local sourceMonitor = noctalia.state.get("sourceMonitor") or 0
-    local targetMonitor = noctalia.state.get("targetMonitor") or 0
-    local isMirroring = noctalia.state.get("isMirroring") or false
+    local sourceMonitor = tonumber(noctalia.state.get("sourceMonitor")) or 0
+    local targetMonitor = tonumber(noctalia.state.get("targetMonitor")) or 0
+    local isMirroring = false
 
     if sourceMonitor >= #monitors then
       sourceMonitor = 0
@@ -54,21 +54,25 @@ local function updateMonitors()
         continue
       end
 
-      local index = table.find(monitors, monitor.name)
-      targetMonitor = index - 1
       local mirrorId = tonumber(monitor.mirrorOf)
-
-      for _, source in ipairs(msg) do
-        if source.id == mirrorId then
-          local sourceIndex = table.find(monitors, source.name)
-          sourceMonitor = sourceIndex - 1
-          break
+      local targetIndex = table.find(monitors, monitor.name)
+      if mirrorId ~= nil and targetIndex ~= nil then
+        for _, source in ipairs(msg) do
+          if tonumber(source.id) == mirrorId then
+            local sourceIndex = table.find(monitors, source.name)
+            if sourceIndex ~= nil then
+              sourceMonitor = sourceIndex - 1
+              targetMonitor = targetIndex - 1
+              isMirroring = true
+            end
+            break
+          end
         end
       end
 
-      isMirroring = true
-
-      break
+      if isMirroring then
+        break
+      end
     end
 
     noctalia.state.set("sourceMonitor", sourceMonitor)
@@ -126,8 +130,8 @@ noctalia.state.watch("monitor_refresh", function()
   updateMonitors()
 end)
 
-local function stopMirroring()
-  local targetIndex = noctalia.state.get("targetMonitor")
+local function stopMirroring(targetIndex)
+  targetIndex = tonumber(targetIndex)
   local monitors = noctalia.state.get("monitors") or {}
 
   if not targetIndex then
@@ -150,12 +154,13 @@ local function stopMirroring()
       noctalia.notify(tr("notification.stop_mirroring_failed"), output.stderr or tr("notification.timed_out"))
       return
     end
+    updateMonitors()
   end, 5000)
 end
 
-local function startMirroring()
-  local sourceIndex = noctalia.state.get("sourceMonitor")
-  local targetIndex = noctalia.state.get("targetMonitor")
+local function startMirroring(sourceIndex, targetIndex)
+  sourceIndex = tonumber(sourceIndex)
+  targetIndex = tonumber(targetIndex)
   local monitors = noctalia.state.get("monitors") or {}
 
   if not sourceIndex or not targetIndex or sourceIndex == targetIndex then
@@ -179,13 +184,18 @@ local function startMirroring()
       noctalia.notify(tr("notification.start_mirroring_failed"), output.stderr or tr("notification.timed_out"))
       return
     end
+    updateMonitors()
   end, 5000)
 end
 
-noctalia.state.watch("isMirroring", function(isMirroring)
-  if isMirroring then
-    startMirroring()
+noctalia.state.watch("mirrorRequest", function(request)
+  if type(request) ~= "table" then
+    return
+  end
+
+  if request.enabled == true then
+    startMirroring(request.sourceMonitor, request.targetMonitor)
   else
-    stopMirroring()
+    stopMirroring(request.targetMonitor)
   end
 end)

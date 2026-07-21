@@ -60,8 +60,11 @@ function onRefreshClicked()
 end
 
 function onStartMirroringClicked()
-  noctalia.state.set("isMirroring", not noctalia.state.get("isMirroring"))
-  render()
+  noctalia.state.set("mirrorRequest", {
+    enabled = not noctalia.state.get("isMirroring"),
+    sourceMonitor = noctalia.state.get("sourceMonitor"),
+    targetMonitor = noctalia.state.get("targetMonitor"),
+  })
 end
 
 noctalia.state.watch("monitors", function()
@@ -69,5 +72,17 @@ noctalia.state.watch("monitors", function()
 end)
 
 noctalia.state.watch("focusedMonitor", function()
+  render()
+end)
+
+noctalia.state.watch("sourceMonitor", function()
+  render()
+end)
+
+noctalia.state.watch("targetMonitor", function()
+  render()
+end)
+
+noctalia.state.watch("isMirroring", function()
   render()
 end)
