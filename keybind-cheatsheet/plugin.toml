@@ -1,6 +1,6 @@
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 4
 author = "kenn"
 license = "MIT"
@@ -8,6 +8,10 @@ dependencies = ["hyprctl"]
 tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
 icon = "keyboard"
 description = "Searchable keybindings for Mango, Hyprland, and Niri."
+
+[[service]]
+id = "data"
+entry = "service.luau"
 
 [[setting]]
 key = "compositor"

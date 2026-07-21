@@ -3,11 +3,27 @@
 
 local files = {}
 local stateValues = {}
+local stateWatchers = {}
 local fileExistsOverrides = {}
 local configValues = {}
 local availableCommands = {}
 local asyncRequests = {}
 local renderCount = 0
+local renderedTree = nil
+local readCounts = {}
+local writeCounts = {}
+local wantsSecondTicks = false
+local encodedValues = {}
+local encodedIndex = 0
+local errorNotifications = 0
+local updateInterval = nil
+
+local function copy(value)
+  if type(value) ~= "table" then return value end
+  local result = {}
+  for key, item in pairs(value) do result[copy(key)] = copy(item) end
+  return result
+end
 
 local function normalize(path)
   local absolute = path:sub(1, 1) == "/"
@@ -68,12 +84,28 @@ local noctalia = {
     return nil, "missing"
   end,
   readFile = function(path)
-    local content = files[normalize(path)]
+    path = normalize(path)
+    readCounts[path] = (readCounts[path] or 0) + 1
+    local content = files[path]
     if content ~= nil then return content, nil end
     return nil, "missing"
   end,
   writeFile = function(path, content)
-    files[normalize(path)] = content
+    path = normalize(path)
+    files[path] = content
+    writeCounts[path] = (writeCounts[path] or 0) + 1
+    return true
+  end,
+  renameFile = function(from, to)
+    from = normalize(from)
+    to = normalize(to)
+    if files[from] == nil then return false, "missing" end
+    files[to] = files[from]
+    files[from] = nil
+    return true
+  end,
+  removeFile = function(path)
+    files[normalize(path)] = nil
     return true
   end,
   pluginDir = function() return "/plugin" end,
@@ -85,19 +117,38 @@ local noctalia = {
   clipboardText = function() return nil end,
   openColorPicker = function() return false end,
   notify = function() end,
-  notifyError = function() end,
+  notifyError = function() errorNotifications += 1 end,
   log = function() end,
   togglePanel = function() end,
+  setUpdateInterval = function(value) updateInterval = value end,
   runAsync = function(command, callback, timeoutMs)
     table.insert(asyncRequests, { command = command, callback = callback, timeoutMs = timeoutMs, completed = false })
     return true
   end,
   string = { trim = function(value) return (value:gsub("^%s+", ""):gsub("%s+$", "")) end },
-  json = { decode = function() return nil, "not implemented in host mock" end, encode = function() return "{}" end },
+  json = {
+    decode = function(raw)
+      local value = encodedValues[raw]
+      if value == nil then return nil, "invalid mock JSON" end
+      return copy(value), nil
+    end,
+    encode = function(value)
+      encodedIndex += 1
+      local token = "__mock_json_" .. tostring(encodedIndex)
+      encodedValues[token] = copy(value)
+      return token, nil
+    end,
+  },
   state = {
-    get = function(key) return stateValues[key] end,
-    set = function(key, value) stateValues[key] = value end,
-    watch = function() end,
+    get = function(key) return copy(stateValues[key]) end,
+    set = function(key, value)
+      stateValues[key] = copy(value)
+      for _, watcher in ipairs(stateWatchers[key] or {}) do watcher(copy(value)) end
+    end,
+    watch = function(key, callback)
+      stateWatchers[key] = stateWatchers[key] or {}
+      table.insert(stateWatchers[key], callback)
+    end,
   },
 }
 
@@ -116,9 +167,12 @@ return {
   panel = {
     render = function(_tree)
       renderCount += 1
+      renderedTree = _tree
     end,
     close = function() end,
-    setWantsSecondTicks = function() end,
+    setWantsSecondTicks = function(value)
+      wantsSecondTicks = value == true
+    end,
   },
   setFiles = function(value)
     files = {}
@@ -134,6 +188,15 @@ return {
     availableCommands = {}
     asyncRequests = {}
     renderCount = 0
+    renderedTree = nil
+    readCounts = {}
+    writeCounts = {}
+    wantsSecondTicks = false
+    errorNotifications = 0
+    updateInterval = nil
+  end,
+  setFile = function(path, content)
+    files[normalize(path)] = content
   end,
   setConfig = function(values) configValues = values or {} end,
   setAvailableCommands = function(values) availableCommands = values or {} end,
@@ -146,4 +209,12 @@ return {
     return true
   end,
   renderCount = function() return renderCount end,
+  renderedTree = function() return renderedTree end,
+  readCount = function(path) return readCounts[normalize(path)] or 0 end,
+  writeCount = function(path) return writeCounts[normalize(path)] or 0 end,
+  fileContent = function(path) return files[normalize(path)] end,
+  wantsSecondTicks = function() return wantsSecondTicks end,
+  errorNotificationCount = function() return errorNotifications end,
+  stateValue = function(key) return copy(stateValues[key]) end,
+  updateInterval = function() return updateInterval end,
 }

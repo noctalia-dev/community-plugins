@@ -6,12 +6,26 @@ formats common hardware keys, and keeps custom descriptions and hidden rows.
 
 ![Keybind Cheatsheet panel](thumbnail.webp)
 
+## Acknowledgements
+
+Keybind Cheatsheet was inspired by the original
+[Keybind Cheatsheet for Noctalia v4](https://github.com/4rmcyt/noctalia-plugins/tree/main/keybind-cheatsheet)
+created by [blackbartblues](https://github.com/blackbartblues).
+
+This Noctalia v5 plugin is an independent implementation rather than a direct
+port. It has its own user interface, service and cache lifecycle, persistence
+model, tests, and integration with the current Noctalia plugin API.
+
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `kenn/keybind-cheatsheet` |
-| Entries | Bar widget: `keybinds`; panel: `cheatsheet` |
+| Entries | Data service: `data`; bar widget: `keybinds`; panel: `cheatsheet` |
+
+`kenn` is the plugin's fixed publisher namespace, not your local Linux
+username. Copy the plugin IDs in the commands below unchanged. User-specific
+configuration paths use the portable `~/.config/...` form.
 
 ## Requirements
 
@@ -113,14 +127,15 @@ the requested column count.
 
 ## IPC
 
-Refresh an open panel after editing compositor configuration:
+Refresh the snapshot after editing compositor configuration:
 
 ```sh
-noctalia msg plugin kenn/keybind-cheatsheet:cheatsheet all refresh
+noctalia msg plugin kenn/keybind-cheatsheet:data all refresh
 ```
 
-The panel reparses on every open, so refreshing it while closed is unnecessary.
-The bar entry also accepts `toggle` and `refresh` when a widget instance exists:
+The data service refreshes even when the panel is closed. Opening and reopening
+the panel only renders the prepared snapshot. The bar entry also accepts
+`toggle` and `refresh` when a widget instance exists:
 
 ```sh
 noctalia msg plugin kenn/keybind-cheatsheet:keybinds focused toggle
@@ -130,7 +145,7 @@ noctalia msg plugin kenn/keybind-cheatsheet:keybinds focused refresh
 For parser development, run the fixture suite inside Noctalia:
 
 ```sh
-noctalia msg plugin kenn/keybind-cheatsheet:cheatsheet all self-test
+noctalia msg plugin kenn/keybind-cheatsheet:data all self-test
 ```
 
 The report is logged and written to the plugin's persistent data directory as
@@ -138,9 +153,17 @@ The report is logged and written to the plugin's persistent data directory as
 
 ## Notes
 
-The plugin has no service, timer, file watcher, network request, or long-lived
-process. It reads configuration only on panel open or refresh. Hyprland Lua mode
-runs the fixed command `hyprctl binds -j` asynchronously.
+One event-driven data service loads the durable binding cache and parses the
+selected compositor configuration once when Noctalia loads the plugin. It then
+remains idle until settings change or a refresh is explicitly requested. It
+uses no update interval, filesystem watcher, polling loop, network request, or
+persistent subprocess. Hyprland Lua mode runs the fixed command
+`hyprctl binds -j` asynchronously.
+
+The last successful parsed snapshot is stored as `bindings-cache.json`. The
+panel reads the shared in-memory snapshot and performs no configuration I/O in
+`onOpen()`. A failed refresh keeps the previous bindings visible and reports
+the error without replacing the durable cache.
 
 Custom descriptions, hidden binding identities, and color overrides are stored
 in Noctalia's per-plugin state directory as `preferences.json`. The file

@@ -1,9 +1,8 @@
 --!nonstrict
--- Searchable keybind viewer for Mango, Hyprland, and Niri.
+-- Snapshot-driven keybind viewer for Mango, Hyprland, and Niri.
 --
--- The entry is deliberately idle while the panel is closed: there is no
--- update(), service, stream, watcher, or background process. Configuration is
--- parsed on onOpen() and explicit refresh only, then released in onClose().
+-- Parsing, durable cache ownership, and refreshes live in service.luau. This
+-- panel only reads the shared snapshot and renders it.
 
 local noctalia = noctalia
 local ui = ui
@@ -16,8 +15,9 @@ if noctalia == nil then
 end
 
 local PANEL_ID = "kenn/keybind-cheatsheet:cheatsheet"
-local MAX_PARSE_DEPTH = 32
-local MAX_PARSE_FILES = 256
+local SNAPSHOT_KEY = "keybind-cheatsheet.snapshot"
+local REFRESH_REQUEST_KEY = "keybind-cheatsheet.refresh-request"
+local SELF_TEST_REQUEST_KEY = "keybind-cheatsheet.self-test-request"
 local PREFERENCES_FILE = "preferences.json"
 
 local bindings = {}
@@ -26,14 +26,15 @@ local currentCompositor = ""
 local loading = false
 local panelOpen = false
 local panelError = nil
+local refreshError = nil
+local snapshot = nil
 local query = ""
 local searchRevision = 0
-local parseGeneration = 0
-local refreshPending = false
 local view = "bindings"
 local editingId = nil
 local editDraft = ""
 local preferences = { version = 1, hidden = {}, descriptions = {}, colors = {} }
+local refreshing = false
 
 local render
 local refresh
@@ -47,7 +48,8 @@ local function tr(key, values)
 end
 
 local function trim(value)
-  return noctalia.string.trim(value or "")
+  local result = (value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+  return result
 end
 
 local function lower(value)
@@ -56,14 +58,6 @@ end
 
 local function startsWith(value, prefix)
   return value:sub(1, #prefix) == prefix
-end
-
-local function configString(key, fallback)
-  local value = noctalia.getConfig(key)
-  if type(value) ~= "string" or trim(value) == "" then
-    return fallback
-  end
-  return trim(value)
 end
 
 local function resetCallbacks()
@@ -80,283 +74,6 @@ local function callback(prefix, fn)
   env[name] = fn
   table.insert(dynamicCallbacks, name)
   return name
-end
-
-local function copyTable(value)
-  local result = {}
-  for key, item in pairs(value or {}) do
-    if type(item) == "table" then
-      result[key] = copyTable(item)
-    else
-      result[key] = item
-    end
-  end
-  return result
-end
-
-local function pathDirname(path)
-  local clean = (path or ""):gsub("/+$", "")
-  local parent = clean:match("^(.*)/[^/]*$")
-  if parent == nil or parent == "" then
-    return clean:sub(1, 1) == "/" and "/" or "."
-  end
-  return parent
-end
-
-local function pathJoin(base, child)
-  if child == nil or child == "" then
-    return base
-  end
-  if child:sub(1, 1) == "/" then
-    return child
-  end
-  if base == "/" then
-    return "/" .. child
-  end
-  return (base:gsub("/+$", "")) .. "/" .. child
-end
-
-local function normalizePath(path)
-  local absolute = path:sub(1, 1) == "/"
-  local parts = {}
-  for part in path:gmatch("[^/]+") do
-    if part == ".." then
-      if #parts > 0 and parts[#parts] ~= ".." then
-        table.remove(parts)
-      elseif not absolute then
-        table.insert(parts, part)
-      end
-    elseif part ~= "." and part ~= "" then
-      table.insert(parts, part)
-    end
-  end
-  local result = table.concat(parts, "/")
-  if absolute then
-    result = "/" .. result
-  end
-  if result == "" then
-    return absolute and "/" or "."
-  end
-  return result
-end
-
-local function expandEnvironment(path)
-  local expanded = path:gsub("%${([%w_]+)}", function(name)
-    return noctalia.getenv(name) or "${" .. name .. "}"
-  end)
-  expanded = expanded:gsub("%$HOME", noctalia.getenv("HOME") or "~")
-  return noctalia.expandPath(expanded)
-end
-
-local function unquote(value)
-  local result = trim(value)
-  if #result >= 2 then
-    local first = result:sub(1, 1)
-    local last = result:sub(-1)
-    if (first == "\"" and last == "\"") or (first == "'" and last == "'") then
-      result = result:sub(2, -2)
-    end
-  end
-  return result
-end
-
-local function resolvePath(value, includingFile)
-  local path = expandEnvironment(unquote(value))
-  if path:sub(1, 1) ~= "/" then
-    path = pathJoin(pathDirname(includingFile), path)
-  end
-  return normalizePath(path)
-end
-
-local function hasGlob(path)
-  return path:find("*", 1, true) ~= nil
-    or path:find("?", 1, true) ~= nil
-    or path:find("[", 1, true) ~= nil
-end
-
-local LUA_PATTERN_MAGIC = {
-  ["^"] = true,
-  ["$"] = true,
-  ["("] = true,
-  [")"] = true,
-  ["%"] = true,
-  ["."] = true,
-  ["+"] = true,
-  ["-"] = true,
-  ["]"] = true,
-}
-
-local function globPattern(segment)
-  local result = { "^" }
-  local index = 1
-  while index <= #segment do
-    local char = segment:sub(index, index)
-    if char == "*" then
-      table.insert(result, ".*")
-    elseif char == "?" then
-      table.insert(result, ".")
-    elseif char == "[" then
-      local closing = segment:find("]", index + 1, true)
-      if closing ~= nil then
-        table.insert(result, segment:sub(index, closing))
-        index = closing
-      else
-        table.insert(result, "%[")
-      end
-    elseif LUA_PATTERN_MAGIC[char] then
-      table.insert(result, "%" .. char)
-    else
-      table.insert(result, char)
-    end
-    index += 1
-  end
-  table.insert(result, "$")
-  return table.concat(result)
-end
-
-local function expandGlob(path)
-  if not hasGlob(path) then
-    -- Read explicit paths directly. A separate existence check can race with
-    -- atomic Home Manager symlink replacement and suppress a readable file.
-    return { path }
-  end
-
-  local candidates = { path:sub(1, 1) == "/" and "/" or "." }
-  for segment in path:gmatch("[^/]+") do
-    local nextCandidates = {}
-    if hasGlob(segment) then
-      local pattern = globPattern(segment)
-      for _, base in ipairs(candidates) do
-        local entries = noctalia.listDir(base)
-        if entries ~= nil then
-          table.sort(entries)
-          for _, name in ipairs(entries) do
-            if name:match(pattern) then
-              table.insert(nextCandidates, normalizePath(pathJoin(base, name)))
-            end
-          end
-        end
-      end
-    else
-      for _, base in ipairs(candidates) do
-        table.insert(nextCandidates, normalizePath(pathJoin(base, segment)))
-      end
-    end
-    candidates = nextCandidates
-  end
-
-  local files = {}
-  for _, candidate in ipairs(candidates) do
-    local info = noctalia.fileInfo(candidate)
-    if info ~= nil and not info.isDir then
-      table.insert(files, candidate)
-    end
-  end
-  table.sort(files)
-  return files
-end
-
-local function extractTrailingDescription(line)
-  local startIndex, _, description = line:find("#%s*\"([^\"]*)\"%s*$")
-  if startIndex == nil then
-    startIndex, _, description = line:find("#%s*'([^']*)'%s*$")
-  end
-  if startIndex == nil then
-    return line, ""
-  end
-  return trim(line:sub(1, startIndex - 1)), trim(description)
-end
-
-local function splitCsv(value, maximumParts)
-  local parts = {}
-  local current = {}
-  local quote = nil
-  local escaped = false
-  local index = 1
-  while index <= #value do
-    local char = value:sub(index, index)
-    if escaped then
-      table.insert(current, char)
-      escaped = false
-    elseif char == "\\" and quote ~= nil then
-      table.insert(current, char)
-      escaped = true
-    elseif quote ~= nil then
-      table.insert(current, char)
-      if char == quote then
-        quote = nil
-      end
-    elseif char == "\"" or char == "'" then
-      quote = char
-      table.insert(current, char)
-    elseif char == "," and (maximumParts == nil or #parts < maximumParts - 1) then
-      table.insert(parts, trim(table.concat(current)))
-      current = {}
-    else
-      table.insert(current, char)
-    end
-    index += 1
-  end
-  table.insert(parts, trim(table.concat(current)))
-  return parts
-end
-
-local MODIFIER_ORDER = { "SUPER", "CTRL", "SHIFT", "ALT", "MOD2", "MOD3", "MOD5" }
-local MODIFIER_ALIASES = {
-  LOGO = "SUPER",
-  WIN = "SUPER",
-  MOD4 = "SUPER",
-  CONTROL = "CTRL",
-  MOD1 = "ALT",
-}
-
-local function expandHyprVariables(value, variables)
-  local previous = value
-  for _ = 1, 8 do
-    local expanded = previous:gsub("%$([%w_]+)", function(name)
-      return variables[name] or "$" .. name
-    end)
-    if expanded == previous then
-      break
-    end
-    previous = expanded
-  end
-  return previous
-end
-
-local function normalizeModifiers(value, variables)
-  local raw = expandHyprVariables(value or "", variables or {})
-  raw = raw:gsub("%+", " "):gsub("|", " "):gsub(",", " ")
-  local present = {}
-  local unknown = {}
-  for token in raw:gmatch("[^%s]+") do
-    local upper = string.upper(token)
-    upper = MODIFIER_ALIASES[upper] or upper
-    if upper ~= "NONE" and upper ~= "" then
-      local recognized = false
-      for _, name in ipairs(MODIFIER_ORDER) do
-        if upper == name then
-          present[name] = true
-          recognized = true
-          break
-        end
-      end
-      if not recognized and not present[upper] then
-        present[upper] = true
-        table.insert(unknown, upper)
-      end
-    end
-  end
-  local result = {}
-  for _, name in ipairs(MODIFIER_ORDER) do
-    if present[name] then
-      table.insert(result, name)
-    end
-  end
-  for _, name in ipairs(unknown) do
-    table.insert(result, name)
-  end
-  return result
 end
 
 local KEY_LABELS = {
@@ -387,256 +104,6 @@ local function formatKey(key)
   return KEY_LABELS[key] or key:gsub("^mouse:", "Mouse ")
 end
 
-local function bindingIdentity(binding)
-  return table.concat({
-    binding.compositor or "",
-    binding.bindingType or "",
-    table.concat(binding.modifiers or {}, "+"),
-    binding.key or "",
-    binding.action or "",
-    binding.submap or "",
-  }, "|")
-end
-
-local function addBinding(target, binding)
-  binding.description = trim(binding.description)
-  binding.category = trim(binding.category)
-  binding.baseCategory = binding.category
-  binding.action = trim(binding.action)
-  binding.key = trim(binding.key)
-  binding.modifiers = binding.modifiers or {}
-  binding.id = bindingIdentity(binding)
-  table.insert(target, binding)
-end
-
-local CATEGORY_SMALL_WORDS = {
-  ["and"] = true,
-  ["for"] = true,
-  of = true,
-  the = true,
-  to = true,
-}
-
-local function mangoCategoryFromComment(line)
-  if not startsWith(line, "#") or startsWith(line, "#\"") or startsWith(line, "#'") then
-    return nil
-  end
-  local heading = trim(line:gsub("^#+%s*", ""))
-  if heading == "" or heading:match("^[%-%=_*]+$") ~= nil then return nil end
-
-  local explicit = heading:match("^[Cc]ategory%s*:%s*(.+)$")
-  if explicit ~= nil then return trim(explicit) end
-  heading = trim(heading:gsub("^%d+%.%s*", ""))
-
-  if #heading > 64 or lower(heading):match("^bind%s*=") ~= nil then return nil end
-  if heading:find("=", 1, true) ~= nil or heading:find(":", 1, true) ~= nil
-    or heading:find(" + ", 1, true) ~= nil then return nil end
-
-  local wordCount = 0
-  for token in heading:gmatch("%S+") do
-    wordCount += 1
-    local word = token:gsub("^[^%a]+", ""):gsub("[^%a]+$", "")
-    local lowered = lower(word)
-    if word ~= "" and not CATEGORY_SMALL_WORDS[lowered]
-      and word:sub(1, 1) ~= string.upper(word:sub(1, 1)) then
-      return nil
-    end
-  end
-  if wordCount == 0 or wordCount > 7 then return nil end
-  return heading
-end
-
-local function parseMangoContent(content, sourceFile, context)
-  local category = ""
-  local includes = {}
-  local lineNumber = 0
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    lineNumber += 1
-    local line = trim(rawLine)
-    if line ~= "" then
-      local optionalPath = line:match("^source%-optional%s*=%s*(.-)%s*$")
-      local sourcePath = line:match("^source%s*=%s*(.-)%s*$")
-      if optionalPath ~= nil then
-        table.insert(includes, { path = optionalPath, optional = true })
-      elseif sourcePath ~= nil then
-        table.insert(includes, { path = expandHyprVariables(sourcePath, context.variables), optional = false })
-      elseif startsWith(line, "#") then
-        local heading = mangoCategoryFromComment(line)
-        if heading ~= nil then category = heading end
-      else
-        local clean, description = extractTrailingDescription(line)
-        local directive, body = clean:match("^([%a]*bind)%s*=%s*(.*)$")
-        if directive ~= nil then
-          directive = lower(directive)
-          local maximum = directive == "gesturebind" and 5 or (directive == "switchbind" and 3 or 4)
-          local fields = splitCsv(body, maximum)
-          local modifiers = {}
-          local key = ""
-          local command = ""
-          local parameters = ""
-          if directive == "switchbind" then
-            key = fields[1] or ""
-            command = fields[2] or ""
-            parameters = fields[3] or ""
-          elseif directive == "gesturebind" then
-            modifiers = normalizeModifiers(fields[1], {})
-            key = (fields[3] or "") .. "-finger " .. (fields[2] or "")
-            command = fields[4] or ""
-            parameters = fields[5] or ""
-          else
-            modifiers = normalizeModifiers(fields[1], {})
-            key = fields[2] or ""
-            command = fields[3] or ""
-            parameters = fields[4] or ""
-          end
-          if key ~= "" and command ~= "" then
-            addBinding(context.bindings, {
-              compositor = "mango",
-              bindingType = directive,
-              modifiers = modifiers,
-              key = key,
-              action = trim(command .. " " .. parameters),
-              description = description,
-              category = category,
-              sourceFile = sourceFile,
-              sourceLine = lineNumber,
-            })
-          end
-        end
-      end
-    end
-  end
-  return includes
-end
-
-local function parseHyprContent(content, sourceFile, context)
-  local category = ""
-  local includes = {}
-  local lineNumber = 0
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    lineNumber += 1
-    local line = trim(rawLine)
-    if line ~= "" then
-      local variable, value = line:match("^%$([%w_]+)%s*=%s*(.-)%s*$")
-      local sourcePath = line:match("^source%s*=%s*(.-)%s*$")
-      local numberedCategory = line:match("^#%s*%d+%.%s*(.-)%s*$")
-      if variable ~= nil then
-        context.variables[variable] = value
-      elseif sourcePath ~= nil then
-        table.insert(includes, { path = expandHyprVariables(sourcePath, context.variables), optional = false })
-      elseif numberedCategory ~= nil and numberedCategory ~= "" then
-        category = numberedCategory
-      else
-        local clean, description = extractTrailingDescription(line)
-        local directive, body = clean:match("^(bind[%a]*)%s*=%s*(.*)$")
-        if directive ~= nil then
-          local fields = splitCsv(body, 4)
-          local key = fields[2] or ""
-          local dispatcher = fields[3] or ""
-          if key ~= "" and dispatcher ~= "" then
-            addBinding(context.bindings, {
-              compositor = "hyprland",
-              bindingType = lower(directive),
-              modifiers = normalizeModifiers(fields[1], context.variables),
-              key = key,
-              action = trim(dispatcher .. " " .. (fields[4] or "")),
-              description = description,
-              category = category,
-              sourceFile = sourceFile,
-              sourceLine = lineNumber,
-            })
-          end
-        end
-      end
-    end
-  end
-  return includes
-end
-
-local function niriTokens(content)
-  local tokens = {}
-  local index = 1
-  local line = 1
-  while index <= #content do
-    local char = content:sub(index, index)
-    local nextChar = content:sub(index + 1, index + 1)
-    if char == "\n" then
-      line += 1
-      index += 1
-    elseif char:match("%s") then
-      index += 1
-    elseif char == "/" and nextChar == "/" then
-      local ending = content:find("\n", index + 2, true) or (#content + 1)
-      table.insert(tokens, { type = "comment", value = content:sub(index + 2, ending - 1), line = line })
-      index = ending
-    elseif char == "/" and nextChar == "*" then
-      local ending = content:find("*/", index + 2, true) or (#content - 1)
-      local value = content:sub(index + 2, ending - 1)
-      table.insert(tokens, { type = "comment", value = value, line = line })
-      local _, newlines = value:gsub("\n", "")
-      line += newlines
-      index = ending + 2
-    elseif char == "\"" then
-      local startLine = line
-      local value = {}
-      index += 1
-      local escaped = false
-      while index <= #content do
-        local stringChar = content:sub(index, index)
-        if escaped then
-          local replacements = { n = "\n", r = "\r", t = "\t" }
-          table.insert(value, replacements[stringChar] or stringChar)
-          escaped = false
-        elseif stringChar == "\\" then
-          escaped = true
-        elseif stringChar == "\"" then
-          index += 1
-          break
-        else
-          if stringChar == "\n" then
-            line += 1
-          end
-          table.insert(value, stringChar)
-        end
-        index += 1
-      end
-      table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
-    elseif char == "{" or char == "}" or char == ";" then
-      table.insert(tokens, { type = char, value = char, line = line })
-      index += 1
-    else
-      local start = index
-      while index <= #content do
-        char = content:sub(index, index)
-        nextChar = content:sub(index + 1, index + 1)
-        if char:match("%s") or char == "\"" or char == "{" or char == "}" or char == ";"
-          or (char == "/" and (nextChar == "/" or nextChar == "*")) then
-          break
-        end
-        index += 1
-      end
-      table.insert(tokens, { type = "word", value = content:sub(start, index - 1), line = line })
-    end
-  end
-  return tokens
-end
-
-local function niriActionText(tokens)
-  local values = {}
-  for _, token in ipairs(tokens) do
-    if token.type == "string" then
-      table.insert(values, token.value)
-    elseif token.type == "word" then
-      table.insert(values, token.value)
-    elseif token.type == ";" then
-      if #values > 0 then
-        values[#values] = values[#values] .. ";"
-      end
-    end
-  end
-  return trim(table.concat(values, " "))
-end
-
 local function niriCategoryFor(action)
   local value = lower(action)
   if startsWith(value, "spawn") then return "Applications" end
@@ -652,331 +119,6 @@ local function niriCategoryFor(action)
   return "Other"
 end
 
-local function niriHeaderDescription(header)
-  for index, token in ipairs(header) do
-    if token.type == "word" then
-      if token.value == "hotkey-overlay-title=" and header[index + 1] ~= nil and header[index + 1].type == "string" then
-        return header[index + 1].value
-      end
-      local quoted = token.value:match('^hotkey%-overlay%-title="(.*)"$')
-      if quoted ~= nil then
-        return quoted
-      end
-    end
-  end
-  return ""
-end
-
-local function parseNiriContent(content, sourceFile, context)
-  local includes = {}
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local includePath = rawLine:match('^%s*include%s+"([^"]+)"')
-    if includePath ~= nil then
-      table.insert(includes, { path = includePath, optional = false })
-    end
-  end
-
-  local tokens = niriTokens(content)
-  local index = 1
-  while index <= #tokens do
-    if tokens[index].type == "word" and tokens[index].value == "binds"
-      and tokens[index + 1] ~= nil and tokens[index + 1].type == "{" then
-      index += 2
-      local category = ""
-      while index <= #tokens and tokens[index].type ~= "}" do
-        local token = tokens[index]
-        if token.type == "comment" then
-          local heading = token.value:match('#%s*"([^"]+)"') or token.value:match("#%s*'([^']+)'")
-          if heading ~= nil then
-            category = trim(heading)
-          end
-          index += 1
-        elseif token.type == "word" then
-          local hotkey = token.value
-          local sourceLine = token.line
-          local header = {}
-          index += 1
-          while index <= #tokens and tokens[index].type ~= "{" and tokens[index].type ~= "}" do
-            table.insert(header, tokens[index])
-            index += 1
-          end
-          if index <= #tokens and tokens[index].type == "{" then
-            local depth = 1
-            local actionTokens = {}
-            index += 1
-            while index <= #tokens and depth > 0 do
-              if tokens[index].type == "{" then
-                depth += 1
-                table.insert(actionTokens, tokens[index])
-              elseif tokens[index].type == "}" then
-                depth -= 1
-                if depth > 0 then
-                  table.insert(actionTokens, tokens[index])
-                end
-              else
-                table.insert(actionTokens, tokens[index])
-              end
-              index += 1
-            end
-            local action = niriActionText(actionTokens)
-            local keyParts = {}
-            for part in hotkey:gmatch("[^+]+") do
-              table.insert(keyParts, part)
-            end
-            local key = table.remove(keyParts) or hotkey
-            local description = niriHeaderDescription(header)
-            addBinding(context.bindings, {
-              compositor = "niri",
-              bindingType = "bind",
-              modifiers = normalizeModifiers(table.concat(keyParts, " "), {}),
-              key = key,
-              action = action,
-              description = description,
-              category = category ~= "" and category or niriCategoryFor(action),
-              sourceFile = sourceFile,
-              sourceLine = sourceLine,
-            })
-          else
-            index += 1
-          end
-        else
-          index += 1
-        end
-      end
-    end
-    index += 1
-  end
-  return includes
-end
-
-local function walkConfig(rootPath, parser)
-  local context = {
-    bindings = {},
-    variables = {},
-    warnings = {},
-    visited = {},
-    fileCount = 0,
-    rootRead = false,
-  }
-
-  local visit
-  visit = function(pattern, depth, optional, isRoot)
-    if depth > MAX_PARSE_DEPTH then
-      table.insert(context.warnings, "Include depth exceeded at " .. pattern)
-      return
-    end
-    if context.fileCount >= MAX_PARSE_FILES then
-      table.insert(context.warnings, "File limit reached at " .. pattern)
-      return
-    end
-
-    local files = expandGlob(pattern)
-    if #files == 0 then
-      if not optional then
-        table.insert(context.warnings, "Could not read " .. pattern)
-      end
-      return
-    end
-    for _, file in ipairs(files) do
-      file = normalizePath(file)
-      if not context.visited[file] and context.fileCount < MAX_PARSE_FILES then
-        context.visited[file] = true
-        context.fileCount += 1
-        local content, err = noctalia.readFile(file)
-        if content == nil then
-          if not optional then
-            table.insert(context.warnings, err or ("Could not read " .. file))
-          end
-        else
-          if isRoot then
-            context.rootRead = true
-          end
-          local includes = parser(content, file, context) or {}
-          for _, include in ipairs(includes) do
-            local resolved = resolvePath(include.path, file)
-            visit(resolved, depth + 1, include.optional == true, false)
-          end
-        end
-      end
-    end
-  end
-
-  local expandedRoot = normalizePath(expandEnvironment(rootPath))
-  visit(expandedRoot, 0, false, true)
-  return context
-end
-
-local function readConfig(rootPath, parser)
-  local context = walkConfig(rootPath, parser)
-  if not context.rootRead then
-    context = walkConfig(rootPath, parser)
-  end
-  if not context.rootRead then
-    noctalia.log("Keybind cheatsheet could not read " .. expandEnvironment(rootPath)
-      .. ": " .. table.concat(context.warnings, "; "))
-  end
-  return context
-end
-
-local function scanHyprLuaContent(content, sourceFile, context)
-  local category = ""
-  local includes = {}
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
-    if heading ~= nil and heading ~= "" then
-      category = heading
-    end
-
-    local code = rawLine:gsub("%-%-.*$", "")
-    local module = code:match('require%s*%(%s*"([^"]+)"')
-      or code:match("require%s*%(%s*'([^']+)'")
-      or code:match('require%s+"([^"]+)"')
-      or code:match("require%s+'([^']+)'")
-    if module ~= nil then
-      local modulePath = module:gsub("%.", "/") .. ".lua"
-      table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
-    end
-
-    local description = code:match('description%s*=%s*"([^"]*)"')
-      or code:match("description%s*=%s*'([^']*)'")
-      or code:match('desc%s*=%s*"([^"]*)"')
-      or code:match("desc%s*=%s*'([^']*)'")
-    if description ~= nil and description ~= "" then
-      local kind = code:find("%.%.") ~= nil and "prefix" or "exact"
-      table.insert(context.rules, { kind = kind, value = description, category = category ~= "" and category or "Other" })
-    end
-  end
-  return includes
-end
-
-local function scanHyprLua(rootPath)
-  local context = {
-    bindings = {},
-    variables = {},
-    warnings = {},
-    visited = {},
-    fileCount = 0,
-    rootRead = false,
-    rules = {},
-    luaRoot = pathDirname(normalizePath(expandEnvironment(rootPath))),
-  }
-
-  local visit
-  visit = function(path, depth, isRoot)
-    if depth > MAX_PARSE_DEPTH or context.fileCount >= MAX_PARSE_FILES then
-      table.insert(context.warnings, "Lua include limit reached at " .. path)
-      return
-    end
-    path = normalizePath(path)
-    if context.visited[path] then
-      return
-    end
-    context.visited[path] = true
-    context.fileCount += 1
-    local content, err = noctalia.readFile(path)
-    if content == nil then
-      table.insert(context.warnings, err or ("Could not read " .. path))
-      return
-    end
-    if isRoot then context.rootRead = true end
-    local includes = scanHyprLuaContent(content, path, context)
-    for _, include in ipairs(includes) do
-      visit(normalizePath(include.path), depth + 1, false)
-    end
-  end
-
-  visit(normalizePath(expandEnvironment(rootPath)), 0, true)
-  return context
-end
-
-local function categoryFromHyprRules(description, rules)
-  for _, rule in ipairs(rules) do
-    if rule.kind == "exact" and description == rule.value then
-      return rule.category
-    end
-  end
-  for _, rule in ipairs(rules) do
-    if rule.kind == "prefix" and startsWith(description, rule.value) then
-      return rule.category
-    end
-  end
-  return "Other"
-end
-
-local function modifiersFromMask(mask)
-  local result = {}
-  local bits = {
-    { 1, "SHIFT" },
-    { 4, "CTRL" },
-    { 8, "ALT" },
-    { 16, "MOD2" },
-    { 32, "MOD3" },
-    { 64, "SUPER" },
-    { 128, "MOD5" },
-  }
-  mask = tonumber(mask) or 0
-  for _, entry in ipairs(bits) do
-    if math.floor(mask / entry[1]) % 2 == 1 then
-      table.insert(result, entry[2])
-    end
-  end
-  return result
-end
-
-local function parseHyprJson(raw, rules)
-  local decoded, err = noctalia.json.decode(raw)
-  if type(decoded) ~= "table" then
-    return nil, err or "Invalid hyprctl JSON"
-  end
-  local result = {}
-  for _, entry in ipairs(decoded) do
-    if type(entry) == "table" then
-      local description = entry.has_description == false and "" or (entry.description or "")
-      local key = entry.key or ""
-      if key == "" and tonumber(entry.keycode) ~= nil and tonumber(entry.keycode) ~= 0 then
-        key = "code:" .. tostring(entry.keycode)
-      end
-      local dispatcher = entry.dispatcher or ""
-      local argument = entry.arg or ""
-      if key ~= "" and dispatcher ~= "" then
-        addBinding(result, {
-          compositor = "hyprland",
-          bindingType = entry.mouse == true and "bindm" or "bind",
-          modifiers = modifiersFromMask(entry.modmask),
-          key = key,
-          action = trim(dispatcher .. " " .. argument),
-          description = description,
-          category = description ~= "" and categoryFromHyprRules(description, rules) or "",
-          sourceFile = "hyprctl binds -j",
-          sourceLine = 0,
-          submap = entry.submap or "",
-        })
-      end
-    end
-  end
-  return result, nil
-end
-
-local function detectCompositor()
-  local forced = configString("compositor", "auto")
-  if forced ~= "auto" then
-    return forced
-  end
-  if noctalia.getenv("MANGO_INSTANCE_SIGNATURE") ~= nil then return "mango" end
-  if noctalia.getenv("HYPRLAND_INSTANCE_SIGNATURE") ~= nil then return "hyprland" end
-  if noctalia.getenv("NIRI_SOCKET") ~= nil then return "niri" end
-
-  local desktop = lower((noctalia.getenv("XDG_CURRENT_DESKTOP") or "") .. ":" .. (noctalia.getenv("XDG_SESSION_DESKTOP") or ""))
-  if desktop:find("mango", 1, true) ~= nil then return "mango" end
-  if desktop:find("hyprland", 1, true) ~= nil then return "hyprland" end
-  if desktop:find("niri", 1, true) ~= nil then return "niri" end
-
-  if noctalia.fileExists(noctalia.expandPath("~/.config/mango/config.conf")) then return "mango" end
-  if noctalia.fileExists(noctalia.expandPath("~/.config/hypr/hyprland.lua"))
-    or noctalia.fileExists(noctalia.expandPath("~/.config/hypr/hyprland.conf")) then return "hyprland" end
-  if noctalia.fileExists(noctalia.expandPath("~/.config/niri/config.kdl")) then return "niri" end
-  return nil
-end
 
 local function preferencesPath()
   local directory, err = noctalia.pluginDataDir()
@@ -1038,97 +180,36 @@ local function savePreferences()
   end
 end
 
-local function finishParse(generation, compositor, result, warnings, err)
-  if not panelOpen or generation ~= parseGeneration then
-    return
-  end
-  currentCompositor = compositor or ""
-  bindings = result or {}
-  parseWarnings = warnings or {}
-  if #bindings > 0 then
+local function applySnapshot(value)
+  snapshot = type(value) == "table" and value or nil
+  if snapshot == nil then
+    bindings = {}
+    parseWarnings = {}
+    currentCompositor = ""
+    loading = true
+    refreshing = false
     panelError = nil
-  else
-    panelError = err
-  end
-  loading = false
-  if refreshPending then
-    refreshPending = false
-    refresh()
-  else
-    render()
-  end
-end
-
-local function configReadError(context)
-  if context.rootRead then
-    return nil
-  end
-  return tr("missing_config")
-end
-
-local function parseHyprLua(generation)
-  local luaPath = configString("hyprland_lua_config", "~/.config/hypr/hyprland.lua")
-  local scan = scanHyprLua(luaPath)
-  if not noctalia.commandExists("hyprctl") then
-    finishParse(generation, "hyprland", {}, scan.warnings, tr("hyprctl_missing"))
+    refreshError = nil
     return
   end
-  local accepted = noctalia.runAsync("hyprctl binds -j", function(result)
-    if result.exitCode ~= 0 or result.timedOut then
-      local message = trim(result.stderr)
-      finishParse(generation, "hyprland", {}, scan.warnings, message ~= "" and message or tr("hyprctl_failed"))
-      return
-    end
-    local parsed, err = parseHyprJson(result.stdout, scan.rules)
-    finishParse(generation, "hyprland", parsed or {}, scan.warnings, err)
-  end, 10000)
-  if not accepted then
-    finishParse(generation, "hyprland", {}, scan.warnings, tr("hyprctl_failed"))
-  end
+
+  bindings = type(snapshot.bindings) == "table" and snapshot.bindings or {}
+  parseWarnings = type(snapshot.warnings) == "table" and snapshot.warnings or {}
+  currentCompositor = type(snapshot.compositor) == "string" and snapshot.compositor or ""
+  refreshing = snapshot.refreshing == true
+  loading = (snapshot.status == "loading" or snapshot.status == "idle") and #bindings == 0
+  panelError = snapshot.status == "error" and (snapshot.error or tr("missing_config")) or nil
+  refreshError = snapshot.status == "ready" and type(snapshot.error) == "string"
+    and snapshot.error ~= "" and snapshot.error or nil
 end
 
 refresh = function()
-  if loading then
-    refreshPending = true
-    return
-  end
-  refreshPending = false
-  parseGeneration += 1
-  local generation = parseGeneration
-  bindings = {}
-  parseWarnings = {}
-  panelError = nil
-  loading = true
-  currentCompositor = ""
+  local current = tonumber(noctalia.state.get(REFRESH_REQUEST_KEY)) or 0
+  refreshing = true
+  noctalia.state.set(REFRESH_REQUEST_KEY, current + 1)
   render()
-
-  local compositor = detectCompositor()
-  if compositor == nil then
-    finishParse(generation, nil, {}, {}, tr("unsupported"))
-    return
-  end
-  if compositor == "mango" then
-    local root = configString("mango_config", "~/.config/mango/config.conf")
-    local context = readConfig(root, parseMangoContent)
-    finishParse(generation, compositor, context.bindings, context.warnings, configReadError(context))
-  elseif compositor == "niri" then
-    local root = configString("niri_config", "~/.config/niri/config.kdl")
-    local context = readConfig(root, parseNiriContent)
-    finishParse(generation, compositor, context.bindings, context.warnings, configReadError(context))
-  elseif compositor == "hyprland" then
-    local mode = configString("hyprland_parser", "auto")
-    local luaPath = configString("hyprland_lua_config", "~/.config/hypr/hyprland.lua")
-    if mode == "lua" or (mode == "auto" and noctalia.fileExists(noctalia.expandPath(luaPath))) then
-      parseHyprLua(generation)
-    else
-      local root = configString("hyprland_config", "~/.config/hypr/hyprland.conf")
-      local context = readConfig(root, parseHyprContent)
-      finishParse(generation, compositor, context.bindings, context.warnings, configReadError(context))
-    end
-  else
-    finishParse(generation, compositor, {}, {}, tr("unsupported"))
-  end
 end
+
 
 local COLOR_BUCKETS = {
   { id = "super", label = "Super", background = "primary", text = "on_primary", picker = "#6750A4" },
@@ -1667,7 +748,9 @@ local function renderHeader()
     table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged }))
     table.insert(children, ui.button({ glyph = "x", width = 26, variant = "ghost", controlSize = "sm", enabled = query ~= "", tooltip = tr("clear"), onClick = clearSearch }))
   end
-  table.insert(children, ui.label({ text = tr("binding_count", { count = #bindings }), color = "on_surface_variant", fontSize = 12 }))
+  if not loading or #bindings > 0 then
+    table.insert(children, ui.label({ text = tr("binding_count", { count = #bindings }), color = "on_surface_variant", fontSize = 12 }))
+  end
   if view == "edit" then
     local count = hiddenCount()
     local restoreHidden = callback("restoreHidden", function()
@@ -1678,7 +761,7 @@ local function renderHeader()
     table.insert(children, ui.label({ text = tr("hidden_count", { count = count }), color = "on_surface_variant", fontSize = 12 }))
     table.insert(children, ui.button({ glyph = "eye", variant = "ghost", controlSize = "sm", enabled = count > 0, tooltip = tr("restore_hidden"), onClick = restoreHidden }))
   end
-  table.insert(children, ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("refresh"), enabled = not loading, onClick = refreshClick }))
+  table.insert(children, ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("refresh"), enabled = not refreshing, onClick = refreshClick }))
   table.insert(children, ui.button({ glyph = view == "edit" and "check" or "pencil", variant = "ghost", tooltip = view == "edit" and tr("finish_editing") or tr("edit_bindings"), selected = view == "edit", onClick = editMode }))
   table.insert(children, ui.button({ glyph = view == "appearance" and "check" or "palette", variant = "ghost", tooltip = view == "appearance" and tr("back") or tr("appearance"), selected = view == "appearance", onClick = appearance }))
   return ui.row({ align = "center", justify = "space_between", gap = 7 }, children)
@@ -1711,6 +794,9 @@ render = function()
       ui.label({ text = panelError, color = "error", textAlign = "center", maxWidth = 640 }),
     }))
   else
+    if refreshError ~= nil then
+      table.insert(children, ui.label({ text = refreshError, color = "error", fontSize = 11, maxLines = 2 }))
+    end
     if #parseWarnings > 0 then
       table.insert(children, ui.label({ text = tr("source_warning") .. " " .. table.concat(parseWarnings, " | "), color = "error", fontSize = 11, maxLines = 2 }))
     end
@@ -1719,122 +805,62 @@ render = function()
   panel.render(ui.column({ key = "keybind-cheatsheet-" .. contentState, flexGrow = 1, gap = 8, align = "stretch" }, children))
 end
 
-local function containsAll(values, required)
-  local found = {}
-  for _, value in ipairs(values) do found[value] = true end
-  for _, value in ipairs(required or {}) do
-    if not found[value] then return false, value end
-  end
-  return true, nil
-end
-
-local function runSelfTest()
-  local pluginDir = noctalia.pluginDir() or "."
-  local fixtureRoot = pluginDir .. "/tests/fixtures"
-  local expectedRaw = noctalia.readFile(pluginDir .. "/tests/expected.json")
-  local expected = expectedRaw ~= nil and noctalia.json.decode(expectedRaw) or nil
-  local report = { passed = true, cases = {} }
-  if type(expected) ~= "table" then
-    report.passed = false
-    report.error = "Could not read tests/expected.json"
-  else
-    local cases = {
-      mango = function()
-        return walkConfig(fixtureRoot .. "/mango/main.conf", parseMangoContent).bindings
-      end,
-      hypr_conf = function()
-        return walkConfig(fixtureRoot .. "/hypr/hyprland.conf", parseHyprContent).bindings
-      end,
-      niri = function()
-        return walkConfig(fixtureRoot .. "/niri/config.kdl", parseNiriContent).bindings
-      end,
-      hypr_lua = function()
-        local scan = scanHyprLua(fixtureRoot .. "/hypr/hyprland.lua")
-        local raw = noctalia.readFile(fixtureRoot .. "/hypr/binds.json") or "[]"
-        return parseHyprJson(raw, scan.rules) or {}
-      end,
-    }
-    for name, execute in pairs(cases) do
-      local parsed = execute()
-      local expectedCase = expected[name]
-      local descriptions = {}
-      local categories = {}
-      for _, binding in ipairs(parsed) do
-        table.insert(descriptions, binding.description)
-        table.insert(categories, binding.description == "" and tr("without_description") or (binding.category ~= "" and binding.category or tr("other")))
-      end
-      local descriptionsOk, missingDescription = containsAll(descriptions, expectedCase.descriptions)
-      local categoriesOk, missingCategory = containsAll(categories, expectedCase.categories)
-      local passed = #parsed == expectedCase.count and descriptionsOk and categoriesOk
-      report.cases[name] = {
-        passed = passed,
-        expectedCount = expectedCase.count,
-        actualCount = #parsed,
-        missingDescription = missingDescription,
-        missingCategory = missingCategory,
-      }
-      if not passed then report.passed = false end
-    end
-  end
-  local encoded = noctalia.json.encode(report, true) or "{}"
-  local dataDir = noctalia.pluginDataDir()
-  if dataDir ~= nil then noctalia.writeFile(dataDir .. "/selftest.json", encoded) end
-  noctalia.log("Keybind cheatsheet self-test: " .. encoded)
-  if report.passed then
-    noctalia.notify(tr("title"), "Parser self-test passed")
-  else
-    noctalia.notifyError(tr("title"), "Parser self-test failed; see the Noctalia log")
-  end
-end
-
-noctalia.state.watch("refresh_generation", function(_value)
-  if panelOpen then refresh() end
+noctalia.state.watch(SNAPSHOT_KEY, function(value)
+  applySnapshot(value)
+  if panelOpen then render() end
 end)
 
-local function releasePanelState()
+local function releasePanelState(clearModel)
   panelOpen = false
-  parseGeneration += 1
-  bindings = {}
-  parseWarnings = {}
-  currentCompositor = ""
-  panelError = nil
-  loading = false
-  refreshPending = false
   view = "bindings"
   query = ""
   editingId = nil
   editDraft = ""
   resetCallbacks()
+  if clearModel then
+    bindings = {}
+    parseWarnings = {}
+    currentCompositor = ""
+    loading = false
+    refreshing = false
+    panelError = nil
+    refreshError = nil
+    snapshot = nil
+  end
 end
 
 function onOpen(_context)
   panelOpen = true
-  loading = false
-  refreshPending = false
   view = "bindings"
   query = ""
   searchRevision += 1
   editingId = nil
   editDraft = ""
   loadPreferences()
-  refresh()
+  applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
+  render()
 end
 
 function onClose()
-  releasePanelState()
+  releasePanelState(false)
 end
 
 function onExit(_signal)
-  releasePanelState()
+  releasePanelState(true)
+end
+
+function onConfigChanged()
+  if panelOpen then render() end
 end
 
 function onIpc(event, _payload)
   if event == "toggle" then
     if panelOpen then panel.close() else noctalia.togglePanel(PANEL_ID) end
   elseif event == "refresh" then
-    if panelOpen then refresh() end
+    refresh()
   elseif event == "self-test" then
-    runSelfTest()
+    local current = tonumber(noctalia.state.get(SELF_TEST_REQUEST_KEY)) or 0
+    noctalia.state.set(SELF_TEST_REQUEST_KEY, current + 1)
   end
 end
 
@@ -1842,29 +868,22 @@ local function lifecycleState()
   return {
     panelOpen = panelOpen,
     loading = loading,
-    refreshPending = refreshPending,
+    refreshing = refreshing,
     bindingCount = #bindings,
+    snapshotLoaded = snapshot ~= nil,
     callbackCount = #dynamicCallbacks,
     editDraft = editDraft,
   }
 end
 
 return {
-  parseMangoContent = parseMangoContent,
-  mangoCategoryFromComment = mangoCategoryFromComment,
-  parseHyprContent = parseHyprContent,
-  parseNiriContent = parseNiriContent,
-  parseHyprJson = parseHyprJson,
-  scanHyprLua = scanHyprLua,
-  walkConfig = walkConfig,
-  configReadError = configReadError,
   bindingAvailableInView = bindingAvailableInView,
   bindingContentOpacity = bindingContentOpacity,
   hiddenBindingCount = hiddenBindingCount,
   restoreHiddenBindings = restoreHiddenBindings,
   categoryPriority = categoryPriority,
   friendlyAction = friendlyAction,
-  runSelfTest = runSelfTest,
+  applySnapshot = applySnapshot,
   onOpen = onOpen,
   onClose = onClose,
   onExit = onExit,
