@@ -1,62 +1,94 @@
 {
-  "settings.poll_interval.label": "Poll interval (seconds)",
-  "settings.poll_interval.description": "How often the Tailscale status is refreshed.",
-  "settings.hide_mullvad.label": "Hide Mullvad exit nodes",
-  "settings.hide_mullvad.description": "Hide Mullvad VPN exit nodes from the peer list.",
-  "settings.hide_offline.label": "Hide offline peers",
-  "settings.hide_offline.description": "Hide offline peers from the panel and launcher lists.",
-  "settings.show_ip.label": "Show own IP",
-  "settings.show_ip.description": "Show this node's Tailscale IP in the bar.",
-  "settings.show_count.label": "Show peer count",
-  "settings.show_count.description": "Show online/total peers next to the icon.",
-  "state.running": "Connected",
-  "state.stopped": "Disconnected",
-  "state.needs-login": "Login required",
-  "state.not-installed": "Tailscale not installed",
-  "state.error": "Error",
-  "tooltip.state": "State",
-  "tooltip.self": "This node",
-  "tooltip.online": "Peers online",
-  "tooltip.exit-node": "Exit node",
-  "panel.title": "Tailscale",
-  "panel.connect": "Connect (tailscale up)",
-  "panel.disconnect": "Disconnect (tailscale down)",
-  "panel.refresh": "Refresh",
-  "panel.copy-ip": "Copy IP",
-  "panel.copy-name": "Copy name",
-  "panel.copy-ip-value": "Copy IP {value}",
-  "panel.copy-name-value": "Copy name {value}",
-  "panel.exit-node-active": "Exit node: {name}",
-  "panel.exit-node-clear": "Disable",
-  "panel.exit-node-use": "Use as exit node",
-  "panel.filter": "Filter {online}/{total} hosts…",
-  "panel.no-peers": "No peers to show.",
-  "panel.needs-login": "Tailscale needs authentication. Open the login page in the browser.",
-  "panel.login": "Log in",
-  "panel.last-check-info": "Last check: {value}",
-  "launcher.this-host": "this host",
-  "launcher.online": "online",
-  "launcher.offline": "offline",
-  "launcher.copy-ip": "Enter: copy {value}",
-  "launcher.copy-name": "Enter: copy {value}",
-  "toast.title": "Tailscale",
-  "toast.connected": "Connected.",
-  "toast.disconnected": "Disconnected.",
-  "toast.exit-node-enabled": "Exit node enabled.",
-  "toast.exit-node-disabled": "Exit node disabled.",
-  "toast.failed": "Command failed.",
-  "toast.copied-ip": "{host}: IP {value} copied.",
-  "toast.copied-name": "{host}: name {value} copied.",
-  "shortcut.label": "Tailscale",
-  "settings.taildrop_dir.label": "Taildrop download folder",
-  "settings.taildrop_dir.description": "Where received files are saved. Empty = the XDG download folder.",
-  "settings.ssh_username.label": "SSH username",
-  "settings.ssh_username.description": "Username for the SSH button. Empty = system default.",
-  "panel.taildrop": "Receive Taildrop files",
-  "panel.ping": "Ping",
-  "panel.ssh": "Open SSH in terminal",
-  "peer.last-seen": "seen {value}",
-  "taildrop.received": "{count} file(s) received in {dir}:",
-  "taildrop.none": "No pending files.",
-  "taildrop.failed": "Taildrop receive failed (operator mode set?)."
+  "settings": {
+    "poll_interval": {
+      "label": "Poll interval (seconds)",
+      "description": "How often the Tailscale status is refreshed."
+    },
+    "hide_mullvad": {
+      "label": "Hide Mullvad exit nodes",
+      "description": "Hide Mullvad VPN exit nodes from the peer list."
+    },
+    "hide_offline": {
+      "label": "Hide offline peers",
+      "description": "Hide offline peers from the panel and launcher lists."
+    },
+    "show_ip": {
+      "label": "Show own IP",
+      "description": "Show this node's Tailscale IP in the bar."
+    },
+    "show_count": {
+      "label": "Show peer count",
+      "description": "Show online/total peers next to the icon."
+    },
+    "taildrop_dir": {
+      "label": "Taildrop download folder",
+      "description": "Where received files are saved. Empty = the XDG download folder."
+    },
+    "ssh_username": {
+      "label": "SSH username",
+      "description": "Username for the SSH button. Empty = system default."
+    }
+  },
+  "state": {
+    "running": "Connected",
+    "stopped": "Disconnected",
+    "needs-login": "Login required",
+    "not-installed": "Tailscale not installed",
+    "error": "Error"
+  },
+  "tooltip": {
+    "state": "State",
+    "self": "This node",
+    "online": "Peers online",
+    "exit-node": "Exit node"
+  },
+  "panel": {
+    "title": "Tailscale",
+    "connect": "Connect (tailscale up)",
+    "disconnect": "Disconnect (tailscale down)",
+    "refresh": "Refresh",
+    "copy-ip": "Copy IP",
+    "copy-name": "Copy name",
+    "copy-ip-value": "Copy IP {value}",
+    "copy-name-value": "Copy name {value}",
+    "exit-node-active": "Exit node: {name}",
+    "exit-node-clear": "Disable",
+    "exit-node-use": "Use as exit node",
+    "filter": "Filter {online}/{total} hosts…",
+    "no-peers": "No peers to show.",
+    "needs-login": "Tailscale needs authentication. Open the login page in the browser.",
+    "login": "Log in",
+    "last-check-info": "Last check: {value}",
+    "taildrop": "Receive Taildrop files",
+    "ping": "Ping",
+    "ssh": "Open SSH in terminal"
+  },
+  "launcher": {
+    "this-host": "this host",
+    "online": "online",
+    "offline": "offline",
+    "copy-ip": "Enter: copy {value}",
+    "copy-name": "Enter: copy {value}"
+  },
+  "toast": {
+    "title": "Tailscale",
+    "connected": "Connected.",
+    "disconnected": "Disconnected.",
+    "exit-node-enabled": "Exit node enabled.",
+    "exit-node-disabled": "Exit node disabled.",
+    "failed": "Command failed.",
+    "copied-ip": "{host}: IP {value} copied.",
+    "copied-name": "{host}: name {value} copied."
+  },
+  "shortcut": {
+    "label": "Tailscale"
+  },
+  "peer": {
+    "last-seen": "seen {value}"
+  },
+  "taildrop": {
+    "received": "{count} file(s) received in {dir}:",
+    "none": "No pending files.",
+    "failed": "Taildrop receive failed (operator mode set?)."
+  }
 }
