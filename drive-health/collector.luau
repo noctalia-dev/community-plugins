@@ -118,6 +118,11 @@ local function smartDeviceFor(path)
   return controller ~= nil and "/dev/" .. controller or tostring(path)
 end
 
+local function deviceBasename(value)
+  local normalized = tostring(value or ""):gsub("/+$", "")
+  return normalized:match("([^/]+)$") or ""
+end
+
 local function listDirectory(path)
   local entries = noctalia.listDir(path)
   return type(entries) == "table" and entries or {}
@@ -765,8 +770,13 @@ local function normalizeRaw(raw, source)
 
   local disks = {}
   for _, block in ipairs(lsblk.blockdevices or {}) do
-    local device = tostring(block.path or ("/dev/" .. tostring(block.name or "")))
-    local name = tostring(block.name or "")
+    local device = tostring(block.path or "")
+    local name = deviceBasename(block.name)
+    if name == "" then name = deviceBasename(block.kname) end
+    if name == "" then name = deviceBasename(device) end
+    if not device:match("^/dev/") and name ~= "" then device = "/dev/" .. name end
+    local kernelName = deviceBasename(block.kname)
+    if kernelName == "" then kernelName = name end
     local virtual = name:match("^zram") or name:match("^loop") or name:match("^ram") or name:match("^sr")
     if block.type == "disk" and device:match("^/dev/") and not virtual then
       local smartDevice = smartDeviceFor(device)
@@ -789,7 +799,7 @@ local function normalizeRaw(raw, source)
       local model = noctalia.string.trim(tostring(block.model or ""))
       local namespace = name:match("^nvme%d+(n%d+)$")
       local id = serial ~= "" and serial .. (namespace ~= nil and ":" .. namespace or "")
-        or tostring(block.kname or device)
+        or (kernelName ~= "" and kernelName or device)
       local preferences = preferenceFor(id)
       local removable = block.rm == true or tonumber(block.rm) == 1 or block.hotplug == true or tonumber(block.hotplug) == 1
       local transport = tostring(block.tran or "unknown")

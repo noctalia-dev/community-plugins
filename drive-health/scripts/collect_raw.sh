@@ -59,7 +59,7 @@ lsblk --nodeps --noheadings --paths --output PATH,TYPE,ROTA >"$devices_tmp"
 {
   printf '{"schema":2,"collector_version":"%s","collection_id":"%s","generated_at_epoch":%s,"lsblk":' \
     "$collector_version" "$collection_id" "$generated_at_epoch"
-  lsblk --json --bytes --output \
+  lsblk --json --bytes --paths --output \
     NAME,KNAME,PATH,PKNAME,TYPE,TRAN,ROTA,RM,HOTPLUG,SIZE,LOG-SEC,PHY-SEC,MODEL,SERIAL,FSTYPE,FSSIZE,FSUSED,FSAVAIL,MOUNTPOINTS
   printf ',"smart":['
 

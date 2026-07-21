@@ -9,7 +9,7 @@ printf '%s\n' "$payload" | jq -e '
   .schema == 2
   and .collector_version == "2.0.0"
   and (.collection_id | type == "string" and length > 0)
-  and (.lsblk.blockdevices | length) == 2
+  and ([.lsblk.blockdevices[].name] | sort) == ["/dev/nvme0n1", "/dev/sda", "/dev/zram0"]
   and (.smart | length) == 2
   and ([.smart[].requested_device] | sort) == ["/dev/nvme0", "/dev/sda"]
   and (.smart[] | select(.requested_device == "/dev/sda") | .payload.test_standby) == true

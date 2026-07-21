@@ -392,10 +392,10 @@ local normalized, normalizeError = normalizeRaw({
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {
     {
-      name = "nvme9n1", kname = "nvme9n1", path = "/dev/nvme9n1", type = "disk",
+      name = "/dev/nvme9n1", kname = "/dev/nvme9n1", path = "/dev/nvme9n1", type = "disk",
       tran = "nvme", rota = false, size = 2000000000, model = "Fixture NVMe", serial = "FIXTURE1",
       mountpoints = {}, children = {
-        { name = "nvme9n1p1", kname = "nvme9n1p1", path = "/dev/nvme9n1p1", type = "part",
+        { name = "/dev/nvme9n1p1", kname = "/dev/nvme9n1p1", path = "/dev/nvme9n1p1", type = "part",
           mountpoints = { "/mnt/work" }, fsused = 250, fsavail = 750 },
       },
     },
@@ -485,15 +485,17 @@ assert(sleeping.summary.sleeping_count == 1 and sleeping.summary.smart_unavailab
 local namespaces = assert(normalizeRaw({
   schema = 2, generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {
-    { name = "nvme0n1", kname = "nvme0n1", path = "/dev/nvme0n1", type = "disk",
+    { name = "/dev/nvme0n1", kname = "/dev/nvme0n1", path = "/dev/nvme0n1", type = "disk",
       tran = "nvme", rota = false, serial = "SHARED", children = {} },
-    { name = "nvme0n2", kname = "nvme0n2", path = "/dev/nvme0n2", type = "disk",
+    { name = "/dev/nvme0n2", kname = "/dev/nvme0n2", path = "/dev/nvme0n2", type = "disk",
       tran = "nvme", rota = false, serial = "SHARED", children = {} },
+    { name = "/dev/zram0", kname = "/dev/zram0", path = "/dev/zram0", type = "disk",
+      rota = false, serial = "VIRTUAL", children = {} },
   } }, smart = {},
 }, "test"))
-assert(namespaces.disks[1].id ~= namespaces.disks[2].id
-    and namespaces.disks[1].id:match(":n%d+$") and namespaces.disks[2].id:match(":n%d+$"),
-  "NVMe namespaces sharing a controller serial did not receive unique IDs")
+assert(#namespaces.disks == 2, "absolute zram name was not excluded from physical drive inventory")
+assert(namespaces.disks[1].id == "SHARED:n1" and namespaces.disks[2].id == "SHARED:n2",
+  "absolute NVMe names did not receive stable namespace-qualified IDs")
 
 local empty = assert(normalizeRaw({
   schema = 2, collection_id = "   ", generated_at_epoch = 1700000000,
