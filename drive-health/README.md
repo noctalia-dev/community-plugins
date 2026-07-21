@@ -19,7 +19,8 @@ commands declared in `plugin.toml`:
 
 `lsblk`, `smartctl`, `sh`, `date`, `dirname`, `mkdir`, `mktemp`, `rm`, `sed`,
 `cat`, `chmod`, `mv`, `sudo`, `env`, `bash`, `install`, `systemctl`, `pkexec`,
-`id`, and `tr`.
+`id`, `tr`, `pacman`, `apt-get`, `dnf`, `zypper`, `apk`, `xbps-install`, and
+`emerge`.
 
 Most are standard system utilities. Install `smartctl` from the
 `smartmontools` package and `lsblk` from `util-linux`. `systemctl`, `sudo`, and

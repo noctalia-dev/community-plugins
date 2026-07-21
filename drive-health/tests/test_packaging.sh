@@ -15,6 +15,14 @@ grep -q '^RuntimeDirectoryMode=0750$' "$fixture/noctalia-gustav0ar-drive-health.
 grep -q '^UMask=0027$' "$fixture/noctalia-gustav0ar-drive-health.service"
 grep -q '^Unit=noctalia-gustav0ar-drive-health.service$' "$fixture/noctalia-gustav0ar-drive-health.timer"
 
+if grep -q 'noctalia-smart-monitor' \
+    "$project_dir/packaging/install-system-collector.sh" \
+    "$project_dir/packaging/uninstall-system-collector.sh" \
+    "$project_dir/collector.luau"; then
+  echo "generic legacy collector namespace must not be read, modified, or removed" >&2
+  exit 1
+fi
+
 if command -v systemd-analyze >/dev/null 2>&1; then
   if ! systemd-analyze verify \
       "$fixture/noctalia-gustav0ar-drive-health.service" \

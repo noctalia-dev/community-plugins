@@ -45,16 +45,5 @@ systemctl daemon-reload
 systemctl enable --now "$service_name.timer"
 systemctl start "$service_name.service"
 
-# Remove files from releases before 1.2.0 only after the replacement service
-# has completed successfully.
-systemctl disable --now noctalia-smart-monitor.timer 2>/dev/null || true
-systemctl stop noctalia-smart-monitor.service 2>/dev/null || true
-rm -f \
-  /etc/systemd/system/noctalia-smart-monitor.service \
-  /etc/systemd/system/noctalia-smart-monitor.timer \
-  /usr/local/libexec/noctalia-smart-monitor/collect_raw.sh \
-  /usr/local/libexec/noctalia-smart-monitor/smart-action.sh \
-  /usr/local/libexec/noctalia-smart-monitor/collect_smart.py
-
 echo "Installed the read-only SMART collector."
 echo "Cache: /run/$service_name/raw.json"
