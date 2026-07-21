@@ -2,6 +2,10 @@ function tr(key)
 	return noctalia.tr(key)
 end
 
+local function shellQuote(s)
+  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
 -- This could be replaced by noctalia.outputs() and noctalia.focusedOutputName() but currently the focusedOutputName() function returns nil when testing so we can't use it
 local function updateMonitors()
   noctalia.runAsync("hyprctl monitors all -j", function(output)
@@ -13,6 +17,7 @@ local function updateMonitors()
     local ok, msg = pcall(noctalia.json.decode, output.stdout)
     if not ok or type(msg) ~= "table" then
       noctalia.notify(tr("notification.monitor_list_failed"), msg)
+      return
     end
 
     local monitors = {}
@@ -32,8 +37,9 @@ local function updateMonitors()
     noctalia.state.set("focusedMonitor", focusedMonitor)
 
     -- update source and target monitor indices if they are out of bounds or not set
-    local sourceMonitor = tonumber(noctalia.state.get("sourceMonitor") or 0)
-    local targetMonitor = tonumber(noctalia.state.get("targetMonitor") or 0)
+    local sourceMonitor = noctalia.state.get("sourceMonitor") or 0
+    local targetMonitor = noctalia.state.get("targetMonitor") or 0
+    local isMirroring = noctalia.state.get("isMirroring") or false
 
     if sourceMonitor >= #monitors then
       sourceMonitor = 0
@@ -50,22 +56,24 @@ local function updateMonitors()
 
       local index = table.find(monitors, monitor.name)
       targetMonitor = index - 1
+      local mirrorId = tonumber(monitor.mirrorOf)
 
       for _, source in ipairs(msg) do
-        if source.id == monitor.mirrorOf then
+        if source.id == mirrorId then
           local sourceIndex = table.find(monitors, source.name)
           sourceMonitor = sourceIndex - 1
           break
         end
       end
 
-      noctalia.state.set("isMirroring", true)
+      isMirroring = true
 
       break
     end
 
     noctalia.state.set("sourceMonitor", sourceMonitor)
     noctalia.state.set("targetMonitor", targetMonitor)
+    noctalia.state.set("isMirroring", isMirroring)
 
   end, 5000)
 end
@@ -101,8 +109,12 @@ end
 -- Watches the Hyprland socket for monitor events and updates the state accordingly
 local function watchMonitors()
   local socketPath = hyprlandSocketPath()
-  local cmd = string.format("socat -U - UNIX-CONNECT:%s", socketPath)
+  if not socketPath then
+    noctalia.notify(tr("notification.monitor_watch_failed"), tr("notification.hyprland_socket_not_found"))
+    return
+  end
 
+  local cmd = "socat -U - UNIX-CONNECT:" .. shellQuote(socketPath)
   noctalia.runStream(cmd, handleHyprEvent)
 end
 
@@ -115,11 +127,23 @@ noctalia.state.watch("monitor_refresh", function()
 end)
 
 local function stopMirroring()
-  local targetIndex = tonumber(noctalia.state.get("targetMonitor"))
+  local targetIndex = noctalia.state.get("targetMonitor")
   local monitors = noctalia.state.get("monitors") or {}
 
+  if not targetIndex then
+    noctalia.notify(tr("notification.stop_mirroring_failed"), tr("notification.invalid_monitor_selection"))
+    return
+  end
+
   local targetMonitor = monitors[targetIndex + 1]
-  local cmd = string.format("hyprctl eval 'hl.monitor({ output = \"%s\", mirror = \"\" })'", targetMonitor)
+
+  if not targetMonitor then
+    noctalia.notify(tr("notification.stop_mirroring_failed"), tr("notification.invalid_monitor_selection"))
+    return
+  end
+
+  local expr = string.format("hl.monitor({ output = %q, mirror = \"\" })", targetMonitor)
+  local cmd = "hyprctl eval " .. shellQuote(expr)
 
   noctalia.runAsync(cmd, function(output)
     if output.timedOut or output.exitCode ~= 0 then
@@ -130,13 +154,25 @@ local function stopMirroring()
 end
 
 local function startMirroring()
-  local sourceIndex = tonumber(noctalia.state.get("sourceMonitor"))
-  local targetIndex = tonumber(noctalia.state.get("targetMonitor"))
+  local sourceIndex = noctalia.state.get("sourceMonitor")
+  local targetIndex = noctalia.state.get("targetMonitor")
   local monitors = noctalia.state.get("monitors") or {}
+
+  if not sourceIndex or not targetIndex or sourceIndex == targetIndex then
+    noctalia.notify(tr("notification.start_mirroring_failed"), tr("notification.invalid_monitor_selection"))
+    return
+  end
 
   local sourceMonitor = monitors[sourceIndex + 1]
   local targetMonitor = monitors[targetIndex + 1]
-  local cmd = string.format("hyprctl eval 'hl.monitor({ output = \"%s\", mirror = \"%s\" })'", targetMonitor, sourceMonitor)
+
+  if not sourceMonitor or not targetMonitor then
+    noctalia.notify(tr("notification.start_mirroring_failed"), tr("notification.invalid_monitor_selection"))
+    return
+  end
+
+  local expr = string.format("hl.monitor({ output = %q, mirror = %q })", targetMonitor, sourceMonitor)
+  local cmd = "hyprctl eval " .. shellQuote(expr)
 
   noctalia.runAsync(cmd, function(output)
     if output.timedOut or output.exitCode ~= 0 then

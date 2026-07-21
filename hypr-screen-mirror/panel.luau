@@ -5,8 +5,8 @@ end
 local function render()
   local monitors = noctalia.state.get("monitors") or {}
   local focusedMonitor = noctalia.state.get("focusedMonitor")
-  local sourceMonitor = tonumber(noctalia.state.get("sourceMonitor"))
-  local targetMonitor = tonumber(noctalia.state.get("targetMonitor"))
+  local sourceMonitor = noctalia.state.get("sourceMonitor")
+  local targetMonitor = noctalia.state.get("targetMonitor")
   local isMirroring = noctalia.state.get("isMirroring")
 
   local buttonColor = isMirroring and "destructive" or "primary"
@@ -46,12 +46,12 @@ function onCloseClicked()
 end
 
 function onSourceChange(selected)
-  noctalia.state.set("sourceMonitor", selected)
+  noctalia.state.set("sourceMonitor", tonumber(selected))
   render()
 end
 
 function onTargetChange(selected)
-  noctalia.state.set("targetMonitor", selected)
+  noctalia.state.set("targetMonitor", tonumber(selected))
   render()
 end
 

@@ -7,10 +7,13 @@
   },
   "notification": {
     "monitor_list_failed": "Failed to list monitors",
-    "timeout": "Command timed out",
+    "timed_out": "Command timed out",
     "no_monitors_found": "No monitors found",
     "stop_mirroring_failed": "Failed to stop mirroring",
-    "start_mirroring_failed": "Failed to start mirroring"
+    "start_mirroring_failed": "Failed to start mirroring",
+    "monitor_watch_failed": "Failed to watch monitors",
+    "hyprland_socket_not_found": "Hyprland socket not found",
+    "invalid_monitor_selection": "Invalid monitor selection"
   },
   "panel": {
     "title": "Hypr Screen Mirror",
