@@ -166,7 +166,7 @@ tags = ["network", "utility", "development", "indicator", "bar", "panel", "servi
 [[plugin]]
 id = "lux/ideapad-conservation-mode"
 name = "IdeaPad Conservation Mode"
-version = "0.3.0"
+version = "0.3.1"
 author = "lux"
 license = "MIT"
 icon = "device-laptop"
