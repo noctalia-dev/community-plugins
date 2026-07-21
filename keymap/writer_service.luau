@@ -756,21 +756,24 @@ processValidatedRequest = function(request)
 	verifyAndReload(request, transaction)
 end
 
-local function contentFingerprint(value)
-	local function xorByte(left, right)
-		local result, place = 0, 1
-		for _ = 1, 8 do
-			if left % 2 ~= right % 2 then result = result + place end
-			left = math.floor(left / 2)
-			right = math.floor(right / 2)
-			place = place * 2
-		end
-		return result
+local function xorByte(left, right)
+	local result, place = 0, 1
+	for _ = 1, 8 do
+		if left % 2 ~= right % 2 then result = result + place end
+		left = math.floor(left / 2)
+		right = math.floor(right / 2)
+		place = place * 2
 	end
+	return result
+end
+
+local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
+
+local function contentFingerprint(value)
 	local hash = 2166136261
 	for index = 1, #value do
 		local low = hash % 256
-		hash = hash - low + xorByte(low, value:byte(index))
+		hash = hash - low + xorByteFast(low, value:byte(index))
 		hash = (hash * 403 + (hash % 256) * 16777216) % 4294967296
 	end
 	return string.format("%08x", hash)

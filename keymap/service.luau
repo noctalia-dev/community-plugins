@@ -314,11 +314,13 @@ local function xorByte(left, right)
 	return result
 end
 
+local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
+
 local function fingerprint(value)
 	local hash = 2166136261
 	for index = 1, #value do
 		local low = hash % 256
-		hash = hash - low + xorByte(low, value:byte(index))
+		hash = hash - low + xorByteFast(low, value:byte(index))
 		hash = (hash * 403 + (hash % 256) * 16777216) % 4294967296
 	end
 	return string.format("%08x", hash)
@@ -1003,14 +1005,11 @@ function refresh()
 	refreshing = true
 
 	local source = expandedConfigPath()
-	local previous = noctalia.state.get(SNAPSHOT_KEY)
-	local previousCategories = type(previous) == "table" and previous.categories or {}
-	local previousTotal = type(previous) == "table" and previous.total or 0
-	local previousUpdatedAt = type(previous) == "table" and previous.updated_at or ""
-	local previousHidden = type(previous) == "table" and previous.hidden or {}
+	-- The panel keeps its last ready snapshot while this status is loading.
+	-- Avoid serializing the complete bind tree a second time on every refresh.
 	noctalia.state.set(
 		SNAPSHOT_KEY,
-		snapshot("loading", source, "", previousCategories, previousTotal, {}, previousUpdatedAt, previousHidden)
+		snapshot("loading", source, "", {}, 0, {}, "", {})
 	)
 
 	if not noctalia.commandExists("hyprctl") then
