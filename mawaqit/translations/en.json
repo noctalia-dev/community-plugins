@@ -1,135 +1,135 @@
 {
-  "plugin_name": "Mawaqit",
-  "plugin_description": "Prayer times with live countdown, notifications, and azan.",
   "panel": {
-    "title": "Prayer Times",
-    "sunrise": "Sunrise",
-    "now": "Now",
     "in": "in",
     "jumuah": "Jumu'ah",
     "loading": "Loading prayer times…",
+    "now": "Now",
+    "sunrise": "Sunrise",
+    "title": "Prayer Times",
     "tooltip": {
-      "next": "Next",
-      "time": "Time",
       "in": "In",
-      "tomorrow_fajr": "Fajr (tomorrow)",
-      "no_data": "Fetching prayer times…"
+      "next": "Next",
+      "no_data": "Fetching prayer times…",
+      "time": "Time",
+      "tomorrow_fajr": "Fajr (tomorrow)"
     }
   },
+  "plugin_description": "Prayer times with live countdown, notifications, and azan.",
+  "plugin_name": "Mawaqit",
   "settings": {
-    "city": {
-      "label": "City",
-      "description": "Your city name in English (e.g. London)."
-    },
-    "country": {
-      "label": "Country",
-      "description": "Country name or 2-letter code (e.g. UK, DZ, FR)."
-    },
-    "method": {
-      "label": "Calculation Method",
-      "description": "Choose the calculation authority followed in your region.",
-      "karachi": "University of Islamic Sciences, Karachi",
-      "isna": "Islamic Society of North America (ISNA)",
-      "mwl": "Muslim World League (MWL)",
-      "makkah": "Umm Al-Qura University, Makkah",
-      "egypt": "Egyptian General Authority of Survey",
-      "tehran": "Institute of Geophysics, Tehran",
-      "gulf": "Gulf Region",
-      "kuwait": "Kuwait",
-      "qatar": "Qatar",
-      "singapore": "Majlis Ugama Islam Singapura (MUIS)",
-      "france": "Union Organization Islamic de France",
-      "turkey": "Diyanet İşleri Başkanlığı, Turkey",
-      "russia": "Spiritual Administration of Muslims of Russia",
-      "moonsighting": "Moonsighting Committee Worldwide",
-      "dubai": "Dubai (experimental)",
-      "malaysia": "JAKIM, Malaysia",
-      "tunisia": "Tunisia",
-      "algeria": "Algeria / MESRS",
-      "indonesia": "KEMENAG, Indonesia",
-      "morocco": "Morocco",
-      "portugal": "Comunidade Islamica de Lisboa",
-      "jordan": "Ministry of Awqaf, Jordan"
-    },
-    "school": {
-      "label": "Asr Calculation School",
-      "description": "Shafi/Maliki/Hanbali uses shadow factor 1. Hanafi uses factor 2, giving a later Asr.",
-      "shafi": "Shafi / Maliki / Hanbali (default)",
-      "hanafi": "Hanafi"
-    },
-    "hijri_day_offset": {
-      "label": "Hijri Day Adjustment",
-      "description": "Shift the displayed Hijri day if the API date doesn't match your local moon sighting.",
-      "minus1": "−1 day",
-      "default": "Default (from API)",
-      "plus1": "+1 day"
-    },
-    "twelve_hour_format": {
-      "label": "12-Hour Format",
-      "description": "Show prayer times in 12-hour format (e.g. 5:23 AM) instead of 24-hour."
-    },
-    "show_notifications": {
-      "label": "Prayer notifications",
-      "description": "Show a system notification when each prayer time begins."
-    },
-    "play_azan": {
-      "label": "Play Azan",
-      "description": "Play an azan audio file when each prayer time begins."
+    "active_color": {
+      "description": "Color used when a prayer is happening now or in elapsed mode.",
+      "label": "Active color"
     },
     "azan_file": {
-      "label": "Azan audio",
-      "description": "Which azan to play. Name your files azan1.mp3 / azan2.mp3 / azan3.mp3 and place them in the plugin's assets/ folder (see README).",
       "azan1": "Azan 1",
       "azan2": "Azan 2",
-      "azan3": "Azan 3"
+      "azan3": "Azan 3",
+      "description": "Which azan to play. Name your files azan1.mp3 / azan2.mp3 / azan3.mp3 and place them in the plugin's assets/ folder (see README).",
+      "label": "Azan audio"
     },
-    "tune": {
-      "label": "Enable per-prayer time offsets",
-      "description": "Apply per-prayer minute adjustments to fine-tune times."
+    "city": {
+      "description": "Your city name in English (e.g. London).",
+      "label": "City"
     },
-    "tune_fajr": {
-      "label": "Fajr offset (minutes)"
-    },
-    "tune_dhuhr": {
-      "label": "Dhuhr offset (minutes)"
-    },
-    "tune_asr": {
-      "label": "Asr offset (minutes)"
-    },
-    "tune_maghrib": {
-      "label": "Maghrib offset (minutes)"
-    },
-    "tune_isha": {
-      "label": "Isha offset (minutes)"
-    },
-    "show_countdown": {
-      "label": "Show countdown",
-      "description": "Show a live countdown to the next prayer instead of the static time."
-    },
-    "show_elapsed": {
-      "label": "Show elapsed time after prayer",
-      "description": "After a prayer begins, count up (+) for up to 1 hour."
-    },
-    "hide_prayer_name": {
-      "label": "Hide prayer name in bar",
-      "description": "Show only the time or countdown without the prayer name."
-    },
-    "widget_icon": {
-      "label": "Bar icon"
+    "country": {
+      "description": "Country name or 2-letter code (e.g. UK, DZ, FR).",
+      "label": "Country"
     },
     "dynamic_icon": {
-      "label": "Dynamic prayer icon",
-      "description": "Show a sun/moon icon matching the current prayer instead of the fixed icon."
+      "description": "Show a sun/moon icon matching the current prayer instead of the fixed icon.",
+      "label": "Dynamic prayer icon"
     },
-    "text_color": {
-      "label": "Bar text color"
+    "hide_prayer_name": {
+      "description": "Show only the time or countdown without the prayer name.",
+      "label": "Hide prayer name in bar"
+    },
+    "hijri_day_offset": {
+      "default": "Default (from API)",
+      "description": "Shift the displayed Hijri day if the API date doesn't match your local moon sighting.",
+      "label": "Hijri Day Adjustment",
+      "minus1": "−1 day",
+      "plus1": "+1 day"
     },
     "icon_color": {
       "label": "Bar icon color"
     },
-    "active_color": {
-      "label": "Active color",
-      "description": "Color used when a prayer is happening now or in elapsed mode."
+    "method": {
+      "algeria": "Algeria / MESRS",
+      "description": "Choose the calculation authority followed in your region.",
+      "dubai": "Dubai (experimental)",
+      "egypt": "Egyptian General Authority of Survey",
+      "france": "Union Organization Islamic de France",
+      "gulf": "Gulf Region",
+      "indonesia": "KEMENAG, Indonesia",
+      "isna": "Islamic Society of North America (ISNA)",
+      "jordan": "Ministry of Awqaf, Jordan",
+      "karachi": "University of Islamic Sciences, Karachi",
+      "kuwait": "Kuwait",
+      "label": "Calculation Method",
+      "makkah": "Umm Al-Qura University, Makkah",
+      "malaysia": "JAKIM, Malaysia",
+      "moonsighting": "Moonsighting Committee Worldwide",
+      "morocco": "Morocco",
+      "mwl": "Muslim World League (MWL)",
+      "portugal": "Comunidade Islamica de Lisboa",
+      "qatar": "Qatar",
+      "russia": "Spiritual Administration of Muslims of Russia",
+      "singapore": "Majlis Ugama Islam Singapura (MUIS)",
+      "tehran": "Institute of Geophysics, Tehran",
+      "tunisia": "Tunisia",
+      "turkey": "Diyanet İşleri Başkanlığı, Turkey"
+    },
+    "play_azan": {
+      "description": "Play an azan audio file when each prayer time begins.",
+      "label": "Play Azan"
+    },
+    "school": {
+      "description": "Shafi/Maliki/Hanbali uses shadow factor 1. Hanafi uses factor 2, giving a later Asr.",
+      "hanafi": "Hanafi",
+      "label": "Asr Calculation School",
+      "shafi": "Shafi / Maliki / Hanbali (default)"
+    },
+    "show_countdown": {
+      "description": "Show a live countdown to the next prayer instead of the static time.",
+      "label": "Show countdown"
+    },
+    "show_elapsed": {
+      "description": "After a prayer begins, count up (+) for up to 1 hour.",
+      "label": "Show elapsed time after prayer"
+    },
+    "show_notifications": {
+      "description": "Show a system notification when each prayer time begins.",
+      "label": "Prayer notifications"
+    },
+    "text_color": {
+      "label": "Bar text color"
+    },
+    "tune": {
+      "description": "Apply per-prayer minute adjustments to fine-tune times.",
+      "label": "Enable per-prayer time offsets"
+    },
+    "tune_asr": {
+      "label": "Asr offset (minutes)"
+    },
+    "tune_dhuhr": {
+      "label": "Dhuhr offset (minutes)"
+    },
+    "tune_fajr": {
+      "label": "Fajr offset (minutes)"
+    },
+    "tune_isha": {
+      "label": "Isha offset (minutes)"
+    },
+    "tune_maghrib": {
+      "label": "Maghrib offset (minutes)"
+    },
+    "twelve_hour_format": {
+      "description": "Show prayer times in 12-hour format (e.g. 5:23 AM) instead of 24-hour.",
+      "label": "12-Hour Format"
+    },
+    "widget_icon": {
+      "label": "Bar icon"
     }
   }
 }

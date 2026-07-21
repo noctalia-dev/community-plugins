@@ -1,0 +1,19 @@
+{
+  "error": {
+    "device_not_found": "Die ideapad_acpi conservation_mode sysfs-Datei wurde auf diesem Gerät nicht gefunden.",
+    "read_failed": "Der aktuelle conservation_mode-Status konnte nicht gelesen werden.",
+    "write_failed": "Schreiben von conservation_mode fehlgeschlagen ({error}); das Plugin-Verzeichnis zum Ausführen des Setups konnte nicht gefunden werden.",
+    "write_failed_manual": "Schreiben von conservation_mode fehlgeschlagen ({error}). Führe scripts/setup-permissions.sh manuell mit sudo aus und melde dich dann ab und wieder an."
+  },
+  "notify": {
+    "disabled": "Deaktiviert – laden bis 100%",
+    "enabled": "Aktiviert – laden begrenzt für Akkugesundheit",
+    "setup_needed": "Einmalige Einrichtung erforderlich. Überprüfe das gerade geöffnete Terminalfenster."
+  },
+  "shortcut": {
+    "na": "Erhaltung N/V",
+    "off": "Erhaltung",
+    "on": "Erhaltung"
+  },
+  "title": "Erhaltungsmodus"
+}
