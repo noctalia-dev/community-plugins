@@ -14,6 +14,11 @@ local pendingTimerSeq = 0
 local PENDING_TIMEOUT_SECONDS = 8
 local render
 
+local function getCleanUrl()
+    if type(haUrl) ~= "string" then return "" end
+    return (haUrl:gsub("/$", ""))
+end
+
 local function getCleanToken()
     if type(haToken) ~= "string" then return "" end
     return haToken:gsub("^%s+", ""):gsub("%s+$", "")
@@ -116,7 +121,7 @@ function onClick()
 
     local entity = getEntity()
     local cleanToken = getCleanToken()
-    if not entity or not haUrl or haUrl == "" or cleanToken == "" then return end
+    if not entity or getCleanUrl() == "" or cleanToken == "" then return end
 
     local eid = entity.entity_id
     if pendingToggle[eid] then return end
@@ -128,7 +133,7 @@ function onClick()
     local encoded = noctalia.json.encode({ entity_id = eid })
 
     noctalia.http({
-        url = haUrl .. "/api/services/" .. entity.domain .. "/toggle",
+        url = getCleanUrl() .. "/api/services/" .. entity.domain .. "/toggle",
         method = "POST",
         headers = {
             "Authorization: Bearer " .. cleanToken,
