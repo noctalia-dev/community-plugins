@@ -362,3 +362,14 @@ description = "SMART health, temperature, integrity, endurance, and storage moni
 deprecated = false
 plugin_api = 3
 tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+
+[[plugin]]
+id = "kenn/keybind-cheatsheet"
+name = "Keybind Cheatsheet"
+version = "0.2.0"
+author = "kenn"
+license = "MIT"
+icon = "keyboard"
+description = "Searchable keybindings for Mango, Hyprland, and Niri."
+plugin_api = 4
+tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
