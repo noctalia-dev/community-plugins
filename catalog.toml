@@ -373,3 +373,14 @@ icon = "keyboard"
 description = "Searchable keybindings for Mango, Hyprland, and Niri."
 plugin_api = 4
 tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
+
+[[plugin]]
+id = "profidev/hypr-screen-mirror"
+name = "Hypr-Screen-Mirror"
+version = "0.1.0"
+author = "profidev"
+license = "MIT"
+icon = "screen-share"
+description = "A plugin to quickly enable and disable screen mirroring in Hyprland."
+plugin_api = 5
+tags = ["utility", "hyprland"]
