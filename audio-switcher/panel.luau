@@ -151,6 +151,13 @@ local function deviceStatus(device)
   return tr("device.available")
 end
 
+local function deviceSubtitle(device)
+  local status = deviceStatus(device)
+  local description = noctalia.string.trim(tostring(device.description or ""))
+  if description == "" or description == "(null)" or description:lower() == "null" then return status end
+  return status .. "  ·  " .. description
+end
+
 local function editor(device)
   local children = {
     ui.row({ align = "center", gap = 8 }, {
@@ -221,7 +228,7 @@ local function deviceRow(device, index, kind)
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = tostring(device.name or device.description or device.id), fontWeight = "bold", maxLines = 1 }),
         ui.label({
-          text = deviceStatus(device) .. "  ·  " .. tostring(device.description or ""),
+          text = deviceSubtitle(device),
           fontSize = 10,
           color = statusColor,
           maxLines = 1,
