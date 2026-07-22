@@ -3,7 +3,7 @@
 
 Quick calculator panel powered by [libqalculate](https://github.com/qalculate/libqalculate), inspired by rofi-calc.
 
-![Qalculate Panel Thumbnail](quick-qalculate-thumbnail.webp)
+![Qalculate Panel Thumbnail](thumbnail.webp)
 
 ## Plugin
 
