@@ -1,0 +1,21 @@
+id = "tadomika_ari/w-engine"
+name = "W Engine"
+version = "1.0.0"
+plugin_api = 3
+min_noctalia = "5.0.0"
+author = "TadomiKa-Ari"
+license = "MIT"
+dependencies = ["linux-wallpaperengine", "Steam", "Wallpaper Engine"]
+icon = "movie"
+description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
+tags = ["wallpaper", "utility"]
+
+[[widget]]
+id = "w-engine-widget"
+entry = "w-engine.luau"
+
+[[panel]]
+id = "w-engine-panel"
+entry = "w-engine-panel.luau"
+width = 800
+height = 600
