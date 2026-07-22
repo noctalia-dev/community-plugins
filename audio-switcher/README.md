@@ -5,6 +5,8 @@ audio handoff in one compact Noctalia panel. Devices can be renamed or hidden,
 and compositor keybinds can cycle devices or connect a specific Bluetooth
 device by its persistent number.
 
+![Audio Switcher panel](screenshots/panel.webp)
+
 Add the **Audio Switcher** widget from Noctalia's bar editor. Left click opens
 the panel, right click cycles through visible outputs, and middle click cycles
 through visible inputs. Scrolling over it changes the output volume.
