@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "client_id": {
+      "label": "ID client",
+      "description": "ID client de votre application développeur AniList (anilist.co/settings/developer). L'URL de redirection doit être http://127.0.0.1:7823/callback"
+    },
+    "client_secret": {
+      "label": "Secret client",
+      "description": "Secret client de la même application AniList. Ne le partagez jamais publiquement — chaque utilisateur doit utiliser sa propre application."
+    },
+    "access_token": {
+      "label": "Jeton d'accès (optionnel)",
+      "description": "Ignore la connexion navigateur si vous avez déjà un jeton bearer. Laissez vide en temps normal."
+    },
+    "glyph": {
+      "label": "Icône de la barre"
+    },
+    "count_mode": {
+      "label": "Compteur barre",
+      "description": "Quel nombre afficher à côté de l'icône dans la barre.",
+      "options": {
+        "current": "En cours (anime)",
+        "completed": "Terminé (anime)",
+        "total": "Total (tous les anime)",
+        "in_progress": "En cours (anime + manga)",
+        "planning": "Prévu (anime)"
+      }
+    }
+  },
+  "widget": {
+    "tooltip_current": "{count} anime en cours",
+    "tooltip_completed": "{count} anime terminés",
+    "tooltip_total": "{count} anime sur votre liste",
+    "tooltip_in_progress": "{count} en cours (anime + manga)",
+    "tooltip_planning": "{count} anime prévus",
+    "tooltip_empty": "AniList — ouvrir la bibliothèque",
+    "tooltip_loading": "AniList — chargement…",
+    "tooltip_error": "AniList — {error}"
+  },
+  "panel": {
+    "title": "AniList",
+    "login_title": "Se connecter à AniList",
+    "login_help": "Renseignez votre ID client et votre secret client dans les paramètres du plugin, puis cliquez sur Se connecter. Votre navigateur s'ouvre, vous autorisez AniList, et le plugin termine la connexion automatiquement.",
+    "connect": "Se connecter avec AniList",
+    "login_waiting": "En attente de la connexion dans le navigateur…",
+    "settings": "Paramètres du plugin",
+    "logout": "Se déconnecter",
+    "refresh": "Actualiser la liste",
+    "refreshing": "Actualisation…",
+    "close": "Fermer",
+    "loading": "Chargement de vos listes…",
+    "loading_more": "Chargement de la liste…",
+    "error": "Erreur : {message}",
+    "empty": "Aucune entrée dans cette liste.",
+    "tab_anime": "Anime",
+    "tab_manga": "Manga",
+    "filter_current": "En cours",
+    "filter_reading": "En lecture",
+    "filter_planning": "À voir",
+    "filter_planning_manga": "À lire",
+    "filter_completed": "Terminé",
+    "filter_paused": "En pause",
+    "filter_dropped": "Abandonné",
+    "filter_repeating": "En reprise",
+    "filter_all": "Tout",
+    "progress_anime": "Ép. {current}/{total}",
+    "progress_anime_unknown": "Ép. {current}",
+    "progress_manga": "Ch. {current}/{total}",
+    "progress_manga_unknown": "Ch. {current}",
+    "next_episode": "Ép. {episode} bientôt",
+    "open_anilist": "Ouvrir sur AniList",
+    "cover_preview": "Voir la pochette",
+    "close_preview": "Fermer l'aperçu",
+    "download_cover": "Télécharger la pochette",
+    "download_cover_success": "Pochette enregistrée dans {path}",
+    "download_cover_failed": "Impossible d'enregistrer la pochette.",
+    "download_cover_unavailable": "Installez zenity ou kdialog pour choisir où enregistrer l'image.",
+    "mark_complete": "Terminer",
+    "decrement": "Épisode ou chapitre précédent",
+    "increment": "Épisode ou chapitre suivant",
+    "updating": "Mise à jour…",
+    "logged_in_as": "Connecté en tant que {name}"
+  },
+  "service": {
+    "invalid_token": "Jeton d'accès invalide ou expiré.",
+    "network_error": "Impossible de joindre AniList.",
+    "mutation_failed": "La mise à jour a échoué.",
+    "not_configured": "Renseignez l'ID client et le secret client AniList dans les paramètres du plugin.",
+    "oauth_failed": "La connexion via le navigateur a échoué.",
+    "oauth_busy": "Une connexion est déjà en cours.",
+    "oauth_unavailable": "Impossible de démarrer l'assistant de connexion local. python3 est-il installé ?"
+  }
+}
