@@ -1,0 +1,9 @@
+{
+  "expression_prompt": "Enter an expression...",
+  "settings": {
+    "unicode": {
+      "label": "Unicode Output",
+      "description": "Enable Unicode output"
+    }
+  }
+}

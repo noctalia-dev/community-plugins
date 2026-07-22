@@ -1,0 +1,25 @@
+id = "shadr/quick-qalculate"
+name = "Quick Qalculate"
+version = "0.2.0"
+min_noctalia = "5.0.0"
+plugin_api = 3
+author = "shadr"
+license = "MIT"
+description = "Quick qalculate prompt inspired by rofi-calc"
+dependencies = ["qalc"]
+tags = ["panel", "utility"]
+
+[[setting]]
+key             = "unicode"
+type            = "bool"
+label_key       = "settings.unicode.label"
+description_key = "settings.unicode.description"
+default         = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 600
+placement = "floating"
+position = "center"
