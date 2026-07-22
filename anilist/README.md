@@ -19,7 +19,7 @@ Browse and update your AniList anime and manga lists from the Noctalia bar. Open
 5. `xdg-open` must be available on `PATH` (used to open AniList media pages from the panel).
 6. `zenity` or `kdialog` is required only if you want to download cover images from the panel preview.
 
-Network access: the service talks to `https://graphql.anilist.co` and `https://anilist.co` during login.
+Network access: GraphQL and OAuth on `anilist.co`, plus cover image URLs returned by the API (typically AniList CDN hosts such as `s4.anilist.co`).
 
 ## Usage
 
@@ -70,7 +70,10 @@ noctalia msg plugin cleboost/anilist:api all login "<jwt-access-token>"
 
 ## Notes
 
-- Login starts a temporary localhost server on port `7823` only for the duration of the OAuth flow.
+- Login starts a temporary localhost server on port `7823` only for the duration of the OAuth flow. The helper also opens your default browser for authorization.
+- OAuth login briefly writes temporary credential/result files in the plugin data directory; they are removed when login finishes.
 - Access tokens are stored in the plugin data directory (`token.json`) after a successful login.
+- Cover images are cached under the plugin data directory (`covers/v2/`).
+- Downloading a cover from the preview writes the image to a path you choose (for example `~/Downloads/`).
 - AniList tokens last about one year; connect again when they expire.
 - Incrementing progress on a **Planning** / **Plan to Read** entry moves it to **Watching** / **Reading**. Reaching the last episode/chapter marks it **Completed**.
