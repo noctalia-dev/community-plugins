@@ -9,6 +9,7 @@
     "color_temp": "Temperatura de Cor",
     "connecting": "Conectando…",
     "disconnected_reconnecting": "Desconectado. Reconectando…",
+    "unreachable": "Não foi possível acessar o Home Assistant. Verifique a URL e se o servidor está em execução.",
     "hue": "Matiz",
     "loading_entities": "Carregando entidades…",
     "manage_entities_title": "Gerenciar Entidades",
@@ -64,6 +65,7 @@
     "status_connected": "Conectado",
     "status_connecting": "Conectando",
     "status_disconnected": "Desconectado",
+    "status_unreachable": "Inacessível",
     "status_unconfigured": "Não Configurado",
     "tooltip": "Home Assistant: {status}",
     "tooltip_entities": "Home Assistant: {status} ({count} entidades)"

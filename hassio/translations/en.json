@@ -9,6 +9,7 @@
     "color_temp": "Color Temperature",
     "connecting": "Connecting…",
     "disconnected_reconnecting": "Disconnected. Reconnecting…",
+    "unreachable": "Cannot reach Home Assistant. Check the URL and that the server is running.",
     "hue": "Hue",
     "loading_entities": "Loading entities…",
     "manage_entities_title": "Manage Entities",
@@ -64,6 +65,7 @@
     "status_connected": "Connected",
     "status_connecting": "Connecting",
     "status_disconnected": "Disconnected",
+    "status_unreachable": "Unreachable",
     "status_unconfigured": "Not Configured",
     "tooltip": "Home Assistant: {status}",
     "tooltip_entities": "Home Assistant: {status} ({count} entities)"

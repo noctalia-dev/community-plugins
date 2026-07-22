@@ -39,6 +39,8 @@ local function getStatusText()
         return noctalia.tr("widget.status_connecting")
     elseif status == "disconnected" then
         return noctalia.tr("widget.status_disconnected")
+    elseif status == "unreachable" then
+        return noctalia.tr("widget.status_unreachable")
     elseif status == "auth_failed" then
         return noctalia.tr("widget.status_auth_failed")
     else
@@ -518,6 +520,9 @@ local function buildListBody(ids)
     end
     if status == "disconnected" then
         return ui.label({ text = tr("disconnected_reconnecting"), color = "error" })
+    end
+    if status == "unreachable" then
+        return ui.label({ text = tr("unreachable"), color = "error" })
     end
     if #ids == 0 then
         return ui.label({
