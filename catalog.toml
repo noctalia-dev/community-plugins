@@ -406,3 +406,14 @@ icon = "device-tv"
 description = "Browse and update your AniList anime and manga lists from a quick panel without opening the site."
 plugin_api = 3
 tags = ["media", "bar", "panel", "service", "network", "productivity"]
+
+[[plugin]]
+id = "blackbartblues/audio-switcher"
+name = "Audio Switcher"
+version = "0.1.0"
+author = "blackbartblues"
+license = "MIT"
+icon = "switch-horizontal"
+description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
+plugin_api = 5
+tags = ["audio", "bar", "hardware", "panel", "service", "system", "utility"]
