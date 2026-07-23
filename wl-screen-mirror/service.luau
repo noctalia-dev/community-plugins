@@ -172,7 +172,19 @@ local function handleMirrorLine(line)
 	elseif string.match(line, "^failed:") ~= nil then
 		finishFailed(tr("service.mirror_failed"))
 	elseif string.match(line, "^exited:") ~= nil then
-		finishFailed(tr("service.mirror_exited"))
+		local exitCode = tonumber(string.match(line, "^exited:(%d+)$"))
+		local userTerminated = exitCode == 0
+			or exitCode == 129 -- SIGHUP
+			or exitCode == 130 -- SIGINT
+			or exitCode == 131 -- SIGQUIT
+			or exitCode == 137 -- SIGKILL
+			or exitCode == 143 -- SIGTERM
+
+		if userTerminated then
+			finishStopped()
+		else
+			finishFailed(tr("service.mirror_exited"))
+		end
 	end
 end
 
