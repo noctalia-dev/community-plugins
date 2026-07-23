@@ -6,7 +6,7 @@ This plugin allows you to easily toggle screen mirroring in Wayland via `wl-mirr
 
 | Field | Value |
 | --- | --- |
-| ID | `elijaharch/screen-mirror` |
+| ID | `elijaharch/wl-screen-mirror` |
 | Entries | Bar widget: `mirror`; panel: `controls`; service: `mirror-service` |
 
 ## Requirements
@@ -20,7 +20,7 @@ This plugin allows you to easily toggle screen mirroring in Wayland via `wl-mirr
 3. Click on **Start mirroring**
 
 ```sh
-noctalia msg panel-toggle elijaharch/screen-mirror:controls
+noctalia msg panel-toggle elijaharch/wl-screen-mirror:controls
 ```
 
 The service stops mirroring automatically if either selected output disconnects.

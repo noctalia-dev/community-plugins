@@ -1,6 +1,6 @@
 --!nonstrict
 
-local PANEL_ID = "elijaharch/screen-mirror:controls"
+local PANEL_ID = "elijaharch/wl-screen-mirror:controls"
 
 local status = noctalia.state.get("mirror_status") or {
 	phase = "stopped",
