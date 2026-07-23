@@ -12,6 +12,13 @@ wallpaperPath = "~/.steam/steam/steamapps/workshop/content/431960/"
 
 local pickSlots = {}
 
+local function tr(key, subst)
+	if subst then
+		return noctalia.tr(key, subst)
+	end
+	return noctalia.tr(key)
+end
+
 type Wallpaper = {
 	nb: string,
 	name: string,
@@ -30,8 +37,8 @@ function takeWallpaper()
 	local wallpaper: { Wallpaper } = {}
 	local entries, err = noctalia.listDir(wallpaperPath)
 	if not entries then
-		warn("impossible de lister")
-		noctalia.notify("W Engine", "not work")
+		warn(err or "impossible de lister")
+		noctalia.notify(tr("panel.title"), tr("panel.list_failed"))
 		return wallpaper
 	end
 
@@ -47,7 +54,7 @@ function takeWallpaper()
 				preview = preview,
 			})
 		else
-			noctalia.notify("W Engine", "no data for " .. entryName)
+			noctalia.notify(tr("panel.title"), tr("panel.missing_project_json", { name = entryName }))
 		end
 	end
 	return wallpaper
@@ -63,7 +70,7 @@ local function onPickAt(slot)
 	local id = pickSlots[slot]
 	if id ~= nil then
 		loadWallpaper(id)
-		noctalia.notify("W Engine", "wallpaper: " .. id)
+		noctalia.notify(tr("panel.title"), tr("panel.apply", { id = id }))
 	end
 end
 
@@ -84,7 +91,7 @@ local function render()
 	end
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = "W Engine", align = "center" ,fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("panel.title"), align = "center" ,fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
 		ui.scroll({ gap = 8, align = "stretch", flexGrow = 1 }, buttons),

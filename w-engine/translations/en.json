@@ -1,4 +1,11 @@
 {
   "plugin_name": "W Engine",
-  "plugin_description": "A widget for Wallpaper Engine. Set wallpaper from Wallpaper Engine with simple click."
+  "plugin_description": "A widget for Wallpaper Engine. Set wallpaper from Wallpaper Engine with simple click.",
+  "panel": {
+    "apply": "Apply wallpaper {id}",
+    "list_failed": "Could not list Wallpaper Engine wallpapers",
+    "missing_project_json": "No project.json for {name}",
+    "no_wallpapers": "No Wallpaper Engine wallpapers found",
+    "title": "W Engine"
+  }
 }
