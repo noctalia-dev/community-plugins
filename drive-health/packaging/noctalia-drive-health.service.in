@@ -1,0 +1,36 @@
+[Unit]
+Description=Collect read-only SMART data for Noctalia Drive Health
+Documentation=man:smartctl(8)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/local/libexec/noctalia-drive-health/collect_raw.sh --output /run/noctalia-drive-health/raw.json
+Group=@TARGET_GID@
+RuntimeDirectory=noctalia-drive-health
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+UMask=0027
+StandardOutput=null
+StandardError=journal
+TimeoutStartSec=60s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SYS_ADMIN CAP_SYS_RAWIO
+ReadWritePaths=/run/noctalia-drive-health

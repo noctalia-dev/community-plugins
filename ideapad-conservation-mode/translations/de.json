@@ -11,6 +11,7 @@
     "setup_needed": "Einmalige Einrichtung erforderlich. Überprüfe das gerade geöffnete Terminalfenster."
   },
   "shortcut": {
+    "label": "Erhaltung",
     "na": "Erhaltung N/V"
   },
   "title": "Erhaltungsmodus"

@@ -1,0 +1,69 @@
+id           = "thepunkoff/pomodoro"
+name         = "Pomodoro Timer"
+version      = "1.0.0"
+plugin_api   = 3
+author       = "thepunkoff"
+license = "MIT"
+icon = "brain"
+description = "Simple pomodoro timer."
+tags = ["bar", "panel", "service", "productivity", "time"]
+dependencies = []
+
+[[setting]]
+key     = "work-duration"
+type    = "int"
+label_key = "settings.work-duration.label"
+description_key = "settings.work-duration.description"
+default = 25
+
+[[setting]]
+key     = "short-break-duration"
+type    = "int"
+label_key = "settings.short-break-duration.label"
+description_key = "settings.short-break-duration.description"
+default = 5
+
+[[setting]]
+key     = "long-break-duration"
+type    = "int"
+label_key = "settings.long-break-duration.label"
+description_key = "settings.long-break-duration.description"
+default = 15
+
+[[setting]]
+key     = "sessions-before-long-break"
+type    = "int"
+label_key = "settings.sessions-before-long-break.label"
+description_key = "settings.sessions-before-long-break.description"
+default = 4
+min = 1
+
+[[setting]]
+key     = "auto-start-breaks"
+type    = "bool"
+label_key = "settings.auto-start-breaks.label"
+description_key = "settings.auto-start-breaks.description"
+default = false
+
+[[setting]]
+key     = "auto-start-work"
+type    = "bool"
+label_key = "settings.auto-start-work.label"
+description_key = "settings.auto-start-work.description"
+default = false
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+placement = "attached"
+open_near_click = true
+width = 350
+height = 250
+
+[[service]]
+id = "pomodoro"
+entry = "pomodoro.luau"

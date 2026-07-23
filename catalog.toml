@@ -232,7 +232,7 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.1"
+version = "2.0.3"
 author = "Pozzoo"
 license = "MIT"
 icon = "smart-home"
@@ -343,10 +343,55 @@ tags = ["gaming", "launcher", "utility"]
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.0"
+version = "1.3.1"
 author = "blackbartblues"
 license = "MIT"
 icon = "keyboard"
 description = "View, create, organize, and edit Hyprland, Niri, and MangoWC keybindings."
 plugin_api = 5
 tags = ["bar", "panel", "service", "hyprland", "niri", "mangowc", "productivity", "utility"]
+
+[[plugin]]
+id = "gustav0ar/drive-health"
+name = "Drive Health"
+version = "1.2.1"
+author = "Drive Health contributors"
+license = "MIT"
+icon = "server-2"
+description = "SMART health, temperature, integrity, endurance, and storage monitoring for SSDs and hard drives."
+deprecated = false
+plugin_api = 3
+tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+
+[[plugin]]
+id = "kenn/keybind-cheatsheet"
+name = "Keybind Cheatsheet"
+version = "0.2.0"
+author = "kenn"
+license = "MIT"
+icon = "keyboard"
+description = "Searchable keybindings for Mango, Hyprland, and Niri."
+plugin_api = 4
+tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
+
+[[plugin]]
+id = "profidev/hypr-screen-mirror"
+name = "Hypr-Screen-Mirror"
+version = "0.1.0"
+author = "profidev"
+license = "MIT"
+icon = "screen-share"
+description = "A plugin to quickly enable and disable screen mirroring in Hyprland."
+plugin_api = 5
+tags = ["utility", "hyprland"]
+
+[[plugin]]
+id = "thepunkoff/pomodoro"
+name = "Pomodoro Timer"
+version = "1.0.0"
+author = "thepunkoff"
+license = "MIT"
+icon = "brain"
+description = "Simple pomodoro timer."
+plugin_api = 3
+tags = ["bar", "panel", "service", "productivity", "time"]

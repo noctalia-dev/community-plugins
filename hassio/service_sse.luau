@@ -35,10 +35,12 @@ local streamHandle = nil
 local MAX_RECONNECT_RETRIES = 10
 local CONNECTED_POLL_INTERVAL_MS = 30000
 local RECONNECT_POLL_INTERVAL_MS = 1000
+local BACKOFF_POLL_INTERVAL_MS = 60000
 local retryCount = 0
 local maxRetriesNotified = false
-local suspended = false
+local backoff = false
 local connectionRequestInFlight = false
+local connectingSince = nil
 
 local function getCleanToken()
   if type(haToken) ~= "string" then return "" end
@@ -48,6 +50,8 @@ end
 local function syncUpdateInterval()
   if status == "connected" and sseActive then
     noctalia.setUpdateInterval(CONNECTED_POLL_INTERVAL_MS)
+  elseif backoff then
+    noctalia.setUpdateInterval(BACKOFF_POLL_INTERVAL_MS)
   else
     noctalia.setUpdateInterval(RECONNECT_POLL_INTERVAL_MS)
   end
@@ -69,14 +73,19 @@ local function haRequest(endpoint, method, body, callback)
     jsonBody = noctalia.json.encode(body)
   end
 
+  local headers = {
+    "Authorization: Bearer " .. cleanToken,
+  }
+  -- Only advertise a JSON body when we actually send one.
+  if jsonBody then
+    table.insert(headers, "Content-Type: application/json")
+  end
+
   local launched = noctalia.http({
       url = url,
       method = method,
       body = jsonBody,
-      headers = {
-        "Authorization: Bearer " .. cleanToken,
-        "Content-Type: application/json",
-      }
+      headers = headers,
   }, function(response: HttpResponse)
       if not response then
         callback({ ok = false, status = 0, body = "No response" })
@@ -212,10 +221,31 @@ local function processSSELine(line)
 end
 
 local function fetchInitialStates()
-  if not isConfigured() or suspended or connectionRequestInFlight then return end
+  if not isConfigured() or connectionRequestInFlight then return end
   connectionRequestInFlight = true
+  connectingSince = os.clock()
   local launched = haRequest("/api/states", "GET", nil, function(res)
     connectionRequestInFlight = false
+    connectingSince = nil
+
+    -- status 0 = no HTTP response at all (couldn't connect / DNS / timeout): the
+    -- server is unreachable, which is a distinct case from an auth or HTTP error.
+    if res.status == 0 then
+      status = "unreachable"
+      noctalia.log("Cannot reach Home Assistant (connection failed)")
+      noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
+      return
+    end
+
+    if res.status == 401 or (res.body and (res.body:match("^401") or res.body:match("Unauthorized"))) then
+      status = "auth_failed"
+      noctalia.log("Authentication failed - check your token")
+      noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
+      noctalia.state.set("connection_status", status)
+      syncUpdateInterval()
+      return
+    end
 
     if not res.body or res.body == "" then
       noctalia.log("Empty response body from /api/states")
@@ -225,16 +255,7 @@ local function fetchInitialStates()
       return
     end
 
-    if not res.ok or res.status == 401 or res.body:match("^401") or res.body:match("Unauthorized") then
-      status = "auth_failed"
-      noctalia.log("Authentication failed - check your token")
-      noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
-      return
-    end
-
-    if not res.ok or (res.status and res.status >= 400) then
+    if not res.ok or res.status >= 400 then
       status = "disconnected"
       noctalia.log("HTTP request failed: status " .. (res.status or "unknown"))
       noctalia.state.set("connection_status", status)
@@ -255,7 +276,7 @@ local function fetchInitialStates()
     noctalia.state.set("connection_status", status)
     retryCount = 0
     maxRetriesNotified = false
-    suspended = false
+    backoff = false
 
     entityStates = {}
     local count = 0
@@ -287,14 +308,14 @@ local function fetchInitialStates()
 
   if not launched then
     connectionRequestInFlight = false
-    status = "disconnected"
+    connectingSince = nil
+    status = "unreachable"
     noctalia.state.set("connection_status", status)
     syncUpdateInterval()
   end
 end
 
 function startSSEStream()
-  if suspended then return false end
   if sseActive then return true end
 
   local cleanToken = getCleanToken()
@@ -322,8 +343,6 @@ function startSSEStream()
     streamHandle = nil
     sseActive = false
     currentEvent = {}
-
-    if suspended then return end
 
     if result and result.ok and result.status == 401 then
       status = "auth_failed"
@@ -378,7 +397,7 @@ noctalia.state.watch("panel_open_signal", function(value)
   if value then
     retryCount = 0
     maxRetriesNotified = false
-    suspended = false
+    backoff = false
   end
 end)
 
@@ -392,22 +411,30 @@ function update()
     return
   end
 
-  if suspended then
-    return
+  -- noctalia.http exposes no transport timeout, so a hung request would otherwise
+  -- pin status on "connecting" indefinitely. Treat 15s without a callback as a
+  -- failed attempt and fall through to the reconnect path below.
+  if status == "connecting" and connectingSince and (os.clock() - connectingSince) > 15 then
+    connectionRequestInFlight = false
+    connectingSince = nil
+    status = "disconnected"
+    noctalia.state.set("connection_status", status)
+    syncUpdateInterval()
   end
 
-  if status == "disconnected" then
+  if status == "disconnected" or status == "unreachable" then
     retryCount = retryCount + 1
-    if retryCount >= MAX_RECONNECT_RETRIES then
+    if retryCount >= MAX_RECONNECT_RETRIES and not backoff then
+      -- After the initial burst of fast retries, fall back to a
+      -- slow poll and keep trying, so the service reconnects on its own once HA is
+      -- reachable again (previously it suspended and only revived on panel open).
+      backoff = true
       if not maxRetriesNotified then
         maxRetriesNotified = true
         noctalia.notifyError(noctalia.tr("notifications.reconnect_failed", { count = MAX_RECONNECT_RETRIES }))
       end
-        suspended = true
-        status = "disconnected"
-        noctalia.state.set("connection_status", status)
-        return
-      end
+      syncUpdateInterval()
+    end
 
     status = "connecting"
     noctalia.state.set("connection_status", status)

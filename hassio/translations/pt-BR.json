@@ -20,7 +20,8 @@
     "save_failed_no_data_dir": "Não foi possível salvar: diretório de dados do plugin indisponível",
     "search_placeholder": "Buscar entidades…",
     "state_on_brightness": "Ligado · {percent}%",
-    "status_fallback": "Status: {status}"
+    "status_fallback": "Status: {status}",
+    "unreachable": "Não foi possível acessar o Home Assistant. Verifique a URL e se o servidor está em execução."
   },
   "settings": {
     "shortcut_entity": {
@@ -65,6 +66,7 @@
     "status_connecting": "Conectando",
     "status_disconnected": "Desconectado",
     "status_unconfigured": "Não Configurado",
+    "status_unreachable": "Inacessível",
     "tooltip": "Home Assistant: {status}",
     "tooltip_entities": "Home Assistant: {status} ({count} entidades)"
   }
