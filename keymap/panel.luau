@@ -112,12 +112,36 @@ do
   end
 end
 
+local NIL_CACHE_VALUE = {}
+local configCache = {}
+local translationCache = {}
+
 local function tr(key, args)
-  return noctalia.tr(key, args)
+  if args ~= nil then
+    return noctalia.tr(key, args)
+  end
+  local cached = translationCache[key]
+  if cached ~= nil then
+    return cached
+  end
+  local value = noctalia.tr(key)
+  translationCache[key] = value
+  return value
 end
 
 local function cfg(key)
-  return noctalia.getConfig(key)
+  local cached = configCache[key]
+  if cached ~= nil then
+    return cached ~= NIL_CACHE_VALUE and cached or nil
+  end
+  local value = noctalia.getConfig(key)
+  configCache[key] = value ~= nil and value or NIL_CACHE_VALUE
+  return value
+end
+
+local function clearHostValueCaches()
+  configCache = {}
+  translationCache = {}
 end
 
 local function asString(value, fallback)
@@ -297,7 +321,13 @@ local function expandedKeys(value)
   return { canonical }
 end
 
+local keyboardIndexSnapshot = nil
+local keyboardIndexCache = nil
+
 local function keyboardIndex()
+  if keyboardIndexSnapshot == snapshot and keyboardIndexCache ~= nil then
+    return keyboardIndexCache
+  end
   local exact = {}
   local any = {}
   for _, category in ipairs(asArray(snapshot.categories)) do
@@ -318,14 +348,20 @@ local function keyboardIndex()
       end
     end
   end
-  return { exact = exact, any = any }
+  keyboardIndexSnapshot = snapshot
+  keyboardIndexCache = { exact = exact, any = any }
+  return keyboardIndexCache
 end
 
+local keyCallbackCache = {}
 local function keyCallback(id, code)
   local name = "onKeyboardKey_" .. id
-  return registerDynamicCallback(name, function()
-    selectKeyboardKey(code)
-  end)
+  local callback = keyCallbackCache[name]
+  if callback == nil then
+    callback = function() selectKeyboardKey(code) end
+    keyCallbackCache[name] = callback
+  end
+  return registerDynamicCallback(name, callback)
 end
 
 local function contains(haystack, needle)
@@ -848,21 +884,32 @@ local function keyboardUnitsWidth(units)
   return math.max(1, math.floor(value * KEYBOARD_UNIT + (value - 1) * KEYBOARD_GAP + 0.5))
 end
 
+local colorWithOpacityCache = {}
 local function colorWithOpacity(value, fallback, opacity)
+  local cacheKey = asString(value) .. "\0" .. asString(fallback) .. "\0" .. tostring(opacity)
+  local cached = colorWithOpacityCache[cacheKey]
+  if cached ~= nil then return cached end
   local color = asString(value, fallback)
+  local result
   if string.sub(color, 1, 1) == "#" then
     local alpha = string.format("%02X", math.floor(math.max(0, math.min(1, opacity)) * 255 + 0.5))
     if #color == 7 then
-      return color .. alpha
+      result = color .. alpha
     elseif #color == 9 then
-      return string.sub(color, 1, 7) .. alpha
+      result = string.sub(color, 1, 7) .. alpha
+    else
+      result = color
     end
-    return color
+  else
+    result = color .. "/" .. string.format("%.2f", opacity)
   end
-  return color .. "/" .. string.format("%.2f", opacity)
+  colorWithOpacityCache[cacheKey] = result
+  return result
 end
 
-local function keyboardKeyNode(spec, index)
+local EMPTY_ENTRIES = {}
+
+local function keyboardKeyNode(spec, index, signature)
   if spec.spacer ~= nil then
     -- `ui.spacer` is flexible: inside a fixed-width row it absorbs remaining
     -- space and moves every key that follows it. Keyboard gaps must be rigid,
@@ -892,9 +939,8 @@ local function keyboardKeyNode(spec, index)
   end
 
   local code = canonicalKey(spec.code)
-  local signature = activeModifierSignature()
-  local exactEntries = asArray(index.exact[signature .. "|" .. code])
-  local anyEntries = asArray(index.any[code])
+  local exactEntries = index.exact[signature .. "|" .. code] or EMPTY_ENTRIES
+  local anyEntries = index.any[code] or EMPTY_ENTRIES
   local physicalModifier = MODIFIER_ALIASES[normalized(spec.code)]
   local modifierActive = physicalModifier ~= nil and activeModifiers[physicalModifier] == true
   local selected = creatorOpen and creatorHasKey(code) or selectedKeyboardKey == code
@@ -1571,7 +1617,7 @@ local function keyboardBody()
   for rowIndex, row in ipairs(layout.rows) do
     local keys = {}
     for _, spec in ipairs(row) do
-      keys[#keys + 1] = keyboardKeyNode(spec, index)
+      keys[#keys + 1] = keyboardKeyNode(spec, index, signature)
     end
     keyboardRows[#keyboardRows + 1] = ui.row({
       key = "keyboard-row-" .. layout.id .. "-" .. tostring(rowIndex),
@@ -2627,7 +2673,7 @@ end
 render = function()
   renderCallbackNames = {}
   local status = asString(snapshot.status, "idle")
-  local categories = filteredCategories()
+  local categories = viewMode == "list" and filteredCategories() or EMPTY_ENTRIES
   local requestedColumns = math.max(1, math.min(4, math.floor(tonumber(cfg("columns")) or 3)))
   local body
   if status == "error" then
@@ -2728,6 +2774,7 @@ noctalia.state.watch(UPDATE_RESULT_KEY, function(result)
 end)
 
 function onOpen(_context)
+  clearHostValueCaches()
   local configuredLayout = asString(cfg("keyboard_layout"), "100")
   keyboardLayoutId = KEYBOARD_LAYOUTS[configuredLayout] ~= nil and configuredLayout or "100"
   local current = noctalia.state.get(SNAPSHOT_KEY)
@@ -2755,6 +2802,7 @@ function onOpen(_context)
 end
 
 function onConfigChanged()
+  clearHostValueCaches()
   render()
 end
 

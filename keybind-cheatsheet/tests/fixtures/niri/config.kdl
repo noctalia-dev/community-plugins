@@ -1,0 +1,12 @@
+include "./parts/*.kdl"
+
+binds {
+    // #"Applications"
+    Mod+T hotkey-overlay-title="Terminal" { spawn "foot"; }
+    Mod+B { spawn "firefox"; }
+
+    // #"Window Management"
+    Mod+Q hotkey-overlay-title="Close window" {
+        close-window;
+    }
+}

@@ -34,6 +34,8 @@ local function getStatusText()
     return tr("status_connecting")
   elseif status == "disconnected" then
     return tr("status_disconnected")
+  elseif status == "unreachable" then
+    return tr("status_unreachable")
   elseif status == "auth_failed" then
     return tr("status_auth_failed")
   else
@@ -46,7 +48,7 @@ local function getStatusColor()
     return "primary"
   elseif status == "connecting" then
     return "on_error"
-  elseif status == "disconnected" or status == "auth_failed" then
+  elseif status == "disconnected" or status == "unreachable" or status == "auth_failed" then
     return "error"
   else
     return "on_surface_variant"

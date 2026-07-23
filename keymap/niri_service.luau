@@ -452,14 +452,17 @@ local function xorByte(left, right)
 	return result
 end
 
--- FNV-1a 32-bit without bit libraries. Splitting the prime (0x01000193) into
--- 2^24 + 403 keeps every intermediate below the exact integer limit of a
--- Lua/Luau number.
+local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
+
+-- Splitting the FNV prime (0x01000193) into 2^24 + 403 keeps every
+-- intermediate below the exact integer limit of a Lua/Luau number. Luau's
+-- native bit32 fast path avoids eight interpreted operations for every byte;
+-- the arithmetic fallback keeps the parser usable in plain-Lua tests.
 local function stableFingerprint(value)
 	local hash = 2166136261
 	for index = 1, #value do
 		local low = hash % 256
-		hash = hash - low + xorByte(low, value:byte(index))
+		hash = hash - low + xorByteFast(low, value:byte(index))
 		hash = (hash * 403 + (hash % 256) * 16777216) % 4294967296
 	end
 	return string.format("%08x", hash)
@@ -688,7 +691,7 @@ local function parseBind(combo, attributes, action, category, records, activeByC
 	activeByCombo[signature] = bind
 end
 
-local function parseConfig(root)
+local function parseConfig(root, rootSource)
 	local records = {}
 	local hidden = {}
 	local activeByCombo = {}
@@ -706,7 +709,7 @@ local function parseConfig(root)
 	end
 
 	local parseFile
-	parseFile = function(path, optional)
+	parseFile = function(path, optional, providedSource)
 		if visiting[path] then
 			warn("niri_include_cycle:" .. path)
 			return
@@ -715,7 +718,7 @@ local function parseConfig(root)
 			warn("niri_file_limit_reached")
 			return
 		end
-		local source = noctalia.readFile(path)
+		local source = providedSource or noctalia.readFile(path)
 		if type(source) ~= "string" then
 			warn((optional and "niri_optional_include_missing:" or "niri_include_unreadable:") .. path)
 			if not optional then
@@ -858,7 +861,7 @@ local function parseConfig(root)
 		visiting[path] = nil
 	end
 
-	parseFile(root, false)
+	parseFile(root, false, rootSource)
 	local categories, total = buildCategories(records)
 	return categories, total, hidden, warnings, fatalError
 end
@@ -897,18 +900,16 @@ function refresh()
 	end
 	refreshing = true
 	local source = sourcePath()
-	local previous = noctalia.state.get(SNAPSHOT_KEY)
-	local keepPrevious = type(previous) == "table" and previous.compositor == "Niri"
-	local previousCategories = keepPrevious and previous.categories or {}
-	local previousTotal = keepPrevious and previous.total or 0
-	local previousUpdatedAt = keepPrevious and previous.updated_at or ""
-	local previousHidden = keepPrevious and previous.hidden or {}
+	-- The panel keeps its last ready snapshot while this status is loading.
+	-- Do not copy the full bind tree through the shared-state serializer merely
+	-- to replace it again at the end of this synchronous refresh.
 	noctalia.state.set(
 		SNAPSHOT_KEY,
-		snapshot("loading", source, "", previousCategories, previousTotal, {}, previousUpdatedAt, previousHidden)
+		snapshot("loading", source, "", {}, 0, {}, "", {})
 	)
 
-	if type(noctalia.readFile(source)) ~= "string" then
+	local rootSource = noctalia.readFile(source)
+	if type(rootSource) ~= "string" then
 		noctalia.state.set(
 			SNAPSHOT_KEY,
 			snapshot("error", source, "niri_config_unreadable", {}, 0, {}, os.date("%H:%M:%S"))
@@ -917,7 +918,7 @@ function refresh()
 		return
 	end
 
-	local categories, total, hidden, warnings, fatalError = parseConfig(source)
+	local categories, total, hidden, warnings, fatalError = parseConfig(source, rootSource)
 	if fatalError ~= nil then
 		noctalia.state.set(
 			SNAPSHOT_KEY,

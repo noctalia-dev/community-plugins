@@ -442,35 +442,30 @@ end
 
 -- FNV-1a over the exact source line. The editor recalculates this before a
 -- write so a bind is never replaced after the file changed behind its back.
--- Multiplication is split into 16-bit words to retain exact 32-bit arithmetic
--- in runtimes where Lua numbers are doubles.
-local function xorLowByte(value, byte)
-	local low = value % 256
+-- Splitting the prime into 2^24 + 403 retains exact 32-bit arithmetic in
+-- runtimes where Lua numbers are doubles.
+local function xorByte(left, right)
 	local result = 0
 	local place = 1
 	for _ = 1, 8 do
-		if low % 2 ~= byte % 2 then
+		if left % 2 ~= right % 2 then
 			result = result + place
 		end
-		low = math.floor(low / 2)
-		byte = math.floor(byte / 2)
+		left = math.floor(left / 2)
+		right = math.floor(right / 2)
 		place = place * 2
 	end
-	return value - (value % 256) + result
+	return result
 end
+
+local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
 
 fingerprint = function(rawSnippet)
 	local hash = 2166136261
 	for index = 1, #rawSnippet do
-		hash = xorLowByte(hash, rawSnippet:byte(index))
-		local low = hash % 65536
-		local high = math.floor(hash / 65536)
-		local lowProduct = low * 403
-		local resultLow = lowProduct % 65536
-		local resultHigh = (
-			math.floor(lowProduct / 65536) + low * 256 + high * 403
-		) % 65536
-		hash = resultHigh * 65536 + resultLow
+		local low = hash % 256
+		hash = hash - low + xorByteFast(low, rawSnippet:byte(index))
+		hash = (hash * 403 + (hash % 256) * 16777216) % 4294967296
 	end
 	return string.format("%08x", hash)
 end
@@ -918,15 +913,11 @@ function refresh()
 	refreshing = true
 
 	local source = configPath()
-	local previous = noctalia.state.get(SNAPSHOT_KEY)
-	local sameCompositor = type(previous) == "table" and previous.compositor == "MangoWC"
-	local previousCategories = sameCompositor and previous.categories or {}
-	local previousTotal = sameCompositor and previous.total or 0
-	local previousUpdatedAt = sameCompositor and previous.updated_at or ""
-	local previousHidden = sameCompositor and previous.hidden or {}
+	-- The panel keeps its last ready snapshot while this status is loading.
+	-- Avoid serializing the complete bind tree a second time on every refresh.
 	noctalia.state.set(
 		SNAPSHOT_KEY,
-		snapshot("loading", source, "", previousCategories, previousTotal, {}, previousUpdatedAt, previousHidden)
+		snapshot("loading", source, "", {}, 0, {}, "", {})
 	)
 
 	local parsed = parseConfig(source)

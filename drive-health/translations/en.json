@@ -1,0 +1,266 @@
+{
+  "alerts": {
+    "active_title": "{count} active drive alert(s)",
+    "collector_error": "Drive monitoring could not refresh: {error}",
+    "collector_title": "Drive Health collector problem",
+    "command_timeout": "{drive} recorded {count} new command timeout event(s) since the previous scan.",
+    "critical_temperature_time_increase": "{drive} accumulated {count} new minute(s) above its critical temperature.",
+    "dismiss": "Dismiss alert",
+    "dismiss_all": "Dismiss all",
+    "drive_missing": "{drive} has been missing for {count} consecutive scans.",
+    "drive_title": "SMART alert: {drive}",
+    "error_log_increase": "{drive} recorded {count} new SMART error-log entry or entries.",
+    "health_failed": "{drive} reports a failed SMART health check.",
+    "interface_crc": "{drive} recorded {count} new interface CRC error(s) since the previous scan; check its data cable and connectors.",
+    "life_critical": "{drive} has critically low endurance: {remaining}% remaining.",
+    "life_warning": "{drive} has only {remaining}% estimated endurance remaining.",
+    "media_errors": "{drive} recorded {count} new media/data integrity error(s) since the previous scan.",
+    "nvme_critical": "{drive} reports NVMe critical-warning flags {value}.",
+    "pending": "{drive} recorded {count} new pending sector(s) since the previous scan.",
+    "reallocated": "{drive} recorded {count} newly reallocated sector(s) since the previous scan.",
+    "recovered_body": "No longer active: {issue}",
+    "recovered_title": "SMART issue recovered: {drive}",
+    "self_test_failed": "{drive} reports a failed SMART self-test: {status}.",
+    "smart_unavailable": "Full SMART data is unavailable for {drive}.",
+    "spare_low": "{drive} has only {spare}% spare capacity remaining.",
+    "spin_retry": "{drive} recorded {count} new spindle spin retry event(s) since the previous scan.",
+    "storage_critical": "{drive} mounted storage is critically full at {used}%.",
+    "storage_warning": "{drive} mounted storage is {used}% full.",
+    "temperature_cooling": "{drive} is cooling at {temperature} °C; the alert clears below {threshold} °C.",
+    "temperature_critical": "{drive} is at {temperature} °C (critical threshold: {threshold} °C).",
+    "temperature_warning": "{drive} is at {temperature} °C (warning threshold: {threshold} °C).",
+    "test_body": "Notifications are working. This is only a test; no drive issue was created.",
+    "test_title": "Drive Health alert test",
+    "uncorrectable": "{drive} recorded {count} new uncorrectable error(s) since the previous scan.",
+    "unknown_drive": "Unknown drive",
+    "unsafe_shutdown_increase": "{drive} recorded {count} new unsafe shutdown(s) since the previous scan.",
+    "warning_temperature_time_increase": "{drive} accumulated {count} new minute(s) above its warning temperature."
+  },
+  "collector": {
+    "basic_features": "Drive discovery, mounted folders, storage use, and temperatures exposed by Linux.",
+    "basic_title": "Basic monitoring — no elevated service",
+    "copy_install": "Copy command",
+    "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
+    "full_title": "Full SMART — optional",
+    "install": "Install collector",
+    "open_settings": "Open Plugins page",
+    "pause": "Pause service",
+    "pause_terminal_opened": "A terminal opened. Review the command and approve sudo to stop the collector timer.",
+    "remove": "Remove collector",
+    "remove_confirm": "Click Remove collector again to open the explicit privileged uninstall command.",
+    "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. Privileged actions always open a terminal for review.",
+    "settings_opened": "Opened the Plugins page. Select the gear on Drive Health to change its settings.",
+    "settings_title": "Collector settings",
+    "start": "Start collector",
+    "start_terminal_opened": "A terminal opened. Review the command and approve sudo to enable and refresh the collector.",
+    "status_disabled": "Basic mode is active; the optional system collector is not being used.",
+    "status_healthy": "Collector {version} is installed and refreshing full SMART data.",
+    "status_not_installed": "Install the read-only collector to unlock full SMART data.",
+    "status_stale": "The collector is installed, but its cache is stale or unavailable.",
+    "status_upgrade_required": "Collector {version} is outdated; upgrade to the bundled version.",
+    "stop_service": "Stop background service",
+    "terminal_opened": "A terminal opened. Review the command and approve sudo to install or upgrade.",
+    "title": "System collector",
+    "uninstall_terminal_opened": "A terminal opened. Review the removal command and approve sudo to continue.",
+    "update_body": "Full SMART is enabled. Update collector {current} to {expected} from the Drive Health panel to keep all features working.",
+    "update_title": "Drive Health collector update available",
+    "upgrade": "Upgrade collector"
+  },
+  "common": {
+    "duration_days": "{value} d",
+    "duration_hours": "{value} h",
+    "duration_years": "{value} y",
+    "never": "never",
+    "not_available": "N/A",
+    "unknown": "unknown"
+  },
+  "dependencies": {
+    "alert_body": "Install the missing dependencies to enable complete monitoring: {missing}. Open the Drive Health panel to review the command.",
+    "alert_title": "Drive Health setup required",
+    "collection_blocked": "Drive collection is paused because required commands are missing: {missing}",
+    "command": "Suggested {manager} command",
+    "copied": "Installation command copied.",
+    "copy_command": "Copy command",
+    "install": "Open installer",
+    "install_body": "A terminal is opening with the suggested command. Review it and approve the sudo and package-manager prompts to continue.",
+    "install_title": "Review the dependency installation",
+    "manual_install": "No supported package manager with sudo was detected. Install the listed commands manually, then recheck.",
+    "missing": "Missing commands: {missing}",
+    "package_manager": "package manager",
+    "recheck": "Recheck",
+    "title": "Required dependencies are missing"
+  },
+  "health": {
+    "failed": "Failed",
+    "passed": "Healthy",
+    "unknown": "Unknown"
+  },
+  "history": {
+    "hotspot": "Hotspot temperature",
+    "life": "Life remaining",
+    "samples": "{count} samples",
+    "title": "Drive health trends"
+  },
+  "metrics": {
+    "available_spare": "Available spare",
+    "command_timeout_count": "Command timeouts",
+    "critical_warning": "Critical warning",
+    "data_read": "Data read",
+    "data_written": "Data written",
+    "device_temperature_limits": "Firmware limits (warning / critical)",
+    "endurance_used": "Endurance used",
+    "error_log_entries": "Error-log entries",
+    "hotspot_and_composite": "{hotspot} · {composite} composite",
+    "hotspot_temperature": "Hotspot",
+    "interface_crc_errors": "Interface CRC errors",
+    "life_remaining": "Life remaining",
+    "life_remaining_estimated": "Life remaining (estimated)",
+    "load_cycle_count": "Head load cycles",
+    "media_errors": "Media errors",
+    "mounted_at": "Mounted at: {paths}",
+    "pending": "Pending sectors",
+    "power_cycles": "Power cycles",
+    "power_on": "Power-on time",
+    "reallocated": "Reallocated sectors",
+    "serial": "Serial: {value}",
+    "smart_health": "SMART health",
+    "spin_retry_count": "Spin retry count",
+    "start_stop_count": "Start/stop cycles",
+    "storage_used": "Storage used",
+    "temperature": "Temperature",
+    "temperature_sensors": "Temperature sensors",
+    "uncorrectable": "Uncorrectable errors",
+    "unsafe_shutdowns": "Unsafe shutdowns"
+  },
+  "panel": {
+    "collapse": "Hide drive details",
+    "expand": "Show drive details",
+    "no_drives": "No supported drives were discovered.",
+    "refreshing": "Refreshing SMART data…",
+    "title": "Drive Health",
+    "updated": "Updated {time}",
+    "waiting": "Waiting for the first drive scan…"
+  },
+  "preferences": {
+    "alerts": "Health alerts",
+    "alias": "Display name",
+    "critical_temperature": "Critical °C",
+    "edit": "Customize drive",
+    "hidden_drives": "Hidden drives",
+    "hide": "Hide drive",
+    "invalid_thresholds": "Enter numeric thresholds and keep critical temperature above warning temperature.",
+    "life_warning": "Life warning %",
+    "move_down": "Move drive down",
+    "move_up": "Move drive up",
+    "presence": "Missing-drive alerts",
+    "restore": "Restore",
+    "save": "Save",
+    "save_failed": "Drive preferences could not be saved.",
+    "saved": "Drive preferences saved.",
+    "title": "Drive preferences",
+    "warning_temperature": "Warning °C"
+  },
+  "self_test": {
+    "authorization_cancelled": "Administrator approval was cancelled.",
+    "authorization_required": "Polkit (pkexec) is required for background self-tests. Install your distribution's polkit package.",
+    "authorization_timeout": "Administrator approval timed out. Try again when you are ready to approve it.",
+    "authorizing": "Waiting for administrator approval…",
+    "cancel": "Cancel",
+    "confirm": "Start a {type} SMART self-test in the background? Your desktop will request administrator approval.",
+    "confirm_action": "Authorize and start",
+    "helper_required": "Install or upgrade the system collector to enable explicitly approved self-tests.",
+    "in_progress": "Self-test in progress",
+    "launch_failed": "The background self-test could not be started.",
+    "log_failure": "The SMART self-test log contains a relevant failed test.",
+    "log_unavailable": "Self-test log unavailable",
+    "long": "Extended test",
+    "none_recorded": "No self-test recorded",
+    "progress": "Test progress",
+    "short": "Short test",
+    "started_background": "The self-test is running in the background. Progress and the final result will update here.",
+    "starting": "Request accepted; waiting for the drive to report progress…",
+    "title": "SMART self-test",
+    "unavailable": "Self-test information unavailable"
+  },
+  "settings": {
+    "alert_hdd": {
+      "description": "Evaluate rotational disks for temperature, SMART health, sector, spindle, timeout, and interface alerts.",
+      "label": "Alert on hard drives"
+    },
+    "alerts_enabled": {
+      "description": "Notify when a new drive issue appears or an existing issue worsens.",
+      "label": "Desktop alerts"
+    },
+    "critical_temperature": {
+      "description": "Temperature in °C that changes a drive to critical color.",
+      "label": "Critical temperature"
+    },
+    "drive_missing_alerts": {
+      "description": "Warn when an established internal drive disappears for several scans.",
+      "label": "Missing-drive alerts"
+    },
+    "history_interval_minutes": {
+      "description": "Minutes between persisted temperature and endurance samples.",
+      "label": "History sample interval"
+    },
+    "history_retention_days": {
+      "description": "Days of bounded drive trend history to retain.",
+      "label": "History retention"
+    },
+    "life_warning_percent": {
+      "description": "Remaining SSD life percentage that triggers a warning.",
+      "label": "Endurance warning"
+    },
+    "missing_grace_scans": {
+      "description": "Consecutive successful scans a drive may be absent before an alert appears.",
+      "label": "Missing-drive grace scans"
+    },
+    "notify_recovery": {
+      "description": "Notify when a previously active drive issue clears.",
+      "label": "Recovery notifications"
+    },
+    "refresh_seconds": {
+      "description": "Seconds between plugin refreshes. The optional root collector refreshes its cache every 30 seconds independently.",
+      "label": "Refresh interval"
+    },
+    "show_hdd": {
+      "description": "Display rotational disks with HDD-specific health and integrity information.",
+      "label": "Show hard drives"
+    },
+    "system_collector_enabled": {
+      "description": "Use the separately authorized read-only system collector for reliable health, endurance, error counters, sensor details, and self-test progress. Turning this off ignores its cache but does not stop an installed timer; stop it from the Drive Health collector controls.",
+      "label": "Full SMART collector (optional)"
+    },
+    "use_hotspot_temperature": {
+      "description": "Use the hottest valid NVMe sensor for summary colors and temperature alerts.",
+      "label": "Use hottest sensor"
+    },
+    "warning_temperature": {
+      "description": "Temperature in °C that changes a drive to warning color.",
+      "label": "Warning temperature"
+    }
+  },
+  "smart": {
+    "access_limited": "Temperature and storage are available; health and full SMART details require the read-only system collector.",
+    "partial_body": "Full SMART details available for {available} of {total} drives.",
+    "partial_details": "Core health is available, but at least one optional SMART section could not be read.",
+    "partial_title": "Limited SMART access",
+    "sleeping": "Drive is sleeping; SMART checks were skipped to avoid spinning it up."
+  },
+  "storage": {
+    "not_mounted": "Not mounted"
+  },
+  "summary": {
+    "drive_mix": "{ssds} SSD · {hdds} HDD",
+    "drives": "Drives",
+    "hottest": "Hottest",
+    "lowest_ssd_life": "Lowest SSD life"
+  },
+  "widget": {
+    "active_alerts": "{count} active SMART alert(s)",
+    "loading": "Loading drive health…",
+    "no_alerts": "No active alerts",
+    "smart_unavailable": "Full SMART access unavailable for {count} drive(s)",
+    "tooltip": "{count} drives ({ssds} SSD, {hdds} HDD) • hottest {temperature} • lowest SSD life {remaining}"
+  }
+}
