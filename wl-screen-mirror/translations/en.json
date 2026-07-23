@@ -1,0 +1,57 @@
+{
+  "notification": {
+    "started": "Mirroring {source} to {destination}.",
+    "stopped": "Stopped mirroring {source} to {destination}."
+  },
+  "panel": {
+    "action": {
+      "start": "Start mirroring",
+      "starting": "Starting…",
+      "stop": "Stop mirroring",
+      "stopping": "Stopping…"
+    },
+    "choose_another": "Choose another monitor",
+    "close": "Close",
+    "destination_monitor": "Destination monitor",
+    "invalid_pair": "Choose two different connected monitors.",
+    "no_monitor": "No monitor available",
+    "source_monitor": "Source monitor",
+    "status": {
+      "error_message": "Screen mirroring failed.",
+      "error_title": "Error",
+      "ready_message": "Choose two different monitors.",
+      "ready_title": "Ready",
+      "running_message": "Screen mirroring is active.",
+      "running_title": "Mirroring",
+      "starting_message": "Launching wl-mirror…",
+      "starting_title": "Starting",
+      "stopping_message": "Stopping wl-mirror…",
+      "stopping_title": "Stopping"
+    },
+    "two_monitors_required": "Connect at least two monitors to start mirroring.",
+    "wl_mirror_missing": "wl-mirror was not found in PATH."
+  },
+  "service": {
+    "data_unavailable": "The plugin data directory is unavailable.",
+    "disconnected": "A selected monitor was disconnected.",
+    "invalid_pair": "Choose two different connected monitors.",
+    "launch_failed": "Noctalia could not launch wl-mirror.",
+    "mirror_active": "Screen mirroring is active.",
+    "mirror_exited": "wl-mirror exited unexpectedly.",
+    "mirror_failed": "wl-mirror failed to start.",
+    "mirror_stopped": "Screen mirroring stopped.",
+    "monitor_missing": "One of the selected monitors is no longer connected.",
+    "ready": "Choose two different monitors.",
+    "starting": "Launching wl-mirror…",
+    "stopping": "Stopping wl-mirror…",
+    "wl_mirror_missing": "wl-mirror was not found in PATH."
+  },
+  "title": "Screen Mirror",
+  "widget": {
+    "error": "Screen mirror error",
+    "ready": "Choose displays and start screen mirroring",
+    "running": "Mirroring {source} to {destination}",
+    "starting": "Starting screen mirroring",
+    "stopping": "Stopping screen mirroring"
+  }
+}

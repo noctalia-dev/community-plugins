@@ -1,0 +1,27 @@
+id = "elijaharch/wl-screen-mirror"
+name = "Wayland Screen Mirror"
+version = "1.0.0"
+plugin_api = 3
+author = "elijaharch"
+license = "MIT"
+dependencies = ["wl-mirror"]
+tags = ["bar", "panel", "service", "utility", "video"]
+icon = "screen-share"
+description = "Mirror one Wayland output to another with wl-mirror."
+
+[[widget]]
+id = "mirror"
+entry = "widget.luau"
+
+[[panel]]
+id = "controls"
+entry = "panel.luau"
+width = 420
+height = 390
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "mirror-service"
+entry = "service.luau"
