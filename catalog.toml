@@ -417,3 +417,14 @@ icon = "switch-horizontal"
 description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
 plugin_api = 5
 tags = ["audio", "bar", "hardware", "panel", "service", "system", "utility"]
+
+[[plugin]]
+id = "elijaharch/wl-screen-mirror"
+name = "Wayland Screen Mirror"
+version = "1.0.0"
+author = "elijaharch"
+license = "MIT"
+icon = "screen-share"
+description = "Mirror one Wayland output to another with wl-mirror."
+plugin_api = 3
+tags = ["bar", "panel", "service", "utility", "video"]
