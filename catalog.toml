@@ -395,3 +395,14 @@ icon = "brain"
 description = "Simple pomodoro timer."
 plugin_api = 3
 tags = ["bar", "panel", "service", "productivity", "time"]
+
+[[plugin]]
+id = "cleboost/anilist"
+name = "AniList (UNOFFICIAL)"
+version = "1.0.0"
+author = "cleboost"
+license = "MIT"
+icon = "device-tv"
+description = "Browse and update your AniList anime and manga lists from a quick panel without opening the site."
+plugin_api = 3
+tags = ["media", "bar", "panel", "service", "network", "productivity"]
