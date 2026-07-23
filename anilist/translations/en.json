@@ -1,0 +1,93 @@
+{
+  "settings": {
+    "client_id": {
+      "label": "Client ID",
+      "description": "Your AniList developer app client ID (anilist.co/settings/developer). Redirect URL must be http://127.0.0.1:7823/callback"
+    },
+    "client_secret": {
+      "label": "Client secret",
+      "description": "The client secret from the same AniList app. Never share it publicly — each user should use their own app."
+    },
+    "access_token": {
+      "label": "Access token (optional)",
+      "description": "Skip browser login if you already have a bearer token. Usually left empty."
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "count_mode": {
+      "label": "Bar count",
+      "description": "Which number to show next to the bar glyph.",
+      "options": {
+        "current": "Watching (anime in progress)",
+        "completed": "Completed (anime)",
+        "total": "Total (all anime)",
+        "in_progress": "In progress (anime + manga)",
+        "planning": "Planning (anime)"
+      }
+    }
+  },
+  "widget": {
+    "tooltip_current": "{count} anime in progress",
+    "tooltip_completed": "{count} anime completed",
+    "tooltip_total": "{count} anime on your list",
+    "tooltip_in_progress": "{count} in progress (anime + manga)",
+    "tooltip_planning": "{count} anime planned",
+    "tooltip_empty": "AniList — open library",
+    "tooltip_loading": "AniList — loading…",
+    "tooltip_error": "AniList — {error}"
+  },
+  "panel": {
+    "title": "AniList (UNOFFICIAL)",
+    "login_title": "Connect to AniList",
+    "login_help": "Set your client ID and client secret in plugin settings, then click Connect. Your browser opens, you approve AniList, and the plugin finishes login automatically.",
+    "connect": "Connect with AniList",
+    "login_waiting": "Waiting for browser login…",
+    "settings": "Plugin settings",
+    "logout": "Log out",
+    "refresh": "Reload list",
+    "refreshing": "Refreshing…",
+    "close": "Close",
+    "loading": "Loading your lists…",
+    "loading_more": "Loading more entries…",
+    "error": "Error: {message}",
+    "empty": "No entries in this list.",
+    "tab_anime": "Anime",
+    "tab_manga": "Manga",
+    "filter_current": "Watching",
+    "filter_reading": "Reading",
+    "filter_planning": "Planning",
+    "filter_planning_manga": "Plan to Read",
+    "filter_completed": "Completed",
+    "filter_paused": "Paused",
+    "filter_dropped": "Dropped",
+    "filter_repeating": "Repeating",
+    "filter_all": "All",
+    "progress_anime": "Ep {current}/{total}",
+    "progress_anime_unknown": "Ep {current}",
+    "progress_manga": "Ch {current}/{total}",
+    "progress_manga_unknown": "Ch {current}",
+    "next_episode": "Ep {episode} soon",
+    "open_anilist": "Open on AniList",
+    "cover_preview": "View cover",
+    "close_preview": "Close preview",
+    "download_cover": "Download cover",
+    "download_cover_success": "Cover saved to {path}",
+    "download_cover_failed": "Could not save the cover image.",
+    "download_cover_unavailable": "Install zenity or kdialog to choose a save location.",
+    "mark_complete": "Complete",
+    "decrement": "Previous episode/chapter",
+    "increment": "Next episode/chapter",
+    "updating": "Updating…",
+    "logged_in_as": "Signed in as {name}"
+  },
+  "service": {
+    "invalid_token": "Invalid or expired access token.",
+    "network_error": "Could not reach AniList.",
+    "mutation_failed": "Update failed.",
+    "not_configured": "Set AniList client ID and client secret in plugin settings.",
+    "oauth_failed": "Browser login failed.",
+    "oauth_busy": "A login is already in progress.",
+    "oauth_unavailable": "Could not start the local login helper. Is python3 installed?"
+  }
+}
