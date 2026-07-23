@@ -299,7 +299,7 @@ tags = ["clock"]
 [[plugin]]
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.0.0"
+version = "1.0.1"
 author = "lowcache"
 license = "MIT"
 icon = "robot"
