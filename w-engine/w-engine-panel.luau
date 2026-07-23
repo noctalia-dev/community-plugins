@@ -1,36 +1,27 @@
 --!nonstrict
 -- W-Engine panel — picks a Wallpaper Engine workshop item and applies it via
 -- linux-wallpaperengine.
---
--- Same pattern as the official mpvpaper plugin: onClick only ever receives a
--- global function *name* (no args), so each visible slot gets its own tiny
--- pre-declared function (onWallpaperClick0..N). A table (pickSlots) maps the
--- slot index to the actual wallpaper id for the *current* render, and the
--- slot handler just looks itself up in that table.
+
+-- Local variable
 
 wallpaperPath = "~/.steam/steam/steamapps/workshop/content/431960/"
-
 local pickSlots = {}
+local columns = 4
+local previewWidth = 180
+local previewHeight = 100
 
-local function tr(key, subst)
-	if subst then
-		return noctalia.tr(key, subst)
-	end
-	return noctalia.tr(key)
-end
-
+-- 
 type Wallpaper = {
 	nb: string,
 	name: string,
 	preview: string,
 }
 
-local function getNb(t)
-	local count = 0
-	for _ in pairs(t) do
-		count += 1
+function tr(key, subst)
+	if subst then
+		return noctalia.tr(key, subst)
 	end
-	return count
+	return noctalia.tr(key)
 end
 
 function takeWallpaper()
@@ -41,7 +32,6 @@ function takeWallpaper()
 		noctalia.notify(tr("panel.title"), tr("panel.list_failed"))
 		return wallpaper
 	end
-
 	for _, entryName in entries do
 		local content, readErr = noctalia.readFile(wallpaperPath .. entryName .. "/project.json")
 		if content then
@@ -66,7 +56,8 @@ function loadWallpaper(id)
 		noctalia.runAsync(cmd)
 	end, 5000)
 end
-local function onPickAt(slot)
+
+function onPickAt(slot)
 	local id = pickSlots[slot]
 	if id ~= nil then
 		loadWallpaper(id)
@@ -76,25 +67,45 @@ end
 
 local function render()
 	pickSlots = {}
-	local buttons = {}
+	local tiles = {}
 	local list = takeWallpaper()
-	local nbList = getNb(list)
-	for count = 1, nbList, 1 do
+	for count = 1, #list, 1 do
 		local data = list[count]
 		local slotIndex = count - 1
 		pickSlots[slotIndex] = data.nb
-		table.insert(buttons, ui.button({
-			text = data.name,
-			key = data.nb,
-			onClick = `onWallpaperClick{slotIndex}`,
+		table.insert(tiles, ui.column({ gap = 4, key = data.nb, align = "center" }, {
+			ui.image({
+				path = wallpaperPath .. data.nb .. "/" .. data.preview,
+				width = previewWidth,
+				height = previewHeight,
+				fit = "cover",
+				radius = 8,
+				onClick = `onWallpaperClick{slotIndex}`,
+			}),
+			ui.label({
+				text = data.name,
+				fontSize = 11,
+				maxLines = 1,
+				maxWidth = 120,
+				textAlign = "center",
+			}),
 		}))
 	end
+	local rows = {}
+	local row = {}
+	for i, tile in ipairs(tiles) do
+		table.insert(row, tile)
+		if #row == columns or i == #tiles then
+			table.insert(rows, ui.row({ gap = 12, align = "start" }, row))
+			row = {}
+		end
+end
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = tr("panel.title"), align = "center" ,fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("panel.title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
-		ui.scroll({ gap = 8, align = "stretch", flexGrow = 1 }, buttons),
+		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows),
 	}))
 end
 
@@ -106,7 +117,6 @@ function onCloseClicked()
 	panel.close()
 end
 
--- Pre-declared slot handler
 function onWallpaperClick0() onPickAt(0) end
 function onWallpaperClick1() onPickAt(1) end
 function onWallpaperClick2() onPickAt(2) end
@@ -137,3 +147,34 @@ function onWallpaperClick26() onPickAt(26) end
 function onWallpaperClick27() onPickAt(27) end
 function onWallpaperClick28() onPickAt(28) end
 function onWallpaperClick29() onPickAt(29) end
+function onWallpaperClick30() onPickAt(30) end
+function onWallpaperClick31() onPickAt(31) end
+function onWallpaperClick32() onPickAt(32) end
+function onWallpaperClick33() onPickAt(33) end
+function onWallpaperClick34() onPickAt(34) end
+function onWallpaperClick35() onPickAt(35) end
+function onWallpaperClick36() onPickAt(36) end
+function onWallpaperClick37() onPickAt(37) end
+function onWallpaperClick38() onPickAt(38) end
+function onWallpaperClick39() onPickAt(39) end
+function onWallpaperClick40() onPickAt(40) end
+function onWallpaperClick41() onPickAt(41) end
+function onWallpaperClick42() onPickAt(42) end
+function onWallpaperClick43() onPickAt(43) end
+function onWallpaperClick44() onPickAt(44) end
+function onWallpaperClick45() onPickAt(45) end
+function onWallpaperClick46() onPickAt(46) end
+function onWallpaperClick47() onPickAt(47) end
+function onWallpaperClick48() onPickAt(48) end
+function onWallpaperClick49() onPickAt(49) end
+function onWallpaperClick50() onPickAt(50) end
+function onWallpaperClick51() onPickAt(51) end
+function onWallpaperClick52() onPickAt(52) end
+function onWallpaperClick53() onPickAt(53) end
+function onWallpaperClick54() onPickAt(54) end
+function onWallpaperClick55() onPickAt(55) end
+function onWallpaperClick56() onPickAt(56) end
+function onWallpaperClick57() onPickAt(57) end
+function onWallpaperClick58() onPickAt(58) end
+function onWallpaperClick59() onPickAt(59) end
+function onWallpaperClick60() onPickAt(60) end
