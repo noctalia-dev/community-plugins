@@ -4,7 +4,7 @@
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.0.0"
+version = "1.0.1"
 # Oldest plugin API level this plugin needs (the [[panel]] kind, ui controls,
 # plugin IPC dispatch, the barWidget/onIpc surface). Bump when adopting a newer API.
 plugin_api = 3
