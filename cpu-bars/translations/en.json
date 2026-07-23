@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "bar_width": {
+      "label": "Bar width",
+      "description": "Thickness of each core's bar, in pixels."
+    },
+    "bar_gap": {
+      "label": "Bar gap",
+      "description": "Space between bars, in pixels."
+    },
+    "bar_height": {
+      "label": "Bar length",
+      "description": "Length of each bar, in pixels. This is the height on a horizontal bar and the width on a vertical one."
+    },
+    "warn_threshold": {
+      "label": "Warning threshold",
+      "description": "A core at or above this usage percentage is drawn in the warning colour."
+    },
+    "normal_color": {
+      "label": "Bar colour",
+      "description": "Colour of a core below the warning threshold. Accepts a theme role such as primary, or a hex value."
+    },
+    "warn_color": {
+      "label": "Warning colour",
+      "description": "Colour of a core at or above the warning threshold."
+    },
+    "track_color": {
+      "label": "Track colour",
+      "description": "Colour of the unfilled part of each bar, drawn at 15% opacity."
+    },
+    "show_glyph": {
+      "label": "Show icon",
+      "description": "Show a CPU icon to the left of the bars."
+    }
+  },
+  "tooltip": {
+    "total": "Total"
+  }
+}

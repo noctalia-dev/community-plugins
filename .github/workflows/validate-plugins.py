@@ -172,6 +172,10 @@ ATX_HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 OBSOLETE_CONFIG_ACCESSOR_RE = re.compile(
     r"\b(barWidget|desktopWidget|panel|launcher)\s*\.\s*getConfig\b"
 )
+# getConfig("key") / getConfig('key') — the argument must be a plain literal to be read.
+CONFIG_KEY_LITERAL_RE = re.compile(r"\bgetConfig\s*\(\s*[\"']([^\"']+)[\"']\s*\)")
+# Any getConfig call whose argument is not a bare literal (a variable, a concatenation).
+CONFIG_KEY_DYNAMIC_RE = re.compile(r"\bgetConfig\s*\(\s*(?![\"'][^\"']*[\"']\s*\))")
 
 
 def is_non_empty_string(value: Any) -> bool:
@@ -273,8 +277,13 @@ def section_body(markdown: str, headings: list[tuple[int, str, int, int]], index
     return markdown[body_start:body_end].strip()
 
 
-def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
-    """Find removed entry-specific getConfig aliases outside Luau comments and strings."""
+def mask_luau(source: str, *, mask_strings: bool) -> str:
+    """Blank out Luau comments, and optionally string literals, preserving offsets.
+
+    Newlines survive so line numbers still line up. Callers that only need to spot code
+    pass mask_strings=True; callers that need to read a literal argument pass False and
+    keep comments masked, so a getConfig call inside a comment is still ignored.
+    """
     visible = list(source)
     length = len(source)
     index = 0
@@ -302,7 +311,8 @@ def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
         if source.startswith("[[", index):
             end = source.find("]]", index + 2)
             end = length if end == -1 else end + 2
-            mask(index, end)
+            if mask_strings:
+                mask(index, end)
             index = end
             continue
 
@@ -316,17 +326,35 @@ def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
                 end += 1
                 if source[end - 1] == quote:
                     break
-            mask(index, end)
+            if mask_strings:
+                mask(index, end)
             index = end
             continue
 
         index += 1
 
-    code = "".join(visible)
+    return "".join(visible)
+
+
+def obsolete_config_accessors(source: str) -> list[tuple[str, int]]:
+    """Find removed entry-specific getConfig aliases outside Luau comments and strings."""
+    code = mask_luau(source, mask_strings=True)
     return [
         (f"{match.group(1)}.getConfig", code.count("\n", 0, match.start()) + 1)
         for match in OBSOLETE_CONFIG_ACCESSOR_RE.finditer(code)
     ]
+
+
+def config_keys_read(source: str) -> tuple[set[str], bool]:
+    """Setting keys read via noctalia.getConfig, and whether any call is not a literal.
+
+    A non-literal call — getConfig(key), getConfig("a" .. b) — means the set is not the
+    whole story, so callers must not conclude a declared setting is unused.
+    """
+    code = mask_luau(source, mask_strings=False)
+    keys = set(CONFIG_KEY_LITERAL_RE.findall(code))
+    dynamic = CONFIG_KEY_DYNAMIC_RE.search(code) is not None
+    return keys, dynamic
 
 
 def webp_dimensions(header: bytes) -> tuple[int, int] | None:
@@ -1187,6 +1215,55 @@ class Validator:
                     f"'{accessor}' on line {line} was removed; use noctalia.getConfig",
                 )
 
+    def declared_setting_keys(self, manifest: dict[str, Any]) -> set[str]:
+        keys: set[str] = set()
+        for setting in manifest.get("setting") or []:
+            if isinstance(setting, dict) and is_non_empty_string(setting.get("key")):
+                keys.add(setting["key"])
+        for kind in ENTRY_TYPES:
+            for entry in manifest.get(kind) or []:
+                if not isinstance(entry, dict):
+                    continue
+                for setting in entry.get("setting") or []:
+                    if isinstance(setting, dict) and is_non_empty_string(setting.get("key")):
+                        keys.add(setting["key"])
+        return keys
+
+    def validate_setting_usage(self, manifest_path: Path, plugin_dir: Path, manifest: dict[str, Any]) -> None:
+        """Keep plugin.toml and the Luau sources agreed on which settings exist.
+
+        Reading an undeclared key is a silent failure at runtime: the host only resolves
+        manifest-declared keys, so a typo yields nil rather than an error. The reverse —
+        a declared setting nothing reads — puts a dead control in the user's settings UI.
+        """
+        declared = self.declared_setting_keys(manifest)
+
+        read: set[str] = set()
+        dynamic = False
+        for source_path in sorted(plugin_dir.rglob("*.luau")):
+            try:
+                source = source_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue  # already reported by validate_luau_api
+            source_keys, source_dynamic = config_keys_read(source)
+            read |= source_keys
+            dynamic = dynamic or source_dynamic
+
+        for key in sorted(read - declared):
+            self.add_error(
+                manifest_path,
+                f"getConfig('{key}') reads a setting that is not declared in plugin.toml",
+            )
+
+        # Only meaningful when every call site is a literal; otherwise a key may well be
+        # read through a variable and flagging it would be a false positive.
+        if not dynamic:
+            for key in sorted(declared - read):
+                self.add_error(
+                    manifest_path,
+                    f"setting '{key}' is declared but never read via noctalia.getConfig",
+                )
+
     def validate_no_symlinks(self, manifest_path: Path, plugin_dir: Path) -> None:
         for path in plugin_dir.rglob("*"):
             if path.is_symlink():
@@ -1206,6 +1283,7 @@ class Validator:
         self.validate_thumbnail(manifest_path, plugin_dir)
         self.validate_readme(plugin_dir, manifest)
         self.validate_luau_api(plugin_dir)
+        self.validate_setting_usage(manifest_path, plugin_dir, manifest)
         self.validate_no_symlinks(manifest_path, plugin_dir)
 
         if "setting" in manifest:
