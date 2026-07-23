@@ -87,17 +87,30 @@ local function resolve_accents()
   ACCENTS.error = hex(m.mError) or ACCENTS.error
 end
 
+-- User-facing display strings live in translations/<lang>.json; resolve at call
+-- time. Per-state tips ("state.tip.<state>") and compact words ("state.word.
+-- <state>") are keyed by state name. KNOWN_STATE guards a bogus state from a
+-- manual CLI poke so it falls back to raw text / idle exactly as the old tables did.
+local function tr(key, args) return noctalia.tr(key, args) end
+local KNOWN_STATE = {
+  idle = true, turn_start = true, text = true, tool_start = true,
+  needs_attention = true, turn_end = true, error = true,
+}
+local function state_tip(s) return tr("state.tip." .. (KNOWN_STATE[s] and s or "idle")) end
+local function state_word(s) return KNOWN_STATE[s] and tr("state.word." .. s) or s end
+
 -- ── state map ────────────────────────────────────────────────────────────────
 -- `color` names an ACCENTS role; `period` is the breath cycle in seconds —
--- urgency reads as tempo (needs-you breathes fast, idle slow).
+-- urgency reads as tempo (needs-you breathes fast, idle slow). Tooltip text is
+-- resolved from translations by state name (state_tip/state_word above).
 local VISUAL = {
-  idle            = { glyph = "robot",          color = "secondary", tip = "Claude: idle",                    period = 8.0 },
-  turn_start      = { glyph = "brain",          color = "primary",   tip = "Claude: thinking",                period = 5.0 },
-  text            = { glyph = "message-dots",   color = "primary",   tip = "Claude: responding",              period = 4.5 },
-  tool_start      = { glyph = "tool",           color = "secondary", tip = "Claude: running a tool",          period = 5.0 },
-  needs_attention = { glyph = "bell-ringing",   color = "error",     tip = "Claude needs you",                period = 3.0 },
-  turn_end        = { glyph = "bell",           color = "primary",   tip = "Claude: done — ready for you",    period = 5.5 },
-  error           = { glyph = "alert-triangle", color = "error",     tip = "Claude: error",                   period = 3.5 },
+  idle            = { glyph = "robot",          color = "secondary", period = 8.0 },
+  turn_start      = { glyph = "brain",          color = "primary",   period = 5.0 },
+  text            = { glyph = "message-dots",   color = "primary",   period = 4.5 },
+  tool_start      = { glyph = "tool",           color = "secondary", period = 5.0 },
+  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 3.0 },
+  turn_end        = { glyph = "bell",           color = "primary",   period = 5.5 },
+  error           = { glyph = "alert-triangle", color = "error",     period = 3.5 },
 }
 
 -- With several sessions in different states, the bar shows the most urgent one:
@@ -105,12 +118,6 @@ local VISUAL = {
 local STATE_PRIO = {
   needs_attention = 6, error = 5, tool_start = 4,
   turn_start = 3, text = 3, turn_end = 2, idle = 1,
-}
--- Compact per-session words for the multi-session tooltip.
-local STATE_WORD = {
-  idle = "idle", turn_start = "thinking", text = "responding",
-  tool_start = "tool", needs_attention = "needs you",
-  turn_end = "done", error = "error",
 }
 
 -- sid -> { sid, state, model, tin, tout, cr, seq }. `seq` is a monotonic counter
@@ -185,8 +192,8 @@ local function has_burn(s)
 end
 
 local function burn_line(s)
-  local l = string.format("%s · %s in / %s out", s.model, kfmt(s.tin), kfmt(s.tout))
-  if (s.cr or 0) > 0 then l = l .. " · " .. kfmt(s.cr) .. " cached" end
+  local l = tr("pulse.burn", { model = s.model, tin = kfmt(s.tin), tout = kfmt(s.tout) })
+  if (s.cr or 0) > 0 then l = l .. " · " .. tr("pulse.cached", { n = kfmt(s.cr) }) end
   return l
 end
 
@@ -217,16 +224,16 @@ local function render()
 
   local tip
   if count == 0 then
-    tip = VISUAL.idle.tip
+    tip = state_tip("idle")
   elseif count == 1 then
     local s = arr[1]
-    local sv = VISUAL[s.state] or VISUAL.idle
-    tip = has_burn(s) and (sv.tip .. "\n" .. burn_line(s)) or sv.tip
+    local base = state_tip(s.state)
+    tip = has_burn(s) and (base .. "\n" .. burn_line(s)) or base
   else
-    local lines = { string.format("Claude — %d sessions", count) }
+    local lines = { tr("pulse.sessions_header", { count = count }) }
     local Tin, Tout = 0, 0
     for _, s in ipairs(arr) do
-      local line = s.sid .. " · " .. (STATE_WORD[s.state] or s.state)
+      local line = s.sid .. " · " .. state_word(s.state)
       if has_burn(s) then
         line = line .. " · " .. s.model .. " " .. kfmt(s.tin) .. "/" .. kfmt(s.tout)
         Tin = Tin + s.tin; Tout = Tout + s.tout
@@ -234,7 +241,7 @@ local function render()
       lines[#lines + 1] = line
     end
     if (Tin + Tout) > 0 then
-      lines[#lines + 1] = string.format("Σ %s in / %s out", kfmt(Tin), kfmt(Tout))
+      lines[#lines + 1] = tr("pulse.total", { tin = kfmt(Tin), tout = kfmt(Tout) })
     end
     tip = table.concat(lines, "\n")
   end
@@ -323,7 +330,7 @@ end
 -- appeared dead in live testing). Dismiss is click-outside/Esc, panel idiom.
 function onClick()
   if not noctalia.runAsync("noctalia msg panel-open 'lowcache/claude-companion:answer'") then
-    noctalia.notifyError("pulse", "could not launch the answer panel")
+    noctalia.notifyError(tr("pulse.title"), tr("pulse.panel_launch_failed"))
   end
 end
 
