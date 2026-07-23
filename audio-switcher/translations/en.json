@@ -1,0 +1,101 @@
+{
+  "title": "Audio Switcher",
+  "actions": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "connect_and_use": "Connect & use",
+    "cycle": "Cycle",
+    "edit": "Edit device",
+    "hide": "Hide device",
+    "refresh": "Refresh",
+    "save": "Save",
+    "settings": "Plugin settings",
+    "show": "Show device",
+    "use": "Use"
+  },
+  "device": {
+    "active": "Active",
+    "available": "Available",
+    "bluetooth_connected": "Bluetooth connected",
+    "bluetooth_disconnected": "Bluetooth disconnected",
+    "current": "Current"
+  },
+  "editor": {
+    "alias": "Display name",
+    "icon": "Device icon",
+    "icon_options": {
+      "automatic": "Automatic",
+      "speaker": "Speaker",
+      "over_ear": "Over-ear headphones",
+      "tws": "TWS earbuds",
+      "wired": "Wired headphones"
+    },
+    "slot": "Keybind number",
+    "slot_hint": "Use this number with the connect IPC command, for example: connect 2.",
+    "title": "Device preferences"
+  },
+  "errors": {
+    "audio_unavailable": "The audio service is unavailable.",
+    "bluetooth_audio_timeout": "Bluetooth connected, but its audio output did not appear in PipeWire in time.",
+    "bluetooth_connect_failed": "Could not connect the Bluetooth device.",
+    "bluetooth_device_not_found": "The Bluetooth device was not found. Try scanning again.",
+    "bluetooth_pair_failed": "Could not pair the Bluetooth device.",
+    "busy": "Another audio operation is still running.",
+    "command_start": "Could not start the system command.",
+    "device_not_found": "The selected device no longer exists.",
+    "device_unavailable": "The selected device is not currently available.",
+    "invalid_audio_data": "The audio service returned invalid data.",
+    "invalid_slot": "The keybind number must be a whole number from 1 to 99.",
+    "invalid_volume": "The requested volume is invalid.",
+    "no_visible_devices": "There are no visible devices to cycle through.",
+    "pactl_missing": "pactl is required but was not found on PATH.",
+    "scan_in_progress": "Bluetooth scanning is already in progress.",
+    "slot_in_use": "Keybind number {slot} is already assigned to another device.",
+    "slot_not_found": "No Bluetooth device is assigned to keybind number {slot}.",
+    "switch_failed": "Could not switch the default audio device."
+  },
+  "notifications": {
+    "bluetooth_disconnected": "Bluetooth device disconnected.",
+    "input_selected": "Input switched to {device}.",
+    "output_selected": "Output switched to {device}.",
+    "preferences_saved": "Device preferences saved.",
+    "scan_complete": "Bluetooth scan complete.",
+    "slot_saved": "Keybind number {slot} saved."
+  },
+  "settings": {
+    "show_percentage": {
+      "label": "Show percentage",
+      "description": "Show the current output volume percentage next to the bar icon. Disable it to show only the icon."
+    },
+    "scroll_step": {
+      "label": "Scroll step",
+      "description": "How many percentage points each mouse-wheel step changes volume on the bar widget."
+    }
+  },
+  "panel": {
+    "hidden": "Hidden",
+    "hidden_count": "Hidden {count}",
+    "input_volume": "Microphone",
+    "keybind_hint": "Hidden devices are skipped by cycle-output and cycle-input. Bluetooth numbers can be used with the connect IPC command.",
+    "loading": "Loading audio devices…",
+    "mute": "Mute",
+    "no_device": "No device",
+    "no_devices": "No audio devices found.",
+    "no_input": "No input",
+    "no_output": "No output",
+    "no_visible_devices": "All devices in this list are hidden.",
+    "output_volume": "Sound",
+    "scan_bluetooth": "Scan for Bluetooth audio devices",
+    "scanning": "Scanning for Bluetooth devices…",
+    "switching": "Switching audio device…",
+    "unmute": "Unmute",
+    "visible_count": "Visible {count}"
+  },
+  "tabs": {
+    "inputs": "Inputs",
+    "outputs": "Outputs"
+  },
+  "widget": {
+    "tooltip": "Output: {output} ({output_volume})\nInput: {input} ({input_volume})\nScroll: change output volume\nLeft click: open Audio Switcher\nRight click: cycle outputs\nMiddle click: cycle inputs"
+  }
+}
