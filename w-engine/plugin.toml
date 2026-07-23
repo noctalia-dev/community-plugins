@@ -2,7 +2,6 @@ id = "tadomika_ari/w-engine"
 name = "W Engine"
 version = "1.0.0"
 plugin_api = 3
-min_noctalia = "5.0.0"
 author = "TadomiKa-Ari"
 license = "MIT"
 dependencies = ["linux-wallpaperengine", "Steam", "Wallpaper Engine"]
