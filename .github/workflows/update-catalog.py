@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -46,6 +47,21 @@ def load_plugin_manifest(path: Path) -> dict:
             if not isinstance(manifest[field], bool):
                 raise ValueError(f"{path.relative_to(ROOT_DIR)} has invalid {field}; expected bool")
             out[field] = manifest[field]
+
+    out["updated_at"] = int(subprocess.run(
+        ["git", "log", "-1", "--format=%ct", "--", path],
+        capture_output=True,
+        text=True,
+        check=True,
+      ).stdout.strip())
+
+    out["added_at"] = int(subprocess.run(
+        ["git", "log", "-1", "--diff-filter=A", "--format=%ct", "--", path],
+        capture_output=True,
+        text=True,
+        check=True
+      ).stdout.strip())
+
     return out
 
 
@@ -102,6 +118,8 @@ def render_catalog(plugins: list[dict]) -> str:
                 f"id = {toml_string(plugin['id'])}",
                 f"name = {toml_string(plugin['name'])}",
                 f"version = {toml_string(plugin['version'])}",
+                f"updated_at = {plugin['updated_at']}",
+                f"added_at = {plugin['added_at']}",
                 f"author = {toml_string(plugin['author'])}",
             ]
         )
