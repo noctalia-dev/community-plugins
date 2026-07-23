@@ -10,6 +10,8 @@ local columns = 4
 local previewWidth = 180
 local previewHeight = 100
 
+local outputFinalList = {}
+local outputSelectedName = nil
 -- 
 type Wallpaper = {
 	nb: string,
@@ -33,6 +35,11 @@ function takeWallpaper()
 		return wallpaper
 	end
 	for _, entryName in entries do
+
+		if not tonumber(entryName) then -- test if is a id 
+			continue
+		end
+
 		local content, readErr = noctalia.readFile(wallpaperPath .. entryName .. "/project.json")
 		if content then
 			local value = noctalia.json.decode(content)
@@ -51,8 +58,17 @@ function takeWallpaper()
 end
 
 function loadWallpaper(id)
+	
+	if outputSelectedName == nil then
+		noctalia.runAsync("pkill -f linux-wallpaper", function()
+			local cmd = "setsid linux-wallpaperengine --screen-root eDP-1 " .. id .. " > /dev/null 2>&1"
+			noctalia.runAsync(cmd)
+		end, 5000)
+		return
+	end
+
 	noctalia.runAsync("pkill -f linux-wallpaper", function()
-		local cmd = "setsid linux-wallpaperengine --screen-root eDP-1 " .. id .. " > /dev/null 2>&1"
+		local cmd = "setsid linux-wallpaperengine --screen-root " .. outputSelectedName .. " " .. id .. " > /dev/null 2>&1"
 		noctalia.runAsync(cmd)
 	end, 5000)
 end
@@ -103,10 +119,31 @@ end
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = tr("panel.title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.select({ options = getOutput(), onChange = "outputSelected" }),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
 		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows),
 	}))
+end
+
+function outputSelected(index, label)
+	if type(label) == "string" and label ~= "" then
+		outputSelectedName = label
+		noctalia.notify("Output change :", outputSelectedName)
+	end
+end
+
+function getOutput()
+	outputFinalList = {}
+	local outputsList = noctalia.outputs()
+	if not outputsList then
+		return
+	end
+	for _, output in ipairs(outputsList) do
+		noctalia.log(output.name)
+		table.insert(outputFinalList, output.name)
+	end
+	return outputFinalList
 end
 
 function onOpen(_context)
