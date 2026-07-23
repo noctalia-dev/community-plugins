@@ -1,88 +1,88 @@
 {
-  "title": "Keybind Cheatsheet",
-  "widget_tooltip": "Open keybind cheatsheet",
-  "loading": "Reading keybindings...",
-  "search_placeholder": "Search keys, descriptions, and actions",
-  "refresh": "Refresh",
   "appearance": "Appearance",
   "back": "Back",
-  "clear": "Clear search",
-  "edit_bindings": "Edit bindings",
-  "finish_editing": "Finish editing",
-  "edit_description": "Edit description",
-  "hide_binding": "Hide binding",
-  "show_binding": "Show binding",
-  "save": "Save",
-  "cancel": "Cancel",
-  "reset": "Reset",
-  "paste": "Paste color",
-  "choose_color": "Choose color",
-  "restore_hidden": "Restore hidden bindings",
-  "reset_colors": "Reset all colors",
-  "no_results": "No keybindings match this search.",
-  "without_description": "Without Description",
-  "other": "Other",
-  "source_warning": "Some configuration files could not be read.",
-  "unsupported": "No supported compositor was detected.",
-  "missing_config": "The configured keybind file could not be read.",
-  "hyprctl_missing": "hyprctl is required for Hyprland Lua keybindings.",
-  "hyprctl_failed": "Hyprland did not return its active keybindings.",
-  "customize_colors": "Key colors",
   "background": "Background",
-  "text": "Text",
-  "hidden_count": "{count} hidden",
   "binding_count": "{count} bindings",
+  "cancel": "Cancel",
+  "choose_color": "Choose color",
+  "clear": "Clear search",
+  "customize_colors": "Key colors",
+  "edit_bindings": "Edit bindings",
+  "edit_description": "Edit description",
+  "finish_editing": "Finish editing",
+  "hidden_count": "{count} hidden",
+  "hide_binding": "Hide binding",
+  "hyprctl_failed": "Hyprland did not return its active keybindings.",
+  "hyprctl_missing": "hyprctl is required for Hyprland Lua keybindings.",
+  "loading": "Reading keybindings...",
+  "missing_config": "The configured keybind file could not be read.",
+  "no_results": "No keybindings match this search.",
+  "other": "Other",
+  "paste": "Paste color",
+  "refresh": "Refresh",
+  "reset": "Reset",
+  "reset_colors": "Reset all colors",
+  "restore_hidden": "Restore hidden bindings",
+  "save": "Save",
+  "search_placeholder": "Search keys, descriptions, and actions",
   "settings": {
+    "columns": {
+      "description": "Maximum number of balanced columns in the panel.",
+      "label": "Columns"
+    },
     "compositor": {
-      "label": "Compositor",
       "description": "Detect the active compositor or force a parser.",
+      "label": "Compositor",
       "options": {
         "auto": "Automatic",
-        "mango": "Mango",
         "hyprland": "Hyprland",
+        "mango": "Mango",
         "niri": "Niri"
       }
     },
-    "mango_config": {
-      "label": "Mango config",
-      "description": "Main Mango configuration file. Source directives are followed."
+    "glyph": {
+      "description": "Icon shown in the bar.",
+      "label": "Glyph"
     },
     "hyprland_config": {
-      "label": "Hyprland config",
-      "description": "Main classic Hyprland configuration file."
+      "description": "Main classic Hyprland configuration file.",
+      "label": "Hyprland config"
     },
     "hyprland_lua_config": {
-      "label": "Hyprland Lua config",
-      "description": "Lua configuration used to recover categories for live binds."
+      "description": "Lua configuration used to recover categories for live binds.",
+      "label": "Hyprland Lua config"
     },
     "hyprland_parser": {
-      "label": "Hyprland parser",
       "description": "Use the live Lua bind list, classic config, or automatic detection.",
+      "label": "Hyprland parser",
       "options": {
         "auto": "Automatic",
-        "lua": "Lua / hyprctl",
-        "conf": "Classic config"
+        "conf": "Classic config",
+        "lua": "Lua / hyprctl"
       }
     },
+    "mango_config": {
+      "description": "Main Mango configuration file. Source directives are followed.",
+      "label": "Mango config"
+    },
     "niri_config": {
-      "label": "Niri config",
-      "description": "Main Niri KDL configuration file. Include directives are followed."
-    },
-    "columns": {
-      "label": "Columns",
-      "description": "Maximum number of balanced columns in the panel."
-    },
-    "show_undescribed": {
-      "label": "Show undescribed bindings",
-      "description": "Put bindings without descriptions in a separate section."
+      "description": "Main Niri KDL configuration file. Include directives are followed.",
+      "label": "Niri config"
     },
     "show_actions": {
-      "label": "Show actions",
-      "description": "Show compositor commands below binding descriptions."
+      "description": "Show compositor commands below binding descriptions.",
+      "label": "Show actions"
     },
-    "glyph": {
-      "label": "Glyph",
-      "description": "Icon shown in the bar."
+    "show_undescribed": {
+      "description": "Put bindings without descriptions in a separate section.",
+      "label": "Show undescribed bindings"
     }
-  }
+  },
+  "show_binding": "Show binding",
+  "source_warning": "Some configuration files could not be read.",
+  "text": "Text",
+  "title": "Keybind Cheatsheet",
+  "unsupported": "No supported compositor was detected.",
+  "widget_tooltip": "Open keybind cheatsheet",
+  "without_description": "Without Description"
 }
