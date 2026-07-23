@@ -1,5 +1,5 @@
 --!nonstrict
--- AniList library panel: login, filters, scrollable list, episode/chapter controls.
+-- AniList (UNOFFICIAL) library panel: login, filters, scrollable list, episode/chapter controls.
 
 local COVER_WIDTH = 44
 local COVER_HEIGHT = 62

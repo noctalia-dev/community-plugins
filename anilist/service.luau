@@ -1,5 +1,5 @@
 --!nonstrict
--- AniList background service: OAuth token storage, GraphQL queries, and list mutations.
+-- AniList (UNOFFICIAL) background service: OAuth token storage, GraphQL queries, and list mutations.
 -- The panel and widget only talk through noctalia.state; they never hit the network.
 
 local GRAPHQL_URL = "https://graphql.anilist.co"

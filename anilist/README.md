@@ -1,6 +1,6 @@
-# AniList
+# AniList (UNOFFICIAL)
 
-Browse and update your AniList anime and manga lists from the Noctalia bar. Open the panel to see what you are watching, planning, or have finished, then increment or decrement episode/chapter progress without opening the website.
+Unofficial Noctalia plugin to browse and update your AniList anime and manga lists from the bar. Open the panel to see what you are watching, planning, or have finished, then increment or decrement episode/chapter progress without opening the website.
 
 ## Plugin
 
@@ -23,7 +23,7 @@ Network access: GraphQL and OAuth on `anilist.co`, plus cover image URLs returne
 
 ## Usage
 
-Add the **AniList** bar widget (`tracker`) from Settings, then click it to open the library panel.
+Add the **AniList (UNOFFICIAL)** bar widget (`tracker`) from Settings, then click it to open the library panel.
 
 ```sh
 noctalia msg panel-toggle cleboost/anilist:library
@@ -70,6 +70,7 @@ noctalia msg plugin cleboost/anilist:api all login "<jwt-access-token>"
 
 ## Notes
 
+- This is an unofficial third-party plugin and is not affiliated with or endorsed by AniList.
 - Login starts a temporary localhost server on port `7823` only for the duration of the OAuth flow. The helper also opens your default browser for authorization.
 - OAuth login briefly writes temporary credential/result files in the plugin data directory; they are removed when login finishes.
 - Access tokens are stored in the plugin data directory (`token.json`) after a successful login.

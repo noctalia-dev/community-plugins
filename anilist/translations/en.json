@@ -38,7 +38,7 @@
     "tooltip_error": "AniList — {error}"
   },
   "panel": {
-    "title": "AniList",
+    "title": "AniList (UNOFFICIAL)",
     "login_title": "Connect to AniList",
     "login_help": "Set your client ID and client secret in plugin settings, then click Connect. Your browser opens, you approve AniList, and the plugin finishes login automatically.",
     "connect": "Connect with AniList",

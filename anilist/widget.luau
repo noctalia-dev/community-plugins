@@ -1,5 +1,5 @@
 --!nonstrict
--- AniList bar widget: opens the library panel and shows a configurable list count.
+-- AniList (UNOFFICIAL) bar widget: opens the library panel and shows a configurable list count.
 
 local PANEL_ID = "cleboost/anilist:library"
 

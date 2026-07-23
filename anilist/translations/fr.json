@@ -38,7 +38,7 @@
     "tooltip_error": "AniList — {error}"
   },
   "panel": {
-    "title": "AniList",
+    "title": "AniList (UNOFFICIEL)",
     "login_title": "Se connecter à AniList",
     "login_help": "Renseignez votre ID client et votre secret client dans les paramètres du plugin, puis cliquez sur Se connecter. Votre navigateur s'ouvre, vous autorisez AniList, et le plugin termine la connexion automatiquement.",
     "connect": "Se connecter avec AniList",
