@@ -1,0 +1,83 @@
+# Battery & Power Management — Noctalia v5 plugin.
+#
+# Architecture (mirrors the official `timer` plugin): one headless [[service]]
+# owns all polling + system calls and publishes a single state snapshot; the
+# [[widget]] and [[panel]] are thin UI clients that read that snapshot and send
+# commands back through noctalia.state. No Lua memory is shared between entries.
+
+id          = "piero-93/battery-power-management"
+name        = "Battery & Power Management"
+version     = "1.0.0"
+min_noctalia = "5.0.0"
+author      = "piero-93"
+license     = "GPL-3.0"
+icon        = "battery-charging"
+description = "Battery widget with live power draw, power-profile switching, and charge-limit control — no root at runtime."
+tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
+
+# Runtime dependencies the service shells out to. Both are optional: the plugin
+# degrades gracefully (commandExists gates each). See README for what runs.
+dependencies = ["powerprofilesctl", "upower"]
+
+# ── Plugin-level settings (shared by every entry; edited in Settings GUI) ──
+
+[[setting]]
+key            = "colorize_by_profile"
+type           = "bool"
+label_key      = "settings.colorize_by_profile.label"
+description_key = "settings.colorize_by_profile.description"
+default        = true
+
+[[setting]]
+key            = "color_power_saver"
+type           = "color"
+label_key      = "settings.color_power_saver.label"
+description_key = "settings.color_power_saver.description"
+default        = "secondary"
+
+[[setting]]
+key            = "color_performance"
+type           = "color"
+label_key      = "settings.color_performance.label"
+description_key = "settings.color_performance.description"
+default        = "error"
+
+[[setting]]
+key            = "show_profile"
+type           = "bool"
+label_key      = "settings.show_profile.label"
+description_key = "settings.show_profile.description"
+default        = true
+
+[[setting]]
+key            = "show_balanced_icon"
+type           = "bool"
+label_key      = "settings.show_balanced_icon.label"
+description_key = "settings.show_balanced_icon.description"
+default        = false
+
+[[setting]]
+key            = "battery_device"
+type           = "string"
+label_key      = "settings.battery_device.label"
+description_key = "settings.battery_device.description"
+default        = "BAT0"
+
+# ── Entries ──
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 340
+height          = 300
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"
