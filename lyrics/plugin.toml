@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.2"
+version = "1.4.3"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
@@ -461,11 +461,23 @@ entry = "lyrics_service.luau"
 id = "lyrics"
 entry = "lyrics.luau"
 
+[widget.settings."enable_scroll"]
+type = "boolean"
+default = true
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+  default = true
+
   [[widget.setting]]
   key = "glyph"
   type = "glyph"
   label_key = "settings.glyph.label"
   default = "music"
+  visible_when = { key = "show_glyph", values = ["true"] }
 
   [[widget.setting]]
   key = "show_artist"

@@ -129,6 +129,10 @@
     "glyph": {
       "label": "图标"
     },
+    "show_glyph": {
+      "label": "显示图标",
+      "description": "没有专辑封面时显示设置的图标。"
+    },
     "gradient": {
       "description": "根据播放进度逐字点亮当前歌词。",
       "label": "逐字渐变"

@@ -129,6 +129,10 @@
     "glyph": {
       "label": "Glyph"
     },
+    "show_glyph": {
+      "label": "Show glyph",
+      "description": "Display the configured glyph when no album cover is available."
+    },
     "gradient": {
       "description": "Light up each character as the song progresses (karaoke style).",
       "label": "Per-character gradient"
