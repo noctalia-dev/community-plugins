@@ -1,0 +1,22 @@
+id = "8bury/lid-guard"
+name = "Lid Guard"
+version = "1.0.0"
+plugin_api = 3
+author = "8bury"
+license = "MIT"
+icon = "shield-lock"
+description = "Keep the laptop awake when its lid is closed, so background jobs can continue running."
+tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
+dependencies = ["systemctl", "systemd-run", "systemd-inhibit", "sleep"]
+
+[[service]]
+id = "lid-guard-service"
+entry = "service.luau"
+
+[[widget]]
+id = "lid-guard"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "lid-guard-toggle"
+entry = "shortcut.luau"
