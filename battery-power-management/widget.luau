@@ -1,10 +1,4 @@
 --!nonstrict
--- Battery & Power Management — [[widget]] bar entry.
---
--- A thin client of the service snapshot. Renders a battery glyph + "NN% ±W.W"
--- and (optionally) a power-profile glyph, tinted by charge/profile state. Click
--- opens the panel. Data is state-driven (state.watch); update() only refreshes
--- orientation and re-renders as a safety tick.
 
 local SNAPSHOT = "battery.snapshot"
 local PANEL_ID = "piero-93/battery-power-management:panel"
@@ -18,7 +12,6 @@ local snap = noctalia.state.get(SNAPSHOT) or {
 }
 local isVertical = false
 
--- Accent color role/hex shared by glyph + text.
 local function accent()
   if snap.status == "Charging" then
     return "primary"

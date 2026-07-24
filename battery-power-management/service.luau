@@ -1,22 +1,12 @@
 --!nonstrict
--- Battery & Power Management — headless [[service]] entry.
---
--- Owns every read and write to the system and publishes one immutable snapshot
--- table on "battery.snapshot". UI entries (widget, panel) read that snapshot and
--- push commands back on "battery.command" ({ action, value, requestId }); the
--- requestId nonce guarantees even a repeated identical command re-fires watch.
---
---   noctalia.readFile(path)            sysfs battery uevent / charge threshold
---   noctalia.runAsync(cmd, cb)         powerprofilesctl / upower / sysfs write
---   noctalia.commandExists(name)       feature-gate optional tools
---   noctalia.state.set/watch           publish snapshot / receive commands
---   noctalia.setUpdateInterval(ms)     poll cadence
 
 local SNAPSHOT = "battery.snapshot"
 local COMMAND = "battery.command"
 
-local POLL_MS = 2000
-local ETA_EVERY = 5 -- poll upower every 5 ticks (~10s); it spawns a process
+local POLL_MS = 5000 -- sysfs battery/threshold cadence
+local PROBE_EVERY = 3 -- powerprofilesctl+upower round every Nth tick (~15s)
+local PROBE_TIMEOUT_MS = 5000
+local SEP = "__NBPM_SEP__" -- separates the two command outputs in one shell run
 
 local HAS_PPD = noctalia.commandExists("powerprofilesctl")
 local HAS_UPOWER = noctalia.commandExists("upower")
@@ -25,7 +15,7 @@ local snapshot = {
   percent = 0,
   status = "Unknown", -- raw sysfs status: Charging / Discharging / Full / Not charging / Unknown
   watt = 0.0,
-  eta = "", -- pre-formatted "1h 20m" / "" when unknown
+  eta = "", -- pre-formatted "1h 20m", "" when unknown
   profile = "balanced",
   threshold = 80,
   hasThreshold = false,
@@ -33,13 +23,13 @@ local snapshot = {
 }
 
 local tick = 0
+local probing = false -- true while a profile/eta subprocess round is in flight
 
--- Wrap a value for safe use inside a shell command string (runAsync runs a shell).
 local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
--- Accept a bare device ("BAT0") or a full path; keep only the trailing name.
+-- Accept "BAT0" or a full sysfs path.
 local function deviceName()
   local d = noctalia.getConfig("battery_device")
   if type(d) ~= "string" or d == "" then
@@ -53,7 +43,7 @@ local function sysfsBase()
   return "/sys/class/power_supply/" .. deviceName()
 end
 
--- Publish a fresh copy so watchers always see a distinct value and re-render.
+-- Fresh copy each publish so watchers see a distinct value.
 local function publish()
   noctalia.state.set(SNAPSHOT, {
     percent = snapshot.percent,
@@ -67,7 +57,7 @@ local function publish()
   })
 end
 
--- "1.2 hours" / "34 minutes" (upower units) -> "1h 12m" / "34m".
+-- upower units ("1.2 hours" / "34 minutes") -> "1h 12m" / "34m".
 local function formatUpowerTime(value)
   local numStr, unit = value:match("^(%S+)%s*(%S*)")
   local num = tonumber(numStr)
@@ -94,8 +84,6 @@ local function formatUpowerTime(value)
   end
   return string.format("%dm", m)
 end
-
--- ── Synchronous sysfs reads ──────────────────────────────────────────────────
 
 local function pollBattery()
   local content = noctalia.readFile(sysfsBase() .. "/uevent")
@@ -144,32 +132,36 @@ local function pollThreshold()
   snapshot.hasThreshold = false
 end
 
--- ── Async system calls ───────────────────────────────────────────────────────
-
-local function pollProfile()
-  if not HAS_PPD then
+-- Profile + ETA in one guarded shell call, so update() never overruns its budget.
+local function probeProfileAndEta()
+  if probing or not (HAS_PPD or HAS_UPOWER) then
     return
   end
-  noctalia.runAsync("powerprofilesctl get", function(res)
-    if res.exitCode == 0 then
-      local p = noctalia.string.trim(res.stdout)
-      if p ~= "" and p ~= snapshot.profile then
+  probing = true
+
+  local profileCmd = HAS_PPD and "powerprofilesctl get" or "true"
+  local etaCmd = HAS_UPOWER
+      and ("upower -i /org/freedesktop/UPower/devices/battery_" .. deviceName())
+    or "true"
+  local cmd = profileCmd .. "; echo " .. SEP .. "; " .. etaCmd
+
+  local launched = noctalia.runAsync(cmd, function(res)
+    probing = false
+    local out = res.stdout or ""
+    local sepAt = out:find(SEP, 1, true)
+    local profOut = sepAt and out:sub(1, sepAt - 1) or ""
+    local etaOut = sepAt and out:sub(sepAt + #SEP) or out
+
+    if HAS_PPD then
+      local p = noctalia.string.trim(profOut)
+      if p ~= "" then
         snapshot.profile = p
-        publish()
       end
     end
-  end)
-end
 
-local function pollEta()
-  if not HAS_UPOWER then
-    return
-  end
-  local dev = deviceName()
-  noctalia.runAsync("upower -i /org/freedesktop/UPower/devices/battery_" .. dev, function(res)
     local eta = ""
-    if res.exitCode == 0 then
-      for line in res.stdout:gmatch("[^\n]+") do
+    if HAS_UPOWER then
+      for line in etaOut:gmatch("[^\n]+") do
         local l = noctalia.string.trim(line)
         local val = l:match("^time to empty:%s*(.+)$") or l:match("^time to full:%s*(.+)$")
         if val then
@@ -178,14 +170,14 @@ local function pollEta()
         end
       end
     end
-    if eta ~= snapshot.eta then
-      snapshot.eta = eta
-      publish()
-    end
-  end)
-end
+    snapshot.eta = eta
+    publish()
+  end, PROBE_TIMEOUT_MS)
 
--- ── Commands from the UI entries ─────────────────────────────────────────────
+  if not launched then
+    probing = false
+  end
+end
 
 noctalia.state.watch(COMMAND, function(cmd)
   if type(cmd) ~= "table" then
@@ -200,21 +192,20 @@ noctalia.state.watch(COMMAND, function(cmd)
     if p == "" then
       return
     end
-    snapshot.profile = p -- optimistic; pollProfile confirms
+    snapshot.profile = p -- optimistic; confirmed by the next probe
     publish()
     noctalia.runAsync("powerprofilesctl set " .. shellQuote(p), function(res)
       if res.exitCode ~= 0 then
         noctalia.log("powerprofilesctl set failed: " .. (res.stderr or ""))
       end
-      pollProfile()
-    end)
+    end, PROBE_TIMEOUT_MS)
   elseif cmd.action == "set_threshold" then
     local v = tonumber(cmd.value)
     if not v then
       return
     end
     v = math.max(50, math.min(100, math.floor(v + 0.5)))
-    snapshot.threshold = v -- optimistic; pollThreshold confirms
+    snapshot.threshold = v -- optimistic; confirmed by pollThreshold
     publish()
     local path = sysfsBase() .. "/charge_control_end_threshold"
     noctalia.runAsync("echo " .. v .. " > " .. shellQuote(path), function(res)
@@ -227,38 +218,34 @@ noctalia.state.watch(COMMAND, function(cmd)
       end
       pollThreshold()
       publish()
-    end)
+    end, PROBE_TIMEOUT_MS)
   end
 end)
-
--- ── Lifecycle ────────────────────────────────────────────────────────────────
 
 function update()
   pollBattery()
   pollThreshold()
-  if tick % ETA_EVERY == 0 then
-    pollProfile()
-    pollEta()
+  if tick % PROBE_EVERY == 0 then
+    probeProfileAndEta()
   end
   tick += 1
   publish()
 end
 
 function onConfigChanged()
-  -- battery_device may have changed; re-read immediately.
+  -- battery_device may have changed; re-read now.
   tick = 0
+  probing = false
   pollBattery()
   pollThreshold()
-  pollProfile()
-  pollEta()
+  probeProfileAndEta()
   publish()
 end
 
 noctalia.setUpdateInterval(POLL_MS)
 
--- Seed state so the widget/panel have data before the first tick.
+-- Seed state before the first tick.
 pollBattery()
 pollThreshold()
-pollProfile()
-pollEta()
+probeProfileAndEta()
 publish()

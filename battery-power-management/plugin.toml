@@ -1,10 +1,3 @@
-# Battery & Power Management — Noctalia v5 plugin.
-#
-# Architecture (mirrors the official `timer` plugin): one headless [[service]]
-# owns all polling + system calls and publishes a single state snapshot; the
-# [[widget]] and [[panel]] are thin UI clients that read that snapshot and send
-# commands back through noctalia.state. No Lua memory is shared between entries.
-
 id          = "piero-93/battery-power-management"
 name        = "Battery & Power Management"
 version     = "1.0.0"
@@ -15,11 +8,7 @@ icon        = "battery-charging"
 description = "Battery widget with live power draw, power-profile switching, and charge-limit control — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
 
-# Runtime dependencies the service shells out to. Both are optional: the plugin
-# degrades gracefully (commandExists gates each). See README for what runs.
 dependencies = ["powerprofilesctl", "upower"]
-
-# ── Plugin-level settings (shared by every entry; edited in Settings GUI) ──
 
 [[setting]]
 key            = "colorize_by_profile"
@@ -62,8 +51,6 @@ type           = "string"
 label_key      = "settings.battery_device.label"
 description_key = "settings.battery_device.description"
 default        = "BAT0"
-
-# ── Entries ──
 
 [[widget]]
 id    = "widget"

@@ -1,10 +1,4 @@
 --!nonstrict
--- Battery & Power Management — [[panel]] entry.
---
--- Interactive surface: battery summary, power-profile switch, and charge-stop
--- threshold slider. All controls send commands to the service via
--- noctalia.state; the panel never touches the system directly. Pointer/onChange
--- props use *named global handlers* (plugin_api 5 does not allow closures).
 
 local SNAPSHOT = "battery.snapshot"
 local COMMAND = "battery.command"
@@ -73,7 +67,6 @@ end
 local function profileButton(profile, glyph, handler)
   return ui.button({
     glyph = glyph,
-    tooltip = noctalia.tr("panel.profile_" .. profile),
     variant = (snap.profile == profile) and "primary" or "secondary",
     onClick = handler,
   })
@@ -84,7 +77,6 @@ local function render()
   local threshold = thresholdDraft or snap.threshold or 80
 
   local sections = {
-    -- Battery summary
     ui.row({ gap = 12, align = "center", padding = 12, fill = "surface_variant/0.4", radius = 8 }, {
       ui.column({ align = "center", gap = 2 }, {
         ui.glyph({ name = batteryGlyph(), size = 28, color = "primary" }),
@@ -98,7 +90,6 @@ local function render()
     }),
   }
 
-  -- Power profiles (only when powerprofilesctl is available)
   if snap.hasProfile then
     table.insert(sections, ui.label({
       text = noctalia.tr("panel.power_profile"),
@@ -112,7 +103,6 @@ local function render()
     }))
   end
 
-  -- Charge-stop threshold (only when the sysfs attribute exists)
   if snap.hasThreshold then
     table.insert(sections, ui.label({
       text = noctalia.tr("panel.charge_threshold"),
@@ -136,8 +126,6 @@ local function render()
 
   panel.render(ui.column({ gap = 12, padding = 16 }, sections))
 end
-
--- ── Lifecycle & handlers ─────────────────────────────────────────────────────
 
 function onOpen(_context)
   snap = noctalia.state.get(SNAPSHOT) or snap
