@@ -4,7 +4,13 @@
 
 -- Local variable
 
-wallpaperPath = "~/.steam/steam/steamapps/workshop/content/431960/"
+wallpaperPath = {"~/.steam/steam/steamapps/workshop/content/431960/",
+"~/.local/share/Steam/steamapps/workshop/content/431960/",
+"~/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/workshop/content/431960/",
+"~/snap/steam/common/.local/share/Steam/steamapps/workshop/content/431960/",
+"~/snap/steam/common/.local/share/steam/steamapps/workshop/content/431960/"}
+wallpaperPathSelected = nil
+
 local pickSlots = {}
 local columns = 4
 local previewWidth = 180
@@ -12,11 +18,20 @@ local previewHeight = 100
 
 local outputFinalList = {}
 local outputSelectedName = nil
+local lastOutputUse = nil
+
+local pidList: { killSystem } = {}
+
 -- 
 type Wallpaper = {
 	nb: string,
 	name: string,
 	preview: string,
+}
+
+type killSystem = {
+	pid: number,
+	output: string,
 }
 
 function tr(key, subst)
@@ -28,7 +43,14 @@ end
 
 function takeWallpaper()
 	local wallpaper: { Wallpaper } = {}
-	local entries, err = noctalia.listDir(wallpaperPath)
+
+	for count = 1, #wallpaperPath, 1 do
+		if noctalia.listDir(wallpaperPath[count]) then
+			wallpaperPathSelected = wallpaperPath[count]
+		end
+	end
+
+	local entries, err = noctalia.listDir(wallpaperPathSelected)
 	if not entries then
 		warn(err or "impossible de lister")
 		noctalia.notify(tr("panel.title"), tr("panel.list_failed"))
@@ -40,7 +62,7 @@ function takeWallpaper()
 			continue
 		end
 
-		local content, readErr = noctalia.readFile(wallpaperPath .. entryName .. "/project.json")
+		local content, readErr = noctalia.readFile(wallpaperPathSelected .. entryName .. "/project.json")
 		if content then
 			local value = noctalia.json.decode(content)
 			local name = value.title or entryName
@@ -57,20 +79,64 @@ function takeWallpaper()
 	return wallpaper
 end
 
-function loadWallpaper(id)
-	
-	if outputSelectedName == nil then
-		noctalia.runAsync("pkill -f linux-wallpaper", function()
-			local cmd = "setsid linux-wallpaperengine --screen-root eDP-1 " .. id .. " > /dev/null 2>&1"
-			noctalia.runAsync(cmd)
-		end, 5000)
-		return
-	end
+function trim(s) -- personnal trim
+   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
-	noctalia.runAsync("pkill -f linux-wallpaper", function()
-		local cmd = "setsid linux-wallpaperengine --screen-root " .. outputSelectedName .. " " .. id .. " > /dev/null 2>&1"
-		noctalia.runAsync(cmd)
+function getStoredPid(screen)
+	for _, entry in ipairs(pidList) do
+		if entry.output == screen then
+			return entry.pid
+		end
+	end
+	return nil
+end
+
+function setStoredPid(screen, pid)
+	for _, entry in ipairs(pidList) do
+		if entry.output == screen then
+			entry.pid = pid
+			return
+		end
+	end
+	table.insert(pidList, { pid = pid, output = screen })
+end
+
+
+function launchWallpaper(screen, id, pidFile)
+	local cmd = "setsid linux-wallpaperengine --screen-root " .. screen .. " " .. id
+		.. " > /dev/null 2>&1 & echo $! > " .. pidFile
+
+	noctalia.runAsync(cmd, function(result)
+		local pidContent = noctalia.readFile(pidFile)
+		if pidContent then
+			local pid = trim(pidContent)
+			setStoredPid(screen, pid)
+		end
 	end, 5000)
+end
+
+function loadWallpaper(id)
+	lastOutputUse = outputSelectedName or takeOutput()
+	local pidFile = "/tmp/w-engine-" .. lastOutputUse .. ".pid"
+	if noctalia.fileExists(pidFile) == true then
+		local pidT = noctalia.readFile(pidFile)
+		local pid = trim(pidT)
+		for _, outputLink in ipairs(pidList) do
+			if outputLink.pid == pid then
+				local killCmd = "kill -o " .. pid
+				noctalia.runAsync(killCmd)
+			end
+		end
+	end
+	local oldPid = getStoredPid(lastOutputUse)
+	if oldPid then
+		noctalia.runAsync("kill " .. oldPid, function()
+			launchWallpaper(lastOutputUse, id, pidFile)
+		end, 3000)
+	else
+		launchWallpaper(lastOutputUse, id, pidFile)
+	end
 end
 
 function onPickAt(slot)
@@ -91,7 +157,7 @@ local function render()
 		pickSlots[slotIndex] = data.nb
 		table.insert(tiles, ui.column({ gap = 4, key = data.nb, align = "center" }, {
 			ui.image({
-				path = wallpaperPath .. data.nb .. "/" .. data.preview,
+				path = wallpaperPathSelected .. data.nb .. "/" .. data.preview,
 				width = previewWidth,
 				height = previewHeight,
 				fit = "cover",
@@ -126,6 +192,14 @@ end
 	}))
 end
 
+function takeOutput()
+	local output = noctalia.outputs()
+	for _, outputF in ipairs(output) do
+		noctalia.notify("DEBUG", outputF.name)
+		return outputF.name
+	end
+end 
+
 function outputSelected(index, label)
 	if type(label) == "string" and label ~= "" then
 		outputSelectedName = label
@@ -147,6 +221,7 @@ function getOutput()
 end
 
 function onOpen(_context)
+	outputSelectedName = takeOutput()
 	render()
 end
 
