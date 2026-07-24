@@ -1,6 +1,6 @@
 {
   "notifications": {
-    "eyecare-break-body": "Focus on an object 20 feet away for 20 seconds.",
+    "eyecare-break-body": "Focus on an object 20 feet away for {seconds} seconds.",
     "eyecare-break-finished-body": "Your eyes are rested. You can return to your screen.",
     "eyecare-break-finished-title": "Break finished",
     "eyecare-break-title": "Time for a break"
