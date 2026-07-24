@@ -1,0 +1,110 @@
+id = "yihao/locate-files"
+name = "Locate Files"
+version = "0.1.0"
+plugin_api = 3
+author = "yihao"
+license = "MIT"
+dependencies = ["locate", "updatedb", "fzf", "flock", "xdg-open"]
+tags = ["launcher", "productivity", "utility"]
+icon = "file-search"
+description = "Find and open files from Noctalia's launcher using locate."
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 50
+min = 1
+max = 200
+
+[[setting]]
+key = "blacklist_paths"
+type = "string_list"
+label_key = "settings.blacklist_paths.label"
+description_key = "settings.blacklist_paths.description"
+default = []
+
+[[setting]]
+key = "blacklist_names"
+type = "string_list"
+label_key = "settings.blacklist_names.label"
+description_key = "settings.blacklist_names.description"
+default = []
+
+[[setting]]
+key = "index_refresh_minutes"
+type = "int"
+label_key = "settings.index_refresh_minutes.label"
+description_key = "settings.index_refresh_minutes.description"
+default = 60
+min = 1
+max = 10080
+
+[[setting]]
+key = "fuzzy_mode"
+type = "select"
+label_key = "settings.fuzzy_mode.label"
+description_key = "settings.fuzzy_mode.description"
+default = "fallback"
+options = [
+  { value = "fallback", label_key = "settings.fuzzy_mode.fallback" },
+  { value = "always", label_key = "settings.fuzzy_mode.always" },
+  { value = "off", label_key = "settings.fuzzy_mode.off" },
+]
+
+[[setting]]
+key = "fuzzy_candidate_limit"
+type = "int"
+label_key = "settings.fuzzy_candidate_limit.label"
+description_key = "settings.fuzzy_candidate_limit.description"
+default = 150
+min = 100
+max = 200
+step = 10
+advanced = true
+
+[[setting]]
+key = "global_score_bias"
+type = "int"
+label_key = "settings.global_score_bias.label"
+description_key = "settings.global_score_bias.description"
+default = -100
+min = -1000
+max = 1000
+step = 10
+advanced = true
+
+[[setting]]
+key = "file_weight"
+type = "int"
+label_key = "settings.file_weight.label"
+description_key = "settings.file_weight.description"
+default = 0
+min = -1000
+max = 1000
+step = 10
+advanced = true
+
+[[setting]]
+key = "directory_weight"
+type = "int"
+label_key = "settings.directory_weight.label"
+description_key = "settings.directory_weight.description"
+default = 0
+min = -1000
+max = 1000
+step = 10
+advanced = true
+
+[[launcher_provider]]
+id = "files"
+entry = "launcher.luau"
+prefix = "f"
+glyph = "file-search"
+include_in_global_search = true
+debounce_ms = 250
+
+[[service]]
+id = "indexer"
+entry = "indexer.luau"
