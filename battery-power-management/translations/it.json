@@ -1,0 +1,48 @@
+{
+  "status": {
+    "charging": "In carica",
+    "discharging": "In scarica",
+    "full": "Carica",
+    "not_charging": "Non in carica",
+    "unknown": "Sconosciuto"
+  },
+  "panel": {
+    "power_profile": "Profilo energetico",
+    "charge_threshold": "Limite di carica",
+    "time_to_full": "Completa tra {time}",
+    "remaining": "{time} rimanenti",
+    "profile_power-saver": "Risparmio energetico",
+    "profile_balanced": "Bilanciato",
+    "profile_performance": "Prestazioni"
+  },
+  "notify": {
+    "threshold_error_title": "Soglia di carica",
+    "threshold_error_body": "Impossibile scrivere il limite di carica. Controlla i permessi udev (vedi il README del plugin)."
+  },
+  "settings": {
+    "colorize_by_profile": {
+      "label": "Colora in base al profilo",
+      "description": "Cambia il colore del widget a seconda del profilo energetico attivo"
+    },
+    "color_power_saver": {
+      "label": "Colore Risparmio energetico",
+      "description": "Colore usato quando è attivo il profilo Risparmio energetico"
+    },
+    "color_performance": {
+      "label": "Colore Prestazioni",
+      "description": "Colore usato quando è attivo il profilo Prestazioni"
+    },
+    "show_profile": {
+      "label": "Mostra icona profilo",
+      "description": "Mostra l'icona del profilo energetico attivo nel widget"
+    },
+    "show_balanced_icon": {
+      "label": "Mostra icona bilanciato",
+      "description": "Mostra l'icona del profilo anche quando è impostato su Bilanciato (solo se \"Mostra icona profilo\" è attivo)"
+    },
+    "battery_device": {
+      "label": "Dispositivo batteria",
+      "description": "Nome sysfs della batteria, es. BAT0 o BAT1"
+    }
+  }
+}
