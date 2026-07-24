@@ -31,6 +31,7 @@ noctalia msg panel-toggle tadomika_ari/w-engine:w-engine-panel
 | --- | --- |
 | Left click on the bar glyph | Open or close the W Engine panel |
 | Click a wallpaper entry in the panel | Apply that wallpaper |
+| Select an output | Change the monitor where the wallpaper is displayed |
 
 ## Settings
 
