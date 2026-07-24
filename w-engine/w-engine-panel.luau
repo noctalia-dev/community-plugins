@@ -195,7 +195,6 @@ end
 function takeOutput()
 	local output = noctalia.outputs()
 	for _, outputF in ipairs(output) do
-		noctalia.notify("DEBUG", outputF.name)
 		return outputF.name
 	end
 end 
