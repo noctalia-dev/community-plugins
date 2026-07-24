@@ -1,0 +1,106 @@
+# Tailscale status & control for Noctalia v5.
+# Port of the v4 tailscale plugin to the Luau plugin API. Core focus: a fast
+# view of online/offline hosts and one-keystroke copy of a peer's IP or name
+# (launcher provider /ts + per-row copy buttons in the panel). Also: up/down
+# toggle and exit-node management. Taildrop and account switching from the v4
+# plugin are not ported (no file picker in the v5 plugin API).
+
+id = "rylos/tailscale"
+name = "Tailscale"
+version = "2.1.0"
+plugin_api = 3
+author = "Marco Ziliani"
+license = "MIT"
+dependencies = ["tailscale"]
+tags = ["bar", "panel", "launcher", "service", "network", "privacy", "utility"]
+icon = "topology-star-3"
+description = "Tailscale status and control: online/offline peers, quick IP/name copy, launcher search, exit nodes, Taildrop."
+
+# ── Plugin-level settings ────────────────────────────────────────────────────
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 5
+min = 1
+max = 60
+
+[[setting]]
+key = "hide_mullvad"
+type = "bool"
+label_key = "settings.hide_mullvad.label"
+description_key = "settings.hide_mullvad.description"
+default = true
+
+[[setting]]
+key = "hide_offline"
+type = "bool"
+label_key = "settings.hide_offline.label"
+description_key = "settings.hide_offline.description"
+default = false
+
+[[setting]]
+key = "taildrop_dir"
+type = "folder"
+label_key = "settings.taildrop_dir.label"
+description_key = "settings.taildrop_dir.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "ssh_username"
+type = "string"
+label_key = "settings.ssh_username.label"
+description_key = "settings.ssh_username.description"
+default = ""
+advanced = true
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_ip"
+  type = "bool"
+  label_key = "settings.show_ip.label"
+  description_key = "settings.show_ip.description"
+  default = false
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[launcher_provider]]
+id = "hosts"
+entry = "launcher.luau"
+prefix = "ts"
+glyph = "topology-star-3"
+include_in_global_search = false
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
