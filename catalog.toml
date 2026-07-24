@@ -517,3 +517,17 @@ icon = "shield-lock"
 description = "Keep the laptop awake when its lid is closed, so background jobs can continue running."
 plugin_api = 3
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
+
+[[plugin]]
+id = "emrtnn/pass"
+name = "Pass"
+version = "0.0.1"
+updated_at = 1784895988
+added_at = 1784895988
+author = "emrtnn"
+license = "MIT"
+icon = "key"
+description = "Search and copy password-store entries from the Noctalia launcher"
+deprecated = false
+plugin_api = 3
+tags = ["launcher", "privacy", "productivity", "utility"]
