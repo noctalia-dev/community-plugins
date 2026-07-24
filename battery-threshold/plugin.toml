@@ -1,0 +1,43 @@
+id           = "damian-ds7/battery-threshold"
+name         = "Battery Threshold Control"
+version      = "1.0.0"
+min_noctalia = "5.0.0"
+author       = "Damian D'Souza"
+description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
+license      = "MIT"
+icon         = "battery-eco"
+tags         = ["hardware", "system", "utility", "bar", "panel"]
+dependencies = ["polkit"]
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "battery-threshold"
+entry = "widget.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 320
+height          = 220
+placement       = "floating"
+position        = "center"
+open_near_click = true
+
+[[setting]]
+key             = "battery_device"
+type            = "folder"
+label_key       = "settings.battery-device"
+description_key = "settings.battery-device-desc"
+default         = "/sys/class/power_supply/BAT0"
+
+[[setting]]
+key             = "charge_threshold"
+type            = "int"
+label_key       = "settings.charge-threshold"
+description_key = "settings.charge-threshold-desc"
+default         = 80
+min             = 40
+max             = 100
