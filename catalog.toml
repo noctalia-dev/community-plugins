@@ -504,3 +504,16 @@ icon = "screen-share"
 description = "Mirror one Wayland output to another with wl-mirror."
 plugin_api = 3
 tags = ["bar", "panel", "service", "utility", "video"]
+
+[[plugin]]
+id = "8bury/lid-guard"
+name = "Lid Guard"
+version = "1.0.0"
+updated_at = 1784864764
+added_at = 1784864764
+author = "8bury"
+license = "MIT"
+icon = "shield-lock"
+description = "Keep the laptop awake when its lid is closed, so background jobs can continue running."
+plugin_api = 3
+tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
