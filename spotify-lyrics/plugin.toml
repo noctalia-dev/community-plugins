@@ -1,0 +1,23 @@
+id = "noctalia/spotify-lyrics"
+name = "Spotify Lyrics"
+version = "1.2.1"
+plugin_api = 3
+author = "goatnath"
+license = "MIT"
+dependencies = []
+tags = ["music"]
+icon = "music"
+description = "Time-synced lyrics panel linked to the media widget."
+
+# Minimal bar trigger: tiny glyph icon next to the media widget.
+# Auto-hides when nothing is playing. Click to open the lyrics panel.
+[[widget]]
+id = "lyrics"
+entry = "bar.luau"
+
+# Lyrics panel: 3-line synced view anchored near the media area.
+[[panel]]
+id = "lyrics-panel"
+entry = "panel.luau"
+width = 460
+height = 200
