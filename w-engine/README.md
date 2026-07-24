@@ -6,7 +6,9 @@ A [Noctalia](https://github.com/noctalia-dev/noctalia) v5 plugin for applying Wa
 
 Before installing this plugin, make sure you already have Wallpaper Engine installed from Steam. Without it, the plugin will not work.
 
-You also need Steam itself to download wallpapers from the Workshop, plus the `linux-wallpaperengine` tool.
+You need Steam itself to download wallpapers from the Workshop, plus the `linux-wallpaperengine` tool.
+
+You also need `pkill` to stop duplicate wallpaper processes when changing wallpapers, and `setsid` to start the wallpaper process correctly.
 
 For more details, see the install section below.
 
@@ -38,6 +40,8 @@ No settings.
 
 - noctalia ≥ 5.0.0
 - `linux-wallpaperengine`
+- `pkill`
+- `setsid`
 - Wallpaper Engine
 - Steam for Workshop access
 
