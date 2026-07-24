@@ -11,6 +11,8 @@ local currentIssues = {}
 local dismissRequestNonce = 0
 local pendingSelfTest = nil
 local selfTestLaunch = nil
+local intervalApply = nil
+local privilegedAction = nil
 local confirmUninstall = false
 local showCollectorSettings = false
 local hiddenSelection = 1
@@ -260,6 +262,18 @@ local function dependencyCard(dependencies)
     }))
   end
 
+  if privilegedAction ~= nil and privilegedAction.scope == "dependencies" then
+    table.insert(children, ui.label({
+      text = privilegedAction.state == "authorizing"
+        and noctalia.tr("privileged_action.authorizing", { action = noctalia.tr("dependencies.action_install") })
+        or noctalia.tr("privileged_action.failed", { action = noctalia.tr("dependencies.action_install"),
+          error = tostring(privilegedAction.error or "") }),
+      fontSize = 10,
+      color = privilegedAction.state == "authorizing" and "secondary" or "error",
+      maxLines = 2,
+    }))
+  end
+
   local actions = {}
   if dependencies.can_install and dependencies.install_command ~= nil then
     table.insert(actions, ui.button({
@@ -378,6 +392,15 @@ local function collectorSettingsCard(collector)
     table.insert(actions, 1, ui.button({ text = noctalia.tr("collector.stop_service"), variant = "ghost",
       controlSize = "sm", onClick = "onPauseCollectorClicked" }))
   end
+  if collector.installed and collector.interval_command ~= nil then
+    table.insert(actions, 1, ui.button({
+      text = noctalia.tr("collector.apply_interval", {
+        minutes = tostring(collector.smart_refresh_minutes or 15),
+      }), variant = "outline", controlSize = "sm", enabled = (intervalApply == nil
+        or intervalApply.state ~= "authorizing") and (privilegedAction == nil
+        or privilegedAction.state ~= "authorizing"), onClick = "onApplyCollectorIntervalClicked",
+    }))
+  end
 
   local children = {
     ui.row({ gap = 8, align = "center" }, {
@@ -411,11 +434,33 @@ local function collectorSettingsCard(collector)
     }),
     ui.label({ text = noctalia.tr("collector.settings_hint"), fontSize = 10,
       color = "on_surface_variant", maxLines = 2 }),
+    ui.label({ text = noctalia.tr("collector.interval", {
+      minutes = tostring(collector.smart_refresh_minutes or 15),
+    }), fontSize = 10, color = "on_surface_variant" }),
     ui.row({ gap = 7, align = "center" }, actions),
   }
   if confirmUninstall then
     table.insert(children, ui.label({ text = noctalia.tr("collector.remove_confirm"),
       fontSize = 10, color = "error" }))
+  end
+  if intervalApply ~= nil then
+    table.insert(children, ui.label({
+      text = intervalApply.state == "authorizing" and noctalia.tr("collector.interval_authorizing")
+        or noctalia.tr("collector.interval_failed", { error = tostring(intervalApply.error or "") }),
+      fontSize = 10, color = intervalApply.state == "authorizing" and "secondary" or "error", maxLines = 2,
+    }))
+  end
+  if privilegedAction ~= nil and privilegedAction.scope == "collector" then
+    local action = noctalia.tr("collector.action_" .. privilegedAction.kind)
+    table.insert(children, ui.label({
+      text = privilegedAction.state == "authorizing"
+        and noctalia.tr("privileged_action.authorizing", { action = action })
+        or noctalia.tr("privileged_action.failed", { action = action,
+          error = tostring(privilegedAction.error or "") }),
+      fontSize = 10,
+      color = privilegedAction.state == "authorizing" and "secondary" or "error",
+      maxLines = 2,
+    }))
   end
   if collector.installed then
     table.insert(children, ui.button({ text = noctalia.tr("collector.remove"),
@@ -1448,27 +1493,113 @@ function onConfirmSelfTestClicked()
   end
 end
 
+local function privilegedActionError(result)
+  if result.timedOut == true then
+    return noctalia.tr("privileged_action.timeout")
+  end
+  if tonumber(result.exitCode) == 126 then
+    return noctalia.tr("privileged_action.cancelled")
+  end
+  local detail = noctalia.string.trim(tostring(result.stderr or ""))
+  if detail == "" then detail = noctalia.string.trim(tostring(result.stdout or "")) end
+  if #detail > 240 then detail = detail:sub(1, 237) .. "..." end
+  return detail ~= "" and detail or noctalia.tr("privileged_action.command_failed")
+end
+
+local function runPrivilegedAction(command, details)
+  if command == nil or command == "" or (privilegedAction ~= nil and privilegedAction.state == "authorizing")
+      or (intervalApply ~= nil and intervalApply.state == "authorizing") then
+    return
+  end
+  privilegedAction = { state = "authorizing", scope = details.scope, kind = details.kind }
+  render()
+  local launched = noctalia.runAsync(command, function(result)
+    if result.timedOut ~= true and tonumber(result.exitCode) == 0 then
+      privilegedAction = nil
+      noctalia.notify(details.title, noctalia.tr("privileged_action.completed", { action = details.action }))
+      local nonce = number(noctalia.state.get("refresh_nonce"), 0) + 1
+      noctalia.state.set("refresh_nonce", nonce)
+    else
+      privilegedAction = {
+        state = "failed", scope = details.scope, kind = details.kind,
+        error = privilegedActionError(result),
+      }
+      noctalia.notifyError(details.title, noctalia.tr("privileged_action.failed", {
+        action = details.action, error = privilegedAction.error,
+      }))
+    end
+    render()
+  end, 120000)
+  if not launched then
+    privilegedAction = {
+      state = "failed", scope = details.scope, kind = details.kind,
+      error = noctalia.tr("privileged_action.launch_failed"),
+    }
+    noctalia.notifyError(details.title, noctalia.tr("privileged_action.failed", {
+      action = details.action, error = privilegedAction.error,
+    }))
+    render()
+  end
+end
+
 function onInstallCollectorClicked()
   local command = snapshot and snapshot.system_collector and snapshot.system_collector.install_command or nil
-  if command == nil or command == "" then return end
-  if noctalia.runInTerminal(command) then
-    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.terminal_opened"))
-  end
+  runPrivilegedAction(command, {
+    scope = "collector", kind = "install", title = noctalia.tr("collector.title"),
+    action = noctalia.tr("collector.action_install"),
+  })
 end
 
 function onStartCollectorClicked()
   local command = snapshot and snapshot.system_collector and snapshot.system_collector.enable_command or nil
-  if command == nil or command == "" then return end
-  if noctalia.runInTerminal(command) then
-    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.start_terminal_opened"))
-  end
+  runPrivilegedAction(command, {
+    scope = "collector", kind = "start", title = noctalia.tr("collector.title"),
+    action = noctalia.tr("collector.action_start"),
+  })
 end
 
 function onPauseCollectorClicked()
   local command = snapshot and snapshot.system_collector and snapshot.system_collector.disable_command or nil
+  runPrivilegedAction(command, {
+    scope = "collector", kind = "pause", title = noctalia.tr("collector.title"),
+    action = noctalia.tr("collector.action_pause"),
+  })
+end
+
+function onApplyCollectorIntervalClicked()
+  if (intervalApply ~= nil and intervalApply.state == "authorizing")
+      or (privilegedAction ~= nil and privilegedAction.state == "authorizing") then return end
+  local command = snapshot and snapshot.system_collector and snapshot.system_collector.interval_command or nil
   if command == nil or command == "" then return end
-  if noctalia.runInTerminal(command) then
-    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.pause_terminal_opened"))
+  intervalApply = { state = "authorizing" }
+  render()
+  local launched = noctalia.runAsync(command, function(result)
+    if result.timedOut ~= true and tonumber(result.exitCode) == 0 then
+      intervalApply = nil
+      noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.interval_applied"))
+      local nonce = number(noctalia.state.get("refresh_nonce"), 0) + 1
+      noctalia.state.set("refresh_nonce", nonce)
+    else
+      local error
+      if result.timedOut == true then
+        error = noctalia.tr("collector.interval_timeout")
+      elseif tonumber(result.exitCode) == 126 then
+        error = noctalia.tr("collector.interval_cancelled")
+      else
+        local detail = noctalia.string.trim(tostring(result.stderr or ""))
+        if detail == "" then detail = noctalia.string.trim(tostring(result.stdout or "")) end
+        if #detail > 240 then detail = detail:sub(1, 237) .. "..." end
+        error = detail ~= "" and detail or noctalia.tr("collector.interval_command_failed")
+      end
+      intervalApply = { state = "failed", error = error }
+      noctalia.notifyError(noctalia.tr("collector.title"), error)
+    end
+    render()
+  end, 120000)
+  if not launched then
+    intervalApply = { state = "failed", error = noctalia.tr("collector.interval_launch_failed") }
+    noctalia.notifyError(noctalia.tr("collector.title"), intervalApply.error)
+    render()
   end
 end
 
@@ -1500,11 +1631,11 @@ function onUninstallCollectorClicked()
     return
   end
   local command = snapshot and snapshot.system_collector and snapshot.system_collector.uninstall_command or nil
-  if command ~= nil and noctalia.runInTerminal(command) then
-    noctalia.notify(noctalia.tr("collector.title"), noctalia.tr("collector.uninstall_terminal_opened"))
-  end
   confirmUninstall = false
-  render()
+  runPrivilegedAction(command, {
+    scope = "collector", kind = "remove", title = noctalia.tr("collector.title"),
+    action = noctalia.tr("collector.action_remove"),
+  })
 end
 
 function onOpen(_context)
@@ -1532,8 +1663,10 @@ function onInstallDependenciesClicked()
     return
   end
 
-  noctalia.notify(noctalia.tr("dependencies.install_title"), noctalia.tr("dependencies.install_body"))
-  noctalia.runInTerminal(command)
+  runPrivilegedAction(command, {
+    scope = "dependencies", kind = "install", title = noctalia.tr("dependencies.title"),
+    action = noctalia.tr("dependencies.action_install"),
+  })
 end
 
 function onCopyInstallCommandClicked()

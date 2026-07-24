@@ -37,31 +37,39 @@
     "warning_temperature_time_increase": "{drive} accumulated {count} new minute(s) above its warning temperature."
   },
   "collector": {
+    "action_install": "install or upgrade the collector",
+    "action_pause": "pause the collector",
+    "action_remove": "remove the collector",
+    "action_start": "start the collector",
     "basic_features": "Drive discovery, mounted folders, storage use, and temperatures exposed by Linux.",
     "basic_title": "Basic monitoring — no elevated service",
     "copy_install": "Copy command",
     "full_features": "Reliable health, endurance, error counters, sensor details, and background self-test progress.",
     "full_title": "Full SMART — optional",
     "install": "Install collector",
+    "interval": "Full SMART refresh: every {minutes} min",
+    "interval_applied": "Full SMART refresh schedule updated.",
+    "interval_authorizing": "Waiting for administrator approval to update the full SMART schedule…",
+    "interval_cancelled": "Administrator approval was cancelled.",
+    "interval_command_failed": "The administrator command did not complete.",
+    "interval_failed": "Could not update the full SMART schedule: {error}",
+    "interval_launch_failed": "Could not open the administrator authorization dialog.",
+    "interval_timeout": "Administrator approval timed out. Try again when you are ready to approve it.",
     "open_settings": "Open Plugins page",
     "pause": "Pause service",
-    "pause_terminal_opened": "A terminal opened. Review the command and approve sudo to stop the collector timer.",
     "remove": "Remove collector",
-    "remove_confirm": "Click Remove collector again to open the explicit privileged uninstall command.",
-    "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. Privileged actions always open a terminal for review.",
+    "remove_confirm": "Click Remove collector again to request authorization for the explicit uninstall action.",
+    "settings_hint": "Enable or disable Full SMART from Settings → Plugins → Drive Health. All privileged actions use the desktop authorization dialog.",
     "settings_opened": "Opened the Plugins page. Select the gear on Drive Health to change its settings.",
     "settings_title": "Collector settings",
     "start": "Start collector",
-    "start_terminal_opened": "A terminal opened. Review the command and approve sudo to enable and refresh the collector.",
     "status_disabled": "Basic mode is active; the optional system collector is not being used.",
     "status_healthy": "Collector {version} is installed and refreshing full SMART data.",
     "status_not_installed": "Install the read-only collector to unlock full SMART data.",
     "status_stale": "The collector is installed, but its cache is stale or unavailable.",
     "status_upgrade_required": "Collector {version} is outdated; upgrade to the bundled version.",
     "stop_service": "Stop background service",
-    "terminal_opened": "A terminal opened. Review the command and approve sudo to install or upgrade.",
     "title": "System collector",
-    "uninstall_terminal_opened": "A terminal opened. Review the removal command and approve sudo to continue.",
     "update_body": "Full SMART is enabled. Update collector {current} to {expected} from the Drive Health panel to keep all features working.",
     "update_title": "Drive Health collector update available",
     "upgrade": "Upgrade collector"
@@ -75,16 +83,17 @@
     "unknown": "unknown"
   },
   "dependencies": {
+    "action_install": "install dependencies",
     "alert_body": "Install the missing dependencies to enable complete monitoring: {missing}. Open the Drive Health panel to review the command.",
     "alert_title": "Drive Health setup required",
     "collection_blocked": "Drive collection is paused because required commands are missing: {missing}",
     "command": "Suggested {manager} command",
     "copied": "Installation command copied.",
     "copy_command": "Copy command",
-    "install": "Open installer",
-    "install_body": "A terminal is opening with the suggested command. Review it and approve the sudo and package-manager prompts to continue.",
-    "install_title": "Review the dependency installation",
-    "manual_install": "No supported package manager with sudo was detected. Install the listed commands manually, then recheck.",
+    "install": "Install",
+    "install_body": "The desktop administrator authorization dialog will request approval before installing the required packages.",
+    "install_title": "Install dependencies",
+    "manual_install": "No supported package manager with desktop authorization was detected. Install the listed commands manually, then recheck.",
     "missing": "Missing commands: {missing}",
     "package_manager": "package manager",
     "recheck": "Recheck",
@@ -160,6 +169,15 @@
     "title": "Drive preferences",
     "warning_temperature": "Warning °C"
   },
+  "privileged_action": {
+    "authorizing": "Waiting for administrator approval to {action}…",
+    "cancelled": "Administrator approval was cancelled.",
+    "command_failed": "The administrator command did not complete.",
+    "completed": "Completed: {action}.",
+    "failed": "Could not {action}: {error}",
+    "launch_failed": "Could not open the administrator authorization dialog.",
+    "timeout": "Administrator approval timed out. Try again when you are ready to approve it."
+  },
   "self_test": {
     "authorization_cancelled": "Administrator approval was cancelled.",
     "authorization_required": "Polkit (pkexec) is required for background self-tests. Install your distribution's polkit package.",
@@ -199,6 +217,10 @@
       "description": "Warn when an established internal drive disappears for several scans.",
       "label": "Missing-drive alerts"
     },
+    "full_smart_refresh_minutes": {
+      "description": "Minutes between privileged full SMART reads. Default: 15 minutes. Change the value here, then use Apply schedule in the collector controls and approve the administrator prompt.",
+      "label": "Full SMART refresh interval"
+    },
     "history_interval_minutes": {
       "description": "Minutes between persisted temperature and endurance samples.",
       "label": "History sample interval"
@@ -220,7 +242,7 @@
       "label": "Recovery notifications"
     },
     "refresh_seconds": {
-      "description": "Seconds between plugin refreshes. The optional root collector refreshes its cache every 30 seconds independently.",
+      "description": "Seconds between lightweight plugin refreshes for drive inventory, mounts, and available sysfs temperatures.",
       "label": "Refresh interval"
     },
     "show_hdd": {
