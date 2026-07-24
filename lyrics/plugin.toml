@@ -461,10 +461,6 @@ entry = "lyrics_service.luau"
 id = "lyrics"
 entry = "lyrics.luau"
 
-[widget.settings."enable_scroll"]
-type = "boolean"
-default = true
-
   [[widget.setting]]
   key = "show_glyph"
   type = "bool"
