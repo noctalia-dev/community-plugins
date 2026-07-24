@@ -1,0 +1,14 @@
+{
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to rescan the password store, in seconds."
+    }
+  },
+  "notification": {
+    "copied": "Password copied.",
+    "unlocking": "Unlocking GPG key…",
+    "copy_failed": "Failed to copy password.",
+    "store_not_found": "Password store not found."
+  }
+}
