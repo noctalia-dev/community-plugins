@@ -24,6 +24,7 @@ local settings = getSettings()
 function onConfigChanged()
     settings = getSettings()
     noctalia.log("eyecare: settings updated")
+    updateState()
 end
 
 -- Play a notification sound using system players
@@ -119,7 +120,7 @@ function update()
                 if settings.enable_notifications then
                     noctalia.notify(
                         noctalia.tr("notifications.eyecare-break-title"),
-                        noctalia.tr("notifications.eyecare-break-body")
+                        noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds })
                     )
                 end
                 if settings.enable_sound then
@@ -142,7 +143,7 @@ local function triggerBreak()
     if settings.enable_notifications then
         noctalia.notify(
             noctalia.tr("notifications.eyecare-break-title"),
-            noctalia.tr("notifications.eyecare-break-body")
+            noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds })
         )
     end
     if settings.enable_sound then
