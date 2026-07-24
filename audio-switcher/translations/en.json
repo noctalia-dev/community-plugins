@@ -1,5 +1,4 @@
 {
-  "title": "Audio Switcher",
   "actions": {
     "cancel": "Cancel",
     "close": "Close",
@@ -25,8 +24,8 @@
     "icon": "Device icon",
     "icon_options": {
       "automatic": "Automatic",
-      "speaker": "Speaker",
       "over_ear": "Over-ear headphones",
+      "speaker": "Speaker",
       "tws": "TWS earbuds",
       "wired": "Wired headphones"
     },
@@ -62,16 +61,6 @@
     "scan_complete": "Bluetooth scan complete.",
     "slot_saved": "Keybind number {slot} saved."
   },
-  "settings": {
-    "show_percentage": {
-      "label": "Show percentage",
-      "description": "Show the current output volume percentage next to the bar icon. Disable it to show only the icon."
-    },
-    "scroll_step": {
-      "label": "Scroll step",
-      "description": "How many percentage points each mouse-wheel step changes volume on the bar widget."
-    }
-  },
   "panel": {
     "hidden": "Hidden",
     "hidden_count": "Hidden {count}",
@@ -91,10 +80,21 @@
     "unmute": "Unmute",
     "visible_count": "Visible {count}"
   },
+  "settings": {
+    "scroll_step": {
+      "description": "How many percentage points each mouse-wheel step changes volume on the bar widget.",
+      "label": "Scroll step"
+    },
+    "show_percentage": {
+      "description": "Show the current output volume percentage next to the bar icon. Disable it to show only the icon.",
+      "label": "Show percentage"
+    }
+  },
   "tabs": {
     "inputs": "Inputs",
     "outputs": "Outputs"
   },
+  "title": "Audio Switcher",
   "widget": {
     "tooltip": "Output: {output} ({output_volume})\nInput: {input} ({input_volume})\nScroll: change output volume\nLeft click: open Audio Switcher\nRight click: cycle outputs\nMiddle click: cycle inputs"
   }

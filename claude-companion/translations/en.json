@@ -1,60 +1,60 @@
 {
-  "notify": {
-    "title": "Claude",
-    "no_output": "(no output)",
-    "ask_failed": "ask failed",
-    "full_answer_hint": "Full answer: click the bar pulse",
-    "auth_remedy": "Claude login expired — start a Claude session in a terminal to refresh it, then re-ask."
+  "answer": {
+    "empty": "No answers yet. Ask one from the launcher: /claude ? <question>",
+    "title": "Claude — quick ask"
   },
   "launcher": {
-    "continue": "Resume last Claude session",
-    "show_answer": "Show last answer",
     "ask": "Ask Claude (one-shot)",
     "ask_hint": "Type a question after ?",
-    "launch": "Launch Claude Code"
+    "continue": "Resume last Claude session",
+    "launch": "Launch Claude Code",
+    "show_answer": "Show last answer"
   },
-  "answer": {
-    "title": "Claude — quick ask",
-    "empty": "No answers yet. Ask one from the launcher: /claude ? <question>"
-  },
-  "pulse": {
-    "title": "pulse",
-    "panel_launch_failed": "could not launch the answer panel",
-    "sessions_header": "Claude — {count} sessions",
-    "burn": "{model} · {tin} in / {tout} out",
-    "cached": "{n} cached",
-    "total": "Σ {tin} in / {tout} out"
+  "notify": {
+    "ask_failed": "ask failed",
+    "auth_remedy": "Claude login expired — start a Claude session in a terminal to refresh it, then re-ask.",
+    "full_answer_hint": "Full answer: click the bar pulse",
+    "no_output": "(no output)",
+    "title": "Claude"
   },
   "orb": {
     "sessions": "{count} sessions"
   },
+  "pulse": {
+    "burn": "{model} · {tin} in / {tout} out",
+    "cached": "{n} cached",
+    "panel_launch_failed": "could not launch the answer panel",
+    "sessions_header": "Claude — {count} sessions",
+    "title": "pulse",
+    "total": "Σ {tin} in / {tout} out"
+  },
   "state": {
-    "tip": {
-      "idle": "Claude: idle",
-      "turn_start": "Claude: thinking",
-      "text": "Claude: responding",
-      "tool_start": "Claude: running a tool",
-      "needs_attention": "Claude needs you",
-      "turn_end": "Claude: done — ready for you",
-      "error": "Claude: error"
-    },
-    "word": {
-      "idle": "idle",
-      "turn_start": "thinking",
-      "text": "responding",
-      "tool_start": "tool",
-      "needs_attention": "needs you",
-      "turn_end": "done",
-      "error": "error"
-    },
     "orb": {
+      "error": "error",
       "idle": "idle",
-      "turn_start": "thinking",
+      "needs_attention": "needs you",
       "text": "responding",
       "tool_start": "running a tool",
-      "needs_attention": "needs you",
       "turn_end": "done — ready for you",
-      "error": "error"
+      "turn_start": "thinking"
+    },
+    "tip": {
+      "error": "Claude: error",
+      "idle": "Claude: idle",
+      "needs_attention": "Claude needs you",
+      "text": "Claude: responding",
+      "tool_start": "Claude: running a tool",
+      "turn_end": "Claude: done — ready for you",
+      "turn_start": "Claude: thinking"
+    },
+    "word": {
+      "error": "error",
+      "idle": "idle",
+      "needs_attention": "needs you",
+      "text": "responding",
+      "tool_start": "tool",
+      "turn_end": "done",
+      "turn_start": "thinking"
     }
   }
 }
