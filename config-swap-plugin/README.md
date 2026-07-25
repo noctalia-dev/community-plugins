@@ -1,7 +1,6 @@
-# Daily Wallpaper
+# Config Swap
 
-Daily Wallpaper fetches Bing's image of the day or NASA's image of the day and
-applies it through Noctalia's wallpaper API.
+Config Swap are a tools for swap configuration with one click on hot reload
 
 ## Plugin
 
