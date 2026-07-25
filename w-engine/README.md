@@ -35,7 +35,18 @@ noctalia msg panel-toggle tadomika_ari/w-engine:w-engine-panel
 
 ## Settings
 
-No settings.
+Custom path:
+
+To define a custom path for Steam or the Workshop, you can add a specific path for W Engine.
+You can create a `data.json` file in `$NOCTALIA_STATE_HOME` based on this example:
+
+```json
+{
+  "personnalPath": ["path1"]
+}
+```
+
+Replace `path1` with your personal path or add other paths. The path is loaded after a reload or if you reopen the widget.
 
 ## Requirements
 
