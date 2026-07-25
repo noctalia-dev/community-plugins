@@ -7,7 +7,7 @@
 local function render()
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = "test", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = "Config Swap", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 			ui.select({ options = {}, onChange = "" }),
 			ui.button({ glyph = "close", onClick = "" }),
 		}),
