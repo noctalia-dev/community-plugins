@@ -18,3 +18,7 @@ id = "w-engine-panel"
 entry = "w-engine-panel.luau"
 width = 800
 height = 600
+
+[[service]]
+id    = "start"
+entry = "start.luau"
