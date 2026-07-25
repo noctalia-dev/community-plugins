@@ -6,7 +6,6 @@ local haToken = noctalia.getConfig("ha_token")
 local entityStates = {}
 local status = "unconfigured"
 local expandedEntityId = nil
-local entitySlots = {}
 local sliderDraft = {}
 local sliderDirty = {}
 
@@ -17,7 +16,6 @@ local PENDING_TIMEOUT_SECONDS = 8
 
 local view = "list" -- "list" | "browser"
 local allEntities = {}
-local browserSlots = {}
 local browserLoading = false
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
@@ -221,15 +219,7 @@ local function reconcilePending(now)
     return changed
 end
 
--- _actN/_expN are per-slot callback targets referenced by index from the rendered rows below.
--- In list view they act on the entity in that row's slot; in browser view _actN toggles its pin.
-local function actSlot(i)
-    if view == "browser" then
-        toggleBrowserPin(browserSlots[i])
-        return
-    end
-    local eid = entitySlots[i]
-    if not eid then return end
+local function actEntity(eid)
     local entity = entityStates[eid]
     if not entity then return end
     local d = entity.domain
@@ -244,9 +234,7 @@ local function actSlot(i)
     end
 end
 
-local function expSlot(i)
-    local eid = entitySlots[i]
-    if not eid then return end
+local function expandEntity(eid)
     if expandedEntityId == eid then
         expandedEntityId = nil
     else
@@ -256,37 +244,6 @@ local function expSlot(i)
     end
     render()
 end
-
-function _act1()  actSlot(1)  end;  function _exp1()  expSlot(1)  end
-function _act2()  actSlot(2)  end;  function _exp2()  expSlot(2)  end
-function _act3()  actSlot(3)  end;  function _exp3()  expSlot(3)  end
-function _act4()  actSlot(4)  end;  function _exp4()  expSlot(4)  end
-function _act5()  actSlot(5)  end;  function _exp5()  expSlot(5)  end
-function _act6()  actSlot(6)  end;  function _exp6()  expSlot(6)  end
-function _act7()  actSlot(7)  end;  function _exp7()  expSlot(7)  end
-function _act8()  actSlot(8)  end;  function _exp8()  expSlot(8)  end
-function _act9()  actSlot(9)  end;  function _exp9()  expSlot(9)  end
-function _act10() actSlot(10) end;  function _exp10() expSlot(10) end
-function _act11() actSlot(11) end;  function _exp11() expSlot(11) end
-function _act12() actSlot(12) end;  function _exp12() expSlot(12) end
-function _act13() actSlot(13) end;  function _exp13() expSlot(13) end
-function _act14() actSlot(14) end;  function _exp14() expSlot(14) end
-function _act15() actSlot(15) end;  function _exp15() expSlot(15) end
-function _act16() actSlot(16) end;  function _exp16() expSlot(16) end
-function _act17() actSlot(17) end;  function _exp17() expSlot(17) end
-function _act18() actSlot(18) end;  function _exp18() expSlot(18) end
-function _act19() actSlot(19) end;  function _exp19() expSlot(19) end
-function _act20() actSlot(20) end;  function _exp20() expSlot(20) end
-function _act21() actSlot(21) end;  function _exp21() expSlot(21) end
-function _act22() actSlot(22) end;  function _exp22() expSlot(22) end
-function _act23() actSlot(23) end;  function _exp23() expSlot(23) end
-function _act24() actSlot(24) end;  function _exp24() expSlot(24) end
-function _act25() actSlot(25) end;  function _exp25() expSlot(25) end
-function _act26() actSlot(26) end;  function _exp26() expSlot(26) end
-function _act27() actSlot(27) end;  function _exp27() expSlot(27) end
-function _act28() actSlot(28) end;  function _exp28() expSlot(28) end
-function _act29() actSlot(29) end;  function _exp29() expSlot(29) end
-function _act30() actSlot(30) end;  function _exp30() expSlot(30) end
 
 function onBrightness(value)
     if not expandedEntityId then return end
@@ -446,7 +403,7 @@ local function buildExpandedSection(entity)
     return ui.column({ gap = 8 }, rows)
 end
 
-local function buildEntityCard(entity, i)
+local function buildEntityCard(entity)
     local pending = pendingToggle[entity.entity_id]
     local isOn = (pending or entity.state) == "on"
     local domain = entity.domain
@@ -458,13 +415,13 @@ local function buildEntityCard(entity, i)
     if canExpand then
         expandBtn = ui.button({
             glyph = isExpanded and "chevron-up" or "chevron-down",
-            onClick = "_exp" .. i,
+            onClick = function() expandEntity(entity.entity_id) end,
         })
     end
 
     local isPending = pending ~= nil
     local iconClick = isPending and "onNoop"
-        or (isControllable(domain) or isAutomation(domain)) and "_act" .. i or "onNoop"
+        or (isControllable(domain) or isAutomation(domain)) and function() actEntity(entity.entity_id) end or "onNoop"
     local iconGlyph = isPending and "loader"
         or isAutomation(domain) and "player-play" or stateGlyph(domain, isOn)
 
@@ -487,22 +444,17 @@ local function buildEntityCard(entity, i)
     return ui.column({ gap = 8 }, cardChildren)
 end
 
--- Capped to 30: matches the number of _actN/_expN slot callbacks defined above.
-local MAX_SLOTS = 30
-
 local function getOrderedIds()
     local ids, seen = {}, {}
     for _, eid in ipairs(monitoredEntities) do
         if entityStates[eid] then
             table.insert(ids, eid)
             seen[eid] = true
-            if #ids >= MAX_SLOTS then return ids end
         end
     end
     for eid in pairs(entityStates) do
         if not seen[eid] then
             table.insert(ids, eid)
-            if #ids >= MAX_SLOTS then return ids end
         end
     end
     return ids
@@ -533,8 +485,8 @@ local function buildListBody(ids)
         })
     end
     local cards = {}
-    for i, eid in ipairs(ids) do
-        table.insert(cards, buildEntityCard(entityStates[eid], i))
+    for _, eid in ipairs(ids) do
+        table.insert(cards, buildEntityCard(entityStates[eid]))
     end
     return ui.scroll({ flexGrow = 1, gap = 8 }, cards)
 end
@@ -555,7 +507,6 @@ local function buildBrowserBody()
             or e.friendly_name:lower():find(q, 1, true)
         then
             table.insert(filtered, e)
-            if #filtered >= 30 then break end
         end
     end
 
@@ -563,17 +514,16 @@ local function buildBrowserBody()
         return ui.label({ text = tr("no_entities_match"), color = "on_surface_variant" })
     end
 
-    browserSlots = {}
     local rows = {}
-    for i, e in ipairs(filtered) do
-        browserSlots[i] = e.entity_id
-        local pinned = isPinned(e.entity_id)
+    for _, e in ipairs(filtered) do
+        local entityId = e.entity_id
+        local pinned = isPinned(entityId)
         table.insert(rows, ui.row({ align = "center", gap = 8 }, {
             ui.column({ flexGrow = 1, gap = 2 }, {
                 ui.label({ text = e.friendly_name, fontWeight = "medium" }),
                 ui.label({ text = e.entity_id, color = "on_surface_variant", fontSize = 12 }),
             }),
-            ui.button({ glyph = pinned and "pin-filled" or "pin", onClick = "_act" .. i }),
+            ui.button({ glyph = pinned and "pin-filled" or "pin", onClick = function() toggleBrowserPin(entityId) end }),
         }))
     end
 
@@ -595,9 +545,6 @@ function render()
         }))
     else
         local ids = getOrderedIds()
-        entitySlots = {}
-        for i, eid in ipairs(ids) do entitySlots[i] = eid end
-
         panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
             ui.row({ align = "center", gap = 8 }, {
                 ui.glyph({ name = "smart-home", size = 20, color = "primary" }),

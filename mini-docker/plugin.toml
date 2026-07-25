@@ -1,7 +1,7 @@
 id = "8bury/mini-docker"
 name = "Mini Docker"
-version = "1.0.3"
-plugin_api = 3
+version = "1.0.4"
+plugin_api = 9
 author = "8bury"
 license = "MIT"
 icon = "brand-docker"

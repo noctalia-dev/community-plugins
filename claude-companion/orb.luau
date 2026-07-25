@@ -34,14 +34,21 @@
 -- ~4s), opacity floors stay high so the icon glows down rather than blinking to dark,
 -- and the size swing (below) is gentle. Urgency reads as a *faster, deeper* breath,
 -- but even "needs you" stays a breath, never a flicker.
+-- User-facing display strings live in translations/<lang>.json; the per-state
+-- status word is keyed by state name ("state.orb.<state>") and resolved at render
+-- time. cur.state is always a known state (the watch below maps anything else to
+-- "idle"), so no fallback guard is needed here.
+local function tr(key, args) return noctalia.tr(key, args) end
+local function orb_word(state) return tr("state.orb." .. state) end
+
 local VISUAL = {
-  idle            = { glyph = "robot",          color = "secondary", period = 11.0, omin = 0.45, omax = 0.80, word = "idle" },
-  turn_start      = { glyph = "brain",          color = "primary",   period = 7.5,  omin = 0.55, omax = 1.00, word = "thinking" },
-  text            = { glyph = "message-dots",   color = "primary",   period = 7.0,  omin = 0.58, omax = 1.00, word = "responding" },
-  tool_start      = { glyph = "tool",           color = "secondary", period = 7.5,  omin = 0.55, omax = 1.00, word = "running a tool" },
-  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 4.5,  omin = 0.55, omax = 1.00, word = "needs you" },
-  turn_end        = { glyph = "bell",           color = "primary",   period = 8.0,  omin = 0.55, omax = 0.95, word = "done — ready for you" },
-  error           = { glyph = "alert-triangle", color = "error",     period = 5.0,  omin = 0.55, omax = 1.00, word = "error" },
+  idle            = { glyph = "robot",          color = "secondary", period = 11.0, omin = 0.45, omax = 0.80 },
+  turn_start      = { glyph = "brain",          color = "primary",   period = 7.5,  omin = 0.55, omax = 1.00 },
+  text            = { glyph = "message-dots",   color = "primary",   period = 7.0,  omin = 0.58, omax = 1.00 },
+  tool_start      = { glyph = "tool",           color = "secondary", period = 7.5,  omin = 0.55, omax = 1.00 },
+  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 4.5,  omin = 0.55, omax = 1.00 },
+  turn_end        = { glyph = "bell",           color = "primary",   period = 8.0,  omin = 0.55, omax = 0.95 },
+  error           = { glyph = "alert-triangle", color = "error",     period = 5.0,  omin = 0.55, omax = 1.00 },
 }
 
 -- The orb IS the bar icon, swelling gently in and out — a desktop "bat signal". The
@@ -72,14 +79,14 @@ end
 -- One compact status line under the orb. Kept short so it doesn't get clipped by a
 -- narrow widget box: just the state word, or a session count, plus burn when there's
 -- a single attributable session.
-local function subtitle(v)
+local function subtitle()
   if cur.count > 1 then
-    return cur.count .. " sessions"
+    return tr("orb.sessions", { count = cur.count })
   end
   if cur.count == 1 and cur.model ~= "?" and (cur.tin + cur.tout) > 0 then
-    return v.word .. " · " .. kfmt(cur.tin) .. "/" .. kfmt(cur.tout)
+    return orb_word(cur.state) .. " · " .. kfmt(cur.tin) .. "/" .. kfmt(cur.tout)
   end
-  return v.word
+  return orb_word(cur.state)
 end
 
 local function render()
@@ -98,7 +105,7 @@ local function render()
       width = GLYPH_BOX, height = GLYPH_BOX,
     }),
     ui.label({
-      text = subtitle(v), fontSize = 12, color = "on_surface_variant",
+      text = subtitle(), fontSize = 12, color = "on_surface_variant",
       maxWidth = 180, maxLines = 1, textAlign = "center",
     }),
   }))

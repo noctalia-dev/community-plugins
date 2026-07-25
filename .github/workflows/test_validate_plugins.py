@@ -307,5 +307,52 @@ Configure the update interval in plugin settings.
         self.assertTrue(any("## Settings" in error for error in self.validate_readme(without_settings)))
 
 
+class WidgetActionsTests(unittest.TestCase):
+    def validate_actions(self, entry: dict, plugin_api: object = 14) -> list[str]:
+        validator = validate_plugins.Validator(Path("/repo"))
+        validator.validate_widget_fields(
+            Path("/repo/example/plugin.toml"),
+            "widget[0]",
+            entry,
+            plugin_api,
+        )
+        return validator.errors
+
+    def test_accepts_every_gesture(self) -> None:
+        actions = {gesture: "volume-mute" for gesture in validate_plugins.WIDGET_GESTURES}
+        self.assertEqual(self.validate_actions({"actions": actions}), [])
+
+    def test_accepts_exec_and_none(self) -> None:
+        self.assertEqual(
+            self.validate_actions({"actions": {"middle": "exec playerctl pause", "right": "none"}}),
+            [],
+        )
+
+    def test_entry_without_actions_is_fine(self) -> None:
+        self.assertEqual(self.validate_actions({"id": "bar"}), [])
+
+    def test_rejects_unknown_gesture(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"ctrl+left": "volume-mute"}}), [])
+
+    def test_rejects_non_table(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": "volume-mute"}), [])
+
+    def test_rejects_non_string_action(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": 42}}), [])
+
+    def test_rejects_empty_action(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": ""}}), [])
+
+    def test_rejects_bare_exec(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": "exec"}}), [])
+
+    def test_requires_plugin_api_14(self) -> None:
+        errors = self.validate_actions({"actions": {"middle": "volume-mute"}}, plugin_api=13)
+        self.assertTrue(any("plugin_api >= 14" in error for error in errors))
+
+    def test_widget_entry_accepts_actions_field(self) -> None:
+        self.assertIn("actions", validate_plugins.ENTRY_FIELDS["widget"])
+
+
 if __name__ == "__main__":
     unittest.main()

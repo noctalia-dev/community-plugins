@@ -257,6 +257,10 @@
       "description": "在歌词旁显示当前歌曲的专辑封面。",
       "label": "显示专辑封面"
     },
+    "show_glyph": {
+      "description": "没有专辑封面时显示设置的图标。",
+      "label": "显示图标"
+    },
     "show_romanization": {
       "description": "允许罗马音或音译出现在第二行。",
       "label": "显示罗马音"

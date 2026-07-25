@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -13,6 +14,70 @@ CATALOG_PATH = ROOT_DIR / "catalog.toml"
 REQUIRED_FIELDS = ("id", "name", "version", "author", "plugin_api", "tags")
 OPTIONAL_STRING_FIELDS = ("license", "icon", "description")
 OPTIONAL_BOOL_FIELDS = ("deprecated",)
+
+# Oldest plugin API any supported Noctalia accepts (kOldestSupportedPluginApiVersion in the
+# shell's src/scripting/plugin_api.h). Release rows below it can never be installed, so the
+# history walk stops there.
+OLDEST_SUPPORTED_PLUGIN_API = 3
+
+
+def git_commit_time(path: Path, *extra_args: str) -> int | None:
+    """Commit time in Unix seconds, or None when `path` has no matching commit.
+
+    An uncommitted plugin has no history, so `git log` prints nothing.
+    """
+    stdout = subprocess.run(
+        ["git", "log", "-1", *extra_args, "--format=%ct", "--", path],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    return int(stdout) if stdout else None
+
+
+def git_output(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=True
+    ).stdout
+
+
+def release_history(subdir: str, tip_api: int) -> list[dict]:
+    """Older revisions of a plugin, one per API level below the tip's, newest first.
+
+    A Noctalia below the tip's `plugin_api` has nothing to install unless the catalog names
+    a revision it can run. Walking `<subdir>/plugin.toml` newest-first and keeping only the
+    revisions that lower the API level yields a strictly decreasing sequence, so each row is
+    the newest revision at or below its own level -- exactly what the host resolves against.
+    """
+    releases = []
+    lowest_api = tip_api
+    revisions = git_output(
+        "log", "--format=%H", "--", f"{subdir}/plugin.toml"
+    ).split()
+
+    for revision in revisions:
+        if lowest_api <= OLDEST_SUPPORTED_PLUGIN_API:
+            break
+        try:
+            manifest = tomllib.loads(
+                git_output("show", f"{revision}:{subdir}/plugin.toml")
+            )
+        except (subprocess.CalledProcessError, tomllib.TOMLDecodeError):
+            continue  # unreadable or pre-`plugin_api` history
+
+        plugin_api = manifest.get("plugin_api")
+        version = manifest.get("version")
+        if not isinstance(plugin_api, int) or isinstance(plugin_api, bool):
+            continue
+        if not isinstance(version, str) or not version:
+            continue
+        if plugin_api >= lowest_api or plugin_api < OLDEST_SUPPORTED_PLUGIN_API:
+            continue
+
+        releases.append({"plugin_api": plugin_api, "version": version, "rev": revision})
+        lowest_api = plugin_api
+
+    return releases
 
 
 def load_plugin_manifest(path: Path) -> dict:
@@ -46,6 +111,15 @@ def load_plugin_manifest(path: Path) -> dict:
             if not isinstance(manifest[field], bool):
                 raise ValueError(f"{path.relative_to(ROOT_DIR)} has invalid {field}; expected bool")
             out[field] = manifest[field]
+
+    # Git dates a committed plugin, and is stable across checkouts. Anything git cannot date
+    # falls back to the file's mtime: an uncommitted plugin still gets a sensible entry so the
+    # catalog can be generated mid-development. (A rename also breaks the link to the commit
+    # that first added the file, which is why added_at falls back too.)
+    mtime = int(path.stat().st_mtime)
+    out["updated_at"] = git_commit_time(path) or mtime
+    out["added_at"] = git_commit_time(path, "--diff-filter=A") or out["updated_at"]
+
     return out
 
 
@@ -67,6 +141,7 @@ def discover_plugins() -> list[dict]:
         directory = manifest_path.parent.name
         manifest["_directory"] = directory
         manifest["_order"] = order.get(manifest["id"], len(order))
+        manifest["releases"] = release_history(directory, manifest["plugin_api"])
         plugins.append(manifest)
 
     plugins.sort(key=lambda plugin: (plugin["_order"], plugin["_directory"]))
@@ -89,6 +164,8 @@ def render_catalog(plugins: list[dict]) -> str:
         "# Index of every plugin this source ships: the minimum needed to render, search,",
         "# and compat-check the list. The per-plugin plugin.toml stays authoritative; the",
         "# host re-reads it on enable. Keep one [[plugin]] row per plugin subdirectory.",
+        "# A [[plugin.release]] row names an older revision for a Noctalia below the tip's",
+        "# plugin_api, so an older release stays installable instead of the plugin vanishing.",
         "",
     ]
 
@@ -102,6 +179,8 @@ def render_catalog(plugins: list[dict]) -> str:
                 f"id = {toml_string(plugin['id'])}",
                 f"name = {toml_string(plugin['name'])}",
                 f"version = {toml_string(plugin['version'])}",
+                f"updated_at = {plugin['updated_at']}",
+                f"added_at = {plugin['added_at']}",
                 f"author = {toml_string(plugin['author'])}",
             ]
         )
@@ -121,6 +200,16 @@ def render_catalog(plugins: list[dict]) -> str:
                 + "]",
             ]
         )
+        for release in plugin["releases"]:
+            lines.extend(
+                [
+                    "",
+                    "[[plugin.release]]",
+                    f"plugin_api = {release['plugin_api']}",
+                    f"version = {toml_string(release['version'])}",
+                    f"rev = {toml_string(release['rev'])}",
+                ]
+            )
 
     return "\n".join(lines) + "\n"
 

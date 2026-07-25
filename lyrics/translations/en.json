@@ -257,6 +257,10 @@
       "description": "Display the song's album art next to the lyrics.",
       "label": "Show album cover"
     },
+    "show_glyph": {
+      "description": "Display the configured glyph when no album cover is available.",
+      "label": "Show glyph"
+    },
     "show_romanization": {
       "description": "Allow romanized or transliterated lyrics to appear on the secondary line.",
       "label": "Show romanization"
