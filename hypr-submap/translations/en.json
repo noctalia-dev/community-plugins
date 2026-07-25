@@ -1,0 +1,13 @@
+{
+  "settings": {
+    "hide_when_default": {
+      "label": "Hide when default submap"
+    },
+    "prefix": {
+      "label": "Add a prefix to the submap name"
+    },
+    "glyph": {
+      "label": "Icon to show on bar"
+    }
+  }
+}
