@@ -22,7 +22,21 @@ local lastOutputUse = nil
 
 local pidList: { killSystem } = {}
 
--- 
+-- load personnal path
+
+local dir = noctalia.pluginDataDir()
+local path = dir .. "/data.json"
+local raw = noctalia.readFile(path)
+if raw then
+	local data = noctalia.json.decode(raw)
+	if data and data.personnalPath then
+		for _, p in ipairs(data.personnalPath) do
+			table.insert(wallpaperPath, p)
+		end
+	end
+end
+
+--
 type Wallpaper = {
 	nb: string,
 	name: string,
