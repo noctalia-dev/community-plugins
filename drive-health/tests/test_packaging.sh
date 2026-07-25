@@ -4,6 +4,8 @@ set -eu
 project_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 service_template="$project_dir/packaging/noctalia-drive-health.service.in"
 timer="$project_dir/packaging/noctalia-drive-health.timer"
+interval_script="$project_dir/packaging/set-collector-interval.sh"
+manage_script="$project_dir/packaging/manage-collector.sh"
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/drive-health-packaging.XXXXXX")
 trap 'rm -rf -- "$fixture"' EXIT HUP INT TERM
 
@@ -14,6 +16,12 @@ grep -q '^Group=1000$' "$fixture/noctalia-drive-health.service"
 grep -q '^RuntimeDirectoryMode=0750$' "$fixture/noctalia-drive-health.service"
 grep -q '^UMask=0027$' "$fixture/noctalia-drive-health.service"
 grep -q '^Unit=noctalia-drive-health.service$' "$fixture/noctalia-drive-health.timer"
+grep -q '^OnUnitActiveSec=15min$' "$fixture/noctalia-drive-health.timer"
+
+bash -n "$interval_script"
+bash -n "$manage_script"
+grep -q 'packaging/manage-collector.sh' "$project_dir/packaging/install-system-collector.sh"
+grep -q 'packaging/uninstall-system-collector.sh' "$project_dir/packaging/install-system-collector.sh"
 
 if grep -R -q 'noctalia-smart-monito[r]' "$project_dir"; then
   echo "generic legacy collector namespace must not be read, modified, or removed" >&2
@@ -27,7 +35,7 @@ fi
 
 declared_dependencies=$(sed -n 's/^dependencies = \[\(.*\)\]$/\1/p' "$project_dir/plugin.toml")
 for dependency in \
-    lsblk smartctl sh date dirname mkdir mktemp rm sed cat chmod mv sudo env bash \
+    lsblk smartctl sh date dirname mkdir mktemp rm sed cat chmod mv env bash \
     install systemctl pkexec id tr pacman apt-get dnf zypper apk xbps-install emerge; do
   case "$declared_dependencies" in
     *\"$dependency\"*) ;;

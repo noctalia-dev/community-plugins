@@ -10,89 +10,29 @@ local searchQuery = ""
 local showTCP     = true
 local showUDP     = false
 
--- ── Pre-declared row slot handlers ───────────────────────────────────────
--- Explicit top-level declarations so Noctalia captures them at load time.
--- Dynamic _ENV[name] = fn is skipped — Noctalia likely whitelists globals
--- via static analysis at script load, silently dropping dynamic assignments.
---
 -- Kill flow (no overlay): first click stages slot (pendingKill=i, icon→check),
 -- second click on same slot confirms kill.
 
-local MAX_ROWS  = 50
-local rowSlots  = {}
 local rowCursor = 0
 
-local function _doKill(i)
-  local t = rowSlots[i]
-  if not t or t.pid == 0 then return end
-  if pendingKill == i then
-    killingPid    = t.pid
+local function killAt(slot, entry)
+  if entry.pid == 0 then return end
+  if pendingKill == slot then
+    killingPid    = entry.pid
     pendingKill   = nil
-    noctalia.state.set("portctl_command", { action = "kill", pid = t.pid })
+    noctalia.state.set("portctl_command", { action = "kill", pid = entry.pid })
     render()
   else
-    pendingKill = i
+    pendingKill = slot
     render()
   end
 end
 
-local function _doCopy(i)
-  local t = rowSlots[i]
-  if not t or t.pid == 0 then return end
-  local ok = noctalia.copyToClipboard(tostring(t.pid), "text/plain")
-  if ok then noctalia.notify(noctalia.tr("title"), noctalia.tr("panel.pid_copied", { pid = tostring(t.pid) })) end
+local function copyPid(entry)
+  if entry.pid == 0 then return end
+  local ok = noctalia.copyToClipboard(tostring(entry.pid), "text/plain")
+  if ok then noctalia.notify(noctalia.tr("title"), noctalia.tr("panel.pid_copied", { pid = tostring(entry.pid) })) end
 end
-
-function _pkill1()  _doKill(1)  end  function _pcopy1()  _doCopy(1)  end
-function _pkill2()  _doKill(2)  end  function _pcopy2()  _doCopy(2)  end
-function _pkill3()  _doKill(3)  end  function _pcopy3()  _doCopy(3)  end
-function _pkill4()  _doKill(4)  end  function _pcopy4()  _doCopy(4)  end
-function _pkill5()  _doKill(5)  end  function _pcopy5()  _doCopy(5)  end
-function _pkill6()  _doKill(6)  end  function _pcopy6()  _doCopy(6)  end
-function _pkill7()  _doKill(7)  end  function _pcopy7()  _doCopy(7)  end
-function _pkill8()  _doKill(8)  end  function _pcopy8()  _doCopy(8)  end
-function _pkill9()  _doKill(9)  end  function _pcopy9()  _doCopy(9)  end
-function _pkill10() _doKill(10) end  function _pcopy10() _doCopy(10) end
-function _pkill11() _doKill(11) end  function _pcopy11() _doCopy(11) end
-function _pkill12() _doKill(12) end  function _pcopy12() _doCopy(12) end
-function _pkill13() _doKill(13) end  function _pcopy13() _doCopy(13) end
-function _pkill14() _doKill(14) end  function _pcopy14() _doCopy(14) end
-function _pkill15() _doKill(15) end  function _pcopy15() _doCopy(15) end
-function _pkill16() _doKill(16) end  function _pcopy16() _doCopy(16) end
-function _pkill17() _doKill(17) end  function _pcopy17() _doCopy(17) end
-function _pkill18() _doKill(18) end  function _pcopy18() _doCopy(18) end
-function _pkill19() _doKill(19) end  function _pcopy19() _doCopy(19) end
-function _pkill20() _doKill(20) end  function _pcopy20() _doCopy(20) end
-function _pkill21() _doKill(21) end  function _pcopy21() _doCopy(21) end
-function _pkill22() _doKill(22) end  function _pcopy22() _doCopy(22) end
-function _pkill23() _doKill(23) end  function _pcopy23() _doCopy(23) end
-function _pkill24() _doKill(24) end  function _pcopy24() _doCopy(24) end
-function _pkill25() _doKill(25) end  function _pcopy25() _doCopy(25) end
-function _pkill26() _doKill(26) end  function _pcopy26() _doCopy(26) end
-function _pkill27() _doKill(27) end  function _pcopy27() _doCopy(27) end
-function _pkill28() _doKill(28) end  function _pcopy28() _doCopy(28) end
-function _pkill29() _doKill(29) end  function _pcopy29() _doCopy(29) end
-function _pkill30() _doKill(30) end  function _pcopy30() _doCopy(30) end
-function _pkill31() _doKill(31) end  function _pcopy31() _doCopy(31) end
-function _pkill32() _doKill(32) end  function _pcopy32() _doCopy(32) end
-function _pkill33() _doKill(33) end  function _pcopy33() _doCopy(33) end
-function _pkill34() _doKill(34) end  function _pcopy34() _doCopy(34) end
-function _pkill35() _doKill(35) end  function _pcopy35() _doCopy(35) end
-function _pkill36() _doKill(36) end  function _pcopy36() _doCopy(36) end
-function _pkill37() _doKill(37) end  function _pcopy37() _doCopy(37) end
-function _pkill38() _doKill(38) end  function _pcopy38() _doCopy(38) end
-function _pkill39() _doKill(39) end  function _pcopy39() _doCopy(39) end
-function _pkill40() _doKill(40) end  function _pcopy40() _doCopy(40) end
-function _pkill41() _doKill(41) end  function _pcopy41() _doCopy(41) end
-function _pkill42() _doKill(42) end  function _pcopy42() _doCopy(42) end
-function _pkill43() _doKill(43) end  function _pcopy43() _doCopy(43) end
-function _pkill44() _doKill(44) end  function _pcopy44() _doCopy(44) end
-function _pkill45() _doKill(45) end  function _pcopy45() _doCopy(45) end
-function _pkill46() _doKill(46) end  function _pcopy46() _doCopy(46) end
-function _pkill47() _doKill(47) end  function _pcopy47() _doCopy(47) end
-function _pkill48() _doKill(48) end  function _pcopy48() _doCopy(48) end
-function _pkill49() _doKill(49) end  function _pcopy49() _doCopy(49) end
-function _pkill50() _doKill(50) end  function _pcopy50() _doCopy(50) end
 
 -- ── Category metadata ─────────────────────────────────────────────────────
 
@@ -154,36 +94,9 @@ end
 
 -- ── Port row ──────────────────────────────────────────────────────────────
 
--- cancelFn names: _pcancel1.._pcancel50
 local function _doCancel(i)
   if pendingKill == i then pendingKill = nil; render() end
 end
-
-function _pcancel1()  _doCancel(1)  end  function _pcancel2()  _doCancel(2)  end
-function _pcancel3()  _doCancel(3)  end  function _pcancel4()  _doCancel(4)  end
-function _pcancel5()  _doCancel(5)  end  function _pcancel6()  _doCancel(6)  end
-function _pcancel7()  _doCancel(7)  end  function _pcancel8()  _doCancel(8)  end
-function _pcancel9()  _doCancel(9)  end  function _pcancel10() _doCancel(10) end
-function _pcancel11() _doCancel(11) end  function _pcancel12() _doCancel(12) end
-function _pcancel13() _doCancel(13) end  function _pcancel14() _doCancel(14) end
-function _pcancel15() _doCancel(15) end  function _pcancel16() _doCancel(16) end
-function _pcancel17() _doCancel(17) end  function _pcancel18() _doCancel(18) end
-function _pcancel19() _doCancel(19) end  function _pcancel20() _doCancel(20) end
-function _pcancel21() _doCancel(21) end  function _pcancel22() _doCancel(22) end
-function _pcancel23() _doCancel(23) end  function _pcancel24() _doCancel(24) end
-function _pcancel25() _doCancel(25) end  function _pcancel26() _doCancel(26) end
-function _pcancel27() _doCancel(27) end  function _pcancel28() _doCancel(28) end
-function _pcancel29() _doCancel(29) end  function _pcancel30() _doCancel(30) end
-function _pcancel31() _doCancel(31) end  function _pcancel32() _doCancel(32) end
-function _pcancel33() _doCancel(33) end  function _pcancel34() _doCancel(34) end
-function _pcancel35() _doCancel(35) end  function _pcancel36() _doCancel(36) end
-function _pcancel37() _doCancel(37) end  function _pcancel38() _doCancel(38) end
-function _pcancel39() _doCancel(39) end  function _pcancel40() _doCancel(40) end
-function _pcancel41() _doCancel(41) end  function _pcancel42() _doCancel(42) end
-function _pcancel43() _doCancel(43) end  function _pcancel44() _doCancel(44) end
-function _pcancel45() _doCancel(45) end  function _pcancel46() _doCancel(46) end
-function _pcancel47() _doCancel(47) end  function _pcancel48() _doCancel(48) end
-function _pcancel49() _doCancel(49) end  function _pcancel50() _doCancel(50) end
 
 local function portRow(entry)
   rowCursor += 1
@@ -191,11 +104,10 @@ local function portRow(entry)
   local hasKill   = entry.pid ~= 0
   local isKilling = (killingPid == entry.pid)
   local isPending = (pendingKill == slot)
-  rowSlots[slot]  = { pid = entry.pid, port = entry.port, name = entry.name }
 
-  local killFn   = "_pkill"   .. slot
-  local copyFn   = "_pcopy"   .. slot
-  local cancelFn = "_pcancel" .. slot
+  local killFn = function() killAt(slot, entry) end
+  local copyFn = function() copyPid(entry) end
+  local cancelFn = function() _doCancel(slot) end
   local dotClr   = isKilling and COLOR_KILLING or COLOR_ACTIVE
 
   -- Killing state: replace entire row content with port + spinner
@@ -294,7 +206,6 @@ function render()
   data = noctalia.state.get("portctl_data") or data
 
   rowCursor = 0
-  for i = 1, MAX_ROWS do rowSlots[i] = nil end
 
   local ports = filteredPorts()
   noctalia.state.set("portctl_visible_count", #ports)

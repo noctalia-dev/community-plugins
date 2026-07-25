@@ -26,16 +26,6 @@ local render
 local runSearch
 local buildIndex
 
--- Per-row callbacks need distinct global names; the reconciler dispatches
--- callbacks by name only. getfenv() is the script environment lua_getglobal
--- reads from, so assigning into it defines the callback the host will find.
-local env = getfenv()
-local function rowCallback(prefix, index, fn)
-    local name = prefix .. "_" .. index
-    env[name] = fn
-    return name
-end
-
 local function tr(key, args)
     return noctalia.tr(key, args)
 end
@@ -258,9 +248,9 @@ local function resultRow(rel, index)
         text = rel,
         variant = "ghost",
         contentAlign = "start",
-        onClick = rowCallback("openHit", index, function()
+        onClick = function()
             openEntry(rel)
-        end),
+        end,
     })
 end
 

@@ -26,12 +26,16 @@ local available = {
 
 local rawFixture = {
   schema = 2,
-  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "2.0.0",
+  collector_version = mode == "outdated-raw-cache" and "0.6.0" or "2.0.1",
   collection_id = "fixture-collection-id",
   generated_at_epoch = 1700000000,
   lsblk = { blockdevices = {} },
   smart = {},
 }
+
+if mode == "raw-cache" or mode == "outdated-raw-cache" then
+  files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
+end
 
 local function translate(key, substitutions)
   local value = key
@@ -47,6 +51,7 @@ noctalia = {
     if key == "system_collector_enabled" then
       return collectorEnabled
     end
+    if key == "full_smart_refresh_minutes" then return 15 end
     return nil
   end,
   pluginDir = function() return "/mock/plugin" end,
@@ -166,14 +171,14 @@ elseif mode == "probe-timeout" then
   return
 elseif mode == "missing-lsblk" then
   assert(dependencies.ready == false and dependencies.blocking == true, "missing lsblk was not blocking")
-  assert(dependencies.install_command == "sudo pacman -S --needed util-linux", "wrong lsblk install command")
+  assert(dependencies.install_command == "pkexec pacman -S --needed --noconfirm util-linux", "wrong lsblk install command")
   assert(launchedCommand == nil, "collector launched without lsblk")
   assert(snapshot.collector_error ~= nil, "blocking dependency did not publish an error")
   print("collector initialization test passed: " .. mode)
   return
 elseif mode == "missing-smartctl" then
   assert(dependencies.ready == false and dependencies.blocking == false, "missing smartctl blocked inventory")
-  assert(dependencies.install_command == "sudo pacman -S --needed smartmontools", "wrong smartctl install command")
+  assert(dependencies.install_command == "pkexec pacman -S --needed --noconfirm smartmontools", "wrong smartctl install command")
   assert(launchedCommand and launchedCommand:match("collect_raw%.sh"), "fallback collector did not launch")
   print("collector initialization test passed: " .. mode)
   return
@@ -181,8 +186,9 @@ elseif mode == "raw-cache" then
   assert(snapshot.source == "system-cache", "raw cache was not normalized")
   assert(snapshot.collection_id == "fixture-collection-id", "raw cache lost its collection ID")
   assert(snapshot.system_collector.status == "healthy"
-    and snapshot.system_collector.version == "2.0.0"
-    and snapshot.system_collector.expected_version == "2.0.0",
+    and snapshot.system_collector.version == "2.0.1"
+    and snapshot.system_collector.expected_version == "2.0.1"
+    and snapshot.system_collector.smart_refresh_minutes == 15,
     "current system collector was not reported healthy")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   print("collector initialization test passed: " .. mode)
@@ -191,7 +197,7 @@ elseif mode == "outdated-raw-cache" then
   assert(snapshot.source == "system-cache", "outdated raw cache was not normalized")
   assert(snapshot.system_collector.status == "upgrade-required"
     and snapshot.system_collector.version == "0.6.0"
-    and snapshot.system_collector.expected_version == "2.0.0",
+    and snapshot.system_collector.expected_version == "2.0.1",
     "older system collector did not request an upgrade")
   assert(not (launchedCommand or ""):match("collect_raw%.sh"), "collector launched despite a fresh raw cache")
   assert(#notifications == 1 and notifications[1].title == "collector.update_title"
@@ -465,6 +471,24 @@ local healthyRaw = assert(normalizeRaw({
 assert(healthyRaw.disks[1].smart_available == true and healthyRaw.disks[1].smart_error == nil,
   "healthy SMART data retained a contradictory error message")
 
+directories["/sys/class/nvme/nvme0"] = { "hwmon0" }
+files["/sys/class/nvme/nvme0/hwmon0/temp1_input"] = "51000\n"
+local liveTemperatureRaw = assert(normalizeRaw({
+  schema = 2, generated_at_epoch = 1700000000,
+  lsblk = { blockdevices = { {
+    name = "nvme0n1", kname = "nvme0n1", path = "/dev/nvme0n1", type = "disk", tran = "nvme",
+    rota = false, size = 1000000000, model = "Live Temperature NVMe", serial = "LIVE1",
+    mountpoints = {}, children = {},
+  } } },
+  smart = { { requested_device = "/dev/nvme0", payload = {
+    smart_status = { passed = true }, temperature = { current = 42 },
+  } } },
+}, "test"))
+assert(liveTemperatureRaw.disks[1].temperature_c == 51
+    and liveTemperatureRaw.disks[1].hotspot_temperature_c == 51
+    and liveTemperatureRaw.disks[1].temperature_source == "sysfs",
+  "fresh sysfs temperature did not override the stale SMART-cache value")
+
 local sleeping = assert(normalizeRaw({
   schema = 2, generated_at_epoch = 1700000000,
   lsblk = { blockdevices = { {
@@ -511,6 +535,7 @@ local oversizedId = assert(normalizeRaw({
 assert(oversizedId.collection_id == nil, "oversized collection ID was preserved")
 
 files["/usr/local/libexec/noctalia-drive-health/collect_raw.sh"] = "installed"
+files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
 collectorEnabled = true
 state.collector_snapshot = { summary = {}, system_collector = { status = "healthy" } }
 publishError("fixture failure", { ready = true, blocking = false })

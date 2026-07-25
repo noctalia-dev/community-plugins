@@ -4,6 +4,8 @@
 noctalia.setUpdateInterval(33)
 
 local glyph = noctalia.getConfig("glyph")
+local showGlyph = noctalia.getConfig("show_glyph")
+if showGlyph == nil then showGlyph = true end
 local showArtist = noctalia.getConfig("show_artist")
 local hideWhenPaused = noctalia.getConfig("hide_when_paused")
 local showCover = noctalia.getConfig("show_cover")
@@ -445,7 +447,7 @@ local function render()
       or coverShape == "square" and 0
       or math.min(coverRadius, coverSize / 2)
     prefix[#prefix + 1] = ui.image({ path = coverPath, width = coverSize, height = coverSize, radius = radius, fit = "cover" })
-  else
+  elseif showGlyph then
     prefix[#prefix + 1] = ui.glyph({
       name = glyph,
       size = 14,
@@ -578,6 +580,14 @@ function onRightClick()
       render()
     end
   end)
+end
+
+function onScroll(axis, steps)
+  if axis ~= "vertical" or playerInstance == "" then return end
+  local direction = tonumber(steps) or 0
+  if direction == 0 then return end
+  local action = direction < 0 and "next" or "previous"
+  noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " " .. action, function() end)
 end
 
 function update()

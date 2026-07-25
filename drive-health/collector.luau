@@ -6,9 +6,14 @@
 local SYSTEM_NAMESPACE = "noctalia-drive-health"
 local SYSTEM_LIBEXEC = "/usr/local/libexec/" .. SYSTEM_NAMESPACE
 local RAW_CACHE = "/run/" .. SYSTEM_NAMESPACE .. "/raw.json"
-local CACHE_MAX_AGE_SECONDS = 180
+-- The root collector performs full SMART reads every 15 minutes. The desktop
+-- service refreshes lsblk and sysfs temperatures between those runs, so allow
+-- a little scheduler slack before falling back to an expensive direct read.
+local CACHE_MAX_AGE_SECONDS = 1200
+local LSBLK_INVENTORY_COMMAND = "lsblk --json --bytes --paths --output "
+  .. "NAME,KNAME,PATH,PKNAME,TYPE,TRAN,ROTA,RM,HOTPLUG,SIZE,LOG-SEC,PHY-SEC,MODEL,SERIAL,FSTYPE,FSSIZE,FSUSED,FSAVAIL,MOUNTPOINTS"
 local NVME_DATA_UNIT_BYTES = 512000
-local EXPECTED_COLLECTOR_VERSION = "2.0.0"
+local EXPECTED_COLLECTOR_VERSION = "2.0.1"
 local PREFERENCES_FILE = "drive-preferences.json"
 
 local collecting = false
@@ -48,13 +53,13 @@ local DEPENDENCIES = {
 }
 
 local PACKAGE_MANAGERS = {
-  { command = "pacman", id = "pacman", label = "pacman", prefix = "sudo pacman -S --needed " },
-  { command = "apt-get", id = "apt", label = "APT", prefix = "sudo apt-get install " },
-  { command = "dnf", id = "dnf", label = "DNF", prefix = "sudo dnf install " },
-  { command = "zypper", id = "zypper", label = "Zypper", prefix = "sudo zypper install " },
-  { command = "apk", id = "apk", label = "APK", prefix = "sudo apk add " },
-  { command = "xbps-install", id = "xbps", label = "XBPS", prefix = "sudo xbps-install -S " },
-  { command = "emerge", id = "emerge", label = "Portage", prefix = "sudo emerge --ask " },
+  { command = "pacman", id = "pacman", label = "pacman", prefix = "pkexec pacman -S --needed --noconfirm " },
+  { command = "apt-get", id = "apt", label = "APT", prefix = "pkexec apt-get install --yes " },
+  { command = "dnf", id = "dnf", label = "DNF", prefix = "pkexec dnf install --assumeyes " },
+  { command = "zypper", id = "zypper", label = "Zypper", prefix = "pkexec zypper --non-interactive install " },
+  { command = "apk", id = "apk", label = "APK", prefix = "pkexec apk add " },
+  { command = "xbps-install", id = "xbps", label = "XBPS", prefix = "pkexec xbps-install -S -y " },
+  { command = "emerge", id = "emerge", label = "Portage", prefix = "pkexec emerge --ask=n " },
 }
 
 local function shellQuote(value)
@@ -63,6 +68,11 @@ end
 
 local function systemCollectorEnabled()
   return noctalia.getConfig("system_collector_enabled") == true
+end
+
+local function fullSmartRefreshMinutes()
+  local configured = tonumber(noctalia.getConfig("full_smart_refresh_minutes")) or 15
+  return math.max(1, math.min(1440, math.floor(configured)))
 end
 
 local function numeric(value)
@@ -711,11 +721,24 @@ local function systemCollectorState(raw, source)
   local pluginDirectory = noctalia.pluginDir()
   local enabled = systemCollectorEnabled()
   local installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/collect_raw.sh")
+  local pkexecAvailable = noctalia.commandExists("pkexec")
   local reportedVersion = type(raw) == "table" and tostring(raw.collector_version or "") or ""
   local version = source == "system-cache" and reportedVersion or ""
+  local refreshMinutes = fullSmartRefreshMinutes()
+  local intervalScript = SYSTEM_LIBEXEC .. "/set-collector-interval.sh"
+  local manageScript = SYSTEM_LIBEXEC .. "/manage-collector.sh"
+  local uninstallScript = SYSTEM_LIBEXEC .. "/uninstall-collector.sh"
+  local installScript = pluginDirectory ~= nil
+    and pluginDirectory .. "/packaging/install-system-collector.sh" or nil
+  local sourceUninstallScript = pluginDirectory ~= nil
+    and pluginDirectory .. "/packaging/uninstall-system-collector.sh" or nil
   local status
   if not enabled then
     status = "disabled"
+  elseif installed and not noctalia.fileExists(manageScript) then
+    -- Older collectors did not include the fixed, root-owned lifecycle helper.
+    -- Ask for an upgrade rather than falling back to a shell or terminal.
+    status = "upgrade-required"
   elseif source == "system-cache" and version == EXPECTED_COLLECTOR_VERSION then
     status = "healthy"
   elseif source == "system-cache" and version ~= EXPECTED_COLLECTOR_VERSION then
@@ -731,20 +754,23 @@ local function systemCollectorState(raw, source)
     status = status,
     version = version ~= "" and version or nil,
     expected_version = EXPECTED_COLLECTOR_VERSION,
+    smart_refresh_minutes = refreshMinutes,
     helper_installed = noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     helper_available = enabled
       and noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
-    authorization_available = noctalia.commandExists("pkexec"),
-    install_command = pluginDirectory ~= nil and "sudo "
-      .. shellQuote(pluginDirectory .. "/packaging/install-system-collector.sh") or nil,
-    uninstall_command = pluginDirectory ~= nil and "sudo "
-      .. shellQuote(pluginDirectory .. "/packaging/uninstall-system-collector.sh") or nil,
-    enable_command = installed and noctalia.commandExists("systemctl")
-      and "sudo systemctl enable --now " .. SYSTEM_NAMESPACE .. ".timer"
-        .. " && sudo systemctl start " .. SYSTEM_NAMESPACE .. ".service" or nil,
-    disable_command = installed and noctalia.commandExists("systemctl")
-      and "sudo systemctl disable --now " .. SYSTEM_NAMESPACE .. ".timer"
-        .. " && sudo systemctl stop " .. SYSTEM_NAMESPACE .. ".service" or nil,
+    authorization_available = pkexecAvailable,
+    install_command = installScript ~= nil and pkexecAvailable and "pkexec "
+      .. shellQuote(installScript)
+      .. " --interval-minutes " .. tostring(refreshMinutes) or nil,
+    uninstall_command = pkexecAvailable and ((noctalia.fileExists(uninstallScript)
+      and "pkexec " .. shellQuote(uninstallScript))
+      or (sourceUninstallScript ~= nil and "pkexec " .. shellQuote(sourceUninstallScript))) or nil,
+    enable_command = installed and noctalia.fileExists(manageScript) and pkexecAvailable
+      and "pkexec " .. shellQuote(manageScript) .. " start" or nil,
+    disable_command = installed and noctalia.fileExists(manageScript) and pkexecAvailable
+      and "pkexec " .. shellQuote(manageScript) .. " pause" or nil,
+    interval_command = installed and noctalia.fileExists(intervalScript) and pkexecAvailable
+      and "pkexec " .. shellQuote(intervalScript) .. " " .. tostring(refreshMinutes) or nil,
   }
 end
 
@@ -787,10 +813,15 @@ local function normalizeRaw(raw, source)
       if not smartAvailable then
         values.smart_completeness = "unavailable"
       end
-      if values.temperature_c == nil then
-        values.temperature_c = sysfsTemperature(device)
-      end
-      if values.hotspot_temperature_c == nil then
+      -- sysfs provides a lightweight, non-waking temperature update. Prefer
+      -- it when available so the bar and temperature alerts remain current
+      -- between the 15-minute full SMART snapshots.
+      local liveTemperature = sysfsTemperature(device)
+      if liveTemperature ~= nil then
+        values.temperature_c = liveTemperature
+        values.hotspot_temperature_c = liveTemperature
+        values.temperature_source = "sysfs"
+      elseif values.hotspot_temperature_c == nil then
         values.hotspot_temperature_c = values.temperature_c
       end
       local used, available, usagePercent, mountPoints = mountedUsage(block)
@@ -963,7 +994,7 @@ local function checkDependencies()
   end
   table.sort(signatureParts)
   local installCommand = nil
-  if manager ~= nil and #packages > 0 and noctalia.commandExists("sudo") then
+  if manager ~= nil and #packages > 0 and noctalia.commandExists("pkexec") then
     installCommand = manager.prefix .. table.concat(packages, " ")
   end
   local signature = table.concat(signatureParts, ",")
@@ -1032,6 +1063,43 @@ local function publish(snapshot, dependencies)
   noctalia.state.set("collector_snapshot", snapshot)
 end
 
+local function refreshSystemCacheInventory(rawCache, dependencies)
+  collecting = true
+  local current = noctalia.state.get("collector_snapshot") or {}
+  current.collecting = true
+  current.dependencies = dependencies
+  noctalia.state.set("collector_snapshot", current)
+
+  local launched = noctalia.runAsync(LSBLK_INVENTORY_COMMAND, function(result)
+    collecting = false
+    local resolvedDependencies = checkDependencies()
+    local inventory = result.exitCode == 0 and not result.timedOut
+      and noctalia.json.decode(result.stdout or "") or nil
+    if type(inventory) == "table" and type(inventory.blockdevices) == "table" then
+      rawCache.lsblk = inventory
+    end
+
+    -- A failed lightweight inventory refresh must not discard a healthy SMART
+    -- cache. It simply leaves connection and mount information at its last
+    -- known values until the next refresh.
+    local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
+    if snapshot == nil then
+      publishError(tostring(normalizeError or "SMART normalization failed."), resolvedDependencies)
+      return
+    end
+    publish(snapshot, resolvedDependencies)
+  end, 15000)
+  if not launched then
+    collecting = false
+    local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
+    if snapshot == nil then
+      publishError(tostring(normalizeError or "SMART normalization failed."), dependencies)
+    else
+      publish(snapshot, dependencies)
+    end
+  end
+end
+
 local function collect()
   if collecting then
     return
@@ -1047,7 +1115,7 @@ local function collect()
     if type(rawCache) == "table" and tonumber(rawCache.schema) == 2 then
       local snapshot, normalizeError = normalizeRaw(rawCache, "system-cache")
       if snapshot ~= nil then
-        publish(snapshot, dependencies)
+        refreshSystemCacheInventory(rawCache, dependencies)
         return
       end
       noctalia.log("Raw SMART cache rejected: " .. tostring(normalizeError))

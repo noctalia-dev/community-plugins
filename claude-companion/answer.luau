@@ -12,6 +12,9 @@
 
 local KEY = "claude.answer"
 
+-- User-facing display strings live in translations/<lang>.json.
+local function tr(key, args) return noctalia.tr(key, args) end
+
 -- The panel surface is 460 logical px wide (plugin.toml); wrap text inside the
 -- padding with room for the scrollbar.
 local WRAP = 408
@@ -29,11 +32,11 @@ local function fingerprint(a)
 end
 
 local function render(a)
-  local rows = { ui.label({ text = "Claude — quick ask", fontWeight = "bold" }) }
+  local rows = { ui.label({ text = tr("answer.title"), fontWeight = "bold" }) }
   local body
   if type(a) ~= "table" or type(a.text) ~= "string" or a.text == "" then
     body = ui.label({
-      text = "No answers yet. Ask one from the launcher: /claude ? <question>",
+      text = tr("answer.empty"),
       maxWidth = WRAP,
       opacity = 0.7,
     })

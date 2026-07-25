@@ -111,6 +111,18 @@ ENTRY_TYPES = ("widget", "panel", "shortcut", "desktop_widget", "launcher_provid
 SETTING_OWNER_TYPES = ("widget", "panel", "desktop_widget", "launcher_provider")
 SETTING_TYPES = {"string", "string_list", "bool", "glyph", "select", "folder", "file", "int", "color"}
 PANEL_PLACEMENTS = {"attached", "floating"}
+PANEL_KEYBOARD_FOCUS = {"on_demand", "exclusive", "none"}
+WIDGET_GESTURES = {
+    "left",
+    "right",
+    "middle",
+    "back",
+    "forward",
+    "scroll_up",
+    "scroll_down",
+    "scroll_left",
+    "scroll_right",
+}
 PANEL_POSITIONS = {
     "auto",
     "center",
@@ -131,8 +143,20 @@ ROOT_FIELDS = set(ROOT_STRING_FIELDS) | set(ROOT_ARRAY_FIELDS) | set(ENTRY_TYPES
 }
 BASE_ENTRY_FIELDS = {"id", "entry"}
 ENTRY_FIELDS = {
-    "widget": BASE_ENTRY_FIELDS | {"setting"},
-    "panel": BASE_ENTRY_FIELDS | {"setting", "width", "height", "placement", "position", "open_near_click"},
+    "widget": BASE_ENTRY_FIELDS | {"setting", "actions"},
+    "panel": BASE_ENTRY_FIELDS
+    | {
+        "setting",
+        "width",
+        "height",
+        "placement",
+        "position",
+        "open_near_click",
+        "dismiss_on_outside_click",
+        "keyboard_focus",
+        "persistent",
+        "capture_keys",
+    },
     "desktop_widget": BASE_ENTRY_FIELDS | {"setting"},
     "service": BASE_ENTRY_FIELDS,
     "shortcut": BASE_ENTRY_FIELDS,
@@ -686,7 +710,13 @@ class Validator:
             if not is_non_empty_string(category.get("glyph")):
                 self.add_context_error(manifest_path, category_context, "glyph must be a non-empty string")
 
-    def validate_panel_fields(self, manifest_path: Path, context: str, entry: dict[str, Any]) -> None:
+    def validate_panel_fields(
+        self,
+        manifest_path: Path,
+        context: str,
+        entry: dict[str, Any],
+        plugin_api: Any,
+    ) -> None:
         # Mirrors the shell parser: a positive number (logical px) or the
         # literal string "fill" (span the output's available extent; requires
         # floating placement).
@@ -725,6 +755,79 @@ class Validator:
 
         if "open_near_click" in entry and not isinstance(entry["open_near_click"], bool):
             self.add_context_error(manifest_path, context, "open_near_click must be a bool")
+
+        if "dismiss_on_outside_click" in entry:
+            if not is_int(plugin_api) or plugin_api < 8:
+                self.add_context_error(
+                    manifest_path,
+                    context,
+                    "dismiss_on_outside_click requires plugin_api >= 8",
+                )
+            elif not isinstance(entry["dismiss_on_outside_click"], bool):
+                self.add_context_error(manifest_path, context, "dismiss_on_outside_click must be a bool")
+
+        if "keyboard_focus" in entry:
+            if not is_int(plugin_api) or plugin_api < 10:
+                self.add_context_error(manifest_path, context, "keyboard_focus requires plugin_api >= 10")
+            elif entry["keyboard_focus"] not in PANEL_KEYBOARD_FOCUS:
+                valid = ", ".join(sorted(PANEL_KEYBOARD_FOCUS))
+                self.add_context_error(manifest_path, context, f"keyboard_focus must be one of: {valid}")
+
+        if "persistent" in entry:
+            if not is_int(plugin_api) or plugin_api < 11:
+                self.add_context_error(manifest_path, context, "persistent requires plugin_api >= 11")
+            elif not isinstance(entry["persistent"], bool):
+                self.add_context_error(manifest_path, context, "persistent must be a bool")
+
+        if "capture_keys" in entry:
+            if not is_int(plugin_api) or plugin_api < 13:
+                self.add_context_error(manifest_path, context, "capture_keys requires plugin_api >= 13")
+            elif not isinstance(entry["capture_keys"], list) or not all(
+                is_non_empty_string(chord) for chord in entry["capture_keys"]
+            ):
+                self.add_context_error(
+                    manifest_path, context, "capture_keys must be an array of key chord strings"
+                )
+
+    def validate_widget_fields(
+        self,
+        manifest_path: Path,
+        context: str,
+        entry: dict[str, Any],
+        plugin_api: Any,
+    ) -> None:
+        if "actions" not in entry:
+            return
+
+        if not is_int(plugin_api) or plugin_api < 14:
+            self.add_context_error(manifest_path, context, "actions requires plugin_api >= 14")
+            return
+
+        actions = entry["actions"]
+        if not isinstance(actions, dict):
+            self.add_context_error(
+                manifest_path, context, "actions must be a table of gesture bindings"
+            )
+            return
+
+        for gesture, action in actions.items():
+            if gesture not in WIDGET_GESTURES:
+                valid = ", ".join(sorted(WIDGET_GESTURES))
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture} is not a gesture (expected one of: {valid})"
+                )
+                continue
+            if not is_non_empty_string(action):
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture} must be a non-empty string"
+                )
+                continue
+            # The shell resolves the verb against its live IPC registry, which is not available
+            # here, so only the grammar is checked: "<verb> [args]", "exec <command>", or "none".
+            if action.split()[0] == "exec" and len(action.split(maxsplit=1)) < 2:
+                self.add_context_error(
+                    manifest_path, context, f"actions.{gesture}: exec needs a command line"
+                )
 
     def validate_entries(
         self,
@@ -771,7 +874,10 @@ class Validator:
                     self.validate_launcher_fields(manifest_path, context, entry)
 
                 if entry_type == "panel":
-                    self.validate_panel_fields(manifest_path, context, entry)
+                    self.validate_panel_fields(manifest_path, context, entry, manifest.get("plugin_api"))
+
+                if entry_type == "widget":
+                    self.validate_widget_fields(manifest_path, context, entry, manifest.get("plugin_api"))
 
                 if entry_type in SETTING_OWNER_TYPES and "setting" in entry:
                     self.validate_settings(

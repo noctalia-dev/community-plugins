@@ -8,7 +8,7 @@ set -eu
 LC_ALL=C
 export LC_ALL
 
-collector_version="2.0.0"
+collector_version="2.0.1"
 generated_at_epoch=$(date +%s)
 collection_id=""
 if [ -r /proc/sys/kernel/random/uuid ]; then
