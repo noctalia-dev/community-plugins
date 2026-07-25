@@ -100,9 +100,26 @@ local function resolveColor()
   return "secondary"
 end
 
+-- The click panel (cat_panel.luau) runs in a separate runtime; it mirrors the
+-- bar cat from this shared-state snapshot, republished whenever the visible
+-- glyph, whole CPU percent, or color changes (so at most once per animation
+-- frame, and only on sample/theme changes while idle).
+local lastPublished = nil
+local function publishState(pace, glyph, color)
+  local cpu = math.floor(cpuPercent)
+  local key = `{glyph}|{cpu}|{color}|{pace}`
+  if key == lastPublished then
+    return
+  end
+  lastPublished = key
+  noctalia.state.set("cat", { glyph = glyph, cpu = cpu, color = color, pace = pace })
+end
+
 local function render(pace)
   local glyph = pace == "idle" and GLYPH_IDLE or RUN_GLYPHS[frameIndex]
   local color = resolveColor()
+
+  publishState(pace, glyph, color)
 
   local children = {
     ui.label({ text = glyph, fontFamily = catFont, baseline = "inkCentered", fontSize = catSize, color = color }),
@@ -144,7 +161,7 @@ function update()
 end
 
 function onClick()
-  noctalia.notify(noctalia.tr("title"), `CPU {math.floor(cpuPercent)}%`)
+  noctalia.togglePanel("dotnetrob/cat:panel")
 end
 
 function onConfigChanged()
