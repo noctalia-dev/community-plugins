@@ -83,10 +83,37 @@ function trim(s) -- personnal trim
    return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+function isValidPid(screen, pid)
+	local path = "/tmp/w-engine-" .. screen .. ".pid"
+	if noctalia.fileExists(path) then
+		local fileTmp = noctalia.readFile(path)
+		if not fileTmp then
+			return false
+		end
+		local file = trim(fileTmp)
+		if file == pid then
+
+			local check = "/proc/" .. pid .. "/cmdline"
+			local checkContentTmp = noctalia.readFile(check)
+			if not checkContentTmp then
+				return false
+			end
+			local checkContent = trim(checkContentTmp)
+			local match = "^linux%-wallpaperengine"
+			if checkContent:match(match) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 function getStoredPid(screen)
 	for _, entry in ipairs(pidList) do
 		if entry.output == screen then
-			return entry.pid
+			if isValidPid(screen, entry.pid) then
+				return entry.pid
+			end
 		end
 	end
 	return nil
@@ -119,19 +146,9 @@ end
 function loadWallpaper(id)
 	lastOutputUse = outputSelectedName or takeOutput()
 	local pidFile = "/tmp/w-engine-" .. lastOutputUse .. ".pid"
-	if noctalia.fileExists(pidFile) == true then
-		local pidT = noctalia.readFile(pidFile)
-		local pid = trim(pidT)
-		for _, outputLink in ipairs(pidList) do
-			if outputLink.pid == pid then
-				local killCmd = "kill -o " .. pid
-				noctalia.runAsync(killCmd)
-			end
-		end
-	end
-	local oldPid = getStoredPid(lastOutputUse)
+	local oldPid = getStoredPid(lastOutputUse) -- here
 	if oldPid then
-		noctalia.runAsync("kill " .. oldPid, function()
+		noctalia.runAsync("kill " .. oldPid, function() -- here
 			launchWallpaper(lastOutputUse, id, pidFile)
 		end, 3000)
 	else
