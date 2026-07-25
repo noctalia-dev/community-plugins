@@ -9,5 +9,5 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("tadomika_ari/config-swap:config-swap-panel")
+  noctalia.togglePanel("tadomika_ari/config-swap:panel")
 end
