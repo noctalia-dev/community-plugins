@@ -1,5 +1,3 @@
-noctalia.notify("W Engine start")
-
 -- reset section
 
 noctalia.runAsync("pkill linux-wallpaper")
