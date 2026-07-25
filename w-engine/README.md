@@ -17,7 +17,7 @@ For more details, see the install section below.
 | Field | Value |
 | --- | --- |
 | ID | `tadomika_ari/w-engine` |
-| Entries | Bar widget: `w-engine-widget`; panel: `w-engine-panel` |
+| Entries | Bar widget: `w-engine-widget`; panel: `w-engine-panel`; Service: `start`|
 
 ## Usage
 
@@ -42,6 +42,7 @@ No settings.
 - noctalia ≥ 5.0.0
 - `linux-wallpaperengine`
 - `kill`
+- `pkill`
 - `setsid`
 - Wallpaper Engine
 - Steam for Workshop access
