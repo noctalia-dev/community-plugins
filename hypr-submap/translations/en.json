@@ -1,13 +1,17 @@
 {
   "settings": {
     "hide_when_default": {
-      "label": "Hide when default submap"
+      "label": "Hide when default submap",
+      "description": "Hides the bar widget when the current submap is default."
     },
     "prefix": {
-      "label": "Add a prefix to the submap name"
+      "label": "Add a prefix to the submap name",
+      "description": "Add the prefix text to the submap name displayed on the widget."
+
     },
     "glyph": {
-      "label": "Icon to show on bar"
+      "label": "Icon to show on bar",
+      "description": "Specifies the glyph displayed on the widget."
     }
   }
 }
