@@ -1,0 +1,38 @@
+{
+  "bar": {
+    "tooltip": "Calculator"
+  },
+  "panel": {
+    "title": "Calculator",
+    "placeholder": "Type an expression, press Enter",
+    "copy": "Copy result",
+    "copied": "Copied {value}",
+    "rad": "RAD",
+    "deg": "DEG"
+  },
+  "state": {
+    "error": "Error"
+  },
+  "settings": {
+    "precision": {
+      "label": "Decimal precision",
+      "description": "Maximum number of decimals used when formatting results."
+    },
+    "angle_unit": {
+      "label": "Angle unit",
+      "description": "Unit used by the trigonometric functions.",
+      "options": {
+        "rad": "Radians",
+        "deg": "Degrees"
+      }
+    },
+    "show_bar_value": {
+      "label": "Show value in bar",
+      "description": "Display the last result next to the calculator icon."
+    },
+    "max_bar_length": {
+      "label": "Maximum bar length",
+      "description": "Longer results are shortened with an ellipsis in the bar."
+    }
+  }
+}
