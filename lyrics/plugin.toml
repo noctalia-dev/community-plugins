@@ -1,11 +1,11 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.3"
+version = "1.4.4"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
 dependencies = ["playerctl", "python3", "cp", "chmod"]
-tags = ["bar", "service", "music", "media", "animation"]
+tags = ["bar", "panel", "service", "music", "media", "animation"]
 icon = "music"
 description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
 
@@ -451,10 +451,24 @@ min = 0
 max = 64
 advanced = true
 
+# Keyboard shortcut for opening the lyrics selector panel.
+[[shortcut]]
+id = "open_selector"
+entry = "lyrics_shortcut.luau"
+
 # Headless background service: polls MPRIS metadata, fetches lyrics, publishes state.
 [[service]]
 id = "service"
 entry = "lyrics_service.luau"
+
+# Attached selector for choosing among LRCLIB matches for the current track.
+[[panel]]
+id = "selector"
+entry = "lyrics_selector.luau"
+width = 520
+height = 210
+placement = "attached"
+open_near_click = true
 
 # Bar widget: thin presentation that mirrors the published lyrics state.
 [[widget]]

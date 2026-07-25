@@ -461,6 +461,85 @@ def best_match(items, track, title_key, artist_key, album_key=None):
     return best if best_score >= 3 else None
 
 
+def lrclib_candidates(items, track):
+    wanted_title, wanted_artist, wanted_album = map(normalize, (
+        track.get("title"), track.get("artist"), track.get("album")
+    ))
+    wanted_duration = duration_ms(track.get("duration")) / 1000
+    ranked = []
+    seen_ids = set()
+    for index, item in enumerate(items if isinstance(items, list) else []):
+        if not isinstance(item, dict):
+            continue
+        candidate_id = clean_text(item.get("id"))
+        if not candidate_id or candidate_id in seen_ids:
+            continue
+        synced = bool(clean_text(item.get("syncedLyrics")))
+        plain = bool(clean_text(item.get("plainLyrics")))
+        if not synced and not plain:
+            continue
+
+        title = normalize(item.get("trackName"))
+        artist = normalize(item.get("artistName"))
+        album = normalize(item.get("albumName"))
+        if wanted_title and not title:
+            continue
+        identity_score = 0
+        if wanted_title and title:
+            title_score = 6 if title == wanted_title else 3 if wanted_title in title or title in wanted_title else 0
+            if title_score == 0:
+                continue
+            identity_score += title_score
+        if wanted_artist and artist:
+            artist_score = 4 if artist == wanted_artist else 2 if wanted_artist in artist or artist in wanted_artist else 0
+            if artist_score == 0:
+                continue
+            identity_score += artist_score
+        if wanted_album and album:
+            identity_score += 2 if album == wanted_album else 1 if wanted_album in album or album in wanted_album else 0
+
+        candidate_duration = number(item.get("duration"), 0)
+        duration_bucket = 5
+        duration_difference = float("inf")
+        if wanted_duration > 0 and candidate_duration > 0:
+            duration_difference = abs(wanted_duration - candidate_duration)
+            if duration_difference <= 2:
+                duration_bucket = 0
+            elif duration_difference <= 5:
+                duration_bucket = 1
+            elif duration_difference <= 10:
+                duration_bucket = 2
+            elif duration_difference <= 20:
+                duration_bucket = 3
+            else:
+                duration_bucket = 4
+
+        if identity_score >= 3:
+            seen_ids.add(candidate_id)
+            ranked.append((
+                -identity_score,
+                duration_bucket,
+                -int(synced),
+                duration_difference,
+                index,
+                item,
+            ))
+
+    ranked.sort(key=lambda entry: entry[:-1])
+    return [entry[-1] for entry in ranked]
+
+
+def lrclib_candidate_metadata(item):
+    return {
+        "id": clean_text(item.get("id")),
+        "track_name": clean_text(item.get("trackName")),
+        "artist_name": clean_text(item.get("artistName")),
+        "album_name": clean_text(item.get("albumName")),
+        "duration": max(0, number(item.get("duration"), 0)),
+        "synced": bool(clean_text(item.get("syncedLyrics"))),
+    }
+
+
 def first_cover(*values):
     for value in values:
         if isinstance(value, dict):
@@ -529,15 +608,24 @@ def adapter_lrclib(track, credentials, options):
     if track.get("album"):
         params["album_name"] = track["album"]
     data = request_json(query_url("https://lrclib.net/api/search", params))
-    best = best_match(data, track, lambda x: x.get("trackName", ""), lambda x: x.get("artistName", ""),
-                      lambda x: x.get("albumName", ""))
+    matches = lrclib_candidates(data, track)
+    requested_id = clean_text(options.get("lyrics_candidate_id"))
+    best = next((item for item in matches if clean_text(item.get("id")) == requested_id), None)
+    if requested_id and best is None:
+        return empty(source, "lrclib: requested match unavailable")
+    if best is None and matches:
+        best = matches[0]
     if not best:
         return empty(source, "lrclib: no match")
     lyrics = best.get("syncedLyrics") or best.get("plainLyrics") or ""
-    return success(
+    response = success(
         source, parse_lrc(lyrics) or parse_plain(lyrics), ["lrclib: match"],
         duration_ms(track.get("duration")), itunes_cover(track),
     )
+    if response.get("type") == "lyrics":
+        response["candidates"] = [lrclib_candidate_metadata(item) for item in matches]
+        response["selected_candidate_id"] = clean_text(best.get("id"))
+    return response
 
 
 def adapter_netease(track, credentials, options):

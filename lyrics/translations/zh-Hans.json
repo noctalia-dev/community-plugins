@@ -2,6 +2,21 @@
   "instrumental": "间奏",
   "intro": "前奏",
   "no_lyrics": "暂无可用歌词",
+  "panel": {
+    "close": "关闭",
+    "loading": "正在加载歌词……",
+    "no_candidates": "没有其他 LRCLIB 结果",
+    "no_track": "当前没有正在播放的歌曲",
+    "result": "歌词结果",
+    "selection_failed": "无法加载所选歌词",
+    "synced": "同步歌词",
+    "title": "选择歌词",
+    "unsynced": "非同步歌词"
+  },
+  "select_lyrics": "选择歌词",
+  "shortcut": {
+    "label": "打开歌词选择器"
+  },
   "settings": {
     "active_color": {
       "description": "设置当前歌词和已经唱过字符的颜色，默认使用界面文字颜色。",

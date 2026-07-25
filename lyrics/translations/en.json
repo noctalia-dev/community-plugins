@@ -2,6 +2,21 @@
   "instrumental": "Instrumental",
   "intro": "Intro",
   "no_lyrics": "♪ No lyrics available",
+  "panel": {
+    "close": "Close",
+    "loading": "Loading lyrics…",
+    "no_candidates": "No alternate LRCLIB results",
+    "no_track": "No track is playing",
+    "result": "Lyrics result",
+    "selection_failed": "Could not load the selected lyrics",
+    "synced": "Synced",
+    "title": "Choose lyrics",
+    "unsynced": "Unsynced"
+  },
+  "select_lyrics": "Choose lyrics",
+  "shortcut": {
+    "label": "Open lyrics selector"
+  },
   "settings": {
     "active_color": {
       "description": "Color used for the current and already-sung lyric characters. Defaults to the interface text color.",

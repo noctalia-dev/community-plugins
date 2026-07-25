@@ -60,6 +60,18 @@ local showMode = displayMode == "track" and "track" or "auto"
 local rendered = false
 local playerInstance = ""
 local sourceUsed = ""
+local lyricsCandidates = {}
+local hovering = false
+local hoverElapsed = 0
+local selectorOpenRequested = false
+
+local function trackKey(value)
+  if type(value) ~= "table" then return "" end
+  local durationSeconds = math.floor((tonumber(value.duration) or 0) / 1000000)
+  return (value.playerInstance or "") .. "|" .. (value.trackId or "") .. "|"
+    .. (value.title or "") .. "|" .. (value.artist or "") .. "|" .. (value.album or "")
+    .. "|" .. tostring(durationSeconds)
+end
 
 local baselinePosition = 0
 local baselineClock = os.clock()
@@ -454,7 +466,6 @@ local function render()
       color = playing and activeColor or inactiveColor,
     })
   end
-
   local lineNodes = {}
   local renderLineGap = lineGap
   local renderTextHeight = 0
@@ -568,6 +579,14 @@ function onClick()
   if rendered then render() end
 end
 
+function onHover(value)
+  hovering = value == true
+  if not hovering then
+    hoverElapsed = 0
+    selectorOpenRequested = false
+  end
+end
+
 function onRightClick()
   if playerInstance == "" then return end
   noctalia.runAsync("playerctl --player " .. shellQuote(playerInstance) .. " play-pause", function(result)
@@ -601,6 +620,20 @@ function update()
   playing = noctalia.state.get("playing") == true
   playerInstance = noctalia.state.get("player_instance") or ""
   sourceUsed = noctalia.state.get("lyrics_source_used") or ""
+  local candidateState = noctalia.state.get("lyrics_candidate_state")
+  lyricsCandidates = type(candidateState) == "table" and candidateState.track_key == trackKey(track)
+    and candidateState.candidates or {}
+  local selectorOpen = noctalia.state.get("lyrics_selector_open") == true
+  if hovering and #lyricsCandidates > 1 and not selectorOpen and not selectorOpenRequested then
+    hoverElapsed = hoverElapsed + delta
+    if hoverElapsed >= 0.4 then
+      selectorOpenRequested = true
+      hoverElapsed = 0
+      noctalia.togglePanel("h465855hgg/lyrics:selector")
+    end
+  else
+    hoverElapsed = 0
+  end
 
   local info = getLineInfo()
   local nextKey = info and info.key or "fallback"
