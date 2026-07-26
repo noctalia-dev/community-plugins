@@ -14,6 +14,13 @@ local function trim(s)
   return noctalia.string.trim(s or "")
 end
 
+-- The runtime only takes a command *line*, so every dynamic argument has to be
+-- shell-quoted by hand: wrap in single quotes and escape embedded ones.
+local function shq(value)
+  local quoted = tostring(value or ""):gsub("'", "'\\''")
+  return `'{quoted}'`
+end
+
 -- Tailscale short name: first label of the DNS name ("pc-work.tail1234.ts.net." → "pc-work").
 -- This is what tailscale ssh / file cp expect as a target.
 local function shortName(dnsName)
@@ -221,7 +228,7 @@ local function receiveTaildrop()
     for _, f in (noctalia.listDir(target) or {}) do
       pre[f] = true
     end
-    noctalia.runAsync(`tailscale file get "{target}"`, function(result)
+    noctalia.runAsync(`tailscale file get {shq(target)}`, function(result)
       if result.exitCode ~= 0 then
         local err = trim(result.stderr)
         noctalia.notifyError(noctalia.tr("toast.title"), err ~= "" and err or noctalia.tr("taildrop.failed"))
@@ -254,7 +261,7 @@ local function receiveTaildrop()
 end
 
 local function pingPeer(ip, name)
-  noctalia.runAsync(`tailscale ping -c 3 {ip}`, function(result)
+  noctalia.runAsync(`tailscale ping -c 3 {shq(ip)}`, function(result)
     local out = trim(result.stdout)
     local lastLine = out:match("([^\n]+)%s*$") or ""
     if result.exitCode == 0 and lastLine ~= "" then
@@ -279,7 +286,7 @@ noctalia.state.watch("ts.cmd", function(raw)
   elseif cmd.action == "down" then
     runThenRefresh("tailscale down", "toast.disconnected")
   elseif cmd.action == "exit_set" and cmd.ip then
-    runThenRefresh(`tailscale set --exit-node={cmd.ip}`, "toast.exit-node-enabled")
+    runThenRefresh(`tailscale set --exit-node={shq(cmd.ip)}`, "toast.exit-node-enabled")
   elseif cmd.action == "exit_clear" then
     runThenRefresh("tailscale set --exit-node=", "toast.exit-node-disabled")
   elseif cmd.action == "taildrop_get" then
@@ -290,8 +297,9 @@ noctalia.state.watch("ts.cmd", function(raw)
     -- Open the pending auth URL surfaced by the daemon (panel guards on it).
     -- gio, not xdg-open: see the syncthing plugin — xdg-open no-ops with
     -- XDG_CURRENT_DESKTOP=KDE outside a real KDE session.
-    if cmd.url and cmd.url:match("^https?://") then
-      noctalia.runAsync(`gio open "{cmd.url}" || xdg-open "{cmd.url}"`)
+    if cmd.url and cmd.url:match("^https?://[%w%.%-%_%~%:%/%?%#%[%]%@%!%$%&%'%(%)%*%+%,%;%=%%]+$") then
+      local url = shq(cmd.url)
+      noctalia.runAsync(`gio open {url} || xdg-open {url}`)
     end
   else
     noctalia.log(`[tailscale] unknown command: {cmd.action}`)

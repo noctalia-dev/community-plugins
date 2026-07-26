@@ -19,8 +19,18 @@ v4 `tailscale` plugin to the v5 Luau plugin API.
 
 ## Requirements
 
-Install `tailscale` and authenticate the node. For Taildrop receive without a
-root prompt, grant your user operator rights once:
+| Command | Needed for |
+| --- | --- |
+| `tailscale` | Everything: status polling, up/down, exit nodes, ping, Taildrop receive. |
+| `ssh` | The panel's per-peer SSH button (opens `ssh <host>` in your terminal). |
+| `xdg-user-dir` | Resolving the default Taildrop download folder when `taildrop_dir` is empty (`xdg-utils`). |
+| `gio` | Opening the daemon's login URL (`glib2`). |
+| `xdg-open` | Fallback for opening the login URL when `gio` is unavailable (`xdg-utils`). |
+
+Only `tailscale` is required for the core flows; the others are used by the
+corresponding optional actions. Install `tailscale` and authenticate the node.
+For Taildrop receive without a root prompt, grant your user operator rights
+once:
 
 ```sh
 sudo tailscale set --operator=$USER

@@ -78,7 +78,8 @@
     "exit-node-disabled": "Exit node disabled.",
     "failed": "Command failed.",
     "copied-ip": "{host}: IP {value} copied.",
-    "copied-name": "{host}: name {value} copied."
+    "copied-name": "{host}: name {value} copied.",
+    "invalid-username": "Invalid SSH username: use letters, digits, dots, dashes or underscores."
   },
   "shortcut": {
     "label": "Tailscale"

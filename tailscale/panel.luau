@@ -26,6 +26,13 @@ local OS_GLYPHS = {
   android = "device-mobile",
 }
 
+-- The runtime only takes a command *line*, so every dynamic argument has to be
+-- shell-quoted by hand: wrap in single quotes and escape embedded ones.
+local function shq(value)
+  local quoted = tostring(value or ""):gsub("'", "'\\''")
+  return `'{quoted}'`
+end
+
 local function tr(key, subst)
   return noctalia.tr(key, subst)
 end
@@ -417,8 +424,14 @@ local function sshAt(slot)
     return
   end
   local user = noctalia.string.trim(noctalia.getConfig("ssh_username") or "")
+  -- Only a plain login name is accepted; anything else is ignored rather than
+  -- interpolated into the command line.
+  if user ~= "" and not user:match("^[%w%._%-]+$") then
+    noctalia.notifyError(tr("toast.title"), tr("toast.invalid-username"))
+    return
+  end
   local target = user ~= "" and `{user}@{peer.shortName}` or peer.shortName
-  noctalia.runInTerminal(`ssh {target}`)
+  noctalia.runInTerminal(`ssh {shq(target)}`)
 end
 
 function onPing0() pingAt(0) end
