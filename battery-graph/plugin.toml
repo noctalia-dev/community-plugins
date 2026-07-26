@@ -37,3 +37,7 @@ entry = "battery-graph.luau"
 [[panel]]
 id = "battery-panel"
 entry = "battery-panel.luau"
+
+[[desktop_widget]]
+id    = "battery-graph-desktop"
+entry = "battery-desktop.luau"
