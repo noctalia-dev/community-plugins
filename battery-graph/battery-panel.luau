@@ -1,6 +1,6 @@
-graph_time = 3600 * 6
-battery_path = "/org/freedesktop/UPower/devices/battery_BAT0"
-interpol_time = 60 * 5
+graph_time = 3600 * noctalia.getConfig("graph_time")
+battery_path = noctalia.getConfig("battery_path")
+interpol_time = 60 * noctalia.getConfig("interpol_time")
 
 local cmd = "gdbus call --system --dest org.freedesktop.UPower --object-path " .. battery_path .. " --method org.freedesktop.UPower.Device.GetHistory charge " .. graph_time .. " 1000"
 

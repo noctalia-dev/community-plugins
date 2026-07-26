@@ -1,0 +1,8 @@
+{
+	"settings.graph_time.label": "Graph timeframe",
+	"settings.graph_time.description": "How long of a timeframe does the graph plot in hours",
+	"settings.battery_path.label": "Battery path",
+	"settings.battery_path.description": "The plotted battery's device path",
+	"settings.interpol_time.label": "Time beetween points",
+	"settings.interpol_time.description": "How long should the thime between points be in minutes"
+}
