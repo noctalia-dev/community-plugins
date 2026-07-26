@@ -1,6 +1,6 @@
 # Battery graph
 
-Plots battery level on a graph.
+Uses the Upowerd to display the historical charge of the battery on a graph.
 
 ## Plugin
 
