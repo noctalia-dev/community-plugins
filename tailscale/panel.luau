@@ -11,6 +11,9 @@
 -- peer into a slot table the numbered globals read back.
 
 local MAX_SLOTS = 24
+-- Must match height = … in the [[panel]] entry of plugin.toml: the root
+-- column's height is what actually sizes the panel content.
+local PANEL_HEIGHT = 540
 
 local snapshot = nil
 local isOpen = false
@@ -320,7 +323,7 @@ local function render()
   end
   -- height pins the root to the [[panel]] size so the scroll area actually
   -- scrolls instead of growing past the panel background
-  panel.render(ui.column({ gap = 10, padding = 14, height = 540 }, children))
+  panel.render(ui.column({ gap = 10, padding = 14, height = PANEL_HEIGHT }, children))
 end
 
 -- ── Lifecycle & callbacks ────────────────────────────────────────────────────
