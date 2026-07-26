@@ -1,0 +1,13 @@
+id           = "rael2pac/gpu-temp"
+name         = "GPU Temperature"
+version      = "1.0.0"
+plugin_api   = 4
+author       = "rael2pac"
+license      = "MIT"
+icon         = "thermometer"
+description  = "Configure Noctalia's System Monitor to display CPU and GPU temperatures"
+tags         = ["system", "hardware", "utility"]
+
+[[service]]
+id    = "gpu-temp"
+entry = "service.luau"
