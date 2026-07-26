@@ -83,5 +83,11 @@ end)
 
 function update()
   noctalia.setUpdateInterval(5000)
+  -- See bar.luau: watch only fires on the next publish, so pick up the current
+  -- snapshot when this widget starts.
+  if not snapshot then
+    local encoded = noctalia.state.get("st.snapshot")
+    snapshot = encoded and noctalia.json.decode(encoded) or nil
+  end
   render()
 end
