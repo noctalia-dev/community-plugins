@@ -25,7 +25,6 @@ function parse(result)
 	end
 
     local interpolated_points = interpolate(points)
-	noctalia.log(table.concat(interpolated_points,","))
     render(table.concat(interpolated_points, " "), interpolated_points)
 end
 
@@ -56,13 +55,13 @@ end
 
 
 function render(point_str,points)
-  panel.render(ui.column({ gap = 8, align = "stretch" }, {
-        ui.label({ text = "Battery level", fontWeight = "bold" }),
+  panel.render(ui.column({ gap = 8, radius = 8, align = "stretch", fill = "surface_variant" }, {
+	  ui.row( {paddingH= 10, paddingV = 6},{		ui.label({text = "Battery", fontSize = 24, fontWeight = "heavy", textAlign = "center"}),}),
         ui.graph({
             values = points,
             color = "primary",
             lineWidth = 2,
-            fillOpacity = 0.15,
+            fillOpacity = 0.45,
             height = 200,
         }),
     }))
