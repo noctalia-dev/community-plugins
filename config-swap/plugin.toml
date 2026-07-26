@@ -1,7 +1,7 @@
 id = "tadomika_ari/config-swap"
 name = "Config Swap"
 version = "1.0.0"
-plugin_api = 3
+plugin_api = 4
 author = "TadomiKa-Ari"
 license = "MIT"
 dependencies = [""]
@@ -18,3 +18,7 @@ id = "panel"
 entry = "config-swap-panel.luau"
 width = 800
 height = 600
+
+[[service]]
+id = "start"
+entry = "config-swap-service.luau"
