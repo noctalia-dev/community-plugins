@@ -4,5 +4,5 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("FraI3mega/battery-graph:battery-panel")
+  noctalia.togglePanel("frai3mega/battery-graph:battery-panel")
 end

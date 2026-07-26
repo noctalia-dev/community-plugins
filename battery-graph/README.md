@@ -4,11 +4,10 @@ Plots battery level on a graph.
 
 ## Plugin
 
-<!-- Copy ids exactly from plugin.toml. Remove rows that do not apply. -->
 
 | Field | Value |
 | --- | --- |
-| ID | `FraI3mega/battery-graph` |
+| ID | `frai3mega/battery-graph` |
 | Entries | Bar widget: `battery-graph-widget`; panel: `battery-panel`; Desktop widget: `battery-graph-desktop` |
 
 ## Requirements
@@ -23,7 +22,7 @@ You can use it as a desktop/locksreen widget or on the bar.
 Show the panel using
 
 ```sh
-noctalia msg panel-toggle FraI3mega/battery-graph:battery-panel
+noctalia msg panel-toggle frai3mega/battery-graph:battery-panel
 ```
 
 
