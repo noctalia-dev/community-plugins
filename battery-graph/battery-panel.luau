@@ -1,9 +1,11 @@
-graph_time = 3600 * 24
+graph_time = 3600 * 6
+battery_path = "/org/freedesktop/UPower/devices/battery_BAT0"
+interpol_time = 60 * 5
 
-local cmd = "gdbus call --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_BAT0 --method org.freedesktop.UPower.Device.GetHistory charge " .. graph_time .. " 1000"
+local cmd = "gdbus call --system --dest org.freedesktop.UPower --object-path " .. battery_path .. " --method org.freedesktop.UPower.Device.GetHistory charge " .. graph_time .. " 1000"
 
-function update()
-  noctalia.setUpdateInterval(10 * 1000)
+function onOpen()
+  -- noctalia.setUpdateInterval(1000)
   noctalia.runAsync(cmd, parse)
   end
 
@@ -22,12 +24,12 @@ function parse(result)
 		end
 	end
 
-
-    local interpolated_points = interpolate(points, 60)
+    local interpolated_points = interpolate(points)
+	noctalia.log(table.concat(interpolated_points,","))
     render(table.concat(interpolated_points, " "), interpolated_points)
 end
 
-function interpolate(points, interpol_time)
+function interpolate(points )
 	local interpolated_points = {}
 
 	local tkeys = {}
@@ -40,9 +42,9 @@ function interpolate(points, interpol_time)
 	local first_sample_time = tkeys[1]
 	table.insert(interpolated_points, tonumber(points[tkeys[1]])/100)
 	local time_done = 0
-	while time_done < graph_time do
+	while tkeys[prev_sample + 1] and time_done < graph_time do
 		local cur_time = time_done + first_sample_time
-		if tkeys[prev_sample + 1] and cur_time > tkeys[prev_sample + 1] then
+		if  cur_time > tkeys[prev_sample + 1] then
 			prev_sample += 1
 		end
 
@@ -55,15 +57,13 @@ end
 
 function render(point_str,points)
   panel.render(ui.column({ gap = 8, align = "stretch" }, {
-        ui.label({ text = "Battery rate", fontWeight = "bold" }),
-        -- ui.label({ text = point_str, fontWeight = "bold" }),
+        ui.label({ text = "Battery level", fontWeight = "bold" }),
         ui.graph({
             values = points,
             color = "primary",
             lineWidth = 2,
             fillOpacity = 0.15,
-            width = 200,             
-            height = 80,
+            height = 200,
         }),
     }))
 end
