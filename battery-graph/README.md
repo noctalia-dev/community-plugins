@@ -1,6 +1,6 @@
 # Battery graph
 
-Plots the battery level on a graph.
+Plots battery level on a graph.
 
 ## Plugin
 
