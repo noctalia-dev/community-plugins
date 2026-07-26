@@ -1,6 +1,6 @@
 --!nonstrict
 
-local PANEL_ID = "pir0c0pter0/calculator:panel"
+local PANEL_ID = "yuuto/calculator:panel"
 
 local result = "0"
 local expression = ""
