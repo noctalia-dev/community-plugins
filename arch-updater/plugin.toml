@@ -1,0 +1,114 @@
+id           = "rael2pac/arch-updater"
+name         = "Arch Update"
+version      = "3.1.0"
+plugin_api   = 3
+author       = "rael2pac"
+license      = "MIT"
+icon         = "arrow-big-down-lines"
+description  = "Manage system, AUR, and Flatpak updates on Arch Linux from the bar or panel"
+tags         = ["bar", "desktop", "panel", "launcher", "system", "utility", "arch"]
+dependencies = ["checkupdates", "yay"]
+
+[[service]]
+id    = "updater"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key         = "hideOnEmpty"
+  type        = "bool"
+  label_key   = "settings.bar.hideOnEmpty.label"
+  description_key = "settings.bar.hideOnEmpty.description"
+  default     = false
+
+  [[widget.setting]]
+  key         = "boldText"
+  type        = "bool"
+  label_key   = "settings.bar.boldText.label"
+  description_key = "settings.bar.boldText.description"
+  default     = true
+
+  [[widget.setting]]
+  key         = "noctaliaHighlight"
+  type        = "bool"
+  label_key   = "settings.bar.noctaliaHighlight.label"
+  description_key = "settings.bar.noctaliaHighlight.description"
+  default     = true
+
+[[panel]]
+id          = "panel"
+entry       = "panel.luau"
+width       = 600
+height      = 400
+placement   = "attached"
+open_near_click = true
+
+[[launcher_provider]]
+id     = "launcher"
+entry  = "launcher.luau"
+prefix = "au"
+glyph  = "arrow-big-down-lines"
+
+[[setting]]
+key         = "systemCmd"
+type        = "string"
+label_key   = "settings.systemCmd.label"
+description_key = "settings.systemCmd.description"
+default     = "checkupdates 2>/dev/null"
+advanced    = true
+
+[[setting]]
+key         = "aurCmd"
+type        = "string"
+label_key   = "settings.aurCmd.label"
+description_key = "settings.aurCmd.description"
+default     = "yay -Qua 2>/dev/null"
+advanced    = true
+
+[[setting]]
+key         = "flatpakEnabled"
+type        = "bool"
+label_key   = "settings.flatpakEnabled.label"
+description_key = "settings.flatpakEnabled.description"
+default     = true
+
+[[setting]]
+key         = "refreshInterval"
+type        = "int"
+label_key   = "settings.refreshInterval.label"
+description_key = "settings.refreshInterval.description"
+default     = 120
+min         = 10
+max         = 720
+
+[[setting]]
+key         = "noctaliaDetection"
+type        = "bool"
+label_key   = "settings.noctaliaDetection.label"
+description_key = "settings.noctaliaDetection.description"
+default     = true
+
+[[setting]]
+key         = "cleanupAfterUpdate"
+type        = "bool"
+label_key   = "settings.cleanupAfterUpdate.label"
+description_key = "settings.cleanupAfterUpdate.description"
+default     = false
+
+[[setting]]
+key         = "cachePreserveList"
+type        = "string"
+label_key   = "settings.cachePreserveList.label"
+description_key = "settings.cachePreserveList.description"
+default     = "noctalia noctalia-qs fontconfig dolphin wofi-drun thumbnails lutris ZapZap swww yay"
+advanced    = true
+
+[[setting]]
+key         = "showToasts"
+type        = "bool"
+label_key   = "settings.showToasts.label"
+description_key = "settings.showToasts.description"
+default     = true
