@@ -32,6 +32,8 @@ local cfg = {
 }
 
 local busy = false
+-- Epoch seconds of the in-flight poll, for the watchdog in poll().
+local busySince = 0
 local pendingPoll = false
 -- Previous published snapshot, for event notifications (state transitions).
 local prevSnapshot = nil
@@ -227,6 +229,7 @@ end
 
 local function publish(snapshot)
   busy = false
+  busySince = 0
   notifyTransitions(prevSnapshot, snapshot)
   prevSnapshot = snapshot
   local encoded = noctalia.json.encode(snapshot)
@@ -497,12 +500,24 @@ local function fetchCore()
   end
 end
 
+local function nowSeconds()
+  return tonumber(noctalia.formatTime("%s")) or 0
+end
+
 function poll(force)
+  local now = nowSeconds()
   if busy then
-    pendingPoll = true
-    return
+    -- publish() is the only place that clears `busy`, so a request whose
+    -- callback never fires would wedge the poller silently. Give the in-flight
+    -- poll a generous grace period, then start over.
+    if busySince == 0 or (now - busySince) * 1000 < cfg.pollMs * 3 + 15000 then
+      pendingPoll = true
+      return
+    end
+    noctalia.log("[syncthing] poll watchdog: previous request never completed, restarting")
   end
   busy = true
+  busySince = now
   resolveConfig()
 
   if cfg.baseUrl == "" then
