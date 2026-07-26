@@ -1,18 +1,36 @@
 {
-  "settings.max_label_chars.label": "Maximum label characters",
-  "settings.max_label_chars.description": "Maximum characters shown from each workspace name. Use 0 to show the full name.",
-  "settings.hide_inactive.label": "Hide inactive workspaces",
-  "settings.hide_inactive.description": "Hide populated special workspaces unless they are currently visible on a monitor.",
-  "settings.capsule_radius.label": "Capsule radius",
-  "settings.capsule_radius.description": "Corner radius of each capsule in logical pixels. Values below 0 are treated as 0.",
-  "settings.capsule_padding.label": "Capsule content padding",
-  "settings.capsule_padding.description": "Space before and after the label along the bar axis, in logical pixels. Values below 0 are treated as 0.",
-  "settings.capsule_min_width.label": "Capsule minimum length",
-  "settings.capsule_min_width.description": "Minimum capsule length along the bar axis: width on horizontal bars, height on vertical bars. Values below 0 are treated as 0.",
-  "settings.active_style.label": "Active workspace style",
-  "settings.active_style.description": "Show active workspaces as primary-filled capsules or transparent labels with primary text.",
-  "settings.inactive_style.label": "Inactive workspace style",
-  "settings.inactive_style.description": "Show inactive workspaces as secondary-filled capsules or transparent labels with surface text.",
-  "settings.style.fill": "Fill",
-  "settings.style.ghost": "Ghost"
+  "settings": {
+    "max_label_chars": {
+      "label": "Maximum label characters",
+      "description": "Maximum characters shown from each workspace name. Use 0 to show the full name."
+    },
+    "hide_inactive": {
+      "label": "Hide inactive workspaces",
+      "description": "Hide populated special workspaces unless they are currently visible on a monitor."
+    },
+    "capsule_radius": {
+      "label": "Capsule radius",
+      "description": "Corner radius of each capsule in logical pixels. Values below 0 are treated as 0."
+    },
+    "capsule_padding": {
+      "label": "Capsule content padding",
+      "description": "Space before and after the label along the bar axis, in logical pixels. Values below 0 are treated as 0."
+    },
+    "capsule_min_width": {
+      "label": "Capsule minimum length",
+      "description": "Minimum capsule length along the bar axis: width on horizontal bars, height on vertical bars. Values below 0 are treated as 0."
+    },
+    "active_style": {
+      "label": "Active workspace style",
+      "description": "Show active workspaces as primary-filled capsules or transparent labels with primary text."
+    },
+    "inactive_style": {
+      "label": "Inactive workspace style",
+      "description": "Show inactive workspaces as secondary-filled capsules or transparent labels with surface text."
+    },
+    "style": {
+      "fill": "Fill",
+      "ghost": "Ghost"
+    }
+  }
 }
