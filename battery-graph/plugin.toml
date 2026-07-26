@@ -1,0 +1,17 @@
+id = "FraI3mega/battery-graph"
+name = "Battery graph"
+version = "0.0.1"
+author = "FraI3mega"
+license = "MIT"
+icon = "battery"
+description = "TODO"
+plugin_api = 3
+tags = ["battery", "utility"]
+
+[[widget]]
+id    = "battery-graph-widget"
+entry = "battery-widget.luau"
+
+[[panel]]
+id = "battery-graph-panel"
+entry = "battery-graph.luau"
