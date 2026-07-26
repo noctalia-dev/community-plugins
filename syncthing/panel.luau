@@ -17,6 +17,9 @@ local MAX_FOLDER_SLOTS = 16
 -- clipped by the panel edge.
 local PANEL_HEIGHT = 530
 local PANEL_PADDING = 14
+-- The panel frame eats a few pixels below the content, so the last footer line
+-- would otherwise sit flush against the bottom edge.
+local PANEL_BOTTOM_SLACK = 10
 
 local snapshot = nil
 local isOpen = false
@@ -370,9 +373,17 @@ local function render()
   -- height pins the root to the [[panel]] size so the folder list scrolls
   -- instead of growing past the panel background; keep PANEL_HEIGHT and the
   -- manifest's height = … in sync, the root wins over the manifest value.
-  panel.render(ui.column({ gap = 12, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 }, {
+  panel.render(ui.column({ gap = 10, padding = PANEL_PADDING, height = PANEL_HEIGHT - PANEL_PADDING * 2 - PANEL_BOTTOM_SLACK }, {
     header(),
-    ui.label({ text = statusSummary(), fontSize = 12, color = "on_surface/0.8" }),
+    ui.label({
+      text = statusSummary(),
+      fontSize = 12,
+      color = "on_surface/0.8",
+      -- Pure repetition while idle: the header already names the state and the
+      -- tiles already show the device count. Every other state says something
+      -- the rest of the panel does not.
+      visible = not snapshot or snapshot.state ~= "idle",
+    }),
     stats(),
     tabs(),
     folderList(),
