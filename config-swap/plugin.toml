@@ -11,7 +11,7 @@ tags = ["utility"]
 
 [[widget]]
 id = "widget"
-entry = "w-engine-widget.luau"
+entry = "config-swap-widget.luau"
 
 [[panel]]
 id = "panel"
