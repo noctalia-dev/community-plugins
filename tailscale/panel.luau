@@ -420,7 +420,14 @@ end
 
 local function sshAt(slot)
   local peer = slots[slot]
-  if not peer or peer.shortName == "" then
+  if not peer then
+    return
+  end
+  -- The Tailscale IP always works; the short name and the MagicDNS FQDN only
+  -- resolve when MagicDNS is enabled, so the IP is the target and the name is
+  -- just a fallback.
+  local host = peer.ip ~= "" and peer.ip or peer.shortName
+  if host == "" then
     return
   end
   local user = noctalia.string.trim(noctalia.getConfig("ssh_username") or "")
@@ -430,7 +437,7 @@ local function sshAt(slot)
     noctalia.notifyError(tr("toast.title"), tr("toast.invalid-username"))
     return
   end
-  local target = user ~= "" and `{user}@{peer.shortName}` or peer.shortName
+  local target = user ~= "" and `{user}@{host}` or host
   noctalia.runInTerminal(`ssh {shq(target)}`)
 end
 

@@ -22,7 +22,7 @@ v4 `tailscale` plugin to the v5 Luau plugin API.
 | Command | Needed for |
 | --- | --- |
 | `tailscale` | Everything: status polling, up/down, exit nodes, ping, Taildrop receive. |
-| `ssh` | The panel's per-peer SSH button (opens `ssh <host>` in your terminal). |
+| `ssh` | The panel's per-peer SSH button (opens `ssh <tailscale-ip>` in your terminal). |
 | `xdg-user-dir` | Resolving the default Taildrop download folder when `taildrop_dir` is empty (`xdg-utils`). |
 | `gio` | Opening the daemon's login URL (`glib2`). |
 | `xdg-open` | Fallback for opening the login URL when `gio` is unavailable (`xdg-utils`). |
@@ -90,8 +90,9 @@ noctalia msg panel-toggle rylos/tailscale:panel
   `tailscale up|down`, `tailscale set --exit-node=…`, `tailscale ping -c 3
   <ip>`, `tailscale file get <dir>`, and `xdg-user-dir DOWNLOAD` (to resolve
   the default Taildrop folder). The login button opens the daemon's auth URL
-  with `gio open` (fallback `xdg-open`); the SSH button runs `ssh <host>` in
-  your terminal via the shell's run-in-terminal facility. There is no direct
+  with `gio open` (fallback `xdg-open`); the SSH button runs `ssh <tailscale-ip>` in
+  your terminal via the shell's run-in-terminal facility — the peer's Tailscale
+  IP, not its name, so it works whether or not MagicDNS is enabled. There is no direct
   network access from the plugin itself — everything goes through the
   Tailscale CLI.
 - **Filesystem**: Taildrop receive lists the download directory before and
