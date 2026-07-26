@@ -12,7 +12,10 @@ Add simple bar widget to show Hyprland's current submap.
 
 ## Requirements
 
-Install `socat` on `PATH`.
+The following utilities must be installed and available on `PATH`:
+- `socat`
+- `stdbuf`
+- `hyprctl`
 Execution within a Hyprland environment is required.
 
 ## Usage
@@ -27,7 +30,7 @@ Clicking the widget executes `hyprctl dispatch 'hl.dsp.submap("reset")'`.
 | --- | --- | --- | --- |
 | `hide_when_default` | `bool` | `false` | Hides the bar widget when the current submap is default. |
 | `prefix` | `string` | `""` | Add the prefix text to the submap name displayed on the widget. |
-| `glyph` | `glyph` | `""` | Specifies the glyph displayed on the widget. |
+| `glyph` | `glyph` | `"keyboard"` | Specifies the glyph displayed on the widget. |
 
 
 ## Notes
