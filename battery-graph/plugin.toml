@@ -6,7 +6,7 @@ license = "MIT"
 icon = "battery"
 description = "Plots battery level on a graph"
 plugin_api = 3
-tags = ["battery", "utility", "desktop", "panel"]
+tags = ["hardware", "utility", "desktop", "panel"]
 
 [[setting]]
 key     = "graph_time"
