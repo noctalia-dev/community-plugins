@@ -1,0 +1,7 @@
+{
+  "settings.refreshInterval.label": "Refresh Interval",
+  "settings.refreshInterval.description": "Seconds between audio stream polls",
+  "panel.title": "Audio Output Switcher",
+  "panel.noStreams": "No audio playing",
+  "widget.tooltip": "Audio Output Switcher"
+}

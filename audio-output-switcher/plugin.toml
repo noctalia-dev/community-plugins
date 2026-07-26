@@ -1,0 +1,34 @@
+id           = "rael2pac/audio-output-switcher"
+name         = "Audio Output Switcher"
+version      = "1.2.6"
+plugin_api   = 3
+author       = "rael2pac"
+license      = "MIT"
+icon         = "speakerphone"
+description  = "Route individual apps to different audio outputs from the bar or panel"
+tags         = ["bar", "panel", "audio", "system", "utility"]
+
+[[service]]
+id    = "audio-poller"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id          = "panel"
+entry       = "panel.luau"
+width       = 500
+height      = 400
+placement   = "attached"
+open_near_click = false
+
+[[setting]]
+key         = "refreshInterval"
+type        = "int"
+label_key   = "settings.refreshInterval.label"
+description_key = "settings.refreshInterval.description"
+default     = 3
+min         = 1
+max         = 15
