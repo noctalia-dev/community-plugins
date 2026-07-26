@@ -76,7 +76,7 @@ Beyond opening the panel, the `panel` entry accepts three events. The `all`
 target addresses every live instance.
 
 ```sh
-noctalia msg plugin yuuro/calculator:panel all eval "2+3*4"
+noctalia msg plugin yuuto/calculator:panel all eval "2+3*4"
 noctalia msg plugin yuuto/calculator:panel all insert "+8"
 noctalia msg plugin yuuto/calculator:panel all clear
 ```
