@@ -12,7 +12,7 @@ Plots battery level on a graph.
 
 ## Requirements
 
-Requires a running upower deamon.
+Requires a running `upowerd` deamon.
 Install `gdbus` on `PATH`.
 
 ## Usage
