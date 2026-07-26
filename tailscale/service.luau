@@ -51,7 +51,7 @@ local function emptySnapshot(state, detail)
   return {
     state = state, -- running | stopped | needs-login | not-installed | error
     detail = detail or "",
-    checkedAt = noctalia.formatTime("hh:mm:ss"),
+    checkedAt = noctalia.formatTime("%H:%M:%S"),
     authUrl = "",
     self = { name = "", ip = "", dnsName = "" },
     peers = {},
