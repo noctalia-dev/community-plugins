@@ -143,6 +143,13 @@ end)
 
 function update()
   noctalia.setUpdateInterval(2000)
+  -- state.watch only fires on the next publish, so a widget created after the
+  -- service's last poll would sit at "unconfigured" until then; read whatever
+  -- snapshot is already there.
+  if not snapshot then
+    local encoded = noctalia.state.get("st.snapshot")
+    snapshot = encoded and noctalia.json.decode(encoded) or nil
+  end
   render()
 end
 

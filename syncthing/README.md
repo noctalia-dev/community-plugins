@@ -17,9 +17,17 @@ directly — no helper scripts.
 
 ## Requirements
 
+| Command | Needed for |
+| --- | --- |
+| `syncthing` | The daemon this plugin talks to over its REST API. |
+| `gio` | The *Open web GUI* action (`glib2`). |
+| `xdg-open` | Fallback for that action when `gio` is unavailable (`xdg-utils`). |
+
 Install `syncthing` and have it running for this user. The plugin autodetects
 the GUI URL and API key from `~/.local/state/syncthing/config.xml` (or
 `~/.config/syncthing/config.xml`), so it usually works with zero configuration.
+The two openers are only used by the *Open web GUI* button; everything else
+goes through `noctalia.http`.
 
 ## Usage
 
@@ -58,7 +66,7 @@ the GUI URL and API key from `~/.local/state/syncthing/config.xml` (or
 | `poll_interval` | `int` | `10` | Status refresh interval in seconds (2–300). |
 | `notify_events` | `bool` | `true` | Desktop notifications for folder done/error and device connect/disconnect. |
 | `folders` | `string_list` | `[]` | Folder IDs to monitor. Empty = all folders (advanced). |
-| `insecure_tls` | `bool` | `false` | Accept self-signed certificates on HTTPS GUI URLs (advanced; uses `curl -k`). |
+| `insecure_tls` | `bool` | `false` | Accept self-signed certificates on HTTPS GUI URLs (advanced). |
 | `show_pending` | `bool` | `true` | Bar widget: show completion %/pending count while syncing. |
 
 ## IPC
@@ -79,9 +87,10 @@ noctalia msg panel-toggle rylos/syncthing:panel
   `/rest/stats/folder`, `/rest/db/status`, and the action endpoints
   (`/rest/config/folders|devices/<id>` PATCH, `/rest/db/scan` POST,
   `/rest/system/pause|resume` POST). No other network access.
-- **Processes**: `curl` is spawned only when `insecure_tls` is enabled on an
-  HTTPS URL (noctalia.http cannot skip certificate verification); `gio open`
-  (fallback `xdg-open`) is spawned by the *Open web GUI* action.
+- **Processes**: the only spawned process is the *Open web GUI* action, which
+  runs `gio open <url>` (fallback `xdg-open <url>`). Every REST request goes
+  through `noctalia.http`, including the `insecure_tls` case, which sets
+  `allow_insecure_tls` instead of shelling out to an external HTTP client.
 - **Filesystem**: reads Syncthing's `config.xml` for URL/API key autodetection.
   Nothing is written.
 - The API key never leaves the machine: it is only sent as the `X-API-Key`

@@ -22,7 +22,7 @@
     },
     "insecure_tls": {
       "label": "Skip TLS verification",
-      "description": "Accept self-signed certificates on HTTPS GUI URLs (uses curl -k)."
+      "description": "Accept self-signed certificates on HTTPS GUI URLs."
     },
     "show_pending": {
       "label": "Show pending count",

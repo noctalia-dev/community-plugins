@@ -11,6 +11,9 @@
 -- folder id into a slot table the numbered globals read back.
 
 local MAX_FOLDER_SLOTS = 16
+-- Must match height = … in the [[panel]] entry of plugin.toml: the root
+-- column's height is what actually sizes the panel content.
+local PANEL_HEIGHT = 530
 
 local snapshot = nil
 local isOpen = false
@@ -227,8 +230,6 @@ local function folderRow(folder, slot)
     align = "center",
     fill = "surface_variant/0.5",
     radius = 8,
-    border = `{color}/0.5`,
-    borderWidth = 1,
   }, {
     ui.box({ width = 8, height = 8, radius = 4, fill = color }),
     ui.column({ gap = 2, flexGrow = 1 }, {
@@ -280,8 +281,6 @@ local function deviceRow(device, slot)
     align = "center",
     fill = "surface_variant/0.5",
     radius = 8,
-    border = `{color}/0.5`,
-    borderWidth = 1,
     opacity = device.connected and 1 or 0.7,
   }, {
     ui.box({ width = 8, height = 8, radius = 4, fill = color }),
@@ -366,8 +365,9 @@ local function render()
   end
   folderSlots = {}
   -- height pins the root to the [[panel]] size so the folder list scrolls
-  -- instead of growing past the panel background
-  panel.render(ui.column({ gap = 12, padding = 14, height = 500 }, {
+  -- instead of growing past the panel background; keep PANEL_HEIGHT and the
+  -- manifest's height = … in sync, the root wins over the manifest value.
+  panel.render(ui.column({ gap = 12, padding = 14, height = PANEL_HEIGHT }, {
     header(),
     ui.label({ text = statusSummary(), fontSize = 12, color = "on_surface/0.8" }),
     stats(),

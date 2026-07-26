@@ -44,6 +44,13 @@ local function trim(s)
   return noctalia.string.trim(s or "")
 end
 
+-- The runtime only takes a command *line*, so every dynamic argument has to be
+-- shell-quoted by hand: wrap in single quotes and escape embedded ones.
+local function shq(value)
+  local quoted = tostring(value or ""):gsub("'", "'\\''")
+  return `'{quoted}'`
+end
+
 local function normalizeBaseUrl(value, defaultScheme)
   local url = trim(value)
   if url == "" then
@@ -123,46 +130,23 @@ end
 -- ── HTTP ─────────────────────────────────────────────────────────────────────
 
 -- fetch(path, opts, cb) → cb(ok, status, body). opts: method, body, noauth.
--- With insecure_tls on an https URL we shell out to curl -k, because
--- noctalia.http has no way to skip certificate verification.
+-- Everything goes through noctalia.http; a self-signed GUI certificate is
+-- handled by allow_insecure_tls (plugin API 7), never by an external client.
 local function fetch(path, opts, cb)
-  local url = cfg.baseUrl .. path
-
-  if cfg.insecure and cfg.baseUrl:match("^https://") then
-    local parts = { "curl", "-ksS", "-m", "5", "-w", "'\\n%{http_code}'" }
-    if not opts.noauth and cfg.apiKey ~= "" then
-      table.insert(parts, `-H "X-API-Key: {cfg.apiKey}"`)
-    end
-    if opts.method and opts.method ~= "GET" then
-      table.insert(parts, `-X {opts.method}`)
-    end
-    if opts.body then
-      table.insert(parts, `-H "Content-Type: application/json" --data-raw '{opts.body}'`)
-    end
-    table.insert(parts, `"{url}"`)
-    local launched = noctalia.runAsync(table.concat(parts, " "), function(result)
-      if result.exitCode ~= 0 or result.timedOut then
-        cb(false, 0, "")
-        return
-      end
-      local body, code = result.stdout:match("^(.*)\n(%d+)%s*$")
-      cb(true, tonumber(code) or 0, body or "")
-    end, 8000)
-    if not launched then
-      cb(false, 0, "")
-    end
-    return
-  end
-
   local headers = nil
   if not opts.noauth and cfg.apiKey ~= "" then
     headers = { `X-API-Key: {cfg.apiKey}` }
   end
+  if opts.body then
+    headers = headers or {}
+    table.insert(headers, "Content-Type: application/json")
+  end
   local started = noctalia.http({
-    url = url,
+    url = cfg.baseUrl .. path,
     method = opts.method,
     headers = headers,
     body = opts.body,
+    allow_insecure_tls = cfg.insecure,
   }, function(res)
     cb(res.ok, res.status, res.body)
   end)
@@ -177,7 +161,7 @@ local function emptySnapshot(state, detail)
   return {
     state = state,
     detail = detail or "",
-    checkedAt = noctalia.formatTime("hh:mm:ss"),
+    checkedAt = noctalia.formatTime("%H:%M:%S"),
     sources = {
       configPath = cfg.sources.configPath,
       urlSource = cfg.sources.urlSource,
@@ -561,7 +545,9 @@ function openGui()
   -- gio, not xdg-open: with XDG_CURRENT_DESKTOP=KDE (set for Qt theming under
   -- niri) but no KDE session, xdg-open takes the kfmclient path and no-ops
   -- with exit 0. gio resolves the x-scheme-handler/http default directly.
-  noctalia.runAsync(`gio open "{cfg.baseUrl}" || xdg-open "{cfg.baseUrl}"`, function(result)
+  -- The runtime takes a command line, not an argv, so the URL is shell-quoted.
+  local url = shq(cfg.baseUrl)
+  noctalia.runAsync(`gio open {url} || xdg-open {url}`, function(result)
     noctalia.log(`[syncthing] openGui exit={result.exitCode} err={result.stderr}`)
     if result.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("toast.title"), `open failed: {noctalia.string.trim(result.stderr)}`)
