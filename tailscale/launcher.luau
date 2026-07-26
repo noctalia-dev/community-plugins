@@ -66,14 +66,16 @@ function onQuery(text)
       end
     end
     local target = copyName and host.shortName or host.ip
+    -- The state goes in the subtitle, not in `badge`: a badge is drawn in the
+    -- icon slot and scaled up, so a whole word there would hide the OS glyph.
+    local action = copyName and noctalia.tr("launcher.copy-name", { value = host.shortName })
+      or noctalia.tr("launcher.copy-ip", { value = host.ip })
+    local status = host.online and noctalia.tr("launcher.online") or noctalia.tr("launcher.offline")
     table.insert(results, {
       id = `{copyName and "name" or "ip"}|{target}|{host.name}`,
       title = host.isSelf and `{host.name} ({noctalia.tr("launcher.this-host")})` or host.name,
-      subtitle = copyName
-        and noctalia.tr("launcher.copy-name", { value = host.shortName })
-        or noctalia.tr("launcher.copy-ip", { value = host.ip }),
+      subtitle = `{status} · {action}`,
       glyph = OS_GLYPHS[host.os:lower()] or "device-desktop",
-      badge = host.online and noctalia.tr("launcher.online") or noctalia.tr("launcher.offline"),
       score = score + (host.online and 1 or 0),
     })
   end
