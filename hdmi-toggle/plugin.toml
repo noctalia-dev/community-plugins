@@ -1,0 +1,34 @@
+id           = "rael2pac/hdmi-toggle"
+name         = "Monitor Manager"
+version      = "1.0.0"
+plugin_api   = 3
+author       = "rael2pac"
+license      = "MIT"
+icon         = "device-desktop"
+description  = "List and toggle connected monitors on and off from the bar"
+tags         = ["bar", "panel", "hardware"]
+
+[[service]]
+id    = "poller"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id          = "panel"
+entry       = "panel.luau"
+width       = 280
+height      = 200
+placement   = "attached"
+open_near_click = false
+
+[[setting]]
+key         = "refreshInterval"
+type        = "int"
+label_key   = "settings.refreshInterval.label"
+description_key = "settings.refreshInterval.description"
+default     = 10
+min         = 5
+max         = 60

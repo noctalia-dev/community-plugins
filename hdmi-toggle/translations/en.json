@@ -1,0 +1,4 @@
+{
+  "settings.refreshInterval.label": "Refresh Interval",
+  "settings.refreshInterval.description": "Seconds between monitor status polls"
+}
