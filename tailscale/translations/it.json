@@ -1,0 +1,95 @@
+{
+  "settings": {
+    "poll_interval": {
+      "label": "Intervallo di aggiornamento (secondi)",
+      "description": "Frequenza di aggiornamento dello stato di Tailscale."
+    },
+    "hide_mullvad": {
+      "label": "Nascondi exit node Mullvad",
+      "description": "Nasconde gli exit node Mullvad VPN dalla lista dei peer."
+    },
+    "hide_offline": {
+      "label": "Nascondi peer offline",
+      "description": "Nasconde i peer offline dal pannello e dal launcher."
+    },
+    "show_ip": {
+      "label": "Mostra IP proprio",
+      "description": "Mostra l'IP Tailscale di questo nodo nella barra."
+    },
+    "show_count": {
+      "label": "Mostra conteggio peer",
+      "description": "Mostra peer online/totali accanto all'icona."
+    },
+    "taildrop_dir": {
+      "label": "Cartella download Taildrop",
+      "description": "Dove salvare i file ricevuti. Vuoto = cartella download XDG."
+    },
+    "ssh_username": {
+      "label": "Utente SSH",
+      "description": "Utente per il bottone SSH. Vuoto = default di sistema."
+    }
+  },
+  "state": {
+    "running": "Connesso",
+    "stopped": "Disconnesso",
+    "needs-login": "Login richiesto",
+    "not-installed": "Tailscale non installato",
+    "error": "Errore"
+  },
+  "tooltip": {
+    "state": "Stato",
+    "self": "Questo nodo",
+    "online": "Peer online",
+    "exit-node": "Exit node"
+  },
+  "panel": {
+    "title": "Tailscale",
+    "connect": "Connetti (tailscale up)",
+    "disconnect": "Disconnetti (tailscale down)",
+    "refresh": "Aggiorna",
+    "copy-ip": "Copia IP",
+    "copy-name": "Copia nome",
+    "copy-ip-value": "Copia IP {value}",
+    "copy-name-value": "Copia nome {value}",
+    "exit-node-active": "Exit node: {name}",
+    "exit-node-clear": "Disattiva",
+    "exit-node-use": "Usa come exit node",
+    "filter": "Filtra {online}/{total} host…",
+    "no-peers": "Nessun peer da mostrare.",
+    "needs-login": "Tailscale richiede l'autenticazione. Apri la pagina di login nel browser.",
+    "login": "Accedi",
+    "last-check-info": "Ultimo controllo: {value}",
+    "taildrop": "Ricevi file Taildrop",
+    "ping": "Ping",
+    "ssh": "Apri SSH nel terminale"
+  },
+  "launcher": {
+    "this-host": "questo host",
+    "online": "online",
+    "offline": "offline",
+    "copy-ip": "Invio: copia {value}",
+    "copy-name": "Invio: copia {value}"
+  },
+  "toast": {
+    "title": "Tailscale",
+    "connected": "Connesso.",
+    "disconnected": "Disconnesso.",
+    "exit-node-enabled": "Exit node attivato.",
+    "exit-node-disabled": "Exit node disattivato.",
+    "failed": "Comando fallito.",
+    "copied-ip": "{host}: IP {value} copiato.",
+    "copied-name": "{host}: nome {value} copiato.",
+    "invalid-username": "Nome utente SSH non valido: usa lettere, cifre, punti, trattini o underscore."
+  },
+  "shortcut": {
+    "label": "Tailscale"
+  },
+  "peer": {
+    "last-seen": "visto {value}"
+  },
+  "taildrop": {
+    "received": "{count} file ricevuti in {dir}:",
+    "none": "Nessun file in attesa.",
+    "failed": "Ricezione Taildrop fallita (operator mode impostato?)."
+  }
+}
