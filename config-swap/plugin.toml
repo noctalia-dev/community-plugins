@@ -1,0 +1,20 @@
+id = "tadomika_ari/config-swap"
+name = "Config Swap"
+version = "1.0.0"
+plugin_api = 3
+author = "TadomiKa-Ari"
+license = "MIT"
+dependencies = [""]
+icon = "file"
+description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
+tags = ["utility"]
+
+[[widget]]
+id = "widget"
+entry = "w-engine-widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "config-swap-panel.luau"
+width = 800
+height = 600
