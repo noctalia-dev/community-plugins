@@ -1,0 +1,78 @@
+id = "jamesfeeder/special-workspaces"
+name = "Special Workspaces"
+version = "1.4.0"
+plugin_api = 3
+author = "jamesfeeder"
+license = "MIT"
+icon = "stack-2"
+description = "Displays populated and currently active Hyprland special workspaces"
+tags = ["hyprland", "indicator", "bar"]
+dependencies = ["socat"]
+
+[[service]]
+id = "workspace-state"
+entry = "service.luau"
+
+[[widget]]
+id = "special-workspaces"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "max_label_chars"
+  type = "int"
+  label_key = "settings.max_label_chars.label"
+  description_key = "settings.max_label_chars.description"
+  default = 0
+  min = 0
+  max = 64
+
+  [[widget.setting]]
+  key = "hide_inactive"
+  type = "bool"
+  label_key = "settings.hide_inactive.label"
+  description_key = "settings.hide_inactive.description"
+  default = false
+
+  [[widget.setting]]
+  key = "capsule_radius"
+  type = "int"
+  label_key = "settings.capsule_radius.label"
+  description_key = "settings.capsule_radius.description"
+  default = 8
+
+  [[widget.setting]]
+  key = "capsule_padding"
+  type = "int"
+  label_key = "settings.capsule_padding.label"
+  description_key = "settings.capsule_padding.description"
+  default = 5
+
+  [[widget.setting]]
+  key = "capsule_min_width"
+  type = "int"
+  label_key = "settings.capsule_min_width.label"
+  description_key = "settings.capsule_min_width.description"
+  default = 35
+
+  [[widget.setting]]
+  key = "active_style"
+  type = "select"
+  label_key = "settings.active_style.label"
+  description_key = "settings.active_style.description"
+  default = "fill"
+  options = [
+    { value = "fill", label_key = "settings.style.fill" },
+    { value = "ghost", label_key = "settings.style.ghost" },
+  ]
+
+  [[widget.setting]]
+  key = "inactive_style"
+  type = "select"
+  label_key = "settings.inactive_style.label"
+  description_key = "settings.inactive_style.description"
+  default = "fill"
+  options = [
+    { value = "fill", label_key = "settings.style.fill" },
+    { value = "ghost", label_key = "settings.style.ghost" },
+  ]
+  visible_when = { key = "hide_inactive", values = ["false"] }
