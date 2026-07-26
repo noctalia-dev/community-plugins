@@ -6,7 +6,6 @@ local cmd = "gdbus call --system --dest org.freedesktop.UPower --object-path " .
 
 function update()
   noctalia.setUpdateInterval(interpol_time * 1000)
-  noctalia.log("update")
   noctalia.runAsync(cmd, parse)
   end
 
