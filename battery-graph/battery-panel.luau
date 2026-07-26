@@ -56,7 +56,7 @@ end
 
 function render(point_str,points)
   panel.render(ui.column({ gap = 8, radius = 8, align = "stretch", fill = "surface_variant" }, {
-	  ui.row( {paddingH= 10, paddingV = 6},{		ui.label({text = "Battery", fontSize = 24, fontWeight = "heavy", textAlign = "center"}),}),
+	  ui.row( {paddingH= 10, paddingV = 6},{		ui.label({text = noctalia.tr("text.graph_name"), fontSize = 24, fontWeight = "heavy", textAlign = "center"}),}),
         ui.graph({
             values = points,
             color = "primary",
