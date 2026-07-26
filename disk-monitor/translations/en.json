@@ -1,0 +1,8 @@
+{
+  "settings.displayFormat.label": "Display Format",
+  "settings.displayFormat.description": "Bar display format: name_free, percent, or size",
+  "settings.hideOnEmpty.label": "Hide on Empty",
+  "settings.hideOnEmpty.description": "Hide the bar widget when no disks are detected",
+  "settings.refreshInterval.label": "Refresh Interval",
+  "settings.refreshInterval.description": "Seconds between disk usage polls"
+}

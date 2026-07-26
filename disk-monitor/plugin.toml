@@ -1,0 +1,48 @@
+id           = "rael2pac/disk-monitor"
+name         = "Disk Monitor"
+version      = "1.0.0"
+plugin_api   = 3
+author       = "rael2pac"
+license      = "MIT"
+icon         = "database"
+description  = "Monitor disk usage with free space on the bar and detailed panel"
+tags         = ["bar", "panel", "system", "hardware", "utility"]
+
+[[service]]
+id    = "disk-poller"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key         = "displayFormat"
+  type        = "string"
+  label_key   = "settings.displayFormat.label"
+  description_key = "settings.displayFormat.description"
+  default     = "name_free"
+
+  [[widget.setting]]
+  key         = "hideOnEmpty"
+  type        = "bool"
+  label_key   = "settings.hideOnEmpty.label"
+  description_key = "settings.hideOnEmpty.description"
+  default     = false
+
+[[panel]]
+id          = "panel"
+entry       = "panel.luau"
+width       = 500
+height      = 350
+placement   = "attached"
+open_near_click = false
+
+[[setting]]
+key         = "refreshInterval"
+type        = "int"
+label_key   = "settings.refreshInterval.label"
+description_key = "settings.refreshInterval.description"
+default     = 30
+min         = 10
+max         = 300
