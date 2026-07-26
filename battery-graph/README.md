@@ -9,7 +9,7 @@ Plots battery level on a graph.
 | Field | Value |
 | --- | --- |
 | ID | `FraI3mega/battery-graph` |
-| Entries | Bar widget: `battery-graph-widget`; panel: `battery-panel` |
+| Entries | Bar widget: `battery-graph-widget`; panel: `battery-panel`; Desktop widget: `battery-graph-desktop` |
 
 ## Requirements
 
@@ -18,26 +18,23 @@ Install `gdbus` on `PATH`.
 
 ## Usage
 
-Explain how to add or access every user-facing entry and describe the normal
-workflow. Use exact labels and ids. For a panel, include its copy-pasteable IPC
-command:
+You can use it as a desktop/locksreen widget or on the bar.
+
+Show the panel using
 
 ```sh
-noctalia msg panel-toggle <author>/<plugin>:<panel-id>
+noctalia msg panel-toggle FraI3mega/battery-graph:battery-panel
 ```
 
-For a launcher provider, explain what to type after `/<prefix>` and what
-activating a result does. For a shortcut, say where users add it in Settings.
 
 ## Settings
 
-<!-- Required when plugin.toml declares settings. Describe behavior and units,
-     especially for settings whose effect is not obvious from the label. A
-     table like the official plugin READMEs is recommended. -->
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `example_setting` | `bool` | `false` | What changing this setting does. |
+| `graph_time` | `int` | `6` | Changes the timeframe of the graph |
+| `battery_path` | `string` | `/org/freedesktop/UPower/devices/battery_BAT0` | The path to the battery to be graphed |
+| `interpol_time` | `int` | `5` | The time beetween points on the graph. |
 
 ```
 
