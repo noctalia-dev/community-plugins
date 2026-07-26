@@ -10,8 +10,8 @@ tags = ["battery", "utility"]
 
 [[widget]]
 id    = "battery-graph-widget"
-entry = "battery-widget.luau"
+entry = "battery-graph.luau"
 
 [[panel]]
-id = "battery-graph-panel"
-entry = "battery-graph.luau"
+id = "battery-panel"
+entry = "battery-panel.luau"
