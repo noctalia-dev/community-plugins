@@ -1,6 +1,6 @@
 id = "frai3mega/battery-graph"
 name = "Battery graph"
-version = "0.0.1"
+version = "1.0.0"
 author = "frai3mega"
 license = "MIT"
 icon = "battery"
