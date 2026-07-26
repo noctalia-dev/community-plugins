@@ -91,5 +91,8 @@
     "received": "{count} file(s) received in {dir}:",
     "none": "No pending files.",
     "failed": "Taildrop receive failed (operator mode set?)."
+  },
+  "ping": {
+    "relayed": "No direct connection — traffic is relayed through a DERP server."
   }
 }

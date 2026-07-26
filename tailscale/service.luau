@@ -263,11 +263,22 @@ end
 local function pingPeer(ip, name)
   noctalia.runAsync(`tailscale ping -c 3 {shq(ip)}`, function(result)
     local out = trim(result.stdout)
-    local lastLine = out:match("([^\n]+)%s*$") or ""
-    if result.exitCode == 0 and lastLine ~= "" then
-      noctalia.notify(`Ping {name}`, lastLine)
+    local err = trim(result.stderr)
+    -- A peer reachable only through a DERP relay still answers every ping, but
+    -- `tailscale ping` then prints "direct connection not established" as its
+    -- last line and exits non-zero. Report the last pong instead, and say the
+    -- connection is relayed rather than calling the ping a failure.
+    local pong = nil
+    for line in out:gmatch("[^\n]+") do
+      if line:match("^%s*pong") then
+        pong = trim(line)
+      end
+    end
+    if pong then
+      local combined = `{out}\n{err}`
+      local relayed = combined:find("direct connection not established", 1, true)
+      noctalia.notify(`Ping {name}`, relayed and `{pong}\n{noctalia.tr("ping.relayed")}` or pong)
     else
-      local err = trim(result.stderr)
       noctalia.notifyError(`Ping {name}`, err ~= "" and err or noctalia.tr("toast.failed"))
     end
   end, 25000)

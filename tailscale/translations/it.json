@@ -91,5 +91,8 @@
     "received": "{count} file ricevuti in {dir}:",
     "none": "Nessun file in attesa.",
     "failed": "Ricezione Taildrop fallita (operator mode impostato?)."
+  },
+  "ping": {
+    "relayed": "Nessuna connessione diretta — il traffico passa da un relay DERP."
   }
 }
