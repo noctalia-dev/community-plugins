@@ -13,9 +13,6 @@
 # ------------------------------
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-RULE_FILE="$SCRIPT_DIR/99-battery-threshold.rules"
-
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
   echo "Error: This script must be run as root (use sudo)"
@@ -30,11 +27,6 @@ if [ -z "$TARGET_USER" ]; then
   exit 1
 fi
 
-if [ ! -f "$RULE_FILE" ]; then
-  echo "Error: $RULE_FILE not found in current directory" >&2
-  exit 1
-fi
-
 if ! getent group battery_ctl >/dev/null; then
   echo "Creating battery_ctl group..."
   groupadd battery_ctl
@@ -43,9 +35,16 @@ fi
 echo "Adding $TARGET_USER to battery_ctl group..."
 usermod -aG battery_ctl "$TARGET_USER"
 
-echo "Installing $RULE_FILE"
+echo "Writing udev rule to /etc/udev/rules.d/99-battery-threshold.rules..."
 
-cp "$RULE_FILE" /etc/udev/rules.d/
+cat <<'EOF' >/etc/udev/rules.d/99-battery-threshold.rules
+# Battery Threshold Control - udev rule
+# Grants write access to charge_control_end_threshold for users in the
+# 'battery_ctl' group.
+SUBSYSTEM=="power_supply", KERNEL=="BAT*", \
+    RUN+="/bin/chgrp battery_ctl /sys$devpath/charge_control_end_threshold", \
+    RUN+="/bin/chmod g+w /sys$devpath/charge_control_end_threshold"
+EOF
 
 echo "Reloading rules..."
 
