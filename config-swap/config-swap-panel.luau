@@ -63,6 +63,7 @@ function applyConfig(data: config)
 	noctalia.notify("Apply")
 
 	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. "~/.local/state/noctalia/settings.toml"
+	noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
 
 	noctalia.runAsync(cmd)
 end
@@ -95,6 +96,15 @@ function downloadConfig(data: config)
 	local path = data.path .. "/preview.png"
 	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
 	noctalia.download(url, configBox .. "/" .. data.name .. "/preview.png" , function(ok)
+		if ok then
+			noctalia.notify("Config Swap", "Download ok")
+		else
+			noctalia.notify("Config Swap", "Download not ok")
+		end
+	end)
+	local path = data.path .. "/wallpaper.png"
+	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
+	noctalia.download(url, configBox .. "/" .. data.name .. "/wallpaper.png" , function(ok)
 		if ok then
 			noctalia.notify("Config Swap", "Download ok")
 		else
