@@ -31,6 +31,12 @@ Keep a backup of your current configuration before using it.
 
 Open the panel from the bar widget, then switch between the two views with `Show Store` and `Show List`.
 
+
+### Before Start
+
+To use Config Swap, you need to locate your settings.toml file in the `$NOCTALIA_STATE_HOME` directory and add this path to data.json.
+It is likely located here: `$NOCTALIA_STATE_HOME/plugins/data/{user}/config-swap/`. For more information, please see the Settings section.
+
 ### Show Store
 
 The store view fetches available configurations from GitHub.
@@ -79,7 +85,16 @@ Make sure Config Swap is enabled in your plugin list before you try to use it.
 
 ## Settings
 
-There are no configurable settings yet.
+To swap your configuration, you need to set the path to `settings.toml`.
+You can find the `data.json` file in `$NOCTALIA_STATE_HOME/plugins/data/{user}/config-swap/` and use this example:
+
+```json
+{
+  "settingsPath": "path"
+}
+```
+
+Replace `path` with your personal path. The path is loaded for the next swap.
 
 ## Requirements
 
