@@ -60,15 +60,20 @@ function tr(key, subst)
 	return noctalia.tr("panel." .. key)
 end
 
--- apply config file
+-- apply config file and wallpaper
 
 function applyConfig(data: config)
 	noctalia.notify(tr("apply_notification_title"))
 
 	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. "~/.local/state/noctalia/settings.toml"
-	noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
 
-	noctalia.runAsync(cmd)
+	noctalia.runAsync(cmd, function(result)
+		if result and result.exitCode == 0 then
+			noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
+		else
+			noctalia.notify(tr("notification_title"), "cp failed")
+		end
+	end)
 end
 
 -- download config folder (support: noctalia settings, preview image and json info
@@ -354,6 +359,7 @@ end
 -- Get all config on github
 
 function getFetchList(onDone)
+	allConfig = {}
 	noctalia.http(requestFetchList, function(respond)
 		noctalia.log("raw body: " .. tostring(respond.body))
 		if not respond.ok then
