@@ -40,6 +40,17 @@ local function check_writable(path: string, callback: (boolean) -> ())
     end)
 end
 
+local data_dir, data_dir_err = noctalia.pluginDataDir()
+if not data_dir or data_dir_err then
+    noctalia.log(
+        "Failed to get plugin data directory: "
+            .. tostring(data_dir_err or "unknown error")
+    )
+end
+local THRESHOLD_FILE_PATH: string? = if data_dir
+    then data_dir .. "/threshold.txt"
+    else nil
+
 local function set_threshold(value: number)
     local battery = get_active_battery()
     if not battery then
@@ -60,7 +71,18 @@ local function set_threshold(value: number)
     local ok, err = noctalia.writeFile(threshold_file, tostring(v) .. "\n")
     if ok then
         noctalia.state.set("current_threshold", v)
-        noctalia.writeFile("threshold.txt", tostring(v))
+        if THRESHOLD_FILE_PATH then
+            local save_ok, save_err =
+                noctalia.writeFile(THRESHOLD_FILE_PATH, tostring(v))
+            if not save_ok then
+                noctalia.log(
+                    "Failed to write saved threshold to "
+                        .. THRESHOLD_FILE_PATH
+                        .. ": "
+                        .. tostring(save_err)
+                )
+            end
+        end
     else
         noctalia.log("Failed to write threshold: " .. tostring(err))
         noctalia.notifyError(
@@ -103,9 +125,18 @@ local function check_status()
 
         if writable then
             local saved_val = nil
-            local saved_content = noctalia.readFile("threshold.txt")
-            if saved_content then
-                saved_val = tonumber(noctalia.string.trim(saved_content))
+            if THRESHOLD_FILE_PATH and noctalia.fileExists(THRESHOLD_FILE_PATH) then
+                local saved_content, read_err = noctalia.readFile(THRESHOLD_FILE_PATH)
+                if saved_content and not read_err then
+                    saved_val = tonumber(noctalia.string.trim(saved_content))
+                elseif read_err then
+                    noctalia.log(
+                        "Failed to read saved threshold from "
+                            .. THRESHOLD_FILE_PATH
+                            .. ": "
+                            .. tostring(read_err)
+                    )
+                end
             end
 
             if not saved_val then
@@ -191,10 +222,6 @@ function onIpc(event, payload)
 end
 
 function onConfigChanged()
-    check_status()
-end
-
-function update()
     check_status()
 end
 
