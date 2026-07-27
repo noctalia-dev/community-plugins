@@ -17,6 +17,13 @@ description_key = "settings.show_percentage.description"
 default = true
 
 [[setting]]
+key = "show_notification_on_switch"
+type = "bool"
+label_key = "settings.show_notification_on_switch.label"
+description_key = "settings.show_notification_on_switch.description"
+default = true
+
+[[setting]]
 key = "scroll_step"
 type = "int"
 label_key = "settings.scroll_step.label"

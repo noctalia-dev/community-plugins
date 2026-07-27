@@ -751,7 +751,7 @@ local function setDefaultTarget(command, kind, device)
     end
     moveStreams(kind, device.targetName, function()
       local messageKey = kind == "output" and "notifications.output_selected" or "notifications.input_selected"
-      finishAction(command, true, noctalia.tr(messageKey, { device = device.name }))
+      finishAction(command, true, noctalia.tr(messageKey, { device = device.name }), noctalia.getConfig("show_notification_on_switch"))
     end)
   end)
 end

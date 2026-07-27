@@ -88,6 +88,10 @@
     "show_percentage": {
       "description": "Show the current output volume percentage next to the bar icon. Disable it to show only the icon.",
       "label": "Show percentage"
+    },
+    "show_notification_on_switch": {
+      "description": "Show a notification when switching device.",
+      "label": "Show notification on switch"
     }
   },
   "tabs": {
