@@ -30,8 +30,12 @@ local function get_active_battery(): string?
     return list[1]
 end
 
+local function shell_quote(str: string): string
+    return "'" .. string.gsub(str, "'", "'\\''") .. "'"
+end
+
 local function check_writable(path: string, callback: (boolean) -> ())
-    noctalia.runAsync("test -w " .. path, function(res)
+    noctalia.runAsync("test -w " .. shell_quote(path), function(res)
         callback(res.exitCode == 0)
     end)
 end
@@ -135,7 +139,8 @@ local function run_setup()
 
     local rules_script = plugin_dir .. "/setup_rules.sh"
 
-    local cmd = string.format("pkexec bash %s %s", rules_script, user)
+    local cmd =
+        string.format("pkexec bash %s %s", shell_quote(rules_script), shell_quote(user))
 
     noctalia.log("Running setup script via pkexec: " .. cmd)
     noctalia.runAsync(cmd, function(result)
