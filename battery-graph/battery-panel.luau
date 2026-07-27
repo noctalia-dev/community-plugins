@@ -2,7 +2,16 @@ graph_time = 3600 * noctalia.getConfig("graph_time")
 battery_path = noctalia.getConfig("battery_path")
 interpol_time = 60 * noctalia.getConfig("interpol_time")
 
-local cmd = "gdbus call --system --dest org.freedesktop.UPower --object-path " .. battery_path .. " --method org.freedesktop.UPower.Device.GetHistory charge " .. graph_time .. " 1000"
+local function validate(s)
+	if s:match("^/org/freedesktop/UPower/devices/[%a%d_]+$") ~= nil then
+        return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+	else
+		noctalia.log("Invalid battery dbus path. Check that it is correct")
+	end
+end
+
+
+local cmd = table.concat({"gdbus call --system --dest org.freedesktop.UPower --object-path",validate(battery_path),"--method org.freedesktop.UPower.Device.GetHistory charge",graph_time, "1000"}, " ")
 
 function onOpen()
   -- noctalia.setUpdateInterval(1000)

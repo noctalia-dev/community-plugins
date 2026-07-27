@@ -3,7 +3,11 @@ battery_path = noctalia.getConfig("battery_path")
 interpol_time = 60 * noctalia.getConfig("interpol_time")
 
 local function validate(s)
-    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+	if s:match("^/org/freedesktop/UPower/devices/[%a%d_]+$") ~= nil then
+        return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+	else
+		noctalia.log("Invalid battery dbus path. Check that it is correct")
+	end
 end
 
 
