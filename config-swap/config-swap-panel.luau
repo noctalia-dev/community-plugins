@@ -3,7 +3,8 @@
 
 -- Local variable
 
-local configBox = "~/Config-Swap" 													   -- path for storage
+local configBox = "~/Config-Swap" 			
+local pathLocal = "~/.local/state/noctalia/settings.toml"										   -- path for settings
 
 local listConfig = nil
 local optionFull = {"all", "not full", "full"}
@@ -60,12 +61,35 @@ function tr(key, subst)
 	return noctalia.tr("panel." .. key)
 end
 
+-- function get position of settings noctalia
+
+function takePosSetting()
+	local dir = noctalia.pluginDataDir()
+	local path = dir .. "/data.json"
+	local raw = noctalia.readFile(path)
+	if raw then
+		local data = noctalia.json.decode(raw)
+		if data and data.settingsPath then
+			return data.settingsPath
+		end
+	end
+end
+
+--
+
+
 -- apply config file and wallpaper
 
 function applyConfig(data: config)
 	noctalia.notify(tr("apply_notification_title"))
 
-	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. "~/.local/state/noctalia/settings.toml"
+	local pathSettings = takePosSetting()
+	if not pathSettings then
+		noctalia.notify(tr("notification_title"), "Path not found, please check your data.json")
+		return
+	end
+
+	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. pathSettings
 
 	noctalia.runAsync(cmd, function(result)
 		if result and result.exitCode == 0 then
