@@ -35,6 +35,7 @@ type infoConfig = {
 	author: string,
 	origin: string,
 	preview: string,
+	description: string,
 	wallpaperPath: string,
 	depedencie: boolean,
 }
@@ -218,7 +219,9 @@ local function renderConfig(data: infoConfig)
   		}),
 		ui.label({ text = data.name, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.label({ text = "Create by " .. data.author, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.button({ glyph = "close", onClick = "onCloseClicked" }),
+		ui.label({ text = "Origin : " .. data.origin, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.label({ text = "Description : " .. data.description, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ glyph = "close", onClick = "render" }),
 	}))
 end
 
@@ -240,6 +243,7 @@ function getListInstall()
             	author = "None",
             	origin = "None",
             	preview = nil,
+				description = nil,
             	wallpaperPath = nil,
             	depedencie = false,
         	})
@@ -251,6 +255,7 @@ function getListInstall()
         	author = data.author,
         	origin = data.origin,
         	preview = data.preview,
+			description = data.description,
         	wallpaperPath = data.wallpaperPath,
         	depedencie = data.depedencie,
     	})
