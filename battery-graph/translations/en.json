@@ -9,7 +9,7 @@
 			"description": "Dbus path to the upower battery device"
 		},
 		"interpol_time": {
-			"label": "Time beetween points",
+			"label": "Time between points",
 			"description": "How long should the thime between points be in minutes"
 		}
 	},
