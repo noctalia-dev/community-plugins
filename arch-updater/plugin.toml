@@ -6,7 +6,7 @@ author = "yuuto"
 license = "MIT"
 icon = "package"
 description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
-dependencies = ["pacman-contrib"]
+dependencies = ["pacman-contrib", "awk", "flatpak", "pacman", "paru", "sed", "sh", "sudo", "test", "uname", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────

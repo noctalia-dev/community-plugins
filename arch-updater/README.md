@@ -15,6 +15,10 @@ in a terminal window.
 ## Requirements
 
 - `pacman-contrib` on `PATH` (for `checkupdates`), required.
+- `pacman`, `sh`, `sudo`, `awk`, `sed`, `test` and `uname`, required — base
+  tools from any standard Arch install, used to run and parse the pacman
+  check, build the download size estimate, check the running kernel, and
+  run the plain-pacman upgrade.
 - `yay` or `paru` on `PATH`, optional, for the AUR check and update.
   Auto-detected by default, see the **AUR helper** setting.
 - `flatpak`, optional, for the Flatpak check and update.
@@ -24,8 +28,9 @@ in a terminal window.
   `konsole`, `gnome-terminal`, `ptyxis`, `xterm`), or the one named in the
   **Terminal** setting.
 
-Everything except `pacman-contrib` is optional. A missing tool is skipped,
-not treated as an error.
+Everything except `pacman-contrib`, `pacman`, `sh`, `sudo`, `awk`, `sed`,
+`test` and `uname` is optional. A missing optional tool is skipped, not
+treated as an error.
 
 ## Usage
 
@@ -106,9 +111,12 @@ noctalia msg plugin yuuto/arch-updater:service all dismiss
 
 - **Commands spawned.** `checkupdates`; the configured AUR helper's `-Qua`
   (or your custom command); `flatpak list` / `flatpak remote-ls --updates`;
-  `pacman -Si` for the download size; a local `test -d` for the reboot check;
-  and, for the update, your terminal running `pacman`/the AUR helper and
-  optionally `flatpak update`. No upgrade command runs outside the terminal.
+  `pacman -Si` for the download size (piped through `awk` to sum it); a local
+  `test -d` against `uname -r` for the reboot check; and, for the update,
+  your terminal running `sh` to launch `sudo pacman`/the AUR helper,
+  optionally `flatpak update` (filtered through `awk` when packages are
+  ignored, using `sed` to combine the Flatpak listings during the check). No
+  upgrade command runs outside the terminal.
 - **Network.** `checkupdates`, the AUR helper and the Flatpak check contact
   mirrors, the AUR RPC, or a Flatpak remote, same as the corresponding
   upgrade would. The Arch news check fetches `archlinux.org/feeds/news/` on

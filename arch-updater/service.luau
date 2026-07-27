@@ -174,7 +174,10 @@ local function aurCheckCommand(helper)
         local raw = trim(cfg("aur_check_cmd"))
         return raw ~= "" and raw or nil
     end
-    return helper .. " -Qua 2>/dev/null | awk '{print $1\" \"$2\" \"$3\" \"$4}'"
+    -- No 2>/dev/null and no formatting pipe here: stderr is inspected below
+    -- to tell a real failure from the "-Qua" family's usual no-updates exit
+    -- code, and the raw output already matches checkupdates' own format.
+    return helper .. " -Qua"
 end
 
 -- ── Publishing ───────────────────────────────────────────────────────────────
@@ -289,9 +292,17 @@ checkFlatpak = function(ignored)
     -- Flatpak tracks commits, so a version string often doesn't move across
     -- an update. Short commits stand in when it doesn't, joined by
     -- application id in one awk pass.
+    -- Each call's own output and exit code are captured before piping into
+    -- awk, so a real flatpak failure (e.g. no remote, network down) fails
+    -- the whole command instead of awk quietly succeeding on empty input.
     local cmd = [[
-{ flatpak list --columns=application,version,active 2>/dev/null | sed 's/^/L /'
-  flatpak remote-ls --updates --columns=application,version,commit 2>/dev/null | sed 's/^/R /'
+listOut=$(flatpak list --columns=application,version,active 2>/dev/null); listCode=$?
+updOut=$(flatpak remote-ls --updates --columns=application,version,commit 2>/dev/null); updCode=$?
+if [ "$listCode" -ne 0 ] || [ "$updCode" -ne 0 ]; then
+  exit 1
+fi
+{ printf '%s\n' "$listOut" | sed 's/^/L /'
+  printf '%s\n' "$updOut" | sed 's/^/R /'
 } | awk -F'\t' '
 { tag=substr($1,1,1); app=substr($1,3) }
 tag=="L" { v[app]=$2; c[app]=$3 }
@@ -302,6 +313,11 @@ tag=="R" { from=v[app]; to=$2
         if result.timedOut then
             sources.flatpak = { n = 0, items = {} }
             checkSize()
+            return
+        end
+        if result.exitCode ~= 0 then
+            noctalia.log("arch-updater: flatpak check failed (exit " .. tostring(result.exitCode) .. ")")
+            failCheck(tr("err_flatpak_failed"))
             return
         end
         local n, items = parseTabLines(result.stdout, ignored)
@@ -340,6 +356,15 @@ local function checkAur(ignored)
             checkFlatpak(ignored)
             return
         end
+        -- "-Qua" (like plain pacman -Qu) exits non-zero for "nothing to
+        -- upgrade" too, so exit code alone can't tell that apart from a real
+        -- failure. A real failure prints something to stderr; "no updates"
+        -- doesn't.
+        if result.exitCode ~= 0 and trim(result.stderr or "") ~= "" then
+            noctalia.log("arch-updater: " .. helper .. " -Qua failed: " .. trim(result.stderr))
+            failCheck(tr("err_aur_failed"))
+            return
+        end
         local n, items = parseVersionLines(result.stdout, ignored)
         sources.aur = { n = n, items = items, helper = helper == "custom" and "" or helper }
         checkFlatpak(ignored)
@@ -369,12 +394,18 @@ startCheck = function()
     publish()
 
     local ignored = ignoreSet()
-    -- Piped through awk so the exit status reflects the filter, not
-    -- checkupdates' own 0/1/2 codes (2 = no updates, not an error).
-    local cmd = "checkupdates 2>/dev/null | awk '{print $1\" \"$2\" \"$3\" \"$4}'"
+    -- checkupdates exits 2 for "no updates" (not an error), 1 for a real
+    -- failure (mirror/db sync, etc). Normalize the former to 0 so only a
+    -- genuine failure reaches result.exitCode below.
+    local cmd = [[checkupdates 2>/dev/null; code=$?; if [ "$code" -eq 2 ]; then exit 0; fi; exit "$code"]]
     local started = noctalia.runAsync(cmd, function(result)
         if result.timedOut then
             failCheck(tr("err_check_timeout"))
+            return
+        end
+        if result.exitCode ~= 0 then
+            noctalia.log("arch-updater: checkupdates failed (exit " .. tostring(result.exitCode) .. ")")
+            failCheck(tr("err_check_failed"))
             return
         end
         local n, items = parseVersionLines(result.stdout, ignored)
@@ -565,7 +596,24 @@ local function buildUpdateCommand()
     end
 
     if cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak") then
-        table.insert(parts, "flatpak update" .. (cfg("assume_yes") == true and " -y" or ""))
+        local flatpakYes = cfg("assume_yes") == true and " -y" or ""
+        if #ignored > 0 then
+            -- Same ignore list as pacman/AUR: filter ignored refs out of the
+            -- pending Flatpak list before updating, so an app hidden from the
+            -- panel's count can't still slip in through a bare `flatpak update`.
+            local skipList = shellQuote(table.concat(ignored, "\n"))
+            table.insert(
+                parts,
+                "flatpak_refs=$(flatpak remote-ls --updates --columns=application 2>/dev/null | awk -v ignore="
+                    .. skipList
+                    .. [[ 'BEGIN { n = split(ignore, arr, "\n"); for (i = 1; i <= n; i++) skip[arr[i]] = 1 } !($0 in skip)'); ]]
+                    .. [[if [ -n "$flatpak_refs" ]; then flatpak update]]
+                    .. flatpakYes
+                    .. [[ $flatpak_refs; fi]]
+            )
+        else
+            table.insert(parts, "flatpak update" .. flatpakYes)
+        end
     end
 
     table.insert(parts, "echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1")
