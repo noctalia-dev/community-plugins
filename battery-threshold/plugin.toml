@@ -7,7 +7,7 @@ description  = "Set the battery threshold for laptop batteries to extend battery
 license      = "MIT"
 icon         = "battery-eco"
 tags         = ["hardware", "system", "utility", "bar", "panel"]
-dependencies = ["polkit"]
+dependencies = ["test", "pkexec", "bash", "cat", "getent", "groupadd", "usermod", "udevadm", "chgrp", "chmod"]
 
 [[service]]
 id    = "service"
