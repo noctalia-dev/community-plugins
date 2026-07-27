@@ -6,7 +6,7 @@
 		},
 		"battery_path": {
 			"label": "Battery path",
-			"description": "The plotted battery's device path"
+			"description": "Dbus path to the upower battery device"
 		},
 		"interpol_time": {
 			"label": "Time beetween points",
