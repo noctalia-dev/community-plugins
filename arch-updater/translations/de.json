@@ -1,0 +1,141 @@
+{
+  "title": "Arch Updater",
+  "action_check": "Updates prüfen",
+  "action_dismiss": "Verwerfen",
+  "action_update": "Aktualisieren",
+  "action_open_news": "News öffnen",
+  "status_idle": "Noch nicht geprüft",
+  "status_checking": "Prüfe auf Updates…",
+  "status_checking_step": "Prüfe {step}…",
+  "status_running": "Update läuft in einem Terminal…",
+  "status_clean": "System ist aktuell",
+  "status_error": "Prüfung fehlgeschlagen",
+  "status_missing": "checkupdates fehlt, pacman-contrib installieren",
+  "status_ready": {
+    "one": "1 Paket zu aktualisieren",
+    "other": "{count} Pakete zu aktualisieren"
+  },
+  "err_no_checkupdates": "checkupdates nicht gefunden, pacman-contrib installieren und PATH prüfen",
+  "err_check_timeout": "Zeitüberschreitung beim Prüfen auf Updates",
+  "err_spawn": "checkupdates konnte nicht gestartet werden",
+  "err_no_terminal": "Kein Terminal-Emulator gefunden, in den Plugin-Einstellungen festlegen",
+  "err_no_xdg_open": "xdg-open nicht gefunden, Paketseite kann nicht geöffnet werden",
+  "source": {
+    "pacman": "Pacman",
+    "aur": "AUR",
+    "aur_named": "AUR ({helper})",
+    "flatpak": "Flatpak"
+  },
+  "notify_updates": {
+    "one": "1 Paket zu aktualisieren",
+    "other": "{count} Pakete zu aktualisieren"
+  },
+  "run": {
+    "press_key": "Beliebige Taste zum Schließen drücken"
+  },
+  "more_packages": "+{count} weitere",
+  "hover_hint": "Zeigt beim Überfahren eines Pakets die vollständigen Versionen",
+  "up_to_date": "Aktuell: {sources}",
+  "caption_checked": "geprüft {time}",
+  "caption_ignored": {
+    "one": "1 Paket ignoriert",
+    "other": "{count} Pakete ignoriert"
+  },
+  "size_mib": "≈ {value} MiB Downloadgröße",
+  "size_gib": "≈ {value} GiB Downloadgröße",
+  "reboot_recommended": "Neustart empfohlen, der laufende Kernel ist nicht mehr installiert",
+  "news_unread": {
+    "one": "1 ungelesener Arch-News-Beitrag: „{title}“",
+    "other": "{count} ungelesene Arch-News-Beiträge, zuletzt: „{title}“"
+  },
+  "tip_check": "Jetzt auf Updates prüfen",
+  "tip_close": "Schließen",
+  "tip_update": "Update in einem Terminal-Fenster ausführen",
+  "tip_copy": "Name und Versionen kopieren",
+  "tip_open_page": "Paketseite öffnen",
+  "tooltip_status": "Status",
+  "tooltip_pending": "Ausstehend",
+  "tooltip_checked": "Geprüft",
+  "tooltip_reboot_key": "Neustart",
+  "tooltip_reboot_value": "empfohlen",
+  "tooltip_news": "Arch News",
+  "tooltip_news_value": {
+    "one": "1 ungelesen",
+    "other": "{count} ungelesen"
+  },
+  "tooltip_hints": "Klick: Panel · rechts: jetzt prüfen",
+  "launcher": {
+    "check_subtitle": "Pacman, AUR und Flatpak auf Updates prüfen",
+    "update_subtitle": "Terminal öffnen und Update ausführen",
+    "news_subtitle": "Arch-Linux-News-Seite öffnen"
+  },
+  "settings": {
+    "aur_helper": {
+      "label": "AUR-Helfer",
+      "description": "Welcher AUR-Helfer AUR-Pakete prüft und aktualisiert. „Automatisch erkennen“ versucht zuerst yay, dann paru. „Eigener Befehl“ verwendet den unten angegebenen Prüfbefehl.",
+      "options": {
+        "auto": "Automatisch erkennen (yay, dann paru)",
+        "yay": "yay",
+        "paru": "paru",
+        "custom": "Eigener Befehl",
+        "off": "Aus, nur Pacman"
+      }
+    },
+    "aur_check_cmd": {
+      "label": "Eigener AUR-Prüfbefehl",
+      "description": "Wird nur verwendet, wenn oben „Eigener Befehl“ gewählt ist. Muss pro Paket eine Zeile im Format 'name oldver -> newver' ausgeben, wie 'yay -Qua' es tut."
+    },
+    "flatpak_enabled": {
+      "label": "Flatpak einbeziehen",
+      "description": "Prüft zusätzlich (und führt beim Aktualisieren) 'flatpak update' aus. Wird automatisch übersprungen, wenn Flatpak nicht installiert ist."
+    },
+    "ignore_packages": {
+      "label": "Pakete ignorieren",
+      "description": "Paketnamen, die aus der Zählung ausgeschlossen und beim Update zusätzlich als --ignore übergeben werden, ergänzend zu pacman.confs eigenem IgnorePkg."
+    },
+    "auto_check_hours": {
+      "label": "Intervall für automatische Prüfung (Stunden)",
+      "description": "Prüft automatisch alle N Stunden auf Updates. 0 (Standard) prüft nie von selbst."
+    },
+    "notify_on_updates": {
+      "label": "Bei gefundenen Updates benachrichtigen",
+      "description": "Sendet eine Desktop-Benachrichtigung, wenn eine Prüfung aktualisierbare Pakete findet."
+    },
+    "show_download_size": {
+      "label": "Downloadgröße anzeigen",
+      "description": "Schätzt die gesamte Downloadgröße der ausstehenden Pacman-Pakete mit 'pacman -Si'. AUR- und Flatpak-Größen sind nicht enthalten."
+    },
+    "check_arch_news": {
+      "label": "Arch-Linux-News prüfen",
+      "description": "Ruft den Arch-Linux-News-Feed ab und markiert ungelesene Beiträge im Panel."
+    },
+    "check_reboot_needed": {
+      "label": "Auf nötigen Neustart prüfen",
+      "description": "Prüft, ob die Dateien des aktuell laufenden Kernels noch vorhanden sind. Fehlen sie, wurde ein neuerer Kernel installiert, und erst ein Neustart wechselt darauf."
+    },
+    "terminal": {
+      "label": "Terminal",
+      "description": "Terminal-Befehl für den Update-Lauf, z. B. kitty oder ghostty. Leer (Standard) verwendet Noctalias eigene Terminal-Erkennung ($TERMINAL, dann die gängigen Emulatoren)."
+    },
+    "assume_yes": {
+      "label": "Automatisch mit Ja bestätigen",
+      "description": "Übergibt --noconfirm / -y, damit Paketmanager nicht nach Bestätigung fragen. Aus bedeutet, du bestätigst jedes Paket im Terminal-Fenster selbst."
+    },
+    "update_cmd": {
+      "label": "Eigener Update-Befehl",
+      "description": "Vollständige Überschreibung des im Terminal ausgeführten Befehls beim Aktualisieren. Leer (Standard) baut ihn aus AUR-Helfer, Ignorierliste, Flatpak und „Automatisch mit Ja bestätigen“ oben zusammen."
+    },
+    "glyph": {
+      "label": "Bar-Symbol",
+      "description": "Das für das Widget in der Bar angezeigte Symbol."
+    },
+    "show_count": {
+      "label": "Anzahl der Updates anzeigen",
+      "description": "Zeigt die Anzahl ausstehender Updates neben dem Bar-Symbol."
+    },
+    "hide_on_empty": {
+      "label": "Ausblenden, wenn nichts anliegt",
+      "description": "Blendet das Widget vollständig aus, wenn keine Updates ausstehen und kein Neustart empfohlen wird. Aus (Standard) zeigt das Symbol immer."
+    }
+  }
+}
