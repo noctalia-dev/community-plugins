@@ -1,7 +1,7 @@
 id           = "damian-ds7/battery-threshold"
 name         = "Battery Threshold Control"
 version      = "1.0.0"
-min_noctalia = "5.0.0"
+plugin_api   = 3
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
 license      = "MIT"
