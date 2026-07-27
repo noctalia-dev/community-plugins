@@ -92,6 +92,10 @@
     "show_notification_on_switch": {
       "description": "Show a notification when switching device.",
       "label": "Show notification on switch"
+    },
+    "show_actions_in_tooltip": {
+      "description": "Show actions in tooltip.",
+      "label": "Show actions in tooltip"
     }
   },
   "tabs": {
@@ -100,6 +104,23 @@
   },
   "title": "Audio Switcher",
   "widget": {
-    "tooltip": "Output: {output} ({output_volume})\nInput: {input} ({input_volume})\nScroll: change output volume\nLeft click: open Audio Switcher\nRight click: cycle outputs\nMiddle click: cycle inputs"
+    "action": {
+      "scroll": {
+        "key": "Scroll",
+        "description": "Change output volume"
+      },
+      "left_click": {
+        "key": "Left click",
+        "description": "Open Audio Switcher"
+      },
+      "right_click": {
+        "key": "Right click",
+        "description": "Cycle visible outputs"
+      },
+      "middle_click": {
+        "key": "Middle click",
+        "description": "Cycle visible inputs"
+      }
+    }
   }
 }

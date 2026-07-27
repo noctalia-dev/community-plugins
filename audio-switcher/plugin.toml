@@ -24,6 +24,13 @@ description_key = "settings.show_notification_on_switch.description"
 default = true
 
 [[setting]]
+key = "show_actions_in_tooltip"
+type = "bool"
+label_key = "settings.show_actions_in_tooltip.label"
+description_key = "settings.show_actions_in_tooltip.description"
+default = true
+
+[[setting]]
 key = "scroll_step"
 type = "int"
 label_key = "settings.scroll_step.label"
