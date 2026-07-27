@@ -13,7 +13,7 @@ local pickSlots = {}
 local columns = 2
 local previewWidth = 470
 local previewHeight = 350
-local previewImage = "~/Downloads/arme.png"
+local previewImage = ""
 
 local selectedView = 1
 
