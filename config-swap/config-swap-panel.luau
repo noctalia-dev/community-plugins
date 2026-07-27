@@ -40,7 +40,7 @@ type infoConfig = {
 	depedencie: boolean,
 }
 
--- test section
+-- section
 
 local allConfig: { config } = {}
 
@@ -53,14 +53,17 @@ local requestFetchList = {
 
 --
 
-function test()
-	noctalia.notify(noctalia.wallpaperDirectory())
+function tr(key, subst)
+	if subst then
+		return noctalia.tr("panel." .. key, subst)
+	end
+	return noctalia.tr("panel." .. key)
 end
 
 -- apply config file
 
 function applyConfig(data: config)
-	noctalia.notify("Apply")
+	noctalia.notify(tr("apply_notification_title"))
 
 	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. "~/.local/state/noctalia/settings.toml"
 	noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
@@ -71,7 +74,7 @@ end
 -- download config folder (support: noctalia settings, preview image and json info
 
 function downloadConfig(data: config)
-	noctalia.notify("Install")
+	noctalia.notify(tr("install_notification_title"))
 
 	noctalia.mkdirAll(configBox .. "/" .. data.name)
 
@@ -79,36 +82,36 @@ function downloadConfig(data: config)
 	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
 	noctalia.download(url, configBox .. "/" .. data.name .. "/settings.toml" , function(ok)
 		if ok then
-			noctalia.notify("Config Swap", "Download ok")
+			noctalia.notify(tr("notification_title"), tr("download_ok"))
 		else
-			noctalia.notify("Config Swap", "Download not ok")
+			noctalia.notify(tr("notification_title"), tr("download_failed"))
 		end
 	end)
 	local path = data.path .. "/info.json"
 	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
 	noctalia.download(url, configBox .. "/" .. data.name .. "/info.json" , function(ok)
 		if ok then
-			noctalia.notify("Config Swap", "Download ok")
+			noctalia.notify(tr("notification_title"), tr("download_ok"))
 		else
-			noctalia.notify("Config Swap", "Download not ok")
+			noctalia.notify(tr("notification_title"), tr("download_failed"))
 		end
 	end)
 	local path = data.path .. "/preview.png"
 	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
 	noctalia.download(url, configBox .. "/" .. data.name .. "/preview.png" , function(ok)
 		if ok then
-			noctalia.notify("Config Swap", "Download ok")
+			noctalia.notify(tr("notification_title"), tr("download_ok"))
 		else
-			noctalia.notify("Config Swap", "Download not ok")
+			noctalia.notify(tr("notification_title"), tr("download_failed"))
 		end
 	end)
 	local path = data.path .. "/wallpaper.png"
 	local url = "https://raw.githubusercontent.com/Tadomika-Ari/Config-Swap-Box/main/" .. path
 	noctalia.download(url, configBox .. "/" .. data.name .. "/wallpaper.png" , function(ok)
 		if ok then
-			noctalia.notify("Config Swap", "Download ok")
+			noctalia.notify(tr("notification_title"), tr("download_ok"))
 		else
-			noctalia.notify("Config Swap", "Download not ok")
+			noctalia.notify(tr("notification_title"), tr("download_failed"))
 		end
 	end)
 end 
@@ -171,7 +174,7 @@ local function renderList()
       			onClick = "onCloseClicked"
   			}),
 			ui.row( {gap = 12, align = "start"}, {
-				ui.button({ text = "install", onClick = function()
+				ui.button({ text = tr("install"), onClick = function()
 					downloadConfig(data)
 				end
 				}),
@@ -182,7 +185,7 @@ local function renderList()
 				maxWidth = 120,
 				textAlign = "center",
 				}),
-				ui.button({ text = "apply", onClick = function()
+				ui.button({ text = tr("apply"), onClick = function()
 					applyConfig(data)
 				end
 				}),
@@ -201,15 +204,15 @@ local function renderList()
 
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = "Config Swap", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.label({ text = "Config Store", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.button({ text = "Show List", onClick = function()
+			ui.label({ text = tr("title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("store_title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.button({ text = tr("show_list"), onClick = function()
 				selectedView = 1
 				render()
 			end
 			}),
 			ui.select({ options = optionFull, onChange = "" }),
-			ui.button({ text = "refresh", onClick = "getFetchList"}),
+			ui.button({ text = tr("refresh"), onClick = "getFetchList"}),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
 		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows),
@@ -228,9 +231,9 @@ local function renderConfig(data: infoConfig)
 			radius = 8,
   		}),
 		ui.label({ text = data.name, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.label({ text = "Create by " .. data.author, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.label({ text = "Origin : " .. data.origin, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.label({ text = "Description : " .. data.description, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.label({ text = tr("created_by", { author = data.author }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.label({ text = tr("origin", { origin = data.origin }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.label({ text = tr("description", { description = data.description or "" }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.button({ glyph = "close", onClick = "render" }),
 	}))
 end
@@ -322,15 +325,15 @@ local function renderInstall()
 	end
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = "Config Swap", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.label({ text = "Installed config", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.button({ text = "Show Store", onClick = function()
+			ui.label({ text = tr("title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("installed_title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.button({ text = tr("show_store"), onClick = function()
 				selectedView = 2
 				render()
 			end
 			}),
 			ui.select({ options = optionFull, onChange = "" }),
-			ui.button({ text = "refresh", onClick = "getFetchList"}),
+			ui.button({ text = tr("refresh"), onClick = "getFetchList"}),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
 		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows),

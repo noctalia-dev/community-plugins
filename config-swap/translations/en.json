@@ -1,2 +1,20 @@
 {
+	"panel": {
+		"apply": "Apply",
+		"apply_notification_title": "Apply",
+		"created_by": "Created by {author}",
+		"description": "Description: {description}",
+		"download_failed": "Download failed",
+		"download_ok": "Download complete",
+		"install": "Install",
+		"install_notification_title": "Install",
+		"installed_title": "Installed Configs",
+		"notification_title": "Config Swap",
+		"origin": "Origin: {origin}",
+		"refresh": "Refresh",
+		"show_list": "Show List",
+		"show_store": "Show Store",
+		"store_title": "Config Store",
+		"title": "Config Swap"
+	}
 }
