@@ -16,8 +16,8 @@ entry = "config-swap-widget.luau"
 [[panel]]
 id = "panel"
 entry = "config-swap-panel.luau"
-width = 800
-height = 600
+width = 1000
+height = 800
 
 [[service]]
 id = "start"
