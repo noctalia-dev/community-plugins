@@ -3,16 +3,10 @@
 
 -- Local variable
 
-local urlGithub = "https://github.com/Tadomika-Ari/Config-Swap-Box"
-local urlPath = "https://api.github.com/repos/Tadomika-Ari/Config-Swap-Box/contents/"  -- need add path
-
-local configBox = "~/Config-Swap"
+local configBox = "~/Config-Swap" 													   -- path for storage
 
 local listConfig = nil
-local configUse = nil
-local allConfig = nil
 local optionFull = {"all", "not full", "full"}
-
 
 local pickSlots = {}
 local columns = 2
@@ -24,6 +18,9 @@ local selectedView = 1
 
 local previewCache = {}
 local previewPending = {}
+
+local configWidth = 800
+local configHeight = 600
 
 -- Type function
 
@@ -59,6 +56,8 @@ function test()
 	noctalia.notify(noctalia.wallpaperDirectory())
 end
 
+-- apply config file
+
 function applyConfig(data: config)
 	noctalia.notify("Apply")
 
@@ -66,6 +65,8 @@ function applyConfig(data: config)
 
 	noctalia.runAsync(cmd)
 end
+
+-- download config folder (support: noctalia settings, preview image and json info
 
 function downloadConfig(data: config)
 	noctalia.notify("Install")
@@ -101,6 +102,8 @@ function downloadConfig(data: config)
 	end)
 end 
 
+-- Section Preview for github store
+
 local function previewCachePath(name)
 	local dir = noctalia.pluginDataDir() .. "/preview-cache"
 	noctalia.mkdirAll(dir)
@@ -129,6 +132,8 @@ local function queuePreviewDownload(name)
 		end
 	end)
 end
+
+-- Section render for github Store
 
 local function renderList()
 
@@ -200,6 +205,24 @@ local function renderList()
 	}))
 end
 
+-- Section render for see config install info
+
+local function renderConfig(data: infoConfig)
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.image({
+      		path = configBox .. "/" .. data.name .. "/preview.png",
+			width = configWidth,
+			height = configHeight,
+			fit = "cover",
+			radius = 8,
+  		}),
+		ui.label({ text = data.name, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.label({ text = "Create by " .. data.author, align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ glyph = "close", onClick = "onCloseClicked" }),
+	}))
+end
+
+-- Section for list allerady install file
 
 function getListInstall()
 	local localPath = configBox
@@ -250,7 +273,9 @@ local function renderInstall()
 				height = previewHeight,
 				fit = "cover",
 				radius = 8,
-      			onClick = "onCloseClicked"
+      			onClick = function()
+					renderConfig(data)
+				end
   			}),
 			ui.row( {gap = 12, align = "start"}, {
 				ui.button({ text = "install", onClick = function()
@@ -297,6 +322,8 @@ local function renderInstall()
 	}))
 end
 
+-- Render Choice
+
 function render()
 	if selectedView == 1 then 
 		renderInstall()
@@ -305,6 +332,8 @@ function render()
 		renderList()
 	end
 end
+
+-- Get all config on github
 
 function getFetchList(onDone)
 	noctalia.http(requestFetchList, function(respond)
@@ -328,6 +357,8 @@ function getFetchList(onDone)
 		render()
 	end)
 end
+
+-- Other function
 
 function onOpen(_context)
 	render()
