@@ -13,11 +13,17 @@ For this plugin, you need:
 | Field | Value |
 | --- | --- |
 | ID | `tadomika_ari/config-swap` |
-| Entries | Bar widget: `config-swap-widget`; panel: `config-swap-panel`; service: `start` |
+| Entries | Bar widget: `widget`; panel: `panel`; service: `start` |
 
 ## Usage
 
 This plugin is still under development.
+
+You can open Config Swap with:
+
+```sh
+noctalia msg panel-toggle tadomika_ari/config-swap:panel
+```
 
 The plugin downloads saved configurations from the `Config-Swap-Box` GitHub repository and stores them in `~/Config-Swap`.
 Applying a configuration copies its `settings.toml` into `~/.local/state/noctalia/settings.toml` and sets the matching wallpaper.
@@ -34,6 +40,14 @@ Do not spam `refresh`; GitHub rate limits unauthenticated requests.
 
 Each card lets you `install` or `apply` a configuration.
 
+
+| Action | Effect |
+| --- | --- |
+| Refresh | Refresh Github API |
+| Install | Install the config in `~/Config-Swap` |
+| Apply | Apply Config file |
+| Show list | Switch to list |
+
 ### Show List
 
 The list view shows configurations already installed in `~/Config-Swap`.
@@ -42,6 +56,16 @@ From there you can `apply` them again or `install` them again to refresh the fil
 Click a preview image to see extra information such as the author, origin, and description.
 
 Use `Show Store` to return to the GitHub store view.
+
+| Action | Effect |
+| --- | --- |
+| Refresh | Refresh Github API |
+| Install | Install the config in `~/Config-Swap` |
+| Apply | Apply Config file |
+| Click the preview | Open extra info |
+| Show store | Switch to store |
+
+
 
 ### Extra Info
 
