@@ -1,80 +1,63 @@
-# Battery Threshold
+# Battery Threshold Control
 
-![thumbnail](./thumbnail.webp)
+Control the battery charge threshold on laptop batteries to help extend overall
+battery lifespan. Someone would use this plugin to limit maximum charge levels
+while plugged in, reducing battery wear and heat.
 
-A plugin for Noctalia Shell to control the battery threshold on laptops, helping
-extend battery lifespan. This plugin only works if your laptop supports charge
-threshold control (as exported by the kernel in sysfs). The plugin looks like
-this in action:
+## Plugin
 
-## Features
-
-- **Bar Widget**: Shows current battery threshold in the bar
-- **Panel**: Adjust battery threshold with a slider (40-100%)
-- **Persistent Settings**: Saves and restores threshold across reboots
-
-## Usage
-
-Add the bar widget to your bar. Click to open the panel and adjust the battery
-threshold using the slider.
-
-### Panel Controls
-
-- Drag the slider to set battery threshold (40-100%)
-- Changes are applied immediately
-- Settings persist across reboots
-
-## Setup (Required)
-
-This plugin requires write access to the battery threshold sysfs file. You can
-configure permissions in one of three ways:
-
-### 1. Via UI (Recommended)
-
-If the plugin is loaded and read-only, open the panel and click the **Configure
-Permissions** button. This will trigger a `pkexec` dialog prompting for
-authentication to install the udev rules automatically.
-
-### 2. Via IPC Command
-
-You can trigger the automated setup from the terminal:
-
-```bash
-noctalia msg plugin damian-ds7/battery-threshold setup
-```
-
-### 3. Manual Fallback
-
-If you do not have a Polkit agent running, you can manually run the included
-script:
-
-```bash
-sudo ./setup_rules.sh
-```
-
-**Note:** A logout/reboot is required for the new group membership
-(`battery_ctl`) to take effect.
-
-## IPC Commands
-
-```bash
-# Toggle panel
-noctalia msg panel-toggle damian-ds7/battery-threshold:panel
-
-# Set threshold
-noctalia msg plugin damian-ds7/battery-threshold:service all set <value>
-```
-
-## Troubleshooting
-
-- **Read-only mode**: Ensure udev rule is installed, and you're in the correct
-  group
-- **Not available**: Your laptop may not support charge threshold control, or
-  select the correct battery in the settings menu
-- **Changes not saving**: Check write permissions on the sysfs file
+| Field   | Value                                                               |
+| ------- | ------------------------------------------------------------------- |
+| ID      | `damian-ds7/battery-threshold`                                      |
+| Entries | Bar widget: `battery-threshold`; panel: `panel`; service: `service` |
 
 ## Requirements
 
-- Laptop with battery charge threshold support (ThinkPad, ASUS, etc.)
-- Tested on Asus Zenbook 14 UX3405
-- Tested on Asus TUF Gaming F15 FX506L
+- `polkit` - required for interactive setup
+- Laptop hardware supporting battery charge threshold control in sysfs
+  (`/sys/class/power_supply/*/charge_control_end_threshold`).
+- The following external programs must be available on `PATH`: `test`, `pkexec`,
+  `bash`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and
+  `chmod`.
+
+## Usage
+
+- **Bar Widget (`battery-threshold`)**: Displays the current battery threshold
+  in the bar. Click to toggle the panel.
+- **Panel (`panel`)**: Adjust the battery threshold using a slider (40–100%).
+  Includes a **Configure Permissions** button if write access is missing. Toggle
+  the panel using:
+
+```sh
+noctalia msg panel-toggle damian-ds7/battery-threshold:panel
+```
+
+## Settings
+
+| Setting            | Type     | Default                        | Description                                    |
+| ------------------ | -------- | ------------------------------ | ---------------------------------------------- |
+| `battery_device`   | `folder` | `/sys/class/power_supply/BAT0` | Path to the battery sysfs directory.           |
+| `charge_threshold` | `int`    | `80`                           | Default charge threshold percentage (40–100%). |
+
+## IPC
+
+```sh
+# Set charge threshold percentage (between 40 and 100)
+noctalia msg plugin damian-ds7/battery-threshold:service all set 80
+
+# Trigger setup script for udev permissions
+noctalia msg plugin damian-ds7/battery-threshold:service all setup
+```
+
+## Notes
+
+- **Permissions & Setup**: Requires write access to
+  `/sys/class/power_supply/BAT0/charge_control_end_threshold`. Automated setup
+  creates the `battery_ctl` group, adds the active user to it, and installs
+  `99-battery-threshold.rules` to `/etc/udev/rules.d/`.
+- **Relogin / Reboot**: A logout or system reboot is required after running
+  setup for `battery_ctl` group membership changes to take effect.
+- **Manual Setup Fallback**: If Polkit is not available, run
+  `sudo ./setup_rules.sh` manually from the plugin directory.
+- **Persistence**: Threshold settings are stored in `threshold.txt` in plugin
+  directory and restored across reboots.
