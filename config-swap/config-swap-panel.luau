@@ -41,7 +41,7 @@ type infoConfig = {
 	depedencie: boolean,
 }
 
--- section
+-- section for get all config
 
 local allConfig: { config } = {}
 
@@ -52,7 +52,7 @@ local requestFetchList = {
   	follow_redirects = true
 }
 
---
+-- translate section
 
 function tr(key, subst)
 	if subst then
