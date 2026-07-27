@@ -606,7 +606,7 @@ local function buildUpdateCommand()
                 parts,
                 "flatpak_refs=$(flatpak remote-ls --updates --columns=application 2>/dev/null | awk -v ignore="
                     .. skipList
-                    .. [[ 'BEGIN { n = split(ignore, arr, "\n"); for (i = 1; i <= n; i++) skip[arr[i]] = 1 } !($0 in skip)'); ]]
+                    .. [=[ 'BEGIN { n = split(ignore, arr, "\n"); for (i = 1; i <= n; i++) skip[arr[i]] = 1 } !($0 in skip)'); ]=]
                     .. [[if [ -n "$flatpak_refs" ]; then flatpak update]]
                     .. flatpakYes
                     .. [[ $flatpak_refs; fi]]
