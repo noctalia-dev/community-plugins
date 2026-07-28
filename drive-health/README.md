@@ -51,6 +51,14 @@ use the same dialog. Disabling Full SMART in settings makes Drive Health ignore
 the collector cache; use **Stop background service** to stop an installed timer
 as well.
 
+Plugin lifecycle actions also reconcile the installed collector. Enabling or
+re-enabling Drive Health starts it when Full SMART is enabled, disabling the
+plugin pauses it, and uninstalling an enabled plugin removes it. Each privileged
+action uses the desktop authorization dialog. Reloading Drive Health or stopping
+Noctalia leaves the system timer unchanged. If authorization is cancelled or
+fails, the collector remains in its prior state and Drive Health reports the
+failure when its runtime is still available.
+
 Expand a drive for detailed counters, trend history, per-drive preferences,
 and SMART self-tests. A self-test requires explicit confirmation and a Polkit
 authorization prompt, then runs in the background while progress and its final
@@ -124,9 +132,14 @@ self-tests are separate, explicitly authorized firmware operations. They can
 take minutes or hours, may increase drive activity, and should not be confused
 with filesystem repair or data recovery.
 
-To remove the optional collector, use **Remove collector** in its controls and
-approve the desktop authorization dialog. Removing the Noctalia entry alone
-does not silently remove system files.
+To remove the optional collector explicitly, use **Remove collector** in its
+controls and approve the desktop authorization dialog. Uninstalling Drive Health
+while it is enabled requests the same cleanup. Because the plugin cannot wait
+for an authorization dialog after its runtime is destroyed, a cancelled or
+failed uninstall authorization leaves the collector installed; reinstall the
+plugin and use **Remove collector** to retry. If the plugin was disabled first,
+its service is no longer running and cannot receive the uninstall event; use
+the collector control before disabling in that sequence.
 
 ## Development
 

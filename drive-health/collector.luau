@@ -1203,6 +1203,100 @@ function onConfigChanged()
   collect()
 end
 
+local function lifecycleActionError(result)
+  if result.timedOut == true then
+    return noctalia.tr("privileged_action.timeout")
+  end
+  if tonumber(result.exitCode) == 126 then
+    return noctalia.tr("privileged_action.cancelled")
+  end
+  local detail = noctalia.string.trim(tostring(result.stderr or ""))
+  if detail == "" then detail = noctalia.string.trim(tostring(result.stdout or "")) end
+  if #detail > 240 then detail = detail:sub(1, 237) .. "..." end
+  return detail ~= "" and detail or noctalia.tr("privileged_action.command_failed")
+end
+
+local function notifyLifecycleFailure(action, detail)
+  noctalia.log("Drive Health could not " .. action .. ": " .. detail)
+  noctalia.notifyError(noctalia.tr("collector.title"), noctalia.tr("privileged_action.failed", {
+    action = action,
+    error = detail,
+  }))
+end
+
+local function launchLifecycleAction(command, action, observeResult)
+  if not noctalia.commandExists("pkexec") then
+    notifyLifecycleFailure(action, noctalia.tr("collector.authorization_required"))
+    return
+  end
+
+  local launched
+  if observeResult then
+    launched = noctalia.runAsync(command, function(result)
+      if result.timedOut == true or tonumber(result.exitCode) ~= 0 then
+        notifyLifecycleFailure(action, lifecycleActionError(result))
+      end
+    end, 120000)
+  else
+    -- onExit destroys this VM as soon as the callback returns. Launch without
+    -- a completion callback so the authorization request survives teardown.
+    launched = noctalia.runAsync(command)
+  end
+  if not launched then
+    notifyLifecycleFailure(action, noctalia.tr("privileged_action.launch_failed"))
+  end
+end
+
+local function legacyUninstallCommand()
+  -- Older collector installations did not copy an uninstaller into libexec.
+  -- Keep this fallback independent of plugin files because those are removed
+  -- immediately after an uninstall hook returns.
+  local serviceName = SYSTEM_NAMESPACE
+  local cleanup = "systemctl disable --now " .. serviceName .. ".timer 2>/dev/null || true; "
+    .. "systemctl stop " .. serviceName .. ".service 2>/dev/null || true; "
+    .. "rm -f /etc/systemd/system/" .. serviceName .. ".service "
+    .. "/etc/systemd/system/" .. serviceName .. ".timer; "
+    .. "rm -rf /etc/systemd/system/" .. serviceName .. ".timer.d "
+    .. "/usr/local/libexec/" .. serviceName .. " /run/" .. serviceName .. "; "
+    .. "systemctl daemon-reload; "
+    .. "systemctl reset-failed " .. serviceName .. ".service 2>/dev/null || true"
+  return "pkexec /bin/sh -c " .. shellQuote(cleanup)
+end
+
+function onEnable()
+  local manageScript = SYSTEM_LIBEXEC .. "/manage-collector.sh"
+  if systemCollectorEnabled() and noctalia.fileExists(manageScript) then
+    launchLifecycleAction(
+      "pkexec " .. shellQuote(manageScript) .. " start",
+      noctalia.tr("collector.action_start"),
+      true
+    )
+  end
+end
+
+function onExit(_signal, reason)
+  if reason == "disable" then
+    local manageScript = SYSTEM_LIBEXEC .. "/manage-collector.sh"
+    if noctalia.fileExists(manageScript) then
+      launchLifecycleAction(
+        "pkexec " .. shellQuote(manageScript) .. " pause",
+        noctalia.tr("collector.action_pause"),
+        false
+      )
+    end
+  elseif reason == "uninstall" then
+    local installedCollector = SYSTEM_LIBEXEC .. "/collect_raw.sh"
+    if not noctalia.fileExists(installedCollector) then
+      return
+    end
+    local uninstallScript = SYSTEM_LIBEXEC .. "/uninstall-collector.sh"
+    local command = noctalia.fileExists(uninstallScript)
+      and "pkexec " .. shellQuote(uninstallScript)
+      or legacyUninstallCommand()
+    launchLifecycleAction(command, noctalia.tr("collector.action_remove"), false)
+  end
+end
+
 function onIpc(event, _payload)
   if event == "check-dependencies" then
     forceDependencyProbe()

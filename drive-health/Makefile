@@ -16,6 +16,7 @@ unit:
 	lua tests/collector_harness.lua raw-cache
 	lua tests/collector_harness.lua outdated-raw-cache
 	lua tests/collector_harness.lua collector-disabled
+	lua tests/collector_harness.lua lifecycle
 	lua tests/alert_harness.lua
 	lua tests/history_harness.lua
 	lua tests/panel_harness.lua

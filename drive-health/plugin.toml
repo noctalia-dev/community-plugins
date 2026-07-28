@@ -1,7 +1,7 @@
 id = "gustav0ar/drive-health"
 name = "Drive Health"
-version = "1.2.4"
-plugin_api = 9
+version = "1.2.5"
+plugin_api = 17
 author = "Drive Health contributors"
 license = "MIT"
 deprecated = false
