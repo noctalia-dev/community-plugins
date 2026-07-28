@@ -2,7 +2,7 @@
 
 All notable changes to Keymap are documented in this file.
 
-## [1.3.3] - 2026-07-28
+## [1.3.4] - 2026-07-29
 
 ### Fixed
 
