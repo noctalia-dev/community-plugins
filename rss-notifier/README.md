@@ -1,14 +1,13 @@
-# RSS/Atom Notifier
+# RSS Notifier
 
-Monitor RSS/Atom feeds and get notifications for new items.
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Plugin
+**RSS Notifier** is a plugin for [Noctalia](https://github.com/noctalia/noctalia) that [**DESCREVA AQUI O QUE SEU PLUGIN FAZ**, ex: monitors RSS feeds and sends desktop notifications when new items are found].
 
-**Id:** `nilsonlinux/rss-notifier`
+---
 
-**Entries:**
-- **Service:** `fetcher` - Background service that fetches and parses feeds
-- **Widget:** `badge` - Shows unread count on the bar
-- **Panel:** `list` - Displays feed items in a list
+## Installation
 
-**IPC Command:**
+1. Clone this repository into your `~/.config/noctalia/plugins/` directory:
+   ```bash
+   git clone https://github.com/nilsonlinux/rss-notifier.git ~/.config/noctalia/plugins/rss-notifier
