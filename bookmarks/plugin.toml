@@ -1,13 +1,12 @@
 id           = "dunarand/bookmarks"
 name         = "Bookmarks"
 version      = "1.0.0"
-min_noctalia = "5.0.0"
 plugin_api   = 13
 author       = "dunarand"
 license      = "MIT"
 icon         = "bookmark"
 description  = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
-tags         = ["launcher", "panel", "productivity", "utility", "widget"]
+tags         = ["launcher", "panel", "productivity", "utility"]
 dependencies = []
 
 [[setting]]
