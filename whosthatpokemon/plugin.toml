@@ -1,11 +1,14 @@
-id = "devpotatoes/whosThatPokemon"
+id = "devpotatoes/whosthatpokemon"
 name = "Whos That Pokémon"
 version = "1.0.0"
 plugin_api = 3
 author = "dev.potatoes"
 license = "GPL-3.0"
+deprecated = false
+icon = "device-gamepad"
 description = "A simple and fully offline Pokémon mini-game."
 tags = ["fun", "panel"]
+dependencies = []
 
 [[launcher_provider]]
 id = "launcher"

@@ -16,6 +16,10 @@ The game currently supports only English Pokémon names and includes Pokémon fr
 
 Open the Noctalia launcher and type `/wtp` then start the mini-game !
 
+## IPC
+
+This plugin does not expose custom IPC actions.
+
 ## Notes
 
 The `fetchPokemonList.sh` and `fetchPokemonSprites.sh` scripts are only automation tools intended to help developers prepare the required Pokémon data and assets.

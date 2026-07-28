@@ -72,7 +72,7 @@ function renderMenu()
                 ui.image({ path = "./assets/sprites/trainerRed.png", width = 96, height = 96, fit = "contain" })
             }),
             ui.row({ align = "center", justify = "space_between" }, {
-                ui.button({ text = noctalia.tr("playBtn"), flexGrow = 1,
+                ui.button({ text = noctalia.tr("play_btn"), flexGrow = 1,
                     onClick = "onPlayBtnClicked"
                 })
             }),
@@ -124,7 +124,7 @@ function renderGame()
                     ui.image({ path = string.format("./assets/sprites/%d.png", randomPokemonId), width = 128, height = 128, fit = "contain" })
                 }),
                 ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                    ui.button({ key = "goodAnswerBtn", text = noctalia.tr("goodAnswerBtn"), controlSize = "md", flexGrow = 1, variant = "primary" }),
+                    ui.button({ key = "goodAnswerBtn", text = noctalia.tr("good_answer_btn"), controlSize = "md", flexGrow = 1, variant = "primary" }),
                     ui.button({ key = "continuePlayingBtn", glyph = "arrow-right", controlSize = "md",
                         onClick = "onContinuePlayingBtnClicked"
                     })
@@ -144,7 +144,7 @@ function renderGame()
                     ui.image({ path = string.format("./assets/sprites/%d.png", randomPokemonId), width = 128, height = 128, fit = "contain" })
                 }),
                 ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                    ui.button({ key = "wrongAnswerBtn", text = noctalia.tr("wrongAnswerBtn") .. " " .. pokemonData[randomPokemonId], controlSize = "md", flexGrow = 1, variant = "destructive" }),
+                    ui.button({ key = "wrongAnswerBtn", text = noctalia.tr("wrong_answer_btn") .. " " .. pokemonData[randomPokemonId], controlSize = "md", flexGrow = 1, variant = "destructive" }),
                     ui.button({ key = "continuePlayingBtn", glyph = "arrow-right", controlSize = "md",
                         onClick = "onContinuePlayingBtnClicked"
                     })
@@ -166,7 +166,7 @@ function renderGame()
                     ui.image({ path = string.format("./assets/sprites/%d.png", randomPokemonId), width = 128, height = 128, fit = "contain" })
                 }),
                 ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                    ui.input({ key = uuid(), placeholder = noctalia.tr("playerAnswerInput"), controlSize = "md", flexGrow = 1,
+                    ui.input({ key = uuid(), placeholder = noctalia.tr("player_answer_input"), controlSize = "md", flexGrow = 1,
                         onChange = "onPlayerAnswerInputChange",
                         onSubmit = "onPlayerAnswerSubmitBtnClicked"
                     }),
