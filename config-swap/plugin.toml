@@ -6,7 +6,7 @@ author = "TadomiKa-Ari"
 license = "MIT"
 dependencies = ["cp"]
 icon = "file"
-description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
+description = "A Noctalia widget for applying Configuration file with one click"
 tags = ["utility"]
 
 [[widget]]
