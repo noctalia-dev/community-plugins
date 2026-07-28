@@ -6,8 +6,7 @@ author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "rss"
 description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
-tags = ["feeds", "notifications"]
-dependencies = []
+tags        = ["feeds", "rss", "notifications"]
 
 # ---------------------------------------------------------------------------
 # Settings de nivel de plugin: compartilhadas por TODAS as entries
