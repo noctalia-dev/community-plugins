@@ -12,6 +12,22 @@
 -- demand via the refresh button. The bar widget mirrors the panel's open
 -- state through the shared "file_search_open" state key.
 
+-- How many characters of a result path fit on one row, from the panel's 520
+-- width in plugin.toml: 520 − 2 × Style::panelPadding (14) − the scrollbar
+-- gutter (scrollbarWidth 6 + scrollbarGap 8) = 478 usable, less the row
+-- Button's 2 × Style::spaceMd (12) horizontal padding, its 14px glyph and the
+-- 4px gap between them → 436px of text. Measured against a rendered row, a
+-- lowercase path averages 7.2px per character at Style::fontSizeBody, so 61
+-- characters is the limit; 56 leaves headroom, because the font is
+-- proportional and capitals or digits measure wider than that average.
+--
+-- A Button cannot do this itself: it has no maxLines, so constraining its
+-- width makes the label WRAP rather than ellipsize, and a plain flexGrow never
+-- shrinks it below the full text — which is why a long path used to run under
+-- the scrollbar and get clipped.
+local PATH_MAX_CHARS = 56
+local ELLIPSIS = "…"
+
 local query = ""
 local results = {}      -- relative paths; directories keep a trailing "/"
 local total = nil       -- entries in the index, shown in the footer
@@ -25,16 +41,6 @@ local haveIndex = false -- the cache on disk matches the current settings
 local render
 local runSearch
 local buildIndex
-
--- Per-row callbacks need distinct global names; the reconciler dispatches
--- callbacks by name only. getfenv() is the script environment lua_getglobal
--- reads from, so assigning into it defines the callback the host will find.
-local env = getfenv()
-local function rowCallback(prefix, index, fn)
-    local name = prefix .. "_" .. index
-    env[name] = fn
-    return name
-end
 
 local function tr(key, args)
     return noctalia.tr(key, args)
@@ -118,6 +124,62 @@ local function cacheFresh(dir)
     return noctalia.readFile(dir .. "/index.meta") == indexKey()
 end
 
+-- Code-point slices. Byte offsets would split a multi-byte character and
+-- produce invalid UTF-8, which the text renderer then refuses to measure.
+local function headChars(value, count)
+    local byte = utf8.offset(value, count + 1)
+    return byte ~= nil and value:sub(1, byte - 1) or value
+end
+
+local function tailChars(value, count)
+    local length = utf8.len(value)
+    if length == nil or count >= length then
+        return value
+    end
+    local byte = utf8.offset(value, length - count + 1)
+    return byte ~= nil and value:sub(byte) or value
+end
+
+-- Shorten an over-long path by dropping its MIDDLE, keeping both the root it
+-- starts from and the name it ends with:
+--   .local/share/flatpak/repo/tmp/cache/summaries/dolphin.idx.sig
+--   → .local/share/flatpak/repo/tmp/cache/…dolphin.idx.sig
+-- End-truncation would cut away the file name, which is the very thing the
+-- query matched, so the trailing component is kept whole whenever it fits and
+-- the head takes what is left of the budget. utf8.len returns nil on invalid
+-- UTF-8 (it never throws, unlike utf8.codes), and such a name is left alone
+-- rather than sliced at a guessed offset.
+local function elidePath(rel)
+    -- Byte length is never below the code-point count, so a string short in
+    -- bytes is short in characters — and the common case skips the O(n)
+    -- utf8.len entirely. This runs for every visible row on every render.
+    if #rel <= PATH_MAX_CHARS then
+        return rel
+    end
+    local length = utf8.len(rel)
+    if length == nil or length <= PATH_MAX_CHARS then
+        return rel
+    end
+    local budget = PATH_MAX_CHARS - 1 -- the ellipsis occupies one column
+    -- Trailing component, with a directory's own "/" kept as part of it.
+    local base = rel:match("[^/]+/?$") or ""
+    local baseLen = utf8.len(base) or 0
+    if baseLen >= budget then
+        -- A single component longer than the whole row: no head to show.
+        return ELLIPSIS .. tailChars(rel, budget)
+    end
+    local headPart = headChars(rel, budget - baseLen)
+    -- Retreat to the last separator so the head ends on a whole directory:
+    -- ".../tmp/cache/…name" reads as a path, ".../tmp/cache/summ…name" reads
+    -- as a glitch. Costs a few characters; kept raw when there is no
+    -- separator to retreat to.
+    local atSeparator = headPart:match("^(.*/)[^/]*$")
+    if atSeparator ~= nil and atSeparator ~= "" then
+        headPart = atSeparator
+    end
+    return headPart .. ELLIPSIS .. base
+end
+
 -- One cache record, about to be joined to the search root. The cache is a
 -- plain user-editable file, so records are untrusted: reject anything that
 -- could resolve outside the root.
@@ -131,6 +193,22 @@ local function safeRel(rel)
         end
     end
     return true
+end
+
+-- Count the cache the panel is about to search. buildIndex records the total
+-- as a side effect of building, but a panel opening on a cache that is already
+-- fresh -- the common case, and the one the launcher leaves behind -- never
+-- runs it, so the footer used to report "0 indexed" for a perfectly good
+-- index. Counted with wc rather than readFile: the list can hold hundreds of
+-- thousands of paths and none of them are needed here, only how many.
+local function readTotal(dir)
+    local cmd = cacheSh(dir) .. '\nwc -l < "$CACHE" 2>/dev/null'
+    noctalia.runAsync(cmd, function(result)
+        if result.exitCode == 0 and not result.timedOut then
+            total = tonumber(trim(result.stdout or "")) or 0
+            render()
+        end
+    end, 15000)
 end
 
 buildIndex = function()
@@ -235,32 +313,73 @@ runSearch = function()
     end
 end
 
-local function openEntry(rel)
+-- An index record joined to the search root, or nil when the record could
+-- resolve outside it. Only ever called from the two callbacks that act on a
+-- row — never from render: searchRoot() costs a getConfig plus an expandPath
+-- and safeRel walks every path component, and paying that per row per frame is
+-- what gets a script callback killed for exceeding its CPU budget.
+local function absolutePath(rel)
     if not safeRel(rel) then
-        noctalia.log("file-search: refusing unsafe index record: " .. rel)
-        noctalia.notify(tr("title"), tr("err_bad_record"))
+        return nil
+    end
+    local root = searchRoot()
+    -- A directory keeps its trailing "/" in the index but not in a path meant
+    -- for xdg-open or for pasting into a shell.
+    local trimmed = rel:gsub("/+$", "")
+    if root == "/" then
+        return root .. trimmed
+    end
+    return root .. "/" .. trimmed
+end
+
+local function rejectRecord(rel)
+    noctalia.log("file-search: refusing unsafe index record: " .. rel)
+    noctalia.notify(tr("title"), tr("err_bad_record"))
+end
+
+local function openEntry(rel)
+    local path = absolutePath(rel)
+    if path == nil then
+        rejectRecord(rel)
         return
     end
-    local path = searchRoot()
-    if path ~= "/" then
-        path = path .. "/"
-    end
-    path = path .. rel:gsub("/+$", "")
     noctalia.runAsync("xdg-open " .. shellQuote(path) .. " >/dev/null 2>&1")
     panel.close()
 end
 
+-- Right click copies the absolute path instead of opening it, and leaves the
+-- panel up so several rows can be picked off in a row. Right rather than
+-- middle because a ui.button never receives the middle button: it accepts
+-- BTN_LEFT, plus BTN_RIGHT only once an onRightClick is attached, and no node
+-- in the declarative UI exposes a middle-click callback at all.
+local function copyEntry(rel)
+    local path = absolutePath(rel)
+    if path == nil then
+        rejectRecord(rel)
+        return
+    end
+    noctalia.copyToClipboard(path, "text/plain")
+    noctalia.notify(tr("title"), tr("copied_entry"))
+end
+
 local function resultRow(rel, index)
     local isDir = rel:sub(-1) == "/"
+    -- The row carries no tooltip on purpose: one string per row is enough
+    -- extra weight, over a list this long, to get the render's callback killed
+    -- for exceeding its CPU budget. Right click yields the full path instead.
+    local shown = elidePath(rel)
     return ui.button({
         key = "hit-" .. index,
         glyph = isDir and "folder" or "file",
-        text = rel,
+        text = shown,
         variant = "ghost",
         contentAlign = "start",
-        onClick = rowCallback("openHit", index, function()
-            openEntry(rel)
-        end),
+        onClick = function()
+            openEntry(rel) -- always the full record, never the elided label
+        end,
+        onRightClick = function()
+            copyEntry(rel)
+        end,
     })
 end
 
@@ -287,6 +406,7 @@ render = function()
                 flexGrow = 1,
             }),
             ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("tip_refresh"), onClick = "onRefreshIndex" }),
+            ui.button({ glyph = "settings", variant = "ghost", tooltip = tr("tip_settings"), onClick = "onOpenSettings" }),
             ui.button({ glyph = "close", variant = "ghost", tooltip = tr("tip_close"), onClick = "onClosePanel" }),
         }),
         ui.input({
@@ -338,6 +458,9 @@ function onOpen(_context)
             if not haveIndex then
                 buildIndex()
             else
+                -- buildIndex would have set the total; reusing a cache has to
+                -- go and count it.
+                readTotal(dir)
                 runSearch()
             end
         end
@@ -361,6 +484,7 @@ function onConfigChanged()
     if not haveIndex then
         buildIndex()
     else
+        readTotal(dir)
         runSearch()
     end
 end
@@ -380,6 +504,13 @@ end
 function onRefreshIndex()
     haveIndex = false
     buildIndex()
+end
+
+-- Opens the settings window on this plugin's own page (the host supplies the
+-- plugin id, so a plugin can only ever open its own). The panel closes on the
+-- way; the index survives it, since it lives in the plugin data directory.
+function onOpenSettings()
+    noctalia.openSettings()
 end
 
 function onClosePanel()

@@ -1,6 +1,5 @@
 --!nonstrict
 
-local MAX_VISIBLE_ITEMS = 32
 local snapshot = noctalia.state.get("docker_snapshot") or {
   available = false,
   loading = true,
@@ -13,7 +12,6 @@ local snapshot = noctalia.state.get("docker_snapshot") or {
 }
 local currentTab = "containers"
 local selectedKey = ""
-local selectSlots = {}
 local requestCounter = 0
 local pendingRunRequest = nil
 local pendingInspectRequest = nil
@@ -178,10 +176,9 @@ local function itemSummary(item)
   return `{item.name}  ·  {item.driver}  ·  {item.scope}`
 end
 
-local function itemCard(item, slotIndex)
+local function itemCard(item)
   local key = keyForItem(item)
   local selected = key == selectedKey
-  selectSlots[slotIndex] = key
   return ui.button({
     key = key,
     text = itemSummary(item),
@@ -189,7 +186,11 @@ local function itemCard(item, slotIndex)
     contentAlign = "start",
     variant = selected and "primary" or "outline",
     selected = selected,
-    onClick = `onSelect{slotIndex}`,
+    onClick = function()
+      selectedKey = key
+      feedback = ""
+      render()
+    end,
   })
 end
 
@@ -249,16 +250,8 @@ local function itemList()
     })
   end
   local rows = {}
-  local count = math.min(#items, MAX_VISIBLE_ITEMS)
-  for index = 1, count do
-    table.insert(rows, itemCard(items[index], index - 1))
-  end
-  if #items > MAX_VISIBLE_ITEMS then
-    table.insert(rows, ui.label({
-      text = tr("panel.showing_limit", { count = MAX_VISIBLE_ITEMS }),
-      color = "on_surface_variant",
-      textAlign = "center",
-    }))
+  for index = 1, #items do
+    table.insert(rows, itemCard(items[index]))
   end
   return ui.column({ gap = 8 }, rows)
 end
@@ -325,7 +318,6 @@ end
 
 render = function()
   dirty = false
-  selectSlots = {}
   local statusRows = {}
   if snapshot.loading == true then
     table.insert(statusRows, ui.label({ text = tr("panel.loading"), color = "on_surface_variant" }))
@@ -367,15 +359,6 @@ render = function()
     ui.column({ gap = 3 }, statusRows),
     content,
   }))
-end
-
-local function selectAt(index)
-  local key = selectSlots[index]
-  if key ~= nil then
-    selectedKey = key
-    feedback = ""
-    render()
-  end
 end
 
 local function switchTab(tab)
@@ -554,36 +537,3 @@ function onConfirmRun()
   })
   render()
 end
-
-function onSelect0() selectAt(0) end
-function onSelect1() selectAt(1) end
-function onSelect2() selectAt(2) end
-function onSelect3() selectAt(3) end
-function onSelect4() selectAt(4) end
-function onSelect5() selectAt(5) end
-function onSelect6() selectAt(6) end
-function onSelect7() selectAt(7) end
-function onSelect8() selectAt(8) end
-function onSelect9() selectAt(9) end
-function onSelect10() selectAt(10) end
-function onSelect11() selectAt(11) end
-function onSelect12() selectAt(12) end
-function onSelect13() selectAt(13) end
-function onSelect14() selectAt(14) end
-function onSelect15() selectAt(15) end
-function onSelect16() selectAt(16) end
-function onSelect17() selectAt(17) end
-function onSelect18() selectAt(18) end
-function onSelect19() selectAt(19) end
-function onSelect20() selectAt(20) end
-function onSelect21() selectAt(21) end
-function onSelect22() selectAt(22) end
-function onSelect23() selectAt(23) end
-function onSelect24() selectAt(24) end
-function onSelect25() selectAt(25) end
-function onSelect26() selectAt(26) end
-function onSelect27() selectAt(27) end
-function onSelect28() selectAt(28) end
-function onSelect29() selectAt(29) end
-function onSelect30() selectAt(30) end
-function onSelect31() selectAt(31) end

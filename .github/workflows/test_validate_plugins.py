@@ -307,5 +307,119 @@ Configure the update interval in plugin settings.
         self.assertTrue(any("## Settings" in error for error in self.validate_readme(without_settings)))
 
 
+class SettingTypeTests(unittest.TestCase):
+    TRANSLATIONS = {"settings": {"value": {"label": "Value"}}}
+
+    def validate_setting(self, setting: dict, plugin_api: object = 6) -> list[str]:
+        validator = validate_plugins.Validator(Path("/repo"))
+        validator.validate_settings(
+            Path("/repo/example/plugin.toml"),
+            self.TRANSLATIONS,
+            [{"key": "value", "label_key": "settings.value.label", **setting}],
+            "setting",
+            plugin_api,
+        )
+        return validator.errors
+
+    def test_setting_type_catalog_matches_shell_schema(self) -> None:
+        self.assertEqual(
+            validate_plugins.SETTING_TYPES,
+            {
+                "string",
+                "string_list",
+                "string_map",
+                "bool",
+                "int",
+                "double",
+                "select",
+                "file",
+                "folder",
+                "glyph",
+                "color",
+            },
+        )
+
+    def test_accepts_double_with_numeric_bounds(self) -> None:
+        self.assertEqual(
+            self.validate_setting(
+                {"type": "double", "default": 0.5, "min": 0.0, "max": 1.0, "step": 0.05}
+            ),
+            [],
+        )
+
+    def test_rejects_invalid_double_default(self) -> None:
+        errors = self.validate_setting({"type": "double", "default": "fast"})
+        self.assertTrue(any("default must be a finite number" in error for error in errors))
+
+    def test_rejects_invalid_double_range(self) -> None:
+        errors = self.validate_setting(
+            {"type": "double", "default": 0.5, "min": 1.0, "max": 0.0}
+        )
+        self.assertTrue(any("min must be less than or equal to max" in error for error in errors))
+
+    def test_accepts_string_map(self) -> None:
+        self.assertEqual(
+            self.validate_setting(
+                {"type": "string_map", "default": {"eDP-1": "laptop", "DP-1": "monitor"}}
+            ),
+            [],
+        )
+
+    def test_rejects_non_string_map_value(self) -> None:
+        errors = self.validate_setting({"type": "string_map", "default": {"eDP-1": 1}})
+        self.assertTrue(any("default.eDP-1 must be a string" in error for error in errors))
+
+    def test_string_map_requires_plugin_api_6(self) -> None:
+        errors = self.validate_setting({"type": "string_map", "default": {}}, plugin_api=5)
+        self.assertTrue(any("string_map requires plugin_api >= 6" in error for error in errors))
+
+
+class WidgetActionsTests(unittest.TestCase):
+    def validate_actions(self, entry: dict, plugin_api: object = 14) -> list[str]:
+        validator = validate_plugins.Validator(Path("/repo"))
+        validator.validate_widget_fields(
+            Path("/repo/example/plugin.toml"),
+            "widget[0]",
+            entry,
+            plugin_api,
+        )
+        return validator.errors
+
+    def test_accepts_every_gesture(self) -> None:
+        actions = {gesture: "volume-mute" for gesture in validate_plugins.WIDGET_GESTURES}
+        self.assertEqual(self.validate_actions({"actions": actions}), [])
+
+    def test_accepts_exec_and_none(self) -> None:
+        self.assertEqual(
+            self.validate_actions({"actions": {"middle": "exec playerctl pause", "right": "none"}}),
+            [],
+        )
+
+    def test_entry_without_actions_is_fine(self) -> None:
+        self.assertEqual(self.validate_actions({"id": "bar"}), [])
+
+    def test_rejects_unknown_gesture(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"ctrl+left": "volume-mute"}}), [])
+
+    def test_rejects_non_table(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": "volume-mute"}), [])
+
+    def test_rejects_non_string_action(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": 42}}), [])
+
+    def test_rejects_empty_action(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": ""}}), [])
+
+    def test_rejects_bare_exec(self) -> None:
+        self.assertNotEqual(self.validate_actions({"actions": {"middle": "exec"}}), [])
+
+    def test_requires_plugin_api_14(self) -> None:
+        errors = self.validate_actions({"actions": {"middle": "volume-mute"}}, plugin_api=13)
+        self.assertTrue(any("plugin_api >= 14" in error for error in errors))
+
+    def test_widget_entry_accepts_actions_field(self) -> None:
+        self.assertIn("actions", validate_plugins.ENTRY_FIELDS["widget"])
+
+
 if __name__ == "__main__":
     unittest.main()

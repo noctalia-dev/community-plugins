@@ -42,7 +42,6 @@ local function coverLoadingSet()
   return set
 end
 
-local env = getfenv()
 
 local function tr(key, subst)
   return noctalia.tr("panel." .. key, subst)
@@ -60,12 +59,6 @@ local function sendCommand(action, values)
     end
   end
   noctalia.state.set("anilist_command", command)
-end
-
-local function rowCallback(prefix, mediaId, fn)
-  local name = prefix .. "_" .. tostring(mediaId)
-  env[name] = fn
-  return name
 end
 
 local function resetListView()
@@ -218,12 +211,12 @@ local function filterButton(key, label, filter)
     key = "filter-" .. key,
     text = label,
     variant = if active then "primary" else "ghost",
-    onClick = rowCallback("onFilter", key, function()
+    onClick = function()
       statusFilter = filter
       resetListView()
       dirty = true
       render()
-    end),
+    end,
   })
 end
 
@@ -421,9 +414,9 @@ local function renderCover(entry, loadingSet)
       radius = 6,
       fit = "cover",
       tooltip = tr("cover_preview"),
-      onClick = rowCallback("onCover", mediaId, function()
+      onClick = function()
         openCoverPreview(entry)
-      end),
+      end,
     })
   end
 
@@ -482,33 +475,33 @@ local function renderEntryRow(entry, index, loadingSet)
     glyph = "minus",
     variant = "ghost",
     tooltip = tr("decrement"),
-    onClick = canDecrement and rowCallback("onDec", mediaId, function()
+    onClick = canDecrement and function()
       sendCommand("decrement", { mediaId = mediaId })
-    end) or "onNoop",
+    end or "onNoop",
   }))
   table.insert(rowChildren, ui.button({
     glyph = "plus",
     variant = "ghost",
     tooltip = tr("increment"),
-    onClick = canIncrement and rowCallback("onInc", mediaId, function()
+    onClick = canIncrement and function()
       sendCommand("increment", { mediaId = mediaId })
-    end) or "onNoop",
+    end or "onNoop",
   }))
   table.insert(rowChildren, ui.button({
     glyph = if isComplete then "check" else "circle-check",
     variant = if isComplete then "primary" else "ghost",
     tooltip = tr("mark_complete"),
-    onClick = snapshot.busy and "onNoop" or rowCallback("onDone", mediaId, function()
+    onClick = snapshot.busy and "onNoop" or function()
       sendCommand("complete", { mediaId = mediaId })
-    end),
+    end,
   }))
   table.insert(rowChildren, ui.button({
     glyph = "external-link",
     variant = "ghost",
     tooltip = tr("open_anilist"),
-    onClick = rowCallback("onOpen", mediaId, function()
+    onClick = function()
       sendCommand("open_media", { mediaId = mediaId, mediaType = entry.mediaType })
-    end),
+    end,
   }))
 
   return ui.row({

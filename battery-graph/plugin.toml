@@ -1,0 +1,44 @@
+id = "frai3mega/battery-graph"
+name = "Battery graph"
+version = "1.0.0"
+author = "frai3mega"
+license = "MIT"
+icon = "battery"
+description = "Plots battery level on a graph"
+plugin_api = 3
+tags = ["hardware", "utility", "desktop", "panel"]
+dependencies = ["upowerd", "gdbus"]
+
+[[setting]]
+key     = "graph_time"
+type    = "int"
+label_key = "settings.graph_time.label"
+description_key = "settings.graph_time.description"
+default = 6
+
+[[setting]]
+key     = "battery_path"
+type    = "string"
+label_key = "settings.battery_path.label"
+description_key = "settings.battery_path.description"
+default = "/org/freedesktop/UPower/devices/battery_BAT0"
+
+[[setting]]
+key     = "interpol_time"
+type    = "int"
+label_key = "settings.interpol_time.label"
+description_key = "settings.interpol_time.description"
+default = 5
+
+
+[[widget]]
+id    = "battery-graph-widget"
+entry = "battery-graph.luau"
+
+[[panel]]
+id = "battery-panel"
+entry = "battery-panel.luau"
+
+[[desktop_widget]]
+id    = "battery-graph-desktop"
+entry = "battery-desktop.luau"

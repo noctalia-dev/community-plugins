@@ -1,5 +1,5 @@
 {
-  "copied_path": "Search folder path copied to clipboard",
+  "copied_entry": "Path copied to clipboard",
   "counts": "{shown} shown · {total} indexed",
   "err_bad_record": "Ignored an invalid index record — rebuild the index",
   "err_index": "Failed to index the search folder",
@@ -38,7 +38,8 @@
   "status_indexing": "Indexing {path}…",
   "tip_close": "Close",
   "tip_refresh": "Rebuild the file index",
+  "tip_settings": "Plugin settings",
   "title": "File Search",
-  "tooltip_closed": "File search — {path}\nClick to search · right-click: folder · middle-click: copy path",
+  "tooltip_closed": "File search — {path}\nClick to search · right-click: folder",
   "tooltip_open": "File search open — {path}\nClick to close"
 }

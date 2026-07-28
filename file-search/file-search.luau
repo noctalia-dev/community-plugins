@@ -7,7 +7,12 @@
 -- Click mapping:
 --   Left click   — open/close the search panel
 --   Right click  — open the search folder in the file manager
---   Middle click — copy the search folder path to the clipboard
+--
+-- Middle click is deliberately not handled: every bar widget carries a built-in
+-- `middle = settings-open-widget` binding, and a bound gesture is masked off the
+-- widget's own input area, so an onMiddleClick here would never be called. The
+-- manifest could reclaim it with `[widget.actions] middle = "none"` (plugin API
+-- 14) — this plugin stays at the upstream behaviour instead.
 
 local PANEL_ID = "nightwatch75/file-search:panel"
 
@@ -59,11 +64,6 @@ end
 
 function onRightClick()
     noctalia.runAsync("xdg-open " .. shellQuote(searchRoot()) .. " >/dev/null 2>&1")
-end
-
-function onMiddleClick()
-    noctalia.copyToClipboard(searchRoot(), "text/plain")
-    noctalia.notify(noctalia.tr("title"), noctalia.tr("copied_path"))
 end
 
 noctalia.setUpdateInterval(1000)

@@ -37,7 +37,6 @@ local requestCounter = 0
 local outputVolumeCommitValue = nil
 local inputVolumeCommitValue = nil
 local volumeControlRevision = 0
-local env = getfenv()
 local render
 
 local ICON_STYLE_VALUES = { "automatic", "speaker", "over_ear", "tws", "wired" }
@@ -62,12 +61,6 @@ local function sendCommand(action, values)
   end
   noctalia.state.set(COMMAND_KEY, command)
   return command.requestId
-end
-
-local function rowCallback(prefix, index, callback)
-  local name = prefix .. "_" .. tostring(index)
-  env[name] = callback
-  return name
 end
 
 local function activeDevice(kind)
@@ -203,21 +196,21 @@ local function editor(device)
   return ui.column({ gap = 7, padding = 10, radius = 9, fill = "surface_variant/0.45", border = "primary/0.35", borderWidth = 1 }, children)
 end
 
-local function deviceRow(device, index, kind)
-  local useAction = rowCallback("onUse", index, function()
+local function deviceRow(device, kind)
+  local useAction = function()
     sendCommand(kind == "output" and "set_output" or "set_input", { id = device.id })
-  end)
-  local editAction = rowCallback("onEdit", index, function()
+  end
+  local editAction = function()
     editingId = device.id
     editAlias = tostring(device.name or "")
     editIconStyle = tostring(device.iconStyle or "automatic")
     editSlot = device.slot and tostring(device.slot) or ""
     feedback = ""
     render()
-  end)
-  local hideAction = rowCallback("onHide", index, function()
+  end
+  local hideAction = function()
     sendCommand("set_hidden", { id = device.id, kind = kind, hidden = not device.hidden })
-  end)
+  end
   local actionText = device.active and tr("device.current")
     or (device.bluetooth and not device.available and tr("actions.connect_and_use") or tr("actions.use"))
   local actionVariant = device.active and "ghost" or "primary"
@@ -266,11 +259,9 @@ end
 local function deviceList(kind)
   local source = kind == "output" and asArray(snapshot.outputs) or asArray(snapshot.inputs)
   local rows = {}
-  local callbackIndex = kind == "output" and 0 or 1000
   for _, device in ipairs(source) do
     if showHidden or not device.hidden then
-      table.insert(rows, deviceRow(device, callbackIndex, kind))
-      callbackIndex += 1
+      table.insert(rows, deviceRow(device, kind))
     end
   end
   if #rows == 0 then

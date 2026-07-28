@@ -1,7 +1,7 @@
 id = "cleboost/anilist"
 name = "AniList (UNOFFICIAL)"
-version = "1.0.0"
-plugin_api = 3
+version = "1.0.1"
+plugin_api = 9
 author = "cleboost"
 license = "MIT"
 icon = "device-tv"

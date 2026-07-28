@@ -18,17 +18,17 @@ Drive Health runs on Linux with Noctalia Shell v5 and uses the following
 commands declared in `plugin.toml`:
 
 `lsblk`, `smartctl`, `sh`, `date`, `dirname`, `mkdir`, `mktemp`, `rm`, `sed`,
-`cat`, `chmod`, `mv`, `sudo`, `env`, `bash`, `install`, `systemctl`, `pkexec`,
+`cat`, `chmod`, `mv`, `env`, `bash`, `install`, `systemctl`, `pkexec`,
 `id`, `tr`, `pacman`, `apt-get`, `dnf`, `zypper`, `apk`, `xbps-install`, and
 `emerge`.
 
 Most are standard system utilities. Install `smartctl` from the
-`smartmontools` package and `lsblk` from `util-linux`. `systemctl`, `sudo`, and
-`pkexec` are needed only for the optional collector and SMART self-tests.
+`smartmontools` package and `lsblk` from `util-linux`. `systemctl` and `pkexec`
+are needed only for the optional collector and SMART self-tests.
 
-The dependency card can open a terminal with a package-manager command for
-`pacman`, `apt-get`, `dnf`, `zypper`, `apk`, `xbps-install`, or `emerge`. The
-command is shown for review before any privileged prompt.
+The dependency card uses the desktop authorization dialog before it runs a
+package-manager command for `pacman`, `apt-get`, `dnf`, `zypper`, `apk`,
+`xbps-install`, or `emerge`. The exact command remains visible for review.
 
 ## Usage
 
@@ -44,11 +44,12 @@ Basic mode discovers drives, mounted folders, storage use, and temperatures
 available to the user session. Open the collector controls from the gear in
 the panel header to compare basic mode with optional Full SMART mode.
 
-Full SMART installation always opens a terminal with the exact command. After
-the user reviews and approves `sudo`, the installer adds a hardened systemd
-oneshot and timer. Disabling Full SMART in settings makes Drive Health ignore
-the collector cache; use **Stop background service** to stop an installed
-timer as well.
+Full SMART installation uses the desktop authorization dialog and runs in the
+background. After approval, the installer adds a hardened systemd oneshot and
+timer. Starting, pausing, removing the collector, and changing its interval
+use the same dialog. Disabling Full SMART in settings makes Drive Health ignore
+the collector cache; use **Stop background service** to stop an installed timer
+as well.
 
 Expand a drive for detailed counters, trend history, per-drive preferences,
 and SMART self-tests. A self-test requires explicit confirmation and a Polkit
@@ -66,7 +67,8 @@ do not produce one-scan notification noise.
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `system_collector_enabled` | `bool` | `false` | Read the optional root collector cache for complete SMART data. |
-| `refresh_seconds` | `int` | `30` | Seconds between user-session refreshes (15–300). The root timer independently refreshes every 30 seconds. |
+| `refresh_seconds` | `int` | `30` | Seconds between lightweight user-session refreshes (15–300). This updates drive inventory, mounts, and non-waking sysfs temperatures; the root timer refreshes full SMART data every 15 minutes. |
+| `full_smart_refresh_minutes` | `int` | `15` | Minutes between privileged full SMART reads (1–1440). Applying a changed interval requires explicit administrator approval from the collector controls. |
 | `warning_temperature` | `int` | `65` | Global warning temperature in °C. |
 | `critical_temperature` | `int` | `80` | Global critical temperature in °C. |
 | `life_warning_percent` | `int` | `20` | Remaining SSD-life percentage that triggers a warning. |
@@ -93,8 +95,8 @@ services communicate through Noctalia state and do not require manual IPC.
 
 Drive Health makes no network requests and does not download or execute code.
 It spawns only the commands documented under Requirements. Conditional
-package-manager commands are generated locally and opened in a terminal for
-review.
+package-manager commands are generated locally and require desktop
+administrator authorization.
 
 The plugin stores bounded local state in its Noctalia data directory:
 
@@ -107,6 +109,8 @@ Full SMART mode installs these system files only after explicit approval:
 
 - `/usr/local/libexec/noctalia-drive-health/collect_raw.sh`;
 - `/usr/local/libexec/noctalia-drive-health/smart-action.sh`;
+- `/usr/local/libexec/noctalia-drive-health/manage-collector.sh`;
+- `/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh`;
 - `/etc/systemd/system/noctalia-drive-health.service`;
 - `/etc/systemd/system/noctalia-drive-health.timer`;
 - `/run/noctalia-drive-health/raw.json`.
@@ -121,8 +125,8 @@ take minutes or hours, may increase drive activity, and should not be confused
 with filesystem repair or data recovery.
 
 To remove the optional collector, use **Remove collector** in its controls and
-approve the terminal command. Removing the Noctalia entry alone does not
-silently remove system files.
+approve the desktop authorization dialog. Removing the Noctalia entry alone
+does not silently remove system files.
 
 ## Development
 

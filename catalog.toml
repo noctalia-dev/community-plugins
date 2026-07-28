@@ -4,6 +4,8 @@
 # Index of every plugin this source ships: the minimum needed to render, search,
 # and compat-check the list. The per-plugin plugin.toml stays authoritative; the
 # host re-reads it on enable. Keep one [[plugin]] row per plugin subdirectory.
+# A [[plugin.release]] row names an older revision for a Noctalia below the tip's
+# plugin_api, so an older release stays installable instead of the plugin vanishing.
 
 [[plugin]]
 id = "neuro/upbeat"
@@ -89,15 +91,20 @@ tags = ["bar", "mangowc"]
 [[plugin]]
 id = "oldirtty/color_picker"
 name = "Color Picker"
-version = "1.0.4"
-updated_at = 1784596047
+version = "1.0.5"
+updated_at = 1784947118
 added_at = 1784086957
 author = "oldirtty"
 license = "MIT"
 icon = "palette"
 description = "Pick a color from your screen with hyprpicker."
-plugin_api = 3
+plugin_api = 9
 tags = ["theming", "utility", "bar", "panel"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.0.4"
+rev = "4c45993e7a91e7657b7eb4ac34bbf6f962bed4f7"
 
 [[plugin]]
 id = "nikolaj-zwergius/iio_lock"
@@ -142,28 +149,43 @@ tags = ["nixos", "utility"]
 [[plugin]]
 id = "nightwatch75/todo"
 name = "To Do"
-version = "0.0.7"
-updated_at = 1784208613
+version = "0.0.10"
+updated_at = 1784947118
 added_at = 1784158920
 author = "nightwatch75"
 license = "MIT"
 icon = "checklist"
 description = "A prioritised task list with a bar widget and editable panel."
-plugin_api = 3
+plugin_api = 9
 tags = ["bar", "panel", "productivity"]
+
+[[plugin.release]]
+plugin_api = 5
+version = "0.0.9"
+rev = "5e7655dc73968231e9b0cbd69dcde1e2aae2db02"
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.0.7"
+rev = "ef085ecebf96b8d1c6d6dd0ca2cbf8bf910f5151"
 
 [[plugin]]
 id = "8bury/mini-docker"
 name = "Mini Docker"
-version = "1.0.3"
-updated_at = 1784208613
+version = "1.0.4"
+updated_at = 1784947118
 added_at = 1784160253
 author = "8bury"
 license = "MIT"
 icon = "brand-docker"
 description = "Manage Docker containers, images, volumes, and networks from Noctalia."
-plugin_api = 3
+plugin_api = 9
 tags = ["bar", "panel", "service", "development", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.0.3"
+rev = "ef085ecebf96b8d1c6d6dd0ca2cbf8bf910f5151"
 
 [[plugin]]
 id = "thatonecalculator/um5606_fan_state"
@@ -181,15 +203,20 @@ tags = ["hardware"]
 [[plugin]]
 id = "rxtsel/portctl"
 name = "Portctl"
-version = "0.2.1"
-updated_at = 1784352155
+version = "0.2.2"
+updated_at = 1784947118
 added_at = 1784203448
 author = "Cristhian Melo"
 license = "MIT"
 icon = "plug"
 description = "Inspect and kill listening TCP/UDP ports."
-plugin_api = 3
+plugin_api = 9
 tags = ["network", "utility", "development", "indicator", "bar", "panel", "service"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.2.1"
+rev = "a3287ecc1f2e1f14501aaa2f75bae0fe944d96b3"
 
 [[plugin]]
 id = "lux/ideapad-conservation-mode"
@@ -220,28 +247,38 @@ tags = ["audio", "bar", "recording", "utility"]
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.10"
-updated_at = 1784332445
+version = "0.0.19"
+updated_at = 1785245767
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
-plugin_api = 3
+plugin_api = 15
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
+
+[[plugin.release]]
+plugin_api = 9
+version = "0.0.11"
+rev = "9410cdfa93608217463032c38be1b5d07e8e885b"
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.0.10"
+rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.2"
-updated_at = 1784595984
+version = "1.4.4"
+updated_at = 1785024261
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
 icon = "music"
 description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."
 plugin_api = 3
-tags = ["bar", "service", "music", "media", "animation"]
+tags = ["bar", "panel", "service", "music", "media", "animation"]
 
 [[plugin]]
 id = "whyoolw/dropwall"
@@ -272,15 +309,20 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.3"
-updated_at = 1784691065
+version = "2.0.4"
+updated_at = 1784947118
 added_at = 1784351187
 author = "Pozzoo"
 license = "MIT"
 icon = "smart-home"
 description = "Monitor and control Home Assistant entities from the bar. Displays entity states and provides quick toggles."
-plugin_api = 4
+plugin_api = 9
 tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]
+
+[[plugin.release]]
+plugin_api = 4
+version = "2.0.3"
+rev = "ef512945ce288546baff14688884d8ec3a2aa62b"
 
 [[plugin]]
 id = "yocraft/web-launcher"
@@ -299,21 +341,26 @@ tags = ["launcher", "utility", "network", "productivity"]
 [[plugin]]
 id = "avivbintangaringga/nextboot-selector"
 name = "Next Boot Selector"
-version = "1.0.0"
-updated_at = 1784384359
+version = "1.0.1"
+updated_at = 1784947118
 added_at = 1784384359
 author = "avivbintangaringga"
 license = "MIT"
 icon = "refresh-dot"
 description = "Select boot entry for the next reboot"
-plugin_api = 3
+plugin_api = 9
 tags = ["utility"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.0.0"
+rev = "56ccc9e5f48bc29b068dbb6f03a3896b0cbe4a14"
 
 [[plugin]]
 id = "apex077/eyecare"
 name = "Eye-Care Reminders"
-version = "1.0.0"
-updated_at = 1784415628
+version = "1.0.1"
+updated_at = 1784916698
 added_at = 1784415628
 author = "Apex077"
 license = "MIT"
@@ -325,15 +372,20 @@ tags = ["service", "bar", "utility", "productivity"]
 [[plugin]]
 id = "hy4ri/ds4-color"
 name = "DS4 Color"
-version = "0.1.0"
-updated_at = 1784464782
+version = "0.1.1"
+updated_at = 1784947118
 added_at = 1784464782
 author = "hy4ri"
 license = "MIT"
 icon = "device-gamepad-2"
 description = "Set the DualShock 4 lightbar colour from a bar button and panel."
-plugin_api = 3
+plugin_api = 9
 tags = ["gaming", "hardware", "utility", "bar", "panel"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.1.0"
+rev = "5fb0e0f279bad9bd5e1643840649ece7c7b6a6c7"
 
 [[plugin]]
 id = "jinliu/imagemagick-clock"
@@ -377,8 +429,8 @@ tags = ["bar", "panel", "service", "time", "utility"]
 [[plugin]]
 id = "dotnetrob/cat"
 name = "Cat"
-version = "1.1.2"
-updated_at = 1784595702
+version = "1.2.0"
+updated_at = 1785022475
 added_at = 1784595702
 author = "DotNetRob"
 license = "MIT"
@@ -390,55 +442,75 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.0.0"
-updated_at = 1784595753
+version = "1.0.1"
+updated_at = 1784947118
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
 icon = "device-gamepad-2"
 description = "Browse and launch games from Steam, Lutris, and Heroic."
-plugin_api = 4
+plugin_api = 9
 tags = ["gaming", "launcher", "utility"]
+
+[[plugin.release]]
+plugin_api = 4
+version = "1.0.0"
+rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.1"
-updated_at = 1784667997
+version = "1.3.2"
+updated_at = 1784947118
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
 icon = "keyboard"
 description = "View, create, organize, and edit Hyprland, Niri, and MangoWC keybindings."
-plugin_api = 5
+plugin_api = 9
 tags = ["bar", "panel", "service", "hyprland", "niri", "mangowc", "productivity", "utility"]
+
+[[plugin.release]]
+plugin_api = 5
+version = "1.3.1"
+rev = "7cc2a499e6d90b4f756a606bfaf38f014a465956"
 
 [[plugin]]
 id = "gustav0ar/drive-health"
 name = "Drive Health"
-version = "1.2.1"
-updated_at = 1784655839
+version = "1.2.4"
+updated_at = 1785207817
 added_at = 1784646878
 author = "Drive Health contributors"
 license = "MIT"
 icon = "server-2"
 description = "SMART health, temperature, integrity, endurance, and storage monitoring for SSDs and hard drives."
 deprecated = false
-plugin_api = 3
+plugin_api = 9
 tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.2.2"
+rev = "ff289e523fb3dca794979dd3476d336642296463"
 
 [[plugin]]
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.0"
-updated_at = 1784677847
+version = "0.2.1"
+updated_at = 1784947118
 added_at = 1784677847
 author = "kenn"
 license = "MIT"
 icon = "keyboard"
 description = "Searchable keybindings for Mango, Hyprland, and Niri."
-plugin_api = 4
+plugin_api = 9
 tags = ["bar", "panel", "utility", "system", "hyprland", "mangowc", "niri"]
+
+[[plugin.release]]
+plugin_api = 4
+version = "0.2.0"
+rev = "2a1efe0468c8108c7c0f3d93650fbb3641e2b96e"
 
 [[plugin]]
 id = "profidev/hypr-screen-mirror"
@@ -469,28 +541,38 @@ tags = ["bar", "panel", "service", "productivity", "time"]
 [[plugin]]
 id = "cleboost/anilist"
 name = "AniList (UNOFFICIAL)"
-version = "1.0.0"
-updated_at = 1784843708
+version = "1.0.1"
+updated_at = 1784947118
 added_at = 1784843708
 author = "cleboost"
 license = "MIT"
 icon = "device-tv"
 description = "Browse and update your AniList anime and manga lists from a quick panel without opening the site."
-plugin_api = 3
+plugin_api = 9
 tags = ["media", "bar", "panel", "service", "network", "productivity"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.0.0"
+rev = "0162521282828e0f6313b76bbf45ac919505f251"
 
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.1.0"
-updated_at = 1784847459
+version = "0.1.1"
+updated_at = 1784947118
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"
 description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
-plugin_api = 5
+plugin_api = 9
 tags = ["audio", "bar", "hardware", "panel", "service", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 5
+version = "0.1.0"
+rev = "d4467e907cba5eeeb793b2168791fd81be124c9a"
 
 [[plugin]]
 id = "elijaharch/wl-screen-mirror"
@@ -531,3 +613,121 @@ description = "Search and copy password-store entries from the Noctalia launcher
 deprecated = false
 plugin_api = 3
 tags = ["launcher", "privacy", "productivity", "utility"]
+
+[[plugin]]
+id = "tadomika_ari/w-engine"
+name = "W Engine"
+version = "1.0.0"
+updated_at = 1785025372
+added_at = 1785025372
+author = "TadomiKa-Ari"
+license = "MIT"
+icon = "movie"
+description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
+plugin_api = 3
+tags = ["wallpaper", "utility"]
+
+[[plugin]]
+id = "k4n4t4/hypr-submap"
+name = "Hyprland Submap"
+version = "1.0.0"
+updated_at = 1785069457
+added_at = 1785069457
+author = "k4n4t4"
+license = "MIT"
+icon = "keyboard"
+description = "Hyprland submap plugin for Noctalia"
+deprecated = false
+plugin_api = 6
+tags = ["hyprland", "bar"]
+
+[[plugin]]
+id = "yuuto/calculator"
+name = "Calculator"
+version = "1.0.0"
+updated_at = 1785069585
+added_at = 1785069585
+author = "yuuto"
+license = "MIT"
+icon = "calculator"
+description = "A theme-aware calculator with a bar widget and a panel: full expression evaluation, a button grid, and typed input."
+plugin_api = 3
+tags = ["utility", "productivity", "bar", "panel"]
+
+[[plugin]]
+id = "nightwatch75/topgrade-wrapper"
+name = "Topgrade Wrapper"
+version = "0.0.2"
+updated_at = 1785089703
+added_at = 1785089703
+author = "nightwatch75"
+license = "MIT"
+icon = "package"
+description = "Check how many packages topgrade would upgrade, then run the upgrade in a terminal window."
+plugin_api = 9
+tags = ["bar", "panel", "service", "system", "utility"]
+
+[[plugin]]
+id = "jamesfeeder/special-workspaces"
+name = "Special Workspaces"
+version = "1.4.0"
+updated_at = 1785121575
+added_at = 1785121575
+author = "jamesfeeder"
+license = "MIT"
+icon = "stack-2"
+description = "Displays populated and currently active Hyprland special workspaces"
+plugin_api = 3
+tags = ["hyprland", "indicator", "bar"]
+
+[[plugin]]
+id = "frai3mega/battery-graph"
+name = "Battery graph"
+version = "1.0.0"
+updated_at = 1785173464
+added_at = 1785173464
+author = "frai3mega"
+license = "MIT"
+icon = "battery"
+description = "Plots battery level on a graph"
+plugin_api = 3
+tags = ["hardware", "utility", "desktop", "panel"]
+
+[[plugin]]
+id = "cleboost/hotspot"
+name = "Wi-Fi Hotspot"
+version = "1.0.0"
+updated_at = 1785174978
+added_at = 1785174978
+author = "Cleboost"
+license = "MIT"
+icon = "router"
+description = "Start and stop a Wi-Fi hotspot from the bar, with connected device list and IPC control."
+plugin_api = 9
+tags = ["network", "bar", "panel", "service", "utility", "system", "indicator"]
+
+[[plugin]]
+id = "yuuto/arch-updater"
+name = "Arch Updater"
+version = "1.0.0"
+updated_at = 1785208995
+added_at = 1785208995
+author = "yuuto"
+license = "MIT"
+icon = "package"
+description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
+plugin_api = 9
+tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
+
+[[plugin]]
+id = "damian-ds7/battery-threshold"
+name = "Battery Threshold Control"
+version = "1.0.0"
+updated_at = 1785245426
+added_at = 1785245426
+author = "Damian D'Souza"
+license = "MIT"
+icon = "battery-eco"
+description = "Set the battery threshold for laptop batteries to extend battery lifespan"
+plugin_api = 3
+tags = ["hardware", "system", "utility", "bar", "panel"]
