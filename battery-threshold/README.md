@@ -58,4 +58,4 @@ noctalia msg plugin damian-ds7/battery-threshold:service all setup
 - **Manual Setup Fallback**: If Polkit is not available, run
   `sudo ./setup_rules.sh` manually from the plugin directory.
 - **Persistence**: Threshold settings are stored in `threshold.txt` in plugin
-  directory and restored across reboots.
+  data directory and restored across reboots.
