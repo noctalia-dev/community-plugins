@@ -30,6 +30,15 @@ hl.bind(
 )
 ```
 
+You can interact with the bookmarks list via keybinds:
+
+| Keybind                  | Purpose                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| `CTRL + N` or Down Arrow | Select the next (below) item                                     |
+| `CTRL + P` or Up Arrow   | Select the previous (above) item                                 |
+| `CTRL + S`               | Search bookmarks                                                 |
+| `Enter` / `Return`       | Execute the selected bookmark's command / Navigate into a folder |
+
 - Bookmarks and folders are listed in the main panel.
 
   ![](./assets/preview-1.png)
