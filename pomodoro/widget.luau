@@ -1,5 +1,5 @@
 local isVertical = barWidget.isVertical()
-local hasResetAllBeenCalled = false
+local hasResetAllBeenCalled = true
 
 function onClick()
     noctalia.togglePanel("thepunkoff/pomodoro:panel")
@@ -7,7 +7,13 @@ end
 
 local function render(state)
     local color = if state.isRunning then "primary" else "on_surface"
-    local name = if state.sessionPtr.stage == 1 then "brain" else "coffee"
+    local name =
+        if hasResetAllBeenCalled then 
+            noctalia.getConfig("widget-glyph-main")
+        else
+            if state.sessionPtr.stage == 1 then
+                noctalia.getConfig("widget-glyph-work")
+            else noctalia.getConfig("widget-glyph-break")
 
     local content = { ui.glyph ({ color = color, name = name }) }
 
@@ -39,6 +45,9 @@ local function render(state)
     barWidget.render(container({ gap = 4, align = "center", justify = "center" }, content))
 end
 
+--- main
+render(noctalia.state.get("pomodoro.state"))
+
 noctalia.state.watch("pomodoro.nextCommand", function(command)
     if command == "toggle" then
         hasResetAllBeenCalled = false
@@ -47,9 +56,6 @@ noctalia.state.watch("pomodoro.nextCommand", function(command)
         render(noctalia.state.get("pomodoro.state"))
     end
 end)
-
---- main
-render(noctalia.state.get("pomodoro.state"))
 
 noctalia.state.watch("pomodoro.state", function(state)
     render(state)

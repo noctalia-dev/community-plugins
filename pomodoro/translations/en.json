@@ -40,6 +40,20 @@
         "auto-start-breaks":{
             "label": "Auto-start Breaks",
             "description": "Automatically start break timer after work session"
+        },
+        "widget": {
+            "glyph-main": {
+                "label": "Main Icon",
+                "description": "Name of the icon that appears when idle."
+            },
+            "glyph-work": {
+                "label": "Work Icon",
+                "description": "Name of the icon that appears when working."
+            },
+            "glyph-break": {
+                "label": "Break Icon",
+                "description": "Name of the icon that appears during a break."
+            }
         }
     }
 }
