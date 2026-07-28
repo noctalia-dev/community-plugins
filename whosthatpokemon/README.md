@@ -8,7 +8,7 @@ The game currently supports only English Pokémon names and includes Pokémon fr
 
 | Field | Value |
 | --- | --- |
-| ID | `devpotatoes/whosThatPokemon` |
+| ID | `devpotatoes/whosthatpokemon` |
 | Entries | Launcher provider: `launcher`; panel: `panel` |
 | Launcher Prefix | `/wtp` |
 
@@ -18,7 +18,9 @@ Open the Noctalia launcher and type `/wtp` then start the mini-game !
 
 ## IPC
 
-This plugin does not expose custom IPC actions.
+```sh
+noctalia msg panel-toggle devpotatoes/whosthatpokemon:panel
+```
 
 ## Notes
 
