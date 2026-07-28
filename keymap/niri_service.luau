@@ -744,24 +744,39 @@ local function parseConfig(root, rootSource)
 		local currentBind = nil
 		local slashdashDepth = nil
 		local lineNumber = 0
-		local hiddenLines = sourceLines(source)
-		local hiddenCategory = nil
-		local hiddenCursor = 1
-		while hiddenCursor <= #hiddenLines do
-			local block, blockEnd, candidate = hiddenBlockAt(hiddenLines, hiddenCursor)
-			if candidate then
-				if block == nil then
-					warn("hidden_block_invalid:" .. path .. ":" .. tostring(hiddenCursor))
+		-- Hidden sentinels are uncommon. Avoid a second character-by-character
+		-- pass over every ordinary config: on large stock Niri configs that pass
+		-- alone can consume a substantial part of Luau's callback CPU budget.
+		if source:find("// Keymap hidden ", 1, true) ~= nil then
+			local hiddenLines = sourceLines(source)
+			local hiddenCategory = nil
+			local hiddenCursor = 1
+			while hiddenCursor <= #hiddenLines do
+				local block, blockEnd, candidate = hiddenBlockAt(hiddenLines, hiddenCursor)
+				if candidate then
+					if block == nil then
+						warn("hidden_block_invalid:" .. path .. ":" .. tostring(hiddenCursor))
+					else
+						hidden[#hidden + 1] = hiddenTarget(block, path, hiddenCursor, blockEnd, hiddenCategory)
+					end
+					hiddenCursor = blockEnd + 1
 				else
-					hidden[#hidden + 1] = hiddenTarget(block, path, hiddenCursor, blockEnd, hiddenCategory)
+					local _, comment = stripComments(hiddenLines[hiddenCursor], false)
+					local label = type(comment) == "string" and comment:match('^%s*#?%s*"([^\"]+)"%s*$') or nil
+					if label ~= nil and label ~= "" then hiddenCategory = label end
+					hiddenCursor = hiddenCursor + 1
 				end
-				hiddenCursor = blockEnd + 1
-			else
-				local _, comment = stripComments(hiddenLines[hiddenCursor], false)
-				local label = type(comment) == "string" and comment:match('^%s*#?%s*"([^\"]+)"%s*$') or nil
-				if label ~= nil and label ~= "" then hiddenCategory = label end
-				hiddenCursor = hiddenCursor + 1
 			end
+		end
+
+		-- Most split Niri setups also include theme, output, input, and window
+		-- rule files. Once hidden sentinels have been handled, a file without
+		-- either keyword cannot contribute binds or extend the include graph.
+		-- This cheap rejection keeps unrelated config files out of the parser's
+		-- character-level brace/comment scan.
+		if source:find("binds", 1, true) == nil and source:find("include", 1, true) == nil then
+			visiting[path] = nil
+			return
 		end
 
 		local function finishBind()

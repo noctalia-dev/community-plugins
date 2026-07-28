@@ -2,6 +2,22 @@
 
 All notable changes to Keymap are documented in this file.
 
+## [1.3.3] - 2026-07-28
+
+### Fixed
+
+- Prevented Niri startup CPU-budget failures on large, split configurations.
+
+### Changed
+
+- Skipped the hidden-bind scan for files without Keymap hidden sentinels.
+- Skipped character-level parsing for included files that cannot contain binds
+  or nested includes.
+
+### Tests
+
+- Added a 127-bind split-config regression with a large unrelated include.
+
 ## [1.3.1] - 2026-07-21
 
 ### Fixed
