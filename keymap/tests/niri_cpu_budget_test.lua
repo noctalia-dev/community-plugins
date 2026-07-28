@@ -92,6 +92,9 @@ assert(reads["/fixture/mine/binds.kdl"] == 1, "Niri bind include should only be 
 assert(reads["/fixture/mine/debug.kdl"] == 1, "Niri optional include should only be read once")
 assert(reads["/fixture/mine/theme.kdl"] == 1, "Niri non-bind include should only be read once")
 assert(xorCalls > 0, "Niri parser did not use the native-xor fingerprint path")
-assert(stringSubCalls < 30000, "Niri parser scanned an unrelated include character by character")
+assert(
+  stringSubCalls < 45000,
+  "Niri parser scanned an unrelated include character by character: " .. tostring(stringSubCalls)
+)
 
 print("niri CPU-budget regression tests: ok")

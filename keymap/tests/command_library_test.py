@@ -59,10 +59,13 @@ assert all(";" not in entry["template"] and "{" not in re.sub(r"\{\{[^}]+\}\}", 
 assert all("#" not in entry["template"]
            for entry in entries if entry["source"] == "mangowc")
 
-# The retained UI deliberately renders only a small result window and removes
-# callbacks that are no longer part of the current render.
+# The retained UI deliberately renders only a small result window and passes
+# closures directly instead of registering callback names in the script global
+# environment. Keep this assertion aligned with the plugin API 9 callback form.
 assert "local visibleCount = math.min(#matches, 6)" in panel
-assert "finishDynamicCallbackRender()" in panel
-assert 'registerDynamicCallback(callbackName' in panel
+assert "local selectedEntry = entry" in panel
+assert "onClick = useCallback" in panel
+assert "finishDynamicCallbackRender()" not in panel
+assert "registerDynamicCallback(" not in panel
 
 print(f"command library tests: ok ({len(entries)} entries: {dict(counts)})")
