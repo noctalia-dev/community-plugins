@@ -1,0 +1,10 @@
+{
+  "settings.feed_urls.label": "URLs dos feeds",
+  "settings.feed_urls.description": "Uma URL de feed RSS ou Atom por entrada (ex: https://exemplo.com/feed.xml).",
+  "settings.refresh_minutes.label": "Intervalo de atualizacao (minutos)",
+  "settings.refresh_minutes.description": "Frequencia com que os feeds sao checados em busca de novidades.",
+  "settings.notify_new.label": "Notificar novos itens",
+  "settings.notify_new.description": "Mostra uma notificacao para cada item novo encontrado nos feeds.",
+  "settings.max_notifications_per_cycle.label": "Maximo de notificacoes por ciclo",
+  "settings.max_notifications_per_cycle.description": "Evita uma enxurrada de notificacoes quando muitos itens novos aparecem de uma vez."
+}
