@@ -25,25 +25,20 @@ local configHeight = 600
 
 -- Type function
 
-type config = {
-	name: string,
-	path: string,
-	full: boolean,
-}
-
 type infoConfig = {
-	name: string,
-	author: string,
-	origin: string,
-	preview: string,
-	description: string,
-	wallpaperPath: string,
-	depedencie: boolean,
+	name: string,  				-- name config
+	author: string,				-- author config
+	origin: string,				-- origin congig (Nixos, Arch, CachOS,..)
+	preview: string,			-- preview config (path to preview.png)
+	path: string,				-- config path (example: config/{name})
+	description: string,		-- little description
+	wallpaperPath: string,		-- wallpaper path
+	depedencie: boolean,		-- other depedencie for your config
 }
 
 -- section for get all config
 
-local allConfig: { config } = {}
+local allConfig: { infoConfig } = {}
 
 local requestFetchList = {
 	url = "https://api.github.com/repos/Tadomika-Ari/Config-Swap-Box/contents/config",
@@ -83,7 +78,7 @@ end
 
 -- apply config file and wallpaper
 
-function applyConfig(data: config)
+function applyConfig(data: infoConfig)
 	noctalia.notify(tr("apply_notification_title"))
 
 	local pathSettings = takePosSetting()
@@ -108,7 +103,7 @@ end
 
 -- download config folder (support: noctalia settings, preview image and json info
 
-function downloadConfig(data: config)
+function downloadConfig(data: infoConfig)
 	noctalia.notify(tr("install_notification_title"))
 
 	noctalia.mkdirAll(configBox .. "/" .. data.name)
@@ -288,6 +283,7 @@ function getListInstall()
     	if not data then
         	table.insert(listShow, {
             	name = entryName,
+				path = "config/" .. entryName,
             	author = "None",
             	origin = "None",
             	preview = nil,
@@ -300,6 +296,7 @@ function getListInstall()
 
     	table.insert(listShow, {
         	name = data.name,
+			path = data.path,
         	author = data.author,
         	origin = data.origin,
         	preview = data.preview,
@@ -332,7 +329,7 @@ local function renderInstall()
   			}),
 			ui.row( {gap = 12, align = "start"}, {
 				ui.button({ text = "install", onClick = function()
-					downloadConfig(data)
+					downloadConfig(data)  -- here
 				end
 				}),
 				ui.label({
@@ -404,10 +401,15 @@ function getFetchList(onDone)
 			table.insert(allConfig, {
 				name = item.name,
 				path = item.path,
-				full = false
+				author = nil,
+				depedencie = nil,
+				description = nil,
+				origin = nil,
+				preview = nil,
+				wallpaperPath = nil,
 			})
 		end
-		listConfig = data
+		listConfig = allConfig
 		render()
 	end)
 end
