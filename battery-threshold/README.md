@@ -13,12 +13,10 @@ while plugged in, reducing battery wear and heat.
 
 ## Requirements
 
-- `polkit` - required for interactive setup
 - Laptop hardware supporting battery charge threshold control in sysfs
   (`/sys/class/power_supply/*/charge_control_end_threshold`).
-- The following external programs must be available on `PATH`: `test`, `pkexec`,
-  `bash`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and
-  `chmod`.
+- The following external programs must be available on `PATH`: `test`, `sudo`,
+  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and `chmod`.
 
 ## Usage
 
