@@ -5,15 +5,6 @@ function onClick()
     noctalia.togglePanel("thepunkoff/pomodoro:panel")
 end
 
-noctalia.state.watch("pomodoro.nextCommand", function(command)
-    if command == "toggle" then
-        hasResetAllBeenCalled = false
-    elseif command == "resetAll" then
-        hasResetAllBeenCalled = true
-        barWidget.render(ui.glyph { name = "brain" })
-    end
-end)
-
 local function render(state)
     local color = if state.isRunning then "primary" else "on_surface"
     local name = if state.sessionPtr.stage == 1 then "brain" else "coffee"
@@ -47,6 +38,15 @@ local function render(state)
     local container = if isVertical then ui.column else ui.row
     barWidget.render(container({ gap = 4, align = "center", justify = "center" }, content))
 end
+
+noctalia.state.watch("pomodoro.nextCommand", function(command)
+    if command == "toggle" then
+        hasResetAllBeenCalled = false
+    elseif command == "resetAll" then
+        hasResetAllBeenCalled = true
+        render(noctalia.state.get("pomodoro.state"))
+    end
+end)
 
 --- main
 render(noctalia.state.get("pomodoro.state"))
