@@ -20,8 +20,11 @@ grep -q '^OnUnitActiveSec=15min$' "$fixture/noctalia-drive-health.timer"
 
 bash -n "$interval_script"
 bash -n "$manage_script"
+grep -Fq "OnUnitActiveSec=\\nOnBootSec=20s\\nOnUnitActiveSec=%smin" "$interval_script"
 grep -q 'packaging/manage-collector.sh' "$project_dir/packaging/install-system-collector.sh"
 grep -q 'packaging/uninstall-system-collector.sh' "$project_dir/packaging/install-system-collector.sh"
+grep -Fq '"/etc/systemd/system/$service_name.timer.d"' \
+  "$project_dir/packaging/uninstall-system-collector.sh"
 
 if grep -R -q 'noctalia-smart-monito[r]' "$project_dir"; then
   echo "generic legacy collector namespace must not be read, modified, or removed" >&2

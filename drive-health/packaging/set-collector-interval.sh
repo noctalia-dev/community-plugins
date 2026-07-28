@@ -18,7 +18,9 @@ dropin_path="$dropin_dir/interval.conf"
 temporary=$(mktemp)
 trap 'rm -f -- "$temporary"' EXIT
 
-printf '[Timer]\nOnUnitActiveSec=\nOnUnitActiveSec=%smin\n' "$interval_minutes" >"$temporary"
+# Resetting a monotonic timer also removes OnBootSec inherited from the base
+# unit, so the drop-in must restore both triggers.
+printf '[Timer]\nOnUnitActiveSec=\nOnBootSec=20s\nOnUnitActiveSec=%smin\n' "$interval_minutes" >"$temporary"
 install -d -m0755 "$dropin_dir"
 install -m0644 "$temporary" "$dropin_path"
 
