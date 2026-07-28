@@ -1,0 +1,20 @@
+id = "devpotatoes/whosThatPokemon"
+name = "Whos That Pokémon"
+version = "1.0.0"
+plugin_api = 3
+author = "dev.potatoes"
+license = "GPL-3.0"
+description = "A simple and fully offline Pokémon mini-game."
+tags = ["fun", "panel"]
+
+[[launcher_provider]]
+id = "launcher"
+prefix = "wtp"
+glyph = "device-gamepad"
+entry = "launcher.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 256
+height = 256
