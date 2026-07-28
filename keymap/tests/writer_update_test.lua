@@ -111,6 +111,9 @@ local function runCase(case)
 		case.id, source, case.snippet, case.capabilities,
 		case.startLine, case.endLine
 	)
+	-- Active Hyprland source entries use exact byte comparison to keep hashing
+	-- out of the service's tightly budgeted refresh callback.
+	if case.compositor == "Hyprland" then bind.fingerprint = "exact-v1" end
 	stateValues["keymap.snapshot"] = {
 		status = "ready", compositor = case.compositor, source = root,
 		categories = { { name = case.category, binds = { bind } } },
