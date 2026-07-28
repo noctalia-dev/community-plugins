@@ -1,7 +1,7 @@
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.3"
-plugin_api = 4
+version = "2.0.4"
+plugin_api = 9
 author = "Pozzoo"
 license = "MIT"
 tags = ["bar", "panel", "service", "shortcut", "network", "indicator"]

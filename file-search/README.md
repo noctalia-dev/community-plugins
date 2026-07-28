@@ -28,7 +28,10 @@ noctalia msg panel-toggle nightwatch75/file-search:panel
 |--------------|-------------------------------------------------|
 | Left click   | Open/close the search panel                     |
 | Right click  | Open the search folder in the file manager      |
-| Middle click | Copy the search folder path to the clipboard    |
+
+Middle click is not used: every bar widget carries a built-in binding for it
+that opens the widget's own settings, and a bound gesture never reaches the
+plugin. Use the panel's ⚙ button, or the command below, for the settings.
 
 In the panel:
 
@@ -36,6 +39,25 @@ In the panel:
 |---------|-------------------------------------|
 | `Enter` | Open the top match                  |
 | `Esc`   | Close the panel (noctalia default)  |
+
+On a result row:
+
+| Action      | Effect                                                     |
+|-------------|------------------------------------------------------------|
+| Left click  | Open it with the system MIME association                   |
+| Right click | Copy its absolute path to the clipboard (panel stays open)  |
+
+A path too long for one row is shortened in the middle rather than at the end,
+so the file name — the part the query matched — always stays readable:
+`.local/share/flatpak/repo/tmp/cache/…dolphin.idx.sig`.
+
+The panel header also carries a ⚙ button that opens this plugin's page in
+*Settings → Plugins*, and a ↻ button that rebuilds the index. The same settings
+page opens from the command line, so it can be bound in your compositor too:
+
+```sh
+noctalia msg settings-open-plugin nightwatch75/file-search
+```
 
 In the noctalia launcher (keyboard-first flow, native navigation):
 
@@ -82,7 +104,8 @@ index is shared with the panel and built on demand when missing.
 
 ## Requirements
 
-- noctalia ≥ 5.0.0
+- noctalia v5.0.0-beta.6 or newer — the first tagged release that accepts
+  `plugin_api = 15` (`noctalia.openSettings()`, the panel's ⚙ button)
 - [`fzf`](https://github.com/junegunn/fzf) — the fuzzy matcher
 - `find` (GNU findutils) — walks the search folder into the index
 - `xdg-open` (xdg-utils) — opens results with the MIME association

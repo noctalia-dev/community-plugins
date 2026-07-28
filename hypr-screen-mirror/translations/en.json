@@ -1,27 +1,27 @@
 {
-  "widget": {
-    "glyph": {
-      "label": "Glyph",
-      "description": "Glyph shown in the bar"
-    }
-  },
   "notification": {
-    "monitor_list_failed": "Failed to list monitors",
-    "timed_out": "Command timed out",
-    "no_monitors_found": "No monitors found",
-    "stop_mirroring_failed": "Failed to stop mirroring",
-    "start_mirroring_failed": "Failed to start mirroring",
-    "monitor_watch_failed": "Failed to watch monitors",
     "hyprland_socket_not_found": "Hyprland socket not found",
-    "invalid_monitor_selection": "Invalid monitor selection"
+    "invalid_monitor_selection": "Invalid monitor selection",
+    "monitor_list_failed": "Failed to list monitors",
+    "monitor_watch_failed": "Failed to watch monitors",
+    "no_monitors_found": "No monitors found",
+    "start_mirroring_failed": "Failed to start mirroring",
+    "stop_mirroring_failed": "Failed to stop mirroring",
+    "timed_out": "Command timed out"
   },
   "panel": {
-    "title": "Hypr Screen Mirror",
-    "source_monitor": "Source Monitor",
-    "target_monitor": "Target Monitor",
     "focused_monitor": "Current Monitor",
+    "refresh": "Refresh",
+    "source_monitor": "Source Monitor",
     "start_mirroring": "Mirror",
     "stop_mirroring": "Stop",
-    "refresh": "Refresh"
+    "target_monitor": "Target Monitor",
+    "title": "Hypr Screen Mirror"
+  },
+  "widget": {
+    "glyph": {
+      "description": "Glyph shown in the bar",
+      "label": "Glyph"
+    }
   }
 }

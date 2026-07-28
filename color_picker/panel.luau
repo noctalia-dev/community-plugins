@@ -219,7 +219,7 @@ local function renderRecentItem(color: string, index: number)
         fill = color,
         radius = swatch_radius / 2.5,
         border = "outline",
-        onClick = "onHistoryColorClicked" .. index,
+        onClick = function() handleHistoryClick(index) end,
     })
 end
 
@@ -319,13 +319,6 @@ function handleHistoryClick(index: number)
     render()
   end
 end
-
-function onHistoryColorClicked1() handleHistoryClick(1) end
-function onHistoryColorClicked2() handleHistoryClick(2) end
-function onHistoryColorClicked3() handleHistoryClick(3) end
-function onHistoryColorClicked4() handleHistoryClick(4) end
-function onHistoryColorClicked5() handleHistoryClick(5) end
-function onHistoryColorClicked6() handleHistoryClick(6) end
 
 --==============================================
 -- CALLBACKS: colorspace fields (pure UI, no service call)

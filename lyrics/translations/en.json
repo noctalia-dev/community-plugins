@@ -2,6 +2,18 @@
   "instrumental": "Instrumental",
   "intro": "Intro",
   "no_lyrics": "♪ No lyrics available",
+  "panel": {
+    "close": "Close",
+    "loading": "Loading lyrics…",
+    "no_candidates": "No alternate LRCLIB results",
+    "no_track": "No track is playing",
+    "result": "Lyrics result",
+    "selection_failed": "Could not load the selected lyrics",
+    "synced": "Synced",
+    "title": "Choose lyrics",
+    "unsynced": "Unsynced"
+  },
+  "select_lyrics": "Choose lyrics",
   "settings": {
     "active_color": {
       "description": "Color used for the current and already-sung lyric characters. Defaults to the interface text color.",
@@ -257,6 +269,10 @@
       "description": "Display the song's album art next to the lyrics.",
       "label": "Show album cover"
     },
+    "show_glyph": {
+      "description": "Display the configured glyph when no album cover is available.",
+      "label": "Show glyph"
+    },
     "show_romanization": {
       "description": "Allow romanized or transliterated lyrics to appear on the secondary line.",
       "label": "Show romanization"
@@ -288,6 +304,9 @@
         "zh-hant": "Traditional Chinese"
       }
     }
+  },
+  "shortcut": {
+    "label": "Open lyrics selector"
   },
   "source_label": "Lyrics source",
   "title": "Lyrics"

@@ -95,9 +95,6 @@ local renamingCategoryValue = ""
 local renamingCategoryRevision = 0
 local render
 local selectKeyboardKey
-local env = getfenv()
-local dynamicCallbackNames = {}
-local renderCallbackNames = nil
 
 local COMMAND_LIBRARY = { entries = {} }
 do
@@ -156,25 +153,6 @@ local function asArray(value)
     return value
   end
   return {}
-end
-
-local function registerDynamicCallback(name, callback)
-  env[name] = callback
-  if renderCallbackNames ~= nil then
-    renderCallbackNames[name] = true
-  end
-  return name
-end
-
-local function finishDynamicCallbackRender()
-  local previous = dynamicCallbackNames
-  dynamicCallbackNames = renderCallbackNames or {}
-  renderCallbackNames = nil
-  for name, _ in pairs(previous) do
-    if dynamicCallbackNames[name] ~= true then
-      env[name] = nil
-    end
-  end
 end
 
 local function shellQuote(value)
@@ -355,13 +333,12 @@ end
 
 local keyCallbackCache = {}
 local function keyCallback(id, code)
-  local name = "onKeyboardKey_" .. id
-  local callback = keyCallbackCache[name]
+  local callback = keyCallbackCache[id]
   if callback == nil then
     callback = function() selectKeyboardKey(code) end
-    keyCallbackCache[name] = callback
+    keyCallbackCache[id] = callback
   end
-  return registerDynamicCallback(name, callback)
+  return callback
 end
 
 local function contains(haystack, needle)
@@ -1353,16 +1330,16 @@ local function commandLibraryNode()
   local visibleCount = math.min(#matches, 6)
   for index = 1, visibleCount do
     local entry = matches[index]
-    local callbackName = "onCommandLibraryUse:" .. asString(entry.id)
-    registerDynamicCallback(callbackName, function()
-      creatorCommand = asString(entry.template)
-      creatorCommandKind = asString(entry.kind, "shell")
-      creatorLibraryEntryId = asString(entry.id)
+    local selectedEntry = entry
+    local useCallback = function()
+      creatorCommand = asString(selectedEntry.template)
+      creatorCommandKind = asString(selectedEntry.kind, "shell")
+      creatorLibraryEntryId = asString(selectedEntry.id)
       commandLibraryOpen = false
       creatorError = ""
       creatorRevision += 1
       render()
-    end)
+    end
     resultNodes[#resultNodes + 1] = ui.row({ gap = 6, align = "center" }, {
       ui.glyph({
         name = entry.kind == "native" and "binary-tree" or "terminal-2",
@@ -1381,7 +1358,7 @@ local function commandLibraryNode()
       }) or ui.label({ text = tr("panel.command_library.ready"), color = "secondary", fontSize = 9 }),
       ui.button({
         text = tr("panel.command_library.use"), variant = "ghost", controlSize = "sm",
-        onClick = callbackName,
+        onClick = useCallback,
       }),
     })
   end
@@ -2025,17 +2002,15 @@ local function openBindEditor(bind, categoryName)
   render()
 end
 
-local function registerCategoryRenameCallback(categoryId)
-  local name = "onCategoryRename:" .. categoryId
-  return registerDynamicCallback(name, function()
+local function categoryRenameCallback(categoryId)
+  return function()
     local category = findSnapshotCategory(categoryId)
     if category ~= nil then openCategoryRename(category) end
-  end)
+  end
 end
 
-local function registerBindCallback(bindId, operation)
-  local name = "onBindAction:" .. operation .. ":" .. bindId
-  return registerDynamicCallback(name, function()
+local function bindCallback(bindId, operation)
+  return function()
     local bind, categoryName = findSnapshotBind(bindId)
     if bind == nil then return end
     if operation == "edit" then
@@ -2043,15 +2018,14 @@ local function registerBindCallback(bindId, operation)
     else
       beginBindOperation(bind, operation)
     end
-  end)
+  end
 end
 
-local function registerHiddenCallback(bindId, operation)
-  local name = "onHiddenBindAction:" .. operation .. ":" .. bindId
-  return registerDynamicCallback(name, function()
+local function hiddenCallback(bindId, operation)
+  return function()
     local bind = findHiddenBind(bindId)
     if bind ~= nil then beginHiddenOperation(bind, operation) end
-  end)
+  end
 end
 
 local function editBindActions(bind, categoryName)
@@ -2088,9 +2062,9 @@ local function editBindActions(bind, categoryName)
     return actions
   end
   local bindId = asString(bind.id)
-  local editCallback = registerBindCallback(bindId, "edit")
-  local hideCallback = registerBindCallback(bindId, "hide")
-  local deleteCallback = registerBindCallback(bindId, "delete")
+  local editCallback = bindCallback(bindId, "edit")
+  local hideCallback = bindCallback(bindId, "hide")
+  local deleteCallback = bindCallback(bindId, "delete")
 
   actions[#actions + 1] = ui.button({
     glyph = "pencil", variant = "ghost",
@@ -2233,8 +2207,8 @@ local function hiddenBindRow(bind, columnCount, rowIndex)
   for _, key in ipairs(rawKeys) do keys[#keys + 1] = keyPill(key, true) end
 
   local bindId = asString(bind.id)
-  local restoreCallback = registerHiddenCallback(bindId, "restore")
-  local deleteCallback = registerHiddenCallback(bindId, "delete")
+  local restoreCallback = hiddenCallback(bindId, "restore")
+  local deleteCallback = hiddenCallback(bindId, "delete")
   local actions = {
     ui.button({
       glyph = "restore", variant = "ghost",
@@ -2378,7 +2352,7 @@ local function categoryCard(category, columnCount)
         tooltip = canRename and tr("panel.editor.category_rename")
           or tr("panel.editor.category_read_only"),
       }
-      if canRename then renameProps.onClick = registerCategoryRenameCallback(categoryId) end
+      if canRename then renameProps.onClick = categoryRenameCallback(categoryId) end
       headerChildren[#headerChildren + 1] = ui.button(renameProps)
     end
     header = ui.row({ gap = 8, align = "center" }, headerChildren)
@@ -2671,7 +2645,6 @@ local function warningsBanner()
 end
 
 render = function()
-  renderCallbackNames = {}
   local status = asString(snapshot.status, "idle")
   local categories = viewMode == "list" and filteredCategories() or EMPTY_ENTRIES
   local requestedColumns = math.max(1, math.min(4, math.floor(tonumber(cfg("columns")) or 3)))
@@ -2702,7 +2675,6 @@ render = function()
   end
   children[#children + 1] = body
   panel.render(ui.column({ flexGrow = 1, gap = 12, align = "stretch" }, children))
-  finishDynamicCallbackRender()
 end
 
 local function requestRefresh()

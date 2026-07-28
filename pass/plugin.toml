@@ -1,0 +1,30 @@
+id = "emrtnn/pass"
+name = "Pass"
+version = "0.0.1"
+plugin_api = 3
+author = "emrtnn"
+license = "MIT"
+deprecated = false
+icon = "key"
+description = "Search and copy password-store entries from the Noctalia launcher"
+tags = ["launcher", "privacy", "productivity", "utility"]
+dependencies = ["pass", "pass-otp", "gpg", "wl-copy"]
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 30
+min = 5
+max = 3600
+
+[[launcher_provider]]
+id = "search"
+entry = "launcher.luau"
+prefix = "pass"
+glyph = "key"
+
+[[service]]
+id = "cache"
+entry = "service.luau"

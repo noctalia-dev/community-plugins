@@ -9,12 +9,18 @@ colored to match your theme, or any color you pick.
 | Field | Value |
 | --- | --- |
 | ID | `dotnetrob/cat` |
-| Entries | Bar widget: `cat` |
+| Entries | Bar widget: `cat`; panel: `panel` |
 
 ## Usage
 
 Add the "Cat" widget to any bar from Settings → Bar → Add Widget. Click the
-widget to show a notification with the current CPU percentage.
+widget to toggle a popup panel showing the same cat at panel size — animating
+in step with the bar cat — plus the current CPU percentage; click anywhere
+outside the panel to dismiss it. The panel can also be toggled over IPC:
+
+```sh
+noctalia msg panel-toggle dotnetrob/cat:panel
+```
 
 ## Settings
 
@@ -32,7 +38,9 @@ widget to show a notification with the current CPU percentage.
 
 Every `poll_interval` seconds the widget reads `/proc/stat` to compute CPU
 usage — no other files are read or written, nothing is downloaded, and no
-processes are spawned. The cat's shape comes from a small custom icon font
+processes are spawned. The panel does no sampling of its own: it mirrors the
+bar widget through the plugin's in-process shared state store, so without a
+cat widget in any bar it shows a sleeping cat with no CPU reading. The cat's shape comes from a small custom icon font
 (`fonts/catwalk2.otf`) traced from the MIT-licensed
 [CatWalk](https://store.kde.org/p/2055225) plasmoid by Driglu4it, which lets
 it be recolored like normal bar text instead of a fixed-color image.

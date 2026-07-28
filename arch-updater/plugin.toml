@@ -1,0 +1,157 @@
+id = "yuuto/arch-updater"
+name = "Arch Updater"
+version = "1.0.0"
+plugin_api = 9
+author = "yuuto"
+license = "MIT"
+icon = "package"
+description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
+dependencies = ["pacman-contrib", "awk", "flatpak", "pacman", "paru", "sed", "sh", "sudo", "test", "uname", "xdg-open", "yay"]
+tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
+
+# ── General ──────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "aur_helper"
+type = "select"
+label_key = "settings.aur_helper.label"
+description_key = "settings.aur_helper.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.aur_helper.options.auto" },
+  { value = "yay", label_key = "settings.aur_helper.options.yay" },
+  { value = "paru", label_key = "settings.aur_helper.options.paru" },
+  { value = "custom", label_key = "settings.aur_helper.options.custom" },
+  { value = "off", label_key = "settings.aur_helper.options.off" },
+]
+
+[[setting]]
+key = "aur_check_cmd"
+type = "string"
+label_key = "settings.aur_check_cmd.label"
+description_key = "settings.aur_check_cmd.description"
+default = ""
+visible_when = { key = "aur_helper", values = ["custom"] }
+
+[[setting]]
+key = "flatpak_enabled"
+type = "bool"
+label_key = "settings.flatpak_enabled.label"
+description_key = "settings.flatpak_enabled.description"
+default = true
+
+[[setting]]
+key = "ignore_packages"
+type = "string_list"
+label_key = "settings.ignore_packages.label"
+description_key = "settings.ignore_packages.description"
+default = []
+
+[[setting]]
+key = "auto_check_hours"
+type = "int"
+label_key = "settings.auto_check_hours.label"
+description_key = "settings.auto_check_hours.description"
+default = 0
+min = 0
+max = 168
+
+[[setting]]
+key = "notify_on_updates"
+type = "bool"
+label_key = "settings.notify_on_updates.label"
+description_key = "settings.notify_on_updates.description"
+default = true
+
+# ── Extras (not in the v4 plugin) ───────────────────────────────────────────
+
+[[setting]]
+key = "show_download_size"
+type = "bool"
+label_key = "settings.show_download_size.label"
+description_key = "settings.show_download_size.description"
+default = true
+
+[[setting]]
+key = "check_arch_news"
+type = "bool"
+label_key = "settings.check_arch_news.label"
+description_key = "settings.check_arch_news.description"
+default = true
+
+[[setting]]
+key = "check_reboot_needed"
+type = "bool"
+label_key = "settings.check_reboot_needed.label"
+description_key = "settings.check_reboot_needed.description"
+default = true
+
+# ── Update run ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+
+[[setting]]
+key = "assume_yes"
+type = "bool"
+label_key = "settings.assume_yes.label"
+description_key = "settings.assume_yes.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "update_cmd"
+type = "string"
+label_key = "settings.update_cmd.label"
+description_key = "settings.update_cmd.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "package"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_on_empty"
+  type = "bool"
+  label_key = "settings.hide_on_empty.label"
+  description_key = "settings.hide_on_empty.description"
+  default = false
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "arch"
+glyph = "package"
+include_in_global_search = false

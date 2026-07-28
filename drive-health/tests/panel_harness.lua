@@ -77,10 +77,12 @@ state.snapshot = {
   dependencies = { ready = true },
   system_collector = { enabled = true, installed = true, status = "healthy", version = "1.0.0",
     expected_version = "1.0.0", helper_available = true, authorization_available = true,
-    enable_command = "sudo systemctl enable --now noctalia-drive-health.timer",
-    disable_command = "sudo systemctl disable --now noctalia-drive-health.timer",
-    install_command = "sudo '/mock/plugin/packaging/install-system-collector.sh'",
-    uninstall_command = "sudo '/mock/plugin/packaging/uninstall-system-collector.sh'" },
+    enable_command = "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' start",
+    disable_command = "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' pause",
+    install_command = "pkexec '/mock/plugin/packaging/install-system-collector.sh' --interval-minutes 15",
+    uninstall_command = "pkexec '/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh'",
+    interval_command = "pkexec '/usr/local/libexec/noctalia-drive-health/set-collector-interval.sh' 15",
+    smart_refresh_minutes = 15 },
   summary = { disk_count = 2, ssd_count = 1, hdd_count = 1, smart_available_count = 2,
     ssd_smart_available_count = 1, hottest_drive_temperature_c = 70,
     hottest_drive_name = "Fixture SSD", hottest_ssd_temperature_c = 70,
@@ -180,8 +182,14 @@ assert(containsText(rendered, "collector.settings_title")
   and containsText(rendered, "collector.full_features"),
   "collector settings did not explain Basic and Full SMART capabilities")
 onPauseCollectorClicked()
-assert(terminalCommand == "sudo systemctl disable --now noctalia-drive-health.timer",
-  "collector settings did not expose the explicit service pause command")
+assert(asyncCommand == "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' pause",
+  "collector settings did not use the fixed Polkit pause helper")
+assert(terminalCommand == nil, "collector pause opened a terminal")
+assert(containsText(rendered, "privileged_action.authorizing"),
+  "collector pause did not show authorization progress")
+asyncCallback({ exitCode = 126, stdout = "", stderr = "", timedOut = false })
+assert(errors[#errors].body:match("privileged_action.failed"),
+  "cancelled collector pause did not report a useful error")
 terminalCommand = nil
 onOpenPluginSettingsClicked()
 assert(asyncCommand == "noctalia msg settings-open plugins",
@@ -383,10 +391,20 @@ onCancelDrivePreferencesClicked()
 
 state.snapshot.dependencies = {
   ready = false, blocking = true, missing_text = "lsblk (util-linux)",
-  install_command = "sudo pacman -S --needed util-linux", package_manager = "pacman", can_install = true,
+  install_command = "pkexec pacman -S --needed --noconfirm util-linux", package_manager = "pacman", can_install = true,
 }
 watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "dependencies.title"), "missing dependency card did not render")
+asyncCommand = nil
+asyncCallback = nil
+terminalCommand = nil
+onInstallDependenciesClicked()
+assert(asyncCommand == "pkexec pacman -S --needed --noconfirm util-linux",
+  "dependency installation did not use Polkit")
+assert(terminalCommand == nil, "dependency installation opened a terminal")
+asyncCallback({ exitCode = 126, stdout = "", stderr = "", timedOut = false })
+assert(errors[#errors].body:match("privileged_action.failed"),
+  "cancelled dependency installation did not report an error")
 
 state.snapshot.dependencies = { ready = true }
 state.snapshot.disks = { state.snapshot.disks[2] }
@@ -400,5 +418,40 @@ assert(not containsText(rendered, "summary.lowest_ssd_life"),
   "HDD-only system rendered the SSD-life summary card")
 assert(countText(rendered, "Fixture HDD") >= 2,
   "HDD-only temperature summary did not identify its drive")
+
+-- Changing the full-SMART schedule uses Polkit in the background, rather than
+-- placing a password-bearing command in a terminal. Keep the panel open so
+-- the in-progress and error states are visible to the user.
+onToggleCollectorSettingsClicked()
+asyncCommand = nil
+asyncCallback = nil
+terminalCommand = nil
+local refreshNonceBeforeInterval = state.refresh_nonce or 0
+onApplyCollectorIntervalClicked()
+assert(asyncCommand == "pkexec '/usr/local/libexec/noctalia-drive-health/set-collector-interval.sh' 15",
+  "collector interval update did not use the Polkit helper")
+assert(terminalCommand == nil, "collector interval update opened a terminal")
+assert(containsText(rendered, "collector.interval_authorizing"),
+  "collector interval authorization progress was not shown")
+local intervalSuccess = assert(asyncCallback, "collector interval callback was not registered")
+intervalSuccess({ exitCode = 0, stdout = "", stderr = "", timedOut = false })
+assert((state.refresh_nonce or 0) == refreshNonceBeforeInterval + 1,
+  "successful collector interval update did not refresh the panel")
+assert(notifications[#notifications].body == "collector.interval_applied",
+  "successful collector interval update did not notify the user")
+
+onApplyCollectorIntervalClicked()
+local intervalCancelled = assert(asyncCallback, "second collector interval callback was not registered")
+intervalCancelled({ exitCode = 126, stdout = "", stderr = "", timedOut = false })
+assert(containsText(rendered, "collector.interval_failed"),
+  "cancelled collector interval authorization did not render an inline result")
+assert(errors[#errors].body == "collector.interval_cancelled",
+  "cancelled collector interval authorization did not notify the user")
+
+onApplyCollectorIntervalClicked()
+local intervalRejected = assert(asyncCallback, "failed collector interval callback was not registered")
+intervalRejected({ exitCode = 1, stdout = "", stderr = "Authentication failed", timedOut = false })
+assert(errors[#errors].body == "Authentication failed",
+  "collector interval authentication failure did not show the returned error")
 
 print("panel rendering tests passed")

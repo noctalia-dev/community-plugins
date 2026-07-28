@@ -14,6 +14,12 @@ local function shq(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
+-- User-facing display strings live in translations/<lang>.json; resolve them at
+-- call time (the noctalia global is ready by then). Model-facing prompts
+-- (ASK_NOTE, SYSTEM_NOTE below) are deliberately NOT translated — they are
+-- instructions to the model, not UI, and rewording them can shift its behavior.
+local function tr(key, args) return noctalia.tr(key, args) end
+
 -- A double-quoted sh argument: unlike shq it lets the shell expand $VAR (we need
 -- $HOME in the shim path so nothing user-specific is hardcoded). ONLY use this on
 -- fixed, trusted strings — never on user input, which must go through shq().
@@ -150,7 +156,7 @@ end
 -- 401 whenever no terminal session has run recently. Two layers, both fail-open:
 -- a pre-flight that skips the launch when the token is positively expired, and
 -- an error-text match that swaps the raw API error for the remedy.
-local AUTH_REMEDY = "Claude login expired — start a Claude session in a terminal to refresh it, then re-ask."
+-- (remedy text: tr("notify.auth_remedy"))
 
 local CREDS_PATH = "~/.claude/.credentials.json"
 
@@ -220,14 +226,14 @@ local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 local function answer_row()
   local a = noctalia.state.get("claude.answer")
   if type(a) ~= "table" or type(a.text) ~= "string" or a.text == "" then return nil end
-  return { id = "answer", title = "Show last answer", subtitle = a.q, glyph = "message-2" }
+  return { id = "answer", title = tr("launcher.show_answer"), subtitle = a.q, glyph = "message-2" }
 end
 
 function onQuery(query)
   local text = trim(query)
   if text == "" then
     local results = {
-      { id = "continue", title = "Resume last Claude session", glyph = "robot" },
+      { id = "continue", title = tr("launcher.continue"), glyph = "robot" },
     }
     results[#results + 1] = answer_row()
     launcher.setResults(query, results)
@@ -237,19 +243,19 @@ function onQuery(query)
   if ask ~= nil then
     if ask == "" then
       local results = {
-        { id = "_askhint", title = "Ask Claude (one-shot)", subtitle = "Type a question after ?", glyph = "message-dots" },
+        { id = "_askhint", title = tr("launcher.ask"), subtitle = tr("launcher.ask_hint"), glyph = "message-dots" },
       }
       results[#results + 1] = answer_row()
       launcher.setResults(query, results)
     else
       launcher.setResults(query, {
-        { id = "ask:" .. ask, title = "Ask Claude (one-shot)", subtitle = ask, glyph = "message-dots" },
+        { id = "ask:" .. ask, title = tr("launcher.ask"), subtitle = ask, glyph = "message-dots" },
       })
     end
     return
   end
   launcher.setResults(query, {
-    { id = "task:" .. text, title = "Launch Claude Code", subtitle = text, glyph = "robot" },
+    { id = "task:" .. text, title = tr("launcher.launch"), subtitle = text, glyph = "robot" },
   })
 end
 
@@ -278,8 +284,9 @@ function onActivate(id)
     -- and the remedy needs a terminal anyway — so say so now and skip the
     -- launch. No claude.state touch: no ask session ever starts.
     if token_expired() then
-      publish_answer(ask, AUTH_REMEDY, true)
-      if not panel_showing() then noctalia.notifyError("Claude", AUTH_REMEDY) end
+      local remedy = tr("notify.auth_remedy")
+      publish_answer(ask, remedy, true)
+      if not panel_showing() then noctalia.notifyError(tr("notify.title"), remedy) end
       return
     end
     set_state(EVENT.turn_start)
@@ -295,26 +302,26 @@ function onActivate(id)
       elseif ev.kind == EVENT.turn_end then
         local final = (ev.text and ev.text ~= "") and ev.text or acc
         if final == "" then
-          noctalia.notify("Claude", "(no output)")
+          noctalia.notify(tr("notify.title"), tr("notify.no_output"))
         else
           publish_answer(ask, final, false)
           if not panel_showing() then
             local body, clipped = preview(final)
-            if clipped then body = body .. "\nFull answer: click the bar pulse" end
-            noctalia.notify("Claude", body)
+            if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
+            noctalia.notify(tr("notify.title"), body)
           end
         end
       elseif ev.kind == EVENT.error then
         local final = (ev.text and ev.text ~= "") and ev.text or acc
-        if final == "" then final = "ask failed" end
+        if final == "" then final = tr("notify.ask_failed") end
         -- a 401 that slipped past the pre-flight: deliver the remedy, not the
         -- raw API error blob
-        if is_auth_error(final) then final = AUTH_REMEDY end
+        if is_auth_error(final) then final = tr("notify.auth_remedy") end
         publish_answer(ask, final, true)
         if not panel_showing() then
           local body, clipped = preview(final)
-          if clipped then body = body .. "\nFull answer: click the bar pulse" end
-          noctalia.notifyError("Claude", body)
+          if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
+          noctalia.notifyError(tr("notify.title"), body)
         end
       end
     end)

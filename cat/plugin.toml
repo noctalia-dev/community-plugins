@@ -1,6 +1,6 @@
 id           = "dotnetrob/cat"
 name         = "Cat"
-version      = "1.1.2"
+version      = "1.2.0"
 plugin_api   = 3
 author       = "DotNetRob"
 license      = "MIT"
@@ -8,6 +8,17 @@ dependencies = []
 icon         = "paw"
 description  = "An animated running cat bar widget whose speed reflects CPU usage."
 tags         = ["bar", "animation", "system", "fun"]
+
+# Popup opened by clicking the bar widget: the same cat, bigger, with the
+# CPU percentage. Attached to the bar near the click; the host default
+# dismiss-on-outside-click makes it behave like a transient popup.
+[[panel]]
+id              = "panel"
+entry           = "cat_panel.luau"
+width           = 280
+height          = 240
+placement       = "attached"
+open_near_click = true
 
 [[widget]]
 id    = "cat"

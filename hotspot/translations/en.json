@@ -1,0 +1,75 @@
+{
+  "error": {
+    "command_failed": "The NetworkManager command failed.",
+    "command_start": "Noctalia could not start the hotspot command.",
+    "missing_dependencies": "nmcli is required to manage the hotspot.",
+    "missing_ssid": "Set a hotspot name in the plugin settings.",
+    "no_wifi_device": "No Wi-Fi adapter was found.",
+    "password_too_short": "The hotspot password must be at least 8 characters.",
+    "state_mismatch": "The requested hotspot state could not be confirmed.",
+    "status_failed": "NetworkManager status could not be read."
+  },
+  "notification": {
+    "disabled": {
+      "body": "The Wi-Fi hotspot has been turned off.",
+      "title": "Hotspot disabled"
+    },
+    "enabled": {
+      "body": "Clients can connect to {ssid}.",
+      "title": "Hotspot enabled"
+    }
+  },
+  "panel": {
+    "action": {
+      "start": "Start hotspot",
+      "starting": "Starting…",
+      "stop": "Stop hotspot",
+      "stopping": "Stopping…"
+    },
+    "clients_inactive": "Start the hotspot to see connected devices here.",
+    "clients_title": "Connected devices",
+    "close": "Close",
+    "gateway": "Gateway: {address}",
+    "no_clients": "No device is connected right now.",
+    "refresh": "Refresh",
+    "status": {
+      "active_message": "{ssid} is broadcasting on {interface}.",
+      "active_title": "Hotspot active",
+      "error_title": "Unavailable",
+      "inactive_message": "Configure the name and password in settings, then start the hotspot.",
+      "inactive_title": "Hotspot off",
+      "starting_message": "NetworkManager is creating the access point…",
+      "starting_title": "Starting",
+      "stopping_message": "NetworkManager is shutting down the access point…",
+      "stopping_title": "Stopping"
+    }
+  },
+  "settings": {
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "interface": {
+      "description": "Optional Wi-Fi interface name. Leave empty to use the first adapter NetworkManager reports.",
+      "label": "Wi-Fi interface"
+    },
+    "password": {
+      "description": "WPA password shared with connecting devices. Must be at least 8 characters.",
+      "label": "Password"
+    },
+    "refresh_interval": {
+      "description": "How often the service refreshes hotspot status and the connected device list, in seconds.",
+      "label": "Refresh interval"
+    },
+    "ssid": {
+      "description": "Network name broadcast by the hotspot.",
+      "label": "Hotspot name"
+    }
+  },
+  "title": "Wi-Fi Hotspot",
+  "tooltip": {
+    "active": "{ssid} is active · {count} device(s) connected · click for panel · right-click to stop",
+    "changing": "Changing hotspot state…",
+    "inactive": "Hotspot is off · click for panel · right-click to start",
+    "unavailable": "NetworkManager is not available"
+  }
+}

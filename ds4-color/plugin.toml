@@ -1,7 +1,7 @@
 id = "hy4ri/ds4-color"
 name = "DS4 Color"
-version = "0.1.0"
-plugin_api = 3
+version = "0.1.1"
+plugin_api = 9
 author = "hy4ri"
 license = "MIT"
 icon = "device-gamepad-2"

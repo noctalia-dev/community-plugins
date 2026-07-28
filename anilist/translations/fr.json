@@ -1,0 +1,93 @@
+{
+  "panel": {
+    "close": "Fermer",
+    "close_preview": "Fermer l'aperçu",
+    "connect": "Se connecter avec AniList",
+    "cover_preview": "Voir la pochette",
+    "decrement": "Épisode ou chapitre précédent",
+    "download_cover": "Télécharger la pochette",
+    "download_cover_failed": "Impossible d'enregistrer la pochette.",
+    "download_cover_success": "Pochette enregistrée dans {path}",
+    "download_cover_unavailable": "Installez zenity ou kdialog pour choisir où enregistrer l'image.",
+    "empty": "Aucune entrée dans cette liste.",
+    "error": "Erreur : {message}",
+    "filter_all": "Tout",
+    "filter_completed": "Terminé",
+    "filter_current": "En cours",
+    "filter_dropped": "Abandonné",
+    "filter_paused": "En pause",
+    "filter_planning": "À voir",
+    "filter_planning_manga": "À lire",
+    "filter_reading": "En lecture",
+    "filter_repeating": "En reprise",
+    "increment": "Épisode ou chapitre suivant",
+    "loading": "Chargement de vos listes…",
+    "loading_more": "Chargement de la liste…",
+    "logged_in_as": "Connecté en tant que {name}",
+    "login_help": "Renseignez votre ID client et votre secret client dans les paramètres du plugin, puis cliquez sur Se connecter. Votre navigateur s'ouvre, vous autorisez AniList, et le plugin termine la connexion automatiquement.",
+    "login_title": "Se connecter à AniList",
+    "login_waiting": "En attente de la connexion dans le navigateur…",
+    "logout": "Se déconnecter",
+    "mark_complete": "Terminer",
+    "next_episode": "Ép. {episode} bientôt",
+    "open_anilist": "Ouvrir sur AniList",
+    "progress_anime": "Ép. {current}/{total}",
+    "progress_anime_unknown": "Ép. {current}",
+    "progress_manga": "Ch. {current}/{total}",
+    "progress_manga_unknown": "Ch. {current}",
+    "refresh": "Actualiser la liste",
+    "refreshing": "Actualisation…",
+    "settings": "Paramètres du plugin",
+    "tab_anime": "Anime",
+    "tab_manga": "Manga",
+    "title": "AniList (UNOFFICIEL)",
+    "updating": "Mise à jour…"
+  },
+  "service": {
+    "invalid_token": "Jeton d'accès invalide ou expiré.",
+    "mutation_failed": "La mise à jour a échoué.",
+    "network_error": "Impossible de joindre AniList.",
+    "not_configured": "Renseignez l'ID client et le secret client AniList dans les paramètres du plugin.",
+    "oauth_busy": "Une connexion est déjà en cours.",
+    "oauth_failed": "La connexion via le navigateur a échoué.",
+    "oauth_unavailable": "Impossible de démarrer l'assistant de connexion local. python3 est-il installé ?"
+  },
+  "settings": {
+    "access_token": {
+      "description": "Ignore la connexion navigateur si vous avez déjà un jeton bearer. Laissez vide en temps normal.",
+      "label": "Jeton d'accès (optionnel)"
+    },
+    "client_id": {
+      "description": "ID client de votre application développeur AniList (anilist.co/settings/developer). L'URL de redirection doit être http://127.0.0.1:7823/callback",
+      "label": "ID client"
+    },
+    "client_secret": {
+      "description": "Secret client de la même application AniList. Ne le partagez jamais publiquement — chaque utilisateur doit utiliser sa propre application.",
+      "label": "Secret client"
+    },
+    "count_mode": {
+      "description": "Quel nombre afficher à côté de l'icône dans la barre.",
+      "label": "Compteur barre",
+      "options": {
+        "completed": "Terminé (anime)",
+        "current": "En cours (anime)",
+        "in_progress": "En cours (anime + manga)",
+        "planning": "Prévu (anime)",
+        "total": "Total (tous les anime)"
+      }
+    },
+    "glyph": {
+      "label": "Icône de la barre"
+    }
+  },
+  "widget": {
+    "tooltip_completed": "{count} anime terminés",
+    "tooltip_current": "{count} anime en cours",
+    "tooltip_empty": "AniList — ouvrir la bibliothèque",
+    "tooltip_error": "AniList — {error}",
+    "tooltip_in_progress": "{count} en cours (anime + manga)",
+    "tooltip_loading": "AniList — chargement…",
+    "tooltip_planning": "{count} anime prévus",
+    "tooltip_total": "{count} anime sur votre liste"
+  }
+}

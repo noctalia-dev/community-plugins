@@ -1,0 +1,63 @@
+id = "cleboost/hotspot"
+name = "Wi-Fi Hotspot"
+version = "1.0.0"
+plugin_api = 9
+author = "Cleboost"
+license = "MIT"
+icon = "router"
+description = "Start and stop a Wi-Fi hotspot from the bar, with connected device list and IPC control."
+tags = ["network", "bar", "panel", "service", "utility", "system", "indicator"]
+dependencies = ["nmcli", "iw", "ip"]
+
+[[setting]]
+key = "ssid"
+type = "string"
+label_key = "settings.ssid.label"
+description_key = "settings.ssid.description"
+default = "Noctalia Hotspot"
+
+[[setting]]
+key = "password"
+type = "string"
+label_key = "settings.password.label"
+description_key = "settings.password.description"
+default = ""
+
+[[setting]]
+key = "interface"
+type = "string"
+label_key = "settings.interface.label"
+description_key = "settings.interface.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 5
+min = 2
+max = 60
+
+[[service]]
+id = "hotspot"
+entry = "service.luau"
+
+[[widget]]
+id = "toggle"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "router"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 520
+placement = "attached"
+position = "top_right"
+open_near_click = true

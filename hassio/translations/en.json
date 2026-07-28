@@ -9,7 +9,6 @@
     "color_temp": "Color Temperature",
     "connecting": "Connecting…",
     "disconnected_reconnecting": "Disconnected. Reconnecting…",
-    "unreachable": "Cannot reach Home Assistant. Check the URL and that the server is running.",
     "hue": "Hue",
     "loading_entities": "Loading entities…",
     "manage_entities_title": "Manage Entities",
@@ -21,7 +20,8 @@
     "save_failed_no_data_dir": "Could not save: plugin data directory unavailable",
     "search_placeholder": "Search entities…",
     "state_on_brightness": "On · {percent}%",
-    "status_fallback": "Status: {status}"
+    "status_fallback": "Status: {status}",
+    "unreachable": "Cannot reach Home Assistant. Check the URL and that the server is running."
   },
   "settings": {
     "shortcut_entity": {
@@ -65,8 +65,8 @@
     "status_connected": "Connected",
     "status_connecting": "Connecting",
     "status_disconnected": "Disconnected",
-    "status_unreachable": "Unreachable",
     "status_unconfigured": "Not Configured",
+    "status_unreachable": "Unreachable",
     "tooltip": "Home Assistant: {status}",
     "tooltip_entities": "Home Assistant: {status} ({count} entities)"
   }

@@ -6,7 +6,6 @@ function cfg(key)
 	return noctalia.getConfig(key)
 end
 
-local env = getfenv()
 local excludedKeywords = cfg("excluded_keywords")
 local privilegeCmd = cfg("privilege_command")
 local closeOnSelect = cfg("close_on_select")
@@ -66,10 +65,10 @@ end
 
 function render(entries)
 	local entriesButton = {}
-	for i, entry in ipairs(entries) do
-		local callBackFn = `setBootNext_{entry.id}`
-		env[callBackFn] = function()
-			noctalia.runAsync(`{privilegeCmd} efibootmgr --bootnext {entry.id}`, function(result)
+	for _, entry in ipairs(entries) do
+		local bootEntry = entry
+		local callBackFn = function()
+			noctalia.runAsync(`{privilegeCmd} efibootmgr --bootnext {bootEntry.id}`, function(result)
 				if not result.timedOut then
 					if result.exitCode == 0 then
 						load()
@@ -93,12 +92,12 @@ function render(entries)
 		table.insert(
 			entriesButton,
 			ui.button({
-				text = entry.name,
-				selected = entry.isSelected,
-				enabled = entry.isActive,
+				text = bootEntry.name,
+				selected = bootEntry.isSelected,
+				enabled = bootEntry.isActive,
 				onClick = callBackFn,
 				contentAlign = "start",
-				glyph = if entry.isSelected then "circle-check" else "circle",
+				glyph = if bootEntry.isSelected then "circle-check" else "circle",
 				glyphSize = 18,
 			})
 		)

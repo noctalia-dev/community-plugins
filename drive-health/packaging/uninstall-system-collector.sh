@@ -15,6 +15,7 @@ rm -f \
   "/etc/systemd/system/$service_name.service" \
   "/etc/systemd/system/$service_name.timer"
 rm -rf \
+  "/etc/systemd/system/$service_name.timer.d" \
   "/usr/local/libexec/$service_name" \
   "/run/$service_name"
 
