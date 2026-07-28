@@ -6,10 +6,13 @@ execute. All of it is user defined, stored in a JSON file you can backup.
 
 ## Plugin
 
-| Field   | Value                |
-| ------- | -------------------- |
-| ID      | `dunarand/bookmarks` |
-| Entries | panel: `panel`;      |
+| Field   | Value                              |
+| ------- | ---------------------------------- |
+| ID      | `dunarand/bookmarks`               |
+| Entries | Bar widget: `bar`; panel: `panel`; |
+
+Bar widget `bar` is not required. Instead, you can assign a keybind to directly open the `panel`,
+which is shown in the Usage section.
 
 ## Requirements
 
