@@ -52,8 +52,8 @@ local function render()
 
   local showPercentage = noctalia.getConfig("show_percentage") ~= false
   barWidget.setText(showPercentage and not barWidget.isVertical() and outputVolume or "")
-  local tooltipItems = {{key = "Output", value = `{outputName} ({outputVolume})`},
-                        {key = "Input", value = `{inputName} ({inputVolume})`}}
+  local tooltipItems = {{key = noctalia.tr("widget.output"), value = `{outputName} ({outputVolume})`},
+                        {key = noctalia.tr("widget.input"), value = `{inputName} ({inputVolume})`}}
   if noctalia.getConfig("show_actions_in_tooltip") == true then
     table.insert(tooltipItems, {key = noctalia.tr("widget.action.scroll.key"), value = noctalia.tr("widget.action.scroll.description")})
     table.insert(tooltipItems, {key = noctalia.tr("widget.action.left_click.key"), value = noctalia.tr("widget.action.left_click.description")})

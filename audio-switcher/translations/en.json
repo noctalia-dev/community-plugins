@@ -104,6 +104,8 @@
   },
   "title": "Audio Switcher",
   "widget": {
+    "input": "Input",
+    "output": "Output",
     "action": {
       "scroll": {
         "key": "Scroll",
