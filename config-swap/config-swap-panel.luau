@@ -75,8 +75,11 @@ function takePosSetting()
 	end
 end
 
---
+-- Section protection shell commande
 
+local function shellQuote(s)
+  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
 
 -- apply config file and wallpaper
 
@@ -89,9 +92,12 @@ function applyConfig(data: config)
 		return
 	end
 
-	local cmd = "cp " .. configBox .. "/" .. data.name .. "/settings.toml " .. pathSettings
+	local src = shellQuote(noctalia.expandPath(configBox .. "/" .. data.name .. "/settings.toml"))
+	local dest = shellQuote(noctalia.expandPath(pathSettings))
+	local cmd = "cp " .. src .. " " .. dest
 
 	noctalia.runAsync(cmd, function(result)
+	noctalia.notify("debug cp", "exit=" .. tostring(result and result.exitCode) .. " err=[" .. tostring(result and result.stderr) .. "]")
 		if result and result.exitCode == 0 then
 			noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
 		else
