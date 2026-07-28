@@ -1,0 +1,29 @@
+{
+  "config-empty": "Aucun hôte SSH trouvé dans la config",
+  "config-missing": "Fichier de config SSH introuvable",
+  "err-no-ssh": "Commande ssh introuvable",
+  "err-no-ssh-subtitle": "Installez le client OpenSSH et vérifiez que ssh est dans le PATH",
+  "err-terminal": "Impossible d'ouvrir un terminal",
+  "filter-empty": "Filtre : « {filter} »",
+  "loading": "Chargement…",
+  "loading-subtitle": "Lecture de la config SSH",
+  "no-hosts-found": "Aucun hôte SSH trouvé",
+  "settings": {
+    "config_path": {
+      "description": "Chemin vers votre fichier de config SSH.",
+      "label": "Chemin de la config SSH"
+    },
+    "extra_args": {
+      "description": "Arguments ajoutés à chaque commande ssh (par exemple -A).",
+      "label": "Arguments SSH supplémentaires"
+    },
+    "max_results": {
+      "description": "Nombre maximum d'hôtes affichés dans le launcher.",
+      "label": "Nombre maximum de résultats"
+    },
+    "terminal": {
+      "description": "Commande terminal personnalisée. Laissez vide pour la détection automatique de Noctalia.",
+      "label": "Commande terminal"
+    }
+  }
+}
