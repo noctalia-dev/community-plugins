@@ -1,0 +1,34 @@
+{
+  "level": {
+    "auto": "Automatico",
+    "full": "Massima velocità"
+  },
+  "tooltip": {
+    "speed": "Velocità",
+    "level": "Livello",
+    "temperature": "Temperatura"
+  },
+  "panel": {
+    "title": "Controllo ventola",
+    "auto": "Auto",
+    "full": "Max"
+  },
+  "notify": {
+    "fan_error_title": "Controllo ventola",
+    "fan_error_body": "Impossibile impostare il livello della ventola. Controlla i permessi di scrittura (vedi il README del plugin)."
+  },
+  "settings": {
+    "colorize_by_status": {
+      "label": "Colora in base allo stato",
+      "description": "Cambia colore al widget quando la ventola è forzata spenta o a un livello manuale"
+    },
+    "allow_popup": {
+      "label": "Il clic sinistro apre il pannello",
+      "description": "Apre il pannello di controllo manuale della ventola col clic sinistro sul widget"
+    },
+    "thermal_zone": {
+      "label": "Zona termica",
+      "description": "Zona termica sysfs usata per la temperatura, es. thermal_zone0"
+    }
+  }
+}
