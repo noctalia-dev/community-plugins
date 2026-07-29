@@ -810,8 +810,8 @@ local function normalizedSettings()
     end
 
     local hidden = noctalia.getConfig("hidden_behavior")
-    if hidden ~= "continue" and hidden ~= "auto-pause" and hidden ~= "auto-stop" then
-        hidden = "auto-pause"
+    if hidden ~= "none" and hidden ~= "auto-pause" and hidden ~= "auto-stop" then
+        hidden = "none"
     end
 
     local fps = tostring(noctalia.getConfig("fps_cap") or "30")
@@ -1442,7 +1442,7 @@ local function runModelChecks()
 
     local needles = processMatchNeedles(socketPath)
     assert(needles[1] == "gslapper" and needles[3] == socketPath, "process match omitted exact socket")
-    assert(#hiddenFlags("continue") == 0 and #hiddenFlags("auto-pause") == 1 and #hiddenFlags("auto-stop") == 1, "hidden flags conflict")
+    assert(#hiddenFlags("none") == 0 and #hiddenFlags("auto-pause") == 1 and #hiddenFlags("auto-stop") == 1, "hidden flags conflict")
 
     local query = parseIpcResponse("query", "STATUS: paused video /tmp/a b.mp4\n")
     assert(query.ok and query.status == "paused" and query.path == "/tmp/a b.mp4", "query response parsing failed")

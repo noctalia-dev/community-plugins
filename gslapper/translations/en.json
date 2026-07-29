@@ -62,11 +62,11 @@
     },
     "hidden_behavior": {
       "label": "When hidden",
-      "description": "Playback behavior while the wallpaper is obscured.",
+      "description": "Playback control when the wallpaper is hidden.",
       "options": {
-        "continue": "Continue",
-        "auto_pause": "Auto-pause",
-        "auto_stop": "Auto-stop"
+        "none": "None",
+        "auto_pause": "Auto Pause",
+        "auto_stop": "Auto Stop"
       }
     },
     "loop": {

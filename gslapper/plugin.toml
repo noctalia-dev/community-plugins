@@ -1,6 +1,6 @@
 id = "nomadcxx/gslapper"
 name = "gSlapper Wallpaper"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 19
 author = "Nomadcxx"
 license = "MIT"
@@ -34,9 +34,9 @@ key = "hidden_behavior"
 type = "select"
 label_key = "settings.hidden_behavior.label"
 description_key = "settings.hidden_behavior.description"
-default = "auto-pause"
+default = "none"
 options = [
-  { value = "continue", label_key = "settings.hidden_behavior.options.continue" },
+  { value = "none", label_key = "settings.hidden_behavior.options.none" },
   { value = "auto-pause", label_key = "settings.hidden_behavior.options.auto_pause" },
   { value = "auto-stop", label_key = "settings.hidden_behavior.options.auto_stop" },
 ]

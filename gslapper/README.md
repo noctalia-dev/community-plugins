@@ -80,7 +80,7 @@ separate selector.
 | --- | --- | --- |
 | Video directory | `~/Videos/Wallpapers` | Root for video wallpapers. Noctalia's wallpaper directory supplies images. |
 | Video scale | `fill` | Uses gSlapper's fill, stretch, original, or panscan scaling mode. |
-| When hidden | `auto-pause` | Continues, pauses, or stops decoding when another window covers the video surface. |
+| When hidden | `none` | Keeps playing unless you select Auto Pause or Auto Stop. |
 | Loop videos | On | Restarts video playback at the end. |
 | FPS cap | `30` | Caps video wallpaper playback at 30, 60, or 100 FPS. |
 | Fade between videos | Off | Enables gSlapper's fade transition. |
