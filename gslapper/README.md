@@ -3,6 +3,10 @@
 Choose images and video wallpapers from one picker. Apply one file to every
 detected output or select a different file for each connector.
 
+Video playback uses [gSlapper](https://github.com/Nomadcxx/gSlapper) instead of
+mpvpaper. gSlapper uses GStreamer rather than libmpv; its README documents lower
+CPU, memory, and GPU use than mpvpaper. Tests cover Niri, Hyprland, and Sway.
+
 ## Plugin
 
 | Field | Value |
@@ -13,7 +17,7 @@ detected output or select a different file for each connector.
 ## Requirements
 
 - `find` indexes the wallpaper roots
-- [gSlapper](https://github.com/GhostNaN/gSlapper) 1.5.2 or newer provides the
+- [gSlapper](https://github.com/Nomadcxx/gSlapper) 1.5.2 or newer provides the
   `gslapper` command and renders video wallpapers
 - `gst-launch-1.0` creates image and video previews
 - `pkill` cleans up a plugin-owned process if its socket stops responding
@@ -23,7 +27,16 @@ Arch Linux provides `gst-launch-1.0` in `gstreamer`. Debian and Ubuntu provide
 it in `gstreamer1.0-tools`. Preview generation can fail without blocking image
 selection or video playback.
 
-To install from the canonical Git source:
+## Install
+
+Add the canonical repository as a custom plugin source:
+
+1. Open **Settings → Plugins → Sources**.
+2. Choose **Add custom repository**.
+3. Enter `https://github.com/Nomadcxx/noctalia-gslapper`.
+4. Open **Settings → Plugins → Install** and select **gSlapper Wallpaper**.
+
+Or install it from a shell:
 
 ```sh
 noctalia msg plugins source add gslapper git https://github.com/Nomadcxx/noctalia-gslapper
