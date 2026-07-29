@@ -47,7 +47,13 @@ manifest_file = f"{plugin_name}/plugin.toml"
 
 if os.path.exists(manifest_file):
     file_commits = repo.get_commits(path=manifest_file).reversed
-    author = file_commits[0].author.login
+    author = file_commits[0].author
+
+    if author is not None:
+        author = author.login
+    else:
+        print("Author name is null, returning!")
+        sys.exit(1)
 else:
     print(f"Plugin manifest doesn't exist, {manifest_file}")
     sys.exit(1)
