@@ -3,6 +3,9 @@
 Choose images and video wallpapers from one picker. Apply one file to every
 detected output or select a different file for each connector.
 
+> Requires Noctalia v5 and plugin API 19. Noctalia v4 uses a different QML
+> plugin format and will not list or load this source.
+
 Video playback uses [gSlapper](https://github.com/Nomadcxx/gSlapper) instead of
 mpvpaper. gSlapper uses GStreamer rather than libmpv; its README documents lower
 CPU, memory, and GPU use than mpvpaper. Tests cover Niri, Hyprland, and Sway.
