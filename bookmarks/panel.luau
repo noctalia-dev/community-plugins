@@ -203,6 +203,50 @@ local function moveEntryTo(list, fromIndex, beforeIndex)
 	end
 end
 
+-- Moves a single bookmark (never a folder - nesting stays one level deep)
+-- from `fromList` at `fromIndex` onto the end of `toList`. Used for both
+-- directions of filing: root -> into a folder, and folder -> back to root.
+-- Rolls back both lists on write failure, same pattern as moveEntryTo.
+local function moveEntryAcross(fromList, fromIndex, toList)
+	local entry = fromList[fromIndex]
+	if entry == nil or entryType(entry) ~= "bookmark" then
+		return false
+	end
+
+	local fromSnapshot, toSnapshot = {}, {}
+	for i, v in ipairs(fromList) do
+		fromSnapshot[i] = v
+	end
+	for i, v in ipairs(toList) do
+		toSnapshot[i] = v
+	end
+
+	table.remove(fromList, fromIndex)
+	table.insert(toList, entry)
+
+	local ok, err = saveBookmarks()
+	if not ok then
+		for i = #fromList, 1, -1 do
+			fromList[i] = nil
+		end
+		for i, v in ipairs(fromSnapshot) do
+			fromList[i] = v
+		end
+		for i = #toList, 1, -1 do
+			toList[i] = nil
+		end
+		for i, v in ipairs(toSnapshot) do
+			toList[i] = v
+		end
+		noctalia.notifyError(
+			noctalia.tr("title"),
+			noctalia.tr("err_reorder_failed", { error = err })
+		)
+		return false
+	end
+	return true, entry
+end
+
 -- Runs a bookmark's command. Two distinct failure paths get a notification:
 -- the shell couldn't even be spawned, or it ran and exited non-zero.
 -- Success stays silent, same as file-search's xdg-open.
@@ -261,6 +305,62 @@ local function insertionGap(anchorIndex, place)
 		height = 6,
 		expandOnDrag = true,
 		hitSlop = 20,
+	})
+end
+
+-- Wraps a folder row so the whole row (root view only) doubles as a drop
+-- target: dropping a bookmark onto it files that bookmark into the folder,
+-- appended at the end. `value` is "into|<folderIndex>", read by
+-- onReorderEntry alongside the "before|after" insertion-gap values already
+-- in use for same-list reordering. `hitSlop` matters here: the insertion
+-- gaps immediately above/below this row extend their own hit area well
+-- past their thin visible strip (see insertionGap), so without a
+-- competing hitSlop of its own this zone would rarely win a drop even
+-- when the pointer is squarely over the folder row - "closest wins" needs
+-- both zones actually in the running.
+local function folderDropTarget(folderIndex, child)
+	return ui.dropZone({
+		key = "into-" .. folderIndex,
+		accepts = { "bookmark-entry" },
+		value = "into|" .. folderIndex,
+		onDrop = "onReorderEntry",
+		direction = "column",
+		radius = 8,
+		border = "primary/0.45",
+		borderWidth = 1.5,
+		expandOnDrag = true,
+		hitSlop = 20,
+	}, { child })
+end
+
+-- Persistent drop bar shown at the top of a folder's contents while in edit
+-- mode: dropping a bookmark here pulls it back out to the root list,
+-- appended at the end. Always present (not just an insertion gap) so an
+-- otherwise-empty folder still offers a way to release an item back out.
+local function moveToRootDropBar()
+	return ui.dropZone({
+		key = "move-to-root",
+		accepts = { "bookmark-entry" },
+		value = "out|root",
+		onDrop = "onReorderEntry",
+		direction = "row",
+		align = "center",
+		gap = 8,
+		height = 34,
+		radius = 8,
+		fill = "primary/0.08",
+		border = "primary/0.35",
+		borderWidth = 1.5,
+		expandOnDrag = true,
+		hitSlop = 12,
+	}, {
+		ui.glyph({ name = "corner-left-up", size = 14, color = "primary" }),
+		ui.label({
+			text = noctalia.tr("drop_out_of_folder"),
+			fontSize = 12,
+			color = "primary",
+			flexGrow = 1,
+		}),
 	})
 end
 
@@ -396,6 +496,31 @@ local function entryRow(entry, index)
 			panel.close()
 		end
 	end
+	-- In edit mode a folder's glyph sits in a filled chip rather than bare,
+	-- the same visual language as the move-to-root drop bar (filled
+	-- primary/border), so "this accepts a dropped bookmark" reads at a
+	-- glance instead of only revealing itself once a drag is already
+	-- underway and the host's own highlight kicks in.
+	-- Note: ui.box does not render child content (its documented props are
+	-- fill/radius/border/size only), so the chip wrapper uses ui.row -
+	-- which supports both children and the same fill/radius styling - with
+	-- align/justify = "center" to center the glyph inside it.
+	local folderGlyph = ui.glyph({
+		name = entry.glyph or (isFolder and "folder" or "bookmark"),
+		size = 16,
+		color = (isFolder and editMode) and "primary" or "on_surface",
+	})
+	if isFolder and editMode then
+		folderGlyph = ui.row({
+			fill = "primary/0.12",
+			radius = 6,
+			width = 24,
+			height = 24,
+			align = "center",
+			justify = "center",
+		}, { folderGlyph })
+	end
+
 	table.insert(
 		rowChildren,
 		ui.row({
@@ -404,7 +529,8 @@ local function entryRow(entry, index)
 			align = "center",
 			flexGrow = 1,
 			height = 30,
-			tooltip = (not isFolder) and entry.cmd or nil,
+			tooltip = (not isFolder) and entry.cmd
+				or (editMode and noctalia.tr("drop_into_folder_tooltip") or nil),
 			onClick = activateEntry,
 			onHover = function(state)
 				if state == "true" then
@@ -413,11 +539,7 @@ local function entryRow(entry, index)
 				end
 			end,
 		}, {
-			ui.glyph({
-				name = entry.glyph or (isFolder and "folder" or "bookmark"),
-				size = 16,
-				color = "on_surface",
-			}),
+			folderGlyph,
 			ui.label({
 				text = entry.label or "",
 				fontSize = 13,
@@ -433,7 +555,16 @@ local function entryRow(entry, index)
 		table.insert(rowChildren, node)
 	end
 
-	return ui.row({ key = "bm-" .. index, gap = 8, align = "center", height = 30 }, rowChildren)
+	local row =
+		ui.row({ key = "bm-" .. index, gap = 8, align = "center", height = 30 }, rowChildren)
+
+	-- Only root-level folders accept drops (nesting stays one level deep,
+	-- and folders never contain other folders), and only while edit mode
+	-- exposes drag handles at all.
+	if isFolder and editMode and currentFolder == nil then
+		return folderDropTarget(index, row)
+	end
+	return row
 end
 
 -- One row in the flat search results list: runs the bookmark on click,
@@ -617,6 +748,14 @@ local function listView()
 	)
 
 	table.insert(children, ui.row({ gap = 8 }, topButtons))
+
+	-- Inside a folder, edit mode always offers a way to drop a bookmark back
+	-- out to root - including when the folder is currently empty, so it
+	-- stays a valid drag target rather than disappearing along with the
+	-- "no bookmarks" message.
+	if currentFolder ~= nil and editMode then
+		table.insert(children, moveToRootDropBar())
+	end
 
 	if listError ~= nil then
 		table.insert(children, ui.label({ text = listError, color = "error", fontSize = 12 }))
@@ -1083,12 +1222,51 @@ end
 -- zone's `value`, N being the anchor row's index at render time.
 function onReorderEntry(payload, target)
 	local fromIndex = tonumber(payload)
-	local place, anchorText = target:match("^([^|]+)|(.+)$")
-	local anchorIndex = tonumber(anchorText)
-	if fromIndex == nil or anchorIndex == nil then
+	if fromIndex == nil then
+		return
+	end
+	local place, rest = target:match("^([^|]+)|(.+)$")
+	if place == nil then
 		return
 	end
 
+	-- "into|<folderIndex>": drop a bookmark from the root list onto a
+	-- folder row to file it inside, appended at the end of that folder's
+	-- items. Root-only (folders are only ever dragged/dropped at root).
+	if place == "into" then
+		if currentFolder ~= nil then
+			return
+		end
+		local folderIndex = tonumber(rest)
+		if folderIndex == nil then
+			return
+		end
+		local folder = bookmarks[folderIndex]
+		if folder == nil or entryType(folder) ~= "folder" then
+			return
+		end
+		folder.items = folder.items or {}
+		moveEntryAcross(bookmarks, fromIndex, folder.items)
+		render()
+		return
+	end
+
+	-- "out|root": drop a bookmark from inside the open folder back onto
+	-- root, appended at the end. Only meaningful while a folder is open.
+	if place == "out" then
+		if currentFolder == nil then
+			return
+		end
+		local list = activeList()
+		moveEntryAcross(list, fromIndex, bookmarks)
+		render()
+		return
+	end
+
+	local anchorIndex = tonumber(rest)
+	if anchorIndex == nil then
+		return
+	end
 	local beforeIndex = anchorIndex
 	if place == "after" then
 		beforeIndex = anchorIndex + 1
