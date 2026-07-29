@@ -43,7 +43,7 @@ Install via Noctalia Plugin Store.
 
 ## Dependencies
 
-None - self-contained.
+**xdg-open** 
 
 ## License
 
