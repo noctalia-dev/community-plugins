@@ -26,22 +26,29 @@ try:
     title_index = lines.index("### Plugin")
 except ValueError:
     print("No Plugin title found!")
-    sys.exit(1)
+    sys.exit(0)
 
 
 for i in range(title_index + 1, len(lines)):
     if lines[i]:
         break
 
-plugin = lines[i]
+plugin = lines[i].strip()
 plugin_split = plugin.split('/')
 
-if len(plugin_split) != 2:
+# The Plugin field is free text, so accept both the canonical "<author>/<plugin>" id and
+# a bare plugin name, and skip quietly on anything else instead of failing the run.
+if len(plugin_split) == 2:
+    plugin_name = plugin_split[1].strip()
+elif len(plugin_split) == 1:
+    plugin_name = plugin_split[0]
+else:
     print(f"Unknown format of plugin name, got {plugin}")
-    sys.exit(1)
+    sys.exit(0)
 
-
-plugin_name = plugin_split[1]
+if not plugin_name:
+    print("No plugin name given!")
+    sys.exit(0)
 
 manifest_file = f"{plugin_name}/plugin.toml"
 
@@ -56,7 +63,7 @@ if os.path.exists(manifest_file):
         sys.exit(1)
 else:
     print(f"Plugin manifest doesn't exist, {manifest_file}")
-    sys.exit(1)
+    sys.exit(0)
 
 
 if author:
