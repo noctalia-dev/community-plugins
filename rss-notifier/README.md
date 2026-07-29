@@ -1,3 +1,4 @@
+# RSS Utils
 
 Plugin para Noctalia que monitora feeds RSS e exibe notificações quando novos itens são encontrados.
 
@@ -47,7 +48,7 @@ As seguintes opções de configuração estão disponíveis para o plugin:
 ## Usage
 
 ### Abrindo o Painel
-Para abrir ou fechar o painel com a lista de itens do RSS Notifier, utilize o seguinte comando na barra de comandos do Noctalia:
+Para abrir ou fechar o painel com a lista de itens do RSS Utils, utilize o seguinte comando na barra de comandos do Noctalia:
 
 noctalia msg panel-toggle nilsonlinux/rss-notifier:list
 text
