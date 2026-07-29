@@ -1,0 +1,46 @@
+id           = "x0d7x/mangowm-status"
+name         = "Mangowm Status"
+version      = "1.1.0"
+plugin_api   = 4
+min_noctalia = "5.0.0"
+author       = "x0d7x"
+license      = "MIT"
+dependencies = ["mmsg"]
+icon         = "grid"
+description  = "Shows current tiling layout and keymode for Mangowm"
+description_key = "plugin.description"
+tags         = ["bar", "mangowm"]
+
+[[widget]]
+id    = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "hide_on_default"
+  type      = "bool"
+  label_key = "settings.hide_on_default.label"
+  description_key = "settings.hide_on_default.description"
+  default   = false
+
+  [[widget.setting]]
+  key       = "show_text"
+  type      = "bool"
+  label_key = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default   = true
+
+  [[widget.setting]]
+  key       = "notify_change"
+  type      = "bool"
+  label_key = "settings.notify_change.label"
+  description_key = "settings.notify_change.description"
+  default   = true
+
+# Layout picker panel — opens on click, shows all layouts to choose from
+[[panel]]
+id      = "layout-picker"
+entry   = "panel.luau"
+width   = 280
+height  = 400
+placement = "floating"
+position = "auto"
