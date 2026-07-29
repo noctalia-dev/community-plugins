@@ -3,10 +3,11 @@
 local SNAPSHOT = "battery.snapshot"
 local COMMAND = "battery.command"
 
-local POLL_MS = 5000 -- sysfs battery/threshold cadence
+local POLL_MS = 5000
 local PROBE_EVERY = 3 -- powerprofilesctl+upower round every Nth tick (~15s)
+local READ_TIMEOUT_MS = 4000
 local PROBE_TIMEOUT_MS = 5000
-local SEP = "__NBPM_SEP__" -- separates the two command outputs in one shell run
+local SEP = "__NBPM_SEP__" -- separates command outputs in one shell run
 
 local HAS_PPD = noctalia.commandExists("powerprofilesctl")
 local HAS_UPOWER = noctalia.commandExists("upower")
@@ -23,7 +24,8 @@ local snapshot = {
 }
 
 local tick = 0
-local probing = false -- true while a profile/eta subprocess round is in flight
+local reading = false -- sysfs read in flight
+local probing = false -- profile/eta round in flight
 
 local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
@@ -85,9 +87,8 @@ local function formatUpowerTime(value)
   return string.format("%dm", m)
 end
 
-local function pollBattery()
-  local content = noctalia.readFile(sysfsBase() .. "/uevent")
-  if not content then
+local function parseBattery(content)
+  if not content or content == "" then
     return
   end
   local cap = snapshot.percent
@@ -119,20 +120,39 @@ local function pollBattery()
   snapshot.watt = watt
 end
 
-local function pollThreshold()
-  local content = noctalia.readFile(sysfsBase() .. "/charge_control_end_threshold")
-  if content then
-    local v = tonumber(noctalia.string.trim(content))
-    if v and v >= 50 and v <= 100 then
-      snapshot.threshold = v
-      snapshot.hasThreshold = true
-      return
-    end
+local function parseThreshold(content)
+  local v = content and tonumber(noctalia.string.trim(content))
+  if v and v >= 50 and v <= 100 then
+    snapshot.threshold = v
+    snapshot.hasThreshold = true
+  else
+    snapshot.hasThreshold = false
   end
-  snapshot.hasThreshold = false
 end
 
--- Profile + ETA in one guarded shell call, so update() never overruns its budget.
+-- Read battery uevent + charge threshold asynchronously so update() never blocks
+-- on a slow sysfs/EC access.
+local function readSysfs()
+  if reading then
+    return
+  end
+  reading = true
+  local base = sysfsBase()
+  local cmd = "cat " .. shellQuote(base .. "/uevent") .. "; echo " .. SEP
+    .. "; cat " .. shellQuote(base .. "/charge_control_end_threshold") .. " 2>/dev/null"
+  local launched = noctalia.runAsync(cmd, function(res)
+    reading = false
+    local out = res.stdout or ""
+    local sepAt = out:find(SEP, 1, true)
+    parseBattery(sepAt and out:sub(1, sepAt - 1) or out)
+    parseThreshold(sepAt and out:sub(sepAt + #SEP) or "")
+    publish()
+  end, READ_TIMEOUT_MS)
+  if not launched then
+    reading = false
+  end
+end
+
 local function probeProfileAndEta()
   if probing or not (HAS_PPD or HAS_UPOWER) then
     return
@@ -205,7 +225,7 @@ noctalia.state.watch(COMMAND, function(cmd)
       return
     end
     v = math.max(50, math.min(100, math.floor(v + 0.5)))
-    snapshot.threshold = v -- optimistic; confirmed by pollThreshold
+    snapshot.threshold = v -- optimistic; confirmed by the next read
     publish()
     local path = sysfsBase() .. "/charge_control_end_threshold"
     noctalia.runAsync("echo " .. v .. " > " .. shellQuote(path), function(res)
@@ -216,36 +236,31 @@ noctalia.state.watch(COMMAND, function(cmd)
         )
         noctalia.log("threshold write failed: " .. (res.stderr or ""))
       end
-      pollThreshold()
-      publish()
+      readSysfs()
     end, PROBE_TIMEOUT_MS)
   end
 end)
 
 function update()
-  pollBattery()
-  pollThreshold()
+  readSysfs()
   if tick % PROBE_EVERY == 0 then
     probeProfileAndEta()
   end
   tick += 1
-  publish()
 end
 
 function onConfigChanged()
   -- battery_device may have changed; re-read now.
   tick = 0
+  reading = false
   probing = false
-  pollBattery()
-  pollThreshold()
+  readSysfs()
   probeProfileAndEta()
-  publish()
 end
 
 noctalia.setUpdateInterval(POLL_MS)
 
--- Seed state before the first tick.
-pollBattery()
-pollThreshold()
-probeProfileAndEta()
+-- Seed state before the first async read completes.
 publish()
+readSysfs()
+probeProfileAndEta()
