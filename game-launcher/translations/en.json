@@ -5,6 +5,15 @@
     },
     "steampoacher_enabled": {
       "label": "Steampoacher proxy for covers"
+    },
+    "steam_enabled": {
+      "label": "Show Steam games"
+    },
+    "heroic_enabled": {
+      "label": "Show Heroic games"
+    },
+    "lutris_enabled": {
+      "label": "Show Lutris games"
     }
   }
 }

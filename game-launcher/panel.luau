@@ -6,6 +6,8 @@ local errorMsg = ""
 local scanCounter = 0
 local building = false
 local initOk = true
+local selectedIndex = 0
+local WINDOW_SIZE = 4
 
 local steamCoverDir = ""
 local heroicCoverDir = ""
@@ -46,6 +48,16 @@ local function isValidProtocol(cmd)
   return false
 end
 
+local function isRunnerEnabled(runner)
+  local ok, val = pcall(noctalia.getConfig, runner .. "_enabled")
+  if ok then return val == true or val == "true" end
+  return true
+end
+
+local function filterByRunner(g)
+  return isRunnerEnabled(g.runner)
+end
+
 local function launchGame(id)
   for _, g in ipairs(filtered) do
     if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
@@ -56,13 +68,17 @@ local function launchGame(id)
 end
 
 local function filterGames(text)
+  local pool = {}
+  for _, g in ipairs(games) do
+    if filterByRunner(g) then table.insert(pool, g) end
+  end
   if text == "" then
-    filtered = games
+    filtered = pool
     return
   end
   local lower = text:lower()
   local result = {}
-  for _, g in ipairs(games) do
+  for _, g in ipairs(pool) do
     if g.name:lower():find(lower, 1, true) or g.runner:lower():find(lower, 1, true) then
       table.insert(result, g)
     end
@@ -237,6 +253,7 @@ end
 
 local function renderGameRow(g, index)
   local meta = runnerMeta[g.runner] or { glyph = "app-window", color = "on_surface_variant" }
+  local isSelected = (index - 1) == selectedIndex
   local cp = (g.cover and #g.cover > 0) and g.cover or nil
   if not cp then
     if g.runner == "steam" then
@@ -251,15 +268,7 @@ local function renderGameRow(g, index)
   else
     coverWidget = ui.box({ width = 56, height = 80, radius = 6, fill = "surface_variant" })
   end
-  return ui.row({
-    key = g.id .. "_" .. index,
-    align = "center",
-    gap = 14,
-    paddingH = 12,
-    paddingV = 8,
-    radius = 8,
-    border = 0,
-  }, {
+  local children = {
     coverWidget,
     ui.column({ flexGrow = 1, gap = 4 }, {
       ui.label({ text = g.name, fontWeight = "bold", fontSize = 14, maxLines = 1 }),
@@ -274,13 +283,40 @@ local function renderGameRow(g, index)
       variant = "primary",
       onClick = function() launchGame(g.id) end,
     }),
-  })
+  }
+  if isSelected then
+    table.insert(children, 1, ui.box({ width = 2, height = 60, radius = 1, fill = "primary" }))
+    return ui.row({
+      key = g.id .. "_sel_" .. index,
+      align = "center",
+      gap = 14,
+      paddingH = 12,
+      paddingV = 8,
+      radius = 8,
+    }, children)
+  end
+  return ui.row({
+    key = g.id .. "_" .. index,
+    align = "center",
+    gap = 14,
+    paddingH = 12,
+    paddingV = 8,
+    radius = 8,
+  }, children)
 end
 
 local function renderGameList()
   local rows = {}
-  for i, g in ipairs(filtered) do
-    table.insert(rows, renderGameRow(g, i))
+  local total = #filtered
+  if total == 0 then return rows end
+  local half = math.floor(WINDOW_SIZE / 2)
+  local start = math.max(1, selectedIndex + 1 - half)
+  if start + WINDOW_SIZE > total then
+    start = math.max(1, total - WINDOW_SIZE + 1)
+  end
+  local endIdx = math.min(total, start + WINDOW_SIZE - 1)
+  for i = start, endIdx do
+    table.insert(rows, renderGameRow(filtered[i], i))
   end
   return rows
 end
@@ -307,12 +343,12 @@ end
 
 local function render()
   local ok, err = pcall(function()
-    panel.render(ui.column({ flexGrow = 1, gap = 8 }, {
-      ui.column({ padding = 12, gap = 8 }, {
+    panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 12 }, {
+      ui.column({ gap = 8 }, {
         renderHeader(),
         renderSearchBar(),
       }),
-      ui.scroll({ flexGrow = 1, gap = 6, paddingH = 12 }, renderBody(renderGameList())),
+      ui.column({ flexGrow = 1, gap = 6 }, renderBody(renderGameList())),
     }))
   end)
   if not ok then
@@ -357,7 +393,11 @@ local function scanGames()
   scanCounter = scanCounter + 1
   searchText = ""
   render()
-  local ok = noctalia.runAsync(binary .. " --steam --lutris --heroic --force", function(res)
+  local flags = ""
+  if isRunnerEnabled("steam") then flags = flags .. " --steam" end
+  if isRunnerEnabled("lutris") then flags = flags .. " --lutris" end
+  if isRunnerEnabled("heroic") then flags = flags .. " --heroic" end
+  local ok = noctalia.runAsync(binary .. flags .. " --force", function(res)
     local ok3, err3 = pcall(function()
       loading = false
       if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
@@ -377,13 +417,15 @@ local function scanGames()
         end
         games = {}
       end
-      filtered = games
+      selectedIndex = 0
+      filterGames(searchText)
     end)
     if not ok3 then
       loading = false
       errorMsg = "Scan error: " .. tostring(err3)
       games = {}
       filtered = games
+      selectedIndex = 0
       noctalia.log("scan callback error: " .. tostring(err3))
     end
     render()
@@ -397,18 +439,10 @@ end
 
 
 function onOpen(context)
-  if #games == 0 then
-    scanGames()
-    return
-  end
-  for _, g in ipairs(games) do
-    if (g.runner == "steam" or g.runner == "heroic") and (not g.cover or #g.cover == 0) then
-      scanGames()
-      return
-    end
-  end
-  filtered = games
+  selectedIndex = 0
+  filterGames(searchText)
   render()
+  scanGames()
 end
 
 function onClose()
@@ -421,6 +455,28 @@ end
 
 function onSearch(value)
   searchText = value or ""
+  selectedIndex = 0
   filterGames(searchText)
   render()
+end
+
+function onKey(chord, pressed)
+  if not pressed then return end
+  if chord == "Up" then
+    if #filtered > 0 then
+      selectedIndex = selectedIndex - 1
+      if selectedIndex < 0 then selectedIndex = #filtered - 1 end
+      render()
+    end
+  elseif chord == "Down" then
+    if #filtered > 0 then
+      selectedIndex = selectedIndex + 1
+      if selectedIndex >= #filtered then selectedIndex = 0 end
+      render()
+    end
+  elseif chord == "Return" then
+    if #filtered > 0 and selectedIndex >= 0 and selectedIndex < #filtered then
+      launchGame(filtered[selectedIndex + 1].id)
+    end
+  end
 end
