@@ -2,14 +2,12 @@ id           = "x0d7x/mangowm-status"
 name         = "Mangowm Status"
 version      = "1.1.0"
 plugin_api   = 4
-min_noctalia = "5.0.0"
 author       = "x0d7x"
 license      = "MIT"
 dependencies = ["mmsg"]
 icon         = "grid"
 description  = "Shows current tiling layout and keymode for Mangowm"
-description_key = "plugin.description"
-tags         = ["bar", "mangowm"]
+tags         = ["bar", "mangowc"]
 
 [[widget]]
 id    = "status"
