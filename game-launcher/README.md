@@ -47,6 +47,9 @@ From the launcher, type `/g` followed by a game name to search. Activate a resul
 | --- | --- | --- | --- |
 | `glyph` | `glyph` | `device-gamepad-2` | Bar widget icon |
 | `steampoacher_enabled` | `bool` | `false` | Enable steampoacher proxy for Steam cover art |
+| `steam_enabled` | `bool` | `true` | Show Steam games |
+| `heroic_enabled` | `bool` | `true` | Show Heroic games |
+| `lutris_enabled` | `bool` | `true` | Show Lutris games |
 
 ## Security & Data Flow
 
