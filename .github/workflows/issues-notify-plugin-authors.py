@@ -22,7 +22,13 @@ issue = repo.get_issue(issue_number)
 body = issue.body
 lines = body.splitlines()
 
-title_index = lines.index("### Plugin")
+try:
+    title_index = lines.index("### Plugin")
+except ValueError:
+    print("No Plugin title found!")
+    sys.exit(1)
+
+
 for i in range(title_index + 1, len(lines)):
     if lines[i]:
         break
