@@ -32,7 +32,7 @@ Install via Noctalia Plugin Store.
 
 ## Requirements
 
-- **xdg-open** - Required to open feed URLs in your default web browser. Usually pre-installed on most Linux distributions.
+- `xdg-open` - Required to open feed URLs in your default web browser. Usually pre-installed on most Linux distributions.
 
 ## Usage
 
