@@ -1,0 +1,28 @@
+name: Notify Plugin Authors for Pull Requests
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  notify-plugin-authors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: 3.14
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Notify Authors
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 .github/workflows/pr-notify-plugin-authors.py
