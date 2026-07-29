@@ -6,6 +6,14 @@
     "not_charging": "Non in carica",
     "unknown": "Sconosciuto"
   },
+  "tooltip": {
+    "level": "Livello",
+    "status": "Stato",
+    "power": "Potenza",
+    "remaining": "Rimanente",
+    "to_full": "Alla carica",
+    "profile": "Profilo"
+  },
   "panel": {
     "power_profile": "Profilo energetico",
     "charge_threshold": "Limite di carica",
