@@ -5,16 +5,17 @@ attaching the sessions.
 
 ## Plugin
 
-| Field           | Value                    |
-| --------------- | ------------------------ |
-| ID              | `dunarand/tmux-provider` |
-| Launcher Prefix | `/tm`                    |
+| Field           | Value                         |
+| --------------- | ----------------------------- |
+| ID              | `dunarand/tmux-provider`      |
+| Entry           | Launcher provider: `provider` |
+| Launcher Prefix | `/tm`                         |
 
 ## Requirements
 
 - Noctalia v5.0.0 or higher
-- Requires [tmux](https://github.com/tmux/tmux/wiki/installing)
-- Optionally, [install tmuxp](https://tmuxp.git-pull.com/)
+- Requires `tmux`: [Install tmux](https://github.com/tmux/tmux/wiki/installing)
+- `tmuxp`: Optional dependency, [install tmuxp](https://tmuxp.git-pull.com/)
 
 tmuxp is completely optional. If you want tmuxp configurations to be included in the search, enable
 tmuxp option in the plugin settings.
@@ -53,5 +54,6 @@ session.
     ```
     tmuxp load <session>
     ```
+
 - The current implementation only utilizes tmuxp. Other tmux configuration tools such as tmuxinator
   will be added in the future.
