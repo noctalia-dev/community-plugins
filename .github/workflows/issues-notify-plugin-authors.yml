@@ -11,6 +11,7 @@ permissions:
 jobs:
   notify-plugin-authors:
     runs-on: ubuntu-latest
+    if: github.repository == 'noctalia-dev/community-plugins'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
