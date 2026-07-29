@@ -53,7 +53,7 @@ if not plugin_name:
 
 title = issue.title
 
-if plugin_name in title:
+if title.startswith(f"[{plugin_name}]"):
     print("Plugin name already exists in the title of the issue.")
     sys.exit(0)
 
