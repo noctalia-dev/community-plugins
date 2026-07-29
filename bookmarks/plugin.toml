@@ -1,13 +1,13 @@
 id           = "dunarand/bookmarks"
 name         = "Bookmarks"
-version      = "1.1.0"
+version      = "1.2.1"
 plugin_api   = 13
 author       = "dunarand"
 license      = "MIT"
 icon         = "bookmark"
 description  = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
 tags         = ["launcher", "panel", "productivity", "utility"]
-dependencies = []
+dependencies = ["nohup"]
 
 [[setting]]
 key             = "data_path"
