@@ -32,20 +32,26 @@ local function loadState()
   if not dir then
     return
   end
-  dataPath = dir .. "/seen.json"
+  dataPath = dir .. "/state.json"
 
   local raw = noctalia.readFile(dataPath)
   if raw then
-    local decoded = noctalia.json.decode(raw)
-    if type(decoded) == "table" then
-      seen = decoded
+    local ok, decoded = pcall(noctalia.json.decode, raw)
+    if ok and type(decoded) == "table" then
+      seen        = decoded.seen or {}
+      recentItems = decoded.recentItems or {}
+      unread      = decoded.unread or 0
     end
   end
 end
 
 local function saveState()
   if dataPath then
-    noctalia.writeFile(dataPath, noctalia.json.encode(seen))
+    noctalia.writeFile(dataPath, noctalia.json.encode({
+      seen        = seen,
+      recentItems = recentItems,
+      unread      = unread,
+    }))
   end
 end
 
@@ -334,5 +340,13 @@ function onIpc(_event, payload)
   elseif _event == "mark-read" then
     unread = 0
     noctalia.state.set("unread", 0)
+  elseif _event == "dismiss" and payload then
+    for i, item in ipairs(recentItems) do
+      if item.id == payload then
+        table.remove(recentItems, i)
+        break
+      end
+    end
+    noctalia.state.set("items", noctalia.json.encode(recentItems))
   end
 end
