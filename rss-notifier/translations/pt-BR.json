@@ -1,0 +1,20 @@
+{
+    "settings": {
+        "feed_urls": {
+            "label": "URLs dos Feeds",
+            "description": "Lista de URLs de feeds RSS/Atom para monitorar (por linha)."
+        },
+        "refresh_minutes": {
+            "label": "Intervalo de atualização",
+            "description": "Com que frequência verificar novos itens (em minutos)."
+        },
+        "notify_new": {
+            "label": "Notificar novos itens",
+            "description": "Mostrar notificação para cada novo item encontrado."
+        },
+        "max_notifications_per_cycle": {
+            "label": "Máximo de notificações",
+            "description": "Limitar o número de notificações enviadas em um único ciclo."
+        }
+    }
+}
