@@ -76,8 +76,9 @@ end
 -- Fuzzy-searches bookmark labels only (not commands, not folder names)
 -- across root and every folder's contents, using Noctalia's native
 -- matcher. Returns results sorted best-match-first, each as
--- { entry, path, folderIndex, index }, where folderIndex/index locate the
--- entry for running/editing it (folderIndex = nil for root entries).
+-- { entry, path }, where path is the containing folder's label (nil for
+-- root entries). Search results are only ever run, never edited in place,
+-- so no index back into `bookmarks` is kept.
 local function searchBookmarks(query)
 	local trimmed = noctalia.string.trim(query)
 	if trimmed == "" then
@@ -85,32 +86,23 @@ local function searchBookmarks(query)
 	end
 
 	local results = {}
-	for index, entry in ipairs(bookmarks) do
+	for _, entry in ipairs(bookmarks) do
 		if entryType(entry) == "folder" then
-			for subIndex, subEntry in ipairs(entry.items or {}) do
+			for _, subEntry in ipairs(entry.items or {}) do
 				if entryType(subEntry) ~= "folder" then
 					local score = noctalia.fuzzyScore(trimmed, subEntry.label or "")
 					if score ~= nil then
-						table.insert(results, {
-							entry = subEntry,
-							path = entry.label or "",
-							folderIndex = index,
-							index = subIndex,
-							score = score,
-						})
+						table.insert(
+							results,
+							{ entry = subEntry, path = entry.label or "", score = score }
+						)
 					end
 				end
 			end
 		else
 			local score = noctalia.fuzzyScore(trimmed, entry.label or "")
 			if score ~= nil then
-				table.insert(results, {
-					entry = entry,
-					path = nil,
-					folderIndex = nil,
-					index = index,
-					score = score,
-				})
+				table.insert(results, { entry = entry, path = nil, score = score })
 			end
 		end
 	end
@@ -162,6 +154,25 @@ local function saveBookmarks()
 	return true, nil
 end
 
+local function snapshotArray(list)
+	local copy = {}
+	for i, v in ipairs(list) do
+		copy[i] = v
+	end
+	return copy
+end
+
+-- Replaces `list`'s contents in place with `snapshot`'s, used to roll back
+-- a move when saveBookmarks() fails partway through.
+local function restoreArray(list, snapshot)
+	for i = #list, 1, -1 do
+		list[i] = nil
+	end
+	for i, v in ipairs(snapshot) do
+		list[i] = v
+	end
+end
+
 -- Moves the entry currently at `fromIndex` so it sits immediately before
 -- `beforeIndex` (both 1-based, referring to positions in `list` before the
 -- move). `beforeIndex == #list + 1` means "move to the end". No-ops for a
@@ -176,10 +187,7 @@ local function moveEntryTo(list, fromIndex, beforeIndex)
 		return
 	end
 
-	local snapshot = {}
-	for i, v in ipairs(list) do
-		snapshot[i] = v
-	end
+	local snapshot = snapshotArray(list)
 
 	local moved = table.remove(list, fromIndex)
 	local insertAt = beforeIndex
@@ -190,12 +198,7 @@ local function moveEntryTo(list, fromIndex, beforeIndex)
 
 	local ok, err = saveBookmarks()
 	if not ok then
-		for i = #list, 1, -1 do
-			list[i] = nil
-		end
-		for i, v in ipairs(snapshot) do
-			list[i] = v
-		end
+		restoreArray(list, snapshot)
 		noctalia.notifyError(
 			noctalia.tr("title"),
 			noctalia.tr("err_reorder_failed", { error = err })
@@ -213,31 +216,16 @@ local function moveEntryAcross(fromList, fromIndex, toList)
 		return false
 	end
 
-	local fromSnapshot, toSnapshot = {}, {}
-	for i, v in ipairs(fromList) do
-		fromSnapshot[i] = v
-	end
-	for i, v in ipairs(toList) do
-		toSnapshot[i] = v
-	end
+	local fromSnapshot = snapshotArray(fromList)
+	local toSnapshot = snapshotArray(toList)
 
 	table.remove(fromList, fromIndex)
 	table.insert(toList, entry)
 
 	local ok, err = saveBookmarks()
 	if not ok then
-		for i = #fromList, 1, -1 do
-			fromList[i] = nil
-		end
-		for i, v in ipairs(fromSnapshot) do
-			fromList[i] = v
-		end
-		for i = #toList, 1, -1 do
-			toList[i] = nil
-		end
-		for i, v in ipairs(toSnapshot) do
-			toList[i] = v
-		end
+		restoreArray(fromList, fromSnapshot)
+		restoreArray(toList, toSnapshot)
 		noctalia.notifyError(
 			noctalia.tr("title"),
 			noctalia.tr("err_reorder_failed", { error = err })
@@ -291,6 +279,15 @@ local function runBookmark(entry)
 			noctalia.tr("err_launch_failed", { label = label })
 		)
 	end
+end
+
+-- Runs a bookmark and closes the panel, the standard "user picked a
+-- bookmark" action shared by every activation path (rows, search results,
+-- keyboard Enter).
+local function runAndClose(entry)
+	runBookmark(entry)
+	onClose()
+	panel.close()
 end
 
 -- Thin insertion-point drop zone rendered between rows (and before the
@@ -393,17 +390,13 @@ local function activateRow(row)
 		return
 	end
 	if row.kind == "search" then
-		runBookmark(row.result.entry)
-		onClose()
-		panel.close()
+		runAndClose(row.result.entry)
 		return
 	end
 	if entryType(row.entry) == "folder" then
 		_onOpenFolder(row.index)
 	else
-		runBookmark(row.entry)
-		onClose()
-		panel.close()
+		runAndClose(row.entry)
 	end
 end
 
@@ -472,9 +465,7 @@ local function entryRow(entry, index)
 		if isFolder then
 			_onOpenFolder(index)
 		else
-			runBookmark(entry)
-			onClose()
-			panel.close()
+			runAndClose(entry)
 		end
 	end
 
@@ -578,9 +569,7 @@ local function searchResultRow(result, rowIndex)
 	local entry = result.entry
 	local isSelected = selectedIndex == rowIndex
 	local runEntry = function()
-		runBookmark(entry)
-		onClose()
-		panel.close()
+		runAndClose(entry)
 	end
 
 	local children = {
