@@ -55,22 +55,21 @@ local function parseSshConfig(content)
 	for line in content:gmatch("[^\r\n]+") do
 		local trimmed = trim(line)
 		if trimmed ~= "" and not trimmed:match("^#") then
-			local hostLine = trimmed:match("^Host%s+(.+)$")
-			if hostLine then
-				flushBlock()
-				current = { aliases = {}, hostname = nil, user = nil }
-				for alias in hostLine:gmatch("%S+") do
-					if isValidHostAlias(alias) then
-						table.insert(current.aliases, alias)
+			local key, value = trimmed:match("^(%S+)%s+(.+)$")
+			if key and value then
+				key = key:lower()
+				if key == "host" then
+					flushBlock()
+					current = { aliases = {}, hostname = nil, user = nil }
+					for alias in value:gmatch("%S+") do
+						if isValidHostAlias(alias) then
+							table.insert(current.aliases, alias)
+						end
 					end
-				end
-			elseif current then
-				local key, value = trimmed:match("^(%S+)%s+(.+)$")
-				if key and value then
-					local normalized = key:lower()
-					if normalized == "hostname" then
+				elseif current then
+					if key == "hostname" then
 						current.hostname = trim(value)
-					elseif normalized == "user" then
+					elseif key == "user" then
 						current.user = trim(value)
 					end
 				end
