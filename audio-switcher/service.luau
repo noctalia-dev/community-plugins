@@ -503,12 +503,11 @@ local function loadCurrentVolume(kind, callback)
   local target = kind == "output" and "@DEFAULT_SINK@" or "@DEFAULT_SOURCE@"
   local volumeCommand = kind == "output" and "get-sink-volume" or "get-source-volume"
   local muteCommand = kind == "output" and "get-sink-mute" or "get-source-mute"
-  runPactl({ "-f", "json", volumeCommand, target }, function(volumeResult)
-    if volumeResult.exitCode ~= 0 then
+  runPactl({ "-f", "json", volumeCommand, target }, function(volumeData)
+    if volumeData.exitCode ~= 0 then
       callback(false)
       return
     end
-    local volumeData = decodeJson(volumeResult.stdout)
     if volumeData == nil or type(volumeData.volume) ~= "table" then
       callback(false)
       return
