@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "cmdline": {
+      "description": "命令应该生成一个时钟图片文件。`%output_file`将被替换为图片文件路径。`%H`, `%M`等将被替换为当前小时、分钟等。全部可用的时间格式请参阅`man strftime`。",
+      "label": "命令行"
+    },
+    "image_height": {
+      "description": "时钟图片在显示器上按逻辑像素计算的高度。（不是图片文件自身高度）",
+      "label": "图片高度"
+    },
+    "image_width": {
+      "description": "时钟图片在显示器上按逻辑像素计算的宽度。（不是图片文件自身宽度）",
+      "label": "图片宽度"
+    }
+  }
+}

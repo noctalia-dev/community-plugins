@@ -1,13 +1,13 @@
 id           = "damian-ds7/battery-threshold"
 name         = "Battery Threshold Control"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 3
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
 license      = "MIT"
 icon         = "battery-eco"
 tags         = ["hardware", "system", "utility", "bar", "panel"]
-dependencies = ["test", "pkexec", "bash", "cat", "getent", "groupadd", "usermod", "udevadm", "chgrp", "chmod"]
+dependencies = ["test", "sudo", "bash", "readlink", "cat", "getent", "groupadd", "usermod", "udevadm", "chgrp", "chmod"]
 
 [[service]]
 id    = "service"

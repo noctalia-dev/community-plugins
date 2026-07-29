@@ -1,6 +1,6 @@
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 9
 author = "blackbartblues"
 license = "MIT"
@@ -14,6 +14,20 @@ key = "show_percentage"
 type = "bool"
 label_key = "settings.show_percentage.label"
 description_key = "settings.show_percentage.description"
+default = true
+
+[[setting]]
+key = "show_notification_on_switch"
+type = "bool"
+label_key = "settings.show_notification_on_switch.label"
+description_key = "settings.show_notification_on_switch.description"
+default = true
+
+[[setting]]
+key = "show_actions_in_tooltip"
+type = "bool"
+label_key = "settings.show_actions_in_tooltip.label"
+description_key = "settings.show_actions_in_tooltip.description"
 default = true
 
 [[setting]]

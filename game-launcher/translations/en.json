@@ -3,6 +3,15 @@
     "glyph": {
       "label": "Icon"
     },
+    "heroic_enabled": {
+      "label": "Show Heroic games"
+    },
+    "lutris_enabled": {
+      "label": "Show Lutris games"
+    },
+    "steam_enabled": {
+      "label": "Show Steam games"
+    },
     "steampoacher_enabled": {
       "label": "Steampoacher proxy for covers"
     }

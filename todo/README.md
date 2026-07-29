@@ -33,6 +33,14 @@ noctalia msg panel-toggle nightwatch75/todo:panel
 | **Enter**, or ✓ (row)         | Commit the edit — the row goes back to a static line |
 | ☐ / ☑ button (row)            | Toggle done/to-do (done tasks are struck through)   |
 | 🗑 button (row)                | Delete the task                                     |
+| ⚙ button (panel header)       | Open this plugin's page in *Settings → Plugins*     |
+
+That settings page also opens from the command line, so it can be bound in your
+compositor too:
+
+```sh
+noctalia msg settings-open-plugin nightwatch75/todo
+```
 
 ## Priorities
 
@@ -79,6 +87,10 @@ close.
 Tick a task (☐ → ☑) to complete it — its text is struck through until you
 un-tick it. The bar glyph's tooltip shows how many tasks are still to do.
 
+A task longer than the row wraps onto further lines and the row grows to fit,
+so the whole text stays readable and never runs under the buttons on the
+right.
+
 ## Storage
 
 Tasks live in one file, `todo.json`, inside the configured **To Do folder**
@@ -111,7 +123,9 @@ noctalia msg plugins enable nightwatch75/todo
 
 ## Requirements
 
-- noctalia with plugin API ≥ 5 (declarative drag-and-drop)
+- noctalia v5.0.0-beta.6 or newer — the first tagged release that accepts
+  `plugin_api = 15` (`noctalia.openSettings()`, the panel's ⚙ button;
+  declarative drag-and-drop needs 5)
 - No external dependencies
 
 ## License

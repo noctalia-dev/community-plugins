@@ -3,9 +3,23 @@ local ready = false
 local binary = noctalia.pluginDir() .. "/gamelauncher"
 local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
 
+local function isRunnerEnabled(runner)
+  local ok, val = pcall(noctalia.getConfig, runner .. "_enabled")
+  if ok then return val == true or val == "true" end
+  return true
+end
+
+local function getRunnerFlags()
+  local flags = ""
+  if isRunnerEnabled("steam") then flags = flags .. " --steam" end
+  if isRunnerEnabled("lutris") then flags = flags .. " --lutris" end
+  if isRunnerEnabled("heroic") then flags = flags .. " --heroic" end
+  return flags
+end
+
 local function ensureGames(cb)
   local function runScan()
-    local ok = noctalia.runAsync(binary .. " --steam --lutris --heroic --force", function(res)
+    local ok = noctalia.runAsync(binary .. getRunnerFlags() .. " --force", function(res)
       if res.exitCode == 0 and res.stdout and #res.stdout > 0 then
         local parsed, err = noctalia.json.decode(res.stdout)
         if parsed then
@@ -46,7 +60,7 @@ function onQuery(text)
     local lower = text:lower()
     local results = {}
     for _, g in ipairs(games) do
-      if g.name:lower():find(lower, 1, true) then
+      if g.name:lower():find(lower, 1, true) and isRunnerEnabled(g.runner) then
         local meta = { steam = { glyph = "brand-steam", color = "steam" }, lutris = { glyph = "device-gamepad", color = "warning" }, heroic = { glyph = "app-window", color = "heroic" } }
         local m = meta[g.runner] or { glyph = "app-window", color = "on_surface" }
         table.insert(results, {

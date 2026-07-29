@@ -85,6 +85,14 @@
       "description": "How many percentage points each mouse-wheel step changes volume on the bar widget.",
       "label": "Scroll step"
     },
+    "show_actions_in_tooltip": {
+      "description": "Show actions in tooltip.",
+      "label": "Show actions in tooltip"
+    },
+    "show_notification_on_switch": {
+      "description": "Show a notification when switching device.",
+      "label": "Show notification on switch"
+    },
     "show_percentage": {
       "description": "Show the current output volume percentage next to the bar icon. Disable it to show only the icon.",
       "label": "Show percentage"
@@ -96,6 +104,26 @@
   },
   "title": "Audio Switcher",
   "widget": {
+    "action": {
+      "left_click": {
+        "description": "Open Audio Switcher",
+        "key": "Left click"
+      },
+      "middle_click": {
+        "description": "Cycle visible inputs",
+        "key": "Middle click"
+      },
+      "right_click": {
+        "description": "Cycle visible outputs",
+        "key": "Right click"
+      },
+      "scroll": {
+        "description": "Change output volume",
+        "key": "Scroll"
+      }
+    },
+    "input": "Input",
+    "output": "Output",
     "tooltip": "Output: {output} ({output_volume})\nInput: {input} ({input_volume})\nScroll: change output volume\nLeft click: open Audio Switcher\nRight click: cycle outputs\nMiddle click: cycle inputs"
   }
 }

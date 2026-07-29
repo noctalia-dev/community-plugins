@@ -49,6 +49,8 @@ Use the settings button in the panel header to open Noctalia's plugin settings.
 | Entry | Setting | Type | Default | Description |
 | --- | --- | --- | --- | --- |
 | Plugin | `show_percentage` | `bool` | `true` | Show the output volume beside the bar icon; disable it for an icon-only widget. |
+| Plugin | `show_notification_on_switch` | `bool` | `true` | Show a notification when switching device. |
+| Plugin | `show_actions_in_tooltip` | `bool` | `true` | Show actions in tooltip. |
 | Plugin | `scroll_step` | `int` | `5` | Volume points changed by each wheel step over the bar widget (1–25). |
 
 ## IPC and keybinds

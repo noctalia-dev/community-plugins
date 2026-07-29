@@ -41,6 +41,7 @@
     "action_pause": "pause the collector",
     "action_remove": "remove the collector",
     "action_start": "start the collector",
+    "authorization_required": "Polkit (pkexec) is required for the collector lifecycle action. Install your distribution's polkit package.",
     "basic_features": "Drive discovery, mounted folders, storage use, and temperatures exposed by Linux.",
     "basic_title": "Basic monitoring — no elevated service",
     "copy_install": "Copy command",

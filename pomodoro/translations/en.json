@@ -35,6 +35,20 @@
       "description": "Duration of short breaks in minutes",
       "label": "Short Break Duration"
     },
+    "widget": {
+      "glyph-break": {
+        "description": "Name of the icon that appears during a break.",
+        "label": "Break Icon"
+      },
+      "glyph-main": {
+        "description": "Name of the icon that appears when idle.",
+        "label": "Main Icon"
+      },
+      "glyph-work": {
+        "description": "Name of the icon that appears when working.",
+        "label": "Work Icon"
+      }
+    },
     "work-duration": {
       "description": "Duration of each work session in minutes",
       "label": "Work Duration"

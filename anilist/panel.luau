@@ -220,11 +220,20 @@ local function filterButton(key, label, filter)
   })
 end
 
+local function settingsButton()
+  return ui.button({
+    glyph = "settings",
+    variant = "ghost",
+    tooltip = tr("settings"),
+    onClick = noctalia.openSettings,
+  })
+end
+
 local function renderLogin()
   local children = {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.label({ text = tr("login_title"), fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
-      ui.button({ glyph = "settings", variant = "ghost", tooltip = tr("settings"), onClick = "onOpenSettings" }),
+      settingsButton(),
       ui.button({ glyph = "close", variant = "ghost", tooltip = tr("close"), onClick = "onClosePanel" }),
     }),
     ui.label({ text = tr("login_help"), fontSize = 12, color = "on_surface_variant", maxLines = 8 }),
@@ -530,7 +539,7 @@ local function renderLibrary()
 
   table.insert(children, ui.row({ align = "center", justify = "space_between", gap = 8 }, {
     ui.column({ gap = 2, flexGrow = 1 }, headerChildren),
-    ui.button({ glyph = "settings", variant = "ghost", tooltip = tr("settings"), onClick = "onOpenSettings" }),
+    settingsButton(),
     ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("refresh"), onClick = "onRefresh" }),
     ui.button({ glyph = "logout", variant = "ghost", tooltip = tr("logout"), onClick = "onLogout" }),
     ui.button({ glyph = "close", variant = "ghost", tooltip = tr("close"), onClick = "onClosePanel" }),
@@ -682,10 +691,6 @@ function onDownloadCoverPreview()
 end
 
 function onNoop() end
-
-function onOpenSettings()
-  noctalia.runAsync("noctalia msg settings-open plugins")
-end
 
 function onConnect()
   sendCommand("start_oauth")

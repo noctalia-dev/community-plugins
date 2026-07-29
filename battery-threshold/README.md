@@ -13,12 +13,10 @@ while plugged in, reducing battery wear and heat.
 
 ## Requirements
 
-- `polkit` - required for interactive setup
 - Laptop hardware supporting battery charge threshold control in sysfs
   (`/sys/class/power_supply/*/charge_control_end_threshold`).
-- The following external programs must be available on `PATH`: `test`, `pkexec`,
-  `bash`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and
-  `chmod`.
+- The following external programs must be available on `PATH`: `test`, `sudo`,
+  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and `chmod`.
 
 ## Usage
 
@@ -60,4 +58,4 @@ noctalia msg plugin damian-ds7/battery-threshold:service all setup
 - **Manual Setup Fallback**: If Polkit is not available, run
   `sudo ./setup_rules.sh` manually from the plugin directory.
 - **Persistence**: Threshold settings are stored in `threshold.txt` in plugin
-  directory and restored across reboots.
+  data directory and restored across reboots.

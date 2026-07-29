@@ -8,22 +8,64 @@
 # It creates a group 'battery_ctl' and adds the target user to this group.
 #
 # Usage:
-#  $ sudo ./setup_rules.sh        # uses SUDO_USER (with sudo)
-#  $ ./setup_rules.sh username    # use provided username (if ran as root)
+#  $ ./setup_rules.sh [username] [--non-interactive|-y]
 # ------------------------------
 set -e
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-  echo "Error: This script must be run as root (use sudo)"
-  exit 1
+SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+
+TARGET_USER=""
+SKIP_PROMPT=false
+
+for arg in "$@"; do
+  case "$arg" in
+  -y | --non-interactive)
+    SKIP_PROMPT=true
+    ;;
+  -*)
+    ;;
+  *)
+    if [ -z "$TARGET_USER" ]; then
+      TARGET_USER="$arg"
+    fi
+    ;;
+  esac
+done
+
+TARGET_USER="${TARGET_USER:-${SUDO_USER:-$USER}}"
+
+if [ "$SKIP_PROMPT" = false ]; then
+  echo "===================================================="
+  echo " Battery Threshold Udev Setup"
+  echo "===================================================="
+  echo "Script location: $SCRIPT_PATH"
+  echo "Target user:     $TARGET_USER"
+  echo ""
+  echo "Please examine the script location and contents above before proceeding."
+  echo ""
+
+  read -rp "Do you want to proceed with setup? (y/N): " CONFIRM
+  case "$CONFIRM" in
+  [yY][eE][sS] | [yY])
+    ;;
+  *)
+    echo "Setup cancelled by user."
+    read -rp "Press Enter to exit..."
+    exit 1
+    ;;
+  esac
 fi
 
-# Determine target user
-TARGET_USER=${SUDO_USER:-$1}
+# Escalate privileges via sudo only after user confirmation
+if [ "$EUID" -ne 0 ]; then
+  echo ""
+  echo "Escalating privileges via sudo..."
+  exec sudo bash "$SCRIPT_PATH" "$TARGET_USER" --non-interactive
+fi
 
 if [ -z "$TARGET_USER" ]; then
   echo "Error: No target user specified." >&2
+  read -rp "Press Enter to exit..."
   exit 1
 fi
 
@@ -50,5 +92,8 @@ echo "Reloading rules..."
 
 udevadm control --reload-rules && udevadm trigger
 
-echo "You may need a reboot for the plugin's write access to take effect"
+echo ""
+echo "You may need a reboot for the plugin's write access to take effect."
 echo "Done!"
+echo ""
+read -rp "Press Enter to exit..."

@@ -1,7 +1,7 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.0.1"
-plugin_api = 9
+version = "1.1.0"
+plugin_api = 13
 author = "Alexander"
 license = "MIT"
 icon = "device-gamepad-2"
@@ -27,12 +27,31 @@ height = 520
 placement = "floating"
 position = "center"
 open_near_click = true
+capture_keys = ["Up", "Down", "Return"]
 
 [[panel.setting]]
 key = "steampoacher_enabled"
 type = "bool"
 label_key = "settings.steampoacher_enabled.label"
 default = false
+
+[[panel.setting]]
+key = "steam_enabled"
+type = "bool"
+label_key = "settings.steam_enabled.label"
+default = true
+
+[[panel.setting]]
+key = "heroic_enabled"
+type = "bool"
+label_key = "settings.heroic_enabled.label"
+default = true
+
+[[panel.setting]]
+key = "lutris_enabled"
+type = "bool"
+label_key = "settings.lutris_enabled.label"
+default = true
 
 [[launcher_provider]]
 id = "search"

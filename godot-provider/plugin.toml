@@ -1,0 +1,43 @@
+id = "ramosdetrigo/godot-provider"
+name = "Godot Provider"
+author = "ramosdetrigo"
+version = "1.0.0"
+plugin_api = 3
+license = "MIT"
+dependencies = ["godot", "nohup"]
+icon = "folder-open"
+description = "Open a recent Godot project from the launcher. Type /gd to list your projects."
+tags = ["launcher", "development", "productivity"]
+
+[[setting]]
+key = "sort_by"
+type = "select"
+label_key = "settings.sort_by.label"
+description_key = "settings.sort_by.description"
+default = "history"
+options = [
+    {label_key="settings.history", value = "history"},
+    {label_key="settings.usage_count", value = "usage_count"},
+]
+
+[[setting]]
+key = "projects_path"
+type = "file"
+label_key = "settings.projects_path.label"
+description_key = "settings.projects_path.description"
+default = "~/.local/share/godot/projects.cfg"
+
+[[setting]]
+key = "godot_command"
+type = "string"
+label_key = "settings.godot_command.label"
+description_key = "settings.godot_command.description"
+default = "godot"
+
+[[launcher_provider]]
+id = "provider"
+entry = "godot_provider.luau"
+prefix = "gd"
+glyph = "robot"
+include_in_global_search = false
+debounce_ms = 0

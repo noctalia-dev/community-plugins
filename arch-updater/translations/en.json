@@ -1,144 +1,144 @@
 {
-  "title": "Arch Updater",
   "action_check": "Check Updates",
   "action_dismiss": "Dismiss",
-  "action_update": "Update",
   "action_open_news": "Open news",
-  "status_idle": "Not checked yet",
-  "status_checking": "Checking for updates…",
-  "status_checking_step": "Checking {step}…",
-  "status_running": "Update running in a terminal…",
-  "status_clean": "System is up to date",
-  "status_error": "Update check failed",
-  "status_missing": "checkupdates not found, install pacman-contrib",
-  "status_ready": {
-    "one": "1 package to upgrade",
-    "other": "{count} packages to upgrade"
-  },
-  "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
-  "err_check_timeout": "Timed out while checking for updates",
-  "err_check_failed": "checkupdates failed, see the system log for details",
-  "err_aur_failed": "AUR check failed, see the system log for details",
-  "err_flatpak_failed": "Flatpak check failed, see the system log for details",
-  "err_spawn": "Could not run checkupdates",
-  "err_no_terminal": "No terminal emulator found, set one in the plugin settings",
-  "err_no_xdg_open": "xdg-open not found, cannot open the package page",
-  "source": {
-    "pacman": "Pacman",
-    "aur": "AUR",
-    "aur_named": "AUR ({helper})",
-    "flatpak": "Flatpak"
-  },
-  "notify_updates": {
-    "one": "1 package to upgrade",
-    "other": "{count} packages to upgrade"
-  },
-  "run": {
-    "press_key": "Press any key to close"
-  },
-  "more_packages": "+{count} more",
-  "hover_hint": "Hover a package for its full versions",
-  "up_to_date": "Up to date: {sources}",
+  "action_update": "Update",
   "caption_checked": "checked {time}",
   "caption_ignored": {
     "one": "1 package ignored",
     "other": "{count} packages ignored"
   },
-  "size_mib": "≈ {value} MiB to download",
-  "size_gib": "≈ {value} GiB to download",
-  "reboot_recommended": "Reboot recommended, the running kernel is no longer installed",
+  "err_aur_failed": "AUR check failed, see the system log for details",
+  "err_check_failed": "checkupdates failed, see the system log for details",
+  "err_check_timeout": "Timed out while checking for updates",
+  "err_flatpak_failed": "Flatpak check failed, see the system log for details",
+  "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
+  "err_no_terminal": "No terminal emulator found, set one in the plugin settings",
+  "err_no_xdg_open": "xdg-open not found, cannot open the package page",
+  "err_spawn": "Could not run checkupdates",
+  "hover_hint": "Hover a package for its full versions",
+  "launcher": {
+    "check_subtitle": "Check pacman, AUR and Flatpak for updates",
+    "news_subtitle": "Open the Arch Linux news page",
+    "update_subtitle": "Open a terminal and run the update"
+  },
+  "more_packages": "+{count} more",
   "news_unread": {
     "one": "1 unread Arch news post: \"{title}\"",
     "other": "{count} unread Arch news posts, latest: \"{title}\""
   },
+  "notify_updates": {
+    "one": "1 package to upgrade",
+    "other": "{count} packages to upgrade"
+  },
+  "reboot_recommended": "Reboot recommended, the running kernel is no longer installed",
+  "run": {
+    "press_key": "Press any key to close"
+  },
+  "settings": {
+    "assume_yes": {
+      "description": "Pass --noconfirm / -y so package managers do not ask for confirmation. Off means you confirm each one in the terminal window.",
+      "label": "Answer yes automatically"
+    },
+    "aur_check_cmd": {
+      "description": "Only used when the AUR helper above is 'Custom command'. Must print one 'name oldver -> newver' line per package, like 'yay -Qua' does.",
+      "label": "Custom AUR check command"
+    },
+    "aur_helper": {
+      "description": "Which AUR helper checks and upgrades AUR packages. 'Auto-detect' tries yay, then paru. 'Custom command' lets you supply your own check command below.",
+      "label": "AUR helper",
+      "options": {
+        "auto": "Auto-detect (yay, then paru)",
+        "custom": "Custom command",
+        "off": "Off, pacman only",
+        "paru": "paru",
+        "yay": "yay"
+      }
+    },
+    "auto_check_hours": {
+      "description": "Check for updates automatically every N hours. 0 (default) never checks on its own.",
+      "label": "Auto-check interval (hours)"
+    },
+    "check_arch_news": {
+      "description": "Fetch the Arch Linux news feed and flag unread posts in the panel.",
+      "label": "Check Arch Linux news"
+    },
+    "check_reboot_needed": {
+      "description": "Detect whether the currently running kernel's files are still on disk. When they are gone, a newer kernel was installed and a reboot is what switches you to it.",
+      "label": "Check if a reboot is needed"
+    },
+    "flatpak_enabled": {
+      "description": "Also check (and, on Update, run) 'flatpak update'. Ignored automatically when flatpak is not installed.",
+      "label": "Include Flatpak"
+    },
+    "glyph": {
+      "description": "The glyph shown for the widget on the bar.",
+      "label": "Bar glyph"
+    },
+    "hide_on_empty": {
+      "description": "Hide the widget entirely when there are no pending updates and no reboot recommendation. Off (default) always shows the glyph.",
+      "label": "Hide when there is nothing to show"
+    },
+    "ignore_packages": {
+      "description": "Package names to leave out of the count and pass as --ignore to the update itself, in addition to pacman.conf's own IgnorePkg.",
+      "label": "Ignore packages"
+    },
+    "notify_on_updates": {
+      "description": "Send a desktop notification when a check finds packages to upgrade.",
+      "label": "Notify when updates are found"
+    },
+    "show_count": {
+      "description": "Show the number of pending updates next to the bar glyph.",
+      "label": "Show the update count"
+    },
+    "show_download_size": {
+      "description": "Estimate the total download size for the pending pacman packages with 'pacman -Si'. AUR and Flatpak sizes are not included.",
+      "label": "Show download size"
+    },
+    "terminal": {
+      "description": "Terminal command used for the update run, e.g. kitty or ghostty. Empty (default) uses Noctalia's terminal detection ($TERMINAL, then the common emulators).",
+      "label": "Terminal"
+    },
+    "update_cmd": {
+      "description": "Full override for the command run in the terminal on Update. Empty (default) builds it from the AUR helper, ignore list, Flatpak and 'Answer yes' settings above.",
+      "label": "Custom update command"
+    }
+  },
+  "size_gib": "≈ {value} GiB to download",
+  "size_mib": "≈ {value} MiB to download",
+  "source": {
+    "aur": "AUR",
+    "aur_named": "AUR ({helper})",
+    "flatpak": "Flatpak",
+    "pacman": "Pacman"
+  },
+  "status_checking": "Checking for updates…",
+  "status_checking_step": "Checking {step}…",
+  "status_clean": "System is up to date",
+  "status_error": "Update check failed",
+  "status_idle": "Not checked yet",
+  "status_missing": "checkupdates not found, install pacman-contrib",
+  "status_ready": {
+    "one": "1 package to upgrade",
+    "other": "{count} packages to upgrade"
+  },
+  "status_running": "Update running in a terminal…",
   "tip_check": "Check for updates now",
   "tip_close": "Close",
-  "tip_update": "Run the update in a terminal window",
   "tip_copy": "Copy name and versions",
   "tip_open_page": "Open package page",
-  "tooltip_status": "Status",
-  "tooltip_pending": "Pending",
+  "tip_update": "Run the update in a terminal window",
+  "title": "Arch Updater",
   "tooltip_checked": "Checked",
-  "tooltip_reboot_key": "Reboot",
-  "tooltip_reboot_value": "recommended",
+  "tooltip_hints": "click: panel · right: check now",
   "tooltip_news": "Arch news",
   "tooltip_news_value": {
     "one": "1 unread",
     "other": "{count} unread"
   },
-  "tooltip_hints": "click: panel · right: check now",
-  "launcher": {
-    "check_subtitle": "Check pacman, AUR and Flatpak for updates",
-    "update_subtitle": "Open a terminal and run the update",
-    "news_subtitle": "Open the Arch Linux news page"
-  },
-  "settings": {
-    "aur_helper": {
-      "label": "AUR helper",
-      "description": "Which AUR helper checks and upgrades AUR packages. 'Auto-detect' tries yay, then paru. 'Custom command' lets you supply your own check command below.",
-      "options": {
-        "auto": "Auto-detect (yay, then paru)",
-        "yay": "yay",
-        "paru": "paru",
-        "custom": "Custom command",
-        "off": "Off, pacman only"
-      }
-    },
-    "aur_check_cmd": {
-      "label": "Custom AUR check command",
-      "description": "Only used when the AUR helper above is 'Custom command'. Must print one 'name oldver -> newver' line per package, like 'yay -Qua' does."
-    },
-    "flatpak_enabled": {
-      "label": "Include Flatpak",
-      "description": "Also check (and, on Update, run) 'flatpak update'. Ignored automatically when flatpak is not installed."
-    },
-    "ignore_packages": {
-      "label": "Ignore packages",
-      "description": "Package names to leave out of the count and pass as --ignore to the update itself, in addition to pacman.conf's own IgnorePkg."
-    },
-    "auto_check_hours": {
-      "label": "Auto-check interval (hours)",
-      "description": "Check for updates automatically every N hours. 0 (default) never checks on its own."
-    },
-    "notify_on_updates": {
-      "label": "Notify when updates are found",
-      "description": "Send a desktop notification when a check finds packages to upgrade."
-    },
-    "show_download_size": {
-      "label": "Show download size",
-      "description": "Estimate the total download size for the pending pacman packages with 'pacman -Si'. AUR and Flatpak sizes are not included."
-    },
-    "check_arch_news": {
-      "label": "Check Arch Linux news",
-      "description": "Fetch the Arch Linux news feed and flag unread posts in the panel."
-    },
-    "check_reboot_needed": {
-      "label": "Check if a reboot is needed",
-      "description": "Detect whether the currently running kernel's files are still on disk. When they are gone, a newer kernel was installed and a reboot is what switches you to it."
-    },
-    "terminal": {
-      "label": "Terminal",
-      "description": "Terminal command used for the update run, e.g. kitty or ghostty. Empty (default) uses Noctalia's terminal detection ($TERMINAL, then the common emulators)."
-    },
-    "assume_yes": {
-      "label": "Answer yes automatically",
-      "description": "Pass --noconfirm / -y so package managers do not ask for confirmation. Off means you confirm each one in the terminal window."
-    },
-    "update_cmd": {
-      "label": "Custom update command",
-      "description": "Full override for the command run in the terminal on Update. Empty (default) builds it from the AUR helper, ignore list, Flatpak and 'Answer yes' settings above."
-    },
-    "glyph": {
-      "label": "Bar glyph",
-      "description": "The glyph shown for the widget on the bar."
-    },
-    "show_count": {
-      "label": "Show the update count",
-      "description": "Show the number of pending updates next to the bar glyph."
-    },
-    "hide_on_empty": {
-      "label": "Hide when there is nothing to show",
-      "description": "Hide the widget entirely when there are no pending updates and no reboot recommendation. Off (default) always shows the glyph."
-    }
-  }
+  "tooltip_pending": "Pending",
+  "tooltip_reboot_key": "Reboot",
+  "tooltip_reboot_value": "recommended",
+  "tooltip_status": "Status",
+  "up_to_date": "Up to date: {sources}"
 }
