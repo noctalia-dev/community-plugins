@@ -1,7 +1,7 @@
 import os
 import sys
 
-from github import Auth, BadCredentialsException, Github, UnknownObjectException
+from github import Auth, Github
 
 token = os.environ["GITHUB_TOKEN"]
 repo_name = os.environ["REPOSITORY"]
@@ -35,26 +35,15 @@ if len(plugin_split) != 2:
     sys.exit(1)
 
 
-author_name = plugin_split[0]
 plugin_name = plugin_split[1]
 
-author = ""
-try:
-    gh.get_user(author_name, lazy=False)
-    author = author_name
-except UnknownObjectException:
-    print(f"User '{author_name}' doesn't exist as a username in github, getting the first commits author!")
+manifest_file = f"{plugin_name}/plugin.toml"
 
-    manifest_file = f"{plugin_name}/plugin.toml"
-    
-    if os.path.exists(manifest_file):
-        file_commits = repo.get_commits(path=manifest_file).reversed
-        author = file_commits[0].author.login
-    else:
-        print(f"Plugin manifest doesn't exist, {manifest_file}")
-        sys.exit(1)
-except BadCredentialsException:
-    print("Invalid Github token")
+if os.path.exists(manifest_file):
+    file_commits = repo.get_commits(path=manifest_file).reversed
+    author = file_commits[0].author.login
+else:
+    print(f"Plugin manifest doesn't exist, {manifest_file}")
     sys.exit(1)
 
 
