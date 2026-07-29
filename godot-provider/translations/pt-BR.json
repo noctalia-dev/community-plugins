@@ -1,0 +1,20 @@
+{
+  "no-projects-found": "Nenhum projeto foi encontrado.",
+  "no-projects-subtitle": "O arquivo projects.cfg não existe ou está vazio.",
+  "settings": {
+    "history": "Histórico",
+    "usage_count": "Número de usos",
+    "projects_path": {
+      "description": "Caminho pro arquivo projets.cfg da Godot.",
+      "label": "Caminho do projets.cfg"
+    },
+    "sort_by": {
+      "description": "Ordenar por histórico de uso ou número de usos.",
+      "label": "Ordenar por"
+    },
+    "godot_command": {
+      "description": "O comando shell pra abrir a Godot.",
+      "label": "Comando godot"
+    }
+  }
+}
