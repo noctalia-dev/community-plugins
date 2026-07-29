@@ -67,7 +67,7 @@ end
 local function profileButton(profile, glyph, handler)
   return ui.button({
     glyph = glyph,
-    variant = (snap.profile == profile) and "primary" or "secondary",
+    variant = (snap.profile == profile) and "primary" or "ghost",
     onClick = handler,
   })
 end
@@ -77,9 +77,9 @@ local function render()
   local threshold = thresholdDraft or snap.threshold or 80
 
   local sections = {
-    ui.row({ gap = 12, align = "center", padding = 12, fill = "surface_variant/0.4", radius = 8 }, {
+    ui.row({ gap = 10, align = "center", padding = 8, fill = "surface_variant/0.4", radius = 8 }, {
       ui.column({ align = "center", gap = 2 }, {
-        ui.glyph({ name = batteryGlyph(), size = 28, color = "primary" }),
+        ui.glyph({ name = batteryGlyph(), size = 22, color = "primary" }),
         ui.label({ text = (snap.percent or 0) .. "%", fontWeight = "bold" }),
       }),
       ui.separator({ orientation = "vertical" }),
@@ -124,7 +124,7 @@ local function render()
     }))
   end
 
-  panel.render(ui.column({ gap = 12, padding = 16 }, sections))
+  panel.render(ui.column({ gap = 6, padding = 10 }, sections))
 end
 
 function onOpen(_context)
