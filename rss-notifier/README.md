@@ -1,4 +1,4 @@
-# RSS Utils
+# RSS/Atom Notifier
 
 Plugin para Noctalia que monitora feeds RSS e exibe notificações quando novos itens são encontrados.
 
@@ -38,10 +38,10 @@ As seguintes opções de configuração estão disponíveis para o plugin:
 
 | Opção | Tipo | Padrão | Descrição |
 | :--- | :--- | :--- | :--- |
-| **feeds** | `array` | `[]` | Lista de URLs de feeds RSS/Atom para monitorar. |
-| **refresh_interval** | `integer` | `30` | Intervalo em minutos para verificar novos itens. |
-| **notify_new_items** | `boolean` | `true` | Exibe uma notificação no sistema quando novos itens são encontrados. |
-| **max_items_per_feed** | `integer` | `10` | Número máximo de itens recentes mantidos em cache por feed. |
+| **feed_urls** | `array` | `[]` | Lista de URLs de feeds RSS/Atom para monitorar (ex: `["https://example.com/feed.xml"]`). |
+| **refresh_minutes** | `integer` | `30` | Intervalo em minutos para verificar novos itens. |
+| **notify_new** | `boolean` | `true` | Exibe uma notificação no sistema quando novos itens são encontrados. |
+| **max_notifications_per_cycle** | `integer` | `10` | Número máximo de notificações para exibir por ciclo de verificação. |
 
 ---
 
@@ -64,7 +64,9 @@ text
 ## Dependencies
 
 - [Noctalia](https://github.com/noctalia/noctalia) (versão mais recente)
+- `xdg-open` (command-line utility to open URLs, usually pre-installed on Linux).
 - Acesso à internet para buscar os feeds RSS.
+
 
 ---
 
