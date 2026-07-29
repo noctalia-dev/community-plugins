@@ -1,0 +1,33 @@
+name: Update title of issue to represent the plugin
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  update-issue-title:
+    runs-on: ubuntu-latest
+    if: github.repository == 'noctalia-dev/community-plugins'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            .github/workflows/notify-plugin-authors-requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r .github/workflows/notify-plugin-authors-requirements.txt
+
+      - name: Update Issue Title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: python3 .github/workflows/issues-update-title.py
+
