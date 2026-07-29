@@ -6,6 +6,14 @@
     "not_charging": "Not charging",
     "unknown": "Unknown"
   },
+  "tooltip": {
+    "level": "Level",
+    "status": "Status",
+    "power": "Power",
+    "remaining": "Remaining",
+    "to_full": "To full",
+    "profile": "Profile"
+  },
   "panel": {
     "power_profile": "Power profile",
     "charge_threshold": "Charge limit",

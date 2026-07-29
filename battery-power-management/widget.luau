@@ -57,13 +57,21 @@ local function profileGlyph()
   return ""
 end
 
-local function tooltipText()
+local function tooltipRows()
   local statusText = noctalia.tr("status." .. (snap.status or "Unknown"):lower():gsub("%s", "_"))
-  local line = string.format("%d%% • %s • %.1f W", snap.percent or 0, statusText, snap.watt or 0)
+  local rows = {
+    { key = noctalia.tr("tooltip.level"), value = (snap.percent or 0) .. "%" },
+    { key = noctalia.tr("tooltip.status"), value = statusText },
+    { key = noctalia.tr("tooltip.power"), value = string.format("%.1f W", snap.watt or 0) },
+  }
   if snap.eta and snap.eta ~= "" then
-    line = line .. " • " .. snap.eta
+    local timeKey = snap.status == "Charging" and "tooltip.to_full" or "tooltip.remaining"
+    table.insert(rows, { key = noctalia.tr(timeKey), value = snap.eta })
   end
-  return line
+  if snap.hasProfile then
+    table.insert(rows, { key = noctalia.tr("tooltip.profile"), value = noctalia.tr("panel.profile_" .. snap.profile) })
+  end
+  return rows
 end
 
 local function render()
@@ -88,7 +96,7 @@ local function render()
 
   local container = isVertical and ui.column or ui.row
   barWidget.render(container({ gap = 6, align = "center" }, children))
-  barWidget.setTooltip(tooltipText())
+  barWidget.setTooltip(tooltipRows())
 end
 
 noctalia.state.watch(SNAPSHOT, function(value)
