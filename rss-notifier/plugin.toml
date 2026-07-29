@@ -7,7 +7,7 @@ license     = "MIT"
 icon        = "rss"
 description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
 tags        = ["utility"]
-dependencies = []
+dependencies = ["xdg-open"]
 
 [[setting]]
 key             = "feed_urls"
