@@ -17,6 +17,7 @@ which is shown in the Usage section.
 ## Requirements
 
 - Noctalia v5.0.0 or higher
+- `nohup` (Optional): For "Run in background" wrapper toggle
 
 ## Usage
 
