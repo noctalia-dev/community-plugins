@@ -1134,7 +1134,13 @@ function onDeleteEntry(index)
 	render()
 end
 
-function onOpen(_context)
+-- `context == "search"` lets an external trigger (a compositor keybind via
+-- `noctalia msg panel-open dunarand/bookmarks:panel search`, or any other
+-- IPC caller) open the panel straight into a focused search box, turning
+-- the bookmark list into a fast fuzzy launcher without a second keypress.
+-- Root-only, same as ctrl+s: searching already isn't offered inside a
+-- folder, so context is ignored there.
+function onOpen(context)
 	view = "list"
 	editingIndex = nil
 	editingRoot = false
@@ -1145,6 +1151,9 @@ function onOpen(_context)
 	selectedIndex = 1
 	loadBookmarks()
 	noctalia.state.set("bookmarks_open", true)
+	if context == "search" then
+		focusSearchOnRender = true
+	end
 	render()
 end
 

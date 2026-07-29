@@ -106,6 +106,15 @@ The plugin itself has the following settings:
 
 ## IPC
 
-```sh
-noctalia msg panel-toggle dunarand/bookmarks:panel
-```
+1. Open the bookmarks panel:
+
+   ```sh
+   noctalia msg panel-toggle dunarand/bookmarks:panel
+   ```
+
+2. Open the bookmarks panel in search mode (immediately puts you into search mode) so that you can
+   use your bookmarks panel as a launcher:
+
+   ```sh
+   noctalia msg panel-toggle dunarand/bookmarks:panel search
+   ```
