@@ -387,42 +387,35 @@ local function fetchDeviceExtras(id)
 				end
 			end)
 	-- mprisremote: media title/artist/album/isPlaying/volume (only if plugin loaded)
-	-- Pulled as a group; merged into one publish at the end.
+	-- Fetched in parallel to reduce UI delay; merged into one publish at the end.
 	local mprisFields = { "isPlaying", "title", "artist", "album", "volume",
 		"localAlbumArtUrl", "length", "position", "canSeek" }
-	local mi = 1
-		local function fetchMprisNext()
-			if mi > #mprisFields then
-				-- localAlbumArtUrl is a file:// URI to a local cache file
-				-- downloaded by kdeconnect daemon. Strip prefix for direct use.
-				local d2 = devices[id]
-				if d2 and d2.medialocalAlbumArtUrl and d2.medialocalAlbumArtUrl ~= "" then
-					local art = d2.medialocalAlbumArtUrl
-					if art:sub(1, 7) == "file://" then
-						art = art:sub(8)
-					end
-					d2.mediaArtPath = art
-					devices[id] = d2
-				end
-				publishDevices()
-				return
-			end
-		local prop = mprisFields[mi]
-		mi = mi + 1
+	local mprisPending = #mprisFields
+	if mprisPending == 0 then return end
+	for _, prop in ipairs(mprisFields) do
 		noctalia.runAsync(gdbusGetProp(devPath .. "/mprisremote", MPRIS_IFACE, prop),
 			function(res)
 				if res and not res.error then
 					local d2 = devices[id]
 					if d2 then
-						-- prefix media fields so they don't collide with device props
 						d2["media" .. prop] = parseGdbusValue(res.stdout or "")
 						devices[id] = d2
 					end
 				end
-				fetchMprisNext()
+				mprisPending = mprisPending - 1
+				if mprisPending == 0 then
+					-- combine album art path
+					local d2 = devices[id]
+					if d2 and d2.medialocalAlbumArtUrl and d2.medialocalAlbumArtUrl ~= "" then
+						local art = d2.medialocalAlbumArtUrl
+						if art:sub(1, 7) == "file://" then art = art:sub(8) end
+						d2.mediaArtPath = art
+						devices[id] = d2
+					end
+					publishDevices()
+				end
 			end)
 	end
-	fetchMprisNext()
 end
 
 -- ── Full device list refresh ─────────────────────────────────────────────────
@@ -736,9 +729,8 @@ end
 detectBackend()
 refreshDevices()
 -- Command channel: UI entries write { op, device, seq, ... } to "pc.cmd".
--- We de-dupe by seq (strictly increasing) so we never need to clear the key
--- (state.set with nil is undocumented; instead each command carries a new seq
--- and we only act on seqs greater than the last handled one).
+-- seq is a high-resolution timestamp so it never resets on hot-reload (unlike
+-- a counter which would cause commands to be silently dropped after UI reload).
 local lastCmdSeq = 0
 noctalia.state.watch("pc.cmd", function(cmd)
 	if type(cmd) ~= "table" then return end

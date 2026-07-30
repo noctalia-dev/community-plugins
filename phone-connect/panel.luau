@@ -17,10 +17,9 @@ end
 local PLUGIN_ID = "icefish/phone-connect"
 
 -- ── Command channel ─────────────────────────────────────────────────────────
-local cmdSeq = 0
 local function sendCmd(cmd)
-	cmdSeq = cmdSeq + 1
-	cmd.seq = cmdSeq
+	-- time-based seq prevents silent drops after hot-reload
+	cmd.seq = math.floor(os.clock() * 1000000)
 	noctalia.state.set("pc.cmd", cmd)
 end
 
