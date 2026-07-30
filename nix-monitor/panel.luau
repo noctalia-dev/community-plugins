@@ -263,13 +263,7 @@ function onUpdateClicked()
 		noctalia.notifyError(tr("notification.update_command_is_empty"))
 		return
 	end
-
-	if cfg("close_on_enter") then
-		command = `{command} && echo && read -p "{tr("terminal.press_enter_to_exit")}"`
-	end
-
-	panel.close()
-	noctalia.runInTerminal(command)
+	runCommandInTerminal(command)
 end
 
 function onCleanClicked()
@@ -278,13 +272,7 @@ function onCleanClicked()
 		noctalia.notifyError(tr("notification.clean_command_is_empty"))
 		return
 	end
-
-	if cfg("close_on_enter") then
-		command = `{command} && echo && read -p "{tr("terminal.press_enter_to_exit")}"`
-	end
-
-	panel.close()
-	noctalia.runInTerminal(command)
+	runCommandInTerminal(command)
 end
 
 function onOptimizeClicked()
@@ -293,11 +281,15 @@ function onOptimizeClicked()
 		noctalia.notifyError(tr("notification.optimize_command_is_empty"))
 		return
 	end
+	runCommandInTerminal(command)
+end
 
+function runCommandInTerminal(command)
 	if cfg("close_on_enter") then
 		command = `{command} && echo && read -p "{tr("terminal.press_enter_to_exit")}"`
 	end
 
+	command = `{command} || (echo && read -p "{tr("terminal.command_exits_non_zero")}")`
 	panel.close()
 	noctalia.runInTerminal(command)
 end

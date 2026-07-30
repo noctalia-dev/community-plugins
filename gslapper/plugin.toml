@@ -1,0 +1,111 @@
+id = "nomadcxx/gslapper"
+name = "gSlapper Wallpaper"
+version = "0.1.1"
+plugin_api = 19
+author = "Nomadcxx"
+license = "MIT"
+dependencies = ["find", "gslapper", "gst-launch-1.0", "pkill", "socat"]
+tags = ["bar", "panel", "service", "video", "wallpaper"]
+icon = "wallpaper-selector"
+description = "Choose an image or video wallpaper for each output."
+
+[[setting]]
+key = "video_directory"
+type = "folder"
+label_key = "settings.video_directory.label"
+description_key = "settings.video_directory.description"
+default = "~/Videos/Wallpapers"
+
+[[setting]]
+key = "scale"
+type = "select"
+label_key = "settings.scale.label"
+description_key = "settings.scale.description"
+default = "fill"
+options = [
+  { value = "fill", label_key = "settings.scale.options.fill" },
+  { value = "stretch", label_key = "settings.scale.options.stretch" },
+  { value = "original", label_key = "settings.scale.options.original" },
+  { value = "panscan", label_key = "settings.scale.options.panscan" },
+]
+
+[[setting]]
+key = "hidden_behavior"
+type = "select"
+label_key = "settings.hidden_behavior.label"
+description_key = "settings.hidden_behavior.description"
+default = "none"
+options = [
+  { value = "none", label_key = "settings.hidden_behavior.options.none" },
+  { value = "auto-pause", label_key = "settings.hidden_behavior.options.auto_pause" },
+  { value = "auto-stop", label_key = "settings.hidden_behavior.options.auto_stop" },
+]
+
+[[setting]]
+key = "loop"
+type = "bool"
+label_key = "settings.loop.label"
+description_key = "settings.loop.description"
+default = true
+
+[[setting]]
+key = "fps_cap"
+type = "select"
+label_key = "settings.fps_cap.label"
+description_key = "settings.fps_cap.description"
+default = "30"
+options = [
+  { value = "30", label_key = "settings.fps_cap.options.fps_30" },
+  { value = "60", label_key = "settings.fps_cap.options.fps_60" },
+  { value = "100", label_key = "settings.fps_cap.options.fps_100" },
+]
+
+[[setting]]
+key = "fade"
+type = "bool"
+label_key = "settings.fade.label"
+description_key = "settings.fade.description"
+default = false
+
+[[setting]]
+key = "fade_duration"
+type = "double"
+label_key = "settings.fade_duration.label"
+description_key = "settings.fade_duration.description"
+default = 0.5
+min = 0.1
+max = 5.0
+step = 0.1
+visible_when = { key = "fade", values = ["true"] }
+
+[[setting]]
+key = "gst_options"
+type = "string"
+label_key = "settings.gst_options.label"
+description_key = "settings.gst_options.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "wallpaper-selector"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "picker"
+entry = "panel.luau"
+width = 980
+height = 1100
+placement = "attached"
+position = "auto"
+keyboard_focus = "exclusive"
+
+[[widget]]
+id = "wallpaper"
+entry = "widget.luau"

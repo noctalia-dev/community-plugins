@@ -45,7 +45,7 @@ local function render()
   if snapshot.busy == true then
     barWidget.setGlyphColor("secondary")
   elseif snapshot.available == true then
-    barWidget.setGlyphColor("primary")
+    barWidget.setGlyphColor("default")
   else
     barWidget.setGlyphColor("error")
   end

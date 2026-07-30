@@ -1,6 +1,6 @@
 id              = "avivbintangaringga/nix-monitor"
 name            = "Nix Monitor"
-version         = "1.2.0"
+version         = "1.3.0"
 plugin_api      = 3
 icon            = "package"
 author          = "avivbintangaringga"
@@ -129,11 +129,23 @@ min             = 1
 max             = 30
 
 [[setting]]
+key             = "system_stats_check_mode"
+type            = "select"
+label_key       = "setting.system_stats_check_mode.label"
+description_key = "setting.system_stats_check_mode.description"
+options         = [
+    { value = "off", label_key="setting.option.system_stats_check_mode.off" },
+    { value = "on_interval", label_key="setting.option.system_stats_check_mode.on_interval" },
+    { value = "on_start", label_key="setting.option.system_stats_check_mode.on_start" },
+]
+default         = "on_interval"
+
+[[setting]]
 key             = "system_stats_check_interval"
 type            = "int"
 label_key       = "setting.system_stats_check_interval.label"
 description_key = "setting.system_stats_check_interval.description"
-default         = 10
+default         = 60
 min             = 5
 
 [[setting]]
@@ -141,9 +153,8 @@ key             = "system_stats_check_duration_threshold"
 type            = "int"
 label_key       = "setting.system_stats_check_duration_threshold.label"
 description_key = "setting.system_stats_check_duration_threshold.description"
-default         = 5
+default         = 15
 min             = 1
-max             = 30
 
 [[setting]]
 key             = "panel_card_color"

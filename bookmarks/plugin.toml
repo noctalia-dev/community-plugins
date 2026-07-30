@@ -1,0 +1,60 @@
+id           = "dunarand/bookmarks"
+name         = "Bookmarks"
+version      = "1.2.1"
+plugin_api   = 13
+author       = "dunarand"
+license      = "MIT"
+icon         = "bookmark"
+description  = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
+tags         = ["launcher", "panel", "productivity", "utility"]
+dependencies = ["nohup"]
+
+[[setting]]
+key             = "data_path"
+type            = "file"
+label_key       = "settings.data_path.label"
+description_key = "settings.data_path.description"
+default         = ""
+extensions      = [".json"]
+ 
+[[setting]]
+key             = "show_info_button"
+type            = "bool"
+label_key       = "settings.show_info_button.label"
+description_key = "settings.show_info_button.description"
+default         = true
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+    [[widget.setting]]
+    key             = "glyph"
+    type            = "glyph"
+    label_key       = "settings.glyph.label"
+    description_key = "settings.glyph.description"
+    default         = "bookmark"
+
+    [[widget.setting]]
+    key             = "tooltip"
+    type            = "string"
+    label_key       = "settings.tooltip.label"
+    description_key = "settings.tooltip.description"
+    default         = "Bookmarks"
+
+    [[widget.setting]]
+    key             = "text"
+    type            = "string"
+    label_key       = "settings.text.label"
+    description_key = "settings.text.description"
+    default         = "Bookmarks"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 380
+height          = 470
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+capture_keys    = ["ctrl+n", "ctrl+p", "up", "down", "Return", "ctrl+s"]

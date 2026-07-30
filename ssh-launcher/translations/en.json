@@ -1,0 +1,29 @@
+{
+  "config-empty": "No SSH hosts found in config",
+  "config-missing": "SSH config file not found",
+  "err-no-ssh": "ssh command not found",
+  "err-no-ssh-subtitle": "Install OpenSSH client and ensure ssh is on PATH",
+  "err-terminal": "Could not open a terminal",
+  "filter-empty": "Filter: \"{filter}\"",
+  "loading": "Loading…",
+  "loading-subtitle": "Reading SSH config",
+  "no-hosts-found": "No SSH hosts found",
+  "settings": {
+    "config_path": {
+      "description": "Path to your SSH config file.",
+      "label": "SSH config path"
+    },
+    "extra_args": {
+      "description": "Extra arguments appended to every ssh command (for example -A).",
+      "label": "Extra SSH arguments"
+    },
+    "max_results": {
+      "description": "Maximum number of hosts shown in the launcher.",
+      "label": "Maximum results"
+    },
+    "terminal": {
+      "description": "Custom terminal command. Leave empty to use Noctalia's terminal discovery.",
+      "label": "Terminal command"
+    }
+  }
+}

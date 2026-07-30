@@ -349,6 +349,17 @@ render = function()
                     request("check")
                 end,
             }),
+            -- Opens the settings window on this plugin's own page (the host
+            -- supplies the plugin id, so a plugin can only ever open its own).
+            -- The panel closes on the way; the engine keeps running.
+            ui.button({
+                glyph = "settings",
+                variant = "ghost",
+                tooltip = tr("tip_settings"),
+                onClick = function()
+                    noctalia.openSettings()
+                end,
+            }),
             ui.button({
                 glyph = "close",
                 variant = "ghost",

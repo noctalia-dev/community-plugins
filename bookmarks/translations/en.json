@@ -1,0 +1,66 @@
+{
+  "title": "Bookmarks",
+  "new_bookmark": "New Bookmark",
+  "edit_bookmark": "Edit Bookmark",
+  "no_bookmarks": "No bookmarks yet",
+  "search_placeholder": "Search bookmarks...",
+  "no_search_results": "No matching bookmarks",
+  "new_folder": "New Folder",
+  "delete_folder_button": "Delete folder",
+  "edit_folder": "Edit Folder",
+  "folder_name_field": "Folder name",
+  "open_tooltip": "Open",
+  "back_button": "Back",
+  "edit_tooltip": "Edit",
+  "delete_tooltip": "Delete",
+  "drag_tooltip": "Drag to reorder, or onto a folder to file it inside",
+  "drop_out_of_folder": "Drop here to move back to the main panel",
+  "show_controls_tooltip": "Show reorder/edit/delete controls",
+  "hide_controls_tooltip": "Hide reorder/edit/delete controls",
+  "cancel_button": "Cancel",
+  "save_button": "Save",
+  "glyph_field": "Glyph name (e.g. bookmark)",
+  "label_field": "Label",
+  "cmd_field": "Shell command",
+  "description_field": "Description (optional)",
+  "info_cmd_line": "Command: {cmd}",
+  "info_description_line": "Description: {description}",
+  "run_in_background_field": "Run in background",
+  "run_in_terminal_field": "Run in terminal",
+  "err_read_failed": "Failed to read bookmarks: {error}",
+  "err_corrupt": "Bookmarks file is corrupt: {error}",
+  "err_no_data_dir": "No data directory available",
+  "err_reorder_failed": "Failed to reorder: {error}",
+  "err_no_command": "This bookmark has no command",
+  "err_exit_code": "\"{label}\" exited with code {code}",
+  "err_launch_failed": "Failed to launch \"{label}\"",
+  "err_delete_failed": "Failed to delete: {error}",
+  "err_save_failed": "Failed to save: {error}",
+  "err_label_required": "Label is required",
+  "err_label_cmd_required": "Label and command are required",
+  "folder_deleted": "Deleted folder \"{label}\" and its contents",
+  "entry_updated": "Updated \"{label}\"",
+  "entry_saved": "Saved \"{label}\"",
+  "settings": {
+    "glyph": {
+      "label": "Glyph",
+      "description": "Bar widget's glyph"
+    },
+    "tooltip": {
+      "label": "Tooltip",
+      "description": "Bar widget's tooltip"
+    },
+    "text": {
+      "label": "Text",
+      "description": "Bar widget's label. Leave empty to display only the glyph."
+    },
+    "data_path": {
+      "label": "Data file",
+      "description": "Where data.json is stored. Leave empty to use the default plugin data directory."
+    },
+    "show_info_button": {
+      "label": "Show info button",
+      "description": "Show a \"?\" button on bookmarks (not folders) to view their description and command on hover."
+    }
+  }
+}

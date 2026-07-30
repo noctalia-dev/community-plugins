@@ -8,6 +8,7 @@ local REFRESH_REQUEST_KEY = "keymap.refresh_request"
 local MAX_FILES = 64
 local MAX_SOURCE_BYTES = 512 * 1024
 local MAX_HIDDEN_BYTES = 2 * 1024 * 1024
+local EXACT_SOURCE_FINGERPRINT = "exact-v1"
 
 local refreshing = false
 local refreshQueued = false
@@ -468,6 +469,15 @@ local function stableFingerprint(value)
 	return string.format("%08x", hash)
 end
 
+local function stableBindId(fields)
+	local identity = {}
+	for _, value in ipairs(fields) do
+		local field = tostring(value or "")
+		identity[#identity + 1] = tostring(#field) .. ":" .. field
+	end
+	return "niri:" .. table.concat(identity)
+end
+
 local function sourceLines(source)
 	local lines = {}
 	for line in (source .. "\n"):gmatch("([^\n]*)\n") do lines[#lines + 1] = line end
@@ -674,12 +684,12 @@ local function parseBind(combo, attributes, action, category, records, activeByC
 	end
 	local rawSnippet = provenance.raw_snippet or ""
 	local bind = {
-		id = "niri:" .. stableFingerprint(signature .. "\0" .. verb .. "\0" .. normalizedAction),
+		id = stableBindId({ signature, verb, normalizedAction }),
 		modifiers = modifiers, key = key, description = description, dispatcher = verb,
 		activation = "press", command = command, action = normalizedAction,
 		source = provenance.source, start_line = provenance.start_line,
 		end_line = provenance.end_line, raw_snippet = rawSnippet,
-		fingerprint = stableFingerprint(rawSnippet),
+		fingerprint = EXACT_SOURCE_FINGERPRINT,
 		managed = provenance.source:match("([^/]+)$") == "keymap.kdl",
 		capabilities = {
 			combo = true, category = true, description = true,

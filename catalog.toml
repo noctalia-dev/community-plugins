@@ -138,8 +138,8 @@ tags = ["gaming", "launcher"]
 [[plugin]]
 id = "avivbintangaringga/nix-monitor"
 name = "Nix Monitor"
-version = "1.2.0"
-updated_at = 1784359380
+version = "1.3.0"
+updated_at = 1785329349
 added_at = 1784003560
 author = "avivbintangaringga"
 license = "MIT"
@@ -459,8 +459,8 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.1.0"
-updated_at = 1785296847
+version = "1.1.1"
+updated_at = 1785415345
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -484,8 +484,8 @@ rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.4"
-updated_at = 1785287494
+version = "1.3.5"
+updated_at = 1785414938
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
@@ -503,8 +503,8 @@ rev = "7cc2a499e6d90b4f756a606bfaf38f014a465956"
 [[plugin]]
 id = "gustav0ar/drive-health"
 name = "Drive Health"
-version = "1.2.5"
-updated_at = 1785287827
+version = "1.2.6"
+updated_at = 1785329312
 added_at = 1784646878
 author = "Drive Health contributors"
 license = "MIT"
@@ -599,8 +599,8 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.2.0"
-updated_at = 1785287794
+version = "0.2.2"
+updated_at = 1785414976
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
@@ -698,15 +698,21 @@ tags = ["utility", "productivity", "bar", "panel"]
 [[plugin]]
 id = "nightwatch75/topgrade-wrapper"
 name = "Topgrade Wrapper"
-version = "0.0.2"
-updated_at = 1785089703
+version = "0.0.4"
+updated_at = 1785331368
 added_at = 1785089703
 author = "nightwatch75"
 license = "MIT"
 icon = "package"
 description = "Check how many packages topgrade would upgrade, then run the upgrade in a terminal window."
-plugin_api = 9
+plugin_api = 15
 tags = ["bar", "panel", "service", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 9
+version = "0.0.2"
+updated_at = 1785089703
+rev = "f6983da41aeffeb5908001b835be4011821e5913"
 
 [[plugin]]
 id = "jamesfeeder/special-workspaces"
@@ -785,3 +791,55 @@ icon = "folder-open"
 description = "Open a recent Godot project from the launcher. Type /gd to list your projects."
 plugin_api = 3
 tags = ["launcher", "development", "productivity"]
+
+[[plugin]]
+id = "cleboost/ssh-launcher"
+name = "SSH Launcher"
+version = "1.0.0"
+updated_at = 1785329294
+added_at = 1785329294
+author = "Cleboost"
+license = "MIT"
+icon = "terminal"
+description = "Connect to SSH hosts from ~/.ssh/config via /ssh."
+plugin_api = 3
+tags = ["launcher", "network", "utility", "development"]
+
+[[plugin]]
+id = "dunarand/bookmarks"
+name = "Bookmarks"
+version = "1.2.1"
+updated_at = 1785350683
+added_at = 1785350683
+author = "dunarand"
+license = "MIT"
+icon = "bookmark"
+description = "A user-defined list of bookmarks. Each item has a label, a glyph, and a shell command."
+plugin_api = 13
+tags = ["launcher", "panel", "productivity", "utility"]
+
+[[plugin]]
+id = "dunarand/tmux-provider"
+name = "tmux Provider"
+version = "0.1.0"
+updated_at = 1785351607
+added_at = 1785351607
+author = "dunarand"
+license = "MIT"
+icon = "terminal"
+description = "Find and attach tmux sessions from the launcher. Type /tm to list tmux sessions or tmuxp configurations."
+plugin_api = 3
+tags = ["launcher", "productivity", "development"]
+
+[[plugin]]
+id = "nomadcxx/gslapper"
+name = "gSlapper Wallpaper"
+version = "0.1.1"
+updated_at = 1785373433
+added_at = 1785373433
+author = "Nomadcxx"
+license = "MIT"
+icon = "wallpaper-selector"
+description = "Choose an image or video wallpaper for each output."
+plugin_api = 19
+tags = ["bar", "panel", "service", "video", "wallpaper"]
