@@ -1332,12 +1332,16 @@ function onClose()
 	noctalia.state.set("bookmarks_open", false)
 end
 
--- Keyboard navigation: ctrl+n/down and ctrl+p/up move the selection through
--- the currently visible rows (search results or the active folder's list),
--- looping past either end; Return activates whatever is selected; ctrl+s
--- jumps focus to the search box (root view only, since that's the only
--- place it's rendered). Only acts on key-down (pressed == true) so each
--- chord fires once per press.
+-- Keyboard navigation:
+--   - ctrl+j/down and ctrl+k/up move the selection through the currently
+--     visible rows (search results or the active folder's contents),
+--     wrapping past either end.
+--   - ctrl+l/right enters the selected folder, if any.
+--   - ctrl+h/left returns from a folder to the root list.
+--   - Return activates the selected row (opens a folder or runs a bookmark).
+--   - ctrl+s focuses the search box (root view only, since folders don't
+--     have one).
+-- Only acts on key-down (pressed == true) so each chord fires once per press.
 function onKey(chord, pressed)
 	if not pressed then
 		return
@@ -1355,6 +1359,13 @@ function onKey(chord, pressed)
 		return
 	end
 
+	if chord == "ctrl+h" or chord == "left" then
+		if currentFolder ~= nil then
+			_onBackToRoot()
+		end
+		return
+	end
+
 	local rows = visibleRows()
 	local count = #rows
 	if count == 0 then
@@ -1362,21 +1373,28 @@ function onKey(chord, pressed)
 		return
 	end
 
-	if chord == "ctrl+n" or chord == "down" then
+	if chord == "ctrl+j" or chord == "down" then
 		if selectedIndex == nil then
 			selectedIndex = 1
 		else
 			selectedIndex = selectedIndex % count + 1
 		end
 		render()
-	elseif chord == "ctrl+p" or chord == "up" then
+	elseif chord == "ctrl+k" or chord == "up" then
 		if selectedIndex == nil then
 			selectedIndex = count
 		else
 			selectedIndex = (selectedIndex - 2) % count + 1
 		end
 		render()
-	elseif chord == "Return" then
+	elseif chord == "ctrl+l" or chord == "right" then
+		local row = rows[selectedIndex]
+		if row ~= nil and row.kind == "entry" then
+			if entryType(row.entry) == "folder" then
+				_onOpenFolder(row.index)
+			end
+		end
+	elseif chord == "return" then
 		local row = rows[selectedIndex]
 		activateRow(row)
 	end
