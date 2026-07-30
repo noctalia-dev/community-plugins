@@ -29,9 +29,10 @@
     "total": "Σ {tin} in / {tout} out"
   },
   "sessions": {
-    "title": "Claude — {count} sessions",
     "empty": "No live Claude sessions. Start one in a terminal, or with /claude.",
-    "retire": "Retire"
+    "retire": "Retire",
+    "title": "Claude — {count} sessions",
+    "title_one": "Claude — 1 session"
   },
   "settings": {
     "breath_speed": {

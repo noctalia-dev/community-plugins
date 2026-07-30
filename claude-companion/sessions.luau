@@ -84,6 +84,7 @@ local function session_row(s)
     local sid = s.sid -- captured per row; the handler table is rebuilt each render
     cells[#cells + 1] = ui.button({
       text = tr("sessions.retire"),
+      variant = "secondary",
       onClick = function() retire(sid) end,
     })
   end
@@ -94,9 +95,10 @@ local function render(snap)
   local list = (type(snap) == "table" and type(snap.sessions) == "table") and snap.sessions or {}
   local count = #list
 
-  local rows = {
-    ui.label({ text = tr("sessions.title", { count = count }), fontWeight = "bold" }),
-  }
+  -- Separate singular/plural keys rather than a "1 sessions" fudge: the count is
+  -- prominent in the header, so the disagreement reads as a bug.
+  local title = count == 1 and tr("sessions.title_one") or tr("sessions.title", { count = count })
+  local rows = { ui.label({ text = title, fontWeight = "bold" }) }
 
   local body
   if count == 0 then
@@ -127,6 +129,14 @@ local function render(snap)
   -- flexGrow on the root column is load-bearing for the same reason as the answer
   -- panel: without it the column takes its full-content height and the panel clips
   -- instead of the scroll child being bounded.
+  --
+  -- Deliberately UNFILLED, same as answer.luau. A decorated panel is inset by the
+  -- host (panel_manager.cpp: `hasDecoration ? contentScale * Style::panelPadding`),
+  -- and no [[panel]] manifest key opts out of decoration — so any fill on the root
+  -- is painted INSIDE that inset and leaves the host's panel colour as a rim. The
+  -- host background is the themed panel surface; letting it through is what makes
+  -- this panel read as part of the shell instead of a card floating in a frame.
+  -- Contrast comes from the tinted controls, not from repainting the backdrop.
   panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1 }, rows))
 end
 
