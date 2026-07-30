@@ -650,8 +650,8 @@ local function handleCommand(cmd)
 			"gdbus call --session --dest " .. SVC
 				.. " --object-path " .. shellQuote(path)
 				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
-				.. " " .. shellQuote(MPRIS_IFACE) .. " position "
-				.. "<int32 " .. tostring(offset) .. ">",
+				.. " " .. MPRIS_IFACE .. " position "
+				.. shellQuote("<int32 " .. tostring(offset) .. ">"),
 			function()
 				noctalia.runAsync("sleep 0.3", function() refreshDevices() end)
 			end)
