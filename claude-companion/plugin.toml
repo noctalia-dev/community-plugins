@@ -4,24 +4,80 @@
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.0.1"
-# Oldest plugin API level this plugin needs (the [[panel]] kind, ui controls,
-# plugin IPC dispatch, the barWidget/onIpc surface). Bump when adopting a newer API.
+version = "1.3.0"
+# Plugin API level this manifest targets — mandatory as of the Noctalia 5 beta
+# manifest parser (replaces the older min_noctalia gate). 3 is the oldest-supported
+# level and covers every feature this plugin uses ([[panel]], ui controls, plugin IPC
+# dispatch, barWidget/onIpc). The [[service]] entry additionally needs a build that
+# ships the Service entry kind (Noctalia 5 beta, upstream rev da014f72 or newer).
 plugin_api = 3
 author = "lowcache"
 license = "MIT"
 icon = "robot"
 description = "Claude Code companion: /claude launch + a telemetry-driven attention pulse."
-# The compositor CLI is one-of: the shim detects and speaks whichever of niri /
-# Hyprland / Sway is running Noctalia (so exactly one of niri/hyprctl/swaymsg is
-# present). See README "Requirements".
-dependencies = ["claude", "python3", "niri", "hyprctl", "swaymsg", "playerctl", "notify-send", "nmcli", "ps", "tr", "timeout"]
-tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher", "niri", "hyprland", "sway"]
+# The compositor CLI (niri / hyprctl / swaymsg) is not listed: the shim detects and
+# speaks whichever of the three supported compositors is running Noctalia, so exactly
+# one is inherently present. See README "Requirements".
+dependencies = ["claude", "python3", "playerctl", "notify-send", "nmcli", "ps", "tr", "timeout"]
+tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher"]
 
-# The attention pulse — the visual centerpiece. Reads agent state from
-# noctalia.state ("claude.state") and from hook signals (onIpc), reflects it in the
-# bar as a glyph + a sine-breath brightness glow (folded in from the barpulse
-# A/B prototype; barpulse.luau stays in-repo as the experiment record, unregistered).
+# ── User settings ─────────────────────────────────────────────────────────────
+# Breath-speed multiplier for the pulse dot + orb animation (plugin-level, so both
+# surfaces read the same value via noctalia.getConfig). 1.0 is the tuned default;
+# higher breathes faster, lower slower. Rendered as a slider; `step` MUST be set
+# explicitly on every double — the manifest parser defaults step to 1.0
+# (plugin_manifest.h: `double step = 1.0`), which snaps a fractional range to a
+# handful of preset stops instead of sliding.
+[[setting]]
+key = "breath_speed"
+type = "double"
+label_key = "settings.breath_speed.label"
+description_key = "settings.breath_speed.description"
+default = 1.0
+min = 0.25
+max = 3.0
+step = 0.05
+
+# Minimum brightness the bar dot dims to at the trough of its breath (0 = fully dark,
+# 0.9 = barely dims). 0.45 is the tuned default. (Plugin-level so it sits with the
+# other look controls; pulse.luau reads it via getConfig.)
+[[setting]]
+key = "pulse_glow_floor"
+type = "double"
+label_key = "settings.pulse_glow_floor.label"
+description_key = "settings.pulse_glow_floor.description"
+default = 0.45
+min = 0.0
+max = 0.9
+step = 0.05
+
+# How far the orb glyph magnifies as it breathes (0 = static size, 1.0 = the tuned
+# default, higher = a bigger swing). orb.luau reads it via getConfig.
+[[setting]]
+key = "orb_swell"
+type = "double"
+label_key = "settings.orb_swell.label"
+description_key = "settings.orb_swell.description"
+default = 1.0
+min = 0.0
+max = 3.0
+step = 0.05
+
+# The pulse aggregator (headless) — the single source of truth for Claude session
+# state. Receives hook events via onIpc (noctalia msg plugin …:pulse-svc all <event>)
+# and the launcher quick-ask via state.watch("claude.state"), rolls all sessions up,
+# and publishes the snapshot to noctalia.state ("claude.pulse"). Runs at shell launch
+# with no surface, so capture never depends on the bar widget being placed — this
+# retires the old "pulse must sit on a bar" invariant (see PROTOCOL.md). Needs the
+# [[service]] entry kind (Noctalia 5 beta / post-5.0.0).
+[[service]]
+id = "pulse-svc"
+entry = "pulse-svc.luau"
+
+# The attention pulse (bar) — the visual centerpiece. A pure subscriber: watches
+# noctalia.state ("claude.pulse") published by pulse-svc and reflects it in the bar as
+# a glyph + a sine-breath brightness glow (folded in from the barpulse A/B prototype;
+# barpulse.luau stays in-repo as the experiment record, unregistered).
 [[widget]]
 id = "pulse"
 entry = "pulse.luau"
@@ -42,6 +98,17 @@ id = "answer"
 entry = "answer.luau"
 width = 460
 height = 420
+
+# The sessions panel — the actionable form of the bar tooltip. One row per live
+# session (state, model, token burn) plus a retire control for a session whose
+# SessionEnd hook never fired. Opens on a RIGHT-click of the bar pulse (left-click
+# stays the answer panel), or via
+# `noctalia msg panel-toggle lowcache/claude-companion:sessions`.
+[[panel]]
+id = "sessions"
+entry = "sessions.luau"
+width = 440
+height = 360
 
 # /claude — launch a real Claude Code session in the terminal, or a one-shot ask.
 # The single backend chokepoint (invoke/parse) is inlined here: v5 has no plugin

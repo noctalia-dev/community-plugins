@@ -1,26 +1,19 @@
--- The attention pulse (bar widget) — a glanceable live readout of Claude across
--- ALL active sessions. Two feeds converge on the session table:
---   • Claude Code hooks fire the plugin-dispatch IPC → onIpc here (the reflex):
---       noctalia msg plugin lowcache/claude-companion:pulse all <event> [payload]
---     payload = "model,in,out,cacheCreate,cacheRead,session" (hooks/pulse.py).
---     Each real session is tracked by its id; SessionEnd removes it.
---   • claude.luau writes "claude.state" (the launcher quick-ask) → POLLED here (bar
---     widgets don't fire state.watch in v5 — D8 / README) as one ephemeral pseudo-
---     session ("ask"), removed when the ask completes.
+-- The attention pulse (bar widget) — a glanceable live readout of Claude across all
+-- active sessions. This is the VIEW half of the pulse: a pure subscriber. The
+-- aggregator (pulse-svc.luau, a headless [[service]]) owns all session bookkeeping and
+-- publishes a rollup to noctalia.state ("claude.pulse"); this widget watches that key
+-- and reflects it in the bar — a glyph (Tabler icon name; an unknown name renders the
+-- skull fallback) whose accent color breathes a raised-cosine BRIGHTNESS glow (the bar
+-- ignores 8-digit #RRGGBBAA alpha, but a 6-digit #RRGGBB scaled toward black reads as a
+-- glow). Discrete state (glyph/tooltip) renders on each snapshot; the 60 ms timer only
+-- advances the breath. A state change snaps the breath to its peak, so transitions read
+-- as a bright flash before settling into the rhythm.
 --
--- Bar plugin widgets have no per-frame tick (that's desktop-only), so the breath
--- runs on noctalia.setUpdateInterval(ms) + the global update(): a raised-cosine
--- BRIGHTNESS breath (the winner of the barpulse A/B prototype — the bar ignores
--- 8-digit #RRGGBBAA alpha, but a 6-digit #RRGGBB scaled toward black reads as a
--- glow). Discrete state (glyph/tooltip/session rollup) renders on events; the
--- timer only advances the breath. A state change snaps the breath to its peak,
--- so transitions read as a bright flash before settling into the rhythm.
---
--- The bar API is the `barWidget.*` table (NOT `widget`). Glyph names are Tabler
--- icon names; an unknown name renders the skull fallback.
--- The companion presence orb (orb.luau, a [[desktop_widget]]) is a pure view:
--- this bar dot mirrors its session rollup to noctalia.state ("claude.pulse", at the
--- end of render below) and the orb subscribes — same state map, two surfaces.
+-- The companion presence orb (orb.luau, a [[desktop_widget]]) subscribes to the same
+-- "claude.pulse" key: one source of truth (the service), the bar dot and the orb are
+-- two views of it. Bar widgets DO receive noctalia.state.watch callbacks as of the
+-- Noctalia 5 beta (the old "bars must poll" workaround is gone). The bar API is the
+-- `barWidget.*` table (NOT `widget`).
 
 -- ── live palette ─────────────────────────────────────────────────────────────
 -- Accent roles follow the global scheme so the dot matches the other bar
@@ -42,6 +35,8 @@ local function xdg(env, fallback)
   if type(v) == "string" and v ~= "" then return v end
   return noctalia.expandPath(fallback)
 end
+
+local function tr(key, args) return noctalia.tr(key, args) end
 
 -- Minimal [theme] reader: walk lines, track the section, keep quoted k/v pairs.
 -- (Indented subsections like [theme.templates] end the block; their keys are
@@ -87,58 +82,54 @@ local function resolve_accents()
   ACCENTS.error = hex(m.mError) or ACCENTS.error
 end
 
--- User-facing display strings live in translations/<lang>.json; resolve at call
--- time. Per-state tips ("state.tip.<state>") and compact words ("state.word.
--- <state>") are keyed by state name. KNOWN_STATE guards a bogus state from a
--- manual CLI poke so it falls back to raw text / idle exactly as the old tables did.
-local function tr(key, args) return noctalia.tr(key, args) end
-local KNOWN_STATE = {
-  idle = true, turn_start = true, text = true, tool_start = true,
-  needs_attention = true, turn_end = true, error = true,
-}
-local function state_tip(s) return tr("state.tip." .. (KNOWN_STATE[s] and s or "idle")) end
-local function state_word(s) return KNOWN_STATE[s] and tr("state.word." .. s) or s end
-
 -- ── state map ────────────────────────────────────────────────────────────────
 -- `color` names an ACCENTS role; `period` is the breath cycle in seconds —
--- urgency reads as tempo (needs-you breathes fast, idle slow). Tooltip text is
--- resolved from translations by state name (state_tip/state_word above).
+-- urgency reads as tempo (needs-you breathes fast, idle slow).
 local VISUAL = {
-  idle            = { glyph = "robot",          color = "secondary", period = 8.0 },
-  turn_start      = { glyph = "brain",          color = "primary",   period = 5.0 },
-  text            = { glyph = "message-dots",   color = "primary",   period = 4.5 },
-  tool_start      = { glyph = "tool",           color = "secondary", period = 5.0 },
-  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 3.0 },
-  turn_end        = { glyph = "bell",           color = "primary",   period = 5.5 },
-  error           = { glyph = "alert-triangle", color = "error",     period = 3.5 },
+  idle            = { glyph = "robot",          color = "secondary", tip = "state.tip.idle",                    period = 8.0 },
+  turn_start      = { glyph = "brain",          color = "primary",   tip = "state.tip.turn_start",              period = 5.0 },
+  text            = { glyph = "message-dots",   color = "primary",   tip = "state.tip.text",                    period = 4.5 },
+  tool_start      = { glyph = "tool",           color = "secondary", tip = "state.tip.tool_start",              period = 5.0 },
+  needs_attention = { glyph = "bell-ringing",   color = "error",     tip = "state.tip.needs_attention",         period = 3.0 },
+  turn_end        = { glyph = "bell",           color = "primary",   tip = "state.tip.turn_end",                period = 5.5 },
+  error           = { glyph = "alert-triangle", color = "error",     tip = "state.tip.error",                   period = 3.5 },
 }
 
--- With several sessions in different states, the bar shows the most urgent one:
--- a session that needs you outranks one merely working, which outranks one idle.
-local STATE_PRIO = {
-  needs_attention = 6, error = 5, tool_start = 4,
-  turn_start = 3, text = 3, turn_end = 2, idle = 1,
+-- Compact per-session words for the multi-session tooltip (Stage 2, once the
+-- rollup carries a per-session list).
+local STATE_WORD = {
+  idle = "state.word.idle", turn_start = "state.word.turn_start", text = "state.word.text",
+  tool_start = "state.word.tool_start", needs_attention = "state.word.needs_attention",
+  turn_end = "state.word.turn_end", error = "state.word.error",
 }
-
--- sid -> { sid, state, model, tin, tout, cr, seq }. `seq` is a monotonic counter
--- (no os.time dependency in the widget sandbox) used to order by recency.
-local sessions = {}
-local seq = 0
 
 -- ── breath ───────────────────────────────────────────────────────────────────
 local INTERVAL_MS = 60          -- ~16 fps re-render (bars can't do 60 fps)
 local BMIN, BMAX = 0.45, 1.00   -- brightness floor/ceiling the glyph breathes between
 local PALETTE_EVERY = 128       -- re-resolve accents every ~7.7 s so theme changes follow
+local SETTINGS_EVERY = 16       -- re-read user settings ~1 s so slider drags apply promptly
 
-local cur = "idle"              -- most-urgent state across sessions (drives glyph + tempo)
+-- Latest rollup from the aggregator (pulse-svc), received via state.watch. `cur`
+-- tracks the state currently driving the glyph + tempo so a change can snap the breath.
+local snap = { state = "idle", count = 0, model = "?", tin = 0, tout = 0, cr = 0 }
+local cur = "idle"
 local phase = VISUAL.idle.period / 2  -- breath clock, seconds; born at peak brightness
 local ticks = 0
-local last_ask = nil           -- last claude.state seen by the quick-ask poll (below)
+local breath_speed = 1.0  -- user setting (breath_speed): phase-rate multiplier
+local glow_floor = BMIN   -- user setting (pulse_glow_floor): brightness floor at the breath trough
 
-local function level_for(period) -- raised-cosine brightness in [BMIN, BMAX]
+-- Re-read user settings (cheap; called at load + periodically from update()).
+local function read_settings()
+  local v = noctalia.getConfig and noctalia.getConfig("breath_speed")
+  if type(v) == "number" and v > 0 then breath_speed = v end
+  local g = noctalia.getConfig and noctalia.getConfig("pulse_glow_floor")
+  if type(g) == "number" and g >= 0 and g < BMAX then glow_floor = g end
+end
+
+local function level_for(period) -- raised-cosine brightness in [glow_floor, BMAX]
   local t = phase % period
   local s = 0.5 - 0.5 * math.cos((t / period) * 2 * math.pi)
-  return BMIN + (BMAX - BMIN) * s
+  return glow_floor + (BMAX - glow_floor) * s
 end
 
 -- Scale an "RRGGBB" accent toward black by factor b, returning "#RRGGBB".
@@ -156,35 +147,12 @@ local function paint()
   barWidget.setGlyphColor(dimmed(ACCENTS[v.color] or ACCENTS.secondary, level_for(v.period)))
 end
 
--- ── session plumbing ─────────────────────────────────────────────────────────
-local function split(s, sep)
-  local out = {}
-  for part in (s .. sep):gmatch("(.-)" .. sep) do out[#out + 1] = part end
-  return out
-end
-
+-- ── tooltip helpers ──────────────────────────────────────────────────────────
 local function kfmt(s)
   local n = tonumber(s) or 0
   if n >= 1e6 then return string.format("%.1fM", n / 1e6) end
   if n >= 1000 then return string.format("%.1fk", n / 1000) end
   return tostring(math.floor(n))
-end
-
--- "model,in,out,cacheCreate,cacheRead,session" -> a session delta, or nil. "in"
--- (fresh prompt tokens) is tiny next to cache reads, so the displayed input is
--- fresh + cache-create (full-rate work); cache reads are tracked separately.
-local function parse_payload(tel)
-  if not tel or tel == "" then return nil end
-  local f = split(tel, ",")
-  local sid = f[6]
-  if not sid or sid == "" then return nil end
-  return {
-    sid = sid,
-    model = (f[1] and f[1] ~= "") and f[1] or "?",
-    tin = (tonumber(f[2]) or 0) + (tonumber(f[4]) or 0),
-    tout = tonumber(f[3]) or 0,
-    cr = tonumber(f[5]) or 0,
-  }
 end
 
 local function has_burn(s)
@@ -197,128 +165,82 @@ local function burn_line(s)
   return l
 end
 
-local function ordered()
-  local arr = {}
-  for _, s in pairs(sessions) do arr[#arr + 1] = s end
-  table.sort(arr, function(a, b) return (a.seq or 0) > (b.seq or 0) end)
-  return arr
-end
-
+-- ── render (pure view of the rollup) ─────────────────────────────────────────
+-- Glyph + accent for the most-urgent state, a tooltip, and a breath snapped to peak
+-- on a state change. The service is the single aggregator; this only views its rollup.
+-- The multi-session tooltip currently shows count + Σ burn; per-session lines return
+-- in Stage 2 when the rollup carries a `sessions` list (see STATE_WORD).
 local function render()
-  local arr = ordered()
-  local count = #arr
-
-  local best, bestp = "idle", 0
-  for _, s in ipairs(arr) do
-    local p = STATE_PRIO[s.state] or 0
-    if p > bestp then bestp = p; best = s.state end
-  end
-  if best ~= cur then
-    cur = best
-    -- snap the breath to its peak so a state change reads as a bright flash
-    phase = (VISUAL[cur] or VISUAL.idle).period / 2
+  if snap.state ~= cur then
+    cur = snap.state
+    phase = (VISUAL[cur] or VISUAL.idle).period / 2 -- snap the breath to its peak (bright flash)
   end
   local v = VISUAL[cur] or VISUAL.idle
   barWidget.setGlyph(v.glyph)
   paint()
 
   local tip
-  if count == 0 then
-    tip = state_tip("idle")
-  elseif count == 1 then
-    local s = arr[1]
-    local base = state_tip(s.state)
-    tip = has_burn(s) and (base .. "\n" .. burn_line(s)) or base
+  if snap.count == 0 then
+    tip = tr(VISUAL.idle.tip)
+  elseif snap.count == 1 then
+    tip = has_burn(snap) and (tr(v.tip) .. "\n" .. burn_line(snap)) or tr(v.tip)
   else
-    local lines = { tr("pulse.sessions_header", { count = count }) }
+    -- A thin rule separates each session so concurrent sessions read as distinct
+    -- blocks rather than one wall of text (fixed width; tooltip font is proportional
+    -- so it reads as a divider, not a measured column).
+    local DIV = "──────────────"
+    local lines = { tr("pulse.sessions_header", { count = snap.count }) }
     local Tin, Tout = 0, 0
-    for _, s in ipairs(arr) do
-      local line = s.sid .. " · " .. state_word(s.state)
+    for i, s in ipairs(snap.sessions) do
+      if i > 1 then lines[#lines + 1] = DIV end
+      local sw = STATE_WORD[s.state] and tr(STATE_WORD[s.state]) or s.state
+      local line = s.sid .. " · " .. sw
       if has_burn(s) then
         line = line .. " · " .. s.model .. " " .. kfmt(s.tin) .. "/" .. kfmt(s.tout)
         Tin = Tin + s.tin; Tout = Tout + s.tout
       end
       lines[#lines + 1] = line
     end
-    if (Tin + Tout) > 0 then
+    -- fallback to the rollup's Σ figures if no per-session list was published
+    if #snap.sessions == 0 and (snap.tin + snap.tout) > 0 then
+      lines[#lines + 1] = DIV
+      lines[#lines + 1] = tr("pulse.total", { tin = kfmt(snap.tin), tout = kfmt(snap.tout) })
+    elseif (Tin + Tout) > 0 then
+      lines[#lines + 1] = DIV
       lines[#lines + 1] = tr("pulse.total", { tin = kfmt(Tin), tout = kfmt(Tout) })
     end
     tip = table.concat(lines, "\n")
   end
   barWidget.setTooltip(tip)
+end
 
-  -- Mirror the rollup to shared state so the presence orb (orb.luau, a separate
-  -- desktop widget) renders the same status without re-deriving it. The bar dot
-  -- stays the single place that aggregates sessions; the orb is a pure subscriber.
-  -- Published only here (events), never from the breath timer, so orb watchers
-  -- aren't spammed 16×/s. Snapshot carries only what the orb needs: the most-
-  -- urgent state, the session count, and burn totals (single-session figures
-  -- when count==1, the sum when >1).
-  local snap = { state = best, count = count, model = "?", tin = 0, tout = 0, cr = 0 }
-  if count == 1 and has_burn(arr[1]) then
-    local s = arr[1]
-    snap.model, snap.tin, snap.tout, snap.cr = s.model, s.tin, s.tout, s.cr
-  elseif count > 1 then
-    local Tin, Tout = 0, 0
-    for _, s in ipairs(arr) do
-      if has_burn(s) then Tin = Tin + s.tin; Tout = Tout + s.tout end
+-- Normalize + adopt a "claude.pulse" snapshot, then render. Defensive against a
+-- malformed or partial payload (state store round-trips values as JSON). The
+-- `sessions` array (v2) feeds the multi-session tooltip; older publishers omit it.
+local function apply(s)
+  if type(s) ~= "table" then return end
+  local sess = {}
+  if type(s.sessions) == "table" then
+    for i, e in ipairs(s.sessions) do
+      if type(e) == "table" then
+        sess[i] = {
+          sid = tostring(e.sid or "?"),
+          state = type(e.state) == "string" and e.state or "idle",
+          model = (type(e.model) == "string" and e.model ~= "") and e.model or "?",
+          tin = tonumber(e.tin) or 0, tout = tonumber(e.tout) or 0, cr = tonumber(e.cr) or 0,
+        }
+      end
     end
-    snap.tin, snap.tout = Tin, Tout
   end
-  noctalia.state.set("claude.pulse", snap)
-end
-
-local function touch(sid, state, p)
-  seq = seq + 1
-  local s = sessions[sid] or { sid = sid }
-  s.state = state
-  s.seq = seq
-  if p then
-    s.model, s.tin, s.tout, s.cr = p.model, p.tin, p.tout, p.cr
-  end
-  sessions[sid] = s
-end
-
--- launcher quick-ask path (no session id, no telemetry). Ephemeral: shown while
--- streaming, dropped when it finishes — the answer is delivered via notify, so a
--- lingering "done" would only inflate the session count.
---
--- POLLED, not watched: bar widgets don't fire noctalia.state.watch callbacks in
--- v5 (D8 / README "Rough edges"), so update() reads claude.state each tick the
--- same way it re-reads the palette. Only a *change* touches the session table and
--- re-renders, so a steady state costs a single state.get and nothing more.
-local function poll_ask()
-  local s = noctalia.state.get and noctalia.state.get("claude.state")
-  if type(s) ~= "string" then s = nil end
-  if s == last_ask then return end
-  last_ask = s
-  if s == nil or s == "turn_end" or s == "error" then
-    sessions["ask"] = nil
-  else
-    touch("ask", s, nil)
-  end
-  render()
-end
-
--- hook reflex path: per-session state + token telemetry, full lifecycle. The
--- dispatcher always tags the event with a session id; `session_end` (the Claude
--- Code SessionEnd hook) retires the session so stale entries never accumulate.
---
--- A payload-less event carries no session id (real hook events always do) — only a
--- manual `noctalia msg … :pulse all <event>` poke from the CLI does. Those land in a
--- single "default" test slot. To keep such a poke from leaving a sticky phantom
--- session, any RESTING state (idle / turn_end / error) retires "default" too — so
--- `… all idle` cleanly clears the orb after a manual test, without a plugin reload.
-local MANUAL_REST = { idle = true, turn_end = true, error = true }
-function onIpc(event, payload)
-  if type(event) ~= "string" then return end
-  local p = parse_payload(payload)
-  local sid = (p and p.sid) or "default"
-  if event == "session_end" or (sid == "default" and MANUAL_REST[event]) then
-    sessions[sid] = nil
-  else
-    touch(sid, event, p)
-  end
+  snap = {
+    state = (type(s.state) == "string" and VISUAL[s.state]) and s.state or "idle",
+    count = tonumber(s.count) or 0,
+    model = (type(s.model) == "string" and s.model ~= "") and s.model or "?",
+    tin = tonumber(s.tin) or 0,
+    tout = tonumber(s.tout) or 0,
+    cr = tonumber(s.cr) or 0,
+    sessions = sess,
+  }
   render()
 end
 
@@ -334,19 +256,36 @@ function onClick()
   end
 end
 
+-- Right-click opens the sessions panel: the tooltip already lists concurrent
+-- sessions, but you cannot act on a tooltip — it disappears on the way to it. Same
+-- panel-open (not -toggle) reasoning as onClick above. onRightClick needs no
+-- plugin_api bump: the dispatch in plugin_widget.cpp is ungated (the level-14
+-- gate covers the DECLARATIVE `actions` manifest table, not these globals).
+function onRightClick()
+  if not noctalia.runAsync("noctalia msg panel-open 'lowcache/claude-companion:sessions'") then
+    noctalia.notifyError(tr("pulse.title"), tr("pulse.panel_launch_failed"))
+  end
+end
+
 -- Breath timer. Re-arm the interval each tick (the pattern proven live in the
 -- barpulse prototype), advance the clock, repaint the glyph brightness only —
--- glyph/tooltip/rollup are event-driven in render().
+-- glyph/tooltip are event-driven in render() (fired from the state.watch below).
 function update()
   noctalia.setUpdateInterval(INTERVAL_MS)
-  phase = phase + INTERVAL_MS / 1000
+  phase = phase + INTERVAL_MS / 1000 * breath_speed
   if phase > 1e6 then phase = 0 end
   ticks = ticks + 1
   if ticks % PALETTE_EVERY == 0 then resolve_accents() end
-  poll_ask()  -- surface quick-ask state changes (bar widgets can't watch)
+  if ticks % SETTINGS_EVERY == 0 then read_settings() end
   paint()
 end
 
+-- Subscribe to the aggregator's rollup, seed from any snapshot already published
+-- before we subscribed (the service publishes at launch), then paint an initial
+-- frame even if nothing has reported yet (defaults to idle).
+noctalia.state.watch("claude.pulse", apply)
 resolve_accents()
+read_settings()
 noctalia.setUpdateInterval(INTERVAL_MS)
+apply(noctalia.state.get and noctalia.state.get("claude.pulse"))
 render()
