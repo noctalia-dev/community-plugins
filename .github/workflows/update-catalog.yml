@@ -26,7 +26,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Rebuild catalog
-        run: python3 .github/workflows/update-catalog.py
+        run: python3 .github/workflows/scripts/update-catalog.py
 
       - name: Check for changes
         id: check_changes

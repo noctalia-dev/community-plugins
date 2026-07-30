@@ -26,7 +26,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Issue Templates
-        run: python3 .github/workflows/update-issue-templates.py
+        run: python3 .github/workflows/scripts/update-issue-templates.py
 
       - name: Check for changes
         id: check_changes
