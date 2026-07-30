@@ -23,7 +23,7 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("leo/mimir:chat")
+  noctalia.togglePanel("alexander/mimir:chat")
 end
 
 noctalia.state.watch("mimir.status", function(newStatus)

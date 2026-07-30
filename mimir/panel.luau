@@ -73,7 +73,7 @@ function render()
       ui.select({ options = models, value = currentModel, flexGrow = 1, placeholder = "No models", onChange = "onModelChange" }),
     }),
     ui.separator({ thickness = 1, color = "surface_variant" }),
-    ui.scroll({ flexGrow = 1, gap = 4, padding = 12, scrollBottom = true, key = "chat-" .. #messages }, displayMsgs),
+    ui.scroll({ flexGrow = 1, gap = 4, padding = 12 }, displayMsgs),
     ui.separator({ thickness = 1, color = "surface_variant" }),
     ui.row({ gap = 8, padding = { left = 12, right = 12, top = 8, bottom = 4 }, align = "center" }, {
       ui.input({ key = "msg-input-" .. inputKey, value = inputText, placeholder = "Ask me anything...", flexGrow = 1, focus = true, onChange = "onInputChange", onSubmit = "onSubmit" }),
@@ -122,10 +122,6 @@ function onSubmit(v)
   end
 end
 
-function update()
-  render()
-end
-
 noctalia.state.watch("mimir.messages", function()
   render()
 end)
@@ -137,8 +133,6 @@ end)
 noctalia.state.watch("mimir.models", function()
   render()
 end)
-
-noctalia.setUpdateInterval(500)
 
 function onOpen()
   noctalia.state.set("mimir.refresh_models", true)

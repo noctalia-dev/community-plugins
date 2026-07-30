@@ -9,6 +9,13 @@ An AI companion for Noctalia that brings LLM-powered chat directly into your des
 | ID | `alexander/mimir` |
 | Entries | Bar widget: `status`; panel: `chat`; service: `brain` |
 
+## Important
+
+1. I used Opencode as example because that is what I Use and what I tested , it should work with more (not tested)
+2. THis plugin is very early beta , I will improve it as much as I can with api maturing (need scroll control)
+3. I am planing to add commands , file search , etc with opt out options
+
+
 ## Requirements
 
 - An **OpenAI-compatible API endpoint** with a `/chat/completions` and `/models` endpoint.

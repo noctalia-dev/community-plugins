@@ -14,7 +14,7 @@ id = "status"
 entry = "widget.luau"
 
   [widget.actions]
-  left = "panel-toggle leo/mimir:chat"
+  left = "panel-toggle alexander/mimir:chat"
 
 [[widget.setting]]
 key = "glyph"
