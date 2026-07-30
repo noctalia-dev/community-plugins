@@ -8,6 +8,8 @@ charge-stop threshold — no root needed at runtime.
 > Ported from the Noctalia v4 (Quickshell/QML) plugin of the same name to the v5
 > Luau plugin runtime.
 
+![Battery & Power Management widget and panel](screenshot.png)
+
 ## Plugin
 
 Manifest id `piero-93/battery-power-management`. It ships three entries that
