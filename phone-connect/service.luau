@@ -645,9 +645,9 @@ local function handleCommand(cmd)
 	elseif op == "media_seek" then
 		local offset = tonumber(cmd.offset) or 0
 		gdbusSubMethod(dev, "mprisremote", "seek",
-			"<int32 " .. tostring(offset) .. ">",
+			tostring(offset),  -- bare int, no <int32> wrapper
 			function()
-				noctalia.runAsync("sleep 0.6", function() refreshDevices() end)
+				noctalia.runAsync("sleep 0.3", function() refreshDevices() end)
 			end)
 	elseif op == "media_set_volume" then
 		-- volume is a readwrite property; use gdbus Set.
@@ -676,7 +676,11 @@ end
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 local function intervalMs()
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
-	if secs <= 0 then return 60000 end -- disabled -> poll rarely as a fallback
+	if secs <= 0 then return 60000 end
+	-- if media is playing, poll faster for live position updates
+	for _, d in pairs(devices) do
+		if d.mediaisPlaying == true then return 1000 end
+	end
 	return secs * 1000
 end
 
