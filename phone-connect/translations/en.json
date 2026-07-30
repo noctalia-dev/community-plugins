@@ -18,9 +18,9 @@
     },
     "language": {
       "label": "Language",
-      "description": "Display language.",
+      "description": "Display language",
       "en": "English",
-      "zh-Hans": "简体中文"
+      "zh_hans": "简体中文"
     },
     "enable_clipboard_action": {
       "label": "Show Clipboard Action",
@@ -48,12 +48,6 @@
       "attached": "Attached to bar",
       "floating": "Floating (center)",
       "widget": "Below widget (floating)"
-    },
-    "language": {
-      "label": "Language",
-      "description": "Display language",
-      "en": "English",
-      "zh-Hans": "简体中文"
     }
   },
   "status": {
