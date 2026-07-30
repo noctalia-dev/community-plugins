@@ -37,6 +37,9 @@ entry = "widget.luau"
   [widget.actions]
   scroll_up = "volume-up"
   scroll_down = "volume-down"
+  left = "panel-toggle blackbartblues/audio-switcher:audio-switcher"
+  right = "plugin blackbartblues/audio-switcher:service all cycle-output"
+  middle = "plugin blackbartblues/audio-switcher:service all cycle-input"
 
 [[panel]]
 id = "audio-switcher"

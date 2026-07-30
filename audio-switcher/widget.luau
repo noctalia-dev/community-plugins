@@ -1,8 +1,6 @@
 --!nonstrict
 
-local PANEL_ID = "blackbartblues/audio-switcher:audio-switcher"
 local SNAPSHOT_KEY = "audio_switcher_snapshot"
-local COMMAND_KEY = "audio_switcher_command"
 
 local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {
   available = false,
@@ -13,7 +11,6 @@ local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {
   inputVolume = 0,
   outputMuted = false,
 }
-local requestId = 0
 
 local function activeDevice(devices, fallback)
   for _, device in ipairs(type(devices) == "table" and devices or {}) do
@@ -61,14 +58,6 @@ local function render()
   barWidget.setTooltip(tooltipItems)
 end
 
-local function dispatch(action)
-  requestId += 1
-  noctalia.state.set(COMMAND_KEY, {
-    action = action,
-    requestId = "widget-" .. tostring(os.time()) .. "-" .. tostring(requestId),
-  })
-end
-
 noctalia.state.watch(SNAPSHOT_KEY, function(value)
   if type(value) == "table" then
     snapshot = value
@@ -76,25 +65,8 @@ noctalia.state.watch(SNAPSHOT_KEY, function(value)
   end
 end)
 
-function update()
-  render()
-end
-
 function onConfigChanged()
   render()
 end
 
-function onClick()
-  noctalia.togglePanel(PANEL_ID)
-end
-
-function onRightClick()
-  dispatch("cycle_output")
-end
-
-function onMiddleClick()
-  dispatch("cycle_input")
-end
-
-noctalia.setUpdateInterval(60000)
 render()
