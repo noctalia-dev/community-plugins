@@ -386,13 +386,25 @@ local function fetchDeviceExtras(id)
 					end
 				end
 			end)
-	-- mprisremote: media title/artist/album/isPlaying/volume (only if plugin loaded)
-	-- Fetched in parallel to reduce UI delay; merged into one publish at the end.
+	-- mprisremote: media fields fetched sequentially (parallel had callback races).
+	-- We publish once at the end to avoid flicker.
 	local mprisFields = { "isPlaying", "title", "artist", "album", "volume",
 		"localAlbumArtUrl", "length", "position", "canSeek" }
-	local mprisPending = #mprisFields
-	if mprisPending == 0 then return end
-	for _, prop in ipairs(mprisFields) do
+	local mi = 1
+	local function fetchMprisNext()
+		if mi > #mprisFields then
+			local d2 = devices[id]
+			if d2 and d2.medialocalAlbumArtUrl and d2.medialocalAlbumArtUrl ~= "" then
+				local art = d2.medialocalAlbumArtUrl
+				if art:sub(1, 7) == "file://" then art = art:sub(8) end
+				d2.mediaArtPath = art
+				devices[id] = d2
+			end
+			publishDevices()
+			return
+		end
+		local prop = mprisFields[mi]
+		mi = mi + 1
 		noctalia.runAsync(gdbusGetProp(devPath .. "/mprisremote", MPRIS_IFACE, prop),
 			function(res)
 				if res and not res.error then
@@ -402,20 +414,10 @@ local function fetchDeviceExtras(id)
 						devices[id] = d2
 					end
 				end
-				mprisPending = mprisPending - 1
-				if mprisPending == 0 then
-					-- combine album art path
-					local d2 = devices[id]
-					if d2 and d2.medialocalAlbumArtUrl and d2.medialocalAlbumArtUrl ~= "" then
-						local art = d2.medialocalAlbumArtUrl
-						if art:sub(1, 7) == "file://" then art = art:sub(8) end
-						d2.mediaArtPath = art
-						devices[id] = d2
-					end
-					publishDevices()
-				end
+				fetchMprisNext()
 			end)
 	end
+	fetchMprisNext()
 end
 
 -- ── Full device list refresh ─────────────────────────────────────────────────
@@ -635,12 +637,18 @@ local function handleCommand(cmd)
 		local action = cmd.action or "PlayPause"
 		gdbusSubMethod(dev, "mprisremote", "sendAction",
 			shellQuote(action), function()
-				refreshDevices() -- update isPlaying/title etc.
+				-- delay 600ms for phone to update MPRIS state
+				noctalia.runAsync("sleep 0.6", function()
+					refreshDevices()
+				end)
 			end)
 	elseif op == "media_seek" then
 		local offset = tonumber(cmd.offset) or 0
 		gdbusSubMethod(dev, "mprisremote", "seek",
-			"<int32 " .. tostring(offset) .. ">", function() refreshDevices() end)
+			"<int32 " .. tostring(offset) .. ">",
+			function()
+				noctalia.runAsync("sleep 0.6", function() refreshDevices() end)
+			end)
 	elseif op == "media_set_volume" then
 		-- volume is a readwrite property; use gdbus Set.
 		local vol = tonumber(cmd.volume) or 0
