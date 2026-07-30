@@ -228,11 +228,15 @@ local function mediaSection(d)
 
 	local progress
 		if canSeek and length > 0 then
+			local seekPos = position
 			progress = ui.column({ gap = 2 }, {
 				ui.slider({ min = 0, max = length, step = 1000, value = position,
 					controlSize = "sm",
-					onDragEnd = function(v)
-						sendCmd({ op = "media_seek", device = d.id, offset = tostring(tonumber(v) or 0) })
+					onChange = function(v)
+						seekPos = tonumber(v) or position
+					end,
+					onDragEnd = function()
+						sendCmd({ op = "media_seek", device = d.id, offset = tostring(seekPos) })
 					end }),
 				ui.row({ justify = "space_between" }, {
 					ui.label({ text = fmtTime(position), fontSize = 9, color = "on_surface_variant" }),
