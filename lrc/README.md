@@ -1,6 +1,6 @@
 # LRC
 
-![thumbnail](thumbnail.png)
+![thumbnail](thumbnail.webp)
 
 Displays current song lyrics on the bar widget via `lrc_tty`. Works with MPD and Spotify.
 
@@ -9,7 +9,7 @@ Displays current song lyrics on the bar widget via `lrc_tty`. Works with MPD and
 | Field | Value |
 | --- | --- |
 | ID | `shin/lrc` |
-| Entry | Bar widget: `lrc` |
+| Entries | Bar widget: `lrc` |
 
 ## Requirements
 
@@ -21,3 +21,7 @@ Displays current song lyrics on the bar widget via `lrc_tty`. Works with MPD and
 Enable `shin/lrc` in Settings → Plugins, then add the **LRC** bar widget. It displays the current lyric line when a track is playing.
 
 The widget checks MPD first, then falls back to Spotify.
+
+## Notes
+
+Spawns `playerctl` to query playback status and `lrc_tty` to fetch and synchronize lyrics.
