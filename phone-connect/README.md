@@ -9,6 +9,8 @@
 
 [Noctalia](https://docs.noctalia.dev) v5 插件 —— 在桌面 bar 上控制你的手机。
 
+![screenshot](screenshot.png)
+
 ## 功能
 
 - **设备状态** — 电量百分比、充电状态、网络类型(5G/LTE/…)、配对状态
@@ -67,6 +69,8 @@ noctalia msg plugins enable icefish/phone-connect
 <h1 id="english">📱 Phone Connect</h1>
 
 A [Noctalia](https://docs.noctalia.dev) v5 plugin for controlling your phone from the desktop bar.
+
+![screenshot](screenshot.png)
 
 ## Features
 
