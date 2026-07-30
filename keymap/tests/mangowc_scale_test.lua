@@ -1,5 +1,5 @@
 local sourceLines = {}
-for index = 1, 93 do
+for index = 1, 120 do
   if index % 20 == 1 then
     sourceLines[#sourceLines + 1] = "# Group " .. tostring(math.floor(index / 20) + 1)
   end
@@ -61,15 +61,29 @@ noctalia = {
   end,
 }
 
+local instructionBlocks = 0
+debug.sethook(function() instructionBlocks = instructionBlocks + 1 end, "", 1000)
 assert(loadfile("mangowc_service.luau"))()
+debug.sethook()
 bit32 = originalBit32
 
 local snapshot = values["keymap.snapshot"]
 assert(snapshot.status == "ready", "large MangoWC fixture did not parse")
-assert(snapshot.total == 93, "large MangoWC fixture lost binds")
-assert(#snapshot.categories == 5, "large MangoWC fixture lost category markers")
+assert(snapshot.total == 120, "large MangoWC fixture lost binds")
+assert(#snapshot.categories == 6, "large MangoWC fixture lost category markers")
 assert(reads == 1, "MangoWC root config should only be read once per refresh")
 assert(loadingCategoryCount == 0, "loading snapshot should not reserialize the previous bind tree")
-assert(xorCalls > 0, "MangoWC parser did not use the native-xor fingerprint path")
+assert(xorCalls == 0, "MangoWC visible binds still use per-character fingerprinting")
+assert(instructionBlocks < 250, "MangoWC parser exceeded its regression instruction budget")
 
-print("MangoWC scale tests: ok")
+local seenIds = {}
+for _, category in ipairs(snapshot.categories) do
+  for _, bind in ipairs(category.binds) do
+    assert(bind.id:match("^mango:"), "invalid MangoWC bind ID")
+    assert(not seenIds[bind.id], "duplicate MangoWC bind ID")
+    assert(bind.fingerprint == "exact-v1", "MangoWC bind did not use exact source verification")
+    seenIds[bind.id] = true
+  end
+end
+
+print(string.format("MangoWC scale tests: ok (%d blocks)", instructionBlocks))
