@@ -4,6 +4,8 @@
 
 Displays current song lyrics on the bar widget via `lrc_tty`. Works with MPD and Spotify.
 
+![demo](demo.mp4)
+
 ## Plugin
 
 | Field | Value |
