@@ -31,6 +31,8 @@ local editSlot = ""
 local feedback = ""
 local feedbackError = false
 local requestCounter = 0
+local groupingOutputs = false
+local selectedGroupOutputs = {}
 -- Slider onChange is also emitted when the host applies a new controlled value.
 -- Keep the last callback value only for onDragEnd; rendering from it would turn
 -- the first external update into a sticky local draft and freeze later updates.
@@ -85,6 +87,14 @@ local function hiddenCount(kind)
   local devices = kind == "output" and asArray(snapshot.outputs) or asArray(snapshot.inputs)
   for _, device in ipairs(devices) do
     if device.hidden then count += 1 end
+  end
+  return count
+end
+
+local function selectedGroupCount()
+  local count = 0
+  for _, selected in pairs(selectedGroupOutputs) do
+    if selected then count += 1 end
   end
   return count
 end
@@ -211,12 +221,56 @@ local function deviceRow(device, kind)
   local hideAction = function()
     sendCommand("set_hidden", { id = device.id, kind = kind, hidden = not device.hidden })
   end
+  local selectAction = function()
+    selectedGroupOutputs[device.id] = not selectedGroupOutputs[device.id]
+    render()
+  end
+  local disbandAction = function()
+    sendCommand("remove_output_group", { id = device.id })
+  end
   local actionText = device.active and tr("device.current")
     or (device.bluetooth and not device.available and tr("actions.connect_and_use") or tr("actions.use"))
   local actionVariant = device.active and "ghost" or "primary"
   local statusColor = device.active and "secondary" or "on_surface_variant"
-  local row = ui.column({ gap = 6 }, {
-    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = device.active and "primary" or "outline/0.55", borderWidth = 1, fill = device.active and "primary/0.07" or "surface/0" }, {
+  local actions = {}
+  if groupingOutputs and kind == "output" then
+    table.insert(actions, ui.button({
+      text = selectedGroupOutputs[device.id] and tr("actions.selected") or tr("actions.select"),
+      glyph = selectedGroupOutputs[device.id] and "check" or "plus",
+      variant = selectedGroupOutputs[device.id] and "primary" or "outline",
+      controlSize = "sm",
+      enabled = device.available == true and device.group ~= true and snapshot.busy ~= true,
+      onClick = selectAction,
+    }))
+  else
+    table.insert(actions, ui.button({
+      text = actionText,
+      variant = actionVariant,
+      controlSize = "sm",
+      enabled = not device.active and snapshot.busy ~= true,
+      onClick = useAction,
+    }))
+    if kind == "output" and device.group then
+      table.insert(actions, ui.button({
+        text = tr("actions.disband"),
+        glyph = "unlink",
+        variant = "outline",
+        controlSize = "sm",
+        enabled = snapshot.busy ~= true,
+        onClick = disbandAction,
+      }))
+    else
+      table.insert(actions, ui.button({ glyph = "edit", variant = "ghost", controlSize = "sm", tooltip = tr("actions.edit"), onClick = editAction }))
+      table.insert(actions, ui.button({
+        glyph = device.hidden and "eye" or "eye-off",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = tr(device.hidden and "actions.show" or "actions.hide"),
+        onClick = hideAction,
+      }))
+    end
+  end
+  local rowChildren = {
       ui.glyph({ name = device.icon or (kind == "output" and "volume" or "microphone"), size = 19, color = device.active and "primary" or "on_surface_variant" }),
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = tostring(device.name or device.description or device.id), fontWeight = "bold", maxLines = 1 }),
@@ -234,26 +288,46 @@ local function deviceRow(device, kind)
         fontWeight = "bold",
         visible = device.bluetooth == true,
       }),
-      ui.button({
-        text = actionText,
-        variant = actionVariant,
-        controlSize = "sm",
-        enabled = not device.active and snapshot.busy ~= true,
-        onClick = useAction,
-      }),
-      ui.button({ glyph = "edit", variant = "ghost", controlSize = "sm", tooltip = tr("actions.edit"), onClick = editAction }),
-      ui.button({
-        glyph = device.hidden and "eye" or "eye-off",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = tr(device.hidden and "actions.show" or "actions.hide"),
-        onClick = hideAction,
-      }),
-    }),
+  }
+  for _, action in ipairs(actions) do table.insert(rowChildren, action) end
+  local row = ui.column({ gap = 6 }, {
+    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = selectedGroupOutputs[device.id] and "primary" or (device.active and "primary" or "outline/0.55"), borderWidth = 1, fill = selectedGroupOutputs[device.id] and "primary/0.1" or (device.active and "primary/0.07" or "surface/0") }, rowChildren),
   })
   local children = { row }
   if editingId == device.id then table.insert(children, editor(device)) end
   return ui.column({ gap = 6 }, children)
+end
+
+local function groupingToolbar()
+  if activeTab ~= "output" then return ui.column({ visible = false }, {}) end
+  if not groupingOutputs then
+    return ui.row({ justify = "end" }, {
+      ui.button({
+        text = tr("actions.group_outputs"),
+        glyph = "link",
+        variant = "outline",
+        enabled = snapshot.busy ~= true,
+        onClick = "onStartGrouping",
+      }),
+    })
+  end
+  local count = selectedGroupCount()
+  return ui.row({ align = "center", gap = 8, padding = 8, radius = 9, fill = "primary/0.08" }, {
+    ui.label({
+      text = tr("panel.group_hint", { count = count }),
+      flexGrow = 1,
+      color = "on_surface_variant",
+      fontSize = 11,
+    }),
+    ui.button({ text = tr("actions.cancel"), variant = "ghost", onClick = "onCancelGrouping" }),
+    ui.button({
+      text = tr("actions.create_group", { count = count }),
+      glyph = "link",
+      variant = "primary",
+      enabled = count >= 2 and snapshot.busy ~= true,
+      onClick = "onCreateGroup",
+    }),
+  })
 end
 
 local function deviceList(kind)
@@ -357,6 +431,7 @@ render = function()
     header(),
     ui.row({ gap = 12, align = "stretch" }, { volumeCard("output"), volumeCard("input") }),
     toolbar(),
+    groupingToolbar(),
     ui.column({ gap = 3 }, statusRows),
     ui.scroll({ flexGrow = 1, gap = 6 }, { deviceList(activeTab) }),
     ui.label({
@@ -371,6 +446,8 @@ end
 function onOpen(_context)
   feedback = ""
   feedbackError = false
+  groupingOutputs = false
+  selectedGroupOutputs = {}
   sendCommand("refresh")
   render()
 end
@@ -406,7 +483,33 @@ function onShowInputs()
   activeTab = "input"
   editingId = nil
   showHidden = false
+  groupingOutputs = false
+  selectedGroupOutputs = {}
   render()
+end
+
+function onStartGrouping()
+  groupingOutputs = true
+  selectedGroupOutputs = {}
+  editingId = nil
+  showHidden = false
+  feedback = ""
+  render()
+end
+
+function onCancelGrouping()
+  groupingOutputs = false
+  selectedGroupOutputs = {}
+  render()
+end
+
+function onCreateGroup()
+  local ids = {}
+  for _, device in ipairs(asArray(snapshot.outputs)) do
+    if selectedGroupOutputs[device.id] then table.insert(ids, device.id) end
+  end
+  if #ids < 2 then return end
+  sendCommand("create_output_group", { ids = ids })
 end
 
 function onToggleHidden()
@@ -478,6 +581,10 @@ noctalia.state.watch(RESULT_KEY, function(result)
   if type(result) ~= "table" or not tostring(result.requestId or ""):match("^panel%-") then return end
   feedback = tostring(result.message or "")
   feedbackError = result.ok ~= true
+  if result.ok == true and result.action == "create_output_group" then
+    groupingOutputs = false
+    selectedGroupOutputs = {}
+  end
   if result.ok ~= true and (result.action == "set_output_volume" or result.action == "set_input_volume") then
     outputVolumeCommitValue = nil
     inputVolumeCommitValue = nil

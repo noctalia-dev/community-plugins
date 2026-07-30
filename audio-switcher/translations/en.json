@@ -3,11 +3,16 @@
     "cancel": "Cancel",
     "close": "Close",
     "connect_and_use": "Connect & use",
+    "create_group": "Create group ({count})",
     "cycle": "Cycle",
+    "disband": "Disband",
     "edit": "Edit device",
+    "group_outputs": "Group outputs",
     "hide": "Hide device",
     "refresh": "Refresh",
     "save": "Save",
+    "select": "Select",
+    "selected": "Selected",
     "settings": "Plugin settings",
     "show": "Show device",
     "use": "Use"
@@ -17,7 +22,8 @@
     "available": "Available",
     "bluetooth_connected": "Bluetooth connected",
     "bluetooth_disconnected": "Bluetooth disconnected",
-    "current": "Current"
+    "current": "Current",
+    "output_group": "Output group"
   },
   "editor": {
     "alias": "Display name",
@@ -43,6 +49,11 @@
     "command_start": "Could not start the system command.",
     "device_not_found": "The selected device no longer exists.",
     "device_unavailable": "The selected device is not currently available.",
+    "group_create_failed": "Could not create the output group.",
+    "group_not_found": "The output group no longer exists.",
+    "group_remove_failed": "Could not disband the output group.",
+    "group_requires_two": "Select at least two available outputs.",
+    "group_switch_failed": "The output group was created, but could not be selected.",
     "invalid_audio_data": "The audio service returned invalid data.",
     "invalid_slot": "The keybind number must be a whole number from 1 to 99.",
     "invalid_volume": "The requested volume is invalid.",
@@ -55,6 +66,8 @@
   },
   "notifications": {
     "bluetooth_disconnected": "Bluetooth device disconnected.",
+    "group_created": "Output group created and selected.",
+    "group_removed": "Output group disbanded.",
     "input_selected": "Input switched to {device}.",
     "output_selected": "Output switched to {device}.",
     "preferences_saved": "Device preferences saved.",
@@ -62,6 +75,7 @@
     "slot_saved": "Keybind number {slot} saved."
   },
   "panel": {
+    "group_hint": "{count} selected. Choose at least two available outputs.",
     "hidden": "Hidden",
     "hidden_count": "Hidden {count}",
     "input_volume": "Microphone",
