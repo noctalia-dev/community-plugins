@@ -1,6 +1,6 @@
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.1.0"
+version = "0.3.0"
 plugin_api = 16
 author = "Alexander"
 license = "MIT"
@@ -48,6 +48,25 @@ advanced = true
 [[service]]
 id = "brain"
 entry = "service.luau"
+
+[[setting]]
+key = "tool_permission"
+type = "enum"
+label_key = "settings.tool_permission.label"
+description_key = "settings.tool_permission.description"
+options = [
+  { value = "ask", label_key = "settings.tool_permission.ask" },
+  { value = "allow", label_key = "settings.tool_permission.allow" },
+  { value = "off", label_key = "settings.tool_permission.off" },
+]
+default = "ask"
+
+[[setting]]
+key = "tool_blocklist"
+type = "string"
+label_key = "settings.tool_blocklist.label"
+description_key = "settings.tool_blocklist.description"
+default = "sudo,su,passwd,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt"
 
 [[setting]]
 key = "max_history"
