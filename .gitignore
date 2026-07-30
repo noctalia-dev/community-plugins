@@ -1,22 +1,4 @@
 # Editor type definitions, fetched per-plugin from official-plugins (see README).
 noctalia.d.luau
 
-# OS junk
-.DS_Store
-Thumbs.db
 
-# Secrets (local auth files referenced by some plugins)
-auth.json
-opencode-auth.json
-
-# Compiled binaries
-game-launcher/gamelauncher
-
-# Editor / IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Python (CI scripts)
-/.github/workflows/__pycache__

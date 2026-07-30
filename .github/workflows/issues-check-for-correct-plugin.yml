@@ -1,4 +1,4 @@
-name: Update title of issue to represent the plugin
+name: Check for the correct plugin format in issues
 
 on:
   issues:
@@ -14,7 +14,7 @@ permissions:
   issues: write
 
 jobs:
-  update-issue-title:
+  check-for-correct-plugin:
     runs-on: ubuntu-latest
     if: github.repository == 'noctalia-dev/community-plugins'
     steps:
@@ -29,10 +29,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r .github/workflows/scripts/PyGithub-requirement.txt
 
-      - name: Update Issue Title
+      - name: Notify Authors
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue-number || github.event.issue.number }}
-        run: python3 .github/workflows/scripts/issues-update-title.py
-
+        run: python3 .github/workflows/scripts/issues-check-for-correct-plugin.py
