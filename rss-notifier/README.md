@@ -4,7 +4,10 @@ Monitor RSS/Atom feeds and get notifications for new items.
 
 ## Plugin
 
-**Id:** `nilsonlinux/rss-notifier`
+| Field | Value |
+| --- | --- |
+| ID | `nilsonlinux/rss-notifier` |
+| Entries | Bar widget: `indicator`; panel: `panel`|
 
 **Entries:**
 - **Service:** `fetcher` - Background service that fetches and parses feeds
