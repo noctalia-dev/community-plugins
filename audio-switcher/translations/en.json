@@ -95,10 +95,6 @@
     "visible_count": "Visible {count}"
   },
   "settings": {
-    "scroll_step": {
-      "description": "How many percentage points each mouse-wheel step changes volume on the bar widget.",
-      "label": "Scroll step"
-    },
     "show_actions_in_tooltip": {
       "description": "Show actions in tooltip.",
       "label": "Show actions in tooltip"
