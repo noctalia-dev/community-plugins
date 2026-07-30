@@ -36,6 +36,17 @@
       "normal": "Normal — Balanced reasoning and tools",
       "deep": "Deep — Exhaustive search, multi-step reasoning"
     },
+    "tool_permission": {
+      "label": "Tool Permission",
+      "description": "When the AI can run terminal commands",
+      "ask": "Ask — Prompt before every command",
+      "allow": "Allow — Run automatically",
+      "off": "Off — No tools"
+    },
+    "tool_blocklist": {
+      "label": "Blocked Commands",
+      "description": "Comma-separated commands never allowed"
+    },
     "max_history": {
       "label": "Max History",
       "description": "Number of messages to keep in conversation context"

@@ -1,6 +1,32 @@
 local M = {}
 M.conversation = {}
 M.pendingResponses = {}
+M.pendingToolResults = {}
+M.pendingToolApproval = nil
+
+local TOOLS = {
+  {
+    type = "function",
+    ["function"] = {
+      name = "run_command",
+      description = "Execute a shell command on the user's system",
+      parameters = {
+        type = "object",
+        properties = {
+          command = {
+            type = "string",
+            description = "The shell command to run",
+          },
+          description = {
+            type = "string",
+            description = "Brief description of what this command does",
+          },
+        },
+        required = { "command", "description" },
+      },
+    },
+  },
+}
 
 local function loadApiKey()
   local key = noctalia.getConfig("api_key") or ""
@@ -19,7 +45,25 @@ local function loadConfig()
   return {
     endpoint = noctalia.getConfig("api_endpoint") or "https://opencode.ai/zen/go/v1",
     apiKey = loadApiKey(),
+    toolPermission = noctalia.getConfig("tool_permission") or "ask",
+    toolBlocklist = noctalia.getConfig("tool_blocklist") or "sudo,su,passwd,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt",
   }
+end
+
+local function isBlocked(command)
+  local trimmed = command:match("^%s*(.-)%s*$")
+  if not trimmed then return false end
+  local first = trimmed:match("^(%S+)")
+  if not first then return false end
+  first = first:lower()
+  local blocklist = loadConfig().toolBlocklist
+  for item in blocklist:gmatch("[^,]+") do
+    local b = item:match("^%s*(.-)%s*$")
+    if b and b ~= "" and b:lower() == first then
+      return true
+    end
+  end
+  return false
 end
 
 local function setStatus(s)
@@ -27,8 +71,12 @@ local function setStatus(s)
   noctalia.state.set("mimir.status", s)
 end
 
-local function addMessage(role, content)
-  table.insert(M.conversation, { role = role, content = content })
+local function addMessage(role, content, extra)
+  local msg = { role = role, content = content }
+  if extra then
+    for k, v in pairs(extra) do msg[k] = v end
+  end
+  table.insert(M.conversation, msg)
   local copy = {}
   for _, v in ipairs(M.conversation) do
     table.insert(copy, v)
@@ -38,28 +86,35 @@ end
 
 local function think(input)
   setStatus("thinking")
-  local model = noctalia.state.get("mimir.model") or "deepseek-v4-flash"
   local config = loadConfig()
+  local model = noctalia.state.get("mimir.model") or "deepseek-v4-flash"
 
   local msgs = {
-    { role = "system", content = "You are Mimir, a helpful AI assistant." },
+    { role = "system", content = "You are Mimir, a helpful AI assistant running on the user's desktop. You can run shell commands to accomplish tasks. When you need to run a command, use the run_command tool." },
   }
   for _, m in ipairs(M.conversation) do
     table.insert(msgs, m)
   end
-  table.insert(msgs, { role = "user", content = input })
+  if input then
+    table.insert(msgs, { role = "user", content = input })
+  end
 
-  local body = noctalia.json.encode({ model = model, messages = msgs })
-  if not body then
+  local body = { model = model, messages = msgs }
+  if config.toolPermission ~= "off" then
+    body.tools = TOOLS
+  end
+
+  local encoded = noctalia.json.encode(body)
+  if not encoded then
     setStatus("idle")
-    addMessage("assistant", "Error: failed to encode request")
+    if input then addMessage("assistant", "Error: failed to encode request") end
     return
   end
 
   local url = config.endpoint .. "/chat/completions"
   if config.apiKey == "" then
     setStatus("idle")
-    addMessage("assistant", "Error: no API key configured")
+    if input then addMessage("assistant", "Error: no API key configured") end
     return
   end
 
@@ -69,10 +124,62 @@ local function think(input)
     url = url,
     method = "POST",
     headers = headers,
-    body = body,
+    body = encoded,
   }, function(res)
     table.insert(M.pendingResponses, res)
   end)
+end
+
+local function runCommand(tool_call, command)
+  setStatus("running_tool")
+
+  noctalia.runAsync(command, function(result)
+    local output = ""
+    local parts = {}
+    if result.stdout and result.stdout ~= "" then table.insert(parts, result.stdout) end
+    if result.stderr and result.stderr ~= "" then table.insert(parts, result.stderr) end
+    output = table.concat(parts, "\n")
+    if output == "" then
+      output = "(exit code " .. tostring(result.status) .. ", no output)"
+    end
+    table.insert(M.pendingToolResults, { tool_call_id = tool_call.id, output = output })
+  end)
+end
+
+local function executeTool(tool_call)
+  local okArgs, args = pcall(noctalia.json.decode, tool_call["function"].arguments)
+  if not okArgs or type(args) ~= "table" or not args.command then
+    addMessage("assistant", "Error: model generated invalid tool arguments")
+    setStatus("idle")
+    return
+  end
+
+  if isBlocked(args.command) then
+    addMessage("tool", "Command blocked by user settings: " .. args.command, { tool_call_id = tool_call.id })
+    think(nil)
+    return
+  end
+
+  local config = loadConfig()
+
+  if config.toolPermission == "off" then
+    addMessage("tool", "Tools are disabled in settings. Enable them to run commands.", { tool_call_id = tool_call.id })
+    think(nil)
+    return
+  end
+
+  if config.toolPermission == "ask" then
+    M.pendingToolApproval = {
+      id = tool_call.id,
+      command = args.command,
+      description = args.description or "",
+    }
+    noctalia.state.set("mimir.pending_tool", { command = args.command, description = args.description or "" })
+    setStatus("idle")
+    return
+  end
+
+  runCommand(tool_call, args.command)
 end
 
 function update()
@@ -88,26 +195,70 @@ function update()
     end
 
     local data = noctalia.json.decode(res.body)
-    if not data then
+    if not data or not data.choices then
       local snippet = (res.body or ""):sub(1, 200)
       setStatus("idle")
       addMessage("assistant", "Invalid API response: " .. snippet)
       return
     end
 
-    local content = ""
-    if data.choices and data.choices[1] and data.choices[1].message then
-      content = data.choices[1].message.content or ""
-    end
-    if content == "" then content = "(no response)" end
+    local choice = data.choices[1]
+    local message = choice.message
 
-    addMessage("assistant", content)
-    setStatus("idle")
+    if choice.finish_reason == "tool_calls" and message.tool_calls then
+      addMessage("assistant", message.content, { tool_calls = message.tool_calls })
+      for _, tc in ipairs(message.tool_calls) do
+        if tc.type == "function" and tc["function"].name == "run_command" then
+          executeTool(tc)
+          break
+        end
+      end
+    else
+      local content = message.content or ""
+      if content ~= "" then
+        addMessage("assistant", content)
+      end
+      setStatus("idle")
+    end
+  end
+
+  for i, result in ipairs(M.pendingToolResults) do
+    M.pendingToolResults[i] = nil
+    addMessage("tool", result.output, { tool_call_id = result.tool_call_id })
+    think(nil)
+  end
+
+  local pending = M.pendingToolApproval
+  if pending then
+    local approved = noctalia.state.get("mimir.tool_approved")
+    if approved then
+      noctalia.state.set("mimir.tool_approved", false)
+      noctalia.state.set("mimir.pending_tool", false)
+      local cmd = type(approved) == "string" and approved or pending.command
+      local tc = pending
+      M.pendingToolApproval = nil
+      runCommand({ id = tc.id }, cmd)
+      return
+    end
+
+    local denied = noctalia.state.get("mimir.tool_denied")
+    if denied then
+      noctalia.state.set("mimir.tool_denied", false)
+      noctalia.state.set("mimir.pending_tool", false)
+      addMessage("tool", "Command was cancelled by the user.", { tool_call_id = pending.id })
+      M.pendingToolApproval = nil
+      think(nil)
+      return
+    end
   end
 end
 
 noctalia.state.watch("mimir.input", function(input)
   if input and input ~= "" then
+    if M.pendingToolApproval then
+      addMessage("assistant", "Please approve or deny the pending command first.")
+      return
+    end
     addMessage("user", input)
     think(input)
   end
@@ -116,7 +267,9 @@ end)
 noctalia.state.watch("mimir.clear", function(v)
   if v then
     M.conversation = {}
+    M.pendingToolApproval = nil
     noctalia.state.set("mimir.messages", {})
+    noctalia.state.set("mimir.pending_tool", false)
     setStatus("idle")
   end
 end)
