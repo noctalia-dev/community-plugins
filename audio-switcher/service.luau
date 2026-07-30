@@ -1050,9 +1050,28 @@ end
 local function toggleMute(command, kind)
   local target = kind == "output" and "@DEFAULT_SINK@" or "@DEFAULT_SOURCE@"
   local pactlCommand = kind == "output" and "set-sink-mute" or "set-source-mute"
+  local currentMuted = kind == "output" and snapshot.outputMuted or false
+  if kind == "input" then currentMuted = snapshot.inputMuted end
+  local requestedMuted = not currentMuted
   runPactl({ pactlCommand, target, "toggle" }, function(result)
-    resultMessage(command, result.exitCode == 0, trim(result.stderr))
-    refreshAll()
+    local ok = result.exitCode == 0
+    resultMessage(command, ok, trim(result.stderr))
+    if not ok then
+      refreshAll()
+      return
+    end
+
+    local volume
+    if kind == "output" then
+      snapshot.outputMuted = requestedMuted
+      volume = snapshot.outputVolume
+    else
+      snapshot.inputMuted = requestedMuted
+      volume = snapshot.inputVolume
+    end
+    updateActiveDeviceVolume(kind, volume, requestedMuted)
+    publishSnapshot()
+    refreshCurrentVolume(kind)
   end)
 end
 
