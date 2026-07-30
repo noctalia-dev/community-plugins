@@ -643,9 +643,15 @@ local function handleCommand(cmd)
 				end)
 			end)
 	elseif op == "media_seek" then
+		-- set position property directly (seek method is unreliable)
 		local offset = tonumber(cmd.offset) or 0
-		gdbusSubMethod(dev, "mprisremote", "seek",
-			tostring(offset),  -- bare int, no <int32> wrapper
+		local path = DAEMON_PATH .. "/devices/" .. dev .. "/mprisremote"
+		noctalia.runAsync(
+			"gdbus call --session --dest " .. SVC
+				.. " --object-path " .. shellQuote(path)
+				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
+				.. " " .. shellQuote(MPRIS_IFACE) .. " position "
+				.. "<int32 " .. tostring(offset) .. ">",
 			function()
 				noctalia.runAsync("sleep 0.3", function() refreshDevices() end)
 			end)
