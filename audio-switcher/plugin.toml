@@ -1,7 +1,7 @@
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
 version = "0.4.0"
-plugin_api = 14
+plugin_api = 15
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"

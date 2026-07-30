@@ -461,16 +461,7 @@ function onRefresh() sendCommand("refresh") end
 function onScanBluetooth() sendCommand("scan_bluetooth") end
 function onCycleOutput() sendCommand("cycle_output") end
 function onCycleInput() sendCommand("cycle_input") end
-function onOpenSettingsClicked()
-  local started = noctalia.runAsync("noctalia msg settings-open plugins", function(result)
-    if result.timedOut == true or tonumber(result.exitCode) ~= 0 then
-      noctalia.notifyError(tr("title"), tr("errors.command_start"))
-    end
-  end, 5000)
-  if not started then
-    noctalia.notifyError(tr("title"), tr("errors.command_start"))
-  end
-end
+function onOpenSettingsClicked() noctalia.openSettings() end
 
 function onShowOutputs()
   activeTab = "output"
