@@ -3,11 +3,13 @@ noctalia.setUpdateInterval(300)
 local fetching = false
 local mpdPlayer = "mpd"
 
-noctalia.runAsync("playerctl -l 2>/dev/null | grep '^mpd\\.' | head -1", function(r)
+noctalia.runAsync("playerctl -l 2>/dev/null", function(r)
   if r.exitCode == 0 then
-    local name = r.stdout:gsub("%s+$", "")
-    if #name > 0 then
-      mpdPlayer = name
+    for name in r.stdout:gmatch("[^\n]+") do
+      if name:match("^mpd%.") then
+        mpdPlayer = name
+        break
+      end
     end
   end
 end)
