@@ -59,6 +59,8 @@ body:
 
         - godot-provider
 
+        - gslapper
+
         - hassio
 
         - hotspot

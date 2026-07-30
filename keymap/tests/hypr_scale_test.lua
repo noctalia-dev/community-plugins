@@ -21,21 +21,7 @@ local values, watchers = {
     categories = { { name = "Previous", binds = { { id = "previous" } } } },
   },
 }, {}
-local reads, xorCalls, loadingCategoryCount = 0, 0, -1
-local originalBit32 = bit32
-bit32 = {
-  bxor = function(left, right)
-    xorCalls = xorCalls + 1
-    local result, place = 0, 1
-    for _ = 1, 8 do
-      if left % 2 ~= right % 2 then result = result + place end
-      left = math.floor(left / 2)
-      right = math.floor(right / 2)
-      place = place * 2
-    end
-    return result
-  end,
-}
+local reads, loadingCategoryCount = 0, -1
 
 noctalia = {
   state = {
@@ -74,7 +60,6 @@ noctalia = {
 }
 
 assert(loadfile("service.luau"))()
-bit32 = originalBit32
 
 local snapshot = values["keymap.snapshot"]
 assert(snapshot.status == "ready", "large Hyprland fixture did not parse")
@@ -82,6 +67,13 @@ assert(snapshot.total == 93, "large Hyprland fixture lost binds")
 assert(#snapshot.categories == 5, "large Hyprland fixture lost category markers")
 assert(reads == 1, "Hyprland root config should only be read once per refresh")
 assert(loadingCategoryCount == 0, "loading snapshot should not reserialize the previous bind tree")
-assert(xorCalls > 0, "Hyprland parser did not use the native-xor fingerprint path")
+local seenIds = {}
+for _, category in ipairs(snapshot.categories) do
+  for _, bind in ipairs(category.binds) do
+    assert(bind.id:match("^hypr:"), "invalid Hyprland bind ID")
+    assert(not seenIds[bind.id], "duplicate Hyprland bind ID")
+    seenIds[bind.id] = true
+  end
+end
 
 print("hypr scale tests: ok")

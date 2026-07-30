@@ -484,8 +484,8 @@ rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.4"
-updated_at = 1785287494
+version = "1.3.5"
+updated_at = 1785414938
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
@@ -599,8 +599,8 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.2.1"
-updated_at = 1785354500
+version = "0.2.2"
+updated_at = 1785414976
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"

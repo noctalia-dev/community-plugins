@@ -11,6 +11,7 @@ local SYSTEM_CONFIG = "/etc/mango/config.conf"
 local MAX_FILES = 64
 local MAX_SOURCE_BYTES = 512 * 1024
 local MAX_HIDDEN_BYTES = 2 * 1024 * 1024
+local EXACT_SOURCE_FINGERPRINT = "exact-v1"
 
 local refreshing = false
 local refreshQueued = false
@@ -431,13 +432,16 @@ local function addCategory(context, name)
 	return category
 end
 
-local fingerprint
-
 local function stableBindId(context, fields)
-	local identity = table.concat(fields, "|")
+	local encoded = {}
+	for _, value in ipairs(fields) do
+		local field = tostring(value or "")
+		encoded[#encoded + 1] = tostring(#field) .. ":" .. field
+	end
+	local identity = table.concat(encoded)
 	local count = (context.bindIds[identity] or 0) + 1
 	context.bindIds[identity] = count
-	return "mango:" .. fingerprint(identity) .. (count > 1 and (":" .. tostring(count)) or "")
+	return "mango:" .. identity .. (count > 1 and (":" .. tostring(count)) or "")
 end
 
 -- FNV-1a over the exact source line. The editor recalculates this before a
@@ -460,7 +464,7 @@ end
 
 local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
 
-fingerprint = function(rawSnippet)
+local function fingerprint(rawSnippet)
 	local hash = 2166136261
 	for index = 1, #rawSnippet do
 		local low = hash % 256
@@ -571,9 +575,9 @@ local function addBind(
 		description = description or formatAction(action, args), dispatcher = trim(action),
 		command = args, action = formatAction(action, args),
 		mode = context.keymode, kind = kind, flags = parseFlags(suffix), activation = activation,
-		source = source, line = startLine or lineNumber,
-		start_line = startLine or lineNumber, end_line = lineNumber,
-		raw_snippet = rawSnippet, fingerprint = fingerprint(rawSnippet),
+			source = source, line = startLine or lineNumber,
+			start_line = startLine or lineNumber, end_line = lineNumber,
+			raw_snippet = rawSnippet, fingerprint = EXACT_SOURCE_FINGERPRINT,
 		managed = source:match("([^/]+)$") == "keymap.conf",
 		capabilities = editCapabilities(kind, action),
 		_rawKey = kind == "bind" and trim(parts[2]) or key,
