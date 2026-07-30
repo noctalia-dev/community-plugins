@@ -3,6 +3,11 @@ name: Update title of issue to represent the plugin
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue-number:
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -28,6 +33,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue-number || github.event.issue.number }}
         run: python3 .github/workflows/scripts/issues-update-title.py
 
