@@ -8,6 +8,8 @@ Clicking it opens a panel to pick a fan level — no root needed at runtime.
 > Ported from the Noctalia v4 (Quickshell/QML) plugin of the same name to the v5
 > Luau plugin runtime.
 
+![ThinkPad Fan & Thermal Control widget and panel](screenshot.png)
+
 ## Plugin
 
 Manifest id `piero-93/thinkpad-fan`. Three entries share one state snapshot (no
