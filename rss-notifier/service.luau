@@ -3,12 +3,13 @@
 -- Atom <entry>), compara com o que ja foi visto, notifica o que for novo e
 -- publica a contagem de nao-lidos em noctalia.state para o widget consumir.
 
-local seen = {}          -- { [feedUrl] = { [itemId] = true, ... } }
+local seen = {}          -- { [feedUrl] = { ids = { [itemId]=true, ... }, order = { id1, id2, ... } } }
 local unread = 0
 local recentItems = {}   -- lista dos itens mais recentes, mais novo primeiro
 local dataPath = nil
 
-local MAX_RECENT_ITEMS = 50
+local MAX_RECENT_ITEMS  = 50
+local MAX_SEEN_PER_FEED = 300 -- limite de ids "ja vistos" guardados por feed (evita crescer sem fim)
 
 -- Limites para manter o parsing rapido o suficiente para o orcamento de CPU
 -- (muito apertado) do callback assincrono.
@@ -16,11 +17,135 @@ local MAX_BODY_BYTES  = 8000   -- so olhamos os primeiros ~8KB do corpo do feed
 local MAX_ITEM_BYTES  = 400    -- corta cada bloco <item>/<entry> antes de extrair tags
 local MAX_ITEMS       = 8      -- para de processar itens depois desse tanto
 
+local function isUtf8Continuation(b)
+  return b ~= nil and b >= 0x80 and b < 0xC0
+end
+
+-- Corta a string em ate n bytes, mas nunca no meio de um caractere UTF-8
+-- multibyte (acentos, aspas curvas, emoji, etc.) - cortar assim gera bytes
+-- invalidos que o renderizador de texto (Pango) rejeita, deixando labels
+-- (e por tabela o painel inteiro) sem aparecer.
 local function truncate(s, n)
   if not s or #s <= n then
     return s
   end
-  return s:sub(1, n)
+  local cut = n
+  -- recua enquanto o byte da posicao for byte de continuacao (0x80-0xBF)
+  while cut > 0 and isUtf8Continuation(s:byte(cut)) do
+    cut = cut - 1
+  end
+  -- se o byte que sobrou for o inicio de uma sequencia multibyte, so mantem
+  -- se ela couber inteira dentro do limite n; senao descarta ele tambem
+  local b = cut > 0 and s:byte(cut) or nil
+  if b and b >= 0xC0 then
+    local seqLen = (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or 2
+    if cut + seqLen - 1 > n then
+      cut = cut - 1
+    end
+  end
+  return s:sub(1, cut)
+end
+
+-- Mesma logica de "nao corte no meio de UTF-8", mas trabalhando so com
+-- indices/bytes individuais (sem materializar substrings gigantes) - usado
+-- para limitar o tamanho de um bloco <item> sem copiar o conteudo inteiro
+-- antes de cortar.
+local function safeCutEnd(xml, endPos, minPos)
+  local pos = endPos
+  while pos > minPos do
+    local b = xml:byte(pos)
+    if not b then
+      break
+    end
+    if b < 0x80 then
+      break -- ascii, seguro
+    elseif b >= 0xC0 then
+      local seqLen = (b >= 0xF0 and 4) or (b >= 0xE0 and 3) or 2
+      if pos + seqLen - 1 <= endPos then
+        break -- sequencia cabe inteira ate endPos, seguro
+      end
+      pos = pos - 1 -- nao cabe inteira, descarta o lead byte tambem
+    else
+      pos = pos - 1 -- byte de continuacao, ainda no meio da sequencia
+    end
+  end
+  return pos
+end
+
+-- Testa se um item ja foi visto e, se nao, marca como visto - com limite de
+-- tamanho por feed (descarta o mais antigo quando passa do limite), para
+-- nunca deixar a estrutura "seen" crescer sem fim (e estourar o encode/save).
+local function markSeen(url, id)
+  local bucket = seen[url]
+  if not bucket or not bucket.ids then
+    bucket = { ids = {}, order = {} }
+    seen[url] = bucket
+  end
+  if bucket.ids[id] then
+    return false -- ja visto
+  end
+  bucket.ids[id] = true
+  table.insert(bucket.order, id)
+  while #bucket.order > MAX_SEEN_PER_FEED do
+    local oldest = table.remove(bucket.order, 1)
+    bucket.ids[oldest] = nil
+  end
+  return true -- era novo
+end
+
+local function isFirstRunForFeed(url)
+  local bucket = seen[url]
+  return not bucket or not bucket.order or #bucket.order == 0
+end
+
+-- Remove/descarta qualquer sequencia de bytes que NAO seja UTF-8 valido.
+-- Necessario porque alguns feeds vem com o charset errado no servidor (bytes
+-- Latin-1/CP-1252 marcados como UTF-8, por exemplo) - nesse caso nem um corte
+-- perfeito resolve, o defeito ja vem no texto original.
+local function sanitizeUtf8(s)
+  if not s then
+    return s
+  end
+  local out = {}
+  local i = 1
+  local len = #s
+  while i <= len do
+    local b = s:byte(i)
+    if b < 0x80 then
+      out[#out + 1] = string.char(b)
+      i = i + 1
+    else
+      local seqLen
+      if b >= 0xF0 and b <= 0xF4 then
+        seqLen = 4
+      elseif b >= 0xE0 then
+        seqLen = 3
+      elseif b >= 0xC2 then
+        seqLen = 2
+      else
+        seqLen = 0 -- lead byte invalido (0x80-0xC1)
+      end
+
+      local valid = seqLen > 0 and (i + seqLen - 1) <= len
+      if valid then
+        for k = 1, seqLen - 1 do
+          local cb = s:byte(i + k)
+          if not cb or cb < 0x80 or cb >= 0xC0 then
+            valid = false
+            break
+          end
+        end
+      end
+
+      if valid then
+        out[#out + 1] = s:sub(i, i + seqLen - 1)
+        i = i + seqLen
+      else
+        i = i + 1 -- byte invalido: descarta so ele e continua
+      end
+    end
+  end
+  return table.concat(out)
 end
 
 -- ---------------------------------------------------------------------------
@@ -41,17 +166,57 @@ local function loadState()
       seen        = decoded.seen or {}
       recentItems = decoded.recentItems or {}
       unread      = decoded.unread or 0
+
+      -- migra formato antigo ({ [id]=true, ... } direto) para o novo
+      -- ({ ids=..., order=... }), se necessario
+      for url, bucket in pairs(seen) do
+        if type(bucket) == "table" and not bucket.ids then
+          local migrated = { ids = {}, order = {} }
+          for id, v in pairs(bucket) do
+            if v == true then
+              migrated.ids[id] = true
+              table.insert(migrated.order, id)
+            end
+          end
+          seen[url] = migrated
+        end
+      end
+
+      -- sanitiza itens ja persistidos (podem ter sido salvos com UTF-8
+      -- quebrado por versoes anteriores deste plugin, antes deste fix)
+      for _, item in ipairs(recentItems) do
+        if item.title then
+          item.title = sanitizeUtf8(item.title)
+        end
+        if item.feedTitle then
+          item.feedTitle = sanitizeUtf8(item.feedTitle)
+        end
+      end
     end
   end
 end
 
+-- Nunca deixa uma falha de encode/escrita derrubar o entry (isso ja causou o
+-- service ser desativado apos varios erros seguidos no update()).
 local function saveState()
-  if dataPath then
-    noctalia.writeFile(dataPath, noctalia.json.encode({
-      seen        = seen,
-      recentItems = recentItems,
-      unread      = unread,
-    }))
+  if not dataPath then
+    return
+  end
+  local ok, encoded = pcall(noctalia.json.encode, {
+    seen        = seen,
+    recentItems = recentItems,
+    unread      = unread,
+  })
+  if ok and type(encoded) == "string" then
+    pcall(noctalia.writeFile, dataPath, encoded)
+  end
+end
+
+-- Idem para publicar em noctalia.state: nunca propaga erro pra cima.
+local function publishItems()
+  local ok, encoded = pcall(noctalia.json.encode, recentItems)
+  if ok and type(encoded) == "string" then
+    noctalia.state.set("items", encoded)
   end
 end
 
@@ -70,7 +235,7 @@ local function decodeEntities(s)
   s = s:gsub("&quot;", '"')
   s = s:gsub("&#39;", "'")
   s = s:gsub("&amp;", "&")
-  return noctalia.string.trim(s)
+  return sanitizeUtf8(noctalia.string.trim(s))
 end
 
 local function stripCdata(s)
@@ -154,6 +319,11 @@ local function findNextBlock(xml, tag, fromPos, maxItemBytes)
     return nil, fromPos
   end
   local contentEnd = math.min(closeStart - 1, openEnd + maxItemBytes)
+  if contentEnd < closeStart - 1 then
+    -- so precisa corrigir a fronteira UTF-8 quando o corte foi mesmo pelo
+    -- limite de bytes (nao pela tag de fechamento, que ja e uma fronteira segura)
+    contentEnd = safeCutEnd(xml, contentEnd, openEnd)
+  end
   local block = xml:sub(openEnd + 1, contentEnd)
   return block, closeStart + #closeTag
 end
@@ -185,15 +355,13 @@ end
 -- extracao de itens) para manter cada callback pequeno.
 local function finalizeFeed(f)
   local url = f.url
-  seen[url] = seen[url] or {}
-  local firstRun = next(seen[url]) == nil
+  local firstRun = isFirstRunForFeed(url)
   local notifyEnabled = noctalia.getConfig("notify_new")
   local newCount = 0
 
   for _, item in ipairs(f.items) do
     local id = item.id or item.link or item.title
-    if id and not seen[url][id] then
-      seen[url][id] = true
+    if id and markSeen(url, id) then
       newCount = newCount + 1
 
       if not firstRun then
@@ -218,7 +386,7 @@ local function finalizeFeed(f)
   if not firstRun and newCount > 0 then
     unread = unread + newCount
     noctalia.state.set("unread", unread)
-    noctalia.state.set("items", noctalia.json.encode(recentItems))
+    publishItems()
   end
 
   saveState()
@@ -312,7 +480,7 @@ end
 loadState()
 applyInterval()
 noctalia.state.set("unread", unread)
-noctalia.state.set("items", noctalia.json.encode(recentItems))
+publishItems()
 fetchAll() -- primeira leitura: so marca como "vistos", sem notificar (firstRun)
 
 function update()
@@ -347,6 +515,11 @@ function onIpc(_event, payload)
         break
       end
     end
-    noctalia.state.set("items", noctalia.json.encode(recentItems))
+    publishItems()
+    saveState()
+  elseif _event == "clear-all" then
+    recentItems = {}
+    publishItems()
+    saveState()
   end
 end

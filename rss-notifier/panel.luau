@@ -84,13 +84,17 @@ render = function()
     body = ui.scroll({ gap = 6, flexGrow = 1 }, rows)
   end
 
+  local headerButtons = {}
+  if #items > 0 then
+    table.insert(headerButtons, ui.button({ glyph = "trash", variant = "ghost", controlSize = "sm", tooltip = "Limpar tudo", onClick = "onClearAllClicked" }))
+  end
+  table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
+  table.insert(headerButtons, ui.button({ glyph = "close", variant = "ghost", controlSize = "sm", onClick = "onCloseClicked" }))
+
   panel.render(ui.column({ gap = 10, padding = 12, fill = true }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = "RSS/Atom Notifier", fontSize = 15, fontWeight = "bold" }),
-      ui.row({ gap = 4 }, {
-        ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }),
-        ui.button({ glyph = "close", variant = "ghost", controlSize = "sm", onClick = "onCloseClicked" }),
-      }),
+      ui.row({ gap = 4 }, headerButtons),
     }),
     ui.separator({}),
     body,
@@ -111,6 +115,12 @@ end
 
 function onRefreshClicked()
   noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all refresh")
+end
+
+function onClearAllClicked()
+  items = {}
+  render()
+  noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all clear-all")
 end
 
 function onCloseClicked()
