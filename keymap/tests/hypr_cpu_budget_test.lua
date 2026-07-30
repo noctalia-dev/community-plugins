@@ -14,7 +14,7 @@ end
 files[rootPath] = table.concat(rootLines, "\n")
 
 local bindLines, bindDescriptions = {}, {}
-for index = 1, 60 do
+for index = 1, 120 do
   if index % 15 == 1 then
     bindLines[#bindLines + 1] = "-- " .. tostring(math.floor(index / 15) + 1) .. ". Group"
   end

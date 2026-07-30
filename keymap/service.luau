@@ -698,14 +698,17 @@ local function stableBindId(bind)
 		dispatchIdentity = dispatcher .. ":" .. tostring(bind.arg or "")
 	end
 	local flags = boolFlag(bind.release) .. boolFlag(bind.mouse) .. boolFlag(bind.long_press)
-	local identity = table.concat({
-		tostring(bind.submap or ""),
-		tostring(bind.modmask or 0),
-		tostring(bind.key or ""),
-		flags,
-		dispatchIdentity,
-	}, "|")
-	return "hypr:" .. fingerprint(identity)
+	local submap = tostring(bind.submap or "")
+	local modmask = tostring(bind.modmask or 0)
+	local key = tostring(bind.key or "")
+	return string.format(
+		"hypr:%d:%s%d:%s%d:%s%d:%s%d:%s",
+		#submap, submap,
+		#modmask, modmask,
+		#key, key,
+		#flags, flags,
+		#dispatchIdentity, dispatchIdentity
+	)
 end
 
 -- Hyprland 0.56 can emit invalid JSON for native Lua binds while its plain
