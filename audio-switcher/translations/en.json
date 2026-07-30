@@ -137,7 +137,6 @@
       }
     },
     "input": "Input",
-    "output": "Output",
-    "tooltip": "Output: {output} ({output_volume})\nInput: {input} ({input_volume})\nScroll: change output volume\nLeft click: open Audio Switcher\nRight click: cycle outputs\nMiddle click: cycle inputs"
+    "output": "Output"
   }
 }
