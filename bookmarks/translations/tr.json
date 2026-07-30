@@ -19,7 +19,7 @@
   "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
   "cancel_button": "İptal",
   "save_button": "Kaydet",
-  "glyph_field": "Sembol (ör. bookmark)",
+  "glyph_field": "Simge (ör. bookmark)",
   "label_field": "İsim etiketi",
   "cmd_field": "Shell Komutu",
   "description_field": "Açıklama (İsteğe bağlı)",
@@ -43,16 +43,16 @@
   "entry_saved": "\"{label}\" kaydedildi",
   "settings": {
     "glyph": {
-      "label": "Sembol",
-      "description": "Bar aracının sembolü (ör. bookmark)"
+      "label": "Simge",
+      "description": "Çubuk aracının simgesi (ör. bookmark)"
     },
     "tooltip": {
       "label": "İsim etiketi",
-      "description": "Bar aracının isim etiketi"
+      "description": "Çubuk aracının isim etiketi"
     },
     "text": {
       "label": "Yazı",
-      "description": "Bar aracının etiketi. Barda sadece sembolün görünmesi için boş bırakın."
+      "description": "Çubuk aracının etiketi. Çubukta sadece simgenin görünmesi için boş bırakın."
     },
     "data_path": {
       "label": "Veri dosyası",
@@ -61,6 +61,14 @@
     "show_info_button": {
       "label": "Bilgi butonunu göster",
       "description": "Yer imlerinde (klasörlerde değil) üzerine gelindiğinde açıklamalarını ve komutlarını görüntülemek için bir \"?\" düğmesi göster."
+    },
+    "bk_sort_by": {
+      "label": "/bk sıralama önceliği",
+      "description": "\"/bk\" sonuçlarının arama yapılmadığı durumda yer imlerini nasıl sıralacağını belirler.",
+      "options": {
+        "history": "Son kullanılanlar",
+        "usage_count": "En sık kullanılanlar"
+      }
     }
   }
 }

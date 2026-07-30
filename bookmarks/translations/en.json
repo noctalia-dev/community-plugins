@@ -61,6 +61,18 @@
     "show_info_button": {
       "label": "Show info button",
       "description": "Show a \"?\" button on bookmarks (not folders) to view their description and command on hover."
+    },
+    "enable_bk_provider": {
+      "label": "Enable /bk launcher provider",
+      "description": "Adds a \"/bk\" launcher command to fuzzy-search and run your bookmarks."
+    },
+    "bk_sort_by": {
+      "label": "/bk sort order",
+      "description": "How bookmarks are ordered in \"/bk\" results when there's no search text.",
+      "options": {
+        "history": "Recently used",
+        "usage_count": "Most used"
+      }
     }
   }
 }
