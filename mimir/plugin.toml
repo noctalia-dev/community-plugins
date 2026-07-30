@@ -1,0 +1,60 @@
+id = "alexander/mimir"
+name = "Mimir"
+version = "0.1.0"
+plugin_api = 16
+author = "Alexander"
+license = "MIT"
+icon = "brain"
+description = "An AI companion that helps with code, terminal commands, and file operations."
+dependencies = []
+tags = ["ai", "utility", "productivity", "development"]
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle leo/mimir:chat"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+default = "brain"
+
+[[panel]]
+id = "chat"
+entry = "panel.luau"
+placement = "floating"
+position = "center_right"
+width = 450
+height = "fill"
+
+[[panel.setting]]
+key = "api_endpoint"
+type = "string"
+label_key = "settings.api_endpoint.label"
+description_key = "settings.api_endpoint.description"
+default = "https://opencode.ai/zen/go/v1"
+
+[[panel.setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "brain"
+entry = "service.luau"
+
+[[setting]]
+key = "max_history"
+type = "int"
+label_key = "settings.max_history.label"
+description_key = "settings.max_history.description"
+default = 50
+min = 1
+max = 500
+advanced = true
