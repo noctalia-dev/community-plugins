@@ -1,0 +1,66 @@
+{
+  "title": "Yer İmleri",
+  "new_bookmark": "Yeni Yer İmi",
+  "edit_bookmark": "Yer İmini Düzenle",
+  "no_bookmarks": "Henüz bir yer imi yok",
+  "new_folder": "Yeni Klasör",
+  "search_placeholder": "Yer imlerinde ara...",
+  "no_search_results": "Eşleşen yer imi yok",
+  "delete_folder_button": "Klasörü Sil",
+  "edit_folder": "Klasörü Düzenle",
+  "folder_name_field": "Klasör ismi",
+  "open_tooltip": "Aç",
+  "back_button": "Geri",
+  "edit_tooltip": "Düzenle",
+  "delete_tooltip": "Sil",
+  "drag_tooltip": "Sıralamak için sürükle veya bir klasörün içine bırak",
+  "drop_out_of_folder": "Ana panele göndermek için buraya bırak",
+  "show_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini göster",
+  "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
+  "cancel_button": "İptal",
+  "save_button": "Kaydet",
+  "glyph_field": "Sembol (ör. bookmark)",
+  "label_field": "İsim etiketi",
+  "cmd_field": "Shell Komutu",
+  "description_field": "Açıklama (İsteğe bağlı)",
+  "info_cmd_line": "Komut: {cmd}",
+  "info_description_line": "Açıklama: {description}",
+  "run_in_background_field": "Arka planda çalıştır",
+  "run_in_terminal_field": "Konsolda çalıştır",
+  "err_read_failed": "Yer imleri okunamadı: {error}",
+  "err_corrupt": "Bozuk yer imleri dosyası: {error}",
+  "err_no_data_dir": "Eksik veri dizgini",
+  "err_reorder_failed": "Sıralama Yapılamadı: {error}",
+  "err_no_command": "Bu yer iminin bir komutu yok",
+  "err_exit_code": "\"{label}\" {code} ile sonlandı",
+  "err_launch_failed": "\"{label}\" açılamadı",
+  "err_delete_failed": "Silinemedi: {error}",
+  "err_save_failed": "Kaydedilemedi: {error}",
+  "err_label_required": "Etiket gerekli",
+  "err_label_cmd_required": "Etiket ve komut alanları gerekli",
+  "folder_deleted": "\"{label}\" klasörü ve içeriği silindi",
+  "entry_updated": "\"{label}\" güncellendi",
+  "entry_saved": "\"{label}\" kaydedildi",
+  "settings": {
+    "glyph": {
+      "label": "Sembol",
+      "description": "Bar aracının sembolü (ör. bookmark)"
+    },
+    "tooltip": {
+      "label": "İsim etiketi",
+      "description": "Bar aracının isim etiketi"
+    },
+    "text": {
+      "label": "Yazı",
+      "description": "Bar aracının etiketi. Barda sadece sembolün görünmesi için boş bırakın."
+    },
+    "data_path": {
+      "label": "Veri dosyası",
+      "description": "data.json dosyasının saklandığı konum. Varsayılan eklenti veri konumunu kullanmak için boş bırakın."
+    },
+    "show_info_button": {
+      "label": "Bilgi butonunu göster",
+      "description": "Yer imlerinde (klasörlerde değil) üzerine gelindiğinde açıklamalarını ve komutlarını görüntülemek için bir \"?\" düğmesi göster."
+    }
+  }
+}

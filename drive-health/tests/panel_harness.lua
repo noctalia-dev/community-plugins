@@ -167,6 +167,13 @@ local function findNodeWithProp(value, kind, property, expected)
   return nil
 end
 
+local function clickNodeWithProp(value, kind, property, expected)
+  local target = assert(findNodeWithProp(value, kind, property, expected),
+    "could not find " .. kind .. " with " .. property .. "=" .. tostring(expected))
+  assert(type(target.props.onClick) == "function", "matching node has no closure callback")
+  target.props.onClick()
+end
+
 onOpen({})
 assert(rendered ~= nil and not containsText(rendered, "collector.title"),
   "healthy collector consumed panel space")
@@ -223,7 +230,7 @@ state.snapshot.system_collector.enabled = true
 state.snapshot.system_collector.status = "healthy"
 state.snapshot.system_collector.helper_available = true
 watchers.snapshot(state.snapshot)
-onDrive1Clicked()
+clickNodeWithProp(rendered, "button", "tooltip", "panel.expand")
 assert(containsText(rendered, "self_test.title"), "expanded self-test card did not render")
 assert(containsText(rendered, "metrics.mounted_at /  ·  /home/example"),
   "expanded drive card omitted its mounted folders")
@@ -241,10 +248,10 @@ assert(testProgress.props.progress == 0.37 and testProgress.props.value == nil,
   "running self-test used an invalid progress property")
 assert(containsText(rendered, "history.title"), "expanded history graph did not render")
 assert(containsText(rendered, "preferences.edit"), "drive preference action did not render")
-onDrive1Clicked()
+clickNodeWithProp(rendered, "button", "tooltip", "panel.collapse")
 assert(not containsText(rendered, "self_test.title"), "drive details did not collapse")
 assert(not containsText(rendered, "history.title"), "drive history remained visible after collapse")
-onDrive1Clicked()
+clickNodeWithProp(rendered, "button", "tooltip", "panel.expand")
 state.snapshot.disks[1].self_test_state = "passed"
 state.snapshot.disks[1].self_test_status = "Previous test passed"
 state.snapshot.disks[1].self_test_completion_percent = nil
@@ -364,7 +371,7 @@ watchers.snapshot(state.snapshot)
 assert(containsText(rendered, "alerts.dismiss_all"), "dismiss-all alert action did not render")
 assert(findNodeWithProp(rendered, "button", "tooltip", "alerts.dismiss") ~= nil,
   "per-alert dismiss action did not render")
-onDismissAlert1Clicked()
+clickNodeWithProp(rendered, "button", "tooltip", "alerts.dismiss")
 assert(state.dismiss_alert_request.id == "SERIAL1:temperature",
   "per-alert dismiss action targeted the wrong issue")
 onDismissAllAlertsClicked()
@@ -377,7 +384,7 @@ assert(not containsText(rendered, "alerts.active_title")
     and findNodeWithProp(rendered, "button", "tooltip", "alerts.dismiss") == nil,
   "empty alert state kept an alert card or dismiss controls")
 
-onDrive2Clicked()
+clickNodeWithProp(rendered, "button", "tooltip", "panel.expand")
 assert(containsText(rendered, "metrics.start_stop_count")
   and containsText(rendered, "metrics.load_cycle_count")
   and containsText(rendered, "metrics.interface_crc_errors"),

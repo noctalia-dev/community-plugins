@@ -30,6 +30,38 @@
 -- The bar widget (todo.luau) lights its glyph while the panel is open via the
 -- shared "todo_open" state; it reads todo.json itself for the pending count.
 
+-- Row width budget. A Button constrains its label only when it has an explicit
+-- width (the host derives the label's max width from it); flexGrow alone lets a
+-- long task overrun the buttons to its right instead of shrinking. So the text
+-- button is given whatever the fixed parts of the row leave over.
+--
+-- The constrained label WRAPS, it does not ellipsize: Button sets the label's
+-- maxWidth and TextEllipsize::End but never a maxLines, and the text renderer
+-- only ellipsizes against an explicit line budget — with maxLines 0 Pango is
+-- given the full 500-line backstop and wraps freely. Wrapping is what we want
+-- here (the whole task stays readable), and the row grows to fit because
+-- Button pins only a minimum height.
+-- Every constant below mirrors one in noctalia's Style, named so the sum can be
+-- re-checked against the host rather than re-measured by eye.
+local PANEL_WIDTH = 400 -- keep in sync with [[panel]] width in plugin.toml
+local PANEL_PADDING = 14 -- Style::panelPadding, applied left and right
+local SCROLLBAR_GUTTER = 14 -- Style::scrollbarWidth (6) + Style::scrollbarGap (8)
+local ROW_GAP = 8 -- the task row's own gap
+local CHIP_W = 16 -- the priority chip
+local GRIP_W = 24 -- the ☰ drag grip, manual mode only
+local GLYPH_BTN_W = 30 -- ghost glyph button: 2 × Style::spaceSm + a 14px glyph
+local ROW_CONTENT_W = PANEL_WIDTH - (2 * PANEL_PADDING) - SCROLLBAR_GUTTER
+
+-- Width left for the task text once the chip, the optional grip and the
+-- `trailing` glyph buttons (each preceded by a gap) have taken their share.
+local function taskTextWidth(withGrip, trailing)
+    local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (trailing * (GLYPH_BTN_W + ROW_GAP))
+    if withGrip then
+        width -= GRIP_W + ROW_GAP
+    end
+    return width
+end
+
 local PRIORITIES = { "important", "medium", "low" }
 local RANK = { important = 1, medium = 2, low = 3 }
 local COLORS = { important = "#e06c75", medium = "#e5c07b", low = "#98c379" }
@@ -403,12 +435,14 @@ local function taskRow(item)
         }))
     else
         -- Static text; clicking it re-opens the editor ("press on the text").
+        -- The explicit width is what makes a long task wrap onto another line
+        -- instead of running under the three buttons that follow it.
         table.insert(children, ui.button({
             key = "view-" .. id,
             text = item.done and strike(item.text) or item.text,
             variant = "ghost",
             contentAlign = "start",
-            flexGrow = 1,
+            width = taskTextWidth(grip ~= nil, 3),
             onClick = function()
                 enterEdit(id)
             end,
@@ -510,6 +544,7 @@ render = function()
             onClick = "onClearDone",
         }),
         ui.button({ key = "header-add", glyph = "plus", variant = "primary", tooltip = tr("tip_add"), onClick = "onAdd" }),
+        ui.button({ key = "header-settings", glyph = "settings", variant = "ghost", tooltip = tr("tip_settings"), onClick = "onOpenSettings" }),
         ui.button({ key = "header-close", glyph = "close", variant = "ghost", tooltip = tr("tip_close"), onClick = "onClosePanel" }),
     })
 
@@ -648,6 +683,13 @@ end
 function onClearDoneCancel()
     confirmingClear = false
     render()
+end
+
+-- Opens the settings window on this plugin's own page (the host supplies the
+-- plugin id, so a plugin can only ever open its own). It closes the panel on
+-- the way, so onClose flushes any pending edit first.
+function onOpenSettings()
+    noctalia.openSettings()
 end
 
 function onClosePanel()

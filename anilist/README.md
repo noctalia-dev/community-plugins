@@ -42,7 +42,7 @@ Inside the panel:
 - Filter by list status. Anime uses **Watching**, **Planning**, and so on; manga uses **Reading** instead of Watching and **Plan to Read** instead of Planning.
 - The **Watching** / **Reading** filter sorts entries by progress (highest first). Other filters sort A–Z.
 - Use **Reload list** to refresh the active tab without logging in again.
-- Use the settings button to open **Settings → Plugins**.
+- Use the settings button to open this plugin's settings.
 - Click a cover image to open a larger preview. From there you can download the cover or close the preview.
 - Use **−** / **+** to go back or forward one episode/chapter.
 - Use the check button to mark an entry completed.

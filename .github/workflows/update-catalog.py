@@ -41,7 +41,49 @@ def git_output(*args: str) -> str:
     ).stdout
 
 
-def release_history(subdir: str, tip_api: int) -> list[dict]:
+def plugin_history(subdir: str) -> list[tuple[str, int, dict]]:
+    """Every readable revision of `<subdir>/plugin.toml`, newest first.
+
+    One `git show` per revision, and both the release ladder and the per-version release
+    dates come out of this single walk. (A directory rename starts the history over, the
+    same way it resets `added_at`.)
+    """
+    history = []
+    revisions = git_output(
+        "log", "--format=%H %ct", "--", f"{subdir}/plugin.toml"
+    ).splitlines()
+
+    for line in revisions:
+        revision, _, commit_time = line.partition(" ")
+        try:
+            manifest = tomllib.loads(
+                git_output("show", f"{revision}:{subdir}/plugin.toml")
+            )
+        except (subprocess.CalledProcessError, tomllib.TOMLDecodeError):
+            continue  # unreadable or pre-`plugin_api` history
+        history.append((revision, int(commit_time), manifest))
+
+    return history
+
+
+def release_times(history: list[tuple[str, int, dict]]) -> dict[str, int]:
+    """When each version string was first committed, keyed by version.
+
+    The earliest commit carrying a version is the bump that released it. A later commit
+    editing plugin.toml without bumping (tags, description, translations) must not move the
+    date, and a version that reappears after a revert keeps its original one.
+    """
+    times: dict[str, int] = {}
+    for _, commit_time, manifest in reversed(history):  # oldest first
+        version = manifest.get("version")
+        if isinstance(version, str) and version:
+            times.setdefault(version, commit_time)
+    return times
+
+
+def release_history(
+    history: list[tuple[str, int, dict]], tip_api: int, released: dict[str, int]
+) -> list[dict]:
     """Older revisions of a plugin, one per API level below the tip's, newest first.
 
     A Noctalia below the tip's `plugin_api` has nothing to install unless the catalog names
@@ -51,19 +93,10 @@ def release_history(subdir: str, tip_api: int) -> list[dict]:
     """
     releases = []
     lowest_api = tip_api
-    revisions = git_output(
-        "log", "--format=%H", "--", f"{subdir}/plugin.toml"
-    ).split()
 
-    for revision in revisions:
+    for revision, _, manifest in history:
         if lowest_api <= OLDEST_SUPPORTED_PLUGIN_API:
             break
-        try:
-            manifest = tomllib.loads(
-                git_output("show", f"{revision}:{subdir}/plugin.toml")
-            )
-        except (subprocess.CalledProcessError, tomllib.TOMLDecodeError):
-            continue  # unreadable or pre-`plugin_api` history
 
         plugin_api = manifest.get("plugin_api")
         version = manifest.get("version")
@@ -74,7 +107,16 @@ def release_history(subdir: str, tip_api: int) -> list[dict]:
         if plugin_api >= lowest_api or plugin_api < OLDEST_SUPPORTED_PLUGIN_API:
             continue
 
-        releases.append({"plugin_api": plugin_api, "version": version, "rev": revision})
+        # `rev` is the newest revision still on this API level, not necessarily the bump
+        # commit, so the date comes from the version rather than from `rev` itself.
+        releases.append(
+            {
+                "plugin_api": plugin_api,
+                "version": version,
+                "rev": revision,
+                "updated_at": released[version],
+            }
+        )
         lowest_api = plugin_api
 
     return releases
@@ -116,6 +158,8 @@ def load_plugin_manifest(path: Path) -> dict:
     # falls back to the file's mtime: an uncommitted plugin still gets a sensible entry so the
     # catalog can be generated mid-development. (A rename also breaks the link to the commit
     # that first added the file, which is why added_at falls back too.)
+    # `updated_at` is only the last plugin.toml touch here; discover_plugins replaces it with
+    # the date `version` was actually bumped once the file's history has been walked.
     mtime = int(path.stat().st_mtime)
     out["updated_at"] = git_commit_time(path) or mtime
     out["added_at"] = git_commit_time(path, "--diff-filter=A") or out["updated_at"]
@@ -139,9 +183,13 @@ def discover_plugins() -> list[dict]:
     for manifest_path in sorted(ROOT_DIR.glob("*/plugin.toml")):
         manifest = load_plugin_manifest(manifest_path)
         directory = manifest_path.parent.name
+        history = plugin_history(directory)
+        released = release_times(history)
         manifest["_directory"] = directory
         manifest["_order"] = order.get(manifest["id"], len(order))
-        manifest["releases"] = release_history(directory, manifest["plugin_api"])
+        # A bump that is not committed yet has no commit to date it, so the last touch stands.
+        manifest["updated_at"] = released.get(manifest["version"], manifest["updated_at"])
+        manifest["releases"] = release_history(history, manifest["plugin_api"], released)
         plugins.append(manifest)
 
     plugins.sort(key=lambda plugin: (plugin["_order"], plugin["_directory"]))
@@ -160,12 +208,13 @@ def render_catalog(plugins: list[dict]) -> str:
     lines = [
         "# This file is auto-generated. Do not edit manually.",
         "# Do not include it in your commit.",
-        "# Community Noctalia plugins catalog.",
+        "# Noctalia plugins catalog.",
         "# Index of every plugin this source ships: the minimum needed to render, search,",
         "# and compat-check the list. The per-plugin plugin.toml stays authoritative; the",
         "# host re-reads it on enable. Keep one [[plugin]] row per plugin subdirectory.",
         "# A [[plugin.release]] row names an older revision for a Noctalia below the tip's",
         "# plugin_api, so an older release stays installable instead of the plugin vanishing.",
+        "# On every row, updated_at dates the commit that first shipped that row's version.",
         "",
     ]
 
@@ -207,6 +256,7 @@ def render_catalog(plugins: list[dict]) -> str:
                     "[[plugin.release]]",
                     f"plugin_api = {release['plugin_api']}",
                     f"version = {toml_string(release['version'])}",
+                    f"updated_at = {release['updated_at']}",
                     f"rev = {toml_string(release['rev'])}",
                 ]
             )

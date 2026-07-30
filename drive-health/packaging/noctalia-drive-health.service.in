@@ -34,3 +34,6 @@ LockPersonality=true
 MemoryDenyWriteExecute=true
 CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SYS_ADMIN CAP_SYS_RAWIO
 ReadWritePaths=/run/noctalia-drive-health
+
+[Install]
+WantedBy=multi-user.target

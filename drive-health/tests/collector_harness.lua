@@ -13,6 +13,8 @@ local watchers = {}
 local pendingProbeCallback = nil
 local probeCalls = 0
 local probeAction = nil
+local failNextLaunch = false
+local nextAsyncResult = nil
 local collectorEnabled = mode == "raw-cache" or mode == "outdated-raw-cache"
 
 local available = {
@@ -75,6 +77,7 @@ noctalia = {
   writeFile = function(path, contents) files[path] = contents return true end,
   log = function(message) table.insert(logs, message) end,
   notify = function(title, body) table.insert(notifications, { title = title, body = body }) end,
+  notifyError = function(title, body) table.insert(notifications, { title = title, body = body, error = true }) end,
   tr = translate,
   formatTime = function(_pattern, _epoch) return "22:13:20" end,
   setUpdateInterval = function(_milliseconds) end,
@@ -96,6 +99,19 @@ noctalia = {
   runAsync = function(command, callback, _timeout)
     launchedCommand = command
     table.insert(launchedCommands, command)
+    if failNextLaunch then
+      failNextLaunch = false
+      return false
+    end
+    if callback == nil then
+      return true
+    end
+    if nextAsyncResult ~= nil then
+      local result = nextAsyncResult
+      nextAsyncResult = nil
+      callback(result)
+      return true
+    end
     if command:match("lsblk=ok") then
       probeCalls = probeCalls + 1
       if probeAction == "pending" then
@@ -146,6 +162,55 @@ source = source:gsub("local function normalizeRaw", "function normalizeRaw")
 source = source:gsub("local function publishError", "function publishError")
 source = source:gsub("([%a_][%w_]*) %+%= ([^\n]+)", "%1 = %1 + %2")
 assert(load(source, "@collector.luau"))()
+
+if mode == "lifecycle" then
+  collectorEnabled = true
+  files["/usr/local/libexec/noctalia-drive-health/collect_raw.sh"] = "installed"
+  files["/usr/local/libexec/noctalia-drive-health/manage-collector.sh"] = "installed"
+  files["/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh"] = "installed"
+  launchedCommands = {}
+
+  onEnable()
+  assert(launchedCommands[1]
+      == "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' start",
+    "plugin enable did not start the installed collector")
+
+  onExit(0, "disable")
+  assert(launchedCommands[2]
+      == "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' pause",
+    "plugin disable did not pause the installed collector")
+
+  onExit(0, "uninstall")
+  assert(launchedCommands[3]
+      == "pkexec '/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh'",
+    "plugin uninstall did not remove the installed collector")
+
+  files["/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh"] = nil
+  onExit(0, "uninstall")
+  assert(launchedCommands[4]:match("^pkexec /bin/sh %-c ")
+      and launchedCommands[4]:match("/usr/local/libexec/noctalia%-drive%-health")
+      and not launchedCommands[4]:match("/mock/plugin"),
+    "legacy uninstall fallback depends on files removed with the plugin")
+
+  local notificationCount = #notifications
+  failNextLaunch = true
+  onExit(0, "disable")
+  assert(#notifications == notificationCount + 1 and notifications[#notifications].error == true,
+    "detached lifecycle launch failure was not reported")
+
+  nextAsyncResult = { exitCode = 126, stdout = "", stderr = "", timedOut = false }
+  onEnable()
+  assert(#notifications == notificationCount + 2
+      and logs[#logs]:match("privileged_action%.cancelled"),
+    "onEnable authorization cancellation was not reported")
+
+  onExit(0, "reload")
+  onExit(15, "shutdown")
+  assert(#launchedCommands == 6, "reload or shutdown changed the collector service")
+
+  print("collector lifecycle test passed")
+  return
+end
 
 local snapshot = assert(state.collector_snapshot, "collector did not publish an initialization snapshot")
 local dependencies = assert(snapshot.dependencies, "snapshot has no dependency state")

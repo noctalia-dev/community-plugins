@@ -97,7 +97,7 @@ local function runCommand(args, callback, timeoutMs)
 end
 
 local function runPactl(args, callback, timeoutMs)
-  local command = { "pactl" }
+  local command = { "env", "LC_ALL=C", "pactl" }
   for _, value in ipairs(args) do table.insert(command, value) end
   return runCommand(command, callback, timeoutMs)
 end
@@ -203,6 +203,25 @@ local function firstVolumePercent(volume)
     end
   end
   return 0
+end
+
+local function parseCurrentVolume(output)
+  local decoded = noctalia.json.decode(tostring(output or ""))
+  if type(decoded) == "table" and type(decoded.volume) == "table" then
+    return firstVolumePercent(decoded.volume)
+  end
+  return tonumber(tostring(output or ""):match("(%d+)%%"))
+end
+
+local function parseCurrentMute(output)
+  local decoded = noctalia.json.decode(tostring(output or ""))
+  if type(decoded) == "table" and type(decoded.mute) == "boolean" then
+    return decoded.mute
+  end
+  local value = tostring(output or ""):match("Mute:%s*(%a+)")
+  if value == "yes" then return true end
+  if value == "no" then return false end
+  return nil
 end
 
 local function propertiesOf(item)
@@ -508,23 +527,22 @@ local function loadCurrentVolume(kind, callback)
       callback(false)
       return
     end
-    local volumeData = decodeJson(volumeResult.stdout)
-    if volumeData == nil or type(volumeData.volume) ~= "table" then
+    local volume = parseCurrentVolume(volumeResult.stdout)
+    if volume == nil then
       callback(false)
       return
     end
-    local volume = firstVolumePercent(volumeData.volume)
     runPactl({ "-f", "json", muteCommand, target }, function(muteResult)
       if muteResult.exitCode ~= 0 then
         callback(false)
         return
       end
-      local muteData = decodeJson(muteResult.stdout)
-      if muteData == nil then
+      local muted = parseCurrentMute(muteResult.stdout)
+      if muted == nil then
         callback(false)
         return
       end
-      callback(true, volume, muteData.mute == true)
+      callback(true, volume, muted)
     end)
   end)
 end
@@ -751,7 +769,7 @@ local function setDefaultTarget(command, kind, device)
     end
     moveStreams(kind, device.targetName, function()
       local messageKey = kind == "output" and "notifications.output_selected" or "notifications.input_selected"
-      finishAction(command, true, noctalia.tr(messageKey, { device = device.name }))
+      finishAction(command, true, noctalia.tr(messageKey, { device = device.name }), noctalia.getConfig("show_notification_on_switch"))
     end)
   end)
 end

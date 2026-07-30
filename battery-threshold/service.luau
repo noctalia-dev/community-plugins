@@ -171,26 +171,20 @@ local function run_setup()
     local rules_script = plugin_dir .. "/setup_rules.sh"
 
     local cmd =
-        string.format("pkexec bash %s %s", shell_quote(rules_script), shell_quote(user))
+        string.format("bash %s %s", shell_quote(rules_script), shell_quote(user))
 
-    noctalia.log("Running setup script via pkexec: " .. cmd)
-    noctalia.runAsync(cmd, function(result)
-        if result.exitCode == 0 then
-            noctalia.log("Setup completed successfully")
-            noctalia.notify(
-                noctalia.tr("notification.setup-title"),
-                noctalia.tr("notification.setup-success")
-            )
-            check_status()
-        else
-            noctalia.log("Setup failed with exit code " .. tostring(result.exitCode))
-            noctalia.notifyError(
-                noctalia.tr("notification.setup-title"),
-                noctalia.tr("notification.setup-fail")
-            )
-        end
-        noctalia.state.set("run_setup_request", false)
-    end)
+    noctalia.log("Launching setup script in terminal: " .. cmd)
+    local launched = noctalia.runInTerminal(cmd)
+    if launched then
+        noctalia.log("Setup script launched in terminal")
+    else
+        noctalia.log("Failed to launch terminal for setup script")
+        noctalia.notifyError(
+            noctalia.tr("notification.setup-title"),
+            noctalia.tr("notification.setup-fail")
+        )
+    end
+    noctalia.state.set("run_setup_request", false)
 end
 
 noctalia.state.watch("run_setup_request", function(val)

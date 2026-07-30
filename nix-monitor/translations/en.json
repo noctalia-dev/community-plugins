@@ -75,6 +75,11 @@
         "nixos_26_05_small": "NixOS 26.05 Small",
         "nixos_unstable": "NixOS Unstable",
         "nixos_unstable_small": "NixOS Unstable Small"
+      },
+      "system_stats_check_mode": {
+        "off": "Off",
+        "on_interval": "On interval",
+        "on_start": "On start"
       }
     },
     "show_update_available_notification": {
@@ -88,6 +93,10 @@
     "system_stats_check_duration_threshold": {
       "description": "Cancel system stats check if it took too long (in minutes)",
       "label": "System stats check duration threshold"
+    },
+    "system_stats_check_mode": {
+      "description": "Select how system stats checking is performed (off, on interval, on start)",
+      "label": "System stats check mode"
     },
     "system_stats_check_interval": {
       "description": "How often to check for system stats (in minutes)",
@@ -151,6 +160,7 @@
     }
   },
   "terminal": {
-    "press_enter_to_exit": "Press enter to exit..."
+    "press_enter_to_exit": "Press enter to exit...",
+    "command_exits_non_zero": "WARNING: Command exits in a non-zero status!\nPress enter to exit..."
   }
 }

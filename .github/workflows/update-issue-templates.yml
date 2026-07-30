@@ -1,0 +1,51 @@
+name: Update Issue Templates
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.**'
+  workflow_dispatch: 
+
+concurrency:
+  group: update-issue-templates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-issue-templates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: ${{ github.repository == 'noctalia-dev/community-plugins' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Issue Templates
+        run: python3 .github/workflows/update-issue-templates.py
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git add .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/feature_request.yml
+
+          if git diff --quiet --cached -- .github/ISSUE_TEMPLATE/bug_report.yml && git diff --quiet --cached -- .github/ISSUE_TEMPLATE/feature_request.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes found in the issue templates!"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Changes detected in the issue templates!"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "chore: update issue templates [skip ci]"
+          git push
+        

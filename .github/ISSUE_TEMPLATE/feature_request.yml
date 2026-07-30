@@ -17,14 +17,121 @@ body:
         - label: This is about a community plugin, not about Noctalia itself (those belong in the noctalia repo).
           required: true
 
-  - type: input
+  - type: dropdown
     id: plugin-id
     attributes:
       label: Plugin
-      description: The plugin id this request is about, as it appears in its plugin.toml.
-      placeholder: "author/plugin"
+      description: The plugin id.
+      options:
+        - anilist
+
+        - arch-updater
+
+        - audio-switcher
+
+        - battery-graph
+
+        - battery-threshold
+
+        - bookmarks
+
+        - calculator
+
+        - cat
+
+        - claude-companion
+
+        - color_picker
+
+        - daily-wallpaper
+
+        - drive-health
+
+        - dropwall
+
+        - ds4-color
+
+        - eyecare
+
+        - file-search
+
+        - game-launcher
+
+        - godot-provider
+
+        - hassio
+
+        - hotspot
+
+        - hypr-screen-mirror
+
+        - hypr-submap
+
+        - ideapad-conservation-mode
+
+        - iio_lock
+
+        - imagemagick-clock
+
+        - keybind-cheatsheet
+
+        - keymap
+
+        - lid-guard
+
+        - lyrics
+
+        - mangowm-keymode
+
+        - mawaqit
+
+        - mini-docker
+
+        - nextboot-selector
+
+        - nix-monitor
+
+        - noctwhspr
+
+        - pass
+
+        - pomodoro
+
+        - portctl
+
+        - prismlauncher-instances
+
+        - proton-pass
+
+        - sharednd
+
+        - shelly
+
+        - special-workspaces
+
+        - ssh-launcher
+
+        - tmux-provider
+
+        - todo
+
+        - topgrade-wrapper
+
+        - um5606_fan_state
+
+        - upbeat
+
+        - w-engine
+
+        - web-launcher
+
+        - wl-screen-mirror
+
+        - zed-provider
+
     validations:
       required: true
+
 
   - type: dropdown
     id: feature-type

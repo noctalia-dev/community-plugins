@@ -15,8 +15,9 @@ count at a glance without giving up the interactive upgrade.
 
 ## Requirements
 
-Noctalia with plugin API 9 or newer (the panel wires its callbacks as closures),
-and `topgrade` on `PATH`. A terminal emulator is needed for the update run:
+Noctalia v5.0.0-beta.6 or newer — the first tagged release that accepts
+`plugin_api = 15`, which the panel's settings shortcut
+(`noctalia.openSettings()`) needs — and `topgrade` on `PATH`. A terminal emulator is needed for the update run:
 the plugin uses Noctalia's own detection (`$TERMINAL`, then `ghostty`, `kitty`,
 `alacritty`, `wezterm`, `foot`, `konsole`, `gnome-terminal`, `ptyxis`, `xterm`),
 or the one named in the **Terminal** setting.
@@ -67,6 +68,14 @@ noctalia msg panel-toggle nightwatch75/topgrade-wrapper:panel
 | **Update** (panel)                | Run topgrade in a terminal window                           |
 | **Dismiss** (panel)               | Keep the numbers but return the bar glyph to its resting colour |
 | ↻ refresh (panel header)          | Same as **Check Updates**                                   |
+| ⚙ settings (panel header)         | Open this plugin's page in *Settings → Plugins*             |
+
+That settings page also opens from the command line, so it can be bound in your
+compositor too:
+
+```sh
+noctalia msg settings-open-plugin nightwatch75/topgrade-wrapper
+```
 
 The glyph turns to the accent colour with the pending count next to it once a
 check finds something, stays neutral while everything is up to date or after

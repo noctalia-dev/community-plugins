@@ -8,8 +8,8 @@
 
 id = "nightwatch75/todo"
 name = "To Do"
-version = "0.0.10"
-plugin_api = 9
+version = "0.0.14"
+plugin_api = 15
 author = "nightwatch75"
 license = "MIT"
 dependencies = []

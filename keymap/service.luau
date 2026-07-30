@@ -10,6 +10,7 @@ local MAX_LUA_FILES = 64
 local MAX_SOURCE_BYTES = 512 * 1024
 local MAX_HIDDEN_BYTES = 2 * 1024 * 1024
 local HYPRCTL_TIMEOUT_MS = 5000
+local EXACT_SOURCE_FINGERPRINT = "exact-v1"
 
 local refreshing = false
 local refreshQueued = false
@@ -194,6 +195,15 @@ local function assignmentLiteral(line, field)
 	if quote ~= '"' and quote ~= "'" then
 		return nil, false
 	end
+	local simpleValue, simpleTail
+	if quote == '"' then
+		simpleValue, simpleTail = literal:match('^"([^"\\]*)"(.*)$')
+	else
+		simpleValue, simpleTail = literal:match("^'([^'\\]*)'(.*)$")
+	end
+	if simpleValue ~= nil then
+		return simpleValue, simpleTail:match("^%s*%.%.") ~= nil
+	end
 
 	local out = {}
 	local escaped = false
@@ -255,6 +265,13 @@ local function generatedCommand(line)
 	local suffix = line:sub(endIndex + 1)
 	local quote = suffix:sub(1, 1)
 	if quote == '"' or quote == "'" then
+		local simpleValue
+		if quote == '"' then
+			simpleValue = suffix:match('^"([^"\\]*)"')
+		else
+			simpleValue = suffix:match("^'([^'\\]*)'")
+		end
+		if simpleValue ~= nil then return simpleValue end
 		local out = {}
 		local escaped = false
 		for index = 2, #suffix do
@@ -281,6 +298,8 @@ local function generatedCommand(line)
 end
 
 local function generatedAction(line)
+	local balanced = line:match("(hl%.dsp%.[%w_%.]+%b())")
+	if balanced ~= nil then return balanced end
 	local startIndex = line:find("hl%.dsp%.")
 	if startIndex == nil then return nil end
 	local quote, escaped, depth, opened = nil, false, 0, false
@@ -303,15 +322,28 @@ local function generatedAction(line)
 	return nil
 end
 
-local function xorByte(left, right)
+local function xorNibbleSlow(left, right)
 	local result, place = 0, 1
-	for _ = 1, 8 do
+	for _ = 1, 4 do
 		if left % 2 ~= right % 2 then result = result + place end
 		left = math.floor(left / 2)
 		right = math.floor(right / 2)
 		place = place * 2
 	end
 	return result
+end
+
+local xorNibbles = {}
+for left = 0, 15 do
+	xorNibbles[left] = {}
+	for right = 0, 15 do
+		xorNibbles[left][right] = xorNibbleSlow(left, right)
+	end
+end
+
+local function xorByte(left, right)
+	return xorNibbles[left % 16][right % 16]
+		+ xorNibbles[math.floor(left / 16)][math.floor(right / 16)] * 16
 end
 
 local xorByteFast = type(bit32) == "table" and type(bit32.bxor) == "function" and bit32.bxor or xorByte
@@ -419,6 +451,7 @@ local function scanLuaSources(rootPath)
 					warnings[#warnings + 1] = "lua_source_truncated"
 				end
 
+				local containsHidden = source:find("-- Keymap hidden ", 1, true) ~= nil
 				local currentCategory = nil
 				local pendingBindCategory = nil
 				local pendingMarkerLine = nil
@@ -427,7 +460,10 @@ local function scanLuaSources(rootPath)
 				local lineNumber = 1
 				while lineNumber <= #lines do
 					local line = lines[lineNumber]
-					local block, blockEnd, candidate = hiddenBlockAt(lines, lineNumber)
+					local block, blockEnd, candidate = nil, lineNumber, false
+					if containsHidden then
+						block, blockEnd, candidate = hiddenBlockAt(lines, lineNumber)
+					end
 					if candidate then
 						if block == nil then
 							warnings[#warnings + 1] = "hidden_block_invalid:" .. path .. ":" .. tostring(lineNumber)
@@ -467,81 +503,88 @@ local function scanLuaSources(rootPath)
 						lineNumber = blockEnd + 1
 					else
 						local bindCategory = line:match(
-						"^%s*%-%-%s*Keymap bind%-category:%s*(.-)%s*$"
-					)
-					local header = line:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
-					if bindCategory ~= nil and bindCategory ~= "" then
-						pendingBindCategory = bindCategory
-						pendingMarkerLine = lineNumber
-						pendingMarkerRaw = line
-					elseif header ~= nil and header ~= "" then
-						currentCategory = header
-						appendUnique(headers, headerSeen, header)
-					elseif not line:match("^%s*%-%-") then
-						local modules = requiredModules(line)
-						for _, moduleName in ipairs(modules) do
-							local requiredPath = modulePath(path, moduleName)
-							if requiredPath ~= nil and not queued[requiredPath] and noctalia.fileExists(requiredPath) then
-								queued[requiredPath] = true
-								queue[#queue + 1] = requiredPath
-							end
-						end
-
-						local effectiveCategory = pendingBindCategory or currentCategory
-						if effectiveCategory ~= nil then
-							local description, dynamic = assignmentLiteral(line, "description")
-							if description == nil then
-								description, dynamic = assignmentLiteral(line, "desc")
-							end
-							if description ~= nil and trim(description) ~= "" then
-								if dynamic then
-									local prefixKey = description .. "\0" .. effectiveCategory
-									if not prefixSeen[prefixKey] then
-										prefixSeen[prefixKey] = true
-										prefixes[#prefixes + 1] = {
-											prefix = description,
-											category = effectiveCategory,
-										}
+							"^%s*%-%-%s*Keymap bind%-category:%s*(.-)%s*$"
+						)
+						local header = line:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
+						if bindCategory ~= nil and bindCategory ~= "" then
+							pendingBindCategory = bindCategory
+							pendingMarkerLine = lineNumber
+							pendingMarkerRaw = line
+						elseif header ~= nil and header ~= "" then
+							currentCategory = header
+							appendUnique(headers, headerSeen, header)
+						elseif not line:match("^%s*%-%-") then
+							if line:find("require", 1, true) ~= nil then
+								local modules = requiredModules(line)
+								for _, moduleName in ipairs(modules) do
+									local requiredPath = modulePath(path, moduleName)
+									if requiredPath ~= nil and not queued[requiredPath]
+										and noctalia.fileExists(requiredPath) then
+										queued[requiredPath] = true
+										queue[#queue + 1] = requiredPath
 									end
-								elseif exactCategories[description] == nil then
-									exactCategories[description] = effectiveCategory
 								end
-								if keySequences[description] == nil then
-									keySequences[description] = multiKeySequence(line)
+							end
+
+							local effectiveCategory = pendingBindCategory or currentCategory
+							local hasBind = line:find("hl.bind", 1, true) ~= nil
+							if effectiveCategory ~= nil and hasBind then
+								local description, dynamic = assignmentLiteral(line, "description")
+								if description == nil then
+									description, dynamic = assignmentLiteral(line, "desc")
 								end
-								if origins[description] == nil then
+								if description ~= nil and trim(description) ~= "" then
 									local command = generatedCommand(line)
 									local action = generatedAction(line)
-									local rawSnippet = pendingMarkerRaw ~= nil
-										and (pendingMarkerRaw .. "\n" .. line) or line
-									origins[description] = {
-										source = path,
-										line = pendingMarkerLine or lineNumber,
-										start_line = pendingMarkerLine or lineNumber,
-										end_line = lineNumber,
-										managed = path:match("([^/]+)$") == "keymap.lua",
-										raw_snippet = rawSnippet,
-										fingerprint = fingerprint(rawSnippet),
-										action = action,
-										capabilities = {
-											combo = not dynamic,
-											category = not dynamic,
-											description = not dynamic,
-											command = not dynamic and command ~= nil,
-											activation = not dynamic,
-										},
-									}
+									if dynamic then
+										local prefixKey = description .. "\0" .. effectiveCategory
+										if not prefixSeen[prefixKey] then
+											prefixSeen[prefixKey] = true
+											prefixes[#prefixes + 1] = {
+												prefix = description,
+												category = effectiveCategory,
+											}
+										end
+									elseif exactCategories[description] == nil then
+										exactCategories[description] = effectiveCategory
+									end
+									if keySequences[description] == nil then
+										keySequences[description] = multiKeySequence(line)
+									end
+									if origins[description] == nil then
+										local rawSnippet = pendingMarkerRaw ~= nil
+											and (pendingMarkerRaw .. "\n" .. line) or line
+										origins[description] = {
+											source = path,
+											line = pendingMarkerLine or lineNumber,
+											start_line = pendingMarkerLine or lineNumber,
+											end_line = lineNumber,
+											managed = path:match("([^/]+)$") == "keymap.lua",
+											raw_snippet = rawSnippet,
+											-- The writer verifies this complete snippet byte-for-byte at
+											-- the recorded line range. Avoid hashing every bind inside the
+											-- service's tightly budgeted refresh callback.
+											fingerprint = EXACT_SOURCE_FINGERPRINT,
+											action = action,
+											capabilities = {
+												combo = not dynamic,
+												category = not dynamic,
+												description = not dynamic,
+												command = not dynamic and command ~= nil,
+												activation = not dynamic,
+											},
+										}
+									end
+									if commands[description] == nil then commands[description] = command end
+									if actions[description] == nil then actions[description] = action end
 								end
-							if commands[description] == nil then commands[description] = generatedCommand(line) end
-							if actions[description] == nil then actions[description] = generatedAction(line) end
+							end
+							if hasBind then
+								pendingBindCategory = nil
+								pendingMarkerLine = nil
+								pendingMarkerRaw = nil
 							end
 						end
-						if line:find("hl.bind", 1, true) ~= nil then
-							pendingBindCategory = nil
-							pendingMarkerLine = nil
-							pendingMarkerRaw = nil
-						end
-					end
 						lineNumber = lineNumber + 1
 					end
 				end

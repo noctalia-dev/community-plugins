@@ -1,6 +1,6 @@
 id           = "thepunkoff/pomodoro"
 name         = "Pomodoro Timer"
-version      = "1.0.0"
+version      = "1.1.0"
 plugin_api   = 3
 author       = "thepunkoff"
 license = "MIT"
@@ -55,6 +55,27 @@ default = false
 [[widget]]
 id = "widget"
 entry = "widget.luau"
+
+    [[widget.setting]]
+    key     = "widget-glyph-main"
+    type    = "glyph"
+    label_key = "settings.widget.glyph-main.label"
+    description_key = "settings.widget.glyph-main.description"
+    default = "brain"
+
+    [[widget.setting]]
+    key     = "widget-glyph-work"
+    type    = "glyph"
+    label_key = "settings.widget.glyph-work.label"
+    description_key = "settings.widget.glyph-work.description"
+    default = "brain"
+
+    [[widget.setting]]
+    key     = "widget-glyph-break"
+    type    = "glyph"
+    label_key = "settings.widget.glyph-break.label"
+    description_key = "settings.widget.glyph-break.description"
+    default = "coffee"
 
 [[panel]]
 id = "panel"
