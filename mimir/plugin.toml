@@ -1,6 +1,6 @@
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.3.0"
+version = "0.3.2"
 plugin_api = 16
 author = "Alexander"
 license = "MIT"

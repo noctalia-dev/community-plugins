@@ -60,13 +60,13 @@ local function parseMessage(content)
       end
       i = i + 1
       table.insert(nodes, { type = "code", language = trim(lang), content = table.concat(buf, "\n") })
-    elseif line:match("^#{1,6}") and line:gsub("#+", ""):match("%S") then
+    elseif line:match("^#+") and line:gsub("#+", ""):match("%S") then
       local level, text = line:match("^(#+)%s*(.-)%s*$")
       level = #level
       text = text:gsub("#+%s*$", "")
       table.insert(nodes, { type = "heading", level = level, content = text })
       i = i + 1
-    elseif line:match("^%s*([-*_])(%s*%1){2,}%s*$") then
+    elseif line:match("^%s*[-*_]+%s*$") and #line:gsub("%s", "") >= 3 then
       table.insert(nodes, { type = "hr" })
       i = i + 1
     elseif line:match("^%s*>") then
@@ -97,8 +97,8 @@ local function parseMessage(content)
       table.insert(nodes, { type = "list", items = items })
     else
       local buf = {}
-      while i <= #lines and not lines[i]:match("^```") and not (lines[i]:match("^#{1,6}") and lines[i]:gsub("#+", ""):match("%S"))
-        and not lines[i]:match("^%s*([-*_])(%s*%1){2,}%s*$") and not lines[i]:match("^%s*>")
+      while i <= #lines and not lines[i]:match("^```") and not (lines[i]:match("^#+") and lines[i]:gsub("#+", ""):match("%S"))
+        and not (lines[i]:match("^%s*[-*_]+%s*$") and #lines[i]:gsub("%s", "") >= 3) and not lines[i]:match("^%s*>")
         and not lines[i]:match("^%s*[-*+]%s+") and not lines[i]:match("^%s*%d+[.)]%s+") do
         table.insert(buf, lines[i])
         i = i + 1
