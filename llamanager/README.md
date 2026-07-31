@@ -6,8 +6,8 @@ Llamanager provides a graphical frontend for [Ollama](https://ollama.com/) insid
 
 ## Demo
 
-![Launcher](/assets/launcher.gif)
-![Panel](/assets/panel.gif)
+![Launcher](assets/launcher.gif)
+![Panel](assets/panel.gif)
 
 ## Plugin
 
