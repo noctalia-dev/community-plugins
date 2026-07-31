@@ -94,6 +94,7 @@ end
 batName = getBatName()
 if not batName then
     noctalia.log("battery-widget: battery not found")
+    return
 end
 
 function update()
