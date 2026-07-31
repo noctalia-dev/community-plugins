@@ -1249,8 +1249,26 @@ function M.enable(profileOverride)
 
     local function withPowerBefore(powerBefore)
         probeAll(targets, function(probed)
+            -- The session file is the only record of what was running before gamer mode
+            -- touched it, so it is written before anything is suspended. A process frozen
+            -- with SIGSTOP or a unit stopped with nothing on disk to name it cannot be
+            -- restored: disable reads the session, finds none, and returns. A failed
+            -- write therefore aborts the enable with the machine still untouched.
+            --
+            -- Ordering it this way can leave the snapshot naming a target whose suspend
+            -- command then failed, which is the harmless direction. Thawing is
+            -- unconditional and SIGCONT to a running process is a no-op, and a stop
+            -- target is only restarted after a live probe says it is still down.
+            if not M.writeSnapshot(M.buildSnapshot(profile, powerBefore, probed)) then
+                busy = false
+                M.publishGameMode()
+                noctalia.notifyError(
+                    noctalia.tr("notify.session_failed_title"),
+                    noctalia.tr("notify.session_failed")
+                )
+                return
+            end
             suspendAll(probed, function(stopped)
-                M.writeSnapshot(M.buildSnapshot(profile, powerBefore, probed))
                 busy = false
                 M.publishGameMode()
                 if autoPerformance() and powerState.available and powerSupports("performance") then

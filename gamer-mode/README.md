@@ -321,6 +321,11 @@ Enabling writes a session snapshot to the plugin data directory
 target was `running` or `active` or already down, which `action` applied, the
 power profile in effect, and the kernel boot ID.
 
+The snapshot lands on disk before anything is suspended. It is the only record
+of what was running beforehand, so a target suspended without one is
+unrecoverable: disable would read the session, find none, and return. If the
+write fails, enabling stops there with the machine untouched and tells you why.
+
 Disable runs two passes, because the two actions need different logic.
 
 The plugin probes each **`stop` target** again and starts it back when it is

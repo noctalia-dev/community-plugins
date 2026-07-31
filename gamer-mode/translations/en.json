@@ -88,7 +88,9 @@
       "other": "Restored {count} targets."
     },
     "nothing_suspended": "No background targets were running.",
-    "nothing_restored": "Nothing needed restarting."
+    "nothing_restored": "Nothing needed restarting.",
+    "session_failed_title": "Gamer mode could not start",
+    "session_failed": "The session file could not be written, so nothing was suspended."
   },
   "cleanup": {
     "title": "Maintenance",
