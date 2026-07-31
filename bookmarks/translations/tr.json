@@ -1,74 +1,74 @@
 {
-  "title": "Yer İmleri",
-  "new_bookmark": "Yeni Yer İmi",
-  "edit_bookmark": "Yer İmini Düzenle",
-  "no_bookmarks": "Henüz bir yer imi yok",
-  "new_folder": "Yeni Klasör",
-  "search_placeholder": "Yer imlerinde ara...",
-  "no_search_results": "Eşleşen yer imi yok",
-  "delete_folder_button": "Klasörü Sil",
-  "edit_folder": "Klasörü Düzenle",
-  "folder_name_field": "Klasör ismi",
-  "open_tooltip": "Aç",
   "back_button": "Geri",
-  "edit_tooltip": "Düzenle",
+  "cancel_button": "İptal",
+  "cmd_field": "Shell Komutu",
+  "delete_folder_button": "Klasörü Sil",
   "delete_tooltip": "Sil",
+  "description_field": "Açıklama (İsteğe bağlı)",
   "drag_tooltip": "Sıralamak için sürükle veya bir klasörün içine bırak",
   "drop_out_of_folder": "Ana panele göndermek için buraya bırak",
-  "show_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini göster",
-  "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
-  "cancel_button": "İptal",
-  "save_button": "Kaydet",
+  "edit_bookmark": "Yer İmini Düzenle",
+  "edit_folder": "Klasörü Düzenle",
+  "edit_tooltip": "Düzenle",
+  "entry_saved": "\"{label}\" kaydedildi",
+  "entry_updated": "\"{label}\" güncellendi",
+  "err_corrupt": "Bozuk yer imleri dosyası: {error}",
+  "err_delete_failed": "Silinemedi: {error}",
+  "err_exit_code": "\"{label}\" {code} ile sonlandı",
+  "err_label_cmd_required": "Etiket ve komut alanları gerekli",
+  "err_label_required": "Etiket gerekli",
+  "err_launch_failed": "\"{label}\" açılamadı",
+  "err_no_command": "Bu yer iminin bir komutu yok",
+  "err_no_data_dir": "Eksik veri dizgini",
+  "err_read_failed": "Yer imleri okunamadı: {error}",
+  "err_reorder_failed": "Sıralama Yapılamadı: {error}",
+  "err_save_failed": "Kaydedilemedi: {error}",
+  "folder_deleted": "\"{label}\" klasörü ve içeriği silindi",
+  "folder_name_field": "Klasör ismi",
   "glyph_field": "Simge (ör. bookmark)",
-  "label_field": "İsim etiketi",
-  "cmd_field": "Shell Komutu",
-  "description_field": "Açıklama (İsteğe bağlı)",
+  "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
   "info_cmd_line": "Komut: {cmd}",
   "info_description_line": "Açıklama: {description}",
+  "label_field": "İsim etiketi",
+  "new_bookmark": "Yeni Yer İmi",
+  "new_folder": "Yeni Klasör",
+  "no_bookmarks": "Henüz bir yer imi yok",
+  "no_search_results": "Eşleşen yer imi yok",
+  "open_tooltip": "Aç",
   "run_in_background_field": "Arka planda çalıştır",
   "run_in_terminal_field": "Konsolda çalıştır",
-  "err_read_failed": "Yer imleri okunamadı: {error}",
-  "err_corrupt": "Bozuk yer imleri dosyası: {error}",
-  "err_no_data_dir": "Eksik veri dizgini",
-  "err_reorder_failed": "Sıralama Yapılamadı: {error}",
-  "err_no_command": "Bu yer iminin bir komutu yok",
-  "err_exit_code": "\"{label}\" {code} ile sonlandı",
-  "err_launch_failed": "\"{label}\" açılamadı",
-  "err_delete_failed": "Silinemedi: {error}",
-  "err_save_failed": "Kaydedilemedi: {error}",
-  "err_label_required": "Etiket gerekli",
-  "err_label_cmd_required": "Etiket ve komut alanları gerekli",
-  "folder_deleted": "\"{label}\" klasörü ve içeriği silindi",
-  "entry_updated": "\"{label}\" güncellendi",
-  "entry_saved": "\"{label}\" kaydedildi",
+  "save_button": "Kaydet",
+  "search_placeholder": "Yer imlerinde ara...",
   "settings": {
-    "glyph": {
-      "label": "Simge",
-      "description": "Çubuk aracının simgesi (ör. bookmark)"
-    },
-    "tooltip": {
-      "label": "İsim etiketi",
-      "description": "Çubuk aracının isim etiketi"
-    },
-    "text": {
-      "label": "Yazı",
-      "description": "Çubuk aracının etiketi. Çubukta sadece simgenin görünmesi için boş bırakın."
-    },
-    "data_path": {
-      "label": "Veri dosyası",
-      "description": "data.json dosyasının saklandığı konum. Varsayılan eklenti veri konumunu kullanmak için boş bırakın."
-    },
-    "show_info_button": {
-      "label": "Bilgi butonunu göster",
-      "description": "Yer imlerinde (klasörlerde değil) üzerine gelindiğinde açıklamalarını ve komutlarını görüntülemek için bir \"?\" düğmesi göster."
-    },
     "bk_sort_by": {
-      "label": "/bk sıralama önceliği",
       "description": "\"/bk\" sonuçlarının arama yapılmadığı durumda yer imlerini nasıl sıralacağını belirler.",
+      "label": "/bk sıralama önceliği",
       "options": {
         "history": "Son kullanılanlar",
         "usage_count": "En sık kullanılanlar"
       }
+    },
+    "data_path": {
+      "description": "data.json dosyasının saklandığı konum. Varsayılan eklenti veri konumunu kullanmak için boş bırakın.",
+      "label": "Veri dosyası"
+    },
+    "glyph": {
+      "description": "Çubuk aracının simgesi (ör. bookmark)",
+      "label": "Simge"
+    },
+    "show_info_button": {
+      "description": "Yer imlerinde (klasörlerde değil) üzerine gelindiğinde açıklamalarını ve komutlarını görüntülemek için bir \"?\" düğmesi göster.",
+      "label": "Bilgi butonunu göster"
+    },
+    "text": {
+      "description": "Çubuk aracının etiketi. Çubukta sadece simgenin görünmesi için boş bırakın.",
+      "label": "Yazı"
+    },
+    "tooltip": {
+      "description": "Çubuk aracının isim etiketi",
+      "label": "İsim etiketi"
     }
-  }
+  },
+  "show_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini göster",
+  "title": "Yer İmleri"
 }
