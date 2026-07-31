@@ -259,8 +259,8 @@ tags = ["audio", "bar", "recording", "utility"]
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.19"
-updated_at = 1785245767
+version = "0.0.25"
+updated_at = 1785461243
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
@@ -420,15 +420,15 @@ tags = ["clock"]
 [[plugin]]
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.0.1"
-updated_at = 1784843659
+version = "1.3.0"
+updated_at = 1785461692
 added_at = 1784465190
 author = "lowcache"
 license = "MIT"
 icon = "robot"
 description = "Claude Code companion: /claude launch + a telemetry-driven attention pulse."
 plugin_api = 3
-tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher", "niri", "hyprland", "sway"]
+tags = ["ai", "productivity", "bar", "desktop", "panel", "launcher"]
 
 [[plugin]]
 id = "ycf/mawaqit"
@@ -599,8 +599,8 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.2.2"
-updated_at = 1785414976
+version = "0.3.0"
+updated_at = 1785461538
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
@@ -658,15 +658,21 @@ tags = ["launcher", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "tadomika_ari/w-engine"
 name = "W Engine"
-version = "1.0.0"
-updated_at = 1785025372
+version = "1.1.0"
+updated_at = 1785460155
 added_at = 1785025372
 author = "TadomiKa-Ari"
 license = "MIT"
 icon = "movie"
-description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
+description = "Apply Wallpaper Engine wallpapers from the Steam Workshop, with palette sync and timed cycling"
+plugin_api = 9
+tags = ["wallpaper", "desktop", "theming"]
+
+[[plugin.release]]
 plugin_api = 3
-tags = ["wallpaper", "utility"]
+version = "1.0.0"
+updated_at = 1785025372
+rev = "cd80c56409bbee83f8d033d8753cfb3065069bef"
 
 [[plugin]]
 id = "k4n4t4/hypr-submap"
@@ -808,8 +814,8 @@ tags = ["launcher", "network", "utility", "development"]
 [[plugin]]
 id = "dunarand/bookmarks"
 name = "Bookmarks"
-version = "1.2.1"
-updated_at = 1785350683
+version = "1.3.0"
+updated_at = 1785460973
 added_at = 1785350683
 author = "dunarand"
 license = "MIT"
@@ -843,3 +849,17 @@ icon = "wallpaper-selector"
 description = "Choose an image or video wallpaper for each output."
 plugin_api = 19
 tags = ["bar", "panel", "service", "video", "wallpaper"]
+
+[[plugin]]
+id = "shin/lrc"
+name = "LRC"
+version = "1.0.0"
+updated_at = 1785459835
+added_at = 1785459835
+author = "shin"
+license = "MIT"
+icon = "music"
+description = "Displays current song lyrics via lrc_tty."
+deprecated = false
+plugin_api = 3
+tags = ["bar", "music"]

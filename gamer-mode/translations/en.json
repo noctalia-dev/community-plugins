@@ -1,0 +1,111 @@
+{
+  "widget": {
+    "tooltip_loading": "Gamer Mode: loading metrics..."
+  },
+  "settings": {
+    "glyph": {
+      "label": "Bar icon",
+      "description": "Glyph shown on the bar."
+    },
+    "click_action": {
+      "label": "Left-click action",
+      "description": "What left-clicking the bar icon does. Right-click always toggles gamer mode.",
+      "options": {
+        "open_panel": "Open panel",
+        "toggle": "Toggle gamer mode"
+      }
+    },
+    "poll_interval": {
+      "label": "Poll interval",
+      "description": "Seconds between metric updates.",
+      "options": {
+        "2": "2s",
+        "3": "3s",
+        "5": "5s"
+      }
+    },
+    "profile": {
+      "label": "Gamer mode profile",
+      "description": "How aggressive the suspend list is.",
+      "options": {
+        "light": "Light",
+        "heavy": "Heavy"
+      }
+    },
+    "auto_performance": {
+      "label": "Auto performance profile",
+      "description": "Switch power profile to performance while gamer mode is on."
+    },
+    "show_temps": {
+      "label": "Show temperatures",
+      "description": "Include CPU/GPU temperatures in tooltip and panel."
+    },
+    "targets": {
+      "label": "Suspend targets (JSON)",
+      "description": "Advanced: JSON array of {match, kind, profiles}. Kind: process, user-service, system-service, container."
+    }
+  },
+  "panel": {
+    "close": "Close",
+    "disable": "Disable",
+    "enable": "Enable",
+    "frozen": "frozen",
+    "gpu_unsupported": "GPU metrics unsupported",
+    "load": "Load",
+    "metrics_unavailable": "System metrics unavailable",
+    "mode_profile": "Suspend profile",
+    "network": "Net",
+    "nothing_suspended": "Nothing suspended",
+    "performance": "Performance",
+    "power": {
+      "power-saver": "Power saver",
+      "balanced": "Balanced",
+      "performance": "Performance"
+    },
+    "power_profile": "Power profile",
+    "power_unavailable": "powerprofilesctl unavailable",
+    "profiles": {
+      "light": "Light",
+      "heavy": "Heavy"
+    },
+    "settings": "Settings",
+    "state_off": "Off",
+    "state_on": "Running",
+    "stopped": "stopped",
+    "suspended": "Suspended",
+    "title": "gamer-mode",
+    "working": "Working..."
+  },
+  "notify": {
+    "enabled_title": "Gamer mode enabled",
+    "disabled_title": "Gamer mode disabled",
+    "suspended_count": {
+      "one": "Suspended 1 target.",
+      "other": "Suspended {count} targets."
+    },
+    "restored_count": {
+      "one": "Restored 1 target.",
+      "other": "Restored {count} targets."
+    },
+    "nothing_suspended": "No background targets were running.",
+    "nothing_restored": "Nothing needed restarting.",
+    "session_failed_title": "Gamer mode could not start",
+    "session_failed": "The session file could not be written, so nothing was suspended."
+  },
+  "cleanup": {
+    "title": "Maintenance",
+    "shaders": "Clear shader caches",
+    "shaders_confirm": "Delete {size}?",
+    "pagecache": "Drop page cache",
+    "swap": "Reclaim swap",
+    "running": "Working...",
+    "shaders_done": "Cleared {size} of shader cache.",
+    "shaders_none": "No shader caches found.",
+    "pagecache_done": "Page cache dropped.",
+    "swap_done": "Swap reclaimed into RAM.",
+    "swap_empty": "Nothing is swapped out.",
+    "swap_unknown": "Swap usage could not be read.",
+    "swap_no_room": "Not enough free RAM to hold what is swapped out.",
+    "failed": "That did not work. See the log."
+  }
+}

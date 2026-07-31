@@ -33,6 +33,37 @@ local focusSearchOnRender = false -- one-shot: grabs the search input on the nex
 
 local selectedIndex = nil -- 1-based position within the currently visible list, or nil
 
+-- Last selected index per scope, keyed by currentFolder (0 for root, since
+-- folder indices start at 1). Restores position when re-entering a folder
+-- or coming back to root instead of resetting to 1.
+local rememberedSelection = {}
+
+local function rememberSelection(folder)
+	rememberedSelection[folder or 0] = selectedIndex
+end
+
+local function recallSelection(folder, rowCount)
+	if rowCount == nil or rowCount <= 0 then
+		return nil
+	end
+	return math.min(math.max(rememberedSelection[folder or 0] or 1, 1), rowCount)
+end
+
+-- ui.scroll has no scroll-into-view API, so instead of scrolling to the
+-- selection we only render a window of rows around it - the selection is
+-- then always inside what's drawn. ROWS_PER_SCREEN is a rough fit for the
+-- panel's height; doesn't need to be exact.
+local ROWS_PER_SCREEN = 9
+
+local function visibleWindow(count, selected)
+	if count <= ROWS_PER_SCREEN or selected == nil then
+		return 1, math.min(count, ROWS_PER_SCREEN)
+	end
+	local startIndex =
+		math.max(1, math.min(selected - ROWS_PER_SCREEN // 2, count - ROWS_PER_SCREEN + 1))
+	return startIndex, startIndex + ROWS_PER_SCREEN - 1
+end
+
 local draftKind = "bookmark" -- "bookmark" | "folder", set when the form opens
 local draftGlyph = "bookmark"
 local draftLabel = ""
@@ -689,9 +720,10 @@ local function listView()
 				})
 			)
 		else
+			local startIndex, endIndex = visibleWindow(#results, selectedIndex)
 			local rows = {}
-			for rowIndex, result in ipairs(results) do
-				table.insert(rows, searchResultRow(result, rowIndex))
+			for rowIndex = startIndex, endIndex do
+				table.insert(rows, searchResultRow(results[rowIndex], rowIndex))
 			end
 			table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
 		end
@@ -762,15 +794,20 @@ local function listView()
 			})
 		)
 	else
-		local rows = {}
 		local count = #list
-		for index, entry in ipairs(list) do
+		local startIndex, endIndex = visibleWindow(count, selectedIndex)
+		local rows = {}
+		for index = startIndex, endIndex do
 			if editMode then
 				table.insert(rows, insertionGap(index, "before"))
 			end
-			table.insert(rows, entryRow(entry, index))
+			table.insert(rows, entryRow(list[index], index))
 		end
-		if editMode and count > 0 then
+		-- The trailing "after last row" gap only belongs at the very end of
+		-- the real list, not at the end of a windowed slice that's cut off
+		-- partway through - an "after" gap mid-list would duplicate the
+		-- "before" gap of the row right after the window.
+		if editMode and count > 0 and endIndex == count then
 			table.insert(rows, insertionGap(count, "after"))
 		end
 		table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
@@ -976,16 +1013,20 @@ function _onOpenFolder(index)
 	if entry == nil or entryType(entry) ~= "folder" then
 		return
 	end
+	-- Remember where we were in root before diving into the folder.
+	rememberSelection(currentFolder)
 	-- currentFolder is only ever set from root (folders are one level deep),
 	-- so `index` here is always an index into the root `bookmarks` array.
 	currentFolder = index
-	selectedIndex = 1
+	selectedIndex = recallSelection(currentFolder, #(entry.items or {}))
 	render()
 end
 
 function _onBackToRoot()
+	-- Remember where we were inside the folder before leaving it.
+	rememberSelection(currentFolder)
 	currentFolder = nil
-	selectedIndex = 1
+	selectedIndex = recallSelection(currentFolder, #bookmarks)
 	render()
 end
 
@@ -1043,7 +1084,11 @@ function _onDeleteFolder()
 		noctalia.tr("title"),
 		noctalia.tr("folder_deleted", { label = removed.label or "" })
 	)
+	-- Folder selections are now stale (indices after the deleted one
+	-- shifted), so drop everything but root's.
+	rememberedSelection = { [0] = rememberedSelection[0] }
 	currentFolder = nil
+	selectedIndex = recallSelection(currentFolder, #bookmarks)
 	render()
 end
 
@@ -1309,10 +1354,14 @@ end
 -- `noctalia msg panel-open dunarand/bookmarks:panel search`, or any other
 -- IPC caller) open the panel straight into a focused search box, turning
 -- the bookmark list into a fast fuzzy launcher without a second keypress.
--- Root-only, same as ctrl+s: searching already isn't offered inside a
+-- Root-only, same as ctrl+f: searching already isn't offered inside a
 -- folder, so context is ignored there.
+--
+-- To open in search mode and close from a single keybind:
+--   noctalia msg panel-toggle dunarand/bookmarks:panel search
 function onOpen(context)
 	view = "list"
+
 	editingIndex = nil
 	editingRoot = false
 	editMode = false
@@ -1320,6 +1369,7 @@ function onOpen(context)
 	searchQuery = ""
 	searchRev += 1
 	selectedIndex = 1
+	rememberedSelection = {}
 	loadBookmarks()
 	noctalia.state.set("bookmarks_open", true)
 	if context == "search" then
@@ -1332,12 +1382,18 @@ function onClose()
 	noctalia.state.set("bookmarks_open", false)
 end
 
--- Keyboard navigation: ctrl+n/down and ctrl+p/up move the selection through
--- the currently visible rows (search results or the active folder's list),
--- looping past either end; Return activates whatever is selected; ctrl+s
--- jumps focus to the search box (root view only, since that's the only
--- place it's rendered). Only acts on key-down (pressed == true) so each
--- chord fires once per press.
+-- Keyboard navigation:
+--   - ctrl+j/down and ctrl+k/up move the selection through the currently
+--     visible rows (search results or the active folder's contents),
+--     wrapping past either end.
+--   - ctrl+l/right enters the selected folder, if any.
+--   - ctrl+h/left returns from a folder to the root list.
+--   - Return activates the selected row (opens a folder or runs a bookmark).
+--   - ctrl+f focuses the search box (root view only, since folders don't
+--     have one).
+--   - ctrl+n opens the new-bookmark form.
+--     root-only - same restriction as the "New Folder" button).
+-- Only acts on key-down (pressed == true) so each chord fires once per press.
 function onKey(chord, pressed)
 	if not pressed then
 		return
@@ -1346,11 +1402,23 @@ function onKey(chord, pressed)
 		return
 	end
 
-	if chord == "ctrl+s" then
+	if chord == "ctrl+f" then
 		if currentFolder == nil then
 			searchRev += 1
 			focusSearchOnRender = true
 			render()
+		end
+		return
+	end
+
+	if chord == "ctrl+n" then
+		_onNewBookmark()
+		return
+	end
+
+	if chord == "ctrl+h" or chord == "left" then
+		if currentFolder ~= nil then
+			_onBackToRoot()
 		end
 		return
 	end
@@ -1362,21 +1430,28 @@ function onKey(chord, pressed)
 		return
 	end
 
-	if chord == "ctrl+n" or chord == "down" then
+	if chord == "ctrl+j" or chord == "down" then
 		if selectedIndex == nil then
 			selectedIndex = 1
 		else
 			selectedIndex = selectedIndex % count + 1
 		end
 		render()
-	elseif chord == "ctrl+p" or chord == "up" then
+	elseif chord == "ctrl+k" or chord == "up" then
 		if selectedIndex == nil then
 			selectedIndex = count
 		else
 			selectedIndex = (selectedIndex - 2) % count + 1
 		end
 		render()
-	elseif chord == "Return" then
+	elseif chord == "ctrl+l" or chord == "right" then
+		local row = rows[selectedIndex]
+		if row ~= nil and row.kind == "entry" then
+			if entryType(row.entry) == "folder" then
+				_onOpenFolder(row.index)
+			end
+		end
+	elseif chord == "return" then
 		local row = rows[selectedIndex]
 		activateRow(row)
 	end

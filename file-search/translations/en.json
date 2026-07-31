@@ -1,18 +1,39 @@
 {
+  "build_time": "indexed in {duration}",
   "copied_entry": "Path copied to clipboard",
   "copied_path": "Search folder path copied to clipboard",
   "counts": "{shown} shown · {total} indexed",
+  "counts_disks": " · {disks} external",
+  "counts_stale": " · out of date",
   "err_bad_record": "Ignored an invalid index record — rebuild the index",
   "err_index": "Failed to index the search folder",
   "err_no_fzf": "fzf not found — install fzf to use this plugin",
   "err_spawn": "Could not run the search command",
+  "index_missing": "External disks are only indexed on demand — press ↻ to index this scope",
   "launcher": {
+    "index_missing": "No index for this scope yet",
     "indexing": "Indexing files…",
     "no_results": "No matches",
     "reindex_done": "Search index dropped — it rebuilds on the next search",
-    "reindex_title": "Rebuild search index"
+    "reindex_title": "Rebuild search index",
+    "scope_next": "Switch to: {next}",
+    "scope_title": "Searching: {current}"
   },
+  "no_external": "No external disk mounted — plug one in, then rebuild the index",
   "no_results": "No matches for \"{query}\"",
+  "ranking": {
+    "default": "generic — the shortest path wins",
+    "path": "path-aware — a match starting a name wins"
+  },
+  "row_action": {
+    "copy": "copies its path",
+    "reveal": "shows it in the file manager"
+  },
+  "scope": {
+    "all": "search folder + external disks",
+    "external": "external disks only",
+    "folder": "search folder only"
+  },
   "search_placeholder": "Type to search files and folders…",
   "settings": {
     "exclude_dirs": {
@@ -37,10 +58,17 @@
     }
   },
   "status_indexing": "Indexing {path}…",
+  "status_indexing_multi": "Indexing {count} locations…",
+  "syntax_hint": "'exact · ^starts · ends$ · !exclude · a | b",
+  "syntax_hint_label": "fzf syntax:",
   "tip_close": "Close",
+  "tip_ranking": "Ranking: {current}\ne.g. \"config\" → .ssh/config, not …/Steam Controller Configs/\nClick to switch to: {next}",
+  "tip_ranking_unsupported": "Path-aware ranking needs fzf 0.36 or newer",
   "tip_refresh": "Rebuild the file index",
+  "tip_row_action": "Right click on a result {current}\nClick to switch to: {next}",
+  "tip_scope": "Searching: {current}\nClick to search {next}",
   "tip_settings": "Plugin settings",
   "title": "File Search",
-  "tooltip_closed": "File search — {path}\nClick to search · right-click: folder · middle-click: copy path",
+  "tooltip_closed": "File search — {path}\nClick to search · right-click: folder",
   "tooltip_open": "File search open — {path}\nClick to close"
 }

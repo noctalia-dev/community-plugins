@@ -34,21 +34,14 @@
 -- ~4s), opacity floors stay high so the icon glows down rather than blinking to dark,
 -- and the size swing (below) is gentle. Urgency reads as a *faster, deeper* breath,
 -- but even "needs you" stays a breath, never a flicker.
--- User-facing display strings live in translations/<lang>.json; the per-state
--- status word is keyed by state name ("state.orb.<state>") and resolved at render
--- time. cur.state is always a known state (the watch below maps anything else to
--- "idle"), so no fallback guard is needed here.
-local function tr(key, args) return noctalia.tr(key, args) end
-local function orb_word(state) return tr("state.orb." .. state) end
-
 local VISUAL = {
-  idle            = { glyph = "robot",          color = "secondary", period = 11.0, omin = 0.45, omax = 0.80 },
-  turn_start      = { glyph = "brain",          color = "primary",   period = 7.5,  omin = 0.55, omax = 1.00 },
-  text            = { glyph = "message-dots",   color = "primary",   period = 7.0,  omin = 0.58, omax = 1.00 },
-  tool_start      = { glyph = "tool",           color = "secondary", period = 7.5,  omin = 0.55, omax = 1.00 },
-  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 4.5,  omin = 0.55, omax = 1.00 },
-  turn_end        = { glyph = "bell",           color = "primary",   period = 8.0,  omin = 0.55, omax = 0.95 },
-  error           = { glyph = "alert-triangle", color = "error",     period = 5.0,  omin = 0.55, omax = 1.00 },
+  idle            = { glyph = "robot",          color = "secondary", period = 11.0, omin = 0.45, omax = 0.80, word = "state.orb.idle" },
+  turn_start      = { glyph = "brain",          color = "primary",   period = 7.5,  omin = 0.55, omax = 1.00, word = "state.orb.turn_start" },
+  text            = { glyph = "message-dots",   color = "primary",   period = 7.0,  omin = 0.58, omax = 1.00, word = "state.orb.text" },
+  tool_start      = { glyph = "tool",           color = "secondary", period = 7.5,  omin = 0.55, omax = 1.00, word = "state.orb.tool_start" },
+  needs_attention = { glyph = "bell-ringing",   color = "error",     period = 4.5,  omin = 0.55, omax = 1.00, word = "state.orb.needs_attention" },
+  turn_end        = { glyph = "bell",           color = "primary",   period = 8.0,  omin = 0.55, omax = 0.95, word = "state.orb.turn_end" },
+  error           = { glyph = "alert-triangle", color = "error",     period = 5.0,  omin = 0.55, omax = 1.00, word = "state.orb.error" },
 }
 
 -- The orb IS the bar icon, swelling gently in and out — a desktop "bat signal". The
@@ -61,6 +54,19 @@ local GLYPH_BOX = 84
 -- Live status mirrored from the bar pulse. `count` 0 means no active sessions.
 local cur = { state = "idle", count = 0, model = "?", tin = 0, tout = 0 }
 local phase = 0.0     -- breath phase accumulator (seconds), wrapped per period
+local breath_speed = 1.0  -- user setting (breath_speed): phase-rate multiplier
+local orb_swell = 1.0     -- user setting (orb_swell): magnification swing multiplier
+local frames = 0
+
+local function tr(key, args) return noctalia.tr(key, args) end
+
+-- Re-read user settings (cheap; called at load + every ~120 frames from onFrameTick).
+local function read_settings()
+  local v = noctalia.getConfig and noctalia.getConfig("breath_speed")
+  if type(v) == "number" and v > 0 then breath_speed = v end
+  local sw = noctalia.getConfig and noctalia.getConfig("orb_swell")
+  if type(sw) == "number" and sw >= 0 then orb_swell = sw end
+end
 
 local function kfmt(n)
   n = tonumber(n) or 0
@@ -79,20 +85,20 @@ end
 -- One compact status line under the orb. Kept short so it doesn't get clipped by a
 -- narrow widget box: just the state word, or a session count, plus burn when there's
 -- a single attributable session.
-local function subtitle()
+local function subtitle(v)
   if cur.count > 1 then
     return tr("orb.sessions", { count = cur.count })
   end
   if cur.count == 1 and cur.model ~= "?" and (cur.tin + cur.tout) > 0 then
-    return orb_word(cur.state) .. " · " .. kfmt(cur.tin) .. "/" .. kfmt(cur.tout)
+    return tr(v.word) .. " · " .. kfmt(cur.tin) .. "/" .. kfmt(cur.tout)
   end
-  return orb_word(cur.state)
+  return tr(v.word)
 end
 
 local function render()
   local v, s = breath()
   local opacity = v.omin + (v.omax - v.omin) * s
-  local size = GLYPH_MIN + (GLYPH_MAX - GLYPH_MIN) * s -- the magnification swing
+  local size = GLYPH_MIN + (GLYPH_MAX - GLYPH_MIN) * s * orb_swell -- swing scaled by orb_swell
 
   desktopWidget.render(ui.column({ gap = 6, padding = 12, align = "center" }, {
     -- The "bat signal": the state icon itself, magnifying larger/smaller and breathing
@@ -105,7 +111,7 @@ local function render()
       width = GLYPH_BOX, height = GLYPH_BOX,
     }),
     ui.label({
-      text = subtitle(), fontSize = 12, color = "on_surface_variant",
+      text = subtitle(v), fontSize = 12, color = "on_surface_variant",
       maxWidth = 180, maxLines = 1, textAlign = "center",
     }),
   }))
@@ -118,7 +124,9 @@ end
 -- unbounded.
 function onFrameTick(dt)
   local v = VISUAL[cur.state] or VISUAL.idle
-  phase = (phase + (tonumber(dt) or 0) / 1000) % v.period
+  phase = (phase + (tonumber(dt) or 0) / 1000 * breath_speed) % v.period
+  frames = frames + 1
+  if frames % 30 == 0 then read_settings() end
   render()
 end
 
@@ -135,5 +143,6 @@ noctalia.state.watch("claude.pulse", function(snap)
 end)
 
 -- Breathe from the first frame, even before any session reports in (idle presence).
+read_settings()
 desktopWidget.setNeedsFrameTick(true)
 render()

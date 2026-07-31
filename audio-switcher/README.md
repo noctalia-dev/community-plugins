@@ -2,8 +2,9 @@
 
 Audio Switcher puts PipeWire inputs, outputs, volume controls, and Bluetooth
 audio handoff in one compact Noctalia panel. Devices can be renamed or hidden,
-and compositor keybinds can cycle devices or connect a specific Bluetooth
-device by its persistent number.
+multiple outputs can be grouped for simultaneous playback, and compositor
+keybinds can cycle devices or connect a specific Bluetooth device by its
+persistent number.
 
 ![Audio Switcher panel](screenshots/panel.webp)
 
@@ -23,6 +24,8 @@ through visible inputs. Scrolling over it changes the output volume.
 Install `pactl`, `bluetoothctl`, and `sleep` on `PATH`. On Arch Linux they are
 provided by the `libpulse`, `bluez-utils`, and `coreutils` packages respectively.
 PipeWire's PulseAudio compatibility service and BlueZ must be running.
+Output grouping also requires PulseAudio's or PipeWire Pulse's
+`module-combine-sink`.
 
 ## Usage
 
@@ -41,6 +44,12 @@ Use the pencil button to set a local display name, choose the device icon, and
 change a Bluetooth keybind number. The number is assigned automatically after a
 device connects successfully for the first time and can then be changed. Hidden
 devices remain available in the panel but are skipped by cycling commands.
+
+To play through multiple outputs at once, open **Outputs**, choose **Group
+outputs**, select at least two available physical outputs, then choose **Create
+group**. The combined output becomes the default and current playback streams
+move to it. Use **Disband** on its row to remove it; if it is active, playback
+moves to the first available member before removal.
 
 Use the settings button in the panel header to open Noctalia's plugin settings.
 
@@ -97,6 +106,12 @@ Before connecting a requested Bluetooth audio device, Audio Switcher disconnects
 other Bluetooth audio devices connected to this computer. It cannot disconnect
 the target from another computer or phone; that device must release the target
 first unless it supports multipoint connections.
+
+Output groups are `module-combine-sink` instances owned by the running audio
+server. Audio Switcher rediscovers its groups after the plugin service restarts,
+but they disappear if PipeWire/PulseAudio restarts. Combining outputs may add
+latency and resampling CPU cost, especially when the devices use different
+clocks or sample rates.
 
 The plugin does not access the network. Its service spawns only the declared
 `pactl`, `bluetoothctl`, and `sleep` commands. The short sleep is used while

@@ -1,8 +1,8 @@
 # The Pulse Protocol
 
-An agent-agnostic contract for driving the pulse bar widget (and everything
-downstream of it: the presence orb, tooltips, `claude.pulse` subscribers). The
-widget knows nothing about Claude Code — it consumes **events** and an optional
+An agent-agnostic contract for driving the `pulse-svc` service aggregator (and everything
+downstream of it: the pulse bar widget, the presence orb, tooltips, `claude.pulse` subscribers). The
+service knows nothing about Claude Code — it consumes **events** and an optional
 **telemetry payload** over noctalia's plugin IPC. Any coding agent that can run
 a shell command on its lifecycle hooks (gemini-cli, codex, opencode, aider, a
 CI job, a cron script) can light up the same bar dot.
@@ -20,9 +20,9 @@ Two adapters ship in `hooks/`:
 noctalia msg plugin <target> all <event> [payload]
 ```
 
-- `<target>` is the plugin dispatch id: `<plugin-id>:<widget-entry>` —
-  `lowcache/claude-companion:pulse` for this install. Adapters must treat it as
-  configurable (`pulse-emit` reads `$PULSE_TARGET`).
+- `<target>` is the plugin dispatch id: `<plugin-id>:<entry>` —
+  `lowcache/claude-companion:pulse-svc` (the headless aggregator service) for this
+  install. Adapters must treat it as configurable (`pulse-emit` reads `$PULSE_TARGET`).
 - `all` addresses every monitor's widget instance. (`focused` or a bare
   connector errors when the widget sits on multiple bars.)
 - `[payload]` is a **single positional token** — noctalia's msg CLI splits on
@@ -48,8 +48,9 @@ active; "resting" matters for the default-slot rule below.
 | `session_end` | session is over — **retires** its slot | — | — |
 
 Unknown events render as idle-with-the-event-kept-as-state-word; stick to the
-vocabulary. Glyph, accent color, and breath tempo are widget-side concerns
-(see `VISUAL` in `pulse.luau`) — the protocol only fixes the *semantics*.
+vocabulary. Glyph, accent color, and breath animation are widget-side concerns
+(see `VISUAL` in `pulse.luau`, and the `breath_speed`, `pulse_glow_floor`, and
+`orb_swell` user settings in `README.md`) — the protocol only fixes the *semantics*.
 
 ## Payload
 
@@ -72,14 +73,19 @@ model,in,out,cacheCreate,cacheRead,session
 `?,0,0,0,0,<sid>`. State tracking, urgency priority, multi-session tooltip all
 work; you only lose the burn readout.
 
-## Session semantics (what the widget guarantees)
+## Session semantics (what the service guarantees)
 
 - One slot per `session` id; re-sending updates the slot in place.
-- The bar renders the **most urgent** state across all live slots (priority
-  table above); the tooltip lists every session, most recent first, with a
-  Σ burn total.
+- The service aggregates the **most urgent** state across all live slots (priority
+  table above) into `claude.pulse`; widgets render this rollup and the tooltip lists
+  every session, most recent first, with a Σ burn total.
 - `session_end` retires the slot. Nothing else does — a real session may sit
   at `idle` or `turn_end` indefinitely and stays listed.
+- Because only the trailing `session` field is read for routing, a `session_end`
+  whose payload populates *only* that field is a well-formed retire for one
+  session and nothing else: `,,,,,<session>`. The `sessions` panel's Retire
+  control emits exactly that, which is why manual retirement needs no new verb —
+  anything that can send `session_end` can already clear a stuck slot.
 - **Payload-less events** (no CSV at all — e.g. a manual
   `noctalia msg plugin … all needs_attention` poke from a terminal) land in a
   single shared `default` slot. To keep CLI pokes from leaving a phantom
@@ -138,10 +144,11 @@ long_build && pulse-emit needs_attention ci  # non-agent uses work too
 
 ## Downstream: the `claude.pulse` state mirror
 
-The widget is the **single aggregator**; subscribers (the orb, or any future
-surface) never parse events themselves. On every event — never from the
-animation timer — it publishes a rollup snapshot to noctalia shared state under
-`claude.pulse`:
+The headless `pulse-svc` **service** is the **single aggregator**; subscribers (the
+bar dot, the orb, or any future surface) never parse events themselves. On every
+event — never from a timer — it publishes a rollup snapshot to noctalia shared state
+under `claude.pulse` (top-level fields below, plus a `sessions` array of per-session
+`{sid,state,model,tin,tout,cr}` for multi-session tooltips):
 
 ```lua
 { state = <most-urgent event name>,   -- "idle" when no sessions
@@ -152,12 +159,16 @@ animation timer — it publishes a rollup snapshot to noctalia shared state unde
   cr    = <cacheRead; 0 when count > 1> }
 ```
 
-Desktop widgets receive it via `noctalia.state.watch("claude.pulse", cb)`; bar
-widgets must poll `state.get` (watch doesn't fire on bars in noctalia 5.0.0).
+Both desktop and bar widgets receive it via `noctalia.state.watch("claude.pulse",
+cb)` — state.watch fires across all of a plugin's runtimes as of the Noctalia 5 beta
+(the earlier "bars must poll" limitation is gone).
 
-## Deployment invariant
+## Deployment (retired invariant)
 
-The aggregator lives in the `pulse` **bar widget** — bar widgets only run when
-placed on a bar. If `pulse` isn't in a bar layout, every event is silently
-dropped and all subscribers freeze. Noctalia 5.0.0 has no headless plugin
-entry kind, so "pulse on a bar" is a hard install requirement.
+The aggregator is the headless `pulse-svc` **`[[service]]`** — it starts at shell
+launch and runs with no surface, so event capture never depends on any widget being
+placed. (Historically the aggregator lived in the `pulse` bar widget: if that widget
+wasn't on a bar, every event was silently dropped and all subscribers froze — the
+**D10** fragility. Retired by the `[[service]]` entry kind added in the Noctalia 5
+beta; requires `plugin_api >= 3` on a service-capable build.) The bar dot and orb are
+now pure subscribers of `claude.pulse`, so placing them is purely cosmetic.

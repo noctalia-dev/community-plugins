@@ -14,6 +14,7 @@ local decoded = {
   INFO = {
     default_sink_name = "sink.main",
     default_source_name = "source.main",
+    server_name = "PulseAudio (on PipeWire 1.6.8)",
   },
   SINKS_UNMUTED = {
     {
@@ -106,6 +107,7 @@ assert(load(serviceSource, "@service.luau"))()
 assert(type(streamCallback) == "function", "pactl subscription was not started")
 
 complete("'info'", "INFO")
+complete("'list' 'short' 'modules'", "")
 complete("'list' 'sinks'", "SINKS_UNMUTED")
 complete("'list' 'sources'", "SOURCES_UNMUTED")
 

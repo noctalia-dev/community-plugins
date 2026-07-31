@@ -1,6 +1,6 @@
 id           = "dunarand/bookmarks"
 name         = "Bookmarks"
-version      = "1.2.1"
+version      = "1.3.0"
 plugin_api   = 13
 author       = "dunarand"
 license      = "MIT"
@@ -49,6 +49,37 @@ entry = "bar.luau"
     description_key = "settings.text.description"
     default         = "Bookmarks"
 
+[[setting]]
+key             = "enable_bk_provider"
+type            = "bool"
+label_key       = "settings.enable_bk_provider.label"
+description_key = "settings.enable_bk_provider.description"
+default         = true
+
+[[setting]]
+key             = "bk_sort_by"
+type            = "select"
+label_key       = "settings.bk_sort_by.label"
+description_key = "settings.bk_sort_by.description"
+default         = "history"
+visible_when    = { key = "enable_bk_provider", values = ["true"] }
+
+  [[setting.options]]
+  value     = "history"
+  label_key = "settings.bk_sort_by.options.history"
+  [[setting.options]]
+  value     = "usage_count"
+  label_key = "settings.bk_sort_by.options.usage_count"
+
+[[launcher_provider]]
+id                       = "provider"
+entry                    = "bk_provider.luau"
+prefix                   = "bk"
+glyph                    = "bookmark"
+include_in_global_search = false
+debounce_ms              = 100
+
+
 [[panel]]
 id              = "panel"
 entry           = "panel.luau"
@@ -57,4 +88,4 @@ height          = 470
 placement       = "attached"
 position        = "auto"
 open_near_click = true
-capture_keys    = ["ctrl+n", "ctrl+p", "up", "down", "Return", "ctrl+s"]
+capture_keys    = ["ctrl+h", "ctrl+j", "ctrl+k", "ctrl+l", "left", "down", "up", "right", "ctrl+n", "ctrl+f", "return"]

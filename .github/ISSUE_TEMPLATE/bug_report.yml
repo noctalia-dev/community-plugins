@@ -22,113 +22,65 @@ body:
     attributes:
       label: Plugin
       description: The plugin id.
+      default: 0
       options:
+        - --- SELECT ---
         - anilist
-
         - arch-updater
-
         - audio-switcher
-
         - battery-graph
-
         - battery-threshold
-
         - bookmarks
-
         - calculator
-
         - cat
-
         - claude-companion
-
         - color_picker
-
         - daily-wallpaper
-
         - drive-health
-
         - dropwall
-
         - ds4-color
-
         - eyecare
-
         - file-search
-
         - game-launcher
-
+        - gamer-mode
         - godot-provider
-
         - gslapper
-
         - hassio
-
         - hotspot
-
         - hypr-screen-mirror
-
         - hypr-submap
-
         - ideapad-conservation-mode
-
         - iio_lock
-
         - imagemagick-clock
-
         - keybind-cheatsheet
-
         - keymap
-
         - lid-guard
-
+        - lrc
         - lyrics
-
         - mangowm-keymode
-
         - mawaqit
-
         - mini-docker
-
         - nextboot-selector
-
         - nix-monitor
-
         - noctwhspr
-
         - pass
-
         - pomodoro
-
         - portctl
-
         - prismlauncher-instances
-
         - proton-pass
-
+        - rss-notifier
         - sharednd
-
         - shelly
-
         - special-workspaces
-
         - ssh-launcher
-
         - tmux-provider
-
         - todo
-
         - topgrade-wrapper
-
         - um5606_fan_state
-
         - upbeat
-
         - w-engine
-
         - web-launcher
-
         - wl-screen-mirror
-
         - zed-provider
 
     validations:
