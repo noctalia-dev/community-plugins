@@ -1,7 +1,7 @@
 id           = "joshuaslate/shelly"
 name         = "Shelly"
 icon         = "package"
-version      = "1.0.1"
+version      = "2.0.0"
 plugin_api = 3
 license = "MIT"
 author       = "joshuaslate"
