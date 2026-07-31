@@ -8,50 +8,105 @@ noctalia.state.watch("mimir.copy_target", function(value)
   render()
 end)
 
-local function renderText(text, color)
-  text = text:gsub("%*%*(.-)%*%*", function(s)
-    local bold = ""
-    for i = 1, #s do
-      local c = s:sub(i, i)
-      local code = c:byte()
-      if code >= 97 and code <= 122 then
-        bold = bold .. utf8.char(code - 97 + 0x1D41A)
-      elseif code >= 65 and code <= 90 then
-        bold = bold .. utf8.char(code - 65 + 0x1D400)
-      else
-        bold = bold .. c
-      end
+local function mapUnicode(text, lowerBase, upperBase)
+  local out = ""
+  for i = 1, #text do
+    local c = text:sub(i, i)
+    local code = c:byte()
+    if code >= 97 and code <= 122 then
+      out = out .. utf8.char(code - 97 + lowerBase)
+    elseif code >= 65 and code <= 90 then
+      out = out .. utf8.char(code - 65 + upperBase)
+    else
+      out = out .. c
     end
-    return bold
-  end)
+  end
+  return out
+end
+
+local function inlineMarkdown(text)
+  text = text:gsub("%*%*%*([^%*]-)%*%*%*", function(s) return mapUnicode(s, 0x1D482, 0x1D468) end)
+  text = text:gsub("%*%*([^%*]-)%*%*", function(s) return mapUnicode(s, 0x1D41A, 0x1D400) end)
+  text = text:gsub("%*([^%*]-)%*", function(s) return mapUnicode(s, 0x1D44E, 0x1D434) end)
+  text = text:gsub("~~([^~]-)~~", "%1")
   text = text:gsub("`(.-)`", "%1")
   text = text:gsub("%[([^%]]*)%]%(([^%)]+)%)", "%1 (%2)")
-  text = text:gsub("^#+%s*", "")
-  return ui.label({ text = text, fontSize = 13, color = color, maxWidth = 380 })
+  return text
+end
+
+local function renderText(text, color, fontSize, fontWeight)
+  return ui.label({ text = inlineMarkdown(text), fontSize = fontSize or 13, fontWeight = fontWeight, color = color, maxWidth = 380 })
 end
 
 local function parseMessage(content)
   local nodes = {}
-  local pos = 1
-  while pos <= #content do
-    local open = content:find("```", pos)
-    if not open then
-      table.insert(nodes, { type = "text", content = content:sub(pos) })
-      break
-    end
-    if open > pos then
-      table.insert(nodes, { type = "text", content = content:sub(pos, open - 1) })
-    end
-    local close = content:find("```", open + 3)
-    if close then
-      local raw = content:sub(open + 3, close - 1)
-      local nl = raw:find("\n")
-      if nl then raw = raw:sub(nl + 1) end
-      table.insert(nodes, { type = "code", content = raw })
-      pos = close + 3
+  local lines = {}
+  for line in (content .. "\n"):gmatch("(.-)\n") do
+    table.insert(lines, line)
+  end
+  local i = 1
+  local function trim(s)
+    return (s:gsub("^%s*(.-)%s*$", "%1"))
+  end
+  while i <= #lines do
+    local line = lines[i]
+    if line:find("^```") then
+      local buf = {}
+      local lang = line:sub(4)
+      i = i + 1
+      while i <= #lines and not lines[i]:find("^```") do
+        table.insert(buf, lines[i])
+        i = i + 1
+      end
+      i = i + 1
+      table.insert(nodes, { type = "code", language = trim(lang), content = table.concat(buf, "\n") })
+    elseif line:match("^#{1,6}") and line:gsub("#+", ""):match("%S") then
+      local level, text = line:match("^(#+)%s*(.-)%s*$")
+      level = #level
+      text = text:gsub("#+%s*$", "")
+      table.insert(nodes, { type = "heading", level = level, content = text })
+      i = i + 1
+    elseif line:match("^%s*([-*_])(%s*%1){2,}%s*$") then
+      table.insert(nodes, { type = "hr" })
+      i = i + 1
+    elseif line:match("^%s*>") then
+      local buf = {}
+      while i <= #lines and lines[i]:match("^%s*>") do
+        local t = lines[i]:gsub("^%s*>%s?", "")
+        if t == "" then t = " " end
+        table.insert(buf, t)
+        i = i + 1
+      end
+      table.insert(nodes, { type = "quote", content = table.concat(buf, " ") })
+    elseif line:match("^%s*[-*+]%s+") or line:match("^%s*%d+[.)]%s+") then
+      local items = {}
+      while i <= #lines do
+        local l = lines[i]
+        local bullet = l:match("^%s*[-*+]%s+(.*)")
+        local numbered = l:match("^%s*%d+[.)]%s+(.*)")
+        if bullet then
+          table.insert(items, { ordered = false, content = bullet })
+          i = i + 1
+        elseif numbered then
+          table.insert(items, { ordered = true, content = numbered })
+          i = i + 1
+        else
+          break
+        end
+      end
+      table.insert(nodes, { type = "list", items = items })
     else
-      table.insert(nodes, { type = "text", content = content:sub(open) })
-      break
+      local buf = {}
+      while i <= #lines and not lines[i]:match("^```") and not (lines[i]:match("^#{1,6}") and lines[i]:gsub("#+", ""):match("%S"))
+        and not lines[i]:match("^%s*([-*_])(%s*%1){2,}%s*$") and not lines[i]:match("^%s*>")
+        and not lines[i]:match("^%s*[-*+]%s+") and not lines[i]:match("^%s*%d+[.)]%s+") do
+        table.insert(buf, lines[i])
+        i = i + 1
+      end
+      local para = table.concat(buf, "\n")
+      if trim(para) ~= "" then
+        table.insert(nodes, { type = "text", content = para })
+      end
     end
   end
   return nodes
@@ -78,9 +133,25 @@ function render()
         if node.type == "text" then
           table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface"))
         elseif node.type == "code" then
-          table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, maxWidth = 380 }, {
+          table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 6 }, {
             ui.label({ text = node.content, fontSize = 12, color = "on_surface_variant" }),
           }))
+        elseif node.type == "heading" then
+          local sizes = { 17, 15, 14, 13, 13, 13 }
+          table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface", sizes[node.level] or 13, "bold"))
+        elseif node.type == "quote" then
+          table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 4 }, {
+            renderText(node.content, isUser and "primary" or "on_surface_variant", 12),
+          }))
+        elseif node.type == "hr" then
+          table.insert(contentNodes, ui.separator({ thickness = 1, color = "surface_variant" }))
+        elseif node.type == "list" then
+          local listChildren = {}
+          for n, item in ipairs(node.items) do
+            local prefix = item.ordered and (n .. ". ") or "• "
+            table.insert(listChildren, renderText(prefix .. item.content, isUser and "primary" or "on_surface"))
+          end
+          table.insert(contentNodes, ui.column({ gap = 2 }, listChildren))
         end
       end
       table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
