@@ -41,7 +41,8 @@ You can interact with the bookmarks list via keybinds:
 | `CTRL + K` or Up Arrow    | Select the previous (above) item                                 |
 | `CTRL + H` or Left Arrow  | Return to the root level when in a folder                        |
 | `CTRL + L` or Right Arrow | Get into a folder                                                |
-| `CTRL + S`                | Search bookmarks                                                 |
+| `CTRL + F`                | Search bookmarks                                                 |
+| `CTRL + N`                | New bookmark                                                     |
 | `Enter` / `Return`        | Execute the selected bookmark's command / Navigate into a folder |
 
 ## Usage
@@ -181,3 +182,20 @@ The plugin itself has the following settings:
 | `show_info_button`   | `bool`   | `true`      | Shows the "?" tooltip button on the bookmark entries.                                 |
 | `enable_bk_provider` | `bool`   | `true`      | Enable bookmarks launcher provider                                                    |
 | `bk_sort_by`         | `select` | `"history"` | Provider's sorting strategy. Options: `"history"`, `"usage_count"`                    |
+
+## Changelog
+
+### v1.3.0
+
+- Added `/bk` launcher provider
+- Changed the following keybinds (check IPC & Keybinds section for what they do)
+  - CTRL + N changed to CTRL + J
+  - CTRL + P changed to CTRL + K
+  - CTRL + S changed to CTRL + F
+- Added the following keybinds (check IPC & Keybinds section for what they do)
+  - CTRL + H or Left Arrow
+  - CTRL + L or Right Arrow
+  - CTRL + N
+- Index tracking on root level for keyboard-centric usage
+  - Previously, when using a keyboard to navigate, going into a folder would reset the selected
+    entry's index to 1 causing fat fingers to be annoying
