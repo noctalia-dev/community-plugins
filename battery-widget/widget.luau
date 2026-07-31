@@ -1,6 +1,7 @@
 noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
 
 local glyph
+local color
 local percent
 local status
 
@@ -44,6 +45,14 @@ local function getGlyph()
     end
 end
 
+local function getColor()
+    if status ~= "Charging" and percent <= 20 then
+        color = "error"
+        return
+    end
+    color = "on_surface"
+end
+
 local function render()
     if (noctalia.getConfig("hide_plugged") and (status == "Charging" or status == "Not Charging"))
         or (noctalia.getConfig("hide_full") and status == "Full") then
@@ -53,10 +62,10 @@ local function render()
 
     local content = {}
     if noctalia.getConfig("show_glyph") then
-        table.insert(content, ui.glyph({ name = glyph }))
+        table.insert(content, ui.glyph({ name = glyph, color = color }))
     end
     if noctalia.getConfig("show_label") then
-        table.insert(content, ui.label({ text = percent .. "%" }))
+        table.insert(content, ui.label({ text = percent .. "%", color = color }))
     end
 
     local layout = noctalia.getConfig("layout") == "vertical" and ui.column or ui.row
@@ -89,6 +98,7 @@ local function refreshBattery()
             status = noctalia.string.trim(lines[2])
 
             getGlyph()
+            getColor()
             render()
         end
     )
