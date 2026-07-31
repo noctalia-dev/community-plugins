@@ -53,12 +53,31 @@ label_key = "settings.hide_full.label"
 description_key = "settings.hide_full.description"
 default = false
 
+
+[[setting]]
+key = "color"
+type = "color"
+label_key = "settings.color.label"
+description_key = "settings.color.description"
+default = "on_surface"
+advanced = true
+
 [[setting]]
 key = "warning_color"
 type = "color"
 label_key = "settings.warning_color.label"
 description_key = "settings.warning_color.description"
 default = "error"
+advanced = true
+
+[[setting]]
+key = "charging_color"
+type = "color"
+label_key = "settings.charging_color.label"
+description_key = "settings.charging_color.description"
+default = "primary"
+advanced = true
+
 
 [[setting]]
 key = "battery"

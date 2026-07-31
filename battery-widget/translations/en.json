@@ -22,9 +22,17 @@
             "label": "Hide When Full",
             "description": "Hide the battery widget when fully charged."
         },
+        "color": {
+            "label": "Color",
+            "description": "Color role for this widget's icon and label; fixed hex colors are also supported."
+        },
         "warning_color": {
             "label": "Warning Color",
             "description": "Color applied when charge is at or below 20%."
+        },
+        "charging_color": {
+            "label": "Charging Color",
+            "description": "Color applied when connected to AC power."
         },
         "battery": {
             "label": "Battery",

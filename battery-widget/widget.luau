@@ -50,7 +50,11 @@ local function getColor()
         color = noctalia.getConfig("warning_color")
         return
     end
-    color = "on_surface"
+    if status == "Charging" or status == "Full" or status == "Not Charging" then
+        color = noctalia.getConfig("charging_color")
+        return
+    end
+    color = noctalia.getConfig("color")
 end
 
 local function render()
