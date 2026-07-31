@@ -11,11 +11,11 @@ Llamanager provides a graphical frontend for [Ollama](https://ollama.com/) insid
 
 ## Plugin
 
-| Field           | Value                                                                             |
-| --------------- | --------------------------------------------------------------------------------- |
-| ID              | `marccvictoria/llamanager`                                                        |
-| Entries         | bar widget: `widget`; service: `registry`; launcher: `llamanager`; panel: `panel` |
-| Launcher Prefix | `/ll`                                                                             |
+| Field           | Value                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| ID              | `marccvictoria/llamanager`                                                               |
+| Entries         | bar widget: `widget`; service: `registry`; launcher_provider: `launcher`; panel: `panel` |
+| Launcher Prefix | `/ll`                                                                                    |
 
 ## Usage
 
@@ -30,7 +30,7 @@ Before using Llamanager, complete the following setup steps:
 ## Requirements
 
 - **Noctalia v5**
-- **Ollama** available on your `PATH`
+- `ollama` available on your `PATH`: required for model management, downloads, launching models, and Modelfile operations.
 
 Verify the installation:
 
@@ -82,5 +82,12 @@ The launcher entry `llamanger.luau` is independent from the panel. Queries submi
 
 The launcher provides quick model execution through `/ll <question> //`. Append `//` to send, the model response can be seen through notification and can be copied in your clipboard by pressing Enter key.
 
+## IPC
+
+```
+noctalia msg panel-toggle marccvictoria/llamanager:panel
+```
+
 ## License
+
 [MIT](LICENSE)

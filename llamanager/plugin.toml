@@ -7,18 +7,20 @@ license = "MIT"
 deprecated = false
 icon = "topology-star-3"
 description = "Launcher and Manager for Ollama."
-tags = ["ai", "productivity", "local-ai", "bar", "launcher", "panel"]
+tags = ["ai", "productivity", "bar", "launcher", "panel"]
 dependencies = ["ollama"]
 
 [[setting]]
 key = "modelfile_path"
 type = "folder"
+default = ""
 label_key = "settings.modelfile_path.label"
 description_key = "settings.modelfile_path.description"
 
 [[setting]]
 key = "launcher"
 type = "string"
+default = ""
 label_key = "settings.launcher.label"
 description_key = "settings.launcher.description"
 
