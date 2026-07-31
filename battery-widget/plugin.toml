@@ -54,6 +54,13 @@ description_key = "settings.hide_full.description"
 default = false
 
 [[setting]]
+key = "warning_color"
+type = "color"
+label_key = "settings.warning_color.label"
+description_key = "settings.warning_color.description"
+default = "error"
+
+[[setting]]
 key = "battery"
 type = "select"
 label_key = "settings.battery.label"

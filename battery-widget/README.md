@@ -22,6 +22,7 @@ Add it to your desktop/lockscreen widgets.
 | `show_label` | `bool` | `true` | Show the battery icon. |
 | `hide_plugged` | `bool` | `false` | Hide the battery widget when connected to AC power. |
 | `hide_full` | `bool` | `false` | Hide the battery widget when fully charged. |
+| `warning_color` | `color` | `error` | Color applied when charge is at or below 20%.. |
 | `battery` | `select` | `auto` | Detect the battery automatically or set a custom name. |
 | `battery_name` | `string` | `BAT0` | Set a custom name for the battery. |
 | `refresh_interval` | `int` | `60` | Controls how frequently the widget updates its content. (in seconds) |

@@ -22,6 +22,10 @@
             "label": "Hide When Full",
             "description": "Hide the battery widget when fully charged."
         },
+        "warning_color": {
+            "label": "Warning Color",
+            "description": "Color applied when charge is at or below 20%."
+        },
         "battery": {
             "label": "Battery",
             "description": "Detect the battery automatically or set a custom name.",

@@ -47,7 +47,7 @@ end
 
 local function getColor()
     if status ~= "Charging" and percent <= 20 then
-        color = "error"
+        color = noctalia.getConfig("warning_color")
         return
     end
     color = "on_surface"
