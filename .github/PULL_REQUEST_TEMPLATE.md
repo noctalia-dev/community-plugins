@@ -1,3 +1,5 @@
+<!-- noctalia-pr-template:v1 -->
+
 <!-- If this PR is not ready for review yet, please mark it as Draft. -->
 
 ## Plugin

@@ -2,6 +2,8 @@ noctalia.setUpdateInterval(300)
 
 local fetching = false
 local mpdPlayer = "mpd"
+local showSeparator = noctalia.getConfig("show_separator") ~= false
+local separator = noctalia.getConfig("separator") or "| "
 
 noctalia.runAsync("playerctl -l 2>/dev/null", function(r)
   if r.exitCode == 0 then
@@ -47,7 +49,11 @@ function fetchLyrics(player)
     if r.exitCode == 0 then
       local text = r.stdout:gsub("%s+$", "")
       if #text > 0 and text ~= "(no lyrics)" then
-        barWidget.setText("| " .. text)
+        local prefix = ""
+        if showSeparator then
+          prefix = separator
+        end
+        barWidget.setText(prefix .. text)
         return
       end
     end

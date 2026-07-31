@@ -853,8 +853,8 @@ tags = ["bar", "panel", "service", "video", "wallpaper"]
 [[plugin]]
 id = "shin/lrc"
 name = "LRC"
-version = "1.0.0"
-updated_at = 1785459835
+version = "1.1.0"
+updated_at = 1785500276
 added_at = 1785459835
 author = "shin"
 license = "MIT"
@@ -863,3 +863,43 @@ description = "Displays current song lyrics via lrc_tty."
 deprecated = false
 plugin_api = 3
 tags = ["bar", "music"]
+
+[[plugin]]
+id = "nomadcxx/gamer-mode"
+name = "Gamer Mode"
+version = "0.6.4"
+updated_at = 1785465141
+added_at = 1785465141
+author = "Nomadcxx"
+license = "MIT"
+icon = "device-gamepad-2"
+description = "Live CPU/RAM/GPU metrics and a one-click gamer mode that suspends and restores background resource hogs."
+plugin_api = 19
+tags = ["bar", "panel", "service", "gaming", "system", "hardware"]
+
+[[plugin]]
+id = "icefish/phone-connect"
+name = "Phone Connect"
+version = "0.1.0"
+updated_at = 1785500232
+added_at = 1785500232
+author = "icefish"
+license = "MIT"
+icon = "devices"
+description = "Control paired phones via KDE Connect — battery, ring, ping, share, clipboard, pairing."
+deprecated = false
+plugin_api = 16
+tags = ["bar", "panel", "service", "media"]
+
+[[plugin]]
+id = "nilsonlinux/rss-notifier"
+name = "RSS/Atom Notifier"
+version = "1.0.0"
+updated_at = 1785462185
+added_at = 1785462185
+author = "Nilsonlinux"
+license = "MIT"
+icon = "rss"
+description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
+plugin_api = 14
+tags = ["utility", "indicator"]

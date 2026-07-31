@@ -64,6 +64,7 @@ body:
         - nix-monitor
         - noctwhspr
         - pass
+        - phone-connect
         - pomodoro
         - portctl
         - prismlauncher-instances

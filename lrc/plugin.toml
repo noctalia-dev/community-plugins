@@ -1,6 +1,6 @@
 id = "shin/lrc"
 name = "LRC"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 3
 author = "shin"
 license = "MIT"
@@ -9,6 +9,20 @@ deprecated = false
 description = "Displays current song lyrics via lrc_tty."
 tags = ["bar", "music"]
 dependencies = ["lrc_tty", "playerctl"]
+
+[[setting]]
+key = "show_separator"
+type = "bool"
+label_key = "settings.show_separator.label"
+description_key = "settings.show_separator.description"
+default = true
+
+[[setting]]
+key = "separator"
+type = "string"
+label_key = "settings.separator.label"
+description_key = "settings.separator.description"
+default = "| "
 
 [[widget]]
 id = "lrc"
