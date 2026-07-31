@@ -24,7 +24,7 @@ Add it to your desktop/lockscreen widgets.
 | `hide_full` | `bool` | `false` | Hide the battery widget when fully charged. |
 | `color` | `color` | `on_surface` | Color role for this widget's icon and label; fixed hex colors are also supported. |
 | `warning_color` | `color` | `error` | Color applied when charge is at or below 20%. |
-| `charging_color` | `color` | `primary` | Color applied when connected to AC power. |
+| `charging_color` | `color` | `on_surface` | Color applied when connected to AC power. |
 | `battery` | `select` | `auto` | Detect the battery automatically or set a custom name. |
 | `battery_name` | `string` | `BAT0` | Set a custom name for the battery. |
 | `refresh_interval` | `int` | `60` | Controls how frequently the widget updates its content. (in seconds) |

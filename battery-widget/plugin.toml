@@ -75,7 +75,7 @@ key = "charging_color"
 type = "color"
 label_key = "settings.charging_color.label"
 description_key = "settings.charging_color.description"
-default = "primary"
+default = "on_surface"
 advanced = true
 
 
