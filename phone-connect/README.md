@@ -2,8 +2,6 @@
 
 Control your KDE Connect-paired phone from the Noctalia bar.
 
-![screenshot](screenshot.png)
-
 ## Plugin
 
 | Entry | Type | Id |

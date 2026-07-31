@@ -19,7 +19,7 @@ license = "MIT"
 deprecated = false
 icon = "devices"
 description = "Control paired phones via KDE Connect — battery, ring, ping, share, clipboard, pairing."
-tags = ["bar", "panel", "service", "shortcut", "media", "utility", "hardware"]
+tags = ["bar", "panel", "service", "media"]
 dependencies = ["kdeconnect", "sshfs"]
 
 # ── Plugin-level settings (shared across all entries) ───────────────────────
