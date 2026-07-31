@@ -4,7 +4,7 @@
 -- Local variable
 
 local configBox = "~/Config-Swap" 			
-local pathLocal = "~/.local/state/noctalia/settings.toml"										   -- path for settings
+local pathLocal = "~/.local/state/noctalia/settings.toml"		-- path for settings
 
 local listConfig = nil
 local optionFull = {"all", "not full", "full"}
@@ -177,6 +177,48 @@ local function queuePreviewDownload(name)
 	end)
 end
 
+-- Section delete install file
+
+local function delete(name)
+
+	if not name or name == "" then
+		noctalia.notify("Delete", "invalid name")
+		return
+	end
+
+	local target = noctalia.expandPath(configBox .. "/" .. name)
+	local cmd = "rm -rf " .. shellQuote(target)
+	noctalia.runAsync(cmd, function(result)
+		if result and result.exitCode == 0 then
+			noctalia.notify("Delete Ok")
+		else
+			noctalia.notify("Delete failed")
+		end
+	end)
+	render()
+end
+
+local function renderDeleteConfirmation(name)
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.label({ text = "Are you sure too delete " .. name .. "?", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ text = "delete", onClick = function()
+			delete(name)
+		end
+		}),
+		ui.button({ glyph = "close", onClick = "render" }),
+	}))
+end
+
+-- Section for setting and reset / save config
+
+local function renderSetting(name)
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.label({ text = "Setting section", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ text = "en cours", onClick = "getFetchList"}),
+		ui.button({ glyph = "en cours", onClick = "render" }),
+	}))
+end
+
 -- Section render for github Store
 
 local function renderList()
@@ -252,7 +294,7 @@ end
 -- Section render for see config install info
 
 local function renderConfig(data: infoConfig)
-	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+	local rows = {
 		ui.image({
       		path = configBox .. "/" .. data.name .. "/preview.png",
 			width = configWidth,
@@ -264,10 +306,17 @@ local function renderConfig(data: infoConfig)
 		ui.label({ text = tr("created_by", { author = data.author }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.label({ text = tr("origin", { origin = data.origin }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.label({ text = tr("description", { description = data.description or "" }), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ glyph = "trash", onClick = function()
+			renderDeleteConfirmation(data.name)
+		end
+		}),
 		ui.button({ glyph = "close", onClick = "render" }),
+	}
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows),
 	}))
 end
-
+ 
 -- Section for list allerady install file
 
 function getListInstall()
@@ -307,6 +356,8 @@ function getListInstall()
 	end
 	return listShow
 end
+
+-- section for render all installed config
 
 local function renderInstall()
 	pickSlots = {}
@@ -364,7 +415,10 @@ local function renderInstall()
 				render()
 			end
 			}),
-			ui.select({ options = optionFull, onChange = "" }),
+			ui.button({ text = "delete test", onClick = function()
+				renderDeleteConfirmation("")
+			end
+			}),
 			ui.button({ text = tr("refresh"), onClick = "getFetchList"}),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
