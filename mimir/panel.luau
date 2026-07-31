@@ -1,6 +1,5 @@
 local inputText = ""
 local inputKey = 0
-local editToolCmd = ""
 local copyTarget = nil
 local modelIdx = 0
 
@@ -51,7 +50,7 @@ local function parseMessage(content)
       table.insert(nodes, { type = "code", content = raw })
       pos = close + 3
     else
-      table.insert(nodes, { type = "text", content = stripMarkdown(content:sub(open)) })
+      table.insert(nodes, { type = "text", content = content:sub(open) })
       break
     end
   end
@@ -95,22 +94,18 @@ function render()
   end
 
   local pendingTool = noctalia.state.get("mimir.pending_tool")
-  if pendingTool and type(pendingTool) == "table" then
-    if editToolCmd == "" then editToolCmd = pendingTool.command or "" end
-    table.insert(displayMsgs, ui.column({ key = "tool-approval", gap = 8, padding = 12, fill = "surface_variant", radius = 8 }, {
+  if pendingTool and type(pendingTool) == "table" and pendingTool.commands then
+    local approvalChildren = {
       ui.label({ text = "Mimir wants to run:", fontSize = 12, color = "on_surface" }),
-      ui.input({
-        key = "tool-edit",
-        value = editToolCmd,
-        onChange = "onEditCommand",
-        flexGrow = 1,
-        focus = true,
-      }),
-      ui.row({ gap = 8, align = "center" }, {
-        ui.button({ text = "Approve", variant = "primary", onClick = "onApproveTool" }),
-        ui.button({ text = "Deny", variant = "ghost", onClick = "onDenyTool" }),
-      }),
+    }
+    for _, c in ipairs(pendingTool.commands) do
+      table.insert(approvalChildren, ui.label({ text = c.command or "", fontSize = 12, color = "primary", maxWidth = 380 }))
+    end
+    table.insert(approvalChildren, ui.row({ gap = 8, align = "center" }, {
+      ui.button({ text = "Approve", variant = "primary", onClick = "onApproveTool" }),
+      ui.button({ text = "Deny", variant = "ghost", onClick = "onDenyTool" }),
     }))
+    table.insert(displayMsgs, ui.column({ key = "tool-approval", gap = 8, padding = 12, fill = "surface_variant", radius = 8 }, approvalChildren))
   end
 
   local layout = {
@@ -175,6 +170,7 @@ function onSubmit(v)
   inputText = ""
   if text and text ~= "" then
     inputKey += 1
+    noctalia.state.set("mimir.copy_target", -1)
     noctalia.state.set("mimir.status", "thinking")
     noctalia.state.set("mimir.input", text)
     render()
@@ -203,21 +199,18 @@ noctalia.state.watch("mimir.models", function()
 end)
 
 noctalia.state.watch("mimir.pending_tool", function()
+  if noctalia.state.get("mimir.pending_tool") then
+    noctalia.state.set("mimir.copy_target", -1)
+  end
   render()
 end)
 
-function onEditCommand(v)
-  editToolCmd = type(v) == "table" and (v.value or "") or v or ""
-end
-
 function onApproveTool()
-  noctalia.state.set("mimir.tool_approved", editToolCmd)
-  editToolCmd = ""
+  noctalia.state.set("mimir.tool_approved", true)
 end
 
 function onDenyTool()
   noctalia.state.set("mimir.tool_denied", true)
-  editToolCmd = ""
 end
 
 function onOpen()

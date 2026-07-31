@@ -2,14 +2,16 @@ local M = {}
 M.conversation = {}
 M.pendingResponses = {}
 M.pendingToolResults = {}
-M.pendingToolApproval = nil
+M.pendingToolCalls = {}
+M.pendingApproval = nil
+M.toolBatchActive = false
 
 local TOOLS = {
   {
     type = "function",
     ["function"] = {
       name = "run_command",
-      description = "Execute a shell command on the user's system",
+      description = "Run a shell command on the user's system. Prefer the simplest standard utility that works (ls, find, grep, cat); fall back to a small script only when no utility fits",
       parameters = {
         type = "object",
         properties = {
@@ -75,7 +77,7 @@ local function setStatus(s)
 end
 
 local function addMessage(role, content, extra)
-  local msg = { role = role, content = content }
+  local msg = { role = role, content = content or "" }
   if extra then
     for k, v in pairs(extra) do msg[k] = v end
   end
@@ -105,7 +107,7 @@ local function think(input)
   local model = noctalia.state.get("mimir.model") or "deepseek-v4-flash"
 
   local msgs = {
-    { role = "system", content = "You are Mimir, a helpful AI assistant running on the user's desktop. You can run shell commands to accomplish tasks. When you need to run a command, use the run_command tool." },
+    { role = "system", content = "You are Mimir, an AI assistant running directly on the user's desktop with shell access. Your job: accomplish real tasks by running shell commands through the run_command tool, then report what actually happened. Choose the simplest, fastest command for the job. For local files and system state, standard utilities are ideal: ls, find, grep, cat, which, df, ps, head, wc. When a standard utility exists, prefer it over writing scripts — one-liners are faster, clearer, and less likely to need approvals. Reach for a script (python, etc.) only when no simple utility covers the task. Use your own knowledge to answer questions and explain things; you do not need to fetch web pages. When the task needs the user's input or a choice, ask instead of guessing. Never just give instructions — run the command and show the result. The user has already authorized command execution through the approval flow, so do not hesitate to use tools for legitimate tasks." },
   }
   for _, m in ipairs(M.conversation) do
     table.insert(msgs, m)
@@ -159,44 +161,96 @@ local function runCommand(tool_call, command)
   end)
 end
 
-local function executeTool(tool_call)
-  local okArgs, args = pcall(noctalia.json.decode, tool_call["function"].arguments)
-  if not okArgs or type(args) ~= "table" or not args.command then
-    addMessage("assistant", "Error: model generated invalid tool arguments")
-    setStatus("idle")
+local function queueToolCalls(tool_calls)
+  M.pendingToolCalls = {}
+  M.pendingApproval = nil
+  M.toolBatchActive = true
+  for _, tc in ipairs(tool_calls) do
+    if tc.type == "function" and tc["function"].name == "run_command" then
+      local okArgs, args = pcall(noctalia.json.decode, tc["function"].arguments)
+      table.insert(M.pendingToolCalls, {
+        tc = tc,
+        args = (okArgs and type(args) == "table") and args or nil,
+        status = "waiting",
+      })
+    end
+  end
+end
+
+local function allToolCallsDone()
+  for _, call in ipairs(M.pendingToolCalls) do
+    if call.status ~= "done" then return false end
+  end
+  return true
+end
+
+local function finishToolBatch()
+  if not M.toolBatchActive then return end
+  if not allToolCallsDone() then return end
+  M.toolBatchActive = false
+  M.pendingToolCalls = {}
+  M.pendingApproval = nil
+  think(nil)
+end
+
+local function processToolQueue()
+  if #M.pendingToolCalls == 0 then
+    M.toolBatchActive = false
     return
   end
 
-  if isBlocked(args.command) then
-    addMessage("tool", "Command blocked by user settings: " .. args.command, { tool_call_id = tool_call.id })
-    think(nil)
-    return
+  for _, call in ipairs(M.pendingToolCalls) do
+    if call.status == "running" then return end
   end
 
   local config = loadConfig()
 
-  if config.toolPermission == "off" then
-    addMessage("tool", "Tools are disabled in settings. Enable them to run commands.", { tool_call_id = tool_call.id })
-    think(nil)
-    return
+  for _, call in ipairs(M.pendingToolCalls) do
+    if call.status == "waiting" then
+      if call.args == nil or not call.args.command then
+        addMessage("tool", "Error: invalid tool arguments", { tool_call_id = call.tc.id })
+        call.status = "done"
+      elseif isBlocked(call.args.command) then
+        addMessage("tool", "Command blocked by user settings: " .. call.args.command, { tool_call_id = call.tc.id })
+        call.status = "done"
+      elseif config.toolPermission == "off" then
+        addMessage("tool", "Tools are disabled in settings. Enable them to run commands.", { tool_call_id = call.tc.id })
+        call.status = "done"
+      end
+    end
   end
 
-  if config.toolPermission == "ask" then
-    M.pendingToolApproval = {
-      id = tool_call.id,
-      command = args.command,
-      description = args.description or "",
-    }
-    noctalia.state.set("mimir.pending_tool", { command = args.command, description = args.description or "" })
+  local remaining = {}
+  for _, call in ipairs(M.pendingToolCalls) do
+    if call.status == "waiting" then table.insert(remaining, call) end
+  end
+
+  if config.toolPermission == "ask" and #remaining > 0 then
+    M.pendingApproval = {}
+    local commands = {}
+    for _, call in ipairs(remaining) do
+      table.insert(M.pendingApproval, { id = call.tc.id, command = call.args.command, description = call.args.description or "" })
+      table.insert(commands, { command = call.args.command, description = call.args.description or "" })
+    end
+    noctalia.state.set("mimir.pending_tool", { commands = commands })
     setStatus("idle")
     return
   end
 
-  runCommand(tool_call, args.command)
+  if config.toolPermission == "allow" then
+    for _, call in ipairs(remaining) do
+      call.status = "running"
+      runCommand(call.tc, call.args.command)
+    end
+    return
+  end
+
+  finishToolBatch()
 end
 
 function update()
   for i, res in ipairs(M.pendingResponses) do
+    if M.toolBatchActive then break end
     M.pendingResponses[i] = nil
 
     if not res.ok then
@@ -219,13 +273,14 @@ function update()
     local message = choice.message
 
     if choice.finish_reason == "tool_calls" and message.tool_calls then
-      addMessage("assistant", message.content, { tool_calls = message.tool_calls })
+      local clean = {}
       for _, tc in ipairs(message.tool_calls) do
-        if tc.type == "function" and tc["function"].name == "run_command" then
-          executeTool(tc)
-          break
-        end
+        local c = { id = tc.id, type = tc.type, ["function"] = tc["function"] }
+        table.insert(clean, c)
       end
+      addMessage("assistant", message.content, { tool_calls = clean })
+      queueToolCalls(message.tool_calls)
+      processToolQueue()
     else
       local content = message.content or ""
       if content ~= "" then
@@ -238,19 +293,27 @@ function update()
   for i, result in ipairs(M.pendingToolResults) do
     M.pendingToolResults[i] = nil
     addMessage("tool", result.output, { tool_call_id = result.tool_call_id })
-    think(nil)
+    for _, call in ipairs(M.pendingToolCalls) do
+      if call.tc.id == result.tool_call_id then
+        call.status = "done"
+      end
+    end
   end
+  finishToolBatch()
 
-  local pending = M.pendingToolApproval
-  if pending then
+  local approval = M.pendingApproval
+  if approval then
     local approved = noctalia.state.get("mimir.tool_approved")
     if approved then
       noctalia.state.set("mimir.tool_approved", false)
       noctalia.state.set("mimir.pending_tool", false)
-      local cmd = type(approved) == "string" and approved or pending.command
-      local tc = pending
-      M.pendingToolApproval = nil
-      runCommand({ id = tc.id }, cmd)
+      M.pendingApproval = nil
+      for _, call in ipairs(M.pendingToolCalls) do
+        if call.status == "waiting" then
+          call.status = "running"
+          runCommand(call.tc, call.args.command)
+        end
+      end
       return
     end
 
@@ -258,9 +321,14 @@ function update()
     if denied then
       noctalia.state.set("mimir.tool_denied", false)
       noctalia.state.set("mimir.pending_tool", false)
-      addMessage("tool", "Command was cancelled by the user.", { tool_call_id = pending.id })
-      M.pendingToolApproval = nil
-      think(nil)
+      M.pendingApproval = nil
+      for _, call in ipairs(M.pendingToolCalls) do
+        if call.status == "waiting" then
+          addMessage("tool", "Command was cancelled by the user.", { tool_call_id = call.tc.id })
+          call.status = "done"
+        end
+      end
+      finishToolBatch()
       return
     end
   end
@@ -268,8 +336,12 @@ end
 
 noctalia.state.watch("mimir.input", function(input)
   if input and input ~= "" then
-    if M.pendingToolApproval then
+    if M.pendingApproval then
       addMessage("assistant", "Please approve or deny the pending command first.")
+      return
+    end
+    if M.toolBatchActive then
+      addMessage("assistant", "Please wait for the running commands to finish.")
       return
     end
     addMessage("user", input)
@@ -280,7 +352,9 @@ end)
 noctalia.state.watch("mimir.clear", function(v)
   if v then
     M.conversation = {}
-    M.pendingToolApproval = nil
+    M.pendingToolCalls = {}
+    M.pendingApproval = nil
+    M.toolBatchActive = false
     noctalia.state.set("mimir.messages", {})
     noctalia.state.set("mimir.pending_tool", false)
     setStatus("idle")
