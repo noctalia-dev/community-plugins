@@ -52,7 +52,7 @@ entry = "widget.luau"
   type = "select"
   label_key = "settings.bar_label.label"
   description_key = "settings.bar_label.description"
-  default = "open_gui"
+  default = "count_and_label"
   options = [
     { value = "count_and_label", label_key = "settings.bar_label.options.count_and_label" },
     { value = "count_only", label_key = "settings.bar_label.options.count_only" }
