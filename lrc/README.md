@@ -22,6 +22,13 @@ Enable `shin/lrc` in Settings → Plugins, then add the **LRC** bar widget. It d
 
 The widget checks MPD first, then falls back to Spotify.
 
+## Settings
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `show_separator` | bool | `true` | Prepend a separator before the lyric text. |
+| `separator` | string | `"\| "` | Text shown before the current lyric line. |
+
 ## Spawned processes
 
 - `playerctl` — enumerates MPRIS players and queries playback status and metadata.
