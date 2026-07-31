@@ -23,6 +23,7 @@
     "increment": "Next episode/chapter",
     "loading": "Loading your lists…",
     "loading_more": "Loading more entries…",
+    "loading_progress": "Loading lists… {anime} anime, {manga} manga",
     "logged_in_as": "Signed in as {name}",
     "login_help": "Set your client ID and client secret in plugin settings, then click Connect. Your browser opens, you approve AniList, and the plugin finishes login automatically.",
     "login_title": "Connect to AniList",
@@ -44,6 +45,8 @@
     "updating": "Updating…"
   },
   "service": {
+    "empty_response": "AniList returned an empty response.",
+    "invalid_response": "AniList returned an unreadable response.",
     "invalid_token": "Invalid or expired access token.",
     "mutation_failed": "Update failed.",
     "network_error": "Could not reach AniList.",
@@ -87,6 +90,7 @@
     "tooltip_error": "AniList — {error}",
     "tooltip_in_progress": "{count} in progress (anime + manga)",
     "tooltip_loading": "AniList — loading…",
+    "tooltip_oauth": "AniList — waiting for browser login…",
     "tooltip_planning": "{count} anime planned",
     "tooltip_total": "{count} anime on your list"
   }

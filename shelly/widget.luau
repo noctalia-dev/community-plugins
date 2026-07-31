@@ -2,10 +2,13 @@
 local glyph = noctalia.getConfig("glyph")
 local color = noctalia.getConfig("color") or "on_surface"
 local glyphColor = noctalia.getConfig("glyph_color") or color
+local glyphSize = noctalia.getConfig("glyph_size") or 14
 local updateError = noctalia.state.get("update_error")
 local notifyOnNewUpdates = noctalia.getConfig("notify")
 local hideWhenUpToDate = noctalia.getConfig("hide_when_up_to_date")
 local click_action = noctalia.getConfig("click_action") or "open_gui"
+local barLabelType = noctalia.getConfig("bar_label") or "count_and_label"
+local barFontSize = noctalia.getConfig("bar_font_size") or 14
 local updates = noctalia.state.get("updates") or { Packages = {}, Aur = {}, Flatpak = {} }
 
 local function countUpdates(scopedUpdates)
@@ -71,8 +74,8 @@ local function render()
   local count = countUpdates(updates)
 
   barWidget.render(container({ gap = 6, align = "center", visible = not hideWhenUpToDate or count > 0 }, {
-    ui.glyph({ name = glyph, size = 14, color = glyphColor, visible = glyph ~= "" }),
-    ui.label({ text = noctalia.trp("bar.text.updates", count), color = color }),
+    ui.glyph({ name = glyph, size = glyphSize, color = glyphColor, visible = glyph ~= "" }),
+    ui.label({ text = barLabelType == "count_only" and string.format("%d", count) or noctalia.trp("bar.text.updates", count), color = color, fontSize = barFontSize }),
   }))
 
   updateTooltip(count)
@@ -109,7 +112,7 @@ function onClick()
       return
     end
 
-    noctalia.runInTerminal(cmd .. " upgrade-all")
+    noctalia.runInTerminal(cmd .. " upgrade all")
   end
 end
 

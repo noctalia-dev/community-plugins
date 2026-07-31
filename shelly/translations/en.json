@@ -16,7 +16,7 @@
     "tooltip": {
       "aur_title": "AUR",
       "error": {
-        "decode_json": "Failed to decode output from `shelly check-updates --json`"
+        "decode_json": "Failed to decode output from `shelly list-updates all --json`"
       },
       "flatpak_title": "Flatpak",
       "no_updates": "System is up to date",
@@ -30,6 +30,18 @@
     }
   },
   "settings": {
+    "bar_font_size": {
+      "description": "The font size of the bar text.",
+      "label": "Bar Font Size"
+    },
+    "bar_label": {
+      "description": "Label to display in the bar.",
+      "label": "Bar Label",
+      "options": {
+        "count_only": "Count Only (e.g., 5)",
+        "count_and_label": "Count and Label (e.g., 5 Updates)"
+      }
+    },
     "click_action": {
       "description": "What happens when you click on the bar.",
       "label": "Click Action",
@@ -50,6 +62,10 @@
     "glyph_color": {
       "description": "The color of the glyph.",
       "label": "Glyph Color"
+    },
+    "glyph_size": {
+      "description": "The size of the glyph.",
+      "label": "Glyph Size"
     },
     "hide_when_up_to_date": {
       "description": "Whether to hide the bar when there are no updates available.",

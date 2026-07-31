@@ -7,10 +7,18 @@ local TOKEN_FILE = "token.json"
 local OAUTH_CREDS_FILE = "oauth_credentials.json"
 local OAUTH_RESULT_FILE = "oauth_result.json"
 
+local CHUNK_SIZE = 50
+local BACKGROUND_COVER_BATCH = 12
+local FINALIZE_SORT_BATCH = 100
+local FETCH_UPDATE_MS = 300
+local COVER_UPDATE_MS = 120
+local MAX_CONCURRENT_COVERS = 6
+
 local accessToken = ""
 local viewer = nil
 local snapshot = {
   revision = 0,
+  oauthLoading = false,
   loading = false,
   refreshing = false,
   busy = false,
@@ -18,11 +26,26 @@ local snapshot = {
   viewer = nil,
   anime = {},
   manga = {},
+  loadProgress = nil,
 }
 local oauthRunning = false
 local oauthCredPath = ""
 local oauthResultPath = ""
 local oauthStartedAt = 0
+
+local libraryFetch = nil
+local finalizeQueue = nil
+local legacyCachePurged = false
+local pendingLegacyPurge = false
+
+local coverDownloadsInFlight = {}
+local coverLoadingIds = {}
+local lastCoverPriority = {}
+local activeCoverDownloads = 0
+local pendingCoverSnapshot = false
+local pendingPriorityCovers = {}
+local backgroundCoverCursor = { listKey = "anime", index = 1 }
+local backgroundCoversActive = false
 
 local function tr(key, subst)
   return noctalia.tr("service." .. key, subst)
@@ -53,11 +76,12 @@ local function readStoredToken()
   if not raw or raw == "" then
     return ""
   end
-  local parsed = noctalia.json.decode(raw)
-  if type(parsed) == "table" and type(parsed.access_token) == "string" then
-    return trim(parsed.access_token)
+  local ok, parsed = pcall(noctalia.json.decode, raw)
+  if not ok or type(parsed) ~= "table" or type(parsed.access_token) ~= "string" then
+    noctalia.removeFile(path)
+    return ""
   end
-  return ""
+  return trim(parsed.access_token)
 end
 
 local function writeStoredToken(token)
@@ -93,10 +117,25 @@ local function publishSnapshot()
   noctalia.state.set("anilist_snapshot", snapshot)
 end
 
+local function clearLoadProgress()
+  snapshot.loadProgress = nil
+end
+
+local function setLoadProgress(animeLoaded, mangaLoaded)
+  snapshot.loadProgress = {
+    animeLoaded = animeLoaded or 0,
+    mangaLoaded = mangaLoaded or 0,
+  }
+end
+
 local function setError(message)
   snapshot.error = message or ""
+  snapshot.oauthLoading = false
   snapshot.loading = false
   snapshot.refreshing = false
+  clearLoadProgress()
+  libraryFetch = nil
+  finalizeQueue = nil
   publishSnapshot()
 end
 
@@ -159,35 +198,67 @@ local function mergeEntries(target, entries, mediaType)
   end
 end
 
-local function flattenCollection(lists, mediaType)
-  local byMediaId = {}
+local function mergeListsInto(byMediaId, lists, mediaType)
   if type(lists) ~= "table" then
-    return {}
+    return
   end
   for _, list in ipairs(lists) do
     if type(list) == "table" and type(list.entries) == "table" then
       mergeEntries(byMediaId, list.entries, mediaType)
     end
   end
-  local rows = {}
-  for _, row in pairs(byMediaId) do
-    table.insert(rows, row)
+end
+
+local function sortedKeysFor(byMediaId)
+  local keys = {}
+  for mediaId, row in pairs(byMediaId) do
+    table.insert(keys, { mediaId = mediaId, title = (row.title or ""):lower() })
   end
-  table.sort(rows, function(a, b)
-    return (a.title or ""):lower() < (b.title or ""):lower()
+  table.sort(keys, function(a, b)
+    return a.title < b.title
   end)
-  return rows
+  return keys
+end
+
+local function appendSortedRows(target, byMediaId, keys, startIndex, batchSize)
+  local limit = math.min(#keys, startIndex + batchSize - 1)
+  for index = startIndex, limit do
+    local mediaId = keys[index].mediaId
+    local row = byMediaId[mediaId]
+    if row then
+      table.insert(target, row)
+    end
+  end
+  return limit + 1
 end
 
 local COVER_DIR_NAME = "covers"
 local COVER_CACHE_VERSION = 2
-local coverDownloadsInFlight = {}
-local coverLoadingIds = {}
-local lastCoverPriority = {}
-local activeCoverDownloads = 0
-local pendingCoverSnapshot = false
-local MAX_BACKGROUND_COVERS = 64
 local MAX_PRIORITY_COVERS = 48
+
+local function hasPendingCoverWork()
+  if next(pendingPriorityCovers) ~= nil then
+    return true
+  end
+  return backgroundCoversActive
+end
+
+local OAUTH_POLL_MS = 500
+
+local function syncUpdateInterval()
+  if oauthRunning then
+    noctalia.setUpdateInterval(OAUTH_POLL_MS)
+    return
+  end
+  if libraryFetch ~= nil or finalizeQueue ~= nil or snapshot.loading or snapshot.refreshing then
+    noctalia.setUpdateInterval(FETCH_UPDATE_MS)
+  elseif activeCoverDownloads > 0 or hasPendingCoverWork() then
+    noctalia.setUpdateInterval(COVER_UPDATE_MS)
+  else
+    noctalia.setUpdateInterval(30000)
+    flushCoverSnapshot()
+  end
+end
 
 local function coversDir()
   local dataDir = noctalia.pluginDataDir()
@@ -286,19 +357,21 @@ local function purgeLegacyCoverCache()
   if cacheDir then
     noctalia.mkdirAll(cacheDir)
   end
+  legacyCachePurged = true
 end
 
-local function attachCoverPaths(rows)
-  for _, row in ipairs(rows or {}) do
-    local url = row.coverUrl
-    if isCoverCacheValid(row.mediaId, url) then
-      row.coverPath = coverCachePath(row.mediaId)
-    else
-      row.coverPath = nil
-      if row.mediaId and url then
-        removeCoverCache(row.mediaId)
-      end
-    end
+local function attachCoverPathForEntry(row)
+  if type(row) ~= "table" then
+    return
+  end
+  local url = row.coverUrl
+  if isCoverCacheValid(row.mediaId, url) then
+    row.coverPath = coverCachePath(row.mediaId)
+    return
+  end
+  row.coverPath = nil
+  if row.mediaId and url then
+    removeCoverCache(row.mediaId)
   end
 end
 
@@ -345,27 +418,6 @@ local function flushCoverSnapshot()
   end
 end
 
-local function setEntryCoverPath(mediaId, path)
-  for _, list in ipairs({ snapshot.anime, snapshot.manga }) do
-    for _, entry in ipairs(list) do
-      if entry.mediaId == mediaId then
-        entry.coverPath = path
-        requestCoverSnapshot()
-        return
-      end
-    end
-  end
-end
-
-local function syncCoverDownloadInterval()
-  if activeCoverDownloads > 0 then
-    noctalia.setUpdateInterval(120)
-  else
-    noctalia.setUpdateInterval(30000)
-    flushCoverSnapshot()
-  end
-end
-
 local function findEntry(mediaId)
   if not mediaId then
     return nil
@@ -378,6 +430,14 @@ local function findEntry(mediaId)
     end
   end
   return nil
+end
+
+local function setEntryCoverPath(mediaId, path)
+  local entry = findEntry(mediaId)
+  if entry then
+    entry.coverPath = path
+    requestCoverSnapshot()
+  end
 end
 
 local function downloadCoverForEntry(row)
@@ -407,6 +467,10 @@ local function downloadCoverForEntry(row)
     return
   end
 
+  if activeCoverDownloads >= MAX_CONCURRENT_COVERS then
+    return
+  end
+
   local dir = coverCacheDir()
   if dir then
     noctalia.mkdirAll(dir)
@@ -415,7 +479,7 @@ local function downloadCoverForEntry(row)
   coverDownloadsInFlight[mediaId] = true
   setCoverLoading(mediaId, true)
   activeCoverDownloads += 1
-  syncCoverDownloadInterval()
+  syncUpdateInterval()
 
   local started = noctalia.download(url, path, function(ok)
     coverDownloadsInFlight[mediaId] = nil
@@ -425,72 +489,129 @@ local function downloadCoverForEntry(row)
       writeCoverMeta(mediaId, url)
       setEntryCoverPath(mediaId, path)
     end
-    syncCoverDownloadInterval()
+    syncUpdateInterval()
   end)
 
   if not started then
     coverDownloadsInFlight[mediaId] = nil
     setCoverLoading(mediaId, false)
     activeCoverDownloads = math.max(0, activeCoverDownloads - 1)
-    syncCoverDownloadInterval()
+    syncUpdateInterval()
   end
 end
 
-local function queueCoverDownloads(priorityMediaIds)
-  local prioritySet = {}
-  local priorityEntries = {}
-  local backgroundEntries = {}
-  local downloadQueue = {}
+local function queuePriorityCovers(mediaIds)
+  if type(mediaIds) ~= "table" then
+    return
+  end
+  for _, id in ipairs(mediaIds) do
+    local mediaId = tonumber(id)
+    if mediaId then
+      pendingPriorityCovers[mediaId] = true
+    end
+  end
+  syncUpdateInterval()
+end
 
-  if type(priorityMediaIds) == "table" then
-    for _, id in ipairs(priorityMediaIds) do
-      local mediaId = tonumber(id)
-      if mediaId and not prioritySet[mediaId] then
-        prioritySet[mediaId] = true
-        if #priorityEntries < MAX_PRIORITY_COVERS then
-          local entry = findEntry(mediaId)
-          if entry then
-            table.insert(priorityEntries, entry)
-          end
-        end
+local function processPriorityCovers()
+  local processed = 0
+  for mediaId in pairs(pendingPriorityCovers) do
+    if activeCoverDownloads >= MAX_CONCURRENT_COVERS or processed >= MAX_PRIORITY_COVERS then
+      break
+    end
+    pendingPriorityCovers[mediaId] = nil
+    local entry = findEntry(mediaId)
+    if entry then
+      attachCoverPathForEntry(entry)
+      if needsCoverDownload(entry) then
+        downloadCoverForEntry(entry)
       end
+    end
+    processed += 1
+  end
+
+  if not hasPendingCoverWork() and activeCoverDownloads == 0 then
+    syncUpdateInterval()
+  end
+end
+
+local function nextBackgroundCoverEntry()
+  local order = { "anime", "manga" }
+  local startIndex = 1
+  for index, key in ipairs(order) do
+    if key == backgroundCoverCursor.listKey then
+      startIndex = index
+      break
     end
   end
 
-  local backgroundCount = 0
-  for _, list in ipairs({ snapshot.anime, snapshot.manga }) do
-    for _, entry in ipairs(list) do
-      if not prioritySet[entry.mediaId] then
-        backgroundCount += 1
-        if backgroundCount <= MAX_BACKGROUND_COVERS then
-          table.insert(backgroundEntries, entry)
-        end
+  for offset = 0, #order - 1 do
+    local key = order[((startIndex - 1 + offset) % #order) + 1]
+    local list = if key == "manga" then snapshot.manga else snapshot.anime
+    local cursor = if key == backgroundCoverCursor.listKey then backgroundCoverCursor.index else 1
+    while cursor <= #list do
+      local entry = list[cursor]
+      backgroundCoverCursor.listKey = key
+      backgroundCoverCursor.index = cursor + 1
+      if entry and entry.coverPath == nil and entry.coverUrl then
+        return entry
       end
+      cursor += 1
     end
   end
 
-  for _, entry in ipairs(priorityEntries) do
-    table.insert(downloadQueue, entry)
-  end
-  for _, entry in ipairs(backgroundEntries) do
-    table.insert(downloadQueue, entry)
+  return nil
+end
+
+local function processBackgroundCovers()
+  if not backgroundCoversActive then
+    return
   end
 
-  for _, entry in ipairs(downloadQueue) do
+  local processed = 0
+  while processed < BACKGROUND_COVER_BATCH do
+    if activeCoverDownloads >= MAX_CONCURRENT_COVERS then
+      break
+    end
+
+    local savedCursor = {
+      listKey = backgroundCoverCursor.listKey,
+      index = backgroundCoverCursor.index,
+    }
+    local entry = nextBackgroundCoverEntry()
+    if entry == nil then
+      backgroundCoversActive = false
+      syncUpdateInterval()
+      return
+    end
+
+    attachCoverPathForEntry(entry)
     if needsCoverDownload(entry) and entry.mediaId then
-      coverLoadingIds[entry.mediaId] = true
+      if activeCoverDownloads >= MAX_CONCURRENT_COVERS then
+        backgroundCoverCursor = savedCursor
+        break
+      end
+      downloadCoverForEntry(entry)
     end
+    processed += 1
   end
-  publishCoverLoadingState()
+end
 
-  for _, entry in ipairs(downloadQueue) do
-    downloadCoverForEntry(entry)
-  end
+local function resetBackgroundCovers()
+  backgroundCoverCursor = { listKey = "anime", index = 1 }
+  backgroundCoversActive = true
 end
 
 local LIST_QUERY = [[
-query ($userId: Int, $type: MediaType) {
-  MediaListCollection(userId: $userId, type: $type, forceSingleCompletedList: true) {
+query ($userId: Int, $type: MediaType, $chunk: Int, $perChunk: Int) {
+  MediaListCollection(
+    userId: $userId
+    type: $type
+    forceSingleCompletedList: true
+    chunk: $chunk
+    perChunk: $perChunk
+  ) {
+    hasNextChunk
     lists {
       name
       isCustomList
@@ -544,22 +665,62 @@ mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
 }
 ]]
 
-local function decodeBody(body)
-  if type(body) ~= "string" or body == "" then
-    return nil, "empty response"
-  end
-  local ok, parsed = pcall(noctalia.json.decode, body)
-  if not ok or type(parsed) ~= "table" then
-    return nil, "invalid json"
-  end
+local function decodeParsed(parsed)
   if type(parsed.errors) == "table" and #parsed.errors > 0 then
     local message = parsed.errors[1].message or tr("mutation_failed")
-    if message:lower():find("invalid token", 1, true) then
+    if message:lower():find("invalid token", 1, true)
+      or message:lower():find("unauthorized", 1, true) then
       return nil, tr("invalid_token")
     end
     return nil, message
   end
-  return parsed.data, nil
+
+  if type(parsed.data) == "table" then
+    return parsed.data, nil
+  end
+
+  if parsed.Viewer or parsed.MediaListCollection or parsed.SaveMediaListEntry then
+    return parsed, nil
+  end
+
+  return nil, tr("invalid_response")
+end
+
+local function setLoadError(message)
+  if message == tr("invalid_token")
+    or message == tr("invalid_response")
+    or message == tr("empty_response") then
+    accessToken = ""
+    clearStoredToken()
+    viewer = nil
+    snapshot.viewer = nil
+    snapshot.anime = {}
+    snapshot.manga = {}
+  end
+  setError(message)
+end
+
+local function decodeBody(body)
+  if type(body) == "table" then
+    return decodeParsed(body)
+  end
+
+  if type(body) ~= "string" then
+    return nil, tr("invalid_response")
+  end
+
+  body = trim(body)
+  if body == "" then
+    return nil, tr("empty_response")
+  end
+
+  local ok, parsed = pcall(noctalia.json.decode, body)
+  if not ok or type(parsed) ~= "table" then
+    noctalia.log("anilist: could not parse API response: " .. body:sub(1, 120))
+    return nil, tr("invalid_response")
+  end
+
+  return decodeParsed(parsed)
 end
 
 local function graphqlRequest(query, variables, callback)
@@ -580,6 +741,7 @@ local function graphqlRequest(query, variables, callback)
       "Content-Type: application/json",
       "Accept: application/json",
       "Authorization: Bearer " .. accessToken,
+      "User-Agent: noctalia-anilist-plugin",
     },
     body = body,
   }, function(response)
@@ -587,28 +749,301 @@ local function graphqlRequest(query, variables, callback)
       callback(nil, tr("network_error"))
       return
     end
+
+    local bodyText = response.body
+    if type(bodyText) == "string" and bodyText ~= "" then
+      local data, err = decodeBody(bodyText)
+      if data then
+        callback(data, err)
+        return
+      end
+      if err then
+        callback(nil, err)
+        return
+      end
+    end
+
     if response.status < 200 or response.status >= 300 then
       callback(nil, tr("network_error"))
       return
     end
-    local data, err = decodeBody(response.body)
-    callback(data, err)
+
+    callback(nil, tr("network_error"))
   end)
 end
 
-local function fetchMediaType(mediaType, userId, callback)
-  graphqlRequest(LIST_QUERY, {
+local function newFetchJob(mediaType, userId)
+  return {
+    mediaType = mediaType,
     userId = userId,
-    type = mediaType,
+    chunk = 0,
+    byMediaId = {},
+    pendingLists = nil,
+    hasNextChunk = false,
+    inFlight = false,
+    done = false,
+    error = nil,
+    loadedCount = 0,
+    needsMerge = false,
+    awaitingChunk = true,
+  }
+end
+
+local function publishFetchProgress(fetch)
+  if fetch.mode == "reload" and fetch.single then
+    local job = fetch.single
+    local loaded = job.loadedCount or 0
+    if job.mediaType == "ANIME" then
+      local mangaLoaded = type(snapshot.loadProgress) == "table" and snapshot.loadProgress.mangaLoaded or 0
+      setLoadProgress(loaded, mangaLoaded)
+    else
+      local animeLoaded = type(snapshot.loadProgress) == "table" and snapshot.loadProgress.animeLoaded or 0
+      setLoadProgress(animeLoaded, loaded)
+    end
+    publishSnapshot()
+    return
+  end
+
+  local animeLoaded = fetch.anime and (fetch.anime.loadedCount or 0) or 0
+  local mangaLoaded = fetch.manga and (fetch.manga.loadedCount or 0) or 0
+  setLoadProgress(animeLoaded, mangaLoaded)
+  publishSnapshot()
+end
+
+local function startChunkFetch(job)
+  if job.inFlight or job.done or job.error or not job.awaitingChunk then
+    return false
+  end
+
+  job.awaitingChunk = false
+  job.inFlight = true
+  local started = graphqlRequest(LIST_QUERY, {
+    userId = job.userId,
+    type = job.mediaType,
+    chunk = job.chunk,
+    perChunk = CHUNK_SIZE,
   }, function(data, err)
+    job.inFlight = false
     if not data then
-      callback(nil, err)
+      job.error = err
+      job.done = true
       return
     end
     local collection = data.MediaListCollection
-    local lists = collection and collection.lists or {}
-    callback(flattenCollection(lists, mediaType), nil)
+    job.pendingLists = collection and collection.lists or {}
+    job.hasNextChunk = collection and collection.hasNextChunk == true
+    job.needsMerge = true
+    syncUpdateInterval()
   end)
+
+  if not started then
+    job.inFlight = false
+    job.awaitingChunk = true
+    job.error = tr("network_error")
+    job.done = true
+    return false
+  end
+
+  return true
+end
+
+local function beginFinalize(fetch)
+  if fetch.mode == "reload" and fetch.single then
+    local job = fetch.single
+    if job.error then
+      snapshot.refreshing = false
+      setLoadError(job.error)
+      return
+    end
+    finalizeQueue = {
+      mode = "reload",
+      mediaType = job.mediaType,
+      byMediaId = job.byMediaId,
+      rows = {},
+      keys = nil,
+      keyIndex = 1,
+      phase = "keys",
+    }
+  else
+    local animeJob = fetch.anime
+    local mangaJob = fetch.manga
+    for _, job in ipairs({ animeJob, mangaJob }) do
+      if job.error then
+        setLoadError(job.error)
+        return
+      end
+    end
+    finalizeQueue = {
+      mode = "full",
+      animeByMediaId = animeJob.byMediaId,
+      mangaByMediaId = mangaJob.byMediaId,
+      animeRows = {},
+      mangaRows = {},
+      phase = "anime_keys",
+      keys = nil,
+      keyIndex = 1,
+    }
+  end
+
+  libraryFetch = nil
+  clearLoadProgress()
+  syncUpdateInterval()
+end
+
+local function finishFinalize(queue)
+  if queue.mode == "reload" then
+    if queue.mediaType == "ANIME" then
+      snapshot.anime = queue.rows
+    else
+      snapshot.manga = queue.rows
+    end
+    snapshot.refreshing = false
+  else
+    snapshot.anime = queue.animeRows
+    snapshot.manga = queue.mangaRows
+    snapshot.loading = false
+    pendingLegacyPurge = not legacyCachePurged
+  end
+
+  snapshot.error = ""
+  finalizeQueue = nil
+  resetBackgroundCovers()
+  queuePriorityCovers(lastCoverPriority)
+  publishSnapshot()
+  syncUpdateInterval()
+end
+
+local function processFinalizeQueue()
+  if finalizeQueue == nil then
+    return
+  end
+
+  local queue = finalizeQueue
+
+  if queue.mode == "reload" then
+    if queue.phase == "keys" then
+      queue.keys = sortedKeysFor(queue.byMediaId)
+      queue.phase = "rows"
+      queue.keyIndex = 1
+      return
+    end
+    queue.keyIndex = appendSortedRows(queue.rows, queue.byMediaId, queue.keys, queue.keyIndex, FINALIZE_SORT_BATCH)
+    if queue.keyIndex <= #queue.keys then
+      return
+    end
+    finishFinalize(queue)
+    return
+  end
+
+  if queue.phase == "anime_keys" then
+    queue.keys = sortedKeysFor(queue.animeByMediaId)
+    queue.phase = "anime"
+    queue.keyIndex = 1
+    return
+  end
+
+  if queue.phase == "anime" then
+    queue.keyIndex = appendSortedRows(queue.animeRows, queue.animeByMediaId, queue.keys, queue.keyIndex, FINALIZE_SORT_BATCH)
+    if queue.keyIndex <= #queue.keys then
+      return
+    end
+    queue.phase = "manga_keys"
+    return
+  end
+
+  if queue.phase == "manga_keys" then
+    queue.keys = sortedKeysFor(queue.mangaByMediaId)
+    queue.phase = "manga"
+    queue.keyIndex = 1
+    return
+  end
+
+  if queue.phase == "manga" then
+    queue.keyIndex = appendSortedRows(queue.mangaRows, queue.mangaByMediaId, queue.keys, queue.keyIndex, FINALIZE_SORT_BATCH)
+    if queue.keyIndex <= #queue.keys then
+      return
+    end
+    finishFinalize(queue)
+  end
+end
+
+local function fetchReadyToFinalize(fetch)
+  if fetch.mode == "reload" then
+    local job = fetch.single
+    return job ~= nil and (job.error ~= nil or job.done)
+  end
+
+  local anime = fetch.anime
+  local manga = fetch.manga
+  if not anime or not manga then
+    return false
+  end
+  if anime.error ~= nil or manga.error ~= nil then
+    return true
+  end
+  return anime.done and manga.done
+end
+
+local function processFetchJob(job, fetch)
+  if job.needsMerge then
+    mergeListsInto(job.byMediaId, job.pendingLists, job.mediaType)
+    job.pendingLists = nil
+    job.needsMerge = false
+    local total = 0
+    for _ in pairs(job.byMediaId) do
+      total += 1
+    end
+    job.loadedCount = total
+    publishFetchProgress(fetch)
+
+    if job.hasNextChunk then
+      job.chunk += 1
+      job.awaitingChunk = true
+    else
+      job.done = true
+    end
+  end
+end
+
+local function pickNextFetchJob(fetch)
+  if fetch.mode == "reload" then
+    return fetch.single
+  end
+
+  local anime = fetch.anime
+  local manga = fetch.manga
+  if anime and anime.awaitingChunk and not anime.inFlight and not anime.done and anime.error == nil then
+    return anime
+  end
+  if manga and manga.awaitingChunk and not manga.inFlight and not manga.done and manga.error == nil then
+    return manga
+  end
+  return nil
+end
+
+local function processLibraryFetch()
+  if libraryFetch == nil then
+    return
+  end
+
+  local fetch = libraryFetch
+
+  if fetch.mode == "reload" then
+    processFetchJob(fetch.single, fetch)
+  else
+    processFetchJob(fetch.anime, fetch)
+    processFetchJob(fetch.manga, fetch)
+  end
+
+  if fetchReadyToFinalize(fetch) then
+    beginFinalize(fetch)
+    return
+  end
+
+  local nextJob = pickNextFetchJob(fetch)
+  if nextJob then
+    startChunkFetch(nextJob)
+  end
 end
 
 local function loadLibrary()
@@ -617,71 +1052,43 @@ local function loadLibrary()
     snapshot.anime = {}
     snapshot.manga = {}
     snapshot.loading = false
+    snapshot.oauthLoading = false
     snapshot.error = ""
+    clearLoadProgress()
+    libraryFetch = nil
     publishSnapshot()
     return
   end
 
+  snapshot.oauthLoading = false
   snapshot.loading = true
   snapshot.error = ""
+  setLoadProgress(0, 0)
+  libraryFetch = nil
+  finalizeQueue = nil
   publishSnapshot()
+  syncUpdateInterval()
 
   graphqlRequest(VIEWER_QUERY, nil, function(data, err)
     if not data or not data.Viewer then
-      setError(err or tr("invalid_token"))
+      setLoadError(err or tr("invalid_token"))
       return
     end
 
     viewer = data.Viewer
     snapshot.viewer = viewer
-    local userId = viewer.id
+    publishSnapshot()
 
-    local animeRows = nil
-    local mangaRows = nil
-    local fetchError = nil
-    local pending = 2
-
-    local function doneOne()
-      pending -= 1
-      if pending > 0 then
-        return
-      end
-      if fetchError then
-        setError(fetchError)
-        return
-      end
-      snapshot.anime = animeRows or {}
-      snapshot.manga = mangaRows or {}
-      purgeLegacyCoverCache()
-      attachCoverPaths(snapshot.anime)
-      attachCoverPaths(snapshot.manga)
-      queueCoverDownloads(lastCoverPriority)
-      snapshot.loading = false
-      snapshot.error = ""
-      publishSnapshot()
-    end
-
-    fetchMediaType("ANIME", userId, function(rows, typeErr)
-      if typeErr then
-        fetchError = typeErr
-      else
-        animeRows = rows
-      end
-      doneOne()
-    end)
-
-    fetchMediaType("MANGA", userId, function(rows, typeErr)
-      if typeErr then
-        fetchError = typeErr
-      else
-        mangaRows = rows
-      end
-      doneOne()
-    end)
+    libraryFetch = {
+      mode = "full",
+      anime = newFetchJob("ANIME", viewer.id),
+      manga = newFetchJob("MANGA", viewer.id),
+    }
+    syncUpdateInterval()
   end)
 end
 
-local function reloadMediaType(mediaType)
+local function reloadMediaType(mediaType, silent)
   if accessToken == "" then
     return
   end
@@ -696,34 +1103,24 @@ local function reloadMediaType(mediaType)
     return
   end
 
-  if snapshot.loading or snapshot.refreshing or snapshot.busy then
+  if snapshot.loading or snapshot.refreshing or snapshot.busy or libraryFetch ~= nil then
     return
   end
 
-  snapshot.refreshing = true
+  if not silent then
+    snapshot.refreshing = true
+  end
   snapshot.error = ""
+  if not silent then
+    setLoadProgress(0, 0)
+  end
   publishSnapshot()
+  syncUpdateInterval()
 
-  fetchMediaType(mediaType, viewer.id, function(rows, err)
-    snapshot.refreshing = false
-    if err then
-      snapshot.error = err
-      publishSnapshot()
-      return
-    end
-
-    if mediaType == "ANIME" then
-      snapshot.anime = rows or {}
-      attachCoverPaths(snapshot.anime)
-    else
-      snapshot.manga = rows or {}
-      attachCoverPaths(snapshot.manga)
-    end
-
-    queueCoverDownloads(lastCoverPriority)
-    snapshot.error = ""
-    publishSnapshot()
-  end)
+  libraryFetch = {
+    mode = "reload",
+    single = newFetchJob(mediaType, viewer.id),
+  }
 end
 
 local function applyProgressDelta(mediaId, delta, forceStatus, forcedProgress)
@@ -802,7 +1199,11 @@ local function setToken(token)
     snapshot.anime = {}
     snapshot.manga = {}
     snapshot.error = ""
+    snapshot.oauthLoading = false
     snapshot.loading = false
+    clearLoadProgress()
+    libraryFetch = nil
+    finalizeQueue = nil
     publishSnapshot()
     return
   end
@@ -823,6 +1224,7 @@ local function finishOAuth()
   oauthCredPath = ""
   oauthResultPath = ""
   oauthStartedAt = 0
+  snapshot.oauthLoading = false
   noctalia.setUpdateInterval(30000)
 end
 
@@ -841,11 +1243,24 @@ local function handleOAuthPayload(parsed)
   return true
 end
 
+local function oauthResultPathForPoll()
+  if oauthResultPath ~= "" then
+    return oauthResultPath
+  end
+  local dataDir = noctalia.pluginDataDir()
+  if not dataDir then
+    return ""
+  end
+  return dataDir .. "/" .. OAUTH_RESULT_FILE
+end
+
 local function startOAuthLogin()
   if oauthRunning then
     setError(tr("oauth_busy"))
     return
   end
+
+  snapshot.error = ""
 
   local clientId, clientSecret = clientCredentials()
   if clientId == "" or clientSecret == "" then
@@ -884,7 +1299,11 @@ local function startOAuthLogin()
   end
 
   local scriptPath = pluginDir .. "/scripts/oauth_login.py"
-  local command = "python3 "
+  local python = if noctalia.commandExists("stdbuf")
+    then "stdbuf -oL -eL python3 -u"
+    else "python3 -u"
+  local command = python
+    .. " "
     .. shellQuote(scriptPath)
     .. " "
     .. shellQuote(credPath)
@@ -895,13 +1314,15 @@ local function startOAuthLogin()
   oauthCredPath = credPath
   oauthResultPath = resultPath
   oauthStartedAt = os.clock()
-  snapshot.loading = true
+  snapshot.oauthLoading = true
+  snapshot.loading = false
   snapshot.error = ""
+  clearLoadProgress()
   publishSnapshot()
-  noctalia.setUpdateInterval(500)
+  noctalia.setUpdateInterval(OAUTH_POLL_MS)
 
   local function handleOAuthLine(line)
-    line = (line or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    line = trim(line or "")
     if line == "" then
       return
     end
@@ -920,11 +1341,16 @@ local function startOAuthLogin()
 end
 
 local function pollOAuthResult()
-  if not oauthRunning or oauthResultPath == "" then
+  if not oauthRunning and not snapshot.oauthLoading then
     return
   end
 
-  local raw = noctalia.readFile(oauthResultPath)
+  local path = oauthResultPathForPoll()
+  if path == "" then
+    return
+  end
+
+  local raw = noctalia.readFile(path)
   if raw and raw ~= "" then
     local ok, parsed = pcall(noctalia.json.decode, raw)
     if ok and handleOAuthPayload(parsed) then
@@ -932,14 +1358,29 @@ local function pollOAuthResult()
     end
   end
 
-  if oauthStartedAt > 0 and (os.clock() - oauthStartedAt) > 185 then
+  if oauthRunning and oauthStartedAt > 0 and (os.clock() - oauthStartedAt) > 185 then
     finishOAuth()
     setError(tr("oauth_failed"))
   end
 end
 
 function update()
+  if oauthRunning or snapshot.oauthLoading then
+    noctalia.setUpdateInterval(OAUTH_POLL_MS)
+  end
+
   pollOAuthResult()
+
+  if pendingLegacyPurge then
+    pendingLegacyPurge = false
+    purgeLegacyCoverCache()
+  end
+
+  processLibraryFetch()
+  processFinalizeQueue()
+  processPriorityCovers()
+  processBackgroundCovers()
+
   if activeCoverDownloads > 0 then
     flushCoverSnapshot()
   end
@@ -967,8 +1408,9 @@ local function processCommand(command)
   local action = command.action
   if action == "refresh" then
     local mediaType = tostring(command.mediaType or "")
+    local silent = command.silent == true
     if mediaType == "ANIME" or mediaType == "MANGA" then
-      reloadMediaType(mediaType)
+      reloadMediaType(mediaType, silent)
     else
       loadLibrary()
     end
@@ -989,7 +1431,7 @@ local function processCommand(command)
       end
     end
     lastCoverPriority = ids
-    queueCoverDownloads(lastCoverPriority)
+    queuePriorityCovers(lastCoverPriority)
   elseif action == "increment" then
     applyProgressDelta(tonumber(command.mediaId), 1, nil)
   elseif action == "decrement" then
@@ -1025,7 +1467,9 @@ function onIpc(event, payload)
 end
 
 function init()
-  purgeLegacyCoverCache()
+  if not legacyCachePurged then
+    purgeLegacyCoverCache()
+  end
   accessToken = resolveToken()
   publishSnapshot()
   if accessToken ~= "" then
