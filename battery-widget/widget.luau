@@ -31,7 +31,7 @@ end
 local function getGlyph()
     if status == "Charging" then
         glyph = "battery-charging"
-    elseif status == "Full" then
+    elseif status == "Full" or status == "Not Charging" then
         glyph = "battery-plugged"
     elseif status == "Unknown" then
         glyph = "battery-exclamation"
@@ -45,7 +45,7 @@ local function getGlyph()
 end
 
 local function render()
-    if (noctalia.getConfig("hide_plugged") and status == "Charging") 
+    if (noctalia.getConfig("hide_plugged") and (status == "Charging" or status == "Not Charging"))
         or (noctalia.getConfig("hide_full") and status == "Full") then
         desktopWidget.render(ui.row())
         return
