@@ -51,10 +51,13 @@ local function render()
         return
     end
 
-    local content = {
-        noctalia.getConfig("show_glyph") and ui.glyph({ name = glyph }),
-        noctalia.getConfig("show_label") and ui.label({ text = percent .. "%" }),
-    }
+    local content = {}
+    if noctalia.getConfig("show_glyph") then
+        table.insert(content, ui.glyph({ name = glyph }))
+    end
+    if noctalia.getConfig("show_label") then
+        table.insert(content, ui.label({ text = percent .. "%" }))
+    end
 
     local layout = noctalia.getConfig("layout") == "vertical" and ui.column or ui.row
 
@@ -64,8 +67,8 @@ end
 local function refreshBattery()
     noctalia.runAsync(
         "cat "
-            .. path .. batName .. "/capacity "
-            .. path .. batName .. "/status",
+        .. path .. batName .. "/capacity "
+        .. path .. batName .. "/status",
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
