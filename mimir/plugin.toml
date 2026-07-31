@@ -51,7 +51,7 @@ advanced = true
 
 [[setting]]
 key = "tool_permission"
-type = "enum"
+type = "select"
 label_key = "settings.tool_permission.label"
 description_key = "settings.tool_permission.description"
 options = [

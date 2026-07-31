@@ -2,12 +2,12 @@
 
 An AI companion for Noctalia that brings LLM-powered chat, terminal command execution, and copy-to-clipboard directly into your desktop. Named after the Norse god of wisdom.
 
+## Plugin
+
 | Field | Value |
 | --- | --- |
 | ID | `alexander/mimir` |
-| Version | 0.3.0 |
-| Entries | Bar widget: `status`; Panel: `chat`; Service: `brain` |
-| Plugin API | 16 |
+| Entries | Bar widget: `status`; panel: `chat`; service: `brain` |
 
 ## Requirements
 
