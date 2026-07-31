@@ -262,6 +262,7 @@ void scan_steam() {
     const char *steam_roots[] = {
         "/Steam",
         "/.steam/steam",
+        "/.local/share/Steam",
         "/.var/app/com.valvesoftware.Steam/.local/share/Steam",
         NULL
     };
@@ -987,6 +988,7 @@ int cache_valid() {
 
     const char *steam_roots[] = {
         "/Steam", "/.steam/steam",
+        "/.local/share/Steam",
         "/.var/app/com.valvesoftware.Steam/.local/share/Steam", NULL
     };
     for (int r = 0; steam_roots[r]; r++) {

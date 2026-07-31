@@ -1,11 +1,69 @@
 {
   "panel": {
-    "apply": "Apply wallpaper {id}",
+    "apply": "Applying {name}",
+    "apply_options": "Apply",
+    "back": "Back to wallpapers",
+    "clear": "Clear",
+    "clear_overrides": "Also clear per-wallpaper overrides for the settings changed here",
+    "configure": "Configure this wallpaper",
+    "cycle_needs_selection": "Select at least one wallpaper before starting a cycle",
+    "cycle_running": "Cycling {count} wallpapers every {minutes} min",
+    "cycle_start": "Start cycle",
+    "cycle_started": "Cycling {count} wallpapers every {minutes} min",
+    "cycle_stop": "Stop cycle",
+    "defaults": "Global defaults",
+    "defaults_tooltip": "Settings applied to every wallpaper",
+    "engine": {
+      "clamp": "Clamp mode",
+      "disable_mouse": "Disable mouse interaction",
+      "disable_parallax": "Disable parallax",
+      "disable_particles": "Disable particles",
+      "fps": "FPS limit",
+      "fullscreen_pause_only_active": "Pause only for the active fullscreen window",
+      "inherit": "Use global default",
+      "layer": "Wayland layer",
+      "no_audio_processing": "Disable audio processing",
+      "no_fullscreen_pause": "Keep playing when an app is fullscreen",
+      "noautomute": "Disable automute",
+      "scaling": "Scaling mode",
+      "silent": "Mute this wallpaper",
+      "unset": "Engine default",
+      "volume": "Volume"
+    },
+    "every": "Every",
     "list_failed": "Could not list Wallpaper Engine wallpapers",
+    "minutes": "min",
     "missing_project_json": "No project.json for {name}",
+    "no_properties": "This wallpaper exposes no configurable properties",
     "no_wallpapers": "No Wallpaper Engine wallpapers found",
-    "title": "W Engine"
+    "order_random": "Random",
+    "order_sequential": "In order",
+    "playback": "Playback",
+    "properties": "Wallpaper properties",
+    "reset": "Reset to defaults",
+    "select_multiple": "Select multiple",
+    "select_multiple_tooltip": "Pick several wallpapers and cycle through them on a timer",
+    "selected_count": "{count} selected",
+    "stop": "Stop",
+    "stop_tooltip": "Stop the wallpaper on this output and restore the previous Noctalia wallpaper",
+    "title": "W Engine",
+    "unlabeled": "Show {count} options the author left unnamed"
   },
   "plugin_description": "A widget for Wallpaper Engine. Set wallpaper from Wallpaper Engine with simple click.",
-  "plugin_name": "W Engine"
+  "plugin_name": "W Engine",
+  "settings": {
+    "grid_columns": {
+      "description": "How many wallpapers to show per row in the panel. The panel itself is a fixed size, so fewer columns means larger previews.",
+      "label": "Wallpapers per row"
+    },
+    "sync_colors": {
+      "description": "Generate the Noctalia palette from the wallpaper being applied, the same way an ordinary wallpaper does. Uses the Workshop preview, or a decoded frame for video wallpapers when ffmpeg is installed.",
+      "label": "Sync shell colors with the wallpaper"
+    }
+  },
+  "widget": {
+    "cycling": "W Engine — cycling wallpapers",
+    "idle": "W Engine",
+    "playing": "W Engine — wallpaper running"
+  }
 }

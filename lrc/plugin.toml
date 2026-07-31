@@ -1,0 +1,15 @@
+id = "shin/lrc"
+name = "LRC"
+version = "1.0.0"
+plugin_api = 3
+author = "shin"
+license = "MIT"
+icon = "music"
+deprecated = false
+description = "Displays current song lyrics via lrc_tty."
+tags = ["bar", "music"]
+dependencies = ["lrc_tty", "playerctl"]
+
+[[widget]]
+id = "lrc"
+entry = "widget.luau"

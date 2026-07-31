@@ -1,102 +1,102 @@
 {
   "panel": {
-    "title": "Wallpaper",
-    "media_count": "{count} items",
-    "thumbnail_unavailable": "Video preview unavailable",
-    "settings": "Settings",
-    "close": "Close",
-    "search": "Search wallpapers",
     "all_outputs": "All outputs",
+    "applying": "Applying wallpaper…",
+    "checking_dependencies": "Checking video support…",
+    "close": "Close",
+    "directory_empty": "No supported wallpapers in this directory",
+    "directory_unreadable": "Directory unavailable",
     "filter_all": "All",
     "filter_images": "Images",
     "filter_videos": "Videos",
     "folders": "Folders",
-    "up": "Up",
-    "checking_dependencies": "Checking video support…",
-    "scanning": "Indexing wallpaper library…",
-    "preparing_library": "Preparing wallpaper library…",
     "generating_previews": "Generating previews · {count} / {total}",
-    "video_unavailable": "Video wallpapers are unavailable",
-    "video_badge": "VIDEO",
-    "partial_badge": "{count} / {total}",
+    "media_count": "{count} items",
     "mixed_summary": "{outputs} outputs · {videos} video · {images} image",
-    "pause_videos": "Pause videos",
-    "resume_videos": "Resume videos",
-    "restore_all": "Restore all",
-    "pause": "Pause",
-    "resume": "Resume",
-    "restore": "Restore",
-    "status_static": "Static",
-    "status_starting": "Starting",
-    "status_playing": "Playing",
-    "status_paused": "Paused",
-    "status_error": "Error",
-    "applying": "Applying wallpaper…",
     "navigation_blocked": "The selected directory is outside its wallpaper root.",
-    "directory_unreadable": "Directory unavailable",
-    "directory_empty": "No supported wallpapers in this directory",
     "no_search_results": "No wallpapers match your search",
-    "page": "{page} / {pages}"
-  },
-  "widget": {
-    "tooltip": "Choose wallpaper"
+    "page": "{page} / {pages}",
+    "partial_badge": "{count} / {total}",
+    "pause": "Pause",
+    "pause_videos": "Pause videos",
+    "preparing_library": "Preparing wallpaper library…",
+    "restore": "Restore",
+    "restore_all": "Restore all",
+    "resume": "Resume",
+    "resume_videos": "Resume videos",
+    "scanning": "Indexing wallpaper library…",
+    "search": "Search wallpapers",
+    "settings": "Settings",
+    "status_error": "Error",
+    "status_paused": "Paused",
+    "status_playing": "Playing",
+    "status_starting": "Starting",
+    "status_static": "Static",
+    "thumbnail_unavailable": "Video preview unavailable",
+    "title": "Wallpaper",
+    "up": "Up",
+    "video_badge": "VIDEO",
+    "video_unavailable": "Video wallpapers are unavailable"
   },
   "service": {
-    "self_test_passed": "Self-test passed.",
-    "self_test_failed": "Self-test failed."
+    "self_test_failed": "Self-test failed.",
+    "self_test_passed": "Self-test passed."
   },
   "settings": {
-    "video_directory": {
-      "label": "Video directory",
-      "description": "Directory containing video wallpapers."
+    "fade": {
+      "description": "Use a fade when changing media.",
+      "label": "Fade between videos"
     },
-    "scale": {
-      "label": "Video scale",
-      "description": "How videos fit the output.",
+    "fade_duration": {
+      "description": "Fade duration in seconds.",
+      "label": "Fade duration"
+    },
+    "fps_cap": {
+      "description": "Maximum video wallpaper frame rate.",
+      "label": "FPS cap",
       "options": {
-        "fill": "Fill",
-        "stretch": "Stretch",
-        "original": "Original",
-        "panscan": "Panscan"
+        "fps_100": "100",
+        "fps_30": "30",
+        "fps_60": "60"
       }
     },
+    "glyph": {
+      "description": "Glyph shown in the bar.",
+      "label": "Widget glyph"
+    },
+    "gst_options": {
+      "description": "Extra options passed to gSlapper's GStreamer pipeline.",
+      "label": "Additional GStreamer options"
+    },
     "hidden_behavior": {
-      "label": "When hidden",
       "description": "Playback control when the wallpaper is hidden.",
+      "label": "When hidden",
       "options": {
-        "none": "None",
         "auto_pause": "Auto Pause",
-        "auto_stop": "Auto Stop"
+        "auto_stop": "Auto Stop",
+        "none": "None"
       }
     },
     "loop": {
-      "label": "Loop videos",
-      "description": "Restart a video when it reaches the end."
+      "description": "Restart a video when it reaches the end.",
+      "label": "Loop videos"
     },
-    "fps_cap": {
-      "label": "FPS cap",
-      "description": "Maximum video wallpaper frame rate.",
+    "scale": {
+      "description": "How videos fit the output.",
+      "label": "Video scale",
       "options": {
-        "fps_30": "30",
-        "fps_60": "60",
-        "fps_100": "100"
+        "fill": "Fill",
+        "original": "Original",
+        "panscan": "Panscan",
+        "stretch": "Stretch"
       }
     },
-    "fade": {
-      "label": "Fade between videos",
-      "description": "Use a fade when changing media."
-    },
-    "fade_duration": {
-      "label": "Fade duration",
-      "description": "Fade duration in seconds."
-    },
-    "gst_options": {
-      "label": "Additional GStreamer options",
-      "description": "Extra options passed to gSlapper's GStreamer pipeline."
-    },
-    "glyph": {
-      "label": "Widget glyph",
-      "description": "Glyph shown in the bar."
+    "video_directory": {
+      "description": "Directory containing video wallpapers.",
+      "label": "Video directory"
     }
+  },
+  "widget": {
+    "tooltip": "Choose wallpaper"
   }
 }

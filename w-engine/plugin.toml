@@ -1,13 +1,36 @@
 id = "tadomika_ari/w-engine"
 name = "W Engine"
-version = "1.0.0"
-plugin_api = 3
+version = "1.1.0"
+# Tile and control callbacks are Luau closures rather than named globals, which
+# the host resolves from plugin API 9 onwards.
+plugin_api = 9
 author = "TadomiKa-Ari"
 license = "MIT"
-dependencies = ["linux-wallpaperengine", "kill", "setsid"]
+dependencies = ["linux-wallpaperengine", "kill", "setsid", "pkill"]
 icon = "movie"
-description = "A Noctalia widget for applying Wallpaper Engine wallpapers from Steam Workshop with one click"
-tags = ["wallpaper", "utility"]
+description = "Apply Wallpaper Engine wallpapers from the Steam Workshop, with palette sync and timed cycling"
+tags = ["wallpaper", "desktop", "theming"]
+
+# Noctalia builds its palette from the current wallpaper image, which a live
+# Wallpaper Engine scene is not. With this on, applying a wallpaper also sets a
+# still of it (the Workshop preview, or a decoded frame for video wallpapers when
+# ffmpeg is installed) so the usual generator, scheme, mode and templates run.
+[[setting]]
+key = "sync_colors"
+type = "bool"
+label_key = "settings.sync_colors.label"
+description_key = "settings.sync_colors.description"
+default = true
+
+# Panel size is fixed by this manifest, so grid density is exposed instead.
+[[setting]]
+key = "grid_columns"
+type = "int"
+label_key = "settings.grid_columns.label"
+description_key = "settings.grid_columns.description"
+default = 4
+min = 2
+max = 8
 
 [[widget]]
 id = "w-engine-widget"

@@ -1,15 +1,15 @@
 {
-  "session_attached": "Attached",
-  "session_detached": "Detached",
-  "tmuxp_config": "tmuxp config",
-  "tmux_not_found": "tmux not found",
-  "tmux_not_found_subtitle": "Install tmux to use this provider",
   "no_sessions_found": "No sessions found",
   "no_sessions_subtitle": "Start a tmux session to see it here",
+  "session_attached": "Attached",
+  "session_detached": "Detached",
   "settings": {
     "use_tmuxp": {
-      "label": "Enable tmuxp",
-      "description": "Also list tmuxp session configurations (via `tmuxp ls`)."
+      "description": "Also list tmuxp session configurations (via `tmuxp ls`).",
+      "label": "Enable tmuxp"
     }
-  }
+  },
+  "tmux_not_found": "tmux not found",
+  "tmux_not_found_subtitle": "Install tmux to use this provider",
+  "tmuxp_config": "tmuxp config"
 }

@@ -1,0 +1,38 @@
+{
+  "bar": {
+    "tooltip": "Hesap Makinesi"
+  },
+  "panel": {
+    "copied": "{value} kopyalandı",
+    "copy": "Sonucu kopyala",
+    "deg": "DEG",
+    "placeholder": "Bir ifade yazıp Enter'a bas",
+    "rad": "RAD",
+    "title": "Hesap Makinesi"
+  },
+  "settings": {
+    "angle_unit": {
+      "description": "Trigonometrik fonksiyoların kullandığı birim.",
+      "label": "Açı birimi",
+      "options": {
+        "deg": "Derece",
+        "rad": "Radyan"
+      }
+    },
+    "max_bar_length": {
+      "description": "Uzun sonuçlar çubukta üç nokta ile kısaltılır.",
+      "label": "Maksimum çubuk genişliği"
+    },
+    "precision": {
+      "description": "Sonuçlar biçimlendirildiğinde kullanılacak maksimum basamak sayısı.",
+      "label": "Ondalık hassasiyet"
+    },
+    "show_bar_value": {
+      "description": "Son sonucu hesap makinesi ikonunun yanında göster.",
+      "label": "Sonucu çubukta göster"
+    }
+  },
+  "state": {
+    "error": "Hata"
+  }
+}

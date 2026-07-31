@@ -72,12 +72,15 @@ assert(snapshot.total == 93, "large Niri fixture lost binds")
 assert(#snapshot.categories == 5, "large Niri fixture lost category markers")
 assert(reads == 1, "Niri root config should only be read once per refresh")
 assert(loadingCategoryCount == 0, "loading snapshot should not reserialize the previous bind tree")
-assert(xorCalls > 0, "Niri parser did not use the native-xor fingerprint path")
+assert(xorCalls == 0, "Niri visible binds still use per-character fingerprinting")
 
+local seenIds = {}
 for _, category in ipairs(snapshot.categories) do
   for _, bind in ipairs(category.binds) do
-    assert(bind.id:match("^niri:[0-9a-f]+$"), "invalid bind fingerprint")
-    assert(bind.fingerprint:match("^[0-9a-f]+$"), "invalid source fingerprint")
+    assert(bind.id:match("^niri:"), "invalid Niri bind ID")
+    assert(not seenIds[bind.id], "duplicate Niri bind ID")
+    assert(bind.fingerprint == "exact-v1", "Niri bind did not use exact source verification")
+    seenIds[bind.id] = true
   end
 end
 

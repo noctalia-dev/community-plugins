@@ -11,9 +11,11 @@ def build_dropdown_component(plugins: list[str]) -> str:
     attributes:
       label: Plugin
       description: The plugin id.
+      default: 0
       options:
+        - --- SELECT ---
 {
-"\n".join([f"""\
+"".join([f"""\
         - {plugin}
 """ for plugin in plugins])
 }

@@ -1,0 +1,16 @@
+{
+  "action_check": "Güncellemeleri kontrol et",
+  "action_dismiss": "Kapat",
+  "action_open_news": "Haberleri aç",
+  "action_update": "Güncelle",
+  "caption_checked": "kontrol süresi {time}",
+  "caption_ignored": {
+    "one": "1 paket yoksayıldı",
+    "other": "{count} paket yoksayıldı"
+  },
+  "err_aur_failed": "AUR kontrolü başarısız, detaylar için sistem loglarına bak",
+  "err_check_timeout": "Güncellemeler kontrol edilirken zaman aşımına uğrandı",
+  "err_no_checkupdates": "checkupdates bulunamadı, pacman-contrib'i yükle ve PATH'i kontrol et",
+  "err_no_xdg_open": "xdg-open bulunamadı, paket sayfası açılamıyor",
+  "err_spawn": "checkupdates çalıştırılamadı"
+}

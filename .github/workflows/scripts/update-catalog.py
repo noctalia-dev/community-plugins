@@ -9,7 +9,7 @@ import tomllib
 from pathlib import Path
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT_DIR / "catalog.toml"
 REQUIRED_FIELDS = ("id", "name", "version", "author", "plugin_api", "tags")
 OPTIONAL_STRING_FIELDS = ("license", "icon", "description")
