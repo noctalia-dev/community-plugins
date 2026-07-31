@@ -5,7 +5,7 @@ plugin_api = 16
 author = "Alexander"
 license = "MIT"
 icon = "brain"
-description = "An AI companion that helps with code, terminal commands, and file operations."
+description = "An AI companion for Noctalia that brings LLM-powered chat directly into your desktop."
 dependencies = []
 tags = ["ai", "utility", "productivity", "development"]
 
@@ -30,24 +30,24 @@ position = "center_right"
 width = 450
 height = "fill"
 
-[[panel.setting]]
+[[service]]
+id = "brain"
+entry = "service.luau"
+
+[[setting]]
 key = "api_endpoint"
 type = "string"
 label_key = "settings.api_endpoint.label"
 description_key = "settings.api_endpoint.description"
 default = "https://opencode.ai/zen/go/v1"
 
-[[panel.setting]]
+[[setting]]
 key = "api_key"
 type = "string"
 label_key = "settings.api_key.label"
 description_key = "settings.api_key.description"
 default = ""
 advanced = true
-
-[[service]]
-id = "brain"
-entry = "service.luau"
 
 [[setting]]
 key = "tool_permission"

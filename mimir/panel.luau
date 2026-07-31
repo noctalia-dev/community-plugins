@@ -2,6 +2,7 @@ local inputText = ""
 local inputKey = 0
 local editToolCmd = ""
 local copyTarget = nil
+local modelIdx = 0
 
 noctalia.state.watch("mimir.copy_target", function(value)
   copyTarget = (value == -1) and nil or value
@@ -59,7 +60,6 @@ end
 
 function render()
   local models = noctalia.state.get("mimir.models") or {}
-  local currentModel = noctalia.state.get("mimir.model") or ""
   local messages = noctalia.state.get("mimir.messages") or {}
   local status = noctalia.state.get("mimir.status") or "idle"
 
@@ -116,7 +116,7 @@ function render()
   local layout = {
     ui.row({ gap = 6, padding = 12, align = "center" }, {
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshModels" }),
-      ui.select({ options = models, value = currentModel, flexGrow = 1, placeholder = "No models", onChange = "onModelChange" }),
+      ui.select({ options = models, selectedIndex = modelIdx, flexGrow = 1, placeholder = "No models", onChange = "onModelChange" }),
     }),
     ui.separator({ thickness = 1, color = "surface_variant" }),
     ui.scroll({ flexGrow = 1, gap = 4, padding = 12 }, displayMsgs),
@@ -133,19 +133,26 @@ function render()
   }))
   table.insert(layout, ui.row({ gap = 12, padding = { left = 12, right = 12, top = 4, bottom = 12 }, align = "center" }, {
     ui.label({ text = statusTexts[status] or "Ready", fontSize = 11, color = statusColors[status] or "on_surface/0.4" }),
-    ui.button({ glyph = "eraser", variant = "ghost", size = 12, onClick = "onClear" }),
+    ui.button({ glyph = "eraser", variant = "ghost", onClick = "onClear" }),
   }))
-  panel.render(ui.column({ flexGrow = 1, gap = 0, fill = "background", align = "stretch" }, layout))
+  panel.render(ui.column({ flexGrow = 1, gap = 0, align = "stretch" }, layout))
 end
 
-function onModelChange(value)
+function onModelChange(index, text)
   local models = noctalia.state.get("mimir.models") or {}
-  if type(value) == "number" then
-    if models[value + 1] then noctalia.state.set("mimir.model", models[value + 1]) end
-  elseif type(value) == "string" then
-    for _, m in ipairs(models) do
-      if m == value then noctalia.state.set("mimir.model", m) return end
+  local idx = tonumber(index)
+  if idx == nil and text then
+    for i, m in ipairs(models) do
+      if m == text then
+        idx = i - 1
+        break
+      end
     end
+  end
+  if idx ~= nil and models[idx + 1] then
+    modelIdx = idx
+    noctalia.state.set("mimir.model", models[idx + 1])
+    render()
   end
 end
 
@@ -183,6 +190,15 @@ noctalia.state.watch("mimir.status", function()
 end)
 
 noctalia.state.watch("mimir.models", function()
+  local models = noctalia.state.get("mimir.models") or {}
+  local currentModel = noctalia.state.get("mimir.model") or ""
+  modelIdx = 0
+  for i, m in ipairs(models) do
+    if m == currentModel then
+      modelIdx = i - 1
+      break
+    end
+  end
   render()
 end)
 

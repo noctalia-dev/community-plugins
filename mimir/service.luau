@@ -31,6 +31,8 @@ local TOOLS = {
 local function loadApiKey()
   local key = noctalia.getConfig("api_key") or ""
   if key ~= "" then return key end
+  local endpoint = noctalia.getConfig("api_endpoint") or "https://opencode.ai/zen/go/v1"
+  if not endpoint:find("opencode", 1, true) then return "" end
   local ok, data = pcall(noctalia.readFile, noctalia.expandPath("~/.local/share/opencode/auth.json"))
   if ok and data then
     local parsed = noctalia.json.decode(data)
@@ -47,6 +49,7 @@ local function loadConfig()
     apiKey = loadApiKey(),
     toolPermission = noctalia.getConfig("tool_permission") or "ask",
     toolBlocklist = noctalia.getConfig("tool_blocklist") or "sudo,su,passwd,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt",
+    maxHistory = noctalia.getConfig("max_history") or 50,
   }
 end
 
@@ -87,6 +90,18 @@ end
 local function think(input)
   setStatus("thinking")
   local config = loadConfig()
+
+  if #M.conversation > config.maxHistory then
+    local trimmed = {}
+    for i = #M.conversation - config.maxHistory + 1, #M.conversation do
+      table.insert(trimmed, M.conversation[i])
+    end
+    M.conversation = trimmed
+    local copy = {}
+    for _, m in ipairs(M.conversation) do table.insert(copy, m) end
+    noctalia.state.set("mimir.messages", copy)
+  end
+
   local model = noctalia.state.get("mimir.model") or "deepseek-v4-flash"
 
   local msgs = {
@@ -112,13 +127,11 @@ local function think(input)
   end
 
   local url = config.endpoint .. "/chat/completions"
-  if config.apiKey == "" then
-    setStatus("idle")
-    if input then addMessage("assistant", "Error: no API key configured") end
-    return
-  end
 
-  local headers = { "Content-Type: application/json", "Authorization: Bearer " .. config.apiKey }
+  local headers = { "Content-Type: application/json" }
+  if config.apiKey ~= "" then
+    table.insert(headers, "Authorization: Bearer " .. config.apiKey)
+  end
 
   noctalia.http({
     url = url,
@@ -260,7 +273,7 @@ noctalia.state.watch("mimir.input", function(input)
       return
     end
     addMessage("user", input)
-    think(input)
+    think(nil)
   end
 end)
 
