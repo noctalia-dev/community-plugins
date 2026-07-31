@@ -7,7 +7,7 @@ Desktop/Lockscreen widget to show battery.
 | Field | Value |
 | --- | --- |
 | ID | `yocraft/battery-widget` |
-| Entries | Desktop widget: `battery-widget` |
+| Entries | Desktop widget: `widget` |
 
 ## Usage
 
