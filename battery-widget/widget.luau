@@ -1,7 +1,7 @@
 noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
 
-local glyph = "battery"
-local percent = "Loading..."
+local glyph
+local percent
 local status
 
 local path = "/sys/class/power_supply/"
@@ -96,7 +96,6 @@ if not batName then
     noctalia.log("battery-widget: battery not found")
 end
 
-render()
 function update()
     refreshBattery()
 end
