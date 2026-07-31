@@ -1,6 +1,6 @@
 # Battery Widget
 
-Desktop/Lockscreen widget to show battery.
+Desktop/lockscreen widget that displays the current battery level and charging status.
 
 ## Plugin
 
@@ -18,8 +18,8 @@ Add it to your desktop/lockscreen widgets.
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `layout` | `select` | `horizontal` | Layout of the widget. |
-| `show_glyph` | `bool` | `true` | Show text next to the icon. |
-| `show_label` | `bool` | `true` | Show the battery icon. |
+| `show_glyph` | `bool` | `true` | Show the battery icon. |
+| `show_label` | `bool` | `true` | Show text next to the icon. |
 | `hide_plugged` | `bool` | `false` | Hide the battery widget when connected to AC power. |
 | `hide_full` | `bool` | `false` | Hide the battery widget when fully charged. |
 | `warning_color` | `color` | `error` | Color applied when charge is at or below 20%.. |
