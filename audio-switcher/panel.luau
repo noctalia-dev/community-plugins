@@ -110,7 +110,7 @@ local function volumeCard(kind)
   local isOutput = kind == "output"
   local device = activeDevice(kind)
   local volume = tonumber(isOutput and snapshot.outputVolume or snapshot.inputVolume) or 0
-  local muted = isOutput and snapshot.outputMuted == true or snapshot.inputMuted == true
+  local muted = (isOutput and snapshot.outputMuted == true) or (not isOutput and snapshot.inputMuted == true)
   local icon = isOutput and (muted and "volume-off" or "volume") or (muted and "microphone-mute" or "microphone")
   return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_variant/0.45" }, {
     ui.row({ align = "center", gap = 8 }, {
