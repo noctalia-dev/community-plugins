@@ -1,4 +1,20 @@
 local modelfilePath = noctalia.expandPath(noctalia.getConfig("modelfile_path"))
+if modelfilePath:sub(-1) ~= "/" then
+    modelfilePath = modelfilePath .. "/"
+end
+
+local function joinModelNameToPath(modelName)
+    return modelfilePath .. modelName .. ".modelfile"
+end
+
+local function isNotEmpty(value)
+    if not value or value:match("^%s*$") then
+        noctalia.notify("LLamanager", "Field cannot be empty.")
+        return false
+    end
+        
+    return true
+end
 
 -- return ollama table
 local function loadOllama()
@@ -202,6 +218,9 @@ noctalia.state.watch("llamanager.nextCommand", function(command)
             noctalia.state.set("llamanager.ollama", ollama)
             noctalia.state.set("llamanager.view", "modelsView")
         end)
+    
+    -- reset field value
+    noctalia.state.set("llamanager.modelfileNameField", "")
 
     elseif command == "launch" then
         local ollama = noctalia.state.get("llamanager.ollama")
@@ -280,21 +299,27 @@ noctalia.state.watch("llamanager.nextCommand", function(command)
         noctalia.state.set("llamanager.view", "editorView")
 
     elseif command == "create" then
-        local path = modelfilePath .. noctalia.state.get("llamanager.modelfileNameField") .. ".modelfile"
-        noctalia.writeFile(path, " ")
+        local modelName = noctalia.state.get("llamanager.modelfileNameField")
+        if isNotEmpty(modelName) then
+            local path = joinModelNameToPath(modelName)
+            noctalia.writeFile(path, "")
+            noctalia.state.set("llamanager.view", "modelfileEditorView")
+        end
 
     elseif command == "edit" then
         local modelName = noctalia.state.get("llamanager.modelfileNameField")
-        local path = modelfilePath .. noctalia.state.get("llamanager.modelfileNameField") .. ".modelfile"
-        local content = noctalia.readFile(path)
-        noctalia.state.set("llamanager.modelfileContent", content)
+        if isNotEmpty(modelName) then
+            local path = joinModelNameToPath(modelName)
+            local content = noctalia.readFile(path)
+            noctalia.state.set("llamanager.modelfileContent", content)
+            noctalia.state.set("llamanager.view", "modelfileEditorView")
+        end
 
     elseif command == "delete" then
         -- note: Include the model tag (e.g. :latest, :v2) on deleting a model.
         local modelName = noctalia.state.get("llamanager.modelfileNameField")
-        if not modelName or modelName:match("^%s*$") then
-            noctalia.notify("LLamanager", "Modelfile name field cannot be empty.")
-        else
+        
+        if isNotEmpty(modelName) then
             local base = modelName:gsub(":.*$", "")
             local path = modelfilePath .. base .. ".modelfile"
             local ok, err = noctalia.removeFile(path)
@@ -308,11 +333,10 @@ noctalia.state.watch("llamanager.nextCommand", function(command)
 
     elseif command == "loadToOllama" then
         local modelName = noctalia.state.get("llamanager.modelfileNameField")
-        local path = modelfilePath .. modelName .. ".modelfile"
-        if not modelName or modelName:match("^%s*$") then
-            noctalia.notify("LLamanager", "Modelfile name field cannot be empty.")
-        else
+        if isNotEmpty(modelName) then
+            local path = joinModelNameToPath(modelName)
             loadToOllama(modelName, path)
-        end
+        end 
     end
+
 end)

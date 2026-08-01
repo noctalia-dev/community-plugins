@@ -42,13 +42,11 @@ function onLoadOllamaButtonClick()
 end
 
 function onCreateButtonClick()
-    noctalia.state.set("llamanager.view", "modelfileEditorView")
     noctalia.state.set("llamanager.nextCommand", "create")
 end
 
 function onEditButtonClick()
     noctalia.state.set("llamanager.nextCommand", "edit")
-    noctalia.state.set("llamanager.view", "modelfileEditorView")
 end
 
 function onDeleteButtonClick()
@@ -303,6 +301,9 @@ end
 
 function onOpen(_context)
     modelfilePath = noctalia.expandPath(noctalia.getConfig("modelfile_path"))
+    if modelfilePath:sub(-1) ~= "/" then
+        modelfilePath = modelfilePath .. "/"
+    end
     -- trigger initial load
     noctalia.state.set("llamanager.view", "modelsView")
     noctalia.state.set("llamanager.nextCommand", "refresh")
