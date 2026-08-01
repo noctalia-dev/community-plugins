@@ -75,11 +75,16 @@ local function render()
     desktopWidget.render(layout({ gap = 4, align = "center" }, content))
 end
 
+local function shellEscape(raw)
+    return "'" .. raw:gsub("'", "'\\''") .. "'"
+end
+
 local function refreshBattery()
     noctalia.runAsync(
         "cat "
-        .. path .. batName .. "/capacity "
-        .. path .. batName .. "/status",
+        .. shellEscape(path .. batName .. "/capacity")
+        .. " "
+        .. shellEscape(path .. batName .. "/status"),
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
