@@ -30,11 +30,20 @@ local TOOLS = {
   },
 }
 
+local function isTrustedOpenCodeEndpoint(endpoint)
+  local scheme, authority = endpoint:match("^(%a[%w+.-]*)://([^/%?#]+)")
+  if not scheme or not authority then return false end
+  local host, port = authority:match("^([^:]+):(%d+)$")
+  if not host then host = authority end
+  if scheme:lower() ~= "https" or host:lower() ~= "opencode.ai" then return false end
+  return port == nil or port == "443"
+end
+
 local function loadApiKey()
   local key = noctalia.getConfig("api_key") or ""
   if key ~= "" then return key end
   local endpoint = noctalia.getConfig("api_endpoint") or "https://opencode.ai/zen/go/v1"
-  if not endpoint:find("opencode", 1, true) then return "" end
+  if not isTrustedOpenCodeEndpoint(endpoint) then return "" end
   local ok, data = pcall(noctalia.readFile, noctalia.expandPath("~/.local/share/opencode/auth.json"))
   if ok and data then
     local parsed = noctalia.json.decode(data)
@@ -50,7 +59,7 @@ local function loadConfig()
     endpoint = noctalia.getConfig("api_endpoint") or "https://opencode.ai/zen/go/v1",
     apiKey = loadApiKey(),
     toolPermission = noctalia.getConfig("tool_permission") or "ask",
-    toolBlocklist = noctalia.getConfig("tool_blocklist") or "sudo,su,passwd,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt",
+    toolBlocklist = noctalia.getConfig("tool_blocklist") or "sudo,su,passwd,rm,mv,shred,truncate,tee,install,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt,curl,wget,nc,ncat,socat,env,find,xargs,sh,bash,zsh,fish,python,python3,perl,ruby,node,lua,luau,eval,source,busybox,make,cmake,just,task",
     maxHistory = noctalia.getConfig("max_history") or 50,
   }
 end
@@ -58,13 +67,20 @@ end
 local function isBlocked(command)
   local trimmed = command:match("^%s*(.-)%s*$")
   if not trimmed then return false end
+  if trimmed == "" then return false end
+
+  -- runAsync passes this string to /bin/sh -c, so do not allow shell syntax
+  -- to combine commands or invoke a second interpreter.
+  if trimmed:find("[;|&><`$\\\n\r]") then return true end
+
   local first = trimmed:match("^(%S+)")
   if not first then return false end
-  first = first:lower()
+  first = first:gsub("^['\"]", ""):gsub("['\"]$", "")
+  first = first:match("([^/]+)$"):lower()
   local blocklist = loadConfig().toolBlocklist
   for item in blocklist:gmatch("[^,]+") do
     local b = item:match("^%s*(.-)%s*$")
-    if b and b ~= "" and b:lower() == first then
+    if b and b ~= "" and b:lower():match("([^/]+)$") == first then
       return true
     end
   end
@@ -207,7 +223,7 @@ local function processToolQueue()
 
   for _, call in ipairs(M.pendingToolCalls) do
     if call.status == "waiting" then
-      if call.args == nil or not call.args.command then
+      if call.args == nil or type(call.args.command) ~= "string" or call.args.command == "" then
         addMessage("tool", "Error: invalid tool arguments", { tool_call_id = call.tc.id })
         call.status = "done"
       elseif isBlocked(call.args.command) then
