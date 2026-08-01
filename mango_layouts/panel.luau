@@ -1,20 +1,18 @@
-local global_toggle = true
-
 local layouts = {
-	{ sym = "T",  name = "tile",             label = "Tile",              glyph = "layout-sidebar" },
-	{ sym = "S",  name = "scroller",         label = "Scroller",          glyph = "carousel-horizontal" },
-	{ sym = "M",  name = "monocle",          label = "Monocle",           glyph = "square" },
-	{ sym = "G",  name = "grid",             label = "Grid",              glyph = "layout-grid" },
-	{ sym = "F",  name = "fair",             label = "Fair",              glyph = "layout-board-split" },
-	{ sym = "D",  name = "deck",             label = "Deck",              glyph = "layers-difference" },
-	{ sym = "DW", name = "dwindle",          label = "Dwindle",           glyph = "layout-2" },
-	{ sym = "CT", name = "center_tile",      label = "Center Tile",       glyph = "layout-distribute-vertical" },
-	{ sym = "VT", name = "vertical_tile",    label = "Vertical Tile",     glyph = "layout-rows" },
-	{ sym = "RT", name = "right_tile",       label = "Right Tile",        glyph = "layout-sidebar-right" },
-	{ sym = "VS", name = "vertical_scroller",label = "Vertical Scroller", glyph = "carousel-vertical" },
-	{ sym = "VG", name = "vertical_grid",    label = "Vertical Grid",     glyph = "grid-dots" },
-	{ sym = "VD", name = "vertical_deck",    label = "Vertical Deck",     glyph = "chart-funnel" },
-	{ sym = "VF", name = "vertical_fair",    label = "Vertical Fair",     glyph = "layout-board" },
+	{ sym = "T",  name = "tile",             label = noctalia.translate("name_tile"),              glyph = "layout-sidebar" },
+	{ sym = "S",  name = "scroller",         label = noctalia.translate("name_scroller"),          glyph = "carousel-horizontal" },
+	{ sym = "M",  name = "monocle",          label = noctalia.translate("name_monocle"),           glyph = "square" },
+	{ sym = "G",  name = "grid",             label = noctalia.translate("name_grid"),              glyph = "layout-grid" },
+	{ sym = "F",  name = "fair",             label = noctalia.translate("name_fair"),              glyph = "layout-board-split" },
+	{ sym = "D",  name = "deck",             label = noctalia.translate("name_deck"),              glyph = "layers-difference" },
+	{ sym = "DW", name = "dwindle",          label = noctalia.translate("name_dwindle"),           glyph = "layout-2" },
+	{ sym = "CT", name = "center_tile",      label = noctalia.translate("name_center_tile"),       glyph = "layout-distribute-vertical" },
+	{ sym = "VT", name = "vertical_tile",    label = noctalia.translate("name_vertical_tile"),     glyph = "layout-rows" },
+	{ sym = "RT", name = "right_tile",       label = noctalia.translate("name_right_tile"),        glyph = "layout-sidebar-right" },
+	{ sym = "VS", name = "vertical_scroller",label = noctalia.translate("name_vertical_scroller"), glyph = "carousel-vertical" },
+	{ sym = "VG", name = "vertical_grid",    label = noctalia.translate("name_vertical_grid"),     glyph = "grid-dots" },
+	{ sym = "VD", name = "vertical_deck",    label = noctalia.translate("name_vertical_deck"),     glyph = "chart-funnel" },
+	{ sym = "VF", name = "vertical_fair",    label = noctalia.translate("name_vertical_fair"),     glyph = "layout-board" },
 }
 
 local COLUMNS = 4
@@ -28,28 +26,7 @@ local function onPickAt(index)
 	local slot = pickSlots[index]
 	if slot == nil then return end
 	selectedLayout = slot.sym
-	local script = string.format([[
-bash -c '
-LAYOUT="%s"
-GLOBAL="%s"
-CONF_DIR="$HOME/.config/mango/conf.d"
-CONF_FILE="$CONF_DIR/workspaces.conf"
-mmsg dispatch setlayout,$LAYOUT
-if [ ! -f "$CONF_FILE" ]; then exit 0; fi
-TMP_FILE=$(mktemp "$CONF_DIR/workspaces_XXXXXX.tmp")
-cp "$CONF_FILE" "$TMP_FILE"
-if [ "$GLOBAL" = "true" ]; then
-    sed -i "s/layout_name:[a-zA-Z_]*/layout_name:$LAYOUT/g" "$TMP_FILE"
-else
-    ACTIVE_TAG=$(mmsg get all-tags | jq -r ".all_tags[0].tags[] | select(.is_active==true) | .index")
-    if [ -n "$ACTIVE_TAG" ]; then
-        sed -i "s/tagrule=id:$ACTIVE_TAG,no_hide:1,layout_name:[a-zA-Z_]*/tagrule=id:$ACTIVE_TAG,no_hide:1,layout_name:$LAYOUT/g" "$TMP_FILE"
-    fi
-fi
-mv "$TMP_FILE" "$CONF_FILE"
-'
-	]], slot.entry.name, tostring(global_toggle))
-	noctalia.runAsync(script)
+	noctalia.runAsync("mmsg dispatch setlayout," .. slot.entry.name)
 	panel.close()
 end
 
@@ -139,11 +116,6 @@ local function renderButtons(is_list_mode)
 	return buttons
 end
 
-function onToggleGlobal(value)
-  global_toggle = (value == "true")
-  render()
-end
-
 render = function()
 	pickSlots = {}
 	
@@ -162,12 +134,7 @@ render = function()
 	panel.render(ui.column({ flexGrow = 1 }, {
 		ui.scroll({ flexGrow = 1 }, {
 			content
-		}),
-		ui.separator({thickness = 1, color = "surface_variant"}),
-		ui.row({gap = 5, align = "center", padding = 10}, {
-			ui.toggle({checked = global_toggle, onChange = "onToggleGlobal"}),
-			ui.label({text = "Apply to all", fontSize = 11})
-		}),
+		})
 	}))
 end
 

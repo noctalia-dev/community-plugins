@@ -48,7 +48,7 @@ Widget Specific Settings:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `show_glyph` | `bool` | `true` | Show the widget icon. |
-| `show_text` | `bool` | `true` | Show the active layout name as text. |
+| `show_text` | `bool` | `false` | Show the active layout name as text. |
 | `custom_color` | `string` | `""` | Custom icon/text color (e.g. primary, on_surface). |
 
 ## Notes

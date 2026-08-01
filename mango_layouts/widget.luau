@@ -24,7 +24,7 @@ local show_text = (show_text_raw == true) or (show_text_raw == "true")
 local custom_color = noctalia.getConfig("custom_color")
 
 function update()
-  noctalia.setUpdateInterval(500)
+  noctalia.setUpdateInterval(1000)
   noctalia.runAsync(
     "mmsg get all-monitors | jq -r '.monitors[] | select(.active == true) | .layout_symbol'",
     function(result)
@@ -36,8 +36,7 @@ function update()
             if show_glyph then 
                 barWidget.setGlyph(current.glyph)
             else
-                -- Remove the glyph by passing nil (or just setting text if the API prefers it)
-                pcall(function() barWidget.setGlyph(nil) end)
+                barWidget.setGlyph("")
             end
             
             if show_text then 
@@ -47,15 +46,14 @@ function update()
             end
             
             if custom_color and custom_color ~= "" then 
-                -- Attempt to apply the color using different possible methods in v5
-                pcall(function() barWidget.setColor(custom_color) end)
-                pcall(function() barWidget.setForeground(custom_color) end)
+                barWidget.setColor(custom_color)
+                barWidget.setGlyphColor(custom_color)
             end
         else
             if show_glyph then 
                 barWidget.setGlyph("layout") 
             else 
-                pcall(function() barWidget.setGlyph(nil) end)
+                barWidget.setGlyph("")
             end
             
             if show_text then 

@@ -17,5 +17,19 @@
   "layout_vertical_scroller_label": "Layout: Vertical Scroller",
   "layout_vertical_grid_label": "Layout: Vertical Grid",
   "layout_vertical_deck_label": "Layout: Vertical Deck",
-  "layout_vertical_fair_label": "Layout: Vertical Fair"
+  "layout_vertical_fair_label": "Layout: Vertical Fair",
+  "name_tile": "Tile",
+  "name_scroller": "Scroller",
+  "name_monocle": "Monocle",
+  "name_grid": "Grid",
+  "name_fair": "Fair",
+  "name_deck": "Deck",
+  "name_dwindle": "Dwindle",
+  "name_center_tile": "Center Tile",
+  "name_vertical_tile": "Vertical Tile",
+  "name_right_tile": "Right Tile",
+  "name_vertical_scroller": "Vertical Scroller",
+  "name_vertical_grid": "Vertical Grid",
+  "name_vertical_deck": "Vertical Deck",
+  "name_vertical_fair": "Vertical Fair"
 }
