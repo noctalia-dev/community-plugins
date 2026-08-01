@@ -172,7 +172,13 @@ local function downloadModel(modelName, onProgress, onFinish)
 end
 
 local function edit()
-    local listDir = noctalia.listDir(modelfilePath)
+    local listDir, err = noctalia.listDir(modelfilePath)
+
+    if not listDir then
+        noctalia.notify("Llamanager", err)
+        return
+    end
+
     modelfileDirs = {}
     for _, dir in ipairs(listDir) do
         table.insert(modelfileDirs, dir)
