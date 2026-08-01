@@ -259,15 +259,17 @@ end
 local noctaliaStateDir = resolveStateDir()
 local settingsTomlPath = noctaliaStateDir .. "/settings.toml"
 
+local saveNameInput = "save"
 
 local function saveConfig()
-	local savePath = configBox .. "/save"
+	local name = saveNameInput ~= "" and saveNameInput or "save"
+	local savePath = configBox .. "/" .. name
 	noctalia.mkdirAll(savePath)
 
 	local settingFile: infoConfig = {
-		name = "save",
+		name = name,
 		description = "save for reset",
-		path = configBox .. "/save",
+		path = configBox .. "/" .. name,
 		origin = "not give",
 		wallpaperPath = nil,
 		depedencie = false,
@@ -280,35 +282,84 @@ local function saveConfig()
 	local content = noctalia.readFile(settingsTomlPath)
 	if content then
 		noctalia.writeFile(savePath .. "/settings.toml", content)
-		noctalia.notify("Save", "Sauvegarde réussie")
+		noctalia.notify("Save", "Save ok : " .. name)
+		render()
 	else
-		noctalia.notify("Save", "settings.toml introuvable")
+		noctalia.notify("Save", "settings.toml not found")
 	end
 end
 
+function onSaveNameChange(value)
+	saveNameInput = value
+end
+
 local function renderSetting()
-	local rows = {
-		ui.row({ flexGrow = 1, gap = 16 }, {
-			ui.label({ text = "save current configuration" }),
-			ui.button({ text = "save", onClick = function()
-				saveConfig()
-			end
+	local rowsSettings = {
+		ui.column({ gap = 8 }, {
+			ui.label({
+				text = "Save your current configuration under a custom name at ~/Config-Swap/{name}. A default info.json is created and can be edited later at ~/Config-Swap/{name}/info.json.",
+				fontSize = 12,
+				color = "on_surface_variant",
+			}),
+			ui.row({ flexGrow = 1, gap = 16, align = "center" }, {
+				ui.input({
+					key = "save-name-input",
+					value = saveNameInput,
+					placeholder = "Save name",
+					onChange = "onSaveNameChange",
+					flexGrow = 1,
+				}),
+				ui.button({ text = "save", onClick = function()
+					saveConfig()
+				end
+				}),
 			}),
 		}),
-		ui.row({ flexGrow = 1, gap = 16 }, {
-			ui.label({ text = "reset at last save." }),
-			ui.button({ text = "reset", onClick = ""}),
-		})
 	}
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
-		ui.label({ text = "Setting section", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.button({ text = "en cours", onClick = "getFetchList"}),
-		ui.button({ glyph = "en cours", onClick = "render" }),
-		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows), 
+		ui.label({ text = "Setting section", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ text = "X", onClick = "render"}),
+		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rowsSettings),
 	}))
 end
 
 -- Section render for github Store
+
+local function renderInfoStore()
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+			ui.label({ text = "Info Store section", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.button({ text = "github", onClick = function()
+				noctalia.copyToClipboard("https://github.com/Tadomika-Ari/Config-Swap-Box", "text/plain")
+				noctalia.notify("Config-Swap", "copy link success")
+			end 
+			}),
+			ui.button({ glyph = "close", onClick = "render" }),
+		}),
+		ui.scroll({ gap = 16, align = "stretch", flexGrow = 1 }, {
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "What is the Store?", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = "The Store lists community-submitted configuration profiles hosted on the Config-Swap-Box GitHub repository. Each profile bundles a settings.toml, a preview image, and an optional wallpaper.", fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "Installing a profile", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = "Pressing install downloads the profile's files into ~/Config-Swap/{name}. This does not change your current configuration yet.", fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "Applying a profile", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = "Pressing apply replaces your active settings.toml and wallpaper with the selected profile. This is not reversible unless you saved a backup first from the Setting section.", fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "Community content", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = "Profiles are submitted by community members and are review by owner.", fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "Rate limits", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = "The store list is fetched from the GitHub API, which limits unauthenticated requests. Avoid refreshing repeatedly in a short period of time.", fontSize = 12, color = "on_surface_variant" }),
+			}),
+		}),
+	}))
+end
 
 local function renderList()
 
@@ -372,7 +423,10 @@ local function renderList()
 				render()
 			end
 			}),
-			ui.select({ options = optionFull, onChange = "" }),
+			ui.button({ text = "?", onClick = function()
+				renderInfoStore()
+			end
+			}),
 			ui.button({ text = tr("refresh"), onClick = "getFetchList"}),
 			ui.button({ glyph = "close", onClick = "onCloseClicked" }),
 		}),
