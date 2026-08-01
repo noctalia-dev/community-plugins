@@ -46,11 +46,25 @@ REQUIRED_CHECKLIST_ITEMS = (
     "Every network call, filesystem write, and spawned process is something the description above accounts for.",
     "I have the right to publish this code under the `license` declared in `plugin.toml`.",
 )
-CLOSURE_COMMENT = f"""{COMMENT_MARKER}
-This pull request was automatically closed because its description removed or altered required sections of the repository's pull request template.
+CLOSURE_INTRO = f"""{COMMENT_MARKER}
+This pull request was automatically closed because its description no longer contains
+every part of [the pull request template](https://github.com/noctalia-dev/community-plugins/blob/main/.github/PULL_REQUEST_TEMPLATE.md)
+that this repository requires.
 
-Restore the current contents of `.github/PULL_REQUEST_TEMPLATE.md`, complete it without deleting its sections, fields, or checklist entries, and then reopen the pull request. Checklist boxes may remain unchecked while the pull request is a draft.
+Missing:
 """
+CLOSURE_OUTRO = """
+Please add the items listed above back to the description, keeping their exact wording, then
+reopen the pull request. Reopening re-runs this check. Only the marker line, the `##` headings,
+the `- **Field:**` lines, and the `- [ ]` checklist entries are required; the guidance comments
+in the template are yours to delete, and checklist boxes may stay unchecked while the pull
+request is a draft.
+"""
+
+
+def build_closure_comment(missing: list[str]) -> str:
+    bullets = "".join(f"- {item}\n" for item in missing)
+    return f"{CLOSURE_INTRO}{bullets}{CLOSURE_OUTRO}"
 
 
 def missing_requirements(body: object) -> list[str]:
@@ -61,23 +75,23 @@ def missing_requirements(body: object) -> list[str]:
     normalized_body = " ".join(body.split())
     missing: list[str] = []
 
-    if TEMPLATE_MARKER not in lines:
-        missing.append("template version marker")
+    if TEMPLATE_MARKER not in normalized_body:
+        missing.append(f"the template marker line `{TEMPLATE_MARKER}`")
 
     for heading in REQUIRED_HEADINGS:
         if heading not in lines:
-            missing.append(f"{heading} section")
+            missing.append(f"the `{heading}` heading")
 
     for prefix in REQUIRED_FIELD_PREFIXES:
         if prefix not in normalized_body:
-            missing.append(f"field: {prefix.removeprefix('- ')}")
+            missing.append(f"the `{prefix}` field")
 
     for item in REQUIRED_CHECKLIST_ITEMS:
         if not any(
             f"- [{state}] {item}" in normalized_body
             for state in (" ", "x", "X")
         ):
-            missing.append(f"checklist item: {item}")
+            missing.append(f"the checklist entry: {item}")
 
     return missing
 
@@ -107,8 +121,9 @@ def github_request(
     return json.loads(response_body) if response_body else None
 
 
-def has_enforcement_comment(issue_url: str, token: str) -> bool:
+def latest_enforcement_comment(issue_url: str, token: str) -> str | None:
     page = 1
+    latest: str | None = None
     while True:
         comments = github_request(
             f"{issue_url}/comments?per_page=100&page={page}",
@@ -116,14 +131,14 @@ def has_enforcement_comment(issue_url: str, token: str) -> bool:
         )
         if not isinstance(comments, list):
             raise RuntimeError("GitHub returned an invalid pull request comment list")
-        if any(
-            isinstance(comment, dict)
-            and COMMENT_MARKER in str(comment.get("body", ""))
-            for comment in comments
-        ):
-            return True
+        for comment in comments:
+            if not isinstance(comment, dict):
+                continue
+            body = str(comment.get("body", ""))
+            if COMMENT_MARKER in body:
+                latest = body
         if len(comments) < 100:
-            return False
+            return latest
         page += 1
 
 
@@ -143,12 +158,13 @@ def enforce(event: dict[str, object], token: str) -> list[str]:
     if not token:
         raise ValueError("GITHUB_TOKEN is required to close an invalid pull request")
 
-    if not has_enforcement_comment(issue_url, token):
+    comment = build_closure_comment(missing)
+    if latest_enforcement_comment(issue_url, token) != comment:
         github_request(
             f"{issue_url}/comments",
             token,
             method="POST",
-            payload={"body": CLOSURE_COMMENT},
+            payload={"body": comment},
         )
     github_request(
         pull_request_url,
@@ -171,7 +187,10 @@ def main(argv: list[str]) -> int:
         return 1
 
     if missing:
-        print("::error title=Required PR template content is missing::" + "; ".join(missing))
+        print(
+            "::error title=Pull request description is missing required template content::"
+            + "; ".join(missing)
+        )
         return 1
 
     print("Pull request description retains the required template structure.")

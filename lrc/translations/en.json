@@ -1,12 +1,12 @@
 {
   "settings": {
-    "show_separator": {
-      "label": "Show separator",
-      "description": "Prepend a separator before the lyric text."
-    },
     "separator": {
-      "label": "Separator",
-      "description": "Text shown before the current lyric line."
+      "description": "Text shown before the current lyric line.",
+      "label": "Separator"
+    },
+    "show_separator": {
+      "description": "Prepend a separator before the lyric text.",
+      "label": "Show separator"
     }
   }
 }

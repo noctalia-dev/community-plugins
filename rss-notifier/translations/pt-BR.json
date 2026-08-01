@@ -1,20 +1,20 @@
 {
-    "settings": {
-        "feed_urls": {
-            "label": "URLs dos Feeds",
-            "description": "Lista de URLs de feeds RSS/Atom para monitorar (por linha)."
-        },
-        "refresh_minutes": {
-            "label": "Intervalo de atualização",
-            "description": "Com que frequência verificar novos itens (em minutos)."
-        },
-        "notify_new": {
-            "label": "Notificar novos itens",
-            "description": "Mostrar notificação para cada novo item encontrado."
-        },
-        "max_notifications_per_cycle": {
-            "label": "Máximo de notificações",
-            "description": "Limitar o número de notificações enviadas em um único ciclo."
-        }
+  "settings": {
+    "feed_urls": {
+      "description": "Lista de URLs de feeds RSS/Atom para monitorar (por linha).",
+      "label": "URLs dos Feeds"
+    },
+    "max_notifications_per_cycle": {
+      "description": "Limitar o número de notificações enviadas em um único ciclo.",
+      "label": "Máximo de notificações"
+    },
+    "notify_new": {
+      "description": "Mostrar notificação para cada novo item encontrado.",
+      "label": "Notificar novos itens"
+    },
+    "refresh_minutes": {
+      "description": "Com que frequência verificar novos itens (em minutos).",
+      "label": "Intervalo de atualização"
     }
+  }
 }

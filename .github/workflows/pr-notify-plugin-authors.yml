@@ -1,0 +1,43 @@
+name: Notify Plugin Authors for Pull Requests
+
+on:
+  pull_request_target:
+    types: [opened]
+    paths-ignore:
+      - catalog.toml
+      - '.**'
+      - README.md
+      - README_TEMPLATE.md
+  workflow_dispatch:
+    inputs:
+      pull-request-number:
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  notify-plugin-authors:
+    runs-on: ubuntu-latest
+    if: github.repository == 'noctalia-dev/community-plugins'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+          cache-dependency-path: |
+            .github/workflows/scripts/PyGithub-requirement.txt
+
+      - name: Install dependencies
+        run: pip install -r .github/workflows/scripts/PyGithub-requirement.txt
+
+      - name: Notify Authors
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull-request-number || github.event.pull_request.number }}
+        run: python3 .github/workflows/scripts/pr-notify-plugin-authors.py

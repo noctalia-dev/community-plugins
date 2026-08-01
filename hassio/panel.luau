@@ -20,9 +20,6 @@ local browserLoading = false
 local browserLoadingSince = nil
 local browserFailed = false
 
--- /api/states returns every entity at once, so on a very large instance the response
--- callback can be cut short by the host's per-callback CPU budget and never render.
--- Give up visibly instead of spinning on "loading" forever.
 local BROWSER_TIMEOUT_SECONDS = 20
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
@@ -58,11 +55,13 @@ local function getCleanToken()
     return haToken:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
-local function haPost(path, body)
+local function haPost(path, body, onFailure)
     local url = getCleanUrl()
-    if not url or url == "" then return end
     local cleanToken = getCleanToken()
-    if cleanToken == "" then return end
+    if not url or url == "" or cleanToken == "" then
+        if onFailure then onFailure() end
+        return
+    end
     local encodedBody = noctalia.json.encode(body)
 
     noctalia.http({
@@ -73,11 +72,16 @@ local function haPost(path, body)
             "Content-Type: application/json",
         },
         body = encodedBody,
-    }, function(response: HttpResponse)end)
+    }, function(response: HttpResponse)
+        local httpStatus = response and response.status or 0
+        if httpStatus >= 200 and httpStatus < 300 then return end
+        noctalia.log("Home Assistant rejected " .. path .. ": status " .. tostring(httpStatus))
+        if onFailure then onFailure() end
+    end)
 end
 
-local function callService(domain, service, entityId)
-    haPost("/api/services/" .. domain .. "/" .. service, { entity_id = entityId })
+local function callService(domain, service, entityId, onFailure)
+    haPost("/api/services/" .. domain .. "/" .. service, { entity_id = entityId }, onFailure)
 end
 
 local MANAGED_ENTITIES_FILE = "managed_entities.json"
@@ -142,6 +146,70 @@ local function toggleBrowserPin(entityId)
     render()
 end
 
+-- /api/states is megabytes on a large instance and decoding it overruns the host's
+-- per-callback CPU budget. The tab and newline outside the {{ }} are the record
+-- separators; the ones inside replace() are escapes for Jinja to interpret.
+local ENTITY_LIST_TEMPLATE =
+    "{% for s in states %}{{ s.entity_id }}\t{{ s.name | replace('\\t',' ') | replace('\\n',' ') }}\n{% endfor %}"
+
+-- HA iterates `states` in entity_id order, so this is normally just the linear check.
+local function sortEntitiesIfNeeded(list)
+    for i = 2, #list do
+        if list[i].entity_id < list[i - 1].entity_id then
+            table.sort(list, function(a, b) return a.entity_id < b.entity_id end)
+            return
+        end
+    end
+end
+
+local function finishBrowserLoad(list, failed)
+    allEntities = list
+    browserLoading = false
+    browserLoadingSince = nil
+    browserFailed = failed == true
+    render()
+end
+
+-- Continues an already-started load, so it deliberately doesn't re-check browserLoading.
+local function fetchAllEntitiesFromStates()
+    local cleanToken = getCleanToken()
+    local url = getCleanUrl()
+
+    noctalia.http({
+        url = url .. "/api/states",
+        headers = {
+            "Authorization: Bearer " .. cleanToken,
+        }
+    }, function(response: HttpResponse)
+        local httpStatus = response and response.status or 0
+        local body = response and response.body or ""
+        if httpStatus < 200 or httpStatus >= 300 or body == "" then
+            noctalia.log("Could not list entities: /api/states returned " .. tostring(httpStatus))
+            finishBrowserLoad({}, true)
+            return
+        end
+
+        local states = noctalia.json.decode(body)
+        if type(states) ~= "table" then
+            noctalia.log("Could not list entities: /api/states was not decodable")
+            finishBrowserLoad({}, true)
+            return
+        end
+
+        local list = {}
+        for _, s in ipairs(states) do
+            local attrs = s.attributes or {}
+            table.insert(list, {
+                entity_id    = s.entity_id,
+                friendly_name = attrs.friendly_name or s.entity_id,
+                domain       = s.entity_id:match("^([^.]+)"),
+            })
+        end
+        sortEntitiesIfNeeded(list)
+        finishBrowserLoad(list)
+    end)
+end
+
 local function fetchAllEntities()
     if browserLoading then return end
     local cleanToken = getCleanToken()
@@ -160,30 +228,41 @@ local function fetchAllEntities()
     render()
 
     noctalia.http({
-        url = url .. "/api/states",
+        url = url .. "/api/template",
+        method = "POST",
         headers = {
             "Authorization: Bearer " .. cleanToken,
-        }
+            "Content-Type: application/json",
+        },
+        body = noctalia.json.encode({ template = ENTITY_LIST_TEMPLATE }),
     }, function(response: HttpResponse)
-        browserLoading = false
-        browserLoadingSince = nil
-        browserFailed = false -- a late answer still beats the timeout message
-        if response and response.body and response.body ~= "" then
-            local states = noctalia.json.decode(response.body)
-            if type(states) == "table" then
-                allEntities = {}
-                for _, s in ipairs(states) do
-                    local attrs = s.attributes or {}
-                    table.insert(allEntities, {
-                        entity_id    = s.entity_id,
-                        friendly_name = attrs.friendly_name or s.entity_id,
-                        domain       = s.entity_id:match("^([^.]+)"),
-                    })
-                end
-                table.sort(allEntities, function(a, b) return a.entity_id < b.entity_id end)
-            end
+        local httpStatus = response and response.status or 0
+        local body = response and response.body or ""
+
+        if httpStatus < 200 or httpStatus >= 300 or body == "" then
+            noctalia.log("Entity list template unavailable (status " .. tostring(httpStatus)
+                .. "), falling back to /api/states")
+            fetchAllEntitiesFromStates()
+            return
         end
-        render()
+
+        local list = {}
+        for entityId, name in body:gmatch("([^\t\n]+)\t([^\n]*)") do
+            table.insert(list, {
+                entity_id     = entityId,
+                friendly_name = name ~= "" and name or entityId,
+                domain        = entityId:match("^([^.]+)"),
+            })
+        end
+
+        if #list == 0 then
+            noctalia.log("Entity list template returned nothing usable, falling back to /api/states")
+            fetchAllEntitiesFromStates()
+            return
+        end
+
+        sortEntitiesIfNeeded(list)
+        finishBrowserLoad(list)
     end)
 end
 
@@ -241,7 +320,10 @@ local function actEntity(eid)
         local newState = entity.state == "on" and "off" or "on"
         pendingToggle[eid] = newState
         pendingSince[eid] = os.clock()
-        callService(d, "toggle", eid)
+        callService(d, "toggle", eid, function()
+            clearPending(eid)
+            render()
+        end)
         render()
     end
 end

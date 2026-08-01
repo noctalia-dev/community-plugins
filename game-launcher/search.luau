@@ -36,7 +36,7 @@ local function ensureGames(cb)
     return
   end
   if not noctalia.fileExists(binary) then
-    local ok = noctalia.runAsync("/usr/bin/cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
+    local ok = noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
       if res.exitCode == 0 then
         runScan()
       else

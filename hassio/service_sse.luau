@@ -34,7 +34,18 @@ local function loadManagedEntities()
   return {}
 end
 
-local entities = loadManagedEntities()
+local entities = {}
+local managedSet = {}
+
+local function setEntities(list)
+  entities = list
+  managedSet = {}
+  for _, id in ipairs(entities) do
+    managedSet[id] = true
+  end
+end
+
+setEntities(loadManagedEntities())
 
 local status = "unconfigured"
 local entityStates = {}
@@ -45,10 +56,9 @@ local MAX_RECONNECT_RETRIES = 10
 local CONNECTED_POLL_INTERVAL_MS = 1000
 local RECONNECT_POLL_INTERVAL_MS = 1000
 local BACKOFF_POLL_INTERVAL_MS = 60000
--- The host caps an async request at 30s transfer + 10s connect, so a callback still
--- missing after 35s is genuinely lost rather than slow.
+-- The host allows 30s transfer + 10s connect, so past 35s the callback is gone.
 local REQUEST_TIMEOUT_SECONDS = 35
--- The host allows 8 async HTTP callbacks per runtime; leave headroom.
+-- The host allows 8 async callbacks per runtime.
 local MAX_SNAPSHOT_REQUESTS_IN_FLIGHT = 4
 local ENTITY_FLUSH_INTERVAL_SECONDS = 0.2
 
@@ -62,8 +72,6 @@ local requestStartedAt = nil
 local entitiesDirty = false
 local lastEntityFlush = 0
 
--- Initial-snapshot bookkeeping. A round is identified by snapshotToken so late
--- callbacks from a superseded round are ignored instead of corrupting the new one.
 local snapshotToken = 0
 local snapshotActive = false
 local snapshotStartedAt = 0
@@ -81,16 +89,12 @@ local function syncUpdateInterval()
   end
 end
 
--- The single place `status` changes: every transition is published and logged here,
--- so the service can never sit in a state nothing knows how to leave.
 local function setStatus(next, reason)
   if status == next then return end
   status = next
   noctalia.state.set("connection_status", status)
   noctalia.log("connection status -> " .. status .. (reason and (" (" .. reason .. ")") or ""))
 
-  -- Reconnect attempts keep running while the token is bad, so the notification is
-  -- tied to discovering the failure, not to every attempt that rediscovers it.
   if status == "connected" then
     authFailureNotified = false
   elseif status == "auth_failed" and not authFailureNotified then
@@ -115,7 +119,6 @@ local function haRequest(endpoint, method, body, callback)
   local headers = {
     "Authorization: Bearer " .. cleanToken,
   }
-  -- Only advertise a JSON body when we actually send one.
   if jsonBody then
     table.insert(headers, "Content-Type: application/json")
   end
@@ -195,9 +198,7 @@ local function publishEntities()
   lastEntityFlush = os.clock()
 end
 
--- Every publish re-encodes the whole map here and is re-decoded by each watcher
--- (panel, widget, four shortcuts), so a burst of events is coalesced into one push
--- per ENTITY_FLUSH_INTERVAL_SECONDS; update() flushes whatever is left over.
+-- Every publish is re-decoded by every watcher, so bursts get coalesced.
 local function markEntitiesDirty()
   entitiesDirty = true
   if (os.clock() - lastEntityFlush) >= ENTITY_FLUSH_INTERVAL_SECONDS then
@@ -206,15 +207,10 @@ local function markEntitiesDirty()
 end
 
 local function isManaged(entityId)
-  for _, id in ipairs(entities) do
-    if id == entityId then return true end
-  end
-  return false
+  return managedSet[entityId] == true
 end
 
 local function updateEntity(entityId, newState)
-  -- An empty managed list means nothing is monitored: keeping every entity HA
-  -- reports would grow this map without bound and re-encode it on every event.
   if not isManaged(entityId) then return end
 
   local processed = processEntity(newState)
@@ -222,22 +218,17 @@ local function updateEntity(entityId, newState)
 
   entityStates[entityId] = processed
   if snapshotActive then
-    -- keep an in-flight snapshot round from overwriting fresher live data
+    -- don't let the in-flight round overwrite fresher live data
     snapshotPending[entityId] = processed
   end
   markEntitiesDirty()
 end
 
--- HA embeds event_type inside the data JSON rather than a separate SSE "event:" field
 local currentEvent = {
     data = "",
     event = "",
 }
 
--- The SSE "event:" field, or HA's embedded event_type when there is none. An empty
--- string is truthy in Luau, so it has to be rejected explicitly - otherwise the
--- freshly initialised currentEvent.event masks event_type and the first event of
--- every stream is dropped.
 local function eventTypeOf(parsed)
   if currentEvent.event and currentEvent.event ~= "" then
     return currentEvent.event
@@ -292,11 +283,8 @@ local connect
 
 function finishSnapshot()
   snapshotActive = false
-  -- invalidate any straggler from this round
   snapshotToken = snapshotToken + 1
 
-  -- Rebuild from the monitored list so entities dropped from it disappear, and fall
-  -- back to what we already knew for any entity whose fetch failed this round.
   local merged = {}
   for _, id in ipairs(entities) do
     merged[id] = snapshotPending[id] or entityStates[id]
@@ -316,8 +304,6 @@ function pumpSnapshot()
     local entityId = snapshotQueue[1]
     snapshotInFlight = snapshotInFlight + 1
 
-    -- One entity per request keeps every callback's decode tiny, regardless of how
-    -- many entities the Home Assistant instance has.
     local launched = haRequest("/api/states/" .. entityId, "GET", nil, function(res)
       if token ~= snapshotToken then return end
       snapshotInFlight = snapshotInFlight - 1
@@ -338,7 +324,6 @@ function pumpSnapshot()
     end)
 
     if not launched then
-      -- Out of async slots (or unconfigured); retry from the next tick.
       snapshotInFlight = snapshotInFlight - 1
       return
     end
@@ -372,15 +357,10 @@ function connect()
   requestStartedAt = os.clock()
   connectionRequestInFlight = true
 
-  -- GET /api/ answers with {"message": "API running."}: enough to tell unreachable,
-  -- unauthorized and healthy apart, and small enough that the callback stays well
-  -- inside the host's per-callback CPU budget on any instance.
   local launched = haRequest("/api/", "GET", nil, function(res)
     connectionRequestInFlight = false
     requestStartedAt = nil
 
-    -- status 0 = no HTTP response at all (couldn't connect / DNS / timeout): the
-    -- server is unreachable, which is a distinct case from an auth or HTTP error.
     if res.status == 0 then
       noctalia.log("Cannot reach Home Assistant (connection failed)")
       setStatus("unreachable", "transport failure")
@@ -408,8 +388,6 @@ function connect()
       return
     end
 
-    -- Entity states are pulled one by one after the connection is established, so a
-    -- slow or failing snapshot can never hold the connection status hostage.
     fetchSnapshot()
     syncUpdateInterval()
   end)
@@ -455,8 +433,7 @@ function startSSEStream()
       return
     end
 
-    -- The status is worth logging: a stream that closes with 404 means this HA does
-    -- not serve /api/stream, which looks the same from the outside as a flaky link.
+    -- 404 here means this HA serves no /api/stream, which otherwise looks like a flaky link.
     noctalia.log("SSE stream closed (status " .. tostring(result and result.status or 0) .. ")")
     setStatus("disconnected", "stream closed")
     syncUpdateInterval()
@@ -475,10 +452,7 @@ end
 
 noctalia.state.watch("command", function(cmd)
   if cmd == "refresh" then
-    -- Just re-probe and re-snapshot. Do NOT touch sseActive here: the running stream
-    -- (if any) is untouched by this, and forcing the flag false would bypass
-    -- startSSEStream()'s duplicate guard and spawn a second stream on top of one
-    -- that's still alive.
+    -- Do NOT clear sseActive: that bypasses startSSEStream()'s duplicate guard.
     if status == "connected" then
       if not sseActive then startSSEStream() end
       fetchSnapshot()
@@ -488,13 +462,11 @@ noctalia.state.watch("command", function(cmd)
   elseif cmd == "reload_entities" then
     local override = noctalia.state.get("entities_override")
     if type(override) == "table" then
-      entities = override
+      setEntities(override)
     else
-      entities = loadManagedEntities()
+      setEntities(loadManagedEntities())
     end
-    -- Entity filtering happens client-side in updateEntity(), so the existing stream
-    -- keeps working for the new entity list as-is. The snapshot needs refetching to
-    -- pick up newly monitored entities and drop removed ones.
+    -- Filtering is client-side, so only the snapshot needs refetching.
     if status == "connected" then
       fetchSnapshot()
     else
@@ -515,6 +487,10 @@ end)
 function update()
   if not isConfigured() then
     setStatus("unconfigured", "no url or token")
+    if streamHandle then
+      streamHandle.stop()
+      streamHandle = nil
+    end
     sseActive = false
     syncUpdateInterval()
     return
@@ -524,8 +500,6 @@ function update()
     publishEntities()
   end
 
-  -- Resume a snapshot round that ran out of async slots mid-flight, and close out one
-  -- whose callback never came back so it can't wedge the round forever.
   if snapshotActive then
     if (os.clock() - snapshotStartedAt) > REQUEST_TIMEOUT_SECONDS then
       noctalia.log("Entity snapshot timed out; publishing what arrived")
@@ -535,39 +509,27 @@ function update()
     end
   end
 
-  -- A callback the host dropped or aborted (an overrun CPU budget kills it between
-  -- VM instructions) would otherwise leave the request flag stuck set forever. A
-  -- missing timestamp counts as expired: erring towards one extra probe is always
-  -- better than never probing again.
   if connectionRequestInFlight and (os.clock() - (requestStartedAt or 0)) > REQUEST_TIMEOUT_SECONDS then
     connectionRequestInFlight = false
     requestStartedAt = nil
     setStatus("disconnected", "request timed out")
   end
 
-  -- "connected" means the probe answered AND the event stream is up. If a callback
-  -- died between the two, this puts the service back on the reconnect path.
   if status == "connected" and not sseActive then
     setStatus("disconnected", "stream missing")
   end
 
-  -- The store is what the panel, widget and shortcuts read, so let it converge on
-  -- our status if a publish was ever dropped mid-callback.
+  -- Reconverge the store in case a publish was dropped mid-callback.
   if noctalia.state.get("connection_status") ~= status then
     noctalia.state.set("connection_status", status)
   end
 
-  -- Anything that is not a live connection is retried, including a "connecting" whose
-  -- callback never completed. There is deliberately no state this can't leave.
   if status ~= "connected" and not connectionRequestInFlight then
     retryCount = retryCount + 1
     if retryCount >= MAX_RECONNECT_RETRIES and not backoff then
-      -- After the initial burst of fast retries, fall back to a slow poll and keep
-      -- trying, so the service reconnects on its own once HA is reachable again.
       backoff = true
       if not maxRetriesNotified then
         maxRetriesNotified = true
-        -- A bad token already got its own, more accurate notification.
         if not authFailureNotified then
           noctalia.notifyError(noctalia.tr("notifications.reconnect_failed", { count = MAX_RECONNECT_RETRIES }))
         end

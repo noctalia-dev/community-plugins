@@ -362,7 +362,7 @@ local function buildBinary()
   loading = true
   errorMsg = ""
   render()
-  local ok = noctalia.runAsync("/usr/bin/cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
+  local ok = noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
     building = false
     if res.exitCode == 0 then
       loading = false

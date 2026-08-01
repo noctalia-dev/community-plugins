@@ -1,0 +1,86 @@
+id = "alexander/mimir"
+name = "Mimir"
+version = "0.4.0"
+plugin_api = 16
+author = "Alexander"
+license = "MIT"
+icon = "brain"
+description = "An AI companion for Noctalia that brings LLM-powered chat directly into your desktop."
+dependencies = []
+tags = ["ai", "utility", "productivity", "development"]
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle alexander/mimir:chat"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+default = "brain"
+
+[[panel]]
+id = "chat"
+entry = "panel.luau"
+placement = "floating"
+position = "center_right"
+width = 450
+height = "fill"
+
+[[service]]
+id = "brain"
+entry = "service.luau"
+
+[[setting]]
+key = "api_endpoint"
+type = "string"
+label_key = "settings.api_endpoint.label"
+description_key = "settings.api_endpoint.description"
+default = "https://opencode.ai/zen/go/v1"
+
+[[setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "tool_permission"
+type = "select"
+label_key = "settings.tool_permission.label"
+description_key = "settings.tool_permission.description"
+options = [
+  { value = "ask", label_key = "settings.tool_permission.ask" },
+  { value = "allow", label_key = "settings.tool_permission.allow" },
+  { value = "off", label_key = "settings.tool_permission.off" },
+]
+default = "ask"
+
+[[setting]]
+key = "tool_blocklist"
+type = "string"
+label_key = "settings.tool_blocklist.label"
+description_key = "settings.tool_blocklist.description"
+default = "sudo,su,passwd,rm,mv,shred,truncate,tee,install,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt,curl,wget,nc,ncat,socat,env,find,xargs,sh,bash,zsh,fish,python,python3,perl,ruby,node,lua,luau,eval,source,busybox,make,cmake,just,task"
+
+[[setting]]
+key = "show_commands"
+type = "bool"
+label_key = "settings.show_commands.label"
+description_key = "settings.show_commands.description"
+default = true
+
+[[setting]]
+key = "max_history"
+type = "int"
+label_key = "settings.max_history.label"
+description_key = "settings.max_history.description"
+default = 50
+min = 1
+max = 500
+advanced = true

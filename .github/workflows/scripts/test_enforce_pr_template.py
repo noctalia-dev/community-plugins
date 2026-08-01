@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -33,25 +34,36 @@ class TemplateValidationTests(unittest.TestCase):
         )
         self.assertEqual(enforce_pr_template.missing_requirements(wrapped), [])
 
+    def test_accepts_body_stripped_of_guidance_comments(self) -> None:
+        stripped = re.sub(
+            r"<!--(?!\s*noctalia-pr-template:v1\s*-->).*?-->",
+            "",
+            self.template,
+            flags=re.DOTALL,
+        )
+        self.assertNotIn("guidance", stripped)
+        self.assertIn(enforce_pr_template.TEMPLATE_MARKER, stripped)
+        self.assertEqual(enforce_pr_template.missing_requirements(stripped), [])
+
     def test_rejects_missing_version_marker(self) -> None:
         body = self.template.replace(enforce_pr_template.TEMPLATE_MARKER, "")
         self.assertEqual(
             enforce_pr_template.missing_requirements(body),
-            ["template version marker"],
+            ["the template marker line `<!-- noctalia-pr-template:v1 -->`"],
         )
 
     def test_rejects_removed_section(self) -> None:
         body = self.template.replace("## Testing", "## Verification")
         self.assertEqual(
             enforce_pr_template.missing_requirements(body),
-            ["## Testing section"],
+            ["the `## Testing` heading"],
         )
 
     def test_rejects_removed_required_field(self) -> None:
         body = self.template.replace("- **Plugin API level:**", "- **API:**")
         self.assertEqual(
             enforce_pr_template.missing_requirements(body),
-            ["field: **Plugin API level:**"],
+            ["the `- **Plugin API level:**` field"],
         )
 
     def test_rejects_altered_multiline_checklist_item(self) -> None:
@@ -62,7 +74,7 @@ class TemplateValidationTests(unittest.TestCase):
         self.assertEqual(
             enforce_pr_template.missing_requirements(body),
             [
-                "checklist item: `README.md` follows the "
+                "the checklist entry: `README.md` follows the "
                 "[README template](https://github.com/noctalia-dev/community-plugins/blob/main/README_TEMPLATE.md), "
                 "documents every entry id and dependency, and includes exact panel IPC commands and launcher prefixes where applicable."
             ],
@@ -102,7 +114,13 @@ class TemplateEnforcementTests(unittest.TestCase):
                 "token",
             )
 
-        self.assertIn("template version marker", missing)
+        self.assertIn(
+            "the template marker line `<!-- noctalia-pr-template:v1 -->`",
+            missing,
+        )
+        comment = enforce_pr_template.build_closure_comment(missing)
+        for item in missing:
+            self.assertIn(f"- {item}\n", comment)
         self.assertEqual(
             request.call_args_list,
             [
@@ -114,7 +132,7 @@ class TemplateEnforcementTests(unittest.TestCase):
                     f"{self.ISSUE_URL}/comments",
                     "token",
                     method="POST",
-                    payload={"body": enforce_pr_template.CLOSURE_COMMENT},
+                    payload={"body": comment},
                 ),
                 mock.call(
                     self.PULL_REQUEST_URL,
@@ -125,17 +143,16 @@ class TemplateEnforcementTests(unittest.TestCase):
             ],
         )
 
-    def test_existing_enforcement_comment_is_not_duplicated(self) -> None:
-        existing_comment = {"body": enforce_pr_template.CLOSURE_COMMENT}
+    def test_identical_enforcement_comment_is_not_duplicated(self) -> None:
+        body = "AI-generated replacement body"
+        missing = enforce_pr_template.missing_requirements(body)
+        existing_comment = {"body": enforce_pr_template.build_closure_comment(missing)}
         with mock.patch.object(
             enforce_pr_template,
             "github_request",
             side_effect=[[existing_comment], {}],
         ) as request:
-            enforce_pr_template.enforce(
-                self.event("AI-generated replacement body"),
-                "token",
-            )
+            enforce_pr_template.enforce(self.event(body), "token")
 
         self.assertEqual(
             request.call_args_list,
@@ -151,6 +168,31 @@ class TemplateEnforcementTests(unittest.TestCase):
                     payload={"state": "closed"},
                 ),
             ],
+        )
+
+    def test_stale_enforcement_comment_is_replaced_with_current_findings(self) -> None:
+        body = TEMPLATE_PATH.read_text().replace("## Testing", "## Verification")
+        stale = {
+            "body": enforce_pr_template.build_closure_comment(
+                ["the template marker line `<!-- noctalia-pr-template:v1 -->`"]
+            )
+        }
+        with mock.patch.object(
+            enforce_pr_template,
+            "github_request",
+            side_effect=[[stale], {}, {}],
+        ) as request:
+            missing = enforce_pr_template.enforce(self.event(body), "token")
+
+        self.assertEqual(missing, ["the `## Testing` heading"])
+        self.assertEqual(
+            request.call_args_list[1],
+            mock.call(
+                f"{self.ISSUE_URL}/comments",
+                "token",
+                method="POST",
+                payload={"body": enforce_pr_template.build_closure_comment(missing)},
+            ),
         )
 
 

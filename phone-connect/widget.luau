@@ -91,8 +91,8 @@ local function render()
 		if reachable and hasCharge then
 			-- battery glyph + percent, colored by level
 			local batColor = "on_surface"
-			if charge <= 20 then batColor = "error"
-			elseif charging then batColor = "primary" end
+			if charging then batColor = "primary"
+			elseif charge <= 20 then batColor = "error" end
 			table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
 				size = 12, color = batColor }))
 			table.insert(kids, ui.label({
