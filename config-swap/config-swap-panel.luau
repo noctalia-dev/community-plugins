@@ -15,7 +15,7 @@ local previewWidth = 470
 local previewHeight = 350
 local previewImage = ""
 
-local selectedView = 1
+local selectedView = 0
 
 local previewCache = {}
 local previewPending = {}
@@ -74,6 +74,46 @@ end
 
 local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
+
+-- Section for Every Warning
+
+local function welcomeWarning()
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		}),
+		ui.label({ text = "Welcome to Config Swap!", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
+		ui.label({ text = "Please read this carefully before you continue.", textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
+		ui.label({ text = "This plugin can replace your current Noctalia configuration. We recommend backing up your current settings first — use the Save button in the Installed section. Backups are stored in ~/Config-Swap.", textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
+		ui.row({ gap = 8, justify = "center" }, {
+			ui.button({ text = "Not now", variant = "ghost", onClick = "onCloseClicked" }),
+			ui.button({ text = "I understand", onClick = function()
+				selectedView = 1
+				render()
+			end
+			}),
+		}),
+	}))
+end
+
+local function renderConfirmApply(data: infoConfig)
+	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
+		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		}),
+		ui.label({ text = "Apply this configuration?", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
+		ui.label({ text = data.name, textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
+		ui.label({ text = "This will replace your current settings.toml and wallpaper. A backup is not created automatically unless you saved one first.", textAlign = "center", fontSize = 13, color = "on_surface_variant" }),
+		ui.row({ gap = 8, justify = "center" }, {
+			ui.button({ text = "Cancel", variant = "ghost", onClick = "render" }),
+			ui.button({ text = "Apply", variant = "primary", onClick = function()
+				applyConfig(data)
+			end
+			}),
+		}),
+	}))
 end
 
 -- apply config file and wallpaper
@@ -440,7 +480,7 @@ local function renderInstall()
 				textAlign = "center",
 				}),
 				ui.button({ text = "apply", onClick = function()
-					applyConfig(data)
+					renderConfirmApply(data)
 				end
 				}),
 			} ), 
@@ -478,6 +518,9 @@ end
 -- Render Choice
 
 function render()
+	if selectedView == 0 then
+		welcomeWarning()
+	end
 	if selectedView == 1 then 
 		renderInstall()
 	end
