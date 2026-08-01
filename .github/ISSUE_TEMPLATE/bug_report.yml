@@ -30,6 +30,7 @@ body:
         - audio-switcher
         - battery-graph
         - battery-threshold
+        - battery-widget
         - bookmarks
         - calculator
         - cat
@@ -56,10 +57,12 @@ body:
         - keybind-cheatsheet
         - keymap
         - lid-guard
+        - llamanager
         - lrc
         - lyrics
         - mangowm-keymode
         - mawaqit
+        - mimir
         - mini-docker
         - nextboot-selector
         - nix-monitor

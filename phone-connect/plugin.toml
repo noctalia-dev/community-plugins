@@ -12,7 +12,7 @@
 
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 16
 author = "icefish"
 license = "MIT"
@@ -66,7 +66,7 @@ description_key = "settings.language.description"
 default = "en"
 options = [
   { value = "en", label_key = "settings.language.en" },
-  { value = "zh_hans", label_key = "settings.language.zh_hans" },
+  { value = "zh-Hans", label_key = "settings.language.zh-hans" },
 ]
 
 [[setting]]
@@ -75,36 +75,6 @@ type = "bool"
 label_key = "settings.enable_clipboard_action.label"
 description_key = "settings.enable_clipboard_action.description"
 default = true
-
-[[setting]]
-key = "show_ongoing_media"
-type = "bool"
-label_key = "settings.show_ongoing_media.label"
-description_key = "settings.show_ongoing_media.description"
-default = true
-
-[[setting]]
-key = "show_device_placeholder"
-type = "bool"
-label_key = "settings.show_device_placeholder.label"
-description_key = "settings.show_device_placeholder.description"
-default = true
-
-[[setting]]
-key = "scan_subdirectories"
-type = "bool"
-label_key = "settings.scan_subdirectories.label"
-description_key = "settings.scan_subdirectories.description"
-default = false
-
-[[setting]]
-key = "max_recent_images"
-type = "int"
-label_key = "settings.max_recent_images.label"
-description_key = "settings.max_recent_images.description"
-default = 4
-min = 1
-max = 12
 
 [[setting]]
 key = "panel_placement"
@@ -130,10 +100,10 @@ entry = "service.luau"
 id = "bar"
 entry = "widget.luau"
 
-# Right-click opens the details panel via onRightClick in the script
-# (noctalia.togglePanel). We deliberately do not bind [widget.actions] here:
-# the panel-toggle action grammar for opening a *plugin* panel by id is not
-# documented, so we drive it from the script instead.
+# Right-click opens settings via onRightClick in the script
+# (noctalia.openSettings). Left-click toggles the details panel. We deliberately
+# do not bind [widget.actions] here: the panel-toggle action grammar for opening
+# a *plugin* panel by id is not documented, so we drive it from the script instead.
 
 [[shortcut]]
 id = "tile"

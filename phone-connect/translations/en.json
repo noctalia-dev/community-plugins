@@ -16,6 +16,7 @@
   "error": {
     "accept_failed": "Failed to accept pairing",
     "browse_failed": "Failed to browse device",
+    "cli_failed": "Command failed",
     "clipboard_failed": "Failed to send clipboard",
     "no_backend": "No backend",
     "pairing_failed": "Pairing failed",
@@ -77,6 +78,7 @@
       "description": "Display language",
       "en": "English",
       "label": "Language",
+      "zh-hans": "简体中文",
       "zh_hans": "简体中文"
     },
     "max_recent_images": {

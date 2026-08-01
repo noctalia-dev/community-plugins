@@ -15,6 +15,13 @@ local function t(key)
 	return table[key] or key
 end
 
+-- Track last-applied config values so onConfigChanged only re-applies
+-- custom_image / device_alias when they actually change, not on every
+-- unrelated config edit (e.g. language switch). Prevents wiping a
+-- device's image/alias that was set via the global setting.
+local lastCustomImage = nil
+local lastDeviceAlias = nil
+
 -- ── State contract (read by UI entries) ──────────────────────────────────────
 --   noctalia.state "pc.backend"   : { available=bool, name="KDE Connect"|"None",
 --                                     announcedName="", selfId="" }
@@ -484,7 +491,7 @@ end
 local function runCli(args, cb)
 	noctalia.runAsync("kdeconnect-cli " .. args, function(res)
 		if res and res.error then
-			noctalia.notifyError(t("error.no_backend"), res.error)
+			noctalia.notifyError(t("error.cli_failed"), res.error)
 		end
 		if cb then cb(res) end
 	end)
@@ -596,7 +603,7 @@ local function handleCommand(cmd)
 						local first = (res.stdout or ""):match("'([^']+)'")
 						if first then dirPath = first end
 					end
-					noctalia.runInTerminal("xdg-open " .. shellQuote(dirPath))
+					noctalia.runAsync("xdg-open " .. shellQuote(dirPath), function() end)
 					noctalia.notify(t("notify.opening_browser"), dirPath)
 				end)
 			end)
@@ -664,7 +671,7 @@ local function handleCommand(cmd)
 				.. " --object-path " .. shellQuote(path)
 				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
 				.. " " .. shellQuote(MPRIS_IFACE) .. " volume "
-				.. "<int32 " .. tostring(vol) .. ">",
+				.. shellQuote("<int32 " .. tostring(vol) .. ">"),
 			function() refreshDevices() end)
 	else
 		noctalia.log("[phone-connect] unknown cmd op: " .. tostring(op))
@@ -682,7 +689,7 @@ end
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
 local function intervalMs()
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
-	if secs <= 0 then return 60000 end
+	if secs <= 0 then return 3600000 end   -- disabled: large interval to minimize wakeups
 	-- if media is playing, poll faster for live position updates
 	for _, d in pairs(devices) do
 		if d.mediaisPlaying == true then return 1000 end
@@ -691,16 +698,19 @@ local function intervalMs()
 end
 
 function update()
+	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	noctalia.setUpdateInterval(intervalMs())
+	if secs <= 0 then return end            -- disabled: skip auto-refresh
 	detectBackend()
 	refreshDevices()
 end
 
 function onConfigChanged()
 	noctalia.setUpdateInterval(intervalMs())
-	-- apply custom_image to selected device
+	-- apply custom_image to selected device (only when actually changed)
 	local img = noctalia.getConfig("custom_image")
-	if img ~= nil then
+	if img ~= nil and img ~= lastCustomImage then
+		lastCustomImage = img
 		local sel = noctalia.state.get("pc.selected")
 		if sel and sel ~= "" then
 			local map = noctalia.state.get("pc.imageMap") or {}
@@ -709,9 +719,10 @@ function onConfigChanged()
 			persistImageMap(map)
 		end
 	end
-	-- apply device_alias to selected device
+	-- apply device_alias to selected device (only when actually changed)
 	local alias = noctalia.getConfig("device_alias")
-	if alias ~= nil then
+	if alias ~= nil and alias ~= lastDeviceAlias then
+		lastDeviceAlias = alias
 		local sel = noctalia.state.get("pc.selected")
 		if sel and sel ~= "" then
 			local amap = noctalia.state.get("pc.aliasMap") or {}
@@ -744,6 +755,10 @@ function onIpc(event, payload)
 end
 
 -- Top-level init runs once at load.
+-- Seed config trackers so the first onConfigChanged after reload doesn't
+-- re-apply default custom_image/device_alias and wipe a device's image/alias.
+lastCustomImage = noctalia.getConfig("custom_image") or ""
+lastDeviceAlias = noctalia.getConfig("device_alias") or ""
 detectBackend()
 refreshDevices()
 -- Command channel: UI entries write { op, device, seq, ... } to "pc.cmd".

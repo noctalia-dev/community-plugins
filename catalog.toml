@@ -880,8 +880,8 @@ tags = ["bar", "panel", "service", "gaming", "system", "hardware"]
 [[plugin]]
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.1.0"
-updated_at = 1785500232
+version = "0.1.1"
+updated_at = 1785589014
 added_at = 1785500232
 author = "icefish"
 license = "MIT"
@@ -930,3 +930,30 @@ description = "Desktop/Lockscreen widget to show battery."
 deprecated = false
 plugin_api = 19
 tags = ["desktop", "hardware", "system", "utility"]
+
+[[plugin]]
+id = "marccvictoria/llamanager"
+name = "Llamanager"
+version = "1.0.0"
+updated_at = 1785589134
+added_at = 1785589134
+author = "marccvictoria"
+license = "MIT"
+icon = "topology-star-3"
+description = "Launcher and Manager for Ollama."
+deprecated = false
+plugin_api = 4
+tags = ["ai", "productivity", "bar", "launcher", "panel"]
+
+[[plugin]]
+id = "alexander/mimir"
+name = "Mimir"
+version = "0.4.0"
+updated_at = 1785589188
+added_at = 1785589188
+author = "Alexander"
+license = "MIT"
+icon = "brain"
+description = "An AI companion for Noctalia that brings LLM-powered chat directly into your desktop."
+plugin_api = 16
+tags = ["ai", "utility", "productivity", "development"]

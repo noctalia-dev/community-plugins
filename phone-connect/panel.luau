@@ -1,5 +1,5 @@
 -- panel.luau
--- Phone Connect - details panel (layered info-style UI, 720x600).
+-- Phone Connect - details panel (layered info-style UI, 500x600).
 --
 -- Layout: header + device hero + info grid span the top (full width); below
 -- them a two-column row: left (flex, scrollable) holds media control + SMS
@@ -26,6 +26,12 @@ end
 -- ── SMS composer local state (ui.input is uncontrolled) ─────────────────────
 local smsDestination = ""
 local smsMessage = ""
+
+-- ── Media slider drag state (freeze value while dragging) ──────────────────
+-- slider is controlled: value is reset every render. While the user drags,
+-- we freeze value to their position so the 1s service refresh doesn't yank
+-- the slider back. Keyed by device id so multi-device switching is clean.
+local dragState = {}   -- [deviceId] = { dragging = true, position = <ms> }
 
 -- ── Helpers ─────────────────────────────────────────────────────────────────
 local function glyphForType(t)
@@ -61,7 +67,7 @@ local function heroCard(d)
 	local reachable = d.isReachable == true
 	local paired = d.isPaired == true
 	local aliasMap = noctalia.state.get("pc.aliasMap") or {}
-	local name = aliasMap[d.id] or "Your-Phone"
+	local name = aliasMap[d.id] or d.name or "Your-Phone"
 	local glyph = glyphForType(d.type)
 	local imgMap = noctalia.state.get("pc.imageMap") or {}
 	local imgPath = imgMap[d.id]
@@ -92,7 +98,7 @@ local function heroCard(d)
 				}),
 			ui.column({ gap = 4, flexGrow = 1 }, {
 				ui.label({ text = name, fontSize = 17, fontWeight = "bold", color = "on_surface" }),
-				ui.box({ radius = 10, fill = statusColor .. "/0.15", padding = 4 }, {
+				ui.row({ radius = 10, fill = statusColor .. "/0.15", padding = 4 }, {
 					ui.label({ text = statusText, fontSize = 11, color = statusColor }),
 				}),
 			}),
@@ -228,18 +234,22 @@ local function mediaSection(d)
 
 	local progress
 		if canSeek and length > 0 then
-			local seekPos = position
+			local st = dragState[d.id]
+			local sliderValue = (st and st.dragging and st.position) or position
 			progress = ui.column({ gap = 2 }, {
-				ui.slider({ min = 0, max = length, step = 1000, value = position,
+				ui.slider({ min = 0, max = length, step = 1000, value = sliderValue,
 					controlSize = "sm",
 					onChange = function(v)
-						seekPos = tonumber(v) or position
+						dragState[d.id] = { dragging = true, position = tonumber(v) or position }
 					end,
 					onDragEnd = function()
-						sendCmd({ op = "media_seek", device = d.id, offset = tostring(seekPos) })
+						local st2 = dragState[d.id]
+						local target = (st2 and st2.position) or position
+						dragState[d.id] = nil
+						sendCmd({ op = "media_seek", device = d.id, offset = tostring(target) })
 					end }),
 				ui.row({ justify = "space_between" }, {
-					ui.label({ text = fmtTime(position), fontSize = 9, color = "on_surface_variant" }),
+					ui.label({ text = fmtTime(sliderValue), fontSize = 9, color = "on_surface_variant" }),
 					ui.label({ text = fmtTime(length), fontSize = 9, color = "on_surface_variant" }),
 				}),
 			})
@@ -295,6 +305,7 @@ end
 
 -- ── Device switcher (bottom, full width, only if >1 device) ─────────────────
 local function switcher(devices, order, sel)
+	local aliasMap = noctalia.state.get("pc.aliasMap") or {}
 	if #order <= 1 then return nil end
 	local items = {}
 	for _, id in ipairs(order) do
@@ -308,7 +319,7 @@ local function switcher(devices, order, sel)
 			}, {
 				ui.glyph({ name = glyphForType(d.type), size = 14,
 					color = d.isReachable and "primary" or "on_surface_variant" }),
-					ui.label({ text = aliasMap[id] or "Your-Phone", fontSize = 12, flexGrow = 1, color = "on_surface" }),
+					ui.label({ text = aliasMap[id] or d.name or "Your-Phone", fontSize = 12, flexGrow = 1, color = "on_surface" }),
 				ui.label({ text = (type(d.batteryCharge) == "number" and d.batteryCharge >= 0)
 					and (tostring(d.batteryCharge) .. "%") or "", fontSize = 10,
 					color = "on_surface_variant" }),
