@@ -297,7 +297,7 @@ local function renderSetting()
 	local rowsSettings = {
 		ui.column({ gap = 8 }, {
 			ui.label({
-				text = "Save your current configuration under a custom name at ~/Config-Swap/{name}. A default info.json is created and can be edited later at ~/Config-Swap/{name}/info.json.",
+				text = "Save your current configuration under a custom name at ~/Config-Swap/{name}. A default info.json is created and can be edited later at ~/Config-Swap/{name}/info.json. To set a preview, you can add preview.png to the config folder. This also works for wallpapers using wallpaper.png",
 				fontSize = 12,
 				color = "on_surface_variant",
 			}),
