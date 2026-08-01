@@ -1,5 +1,3 @@
-noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
-
 local glyph
 local color
 local percent
@@ -115,5 +113,6 @@ if not batName then
 end
 
 function update()
+    noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
     refreshBattery()
 end
