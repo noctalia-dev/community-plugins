@@ -157,7 +157,7 @@ function render()
       table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
         ui.row({ gap = 4, align = "center" }, {
           ui.label({ text = isUser and "You" or "Mimir", fontSize = 11, color = "on_surface/0.5" }),
-          ui.button({ glyph = isCopying and "close" or "copy", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
+          ui.button({ text = isCopying and "Close" or "Select", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
         }),
         table.unpack(contentNodes),
       }))
