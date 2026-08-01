@@ -7,7 +7,7 @@ A clean, minimalist layout switcher plugin for MangoWC. It provides a bar widget
 | Field | Value |
 | --- | --- |
 | ID | `ezequiel/mango_layouts` |
-| Entries | Bar widget: `btn`; panel: `main` |
+| Entries | Bar widget: `btn`; panel: `panel` |
 
 ## Requirements
 
@@ -21,7 +21,7 @@ Add the widget to your Noctalia bar in Settings. Click the widget to open the la
 Alternatively, toggle the panel directly via command line or keybinding:
 
 ```sh
-noctalia msg panel-toggle ezequiel/mango_layouts:main
+noctalia msg panel-toggle ezequiel/mango_layouts:panel
 ```
 
 ## Settings
