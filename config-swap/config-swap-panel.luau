@@ -4,10 +4,8 @@
 -- Local variable
 
 local configBox = "~/Config-Swap" 			
-local pathLocal = "~/.local/state/noctalia/settings.toml"		-- path for settings
 
 local listConfig = nil
-local optionFull = {"all", "not full", "full"}
 
 local pickSlots = {}
 local columns = 2
@@ -36,6 +34,13 @@ type infoConfig = {
 	depedencie: boolean,		-- other depedencie for your config
 }
 
+-- Section for state dir
+
+local function resolveStateDir()
+	return noctalia.getenv("NOCTALIA_STATE_HOME")
+		or ((noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/noctalia")
+end
+
 -- section for get all config
 
 local allConfig: { infoConfig } = {}
@@ -59,15 +64,9 @@ end
 -- function get position of settings noctalia
 
 function takePosSetting()
-	local dir = noctalia.pluginDataDir()
-	local path = dir .. "/data.json"
-	local raw = noctalia.readFile(path)
-	if raw then
-		local data = noctalia.json.decode(raw)
-		if data and data.settingsPath then
-			return data.settingsPath
-		end
-	end
+	local noctaliaStateDir = resolveStateDir()
+	local settingsTomlPath = noctaliaStateDir .. "/settings.toml"
+	return settingsTomlPath
 end
 
 -- Section protection shell commande
@@ -110,6 +109,7 @@ local function renderConfirmApply(data: infoConfig)
 			ui.button({ text = "Cancel", variant = "ghost", onClick = "render" }),
 			ui.button({ text = "Apply", variant = "primary", onClick = function()
 				applyConfig(data)
+				render()
 			end
 			}),
 		}),
@@ -123,7 +123,7 @@ function applyConfig(data: infoConfig)
 
 	local pathSettings = takePosSetting()
 	if not pathSettings then
-		noctalia.notify(tr("notification_title"), "Path not found, please check your data.json")
+		noctalia.notify(tr("notification_title"), "Path not found, please check your setting toml")
 		return
 	end
 
@@ -132,11 +132,10 @@ function applyConfig(data: infoConfig)
 	local cmd = "cp " .. src .. " " .. dest
 
 	noctalia.runAsync(cmd, function(result)
-	noctalia.notify("debug cp", "exit=" .. tostring(result and result.exitCode) .. " err=[" .. tostring(result and result.stderr) .. "]")
 		if result and result.exitCode == 0 then
 			noctalia.setWallpaper(configBox .. "/" .. data.name .. "/wallpaper.png")
 		else
-			noctalia.notify(tr("notification_title"), "cp failed")
+			noctalia.notify(tr("notification_title"), "swap failed")
 		end
 	end)
 end
@@ -250,11 +249,6 @@ local function renderDeleteConfirmation(name)
 end
 
 -- Section for setting and reset / save config
-
-local function resolveStateDir()
-	return noctalia.getenv("NOCTALIA_STATE_HOME")
-		or ((noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/noctalia")
-end
 
 local noctaliaStateDir = resolveStateDir()
 local settingsTomlPath = noctaliaStateDir .. "/settings.toml"
@@ -423,7 +417,7 @@ local function renderList()
 				render()
 			end
 			}),
-			ui.button({ text = "?", onClick = function()
+			ui.button({ text = "info", onClick = function()
 				renderInfoStore()
 			end
 			}),
@@ -558,7 +552,7 @@ local function renderInstall()
 				render()
 			end
 			}),
-			ui.button({ text = "setting", onClick = function()
+			ui.button({ text = "Setting", onClick = function()
 				renderSetting()
 			end
 			}),
