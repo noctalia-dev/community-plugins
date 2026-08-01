@@ -16,6 +16,10 @@ local function isNotEmpty(value)
     return true
 end
 
+local function shellEscape(str)
+    return "'" .. tostring(str):gsub("'", "'\\''") .. "'"
+end
+
 -- return ollama table
 local function loadOllama()
     local isInstalled = function() return noctalia.commandExists("ollama") end
@@ -178,9 +182,9 @@ end
 
 local function loadToOllama(modelName, modelfilePath)
     local cmd = string.format(
-    'ollama create "%s" -f "%s"',
-        modelName,
-        modelfilePath
+    'ollama create %s -f %s',
+        shellEscape(modelName),
+        shellEscape(modelfilePath)
     )
 
     noctalia.runAsync(cmd, function(result)
@@ -196,7 +200,7 @@ local function loadToOllama(modelName, modelfilePath)
 end
 
 local function deleteModelOllama(modelName)
-    local cmd = string.format('ollama rm "%s"', modelName)
+    local cmd = string.format('ollama rm %s', shellEscape(modelName))
 
     noctalia.runAsync(cmd, function(result)
         if result.exitCode == 0 then
