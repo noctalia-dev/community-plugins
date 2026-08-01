@@ -295,6 +295,7 @@ end
 
 -- ── Device switcher (bottom, full width, only if >1 device) ─────────────────
 local function switcher(devices, order, sel)
+	local aliasMap = noctalia.state.get("pc.aliasMap") or {}
 	if #order <= 1 then return nil end
 	local items = {}
 	for _, id in ipairs(order) do
