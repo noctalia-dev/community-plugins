@@ -1,5 +1,3 @@
-launcherModel = noctalia.getConfig("launcher")
- 
 function onQuery(text)
     if text == "" then
         launcher.setResults(text, {
@@ -43,7 +41,7 @@ function onQuery(text)
             "Content-Type: application/json",
         },
         body = noctalia.json.encode({
-            model = launcherModel,
+            model = noctalia.getConfig("launcher"),
             prompt = prompt,
             stream = false,
             think = false,
