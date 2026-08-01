@@ -57,7 +57,7 @@ ollama --version
 
 **Model Downloader**. Downloads models directly through Ollama's HTTP API. Downloads execute using the streaming `/api/pull` endpoint and automatically refresh the model library after completion.
 
-**Modelfile Editor**. Modelfiles are ordinary text files stored inside the configured Modelfile directory, with the suffix `.modelfiles`.
+**Modelfile Editor**. Modelfiles are ordinary text files stored inside the configured Modelfile directory, with the suffix `.modelfile`.
 
 - **Load into Ollama**. Builds the modelfile into an ollama model by executing ollama create.
 - **Delete model/modelfile**. Deleting a modelfile also deletes the model in ollama using `ollama rm`. In case the modelfile has not been loaded yet to ollama, it will only delete the modelfile. When deleting a model, it is recommended to include their tag, e.g. `qwen3:latest`.
