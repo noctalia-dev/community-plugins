@@ -5,6 +5,7 @@ M.pendingToolResults = {}
 M.pendingToolCalls = {}
 M.pendingApproval = nil
 M.toolBatchActive = false
+M.commandLog = {}
 
 local TOOLS = {
   {
@@ -59,6 +60,7 @@ local function loadConfig()
     endpoint = noctalia.getConfig("api_endpoint") or "https://opencode.ai/zen/go/v1",
     apiKey = loadApiKey(),
     toolPermission = noctalia.getConfig("tool_permission") or "ask",
+    showCommands = noctalia.getConfig("show_commands") ~= false,
     toolBlocklist = noctalia.getConfig("tool_blocklist") or "sudo,su,passwd,rm,mv,shred,truncate,tee,install,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt,curl,wget,nc,ncat,socat,env,find,xargs,sh,bash,zsh,fish,python,python3,perl,ruby,node,lua,luau,eval,source,busybox,make,cmake,just,task",
     maxHistory = noctalia.getConfig("max_history") or 50,
   }
@@ -172,6 +174,14 @@ local function runCommand(tool_call, command)
     output = table.concat(parts, "\n")
     if output == "" then
       output = "(exit code " .. tostring(result.status) .. ", no output)"
+    end
+    local config = loadConfig()
+    if config.showCommands then
+      table.insert(M.commandLog, { tool_call_id = tool_call.id, command = command })
+      if #M.commandLog > 50 then table.remove(M.commandLog, 1) end
+      local logCopy = {}
+      for _, entry in ipairs(M.commandLog) do table.insert(logCopy, entry) end
+      noctalia.state.set("mimir.command_log", logCopy)
     end
     table.insert(M.pendingToolResults, { tool_call_id = tool_call.id, output = output })
   end)
@@ -371,7 +381,9 @@ noctalia.state.watch("mimir.clear", function(v)
     M.pendingToolCalls = {}
     M.pendingApproval = nil
     M.toolBatchActive = false
+    M.commandLog = {}
     noctalia.state.set("mimir.messages", {})
+    noctalia.state.set("mimir.command_log", {})
     noctalia.state.set("mimir.pending_tool", false)
     setStatus("idle")
   end
@@ -405,3 +417,4 @@ if noctalia.state.get("mimir.model") == nil then
 end
 noctalia.state.set("mimir.status", "idle")
 noctalia.state.set("mimir.messages", {})
+noctalia.state.set("mimir.command_log", {})

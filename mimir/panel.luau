@@ -38,6 +38,16 @@ local function renderText(text, color, fontSize, fontWeight)
   return ui.label({ text = inlineMarkdown(text), fontSize = fontSize or 13, fontWeight = fontWeight, color = color, maxWidth = 380 })
 end
 
+local function toolCommand(toolCall)
+  local fn = toolCall["function"]
+  if not fn or type(fn.arguments) ~= "string" then return nil end
+  local ok, args = pcall(noctalia.json.decode, fn.arguments)
+  if ok and type(args) == "table" and type(args.command) == "string" then
+    return args.command
+  end
+  return nil
+end
+
 local function parseMessage(content)
   local nodes = {}
   local lines = {}
@@ -116,6 +126,12 @@ function render()
   local models = noctalia.state.get("mimir.models") or {}
   local messages = noctalia.state.get("mimir.messages") or {}
   local status = noctalia.state.get("mimir.status") or "idle"
+  local commandLog = noctalia.state.get("mimir.command_log") or {}
+  local showCommands = noctalia.getConfig("show_commands") ~= false
+  local commandsByToolCall = {}
+  for _, entry in ipairs(commandLog) do
+    commandsByToolCall[entry.tool_call_id] = entry.command
+  end
 
   local statusColors = { idle = "on_surface/0.4", thinking = "primary", running_tool = "primary", error = "error" }
   local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", error = "Error" }
@@ -154,10 +170,21 @@ function render()
           table.insert(contentNodes, ui.column({ gap = 2 }, listChildren))
         end
       end
+      if msg.tool_calls then
+        for _, toolCall in ipairs(msg.tool_calls) do
+          local command = showCommands and (toolCommand(toolCall) or commandsByToolCall[toolCall.id])
+          if command then
+            table.insert(contentNodes, ui.column({ gap = 2, padding = 8, fill = "surface_variant", radius = 6 }, {
+              ui.label({ text = "Command", fontSize = 11, color = "on_surface/0.5" }),
+              ui.label({ text = "$ " .. command, fontSize = 12, color = "primary", maxWidth = 380 }),
+            }))
+          end
+        end
+      end
       table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
         ui.row({ gap = 4, align = "center" }, {
           ui.label({ text = isUser and "You" or "Mimir", fontSize = 11, color = "on_surface/0.5" }),
-          ui.button({ text = isCopying and "Close" or "Select", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
+          ui.button({ glyph = isCopying and "close" or "copy", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
         }),
         table.unpack(contentNodes),
       }))
@@ -273,6 +300,10 @@ noctalia.state.watch("mimir.pending_tool", function()
   if noctalia.state.get("mimir.pending_tool") then
     noctalia.state.set("mimir.copy_target", -1)
   end
+  render()
+end)
+
+noctalia.state.watch("mimir.command_log", function()
   render()
 end)
 

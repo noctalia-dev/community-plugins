@@ -1,6 +1,6 @@
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.3.6"
+version = "0.4.0"
 plugin_api = 16
 author = "Alexander"
 license = "MIT"
@@ -67,6 +67,13 @@ type = "string"
 label_key = "settings.tool_blocklist.label"
 description_key = "settings.tool_blocklist.description"
 default = "sudo,su,passwd,rm,mv,shred,truncate,tee,install,chown,chmod,mount,umount,dd,mkfs,fsck,reboot,shutdown,poweroff,init,halt,curl,wget,nc,ncat,socat,env,find,xargs,sh,bash,zsh,fish,python,python3,perl,ruby,node,lua,luau,eval,source,busybox,make,cmake,just,task"
+
+[[setting]]
+key = "show_commands"
+type = "bool"
+label_key = "settings.show_commands.label"
+description_key = "settings.show_commands.description"
+default = true
 
 [[setting]]
 key = "max_history"

@@ -47,6 +47,10 @@
       "label": "Blocked Commands",
       "description": "Comma-separated commands never allowed"
     },
+    "show_commands": {
+      "label": "Show Commands",
+      "description": "Show executed commands in the chat"
+    },
     "max_history": {
       "label": "Max History",
       "description": "Number of messages to keep in conversation context"
