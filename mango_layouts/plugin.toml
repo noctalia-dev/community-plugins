@@ -1,0 +1,132 @@
+id         = "ezequiel/mango_layouts"
+name       = "Mango Layouts"
+version    = "1.0.0"
+plugin_api = 14
+author     = "ezequiel"
+license    = "MIT"
+tags       = ["bar", "panel", "mangowc", "utility"]
+dependencies = ["jq", "mmsg"]
+
+[[widget]]
+id    = "btn"
+entry = "widget.luau"
+actions = {}
+
+# -- WIDGET SETTINGS --
+[[widget.setting]]
+key     = "show_glyph"
+type    = "boolean"
+label_key = "Mostrar Icono"
+default = true
+
+[[widget.setting]]
+key     = "show_text"
+type    = "boolean"
+label_key = "Mostrar Texto"
+default = false
+
+[[widget.setting]]
+key     = "custom_color"
+type    = "string"
+label_key = "Color del Icono/Texto"
+description_key = "Ej: primary, on_surface, etc."
+default = ""
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 240
+height = 250
+placement = "floating"
+position = "bottom_right"
+
+# -- GLOBAL SETTINGS --
+[[setting]]
+key     = "list_mode"
+type    = "boolean"
+label_key = "Modo Lista Vertical"
+default = false
+
+[[setting]]
+key     = "show_tile"
+type    = "boolean"
+label_key = "Layout: Tile"
+default = true
+
+[[setting]]
+key     = "show_scroller"
+type    = "boolean"
+label_key = "Layout: Scroller"
+default = true
+
+[[setting]]
+key     = "show_monocle"
+type    = "boolean"
+label_key = "Layout: Monocle"
+default = true
+
+[[setting]]
+key     = "show_grid"
+type    = "boolean"
+label_key = "Layout: Grid"
+default = true
+
+[[setting]]
+key     = "show_fair"
+type    = "boolean"
+label_key = "Layout: Fair"
+default = true
+
+[[setting]]
+key     = "show_deck"
+type    = "boolean"
+label_key = "Layout: Deck"
+default = true
+
+[[setting]]
+key     = "show_dwindle"
+type    = "boolean"
+label_key = "Layout: Dwindle"
+default = true
+
+[[setting]]
+key     = "show_center_tile"
+type    = "boolean"
+label_key = "Layout: Center Tile"
+default = true
+
+[[setting]]
+key     = "show_vertical_tile"
+type    = "boolean"
+label_key = "Layout: Vertical Tile"
+default = true
+
+[[setting]]
+key     = "show_right_tile"
+type    = "boolean"
+label_key = "Layout: Right Tile"
+default = true
+
+[[setting]]
+key     = "show_vertical_scroller"
+type    = "boolean"
+label_key = "Layout: Vertical Scroller"
+default = true
+
+[[setting]]
+key     = "show_vertical_grid"
+type    = "boolean"
+label_key = "Layout: Vertical Grid"
+default = true
+
+[[setting]]
+key     = "show_vertical_deck"
+type    = "boolean"
+label_key = "Layout: Vertical Deck"
+default = true
+
+[[setting]]
+key     = "show_vertical_fair"
+type    = "boolean"
+label_key = "Layout: Vertical Fair"
+default = true

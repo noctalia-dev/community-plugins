@@ -1,0 +1,21 @@
+{
+  "Mostrar Icono": "Show Icon",
+  "Mostrar Texto": "Show Text",
+  "Color del Icono/Texto": "Icon/Text Color",
+  "Ej: primary, on_surface, etc.": "Ex: primary, on_surface, etc.",
+  "Modo Lista Vertical": "Vertical List Mode",
+  "Layout: Tile": "Layout: Tile",
+  "Layout: Scroller": "Layout: Scroller",
+  "Layout: Monocle": "Layout: Monocle",
+  "Layout: Grid": "Layout: Grid",
+  "Layout: Fair": "Layout: Fair",
+  "Layout: Deck": "Layout: Deck",
+  "Layout: Dwindle": "Layout: Dwindle",
+  "Layout: Center Tile": "Layout: Center Tile",
+  "Layout: Vertical Tile": "Layout: Vertical Tile",
+  "Layout: Right Tile": "Layout: Right Tile",
+  "Layout: Vertical Scroller": "Layout: Vertical Scroller",
+  "Layout: Vertical Grid": "Layout: Vertical Grid",
+  "Layout: Vertical Deck": "Layout: Vertical Deck",
+  "Layout: Vertical Fair": "Layout: Vertical Fair"
+}
