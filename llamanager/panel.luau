@@ -1,4 +1,5 @@
 local modelfilePath = ""
+local pathSet
 
 local stageIcon = "topology-star-3"
 
@@ -21,6 +22,11 @@ function onBackButtonClick()
 end
 
 function onEditorButtonClick()
+    if not pathSet then
+        noctalia.notify("Llamanager", "Please configure a valid Modelfile directory first.")
+        return
+    end
+
     noctalia.state.set("llamanager.nextCommand", "editor")
 end
 
@@ -301,9 +307,16 @@ end
 
 function onOpen(_context)
     modelfilePath = noctalia.expandPath(noctalia.getConfig("modelfile_path"))
-    if modelfilePath:sub(-1) ~= "/" then
-        modelfilePath = modelfilePath .. "/"
+    
+    if not modelfilePath or modelfilePath == "" or not noctalia.fileExists(modelfilePath) then
+        pathSet = false
+    else
+        if modelfilePath:sub(-1) ~= "/" then
+            modelfilePath = modelfilePath .. "/"
+        end
+        pathSet = true
     end
+    
     -- trigger initial load
     noctalia.state.set("llamanager.view", "modelsView")
     noctalia.state.set("llamanager.nextCommand", "refresh")
@@ -317,7 +330,7 @@ local function render()
         renderModelsView(ollama.models or {})
     elseif view == "runtimeView" then
         renderRuntimeView(ollama or {})
-    elseif view == "editorView" then
+    elseif view == "editorView" and pathSet then
         renderEditorView()
     elseif view == "modelfileEditorView" then
         renderModelfileEditorView()
