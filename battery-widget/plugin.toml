@@ -1,0 +1,109 @@
+id = "yocraft/battery-widget"
+name = "Battery Widget"
+version = "1.0.0"
+plugin_api = 19
+author = "yocraft"
+license = "MIT"
+deprecated = false
+icon = "battery"
+description = "Desktop/Lockscreen widget to show battery."
+tags = [ "desktop", "hardware", "system", "utility" ]
+dependencies = []
+
+[[desktop_widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[setting]]
+key = "layout"
+type = "select"
+label_key = "settings.layout.label"
+description_key = "settings.layout.description"
+default = "horizontal"
+options = [
+    { value = "horizontal", label_key = "settings.layout.horizontal" },
+    { value = "vertical", label_key = "settings.layout.vertical" },
+]
+
+[[setting]]
+key = "show_glyph"
+type = "bool"
+label_key = "settings.show_glyph.label"
+description_key = "settings.show_glyph.description"
+default = true
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+description_key = "settings.show_label.description"
+default = true
+
+[[setting]]
+key = "hide_plugged"
+type = "bool"
+label_key = "settings.hide_plugged.label"
+description_key = "settings.hide_plugged.description"
+default = false
+
+[[setting]]
+key = "hide_full"
+type = "bool"
+label_key = "settings.hide_full.label"
+description_key = "settings.hide_full.description"
+default = false
+
+
+[[setting]]
+key = "color"
+type = "color"
+label_key = "settings.color.label"
+description_key = "settings.color.description"
+default = "on_surface"
+advanced = true
+
+[[setting]]
+key = "warning_color"
+type = "color"
+label_key = "settings.warning_color.label"
+description_key = "settings.warning_color.description"
+default = "error"
+advanced = true
+
+[[setting]]
+key = "charging_color"
+type = "color"
+label_key = "settings.charging_color.label"
+description_key = "settings.charging_color.description"
+default = "on_surface"
+advanced = true
+
+
+[[setting]]
+key = "battery"
+type = "select"
+label_key = "settings.battery.label"
+description_key = "settings.battery.description"
+default = "auto"
+options = [
+    { value = "auto", label_key = "settings.battery.auto" },
+    { value = "bat0", label_key = "settings.battery.bat0" },
+    { value = "custom", label_key = "settings.battery.custom" },
+]
+
+[[setting]]
+key = "battery_name"
+type = "string"
+label_key = "settings.battery_name.label"
+description_key = "settings.battery_name.description"
+default = "BAT0"
+visible_when = { key = "battery", values = ["custom"] }
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 60
+min = 1
+max = 600

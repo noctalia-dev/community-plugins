@@ -1,0 +1,60 @@
+id          = "nilsonlinux/rss-notifier"
+name        = "RSS/Atom Notifier"
+version     = "1.0.0"
+plugin_api  = 14
+author      = "Nilsonlinux"
+license     = "MIT"
+icon        = "rss"
+description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
+tags        = ["utility", "indicator"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key             = "feed_urls"
+type            = "string_list"
+label_key       = "settings.feed_urls.label"
+description_key = "settings.feed_urls.description"
+default         = []
+
+[[setting]]
+key             = "refresh_minutes"
+type            = "int"
+label_key       = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default         = 30
+min             = 1
+max             = 1440
+
+[[setting]]
+key             = "notify_new"
+type            = "bool"
+label_key       = "settings.notify_new.label"
+description_key = "settings.notify_new.description"
+default         = true
+
+[[setting]]
+key             = "max_notifications_per_cycle"
+type            = "int"
+label_key       = "settings.max_notifications_per_cycle.label"
+description_key = "settings.max_notifications_per_cycle.description"
+default         = 5
+min             = 1
+max             = 50
+advanced        = true
+
+[[service]]
+id    = "fetcher"
+entry = "service.luau"
+
+[[widget]]
+id    = "badge"
+entry = "widget.luau"
+
+[[panel]]
+id              = "list"
+entry           = "panel.luau"
+width           = 360
+height          = 440
+placement       = "attached"
+position        = "auto"
+open_near_click = true

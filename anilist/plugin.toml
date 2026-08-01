@@ -1,6 +1,6 @@
 id = "cleboost/anilist"
 name = "AniList (UNOFFICIAL)"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 15
 author = "Cleboost"
 license = "MIT"

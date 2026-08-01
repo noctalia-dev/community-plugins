@@ -1,0 +1,94 @@
+id = "nomadcxx/gamer-mode"
+name = "Gamer Mode"
+version = "0.6.4"
+plugin_api = 19
+author = "Nomadcxx"
+license = "MIT"
+dependencies = ["pgrep", "pkill", "powerprofilesctl", "systemctl"]
+tags = ["bar", "panel", "service", "gaming", "system", "hardware"]
+icon = "device-gamepad-2"
+description = "Live CPU/RAM/GPU metrics and a one-click gamer mode that suspends and restores background resource hogs."
+
+[[setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "device-gamepad-2"
+
+[[setting]]
+key = "click_action"
+type = "select"
+label_key = "settings.click_action.label"
+description_key = "settings.click_action.description"
+default = "open_panel"
+options = [
+  { value = "open_panel", label_key = "settings.click_action.options.open_panel" },
+  { value = "toggle", label_key = "settings.click_action.options.toggle" },
+]
+
+[[setting]]
+key = "poll_interval"
+type = "select"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = "3"
+options = [
+  { value = "2", label_key = "settings.poll_interval.options.2" },
+  { value = "3", label_key = "settings.poll_interval.options.3" },
+  { value = "5", label_key = "settings.poll_interval.options.5" },
+]
+
+[[setting]]
+key = "profile"
+type = "select"
+label_key = "settings.profile.label"
+description_key = "settings.profile.description"
+default = "light"
+options = [
+  { value = "light", label_key = "settings.profile.options.light" },
+  { value = "heavy", label_key = "settings.profile.options.heavy" },
+]
+
+[[setting]]
+key = "auto_performance"
+type = "bool"
+label_key = "settings.auto_performance.label"
+description_key = "settings.auto_performance.description"
+default = true
+
+[[setting]]
+key = "show_temps"
+type = "bool"
+label_key = "settings.show_temps.label"
+description_key = "settings.show_temps.description"
+default = true
+
+[[setting]]
+key = "targets"
+type = "string"
+label_key = "settings.targets.label"
+description_key = "settings.targets.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "main"
+entry = "panel.luau"
+width = 560
+height = 820
+placement = "attached"
+position = "auto"
+# "on_demand" takes keyboard focus only when you click inside the panel, so opening it
+# from the bar leaves focus where it was. "none" would refuse focus entirely, but the
+# shell requires dismiss_on_outside_click = false alongside it, which would leave the
+# panel on screen until you click the bar icon again.
+keyboard_focus = "on_demand"
+
+[[widget]]
+id = "gamermode"
+entry = "widget.luau"

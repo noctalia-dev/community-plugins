@@ -76,9 +76,9 @@ local function render()
   barWidget.setGlyph(glyph)
   barWidget.setGlyphColor(if open then "primary" else "on_surface")
 
-  if snapshot.loading then
+  if snapshot.oauthLoading or snapshot.loading then
     barWidget.setText("")
-    barWidget.setTooltip(tr("tooltip_loading"))
+    barWidget.setTooltip(if snapshot.oauthLoading then tr("tooltip_oauth") else tr("tooltip_loading"))
     return
   end
 

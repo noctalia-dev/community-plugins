@@ -1,7 +1,7 @@
 id           = "joshuaslate/shelly"
 name         = "Shelly"
 icon         = "package"
-version      = "1.0.1"
+version      = "2.0.0"
 plugin_api = 3
 license = "MIT"
 author       = "joshuaslate"
@@ -48,6 +48,24 @@ entry = "widget.luau"
   default = "on_surface"
 
   [[widget.setting]]
+  key = "bar_label"
+  type = "select"
+  label_key = "settings.bar_label.label"
+  description_key = "settings.bar_label.description"
+  default = "count_and_label"
+  options = [
+    { value = "count_and_label", label_key = "settings.bar_label.options.count_and_label" },
+    { value = "count_only", label_key = "settings.bar_label.options.count_only" }
+  ]
+
+  [[widget.setting]]
+  key = "bar_font_size"
+  type = "int"
+  label_key = "settings.bar_font_size.label"
+  description_key = "settings.bar_font_size.description"
+  default = 14
+
+  [[widget.setting]]
   key = "glyph"
   type = "glyph"
   label_key = "settings.glyph.label"
@@ -60,6 +78,13 @@ entry = "widget.luau"
   label_key = "settings.glyph_color.label"
   description_key = "settings.glyph_color.description"
   default = "on_surface"
+
+  [[widget.setting]]
+  key = "glyph_size"
+  type = "int"
+  label_key = "settings.glyph_size.label"
+  description_key = "settings.glyph_size.description"
+  default = 14
 
   [[widget.setting]]
   key = "click_action"

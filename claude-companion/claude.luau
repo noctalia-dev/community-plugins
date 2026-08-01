@@ -156,7 +156,9 @@ end
 -- 401 whenever no terminal session has run recently. Two layers, both fail-open:
 -- a pre-flight that skips the launch when the token is positively expired, and
 -- an error-text match that swaps the raw API error for the remedy.
--- (remedy text: tr("notify.auth_remedy"))
+-- Resolved per call, not once at load: a language change should be reflected in the
+-- remedy text without a plugin reload.
+local function auth_remedy() return tr("notify.auth_remedy") end
 
 local CREDS_PATH = "~/.claude/.credentials.json"
 
@@ -284,9 +286,8 @@ function onActivate(id)
     -- and the remedy needs a terminal anyway — so say so now and skip the
     -- launch. No claude.state touch: no ask session ever starts.
     if token_expired() then
-      local remedy = tr("notify.auth_remedy")
-      publish_answer(ask, remedy, true)
-      if not panel_showing() then noctalia.notifyError(tr("notify.title"), remedy) end
+      publish_answer(ask, auth_remedy(), true)
+      if not panel_showing() then noctalia.notifyError(tr("notify.title"), auth_remedy()) end
       return
     end
     set_state(EVENT.turn_start)
@@ -316,7 +317,7 @@ function onActivate(id)
         if final == "" then final = tr("notify.ask_failed") end
         -- a 401 that slipped past the pre-flight: deliver the remedy, not the
         -- raw API error blob
-        if is_auth_error(final) then final = tr("notify.auth_remedy") end
+        if is_auth_error(final) then final = auth_remedy() end
         publish_answer(ask, final, true)
         if not panel_showing() then
           local body, clipped = preview(final)

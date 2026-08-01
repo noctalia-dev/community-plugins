@@ -1,0 +1,53 @@
+{
+  "settings": {
+    "battery": {
+      "auto": "Auto",
+      "bat0": "BAT0",
+      "custom": "Custom",
+      "description": "Detect the battery automatically or set a custom name.",
+      "label": "Battery"
+    },
+    "battery_name": {
+      "description": "Name of the battery.",
+      "label": "Battery Name"
+    },
+    "charging_color": {
+      "description": "Color applied when connected to AC power.",
+      "label": "Charging Color"
+    },
+    "color": {
+      "description": "Color role for this widget's icon and label; fixed hex colors are also supported.",
+      "label": "Color"
+    },
+    "hide_full": {
+      "description": "Hide the battery widget when fully charged.",
+      "label": "Hide When Full"
+    },
+    "hide_plugged": {
+      "description": "Hide the battery widget when connected to AC power.",
+      "label": "Hide When Plugged In"
+    },
+    "layout": {
+      "description": "Widget layout.",
+      "horizontal": "Horizontal",
+      "label": "Layout",
+      "vertical": "Vertical"
+    },
+    "refresh_interval": {
+      "description": "Controls how frequently the widget updates its content. (in seconds)",
+      "label": "Refresh Interval"
+    },
+    "show_glyph": {
+      "description": "Show the battery icon.",
+      "label": "Show Glyph"
+    },
+    "show_label": {
+      "description": "Show text next to the icon.",
+      "label": "Show Label"
+    },
+    "warning_color": {
+      "description": "Color applied when charge is at or below 20%.",
+      "label": "Warning Color"
+    }
+  }
+}

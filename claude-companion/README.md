@@ -4,7 +4,7 @@
 
 A Noctalia v5 plugin that puts [Claude Code](https://claude.com/claude-code)'s live status on your desktop — a **pulse** on the bar, a breathing **orb** on the desktop, and an **answer panel** for quick questions.
 
-![version](https://img.shields.io/badge/version-1.0.0-blue) ![license](https://img.shields.io/badge/license-MIT-informational) ![noctalia](https://img.shields.io/badge/noctalia-5.0.0-blueviolet)
+![version](https://img.shields.io/badge/version-1.3.0-blue) ![license](https://img.shields.io/badge/license-MIT-informational) ![noctalia](https://img.shields.io/badge/noctalia-5.0.0-blueviolet)
 
 Claude Code is a brilliant agent trapped in a text box. It can't see the windows you have open, can't tap you on the shoulder when it hits a wall, and gives you nothing to glance at while it churns. So you sit there watching a terminal, or you wander off and miss the moment it needed you.
 
@@ -17,10 +17,10 @@ Don't run Claude Code? The signal bus is agent-agnostic — any agent, CI job, o
 | Field | Value |
 | --- | --- |
 | ID | `lowcache/claude-companion` |
-| Entries | Bar widget: `pulse`; desktop widget: `orb`; panel: `answer`; launcher: `claude` |
+| Entries | Service: `pulse-svc`; bar widget: `pulse`; desktop widget: `orb`; panels: `answer`, `sessions`; launcher: `claude` |
 | Launcher Prefix | `/claude` |
 
-Built and live-tested against Noctalia 5.0.0 (build `623210223c`), with an offline spec suite (`tests/shim_spec.py`) pinning the shim's compositor seam and its injection guards.
+Built and live-tested against Noctalia 5.0.0 (build `623210223c`), with an offline widget spec suite keeping the state machine honest.
 
 ## See it
 
@@ -34,13 +34,13 @@ Ask something quick with `/claude ?` and the whole answer waits for you in the p
 
 ## How it works
 
-**Perceive.** `shim/noctalia-mcp.py` is a stdio MCP shim that hands Claude a live read on your machine: your compositor's IPC for the windows you have open (it detects and speaks niri, Hyprland, or Sway), `playerctl` for what's playing, `noctalia msg status` for the state of the shell itself. Nothing to wire up by hand. Launch through `/claude` and it attaches itself.
+**Perceive.** `shim/noctalia-mcp.py` is a stdio MCP shim that hands Claude a live read on your machine: `niri msg -j` for the windows you have open, `playerctl` for what's playing, `noctalia msg status` for the state of the shell itself. Nothing to wire up by hand. Launch through `/claude` and it attaches itself.
 
 **Practice.** Everything on the backend funnels through `claude.luau`, the `/claude` launcher and the one door in. It normalizes the event vocabulary, throws `notify-send` toasts, and calls `noctalia msg` to move panels around. One chokepoint on purpose — so when something acts up, there's exactly one place to go look.
 
-**Pulse.** `pulse.luau` sits on your bar and runs the show. Hook events land here over IPC, and from there it does the rest: tracks every session at once, surfaces whichever one's most urgent, breathes in your accent color, and mirrors the rollup into `noctalia.state` under `claude.pulse` for anyone downstream to read.
+**Pulse.** `pulse-svc.luau` is a headless `[[service]]` that runs the show. Hook events land here over IPC at `lowcache/claude-companion:pulse-svc`, and from there it does the rest: tracks every session at once, surfaces whichever one's most urgent, and publishes a rollup to shared state under `claude.pulse` for subscribers to read.
 
-And downstream is where the quiet parts live. `orb.luau` is pure view. It subscribes to `claude.pulse` and breathes the same state frame by frame, glyph and opacity riding a sine wave, tempo picking up as things get urgent — no hooks, no logic of its own, just a reflection. `answer.luau` is the `answer` panel that catches a `/claude ?` reply and holds the whole thing: wrapped, scrollable, all the parts a toast lops off the end.
+And downstream is where the surfaces live. `pulse.luau` on the bar and `orb.luau` on the desktop are independent subscribers that only render. Both watch `claude.pulse` — `pulse.luau` breathes the accent color and shows per-session tooltips, while `orb.luau` breathes the same state frame by frame, glyph and opacity riding a sine wave, tempo picking up as things get urgent. Neither holds hooks or logic of its own. `answer.luau` is the `answer` panel that catches a `/claude ?` reply and holds the whole thing: wrapped, scrollable, all the parts a toast lops off the end.
 
 ## Requirements
 
@@ -62,7 +62,7 @@ noctalia msg plugins enable lowcache/claude-companion
 
 Then, in order:
 
-1. **Put the `pulse` widget on a bar** (Settings → Bar). Read the warning below first — this one isn't optional.
+1. **(Optional) Put the `pulse` widget on a bar** (Settings → Bar) for the glanceable dot — capture no longer depends on it; the headless `pulse-svc` service does the listening.
 2. Add the `orb` desktop widget if you want the ambient presence.
 3. Merge `hooks/settings.snippet.json` into `~/.claude/settings.json` so Claude's lifecycle hooks actually drive the pulse.
 4. Point Claude at `shim/noctalia-mcp.py` with `--mcp-config` to hand it the senses and hands. (Sessions you launch through `/claude` do this for you.)
@@ -70,16 +70,16 @@ Then, in order:
 Prove it works:
 
 ```sh
-noctalia msg plugin lowcache/claude-companion:pulse all needs_attention   # bar icon → red bell
-noctalia msg plugin lowcache/claude-companion:pulse all idle              # back to robot
+noctalia msg plugin lowcache/claude-companion:pulse-svc all needs_attention   # bar icon → red bell
+noctalia msg plugin lowcache/claude-companion:pulse-svc all idle              # back to robot
 ```
 
 > [!WARNING]
-> **`pulse` has to stay on a bar.** It's the sole aggregator — the one piece that hears the hooks and publishes the state everything else reads. Noctalia only runs bar widgets while they're placed on a bar, so the moment you pull `pulse` off, the plugin goes dark. The hooks keep firing into the void, the orb freezes on its last breath, and IPC pokes do nothing. If that happens, the fix is always the same: put `pulse` back on a bar.
+> **`pulse` no longer has to stay on a bar.** The sole aggregator is now the headless `pulse-svc` service, which starts with the shell and listens whether or not any widget is placed — so pulling the `pulse` dot off a bar just hides the glanceable icon; the orb keeps updating and hooks/IPC still land. This retires the old **D10** requirement, made possible by the `[[service]]` entry kind added in the Noctalia 5 beta.
 
 ## Usage
 
-`/claude <task>` opens a real Claude Code session in your terminal, shim already wired in. Bare `/claude` picks up where you left off (`claude --continue`). And `/claude ? <question>` is the quick one — a read-only ask that comes back as a toast and lands, in full, in the answer panel. Read-only is enforced, not assumed: the ask launches with no built-in tools, no MCP servers, and none of your Claude settings (so no hooks, plugins, or pre-authorized permissions), leaving it nothing but the model and your question.
+`/claude <task>` opens a real Claude Code session in your terminal, shim already wired in. Bare `/claude` picks up where you left off (`claude --continue`). And `/claude ? <question>` is the quick one — a read-only ask that comes back as a toast and lands, in full, in the answer panel.
 
 That panel opens however you like it: click the pulse, use the "Show last answer" row under `/claude`, or toggle it from the CLI:
 
@@ -90,6 +90,26 @@ noctalia msg panel-toggle lowcache/claude-companion:answer
 Leave it open and it refreshes live while suppressing the toast, so you're never reading the same answer twice. A click outside or Esc puts it away.
 
 Hover the bar and the tooltip tells you where each session stands and what it's burning — input, output, cache reads. Run a few at once and you get a line per session plus a Σ total, with the icon always showing whichever one needs you most.
+
+**Right-click the pulse** for the sessions panel — the same rollup, but you can act on it. A tooltip disappears on the way to it; this doesn't. One row per live session with its state, model and burn, and a **Retire** button on each.
+
+Retire is there for the one failure mode you'll actually hit: a session whose `SessionEnd` hook never fired — terminal killed, hook interrupted mid-distill — sits at idle forever and keeps inflating the count. Retiring it corrects the tally from the shell, without going back to a terminal. It adds no new protocol: a retire is the ordinary `session_end` event carrying that session's id, exactly what `hooks/pulse.py` sends.
+
+```sh
+noctalia msg panel-toggle lowcache/claude-companion:sessions
+```
+
+## Settings
+
+The plugin declares three user settings, read via `noctalia.getConfig(<key>)`:
+
+| Setting | Type | Range | Step | Default | Description |
+| --- | --- | --- | --- | --- | --- |
+| `breath_speed` | double | 0.25–3.0 | 0.05 | 1.0 | Phase-rate multiplier for the breathing animation on both the bar dot and the desktop orb. Higher = faster. |
+| `pulse_glow_floor` | double | 0.0–0.9 | 0.05 | 0.45 | How dim the bar dot gets at the trough of its breath. 0 = dims to black, higher = stays brighter. |
+| `orb_swell` | double | 0.0–3.0 | 0.05 | 1.0 | How far the desktop orb glyph magnifies as it breathes. 0 = static size, higher = a bigger swing. |
+
+There are no color settings — both surfaces follow the active theme palette via accent role names (`secondary`, `primary`, `error`).
 
 ## Wiring up other agents
 
@@ -106,7 +126,7 @@ hooks/pulse-emit session_end mysess
 A few things worth knowing before they surprise you:
 
 - Plugin panels render at `Layer::Top`, so an overlay window — a notification, a quake terminal, a polkit prompt — can sit on top of the answer panel. The answer's still there; clear the overlay and you'll see it. There's an upstream ask in for panel layer control.
-- Bar widgets don't fire `state.watch` callbacks in Noctalia 5.0.0, so the plugin polls instead. Eight-digit hex alpha is ignored too — brightness is done by scaling RGB.
+- Eight-digit hex alpha is ignored by bar widgets — brightness is done by scaling RGB toward black. (Earlier builds didn't fire `state.watch` on bars, so the pulse polled; the Noctalia 5 beta fires it, so the bar dot is now event-driven like the orb.)
 - Builtin and wallpaper-generated palettes have no on-disk JSON, so those fall back to fixed accent colors. Custom and community palettes are followed live, rechecked every ~8 s.
 - Quick-ask rides headless `claude -p`, which doesn't refresh an expired OAuth login token — only an interactive session does ([upstream](https://github.com/anthropics/claude-code/issues/53063)). The plugin checks the token's expiry before launching and, instead of burning the request on a guaranteed 401, tells you to open a terminal Claude session first; a failure it couldn't predict gets the same message in place of the raw API error.
 - The MCP shim is a Python prototype. A compiled port is the intended endgame.
