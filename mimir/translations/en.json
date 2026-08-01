@@ -43,6 +43,10 @@
       "allow": "Allow — Run automatically",
       "off": "Off — No tools"
     },
+    "web_search_enabled": {
+      "label": "Web Search",
+      "description": "Allow Mimir to use DuckDuckGo search and fetch public pages"
+    },
     "tool_blocklist": {
       "label": "Blocked Commands",
       "description": "Comma-separated commands never allowed"

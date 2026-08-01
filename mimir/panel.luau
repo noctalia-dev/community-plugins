@@ -133,8 +133,8 @@ function render()
     commandsByToolCall[entry.tool_call_id] = entry.command
   end
 
-  local statusColors = { idle = "on_surface/0.4", thinking = "primary", running_tool = "primary", error = "error" }
-  local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", error = "Error" }
+  local statusColors = { idle = "on_surface/0.4", thinking = "primary", running_tool = "primary", searching = "primary", fetching = "primary", error = "error" }
+  local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", searching = "Searching web...", fetching = "Fetching page...", error = "Error" }
 
   local displayMsgs = {}
   local copyContent = nil
