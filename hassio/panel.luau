@@ -17,6 +17,13 @@ local PENDING_TIMEOUT_SECONDS = 8
 local view = "list" -- "list" | "browser"
 local allEntities = {}
 local browserLoading = false
+local browserLoadingSince = nil
+local browserFailed = false
+
+-- /api/states returns every entity at once, so on a very large instance the response
+-- callback can be cut short by the host's per-callback CPU budget and never render.
+-- Give up visibly instead of spinning on "loading" forever.
+local BROWSER_TIMEOUT_SECONDS = 20
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
@@ -142,11 +149,14 @@ local function fetchAllEntities()
     if not url or url == "" or cleanToken == "" then
         allEntities = {}
         browserLoading = false
+        browserLoadingSince = nil
         render()
         return
     end
 
     browserLoading = true
+    browserLoadingSince = os.clock()
+    browserFailed = false
     render()
 
     noctalia.http({
@@ -156,6 +166,8 @@ local function fetchAllEntities()
         }
     }, function(response: HttpResponse)
         browserLoading = false
+        browserLoadingSince = nil
+        browserFailed = false -- a late answer still beats the timeout message
         if response and response.body and response.body ~= "" then
             local states = noctalia.json.decode(response.body)
             if type(states) == "table" then
@@ -309,6 +321,7 @@ function onBackToList()
     view = "list"
     allEntities = {}
     searchText = ""
+    browserFailed = false
     render()
 end
 
@@ -495,6 +508,9 @@ local function buildBrowserBody()
     if browserLoading then
         return ui.label({ text = tr("loading_entities"), color = "on_surface_variant" })
     end
+    if browserFailed then
+        return ui.label({ text = tr("load_entities_failed"), color = "error" })
+    end
     if #allEntities == 0 then
         return ui.label({ text = tr("no_entities_found"), color = "on_surface_variant" })
     end
@@ -573,7 +589,18 @@ function onClose()
 end
 
 function update()
-    if reconcilePending(os.clock()) then
+    local now = os.clock()
+
+    if browserLoading and browserLoadingSince and (now - browserLoadingSince) > BROWSER_TIMEOUT_SECONDS then
+        browserLoading = false
+        browserLoadingSince = nil
+        browserFailed = true
+        reconcilePending(now)
+        render()
+        return
+    end
+
+    if reconcilePending(now) then
         render()
     end
 end

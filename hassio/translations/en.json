@@ -10,6 +10,7 @@
     "connecting": "Connecting…",
     "disconnected_reconnecting": "Disconnected. Reconnecting…",
     "hue": "Hue",
+    "load_entities_failed": "Could not load the entity list. Try again.",
     "loading_entities": "Loading entities…",
     "manage_entities_title": "Manage Entities",
     "no_entities_found": "No entities found",
