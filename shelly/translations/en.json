@@ -16,7 +16,7 @@
     "tooltip": {
       "aur_title": "AUR",
       "error": {
-        "decode_json": "Failed to decode output from `shelly list-updates all --json`"
+        "decode_json": "Failed to decode output from `shelly check-updates --json`"
       },
       "flatpak_title": "Flatpak",
       "no_updates": "System is up to date",
@@ -38,8 +38,8 @@
       "description": "Label to display in the bar.",
       "label": "Bar Label",
       "options": {
-        "count_only": "Count Only (e.g., 5)",
-        "count_and_label": "Count and Label (e.g., 5 Updates)"
+        "count_and_label": "Count and Label (e.g., 5 Updates)",
+        "count_only": "Count Only (e.g., 5)"
       }
     },
     "click_action": {

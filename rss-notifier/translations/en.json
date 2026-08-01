@@ -1,20 +1,20 @@
 {
   "settings": {
     "feed_urls": {
-      "label": "Feed URLs",
-      "description": "List of RSS/Atom feed URLs to monitor (one per line)"
-    },
-    "refresh_minutes": {
-      "label": "Refresh Interval (minutes)",
-      "description": "How often to check for new items"
-    },
-    "notify_new": {
-      "label": "Show Notifications",
-      "description": "Display notifications when new items arrive"
+      "description": "List of RSS/Atom feed URLs to monitor (one per line)",
+      "label": "Feed URLs"
     },
     "max_notifications_per_cycle": {
-      "label": "Max Notifications per Cycle",
-      "description": "Maximum notifications to show in one check"
+      "description": "Maximum notifications to show in one check",
+      "label": "Max Notifications per Cycle"
+    },
+    "notify_new": {
+      "description": "Display notifications when new items arrive",
+      "label": "Show Notifications"
+    },
+    "refresh_minutes": {
+      "description": "How often to check for new items",
+      "label": "Refresh Interval (minutes)"
     }
   }
 }

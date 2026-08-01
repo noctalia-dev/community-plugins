@@ -1,6 +1,6 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.1.1"
+version = "1.1.2"
 plugin_api = 13
 author = "Alexander"
 license = "MIT"

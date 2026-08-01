@@ -37,4 +37,4 @@ plugin = lines[i].strip()
 
 if "--- SELECT ---" in plugin:
     issue.create_comment("Specify which plugin this issue is about!")
-    issue.edit(state='closed', state_reason='null')
+    issue.edit(state='closed')

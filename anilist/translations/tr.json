@@ -4,6 +4,26 @@
     "close_preview": "Önizlemeyi kapat",
     "connect": "AniList'e Bağlan",
     "cover_preview": "Kapak fotoğrafını gör",
-    "decrement": "Önceki bölüm"
+    "decrement": "Önceki bölüm",
+    "download_cover_failed": "Kapak fotoğrafı kaydedilemedi.",
+    "download_cover_success": "Kapak fotoğrafı {path} dizinine kaydedildi",
+    "download_cover_unavailable": "Kayıt dizini seçmek için zenity veya kdialog yükleyin.",
+    "error": "Hata: {message}",
+    "filter_all": "Tümü",
+    "filter_completed": "Tamamlanan",
+    "filter_current": "İzlenen",
+    "filter_dropped": "Bırakılan",
+    "filter_paused": "Durdurulan",
+    "filter_planning": "Planlanan",
+    "filter_reading": "Okunan",
+    "filter_repeating": "Tekrar eden",
+    "increment": "Sonraki bölüm",
+    "loading": "Listelerin yükleniyor…",
+    "logged_in_as": "{name} olarak giriş yapıldı",
+    "login_title": "AniList'e bağlan",
+    "login_waiting": "Tarayıcıdan oturum açma bekleniyor…",
+    "logout": "Oturumu kapat",
+    "mark_complete": "Tamamla",
+    "open_anilist": "AniList'te aç"
   }
 }

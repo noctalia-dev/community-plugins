@@ -459,8 +459,8 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.1.1"
-updated_at = 1785415345
+version = "1.1.2"
+updated_at = 1785553526
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -903,3 +903,30 @@ icon = "rss"
 description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
 plugin_api = 14
 tags = ["utility", "indicator"]
+
+[[plugin]]
+id = "cleboost/jetbrains-provider"
+name = "JetBrains Provider"
+version = "1.0.0"
+updated_at = 1785551656
+added_at = 1785551656
+author = "Cleboost"
+license = "MIT"
+icon = "folder-open"
+description = "Open a recent JetBrains project from the launcher. Type /jb to list your projects."
+plugin_api = 3
+tags = ["launcher", "development", "productivity"]
+
+[[plugin]]
+id = "yocraft/battery-widget"
+name = "Battery Widget"
+version = "1.0.0"
+updated_at = 1785554104
+added_at = 1785554104
+author = "yocraft"
+license = "MIT"
+icon = "battery"
+description = "Desktop/Lockscreen widget to show battery."
+deprecated = false
+plugin_api = 19
+tags = ["desktop", "hardware", "system", "utility"]
