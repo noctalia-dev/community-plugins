@@ -211,11 +211,60 @@ end
 
 -- Section for setting and reset / save config
 
-local function renderSetting(name)
+local function resolveStateDir()
+	return noctalia.getenv("NOCTALIA_STATE_HOME")
+		or ((noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/noctalia")
+end
+
+local noctaliaStateDir = resolveStateDir()
+local settingsTomlPath = noctaliaStateDir .. "/settings.toml"
+
+
+local function saveConfig()
+	local savePath = configBox .. "/save"
+	noctalia.mkdirAll(savePath)
+
+	local settingFile: infoConfig = {
+		name = "save",
+		description = "save for reset",
+		path = configBox .. "/save",
+		origin = "not give",
+		wallpaperPath = nil,
+		depedencie = false,
+		preview = nil,
+		author = noctalia.getenv("USER"),
+	}
+	local jsonData = noctalia.json.encode(settingFile)
+	noctalia.writeFile(savePath .. "/info.json", jsonData)
+
+	local content = noctalia.readFile(settingsTomlPath)
+	if content then
+		noctalia.writeFile(savePath .. "/settings.toml", content)
+		noctalia.notify("Save", "Sauvegarde réussie")
+	else
+		noctalia.notify("Save", "settings.toml introuvable")
+	end
+end
+
+local function renderSetting()
+	local rows = {
+		ui.row({ flexGrow = 1, gap = 16 }, {
+			ui.label({ text = "save current configuration" }),
+			ui.button({ text = "save", onClick = function()
+				saveConfig()
+			end
+			}),
+		}),
+		ui.row({ flexGrow = 1, gap = 16 }, {
+			ui.label({ text = "reset at last save." }),
+			ui.button({ text = "reset", onClick = ""}),
+		})
+	}
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.label({ text = "Setting section", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.button({ text = "en cours", onClick = "getFetchList"}),
 		ui.button({ glyph = "en cours", onClick = "render" }),
+		ui.scroll({ gap = 12, align = "stretch", flexGrow = 1 }, rows), 
 	}))
 end
 
@@ -415,8 +464,8 @@ local function renderInstall()
 				render()
 			end
 			}),
-			ui.button({ text = "delete test", onClick = function()
-				renderDeleteConfirmation("")
+			ui.button({ text = "setting", onClick = function()
+				renderSetting()
 			end
 			}),
 			ui.button({ text = tr("refresh"), onClick = "getFetchList"}),
