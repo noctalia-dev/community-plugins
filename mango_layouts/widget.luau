@@ -35,8 +35,6 @@ function update()
         if current then
             if show_glyph then 
                 barWidget.setGlyph(current.glyph)
-            else
-                barWidget.setGlyph("")
             end
             
             if show_text then 
@@ -52,8 +50,6 @@ function update()
         else
             if show_glyph then 
                 barWidget.setGlyph("layout") 
-            else 
-                barWidget.setGlyph("")
             end
             
             if show_text then 
