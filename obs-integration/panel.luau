@@ -13,6 +13,7 @@ local projectFilter = ""
 local sortAsc = true
 local editFilesOpen = false
 local filesOpen = false
+local filesPackage = nil
 local packageFiles = {}
 local rebuildArchIndex = 0
 local rebuildRepos = {}
@@ -22,15 +23,27 @@ local repoMap = {}
 local savedRebuildRepo = nil
 local savedRebuildArch = nil
 local rebuildLoaded = false
+local isCheckingOut = false
+local checkoutLog = ""
+local isActionLoading = false
+local actionStatus = ""
+local loadPackageFiles
+local resolveCheckoutDir
 local maintainerMap = {}
 local ownedProjects = {}
 local projectsLoading = false
 local packagesLoading = false
 local errorText = ""
+local commandLog = ""
+local logPackage = nil
 local pendingProject = nil
 local removeConfirm = false
 local restoreProject = nil
 local restorePackage = nil
+local restoreFilesOpen = false
+local restoreFilesPackage = nil
+local restoreCommandLog = nil
+local restoreErrorText = nil
 local saveCache
 local saveNav
 local maybeVerify
@@ -40,6 +53,55 @@ local oscUser = nil
 
 local function shellQuote(value)
 	return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+local function commandError(result)
+	return noctalia.string.trim(result.stderr ~= "" and result.stderr or result.stdout)
+end
+
+local function setCommandLog(result, refreshFiles, emptyMsg)
+	local err = commandError(result)
+	if result.exitCode ~= 0 then
+		errorText = err ~= "" and err or ("Command failed (exit " .. tostring(result.exitCode) .. ")")
+		commandLog = ""
+	else
+		errorText = ""
+		commandLog = noctalia.string.trim(result.stdout)
+		if commandLog == "" and emptyMsg then
+			commandLog = emptyMsg
+		end
+		if refreshFiles then
+			local checkoutDir = resolveCheckoutDir()
+			loadPackageFiles(checkoutDir .. "/" .. selectedProject .. "/" .. selectedPackage, selectedPackage)
+		end
+	end
+	logPackage = selectedPackage
+	render()
+	saveNav()
+end
+
+local function showCommandLog(result)
+	setCommandLog(result, false)
+end
+
+local function runActionAsync(cmd, statusText, refreshFiles, pkgDir, pkg, emptyMsg)
+	isActionLoading = true
+	actionStatus = statusText
+	errorText = ""
+	commandLog = ""
+	render()
+	noctalia.runAsync(cmd, function(result)
+		isActionLoading = false
+		if refreshFiles and result.exitCode == 0 then
+			local dir = pkgDir
+			if not dir then
+				local checkoutDir = resolveCheckoutDir()
+				dir = checkoutDir .. "/" .. selectedProject .. "/" .. selectedPackage
+			end
+			loadPackageFiles(dir, pkg or selectedPackage)
+		end
+		setCommandLog(result, false, emptyMsg)
+	end, 60000)
 end
 
 -- OBS project/package identifiers: reject anything that could escape the
@@ -52,12 +114,24 @@ local function validName(value)
 		and value:match("^%.") == nil
 end
 
-local function resolveCheckoutDir()
+resolveCheckoutDir = function()
 	local checkoutDir = noctalia.getConfig("checkout_dir")
 	if type(checkoutDir) ~= "string" or checkoutDir:match("^%s*$") then
 		checkoutDir = "~/OBS"
 	end
 	return noctalia.expandPath(checkoutDir)
+end
+
+
+-- Estimate the combined width (px) of the two .changes buttons to decide
+-- whether they fit side-by-side or must stack.
+local function changesButtonsFit(pkg)
+	-- Rough per-char width at the button font size, plus glyph+padding budget.
+	local charW = 7
+	local base = 16 + 24
+	local editW = (#"Edit " + #pkg + #".changes") * charW + base
+	local updateW = (#"Update " + #pkg + #".changes") * charW + base
+	return editW + updateW + 8 <= 396
 end
 
 local function parseLines(stdout)
@@ -103,8 +177,26 @@ local function checkoutPackage(project, pkg)
 	if not validName(project) or not validName(pkg) then
 		return
 	end
-	noctalia.runInTerminal(
-		"cd " .. shellQuote(resolveCheckoutDir()) .. " && osc co " .. shellQuote(project) .. " " .. shellQuote(pkg)
+	local checkoutDir = resolveCheckoutDir()
+	local pkgPath = checkoutDir .. "/" .. project .. "/" .. pkg
+	isCheckingOut = true
+	checkoutLog = noctalia.tr("panel.checking_out")
+	render()
+
+	noctalia.runAsync(
+		"cd " .. shellQuote(checkoutDir) .. " && osc co " .. shellQuote(project) .. " " .. shellQuote(pkg),
+		function(result)
+			isCheckingOut = false
+			if result.exitCode == 0 then
+				errorText = ""
+				loadPackageFiles(pkgPath, pkg)
+			else
+				errorText = commandError(result)
+			end
+			render()
+			saveNav()
+		end,
+		60000
 	)
 end
 
@@ -136,7 +228,7 @@ local function rebuildPackage(project, pkg, repo, arch)
 	noctalia.runInTerminal(cmd)
 end
 
-local function loadPackageFiles(pkgDir, pkg)
+loadPackageFiles = function(pkgDir, pkg)
 	noctalia.runAsync(
 		"find " .. shellQuote(pkgDir) .. " -maxdepth 1 -not -name '.*' -printf '%f\\n'",
 		function(result)
@@ -154,6 +246,27 @@ local function loadPackageFiles(pkgDir, pkg)
 		end,
 		5000
 	)
+	-- Re-fetch after a short delay so callers that just created the dir (checkout,
+	-- osc up, service runs) settle into the complete file list.
+	noctalia.runAsync("sleep 1", function()
+		noctalia.runAsync(
+			"find " .. shellQuote(pkgDir) .. " -maxdepth 1 -not -name '.*' -printf '%f\\n'",
+			function(result)
+				local list = {}
+				if result.exitCode == 0 then
+					for _, f in ipairs(parseLines(result.stdout)) do
+						if f ~= pkg and f ~= ".osc" then
+							table.insert(list, f)
+						end
+					end
+				end
+				table.sort(list)
+				packageFiles = list
+				render()
+			end,
+			5000
+		)
+	end, 2000)
 end
 
 local function loadRebuildArches(project, pkg)
@@ -222,10 +335,14 @@ local function removeFileLocal(path, pkgDir, pkg)
 		if result.exitCode == 0 then
 			loadPackageFiles(pkgDir, pkg)
 		else
-			errorText = noctalia.string.trim(result.stderr ~= "" and result.stderr or result.stdout)
+			errorText = commandError(result)
 			render()
 		end
 	end, 15000)
+end
+
+local function editFilePlain(path)
+	noctalia.runInTerminal("${EDITOR:-nano} " .. shellQuote(path))
 end
 
 local function editFile(path, pkgDir, pkg, filename)
@@ -235,16 +352,64 @@ local function editFile(path, pkgDir, pkg, filename)
 	if filename:match("%.changes$") then
 		noctalia.runInTerminal("cd " .. shellQuote(pkgDir) .. " && osc vc")
 	else
-		noctalia.runInTerminal("${EDITOR:-nano} " .. shellQuote(path))
+		editFilePlain(path)
 	end
 end
 
 local function oscAddRemove(pkgDir)
-	noctalia.runInTerminal("cd " .. shellQuote(pkgDir) .. " && osc ar")
+	runActionAsync(
+		"cd " .. shellQuote(pkgDir) .. " && osc ar",
+		noctalia.tr("panel.adding_removing"),
+		true,
+		pkgDir,
+		nil,
+		noctalia.tr("panel.no_changes", { name = selectedPackage })
+	)
 end
 
 local function oscCommit(pkgDir)
-	noctalia.runInTerminal("cd " .. shellQuote(pkgDir) .. " && osc ci")
+	local cmd = "cd " .. shellQuote(pkgDir) .. " && osc ci"
+	isActionLoading = true
+	actionStatus = noctalia.tr("panel.committing")
+	errorText = ""
+	commandLog = ""
+	render()
+	noctalia.runAsync("cd " .. shellQuote(pkgDir) .. " && osc status", function(result)
+		local output = result.stdout .. "\n" .. result.stderr
+		local hasChanges = result.exitCode == 0 and noctalia.string.trim(output) ~= ""
+		isActionLoading = false
+		if hasChanges then
+			noctalia.runInTerminal(cmd)
+		else
+			noctalia.runAsync(cmd, showCommandLog, 60000)
+		end
+	end, 15000)
+end
+
+local function oscUpdate(pkgDir)
+	runActionAsync(
+		"cd " .. shellQuote(pkgDir) .. " && osc up",
+		noctalia.tr("panel.updating_dir"),
+		true,
+		pkgDir
+	)
+end
+
+local function oscServiceRun(pkgDir)
+	runActionAsync(
+		"cd " .. shellQuote(pkgDir) .. " && osc service mr",
+		noctalia.tr("panel.running_manual_service"),
+		true,
+		pkgDir
+	)
+end
+
+local function oscServiceRemoteRun(project, pkg)
+	runActionAsync(
+		"osc service rr " .. shellQuote(project) .. " " .. shellQuote(pkg),
+		noctalia.tr("panel.running_remote_service"),
+		false
+	)
 end
 
 local function removePackageLocal(project, pkg)
@@ -258,14 +423,13 @@ local function removePackageLocal(project, pkg)
 		.. "\nif ! ls -A " .. shellQuote(projectDir) .. " | grep -q -v '^\\.osc$'; then rm -rf " .. shellQuote(projectDir) .. "; fi"
 	noctalia.runAsync(cmd, function(result)
 		if result.exitCode ~= 0 then
-			errorText = noctalia.string.trim(result.stderr ~= "" and result.stderr or result.stdout)
-			render()
+			errorText = commandError(result)
 		end
+		selectedPackage = nil
+		removeConfirm = false
+		render()
+		saveNav()
 	end, 15000)
-	selectedPackage = nil
-	removeConfirm = false
-	render()
-	saveNav()
 end
 
 local function loadPackages(project)
@@ -277,6 +441,10 @@ local function loadPackages(project)
   packageFiles = {}
   removeConfirm = false
   rebuildConfirm = false
+  isCheckingOut = false
+  checkoutLog = ""
+  isActionLoading = false
+  actionStatus = ""
   packages = maintainerMap[project] or {}
 
   if #packages == 0 and projectsLoading then
@@ -297,7 +465,7 @@ local function loadPackages(project)
         saveCache()
         errorText = ""
       elseif errorText == "" then
-        errorText = noctalia.string.trim(result.stderr ~= "" and result.stderr or result.stdout)
+        errorText = commandError(result)
       end
       render()
     end, 15000)
@@ -335,22 +503,27 @@ saveNav = function()
 	noctalia.writeFile(path, noctalia.json.encode({
 		project = selectedProject,
 		package = selectedPackage,
+		filesOpen = filesOpen,
+		filesPackage = filesPackage,
+		commandLog = commandLog,
+		errorText = errorText,
 	}))
 end
 local function readNav()
 	local path = navPath()
 	if not path or not noctalia.fileExists(path) then
-		return nil, nil
+		return nil, nil, false, nil, nil, nil
 	end
 	local data, _ = noctalia.readFile(path)
 	if not data then
-		return nil, nil
+		return nil, nil, false, nil, nil, nil
 	end
 	local parsed, _ = noctalia.json.decode(data)
 	if type(parsed) ~= "table" then
-		return nil, nil
+		return nil, nil, false, nil, nil, nil
 	end
-	return parsed.project, parsed.package
+	return parsed.project, parsed.package, parsed.filesOpen == true, parsed.filesPackage, parsed.commandLog,
+		parsed.errorText
 end
 
 saveCache = function()
@@ -473,16 +646,32 @@ local function loadProjects(clearNav)
   if restoreProject then
     local proj = restoreProject
     local pkg = restorePackage
+    local filesOpenRestore = restoreFilesOpen
+    local filesPackageRestore = restoreFilesPackage
     restoreProject = nil
     restorePackage = nil
+    restoreFilesOpen = false
+    restoreFilesPackage = nil
     if proj and (maintainerMap[proj] or ownedProjects[proj]) then
       projectsLoading = false
       loadPackages(proj)
       if pkg then
         selectedPackage = pkg
+        filesOpen = filesOpenRestore
+        filesPackage = filesPackageRestore
+        if restoreCommandLog ~= nil then
+          commandLog = restoreCommandLog
+        end
+        if restoreErrorText ~= nil then
+          errorText = restoreErrorText
+        end
         render()
         saveNav()
         loadRebuildArches(proj, pkg)
+        if filesOpen then
+          local checkoutDir = resolveCheckoutDir()
+          loadPackageFiles(checkoutDir .. "/" .. proj .. "/" .. pkg, pkg)
+        end
         return
       end
     end
@@ -598,8 +787,6 @@ function render()
 				onClick = function()
 					selectedPackage = nil
 					editFilesOpen = false
-					filesOpen = false
-					packageFiles = {}
 					rebuildArchIndex = 0
 					rebuildRepos = {}
 					rebuildRepoIndex = 0
@@ -609,6 +796,10 @@ function render()
 					rebuildLoaded = false
 					rebuildConfirm = false
 					removeConfirm = false
+					isCheckingOut = false
+					checkoutLog = ""
+					isActionLoading = false
+					actionStatus = ""
 					render()
 					saveNav()
 				end,
@@ -620,7 +811,7 @@ function render()
 			table.insert(
 				headerChildren,
 				ui.button({
-					glyph = removeConfirm and "check" or "trash",
+					glyph = removeConfirm and "check" or "package-off",
 					tooltip = removeConfirm and noctalia.tr("panel.confirm_remove") or noctalia.tr("panel.remove"),
 					variant = "destructive",
 					onClick = function()
@@ -639,18 +830,40 @@ function render()
 			ui.row({ align = "center", gap = 8 }, headerChildren)
 		)
 
+
 		if not checkedOut then
-			table.insert(
-				body,
-				ui.button({
-					text = noctalia.tr("panel.checkout"),
-					glyph = "download",
-					variant = "default",
-					onClick = function()
-						checkoutPackage(selectedProject, selectedPackage)
-					end,
-				})
-			)
+			if isCheckingOut then
+				table.insert(
+					body,
+					ui.row({ align = "center", gap = 8 }, {
+						ui.glyph({ name = "loader", color = "primary", size = 14 }),
+						ui.label({ text = checkoutLog, color = "on_surface_variant" }),
+					})
+				)
+			else
+				table.insert(
+					body,
+					ui.button({
+						text = noctalia.tr("panel.checkout"),
+						glyph = "package-import",
+						variant = "default",
+						onClick = function()
+							checkoutPackage(selectedProject, selectedPackage)
+						end,
+					})
+				)
+				table.insert(
+					body,
+					ui.button({
+						text = noctalia.tr("panel.service_remote_run"),
+						glyph = "run",
+						variant = "default",
+						onClick = function()
+							oscServiceRemoteRun(selectedProject, selectedPackage)
+						end,
+					})
+				)
+			end
 		end
 
 		if checkedOut then
@@ -692,17 +905,53 @@ function render()
 					table.insert(body, ui.label({ text = noctalia.tr("panel.no_editable"), color = "on_surface_variant" }))
 				else
 					for _, file in ipairs(editable) do
-						table.insert(
-							body,
-							ui.button({
-								text = file,
-								glyph = "file-text",
+						if file:match("%.changes$") then
+							local editBtn = ui.button({
+								text = noctalia.tr("panel.edit_changes", { name = selectedPackage }),
+								glyph = "ballpen-filled",
 								variant = "default",
+								flexGrow = 1,
 								onClick = function()
-									editFile(pkgDir .. "/" .. file, pkgDir, selectedPackage, file)
+									editFilePlain(pkgDir .. "/" .. file)
 								end,
 							})
-						)
+							local updateBtn = ui.button({
+								text = noctalia.tr("panel.update_changes", { name = selectedPackage }),
+								glyph = "square-rounded-chevron-up",
+								variant = "default",
+								flexGrow = 1,
+								onClick = function()
+									noctalia.runInTerminal("cd " .. shellQuote(pkgDir) .. " && osc vc")
+								end,
+							})
+							if changesButtonsFit(selectedPackage) then
+								table.insert(
+									body,
+									ui.row({ key = "changes-row-" .. file, align = "center", gap = 8 }, {
+										editBtn, updateBtn,
+									})
+								)
+							else
+								table.insert(
+									body,
+									ui.column({ key = "changes-col-" .. file, gap = 8, align = "stretch" }, {
+										editBtn, updateBtn,
+									})
+								)
+							end
+						else
+							table.insert(
+								body,
+								ui.button({
+									text = file,
+									glyph = "file-text",
+									variant = "default",
+									onClick = function()
+										editFile(pkgDir .. "/" .. file, pkgDir, selectedPackage, file)
+									end,
+								})
+							)
+						end
 					end
 				end
 			end
@@ -710,23 +959,27 @@ function render()
 			table.insert(
 				body,
 				ui.row({ key = "files-row", align = "center", gap = 8 }, {
-					ui.glyph({
-						name = filesOpen and "arrow-badge-down-filled" or "arrow-badge-right-filled",
-						size = 16,
-						color = "on_surface",
-					}),
-					ui.button({
-						text = noctalia.tr("panel.files"),
-						glyph = "folder",
-						variant = "default",
-						flexGrow = 1,
-						align = "left",
+				ui.glyph({
+					name = filesOpen and "arrow-badge-down-filled" or "arrow-badge-right-filled",
+					size = 16,
+					color = "on_surface",
+				}),
+				ui.button({
+					text = noctalia.tr("panel.files"),
+					glyph = filesOpen and "folder-open" or "folder",
+					variant = "default",
+					flexGrow = 1,
+					align = "left",
 						onClick = function()
 							filesOpen = not filesOpen
-							if filesOpen and #packageFiles == 0 then
-								loadPackageFiles(pkgDir, selectedPackage)
+							if filesOpen then
+								filesPackage = selectedPackage
+								if #packageFiles == 0 then
+									loadPackageFiles(pkgDir, selectedPackage)
+								end
 							end
 							render()
+							saveNav()
 						end,
 					}),
 				})
@@ -740,7 +993,7 @@ function render()
 							body,
 							ui.row({ key = "file-row-" .. f, align = "center", gap = 8 }, {
 								ui.glyph({ name = "file-text", color = "on_surface_variant", size = 15 }),
-								ui.label({ text = f, color = "on_surface", flexGrow = 1 }),
+								ui.label({ text = f, color = "on_surface", flexGrow = 1, maxLines = 1 }),
 								ui.button({
 									glyph = "trash",
 									tooltip = noctalia.tr("panel.remove_file"),
@@ -753,30 +1006,78 @@ function render()
 						)
 					end
 				end
+			end
 
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.button({
+						text = noctalia.tr("panel.add_remove"),
+						glyph = "plus-minus",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscAddRemove(pkgDir)
+						end,
+					}),
+					ui.button({
+						text = noctalia.tr("panel.update_dir"),
+						glyph = "cloud-download",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscUpdate(pkgDir)
+						end,
+					}),
+				})
+			)
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.button({
+						text = noctalia.tr("panel.service_remote_run"),
+						glyph = "run",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscServiceRemoteRun(selectedProject, selectedPackage)
+						end,
+					}),
+					ui.button({
+						text = noctalia.tr("panel.service_run"),
+						glyph = "run",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscServiceRun(pkgDir)
+						end,
+					}),
+				})
+			)
+			table.insert(
+				body,
+				ui.button({
+					text = noctalia.tr("panel.commit"),
+					glyph = "package-export",
+					variant = "default",
+					onClick = function()
+						oscCommit(pkgDir)
+					end,
+				})
+			)
+
+			if isActionLoading then
 				table.insert(
 					body,
 					ui.row({ align = "center", gap = 8 }, {
-						ui.button({
-							text = noctalia.tr("panel.add_remove"),
-							glyph = "plus-minus",
-							variant = "default",
-							flexGrow = 1,
-							onClick = function()
-								oscAddRemove(pkgDir)
-							end,
-						}),
-						ui.button({
-							text = noctalia.tr("panel.commit"),
-							glyph = "upload",
-							variant = "default",
-							flexGrow = 1,
-							onClick = function()
-								oscCommit(pkgDir)
-							end,
-						}),
+						ui.glyph({ name = "loader", color = "primary", size = 14 }),
+						ui.label({ text = actionStatus, color = "on_surface_variant" }),
 					})
 				)
+			elseif errorText ~= "" then
+				table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
+			elseif commandLog ~= "" then
+				table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
 			end
 		end
 
@@ -955,6 +1256,18 @@ function render()
                 flexGrow = 1,
                 align = "left",
                 onClick = function()
+                  if filesPackage ~= name then
+                    filesOpen = false
+                    packageFiles = {}
+                    filesPackage = name
+                  end
+                  if logPackage ~= name then
+                    errorText = ""
+                    commandLog = ""
+                    logPackage = name
+                  end
+                  isActionLoading = false
+                  actionStatus = ""
                   selectedPackage = name
                   savedRebuildRepo = nil
                   savedRebuildArch = nil
@@ -1049,7 +1362,7 @@ function render()
 	end
 
 	panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
-		ui.scroll({ flexGrow = 1 }, {
+		ui.scroll({ key = "scroll-" .. tostring(selectedProject) .. "-" .. tostring(selectedPackage), flexGrow = 1 }, {
 			ui.column({ gap = 10, paddingV = 6, paddingH = 12, align = "stretch" }, body),
 		}),
 	}))
@@ -1057,7 +1370,8 @@ end
 
 function onOpen()
 	if noctalia.commandExists("osc") and noctalia.fileExists(OSC_CONFIG) then
-		restoreProject, restorePackage = readNav()
+		restoreProject, restorePackage, restoreFilesOpen, restoreFilesPackage, restoreCommandLog, restoreErrorText =
+			readNav()
 		loadProjects()
 	else
 		render()
