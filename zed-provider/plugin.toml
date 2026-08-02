@@ -1,6 +1,6 @@
 id = "cleboost/zed-provider"
 name = "Zed Provider"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "cleboost"
 license = "MIT"
