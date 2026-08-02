@@ -24,6 +24,8 @@
     "update_changes": "Update {name}.changes",
     "edit_meta": "Edit package meta",
     "rebuild": "Rebuild package",
+    "repo": "Repo",
+    "arch": "Arch",
     "confirm_rebuild": "Confirm rebuild",
     "remove": "Remove package",
     "confirm_remove": "Click to confirm removal",

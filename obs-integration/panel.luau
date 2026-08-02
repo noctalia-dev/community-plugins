@@ -833,18 +833,18 @@ function render()
 				ui.glyph({ name = "package", color = checkedOut and "primary" or "on_surface", size = 18 }),
 			ui.label({ text = selectedPackage, fontWeight = "bold", flexGrow = 1 }),
 		}
+		table.insert(
+			headerChildren,
+			ui.button({
+				glyph = "feather-filled",
+				tooltip = noctalia.tr("panel.edit_meta"),
+				variant = "default",
+				onClick = function()
+					editPackageMeta(selectedProject, selectedPackage)
+				end,
+			})
+		)
 		if checkedOut then
-			table.insert(
-				headerChildren,
-				ui.button({
-					glyph = "feather-filled",
-					tooltip = noctalia.tr("panel.edit_meta"),
-					variant = "ghost",
-					onClick = function()
-						editPackageMeta(selectedProject, selectedPackage)
-					end,
-				})
-			)
 			table.insert(
 				headerChildren,
 				ui.button({
@@ -1201,7 +1201,8 @@ function render()
 		else
 			table.insert(
 				body,
-				ui.row({ align = "center", gap = 8 }, {
+				ui.row({ align = "center", gap = 2 }, {
+				ui.label({ text = noctalia.tr("panel.repo"), width = 40, flexGrow = 0 }),
 				ui.select({
 					key = "rebuild-repo-" .. tostring(rebuildArchIndex),
 					options = repoOptions,
@@ -1215,6 +1216,7 @@ function render()
 						render()
 					end,
 				}),
+				ui.label({ text = noctalia.tr("panel.arch"), width = 32, flexGrow = 0 }),
 				ui.select({
 					key = "rebuild-arch-" .. tostring(rebuildRepoIndex),
 					options = archOptions,
@@ -1431,7 +1433,7 @@ function render()
 						}),
 						ui.button({
 							glyph = "feather-filled",
-							variant = "ghost",
+							variant = "default",
 							tooltip = noctalia.tr("panel.edit_project_meta"),
 							onClick = function()
 								editProjectMeta(name)
