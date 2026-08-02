@@ -1,8 +1,8 @@
 # Screen Toolkit
 
-A unified set of screen utilities for the Noctalia shell: color picking, OCR,
-QR/barcode scanning, palette extraction, Google Lens search, annotation, pixel
-measuring, screen recording, and image sharing — all in one place.
+A Noctalia v5 plugin for color picking, OCR, QR/barcode scanning, palette
+extraction, Google Lens search, annotation, pixel measuring, screen recording,
+and image sharing.
 
 ## Attribution
 
@@ -20,8 +20,8 @@ not the original implementation.
 
 ## Requirements
 
-Install these on `PATH`. Without them the related tools notify you instead of
-working.
+Install the tools used by the features you want on `PATH`. Missing tools are
+reported when that feature is started.
 
 - **[slurp](https://github.com/Powerline1/slurp)** — region selection
 - **grim** — screen capture
@@ -31,7 +31,12 @@ working.
 - **zbar** — QR / barcode scanning (`zbarimg`)
 - **curl** + **jq** — image uploads (uguu.se / x02.me) and Google Lens
 - **ffmpeg** — recording / GIF conversion
-- **gpu-screen-recorder** — *recommended* for fullscreen recording, especially on NVIDIA (NVENC); falls back to **wl-screenrec** for region capture and **wf-recorder** as a last resort
+
+Recording requires at least one backend:
+
+- **gpu-screen-recorder** — recommended for fullscreen recording, especially on NVIDIA (NVENC)
+- **wl-screenrec** — preferred for region recording and microphone audio
+- **wf-recorder** — fallback recorder for region and fullscreen capture
 
 Optional:
 
@@ -56,9 +61,9 @@ Open the main tools panel:
 noctalia msg panel-toggle alexander/screen-toolkit:panel
 ```
 
-The tools panel only holds the tools. When a capture tool finishes, a **result
-panel** pops up with the output (color formats, OCR text, QR text, palette) and
-its actions; close it to return to the tools panel.
+The tools panel contains the capture actions. When a capture tool finishes, a
+**result panel** opens with the output and its actions; close it to return to
+the tools panel.
 
 Region tools (Color, OCR, QR, Palette, Lens, Measure, GIF/MP4 record, Markup)
 draw a `slurp` crosshair — drag to select a region, then release. Recording
@@ -68,16 +73,21 @@ Save Confirmation" is on, the panel then offers **Save MP4**, **Save GIF**,
 **Copy**, and **Discard**.
 
 The `hide-cursor` setting excludes the cursor from **recordings and screenshots**
-(default: hidden). On Hyprland, screenshots move the pointer off-screen for the
-capture so a software cursor (common on NVIDIA) never lands in the image;
-recordings pass `--no-cursor` / `-cursor no` to the recorder.
+(default: hidden). Grim excludes the cursor by default; when the setting is
+disabled, the plugin passes grim's `-c` flag to include it. gpu-screen-recorder
+and wl-screenrec receive their corresponding cursor options. wf-recorder does
+not expose a portable cursor flag, so its behavior depends on the compositor.
 
 - **Markup** captures the region and opens it in `swappy` (or `satty`). Saving
   happens in that editor; satty saves to your screenshot path automatically.
   **Markup Window** shows a crosshair — click the window you want to annotate
   and it captures that window (Hyprland only).
 - **Measure** reports the region's pixel size and copies it to the clipboard.
-- **OCR** extracts text and copies it to the clipboard.
+- **OCR** extracts text and copies it to the clipboard. The result includes the
+  capture preview and an editable multiline text area, so you can correct, trim,
+  or extend the OCR output before copying, searching, translating, or sharing
+  it. Detected URLs can be opened directly and detected email addresses can
+  open a mail composer.
 - **QR** decodes a code and copies the text to the clipboard.
 - **Palette** copies the extracted hex colors (one per line) to the clipboard.
 - **Share** uploads the current capture and copies the link (uguu.se by default,
@@ -98,10 +108,10 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `video-path` | `folder` | `~/Videos` | Where recordings are saved. |
 | `filename-format` | `string` | `%Y-%m-%d_%H-%M-%S` | Filename template; the extension is added automatically. |
 | `selected-ocr-lang` | `string` | `eng` | Tesseract language code; combine with `+` (e.g. `eng+fra`). |
-| `search-engine-url` | `string` | *(Google)* | URL template for "Search text"; `{text}` is URL-encoded. |
+| `search-engine-url` | `string` | *(Google)* | Search URL prefix, or a URL containing `{text}`. The OCR text is URL-encoded. |
 | `x02-api-key` | `string` | *(empty)* | up.x02.me key for longer-lived, larger uploads. |
 | `x02-expiry` | `select` | `7d` | Link lifetime when an x02 key is set: `1h`, `1d`, `7d`, `30d`, or `permanent`. |
-| `share-skip-popover` | `bool` | `false` | Copy the share link straight to the clipboard (the panel has no share popover, so links always copy; kept for parity). |
+| `share-skip-popover` | `bool` | `false` | Compatibility setting retained from v4. The v5 result panel copies share links directly. |
 | `record-audio-out` | `bool` | `false` | Record the desktop's audio output. |
 | `record-audio-in` | `bool` | `false` | Record the default microphone. |
 | `hide-cursor` | `bool` | `true` | Exclude the cursor from recordings and screenshots. On Hyprland, screenshots briefly move the pointer off-screen during capture. |
@@ -166,3 +176,9 @@ noctalia msg plugin alexander/screen-toolkit:service all ocrTranslate en
   are transient.
 - Network calls: Google Lens upload (uguu.se), share uploads (uguu.se or
   up.x02.me), and `xdg-open` for search/URL results.
+
+## License
+
+This remake is released under the MIT license. It is an independent v5 port of
+the original legacy plugin; see [Attribution](#attribution) for the original
+project and source.

@@ -2,13 +2,20 @@
 -- Screen Toolkit — bar [[widget]].
 --
 -- Crosshair glyph; a pulsing red dot appears while a recording is active.
--- Left click toggles the main panel (or stops a recording); right click
--- quick-picks a color. Recording logic lives in the [[service]] — this widget
+-- Left click toggles the main panel; right click quick-picks a color.
+-- Recording logic lives in the [[service]] — this widget
 -- only reflects the published state and drives the service through the
 -- "command" state channel.
 
 local recording = false
 local phase = 0
+local startedAt = nil
+
+local function elapsed()
+  if not startedAt then return "00:00" end
+  local seconds = math.max(0, os.time() - startedAt)
+  return string.format("%02d:%02d", math.floor(seconds / 60), seconds % 60)
+end
 
 local function render()
   local container = barWidget.isVertical() and ui.column or ui.row
@@ -21,6 +28,7 @@ local function render()
       radius = 4,
       fill = (phase % 2 == 0) and "error" or "error/0.35",
     }))
+    table.insert(children, ui.label({ text = `REC {elapsed()}`, fontSize = 11, fontWeight = "bold", color = "error" }))
   end
   table.insert(children, ui.glyph({ name = "crosshair", size = 14 }))
   barWidget.render(container({ gap = 6, align = "center" }, children))
@@ -36,15 +44,18 @@ end
 
 noctalia.state.watch("recording", function(value)
   recording = value == true
+  startedAt = noctalia.state.get("recordStartedAt")
+  render()
+end)
+noctalia.state.watch("recordStartedAt", function(value)
+  startedAt = value
   render()
 end)
 
 function onClick()
-  if recording then
-    noctalia.state.set("command", { action = "recordStop" })
-  else
-    noctalia.togglePanel("alexander/screen-toolkit:panel")
-  end
+  -- The bar icon never stops a recording; it just opens the panel so the
+  -- stop button (in the panel header, next to the close X) is reachable.
+  noctalia.togglePanel("alexander/screen-toolkit:panel")
 end
 
 function onRightClick()

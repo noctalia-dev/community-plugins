@@ -46,7 +46,12 @@ done
 LANG="${VALID_LANGS#+}"
 [ -z "$LANG" ] && LANG="eng"
 
-grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} ${GW}x${GH}" "$FILE" 2>/dev/null || exit 3
+sleep 0.15
+
+# Capture the requested region. Without this the script would keep re-reading
+# whatever stale image happens to be left at $FILE (stale OCR results).
+grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} ${GW}x${GH}" "$FILE" 2>/dev/null \
+    || { echo "ERROR: grim capture failed" >&2; exit 3; }
 
 if [ -z "$UPSCALE" ] && [ "$GW" -lt 200 ] 2>/dev/null; then
     SCALE=$(awk "BEGIN{printf \"%.0f\", 300 / $GW}")

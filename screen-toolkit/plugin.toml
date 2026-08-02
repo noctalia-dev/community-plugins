@@ -25,6 +25,7 @@ dependencies = [
   "curl",
   "ffmpeg",
   "jq",
+  "translate-shell",
 ]
 
 # ── Plugin-level settings (shared by every entry, edited in Settings → Plugins) ──

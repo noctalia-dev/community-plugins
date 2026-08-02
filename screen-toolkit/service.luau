@@ -59,12 +59,13 @@ end
 -- cursor by default, so screenshots do not need a pointer-moving workaround.
 -- This also keeps color picking and slurp interaction reliable on Hyprland.
 local cursorHidden = true
+local CAPTURE_DELAY = 0.15
 
 -- Grim excludes the cursor unless `-c` is passed. Do not move the
 -- pointer: that breaks color picking and is compositor-specific. Recorder
 -- backends receive their own cursor flag in buildRecorderCommand below.
 local function hideCursorForCapture(cmd, cb)
-  noctalia.runAsync(cmd, cb)
+  noctalia.runAsync(`sleep {CAPTURE_DELAY}; {cmd}`, cb)
 end
 
 local function grimCursorFlag()
@@ -136,13 +137,15 @@ local function slurpGeometry(callback)
     return
   end
   slurping = true
+  -- slurp blocks for as long as the user is dragging the selection. Give it a
+  -- generous timeout; the default runAsync one cancels a slow/long drag.
   noctalia.runAsync("sleep 0.3 && slurp -f '%x,%y %wx%h'", function(res)
     slurping = false
     if res.exitCode ~= 0 then return end -- cancelled
     local geom = trim(res.stdout or "")
     if geom == "" then return end
     callback(geom)
-  end)
+  end, 600000)
 end
 
 local function grimRegion(geom, dest, cb)
@@ -253,12 +256,11 @@ end
 -- ── Tools: color picker ────────────────────────────────────────────────────
 
 local function runColorPicker()
-  noctalia.runAsync(captureEnv() .. SCRIPT_PICKER .. " " .. shellQuote(COLOR_PNG), function(res)
-    if res.exitCode ~= 0 or trim(res.stdout or "") == "" then
-      noctalia.notify(noctalia.tr("messages.picker_cancelled"))
-      return
-    end
-    local r, g, b = trim(res.stdout or ""):match("^(%d+)%s+(%d+)%s+(%d+)$")
+  -- hyprpicker waits for an interactive pointer selection. Keep it on the
+  -- long-lived stream API; captured runAsync callbacks can time out while the
+  -- user is still choosing a color.
+  noctalia.runStream(`sleep {CAPTURE_DELAY}; {captureEnv()}{SCRIPT_PICKER} {shellQuote(COLOR_PNG)}`, function(line)
+    local r, g, b = tostring(line):match("^(%d+)%s+(%d+)%s+(%d+)$")
     if not r then return end
     r, g, b = clamp(tonumber(r)), clamp(tonumber(g)), clamp(tonumber(b))
     local hex = string.format("#%02X%02X%02X", r, g, b)
@@ -276,7 +278,6 @@ local function runColorPicker()
     })
     publish("activeTool", "colorpicker")
     saveResults()
-    noctalia.notify(noctalia.tr("messages.color_picked", { color = hex }))
     noctalia.togglePanel(RESULT_PANEL_ID)
   end)
 end
@@ -331,18 +332,19 @@ local function runOcr()
         return
       end
       noctalia.copyToClipboard(text, "text/plain;charset=utf-8")
-      publish("ocrResult", { text = text, capturePath = OCR_PNG })
+      publish("ocrResult", { text = text, capturePath = OCR_PNG, gw = tonumber(gw), gh = tonumber(gh) })
       publish("activeTool", "ocr")
       saveResults()
-      noctalia.notify(noctalia.tr("messages.ocr_copied"))
       noctalia.togglePanel(RESULT_PANEL_ID)
     end)
   end)
 end
 
-local function ocrSearch()
+local function ocrSearch(payload)
   local result = noctalia.state.get("ocrResult")
-  local text = type(result) == "table" and result.text or nil
+  local text = if type(payload) == "table" and type(payload.text) == "string"
+    then payload.text
+    else type(result) == "table" and result.text or nil
   if not text or text == "" then return end
   local url = cfg("search-engine-url")
   if url == nil or url == "" then
@@ -357,15 +359,18 @@ local function ocrSearch()
   noctalia.runAsync("xdg-open " .. shellQuote(url))
 end
 
-local function ocrTranslate(targetLang)
+local function ocrTranslate(payload)
   local result = noctalia.state.get("ocrResult")
-  local text = type(result) == "table" and result.text or nil
+  local text = if type(payload) == "table" and type(payload.text) == "string"
+    then payload.text
+    else type(result) == "table" and result.text or nil
   if not text or text == "" then return end
   if not noctalia.commandExists("trans") then
     noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = "translate-shell" }))
     return
   end
   publish("translateResult", nil)
+  local targetLang = if type(payload) == "table" then payload.lang else payload
   local lang = if type(targetLang) == "string" and targetLang ~= "" then targetLang else "en"
   noctalia.runAsync(`trans -brief -to {shellQuote(lang)} {shellQuote(text)}`, function(res)
     if res.exitCode ~= 0 then
@@ -390,7 +395,6 @@ local function runQr()
       publish("qrResult", { text = text, capturePath = QR_PNG })
       publish("activeTool", "qr")
       saveResults()
-      noctalia.notify(noctalia.tr("messages.qr_copied"))
       noctalia.togglePanel(RESULT_PANEL_ID)
     end)
   end)
@@ -425,7 +429,6 @@ local function runPalette()
       publish("paletteColors", out)
       publish("activeTool", "palette")
       saveResults()
-      noctalia.notify(noctalia.tr("messages.palette_copied"))
       noctalia.togglePanel(RESULT_PANEL_ID)
     end)
   end)
@@ -435,12 +438,9 @@ local function runLens()
   slurpGeometry(function(geom)
     local gx, gy, gw, gh = parseGeometry(geom)
     if not gx then return end
-    noctalia.notify(noctalia.tr("messages.lens_uploading"))
     noctalia.runAsync(captureEnv() .. SCRIPT_LENS .. " " .. gx .. " " .. gy .. " " .. gw .. " " .. gh, function(res)
       if res.exitCode ~= 0 then
         noctalia.notifyError(noctalia.tr("messages.lens_failed"))
-      else
-        noctalia.notify(noctalia.tr("messages.lens_opened"))
       end
     end)
   end)
@@ -474,10 +474,9 @@ local function openAnnotator(file)
     -- No annotation editor installed: hand the capture over via the clipboard
     -- so the tool still does something useful.
     copyFileUri(file)
-    noctalia.notify(noctalia.tr("messages.no_annotator"), noctalia.tr("messages.annotate_copied"))
+    noctalia.notify(noctalia.tr("messages.no_annotator"))
     return
   end
-  noctalia.notify(noctalia.tr("messages.annotating"))
 end
 
 local function annotateRegion()
@@ -515,7 +514,7 @@ local function annotateWindow()
     noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = "hyprctl" }))
     return
   end
-  noctalia.runAsync(captureEnv() .. SCRIPT_CAPTURE .. " annotate-window", function(res)
+  noctalia.runAsync(`sleep {CAPTURE_DELAY}; {captureEnv()}{SCRIPT_CAPTURE} annotate-window`, function(res)
     if res.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("messages.capture_failed"))
       return
@@ -537,9 +536,9 @@ local lastRecorderLog = ""
 
 local recordState = "idle" -- idle | recording | converting | ready
 local recordFormat = "mp4"
-local recorderBin = "" -- binary actually running the current recording
 local rawPath = ""
 local recordPath = ""
+local recordStartedAt = nil
 
 local function refreshRecorders()
   gsrAvailable = noctalia.commandExists("gpu-screen-recorder")
@@ -573,6 +572,8 @@ local function setRecordState(next)
   publish("recordState", recordState)
   publish("recording", recordState == "recording")
   publish("recordPath", recordPath)
+  publish("recordFormat", recordFormat)
+  publish("recordStartedAt", if recordState == "recording" then recordStartedAt else nil)
 end
 
 local function gsrAudioFlags()
@@ -595,9 +596,14 @@ local function buildRecorderCommand(bin, geom, out)
     local codec = cfg("record-codec") or "h264"
     local fps = cfg("record-fps") or 60
     local cursor = if cursorHidden then "no" else "yes"
+    -- focusedOutputName() can return nil (e.g. when triggered from the bar),
+    -- so capture the focused region by geometry instead of by monitor name.
+    -- GSR region syntax is "WxH+X+Y", the reverse of our "x,y WxH".
+    local gx, gy, gw, gh = tostring(geom):match("^(%d+),(%d+) (%d+)x(%d+)$")
+    if not gx then return "" end
     local flags = string.format(
-      "-w focused -f %d -k %s -bm qp -ffmpeg-video-opts qp=25 -cursor %s -cr limited %s -v no -o %s",
-      fps, codec, cursor, gsrAudioFlags(), shellQuote(out)
+      "-w region -region %sx%s+%s+%s -f %d -k %s -bm qp -ffmpeg-opts qp=25 -cursor %s -cr limited %s -v no -o %s",
+      gw, gh, gx, gy, fps, codec, cursor, gsrAudioFlags(), shellQuote(out)
     )
     return "gpu-screen-recorder " .. flags
   elseif bin == "wl-screenrec" then
@@ -619,39 +625,82 @@ local function startRecord(geom, format, bin)
     return
   end
   if recordState ~= "idle" then return end
-  recorderBin = bin
   rawPath = `/tmp/screen-toolkit-record-{os.time()}.mp4`
   recordFormat = if format == "gif" then "gif" else "mp4"
   recordPath = ""
   local cmd = buildRecorderCommand(bin, geom, rawPath)
   log(`starting recording: {cmd}`)
-  -- The detached form of runAsync does not report the child exit status. The
-  -- stop path verifies that the output file was actually created.
-  noctalia.runAsync(cmd)
+  if cmd == "" then
+    rawPath = ""
+    setRecordState("idle")
+    noctalia.notifyError(noctalia.tr("messages.recording_failed"))
+    return
+  end
+  -- Launch detached (no callback): the recorder keeps running after runAsync
+  -- returns, exactly like the built-in screen recorder does. A tracked
+  -- (callback) runAsync owns the command's process group and tears it down
+  -- when the foreground shell exits, killing a backgrounded recorder. The stop
+  -- path signals it by matching its unique output path in the command line.
+  if not noctalia.runAsync(cmd) then
+    rawPath = ""
+    setRecordState("idle")
+    noctalia.notifyError(noctalia.tr("messages.recording_failed"))
+    return
+  end
+  recordStartedAt = os.time()
   setRecordState("recording")
-  noctalia.notify(noctalia.tr("messages.recording_started"))
+  noctalia.notify(noctalia.tr("plugin_name"), noctalia.tr("messages.recording_started"))
 end
 
-local function waitForFile(path, callback, attempts)
+local function waitForFileStable(path, callback, attempts, previousSize)
   attempts = attempts or 60
-  noctalia.runAsync(`sleep 0.1; test -s {shellQuote(path)}`, function(res)
-    if res.exitCode == 0 then
-      callback(true)
+  noctalia.runAsync(`stat -c %s {shellQuote(path)}`, function(res)
+    local size = trim(res.stdout or "")
+    if res.exitCode == 0 and tonumber(size) and tonumber(size) > 0 then
+      if previousSize == size then
+        callback(true)
+        return
+      end
+      noctalia.runAsync("sleep 0.3", function()
+        waitForFileStable(path, callback, attempts - 1, size)
+      end)
       return
     end
     if attempts <= 0 then
       callback(false)
       return
     end
-    waitForFile(path, callback, attempts - 1)
+    noctalia.runAsync("sleep 0.2", function()
+      waitForFileStable(path, callback, attempts - 1, previousSize)
+    end)
   end)
+end
+
+local function parseRecordInfo(raw)
+  local d, wh, size = tostring(raw):match("([%d%.]+)|(%d+x%d+)|(%d+)")
+  local w, h = 0, 0
+  if wh then
+    local ww, hh = wh:match("(%d+)x(%d+)")
+    w, h = tonumber(ww) or 0, tonumber(hh) or 0
+  end
+  return {
+    duration = tonumber(d) or 0,
+    width = w,
+    height = h,
+    size = tonumber(size) or 0,
+  }
 end
 
 local function recordStop()
   if recordState ~= "recording" then return end
   setRecordState("converting")
-  noctalia.runAsync(`pkill -INT {shellQuote(recorderBin)}`, function()
-    waitForFile(rawPath, function(ok)
+  noctalia.notify(noctalia.tr("plugin_name"), noctalia.tr("messages.recording_stopped"))
+  -- rawPath is unique per recording, so pkill scopes to our recorder only and
+  -- never touches the built-in screen recorder's process. The transient pkill
+  -- wrapper matching itself is harmless (it still signals the recorder first).
+  local stopCommand = `pkill -INT -f {shellQuote(rawPath)}`
+  noctalia.runAsync(stopCommand, function()
+    waitForFileStable(rawPath, function(ok)
       if not ok then
         setRecordState("idle")
         noctalia.notifyError(noctalia.tr("messages.recording_failed"))
@@ -664,8 +713,21 @@ local function recordStop()
       elseif skipConfirm then
         finalizeRecord(recordFormat, false)
       else
-        setRecordState("ready")
-        noctalia.togglePanel(RESULT_PANEL_ID)
+        -- Extract a mid-frame thumbnail so the result panel can preview the
+        -- recording, then probe it for size / duration / resolution.
+        noctalia.runAsync(SCRIPT_RECORD .. " thumb " .. shellQuote(rawPath), function()
+          local probe = string.format(
+            "D=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s 2>/dev/null); "
+              .. "WH=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 %s 2>/dev/null); "
+              .. "S=$(stat -c %%s %s 2>/dev/null); printf '%%s|%%s|%%s' \"$D\" \"$WH\" \"$S\"",
+            shellQuote(rawPath), shellQuote(rawPath), shellQuote(rawPath)
+          )
+          noctalia.runAsync(probe, function(res)
+            publish("recordInfo", parseRecordInfo(res.stdout or ""))
+            setRecordState("ready")
+            noctalia.togglePanel(RESULT_PANEL_ID)
+          end)
+        end)
       end
     end)
   end)
@@ -674,13 +736,16 @@ end
 local function finalizeRecord(format, copyToClipboard)
   if rawPath == "" then return end
   local destDir = videoDir()
-  local ext = if format == "gif" then ".gif" else ".mp4"
+  local ext
+  if format == "gif" then ext = ".gif" elseif format == "mov" then ext = ".mov" else ext = ".mp4" end
   local dest = destDir .. "/" .. buildFilename("record", ext)
   setRecordState("converting")
   local cmd
   if format == "gif" then
     cmd = SCRIPT_RECORD .. " convert-gif " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
       .. " " .. tostring(cfg("gif-max-seconds") or 0)
+  elseif format == "mov" then
+    cmd = SCRIPT_RECORD .. " convert-mov " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
   else
     cmd = SCRIPT_RECORD .. " convert-mp4 " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
   end
@@ -708,6 +773,14 @@ local function recordDiscard()
     rawPath = ""
   end
   setRecordState("idle")
+end
+
+-- A recording that finished but was never saved is superseded the moment the
+-- user runs any other capture tool; drop its temp file so the result panel
+-- can't get stuck showing the stale "save recording" card.
+local function discardPendingRecording()
+  if recordState ~= "ready" then return end
+  recordDiscard()
 end
 
 -- ── Sharing ────────────────────────────────────────────────────────────────
@@ -815,8 +888,10 @@ local HANDLERS = {
   recordFullscreen = function() runRecordFullscreen("gif") end,
   recordFullscreenMp4 = function() runRecordFullscreen("mp4") end,
   recordStop = recordStop,
-  recordSaveMp4 = function() finalizeRecord("mp4", false) end,
-  recordSaveGif = function() finalizeRecord("gif", false) end,
+  recordSave = function(payload)
+    local fmt = type(payload) == "table" and payload.format or nil
+    finalizeRecord(fmt or recordFormat, false)
+  end,
   recordCopy = function() finalizeRecord("mp4", true) end,
   recordDiscard = recordDiscard,
   ocrSearch = ocrSearch,
@@ -828,10 +903,20 @@ local HANDLERS = {
   toggle = function() noctalia.togglePanel(PANEL_ID) end,
 }
 
+-- Tools that begin a brand-new capture. Starting one discards any recording
+-- that finished but was never saved, so the result panel shows the new tool's
+-- result instead of the stale "save recording" card.
+local CAPTURE_STARTS = {
+  colorPicker = true, ocr = true, qr = true, palette = true, lens = true,
+  measure = true, annotate = true, annotateFullscreen = true, annotateWindow = true,
+  record = true, recordMp4 = true, recordFullscreen = true, recordFullscreenMp4 = true,
+}
+
 local function dispatch(event, payload)
   if event == nil then return end
   local handler = HANDLERS[event]
   if handler then
+    if CAPTURE_STARTS[event] then discardPendingRecording() end
     log(`ipc '{event}'`)
     handler(payload)
   else

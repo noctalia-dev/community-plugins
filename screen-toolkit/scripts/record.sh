@@ -6,6 +6,7 @@
 #   convert-mp4  <input> <output>         — finalize MP4: stream-copy (fast path)
 #   convert-mp4  <input> <output> --recode — finalize MP4: re-encode audio to AAC 128k + faststart
 #   convert-gif  <input> <output> [maxsec] — convert MP4 → palette-optimized GIF at 15 fps
+#   convert-mov  <input> <output>           — remux MP4 → MOV (stream copy)
 #   stop         <recorder-bin>           — send SIGINT to the named recorder process
 #
 # Exit codes:
@@ -87,6 +88,18 @@ case "$ACTION" in
     rm -f "$PALETTE" "$INPUT"
     _thumb "$OUTPUT"
     ;;
+  convert-mov)
+    INPUT="${2:-}"
+    OUTPUT="${3:-}"
+    [ -n "$INPUT"  ] || { echo "ERROR: convert-mov: missing <input>"          >&2; exit 1; }
+    [ -n "$OUTPUT" ] || { echo "ERROR: convert-mov: missing <output>"         >&2; exit 1; }
+    [ -f "$INPUT"  ] || { echo "ERROR: convert-mov: file not found: $INPUT"   >&2; exit 2; }
+    _require ffmpeg
+    ffmpeg -y -i "$INPUT" -c copy -movflags +faststart "$OUTPUT" 2>/dev/null \
+        || { echo "ERROR: convert-mov: ffmpeg failed" >&2; exit 4; }
+    rm -f "$INPUT"
+    _thumb "$OUTPUT"
+    ;;
   stop)
     BIN="${2:-}"
     [ -n "$BIN" ] || { echo "ERROR: stop: missing <recorder-bin>" >&2; exit 1; }
@@ -94,7 +107,7 @@ case "$ACTION" in
     pkill -INT "$BIN" 2>/dev/null || true
     ;;
   *)
-    echo "ERROR: unknown action '${ACTION}'. Expected: thumb | convert-mp4 | convert-gif | stop" >&2
+    echo "ERROR: unknown action '${ACTION}'. Expected: thumb | convert-mp4 | convert-gif | convert-mov | stop" >&2
     exit 1
     ;;
 esac

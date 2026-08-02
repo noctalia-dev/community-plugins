@@ -15,7 +15,12 @@ for dep in grim curl jq xdg-open; do
     command -v "$dep" >/dev/null 2>&1 || { echo "$dep"; exit 1; }
 done
 
-grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} ${GW}x${GH}" "$FILE" 2>/dev/null || exit 2
+sleep 0.15
+
+# Capture the requested region. Without this the upload would send whatever
+# stale image happens to be left at $FILE (or nothing at all).
+grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} ${GW}x${GH}" "$FILE" 2>/dev/null \
+    || { echo "ERROR: grim capture failed" >&2; exit 2; }
 
 RESP=$(curl -sS -f -A 'Mozilla/5.0' --connect-timeout 20 --max-time 60 \
   -F "files[]=@$FILE" 'https://uguu.se/upload' 2>/dev/null) || \

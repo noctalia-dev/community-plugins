@@ -54,7 +54,8 @@ case "$ACTION" in
         || { echo "ERROR: could not parse window geometry" >&2; exit 2; }
     # grim excludes the cursor by default; moving it would make the picker
     # unreliable and is compositor-specific.
-    grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOM" /tmp/screen-toolkit-annotate.png 2>/dev/null \
+     sleep 0.15
+     grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOM" /tmp/screen-toolkit-annotate.png 2>/dev/null \
         || { echo "ERROR: grim capture failed" >&2; exit 2; }
     printf '%s\n' "$GEOM"
     ;;
@@ -67,7 +68,8 @@ case "$ACTION" in
 
     FILE="/tmp/screen-toolkit-palette.png"
 
-    grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOMETRY" "$FILE" 2>/dev/null \
+     sleep 0.15
+     grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOMETRY" "$FILE" 2>/dev/null \
         || { echo "ERROR: palette: grim capture failed" >&2; exit 2; }
 
     magick "$FILE" -alpha off +dither -colors 8 -unique-colors txt:- 2>/dev/null \
@@ -82,7 +84,8 @@ case "$ACTION" in
     _require grim
     _require zbarimg
 
-    grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOMETRY" /tmp/screen-toolkit-qr.png 2>/dev/null \
+     sleep 0.15
+     grim "${GRIM_CURSOR_ARGS[@]}" -g "$GEOMETRY" /tmp/screen-toolkit-qr.png 2>/dev/null \
         || { echo "ERROR: qr: grim capture failed" >&2; exit 2; }
 
     zbarimg -q --raw /tmp/screen-toolkit-qr.png 2>/dev/null

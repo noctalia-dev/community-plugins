@@ -2,7 +2,7 @@
 -- Screen Toolkit — control-center [[shortcut]] tile.
 --
 -- Mirrors the bar widget: shows the recording state and toggles the main
--- panel (or stops a recording). Drives the [[service]] through the "command"
+-- panel. Drives the [[service]] through the "command"
 -- state channel — no shell-out, no IPC PATH dependency.
 
 local recording = false
@@ -19,11 +19,9 @@ noctalia.state.watch("recording", function(value)
 end)
 
 function onClick()
-  if recording then
-    noctalia.state.set("command", { action = "recordStop" })
-  else
-    noctalia.togglePanel("alexander/screen-toolkit:panel")
-  end
+  -- The shortcut tile never stops a recording; it just opens the panel so
+  -- the stop button (in the panel header, next to the close X) is reachable.
+  noctalia.togglePanel("alexander/screen-toolkit:panel")
 end
 
 apply()

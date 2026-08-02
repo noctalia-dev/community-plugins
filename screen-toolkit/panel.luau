@@ -7,7 +7,6 @@
 -- panel first so the capture never includes it.
 
 local panelOpen = false
-
 local recording = noctalia.state.get("recording") == true
 
 -- ── Helpers ────────────────────────────────────────────────────────────────
@@ -45,16 +44,24 @@ local function runTool(action)
   send(action)
 end
 
-local function refresh()
-  recording = noctalia.state.get("recording") == true
-end
-
 -- ── Header ─────────────────────────────────────────────────────────────────
 
 local function header()
+  local actions = {
+    ui.button({ glyph = "close", onClick = function() panel.close() end }),
+  }
+  if recording then
+    table.insert(actions, 1, ui.button({
+      glyph = "square",
+      variant = "destructive",
+      controlSize = "sm",
+      tooltip = tr("panel.stop"),
+      onClick = function() send("recordStop") end,
+    }))
+  end
   return ui.row({ align = "center", gap = 8 }, {
     ui.label({ text = tr("panel.title"), flexGrow = 1, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
-    ui.button({ glyph = "close", onClick = function() panel.close() end }),
+    ui.row({ gap = 4 }, actions),
   })
 end
 
@@ -138,7 +145,6 @@ end
 
 function onOpen(_context)
   panelOpen = true
-  refresh()
   render()
 end
 
@@ -146,4 +152,11 @@ function onClose()
   panelOpen = false
 end
 
-noctalia.state.watch("recording", function(v) recording = v == true; if panelOpen then render() end end)
+noctalia.state.watch("recording", function(v)
+  recording = v == true
+  if panelOpen then render() end
+end)
+
+function update()
+  noctalia.setUpdateInterval(500)
+end

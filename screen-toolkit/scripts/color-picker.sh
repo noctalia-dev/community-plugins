@@ -37,6 +37,7 @@ if command -v hyprpicker >/dev/null 2>&1; then
                 # Capture 21x21 area centered on picked pixel for more context
                 GX=$((X > 10 ? X - 10 : 0))
                 GY=$((Y > 10 ? Y - 10 : 0))
+                sleep 0.15
                 grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} 21x21" "$FILE" 2>/dev/null && CAPTURED=1
             fi
         fi
@@ -55,6 +56,7 @@ done
 COORDS=$(slurp -p 2>/dev/null) || exit 1
 X=${COORDS%%,*}; REST=${COORDS#*,}; Y=${REST%% *}
 GX=$((X > 10 ? X - 10 : 0)); GY=$((Y > 10 ? Y - 10 : 0))
+sleep 0.15
 grim "${GRIM_CURSOR_ARGS[@]}" -g "${GX},${GY} 21x21" "$FILE" 2>/dev/null || exit 1
 magick "$FILE" -alpha off \
     -format '%[fx:int(255*u.p{10,10}.r)] %[fx:int(255*u.p{10,10}.g)] %[fx:int(255*u.p{10,10}.b)]' \
