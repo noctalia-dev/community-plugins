@@ -1,5 +1,9 @@
 {
     "settings": {
+        "titlebar": {
+            "label": "Show Titlebar",
+            "description": "Show panel name and buttons like settings and close."
+        },
         "generate_button": {
             "label": "Show Generate Button",
             "description": "Disable will submit on enter."

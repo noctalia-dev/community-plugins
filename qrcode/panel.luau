@@ -76,6 +76,17 @@ local function render()
         )
     end
 
+    if noctalia.getConfig("titlebar") then
+        table.insert(
+            content, 1,
+            ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+                ui.label({ text = "QR Code Encoder", fontSize = 16, fontWeight = "bold", flexGrow = 1 }),
+                ui.button({ glyph = "settings", onClick = noctalia.openSettings }),
+                ui.button({ glyph = "close", onClick = "onCloseClicked" }),
+            })
+        )
+    end
+
     panel.render(ui.column({ flexGrow = 1, gap = 16 }, content))
 end
 
@@ -199,6 +210,10 @@ function onImageClick()
     end
 
     render()
+end
+
+function onCloseClicked()
+    panel.close()
 end
 
 function onClose()

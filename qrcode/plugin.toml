@@ -1,7 +1,7 @@
 id = "yocraft/qrcode"
-name = "QR Code encoder"
+name = "QR Code Encoder"
 version = "1.0.0"
-plugin_api = 21
+plugin_api = 15
 author = "yocraft"
 license = "MIT"
 deprecated = false
@@ -28,6 +28,13 @@ width = 500
 height = 550
 placement = "floating"
 position = "center"
+
+[[setting]]
+key = "titlebar"
+type = "bool"
+label_key = "settings.titlebar.label"
+description_key = "settings.titlebar.description"
+default = true
 
 [[setting]]
 key = "generate_button"
