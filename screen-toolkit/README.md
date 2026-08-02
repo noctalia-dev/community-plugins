@@ -4,6 +4,13 @@ A unified set of screen utilities for the Noctalia shell: color picking, OCR,
 QR/barcode scanning, palette extraction, Google Lens search, annotation, pixel
 measuring, screen recording, and image sharing — all in one place.
 
+## Attribution
+
+Screen Toolkit was originally created for Noctalia v4 by the author(s) of the
+[legacy screen-toolkit plugin](https://github.com/noctalia-dev/legacy-v4-plugins/tree/main/screen-toolkit).
+This repository is an independent Noctalia v5 remake/port by `alexander`; it is
+not the original implementation.
+
 ## Plugin
 
 | Field | Value |
