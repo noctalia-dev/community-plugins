@@ -23,14 +23,14 @@ not the original implementation.
 Install the tools used by the features you want on `PATH`. Missing tools are
 reported when that feature is started.
 
-- **[slurp](https://github.com/Powerline1/slurp)** — region selection
-- **grim** — screen capture
-- **hyprpicker** — pixel color picking
-- **tesseract** — OCR engine (plus your language packs, e.g. `tesseract-data-eng`)
-- **imagemagick** — image processing
-- **zbar** — QR / barcode scanning (`zbarimg`)
-- **curl** + **jq** — image uploads (uguu.se / x02.me) and Google Lens
-- **ffmpeg** — recording / GIF conversion
+- **`slurp`** — region selection
+- **`grim`** — screen capture
+- **`hyprpicker`** — pixel color picking
+- **`tesseract`** — OCR engine (plus your language packs, e.g. `tesseract-data-eng`)
+- **`imagemagick`** — image processing
+- **`zbar`** — QR / barcode scanning (`zbarimg`)
+- **`curl`** + **`jq`** — image uploads (uguu.se / x02.me) and Google Lens
+- **`ffmpeg`** — recording / GIF conversion
 
 Recording requires at least one backend:
 
@@ -41,7 +41,7 @@ Recording requires at least one backend:
 Optional:
 
 - **swappy** / **satty** — annotation editor (Markup tool)
-- **translate-shell** (`trans`) — OCR translation
+- **`translate-shell`** (`trans`) — OCR translation
 - **hyprctl** — annotate the focused window (Hyprland only)
 
 Compositor support: region tools, measure, annotate and recording work on any
@@ -59,6 +59,12 @@ Open the main tools panel:
 
 ```sh
 noctalia msg panel-toggle alexander/screen-toolkit:panel
+```
+
+Open the result panel (shows the last capture/recording output):
+
+```sh
+noctalia msg panel-toggle alexander/screen-toolkit:result
 ```
 
 The tools panel contains the capture actions. When a capture tool finishes, a
