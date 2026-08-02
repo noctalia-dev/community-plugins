@@ -47,7 +47,10 @@ local function validName(value)
 end
 
 local function resolveCheckoutDir()
-	local checkoutDir = noctalia.getConfig("checkout_dir") or "~/OBS"
+	local checkoutDir = noctalia.getConfig("checkout_dir")
+	if type(checkoutDir) ~= "string" or checkoutDir:match("^%s*$") then
+		checkoutDir = "~/OBS"
+	end
 	return noctalia.expandPath(checkoutDir)
 end
 
