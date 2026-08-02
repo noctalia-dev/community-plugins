@@ -37,12 +37,13 @@ local function shellQuote(value)
 end
 
 -- OBS project/package identifiers: reject anything that could escape the
--- checkout dir or inject into shell commands (slashes, dots-as-prefix, spaces).
+-- checkout dir or inject into shell commands (slashes, leading dots, spaces).
 local function validName(value)
 	return type(value) == "string"
 		and value ~= ""
 		and not value:find("/", 1, true)
 		and value:match("^[%w:.+%-_]+$") ~= nil
+		and value:match("^%.") == nil
 end
 
 local function resolveCheckoutDir()
