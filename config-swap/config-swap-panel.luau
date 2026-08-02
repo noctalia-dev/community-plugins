@@ -83,12 +83,12 @@ local function welcomeWarning()
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		}),
-		ui.label({ text = "Welcome to Config Swap!", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
-		ui.label({ text = "Please read this carefully before you continue.", textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
-		ui.label({ text = "This plugin can replace your current Noctalia configuration. We recommend backing up your current settings first — use the Save button in the Installed section. Backups are stored in ~/Config-Swap.", textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
+		ui.label({ text = tr("welcome_message_title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
+		ui.label({ text = tr("welcome_message1"), textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
+		ui.label({ text = tr("welcome_message2"), textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
 		ui.row({ gap = 8, justify = "center" }, {
-			ui.button({ text = "Not now", variant = "ghost", onClick = "onCloseClicked" }),
-			ui.button({ text = "I understand", onClick = function()
+			ui.button({ text = tr("not_agree"), variant = "ghost", onClick = "onCloseClicked" }),
+			ui.button({ text = tr("agree"), onClick = function()
 				selectedView = 1
 				render()
 			end
@@ -102,12 +102,12 @@ local function renderConfirmApply(data: infoConfig)
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		}),
-		ui.label({ text = "Apply this configuration?", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
+		ui.label({ text = tr("confirmation"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface" }),
 		ui.label({ text = data.name, textAlign = "center", fontSize = 14, color = "on_surface_variant" }),
-		ui.label({ text = "This will replace your current settings.toml and wallpaper. A backup is not created automatically unless you saved one first.", textAlign = "center", fontSize = 13, color = "on_surface_variant" }),
+		ui.label({ text = tr("description_confirmation"), textAlign = "center", fontSize = 13, color = "on_surface_variant" }),
 		ui.row({ gap = 8, justify = "center" }, {
-			ui.button({ text = "Cancel", variant = "ghost", onClick = "render" }),
-			ui.button({ text = "Apply", variant = "primary", onClick = function()
+			ui.button({ text = tr("cancel"), variant = "ghost", onClick = "render" }),
+			ui.button({ text = tr("apply"), variant = "primary", onClick = function()
 				applyConfig(data)
 				render()
 			end
@@ -239,8 +239,8 @@ end
 
 local function renderDeleteConfirmation(name)
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
-		ui.label({ text = "Are you sure too delete " .. name .. "?", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-		ui.button({ text = "delete", onClick = function()
+		ui.label({ text = tr("confirmation_delete") .. name .. "?", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+		ui.button({ text = tr("delete"), onClick = function()
 			delete(name)
 		end
 		}),
@@ -291,7 +291,7 @@ local function renderSetting()
 	local rowsSettings = {
 		ui.column({ gap = 8 }, {
 			ui.label({
-				text = "Save your current configuration under a custom name at ~/Config-Swap/{name}. A default info.json is created and can be edited later at ~/Config-Swap/{name}/info.json. To set a preview, you can add preview.png to the config folder. This also works for wallpapers using wallpaper.png",
+				text = tr("description_setting1"),
 				fontSize = 12,
 				color = "on_surface_variant",
 			}),
@@ -303,7 +303,7 @@ local function renderSetting()
 					onChange = "onSaveNameChange",
 					flexGrow = 1,
 				}),
-				ui.button({ text = "save", onClick = function()
+				ui.button({ text = tr("save"), onClick = function()
 					saveConfig()
 				end
 				}),
@@ -322,34 +322,34 @@ end
 local function renderInfoStore()
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = "Info Store section", textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.button({ text = "github", onClick = function()
+			ui.label({ text = tr("info_store_title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.button({ text = tr("info_store_github_button"), onClick = function()
 				noctalia.copyToClipboard("https://github.com/Tadomika-Ari/Config-Swap-Box", "text/plain")
-				noctalia.notify("Config-Swap", "copy link success")
+				noctalia.notify(tr("notification_title"), tr("info_store_copy_link_success"))
 			end 
 			}),
 			ui.button({ glyph = "close", onClick = "render" }),
 		}),
 		ui.scroll({ gap = 16, align = "stretch", flexGrow = 1 }, {
 			ui.column({ gap = 4 }, {
-				ui.label({ text = "What is the Store?", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
-				ui.label({ text = "The Store lists community-submitted configuration profiles hosted on the Config-Swap-Box GitHub repository. Each profile bundles a settings.toml, a preview image, and an optional wallpaper.", fontSize = 12, color = "on_surface_variant" }),
+				ui.label({ text = tr("info_store_what_is_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_store_what_is_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 			ui.column({ gap = 4 }, {
-				ui.label({ text = "Installing a profile", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
-				ui.label({ text = "Pressing install downloads the profile's files into ~/Config-Swap/{name}. This does not change your current configuration yet.", fontSize = 12, color = "on_surface_variant" }),
+				ui.label({ text = tr("info_store_installing_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_store_installing_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 			ui.column({ gap = 4 }, {
-				ui.label({ text = "Applying a profile", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
-				ui.label({ text = "Pressing apply replaces your active settings.toml and wallpaper with the selected profile. This is not reversible unless you saved a backup first from the Setting section.", fontSize = 12, color = "on_surface_variant" }),
+				ui.label({ text = tr("info_store_applying_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_store_applying_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 			ui.column({ gap = 4 }, {
-				ui.label({ text = "Community content", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
-				ui.label({ text = "Profiles are submitted by community members and are review by owner.", fontSize = 12, color = "on_surface_variant" }),
+				ui.label({ text = tr("info_store_community_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_store_community_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 			ui.column({ gap = 4 }, {
-				ui.label({ text = "Rate limits", fontSize = 13, fontWeight = "bold", color = "on_surface" }),
-				ui.label({ text = "The store list is fetched from the GitHub API, which limits unauthenticated requests. Avoid refreshing repeatedly in a short period of time.", fontSize = 12, color = "on_surface_variant" }),
+				ui.label({ text = tr("info_store_rate_limits_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_store_rate_limits_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 		}),
 	}))
