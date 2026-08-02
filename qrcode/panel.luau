@@ -26,26 +26,35 @@ local function statusText()
 end
 
 local function render()
-    local content = {
-        ui.row({ gap = 8 }, {
-            ui.input({
-                flexGrow = 1,
-                focus = true,
-                placeholder = noctalia.tr("panel.placeholder"),
-                onChange = "onTextChange",
-                onSubmit = "onTextSubmit",
-            }),
+    local rowContent = {
+        ui.input({
+            flexGrow = 1,
+            focus = true,
+            placeholder = noctalia.tr("panel.placeholder"),
+            onChange = "onTextChange",
+            onSubmit = "onTextSubmit",
+        })
+    }
+
+    if noctalia.getConfig("generate_button") then
+        table.insert(
+            rowContent,
             ui.button({
                 text = "Generate",
                 variant = "primary",
+                enabled = status ~= "generating",
                 onClick = "onGenerateClick",
-            }),
-        }),
+            })
+        )
+    end
+
+    local content = {
+        ui.row({ gap = 8 }, rowContent),
         ui.label({
             flexGrow = 1,
             textAlign = "center",
             text = statusText(),
-            color = status == "error" and "error" or "on_surface",
+            color = status == "error" and "error" or "on_surface/0.75",
         })
     }
 
@@ -57,14 +66,14 @@ local function render()
             content,
             ui.image({
                 path = imagePath,
+                width = 400,
                 height = 400,
-                radius = 25,
                 onClick = "onImageClick",
             })
         )
     end
 
-    panel.render(ui.column({ flexGrow = 1 }, content))
+    panel.render(ui.column({ flexGrow = 1, gap = 16 }, content))
 end
 
 local function generate(text)
