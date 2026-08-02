@@ -1201,50 +1201,56 @@ function render()
 		else
 			table.insert(
 				body,
-				ui.row({ align = "center", gap = 2 }, {
-				ui.label({ text = noctalia.tr("panel.repo"), width = 40, flexGrow = 0 }),
-				ui.select({
-					key = "rebuild-repo-" .. tostring(rebuildArchIndex),
-					options = repoOptions,
-					selectedIndex = rebuildRepoIndex,
-					flexGrow = 1,
-					onChange = function(index)
-						rebuildRepoIndex = tonumber(index)
-						savedRebuildRepo = repoOptions[rebuildRepoIndex + 1]
-						rebuildArchIndex = 0
-						savedRebuildArch = nil
-						render()
-					end,
-				}),
-				ui.label({ text = noctalia.tr("panel.arch"), width = 32, flexGrow = 0 }),
-				ui.select({
-					key = "rebuild-arch-" .. tostring(rebuildRepoIndex),
-					options = archOptions,
-					selectedIndex = rebuildArchIndex,
-					flexGrow = 1,
-					onChange = function(index)
-						rebuildArchIndex = tonumber(index)
-						savedRebuildArch = archOptions[rebuildArchIndex + 1]
-						render()
-					end,
-				}),
-				ui.button({
-					key = "rebuild-btn",
-					glyph = rebuildConfirm and "check" or "refresh",
-					tooltip = rebuildConfirm and noctalia.tr("panel.confirm_rebuild") or noctalia.tr("panel.rebuild"),
-					variant = rebuildConfirm and "secondary" or "default",
-					onClick = function()
-						if rebuildConfirm then
-							local repo = repoOptions[rebuildRepoIndex + 1]
-							local arch = archOptions[rebuildArchIndex + 1]
-							rebuildPackage(selectedProject, selectedPackage, repo, arch)
-							rebuildConfirm = false
-						else
-							rebuildConfirm = true
-						end
-						render()
-					end,
-				}),
+				ui.row({ key = "rebuild-controls", align = "center", gap = 8 }, {
+					ui.column({ gap = 8, align = "stretch", flexGrow = 1 }, {
+						ui.row({ align = "center", gap = 6 }, {
+							ui.label({ key = "rebuild-repo-label", text = noctalia.tr("panel.repo"), fontSize = 12, color = "on_surface_variant" }),
+							ui.select({
+								key = "rebuild-repo-" .. tostring(rebuildArchIndex),
+								options = repoOptions,
+								selectedIndex = rebuildRepoIndex,
+								flexGrow = 1,
+								onChange = function(index)
+									rebuildRepoIndex = tonumber(index)
+									savedRebuildRepo = repoOptions[rebuildRepoIndex + 1]
+									rebuildArchIndex = 0
+									savedRebuildArch = nil
+									render()
+								end,
+							}),
+						}),
+						ui.row({ align = "center", gap = 6 }, {
+							ui.label({ key = "rebuild-arch-label", text = noctalia.tr("panel.arch"), fontSize = 12, color = "on_surface_variant" }),
+							ui.select({
+								key = "rebuild-arch-" .. tostring(rebuildRepoIndex),
+								options = archOptions,
+								selectedIndex = rebuildArchIndex,
+								flexGrow = 1,
+								onChange = function(index)
+									rebuildArchIndex = tonumber(index)
+									savedRebuildArch = archOptions[rebuildArchIndex + 1]
+									render()
+								end,
+							}),
+						}),
+					}),
+					ui.button({
+						key = "rebuild-btn",
+						glyph = rebuildConfirm and "check" or "refresh",
+						tooltip = rebuildConfirm and noctalia.tr("panel.confirm_rebuild") or noctalia.tr("panel.rebuild"),
+						variant = rebuildConfirm and "secondary" or "default",
+						onClick = function()
+							if rebuildConfirm then
+								local repo = repoOptions[rebuildRepoIndex + 1]
+								local arch = archOptions[rebuildArchIndex + 1]
+								rebuildPackage(selectedProject, selectedPackage, repo, arch)
+								rebuildConfirm = false
+							else
+								rebuildConfirm = true
+							end
+							render()
+						end,
+					}),
 				})
 			)
 		end
