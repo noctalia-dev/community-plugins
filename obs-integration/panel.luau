@@ -19,6 +19,7 @@ local rebuildArchIndex = 0
 local rebuildRepos = {}
 local rebuildRepoIndex = 0
 local rebuildConfirm = false
+local runAllConfirm = false
 local repoMap = {}
 local savedRebuildRepo = nil
 local savedRebuildArch = nil
@@ -147,12 +148,11 @@ end
 
 local function filterList(list, filter, ascending)
 	local lower = filter:lower()
-	local filtered = {}
+	local filtered
 	if filter == "" then
-		for _, name in ipairs(list) do
-			table.insert(filtered, name)
-		end
+		filtered = list
 	else
+		filtered = {}
 		for _, name in ipairs(list) do
 			if name:lower():find(lower, 1, true) then
 				table.insert(filtered, name)
@@ -225,7 +225,7 @@ local function rebuildPackage(project, pkg, repo, arch)
 	if arch ~= nil and arch ~= "All" and arch ~= "" then
 		cmd = cmd .. " -a " .. shellQuote(arch)
 	end
-	noctalia.runInTerminal(cmd)
+	runActionAsync(cmd, noctalia.tr("panel.rebuilding_pkg"), false)
 end
 
 loadPackageFiles = function(pkgDir, pkg)
@@ -412,6 +412,24 @@ local function oscServiceRemoteRun(project, pkg)
 	)
 end
 
+local function oscServiceLocalRun(pkgDir)
+	runActionAsync(
+		"cd " .. shellQuote(pkgDir) .. " && osc service r",
+		noctalia.tr("panel.running_local_service"),
+		true,
+		pkgDir
+	)
+end
+
+local function oscServiceRunAll(pkgDir)
+	runActionAsync(
+		"cd " .. shellQuote(pkgDir) .. " && osc service ra",
+		noctalia.tr("panel.running_all_services"),
+		true,
+		pkgDir
+	)
+end
+
 local function removePackageLocal(project, pkg)
 	if not validName(project) or not validName(pkg) then
 		return
@@ -441,6 +459,7 @@ local function loadPackages(project)
   packageFiles = {}
   removeConfirm = false
   rebuildConfirm = false
+  runAllConfirm = false
   isCheckingOut = false
   checkoutLog = ""
   isActionLoading = false
@@ -796,6 +815,7 @@ function render()
 					rebuildLoaded = false
 					rebuildConfirm = false
 					removeConfirm = false
+					runAllConfirm = false
 					isCheckingOut = false
 					checkoutLog = ""
 					isActionLoading = false
@@ -1035,6 +1055,36 @@ function render()
 				body,
 				ui.row({ align = "center", gap = 8 }, {
 					ui.button({
+						text = noctalia.tr("panel.service_local_run"),
+						glyph = "run",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscServiceLocalRun(pkgDir)
+						end,
+					}),
+					ui.button({
+						text = runAllConfirm and noctalia.tr("panel.confirm") or noctalia.tr("panel.service_run_all"),
+						glyph = runAllConfirm and "check" or "run",
+						tooltip = runAllConfirm and noctalia.tr("panel.confirm_run_all") or noctalia.tr("panel.service_run_all"),
+						variant = runAllConfirm and "secondary" or "default",
+						flexGrow = 1,
+						onClick = function()
+							if runAllConfirm then
+								oscServiceRunAll(pkgDir)
+								runAllConfirm = false
+							else
+								runAllConfirm = true
+							end
+							render()
+						end,
+					}),
+				})
+			)
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.button({
 						text = noctalia.tr("panel.service_remote_run"),
 						glyph = "run",
 						variant = "default",
@@ -1065,20 +1115,6 @@ function render()
 					end,
 				})
 			)
-
-			if isActionLoading then
-				table.insert(
-					body,
-					ui.row({ align = "center", gap = 8 }, {
-						ui.glyph({ name = "loader", color = "primary", size = 14 }),
-						ui.label({ text = actionStatus, color = "on_surface_variant" }),
-					})
-				)
-			elseif errorText ~= "" then
-				table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
-			elseif commandLog ~= "" then
-				table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
-			end
 		end
 
 		local repoOptions = { "All" }
@@ -1168,6 +1204,20 @@ function render()
 				}),
 				})
 			)
+		end
+
+		if isActionLoading then
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.glyph({ name = "loader", color = "primary", size = 14 }),
+					ui.label({ text = actionStatus, color = "on_surface_variant" }),
+				})
+			)
+		elseif errorText ~= "" then
+			table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
+		elseif commandLog ~= "" then
+			table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
 		end
 
 		table.insert(
@@ -1273,6 +1323,7 @@ function render()
                   savedRebuildArch = nil
                   rebuildLoaded = false
                   rebuildConfirm = false
+                  runAllConfirm = false
                   render()
                   saveNav()
                   loadRebuildArches(selectedProject, name)

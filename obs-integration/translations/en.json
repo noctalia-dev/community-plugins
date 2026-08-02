@@ -42,17 +42,24 @@
     "running_manual_service": "Running manual service...",
     "running_remote_service": "Running remote service...",
     "committing": "Committing...",
+    "rebuilding_pkg": "Rebuilding package...",
     "service_run": "Service Manual Run",
     "service_remote_run": "Service Remote Run",
+    "service_local_run": "Service Local Run",
+    "service_run_all": "Service Run All",
+    "confirm_run_all": "Confirm Run All",
+    "confirm": "Confirm",
+    "running_local_service": "Running local service...",
+    "running_all_services": "Running all services...",
     "commit": "Commit package",
-    "osc_missing": "Open Build Service CLI not found",
+    "osc_missing": "'osc' not found",
     "osc_missing_hint": "Install the 'osc' package to start using this plugin.",
     "osc_not_configured": "OBS account not configured",
     "osc_not_configured_hint": "Create ~/.config/osc/oscrc before browsing projects.",
     "configure_oscrc": "Configure oscrc"
   },
   "widget": {
-    "osc_missing": "OSC missing",
+    "osc_missing": "'osc' missing",
     "configure_obs": "Configure OBS",
     "obs": "OBS"
   }
