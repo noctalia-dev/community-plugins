@@ -4,6 +4,8 @@ local errorMessage = nil
 local imagePath = nil
 local status = "idle"
 
+local imageSize = 400
+
 local notifyConf = noctalia.getConfig("notify")
 
 local function notify(text, error)
@@ -67,8 +69,8 @@ local function render()
             ui.row({ justify = "center" }, {
                 ui.image({
                     path = imagePath,
-                    width = 400,
-                    height = 400,
+                    width = imageSize,
+                    height = imageSize,
                     radius = 24,
                     onClick = "onImageClick",
                 })
@@ -77,6 +79,7 @@ local function render()
     end
 
     if noctalia.getConfig("titlebar") then
+        imageSize = 350
         table.insert(
             content, 1,
             ui.row({ align = "center", justify = "space_between", gap = 8 }, {
