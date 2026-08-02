@@ -1,0 +1,509 @@
+# KVitals for Noctalia — live system vitals in the bar, panel, and desktop.
+#
+# A Luau port of the KVitals KDE Plasma widget (GPL-3.0).
+# Upstream: https://github.com/yassine20011/kvitals
+#
+# Architecture: one headless [[service]] samples the host System Monitor,
+# sysfs, and /proc, then publishes to the plugin state. The [[widget]],
+# [[panel]], and [[desktop_widget]] are thin clients that watch that state.
+#
+# Settings are plugin-level ([[setting]] at the root): one set shared by
+# every entry, edited from Settings -> Plugins, seeded into
+# noctalia.getConfig everywhere. Per-instance presentation settings live
+# under their entry.
+
+id = "royalebiskut/kvitals"
+name = "KVitals"
+version = "0.1.0"
+plugin_api = 22
+author = "royalebiskut"
+license = "GPL-3.0"
+icon = "cpu"
+description = "Live CPU, RAM, GPU, temperature, fan, battery, network, and disk vitals for the bar and desktop."
+dependencies = ["cat", "ip"]
+tags = ["system", "hardware", "bar", "panel", "desktop", "network", "indicator"]
+
+# ── General ──────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "refresh_ms"
+type = "int"
+min = 250
+max = 10000
+default = 1000
+label_key = "settings.refresh_ms.label"
+description_key = "settings.refresh_ms.description"
+
+[[setting]]
+key = "temp_unit"
+type = "select"
+default = "c"
+label_key = "settings.temp_unit.label"
+description_key = "settings.temp_unit.description"
+options = [
+  { value = "c", label_key = "settings.temp_unit.options.c" },
+  { value = "f", label_key = "settings.temp_unit.options.f" },
+]
+
+[[setting]]
+key = "net_unit"
+type = "select"
+default = "auto"
+label_key = "settings.net_unit.label"
+description_key = "settings.net_unit.description"
+options = [
+  { value = "auto", label_key = "settings.net_unit.options.auto" },
+  { value = "kb", label_key = "settings.net_unit.options.kb" },
+  { value = "mb", label_key = "settings.net_unit.options.mb" },
+]
+
+[[setting]]
+key = "metric_order"
+type = "string_list"
+default = ["cpu", "ram", "temp", "gpu", "vram", "fan", "battery", "net", "disk"]
+label_key = "settings.metric_order.label"
+description_key = "settings.metric_order.description"
+
+# ── Metric toggles ───────────────────────────────────────────────────────
+
+[[setting]]
+key = "enabled_cpu"
+type = "bool"
+default = true
+label_key = "settings.enabled_cpu.label"
+description_key = "settings.enabled_cpu.description"
+
+[[setting]]
+key = "enabled_ram"
+type = "bool"
+default = true
+label_key = "settings.enabled_ram.label"
+description_key = "settings.enabled_ram.description"
+
+[[setting]]
+key = "enabled_temp"
+type = "bool"
+default = true
+label_key = "settings.enabled_temp.label"
+description_key = "settings.enabled_temp.description"
+
+[[setting]]
+key = "enabled_gpu"
+type = "bool"
+default = true
+label_key = "settings.enabled_gpu.label"
+description_key = "settings.enabled_gpu.description"
+
+[[setting]]
+key = "enabled_vram"
+type = "bool"
+default = true
+label_key = "settings.enabled_vram.label"
+description_key = "settings.enabled_vram.description"
+
+[[setting]]
+key = "enabled_fan"
+type = "bool"
+default = true
+label_key = "settings.enabled_fan.label"
+description_key = "settings.enabled_fan.description"
+
+[[setting]]
+key = "enabled_battery"
+type = "bool"
+default = true
+label_key = "settings.enabled_battery.label"
+description_key = "settings.enabled_battery.description"
+
+[[setting]]
+key = "enabled_net"
+type = "bool"
+default = true
+label_key = "settings.enabled_net.label"
+description_key = "settings.enabled_net.description"
+
+[[setting]]
+key = "enabled_disk"
+type = "bool"
+default = true
+label_key = "settings.enabled_disk.label"
+description_key = "settings.enabled_disk.description"
+
+# ── Detail options ───────────────────────────────────────────────────────
+
+[[setting]]
+key = "show_cpu_freq"
+type = "bool"
+default = true
+label_key = "settings.show_cpu_freq.label"
+description_key = "settings.show_cpu_freq.description"
+
+[[setting]]
+key = "show_power_draw"
+type = "bool"
+default = true
+label_key = "settings.show_power_draw.label"
+description_key = "settings.show_power_draw.description"
+
+[[setting]]
+key = "show_net_ip"
+type = "bool"
+default = false
+label_key = "settings.show_net_ip.label"
+description_key = "settings.show_net_ip.description"
+
+# ── Thresholds (activity / critical) ─────────────────────────────────────
+
+[[setting]]
+key = "cpu_act"
+type = "int"
+min = 0
+max = 100
+default = 50
+label_key = "settings.cpu_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "cpu_crit"
+type = "int"
+min = 0
+max = 100
+default = 90
+label_key = "settings.cpu_crit.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "ram_act"
+type = "int"
+min = 0
+max = 100
+default = 60
+label_key = "settings.ram_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "ram_crit"
+type = "int"
+min = 0
+max = 100
+default = 90
+label_key = "settings.ram_crit.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "temp_act"
+type = "int"
+min = 0
+max = 150
+default = 60
+label_key = "settings.temp_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "temp_crit"
+type = "int"
+min = 0
+max = 150
+default = 85
+label_key = "settings.temp_crit.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "gpu_act"
+type = "int"
+min = 0
+max = 100
+default = 50
+label_key = "settings.gpu_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "gpu_crit"
+type = "int"
+min = 0
+max = 100
+default = 95
+label_key = "settings.gpu_crit.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "vram_act"
+type = "int"
+min = 0
+max = 100
+default = 60
+label_key = "settings.vram_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "vram_crit"
+type = "int"
+min = 0
+max = 100
+default = 90
+label_key = "settings.vram_crit.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "net_act"
+type = "double"
+min = 0
+max = 1000
+default = 1
+label_key = "settings.net_act.label"
+description_key = "settings.net_threshold.description"
+
+[[setting]]
+key = "net_crit"
+type = "double"
+min = 0
+max = 1000
+default = 50
+label_key = "settings.net_crit.label"
+description_key = "settings.net_threshold.description"
+
+[[setting]]
+key = "disk_act"
+type = "int"
+min = 0
+max = 100
+default = 80
+label_key = "settings.disk_act.label"
+description_key = "settings.threshold.description"
+
+[[setting]]
+key = "disk_crit"
+type = "int"
+min = 0
+max = 100
+default = 95
+label_key = "settings.disk_crit.label"
+description_key = "settings.threshold.description"
+
+# ── Colors ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "accent_color"
+type = "color"
+default = "primary"
+label_key = "settings.accent_color.label"
+description_key = "settings.accent_color.description"
+
+[[setting]]
+key = "font_color"
+type = "color"
+default = "on_surface"
+label_key = "settings.font_color.label"
+description_key = "settings.font_color.description"
+
+# ── Metric icons ─────────────────────────────────────────────────────────
+
+[[setting]]
+key = "icon_cpu"
+type = "select"
+default = "cpu"
+label_key = "settings.icon_cpu.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "cpu", label_key = "settings.icon.options.cpu" },
+  { value = "cpu-2", label_key = "settings.icon.options.cpu_2" },
+  { value = "device-desktop", label_key = "settings.icon.options.device_desktop" },
+  { value = "dashboard", label_key = "settings.icon.options.dashboard" },
+  { value = "chart-dots", label_key = "settings.icon.options.chart_dots" },
+  { value = "binary", label_key = "settings.icon.options.binary" },
+  { value = "bug", label_key = "settings.icon.options.bug" },
+]
+
+[[setting]]
+key = "icon_ram"
+type = "select"
+default = "database"
+label_key = "settings.icon_ram.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "database", label_key = "settings.icon.options.database" },
+  { value = "stack-2", label_key = "settings.icon.options.stack_2" },
+  { value = "box", label_key = "settings.icon.options.box" },
+  { value = "archive", label_key = "settings.icon.options.archive" },
+  { value = "binary", label_key = "settings.icon.options.binary" },
+  { value = "device-floppy", label_key = "settings.icon.options.device_floppy" },
+]
+
+[[setting]]
+key = "icon_temp"
+type = "select"
+default = "temperature"
+label_key = "settings.icon_temp.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "temperature", label_key = "settings.icon.options.temperature" },
+  { value = "thermometer", label_key = "settings.icon.options.thermometer" },
+  { value = "flame", label_key = "settings.icon.options.flame" },
+  { value = "droplet", label_key = "settings.icon.options.droplet" },
+  { value = "snowflake", label_key = "settings.icon.options.snowflake" },
+  { value = "sun", label_key = "settings.icon.options.sun" },
+]
+
+[[setting]]
+key = "icon_gpu"
+type = "select"
+default = "device-desktop-analytics"
+label_key = "settings.icon_gpu.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "device-desktop-analytics", label_key = "settings.icon.options.device_desktop_analytics" },
+  { value = "device-desktop", label_key = "settings.icon.options.device_desktop" },
+  { value = "viewfinder", label_key = "settings.icon.options.viewfinder" },
+  { value = "screen-share", label_key = "settings.icon.options.screen_share" },
+  { value = "photo", label_key = "settings.icon.options.photo" },
+  { value = "video", label_key = "settings.icon.options.video" },
+  { value = "components", label_key = "settings.icon.options.components" },
+]
+
+[[setting]]
+key = "icon_vram"
+type = "select"
+default = "memory"
+label_key = "settings.icon_vram.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "memory", label_key = "settings.icon.options.memory" },
+  { value = "database", label_key = "settings.icon.options.database" },
+  { value = "stack-2", label_key = "settings.icon.options.stack_2" },
+  { value = "box", label_key = "settings.icon.options.box" },
+  { value = "archive", label_key = "settings.icon.options.archive" },
+  { value = "binary", label_key = "settings.icon.options.binary" },
+  { value = "device-floppy", label_key = "settings.icon.options.device_floppy" },
+]
+
+[[setting]]
+key = "icon_fan"
+type = "select"
+default = "wind"
+label_key = "settings.icon_fan.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "wind", label_key = "settings.icon.options.wind" },
+  { value = "propeller", label_key = "settings.icon.options.propeller" },
+  { value = "refresh", label_key = "settings.icon.options.refresh" },
+  { value = "rotate", label_key = "settings.icon.options.rotate" },
+  { value = "plane", label_key = "settings.icon.options.plane" },
+  { value = "helicopter", label_key = "settings.icon.options.helicopter" },
+  { value = "blade", label_key = "settings.icon.options.blade" },
+]
+
+[[setting]]
+key = "icon_net"
+type = "select"
+default = "network"
+label_key = "settings.icon_net.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "network", label_key = "settings.icon.options.network" },
+  { value = "transfer", label_key = "settings.icon.options.transfer" },
+  { value = "exchange", label_key = "settings.icon.options.exchange" },
+  { value = "wifi", label_key = "settings.icon.options.wifi" },
+  { value = "wifi-2", label_key = "settings.icon.options.wifi_2" },
+  { value = "arrow-left-right", label_key = "settings.icon.options.arrow_left_right" },
+  { value = "globe", label_key = "settings.icon.options.globe" },
+  { value = "activity", label_key = "settings.icon.options.activity" },
+]
+
+[[setting]]
+key = "icon_disk"
+type = "select"
+default = "device-floppy"
+label_key = "settings.icon_disk.label"
+description_key = "settings.icon.description"
+options = [
+  { value = "device-floppy", label_key = "settings.icon.options.device_floppy" },
+  { value = "server", label_key = "settings.icon.options.server" },
+  { value = "database", label_key = "settings.icon.options.database" },
+  { value = "archive", label_key = "settings.icon.options.archive" },
+  { value = "folder", label_key = "settings.icon.options.folder" },
+  { value = "usb", label_key = "settings.icon.options.usb" },
+]
+
+# ── Entries ──────────────────────────────────────────────────────────────
+
+[[service]]
+id = "sampler"
+entry = "service.luau"
+
+[[widget]]
+id = "metrics"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "display_mode"
+  type = "select"
+  default = "both"
+  label_key = "settings.display_mode.label"
+  description_key = "settings.display_mode.description"
+  options = [
+    { value = "both", label_key = "settings.display_mode.options.both" },
+    { value = "text", label_key = "settings.display_mode.options.text" },
+    { value = "icons", label_key = "settings.display_mode.options.icons" },
+  ]
+
+  [[widget.setting]]
+  key = "font_size"
+  type = "int"
+  min = 8
+  max = 24
+  default = 12
+  label_key = "settings.font_size.label"
+  description_key = "settings.font_size.description"
+
+  [[widget.setting]]
+  key = "hide_absent"
+  type = "bool"
+  default = true
+  label_key = "settings.hide_absent.label"
+  description_key = "settings.hide_absent.description"
+
+[[panel]]
+id = "sparkline"
+entry = "panel.luau"
+width = 560
+height = 460
+placement = "floating"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+  [[panel.setting]]
+  key = "show_graphs"
+  type = "bool"
+  default = true
+  label_key = "settings.show_graphs.label"
+  description_key = "settings.show_graphs.description"
+
+  [[panel.setting]]
+  key = "graph_height"
+  type = "int"
+  min = 32
+  max = 160
+  default = 64
+  label_key = "settings.graph_height.label"
+  description_key = "settings.graph_height.description"
+
+[[desktop_widget]]
+id = "tile"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "show_glyphs"
+  type = "bool"
+  default = true
+  label_key = "settings.show_glyphs.label"
+  description_key = "settings.show_glyphs.description"
+
+  [[desktop_widget.setting]]
+  key = "font_size"
+  type = "int"
+  min = 8
+  max = 24
+  default = 12
+  label_key = "settings.font_size.label"
+  description_key = "settings.font_size.description"
