@@ -114,7 +114,7 @@ entry = "widget.luau"
   type            = "int"
   label_key       = "settings.refresh_interval.label"
   description_key = "settings.refresh_interval.description"
-  default         = 10
-  min             = 1
+  default         = 60
+  min             = 10
   max             = 3600
   visible_when    = { key = "mode", values = ["interface", "custom_command"] }
