@@ -1,6 +1,6 @@
 id           = "goodroot/noctwhspr"
 name         = "noctwhspr"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 3
 author       = "goodroot"
 license      = "MIT"
