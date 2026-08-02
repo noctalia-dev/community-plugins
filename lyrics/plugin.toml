@@ -502,6 +502,12 @@ entry = "lyrics.luau"
   default = false
 
   [[widget.setting]]
+  key = "hide_when_no_lyrics"
+  type = "bool"
+  label_key = "settings.hide_when_no_lyrics.label"
+  default = false
+
+  [[widget.setting]]
   key = "show_cover"
   type = "bool"
   label_key = "settings.show_cover.label"

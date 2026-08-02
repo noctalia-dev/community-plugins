@@ -148,6 +148,9 @@
     "hide_when_paused": {
       "label": "Hide when paused"
     },
+    "hide_when_no_lyrics": {
+      "label": "Hide when no lyrics"
+    },
     "inactive_color": {
       "description": "Color used for upcoming lyrics, paused playback, and secondary lines.",
       "label": "Inactive lyric color"
