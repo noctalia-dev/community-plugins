@@ -26,10 +26,10 @@
         "correction_level": {
             "label": "Correction Level",
             "description": "Specify error correction level.",
-            "L": "Lowest",
-            "M": "Medium",
-            "Q": "High",
-            "H": "Highest"
+            "l": "Lowest",
+            "m": "Medium",
+            "q": "High",
+            "h": "Highest"
         }
     },
     "widget": {
