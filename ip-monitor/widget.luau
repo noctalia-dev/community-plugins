@@ -293,15 +293,19 @@ local function fetchInterfaceIp()
             network = calculateNetwork(foundIp, mask, foundCidr)
         end
 
-        -- Fetch gateway via `ip route show dev <matchedIface>`
-        noctalia.runAsync("ip route show dev " .. matchedIface, function(routeResult)
+        -- Fetch gateway from the full route table, filtered in Lua by matchedIface.
+        -- Avoids interpolating matchedIface into a shell command (injection risk).
+        noctalia.runAsync("ip route show", function(routeResult)
             local gateway = ""
             if routeResult.exitCode == 0 then
                 for line in routeResult.stdout:gmatch("[^\r\n]+") do
-                    local g = line:match("default via ([^%s]+)") or line:match("via ([^%s]+)")
-                    if g then
-                        gateway = g
-                        break
+                    local lineDev = line:match("%sdev%s+([^%s]+)")
+                    if lineDev == matchedIface then
+                        local g = line:match("default via ([^%s]+)") or line:match("via ([^%s]+)")
+                        if g then
+                            gateway = g
+                            break
+                        end
                     end
                 end
             end
