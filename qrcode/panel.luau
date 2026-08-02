@@ -64,11 +64,14 @@ local function render()
         and imagePath ~= nil then
         table.insert(
             content,
-            ui.image({
-                path = imagePath,
-                width = 400,
-                height = 400,
-                onClick = "onImageClick",
+            ui.row({ justify = "center" }, {
+                ui.image({
+                    path = imagePath,
+                    width = 400,
+                    height = 400,
+                    radius = 24,
+                    onClick = "onImageClick",
+                })
             })
         )
     end
