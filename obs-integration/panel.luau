@@ -734,7 +734,7 @@ function render()
 					placeholder = noctalia.tr("panel.architecture"),
 					flexGrow = 1,
 					onChange = function(index)
-						rebuildArchIndex = index
+						rebuildArchIndex = tonumber(index)
 						render()
 					end,
 				}),
@@ -743,7 +743,7 @@ function render()
 					glyph = "refresh",
 					variant = "default",
 					onClick = function()
-						local arch = rebuildOptions[rebuildArchIndex]
+						local arch = rebuildOptions[rebuildArchIndex + 1]
 						rebuildPackage(selectedProject, selectedPackage, arch)
 					end,
 				}),
