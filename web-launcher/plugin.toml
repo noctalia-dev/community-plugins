@@ -1,6 +1,6 @@
 id = "yocraft/web-launcher"
 name = "Web Launcher"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 3
 author = "yocraft"
 license = "MIT"
