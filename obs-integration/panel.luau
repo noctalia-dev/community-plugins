@@ -48,6 +48,7 @@ local restoreFilesOpen = false
 local restoreFilesPackage = nil
 local restoreCommandLog = nil
 local restoreErrorText = nil
+local restoreLogSource = nil
 local saveCache
 local saveNav
 local maybeVerify
@@ -532,6 +533,7 @@ saveNav = function()
 		filesPackage = filesPackage,
 		commandLog = commandLog,
 		errorText = errorText,
+		logSource = logSource,
 	}))
 end
 local function readNav()
@@ -548,7 +550,7 @@ local function readNav()
 		return nil, nil, false, nil, nil, nil
 	end
 	return parsed.project, parsed.package, parsed.filesOpen == true, parsed.filesPackage, parsed.commandLog,
-		parsed.errorText
+		parsed.errorText, parsed.logSource
 end
 
 saveCache = function()
@@ -689,6 +691,9 @@ local function loadProjects(clearNav)
         end
         if restoreErrorText ~= nil then
           errorText = restoreErrorText
+        end
+        if restoreLogSource ~= nil then
+          logSource = restoreLogSource
         end
         render()
         saveNav()
@@ -1461,7 +1466,8 @@ end
 
 function onOpen()
 	if noctalia.commandExists("osc") and noctalia.fileExists(OSC_CONFIG) then
-		restoreProject, restorePackage, restoreFilesOpen, restoreFilesPackage, restoreCommandLog, restoreErrorText =
+		restoreProject, restorePackage, restoreFilesOpen, restoreFilesPackage, restoreCommandLog, restoreErrorText,
+			restoreLogSource =
 			readNav()
 		loadProjects()
 	else
