@@ -1,7 +1,7 @@
 {
     "settings": {
         "generate_button": {
-            "label": "Show generate button",
+            "label": "Show Generate Button",
             "description": "Disable will submit on enter."
         },
         "close_on_copy": {

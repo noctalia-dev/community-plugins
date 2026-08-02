@@ -6,7 +6,7 @@ author = "yocraft"
 license = "MIT"
 deprecated = false
 icon = "qrcode"
-description = "Transform any text or url in a qr code"
+description = "Transform any text or URL in a QR code"
 tags = [ "panel", "fun", "network", "privacy", "productivity", "utility" ]
 dependencies = [ "qrencode" ]
 
