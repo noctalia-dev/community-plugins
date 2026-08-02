@@ -1,5 +1,5 @@
 function update()
-  barWidget.setGlyph("qrcode")
+  barWidget.setGlyph(noctalia.getConfig("glyph"))
 end
 
 function onClick()

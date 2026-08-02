@@ -14,11 +14,18 @@ dependencies = [ "qrencode" ]
 id = "widget"
 entry = "widget.luau"
 
+    [[widget.setting]]
+    key = "glyph"
+    type = "glyph"
+    label_key = "settings.glyph.label"
+    description_key = "settings.glyph.description"
+    default = "qrcode"
+
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 600
-height = 600
+width = 500
+height = 550
 placement = "floating"
 position = "center"
 
