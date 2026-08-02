@@ -3,6 +3,8 @@ local color
 local percent
 local status
 
+local warning_threshold = 20
+
 local path = "/sys/class/power_supply/"
 local batName
 
@@ -43,8 +45,29 @@ local function getGlyph()
     end
 end
 
+local function getWarningThreshold()
+    noctalia.runAsync(
+        "grep warning_threshold ~/.local/state/noctalia/settings.toml | awk '{print $3}'",
+        function(result)
+            if result.exitCode ~= 0 then
+                noctalia.log("battery-widget: failed to get warning_threshold: " .. result.stderr)
+                return
+            end
+
+            local res = result.stdout
+
+            if not warning_threshold then
+                noctalia.log("battery-widget: invalid warning_threshold: " .. res)
+                return
+            end
+            
+            warning_threshold = tonumber(noctalia.string.trim(res))
+        end
+    )
+end
+
 local function getColor()
-    if status ~= "Charging" and percent <= 20 then
+    if status ~= "Charging" and percent <= warning_threshold then
         color = noctalia.getConfig("warning_color")
         return
     end
@@ -123,6 +146,8 @@ if not batName then
     noctalia.log("battery-widget: battery not found")
     return
 end
+
+getWarningThreshold()
 
 function update()
     noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
