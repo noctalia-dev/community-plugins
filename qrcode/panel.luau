@@ -79,12 +79,16 @@ local function render()
     panel.render(ui.column({ flexGrow = 1, gap = 16 }, content))
 end
 
+local function shellEscape(raw)
+    return "'" .. raw:gsub("'", "'\\''") .. "'"
+end
+
 local function generate(text)
     if status == "generating" then
         return
     end
 
-    text = noctalia.string.trim(text or "")
+    text = shellEscape(noctalia.string.trim(text or ""))
 
     if text == "" then
         if imagePath ~= nil then
