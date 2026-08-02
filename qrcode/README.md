@@ -26,12 +26,14 @@ Enter your text or URL and click on Generate or press enter to generate the QR c
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `titlebar` | `bool` | `true` | Show titlebar, panel name and buttons like settings and close. |
 | `generate_button` | `bool` | `true` | Show Generate button, disable will submit on enter. |
 | `close_on_copy` | `bool` | `false` | Close the panel when copying the QR code. |
 | `notify` | `select` | `minimal` | Controls the notifications, minimal only notifies when Close on Copy is used. |
 | `size` | `int` | `8` | Specify module size in dots (pixels). |
 | `correction_level` | `select` | `M` | Specify error correction level. |
 | `glyph` | `glyph` | `qrcode` | Bar widget icon glyph name. |
+| `custom_image` | `image` | `""` | Path to a custom image; leave empty to use the icon glyph. |
 
 ## Notes
 
