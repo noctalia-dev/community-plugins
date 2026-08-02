@@ -837,6 +837,17 @@ function render()
 			table.insert(
 				headerChildren,
 				ui.button({
+					glyph = "feather-filled",
+					tooltip = noctalia.tr("panel.edit_meta"),
+					variant = "ghost",
+					onClick = function()
+						editPackageMeta(selectedProject, selectedPackage)
+					end,
+				})
+			)
+			table.insert(
+				headerChildren,
+				ui.button({
 					glyph = removeConfirm and "check" or "package-off",
 					tooltip = removeConfirm and noctalia.tr("panel.confirm_remove") or noctalia.tr("panel.remove"),
 					variant = "destructive",
@@ -1252,17 +1263,6 @@ function render()
 			end
 		end
 
-		table.insert(
-			body,
-			ui.button({
-				text = noctalia.tr("panel.edit_meta"),
-				glyph = "feather-filled",
-				variant = "default",
-				onClick = function()
-					editPackageMeta(selectedProject, selectedPackage)
-				end,
-			})
-		)
   elseif selectedProject then
     table.insert(
       body,
