@@ -1,7 +1,7 @@
 --!nonstrict
--- Config Swap
+-- Config Swap panel
 
--- Local variable
+-- Local variables
 
 local configBox = "~/Config-Swap" 			
 
@@ -13,35 +13,35 @@ local previewWidth = 470
 local previewHeight = 350
 local previewImage = ""
 
-local selectedView = 0
+local selectedView = 0			-- Controls which screen to render (0=welcome, 1=installed, 2=store)
 
-local previewCache = {}
+local previewCache = {}			-- In-memory map: config name -> cached preview image path
 local previewPending = {}
 
-local configWidth = 800
+local configWidth = 800			-- Preview dialog size
 local configHeight = 600
 
--- Type function
+-- Data model
 
 type infoConfig = {
-	name: string,  				-- name config
-	author: string,				-- author config
-	origin: string,				-- origin congig (Nixos, Arch, CachOS,..)
-	preview: string,			-- preview config (path to preview.png)
-	path: string,				-- config path (example: config/{name})
-	description: string,		-- little description
-	wallpaperPath: string,		-- wallpaper path
-	depedencie: boolean,		-- other depedencie for your config
+	name: string,  				-- Configuration name
+	author: string,				-- Configuration author
+	origin: string,				-- Distribution/source (NixOS, Arch, CachyOS, etc.)
+	preview: string,			-- Preview image path (preview.png)
+	path: string,				-- Config path (example: config/{name})
+	description: string,		-- Short description
+	wallpaperPath: string,		-- Wallpaper path
+	depedencie: boolean,		-- Whether extra dependencies are required
 }
 
--- Section for state dir
+-- Resolve Noctalia state directory
 
 local function resolveStateDir()
 	return noctalia.getenv("NOCTALIA_STATE_HOME")
 		or ((noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/noctalia")
 end
 
--- section for get all config
+-- Store listing cache
 
 local allConfig: { infoConfig } = {}
 
@@ -52,7 +52,7 @@ local requestFetchList = {
   	follow_redirects = true
 }
 
--- translate section
+-- Translation helper
 
 function tr(key, subst)
 	if subst then
@@ -61,7 +61,7 @@ function tr(key, subst)
 	return noctalia.tr("panel." .. key)
 end
 
--- function get position of settings noctalia
+-- Build settings.toml path from the resolved state dir
 
 function takePosSetting()
 	local noctaliaStateDir = resolveStateDir()
@@ -69,16 +69,16 @@ function takePosSetting()
 	return settingsTomlPath
 end
 
--- Section protection shell commande
+-- Shell escaping to safely build external commands
 
 local function shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
 
--- Section for Every Warning
+-- Welcome warning screen
 
-local function welcomeWarning()
+local function welcomeWarning() 			-- Shown after startup; refusing closes the plugin
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
@@ -97,7 +97,7 @@ local function welcomeWarning()
 	}))
 end
 
-local function renderConfirmApply(data: infoConfig)
+local function renderConfirmApply(data: infoConfig)			-- Confirmation dialog before applying a config
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
 			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
@@ -116,7 +116,7 @@ local function renderConfirmApply(data: infoConfig)
 	}))
 end
 
--- apply config file and wallpaper
+-- Apply selected config and wallpaper
 
 function applyConfig(data: infoConfig)
 	noctalia.notify(tr("apply_notification_title"))
@@ -140,7 +140,7 @@ function applyConfig(data: infoConfig)
 	end)
 end
 
--- download config folder (support: noctalia settings, preview image and json info
+-- Download the full config bundle: settings, info json, preview, wallpaper
 
 function downloadConfig(data: infoConfig)
 	noctalia.notify(tr("install_notification_title"))
@@ -185,15 +185,17 @@ function downloadConfig(data: infoConfig)
 	end)
 end 
 
--- Section Preview for github store
+-- GitHub store preview cache
 
 local function previewCachePath(name)
+	-- Keep cached previews under plugin data to avoid repeated downloads.
 	local dir = noctalia.pluginDataDir() .. "/preview-cache"
 	noctalia.mkdirAll(dir)
 	return dir .. "/" .. name .. ".png"
 end
 
 local function queuePreviewDownload(name)
+	-- Prevent duplicate requests for the same preview while one is in flight.
 	if previewCache[name] ~= nil or previewPending[name] then
 		return
 	end
@@ -216,7 +218,7 @@ local function queuePreviewDownload(name)
 	end)
 end
 
--- Section delete install file
+-- Delete an installed config
 
 local function delete(name)
 
@@ -226,7 +228,7 @@ local function delete(name)
 	end
 
 	local target = noctalia.expandPath(configBox .. "/" .. name)
-	local cmd = "rm -rf " .. shellQuote(target)
+	local cmd = "rm -rf " .. shellQuote(target)  				-- shellQuote protects the rm target path
 	noctalia.runAsync(cmd, function(result)
 		if result and result.exitCode == 0 then
 			noctalia.notify("Delete Ok")
@@ -237,7 +239,7 @@ local function delete(name)
 	render()
 end
 
-local function renderDeleteConfirmation(name)
+local function renderDeleteConfirmation(name)  					-- Confirmation panel before deleting a config
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.label({ text = tr("confirmation_delete") .. name .. "?", align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 		ui.button({ text = tr("delete"), onClick = function()
@@ -248,10 +250,10 @@ local function renderDeleteConfirmation(name)
 	}))
 end
 
--- Section for setting and reset / save config
+-- Save/backup settings section
 
 local noctaliaStateDir = resolveStateDir()
-local settingsTomlPath = noctaliaStateDir .. "/settings.toml"
+local settingsTomlPath = noctaliaStateDir .. "/settings.toml"	-- Active settings file path
 
 local saveNameInput = "save"
 
@@ -317,7 +319,7 @@ local function renderSetting()
 	}))
 end
 
--- Section render for github Store
+-- Store information panel
 
 local function renderInfoStore()
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
@@ -424,7 +426,7 @@ local function renderList()
 	}))
 end
 
--- Section render for see config install info
+-- Installed config details panel
 
 local function renderConfig(data: infoConfig)
 	local rows = {
@@ -450,7 +452,7 @@ local function renderConfig(data: infoConfig)
 	}))
 end
  
--- Section for list allerady install file
+-- List installed configs from ~/Config-Swap
 
 function getListInstall()
 	local localPath = configBox
@@ -463,6 +465,7 @@ function getListInstall()
     	local data = content and noctalia.json.decode(content) or nil
 
     	if not data then
+			-- Fallback entry when info.json is missing or invalid.
         	table.insert(listShow, {
             	name = entryName,
 				path = "config/" .. entryName,
@@ -490,7 +493,7 @@ function getListInstall()
 	return listShow
 end
 
--- section for render all installed config
+-- Render installed configs grid
 
 local function renderInstall()
 	pickSlots = {}
@@ -559,7 +562,7 @@ local function renderInstall()
 	}))
 end
 
--- Render Choice
+-- Root view router
 
 function render()
 	if selectedView == 0 then
@@ -573,7 +576,7 @@ function render()
 	end
 end
 
--- Get all config on github
+-- Fetch available configs from GitHub
 
 function getFetchList(onDone)
 	allConfig = {}
@@ -604,7 +607,7 @@ function getFetchList(onDone)
 	end)
 end
 
--- Other function
+-- Plugin entry points
 
 function onOpen(_context)
 	render()
