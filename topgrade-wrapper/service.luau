@@ -48,6 +48,12 @@ local MAX_LISTED = 200
 --              `name<TAB>installed<TAB>available`. Either version may be empty
 --              when the tool does not report it.
 --
+-- Every query — and the dry run itself — is spawned with `export LC_ALL=C;` in
+-- front of it: these parsers key off English words and fixed column layouts
+-- (`^Inst `, the zypper table, the pip header), which a translated system turns
+-- into gibberish. Reported upstream from a French desktop (community-plugins
+-- #204). The interactive run is deliberately left in the user's own locale.
+--
 -- The count is simply how many lines came back, so the number on the bar and the
 -- list the panel expands are the same answer to the same question, asked once:
 -- no second round trip to a mirror, and no way for the two to disagree.

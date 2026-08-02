@@ -704,8 +704,8 @@ tags = ["utility", "productivity", "bar", "panel"]
 [[plugin]]
 id = "nightwatch75/topgrade-wrapper"
 name = "Topgrade Wrapper"
-version = "0.0.4"
-updated_at = 1785331368
+version = "0.0.6"
+updated_at = 1785684887
 added_at = 1785089703
 author = "nightwatch75"
 license = "MIT"
@@ -920,8 +920,8 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "1.0.0"
-updated_at = 1785554104
+version = "1.0.1"
+updated_at = 1785684850
 added_at = 1785554104
 author = "yocraft"
 license = "MIT"

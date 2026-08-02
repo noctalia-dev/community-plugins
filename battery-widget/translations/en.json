@@ -46,7 +46,7 @@
       "label": "Show Label"
     },
     "warning_color": {
-      "description": "Color applied when charge is at or below 20%.",
+      "description": "Color applied when charge is at or below noctalia's warning threshold.",
       "label": "Warning Color"
     }
   }
