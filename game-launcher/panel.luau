@@ -36,6 +36,31 @@ end
 
 local binary = noctalia.pluginDir() .. "/gamelauncher"
 local cSource = noctalia.pluginDir() .. "/gamelauncher.c"
+local cReaderSource = noctalia.pluginDir() .. "/sqlite_reader.c"
+
+local function buildCommand()
+  return "cc -o " .. binary .. " " .. cSource .. " " .. cReaderSource
+end
+
+local buildTagFile
+do
+  local ok, dir = pcall(noctalia.pluginDataDir)
+  if ok and dir then buildTagFile = dir .. "/build_command" end
+end
+
+local function binaryReady()
+  if not noctalia.fileExists(binary) then return false end
+  if not buildTagFile then return true end
+  if noctalia.readFile(buildTagFile) ~= buildCommand() then
+    noctalia.removeFile(binary)
+    return false
+  end
+  return true
+end
+
+local function markBuilt()
+  if buildTagFile then noctalia.writeFile(buildTagFile, buildCommand()) end
+end
 
 local function isValidProtocol(cmd)
   local protocols = { "steam://", "lutris:", "heroic://" }
@@ -362,15 +387,17 @@ local function buildBinary()
   loading = true
   errorMsg = ""
   render()
-  local ok = noctalia.runAsync("cc -o " .. binary .. " " .. cSource .. " -lsqlite3", function(res)
+  local cmd = buildCommand()
+  local ok = noctalia.runAsync(cmd, function(res)
     building = false
     if res.exitCode == 0 then
       loading = false
+      markBuilt()
       scanGames()
     else
       loading = false
-      errorMsg = "Failed to build gamelauncher. Install gcc and libsqlite3-dev. (exit " .. (res.exitCode or "?") .. ")"
-      noctalia.log("build failed: " .. (res.stderr or "no stderr"))
+      errorMsg = "Failed to build gamelauncher. Install gcc. (exit " .. (res.exitCode or "?") .. ")"
+      noctalia.log("build failed (cmd: " .. cmd .. "): " .. (res.stderr or "no stderr"))
       render()
     end
   end)
@@ -384,7 +411,7 @@ end
 
 local function scanGames()
   if loading or building then return end
-  if not noctalia.fileExists(binary) then
+  if not binaryReady() then
     buildBinary()
     return
   end
@@ -404,6 +431,7 @@ local function scanGames()
         local parsed, err2 = noctalia.json.decode(res.stdout)
         if parsed then
           games = parsed
+          pcall(noctalia.state.set, "games", parsed)
           fetchMissingCovers()
         else
           errorMsg = "Failed to parse game list: " .. (err2 or "unknown error")
