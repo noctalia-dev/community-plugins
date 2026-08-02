@@ -24,7 +24,6 @@ position = "auto"
 [[setting]]
 key = "api_key"
 type = "string"
-is_secret = true
 label_key = "settings.api_key.label"
 description_key = "settings.api_key.description"
 default = ""
