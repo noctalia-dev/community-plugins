@@ -377,7 +377,7 @@ local function renderList()
 				height = previewHeight,
 				fit = "cover",
 				radius = 8,
-      			onClick = "onCloseClicked"
+      			onClick = ""
   			}),
 			ui.row( {gap = 12, align = "start"}, {
 				ui.button({ text = tr("install"), onClick = function()
@@ -390,10 +390,6 @@ local function renderList()
 				maxLines = 1,
 				maxWidth = 120,
 				textAlign = "center",
-				}),
-				ui.button({ text = tr("apply"), onClick = function()
-					applyConfig(data)
-				end
 				}),
 			} ), 
 		}))
@@ -516,8 +512,8 @@ local function renderInstall()
 				end
   			}),
 			ui.row( {gap = 12, align = "start"}, {
-				ui.button({ text = "install", onClick = function()
-					downloadConfig(data)  -- here
+				ui.button({ text = "delete", onClick = function()
+					renderDeleteConfirmation(data.name)
 				end
 				}),
 				ui.label({
