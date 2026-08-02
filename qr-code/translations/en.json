@@ -7,6 +7,13 @@
         "close_on_copy": {
             "label": "Close on Copy",
             "description": "Close the panel when copying the QR code."
+        },
+        "notify": {
+            "label": "Notify",
+            "description": "Controls the notifications, minimal only notifies when Close on Copy is used.",
+            "all": "All",
+            "minimal": "Minimal",
+            "none": "None"
         }
     },
     "panel": {

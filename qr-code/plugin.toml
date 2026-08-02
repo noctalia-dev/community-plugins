@@ -35,3 +35,15 @@ type = "bool"
 label_key = "settings.close_on_copy.label"
 description_key = "settings.close_on_copy.description"
 default = false
+
+[[setting]]
+key = "notify"
+type = "select"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = "minimal"
+options = [
+    { value = "all", label_key = "settings.notify.all" },
+    { value = "minimal", label_key = "settings.notify.minimal" },
+    { value = "none", label_key = "settings.notify.none" },
+]

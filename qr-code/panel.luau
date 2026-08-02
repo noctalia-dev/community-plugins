@@ -4,6 +4,13 @@ local errorMessage = nil
 local imagePath = nil
 local status = "idle"
 
+local notifyConf = noctalia.getConfig("notify")
+
+local function notify(text, error)
+    local cmd = error and noctalia.notifyError or noctalia.notify
+    cmd("QR Code encoder", text)
+end
+
 local function statusText()
     if status == "generating" then 
         return noctalia.tr("panel.status.generating")
@@ -81,6 +88,11 @@ local function generate(text)
     if not noctalia.commandExists("qrencode") then
         status = "error"
         errorMessage = noctalia.tr("panel.error.missing_qrencode")
+
+        if notifyConf == "all" then
+            notify(statusText(), status == "error")
+        end
+
         render()
         return
     end
@@ -117,6 +129,11 @@ local function generate(text)
                 status = "error"
                 errorMessage = noctalia.tr("panel.error.generate_failed")
             end
+
+            if notifyConf == "all" then
+                notify(statusText(), status == "error")
+            end
+
             render()
         end
     )
@@ -152,7 +169,15 @@ function onImageClick()
         status = ok and "copied" or "error"
     end
 
+    if notifyConf == "all" then
+        notify(statusText(), status == "error")
+    end
+
     if noctalia.getConfig("close_on_copy") then
+        if notifyConf == "minimal" then
+            notify(statusText(), status == "error")
+        end
+
         panel.close()
         return
     end
