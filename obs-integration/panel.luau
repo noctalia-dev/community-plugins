@@ -14,8 +14,14 @@ local sortAsc = true
 local editFilesOpen = false
 local filesOpen = false
 local packageFiles = {}
-local rebuildArches = {}
 local rebuildArchIndex = 0
+local rebuildRepos = {}
+local rebuildRepoIndex = 0
+local rebuildConfirm = false
+local repoMap = {}
+local savedRebuildRepo = nil
+local savedRebuildArch = nil
+local rebuildLoaded = false
 local maintainerMap = {}
 local ownedProjects = {}
 local projectsLoading = false
@@ -116,11 +122,14 @@ local function editPackageMeta(project, pkg)
 	noctalia.runInTerminal("osc meta pkg " .. shellQuote(project) .. " " .. shellQuote(pkg) .. " -e")
 end
 
-local function rebuildPackage(project, pkg, arch)
+local function rebuildPackage(project, pkg, repo, arch)
 	if not validName(project) or not validName(pkg) then
 		return
 	end
 	local cmd = "osc rebuild " .. shellQuote(project) .. " " .. shellQuote(pkg)
+	if repo ~= nil and repo ~= "All" and repo ~= "" then
+		cmd = cmd .. " -r " .. shellQuote(repo)
+	end
 	if arch ~= nil and arch ~= "All" and arch ~= "" then
 		cmd = cmd .. " -a " .. shellQuote(arch)
 	end
@@ -148,22 +157,62 @@ local function loadPackageFiles(pkgDir, pkg)
 end
 
 local function loadRebuildArches(project, pkg)
+	rebuildLoaded = false
 	noctalia.runAsync("osc results " .. shellQuote(project) .. " " .. shellQuote(pkg), function(result)
-		local arches = {}
-		local seen = {}
+		local map = {}
 		if result.exitCode == 0 then
 			for line in tostring(result.stdout):gmatch("[^\n]+") do
 				line = noctalia.string.trim(line)
-				local _, _, repo, arch = line:find("^(%S+)%s+(%S+)")
-				if repo ~= nil and arch ~= nil and not seen[arch] then
-					seen[arch] = true
-					table.insert(arches, arch)
+				local repo, arch, _, status = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+				if repo ~= nil and arch ~= nil and status ~= "disabled" then
+					if not map[repo] then
+						map[repo] = {}
+					end
+					local found = false
+					for _, a in ipairs(map[repo]) do
+						if a == arch then
+							found = true
+							break
+						end
+					end
+					if not found then
+						table.insert(map[repo], arch)
+					end
 				end
 			end
 		end
-		table.sort(arches)
-		rebuildArches = arches
-		rebuildArchIndex = 0
+		local repos = {}
+		for repo in pairs(map) do
+			table.insert(repos, repo)
+		end
+		table.sort(repos)
+		for repo in pairs(map) do
+			table.sort(map[repo])
+		end
+		repoMap = map
+		rebuildRepos = repos
+		local repoIndex = 0
+		if savedRebuildRepo then
+			for i, repo in ipairs(repos) do
+				if repo == savedRebuildRepo then
+					repoIndex = i
+					break
+				end
+			end
+		end
+		rebuildRepoIndex = repoIndex
+		local archIndex = 0
+		local repoArchs = savedRebuildRepo and map[savedRebuildRepo] or {}
+		if savedRebuildArch then
+			for i, arch in ipairs(repoArchs or {}) do
+				if arch == savedRebuildArch then
+					archIndex = i
+					break
+				end
+			end
+		end
+		rebuildArchIndex = archIndex
+		rebuildLoaded = true
 		render()
 	end, 15000)
 end
@@ -227,6 +276,7 @@ local function loadPackages(project)
   filesOpen = false
   packageFiles = {}
   removeConfirm = false
+  rebuildConfirm = false
   packages = maintainerMap[project] or {}
 
   if #packages == 0 and projectsLoading then
@@ -550,14 +600,20 @@ function render()
 					editFilesOpen = false
 					filesOpen = false
 					packageFiles = {}
-					rebuildArches = {}
 					rebuildArchIndex = 0
+					rebuildRepos = {}
+					rebuildRepoIndex = 0
+					repoMap = {}
+					savedRebuildRepo = nil
+					savedRebuildArch = nil
+					rebuildLoaded = false
+					rebuildConfirm = false
 					removeConfirm = false
 					render()
 					saveNav()
 				end,
 			}),
-			ui.glyph({ name = "package", color = "primary", size = 18 }),
+				ui.glyph({ name = "package", color = checkedOut and "primary" or "on_surface", size = 18 }),
 			ui.label({ text = selectedPackage, fontWeight = "bold", flexGrow = 1 }),
 		}
 		if checkedOut then
@@ -724,35 +780,93 @@ function render()
 			end
 		end
 
-		local rebuildOptions = { "All" }
-		for _, arch in ipairs(rebuildArches) do
-			table.insert(rebuildOptions, arch)
+		local repoOptions = { "All" }
+		for _, repo in ipairs(rebuildRepos) do
+			table.insert(repoOptions, repo)
 		end
-		table.insert(
-			body,
-			ui.row({ align = "center", gap = 8 }, {
-				ui.select({
-					key = "rebuild-arch",
-					options = rebuildOptions,
-					selectedIndex = rebuildArchIndex,
-					placeholder = noctalia.tr("panel.architecture"),
-					flexGrow = 1,
-					onChange = function(index)
-						rebuildArchIndex = tonumber(index)
-						render()
-					end,
-				}),
-				ui.button({
-					text = noctalia.tr("panel.rebuild"),
-					glyph = "refresh",
-					variant = "default",
-					onClick = function()
-						local arch = rebuildOptions[rebuildArchIndex + 1]
-						rebuildPackage(selectedProject, selectedPackage, arch)
-					end,
-				}),
-			})
-		)
+		local selectedRepo = rebuildRepos[rebuildRepoIndex]
+		local archOptions = { "All" }
+		if selectedRepo then
+			for _, arch in ipairs(repoMap[selectedRepo] or {}) do
+				table.insert(archOptions, arch)
+			end
+		else
+			local seen = {}
+			for _, archs in pairs(repoMap) do
+				for _, arch in ipairs(archs) do
+					if not seen[arch] then
+						seen[arch] = true
+						table.insert(archOptions, arch)
+					end
+				end
+			end
+			table.sort(archOptions, function(a, b)
+				return a < b
+			end)
+		end
+
+		if not rebuildLoaded then
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.label({ text = noctalia.tr("panel.loading"), color = "on_surface_variant", flexGrow = 1 }),
+					ui.button({
+						glyph = "refresh",
+						tooltip = noctalia.tr("panel.rebuild"),
+						variant = "default",
+						onClick = function()
+							loadRebuildArches(selectedProject, selectedPackage)
+						end,
+					}),
+				})
+			)
+		else
+			table.insert(
+				body,
+				ui.row({ align = "center", gap = 8 }, {
+					ui.select({
+						key = "rebuild-repo-" .. #repoOptions,
+						options = repoOptions,
+						selectedIndex = rebuildRepoIndex,
+						flexGrow = 1,
+						onChange = function(index)
+							rebuildRepoIndex = tonumber(index)
+							savedRebuildRepo = repoOptions[rebuildRepoIndex + 1]
+							rebuildArchIndex = 0
+							savedRebuildArch = nil
+							render()
+						end,
+					}),
+					ui.select({
+						key = "rebuild-arch-" .. tostring(selectedRepo) .. "-" .. #archOptions,
+						options = archOptions,
+						selectedIndex = rebuildArchIndex,
+						flexGrow = 1,
+						onChange = function(index)
+							rebuildArchIndex = tonumber(index)
+							savedRebuildArch = archOptions[rebuildArchIndex + 1]
+							render()
+						end,
+					}),
+					ui.button({
+						glyph = rebuildConfirm and "check" or "refresh",
+						tooltip = rebuildConfirm and noctalia.tr("panel.confirm_rebuild") or noctalia.tr("panel.rebuild"),
+						variant = rebuildConfirm and "secondary" or "default",
+						onClick = function()
+							if rebuildConfirm then
+								local repo = repoOptions[rebuildRepoIndex + 1]
+								local arch = archOptions[rebuildArchIndex + 1]
+								rebuildPackage(selectedProject, selectedPackage, repo, arch)
+								rebuildConfirm = false
+							else
+								rebuildConfirm = true
+							end
+							render()
+						end,
+					}),
+				})
+			)
+		end
 
 		table.insert(
 			body,
@@ -841,6 +955,10 @@ function render()
                 align = "left",
                 onClick = function()
                   selectedPackage = name
+                  savedRebuildRepo = nil
+                  savedRebuildArch = nil
+                  rebuildLoaded = false
+                  rebuildConfirm = false
                   render()
                   saveNav()
                   loadRebuildArches(selectedProject, name)
