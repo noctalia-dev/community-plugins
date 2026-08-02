@@ -1,8 +1,8 @@
-id = "shajanjp/deepseek_usage"
+id = "coder/deepseek_usage"
 name = "DeepSeek Usage"
 version = "1.0.0"
 plugin_api = 19
-author = "shajanjp"
+author = "coder"
 license = "MIT"
 dependencies = []
 tags = ["utility", "productivity", "bar", "panel"]
