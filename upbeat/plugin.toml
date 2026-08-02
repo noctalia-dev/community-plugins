@@ -1,6 +1,6 @@
 id = "neuro/upbeat"
 name = "Upbeat"
-version = "1.0.1"
+version = "1.0.2"
 plugin_api = 3
 author = "neuro"
 license = "MIT"
