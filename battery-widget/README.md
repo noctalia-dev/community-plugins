@@ -11,7 +11,7 @@ Desktop/lockscreen widget that displays the current battery level and charging s
 
 ## Usage
 
-Add it to your desktop/lockscreen widgets.
+Add it to your desktop/lockscreen widgets using the widget editor. You can configure it in the widget settings.
 
 ## Settings
 
