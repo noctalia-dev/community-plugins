@@ -447,7 +447,8 @@ local function currentTransitionLine(info)
 end
 
 local function render()
-  if hideWhenPaused and not playing or hideWhenNoLyrics and not hasLyrics() then
+  local showingTrack = displayMode == "track" or showMode == "track"
+  if hideWhenPaused and not playing or hideWhenNoLyrics and not showingTrack and not hasLyrics() then
     barWidget.setVisible(false)
     return
   end
