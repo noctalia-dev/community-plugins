@@ -70,9 +70,9 @@
     "lens": "Lens",
     "record": "Record",
     "record_gif": "GIF",
-    "record_mp4": "MP4",
+    "record_mp4": "Record",
     "record_fullscreen_gif": "GIF FS",
-    "record_fullscreen_mp4": "MP4 FS",
+    "record_fullscreen_mp4": "Rec FS",
     "fullscreen": "Fullscreen",
     "window": "Window"
   },
