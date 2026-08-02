@@ -323,8 +323,8 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.4"
-updated_at = 1784947118
+version = "2.0.5"
+updated_at = 1785634296
 added_at = 1784351187
 author = "Pozzoo"
 license = "MIT"
@@ -948,8 +948,8 @@ tags = ["ai", "productivity", "bar", "launcher", "panel"]
 [[plugin]]
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.4.0"
-updated_at = 1785589188
+version = "0.5.0"
+updated_at = 1785634572
 added_at = 1785589188
 author = "Alexander"
 license = "MIT"

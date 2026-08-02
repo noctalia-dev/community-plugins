@@ -3,35 +3,44 @@ local inputKey = 0
 local copyTarget = nil
 local modelIdx = 0
 
+local markdownCache = {}
+local parseCache = {}
+local CACHE_MAX = 100
+
+local function cacheGet(cache, key)
+  return cache[key]
+end
+
+local function cacheSet(cache, key, value)
+  if cache[key] then return end
+  cache[key] = value
+  local count = 0
+  for _ in pairs(cache) do count += 1 end
+  if count > CACHE_MAX then
+    for k in pairs(cache) do
+      cache[k] = nil
+      break
+    end
+  end
+end
+
 noctalia.state.watch("mimir.copy_target", function(value)
   copyTarget = (value == -1) and nil or value
   render()
 end)
 
-local function mapUnicode(text, lowerBase, upperBase)
-  local out = ""
-  for i = 1, #text do
-    local c = text:sub(i, i)
-    local code = c:byte()
-    if code >= 97 and code <= 122 then
-      out = out .. utf8.char(code - 97 + lowerBase)
-    elseif code >= 65 and code <= 90 then
-      out = out .. utf8.char(code - 65 + upperBase)
-    else
-      out = out .. c
-    end
-  end
-  return out
-end
-
 local function inlineMarkdown(text)
-  text = text:gsub("%*%*%*([^%*]-)%*%*%*", function(s) return mapUnicode(s, 0x1D482, 0x1D468) end)
-  text = text:gsub("%*%*([^%*]-)%*%*", function(s) return mapUnicode(s, 0x1D41A, 0x1D400) end)
-  text = text:gsub("%*([^%*]-)%*", function(s) return mapUnicode(s, 0x1D44E, 0x1D434) end)
-  text = text:gsub("~~([^~]-)~~", "%1")
-  text = text:gsub("`(.-)`", "%1")
-  text = text:gsub("%[([^%]]*)%]%(([^%)]+)%)", "%1 (%2)")
-  return text
+  local cached = cacheGet(markdownCache, text)
+  if cached then return cached end
+  local out = text
+  out = out:gsub("%*%*%*([^%*]-)%*%*%*", "%1")
+  out = out:gsub("%*%*([^%*]-)%*%*", "%1")
+  out = out:gsub("%*([^%*]-)%*", "%1")
+  out = out:gsub("~~([^~]-)~~", "%1")
+  out = out:gsub("`(.-)`", "%1")
+  out = out:gsub("%[([^%]]*)%]%(([^%)]+)%)", "%1 (%2)")
+  cacheSet(markdownCache, text, out)
+  return out
 end
 
 local function renderText(text, color, fontSize, fontWeight)
@@ -49,6 +58,8 @@ local function toolCommand(toolCall)
 end
 
 local function parseMessage(content)
+  local cached = cacheGet(parseCache, content)
+  if cached then return cached end
   local nodes = {}
   local lines = {}
   for line in (content .. "\n"):gmatch("(.-)\n") do
@@ -119,6 +130,7 @@ local function parseMessage(content)
       end
     end
   end
+  cacheSet(parseCache, content, nodes)
   return nodes
 end
 
@@ -133,41 +145,45 @@ function render()
     commandsByToolCall[entry.tool_call_id] = entry.command
   end
 
-  local statusColors = { idle = "on_surface/0.4", thinking = "primary", running_tool = "primary", error = "error" }
-  local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", error = "Error" }
+  local statusColors = { idle = "on_surface/0.4", thinking = "primary", running_tool = "primary", searching = "primary", fetching = "primary", error = "error" }
+  local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", searching = "Searching web...", fetching = "Fetching page...", error = "Error" }
 
   local displayMsgs = {}
   local copyContent = nil
   for i, msg in ipairs(messages) do
-    if msg.role ~= "system" and msg.role ~= "tool" and msg.content then
+    if msg.role ~= "system" and msg.role ~= "tool" then
       local isUser = msg.role == "user"
-      local isCopying = copyTarget == i
-      if isCopying then copyContent = msg.content end
-      local nodes = parseMessage(msg.content or "")
+      local content = msg.content
+      local hasText = type(content) == "string" and content:match("%S") ~= nil
       local contentNodes = {}
-      for _, node in ipairs(nodes) do
-        if node.type == "text" then
-          table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface"))
-        elseif node.type == "code" then
-          table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 6 }, {
-            ui.label({ text = node.content, fontSize = 12, color = "on_surface_variant" }),
-          }))
-        elseif node.type == "heading" then
-          local sizes = { 17, 15, 14, 13, 13, 13 }
-          table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface", sizes[node.level] or 13, "bold"))
-        elseif node.type == "quote" then
-          table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 4 }, {
-            renderText(node.content, isUser and "primary" or "on_surface_variant", 12),
-          }))
-        elseif node.type == "hr" then
-          table.insert(contentNodes, ui.separator({ thickness = 1, color = "surface_variant" }))
-        elseif node.type == "list" then
-          local listChildren = {}
-          for n, item in ipairs(node.items) do
-            local prefix = item.ordered and (n .. ". ") or "• "
-            table.insert(listChildren, renderText(prefix .. item.content, isUser and "primary" or "on_surface"))
+      if hasText then
+        local isCopying = copyTarget == i
+        if isCopying then copyContent = content end
+        local nodes = parseMessage(content)
+        for _, node in ipairs(nodes) do
+          if node.type == "text" then
+            table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface"))
+          elseif node.type == "code" then
+            table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 6 }, {
+              ui.label({ text = node.content, fontSize = 12, color = "on_surface_variant" }),
+            }))
+          elseif node.type == "heading" then
+            local sizes = { 17, 15, 14, 13, 13, 13 }
+            table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface", sizes[node.level] or 13, "bold"))
+          elseif node.type == "quote" then
+            table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 4 }, {
+              renderText(node.content, isUser and "primary" or "on_surface_variant", 12),
+            }))
+          elseif node.type == "hr" then
+            table.insert(contentNodes, ui.separator({ thickness = 1, color = "surface_variant" }))
+          elseif node.type == "list" then
+            local listChildren = {}
+            for n, item in ipairs(node.items) do
+              local prefix = item.ordered and (n .. ". ") or "• "
+              table.insert(listChildren, renderText(prefix .. item.content, isUser and "primary" or "on_surface"))
+            end
+            table.insert(contentNodes, ui.column({ gap = 2 }, listChildren))
           end
-          table.insert(contentNodes, ui.column({ gap = 2 }, listChildren))
         end
       end
       if msg.tool_calls then
@@ -181,13 +197,16 @@ function render()
           end
         end
       end
-      table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
-        ui.row({ gap = 4, align = "center" }, {
-          ui.label({ text = isUser and "You" or "Mimir", fontSize = 11, color = "on_surface/0.5" }),
-          ui.button({ glyph = isCopying and "close" or "copy", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
-        }),
-        table.unpack(contentNodes),
-      }))
+      if #contentNodes > 0 then
+        local isCopying = copyTarget == i
+        table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
+          ui.row({ gap = 4, align = "center" }, {
+            ui.label({ text = isUser and "You" or "Mimir", fontSize = 11, color = "on_surface/0.5" }),
+            ui.button({ glyph = isCopying and "close" or "copy", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
+          }),
+          table.unpack(contentNodes),
+        }))
+      end
     end
   end
 

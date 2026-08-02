@@ -48,6 +48,10 @@
       "description": "When the AI can run terminal commands",
       "label": "Tool Permission",
       "off": "Off — No tools"
+    },
+    "web_search_enabled": {
+      "description": "Allow Mimir to use DuckDuckGo search and fetch public pages",
+      "label": "Web Search"
     }
   },
   "status_error": "Error",

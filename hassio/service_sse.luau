@@ -10,6 +10,15 @@ local function getCleanUrl()
   return (haUrlRaw:gsub("/$", ""))
 end
 
+local function getCleanToken()
+  if type(haToken) ~= "string" then return "" end
+  return noctalia.string.trim(haToken)
+end
+
+local function isConfigured()
+  return getCleanUrl() ~= "" and getCleanToken() ~= ""
+end
+
 local function loadManagedEntities()
   local dataDir, dirErr = noctalia.pluginDataDir()
   if not dataDir then
@@ -25,7 +34,18 @@ local function loadManagedEntities()
   return {}
 end
 
-local entities = loadManagedEntities()
+local entities = {}
+local managedSet = {}
+
+local function setEntities(list)
+  entities = list
+  managedSet = {}
+  for _, id in ipairs(entities) do
+    managedSet[id] = true
+  end
+end
+
+setEntities(loadManagedEntities())
 
 local status = "unconfigured"
 local entityStates = {}
@@ -33,19 +53,31 @@ local sseActive = false
 local streamHandle = nil
 
 local MAX_RECONNECT_RETRIES = 10
-local CONNECTED_POLL_INTERVAL_MS = 30000
+local CONNECTED_POLL_INTERVAL_MS = 1000
 local RECONNECT_POLL_INTERVAL_MS = 1000
 local BACKOFF_POLL_INTERVAL_MS = 60000
+-- The host allows 30s transfer + 10s connect, so past 35s the callback is gone.
+local REQUEST_TIMEOUT_SECONDS = 35
+-- The host allows 8 async callbacks per runtime.
+local MAX_SNAPSHOT_REQUESTS_IN_FLIGHT = 4
+local ENTITY_FLUSH_INTERVAL_SECONDS = 0.2
+
 local retryCount = 0
 local maxRetriesNotified = false
+local authFailureNotified = false
 local backoff = false
 local connectionRequestInFlight = false
-local connectingSince = nil
+local requestStartedAt = nil
 
-local function getCleanToken()
-  if type(haToken) ~= "string" then return "" end
-  return noctalia.string.trim(haToken)
-end
+local entitiesDirty = false
+local lastEntityFlush = 0
+
+local snapshotToken = 0
+local snapshotActive = false
+local snapshotStartedAt = 0
+local snapshotQueue = {}
+local snapshotPending = {}
+local snapshotInFlight = 0
 
 local function syncUpdateInterval()
   if status == "connected" and sseActive then
@@ -57,9 +89,20 @@ local function syncUpdateInterval()
   end
 end
 
-local function isConfigured()
-  local url = getCleanUrl()
-  return url and url ~= "" and getCleanToken() ~= ""
+local function setStatus(next, reason)
+  if status == next then return end
+  status = next
+  noctalia.state.set("connection_status", status)
+  noctalia.log("connection status -> " .. status .. (reason and (" (" .. reason .. ")") or ""))
+
+  if status == "connected" then
+    authFailureNotified = false
+  elseif status == "auth_failed" and not authFailureNotified then
+    authFailureNotified = true
+    noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
+  end
+
+  syncUpdateInterval()
 end
 
 local function haRequest(endpoint, method, body, callback)
@@ -76,12 +119,11 @@ local function haRequest(endpoint, method, body, callback)
   local headers = {
     "Authorization: Bearer " .. cleanToken,
   }
-  -- Only advertise a JSON body when we actually send one.
   if jsonBody then
     table.insert(headers, "Content-Type: application/json")
   end
 
-  local launched = noctalia.http({
+  return noctalia.http({
       url = url,
       method = method,
       body = jsonBody,
@@ -98,9 +140,6 @@ local function haRequest(endpoint, method, body, callback)
         body = response.body
       })
   end)
-
-  return launched
-
 end
 
 local function supportsColorMode(modes, targets)
@@ -148,43 +187,60 @@ local function processEntity(state)
   }
 end
 
-local function updateEntity(entityId, newState)
-  if #entities > 0 then
-    local found = false
-    for _, id in ipairs(entities) do
-      if id == entityId then
-        found = true
-        break
-      end
-    end
-    if not found then return end
+local function publishEntities()
+  local count = 0
+  for _ in pairs(entityStates) do
+    count = count + 1
   end
+  noctalia.state.set("entities", entityStates)
+  noctalia.state.set("entity_count", count)
+  entitiesDirty = false
+  lastEntityFlush = os.clock()
+end
 
-  local processed = processEntity(newState)
-  if processed then
-    entityStates[entityId] = processed
-    noctalia.state.set("entities", entityStates)
-
-    local count = 0
-    for _ in pairs(entityStates) do
-      count = count + 1
-    end
-    noctalia.state.set("entity_count", count)
+-- Every publish is re-decoded by every watcher, so bursts get coalesced.
+local function markEntitiesDirty()
+  entitiesDirty = true
+  if (os.clock() - lastEntityFlush) >= ENTITY_FLUSH_INTERVAL_SECONDS then
+    publishEntities()
   end
 end
 
--- HA embeds event_type inside the data JSON rather than a separate SSE "event:" field
+local function isManaged(entityId)
+  return managedSet[entityId] == true
+end
+
+local function updateEntity(entityId, newState)
+  if not isManaged(entityId) then return end
+
+  local processed = processEntity(newState)
+  if not processed then return end
+
+  entityStates[entityId] = processed
+  if snapshotActive then
+    -- don't let the in-flight round overwrite fresher live data
+    snapshotPending[entityId] = processed
+  end
+  markEntitiesDirty()
+end
+
 local currentEvent = {
     data = "",
     event = "",
 }
 
+local function eventTypeOf(parsed)
+  if currentEvent.event and currentEvent.event ~= "" then
+    return currentEvent.event
+  end
+  return parsed.event_type
+end
+
 local function tryDispatch()
   if not currentEvent.data then return end
   local parsed = noctalia.json.decode(currentEvent.data)
   if not parsed then return end
-  local evType = currentEvent.event or parsed.event_type
-  if evType ~= "state_changed" then return end
+  if eventTypeOf(parsed) ~= "state_changed" then return end
   local inner = parsed.data or {}
   if inner.entity_id and inner.new_state then
     updateEntity(inner.entity_id, inner.new_state)
@@ -202,8 +258,7 @@ local function processSSELine(line)
     local data = line:match("^data:%s*(.+)") or ""
     local parsed = noctalia.json.decode(data)
     if parsed then
-      local evType = currentEvent.event or parsed.event_type
-      if evType == "state_changed" then
+      if eventTypeOf(parsed) == "state_changed" then
         local inner = parsed.data or {}
         if inner.entity_id and inner.new_state then
           updateEntity(inner.entity_id, inner.new_state)
@@ -220,98 +275,127 @@ local function processSSELine(line)
   end
 end
 
-local function fetchInitialStates()
+local pumpSnapshot
+local finishSnapshot
+local fetchSnapshot
+local startSSEStream
+local connect
+
+function finishSnapshot()
+  snapshotActive = false
+  snapshotToken = snapshotToken + 1
+
+  local merged = {}
+  for _, id in ipairs(entities) do
+    merged[id] = snapshotPending[id] or entityStates[id]
+  end
+  entityStates = merged
+  snapshotPending = {}
+  snapshotQueue = {}
+  publishEntities()
+end
+
+function pumpSnapshot()
+  if not snapshotActive then return end
+
+  local token = snapshotToken
+
+  while snapshotInFlight < MAX_SNAPSHOT_REQUESTS_IN_FLIGHT and #snapshotQueue > 0 do
+    local entityId = snapshotQueue[1]
+    snapshotInFlight = snapshotInFlight + 1
+
+    local launched = haRequest("/api/states/" .. entityId, "GET", nil, function(res)
+      if token ~= snapshotToken then return end
+      snapshotInFlight = snapshotInFlight - 1
+
+      if res.status == 404 then
+        noctalia.log("Entity not found in Home Assistant: " .. entityId)
+      elseif res.ok and res.body and res.body ~= "" then
+        local state = noctalia.json.decode(res.body)
+        if type(state) == "table" and state.entity_id then
+          snapshotPending[entityId] = processEntity(state)
+        end
+      end
+
+      pumpSnapshot()
+      if snapshotActive and snapshotInFlight == 0 and #snapshotQueue == 0 then
+        finishSnapshot()
+      end
+    end)
+
+    if not launched then
+      snapshotInFlight = snapshotInFlight - 1
+      return
+    end
+
+    table.remove(snapshotQueue, 1)
+  end
+
+  if snapshotInFlight == 0 and #snapshotQueue == 0 then
+    finishSnapshot()
+  end
+end
+
+function fetchSnapshot()
+  snapshotToken = snapshotToken + 1
+  snapshotActive = true
+  snapshotStartedAt = os.clock()
+  snapshotInFlight = 0
+  snapshotPending = {}
+  snapshotQueue = {}
+  for _, id in ipairs(entities) do
+    if type(id) == "string" and id ~= "" then
+      table.insert(snapshotQueue, id)
+    end
+  end
+  pumpSnapshot()
+end
+
+function connect()
   if not isConfigured() or connectionRequestInFlight then return end
+
+  requestStartedAt = os.clock()
   connectionRequestInFlight = true
-  connectingSince = os.clock()
-  local launched = haRequest("/api/states", "GET", nil, function(res)
+
+  local launched = haRequest("/api/", "GET", nil, function(res)
     connectionRequestInFlight = false
-    connectingSince = nil
+    requestStartedAt = nil
 
-    -- status 0 = no HTTP response at all (couldn't connect / DNS / timeout): the
-    -- server is unreachable, which is a distinct case from an auth or HTTP error.
     if res.status == 0 then
-      status = "unreachable"
       noctalia.log("Cannot reach Home Assistant (connection failed)")
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
+      setStatus("unreachable", "transport failure")
       return
     end
 
-    if res.status == 401 or (res.body and (res.body:match("^401") or res.body:match("Unauthorized"))) then
-      status = "auth_failed"
-      noctalia.log("Authentication failed - check your token")
-      noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
+    if res.status == 401 or res.status == 403 then
+      setStatus("auth_failed", "http " .. tostring(res.status))
       return
     end
 
-    if not res.body or res.body == "" then
-      noctalia.log("Empty response body from /api/states")
-      status = "disconnected"
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
+    if not res.ok then
+      noctalia.log("Home Assistant API probe failed: status " .. tostring(res.status))
+      setStatus("disconnected", "http " .. tostring(res.status))
       return
     end
 
-    if not res.ok or res.status >= 400 then
-      status = "disconnected"
-      noctalia.log("HTTP request failed: status " .. (res.status or "unknown"))
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
-      return
-    end
-
-    local allStates, err = noctalia.json.decode(res.body)
-    if not allStates then
-      noctalia.log("Failed to parse states: " .. (err or "unknown error"))
-      status = "disconnected"
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
-      return
-    end
-
-    status = "connected"
-    noctalia.state.set("connection_status", status)
     retryCount = 0
     maxRetriesNotified = false
     backoff = false
+    setStatus("connected", "api reachable")
 
-    entityStates = {}
-    local count = 0
-
-    for _, state in ipairs(allStates) do
-      if #entities == 0 then break end
-      for _, entityId in ipairs(entities) do
-        if state.entity_id == entityId then
-          entityStates[entityId] = processEntity(state)
-          count = count + 1
-          break
-        end
-      end
+    if not startSSEStream() then
+      setStatus("disconnected", "stream failed to start")
+      return
     end
 
-    noctalia.state.set("entities", entityStates)
-    noctalia.state.set("entity_count", count)
-
-    if status == "connected" then
-      if not startSSEStream() then
-        status = "disconnected"
-        noctalia.state.set("connection_status", status)
-        syncUpdateInterval()
-      else
-        syncUpdateInterval()
-      end
-    end
+    fetchSnapshot()
+    syncUpdateInterval()
   end)
 
   if not launched then
     connectionRequestInFlight = false
-    connectingSince = nil
-    status = "unreachable"
-    noctalia.state.set("connection_status", status)
-    syncUpdateInterval()
+    requestStartedAt = nil
+    setStatus("unreachable", "request not launched")
   end
 end
 
@@ -344,18 +428,14 @@ function startSSEStream()
     sseActive = false
     currentEvent = {}
 
-    if result and result.ok and result.status == 401 then
-      status = "auth_failed"
-      noctalia.log("Authentication failed - check your token")
-      noctalia.notifyError(noctalia.tr("notifications.auth_failed"))
-      noctalia.state.set("connection_status", status)
-      syncUpdateInterval()
+    if result and (result.status == 401 or result.status == 403) then
+      setStatus("auth_failed", "stream http " .. tostring(result.status))
       return
     end
 
-    status = "disconnected"
-    noctalia.log("SSE stream closed")
-    noctalia.state.set("connection_status", status)
+    -- 404 here means this HA serves no /api/stream, which otherwise looks like a flaky link.
+    noctalia.log("SSE stream closed (status " .. tostring(result and result.status or 0) .. ")")
+    setStatus("disconnected", "stream closed")
     syncUpdateInterval()
   end)
 
@@ -372,24 +452,26 @@ end
 
 noctalia.state.watch("command", function(cmd)
   if cmd == "refresh" then
-    -- Just refetch a fresh snapshot over HTTP. Do NOT touch sseActive here:
-    -- the running stream (if any) is untouched by this, and forcing the
-    -- flag false would bypass startSSEStream()'s duplicate guard and spawn
-    -- a second stream on top of one that's still alive.
-    fetchInitialStates()
+    -- Do NOT clear sseActive: that bypasses startSSEStream()'s duplicate guard.
+    if status == "connected" then
+      if not sseActive then startSSEStream() end
+      fetchSnapshot()
+    else
+      connect()
+    end
   elseif cmd == "reload_entities" then
     local override = noctalia.state.get("entities_override")
     if type(override) == "table" then
-      entities = override
+      setEntities(override)
     else
-      entities = loadManagedEntities()
+      setEntities(loadManagedEntities())
     end
-    -- Entity filtering happens client-side in updateEntity(), so the
-    -- existing stream keeps working for the new entity list as-is.
-    -- The initial snapshot needs refetching, though, to account for any
-    -- entities that were removed from the filter. See the note above for why
-    -- sseActive must not be forced here.
-    fetchInitialStates()
+    -- Filtering is client-side, so only the snapshot needs refetching.
+    if status == "connected" then
+      fetchSnapshot()
+    else
+      connect()
+    end
   end
 end)
 
@@ -398,48 +480,67 @@ noctalia.state.watch("panel_open_signal", function(value)
     retryCount = 0
     maxRetriesNotified = false
     backoff = false
+    syncUpdateInterval()
   end
 end)
 
 function update()
-  syncUpdateInterval()
-
   if not isConfigured() then
-    status = "unconfigured"
-    noctalia.state.set("connection_status", status)
+    setStatus("unconfigured", "no url or token")
+    if streamHandle then
+      streamHandle.stop()
+      streamHandle = nil
+    end
     sseActive = false
+    syncUpdateInterval()
     return
   end
 
-  -- noctalia.http exposes no transport timeout, so a hung request would otherwise
-  -- pin status on "connecting" indefinitely. Treat 15s without a callback as a
-  -- failed attempt and fall through to the reconnect path below.
-  if status == "connecting" and connectingSince and (os.clock() - connectingSince) > 15 then
-    connectionRequestInFlight = false
-    connectingSince = nil
-    status = "disconnected"
-    noctalia.state.set("connection_status", status)
-    syncUpdateInterval()
+  if entitiesDirty and (os.clock() - lastEntityFlush) >= ENTITY_FLUSH_INTERVAL_SECONDS then
+    publishEntities()
   end
 
-  if status == "disconnected" or status == "unreachable" then
+  if snapshotActive then
+    if (os.clock() - snapshotStartedAt) > REQUEST_TIMEOUT_SECONDS then
+      noctalia.log("Entity snapshot timed out; publishing what arrived")
+      finishSnapshot()
+    else
+      pumpSnapshot()
+    end
+  end
+
+  if connectionRequestInFlight and (os.clock() - (requestStartedAt or 0)) > REQUEST_TIMEOUT_SECONDS then
+    connectionRequestInFlight = false
+    requestStartedAt = nil
+    setStatus("disconnected", "request timed out")
+  end
+
+  if status == "connected" and not sseActive then
+    setStatus("disconnected", "stream missing")
+  end
+
+  -- Reconverge the store in case a publish was dropped mid-callback.
+  if noctalia.state.get("connection_status") ~= status then
+    noctalia.state.set("connection_status", status)
+  end
+
+  if status ~= "connected" and not connectionRequestInFlight then
     retryCount = retryCount + 1
     if retryCount >= MAX_RECONNECT_RETRIES and not backoff then
-      -- After the initial burst of fast retries, fall back to a
-      -- slow poll and keep trying, so the service reconnects on its own once HA is
-      -- reachable again (previously it suspended and only revived on panel open).
       backoff = true
       if not maxRetriesNotified then
         maxRetriesNotified = true
-        noctalia.notifyError(noctalia.tr("notifications.reconnect_failed", { count = MAX_RECONNECT_RETRIES }))
+        if not authFailureNotified then
+          noctalia.notifyError(noctalia.tr("notifications.reconnect_failed", { count = MAX_RECONNECT_RETRIES }))
+        end
       end
-      syncUpdateInterval()
     end
 
-    status = "connecting"
-    noctalia.state.set("connection_status", status)
-    fetchInitialStates()
+    setStatus("connecting", "attempt " .. tostring(retryCount))
+    connect()
   end
+
+  syncUpdateInterval()
 end
 
 function onExit()
@@ -448,6 +549,7 @@ function onExit()
     streamHandle = nil
   end
   sseActive = false
+  snapshotActive = false
 end
 
 noctalia.state.set("connection_status", status)
@@ -455,7 +557,8 @@ noctalia.state.set("entity_count", 0)
 noctalia.state.set("entities", {})
 
 if isConfigured() then
-  status = "connecting"
-  noctalia.state.set("connection_status", status)
-  fetchInitialStates()
+  setStatus("connecting", "startup")
+  connect()
 end
+
+syncUpdateInterval()

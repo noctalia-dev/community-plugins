@@ -86,7 +86,7 @@ local COUNTERS = {
     {
         key = "apt",
         requires = "apt-get",
-        signals = { "apt%-get[^\n]*upgrade", "apt[^\n]*full%-upgrade", "nala[^\n]*upgrade" },
+        signals = { "apt%-get[^\n]*upgrade", "apt[^\n]*full%-upgrade", "apt[^\n]*dist%-upgrade", "nala[^\n]*upgrade" },
         cmd = [[apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | awk '/^Inst /{gsub(/[][]/,"",$3); gsub(/[()]/,"",$4); print $2"\t"$3"\t"$4}']],
     },
     {
@@ -451,7 +451,7 @@ pumpQueue = function()
     local counter = table.remove(queue, 1)
     step = tr("count." .. counter.key)
     publish()
-    local started = noctalia.runAsync(counter.cmd, function(result)
+    local started = noctalia.runAsync("export LC_ALL=C; " .. counter.cmd, function(result)
         -- A query that timed out or reported an error is recorded as unknown
         -- rather than zero: saying "up to date" because a mirror was down would
         -- be a lie. Note that most of these commands end in a filter, so their
@@ -512,7 +512,7 @@ startCheck = function()
     step = tr("step_planning")
     publish()
 
-    local started = noctalia.runAsync(buildCommand(true), function(result)
+    local started = noctalia.runAsync("export LC_ALL=C; " .. buildCommand(true), function(result)
         if result.timedOut then
             failCheck(tr("err_dry_timeout"))
             return

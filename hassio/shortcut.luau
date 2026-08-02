@@ -140,7 +140,13 @@ function onClick()
             "Content-Type: application/json",
         },
         body = encoded,
-    }, function(response)end)
+    }, function(response)
+        local httpStatus = response and response.status or 0
+        if httpStatus >= 200 and httpStatus < 300 then return end
+        noctalia.log("Home Assistant rejected toggle for " .. eid .. ": status " .. tostring(httpStatus))
+        clearPending(eid)
+        render()
+    end)
 
     render()
 end
