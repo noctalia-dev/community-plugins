@@ -1,4 +1,4 @@
-id = "yocraft/qr-code"
+id = "yocraft/qrcode"
 name = "QR Code encoder"
 version = "1.0.0"
 plugin_api = 21
@@ -7,8 +7,8 @@ license = "MIT"
 deprecated = false
 icon = "qrcode"
 description = "Transform any text or url in a qr code"
-tags = []
-dependencies = []
+tags = [ "panel", "fun", "network", "privacy", "productivity", "utility" ]
+dependencies = [ "qrencode" ]
 
 [[widget]]
 id = "widget"

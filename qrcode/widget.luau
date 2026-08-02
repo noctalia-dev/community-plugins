@@ -3,5 +3,5 @@ function update()
 end
 
 function onClick()
-    noctalia.togglePanel("yocraft/qr-code:panel")
+    noctalia.togglePanel("yocraft/qrcode:panel")
 end
