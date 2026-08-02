@@ -17,9 +17,16 @@ entry = "widget.luau"
     [[widget.setting]]
     key = "glyph"
     type = "glyph"
-    label_key = "settings.glyph.label"
-    description_key = "settings.glyph.description"
+    label_key = "widget.glyph.label"
+    description_key = "widget.glyph.description"
     default = "qrcode"
+
+    [[widget.setting]]
+    key = "custom_image"
+    type = "image"
+    label_key = "widget.custom_image.label"
+    description_key = "widget.custom_image.description"
+    default = ""
 
 [[panel]]
 id = "panel"

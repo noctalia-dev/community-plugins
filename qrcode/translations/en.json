@@ -19,10 +19,6 @@
             "minimal": "Minimal",
             "none": "None"
         },
-        "glyph": {
-            "label": "Glyph",
-            "description": "Icon glyph name."
-        },
         "size": {
             "label": "QR Code Size",
             "description": "Specify module size in dots (pixels)."
@@ -34,6 +30,17 @@
             "M": "Medium",
             "Q": "High",
             "H": "Highest"
+        }
+    },
+    "widget": {
+        "tooltip": "Generate a QR Code",
+        "glyph": {
+            "label": "Glyph",
+            "description": "Icon glyph name"
+        },
+        "custom_image": {
+            "label": "Custom image",
+            "description": "Path to a custom image; leave empty to use the icon glyph"
         }
     },
     "panel": {
