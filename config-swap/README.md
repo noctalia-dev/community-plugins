@@ -7,6 +7,7 @@ A [Noctalia](https://github.com/noctalia-dev/noctalia) v5 plugin for switching b
 For this plugin, you need:
 * internet access to fetch configuration data from GitHub on the store page
 * `cp` to apply a configuration
+* `rm` to delete the selected installed configuration (not the current configuration)
 
 ## Plugin
 
@@ -117,6 +118,7 @@ No setting needed
 
 - Noctalia ≥ 5.0.0
 - `cp`
+- `rm`
 - internet access for the store view
 
 ## Install
