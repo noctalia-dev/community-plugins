@@ -373,6 +373,7 @@ local function oscCommit(pkgDir)
 	local cmd = "cd " .. shellQuote(pkgDir) .. " && osc ci"
 	isActionLoading = true
 	actionStatus = noctalia.tr("panel.committing")
+	logSource = ""
 	errorText = ""
 	commandLog = ""
 	render()
@@ -960,25 +961,9 @@ function render()
 									ui.column({ key = "changes-col-" .. file, gap = 8, align = "stretch" }, {
 										editBtn, updateBtn,
 									})
-			)
-
-			if logSource ~= "rebuild" then
-				if isActionLoading then
-					table.insert(
-						body,
-						ui.row({ align = "center", gap = 8 }, {
-							ui.glyph({ name = "loader", color = "primary", size = 14 }),
-							ui.label({ text = actionStatus, color = "on_surface_variant" }),
-						})
-					)
-				elseif errorText ~= "" then
-					table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
-				elseif commandLog ~= "" then
-					table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
-				end
-			end
-		end
-						else
+							)
+						end
+					else
 							table.insert(
 								body,
 								ui.button({
@@ -1134,6 +1119,22 @@ function render()
 					end,
 				})
 			)
+
+			if logSource ~= "rebuild" then
+				if isActionLoading then
+					table.insert(
+						body,
+						ui.row({ align = "center", gap = 8 }, {
+							ui.glyph({ name = "loader", color = "primary", size = 14 }),
+							ui.label({ text = actionStatus, color = "on_surface_variant" }),
+						})
+					)
+				elseif errorText ~= "" then
+					table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
+				elseif commandLog ~= "" then
+					table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
+				end
+			end
 		end
 
 		local repoOptions = { "All" }
