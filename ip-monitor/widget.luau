@@ -194,12 +194,18 @@ end
 
 --- Handler for left click action on the bar widget.
 function onClick()
-    applyClickAction("copy_ip")
+    local action = noctalia.getConfig("left_click_action") or "copy_ip"
+    if action ~= "none" then
+        applyClickAction(action)
+    end
 end
 
 --- Handler for right click action on the bar widget.
 function onRightClick()
-    applyClickAction("copy_name")
+    local action = noctalia.getConfig("right_click_action") or "copy_name"
+    if action ~= "none" then
+        applyClickAction(action)
+    end
 end
 
 --- Handler for IPC messages dispatched to this widget.

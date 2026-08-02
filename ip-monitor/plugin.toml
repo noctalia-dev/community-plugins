@@ -16,19 +16,7 @@ dependencies = ["ip", "curl"]
 id    = "widget"
 entry = "widget.luau"
 
-  [[widget.setting]]
-  key             = "glyph"
-  type            = "glyph"
-  label_key       = "settings.glyph.label"
-  description_key = "settings.glyph.description"
-  default         = "network"
 
-  [[widget.setting]]
-  key             = "glyph_color"
-  type            = "color"
-  label_key       = "settings.glyph_color.label"
-  description_key = "settings.glyph_color.description"
-  default         = "on_surface"
 
   [[widget.setting]]
   key             = "mode"
@@ -59,6 +47,38 @@ entry = "widget.luau"
   visible_when    = { key = "mode", values = ["custom_command"] }
 
   [[widget.setting]]
+  key             = "ipc_id"
+  type            = "string"
+  label_key       = "settings.ipc_id.label"
+  description_key = "settings.ipc_id.description"
+  default         = "default"
+  visible_when    = { key = "mode", values = ["ipc"] }
+
+  [[widget.setting]]
+  key             = "refresh_interval"
+  type            = "int"
+  label_key       = "settings.refresh_interval.label"
+  description_key = "settings.refresh_interval.description"
+  default         = 60
+  min             = 10
+  max             = 3600
+  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "network"
+
+  [[widget.setting]]
+  key             = "glyph_color"
+  type            = "color"
+  label_key       = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
   key             = "text_color"
   type            = "color"
   label_key       = "settings.text_color.label"
@@ -72,14 +92,6 @@ entry = "widget.luau"
   description_key = "settings.name.description"
   default         = ""
   visible_when    = { key = "mode", values = ["interface", "custom_command"] }
-
-  [[widget.setting]]
-  key             = "ipc_id"
-  type            = "string"
-  label_key       = "settings.ipc_id.label"
-  description_key = "settings.ipc_id.description"
-  default         = "default"
-  visible_when    = { key = "mode", values = ["ipc"] }
 
   [[widget.setting]]
   key             = "name_color"
@@ -110,11 +122,25 @@ entry = "widget.luau"
   default         = true
 
   [[widget.setting]]
-  key             = "refresh_interval"
-  type            = "int"
-  label_key       = "settings.refresh_interval.label"
-  description_key = "settings.refresh_interval.description"
-  default         = 60
-  min             = 10
-  max             = 3600
-  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+  key             = "left_click_action"
+  type            = "select"
+  label_key       = "settings.left_click_action.label"
+  description_key = "settings.left_click_action.description"
+  default         = "copy_ip"
+  options = [
+      { value = "copy_ip", label_key = "settings.click.options.copy_ip" },
+      { value = "copy_name", label_key = "settings.click.options.copy_name" },
+      { value = "none", label_key = "settings.click.options.none" },
+  ]
+
+  [[widget.setting]]
+  key             = "right_click_action"
+  type            = "select"
+  label_key       = "settings.right_click_action.label"
+  description_key = "settings.right_click_action.description"
+  default         = "copy_name"
+  options = [
+      { value = "copy_ip", label_key = "settings.click.options.copy_ip" },
+      { value = "copy_name", label_key = "settings.click.options.copy_name" },
+      { value = "none", label_key = "settings.click.options.none" },
+  ]

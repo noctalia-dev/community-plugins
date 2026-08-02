@@ -10,6 +10,14 @@
     "broadcast": "Broadcast"
   },
   "settings": {
+    "left_click_action": {
+      "label": "Left Click Action",
+      "description": "Action to perform on left click."
+    },
+    "right_click_action": {
+      "label": "Right Click Action",
+      "description": "Action to perform on right click."
+    },
     "glyph": {
       "label": "Icon",
       "description": "Icon to show before the IP."

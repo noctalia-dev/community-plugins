@@ -31,7 +31,9 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | `separator` | `string` | `-` | Separator symbol between IP and Name |
 | `separator_color` | `color` | `on_surface_variant` | Color of the separator |
 | `hide_on_empty` | `boolean` | `true` | Hide the widget completely if no IP is found |
-| `refresh_interval` | `int` | `10` | Refresh interval in seconds (max 3600) |
+| `refresh_interval` | `int` | `60` | Refresh interval in seconds (max 3600) |
+| `left_click_action` | `select` | `copy_ip` | Action to perform on left click (Copy IP, Copy Name, None) |
+| `right_click_action` | `select` | `copy_name` | Action to perform on right click (Copy IP, Copy Name, None) |
 
 ## Usage
 
@@ -71,7 +73,7 @@ Hovering over the widget displays detailed network information if available:
 In **IPC Mode**, tooltip fields can be passed optionally in the JSON payload (either as top-level keys or nested inside a `tooltip` object):
 
 ```sh
-noctalia msg plugin 3ri4nG0ld/ip-monitor:widget all set '{
+noctalia msg plugin 3ri4ng0ld/ip-monitor:widget all set '{
   "id": "my_vpn",
   "ip": "100.64.0.2",
   "name": "Tailscale",
@@ -84,7 +86,6 @@ noctalia msg plugin 3ri4nG0ld/ip-monitor:widget all set '{
 
 ### Click Actions
 
-You can configure what happens when you left-click or right-click the widget:
-- Copy IP
-- Copy Name
-- None
+By default, left-clicking the widget copies the IP address to the clipboard and right-clicking copies the display name.
+
+These bindings can be changed or disabled from the **Settings** section in the widget's bar settings.
