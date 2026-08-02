@@ -359,7 +359,7 @@ function onConfigChanged()
     local mode = noctalia.getConfig("mode")
     currentIp = ""
     currentIpcName = ""
-    currentTooltip = nil<
+    currentTooltip = nil
 
     if mode == "interface" or mode == "custom_command" then
         local interval = noctalia.getConfig("refresh_interval") or 10
