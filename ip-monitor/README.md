@@ -48,14 +48,14 @@ Add the widget to a bar from *Settings → Bar*. Plugin options live in *Setting
 The widget listens to the `set` event. By default, the widget is assigned the IPC ID `default`. To set the IP and name for a default widget, use the following command (you don't need to specify an ID in the JSON, it defaults to `default`):
 
 ```sh
-noctalia msg plugin 3ri4nG0ld/ip-monitor:widget all set '{"ip":"192.168.1.5","name":"MyIP"}'
+noctalia msg plugin 3ri4ng0ld/ip-monitor:widget all set '{"ip":"192.168.1.5","name":"MyIP"}'
 ```
 
 If you have multiple `ip-monitor` widgets in IPC mode and want to update them independently, you can change the **IPC ID** setting for each widget. Then, target them by passing their ID string in the JSON payload:
 
 ```sh
-noctalia msg plugin 3ri4nG0ld/ip-monitor:widget all set '{"id":"my_vpn","ip":"100.64.0.1","name":"VPN"}'
-noctalia msg plugin 3ri4nG0ld/ip-monitor:widget all set '{"id":"my_local_iface","ip":"192.168.1.5","name":"Ethernet"}'
+noctalia msg plugin 3ri4ng0ld/ip-monitor:widget all set '{"id":"my_vpn","ip":"100.64.0.1","name":"VPN"}'
+noctalia msg plugin 3ri4ng0ld/ip-monitor:widget all set '{"id":"my_local_iface","ip":"192.168.1.5","name":"Ethernet"}'
 ```
 
 ### Tooltips
