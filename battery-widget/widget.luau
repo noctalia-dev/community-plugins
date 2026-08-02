@@ -70,9 +70,16 @@ local function render()
         table.insert(content, ui.label({ text = percent .. "%", color = color }))
     end
 
-    local layout = noctalia.getConfig("layout") == "vertical" and ui.column or ui.row
+    local vertical = noctalia.getConfig("layout") == "vertical"
 
-    desktopWidget.render(layout({ gap = 4, align = "center" }, content))
+    local layout = vertical and ui.column or ui.row
+
+    desktopWidget.render(
+        layout({
+            gap = vertical and 0 or 4,
+            align = "center"
+        }, content)
+    )
 end
 
 local function shellEscape(raw)
