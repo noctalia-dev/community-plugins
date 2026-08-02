@@ -28,6 +28,7 @@ local isCheckingOut = false
 local checkoutLog = ""
 local isActionLoading = false
 local actionStatus = ""
+local logSource = ""
 local loadPackageFiles
 local resolveCheckoutDir
 local maintainerMap = {}
@@ -85,9 +86,10 @@ local function showCommandLog(result)
 	setCommandLog(result, false)
 end
 
-local function runActionAsync(cmd, statusText, refreshFiles, pkgDir, pkg, emptyMsg)
+local function runActionAsync(cmd, statusText, refreshFiles, pkgDir, pkg, emptyMsg, source)
 	isActionLoading = true
 	actionStatus = statusText
+	logSource = source or ""
 	errorText = ""
 	commandLog = ""
 	render()
@@ -225,7 +227,7 @@ local function rebuildPackage(project, pkg, repo, arch)
 	if arch ~= nil and arch ~= "All" and arch ~= "" then
 		cmd = cmd .. " -a " .. shellQuote(arch)
 	end
-	runActionAsync(cmd, noctalia.tr("panel.rebuilding_pkg"), false)
+	runActionAsync(cmd, noctalia.tr("panel.rebuilding_pkg"), false, nil, nil, nil, "rebuild")
 end
 
 loadPackageFiles = function(pkgDir, pkg)
@@ -464,6 +466,7 @@ local function loadPackages(project)
   checkoutLog = ""
   isActionLoading = false
   actionStatus = ""
+  logSource = ""
   packages = maintainerMap[project] or {}
 
   if #packages == 0 and projectsLoading then
@@ -957,8 +960,24 @@ function render()
 									ui.column({ key = "changes-col-" .. file, gap = 8, align = "stretch" }, {
 										editBtn, updateBtn,
 									})
-								)
-							end
+			)
+
+			if logSource ~= "rebuild" then
+				if isActionLoading then
+					table.insert(
+						body,
+						ui.row({ align = "center", gap = 8 }, {
+							ui.glyph({ name = "loader", color = "primary", size = 14 }),
+							ui.label({ text = actionStatus, color = "on_surface_variant" }),
+						})
+					)
+				elseif errorText ~= "" then
+					table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
+				elseif commandLog ~= "" then
+					table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
+				end
+			end
+		end
 						else
 							table.insert(
 								body,
@@ -1206,18 +1225,20 @@ function render()
 			)
 		end
 
-		if isActionLoading then
-			table.insert(
-				body,
-				ui.row({ align = "center", gap = 8 }, {
-					ui.glyph({ name = "loader", color = "primary", size = 14 }),
-					ui.label({ text = actionStatus, color = "on_surface_variant" }),
-				})
-			)
-		elseif errorText ~= "" then
-			table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
-		elseif commandLog ~= "" then
-			table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
+		if logSource == "rebuild" then
+			if isActionLoading then
+				table.insert(
+					body,
+					ui.row({ align = "center", gap = 8 }, {
+						ui.glyph({ name = "loader", color = "primary", size = 14 }),
+						ui.label({ text = actionStatus, color = "on_surface_variant" }),
+					})
+				)
+			elseif errorText ~= "" then
+				table.insert(body, ui.label({ text = errorText, color = "error", wrap = true }))
+			elseif commandLog ~= "" then
+				table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
+			end
 		end
 
 		table.insert(
