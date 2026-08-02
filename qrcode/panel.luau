@@ -122,7 +122,7 @@ local function generate(text)
     genCount += 1
 
     local size = noctalia.getConfig("size") or 8
-    local correctionLevel = noctalia.getConfig("correction-level") or "M"
+    local correctionLevel = noctalia.getConfig("correction_level") or "M"
 
     local cmd = string.format(
         'qrencode %s -o %s -s %s -l %s',

@@ -14,6 +14,22 @@
             "all": "All",
             "minimal": "Minimal",
             "none": "None"
+        },
+        "glyph": {
+            "label": "Glyph",
+            "description": "Icon glyph name."
+        },
+        "size": {
+            "label": "QR Code Size",
+            "description": "Specify module size in dots (pixels)."
+        },
+        "correction_level": {
+            "label": "Correction Level",
+            "description": "Specify error correction level.",
+            "L": "Lowest",
+            "M": "Medium",
+            "Q": "High",
+            "H": "Highest"
         }
     },
     "panel": {
