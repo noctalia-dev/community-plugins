@@ -40,6 +40,8 @@ local commandLog = ""
 local logPackage = nil
 local pendingProject = nil
 local removeConfirm = false
+local removeFileConfirm = false
+local removeFileTarget = nil
 local restoreProject = nil
 local restorePackage = nil
 local restoreFilesOpen = false
@@ -1019,11 +1021,19 @@ function render()
 								ui.glyph({ name = "file-text", color = "on_surface_variant", size = 15 }),
 								ui.label({ text = f, color = "on_surface", flexGrow = 1, maxLines = 1 }),
 								ui.button({
-									glyph = "trash",
-									tooltip = noctalia.tr("panel.remove_file"),
-									variant = "ghost",
+									glyph = (removeFileConfirm and removeFileTarget == f) and "check" or "trash",
+									tooltip = (removeFileConfirm and removeFileTarget == f) and noctalia.tr("panel.confirm_remove") or noctalia.tr("panel.remove_file"),
+									variant = (removeFileConfirm and removeFileTarget == f) and "destructive" or "ghost",
 									onClick = function()
-										removeFileLocal(pkgDir .. "/" .. f, pkgDir, selectedPackage)
+										if removeFileConfirm and removeFileTarget == f then
+											removeFileLocal(pkgDir .. "/" .. f, pkgDir, selectedPackage)
+											removeFileConfirm = false
+											removeFileTarget = nil
+										else
+											removeFileConfirm = true
+											removeFileTarget = f
+										end
+										render()
 									end,
 								}),
 							})
@@ -1059,15 +1069,6 @@ function render()
 				body,
 				ui.row({ align = "center", gap = 8 }, {
 					ui.button({
-						text = noctalia.tr("panel.service_local_run"),
-						glyph = "run",
-						variant = "default",
-						flexGrow = 1,
-						onClick = function()
-							oscServiceLocalRun(pkgDir)
-						end,
-					}),
-					ui.button({
 						text = runAllConfirm and noctalia.tr("panel.confirm") or noctalia.tr("panel.service_run_all"),
 						glyph = runAllConfirm and "check" or "run",
 						tooltip = runAllConfirm and noctalia.tr("panel.confirm_run_all") or noctalia.tr("panel.service_run_all"),
@@ -1081,6 +1082,15 @@ function render()
 								runAllConfirm = true
 							end
 							render()
+						end,
+					}),
+					ui.button({
+						text = noctalia.tr("panel.service_local_run"),
+						glyph = "run",
+						variant = "default",
+						flexGrow = 1,
+						onClick = function()
+							oscServiceLocalRun(pkgDir)
 						end,
 					}),
 				})
