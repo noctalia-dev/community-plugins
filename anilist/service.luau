@@ -318,10 +318,11 @@ local function writeCoverMeta(mediaId, url)
   if not metaPath then
     return
   end
-  noctalia.writeFile(metaPath, noctalia.json.encode({
+  local payload = noctalia.json.encode({
     url = url,
     version = COVER_CACHE_VERSION,
-  }))
+  })
+  noctalia.writeFile(metaPath, payload)
 end
 
 local function removeCoverCache(mediaId)
@@ -1290,10 +1291,11 @@ local function startOAuthLogin()
   local resultPath = dataDir .. "/" .. OAUTH_RESULT_FILE
   noctalia.removeFile(resultPath)
 
-  local credOk = noctalia.writeFile(credPath, noctalia.json.encode({
+  local credPayload = noctalia.json.encode({
     client_id = clientId,
     client_secret = clientSecret,
-  }))
+  })
+  local credOk = noctalia.writeFile(credPath, credPayload)
   if not credOk then
     setError(tr("oauth_unavailable"))
     return
