@@ -8,25 +8,19 @@ function utils.cidrToSubnetMask(prefix)
     local n = tonumber(prefix)
     if not n or n < 0 or n > 32 then return "" end
 
-    local octets = {}
-    for i = 1, 4 do
-        if n >= 8 then
-            table.insert(octets, 255)
-            n = n - 8
-        elseif n > 0 then
-            local octet = 256 - (2 ^ (8 - n))
-            table.insert(octets, math.floor(octet))
-            n = 0
-        else
-            table.insert(octets, 0)
-        end
-    end
-    return table.concat(octets, ".")
+    local mask32 = (n == 0) and 0 or bit32.lshift(0xFFFFFFFF, 32 - n)
+    local o1 = bit32.rshift(mask32, 24)
+    local o2 = bit32.band(bit32.rshift(mask32, 16), 0xFF)
+    local o3 = bit32.band(bit32.rshift(mask32, 8), 0xFF)
+    local o4 = bit32.band(mask32, 0xFF)
+
+    return string.format("%d.%d.%d.%d", o1, o2, o3, o4)
 end
 
 --- Converts a simple glob pattern (e.g. "wlan*", "eth0") into a standard Lua pattern.
 function utils.globToPattern(glob)
-    local pattern = glob:gsub("%.", "%%."):gsub("%*", ".*")
+    local escaped = glob:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1")
+    local pattern = escaped:gsub("%%%*", ".*")
     return "^" .. pattern .. "$"
 end
 
@@ -36,17 +30,10 @@ function utils.calculateNetwork(ipStr, maskStr, cidrStr)
     local m1, m2, m3, m4 = maskStr:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")
     if not (a and b and c and d and m1 and m2 and m3 and m4) then return "" end
 
-    a, b, c, d = tonumber(a), tonumber(b), tonumber(c), tonumber(d)
-    m1, m2, m3, m4 = tonumber(m1), tonumber(m2), tonumber(m3), tonumber(m4)
-
-    local function applyMask(ipPart, maskPart)
-        return (maskPart == 255) and ipPart or (maskPart == 0 and 0 or (ipPart - (ipPart % (256 - maskPart))))
-    end
-
-    local net1 = applyMask(a, m1)
-    local net2 = applyMask(b, m2)
-    local net3 = applyMask(c, m3)
-    local net4 = applyMask(d, m4)
+    local net1 = bit32.band(tonumber(a), tonumber(m1))
+    local net2 = bit32.band(tonumber(b), tonumber(m2))
+    local net3 = bit32.band(tonumber(c), tonumber(m3))
+    local net4 = bit32.band(tonumber(d), tonumber(m4))
 
     return string.format("%d.%d.%d.%d/%s", net1, net2, net3, net4, cidrStr)
 end
@@ -102,13 +89,27 @@ function utils.fetchInterfaceIp(ifaceSetting, callback)
         noctalia.runAsync("ip route show", function(routeResult)
             local gateway = ""
             if routeResult.exitCode == 0 then
+                -- 1. Try finding default route for matched interface
                 for line in routeResult.stdout:gmatch("[^\r\n]+") do
                     local lineDev = line:match("%sdev%s+([^%s]+)")
                     if lineDev == matchedIface then
-                        local g = line:match("default via ([^%s]+)") or line:match("via ([^%s]+)")
+                        local g = line:match("default via ([^%s]+)")
                         if g then
                             gateway = g
                             break
+                        end
+                    end
+                end
+                -- 2. Fallback: find any route with via for matched interface
+                if gateway == "" then
+                    for line in routeResult.stdout:gmatch("[^\r\n]+") do
+                        local lineDev = line:match("%sdev%s+([^%s]+)")
+                        if lineDev == matchedIface then
+                            local g = line:match("via ([^%s]+)")
+                            if g then
+                                gateway = g
+                                break
+                            end
                         end
                     end
                 end
@@ -149,8 +150,8 @@ end
 
 --- Parses an IPC payload and extracts data if it matches the configured ID.
 function utils.handleIpcPayload(payload, myId)
-    local data = noctalia.json.decode(payload)
-    if not data then return nil end
+    local ok, data = pcall(noctalia.json.decode, payload)
+    if not ok or type(data) ~= "table" then return nil end
 
     local targetId = data.id or "default"
     if targetId ~= myId then return nil end
