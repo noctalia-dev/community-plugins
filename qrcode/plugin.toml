@@ -23,10 +23,11 @@ entry = "widget.luau"
 
     [[widget.setting]]
     key = "custom_image"
-    type = "image"
+    type = "file"
     label_key = "widget.custom_image.label"
     description_key = "widget.custom_image.description"
     default = ""
+    extensions = [".png", ".jpg", ".jpeg", ".webp", ".svg"]
 
 [[panel]]
 id = "panel"

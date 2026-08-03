@@ -102,7 +102,7 @@ local function generate(text)
         return
     end
 
-    text = shellEscape(noctalia.string.trim(text or ""))
+    text = noctalia.string.trim(text or "")
 
     if text == "" then
         if imagePath ~= nil then
@@ -140,7 +140,7 @@ local function generate(text)
 
     local cmd = string.format(
         'qrencode %s -o %s -s %s -l %s',
-        text,
+        shellEscape(text),
         outputPath,
         size,
         correctionLevel
