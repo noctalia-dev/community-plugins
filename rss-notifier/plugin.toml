@@ -1,6 +1,6 @@
 id          = "nilsonlinux/rss-notifier"
 name        = "RSS/Atom Notifier"
-version     = "1.0.0"
+version     = "1.0.1"
 plugin_api  = 14
 author      = "Nilsonlinux"
 license     = "MIT"
