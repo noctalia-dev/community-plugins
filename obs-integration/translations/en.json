@@ -11,6 +11,7 @@
   },
   "panel": {
     "my_projects": "My Projects",
+    "reload_projects": "Reload projects",
     "search_projects": "Search projects...",
     "no_projects": "No projects found.",
     "no_packages": "No packages found.",

@@ -55,6 +55,7 @@ local maybeVerify
 
 local ownedDone = false
 local oscUser = nil
+local oscWhoPending = false
 
 local function shellQuote(value)
 	return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
@@ -669,6 +670,8 @@ local function loadProjects(clearNav)
   projectsLoading = true
   errorText = ""
   ownedDone = false
+  oscUser = nil
+  oscWhoPending = false
 
   if restoreProject then
     local proj = restoreProject
@@ -724,10 +727,18 @@ local function loadProjects(clearNav)
   end)
 
   if oscUser == nil then
+    oscWhoPending = true
     noctalia.runAsync("osc who | cut -d: -f1", function(userResult)
       if userResult.exitCode == 0 then
         oscUser = noctalia.string.trim(userResult.stdout)
+      else
+        oscUser = ""
+        local err = commandError(userResult)
+        if err ~= "" then
+          errorText = err
+        end
       end
+      oscWhoPending = false
       maybeVerify()
     end, 15000)
   end
@@ -738,13 +749,12 @@ maybeVerify = function()
     return
   end
 
+  if oscWhoPending then
+    return
+  end
+
   if oscUser == nil then
-    noctalia.runAsync("osc who | cut -d: -f1", function(userResult)
-      if userResult.exitCode == 0 then
-        oscUser = noctalia.string.trim(userResult.stdout)
-      end
-      maybeVerify()
-    end, 15000)
+    finalize()
     return
   end
 
@@ -1398,7 +1408,8 @@ function render()
 				ui.label({ text = noctalia.tr("panel.my_projects"), fontWeight = "bold", fontSize = 18, flexGrow = 1 }),
 				ui.button({
 					glyph = "refresh",
-					variant = "ghost",
+					tooltip = noctalia.tr("panel.reload_projects"),
+					variant = "default",
 					onClick = function()
 						loadProjects(true)
 					end,

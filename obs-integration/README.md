@@ -48,9 +48,10 @@ its actions:
   package's `.spec` open in your `$EDITOR`; the `.changes` file runs
   `osc vc`.
 - **Files** — lists every non-dotfile in the checkout. Each file has a remove
-  button; below the list, **Add/Remove** runs `osc ar` and **Commit** runs
-  `osc ci`, both in a terminal so you can watch progress or edit the commit
-  message.
+  button; below the list, **Add/Remove** runs `osc ar` asynchronously in the
+  panel. **Commit** runs `osc status` first; if pending changes exist it
+  opens a terminal with `osc ci` so you can edit the commit message, otherwise
+  the commit runs asynchronously in the panel.
 - **Service Local Run** — runs `osc service r` in the checkout, executing the
   package's source-service scripts locally (local side effects: the `_service`
   scripts can modify files in the checkout).
@@ -86,7 +87,9 @@ The panel reopens where you left off — inside the same project or package.
 The plugin runs the `osc` CLI with your existing credentials — it stores
 nothing itself beyond a small cache of project/package listings and your last
 navigated view. Removal is local-only and never modifies the OBS project.
-Rebuilds and commits are real OBS operations and open a terminal so you can
-confirm what `osc` reports. Confirmation prompts precede the destructive and
-side-effecting operations: Rebuild package, Remove package, and Service Run
-All.
+Most operations (rebuilds, service runs, updates, add/remove) run
+asynchronously and display their output directly in the panel. The Commit
+operation opens a terminal only when `osc status` reports pending changes;
+otherwise, it runs asynchronously in the panel. Confirmation prompts precede
+destructive and side-effecting operations: Rebuild package, Remove package,
+and Service Run All.
