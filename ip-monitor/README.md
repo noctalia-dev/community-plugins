@@ -8,7 +8,7 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | Field | Value |
 | --- | --- |
 | ID | `3ri4ng0ld/ip-monitor` |
-| Entries | Bar widget: `widget`<br>Desktop widget: `desktop` |
+| Entries | Bar widget: `widget`, Desktop widget: `desktop` |
 
 ## Requirements
 
