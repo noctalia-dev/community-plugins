@@ -22,7 +22,7 @@ noctalia.state.watch("layout", function(value)
 end)
 
 function onClick()
-  noctalia.runAsync("noctalia msg plugin maddingo/hyprland-layout:poller all cycle")
+  noctalia.runAsync("noctalia msg plugin maddingo/hypr-layout-switcher:poller all cycle")
 end
 
 render()
