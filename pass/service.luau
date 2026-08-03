@@ -29,32 +29,34 @@ local function scan(dir, prefix)
     for _, name in ipairs(names) do
         -- Ignore hidden files/directories (.git, .extensions, .gpg-id, ...)
         if name:sub(1, 1) ~= "." then
-            local full = dir .. "/" .. name
-            local info = noctalia.fileInfo(full)
+            -- listDir already proved the name exists, so an entry needs no stat.
+            -- Only non-entry names get one, to decide whether to recurse.
+            if name:sub(-4) == ".gpg" then
+                local path = prefix .. name:sub(1, -5)
 
-            if info then
-                if info.isDir then
+                local title = path
+                local subtitle = ""
+
+                local lastSlash = path:match("^.*()/")
+
+                if lastSlash then
+                    subtitle = path:sub(1, lastSlash - 1)
+                    title = path:sub(lastSlash + 1)
+                end
+
+                table.insert(entries, {
+                    id = path,
+                    path = path,
+                    title = title,
+                    subtitle = subtitle,
+                })
+
+            else
+                local full = dir .. "/" .. name
+                local info = noctalia.fileInfo(full)
+
+                if info and info.isDir then
                     scan(full, prefix .. name .. "/")
-
-                elseif name:sub(-4) == ".gpg" then
-                    local path = prefix .. name:sub(1, -5)
-
-                    local title = path
-                    local subtitle = ""
-
-                    local lastSlash = path:match("^.*()/")
-
-                    if lastSlash then
-                        subtitle = path:sub(1, lastSlash - 1)
-                        title = path:sub(lastSlash + 1)
-                    end
-
-                    table.insert(entries, {
-                        id = path,
-                        path = path,
-                        title = title,
-                        subtitle = subtitle,
-                    })
                 end
             end
         end

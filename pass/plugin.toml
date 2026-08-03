@@ -1,6 +1,6 @@
 id = "emrtnn/pass"
 name = "Pass"
-version = "0.0.1"
+version = "0.1.0"
 plugin_api = 3
 author = "emrtnn"
 license = "MIT"
