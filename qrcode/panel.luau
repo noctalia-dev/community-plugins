@@ -6,6 +6,7 @@ local status = "idle"
 
 local imageSize = 400
 
+local generateButton = noctalia.getConfig("generate_button")
 local notifyConf = noctalia.getConfig("notify")
 
 local function notify(text, error)
@@ -23,7 +24,7 @@ local function statusText()
     elseif status == "copied" then 
         return noctalia.tr("panel.status.copied")
     else
-        return noctalia.tr("panel.status.idle")
+        return noctalia.tr(generateButton and "panel.status.idle" or "panel.status.idlebis")
     end
 end
 
@@ -38,7 +39,7 @@ local function render()
         })
     }
 
-    if noctalia.getConfig("generate_button") then
+    if generateButton then
         table.insert(
             rowContent,
             ui.button({

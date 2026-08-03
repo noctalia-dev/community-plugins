@@ -50,7 +50,8 @@
             "error": "Error: {message}",
             "ready": "QR code ready. Scan it here or click it to copy.",
             "copied": "QR code copied to clipboard.",
-            "idle": "Enter some text, then press Generate."
+            "idle": "Enter some text, then press Generate.",
+            "idlebis": "Enter some text, then press Enter."
         },
         "error": {
             "generate_failed": "failed to generate the QR code.",
