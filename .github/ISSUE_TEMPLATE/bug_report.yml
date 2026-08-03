@@ -38,6 +38,7 @@ body:
         - claude-companion
         - color_picker
         - daily-wallpaper
+        - deepseek_usage
         - drive-health
         - dropwall
         - ds4-color
