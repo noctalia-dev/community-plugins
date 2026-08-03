@@ -984,3 +984,57 @@ icon = "movie"
 description = "Pick a niri animation preset, tune global speed, or turn animations off."
 plugin_api = 9
 tags = ["niri", "animation", "panel", "shortcut"]
+
+[[plugin]]
+id = "salemsayed/niri-active-workspace"
+name = "Niri Active Workspace"
+version = "1.1.0"
+updated_at = 1785761085
+added_at = 1785761085
+author = "salemsayed"
+license = "MIT"
+icon = "layout-grid"
+description = "Shows only the focused niri workspace in the bar."
+deprecated = false
+plugin_api = 3
+tags = ["bar", "indicator", "niri"]
+
+[[plugin]]
+id = "neyfua/obs-integration"
+name = "OBS Integration"
+version = "1.0.0"
+updated_at = 1785760054
+added_at = 1785760054
+author = "neyfua"
+license = "MIT"
+icon = "buildings"
+description = "Manage your openSUSE Build Service projects and packages."
+plugin_api = 9
+tags = ["productivity", "service", "utility", "opensuse"]
+
+[[plugin]]
+id = "yocraft/qrcode"
+name = "QR Code Encoder"
+version = "1.0.0"
+updated_at = 1785759441
+added_at = 1785759441
+author = "yocraft"
+license = "MIT"
+icon = "qrcode"
+description = "Transform any text or URL in a QR code"
+deprecated = false
+plugin_api = 15
+tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
+
+[[plugin]]
+id = "alexander/screen-toolkit"
+name = "Screen Toolkit"
+version = "1.0.0"
+updated_at = 1785759728
+added_at = 1785759728
+author = "alexander"
+license = "MIT"
+icon = "crosshair"
+description = "Screen tools: color picker, OCR, QR, palette, lens, annotate, measure, and recording."
+plugin_api = 9
+tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "hyprland", "niri", "sway"]
