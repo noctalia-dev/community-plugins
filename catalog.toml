@@ -1038,3 +1038,29 @@ icon = "crosshair"
 description = "Screen tools: color picker, OCR, QR, palette, lens, annotate, measure, and recording."
 plugin_api = 9
 tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "hyprland", "niri", "sway"]
+
+[[plugin]]
+id = "coder/deepseek_usage"
+name = "DeepSeek Usage"
+version = "1.0.0"
+updated_at = 1785789221
+added_at = 1785789221
+author = "coder"
+license = "MIT"
+icon = "wallet"
+description = "DeepSeek API credit and balance monitor for Noctalia shell"
+plugin_api = 19
+tags = ["utility", "productivity", "bar", "panel"]
+
+[[plugin]]
+id = "ezequiel/mango_layouts"
+name = "Mango Layouts"
+version = "1.0.0"
+updated_at = 1785788249
+added_at = 1785788249
+author = "ezequiel"
+license = "MIT"
+icon = "layout-filled"
+description = "Layout switcher for MangoWC"
+plugin_api = 14
+tags = ["bar", "panel", "mangowc", "utility"]
