@@ -56,7 +56,7 @@ itemRow = function(item)
     }),
     ui.button({
       glyph       = "close",
-      variant     = "ghost",
+      variant     = "outline",
       controlSize = "sm",
       tooltip     = "Dispensar",
       onClick     = function() dismissItem(item) end,
@@ -86,10 +86,10 @@ render = function()
 
   local headerButtons = {}
   if #items > 0 then
-    table.insert(headerButtons, ui.button({ glyph = "trash", variant = "ghost", controlSize = "sm", tooltip = "Limpar tudo", onClick = "onClearAllClicked" }))
+    table.insert(headerButtons, ui.button({ glyph = "trash", variant = "outline", controlSize = "sm", tooltip = "Limpar tudo", onClick = "onClearAllClicked" }))
   end
-  table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "ghost", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
-  table.insert(headerButtons, ui.button({ glyph = "close", variant = "ghost", controlSize = "sm", onClick = "onCloseClicked" }))
+  table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
+  table.insert(headerButtons, ui.button({ glyph = "close", variant = "outline", controlSize = "sm", onClick = "onCloseClicked" }))
 
   panel.render(ui.column({ gap = 10, padding = 12, fill = true }, {
     ui.row({ align = "center", justify = "space_between" }, {
@@ -108,6 +108,17 @@ noctalia.state.watch("items", function(raw)
 end)
 
 function onOpen(_context)
+  -- o painel so e criado na primeira vez que e aberto - se o service ja
+  -- tinha publicado itens antes disso (ex: na checagem de boot), o watch()
+  -- sozinho nao pega esse valor antigo. Busca o estado atual na abertura.
+  local ok, raw = pcall(noctalia.state.get, "items")
+  if ok and raw then
+    local decodeOk, decoded = pcall(noctalia.json.decode, raw)
+    if decodeOk and decoded then
+      items = decoded
+    end
+  end
+
   render()
   -- abrir o painel conta como "li as novidades": zera o badge no service
   noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all mark-read")
