@@ -459,8 +459,8 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.1.2"
-updated_at = 1785553526
+version = "1.3.0"
+updated_at = 1785726749
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -644,8 +644,8 @@ tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "ut
 [[plugin]]
 id = "emrtnn/pass"
 name = "Pass"
-version = "0.0.1"
-updated_at = 1784895988
+version = "0.1.0"
+updated_at = 1785759403
 added_at = 1784895988
 author = "emrtnn"
 license = "MIT"
@@ -957,3 +957,30 @@ icon = "brain"
 description = "An AI companion for Noctalia that brings LLM-powered chat directly into your desktop."
 plugin_api = 16
 tags = ["ai", "utility", "productivity", "development"]
+
+[[plugin]]
+id = "3ri4ng0ld/ip-monitor"
+name = "IP Monitor"
+version = "0.0.1"
+updated_at = 1785723935
+added_at = 1785723935
+author = "3ri4nG0ld"
+license = "MIT"
+icon = "network"
+description = "Bar widget to monitor IPs from interfaces, custom commands, or IPC."
+deprecated = false
+plugin_api = 3
+tags = ["network"]
+
+[[plugin]]
+id = "imjustdoingmypart/niri-animations"
+name = "Niri Animations"
+version = "0.2.0"
+updated_at = 1785726550
+added_at = 1785726550
+author = "ImJustDoingMyPart"
+license = "MIT"
+icon = "movie"
+description = "Pick a niri animation preset, tune global speed, or turn animations off."
+plugin_api = 9
+tags = ["niri", "animation", "panel", "shortcut"]

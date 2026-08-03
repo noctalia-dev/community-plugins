@@ -1,0 +1,61 @@
+{
+    "settings": {
+        "titlebar": {
+            "label": "Show Titlebar",
+            "description": "Show panel name and buttons like settings and close."
+        },
+        "generate_button": {
+            "label": "Show Generate Button",
+            "description": "Disable will submit on enter."
+        },
+        "close_on_copy": {
+            "label": "Close on Copy",
+            "description": "Close the panel when copying the QR code."
+        },
+        "notify": {
+            "label": "Notify",
+            "description": "Controls the notifications, minimal only notifies when Close on Copy is used.",
+            "all": "All",
+            "minimal": "Minimal",
+            "none": "None"
+        },
+        "size": {
+            "label": "QR Code Size",
+            "description": "Specify module size in dots (pixels)."
+        },
+        "correction_level": {
+            "label": "Correction Level",
+            "description": "Specify error correction level.",
+            "l": "Lowest",
+            "m": "Medium",
+            "q": "High",
+            "h": "Highest"
+        }
+    },
+    "widget": {
+        "tooltip": "Generate a QR Code",
+        "glyph": {
+            "label": "Glyph",
+            "description": "Icon glyph name"
+        },
+        "custom_image": {
+            "label": "Custom image",
+            "description": "Path to a custom image; leave empty to use the icon glyph"
+        }
+    },
+    "panel": {
+        "placeholder": "Enter text or url...",
+        "status": {
+            "generating": "Generating...",
+            "error": "Error: {message}",
+            "ready": "QR code ready. Scan it here or click it to copy.",
+            "copied": "QR code copied to clipboard.",
+            "idle": "Enter some text, then press Generate."
+        },
+        "error": {
+            "generate_failed": "failed to generate the QR code.",
+            "missing_qrencode": "qrencode not installed.",
+            "copy_failed": "failed to copy the QR code."
+        }
+    }
+}

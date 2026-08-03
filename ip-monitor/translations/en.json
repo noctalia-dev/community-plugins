@@ -1,0 +1,110 @@
+{
+  "name": "IP Monitor",
+  "description": "Bar widget to monitor IPs from interfaces, custom commands, or IPC.",
+  "tooltip": {
+    "iface": "Interface",
+    "ip": "IP",
+    "network": "Network",
+    "gateway": "Default route",
+    "mask": "Mask",
+    "broadcast": "Broadcast"
+  },
+  "settings": {
+    "left_click_action": {
+      "label": "Left Click Action",
+      "description": "Action to perform on left click."
+    },
+    "right_click_action": {
+      "label": "Right Click Action",
+      "description": "Action to perform on right click."
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Icon to show before the IP."
+    },
+    "glyph_color": {
+      "label": "Icon Color",
+      "description": "Color of the icon."
+    },
+    "mode": {
+      "label": "Mode",
+      "description": "How to fetch the IP.",
+      "options": {
+        "interface": "Network Interface",
+        "ipc": "IPC",
+        "custom_command": "Custom Command"
+      }
+    },
+    "iface": {
+      "label": "Interface",
+      "description": "Pattern to match network interfaces (e.g. wlan*, eth0)."
+    },
+    "custom_command": {
+      "label": "Custom Command",
+      "description": "Command to run to fetch the IP."
+    },
+    "text_color": {
+      "label": "IP Text Color",
+      "description": "Color of the IP text."
+    },
+    "name": {
+      "label": "Name",
+      "description": "Optional name to show next to the IP."
+    },
+    "name_color": {
+      "label": "Name Text Color",
+      "description": "Color of the name text."
+    },
+    "separator": {
+      "label": "Separator",
+      "description": "Character to separate the IP and the name (e.g. -)."
+    },
+    "ipc_id": {
+      "label": "IPC ID",
+      "description": "String ID used to target this specific widget via IPC JSON payload."
+    },
+    "separator_color": {
+      "label": "Separator Color",
+      "description": "Color of the separator."
+    },
+    "hide_on_empty": {
+      "label": "Hide on Empty",
+      "description": "Hide the widget entirely when no IP is found."
+    },
+    "refresh_interval": {
+      "label": "Refresh Interval",
+      "description": "How often to refresh the IP (in seconds)."
+    },
+    "click": {
+      "options": {
+        "copy_ip": "Copy IP",
+        "copy_name": "Copy Name",
+        "none": "None"
+      }
+    },
+    "ip_font_size": {
+      "label": "IP Font Size",
+      "description": "Font size for the IP and name text."
+    },
+    "details_font_size": {
+      "label": "Details Font Size",
+      "description": "Font size for the network details text."
+    },
+    "details_key_color": {
+      "label": "Details Key Color",
+      "description": "Color for the detail labels (e.g. Network, Mask)."
+    },
+    "details_value_color": {
+      "label": "Details Value Color",
+      "description": "Color for the detail values."
+    },
+    "hide_tooltip_options": {
+      "label": "Hide Tooltip Options",
+      "description": "Comma-separated list of fields to hide in the tooltip (e.g. network,mask,iface)."
+    },
+    "hide_details_options": {
+      "label": "Hide Details Options",
+      "description": "Comma-separated list of fields to hide in the details table (e.g. network,mask,iface)."
+    }
+  }
+}

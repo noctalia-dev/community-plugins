@@ -1,0 +1,34 @@
+{
+  "title": "Niri Animations",
+  "preset": "Preset",
+  "no_preset": "Sin preset (pack base)",
+  "animations_on": "Animaciones activas",
+  "animations_off": "Animaciones apagadas",
+  "random": "Al azar",
+  "speed": "Velocidad",
+  "speed_hint": "arriba de 1 es más lento",
+  "shortcut_label": "Animaciones",
+  "status_presets_found": "presets en",
+  "status_base_pack": "Pack base",
+  "status_off": "Animaciones desactivadas.",
+  "status_read_error": "No pude leer",
+  "status_write_error": "No pude escribir",
+  "settings": {
+    "presets_dir": {
+      "label": "Carpeta de presets",
+      "description": "Carpeta donde se buscan los presets .kdl de animación"
+    },
+    "target_file": {
+      "label": "Archivo destino",
+      "description": "Archivo que se reescribe con el preset y la velocidad elegidos. Tu config de niri tiene que incluirlo después de las animaciones base."
+    },
+    "include_prefix": {
+      "label": "Prefijo del include",
+      "description": "Prefijo de ruta que se escribe en la línea include, relativo al archivo destino"
+    },
+    "reload_command": {
+      "label": "Comando de recarga",
+      "description": "Se ejecuta después de escribir, para que el compositor tome el cambio"
+    }
+  }
+}

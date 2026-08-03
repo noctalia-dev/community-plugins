@@ -1,0 +1,36 @@
+id = "neyfua/obs-integration"
+name = "OBS Integration"
+version = "1.0.0"
+plugin_api = 9
+author = "neyfua"
+license = "MIT"
+dependencies = ["osc"]
+tags = ["productivity", "service", "utility", "opensuse"]
+icon = "buildings"
+description = "Manage your openSUSE Build Service projects and packages."
+
+[[setting]]
+key = "checkout_dir"
+type = "string"
+label_key = "settings.checkout_dir.label"
+description_key = "settings.checkout_dir.description"
+default = "~/OBS"
+
+[[widget]]
+id = "obs-integrate"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 410
+height = 450
+placement = "floating"
+position = "center"

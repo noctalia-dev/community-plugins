@@ -1,0 +1,69 @@
+{
+  "settings": {
+    "show_label": {
+      "label": "Show label",
+      "description": "Show the OBS label next to the icon."
+    },
+    "checkout_dir": {
+      "label": "Package checkout directory",
+      "description": "Directory where packages will be checked out."
+    }
+  },
+  "panel": {
+    "my_projects": "My Projects",
+    "reload_projects": "Reload projects",
+    "search_projects": "Search projects...",
+    "no_projects": "No projects found.",
+    "no_packages": "No packages found.",
+    "loading": "Loading...",
+    "error": "OBS command failed",
+    "retry": "Retry",
+    "checkout": "Checkout package",
+    "checking_out": "Checking out...",
+    "edit_files": "Edit files",
+    "edit_changes": "Edit {name}.changes",
+    "update_changes": "Update {name}.changes",
+    "edit_meta": "Edit package meta",
+    "rebuild": "Rebuild package",
+    "repo": "Repositories",
+    "arch": "Architectures",
+    "confirm_rebuild": "Confirm rebuild",
+    "remove": "Remove package",
+    "confirm_remove": "Click to confirm removal",
+    "edit_project_meta": "Edit project meta",
+    "no_editable": "No editable files found.",
+    "search_packages": "Search...",
+    "loading_packages": "Loading packages...",
+    "files": "Files",
+    "no_files": "No files found.",
+    "remove_file": "Remove file",
+    "add_remove": "Add/Remove",
+    "adding_removing": "Adding/removing files...",
+    "no_changes": "no changes for package {name}",
+    "update_dir": "Update directory",
+    "updating_dir": "Updating directory...",
+    "running_manual_service": "Running manual service...",
+    "running_remote_service": "Running remote service...",
+    "committing": "Committing...",
+    "rebuilding_pkg": "Rebuilding package...",
+    "service_run": "Service Manual Run",
+    "service_remote_run": "Service Remote Run",
+    "service_local_run": "Service Local Run",
+    "service_run_all": "Service Run All",
+    "confirm_run_all": "Confirm Run All",
+    "confirm": "Confirm",
+    "running_local_service": "Running local service...",
+    "running_all_services": "Running all services...",
+    "commit": "Commit package",
+    "osc_missing": "'osc' not found",
+    "osc_missing_hint": "Install the 'osc' package to start using this plugin.",
+    "osc_not_configured": "OBS account not configured",
+    "osc_not_configured_hint": "Create ~/.config/osc/oscrc before browsing projects.",
+    "configure_oscrc": "Configure oscrc"
+  },
+  "widget": {
+    "osc_missing": "'osc' missing",
+    "configure_obs": "Configure OBS",
+    "obs": "OBS"
+  }
+}

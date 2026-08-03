@@ -1,0 +1,93 @@
+id = "yocraft/qrcode"
+name = "QR Code Encoder"
+version = "1.0.0"
+plugin_api = 15
+author = "yocraft"
+license = "MIT"
+deprecated = false
+icon = "qrcode"
+description = "Transform any text or URL in a QR code"
+tags = [ "panel", "fun", "network", "privacy", "productivity", "utility" ]
+dependencies = [ "qrencode" ]
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key = "glyph"
+    type = "glyph"
+    label_key = "widget.glyph.label"
+    description_key = "widget.glyph.description"
+    default = "qrcode"
+
+    [[widget.setting]]
+    key = "custom_image"
+    type = "file"
+    label_key = "widget.custom_image.label"
+    description_key = "widget.custom_image.description"
+    default = ""
+    extensions = [".png", ".jpg", ".jpeg", ".webp", ".svg"]
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 550
+placement = "floating"
+position = "center"
+
+[[setting]]
+key = "titlebar"
+type = "bool"
+label_key = "settings.titlebar.label"
+description_key = "settings.titlebar.description"
+default = true
+
+[[setting]]
+key = "generate_button"
+type = "bool"
+label_key = "settings.generate_button.label"
+description_key = "settings.generate_button.description"
+default = true
+
+[[setting]]
+key = "close_on_copy"
+type = "bool"
+label_key = "settings.close_on_copy.label"
+description_key = "settings.close_on_copy.description"
+default = false
+
+[[setting]]
+key = "notify"
+type = "select"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = "minimal"
+options = [
+    { value = "all", label_key = "settings.notify.all" },
+    { value = "minimal", label_key = "settings.notify.minimal" },
+    { value = "none", label_key = "settings.notify.none" },
+]
+
+[[setting]]
+key = "size"
+type = "int"
+label_key = "settings.size.label"
+description_key = "settings.size.description"
+default = 8
+advanced = true
+
+[[setting]]
+key = "correction_level"
+type = "select"
+label_key = "settings.correction_level.label"
+description_key = "settings.correction_level.description"
+default = "M"
+options = [
+    { value = "L", label_key = "settings.correction_level.l" },
+    { value = "M", label_key = "settings.correction_level.m" },
+    { value = "Q", label_key = "settings.correction_level.q" },
+    { value = "H", label_key = "settings.correction_level.h" },
+]
+advanced = true

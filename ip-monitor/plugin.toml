@@ -1,0 +1,298 @@
+# ip-monitor — monitor network IPs
+
+id           = "3ri4ng0ld/ip-monitor"
+name         = "IP Monitor"
+version      = "0.0.1"
+plugin_api   = 3
+author       = "3ri4nG0ld"
+license      = "MIT"
+deprecated   = false
+icon         = "network"
+description  = "Bar widget to monitor IPs from interfaces, custom commands, or IPC."
+tags         = ["network"]
+dependencies = ["ip", "curl"]
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "mode"
+  type            = "select"
+  label_key       = "settings.mode.label"
+  description_key = "settings.mode.description"
+  default         = "interface"
+  options = [
+      { value = "interface", label_key = "settings.mode.options.interface" },
+      { value = "ipc", label_key = "settings.mode.options.ipc" },
+      { value = "custom_command", label_key = "settings.mode.options.custom_command" },
+  ]
+
+  [[widget.setting]]
+  key             = "iface"
+  type            = "string"
+  label_key       = "settings.iface.label"
+  description_key = "settings.iface.description"
+  default         = "wlan*"
+  visible_when    = { key = "mode", values = ["interface"] }
+
+  [[widget.setting]]
+  key             = "custom_command"
+  type            = "string"
+  label_key       = "settings.custom_command.label"
+  description_key = "settings.custom_command.description"
+  default         = "curl -s ifconfig.me"
+  visible_when    = { key = "mode", values = ["custom_command"] }
+
+  [[widget.setting]]
+  key             = "ipc_id"
+  type            = "string"
+  label_key       = "settings.ipc_id.label"
+  description_key = "settings.ipc_id.description"
+  default         = "default"
+  visible_when    = { key = "mode", values = ["ipc"] }
+
+  [[widget.setting]]
+  key             = "refresh_interval"
+  type            = "int"
+  label_key       = "settings.refresh_interval.label"
+  description_key = "settings.refresh_interval.description"
+  default         = 60
+  min             = 10
+  max             = 3600
+  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "network"
+
+  [[widget.setting]]
+  key             = "glyph_color"
+  type            = "color"
+  label_key       = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
+  key             = "text_color"
+  type            = "color"
+  label_key       = "settings.text_color.label"
+  description_key = "settings.text_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
+  key             = "name"
+  type            = "string"
+  label_key       = "settings.name.label"
+  description_key = "settings.name.description"
+  default         = ""
+  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+
+  [[widget.setting]]
+  key             = "name_color"
+  type            = "color"
+  label_key       = "settings.name_color.label"
+  description_key = "settings.name_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
+  key             = "separator"
+  type            = "string"
+  label_key       = "settings.separator.label"
+  description_key = "settings.separator.description"
+  default         = "-"
+
+  [[widget.setting]]
+  key             = "separator_color"
+  type            = "color"
+  label_key       = "settings.separator_color.label"
+  description_key = "settings.separator_color.description"
+  default         = "on_surface"
+
+  [[widget.setting]]
+  key             = "hide_on_empty"
+  type            = "bool"
+  label_key       = "settings.hide_on_empty.label"
+  description_key = "settings.hide_on_empty.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "left_click_action"
+  type            = "select"
+  label_key       = "settings.left_click_action.label"
+  description_key = "settings.left_click_action.description"
+  default         = "copy_ip"
+  options = [
+      { value = "copy_ip", label_key = "settings.click.options.copy_ip" },
+      { value = "copy_name", label_key = "settings.click.options.copy_name" },
+      { value = "none", label_key = "settings.click.options.none" },
+  ]
+
+  [[widget.setting]]
+  key             = "right_click_action"
+  type            = "select"
+  label_key       = "settings.right_click_action.label"
+  description_key = "settings.right_click_action.description"
+  default         = "copy_name"
+  options = [
+      { value = "copy_ip", label_key = "settings.click.options.copy_ip" },
+      { value = "copy_name", label_key = "settings.click.options.copy_name" },
+      { value = "none", label_key = "settings.click.options.none" },
+  ]
+
+  [[widget.setting]]
+  key             = "hidden_fields"
+  type            = "string"
+  label_key       = "settings.hide_tooltip_options.label"
+  description_key = "settings.hide_tooltip_options.description"
+  default         = ""
+
+
+[[desktop_widget]]
+id    = "desktop"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key             = "mode"
+  type            = "select"
+  label_key       = "settings.mode.label"
+  description_key = "settings.mode.description"
+  default         = "interface"
+  options = [
+      { value = "interface", label_key = "settings.mode.options.interface" },
+      { value = "ipc", label_key = "settings.mode.options.ipc" },
+      { value = "custom_command", label_key = "settings.mode.options.custom_command" },
+  ]
+
+  [[desktop_widget.setting]]
+  key             = "iface"
+  type            = "string"
+  label_key       = "settings.iface.label"
+  description_key = "settings.iface.description"
+  default         = "wlan*"
+  visible_when    = { key = "mode", values = ["interface"] }
+
+  [[desktop_widget.setting]]
+  key             = "custom_command"
+  type            = "string"
+  label_key       = "settings.custom_command.label"
+  description_key = "settings.custom_command.description"
+  default         = "curl -s ifconfig.me"
+  visible_when    = { key = "mode", values = ["custom_command"] }
+
+  [[desktop_widget.setting]]
+  key             = "ipc_id"
+  type            = "string"
+  label_key       = "settings.ipc_id.label"
+  description_key = "settings.ipc_id.description"
+  default         = "default"
+  visible_when    = { key = "mode", values = ["ipc"] }
+
+  [[desktop_widget.setting]]
+  key             = "refresh_interval"
+  type            = "int"
+  label_key       = "settings.refresh_interval.label"
+  description_key = "settings.refresh_interval.description"
+  default         = 60
+  min             = 10
+  max             = 3600
+  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+
+  [[desktop_widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "network"
+
+  [[desktop_widget.setting]]
+  key             = "glyph_color"
+  type            = "color"
+  label_key       = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "text_color"
+  type            = "color"
+  label_key       = "settings.text_color.label"
+  description_key = "settings.text_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "name"
+  type            = "string"
+  label_key       = "settings.name.label"
+  description_key = "settings.name.description"
+  default         = ""
+  visible_when    = { key = "mode", values = ["interface", "custom_command"] }
+
+  [[desktop_widget.setting]]
+  key             = "name_color"
+  type            = "color"
+  label_key       = "settings.name_color.label"
+  description_key = "settings.name_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "separator"
+  type            = "string"
+  label_key       = "settings.separator.label"
+  description_key = "settings.separator.description"
+  default         = "-"
+
+  [[desktop_widget.setting]]
+  key             = "separator_color"
+  type            = "color"
+  label_key       = "settings.separator_color.label"
+  description_key = "settings.separator_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "hide_on_empty"
+  type            = "bool"
+  label_key       = "settings.hide_on_empty.label"
+  description_key = "settings.hide_on_empty.description"
+  default         = true
+
+  [[desktop_widget.setting]]
+  key             = "ip_font_size"
+  type            = "int"
+  label_key       = "settings.ip_font_size.label"
+  description_key = "settings.ip_font_size.description"
+  default         = 32
+  min             = 10
+  max             = 100
+
+  [[desktop_widget.setting]]
+  key             = "details_font_size"
+  type            = "int"
+  label_key       = "settings.details_font_size.label"
+  description_key = "settings.details_font_size.description"
+  default         = 16
+  min             = 10
+  max             = 100
+
+  [[desktop_widget.setting]]
+  key             = "details_key_color"
+  type            = "color"
+  label_key       = "settings.details_key_color.label"
+  description_key = "settings.details_key_color.description"
+  default         = "primary"
+
+  [[desktop_widget.setting]]
+  key             = "details_value_color"
+  type            = "color"
+  label_key       = "settings.details_value_color.label"
+  description_key = "settings.details_value_color.description"
+  default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "hidden_fields"
+  type            = "string"
+  label_key       = "settings.hide_details_options.label"
+  description_key = "settings.hide_details_options.description"
+  default         = ""
