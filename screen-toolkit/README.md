@@ -38,14 +38,14 @@ reported when that feature is started.
 
 Recording requires at least one backend:
 
-- **gpu-screen-recorder** — recommended for fullscreen recording, especially on NVIDIA (NVENC)
-- **wl-screenrec** — preferred for region recording and microphone audio
-- **wf-recorder** — fallback recorder for region and fullscreen capture
+- **`gpu-screen-recorder`** — recommended for fullscreen recording, especially on NVIDIA (NVENC)
+- **`wl-screenrec`** — preferred for region recording and microphone audio
+- **`wf-recorder`** — fallback recorder for region and fullscreen capture
 
 Optional:
 
-- **swappy** / **satty** — annotation editor (Markup tool)
-- **gimp** — fallback annotation editor when swappy/satty are missing
+- **`swappy`** / **`satty`** — annotation editor (Markup tool)
+- **`gimp`** — fallback annotation editor when swappy/satty are missing
 - **`translate-shell`** (`trans`) — OCR translation
 - **hyprctl** — annotate the focused window (Hyprland only)
 
