@@ -199,7 +199,7 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("shajanjp/deepseek_usage:panel")
+  noctalia.togglePanel("coder/deepseek_usage:panel")
 end
 
 noctalia.state.watch("deepseek.refresh_requested", function(req)

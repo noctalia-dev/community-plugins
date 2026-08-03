@@ -53,14 +53,18 @@ local function buildGraphValues(): ({ number }, number, number)
     return { 0 }, 0, 0
   end
   
-  local values = {}
   local minVal = history[1].balance
   local maxVal = history[1].balance
   
   for _, pt in ipairs(history) do
-    table.insert(values, pt.balance)
     if pt.balance < minVal then minVal = pt.balance end
     if pt.balance > maxVal then maxVal = pt.balance end
+  end
+  
+  local range = maxVal - minVal
+  local values = {}
+  for _, pt in ipairs(history) do
+    table.insert(values, range > 0 and (pt.balance - minVal) / range or 0.5)
   end
   
   return values, minVal, maxVal

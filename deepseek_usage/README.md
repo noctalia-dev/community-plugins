@@ -12,6 +12,14 @@ Widget(s):
 Panel(s):
 - `panel` — panel entry.
 
+## Requirements
+
+- `xdg-open` — used by the top-up button to open platform.deepseek.com/top_up in the default browser.
+
+## External dependencies
+
+- `xdg-open`
+
 ## Usage
 
 Widget
