@@ -118,14 +118,6 @@ end
 -- @param event string The IPC event name
 -- @param payload string The JSON payload string
 function onIpc(event, payload)
-    if event == "copy_ip" then
-        applyClickAction("copy_ip")
-        return
-    elseif event == "copy_name" then
-        applyClickAction("copy_name")
-        return
-    end
-
     if noctalia.getConfig("mode") ~= "ipc" then return end
 
     if event == "set" then

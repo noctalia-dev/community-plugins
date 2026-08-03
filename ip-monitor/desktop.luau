@@ -103,14 +103,6 @@ end
 
 --- Handler for IPC messages dispatched to this widget.
 function onIpc(event, payload)
-    if event == "copy_ip" then
-        applyAction("copy_ip")
-        return
-    elseif event == "copy_name" then
-        applyAction("copy_name")
-        return
-    end
-
     if noctalia.getConfig("mode") ~= "ipc" then return end
 
     if event == "set" then
