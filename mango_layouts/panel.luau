@@ -80,7 +80,7 @@ local function renderButtons(is_list_mode)
 				table.insert(buttons, ui.button({
 					key       = entry.sym,
 					glyph     = entry.glyph,
-					text      = entry.label,
+					text      = noctalia.tr("name_" .. entry.name),
 					variant   = if isSelected then "primary" else "ghost",
 					onClick   = `onPick{slotIndex}`,
 					-- If noctalia supports button alignment, this will align it to the left:
@@ -101,7 +101,7 @@ local function renderButtons(is_list_mode)
 						onClick = `onPick{slotIndex}`,
 					}),
 					ui.label({
-						text      = entry.label,
+						text      = noctalia.tr("name_" .. entry.name),
 						fontSize  = 9,
 						fontWeight = "bold",
 						color     = if isSelected then "primary" else "on_surface_variant",

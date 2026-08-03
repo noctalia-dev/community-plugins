@@ -38,7 +38,7 @@ function update()
             end
             
             if show_text then 
-                barWidget.setText(current.label) 
+                barWidget.setText(noctalia.tr("name_" .. current.name)) 
             else 
                 barWidget.setText("") 
             end
