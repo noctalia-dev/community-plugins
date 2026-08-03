@@ -17,6 +17,8 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 
 ## Settings
 
+### Bar Widget Settings (`widget`)
+
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `glyph` | `glyph` | `network` | The icon glyph displayed on the widget |
@@ -32,9 +34,32 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | `separator_color` | `color` | `on_surface` | Color of the separator |
 | `hide_on_empty` | `boolean` | `true` | Hide the widget completely if no IP is found |
 | `refresh_interval` | `int` | `60` | Refresh interval in seconds (max 3600) |
-| `hidden_fields` | `string` | `""` | Comma-separated fields to hide (e.g. `network,mask`). Options: `iface`, `ip`, `network`, `gateway`, `mask`, `broadcast` |
+| `hidden_fields` | `string` | `""` | Comma-separated fields to hide in tooltip (e.g. `network,mask`). Options: `iface`, `ip`, `network`, `gateway`, `mask`, `broadcast` |
 | `left_click_action` | `select` | `copy_ip` | Action to perform on left click (Copy IP, Copy Name, None) |
 | `right_click_action` | `select` | `copy_name` | Action to perform on right click (Copy IP, Copy Name, None) |
+
+### Desktop Widget Settings (`desktop`)
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `glyph` | `glyph` | `network` | The icon glyph displayed on the widget |
+| `glyph_color` | `color` | `on_surface` | Color of the icon |
+| `mode` | `select` | `interface` | Operating mode: Interface, Custom Command, or IPC |
+| `iface` | `string` | `wlan*` | Network interface wildcard to fetch IP from |
+| `custom_command` | `string` | `curl -s ifconfig.me` | Shell command to execute in custom command mode |
+| `text_color` | `color` | `on_surface` | Color of the IP text |
+| `name` | `string` | `""` | A custom name to display alongside the IP |
+| `ipc_id` | `string` | `default` | Identifier used to target this specific widget via IPC |
+| `name_color` | `color` | `on_surface` | Color of the name text |
+| `separator` | `string` | `-` | Separator symbol between IP and Name |
+| `separator_color` | `color` | `on_surface` | Color of the separator |
+| `hide_on_empty` | `boolean` | `true` | Hide the widget completely if no IP is found |
+| `refresh_interval` | `int` | `60` | Refresh interval in seconds (max 3600) |
+| `ip_font_size` | `int` | `32` | Font size for the IP and name text |
+| `details_font_size` | `int` | `16` | Font size for the network details text |
+| `details_key_color` | `color` | `primary` | Color for detail label keys (e.g. Network, Mask) |
+| `details_value_color` | `color` | `on_surface` | Color for detail values |
+| `hidden_fields` | `string` | `""` | Comma-separated fields to hide in details table (e.g. `network,mask`). Options: `iface`, `ip`, `network`, `gateway`, `mask`, `broadcast` |
 
 ## Usage
 
