@@ -2,12 +2,11 @@ id = "maddingo/hypr-layout-switcher"
 name = "Hyprland Layout Switcher"
 description = "Shows and cycles the active workspace's layout"
 version = "0.1.0"
-min_noctalia = "5.0.0-beta.1"
 plugin_api = 3
 author = "maddingo"
 license = "MIT"
 icon = "layout-grid"
-tags = ["hyprland", "layout", "workspace"]
+tags = ["hyprland"]
 dependencies = ["hyprland"]
 
 [[service]]
