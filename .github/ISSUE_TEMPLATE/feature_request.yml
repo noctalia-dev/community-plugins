@@ -62,11 +62,13 @@ body:
         - llamanager
         - lrc
         - lyrics
+        - mango_layouts
         - mangowm-keymode
         - mawaqit
         - mimir
         - mini-docker
         - nextboot-selector
+        - niri-active-workspace
         - niri-animations
         - nix-monitor
         - noctwhspr
