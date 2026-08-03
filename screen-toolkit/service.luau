@@ -26,7 +26,6 @@ local SCRIPT_SHARE = noctalia.pluginDir() .. "/scripts/share-upload.sh"
 local SCRIPT_PICKER = noctalia.pluginDir() .. "/scripts/color-picker.sh"
 
 local COLOR_PNG = "/tmp/screen-toolkit-colorpicker.png"
-local OCR_PNG = "/tmp/screen-toolkit-ocr.png"
 local QR_PNG = "/tmp/screen-toolkit-qr.png"
 local ANNOTATE_PNG = "/tmp/screen-toolkit-annotate.png"
 
@@ -128,6 +127,8 @@ end
 -- ── Region selection (slurp) ───────────────────────────────────────────────
 
 local slurping = false
+local ocrRunning = false
+local ocrSerial = 0
 
 -- Draws the slurp crosshair after a short delay so the just-closed panel's
 -- close animation is not captured. Invokes callback(geom) or nothing on cancel.
@@ -311,14 +312,26 @@ local OCR_EXIT_KEYS = {
 }
 
 local function runOcr()
+  if ocrRunning then
+    noctalia.notify(noctalia.tr("panel.running"))
+    return
+  end
   slurpGeometry(function(geom)
+    ocrRunning = true
+    ocrSerial = ocrSerial + 1
+    local ocrPath = "/tmp/screen-toolkit-ocr-" .. tostring(os.time()) .. "-" .. tostring(ocrSerial) .. ".png"
     local gx, gy, gw, gh = parseGeometry(geom)
-    if not gx then return end
+    if not gx then
+      ocrRunning = false
+      return
+    end
     local lang = cfg("selected-ocr-lang") or "eng"
     local upscale, psm = ocrParams(gw, gh)
     local cmd = captureEnv() .. SCRIPT_OCR .. " " .. gx .. " " .. gy .. " " .. gw .. " " .. gh
       .. " " .. shellQuote(lang) .. " " .. shellQuote(upscale) .. " " .. psm
+      .. " " .. shellQuote(ocrPath)
     hideCursorForCapture(cmd, function(res)
+      ocrRunning = false
       if res.exitCode == 1 then
         noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = trim(res.stdout or "") }))
         return
@@ -332,7 +345,13 @@ local function runOcr()
         return
       end
       noctalia.copyToClipboard(text, "text/plain;charset=utf-8")
-      publish("ocrResult", { text = text, capturePath = OCR_PNG, gw = tonumber(gw), gh = tonumber(gh) })
+      publish("ocrResult", {
+        text = text,
+        capturePath = ocrPath,
+        cacheBust = tostring(os.time()) .. "-" .. tostring(ocrSerial),
+        gw = tonumber(gw),
+        gh = tonumber(gh),
+      })
       publish("activeTool", "ocr")
       saveResults()
       noctalia.togglePanel(RESULT_PANEL_ID)
@@ -691,6 +710,40 @@ local function parseRecordInfo(raw)
   }
 end
 
+local function finalizeRecord(format, copyToClipboard)
+  if rawPath == "" then return end
+  local destDir = videoDir()
+  local ext
+  if format == "gif" then ext = ".gif" elseif format == "mov" then ext = ".mov" else ext = ".mp4" end
+  local dest = destDir .. "/" .. buildFilename("record", ext)
+  setRecordState("converting")
+  local cmd
+  if format == "gif" then
+    cmd = SCRIPT_RECORD .. " convert-gif " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
+      .. " " .. tostring(cfg("gif-max-seconds") or 0)
+  elseif format == "mov" then
+    cmd = SCRIPT_RECORD .. " convert-mov " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
+  else
+    cmd = SCRIPT_RECORD .. " convert-mp4 " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
+  end
+  noctalia.runAsync(cmd, function(res)
+    if res.exitCode ~= 0 then
+      setRecordState("idle")
+      noctalia.notifyError(noctalia.tr("messages.recording_failed"))
+      return
+    end
+    recordPath = dest
+    rawPath = ""
+    setRecordState("idle")
+    if copyToClipboard then
+      copyFileUri(dest)
+      noctalia.notify(noctalia.tr("panel.copied_to_clipboard"), dest)
+    else
+      noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
+    end
+  end)
+end
+
 local function recordStop()
   if recordState ~= "recording" then return end
   setRecordState("converting")
@@ -733,40 +786,6 @@ local function recordStop()
   end)
 end
 
-local function finalizeRecord(format, copyToClipboard)
-  if rawPath == "" then return end
-  local destDir = videoDir()
-  local ext
-  if format == "gif" then ext = ".gif" elseif format == "mov" then ext = ".mov" else ext = ".mp4" end
-  local dest = destDir .. "/" .. buildFilename("record", ext)
-  setRecordState("converting")
-  local cmd
-  if format == "gif" then
-    cmd = SCRIPT_RECORD .. " convert-gif " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
-      .. " " .. tostring(cfg("gif-max-seconds") or 0)
-  elseif format == "mov" then
-    cmd = SCRIPT_RECORD .. " convert-mov " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
-  else
-    cmd = SCRIPT_RECORD .. " convert-mp4 " .. shellQuote(rawPath) .. " " .. shellQuote(dest)
-  end
-  noctalia.runAsync(cmd, function(res)
-    if res.exitCode ~= 0 then
-      setRecordState("idle")
-      noctalia.notifyError(noctalia.tr("messages.recording_failed"))
-      return
-    end
-    recordPath = dest
-    rawPath = ""
-    setRecordState("idle")
-    if copyToClipboard then
-      copyFileUri(dest)
-      noctalia.notify(noctalia.tr("panel.copied_to_clipboard"), dest)
-    else
-      noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
-    end
-  end)
-end
-
 local function recordDiscard()
   if rawPath ~= "" then
     noctalia.runAsync(`rm -f {shellQuote(rawPath)}`)
@@ -782,6 +801,15 @@ local function discardPendingRecording()
   if recordState ~= "ready" then return end
   recordDiscard()
 end
+
+local SHARE_EXIT_KEYS = {
+  [1] = "messages.share_bad_args",
+  [2] = "messages.share_file_not_found",
+  [3] = "messages.share_missing_dep",
+  [4] = "messages.share_request_failed",
+  [5] = "messages.share_invalid_response",
+  [6] = "messages.share_file_too_large",
+}
 
 -- ── Sharing ────────────────────────────────────────────────────────────────
 
@@ -810,15 +838,6 @@ local function shareFile(file)
     end
   )
 end
-
-local SHARE_EXIT_KEYS = {
-  [1] = "messages.share_bad_args",
-  [2] = "messages.share_file_not_found",
-  [3] = "messages.share_missing_dep",
-  [4] = "messages.share_request_failed",
-  [5] = "messages.share_invalid_response",
-  [6] = "messages.share_file_too_large",
-}
 
 -- ── Result housekeeping ────────────────────────────────────────────────────
 

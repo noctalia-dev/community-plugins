@@ -335,7 +335,15 @@ local function renderOcr()
     ui.label({ text = tr("panel.ocr_text"), fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }),
   }
   if ocrResult.capturePath and ocrResult.capturePath ~= "" then
-    table.insert(scrollChildren, ui.image({ path = ocrResult.capturePath, height = imgHeight, fit = "contain", radius = 12, borderWidth = 1, border = "outline" }))
+    table.insert(scrollChildren, ui.image({
+      key = "ocr-image-" .. tostring(ocrResult.cacheBust or ocrResult.capturePath),
+      path = ocrResult.capturePath,
+      height = imgHeight,
+      fit = "contain",
+      radius = 12,
+      borderWidth = 1,
+      border = "outline",
+    }))
   end
   -- ui.input does not support radius / border / padding, so frame the editor
   -- in a matching container to align it with the picture and keep long text
@@ -348,7 +356,7 @@ local function renderOcr()
       paddingV = 8,
     }, {
       ui.input({
-        key = "ocr-edit",
+        key = "ocr-edit-" .. tostring(ocrResult.cacheBust or "current"),
         value = text,
         multiline = true,
         height = 220,

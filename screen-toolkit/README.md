@@ -30,7 +30,11 @@ reported when that feature is started.
 - **`imagemagick`** — image processing
 - **`zbar`** — QR / barcode scanning (`zbarimg`)
 - **`curl`** + **`jq`** — image uploads (uguu.se / x02.me) and Google Lens
-- **`ffmpeg`** — recording / GIF conversion
+- **`ffmpeg`** + **`ffprobe`** — recording / GIF conversion and thumbnail generation
+- **`bc`** — GIF duration and frame-rate calculations
+- **`stat`** — recording file size
+- **`pkill`** — stopping active recording backends
+- **`xdg-open`** — opening URLs, OCR search results, and shared-link targets
 
 Recording requires at least one backend:
 
@@ -41,6 +45,7 @@ Recording requires at least one backend:
 Optional:
 
 - **swappy** / **satty** — annotation editor (Markup tool)
+- **gimp** — fallback annotation editor when swappy/satty are missing
 - **`translate-shell`** (`trans`) — OCR translation
 - **hyprctl** — annotate the focused window (Hyprland only)
 
@@ -147,8 +152,7 @@ noctalia msg plugin alexander/screen-toolkit:service all recordMp4
 noctalia msg plugin alexander/screen-toolkit:service all recordFullscreen
 noctalia msg plugin alexander/screen-toolkit:service all recordFullscreenMp4
 noctalia msg plugin alexander/screen-toolkit:service all recordStop
-noctalia msg plugin alexander/screen-toolkit:service all recordSaveMp4
-noctalia msg plugin alexander/screen-toolkit:service all recordSaveGif
+noctalia msg plugin alexander/screen-toolkit:service all recordSave
 noctalia msg plugin alexander/screen-toolkit:service all recordDiscard
 ```
 

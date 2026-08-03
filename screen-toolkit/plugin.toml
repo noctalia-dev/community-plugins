@@ -24,8 +24,20 @@ dependencies = [
   "zbar",
   "curl",
   "ffmpeg",
+  "ffprobe",
   "jq",
   "translate-shell",
+  "bc",
+  "stat",
+  "pkill",
+  "xdg-open",
+  "hyprctl",
+  "swappy",
+  "satty",
+  "gimp",
+  "gpu-screen-recorder",
+  "wl-screenrec",
+  "wf-recorder",
 ]
 
 # ── Plugin-level settings (shared by every entry, edited in Settings → Plugins) ──
