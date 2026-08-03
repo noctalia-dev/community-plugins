@@ -841,6 +841,17 @@ function render()
 		table.insert(
 			headerChildren,
 			ui.button({
+				glyph = "home-filled",
+				tooltip = noctalia.tr("panel.my_projects"),
+				variant = "default",
+				onClick = function()
+					loadProjects(true)
+				end,
+			})
+		)
+		table.insert(
+			headerChildren,
+			ui.button({
 				glyph = "feather-filled",
 				tooltip = noctalia.tr("panel.edit_meta"),
 				variant = "default",
@@ -869,7 +880,7 @@ function render()
 		end
 		table.insert(
 			body,
-			ui.row({ align = "center", gap = 8 }, headerChildren)
+			ui.row({ align = "center", gap = 8, paddingV = 4 }, headerChildren)
 		)
 
 
