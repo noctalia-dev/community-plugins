@@ -51,8 +51,20 @@ its actions:
   button; below the list, **Add/Remove** runs `osc ar` and **Commit** runs
   `osc ci`, both in a terminal so you can watch progress or edit the commit
   message.
+- **Service Local Run** — runs `osc service r` in the checkout, executing the
+  package's source-service scripts locally (local side effects: the `_service`
+  scripts can modify files in the checkout).
+- **Service Manual Run** — runs `osc service mr` in the checkout, running the
+  source-service scripts locally in "manual" mode (local side effects, like
+  Service Local Run).
+- **Service Run All** — runs `osc service ra` in the checkout, running all
+  source-service scripts locally. Requires a confirmation click (turns
+  **secondary** with a **check** glyph) before it executes.
+- **Service Remote Run** — runs `osc service rr` on the OBS server for the
+  package on the remote project. No local code executes; the request triggers
+  server-side service runs, and a confirmation is not required.
 - **Rebuild package** — pick an architecture (or **All**) and trigger
-  `osc rebuild`.
+  `osc rebuild`. Confirmation is required before it runs.
 - **Edit package meta** — `osc meta pkg -e` in a terminal.
 - **Remove package** — deletes the checkout from disk only (never touches the
   OBS project); confirm before it runs. If it was the last package in the
@@ -75,4 +87,6 @@ The plugin runs the `osc` CLI with your existing credentials — it stores
 nothing itself beyond a small cache of project/package listings and your last
 navigated view. Removal is local-only and never modifies the OBS project.
 Rebuilds and commits are real OBS operations and open a terminal so you can
-confirm what `osc` reports.
+confirm what `osc` reports. Confirmation prompts precede the destructive and
+side-effecting operations: Rebuild package, Remove package, and Service Run
+All.
