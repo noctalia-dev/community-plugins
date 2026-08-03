@@ -199,6 +199,14 @@
     "gif_max_seconds": {
       "label": "Max GIF Duration",
       "description": "Maximum duration in seconds for GIF recordings."
+    },
+    "panel_mode": {
+      "label": "Panel Mode",
+      "description": "Layout of the main panel. Compact is the dense grid; Full is the original spacious grid.",
+      "options": {
+        "compact": "Compact",
+        "full": "Full"
+      }
     }
   }
 }
