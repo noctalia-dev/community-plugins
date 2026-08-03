@@ -172,4 +172,29 @@ function utils.handleIpcPayload(payload, myId)
     }
 end
 
+--- Parses a comma-separated string of hidden fields into a Set for O(1) lookups.
+-- Also maps some common aliases (e.g., "net" to "network").
+function utils.parseHiddenFields(configStr)
+    local hidden = {}
+    if type(configStr) ~= "string" or configStr == "" then
+        return hidden
+    end
+
+    local aliases = {
+        ["net"] = "network",
+        ["gw"] = "gateway",
+        ["def"] = "gateway",
+        ["route"] = "gateway"
+    }
+
+    for field in configStr:gmatch("[^,]+") do
+        local cleanField = field:match("^%s*(.-)%s*$"):lower()
+        if cleanField ~= "" then
+            local actualField = aliases[cleanField] or cleanField
+            hidden[actualField] = true
+        end
+    end
+    return hidden
+end
+
 return utils

@@ -32,6 +32,7 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | `separator_color` | `color` | `on_surface` | Color of the separator |
 | `hide_on_empty` | `boolean` | `true` | Hide the widget completely if no IP is found |
 | `refresh_interval` | `int` | `60` | Refresh interval in seconds (max 3600) |
+| `hidden_fields` | `string` | `""` | Comma-separated fields to hide (e.g. `network,mask`). Options: `iface`, `ip`, `network`, `gateway`, `mask`, `broadcast` |
 | `left_click_action` | `select` | `copy_ip` | Action to perform on left click (Copy IP, Copy Name, None) |
 | `right_click_action` | `select` | `copy_name` | Action to perform on right click (Copy IP, Copy Name, None) |
 
@@ -69,6 +70,9 @@ Hovering over the widget displays detailed network information if available:
 - **Default route**: Gateway address (e.g. `192.168.1.1`)
 - **Mask**: Subnet mask (e.g. `255.255.255.0`)
 - **Broadcast**: Broadcast address (e.g. `192.168.1.255`)
+
+> [!TIP]
+> You can selectively hide any of these fields by listing their internal keys (`iface, ip, network, gateway, mask, broadcast`) separated by commas in the **Hide Tooltip Options** (for the bar widget) or **Hide Details Options** (for the desktop widget) configuration.
 
 In **IPC Mode**, tooltip fields can be passed optionally in the JSON payload (either as top-level keys or nested inside a `tooltip` object):
 

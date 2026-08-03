@@ -94,22 +94,27 @@ local function render()
 
     -- Add Details
     if currentTooltip then
+        local hiddenConfig = noctalia.getConfig("hidden_fields")
+        local hiddenFields = utils.parseHiddenFields(hiddenConfig)
+
         local colKeys = {}
         local colValues = {}
         local fields = { "iface", "ip", "network", "gateway", "mask", "broadcast" }
         for _, field in ipairs(fields) do
-            local val = currentTooltip[field]
-            if val and val ~= "" then
-                table.insert(colKeys, ui.label({ 
-                    text = noctalia.tr("tooltip." .. field), 
-                    fontSize = detailsFontSize,
-                    color = noctalia.getConfig("details_key_color") or "primary"
-                }))
-                table.insert(colValues, ui.label({ 
-                    text = val, 
-                    fontSize = detailsFontSize,
-                    color = noctalia.getConfig("details_value_color") or "on_surface"
-                }))
+            if not hiddenFields[field] then
+                local val = currentTooltip[field]
+                if val and val ~= "" then
+                    table.insert(colKeys, ui.label({ 
+                        text = noctalia.tr("tooltip." .. field), 
+                        fontSize = detailsFontSize,
+                        color = noctalia.getConfig("details_key_color") or "primary"
+                    }))
+                    table.insert(colValues, ui.label({ 
+                        text = val, 
+                        fontSize = detailsFontSize,
+                        color = noctalia.getConfig("details_value_color") or "on_surface"
+                    }))
+                end
             end
         end
 

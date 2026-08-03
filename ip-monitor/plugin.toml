@@ -143,6 +143,13 @@ entry = "widget.luau"
       { value = "none", label_key = "settings.click.options.none" },
   ]
 
+  [[widget.setting]]
+  key             = "hidden_fields"
+  type            = "string"
+  label_key       = "settings.hide_tooltip_options.label"
+  description_key = "settings.hide_tooltip_options.description"
+  default         = ""
+
 
 [[desktop_widget]]
 id    = "desktop"
@@ -282,3 +289,10 @@ entry = "desktop.luau"
   label_key       = "settings.details_value_color.label"
   description_key = "settings.details_value_color.description"
   default         = "on_surface"
+
+  [[desktop_widget.setting]]
+  key             = "hidden_fields"
+  type            = "string"
+  label_key       = "settings.hide_details_options.label"
+  description_key = "settings.hide_details_options.description"
+  default         = ""

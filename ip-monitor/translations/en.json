@@ -97,6 +97,14 @@
     "details_value_color": {
       "label": "Details Value Color",
       "description": "Color for the detail values."
+    },
+    "hide_tooltip_options": {
+      "label": "Hide Tooltip Options",
+      "description": "Comma-separated list of fields to hide in the tooltip (e.g. network,mask,iface)."
+    },
+    "hide_details_options": {
+      "label": "Hide Details Options",
+      "description": "Comma-separated list of fields to hide in the details table (e.g. network,mask,iface)."
     }
   }
 }

@@ -35,12 +35,17 @@ local function updateTooltip()
         return
     end
 
+    local hiddenConfig = noctalia.getConfig("hidden_fields")
+    local hiddenFields = utils.parseHiddenFields(hiddenConfig)
+
     local rows = {}
     local fields = { "iface", "ip", "network", "gateway", "mask", "broadcast" }
     for _, field in ipairs(fields) do
-        local val = currentTooltip[field]
-        if val and val ~= "" then
-            table.insert(rows, { key = noctalia.tr("tooltip." .. field), value = val })
+        if not hiddenFields[field] then
+            local val = currentTooltip[field]
+            if val and val ~= "" then
+                table.insert(rows, { key = noctalia.tr("tooltip." .. field), value = val })
+            end
         end
     end
 
