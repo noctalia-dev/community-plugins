@@ -198,4 +198,65 @@ function utils.parseHiddenFields(configStr)
     return hidden
 end
 
+--- Resolves the active display name according to the active mode and IPC state.
+function utils.getDisplayName(mode, currentIpcName, staticName)
+    if mode == "ipc" and currentIpcName and currentIpcName ~= "" then
+        return currentIpcName
+    end
+    return staticName or ""
+end
+
+--- Builds the top row UI components (Glyph, IP Label, Separator, Name Label).
+-- @param currentIp string The IP address string
+-- @param displayName string The resolved display name
+-- @param fontSize integer|nil Optional font size for desktop widget
+-- @return table List of UI component elements
+function utils.buildTopRow(currentIp, displayName, fontSize)
+    local content = {}
+
+    local glyph = noctalia.getConfig("glyph")
+    if glyph and glyph ~= "" then
+        local glyphOpts = {
+            name = glyph,
+            color = noctalia.getConfig("glyph_color")
+        }
+        if fontSize then
+            glyphOpts.size = fontSize
+        end
+        table.insert(content, ui.glyph(glyphOpts))
+    end
+
+    local hasIp = currentIp and currentIp ~= ""
+    local hasName = displayName and displayName ~= ""
+
+    local function addLabel(text, colorKey)
+        if text and text ~= "" then
+            local labelOpts = {
+                text = text,
+                color = noctalia.getConfig(colorKey)
+            }
+            if fontSize then
+                labelOpts.fontSize = fontSize
+            end
+            table.insert(content, ui.label(labelOpts))
+        end
+    end
+
+    if hasIp then
+        addLabel(currentIp, "text_color")
+    end
+
+    if hasIp and hasName then
+        local sep = noctalia.getConfig("separator")
+        if sep == nil then sep = "-" end
+        addLabel(sep, "separator_color")
+    end
+
+    if hasName then
+        addLabel(displayName, "name_color")
+    end
+
+    return content
+end
+
 return utils
