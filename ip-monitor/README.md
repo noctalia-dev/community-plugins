@@ -1,6 +1,6 @@
 # IP Monitor
 
-A Noctalia bar widget to monitor network IPs. 
+A Noctalia bar and desktop widget to monitor network IPs. 
 It supports fetching IPs from network interfaces, custom commands, or via IPC.
 
 ## Plugin
@@ -8,7 +8,7 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | Field | Value |
 | --- | --- |
 | ID | `3ri4ng0ld/ip-monitor` |
-| Entries | Bar widget: `widget` |
+| Entries | Bar widget: `widget`<br>Desktop widget: `desktop` |
 
 ## Requirements
 
@@ -27,9 +27,9 @@ It supports fetching IPs from network interfaces, custom commands, or via IPC.
 | `text_color` | `color` | `on_surface` | Color of the IP text |
 | `name` | `string` | `""` | A custom name to display alongside the IP |
 | `ipc_id` | `string` | `default` | Identifier used to target this specific widget via IPC |
-| `name_color` | `color` | `on_surface_variant` | Color of the name text |
+| `name_color` | `color` | `on_surface` | Color of the name text |
 | `separator` | `string` | `-` | Separator symbol between IP and Name |
-| `separator_color` | `color` | `on_surface_variant` | Color of the separator |
+| `separator_color` | `color` | `on_surface` | Color of the separator |
 | `hide_on_empty` | `boolean` | `true` | Hide the widget completely if no IP is found |
 | `refresh_interval` | `int` | `60` | Refresh interval in seconds (max 3600) |
 | `left_click_action` | `select` | `copy_ip` | Action to perform on left click (Copy IP, Copy Name, None) |

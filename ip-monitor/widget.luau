@@ -5,33 +5,12 @@
 -- custom shell commands, or external IPC events.
 -------------------------------------------------------------------------------
 
+local utils = require("./utils.luau")
+
 -- Current runtime state
 local currentIp = ""
 local currentIpcName = ""
 local currentTooltip = nil
-
---- Calculates IPv4 subnet mask string (e.g. "255.255.255.0") from a CIDR prefix length (0-32).
--- @param prefix string|number CIDR prefix length
--- @return string The formatted subnet mask string
-local function cidrToSubnetMask(prefix)
-    local n = tonumber(prefix)
-    if not n or n < 0 or n > 32 then return "" end
-
-    local octets = {}
-    for i = 1, 4 do
-        if n >= 8 then
-            table.insert(octets, 255)
-            n = n - 8
-        elseif n > 0 then
-            local octet = 256 - (2 ^ (8 - n))
-            table.insert(octets, math.floor(octet))
-            n = 0
-        else
-            table.insert(octets, 0)
-        end
-    end
-    return table.concat(octets, ".")
-end
 
 -------------------------------------------------------------------------------
 -- HELPER FUNCTIONS
@@ -47,39 +26,6 @@ local function getDisplayName()
         end
     end
     return noctalia.getConfig("name") or ""
-end
-
---- Converts a simple glob pattern (e.g. "wlan*", "eth0") into a standard Lua pattern.
--- @param glob string The glob pattern to convert
--- @return string The converted Lua pattern
-local function globToPattern(glob)
-    local pattern = glob:gsub("%.", "%%."):gsub("%*", ".*")
-    return "^" .. pattern .. "$"
-end
-
---- Calculates network address (e.g. "192.168.1.0/24") from IP, Subnet Mask, and CIDR prefix.
--- @param ipStr string IP address (e.g. "192.168.1.33")
--- @param maskStr string Subnet mask (e.g. "255.255.255.0")
--- @param cidrStr string CIDR prefix string (e.g. "24")
--- @return string The calculated network range string
-local function calculateNetwork(ipStr, maskStr, cidrStr)
-    local a, b, c, d = ipStr:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")
-    local m1, m2, m3, m4 = maskStr:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")
-    if not (a and b and c and d and m1 and m2 and m3 and m4) then return "" end
-
-    a, b, c, d = tonumber(a), tonumber(b), tonumber(c), tonumber(d)
-    m1, m2, m3, m4 = tonumber(m1), tonumber(m2), tonumber(m3), tonumber(m4)
-
-    local function applyMask(ipPart, maskPart)
-        return (maskPart == 255) and ipPart or (maskPart == 0 and 0 or (ipPart - (ipPart % (256 - maskPart))))
-    end
-
-    local net1 = applyMask(a, m1)
-    local net2 = applyMask(b, m2)
-    local net3 = applyMask(c, m3)
-    local net4 = applyMask(d, m4)
-
-    return string.format("%d.%d.%d.%d/%s", net1, net2, net3, net4, cidrStr)
 end
 
 --- Updates the widget hover tooltip from the currentTooltip table.
@@ -223,131 +169,15 @@ function onIpc(event, payload)
     if noctalia.getConfig("mode") ~= "ipc" then return end
 
     if event == "set" then
-        local data = noctalia.json.decode(payload)
+        local myId = noctalia.getConfig("ipc_id") or "default"
+        local data = utils.handleIpcPayload(payload, myId)
         if data then
-            local targetId = data.id or "default"
-            local myId = noctalia.getConfig("ipc_id") or "default"
-
-            if targetId == myId then
-                currentIp = data.ip or ""
-                currentIpcName = data.name or ""
-
-                -- Parse optional tooltip data from payload (supports nested object or top-level keys)
-                local tt = (type(data.tooltip) == "table") and data.tooltip or {}
-                currentTooltip = {
-                    iface = tt.iface or data.iface or data.interface or nil,
-                    ip = tt.ip or data.ip or nil,
-                    network = tt.network or data.network or nil,
-                    gateway = tt.gateway or data.gateway or data.default_route or nil,
-                    mask = tt.mask or data.mask or nil,
-                    broadcast = tt.broadcast or data.broadcast or nil
-                }
-
-                render()
-            end
+            currentIp = data.ip
+            currentIpcName = data.name
+            currentTooltip = data.tooltip
+            render()
         end
     end
-end
-
--------------------------------------------------------------------------------
--- IP DATA FETCHERS
--------------------------------------------------------------------------------
-
---- Fetches IPv4 address and detailed network interface metadata using `ip -4 -o addr show`.
-local function fetchInterfaceIp()
-    local ifaceSetting = noctalia.getConfig("iface") or ""
-    if ifaceSetting == "" then return end
-
-    local pattern = globToPattern(ifaceSetting)
-
-    noctalia.runAsync("ip -4 -o addr show", function(result)
-        if result.exitCode ~= 0 then
-            noctalia.log("ip-monitor: failed to get ip addr: " .. result.stderr)
-            return
-        end
-
-        local matchedIface = nil
-        local foundIp = ""
-        local foundCidr = ""
-        local foundBrd = ""
-
-        for line in result.stdout:gmatch("[^\r\n]+") do
-            local ifaceName, inetInfo = line:match("%d+:%s+([^%s]+)%s+inet%s+([^%s]+)")
-            if ifaceName and inetInfo and ifaceName:match(pattern) then
-                local ipOnly, cidr = inetInfo:match("([^/]+)/(%d+)")
-                if ipOnly then
-                    matchedIface = ifaceName
-                    foundIp = ipOnly
-                    foundCidr = cidr or ""
-                    foundBrd = line:match("%s+brd%s+([^%s]+)") or ""
-                    break
-                end
-            end
-        end
-
-        if not matchedIface or foundIp == "" then
-            currentIp = ""
-            currentTooltip = nil
-            render()
-            return
-        end
-
-        -- Calculate Mask and Network Range
-        local mask = cidrToSubnetMask(foundCidr)
-        local network = ""
-        if foundIp ~= "" and mask ~= "" and foundCidr ~= "" then
-            network = calculateNetwork(foundIp, mask, foundCidr)
-        end
-
-        -- Fetch gateway from the full route table, filtered in Lua by matchedIface.
-        -- Avoids interpolating matchedIface into a shell command (injection risk).
-        noctalia.runAsync("ip route show", function(routeResult)
-            local gateway = ""
-            if routeResult.exitCode == 0 then
-                for line in routeResult.stdout:gmatch("[^\r\n]+") do
-                    local lineDev = line:match("%sdev%s+([^%s]+)")
-                    if lineDev == matchedIface then
-                        local g = line:match("default via ([^%s]+)") or line:match("via ([^%s]+)")
-                        if g then
-                            gateway = g
-                            break
-                        end
-                    end
-                end
-            end
-
-            currentIp = foundIp
-            currentTooltip = {
-                iface = matchedIface,
-                ip = foundIp,
-                network = network,
-                gateway = gateway,
-                mask = mask,
-                broadcast = foundBrd
-            }
-            render()
-        end)
-    end)
-end
-
---- Fetches IP address by executing a custom shell command.
-local function fetchCustomCommandIp()
-    local cmd = noctalia.getConfig("custom_command") or ""
-    if cmd == "" then return end
-
-    noctalia.runAsync(cmd, function(result)
-        if result.exitCode ~= 0 then
-            noctalia.log("ip-monitor: custom command failed: " .. result.stderr)
-            return
-        end
-
-        local newIp = noctalia.string.trim(result.stdout)
-        currentIp = newIp
-        currentTooltip = {
-            ip = newIp
-        }
-        render()
-    end)
 end
 
 -------------------------------------------------------------------------------
@@ -358,9 +188,17 @@ end
 function update()
     local mode = noctalia.getConfig("mode")
     if mode == "interface" then
-        fetchInterfaceIp()
+        utils.fetchInterfaceIp(noctalia.getConfig("iface"), function(ip, tooltip)
+            currentIp = ip
+            currentTooltip = tooltip
+            render()
+        end)
     elseif mode == "custom_command" then
-        fetchCustomCommandIp()
+        utils.fetchCustomCommandIp(noctalia.getConfig("custom_command"), function(ip, tooltip)
+            currentIp = ip
+            currentTooltip = tooltip
+            render()
+        end)
     end
 end
 

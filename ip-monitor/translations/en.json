@@ -81,6 +81,22 @@
         "copy_name": "Copy Name",
         "none": "None"
       }
+    },
+    "ip_font_size": {
+      "label": "IP Font Size",
+      "description": "Font size for the IP and name text."
+    },
+    "details_font_size": {
+      "label": "Details Font Size",
+      "description": "Font size for the network details text."
+    },
+    "details_key_color": {
+      "label": "Details Key Color",
+      "description": "Color for the detail labels (e.g. Network, Mask)."
+    },
+    "details_value_color": {
+      "label": "Details Value Color",
+      "description": "Color for the detail values."
     }
   }
 }
