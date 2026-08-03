@@ -15,15 +15,25 @@ local currentTooltip = nil
 -- HELPER FUNCTIONS
 -------------------------------------------------------------------------------
 
---- Resolves the active display name according to the active mode and IPC state.
+--- Resolves the active display name according to active mode and IPC state.
 local function getDisplayName()
-    local mode = noctalia.getConfig("mode")
-    if mode == "ipc" then
-        if currentIpcName ~= "" then
-            return currentIpcName
-        end
+    return utils.getDisplayName(noctalia.getConfig("mode"), currentIpcName, noctalia.getConfig("name"))
+end
+
+local function copyNotifyAndLog(text, optionKey, logMessage)
+    if text and text ~= "" then
+        noctalia.copyToClipboard(text, "text/plain")
+        noctalia.notify(noctalia.tr("name"), noctalia.tr(optionKey) .. ": " .. text)
+        noctalia.log("ip-monitor: " .. logMessage .. ": " .. text)
     end
-    return noctalia.getConfig("name") or ""
+end
+
+local function applyAction(action)
+    if action == "copy_ip" then
+        copyNotifyAndLog(currentIp, "settings.click.options.copy_ip", "copied IP to clipboard")
+    elseif action == "copy_name" then
+        copyNotifyAndLog(getDisplayName(), "settings.click.options.copy_name", "copied name to clipboard")
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -45,49 +55,7 @@ local function render()
     local detailsFontSize = noctalia.getConfig("details_font_size") or 16
 
     local displayName = getDisplayName()
-    local hasIp = currentIp and currentIp ~= ""
-    local hasName = displayName and displayName ~= ""
-
-    local topRowContent = {}
-
-    -- 1. Icon / Glyph
-    local glyph = noctalia.getConfig("glyph")
-    if glyph and glyph ~= "" then
-        table.insert(topRowContent, ui.glyph({
-            name = glyph,
-            size = ipFontSize,
-            color = noctalia.getConfig("glyph_color")
-        }))
-    end
-
-    -- 2. IP Text Label
-    if hasIp then
-        table.insert(topRowContent, ui.label({
-            text = currentIp,
-            fontSize = ipFontSize,
-            color = noctalia.getConfig("text_color")
-        }))
-    end
-
-    -- 3. Separator Label
-    if hasIp and hasName then
-        local sep = noctalia.getConfig("separator")
-        if sep == nil then sep = "-" end
-        table.insert(topRowContent, ui.label({
-            text = sep,
-            fontSize = ipFontSize,
-            color = noctalia.getConfig("separator_color")
-        }))
-    end
-
-    -- 4. Name Text Label
-    if hasName then
-        table.insert(topRowContent, ui.label({
-            text = displayName,
-            fontSize = ipFontSize,
-            color = noctalia.getConfig("name_color")
-        }))
-    end
+    local topRowContent = utils.buildTopRow(currentIp, displayName, ipFontSize)
 
     local content = {}
     table.insert(content, ui.row({ gap = 8, align = "center", justify = "center" }, topRowContent))
@@ -135,6 +103,14 @@ end
 
 --- Handler for IPC messages dispatched to this widget.
 function onIpc(event, payload)
+    if event == "copy_ip" then
+        applyAction("copy_ip")
+        return
+    elseif event == "copy_name" then
+        applyAction("copy_name")
+        return
+    end
+
     if noctalia.getConfig("mode") ~= "ipc" then return end
 
     if event == "set" then
@@ -175,7 +151,7 @@ function onConfigChanged()
     currentTooltip = nil
 
     if mode == "interface" or mode == "custom_command" then
-        local interval = noctalia.getConfig("refresh_interval") or 10
+        local interval = noctalia.getConfig("refresh_interval") or 60
         noctalia.setUpdateInterval(interval * 1000)
         update()
     else
