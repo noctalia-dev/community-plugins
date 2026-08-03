@@ -35,6 +35,7 @@ local oauthStartedAt = 0
 
 local libraryFetch = nil
 local finalizeQueue = nil
+local flushCoverSnapshot
 local legacyCachePurged = false
 local pendingLegacyPurge = false
 
@@ -411,7 +412,7 @@ local function requestCoverSnapshot()
   pendingCoverSnapshot = true
 end
 
-local function flushCoverSnapshot()
+function flushCoverSnapshot()
   if pendingCoverSnapshot then
     pendingCoverSnapshot = false
     publishSnapshot()
