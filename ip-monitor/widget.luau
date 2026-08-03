@@ -16,16 +16,9 @@ local currentTooltip = nil
 -- HELPER FUNCTIONS
 -------------------------------------------------------------------------------
 
---- Resolves the active display name according to the active mode and IPC state.
--- @return string The resolved display name to render or copy
+--- Resolves the active display name according to active mode and IPC state.
 local function getDisplayName()
-    local mode = noctalia.getConfig("mode")
-    if mode == "ipc" then
-        if currentIpcName ~= "" then
-            return currentIpcName
-        end
-    end
-    return noctalia.getConfig("name") or ""
+    return utils.getDisplayName(noctalia.getConfig("mode"), currentIpcName, noctalia.getConfig("name"))
 end
 
 --- Updates the widget hover tooltip from the currentTooltip table.
@@ -75,46 +68,8 @@ local function render()
     -- Update widget hover tooltip
     updateTooltip()
 
-    local content = {}
     local displayName = getDisplayName()
-
-    -- 1. Icon / Glyph
-    local glyph = noctalia.getConfig("glyph")
-    if glyph and glyph ~= "" then
-        table.insert(content, ui.glyph({
-            name = glyph,
-            color = noctalia.getConfig("glyph_color")
-        }))
-    end
-
-    local hasIp = currentIp and currentIp ~= ""
-    local hasName = displayName and displayName ~= ""
-
-    local function addLabel(text, colorConfig)
-        if text and text ~= "" then
-            table.insert(content, ui.label({
-                text = text,
-                color = noctalia.getConfig(colorConfig)
-            }))
-        end
-    end
-
-    -- 2. IP Text Label
-    if hasIp then
-        addLabel(currentIp, "text_color")
-    end
-
-    -- 3. Separator Label (rendered only when both IP and Name exist)
-    if hasIp and hasName then
-        local sep = noctalia.getConfig("separator")
-        if sep == nil then sep = "-" end
-        addLabel(sep, "separator_color")
-    end
-
-    -- 4. Name Text Label
-    if hasName then
-        addLabel(displayName, "name_color")
-    end
+    local content = utils.buildTopRow(currentIp, displayName)
 
     -- Layout container according to bar orientation (Vertical -> column, Horizontal -> row)
     local container = barWidget.isVertical() and ui.column or ui.row
@@ -215,7 +170,7 @@ function onConfigChanged()
     currentTooltip = nil
 
     if mode == "interface" or mode == "custom_command" then
-        local interval = noctalia.getConfig("refresh_interval") or 10
+        local interval = noctalia.getConfig("refresh_interval") or 60
         noctalia.setUpdateInterval(interval * 1000)
         update()
     else
