@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "feed_urls": {
+      "label": "Feed URLs",
+      "description": "One RSS or Atom feed URL per entry (e.g. https://example.com/feed.xml)."
+    },
+    "refresh_minutes": {
+      "label": "Refresh interval (minutes)",
+      "description": "How often feeds are checked for new items."
+    },
+    "notify_new": {
+      "label": "Notify on new items",
+      "description": "Show a notification for each new item found in the feeds."
+    },
+    "max_notifications_per_cycle": {
+      "label": "Max notifications per cycle",
+      "description": "Avoids a flood of notifications when many new items appear at once."
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Icon shown in the bar for this widget."
+    }
+  }
+}
