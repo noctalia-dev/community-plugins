@@ -116,5 +116,11 @@
     "not_paired": "Not paired",
     "offline": "Offline",
     "unavailable": "Unavailable"
+  },
+  "widget": {
+    "show_battery_icon": {
+      "description": "Show widget battery icon",
+      "label": "Battery Icon"
+    }
   }
 }
