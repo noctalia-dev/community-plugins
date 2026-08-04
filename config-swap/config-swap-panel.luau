@@ -44,7 +44,7 @@ end
 -- Detecte dangerous charactère
 
 function isDetecte(target: string)
-	local match_string = "[/.]"
+	local match_string = "[/.$();]"
 	
 	if string.match(target, match_string) then
 		return true
