@@ -1,5 +1,4 @@
 function update()
-  noctalia.setUpdateInterval(1000)
   barWidget.setGlyph("file")
 end
 
