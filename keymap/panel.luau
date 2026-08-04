@@ -286,6 +286,33 @@ local function activeModifierSignature()
   return table.concat(ordered, "+")
 end
 
+local function modifierSignatureLabel(signature)
+  if signature == "" then return tr("panel.keyboard.no_modifiers") end
+  local labels = {}
+  for modifier in tostring(signature):gmatch("[^+]+") do
+    labels[#labels + 1] = modifier == "CTRL" and "Ctrl"
+      or (modifier == "SUPER" and "Super" or (modifier == "SHIFT" and "Shift" or (
+        modifier == "ALT" and "Alt" or modifier
+      )))
+  end
+  return table.concat(labels, " + ")
+end
+
+local function modifierSignatureSelectable(signature)
+  for modifier in tostring(signature):gmatch("[^+]+") do
+    if activeModifiers[modifier] == nil then return false end
+  end
+  return true
+end
+
+local function selectModifierSignature(signature)
+  local selected = {}
+  for modifier in tostring(signature):gmatch("[^+]+") do selected[modifier] = true end
+  for _, modifier in ipairs(MODIFIER_ORDER) do
+    activeModifiers[modifier] = selected[modifier] == true
+  end
+end
+
 local function expandedKeys(value)
   local canonical = canonicalKey(value)
   local first, last = canonical:match("^(%d)%-(%d)$")
@@ -337,6 +364,19 @@ local function keyCallback(id, code)
   if callback == nil then
     callback = function() selectKeyboardKey(code) end
     keyCallbackCache[id] = callback
+  end
+  return callback
+end
+
+local layerCallbackCache = {}
+local function layerCallback(signature)
+  local callback = layerCallbackCache[signature]
+  if callback == nil then
+    callback = function()
+      selectModifierSignature(signature)
+      render()
+    end
+    layerCallbackCache[signature] = callback
   end
   return callback
 end
@@ -1059,6 +1099,17 @@ local function selectedKeyDetails(index)
 
   local signature = activeModifierSignature()
   local entries = asArray(index.exact[signature .. "|" .. selectedKeyboardKey])
+  local otherSignatures = {}
+  local seenSignatures = {}
+  for _, entry in ipairs(asArray(index.any[selectedKeyboardKey])) do
+    local entrySignature = modifierSignature(entry.bind.modifiers)
+    if entrySignature ~= signature and not seenSignatures[entrySignature] then
+      seenSignatures[entrySignature] = true
+      otherSignatures[#otherSignatures + 1] = entrySignature
+    end
+  end
+  table.sort(otherSignatures)
+  local usedOnAnotherLayer = #entries == 0 and #otherSignatures > 0
   local chordParts = {}
   for _, modifier in ipairs(MODIFIER_ORDER) do
     if activeModifiers[modifier] then
@@ -1073,8 +1124,11 @@ local function selectedKeyDetails(index)
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = chord, color = "on_surface", fontSize = 13, fontWeight = "bold", flexGrow = 1 }),
       ui.label({
-        text = #entries > 0 and tr("panel.keyboard.occupied") or tr("panel.keyboard.free"),
-        color = #entries > 0 and asString(cfg("category_color"), "primary") or "on_surface_variant",
+        text = #entries > 0 and tr("panel.keyboard.occupied") or (
+          usedOnAnotherLayer and tr("panel.keyboard.other_layer") or tr("panel.keyboard.free")
+        ),
+        color = (#entries > 0 or usedOnAnotherLayer)
+          and asString(cfg("category_color"), "primary") or "on_surface_variant",
         fontSize = 11,
         fontWeight = "bold",
       }),
@@ -1082,11 +1136,26 @@ local function selectedKeyDetails(index)
   }
   if #entries == 0 then
     children[#children + 1] = ui.label({
-      text = tr("panel.keyboard.free_hint"),
+      text = tr(usedOnAnotherLayer and "panel.keyboard.other_layer_hint" or "panel.keyboard.free_hint"),
       color = "on_surface_variant",
       fontSize = 11,
       maxLines = 2,
     })
+    if usedOnAnotherLayer then
+      local layerButtons = {
+        ui.label({ text = tr("panel.keyboard.available_layers"), color = "on_surface_variant", fontSize = 10 }),
+      }
+      for _, otherSignature in ipairs(otherSignatures) do
+        layerButtons[#layerButtons + 1] = ui.button({
+          text = modifierSignatureLabel(otherSignature),
+          variant = "outline",
+          controlSize = "sm",
+          enabled = modifierSignatureSelectable(otherSignature),
+          onClick = layerCallback(otherSignature),
+        })
+      end
+      children[#children + 1] = ui.row({ gap = 6, align = "center" }, layerButtons)
+    end
   else
     for entryIndex, entry in ipairs(entries) do
       if entryIndex > 5 then

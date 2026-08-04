@@ -102,6 +102,8 @@ In keyboard view, enable an exact Super, Ctrl, Shift, and Alt layer. Occupied
 keys open the shortcuts assigned to that combination; unoccupied keys can be
 sent directly to the creator. Change the physical layout from the keyboard
 size selector while editing shortcuts, or set its default in plugin settings.
+When a key is occupied in another modifier layer, select it and use the layer
+buttons in the details card to jump directly to the matching combination.
 
 In list view, type into the search box to filter the complete category tree.
 Sequential shortcuts such as workspaces 1 through 9 can optionally be folded

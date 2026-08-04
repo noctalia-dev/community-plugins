@@ -289,6 +289,7 @@
       "unknown": "The service returned an unknown error."
     },
     "keyboard": {
+      "available_layers": "Used with",
       "clear_modifiers": "Clear modifiers",
       "free": "Free",
       "free_hint": "This combination is not used in the currently selected layer.",
@@ -307,6 +308,7 @@
       "no_modifiers": "No modifiers",
       "occupied": "Occupied",
       "other_layer": "Used on another layer",
+      "other_layer_hint": "This key is assigned with different modifiers. Choose a layer below to view its shortcuts.",
       "outside": "{count} shortcuts outside the keyboard view",
       "select_hint": "Select modifiers, then click a key to inspect that combination.",
       "summary": "{layer}: {count} occupied keys",
