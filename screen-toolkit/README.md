@@ -16,7 +16,7 @@ not the original implementation.
 | Field | Value |
 | --- | --- |
 | ID | `alexander/screen-toolkit` |
-| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (tools), `result` (result view); service: `service` |
+| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (compact tools), `panel-full` (full tools), `result` (result view); service: `service` |
 
 ## Requirements
 
@@ -60,10 +60,43 @@ Settings → Control Center shortcuts. Left-click either one opens the main pane
 (or stops a recording); right-clicking the bar widget quick-picks a color. While
 a recording is active, the widget and shortcut show a pulsing red dot.
 
-Open the main tools panel:
+The main panel has two layouts, selected by the `panel-mode` setting (default:
+**Full**):
+
+- **Full** — the spacious original grid with section titles (`panel-full`,
+  660×340).
+- **Compact** — a dense grid grouped into tinted sections (`panel`,
+  380×260).
+
+The widget and shortcut open whichever entry matches the setting; the panel
+footnote under Settings → Plugins shows both panels' placement/position
+options.
+
+Toggle the tools panel (opens the entry matching the `panel-mode` setting):
+
+```sh
+noctalia msg plugin alexander/screen-toolkit:service all toggle
+```
+
+For example, bind it to `SUPER+P` in Hyprland:
+
+```ini
+bind = SUPER, P, exec, noctalia msg plugin alexander/screen-toolkit:service all toggle
+```
+
+Because `toggle` reads the `panel-mode` setting, this single bind works in both
+full and compact mode — no need to change the keybind when you switch layouts.
+
+Open the compact tools panel:
 
 ```sh
 noctalia msg panel-toggle alexander/screen-toolkit:panel
+```
+
+Open the full tools panel (the original spacious grid):
+
+```sh
+noctalia msg panel-toggle alexander/screen-toolkit:panel-full
 ```
 
 Open the result panel (shows the last capture/recording output):
@@ -131,6 +164,7 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `record-skip-confirmation` | `bool` | `false` | Save automatically when a recording ends, skipping the save dialog. |
 | `record-copy-to-clipboard` | `bool` | `false` | Finalize to MP4 and copy the file URI when recording ends. |
 | `gif-max-seconds` | `int` | `30` | Cap for GIF recordings (1–600 s). |
+| `panel-mode` | `select` | `full` | Main panel layout: `full` (spacious original grid, 660×340) or `compact` (dense grid, 380×260). |
 
 ## IPC
 
@@ -153,17 +187,70 @@ noctalia msg plugin alexander/screen-toolkit:service all recordFullscreen
 noctalia msg plugin alexander/screen-toolkit:service all recordFullscreenMp4
 noctalia msg plugin alexander/screen-toolkit:service all recordStop
 noctalia msg plugin alexander/screen-toolkit:service all recordSave
+noctalia msg plugin alexander/screen-toolkit:service all recordCopy
 noctalia msg plugin alexander/screen-toolkit:service all recordDiscard
+noctalia msg plugin alexander/screen-toolkit:service all ocrSearch
+noctalia msg plugin alexander/screen-toolkit:service all clearResult
+noctalia msg plugin alexander/screen-toolkit:service all clearHistory
 ```
 
-`ocrTranslate` takes a language code payload:
+`toggle` opens the tools panel **matching the `panel-mode` setting** — one IPC
+that works for both layouts. The bar widget and control-center shortcut use the
+same mode-aware toggle.
+
+Commands that take a payload:
 
 ```sh
+# Translate the current OCR text into a language (language code payload)
 noctalia msg plugin alexander/screen-toolkit:service all ocrTranslate en
+# Search the current OCR text (or a payload.text) with the configured engine
+noctalia msg plugin alexander/screen-toolkit:service all ocrSearch
+# Share a file on disk (absolute path payload)
+noctalia msg plugin alexander/screen-toolkit:service all share /path/to/image.png
+# Save the finished recording (payload format: "gif" or "mp4")
+noctalia msg plugin alexander/screen-toolkit:service all recordSave mp4
+# Show or hide the cursor in captures (payload: "true" or "false")
+noctalia msg plugin alexander/screen-toolkit:service all setCursorHidden true
 ```
+
+Summary of every service command:
+
+| Command | Payload | Action |
+| --- | --- | --- |
+| `toggle` | — | Open/close the tools panel that matches `panel-mode` |
+| `colorPicker` | — | Pick a color from the screen (region crosshair) |
+| `ocr` | — | Extract text from a region |
+| `qr` | — | Decode a QR / barcode from a region |
+| `palette` | — | Extract hex colors from a region |
+| `lens` | — | Google Lens search on a region |
+| `measure` | — | Report a region's pixel size |
+| `annotate` | — | Open a region in the annotation editor |
+| `annotateFullscreen` | — | Annotate the full screen |
+| `annotateWindow` | — | Annotate the focused window (Hyprland only) |
+| `record` | — | Record a region as GIF |
+| `recordMp4` | — | Record a region as MP4 |
+| `recordFullscreen` | — | Record the full screen as GIF |
+| `recordFullscreenMp4` | — | Record the full screen as MP4 |
+| `recordStop` | — | Stop the active recording |
+| `recordSave` | `"gif"` / `"mp4"` | Save the finished recording |
+| `recordCopy` | — | Finalize to MP4 and copy the file URI |
+| `recordDiscard` | — | Discard the finished recording |
+| `ocrSearch` | optional `{text}` | Search OCR text with the configured engine |
+| `ocrTranslate` | language code | Translate OCR text |
+| `share` | file path | Upload a file and copy the link |
+| `clearResult` | — | Clear the current result panel state |
+| `clearHistory` | — | Clear the color history |
+| `setCursorHidden` | `"true"` / `"false"` | Include/exclude the cursor in captures |
 
 ## Notes
 
+- **Two panel entries, one layout setting.** Panel size is host-owned: the host
+  sizes each `[[panel]]` entry from its `width`/`height`, and there is no runtime
+  resize. So the two layouts are two entries sharing `panel.luau`: `panel-full`
+  (660×340, the original spacious grid) and `panel` (380×260, the compact grid).
+  The `panel-mode` setting picks which one renders, and `toggle`/widget/shortcut
+  all open the matching entry. Changing the setting only affects which panel
+  opens next time; an already-open panel keeps its current size until closed.
 - This is a port of the legacy v4
   [screen-toolkit](https://github.com/noctalia-dev/legacy-v4-plugins/tree/main/screen-toolkit)
   plugin. Tools that relied on freeform v4 QML overlays are adapted: region

@@ -284,8 +284,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.4"
-updated_at = 1785024261
+version = "1.4.5"
+updated_at = 1785811198
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -574,8 +574,8 @@ tags = ["bar", "panel", "service", "productivity", "time"]
 [[plugin]]
 id = "cleboost/anilist"
 name = "AniList (UNOFFICIAL)"
-version = "1.1.1"
-updated_at = 1785532344
+version = "1.1.2"
+updated_at = 1785811012
 added_at = 1784843708
 author = "Cleboost"
 license = "MIT"
@@ -894,8 +894,8 @@ tags = ["bar", "panel", "service", "media"]
 [[plugin]]
 id = "nilsonlinux/rss-notifier"
 name = "RSS/Atom Notifier"
-version = "1.0.0"
-updated_at = 1785462185
+version = "1.0.1"
+updated_at = 1785810958
 added_at = 1785462185
 author = "Nilsonlinux"
 license = "MIT"
@@ -1029,8 +1029,8 @@ tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.0.0"
-updated_at = 1785759728
+version = "1.1.0"
+updated_at = 1785811087
 added_at = 1785759728
 author = "alexander"
 license = "MIT"
@@ -1064,3 +1064,16 @@ icon = "layout-filled"
 description = "Layout switcher for MangoWC"
 plugin_api = 14
 tags = ["bar", "panel", "mangowc", "utility"]
+
+[[plugin]]
+id = "maddingo/hypr-layout-switcher"
+name = "Hyprland Layout Switcher"
+version = "0.1.0"
+updated_at = 1785812073
+added_at = 1785812073
+author = "maddingo"
+license = "MIT"
+icon = "layout-grid"
+description = "Shows and cycles the active workspace's layout"
+plugin_api = 3
+tags = ["hyprland"]

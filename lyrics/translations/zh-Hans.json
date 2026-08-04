@@ -148,6 +148,9 @@
     "hide_when_paused": {
       "label": "暂停时隐藏"
     },
+    "hide_when_no_lyrics": {
+      "label": "无歌词时隐藏"
+    },
     "inactive_color": {
       "description": "设置未唱歌词、暂停状态和次要歌词行的颜色。",
       "label": "未唱歌词颜色"

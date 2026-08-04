@@ -16,6 +16,7 @@
 -- lands in /tmp as MP4; GIF is produced on save via record.sh convert-gif.
 
 local PANEL_ID = "alexander/screen-toolkit:panel"
+local FULL_PANEL_ID = "alexander/screen-toolkit:panel-full"
 local RESULT_PANEL_ID = "alexander/screen-toolkit:result"
 
 local SCRIPT_CAPTURE = noctalia.pluginDir() .. "/scripts/capture.sh"
@@ -919,7 +920,10 @@ local HANDLERS = {
   clearResult = clearResult,
   clearHistory = clearHistory,
   setCursorHidden = setCursorHidden,
-  toggle = function() noctalia.togglePanel(PANEL_ID) end,
+  toggle = function()
+    local id = cfg("panel-mode") == "full" and FULL_PANEL_ID or PANEL_ID
+    noctalia.togglePanel(id)
+  end,
 }
 
 -- Tools that begin a brand-new capture. Starting one discards any recording

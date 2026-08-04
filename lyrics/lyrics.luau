@@ -8,6 +8,7 @@ local showGlyph = noctalia.getConfig("show_glyph")
 if showGlyph == nil then showGlyph = true end
 local showArtist = noctalia.getConfig("show_artist")
 local hideWhenPaused = noctalia.getConfig("hide_when_paused")
+local hideWhenNoLyrics = noctalia.getConfig("hide_when_no_lyrics")
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end
 local coverShape = noctalia.getConfig("cover_shape") or "circle"
@@ -142,8 +143,12 @@ local function getProgressMs()
   return baselinePosition / 1000 + elapsed
 end
 
+local function hasLyrics()
+  return lyrics and #lyrics > 0 and track
+end
+
 local function getLineInfo()
-  if not lyrics or #lyrics == 0 or not track then return nil end
+  if not hasLyrics() then return nil end
 
   local position = getProgressMs()
   local synced = lyrics[1].time >= 0
@@ -442,7 +447,8 @@ local function currentTransitionLine(info)
 end
 
 local function render()
-  if hideWhenPaused and not playing then
+  local showingTrack = displayMode == "track" or showMode == "track"
+  if hideWhenPaused and not playing or hideWhenNoLyrics and not showingTrack and not hasLyrics() then
     barWidget.setVisible(false)
     return
   end

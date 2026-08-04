@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 9
 author = "alexander"
 license = "MIT"
@@ -39,6 +39,38 @@ dependencies = [
   "wl-screenrec",
   "wf-recorder",
 ]
+
+# ── Panel entries (host-injected placement/size settings appear here, first in the settings editor) ──
+
+# Main toolkit panel: tool grid + per-tool result views + recording controls.
+# Open with: noctalia msg panel-toggle alexander/screen-toolkit:panel
+# Compact layout (default). Full mode uses the "panel-full" entry below; the
+# bar widget / shortcut open whichever entry matches the "panel-mode" setting.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 260
+placement = "floating"
+position = "center"
+
+# Full-mode layout: the original spacious grid (660x340).
+[[panel]]
+id = "panel-full"
+entry = "panel.luau"
+width = 660
+height = 340
+placement = "floating"
+position = "center"
+
+# Result panel: opened by the service when a capture tool finishes.
+[[panel]]
+id = "result"
+entry = "result.luau"
+width = 560
+height = 520
+placement = "floating"
+position = "center"
 
 # ── Plugin-level settings (shared by every entry, edited in Settings → Plugins) ──
 
@@ -170,6 +202,17 @@ default = 30
 min = 1
 max = 600
 
+[[setting]]
+key = "panel-mode"
+type = "select"
+label_key = "settings.panel_mode.label"
+description_key = "settings.panel_mode.description"
+default = "full"
+options = [
+  { value = "compact", label_key = "settings.panel_mode.options.compact" },
+  { value = "full", label_key = "settings.panel_mode.options.full" },
+]
+
 # ── Entries ─────────────────────────────────────────────────────────────────
 
 # Bar widget: crosshair glyph; shows a pulsing red dot while recording.
@@ -182,25 +225,6 @@ entry = "widget.luau"
 [[shortcut]]
 id = "toggle"
 entry = "shortcut.luau"
-
-# Main toolkit panel: tool grid + per-tool result views + recording controls.
-# Open with: noctalia msg panel-toggle alexander/screen-toolkit:panel
-[[panel]]
-id = "panel"
-entry = "panel.luau"
-width = 660
-height = 340
-placement = "floating"
-position = "center"
-
-# Result panel: opened by the service when a capture tool finishes.
-[[panel]]
-id = "result"
-entry = "result.luau"
-width = 560
-height = 520
-placement = "floating"
-position = "center"
 
 # Headless engine: owns captures, tool pipelines, recording, and persistence.
 [[service]]

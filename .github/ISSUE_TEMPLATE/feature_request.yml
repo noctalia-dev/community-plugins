@@ -50,6 +50,7 @@ body:
         - gslapper
         - hassio
         - hotspot
+        - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
         - ideapad-conservation-mode
