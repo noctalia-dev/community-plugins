@@ -1,5 +1,5 @@
 {
-  "plugin_name": "AI Limits",
+  "plugin_name": "CodexBar Usage",
   "settings": {
     "codexbar_path": {
       "label": "CodexBar command",

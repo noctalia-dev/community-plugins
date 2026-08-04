@@ -97,7 +97,9 @@ local function windowLabel(window, fallback)
     if minutes == 1440 then return "24-hour window" end
     if minutes == 10080 then return "Weekly window" end
     if minutes == 43200 then return "30-day window" end
-    if minutes > 0 then return string.format("%d-day window", math.floor(minutes / 1440)) end
+    if minutes >= 1440 then return string.format("%d-day window", math.floor(minutes / 1440)) end
+    if minutes >= 60 then return string.format("%d-hour window", math.floor(minutes / 60)) end
+    if minutes > 0 then return string.format("%d-minute window", minutes) end
     return fallback or "Usage window"
 end
 
@@ -333,11 +335,31 @@ local function providerCard(provider, index)
         })
     end
 
+    if provider.stale == true then
+        children[#children + 1] = ui.row({ fill = "tertiary/0.10", radius = 8, padding = 8, align = "center", gap = 7 }, {
+            ui.glyph({ name = "clock", size = 13, color = "tertiary" }),
+            ui.label({ text = "Showing cached provider data", fontSize = 11, color = "tertiary", maxLines = 2 }),
+        })
+    end
+
     return ui.column({ key = "provider-card-" .. tostring(index), fill = "surface_variant/0.58", radius = 14, padding = 11, gap = 8 }, children)
+end
+
+local function panelStatus()
+    if errorMsg ~= "" then
+        return #providers > 0 and "STALE" or "OFFLINE", "alert-circle", "error"
+    end
+    for _, provider in ipairs(providers) do
+        if provider.stale == true then return "STALE", "clock", "tertiary" end
+    end
+    if #providers == 0 then return "WAITING", "loader-2", "on_surface_variant" end
+    return "LIVE", "circle-filled", "primary"
 end
 
 local function render()
     if not panelOpen then return end
+
+    local statusLabel, statusGlyph, statusColor = panelStatus()
 
     local header = ui.row({ align = "center", justify = "space_between" }, {
         ui.row({ align = "center", gap = 10 }, {
@@ -351,15 +373,15 @@ local function render()
         }),
         ui.row({ align = "center", gap = 2 }, {
             ui.button({ glyph = "refresh", variant = "ghost", tooltip = "Refresh now", onClick = "onRefresh" }),
-            ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onClose" }),
+            ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = "onCloseClicked" }),
         }),
     })
 
     local children = { header }
-    children[#children + 1] = ui.row({ align = "center", justify = "space_between", fill = "primary/0.08", radius = 8, paddingH = 9, paddingV = 6 }, {
+    children[#children + 1] = ui.row({ align = "center", justify = "space_between", fill = statusColor .. "/0.08", radius = 8, paddingH = 9, paddingV = 6 }, {
         ui.row({ align = "center", gap = 6 }, {
-            ui.glyph({ name = "circle-filled", size = 8, color = "primary" }),
-            ui.label({ text = "LIVE", fontSize = 10, fontWeight = "bold", color = "primary" }),
+            ui.glyph({ name = statusGlyph, size = 8, color = statusColor }),
+            ui.label({ text = statusLabel, fontSize = 10, fontWeight = "bold", color = statusColor }),
         }),
         ui.label({ text = "Updates every " .. tostring(refreshIntervalSec) .. " seconds", fontSize = 11, color = "on_surface_variant" }),
     })
@@ -415,6 +437,9 @@ end
 
 function onClose()
     panelOpen = false
+end
+
+function onCloseClicked()
     panel.close()
 end
 

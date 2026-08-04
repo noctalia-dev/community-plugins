@@ -126,7 +126,9 @@ local function windowLabel(window, fallback)
     if minutes == 1440 then return "24h" end
     if minutes == 10080 then return "7d" end
     if minutes == 43200 then return "30d" end
-    if minutes > 0 then return string.format("%dd", math.floor(minutes / 1440)) end
+    if minutes >= 1440 then return string.format("%dd", math.floor(minutes / 1440)) end
+    if minutes >= 60 then return string.format("%dh", math.floor(minutes / 60)) end
+    if minutes > 0 then return string.format("%dm", minutes) end
     return fallback or "limit"
 end
 
@@ -336,6 +338,7 @@ local function estimatedProviderHeight(provider)
     height = height + (#windowsFor(provider) * 82)
     if providerError(provider) ~= "" then height = height + 44 end
     if hasPaceSummary(provider) then height = height + 34 end
+    if provider.stale == true then height = height + 34 end
 
     local credits = creditsFor(provider)
     if credits ~= nil and credits.remaining ~= nil then height = height + 30 end

@@ -1,6 +1,6 @@
-# AI Limits
+# CodexBar Usage
 
-AI Limits is a native Noctalia v5 bar widget and attached panel for usage
+CodexBar Usage is a native Noctalia v5 bar widget and attached panel for usage
 limits reported by the local [CodexBar](https://github.com/steipete/CodexBar)
 CLI. It discovers the providers enabled in CodexBar, keeps the bar compact,
 and exposes every provider and quota window in a scrollable panel.
