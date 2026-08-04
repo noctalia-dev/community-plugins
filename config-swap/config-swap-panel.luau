@@ -378,6 +378,10 @@ local function renderInfoStore()
 				ui.label({ text = tr("info_store_community_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
 			ui.column({ gap = 4 }, {
+				ui.label({ text = tr("info_how_to_submite_config_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
+				ui.label({ text = tr("info_how_to_submite_config_body"), fontSize = 12, color = "on_surface_variant" }),
+			}),
+			ui.column({ gap = 4 }, {
 				ui.label({ text = tr("info_store_rate_limits_title"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
 				ui.label({ text = tr("info_store_rate_limits_body"), fontSize = 12, color = "on_surface_variant" }),
 			}),
@@ -443,7 +447,7 @@ local function renderList()
 				render()
 			end
 			}),
-			ui.button({ text = "info", onClick = function()
+			ui.button({ text = "Info", onClick = function()
 				renderInfoStore()
 			end
 			}),

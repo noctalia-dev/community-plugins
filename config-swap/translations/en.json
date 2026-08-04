@@ -38,8 +38,10 @@
 		"info_store_applying_title": "Applying a profile",
 		"info_store_applying_body": "Pressing apply replaces your active settings.toml and wallpaper with the selected profile. This is not reversible unless you saved a backup first from the Setting section.",
 		"info_store_community_title": "Community content",
-		"info_store_community_body": "Profiles are submitted by community members and are review by owner.",
+		"info_store_community_body": "Profiles are submitted by community members and are reviewed by the owner.",
 		"info_store_rate_limits_title": "Rate limits",
-		"info_store_rate_limits_body": "The store list is fetched from the GitHub API, which limits unauthenticated requests. Avoid refreshing repeatedly in a short period of time."
+		"info_store_rate_limits_body": "The store list is fetched from the GitHub API, which limits unauthenticated requests. Avoid refreshing repeatedly in a short period of time.",
+		"info_how_to_submite_config_title": "How to submit a configuration",
+		"info_how_to_submite_config_body": "You can contribute to Config Swap by adding your own configuration files and wallpaper to the store so others can use them.\n\nTo do so:\n* Go to the Settings section and save your configuration. The plugin will copy your settings.toml and create an info.json file.\n* Take a preview image and wallpaper, then go to ~/Config-Swap/{name} and copy your preview.png and wallpaper.png files. The exact names are required.\n* Update your info.json with important information such as the author and description.\n* Go to the GitHub page linked from the information panel in the Store section and create a pull request.\n* Wait for review, and then your configuration can be shared."
 	}
 }
