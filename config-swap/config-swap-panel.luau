@@ -43,7 +43,7 @@ end
 
 -- Detecte dangerous charactère
 
-function isDetecte(target: string)
+function isDetect(target: string)
 	local match_string = "[/.$();]"
 	
 	if string.match(target, match_string) then
@@ -133,7 +133,7 @@ end
 function applyConfig(data: infoConfig)
 	noctalia.notify(tr("apply_notification_title"))
 
-	if isDetecte(data.name) == true then					-- detecte malicious name
+	if isDetect(data.name) == true then					-- detecte malicious name
 		noctalia.notify(tr("apply_notification_title"), "Invalid name. Please check your info.json")
 		return
 	end
@@ -244,7 +244,7 @@ local function delete(name)
 		return
 	end
 
-	if isDetecte(name) == true then								-- detecte malicious name
+	if isDetect(name) == true then								-- detecte malicious name
 		noctalia.notify("Delete", "Invalide Name. Please check info.json")
 		return
 	end
@@ -282,7 +282,7 @@ local saveNameInput = "save"
 local function saveConfig()
 	local name = saveNameInput ~= "" and saveNameInput or "save"
 
-	if isDetecte(name) then										-- detecte special charactere
+	if isDetect(name) then										-- detecte special charactere
 		noctalia.notify("Save", "Invalid Name")
 		return
 	end
