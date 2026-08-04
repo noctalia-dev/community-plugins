@@ -7,6 +7,7 @@ license     = "MIT"
 icon        = "rss"
 description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
 tags        = ["utility", "indicator"]
+dependencies = ["xdg-open"]
 
 # ---------------------------------------------------------------------------
 # Settings de nivel de plugin: compartilhadas por TODAS as entries
