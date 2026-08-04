@@ -1,13 +1,17 @@
 id          = "nilsonlinux/rss-notifier"
 name        = "RSS/Atom Notifier"
-version     = "1.0.1"
+version     = "1.0.2"
 plugin_api  = 14
-author      = "Nilsonlinux"
+author      = "nilsonlinux"
 license     = "MIT"
 icon        = "rss"
 description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
 tags        = ["utility", "indicator"]
-dependencies = ["xdg-open"]
+
+# ---------------------------------------------------------------------------
+# Settings de nivel de plugin: compartilhadas por TODAS as entries
+# (service + widget). Editadas em Settings -> Plugins.
+# ---------------------------------------------------------------------------
 
 [[setting]]
 key             = "feed_urls"
@@ -42,19 +46,38 @@ min             = 1
 max             = 50
 advanced        = true
 
+# ---------------------------------------------------------------------------
+# Service: roda em segundo plano, sem UI, busca e faz parsing dos feeds
+# ---------------------------------------------------------------------------
+
 [[service]]
 id    = "fetcher"
 entry = "service.luau"
 
+# ---------------------------------------------------------------------------
+# Widget de barra: mostra a contagem de itens nao lidos
+# ---------------------------------------------------------------------------
+
 [[widget]]
 id    = "badge"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "rss"
+
+# ---------------------------------------------------------------------------
+# Panel: janelinha com a lista de itens, aberta pelo clique no widget
+# ---------------------------------------------------------------------------
 
 [[panel]]
 id              = "list"
 entry           = "panel.luau"
 width           = 360
 height          = 440
-placement       = "attached"
+placement       = "attached"   # anexado a barra, perto do widget
 position        = "auto"
 open_near_click = true
