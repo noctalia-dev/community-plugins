@@ -41,6 +41,18 @@ local function resolveStateDir()
 		or ((noctalia.getenv("XDG_STATE_HOME") or ((noctalia.getenv("HOME") or "") .. "/.local/state")) .. "/noctalia")
 end
 
+-- Detecte dangerous charactère
+
+function isDetecte(target: string)
+	local match_string = "[/.]"
+	
+	if string.match(target, match_string) then
+		return true
+	else
+		return false
+	end
+end
+
 -- Store listing cache
 
 local allConfig: { infoConfig } = {}
@@ -120,6 +132,11 @@ end
 
 function applyConfig(data: infoConfig)
 	noctalia.notify(tr("apply_notification_title"))
+
+	if isDetecte(data.name) == true then					-- detecte malicious name
+		noctalia.notify(tr("apply_notification_title"), "Invalid name. Please check your info.json")
+		return
+	end
 
 	local pathSettings = takePosSetting()
 	if not pathSettings then
@@ -227,6 +244,11 @@ local function delete(name)
 		return
 	end
 
+	if isDetecte(name) == true then								-- detecte malicious name
+		noctalia.notify("Delete", "Invalide Name. Please check info.json")
+		return
+	end
+
 	local target = noctalia.expandPath(configBox .. "/" .. name)
 	local cmd = "rm -rf " .. shellQuote(target)  				-- shellQuote protects the rm target path
 	noctalia.runAsync(cmd, function(result)
@@ -259,6 +281,12 @@ local saveNameInput = "save"
 
 local function saveConfig()
 	local name = saveNameInput ~= "" and saveNameInput or "save"
+
+	if isDetecte(name) then										-- detecte special charactere
+		noctalia.notify("Save", "Invalid Name")
+		return
+	end
+
 	local savePath = configBox .. "/" .. name
 	noctalia.mkdirAll(savePath)
 
