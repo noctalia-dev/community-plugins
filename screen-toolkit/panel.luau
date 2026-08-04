@@ -139,16 +139,21 @@ local function compactTile(t)
     flexGrow = 1,
     gap = 2,
     align = "center",
-    onClick = function() runTool(t.action) end,
-    onHover = function(state)
-      hoveredTool = (state == "true") and t.action or nil
-      render()
-    end,
   }, {
-    ui.column({ width = 30, height = 30, radius = 9, fill = "on_primary", border = color == "primary" and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center" }, {
-      ui.glyph({ name = t.glyph, size = 16, color = color }),
+    ui.column({
+      gap = 2,
+      align = "center",
+      onClick = function() runTool(t.action) end,
+      onHover = function(state)
+        hoveredTool = (state == "true") and t.action or nil
+        render()
+      end,
+    }, {
+      ui.column({ width = 30, height = 30, radius = 9, fill = "on_primary", border = color == "primary" and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center" }, {
+        ui.glyph({ name = t.glyph, size = 16, color = color }),
+      }),
+      ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
     }),
-    ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
   })
 end
 
