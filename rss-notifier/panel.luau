@@ -3,6 +3,7 @@
 -- recentes, ou um estado vazio com icone quando nao ha nada novo.
 
 local items = {}
+local hoveredKey = nil
 
 -- declaradas antes para permitir referencia cruzada entre elas
 local render
@@ -38,13 +39,22 @@ dismissItem = function(item)
 end
 
 itemRow = function(item)
+  local key = item.id or item.link or item.title
+  local hovered = hoveredKey == key
+
   return ui.row({
-    key     = item.id or item.link or item.title,
-    gap     = 6,
-    padding = 10,
-    radius  = 8,
-    fill    = "surface_variant/0.4",
-    align   = "center",
+    key         = key,
+    gap         = 6,
+    padding     = 10,
+    radius      = 8,
+    fill        = "surface_variant/0.4",
+    align       = "center",
+    border      = "outline",
+    borderWidth = hovered and 1 or 0,
+    onHover     = function(isHovering)
+      hoveredKey = isHovering and key or nil
+      render()
+    end,
   }, {
     ui.column({
       gap      = 2,
@@ -81,6 +91,8 @@ render = function()
     for _, item in ipairs(items) do
       table.insert(rows, itemRow(item))
     end
+    -- flexGrow preenche o espaco que sobrar dentro da coluna raiz - so
+    -- funciona se essa coluna tiver uma altura definida (ver abaixo).
     body = ui.scroll({ gap = 6, flexGrow = 1 }, rows)
   end
 
@@ -91,7 +103,9 @@ render = function()
   table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
   table.insert(headerButtons, ui.button({ glyph = "close", variant = "outline", controlSize = "sm", onClick = "onCloseClicked" }))
 
-  panel.render(ui.column({ gap = 10, padding = 12, fill = true }, {
+  -- um pouco menor que os 415 do painel (ver plugin.toml) para sobrar uma
+  -- margem de seguranca antes da borda arredondada, em vez de encostar nela
+  panel.render(ui.column({ gap = 10, padding = 12, height = 415 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = "RSS/Atom Notifier", fontSize = 15, fontWeight = "bold" }),
       ui.row({ gap = 4 }, headerButtons),
