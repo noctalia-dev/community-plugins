@@ -202,26 +202,25 @@ local function fullHeader()
 end
 
 local function fullTile(t)
-  local hovered = hoveredTool == t.action
-  local color = hovered and "primary" or "on_surface_variant"
+  local color = hoveredTool == t.action and "primary" or "on_surface"
   return ui.column({
     key = "tile-" .. t.action,
     flexGrow = 1,
     gap = 6,
     align = "center",
     paddingV = 6,
-    radius = 10,
-    fill = "surface_variant/0.28",
+    radius = 12,
+    fill = "surface_variant",
     borderWidth = 1,
-    border = hovered and "primary" or "outline",
+    border = color == "primary" and "primary" or "outline",
     onClick = function() runTool(t.action) end,
     onHover = function(state)
       hoveredTool = (state == "true") and t.action or nil
       render()
     end,
   }, {
-    ui.column({ width = 30, height = 30, radius = 9, fill = "primary/0.12", border = hovered and "primary" or "primary/0.12", borderWidth = 1, align = "center", justify = "center" }, {
-      ui.glyph({ name = t.glyph, size = 16, color = hovered and "primary" or color }),
+    ui.column({ width = 30, height = 30, radius = 9, fill = "on_primary", border = color == "primary" and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center" }, {
+      ui.glyph({ name = t.glyph, size = 16, color = color }),
     }),
     ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
   })
