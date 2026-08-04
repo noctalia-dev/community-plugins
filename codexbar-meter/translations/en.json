@@ -1,0 +1,17 @@
+{
+  "plugin_name": "CodexBar Meter",
+  "settings": {
+    "codexbar_path": {
+      "label": "CodexBar command",
+      "description": "Command or absolute path used to query enabled CodexBar providers."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "Seconds between background usage refreshes."
+    },
+    "bar_provider_limit": {
+      "label": "Bar provider limit",
+      "description": "Maximum number of provider meters shown in the bar capsule; the panel and tooltip still include all providers."
+    }
+  }
+}
