@@ -23,7 +23,9 @@
     "bluetooth_connected": "Bluetooth connected",
     "bluetooth_disconnected": "Bluetooth disconnected",
     "current": "Current",
-    "output_group": "Output group"
+    "output_group": "Output group",
+    "port": "Port",
+    "unavailable_port": "{port} (unavailable)"
   },
   "editor": {
     "alias": "Display name",
@@ -57,6 +59,9 @@
     "invalid_audio_data": "The audio service returned invalid data.",
     "invalid_slot": "The keybind number must be a whole number from 1 to 99.",
     "invalid_volume": "The requested volume is invalid.",
+    "input_port_not_found": "The selected input port no longer exists.",
+    "input_port_switch_failed": "Could not switch the input port.",
+    "input_port_unavailable": "The selected input port is not currently available.",
     "no_visible_devices": "There are no visible devices to cycle through.",
     "pactl_missing": "pactl is required but was not found on PATH.",
     "scan_in_progress": "Bluetooth scanning is already in progress.",
@@ -68,6 +73,7 @@
     "bluetooth_disconnected": "Bluetooth device disconnected.",
     "group_created": "Output group created and selected.",
     "group_removed": "Output group disbanded.",
+    "input_port_selected": "Input port switched to {port}.",
     "input_selected": "Input switched to {device}.",
     "output_selected": "Output switched to {device}.",
     "preferences_saved": "Device preferences saved.",
