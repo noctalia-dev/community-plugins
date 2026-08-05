@@ -1077,3 +1077,29 @@ icon = "layout-grid"
 description = "Shows and cycles the active workspace's layout"
 plugin_api = 3
 tags = ["hyprland"]
+
+[[plugin]]
+id = "yugaaank/better-clock"
+name = "Better Clock"
+version = "1.1.0"
+updated_at = 1785813000
+added_at = 1785812073
+author = "yugaaank"
+license = "MIT"
+icon = "clock"
+description = "A minimal digital clock desktop widget with customizable format."
+plugin_api = 19
+tags = ["desktop", "clock", "time", "utility"]
+
+[[plugin]]
+id = "yugaaank/better-calendar"
+name = "Better Calendar"
+version = "1.1.0"
+updated_at = 1785813000
+added_at = 1785812073
+author = "yugaaank"
+license = "MIT"
+icon = "calendar"
+description = "A premium Apple-inspired desktop calendar widget."
+plugin_api = 19
+tags = ["desktop", "calendar", "date", "utility"]
