@@ -1,8 +1,16 @@
-# Better Clock
+## Plugin
 
 A minimal digital clock desktop widget with customizable format.
 
-## Settings
+- **Id:** `yugaaank/better-clock`
+
+## Usage
+
+### Desktop Widget
+
+The widget displays the current time and optionally the date below it.
+
+### Settings
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -10,14 +18,6 @@ A minimal digital clock desktop widget with customizable format.
 | `date_format` | string | `{:%A, %B %d}` | Luau date format for date |
 | `show_date` | bool | `true` | Display the date below the time |
 
-## Dependencies
-
-None
-
-## Panel IPC
-
-None
-
-## Launcher
+### Dependencies
 
 None
