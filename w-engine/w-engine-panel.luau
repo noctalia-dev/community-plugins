@@ -1291,28 +1291,35 @@ render = function()
 			favoriteRow = {}
 		end
 	end
+
+	-- Single scroll for all list (Wallpaper and Favorite Wallpaper
+	local scrollContent = {}
+	table.insert(scrollContent, ui.label({ text = "Favorites", fontSize = 13, fontWeight = "bold", color = "on_surface" }))
 	if #FavoriteList == 0 then
-		table.insert(
-			body,
-			ui.label({ text = "No favorite", align = "stretch", flexGrow = 1 })
-		)
-	end
-	if #FavoriteList > 0 then
-		table.insert(
-			body,
-			ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, favoriteRows)
-		)
+		table.insert(scrollContent, ui.label({ text = "No favorite", fontSize = 12, color = "on_surface_variant" }))
+	else
+		for _, r in ipairs(favoriteRows) do
+			table.insert(scrollContent, r)
+		end
 	end
 
-	-- paddingRight keeps the last column clear of the scrollbar.
-	table.insert(
-		body,
-		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, rows)
-	)
+	table.insert(scrollContent,
+		ui.separator({ spacing = 12 }
+	))
+
+	table.insert(scrollContent,
+		ui.label({ text = "All wallpapers", fontSize = 13, fontWeight = "bold", color = "on_surface" }
+	))
+
+	for _, r in ipairs(rows) do
+		table.insert(scrollContent, r)
+	end
+
+	table.insert(body,
+		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, scrollContent))
 
 	panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
 end
-
 -- ── Handlers ─────────────────────────────────────────────────────────────────
 
 -- Adopts the service's view of this output. Selection, interval and order are
