@@ -1,0 +1,14 @@
+id = "better-clock"
+name = "Better Clock"
+version = "1.0.0"
+author = "yugaaank"
+license = "MIT"
+description = "A minimal digital clock desktop widget with customizable format."
+icon = "clock"
+tags = ["desktop", "clock", "time", "utility"]
+plugin_api = 19
+
+[settings]
+time_format = "%H:%M:%S"
+date_format = "%A, %d %B %Y"
+show_date = true
