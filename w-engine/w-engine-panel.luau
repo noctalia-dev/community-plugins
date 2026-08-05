@@ -51,6 +51,10 @@ local engineDraft = {} -- working copy of options[id].engine
 local propsDraft = {}  -- working copy of options[id].properties
 local showUnlabeled = false
 
+-- Favorite Wallpaper
+
+local FavoriteList = {}
+
 -- Global defaults view.
 local defaultsDraft = {} -- working copy of defaults.engine
 local clearOverrides = false
@@ -1170,12 +1174,50 @@ local function tilePreview(item, isSelected, isCurrent)
 	})
 end
 
+-- Favorite list 
+
+local function addFavoriteList(item)
+	noctalia.notify("Add Favorite")
+	table.insert(FavoriteList, item)
+end
+
+local function removeFavoriteList(item, nb)
+	noctalia.notify("Remove Favorite")
+	table.remove(FavoriteList, nb)
+end
+
+local function checkInFavoriteList(item)
+	local nb = 1
+	for _, entryName in ipairs(FavoriteList) do
+		if entryName.name == item.name then
+			removeFavoriteList(item, nb)
+			return
+		end
+		nb = nb + 1
+	end
+	addFavoriteList(item)
+end
+
+
+-- 
+
+
 local function tileCaption(item, index, isSelected)
 	-- Numbered to show rotation order.
 	local caption = isSelected and (tostring(index) .. ". " .. item.name) or item.name
 
 	-- A fixed label width keeps every tile the same size; long titles truncate.
 	return ui.row({ gap = 2, align = "center" }, {
+		ui.button({
+			glyph = "star",
+			variant = "ghost",
+			controlSize = "sm",
+			tooltip = "Add at your favorite wallpaper",
+			onClick = function()
+				checkInFavoriteList(item)
+				render()
+			end
+		}),
 		ui.label({
 			text = caption,
 			fontSize = 11,
@@ -1239,6 +1281,29 @@ render = function()
 	if #catalog == 0 then
 		table.insert(body, ui.label({ text = tr("panel.no_wallpapers"), fontSize = 12, color = "on_surface_variant" }))
 	end
+
+	local favoriteRows = {}
+	local favoriteRow = {}
+	for index, item in ipairs(FavoriteList) do
+		table.insert(favoriteRow, tile(item, state))
+		if #favoriteRow == columns or index == #FavoriteList then
+			table.insert(favoriteRows, ui.row({ gap = 12, align = "start" }, favoriteRow))
+			favoriteRow = {}
+		end
+	end
+	if #FavoriteList == 0 then
+		table.insert(
+			body,
+			ui.label({ text = "No favorite", align = "stretch", flexGrow = 1 })
+		)
+	end
+	if #FavoriteList > 0 then
+		table.insert(
+			body,
+			ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, favoriteRows)
+		)
+	end
+
 	-- paddingRight keeps the last column clear of the scrollbar.
 	table.insert(
 		body,
