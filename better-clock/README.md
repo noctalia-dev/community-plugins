@@ -1,23 +1,22 @@
+# Better Clock
+
+A minimal digital clock desktop widget with customizable time and date format strings.
+
 ## Plugin
 
-A minimal digital clock desktop widget with customizable format.
+| Field | Value |
+| --- | --- |
+| ID | `yugaaank/better-clock` |
+| Entries | Desktop widget: `clock` |
 
-- **Id:** `yugaaank/better-clock`
+## Settings
 
-## Usage
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `time_format` | `string` | `{:%H:%M}` | Luau date format for time, e.g. `{:%H:%M}` or `{:%I:%M %p}` |
+| `date_format` | `string` | `{:%A, %B %d}` | Luau date format for date, e.g. `{:%A, %B %d}` |
+| `show_date` | `bool` | `true` | Display the date below the time |
 
-### Desktop Widget
+## Notes
 
-The widget displays the current time and optionally the date below it.
-
-### Settings
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `time_format` | string | `{:%H:%M}` | Luau date format for time |
-| `date_format` | string | `{:%A, %B %d}` | Luau date format for date |
-| `show_date` | bool | `true` | Display the date below the time |
-
-### Dependencies
-
-None
+No external dependencies required.
