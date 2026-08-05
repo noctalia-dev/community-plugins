@@ -1,35 +1,36 @@
---!nonstrict
--- Minimal digital clock desktop widget.
+local settings = noctalia.settings
+local root = ui.box({ direction = "column", h_align = "center", v_align = "center", spacing = 0 })
 
-local timeFormat = noctalia.getConfig("time_format") or "{:%H:%M}"
-local dateFormat = noctalia.getConfig("date_format") or "{:%A, %B %d}"
-local showDate = noctalia.getConfig("show_date")
-if showDate == nil then showDate = true end
+local time_label = ui.label({
+  value = "",
+  font = "monospace",
+  font_size = 14,
+  color = "primary"
+})
 
-function update()
-    noctalia.setUpdateInterval(30000)
+local date_label = ui.label({
+  value = "",
+  font = "monospace",
+  font_size = 10,
+  color = "on_surface_variant"
+})
 
-    local children = {
-        ui.label({
-            text = noctalia.formatTime(timeFormat),
-            fontSize = 32,
-            fontWeight = "bold",
-            color = "on_surface",
-            textAlign = "center",
-        }),
-    }
-
-    if showDate then
-        table.insert(children, ui.label({
-            text = noctalia.formatTime(dateFormat),
-            fontSize = 13,
-            color = "on_surface_variant",
-            textAlign = "center",
-        }))
-    end
-
-    desktopWidget.render(ui.column({
-        align = "center",
-        justify = "center",
-    }, children))
+local function update()
+  time_label.text = noctalia.formatTime(settings.time_format)
+  if settings.show_date then
+    date_label.text = noctalia.formatTime(settings.date_format)
+    date_label.visible = true
+  else
+    date_label.visible = false
+  end
 end
+
+local timer = noctalia.createTimer(1000, function()
+  update()
+end)
+
+update()
+root:append(time_label)
+root:append(date_label)
+
+return root
