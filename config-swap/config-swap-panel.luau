@@ -162,6 +162,11 @@ end
 function downloadConfig(data: infoConfig)
 	noctalia.notify(tr("install_notification_title"))
 
+	if isDetect(data.name) == true then
+		noctalia.notify("Download", "Invalide name detected, please check target config")
+		return
+	end
+
 	noctalia.mkdirAll(configBox .. "/" .. data.name)
 
 	local path = data.path .. "/settings.toml"
