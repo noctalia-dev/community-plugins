@@ -603,7 +603,7 @@ local function handleCommand(cmd)
 						local first = (res.stdout or ""):match("'([^']+)'")
 						if first then dirPath = first end
 					end
-					noctalia.runAsync("xdg-open " .. shellQuote(dirPath), function() end)
+					noctalia.runAsync("xdg-open " .. shellQuote(dirPath))
 					noctalia.notify(t("notify.opening_browser"), dirPath)
 				end)
 			end)
