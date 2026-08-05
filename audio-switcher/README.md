@@ -40,6 +40,11 @@ or **Inputs**, then choose **Use**. For a disconnected Bluetooth output the same
 button connects it, waits for its PipeWire endpoint, makes it the default, and
 moves current playback streams to it.
 
+When an input exposes multiple hardware ports, such as an internal microphone
+and a headset microphone, the active port name is shown in the panel and
+widget. Use the port selector below the input to switch it; **Cycle** also
+includes every currently available port.
+
 Use the pencil button to set a local display name, choose the device icon, and
 change a Bluetooth keybind number. The number is assigned automatically after a
 device connects successfully for the first time and can then be changed. Hidden

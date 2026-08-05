@@ -1,6 +1,6 @@
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.4.0"
+version = "0.5.0"
 plugin_api = 15
 author = "blackbartblues"
 license = "MIT"

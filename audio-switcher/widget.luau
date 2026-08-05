@@ -27,7 +27,9 @@ local function render()
   local outputDevice = activeDevice(snapshot.outputs)
   local inputDevice = activeDevice(snapshot.inputs)
   local outputName = outputDevice and tostring(outputDevice.name or "") or noctalia.tr("panel.no_output")
-  local inputName = inputDevice and tostring(inputDevice.name or "") or noctalia.tr("panel.no_input")
+  local inputPortName = inputDevice and tostring(inputDevice.activePortDescription or "") or ""
+  local inputName = inputDevice and (inputPortName ~= "" and inputPortName or tostring(inputDevice.name or ""))
+    or noctalia.tr("panel.no_input")
   local outputVolume = percent(snapshot.outputVolume)
   local inputVolume = percent(snapshot.inputVolume)
 
