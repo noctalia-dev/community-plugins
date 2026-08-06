@@ -98,10 +98,54 @@ local function isFirstRunForFeed(url)
   return not bucket or not bucket.order or #bucket.order == 0
 end
 
--- Remove/descarta qualquer sequencia de bytes que NAO seja UTF-8 valido.
--- Necessario porque alguns feeds vem com o charset errado no servidor (bytes
--- Latin-1/CP-1252 marcados como UTF-8, por exemplo) - nesse caso nem um corte
--- perfeito resolve, o defeito ja vem no texto original.
+-- Converte um codepoint Unicode para a sequencia de bytes UTF-8 equivalente.
+local function codepointToUtf8(cp)
+  if not cp or cp < 0 then
+    return ""
+  elseif cp < 0x80 then
+    return string.char(cp)
+  elseif cp < 0x800 then
+    return string.char(0xC0 + math.floor(cp / 0x40), 0x80 + (cp % 0x40))
+  elseif cp < 0x10000 then
+    return string.char(
+      0xE0 + math.floor(cp / 0x1000),
+      0x80 + (math.floor(cp / 0x40) % 0x40),
+      0x80 + (cp % 0x40)
+    )
+  else
+    return string.char(
+      0xF0 + math.floor(cp / 0x40000),
+      0x80 + (math.floor(cp / 0x1000) % 0x40),
+      0x80 + (math.floor(cp / 0x40) % 0x40),
+      0x80 + (cp % 0x40)
+    )
+  end
+end
+
+-- CP-1252 diverge de Latin-1 exatamente nos bytes 0x80-0x9F: em Latin-1 sao
+-- codigos de controle inuteis, mas em CP-1252 (o padrao de fato mais comum
+-- em feeds mal-marcados) sao aspas curvas, travessao, reticencias etc.
+local CP1252_HIGH = {
+  [0x80] = 0x20AC, [0x82] = 0x201A, [0x83] = 0x0192, [0x84] = 0x201E,
+  [0x85] = 0x2026, [0x86] = 0x2020, [0x87] = 0x2021, [0x88] = 0x02C6,
+  [0x89] = 0x2030, [0x8A] = 0x0160, [0x8B] = 0x2039, [0x8C] = 0x0152,
+  [0x8E] = 0x017D, [0x91] = 0x2018, [0x92] = 0x2019, [0x93] = 0x201C,
+  [0x94] = 0x201D, [0x95] = 0x2022, [0x96] = 0x2013, [0x97] = 0x2014,
+  [0x98] = 0x02DC, [0x99] = 0x2122, [0x9A] = 0x0161, [0x9B] = 0x203A,
+  [0x9C] = 0x0153, [0x9E] = 0x017E, [0x9F] = 0x0178,
+}
+
+-- Converte um unico byte Latin-1/CP-1252 (0x80-0xFF) para a sequencia UTF-8
+-- equivalente - usado como fallback quando um byte nao forma UTF-8 valido.
+local function latin1ByteToUtf8(b)
+  local cp = CP1252_HIGH[b] or b -- 0xA0-0xFF: Latin-1 e CP-1252 coincidem
+  return codepointToUtf8(cp)
+end
+
+-- Corrige/normaliza texto para UTF-8 valido. Quando um byte nao forma uma
+-- sequencia UTF-8 valida, assume Latin-1/CP-1252 (charset errado e comum
+-- de feeds mais antigos, como sites de noticia brasileiros) e CONVERTE em
+-- vez de descartar - assim o acento aparece certo em vez de sumir.
 local function sanitizeUtf8(s)
   if not s then
     return s
@@ -141,7 +185,8 @@ local function sanitizeUtf8(s)
         out[#out + 1] = s:sub(i, i + seqLen - 1)
         i = i + seqLen
       else
-        i = i + 1 -- byte invalido: descarta so ele e continua
+        out[#out + 1] = latin1ByteToUtf8(b) -- converte em vez de descartar
+        i = i + 1
       end
     end
   end
@@ -226,6 +271,22 @@ end
 -- que parece caro demais para o orcamento de CPU deste ambiente.
 -- ---------------------------------------------------------------------------
 
+-- (codepointToUtf8 ja foi definida mais acima, perto de sanitizeUtf8 - reusada aqui)
+
+-- Entidades nomeadas de acento mais comuns em portugues (nao sao XML puro,
+-- mas alguns feeds mal-formados usam mesmo assim).
+local NAMED_ENTITIES = {
+  aacute = 0xE1, eacute = 0xE9, iacute = 0xED, oacute = 0xF3, uacute = 0xFA,
+  Aacute = 0xC1, Eacute = 0xC9, Iacute = 0xCD, Oacute = 0xD3, Uacute = 0xDA,
+  atilde = 0xE3, otilde = 0xF5, Atilde = 0xC3, Otilde = 0xD5,
+  acirc = 0xE2, ecirc = 0xEA, ocirc = 0xF4, Acirc = 0xC2, Ecirc = 0xCA, Ocirc = 0xD4,
+  ccedil = 0xE7, Ccedil = 0xC7,
+  agrave = 0xE0, egrave = 0xE8, Agrave = 0xC0, Egrave = 0xC8,
+  uuml = 0xFC, Uuml = 0xDC, nbsp = 0x20, ndash = 0x2013, mdash = 0x2014,
+  lsquo = 0x2018, rsquo = 0x2019, ldquo = 0x201C, rdquo = 0x201D,
+  apos = 0x0027, hellip = 0x2026, bull = 0x2022,
+}
+
 local function decodeEntities(s)
   if not s then
     return s
@@ -234,7 +295,20 @@ local function decodeEntities(s)
   s = s:gsub("&gt;", ">")
   s = s:gsub("&quot;", '"')
   s = s:gsub("&#39;", "'")
-  s = s:gsub("&amp;", "&")
+  -- numericas decimais: &#244;
+  s = s:gsub("&#(%d+);", function(digits)
+    return codepointToUtf8(tonumber(digits))
+  end)
+  -- numericas hexadecimais: &#xF4; ou &#Xf4;
+  s = s:gsub("&#[xX](%x+);", function(hex)
+    return codepointToUtf8(tonumber(hex, 16))
+  end)
+  -- nomeadas comuns de acento (feeds nao-XML-estritos)
+  s = s:gsub("&(%a+);", function(name)
+    local cp = NAMED_ENTITIES[name]
+    return cp and codepointToUtf8(cp) or ("&" .. name .. ";")
+  end)
+  s = s:gsub("&amp;", "&") -- por ultimo, senao "&amp;lt;" viraria "<" errado
   return sanitizeUtf8(noctalia.string.trim(s))
 end
 

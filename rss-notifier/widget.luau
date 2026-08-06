@@ -22,7 +22,7 @@ local function render()
     }))
   end
 
-  table.insert(children, ui.glyph({ name = "rss", size = 14 }))
+  table.insert(children, ui.glyph({ name = noctalia.getConfig("glyph") or "rss", size = 14 }))
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 4, align = "center" }, children))
@@ -39,6 +39,10 @@ render()
 
 function update()
   noctalia.setUpdateInterval(5000) -- so mantem o widget "vivo"; os dados reais vem do state
+end
+
+function onConfigChanged()
+  render() -- pega o novo glyph quando o usuario troca o icone nas settings do widget
 end
 
 function onClick()
