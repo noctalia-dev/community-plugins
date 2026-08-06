@@ -233,8 +233,6 @@ local function render_session_chooser(sessions, conn)
         end,
     })
 
-    rows[#rows + 1] = ui.spacer({ height = 8 })
-
     -- Session list
     local list_items = {}
     if type(sessions) ~= "table" or #sessions == 0 then
@@ -355,9 +353,9 @@ local function render_session_chooser(sessions, conn)
         end
     end
 
-    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = 8, align = "stretch" }, list_items)
+    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start", fill = "primary/0.1" }, list_items)
 
-    panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1, align = "stretch" }, rows))
+    panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1, align = "stretch", justify = "start" }, rows))
 end
 
 -- ── chat view ───────────────────────────────────────────────────────────────
