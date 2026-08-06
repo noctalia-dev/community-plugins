@@ -1,0 +1,133 @@
+{
+  "title": "Gestor SSH",
+  "settings": {
+    "config_path": {
+      "label": "Ruta de configuración SSH",
+      "description": "Archivo de config de usuario OpenSSH a gestionar."
+    },
+    "ssh_dir": {
+      "label": "Directorio SSH",
+      "description": "Directorio escaneado en busca de claves (normalmente ~/.ssh)."
+    },
+    "refresh_interval": {
+      "label": "Intervalo de actualización (segundos)",
+      "description": "Cada cuánto reexplora config, claves y el agente."
+    },
+    "notify_on_action": {
+      "label": "Notificar en acciones",
+      "description": "Mostrar notificaciones tras guardar, generar claves y cambios del agente."
+    },
+    "backup_on_write": {
+      "label": "Copia de seguridad antes de escribir",
+      "description": "Copia la config a config.bak.<timestamp> antes de guardar."
+    },
+    "default_key_type": {
+      "label": "Tipo de clave predeterminado",
+      "description": "Algoritmo predeterminado al generar una clave nueva.",
+      "options": {
+        "ed25519": "Ed25519",
+        "rsa": "RSA",
+        "ecdsa": "ECDSA"
+      }
+    },
+    "rsa_bits": {
+      "label": "Bits RSA",
+      "description": "Tamaño de clave al generar claves RSA."
+    },
+    "show_counts": {
+      "label": "Mostrar contadores de hosts/claves",
+      "description": "Mostrar contadores de hosts y claves del agente en el widget de barra."
+    }
+  },
+  "widget": {
+    "tooltip": "{hosts} hosts · {agent} en el agente · {keys} claves",
+    "tooltip_missing": "Config SSH no encontrada",
+    "refresh_requested": "Actualizando estado SSH…"
+  },
+  "panel": {
+    "subtitle": "Hosts, claves y agente",
+    "loading": "Explorando…",
+    "busy": "Trabajando…",
+    "select_host": "Selecciona un host para editar o conectar.",
+    "select_key": "Selecciona una clave para gestionar.",
+    "empty_hosts": "No hay entradas Host. Añade una o revisa la ruta de config.",
+    "empty_keys": "No se encontraron claves SSH en el directorio.",
+    "updated": "Actualizado {time}"
+  },
+  "tabs": {
+    "hosts": "Hosts",
+    "keys": "Claves"
+  },
+  "host": {
+    "alias": "Alias del host",
+    "alias_placeholder": "myserver  (o multi: pfsense edge)",
+    "hostname": "HostName",
+    "hostname_placeholder": "192.168.1.10 o example.com",
+    "user": "Usuario",
+    "user_placeholder": "root",
+    "port": "Puerto",
+    "port_placeholder": "22",
+    "identity": "IdentityFile",
+    "identity_placeholder": "~/.ssh/id_ed25519",
+    "proxyjump": "ProxyJump",
+    "proxyjump_placeholder": "bastion",
+    "certificate": "CertificateFile",
+    "certificate_placeholder": "~/.ssh/id_ed25519-cert.pub",
+    "extra": "Opciones extra (una KEY value por línea)",
+    "extra_placeholder": "ForwardAgent yes\nServerAliveInterval 60",
+    "form_add": "Añadir host",
+    "form_edit": "Editar host",
+    "required": "El alias del host es obligatorio.",
+    "invalid_alias": "El alias solo puede contener letras, dígitos, . _ - y no admite comodines.",
+    "duplicate": "Ya existe un host con ese alias.",
+    "wildcard_readonly": "Los hosts comodín (Host *) se muestran solo lectura.",
+    "detail": "{user}@{hostname}:{port}"
+  },
+  "key": {
+    "name": "Nombre de archivo",
+    "name_placeholder": "id_lab",
+    "type": "Tipo",
+    "comment": "Comentario",
+    "comment_placeholder": "user@host",
+    "passphrase": "Frase de contraseña (opcional)",
+    "passphrase_placeholder": "Déjalo vacío para no usar frase",
+    "form_generate": "Generar clave",
+    "required": "El nombre del archivo de clave es obligatorio.",
+    "invalid_name": "Usa un nombre de archivo simple (sin separadores de ruta).",
+    "exists": "Ya existe una clave con ese nombre.",
+    "fingerprint": "Huella: {fp}",
+    "bits": "{bits} bit",
+    "in_agent": "En el agente",
+    "not_in_agent": "Fuera del agente",
+    "has_public": "Clave pública presente",
+    "no_public": "Sin archivo .pub"
+  },
+  "actions": {
+    "add": "Añadir",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "refresh": "Actualizar",
+    "connect": "Conectar",
+    "copy_pub": "Copiar clave pública",
+    "generate": "Generar",
+    "agent_add": "Añadir al agente",
+    "agent_remove": "Quitar del agente",
+    "open_dir": "Abrir .ssh"
+  },
+  "result": {
+    "success": "Hecho",
+    "failed": "Falló: {error}",
+    "busy": "Ya hay otra operación en curso.",
+    "config_missing": "Config SSH no encontrada: {path}",
+    "config_saved": "Host guardado {name}",
+    "config_removed": "Host eliminado {name}",
+    "key_generated": "Clave generada {name}",
+    "key_copied": "Clave pública copiada al portapapeles",
+    "agent_added": "Se añadió {name} al agente",
+    "agent_removed": "Se quitó {name} del agente",
+    "no_pubkey": "No hay clave pública para {name}",
+    "connect_started": "Conectando a {name}…"
+  }
+}

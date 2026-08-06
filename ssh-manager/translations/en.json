@@ -1,0 +1,133 @@
+{
+  "title": "SSH Manager",
+  "settings": {
+    "config_path": {
+      "label": "SSH config path",
+      "description": "OpenSSH user config file to manage."
+    },
+    "ssh_dir": {
+      "label": "SSH directory",
+      "description": "Directory scanned for keys (usually ~/.ssh)."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often the service rescans config, keys, and the agent."
+    },
+    "notify_on_action": {
+      "label": "Notify on actions",
+      "description": "Show notifications after saves, keygen, and agent changes."
+    },
+    "backup_on_write": {
+      "label": "Backup config before write",
+      "description": "Copy the config to config.bak.<timestamp> before saving."
+    },
+    "default_key_type": {
+      "label": "Default key type",
+      "description": "Default algorithm when generating a new key.",
+      "options": {
+        "ed25519": "Ed25519",
+        "rsa": "RSA",
+        "ecdsa": "ECDSA"
+      }
+    },
+    "rsa_bits": {
+      "label": "RSA bits",
+      "description": "Key size when generating RSA keys."
+    },
+    "show_counts": {
+      "label": "Show host/key counts",
+      "description": "Display host and agent key counts on the bar widget."
+    }
+  },
+  "widget": {
+    "tooltip": "{hosts} hosts · {agent} in agent · {keys} keys",
+    "tooltip_missing": "SSH config not found",
+    "refresh_requested": "Refreshing SSH status…"
+  },
+  "panel": {
+    "subtitle": "Hosts, keys, and agent",
+    "loading": "Scanning…",
+    "busy": "Working…",
+    "select_host": "Select a host to edit or connect.",
+    "select_key": "Select a key to manage.",
+    "empty_hosts": "No Host entries found. Add one or check the config path.",
+    "empty_keys": "No SSH keys found in the SSH directory.",
+    "updated": "Updated {time}"
+  },
+  "tabs": {
+    "hosts": "Hosts",
+    "keys": "Keys"
+  },
+  "host": {
+    "alias": "Host alias",
+    "alias_placeholder": "myserver  (or multi: pfsense edge)",
+    "hostname": "HostName",
+    "hostname_placeholder": "192.168.1.10 or example.com",
+    "user": "User",
+    "user_placeholder": "root",
+    "port": "Port",
+    "port_placeholder": "22",
+    "identity": "IdentityFile",
+    "identity_placeholder": "~/.ssh/id_ed25519",
+    "proxyjump": "ProxyJump",
+    "proxyjump_placeholder": "bastion",
+    "certificate": "CertificateFile",
+    "certificate_placeholder": "~/.ssh/id_ed25519-cert.pub",
+    "extra": "Extra options (one KEY value per line)",
+    "extra_placeholder": "ForwardAgent yes\nServerAliveInterval 60",
+    "form_add": "Add host",
+    "form_edit": "Edit host",
+    "required": "Host alias is required.",
+    "invalid_alias": "Alias may only contain letters, digits, . _ - and cannot use wildcards.",
+    "duplicate": "A host with that alias already exists.",
+    "wildcard_readonly": "Wildcard hosts (Host *) are shown read-only.",
+    "detail": "{user}@{hostname}:{port}"
+  },
+  "key": {
+    "name": "File name",
+    "name_placeholder": "id_lab",
+    "type": "Type",
+    "comment": "Comment",
+    "comment_placeholder": "user@host",
+    "passphrase": "Passphrase (optional)",
+    "passphrase_placeholder": "Leave empty for no passphrase",
+    "form_generate": "Generate key",
+    "required": "Key file name is required.",
+    "invalid_name": "Use a simple file name (no path separators).",
+    "exists": "A key with that name already exists.",
+    "fingerprint": "Fingerprint: {fp}",
+    "bits": "{bits} bit",
+    "in_agent": "In agent",
+    "not_in_agent": "Not in agent",
+    "has_public": "Public key present",
+    "no_public": "No .pub file"
+  },
+  "actions": {
+    "add": "Add",
+    "edit": "Edit",
+    "remove": "Remove",
+    "save": "Save",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "connect": "Connect",
+    "copy_pub": "Copy public key",
+    "generate": "Generate",
+    "agent_add": "Add to agent",
+    "agent_remove": "Remove from agent",
+    "open_dir": "Open .ssh"
+  },
+  "result": {
+    "success": "Done",
+    "failed": "Failed: {error}",
+    "busy": "Another operation is already running.",
+    "config_missing": "SSH config not found: {path}",
+    "config_saved": "Saved host {name}",
+    "config_removed": "Removed host {name}",
+    "key_generated": "Generated key {name}",
+    "key_copied": "Public key copied to clipboard",
+    "agent_added": "Added {name} to agent",
+    "agent_removed": "Removed {name} from agent",
+    "no_pubkey": "No public key file for {name}",
+    "connect_started": "Connecting to {name}…"
+  }
+}

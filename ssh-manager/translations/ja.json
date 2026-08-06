@@ -1,0 +1,133 @@
+{
+  "title": "SSHマネージャー",
+  "settings": {
+    "config_path": {
+      "label": "SSH 設定パス",
+      "description": "管理する OpenSSH ユーザー設定ファイル。"
+    },
+    "ssh_dir": {
+      "label": "SSH ディレクトリ",
+      "description": "鍵を走査するディレクトリ（通常 ~/.ssh）。"
+    },
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "設定・鍵・エージェントを再スキャンする間隔。"
+    },
+    "notify_on_action": {
+      "label": "操作時に通知",
+      "description": "保存・鍵生成・エージェント変更後に通知を表示。"
+    },
+    "backup_on_write": {
+      "label": "書き込み前に設定をバックアップ",
+      "description": "保存前に設定を config.bak.<timestamp> にコピーします。"
+    },
+    "default_key_type": {
+      "label": "デフォルトの鍵種別",
+      "description": "新しい鍵を生成するときのデフォルトアルゴリズム。",
+      "options": {
+        "ed25519": "Ed25519",
+        "rsa": "RSA",
+        "ecdsa": "ECDSA"
+      }
+    },
+    "rsa_bits": {
+      "label": "RSA ビット数",
+      "description": "RSA 鍵生成時の鍵長。"
+    },
+    "show_counts": {
+      "label": "ホスト/鍵の件数を表示",
+      "description": "バーウィジェットにホスト数とエージェント鍵数を表示。"
+    }
+  },
+  "widget": {
+    "tooltip": "{hosts} ホスト · エージェント {agent} · 鍵 {keys}",
+    "tooltip_missing": "SSH 設定が見つかりません",
+    "refresh_requested": "SSH 状態を更新中…"
+  },
+  "panel": {
+    "subtitle": "ホスト、鍵、エージェント",
+    "loading": "スキャン中…",
+    "busy": "処理中…",
+    "select_host": "編集または接続するホストを選択してください。",
+    "select_key": "管理する鍵を選択してください。",
+    "empty_hosts": "Host エントリがありません。追加するか設定パスを確認してください。",
+    "empty_keys": "SSH ディレクトリに鍵が見つかりません。",
+    "updated": "更新 {time}"
+  },
+  "tabs": {
+    "hosts": "ホスト",
+    "keys": "鍵"
+  },
+  "host": {
+    "alias": "ホストエイリアス",
+    "alias_placeholder": "myserver（または multi: pfsense edge）",
+    "hostname": "HostName",
+    "hostname_placeholder": "192.168.1.10 または example.com",
+    "user": "ユーザー",
+    "user_placeholder": "root",
+    "port": "ポート",
+    "port_placeholder": "22",
+    "identity": "IdentityFile",
+    "identity_placeholder": "~/.ssh/id_ed25519",
+    "proxyjump": "ProxyJump",
+    "proxyjump_placeholder": "bastion",
+    "certificate": "CertificateFile",
+    "certificate_placeholder": "~/.ssh/id_ed25519-cert.pub",
+    "extra": "追加オプション（1 行に KEY value）",
+    "extra_placeholder": "ForwardAgent yes\nServerAliveInterval 60",
+    "form_add": "ホストを追加",
+    "form_edit": "ホストを編集",
+    "required": "ホストエイリアスは必須です。",
+    "invalid_alias": "エイリアスに使えるのは英数字と . _ - のみで、ワイルドカードは使えません。",
+    "duplicate": "そのエイリアスのホストは既に存在します。",
+    "wildcard_readonly": "ワイルドカードホスト（Host *）は読み取り専用で表示されます。",
+    "detail": "{user}@{hostname}:{port}"
+  },
+  "key": {
+    "name": "ファイル名",
+    "name_placeholder": "id_lab",
+    "type": "種類",
+    "comment": "コメント",
+    "comment_placeholder": "user@host",
+    "passphrase": "パスフレーズ（任意）",
+    "passphrase_placeholder": "空ならパスフレーズなし",
+    "form_generate": "鍵を生成",
+    "required": "鍵ファイル名は必須です。",
+    "invalid_name": "単純なファイル名を使ってください（パス区切りなし）。",
+    "exists": "その名前の鍵は既に存在します。",
+    "fingerprint": "指紋: {fp}",
+    "bits": "{bits} bit",
+    "in_agent": "エージェント内",
+    "not_in_agent": "エージェント外",
+    "has_public": "公開鍵あり",
+    "no_public": ".pub ファイルなし"
+  },
+  "actions": {
+    "add": "追加",
+    "edit": "編集",
+    "remove": "削除",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "refresh": "更新",
+    "connect": "接続",
+    "copy_pub": "公開鍵をコピー",
+    "generate": "生成",
+    "agent_add": "エージェントに追加",
+    "agent_remove": "エージェントから削除",
+    "open_dir": ".ssh を開く"
+  },
+  "result": {
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が既に実行中です。",
+    "config_missing": "SSH 設定が見つかりません: {path}",
+    "config_saved": "ホスト {name} を保存しました",
+    "config_removed": "ホスト {name} を削除しました",
+    "key_generated": "鍵 {name} を生成しました",
+    "key_copied": "公開鍵をクリップボードにコピーしました",
+    "agent_added": "{name} をエージェントに追加しました",
+    "agent_removed": "{name} をエージェントから削除しました",
+    "no_pubkey": "{name} の公開鍵ファイルがありません",
+    "connect_started": "{name} に接続中…"
+  }
+}
