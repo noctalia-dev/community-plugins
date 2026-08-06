@@ -9,11 +9,6 @@ description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
 tags        = ["utility", "indicator"]
 dependencies = ["xdg-open"]
 
-# ---------------------------------------------------------------------------
-# Settings de nivel de plugin: compartilhadas por TODAS as entries
-# (service + widget). Editadas em Settings -> Plugins.
-# ---------------------------------------------------------------------------
-
 [[setting]]
 key             = "feed_urls"
 type            = "string_list"
@@ -47,17 +42,9 @@ min             = 1
 max             = 50
 advanced        = true
 
-# ---------------------------------------------------------------------------
-# Service: roda em segundo plano, sem UI, busca e faz parsing dos feeds
-# ---------------------------------------------------------------------------
-
 [[service]]
 id    = "fetcher"
 entry = "service.luau"
-
-# ---------------------------------------------------------------------------
-# Widget de barra: mostra a contagem de itens nao lidos
-# ---------------------------------------------------------------------------
 
 [[widget]]
 id    = "badge"
@@ -70,15 +57,11 @@ entry = "widget.luau"
   description_key = "settings.glyph.description"
   default         = "rss"
 
-# ---------------------------------------------------------------------------
-# Panel: janelinha com a lista de itens, aberta pelo clique no widget
-# ---------------------------------------------------------------------------
-
 [[panel]]
 id              = "list"
 entry           = "panel.luau"
 width           = 360
 height          = 440
-placement       = "attached"   # anexado a barra, perto do widget
+placement       = "attached"  
 position        = "auto"
 open_near_click = true
