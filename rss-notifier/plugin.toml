@@ -50,12 +50,12 @@ entry = "service.luau"
 id    = "badge"
 entry = "widget.luau"
 
-  [[widget.setting]]
-  key             = "glyph"
-  type            = "glyph"
-  label_key       = "settings.glyph.label"
-  description_key = "settings.glyph.description"
-  default         = "rss"
+[[widget.setting]]
+key             = "glyph"
+type            = "glyph"
+label_key       = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default         = "rss"
 
 [[panel]]
 id              = "list"
