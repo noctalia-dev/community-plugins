@@ -1,0 +1,129 @@
+{
+  "title": "Gocryptfs",
+  "settings": {
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "マウント状態を再確認する間隔。"
+    },
+    "notify_on_action": {
+      "label": "マウント/アンマウント時に通知",
+      "description": "ボリュームのマウント/アンマウント時に通知を表示。"
+    },
+    "create_mountpoint": {
+      "label": "マウントポイントを作成",
+      "description": "マウント前にディレクトリが無ければ作成します。"
+    },
+    "auto_mount": {
+      "label": "ログイン時に自動マウント",
+      "description": "Noctalia 起動時、自動マウントとパスファイルがあるボリュームをマウントします。"
+    },
+    "show_count": {
+      "label": "マウント数を表示",
+      "description": "バーウィジェットにマウント済み/合計を表示。"
+    },
+    "glyph_color": {
+      "label": "アイコンの色",
+      "description": "gocryptfs が利用可能なときの錠アイコンの色。"
+    },
+    "mounted_color": {
+      "label": "マウント済みインジケーター",
+      "description": "1 つ以上マウント済みのときの状態ドットの色。"
+    },
+    "unmounted_color": {
+      "label": "アンマウント済みインジケーター",
+      "description": "何もマウントされていないときの状態ドットの色。"
+    }
+  },
+  "colors": {
+    "default": "デフォルト",
+    "primary": "プライマリ",
+    "secondary": "セカンダリ",
+    "tertiary": "ターシャリ",
+    "error": "エラー",
+    "muted": "ミュート"
+  },
+  "widget": {
+    "tooltip": "{mounted} / {total} マウント済み",
+    "tooltip_none": "ボリュームが設定されていません",
+    "unavailable": "gocryptfs がインストールされていません",
+    "refresh_requested": "ボリューム状態を更新中…"
+  },
+  "panel": {
+    "subtitle": "暗号化ボリューム",
+    "empty": "ボリュームがまだありません。新規初期化するか既存を追加してください。",
+    "loading": "マウントを確認中…",
+    "busy": "処理中…",
+    "select_hint": "管理するボリュームを選択してください。",
+    "updated": "更新 {time}",
+    "password_title": "{name} のパスワード",
+    "password_label": "パスワード",
+    "password_placeholder": "ボリュームのパスワード",
+    "password_required": "パスワードは必須です。",
+    "add_title": "既存ボリュームを追加",
+    "edit_title": "ボリュームを編集",
+    "init_title": "新しいボリュームを初期化",
+    "init_help": "暗号ディレクトリで gocryptfs -init を実行し、マウント用に登録します。",
+    "field": {
+      "name": "名前",
+      "name_placeholder": "ドキュメント",
+      "cipher": "暗号ディレクトリ",
+      "cipher_placeholder": "~/Encrypted/docs",
+      "mount": "マウントポイント",
+      "mount_placeholder": "~/Private/docs",
+      "passfile": "パスファイル（任意）",
+      "passfile_placeholder": "空ならパスワードを入力",
+      "password": "パスワード",
+      "password_confirm": "パスワードを確認",
+      "password_confirm_placeholder": "パスワードを再入力",
+      "password_mismatch": "パスワードが一致しません。",
+      "plaintextnames": "平文ファイル名 (-plaintextnames)",
+      "aessiv": "AES-SIV 暗号化 (-aessiv)",
+      "save_passfile": "パスなしマウント用にパスファイルを保存",
+      "auto_mount": "ログイン時に自動マウント",
+      "auto_mount_help": "パスファイルのパスが必要です。グローバル自動マウントも設定で有効にしてください。",
+      "allow_other": "他ユーザーを許可 (-allow_other)",
+      "read_only": "読み取り専用 (-ro)",
+      "required": "名前・暗号ディレクトリ・マウントポイントは必須です。",
+      "duplicate": "その暗号ディレクトリまたはマウントポイントのボリュームは既に存在します。"
+    },
+    "status": {
+      "mounted": "マウント済み",
+      "unmounted": "アンマウント済み",
+      "unknown": "不明"
+    },
+    "cipher": "暗号: {path}",
+    "mountpoint": "マウント: {path}",
+    "passfile_hint": "パスファイル使用中",
+    "automount_hint": "自動マウント"
+  },
+  "actions": {
+    "mount": "マウント",
+    "unmount": "アンマウント",
+    "open": "開く",
+    "refresh": "更新",
+    "add": "追加",
+    "init": "初期化",
+    "edit": "編集",
+    "remove": "削除",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "close": "閉じる"
+  },
+  "result": {
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が既に実行中です。",
+    "gocryptfs_missing": "gocryptfs が PATH にありません。インストールして再試行してください。",
+    "mounted": "{name} をマウントしました",
+    "unmounted": "{name} をアンマウントしました",
+    "initialized": "{name} を初期化して保存しました",
+    "already_initialized": "既に gocryptfs ボリュームです: {path}",
+    "not_found": "ボリュームが見つかりません。",
+    "cipher_missing": "暗号ディレクトリが存在しません: {path}",
+    "mount_create_failed": "マウントポイントを作成できませんでした: {path}",
+    "already_mounted": "{name} は既にマウントされています。",
+    "not_mounted": "{name} はマウントされていません。",
+    "removed": "{name} を削除しました",
+    "saved": "{name} を保存しました"
+  }
+}

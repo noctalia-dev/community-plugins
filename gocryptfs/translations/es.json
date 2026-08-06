@@ -1,0 +1,129 @@
+{
+  "title": "Gocryptfs",
+  "settings": {
+    "refresh_interval": {
+      "label": "Intervalo de actualización (segundos)",
+      "description": "Cada cuánto el servicio vuelve a comprobar el montaje."
+    },
+    "notify_on_action": {
+      "label": "Notificar al montar/desmontar",
+      "description": "Mostrar notificación al montar o desmontar un volumen."
+    },
+    "create_mountpoint": {
+      "label": "Crear puntos de montaje",
+      "description": "Crea el directorio de montaje si no existe antes de montar."
+    },
+    "auto_mount": {
+      "label": "Montaje automático al iniciar sesión",
+      "description": "Al iniciar Noctalia, monta volúmenes con auto-montaje y passfile."
+    },
+    "show_count": {
+      "label": "Mostrar contador de montados",
+      "description": "Mostrar montados/total en el widget de barra."
+    },
+    "glyph_color": {
+      "label": "Color del icono",
+      "description": "Color del icono de candado cuando gocryptfs está disponible."
+    },
+    "mounted_color": {
+      "label": "Indicador montado",
+      "description": "Color del punto de estado cuando hay al menos un volumen montado."
+    },
+    "unmounted_color": {
+      "label": "Indicador desmontado",
+      "description": "Color del punto de estado cuando no hay nada montado."
+    }
+  },
+  "colors": {
+    "default": "Predeterminado",
+    "primary": "Principal",
+    "secondary": "Secundario",
+    "tertiary": "Terciario",
+    "error": "Error",
+    "muted": "Atenuado"
+  },
+  "widget": {
+    "tooltip": "{mounted} de {total} montados",
+    "tooltip_none": "No hay volúmenes configurados",
+    "unavailable": "gocryptfs no está instalado",
+    "refresh_requested": "Actualizando estado de volúmenes…"
+  },
+  "panel": {
+    "subtitle": "Volúmenes cifrados",
+    "empty": "Aún no hay volúmenes. Inicializa uno nuevo o añade uno existente.",
+    "loading": "Comprobando montajes…",
+    "busy": "Trabajando…",
+    "select_hint": "Selecciona un volumen para gestionarlo.",
+    "updated": "Actualizado {time}",
+    "password_title": "Contraseña de {name}",
+    "password_label": "Contraseña",
+    "password_placeholder": "Contraseña del volumen",
+    "password_required": "La contraseña es obligatoria.",
+    "add_title": "Añadir volumen existente",
+    "edit_title": "Editar volumen",
+    "init_title": "Inicializar volumen nuevo",
+    "init_help": "Ejecuta gocryptfs -init en el directorio cifrado y lo registra para montar.",
+    "field": {
+      "name": "Nombre",
+      "name_placeholder": "Documentos",
+      "cipher": "Directorio cifrado",
+      "cipher_placeholder": "~/Encrypted/docs",
+      "mount": "Punto de montaje",
+      "mount_placeholder": "~/Private/docs",
+      "passfile": "Passfile (opcional)",
+      "passfile_placeholder": "Déjalo vacío para pedir la contraseña",
+      "password": "Contraseña",
+      "password_confirm": "Confirmar contraseña",
+      "password_confirm_placeholder": "Vuelve a introducir la contraseña",
+      "password_mismatch": "Las contraseñas no coinciden.",
+      "plaintextnames": "Nombres de archivo en claro (-plaintextnames)",
+      "aessiv": "Cifrado AES-SIV (-aessiv)",
+      "save_passfile": "Guardar passfile para montaje sin contraseña",
+      "auto_mount": "Montaje automático al iniciar sesión",
+      "auto_mount_help": "Requiere una ruta de passfile. El montaje automático global también debe estar activado.",
+      "allow_other": "Permitir otros usuarios (-allow_other)",
+      "read_only": "Solo lectura (-ro)",
+      "required": "Nombre, directorio cifrado y punto de montaje son obligatorios.",
+      "duplicate": "Ya existe un volumen con ese directorio cifrado o punto de montaje."
+    },
+    "status": {
+      "mounted": "Montado",
+      "unmounted": "Desmontado",
+      "unknown": "Desconocido"
+    },
+    "cipher": "Cifrado: {path}",
+    "mountpoint": "Montaje: {path}",
+    "passfile_hint": "Usando passfile",
+    "automount_hint": "Montaje automático"
+  },
+  "actions": {
+    "mount": "Montar",
+    "unmount": "Desmontar",
+    "open": "Abrir",
+    "refresh": "Actualizar",
+    "add": "Añadir",
+    "init": "Inicializar",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar"
+  },
+  "result": {
+    "success": "Hecho",
+    "failed": "Falló: {error}",
+    "busy": "Ya hay otra operación en curso.",
+    "gocryptfs_missing": "gocryptfs no está en el PATH. Instálalo e inténtalo de nuevo.",
+    "mounted": "Montado {name}",
+    "unmounted": "Desmontado {name}",
+    "initialized": "Inicializado y guardado {name}",
+    "already_initialized": "Ya es un volumen gocryptfs: {path}",
+    "not_found": "Volumen no encontrado.",
+    "cipher_missing": "El directorio cifrado no existe: {path}",
+    "mount_create_failed": "No se pudo crear el punto de montaje: {path}",
+    "already_mounted": "{name} ya está montado.",
+    "not_mounted": "{name} no está montado.",
+    "removed": "Eliminado {name}",
+    "saved": "Guardado {name}"
+  }
+}
