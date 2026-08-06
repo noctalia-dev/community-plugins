@@ -1,0 +1,165 @@
+{
+  "title": "Tailscale",
+  "settings": {
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "tailscale 状態のポーリング間隔。"
+    },
+    "notify_on_peer_change": {
+      "label": "ピアのオンライン/オフラインを通知",
+      "description": "ピアの接続状態が変わったときのデスクトップ通知。"
+    },
+    "tailscale_bin": {
+      "label": "tailscale バイナリ",
+      "description": "tailscale CLI のコマンド名または絶対パス。"
+    },
+    "admin_url": {
+      "label": "管理コンソール URL",
+      "description": "パネルから開く管理 machines URL を上書きします。"
+    },
+    "ssh_user": {
+      "label": "デフォルト SSH ユーザー",
+      "description": "tailscale ssh 用の任意ユーザー（空なら CLI 既定）。"
+    },
+    "show_counts": {
+      "label": "バーに件数を表示",
+      "description": "ウィジェットにオンライン/合計ピア数を表示。"
+    },
+    "ok_color": {
+      "label": "接続色（緑）"
+    },
+    "warn_color": {
+      "label": "切断色（灰）"
+    }
+  },
+  "colors": {
+    "tertiary": "ターシャリ",
+    "primary": "プライマリ",
+    "secondary": "セカンダリ",
+    "error": "エラー",
+    "muted": "ミュート"
+  },
+  "widget": {
+    "tooltip_ok": "{state} · オンラインピア {online}/{total} · 出口 {exit}",
+    "tooltip_stopped": "Tailscale 停止中 · 既知ピア {total}",
+    "tooltip_missing": "tailscale CLI が見つかりません",
+    "tooltip_down": "Tailscale 利用不可: {error}",
+    "refresh_requested": "Tailscale を更新中…"
+  },
+  "panel": {
+    "loading": "Tailscale を照会中…",
+    "busy": "処理中…",
+    "empty": "現在のフィルタに一致する項目がありません。",
+    "select_hint": "操作する項目を選択してください。",
+    "updated": "更新 {time}",
+    "host": "{host}",
+    "summary": "{state} · オンライン {online}/{total} · 出口 {exit}",
+    "health": "{msg}",
+    "not_installed": "tailscale が未インストールか PATH にありません。"
+  },
+  "tabs": {
+    "status": "ステータス",
+    "peers": "ピア",
+    "exit": "出口ノード"
+  },
+  "filter": {
+    "placeholder": "絞り込み… 例: edge または !online"
+  },
+  "status": {
+    "state": "状態: {state}",
+    "tailnet": "Tailnet: {name}",
+    "ips": "IP: {v4}  {v6}",
+    "dns": "DNS: {dns}",
+    "exit": "出口ノード: {name}",
+    "version": "バージョン: {version}",
+    "prefs": "Shields {shields} · ルート {routes} · SSH {ssh} · DNS {dns}",
+    "on": "on",
+    "off": "off",
+    "none": "none"
+  },
+  "peer": {
+    "detail": "{os} · {relay} · {v4}",
+    "traffic": "↓{rx} ↑{tx}"
+  },
+  "exit": {
+    "detail": "{ip} · {status}"
+  },
+  "actions": {
+    "up": "接続",
+    "down": "切断",
+    "refresh": "更新",
+    "open_admin": "管理",
+    "clear_exit": "出口を解除",
+    "use_exit": "出口を使用",
+    "copy_ip": "IP をコピー",
+    "copy_dns": "DNS をコピー",
+    "ping": "Ping",
+    "ssh": "SSH",
+    "shields_on": "Shields up",
+    "shields_off": "Shields down",
+    "routes_on": "ルートを受け入れる",
+    "routes_off": "ルートを無視",
+    "ssh_on": "SSH を有効化",
+    "ssh_off": "SSH を無効化",
+    "advertise_on": "出口をアドバタイズ",
+    "advertise_off": "アドバタイズを停止",
+    "lan_on": "LAN を許可",
+    "lan_off": "LAN をブロック"
+  },
+  "result": {
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が実行中です。",
+    "missing": "tailscale CLI が見つかりません。",
+    "up": "Tailscale 接続済み",
+    "down": "Tailscale 切断",
+    "exit_set": "出口ノードを {name} に設定",
+    "exit_cleared": "出口ノードを解除しました",
+    "shields_on": "Shields up 有効",
+    "shields_off": "Shields up 無効",
+    "ssh_on": "Tailscale SSH 有効",
+    "ssh_off": "Tailscale SSH 無効",
+    "routes_on": "サブネットルートを受け入れ中",
+    "routes_off": "サブネットルートを受け付けていません",
+    "advertise_on": "出口ノードとしてアドバタイズ中",
+    "advertise_off": "出口ノードのアドバタイズを停止しました",
+    "lan_on": "出口ノード使用時に LAN アクセスを許可",
+    "lan_off": "出口ノード使用時に LAN アクセスを遮断",
+    "ping_started": "{name} に ping 中…",
+    "ssh_started": "{name} へ SSH を開いています…",
+    "copied": "{name} をコピーしました",
+    "admin_opened": "管理コンソールを開いています…",
+    "peer_online": "{name} はオンラインです",
+    "peer_offline": "{name} がオフラインになりました"
+  },
+  "launcher": {
+    "loading": "Tailscale を読み込み中…",
+    "missing": "tailscale が見つかりません",
+    "cat": {
+      "status": "ステータス",
+      "status-sub": "接続の概要",
+      "peers": "ピア",
+      "peers-sub": "tailnet 上のマシンを参照",
+      "exit": "出口ノード",
+      "exit-sub": "出口ノードを選択または解除",
+      "up": "接続",
+      "up-sub": "tailscale up",
+      "down": "切断",
+      "down-sub": "tailscale down",
+      "panel": "パネルを開く",
+      "panel-sub": "Tailscale フルマネージャー",
+      "refresh": "更新",
+      "refresh-sub": "状態を再取得",
+      "admin": "管理コンソール",
+      "admin-sub": "ブラウザで Tailscale 管理画面を開く"
+    },
+    "action": {
+      "ping": "Ping",
+      "ssh": "SSH",
+      "copy_ip": "IPv4 をコピー",
+      "copy_dns": "DNS 名をコピー",
+      "use_exit": "出口ノードとして使用",
+      "clear_exit": "出口ノードを解除"
+    }
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "title": "Tailscale",
+  "settings": {
+    "refresh_interval": {
+      "label": "Intervalo de actualización (segundos)",
+      "description": "Cada cuánto consultar el estado de tailscale."
+    },
+    "notify_on_peer_change": {
+      "label": "Notificar peer online/offline",
+      "description": "Notificación de escritorio cuando un peer cambia de conectividad."
+    },
+    "tailscale_bin": {
+      "label": "Binario tailscale",
+      "description": "Nombre del comando o ruta absoluta del CLI de tailscale."
+    },
+    "admin_url": {
+      "label": "URL de la consola de administración",
+      "description": "Anula la URL de máquinas de admin abierta desde el panel."
+    },
+    "ssh_user": {
+      "label": "Usuario SSH predeterminado",
+      "description": "Usuario opcional para tailscale ssh (vacío = predeterminado del CLI)."
+    },
+    "show_counts": {
+      "label": "Mostrar contadores en la barra",
+      "description": "Mostrar contadores online/total de peers en el widget."
+    },
+    "ok_color": {
+      "label": "Color conectado (verde)"
+    },
+    "warn_color": {
+      "label": "Color desconectado (gris)"
+    }
+  },
+  "colors": {
+    "tertiary": "Terciario",
+    "primary": "Principal",
+    "secondary": "Secundario",
+    "error": "Error",
+    "muted": "Atenuado"
+  },
+  "widget": {
+    "tooltip_ok": "{state} · {online}/{total} peers en línea · salida {exit}",
+    "tooltip_stopped": "Tailscale detenido · {total} peers conocidos",
+    "tooltip_missing": "CLI de tailscale no encontrado",
+    "tooltip_down": "Tailscale no disponible: {error}",
+    "refresh_requested": "Actualizando Tailscale…"
+  },
+  "panel": {
+    "loading": "Consultando Tailscale…",
+    "busy": "Trabajando…",
+    "empty": "Ningún elemento coincide con el filtro actual.",
+    "select_hint": "Selecciona un elemento para acciones.",
+    "updated": "Actualizado {time}",
+    "host": "{host}",
+    "summary": "{state} · {online}/{total} en línea · salida {exit}",
+    "health": "{msg}",
+    "not_installed": "tailscale no está instalado o no está en el PATH."
+  },
+  "tabs": {
+    "status": "Estado",
+    "peers": "Pares",
+    "exit": "Nodos de salida"
+  },
+  "filter": {
+    "placeholder": "Filtrar…  p. ej. edge  o  !online"
+  },
+  "status": {
+    "state": "Estado: {state}",
+    "tailnet": "Tailnet: {name}",
+    "ips": "IPs: {v4}  {v6}",
+    "dns": "DNS: {dns}",
+    "exit": "Nodo de salida: {name}",
+    "version": "Versión: {version}",
+    "prefs": "Shields {shields} · Rutas {routes} · SSH {ssh} · DNS {dns}",
+    "on": "on",
+    "off": "off",
+    "none": "none"
+  },
+  "peer": {
+    "detail": "{os} · {relay} · {v4}",
+    "traffic": "↓{rx} ↑{tx}"
+  },
+  "exit": {
+    "detail": "{ip} · {status}"
+  },
+  "actions": {
+    "up": "Conectar",
+    "down": "Desconectar",
+    "refresh": "Actualizar",
+    "open_admin": "Admin",
+    "clear_exit": "Quitar salida",
+    "use_exit": "Usar salida",
+    "copy_ip": "Copiar IP",
+    "copy_dns": "Copiar DNS",
+    "ping": "Ping",
+    "ssh": "SSH",
+    "shields_on": "Shields up",
+    "shields_off": "Shields down",
+    "routes_on": "Aceptar rutas",
+    "routes_off": "Ignorar rutas",
+    "ssh_on": "Activar SSH",
+    "ssh_off": "Desactivar SSH",
+    "advertise_on": "Anunciar salida",
+    "advertise_off": "Dejar de anunciar",
+    "lan_on": "Permitir LAN",
+    "lan_off": "Bloquear LAN"
+  },
+  "result": {
+    "success": "Hecho",
+    "failed": "Falló: {error}",
+    "busy": "Hay otra operación en curso.",
+    "missing": "CLI de tailscale no encontrado.",
+    "up": "Tailscale conectado",
+    "down": "Tailscale desconectado",
+    "exit_set": "Nodo de salida: {name}",
+    "exit_cleared": "Nodo de salida quitado",
+    "shields_on": "Shields up activado",
+    "shields_off": "Shields up desactivado",
+    "ssh_on": "SSH de Tailscale activado",
+    "ssh_off": "SSH de Tailscale desactivado",
+    "routes_on": "Aceptando rutas de subred",
+    "routes_off": "No se aceptan rutas de subred",
+    "advertise_on": "Anunciándose como nodo de salida",
+    "advertise_off": "Ya no se anuncia como nodo de salida",
+    "lan_on": "Acceso LAN permitido con nodo de salida",
+    "lan_off": "Acceso LAN bloqueado con nodo de salida",
+    "ping_started": "Haciendo ping a {name}…",
+    "ssh_started": "Abriendo SSH a {name}…",
+    "copied": "Copiado {name}",
+    "admin_opened": "Abriendo consola de administración…",
+    "peer_online": "{name} está en línea",
+    "peer_offline": "{name} se desconectó"
+  },
+  "launcher": {
+    "loading": "Cargando Tailscale…",
+    "missing": "tailscale no encontrado",
+    "cat": {
+      "status": "Estado",
+      "status-sub": "Resumen de conexión",
+      "peers": "Pares",
+      "peers-sub": "Explorar máquinas en la tailnet",
+      "exit": "Nodos de salida",
+      "exit-sub": "Elige o quita un nodo de salida",
+      "up": "Conectar",
+      "up-sub": "tailscale up",
+      "down": "Desconectar",
+      "down-sub": "tailscale down",
+      "panel": "Abrir panel",
+      "panel-sub": "Gestor completo de Tailscale",
+      "refresh": "Actualizar",
+      "refresh-sub": "Volver a consultar estado",
+      "admin": "Consola de administración",
+      "admin-sub": "Abrir admin de Tailscale en el navegador"
+    },
+    "action": {
+      "ping": "Ping",
+      "ssh": "SSH",
+      "copy_ip": "Copiar IPv4",
+      "copy_dns": "Copiar nombre DNS",
+      "use_exit": "Usar como nodo de salida",
+      "clear_exit": "Quitar nodo de salida"
+    }
+  }
+}
