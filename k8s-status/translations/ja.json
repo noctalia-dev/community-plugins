@@ -1,0 +1,173 @@
+{
+  "title": "K8sステータス",
+  "settings": {
+    "kubeconfig": {
+      "label": "Kubeconfig",
+      "description": "kubeconfig のパス（空なら既定）。"
+    },
+    "context": {
+      "label": "コンテキスト",
+      "description": "Kubernetes コンテキスト名。空なら current-context。"
+    },
+    "namespace": {
+      "label": "ネームスペースフィルタ",
+      "description": "Pod/デプロイをこのネームスペースに限定。空ならすべて。"
+    },
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "クラスターのポーリング間隔。"
+    },
+    "problems_only": {
+      "label": "問題 Pod のみの一覧",
+      "description": "パネルの Pod 一覧で、正常な Running を既定で隠す。"
+    },
+    "notify_on_not_ready": {
+      "label": "ノード NotReady を通知",
+      "description": "ノードが NotReady になったときのデスクトップ通知。"
+    },
+    "kubectl_bin": {
+      "label": "kubectl バイナリ",
+      "description": "kubectl コマンド名または絶対パス。"
+    },
+    "show_counts": {
+      "label": "バーに件数を表示",
+      "description": "ウィジェットに Ready ノードと問題 Pod を表示。"
+    },
+    "ok_color": {
+      "label": "正常インジケーター"
+    },
+    "warn_color": {
+      "label": "問題インジケーター"
+    }
+  },
+  "colors": {
+    "tertiary": "ターシャリ",
+    "primary": "プライマリ",
+    "secondary": "セカンダリ",
+    "error": "エラー",
+    "muted": "ミュート"
+  },
+  "widget": {
+    "tooltip_ok": "{context} · Ready ノード {ready}/{nodes} · 問題 Pod {problems}",
+    "tooltip_down": "クラスター到達不可: {error}",
+    "tooltip_missing": "kubectl が見つかりません",
+    "refresh_requested": "クラスター状態を更新中…"
+  },
+  "panel": {
+    "subtitle": "ノード、Pod、ワークロード",
+    "loading": "クラスターを照会中…",
+    "busy": "処理中…",
+    "empty_nodes": "現在のフィルタに一致するノードがありません。",
+    "empty_pods": "現在のフィルタに一致する Pod がありません。",
+    "empty_deploys": "現在のフィルタに一致するデプロイがありません。",
+    "empty_namespaces": "現在のフィルタに一致するネームスペースがありません。",
+    "select_hint": "操作する項目を選択してください。",
+    "updated": "更新 {time}",
+    "context": "コンテキスト: {name}",
+    "summary": "Ready ノード {ready}/{nodes} · 問題 Pod {problems} · Pod {pods}"
+  },
+  "tabs": {
+    "nodes": "ノード",
+    "pods": "Pod",
+    "deploys": "デプロイメント",
+    "namespaces": "ネームスペース"
+  },
+  "filter": {
+    "all": "すべて",
+    "problems": "問題",
+    "placeholder_nodes": "絞り込み…（!Ready は Ready を除外）",
+    "placeholder_pods": "絞り込み… 例: gitea または !Running",
+    "placeholder_deploys": "絞り込み… 例: ai または !1/1",
+    "placeholder_namespaces": "絞り込み… 例: !Active"
+  },
+  "node": {
+    "ready": "Ready",
+    "not_ready": "NotReady",
+    "roles": "ロール: {roles}",
+    "version": "バージョン: {version}",
+    "ip": "IP: {ip}"
+  },
+  "pod": {
+    "restarts": "{count} 回再起動",
+    "node": "ノード: {node}"
+  },
+  "deploy": {
+    "replicas": "{ready}/{desired} Ready"
+  },
+  "ns": {
+    "phase": "{phase}"
+  },
+  "actions": {
+    "refresh": "更新",
+    "logs": "ログ",
+    "describe": "Describe",
+    "delete_pod": "Pod を削除",
+    "restart": "再起動",
+    "open_k9s": "k9s",
+    "toggle_filter": "フィルター"
+  },
+  "result": {
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が実行中です。",
+    "kubectl_missing": "kubectl が利用できません。",
+    "unreachable": "クラスターに到達できません",
+    "logs_started": "{name} のログを開いています…",
+    "shell_started": "{name} でシェルを開いています…",
+    "portforward_started": "{name} のポートフォワード（{ports}）…",
+    "yaml_started": "{name} の YAML を表示中…",
+    "copied": "{name} をコピーしました",
+    "describe_started": "{name} を describe 中…",
+    "deleted": "Pod {name} を削除しました",
+    "restarted": "{name} を再起動しました",
+    "k9s_started": "k9s を開いています…",
+    "node_not_ready": "ノード {name} が NotReady です"
+  },
+  "launcher": {
+    "loading": "クラスタースナップショットを読み込み中…",
+    "unavailable": "クラスター利用不可",
+    "no-matches": "一致なし",
+    "cat": {
+      "pods": "Pod",
+      "pods-sub": "Pod を参照 — ログ、シェル、describe…",
+      "problems": "問題のある Pod",
+      "problems-sub": "非 Running / 異常 Pod のみ",
+      "nodes": "ノード",
+      "nodes-sub": "ノード状態と describe",
+      "deploys": "デプロイメント",
+      "deploys-sub": "ロールアウトリスタートと describe",
+      "ns": "ネームスペース",
+      "ns-sub": "ネームスペースを参照",
+      "status": "状態の概要",
+      "status-sub": "Ready ノード / 問題 Pod を通知",
+      "panel": "パネルを開く",
+      "panel-sub": "K8s Status フルマネージャー",
+      "k9s": "k9s を開く",
+      "k9s-sub": "ターミナルのクラスター UI",
+      "refresh": "更新",
+      "refresh-sub": "今すぐクラスターを再スキャン"
+    },
+    "action": {
+      "logs": "ログ",
+      "logs-sub": "kubectl logs -f --tail=200",
+      "shell": "シェル",
+      "shell-sub": "kubectl exec -it (bash/sh)",
+      "describe": "Describe",
+      "describe-sub": "kubectl describe",
+      "yaml": "YAML",
+      "yaml-sub": "kubectl get -o yaml",
+      "portforward": "ポートフォワード",
+      "portforward-sub": "kubectl port-forward 8080:8080",
+      "copy": "名前をコピー",
+      "copy-sub": "namespace/名前をクリップボードにコピー",
+      "delete": "Pod を削除",
+      "delete-sub": "kubectl delete pod",
+      "restart": "再起動",
+      "restart-sub": "kubectl rollout restart"
+    },
+    "pod-actions": "操作を選択",
+    "node-actions": "操作を選択",
+    "deploy-actions": "操作を選択",
+    "hint-type": "入力で絞り込み、Enter で開く"
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "title": "État K8s",
+  "settings": {
+    "kubeconfig": {
+      "label": "Kubeconfig",
+      "description": "Chemin du kubeconfig (vide = défaut)."
+    },
+    "context": {
+      "label": "Contexte",
+      "description": "Nom de contexte Kubernetes. Vide = current-context."
+    },
+    "namespace": {
+      "label": "Filtre d’espace de noms",
+      "description": "Limiter pods/déploiements à cet espace de noms. Vide = tous."
+    },
+    "refresh_interval": {
+      "label": "Intervalle d’actualisation (secondes)",
+      "description": "Fréquence d’interrogation du cluster."
+    },
+    "problems_only": {
+      "label": "Liste uniquement des pods problématiques",
+      "description": "Dans la liste des pods, masquer par défaut les Running sains."
+    },
+    "notify_on_not_ready": {
+      "label": "Notifier un nœud NotReady",
+      "description": "Notification bureau lorsqu’un nœud devient NotReady."
+    },
+    "kubectl_bin": {
+      "label": "Binaire kubectl",
+      "description": "Nom de commande kubectl ou chemin absolu."
+    },
+    "show_counts": {
+      "label": "Afficher les compteurs sur la barre",
+      "description": "Afficher les nœuds prêts et les pods problématiques sur le widget."
+    },
+    "ok_color": {
+      "label": "Indicateur sain"
+    },
+    "warn_color": {
+      "label": "Indicateur de problème"
+    }
+  },
+  "colors": {
+    "tertiary": "Tertiaire",
+    "primary": "Principal",
+    "secondary": "Secondaire",
+    "error": "Erreur",
+    "muted": "Atténué"
+  },
+  "widget": {
+    "tooltip_ok": "{context} · {ready}/{nodes} nœuds prêts · {problems} pods problématiques",
+    "tooltip_down": "Cluster inaccessible : {error}",
+    "tooltip_missing": "kubectl introuvable",
+    "refresh_requested": "Actualisation de l’état du cluster…"
+  },
+  "panel": {
+    "subtitle": "Nœuds, pods et charges",
+    "loading": "Interrogation du cluster…",
+    "busy": "Traitement…",
+    "empty_nodes": "Aucun nœud ne correspond au filtre actuel.",
+    "empty_pods": "Aucun pod ne correspond au filtre actuel.",
+    "empty_deploys": "Aucun déploiement ne correspond au filtre.",
+    "empty_namespaces": "Aucun espace de noms ne correspond au filtre.",
+    "select_hint": "Sélectionnez un élément pour les actions.",
+    "updated": "Mis à jour {time}",
+    "context": "Contexte : {name}",
+    "summary": "{ready}/{nodes} nœuds prêts · {problems} pods problématiques · {pods} pods"
+  },
+  "tabs": {
+    "nodes": "Nœuds",
+    "pods": "Pods",
+    "deploys": "Déploiements",
+    "namespaces": "Espaces de noms"
+  },
+  "filter": {
+    "all": "Tout",
+    "problems": "Problèmes",
+    "placeholder_nodes": "Filtrer…  (!Ready exclut Ready)",
+    "placeholder_pods": "Filtrer…  ex. gitea  ou  !Running",
+    "placeholder_deploys": "Filtrer…  ex. ai  ou  !1/1",
+    "placeholder_namespaces": "Filtrer…  ex. !Active"
+  },
+  "node": {
+    "ready": "Prêt",
+    "not_ready": "NotReady",
+    "roles": "Rôles : {roles}",
+    "version": "Version : {version}",
+    "ip": "IP : {ip}"
+  },
+  "pod": {
+    "restarts": "{count} redémarrages",
+    "node": "Nœud : {node}"
+  },
+  "deploy": {
+    "replicas": "{ready}/{desired} prêts"
+  },
+  "ns": {
+    "phase": "{phase}"
+  },
+  "actions": {
+    "refresh": "Actualiser",
+    "logs": "Journaux",
+    "describe": "Describe",
+    "delete_pod": "Supprimer le pod",
+    "restart": "Redémarrer",
+    "open_k9s": "k9s",
+    "toggle_filter": "Filtrer"
+  },
+  "result": {
+    "success": "Terminé",
+    "failed": "Échec : {error}",
+    "busy": "Une autre opération est en cours.",
+    "kubectl_missing": "kubectl n’est pas disponible.",
+    "unreachable": "Impossible d’atteindre le cluster",
+    "logs_started": "Ouverture des journaux pour {name}…",
+    "shell_started": "Ouverture d’un shell dans {name}…",
+    "portforward_started": "Redirection de port {name} ({ports})…",
+    "yaml_started": "Affichage du YAML pour {name}…",
+    "copied": "Copié {name}",
+    "describe_started": "Description de {name}…",
+    "deleted": "Pod supprimé {name}",
+    "restarted": "Redémarré {name}",
+    "k9s_started": "Ouverture de k9s…",
+    "node_not_ready": "Le nœud {name} est NotReady"
+  },
+  "launcher": {
+    "loading": "Chargement de l’instantané du cluster…",
+    "unavailable": "Cluster indisponible",
+    "no-matches": "Aucune correspondance",
+    "cat": {
+      "pods": "Pods",
+      "pods-sub": "Parcourir les pods — logs, shell, describe…",
+      "problems": "Pods problématiques",
+      "problems-sub": "Uniquement les pods non Running / non sains",
+      "nodes": "Nœuds",
+      "nodes-sub": "État du nœud et describe",
+      "deploys": "Déploiements",
+      "deploys-sub": "Redémarrage de déploiement et describe",
+      "ns": "Espaces de noms",
+      "ns-sub": "Parcourir les espaces de noms",
+      "status": "Résumé de l’état",
+      "status-sub": "Notifier nœuds prêts / pods problématiques",
+      "panel": "Ouvrir le panneau",
+      "panel-sub": "Gestionnaire K8s Status complet",
+      "k9s": "Ouvrir k9s",
+      "k9s-sub": "Interface cluster en terminal",
+      "refresh": "Actualiser",
+      "refresh-sub": "Rescanner le cluster maintenant"
+    },
+    "action": {
+      "logs": "Journaux",
+      "logs-sub": "kubectl logs -f --tail=200",
+      "shell": "Shell",
+      "shell-sub": "kubectl exec -it (bash/sh)",
+      "describe": "Describe",
+      "describe-sub": "kubectl describe",
+      "yaml": "YAML",
+      "yaml-sub": "kubectl get -o yaml",
+      "portforward": "Redirection de port",
+      "portforward-sub": "kubectl port-forward 8080:8080",
+      "copy": "Copier le nom",
+      "copy-sub": "Copier namespace/nom dans le presse-papiers",
+      "delete": "Supprimer le pod",
+      "delete-sub": "kubectl delete pod",
+      "restart": "Redémarrer",
+      "restart-sub": "kubectl rollout restart"
+    },
+    "pod-actions": "Choisir une action",
+    "node-actions": "Choisir une action",
+    "deploy-actions": "Choisir une action",
+    "hint-type": "Tapez pour filtrer, Entrée pour ouvrir"
+  }
+}
