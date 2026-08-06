@@ -123,7 +123,10 @@ end
 pollLayout()
 
 function update()
-  noctalia.setUpdateInterval(1000)
+  -- Watch streams deliver layout/keymode changes in real time; the poll is only
+  -- a fallback for when a stream stalls, so keep the rate low (5 s) to avoid
+  -- spawning an mmsg subprocess every second.
+  noctalia.setUpdateInterval(5000)
   pollLayout()
   refreshDisplay()
 end

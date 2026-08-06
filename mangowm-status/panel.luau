@@ -26,6 +26,10 @@ local layoutOrder = { "T", "S", "G", "M", "K", "CT", "RT", "DW", "F", "VS", "VT"
 local currentLayoutCode = "T"
 local switching = false
 
+-- Forward-declared so setLayout's failure path can re-render the panel
+-- (doRender is defined after setLayout below).
+local doRender
+
 -- Helper to switch layout and close panel
 local function setLayout(code)
   if switching or code == currentLayoutCode then return end
@@ -61,7 +65,7 @@ function onLayoutVG() setLayout("VG") end
 function onLayoutVK() setLayout("VK") end
 function onLayoutVF() setLayout("VF") end
 
-local function doRender()
+function doRender()
   -- Map layout code -> onClick handler name
   local onClickHandler = {
     T  = "onLayoutT",  S  = "onLayoutS",  G  = "onLayoutG",

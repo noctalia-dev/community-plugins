@@ -5,7 +5,7 @@ plugin_api   = 4
 author       = "x0d7x"
 license      = "MIT"
 dependencies = ["mmsg"]
-icon         = "grid"
+icon         = "grid-4x4"
 description  = "Shows current tiling layout and keymode for Mangowm"
 tags         = ["bar", "mangowc"]
 
