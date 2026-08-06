@@ -6,7 +6,23 @@ local status = "idle"
 
 local imageSize = 400
 
+local generateButton = noctalia.getConfig("generate_button")
+local keepOnClose = noctalia.getConfig("keep_on_close")
 local notifyConf = noctalia.getConfig("notify")
+
+-- when toggling off keep_on_close, the image will not be deleted, so this runs every config change
+if not keepOnClose then
+    local dir = noctalia.pluginDir()
+    local files = noctalia.listDir(dir)
+
+    if files then
+        for _, name in ipairs(files) do
+            if name:match("^qr-") then
+                noctalia.removeFile(dir .. "/" .. name)
+            end
+        end
+    end
+end
 
 local function notify(text, error)
     local cmd = error and noctalia.notifyError or noctalia.notify
@@ -23,7 +39,7 @@ local function statusText()
     elseif status == "copied" then 
         return noctalia.tr("panel.status.copied")
     else
-        return noctalia.tr("panel.status.idle")
+        return noctalia.tr(generateButton and "panel.status.idle" or "panel.status.idlebis")
     end
 end
 
@@ -35,10 +51,11 @@ local function render()
             placeholder = noctalia.tr("panel.placeholder"),
             onChange = "onTextChange",
             onSubmit = "onTextSubmit",
+            value = currentText
         })
     }
 
-    if noctalia.getConfig("generate_button") then
+    if generateButton then
         table.insert(
             rowContent,
             ui.button({
@@ -170,7 +187,9 @@ local function generate(text)
 end
 
 function onOpen(_context)
-    status = "idle"
+    if not keepOnClose then
+        status = "idle"
+    end
     render()
 end
 
@@ -220,7 +239,12 @@ function onCloseClicked()
 end
 
 function onClose()
-    if imagePath ~= nil then
+    if not keepOnClose and imagePath ~= nil then
         noctalia.removeFile(imagePath)
+        imagePath = nil
+        errorMessage = nil
+        currentText = ""
+        render()
+        -- calling render() here so it doesn't try to render the image when opening the panel
     end
 end

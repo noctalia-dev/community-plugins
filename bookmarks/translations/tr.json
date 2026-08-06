@@ -7,11 +7,47 @@
   "description_field": "Açıklama (İsteğe bağlı)",
   "drag_tooltip": "Sıralamak için sürükle veya bir klasörün içine bırak",
   "drop_out_of_folder": "Ana panele göndermek için buraya bırak",
+  "edit": {
+    "delete_tooltip": "Sil",
+    "drag_tooltip": "Sıralamak için sürükle veya bir klasörün içine bırak",
+    "drop_out_of_folder": "Ana panele göndermek için buraya bırak",
+    "edit_tooltip": "Düzenle",
+    "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
+    "show_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini göster"
+  },
   "edit_bookmark": "Yer İmini Düzenle",
   "edit_folder": "Klasörü Düzenle",
   "edit_tooltip": "Düzenle",
+  "entry_form": {
+    "cancel_button": "İptal",
+    "cmd_field": "Shell Komutu",
+    "description_field": "Açıklama (İsteğe bağlı)",
+    "edit_bookmark": "Yer İmini Düzenle",
+    "edit_folder": "Klasörü Düzenle",
+    "err_label_cmd_required": "Etiket ve komut alanları gerekli",
+    "err_label_required": "Etiket gerekli",
+    "folder_name_field": "Klasör ismi",
+    "glyph_field": "Simge (ör. bookmark)",
+    "label_field": "İsim etiketi",
+    "new_bookmark": "Yeni Yer İmi",
+    "new_folder": "Yeni Klasör",
+    "run_in_background_field": "Arka planda çalıştır",
+    "run_in_terminal_field": "Konsolda çalıştır",
+    "save_button": "Kaydet"
+  },
   "entry_saved": "\"{label}\" kaydedildi",
   "entry_updated": "\"{label}\" güncellendi",
+  "err": {
+    "corrupt": "Bozuk yer imleri dosyası: {error}",
+    "delete_failed": "Silinemedi: {error}",
+    "exit_code": "\"{label}\" {code} ile sonlandı",
+    "launch_failed": "\"{label}\" açılamadı",
+    "no_command": "Bu yer iminin bir komutu yok",
+    "no_data_dir": "Eksik veri dizgini",
+    "read_failed": "Yer imleri okunamadı: {error}",
+    "reorder_failed": "Sıralama Yapılamadı: {error}",
+    "save_failed": "Kaydedilemedi: {error}"
+  },
   "err_corrupt": "Bozuk yer imleri dosyası: {error}",
   "err_delete_failed": "Silinemedi: {error}",
   "err_exit_code": "\"{label}\" {code} ile sonlandı",
@@ -23,10 +59,18 @@
   "err_read_failed": "Yer imleri okunamadı: {error}",
   "err_reorder_failed": "Sıralama Yapılamadı: {error}",
   "err_save_failed": "Kaydedilemedi: {error}",
+  "folder": {
+    "delete_folder_button": "Klasörü Sil",
+    "folder_deleted": "\"{label}\" klasörü ve içeriği silindi"
+  },
   "folder_deleted": "\"{label}\" klasörü ve içeriği silindi",
   "folder_name_field": "Klasör ismi",
   "glyph_field": "Simge (ör. bookmark)",
   "hide_controls_tooltip": "Sıralama/düzenleme/silme kontrollerini gizle",
+  "info": {
+    "cmd_line": "Komut: {cmd}",
+    "description_line": "Açıklama: {description}"
+  },
   "info_cmd_line": "Komut: {cmd}",
   "info_description_line": "Açıklama: {description}",
   "label_field": "İsim etiketi",
@@ -51,6 +95,10 @@
     "data_path": {
       "description": "data.json dosyasının saklandığı konum. Varsayılan eklenti veri konumunu kullanmak için boş bırakın.",
       "label": "Veri dosyası"
+    },
+    "enable_bk_provider": {
+      "description": "Başlatıcıya, yer imlerini fuzzy-aramak ve çalıştırmak için \"/bk\" komutunu ekler.",
+      "label": "Enable /bk launcher provider"
     },
     "glyph": {
       "description": "Çubuk aracının simgesi (ör. bookmark)",

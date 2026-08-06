@@ -7,7 +7,3 @@ else
 end
 
 barWidget.setTooltip(noctalia.tr("widget.tooltip"))
-
-function onClick()
-    noctalia.togglePanel("yocraft/qrcode:panel")
-end

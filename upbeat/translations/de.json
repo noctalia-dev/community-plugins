@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "beat_display": {
+      "description": "Internet-Zeitformat umschalten (.beats)",
+      "label": ".beats anzeigen"
+    },
+    "show_centibeats": {
+      "description": "Anzeige der Subbeats ein-/ausschalten (.xx)",
+      "label": "Subbeats anzeigen"
+    },
+    "time_format_toggle": {
+      "description": "24-Stunden-Anzeige",
+      "label": "24-Stunden-Anzeige umschalten"
+    }
+  }
+}

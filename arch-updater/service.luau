@@ -54,6 +54,7 @@ local sinceCheck = 0
 local startupTicks = 0
 local sinceNewsCheck = 0
 local newsStateLoaded = false
+local newsDirty = false
 
 local startCheck
 local checkNews
@@ -537,7 +538,7 @@ checkNews = function()
         local parsed, items = pcall(parseNewsFeed, res.body)
         if parsed and type(items) == "table" then
             applyNewsItems(items)
-            publish()
+            newsDirty = true
         end
     end)
     if not ok then
@@ -736,6 +737,11 @@ function update()
             sinceNewsCheck = 0
             checkNews()
         end
+    end
+
+    if newsDirty then
+        newsDirty = false
+        publish()
     end
 end
 

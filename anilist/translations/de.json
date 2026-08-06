@@ -1,0 +1,12 @@
+{
+  "panel": {
+    "close": "Schließen",
+    "close_preview": "Vorschau schließen",
+    "connect": "Mit AniList verbinden",
+    "cover_preview": "Cover anzeigen",
+    "decrement": "Vorherige Folge/Kapitel",
+    "download_cover": "Cover herunterladen",
+    "download_cover_failed": "Das Coverbild konnte nicht gespeichert werden.",
+    "download_cover_success": "Cover wurde unter {path} gespeichert"
+  }
+}
