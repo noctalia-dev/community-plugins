@@ -19,7 +19,7 @@
 set -euo pipefail
 ACTION="${1:-}"
 THUMB_OUT="/tmp/screen-toolkit-record-thumb.png"
-PALETTE="/tmp/screen-toolkit-record-palette.png"
+PALETTE="/tmp/screen-toolkit-record-palette-$$.png"
 _require() {
     command -v "$1" >/dev/null 2>&1 \
         || { echo "ERROR: missing dependency: $1" >&2; exit 3; }
@@ -78,11 +78,11 @@ case "$ACTION" in
         DURATION="-t $MAXSEC"
     fi
     ffmpeg -y $DURATION -i "$INPUT" \
-        -vf 'fps=15,scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,palettegen' \
+        -vf 'fps=15,scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=bilinear,palettegen=stats_mode=diff' \
         "$PALETTE" 2>/dev/null \
     || { echo "ERROR: convert-gif: palettegen pass failed" >&2; exit 4; }
     ffmpeg -y $DURATION -i "$INPUT" -i "$PALETTE" \
-        -lavfi 'fps=15,scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos[x];[x][1:v]paletteuse' \
+        -lavfi 'fps=15,scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=bilinear[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5' \
         "$OUTPUT" 2>/dev/null \
     || { echo "ERROR: convert-gif: paletteuse pass failed" >&2; exit 4; }
     rm -f "$PALETTE" "$INPUT"

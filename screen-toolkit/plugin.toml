@@ -8,8 +8,8 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.1.0"
-plugin_api = 9
+version = "1.2.0"
+plugin_api = 13
 author = "alexander"
 license = "MIT"
 icon = "crosshair"
@@ -38,6 +38,7 @@ dependencies = [
   "gpu-screen-recorder",
   "wl-screenrec",
   "wf-recorder",
+  "mpv",
 ]
 
 # ── Panel entries (host-injected placement/size settings appear here, first in the settings editor) ──
@@ -50,9 +51,11 @@ dependencies = [
 id = "panel"
 entry = "panel.luau"
 width = 380
-height = 260
+height = 290
 placement = "floating"
 position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["Tab", "Backtab", "Shift+Tab", "Up", "Down", "Left", "Right", "Return", "Enter", "Space", "Escape"]
 
 # Full-mode layout: the original spacious grid (660x340).
 [[panel]]
@@ -62,6 +65,19 @@ width = 660
 height = 340
 placement = "floating"
 position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["Tab", "Backtab", "Shift+Tab", "Up", "Down", "Left", "Right", "Return", "Enter", "Space", "Escape"]
+
+# Legacy-mode layout: the original screen-toolkit v4 panel.
+[[panel]]
+id = "panel-legacy"
+entry = "panel.luau"
+width = 380
+height = 260
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+capture_keys = ["Tab", "Backtab", "Shift+Tab", "Up", "Down", "Left", "Right", "Return", "Enter", "Space", "Escape"]
 
 # Result panel: opened by the service when a capture tool finishes.
 [[panel]]
@@ -211,6 +227,7 @@ default = "full"
 options = [
   { value = "compact", label_key = "settings.panel_mode.options.compact" },
   { value = "full", label_key = "settings.panel_mode.options.full" },
+  { value = "legacy", label_key = "settings.panel_mode.options.legacy" },
 ]
 
 # ── Entries ─────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ not the original implementation.
 | Field | Value |
 | --- | --- |
 | ID | `alexander/screen-toolkit` |
-| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (compact tools), `panel-full` (full tools), `result` (result view); service: `service` |
+| Entries | Bar widget: `widget`; control-center shortcut: `toggle`; panels: `panel` (compact tools), `panel-full` (full tools), `panel-legacy` (legacy layout), `result` (result view); service: `service` |
 
 ## Requirements
 
@@ -35,6 +35,7 @@ reported when that feature is started.
 - **`stat`** — recording file size
 - **`pkill`** — stopping active recording backends
 - **`xdg-open`** — opening URLs, OCR search results, and shared-link targets
+- **`mpv`** — open recording preview in legacy mode subpanel 
 
 Recording requires at least one backend:
 
@@ -60,16 +61,24 @@ Settings → Control Center shortcuts. Left-click either one opens the main pane
 (or stops a recording); right-clicking the bar widget quick-picks a color. While
 a recording is active, the widget and shortcut show a pulsing red dot.
 
-The main panel has two layouts, selected by the `panel-mode` setting (default:
+The main panel has three layouts, selected by the `panel-mode` setting (default:
 **Full**):
 
-- **Full** — the spacious original grid with section titles (`panel-full`,
-  660×340).
-- **Compact** — a dense grid grouped into tinted sections (`panel`,
-  380×260).
+- **Full** — the spacious original grid with section titles (`panel-full`, 660×340).
+- **Compact** — a dense grid grouped into tinted sections (`panel`, 380×290).
+- **Legacy** — recreates the Noctalia-v4 layout (`panel-legacy`, 380×260).
+
+### Legacy mode
+Legacy mode recreates the original Noctalia v4 screen-toolkit layout:
+
+> **Note:** The features below are exclusive to the **Legacy** layout.
+
+- Dedicated Markup and Recording subpanels.
+- Preview and one-click access to the most recent screenshot or recording.
+- Quick microphone and system audio toggles in the `Record` subpanel.
 
 The widget and shortcut open whichever entry matches the setting; the panel
-footnote under Settings → Plugins shows both panels' placement/position
+footnote under Settings → Plugins shows all three panels' placement/position
 options.
 
 Toggle the tools panel (opens the entry matching the `panel-mode` setting):
@@ -84,8 +93,7 @@ For example, bind it to `SUPER+P` in Hyprland:
 bind = SUPER, P, exec, noctalia msg plugin alexander/screen-toolkit:service all toggle
 ```
 
-Because `toggle` reads the `panel-mode` setting, this single bind works in both
-full and compact mode — no need to change the keybind when you switch layouts.
+Because `toggle` reads the `panel-mode` setting, this single bind works in all three layouts (Full, Compact and Legacy), so there is no need to change the keybind when you switch layouts.
 
 Open the compact tools panel:
 
@@ -97,6 +105,12 @@ Open the full tools panel (the original spacious grid):
 
 ```sh
 noctalia msg panel-toggle alexander/screen-toolkit:panel-full
+```
+
+Open the legacy tools panel (the 4×2 grid with subpanels):
+
+```sh
+noctalia msg panel-toggle alexander/screen-toolkit:panel-legacy
 ```
 
 Open the result panel (shows the last capture/recording output):
@@ -164,7 +178,7 @@ All settings live in Settings → Plugins (gear on the plugin's row).
 | `record-skip-confirmation` | `bool` | `false` | Save automatically when a recording ends, skipping the save dialog. |
 | `record-copy-to-clipboard` | `bool` | `false` | Finalize to MP4 and copy the file URI when recording ends. |
 | `gif-max-seconds` | `int` | `30` | Cap for GIF recordings (1–600 s). |
-| `panel-mode` | `select` | `full` | Main panel layout: `full` (spacious original grid, 660×340) or `compact` (dense grid, 380×260). |
+| `panel-mode` | `select` | `full` | Main panel layout: `full` (spacious original grid, 660×340) or `compact` (dense grid, 380×290) or `legacy` (4×2 legacy grid, 380×260). |
 
 ## IPC
 
@@ -195,7 +209,7 @@ noctalia msg plugin alexander/screen-toolkit:service all clearHistory
 ```
 
 `toggle` opens the tools panel **matching the `panel-mode` setting** — one IPC
-that works for both layouts. The bar widget and control-center shortcut use the
+that works for all three layouts. The bar widget and control-center shortcut use the
 same mode-aware toggle.
 
 Commands that take a payload:
@@ -244,10 +258,10 @@ Summary of every service command:
 
 ## Notes
 
-- **Two panel entries, one layout setting.** Panel size is host-owned: the host
+- **Three panel entries, one layout setting.** Panel size is host-owned: the host
   sizes each `[[panel]]` entry from its `width`/`height`, and there is no runtime
-  resize. So the two layouts are two entries sharing `panel.luau`: `panel-full`
-  (660×340, the original spacious grid) and `panel` (380×260, the compact grid).
+  resize. So the three layouts are three entries sharing `panel.luau`: `panel-full`
+  (660×340, the original spacious grid), `panel` (380×290, the compact grid) and `panel-legacy` (380×260, the legacy grid).
   The `panel-mode` setting picks which one renders, and `toggle`/widget/shortcut
   all open the matching entry. Changing the setting only affects which panel
   opens next time; an already-open panel keeps its current size until closed.

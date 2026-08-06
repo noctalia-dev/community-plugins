@@ -205,7 +205,8 @@
       "description": "Layout of the main panel. Compact is the dense grid; Full is the original spacious grid.",
       "options": {
         "compact": "Compact",
-        "full": "Full"
+        "full": "Full",
+        "legacy": "Legacy"
       }
     }
   }
