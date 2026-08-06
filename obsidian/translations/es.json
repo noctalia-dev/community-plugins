@@ -1,0 +1,118 @@
+{
+  "title": "Obsidian",
+  "settings": {
+    "vault_path": {
+      "label": "Ruta del vault",
+      "description": "Carpeta raíz del vault de Obsidian."
+    },
+    "vault_name": {
+      "label": "Nombre del vault (URI)",
+      "description": "Nombre usado en enlaces obsidian://. Vacío = nombre de carpeta."
+    },
+    "daily_folder": {
+      "label": "Carpeta de notas diarias",
+      "description": "Relativo a la raíz del vault (vacío = raíz)."
+    },
+    "daily_format": {
+      "label": "Formato de nombre de nota diaria",
+      "description": "Patrón strftime sin .md (predeterminado %Y-%m-%d)."
+    },
+    "git_commit_message": {
+      "label": "Mensaje de commit predeterminado",
+      "description": "Se usa al pulsar Commit con el mensaje vacío."
+    },
+    "refresh_interval": {
+      "label": "Intervalo de actualización (segundos)",
+      "description": "Cada cuánto reexplorar notas recientes y git."
+    },
+    "notify_on_action": {
+      "label": "Notificar en acciones",
+      "description": "Notificación de escritorio tras captura / acciones git."
+    },
+    "show_dirty": {
+      "label": "Mostrar contador dirty",
+      "description": "Mostrar en la barra el número de archivos git modificados."
+    }
+  },
+  "widget": {
+    "tooltip_ok": "{vault} · diario {daily} · git {git}",
+    "tooltip_missing": "Ruta de vault ausente o no es un vault",
+    "tooltip_nogit": "{vault} · sin repo git",
+    "refresh_requested": "Actualizando vault…"
+  },
+  "panel": {
+    "loading": "Explorando vault…",
+    "busy": "Trabajando…",
+    "empty": "Nada que mostrar.",
+    "select_hint": "Selecciona una nota para acciones.",
+    "updated": "Actualizado {time}",
+    "vault": "{name}",
+    "summary": "Diario {daily} · {recent} recientes · git {git}",
+    "capture_placeholder": "Nota rápida (se añade al diario con marca de tiempo)…",
+    "commit_placeholder": "Mensaje de commit (opcional)…",
+    "daily_missing": "La nota diaria se creará en la primera captura.",
+    "daily_path": "Diario: {path}",
+    "git_branch": "Rama {branch} · {ahead}↑ {behind}↓ · {dirty} dirty",
+    "git_clean": "Árbol de trabajo limpio",
+    "git_nogit": "No es un repositorio git",
+    "git_files": "Archivos modificados",
+    "git_in_progress": "Git {kind} en curso — aborta antes de otras acciones"
+  },
+  "tabs": {
+    "daily": "Diario",
+    "recent": "Recientes",
+    "git": "Git"
+  },
+  "filter": {
+    "placeholder": "Filtrar notas…"
+  },
+  "actions": {
+    "open_vault": "Abrir vault",
+    "open_daily": "Abrir diario",
+    "open_note": "Abrir",
+    "capture": "Añadir al diario",
+    "refresh": "Actualizar",
+    "copy_link": "Copiar [[enlace]]",
+    "copy_path": "Copiar ruta",
+    "git_status": "Estado",
+    "git_commit": "Commit",
+    "git_pull": "Pull",
+    "git_push": "Push",
+    "git_sync": "Pull + push",
+    "git_abort": "Abortar rebase/merge"
+  },
+  "result": {
+    "success": "Hecho",
+    "failed": "Falló: {error}",
+    "busy": "Hay otra operación en curso.",
+    "missing_vault": "Vault no encontrado. Define la ruta en ajustes.",
+    "captured": "Añadido a {name}",
+    "opened": "Abriendo…",
+    "copied": "Copiado {name}",
+    "git_clean": "Árbol de trabajo limpio",
+    "git_committed": "Confirmado ({n} archivos)",
+    "git_nothing": "Nada que confirmar",
+    "git_pulled": "Pull terminado",
+    "git_pushed": "Push terminado",
+    "git_synced": "Pull + push terminado",
+    "git_in_progress": "Git {kind} en curso — usa Abortar primero",
+    "git_not_in_progress": "No hay rebase ni merge en curso",
+    "git_aborted": "Abortado {kind}"
+  },
+  "launcher": {
+    "loading": "Cargando vault…",
+    "missing": "Vault no configurado",
+    "cat": {
+      "daily": "Abrir nota diaria",
+      "daily-sub": "Nota de hoy en Obsidian",
+      "capture": "Captura…",
+      "capture-sub": "Escribe: /ob capture tu texto",
+      "git": "Estado de git",
+      "git-sub": "Dirty / ahead / behind",
+      "panel": "Abrir panel",
+      "panel-sub": "Gestor completo de Obsidian",
+      "refresh": "Actualizar",
+      "refresh-sub": "Reexplorar vault + git"
+    }
+  }
+}

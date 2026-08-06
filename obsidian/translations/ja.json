@@ -1,0 +1,118 @@
+{
+  "title": "Obsidian",
+  "settings": {
+    "vault_path": {
+      "label": "保管庫のパス",
+      "description": "Obsidian 保管庫のルートフォルダ。"
+    },
+    "vault_name": {
+      "label": "保管庫名（URI）",
+      "description": "obsidian:// リンクで使う名前。空ならフォルダ名。"
+    },
+    "daily_folder": {
+      "label": "デイリーノートのフォルダ",
+      "description": "保管庫ルートからの相対（空ならルート）。"
+    },
+    "daily_format": {
+      "label": "デイリーファイル名の形式",
+      "description": ".md なしの strftime パターン（既定 %Y-%m-%d）。"
+    },
+    "git_commit_message": {
+      "label": "デフォルトのコミットメッセージ",
+      "description": "メッセージ空のまま Commit したときに使います。"
+    },
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "最近のノートと git 状態を再スキャンする間隔。"
+    },
+    "notify_on_action": {
+      "label": "操作時に通知",
+      "description": "キャプチャ / git 操作後のデスクトップ通知。"
+    },
+    "show_dirty": {
+      "label": "変更数を表示",
+      "description": "バーに変更された git ファイル数を表示。"
+    }
+  },
+  "widget": {
+    "tooltip_ok": "{vault} · デイリー {daily} · git {git}",
+    "tooltip_missing": "保管庫パスがないか、保管庫ではありません",
+    "tooltip_nogit": "{vault} · git リポジトリなし",
+    "refresh_requested": "保管庫を更新中…"
+  },
+  "panel": {
+    "loading": "保管庫をスキャン中…",
+    "busy": "処理中…",
+    "empty": "表示するものがありません。",
+    "select_hint": "操作するノートを選択してください。",
+    "updated": "更新 {time}",
+    "vault": "{name}",
+    "summary": "デイリー {daily} · 最近 {recent} · git {git}",
+    "capture_placeholder": "クイックメモ（タイムスタンプ付きでデイリーに追記）…",
+    "commit_placeholder": "コミットメッセージ（任意）…",
+    "daily_missing": "最初のキャプチャでデイリーノートが作成されます。",
+    "daily_path": "デイリー: {path}",
+    "git_branch": "ブランチ {branch} · {ahead}↑ {behind}↓ · {dirty} dirty",
+    "git_clean": "作業ツリーはクリーンです",
+    "git_nogit": "Git リポジトリではありません",
+    "git_files": "変更されたファイル",
+    "git_in_progress": "Git {kind} 進行中 — 他の操作の前に中止してください"
+  },
+  "tabs": {
+    "daily": "デイリー",
+    "recent": "最近",
+    "git": "Git"
+  },
+  "filter": {
+    "placeholder": "ノートを絞り込み…"
+  },
+  "actions": {
+    "open_vault": "保管庫を開く",
+    "open_daily": "デイリーを開く",
+    "open_note": "開く",
+    "capture": "デイリーに追加",
+    "refresh": "更新",
+    "copy_link": "[[リンク]] をコピー",
+    "copy_path": "パスをコピー",
+    "git_status": "ステータス",
+    "git_commit": "コミット",
+    "git_pull": "プル",
+    "git_push": "プッシュ",
+    "git_sync": "プル + プッシュ",
+    "git_abort": "rebase/merge を中止"
+  },
+  "result": {
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が実行中です。",
+    "missing_vault": "保管庫が見つかりません。設定でパスを指定してください。",
+    "captured": "{name} に追記しました",
+    "opened": "開いています…",
+    "copied": "{name} をコピーしました",
+    "git_clean": "作業ツリーはクリーンです",
+    "git_committed": "コミット済み（{n} ファイル）",
+    "git_nothing": "コミットするものがありません",
+    "git_pulled": "プル完了",
+    "git_pushed": "プッシュ完了",
+    "git_synced": "プル + プッシュ完了",
+    "git_in_progress": "Git {kind} 進行中 — 先に中止してください",
+    "git_not_in_progress": "進行中の rebase/merge はありません",
+    "git_aborted": "中止しました: {kind}"
+  },
+  "launcher": {
+    "loading": "保管庫を読み込み中…",
+    "missing": "保管庫が未設定",
+    "cat": {
+      "daily": "デイリーノートを開く",
+      "daily-sub": "Obsidian の今日のノート",
+      "capture": "キャプチャ…",
+      "capture-sub": "入力: /ob capture テキスト",
+      "git": "Git の状態",
+      "git-sub": "変更 / ahead / behind",
+      "panel": "パネルを開く",
+      "panel-sub": "Obsidian フルマネージャー",
+      "refresh": "更新",
+      "refresh-sub": "保管庫 + git を再スキャン"
+    }
+  }
+}

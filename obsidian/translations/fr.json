@@ -1,0 +1,118 @@
+{
+  "title": "Obsidian",
+  "settings": {
+    "vault_path": {
+      "label": "Chemin du coffre",
+      "description": "Dossier racine du coffre Obsidian."
+    },
+    "vault_name": {
+      "label": "Nom du coffre (URI)",
+      "description": "Nom utilisé dans les liens obsidian://. Vide = nom du dossier."
+    },
+    "daily_folder": {
+      "label": "Dossier des notes quotidiennes",
+      "description": "Relatif à la racine du coffre (vide = racine)."
+    },
+    "daily_format": {
+      "label": "Format de nom de fichier journalier",
+      "description": "Motif strftime sans .md (défaut %Y-%m-%d)."
+    },
+    "git_commit_message": {
+      "label": "Message de commit par défaut",
+      "description": "Utilisé lorsque Commit est cliqué avec un message vide."
+    },
+    "refresh_interval": {
+      "label": "Intervalle d’actualisation (secondes)",
+      "description": "Fréquence de rescan des notes récentes et de git."
+    },
+    "notify_on_action": {
+      "label": "Notifier lors des actions",
+      "description": "Notification bureau après capture / actions git."
+    },
+    "show_dirty": {
+      "label": "Afficher le compteur dirty",
+      "description": "Afficher sur la barre le nombre de fichiers git modifiés."
+    }
+  },
+  "widget": {
+    "tooltip_ok": "{vault} · journal {daily} · git {git}",
+    "tooltip_missing": "Chemin de coffre manquant ou ce n’est pas un coffre",
+    "tooltip_nogit": "{vault} · pas de dépôt git",
+    "refresh_requested": "Actualisation du coffre…"
+  },
+  "panel": {
+    "loading": "Analyse du coffre…",
+    "busy": "Traitement…",
+    "empty": "Rien à afficher.",
+    "select_hint": "Sélectionnez une note pour les actions.",
+    "updated": "Mis à jour {time}",
+    "vault": "{name}",
+    "summary": "Journal {daily} · {recent} récents · git {git}",
+    "capture_placeholder": "Note rapide (ajoutée au journal avec horodatage)…",
+    "commit_placeholder": "Message de commit (optionnel)…",
+    "daily_missing": "La note du jour sera créée à la première capture.",
+    "daily_path": "Journal : {path}",
+    "git_branch": "Branche {branch} · {ahead}↑ {behind}↓ · {dirty} dirty",
+    "git_clean": "Arbre de travail propre",
+    "git_nogit": "Ce n’est pas un dépôt git",
+    "git_files": "Fichiers modifiés",
+    "git_in_progress": "Git {kind} en cours — annulez avant d’autres actions"
+  },
+  "tabs": {
+    "daily": "Journalier",
+    "recent": "Récents",
+    "git": "Git"
+  },
+  "filter": {
+    "placeholder": "Filtrer les notes…"
+  },
+  "actions": {
+    "open_vault": "Ouvrir le coffre",
+    "open_daily": "Ouvrir le journal",
+    "open_note": "Ouvrir",
+    "capture": "Ajouter au journal",
+    "refresh": "Actualiser",
+    "copy_link": "Copier [[lien]]",
+    "copy_path": "Copier le chemin",
+    "git_status": "État",
+    "git_commit": "Commit",
+    "git_pull": "Pull",
+    "git_push": "Push",
+    "git_sync": "Pull + push",
+    "git_abort": "Annuler le rebase/merge"
+  },
+  "result": {
+    "success": "Terminé",
+    "failed": "Échec : {error}",
+    "busy": "Une autre opération est en cours.",
+    "missing_vault": "Coffre introuvable. Définissez le chemin dans les réglages.",
+    "captured": "Ajouté à {name}",
+    "opened": "Ouverture…",
+    "copied": "Copié {name}",
+    "git_clean": "Arbre de travail propre",
+    "git_committed": "Validé ({n} fichiers)",
+    "git_nothing": "Rien à valider",
+    "git_pulled": "Pull terminé",
+    "git_pushed": "Push terminé",
+    "git_synced": "Pull + push terminé",
+    "git_in_progress": "Git {kind} en cours — utilisez d’abord Annuler",
+    "git_not_in_progress": "Aucun rebase ni merge en cours",
+    "git_aborted": "Annulé : {kind}"
+  },
+  "launcher": {
+    "loading": "Chargement du coffre…",
+    "missing": "Coffre non configuré",
+    "cat": {
+      "daily": "Ouvrir la note du jour",
+      "daily-sub": "Note du jour dans Obsidian",
+      "capture": "Capture…",
+      "capture-sub": "Tapez : /ob capture votre texte",
+      "git": "État git",
+      "git-sub": "Dirty / ahead / behind",
+      "panel": "Ouvrir le panneau",
+      "panel-sub": "Gestionnaire Obsidian complet",
+      "refresh": "Actualiser",
+      "refresh-sub": "Rescanner le coffre + git"
+    }
+  }
+}
