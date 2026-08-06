@@ -33,6 +33,9 @@ local pending_delete = nil
 -- session list. Synced from the active session on every render.
 local last_opened_id = nil
 
+-- Live filter text for the chooser's session search box (in-memory only).
+local session_query = ""
+
 local SVC = "weinguyen/opencode-panel:service"
 local PANEL_ID = "weinguyen/opencode-panel:panel"
 
@@ -233,16 +236,50 @@ local function render_session_chooser(sessions, conn)
         end,
     })
 
+    -- Search box (live filter over the session list). A stable `key` keeps the
+    -- input node alive across render() calls so typed text/cursor survive the
+    -- re-render triggered by onChange.
+    rows[#rows + 1] = ui.input({
+        key = "session_search",
+        value = session_query,
+        placeholder = tr("chooser.search"),
+        onChange = function(text)
+            session_query = text or ""
+            render()
+        end,
+    })
+
+    -- Filter sessions by the search query (case-insensitive substring over
+    -- title/slug/id/directory). Empty query shows everything.
+    local visible = sessions
+    if type(sessions) == "table" and session_query ~= "" then
+        local needle = string.lower(session_query)
+        visible = {}
+        for _, s in ipairs(sessions) do
+            if type(s) == "table" then
+                local hay = string.lower(
+                    tostring(s.title or "") .. " " ..
+                    tostring(s.slug or "") .. " " ..
+                    tostring(s.id or "") .. " " ..
+                    tostring(s.directory or "")
+                )
+                if string.find(hay, needle, 1, true) then
+                    visible[#visible + 1] = s
+                end
+            end
+        end
+    end
+
     -- Session list
     local list_items = {}
-    if type(sessions) ~= "table" or #sessions == 0 then
+    if type(visible) ~= "table" or #visible == 0 then
         list_items[#list_items + 1] = ui.label({
-            text = tr("chooser.empty"),
+            text = session_query ~= "" and tr("chooser.no_match") or tr("chooser.empty"),
             maxWidth = WRAP,
             opacity = 0.7,
         })
     else
-        for _, s in ipairs(sessions) do
+        for _, s in ipairs(visible) do
             if type(s) == "table" and s.id then
                 local title = s.title or s.slug or s.id
                 local model_str = ""
@@ -353,7 +390,7 @@ local function render_session_chooser(sessions, conn)
         end
     end
 
-    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start", fill = "primary/0.1" }, list_items)
+    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, list_items)
 
     panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1, align = "stretch", justify = "start" }, rows))
 end

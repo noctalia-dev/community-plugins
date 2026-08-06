@@ -17,7 +17,9 @@
     "open": "Open session",
     "delete": "Delete session",
     "delete_confirm": "Confirm delete",
-    "delete_cancel": "Cancel"
+    "delete_cancel": "Cancel",
+    "search": "Search sessions…",
+    "no_match": "No sessions match your search."
   },
   "chat": {
     "title": "OpenCode Chat",

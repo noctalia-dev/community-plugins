@@ -17,7 +17,9 @@
     "open": "Mở phiên",
     "delete": "Xóa phiên",
     "delete_confirm": "Xác nhận xóa",
-    "delete_cancel": "Hủy"
+    "delete_cancel": "Hủy",
+    "search": "Tìm phiên…",
+    "no_match": "Không có phiên nào khớp."
   },
   "chat": {
     "title": "OpenCode Chat",
