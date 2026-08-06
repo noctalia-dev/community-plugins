@@ -233,7 +233,7 @@ local function resolveColorSource(id, callback)
 	-- names contain spaces and non-ASCII, so paths are quoted.
 	local cmd = "ffmpeg -y -loglevel error -ss 1 -i "
 		.. shellQuote(dir .. file)
-		.. " -frames:v 1 "
+		.. " -frames:v 1 -vf scale=960:-2"
 		.. shellQuote(frame)
 	noctalia.runAsync(cmd, function(result)
 		-- A wallpaper shorter than the seek offset produces no output and no error,
