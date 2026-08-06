@@ -12,7 +12,7 @@ Pass adds password-store search to the Noctalia launcher so you can copy passwor
 
 ## Requirements
 
-Install `pass`, `pass-otp`, `gpg`, and `wl-copy` on `PATH`.
+Install `pass`, `pass-otp`, `gpg`, `wl-copy`, and `find` on `PATH`.
 
 A working password store is expected in the same location `pass` uses: `$PASSWORD_STORE_DIR` when that variable is set, otherwise the default `~/.password-store`. OTP copying requires entries that are configured for `pass-otp`.
 
@@ -41,7 +41,7 @@ This plugin does not expose custom IPC actions. It provides launcher provider `s
 ## Notes
 
 - Filesystem reads: the service recursively scans `$PASSWORD_STORE_DIR` when set, otherwise `~/.password-store`, and indexes non-hidden `*.gpg` file names. It does not read decrypted password contents.
-- Spawned processes: activating a password result runs `pass -c <entry>`; activating an OTP result runs `pass otp -c <entry>`. If GPG reports an unlock failure, the plugin opens a terminal and runs the same command interactively.
+- Spawned processes: the cache service runs `find` asynchronously to index entry paths without blocking Noctalia's plugin runtime. Activating a password result runs `pass -c <entry>`; activating an OTP result runs `pass otp -c <entry>`. If GPG reports an unlock failure, the plugin opens a terminal and runs the same command interactively.
 - Clipboard/privacy: copied secrets are handled by `pass`/`pass-otp` and the system clipboard tooling, typically including `gpg` and `wl-copy` on Wayland. The plugin stores only entry paths/titles in Noctalia state, not decrypted secrets.
 - Network: the plugin makes no network calls.
 - Writes: the plugin does not write files directly. `pass`, `pass-otp`, `gpg`, or clipboard tools may update their own runtime files such as agent or clipboard state.

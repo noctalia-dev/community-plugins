@@ -1,0 +1,70 @@
+# Udiskie Manager: bar widget, service, and panel for managing USB drives and media.
+# A service monitors udiskie events in real time and publishes to shared state.
+# The bar widget renders mount count and the panel provides full device actions.
+
+id = "aristides/udiskie"
+name = "Udiskie Manager"
+version = "0.1.0"
+plugin_api = 9
+author = "aristides"
+license = "MIT"
+dependencies = ["udiskie", "udisks2", "xdg-open"]
+tags = ["bar", "hardware", "panel", "service", "system", "utility"]
+icon = "device-usb"
+description = "Manage USB drives and media with notifications in just one panel."
+
+[[setting]]
+key = "enable_notifications"
+type = "bool"
+label_key = "settings.enable_notifications.label"
+description_key = "settings.enable_notifications.description"
+default = true
+
+[[setting]]
+key = "auto_open_filemanager"
+type = "bool"
+label_key = "settings.auto_open_filemanager.label"
+description_key = "settings.auto_open_filemanager.description"
+default = false
+
+[[setting]]
+key = "file_manager_cmd"
+type = "string"
+label_key = "settings.file_manager_cmd.label"
+description_key = "settings.file_manager_cmd.description"
+default = "xdg-open"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "status"
+entry = "status.luau"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "device-usb"
+
+[[widget.setting]]
+key = "show_count"
+type = "bool"
+label_key = "settings.show_count.label"
+description_key = "settings.show_count.description"
+default = true
+
+[[widget.setting]]
+key = "hide_when_empty"
+type = "bool"
+label_key = "settings.hide_when_empty.label"
+description_key = "settings.hide_when_empty.description"
+default = false
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 600
+height = 450

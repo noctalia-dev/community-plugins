@@ -36,6 +36,7 @@ body:
         - calculator
         - cat
         - claude-companion
+        - codexbar-meter
         - color_picker
         - daily-wallpaper
         - deepseek_usage
@@ -60,6 +61,7 @@ body:
         - jetbrains-provider
         - keybind-cheatsheet
         - keymap
+        - kineticwe-layouts
         - lid-guard
         - llamanager
         - lrc
@@ -91,6 +93,7 @@ body:
         - tmux-provider
         - todo
         - topgrade-wrapper
+        - udiskie
         - um5606_fan_state
         - upbeat
         - w-engine
