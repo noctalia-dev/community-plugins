@@ -1,17 +1,17 @@
 local settings = noctalia.settings
-local root = ui.box({ direction = "column", h_align = "center", v_align = "center", spacing = 0 })
+local root = ui.box({ direction = "column", hAlign = "center", vAlign = "center", spacing = 0 })
 
 local time_label = ui.label({
-  value = "",
+  text = "",
   font = "monospace",
-  font_size = 14,
+  fontSize = 14,
   color = "primary"
 })
 
 local date_label = ui.label({
-  value = "",
+  text = "",
   font = "monospace",
-  font_size = 10,
+  fontSize = 10,
   color = "on_surface_variant"
 })
 
@@ -25,7 +25,7 @@ local function update()
   end
 end
 
-local timer = noctalia.createTimer(1000, function()
+noctalia.createTimer(30000, function()
   update()
 end)
 
