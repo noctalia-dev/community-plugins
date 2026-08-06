@@ -1,34 +1,34 @@
 {
-  "title": "Niri Animations",
-  "preset": "Preset",
-  "no_preset": "No preset (base pack)",
-  "animations_on": "Animations on",
   "animations_off": "Animations off",
+  "animations_on": "Animations on",
+  "no_preset": "No preset (base pack)",
+  "preset": "Preset",
   "random": "Random",
-  "speed": "Speed",
-  "speed_hint": "above 1 is slower",
-  "shortcut_label": "Animations",
-  "status_presets_found": "presets in",
-  "status_base_pack": "Base pack",
-  "status_off": "Animations disabled.",
-  "status_read_error": "Could not read",
-  "status_write_error": "Could not write",
   "settings": {
-    "presets_dir": {
-      "label": "Presets directory",
-      "description": "Folder scanned for .kdl animation presets"
-    },
-    "target_file": {
-      "label": "Target file",
-      "description": "File rewritten with the chosen preset and speed. Your niri config must include it after the base animations."
-    },
     "include_prefix": {
-      "label": "Include prefix",
-      "description": "Path prefix written in the include line, relative to the target file"
+      "description": "Path prefix written in the include line, relative to the target file",
+      "label": "Include prefix"
+    },
+    "presets_dir": {
+      "description": "Folder scanned for .kdl animation presets",
+      "label": "Presets directory"
     },
     "reload_command": {
-      "label": "Reload command",
-      "description": "Run after writing, so the compositor picks up the change"
+      "description": "Run after writing, so the compositor picks up the change",
+      "label": "Reload command"
+    },
+    "target_file": {
+      "description": "File rewritten with the chosen preset and speed. Your niri config must include it after the base animations.",
+      "label": "Target file"
     }
-  }
+  },
+  "shortcut_label": "Animations",
+  "speed": "Speed",
+  "speed_hint": "above 1 is slower",
+  "status_base_pack": "Base pack",
+  "status_off": "Animations disabled.",
+  "status_presets_found": "presets in",
+  "status_read_error": "Could not read",
+  "status_write_error": "Could not write",
+  "title": "Niri Animations"
 }

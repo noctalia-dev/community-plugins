@@ -134,16 +134,15 @@ Two types of entries exist: `bookmark` and `folder`.
 }
 ```
 
-| Key                                               | Type    | Required / Default                          | Notes                                           |
-| ------------------------------------------------- | ------- | ------------------------------------------- | ----------------------------------------------- |
-| `type`                                            | string  | `"bookmark"`                                |                                                 |
-| `glyph`                                           | string  | falls back to `"bookmark"` if empty/missing |                                                 |
-| `label`                                           | string  | required, enforced at save time             | `""` fails validation                           |
-| `cmd`                                             | string  | required for bookmarks                      | shell command to execute, enforced at save time |
-| `description`                                     | string  | optional, defaults to `""`                  | shown in the info tooltip if enabled            |
-| `runInBackground`                                 | boolean | optional, defaults to `false`               | mutually exclusive with `runInTerminal` in      |
-| the UI but the schema itself doesn't enforce that |
-| `runInTerminal`                                   | boolean | optional, defaults to `false`               |
+| Key               | Type    | Required / Default                          | Notes                                                                                        |
+| ----------------- | ------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `type`            | string  | `"bookmark"`                                |                                                                                              |
+| `glyph`           | string  | falls back to `"bookmark"` if empty/missing |                                                                                              |
+| `label`           | string  | required, enforced at save time             | `""` fails validation                                                                        |
+| `cmd`             | string  | required for bookmarks                      | shell command to execute, enforced at save time                                              |
+| `description`     | string  | optional, defaults to `""`                  | shown in the info tooltip if enabled                                                         |
+| `runInBackground` | boolean | optional, defaults to `false`               | mutually exclusive with `runInTerminal` in the UI but the schema itself doesn't enforce that |
+| `runInTerminal`   | boolean | optional, defaults to `false`               |
 
 ### Folders
 
@@ -156,13 +155,12 @@ Two types of entries exist: `bookmark` and `folder`.
 }
 ```
 
-| Key                                  | Type   | Required/Default                                                        | Notes      |
-| ------------------------------------ | ------ | ----------------------------------------------------------------------- | ---------- |
-| `type`                               | string | `"folder"`                                                              |
-| `glyph`                              | string | falls back to `"folder"` if empty/missing                               |
-| `label`                              | string | required                                                                |
-| `items`                              | array  | optional, treated as `{}` if missing, `folder.items=folder.items or {}` | contents — |
-| bookmarks only, one level of nesting |
+| Key     | Type   | Required/Default                                                        | Notes                                           |
+| ------- | ------ | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `type`  | string | `"folder"`                                                              |
+| `glyph` | string | falls back to `"folder"` if empty/missing                               |
+| `label` | string | required                                                                |
+| `items` | array  | optional, treated as `{}` if missing, `folder.items=folder.items or {}` | contents — bookmarks only, one level of nesting |
 
 ## Settings
 
@@ -199,3 +197,10 @@ The plugin itself has the following settings:
 - Index tracking on root level for keyboard-centric usage
   - Previously, when using a keyboard to navigate, going into a folder would reset the selected
     entry's index to 1 causing fat fingers to be annoying
+
+### v1.3.1
+
+- Fixed a bug where hovering over a bookmark would trigger scrolling event in populated lists
+    - It was also causing the scroll bar to render incorrectly
+    - The fix introduces a new bug where navigating items via keybinds doesn't trigger scrolling.
+    This issue will be fixed in future

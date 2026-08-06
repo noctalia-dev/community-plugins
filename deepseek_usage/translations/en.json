@@ -1,53 +1,53 @@
 {
-  "title": "DeepSeek Usage",
-  "widget": {
-    "no_key": "Set Key",
-    "loading": "Checking...",
-    "error": "Error"
-  },
-  "tooltip": {
-    "balance": "Current Balance",
-    "last_updated": "Last Checked",
-    "status": "API Status",
-    "action": "Action",
-    "click_to_configure": "Click to open settings and set API Key"
-  },
-  "status": {
-    "ok": "Active",
-    "unconfigured": "API Key Not Set",
-    "never": "Never"
-  },
   "error": {
     "invalid_key": "Invalid or expired API Key (401)",
-    "parse_failed": "Failed to parse API response",
-    "no_wallet": "No active wallet found in user summary"
+    "no_wallet": "No active wallet found in user summary",
+    "parse_failed": "Failed to parse API response"
   },
   "panel": {
-    "title": "DeepSeek Balance",
-    "refresh_tooltip": "Refresh balance now",
-    "unconfigured_title": "API Key Required",
-    "unconfigured_desc": "Please configure your DeepSeek API Key in the plugin settings.",
-    "open_settings": "Open Settings",
-    "current_balance": "Available Balance",
-    "wallet_info": "Normal Wallet",
     "add_credits": "Add Credits",
     "add_credits_tooltip": "Open DeepSeek platform top-up page in browser",
+    "current_balance": "Available Balance",
     "history_title": "Balance History (24h Trend)",
+    "open_settings": "Open Settings",
+    "refresh_tooltip": "Refresh balance now",
+    "settings_btn": "Settings",
+    "title": "DeepSeek Balance",
+    "unconfigured_desc": "Please configure your DeepSeek API Key in the plugin settings.",
+    "unconfigured_title": "API Key Required",
     "updated_at": "Updated",
-    "settings_btn": "Settings"
+    "wallet_info": "Normal Wallet"
   },
   "settings": {
     "api_key": {
-      "label": "DeepSeek API Key",
-      "description": "API Key from platform.deepseek.com/api_keys"
-    },
-    "refresh_minutes": {
-      "label": "Refresh Interval (Minutes)",
-      "description": "How often to poll DeepSeek API for balance updates"
+      "description": "API Key from platform.deepseek.com/api_keys",
+      "label": "DeepSeek API Key"
     },
     "low_balance_threshold": {
-      "label": "Low Balance Warning Threshold",
-      "description": "Send a desktop notification when balance drops below this amount"
+      "description": "Send a desktop notification when balance drops below this amount",
+      "label": "Low Balance Warning Threshold"
+    },
+    "refresh_minutes": {
+      "description": "How often to poll DeepSeek API for balance updates",
+      "label": "Refresh Interval (Minutes)"
     }
+  },
+  "status": {
+    "never": "Never",
+    "ok": "Active",
+    "unconfigured": "API Key Not Set"
+  },
+  "title": "DeepSeek Usage",
+  "tooltip": {
+    "action": "Action",
+    "balance": "Current Balance",
+    "click_to_configure": "Click to open settings and set API Key",
+    "last_updated": "Last Checked",
+    "status": "API Status"
+  },
+  "widget": {
+    "error": "Error",
+    "loading": "Checking...",
+    "no_key": "Set Key"
   }
 }

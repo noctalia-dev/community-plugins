@@ -1,0 +1,69 @@
+id           = "salemsayed/codexbar-meter"
+name         = "CodexBar Meter"
+version      = "1.0.0"
+plugin_api   = 8
+author       = "salemsayed"
+license      = "MIT"
+icon         = "chart-donut-3"
+description  = "A native CodexBar-powered usage meter for enabled AI providers."
+tags         = ["bar", "panel", "ai", "indicator", "utility"]
+dependencies = ["codexbar", "timeout"]
+
+[[setting]]
+key             = "codexbarPath"
+type            = "string"
+label_key       = "settings.codexbar_path.label"
+description_key = "settings.codexbar_path.description"
+default         = "codexbar"
+
+[[setting]]
+key             = "refreshIntervalSec"
+type            = "int"
+label_key       = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default         = 60
+min             = 30
+max             = 3600
+
+[[setting]]
+key             = "barProviderLimit"
+type            = "int"
+label_key       = "settings.bar_provider_limit.label"
+description_key = "settings.bar_provider_limit.description"
+default         = 2
+min             = 1
+max             = 4
+
+[[widget]]
+id    = "bar"
+entry = "bar_widget.luau"
+
+[[panel]]
+id                  = "panel-compact"
+entry               = "panel.luau"
+width               = 430
+height              = 390
+placement           = "attached"
+position            = "auto"
+open_near_click     = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id                  = "panel"
+entry               = "panel.luau"
+width               = 430
+height              = 560
+placement           = "attached"
+position            = "auto"
+open_near_click     = true
+dismiss_on_outside_click = true
+
+[[panel]]
+id                  = "panel-tall"
+entry               = "panel.luau"
+width               = 430
+height              = 720
+placement           = "attached"
+position            = "auto"
+open_near_click     = true
+dismiss_on_outside_click = true

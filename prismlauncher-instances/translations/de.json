@@ -1,0 +1,16 @@
+{
+  "no_instances": {
+    "subtitle": "Filter: ",
+    "title": "Keine Instanzen gefunden"
+  },
+  "settings": {
+    "launcher_exec_command": {
+      "description": "Starte Prismlauncher oder einen Fork deiner Wahl",
+      "label": "Prism-Ausführungsdatei"
+    },
+    "prismlauncher_path": {
+      "description": "Pfad zu PrismLauncher",
+      "label": "PrismLauncher Pfad"
+    }
+  }
+}

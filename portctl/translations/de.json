@@ -1,0 +1,54 @@
+{
+  "categories": {
+    "cloud": "Cloud",
+    "containers": "Container",
+    "databases": "Datenbanken",
+    "development": "Entwicklung",
+    "other": "Andere",
+    "servers": "Server"
+  },
+  "panel": {
+    "cancel": "Abbrechen",
+    "kill": "Beenden",
+    "kill_confirm": "{name} beenden?",
+    "killing": "{name} wird beendet…",
+    "no_ports": "Keine lauschenden Ports",
+    "no_results": "Keine Ergebnisse für \"{query}\"",
+    "pid_copied": "PID {pid} kopiert",
+    "search_placeholder": "Suche Port, Prozess, PID…",
+    "tcp": "TCP",
+    "udp": "UDP"
+  },
+  "service": {
+    "kill_failed": "PID {pid} konnte nicht beendet werden",
+    "ss_not_found": "ss (iproute2) nicht gefunden — Installiere das iproute2 Paket",
+    "terminated": "Prozess {pid} wurde beendet"
+  },
+  "settings": {
+    "glyph": {
+      "description": "In der Leiste angezeigtes Symbol",
+      "label": "Symbol"
+    },
+    "hide_system_ports": {
+      "description": "Ports unterhalb von 1024 ausblenden (privilegierte/Root-Ports)",
+      "label": "System Ports ausblenden"
+    },
+    "hide_unknown_ports": {
+      "description": "Ports ausblenden, auf deren Prozessinformationen nicht zugegriffen werden kann (z. B. rootlessport, root-eigene Prozesse ohne sudo)",
+      "label": "Unbekannte Ports ausblenden"
+    },
+    "ignore_list": {
+      "description": "Durch Kommas getrennte Teilzeichenfolgen von Prozessnamen, die ausgeblendet werden sollen (z. B. discord,chrome,steam)",
+      "label": "Prozesse ignorieren"
+    },
+    "ignore_ports": {
+      "description": "Durch Kommas getrennte Portnummern, die ausgeblendet werden sollen (z.B. 37700,6463)",
+      "label": "Ports ignorieren"
+    },
+    "refresh_interval": {
+      "description": "Sekunden zwischen den Port-Scans",
+      "label": "Aktualisierungsintervall"
+    }
+  },
+  "title": "Portctl"
+}
