@@ -791,13 +791,17 @@ publishStatus()
 noctalia.runAsync(
 	"pkill linux-wallpaper 2>/dev/null; sleep 1; pkill -KILL linux-wallpaper 2>/dev/null; true",
 	function()
-		-- Bring back whatever was playing before the reload, cycle included.
+		-- Bring back whatever was playing before the reload, cycle included. The
+		-- palette is re-synced alongside the process: the shell restores its own
+		-- wallpaper on login, which drops the still we set for the live scene and
+		-- leaves the colors from whatever it picked instead.
 		for _, output in ipairs(noctalia.outputs()) do
 			local name = output.name
 			local id = data.current[name]
 			if type(id) == "string" and id ~= "" then
 				elapsed[name] = 0
 				launch(name, id)
+				syncPalette(name, id)
 			end
 		end
 		publishStatus()

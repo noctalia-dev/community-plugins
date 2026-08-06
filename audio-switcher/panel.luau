@@ -110,7 +110,7 @@ local function volumeCard(kind)
   local isOutput = kind == "output"
   local device = activeDevice(kind)
   local volume = tonumber(isOutput and snapshot.outputVolume or snapshot.inputVolume) or 0
-  local muted = isOutput and snapshot.outputMuted == true or snapshot.inputMuted == true
+  local muted = (isOutput and snapshot.outputMuted == true) or (not isOutput and snapshot.inputMuted == true)
   local icon = isOutput and (muted and "volume-off" or "volume") or (muted and "microphone-mute" or "microphone")
   return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_variant/0.45" }, {
     ui.row({ align = "center", gap = 8 }, {
@@ -461,16 +461,7 @@ function onRefresh() sendCommand("refresh") end
 function onScanBluetooth() sendCommand("scan_bluetooth") end
 function onCycleOutput() sendCommand("cycle_output") end
 function onCycleInput() sendCommand("cycle_input") end
-function onOpenSettingsClicked()
-  local started = noctalia.runAsync("noctalia msg settings-open plugins", function(result)
-    if result.timedOut == true or tonumber(result.exitCode) ~= 0 then
-      noctalia.notifyError(tr("title"), tr("errors.command_start"))
-    end
-  end, 5000)
-  if not started then
-    noctalia.notifyError(tr("title"), tr("errors.command_start"))
-  end
-end
+function onOpenSettingsClicked() noctalia.openSettings() end
 
 function onShowOutputs()
   activeTab = "output"

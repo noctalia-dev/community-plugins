@@ -246,7 +246,7 @@ function onActivate(id)
 			local entry = item.entry
 			local cmd = entry.cmd
 			if type(cmd) ~= "string" or cmd == "" then
-				noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err_no_command"))
+				noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err.no_command"))
 				return
 			end
 			local label = entry.label or cmd
@@ -270,7 +270,7 @@ function onActivate(id)
 				if result.exitCode ~= 0 then
 					local detail = noctalia.string.trim(result.stderr or "")
 					local msg = noctalia.tr(
-						"err_exit_code",
+						"err.exit_code",
 						{ label = label, code = tostring(result.exitCode) }
 					)
 					if detail ~= "" then
@@ -283,7 +283,7 @@ function onActivate(id)
 			if not ok then
 				noctalia.notifyError(
 					noctalia.tr("title"),
-					noctalia.tr("err_launch_failed", { label = label })
+					noctalia.tr("err.launch_failed", { label = label })
 				)
 			end
 			return

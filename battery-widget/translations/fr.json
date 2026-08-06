@@ -1,0 +1,53 @@
+{
+  "settings": {
+    "battery": {
+      "auto": "Automatique",
+      "bat0": "BAT0",
+      "custom": "Personnalisé",
+      "description": "Détection automatique de la batterie ou nom personnalisé.",
+      "label": "Batterie"
+    },
+    "battery_name": {
+      "description": "Nom de la batterie.",
+      "label": "Nom de la Batterie"
+    },
+    "charging_color": {
+      "description": "Couleur utilisée lorsque l'appareil est branché au secteur.",
+      "label": "Couleur de Charge"
+    },
+    "color": {
+      "description": "Couleur de l'icône et du texte de ce widget ; les codes hex fixes sont également pris en charge.",
+      "label": "Couleur"
+    },
+    "hide_full": {
+      "description": "Cacher le widget lorsque la batterie est pleine.",
+      "label": "Cacher quand plein"
+    },
+    "hide_plugged": {
+      "description": "Cacher le widget lorsque l'appareil est branché au secteur.",
+      "label": "Cacher quand branché"
+    },
+    "layout": {
+      "description": "Disposition du widget.",
+      "horizontal": "Horizontal",
+      "label": "Disposition",
+      "vertical": "Vertical"
+    },
+    "refresh_interval": {
+      "description": "Définit la fréquence de mise à jour du contenu du widget (en secondes).",
+      "label": "Intervalle d'actualisation"
+    },
+    "show_glyph": {
+      "description": "Afficher l’icône de la batterie.",
+      "label": "Afficher l’icône"
+    },
+    "show_label": {
+      "description": "Afficher le texte à coté de l’icône.",
+      "label": "Afficher le texte"
+    },
+    "warning_color": {
+      "description": "Couleur utilisée quand la batterie est en dessous de 20%.",
+      "label": "Couleur d'alerte"
+    }
+  }
+}

@@ -1,9 +1,14 @@
 --!nonstrict
 
 local entries = {}
+local scanInFlight = false
 
 local function publish()
     noctalia.state.set("entries", entries)
+end
+
+local function shellEscape(value)
+    return "'" .. value:gsub("'", "'\\''") .. "'"
 end
 
 local function passwordStoreDir()
@@ -16,55 +21,10 @@ local function passwordStoreDir()
     return noctalia.expandPath("~/.password-store")
 end
 
-local function scan(dir, prefix)
-    prefix = prefix or ""
-
-    local names, err = noctalia.listDir(dir)
-
-    if not names then
-        noctalia.log("Failed to list " .. dir .. ": " .. tostring(err))
+local function rebuild()
+    if scanInFlight then
         return
     end
-
-    for _, name in ipairs(names) do
-        -- Ignore hidden files/directories (.git, .extensions, .gpg-id, ...)
-        if name:sub(1, 1) ~= "." then
-            -- listDir already proved the name exists, so an entry needs no stat.
-            -- Only non-entry names get one, to decide whether to recurse.
-            if name:sub(-4) == ".gpg" then
-                local path = prefix .. name:sub(1, -5)
-
-                local title = path
-                local subtitle = ""
-
-                local lastSlash = path:match("^.*()/")
-
-                if lastSlash then
-                    subtitle = path:sub(1, lastSlash - 1)
-                    title = path:sub(lastSlash + 1)
-                end
-
-                table.insert(entries, {
-                    id = path,
-                    path = path,
-                    title = title,
-                    subtitle = subtitle,
-                })
-
-            else
-                local full = dir .. "/" .. name
-                local info = noctalia.fileInfo(full)
-
-                if info and info.isDir then
-                    scan(full, prefix .. name .. "/")
-                end
-            end
-        end
-    end
-end
-
-local function rebuild()
-    entries = {}
 
     local root = passwordStoreDir()
 
@@ -73,13 +33,62 @@ local function rebuild()
         return
     end
 
-    scan(root)
+    -- Directory traversal can exceed Noctalia's callback CPU budget on large stores.
+    -- Run it in a subprocess and only build the small launcher cache in Luau.
+    local command = "cd " .. shellEscape(root)
+        .. " && find . -mindepth 1"
+        .. " \\( -type d -name '.*' -prune \\)"
+        .. " -o \\( -name '*.gpg' ! -name '.*' -print0 \\)"
 
-    table.sort(entries, function(a, b)
-        return a.title:lower() < b.title:lower()
-    end)
+    scanInFlight = true
 
-    publish()
+    local accepted = noctalia.runAsync(command, function(result)
+        scanInFlight = false
+
+        if result.exitCode ~= 0 then
+            noctalia.log("Failed to scan " .. root .. ": " .. (result.stderr or "unknown error"))
+            return
+        end
+
+        if result.stdoutTruncated then
+            noctalia.log("Failed to scan " .. root .. ": command output was truncated")
+            return
+        end
+
+        local nextEntries = {}
+
+        for file in (result.stdout or ""):gmatch("([^%z]+)%z") do
+            -- find returns paths as ./folder/entry.gpg.
+            local path = file:sub(3, -5)
+            local title = path
+            local subtitle = ""
+            local lastSlash = path:match("^.*()/")
+
+            if lastSlash then
+                subtitle = path:sub(1, lastSlash - 1)
+                title = path:sub(lastSlash + 1)
+            end
+
+            table.insert(nextEntries, {
+                id = path,
+                path = path,
+                title = title,
+                subtitle = subtitle,
+            })
+        end
+
+        table.sort(nextEntries, function(a, b)
+            return a.title:lower() < b.title:lower()
+        end)
+
+        entries = nextEntries
+        publish()
+    end, 60000)
+
+    if not accepted then
+        scanInFlight = false
+        noctalia.log("Failed to start password-store scan")
+    end
 end
 
 function update()

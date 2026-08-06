@@ -1,7 +1,7 @@
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.3.0"
-plugin_api = 9
+version = "0.4.0"
+plugin_api = 15
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"
@@ -30,19 +30,16 @@ label_key = "settings.show_actions_in_tooltip.label"
 description_key = "settings.show_actions_in_tooltip.description"
 default = true
 
-[[setting]]
-key = "scroll_step"
-type = "int"
-label_key = "settings.scroll_step.label"
-description_key = "settings.scroll_step.description"
-default = 5
-min = 1
-max = 25
-step = 1
-
 [[widget]]
 id = "widget"
 entry = "widget.luau"
+
+  [widget.actions]
+  scroll_up = "volume-up"
+  scroll_down = "volume-down"
+  left = "panel-toggle blackbartblues/audio-switcher:audio-switcher"
+  right = "plugin blackbartblues/audio-switcher:service all cycle-output"
+  middle = "plugin blackbartblues/audio-switcher:service all cycle-input"
 
 [[panel]]
 id = "audio-switcher"
