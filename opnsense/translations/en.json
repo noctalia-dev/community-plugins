@@ -1,0 +1,158 @@
+{
+  "title": "OPNsense",
+  "settings": {
+    "base_url": {
+      "label": "Base URL",
+      "description": "OPNsense origin only, e.g. https://192.168.1.1 (no trailing /api)."
+    },
+    "api_key": {
+      "label": "API key",
+      "description": "System → Access → Users → API keys (key = username)."
+    },
+    "api_secret": {
+      "label": "API secret",
+      "description": "API secret paired with the key (password)."
+    },
+    "allow_insecure_tls": {
+      "label": "Allow insecure TLS",
+      "description": "Skip certificate verification (self-signed / private CA)."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to poll the API."
+    },
+    "notify_on_issue": {
+      "label": "Notify on new issues",
+      "description": "Desktop notification when a status widget or gateway becomes unhealthy."
+    },
+    "web_ui_url": {
+      "label": "Web UI URL override",
+      "description": "Optional alternate URL for “Open UI”. Defaults to base URL."
+    },
+    "show_label": {
+      "label": "Show status text on bar",
+      "description": "Display OK / issues count next to the icon."
+    },
+    "ok_color": {
+      "label": "Healthy color"
+    },
+    "warn_color": {
+      "label": "Issue color"
+    }
+  },
+  "colors": {
+    "tertiary": "Tertiary",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "error": "Error",
+    "muted": "Muted"
+  },
+  "widget": {
+    "tooltip_ok": "{host} · healthy · {ifaces} interfaces · load {load}",
+    "tooltip_issues": "{host} · {issues} issue(s) · {detail}",
+    "tooltip_missing": "Configure base URL + API key/secret in plugin settings",
+    "tooltip_down": "Unreachable: {error}",
+    "refresh_requested": "Refreshing OPNsense…",
+    "label_ok": "OK",
+    "label_issues": "{n}"
+  },
+  "panel": {
+    "subtitle": "Firewall health & services",
+    "loading": "Querying API…",
+    "logs_loading": "Loading firewall logs…",
+    "busy": "Working…",
+    "select_hint": "Select an item for actions.",
+    "updated": "Updated {time}",
+    "host": "Host: {host}",
+    "summary": "{ok} healthy · {issues} issue(s) · load {load}",
+    "empty": "No items match the filter.",
+    "not_configured": "Set Base URL, API key, and API secret under Settings → Plugins → OPNsense."
+  },
+  "result": {
+    "logs_loaded": "Loaded {n} log events",
+    "success": "Done",
+    "failed": "Failed: {error}",
+    "busy": "Another operation is running.",
+    "not_configured": "OPNsense API is not configured.",
+    "restarted": "Restarted {name}",
+    "started": "Started {name}",
+    "stopped": "Stopped {name}",
+    "copied": "Copied {name}",
+    "issue": "{name}: {status}"
+  },
+  "tabs": {
+    "status": "Status",
+    "interfaces": "Interfaces",
+    "gateways": "Gateways",
+    "services": "Services",
+    "rules": "Rules",
+    "logs": "Logs"
+  },
+  "filter": {
+    "placeholder": "Filter…  e.g. block  or  !pass"
+  },
+  "rules": {
+    "summary": "{n} rules"
+  },
+  "rule": {
+    "detail": "{src} → {dst} · {proto} · {iface}",
+    "stats": "{packets} pkts · {bytes} B · {evaluations} evals"
+  },
+  "logs": {
+    "summary": "{n} events · {blocks} blocks",
+    "hint": "Select a log line · showing {n} recent · {blocks} blocks in buffer",
+    "flow": "{src} → {dst} · {iface}"
+  },
+  "status": {
+    "widget": "{name}: {status}",
+    "message": "{message}"
+  },
+  "iface": {
+    "summary": "{status} · {ipv4} · in {in} · out {out}"
+  },
+  "gateway": {
+    "summary": "{status} · {address} · rtt {rtt}"
+  },
+  "service": {
+    "summary": "{status} · {description}"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "open_ui": "Open UI",
+    "restart": "Restart",
+    "start": "Start",
+    "stop": "Stop",
+    "copy": "Copy"
+  },
+  "launcher": {
+    "loading": "Loading OPNsense…",
+    "unavailable": "OPNsense unavailable",
+    "no-matches": "No matches",
+    "cat": {
+      "status": "Status widgets",
+      "status-sub": "Crash reporter, firewall, system checks",
+      "interfaces": "Interfaces",
+      "interfaces-sub": "Link and address overview",
+      "gateways": "Gateways",
+      "gateways-sub": "Gateway monitor status",
+      "services": "Services",
+      "services-sub": "Start / stop / restart",
+      "rules": "Firewall rules",
+      "rules-sub": "Filter rules overview",
+      "logs": "Firewall logs",
+      "logs-sub": "Recent pass/block events",
+      "panel": "Open panel",
+      "panel-sub": "Full OPNsense manager",
+      "ui": "Open Web UI",
+      "ui-sub": "Browser dashboard",
+      "refresh": "Refresh",
+      "refresh-sub": "Poll API now"
+    },
+    "action": {
+      "restart": "Restart service",
+      "start": "Start service",
+      "stop": "Stop service",
+      "copy": "Copy name"
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "title": "OPNsense",
+  "settings": {
+    "base_url": {
+      "label": "ベース URL",
+      "description": "OPNsense のオリジンのみ。例: https://192.168.1.1（末尾の /api は不要）。"
+    },
+    "api_key": {
+      "label": "API キー",
+      "description": "システム → アクセス → ユーザー → API キー（キー = ユーザー名）。"
+    },
+    "api_secret": {
+      "label": "API シークレット",
+      "description": "キーに対応する API シークレット（パスワード）。"
+    },
+    "allow_insecure_tls": {
+      "label": "安全でない TLS を許可",
+      "description": "証明書検証をスキップ（自己署名 / プライベート CA）。"
+    },
+    "refresh_interval": {
+      "label": "更新間隔（秒）",
+      "description": "API のポーリング間隔。"
+    },
+    "notify_on_issue": {
+      "label": "新しい問題を通知",
+      "description": "ステータスウィジェットまたはゲートウェイが異常になったときの通知。"
+    },
+    "web_ui_url": {
+      "label": "Web UI URL の上書き",
+      "description": "「UI を開く」用の任意の別 URL。既定はベース URL。"
+    },
+    "show_label": {
+      "label": "バーに状態テキストを表示",
+      "description": "アイコン横に OK / 問題数を表示。"
+    },
+    "ok_color": {
+      "label": "正常時の色"
+    },
+    "warn_color": {
+      "label": "問題時の色"
+    }
+  },
+  "colors": {
+    "tertiary": "ターシャリ",
+    "primary": "プライマリ",
+    "secondary": "セカンダリ",
+    "error": "エラー",
+    "muted": "ミュート"
+  },
+  "widget": {
+    "tooltip_ok": "{host} · 正常 · インターフェース {ifaces} · 負荷 {load}",
+    "tooltip_issues": "{host} · 問題 {issues} · {detail}",
+    "tooltip_missing": "プラグイン設定でベース URL と API キー/シークレットを設定してください",
+    "tooltip_down": "到達不可: {error}",
+    "refresh_requested": "OPNsense を更新中…",
+    "label_ok": "OK",
+    "label_issues": "{n}"
+  },
+  "panel": {
+    "subtitle": "ファイアウォールの状態とサービス",
+    "loading": "API を照会中…",
+    "logs_loading": "ファイアウォールログを読み込み中…",
+    "busy": "処理中…",
+    "select_hint": "操作する項目を選択してください。",
+    "updated": "更新 {time}",
+    "host": "ホスト: {host}",
+    "summary": "正常 {ok} · 問題 {issues} · 負荷 {load}",
+    "empty": "フィルタに一致する項目がありません。",
+    "not_configured": "設定 → プラグイン → OPNsense でベース URL・API キー・シークレットを設定してください。"
+  },
+  "result": {
+    "logs_loaded": "ログイベントを {n} 件読み込みました",
+    "success": "完了",
+    "failed": "失敗: {error}",
+    "busy": "別の操作が実行中です。",
+    "not_configured": "OPNsense API が設定されていません。",
+    "restarted": "{name} を再起動しました",
+    "started": "{name} を開始しました",
+    "stopped": "{name} を停止しました",
+    "copied": "{name} をコピーしました",
+    "issue": "{name}: {status}"
+  },
+  "tabs": {
+    "status": "ステータス",
+    "interfaces": "インターフェース",
+    "gateways": "ゲートウェイ",
+    "services": "サービス",
+    "rules": "ルール",
+    "logs": "ログ"
+  },
+  "filter": {
+    "placeholder": "絞り込み… 例: block または !pass"
+  },
+  "rules": {
+    "summary": "{n} ルール"
+  },
+  "rule": {
+    "detail": "{src} → {dst} · {proto} · {iface}",
+    "stats": "{packets} pkts · {bytes} B · {evaluations} evals"
+  },
+  "logs": {
+    "summary": "{n} イベント · {blocks} ブロック",
+    "hint": "ログ行を選択 · 最近 {n} 件 · バッファに {blocks} ブロック",
+    "flow": "{src} → {dst} · {iface}"
+  },
+  "status": {
+    "widget": "{name}: {status}",
+    "message": "{message}"
+  },
+  "iface": {
+    "summary": "{status} · {ipv4} · in {in} · out {out}"
+  },
+  "gateway": {
+    "summary": "{status} · {address} · rtt {rtt}"
+  },
+  "service": {
+    "summary": "{status} · {description}"
+  },
+  "actions": {
+    "refresh": "更新",
+    "open_ui": "UI を開く",
+    "restart": "再起動",
+    "start": "開始",
+    "stop": "停止",
+    "copy": "コピー"
+  },
+  "launcher": {
+    "loading": "OPNsense を読み込み中…",
+    "unavailable": "OPNsense 利用不可",
+    "no-matches": "一致なし",
+    "cat": {
+      "status": "ステータスウィジェット",
+      "status-sub": "クラッシュ報告、ファイアウォール、システムチェック",
+      "interfaces": "インターフェース",
+      "interfaces-sub": "リンクとアドレスの概要",
+      "gateways": "ゲートウェイ",
+      "gateways-sub": "ゲートウェイ監視の状態",
+      "services": "サービス",
+      "services-sub": "開始 / 停止 / 再起動",
+      "rules": "ファイアウォールルール",
+      "rules-sub": "フィルタルールの概要",
+      "logs": "ファイアウォールログ",
+      "logs-sub": "最近の pass/block イベント",
+      "panel": "パネルを開く",
+      "panel-sub": "OPNsense フルマネージャー",
+      "ui": "Web UI を開く",
+      "ui-sub": "ブラウザのダッシュボード",
+      "refresh": "更新",
+      "refresh-sub": "今すぐ API を照会"
+    },
+    "action": {
+      "restart": "サービスを再起動",
+      "start": "サービスを開始",
+      "stop": "サービスを停止",
+      "copy": "名前をコピー"
+    }
+  }
+}

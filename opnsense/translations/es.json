@@ -1,0 +1,158 @@
+{
+  "title": "OPNsense",
+  "settings": {
+    "base_url": {
+      "label": "URL base",
+      "description": "Solo el origen de OPNsense, p. ej. https://192.168.1.1 (sin /api final)."
+    },
+    "api_key": {
+      "label": "Clave API",
+      "description": "Sistema → Acceso → Usuarios → Claves API (clave = usuario)."
+    },
+    "api_secret": {
+      "label": "Secreto API",
+      "description": "Secreto API emparejado con la clave (contraseña)."
+    },
+    "allow_insecure_tls": {
+      "label": "Permitir TLS inseguro",
+      "description": "Omitir verificación de certificado (autofirmado / CA privada)."
+    },
+    "refresh_interval": {
+      "label": "Intervalo de actualización (segundos)",
+      "description": "Cada cuánto consultar la API."
+    },
+    "notify_on_issue": {
+      "label": "Notificar incidencias nuevas",
+      "description": "Notificación cuando un widget de estado o pasarela deja de estar sano."
+    },
+    "web_ui_url": {
+      "label": "Anulación de URL de Web UI",
+      "description": "URL alternativa opcional para «Abrir UI». Por defecto la URL base."
+    },
+    "show_label": {
+      "label": "Mostrar texto de estado en la barra",
+      "description": "Mostrar contador OK / incidencias junto al icono."
+    },
+    "ok_color": {
+      "label": "Color saludable"
+    },
+    "warn_color": {
+      "label": "Color de incidencia"
+    }
+  },
+  "colors": {
+    "tertiary": "Terciario",
+    "primary": "Principal",
+    "secondary": "Secundario",
+    "error": "Error",
+    "muted": "Atenuado"
+  },
+  "widget": {
+    "tooltip_ok": "{host} · saludable · {ifaces} interfaces · carga {load}",
+    "tooltip_issues": "{host} · {issues} incidencia(s) · {detail}",
+    "tooltip_missing": "Configura URL base + clave/secreto API en ajustes del plugin",
+    "tooltip_down": "Inalcanzable: {error}",
+    "refresh_requested": "Actualizando OPNsense…",
+    "label_ok": "OK",
+    "label_issues": "{n}"
+  },
+  "panel": {
+    "subtitle": "Salud del firewall y servicios",
+    "loading": "Consultando API…",
+    "logs_loading": "Cargando registros del firewall…",
+    "busy": "Trabajando…",
+    "select_hint": "Selecciona un elemento para acciones.",
+    "updated": "Actualizado {time}",
+    "host": "Host: {host}",
+    "summary": "{ok} saludables · {issues} incidencia(s) · carga {load}",
+    "empty": "Ningún elemento coincide con el filtro.",
+    "not_configured": "Configura URL base, clave API y secreto en Ajustes → Plugins → OPNsense."
+  },
+  "result": {
+    "logs_loaded": "Cargados {n} eventos de log",
+    "success": "Hecho",
+    "failed": "Falló: {error}",
+    "busy": "Hay otra operación en curso.",
+    "not_configured": "La API de OPNsense no está configurada.",
+    "restarted": "Reiniciado {name}",
+    "started": "Iniciado {name}",
+    "stopped": "Detenido {name}",
+    "copied": "Copiado {name}",
+    "issue": "{name}: {status}"
+  },
+  "tabs": {
+    "status": "Estado",
+    "interfaces": "Interfaces",
+    "gateways": "Pasarelas",
+    "services": "Servicios",
+    "rules": "Reglas",
+    "logs": "Registros"
+  },
+  "filter": {
+    "placeholder": "Filtrar…  p. ej. block  o  !pass"
+  },
+  "rules": {
+    "summary": "{n} reglas"
+  },
+  "rule": {
+    "detail": "{src} → {dst} · {proto} · {iface}",
+    "stats": "{packets} pkts · {bytes} B · {evaluations} evals"
+  },
+  "logs": {
+    "summary": "{n} eventos · {blocks} bloques",
+    "hint": "Selecciona una línea de log · mostrando {n} recientes · {blocks} bloques en búfer",
+    "flow": "{src} → {dst} · {iface}"
+  },
+  "status": {
+    "widget": "{name}: {status}",
+    "message": "{message}"
+  },
+  "iface": {
+    "summary": "{status} · {ipv4} · in {in} · out {out}"
+  },
+  "gateway": {
+    "summary": "{status} · {address} · rtt {rtt}"
+  },
+  "service": {
+    "summary": "{status} · {description}"
+  },
+  "actions": {
+    "refresh": "Actualizar",
+    "open_ui": "Abrir UI",
+    "restart": "Reiniciar",
+    "start": "Iniciar",
+    "stop": "Detener",
+    "copy": "Copiar"
+  },
+  "launcher": {
+    "loading": "Cargando OPNsense…",
+    "unavailable": "OPNsense no disponible",
+    "no-matches": "Sin coincidencias",
+    "cat": {
+      "status": "Widgets de estado",
+      "status-sub": "Informe de fallos, firewall y comprobaciones del sistema",
+      "interfaces": "Interfaces",
+      "interfaces-sub": "Resumen de enlaces y direcciones",
+      "gateways": "Pasarelas",
+      "gateways-sub": "Estado del monitor de pasarelas",
+      "services": "Servicios",
+      "services-sub": "Iniciar / detener / reiniciar",
+      "rules": "Reglas del firewall",
+      "rules-sub": "Resumen de reglas de filtrado",
+      "logs": "Registros del firewall",
+      "logs-sub": "Eventos recientes de paso/bloqueo",
+      "panel": "Abrir panel",
+      "panel-sub": "Gestor completo de OPNsense",
+      "ui": "Abrir Web UI",
+      "ui-sub": "Panel del navegador",
+      "refresh": "Actualizar",
+      "refresh-sub": "Consultar API ahora"
+    },
+    "action": {
+      "restart": "Reiniciar servicio",
+      "start": "Iniciar servicio",
+      "stop": "Detener servicio",
+      "copy": "Copiar nombre"
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "title": "OPNsense",
+  "settings": {
+    "base_url": {
+      "label": "URL de base",
+      "description": "Origine OPNsense uniquement, ex. https://192.168.1.1 (sans /api final)."
+    },
+    "api_key": {
+      "label": "Clé API",
+      "description": "Système → Accès → Utilisateurs → Clés API (clé = nom d’utilisateur)."
+    },
+    "api_secret": {
+      "label": "Secret API",
+      "description": "Secret API associé à la clé (mot de passe)."
+    },
+    "allow_insecure_tls": {
+      "label": "Autoriser le TLS non sécurisé",
+      "description": "Ignorer la vérification du certificat (auto-signé / CA privée)."
+    },
+    "refresh_interval": {
+      "label": "Intervalle d’actualisation (secondes)",
+      "description": "Fréquence d’interrogation de l’API."
+    },
+    "notify_on_issue": {
+      "label": "Notifier les nouveaux problèmes",
+      "description": "Notification lorsqu’un widget d’état ou une passerelle devient défaillant."
+    },
+    "web_ui_url": {
+      "label": "Remplacement d’URL de l’interface web",
+      "description": "URL alternative optionnelle pour « Ouvrir l’UI ». Par défaut l’URL de base."
+    },
+    "show_label": {
+      "label": "Afficher le texte d’état sur la barre",
+      "description": "Afficher le compteur OK / problèmes à côté de l’icône."
+    },
+    "ok_color": {
+      "label": "Couleur saine"
+    },
+    "warn_color": {
+      "label": "Couleur d’alerte"
+    }
+  },
+  "colors": {
+    "tertiary": "Tertiaire",
+    "primary": "Principal",
+    "secondary": "Secondaire",
+    "error": "Erreur",
+    "muted": "Atténué"
+  },
+  "widget": {
+    "tooltip_ok": "{host} · sain · {ifaces} interfaces · charge {load}",
+    "tooltip_issues": "{host} · {issues} problème(s) · {detail}",
+    "tooltip_missing": "Configurez l’URL de base + clé/secret API dans les réglages du plugin",
+    "tooltip_down": "Inaccessible : {error}",
+    "refresh_requested": "Actualisation d’OPNsense…",
+    "label_ok": "OK",
+    "label_issues": "{n}"
+  },
+  "panel": {
+    "subtitle": "Santé du pare-feu et services",
+    "loading": "Interrogation de l’API…",
+    "logs_loading": "Chargement des journaux du pare-feu…",
+    "busy": "Traitement…",
+    "select_hint": "Sélectionnez un élément pour les actions.",
+    "updated": "Mis à jour {time}",
+    "host": "Hôte : {host}",
+    "summary": "{ok} sains · {issues} problème(s) · charge {load}",
+    "empty": "Aucun élément ne correspond au filtre.",
+    "not_configured": "Définissez l’URL de base, la clé et le secret sous Réglages → Plugins → OPNsense."
+  },
+  "result": {
+    "logs_loaded": "{n} événements de journal chargés",
+    "success": "Terminé",
+    "failed": "Échec : {error}",
+    "busy": "Une autre opération est en cours.",
+    "not_configured": "L’API OPNsense n’est pas configurée.",
+    "restarted": "Redémarré {name}",
+    "started": "Démarré {name}",
+    "stopped": "Arrêté {name}",
+    "copied": "Copié {name}",
+    "issue": "{name} : {status}"
+  },
+  "tabs": {
+    "status": "État",
+    "interfaces": "Interfaces",
+    "gateways": "Passerelles",
+    "services": "Services",
+    "rules": "Règles",
+    "logs": "Journaux"
+  },
+  "filter": {
+    "placeholder": "Filtrer…  ex. block  ou  !pass"
+  },
+  "rules": {
+    "summary": "{n} règles"
+  },
+  "rule": {
+    "detail": "{src} → {dst} · {proto} · {iface}",
+    "stats": "{packets} pkts · {bytes} B · {evaluations} évals"
+  },
+  "logs": {
+    "summary": "{n} événements · {blocks} blocs",
+    "hint": "Sélectionnez une ligne de journal · {n} récents · {blocks} blocs en tampon",
+    "flow": "{src} → {dst} · {iface}"
+  },
+  "status": {
+    "widget": "{name} : {status}",
+    "message": "{message}"
+  },
+  "iface": {
+    "summary": "{status} · {ipv4} · in {in} · out {out}"
+  },
+  "gateway": {
+    "summary": "{status} · {address} · rtt {rtt}"
+  },
+  "service": {
+    "summary": "{status} · {description}"
+  },
+  "actions": {
+    "refresh": "Actualiser",
+    "open_ui": "Ouvrir l’UI",
+    "restart": "Redémarrer",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "copy": "Copier"
+  },
+  "launcher": {
+    "loading": "Chargement d’OPNsense…",
+    "unavailable": "OPNsense indisponible",
+    "no-matches": "Aucune correspondance",
+    "cat": {
+      "status": "Widgets d’état",
+      "status-sub": "Rapport de plantage, pare-feu et contrôles système",
+      "interfaces": "Interfaces",
+      "interfaces-sub": "Aperçu des liaisons et adresses",
+      "gateways": "Passerelles",
+      "gateways-sub": "État du moniteur de passerelles",
+      "services": "Services",
+      "services-sub": "Démarrer / arrêter / redémarrer",
+      "rules": "Règles du pare-feu",
+      "rules-sub": "Aperçu des règles de filtrage",
+      "logs": "Journaux du pare-feu",
+      "logs-sub": "Événements récents pass/block",
+      "panel": "Ouvrir le panneau",
+      "panel-sub": "Gestionnaire OPNsense complet",
+      "ui": "Ouvrir l’interface web",
+      "ui-sub": "Tableau de bord navigateur",
+      "refresh": "Actualiser",
+      "refresh-sub": "Interroger l’API maintenant"
+    },
+    "action": {
+      "restart": "Redémarrer le service",
+      "start": "Démarrer le service",
+      "stop": "Arrêter le service",
+      "copy": "Copier le nom"
+    }
+  }
+}
