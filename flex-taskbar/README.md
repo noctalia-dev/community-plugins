@@ -9,6 +9,10 @@ Flex Taskbar is a configurable Niri taskbar for the Noctalia bar. It groups wind
 | ID | `sudiptacmd/flex-taskbar` |
 | Entries | Bar widget: `taskbar`; panel: `previews` |
 
+## Screenshot
+
+![Flex Taskbar running in the Noctalia top bar](screenshot.webp)
+
 ## Requirements
 
 - `niri` supplies the window list, focus actions, output information, and window screenshots.
