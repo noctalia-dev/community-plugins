@@ -1,0 +1,25 @@
+{
+  "hint_title": "Run a shell command",
+  "hint_subtitle": "Type a command after /qs and press Enter to open it in your terminal",
+  "run_title": "Run: {command}",
+  "run_subtitle": "Opens in your default terminal",
+  "run_subtitle_found": "{command} found — opens in your default terminal",
+  "history_subtitle": "Recent command",
+  "suggest_subtitle": "Suggestion",
+  "snap_subtitle": "Complete: {command} — Enter to run",
+  "snippet_subtitle": "Snippet",
+  "cd_open_title": "Open in: {path}",
+  "cd_open_subtitle": "Opens terminal in this folder",
+  "cd_empty": "No folders found",
+  "cd_empty_subtitle": "Type path or check workspace setting",
+  "settings": {
+    "default_workspace": {
+      "label": "Default Workspace",
+      "description": "Working directory commands run in. Leave empty to use the terminal's current directory."
+    },
+    "snippets": {
+      "label": "Snippets",
+      "description": "Commands shown when /qs is empty. Each entry is one command."
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "hint_title": "Chạy lệnh shell",
+  "hint_subtitle": "Gõ lệnh sau /qs rồi nhấn Enter để mở trong terminal",
+  "run_title": "Chạy: {command}",
+  "run_subtitle": "Mở trong terminal mặc định",
+  "run_subtitle_found": "Tìm thấy {command} — mở trong terminal mặc định",
+  "history_subtitle": "Lệnh gần đây",
+  "suggest_subtitle": "Gợi ý",
+  "snap_subtitle": "Hoàn tất: {command} — Enter để chạy",
+  "snippet_subtitle": "Snippet",
+  "cd_open_title": "Mở trong: {path}",
+  "cd_open_subtitle": "Mở terminal trong thư mục này",
+  "cd_empty": "Không tìm thấy thư mục",
+  "cd_empty_subtitle": "Gõ đường dẫn hoặc kiểm tra cài đặt workspace",
+  "settings": {
+    "default_workspace": {
+      "label": "Thư mục làm việc",
+      "description": "Thư mục lệnh chạy trong đó. Để trống dùng thư mục hiện tại của terminal."
+    },
+    "snippets": {
+      "label": "Snippets",
+      "description": "Lệnh hiện khi /qs trống. Mỗi mục là một lệnh."
+    }
+  }
+}
