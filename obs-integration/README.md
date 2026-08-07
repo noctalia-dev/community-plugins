@@ -64,8 +64,8 @@ its actions:
 - **Service Remote Run** — runs `osc service rr` on the OBS server for the
   package on the remote project. No local code executes; the request triggers
   server-side service runs, and a confirmation is not required.
-- **Rebuild package** — pick an architecture (or **All**) and trigger
-  `osc rebuild`. Confirmation is required before it runs.
+- **Rebuild package** — pick a repository and architecture (or **All**) and trigger `osc rebuild`. Confirmation is required before it runs.
+- **Build Status** — Shows real-time build results for the package across all repositories and architectures. Click **Refresh status** to pull latest results.
 - **Edit package meta** — `osc meta pkg -e` in a terminal.
 - **Remove package** — deletes the checkout from disk only (never touches the
   OBS project); confirm before it runs. If it was the last package in the
@@ -93,3 +93,7 @@ operation opens a terminal only when `osc status` reports pending changes;
 otherwise, it runs asynchronously in the panel. Confirmation prompts precede
 destructive and side-effecting operations: Rebuild package, Remove package,
 and Service Run All.
+
+Build status data is fetched from `osc results` and cached for the session. The
+status display shares the same underlying `osc results` call used for rebuild
+architecture selection, so enabling a package view pulls both in one query.

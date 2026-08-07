@@ -21,6 +21,7 @@ local rebuildRepoIndex = 0
 local rebuildConfirm = false
 local runAllConfirm = false
 local repoMap = {}
+local statusMap = {}
 local savedRebuildRepo = nil
 local savedRebuildArch = nil
 local rebuildLoaded = false
@@ -275,17 +276,25 @@ loadPackageFiles = function(pkgDir, pkg)
 	end, 2000)
 end
 
-local function loadRebuildArches(project, pkg)
+	local function loadRebuildArches(project, pkg)
 	rebuildLoaded = false
+	rebuildRepos = {}
+	repoMap = {}
+	statusMap = {}
 	noctalia.runAsync("osc results " .. shellQuote(project) .. " " .. shellQuote(pkg), function(result)
 		local map = {}
+		local statuses = {}
 		if result.exitCode == 0 then
 			for line in tostring(result.stdout):gmatch("[^\n]+") do
 				line = noctalia.string.trim(line)
 				local repo, arch, _, status = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+				if status then
+					status = status:gsub("%*$", "")
+				end
 				if repo ~= nil and arch ~= nil and status ~= "disabled" then
 					if not map[repo] then
 						map[repo] = {}
+						statuses[repo] = {}
 					end
 					local found = false
 					for _, a in ipairs(map[repo]) do
@@ -297,6 +306,7 @@ local function loadRebuildArches(project, pkg)
 					if not found then
 						table.insert(map[repo], arch)
 					end
+					statuses[repo][arch] = status
 				end
 			end
 		end
@@ -309,6 +319,7 @@ local function loadRebuildArches(project, pkg)
 			table.sort(map[repo])
 		end
 		repoMap = map
+		statusMap = statuses
 		rebuildRepos = repos
 		local repoIndex = 0
 		if savedRebuildRepo then
@@ -334,6 +345,50 @@ local function loadRebuildArches(project, pkg)
 		rebuildLoaded = true
 		render()
 	end, 15000)
+end
+
+local STATUS_STYLE = {
+	succeeded = { glyph = "check", color = "secondary", labelKey = "status_succeeded" },
+	failure = { glyph = "x", color = "error", labelKey = "status_failed" },
+	broken = { glyph = "alert-circle", color = "error", labelKey = "status_failed" },
+	unresolvable = { glyph = "alert-circle", color = "error", labelKey = "status_unresolvable" },
+	building = { glyph = "loader", color = "primary", labelKey = "status_building" },
+	dispatching = { glyph = "loader", color = "primary", labelKey = "status_building" },
+	scheduled = { glyph = "clock", color = "on_surface_variant", labelKey = "status_scheduled" },
+	signing = { glyph = "lock", color = "warning", labelKey = "status_signing" },
+	blocked = { glyph = "clock", color = "on_surface_variant", labelKey = "status_blocked" },
+	excluded = { glyph = "ban", color = "on_surface_variant", labelKey = "status_excluded" },
+	unbuildable = { glyph = "ban", color = "on_surface_variant", labelKey = "status_unbuildable" },
+	finished = { glyph = "check", color = "secondary", labelKey = "status_succeeded" },
+	unknown = { glyph = "help-circle", color = "on_surface_variant", labelKey = "status_unknown" },
+}
+
+local STATUS_GROUPS = {
+	["succeeded"] = "succeeded",
+	["success"] = "succeeded",
+	["finished"] = "succeeded",
+	["failed"] = "failure",
+	["broken"] = "failure",
+	["unresolvable"] = "unresolvable",
+	["building"] = "building",
+	["dispatching"] = "building",
+	["scheduled"] = "scheduled",
+	["signing"] = "signing",
+	["blocked"] = "blocked",
+	["excluded"] = "excluded",
+	["unbuildable"] = "unbuildable",
+	["unknown"] = "unknown",
+	["disabled"] = "disabled",
+}
+
+local function statusPresentation(status)
+	status = status or "unknown"
+	local group = STATUS_GROUPS[status] or status
+	local base = STATUS_STYLE[group]
+	if base then
+		return base.glyph, base.color, noctalia.tr("panel." .. base.labelKey), group
+	end
+	return "help-circle", "on_surface_variant", status, "unknown"
 end
 
 local function removeFileLocal(path, pkgDir, pkg)
@@ -831,6 +886,7 @@ function render()
 					rebuildRepos = {}
 					rebuildRepoIndex = 0
 					repoMap = {}
+					statusMap = {}
 					savedRebuildRepo = nil
 					savedRebuildArch = nil
 					rebuildLoaded = false
@@ -1262,7 +1318,7 @@ function render()
 					}),
 					ui.button({
 						key = "rebuild-btn",
-						glyph = rebuildConfirm and "check" or "refresh",
+						glyph = rebuildConfirm and "check" or "analyze-filled",
 						tooltip = rebuildConfirm and noctalia.tr("panel.confirm_rebuild") or noctalia.tr("panel.rebuild"),
 						variant = rebuildConfirm and "secondary" or "default",
 						onClick = function()
@@ -1296,6 +1352,58 @@ function render()
 				table.insert(body, ui.label({ text = commandLog, color = "on_surface_variant", wrap = true }))
 			end
 		end
+
+		table.insert(body, ui.separator({ thickness = 1, spacing = 6 }))
+
+		local statusChildren = {
+			ui.row({ align = "center", gap = 8 }, {
+				ui.glyph({ name = "activity", color = "primary", size = 16 }),
+				ui.label({ text = noctalia.tr("panel.build_status"), fontWeight = "bold", fontSize = 15, flexGrow = 1 }),
+				ui.button({
+					glyph = "refresh",
+					tooltip = noctalia.tr("panel.status_refresh"),
+					variant = "ghost",
+					controlSize = "sm",
+					onClick = function()
+						loadRebuildArches(selectedProject, selectedPackage)
+					end,
+				}),
+			}),
+		}
+		if not rebuildLoaded then
+			table.insert(statusChildren, ui.row({ align = "center", gap = 8, paddingV = 2 }, {
+				ui.glyph({ name = "loader", color = "primary", size = 14 }),
+				ui.label({ text = noctalia.tr("panel.status_loading"), color = "on_surface_variant" }),
+			}))
+		else
+			local hadResults = false
+			for _, repo in ipairs(rebuildRepos) do
+				local archs = repoMap[repo] or {}
+				if #archs > 0 then
+					hadResults = true
+					table.insert(
+						statusChildren,
+						ui.label({ text = repo, fontWeight = "bold", fontSize = 14, color = "on_surface" })
+					)
+					for _, arch in ipairs(archs) do
+						local status = statusMap[repo] and statusMap[repo][arch] or nil
+						local glyph, color, label = statusPresentation(status)
+						table.insert(
+							statusChildren,
+							ui.row({ align = "center", gap = 8, paddingL = 12 }, {
+								ui.glyph({ name = glyph, color = color, size = 14 }),
+								ui.label({ text = arch, fontSize = 13, color = "on_surface", flexGrow = 1 }),
+								ui.label({ text = label, fontSize = 13, color = color }),
+							})
+						)
+					end
+				end
+			end
+			if not hadResults then
+				table.insert(statusChildren, ui.label({ text = noctalia.tr("panel.no_builds"), color = "on_surface_variant" }))
+			end
+		end
+		table.insert(body, ui.column({ gap = 4 }, statusChildren))
 
   elseif selectedProject then
     table.insert(

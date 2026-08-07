@@ -1,20 +1,24 @@
 {
   "settings": {
     "feed_urls": {
-      "description": "Lista de URLs de feeds RSS/Atom para monitorar (por linha).",
-      "label": "URLs dos Feeds"
+      "description": "Uma URL de feed RSS ou Atom por entrada (ex: https://exemplo.com/feed.xml).",
+      "label": "URLs dos feeds"
+    },
+    "glyph": {
+      "description": "Ícone mostrado na barra para este widget.",
+      "label": "Ícone"
     },
     "max_notifications_per_cycle": {
-      "description": "Limitar o número de notificações enviadas em um único ciclo.",
-      "label": "Máximo de notificações"
+      "description": "Evita uma enxurrada de notificações quando muitos itens novos aparecem de uma vez.",
+      "label": "Máximo de notificações por ciclo"
     },
     "notify_new": {
-      "description": "Mostrar notificação para cada novo item encontrado.",
+      "description": "Mostra uma notificação para cada item novo encontrado nos feeds.",
       "label": "Notificar novos itens"
     },
     "refresh_minutes": {
-      "description": "Com que frequência verificar novos itens (em minutos).",
-      "label": "Intervalo de atualização"
+      "description": "Frequência com que os feeds são checados em busca de novidades.",
+      "label": "Intervalo de atualização (minutos)"
     }
   }
 }

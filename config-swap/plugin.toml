@@ -1,0 +1,24 @@
+id = "tadomika_ari/config-swap"
+name = "Config Swap"
+version = "1.0.0"
+plugin_api = 4
+author = "TadomiKa-Ari"
+license = "MIT"
+dependencies = ["cp", "rm"]
+icon = "file"
+description = "A Noctalia widget for applying Configuration file with one click"
+tags = ["utility"]
+
+[[widget]]
+id = "widget"
+entry = "config-swap-widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "config-swap-panel.luau"
+width = 1000
+height = 800
+
+[[service]]
+id = "start"
+entry = "config-swap-service.luau"

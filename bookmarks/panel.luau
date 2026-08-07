@@ -49,21 +49,6 @@ local function recallSelection(folder, rowCount)
 	return math.min(math.max(rememberedSelection[folder or 0] or 1, 1), rowCount)
 end
 
--- ui.scroll has no scroll-into-view API, so instead of scrolling to the
--- selection we only render a window of rows around it - the selection is
--- then always inside what's drawn. ROWS_PER_SCREEN is a rough fit for the
--- panel's height; doesn't need to be exact.
-local ROWS_PER_SCREEN = 9
-
-local function visibleWindow(count, selected)
-	if count <= ROWS_PER_SCREEN or selected == nil then
-		return 1, math.min(count, ROWS_PER_SCREEN)
-	end
-	local startIndex =
-		math.max(1, math.min(selected - ROWS_PER_SCREEN // 2, count - ROWS_PER_SCREEN + 1))
-	return startIndex, startIndex + ROWS_PER_SCREEN - 1
-end
-
 local draftKind = "bookmark" -- "bookmark" | "folder", set when the form opens
 local draftGlyph = "bookmark"
 local draftLabel = ""
@@ -157,13 +142,13 @@ local function loadBookmarks()
 	local raw, readErr = noctalia.readFile(path)
 	if raw == nil then
 		bookmarks = {}
-		listError = noctalia.tr("err_read_failed", { error = tostring(readErr) })
+		listError = noctalia.tr("err.read_failed", { error = tostring(readErr) })
 		return
 	end
 	local decoded, decodeErr = noctalia.json.decode(raw)
 	if type(decoded) ~= "table" then
 		bookmarks = {}
-		listError = noctalia.tr("err_corrupt", { error = tostring(decodeErr) })
+		listError = noctalia.tr("err.corrupt", { error = tostring(decodeErr) })
 		return
 	end
 	bookmarks = decoded
@@ -172,7 +157,7 @@ end
 
 local function saveBookmarks()
 	if path == nil then
-		return false, noctalia.tr("err_no_data_dir")
+		return false, noctalia.tr("err.no_data_dir")
 	end
 	local encoded, encodeErr = noctalia.json.encode(bookmarks)
 	if encoded == nil then
@@ -232,7 +217,7 @@ local function moveEntryTo(list, fromIndex, beforeIndex)
 		restoreArray(list, snapshot)
 		noctalia.notifyError(
 			noctalia.tr("title"),
-			noctalia.tr("err_reorder_failed", { error = err })
+			noctalia.tr("err.reorder_failed", { error = err })
 		)
 	end
 end
@@ -259,7 +244,7 @@ local function moveEntryAcross(fromList, fromIndex, toList)
 		restoreArray(toList, toSnapshot)
 		noctalia.notifyError(
 			noctalia.tr("title"),
-			noctalia.tr("err_reorder_failed", { error = err })
+			noctalia.tr("err.reorder_failed", { error = err })
 		)
 		return false
 	end
@@ -272,7 +257,7 @@ end
 local function runBookmark(entry)
 	local cmd = entry.cmd
 	if type(cmd) ~= "string" or cmd == "" then
-		noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err_no_command"))
+		noctalia.notifyError(noctalia.tr("title"), noctalia.tr("err.no_command"))
 		return
 	end
 	local label = entry.label or cmd
@@ -295,7 +280,7 @@ local function runBookmark(entry)
 		if result.exitCode ~= 0 then
 			local detail = noctalia.string.trim(result.stderr or "")
 			local msg =
-				noctalia.tr("err_exit_code", { label = label, code = tostring(result.exitCode) })
+				noctalia.tr("err.exit_code", { label = label, code = tostring(result.exitCode) })
 			if detail ~= "" then
 				msg = msg .. ": " .. detail
 			end
@@ -307,7 +292,7 @@ local function runBookmark(entry)
 	if not ok then
 		noctalia.notifyError(
 			noctalia.tr("title"),
-			noctalia.tr("err_launch_failed", { label = label })
+			noctalia.tr("err.launch_failed", { label = label })
 		)
 	end
 end
@@ -384,7 +369,7 @@ local function moveToRootDropBar()
 	}, {
 		ui.glyph({ name = "corner-left-up", size = 14, color = "primary" }),
 		ui.label({
-			text = noctalia.tr("drop_out_of_folder"),
+			text = noctalia.tr("edit.drop_out_of_folder"),
 			fontSize = 12,
 			color = "primary",
 			flexGrow = 1,
@@ -451,11 +436,11 @@ local function entryRow(entry, index)
 	elseif not editMode and parseBool(noctalia.getConfig("show_info_button")) then
 		local description = noctalia.string.trim(entry.description or "")
 		local cmd = entry.cmd or ""
-		local infoTooltip = noctalia.tr("info_cmd_line", { cmd = cmd })
+		local infoTooltip = noctalia.tr("info.cmd_line", { cmd = cmd })
 		if description ~= "" then
 			infoTooltip = infoTooltip
 				.. "\n"
-				.. noctalia.tr("info_description_line", { description = description })
+				.. noctalia.tr("info.description_line", { description = description })
 		end
 		table.insert(
 			trailing,
@@ -474,7 +459,7 @@ local function entryRow(entry, index)
 				glyph = "pencil",
 				variant = "secondary",
 				controlSize = "sm",
-				tooltip = noctalia.tr("edit_tooltip"),
+				tooltip = noctalia.tr("edit.edit_tooltip"),
 				onClick = function()
 					_onEditEntry(index)
 				end,
@@ -483,7 +468,7 @@ local function entryRow(entry, index)
 				glyph = "trash",
 				variant = "destructive",
 				controlSize = "sm",
-				tooltip = noctalia.tr("delete_tooltip"),
+				tooltip = noctalia.tr("edit.delete_tooltip"),
 				onClick = function()
 					_onDeleteEntry(index)
 				end,
@@ -546,7 +531,7 @@ local function entryRow(entry, index)
 				payload = tostring(index),
 				previewAncestor = 1,
 				liftFromLayout = true,
-				tooltip = noctalia.tr("drag_tooltip"),
+				tooltip = noctalia.tr("edit.drag_tooltip"),
 				width = 16,
 				height = 16,
 			}, {
@@ -720,10 +705,9 @@ local function listView()
 				})
 			)
 		else
-			local startIndex, endIndex = visibleWindow(#results, selectedIndex)
 			local rows = {}
-			for rowIndex = startIndex, endIndex do
-				table.insert(rows, searchResultRow(results[rowIndex], rowIndex))
+			for rowIndex, result in ipairs(results) do
+				table.insert(rows, searchResultRow(result, rowIndex))
 			end
 			table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
 		end
@@ -733,7 +717,7 @@ local function listView()
 	local topButtons = {
 		ui.button({
 			key = "new-bookmark",
-			text = noctalia.tr("new_bookmark"),
+			text = noctalia.tr("entry_form.new_bookmark"),
 			glyph = "plus",
 			variant = "primary",
 			flexGrow = 1,
@@ -749,7 +733,7 @@ local function listView()
 			topButtons,
 			ui.button({
 				key = "new-folder",
-				text = noctalia.tr("new_folder"),
+				text = noctalia.tr("entry_form.new_folder"),
 				glyph = "folder-plus",
 				variant = "secondary",
 				flexGrow = 1,
@@ -767,7 +751,9 @@ local function listView()
 			variant = "ghost",
 			controlSize = "sm",
 			width = 32,
-			tooltip = noctalia.tr(editMode and "hide_controls_tooltip" or "show_controls_tooltip"),
+			tooltip = noctalia.tr(
+				editMode and "edit.hide_controls_tooltip" or "edit.show_controls_tooltip"
+			),
 			onClick = "_onToggleEditMode",
 		})
 	)
@@ -795,19 +781,14 @@ local function listView()
 		)
 	else
 		local count = #list
-		local startIndex, endIndex = visibleWindow(count, selectedIndex)
 		local rows = {}
-		for index = startIndex, endIndex do
+		for index = 1, count do
 			if editMode then
 				table.insert(rows, insertionGap(index, "before"))
 			end
 			table.insert(rows, entryRow(list[index], index))
 		end
-		-- The trailing "after last row" gap only belongs at the very end of
-		-- the real list, not at the end of a windowed slice that's cut off
-		-- partway through - an "after" gap mid-list would duplicate the
-		-- "before" gap of the row right after the window.
-		if editMode and count > 0 and endIndex == count then
+		if editMode and count > 0 then
 			table.insert(rows, insertionGap(count, "after"))
 		end
 		table.insert(children, ui.scroll({ flexGrow = 1, gap = 2 }, rows))
@@ -818,7 +799,7 @@ local function listView()
 			children,
 			ui.button({
 				key = "delete-folder",
-				text = noctalia.tr("delete_folder_button"),
+				text = noctalia.tr("folder.delete_folder_button"),
 				glyph = "trash",
 				variant = "destructive",
 				onClick = "_onDeleteFolder",
@@ -833,9 +814,11 @@ local function formView()
 	local isFolder = draftKind == "folder"
 	local title
 	if editingIndex ~= nil then
-		title = isFolder and noctalia.tr("edit_folder") or noctalia.tr("edit_bookmark")
+		title = isFolder and noctalia.tr("entry_form.edit_folder")
+			or noctalia.tr("entry_form.edit_bookmark")
 	else
-		title = isFolder and noctalia.tr("new_folder") or noctalia.tr("new_bookmark")
+		title = isFolder and noctalia.tr("entry_form.new_folder")
+			or noctalia.tr("entry_form.new_bookmark")
 	end
 
 	local children = {
@@ -850,7 +833,7 @@ local function formView()
 			ui.button({
 				glyph = "close",
 				variant = "ghost",
-				tooltip = noctalia.tr("cancel_button"),
+				tooltip = noctalia.tr("entry_form.cancel_button"),
 				onClick = "_onCancelBookmark",
 			}),
 		}),
@@ -864,7 +847,7 @@ local function formView()
 			ui.input({
 				key = "glyph-input-" .. formRev,
 				value = draftGlyph,
-				placeholder = noctalia.tr("glyph_field"),
+				placeholder = noctalia.tr("entry_form.glyph_field"),
 				controlSize = "sm",
 				flexGrow = 1,
 				onChange = "_onGlyphChange",
@@ -874,8 +857,8 @@ local function formView()
 		ui.input({
 			key = "label-input-" .. formRev,
 			value = draftLabel,
-			placeholder = isFolder and noctalia.tr("folder_name_field")
-				or noctalia.tr("label_field"),
+			placeholder = isFolder and noctalia.tr("entry_form.folder_name_field")
+				or noctalia.tr("entry_form.label_field"),
 			controlSize = "sm",
 			focus = true,
 			onChange = "_onLabelChange",
@@ -888,7 +871,7 @@ local function formView()
 			ui.input({
 				key = "cmd-input-" .. formRev,
 				value = draftCmd,
-				placeholder = noctalia.tr("cmd_field"),
+				placeholder = noctalia.tr("entry_form.cmd_field"),
 				controlSize = "sm",
 				onChange = "_onCmdChange",
 			})
@@ -899,7 +882,7 @@ local function formView()
 			ui.input({
 				key = "description-input-" .. formRev,
 				value = draftDescription,
-				placeholder = noctalia.tr("description_field"),
+				placeholder = noctalia.tr("entry_form.description_field"),
 				controlSize = "sm",
 				onChange = "_onDescriptionChange",
 			})
@@ -914,7 +897,7 @@ local function formView()
 					onChange = "_onRunInBackgroundChange",
 				}),
 				ui.label({
-					text = noctalia.tr("run_in_background_field"),
+					text = noctalia.tr("entry_form.run_in_background_field"),
 					fontSize = 13,
 					color = "on_surface",
 				}),
@@ -930,7 +913,7 @@ local function formView()
 					onChange = "_onRunInTerminalChange",
 				}),
 				ui.label({
-					text = noctalia.tr("run_in_terminal_field"),
+					text = noctalia.tr("entry_form.run_in_terminal_field"),
 					fontSize = 13,
 					color = "on_surface",
 				}),
@@ -946,12 +929,12 @@ local function formView()
 		children,
 		ui.row({ gap = 8, justify = "end" }, {
 			ui.button({
-				text = noctalia.tr("save_button"),
+				text = noctalia.tr("entry_form.save_button"),
 				variant = "primary",
 				onClick = "_onSaveBookmark",
 			}),
 			ui.button({
-				text = noctalia.tr("cancel_button"),
+				text = noctalia.tr("entry_form.cancel_button"),
 				variant = "destructive",
 				onClick = "_onCancelBookmark",
 			}),
@@ -1074,7 +1057,7 @@ function _onDeleteFolder()
 		table.insert(bookmarks, currentFolder, removed)
 		noctalia.notifyError(
 			noctalia.tr("title"),
-			noctalia.tr("err_delete_failed", { error = err })
+			noctalia.tr("err.delete_failed", { error = err })
 		)
 		render()
 		return
@@ -1082,7 +1065,7 @@ function _onDeleteFolder()
 
 	noctalia.notify(
 		noctalia.tr("title"),
-		noctalia.tr("folder_deleted", { label = removed.label or "" })
+		noctalia.tr("folder.folder_deleted", { label = removed.label or "" })
 	)
 	-- Folder selections are now stale (indices after the deleted one
 	-- shifted), so drop everything but root's.
@@ -1167,7 +1150,9 @@ function _onSaveBookmark()
 	local isFolder = draftKind == "folder"
 
 	if label == "" then
-		draftError = noctalia.tr(isFolder and "err_label_required" or "err_label_cmd_required")
+		draftError = noctalia.tr(
+			isFolder and "entry_form.err_label_required" or "entry_form.err_label_cmd_required"
+		)
 		render()
 		return
 	end
@@ -1176,7 +1161,7 @@ function _onSaveBookmark()
 	if not isFolder then
 		cmd = noctalia.string.trim(draftCmd)
 		if cmd == "" then
-			draftError = noctalia.tr("err_label_cmd_required")
+			draftError = noctalia.tr("entry_form.err_label_cmd_required")
 			render()
 			return
 		end
@@ -1223,7 +1208,7 @@ function _onSaveBookmark()
 		else
 			table.remove(list)
 		end
-		draftError = noctalia.tr("err_save_failed", { error = err })
+		draftError = noctalia.tr("err.save_failed", { error = err })
 		render()
 		return
 	end
@@ -1329,7 +1314,7 @@ function _onDeleteEntry(index)
 		-- rather than blocking, to stay consistent with existing delete UX.
 		noctalia.notify(
 			noctalia.tr("title"),
-			noctalia.tr("folder_deleted", { label = entry.label or "" })
+			noctalia.tr("folder.folder_deleted", { label = entry.label or "" })
 		)
 	end
 
@@ -1342,7 +1327,7 @@ function _onDeleteEntry(index)
 		table.insert(list, index, removed)
 		noctalia.notifyError(
 			noctalia.tr("title"),
-			noctalia.tr("err_delete_failed", { error = err })
+			noctalia.tr("err.delete_failed", { error = err })
 		)
 		render()
 		return

@@ -1,6 +1,6 @@
 id = "emrtnn/pass"
 name = "Pass"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 3
 author = "emrtnn"
 license = "MIT"
@@ -8,7 +8,7 @@ deprecated = false
 icon = "key"
 description = "Search and copy password-store entries from the Noctalia launcher"
 tags = ["launcher", "privacy", "productivity", "utility"]
-dependencies = ["pass", "pass-otp", "gpg", "wl-copy"]
+dependencies = ["pass", "pass-otp", "gpg", "wl-copy", "find"]
 
 [[setting]]
 key = "refresh_interval"

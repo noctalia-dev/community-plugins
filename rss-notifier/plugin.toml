@@ -1,13 +1,18 @@
 id          = "nilsonlinux/rss-notifier"
 name        = "RSS/Atom Notifier"
-version     = "1.0.1"
+version     = "1.0.2"
 plugin_api  = 14
 author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "rss"
-description = "Acompanha feeds RSS/Atom e notifica quando surgem novos itens."
+description = "Monitors RSS/Atom feeds and notifies you when new items appear."
 tags        = ["utility", "indicator"]
 dependencies = ["xdg-open"]
+
+# ---------------------------------------------------------------------------
+# Plugin level settings: shared by ALL entries
+# (service + widget). Edited in Settings -> Plugins.
+# ---------------------------------------------------------------------------
 
 [[setting]]
 key             = "feed_urls"
@@ -42,13 +47,32 @@ min             = 1
 max             = 50
 advanced        = true
 
+# ---------------------------------------------------------------------------
+# Service: runs in the background, without UI, searches and parses feeds
+# ---------------------------------------------------------------------------
+
 [[service]]
 id    = "fetcher"
 entry = "service.luau"
 
+# ---------------------------------------------------------------------------
+# Bar widget: shows the count of unread items
+# ---------------------------------------------------------------------------
+
 [[widget]]
 id    = "badge"
 entry = "widget.luau"
+
+[[widget.setting]]
+key             = "glyph"
+type            = "glyph"
+label_key       = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default         = "rss"
+
+# ---------------------------------------------------------------------------
+# Panel: small window with the list of items, opened by clicking on the widget
+# ---------------------------------------------------------------------------
 
 [[panel]]
 id              = "list"
