@@ -51,10 +51,6 @@ local engineDraft = {} -- working copy of options[id].engine
 local propsDraft = {}  -- working copy of options[id].properties
 local showUnlabeled = false
 
--- Favorite Wallpaper
-
-local FavoriteList = {}
-
 -- Global defaults view.
 local defaultsDraft = {} -- working copy of defaults.engine
 local clearOverrides = false
@@ -1174,16 +1170,53 @@ local function tilePreview(item, isSelected, isCurrent)
 	})
 end
 
--- Favorite list 
+-- Favorite list
+
+local FavoriteList = {}
+
+local function getDataPath()
+	return noctalia.pluginDataDir() .. "/data.json"
+end
+
+local function loadData()
+	local raw = noctalia.readFile(getDataPath())
+	if not raw then
+		return {}
+	end
+	local ok, decoded = pcall(function()
+		return noctalia.json.decode(raw)
+	end)
+	if not ok or type(decoded) ~= "table" then
+		return {}
+	end
+	return decoded
+end
+
+local function saveData(data)
+	return noctalia.writeFile(getDataPath(), noctalia.json.encode(data))
+end
+
+local function loadFavoriteList()
+	local data = loadData()
+	FavoriteList = data.favorites or {}
+end
+
+local function persistFavoriteList()
+	local data = loadData() -- récupère les autres clés existantes (ex: settingsPath)
+	data.favorites = FavoriteList
+	saveData(data)
+end
 
 local function addFavoriteList(item)
 	noctalia.notify("Add Favorite")
 	table.insert(FavoriteList, item)
+	persistFavoriteList()
 end
 
 local function removeFavoriteList(item, nb)
 	noctalia.notify("Remove Favorite")
 	table.remove(FavoriteList, nb)
+	persistFavoriteList()
 end
 
 local function checkInFavoriteList(item)
@@ -1197,10 +1230,6 @@ local function checkInFavoriteList(item)
 	end
 	addFavoriteList(item)
 end
-
-
--- 
-
 
 local function tileCaption(item, index, isSelected)
 	-- Numbered to show rotation order.
@@ -1292,7 +1321,7 @@ render = function()
 		end
 	end
 
-	-- Single scroll for all list (Wallpaper and Favorite Wallpaper
+	-- Single scroll for all list (Wallpaper and Favorite Wallpaper)
 	local scrollContent = {}
 	table.insert(scrollContent, ui.label({ text = "Favorites", fontSize = 13, fontWeight = "bold", color = "on_surface" }))
 	if #FavoriteList == 0 then
@@ -1363,6 +1392,7 @@ end
 
 function onOpen(_context)
 	isOpen = true
+	loadFavoriteList()
 	outputName = noctalia.focusedOutputName() or outputName
 	if not outputName then
 		local outputs = noctalia.outputs()
