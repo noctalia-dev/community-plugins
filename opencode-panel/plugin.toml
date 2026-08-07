@@ -128,11 +128,36 @@ default = false
 label_key = "settings.debug_logging.label"
 description_key = "settings.debug_logging.description"
 
+# Panel layout the widget opens. "fill_right" = full-height side bar pinned to
+# the right edge; "compact" = the original floating panel near the click. Both
+# are manifest-hosted panel entries, since placement/position are host-owned and
+# read at load time (a plugin can't move its own panel at runtime).
+[[setting]]
+key = "panel_mode"
+type = "select"
+default = "fill_right"
+label_key = "settings.panel_mode.label"
+description_key = "settings.panel_mode.description"
+options = [
+  { value = "fill_right", label_key = "settings.panel_mode.options.fill_right" },
+  { value = "compact", label_key = "settings.panel_mode.options.compact" },
+]
+
 # ── Entries ───────────────────────────────────────────────────────────────────
 [[widget]]
 id = "widget"
 entry = "widget.luau"
 
+# Full-height side bar, pinned to the right edge.
+[[panel]]
+id = "panel-fill"
+entry = "panel.luau"
+placement = "floating"
+position = "center_right"
+width = 560
+height = "fill"
+
+# Original floating panel near the click point.
 [[panel]]
 id = "panel"
 entry = "panel.luau"

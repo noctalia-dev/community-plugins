@@ -151,6 +151,14 @@
         "full": "Full",
         "compact": "Compact"
       }
+    },
+    "panel_mode": {
+      "label": "Panel Layout",
+      "description": "Fill right opens a full-height panel pinned to the right edge; Compact shows the original floating panel near the bar click.",
+      "options": {
+        "fill_right": "Full-height right side",
+        "compact": "Compact (near click)"
+      }
     }
   },
   "question": {

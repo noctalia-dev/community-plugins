@@ -154,7 +154,11 @@ function onClick()
     if unread > 0 then
         noctalia.runAsync("noctalia msg plugin 'weinguyen/opencode-panel:service' all clear_unread")
     end
-    noctalia.togglePanel("weinguyen/opencode-panel:panel")
+    -- Toggle whichever panel entry matches the panel_mode setting (host-owned
+    -- placement means the two modes are separate manifest entries).
+    local mode = noctalia.getConfig and noctalia.getConfig("panel_mode") or "fill_right"
+    local panel_id = (mode == "compact") and "panel" or "panel-fill"
+    noctalia.togglePanel("weinguyen/opencode-panel:" .. panel_id)
 end
 
 function onRightClick()

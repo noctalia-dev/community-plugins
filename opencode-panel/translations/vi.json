@@ -151,6 +151,14 @@
         "full": "Full",
         "compact": "Compact"
       }
+    },
+    "panel_mode": {
+      "label": "Kiểu panel",
+      "description": "Full-height sát phải mở panel cao trọn màn hình ghim vào mép phải; Compact hiển thị panel nổi gần chỗ bấm trên thanh bar.",
+      "options": {
+        "fill_right": "Thanh cao full màn bên phải",
+        "compact": "Gọn (gần điểm bấm)"
+      }
     }
   },
   "question": {
