@@ -1,6 +1,6 @@
--- Quick Shell launcher provider.
+-- Shell Command launcher provider.
 --
--- Type `/qs <command>` in the launcher to run a shell command in your default
+-- Type `/sh <command>` in the launcher to run a shell command in your default
 -- terminal. Fish-style autosuggestions: as you type it queries the shell's own
 -- completion engine (`fish -c 'complete -C "<query>"'`, falling back to bash
 -- `compgen -c`) so suggestions grow dynamically with your system — no hardcoded
@@ -29,7 +29,7 @@ end
 local function dataDir()
 	local dir, err = noctalia.pluginDataDir()
 	if dir == nil then
-		noctalia.log("quick-shell: pluginDataDir failed: " .. tostring(err))
+		noctalia.log("shell-command: pluginDataDir failed: " .. tostring(err))
 		return nil
 	end
 	return dir
@@ -60,7 +60,7 @@ local function saveHistory()
 	end
 	local ok, err = noctalia.writeFile(dir .. "/" .. HISTORY_FILE, table.concat(history, "\n"))
 	if not ok then
-		noctalia.log("quick-shell: could not persist history: " .. tostring(err))
+		noctalia.log("shell-command: could not persist history: " .. tostring(err))
 	end
 end
 
@@ -85,7 +85,7 @@ end
 --
 -- If the query itself is a `cd <dir> && <cmd>` compound, we cd into `<dir>`
 -- instead of the workspace — that way navigation and a command can be combined
--- in one launch (`/qs cd ~/proj && ls`). Otherwise, if a default workspace is
+-- in one launch (`/sh cd ~/proj && ls`). Otherwise, if a default workspace is
 -- configured, cd there first.
 --
 -- Commands run through the user's own `$SHELL` (not `sh`), so aliases,
@@ -269,10 +269,10 @@ end
 -- and the typed prefix filters it. Selecting a folder fills the input with that
 -- path (cd:<path>/), letting you drill deeper or continue typing.
 --
---   /qs cd            -> list top-level dirs of the workspace
---   /qs cd proj       -> list workspace dirs starting with "proj"
---   /qs cd ~/Builds   -> list ~/Builds sub-entries starting with the rest
---   /qs cd ~/Builds/  -> list everything directly inside ~/Builds
+--   /sh cd            -> list top-level dirs of the workspace
+--   /sh cd proj       -> list workspace dirs starting with "proj"
+--   /sh cd ~/Builds   -> list ~/Builds sub-entries starting with the rest
+--   /sh cd ~/Builds/  -> list everything directly inside ~/Builds
 local function listDirs(query)
 	local pathPart = query:match("^cd%s*(.*)$") or ""
 
@@ -462,7 +462,7 @@ function onActivate(id)
 
 	local kind, value = id:match("^(%a+):(.+)$")
 	if not kind or not value then
-		noctalia.log("quick-shell: onActivate received malformed id: " .. tostring(id))
+		noctalia.log("shell-command: onActivate received malformed id: " .. tostring(id))
 		return
 	end
 
@@ -474,7 +474,7 @@ function onActivate(id)
 		elseif kind == "cdgo" then
 			noctalia.runInTerminal(buildCdCommand(value))
 		else
-			noctalia.log("quick-shell: unknown activation kind: " .. kind)
+			noctalia.log("shell-command: unknown activation kind: " .. kind)
 		end
 	end
 

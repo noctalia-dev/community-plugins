@@ -1,6 +1,6 @@
 {
   "hint_title": "Chạy lệnh shell",
-  "hint_subtitle": "Gõ lệnh sau /qs rồi nhấn Enter để mở trong terminal",
+  "hint_subtitle": "Gõ lệnh sau /sh rồi nhấn Enter để mở trong terminal",
   "run_title": "Chạy: {command}",
   "run_subtitle": "Mở trong terminal mặc định",
   "run_subtitle_found": "Tìm thấy {command} — mở trong terminal mặc định",
@@ -19,7 +19,7 @@
     },
     "snippets": {
       "label": "Snippets",
-      "description": "Lệnh hiện khi /qs trống. Mỗi mục là một lệnh."
+      "description": "Lệnh hiện khi /sh trống. Mỗi mục là một lệnh."
     }
   }
 }

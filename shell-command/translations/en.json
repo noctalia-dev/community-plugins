@@ -1,6 +1,6 @@
 {
   "hint_title": "Run a shell command",
-  "hint_subtitle": "Type a command after /qs and press Enter to open it in your terminal",
+  "hint_subtitle": "Type a command after /sh and press Enter to open it in your terminal",
   "run_title": "Run: {command}",
   "run_subtitle": "Opens in your default terminal",
   "run_subtitle_found": "{command} found — opens in your default terminal",
@@ -19,7 +19,7 @@
     },
     "snippets": {
       "label": "Snippets",
-      "description": "Commands shown when /qs is empty. Each entry is one command."
+      "description": "Commands shown when /sh is empty. Each entry is one command."
     }
   }
 }

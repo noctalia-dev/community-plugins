@@ -1,6 +1,6 @@
-# Quick Shell
+# Shell Command
 
-Run a shell command straight from the Noctalia launcher. Type `/qs` followed by
+Run a shell command straight from the Noctalia launcher. Type `/sh` followed by
 any command and press Enter to open it in your default terminal — a **real,
 interactive shell** with live output, TUI apps, and your own native history.
 
@@ -11,23 +11,23 @@ aliases, functions and environment from your rc config are available.
 
 ## Features
 
-- **Instant command run** — `/qs ls -la ~/projects` opens the command in your
+- **Instant command run** — `/sh ls -la ~/projects` opens the command in your
   default terminal.
 - **Fish-style autosuggestions** — completions fetched live from Fish's
   completion engine (`fish -c 'complete -C "<query>"'`), falling back to bash
-  `compgen -c` when Fish isn't installed. Type `/qs git st` and get `git status`,
+  `compgen -c` when Fish isn't installed. Type `/sh git st` and get `git status`,
   `git stash`, etc. Suggestions dynamically follow your system — no hardcoded
   list to maintain.
 - **Snap-complete** — when a prefix has exactly one completion, the "Run" entry
   jumps to the completed command, so one Enter runs it instead of fill-then-run.
 - **History** — previously run commands are remembered (per-plugin state, capped
   at 100) and offered as you type, most recent first.
-- **Snippets** — user-defined commands shown when `/qs` is typed with an empty
+- **Snippets** — user-defined commands shown when `/sh` is typed with an empty
   query.
-- **Folder jump** — `/qs cd` lists subdirectories and lets you drill into nested
+- **Folder jump** — `/sh cd` lists subdirectories and lets you drill into nested
   folders. Select the "Open in:" row to launch a terminal inside the current
   directory.
-- **Navigate and run in one launch** — `/qs cd ~/proj && make` changes into that
+- **Navigate and run in one launch** — `/sh cd ~/proj && make` changes into that
   directory and runs the command, so tools open in the right folder.
 - **Suggestion fills, explicit launch runs** — completion/history/snippet rows
   fill the input (so you can keep typing or drill deeper); only "Run:" and
@@ -42,9 +42,9 @@ aliases, functions and environment from your rc config are available.
 
 | Field           | Value                         |
 | --------------- | ----------------------------- |
-| ID              | `weinguyen/quick-shell`       |
+| ID              | `weinguyen/shell-command`     |
 | Entry           | Launcher provider: `provider` |
-| Launcher Prefix | `/qs`                         |
+| Launcher Prefix | `/sh`                         |
 
 ## Requirements
 
@@ -55,12 +55,12 @@ aliases, functions and environment from your rc config are available.
 
 ## Usage
 
-Open the launcher and type `/qs` followed by a command:
+Open the launcher and type `/sh` followed by a command:
 
 ```
-/qs
-/qs ls -la ~/projects
-/qs git status
+/sh
+/sh ls -la ~/projects
+/sh git status
 ```
 
 Press Enter to run the command in your default terminal.
@@ -74,9 +74,9 @@ matches).
 ### Navigate inside a folder first
 
 ```
-/qs cd                  # list top-level folders
-/qs cd proj             # list folders starting with "proj"
-/qs cd ~/Builds/        # list everything directly inside ~/Builds
+/sh cd                  # list top-level folders
+/sh cd proj             # list folders starting with "proj"
+/sh cd ~/Builds/        # list everything directly inside ~/Builds
 ```
 
 Folder rows let you drill deeper (each selection fills the path with a trailing
@@ -86,7 +86,7 @@ the current parent directory.
 ### Run a command in a directory
 
 ```
-/qs cd ~/Builds && make
+/sh cd ~/Builds && make
 ```
 
 Navigates into `~/Builds` and runs `make` there. Paths may contain spaces,
@@ -97,7 +97,7 @@ quotes and `\ ` escapes.
 | Setting             | Type          | Default | Description                                                                     |
 | ------------------- | ------------- | ------- | ------------------------------------------------------------------------------- |
 | `default_workspace` | `folder`      | `""`    | Working directory commands (and the `cd` listing) start in. Empty uses `$HOME`. |
-| `snippets`          | `string_list` | `[]`    | Commands shown when `/qs` is typed with an empty query.                         |
+| `snippets`          | `string_list` | `[]`    | Commands shown when `/sh` is typed with an empty query.                         |
 
 ## Notes
 
