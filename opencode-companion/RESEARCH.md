@@ -1,4 +1,4 @@
-# OpenCode Panel — Research Notes
+# OpenCode Companion — Research Notes
 
 Research conducted: 2026-08-06
 Researcher: Senior Linux Desktop Plugin Enginee

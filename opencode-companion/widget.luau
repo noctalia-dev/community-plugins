@@ -1,4 +1,4 @@
--- OpenCode Panel bar widget — a pure subscriber of opencode.connection state.
+-- OpenCode Companion bar widget — a pure subscriber of opencode.connection state.
 -- Shows connection status as an accent-colored glyph with a breathing glow,
 -- an unread badge when responses arrive while the panel is closed, and a
 -- waiting-permission bell when OpenCode needs user input.
@@ -152,18 +152,18 @@ end
 function onClick()
     -- Clear unread on open
     if unread > 0 then
-        noctalia.runAsync("noctalia msg plugin 'weinguyen/opencode-panel:service' all clear_unread")
+        noctalia.runAsync("noctalia msg plugin 'weinguyen/opencode-companion:service' all clear_unread")
     end
     -- Toggle whichever panel entry matches the panel_mode setting (host-owned
     -- placement means the two modes are separate manifest entries).
     local mode = noctalia.getConfig and noctalia.getConfig("panel_mode") or "fill_right"
     local panel_id = (mode == "compact") and "panel" or "panel-fill"
-    noctalia.togglePanel("weinguyen/opencode-panel:" .. panel_id)
+    noctalia.togglePanel("weinguyen/opencode-companion:" .. panel_id)
 end
 
 function onRightClick()
     -- Quick action: create new session
-    noctalia.runAsync("noctalia msg plugin 'weinguyen/opencode-panel:service' all create_session")
+    noctalia.runAsync("noctalia msg plugin 'weinguyen/opencode-companion:service' all create_session")
     noctalia.notify(tr("notify.title"), tr("notify.new_session"))
 end
 

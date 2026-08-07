@@ -1,4 +1,4 @@
--- OpenCode Panel — the chat panel surface.
+-- OpenCode Companion — the chat panel surface.
 --
 -- Two views:
 --   • Session chooser — when no active session is selected
@@ -42,8 +42,8 @@ local session_query = ""
 -- click never fires the reply before the others are answered.
 local question_choices = {}
 
-local SVC = "weinguyen/opencode-panel:service"
-local PANEL_ID = "weinguyen/opencode-panel:panel"
+local SVC = "weinguyen/opencode-companion:service"
+local PANEL_ID = "weinguyen/opencode-companion:panel"
 
 -- Layout constants (recomputed from the ui_mode setting on every render).
 local compact = false

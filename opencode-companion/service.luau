@@ -1,4 +1,4 @@
--- OpenCode Panel service — the headless backend and single source of truth.
+-- OpenCode Companion service — the headless backend and single source of truth.
 --
 -- Responsibilities:
 --   • Manage the OpenCode server lifecycle (auto or external mode)
@@ -73,7 +73,7 @@ end
 
 local function debug_log(msg)
     if noctalia.getConfig and noctalia.getConfig("debug_logging") then
-        print("[opencode-panel] " .. tostring(msg))
+        print("[opencode-companion] " .. tostring(msg))
     end
 end
 

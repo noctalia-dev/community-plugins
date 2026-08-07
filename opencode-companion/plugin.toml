@@ -1,5 +1,5 @@
-id = "weinguyen/opencode-panel"
-name = "OpenCode Panel"
+id = "weinguyen/opencode-companion"
+name = "OpenCode Companion"
 version = "0.1.0"
 plugin_api = 3
 author = "weinguyen"

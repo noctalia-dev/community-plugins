@@ -1,18 +1,19 @@
-# OpenCode Panel
+# OpenCode Companion
 
 A Noctalia v5 plugin that puts [OpenCode](https://opencode.ai/) on your bar — a glanceable status dot, a native chat panel, session management, and MCP status — all driven by the OpenCode HTTP API. No embedded terminal, no key emulation.
 
-![OpenCode Panel](assets/thumbnail.webp)
+![OpenCode Companion](assets/thumbnail.webp)
 
 ## Plugin
 
-| Field | Value |
-| --- | --- |
-| ID | `weinguyen/opencode-panel` |
-| Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
-| Plugin API | 3 |
+| Field      | Value                                                                   |
+| ---------- | ----------------------------------------------------------------------- |
+| ID         | `weinguyen/opencode-companion`                                          |
+| Entries    | Bar widget: `widget`; panels: `panel`, `panel-fill`; service: `service` |
+| Plugin API | 3                                                                       |
 
 Built and tested against:
+
 - **Noctalia** v5.0.0 (97917d9ca07e)
 - **OpenCode** v1.18.13
 
@@ -29,10 +30,10 @@ Built and tested against:
 git clone https://github.com/... community-plugins
 
 # Symlink into Noctalia plugins directory
-ln -s "$PWD/community-plugins/opencode-panel" ~/.local/share/noctalia/plugins/opencode-panel
+ln -s "$PWD/community-plugins/opencode-companion" ~/.local/share/noctalia/plugins/opencode-companion
 
 # Enable the plugin
-noctalia msg plugins enable weinguyen/opencode-panel
+noctalia msg plugins enable weinguyen/opencode-companion
 ```
 
 ## Usage
@@ -41,7 +42,7 @@ noctalia msg plugins enable weinguyen/opencode-panel
 
 1. Open Noctalia Settings → Bar
 2. Click **Add Widget**
-3. Select **OpenCode Panel** (the code-circle icon)
+3. Select **OpenCode Companion** (the code-circle icon)
 4. The widget appears on your bar
 
 ### Opening the panel
@@ -70,36 +71,39 @@ Type a prompt in the composer and press Enter or click Send.
 ### IPC
 
 ```sh
-# Toggle the panel
-noctalia msg panel-toggle weinguyen/opencode-panel:panel
+# Toggle the side bar panel
+noctalia msg panel-toggle weinguyen/opencode-companion:panel-fill
+
+# Toggle the floating panel
+noctalia msg panel-toggle weinguyen/opencode-companion:panel
 
 # Force refresh
-noctalia msg plugin weinguyen/opencode-panel:service all refresh
+noctalia msg plugin weinguyen/opencode-companion:service all refresh
 
 # Reconnect to server
-noctalia msg plugin weinguyen/opencode-panel:service all reconnect
+noctalia msg plugin weinguyen/opencode-companion:service all reconnect
 
 # Create a new session
-noctalia msg plugin weinguyen/opencode-panel:service all create_session
+noctalia msg plugin weinguyen/opencode-companion:service all create_session
 ```
 
 ## Settings
 
-| Setting | Type | Default | Description |
-| --- | --- | --- | --- |
-| `server_mode` | string | `"auto"` | `"auto"` manages a local server; `"external"` connects to a URL |
-| `server_host` | string | `"127.0.0.1"` | Hostname the managed server binds to (loopback only) |
-| `server_port` | double | `4096` | Port the managed server listens on |
-| `server_url` | string | `""` | External server URL (used in `"external"` mode) |
-| `default_workspace` | folder | `""` | Default working directory for new sessions |
-| `default_model` | string | `""` | Default model in `provider/model` format |
-| `default_agent` | string | `"build"` | Default agent for new sessions |
-| `auto_start` | bool | `true` | Auto-start the managed server |
-| `show_tool_calls` | bool | `true` | Show tool call status cards |
-| `show_reasoning` | bool | `false` | Show reasoning/thinking text |
-| `notify_on_complete` | bool | `true` | Notify when a response completes |
-| `max_messages_load` | double | `50` | Max messages to load per session |
-| `debug_logging` | bool | `false` | Print debug messages |
+| Setting              | Type   | Default       | Description                                                     |
+| -------------------- | ------ | ------------- | --------------------------------------------------------------- |
+| `server_mode`        | string | `"auto"`      | `"auto"` manages a local server; `"external"` connects to a URL |
+| `server_host`        | string | `"127.0.0.1"` | Hostname the managed server binds to (loopback only)            |
+| `server_port`        | double | `4096`        | Port the managed server listens on                              |
+| `server_url`         | string | `""`          | External server URL (used in `"external"` mode)                 |
+| `default_workspace`  | folder | `""`          | Default working directory for new sessions                      |
+| `default_model`      | string | `""`          | Default model in `provider/model` format                        |
+| `default_agent`      | string | `"build"`     | Default agent for new sessions                                  |
+| `auto_start`         | bool   | `true`        | Auto-start the managed server                                   |
+| `show_tool_calls`    | bool   | `true`        | Show tool call status cards                                     |
+| `show_reasoning`     | bool   | `false`       | Show reasoning/thinking text                                    |
+| `notify_on_complete` | bool   | `true`        | Notify when a response completes                                |
+| `max_messages_load`  | double | `50`          | Max messages to load per session                                |
+| `debug_logging`      | bool   | `false`       | Print debug messages                                            |
 
 ## Session Lifecycle
 
@@ -115,15 +119,15 @@ noctalia msg plugin weinguyen/opencode-panel:service all create_session
 - The plugin detects reboot via `/proc/sys/kernel/random/boot_id`
 - After reboot, the session chooser appears instead of auto-opening the last session
 - Old sessions are still available to select
-- The active session is persisted to `~/.local/state/noctalia/opencode-panel/opencode_state.json`
+- The active session is persisted to `~/.local/state/noctalia/opencode-companion/opencode_state.json`
 
 ### Boot-ID behavior
 
-| Condition | Behavior |
-| --- | --- | 
-| Boot ID matches saved state | Restore active session on first open |
-| Boot ID differs (reboot) | Show session chooser; keep session list |
-| Saved session no longer exists | Show session chooser |
+| Condition                      | Behavior                                |
+| ------------------------------ | --------------------------------------- |
+| Boot ID matches saved state    | Restore active session on first open    |
+| Boot ID differs (reboot)       | Show session chooser; keep session list |
+| Saved session no longer exists | Show session chooser                    |
 
 ## Security Notes
 
@@ -134,6 +138,7 @@ noctalia msg plugin weinguyen/opencode-panel:service all create_session
 - **No secret logging**: Passwords and tokens are not written to logs
 
 When running in `auto` mode without authentication, any local process can reach the managed server. For multi-user systems, consider:
+
 - Setting `OPENCODE_SERVER_PASSWORD` before starting the server
 - Using `external` mode with a password-protected server
 
@@ -190,7 +195,7 @@ ss -tlnp | grep 4096
 noctalia msg plugins list
 
 # Try toggling manually
-noctalia msg panel-toggle weinguyen/opencode-panel:panel
+noctalia msg panel-toggle weinguyen/opencode-companion:panel
 ```
 
 ### SSE events not arriving
@@ -207,7 +212,8 @@ journalctl --user -u noctalia -f
 
 ## Logs
 
-Debug output (when enabled) is prefixed with `[opencode-panel]`. Look for:
+Debug output (when enabled) is prefixed with `[opencode-companion]`. Look for:
+
 - Connection state changes
 - SSE events received
 - IPC messages handled
@@ -227,13 +233,13 @@ Debug output (when enabled) is prefixed with `[opencode-panel]`. Look for:
 
 ```sh
 # Disable the plugin
-noctalia msg plugins disable weinguyen/opencode-panel
+noctalia msg plugins disable weinguyen/opencode-companion
 
 # Remove the symlink
-rm ~/.local/share/noctalia/plugins/opencode-panel
+rm ~/.local/share/noctalia/plugins/opencode-companion
 
 # Optionally remove saved state
-rm -rf ~/.local/state/noctalia/opencode-panel
+rm -rf ~/.local/state/noctalia/opencode-companion
 ```
 
 ## Roadmap
