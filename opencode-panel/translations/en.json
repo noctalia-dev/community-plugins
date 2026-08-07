@@ -28,11 +28,11 @@
     "empty": "No messages yet. Send a prompt to begin.",
     "thinking": "Thinking…",
     "stop": "Stop",
-    "send": "Send",
+    "send": "Send (Ctrl+Enter)",
     "refresh": "Refresh",
     "open_terminal": "Open in terminal",
     "back": "Back to sessions",
-    "placeholder": "Ask OpenCode anything…",
+    "placeholder": "Ask OpenCode anything…  (Enter = newline, Ctrl+Enter = send)",
     "select_model": "Model",
     "select_agent": "Agent",
     "dismiss_error": "Dismiss"
@@ -148,6 +148,7 @@
   "question": {
     "title": "Question",
     "custom": "Custom Answer",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "submit": "Submit"
   }
 }

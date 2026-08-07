@@ -36,6 +36,12 @@ local last_opened_id = nil
 -- Live filter text for the chooser's session search box (in-memory only).
 local session_query = ""
 
+-- Pending answer selections for multi-question agent requests. Keyed by
+-- requestID -> { [question_index] = chosen_label }. A request with N questions
+-- is only replied once every question has a selection, so a single-question
+-- click never fires the reply before the others are answered.
+local question_choices = {}
+
 local SVC = "weinguyen/opencode-panel:service"
 local PANEL_ID = "weinguyen/opencode-panel:panel"
 
@@ -45,6 +51,11 @@ local WRAP = 432  -- 560 - 2*PAD - scrollbar room
 
 -- Draft persistence key (in-memory only; survives panel close/open within same boot)
 local draft = ""
+-- Bumped after each successful send. The composer input is uncontrolled and only
+-- seeds its text once per node instance, so clearing `draft` alone won't wipe the
+-- on-screen text. Changing the input's key forces the reconciler to build a fresh
+-- (empty) input, which is how we clear the field after sending.
+local composer_seq = 0
 
 local view = "session_chooser"
 local snap_cache = {}  -- last rendered fingerprint
@@ -586,6 +597,13 @@ local function render_question_card(q)
     local questions = q.questions
     if not rid or type(questions) ~= "table" or #questions == 0 then return nil end
 
+    -- Per-request selection store: choices[i] = chosen label for question i.
+    local choices = question_choices[rid]
+    if type(choices) ~= "table" then
+        choices = {}
+        question_choices[rid] = choices
+    end
+
     local cards = {}
     cards[#cards + 1] = ui.column({ gap = 6 }, {
         ui.row({ gap = 8, align = "center" }, {
@@ -594,14 +612,7 @@ local function render_question_card(q)
         }),
     })
 
-    -- Encode a question's chosen option labels into a JSON array for transport.
-    local function answer_for(opt_labels)
-        local ok, enc = pcall(noctalia.json.encode, opt_labels)
-        if ok then return enc end
-        return "[]"
-    end
-
-    for _, qinfo in ipairs(questions) do
+    for qi, qinfo in ipairs(questions) do
         if type(qinfo) == "table" then
             cards[#cards + 1] = ui.label({ text = qinfo.question or "", maxWidth = WRAP })
             local opts = qinfo.options
@@ -609,14 +620,17 @@ local function render_question_card(q)
                 local opt_row = {}
                 for _, o in ipairs(opts) do
                     if type(o) == "table" and type(o.label) == "string" and o.label ~= "" then
+                        local label = o.label
                         opt_row[#opt_row + 1] = ui.button({
-                            text = o.label,
-                            variant = "secondary",
+                            text = label,
+                            -- Highlight the chosen option; only record the
+                            -- selection locally, never reply until every
+                            -- question has an answer.
+                            variant = (choices[qi] == label) and "primary" or "secondary",
+                            selected = (choices[qi] == label),
                             onClick = function()
-                                local answers = { answer_for({ o.label }) }
-                                -- Rebuild the outer array as an array of arrays.
-                                local payload = "[" .. table.concat(answers, ",") .. "]"
-                                dispatch_ipc("question_reply", rid .. "\2" .. payload)
+                                choices[qi] = label
+                                render()
                             end,
                         })
                     end
@@ -630,25 +644,57 @@ local function render_question_card(q)
             if qinfo.custom then
                 cards[#cards + 1] = ui.button({
                     text = tr("question.custom"),
-                    variant = "secondary",
+                    variant = (choices[qi] == "") and "primary" or "secondary",
+                    selected = (choices[qi] == ""),
                     onClick = function()
-                        -- Reply with one inner array per question; for the
-                        -- custom case we send an empty selection string.
-                        local payload = "[[\"\"]]"
-                        dispatch_ipc("question_reply", rid .. "\2" .. payload)
+                        -- Custom answer is encoded as an empty selection for
+                        -- this question; still requires the others to be set.
+                        choices[qi] = ""
+                        render()
                     end,
                 })
             end
         end
     end
 
-    cards[#cards + 1] = ui.button({
-        text = tr("question.cancel"),
-        variant = "secondary",
-        glyph = "x",
-        onClick = function()
-            dispatch_ipc("question_reject", rid)
-        end,
+    -- Every question must have a selection before the reply can be sent.
+    local all_answered = true
+    for qi = 1, #questions do
+        if choices[qi] == nil then
+            all_answered = false
+            break
+        end
+    end
+
+    cards[#cards + 1] = ui.row({ gap = 6 }, {
+        ui.button({
+            text = tr("question.submit"),
+            glyph = "check",
+            variant = "primary",
+            enabled = all_answered,
+            flexGrow = 1,
+            onClick = function()
+                if not all_answered then return end
+                -- Build the outer array: one inner array per question, in order.
+                local inner = {}
+                for qi = 1, #questions do
+                    local ok, enc = pcall(noctalia.json.encode, { choices[qi] })
+                    inner[#inner + 1] = ok and enc or "[\"\"]"
+                end
+                local payload = "[" .. table.concat(inner, ",") .. "]"
+                question_choices[rid] = nil
+                dispatch_ipc("question_reply", rid .. "\2" .. payload)
+            end,
+        }),
+        ui.button({
+            text = tr("question.cancel"),
+            variant = "secondary",
+            glyph = "x",
+            onClick = function()
+                question_choices[rid] = nil
+                dispatch_ipc("question_reject", rid)
+            end,
+        }),
     })
 
     return ui.column({ gap = 8, padding = 8, fill = "surface" }, cards)
@@ -874,8 +920,22 @@ local function render_chat(active, messages, permissions, questions, conn)
     local processing = is_processing()
     rows[#rows + 1] = ui.separator({})
 
+    -- Send the current draft, then clear the composer. Clearing requires bumping
+    -- the input's key so the reconciler rebuilds a fresh, empty input.
+    local function send_draft(text)
+        if processing then return end
+        text = text or draft
+        if type(text) ~= "string" or text == "" then return end
+        dispatch_ipc("send_prompt", text)
+        draft = ""
+        composer_seq = composer_seq + 1
+        render()
+    end
+
     local composer_elems = {
         ui.input({
+            -- Key changes on each send to force a fresh (cleared) input.
+            key = "composer_" .. composer_seq,
             value = draft,
             placeholder = tr("chat.placeholder"),
             multiline = true,
@@ -883,21 +943,19 @@ local function render_chat(active, messages, permissions, questions, conn)
             onChange = function(text)
                 draft = text
             end,
+            -- Multiline: Enter inserts a newline; Ctrl+Enter submits (send). This
+            -- is the input control's built-in mapping and cannot distinguish
+            -- Shift+Enter, so Ctrl+Enter is the send chord.
             onSubmit = function(text)
-                if not processing and type(text) == "string" and text ~= "" then
-                    dispatch_ipc("send_prompt", text)
-                    draft = ""
-                end
+                send_draft(text)
             end,
         }),
         ui.button({
             glyph = "send",
             variant = "primary",
+            tooltip = tr("chat.send"),
             onClick = function()
-                if not processing and draft ~= "" then
-                    dispatch_ipc("send_prompt", draft)
-                    draft = ""
-                end
+                send_draft(draft)
             end,
         }),
     }

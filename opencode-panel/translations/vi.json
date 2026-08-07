@@ -28,11 +28,11 @@
     "empty": "Chưa có tin nhắn. Gửi prompt để bắt đầu.",
     "thinking": "Đang suy nghĩ…",
     "stop": "Dừng",
-    "send": "Gửi",
+    "send": "Gửi (Ctrl+Enter)",
     "refresh": "Làm mới",
     "open_terminal": "Mở trong terminal",
     "back": "Quay lại danh sách phiên",
-    "placeholder": "Hỏi OpenCode bất cứ điều gì…",
+    "placeholder": "Hỏi OpenCode bất cứ điều gì…  (Enter = xuống dòng, Ctrl+Enter = gửi)",
     "select_model": "Mô hình",
     "select_agent": "Agent",
     "dismiss_error": "Bỏ qua"
@@ -148,6 +148,7 @@
   "question": {
     "title": "Câu hỏi",
     "custom": "Trả lời tùy chỉnh",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "submit": "Gửi"
   }
 }
