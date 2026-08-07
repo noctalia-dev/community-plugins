@@ -911,11 +911,12 @@ local function render_chat(active, messages, permissions, questions, conn)
         end
     end
 
-    -- Message list. Oldest-first (messenger order): oldest at the top, newest at
-    -- the bottom; scroll up (mouse wheel / drag) to reveal older messages. The
-    -- scroll node carries a stable `key` so its scroll offset survives re-renders
-    -- even when siblings above it (permission cards, selectors) appear/disappear.
-    -- Children are passed directly to the scroll (not wrapped in a column).
+    -- Message list, newest-first. Newest at the top so the panel always opens on
+    -- the latest message without needing a scroll API (shell < API 21 resets a
+    -- re-mounted scroll to offset 0 = top). Scrolling down reveals older
+    -- messages. The scroll node carries a stable `key` so its offset survives
+    -- re-renders even when siblings above it appear/disappear. Children are
+    -- passed directly to the scroll (not wrapped in a column).
     local msg_items = {}
     if type(messages) ~= "table" or #messages == 0 then
         msg_items[#msg_items + 1] = ui.label({ text = tr("chat.empty"), maxWidth = WRAP, opacity = 0.7 })
@@ -943,15 +944,18 @@ local function render_chat(active, messages, permissions, questions, conn)
         -- disappears once the assistant's first text part streams in.
         local waiting = is_processing()
             and (not newest_is_assistant or not newest_has_text)
-        for i, msg in ipairs(messages) do
-            local rendered = render_message(msg)
+        -- Newest-first: build the list from the end so bubble order is latest
+        -- first, oldest last.
+        for i = #messages, 1, -1 do
+            local rendered = render_message(messages[i])
             if rendered then
                 msg_items[#msg_items + 1] = rendered
             end
         end
-        -- Thinking bubble always LAST (below the newest user message).
+        -- Thinking bubble sits right ABOVE the newest message (top of the
+        -- newest-first list), like a spinner over the reply in progress.
         if waiting then
-            msg_items[#msg_items + 1] = render_thinking()
+            table.insert(msg_items, 1, render_thinking())
         end
     end
 
