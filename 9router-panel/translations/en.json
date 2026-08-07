@@ -1,0 +1,120 @@
+{
+  "state": {
+    "tip": {
+      "online": "9Router: connected",
+      "offline": "9Router: offline",
+      "auth_required": "9Router: login required"
+    },
+    "combos": "{count} combo(s)"
+  },
+  "login": {
+    "title": "9Router Login",
+    "hint": "The dashboard requires authentication. Enter your 9Router password to continue.",
+    "password_placeholder": "Password…",
+    "submit": "Log in"
+  },
+  "list": {
+    "title": "9Router — Combos",
+    "refresh": "Refresh",
+    "new_combo": "New Combo",
+    "search": "Search combos…",
+    "empty": "No combos yet. Create one to get started.",
+    "no_match": "No combos match your search.",
+    "open": "Open combo",
+    "delete": "Delete combo",
+    "delete_confirm": "Confirm delete",
+    "delete_cancel": "Cancel",
+    "kind": "Kind: {kind}"
+  },
+  "detail": {
+    "back": "Back to combos",
+    "models_count": "{count} model(s)",
+    "refresh": "Refresh",
+    "delete": "Delete combo",
+    "delete_confirm": "Delete this combo?",
+    "delete_yes": "Yes, delete",
+    "delete_no": "Cancel",
+    "kind_label": "Kind",
+    "rename": "Rename",
+    "rename_placeholder": "New name…",
+    "rename_save": "Save",
+    "rename_cancel": "Cancel",
+    "models_title": "Model Chain",
+    "no_models": "This combo has no models yet.",
+    "drag_hint": "Drag a model to reorder",
+    "add_model": "Add model",
+    "remove_model": "Remove model",
+    "move_up": "Move up",
+    "move_down": "Move down"
+  },
+  "add_model": {
+    "title": "Add Model",
+    "back": "Back to combo",
+    "search": "Search models…",
+    "empty": "No models available.",
+    "no_match": "No models match your search."
+  },
+  "create": {
+    "title": "New Combo",
+    "back": "Back",
+    "name_label": "Name",
+    "name_placeholder": "e.g. my-fallback",
+    "models_label": "Models",
+    "models_hint": "One model per line, in fallback order (e.g. cc/claude-opus-4-7).",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "kind_label": "Kind",
+    "cancel": "Cancel",
+    "submit": "Create"
+  },
+  "kind": {
+    "none": "None",
+    "fallback": "Fallback",
+    "round_robin": "Round-robin",
+    "fusion": "Fusion"
+  },
+  "error": {
+    "dismiss": "Dismiss",
+    "connection_failed": "Could not connect to 9Router",
+    "http_status": "HTTP {status}",
+    "bad_response": "Unexpected response from 9Router",
+    "auth_required": "Authentication required",
+    "login_failed": "Login failed",
+    "need_password": "Please enter your password.",
+    "reorder_failed": "Failed to reorder models",
+    "add_model_failed": "Failed to add model",
+    "remove_model_failed": "Failed to remove model",
+    "invalid_name": "Name can only contain letters, numbers, -, _ and .",
+    "create_failed": "Failed to create combo",
+    "need_name_models": "A name and at least one model are required.",
+    "delete_failed": "Failed to delete combo",
+    "rename_failed": "Failed to rename combo",
+    "kind_failed": "Failed to update kind"
+  },
+  "settings": {
+    "server_host": {
+      "label": "Server Host",
+      "description": "Hostname of the 9Router dashboard. Default: 127.0.0.1."
+    },
+    "server_port": {
+      "label": "Server Port",
+      "description": "Port of the 9Router dashboard. Default: 20128."
+    },
+    "data_dir": {
+      "label": "Data Directory",
+      "description": "9Router data directory (used to compute the CLI token when the dashboard requires login). Default: ~/.9router."
+    },
+    "language": {
+      "label": "Language",
+      "description": "Language for this plugin's UI. 'Auto' follows the Noctalia shell language.",
+      "options": {
+        "auto": "Auto (follow shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "debug_logging": {
+      "label": "Debug Logging",
+      "description": "Print debug messages to the Noctalia log."
+    }
+  }
+}

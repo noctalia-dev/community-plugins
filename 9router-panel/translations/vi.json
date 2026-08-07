@@ -1,0 +1,120 @@
+{
+  "state": {
+    "tip": {
+      "online": "9Router: đã kết nối",
+      "offline": "9Router: ngoại tuyến",
+      "auth_required": "9Router: cần đăng nhập"
+    },
+    "combos": "{count} combo"
+  },
+  "login": {
+    "title": "Đăng nhập 9Router",
+    "hint": "Dashboard yêu cầu xác thực. Nhập mật khẩu 9Router của bạn để tiếp tục.",
+    "password_placeholder": "Mật khẩu…",
+    "submit": "Đăng nhập"
+  },
+  "list": {
+    "title": "9Router — Combos",
+    "refresh": "Làm mới",
+    "new_combo": "Combo mới",
+    "search": "Tìm combo…",
+    "empty": "Chưa có combo nào. Tạo một combo để bắt đầu.",
+    "no_match": "Không có combo nào khớp tìm kiếm.",
+    "open": "Mở combo",
+    "delete": "Xóa combo",
+    "delete_confirm": "Xác nhận xóa",
+    "delete_cancel": "Hủy",
+    "kind": "Loại: {kind}"
+  },
+  "detail": {
+    "back": "Quay lại danh sách",
+    "models_count": "{count} model",
+    "refresh": "Làm mới",
+    "delete": "Xóa combo",
+    "delete_confirm": "Xóa combo này?",
+    "delete_yes": "Có, xóa",
+    "delete_no": "Hủy",
+    "kind_label": "Loại",
+    "rename": "Đổi tên",
+    "rename_placeholder": "Tên mới…",
+    "rename_save": "Lưu",
+    "rename_cancel": "Hủy",
+    "models_title": "Chuỗi Model",
+    "no_models": "Combo này chưa có model nào.",
+    "drag_hint": "Kéo model để sắp xếp lại",
+    "add_model": "Thêm model",
+    "remove_model": "Xóa model",
+    "move_up": "Di chuyển lên",
+    "move_down": "Di chuyển xuống"
+  },
+  "add_model": {
+    "title": "Thêm Model",
+    "back": "Quay lại combo",
+    "search": "Tìm model…",
+    "empty": "Không có model nào.",
+    "no_match": "Không có model khớp tìm kiếm."
+  },
+  "create": {
+    "title": "Combo mới",
+    "back": "Quay lại",
+    "name_label": "Tên",
+    "name_placeholder": "vd: my-fallback",
+    "models_label": "Models",
+    "models_hint": "Mỗi model một dòng, theo thứ tự fallback (vd: cc/claude-opus-4-7).",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "kind_label": "Loại",
+    "cancel": "Hủy",
+    "submit": "Tạo"
+  },
+  "kind": {
+    "none": "Không",
+    "fallback": "Fallback",
+    "round_robin": "Round-robin",
+    "fusion": "Fusion"
+  },
+  "error": {
+    "dismiss": "Đóng",
+    "connection_failed": "Không kết nối được 9Router",
+    "http_status": "HTTP {status}",
+    "bad_response": "Phản hồi không mong đợi từ 9Router",
+    "auth_required": "Cần xác thực",
+    "login_failed": "Đăng nhập thất bại",
+    "need_password": "Vui lòng nhập mật khẩu.",
+    "reorder_failed": "Không thể sắp xếp lại model",
+    "add_model_failed": "Không thể thêm model",
+    "remove_model_failed": "Không thể xóa model",
+    "invalid_name": "Tên chỉ được chứa chữ, số, -, _ và .",
+    "create_failed": "Không thể tạo combo",
+    "need_name_models": "Cần tên và ít nhất một model.",
+    "delete_failed": "Không xóa được combo",
+    "rename_failed": "Không đổi tên được combo",
+    "kind_failed": "Không cập nhật được loại"
+  },
+  "settings": {
+    "server_host": {
+      "label": "Máy chủ",
+      "description": "Hostname của dashboard 9Router. Mặc định: 127.0.0.1."
+    },
+    "server_port": {
+      "label": "Cổng",
+      "description": "Cổng của dashboard 9Router. Mặc định: 20128."
+    },
+    "data_dir": {
+      "label": "Thư mục dữ liệu",
+      "description": "Thư mục dữ liệu 9Router (dùng để tính CLI token khi dashboard yêu cầu đăng nhập). Mặc định: ~/.9router."
+    },
+    "language": {
+      "label": "Ngôn ngữ",
+      "description": "Ngôn ngữ giao diện của plugin. 'Tự động' theo ngôn ngữ shell Noctalia.",
+      "options": {
+        "auto": "Tự động (theo shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "debug_logging": {
+      "label": "Ghi log gỡ lỗi",
+      "description": "In thông điệp gỡ lỗi vào log Noctalia."
+    }
+  }
+}
