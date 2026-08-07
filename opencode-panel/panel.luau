@@ -45,9 +45,46 @@ local question_choices = {}
 local SVC = "weinguyen/opencode-panel:service"
 local PANEL_ID = "weinguyen/opencode-panel:panel"
 
--- Layout constants
+-- Layout constants (recomputed from the ui_mode setting on every render).
+local compact = false
 local PAD = 14
 local WRAP = 432  -- 560 - 2*PAD - scrollbar room
+local GAP = 8
+local GAP_SM = 4
+local FONT_TITLE = 18
+local FONT_BODY = 13
+local FONT_SUB = 12
+local CARD_PAD = 10
+local CARD_RADIUS = 10
+local BUBBLE_GAP = 4
+
+-- Recompute layout metrics from the ui_mode setting. Called at the top of
+-- render() so a settings change reflows the whole panel on the next frame.
+local function apply_layout()
+    compact = (noctalia.getConfig and noctalia.getConfig("ui_mode")) == "compact"
+    if compact then
+        PAD = 8
+        GAP = 4
+        GAP_SM = 2
+        FONT_TITLE = 15
+        FONT_BODY = 12
+        FONT_SUB = 11
+        CARD_PAD = 6
+        CARD_RADIUS = 8
+        BUBBLE_GAP = 2
+    else
+        PAD = 14
+        GAP = 8
+        GAP_SM = 4
+        FONT_TITLE = 18
+        FONT_BODY = 13
+        FONT_SUB = 12
+        CARD_PAD = 10
+        CARD_RADIUS = 10
+        BUBBLE_GAP = 4
+    end
+    WRAP = 560 - 2 * PAD - 100
+end
 
 -- Draft persistence key (in-memory only; survives panel close/open within same boot)
 local draft = ""
@@ -226,8 +263,8 @@ local function render_session_chooser(sessions, conn)
     -- Header
     rows[#rows + 1] = ui.row({ justify = "space_between", align = "center" }, {
         ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = "code-circle", color = "primary", size = 24 }),
-            ui.label({ text = tr("chooser.title"), fontSize = 18, fontWeight = "bold", color = "on_surface" }),
+            ui.glyph({ name = "code-circle", color = "primary", size = compact and 18 or 24 }),
+            ui.label({ text = tr("chooser.title"), fontSize = FONT_TITLE, fontWeight = "bold", color = "on_surface" }),
         }),
         ui.row({ gap = 8 }, {
             ui.button({ glyph = "refresh", onClick = function()
@@ -372,14 +409,14 @@ local function render_session_chooser(sessions, conn)
                     key = row_id,
                     justify = "space_between",
                     align = "center",
-                    padding = 10,
-                    radius = 10,
+                    padding = CARD_PAD,
+                    radius = CARD_RADIUS,
                     fill = is_active and "primary/0.15" or "surface",
                     border = is_active and "primary" or "surface",
                     borderWidth = is_active and 2 or 1,
                 }, {
                     ui.column({
-                        gap = 2, flexGrow = 1,
+                        gap = GAP_SM, flexGrow = 1,
                         onClick = open_this,
                     }, {
                         ui.label({
@@ -387,13 +424,16 @@ local function render_session_chooser(sessions, conn)
                             maxWidth = WRAP - 140,
                             fontWeight = is_active and "bold" or "medium",
                             color = is_active and "primary" or "on_surface",
+                            fontSize = compact and 12 or nil,
                         }),
-                        ui.label({
-                            text = (s.directory or "") .. model_str .. time_str,
-                            maxWidth = WRAP - 140,
-                            opacity = 0.6,
-                            fontSize = 12,
-                        }),
+                        (not compact)
+                            and ui.label({
+                                text = (s.directory or "") .. model_str .. time_str,
+                                maxWidth = WRAP - 140,
+                                opacity = 0.6,
+                                fontSize = FONT_SUB,
+                            })
+                            or nil,
                     }),
                     actions,
                 })
@@ -401,9 +441,9 @@ local function render_session_chooser(sessions, conn)
         end
     end
 
-    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, list_items)
+    rows[#rows + 1] = ui.scroll({ flexGrow = 1, gap = GAP, align = "stretch", justify = "start" }, list_items)
 
-    panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1, align = "stretch", justify = "start" }, rows))
+    panel.render(ui.column({ padding = PAD, gap = GAP, flexGrow = 1, align = "stretch", justify = "start" }, rows))
 end
 
 -- ── chat view ───────────────────────────────────────────────────────────────
@@ -487,7 +527,7 @@ local function render_message(msg_data)
     local header_color = is_user and "secondary" or "primary"
 
     local all_cells = {
-        ui.label({ text = header_text, fontWeight = "bold", color = header_color, fontSize = 12 }),
+        ui.label({ text = header_text, fontWeight = "bold", color = header_color, fontSize = compact and 11 or 12 }),
     }
     for _, c in ipairs(cells) do
         all_cells[#all_cells + 1] = c
@@ -500,7 +540,7 @@ local function render_message(msg_data)
     -- re-renders so the scroll offset isn't reset while a reply streams in.
     local msg_id = (type(info.id) == "string" and info.id) or ""
     return ui.row({ key = "msg_" .. msg_id, justify = is_user and "end" or "start", align = "start" }, {
-        ui.column({ gap = 4, align = is_user and "end" or "start" }, all_cells),
+        ui.column({ gap = BUBBLE_GAP, align = is_user and "end" or "start" }, all_cells),
     })
 end
 
@@ -508,11 +548,11 @@ end
 local function render_thinking()
     local glyph_name = THINKING_GLYPHS[(thinking_frame % #THINKING_GLYPHS) + 1]
     return ui.row({ justify = "start", align = "start" }, {
-        ui.column({ gap = 4, align = "start" }, {
-            ui.label({ text = tr("chat.assistant"), fontWeight = "bold", color = "primary", fontSize = 12 }),
+        ui.column({ gap = BUBBLE_GAP, align = "start" }, {
+            ui.label({ text = tr("chat.assistant"), fontWeight = "bold", color = "primary", fontSize = compact and 11 or 12 }),
             ui.row({ gap = 6, align = "center" }, {
                 ui.glyph({ name = glyph_name, color = "primary" }),
-                ui.label({ text = tr("chat.thinking"), opacity = 0.7 }),
+                ui.label({ text = tr("chat.thinking"), opacity = 0.7, fontSize = compact and 12 or nil }),
             }),
         }),
     })
@@ -721,14 +761,16 @@ local function render_chat(active, messages, permissions, questions, conn)
                     dispatch_ipc("deselect_session")
                 end,
             }),
-            ui.glyph({ name = "code-circle", color = "primary", size = 20 }),
+            ui.glyph({ name = "code-circle", color = "primary", size = compact and 18 or 20 }),
             ui.column({ gap = 0 }, {
-                ui.label({ text = title, fontWeight = "bold", maxWidth = WRAP - 200, fontSize = 14 }),
-                ui.label({
-                    text = agent_str .. (model_str ~= "" and (" · " .. model_str) or ""),
-                    fontSize = 11,
-                    opacity = 0.6,
-                }),
+                ui.label({ text = title, fontWeight = "bold", maxWidth = WRAP - 200, fontSize = compact and 13 or 14 }),
+                (not compact)
+                    and ui.label({
+                        text = agent_str .. (model_str ~= "" and (" · " .. model_str) or ""),
+                        fontSize = FONT_SUB,
+                        opacity = 0.6,
+                    })
+                    or nil,
             }),
         }),
         ui.row({ gap = 6 }, {
@@ -913,7 +955,7 @@ local function render_chat(active, messages, permissions, questions, conn)
         end
     end
 
-    rows[#rows + 1] = ui.scroll({ key = "chat_messages", flexGrow = 1, gap = 8 }, msg_items)
+    rows[#rows + 1] = ui.scroll({ key = "chat_messages", flexGrow = 1, gap = GAP }, msg_items)
 
     -- Composer: input always visible; sending is disabled while processing and a
     -- stop button appears. The thinking indicator lives in the message list.
@@ -971,12 +1013,13 @@ local function render_chat(active, messages, permissions, questions, conn)
     end
     rows[#rows + 1] = ui.row({ gap = 8, align = "end" }, composer_elems)
 
-    panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1 }, rows))
+    panel.render(ui.column({ padding = PAD, gap = GAP, flexGrow = 1 }, rows))
 end
 
 -- ── main render ─────────────────────────────────────────────────────────────
 
 render = function()
+    apply_layout()
     local active = noctalia.state.get(STATE.active)
     local sessions = noctalia.state.get(STATE.sessions) or {}
     local messages = noctalia.state.get(STATE.messages) or {}

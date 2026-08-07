@@ -6,7 +6,7 @@ author = "weinguyen"
 license = "MIT"
 icon = "code-circle"
 description = "Integrate OpenCode AI agent directly into Noctalia bar with native chat panel, session management, and MCP status."
-tags = ["ai", "productivity","development", "bar", "panel", "opencode"]
+tags = ["ai", "productivity", "development", "bar", "panel"]
 dependencies = ["opencode"]
 
 # ── User settings ─────────────────────────────────────────────────────────────
@@ -108,6 +108,17 @@ options = [
   { value = "auto", label_key = "settings.language.options.auto" },
   { value = "en", label_key = "settings.language.options.en" },
   { value = "vi", label_key = "settings.language.options.vi" },
+]
+
+[[setting]]
+key = "ui_mode"
+type = "select"
+default = "full"
+label_key = "settings.ui_mode.label"
+description_key = "settings.ui_mode.description"
+options = [
+  { value = "full", label_key = "settings.ui_mode.options.full" },
+  { value = "compact", label_key = "settings.ui_mode.options.compact" },
 ]
 
 [[setting]]

@@ -143,6 +143,14 @@
         "en": "English",
         "vi": "Tiếng Việt"
       }
+    },
+    "ui_mode": {
+      "label": "Chế độ giao diện",
+      "description": "Full hiển thị bố cục rộng rãi; Compact thu nhỏ padding, chữ và ẩn chi tiết phụ để panel gọn gàng tối giản.",
+      "options": {
+        "full": "Full",
+        "compact": "Compact"
+      }
     }
   },
   "question": {

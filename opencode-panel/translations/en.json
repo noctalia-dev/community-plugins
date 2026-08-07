@@ -143,6 +143,14 @@
         "en": "English",
         "vi": "Tiếng Việt"
       }
+    },
+    "ui_mode": {
+      "label": "UI Mode",
+      "description": "Full shows a spacious layout; Compact tightens padding, fonts and hides secondary details to keep the panel minimal.",
+      "options": {
+        "full": "Full",
+        "compact": "Compact"
+      }
     }
   },
   "question": {
