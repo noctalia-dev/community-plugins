@@ -1,4 +1,4 @@
--- 9Router Panel — the combo management surface.
+-- 9Router Control — the combo management surface.
 --
 -- Three views:
 --   • List — all combos with search + "new combo" button
@@ -108,7 +108,7 @@ end
 -- ── helpers ─────────────────────────────────────────────────────────────────
 
 local function dispatch_ipc(event, payload)
-    local cmd = "noctalia msg plugin 'weinguyen/9router-panel:service' all " .. event
+    local cmd = "noctalia msg plugin 'weinguyen/9router-control:service' all " .. event
     if payload ~= nil then
         -- Shell-escape the payload (single-quote wrap + escape embedded quotes).
         payload = tostring(payload):gsub("'", "'\\''")

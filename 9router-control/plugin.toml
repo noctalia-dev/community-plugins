@@ -1,5 +1,5 @@
-id = "weinguyen/9router-panel"
-name = "9Router Panel"
+id = "weinguyen/9router-control"
+name = "9Router Control"
 version = "0.1.0"
 plugin_api = 3
 author = "weinguyen"

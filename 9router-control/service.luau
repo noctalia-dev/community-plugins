@@ -1,4 +1,4 @@
--- 9Router Panel service — the headless backend and single source of truth.
+-- 9Router Control service — the headless backend and single source of truth.
 --
 -- Responsibilities:
 --   • Talk to the 9Router REST API (GET/POST/PUT/DELETE /api/combos)
@@ -70,7 +70,7 @@ end
 
 local function debug_log(msg)
     if noctalia.getConfig and noctalia.getConfig("debug_logging") then
-        noctalia.log("9router-panel: " .. tostring(msg))
+        noctalia.log("9router-control: " .. tostring(msg))
     end
 end
 

@@ -1,4 +1,4 @@
-# 9Router Panel
+# 9Router Control
 
 Manage your [9Router](https://github.com/decolua/9router) combos right from the
 Noctalia bar — no web dashboard needed.
@@ -14,7 +14,7 @@ Noctalia bar — no web dashboard needed.
 
 | Field   | Value                     |
 | ------- | ------------------------- |
-| ID      | `weinguyen/9router-panel` |
+| ID      | `weinguyen/9router-control` |
 | Widget  | `widget` (bar)            |
 | Panel   | `panel`                   |
 | Service | `service`                 |
@@ -22,7 +22,7 @@ Noctalia bar — no web dashboard needed.
 Toggle the panel from the bar widget, or with:
 
 ```sh
-noctalia msg panel-toggle weinguyen/9router-panel:panel
+noctalia msg panel-toggle weinguyen/9router-control:panel
 ```
 
 ## Requirements

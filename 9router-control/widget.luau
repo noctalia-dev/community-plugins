@@ -1,4 +1,4 @@
--- 9Router Panel bar widget — a pure subscriber of 9router.connection state.
+-- 9Router Control bar widget — a pure subscriber of 9router.connection state.
 -- Shows connection status as an accent-colored glyph with a breathing glow,
 -- plus the number of combos when connected. Click opens the panel.
 
@@ -142,11 +142,11 @@ local function apply_combos(list)
 end
 
 function onClick()
-    noctalia.togglePanel("weinguyen/9router-panel:panel")
+    noctalia.togglePanel("weinguyen/9router-control:panel")
 end
 
 function onRightClick()
-    noctalia.runAsync("noctalia msg plugin 'weinguyen/9router-panel:service' all refresh")
+    noctalia.runAsync("noctalia msg plugin 'weinguyen/9router-control:service' all refresh")
 end
 
 function update()
