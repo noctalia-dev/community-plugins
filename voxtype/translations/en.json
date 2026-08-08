@@ -1,0 +1,72 @@
+{
+  "settings": {
+    "idle_color": {
+      "description": "Color of the icon while Voxtype is ready and waiting.",
+      "label": "Idle icon color"
+    },
+    "idle_glyph": {
+      "description": "Noctalia glyph shown while Voxtype is ready and waiting.",
+      "label": "Idle icon"
+    },
+    "recording_color": {
+      "description": "Color of the icon while Voxtype is recording.",
+      "label": "Recording icon color"
+    },
+    "recording_glyph": {
+      "description": "Noctalia glyph shown while Voxtype is recording.",
+      "label": "Recording icon"
+    },
+    "show_alt": {
+      "description": "Show Voxtype's current state (idle, streaming, recording, transcribing, or stopped) next to the icon.",
+      "label": "Show status text"
+    },
+    "show_backend": {
+      "description": "Show the active audio backend on the bar.",
+      "label": "Show backend on bar"
+    },
+    "show_device": {
+      "description": "Show the active audio device on the bar.",
+      "label": "Show device on bar"
+    },
+    "show_extended": {
+      "description": "Request Voxtype's extended status. The tooltip includes model, device, and backend; the settings below control which fields also appear on the bar.",
+      "label": "Extended status"
+    },
+    "show_model": {
+      "description": "Show the active transcription model on the bar.",
+      "label": "Show model on bar"
+    },
+    "streaming_color": {
+      "description": "Color of the icon while Voxtype is streaming live audio.",
+      "label": "Streaming icon color"
+    },
+    "streaming_glyph": {
+      "description": "Noctalia glyph shown while Voxtype is streaming live audio.",
+      "label": "Streaming icon"
+    },
+    "stopped_color": {
+      "description": "Color of the icon while Voxtype is not running.",
+      "label": "Stopped icon color"
+    },
+    "stopped_glyph": {
+      "description": "Noctalia glyph shown while Voxtype is not running.",
+      "label": "Stopped icon"
+    },
+    "transcribing_color": {
+      "description": "Color of the icon while Voxtype is transcribing recorded audio.",
+      "label": "Transcribing icon color"
+    },
+    "transcribing_glyph": {
+      "description": "Noctalia glyph shown while Voxtype is transcribing recorded audio.",
+      "label": "Transcribing icon"
+    }
+  },
+  "widget": {
+    "backend": "Backend: {value}",
+    "device": "Device: {value}",
+    "model": "Model: {value}",
+    "stream_error": "Could not start the Voxtype status stream",
+    "unavailable": "Voxtype is not installed or is not available on PATH",
+    "waiting": "Waiting for Voxtype status…"
+  }
+}
