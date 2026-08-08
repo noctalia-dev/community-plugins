@@ -74,6 +74,12 @@ local function debug_log(msg)
     end
 end
 
+-- Single-quote a value so it is treated as a literal argument by the shell,
+-- neutralising any metacharacters in user-provided strings (data_dir, host).
+local function shell_quote(value)
+    return "'" .. tostring(value or ""):gsub("'", "'\\''") .. "'"
+end
+
 local function get_server_host()
     local v = noctalia.getConfig and noctalia.getConfig("server_host")
     if type(v) == "string" and v ~= "" then return v end
@@ -162,11 +168,13 @@ local function compute_cli_token(callback)
     end
     token_loading = true
     local dir = get_data_dir()
-    -- Expand a leading "~/" to $HOME for the shell command.
+    -- Expand a leading "~/" to the user's home directory here (not in the
+    -- shell) so the path is an absolute path with no shell variable expansion
+    -- and can be safely single-quoted.
     if dir:sub(1, 2) == "~/" then
-        dir = "$HOME/" .. dir:sub(3)
+        dir = (noctalia.getenv and noctalia.getenv("HOME") or "") .. dir:sub(2)
     end
-    local cmd = "printf '%s' \"$(cat " .. dir .. "/machine-id 2>/dev/null)9r-cli-auth$(cat " .. dir .. "/auth/cli-secret 2>/dev/null)\" | sha256sum | cut -c1-16"
+    local cmd = "printf '%s' \"$(cat " .. shell_quote(dir .. "/machine-id") .. " 2>/dev/null)9r-cli-auth$(cat " .. shell_quote(dir .. "/auth/cli-secret") .. " 2>/dev/null)\" | sha256sum | cut -c1-16"
     noctalia.runAsync(cmd, function(result)
         token_loading = false
         local token = ""
@@ -462,8 +470,7 @@ local function login(payload)
     -- Escape the password for the JSON body, then for the shell single-quote.
     local json_password = payload:gsub("\\", "\\\\"):gsub('"', '\\"')
     local body = '{"password":"' .. json_password .. '"}'
-    local shell_body = body:gsub("'", "'\\''")
-    local cmd = "curl -s -i -X POST " .. url .. " -H 'Content-Type: application/json' -d '" .. shell_body .. "'"
+    local cmd = "curl -s -i -X POST " .. shell_quote(url) .. " -H 'Content-Type: application/json' -d " .. shell_quote(body)
     debug_log("login: posting to /api/auth/login")
     noctalia.runAsync(cmd, function(result)
         if not result or result.exitCode ~= 0 then

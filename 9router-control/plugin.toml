@@ -7,7 +7,7 @@ license = "MIT"
 icon = "route"
 description = "Manage 9Router model combos from the Noctalia bar — list, reorder chains, edit routing without the web dashboard."
 tags = ["ai", "productivity", "development", "network", "bar", "panel"]
-dependencies = []
+dependencies = ["cat", "curl", "cut", "sha256sum", "sleep"]
 
 # ── User settings ─────────────────────────────────────────────────────────────
 [[setting]]

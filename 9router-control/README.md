@@ -12,12 +12,12 @@ Noctalia bar — no web dashboard needed.
 
 ## Plugin
 
-| Field   | Value                     |
-| ------- | ------------------------- |
+| Field   | Value                       |
+| ------- | --------------------------- |
 | ID      | `weinguyen/9router-control` |
-| Widget  | `widget` (bar)            |
-| Panel   | `panel`                   |
-| Service | `service`                 |
+| Widget  | `widget` (bar)              |
+| Panel   | `panel`                     |
+| Service | `service`                   |
 
 Toggle the panel from the bar widget, or with:
 
@@ -30,6 +30,16 @@ noctalia msg panel-toggle weinguyen/9router-control:panel
 - Noctalia v5.0.0 or higher.
 - A running 9Router instance (dashboard) whose REST API the plugin talks to via
   `server_host:server_port`.
+- The following external commands, used by the service backend:
+  - `curl` — password login posts to `/api/auth/login` and reads the `Set-Cookie`
+    header (Noctalia's HTTP binding does not expose response headers).
+  - `sha256sum`, `cat`, `cut`, `printf` — compute the CLI authentication token
+    from the `machine-id` and `auth/cli-secret` files when the dashboard has
+    login enabled.
+  - `sleep` — back-off polling while a CLI token computation is in flight.
+
+  Ordinary (login-disabled) usage needs only `curl`; the remaining commands are
+  required when dashboard login is enabled.
 
 ## Usage
 
