@@ -56,7 +56,7 @@ local function getWarningThreshold()
 
             local res = result.stdout
 
-            if not warning_threshold then
+            if not res then
                 noctalia.log("battery-widget: invalid warning_threshold: " .. res)
                 return
             end
