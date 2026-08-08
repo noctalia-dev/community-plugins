@@ -13,8 +13,8 @@
 --     shell's plugin log instead of the silent "service stopped responding".
 --   * The runAsync callback body runs under pcall: an internal error can no
 --     longer take the service VM down and trip the watchdog; it logs instead.
---   * refreshedAtMs uses os.time() (whole-second is fine for display) so the
---     sampler has no dependency on noctalia.nowMs().
+--   * refreshedAtMs uses os.time()*1000 (milliseconds) so the sampler has no
+--     dependency on noctalia.nowMs().
 --   * stats is derived from the ps output itself (summed %cpu/%mem/rss), so the
 --     bars work without noctalia.systemStats().
 
@@ -188,7 +188,7 @@ local function sample()
 			end
 			local procs = parse(res.stdout)
 			setState("procs", procs)
-			setState("refreshedAtMs", os.time())
+			setState("refreshedAtMs", os.time() * 1000)
 		end)
 		if not ok then
 			sampling = false

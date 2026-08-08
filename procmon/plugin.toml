@@ -7,7 +7,7 @@ license = "MIT"
 icon = "cpu"
 description = "A bottom-style process monitor: live CPU/RAM/swap bars and a sortable, searchable process table with per-process kill."
 tags = ["bar", "panel", "service", "system", "utility"]
-dependencies = ["ps", "kill"]
+dependencies = ["ps", "kill", "head", "grep", "cat"]
 
 [[setting]]
 key = "refresh_interval"

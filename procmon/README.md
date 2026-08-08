@@ -14,8 +14,8 @@ opening a terminal.
 
 ## Requirements
 
-Install `ps` and `kill` on `PATH` (both are present on virtually every Linux
-distribution).
+Install `ps`, `kill`, `head`, `grep` and `cat` on `PATH` (all are present on
+virtually every Linux distribution).
 
 ## Usage
 
@@ -41,7 +41,7 @@ while it is open.
 
 | Setting            | Type     | Default      | Description                                                                                |
 | ------------------ | -------- | ------------ | ------------------------------------------------------------------------------------------ |
-| `refresh_interval` | `int`    | `2000`       | Process resample interval in milliseconds.                                                 |
+| `refresh_interval` | `int`    | `1000`       | Process resample interval in milliseconds. (default 1000)                                  |
 | `sort_by`          | `select` | `cpu`        | Initial sort column when the panel opens (`cpu`, `mem`, `pid`, `cmd`).                     |
 | `kill_command`     | `string` | `kill -TERM` | Command run against a selected PID; the PID is appended. Empty falls back to `kill -TERM`. |
 | `show_count`       | `bool`   | `true`       | Bar widget also shows the total process count.                                             |
@@ -51,8 +51,10 @@ while it is open.
 - **Spawns processes.** A background service runs `ps` on every refresh
   interval and `runAsync` runs the configured `kill_command` when a row's ✕ is
   clicked. There is no confirmation dialog, so check the PID before clicking.
-- The bar widget and panel never run commands themselves; they only render the
-  data the service publishes.
-- Requires `plugin_api = 12`. CPU% and RAM% bars are derived from the summed
-  per-process values in the `ps` output, so they work with no system monitor
-  dependency. Swap and load-average readouts show `—` for now.
+- The bar widget only renders data the service publishes; it never runs
+  commands. The panel runs the configured `kill_command` when a row's ✕ is
+  clicked.
+- Requires `plugin_api = 12`. CPU%, RAM%, swap and the 1/5/15-minute load
+  averages are sampled from `/proc` (`/proc/stat`, `/proc/meminfo`,
+  `/proc/loadavg`) by the service, so they work with no separate system-monitor
+  dependency.
