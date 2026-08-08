@@ -1,0 +1,59 @@
+{
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval (ms)",
+      "description": "How often the process list is resampled."
+    },
+    "sort_by": {
+      "label": "Default sort column",
+      "description": "Column the process table is sorted by when the panel opens.",
+      "options": {
+        "cpu": "CPU",
+        "mem": "Memory",
+        "pid": "PID",
+        "cmd": "Command"
+      }
+    },
+    "kill_command": {
+      "label": "Kill command",
+      "description": "Command run against a selected PID (the PID is appended). Empty uses kill -TERM."
+    },
+    "show_count": {
+      "label": "Show process count",
+      "description": "Append the number of processes to the bar widget text."
+    },
+    "glyph": {
+      "label": "Widget icon",
+      "description": "Glyph shown in the bar widget."
+    },
+    "icon_only": {
+      "label": "Icon only",
+      "description": "Show only a CPU icon in the bar widget; details move to the tooltip."
+    }
+  },
+  "widget": {
+    "tooltip": "CPU {cpu}%  RAM {ram}%  ·  {n} processes"
+  },
+  "panel": {
+    "title": "Processes",
+    "refreshed_at": "Updated {time}",
+    "refresh": "Refresh",
+    "load": "Load",
+    "search_placeholder": "Filter by name, user or PID",
+    "sort_asc": "asc",
+    "sort_desc": "desc",
+    "col": {
+      "pid": "PID",
+      "cpu": "CPU%",
+      "cpu_raw": "CPU",
+      "mem": "MEM%",
+      "mem_raw": "MEM",
+      "rss": "RSS",
+      "stat": "S",
+      "cmd": "COMMAND"
+    },
+    "count": "{n} processes",
+    "no_processes": "No matching processes",
+    "kill_tip": "Kill {pid}"
+  }
+}

@@ -1,0 +1,77 @@
+id = "weinguyen/procmon"
+name = "Process Monitor"
+version = "0.3.0"
+plugin_api = 12
+author = "weinguyen"
+license = "MIT"
+icon = "cpu"
+description = "A bottom-style process monitor: live CPU/RAM/swap bars and a sortable, searchable process table with per-process kill."
+tags = ["bar", "panel", "service", "system", "utility"]
+dependencies = ["ps", "kill", "head", "grep", "cat"]
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 1000
+min = 250
+max = 30000
+
+[[setting]]
+key = "sort_by"
+type = "select"
+label_key = "settings.sort_by.label"
+description_key = "settings.sort_by.description"
+default = "cpu"
+options = [
+  { value = "cpu", label_key = "settings.sort_by.options.cpu" },
+  { value = "mem", label_key = "settings.sort_by.options.mem" },
+  { value = "pid", label_key = "settings.sort_by.options.pid" },
+  { value = "cmd", label_key = "settings.sort_by.options.cmd" },
+]
+
+[[setting]]
+key = "kill_command"
+type = "string"
+label_key = "settings.kill_command.label"
+description_key = "settings.kill_command.description"
+default = "kill -TERM"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "cpu"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+  [[widget.setting]]
+  key = "icon_only"
+  type = "bool"
+  label_key = "settings.icon_only.label"
+  description_key = "settings.icon_only.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 620
+height = 660
+placement = "floating"
+position = "center"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
