@@ -26,6 +26,14 @@ local MAX_ROWS = 80
 local SIG_SAMPLE = 40
 local lastSig = nil
 
+-- Throttle data-driven renders. The service can sample faster than the panel can
+-- rebuild its table, and every state.set fires a watch: at 250ms that was ~16
+-- full rebuilds/sec of 80 rows, which blew the panel update CPU budget and got
+-- the panel disabled. User interactions (toggle/filter/sort) still render()
+-- immediately; only the data watches and the tick go through maybeRender().
+local lastRenderMs = 0
+local MIN_RENDER_MS = 500
+
 -- Kill column is a fixed width at the end of every row; all other columns are
 -- flexGrow shares so the header and data rows always align and never overflow.
 local KILL_W = 30
@@ -393,7 +401,7 @@ function render()
 			ui.row({ gap = 8, align = "center", flexGrow = 1 }, {
 				ui.label({ text = tr("panel.refresh"), fontSize = 11, color = "on_surface_variant" }),
 				ui.slider({
-					min = 250, max = 5000, step = 250, value = math.max(250, math.min(5000, refreshMs())),
+					min = 500, max = 5000, step = 500, value = math.max(500, math.min(5000, refreshMs())),
 					flexGrow = 1, controlSize = "sm",
 					onChange = function(v) refreshDraft = math.floor(tonumber(v) or 0) end,
 					onDragEnd = commitRefresh,
@@ -406,10 +414,24 @@ function render()
 		lastSig = signature()
 	end
 
-noctalia.state.watch("procs", render)
-noctalia.state.watch("stats", render)
-noctalia.state.watch("refreshedAtMs", render)
-noctalia.state.watch("err", render)
+-- Data-driven render: only rebuild when the visible data actually changed AND
+-- enough time has passed since the last rebuild. Defined after render/signature
+-- (Luau: forward refs to a later local compile as globals -> nil).
+local function maybeRender()
+	local now = noctalia.nowMs()
+	if now - lastRenderMs < MIN_RENDER_MS then
+		return
+	end
+	if signature() ~= lastSig then
+		lastRenderMs = now
+		render()
+	end
+end
+
+noctalia.state.watch("procs", maybeRender)
+noctalia.state.watch("stats", maybeRender)
+noctalia.state.watch("refreshedAtMs", maybeRender)
+noctalia.state.watch("err", maybeRender)
 noctalia.state.watch("refreshMs", function()
 	-- Track the fetch speed on the panel's own tick so the table stays live when
 	-- the user drops the interval below the 1s second-tick floor.
@@ -427,9 +449,7 @@ noctalia.setUpdateInterval(refreshMs())
 panel.setWantsSecondTicks(true)
 
 function update()
-	if signature() ~= lastSig then
-		render()
-	end
+	maybeRender()
 end
 
 function onOpen(_context)
