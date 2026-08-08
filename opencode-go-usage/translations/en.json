@@ -1,0 +1,101 @@
+{
+  "title": "OpenCode Go Usage",
+  "status": {
+    "ok": "OK",
+    "idle": "Waiting for data",
+    "disabled": "Disabled",
+    "unconfigured": "Not configured",
+    "auth_expired": "Session expired",
+    "network": "Network error",
+    "parse_failed": "Could not parse usage data",
+    "unavailable": "Unavailable",
+    "error": "Error",
+    "go_unconfigured": "OpenCode Go login was not found. Sign in with OpenCode first.",
+    "go_estimated": "Estimated from local OpenCode Go usage; other devices are not included.",
+    "usage_unavailable": "The opencode CLI was not found on PATH.",
+    "usage_failed": "Could not read the local opencode database.",
+    "usage_parse_failed": "Could not parse the opencode database output."
+  },
+  "widget": {
+    "seconds": "{s}s",
+    "minutes": "{m}m",
+    "hours": "{h}h {m}m",
+    "days": "{d}d {h}h",
+    "resets": "resets in {time}",
+    "status": "Status",
+    "detail": "Detail",
+    "today_tokens": "Today's tokens",
+    "today_cost": "Today's cost",
+    "cached": "cached",
+    "updated": "Updated",
+    "refresh_requested": "Usage refresh requested"
+  },
+  "panel": {
+    "used": "{used}% used · {remaining}% remaining",
+    "resets_now": "resets now",
+    "resets_in_m": "resets in {m}m",
+    "resets_in_hm": "resets in {h}h {m}m",
+    "resets_in_dh": "resets in {d}d {h}h",
+    "limits_title": "Usage limits",
+    "usage_title": "API usage",
+    "today_title": "Today",
+    "all_time_title": "All time",
+    "input_tokens": "Input",
+    "output_tokens": "Output",
+    "cache_read": "Cache read",
+    "cost": "Cost",
+    "sessions": "Sessions",
+    "week_tokens": "Tokens per day (last 7 days)",
+    "models_title": "By model",
+    "no_data": "No data yet. Set your credentials or enable a source in the plugin settings.",
+    "open_settings": "Open Settings",
+    "refresh_tooltip": "Refresh now",
+    "updated_at": "Updated {time}"
+  },
+  "settings": {
+    "refresh_minutes": {
+      "label": "Refresh Interval (Minutes)",
+      "description": "How often to poll the local OpenCode database."
+    },
+    "show_limits": {
+      "label": "Show usage limits",
+      "description": "Estimate rolling/weekly/monthly Go plan usage from local data."
+    },
+    "show_usage": {
+      "label": "Show API usage",
+      "description": "Read token and cost usage from the local opencode database."
+    },
+    "show_percentage_label": {
+      "label": "Show percentage label",
+      "description": "Show the usage percentage next to the bar glyph."
+    },
+    "pin_window": {
+      "label": "Bar window",
+      "description": "Which usage limit the bar widget shows.",
+      "options": {
+        "rolling": "Rolling (5h)",
+        "weekly": "Weekly",
+        "monthly": "Monthly"
+      }
+    },
+    "display_mode": {
+      "label": "Display mode",
+      "description": "Show used or remaining percentage.",
+      "options": {
+        "remaining": "Remaining (%)",
+        "used": "Used (%)"
+      }
+    },
+    "glyph": {
+      "label": "Bar glyph",
+      "description": "Icon shown in the bar widget.",
+      "options": {
+        "activity": "activity",
+        "sparkles": "sparkles",
+        "cpu": "cpu",
+        "robot": "robot",
+        "wallet": "wallet"
+      }
+    }
+  }
+}
