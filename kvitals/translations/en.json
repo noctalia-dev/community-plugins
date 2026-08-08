@@ -1,0 +1,266 @@
+{
+  "about": {
+    "based_on": "Based on KVitals by yassine20011 (GPL-3.0)."
+  },
+  "metric": {
+    "cpu": "CPU",
+    "ram": "RAM",
+    "temp": "Temp",
+    "gpu": "GPU",
+    "vram": "VRAM",
+    "fan": "Fan",
+    "battery": "Battery",
+    "net": "Network",
+    "disk": "Disk",
+    "load": "Load"
+  },
+  "panel": {
+    "hint": "Click the bar widget to toggle this panel. Right-click it to open settings.",
+    "open_settings": "Open KVitals settings",
+    "title": "KVitals"
+  },
+  "settings": {
+    "accent_color": {
+      "label": "Accent color",
+      "description": "Color used for critical values, graphs, and icons. Leave as primary to follow the theme."
+    },
+    "cpu_act": {
+      "label": "CPU activity threshold"
+    },
+    "cpu_crit": {
+      "label": "CPU critical threshold"
+    },
+    "disk_act": {
+      "label": "Disk activity threshold"
+    },
+    "disk_crit": {
+      "label": "Disk critical threshold"
+    },
+    "display_mode": {
+      "label": "Bar display mode",
+      "description": "Show metric icons, text, or both in the bar.",
+      "options": {
+        "both": "Icons and text",
+        "icons": "Icons only",
+        "text": "Text only"
+      }
+    },
+    "enabled_battery": {
+      "label": "Show battery",
+      "description": "Show battery percentage and power draw."
+    },
+    "enabled_cpu": {
+      "label": "Show CPU",
+      "description": "Show CPU usage and temperature."
+    },
+    "enabled_disk": {
+      "label": "Show disk",
+      "description": "Show disk I/O and temperature."
+    },
+    "enabled_fan": {
+      "label": "Show fan",
+      "description": "Show fan speed in RPM."
+    },
+    "enabled_gpu": {
+      "label": "Show GPU",
+      "description": "Show GPU usage, temperature, and VRAM."
+    },
+    "enabled_vram": {
+      "label": "Show VRAM",
+      "description": "Show graphics memory usage."
+    },
+    "enabled_net": {
+      "label": "Show network",
+      "description": "Show network up and down rates."
+    },
+    "enabled_ram": {
+      "label": "Show RAM",
+      "description": "Show memory usage."
+    },
+    "enabled_temp": {
+      "label": "Show temperature",
+      "description": "Show CPU temperature."
+    },
+    "font_color": {
+      "label": "Font color",
+      "description": "Color of the metric text. Leave as on_surface to follow the theme."
+    },
+    "icon": {
+      "description": "Choose the icon for this metric.",
+      "options": {
+        "cpu": "CPU",
+        "cpu_2": "CPU 2",
+        "device_desktop": "Desktop",
+        "device_desktop_analytics": "Desktop chart",
+        "dashboard": "Dashboard",
+        "chart_dots": "Chart",
+        "binary": "Binary",
+        "bug": "Bug",
+        "database": "Database",
+        "stack_2": "Stack",
+        "box": "Box",
+        "archive": "Archive",
+        "device_floppy": "Floppy",
+        "temperature": "Temperature",
+        "thermometer": "Thermometer",
+        "flame": "Flame",
+        "droplet": "Droplet",
+        "snowflake": "Snowflake",
+        "sun": "Sun",
+        "viewfinder": "Viewfinder",
+        "screen_share": "Screen share",
+        "photo": "Photo",
+        "video": "Video",
+        "components": "Components",
+        "memory": "Memory",
+        "wind": "Wind",
+        "propeller": "Propeller",
+        "refresh": "Refresh",
+        "rotate": "Rotate",
+        "plane": "Plane",
+        "helicopter": "Helicopter",
+        "blade": "Blade",
+        "network": "Network",
+        "transfer": "Transfer",
+        "exchange": "Exchange",
+        "wifi": "WiFi",
+        "wifi_2": "WiFi 2",
+        "arrow_left_right": "Arrows",
+        "globe": "Globe",
+        "activity": "Activity",
+        "server": "Server",
+        "folder": "Folder",
+        "usb": "USB"
+      }
+    },
+    "icon_cpu": {
+      "label": "CPU icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_ram": {
+      "label": "RAM icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_temp": {
+      "label": "Temperature icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_gpu": {
+      "label": "GPU icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_vram": {
+      "label": "VRAM icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_fan": {
+      "label": "Fan icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_net": {
+      "label": "Network icon",
+      "description": "Choose the icon for this metric."
+    },
+    "icon_disk": {
+      "label": "Disk icon",
+      "description": "Choose the icon for this metric."
+    },
+    "font_size": {
+      "label": "Font size",
+      "description": "Text size in pixels."
+    },
+    "graph_height": {
+      "label": "Graph height",
+      "description": "Height of each sparkline in the panel."
+    },
+    "gpu_act": {
+      "label": "GPU activity threshold"
+    },
+    "gpu_crit": {
+      "label": "GPU critical threshold"
+    },
+    "vram_act": {
+      "label": "VRAM activity threshold"
+    },
+    "vram_crit": {
+      "label": "VRAM critical threshold"
+    },
+    "hide_absent": {
+      "label": "Hide absent sensors",
+      "description": "Hide metrics whose sensor is not present."
+    },
+    "metric_order": {
+      "label": "Metric order",
+      "description": "Order of the metrics in the bar, panel, and desktop tile."
+    },
+    "net_act": {
+      "label": "Network activity threshold (MB/s)"
+    },
+    "net_crit": {
+      "label": "Network critical threshold (MB/s)"
+    },
+    "net_unit": {
+      "label": "Network unit",
+      "description": "Unit for network rates.",
+      "options": {
+        "auto": "Automatic",
+        "kb": "Kilobytes",
+        "mb": "Megabytes"
+      }
+    },
+    "ram_act": {
+      "label": "RAM activity threshold"
+    },
+    "ram_crit": {
+      "label": "RAM critical threshold"
+    },
+    "refresh_ms": {
+      "label": "Refresh interval (ms)",
+      "description": "How often the sensors are sampled."
+    },
+    "show_cpu_freq": {
+      "label": "Show CPU frequency",
+      "description": "Show the current CPU clock in the CPU chip and panel."
+    },
+    "show_graphs": {
+      "label": "Show graphs",
+      "description": "Show live sparklines in the panel."
+    },
+    "show_glyphs": {
+      "label": "Show icons",
+      "description": "Show metric icons in the desktop tile."
+    },
+    "show_net_ip": {
+      "label": "Show IP address",
+      "description": "Show the local IPv4 address in the tooltip and panel."
+    },
+    "show_power_draw": {
+      "label": "Show power draw",
+      "description": "Show the battery power draw in watts."
+    },
+    "temp_act": {
+      "label": "Temperature activity threshold"
+    },
+    "temp_crit": {
+      "label": "Temperature critical threshold"
+    },
+    "temp_unit": {
+      "label": "Temperature unit",
+      "description": "Celsius or Fahrenheit.",
+      "options": {
+        "c": "Celsius",
+        "f": "Fahrenheit"
+      }
+    },
+    "threshold": {
+      "description": "Values at or above this level tint the metric toward the accent color."
+    },
+    "net_threshold": {
+      "description": "Network rates in MB/s. Values at or above this level tint the metric."
+    }
+  },
+  "widget": {
+    "no_data": "No data",
+    "sysmon_off": "System monitor off"
+  }
+}
