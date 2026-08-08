@@ -155,7 +155,7 @@ local function matchResults(query)
 
 	local results = {}
 	for _, p in ipairs(prefixBest) do
-		results[#results + 1] = { id = p.id, title = p.id, glyph = "book" }
+		results[#results + 1] = { id = p.id, title = p.id, glyph = "book", score = p.rank }
 		if #results >= MAX_RESULTS then
 			return results
 		end
