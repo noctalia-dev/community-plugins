@@ -79,7 +79,7 @@ local function getColor()
 end
 
 local function render()
-    if (noctalia.getConfig("hide_plugged") and (status == "Charging" or status == "Not Charging"))
+    if (noctalia.getConfig("hide_plugged") and (status == "Charging" or status == "Not charging"))
         or (noctalia.getConfig("hide_full") and status == "Full") then
         desktopWidget.render(ui.row())
         return
