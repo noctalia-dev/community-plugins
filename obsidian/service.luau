@@ -148,7 +148,7 @@ local function normalizeRelPath(rel)
   end
   return table.concat(parts, "/")
 end
--- Join vault root + relative path; require result stays under root.
+-- Join vault root + relative path; require result stays under root (string check).
 -- Returns absPath, cleanRel or nil, errKey
 local function pathUnderVault(root, rel)
   root = expand(root):gsub("/+$", "")
@@ -164,6 +164,57 @@ local function pathUnderVault(root, rel)
     return abs, clean, nil
   end
   return nil, nil, "path outside vault"
+end
+
+-- Async: reject symlink path components and require realpath(target) under realpath(vault).
+-- onDone(ok, errMsg). Uses realpath(1) + test -L (same pattern as other community plugins).
+local function assertSafeVaultTarget(root, abs, rel, onDone)
+  root = expand(root):gsub("/+$", "")
+  abs = expand(abs)
+  rel = normalizeRelPath(rel or "")
+  if type(onDone) ~= "function" then
+    return
+  end
+  if root == "" or abs == "" or rel == nil then
+    onDone(false, "invalid path")
+    return
+  end
+  -- Shell: canonicalize vault; walk each segment of rel and refuse -L; realpath -m must stay under vault.
+  local cmd = "V=$(realpath -e "
+    .. shellQuote(root)
+    .. " 2>/dev/null) || exit 1; "
+    .. "A="
+    .. shellQuote(abs)
+    .. "; "
+    .. "R="
+    .. shellQuote(rel)
+    .. "; "
+    .. "cur="
+    .. shellQuote(root)
+    .. "; "
+    .. 'IFS=/; set -f; for s in $R; do '
+    .. '[ -n "$s" ] || continue; '
+    .. 'next="$cur/$s"; '
+    .. 'if [ -L "$next" ]; then exit 2; fi; '
+    .. 'cur="$next"; '
+    .. "done; set +f; "
+    .. 'T=$(realpath -m "$A" 2>/dev/null) || exit 1; '
+    .. 'case "$T" in "$V"|"$V"/*) exit 0 ;; *) exit 3 ;; esac'
+
+  local started = noctalia.runAsync(cmd, function(result)
+    if result and result.exitCode == 0 and not result.timedOut then
+      onDone(true, nil)
+    elseif result and result.exitCode == 2 then
+      onDone(false, "symlink in path")
+    elseif result and result.exitCode == 3 then
+      onDone(false, "path outside vault")
+    else
+      onDone(false, "path check failed")
+    end
+  end, 4000)
+  if not started then
+    onDone(false, "path check failed")
+  end
 end
 
 -- Build today's daily note relative + absolute path with strict validation.
@@ -228,7 +279,7 @@ end
 local function ensureParentDir(path)
   local parent = path:match("(.+)/[^/]+$")
   if parent and parent ~= "" and not noctalia.fileExists(parent) then
-    -- Only create parents that still lie under the vault root.
+    -- Only create parents that still lie under the vault root (string + prior symlink check).
     local root = vaultRoot():gsub("/+$", "")
     if root ~= "" and (parent == root or parent:sub(1, #root + 1) == root .. "/") then
       noctalia.mkdirAll(parent)
@@ -331,30 +382,38 @@ local function openNoteRel(rel)
   openUri(uri)
 end
 
--- Ensure daily file exists under a validated vault path. Returns rel, abs or nils + sets action result on failure.
-local function ensureDailyFile(command)
+-- Ensure daily file exists under a validated vault path (string + realpath/symlink checks).
+-- onReady(rel, abs) when safe and ready; actionResult already set on failure.
+local function ensureDailyFile(command, onReady)
   local root = vaultRoot()
   if not isVault(root) then
     actionResult(command, false, noctalia.tr("result.missing_vault"))
-    return nil, nil
+    return
   end
   local rel, abs, err = dailyRelAndAbs()
   if not abs then
     actionResult(command, false, noctalia.tr("result.invalid_daily_path", { error = err or "invalid" }))
-    return nil, nil
+    return
   end
-  if not noctalia.fileExists(abs) then
-    ensureParentDir(abs)
-    local title = noctalia.formatTime(dailyFormat(), nowSec())
-    -- title must not re-introduce path separators
-    title = tostring(title or ""):gsub("[/\\]", "-")
-    local ok, werr = noctalia.writeFile(abs, "# " .. title .. "\n")
+  assertSafeVaultTarget(root, abs, rel, function(ok, safeErr)
     if not ok then
-      actionResult(command, false, noctalia.tr("result.failed", { error = werr or "write failed" }))
-      return nil, nil
+      actionResult(command, false, noctalia.tr("result.invalid_daily_path", { error = safeErr or "unsafe" }))
+      return
     end
-  end
-  return rel, abs
+    if not noctalia.fileExists(abs) then
+      ensureParentDir(abs)
+      local title = noctalia.formatTime(dailyFormat(), nowSec())
+      title = tostring(title or ""):gsub("[/\\]", "-")
+      local wOk, werr = noctalia.writeFile(abs, "# " .. title .. "\n")
+      if not wOk then
+        actionResult(command, false, noctalia.tr("result.failed", { error = werr or "write failed" }))
+        return
+      end
+    end
+    if type(onReady) == "function" then
+      onReady(rel, abs)
+    end
+  end)
 end
 local function openVault()
   local vault = vaultName()
@@ -503,57 +562,70 @@ refreshAll = function()
     end
     finished = true
 
-    local okP, errP = pcall(function()
-      if snapshot.dailyPath ~= "" and noctalia.fileExists(snapshot.dailyPath) then
-        snapshot.dailyExists = true
-        snapshot.dailyPreview = readPreview(snapshot.dailyPath, 500)
-      else
-        snapshot.dailyExists = false
-        snapshot.dailyPreview = ""
+    local function applySnapshot(dailyExists, dailyPreview)
+      local okP, errP = pcall(function()
+        snapshot.dailyExists = dailyExists == true
+        snapshot.dailyPreview = dailyPreview or ""
+        snapshot.recent = parseRecent(bag.recent)
+        local dirty, files = parseGitStatus(bag.gitPorcelain)
+        local branch, ahead, behind, statusLine = parseBranchLine(bag.gitBranch)
+        local isRepo = not bag.gitFailed and (branch ~= "" or statusLine:match("^##") ~= nil)
+
+        snapshot.git = {
+          isRepo = isRepo,
+          branch = branch,
+          dirty = dirty,
+          ahead = ahead,
+          behind = behind,
+          clean = dirty == 0,
+          files = files,
+          statusLine = statusLine,
+          inProgress = gitInProgressKind(),
+        }
+        snapshot.loading = false
+        snapshot.updatedAt = nowSec()
+        refreshPending = false
+        updateRevision(table.concat({
+          snapshot.dailyRel,
+          tostring(snapshot.dailyExists),
+          tostring(#snapshot.recent),
+          branch,
+          tostring(dirty),
+          tostring(ahead),
+          tostring(behind),
+        }, "|"))
+        publishSnapshot()
+      end)
+
+      if not okP then
+        noctalia.log(`obsidian: apply failed: {tostring(errP)}`)
+        snapshot.loading = false
+        snapshot.error = tostring(errP)
+        refreshPending = false
+        publishSnapshot()
       end
 
-      snapshot.recent = parseRecent(bag.recent)
-      local dirty, files = parseGitStatus(bag.gitPorcelain)
-      local branch, ahead, behind, statusLine = parseBranchLine(bag.gitBranch)
-      local isRepo = not bag.gitFailed and (branch ~= "" or statusLine:match("^##") ~= nil)
-
-      snapshot.git = {
-        isRepo = isRepo,
-        branch = branch,
-        dirty = dirty,
-        ahead = ahead,
-        behind = behind,
-        clean = dirty == 0,
-        files = files,
-        statusLine = statusLine,
-        inProgress = gitInProgressKind(),
-      }
-      snapshot.loading = false
-      snapshot.updatedAt = nowSec()
-      refreshPending = false
-      updateRevision(table.concat({
-        snapshot.dailyRel,
-        tostring(snapshot.dailyExists),
-        tostring(#snapshot.recent),
-        branch,
-        tostring(dirty),
-        tostring(ahead),
-        tostring(behind),
-      }, "|"))
-      publishSnapshot()
-    end)
-
-    if not okP then
-      noctalia.log(`obsidian: apply failed: {tostring(errP)}`)
-      snapshot.loading = false
-      snapshot.error = tostring(errP)
-      refreshPending = false
-      publishSnapshot()
+      if refreshAgain then
+        refreshAgain = false
+        refreshAll()
+      end
     end
 
-    if refreshAgain then
-      refreshAgain = false
-      refreshAll()
+    -- Only read daily preview after symlink/realpath confinement passes
+    if snapshot.dailyPath ~= "" and snapshot.dailyRel ~= "" and noctalia.fileExists(snapshot.dailyPath) then
+      assertSafeVaultTarget(root, snapshot.dailyPath, snapshot.dailyRel, function(ok, _err)
+        if generation ~= refreshGeneration then
+          return
+        end
+        if ok then
+          applySnapshot(true, readPreview(snapshot.dailyPath, 500))
+        else
+          -- Exists but unsafe (symlink escape) — do not read through it
+          applySnapshot(false, "")
+        end
+      end)
+    else
+      applySnapshot(false, "")
     end
   end
 
@@ -612,36 +684,42 @@ local function appendDaily(command)
     actionResult(command, false, noctalia.tr("result.invalid_daily_path", { error = pathErr or "invalid" }))
     return
   end
-  ensureParentDir(path)
 
-  local ts = noctalia.formatTime("%H:%M", nowSec())
-  local line = "- " .. ts .. " " .. text
-  -- normalize: single line (newlines → spaces)
-  line = line:gsub("[\r\n]+", " ")
+  assertSafeVaultTarget(root, path, rel, function(ok, safeErr)
+    if not ok then
+      actionResult(command, false, noctalia.tr("result.invalid_daily_path", { error = safeErr or "unsafe" }))
+      return
+    end
 
-  local existing = ""
-  if noctalia.fileExists(path) then
-    existing = noctalia.readFile(path) or ""
-  else
-    -- new daily: simple header
-    local title = tostring(noctalia.formatTime(dailyFormat(), nowSec()) or ""):gsub("[/\\]", "-")
-    existing = "# " .. title .. "\n"
-  end
+    ensureParentDir(path)
 
-  if existing ~= "" and not existing:match("\n$") then
-    existing = existing .. "\n"
-  end
-  local newBody = existing .. line .. "\n"
-  local ok, err = noctalia.writeFile(path, newBody)
-  if not ok then
-    finishAction(command, false, noctalia.tr("result.failed", { error = err or "write failed" }))
-    return
-  end
+    local ts = noctalia.formatTime("%H:%M", nowSec())
+    local line = "- " .. ts .. " " .. text
+    line = line:gsub("[\r\n]+", " ")
 
-  snapshot.dailyExists = true
-  snapshot.dailyPath = path
-  snapshot.dailyRel = rel or ""
-  finishAction(command, true, noctalia.tr("result.captured", { name = snapshot.dailyRel }))
+    local existing = ""
+    if noctalia.fileExists(path) then
+      existing = noctalia.readFile(path) or ""
+    else
+      local title = tostring(noctalia.formatTime(dailyFormat(), nowSec()) or ""):gsub("[/\\]", "-")
+      existing = "# " .. title .. "\n"
+    end
+
+    if existing ~= "" and not existing:match("\n$") then
+      existing = existing .. "\n"
+    end
+    local newBody = existing .. line .. "\n"
+    local wOk, err = noctalia.writeFile(path, newBody)
+    if not wOk then
+      finishAction(command, false, noctalia.tr("result.failed", { error = err or "write failed" }))
+      return
+    end
+
+    snapshot.dailyExists = true
+    snapshot.dailyPath = path
+    snapshot.dailyRel = rel or ""
+    finishAction(command, true, noctalia.tr("result.captured", { name = snapshot.dailyRel }))
+  end)
 end
 local function gitCommit(command)
   if actionBusy then
@@ -814,13 +892,11 @@ local function executeAction(command)
     return
   end
   if action == "open_daily" then
-    local rel = ensureDailyFile(command)
-    if not rel then
-      return
-    end
-    openNoteRel(rel)
-    actionResult(command, true, noctalia.tr("result.opened"))
-    refreshAll()
+    ensureDailyFile(command, function(rel, _abs)
+      openNoteRel(rel)
+      actionResult(command, true, noctalia.tr("result.opened"))
+      refreshAll()
+    end)
     return
   end
   if action == "open_note" then
@@ -839,8 +915,15 @@ local function executeAction(command)
       actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = err or "invalid" }))
       return
     end
-    openNoteRel(clean)
-    actionResult(command, true, noctalia.tr("result.opened"))
+    -- URI open only (no filesystem write), still refuse symlink escape for consistency
+    assertSafeVaultTarget(root, abs, clean, function(ok, safeErr)
+      if not ok then
+        actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = safeErr or "unsafe" }))
+        return
+      end
+      openNoteRel(clean)
+      actionResult(command, true, noctalia.tr("result.opened"))
+    end)
     return
   end
   if action == "capture" or action == "append_daily" then

@@ -2,11 +2,11 @@
 
 id = "davemhammer/obsidian"
 name = "Obsidian"
-version = "1.0.3"
+version = "1.0.4"
 plugin_api = 10
 author = "davemhammer"
 license = "MIT"
-dependencies = ["obsidian", "git", "xdg-open", "find", "sort", "head"]
+dependencies = ["obsidian", "git", "xdg-open", "find", "sort", "head", "realpath"]
 tags = ["productivity", "utility", "bar", "panel", "service", "launcher"]
 icon = "notebook"
 description = "Daily capture and git status, commit, pull, and push for an Obsidian vault."
