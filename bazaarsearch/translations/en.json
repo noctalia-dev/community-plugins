@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "testmode_enable": {
+      "label": "Enable Tests",
+      "description": "Turns on the command /bzr .dbg, which runs input assurance tests and displays the results in the launcher."
+    },
+    "max_entries": {
+      "label": "Maximum Entries",
+      "description": "The maximum number of Flatpak entries parsed at a time. Too many will make the plugin stop working!"
+    }
+  }
+}
