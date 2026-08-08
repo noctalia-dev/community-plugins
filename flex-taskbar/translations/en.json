@@ -1,0 +1,192 @@
+{
+  "settings": {
+    "pinned_apps": {
+      "label": "Pinned applications",
+      "description": "Desktop-file IDs to keep on the taskbar, in order. Example: firefox or org.gnome.Nautilus."
+    },
+    "show_unpinned_running": {
+      "label": "Show unpinned running apps",
+      "description": "Automatically add applications that have windows but are not pinned."
+    },
+    "hide_stopped_pins": {
+      "label": "Hide stopped pinned apps",
+      "description": "Only show a pinned launcher while it has at least one window."
+    },
+    "app_aliases": {
+      "label": "Window app aliases",
+      "description": "Map a Niri window app_id to its pinned desktop-file ID."
+    },
+    "launch_commands": {
+      "label": "Custom launch commands",
+      "description": "Map an application ID to a shell command. Apps without an override use gtk-launch."
+    },
+    "icon_overrides": {
+      "label": "Icon overrides",
+      "description": "Map an application ID to an icon name or local image path."
+    },
+    "label_overrides": {
+      "label": "Label overrides",
+      "description": "Map an application ID to the label shown when labels are enabled."
+    },
+    "current_output_only": {
+      "label": "Current monitor only",
+      "description": "Only show windows on the monitor containing this bar. Pinned launchers remain visible."
+    },
+    "order": {
+      "label": "Application order",
+      "pinned_first": "Pinned first",
+      "running_first": "Running first",
+      "alphabetical": "Alphabetical"
+    },
+    "icon_size": {
+      "label": "Icon size"
+    },
+    "icon_radius": {
+      "label": "Icon corner radius"
+    },
+    "item_width": {
+      "label": "Minimum item width",
+      "description": "The minimum width of each application tile."
+    },
+    "item_gap": {
+      "label": "Space between apps"
+    },
+    "item_padding": {
+      "label": "Item padding"
+    },
+    "item_radius": {
+      "label": "Item corner radius"
+    },
+    "item_border_width": {
+      "label": "Item border width"
+    },
+    "item_border_color": {
+      "label": "Item border color"
+    },
+    "background_style": {
+      "label": "Item backgrounds",
+      "none": "None",
+      "running": "Running apps",
+      "active": "Focused app only",
+      "always": "Always"
+    },
+    "running_background_color": {
+      "label": "Running background"
+    },
+    "active_background_color": {
+      "label": "Focused background"
+    },
+    "hover_background_color": {
+      "label": "Hover background"
+    },
+    "active_opacity": {
+      "label": "Focused icon opacity"
+    },
+    "inactive_opacity": {
+      "label": "Running icon opacity"
+    },
+    "stopped_opacity": {
+      "label": "Stopped launcher opacity"
+    },
+    "show_labels": {
+      "label": "Show app labels"
+    },
+    "label_size": {
+      "label": "Label font size"
+    },
+    "label_max_width": {
+      "label": "Maximum label width"
+    },
+    "show_window_dots": {
+      "label": "Show one dot per window"
+    },
+    "dot_size": {
+      "label": "Window dot size"
+    },
+    "dot_gap": {
+      "label": "Space between dots"
+    },
+    "max_dots": {
+      "label": "Maximum dots per app",
+      "description": "Limits indicator width for apps with many windows."
+    },
+    "dot_color": {
+      "label": "Window dot color"
+    },
+    "focused_dot_color": {
+      "label": "Focused window dot color"
+    },
+    "show_active_underline": {
+      "label": "Show focused underline"
+    },
+    "underline_width": {
+      "label": "Underline width"
+    },
+    "underline_thickness": {
+      "label": "Underline thickness"
+    },
+    "underline_radius": {
+      "label": "Underline corner radius"
+    },
+    "underline_color": {
+      "label": "Underline color"
+    },
+    "indicator_gap": {
+      "label": "Indicator spacing"
+    },
+    "fallback_glyph": {
+      "label": "Missing-icon glyph"
+    },
+    "poll_interval": {
+      "label": "Window refresh interval",
+      "description": "How often to query Niri, in milliseconds. Lower is more responsive but uses more resources."
+    },
+    "preview_enabled": {
+      "label": "Window previews on hover",
+      "description": "Show clickable Niri window thumbnails below a running app when it is hovered."
+    },
+    "preview_hover_delay": {
+      "label": "Preview hover delay",
+      "description": "Milliseconds to wait before opening a preview."
+    },
+    "preview_hide_delay": {
+      "label": "Preview close delay",
+      "description": "Milliseconds allowed for moving the pointer from the taskbar into the preview."
+    },
+    "preview_max_windows": {
+      "label": "Maximum preview windows",
+      "description": "Maximum number of window cards shown for one application."
+    },
+    "preview_width": {
+      "label": "Thumbnail width"
+    },
+    "preview_height": {
+      "label": "Thumbnail height"
+    },
+    "preview_gap": {
+      "label": "Space between previews"
+    },
+    "preview_radius": {
+      "label": "Preview corner radius"
+    },
+    "preview_show_titles": {
+      "label": "Show window titles"
+    },
+    "preview_title_size": {
+      "label": "Window title size"
+    },
+    "preview_refresh_seconds": {
+      "label": "Thumbnail refresh interval",
+      "description": "Seconds a cached thumbnail remains fresh before Niri captures it again."
+    },
+    "preview_card_color": {
+      "label": "Preview card color"
+    },
+    "preview_border_color": {
+      "label": "Preview border color"
+    },
+    "preview_border_width": {
+      "label": "Preview border width"
+    }
+  }
+}
