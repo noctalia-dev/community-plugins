@@ -1,0 +1,35 @@
+id = "yugaaank/better-clock"
+name = "Better Clock"
+version = "1.0.0"
+plugin_api = 19
+author = "yugaaank"
+license = "MIT"
+dependencies = []
+icon = "clock"
+description = "A minimal digital clock desktop widget with customizable format."
+tags = ["desktop", "clock", "time", "utility"]
+
+[[setting]]
+key = "time_format"
+type = "string"
+label_key = "settings.time_format.label"
+description_key = "settings.time_format.description"
+default = "{:%H:%M}"
+
+[[setting]]
+key = "date_format"
+type = "string"
+label_key = "settings.date_format.label"
+description_key = "settings.date_format.description"
+default = "{:%A, %B %d}"
+
+[[setting]]
+key = "show_date"
+type = "bool"
+label_key = "settings.show_date.label"
+description_key = "settings.show_date.description"
+default = true
+
+[[desktop_widget]]
+id = "clock"
+entry = "widget.luau"

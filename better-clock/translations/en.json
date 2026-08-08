@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "time_format": {
+      "label": "Time Format",
+      "description": "Luau date format for time, e.g. {:%H:%M} or {:%I:%M %p}"
+    },
+    "date_format": {
+      "label": "Date Format",
+      "description": "Luau date format for date, e.g. {:%A, %B %d}"
+    },
+    "show_date": {
+      "label": "Show Date",
+      "description": "Display the date below the time"
+    }
+  }
+}
