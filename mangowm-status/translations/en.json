@@ -1,0 +1,19 @@
+{
+  "plugin": {
+    "description": "Shows current tiling layout and keymode for Mangowm"
+  },
+  "settings": {
+    "hide_on_default": {
+      "label": "Hide on default",
+      "description": "Hide the widget when keymode is default"
+    },
+    "show_text": {
+      "label": "Show text",
+      "description": "Show the keymode name beside the glyph"
+    },
+    "notify_change": {
+      "label": "Notify on change",
+      "description": "Show a notification when keymode changes"
+    }
+  }
+}
