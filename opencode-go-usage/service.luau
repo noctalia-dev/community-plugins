@@ -1,8 +1,8 @@
 --!nonstrict
 -- OpenCode Go Usage backend.
 --
--- OpenQuota's OpenCode integration is local-only: it detects the Go login from
--- auth.json and estimates quota usage from the local OpenCode database.
+-- OpenQuota's OpenCode integration is local-only: it estimates quota usage
+-- from the local OpenCode database and never reads credential files.
 
 local CACHE_FILE = "snapshot.json"
 local SESSION_CAP_USD = 12
@@ -93,28 +93,6 @@ local function publish()
 	end
 end
 
-local function openCodeDataDirectory()
-	local configured = noctalia.getenv("OPENCODE_DATA_DIR")
-	if type(configured) == "string" and configured ~= "" then
-		return noctalia.expandPath(configured)
-	end
-	local xdg = noctalia.getenv("XDG_DATA_HOME")
-	if type(xdg) == "string" and xdg ~= "" then
-		return noctalia.expandPath(xdg .. "/opencode")
-	end
-	return noctalia.expandPath("~/.local/share/opencode")
-end
-
-local function hasGoLogin()
-	local contents = noctalia.readFile(openCodeDataDirectory() .. "/auth.json")
-	if not contents then
-		return false
-	end
-	local parsed = noctalia.json.decode(contents)
-	local login = type(parsed) == "table" and parsed["opencode-go"]
-	return type(login) == "table" and type(login.key) == "string" and login.key ~= ""
-end
-
 local function localQuery(now)
 	local clock = os.date("*t", now)
 	local dayStart = os.time({ year = clock.year, month = clock.month, day = clock.day, hour = 0 })
@@ -179,21 +157,19 @@ local function setGoFromRows(rows, now)
 		return
 	end
 	local entries = {}
-	local goLogin = hasGoLogin()
 	for _, row in ipairs(rows) do
-		local hasUsage = row.c ~= nil
 		local used = tonumber(row.c) or 0
 		local reset = tonumber(row.extra) or now
-		if row.k == "quota_session" and (goLogin or hasUsage) then
+		if row.k == "quota_session" and row.c ~= nil then
 			local first = reset > 0 and reset or now
 			table.insert(entries, estimatedEntry("Rolling (5h)", used, SESSION_CAP_USD, first + SESSION_SECONDS))
-		elseif row.k == "quota_weekly" and (goLogin or hasUsage) then
+		elseif row.k == "quota_weekly" and row.c ~= nil then
 			table.insert(entries, estimatedEntry("Weekly", used, WEEKLY_CAP_USD, reset))
-		elseif row.k == "quota_monthly" and (goLogin or hasUsage) then
+		elseif row.k == "quota_monthly" and row.c ~= nil then
 			table.insert(entries, estimatedEntry("Monthly", used, MONTHLY_CAP_USD, reset))
 		end
 	end
-	if goLogin or #entries > 0 then
+	if #entries > 0 then
 		snapshot.go = {
 			status = "ok",
 			entries = entries,

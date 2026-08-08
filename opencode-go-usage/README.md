@@ -27,9 +27,9 @@ plugin uses `opencode db` to read the local OpenCode database.
 
 4. Right-click the bar widget to refresh immediately.
 
-No manual credentials are required. After signing in to OpenCode Go, the
-plugin detects the local login from `~/.local/share/opencode/auth.json`.
-`OPENCODE_DATA_DIR` and `XDG_DATA_HOME` are also respected.
+No manual credentials are required. Limits are estimated from `opencode-go`
+costs recorded in the local database; the plugin never reads `auth.json` or
+any other credential file.
 
 The panel displays:
 
@@ -73,9 +73,8 @@ They are based only on `opencode-go` costs recorded on this device. Usage from
 other devices, or sessions not yet written to the local database, is not
 included.
 
-The plugin does not make network requests. It reads `auth.json` to detect a Go
-login, runs the local `opencode db` command, and writes only its cached
-snapshot to Noctalia's plugin data directory. The OpenCode API key is never
-sent, logged, or stored in the plugin cache.
+The plugin does not make network requests and never reads credential files. It
+runs the local `opencode db` command, and writes only its cached snapshot to
+Noctalia's plugin data directory.
 
 Built with Deepseek V4 Flash 0731 and highly inspired by [OpenQuota](https://github.com/deviffyy/OpenQuota)
