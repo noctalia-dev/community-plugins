@@ -12,7 +12,7 @@
 
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.1.1"
+version = "0.1.2"
 plugin_api = 16
 author = "icefish"
 license = "MIT"
@@ -99,6 +99,13 @@ entry = "service.luau"
 [[widget]]
 id = "bar"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_battery_icon"
+  type = "bool"
+  label_key = "widget.show_battery_icon.label"
+  description_key = "widget.show_battery_icon.description"
+  default = true
 
 # Right-click opens settings via onRightClick in the script
 # (noctalia.openSettings). Left-click toggles the details panel. We deliberately

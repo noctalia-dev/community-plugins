@@ -57,6 +57,7 @@ local function render()
 	local backend = noctalia.state.get("pc.backend") or { available = false }
 	local d = selectedDevice()
 	local enableCharging = noctalia.getConfig("enable_charging_animation")
+	local showBatteryIcon = noctalia.getConfig("show_battery_icon")
 
 	local children
 	if not backend.available then
@@ -93,8 +94,11 @@ local function render()
 			local batColor = "on_surface"
 			if charging then batColor = "primary"
 			elseif charge <= 20 then batColor = "error" end
-			table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
-				size = 12, color = batColor }))
+
+  		if showBatteryIcon then
+  			table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
+					size = 12, color = batColor }))
+			end
 			table.insert(kids, ui.label({
 				text = tostring(charge) .. "%", fontSize = 11,
 				fontWeight = "medium", color = batColor,
