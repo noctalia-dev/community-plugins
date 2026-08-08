@@ -1,0 +1,170 @@
+{
+  "state": {
+    "tip": {
+      "online": "OpenCode: connected",
+      "offline": "OpenCode: offline",
+      "starting": "OpenCode: starting server…",
+      "busy": "OpenCode: processing…",
+      "waiting_permission": "OpenCode: waiting for permission"
+    },
+    "unread": "{count} unread response(s)"
+  },
+  "chooser": {
+    "title": "OpenCode — Sessions",
+    "refresh": "Refresh",
+    "new_session": "New Session",
+    "empty": "No sessions yet. Create one to get started.",
+    "open": "Open session",
+    "delete": "Delete session",
+    "delete_confirm": "Confirm delete",
+    "delete_cancel": "Cancel",
+    "search": "Search sessions…",
+    "no_match": "No sessions match your search."
+  },
+  "chat": {
+    "title": "OpenCode Chat",
+    "you": "You",
+    "assistant": "Assistant",
+    "empty": "No messages yet. Send a prompt to begin.",
+    "thinking": "Thinking…",
+    "stop": "Stop",
+    "send": "Send (Ctrl+Enter)",
+    "refresh": "Refresh",
+    "open_terminal": "Open in terminal",
+    "back": "Back to sessions",
+    "placeholder": "Ask OpenCode anything…  (Enter = newline, Ctrl+Enter = send)",
+    "select_model": "Model",
+    "select_agent": "Agent",
+    "dismiss_error": "Dismiss"
+  },
+  "permission": {
+    "title": "Permission Required",
+    "default_message": "OpenCode wants to perform an action that requires your approval.",
+    "allow": "Allow",
+    "allow_remember": "Always Allow",
+    "deny": "Deny"
+  },
+  "mcp": {
+    "title": "MCP Servers",
+    "connected": "Connected",
+    "failed": "Failed",
+    "disabled": "Disabled"
+  },
+  "error": {
+    "exe_not_found": "opencode not found on PATH",
+    "exe_not_found_detail": "Install opencode and ensure it is available on your PATH.",
+    "server_failed": "Failed to start OpenCode server",
+    "server_timeout": "Server did not start in time",
+    "server_timeout_detail": "The server did not become healthy within the timeout period.",
+    "external_not_configured": "External server URL not configured",
+    "connection_failed": "Could not connect to server",
+    "connection_failed_detail": "The server did not respond to a health check.",
+    "session_not_found": "Session not found",
+    "create_session_failed": "Failed to create session",
+    "delete_session_failed": "Failed to delete session",
+    "abort_failed": "Failed to abort session",
+    "prompt_failed": "Failed to send prompt",
+    "permission_failed": "Failed to respond to permission",
+    "question_failed": "Failed to answer question",
+    "session_error": "Session encountered an error",
+    "session_error_detail": "The agent stopped due to an error.",
+    "sse_disconnected": "Event stream disconnected"
+  },
+  "notify": {
+    "title": "OpenCode",
+    "new_session": "Creating new session…",
+    "permission_title": "Permission Request",
+    "permission_body": "OpenCode is waiting for your approval."
+  },
+  "time": {
+    "just_now": "just now",
+    "minutes_ago": "{n}m ago",
+    "hours_ago": "{n}h ago",
+    "days_ago": "{n}d ago"
+  },
+  "settings": {
+    "server_mode": {
+      "label": "Server Mode",
+      "description": "How the plugin connects to OpenCode. 'auto' manages a local server; 'external' connects to a user-specified URL."
+    },
+    "server_host": {
+      "label": "Server Host",
+      "description": "Hostname the managed server binds to. Default: 127.0.0.1 (loopback only)."
+    },
+    "server_port": {
+      "label": "Server Port",
+      "description": "Port the managed server listens on. Default: 4096."
+    },
+    "server_url": {
+      "label": "External Server URL",
+      "description": "Base URL of an external OpenCode server (e.g., http://127.0.0.1:4096). Used when Server Mode is 'external'."
+    },
+    "default_workspace": {
+      "label": "Default Workspace",
+      "description": "Default working directory for new sessions. Leave empty to use the current directory."
+    },
+    "default_model": {
+      "label": "Default Model",
+      "description": "Default model in 'provider/model' format (e.g., 'anthropic/claude-3-5-sonnet-20241022'). Leave empty to use server default."
+    },
+    "default_agent": {
+      "label": "Default Agent",
+      "description": "Default agent to use for new sessions. Default: 'build'."
+    },
+    "auto_start": {
+      "label": "Auto-start Server",
+      "description": "Automatically start the managed server when the plugin loads."
+    },
+    "show_tool_calls": {
+      "label": "Show Tool Calls",
+      "description": "Display tool call status cards in the chat view."
+    },
+    "show_reasoning": {
+      "label": "Show Reasoning",
+      "description": "Display reasoning/thinking text in the chat view."
+    },
+    "notify_on_complete": {
+      "label": "Notify on Completion",
+      "description": "Show a desktop notification when a response completes."
+    },
+    "max_messages_load": {
+      "label": "Max Messages to Load",
+      "description": "Messages loaded per session (1–100). Set the slider to its top notch for unlimited. Default: 50."
+    },
+    "debug_logging": {
+      "label": "Debug Logging",
+      "description": "Print debug messages to the Noctalia log."
+    },
+    "language": {
+      "label": "Language",
+      "description": "Language for this plugin's UI. 'Auto' follows the Noctalia shell language.",
+      "options": {
+        "auto": "Auto (follow shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "ui_mode": {
+      "label": "UI Mode",
+      "description": "Full shows a spacious layout; Compact tightens padding, fonts and hides secondary details to keep the panel minimal.",
+      "options": {
+        "full": "Full",
+        "compact": "Compact"
+      }
+    },
+    "panel_mode": {
+      "label": "Panel Layout",
+      "description": "Fill right opens a full-height panel pinned to the right edge; Compact shows the original floating panel near the bar click.",
+      "options": {
+        "fill_right": "Full-height right side",
+        "compact": "Compact (near click)"
+      }
+    }
+  },
+  "question": {
+    "title": "Question",
+    "custom": "Custom Answer",
+    "cancel": "Cancel",
+    "submit": "Submit"
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "state": {
+    "tip": {
+      "online": "OpenCode: đã kết nối",
+      "offline": "OpenCode: ngắt kết nối",
+      "starting": "OpenCode: đang khởi động…",
+      "busy": "OpenCode: đang xử lý…",
+      "waiting_permission": "OpenCode: chờ cấp quyền"
+    },
+    "unread": "{count} phản hồi chưa đọc"
+  },
+  "chooser": {
+    "title": "OpenCode — Phiên",
+    "refresh": "Làm mới",
+    "new_session": "Tạo phiên mới",
+    "empty": "Chưa có phiên nào. Tạo một phiên để bắt đầu.",
+    "open": "Mở phiên",
+    "delete": "Xóa phiên",
+    "delete_confirm": "Xác nhận xóa",
+    "delete_cancel": "Hủy",
+    "search": "Tìm phiên…",
+    "no_match": "Không có phiên nào khớp."
+  },
+  "chat": {
+    "title": "OpenCode Chat",
+    "you": "Bạn",
+    "assistant": "Trợ lý",
+    "empty": "Chưa có tin nhắn. Gửi prompt để bắt đầu.",
+    "thinking": "Đang suy nghĩ…",
+    "stop": "Dừng",
+    "send": "Gửi (Ctrl+Enter)",
+    "refresh": "Làm mới",
+    "open_terminal": "Mở trong terminal",
+    "back": "Quay lại danh sách phiên",
+    "placeholder": "Hỏi OpenCode bất cứ điều gì…  (Enter = xuống dòng, Ctrl+Enter = gửi)",
+    "select_model": "Mô hình",
+    "select_agent": "Agent",
+    "dismiss_error": "Bỏ qua"
+  },
+  "permission": {
+    "title": "Cần cấp quyền",
+    "default_message": "OpenCode muốn thực hiện một hành động cần sự chấp thuận của bạn.",
+    "allow": "Cho phép",
+    "allow_remember": "Luôn cho phép",
+    "deny": "Từ chối"
+  },
+  "mcp": {
+    "title": "Máy chủ MCP",
+    "connected": "Đã kết nối",
+    "failed": "Lỗi",
+    "disabled": "Đã tắt"
+  },
+  "error": {
+    "exe_not_found": "Không tìm thấy opencode trên PATH",
+    "exe_not_found_detail": "Cài đặt opencode và đảm bảo nó có trên PATH.",
+    "server_failed": "Không thể khởi động máy chủ OpenCode",
+    "server_timeout": "Máy chủ không khởi động kịp thời gian",
+    "server_timeout_detail": "Máy chủ không trở nên sỏng trong khoảng thời gian chờ.",
+    "external_not_configured": "URL máy chủ bên ngoài chưa được cấu hình",
+    "connection_failed": "Không thể kết nối đến máy chụ",
+    "connection_failed_detail": "Máy chủ không phản hồi health check.",
+    "session_not_found": "Không tìm thấy phiên",
+    "create_session_failed": "Không thể tạo phiên",
+    "delete_session_failed": "Không thể xóa phiên",
+    "abort_failed": "Không thể hủy phiên",
+    "prompt_failed": "Không thể gửi prompt",
+    "permission_failed": "Không thể phản hồi yêu cầu quyền",
+    "question_failed": "Không thể trả lời câu hỏi",
+    "session_error": "Phiên gặp lỗi",
+    "session_error_detail": "Agent đã dừng do gặp lỗi.",
+    "sse_disconnected": "Luồng sự kiện đã ngắt kết nối"
+  },
+  "notify": {
+    "title": "OpenCode",
+    "new_session": "Đang tạo phiên mới…",
+    "permission_title": "Yêu cầu quyền",
+    "permission_body": "OpenCode đang chờ bạn phê duyệt."
+  },
+  "time": {
+    "just_now": "vừa xong",
+    "minutes_ago": "{n} phút trước",
+    "hours_ago": "{n} giờ trước",
+    "days_ago": "{n} ngày trước"
+  },
+  "settings": {
+    "server_mode": {
+      "label": "Chế độ máy chủ",
+      "description": "Cách plugin kết nối đến OpenCode. 'auto' quản lý máy chụ cục bộ; 'external' kết nối đến URL do người dùng chỉ định."
+    },
+    "server_host": {
+      "label": "Máy chủ host",
+      "description": "Hostname máy chủ cục bộ bind vào. Mặc định: 127.0.0.1 (chỉ loopback)."
+    },
+    "server_port": {
+      "label": "Cổng máy chủ",
+      "description": "Cổng máy chủ cục bộ lắng nghe. Mặc định: 4096."
+    },
+    "server_url": {
+      "label": "URL máy chủ bên ngoài",
+      "description": "URL cơ sở của máy chủ OpenCode bên ngoài (ví dụ: http://127.0.0.1:4096). Dùng khi chế độ máy chủ là 'external'."
+    },
+    "default_workspace": {
+      "label": "Thư mục làm việc mặc định",
+      "description": "Thư mục làm việc mặc định cho phiên mới. Để trống để dùng thư mục hiện tại."
+    },
+    "default_model": {
+      "label": "Model mặc định",
+      "description": "Model mặc định theo định dạng 'provider/model' (ví dụ: 'anthropic/claude-3-5-sonnet-20241022'). Để trống để dùng mặc định của máy chủ."
+    },
+    "default_agent": {
+      "label": "Agent mặc định",
+      "description": "Agent mặc định cho phiên mới. Mặc định: 'build'."
+    },
+    "auto_start": {
+      "label": "Tự động khởi động",
+      "description": "Tự động khởi động máy chủ cục bộ khi plugin tải."
+    },
+    "show_tool_calls": {
+      "label": "Hiện tool calls",
+      "description": "Hiển thị trạng thái tool call trong khung chat."
+    },
+    "show_reasoning": {
+      "label": "Hiện reasoning",
+      "description": "Hiển thị nội dung reasoning/thinking trong khung chat."
+    },
+    "notify_on_complete": {
+      "label": "Thông báo khi hoàn tất",
+      "description": "Hiển thị thông báo trên desktop khi phản hồi hoàn tất."
+    },
+    "max_messages_load": {
+      "label": "Số tin nhắn tải tối đa",
+      "description": "Số tin nhắn tải mỗi phiên (1–100). Kéo thanh trượt lên mức cao nhất để không giới hạn. Mặc định: 50."
+    },
+    "debug_logging": {
+      "label": "Gỡ lỗi",
+      "description": "In thông tin gỡ lỗi vào nhật ký Noctalia."
+    },
+    "language": {
+      "label": "Ngôn ngữ",
+      "description": "Ngôn ngữ giao diện của plugin này. 'Tự động' theo ngôn ngữ của Noctalia.",
+      "options": {
+        "auto": "Tự động (theo shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "ui_mode": {
+      "label": "Chế độ giao diện",
+      "description": "Full hiển thị bố cục rộng rãi; Compact thu nhỏ padding, chữ và ẩn chi tiết phụ để panel gọn gàng tối giản.",
+      "options": {
+        "full": "Full",
+        "compact": "Compact"
+      }
+    },
+    "panel_mode": {
+      "label": "Kiểu panel",
+      "description": "Full-height sát phải mở panel cao trọn màn hình ghim vào mép phải; Compact hiển thị panel nổi gần chỗ bấm trên thanh bar.",
+      "options": {
+        "fill_right": "Thanh cao full màn bên phải",
+        "compact": "Gọn (gần điểm bấm)"
+      }
+    }
+  },
+  "question": {
+    "title": "Câu hỏi",
+    "custom": "Trả lời tùy chỉnh",
+    "cancel": "Hủy",
+    "submit": "Gửi"
+  }
+}
