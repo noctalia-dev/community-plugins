@@ -32,7 +32,7 @@ end
 local function getGlyph()
     if status == "Charging" then
         glyph = "battery-charging"
-    elseif status == "Full" or status == "Not Charging" then
+    elseif status == "Full" or status == "Not charging" then
         glyph = "battery-plugged"
     elseif status == "Unknown" then
         glyph = "battery-exclamation"
