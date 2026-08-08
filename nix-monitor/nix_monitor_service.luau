@@ -37,6 +37,7 @@ end
 local branch = cfg("branch")
 local updateCheckInterval = cfg("update_check_interval")
 local updateCheckDurationThreshold = cfg("update_check_duration_threshold")
+local generationsCheckInterval = cfg("generation_check_interval")
 local systemStatsCheckInterval = cfg("system_stats_check_interval")
 local systemStatsCheckDurationThreshold = cfg("system_stats_check_duration_threshold")
 local stateDir = noctalia.pluginDataDir() or "/tmp/nix-monitor"
@@ -292,7 +293,7 @@ function update()
 	end
 
 	-- Generations check
-	if (os.time() - getState("lastGenerationsCheckTime")) >= 10 then
+	if (os.time() - getState("lastGenerationsCheckTime")) >= 60 * generationsCheckInterval then
 		checkGenerations()
 	end
 
