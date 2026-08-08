@@ -870,6 +870,20 @@ end
 
 -- ── messaging ────────────────────────────────────────────────────────────────
 
+-- Only send a model override when the model actually exists in the provider
+-- list the server reported. A stale/unknown override (e.g. a configured
+-- `default_model` pointing at a provider/model the server can't run) otherwise
+-- gets sent on every turn, failing the session repeatedly — while the CLI, which
+-- sends no override, works fine. When unknown, fall back to no override so the
+-- server uses the session's own default.
+local function model_is_known(model)
+    if type(model) ~= "string" or model == "" then return false end
+    for _, o in ipairs(model_options) do
+        if o.value == model then return true end
+    end
+    return false
+end
+
 local function send_prompt(session_id, text, model, agent)
     if not safe_id(session_id) then return end
     if type(text) ~= "string" or text == "" then return end
@@ -1337,7 +1351,23 @@ function onIpc(event, payload)
         end
     elseif event == "send_prompt" then
         if active_session then
-            local model = (selected_model and selected_model ~= "") and selected_model or get_default_model()
+            local model = ""
+            if selected_model and selected_model ~= "" then
+                -- An explicit pick comes from the picker (always known); guard anyway.
+                if model_is_known(selected_model) then
+                    model = selected_model
+                end
+            else
+                -- Config default only if the server actually reports that model.
+                -- Warn when the configured default is bogus so the user knows to
+                -- fix the setting instead of silently running a different model.
+                local dm = get_default_model()
+                if model_is_known(dm) then
+                    model = dm
+                elseif dm ~= "" then
+                    noctalia.log("opencode-companion: default_model " .. tostring(dm) .. " not available; sending without an override")
+                end
+            end
             local agent = (selected_agent and selected_agent ~= "") and selected_agent or get_default_agent()
             send_prompt(active_session.id, payload, model, agent)
         end

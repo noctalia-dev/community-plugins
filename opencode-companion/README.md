@@ -9,7 +9,7 @@ A Noctalia v5 plugin that puts [OpenCode](https://opencode.ai/) on your bar — 
 | Field      | Value                                                                   |
 | ---------- | ----------------------------------------------------------------------- |
 | ID         | `weinguyen/opencode-companion`                                          |
-| Entries    | Bar widget: `widget`; panels: `panel`, `panel-fill`; service: `service` |
+| Entries    | Bar widget: `widget`; panels: `panel-fill`, `panel`; service: `service` |
 | Plugin API | 3                                                                       |
 
 Built and tested against:
@@ -71,10 +71,10 @@ Type a prompt in the composer and press Enter or click Send.
 ### IPC
 
 ```sh
-# Toggle the side bar panel
+# Toggle the panel (full-height, right side)
 noctalia msg panel-toggle weinguyen/opencode-companion:panel-fill
 
-# Toggle the floating panel
+# Toggle the panel (compact, near click)
 noctalia msg panel-toggle weinguyen/opencode-companion:panel
 
 # Force refresh
