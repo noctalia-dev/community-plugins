@@ -1,0 +1,120 @@
+{
+  "title": "Obsidian",
+  "settings": {
+    "vault_path": {
+      "label": "Vault path",
+      "description": "Root folder of the Obsidian vault."
+    },
+    "vault_name": {
+      "label": "Vault name (URI)",
+      "description": "Name used in obsidian:// links. Empty = folder name."
+    },
+    "daily_folder": {
+      "label": "Daily notes folder",
+      "description": "Relative to vault root (empty = vault root)."
+    },
+    "daily_format": {
+      "label": "Daily filename format",
+      "description": "strftime pattern without .md (default %Y-%m-%d)."
+    },
+    "git_commit_message": {
+      "label": "Default commit message",
+      "description": "Used when Commit is clicked with an empty message field."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to rescan recent notes and git status."
+    },
+    "notify_on_action": {
+      "label": "Notify on actions",
+      "description": "Desktop notification after capture / git actions."
+    },
+    "show_dirty": {
+      "label": "Show dirty count",
+      "description": "Show number of changed git files on the bar."
+    }
+  },
+  "widget": {
+    "tooltip_ok": "{vault} · daily {daily} · git {git}",
+    "tooltip_missing": "Vault path missing or not a vault",
+    "tooltip_nogit": "{vault} · no git repo",
+    "refresh_requested": "Refreshing vault…"
+  },
+  "panel": {
+    "loading": "Scanning vault…",
+    "busy": "Working…",
+    "empty": "Nothing to show.",
+    "select_hint": "Select a note for actions.",
+    "updated": "Updated {time}",
+    "vault": "{name}",
+    "summary": "Daily {daily} · {recent} recent · git {git}",
+    "capture_placeholder": "Quick note (appended to daily with timestamp)…",
+    "commit_placeholder": "Commit message (optional)…",
+    "daily_missing": "Daily note will be created on first capture.",
+    "daily_path": "Daily: {path}",
+    "git_branch": "Branch {branch} · {ahead}↑ {behind}↓ · {dirty} dirty",
+    "git_clean": "Working tree clean",
+    "git_nogit": "Not a git repository",
+    "git_files": "Changed files",
+    "git_in_progress": "Git {kind} in progress — abort before other actions"
+  },
+  "tabs": {
+    "daily": "Daily",
+    "recent": "Recent",
+    "git": "Git"
+  },
+  "filter": {
+    "placeholder": "Filter notes…"
+  },
+  "actions": {
+    "open_vault": "Open vault",
+    "open_daily": "Open daily",
+    "open_note": "Open",
+    "capture": "Add to daily",
+    "refresh": "Refresh",
+    "copy_link": "Copy [[link]]",
+    "copy_path": "Copy path",
+    "git_status": "Status",
+    "git_commit": "Commit",
+    "git_pull": "Pull",
+    "git_push": "Push",
+    "git_sync": "Pull + push",
+    "git_abort": "Abort rebase/merge"
+  },
+  "result": {
+    "success": "Done",
+    "failed": "Failed: {error}",
+    "busy": "Another operation is running.",
+    "missing_vault": "Vault not found. Set vault path in settings.",
+    "invalid_daily_path": "Daily note path is invalid or outside the vault ({error}).",
+    "invalid_note_path": "Note path is invalid or outside the vault ({error}).",
+    "captured": "Appended to {name}",
+    "opened": "Opening…",
+    "copied": "Copied {name}",
+    "git_clean": "Working tree clean",
+    "git_committed": "Committed ({n} files)",
+    "git_nothing": "Nothing to commit",
+    "git_pulled": "Pull finished",
+    "git_pushed": "Push finished",
+    "git_synced": "Pull + push finished",
+    "git_in_progress": "Git {kind} in progress — use Abort first",
+    "git_not_in_progress": "No rebase or merge in progress",
+    "git_aborted": "Aborted {kind}"
+  },
+  "launcher": {
+    "loading": "Loading vault…",
+    "missing": "Vault not configured",
+    "cat": {
+      "daily": "Open daily note",
+      "daily-sub": "Today’s note in Obsidian",
+      "capture": "Capture…",
+      "capture-sub": "Type: /ob capture your text",
+      "git": "Git status",
+      "git-sub": "Dirty / ahead / behind",
+      "panel": "Open panel",
+      "panel-sub": "Full Obsidian manager",
+      "refresh": "Refresh",
+      "refresh-sub": "Rescan vault + git"
+    }
+  }
+}
