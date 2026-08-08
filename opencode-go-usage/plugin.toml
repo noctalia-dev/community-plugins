@@ -1,0 +1,94 @@
+id = "elrondforwin/opencode-go-usage"
+name = "OpenCode Go Usage"
+version = "1.0.0"
+plugin_api = 19
+author = "elrondforwin"
+license = "MIT"
+icon = "activity"
+description = "OpenCode API usage and Go plan usage limits in your bar, with a detail panel."
+dependencies = ["opencode"]
+tags = ["bar", "panel", "service", "ai", "productivity"]
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+
+[[setting]]
+key = "show_limits"
+type = "bool"
+label_key = "settings.show_limits.label"
+description_key = "settings.show_limits.description"
+default = true
+
+[[setting]]
+key = "show_usage"
+type = "bool"
+label_key = "settings.show_usage.label"
+description_key = "settings.show_usage.description"
+default = true
+
+[[setting]]
+key = "show_percentage_label"
+type = "bool"
+label_key = "settings.show_percentage_label.label"
+description_key = "settings.show_percentage_label.description"
+default = true
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "remaining"
+options = [
+  { value = "remaining", label_key = "settings.display_mode.options.remaining" },
+  { value = "used", label_key = "settings.display_mode.options.used" },
+]
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "pin_window"
+  type = "select"
+  label_key = "settings.pin_window.label"
+  description_key = "settings.pin_window.description"
+  default = "rolling"
+  options = [
+    { value = "rolling", label_key = "settings.pin_window.options.rolling" },
+    { value = "weekly", label_key = "settings.pin_window.options.weekly" },
+    { value = "monthly", label_key = "settings.pin_window.options.monthly" },
+  ]
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "select"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "activity"
+  options = [
+    { value = "activity", label_key = "settings.glyph.options.activity" },
+    { value = "sparkles", label_key = "settings.glyph.options.sparkles" },
+    { value = "cpu", label_key = "settings.glyph.options.cpu" },
+    { value = "robot", label_key = "settings.glyph.options.robot" },
+    { value = "wallet", label_key = "settings.glyph.options.wallet" },
+  ]
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "usage-service"
+entry = "service.luau"
