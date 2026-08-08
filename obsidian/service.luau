@@ -469,13 +469,18 @@ local function parseRecent(stdout)
   for line in (tostring(stdout or "") .. "\n"):gmatch("(.-)\n") do
     local ts, rel = line:match("^([%d%.]+)\t(.+)$")
     if rel and rel ~= "" then
-      local name = rel:match("([^/]+)$") or rel
-      table.insert(recent, {
-        id = rel,
-        rel = rel,
-        name = name:gsub("%.md$", ""),
-        mtime = math.floor(tonumber(ts) or 0),
-      })
+      -- Drop any path find might surface that fails strict relative rules
+      -- (absolute, .., NUL, etc.). open_note also re-checks + assertSafeVaultTarget.
+      local clean = normalizeRelPath(rel)
+      if clean ~= nil and clean ~= "" then
+        local name = clean:match("([^/]+)$") or clean
+        table.insert(recent, {
+          id = clean,
+          rel = clean,
+          name = name:gsub("%.md$", ""),
+          mtime = math.floor(tonumber(ts) or 0),
+        })
+      end
     end
   end
   return recent
@@ -629,8 +634,9 @@ refreshAll = function()
     end
   end
 
-  -- recent files
-  local recentCmd = "find "
+  -- recent files: -P never follows symlinks (GNU default, explicit for review/portability).
+  -- -type f excludes symlink notes; symlink dirs are not descended into.
+  local recentCmd = "find -P "
     .. shellQuote(root)
     .. " -type f -name '*.md'"
     .. " ! -path '*/.obsidian/*' ! -path '*/.git/*' ! -path '*/.claudian/*'"

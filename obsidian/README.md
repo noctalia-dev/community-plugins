@@ -74,8 +74,8 @@ noctalia msg plugin davemhammer/obsidian:service all sync
 
 ## Notes
 
-- **Filesystem:** reads/writes daily note markdown **only under** the configured vault; `daily_folder` / note paths reject `..` and absolute paths; existing path components that are symlinks are refused; `realpath` must keep the target under the vault. Scans `*.md` mtimes (skips `.obsidian`, `.git`, `.claudian`).
-- **Processes:** `find`, `sort`, `head` (recent notes); `realpath` (path confinement); `git status|add|commit|pull|push`; `xdg-open` for Obsidian URIs.
+- **Filesystem:** reads/writes daily note markdown **only under** the configured vault; `daily_folder` / note paths reject `..` and absolute paths; existing path components that are symlinks are refused; `realpath` must keep the target under the vault. Recent scan uses `find -P` (never follows symlinks) for `*.md` mtimes (skips `.obsidian`, `.git`, `.claudian`); listed paths are re-normalized before display and again before open.
+- **Processes:** `find -P`, `sort`, `head` (recent notes); `realpath` (path confinement); `git status|add|commit|pull|push`; `xdg-open` for Obsidian URIs.
 - **Vault required:** capture and open-daily refuse to create files unless `vault_path` is a real vault (contains `.obsidian`).
 - **Git pull** uses `git pull --no-rebase --autostash` so the vault is not left mid-rebase. If a rebase/merge is already in progress, use **Abort rebase/merge** on the Git tab.
 - Does not talk to Obsidian Sync cloud APIs; git is your sync layer.
