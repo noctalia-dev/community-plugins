@@ -1,0 +1,107 @@
+{
+  "title": "VPN",
+  "action": {
+    "start": "Start",
+    "stop": "Stop",
+    "add": "Add",
+    "save": "Save",
+    "delete": "Delete",
+    "run-test": "Run test",
+    "reset": "Reset",
+    "confirm": "Confirm"
+  },
+  "panel": {
+    "routing": "Routing",
+    "via": "Via",
+    "servers": "Servers",
+    "no-servers": "No servers configured",
+    "starting": "Starting backend…",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "fallback-server-name": "Server"
+  },
+  "editor": {
+    "new": "New server",
+    "edit": "Edit server",
+    "protocol": "Protocol",
+    "name": "Name",
+    "host": "Host",
+    "port": "Port",
+    "user": "User",
+    "password": "Password",
+    "keyfile": "Key file",
+    "address": "Address",
+    "uuid": "UUID",
+    "transport": "Transport",
+    "security": "Security",
+    "sni": "SNI",
+    "flow": "Flow",
+    "pbk": "Public key (pbk)",
+    "sid": "Short ID (sid)",
+    "fp": "Fingerprint",
+    "path": "Path",
+    "wshost": "WS/HTTP Host",
+    "alterid": "alterId",
+    "method": "Method",
+    "country": "Country code (for the flag)",
+    "keep": "leave empty to keep current"
+  },
+  "rules": {
+    "title": "Routing & rules",
+    "killswitch": "Kill switch",
+    "killswitch-desc": "Block all traffic when the proxy is down",
+    "presets": "Country presets",
+    "custom": "Custom rules",
+    "none": "No custom rules",
+    "dns-check": "Check DNS",
+    "dns-hint": "DNS leak not checked yet",
+    "dns-leak": "DNS leak",
+    "dns-ok": "No DNS leak",
+    "reset-servers": "Reset all servers",
+    "reset-servers-desc": "Remove every server. Rules and settings stay."
+  },
+  "subs": {
+    "title": "Subscriptions",
+    "name": "Name (optional)",
+    "none": "No subscriptions"
+  },
+  "logs": {
+    "title": "Logs",
+    "empty": "No logs yet"
+  },
+  "shortcut": {
+    "on": "VPN On",
+    "off": "VPN Off"
+  },
+  "notice": {
+    "tun": "TUN mode may prompt for administrator rights"
+  },
+  "error": {
+    "no-server": "No server selected",
+    "clipboard": "Clipboard is empty"
+  },
+  "settings": {
+    "backend_python": {
+      "label": "Backend Python",
+      "description": "Python 3 executable with the backend dependencies installed"
+    },
+    "control_port": {
+      "label": "Control port",
+      "description": "Localhost port for the backend HTTP control API"
+    },
+    "show_ping": {
+      "label": "Show ping in bar"
+    },
+    "show_traffic": {
+      "label": "Show traffic in bar"
+    },
+    "auto_start": {
+      "label": "Auto-connect on start",
+      "description": "Connect the active server automatically when the plugin loads"
+    },
+    "geoip_country": {
+      "label": "Detect server country",
+      "description": "Look up each server's country by IP to show its flag. Sends the server address to api.country.is."
+    }
+  }
+}
