@@ -1,4 +1,4 @@
--- OpenCode Companion service — the headless backend and single source of truth.
+    -- OpenCode Companion service — the headless backend and single source of truth.
 --
 -- Responsibilities:
 --   • Manage the OpenCode server lifecycle (auto or external mode)
@@ -1102,8 +1102,8 @@ end
 function SSE.handle_event(event_type, event)
     debug_log("SSE event: " .. tostring(event_type))
 
-    if event_type == "server.connected" then
-        -- Initial connection event
+    if event_type == "server.connected" or event_type == "server.heartbeat" then
+        -- Connection lifecycle event; heartbeat is a keepalive ping — no-op.
         return
     end
 
