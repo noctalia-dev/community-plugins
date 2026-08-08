@@ -77,3 +77,5 @@ The plugin does not make network requests. It reads `auth.json` to detect a Go
 login, runs the local `opencode db` command, and writes only its cached
 snapshot to Noctalia's plugin data directory. The OpenCode API key is never
 sent, logged, or stored in the plugin cache.
+
+Built with Deepseek V4 Flash 0731 and highly inspired by [OpenQuota](https://github.com/deviffyy/OpenQuota)
