@@ -1,0 +1,86 @@
+# Tailscale VPN status, peers, and exit-node control.
+
+id = "davemhammer/tailscale"
+name = "Tailscale"
+version = "1.0.5"
+plugin_api = 10
+author = "davemhammer"
+license = "MIT"
+dependencies = ["tailscale", "jq", "xdg-open"]
+tags = ["network", "utility", "bar", "panel", "service", "launcher"]
+icon = "circles"
+description = "Manage Tailscale connection, peers, exit nodes, and preference toggles."
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 10
+min = 3
+max = 120
+
+[[setting]]
+key = "notify_on_peer_change"
+type = "bool"
+label_key = "settings.notify_on_peer_change.label"
+description_key = "settings.notify_on_peer_change.description"
+default = true
+
+[[setting]]
+key = "tailscale_bin"
+type = "string"
+label_key = "settings.tailscale_bin.label"
+description_key = "settings.tailscale_bin.description"
+default = "tailscale"
+advanced = true
+
+[[setting]]
+key = "admin_url"
+type = "string"
+label_key = "settings.admin_url.label"
+description_key = "settings.admin_url.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "ssh_user"
+type = "string"
+label_key = "settings.ssh_user.label"
+description_key = "settings.ssh_user.description"
+default = ""
+advanced = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_counts"
+  type = "bool"
+  label_key = "settings.show_counts.label"
+  description_key = "settings.show_counts.description"
+  default = true
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 720
+height = 640
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "ts"
+entry = "launcher.luau"
+prefix = "ts"
+glyph = "circles"
+include_in_global_search = false
+debounce_ms = 80

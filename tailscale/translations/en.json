@@ -1,0 +1,165 @@
+{
+  "title": "Tailscale",
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to poll tailscale status."
+    },
+    "notify_on_peer_change": {
+      "label": "Notify on peer online/offline",
+      "description": "Desktop notification when a peer changes connectivity."
+    },
+    "tailscale_bin": {
+      "label": "tailscale binary",
+      "description": "Command name or absolute path to the tailscale CLI."
+    },
+    "admin_url": {
+      "label": "Admin console URL",
+      "description": "Override the admin machines URL opened from the panel."
+    },
+    "ssh_user": {
+      "label": "Default SSH user",
+      "description": "Optional user for tailscale ssh (empty uses the CLI default)."
+    },
+    "show_counts": {
+      "label": "Show counts on bar",
+      "description": "Display online/total peer counts on the widget."
+    },
+    "ok_color": {
+      "label": "Connected color (green)"
+    },
+    "warn_color": {
+      "label": "Disconnected color (grey)"
+    }
+  },
+  "colors": {
+    "tertiary": "Tertiary",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "error": "Error",
+    "muted": "Muted"
+  },
+  "widget": {
+    "tooltip_ok": "{state} · {online}/{total} peers online · exit {exit}",
+    "tooltip_stopped": "Tailscale is stopped · {total} known peers",
+    "tooltip_missing": "tailscale CLI not found",
+    "tooltip_down": "Tailscale unavailable: {error}",
+    "refresh_requested": "Refreshing Tailscale…"
+  },
+  "panel": {
+    "loading": "Querying Tailscale…",
+    "busy": "Working…",
+    "empty": "No items match the current filter.",
+    "select_hint": "Select an item for actions.",
+    "updated": "Updated {time}",
+    "host": "{host}",
+    "summary": "{state} · {online}/{total} online · exit {exit}",
+    "health": "{msg}",
+    "not_installed": "tailscale is not installed or not on PATH."
+  },
+  "tabs": {
+    "status": "Status",
+    "peers": "Peers",
+    "exit": "Exit nodes"
+  },
+  "filter": {
+    "placeholder": "Filter…  e.g. edge  or  !online"
+  },
+  "status": {
+    "state": "State: {state}",
+    "tailnet": "Tailnet: {name}",
+    "ips": "IPs: {v4}  {v6}",
+    "dns": "DNS: {dns}",
+    "exit": "Exit node: {name}",
+    "version": "Version: {version}",
+    "prefs": "Shields {shields} · Routes {routes} · SSH {ssh} · DNS {dns}",
+    "on": "on",
+    "off": "off",
+    "none": "none"
+  },
+  "peer": {
+    "detail": "{os} · {relay} · {v4}",
+    "traffic": "↓{rx} ↑{tx}"
+  },
+  "exit": {
+    "detail": "{ip} · {status}"
+  },
+  "actions": {
+    "up": "Connect",
+    "down": "Disconnect",
+    "refresh": "Refresh",
+    "open_admin": "Admin",
+    "clear_exit": "Clear exit",
+    "use_exit": "Use exit",
+    "copy_ip": "Copy IP",
+    "copy_dns": "Copy DNS",
+    "ping": "Ping",
+    "ssh": "SSH",
+    "shields_on": "Shields up",
+    "shields_off": "Shields down",
+    "routes_on": "Accept routes",
+    "routes_off": "Ignore routes",
+    "ssh_on": "Enable SSH",
+    "ssh_off": "Disable SSH",
+    "advertise_on": "Advertise exit",
+    "advertise_off": "Stop advertising",
+    "lan_on": "Allow LAN",
+    "lan_off": "Block LAN"
+  },
+  "result": {
+    "success": "Done",
+    "failed": "Failed: {error}",
+    "busy": "Another operation is running.",
+    "missing": "tailscale CLI not found.",
+    "up": "Tailscale connected",
+    "down": "Tailscale disconnected",
+    "exit_set": "Exit node set to {name}",
+    "exit_cleared": "Exit node cleared",
+    "shields_on": "Shields up enabled",
+    "shields_off": "Shields up disabled",
+    "ssh_on": "Tailscale SSH enabled",
+    "ssh_off": "Tailscale SSH disabled",
+    "routes_on": "Accepting subnet routes",
+    "routes_off": "Not accepting subnet routes",
+    "advertise_on": "Advertising as exit node",
+    "advertise_off": "No longer advertising exit node",
+    "lan_on": "LAN access allowed with exit node",
+    "lan_off": "LAN access blocked with exit node",
+    "ping_started": "Pinging {name}…",
+    "ssh_started": "Opening SSH to {name}…",
+    "copied": "Copied {name}",
+    "admin_opened": "Opening admin console…",
+    "peer_online": "{name} is online",
+    "peer_offline": "{name} went offline"
+  },
+  "launcher": {
+    "loading": "Loading Tailscale…",
+    "missing": "tailscale not found",
+    "cat": {
+      "status": "Status",
+      "status-sub": "Connection summary",
+      "peers": "Peers",
+      "peers-sub": "Browse machines on the tailnet",
+      "exit": "Exit nodes",
+      "exit-sub": "Choose or clear an exit node",
+      "up": "Connect",
+      "up-sub": "tailscale up",
+      "down": "Disconnect",
+      "down-sub": "tailscale down",
+      "panel": "Open panel",
+      "panel-sub": "Full Tailscale manager",
+      "refresh": "Refresh",
+      "refresh-sub": "Re-query status",
+      "admin": "Admin console",
+      "admin-sub": "Open Tailscale admin in browser"
+    },
+    "action": {
+      "ping": "Ping",
+      "ssh": "SSH",
+      "copy_ip": "Copy IPv4",
+      "copy_dns": "Copy DNS name",
+      "use_exit": "Use as exit node",
+      "clear_exit": "Clear exit node"
+    }
+  }
+}
