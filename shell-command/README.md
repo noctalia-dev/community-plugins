@@ -52,6 +52,11 @@ aliases, functions and environment from your rc config are available.
 - `runInTerminal` needs a default terminal configured in Noctalia.
 - A shell at `$SHELL` (falls back to `sh`).
 - Optional: Fish (richer completions; falls back to bash otherwise).
+- `ls` for the folder-jump listing.
+
+Declared in `plugin.toml`
+`dependencies`: `sh`, `ls`, plus `fish` and `bash` for the completion fallback
+(the user's own `$SHELL` at runtime is whatever shell they have configured).
 
 ## Usage
 

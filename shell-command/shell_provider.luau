@@ -234,7 +234,8 @@ local function fetchCompletions(query, callback)
 		return
 	end
 	if noctalia.commandExists("bash") then
-		noctalia.runAsync("bash -c " .. shellQuote("compgen -c"), function(result)
+		local word = query:match("([^%s]+)%s*$") or ""
+		noctalia.runAsync("bash -c " .. shellQuote("compgen -c " .. shellQuote(word)), function(result)
 			callback(parseCompgen(result.stdout))
 		end)
 		return

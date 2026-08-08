@@ -7,7 +7,7 @@ license      = "MIT"
 icon         = "terminal"
 description  = "Run a shell command from the launcher. Type /sh then command open it your default terminal."
 tags         = ["launcher", "productivity", "development"]
-dependencies = []
+dependencies = ["bash", "fish", "ls", "sh"]
 
 [[setting]]
 key             = "default_workspace"
