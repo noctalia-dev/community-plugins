@@ -9,6 +9,10 @@ Desktop/lockscreen widget that displays the current battery level and charging s
 | ID | `yocraft/battery-widget` |
 | Entries | Desktop widget: `widget` |
 
+## Requirements
+
+The plugin requires `upower` and `dbus`.
+
 ## Usage
 
 Add it to your desktop/lockscreen widgets using the widget editor. You can configure it in the widget settings.
@@ -27,7 +31,6 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 | `charging_color` | `color` | `on_surface` | Color applied when connected to AC power. |
 | `battery` | `select` | `auto` | Detect the battery automatically or set a custom name. |
 | `battery_name` | `string` | `BAT0` | Set a custom name for the battery. |
-| `refresh_interval` | `int` | `60` | Controls how frequently the widget updates its content. (in seconds) |
 
 ## Notes
 

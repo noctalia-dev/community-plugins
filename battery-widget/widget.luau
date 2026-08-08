@@ -60,7 +60,7 @@ local function getWarningThreshold()
                 noctalia.log("battery-widget: invalid warning_threshold: " .. res)
                 return
             end
-            
+
             warning_threshold = tonumber(noctalia.string.trim(res))
         end
     )
@@ -149,7 +149,19 @@ end
 
 getWarningThreshold()
 
-function update()
-    noctalia.setUpdateInterval(noctalia.getConfig("refresh_interval") * 1000)
-    refreshBattery()
+local function watchBattery()
+    local cmd = string.format(
+        "dbus-monitor --system \"type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='/org/freedesktop/UPower/devices/battery_%s'\"",
+        batName
+    )
+    noctalia.runStream(cmd,
+        function(line)
+            if line:find("Percentage") or line:find("State") then
+                refreshBattery()
+            end
+        end
+    )
 end
+
+refreshBattery()
+watchBattery()
