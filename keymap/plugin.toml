@@ -1,6 +1,6 @@
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.6"
+version = "1.4.0"
 plugin_api = 9
 author = "blackbartblues"
 license = "MIT"

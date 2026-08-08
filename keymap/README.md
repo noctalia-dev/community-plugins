@@ -91,10 +91,10 @@ exist, Keymap searches safe, compositor-specific locations:
   followed by a scored scan of top-level `.conf` files in the MangoWC
   configuration directory.
 
-The generated `keymap.lua`, `keymap.kdl`, and `keymap.conf` files and files
-whose names contain `backup` are excluded from automatic discovery. If no
-usable shortcut file is found, the panel points to settings so the correct path
-can be entered manually.
+Legacy `keymap.lua`, `keymap.kdl`, and `keymap.conf` files and files whose names
+contain `backup` are excluded from automatic discovery. If no usable shortcut
+file is found, the panel points to settings so the correct path can be entered
+manually.
 
 ## Browsing shortcuts
 
@@ -169,14 +169,19 @@ to another native catalog action by the editor.
 
 ![Known command library](screenshots/command-library.webp)
 
-The first created shortcut adds one marked include to the configured root and
-creates a sibling managed file:
+New shortcuts are written directly to the configured source file. For Niri,
+Keymap inserts them into the existing top-level `binds` block or creates that
+block when it is absent.
 
-| Compositor | Managed file | Marked include |
-| --- | --- | --- |
-| Hyprland | `keymap.lua` | `require("keymap")` |
-| Niri | `keymap.kdl` | `include "keymap.kdl"` |
-| MangoWC | `keymap.conf` | `source=./keymap.conf` |
+Older Keymap releases stored created shortcuts in a sibling `keymap.lua`,
+`keymap.kdl`, or `keymap.conf`. As soon as the Keymap service receives a valid
+configuration snapshot, the writer recognizes a legacy file by its ownership
+header and replaces its marked or plain include with the legacy contents. It
+validates and reloads the combined configuration, confirms that neither file
+changed during the operation, and only then removes the legacy file. A
+validation, reload, or removal failure restores the original source and keeps
+the legacy file intact. A same-named file without Keymap's ownership header is
+never migrated or deleted.
 
 ## Editing and organizing
 
