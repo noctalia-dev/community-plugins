@@ -1,0 +1,27 @@
+id = "weinguyen/dictionary-english"
+name = "Noctalia Shell Dictionary"
+version = "0.1.0"
+plugin_api = 3
+author = "weinguyen"
+license = "MIT"
+icon = "book"
+description = "Tra cứu từ điển tiếng Anh ngay trong launcher: gõ /dic + từ, chọn từ để xem định nghĩa và ví dụ."
+tags = ["launcher", "panel", "language", "utility", "productivity"]
+dependencies = []
+
+[[launcher_provider]]
+id = "dic"
+entry = "launcher.luau"
+prefix = "dic"
+glyph = "book"
+include_in_global_search = false
+debounce_ms = 100
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 480
+height = 420
+placement = "attached"
+position = "auto"
+open_near_click = true

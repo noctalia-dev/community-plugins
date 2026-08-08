@@ -1,0 +1,8 @@
+{
+  "hint_title": "Look up an English word",
+  "hint_subtitle": "Type a word after /dic and press Enter to see its definition",
+  "no_results": "No matching words found",
+  "panel_title": "Dictionary",
+  "panel_empty": "No definition selected",
+  "panel_loading": "Loading…"
+}
