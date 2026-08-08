@@ -109,6 +109,11 @@ local function get_server_url()
     return (type(v) == "string") and v or ""
 end
 
+local function get_auto_start()
+    local v = noctalia.getConfig and noctalia.getConfig("auto_start")
+    return v ~= false
+end
+
 local function get_default_workspace()
     local v = noctalia.getConfig and noctalia.getConfig("default_workspace")
     return (type(v) == "string") and v or ""
@@ -357,6 +362,9 @@ local function publish()
     end
     if dirty.session_status or dirty.all then
         noctalia.state.set("opencode.session_status", session_status)
+    end
+    if dirty.mcp_status or dirty.all then
+        noctalia.state.set("opencode.mcp_status", mcp_status)
     end
     if dirty.pending_permissions or dirty.all then
         noctalia.state.set("opencode.pending_permissions", pending_permissions)
@@ -1444,8 +1452,11 @@ function onOpen()
     mark_dirty("all")
     publish()
 
-    -- Attempt connection
-    connect()
+    -- Attempt connection (skip if the user disabled auto_start; they can
+    -- still reconnect manually via the panel's refresh/reconnect action).
+    if get_auto_start() then
+        connect()
+    end
 end
 
 function onExit()

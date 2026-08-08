@@ -2,7 +2,7 @@
 
 A Noctalia v5 plugin that puts [OpenCode](https://opencode.ai/) on your bar — a glanceable status dot, a native chat panel, session management, and MCP status — all driven by the OpenCode HTTP API. No embedded terminal, no key emulation.
 
-![OpenCode Companion](assets/thumbnail.webp)
+![OpenCode Companion](thumbnail.webp)
 
 ## Plugin
 

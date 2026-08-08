@@ -245,14 +245,76 @@ local function is_waiting_permission()
     return type(conn) == "table" and conn.status == "waiting_permission"
 end
 
+local function shq(s)
+    return "'" .. tostring(s):gsub("'", "'\''") .. "'"
+end
+
 local function dispatch_ipc(event, payload)
     local cmd = "noctalia msg plugin '" .. SVC .. "' all " .. event
     if payload then
         -- Shell-escape the payload
-        payload = payload:gsub("'", "'\\''")
+        payload = payload:gsub("'", "'\''")
         cmd = cmd .. " '" .. payload .. "'"
     end
     noctalia.runAsync(cmd)
+end
+
+-- MCP status footer: colored server names, one per line. Returns nil when
+-- there's nothing meaningful to show. Kept intentionally minimal — the
+-- MCP status footer: a single collapsible toggle row (chevron + title +
+-- connected/total count). Clicking expands it to show one pill per server.
+-- Collapsed by default so it never crowds the message list.
+local MCP_META = {
+    connected = { fill = "primary/0.12", color = "primary", dot = "primary", key = "connected" },
+    failed    = { fill = "error/0.10",   color = "error",   dot = "error",   key = "failed" },
+    disabled  = { fill = "surface_variant/0.45", color = "on_surface_variant", dot = "on_surface/0.35", key = "disabled" },
+}
+local mcp_expanded = false
+local function render_mcp_status()
+    local servers = noctalia.state.get(STATE.mcp)
+    if type(servers) ~= "table" then return nil end
+    local names = {}
+    for name in pairs(servers) do names[#names + 1] = name end
+    if #names == 0 then return nil end
+    table.sort(names)
+
+    local connected, failed = 0, 0
+    for _, name in ipairs(names) do
+        local st = (type(servers[name]) == "table" and servers[name].status) or "disabled"
+        if st == "connected" then connected = connected + 1
+        elseif st == "failed" then failed = failed + 1 end
+    end
+
+    local header = ui.button({
+        text = tr("mcp.title") .. " (" .. tostring(connected) .. "/" .. tostring(#names) .. ")",
+        glyph = mcp_expanded and "chevron-up" or "chevron-right",
+        variant = "ghost",
+        tooltip = tr("mcp.title"),
+        onClick = function()
+            mcp_expanded = not mcp_expanded
+            render()
+        end,
+    })
+
+    if not mcp_expanded then
+        return ui.column({ gap = GAP_SM, key = "mcp_status" }, { header })
+    end
+
+    local rows = {}
+    for _, name in ipairs(names) do
+        local st = (type(servers[name]) == "table" and servers[name].status) or "disabled"
+        local meta = MCP_META[st] or MCP_META.disabled
+        rows[#rows + 1] = ui.row({ gap = GAP, align = "center", fill = meta.fill, radius = 8, paddingH = 9, paddingV = 6 }, {
+            ui.box({ width = 8, height = 8, radius = 4, fill = meta.dot }),
+            ui.label({ text = name, color = "on_surface", fontSize = FONT_SUB, flexGrow = 1, maxWidth = WRAP - 140, maxLines = 1 }),
+            ui.label({ text = tr("mcp." .. meta.key), color = meta.color, fontSize = 10, maxLines = 1 }),
+        })
+    end
+
+    return ui.column({ gap = GAP_SM, key = "mcp_status", padding = 10, radius = 10, fill = "surface/0.45" }, {
+        header,
+        unpack(rows),
+    })
 end
 
 -- ── session chooser view ────────────────────────────────────────────────────
@@ -790,9 +852,9 @@ local function render_chat(active, messages, permissions, questions, conn)
                     local port = noctalia.getConfig and noctalia.getConfig("server_port") or 4096
                     local url = "http://" .. host .. ":" .. tostring(port)
                     local sess = (type(active) == "table" and type(active.id) == "string") and active.id or nil
-                    local cmd = "opencode attach " .. url
+                    local cmd = "opencode attach " .. shq(url)
                     if sess and sess ~= "" then
-                        cmd = cmd .. " --session " .. sess
+                        cmd = cmd .. " --session " .. shq(sess)
                     end
                     noctalia.runInTerminal(cmd)
                 end,
@@ -961,6 +1023,12 @@ local function render_chat(active, messages, permissions, questions, conn)
 
     rows[#rows + 1] = ui.scroll({ key = "chat_messages", flexGrow = 1, gap = GAP }, msg_items)
 
+    -- MCP status footer
+    local mcp_footer = render_mcp_status()
+    if mcp_footer then
+        rows[#rows + 1] = mcp_footer
+    end
+
     -- Composer: input always visible; sending is disabled while processing and a
     -- stop button appears. The thinking indicator lives in the message list.
     local processing = is_processing()
@@ -1057,6 +1125,7 @@ local function fingerprint_state()
     local err = noctalia.state.get(STATE.last_error)
     local sel_model = noctalia.state.get(STATE.selected_model)
     local sel_agent = noctalia.state.get(STATE.selected_agent)
+    local mcp = noctalia.state.get(STATE.mcp)
 
     return table.concat({
         (type(active) == "table" and active.id or "none"),
@@ -1068,6 +1137,7 @@ local function fingerprint_state()
         (type(err) == "table" and tostring(err.message) or "none"),
         -- Selection changes must re-render so the selectors reflect the pick.
         tostring(sel_model or "") .. "\1" .. tostring(sel_agent or ""),
+        fp_list((type(mcp) == "table" and mcp or {}), { "status" }),
         -- Animation frame drives the thinking spinner re-render while busy.
         tostring(thinking_frame),
     }, "\1")
