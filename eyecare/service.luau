@@ -117,72 +117,6 @@ end
 
 local wasSystemIdle = false
 
--- Tick cycle actions (every 1 second)
-function update()
-    noctalia.setUpdateInterval(1000)
-
-    -- Detect transition from idle to active (unlock/wake up)
-    local transitionedToActive = (wasSystemIdle and not isSystemIdle)
-    wasSystemIdle = isSystemIdle
-
-    if inBreak then
-        breakTimer = breakTimer + 1
-        breakElapsed = breakTimer  -- Keep breakElapsed in sync for backward compatibility
-        
-        if transitionedToActive then
-            local grace_threshold = math.min(10, settings.break_duration_seconds)
-            if breakTimer >= grace_threshold then
-                -- User was away for at least the grace threshold and now returned,
-                -- so consider the break completed/accepted.
-                inBreak = false
-                breakTimer = 0
-                breakElapsed = 0
-                activeTime = 0
-            else
-                -- User returned almost immediately, abort/cancel the break
-                inBreak = false
-                breakTimer = 0
-                breakElapsed = 0
-                activeTime = 0
-            end
-        elseif breakTimer >= settings.break_duration_seconds then
-            -- Break completed successfully
-            finishBreak()
-        end
-    else
-        -- Not in break
-        if isSystemIdle then
-            idleTime = idleTime + 1
-            -- Natural break detection (user rested without prompting)
-            if idleTime >= settings.break_duration_seconds then
-                activeTime = 0
-            end
-        else
-            idleTime = 0
-            activeTime = activeTime + 1
-            if activeTime >= settings.active_duration_minutes * 60 then
-                -- Trigger Break Reminder
-                inBreak = true
-                breakTimer = 0
-                breakElapsed = 0
-                activeTime = 0
-                
-                if settings.enable_notifications then
-                    noctalia.notify(
-                        noctalia.tr("notifications.eyecare-break-title"),
-                        noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds })
-                    )
-                end
-                if settings.enable_sound then
-                    playSound("message")
-                end
-            end
-        end
-    end
-
-    updateState()
-end
-
 -- Helper functions for timer state transitions
 local function triggerBreak()
     inBreak = true
@@ -238,6 +172,72 @@ local function resetTimer()
             noctalia.tr("notifications.eyecare-reset-body") or "Timer has been reset."
         )
     end
+end
+
+-- Tick cycle actions (every 1 second)
+function update()
+    noctalia.setUpdateInterval(1000)
+
+    -- Detect transition from idle to active (unlock/wake up)
+    local transitionedToActive = (wasSystemIdle and not isSystemIdle)
+    wasSystemIdle = isSystemIdle
+
+    if inBreak then
+        breakTimer = breakTimer + 1
+        breakElapsed = breakTimer  -- Keep breakElapsed in sync for backward compatibility
+        
+        if transitionedToActive then
+            local grace_threshold = math.min(10, settings.break_duration_seconds)
+            if breakTimer >= grace_threshold then
+                -- User was away for at least the grace threshold and now returned,
+                -- so consider the break completed/accepted.
+                inBreak = false
+                breakTimer = 0
+                breakElapsed = 0
+                activeTime = 0
+            else
+                -- User returned almost immediately, abort/cancel the break
+                inBreak = false
+                breakTimer = 0
+                breakElapsed = 0
+                activeTime = 0
+            end
+        elseif breakTimer >= settings.break_duration_seconds then
+            -- Break completed successfully
+            finishBreak()
+        end
+    else
+        -- Not in break
+        if isSystemIdle then
+            idleTime = idleTime + 1
+            -- Natural break detection (user rested without prompting)
+            if idleTime >= settings.break_duration_seconds then
+                activeTime = 0
+            end
+        else
+            idleTime = 0
+            activeTime = activeTime + 1
+            if activeTime >= settings.active_duration_minutes * 60 then
+                -- Trigger Break Reminder
+                inBreak = true
+                breakTimer = 0
+                breakElapsed = 0
+                activeTime = 0
+                
+                if settings.enable_notifications then
+                    noctalia.notify(
+                        noctalia.tr("notifications.eyecare-break-title") or "Time for a break",
+                        noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds }) or string.format("Focus on an object 20 feet away for %d seconds.", settings.break_duration_seconds)
+                    )
+                end
+                if settings.enable_sound then
+                    playSound("message")
+                end
+            end
+        end
+    end
+
+    updateState()
 end
 
 -- Listen to compositor IPC commands
