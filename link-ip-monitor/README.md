@@ -6,7 +6,7 @@ goes down or comes back up.
 ## Plugin
 | Field | Value |
 | --- | --- |
-| ID | `nilsonlinux/ip-stats-monitor` |
+| ID | `nilsonlinux/link-ip-monitor` |
 | Entries | Bar widget: `status`; panel: `panel`; service: `monitor` |
 
 ## Requirements
