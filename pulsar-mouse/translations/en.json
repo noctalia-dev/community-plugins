@@ -1,0 +1,44 @@
+{
+  "settings": {
+    "color": {
+      "label": "Color",
+      "description": "Accent color for the percentage text and progress bar"
+    },
+    "show_progress": {
+      "label": "Show Progress Bar"
+    },
+    "show_percent": {
+      "label": "Show Percentage Text",
+      "description": "Turn off to rely on just the glyph (and progress bar, if shown)"
+    },
+    "glyph_size": {
+      "label": "Glyph Size"
+    }
+  },
+  "ui": {
+    "charging": "(charging)",
+    "not-installed": "pulsar-mouse not found",
+    "no-mouse": "Mouse not found",
+    "profile-label": "Profile",
+    "dpi-label": "DPI",
+    "polling-label": "Polling Rate",
+    "led-label": "LED Effect",
+    "brightness-label": "Brightness",
+    "speed-label": "Speed",
+    "write-failed": "Failed to apply - is the mouse connected?",
+    "loading": "Loading...",
+    "wired": "Wired",
+    "signal-label": "Signal",
+    "tab-sensor": "Sensor",
+    "tab-advanced": "Advanced",
+    "tab-lighting": "Lighting",
+    "tab-power": "Power",
+    "debounce-label": "Debounce",
+    "angle-snap-label": "Angle Snap",
+    "ripple-label": "Ripple Control",
+    "motion-sync-label": "Motion Sync",
+    "lod-label": "Lift-off Distance",
+    "power-saving-label": "Wireless Power Saving",
+    "low-power-label": "Low Power Mode"
+  }
+}
