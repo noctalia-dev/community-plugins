@@ -6,7 +6,7 @@ goes down or comes back up.
 ## Plugin
 | Field | Value |
 | --- | --- |
-| ID | `you/link-ip-monitor` |
+| ID | `nilsonlinux/link-ip-monitor` |
 | Entries | Bar widget: `status`; panel: `panel`; service: `monitor` |
 
 ## Requirements
@@ -32,7 +32,7 @@ panel, to force an immediate check.
 
 Open the panel directly with:
 ```sh
-noctalia msg plugin nilsonlinux/link-ip-monitor:panel toggle
+noctalia msg panel-toggle nilsonlinux/link-ip-monitor:panel
 ```
 
 Force an immediate check via IPC:
