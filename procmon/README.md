@@ -25,14 +25,12 @@ usage (plus the process count). Click the widget to toggle the process panel:
 ```sh
 noctalia msg panel-toggle weinguyen/procmon:panel
 ```
-
 The panel shows CPU, RAM and swap bars with the 1/5/15-minute load averages,
 then a process table. Sort by the column dropdown (PID, CPU%, MEM%, RSS,
 COMMAND) and flip asc/desc with the arrow button. Type in the filter box to
 match a process by name, user or PID. Click the ✕ button on a row to run the
 configured kill command against that PID (default `kill -TERM`). Zombie
 processes are tinted with the error color so they stand out.
-
 The table refreshes on the interval set in the `refresh_interval` setting. The
 panel re-renders automatically as new samples arrive, so the view stays live
 while it is open.
@@ -48,13 +46,15 @@ while it is open.
 
 ## Notes
 
-- **Spawns processes.** A background service runs `ps` on every refresh
-  interval and `runAsync` runs the configured `kill_command` when a row's ✕ is
+- **Spawns processes.** A background service runs `ps` every 2nd refresh
+  interval (the process table changes slowly) and reads `/proc` stats every
+  interval; `runAsync` runs the configured `kill_command` when a row's ✕ is
   clicked. There is no confirmation dialog, so check the PID before clicking.
+
 - The bar widget only renders data the service publishes; it never runs
   commands. The panel runs the configured `kill_command` when a row's ✕ is
   clicked.
-- Requires `plugin_api = 12`. CPU%, RAM%, swap and the 1/5/15-minute load
+- Requires `plugin_api = 13`. CPU%, RAM%, swap and the 1/5/15-minute load
   averages are sampled from `/proc` (`/proc/stat`, `/proc/meminfo`,
   `/proc/loadavg`) by the service, so they work with no separate system-monitor
   dependency.

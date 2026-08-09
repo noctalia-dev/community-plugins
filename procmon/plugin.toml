@@ -1,7 +1,7 @@
 id = "weinguyen/procmon"
 name = "Process Monitor"
-version = "0.3.0"
-plugin_api = 12
+version = "0.4.0"
+plugin_api = 13
 author = "weinguyen"
 license = "MIT"
 icon = "cpu"
@@ -71,6 +71,7 @@ height = 660
 placement = "floating"
 position = "center"
 open_near_click = true
+capture_keys = ["ctrl+f", "ctrl+d", "up", "down", "escape"]
 
 [[service]]
 id = "service"

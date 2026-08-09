@@ -54,6 +54,7 @@
     },
     "count": "{n} processes",
     "no_processes": "No matching processes",
-    "kill_tip": "Kill {pid}"
+    "kill_tip": "Kill {pid}",
+    "keys_hint": "Ctrl+F filter · Ctrl+D kill selected · arrows move"
   }
 }
