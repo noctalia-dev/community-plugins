@@ -1,0 +1,140 @@
+{
+  "title": "Gocryptfs",
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often the service rechecks mount status."
+    },
+    "notify_on_action": {
+      "label": "Notify on mount/unmount",
+      "description": "Show a notification when a volume mounts or unmounts."
+    },
+    "create_mountpoint": {
+      "label": "Create mount points",
+      "description": "Create the mount directory if it does not exist before mounting."
+    },
+    "auto_mount": {
+      "label": "Auto-mount on login",
+      "description": "When Noctalia starts, mount volumes that have auto-mount enabled and a keyring password or passfile."
+    },
+    "show_count": {
+      "label": "Show mounted count",
+      "description": "Display mounted/total on the bar widget."
+    },
+    "glyph_color": {
+      "label": "Icon color",
+      "description": "Color of the lock icon when gocryptfs is available."
+    },
+    "mounted_color": {
+      "label": "Mounted indicator",
+      "description": "Status-dot color when at least one volume is mounted."
+    },
+    "unmounted_color": {
+      "label": "Unmounted indicator",
+      "description": "Status-dot color when nothing is mounted."
+    }
+  },
+  "colors": {
+    "default": "Default",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "tertiary": "Tertiary",
+    "error": "Error",
+    "muted": "Muted"
+  },
+  "widget": {
+    "tooltip": "{mounted} of {total} mounted",
+    "tooltip_none": "No volumes configured",
+    "unavailable": "gocryptfs is not installed",
+    "refresh_requested": "Refreshing volume status…"
+  },
+  "panel": {
+    "subtitle": "Encrypted volumes",
+    "empty": "No volumes yet. Initialize a new volume or add an existing one.",
+    "loading": "Checking mounts…",
+    "busy": "Working…",
+    "select_hint": "Select a volume to manage it.",
+    "updated": "Updated {time}",
+    "password_title": "Password for {name}",
+    "password_label": "Password",
+    "password_placeholder": "Volume password",
+    "password_required": "Password is required.",
+    "keyring_title": "Remember password for {name}",
+    "keyring_label": "Volume password (desktop keyring + session cache)",
+    "keyring_help": "Saved in your desktop keyring (survives reboot when unlocked) and cached for this login. No password file under plugin data.",
+    "keyring_not_set": "No remembered password for this volume.",
+    "remember_keyring": "Also remember in keyring (desktop + this login)",
+    "add_title": "Add existing volume",
+    "edit_title": "Edit volume",
+    "init_title": "Initialize new volume",
+    "init_help": "Runs gocryptfs -init on the cipher directory, then registers it for mounting.",
+    "field": {
+      "name": "Name",
+      "name_placeholder": "Documents",
+      "cipher": "Cipher directory",
+      "cipher_placeholder": "~/Encrypted/docs",
+      "mount": "Mount point",
+      "mount_placeholder": "~/Private/docs",
+      "keyring_section": "Password (desktop keyring)",
+      "passfile": "Passfile path (optional, advanced)",
+      "passfile_placeholder": "Leave empty — prefer desktop keyring",
+      "password": "Password",
+      "password_confirm": "Confirm password",
+      "password_confirm_placeholder": "Re-enter password",
+      "password_mismatch": "Passwords do not match.",
+      "plaintextnames": "Plaintext file names (-plaintextnames)",
+      "aessiv": "AES-SIV encryption (-aessiv)",
+      "save_passfile": "Remember password in keyring (desktop + this login)",
+      "auto_mount": "Auto-mount on login",
+      "auto_mount_help": "Requires a remembered keyring password or advanced passfile. Global auto-mount must also be on. Desktop keyring must unlock after login for reboot-safe auto-mount.",
+      "allow_other": "Allow other users (-allow_other)",
+      "read_only": "Read-only (-ro)",
+      "required": "Name, cipher directory, and mount point are required.",
+      "duplicate": "A volume with that cipher directory or mount point already exists."
+    },
+    "status": {
+      "mounted": "Mounted",
+      "unmounted": "Unmounted",
+      "unknown": "Unknown"
+    },
+    "cipher": "Cipher: {path}",
+    "mountpoint": "Mount: {path}",
+    "passfile_hint": "Using passfile",
+    "keyring_hint": "Password in keyring",
+    "automount_hint": "Auto-mount"
+  },
+  "actions": {
+    "mount": "Mount",
+    "unmount": "Unmount",
+    "open": "Open",
+    "refresh": "Refresh",
+    "add": "Add",
+    "init": "Init",
+    "edit": "Edit",
+    "remove": "Remove",
+    "remember": "Remember",
+    "forget": "Forget",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "result": {
+    "success": "Done",
+    "failed": "Failed: {error}",
+    "busy": "Another operation is already running.",
+    "gocryptfs_missing": "gocryptfs is not on PATH. Install gocryptfs and try again.",
+    "mounted": "Mounted {name}",
+    "unmounted": "Unmounted {name}",
+    "initialized": "Initialized and saved {name}",
+    "already_initialized": "Already a gocryptfs volume: {path}",
+    "not_found": "Volume not found.",
+    "cipher_missing": "Cipher directory does not exist: {path}",
+    "mount_create_failed": "Could not create mount point: {path}",
+    "already_mounted": "{name} is already mounted.",
+    "not_mounted": "{name} is not mounted.",
+    "removed": "Removed {name}",
+    "saved": "Saved {name}",
+    "keyring_saved": "Password for {name} saved in desktop keyring",
+    "keyring_forgotten": "Keyring password cleared for {name}"
+  }
+}

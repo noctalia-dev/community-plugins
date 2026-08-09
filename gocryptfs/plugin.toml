@@ -1,0 +1,106 @@
+# Manage gocryptfs encrypted volumes: mount, unmount, and status.
+
+id = "davemhammer/gocryptfs"
+name = "Gocryptfs"
+version = "1.3.0"
+plugin_api = 10
+author = "davemhammer"
+license = "MIT"
+dependencies = ["gocryptfs", "fusermount3", "fusermount", "chmod", "xdg-open", "cat", "keyctl", "secret-tool"]
+tags = ["privacy", "utility", "bar", "panel", "service"]
+icon = "lock"
+description = "Mount, unmount, and auto-mount gocryptfs encrypted volumes from Noctalia."
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 3
+min = 1
+max = 60
+
+[[setting]]
+key = "notify_on_action"
+type = "bool"
+label_key = "settings.notify_on_action.label"
+description_key = "settings.notify_on_action.description"
+default = true
+
+[[setting]]
+key = "create_mountpoint"
+type = "bool"
+label_key = "settings.create_mountpoint.label"
+description_key = "settings.create_mountpoint.description"
+default = true
+
+[[setting]]
+key = "auto_mount"
+type = "bool"
+label_key = "settings.auto_mount.label"
+description_key = "settings.auto_mount.description"
+default = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph_color"
+  type = "select"
+  label_key = "settings.glyph_color.label"
+  description_key = "settings.glyph_color.description"
+  default = "on_surface"
+  options = [
+    { value = "on_surface", label_key = "colors.default" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "secondary", label_key = "colors.secondary" },
+    { value = "tertiary", label_key = "colors.tertiary" }
+  ]
+
+  [[widget.setting]]
+  key = "mounted_color"
+  type = "select"
+  label_key = "settings.mounted_color.label"
+  description_key = "settings.mounted_color.description"
+  default = "tertiary"
+  options = [
+    { value = "primary", label_key = "colors.primary" },
+    { value = "secondary", label_key = "colors.secondary" },
+    { value = "tertiary", label_key = "colors.tertiary" }
+  ]
+
+  [[widget.setting]]
+  key = "unmounted_color"
+  type = "select"
+  label_key = "settings.unmounted_color.label"
+  description_key = "settings.unmounted_color.description"
+  default = "on_surface_variant"
+  options = [
+    { value = "error", label_key = "colors.error" },
+    { value = "on_surface_variant", label_key = "colors.muted" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "tertiary", label_key = "colors.tertiary" }
+  ]
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 540
+height = 620
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
