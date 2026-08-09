@@ -11,7 +11,7 @@ Desktop/lockscreen widget that displays the current battery level and charging s
 
 ## Requirements
 
-The plugin requires `upower` and `dbus`.
+The plugin requires `upower` and `dbus` (`dbus-monitor` on `PATH`).
 
 ## Usage
 

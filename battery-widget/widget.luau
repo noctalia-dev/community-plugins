@@ -8,6 +8,11 @@ local warning_threshold = 20
 local path = "/sys/class/power_supply/"
 local batName
 
+if not noctalia.commandExists("dbus-monitor") then
+    noctalia.log("battery-widget: dbus-monitor not found.")
+    return
+end
+
 local function getBatName()
     local config = noctalia.getConfig("battery")
 
