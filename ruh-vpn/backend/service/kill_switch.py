@@ -15,6 +15,7 @@ does not touch anyone else's nftables config.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import shutil
 import subprocess
 from typing import Optional
@@ -28,33 +29,32 @@ def _nft_path() -> str:
 
 
 def build_ruleset(
-    server_host: Optional[str],
+    server_ips: Optional[list[str]],
     server_port: Optional[int],
     tun_iface: str = "noctalia-tun0",
     extra_allow_tcp: Optional[list[int]] = None,
 ) -> str:
-    """Build the nft ruleset text. server_host may be IPv4 / IPv6 / domain.
+    """Build the nft ruleset text.
 
-    Domain names are skipped (caller should pre-resolve when possible); only
-    literal IPs land in the rule. The caller is responsible for kicking off a
-    DNS resolve if needed.
+    server_ips must be literal IP addresses (the caller resolves domain names
+    beforehand). Every value is re-parsed through the ipaddress module and
+    re-emitted in canonical form; anything that does not parse is dropped, so
+    an untrusted server entry can never inject nft syntax into the ruleset,
+    which runs with root privileges.
     """
-    tcp_ports = list(extra_allow_tcp or [])
-    server_v4_line = ""
-    server_v6_line = ""
-    if server_host:
-        if ":" in server_host:
-            server_v6_line = (
-                f"        ip6 daddr {server_host} tcp dport {server_port} accept\n"
-                if server_port
-                else f"        ip6 daddr {server_host} accept\n"
-            )
+    port = int(server_port) if server_port else None
+    tcp_ports = [int(p) for p in (extra_allow_tcp or [])]
+    server_lines = ""
+    for raw in server_ips or []:
+        try:
+            ip = ipaddress.ip_address(str(raw).strip())
+        except ValueError:
+            continue
+        keyword = "ip6" if ip.version == 6 else "ip"
+        if port:
+            server_lines += f"        {keyword} daddr {ip} tcp dport {port} accept\n"
         else:
-            server_v4_line = (
-                f"        ip daddr {server_host} tcp dport {server_port} accept\n"
-                if server_port
-                else f"        ip daddr {server_host} accept\n"
-            )
+            server_lines += f"        {keyword} daddr {ip} accept\n"
 
     tcp_port_line = ""
     if tcp_ports:
@@ -72,7 +72,7 @@ def build_ruleset(
         f"        ip daddr 192.168.0.0/16 accept\n"
         f"        ip daddr 10.0.0.0/8 accept\n"
         f"        ip daddr 172.16.0.0/12 accept\n"
-        f"{server_v4_line}{server_v6_line}{tcp_port_line}"
+        f"{server_lines}{tcp_port_line}"
         f"    }}\n"
         f"    chain input {{\n"
         f"        type filter hook input priority filter; policy drop;\n"

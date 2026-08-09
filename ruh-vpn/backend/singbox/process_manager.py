@@ -104,7 +104,7 @@ class ProcessManager:
 
     # ----------------------------------------------------------------- launch
 
-    async def start_singbox(self, name: str) -> ManagedProc:
+    async def start_singbox(self, name: str, binary: Optional[str] = None) -> ManagedProc:
         if name not in CONFIG_NAMES:
             raise ValueError(f"Unknown sing-box config name: {name}")
         if name in self._procs and self._procs[name].is_running():
@@ -115,7 +115,7 @@ class ProcessManager:
         log_path = LOG_DIR / LOG_NAMES[name]
         log_fh = open(log_path, "ab")  # binary, append; sing-box writes structured text
         protect_file(log_path)
-        cmd = [SINGBOX_BIN, "run", "-c", str(config_path), "-D", str(SINGBOX_CONFIG_DIR)]
+        cmd = [binary or SINGBOX_BIN, "run", "-c", str(config_path), "-D", str(SINGBOX_CONFIG_DIR)]
         self._log("info", f"start sing-box ({name}): {' '.join(cmd)}")
         proc = await asyncio.create_subprocess_exec(
             *cmd,

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import os
 import shutil
 import socket
 import subprocess
@@ -40,6 +39,7 @@ from backend.models.server import (
     server_to_public_dict,
 )
 from backend.monitoring.health import HealthMonitor, tcp_ping
+from backend.service import tun_binary
 from backend.monitoring.log_streamer import LogStreamer
 from backend.monitoring.traffic import TrafficMonitor
 from backend.singbox.process_manager import LOG_DIR, LOG_NAMES, SINGBOX_BIN
@@ -72,9 +72,9 @@ class VpnService:
         self._log_streamer.start()
         self._traffic: Optional[TrafficMonitor] = None
         self._traffic_listeners: list = []
-        # Latched once getcap confirms CAP_NET_ADMIN on the sing-box binary, so
-        # subsequent TUN starts never re-prompt via pkexec. setcap is sticky
-        # on the binary, so this latch is safe for the daemon's lifetime.
+        # Latched once getcap confirms CAP_NET_ADMIN on the plugin-private
+        # sing-box copy, so subsequent TUN starts never re-prompt via pkexec.
+        # Reset whenever the copy is rewritten (a fresh file has no caps).
         self._tun_caps_granted = False
         # Serializes pkexec invocations so a duplicate caller can't open a
         # second polkit dialog while the first one is still on screen.
@@ -481,7 +481,7 @@ class VpnService:
             return False
 
         if not await self._wait_port("127.0.0.1", mux_port, 8.0):
-            tail = await self._pm.read_log_tail(mux_name)
+            tail = await self._pm.read_log_tail("rules" if mode == "rules" else "global")
             self._log("error", f"mux port {mux_port} did not open. log tail:\n{tail[-1500:]}")
             await self._safe_teardown()
             self.state.status.message = f"Mux port {mux_port} did not open"
@@ -697,8 +697,18 @@ class VpnService:
             await save_settings(self.state.settings)
             if enabled:
                 host, port = self._active_server_endpoint()
+                # Only literal, pre-resolved IPs may enter the ruleset: its
+                # text is executed by nft with root privileges, and the host
+                # can come from an untrusted subscription.
+                server_ips = await self._resolve_host_ips(host, port) if host else []
+                if host and not server_ips:
+                    self._log(
+                        "warn",
+                        f"kill switch: could not resolve {host!r}; "
+                        "applying without a server allowance",
+                    )
                 ruleset = ks.build_ruleset(
-                    server_host=host,
+                    server_ips=server_ips,
                     server_port=port,
                     extra_allow_tcp=[
                         self.state.settings.transportPort,
@@ -837,18 +847,30 @@ class VpnService:
             self._log("info", "system proxy disabled")
 
     async def _start_tun(self, upstream_port: int, server: Server) -> bool:
-        cap_ok = await self._check_tun_caps()
+        try:
+            tun_bin, refreshed = await asyncio.to_thread(
+                tun_binary.ensure_copy, SINGBOX_BIN
+            )
+        except OSError as exc:
+            self._log("error", f"failed to prepare private sing-box copy for TUN: {exc}")
+            self.state.status.message = "Could not prepare sing-box copy for TUN"
+            self.state.emit_status()
+            return False
+        if refreshed:
+            # a rewritten copy starts with no file capabilities
+            self._tun_caps_granted = False
+
+        cap_ok = await self._check_tun_caps(tun_bin)
         if not cap_ok:
             self._log(
                 "warn",
-                "sing-box missing CAP_NET_ADMIN; attempting pkexec setcap fallback",
+                "TUN sing-box copy missing CAP_NET_ADMIN; attempting pkexec setcap fallback",
             )
-            ok = await self._grant_tun_caps()
+            ok = await self._grant_tun_caps(tun_bin)
             if not ok:
-                binary = self._singbox_binary()
                 self.state.status.message = (
-                    f"TUN requires CAP_NET_ADMIN on {binary}. "
-                    f"Run: sudo setcap cap_net_admin+ep {binary}"
+                    f"TUN requires CAP_NET_ADMIN on {tun_bin}. "
+                    f"Run: sudo setcap cap_net_admin+ep {tun_bin}"
                 )
                 self.state.emit_status()
                 return False
@@ -867,7 +889,7 @@ class VpnService:
         )
         try:
             await self._pm.write_config("tun", cfg)
-            await self._pm.start_singbox("tun")
+            await self._pm.start_singbox("tun", binary=tun_bin)
             self._log_streamer.add_source("tun", LOG_DIR / LOG_NAMES["tun"])
         except Exception as exc:
             self._log("error", f"failed to start tun: {exc}")
@@ -882,6 +904,27 @@ class VpnService:
             return False
         return True
 
+    async def _resolve_host_ips(self, host: str, port: Optional[int]) -> list[str]:
+        """Resolve a host to canonical literal IPs; a literal IP passes through."""
+        try:
+            return [str(ipaddress.ip_address(host))]
+        except ValueError:
+            pass
+
+        loop = asyncio.get_running_loop()
+        try:
+            info = await loop.getaddrinfo(host, port or 443, type=socket.SOCK_STREAM)
+        except (socket.gaierror, OSError):
+            return []
+
+        ips: set[str] = set()
+        for _, _, _, _, sockaddr in info:
+            try:
+                ips.add(str(ipaddress.ip_address(sockaddr[0])))
+            except ValueError:
+                continue
+        return sorted(ips)
+
     async def _resolve_transport_endpoints(self, server: Server) -> list[str]:
         """Resolve the transport host to host-prefixes excluded from TUN.
 
@@ -891,37 +934,16 @@ class VpnService:
         host, port = self._server_endpoint(server)
         if not host:
             return []
-        try:
-            ip = ipaddress.ip_address(host)
-            return [f"{ip}/{ip.max_prefixlen}"]
-        except ValueError:
-            pass
-
-        loop = asyncio.get_running_loop()
-        try:
-            info = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except (socket.gaierror, OSError):
-            return []
-
-        prefixes: set[str] = set()
-        for _, _, _, _, sockaddr in info:
-            try:
-                ip = ipaddress.ip_address(sockaddr[0])
-            except ValueError:
-                continue
-            prefixes.add(f"{ip}/{ip.max_prefixlen}")
+        prefixes = []
+        for ip_str in await self._resolve_host_ips(host, port):
+            ip = ipaddress.ip_address(ip_str)
+            prefixes.append(f"{ip}/{ip.max_prefixlen}")
         return sorted(prefixes)
 
-    @staticmethod
-    def _singbox_binary() -> str:
-        # setcap/getcap act on the real file, not a symlink (NixOS wraps
-        # binaries in store symlinks, and setcap on the link fails).
-        return os.path.realpath(SINGBOX_BIN)
-
-    async def _check_tun_caps(self) -> bool:
+    async def _check_tun_caps(self, binary: str) -> bool:
         if self._tun_caps_granted:
             return True
-        rc, stdout = await self._run_capture(["getcap", self._singbox_binary()])
+        rc, stdout = await self._run_capture(["getcap", binary])
         if rc != 0:
             return False
         if "cap_net_admin" in stdout.lower():
@@ -929,7 +951,7 @@ class VpnService:
             return True
         return False
 
-    async def _grant_tun_caps(self) -> bool:
+    async def _grant_tun_caps(self, binary: str) -> bool:
         # pkexec/setcap is meaningful only for TUN mode — refuse to prompt
         # the user during a system-proxy switch.
         if self.state.settings.proxyMode != "tun":
@@ -939,14 +961,23 @@ class VpnService:
         async with self._tun_caps_lock:
             # A concurrent caller may have already granted caps while we were
             # waiting for the lock; re-check before firing pkexec again.
-            if await self._check_tun_caps():
+            if await self._check_tun_caps(binary):
                 return True
+            # One prompt does both: grant the cap to the private copy and drop
+            # the grant older plugin versions left on the shared system binary.
+            # Paths travel as positional arguments, never spliced into the
+            # script text.
+            script = 'setcap cap_net_admin+ep "$1" && { setcap -r "$2" 2>/dev/null; true; }'
             rc = await self._run(
-                ["pkexec", "setcap", "cap_net_admin+ep", self._singbox_binary()]
+                [
+                    "pkexec", "sh", "-c", script, "sh",
+                    binary,
+                    tun_binary.source_binary(SINGBOX_BIN),
+                ]
             )
             if rc != 0:
                 return False
-            return await self._check_tun_caps()
+            return await self._check_tun_caps(binary)
 
     # ----------------------------------------------------------------- low-level
 

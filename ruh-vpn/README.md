@@ -81,8 +81,14 @@ noctalia msg panel-toggle umedbazarov/ruh-vpn:vpn_panel
   server credentials.
 - Network access includes configured VPN endpoints and subscription URLs,
   `api.country.is` when country detection is enabled, Cloudflare's speed-test
-  endpoint, Google DNS-over-HTTPS in TUN mode, and remote rule sets enabled by
-  routing presets.
-- TUN mode may grant `CAP_NET_ADMIN` to the `sing-box` executable after a
-  PolicyKit prompt. The kill switch installs a dedicated nftables table and
+  endpoint, and remote rule sets enabled by routing presets.
+- DNS in the generated configurations: Google DNS (`8.8.8.8`) over plain UDP
+  through the proxy tunnel; AliDNS (`223.5.5.5`) over plain UDP directly, as
+  the resolver for direct-routed and unmatched domains in rules mode; Google
+  DNS-over-HTTPS (`8.8.8.8`, through the tunnel) in TUN mode.
+- TUN mode grants `CAP_NET_ADMIN`, after a PolicyKit prompt, to a private copy
+  of `sing-box` kept in a user-only (mode 0700) directory under the plugin
+  data directory — never to the shared system binary. The copy is recreated
+  whenever the system `sing-box` changes, which also clears the previously
+  granted capability. The kill switch installs a dedicated nftables table and
   removes it when disabled.
