@@ -5,7 +5,7 @@
 -- to the mouse directly via the CLI - none of DPI/polling/LED state lives
 -- in the cached battery.json, and writes obviously can't be cached at all.
 --
--- Sliders (DPI stage, polling rate, brightness, breath speed) commit on
+-- Sliders (DPI stage, polling rate, brightness, breathe speed) commit on
 -- onDragEnd, not onChange - onChange only updates the live label as you
 -- drag, so a drag gesture doesn't fire a USB write per pixel/step crossed.
 -- DPI and polling rate are index-based sliders over their configured/
@@ -35,11 +35,13 @@
 -- same - picking a profile in the UI calls --active-profile, not just a
 -- local view change, so every field shown always belongs to one coherent
 -- profile). Starts at 1 as a bootstrap placeholder only - the first
--- readStatus() call corrects it to whatever's actually active on the mouse
--- (see profileSynced below), since a physical profile button or Fusion on
--- another OS could have left a different profile active than this panel's
--- default guess.
+-- readStatus() call of each open corrects it to whatever's actually active
+-- on the mouse (see profileSynced below), since a physical profile button
+-- or Fusion on another OS could have left a different profile active than
+-- this panel's default guess, or than whatever it was last left showing.
 local profile = 1
+-- Cleared by onOpen() on every open, not just once per process - see the
+-- bootstrap block in readStatus().
 local profileSynced = false
 local numProfiles = 0
 local pollingRate = nil
@@ -52,8 +54,8 @@ local ledEffects = {}
 local ledEffect = nil
 local brightnessPct = nil
 local brightnessPreview = nil
-local breathSpeed = nil
-local breathSpeedPreview = nil
+local breatheSpeed = nil
+local breatheSpeedPreview = nil
 local wireless = false
 local debounce = nil -- {value, min, max}
 local debouncePreview = nil
@@ -78,12 +80,12 @@ local activeTab = "sensor" -- "sensor" | "advanced" | "lighting" | "power"
 -- lets them share the one local.
 local render
 
--- Matches the GUI's own convention (see gui.py) for when breath/pulse speed
--- is relevant: the device's last LED effect in its list, whatever it's
--- actually named ("pulse" here, "breath" on other drivers) - not a literal
--- string match.
-local function breathSpeedRelevant()
-  return breathSpeed ~= nil and ledEffect == ledEffects[#ledEffects]
+-- Matches the GUI's own convention (see gui.py) for when breathe speed is
+-- relevant: the device's last LED effect in its list, checked by position
+-- rather than a literal string match, in case a future driver ever needs
+-- a different name.
+local function breatheSpeedRelevant()
+  return breatheSpeed ~= nil and ledEffect == ledEffects[#ledEffects]
 end
 
 local function pollingRateIndex()
@@ -96,7 +98,7 @@ local function pollingRateIndex()
 end
 
 -- Generic value slider (label + slider) for the four new global/per-profile
--- settings below - DPI/polling/brightness/breath speed above predate this
+-- settings below - DPI/polling/brightness/breathe speed above predate this
 -- and stay as they are (index-based lookups for the first two, already
 -- working) rather than being retrofitted for the sake of it. get/setPreview
 -- hold the live-drag value separately from the committed one, same
@@ -104,7 +106,7 @@ end
 -- `key` gives this row's label/slider a stable identity across renders -
 -- without it, Noctalia's UI reconciler matches purely by (type, position),
 -- and this panel's row list shifts constantly (the error label appearing/
--- disappearing, tabs swapping which rows are present, the breath-speed row
+-- disappearing, tabs swapping which rows are present, the breathe-speed row
 -- coming and going) - two different sliderRow() calls landing on the same
 -- structural slot across renders can end up with one's onDragEnd bound to
 -- the wrong control, so a drag on one setting silently writes another.
@@ -193,7 +195,7 @@ local function toggleRow(key, labelText, checked, buildCmd, onSuccess)
         end, 10000)
       end,
     }),
-    ui.label({ text = labelText, flexGrow = 1 }),
+    ui.label({ key = key .. "-label", text = labelText, flexGrow = 1 }),
   })
 end
 
@@ -514,8 +516,8 @@ function render()
       end,
     }))
 
-    if breathSpeedRelevant() then
-      local shownSpeed = breathSpeedPreview or breathSpeed
+    if breatheSpeedRelevant() then
+      local shownSpeed = breatheSpeedPreview or breatheSpeed
       table.insert(rows, ui.label({
         key = "speed-label",
         text = `{noctalia.tr("ui.speed-label")} — {shownSpeed}`,
@@ -530,26 +532,26 @@ function render()
         value = shownSpeed,
         enabled = not busy,
         onChange = function(value)
-          breathSpeedPreview = math.floor(tonumber(value) or breathSpeed)
+          breatheSpeedPreview = math.floor(tonumber(value) or breatheSpeed)
           render()
         end,
         onDragEnd = function(value)
           -- Prefer the live-drag preview over onDragEnd's own `value` arg -
           -- see sliderRow()'s onDragEnd for why.
-          local target = breathSpeedPreview or math.floor(tonumber(value) or breathSpeed)
-          breathSpeedPreview = nil
-          if target == breathSpeed then
+          local target = breatheSpeedPreview or math.floor(tonumber(value) or breatheSpeed)
+          breatheSpeedPreview = nil
+          if target == breatheSpeed then
             render()
             return
           end
           busy = true
           render()
           noctalia.runAsync(
-            `pulsar-mouse --profile {profile} --breath-speed {target}`,
+            `pulsar-mouse --profile {profile} --breathe-speed {target}`,
             function(result)
               busy = false
               if type(result) == "table" and result.exitCode == 0 then
-                breathSpeed = target
+                breatheSpeed = target
                 errorText = nil
               else
                 errorText = noctalia.tr("ui.write-failed")
@@ -566,8 +568,18 @@ function render()
   panel.render(ui.scroll({ flexGrow = 1, gap = 10 }, rows))
 end
 
+-- Clears `busy` on every terminal path (all the early returns below, and
+-- the final success path at the end) - NOT on the bootstrap-resync path,
+-- which recurses into another readStatus() call that owns clearing it
+-- once that one actually finishes. Bug, found in review: onProfileChange
+-- sets busy=true then calls this expecting it to clear busy on success,
+-- but until this fix it never did on any path - after a successful
+-- profile switch the whole panel (every slider/toggle/dropdown, since
+-- they're all `enabled = not busy`) went permanently read-only, with no
+-- error shown, since nothing was ever wrong from the user's perspective.
 local function readStatus()
   if not noctalia.commandExists("pulsar-mouse") then
+    busy = false
     errorText = noctalia.tr("ui.not-installed")
     render()
     return
@@ -576,24 +588,40 @@ local function readStatus()
     `pulsar-mouse --status-json --profile {profile}`,
     function(result)
       if type(result) ~= "table" or result.timedOut or result.exitCode ~= 0 then
+        busy = false
         errorText = noctalia.tr("ui.no-mouse")
         render()
         return
       end
       local decoded = noctalia.json.decode(result.stdout or "")
-      if type(decoded) ~= "table" or decoded.polling_rate == nil then
+      -- type(decoded.dpi) checked here too, not just polling_rate - cli.py
+      -- always emits it today so this is theoretical, but decoded.dpi.active
+      -- below would otherwise throw on a malformed response and skip
+      -- clearing `busy`, the exact failure mode the rest of this function
+      -- was just fixed to avoid.
+      if type(decoded) ~= "table" or decoded.polling_rate == nil or type(decoded.dpi) ~= "table" then
+        busy = false
         errorText = noctalia.tr("ui.no-mouse")
         render()
         return
       end
       numProfiles = decoded.num_profiles or numProfiles
-      -- One-time bootstrap: this query targeted --profile {profile} (still
-      -- the placeholder 1 on first load), but decoded.active_profile is the
+      -- Once-per-open bootstrap: this query targeted --profile {profile}
+      -- (the value left over from the last time the panel was open, or the
+      -- placeholder 1 on first load), but decoded.active_profile is the
       -- ground truth of what's actually live on the mouse regardless of
       -- that. Resync `profile` to it and re-fetch once so every field below
-      -- reflects the real active profile from the start, not profile 1's
-      -- stored settings if a different one happens to be active - see
-      -- `profile`'s own comment above for why this can legitimately differ.
+      -- reflects the real active profile from the start, not some other
+      -- profile's stored settings - see `profile`'s own comment above for
+      -- why this can legitimately differ.
+      --
+      -- `profileSynced` is module-scoped and so survives the panel closing,
+      -- which used to make this a once-per-*process* bootstrap: only the
+      -- very first open ever re-synced. Switching profiles by any other
+      -- means afterwards (the physical profile button, `pulsar-mouse
+      -- --active-profile`, Fusion on another OS) then left every reopen
+      -- showing - and writing to - the stale profile this panel last knew
+      -- about. onOpen() clears the flag so each open re-syncs.
       if not profileSynced then
         profileSynced = true
         if decoded.active_profile ~= nil and decoded.active_profile ~= profile then
@@ -637,8 +665,9 @@ local function readStatus()
         ledEffects = decoded.led.effects or {}
         ledEffect = decoded.led.effect
         brightnessPct = decoded.led.brightness_percent
-        breathSpeed = decoded.led.breath_speed
+        breatheSpeed = decoded.led.breathe_speed
       end
+      busy = false
       render()
     end,
     10000
@@ -646,6 +675,14 @@ local function readStatus()
 end
 
 function onOpen(_context)
+  -- Re-arm the active-profile resync on every open, not just the first
+  -- one of the process - see readStatus()'s own comment for what went
+  -- wrong without this. Deliberately not reset anywhere else: by the time
+  -- onProfileChange runs, this open's resync has already happened, and
+  -- re-arming it there would let a not-yet-settled --status-json read
+  -- (still reporting the outgoing profile) undo the switch the user just
+  -- made.
+  profileSynced = false
   render() -- immediate placeholder while the read below is in flight
   readStatus()
 end

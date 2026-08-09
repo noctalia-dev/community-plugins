@@ -1,5 +1,6 @@
 # Pulsar Mouse battery/charging status - bar widget and desktop widget - plus
-# a quick-controls panel (DPI stage switch, polling rate) opened by clicking
+# a quick-controls panel (profile switching, DPI/polling/lighting/power
+# settings across Sensor/Advanced/Lighting/Power tabs) opened by clicking
 # the bar widget.
 #
 # The battery-reading entries (bar, battery) read the reading pulsar-mouse-gui
@@ -18,7 +19,7 @@
 
 id = "harveywuk/pulsar-mouse"
 name = "Pulsar Mouse"
-version = "1.6.0"
+version = "1.6.1"
 plugin_api = 9
 author = "harveywuk"
 license = "MIT"

@@ -46,9 +46,9 @@ Click the bar widget to open the `controls` panel. A **Profile** dropdown at the
 - **Angle Snap**, **Ripple Control**, **Motion Sync** - toggles
 
 **Lighting**
-- **LED Effect** - a dropdown (off/steady/pulse, or whatever the device supports)
+- **LED Effect** - a dropdown (off/steady/breathe, or whatever the device supports)
 - **Brightness** - a 0-100% slider
-- **Speed** - a 0-100 slider for the LED effect's speed, shown only when the current effect actually has one (e.g. pulse/breath, not steady)
+- **Speed** - a 0-100 slider for the LED effect's speed, shown only when the current effect actually has one (e.g. breathe, not steady)
 
 **Power** (wireless mice only)
 - **Wireless Power Saving** - a slider, 30s-15min, shown as M:SS
