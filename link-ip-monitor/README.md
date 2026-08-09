@@ -32,12 +32,12 @@ panel, to force an immediate check.
 
 Open the panel directly with:
 ```sh
-noctalia msg plugin you/ip-monitor:panel toggle
+noctalia msg plugin nilsonlinux/link-ip-monitor:panel toggle
 ```
 
 Force an immediate check via IPC:
 ```sh
-noctalia msg plugin you/ip-monitor:monitor all refresh
+noctalia msg plugin nilsonlinux/link-ip-monitor:monitor all refresh
 ```
 
 The host list itself is not stored in plugin settings — it lives in the
