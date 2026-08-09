@@ -458,7 +458,7 @@ end
 render = function()
   dirty = false
   local statusRows = {}
-  if snapshot.loading == true then
+  if snapshot.loading == true and not snapshot.available then
     table.insert(statusRows, ui.label({ text = tr("panel.loading"), color = "on_surface_variant" }))
   end
   if snapshot.busy == true then
@@ -580,6 +580,10 @@ noctalia.state.watch(STATE_KEY, function(value)
     or value.busy ~= snapshot.busy
     or value.error ~= snapshot.error
     or value.problemPods ~= snapshot.problemPods
+    or value.loading ~= snapshot.loading
+    or value.available ~= snapshot.available
+    or value.nodeCount ~= snapshot.nodeCount
+    or value.podCount ~= snapshot.podCount
   snapshot = value
   if selectedId ~= "" then
     local still = selectedNode() or selectedPod() or selectedDeploy() or selectedNs()

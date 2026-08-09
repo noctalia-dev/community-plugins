@@ -27,9 +27,11 @@ local snapshot = {
 local refreshGeneration = 0
 local refreshPending = false
 local refreshAgain = false
+local refreshStartedAt = 0
 local actionBusy = false
 local dataSignature = ""
 local prevNotReady = {} -- name -> true
+local STUCK_REFRESH_SEC = 90
 
 local function trim(value)
   return noctalia.string.trim(tostring(value or ""))
@@ -91,8 +93,36 @@ local function nsArgs(args)
   return args
 end
 
+local function nowSec()
+  if type(noctalia.nowMs) == "function" then
+    local ms = noctalia.nowMs()
+    if type(ms) == "number" and ms > 0 then
+      return math.floor(ms / 1000)
+    end
+  end
+  return os.time()
+end
+
 local function runKubectl(args, callback, timeoutMs)
-  return noctalia.runAsync(shellCommand(args), callback, timeoutMs or 45000)
+  local cmd = shellCommand(args)
+  local started = noctalia.runAsync(cmd, function(result)
+    if type(callback) == "function" then
+      local ok, err = pcall(callback, result)
+      if not ok then
+        noctalia.log(`k8s-status: kubectl callback failed: {tostring(err)}`)
+      end
+    end
+  end, timeoutMs or 45000)
+  if not started and type(callback) == "function" then
+    -- Ensure callers always get a callback so refresh cannot hang forever.
+    callback({
+      exitCode = -1,
+      stdout = "",
+      stderr = "could not start kubectl",
+      timedOut = false,
+    })
+  end
+  return started
 end
 
 local function updateRevision(signature)
@@ -353,13 +383,29 @@ end
 
 local refreshAll
 
+local function forceUnstick(reason)
+  noctalia.log(`k8s-status: {reason}`)
+  refreshPending = false
+  refreshStartedAt = 0
+  snapshot.loading = false
+  if snapshot.error == "" and not snapshot.available then
+    snapshot.error = reason
+  end
+  publishSnapshot()
+end
+
 refreshAll = function()
+  -- Recover from hung refreshes (callback never fired / stuck pending).
+  if refreshPending and refreshStartedAt > 0 and (nowSec() - refreshStartedAt) >= STUCK_REFRESH_SEC then
+    forceUnstick("refresh timed out")
+  end
   if refreshPending then
     refreshAgain = true
     return
   end
   refreshPending = true
   refreshAgain = false
+  refreshStartedAt = nowSec()
   refreshGeneration += 1
   local generation = refreshGeneration
 
@@ -377,13 +423,29 @@ refreshAll = function()
     snapshot.podCount = 0
     snapshot.deployCount = 0
     refreshPending = false
+    refreshStartedAt = 0
     updateRevision("kubectl-missing")
     publishSnapshot()
     return
   end
 
-  snapshot.loading = true
-  publishSnapshot()
+  -- Only show "Querying cluster…" when we have never loaded data.
+  if not snapshot.available then
+    snapshot.loading = true
+    publishSnapshot()
+  end
+
+  local function doneRefresh()
+    if generation ~= refreshGeneration then
+      return
+    end
+    refreshPending = false
+    refreshStartedAt = 0
+    if refreshAgain then
+      refreshAgain = false
+      refreshAll()
+    end
+  end
 
   local function fail(err)
     if generation ~= refreshGeneration then
@@ -392,158 +454,216 @@ refreshAll = function()
     snapshot.available = false
     snapshot.loading = false
     snapshot.error = trim(err) ~= "" and trim(err) or noctalia.tr("result.unreachable")
-    refreshPending = false
     updateRevision("err:" .. snapshot.error)
     publishSnapshot()
-    if refreshAgain then
-      refreshAll()
+    doneRefresh()
+  end
+
+  local function applySuccess(ctx, nodes, pods, deploys, namespaces)
+    if generation ~= refreshGeneration then
+      return
     end
+    local readyCount = 0
+    for _, n in ipairs(nodes) do
+      if n.ready then
+        readyCount += 1
+      end
+    end
+    local problemCount = 0
+    for _, p in ipairs(pods) do
+      if p.problem then
+        problemCount += 1
+      end
+    end
+    pcall(checkNotReadyNotifications, nodes)
+
+    snapshot.available = true
+    snapshot.loading = false
+    snapshot.error = ""
+    snapshot.context = ctx or ""
+    snapshot.nodes = nodes
+    snapshot.pods = pods
+    snapshot.deployments = deploys
+    snapshot.namespaces = namespaces
+    snapshot.readyNodes = readyCount
+    snapshot.nodeCount = #nodes
+    snapshot.problemPods = problemCount
+    snapshot.podCount = #pods
+    snapshot.deployCount = #deploys
+    snapshot.updatedAt = nowSec()
+
+    updateRevision(table.concat({
+      snapshot.context,
+      tostring(readyCount),
+      tostring(#nodes),
+      tostring(problemCount),
+      tostring(#pods),
+      tostring(#deploys),
+    }, "|"))
+    publishSnapshot()
+    doneRefresh()
+  end
+
+  -- Parallel queries (pending counter) — avoids deep nesting and partial hangs.
+  local bag = {
+    context = "",
+    nodesOut = nil,
+    nodesErr = nil,
+    podsOut = "",
+    deploysOut = "",
+    nsOut = "",
+  }
+  local pending = 5
+  local finished = false
+
+  local function finishOne()
+    if generation ~= refreshGeneration or finished then
+      return
+    end
+    pending -= 1
+    if pending > 0 then
+      return
+    end
+    finished = true
+
+    if bag.nodesOut == nil then
+      fail(bag.nodesErr or "nodes failed")
+      return
+    end
+
+    local okN, nodesOrErr = pcall(parseNodes, bag.nodesOut)
+    local nodes = (okN and nodesOrErr) or {}
+    if not okN then
+      noctalia.log(`k8s-status: parseNodes: {tostring(nodesOrErr)}`)
+      nodes = {}
+    end
+
+    local pods = {}
+    local okP, podsOrErr = pcall(parsePodsWide, bag.podsOut)
+    if okP and type(podsOrErr) == "table" then
+      pods = podsOrErr
+    elseif not okP then
+      noctalia.log(`k8s-status: parsePods: {tostring(podsOrErr)}`)
+    end
+    table.sort(pods, function(a, b)
+      if a.problem ~= b.problem then
+        return a.problem
+      end
+      if a.namespace == b.namespace then
+        return a.name < b.name
+      end
+      return a.namespace < b.namespace
+    end)
+
+    local deploys = {}
+    local okD, depOrErr = pcall(parseDeploys, bag.deploysOut)
+    if okD and type(depOrErr) == "table" then
+      deploys = depOrErr
+    end
+
+    local namespaces = {}
+    local okNs, nsOrErr = pcall(parseNamespaces, bag.nsOut)
+    if okNs and type(nsOrErr) == "table" then
+      namespaces = nsOrErr
+    end
+
+    applySuccess(bag.context, nodes, pods, deploys, namespaces)
   end
 
   -- context
   local ctxArgs = baseKubectlArgs()
   table.insert(ctxArgs, "config")
   table.insert(ctxArgs, "current-context")
-
   runKubectl(ctxArgs, function(ctxResult)
     if generation ~= refreshGeneration then
       return
     end
     if ctxResult and ctxResult.exitCode == 0 then
-      snapshot.context = trim(ctxResult.stdout)
+      bag.context = trim(ctxResult.stdout)
     else
       local configured = trim(noctalia.getConfig("context"))
-      snapshot.context = configured ~= "" and configured or ""
+      bag.context = configured ~= "" and configured or ""
     end
+    finishOne()
+  end, 15000)
 
-    local nodeArgs = baseKubectlArgs()
-    table.insert(nodeArgs, "get")
-    table.insert(nodeArgs, "nodes")
-    table.insert(nodeArgs, "-o")
-    table.insert(nodeArgs, "jsonpath=" .. NODE_JSONPATH)
-
-    runKubectl(nodeArgs, function(nodeResult)
-      if generation ~= refreshGeneration then
-        return
-      end
-      if not nodeResult or nodeResult.exitCode ~= 0 then
-        local err = ""
-        if nodeResult then
-          err = trim(nodeResult.stderr)
-          if err == "" then
-            err = trim(nodeResult.stdout)
-          end
+  -- nodes (required)
+  local nodeArgs = baseKubectlArgs()
+  table.insert(nodeArgs, "get")
+  table.insert(nodeArgs, "nodes")
+  table.insert(nodeArgs, "-o")
+  table.insert(nodeArgs, "jsonpath=" .. NODE_JSONPATH)
+  runKubectl(nodeArgs, function(nodeResult)
+    if generation ~= refreshGeneration then
+      return
+    end
+    if nodeResult and nodeResult.exitCode == 0 and not nodeResult.timedOut then
+      bag.nodesOut = nodeResult.stdout or ""
+    else
+      local err = ""
+      if nodeResult then
+        err = trim(nodeResult.stderr)
+        if err == "" then
+          err = trim(nodeResult.stdout)
         end
-        fail(err ~= "" and err or "nodes failed")
-        return
-      end
-
-      local nodes = parseNodes(nodeResult.stdout)
-      local readyCount = 0
-      for _, n in ipairs(nodes) do
-        if n.ready then
-          readyCount += 1
+        if nodeResult.timedOut then
+          err = err ~= "" and err or "nodes timed out"
         end
       end
-      checkNotReadyNotifications(nodes)
+      bag.nodesErr = err ~= "" and err or "nodes failed"
+      bag.nodesOut = nil
+    end
+    finishOne()
+  end, 30000)
 
-      -- pods: prefer human table for ready/restarts, scoped by namespace setting
-      local podArgs = baseKubectlArgs()
-      table.insert(podArgs, "get")
-      table.insert(podArgs, "pods")
-      nsArgs(podArgs)
-      table.insert(podArgs, "--no-headers")
+  -- pods
+  local podArgs = baseKubectlArgs()
+  table.insert(podArgs, "get")
+  table.insert(podArgs, "pods")
+  nsArgs(podArgs)
+  table.insert(podArgs, "--no-headers")
+  runKubectl(podArgs, function(podResult)
+    if generation ~= refreshGeneration then
+      return
+    end
+    if podResult and podResult.exitCode == 0 then
+      bag.podsOut = podResult.stdout or ""
+    end
+    finishOne()
+  end, 45000)
 
-      runKubectl(podArgs, function(podResult)
-        if generation ~= refreshGeneration then
-          return
-        end
-        local pods = {}
-        if podResult and podResult.exitCode == 0 then
-          pods = parsePodsWide(podResult.stdout)
-        end
+  -- deployments
+  local deployArgs = baseKubectlArgs()
+  table.insert(deployArgs, "get")
+  table.insert(deployArgs, "deploy")
+  nsArgs(deployArgs)
+  table.insert(deployArgs, "-o")
+  table.insert(deployArgs, "jsonpath=" .. DEPLOY_JSONPATH)
+  runKubectl(deployArgs, function(deployResult)
+    if generation ~= refreshGeneration then
+      return
+    end
+    if deployResult and deployResult.exitCode == 0 then
+      bag.deploysOut = deployResult.stdout or ""
+    end
+    finishOne()
+  end, 30000)
 
-        local problemCount = 0
-        for _, p in ipairs(pods) do
-          if p.problem then
-            problemCount += 1
-          end
-        end
-        table.sort(pods, function(a, b)
-          if a.problem ~= b.problem then
-            return a.problem
-          end
-          if a.namespace == b.namespace then
-            return a.name < b.name
-          end
-          return a.namespace < b.namespace
-        end)
-
-        local deployArgs = baseKubectlArgs()
-        table.insert(deployArgs, "get")
-        table.insert(deployArgs, "deploy")
-        nsArgs(deployArgs)
-        table.insert(deployArgs, "-o")
-        table.insert(deployArgs, "jsonpath=" .. DEPLOY_JSONPATH)
-
-        runKubectl(deployArgs, function(deployResult)
-          if generation ~= refreshGeneration then
-            return
-          end
-          local deploys = {}
-          if deployResult and deployResult.exitCode == 0 then
-            deploys = parseDeploys(deployResult.stdout)
-          end
-
-          local nsArgsList = baseKubectlArgs()
-          table.insert(nsArgsList, "get")
-          table.insert(nsArgsList, "ns")
-          table.insert(nsArgsList, "-o")
-          table.insert(nsArgsList, "jsonpath=" .. NS_JSONPATH)
-
-          runKubectl(nsArgsList, function(nsResult)
-            if generation ~= refreshGeneration then
-              return
-            end
-            local namespaces = {}
-            if nsResult and nsResult.exitCode == 0 then
-              namespaces = parseNamespaces(nsResult.stdout)
-            end
-
-            snapshot.available = true
-            snapshot.loading = false
-            snapshot.error = ""
-            snapshot.nodes = nodes
-            snapshot.pods = pods
-            snapshot.deployments = deploys
-            snapshot.namespaces = namespaces
-            snapshot.readyNodes = readyCount
-            snapshot.nodeCount = #nodes
-            snapshot.problemPods = problemCount
-            snapshot.podCount = #pods
-            snapshot.deployCount = #deploys
-            snapshot.updatedAt = os.time()
-            refreshPending = false
-
-            local sig = table.concat({
-              snapshot.context,
-              tostring(readyCount),
-              tostring(#nodes),
-              tostring(problemCount),
-              tostring(#pods),
-              tostring(#deploys),
-            }, "|")
-            updateRevision(sig)
-            publishSnapshot()
-
-            if refreshAgain then
-              refreshAll()
-            end
-          end)
-        end)
-      end)
-    end)
-  end)
+  -- namespaces
+  local nsArgsList = baseKubectlArgs()
+  table.insert(nsArgsList, "get")
+  table.insert(nsArgsList, "ns")
+  table.insert(nsArgsList, "-o")
+  table.insert(nsArgsList, "jsonpath=" .. NS_JSONPATH)
+  runKubectl(nsArgsList, function(nsResult)
+    if generation ~= refreshGeneration then
+      return
+    end
+    if nsResult and nsResult.exitCode == 0 then
+      bag.nsOut = nsResult.stdout or ""
+    end
+    finishOne()
+  end, 20000)
 end
 
 local function finishAction(command, ok, message)
@@ -828,11 +948,15 @@ end
 
 function onConfigChanged()
   noctalia.setUpdateInterval(refreshIntervalMs())
+  refreshPending = false
+  refreshStartedAt = 0
   refreshAll()
 end
 
 function onIpc(event, _payload)
   if event == "refresh" then
+    refreshPending = false
+    refreshStartedAt = 0
     refreshAll()
   end
 end
