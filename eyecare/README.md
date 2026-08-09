@@ -29,7 +29,7 @@ The **Eye-Care Reminders** plugin provides a status bar widget that displays eit
 | --- | --- | --- | --- |
 | `active_duration_minutes` | `int` | `20` | Active screen time before triggering a break (minutes) |
 | `break_duration_seconds` | `int` | `20` | Required duration for eye-care breaks (seconds) |
-| `enable_sound` | `bool` | `true` | Play notification sound when breaks start or finish |
+| `enable_sound` | `bool` | `true` | Play notification sound when breaks start or finish (also requires Noctalia global sounds to be enabled) |
 | `enable_notifications` | `bool` | `true` | Show system-level notifications for reminders |
 
 ## IPC
@@ -52,5 +52,5 @@ noctalia msg plugin apex077/eyecare:eyecare-service all reset
 ## Notes
 
 - **Zero-Config Idle Detection**: If `dbus-monitor` is installed, the service automatically monitors screensaver and login lock session state without manual compositor configuration.
-- **Sound Players**: Sound notifications automatically try `canberra-gtk-play`, `paplay`, `pw-play`, and `aplay` to play system sounds.
+- **Sound Players**: Sound notifications use Noctalia's native sound API if available, falling back to system audio players (`canberra-gtk-play`, `paplay`, `pw-play`, `aplay`), while respecting Noctalia's global sound settings.
 - **Grace Period**: When starting a break, a grace period (default 10 seconds or the break duration, whichever is smaller) protects against accidental inputs aborting the break immediately.
