@@ -13,7 +13,8 @@
 -- binding that opens its own settings, and that default is exactly what's
 -- wanted here.
 
-local STATE_KEY = "dns_state"
+local STATE_KEY = "dns_state" -- published by service.luau
+
 local GLYPH_UNKNOWN = "globe"
 
 local snapshot = nil -- last state published by the service

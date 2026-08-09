@@ -4,8 +4,8 @@
 -- "apply_request" entries this panel emits. Picking a provider applies it
 -- immediately (one nmcli change, no reactivation).
 
-local STATE_KEY = "dns_state"
-local REQUEST_KEY = "apply_request"
+local STATE_KEY = "dns_state" -- published by service.luau
+local REQUEST_KEY = "apply_request" -- consumed by service.luau
 
 local RESOLVE_TIMEOUT_MS = 4000
 

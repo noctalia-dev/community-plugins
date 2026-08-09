@@ -75,8 +75,8 @@ neighbouring provider (what scroll sends).
 
 ## Requirements
 
-- noctalia v5.0.0-beta.6 or newer for the core plugin; the gesture remapping
-  and lookup tester need a newer build still (`plugin_api = 22`)
+- noctalia v5.0.0-beta.7 or newer (`plugin_api = 17`, for the `onExit`
+  lifecycle cleanup in `service.luau`)
 - NetworkManager (`networkmanager`, provides `nmcli`) with an active connection
 - Permission to modify system connections (see *Privileges* below)
 - `dig` (bind-tools/dnsutils) or `nslookup`, optional — only the lookup
@@ -87,12 +87,18 @@ neighbouring provider (what scroll sends).
 *Privilege command* is **empty by default**: NetworkManager's polkit policy
 usually lets active local sessions modify system connections without a
 password. If you get a "not authorized" error, set it to `pkexec` (shows
-noctalia's own polkit prompt) or `sudo -n` with a matching sudoers rule:
+noctalia's own polkit prompt) or `sudo -n` with a matching sudoers rule.
+The privilege command is applied to the `nmcli con mod` and `nmcli device
+reapply` calls individually — never to a wrapping shell — so the sudoers
+rule only ever needs to name `nmcli` itself:
 
 ```
 # /etc/sudoers.d/nmcli-dns
 youruser ALL=(root) NOPASSWD: /usr/bin/nmcli
 ```
+
+With `pkexec`, this means an apply may show its polkit prompt twice (once
+per elevated `nmcli` call) instead of once.
 
 Or grant it via a polkit rule and keep the setting empty:
 
