@@ -1,12 +1,12 @@
-# ip-monitor
-ip-monitor pings a list of IPs, hostnames or links on an interval, tracks
+# link-ip-monitor
+link-ip-monitor pings a list of IPs, hostnames or links on an interval, tracks
 each host's online/offline status and response time, and notifies when one
 goes down or comes back up.
 
 ## Plugin
 | Field | Value |
 | --- | --- |
-| ID | `nilsonlinux/link-ip-monitor` |
+| ID | `you/link-ip-monitor` |
 | Entries | Bar widget: `status`; panel: `panel`; service: `monitor` |
 
 ## Requirements
