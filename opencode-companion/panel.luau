@@ -202,6 +202,19 @@ local function fp_list(list, fields)
     return table.concat(parts, "\1")
 end
 
+-- Fingerprint the MCP server map (name-keyed) by sorted name + status, so the
+-- footer re-renders when a server's status changes.
+local function fp_mcp(servers)
+    if type(servers) ~= "table" then return "" end
+    local parts = {}
+    for name, srv in pairs(servers) do
+        local st = (type(srv) == "table" and srv.status) or "disabled"
+        parts[#parts + 1] = tostring(name) .. "=" .. tostring(st)
+    end
+    table.sort(parts)
+    return table.concat(parts, "\1")
+end
+
 -- Fingerprint a message list by message id + concatenated part text, so the
 -- panel re-renders when message content actually changes (ids alone are stable
 -- while a response streams in).
@@ -246,14 +259,14 @@ local function is_waiting_permission()
 end
 
 local function shq(s)
-    return "'" .. tostring(s):gsub("'", "'\''") .. "'"
+    return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
 end
 
 local function dispatch_ipc(event, payload)
     local cmd = "noctalia msg plugin '" .. SVC .. "' all " .. event
     if payload then
         -- Shell-escape the payload
-        payload = payload:gsub("'", "'\''")
+        payload = payload:gsub("'", "'\\''")
         cmd = cmd .. " '" .. payload .. "'"
     end
     noctalia.runAsync(cmd)
@@ -1137,7 +1150,7 @@ local function fingerprint_state()
         (type(err) == "table" and tostring(err.message) or "none"),
         -- Selection changes must re-render so the selectors reflect the pick.
         tostring(sel_model or "") .. "\1" .. tostring(sel_agent or ""),
-        fp_list((type(mcp) == "table" and mcp or {}), { "status" }),
+        fp_mcp((type(mcp) == "table" and mcp or {})),
         -- Animation frame drives the thinking spinner re-render while busy.
         tostring(thinking_frame),
     }, "\1")
