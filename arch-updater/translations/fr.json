@@ -1,5 +1,9 @@
 {
   "action_update": "Mettre à jour",
+  "caption_ignored": {
+    "one": "1 paquet ignoré",
+    "other": "{count} paquets ignorés"
+  },
   "notify_updates": {
     "one": "1 paquet à mettre à jour",
     "other": "{count} paquets à mettre à jour"

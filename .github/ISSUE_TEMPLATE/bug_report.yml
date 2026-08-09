@@ -26,6 +26,7 @@ body:
       default: 0
       options:
         - --- SELECT ---
+        - 9router-control
         - anilist
         - arch-updater
         - audio-switcher
@@ -41,6 +42,7 @@ body:
         - config-swap
         - daily-wallpaper
         - deepseek_usage
+        - dns-switcher
         - drive-health
         - dropwall
         - ds4-color
@@ -60,6 +62,7 @@ body:
         - imagemagick-clock
         - ip-monitor
         - jetbrains-provider
+        - k8s-status
         - keybind-cheatsheet
         - keymap
         - kineticwe-layouts
@@ -78,26 +81,33 @@ body:
         - nix-monitor
         - noctwhspr
         - obs-integration
+        - obsidian
+        - opnsense
         - pass
         - phone-connect
         - pomodoro
         - portctl
         - prismlauncher-instances
+        - procmon
         - proton-pass
+        - pulsar-mouse
         - qrcode
         - rss-notifier
         - screen-toolkit
         - sharednd
+        - shell-command
         - shelly
         - special-workspaces
         - spotify-lyrics
         - ssh-launcher
+        - tailscale
         - tmux-provider
         - todo
         - topgrade-wrapper
         - udiskie
         - um5606_fan_state
         - upbeat
+        - voxtype
         - w-engine
         - web-launcher
         - wl-screen-mirror

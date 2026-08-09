@@ -1,6 +1,6 @@
 id = "tadomika_ari/w-engine"
 name = "W Engine"
-version = "1.1.1"
+version = "1.2.0"
 # Tile and control callbacks are Luau closures rather than named globals, which
 # the host resolves from plugin API 9 onwards.
 plugin_api = 9

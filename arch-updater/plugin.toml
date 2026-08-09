@@ -1,6 +1,6 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "1.0.1"
+version = "1.1.0"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
@@ -85,6 +85,25 @@ type = "bool"
 label_key = "settings.check_reboot_needed.label"
 description_key = "settings.check_reboot_needed.description"
 default = true
+
+# ── Activity ─────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "show_activity_graph"
+type = "bool"
+label_key = "settings.show_activity_graph.label"
+description_key = "settings.show_activity_graph.description"
+default = true
+
+[[setting]]
+key = "activity_history_length"
+type = "int"
+label_key = "settings.activity_history_length.label"
+description_key = "settings.activity_history_length.description"
+default = 10
+min = 3
+max = 30
+visible_when = { key = "show_activity_graph", values = ["true"] }
 
 # ── Update run ───────────────────────────────────────────────────────────────
 

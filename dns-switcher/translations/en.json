@@ -1,0 +1,75 @@
+{
+  "applied": "DNS switched to {name}",
+  "copied": "DNS servers copied: {ip}",
+  "err_apply_failed": "Failed to apply the DNS settings",
+  "err_auth_dismissed": "Authorization dismissed",
+  "err_invalid_ip": "Invalid DNS address: {ip}",
+  "err_no_connection": "No active NetworkManager connection",
+  "err_no_nmcli": "nmcli not found — install NetworkManager",
+  "err_not_authorized": "NetworkManager refused the change (not authorized). Set the Privilege command setting to 'pkexec' or 'sudo -n'.",
+  "err_spawn": "Could not run nmcli",
+  "err_timeout": "Timed out applying the DNS change (authorization prompt left unanswered?)",
+  "err_unknown_provider": "Unknown provider id: {id}",
+  "resolve_busy": "Resolving…",
+  "resolve_empty": "No records found",
+  "resolve_invalid": "Enter a valid hostname",
+  "resolve_no_tool": "Neither dig nor nslookup is installed",
+  "resolve_placeholder": "hostname, e.g. example.com",
+  "resolve_spawn_failed": "Could not run the lookup",
+  "resolve_timeout": "Timed out",
+  "resolve_title": "DNS lookup",
+  "resolve_via": "via {name} ({server})",
+  "resolve_via_system": "via system resolver",
+  "settings": {
+    "custom": {
+      "description": "One custom resolver, written 'Name = address', with one or two IPv4 addresses: 'Pi-hole = 192.168.1.5' or 'NextDNS = 45.90.28.0 45.90.30.0'. The panel lists the slots in order and skips the empty ones; a row that is not a valid address is skipped and logged."
+    },
+    "custom_1": {
+      "label": "Custom server 1"
+    },
+    "custom_2": {
+      "label": "Custom server 2"
+    },
+    "custom_3": {
+      "label": "Custom server 3"
+    },
+    "custom_4": {
+      "label": "Custom server 4"
+    },
+    "custom_5": {
+      "label": "Custom server 5"
+    },
+    "poll_seconds": {
+      "description": "How often the active DNS is re-read with nmcli.",
+      "label": "Poll interval (seconds)"
+    },
+    "privilege_command": {
+      "description": "Prefix to run nmcli changes as root (e.g. 'pkexec', 'sudo -n'). Empty (default) runs nmcli directly — NetworkManager's polkit policy allows this for active local sessions on most desktop distros.",
+      "label": "Privilege command"
+    },
+    "providers": {
+      "description": "Comma-separated ids included in the scroll cycle: google, cloudflare, opendns, adguard, quad9. Empty = none (custom servers and ISP default only).",
+      "label": "Built-in providers"
+    },
+    "show_label": {
+      "description": "Show the provider name next to the glyph (off = glyph only).",
+      "label": "Show provider name"
+    }
+  },
+  "status_auto": "automatic",
+  "status_checking": "Checking…",
+  "status_custom": "Custom ({ip})",
+  "status_default": "Default (ISP)",
+  "status_no_nmcli": "nmcli unavailable",
+  "status_switching": "Switching…",
+  "tip_close": "Close",
+  "tip_copy": "Copy the active DNS servers",
+  "tip_resolve": "Resolve this name with the active DNS",
+  "tip_settings": "Plugin settings",
+  "title": "DNS Switcher",
+  "tooltip_actions": "Actions",
+  "tooltip_hints": "click: panel · right: reset to ISP · scroll: cycle",
+  "tooltip_provider": "DNS",
+  "tooltip_servers": "Servers",
+  "tooltip_switching": "Applying the DNS change — a password prompt may appear"
+}

@@ -138,8 +138,8 @@ tags = ["gaming", "launcher"]
 [[plugin]]
 id = "avivbintangaringga/nix-monitor"
 name = "Nix Monitor"
-version = "1.3.0"
-updated_at = 1785329349
+version = "1.3.1"
+updated_at = 1786234516
 added_at = 1784003560
 author = "avivbintangaringga"
 license = "MIT"
@@ -323,8 +323,8 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.5"
-updated_at = 1785634296
+version = "2.0.6"
+updated_at = 1786156516
 added_at = 1784351187
 author = "Pozzoo"
 license = "MIT"
@@ -484,8 +484,8 @@ rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.3.5"
-updated_at = 1785414938
+version = "1.4.0"
+updated_at = 1786200344
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
@@ -599,8 +599,8 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.4.0"
-updated_at = 1785965615
+version = "0.5.0"
+updated_at = 1786156539
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
@@ -664,8 +664,8 @@ tags = ["launcher", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "tadomika_ari/w-engine"
 name = "W Engine"
-version = "1.1.1"
-updated_at = 1785884348
+version = "1.2.0"
+updated_at = 1786155862
 added_at = 1785025372
 author = "TadomiKa-Ari"
 license = "MIT"
@@ -768,8 +768,8 @@ tags = ["network", "bar", "panel", "service", "utility", "system", "indicator"]
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "1.0.1"
-updated_at = 1785879615
+version = "1.1.0"
+updated_at = 1786156028
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
@@ -1008,8 +1008,8 @@ tags = ["bar", "indicator", "niri"]
 [[plugin]]
 id = "neyfua/obs-integration"
 name = "OBS Integration"
-version = "1.1.0"
-updated_at = 1786027146
+version = "1.1.1"
+updated_at = 1786055239
 added_at = 1785760054
 author = "neyfua"
 license = "MIT"
@@ -1035,15 +1035,21 @@ tags = ["panel", "fun", "network", "privacy", "productivity", "utility"]
 [[plugin]]
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.1.0"
-updated_at = 1785811087
+version = "1.2.0"
+updated_at = 1786201064
 added_at = 1785759728
 author = "alexander"
 license = "MIT"
 icon = "crosshair"
 description = "Screen tools: color picker, OCR, QR, palette, lens, annotate, measure, and recording."
-plugin_api = 9
+plugin_api = 13
 tags = ["recording", "utility", "bar", "panel", "shortcut", "service", "hyprland", "niri", "sway"]
+
+[[plugin.release]]
+plugin_api = 9
+version = "1.1.0"
+updated_at = 1785811087
+rev = "87ef0483dc270ff9e13c092346ba1355eb4b229d"
 
 [[plugin]]
 id = "coder/deepseek_usage"
@@ -1148,3 +1154,133 @@ icon = "file"
 description = "A Noctalia widget for applying Configuration file with one click"
 plugin_api = 4
 tags = ["utility"]
+
+[[plugin]]
+id = "nightwatch75/dns-switcher"
+name = "DNS Switcher"
+version = "0.1.2"
+updated_at = 1786283627
+added_at = 1786200986
+author = "nightwatch75"
+license = "MIT"
+icon = "world"
+description = "Switch the system DNS between popular providers, custom servers, or the ISP default (NetworkManager)."
+plugin_api = 17
+tags = ["bar", "panel", "service", "network", "privacy"]
+
+[[plugin]]
+id = "gabedunn/voxtype"
+name = "Voxtype"
+version = "1.0.0"
+updated_at = 1786201675
+added_at = 1786201675
+author = "Gabe Dunn"
+license = "MIT"
+icon = "microphone-2"
+description = "Shows and controls Voxtype's live dictation status from the bar."
+plugin_api = 14
+tags = ["audio", "bar", "indicator", "recording", "utility"]
+
+[[plugin]]
+id = "weinguyen/shell-command"
+name = "Shell Command"
+version = "0.1.0"
+updated_at = 1786216031
+added_at = 1786216031
+author = "weinguyen"
+license = "MIT"
+icon = "terminal"
+description = "Run a shell command from the launcher. Type /sh then command open it your default terminal."
+plugin_api = 3
+tags = ["launcher", "productivity", "development"]
+
+[[plugin]]
+id = "weinguyen/9router-control"
+name = "9Router Control"
+version = "0.1.0"
+updated_at = 1786216383
+added_at = 1786216383
+author = "weinguyen"
+license = "MIT"
+icon = "route"
+description = "Manage 9Router model combos from the Noctalia bar — list, reorder chains, edit routing without the web dashboard."
+plugin_api = 3
+tags = ["ai", "productivity", "development", "network", "bar", "panel"]
+
+[[plugin]]
+id = "weinguyen/procmon"
+name = "Process Monitor"
+version = "0.3.0"
+updated_at = 1786218032
+added_at = 1786218032
+author = "weinguyen"
+license = "MIT"
+icon = "cpu"
+description = "A bottom-style process monitor: live CPU/RAM/swap bars and a sortable, searchable process table with per-process kill."
+plugin_api = 12
+tags = ["bar", "panel", "service", "system", "utility"]
+
+[[plugin]]
+id = "davemhammer/obsidian"
+name = "Obsidian"
+version = "1.0.6"
+updated_at = 1786225739
+added_at = 1786225739
+author = "davemhammer"
+license = "MIT"
+icon = "notebook"
+description = "Daily capture and git status, commit, pull, and push for an Obsidian vault."
+plugin_api = 10
+tags = ["productivity", "utility", "bar", "panel", "service", "launcher"]
+
+[[plugin]]
+id = "davemhammer/tailscale"
+name = "Tailscale"
+version = "1.0.5"
+updated_at = 1786234935
+added_at = 1786234935
+author = "davemhammer"
+license = "MIT"
+icon = "circles"
+description = "Manage Tailscale connection, peers, exit nodes, and preference toggles."
+plugin_api = 10
+tags = ["network", "utility", "bar", "panel", "service", "launcher"]
+
+[[plugin]]
+id = "harveywuk/pulsar-mouse"
+name = "Pulsar Mouse"
+version = "1.6.1"
+updated_at = 1786284094
+added_at = 1786284094
+author = "harveywuk"
+license = "MIT"
+icon = "mouse"
+description = "Battery status and quick sensor/lighting/power controls for a Pulsar gaming mouse - bar, desktop, and lock screen."
+plugin_api = 9
+tags = ["hardware", "system"]
+
+[[plugin]]
+id = "davemhammer/k8s-status"
+name = "K8s Status"
+version = "1.1.5"
+updated_at = 1786284828
+added_at = 1786284828
+author = "davemhammer"
+license = "MIT"
+icon = "hexagon"
+description = "Monitor Kubernetes nodes, pods, and deployments; panel and /kube launcher."
+plugin_api = 10
+tags = ["system", "development", "utility", "bar", "panel", "service", "launcher"]
+
+[[plugin]]
+id = "davemhammer/opnsense"
+name = "OPNsense"
+version = "1.1.6"
+updated_at = 1786285462
+added_at = 1786285462
+author = "davemhammer"
+license = "MIT"
+icon = "shield"
+description = "Monitor OPNsense health, interfaces, gateways, firewall rules, and logs."
+plugin_api = 10
+tags = ["network", "utility", "bar", "panel", "service", "launcher"]

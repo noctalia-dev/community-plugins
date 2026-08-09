@@ -41,8 +41,9 @@ Update behavior:
 | --- | --- | --- |
 | `update_check_interval` | `60` | Minutes between remote revision checks. |
 | `update_check_duration_threshold` | `5` | Minutes before an update check is cancelled. |
-| `system_stats_check_interval` | `10` | Minutes between store-statistics checks. |
-| `system_stats_check_duration_threshold` | `5` | Minutes before a statistics check is cancelled. |
+| `generation_check_interval` | `60` | Minutes between NixOS and Home Manager generation checks. |
+| `system_stats_check_interval` | `60` | Minutes between store-statistics checks. |
+| `system_stats_check_duration_threshold` | `15` | Minutes before a statistics check is cancelled. |
 | `show_update_check_notification` | `false` | Notifies when an update check starts and finishes. |
 | `show_update_available_notification` | `true` | Notifies when a newer revision is available. |
 | `branch` | `nixos-unstable` | Nixpkgs branch compared by the service. |

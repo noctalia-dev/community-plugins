@@ -17,6 +17,7 @@
 
 local PANEL_ID = "alexander/screen-toolkit:panel"
 local FULL_PANEL_ID = "alexander/screen-toolkit:panel-full"
+local LEGACY_PANEL_ID = "alexander/screen-toolkit:panel-legacy"
 local RESULT_PANEL_ID = "alexander/screen-toolkit:result"
 
 local SCRIPT_CAPTURE = noctalia.pluginDir() .. "/scripts/capture.sh"
@@ -43,7 +44,7 @@ local function log(msg)
 end
 
 local function trim(s)
-  return tostring(s):gsub("^%s+", ""):gsub("%s+$", "")
+  return (tostring(s):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
 local function shellQuote(value)
@@ -95,6 +96,17 @@ local function focusedGeometry()
         math.round(o.height * scale)
       )
     end
+  end
+  if outputs and #outputs > 0 then
+    local o = outputs[1]
+    local scale = o.scale or 1
+    return string.format(
+      "%d,%d %dx%d",
+      math.floor(o.x * scale),
+      math.floor(o.y * scale),
+      math.round(o.width * scale),
+      math.round(o.height * scale)
+    )
   end
   return nil
 end
@@ -482,6 +494,8 @@ end
 -- ── Tools: annotate (external editor handoff) ──────────────────────────────
 
 local function openAnnotator(file)
+  publish("activeTool", "annotate")
+  publish("annotateResult", { capturePath = file })
   if noctalia.commandExists("swappy") then
     noctalia.runAsync(`swappy -f {shellQuote(file)}`)
   elseif noctalia.commandExists("satty") then
@@ -596,9 +610,22 @@ local function setRecordState(next)
   publish("recordStartedAt", if recordState == "recording" then recordStartedAt else nil)
 end
 
+local overrideAudioOut = nil
+local overrideAudioIn = nil
+
+local function getAudioOut()
+  if overrideAudioOut ~= nil then return overrideAudioOut end
+  return cfg("record-audio-out") == true
+end
+
+local function getAudioIn()
+  if overrideAudioIn ~= nil then return overrideAudioIn end
+  return cfg("record-audio-in") == true
+end
+
 local function gsrAudioFlags()
-  local audioOut = cfg("record-audio-out") == true
-  local audioIn = cfg("record-audio-in") == true
+  local audioOut = getAudioOut()
+  local audioIn = getAudioIn()
   if audioOut and audioIn then
     return '-a "default_output|default_input" -ac aac'
   elseif audioOut then
@@ -610,31 +637,43 @@ local function gsrAudioFlags()
 end
 
 local function buildRecorderCommand(bin, geom, out)
-  local audioOut = cfg("record-audio-out") == true
-  local audioIn = cfg("record-audio-in") == true
+  local audioOut, audioIn = getAudioOut(), getAudioIn()
+  local isRegion = geom and geom ~= "" and geom ~= "screen"
+  local fps = cfg("record-fps") or 60
+  local codec = cfg("record-codec") or "h264"
+
   if bin == "gpu-screen-recorder" then
-    local codec = cfg("record-codec") or "h264"
-    local fps = cfg("record-fps") or 60
-    local cursor = if cursorHidden then "no" else "yes"
-    -- focusedOutputName() can return nil (e.g. when triggered from the bar),
-    -- so capture the focused region by geometry instead of by monitor name.
-    -- GSR region syntax is "WxH+X+Y", the reverse of our "x,y WxH".
-    local gx, gy, gw, gh = tostring(geom):match("^(%d+),(%d+) (%d+)x(%d+)$")
-    if not gx then return "" end
-    local flags = string.format(
-      "-w region -region %sx%s+%s+%s -f %d -k %s -bm qp -ffmpeg-opts qp=25 -cursor %s -cr limited %s -v no -o %s",
-      gw, gh, gx, gy, fps, codec, cursor, gsrAudioFlags(), shellQuote(out)
-    )
-    return "gpu-screen-recorder " .. flags
-  elseif bin == "wl-screenrec" then
-    local parts = { "wl-screenrec -g", shellQuote(geom), "-f", shellQuote(out) }
-    if audioOut then table.insert(parts, "--audio") end
-    if audioIn then table.insert(parts, "--audio-device default") end
-    if cursorHidden then table.insert(parts, "--no-cursor") end
-    return table.concat(parts, " ")
+    local cursor = cursorHidden and "no" or "yes"
+    local target = "-w screen"
+    if isRegion then
+      local gx, gy, gw, gh = tostring(geom):match("^(%d+),(%d+) (%d+)x(%d+)$")
+      if gx then target = string.format("-w region -region %sx%s+%s+%s", gw, gh, gx, gy) end
+    end
+    return string.format("gpu-screen-recorder %s -f %d -k %s -bm qp -ffmpeg-opts qp=25 -cursor %s -cr limited %s -v no -o %s", target, fps, codec, cursor, gsrAudioFlags(), shellQuote(out))
   end
-  local parts = { "wf-recorder -g", shellQuote(geom), "-f", shellQuote(out) }
-  if audioOut then table.insert(parts, "-a") end
+
+  local isWl = bin == "wl-screenrec"
+  local parts = { bin }
+  if isRegion then table.insert(parts, "-g " .. shellQuote(geom)) end
+  table.insert(parts, "-f " .. shellQuote(out))
+
+  if isWl then
+    table.insert(parts, "-m " .. tostring(fps))
+    local wlCodec = codec == "h264" and "avc" or codec
+    table.insert(parts, "--codec " .. wlCodec)
+    if cursorHidden then table.insert(parts, "--no-cursor") end
+  else
+    table.insert(parts, "-r " .. tostring(fps))
+  end
+
+  if audioOut and audioIn then
+    table.insert(parts, isWl and "--audio" or "-a")
+  elseif audioOut then
+    table.insert(parts, isWl and "--audio --audio-device '$(pactl get-default-sink 2>/dev/null).monitor'" or "-a -C '$(pactl get-default-sink 2>/dev/null).monitor'")
+  elseif audioIn then
+    table.insert(parts, isWl and "--audio --audio-device '$(pactl get-default-source 2>/dev/null)'" or "-a -C '$(pactl get-default-source 2>/dev/null)'")
+  end
+
   return table.concat(parts, " ")
 end
 
@@ -644,9 +683,11 @@ local function startRecord(geom, format, bin)
     noctalia.notifyError(noctalia.tr("messages.no_recorder"))
     return
   end
+  -- clean up old thumb so it doesn't stay stuck in preview
   if recordState ~= "idle" then return end
   rawPath = `/tmp/screen-toolkit-record-{os.time()}.mp4`
   recordFormat = if format == "gif" then "gif" else "mp4"
+  publish("recordFormat", recordFormat)
   recordPath = ""
   local cmd = buildRecorderCommand(bin, geom, rawPath)
   log(`starting recording: {cmd}`)
@@ -674,20 +715,21 @@ end
 
 local function waitForFileStable(path, callback, attempts, previousSize)
   attempts = attempts or 60
-  noctalia.runAsync(`stat -c %s {shellQuote(path)}`, function(res)
+  noctalia.runAsync(`stat -c %s {shellQuote(path)} 2>/dev/null`, function(res)
     local size = trim(res.stdout or "")
-    if res.exitCode == 0 and tonumber(size) and tonumber(size) > 0 then
-      if previousSize == size then
+    local numSize = tonumber(size)
+    if res.exitCode == 0 and numSize and numSize > 0 then
+      if previousSize == numSize then
         callback(true)
         return
       end
       noctalia.runAsync("sleep 0.3", function()
-        waitForFileStable(path, callback, attempts - 1, size)
+        waitForFileStable(path, callback, attempts - 1, numSize)
       end)
       return
     end
     if attempts <= 0 then
-      callback(false)
+      callback(numSize ~= nil and numSize > 0)
       return
     end
     noctalia.runAsync("sleep 0.2", function()
@@ -742,7 +784,7 @@ local function finalizeRecord(format, copyToClipboard)
     else
       noctalia.notify(noctalia.tr("messages.saved_to", { path = dest }))
     end
-  end)
+  end, 600000)
 end
 
 local function recordStop()
@@ -752,7 +794,8 @@ local function recordStop()
   -- rawPath is unique per recording, so pkill scopes to our recorder only and
   -- never touches the built-in screen recorder's process. The transient pkill
   -- wrapper matching itself is harmless (it still signals the recorder first).
-  local stopCommand = `pkill -INT -f {shellQuote(rawPath)}`
+  -- use [/]tmp regex trick so pkill doesn't match and kill its own shell process
+  local stopCommand = `pkill -INT -f {rawPath}`
   noctalia.runAsync(stopCommand, function()
     waitForFileStable(rawPath, function(ok)
       if not ok then
@@ -763,7 +806,7 @@ local function recordStop()
       local skipConfirm = cfg("record-skip-confirmation") == true
       local toClipboard = cfg("record-copy-to-clipboard") == true
       if toClipboard then
-        finalizeRecord("mp4", true)
+        finalizeRecord(recordFormat, true)
       elseif skipConfirm then
         finalizeRecord(recordFormat, false)
       else
@@ -792,6 +835,7 @@ local function recordDiscard()
     noctalia.runAsync(`rm -f {shellQuote(rawPath)}`)
     rawPath = ""
   end
+  -- clean up old thumb so it doesn't stay stuck in preview
   setRecordState("idle")
 end
 
@@ -869,59 +913,31 @@ end
 local function runRecordRegion(format)
   refreshRecorders()
   local bin = bestRegionRecorder()
-  if bin == "" then
-    noctalia.notifyError(noctalia.tr("messages.no_recorder"))
-    return
-  end
-  slurpGeometry(function(geom)
-    startRecord(geom, format, bin)
-  end)
+  if bin == "" then noctalia.notifyError(noctalia.tr("messages.no_recorder")) return end
+  slurpGeometry(function(geom) startRecord(geom, format, bin) end)
 end
 
 local function runRecordFullscreen(format)
   refreshRecorders()
   local bin = bestFullscreenRecorder()
-  if bin == "" then
-    noctalia.notifyError(noctalia.tr("messages.no_recorder"))
-    return
-  end
-  local geom = focusedGeometry()
-  if not geom then
-    noctalia.notifyError(noctalia.tr("messages.capture_failed"))
-    return
-  end
-  startRecord(geom, format, bin)
+  if bin == "" then noctalia.notifyError(noctalia.tr("messages.no_recorder")) return end
+  startRecord("screen", format, bin)
 end
 
 local HANDLERS = {
-  colorPicker = runColorPicker,
-  ocr = runOcr,
-  qr = runQr,
-  palette = runPalette,
-  lens = runLens,
-  measure = runMeasure,
-  annotate = annotateRegion,
-  annotateFullscreen = annotateFullscreen,
-  annotateWindow = annotateWindow,
-  record = function() runRecordRegion("gif") end,
-  recordMp4 = function() runRecordRegion("mp4") end,
-  recordFullscreen = function() runRecordFullscreen("gif") end,
-  recordFullscreenMp4 = function() runRecordFullscreen("mp4") end,
+  colorPicker = runColorPicker, ocr = runOcr, qr = runQr, palette = runPalette, lens = runLens, measure = runMeasure,
+  annotate = annotateRegion, annotateFullscreen = annotateFullscreen, annotateWindow = annotateWindow,
+  record = function() runRecordRegion("gif") end, recordMp4 = function() runRecordRegion("mp4") end,
+  recordFullscreen = function() runRecordFullscreen("gif") end, recordFullscreenMp4 = function() runRecordFullscreen("mp4") end,
   recordStop = recordStop,
-  recordSave = function(payload)
-    local fmt = type(payload) == "table" and payload.format or nil
-    finalizeRecord(fmt or recordFormat, false)
-  end,
-  recordCopy = function() finalizeRecord("mp4", true) end,
-  recordDiscard = recordDiscard,
-  ocrSearch = ocrSearch,
-  ocrTranslate = ocrTranslate,
-  share = shareFile,
-  clearResult = clearResult,
-  clearHistory = clearHistory,
-  setCursorHidden = setCursorHidden,
+  recordSave = function(payload) finalizeRecord((type(payload) == "table" and payload.format or nil) or recordFormat, false) end,
+  recordCopy = function() finalizeRecord(recordFormat, true) end, recordDiscard = recordDiscard,
+  ocrSearch = ocrSearch, ocrTranslate = ocrTranslate, share = shareFile, clearResult = clearResult, clearHistory = clearHistory, setCursorHidden = setCursorHidden,
+  setAudioOut = function(payload) overrideAudioOut = (type(payload) == "table" and payload.value or payload) == true end,
+  setAudioIn = function(payload) overrideAudioIn = (type(payload) == "table" and payload.value or payload) == true end,
   toggle = function()
-    local id = cfg("panel-mode") == "full" and FULL_PANEL_ID or PANEL_ID
+    local mode = cfg("panel-mode")
+    local id = mode == "full" and FULL_PANEL_ID or (mode == "legacy" and LEGACY_PANEL_ID or PANEL_ID)
     noctalia.togglePanel(id)
   end,
 }

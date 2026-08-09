@@ -183,6 +183,8 @@
         "managed_temporary_collision": "A safe temporary filename could not be allocated.",
         "managed_write_failed": "The managed keybinding file could not be written.",
         "mango_command_hash_unsupported": "MangoWC commands containing # are not supported by this first writer version.",
+        "migration_cleanup_changed": "The configuration or legacy Keymap file changed during migration, so automatic cleanup stopped for safety.",
+        "migration_remove_failed": "The legacy Keymap file could not be removed, so the original configuration was restored.",
         "native_update_unsupported": "Existing shortcuts cannot be converted to native actions safely.",
         "preflight_failed": "The configuration safety check could not be started.",
         "recovery_reload_failed": "The previous files were restored, but reloading the restored compositor configuration also failed.",
@@ -289,6 +291,7 @@
       "unknown": "The service returned an unknown error."
     },
     "keyboard": {
+      "available_layers": "Used with",
       "clear_modifiers": "Clear modifiers",
       "free": "Free",
       "free_hint": "This combination is not used in the currently selected layer.",
@@ -307,6 +310,7 @@
       "no_modifiers": "No modifiers",
       "occupied": "Occupied",
       "other_layer": "Used on another layer",
+      "other_layer_hint": "This key is assigned with different modifiers. Choose a layer below to view its shortcuts.",
       "outside": "{count} shortcuts outside the keyboard view",
       "select_hint": "Select modifiers, then click a key to inspect that combination.",
       "summary": "{layer}: {count} occupied keys",

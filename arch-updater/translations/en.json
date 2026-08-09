@@ -3,6 +3,33 @@
   "action_dismiss": "Dismiss",
   "action_open_news": "Open news",
   "action_update": "Update",
+  "activity": {
+    "days_ago": {
+      "one": "1 day ago",
+      "other": "{count} days ago"
+    },
+    "hours_ago": {
+      "one": "1 hour ago",
+      "other": "{count} hours ago"
+    },
+    "just_now": "just now",
+    "minutes_ago": {
+      "one": "1 minute ago",
+      "other": "{count} minutes ago"
+    },
+    "never_updated": "Never updated",
+    "pending_at": {
+      "one": "1 pending update",
+      "other": "{count} pending updates"
+    },
+    "title": "Activity",
+    "updated": "Updated",
+    "updated_days_ago": {
+      "one": "Updated 1 day ago",
+      "other": "Updated {count} days ago"
+    },
+    "updated_today": "Updated today"
+  },
   "caption_checked": "checked {time}",
   "caption_ignored": {
     "one": "1 package ignored",
@@ -36,6 +63,10 @@
     "press_key": "Press any key to close"
   },
   "settings": {
+    "activity_history_length": {
+      "description": "How many of the most recent checks to keep for the activity graph.",
+      "label": "Activity history length"
+    },
     "assume_yes": {
       "description": "Pass --noconfirm / -y so package managers do not ask for confirmation. Off means you confirm each one in the terminal window.",
       "label": "Answer yes automatically"
@@ -86,6 +117,10 @@
     "notify_on_updates": {
       "description": "Send a desktop notification when a check finds packages to upgrade.",
       "label": "Notify when updates are found"
+    },
+    "show_activity_graph": {
+      "description": "Track pending-update counts across recent checks and when you last updated, shown as a small graph in the panel. Turning this off also stops recording the history.",
+      "label": "Show activity graph"
     },
     "show_count": {
       "description": "Show the number of pending updates next to the bar glyph.",

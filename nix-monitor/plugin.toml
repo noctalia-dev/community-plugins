@@ -1,6 +1,6 @@
 id              = "avivbintangaringga/nix-monitor"
 name            = "Nix Monitor"
-version         = "1.3.0"
+version         = "1.3.1"
 plugin_api      = 3
 icon            = "package"
 author          = "avivbintangaringga"
@@ -127,6 +127,14 @@ description_key = "setting.update_check_duration_threshold.description"
 default         = 5
 min             = 1
 max             = 30
+
+[[setting]]
+key             = "generation_check_interval"
+type            = "int"
+label_key       = "setting.generation_check_interval.label"
+description_key = "setting.generation_check_interval.description"
+default         = 60
+min             = 1
 
 [[setting]]
 key             = "system_stats_check_mode"

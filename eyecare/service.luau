@@ -27,10 +27,80 @@ function onConfigChanged()
     updateState()
 end
 
--- Play a notification sound using system players
+-- Get Noctalia global sound volume (normalized between 0.0 and 1.0)
+local function getSoundVolume()
+    local rawVol = noctalia.getConfig("sound_volume")
+    if rawVol == nil then rawVol = noctalia.getConfig("soundVolume") end
+    if rawVol == nil then rawVol = noctalia.getConfig("audio.sound_volume") end
+    if rawVol == nil and noctalia.sound and type(noctalia.sound.getVolume) == "function" then
+        rawVol = noctalia.sound.getVolume()
+    end
+    local vol = tonumber(rawVol)
+    if vol == nil then
+        return 1.0
+    end
+    if vol > 1.0 then
+        vol = vol / 100.0
+    end
+    return math.clamp(vol, 0.0, 1.0)
+end
+
+-- Check whether sound cues are permitted by both plugin and Noctalia global configuration
+local function isSoundAllowed()
+    if not settings.enable_sound then
+        return false
+    end
+
+    -- Check Noctalia global sound configuration options
+    local enableSounds = noctalia.getConfig("enable_sounds")
+    if enableSounds == false then
+        return false
+    end
+
+    local soundEnabled = noctalia.getConfig("sound_enabled")
+    if soundEnabled == false then
+        return false
+    end
+
+    local audioEnableSounds = noctalia.getConfig("audio.enable_sounds")
+    if audioEnableSounds == false then
+        return false
+    end
+
+    if noctalia.sound and type(noctalia.sound.isEnabled) == "function" then
+        if not noctalia.sound.isEnabled() then
+            return false
+        end
+    end
+
+    if getSoundVolume() <= 0 then
+        return false
+    end
+
+    return true
+end
+
+-- Play a notification sound using Noctalia runtime sound API if available, falling back to system players with volume scaling
 local function playSound(soundName)
+    if not isSoundAllowed() then
+        return
+    end
+
+    local vol = getSoundVolume()
+
+    if noctalia.sound and type(noctalia.sound.play) == "function" then
+        noctalia.sound.play(soundName, vol)
+        return
+    elseif type(noctalia.playSound) == "function" then
+        noctalia.playSound(soundName, vol)
+        return
+    end
+
     local path = "/usr/share/sounds/freedesktop/stereo/" .. soundName .. ".oga"
-    noctalia.runAsync("canberra-gtk-play -i " .. soundName .. " || paplay " .. path .. " || pw-play " .. path .. " || aplay " .. path .. " || true")
+    local paVol = math.floor(vol * 65536)
+    local pwVol = string.format("%.2f", vol)
+    
+    noctalia.runAsync(string.format("canberra-gtk-play -i %s || paplay --volume=%d %s || pw-play --volume=%s %s || aplay %s || true", soundName, paVol, path, pwVol, path, path))
 end
 
 local lastLoggedIdle = nil

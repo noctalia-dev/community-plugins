@@ -1,0 +1,84 @@
+# Pulsar Mouse battery/charging status - bar widget and desktop widget - plus
+# a quick-controls panel (profile switching, DPI/polling/lighting/power
+# settings across Sensor/Advanced/Lighting/Power tabs) opened by clicking
+# the bar widget.
+#
+# The battery-reading entries (bar, battery) read the reading pulsar-mouse-gui
+# already writes on every poll (~/.cache/pulsar-mouse/battery.json) rather
+# than doing their own USB read - avoids duplicate polling of the mouse's
+# wireless link. Each falls back to invoking the `pulsar-mouse` CLI directly
+# if that file is missing or stale (e.g. the GUI/tray isn't running, or was
+# never installed at all - CLI-only setups just always take this path), so
+# both still work standalone. The controls panel always talks to the CLI
+# directly (DPI/polling rate aren't in that cached file, and writes can't be
+# cached at all).
+#
+# Desktop widgets are shared with the lock screen (LockscreenWidgetsHost
+# reuses the same widget type registry as the desktop), so the desktop_widget
+# entry shows up in both places once added via the widget editor.
+
+id = "harveywuk/pulsar-mouse"
+name = "Pulsar Mouse"
+version = "1.6.1"
+plugin_api = 9
+author = "harveywuk"
+license = "MIT"
+dependencies = ["pulsar-mouse"]
+tags = ["hardware", "system"]
+icon = "mouse"
+description = "Battery status and quick sensor/lighting/power controls for a Pulsar gaming mouse - bar, desktop, and lock screen."
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph_size"
+  type = "int"
+  label_key = "settings.glyph_size.label"
+  default = 16
+  min = 10
+  max = 32
+  step = 1
+
+[[panel]]
+id = "controls"
+entry = "panel.luau"
+width = 320
+height = 380
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[desktop_widget]]
+id = "battery"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.color.label"
+  description_key = "settings.color.description"
+  default = "primary"
+
+  [[desktop_widget.setting]]
+  key = "show_progress"
+  type = "bool"
+  label_key = "settings.show_progress.label"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "show_percent"
+  type = "bool"
+  label_key = "settings.show_percent.label"
+  description_key = "settings.show_percent.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "glyph_size"
+  type = "int"
+  label_key = "settings.glyph_size.label"
+  default = 28
+  min = 16
+  max = 64
+  step = 2

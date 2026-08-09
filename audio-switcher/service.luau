@@ -232,6 +232,34 @@ local function propertiesOf(item)
   return type(item.properties) == "table" and item.properties or {}
 end
 
+-- BEGIN INPUT PORT HELPERS
+local function inputPortText(value)
+  return tostring(value or ""):match("^%s*(.-)%s*$") or ""
+end
+
+local function parseInputPorts(item)
+  local activeValue = type(item.active_port) == "table" and item.active_port.name or item.active_port
+  local activeName = inputPortText(activeValue)
+  local ports = {}
+  for _, port in ipairs(type(item.ports) == "table" and item.ports or {}) do
+    if type(port) == "table" then
+      local name = inputPortText(port.name)
+      if name ~= "" then
+        local description = inputPortText(port.description)
+        local availability = inputPortText(port.availability):lower()
+        ports[#ports + 1] = {
+          name = name,
+          description = description ~= "" and description or name,
+          available = availability ~= "not available",
+          active = name == activeName,
+        }
+      end
+    end
+  end
+  return ports, activeName
+end
+-- END INPUT PORT HELPERS
+
 local function bluetoothAddress(properties)
   local value = trim(properties["api.bluez5.address"])
   if value == "" and properties["device.bus"] == "bluetooth" then
@@ -279,7 +307,16 @@ local function makeInput(item, defaultName)
   local stableId = isBluetooth and bluetoothInputId(address) or tostring(item.name or "")
   local fallback = tostring(properties["device.alias"] or item.description or item.name or stableId)
   if isBluetooth then setPreference(preferences.knownBluetoothInputs, address, fallback) end
-  local icon, iconStyle = resolvedDeviceIcon(stableId, isBluetooth and "headset" or "microphone")
+  local ports, activePortName = parseInputPorts(item)
+  local activePortDescription = ""
+  for _, port in ipairs(ports) do
+    if port.active then activePortDescription = port.description break end
+  end
+  local portLooksLikeHeadset = (activePortName .. " " .. activePortDescription):lower():find("headset", 1, true) ~= nil
+  local icon, iconStyle = resolvedDeviceIcon(
+    stableId,
+    isBluetooth and "headset" or (portLooksLikeHeadset and "headset" or "microphone")
+  )
   return {
     id = stableId,
     targetName = tostring(item.name or ""),
@@ -295,6 +332,9 @@ local function makeInput(item, defaultName)
     muted = item.mute == true,
     icon = icon,
     iconStyle = iconStyle,
+    ports = ports,
+    activePort = activePortName,
+    activePortDescription = activePortDescription,
   }
 end
 
@@ -1051,14 +1091,87 @@ setInput = function(command, id)
   setDefaultTarget(command, "input", device)
 end
 
+local function findInputPort(device, portName)
+  for _, port in ipairs(type(device.ports) == "table" and device.ports or {}) do
+    if port.name == portName then return port end
+  end
+  return nil
+end
+
+local function setInputPort(command, id, portName)
+  if actionBusy then
+    resultMessage(command, false, noctalia.tr("errors.busy"))
+    return
+  end
+  local device = findInputById(id)
+  if device == nil then
+    finishAction(command, false, noctalia.tr("errors.device_not_found"))
+    return
+  end
+  local port = findInputPort(device, portName)
+  if port == nil then
+    finishAction(command, false, noctalia.tr("errors.input_port_not_found"))
+    return
+  end
+  if port.available == false then
+    finishAction(command, false, noctalia.tr("errors.input_port_unavailable"))
+    return
+  end
+  if trim(device.targetName) == "" then
+    finishAction(command, false, noctalia.tr("errors.device_unavailable"))
+    return
+  end
+
+  actionBusy = true
+  publishSnapshot()
+  runPactl({ "set-source-port", device.targetName, port.name }, function(portResult)
+    if portResult.exitCode ~= 0 then
+      local message = trim(portResult.stderr)
+      finishAction(command, false, message ~= "" and message or noctalia.tr("errors.input_port_switch_failed"))
+      return
+    end
+    runPactl({ "set-default-source", device.targetName }, function(defaultResult)
+      if defaultResult.exitCode ~= 0 then
+        local message = trim(defaultResult.stderr)
+        finishAction(command, false, message ~= "" and message or noctalia.tr("errors.switch_failed"))
+        return
+      end
+      moveStreams("input", device.targetName, function()
+        finishAction(
+          command,
+          true,
+          noctalia.tr("notifications.input_port_selected", { port = port.description }),
+          noctalia.getConfig("show_notification_on_switch")
+        )
+      end)
+    end)
+  end)
+end
+
 local function cycleDevice(command, kind)
   local devices = kind == "output" and snapshot.outputs or snapshot.inputs
   local visible = {}
   local activeIndex = 0
   for _, device in ipairs(devices) do
     if not device.hidden and (kind == "output" or device.available) then
-      table.insert(visible, device)
-      if device.active then activeIndex = #visible end
+      local ports = kind == "input" and type(device.ports) == "table" and device.ports or {}
+      if kind == "input" and #ports > 1 then
+        local addedPort = false
+        for _, port in ipairs(ports) do
+          if port.available ~= false then
+            table.insert(visible, { id = device.id, port = port.name })
+            addedPort = true
+            if device.active and port.active then activeIndex = #visible end
+          end
+        end
+        if not addedPort then
+          table.insert(visible, device)
+          if device.active then activeIndex = #visible end
+        end
+      else
+        table.insert(visible, device)
+        if device.active then activeIndex = #visible end
+      end
     end
   end
   if #visible == 0 then
@@ -1066,7 +1179,14 @@ local function cycleDevice(command, kind)
     return
   end
   local nextIndex = activeIndex % #visible + 1
-  if kind == "output" then setOutput(command, visible[nextIndex].id) else setInput(command, visible[nextIndex].id) end
+  local target = visible[nextIndex]
+  if kind == "output" then
+    setOutput(command, target.id)
+  elseif target.port ~= nil then
+    setInputPort(command, target.id, target.port)
+  else
+    setInput(command, target.id)
+  end
 end
 
 local function findAddressBySlot(slot)
@@ -1266,6 +1386,8 @@ local function executeCommand(command)
     setOutput(command, tostring(command.id or ""))
   elseif action == "set_input" then
     setInput(command, tostring(command.id or ""))
+  elseif action == "set_input_port" then
+    setInputPort(command, tostring(command.id or ""), tostring(command.port or ""))
   elseif action == "create_output_group" then
     createOutputGroup(command)
   elseif action == "remove_output_group" then

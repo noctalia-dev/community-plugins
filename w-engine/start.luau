@@ -27,6 +27,7 @@ local data = {
 	saved_wallpaper = {}, -- output -> the Noctalia wallpaper from before we took over
 	options = {},         -- id -> { engine = {...}, properties = {...} }, see buildLaunchArgs
 	defaults = {},        -- { engine = {...} } applied to every wallpaper, see optionsFor
+	favorites = {},		  -- favorites wallpapers list
 }
 
 -- linux-wallpaperengine switches that take no value. Stored as booleans; the
@@ -103,6 +104,7 @@ local function loadData()
 	data.saved_wallpaper = asTable(decoded.saved_wallpaper)
 	data.options = asTable(decoded.options)
 	data.defaults = asTable(decoded.defaults)
+	data.favorites = asTable(decoded.favorites)
 end
 
 local function saveData()
@@ -233,7 +235,7 @@ local function resolveColorSource(id, callback)
 	-- names contain spaces and non-ASCII, so paths are quoted.
 	local cmd = "ffmpeg -y -loglevel error -ss 1 -i "
 		.. shellQuote(dir .. file)
-		.. " -frames:v 1 -vf scale=960:-2 "
+		.. " -frames:v 1 -vf scale=960:-2"
 		.. shellQuote(frame)
 	noctalia.runAsync(cmd, function(result)
 		-- A wallpaper shorter than the seek offset produces no output and no error,

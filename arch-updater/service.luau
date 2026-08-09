@@ -4,8 +4,8 @@
 --
 --   state    "arch_state"   = { nonce, phase, step, total, pacman, aur,
 --                                flatpak, downloadSizeMiB, rebootRecommended,
---                                newsUnread, newsLatestTitle, dismissed, err,
---                                checkedAt, ignoredCount }
+--                                newsUnread, newsLatestTitle, err,
+--                                checkedAt, ignoredCount, history, lastUpdateAt }
 --   requests "arch_request" = { nonce, action }  -- check|update|dismiss
 --
 -- Checking runs pacman, then the AUR helper, then Flatpak, then (if pacman
@@ -20,6 +20,7 @@ local REQUEST_KEY = "arch_request"
 local NEWS_FILE = "news_state.json"
 local NEWS_URL = "https://archlinux.org/feeds/news/"
 local NEWS_PAGE = "https://archlinux.org/news/"
+local HISTORY_FILE = "history_state.json"
 
 local CHECK_TIMEOUT_MS = 45000 -- pacman/AUR/flatpak checks: each may sync a mirror
 local SIZE_TIMEOUT_MS = 20000 -- pacman -Si: local db, no mirror sync
@@ -40,7 +41,6 @@ local newsUnread = 0
 local newsLatestTitle = nil
 local newsItems = {}
 local newsLastSeenGuid = nil
-local dismissed = false
 local errMsg = nil
 local checkedAt = ""
 local stateNonce = 0
@@ -55,6 +55,10 @@ local startupTicks = 0
 local sinceNewsCheck = 0
 local newsStateLoaded = false
 local newsDirty = false
+local history = {} -- { n, at, afterUpdate } per check, oldest first, trimmed to activity_history_length
+local lastUpdateAt = nil -- os.time() of the last update run that finished
+local historyStateLoaded = false
+local checkIsPostUpdate = false -- next finished check followed an update run
 
 local startCheck
 local checkNews
@@ -197,10 +201,11 @@ local function publish()
         rebootRecommended = rebootRecommended,
         newsUnread = newsUnread,
         newsLatestTitle = newsLatestTitle,
-        dismissed = dismissed,
         err = errMsg,
         checkedAt = checkedAt,
         ignoredCount = #ignoreList(),
+        history = history,
+        lastUpdateAt = lastUpdateAt,
         flatpakEnabled = cfg("flatpak_enabled") == true,
     })
 end
@@ -211,6 +216,7 @@ local checkFlatpak
 local checkSize
 local checkReboot
 local finishCheck
+local recordCheck
 
 local function failCheck(message)
     phase = "error"
@@ -423,9 +429,9 @@ finishCheck = function()
     total = sources.pacman.n + sources.aur.n + sources.flatpak.n
     step = ""
     phase = total > 0 and "ready" or "clean"
-    dismissed = false
     checkedAt = noctalia.formatTime("%H:%M")
     sinceCheck = 0
+    recordCheck()
     publish()
     if total > 0 and cfg("notify_on_updates") == true then
         noctalia.notify(tr("title"), noctalia.trp("notify_updates", total, { count = total }))
@@ -467,6 +473,92 @@ local function saveNewsState()
     if encoded ~= nil then
         noctalia.writeFile(path, encoded)
     end
+end
+
+-- ── Activity history ─────────────────────────────────────────────────────────
+
+local function historyStatePath()
+    local dir, err = noctalia.pluginDataDir()
+    if dir == nil then
+        noctalia.log("arch-updater: cannot resolve plugin data dir: " .. tostring(err))
+        return nil
+    end
+    return dir .. "/" .. HISTORY_FILE
+end
+
+local function loadHistoryState()
+    if historyStateLoaded then
+        return
+    end
+    historyStateLoaded = true
+    local path = historyStatePath()
+    local encoded = path ~= nil and noctalia.readFile(path) or nil
+    local ok, decoded = pcall(function()
+        return encoded ~= nil and noctalia.json.decode(encoded) or nil
+    end)
+    if ok and type(decoded) == "table" then
+        if type(decoded.history) == "table" then
+            -- Migrates the old format (a plain array of counts) to entries with
+            -- a timestamp and an afterUpdate flag, both unknown for old data.
+            local migrated = {}
+            for _, entry in ipairs(decoded.history) do
+                if type(entry) == "table" then
+                    table.insert(migrated, {
+                        n = tonumber(entry.n) or 0,
+                        at = tonumber(entry.at),
+                        afterUpdate = entry.afterUpdate == true,
+                    })
+                elseif type(entry) == "number" then
+                    table.insert(migrated, { n = entry, at = nil, afterUpdate = false })
+                end
+            end
+            history = migrated
+        end
+        if type(decoded.lastUpdateAt) == "number" then
+            lastUpdateAt = decoded.lastUpdateAt
+        end
+    end
+end
+
+local function saveHistoryState()
+    local path = historyStatePath()
+    if path == nil then
+        return
+    end
+    local encoded = noctalia.json.encode({ history = history, lastUpdateAt = lastUpdateAt })
+    if encoded ~= nil then
+        noctalia.writeFile(path, encoded)
+    end
+end
+
+-- Appends the current total to the activity history, trimmed to the
+-- configured length. A no-op when the graph is turned off, so disabling it
+-- also stops collecting data, not just hides it.
+recordCheck = function()
+    local wasPostUpdate = checkIsPostUpdate
+    checkIsPostUpdate = false
+    if cfg("show_activity_graph") ~= true then
+        return
+    end
+    loadHistoryState()
+    table.insert(history, { n = total, at = os.time(), afterUpdate = wasPostUpdate })
+    local maxLen = math.max(3, math.min(30, tonumber(cfg("activity_history_length")) or 10))
+    while #history > maxLen do
+        table.remove(history, 1)
+    end
+    saveHistoryState()
+end
+
+-- Marks the check that follows as the one that verifies an update run, so its
+-- history entry can say "Updated" instead of just a pending count.
+local function recordUpdateRun()
+    checkIsPostUpdate = true
+    if cfg("show_activity_graph") ~= true then
+        return
+    end
+    loadHistoryState()
+    lastUpdateAt = os.time()
+    saveHistoryState()
 end
 
 local HTML_ENTITIES = {
@@ -665,6 +757,7 @@ local function pollRun()
             return
         end
         if runSeen or runTicks >= RUN_GRACE_SECONDS then
+            recordUpdateRun()
             startCheck()
         end
     end, updateProcessName)
@@ -681,10 +774,13 @@ local function handle(action)
     elseif action == "update" then
         runUpdate()
     elseif action == "dismiss" then
-        if not dismissed then
-            dismissed = true
-            publish()
-        end
+        sources.pacman = { n = 0, items = {} }
+        sources.aur = { n = 0, items = {}, helper = sources.aur.helper }
+        sources.flatpak = { n = 0, items = {} }
+        total = 0
+        downloadSizeMiB = nil
+        phase = "clean"
+        publish()
     elseif action == "open_news" then
         openNews()
     end
@@ -750,4 +846,5 @@ if not noctalia.commandExists("checkupdates") then
     phase = "missing"
     errMsg = tr("err_no_checkupdates")
 end
+loadHistoryState() -- so the graph shows prior sessions' data before the first check runs
 publish()
