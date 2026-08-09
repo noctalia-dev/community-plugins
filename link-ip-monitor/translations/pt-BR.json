@@ -1,0 +1,49 @@
+{
+  "title": "Link/IP Monitor",
+  "settings": {
+    "interval_seconds": {
+      "label": "Intervalo entre checagens (s)",
+      "description": "Com que frequência cada host é checado."
+    },
+    "timeout_seconds": {
+      "label": "Timeout do ping (s)",
+      "description": "Quanto tempo esperar por resposta antes de considerar falha."
+    },
+    "notify_on_recovery": {
+      "label": "Notificar quando o host volta",
+      "description": "Envia uma notificação quando um host que estava fora do ar volta a responder."
+    },
+    "glyph": {
+      "label": "Ícone da barra",
+      "description": "Ícone mostrado na barra para este widget."
+    }
+  },
+  "notify": {
+    "host_down": "{host} está inacessível",
+    "host_up": "{host} voltou a responder",
+    "invalid_host": "{host} não é um IP, host ou link válido",
+    "duplicate_host": "{host} já está na lista"
+  },
+  "panel": {
+    "empty": "Nenhum host configurado ainda",
+    "add_placeholder": "IP, host ou link",
+    "add_label_placeholder": "Descrição (opcional) — ex: Roteador, Servidor",
+    "invalid_format": "Inválido — informe um IP (0.0.0.0), um host ou um link",
+    "status_online": "Online",
+    "status_offline": "Offline",
+    "status_checking": "Checando…",
+    "tooltip_check_now": "Checar agora",
+    "tooltip_add": "Adicionar",
+    "tooltip_remove": "Remover",
+    "tooltip_confirm_remove": "Confirmar remoção",
+    "tooltip_cancel": "Cancelar",
+    "tooltip_drag": "Arraste para reordenar",
+    "tooltip_close_form": "Fechar",
+    "tooltip_add_host": "Adicionar host"
+  },
+  "widget": {
+    "tooltip_all_up": "Todos os hosts monitorados estão respondendo",
+    "tooltip_down_prefix": "Fora do ar:",
+    "checking_now": "Checando agora…"
+  }
+}
