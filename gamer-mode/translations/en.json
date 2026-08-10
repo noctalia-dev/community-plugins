@@ -1,34 +1,135 @@
 {
-  "cleanup": {
-    "failed": "That did not work. See the log.",
-    "pagecache": "Drop page cache",
-    "pagecache_done": "Page cache dropped.",
-    "running": "Working...",
-    "shaders": "Clear shader caches",
-    "shaders_confirm": "Delete {size}?",
-    "shaders_done": "Cleared {size} of shader cache.",
-    "shaders_none": "No shader caches found.",
-    "swap": "Reclaim swap",
-    "swap_done": "Swap reclaimed into RAM.",
-    "swap_empty": "Nothing is swapped out.",
-    "swap_no_room": "Not enough free RAM to hold what is swapped out.",
-    "swap_unknown": "Swap usage could not be read.",
-    "title": "Maintenance"
-  },
-  "notify": {
-    "disabled_title": "Gamer mode disabled",
-    "enabled_title": "Gamer mode enabled",
-    "nothing_restored": "Nothing needed restarting.",
-    "nothing_suspended": "No background targets were running.",
-    "restored_count": {
-      "one": "Restored 1 target.",
-      "other": "Restored {count} targets."
+  "widget": {
+    "tooltip_loading": "Gamer Mode: loading metrics...",
+    "cpu": "CPU",
+    "cpu_temp": "CPU temp",
+    "ram": "RAM",
+    "swap": "Swap",
+    "gpu": "GPU",
+    "gpu_temp": "GPU temp",
+    "vram": "VRAM",
+    "load": "Load",
+    "net_rx": "Down",
+    "net_tx": "Up",
+    "gamer_mode": "Gamer mode",
+    "gamer_mode_on": {
+      "one": "On, 1 suspended",
+      "other": "On, {count} suspended"
     },
-    "session_failed": "The session file could not be written, so nothing was suspended.",
-    "session_failed_title": "Gamer mode could not start",
-    "suspended_count": {
-      "one": "Suspended 1 target.",
-      "other": "Suspended {count} targets."
+    "gamer_mode_off": "Off"
+  },
+  "settings": {
+    "glyph": {
+      "label": "Bar icon",
+      "description": "Glyph shown on the bar."
+    },
+    "icon_file": {
+      "label": "Custom icon",
+      "description": "An SVG or PNG to use instead of the glyph. Edits to the file appear in the bar straight away."
+    },
+    "icon_file_active": {
+      "label": "Custom icon, gamer mode on",
+      "description": "Shown while gamer mode is on. A custom icon cannot be recoloured, so without this the state is only in the tooltip."
+    },
+    "click_action": {
+      "label": "Left-click action",
+      "description": "What left-clicking the bar icon does. Right-click always toggles gamer mode.",
+      "options": {
+        "open_panel": "Open panel",
+        "toggle": "Toggle gamer mode"
+      }
+    },
+    "poll_interval": {
+      "label": "Poll interval",
+      "description": "Seconds between metric updates.",
+      "options": {
+        "2": "2s",
+        "3": "3s",
+        "5": "5s"
+      }
+    },
+    "profile": {
+      "label": "Gamer mode profile",
+      "description": "How aggressive the suspend list is.",
+      "options": {
+        "light": "Light",
+        "heavy": "Heavy"
+      }
+    },
+    "auto_performance": {
+      "label": "Auto performance profile",
+      "description": "Switch power profile to performance while gamer mode is on."
+    },
+    "show_temps": {
+      "label": "Show temperatures",
+      "description": "Include CPU/GPU temperatures in tooltip and panel."
+    },
+    "targets": {
+      "label": "Suspend targets (JSON)",
+      "description": "Advanced: JSON array of {match, kind, profiles}. Kind: process, user-service, system-service, container."
+    },
+    "monitor": {
+      "show_cpu": {
+        "label": "CPU usage",
+        "description": "Show processor load in the bar."
+      },
+      "show_cpu_temp": {
+        "label": "CPU temperature"
+      },
+      "show_ram": {
+        "label": "RAM used"
+      },
+      "show_swap": {
+        "label": "Swap used"
+      },
+      "show_gpu": {
+        "label": "GPU usage"
+      },
+      "show_gpu_temp": {
+        "label": "GPU temperature"
+      },
+      "show_vram": {
+        "label": "VRAM used"
+      },
+      "show_load": {
+        "label": "Load average"
+      },
+      "show_net": {
+        "label": "Network rates"
+      },
+      "show_glyphs": {
+        "label": "Icons",
+        "description": "Show an icon beside each reading. Off gives numbers only."
+      },
+      "label_min_width": {
+        "label": "Reserved value width",
+        "description": "Pixels to reserve for each reading. Zero lets every value hug its text, so the readout is as wide as it needs to be. Raise it if you would rather the width held steady than stayed tight."
+      },
+      "highlight_gamer_mode": {
+        "label": "Highlight while gamer mode is on",
+        "description": "Tints the readout instead of adding an icon, so nothing moves when it switches."
+      },
+      "flame": {
+        "label": "Flame",
+        "description": "Burns while gamer mode is on, as hot as the machine is working. \"Always\" keeps it animating the whole session, which costs CPU while you play.",
+        "options": {
+          "off": "Off",
+          "flare": "Flare on switch",
+          "always": "Always"
+        }
+      },
+      "flame_style": {
+        "label": "Flame style",
+        "description": "How the flame is drawn. \"Graph\" is one node and the cheapest; \"bars\" is crisper up close and costs 28.",
+        "options": {
+          "graph": "Graph",
+          "bars": "Bars"
+        }
+      },
+      "flame_height": {
+        "label": "Flame height",
+        "description": "Height of the flame band in pixels. The band is mirrored by an equal space above it so the readings stay centred, so it can only be half of whatever the pill has spare. Raise the bar's capsule thickness for a taller flame."
+      }
     }
   },
   "panel": {
@@ -44,15 +145,15 @@
     "nothing_suspended": "Nothing suspended",
     "performance": "Performance",
     "power": {
+      "power-saver": "Power saver",
       "balanced": "Balanced",
-      "performance": "Performance",
-      "power-saver": "Power saver"
+      "performance": "Performance"
     },
     "power_profile": "Power profile",
     "power_unavailable": "powerprofilesctl unavailable",
     "profiles": {
-      "heavy": "Heavy",
-      "light": "Light"
+      "light": "Light",
+      "heavy": "Heavy"
     },
     "settings": "Settings",
     "state_off": "Off",
@@ -62,50 +163,36 @@
     "title": "gamer-mode",
     "working": "Working..."
   },
-  "settings": {
-    "auto_performance": {
-      "description": "Switch power profile to performance while gamer mode is on.",
-      "label": "Auto performance profile"
+  "notify": {
+    "enabled_title": "Gamer mode enabled",
+    "disabled_title": "Gamer mode disabled",
+    "suspended_count": {
+      "one": "Suspended 1 target.",
+      "other": "Suspended {count} targets."
     },
-    "click_action": {
-      "description": "What left-clicking the bar icon does. Right-click always toggles gamer mode.",
-      "label": "Left-click action",
-      "options": {
-        "open_panel": "Open panel",
-        "toggle": "Toggle gamer mode"
-      }
+    "restored_count": {
+      "one": "Restored 1 target.",
+      "other": "Restored {count} targets."
     },
-    "glyph": {
-      "description": "Glyph shown on the bar.",
-      "label": "Bar icon"
-    },
-    "poll_interval": {
-      "description": "Seconds between metric updates.",
-      "label": "Poll interval",
-      "options": {
-        "2": "2s",
-        "3": "3s",
-        "5": "5s"
-      }
-    },
-    "profile": {
-      "description": "How aggressive the suspend list is.",
-      "label": "Gamer mode profile",
-      "options": {
-        "heavy": "Heavy",
-        "light": "Light"
-      }
-    },
-    "show_temps": {
-      "description": "Include CPU/GPU temperatures in tooltip and panel.",
-      "label": "Show temperatures"
-    },
-    "targets": {
-      "description": "Advanced: JSON array of {match, kind, profiles}. Kind: process, user-service, system-service, container.",
-      "label": "Suspend targets (JSON)"
-    }
+    "nothing_suspended": "No background targets were running.",
+    "nothing_restored": "Nothing needed restarting.",
+    "session_failed_title": "Gamer mode could not start",
+    "session_failed": "The session file could not be written, so nothing was suspended."
   },
-  "widget": {
-    "tooltip_loading": "Gamer Mode: loading metrics..."
+  "cleanup": {
+    "title": "Maintenance",
+    "shaders": "Clear shader caches",
+    "shaders_confirm": "Delete {size}?",
+    "pagecache": "Drop page cache",
+    "swap": "Reclaim swap",
+    "running": "Working...",
+    "shaders_done": "Cleared {size} of shader cache.",
+    "shaders_none": "No shader caches found.",
+    "pagecache_done": "Page cache dropped.",
+    "swap_done": "Swap reclaimed into RAM.",
+    "swap_empty": "Nothing is swapped out.",
+    "swap_unknown": "Swap usage could not be read.",
+    "swap_no_room": "Not enough free RAM to hold what is swapped out.",
+    "failed": "That did not work. See the log."
   }
 }
