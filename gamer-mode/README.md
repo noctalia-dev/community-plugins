@@ -38,9 +38,9 @@ profile selector, what the plugin has suspended, and the maintenance actions.
 
 ![The panel with gamer mode running](panel.webp)
 
-Running under load. CPU and GPU are past their thresholds so their bars have
-warmed; RAM and swap have not. The mark carries its halo and the header its
-ember, and the suspend profile becomes a label because the session already
+Running under load. CPU and GPU sit past their thresholds, so their bars have
+warmed; RAM and swap have not. The halo rings the mark, the ember sits under the
+header, and the suspend profile shows as a label because the session already
 recorded one.
 
 Pick `light` or `heavy` in the panel and press Enable, and that profile applies
@@ -77,8 +77,8 @@ of suspended targets. Vertical bars stack each reading and omit the flame.
 
 ![Monitor widget with gamer mode off above and on below](monitor.webp)
 
-Gamer mode off above; below it running under load, with the flame lit and the
-readings past their thresholds warmed toward the highlight colour.
+Gamer mode off above, running under load below. The flame is lit, and the
+readings past their thresholds have warmed toward the highlight colour.
 
 ### The pill
 
@@ -98,18 +98,18 @@ here as they do elsewhere. The monitor can also join a `capsule_group`, sharing
 one capsule with the `sysmon` widgets beside it.
 
 Values hug their text by default, so the readout is exactly as wide as its
-readings — which means it breathes as network rates change. **Reserved value
-width** trades that for a steady width: set it to the widest reading you expect
-and values right-align inside the reservation instead of pushing their
-neighbours. It is a floor, not a clamp, so nothing is ever truncated.
+readings and grows as network rates change. **Reserved value width** trades that
+for a steady width: set it to the widest reading you expect and values
+right-align inside the reservation instead of pushing their neighbours. It sets
+a floor rather than a clamp, so nothing gets truncated.
 
 ### Warning colours
 
 Each reading warms towards the theme's error colour as it climbs, holding its
 normal colour below an activity threshold and saturating at a critical one. The
-thresholds are the shell's own defaults for each metric — 50%/90% for CPU,
-60°C/85°C for temperatures, 1/50 MB/s for network — so a monitor grouped beside
-the built-in `sysmon` widgets warms in step with them.
+thresholds are the shell's own defaults for each metric: 50%/90% for CPU,
+60°C/85°C for temperatures, 1/50 MB/s for network. A monitor grouped beside the
+built-in `sysmon` widgets therefore warms in step with them.
 
 | Monitor setting | Default | Description |
 | --- | --- | --- |
@@ -129,30 +129,30 @@ the built-in `sysmon` widgets warms in step with them.
 | Flame | `flare` | `off`, a 900 ms `flare`, or `always`. |
 | Flame style | `graph` | One graph node, or 28 sharper `bars`. |
 
-While the flame is enabled the band's slot is held open whether or not it is
-burning, so toggling gamer mode never shifts the digits. The space is reserved
-symmetrically -- an equal gap above the readings matches the band below -- so the
-readings stay centred in the pill rather than being pushed against its top edge.
+The widget holds the band's slot open whether or not it burns, so toggling gamer
+mode never shifts your readings. It reserves an equal gap above them to match the
+band below, which keeps them centred in the pill instead of pinned to its top
+edge.
 
-That symmetry is why the band has to be small. Measured on a 42px bar at the
-default capsule thickness of `0.76`, the pill's interior is 32px and the readings
-take 22 of them, leaving 10 to split between the gap and the band. Asking for
-more than half the spare room pushes the flame outside the pill.
+That is why the band stays small. On a 42px bar at the default capsule thickness
+of `0.76`, the pill measures 32px inside and the readings take 22, leaving 10 to
+split between the gap and the band. Ask for more than half and the flame lands
+outside the pill.
 
-**The bar's capsule thickness is the lever.** It sets the pill's height, and a
-taller pill affords a taller flame: at `0.95` the pill is about 40px, which fits a
-9px band with the readings still centred.
+Raise **capsule thickness** in your bar settings if you want a bigger flame. It
+sets the pill's height, so a taller pill gives you a taller band: at `0.95` the
+pill runs about 40px and fits 9px of flame with the readings still centred.
 
 ### While gamer mode is on
 
-The panel mark gains a ring that thickens and warms with real load, and a soft
-ember breathes under the header. Each is driven by the panel's vsync frame tick,
-which the shell stops while the panel is closed, so an idle or closed panel costs
+A ring wraps the panel mark and thickens as load climbs, and a soft ember pulses
+under the header. The panel's vsync frame tick drives each of them, and the shell
+stops that tick when you close the panel, so an idle or closed panel costs
 nothing.
 
-The mark ships as two files, a dark and a light ramp, chosen by the shell's dark
-mode. A plugin cannot read palette colours, so those are a fixed pair rather than
-hues derived from your theme.
+The mark ships as two files, one dark ramp and one light, and the shell picks
+between them by dark mode. A plugin cannot read palette colours, so those stay a
+fixed pair instead of following your theme.
 
 `always` holds the widget at about 30 frames per second while gamer mode runs.
 Noctalia keeps widget timers running when another window covers the bar, so
