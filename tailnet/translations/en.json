@@ -27,6 +27,14 @@
     "ssh_username": {
       "label": "SSH username",
       "description": "Username for the SSH button. Empty = system default."
+    },
+    "tailscale_bin": {
+      "label": "Tailscale binary",
+      "description": "Full path to the tailscale command. Empty = look it up on PATH."
+    },
+    "admin_url": {
+      "label": "Admin console URL",
+      "description": "Opened by the admin button. Empty = the Tailscale admin console."
     }
   },
   "state": {
@@ -61,7 +69,8 @@
     "last-check-info": "Last check: {value}",
     "taildrop": "Receive Taildrop files",
     "ping": "Ping",
-    "ssh": "Open SSH in terminal"
+    "ssh": "Open SSH in terminal",
+    "admin": "Open the admin console"
   },
   "launcher": {
     "this-host": "this host",
@@ -79,7 +88,9 @@
     "failed": "Command failed.",
     "copied-ip": "{host}: IP {value} copied.",
     "copied-name": "{host}: name {value} copied.",
-    "invalid-username": "Invalid SSH username: use letters, digits, dots, dashes or underscores."
+    "invalid-username": "Invalid SSH username: use letters, digits, dots, dashes or underscores.",
+    "pref-on": "{name}: enabled.",
+    "pref-off": "{name}: disabled."
   },
   "shortcut": {
     "label": "Tailnet"
@@ -94,5 +105,14 @@
   },
   "ping": {
     "relayed": "No direct connection — traffic is relayed through a DERP server."
+  },
+  "pref": {
+    "shieldsUp": "Shields up (block incoming connections)",
+    "acceptRoutes": "Accept subnet routes",
+    "runSSH": "Tailscale SSH server",
+    "advertiseExitNode": "Advertise as exit node",
+    "allowLanAccess": "Allow LAN access while using an exit node",
+    "on": "on",
+    "off": "off"
   }
 }

@@ -1,13 +1,23 @@
 --!nonstrict
 -- Tailscale poller — the headless [[service]] entry.
 --
--- Polls `tailscale status --json`, normalizes the result into a compact
--- snapshot (self + sorted peer list with online state), and publishes it
--- JSON-encoded to noctalia.state under "tn.snapshot". Executes commands sent
--- by the UI entries through "tn.cmd": refresh, up, down, exit-node set/clear.
+-- Polls `tailscale status --json` and `tailscale debug prefs`, normalizes the
+-- result into a compact snapshot (self + sorted peer list with online state +
+-- daemon health + preference flags), and publishes it JSON-encoded to
+-- noctalia.state under "tn.snapshot". Executes commands sent by the UI entries
+-- through "tn.cmd": refresh, up, down, exit-node set/clear, preference
+-- toggles, ping, SSH, Taildrop receive.
 
-local busy = false
-local pendingPoll = false
+-- A poll spans several subprocesses, so a callback that never fires would
+-- otherwise wedge the poller forever. Every poll carries a generation number:
+-- callbacks from a superseded generation are dropped, and a poll still pending
+-- after this long is considered lost, letting the next one take over.
+local STUCK_MS = 20000
+
+local pollGeneration = 0
+local pollPending = false
+local pollStartedAt = 0
+local pollAgain = false
 local installed = nil -- nil = unknown, checked on first poll
 
 local function trim(s)
@@ -19,6 +29,14 @@ end
 local function shq(value)
   local quoted = tostring(value or ""):gsub("'", "'\\''")
   return `'{quoted}'`
+end
+
+-- The tailscale binary, shell-quoted and ready to prefix a command line. The
+-- setting exists for installs that keep it off PATH (nix profiles, /opt, the
+-- macOS app bundle).
+local function tsBin()
+  local configured = trim(noctalia.getConfig("tailscale_bin"))
+  return configured ~= "" and shq(noctalia.expandPath(configured)) or "tailscale"
 end
 
 -- Tailscale short name: first label of the DNS name ("pc-work.tail1234.ts.net." → "pc-work").
@@ -58,17 +76,25 @@ local function emptySnapshot(state, detail)
     online = 0,
     total = 0,
     exitNode = nil,
+    health = {},
+    prefs = nil, -- filled in once `tailscale debug prefs` answers
   }
 end
 
-local function publish(snapshot)
-  busy = false
+local function publish(snapshot, generation)
+  -- A late callback from a poll that was already given up on must not clobber
+  -- the snapshot a newer poll published.
+  if generation and generation ~= pollGeneration then
+    return
+  end
+  pollPending = false
+  pollStartedAt = 0
   local encoded = noctalia.json.encode(snapshot)
   if encoded then
     noctalia.state.set("tn.snapshot", encoded)
   end
-  if pendingPoll then
-    pendingPoll = false
+  if pollAgain then
+    pollAgain = false
     poll()
   end
 end
@@ -93,6 +119,16 @@ local function buildSnapshot(data)
     ip = firstIPv4(selfNode.TailscaleIPs),
     dnsName = shortName(selfNode.DNSName),
   }
+
+  -- The daemon's own warnings (expiring key, unreachable relay, no route to a
+  -- subnet router…). Worth surfacing: they explain most "it is connected but
+  -- nothing works" situations.
+  for _, warning in (data.Health or {}) do
+    local text = trim(warning)
+    if text ~= "" then
+      table.insert(snapshot.health, text)
+    end
+  end
 
   local hideMullvad = noctalia.getConfig("hide_mullvad") ~= false
   local hideOffline = noctalia.getConfig("hide_offline") == true
@@ -165,49 +201,106 @@ local function buildSnapshot(data)
   return snapshot
 end
 
-function poll()
-  if busy then
-    pendingPoll = true
-    return
+-- `tailscale debug prefs` is the only place the toggles are readable, and its
+-- output also carries the node's private key. Nothing but these booleans is
+-- kept: the decoded table goes out of scope with this function, and the
+-- snapshot never sees the rest.
+local function readPrefs(snapshot, generation, done)
+  local launched = noctalia.runAsync(`{tsBin()} debug prefs`, function(result)
+    if generation ~= pollGeneration then
+      return
+    end
+    local data = result.exitCode == 0 and not result.stdoutTruncated
+      and noctalia.json.decode(result.stdout) or nil
+    if data then
+      -- Advertising as an exit node is stored as the default routes, not as a
+      -- flag; Self.ExitNodeOption in `status` is often stale.
+      local advertises = false
+      for _, route in (data.AdvertiseRoutes or {}) do
+        if route == "0.0.0.0/0" or route == "::/0" then
+          advertises = true
+          break
+        end
+      end
+      snapshot.prefs = {
+        shieldsUp = data.ShieldsUp == true,
+        acceptRoutes = data.RouteAll == true,
+        runSSH = data.RunSSH == true,
+        advertiseExitNode = advertises,
+        allowLanAccess = data.ExitNodeAllowLANAccess == true,
+      }
+    end
+    done()
+  end, 10000)
+  if not launched then
+    done()
   end
-  busy = true
+end
+
+function poll()
+  if pollPending then
+    -- Still waiting on a poll that has not timed out: coalesce into it.
+    if noctalia.nowMs() - pollStartedAt < STUCK_MS then
+      pollAgain = true
+      return
+    end
+    -- Otherwise the poll is lost. Bumping the generation below makes its
+    -- callbacks no-ops if they ever do arrive.
+  end
+  pollPending = true
+  pollStartedAt = noctalia.nowMs()
+  pollGeneration += 1
+  local generation = pollGeneration
 
   if installed == nil then
-    installed = noctalia.commandExists("tailscale")
+    local configured = trim(noctalia.getConfig("tailscale_bin"))
+    installed = configured ~= ""
+      and noctalia.fileExists(noctalia.expandPath(configured))
+      or noctalia.commandExists("tailscale")
   end
   if not installed then
-    publish(emptySnapshot("not-installed"))
+    publish(emptySnapshot("not-installed"), generation)
     return
   end
 
-  local launched = noctalia.runAsync("tailscale status --json", function(result)
+  local launched = noctalia.runAsync(`{tsBin()} status --json`, function(result)
+    if generation ~= pollGeneration then
+      return
+    end
     if result.exitCode ~= 0 or result.timedOut then
-      publish(emptySnapshot("stopped", trim(result.stderr)))
+      publish(emptySnapshot("stopped", trim(result.stderr)), generation)
       return
     end
     if result.stdoutTruncated then
-      publish(emptySnapshot("error", "status output truncated"))
+      publish(emptySnapshot("error", "status output truncated"), generation)
       return
     end
     local data = noctalia.json.decode(result.stdout)
     if not data then
-      publish(emptySnapshot("error", "invalid status JSON"))
+      publish(emptySnapshot("error", "invalid status JSON"), generation)
       return
     end
-    publish(buildSnapshot(data))
+    local snapshot = buildSnapshot(data)
+    if snapshot.state ~= "running" then
+      publish(snapshot, generation)
+      return
+    end
+    readPrefs(snapshot, generation, function()
+      publish(snapshot, generation)
+    end)
   end, 10000)
   if not launched then
-    publish(emptySnapshot("error", "failed to run tailscale"))
+    publish(emptySnapshot("error", "failed to run tailscale"), generation)
   end
 end
 
 -- ── Commands from UI entries ─────────────────────────────────────────────────
 
-local function runThenRefresh(cmdline, okKey, failKey)
+local function runThenRefresh(cmdline, okKey, failKey, subst)
   noctalia.runAsync(cmdline, function(result)
     if result.exitCode == 0 then
       if okKey then
-        noctalia.notify(noctalia.tr("toast.title"), noctalia.tr(okKey))
+        noctalia.notify(noctalia.tr("toast.title"), noctalia.tr(okKey, subst))
       end
     else
       noctalia.notifyError(noctalia.tr("toast.title"),
@@ -228,7 +321,7 @@ local function receiveTaildrop()
     for _, f in (noctalia.listDir(target) or {}) do
       pre[f] = true
     end
-    noctalia.runAsync(`tailscale file get {shq(target)}`, function(result)
+    noctalia.runAsync(`{tsBin()} file get {shq(target)}`, function(result)
       if result.exitCode ~= 0 then
         local err = trim(result.stderr)
         noctalia.notifyError(noctalia.tr("toast.title"), err ~= "" and err or noctalia.tr("taildrop.failed"))
@@ -261,7 +354,7 @@ local function receiveTaildrop()
 end
 
 local function pingPeer(ip, name)
-  noctalia.runAsync(`tailscale ping -c 3 {shq(ip)}`, function(result)
+  noctalia.runAsync(`{tsBin()} ping -c 3 {shq(ip)}`, function(result)
     local out = trim(result.stdout)
     local err = trim(result.stderr)
     -- A peer reachable only through a DERP relay still answers every ping, but
@@ -284,40 +377,69 @@ local function pingPeer(ip, name)
   end, 25000)
 end
 
+-- gio, not xdg-open: see the syncthing plugin — xdg-open no-ops with
+-- XDG_CURRENT_DESKTOP=KDE outside a real KDE session. The URL is checked
+-- against a strict character set before it reaches the command line.
+local function openUrl(url)
+  if url and url:match("^https?://[%w%.%-%_%~%:%/%?%#%[%]%@%!%$%&%'%(%)%*%+%,%;%=%%]+$") then
+    local quoted = shq(url)
+    noctalia.runAsync(`gio open {quoted} || xdg-open {quoted}`)
+  end
+end
+
+-- The five toggles `tailscale set` exposes, mapped to their flag. Turning one
+-- off needs an explicit =false, so both directions pass the value.
+local PREF_FLAGS = {
+  shieldsUp = "shields-up",
+  acceptRoutes = "accept-routes",
+  runSSH = "ssh",
+  advertiseExitNode = "advertise-exit-node",
+  allowLanAccess = "exit-node-allow-lan-access",
+}
+
 noctalia.state.watch("tn.cmd", function(raw)
   local cmd = raw and noctalia.json.decode(raw) or nil
   if not cmd or not cmd.action then
     return
   end
 
+  local bin = tsBin()
   if cmd.action == "refresh" then
     poll()
   elseif cmd.action == "up" then
-    runThenRefresh("tailscale up", "toast.connected")
+    runThenRefresh(`{bin} up`, "toast.connected")
   elseif cmd.action == "down" then
-    runThenRefresh("tailscale down", "toast.disconnected")
+    runThenRefresh(`{bin} down`, "toast.disconnected")
   elseif cmd.action == "exit_set" and cmd.ip then
-    runThenRefresh(`tailscale set --exit-node={shq(cmd.ip)}`, "toast.exit-node-enabled")
+    runThenRefresh(`{bin} set --exit-node={shq(cmd.ip)}`, "toast.exit-node-enabled")
   elseif cmd.action == "exit_clear" then
-    runThenRefresh("tailscale set --exit-node=", "toast.exit-node-disabled")
+    runThenRefresh(`{bin} set --exit-node=`, "toast.exit-node-disabled")
+  elseif cmd.action == "set_pref" then
+    local flag = PREF_FLAGS[cmd.pref or ""]
+    if flag then
+      local on = cmd.enabled == true
+      runThenRefresh(`{bin} set --{flag}={on and "true" or "false"}`,
+        on and "toast.pref-on" or "toast.pref-off", nil,
+        { name = noctalia.tr(`pref.{cmd.pref}`) })
+    end
   elseif cmd.action == "taildrop_get" then
     receiveTaildrop()
   elseif cmd.action == "ping" and cmd.ip then
     pingPeer(cmd.ip, cmd.name or cmd.ip)
   elseif cmd.action == "login" then
-    -- Open the pending auth URL surfaced by the daemon (panel guards on it).
-    -- gio, not xdg-open: see the syncthing plugin — xdg-open no-ops with
-    -- XDG_CURRENT_DESKTOP=KDE outside a real KDE session.
-    if cmd.url and cmd.url:match("^https?://[%w%.%-%_%~%:%/%?%#%[%]%@%!%$%&%'%(%)%*%+%,%;%=%%]+$") then
-      local url = shq(cmd.url)
-      noctalia.runAsync(`gio open {url} || xdg-open {url}`)
-    end
+    -- The pending auth URL surfaced by the daemon (the panel guards on it).
+    openUrl(cmd.url)
+  elseif cmd.action == "open_admin" then
+    local configured = trim(noctalia.getConfig("admin_url"))
+    openUrl(configured ~= "" and configured or "https://login.tailscale.com/admin/machines")
   else
-    noctalia.log(`[tailscale] unknown command: {cmd.action}`)
+    noctalia.log(`[tailnet] unknown command: {cmd.action}`)
   end
 end)
 
 function onConfigChanged()
+  -- tailscale_bin may have changed, so the cached lookup has to go.
+  installed = nil
   poll()
 end
 
@@ -325,9 +447,9 @@ function onIpc(event)
   if event == "refresh" then
     poll()
   elseif event == "up" then
-    runThenRefresh("tailscale up", "toast.connected")
+    runThenRefresh(`{tsBin()} up`, "toast.connected")
   elseif event == "down" then
-    runThenRefresh("tailscale down", "toast.disconnected")
+    runThenRefresh(`{tsBin()} down`, "toast.disconnected")
   end
 end
 

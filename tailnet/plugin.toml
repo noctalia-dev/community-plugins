@@ -57,6 +57,22 @@ description_key = "settings.ssh_username.description"
 default = ""
 advanced = true
 
+[[setting]]
+key = "tailscale_bin"
+type = "string"
+label_key = "settings.tailscale_bin.label"
+description_key = "settings.tailscale_bin.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "admin_url"
+type = "string"
+label_key = "settings.admin_url.label"
+description_key = "settings.admin_url.description"
+default = ""
+advanced = true
+
 # ── Entries ──────────────────────────────────────────────────────────────────
 
 [[service]]

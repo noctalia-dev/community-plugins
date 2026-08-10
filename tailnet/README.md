@@ -10,9 +10,9 @@ plugin to the v5 Luau plugin API.
 > Tailscale Inc.
 >
 > This is not the only Tailscale plugin in the catalog: `davemhammer/tailscale`
-> covers the same daemon with a different focus (preference toggles, a dedicated
-> exit-node tab). Tailnet is host-access first — launcher search and one-gesture
-> copy — and installing both is fine, they share no ids or launcher prefix.
+> drives the same daemon. Tailnet is host-access first — launcher search,
+> one-gesture copy, per-host ping/SSH, Taildrop receive, a desktop widget — and
+> installing both is fine, they share no ids, state keys or launcher prefix.
 
 ## Plugin
 
@@ -51,12 +51,19 @@ sudo tailscale set --operator=$USER
 - **Bar widget** (`bar`): add it from the Add-widget picker. Tailscale logo
   with state badge, online/total peer count, and optionally this node's IP.
   Left click opens the panel, right click toggles `tailscale up`/`down`.
-- **Panel** (`panel`): connect/disconnect, Taildrop receive, and refresh in
-  the header; this node's row with copy buttons; a live filter box; then the
-  peer list sorted online-first with status dot, OS icon, last-seen time for
-  offline peers, and per-row buttons: **copy IP**, **copy name**, **ping**,
-  **SSH in terminal**, and **use as exit node** (on peers that advertise it).
-  When an exit node is active a banner shows it with a disable button.
+- **Panel** (`panel`): connect/disconnect, Taildrop receive, admin console, and
+  refresh in the header; any warning the daemon reports (expiring key,
+  unreachable relay, …); this node's row with copy buttons; a row of preference
+  toggles; a live filter box; then the peer list sorted online-first with status
+  dot, OS icon, last-seen time for offline peers, and per-row buttons: **copy
+  IP**, **copy name**, **ping**, **SSH in terminal**, and **use as exit node**
+  (on peers that advertise it). When an exit node is active a banner shows it
+  with a disable button.
+
+  The toggle row drives `tailscale set`: **shields up**, **accept subnet
+  routes**, **Tailscale SSH server**, **advertise as exit node**, **allow LAN
+  access while using an exit node**. A lit button means the flag is on; hover
+  for its name and current state.
 
   ```sh
   noctalia msg panel-toggle rylos/tailnet:panel
@@ -77,6 +84,8 @@ sudo tailscale set --operator=$USER
 | `hide_offline` | `bool` | `false` | Hide offline peers from the panel and launcher. |
 | `taildrop_dir` | `folder` | `""` | Where Taildrop saves received files. Empty = the XDG download folder (advanced). |
 | `ssh_username` | `string` | `""` | Username for the SSH button. Empty = system default (advanced). |
+| `tailscale_bin` | `string` | `""` | Full path to the `tailscale` command. Empty = look it up on `PATH` (advanced). |
+| `admin_url` | `string` | `""` | URL opened by the admin button. Empty = the Tailscale admin console (advanced). |
 | `show_ip` | `bool` | `false` | Bar widget: show this node's Tailscale IP. |
 | `show_count` | `bool` | `true` | Bar widget: show the online/total peer count. |
 
@@ -91,15 +100,20 @@ noctalia msg panel-toggle rylos/tailnet:panel
 
 ## Notes
 
-- **Processes**: the service polls `tailscale status --json`; actions spawn
-  `tailscale up|down`, `tailscale set --exit-node=…`, `tailscale ping -c 3
-  <ip>`, `tailscale file get <dir>`, and `xdg-user-dir DOWNLOAD` (to resolve
-  the default Taildrop folder). The login button opens the daemon's auth URL
-  with `gio open` (fallback `xdg-open`); the SSH button runs `ssh <tailscale-ip>` in
-  your terminal via the shell's run-in-terminal facility — the peer's Tailscale
-  IP, not its name, so it works whether or not MagicDNS is enabled. There is no direct
-  network access from the plugin itself — everything goes through the
-  Tailscale CLI.
+- **Processes**: the service polls `tailscale status --json` and `tailscale
+  debug prefs`; actions spawn `tailscale up|down`, `tailscale set
+  --exit-node=…`, `tailscale set --<flag>=true|false` for the toggles,
+  `tailscale ping -c 3 <ip>`, `tailscale file get <dir>`, and `xdg-user-dir
+  DOWNLOAD` (to resolve the default Taildrop folder). The login and admin
+  buttons open a URL with `gio open` (fallback `xdg-open`); the SSH button runs
+  `ssh <tailscale-ip>` in your terminal via the shell's run-in-terminal
+  facility — the peer's Tailscale IP, not its name, so it works whether or not
+  MagicDNS is enabled. There is no direct network access from the plugin
+  itself — everything goes through the Tailscale CLI.
+- **Preferences**: `tailscale debug prefs` is the only way to read the toggle
+  states back, and its output also contains the node's private key. The plugin
+  decodes it in-process, keeps the five booleans it needs, and discards the
+  rest: nothing from that output is logged, stored, or published to the panel.
 - **Filesystem**: Taildrop receive lists the download directory before and
   after `tailscale file get` to report exactly which files arrived. Nothing
   else is written.

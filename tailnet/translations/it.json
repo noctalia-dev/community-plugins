@@ -27,6 +27,14 @@
     "ssh_username": {
       "label": "Utente SSH",
       "description": "Utente per il bottone SSH. Vuoto = default di sistema."
+    },
+    "tailscale_bin": {
+      "label": "Binario tailscale",
+      "description": "Percorso completo del comando tailscale. Vuoto = cercalo nel PATH."
+    },
+    "admin_url": {
+      "label": "URL della console di amministrazione",
+      "description": "Aperto dal pulsante admin. Vuoto = la console Tailscale."
     }
   },
   "state": {
@@ -61,7 +69,8 @@
     "last-check-info": "Ultimo controllo: {value}",
     "taildrop": "Ricevi file Taildrop",
     "ping": "Ping",
-    "ssh": "Apri SSH nel terminale"
+    "ssh": "Apri SSH nel terminale",
+    "admin": "Apri la console di amministrazione"
   },
   "launcher": {
     "this-host": "questo host",
@@ -79,7 +88,9 @@
     "failed": "Comando fallito.",
     "copied-ip": "{host}: IP {value} copiato.",
     "copied-name": "{host}: nome {value} copiato.",
-    "invalid-username": "Nome utente SSH non valido: usa lettere, cifre, punti, trattini o underscore."
+    "invalid-username": "Nome utente SSH non valido: usa lettere, cifre, punti, trattini o underscore.",
+    "pref-on": "{name}: attivato.",
+    "pref-off": "{name}: disattivato."
   },
   "shortcut": {
     "label": "Tailnet"
@@ -94,5 +105,14 @@
   },
   "ping": {
     "relayed": "Nessuna connessione diretta — il traffico passa da un relay DERP."
+  },
+  "pref": {
+    "shieldsUp": "Scudi alzati (blocca le connessioni in entrata)",
+    "acceptRoutes": "Accetta le route delle subnet",
+    "runSSH": "Server SSH Tailscale",
+    "advertiseExitNode": "Offriti come exit node",
+    "allowLanAccess": "Consenti l'accesso alla LAN con un exit node attivo",
+    "on": "attivo",
+    "off": "disattivo"
   }
 }

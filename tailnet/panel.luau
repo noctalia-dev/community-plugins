@@ -61,6 +61,10 @@ local function stateOf()
   return snapshot and snapshot.state or "stopped"
 end
 
+local function setPref(pref, enabled)
+  sendCmd("set_pref", { pref = pref, enabled = enabled })
+end
+
 -- ── Per-peer actions ─────────────────────────────────────────────────────────
 
 local function copyPeerIp(peer)
@@ -138,6 +142,13 @@ local function header()
       onClick = running and "onDown" or "onUp",
     }),
     ui.button({
+      glyph = "external-link",
+      variant = "ghost",
+      controlSize = "sm",
+      tooltip = tr("panel.admin"),
+      onClick = "onAdmin",
+    }),
+    ui.button({
       glyph = "refresh",
       variant = "outline",
       controlSize = "sm",
@@ -145,6 +156,51 @@ local function header()
       onClick = "onRefresh",
     }),
   })
+end
+
+-- The five `tailscale set` toggles, as one row of icon buttons: a lit button
+-- means the flag is on. Order matches how often they get touched.
+local PREFS = {
+  { key = "shieldsUp", glyph = "shield" },
+  { key = "acceptRoutes", glyph = "route" },
+  { key = "runSSH", glyph = "server" },
+  { key = "advertiseExitNode", glyph = "world-upload" },
+  { key = "allowLanAccess", glyph = "network" },
+}
+
+local function prefsRow()
+  local prefs = snapshot and snapshot.prefs
+  if not prefs then
+    return nil
+  end
+  local buttons = {}
+  for _, pref in PREFS do
+    local on = prefs[pref.key] == true
+    table.insert(buttons, ui.button({
+      glyph = pref.glyph,
+      variant = "ghost",
+      controlSize = "sm",
+      selected = on,
+      flexGrow = 1,
+      tooltip = `{tr(`pref.{pref.key}`)} — {tr(on and "pref.on" or "pref.off")}`,
+      onClick = function()
+        setPref(pref.key, not on)
+      end,
+    }))
+  end
+  return ui.row({ gap = 4 }, buttons)
+end
+
+local function healthBox()
+  local health = snapshot and snapshot.health or {}
+  if #health == 0 then
+    return nil
+  end
+  local children = {}
+  for _, warning in health do
+    table.insert(children, ui.label({ text = warning, fontSize = 11, color = "error/0.9", maxLines = 3 }))
+  end
+  return ui.column({ gap = 3, padding = 8, fill = "error/0.1", radius = 8 }, children)
 end
 
 local function selfRow()
@@ -332,18 +388,18 @@ local function render()
     return
   end
   local children = { header() }
-  local login = needsLoginBox()
-  if login then
-    table.insert(children, login)
+  -- Each of these returns nil when it has nothing to show, and a nil in the
+  -- middle of an array literal would truncate the siblings after it.
+  local function push(node)
+    if node then
+      table.insert(children, node)
+    end
   end
-  local selfR = selfRow()
-  if selfR then
-    table.insert(children, selfR)
-  end
-  local exitR = exitNodeRow()
-  if exitR then
-    table.insert(children, exitR)
-  end
+  push(needsLoginBox())
+  push(healthBox())
+  push(selfRow())
+  push(prefsRow())
+  push(exitNodeRow())
   if snapshot and stateOf() == "running" then
     table.insert(children, ui.row({ gap = 6, align = "center" }, {
       ui.input({
@@ -417,6 +473,10 @@ end
 
 function onTaildrop()
   sendCmd("taildrop_get")
+end
+
+function onAdmin()
+  sendCmd("open_admin")
 end
 
 function onCopySelfIp()
