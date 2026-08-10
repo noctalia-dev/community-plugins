@@ -12,6 +12,10 @@ if not noctalia.commandExists("dbus-monitor") then
     noctalia.log("battery-widget: dbus-monitor not found.")
     return
 end
+if not noctalia.commandExists("upower") then
+    noctalia.log("battery-widget: upower not found.")
+    return
+end
 
 local function getBatName()
     local config = noctalia.getConfig("battery")
@@ -35,11 +39,11 @@ local function getBatName()
 end
 
 local function getGlyph()
-    if status == "Charging" then
+    if status == "charging" then
         glyph = "battery-charging"
-    elseif status == "Full" or status == "Not charging" then
+    elseif status == "fully-charged" or status == "pending-charge" then
         glyph = "battery-plugged"
-    elseif status == "Unknown" then
+    elseif status == "unknown" then
         glyph = "battery-exclamation"
     else
         glyph = percent >= 85 and "battery-4"
@@ -72,7 +76,7 @@ local function getWarningThreshold()
 end
 
 local function getColor()
-    if status == "Charging" or status == "Full" or status == "Not charging" then
+    if status == "charging" or status == "fully-charged" or status == "pending-charge" then
         color = noctalia.getConfig("charging_color")
         return
     end
@@ -84,8 +88,8 @@ local function getColor()
 end
 
 local function render()
-    if (noctalia.getConfig("hide_plugged") and (status == "Charging" or status == "Not charging"))
-        or (noctalia.getConfig("hide_full") and status == "Full") then
+    if (noctalia.getConfig("hide_plugged") and (status == "charging" or status == "pending-charge"))
+        or (noctalia.getConfig("hide_full") and status == "fully-charged") then
         desktopWidget.render(ui.row())
         return
     end
@@ -116,28 +120,18 @@ end
 
 local function refreshBattery()
     noctalia.runAsync(
-        "cat "
-        .. shellEscape(path .. batName .. "/capacity")
-        .. " "
-        .. shellEscape(path .. batName .. "/status"),
+        "upower -i /org/freedesktop/UPower/devices/battery_"
+        .. batName,
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
                 return
             end
 
-            local lines = {}
-            for line in result.stdout:gmatch("[^\r\n]+") do
-                table.insert(lines, line)
-            end
+            local output = result.stdout
 
-            if not lines[1] or not lines[2] then
-                noctalia.log("battery-widget: invalid battery output")
-                return
-            end
-
-            percent = tonumber(noctalia.string.trim(lines[1]))
-            status = noctalia.string.trim(lines[2])
+            percent = tonumber(output:match("percentage:%s*(%d+)%%"))
+            status = output:match("state:%s*(%S+)")
 
             getGlyph()
             getColor()
