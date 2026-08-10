@@ -6,7 +6,7 @@
 id = "rylos/syncthing"
 name = "Syncthing"
 version = "2.1.0"
-plugin_api = 7
+plugin_api = 9
 author = "Marco Ziliani"
 license = "MIT"
 dependencies = ["syncthing", "gio", "xdg-open"]

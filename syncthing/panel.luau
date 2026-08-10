@@ -6,11 +6,9 @@
 -- per-folder pause/resume and rescan actions, then details, recent errors,
 -- and connection info.
 --
--- Per-folder buttons use the predeclared-slot pattern (onPause0…, onRescan0…):
--- ui.* callbacks are global function *names*, so each rendered row binds its
--- folder id into a slot table the numbered globals read back.
+-- Per-row buttons pass a closure that captures the row's folder or device, so
+-- neither list has a length limit and there are no numbered callback globals.
 
-local MAX_FOLDER_SLOTS = 16
 -- Must match height = … in the [[panel]] entry of plugin.toml. The root
 -- column's height is what actually sizes the content, and it is measured
 -- inside the padding, so the padding has to come off it or the last row is
@@ -26,8 +24,6 @@ local isOpen = false
 local cmdNonce = 0
 -- Active list tab: "folders" | "devices" (Syncthing Tray-style tabs).
 local view = "folders"
--- Slot table: index → { kind = "folder"|"device", id = <target id> }.
-local folderSlots = {}
 
 local STATE_COLORS = {
   idle = "primary",
@@ -100,6 +96,17 @@ local function allPaused()
   return snapshot ~= nil
     and snapshot.devices.configured > 0
     and snapshot.devices.paused >= snapshot.devices.configured
+end
+
+-- ── Per-row actions ──────────────────────────────────────────────────────────
+
+local function togglePaused(kind, id, paused)
+  local verb = paused and "resume" or "pause"
+  sendCmd(`{kind}_{verb}`, id)
+end
+
+local function rescanFolder(folder)
+  sendCmd("rescan", folder.id)
 end
 
 -- ── Sections ─────────────────────────────────────────────────────────────────
@@ -226,8 +233,7 @@ local function tabs()
   })
 end
 
-local function folderRow(folder, slot)
-  folderSlots[slot] = { kind = "folder", id = folder.id }
+local function folderRow(folder)
   local color = STATE_COLORS[folder.state] or "outline"
   return ui.row({
     key = `folder-{folder.id}`,
@@ -253,7 +259,9 @@ local function folderRow(folder, slot)
       variant = "ghost",
       controlSize = "sm",
       tooltip = folder.paused and tr("panel.folder-resume") or tr("panel.folder-pause"),
-      onClick = (folder.paused and "onResume" or "onPause") .. slot,
+      onClick = function()
+        togglePaused("folder", folder.id, folder.paused)
+      end,
     }),
     ui.button({
       glyph = "refresh",
@@ -261,13 +269,14 @@ local function folderRow(folder, slot)
       controlSize = "sm",
       enabled = not folder.paused,
       tooltip = tr("panel.folder-rescan"),
-      onClick = "onRescan" .. slot,
+      onClick = function()
+        rescanFolder(folder)
+      end,
     }),
   })
 end
 
-local function deviceRow(device, slot)
-  folderSlots[slot] = { kind = "device", id = device.id }
+local function deviceRow(device)
   local color = device.connected and "primary" or "outline"
   local subtitle
   if device.paused then
@@ -299,7 +308,9 @@ local function deviceRow(device, slot)
       variant = "ghost",
       controlSize = "sm",
       tooltip = device.paused and tr("panel.device-resume") or tr("panel.device-pause"),
-      onClick = (device.paused and "onResume" or "onPause") .. slot,
+      onClick = function()
+        togglePaused("device", device.id, device.paused)
+      end,
     }),
   })
 end
@@ -308,18 +319,12 @@ local function folderList()
   local rows = {}
   if snapshot then
     if view == "devices" then
-      for index, device in snapshot.devicesList do
-        if index > MAX_FOLDER_SLOTS then
-          break
-        end
-        table.insert(rows, deviceRow(device, index - 1))
+      for _, device in snapshot.devicesList do
+        table.insert(rows, deviceRow(device))
       end
     else
-      for index, folder in snapshot.folders do
-        if index > MAX_FOLDER_SLOTS then
-          break
-        end
-        table.insert(rows, folderRow(folder, index - 1))
+      for _, folder in snapshot.folders do
+        table.insert(rows, folderRow(folder))
       end
     end
   end
@@ -369,7 +374,6 @@ local function render()
   if not isOpen then
     return
   end
-  folderSlots = {}
   -- height pins the root to the [[panel]] size so the folder list scrolls
   -- instead of growing past the panel background; keep PANEL_HEIGHT and the
   -- manifest's height = … in sync, the root wins over the manifest value.
@@ -437,75 +441,3 @@ function onTabDevices()
   view = "devices"
   render()
 end
-
-local function pauseAt(slot)
-  local target = folderSlots[slot]
-  if target then
-    sendCmd(target.kind == "device" and "device_pause" or "folder_pause", target.id)
-  end
-end
-
-local function resumeAt(slot)
-  local target = folderSlots[slot]
-  if target then
-    sendCmd(target.kind == "device" and "device_resume" or "folder_resume", target.id)
-  end
-end
-
-local function rescanAt(slot)
-  local target = folderSlots[slot]
-  if target and target.kind == "folder" then
-    sendCmd("rescan", target.id)
-  end
-end
-
-function onPause0() pauseAt(0) end
-function onPause1() pauseAt(1) end
-function onPause2() pauseAt(2) end
-function onPause3() pauseAt(3) end
-function onPause4() pauseAt(4) end
-function onPause5() pauseAt(5) end
-function onPause6() pauseAt(6) end
-function onPause7() pauseAt(7) end
-function onPause8() pauseAt(8) end
-function onPause9() pauseAt(9) end
-function onPause10() pauseAt(10) end
-function onPause11() pauseAt(11) end
-function onPause12() pauseAt(12) end
-function onPause13() pauseAt(13) end
-function onPause14() pauseAt(14) end
-function onPause15() pauseAt(15) end
-
-function onResume0() resumeAt(0) end
-function onResume1() resumeAt(1) end
-function onResume2() resumeAt(2) end
-function onResume3() resumeAt(3) end
-function onResume4() resumeAt(4) end
-function onResume5() resumeAt(5) end
-function onResume6() resumeAt(6) end
-function onResume7() resumeAt(7) end
-function onResume8() resumeAt(8) end
-function onResume9() resumeAt(9) end
-function onResume10() resumeAt(10) end
-function onResume11() resumeAt(11) end
-function onResume12() resumeAt(12) end
-function onResume13() resumeAt(13) end
-function onResume14() resumeAt(14) end
-function onResume15() resumeAt(15) end
-
-function onRescan0() rescanAt(0) end
-function onRescan1() rescanAt(1) end
-function onRescan2() rescanAt(2) end
-function onRescan3() rescanAt(3) end
-function onRescan4() rescanAt(4) end
-function onRescan5() rescanAt(5) end
-function onRescan6() rescanAt(6) end
-function onRescan7() rescanAt(7) end
-function onRescan8() rescanAt(8) end
-function onRescan9() rescanAt(9) end
-function onRescan10() rescanAt(10) end
-function onRescan11() rescanAt(11) end
-function onRescan12() rescanAt(12) end
-function onRescan13() rescanAt(13) end
-function onRescan14() rescanAt(14) end
-function onRescan15() rescanAt(15) end
