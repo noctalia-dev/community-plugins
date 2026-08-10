@@ -157,13 +157,16 @@ getWarningThreshold()
 
 local function watchBattery()
     local cmd = string.format(
-        "dbus-monitor --system \"type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='/org/freedesktop/UPower/devices/battery_%s'\"",
+        "gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_%s",
         batName
     )
     noctalia.runStream(cmd,
         function(line)
-            if line:find("Percentage") or line:find("State") then
-                refreshBattery()
+            for _, pattern in ipairs({ "Percentage", "State" }) do
+                if line:find(pattern) then
+                    refreshBattery()
+                    break
+                end
             end
         end
     )

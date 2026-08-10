@@ -8,7 +8,7 @@ deprecated = false
 icon = "battery"
 description = "Desktop/Lockscreen widget to show battery."
 tags = [ "desktop", "hardware", "system", "utility" ]
-dependencies = [ "upower", "dbus" ]
+dependencies = [ "upower", "gdbus" ]
 
 [[desktop_widget]]
 id = "widget"
