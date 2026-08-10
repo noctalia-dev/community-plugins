@@ -8,12 +8,18 @@ local warning_threshold = 20
 local path = "/sys/class/power_supply/"
 local batName
 
+local function notifyError()
+    noctalia.notifyError("Battery widget", "Something went wrong. Check the Noctalia log for details.")
+end
+
 if not noctalia.commandExists("dbus-monitor") then
     noctalia.log("battery-widget: dbus-monitor not found.")
+    notifyError()
     return
 end
 if not noctalia.commandExists("upower") then
     noctalia.log("battery-widget: upower not found.")
+    notifyError()
     return
 end
 
@@ -60,6 +66,7 @@ local function getWarningThreshold()
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to get warning_threshold: " .. result.stderr)
+                notifyError()
                 return
             end
 
@@ -67,6 +74,7 @@ local function getWarningThreshold()
 
             if not res then
                 noctalia.log("battery-widget: invalid warning_threshold: " .. res)
+                notifyError()
                 return
             end
 
@@ -125,6 +133,7 @@ local function refreshBattery()
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
+                notifyError()
                 return
             end
 
@@ -143,6 +152,7 @@ end
 batName = getBatName()
 if not batName then
     noctalia.log("battery-widget: battery not found")
+    notifyError()
     return
 end
 
