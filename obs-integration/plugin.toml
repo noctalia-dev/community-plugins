@@ -1,6 +1,6 @@
 id = "neyfua/obs-integration"
 name = "OBS Integration"
-version = "1.1.1"
+version = "1.1.2"
 plugin_api = 9
 author = "neyfua"
 license = "MIT"
