@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.2.0"
+version = "1.2.1"
 plugin_api = 13
 author = "alexander"
 license = "MIT"
@@ -45,24 +45,13 @@ dependencies = [
 
 # Main toolkit panel: tool grid + per-tool result views + recording controls.
 # Open with: noctalia msg panel-toggle alexander/screen-toolkit:panel
-# Compact layout (default). Full mode uses the "panel-full" entry below; the
-# bar widget / shortcut open whichever entry matches the "panel-mode" setting.
+# Compact layout (default). Full mode was removed; the bar widget / shortcut
+# open either the standard or legacy entry based on the "panel-mode" setting.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
 width = 380
-height = 290
-placement = "floating"
-position = "center"
-keyboard_focus = "on_demand"
-capture_keys = ["Tab", "Backtab", "Shift+Tab", "Up", "Down", "Left", "Right", "Return", "Enter", "Space", "Escape"]
-
-# Full-mode layout: the original spacious grid (660x340).
-[[panel]]
-id = "panel-full"
-entry = "panel.luau"
-width = 660
-height = 340
+height = 260
 placement = "floating"
 position = "center"
 keyboard_focus = "on_demand"
@@ -223,10 +212,9 @@ key = "panel-mode"
 type = "select"
 label_key = "settings.panel_mode.label"
 description_key = "settings.panel_mode.description"
-default = "full"
+default = "standard"
 options = [
-  { value = "compact", label_key = "settings.panel_mode.options.compact" },
-  { value = "full", label_key = "settings.panel_mode.options.full" },
+  { value = "standard", label_key = "settings.panel_mode.options.standard" },
   { value = "legacy", label_key = "settings.panel_mode.options.legacy" },
 ]
 

@@ -98,11 +98,10 @@
       "label": "Hide Cursor in Recordings"
     },
     "panel_mode": {
-      "description": "Layout of the main panel. Compact is the dense grid; Full is the original spacious grid.",
+      "description": "Layout of the main panel. Standard is the default dense grid; Legacy recreates the Noctalia-v4 layout.",
       "label": "Panel Mode",
       "options": {
-        "compact": "Compact",
-        "full": "Full",
+        "standard": "Standard",
         "legacy": "Legacy"
       }
     },
