@@ -94,7 +94,7 @@ noctalia msg plugin davemhammer/gocryptfs:service all automount
 
 On mount / auto-mount, the service prefers the session key; if missing, it hydrates from `secret-tool` into `keyctl`, then runs `gocryptfs -extpass keyctl pipe <id>`. Fallback: `gocryptfs -extpass secret-tool lookup …`.
 
-- One-shot typed passwords use a short-lived file under `/dev/shm` (tmpfs) when available, then delete it.
+- One-shot typed passwords use a short-lived file under a **private** tmpfs dir (`/dev/shm/noctalia-gocryptfs.$USER`, mode `0700`) when available, then delete it. Parent mode blocks other local users even if the file briefly inherits umask.
 - Optional **advanced** passfile paths remain supported for users who manage their own files (plaintext by user choice; not recommended).
 - **Forget** and volume remove clear both the desktop keyring entry and the session key.
 - Passwords are not logged.
