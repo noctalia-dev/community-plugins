@@ -12,15 +12,12 @@ local function notifyError()
     noctalia.notifyError("Battery widget", "Something went wrong. Check the Noctalia log for details.")
 end
 
-if not noctalia.commandExists("dbus-monitor") then
-    noctalia.log("battery-widget: dbus-monitor not found.")
-    notifyError()
-    return
-end
-if not noctalia.commandExists("upower") then
-    noctalia.log("battery-widget: upower not found.")
-    notifyError()
-    return
+for _, cmd in ipairs({ "dbus-monitor", "upower" }) do
+    if not noctalia.commandExists(cmd) then
+        noctalia.log("battery-widget: " .. cmd .. " not found.")
+        notifyError()
+        return
+    end
 end
 
 local function getBatName()
