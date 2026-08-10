@@ -160,6 +160,12 @@ uses no update interval, filesystem watcher, polling loop, network request, or
 persistent subprocess. Hyprland Lua mode runs the fixed command
 `hyprctl binds -j` asynchronously.
 
+Parsing is kept as cheap as the host's per-callback CPU budget demands: the
+niri tokenizer scans with `string.find` rather than character by character, and
+it only reads the `binds { … }` blocks instead of the whole file. A refresh
+that the host still aborts no longer wedges the service — an in-flight refresh
+older than 15 seconds is treated as lost, so the next request runs.
+
 The last successful parsed snapshot is stored as `bindings-cache.json`. The
 panel reads the shared in-memory snapshot and performs no configuration I/O in
 `onOpen()`. A failed refresh keeps the previous bindings visible and reports
