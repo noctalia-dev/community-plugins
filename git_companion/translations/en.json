@@ -1,0 +1,54 @@
+{
+  "widget": {
+    "prs": "PRs",
+    "mrs": "MRs",
+    "tooltip": "{issues} Issues, {prs} {label}"
+  },
+  "panel": {
+    "title": "Git Companion",
+    "pull_requests": "Pull Requests",
+    "merge_requests": "Merge Requests",
+    "tab_prs": "{label} ({count})",
+    "tab_issues": "Issues ({count})",
+    "no_items": "No items",
+    "untitled": "Untitled",
+    "last_update_placeholder": "..."
+  },
+  "service": {
+    "title": "Git Companion",
+    "bin_missing": "{bin} is not installed.",
+    "gitlab_scope_missing": "GitLab requires a repo or group scope in settings."
+  },
+  "settings": {
+    "platform": {
+      "label": "Platform",
+      "description": "Choose between GitHub or GitLab.",
+      "options": {
+        "github": "GitHub",
+        "gitlab": "GitLab"
+      }
+    },
+    "repo": {
+      "label": "Repository",
+      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner."
+    },
+    "group": {
+      "label": "Group / Owner",
+      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo."
+    },
+    "refresh_interval": {
+      "label": "Refresh Interval (seconds)",
+      "description": "How often to fetch updates from the API."
+    },
+    "bar_display_mode": {
+      "label": "Bar Display Mode",
+      "description": "Choose what text to show next to the icon in the bar.",
+      "options": {
+        "none": "Nothing",
+        "prs": "PRs/MRs only",
+        "issues": "Issues only",
+        "both": "Both"
+      }
+    }
+  }
+}
