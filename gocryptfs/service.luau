@@ -504,20 +504,57 @@ local function removePassfile(path)
   end
 end
 
--- Short-lived password material on tmpfs when possible (never long-term secret storage).
-local function tempPassPath(suffix)
+-- Private dir for short-lived password material. Prefer tmpfs (/dev/shm) when present.
+-- Parent is mode 0700 (like lyrics' requestDir chmod) so a world-listable /dev/shm (1777)
+-- cannot expose files even if writeFile lands at umask 0644 before a per-file chmod.
+local secureTempDirPath = nil
+local secureTempDirReady = false
+
+local function secureTempDir()
+  if secureTempDirPath and noctalia.fileExists(secureTempDirPath) and secureTempDirReady then
+    return secureTempDirPath
+  end
   local base = "/dev/shm"
   if not noctalia.fileExists(base) then
     base = noctalia.pluginDataDir() or "/tmp"
   end
-  return base .. "/noctalia-gocryptfs-" .. tostring(suffix)
+  -- Per-user private subdirectory under the base (not a flat file on world-writable shm).
+  local dir = base .. "/noctalia-gocryptfs." .. tostring(os.getenv("USER") or "user")
+  noctalia.mkdirAll(dir)
+  secureTempDirPath = dir
+  return dir
 end
 
-local function writeSecurePassfile(path, password)
-  local written, werr = noctalia.writeFile(path, password .. "\n")
+-- Ensure dir is 0700, then run callback(dir). Same pattern as lyrics_service securing requestDir.
+local function withSecureTempDir(callback)
+  local dir = secureTempDir()
+  noctalia.runAsync(shellCommand({ "chmod", "700", dir }), function(result)
+    local ok = result ~= nil and result.exitCode == 0 and not result.timedOut
+    if ok then
+      secureTempDirReady = true
+    else
+      -- Still proceed under pluginDataDir/tmp if chmod failed; log for diagnostics.
+      noctalia.log(`gocryptfs: chmod 700 on temp dir failed: {dir}`)
+    end
+    callback(dir)
+  end, 5000)
+end
+
+local function tempPassPath(suffix)
+  return secureTempDir() .. "/p-" .. tostring(suffix)
+end
+
+-- Write password material under the private temp dir. withNewline defaults true (gocryptfs -passfile).
+local function writeSecurePassfile(path, password, withNewline)
+  local body = password
+  if withNewline ~= false then
+    body = password .. "\n"
+  end
+  local written, werr = noctalia.writeFile(path, body)
   if not written then
     return false, werr or "write failed"
   end
+  -- Defense in depth; parent dir 0700 is the real multi-user protection.
   noctalia.runAsync(shellCommand({ "chmod", "600", path }))
   return true
 end
@@ -553,13 +590,13 @@ local function storeSessionKeyring(volumeId, password, callback)
     callback(false, "invalid keyring store")
     return
   end
-  local tmp = tempPassPath("kr-" .. tostring(volumeId) .. "-" .. tostring(os.time()))
-  local written, werr = noctalia.writeFile(tmp, password)
-  if not written then
-    callback(false, werr or "temp write failed")
-    return
-  end
-  noctalia.runAsync(shellCommand({ "chmod", "600", tmp }), function()
+  withSecureTempDir(function()
+    local tmp = tempPassPath("kr-" .. tostring(volumeId) .. "-" .. tostring(os.time()))
+    local written, werr = writeSecurePassfile(tmp, password, false)
+    if not written then
+      callback(false, werr or "temp write failed")
+      return
+    end
     local cmd = "OLD=$(keyctl search @u user "
       .. shellQuote(desc)
       .. " 2>/dev/null); "
@@ -599,14 +636,14 @@ local function storePersistentPassword(volumeId, password, callback)
     callback(false, "invalid persistent store")
     return
   end
-  local tmp = tempPassPath("sec-" .. vid .. "-" .. tostring(os.time()))
-  local written, werr = noctalia.writeFile(tmp, password)
-  if not written then
-    callback(false, werr or "temp write failed")
-    return
-  end
   local label = "noctalia-gocryptfs:" .. vid
-  noctalia.runAsync(shellCommand({ "chmod", "600", tmp }), function()
+  withSecureTempDir(function()
+    local tmp = tempPassPath("sec-" .. vid .. "-" .. tostring(os.time()))
+    local written, werr = writeSecurePassfile(tmp, password, false)
+    if not written then
+      callback(false, werr or "temp write failed")
+      return
+    end
     -- Clear any previous entry first so store does not leave duplicates.
     local cmd = "secret-tool clear service "
       .. shellQuote(SECRET_SERVICE)
@@ -867,17 +904,72 @@ mountVolume = function(command)
   local storeKeyring = command.storeKeyring == true or useKeyring
   local mountCmd = nil -- full shell when using keyring (search + extpass)
 
-  if password ~= "" then
-    -- One-shot: password via tmpfs temp passfile (deleted after mount).
-    tempPassfile = tempPassPath("pass-" .. vol.id .. "-" .. tostring(os.time()))
-    local written, werr = writeSecurePassfile(tempPassfile, password)
-    if not written then
-      actionResult(command, false, noctalia.tr("result.failed", { error = werr or "could not write passfile" }))
-      kickAutoMount()
-      return
+  local function launchMount()
+    if mountCmd == nil then
+      table.insert(args, cipher)
+      table.insert(args, mount)
+      mountCmd = shellCommand(args)
     end
-    table.insert(args, "-passfile")
-    table.insert(args, tempPassfile)
+
+    actionBusy = true
+    publishSnapshot()
+
+    local launched = noctalia.runAsync(mountCmd, function(result)
+      removePassfile(tempPassfile)
+      local ok = result ~= nil and result.exitCode == 0 and not result.timedOut
+      local message
+      if ok then
+        vol.mounted = true
+        message = noctalia.tr("result.mounted", { name = vol.name })
+        if password ~= "" and storeKeyring then
+          storeKeyringPassword(vol.id, password, function(krOk, krErr)
+            if krOk then
+              vol.useKeyring = true
+              saveVolumes()
+              publishSnapshot()
+            else
+              noctalia.log(`gocryptfs: keyring store failed: {krErr}`)
+            end
+          end)
+        end
+      else
+        local err = trim(result and (result.stderr ~= "" and result.stderr or result.stdout))
+        if err == "" then
+          if result and result.exitCode == 2 and useKeyring and password == "" then
+            err = "keyring password missing (Remember once, or unlock desktop keyring)"
+          else
+            err = result and result.timedOut and "timed out" or "unknown error"
+          end
+        end
+        message = noctalia.tr("result.failed", { error = err })
+      end
+      finishAction(command, ok, message)
+    end, 60000)
+
+    if not launched then
+      removePassfile(tempPassfile)
+      actionBusy = false
+      actionResult(command, false, noctalia.tr("result.failed", { error = "could not start gocryptfs" }))
+      publishSnapshot()
+      kickAutoMount()
+    end
+  end
+
+  if password ~= "" then
+    -- One-shot: password via private temp dir (chmod 700 parent first — lyrics-style).
+    withSecureTempDir(function()
+      tempPassfile = tempPassPath("pass-" .. vol.id .. "-" .. tostring(os.time()))
+      local written, werr = writeSecurePassfile(tempPassfile, password)
+      if not written then
+        actionResult(command, false, noctalia.tr("result.failed", { error = werr or "could not write passfile" }))
+        kickAutoMount()
+        return
+      end
+      table.insert(args, "-passfile")
+      table.insert(args, tempPassfile)
+      launchMount()
+    end)
+    return
   elseif useKeyring then
     if not keyctlAvailable() and not secretToolAvailable() then
       local msg = noctalia.tr("result.failed", {
@@ -996,55 +1088,7 @@ mountVolume = function(command)
     return
   end
 
-  if mountCmd == nil then
-    table.insert(args, cipher)
-    table.insert(args, mount)
-    mountCmd = shellCommand(args)
-  end
-
-  actionBusy = true
-  publishSnapshot()
-
-  local launched = noctalia.runAsync(mountCmd, function(result)
-    removePassfile(tempPassfile)
-    local ok = result ~= nil and result.exitCode == 0 and not result.timedOut
-    local message
-    if ok then
-      vol.mounted = true
-      message = noctalia.tr("result.mounted", { name = vol.name })
-      -- After a typed-password mount, keep password in keyring for this login session.
-      if password ~= "" and storeKeyring then
-        storeKeyringPassword(vol.id, password, function(krOk, krErr)
-          if krOk then
-            vol.useKeyring = true
-            saveVolumes()
-            publishSnapshot()
-          else
-            noctalia.log(`gocryptfs: keyring store failed: {krErr}`)
-          end
-        end)
-      end
-    else
-      local err = trim(result and (result.stderr ~= "" and result.stderr or result.stdout))
-      if err == "" then
-        if result and result.exitCode == 2 and useKeyring and password == "" then
-          err = "keyring password missing (Remember once, or unlock desktop keyring)"
-        else
-          err = result and result.timedOut and "timed out" or "unknown error"
-        end
-      end
-      message = noctalia.tr("result.failed", { error = err })
-    end
-    finishAction(command, ok, message)
-  end, 60000)
-
-  if not launched then
-    removePassfile(tempPassfile)
-    actionBusy = false
-    actionResult(command, false, noctalia.tr("result.failed", { error = "could not start gocryptfs" }))
-    publishSnapshot()
-    kickAutoMount()
-  end
+  launchMount()
 end
 
 kickAutoMount = function()
@@ -1354,70 +1398,74 @@ local function initVolume(command)
     return
   end
 
-  local tempPassfile = tempPassPath("init-" .. vol.id .. "-" .. tostring(os.time()))
-  local written, werr = writeSecurePassfile(tempPassfile, password)
-  if not written then
-    actionResult(command, false, noctalia.tr("result.failed", { error = werr or "could not write passfile" }))
-    return
-  end
-
-  local args = { "gocryptfs", "-init", "-q", "-passfile", tempPassfile }
-  if plaintextNames then
-    table.insert(args, "-plaintextnames")
-  end
-  if aesSiv then
-    table.insert(args, "-aessiv")
-  end
-  table.insert(args, cipher)
-
   actionBusy = true
   publishSnapshot()
 
-  local launched = noctalia.runAsync(shellCommand(args), function(result)
-    removePassfile(tempPassfile)
-    local ok = result ~= nil and result.exitCode == 0 and not result.timedOut
-    if not ok then
-      local err = trim(result and (result.stderr ~= "" and result.stderr or result.stdout))
-      if err == "" then
-        err = result and result.timedOut and "timed out" or "unknown error"
-      end
-      finishAction(command, false, noctalia.tr("result.failed", { error = err }))
+  withSecureTempDir(function()
+    local tempPassfile = tempPassPath("init-" .. vol.id .. "-" .. tostring(os.time()))
+    local written, werr = writeSecurePassfile(tempPassfile, password)
+    if not written then
+      actionBusy = false
+      actionResult(command, false, noctalia.tr("result.failed", { error = werr or "could not write passfile" }))
+      publishSnapshot()
       return
     end
 
-    local function finishInit()
-      table.insert(volumes, vol)
-      local saved, saveErr = saveVolumes()
-      if not saved then
-        finishAction(command, false, noctalia.tr("result.failed", { error = saveErr or "save failed" }))
+    local args = { "gocryptfs", "-init", "-q", "-passfile", tempPassfile }
+    if plaintextNames then
+      table.insert(args, "-plaintextnames")
+    end
+    if aesSiv then
+      table.insert(args, "-aessiv")
+    end
+    table.insert(args, cipher)
+
+    local launched = noctalia.runAsync(shellCommand(args), function(result)
+      removePassfile(tempPassfile)
+      local ok = result ~= nil and result.exitCode == 0 and not result.timedOut
+      if not ok then
+        local err = trim(result and (result.stderr ~= "" and result.stderr or result.stdout))
+        if err == "" then
+          err = result and result.timedOut and "timed out" or "unknown error"
+        end
+        finishAction(command, false, noctalia.tr("result.failed", { error = err }))
         return
       end
-      finishAction(command, true, noctalia.tr("result.initialized", { name = vol.name }))
-    end
 
-    if saveKeyring then
-      storeKeyringPassword(vol.id, password, function(krOk, krErr)
-        if krOk then
-          vol.useKeyring = true
-          vol.autoMount = autoMount
-        else
-          noctalia.log(`gocryptfs: keyring store failed: {krErr}`)
-          vol.useKeyring = false
-          vol.autoMount = false
+      local function finishInit()
+        table.insert(volumes, vol)
+        local saved, saveErr = saveVolumes()
+        if not saved then
+          finishAction(command, false, noctalia.tr("result.failed", { error = saveErr or "save failed" }))
+          return
         end
-        finishInit()
-      end)
-    else
-      finishInit()
-    end
-  end, 120000)
+        finishAction(command, true, noctalia.tr("result.initialized", { name = vol.name }))
+      end
 
-  if not launched then
-    removePassfile(tempPassfile)
-    actionBusy = false
-    actionResult(command, false, noctalia.tr("result.failed", { error = "could not start gocryptfs -init" }))
-    publishSnapshot()
-  end
+      if saveKeyring then
+        storeKeyringPassword(vol.id, password, function(krOk, krErr)
+          if krOk then
+            vol.useKeyring = true
+            vol.autoMount = autoMount
+          else
+            noctalia.log(`gocryptfs: keyring store failed: {krErr}`)
+            vol.useKeyring = false
+            vol.autoMount = false
+          end
+          finishInit()
+        end)
+      else
+        finishInit()
+      end
+    end, 120000)
+
+    if not launched then
+      removePassfile(tempPassfile)
+      actionBusy = false
+      actionResult(command, false, noctalia.tr("result.failed", { error = "could not start gocryptfs -init" }))
+      publishSnapshot()
+    end
+  end)
 end
 
 -- Store password in kernel keyring for an existing volume (no mount required).
@@ -1562,6 +1610,8 @@ end
 
 -- boot
 loadVolumes()
+-- Prime private temp dir (0700) early so first mount/keyring write is not a race.
+withSecureTempDir(function() end)
 noctalia.state.watch(COMMAND_KEY, executeAction)
 noctalia.setUpdateInterval(refreshIntervalMs())
 refreshAll()
