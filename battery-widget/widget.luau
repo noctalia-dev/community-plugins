@@ -72,12 +72,12 @@ local function getWarningThreshold()
 end
 
 local function getColor()
-    if status ~= "Charging" and percent <= warning_threshold then
-        color = noctalia.getConfig("warning_color")
+    if status == "Charging" or status == "Full" or status == "Not charging" then
+        color = noctalia.getConfig("charging_color")
         return
     end
-    if status == "Charging" or status == "Full" or status == "Not Charging" then
-        color = noctalia.getConfig("charging_color")
+    if percent <= warning_threshold then
+        color = noctalia.getConfig("warning_color")
         return
     end
     color = noctalia.getConfig("color")
