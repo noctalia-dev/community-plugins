@@ -7,6 +7,7 @@ A simple Noctalia bar widget to toggle the ThinkPad lid logo LED on and off.
 | Property | Value |
 | --- | --- |
 | **ID** | `zeti1223/thinkpad-led` |
+| **Widget** | `led` |
 | **Version** | `1.1.0` |
 | **Author** | zeti1223 |
 | **License** | MIT |
