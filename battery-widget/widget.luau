@@ -1,23 +1,52 @@
 local glyph
 local color
-local percent
-local status
+local data
 
 local warning_threshold = 20
 
 local path = "/sys/class/power_supply/"
 local batName
 
+local stateMap = {
+    [0] = "unknown",
+    [1] = "charging",
+    [2] = "discharging",
+    [3] = "empty",
+    [4] = "fully-charged",
+    [5] = "pending-charge",
+    [6] = "pending-discharge",
+}
+
+local function shellEscape(raw)
+    return "'" .. raw:gsub("'", "'\\''") .. "'"
+end
+
 local function notifyError()
     noctalia.notifyError("Battery widget", noctalia.tr("notify.error"))
 end
 
-for _, cmd in ipairs({ "dbus-monitor", "upower" }) do
+for _, cmd in ipairs({ "gdbus", "upower" }) do
     if not noctalia.commandExists(cmd) then
         noctalia.log("battery-widget: " .. cmd .. " not found.")
         notifyError()
         return
     end
+end
+
+local function parse(output)
+    data = data or {}
+
+    local percent = output:match("'Percentage':%s*<([%d%.]+)>")
+    if percent then
+        data.percent = tonumber(percent)
+    end
+
+    local state = output:match("'State':%s*<uint32%s+(%d+)>")
+    if state then
+        data.status = stateMap[tonumber(state)] or "unknown"
+    end
+
+    return data
 end
 
 local function getBatName()
@@ -42,17 +71,17 @@ local function getBatName()
 end
 
 local function getGlyph()
-    if status == "charging" then
+    if data.status == "charging" then
         glyph = "battery-charging"
-    elseif status == "fully-charged" or status == "pending-charge" then
+    elseif data.status == "fully-charged" or data.status == "pending-charge" then
         glyph = "battery-plugged"
-    elseif status == "unknown" then
+    elseif data.status == "unknown" then
         glyph = "battery-exclamation"
     else
-        glyph = percent >= 85 and "battery-4"
-        or percent >= 55 and "battery-3"
-        or percent >= 30 and "battery-2"
-        or percent >= 10 and "battery-1"
+        glyph = data.percent >= 85 and "battery-4"
+        or data.percent >= 55 and "battery-3"
+        or data.percent >= 30 and "battery-2"
+        or data.percent >= 10 and "battery-1"
         or "battery-0"
     end
 end
@@ -70,7 +99,7 @@ local function getWarningThreshold()
             local res = result.stdout
 
             if not res then
-                noctalia.log("battery-widget: invalid warning_threshold: " .. res)
+                noctalia.log("battery-widget: invalid warning_threshold")
                 notifyError()
                 return
             end
@@ -81,11 +110,11 @@ local function getWarningThreshold()
 end
 
 local function getColor()
-    if status == "charging" or status == "fully-charged" or status == "pending-charge" then
+    if data.status == "charging" or data.status == "fully-charged" or data.status == "pending-charge" then
         color = noctalia.getConfig("charging_color")
         return
     end
-    if percent <= warning_threshold then
+    if data.percent <= warning_threshold then
         color = noctalia.getConfig("warning_color")
         return
     end
@@ -93,8 +122,8 @@ local function getColor()
 end
 
 local function render()
-    if (noctalia.getConfig("hide_plugged") and (status == "charging" or status == "pending-charge"))
-        or (noctalia.getConfig("hide_full") and status == "fully-charged") then
+    if (noctalia.getConfig("hide_plugged") and (data.status == "charging" or data.status == "pending-charge"))
+        or (noctalia.getConfig("hide_full") and data.status == "fully-charged") then
         desktopWidget.render(ui.row())
         return
     end
@@ -104,7 +133,7 @@ local function render()
         table.insert(content, ui.glyph({ name = glyph, color = color }))
     end
     if noctalia.getConfig("show_label") then
-        table.insert(content, ui.label({ text = percent .. "%", color = color }))
+        table.insert(content, ui.label({ text = data.percent .. "%", color = color }))
     end
 
     local vertical = noctalia.getConfig("layout") == "vertical"
@@ -119,29 +148,48 @@ local function render()
     )
 end
 
-local function shellEscape(raw)
-    return "'" .. raw:gsub("'", "'\\''") .. "'"
+local function refreshBattery(output)
+    parse(output)
+    getGlyph()
+    getColor()
+    render()
 end
 
-local function refreshBattery()
-    noctalia.runAsync(
-        "upower -i /org/freedesktop/UPower/devices/battery_"
-        .. batName,
+local function initData()
+    local cmd = string.format(
+        "gdbus call --system --dest org.freedesktop.UPower --object-path %s --method org.freedesktop.DBus.Properties.GetAll org.freedesktop.UPower.Device",
+        shellEscape("/org/freedesktop/UPower/devices/battery_" .. batName)
+    )
+    noctalia.runAsync(cmd,
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
-                notifyError()
                 return
             end
 
-            local output = result.stdout
+            if not result.stdout then
+                noctalia.log("battery-widget: invalid battery output")
+                return
+            end
 
-            percent = tonumber(output:match("percentage:%s*(%d+)%%"))
-            status = output:match("state:%s*(%S+)")
+            refreshBattery(result.stdout)
+        end
+    )
+end
 
-            getGlyph()
-            getColor()
-            render()
+local function watchBattery()
+    local cmd = string.format(
+        "gdbus monitor --system --dest org.freedesktop.UPower --object-path %s",
+        shellEscape("/org/freedesktop/UPower/devices/battery_" .. batName)
+    )
+    noctalia.runStream(cmd,
+        function(line)
+            for _, pattern in ipairs({ "Percentage", "State" }) do
+                if line:find(pattern) then
+                    refreshBattery(line)
+                    break
+                end
+            end
         end
     )
 end
@@ -155,22 +203,5 @@ end
 
 getWarningThreshold()
 
-local function watchBattery()
-    local cmd = string.format(
-        "gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_%s",
-        batName
-    )
-    noctalia.runStream(cmd,
-        function(line)
-            for _, pattern in ipairs({ "Percentage", "State" }) do
-                if line:find(pattern) then
-                    refreshBattery()
-                    break
-                end
-            end
-        end
-    )
-end
-
-refreshBattery()
+initData()
 watchBattery()
