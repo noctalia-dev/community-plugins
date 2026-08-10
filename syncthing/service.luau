@@ -13,6 +13,15 @@ local DEFAULT_CONFIG_PATHS = {
   "~/.config/syncthing/config.xml",
 }
 
+-- States that mean "we are not talking to Syncthing", where re-reading
+-- config.xml on the next poll is worth the cost.
+local NEEDS_CONFIG_STATES = {
+  ["unconfigured"] = true,
+  ["offline"] = true,
+  ["unauthorized"] = true,
+  ["error"] = true,
+}
+
 local ACTIVE_FOLDER_STATES = {
   ["cleaning"] = true,
   ["scan-waiting"] = true,
@@ -31,10 +40,16 @@ local cfg = {
   sources = { configPath = "", urlSource = "none", apiKeySource = "none" },
 }
 
-local busy = false
--- Epoch seconds of the in-flight poll, for the watchdog in poll().
-local busySince = 0
-local pendingPoll = false
+-- A poll spans several requests, so a callback that never fires would wedge it
+-- for good. Every poll carries a generation number: callbacks from a
+-- superseded poll are dropped, and a poll still pending after this long is
+-- considered lost, letting the next one take over.
+local STUCK_MS = 45000
+
+local pollGeneration = 0
+local pollPending = false
+local pollStartedAt = 0
+local pollAgain = false
 -- Previous published snapshot, for event notifications (state transitions).
 local prevSnapshot = nil
 -- Last connection totals, for transfer-rate computation between polls.
@@ -66,23 +81,44 @@ local function normalizeBaseUrl(value, defaultScheme)
   return url
 end
 
+-- Parsed config.xml, or false once a run found no readable file. Reading and
+-- scanning that file on every poll is what blew the callback CPU budget: it is
+-- tens of kilobytes, the poll runs every few seconds, and `update` gets a small
+-- slice. It changes about as often as Syncthing is reconfigured, so parse it
+-- once and drop the cache when the plugin settings change.
+local configXml = nil
+
 local function parseConfigXml()
+  if configXml ~= nil then
+    return configXml or nil
+  end
   local explicit = trim(noctalia.getConfig("config_path"))
   local candidates = explicit ~= "" and { explicit } or DEFAULT_CONFIG_PATHS
   for _, candidate in candidates do
     local xml = noctalia.readFile(candidate)
     if xml then
-      local guiAttrs = xml:match("<gui([^>]*)>") or ""
-      local guiBlock = xml:match("<gui[^>]*>(.-)</gui>") or ""
-      return {
+      -- Locate the <gui> block by index rather than with a non-greedy pattern:
+      -- `(.-)</gui>` rescans the tail of the file for every starting position.
+      local _, attrsEnd, guiAttrs = xml:find("<gui([^>]*)>")
+      local guiBlock = ""
+      if attrsEnd then
+        local closeAt = xml:find("</gui>", attrsEnd + 1, true)
+        if closeAt then
+          guiBlock = xml:sub(attrsEnd + 1, closeAt - 1)
+        end
+      end
+      guiAttrs = guiAttrs or ""
+      configXml = {
         path = noctalia.expandPath(candidate),
         enabled = guiAttrs:match('enabled%s*=%s*"false"') == nil,
         tls = guiAttrs:match('tls%s*=%s*"true"') ~= nil,
         address = trim(guiBlock:match("<address>([^<]*)</address>")),
         apiKey = trim(guiBlock:match("<apikey>([^<]*)</apikey>")),
       }
+      return configXml
     end
   end
+  configXml = false
   return nil
 end
 
@@ -227,17 +263,22 @@ local function notifyTransitions(old, new)
   end
 end
 
-local function publish(snapshot)
-  busy = false
-  busySince = 0
+local function publish(snapshot, generation)
+  -- A late callback from a poll that was already given up on must not clobber
+  -- the snapshot a newer poll published.
+  if generation and generation ~= pollGeneration then
+    return
+  end
+  pollPending = false
+  pollStartedAt = 0
   notifyTransitions(prevSnapshot, snapshot)
   prevSnapshot = snapshot
   local encoded = noctalia.json.encode(snapshot)
   if encoded then
     noctalia.state.set("st.snapshot", encoded)
   end
-  if pendingPoll then
-    pendingPoll = false
+  if pollAgain then
+    pollAgain = false
     poll(true)
   end
 end
@@ -304,7 +345,7 @@ local function classify(snapshot)
 end
 
 -- Third stage: per-folder db status, joined, then classify + publish.
-local function fetchFolderStatuses(snapshot, monitoredFolders)
+local function fetchFolderStatuses(snapshot, monitoredFolders, generation)
   local remaining = 0
   local summaries = {}
 
@@ -333,7 +374,7 @@ local function fetchFolderStatuses(snapshot, monitoredFolders)
         snapshot.syncPercent = math.floor(100 * (globalB - needB) / globalB)
       end
     end
-    publish(classify(snapshot))
+    publish(classify(snapshot), generation)
   end
 
   for index, folder in monitoredFolders do
@@ -364,7 +405,7 @@ local function fetchFolderStatuses(snapshot, monitoredFolders)
 end
 
 -- Second stage: the four core endpoints in parallel, joined.
-local function fetchCore()
+local function fetchCore(generation)
   local endpoints = {
     system = "/rest/system/status",
     config = "/rest/config",
@@ -383,11 +424,11 @@ local function fetchCore()
   local function done()
     if failedStatus then
       if failedStatus == 401 or failedStatus == 403 then
-        publish(emptySnapshot("unauthorized"))
+        publish(emptySnapshot("unauthorized"), generation)
       elseif failedStatus == 0 then
-        publish(emptySnapshot("offline"))
+        publish(emptySnapshot("offline"), generation)
       else
-        publish(emptySnapshot("error", `HTTP {failedStatus}`))
+        publish(emptySnapshot("error", `HTTP {failedStatus}`), generation)
       end
       return
     end
@@ -481,7 +522,7 @@ local function fetchCore()
       return a.label:lower() < b.label:lower()
     end)
 
-    fetchFolderStatuses(snapshot, monitoredFolders)
+    fetchFolderStatuses(snapshot, monitoredFolders, generation)
   end
 
   for key, path in endpoints do
@@ -500,45 +541,50 @@ local function fetchCore()
   end
 end
 
-local function nowSeconds()
-  return tonumber(noctalia.formatTime("%s")) or 0
-end
-
 function poll(force)
-  local now = nowSeconds()
-  if busy then
-    -- publish() is the only place that clears `busy`, so a request whose
-    -- callback never fires would wedge the poller silently. Give the in-flight
-    -- poll a generous grace period, then start over.
-    if busySince == 0 or (now - busySince) * 1000 < cfg.pollMs * 3 + 15000 then
-      pendingPoll = true
+  if pollPending then
+    -- Still waiting on a poll that has not timed out: coalesce into it.
+    if noctalia.nowMs() - pollStartedAt < STUCK_MS then
+      pollAgain = true
       return
     end
-    noctalia.log("[syncthing] poll watchdog: previous request never completed, restarting")
+    -- Otherwise the poll is lost. Bumping the generation below makes its
+    -- callbacks no-ops if they ever do arrive.
   end
-  busy = true
-  busySince = now
+  pollPending = true
+  pollStartedAt = noctalia.nowMs()
+  pollGeneration += 1
+  local generation = pollGeneration
+  -- While nothing is answering, re-read config.xml every poll: this is exactly
+  -- the case where the user is installing or fixing Syncthing and the file is
+  -- about to appear or change. Once a poll succeeds the cache stands.
+  if not prevSnapshot or NEEDS_CONFIG_STATES[prevSnapshot.state] then
+    configXml = nil
+  end
   resolveConfig()
 
   if cfg.baseUrl == "" then
-    publish(emptySnapshot("unconfigured", "no-url"))
+    publish(emptySnapshot("unconfigured", "no-url"), generation)
     return
   end
 
   fetch("/rest/noauth/health", { noauth = true }, function(ok, status)
+    if generation ~= pollGeneration then
+      return
+    end
     if not ok then
-      publish(emptySnapshot("offline"))
+      publish(emptySnapshot("offline"), generation)
       return
     end
     if status >= 400 and status ~= 404 then
-      publish(emptySnapshot("offline", `HTTP {status}`))
+      publish(emptySnapshot("offline", `HTTP {status}`), generation)
       return
     end
     if cfg.apiKey == "" then
-      publish(emptySnapshot("unconfigured", "no-api-key"))
+      publish(emptySnapshot("unconfigured", "no-api-key"), generation)
       return
     end
-    fetchCore()
+    fetchCore(generation)
   end)
 end
 
@@ -601,6 +647,9 @@ noctalia.state.watch("st.cmd", function(raw)
 end)
 
 function onConfigChanged()
+  -- config_path may now point elsewhere, and a user who just fixed their
+  -- Syncthing setup expects the next poll to pick it up.
+  configXml = nil
   poll(true)
 end
 
