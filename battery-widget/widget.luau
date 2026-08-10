@@ -9,7 +9,7 @@ local path = "/sys/class/power_supply/"
 local batName
 
 local function notifyError()
-    noctalia.notifyError("Battery widget", "Something went wrong. Check the Noctalia log for details.")
+    noctalia.notifyError("Battery widget", noctalia.tr("notify.error"))
 end
 
 for _, cmd in ipairs({ "dbus-monitor", "upower" }) do

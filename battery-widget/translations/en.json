@@ -49,5 +49,8 @@
       "description": "Color applied when charge is at or below noctalia's warning threshold.",
       "label": "Warning Color"
     }
-  }
+  },
+    "notify": {
+        "error": "Something went wrong. Check the Noctalia log for details."
+    }
 }
