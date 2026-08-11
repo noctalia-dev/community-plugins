@@ -1,6 +1,6 @@
 id = "weinguyen/procmon"
 name = "Process Monitor"
-version = "0.4.0"
+version = "0.5.0"
 plugin_api = 13
 author = "weinguyen"
 license = "MIT"
