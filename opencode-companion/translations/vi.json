@@ -5,11 +5,11 @@
     "dismiss_error": "Bỏ qua",
     "empty": "Chưa có tin nhắn. Gửi prompt để bắt đầu.",
     "open_terminal": "Mở trong terminal",
-    "placeholder": "Hỏi OpenCode bất cứ điều gì…  (Enter = xuống dòng, Ctrl+Enter = gửi)",
+    "placeholder": "Hỏi OpenCode bất cứ điều gì…  (Enter = Gửi, Shift+Enter = xuống dòng)",
     "refresh": "Làm mới",
     "select_agent": "Agent",
     "select_model": "Mô hình",
-    "send": "Gửi (Ctrl+Enter)",
+    "send": "Gửi (Enter)",
     "stop": "Dừng",
     "thinking": "Đang suy nghĩ…",
     "title": "OpenCode Chat",
@@ -86,7 +86,6 @@
       "label": "Agent mặc định"
     },
     "default_model": {
-      "description": "Model mặc định theo định dạng 'provider/model' (ví dụ: 'anthropic/claude-3-5-sonnet-20241022'). Để trống để dùng mặc định của máy chủ.",
       "label": "Model mặc định"
     },
     "default_workspace": {
@@ -105,10 +104,6 @@
     "max_messages_load": {
       "description": "Số tin nhắn tải mỗi phiên (1–100). Kéo thanh trượt lên mức cao nhất để không giới hạn. Mặc định: 50.",
       "label": "Số tin nhắn tải tối đa"
-    },
-    "notify_on_complete": {
-      "description": "Hiển thị thông báo trên desktop khi phản hồi hoàn tất.",
-      "label": "Thông báo khi hoàn tất"
     },
     "panel_mode": {
       "description": "Full-height sát phải mở panel cao trọn màn hình ghim vào mép phải; Compact hiển thị panel nổi gần chỗ bấm trên thanh bar.",

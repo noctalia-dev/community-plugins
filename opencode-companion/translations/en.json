@@ -5,11 +5,11 @@
     "dismiss_error": "Dismiss",
     "empty": "No messages yet. Send a prompt to begin.",
     "open_terminal": "Open in terminal",
-    "placeholder": "Ask OpenCode anything…  (Enter = newline, Ctrl+Enter = send)",
+    "placeholder": "Ask OpenCode anything…  (Enter = send, Shift+Enter = new line)",
     "refresh": "Refresh",
     "select_agent": "Agent",
     "select_model": "Model",
-    "send": "Send (Ctrl+Enter)",
+    "send": "Send (Enter)",
     "stop": "Stop",
     "thinking": "Thinking…",
     "title": "OpenCode Chat",
@@ -105,10 +105,6 @@
     "max_messages_load": {
       "description": "Messages loaded per session (1–100). Set the slider to its top notch for unlimited. Default: 50.",
       "label": "Max Messages to Load"
-    },
-    "notify_on_complete": {
-      "description": "Show a desktop notification when a response completes.",
-      "label": "Notify on Completion"
     },
     "panel_mode": {
       "description": "Fill right opens a full-height panel pinned to the right edge; Compact shows the original floating panel near the bar click.",
