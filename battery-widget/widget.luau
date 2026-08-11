@@ -1,6 +1,6 @@
 local glyph
 local color
-local data
+local data = { percent = 0, status = "unknown" }
 
 local label_content = noctalia.getConfig("label_content")
 local warning_threshold = 20
@@ -115,12 +115,18 @@ local function getWarningThreshold()
             local res = result.stdout
 
             if not res then
-                noctalia.log("battery-widget: invalid warning_threshold")
+                noctalia.log("battery-widget: invalid warning_threshold, keeping default")
                 notifyError()
                 return
             end
 
-            warning_threshold = tonumber(noctalia.string.trim(res))
+            local parsed = tonumber(noctalia.string.trim(res))
+            if parsed then
+                warning_threshold = parsed
+            else
+                noctalia.log("battery-widget: invalid warning_threshold, keeping default")
+                notifyError()
+            end
         end
     )
 end
@@ -162,16 +168,20 @@ local function formatRate(rate)
     return string.format("%.1f W", rate)
 end
 
+local function formatPercent()
+    return math.floor((data.percent or 0) + 0.5) .. "%"
+end
+
 local function getLabelText()
     if label_content == "time" then
         local connected = data.status == "charging" or data.status == "fully-charged" or data.status == "pending-charge"
         local seconds = connected and data.timeToFull or data.timeToEmpty
-        return formatTime(seconds) or (data.percent .. "%")
+        return formatTime(seconds) or formatPercent()
     elseif label_content == "rate" then
-        return formatRate(data.rate) or (data.percent .. "%")
+        return formatRate(data.rate) or formatPercent()
     end
 
-    return data.percent .. "%"
+    return formatPercent()
 end
 
 local function render()
