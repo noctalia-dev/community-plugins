@@ -412,7 +412,7 @@ render = function()
       else
         table.insert(row_children, ui.box({ flexGrow = 1 }))
       end
-      table.insert(group_children, ui.row({ gap = 10, align = "stretch" }, row_children))
+      table.insert(group_children, ui.row({ gap = 10, align = "start" }, row_children))
     end
     table.insert(body, ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, group_children))
   else
