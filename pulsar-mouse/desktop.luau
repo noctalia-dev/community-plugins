@@ -25,6 +25,11 @@ local LOW_POWER_DEFAULT = 15 -- used when the driver has no low-power-threshold
                               -- getter (e.g. nordic.py) or it hasn't been read yet
 
 local color = noctalia.getConfig("color")
+-- The other three states. Defaulted in plugin.toml to the values these were
+-- previously hardcoded to, so an existing install renders identically.
+local chargingColor = noctalia.getConfig("charging_color")
+local warningColor = noctalia.getConfig("warning_color")
+local errorColor = noctalia.getConfig("error_color")
 local showProgress = noctalia.getConfig("show_progress")
 local showPercent = noctalia.getConfig("show_percent")
 local glyphSize = noctalia.getConfig("glyph_size")
@@ -38,13 +43,13 @@ local checkingCli = false
 
 local function statusColor()
   if errorText ~= nil then
-    return "error"
+    return errorColor
   end
   if charging then
-    return "secondary"
+    return chargingColor
   end
   if percent ~= nil and percent <= (lowPowerThreshold or LOW_POWER_DEFAULT) then
-    return "error"
+    return warningColor
   end
   return color
 end
@@ -77,7 +82,7 @@ local function render()
   if errorText ~= nil then
     -- Diagnostic, not decorative - stays visible even with show_percent off,
     -- since otherwise a broken setup would just silently show a bare glyph.
-    table.insert(rows, ui.label({ key = "status", text = errorText, fontSize = 12, color = "error" }))
+    table.insert(rows, ui.label({ key = "status", text = errorText, fontSize = 12, color = errorColor }))
   elseif showPercent and percent == nil then
     table.insert(rows, ui.label({ key = "status", text = "--", fontSize = 20, color = "outline" }))
   elseif showPercent then
