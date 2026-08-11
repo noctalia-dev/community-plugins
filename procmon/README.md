@@ -55,8 +55,10 @@ while it is open.
 - The bar widget only renders data the service publishes; it never runs
   commands. The panel runs the configured `kill_command` when a row's ✕ is
   clicked.
-- Requires `plugin_api = 21` (uses UI scroll-follow for keyboard navigation and
-  the `/proc` sampler). CPU%, RAM%, swap and the 1/5/15-minute load
-  averages are sampled from `/proc` (`/proc/stat`, `/proc/meminfo`,
-  `/proc/loadavg`) by the service, so they work with no separate system-monitor
-  dependency.
+- Requires `plugin_api = 13`. The panel renders a windowed slice of the
+  process table and follows the keyboard cursor with edge-follow scrolling
+  (window slides only when the cursor pushes past an edge, so scrolling up
+  doesn't collapse the page until the top edge is reached). CPU%, RAM%, swap
+  and the 1/5/15-minute load averages are sampled from `/proc` (`/proc/stat`,
+  `/proc/meminfo`, `/proc/loadavg`) by the service, so they work with no
+  separate system-monitor dependency.
