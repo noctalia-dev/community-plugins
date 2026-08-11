@@ -78,6 +78,9 @@ local function tr(key, subst)
 	return noctalia.tr(key)
 end
 
+-- Get All output for all fonctionnality --
+
+
 -- ── Workshop discovery ───────────────────────────────────────────────────────
 
 local function candidateRoots()
@@ -214,6 +217,26 @@ local function outputStatus()
 	end
 	local entry = outputs[outputName]
 	return type(entry) == "table" and entry or {}
+end
+
+
+local function hasStopState()		-- check for render stop button
+	if outputName ~= "All" then
+		local state = outputStatus()
+		return state.current ~= nil or state.restorable == true
+	end
+
+	local outputs = type(status) == "table" and status.outputs or nil
+	if type(outputs) ~= "table" then
+		return false
+	end
+
+	for _, entry in pairs(outputs) do
+		if type(entry) == "table" and (entry.current ~= nil or entry.restorable == true) then
+			return true
+		end
+	end
+	return false
 end
 
 local function storedDefaults()
@@ -553,7 +576,6 @@ local ENGINE_TOGGLES = {
 -- ── Rendering ────────────────────────────────────────────────────────────────
 
 local function header()
-	local state = outputStatus()
 	local children = {
 		ui.label({
 			text = tr("panel.title"),
@@ -575,7 +597,7 @@ local function header()
 		}),
 	}
 
-	if state.current or state.restorable then
+	if hasStopState() then
 		table.insert(
 			children,
 			ui.button({
@@ -596,6 +618,10 @@ local function header()
 		if output.name == outputName then
 			selectedIndex = index - 1
 		end
+	end
+	table.insert(outputs, "All")
+	if outputName == "All" then
+		selectedIndex = #outputs - 1
 	end
 	table.insert(children, ui.select({ options = outputs, selectedIndex = selectedIndex, onChange = "outputSelected" }))
 	table.insert(
