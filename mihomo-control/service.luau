@@ -324,7 +324,15 @@ end
 
 local last_cmd_seq = 0
 
-local function run_delay_test(group_name)
+local function run_delay_test(group_name, opts)
+  local silent = opts ~= nil and opts.silent == true
+  local on_done = opts ~= nil and opts.on_done
+  local function finish()
+    if on_done then
+      on_done()
+    end
+  end
+
   local group = nil
   for _, candidate in state.groups do
     if candidate.name == group_name then
@@ -355,15 +363,22 @@ local function run_delay_test(group_name)
       end
       publish("groups")
       publish("delay")
-      noctalia.notify(noctalia.tr("notify.delay_done"), noctalia.tr("notify.delay_timeout"))
+      if not silent then
+        noctalia.notify(noctalia.tr("notify.delay_done"), noctalia.tr("notify.delay_timeout"))
+      end
+      finish()
       return
     end
     if not success(res) then
-      noctalia.notifyError(noctalia.tr("notify.request_failed"), `HTTP {res.status}`)
+      if not silent then
+        noctalia.notifyError(noctalia.tr("notify.request_failed"), `HTTP {res.status}`)
+      end
+      finish()
       return
     end
     local data = decode(res.body)
     if not data then
+      finish()
       return
     end
 
@@ -393,8 +408,35 @@ local function run_delay_test(group_name)
     local message = selected_delay ~= nil
       and noctalia.tr("notify.delay_body", { count = count, delay = selected_delay })
       or noctalia.tr("notify.delay_body_no_selection", { count = count })
-    noctalia.notify(noctalia.tr("notify.delay_done"), message)
+    if not silent then
+      noctalia.notify(noctalia.tr("notify.delay_done"), message)
+    end
+    finish()
   end)
+end
+
+-- Run latency tests for every group, one at a time, with a single summary
+-- notification at the end.
+local function test_all_groups()
+  local queue = {}
+  for _, group in state.groups do
+    table.insert(queue, group.name)
+  end
+  if #queue == 0 then
+    return
+  end
+
+  local index = 1
+  local function next_test()
+    if index > #queue then
+      noctalia.notify(noctalia.tr("notify.delay_all_done"))
+      return
+    end
+    local name = queue[index]
+    index += 1
+    run_delay_test(name, { silent = true, on_done = next_test })
+  end
+  next_test()
 end
 
 local function handle_command(cmd)
@@ -446,6 +488,10 @@ local function handle_command(cmd)
         end
       end)
     end
+    return
+  end
+  if op == "delay_test_all" then
+    test_all_groups()
     return
   end
   if op == "delay_test" then

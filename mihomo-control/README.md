@@ -32,7 +32,8 @@ checks and refreshed by the group's **Test latency** button. Each card also
 shows an overall latency (the selected member's, or the best tested one) right
 in its subtitle, visible without expanding. Member lists are collapsed by
 default; click a group header to expand it. Click a member to select it; the
-current selection is marked with a dot.
+current selection is marked with a dot. Use **Test all** next to the Proxy
+groups heading to run a latency test on every group at once.
 
 Add the **Mihomo: Rule** shortcut from Settings → Control Center shortcuts to
 quickly toggle between rule and global mode.
@@ -63,7 +64,7 @@ noctalia msg plugin mdj2812/mihomo-control:service all cmd '{"op":"mode","mode":
 
 `refresh` re-polls version, config, connections and proxy groups. `cmd` accepts
 the same command tables the panel sends (`mode`, `select`, `delay_test`,
-`restart`, `close_connections`, `refresh`).
+`delay_test_all`, `restart`, `close_connections`, `refresh`).
 
 ## Notes
 

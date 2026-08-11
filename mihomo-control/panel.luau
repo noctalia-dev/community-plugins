@@ -371,7 +371,16 @@ render = function()
   }
 
   if #groups > 0 then
-    table.insert(body, section(noctalia.tr("panel.proxy_groups")))
+    table.insert(body, ui.row({ align = "center", gap = 8 }, {
+      section(noctalia.tr("panel.proxy_groups")),
+      ui.button({
+        text = noctalia.tr("panel.test_all"),
+        variant = "ghost",
+        onClick = function()
+          send_command({ op = "delay_test_all" })
+        end,
+      }),
+    }))
     for i = 1, #groups, 2 do
       local row_children = { group_card(groups[i]) }
       if groups[i + 1] then
