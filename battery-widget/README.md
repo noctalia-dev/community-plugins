@@ -24,6 +24,7 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 | `layout` | `select` | `horizontal` | Layout of the widget. |
 | `show_glyph` | `bool` | `true` | Show the battery icon. |
 | `show_label` | `bool` | `true` | Show text next to the icon. |
+| `label_content` | `select` | `percent` | What the battery label shows: charge percentage, time remaining, or power draw. |
 | `hide_plugged` | `bool` | `false` | Hide the battery widget when connected to AC power. |
 | `hide_full` | `bool` | `false` | Hide the battery widget when fully charged. |
 | `color` | `color` | `on_surface` | Color role for this widget's icon and label; fixed hex colors are also supported. |
