@@ -61,7 +61,10 @@ local glyphSize = noctalia.getConfig("glyph_size")
 -- Per-state colors, defaulted in plugin.toml to the values these used to be
 -- hardcoded to. Read once here rather than per-render, same as glyph_size -
 -- a settings change reloads the widget anyway.
-local normalColor = noctalia.getConfig("color")
+--
+-- `normal_color`, not `color` - see plugin.toml for why that name is
+-- unusable on a bar widget.
+local normalColor = noctalia.getConfig("normal_color")
 local chargingColor = noctalia.getConfig("charging_color")
 local warningColor = noctalia.getConfig("warning_color")
 local errorColor = noctalia.getConfig("error_color")

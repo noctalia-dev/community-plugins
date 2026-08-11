@@ -77,7 +77,7 @@ The `bar` and `battery` entries both read battery percentage/charging/low-power-
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `glyph_size` | `int` | `16` | Glyph size, 10-32. |
-| `color` | `color` | `on_surface` | Glyph color at a normal battery level, and on a wired mouse. |
+| `normal_color` | `color` | `on_surface` | Glyph color at a normal battery level, and on a wired mouse. |
 | `charging_color` | `color` | `secondary` | Glyph color while charging. |
 | `warning_color` | `color` | `error` | Glyph color at or below the Low Power Mode threshold. |
 | `error_color` | `color` | `error` | Glyph color when the mouse or the CLI can't be found. |
@@ -94,7 +94,9 @@ The `bar` and `battery` entries both read battery percentage/charging/low-power-
 | `show_percent` | `bool` | `true` | Turn off to rely on just the glyph and progress bar. |
 | `glyph_size` | `int` | `28` | Glyph size, 16-64. |
 
-The four state colors are per-widget, so the bar and desktop widgets can differ. All of them (bar's `color` included) sit behind the settings UI's **advanced** toggle, except the desktop widget's `color`. The defaults reproduce exactly what these were before they were configurable, so an existing setup looks unchanged until you touch one.
+The four state colors are per-widget, so the bar and desktop widgets can differ. All of them (bar's `normal_color` included) sit behind the settings UI's **advanced** toggle, except the desktop widget's `color`. The defaults reproduce exactly what these were before they were configurable, so an existing setup looks unchanged until you touch one.
+
+The normal-state setting is called `normal_color` on the bar widget but `color` on the desktop widget. That asymmetry is deliberate: a bar widget's plugin settings share a TOML table with Noctalia's own per-widget presentation settings, where `color` is already taken ("Color role for this widget's icon and label"). A plugin declaring `color` there does not shadow it, it aliases it - one key backs both pickers, so setting either silently moves the other. Desktop widgets have no such clash, and renaming that one would break existing configs.
 
 ## Notes
 

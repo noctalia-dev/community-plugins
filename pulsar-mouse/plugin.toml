@@ -45,11 +45,19 @@ entry = "bar.luau"
   # so an existing install looks identical until someone changes one. Marked
   # advanced since the interesting knob for most people is glyph_size - these
   # are for matching a specific colorscheme.
+  #
+  # Deliberately NOT called `color`: a bar widget's settings share one TOML
+  # table with Noctalia's own per-widget presentation settings, and `color`
+  # is already taken there (the "Color role for this widget's icon and
+  # label" one). Declaring it here doesn't shadow that setting, it aliases
+  # it - one `color = ...` key ends up backing both pickers, so setting
+  # either silently moves the other. The desktop widget has no such clash,
+  # which is why its equivalent is still plain `color`.
   [[widget.setting]]
-  key = "color"
+  key = "normal_color"
   type = "color"
-  label_key = "settings.bar_color.label"
-  description_key = "settings.bar_color.description"
+  label_key = "settings.normal_color.label"
+  description_key = "settings.normal_color.description"
   default = "on_surface"
   advanced = true
 

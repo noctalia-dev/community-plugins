@@ -1,9 +1,5 @@
 {
   "settings": {
-    "bar_color": {
-      "description": "Glyph color at a normal battery level, and on a wired mouse",
-      "label": "Color"
-    },
     "charging_color": {
       "description": "Used while the mouse is charging",
       "label": "Charging Color"
@@ -18,6 +14,10 @@
     },
     "glyph_size": {
       "label": "Glyph Size"
+    },
+    "normal_color": {
+      "description": "Glyph color at a normal battery level, and on a wired mouse",
+      "label": "Normal Color"
     },
     "show_percent": {
       "description": "Turn off to rely on just the glyph (and progress bar, if shown)",
