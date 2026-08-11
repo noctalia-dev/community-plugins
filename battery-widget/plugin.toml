@@ -40,6 +40,18 @@ entry = "widget.luau"
     default = true
 
     [[desktop_widget.setting]]
+    key = "label_content"
+    type = "select"
+    label_key = "settings.label_content.label"
+    description_key = "settings.label_content.description"
+    default = "percent"
+    options = [
+        { value = "percent", label_key = "settings.label_content.percent" },
+        { value = "time", label_key = "settings.label_content.time" },
+        { value = "rate", label_key = "settings.label_content.rate" },
+    ]
+
+    [[desktop_widget.setting]]
     key = "hide_plugged"
     type = "bool"
     label_key = "settings.hide_plugged.label"

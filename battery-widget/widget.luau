@@ -2,6 +2,7 @@ local glyph
 local color
 local data
 
+local label_content = noctalia.getConfig("label_content")
 local warning_threshold = 20
 
 local path = "/sys/class/power_supply/"
@@ -25,7 +26,7 @@ local function notifyError()
     noctalia.notifyError("Battery widget", noctalia.tr("notify.error"))
 end
 
-for _, cmd in ipairs({ "gdbus", "upower" }) do
+for _, cmd in ipairs({ "gdbus" }) do
     if not noctalia.commandExists(cmd) then
         noctalia.log("battery-widget: " .. cmd .. " not found.")
         notifyError()
@@ -38,12 +39,29 @@ local function parse(output)
 
     local percent = output:match("'Percentage':%s*<([%d%.]+)>")
     if percent then
-        data.percent = tonumber(percent)
+        data.percent = tonumber(percent) or 0
     end
 
     local state = output:match("'State':%s*<uint32%s+(%d+)>")
     if state then
         data.status = stateMap[tonumber(state)] or "unknown"
+    end
+
+    if label_content == "time" then
+        local timeToEmpty = output:match("'TimeToEmpty':%s*<int64%s+(%-?%d+)>")
+        if timeToEmpty then
+            data.timeToEmpty = tonumber(timeToEmpty)
+        end
+
+        local timeToFull = output:match("'TimeToFull':%s*<int64%s+(%-?%d+)>")
+        if timeToFull then
+            data.timeToFull = tonumber(timeToFull)
+        end
+    elseif label_content == "rate" then
+        local rate = output:match("'EnergyRate':%s*<([%-%d%.]+)>")
+        if rate then
+            data.rate = tonumber(rate)
+        end
     end
 
     return data
@@ -121,6 +139,43 @@ local function getColor()
     color = noctalia.getConfig("color")
 end
 
+local function formatTime(seconds)
+    if not seconds or seconds <= 0 then
+        return nil
+    end
+
+    local hours = math.floor(seconds / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+
+    if hours > 0 and minutes > 0 then
+        return string.format("%dh %dm", hours, minutes)
+    elseif hours > 0 then
+        return string.format("%dh", hours)
+    else
+        return string.format("%dm", minutes)
+    end
+end
+
+local function formatRate(rate)
+    if not rate or rate <= 0 then
+        return nil
+    end
+
+    return string.format("%.1f W", rate)
+end
+
+local function getLabelText()
+    if label_content == "time" then
+        local connected = data.status == "charging" or data.status == "fully-charged" or data.status == "pending-charge"
+        local seconds = connected and data.timeToFull or data.timeToEmpty
+        return formatTime(seconds) or (data.percent .. "%")
+    elseif label_content == "rate" then
+        return formatRate(data.rate) or (data.percent .. "%")
+    end
+
+    return data.percent .. "%"
+end
+
 local function render()
     if (noctalia.getConfig("hide_plugged") and (data.status == "charging" or data.status == "pending-charge"))
         or (noctalia.getConfig("hide_full") and data.status == "fully-charged") then
@@ -133,7 +188,7 @@ local function render()
         table.insert(content, ui.glyph({ name = glyph, color = color }))
     end
     if noctalia.getConfig("show_label") then
-        table.insert(content, ui.label({ text = data.percent .. "%", color = color }))
+        table.insert(content, ui.label({ text = getLabelText(), color = color }))
     end
 
     local vertical = noctalia.getConfig("layout") == "vertical"
@@ -178,13 +233,21 @@ local function initData()
 end
 
 local function watchBattery()
+    local patterns = { "Percentage", "State" }
+    if label_content == "time" then
+        table.insert(patterns, "TimeToEmpty")
+        table.insert(patterns, "TimeToFull")
+    elseif label_content == "rate" then
+        table.insert(patterns, "EnergyRate")
+    end
+
     local cmd = string.format(
         "gdbus monitor --system --dest org.freedesktop.UPower --object-path %s",
         shellEscape("/org/freedesktop/UPower/devices/battery_" .. batName)
     )
     noctalia.runStream(cmd,
         function(line)
-            for _, pattern in ipairs({ "Percentage", "State" }) do
+            for _, pattern in ipairs(patterns) do
                 if line:find(pattern) then
                     refreshBattery(line)
                     break

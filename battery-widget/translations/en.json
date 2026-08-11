@@ -48,7 +48,14 @@
     "warning_color": {
       "description": "Color applied when charge is at or below noctalia's warning threshold.",
       "label": "Warning Color"
-    }
+    },
+        "label_content": {
+            "label": "Label Content",
+            "description": "What the battery label shows: charge percentage, time remaining, or power draw.",
+            "percent": "Percent",
+            "time": "Time",
+            "rate": "Rate"
+        }
   },
     "notify": {
         "error": "Something went wrong. Check the Noctalia log for details."
