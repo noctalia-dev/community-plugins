@@ -1,0 +1,94 @@
+# Mihomo Control — monitor and control a Mihomo (Clash Meta) external
+# controller: live traffic, proxy mode, group selection, latency tests and
+# active connections, locally (127.0.0.1) or on a remote host.
+#
+# The service entry owns every HTTP request and publishes "mihomo.*" state;
+# the widget, panel and shortcut are pure subscribers and send commands
+# through the "mihomo.command" state channel.
+
+id = "mdj2812/mihomo-control"
+name = "Mihomo Control"
+version = "0.1.0"
+plugin_api = 9
+author = "mdj2812"
+license = "MIT"
+icon = "cat"
+description = "Monitor and control Mihomo (Clash Meta) — live traffic, proxy mode, group selection, and connections, local or remote."
+tags = ["network", "indicator", "utility", "bar", "panel", "service", "shortcut"]
+dependencies = []
+
+# ── Shared settings ──────────────────────────────────────────────────────────
+[[setting]]
+key = "host"
+type = "string"
+default = "127.0.0.1"
+label_key = "settings.host.label"
+description_key = "settings.host.description"
+
+[[setting]]
+key = "port"
+type = "string"
+default = "9090"
+label_key = "settings.port.label"
+description_key = "settings.port.description"
+
+[[setting]]
+key = "secret"
+type = "string"
+default = ""
+label_key = "settings.secret.label"
+description_key = "settings.secret.description"
+
+[[setting]]
+key = "use_https"
+type = "bool"
+default = false
+advanced = true
+label_key = "settings.use_https.label"
+description_key = "settings.use_https.description"
+
+[[setting]]
+key = "allow_insecure_tls"
+type = "bool"
+default = false
+advanced = true
+label_key = "settings.allow_insecure_tls.label"
+description_key = "settings.allow_insecure_tls.description"
+
+[[setting]]
+key = "test_url"
+type = "string"
+default = "https://www.gstatic.com/generate_204"
+label_key = "settings.test_url.label"
+description_key = "settings.test_url.description"
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+default = 2
+min = 1
+max = 60
+advanced = true
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 720
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "mode"
+entry = "shortcut.luau"
