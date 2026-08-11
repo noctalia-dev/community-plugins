@@ -12,7 +12,7 @@
 
 id = "icefish/phone-connect"
 name = "Phone Connect"
-version = "0.1.1"
+version = "0.1.2"
 plugin_api = 16
 author = "icefish"
 license = "MIT"
@@ -42,6 +42,26 @@ type = "bool"
 label_key = "settings.enable_charging_animation.label"
 description_key = "settings.enable_charging_animation.description"
 default = true
+
+[[setting]]
+key = "show_device_name"
+type = "bool"
+label_key = "settings.show_device_name.label"
+description_key = "settings.show_device_name.description"
+default = false
+
+[[setting]]
+key = "battery_display"
+type = "select"
+label_key = "settings.battery_display.label"
+description_key = "settings.battery_display.description"
+default = "icon_and_percent"
+options = [
+  { value = "icon_and_percent", label_key = "settings.battery_display.icon_and_percent" },
+  { value = "percent", label_key = "settings.battery_display.percent" },
+  { value = "icon", label_key = "settings.battery_display.icon" },
+  { value = "hidden", label_key = "settings.battery_display.hidden" },
+]
 
 [[setting]]
 key = "custom_image"

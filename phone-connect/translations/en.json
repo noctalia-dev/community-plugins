@@ -58,6 +58,14 @@
     "unpaired": "Unpaired"
   },
   "settings": {
+    "battery_display": {
+      "description": "Choose whether the bar widget shows the battery icon, percentage, both, or neither.",
+      "hidden": "Hidden",
+      "icon": "Icon only",
+      "icon_and_percent": "Icon and percentage",
+      "label": "Battery Display",
+      "percent": "Percentage only"
+    },
     "custom_image": {
       "description": "Set a custom image for the selected device. Leave empty for default icon.",
       "label": "Device Image"
@@ -95,6 +103,10 @@
     "scan_subdirectories": {
       "description": "Recursively scan subdirectories of the recent images path.",
       "label": "Scan Subdirectories"
+    },
+    "show_device_name": {
+      "description": "Show the selected device's name or alias in the bar widget.",
+      "label": "Show Device Name"
     },
     "show_device_placeholder": {
       "description": "Show the device graphic in the details panel.",

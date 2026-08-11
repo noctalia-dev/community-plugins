@@ -38,7 +38,7 @@ noctalia msg plugin icefish/phone-connect:kde all cmd '{"op":"ring","device":"<i
 - **Device status** — battery level, charging state, network type (5G/LTE), pairing
 - **Quick actions** — ring, ping, send clipboard, share text/files/URLs, SMS, SFTP browser
 - **Media control** — play/pause/skip/seek, album art, now-playing (MPRIS)
-- **Customization** — per-device image and alias, three panel placements
+- **Customization** — configurable bar contents, per-device image and alias, three panel placements
 - **Language** — English / Simplified Chinese
 
 ## Requirements
@@ -53,6 +53,8 @@ noctalia msg plugin icefish/phone-connect:kde all cmd '{"op":"ring","device":"<i
 |---------|---------|-------------|
 | State Update Interval | 30 | Seconds between device refreshes |
 | Show Charging Fill | true | Highlight bar widget when charging |
+| Show Device Name | false | Show the selected device's name or alias |
+| Battery Display | icon_and_percent | Show the battery icon, percentage, both, or neither |
 | Show Clipboard Action | true | Show clipboard button in panel |
 | Device Image | — | Custom image for selected device |
 | Device Alias | Your-Phone | Custom display name |
