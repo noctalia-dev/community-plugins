@@ -169,10 +169,6 @@ end
 
 -- ── UI helpers ──────────────────────────────────────────────────────────────
 
-local function section(title)
-  return ui.label({ text = title, fontWeight = "medium", color = "on_surface_variant" })
-end
-
 local function connection_text()
   local conn = snapshot.connection
   local endpoint = `{conn.host or ""}:{conn.port or ""}`
@@ -253,9 +249,9 @@ local function traffic_card()
       peak = value
     end
   end
-  return ui.column({ gap = 8, fill = "surface/0.5", radius = 12, padding = 12 }, {
+  return ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, {
     ui.row({ justify = "space_between", align = "center" }, {
-      ui.label({ text = noctalia.tr("panel.traffic"), fontWeight = "medium" }),
+      ui.label({ text = noctalia.tr("panel.traffic"), fontWeight = "medium", color = "on_surface_variant" }),
       ui.label({
         text = `{connections.count or 0} {noctalia.tr("panel.connections")}`,
         color = "on_surface_variant",
@@ -359,7 +355,14 @@ local function group_card(group)
     }))
   end
 
-  return ui.column({ gap = 8, fill = "surface/0.5", radius = 12, padding = 12, flexGrow = 1 }, children)
+  return ui.column({
+    gap = 8,
+    border = "outline",
+    borderWidth = 1,
+    radius = 10,
+    padding = 10,
+    flexGrow = 1,
+  }, children)
 end
 
 render = function()
@@ -371,16 +374,23 @@ render = function()
   }
 
   if #groups > 0 then
-    table.insert(body, ui.row({ align = "center", gap = 8 }, {
-      section(noctalia.tr("panel.proxy_groups")),
-      ui.button({
-        text = noctalia.tr("panel.test_all"),
-        variant = "ghost",
-        onClick = function()
-          send_command({ op = "delay_test_all" })
-        end,
+    local group_children = {
+      ui.row({ align = "center", gap = 8 }, {
+        ui.label({
+          text = noctalia.tr("panel.proxy_groups"),
+          fontWeight = "medium",
+          color = "on_surface_variant",
+          flexGrow = 1,
+        }),
+        ui.button({
+          text = noctalia.tr("panel.test_all"),
+          variant = "ghost",
+          onClick = function()
+            send_command({ op = "delay_test_all" })
+          end,
+        }),
       }),
-    }))
+    }
     for i = 1, #groups, 2 do
       local row_children = { group_card(groups[i]) }
       if groups[i + 1] then
@@ -388,10 +398,14 @@ render = function()
       else
         table.insert(row_children, ui.box({ flexGrow = 1 }))
       end
-      table.insert(body, ui.row({ gap = 10, align = "stretch" }, row_children))
+      table.insert(group_children, ui.row({ gap = 10, align = "stretch" }, row_children))
     end
+    table.insert(body, ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, group_children))
   else
-    table.insert(body, ui.label({ text = noctalia.tr("panel.no_groups"), color = "on_surface_variant" }))
+    table.insert(body, ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, {
+      ui.label({ text = noctalia.tr("panel.proxy_groups"), fontWeight = "medium", color = "on_surface_variant" }),
+      ui.label({ text = noctalia.tr("panel.no_groups"), color = "on_surface_variant" }),
+    }))
   end
 
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
