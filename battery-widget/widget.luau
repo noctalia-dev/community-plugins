@@ -26,12 +26,10 @@ local function notifyError()
     noctalia.notifyError("Battery widget", noctalia.tr("notify.error"))
 end
 
-for _, cmd in ipairs({ "gdbus" }) do
-    if not noctalia.commandExists(cmd) then
-        noctalia.log("battery-widget: " .. cmd .. " not found.")
-        notifyError()
-        return
-    end
+if not noctalia.commandExists("gdbus") then
+    noctalia.log("battery-widget: gdbus not found.")
+    notifyError()
+    return
 end
 
 local function parse(output)
