@@ -13,14 +13,18 @@ local function tr(key, args) return noctalia.tr("service." .. key, args) end
 -- Set the refresh interval
 noctalia.setUpdateInterval(refreshInterval * 1000)
 
+local function shellQuote(value)
+  return "'" .. tostring(value or ""):gsub("'", "'\\''") .. "'"
+end
+
 -- Determine scope flags
 local function scopeArgs()
   if platform == "gitlab" then
-    if group ~= "" then return {"--group", group} end
-    if repo ~= "" then return {"--repo", repo} end
+    if group ~= "" then return {"--group", shellQuote(group)} end
+    if repo ~= "" then return {"--repo", shellQuote(repo)} end
   else
-    if group ~= "" then return {"--owner", group} end
-    if repo ~= "" then return {"--repo", repo} end
+    if group ~= "" then return {"--owner", shellQuote(group)} end
+    if repo ~= "" then return {"--repo", shellQuote(repo)} end
   end
   return {}
 end
