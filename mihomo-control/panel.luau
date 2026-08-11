@@ -289,7 +289,33 @@ local function group_card(group)
   local expanded = expanded_groups[group.name] == true
   local overall = group_latency(group)
 
+  local name_children = {
+    ui.label({ text = name_text, fontWeight = "bold" }),
+  }
+  if group.now and group.now ~= "" then
+    table.insert(name_children, ui.label({ text = ">", color = "on_surface_variant" }))
+    table.insert(name_children, ui.label({
+      text = group.now,
+      color = "on_surface_variant",
+      fontSize = 12,
+      flexGrow = 1,
+    }))
+  end
+
   local children = {
+    ui.row({ gap = 6, align = "center", justify = "space_between", onClick = function()
+      toggle_group(group.name)
+    end }, {
+      ui.row({ gap = 4, align = "center", flexGrow = 1 }, name_children),
+      ui.button({
+        glyph = "activity",
+        tooltip = noctalia.tr("panel.delay_test"),
+        variant = "ghost",
+        onClick = function()
+          send_command({ op = "delay_test", group = group.name })
+        end,
+      }),
+    }),
     ui.row({ gap = 6, align = "center", justify = "space_between", onClick = function()
       toggle_group(group.name)
     end }, {
@@ -300,18 +326,6 @@ local function group_card(group)
           toggle_group(group.name)
         end,
       }),
-      ui.glyph({ name = "list", size = 14, color = "secondary" }),
-      ui.label({ text = name_text, fontWeight = "medium", flexGrow = 1 }),
-      ui.button({
-        glyph = "activity",
-        tooltip = noctalia.tr("panel.delay_test"),
-        variant = "ghost",
-        onClick = function()
-          send_command({ op = "delay_test", group = group.name })
-        end,
-      }),
-    }),
-    ui.row({ gap = 6, align = "center", justify = "space_between" }, {
       ui.label({
         text = `{group.type or ""} · {noctalia.trp("panel.members_count", #group.members)}`,
         color = "on_surface_variant",
