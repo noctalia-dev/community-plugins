@@ -625,7 +625,7 @@ local function handleRequest(request)
 
 	local action = request.action
 	if action == "apply" then
-		if isAllOutputs then
+		if isAllOutputs then 				-- loop for All Output
 			for _, outputForAll in ipairs(allOutputs) do
 				setCycle(outputForAll, false)
 				apply(outputForAll, request.id)
@@ -638,7 +638,7 @@ local function handleRequest(request)
 
 	elseif action == "select" then
 		
-		if isAllOutputs then
+		if isAllOutputs then				-- loop for All Output
 			for _, outputForAll in ipairs(allOutputs) do
 				local ids = {}
 				if type(request.ids) == "table" then
@@ -671,7 +671,7 @@ local function handleRequest(request)
 
 	elseif action == "cycle" then
 
-		if isAllOutputs then
+		if isAllOutputs then					-- loop for All Output
 			for _, outputForAll in ipairs(allOutputs) do
 				setCycle(outputForAll, request.enabled, request.minutes, request.order)
 				local cycle = cycleFor(outputForAll)
