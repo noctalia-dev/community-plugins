@@ -3,7 +3,7 @@ local color
 local data = { percent = 0, status = "unknown" }
 
 local label_content = noctalia.getConfig("label_content")
-local warning_threshold = 20
+local warning_threshold = 10
 
 local path = "/sys/class/power_supply/"
 local batName
@@ -108,7 +108,6 @@ local function getWarningThreshold()
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to get warning_threshold: " .. result.stderr)
-                notifyError()
                 return
             end
 
@@ -116,7 +115,6 @@ local function getWarningThreshold()
 
             if not res then
                 noctalia.log("battery-widget: invalid warning_threshold, keeping default")
-                notifyError()
                 return
             end
 
@@ -125,7 +123,6 @@ local function getWarningThreshold()
                 warning_threshold = parsed
             else
                 noctalia.log("battery-widget: invalid warning_threshold, keeping default")
-                notifyError()
             end
         end
     )
@@ -227,11 +224,13 @@ local function initData()
         function(result)
             if result.exitCode ~= 0 then
                 noctalia.log("battery-widget: failed to read battery: " .. result.stderr)
+                notifyError()
                 return
             end
 
             if not result.stdout then
                 noctalia.log("battery-widget: invalid battery output")
+                notifyError()
                 return
             end
 
