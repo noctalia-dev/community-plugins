@@ -2,6 +2,16 @@
 
 Clipper combines searchable clipboard history, persistent pinned clips, image previews, and freely arranged notecards in one fullscreen Noctalia workspace.
 
+## Preview
+
+![Clipper plugin preview](thumbnail.webp)
+
+### Panel
+
+![Clipper panel with pinned clips, notecards, and clipboard history](screenshots/panel.webp)
+
+The desktop behind the transparent workspace is blurred in the screenshot; the Clipper surfaces remain unchanged.
+
 ## Plugin
 
 | Field | Value |
