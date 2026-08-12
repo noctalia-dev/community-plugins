@@ -1,0 +1,178 @@
+{
+  "title": "Clipper",
+  "widget": {
+    "tooltip": "Open Clipper"
+  },
+  "shortcut": {
+    "label": "Clipboard history"
+  },
+  "panel": {
+    "title": "Clipper",
+    "image_preview_pending": "Binary image stored in clipboard history",
+    "status": {
+      "error": "Clipboard history is unavailable",
+      "loading": "Loading clipboard history",
+      "live": "Clipboard watching is active",
+      "manual": "Clipboard watchers are managed externally"
+    },
+    "actions": {
+      "close": "Close Clipper",
+      "copy": "Copy",
+      "copy_hint": "Click to copy. Right-click to copy and paste.",
+      "paste": "Paste",
+      "drag_to_pin": "Drag to the pinned area",
+      "delete": "Delete",
+      "pin": "Pin",
+      "refresh": "Refresh clipboard history",
+      "settings": "Open Clipper settings",
+      "unpin": "Unpin"
+    },
+    "filters": {
+      "all": "All",
+      "text": "Text",
+      "images": "Images",
+      "colors": "Colors",
+      "links": "Links",
+      "code": "Code",
+      "files": "Files"
+    },
+    "kinds": {
+      "text": "Text",
+      "image": "Image",
+      "color": "Color",
+      "link": "Link",
+      "code": "Code",
+      "file": "File"
+    },
+    "pinned": {
+      "title": "Pinned clips",
+      "empty": "Pin a clipboard entry to keep it close at hand."
+    },
+    "notes": {
+      "title": "Notecards",
+      "count": "{count} notes",
+      "create": "New note",
+      "empty": "No notes yet",
+      "empty_hint": "Create a notecard for text you want to keep and edit.",
+      "untitled": "Untitled note",
+      "content_placeholder": "Write a note...",
+      "change_color": "Change note color",
+      "export": "Export note",
+      "delete": "Delete note",
+      "save": "Save",
+      "saved": "Saved",
+      "unsaved": "Unsaved changes",
+      "drag_hint": "Drag to reorder this note"
+    },
+    "history": {
+      "title": "Clipboard history",
+      "search": "Search clipboard history...",
+      "empty": "Clipboard history is empty.",
+      "no_matches": "No clipboard entries match this search.",
+      "clear": "Clear history",
+      "confirm_clear": "Clear everything?",
+      "page": "Page {page} of {pages}"
+    }
+  },
+  "notifications": {
+    "cliphist_unavailable": "cliphist is unavailable. Install it or check your PATH.",
+    "wl_copy_unavailable": "wl-copy is unavailable. Install wl-clipboard or check your PATH.",
+    "wtype_unavailable": "The clip was copied, but wtype is unavailable for automatic paste.",
+    "focus_target_unavailable": "The clip was copied, but the previously focused window could not be identified.",
+    "focus_restore_failed": "The clip was copied, but the previously focused window could not be restored.",
+    "watchers_unavailable": "Clipboard watchers require cliphist and wl-paste.",
+    "watchers_start_failed": "Clipboard watchers could not be started.",
+    "refresh_failed": "Clipboard history could not be loaded.",
+    "refresh_timeout": "Loading clipboard history timed out.",
+    "refresh_start_failed": "The clipboard history process could not be started.",
+    "activate_failed": "The clipboard entry could not be copied.",
+    "activate_timeout": "Copying the clipboard entry timed out.",
+    "activate_start_failed": "The clipboard copy process could not be started.",
+    "pin_failed": "The clipboard entry could not be pinned.",
+    "pin_timeout": "Pinning the clipboard entry timed out.",
+    "pin_start_failed": "The pinning process could not be started.",
+    "pin_too_large": "This clipboard entry is too large to pin.",
+    "pin_save_failed": "The pinned entry could not be saved.",
+    "max_pinned": "The configured pinned-entry limit has been reached.",
+    "pinned": "Clipboard entry pinned.",
+    "unpinned": "Clipboard entry unpinned.",
+    "copy_pinned_failed": "The pinned entry could not be copied.",
+    "copy_pinned_timeout": "Copying the pinned entry timed out.",
+    "copy_pinned_start_failed": "The pinned copy process could not be started.",
+    "delete_failed": "The clipboard entry could not be deleted.",
+    "delete_timeout": "Deleting the clipboard entry timed out.",
+    "delete_start_failed": "The clipboard delete process could not be started.",
+    "wipe_failed": "Clipboard history could not be cleared.",
+    "wipe_timeout": "Clearing clipboard history timed out.",
+    "wipe_start_failed": "The clipboard clear process could not be started.",
+    "paste_failed": "The paste shortcut could not be sent.",
+    "paste_timeout": "Sending the paste shortcut timed out.",
+    "paste_start_failed": "The automatic paste process could not be started.",
+    "invalid_id": "The selected clipboard entry is no longer valid.",
+    "data_dir_unavailable": "Clipper's private data directory is unavailable. Pins and notes are disabled.",
+    "max_notes": "The notecard limit has been reached.",
+    "note_save_failed": "The notecard could not be saved.",
+    "note_export_failed": "The notecard could not be exported.",
+    "note_exported": "Notecard exported to {path}.",
+    "deleted": "Clipboard entry deleted.",
+    "wiped": "Clipboard history cleared."
+  },
+  "settings": {
+    "database_mode": {
+      "label": "Clipboard history database",
+      "description": "Use Clipper's isolated database or the default cliphist database shared with other clipboard tools. In global mode, delete and clear actions modify the shared history.",
+      "options": {
+        "private": "Private Clipper database",
+        "global": "Global cliphist database"
+      }
+    },
+    "manage_watchers": {
+      "label": "Manage clipboard watchers",
+      "description": "Start and supervise the text and image watchers used to populate Clipper's private database."
+    },
+    "history_limit": {
+      "label": "History limit",
+      "description": "Maximum number of entries loaded in the panel. In private mode, this also limits the entries retained by Clipper."
+    },
+    "enable_notecards": {
+      "label": "Enable notecards",
+      "description": "Show quick notes alongside clipboard history and pinned clips."
+    },
+    "max_pinned": {
+      "label": "Maximum pinned clips",
+      "description": "Maximum number of clipboard entries that can be pinned."
+    },
+    "auto_paste_delay": {
+      "label": "Paste delay",
+      "description": "Delay in milliseconds before restoring the previous window and sending the paste shortcut."
+    },
+    "history_cards": {
+      "label": "Maximum cards per history page",
+      "description": "Maximum number of clipboard cards per page. Clipper fills the available width and reduces the count automatically on narrower displays."
+    },
+    "panel_margin_percent": {
+      "label": "Panel edge margin",
+      "description": "Margin around the fullscreen Clipper workspace, as a percentage of the active display."
+    },
+    "show_panel_background": {
+      "label": "Show panel background",
+      "description": "Draw one background behind the entire Clipper workspace. Pinned clips and clipboard history always keep their own surfaces."
+    },
+    "card_color": {
+      "label": "History card color",
+      "description": "Noctalia theme role or custom color used for clipboard history cards."
+    },
+    "pinned_color": {
+      "label": "Pinned card color",
+      "description": "Noctalia theme role or custom color used for pinned clipboard cards."
+    },
+    "notes_color": {
+      "label": "Notecard color",
+      "description": "Noctalia theme role or custom color used for quick notes."
+    },
+    "show_close_button": {
+      "label": "Show close button",
+      "description": "Show a close action in the Clipper panel header."
+    }
+  }
+}
