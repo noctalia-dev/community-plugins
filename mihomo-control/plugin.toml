@@ -72,11 +72,24 @@ advanced = true
 label_key = "settings.refresh_interval.label"
 description_key = "settings.refresh_interval.description"
 
+[[setting]]
+key = "panel_placement"
+type = "select"
+default = "floating"
+label_key = "settings.panel_placement.label"
+description_key = "settings.panel_placement.description"
+options = [
+  { value = "floating", label_key = "settings.panel_placement.options.floating" },
+  { value = "attached", label_key = "settings.panel_placement.options.attached" },
+]
+
 # ── Entries ──────────────────────────────────────────────────────────────────
 [[widget]]
 id = "widget"
 entry = "widget.luau"
 
+# Panel placement is host-owned, so the widget selects between two entries
+# backed by the same script according to the panel_placement setting.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
@@ -84,6 +97,15 @@ width = 560
 height = 720
 placement = "floating"
 position = "center"
+
+[[panel]]
+id = "panel-attached"
+entry = "panel.luau"
+width = 560
+height = 720
+placement = "attached"
+position = "auto"
+open_near_click = true
 
 [[service]]
 id = "service"

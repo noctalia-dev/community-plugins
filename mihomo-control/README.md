@@ -11,19 +11,24 @@ secret.
 | Field   | Value                       |
 | ------- | --------------------------- |
 | ID      | `mdj2812/mihomo-control`    |
-| Entries | Bar widget: `widget`; panel: `panel`; service: `service`; shortcut: `mode` |
+| Entries | Bar widget: `widget`; panels: `panel`, `panel-attached`; service: `service`; shortcut: `mode` |
 
 ## Usage
 
 Add the **Mihomo Control** widget from the Add-widget picker. It shows the
 current proxy mode (rule / global / direct); hover it for the connection
 status, live download and upload rates, connection count and each proxy
-group's current selection. Left-click the widget to toggle the control panel,
-or open it with:
+group's current selection. Left-click the widget to toggle the control panel
+using the configured **Panel placement**. Both variants can also be opened
+directly:
 
 ```sh
 noctalia msg panel-toggle mdj2812/mihomo-control:panel
+noctalia msg panel-toggle mdj2812/mihomo-control:panel-attached
 ```
+
+The first command opens the centered floating panel; the second opens the
+variant attached to the bar.
 
 The panel lets you switch the proxy mode (rule / global / direct), restart the
 server, refresh the status, and manage every proxy group. Each group card
@@ -54,6 +59,7 @@ all communication with the external controller and streams the traffic data.
 | Allow insecure TLS  | bool    | off          | Skip certificate verification for self-signed TLS controllers.              |
 | Test URL            | string  | `https://www.gstatic.com/generate_204` | URL used for latency tests; empty uses each group's configured test URL. |
 | Refresh interval    | int     | `2`          | Seconds between status polls (1–60); traffic rates stream in real time.     |
+| Panel placement     | select  | `floating`   | Open the control panel centered on screen or attached to the bar widget.    |
 
 ## IPC
 

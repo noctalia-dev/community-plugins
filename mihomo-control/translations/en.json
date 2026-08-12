@@ -27,6 +27,14 @@
     "refresh_interval": {
       "label": "Refresh interval",
       "description": "Seconds between status polls (1–60)."
+    },
+    "panel_placement": {
+      "label": "Panel placement",
+      "description": "Choose whether the control panel opens centered on screen or attached to the bar widget.",
+      "options": {
+        "floating": "Floating",
+        "attached": "Attached"
+      }
     }
   },
   "panel": {

@@ -27,6 +27,14 @@
     "refresh_interval": {
       "label": "刷新间隔",
       "description": "状态轮询间隔（1–60 秒）。"
+    },
+    "panel_placement": {
+      "label": "面板位置",
+      "description": "选择控制面板在屏幕中央浮动显示，或附着在栏组件旁。",
+      "options": {
+        "floating": "浮动",
+        "attached": "附着"
+      }
     }
   },
   "panel": {
@@ -42,6 +50,7 @@
     "connections": "条连接",
     "memory": "内存",
     "proxy_groups": "策略组",
+    "drag_group": "拖动以重新排序",
     "no_groups": "未找到策略组。",
     "delay_test": "测试延迟",
     "test_all": "全部测试",

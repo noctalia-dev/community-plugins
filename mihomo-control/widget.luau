@@ -8,6 +8,13 @@
 
 local PLUGIN_ID = "mdj2812/mihomo-control"
 
+local function panel_id()
+  if noctalia.getConfig("panel_placement") == "attached" then
+    return PLUGIN_ID .. ":panel-attached"
+  end
+  return PLUGIN_ID .. ":panel"
+end
+
 local function format_rate(bytes_per_second)
   local value = tonumber(bytes_per_second) or 0
   if value >= 1024 * 1024 * 1024 then
@@ -94,7 +101,7 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel(PLUGIN_ID .. ":panel")
+  noctalia.togglePanel(panel_id())
 end
 
 render()
