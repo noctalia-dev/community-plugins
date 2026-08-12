@@ -449,8 +449,18 @@ function render()
 
 	local body
 	if #shown == 0 then
-		body = ui.row({ align = "center", justify = "center", flexGrow = 1 }, {
-			ui.label({ text = tr("panel.no_processes"), color = "on_surface_variant" }),
+		-- Keep the body a ui.scroll in BOTH states so the flexGrow container keeps
+		-- a stable height. Rendering a bare ui.row here (and switching back to a
+		-- scroll once results return) left the scroll container stuck short, which
+		-- clipped the bottom of the list after a 0-result search.
+		winStart, winEnd = 1, 0
+		-- Same stable key as the results scroll so the UI tree reconciles this as
+		-- one persistent scroll node across the 0-result <-> results transition,
+		-- keeping the flexGrow viewport height stable (avoids bottom clipping).
+		body = ui.scroll({ key = "proc-list", flexGrow = 1 }, {
+			ui.row({ align = "center", justify = "center", flexGrow = 1 }, {
+				ui.label({ text = tr("panel.no_processes"), color = "on_surface_variant" }),
+			}),
 		})
 	else
 		clampWindow(#shown)
@@ -460,7 +470,7 @@ function render()
 				table.insert(itemRows, dataRow(shown[i], i))
 			end
 		end
-		body = ui.scroll({ flexGrow = 1, gap = 2, align = "stretch" }, itemRows)
+		body = ui.scroll({ key = "proc-list", flexGrow = 1, gap = 2, align = "stretch" }, itemRows)
 	end
 
 	local refreshedAt = (st("refreshedAtMs") or 0) / 1000
