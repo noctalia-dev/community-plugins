@@ -87,6 +87,31 @@ class DescriptionTests(unittest.TestCase):
         self.assertIn("at or below 120", errors[0])
 
 
+class PanelDecorationTests(unittest.TestCase):
+    def validate(self, value: object) -> list[str]:
+        validator = validate_plugins.Validator(Path("/repo"))
+        validator.validate_panel_fields(
+            Path("/repo/example/plugin.toml"),
+            "panel[0]",
+            {"decorated": value},
+            27,
+        )
+        return validator.errors
+
+    def test_decorated_is_an_allowed_panel_field(self) -> None:
+        self.assertIn("decorated", validate_plugins.ENTRY_FIELDS["panel"])
+
+    def test_accepts_boolean_decoration(self) -> None:
+        self.assertEqual(self.validate(False), [])
+        self.assertEqual(self.validate(True), [])
+
+    def test_rejects_non_boolean_decoration(self) -> None:
+        self.assertEqual(
+            self.validate("false"),
+            ["example/plugin.toml: panel[0]: decorated must be a bool"],
+        )
+
+
 class PluginConfigAccessorTests(unittest.TestCase):
     def test_accepts_universal_accessor(self) -> None:
         self.assertEqual(

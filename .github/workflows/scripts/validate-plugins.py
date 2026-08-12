@@ -169,6 +169,7 @@ ENTRY_FIELDS = {
         "keyboard_focus",
         "persistent",
         "capture_keys",
+        "decorated",
     },
     "desktop_widget": BASE_ENTRY_FIELDS | {"setting"},
     "service": BASE_ENTRY_FIELDS,
@@ -769,6 +770,9 @@ class Validator:
 
         if "open_near_click" in entry and not isinstance(entry["open_near_click"], bool):
             self.add_context_error(manifest_path, context, "open_near_click must be a bool")
+
+        if "decorated" in entry and not isinstance(entry["decorated"], bool):
+            self.add_context_error(manifest_path, context, "decorated must be a bool")
 
         if "dismiss_on_outside_click" in entry:
             if not is_int(plugin_api) or plugin_api < 8:
