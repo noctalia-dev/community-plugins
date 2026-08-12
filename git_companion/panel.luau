@@ -11,6 +11,10 @@ local snapshot = {
   prsCount = noctalia.state.get("prs_count") or 0,
   issuesCount = noctalia.state.get("issues_count") or 0,
   updatedAt = noctalia.state.get("last_update") or "",
+  status = noctalia.state.get("status") or "ok",
+  username = noctalia.state.get("username") or "",
+  bio = noctalia.state.get("bio") or "",
+  avatarPath = noctalia.state.get("avatar_path") or "",
 }
 local currentTab = "prs" -- "prs" or "issues"
 local hoveredKey = nil
@@ -36,8 +40,72 @@ local function itemGlyph()
   return currentTab == "prs" and "git-pull-request" or "info-circle"
 end
 
-local function emptyMessage()
-  return tr("no_items")
+local function statusBox(glyph, message)
+  return ui.column({ flexGrow = 1, gap = 12, align = "center", justify = "center", padding = 24 }, {
+    ui.glyph({ name = glyph, size = 42, color = "on_surface_variant" }),
+    ui.label({ text = message, color = "on_surface_variant", textAlign = "center", maxLines = 4 }),
+  })
+end
+
+local function statusInfo()
+  local platform = noctalia.getConfig("platform")
+  local bin = platform == "gitlab" and "glab" or "gh"
+  local status = snapshot.status
+  if status == "bin_missing" then
+    return platform == "gitlab" and "brand-gitlab" or "brand-github",
+           tr("bin_missing", { bin = bin })
+  end
+  if status == "gitlab_scope_missing" then
+    return "alert-triangle", tr("gitlab_scope_missing")
+  end
+  return "alert-triangle", tr("no_items")
+end
+
+local function hasBlockingStatus()
+  local status = snapshot.status
+  return status ~= nil and status ~= "ok" and status ~= "loading"
+end
+
+local function getSubtitle(group, repo, bio)
+  if group ~= "" then return group end
+  if repo ~= "" then return repo end
+  if bio ~= "" then return bio end
+  return nil
+end
+
+local function avatar()
+  if snapshot.avatarPath ~= "" then
+    return ui.image({
+      path = snapshot.avatarPath,
+      width = 40, height = 40, radius = 20,
+      fit = "cover", border = "primary", borderWidth = 2,
+    })
+  end
+  return ui.column({
+    width = 40, height = 40, radius = 20,
+    border = "primary", borderWidth = 2,
+    align = "center", justify = "center",
+  }, {
+    ui.glyph({ name = "user", size = 24, color = "on_surface_variant" }),
+  })
+end
+
+local function userRow()
+  local group = noctalia.getConfig("group") or ""
+  local repo = noctalia.getConfig("repo") or ""
+  local subtitle = getSubtitle(group, repo, snapshot.bio)
+  local updatedAt = snapshot.updatedAt
+  return ui.row({ gap = 10, align = "center" }, {
+    avatar(),
+    ui.column({ gap = 2, flexGrow = 1 }, {
+      ui.label({ text = snapshot.username, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
+      ui.label({ text = subtitle, fontWeight = "thin", color = "on_surface", fontSize = 11, maxLines = 1 }),
+    }),
+    ui.column({ gap = 2, align = "end" }, {
+      ui.label({ text = tr("last_update"), color = "on_surface_variant", fontSize = 10 }),
+      ui.label({ text = updatedAt ~= "" and updatedAt or tr("last_update_placeholder"), color = "on_surface", fontSize = 11 }),
+    }),
+  })
 end
 
 local function itemCard(item)
@@ -70,12 +138,7 @@ end
 local function itemList()
   local items = itemsForTab()
   if #items == 0 then
-    return {
-      ui.column({ align = "center", padding = 24 }, {
-        ui.glyph({ name = itemGlyph(), size = 42, color = "primary" }),
-        ui.label({ text = emptyMessage(), color = "on_surface", textAlign = "center" }),
-      }),
-    }
+    return { statusBox(itemGlyph(), tr("no_items")) }
   end
   local rows = {}
   for _, item in ipairs(items) do
@@ -102,7 +165,24 @@ end
 render = function()
   local platform = noctalia.getConfig("platform")
   local requestLabel = platform == "gitlab" and tr("merge_requests") or tr("pull_requests")
-  local updatedAt = snapshot.updatedAt
+  local blocked = hasBlockingStatus()
+
+  -- Body: the tabbed list when healthy, a centered status box otherwise.
+  -- The tab row is hidden in the blocking state so the card collapses.
+  local body = {}
+  if blocked then
+    local glyph, message = statusInfo()
+    table.insert(body, statusBox(glyph, message))
+  else
+    if snapshot.username ~= "" then
+      table.insert(body, userRow())
+    end
+    table.insert(body, ui.row({ gap = 4, align = "center" }, {
+      tabButton(tr("tab_prs", { label = requestLabel, count = snapshot.prsCount }), "prs", "onTabPrs"),
+      tabButton(tr("tab_issues", { count = snapshot.issuesCount }), "issues", "onTabIssues"),
+    }))
+    table.insert(body, ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, itemList()))
+  end
 
   panel.render(ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
     -- Header
@@ -112,19 +192,7 @@ render = function()
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshClicked" }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
-    -- Tabs (mini-docker style: selected = primary, else ghost) + last-updated time
-    ui.row({ gap = 4, align = "center" }, {
-      tabButton(tr("tab_prs", { label = requestLabel, count = snapshot.prsCount }), "prs", "onTabPrs"),
-      tabButton(tr("tab_issues", { count = snapshot.issuesCount }), "issues", "onTabIssues"),
-      ui.spacer({ flexGrow = 1 }),
-      ui.label({
-        text = updatedAt ~= "" and updatedAt or tr("last_update_placeholder"),
-        color = "on_surface_variant",
-        fontSize = 11,
-      }),
-    }),
-    -- List
-    ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, itemList()),
+    table.unpack(body),
   }))
 end
 
@@ -143,6 +211,10 @@ noctalia.state.watch("issues", function(value) snapshot.issues = value or {}; re
 noctalia.state.watch("prs_count", function(value) snapshot.prsCount = value or 0; render() end)
 noctalia.state.watch("issues_count", function(value) snapshot.issuesCount = value or 0; render() end)
 noctalia.state.watch("last_update", function(value) snapshot.updatedAt = value or ""; render() end)
+noctalia.state.watch("status", function(value) snapshot.status = value or "ok"; render() end)
+noctalia.state.watch("username", function(value) snapshot.username = value or ""; render() end)
+noctalia.state.watch("bio", function(value) snapshot.bio = value or ""; render() end)
+noctalia.state.watch("avatar_path", function(value) snapshot.avatarPath = value or ""; render() end)
 
 -- Periodically re-render to pick up setting changes (like platform)
 noctalia.setUpdateInterval(5000)

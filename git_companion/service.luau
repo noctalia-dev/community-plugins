@@ -7,6 +7,10 @@ local group = noctalia.getConfig("group") or ""
 local refreshInterval = noctalia.getConfig("refresh_interval") or 60
 
 local bin = platform == "gitlab" and "glab" or "gh"
+local PLATFORM_GROUP = {
+  gitlab = "--group",
+  github = "--owner",
+}
 
 local function tr(key, args) return noctalia.tr("service." .. key, args) end
 
@@ -19,13 +23,8 @@ end
 
 -- Determine scope flags
 local function scopeArgs()
-  if platform == "gitlab" then
-    if group ~= "" then return {"--group", shellQuote(group)} end
-    if repo ~= "" then return {"--repo", shellQuote(repo)} end
-  else
-    if group ~= "" then return {"--owner", shellQuote(group)} end
-    if repo ~= "" then return {"--repo", shellQuote(repo)} end
-  end
+  if group ~= "" then return {PLATFORM_GROUP[platform], shellQuote(group)} end
+  if repo ~= "" then return {"--repo", shellQuote(repo)} end
   return {}
 end
 
@@ -98,21 +97,54 @@ local function fetchList(kind)
   end)
 end
 
+local lastAvatarUrl = ""
+
+local function fetchUser()
+  noctalia.runAsync(bin .. " api user", function(res)
+    if res.exitCode ~= 0 then
+      noctalia.log("[Git Companion] User fetch failed: " .. (res.stderr or ""))
+      return
+    end
+    local decoded = noctalia.json.decode(res.stdout or "")
+    if type(decoded) ~= "table" then return end
+    local username = decoded.username or decoded.login or ""
+    local bio = decoded.bio or ""
+    local avatarUrl = decoded.avatar_url or ""
+    noctalia.state.set("username", username)
+    noctalia.state.set("bio", bio)
+    if avatarUrl ~= "" and avatarUrl ~= lastAvatarUrl then
+      lastAvatarUrl = avatarUrl
+      local dir = noctalia.pluginDataDir()
+      if not dir then return end
+      local dest = dir .. "/avatar"
+      noctalia.download(avatarUrl, dest, function(ok)
+        if ok then noctalia.state.set("avatar_path", dest) end
+      end)
+    end
+  end)
+end
+
 local function refresh()
   noctalia.log("[Git Companion] Refresh triggered.")
   if not noctalia.commandExists(bin) then
+    noctalia.state.set("status", "bin_missing")
     noctalia.notifyError(tr("title"), tr("bin_missing", { bin = bin }))
     noctalia.log("[Git Companion] Error: " .. bin .. " not found.")
     return
   end
 
   if platform == "gitlab" and repo == "" and group == "" then
+    noctalia.state.set("status", "gitlab_scope_missing")
     noctalia.notifyError(tr("title"), tr("gitlab_scope_missing"))
     noctalia.log("[Git Companion] Error: GitLab scope missing.")
     return
   end
 
+  -- All preconditions met: the panel can render the lists. Individual fetch
+  -- failures are surfaced per-list (see fetchList), not by flipping this.
+  noctalia.state.set("status", "ok")
   noctalia.state.set("loading", true)
+  fetchUser()
   fetchList("issue")
   fetchList("pr")
   noctalia.state.set("loading", false)

@@ -12,7 +12,10 @@
     "tab_issues": "Issues ({count})",
     "no_items": "No items",
     "untitled": "Untitled",
-    "last_update_placeholder": "..."
+    "last_update_placeholder": "...",
+    "last_update": "Last update",
+    "bin_missing": "{bin} is not installed. Install it to use this plugin.",
+    "gitlab_scope_missing": "Set a Repository or Group in settings to view your items."
   },
   "service": {
     "title": "Git Companion",
