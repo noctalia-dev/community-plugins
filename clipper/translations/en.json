@@ -109,6 +109,7 @@
     "paste_timeout": "Sending the paste shortcut timed out.",
     "paste_start_failed": "The automatic paste process could not be started.",
     "invalid_id": "The selected clipboard entry is no longer valid.",
+    "global_wipe_disabled": "Clearing history is disabled while Clipper uses the global cliphist database.",
     "data_dir_unavailable": "Clipper's private data directory is unavailable. Pins and notes are disabled.",
     "max_notes": "The notecard limit has been reached.",
     "note_save_failed": "The notecard could not be saved.",
@@ -120,7 +121,7 @@
   "settings": {
     "database_mode": {
       "label": "Clipboard history database",
-      "description": "Use Clipper's isolated database or the default cliphist database shared with other clipboard tools. In global mode, delete and clear actions modify the shared history.",
+      "description": "Use Clipper's isolated database or the default cliphist database shared with other clipboard tools. In global mode, individual entries can be deleted, but clearing the complete shared history is disabled.",
       "options": {
         "private": "Private Clipper database",
         "global": "Global cliphist database"

@@ -23,7 +23,7 @@ The desktop behind the transparent workspace is blurred in the screenshot; the C
 
 Clipper runs on Wayland and uses the following commands:
 
-- `cliphist` stores, lists, decodes, deletes, and clears clipboard history.
+- `cliphist` stores, lists, decodes, and deletes clipboard history. Clipper only clears its private database.
 - `wl-copy` and `wl-paste` are provided by `wl-clipboard`; they copy entries and, in private mode, watch text and image clipboard changes.
 - `wtype` sends the paste shortcut after Clipper restores the previously focused window.
 - `hyprctl`, `niri`, and `nc` provide focus capture and restoration on Hyprland, niri, and MangoWC respectively. Only the command for the active compositor is used; `nc` is the MangoWC client.
@@ -54,7 +54,7 @@ In the history area, drag a card by its top bar into the pinned column. Notecard
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `database_mode` | `select` | `private` | Uses Clipper's isolated cliphist database or the default global cliphist database. Delete and clear affect the shared database in global mode. |
+| `database_mode` | `select` | `private` | Uses Clipper's isolated cliphist database or the default global cliphist database. Individual entries can be deleted globally, but clearing the complete shared database is disabled. |
 | `manage_watchers` | `bool` | `true` | Starts Clipper-owned text and image watchers in private mode. Hidden and ignored in global mode. |
 | `history_limit` | `int` | `200` | Maximum entries loaded by the service. In private mode it also sets Clipper's cliphist retention limit. |
 | `enable_notecards` | `bool` | `true` | Shows or hides the notecard canvas. Existing notes remain stored when hidden. |
@@ -90,6 +90,7 @@ noctalia msg plugin blackbartblues/clipper:service all copy 42
 noctalia msg plugin blackbartblues/clipper:service all paste 42
 noctalia msg plugin blackbartblues/clipper:service all pin 42
 noctalia msg plugin blackbartblues/clipper:service all delete 42
+# Private database mode only
 noctalia msg plugin blackbartblues/clipper:service all clear
 
 # Pinned clips
@@ -114,7 +115,7 @@ noctalia msg plugin blackbartblues/clipper:service all request \
   '{"operation":"activate","id":"42","paste":false}'
 ```
 
-Supported `operation` values are `refresh`, `activate`, `pin`, `delete`, `wipe`, `unpin`, `copy_pinned`, `create_note`, `update_note`, `move_note`, `reorder_note`, `cycle_note_color`, `export_note`, and `delete_note`. IPC is asynchronous: the CLI confirms dispatch, while the result is published to Noctalia state as `clipper_result`.
+Supported `operation` values are `refresh`, `activate`, `pin`, `delete`, `wipe`, `unpin`, `copy_pinned`, `create_note`, `update_note`, `move_note`, `reorder_note`, `cycle_note_color`, `export_note`, and `delete_note`. `wipe` is rejected in global database mode. IPC is asynchronous: the CLI confirms dispatch, while the result is published to Noctalia state as `clipper_result`.
 
 The service publishes these state keys for integrations:
 
@@ -130,7 +131,7 @@ English is the source language and runtime fallback in `translations/en.json`. A
 
 - Private history, pinned payloads, notecard metadata, and decoded image thumbnails are stored in Noctalia's plugin data directory. Notecard exports are written to `~/Documents/Clipper`.
 - Global database mode follows cliphist's normal database resolution, including `XDG_CACHE_HOME`. Clipper does not start duplicate watchers in this mode; an external cliphist watcher must already populate the database.
-- **Delete** and **Clear history** permanently modify the selected database. In global mode this also affects other clipboard frontends using that database.
+- **Delete** permanently modifies the selected database and therefore affects other clipboard frontends in global mode. **Clear history** is only available for Clipper's private database.
 - Clipboard bytes are streamed between `cliphist`, files, and `wl-copy`; history payloads are not decoded into Luau. Preview metadata and cached image thumbnails are bounded.
 - The plugin makes no network requests. It spawns only the commands listed under **Requirements**, plus standard shell utilities used to supervise watchers and bounded subprocesses.
 - Automatic paste currently restores focus on Hyprland, niri, and MangoWC. Unsupported compositors can still use **Copy** and paste manually.

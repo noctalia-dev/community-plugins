@@ -1027,6 +1027,11 @@ local function handleRequest(raw)
     publishResult(requestId, operation, false, "invalid_operation")
     return
   end
+  if operation == "wipe" and databaseMode() == DATABASE_MODE_GLOBAL then
+    publishResult(requestId, operation, false, "global_wipe_disabled")
+    notifyError("global_wipe_disabled")
+    return
+  end
   if actionBusy then
     publishResult(requestId, operation, false, "busy")
     return

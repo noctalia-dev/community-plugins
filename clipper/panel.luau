@@ -785,7 +785,30 @@ local function historyPane(usableWidth)
     })
   end
 
-  local clearText = clearConfirm and tr("panel.history.confirm_clear") or tr("panel.history.clear")
+  local historyHeader = {
+    ui.glyph({ name = "history", size = 17, color = "primary" }),
+    ui.label({ text = tr("panel.history.title"), fontSize = 12, fontWeight = "bold" }),
+    ui.input({
+      key = "history-search",
+      value = searchQuery,
+      placeholder = tr("panel.history.search"),
+      onChange = "onSearchChanged",
+      controlSize = "sm",
+      flexGrow = 1,
+    }),
+  }
+  if cfg("database_mode", "private") ~= "global" then
+    local clearText = clearConfirm and tr("panel.history.confirm_clear") or tr("panel.history.clear")
+    historyHeader[#historyHeader + 1] = ui.button({
+      text = clearText,
+      glyph = clearConfirm and "alert-triangle" or "trash",
+      variant = clearConfirm and "destructive" or "ghost",
+      controlSize = "sm",
+      onClick = "onClearHistory",
+    })
+  else
+    clearConfirm = false
+  end
   return ui.column({
     key = "history-pane",
     height = 305,
@@ -796,25 +819,7 @@ local function historyPane(usableWidth)
     border = "outline/0.42",
     borderWidth = 1,
   }, {
-    ui.row({ gap = 8, align = "center" }, {
-      ui.glyph({ name = "history", size = 17, color = "primary" }),
-      ui.label({ text = tr("panel.history.title"), fontSize = 12, fontWeight = "bold" }),
-      ui.input({
-        key = "history-search",
-        value = searchQuery,
-        placeholder = tr("panel.history.search"),
-        onChange = "onSearchChanged",
-        controlSize = "sm",
-        flexGrow = 1,
-      }),
-      ui.button({
-        text = clearText,
-        glyph = clearConfirm and "alert-triangle" or "trash",
-        variant = clearConfirm and "destructive" or "ghost",
-        controlSize = "sm",
-        onClick = "onClearHistory",
-      }),
-    }),
+    ui.row({ gap = 8, align = "center" }, historyHeader),
     filtersNode(),
     ui.row({ gap = 8, align = "start", flexGrow = 1 }, cards),
     ui.row({ gap = 7, align = "center", justify = "center" }, {
