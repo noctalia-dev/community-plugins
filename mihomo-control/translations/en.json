@@ -42,6 +42,7 @@
     "connections": "connections",
     "memory": "RAM",
     "proxy_groups": "Proxy groups",
+    "drag_group": "Drag to reorder",
     "no_groups": "No proxy groups found.",
     "delay_test": "Test latency",
     "test_all": "Test all",

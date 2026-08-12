@@ -9,6 +9,7 @@
 --   { op = "select", group = "<group>", proxy = "<proxy>" }
 --   { op = "mode", mode = "rule" | "global" | "direct" }
 --   { op = "delay_test", group = "<group>" }
+--   { op = "reorder_group", group = "<group>", index = <insertion index> }
 --   { op = "restart" }                           POST /restart (core re-execs)
 --   { op = "close_connections" }
 --   { op = "refresh" }
@@ -94,6 +95,84 @@ local state = {
   groups = {},
   delay = {},
 }
+
+-- Mihomo's /proxies response is a map and therefore has no stable user-facing
+-- group order. Keep the panel's preferred order in the plugin data directory;
+-- newly discovered groups that are not in this list are appended alphabetically.
+local group_order = {}
+local data_path = nil
+
+local function resolve_data_path()
+  if data_path ~= nil then
+    return data_path
+  end
+  local dir = noctalia.pluginDataDir()
+  if dir == nil then
+    return nil
+  end
+  data_path = dir .. "/state.json"
+  return data_path
+end
+
+local function load_group_order()
+  local path = resolve_data_path()
+  if path == nil then
+    return
+  end
+  local raw = noctalia.readFile(path)
+  if raw == nil then
+    return
+  end
+  local ok, decoded = pcall(noctalia.json.decode, raw)
+  if not ok or type(decoded) ~= "table" or type(decoded.groupOrder) ~= "table" then
+    return
+  end
+
+  local seen = {}
+  for _, name in ipairs(decoded.groupOrder) do
+    if type(name) == "string" and name ~= "" and not seen[name] then
+      seen[name] = true
+      table.insert(group_order, name)
+    end
+  end
+end
+
+local function save_group_order()
+  local path = resolve_data_path()
+  if path == nil then
+    return
+  end
+  local ok, encoded = pcall(noctalia.json.encode, { groupOrder = group_order })
+  if not ok or type(encoded) ~= "string" then
+    noctalia.log("[mihomo-control] failed to encode proxy-group order")
+    return
+  end
+  local written, err = noctalia.writeFile(path, encoded)
+  if not written then
+    noctalia.log("[mihomo-control] failed to save proxy-group order: " .. tostring(err or "unknown error"))
+  end
+end
+
+local function apply_group_order(groups)
+  local rank = {}
+  for index, name in ipairs(group_order) do
+    rank[name] = index
+  end
+  table.sort(groups, function(a, b)
+    local a_rank = rank[a.name]
+    local b_rank = rank[b.name]
+    if a_rank ~= nil and b_rank ~= nil then
+      return a_rank < b_rank
+    end
+    if a_rank ~= nil then
+      return true
+    end
+    if b_rank ~= nil then
+      return false
+    end
+    return a.name < b.name
+  end)
+end
 
 local function publish(key)
   noctalia.state.set("mihomo." .. key, state[key])
@@ -269,9 +348,7 @@ local function poll_proxies()
         })
       end
     end
-    table.sort(groups, function(a, b)
-      return a.name < b.name
-    end)
+    apply_group_order(groups)
     state.groups = groups
     for _, group in groups do
       merge_delays(group.name)
@@ -439,6 +516,38 @@ local function test_all_groups()
   next_test()
 end
 
+-- Move one group to an insertion gap in the currently published order. Gaps
+-- are numbered 1..#groups+1; removing an item shifts later gaps down by one.
+local function reorder_group(group_name, insertion_index)
+  local from_index = nil
+  for index, group in ipairs(state.groups) do
+    if group.name == group_name then
+      from_index = index
+      break
+    end
+  end
+
+  local insert_at = tonumber(insertion_index)
+  if from_index == nil or insert_at == nil then
+    return
+  end
+
+  insert_at = math.floor(insert_at)
+  local moved = table.remove(state.groups, from_index)
+  if from_index < insert_at then
+    insert_at -= 1
+  end
+  insert_at = math.max(1, math.min(insert_at, #state.groups + 1))
+  table.insert(state.groups, insert_at, moved)
+
+  group_order = {}
+  for _, group in ipairs(state.groups) do
+    table.insert(group_order, group.name)
+  end
+  save_group_order()
+  publish("groups")
+end
+
 local function handle_command(cmd)
   local op = cmd.op
   if op == "refresh" then
@@ -487,6 +596,13 @@ local function handle_command(cmd)
           noctalia.notifyError(noctalia.tr("notify.request_failed"), `HTTP {res.status}`)
         end
       end)
+    end
+    return
+  end
+  if op == "reorder_group" then
+    local group = tostring(cmd.group or "")
+    if group ~= "" then
+      reorder_group(group, cmd.index)
     end
     return
   end
@@ -597,6 +713,7 @@ end
 -- ── Init ────────────────────────────────────────────────────────────────────
 
 reload_settings()
+load_group_order()
 state.connection.host = settings.host
 state.connection.port = settings.port
 publish("connection")

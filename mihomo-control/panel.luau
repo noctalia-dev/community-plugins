@@ -14,6 +14,7 @@
 --      and a latency-test button.
 
 local MODES = { "rule", "global", "direct" }
+local GROUP_DRAG_TYPE = "mihomo-proxy-group"
 
 local snapshot = {
   connection = {},
@@ -292,6 +293,21 @@ local function traffic_card()
   })
 end
 
+-- Thin insertion target before every group card, plus one after the final
+-- card. The numeric value is interpreted against the row-major group order.
+local function group_insertion_zone(index)
+  return ui.dropZone({
+    key = "group-gap-" .. index,
+    accepts = { GROUP_DRAG_TYPE },
+    value = tostring(index),
+    onDrop = "onGroupDropped",
+    height = 3,
+    radius = 6,
+    expandOnDrag = true,
+    hitSlop = 18,
+  })
+end
+
 local function group_card(group)
   local name_text = group.name
   if group.hidden == true then
@@ -317,6 +333,22 @@ local function group_card(group)
     ui.row({ gap = 6, align = "center", justify = "space_between", onClick = function()
       toggle_group(group.name)
     end }, {
+      -- The grip sits two levels below the card, so previewAncestor = 2 makes
+      -- the drag ghost and lifted layout item represent the complete card.
+      ui.dragSource({
+        key = "group-grip-" .. group.name,
+        dragType = GROUP_DRAG_TYPE,
+        payload = group.name,
+        previewAncestor = 2,
+        liftFromLayout = true,
+        width = 20,
+        height = 20,
+        align = "center",
+        justify = "center",
+        tooltip = noctalia.tr("panel.drag_group"),
+      }, {
+        ui.glyph({ name = "menu-2", size = 14, color = "on_surface_variant" }),
+      }),
       ui.row({ gap = 4, align = "center", flexGrow = 1 }, name_children),
       ui.button({
         glyph = "activity",
@@ -381,6 +413,7 @@ local function group_card(group)
   end
 
   return ui.column({
+    key = "group-card-" .. group.name,
     gap = 8,
     border = "outline",
     borderWidth = 1,
@@ -388,6 +421,17 @@ local function group_card(group)
     padding = 10,
     flexGrow = 1,
   }, children)
+end
+
+local function group_slot(group, index)
+  return ui.column({
+    key = "group-slot-" .. group.name,
+    gap = 3,
+    flexGrow = 1,
+  }, {
+    group_insertion_zone(index),
+    group_card(group),
+  })
 end
 
 render = function()
@@ -417,14 +461,15 @@ render = function()
       }),
     }
     for i = 1, #groups, 2 do
-      local row_children = { group_card(groups[i]) }
+      local row_children = { group_slot(groups[i], i) }
       if groups[i + 1] then
-        table.insert(row_children, group_card(groups[i + 1]))
+        table.insert(row_children, group_slot(groups[i + 1], i + 1))
       else
         table.insert(row_children, ui.box({ flexGrow = 1 }))
       end
       table.insert(group_children, ui.row({ gap = 10, align = "start" }, row_children))
     end
+    table.insert(group_children, group_insertion_zone(#groups + 1))
     table.insert(body, ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, group_children))
   else
     table.insert(body, ui.column({ gap = 10, fill = "surface/0.5", radius = 12, padding = 12 }, {
@@ -458,6 +503,14 @@ render = function()
     }),
     ui.scroll({ flexGrow = 1, gap = 12 }, body),
   }))
+end
+
+function onGroupDropped(payload, value)
+  local insertion_index = tonumber(value)
+  if type(payload) ~= "string" or payload == "" or insertion_index == nil then
+    return
+  end
+  send_command({ op = "reorder_group", group = payload, index = insertion_index })
 end
 
 for _, key in {

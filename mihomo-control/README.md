@@ -33,7 +33,9 @@ shows an overall latency (the selected member's, or the best tested one) right
 in its subtitle, visible without expanding. Member lists are collapsed by
 default; click a group header to expand it. Click a member to select it; the
 current selection is marked with a dot. Use **Test all** next to the Proxy
-groups heading to run a latency test on every group at once.
+groups heading to run a latency test on every group at once. Drag a card by
+its ☰ grip and drop it into an insertion gap to reorder the groups. The custom
+display order survives controller polling and plugin restarts.
 
 Add the **Mihomo: Rule** shortcut from Settings → Control Center shortcuts to
 quickly toggle between rule and global mode.
@@ -64,12 +66,14 @@ noctalia msg plugin mdj2812/mihomo-control:service all cmd '{"op":"mode","mode":
 
 `refresh` re-polls version, config, connections and proxy groups. `cmd` accepts
 the same command tables the panel sends (`mode`, `select`, `delay_test`,
-`delay_test_all`, `restart`, `close_connections`, `refresh`).
+`delay_test_all`, `reorder_group`, `restart`, `close_connections`, `refresh`).
 
 ## Notes
 
 - The plugin only talks HTTP to the configured external controller. It spawns
-  no processes, runs no external commands, and writes no files.
+  no processes and runs no external commands. It writes only the custom
+  proxy-group display order (group names, never the secret) to its Noctalia
+  plugin data directory. Reordering does not modify the Mihomo configuration.
 - The bar widget and card use the Clash cat logo (`icon.png`), the official
   mascot of the Clash / mihomo project. In the bar widget the cat is tinted by
   connection status: green online, amber while connecting, red offline; the
