@@ -125,14 +125,24 @@ local function latency_color(delay)
   end
   if delay > 0 then
     if delay <= 300 then
-      return "#4ade80"
+      return "primary"
     end
     if delay <= 800 then
-      return "#facc15"
+      return "warning"
     end
-    return "#f87171"
+    return "error"
   end
-  return "#f87171"
+  return "error"
+end
+
+-- The status chip keeps the classic green/amber/red identity instead of theme
+-- roles, but uses darker shades in light mode so it stays readable on light
+-- surfaces.
+local function status_color()
+  if noctalia.isDarkMode() then
+    return { online = "#4ade80", connecting = "#facc15", offline = "#f87171" }
+  end
+  return { online = "#15803d", connecting = "#a16207", offline = "#b91c1c" }
 end
 
 -- A single "overall" latency per group: the currently selected member's delay
@@ -191,10 +201,11 @@ local function status_chip()
   local conn = snapshot.connection
   local online = conn.status == "online"
   local connecting = conn.status == "connecting"
+  local colors = status_color()
   local text = online
     and noctalia.tr("panel.status_online")
     or (connecting and noctalia.tr("panel.status_connecting") or noctalia.tr("panel.status_offline"))
-  local color = online and "#4ade80" or (connecting and "#facc15" or "#f87171")
+  local color = online and colors.online or (connecting and colors.connecting or colors.offline)
   return ui.row({ gap = 6, align = "center", fill = "surface/0.6", radius = 999, paddingH = 10, paddingV = 4 }, {
     ui.box({ width = 8, height = 8, radius = 4, fill = color }),
     ui.label({ text = text, fontSize = 12, color = "on_surface_variant" }),
@@ -261,15 +272,15 @@ local function traffic_card()
     ui.graph({
       values = normalized_series(down_history, peak),
       values2 = normalized_series(up_history, peak),
-      color = "#4ade80",
-      color2 = "#38bdf8",
+      color = "primary",
+      color2 = "secondary",
       lineWidth = 2,
       fillOpacity = 0.15,
       height = 72,
     }),
     ui.row({ gap = 16, align = "center" }, {
-      ui.label({ text = `▼ {format_rate(traffic.down)}`, fontSize = 16, fontWeight = "bold", color = "#4ade80" }),
-      ui.label({ text = `▲ {format_rate(traffic.up)}`, fontSize = 16, fontWeight = "bold", color = "#38bdf8" }),
+      ui.label({ text = `▼ {format_rate(traffic.down)}`, fontSize = 16, fontWeight = "bold", color = "primary" }),
+      ui.label({ text = `▲ {format_rate(traffic.up)}`, fontSize = 16, fontWeight = "bold", color = "secondary" }),
     }),
     ui.row({ gap = 16, align = "center" }, {
       ui.label({
