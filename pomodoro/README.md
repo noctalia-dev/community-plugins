@@ -45,7 +45,7 @@ noctalia msg panel-toggle thepunkoff/pomodoro:panel
 noctalia msg panel-toggle thepunkoff/pomodoro:panel
 ```
 
-## Dependencies
+## Requirements
 - `pw-play` for playing alarm sound.
 
 ## Licensing
