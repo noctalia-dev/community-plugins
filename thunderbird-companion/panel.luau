@@ -281,7 +281,7 @@ local function connection_callout()
             and noctalia.tr("panel.update_bridge")
             or noctalia.tr("panel.setup_bridge")
         ),
-      glyph = failed and "refresh" or "download",
+      glyph = failed and "refresh" or "package-import",
       variant = "primary",
       onClick = function()
         send_command("setup")

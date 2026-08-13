@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Download and install the pinned Thunderbird companion bridge release.
+# Install the bundled Thunderbird companion bridge for the current user.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -8,12 +8,14 @@ PLUGIN_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 BRIDGE_DATA_DIR_NAME="noctalia-thunderbird-companion"
 NATIVE_HOST_NAME="dev.noctalia.thunderbird_companion"
 EXTENSION_ID="thunderbird-companion@mdj2812.github.io"
-UPDATE_URL="https://mdj2812.github.io/noctalia-thunderbird-companion/updates.json"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 BRIDGE_DATA_DIR="$DATA_HOME/$BRIDGE_DATA_DIR_NAME"
-RELEASE_SPEC_PATH="$PLUGIN_DIR/bridge-release.json"
+BRIDGE_VERSION_PATH="$PLUGIN_DIR/bridge-version.json"
+EXTENSION_SOURCE_DIR="$PLUGIN_DIR/companion"
+HOST_SOURCE_PATH="$PLUGIN_DIR/native-host/host.py"
 HOST_PATH="$BRIDGE_DATA_DIR/host.py"
-INSTALLED_RELEASE_PATH="$BRIDGE_DATA_DIR/release.json"
+INSTALLED_VERSION_PATH="$BRIDGE_DATA_DIR/installed-bridge.json"
+OLD_RELEASE_PATH="$BRIDGE_DATA_DIR/release.json"
 MANIFEST_DIR="$HOME/.mozilla/native-messaging-hosts"
 MANIFEST_PATH="$MANIFEST_DIR/$NATIVE_HOST_NAME.json"
 XPI_PATH="$BRIDGE_DATA_DIR/thunderbird-companion.xpi"
@@ -23,7 +25,8 @@ if [[ "${1:-}" == "--uninstall" ]]; then
   rm -f -- \
     "$MANIFEST_PATH" \
     "$HOST_PATH" \
-    "$INSTALLED_RELEASE_PATH" \
+    "$INSTALLED_VERSION_PATH" \
+    "$OLD_RELEASE_PATH" \
     "$XPI_PATH" \
     "$LEGACY_LIB_DIR/host.py" \
     "$LEGACY_LIB_DIR/release.json"
@@ -45,40 +48,37 @@ fi
 
 BRIDGE_VERSION="$(
   python3 - \
-    "$RELEASE_SPEC_PATH" \
+    "$BRIDGE_VERSION_PATH" \
+    "$EXTENSION_SOURCE_DIR" \
+    "$HOST_SOURCE_PATH" \
     "$HOST_PATH" \
     "$MANIFEST_PATH" \
     "$XPI_PATH" \
-    "$INSTALLED_RELEASE_PATH" \
+    "$INSTALLED_VERSION_PATH" \
     "$EXTENSION_ID" \
-    "$NATIVE_HOST_NAME" \
-    "$UPDATE_URL" <<'PY'
+    "$NATIVE_HOST_NAME" <<'PY'
 from __future__ import annotations
 
 import hashlib
 import io
 import json
 import os
-import re
 import sys
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-import zipfile
 from pathlib import Path
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
-MAX_MANIFEST_BYTES = 256 * 1024
-MAX_XPI_BYTES = 16 * 1024 * 1024
-MAX_HOST_BYTES = 2 * 1024 * 1024
-HASH_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-
-release_spec_path, host_path, native_manifest_path, xpi_path, installed_release_path = (
-    map(Path, sys.argv[1:6])
-)
-EXPECTED_EXTENSION_ID, EXPECTED_HOST_NAME, EXPECTED_UPDATE_URL = sys.argv[6:9]
+(
+    bridge_version_path,
+    extension_source_dir,
+    host_source_path,
+    host_path,
+    native_manifest_path,
+    xpi_path,
+    installed_version_path,
+) = map(Path, sys.argv[1:8])
+EXPECTED_EXTENSION_ID, EXPECTED_HOST_NAME = sys.argv[8:10]
 
 
 def require_object(value: Any, label: str) -> dict[str, Any]:
@@ -93,56 +93,8 @@ def require_string(value: Any, label: str) -> str:
     return value
 
 
-def require_hash(value: Any, label: str) -> str:
-    digest = require_string(value, label)
-    if not HASH_PATTERN.fullmatch(digest):
-        raise ValueError(f"{label} must be a lowercase SHA-256 digest")
-    return digest
-
-
-def require_https_github_url(value: Any, label: str) -> str:
-    url = require_string(value, label)
-    parsed = urllib.parse.urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname != "github.com":
-        raise ValueError(f"{label} must be an HTTPS github.com URL")
-    return url
-
-
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
-
-
-def download(url: str, maximum: int, label: str) -> bytes:
-    request = urllib.request.Request(
-        url,
-        headers={"User-Agent": "Noctalia-Thunderbird-Companion-Installer/1"},
-    )
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                length = response.headers.get("Content-Length")
-                if length and int(length) > maximum:
-                    raise ValueError(f"{label} exceeds its size limit")
-                data = response.read(maximum + 1)
-            if len(data) > maximum:
-                raise ValueError(f"{label} exceeds its size limit")
-            return data
-        except (OSError, urllib.error.URLError) as error:
-            last_error = error
-            if attempt < 2:
-                time.sleep(1 + attempt)
-    raise RuntimeError(f"could not download {label}: {last_error}")
-
-
-def verified_download(asset: dict[str, Any], maximum: int, label: str) -> tuple[bytes, str]:
-    url = require_https_github_url(asset.get("url"), f"{label} URL")
-    expected = require_hash(asset.get("sha256"), f"{label} SHA-256")
-    data = download(url, maximum, label)
-    actual = sha256(data)
-    if actual != expected:
-        raise ValueError(f"{label} SHA-256 mismatch")
-    return data, expected
 
 
 def atomic_write(path: Path, data: bytes, mode: int) -> None:
@@ -160,59 +112,39 @@ def atomic_write(path: Path, data: bytes, mode: int) -> None:
             pass
 
 
+def build_xpi(source_dir: Path) -> bytes:
+    destination = io.BytesIO()
+    with ZipFile(destination, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
+        for source in sorted(path for path in source_dir.rglob("*") if path.is_file()):
+            relative = source.relative_to(source_dir).as_posix()
+            info = ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.create_system = 3
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, source.read_bytes(), compress_type=ZIP_DEFLATED)
+    return destination.getvalue()
+
+
 os.umask(0o077)
-spec = require_object(
-    json.loads(release_spec_path.read_text(encoding="utf-8")),
-    "bridge release specification",
+bridge_version = require_object(
+    json.loads(bridge_version_path.read_text(encoding="utf-8")),
+    "bridge version",
 )
-if spec.get("schemaVersion") != 1:
-    raise ValueError("unsupported bridge release specification")
-version = require_string(spec.get("version"), "bridge release version")
-bridge_protocol = spec.get("bridgeProtocol")
+if bridge_version.get("schemaVersion") != 1:
+    raise ValueError("unsupported bridge version schema")
+version = require_string(bridge_version.get("version"), "bridge version")
+bridge_protocol = bridge_version.get("bridgeProtocol")
 if bridge_protocol != 1:
     raise ValueError("unsupported bridge protocol")
+if bridge_version.get("extensionId") != EXPECTED_EXTENSION_ID:
+    raise ValueError("bridge version has an unexpected extension ID")
+if bridge_version.get("nativeHostName") != EXPECTED_HOST_NAME:
+    raise ValueError("bridge version has an unexpected native-host name")
 
-manifest_spec = require_object(spec.get("manifest"), "release manifest reference")
-manifest_url = require_https_github_url(manifest_spec.get("url"), "release manifest URL")
-manifest_hash = require_hash(
-    manifest_spec.get("sha256"),
-    "release manifest SHA-256",
+extension_manifest = require_object(
+    json.loads((extension_source_dir / "manifest.json").read_text(encoding="utf-8")),
+    "extension manifest",
 )
-manifest_data = download(manifest_url, MAX_MANIFEST_BYTES, "release manifest")
-if sha256(manifest_data) != manifest_hash:
-    raise ValueError("release manifest SHA-256 mismatch")
-release = require_object(json.loads(manifest_data), "release manifest")
-
-if (
-    release.get("schemaVersion") != 1
-    or release.get("version") != version
-    or release.get("bridgeProtocol") != bridge_protocol
-):
-    raise ValueError("release manifest is incompatible with the plugin")
-
-extension = require_object(release.get("extension"), "extension release")
-native_host = require_object(release.get("nativeHost"), "native-host release")
-if extension.get("id") != EXPECTED_EXTENSION_ID:
-    raise ValueError("release manifest has an unexpected extension ID")
-if native_host.get("name") != EXPECTED_HOST_NAME:
-    raise ValueError("release manifest has an unexpected native-host name")
-
-xpi_data, xpi_hash = verified_download(
-    require_object(extension.get("asset"), "extension asset"),
-    MAX_XPI_BYTES,
-    "extension",
-)
-host_data, host_hash = verified_download(
-    require_object(native_host.get("asset"), "native-host asset"),
-    MAX_HOST_BYTES,
-    "native host",
-)
-
-with zipfile.ZipFile(io.BytesIO(xpi_data)) as archive:
-    extension_manifest = require_object(
-        json.loads(archive.read("manifest.json")),
-        "extension manifest",
-    )
 gecko = require_object(
     require_object(
         extension_manifest.get("browser_specific_settings"),
@@ -221,13 +153,17 @@ gecko = require_object(
     "Gecko settings",
 )
 if extension_manifest.get("version") != version:
-    raise ValueError("XPI version does not match the compatible bridge release")
+    raise ValueError("extension version does not match bridge-version.json")
 if gecko.get("id") != EXPECTED_EXTENSION_ID:
-    raise ValueError("XPI has an unexpected extension ID")
-if gecko.get("update_url") != EXPECTED_UPDATE_URL:
-    raise ValueError("XPI has an unexpected update URL")
+    raise ValueError("extension manifest has an unexpected ID")
+if "update_url" in gecko:
+    raise ValueError("bundled extension must not use a remote update channel")
+if "nativeMessaging" not in extension_manifest.get("permissions", []):
+    raise ValueError("extension manifest is missing nativeMessaging permission")
 
-compile(host_data.decode("utf-8"), str(host_path), "exec")
+host_data = host_source_path.read_bytes()
+compile(host_data.decode("utf-8"), str(host_source_path), "exec")
+xpi_data = build_xpi(extension_source_dir)
 
 atomic_write(host_path, host_data, 0o755)
 atomic_write(xpi_path, xpi_data, 0o600)
@@ -243,24 +179,26 @@ atomic_write(
     (json.dumps(native_manifest, indent=2) + "\n").encode(),
     0o600,
 )
-installed_release = {
+installed_version = {
     "schemaVersion": 1,
     "version": version,
     "bridgeProtocol": bridge_protocol,
-    "releaseManifestSha256": manifest_hash,
-    "extensionSha256": xpi_hash,
-    "nativeHostSha256": host_hash,
+    "extensionId": EXPECTED_EXTENSION_ID,
+    "nativeHostName": EXPECTED_HOST_NAME,
+    "extensionSha256": sha256(xpi_data),
+    "nativeHostSha256": sha256(host_data),
 }
 atomic_write(
-    installed_release_path,
-    (json.dumps(installed_release, indent=2) + "\n").encode(),
+    installed_version_path,
+    (json.dumps(installed_version, indent=2) + "\n").encode(),
     0o600,
 )
 print(version)
 PY
 )"
 
-# Remove files left by bridge releases that predated XDG_DATA_HOME storage.
+# Remove files left by older installer layouts after the bundled setup succeeds.
+rm -f -- "$OLD_RELEASE_PATH"
 if [[ "$LEGACY_LIB_DIR" != "$BRIDGE_DATA_DIR" ]]; then
   rm -f -- "$LEGACY_LIB_DIR/host.py" "$LEGACY_LIB_DIR/release.json"
   rmdir --ignore-fail-on-non-empty "$LEGACY_LIB_DIR" 2>/dev/null || true
@@ -282,6 +220,6 @@ Next:
      $XPI_PATH
   4. Accept the requested permissions and restart Thunderbird.
 
-Thunderbird will update the extension automatically. Noctalia will prompt for
-setup again when the plugin requires a newer compatible native host.
+The bridge is bundled with the Noctalia plugin. Run setup again when the panel
+reports that a compatible bridge update is required.
 EOF

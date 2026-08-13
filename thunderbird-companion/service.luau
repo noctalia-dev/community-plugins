@@ -1,8 +1,8 @@
 --!nonstrict
 -- Thunderbird Companion — background owner of bridge files and commands.
 --
--- The Thunderbird MailExtension talks to the separately released native host.
--- The host writes mailbox metadata to a private state directory; this service
+-- The bundled Thunderbird MailExtension talks to the bundled native host. The
+-- host writes mailbox metadata to a private state directory; this service
 -- publishes that snapshot for the widget/panel and writes validated commands.
 
 local STALE_AFTER_MS = 150000
@@ -11,6 +11,7 @@ local MAX_SEEN_MESSAGES = 500
 local BRIDGE_DATA_DIR_NAME = "noctalia-thunderbird-companion"
 local BRIDGE_STATE_RELATIVE_PATH = "noctalia/thunderbird-companion"
 local NATIVE_HOST_NAME = "dev.noctalia.thunderbird_companion"
+local EXTENSION_ID = "thunderbird-companion@mdj2812.github.io"
 
 local function trim(value)
   return noctalia.string.trim(tostring(value or ""))
@@ -48,9 +49,9 @@ local COMMAND_DIR = BRIDGE_DIR .. "/commands"
 local ACTION_RESULT_PATH = BRIDGE_DIR .. "/action-result.json"
 local BRIDGE_ERROR_PATH = BRIDGE_DIR .. "/bridge-error.json"
 local PLUGIN_DIR = tostring(noctalia.pluginDir() or "")
-local RELEASE_SPEC_PATH = PLUGIN_DIR .. "/bridge-release.json"
+local BRIDGE_VERSION_PATH = PLUGIN_DIR .. "/bridge-version.json"
 local INSTALLED_HOST_PATH = BRIDGE_DATA_DIR .. "/host.py"
-local INSTALLED_RELEASE_PATH = BRIDGE_DATA_DIR .. "/release.json"
+local INSTALLED_VERSION_PATH = BRIDGE_DATA_DIR .. "/installed-bridge.json"
 local HOST_MANIFEST_PATH =
   noctalia.expandPath("~/.mozilla/native-messaging-hosts/" .. NATIVE_HOST_NAME .. ".json")
 local DEFAULT_XPI_PATH = BRIDGE_DATA_DIR .. "/thunderbird-companion.xpi"
@@ -254,17 +255,17 @@ local function refresh_bridge_error()
   end
 end
 
-local function bridge_release_status()
-  local required = decode_file(RELEASE_SPEC_PATH)
-  local installed = decode_file(INSTALLED_RELEASE_PATH)
+local function bridge_version_status()
+  local required = decode_file(BRIDGE_VERSION_PATH)
+  local installed = decode_file(INSTALLED_VERSION_PATH)
   local required_version = type(required) == "table" and trim(required.version) or ""
   local installed_version = type(installed) == "table" and trim(installed.version) or ""
   local required_protocol = type(required) == "table" and tonumber(required.bridgeProtocol) or nil
   local installed_protocol = type(installed) == "table" and tonumber(installed.bridgeProtocol) or nil
-  local manifest = type(required) == "table" and required.manifest or nil
-  local required_hash = type(manifest) == "table" and trim(manifest.sha256) or ""
-  local installed_hash =
-    type(installed) == "table" and trim(installed.releaseManifestSha256) or ""
+  local required_extension_id = type(required) == "table" and trim(required.extensionId) or ""
+  local installed_extension_id = type(installed) == "table" and trim(installed.extensionId) or ""
+  local required_host_name = type(required) == "table" and trim(required.nativeHostName) or ""
+  local installed_host_name = type(installed) == "table" and trim(installed.nativeHostName) or ""
   local manifest_exists = noctalia.fileExists(HOST_MANIFEST_PATH)
   local host_exists = noctalia.fileExists(INSTALLED_HOST_PATH)
   local detected = host_exists or installed_version ~= ""
@@ -274,8 +275,10 @@ local function bridge_release_status()
     and required_version == installed_version
     and required_protocol ~= nil
     and required_protocol == installed_protocol
-    and required_hash ~= ""
-    and required_hash == installed_hash
+    and required_extension_id == EXTENSION_ID
+    and required_extension_id == installed_extension_id
+    and required_host_name == NATIVE_HOST_NAME
+    and required_host_name == installed_host_name
   return compatible, detected, installed_version, required_version
 end
 
@@ -293,7 +296,7 @@ local function bridge_connection_active()
 end
 
 local function update_status()
-  local compatible, detected, installed_version, required_version = bridge_release_status()
+  local compatible, detected, installed_version, required_version = bridge_version_status()
   state.bridgeInstalled = compatible
   state.bridgeDetected = detected
   state.bridgeConnected = bridge_connection_active()

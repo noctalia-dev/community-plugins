@@ -15,9 +15,9 @@ for accounts, credentials, synchronization, composing, and message storage.
 
 - `thunderbird` 128 or newer provides the mailbox and companion MailExtension
   APIs.
-- `python3` downloads, verifies, and runs the pinned native-messaging host.
-- Internet access is required during bridge setup.
-- `xdg-open` opens the downloaded extension package directory during setup.
+- `python3` builds the bundled MailExtension and runs the bundled
+  native-messaging host.
+- `xdg-open` opens the generated extension package directory on request.
 
 The bridge currently targets a native Linux Thunderbird installation. Sandboxed
 Flatpak and Snap builds may not be able to launch host native-messaging
@@ -27,16 +27,16 @@ applications.
 
 1. Enable the plugin's `bridge` service entry and open the panel.
 2. Select **Set up bridge**. No terminal interaction is required: the plugin
-   downloads the compatible bridge release pinned in `bridge-release.json`,
-   verifies its release manifest and both artifacts with SHA-256, installs the
-   native host, and shows the manual extension-installation actions in the
-   panel. It does not open external windows automatically.
+   validates the bundled bridge against `bridge-version.json`, installs the
+   native host, builds the XPI from the readable bundled source, and shows the
+   manual extension-installation actions in the panel. It does not open
+   external windows automatically.
    Specifically, the setup:
    - installs the native host, release marker, and XPI under
      `$XDG_DATA_HOME/noctalia-thunderbird-companion/` (under
      `~/.local/share/` when `XDG_DATA_HOME` is unset);
    - registers it in `~/.mozilla/native-messaging-hosts/`; and
-   - keeps the downloaded package as `thunderbird-companion.xpi` in that data
+   - keeps the generated package as `thunderbird-companion.xpi` in that data
      directory.
 3. Select **Open Add-ons** and **Open package folder** in the panel, then drag
    `thunderbird-companion.xpi` into Thunderbird Add-ons and approve its
@@ -47,12 +47,10 @@ installing an extension. The final drag and permission approval are therefore
 kept as the one required security confirmation; setup automates everything
 around it. The bridge connects automatically after installation.
 
-After the first installation, Thunderbird checks the companion's
-[GitHub-hosted update manifest](https://mdj2812.github.io/noctalia-thunderbird-companion/updates.json)
-and installs compatible extension updates automatically. Those updates cover
-only the MailExtension. When a plugin update pins a newer native-host release,
-the panel reports **Companion update required** instead of presenting the
-first-time setup message.
+The bridge does not use an independent update channel. Its readable source and
+compatibility metadata ship with the plugin. When a plugin update requires a
+different bridge version or protocol, the panel reports **Companion update
+required** and rebuilds both local components from that plugin revision.
 
 Thunderbird must be running for live mailbox state and message actions. The
 panel keeps the last snapshot when Thunderbird is closed.
@@ -112,11 +110,10 @@ latest bridge snapshot rather than storing them.
 - Connected status comes from the native host's short-lived heartbeat, not from
   the cached snapshot. Removing the extension or closing Thunderbird therefore
   changes the plugin to offline while retaining cached messages.
-- Setup runs the small bundled installer, downloads the bridge from the
-  [companion release repository](https://github.com/mdj2812/noctalia-thunderbird-companion),
-  and writes the per-user native-host registration and XPI paths documented
-  above. Panel buttons launch `thunderbird about:addons` or `xdg-open` only when
+- Setup copies the bundled native host, builds the bundled MailExtension, and
+  writes the per-user native-host registration and XPI paths documented above.
+  Panel buttons launch `thunderbird about:addons` or `xdg-open` only when
   selected.
 - No mail-server credentials are exposed to Noctalia or the native host.
-- The native host accepts messages only from the pinned extension ID and only
+- The native host accepts messages only from the bundled extension ID and only
   exchanges snapshots and a small fixed command set.
