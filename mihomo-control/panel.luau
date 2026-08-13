@@ -15,6 +15,7 @@
 
 local MODES = { "rule", "global", "direct" }
 local GROUP_DRAG_TYPE = "mihomo-proxy-group"
+local GROUP_DROP_HIT_SLOP = 128
 
 local snapshot = {
   connection = {},
@@ -294,7 +295,9 @@ local function traffic_card()
 end
 
 -- Thin insertion target before every group card, plus one after the final
--- card. The numeric value is interpreted against the row-major group order.
+-- card. Its drag-only halo covers the neighboring card body; overlapping
+-- targets resolve to the closest insertion point. expandOnDrag then opens a
+-- full-card gap, previewing the resulting layout before the pointer is released.
 local function group_insertion_zone(index)
   return ui.dropZone({
     key = "group-gap-" .. index,
@@ -304,7 +307,7 @@ local function group_insertion_zone(index)
     height = 3,
     radius = 6,
     expandOnDrag = true,
-    hitSlop = 18,
+    hitSlop = GROUP_DROP_HIT_SLOP,
   })
 end
 
@@ -333,13 +336,13 @@ local function group_card(group)
     ui.row({ gap = 6, align = "center", justify = "space_between", onClick = function()
       toggle_group(group.name)
     end }, {
-      -- The grip sits two levels below the card, so previewAncestor = 2 makes
-      -- the drag ghost and lifted layout item represent the complete card.
+      -- Lift the complete slot, including its insertion zone, so no selector
+      -- line remains at the source position while the card is being dragged.
       ui.dragSource({
         key = "group-grip-" .. group.name,
         dragType = GROUP_DRAG_TYPE,
         payload = group.name,
-        previewAncestor = 2,
+        previewAncestor = 3,
         liftFromLayout = true,
         width = 20,
         height = 20,

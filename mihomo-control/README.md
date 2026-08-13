@@ -43,8 +43,9 @@ in its subtitle, visible without expanding. Member lists are collapsed by
 default; click a group header to expand it. Click a member to select it; the
 current selection is marked with a dot. Use **Test all** next to the Proxy
 groups heading to run a latency test on every group at once. Drag a card by
-its ☰ grip and drop it into an insertion gap to reorder the groups. The custom
-display order survives controller polling and plugin restarts.
+its ☰ grip over another card to reorder the groups. The nearest insertion gap
+opens to preview the resulting layout before drop. The custom display order
+survives controller polling and plugin restarts.
 
 Add the **Mihomo: Rule** shortcut from Settings → Control Center shortcuts to
 quickly toggle between rule and global mode.
