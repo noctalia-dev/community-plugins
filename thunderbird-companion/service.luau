@@ -267,7 +267,7 @@ local function bridge_release_status()
     type(installed) == "table" and trim(installed.releaseManifestSha256) or ""
   local manifest_exists = noctalia.fileExists(HOST_MANIFEST_PATH)
   local host_exists = noctalia.fileExists(INSTALLED_HOST_PATH)
-  local detected = manifest_exists or host_exists or installed_version ~= ""
+  local detected = host_exists or installed_version ~= ""
   local compatible = manifest_exists
     and host_exists
     and required_version ~= ""
