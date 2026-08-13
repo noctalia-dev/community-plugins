@@ -24,15 +24,6 @@ min = 0
 default = 50
 
 
-[[setting]]
-key = "testmode_enable"
-type = "bool"
-label_key = "settings.testmode_enable.label"
-description_key = "settings.testmode_enable.description"
-default = false
-advanced = true
-
-
 # Provider
 
 [[launcher_provider]]

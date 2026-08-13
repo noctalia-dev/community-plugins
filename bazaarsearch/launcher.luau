@@ -33,6 +33,11 @@ type BzrInitialSearchReturn = {
 -- ================================= --
 
 
+-- Wrapper for noctalia translate function
+local function bzrTR(key: string, replaces: {[string]: boolean | number | string}?): string
+  return noctalia.tr(key, replaces)
+end
+
 -- Input sanitization function for Flatpak IDs
 -- As per Flatpak (https://docs.flatpak.org/en/latest/conventions.html)
 -- and the DBus naming convention (https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names),
@@ -65,24 +70,23 @@ end
 -- Returns a table row that the launcher will put as an
 -- entry.
 local function bzrCreateErrorReport(data: BzrErrReport): LauncherResult
-  local cmd_string = data["cmd_string"] and tostring(data["cmd_string"]) or "no command provided"
-  local stage = data["stage"] and tostring(data["stage"]) or "no stage provided"
-  local query = data["query"] and tostring(data["query"]) or "no query provided"
-  local err_title = data["err_title"] and tostring(data["err_title"]) or "no error title provided"
+  local cmd_string = data["cmd_string"] and tostring(data["cmd_string"]) or bzrTR("error.no_cmd_prov")
+  local stage = data["stage"] and tostring(data["stage"]) or bzrTR("error.no_stage_prov")
+  local query = data["query"]
+  local err_title = data["err_title"]
   local err_body = data["err_body"] and tostring(data["err_body"]) or ""
 
-  local full_err_msg = "ERROR REPORT\n"
-                    .. "Stage: " .. stage .. "\n"
-                    .. "Command: " .. cmd_string .. "\n"
-                    .. "Query: " .. query .. "\n"
-                    .. "Error: " .. err_title .. "\n"
-                    .. err_body
+  local full_err_msg = string.format("%s\n", bzrTR("error.report.header"))
+                    .. string.format("%s: %s\n", bzrTR("error.report.stage"), stage)
+                    .. string.format("%s: %s\n", bzrTR("error.report.command"), cmd_string)
+                    .. string.format("%s: %s\n", bzrTR("error.report.query"), query)
+                    .. string.format("%s: %s\n%s", bzrTR("error.report.error"), err_title, err_body)
 
 
   return {
     id = "bzrerror:" .. full_err_msg,
     title = err_title,
-    subtitle = "Select this to copy an error report for the maintainer.",
+    subtitle = bzrTR("error.report.user_instruction"),
     glpyh = "toast-error"
   }
 end
@@ -113,7 +117,7 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
           cmd_string = cmd_string,
           stage = "getMetadata",
           query = query,
-          err_title = "'busctl' failed with exit code " .. tostring(result.exitCode),
+          err_title = bzrTR("error.msg.busctl_fail", { exitCode = result.exitCode }),
           err_body = result.stderr
         })})
         return 
@@ -125,7 +129,7 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
         return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "getMetadata",
-          err_title = "Failed to parse 'busctl' JSON data",
+          err_title = bzrTR("error.msg.busctl_json_fail"),
           err_body = err,
           query = query,
         })})
@@ -137,8 +141,8 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
           cmd_string = cmd_string,
           stage = "getMetadata",
           query = query,
-          err_title = "Search returned malformed value - 'busctl' return type identifier is incorrect",
-          err_body = "Expected \"aa{sv}\", got \"" .. busdata["type"] .. "\"",
+          err_title = bzrTR("err.msg.malformed_value_retval"),
+          err_body = bzrTR("error.msg.busctl_incorrect_ident", { expected = "aa{sv}", recieved = busdata["type"] }),
         })})
       end
 
@@ -176,7 +180,6 @@ end
 -- Returns the data necessary for getMetadata and optionally
 -- an error, if something went wrong.
 local function bzrInitialSearch(query)
-  noctalia.log("I am here")
   local text = noctalia.string.trim(query)
   local cmd_string = "busctl "
                   .. "--user --json=short "
@@ -185,7 +188,6 @@ local function bzrInitialSearch(query)
                   .. BZR_DBUS_INTERFACE .. " "
                   .. "GetInitialResultSet "
                   .. "as 1 \"" .. bzrUserInputSanitize(text) .. "\""
-  noctalia.log(cmd_string)
 
   noctalia.runAsync(
     cmd_string,
@@ -197,7 +199,7 @@ local function bzrInitialSearch(query)
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
           query = query,
-          err_title = "'busctl' failed with exit code " .. tostring(result.exitCode),
+          err_title = bzrTR("error.msg.busctl_fail", { exitCode = result.exitCode }),
           err_body = result.stderr
         })})
       end
@@ -208,7 +210,7 @@ local function bzrInitialSearch(query)
         return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
-          err_title = "Failed to parse 'busctl' JSON data",
+          err_title = bzrTR("error.msg.busctl_json_fail"),
           err_body = err,
           query = query,
         })})
@@ -219,8 +221,8 @@ local function bzrInitialSearch(query)
         return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
-          err_title = "Search returned malformed value - arraystring identifier is incorrect",
-          err_body = "Expected \"as\", got \"" .. busdata["type"] .. "\"",
+          err_title = bzrTR("error.msg.malformed_value_retval"),
+          err_body = bzrTR("error.msg.busctl_incorrect_ident", { expected = "as", recieved = busdata["type"] }),
           query = query,
         })})
       end
@@ -263,8 +265,8 @@ function onQuery(query)
       cmd_string = "noctalia.commandExists(\"busctl\")",
       query = query,
       stage = "onQuery",
-      err_title = "'busctl' is not found in the PATH",
-      err_body = "Please make sure that 'busctl' is installed and is correctly set somewhere along the PATH",
+      err_title = bzrTR("error.msg.busctl_not_found"),
+      err_body = bzrTR("error.msg.busctl_not_found_body"),
     })})
     return
   end
@@ -278,7 +280,10 @@ function onActivate(id: string)
   local errmsg = id:match("^bzrerror:(.+)$")
   if errmsg then
     noctalia.copyToClipboard(errmsg, "text/plain")
-    noctalia.notify("Bazaar Search Error", "Error message copied to clipboard.")
+    noctalia.notify(
+      bzrTR("error.notify.copy.title"),
+      bzrTR("error.notify.copy.msg")
+    )
     return
   end
   if id ~= "" then
@@ -293,7 +298,10 @@ function onActivate(id: string)
         .. "sasu \"" .. id .. "\" 0 " .. tostring(os.time()) 
       )
     else
-      noctalia.notifyError("Bazaar Search Error", "Selected Flatpak ID failed sanitization check, ignoring launch command.")
+      noctalia.notifyError(
+        bzrTR("error.notify.activate.title"),
+        bzrTR("error_notify.activate.msg")
+      )
     end
   end
 end
