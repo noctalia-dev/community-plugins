@@ -35,6 +35,26 @@
         "floating": "浮动",
         "attached": "附着"
       }
+    },
+    "show_mode": {
+      "label": "显示模式标签",
+      "description": "在图标旁显示“规则”“全局”或“直连”。关闭后仅显示图标，以获得更紧凑的组件。"
+    },
+    "icon_size": {
+      "label": "图标大小",
+      "description": "栏图标的像素大小（10–32）。"
+    },
+    "icon_color_mode": {
+      "label": "图标颜色模式",
+      "description": "根据连接状态为 Mihomo 字形着色，或使用单一自定义颜色。",
+      "options": {
+        "status": "连接状态",
+        "custom": "自定义"
+      }
+    },
+    "icon_color": {
+      "label": "图标颜色",
+      "description": "可着色 Mihomo 字形的颜色。"
     }
   },
   "panel": {

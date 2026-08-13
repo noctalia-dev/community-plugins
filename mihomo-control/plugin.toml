@@ -88,6 +88,41 @@ options = [
 id = "widget"
 entry = "widget.luau"
 
+  [[widget.setting]]
+  key = "show_mode"
+  type = "bool"
+  default = true
+  label_key = "settings.show_mode.label"
+  description_key = "settings.show_mode.description"
+
+  [[widget.setting]]
+  key = "icon_size"
+  type = "int"
+  default = 16
+  min = 10
+  max = 32
+  label_key = "settings.icon_size.label"
+  description_key = "settings.icon_size.description"
+
+  [[widget.setting]]
+  key = "icon_color_mode"
+  type = "select"
+  default = "status"
+  label_key = "settings.icon_color_mode.label"
+  description_key = "settings.icon_color_mode.description"
+  options = [
+    { value = "status", label_key = "settings.icon_color_mode.options.status" },
+    { value = "custom", label_key = "settings.icon_color_mode.options.custom" },
+  ]
+
+  [[widget.setting]]
+  key = "icon_color"
+  type = "color"
+  default = "primary"
+  label_key = "settings.icon_color.label"
+  description_key = "settings.icon_color.description"
+  visible_when = { key = "icon_color_mode", values = ["custom"] }
+
 # Panel placement is host-owned, so the widget selects between two entries
 # backed by the same script according to the panel_placement setting.
 [[panel]]

@@ -7,6 +7,13 @@
 -- proxy group.
 
 local PLUGIN_ID = "mdj2812/mihomo-control"
+local MIHOMO_GLYPH = utf8.char(0xE001)
+local mihomoGlyphFont = noctalia.loadFont("fonts/mihomo-glyph.ttf")
+local STATUS_ICON_COLORS = {
+  online = "#27924f",
+  connecting = "#a35818",
+  offline = "#a72f2f",
+}
 
 local function panel_id()
   if noctalia.getConfig("panel_placement") == "attached" then
@@ -29,6 +36,11 @@ local function format_rate(bytes_per_second)
   return string.format("%d B/s", value)
 end
 
+local function configured_icon_size()
+  local value = math.floor(tonumber(noctalia.getConfig("icon_size")) or 16)
+  return math.max(10, math.min(32, value))
+end
+
 local function render()
   local conn = noctalia.state.get("mihomo.connection") or {}
   local config = noctalia.state.get("mihomo.config") or {}
@@ -38,18 +50,39 @@ local function render()
 
   local online = conn.status == "online"
   local mode = noctalia.tr("panel.mode_" .. (config.mode or "rule"))
-  local icon_path = "icon-offline.png"
-  if online then
-    icon_path = "icon-online.png"
-  elseif conn.status == "connecting" then
-    icon_path = "icon-connecting.png"
+
+  local show_mode = noctalia.getConfig("show_mode") ~= false
+  local icon_size = configured_icon_size()
+  local icon
+  if mihomoGlyphFont ~= nil then
+    local color = STATUS_ICON_COLORS[conn.status] or STATUS_ICON_COLORS.offline
+    if noctalia.getConfig("icon_color_mode") == "custom" then
+      color = noctalia.getConfig("icon_color") or "primary"
+    end
+    icon = ui.label({
+      text = MIHOMO_GLYPH,
+      fontFamily = mihomoGlyphFont,
+      fontSize = icon_size,
+      color = color,
+      baseline = "inkCentered",
+      maxLines = 1,
+    })
+  else
+    icon = ui.image({ path = "icon.png", width = icon_size, height = icon_size })
+  end
+
+  local children = { icon }
+  if show_mode then
+    table.insert(children, ui.label({
+      text = mode,
+      fontSize = 12,
+      color = "on_surface",
+      fontWeight = "medium",
+    }))
   end
 
   local container = barWidget.isVertical() and ui.column or ui.row
-  barWidget.render(container({ gap = 6, align = "center" }, {
-    ui.image({ path = icon_path, width = 16, height = 16 }),
-    ui.label({ text = mode, fontSize = 12, color = "on_surface", fontWeight = "medium" }),
-  }))
+  barWidget.render(container({ gap = show_mode and 6 or 0, align = "center" }, children))
 
   local status_value = "Offline"
   if online then
@@ -97,6 +130,10 @@ end
 
 function update()
   noctalia.setUpdateInterval(1000)
+  render()
+end
+
+function onConfigChanged()
   render()
 end
 

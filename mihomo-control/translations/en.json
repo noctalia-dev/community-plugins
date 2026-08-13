@@ -35,6 +35,26 @@
         "floating": "Floating",
         "attached": "Attached"
       }
+    },
+    "show_mode": {
+      "label": "Show mode label",
+      "description": "Show Rule, Global, or Direct beside the icon. Disable for a compact icon-only widget."
+    },
+    "icon_size": {
+      "label": "Icon size",
+      "description": "Size of the bar icon in pixels (10–32)."
+    },
+    "icon_color_mode": {
+      "label": "Icon color mode",
+      "description": "Color the Mihomo glyph by connection status or use one custom color.",
+      "options": {
+        "status": "Connection status",
+        "custom": "Custom"
+      }
+    },
+    "icon_color": {
+      "label": "Icon color",
+      "description": "Color of the tintable Mihomo glyph."
     }
   },
   "panel": {
