@@ -7,10 +7,9 @@ A Pomodoro timer plugin for Noctalia for productivity. Initially ported from the
 - **Cycles**: Configurable number of (work - short break) cycles before a long break.
 - **Auto-start**: Optionally auto-start breaks and/or work sessions.
 - **Bar Widget**: Shows status and remaining time on the bar widget when the panel is closed.
-- **Notifications**: Toast notification when work/break finishes.
+- **Notifications**: Toast notification + alarm sound when work/break finishes.
 
-## TODO 
-- Sound notification (currently the toast is shown silently)
+## TODO
 - IPC
 
 ## Plugin
@@ -46,8 +45,13 @@ noctalia msg panel-toggle thepunkoff/pomodoro:panel
 noctalia msg panel-toggle thepunkoff/pomodoro:panel
 ```
 
+## Dependencies
+- `pw-play` for playing alarm sound.
+
 ## Licensing
 
 This project is licensed under the MIT License.
 
-It bundles the JetBrains Mono font, which is licensed separately under the SIL Open Font License 1.1 (OFL-1.1). See `THIRD_PARTY_LICENCES/OFL.txt` for the full license text.
+Additional assets:
+- JetBrains Mono font, which is licensed separately under the SIL Open Font License 1.1 (OFL-1.1). See `THIRD_PARTY_LICENCES/OFL.txt` for the full license text.
+- Alarm Sound: `alarm.mp3` - Sourced from [Pixabay](https://pixabay.com/) (Royalty-free, [Pixabay Content License](https://pixabay.com/service/license-summary/))

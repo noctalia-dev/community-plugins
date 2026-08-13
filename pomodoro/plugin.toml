@@ -1,13 +1,13 @@
 id           = "thepunkoff/pomodoro"
 name         = "Pomodoro Timer"
-version      = "1.1.0"
+version      = "1.2.0"
 plugin_api   = 3
 author       = "thepunkoff"
 license = "MIT"
 icon = "brain"
 description = "Simple pomodoro timer."
 tags = ["bar", "panel", "service", "productivity", "time"]
-dependencies = []
+dependencies = ["pw-play"]
 
 [[setting]]
 key     = "work-duration"
@@ -51,6 +51,13 @@ type    = "bool"
 label_key = "settings.auto-start-work.label"
 description_key = "settings.auto-start-work.description"
 default = false
+
+[[setting]]
+key     = "enable-alarm-sound"
+type    = "bool"
+label_key = "settings.enable-alarm-sound.label"
+description_key = "settings.enable-alarm-sound.description"
+default = true
 
 [[widget]]
 id = "widget"

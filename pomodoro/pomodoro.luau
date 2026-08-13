@@ -6,6 +6,7 @@ local config = (function()
         sessionsBeforeLongBreak = noctalia.getConfig("sessions-before-long-break"),
         autoStartBreaks = noctalia.getConfig("auto-start-breaks"),
         autoStartWork = noctalia.getConfig("auto-start-work"),
+        enableAlarmSound = noctalia.getConfig("enable-alarm-sound"),
     }
 end)()
 noctalia.state.set("pomodoro.config", config)
@@ -81,3 +82,31 @@ function update()
         noctalia.state.set("pomodoro.state", state)
     end
 end
+
+local function notifyStageFinished(state, sessionData)
+    local sessionNumber = state.sessionPtr.session
+    local stageNumber = state.sessionPtr.stage
+    local body =
+        if stageNumber == 1 then
+            noctalia.tr("notification.work-complete")
+        elseif sessionNumber < #sessionData then
+            noctalia.tr("notification.short-break-complete")
+        else
+            noctalia.tr("notification.long-break-complete")
+
+    if config.enableAlarmSound then
+        local pluginDir = noctalia.pluginDir()
+        if pluginDir then
+            local alarmDir = pluginDir .. "/alarm.mp3"
+            noctalia.runAsync("pw-play " .. alarmDir)
+        end
+    end
+
+    noctalia.notify("Pomodoro Timer", body)
+end
+
+noctalia.state.watch("pomodoro.state", function(state)
+    if state.secondsLeft == 0 then
+        notifyStageFinished(state, sessionData)
+    end
+end)
