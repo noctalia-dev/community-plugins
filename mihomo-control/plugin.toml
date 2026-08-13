@@ -101,6 +101,8 @@ entry = "widget.luau"
     { value = "upload", label_key = "settings.label_content.options.upload" },
     { value = "traffic", label_key = "settings.label_content.options.traffic" },
     { value = "connections", label_key = "settings.label_content.options.connections" },
+    { value = "proxy", label_key = "settings.label_content.options.proxy" },
+    { value = "latency", label_key = "settings.label_content.options.latency" },
   ]
 
   [[widget.setting]]

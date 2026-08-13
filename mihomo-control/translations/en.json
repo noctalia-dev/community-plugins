@@ -45,7 +45,9 @@
         "download": "Download speed",
         "upload": "Upload speed",
         "traffic": "Download + upload",
-        "connections": "Connection count"
+        "connections": "Connection count",
+        "proxy": "First group selection",
+        "latency": "First group latency"
       }
     },
     "icon_size": {
@@ -106,7 +108,8 @@
     "status_connecting": "Connecting",
     "status_offline_with_error": "Offline — {error}",
     "status_offline_plain": "Offline",
-    "connections_short": "{count} conn"
+    "connections_short": "{count} conn",
+    "latency_timeout": "timeout"
   },
   "shortcut": {
     "label": "Mihomo: {mode}",

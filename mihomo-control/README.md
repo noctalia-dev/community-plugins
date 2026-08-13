@@ -18,9 +18,11 @@ secret.
 Add the **Mihomo Control** widget from the Add-widget picker. By default it
 shows the current proxy mode (rule / global / direct). **Widget label** can
 instead show nothing, download speed, upload speed, both rates, or the active
-connection count. Its size and color presentation are also configurable. Hover
-it for the connection status, live download and upload rates, connection count
-and each proxy group's current selection. Left-click the widget to toggle the
+connection count. It can also show the first visible proxy group's current
+selection or its selected latency, falling back to that group's best known
+member latency. Its size and color presentation are also configurable. Hover it
+for the connection status, live download and upload rates, connection count and
+each proxy group's current selection. Left-click the widget to toggle the
 control panel using the configured **Panel placement**. Both variants can also
 be opened directly:
 
@@ -62,7 +64,7 @@ all communication with the external controller and streams the traffic data.
 | Test URL            | string  | `https://www.gstatic.com/generate_204` | URL used for latency tests; empty uses each group's configured test URL. |
 | Refresh interval    | int     | `2`          | Seconds between status polls (1–60); traffic rates stream in real time.     |
 | Panel placement     | select  | `floating`   | Open the control panel centered on screen or attached to the bar widget.    |
-| Widget label        | select  | `mode`       | Show nothing, proxy mode, traffic rates, or connection count.               |
+| Widget label        | select  | `mode`       | Show nothing, mode, traffic, connections, or first-group proxy/latency.     |
 | Icon size           | int     | `16`         | Bar icon size in pixels (10–32).                                            |
 | Icon color mode     | select  | `status`     | Color the Mihomo glyph by connection status or use a custom color.          |
 | Icon color          | color   | `primary`    | Color used by the tintable Mihomo glyph.                                    |

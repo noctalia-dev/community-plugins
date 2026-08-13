@@ -45,7 +45,9 @@
         "download": "下载速度",
         "upload": "上传速度",
         "traffic": "下载 + 上传",
-        "connections": "连接数"
+        "connections": "连接数",
+        "proxy": "首个策略组所选代理",
+        "latency": "首个策略组延迟"
       }
     },
     "icon_size": {
@@ -106,7 +108,8 @@
     "status_connecting": "连接中",
     "status_offline_with_error": "离线 — {error}",
     "status_offline_plain": "离线",
-    "connections_short": "{count} 个连接"
+    "connections_short": "{count} 个连接",
+    "latency_timeout": "超时"
   },
   "shortcut": {
     "label": "Mihomo：{mode}",

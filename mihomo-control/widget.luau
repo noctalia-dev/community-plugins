@@ -41,7 +41,42 @@ local function configured_icon_size()
   return math.max(10, math.min(32, value))
 end
 
-local function configured_label(mode, traffic, connections)
+local function group_latency(group)
+  if group.now and group.now ~= "" then
+    for _, member in ipairs(type(group.members) == "table" and group.members or {}) do
+      if member.name == group.now and member.delay ~= nil then
+        return tonumber(member.delay)
+      end
+    end
+  end
+
+  local best = nil
+  local any_tested = false
+  for _, member in ipairs(type(group.members) == "table" and group.members or {}) do
+    local delay = tonumber(member.delay)
+    if delay ~= nil then
+      any_tested = true
+      if delay > 0 and (best == nil or delay < best) then
+        best = delay
+      end
+    end
+  end
+  if best ~= nil then
+    return best
+  end
+  return any_tested and 0 or nil
+end
+
+local function first_visible_group(groups)
+  for _, group in ipairs(type(groups) == "table" and groups or {}) do
+    if group.hidden ~= true then
+      return group
+    end
+  end
+  return nil
+end
+
+local function configured_label(mode, traffic, connections, groups)
   local content = noctalia.getConfig("label_content") or "mode"
   if content == "none" then
     return nil
@@ -60,6 +95,22 @@ local function configured_label(mode, traffic, connections)
       count = math.max(0, math.floor(tonumber(connections.count) or 0)),
     })
   end
+  if content == "proxy" then
+    local group = first_visible_group(groups)
+    local selected = group and tostring(group.now or "") or ""
+    return selected ~= "" and selected or "—"
+  end
+  if content == "latency" then
+    local group = first_visible_group(groups)
+    local delay = group and group_latency(group) or nil
+    if delay == nil then
+      return "— ms"
+    end
+    if delay <= 0 then
+      return noctalia.tr("widget.latency_timeout")
+    end
+    return `{math.floor(delay)} ms`
+  end
   return mode
 end
 
@@ -73,7 +124,7 @@ local function render()
   local online = conn.status == "online"
   local mode = noctalia.tr("panel.mode_" .. (config.mode or "rule"))
 
-  local label_text = configured_label(mode, traffic, connections)
+  local label_text = configured_label(mode, traffic, connections, groups)
   local icon_size = configured_icon_size()
   local icon
   if mihomoGlyphFont ~= nil then
