@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "bridgeProtocol": 1,
+  "manifest": {
+    "url": "https://github.com/mdj2812/noctalia-thunderbird-companion/releases/download/v0.1.0/noctalia-thunderbird-companion-v0.1.0.json",
+    "sha256": "232572c76a5fd0aaef9dfd553b4297b316a1047468177bb9bcc0de5a963e43e4"
+  }
+}
