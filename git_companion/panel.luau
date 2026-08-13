@@ -125,12 +125,12 @@ local function itemCard(item)
       render()
     end,
   }, {
-    ui.row({ gap = 10, align = "start" }, {
-      ui.glyph({ name = itemGlyph(), size = 16, color = hovered and "on_tertiary" or "primary" }),
+    ui.row({ gap = 10, align = "center" }, {
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
         ui.label({ text = item.ref or "", fontSize = 11, color = hovered and "on_tertiary" or "on_surface_variant", maxLines = 1 }),
       }),
+      ui.glyph({ name = "circle-check", size = 24, color = hovered and "on_tertiary" or "primary", visible = item.detailed_merge_status == "mergeable" }),
     }),
   })
 end

@@ -36,7 +36,7 @@ local function buildCommand(kind)
     table.insert(parts, sub)
     table.insert(parts, "list")
     for _, v in ipairs(scopeArgs()) do table.insert(parts, v) end
-    table.insert(parts, "--assignee=@me")
+    table.insert(parts, "--author=@me")
     table.insert(parts, "--output")
     table.insert(parts, "json")
   else
@@ -63,7 +63,8 @@ local function normalizeItem(raw, kind)
     return {
       title = raw.title or "",
       url = raw.web_url or "",
-      ref = (raw.references and raw.references.full) or (prefix .. (raw.iid or ""))
+      ref = (raw.references and raw.references.full) or (prefix .. (raw.iid or "")),
+      detailed_merge_status = raw.detailed_merge_status or "",
     }
   end
   -- GitHub
