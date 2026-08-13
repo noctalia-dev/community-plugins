@@ -36,9 +36,17 @@
         "attached": "附着"
       }
     },
-    "show_mode": {
-      "label": "显示模式标签",
-      "description": "在图标旁显示“规则”“全局”或“直连”。关闭后仅显示图标，以获得更紧凑的组件。"
+    "label_content": {
+      "label": "组件标签",
+      "description": "选择 Mihomo 图标旁显示的内容。",
+      "options": {
+        "none": "无（仅图标）",
+        "mode": "代理模式",
+        "download": "下载速度",
+        "upload": "上传速度",
+        "traffic": "下载 + 上传",
+        "connections": "连接数"
+      }
     },
     "icon_size": {
       "label": "图标大小",
@@ -97,7 +105,8 @@
     "status_online_plain": "在线",
     "status_connecting": "连接中",
     "status_offline_with_error": "离线 — {error}",
-    "status_offline_plain": "离线"
+    "status_offline_plain": "离线",
+    "connections_short": "{count} 个连接"
   },
   "shortcut": {
     "label": "Mihomo：{mode}",

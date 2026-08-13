@@ -36,9 +36,17 @@
         "attached": "Attached"
       }
     },
-    "show_mode": {
-      "label": "Show mode label",
-      "description": "Show Rule, Global, or Direct beside the icon. Disable for a compact icon-only widget."
+    "label_content": {
+      "label": "Widget label",
+      "description": "Choose what is shown beside the Mihomo icon.",
+      "options": {
+        "none": "None (icon only)",
+        "mode": "Proxy mode",
+        "download": "Download speed",
+        "upload": "Upload speed",
+        "traffic": "Download + upload",
+        "connections": "Connection count"
+      }
     },
     "icon_size": {
       "label": "Icon size",
@@ -97,7 +105,8 @@
     "status_online_plain": "Online",
     "status_connecting": "Connecting",
     "status_offline_with_error": "Offline — {error}",
-    "status_offline_plain": "Offline"
+    "status_offline_plain": "Offline",
+    "connections_short": "{count} conn"
   },
   "shortcut": {
     "label": "Mihomo: {mode}",

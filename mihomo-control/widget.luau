@@ -41,6 +41,28 @@ local function configured_icon_size()
   return math.max(10, math.min(32, value))
 end
 
+local function configured_label(mode, traffic, connections)
+  local content = noctalia.getConfig("label_content") or "mode"
+  if content == "none" then
+    return nil
+  end
+  if content == "download" then
+    return `▼ {format_rate(traffic.down)}`
+  end
+  if content == "upload" then
+    return `▲ {format_rate(traffic.up)}`
+  end
+  if content == "traffic" then
+    return `▼ {format_rate(traffic.down)}  ▲ {format_rate(traffic.up)}`
+  end
+  if content == "connections" then
+    return noctalia.tr("widget.connections_short", {
+      count = math.max(0, math.floor(tonumber(connections.count) or 0)),
+    })
+  end
+  return mode
+end
+
 local function render()
   local conn = noctalia.state.get("mihomo.connection") or {}
   local config = noctalia.state.get("mihomo.config") or {}
@@ -51,7 +73,7 @@ local function render()
   local online = conn.status == "online"
   local mode = noctalia.tr("panel.mode_" .. (config.mode or "rule"))
 
-  local show_mode = noctalia.getConfig("show_mode") ~= false
+  local label_text = configured_label(mode, traffic, connections)
   local icon_size = configured_icon_size()
   local icon
   if mihomoGlyphFont ~= nil then
@@ -72,9 +94,9 @@ local function render()
   end
 
   local children = { icon }
-  if show_mode then
+  if label_text ~= nil then
     table.insert(children, ui.label({
-      text = mode,
+      text = label_text,
       fontSize = 12,
       color = "on_surface",
       fontWeight = "medium",
@@ -82,7 +104,7 @@ local function render()
   end
 
   local container = barWidget.isVertical() and ui.column or ui.row
-  barWidget.render(container({ gap = show_mode and 6 or 0, align = "center" }, children))
+  barWidget.render(container({ gap = label_text ~= nil and 6 or 0, align = "center" }, children))
 
   local status_value = "Offline"
   if online then

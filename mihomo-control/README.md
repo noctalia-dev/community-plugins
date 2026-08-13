@@ -16,12 +16,13 @@ secret.
 ## Usage
 
 Add the **Mihomo Control** widget from the Add-widget picker. By default it
-shows the current proxy mode (rule / global / direct); disable **Show mode
-label** for a compact icon-only widget. Its size and color presentation are
-also configurable. Hover it for the connection status, live download and
-upload rates, connection count and each proxy group's current selection.
-Left-click the widget to toggle the control panel using the configured
-**Panel placement**. Both variants can also be opened directly:
+shows the current proxy mode (rule / global / direct). **Widget label** can
+instead show nothing, download speed, upload speed, both rates, or the active
+connection count. Its size and color presentation are also configurable. Hover
+it for the connection status, live download and upload rates, connection count
+and each proxy group's current selection. Left-click the widget to toggle the
+control panel using the configured **Panel placement**. Both variants can also
+be opened directly:
 
 ```sh
 noctalia msg panel-toggle mdj2812/mihomo-control:panel
@@ -61,7 +62,7 @@ all communication with the external controller and streams the traffic data.
 | Test URL            | string  | `https://www.gstatic.com/generate_204` | URL used for latency tests; empty uses each group's configured test URL. |
 | Refresh interval    | int     | `2`          | Seconds between status polls (1–60); traffic rates stream in real time.     |
 | Panel placement     | select  | `floating`   | Open the control panel centered on screen or attached to the bar widget.    |
-| Show mode label     | bool    | on           | Show Rule/Global/Direct beside the icon; disable for a compact widget.      |
+| Widget label        | select  | `mode`       | Show nothing, proxy mode, traffic rates, or connection count.               |
 | Icon size           | int     | `16`         | Bar icon size in pixels (10–32).                                            |
 | Icon color mode     | select  | `status`     | Color the Mihomo glyph by connection status or use a custom color.          |
 | Icon color          | color   | `primary`    | Color used by the tintable Mihomo glyph.                                    |

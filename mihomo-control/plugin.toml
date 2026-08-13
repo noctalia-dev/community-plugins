@@ -89,11 +89,19 @@ id = "widget"
 entry = "widget.luau"
 
   [[widget.setting]]
-  key = "show_mode"
-  type = "bool"
-  default = true
-  label_key = "settings.show_mode.label"
-  description_key = "settings.show_mode.description"
+  key = "label_content"
+  type = "select"
+  default = "mode"
+  label_key = "settings.label_content.label"
+  description_key = "settings.label_content.description"
+  options = [
+    { value = "none", label_key = "settings.label_content.options.none" },
+    { value = "mode", label_key = "settings.label_content.options.mode" },
+    { value = "download", label_key = "settings.label_content.options.download" },
+    { value = "upload", label_key = "settings.label_content.options.upload" },
+    { value = "traffic", label_key = "settings.label_content.options.traffic" },
+    { value = "connections", label_key = "settings.label_content.options.connections" },
+  ]
 
   [[widget.setting]]
   key = "icon_size"
