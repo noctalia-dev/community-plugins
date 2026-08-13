@@ -1,0 +1,8 @@
+{
+  "settings.glyph.label": "Glyph",
+  "settings.glyph.description": "Bar glyph shown for the widget.",
+  "settings.notify_on_switch.label": "Notify on switch",
+  "settings.notify_on_switch.description": "Show a notification with the new wallpaper name after switching.",
+  "settings.show_name.label": "Show wallpaper name",
+  "settings.show_name.description": "Display the current wallpaper file name next to the glyph."
+}
