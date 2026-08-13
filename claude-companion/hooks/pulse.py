@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pulse hook dispatcher (lowcache/claude-companion plugin).
 
-Bridges a Claude Code lifecycle hook to the pulse bar widget, enriching the
+Bridges a Claude Code lifecycle hook to the pulse aggregator service, enriching the
 event with live model + token-burn telemetry parsed from the session transcript.
 Invoked by the hooks in settings.snippet.json as:
 
@@ -10,16 +10,16 @@ Invoked by the hooks in settings.snippet.json as:
 Hook JSON arrives on stdin (transcript_path, session_id). The widget is driven via
 noctalia's documented plugin IPC (`noctalia msg --help`):
 
-    noctalia msg plugin lowcache/claude-companion:pulse all <event> [payload]
+    noctalia msg plugin lowcache/claude-companion:pulse-svc all <event> [payload]
 
 `[payload]` is a single positional token, so the payload is a SPACE-FREE CSV the
-widget (pulse.luau) parses:
+aggregator service (pulse-svc.luau) parses:
 
     model,in,out,cacheCreate,cacheRead,session
 
-The `session` (short id) tags EVERY event, so the widget can track each concurrent
+The `session` (short id) tags EVERY event, so the service can track each concurrent
 session separately. The matching SessionEnd hook fires `session_end`, which retires
-the session in the widget and drops its token cache here.
+the session in the service and drops its token cache here.
 
 Token accounting is incremental: a per-session cache in $XDG_RUNTIME_DIR stores the
 last byte offset + running sums, so each hook reads only newly-appended transcript
@@ -36,7 +36,7 @@ import os
 import subprocess
 import sys
 
-PLUGIN = "lowcache/claude-companion:pulse"
+PLUGIN = "lowcache/claude-companion:pulse-svc"
 TARGET = "all"
 
 

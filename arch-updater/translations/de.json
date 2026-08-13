@@ -3,6 +3,33 @@
   "action_dismiss": "Verwerfen",
   "action_open_news": "News öffnen",
   "action_update": "Aktualisieren",
+  "activity": {
+    "days_ago": {
+      "one": "vor 1 Tag",
+      "other": "vor {count} Tagen"
+    },
+    "hours_ago": {
+      "one": "vor 1 Stunde",
+      "other": "vor {count} Stunden"
+    },
+    "just_now": "gerade eben",
+    "minutes_ago": {
+      "one": "vor 1 Minute",
+      "other": "vor {count} Minuten"
+    },
+    "never_updated": "Noch nie aktualisiert",
+    "pending_at": {
+      "one": "1 ausstehendes Update",
+      "other": "{count} ausstehende Updates"
+    },
+    "title": "Aktivität",
+    "updated": "Aktualisiert",
+    "updated_days_ago": {
+      "one": "Vor 1 Tag aktualisiert",
+      "other": "Vor {count} Tagen aktualisiert"
+    },
+    "updated_today": "Heute aktualisiert"
+  },
   "caption_checked": "geprüft {time}",
   "caption_ignored": {
     "one": "1 Paket ignoriert",
@@ -33,6 +60,10 @@
     "press_key": "Beliebige Taste zum Schließen drücken"
   },
   "settings": {
+    "activity_history_length": {
+      "description": "Wie viele der letzten Prüfungen für das Aktivitätsdiagramm aufbewahrt werden.",
+      "label": "Länge des Aktivitätsverlaufs"
+    },
     "assume_yes": {
       "description": "Übergibt --noconfirm / -y, damit Paketmanager nicht nach Bestätigung fragen. Aus bedeutet, du bestätigst jedes Paket im Terminal-Fenster selbst.",
       "label": "Automatisch mit Ja bestätigen"
@@ -83,6 +114,10 @@
     "notify_on_updates": {
       "description": "Sendet eine Desktop-Benachrichtigung, wenn eine Prüfung aktualisierbare Pakete findet.",
       "label": "Bei gefundenen Updates benachrichtigen"
+    },
+    "show_activity_graph": {
+      "description": "Zeichnet die Anzahl ausstehender Updates über die letzten Prüfungen sowie den letzten Update-Zeitpunkt auf und zeigt sie als kleines Diagramm im Panel. Deaktiviert stoppt auch die Aufzeichnung.",
+      "label": "Aktivitätsdiagramm anzeigen"
     },
     "show_count": {
       "description": "Zeigt die Anzahl ausstehender Updates neben dem Bar-Symbol.",

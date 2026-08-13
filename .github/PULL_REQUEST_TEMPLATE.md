@@ -1,4 +1,12 @@
-<!-- If this PR is not ready for review yet, please mark it as Draft. -->
+<!-- noctalia-pr-template:v1 -->
+<!-- ^ Keep the marker line above this comment.
+
+     A bot closes pull requests whose description loses the marker line, a "##" heading,
+     a "- **Field:**" line, or a "- [ ]" checklist entry. Fill those in, do not delete them.
+     Everything else, including every one of these guidance comments, is yours to delete.
+
+     Not ready for review yet? Mark the pull request as Draft; checklist boxes may stay
+     unchecked while it is a draft. -->
 
 ## Plugin
 

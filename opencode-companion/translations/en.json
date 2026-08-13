@@ -1,0 +1,166 @@
+{
+  "chat": {
+    "assistant": "Assistant",
+    "back": "Back to sessions",
+    "dismiss_error": "Dismiss",
+    "empty": "No messages yet. Send a prompt to begin.",
+    "open_terminal": "Open in terminal",
+    "placeholder": "Ask OpenCode anything…  (Enter = send, Shift+Enter = new line)",
+    "refresh": "Refresh",
+    "select_agent": "Agent",
+    "select_model": "Model",
+    "send": "Send (Enter)",
+    "stop": "Stop",
+    "thinking": "Thinking…",
+    "title": "OpenCode Chat",
+    "you": "You"
+  },
+  "chooser": {
+    "delete": "Delete session",
+    "delete_cancel": "Cancel",
+    "delete_confirm": "Confirm delete",
+    "empty": "No sessions yet. Create one to get started.",
+    "new_session": "New Session",
+    "no_match": "No sessions match your search.",
+    "open": "Open session",
+    "refresh": "Refresh",
+    "search": "Search sessions…",
+    "title": "OpenCode — Sessions"
+  },
+  "error": {
+    "abort_failed": "Failed to abort session",
+    "connection_failed": "Could not connect to server",
+    "connection_failed_detail": "The server did not respond to a health check.",
+    "create_session_failed": "Failed to create session",
+    "delete_session_failed": "Failed to delete session",
+    "exe_not_found": "opencode not found on PATH",
+    "exe_not_found_detail": "Install opencode and ensure it is available on your PATH.",
+    "external_not_configured": "External server URL not configured",
+    "permission_failed": "Failed to respond to permission",
+    "prompt_failed": "Failed to send prompt",
+    "question_failed": "Failed to answer question",
+    "server_failed": "Failed to start OpenCode server",
+    "server_timeout": "Server did not start in time",
+    "server_timeout_detail": "The server did not become healthy within the timeout period.",
+    "session_error": "Session encountered an error",
+    "session_error_detail": "The agent stopped due to an error.",
+    "session_not_found": "Session not found",
+    "sse_disconnected": "Event stream disconnected"
+  },
+  "mcp": {
+    "connected": "Connected",
+    "disabled": "Disabled",
+    "failed": "Failed",
+    "title": "MCP Servers"
+  },
+  "notify": {
+    "new_session": "Creating new session…",
+    "permission_body": "OpenCode is waiting for your approval.",
+    "permission_title": "Permission Request",
+    "title": "OpenCode"
+  },
+  "permission": {
+    "allow": "Allow",
+    "allow_remember": "Always Allow",
+    "default_message": "OpenCode wants to perform an action that requires your approval.",
+    "deny": "Deny",
+    "title": "Permission Required"
+  },
+  "question": {
+    "cancel": "Cancel",
+    "custom": "Custom Answer",
+    "submit": "Submit",
+    "title": "Question"
+  },
+  "settings": {
+    "auto_start": {
+      "description": "Automatically start the managed server when the plugin loads.",
+      "label": "Auto-start Server"
+    },
+    "debug_logging": {
+      "description": "Print debug messages to the Noctalia log.",
+      "label": "Debug Logging"
+    },
+    "default_agent": {
+      "description": "Default agent to use for new sessions. Default: 'build'.",
+      "label": "Default Agent"
+    },
+    "default_model": {
+      "description": "Default model in 'provider/model' format (e.g., 'anthropic/claude-3-5-sonnet-20241022'). Leave empty to use server default.",
+      "label": "Default Model"
+    },
+    "default_workspace": {
+      "description": "Default working directory for new sessions. Leave empty to use the current directory.",
+      "label": "Default Workspace"
+    },
+    "language": {
+      "description": "Language for this plugin's UI. 'Auto' follows the Noctalia shell language.",
+      "label": "Language",
+      "options": {
+        "auto": "Auto (follow shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "max_messages_load": {
+      "description": "Messages loaded per session (1–100). Set the slider to its top notch for unlimited. Default: 50.",
+      "label": "Max Messages to Load"
+    },
+    "panel_mode": {
+      "description": "Fill right opens a full-height panel pinned to the right edge; Compact shows the original floating panel near the bar click.",
+      "label": "Panel Layout",
+      "options": {
+        "compact": "Compact (near click)",
+        "fill_right": "Full-height right side"
+      }
+    },
+    "server_host": {
+      "description": "Hostname the managed server binds to. Default: 127.0.0.1 (loopback only).",
+      "label": "Server Host"
+    },
+    "server_mode": {
+      "description": "How the plugin connects to OpenCode. 'auto' manages a local server; 'external' connects to a user-specified URL.",
+      "label": "Server Mode"
+    },
+    "server_port": {
+      "description": "Port the managed server listens on. Default: 4096.",
+      "label": "Server Port"
+    },
+    "server_url": {
+      "description": "Base URL of an external OpenCode server (e.g., http://127.0.0.1:4096). Used when Server Mode is 'external'.",
+      "label": "External Server URL"
+    },
+    "show_reasoning": {
+      "description": "Display reasoning/thinking text in the chat view.",
+      "label": "Show Reasoning"
+    },
+    "show_tool_calls": {
+      "description": "Display tool call status cards in the chat view.",
+      "label": "Show Tool Calls"
+    },
+    "ui_mode": {
+      "description": "Full shows a spacious layout; Compact tightens padding, fonts and hides secondary details to keep the panel minimal.",
+      "label": "UI Mode",
+      "options": {
+        "compact": "Compact",
+        "full": "Full"
+      }
+    }
+  },
+  "state": {
+    "tip": {
+      "busy": "OpenCode: processing…",
+      "offline": "OpenCode: offline",
+      "online": "OpenCode: connected",
+      "starting": "OpenCode: starting server…",
+      "waiting_permission": "OpenCode: waiting for permission"
+    },
+    "unread": "{count} unread response(s)"
+  },
+  "time": {
+    "days_ago": "{n}d ago",
+    "hours_ago": "{n}h ago",
+    "just_now": "just now",
+    "minutes_ago": "{n}m ago"
+  }
+}

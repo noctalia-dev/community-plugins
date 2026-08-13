@@ -1,0 +1,17 @@
+{
+  "database-empty": "Die Zed-Datenbank ist leer oder wurde nicht gefunden",
+  "filter-empty": "Filter: \"{filter}\"",
+  "loading": "Wird geladen…",
+  "loading-subtitle": "Lese Zed-Projekte",
+  "no-projects-found": "Keine Projekte gefunden",
+  "settings": {
+    "db_path": {
+      "description": "Pfad zu Zed's db.sqlite Datei",
+      "label": "Zed-Datenbankpfad"
+    },
+    "max_results": {
+      "description": "Maximale Anzahl der anzuzeigenden Projekte",
+      "label": "Maximale Ergebnisse"
+    }
+  }
+}

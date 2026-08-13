@@ -1,0 +1,120 @@
+# OPNsense firewall status and service control via REST API.
+
+id = "davemhammer/opnsense"
+name = "OPNsense"
+version = "1.1.6"
+plugin_api = 10
+author = "davemhammer"
+license = "MIT"
+dependencies = ["curl", "jq", "xdg-open"]
+tags = ["network", "utility", "bar", "panel", "service", "launcher"]
+icon = "shield"
+description = "Monitor OPNsense health, interfaces, gateways, firewall rules, and logs."
+
+[[setting]]
+key = "base_url"
+type = "string"
+label_key = "settings.base_url.label"
+description_key = "settings.base_url.description"
+default = "https://192.168.1.1"
+
+[[setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+
+[[setting]]
+key = "api_secret"
+type = "string"
+label_key = "settings.api_secret.label"
+description_key = "settings.api_secret.description"
+default = ""
+
+[[setting]]
+key = "allow_insecure_tls"
+type = "bool"
+label_key = "settings.allow_insecure_tls.label"
+description_key = "settings.allow_insecure_tls.description"
+default = true
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 20
+min = 5
+max = 300
+
+[[setting]]
+key = "notify_on_issue"
+type = "bool"
+label_key = "settings.notify_on_issue.label"
+description_key = "settings.notify_on_issue.description"
+default = true
+
+[[setting]]
+key = "web_ui_url"
+type = "string"
+label_key = "settings.web_ui_url.label"
+description_key = "settings.web_ui_url.description"
+default = ""
+advanced = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+  [[widget.setting]]
+  key = "ok_color"
+  type = "select"
+  label_key = "settings.ok_color.label"
+  default = "tertiary"
+  options = [
+    { value = "tertiary", label_key = "colors.tertiary" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "secondary", label_key = "colors.secondary" }
+  ]
+
+  [[widget.setting]]
+  key = "warn_color"
+  type = "select"
+  label_key = "settings.warn_color.label"
+  default = "error"
+  options = [
+    { value = "error", label_key = "colors.error" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "on_surface_variant", label_key = "colors.muted" }
+  ]
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 760
+height = 660
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "opn"
+entry = "launcher.luau"
+prefix = "opn"
+glyph = "shield"
+include_in_global_search = false
+debounce_ms = 80

@@ -1,0 +1,49 @@
+{
+  "notify": {
+    "duplicate_host": "{host} is already in the list",
+    "host_down": "{host} is unreachable",
+    "host_up": "{host} is responding again",
+    "invalid_host": "{host} is not a valid IP, host or link"
+  },
+  "panel": {
+    "add_label_placeholder": "Description (optional) — e.g. Router, Server",
+    "add_placeholder": "IP, host or link",
+    "empty": "No hosts configured yet",
+    "invalid_format": "Invalid — enter an IP (0.0.0.0), a host or a link",
+    "status_checking": "Checking…",
+    "status_offline": "Offline",
+    "status_online": "Online",
+    "tooltip_add": "Add",
+    "tooltip_add_host": "Add host",
+    "tooltip_cancel": "Cancel",
+    "tooltip_check_now": "Check now",
+    "tooltip_close_form": "Close",
+    "tooltip_confirm_remove": "Confirm removal",
+    "tooltip_drag": "Drag to reorder",
+    "tooltip_remove": "Remove"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icon shown in the bar for this widget.",
+      "label": "Bar icon"
+    },
+    "interval_seconds": {
+      "description": "How often each host is checked.",
+      "label": "Check interval (s)"
+    },
+    "notify_on_recovery": {
+      "description": "Send a notification when a host that was down responds again.",
+      "label": "Notify when a host comes back"
+    },
+    "timeout_seconds": {
+      "description": "How long to wait for a reply before treating it as a failure.",
+      "label": "Ping timeout (s)"
+    }
+  },
+  "title": "Link/IP Monitor",
+  "widget": {
+    "checking_now": "Checking now…",
+    "tooltip_all_up": "All monitored hosts are responding",
+    "tooltip_down_prefix": "Down:"
+  }
+}

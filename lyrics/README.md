@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.4.4
+# Noctalia Lyrics 1.4.5
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -62,7 +62,7 @@ noctalia msg config-reload
 Run validation after every change:
 
 ```sh
-python3 .github/workflows/validate-plugins.py
+python3 .github/workflows/scripts/validate-plugins.py
 noctalia plugins lint lyrics
 sh lyrics/scripts/setup-deps.sh --check
 cd lyrics
@@ -136,10 +136,11 @@ milliseconds, double-line translation and romanization, karaoke highlighting,
 marquee behavior, transitions, fonts, spacing, and side padding.
 
 Per-widget settings control the fallback glyph, artist visibility, paused-state
-visibility, album-cover shape and size, and primary, inactive, and secondary
-lyric colors. Credential and source-specific fields are shown only when their
-matching source is selected; source order, credentials, polling, marquee
-metrics, player filters, and fine layout controls are under Advanced settings.
+visibility, visibility when no lyrics are available, album-cover shape and size,
+and primary, inactive, and secondary lyric colors. Credential and source-specific
+fields are shown only when their matching source is selected; source order,
+credentials, polling, marquee metrics, player filters, and fine layout controls
+are under Advanced settings.
 
 ## Feature test checklist
 

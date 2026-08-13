@@ -1,6 +1,6 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.4"
+version = "1.4.5"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
@@ -499,6 +499,12 @@ entry = "lyrics.luau"
   key = "hide_when_paused"
   type = "bool"
   label_key = "settings.hide_when_paused.label"
+  default = false
+
+  [[widget.setting]]
+  key = "hide_when_no_lyrics"
+  type = "bool"
+  label_key = "settings.hide_when_no_lyrics.label"
   default = false
 
   [[widget.setting]]

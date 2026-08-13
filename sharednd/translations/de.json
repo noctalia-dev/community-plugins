@@ -1,0 +1,17 @@
+{
+  "notify": {
+    "no_niri_body": "Das sieht nach einer niri-Sitzung aus (NIRI_SOCKET ist gesetzt), aber die niri-Binärdatei befindet sich nicht im PATH, sodass die Bildschirmfreigabe nicht erkannt werden kann.",
+    "no_niri_title": "ShareDND: niri nicht gefunden"
+  },
+  "settings": {
+    "always_off_after": {
+      "description": "Deaktiviere Nicht stören, wenn die Freigabe endet, auch wenn diese Funktion bereits vor Beginn der Freigabe aktiviert war. Im deaktivierten Zustand wird DND nur dann deaktiviert, wenn dieses Plugin es aktiviert hat.",
+      "label": "Immer DND nach dem Teilen deaktivieren"
+    },
+    "only_active": {
+      "description": "Es werden nur Screencasts gezählt, die aktiv gestreamt werden. Ist diese Funktion deaktiviert, bleibt Nicht stören bei jeder geöffneten Screencast-Sitzung aktiviert (auch wenn diese angehalten ist oder nichts anzeigt).",
+      "label": "Nur aktive Streams"
+    }
+  },
+  "title": "ShareDND"
+}

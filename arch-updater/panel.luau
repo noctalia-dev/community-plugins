@@ -6,7 +6,7 @@
 --
 -- "Check Updates" only queries pacman, the AUR helper and (optionally)
 -- Flatpak. Only then do "Update" (open a terminal and run the upgrade) and
--- "Dismiss" (keep the numbers, quiet the bar) light up.
+-- "Dismiss" (clear the pending list and close the panel) light up.
 
 local STATE_KEY = "arch_state"
 local REQUEST_KEY = "arch_request"
@@ -15,6 +15,7 @@ local snapshot = nil
 local expanded = {} -- source key -> the package list is open
 local hoverKey = nil -- package row currently under the pointer
 local hoverText = "" -- what the detail line shows
+local activityHoverIndex = nil -- activity graph point currently under the pointer
 local listOpen = false -- at least one source is expanded this render
 
 local render
@@ -116,6 +117,12 @@ local function sourceLabel(key, entry)
     return tr("source." .. key)
 end
 
+local SOURCE_GLYPHS = { pacman = "package", aur = "cloud", flatpak = "app-window" }
+
+local function sourceGlyph(key)
+    return SOURCE_GLYPHS[key] or "package"
+end
+
 -- pacman, then the AUR helper, then Flatpak. Only sources with pending
 -- packages, biggest first.
 local function orderedSources()
@@ -175,13 +182,15 @@ local function packageRow(sourceKey, index, item)
         }))
     end
     table.insert(children, ui.button({
-        glyph = "copy", variant = "ghost", controlSize = "sm", tooltip = tr("tip_copy"),
+        glyph = "copy", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+        tooltip = tr("tip_copy"),
         onClick = function()
             noctalia.copyToClipboard(detailFor(item), "text/plain")
         end,
     }))
     table.insert(children, ui.button({
-        glyph = "external-link", variant = "ghost", controlSize = "sm", tooltip = tr("tip_open_page"),
+        glyph = "external-link", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+        tooltip = tr("tip_open_page"),
         onClick = function()
             openPackage(sourceKey, item.name)
         end,
@@ -224,6 +233,7 @@ local function sourceRows()
         end
         table.insert(rows, ui.row(header, {
             ui.glyph({ name = #names == 0 and "point" or (open and "chevron-down" or "chevron-right"), size = 12, color = "on_surface_variant" }),
+            ui.glyph({ name = sourceGlyph(source.key), size = 13, color = "on_surface_variant" }),
             ui.label({ text = sourceLabel(source.key, source.entry), color = "on_surface", flexGrow = 1 }),
             ui.label({ text = tostring(source.entry.n), color = "primary", fontWeight = "bold" }),
         }))
@@ -289,12 +299,182 @@ local function extras()
     return lines
 end
 
+-- Normalizes the pending-count history to 0..1 for ui.graph, relative to the
+-- min/max in the window (not a fixed scale, since pending counts vary wildly
+-- between systems). A flat window (min == max, e.g. every check so far found
+-- the same count) centers the line at 0.5 instead of pinning it to the top
+-- edge, where it would be indistinguishable from the box border.
+local function activityValues(history)
+    local minN, maxN = tonumber(history[1].n) or 0, tonumber(history[1].n) or 0
+    for _, entry in ipairs(history) do
+        local n = tonumber(entry.n) or 0
+        if n < minN then
+            minN = n
+        end
+        if n > maxN then
+            maxN = n
+        end
+    end
+    local range = maxN - minN
+    local values = {}
+    for _, entry in ipairs(history) do
+        local n = tonumber(entry.n) or 0
+        table.insert(values, range > 0 and (n - minN) / range or 0.5)
+    end
+    return values
+end
+
+local ACTIVITY_GRAPH_SUBDIVISIONS = 8
+
+local function upsampleLinear(values, subdivisions)
+    if #values < 2 or subdivisions <= 1 then
+        return values
+    end
+    local out = {}
+    for i = 1, #values - 1 do
+        local a, b = values[i], values[i + 1]
+        for s = 0, subdivisions - 1 do
+            table.insert(out, a + (b - a) * (s / subdivisions))
+        end
+    end
+    table.insert(out, values[#values])
+    return out
+end
+
+local function padGraphLookbehind(values)
+    if #values == 0 then
+        return values
+    end
+    local out = { values[1], values[1] }
+    for _, v in ipairs(values) do
+        table.insert(out, v)
+    end
+    return out
+end
+
+-- "2 hours ago", "3 days ago", etc. nil for entries migrated from the old
+-- history format, which never recorded a timestamp.
+local function relativeTime(at)
+    local t = tonumber(at)
+    if t == nil then
+        return nil
+    end
+    local diff = os.time() - t
+    if diff < 60 then
+        return tr("activity.just_now")
+    elseif diff < 3600 then
+        local m = math.floor(diff / 60)
+        return noctalia.trp("activity.minutes_ago", m, { count = m })
+    elseif diff < 86400 then
+        local h = math.floor(diff / 3600)
+        return noctalia.trp("activity.hours_ago", h, { count = h })
+    else
+        local d = math.floor(diff / 86400)
+        return noctalia.trp("activity.days_ago", d, { count = d })
+    end
+end
+
+-- "Updated · 2 hours ago" for the check that verified an update run, else
+-- "3 pending updates · 2 hours ago". Shared by the hover tooltip and the
+-- top-right caption so both describe a point the same way.
+local function describeEntry(entry)
+    local n = tonumber(entry.n) or 0
+    local text = entry.afterUpdate == true and tr("activity.updated")
+        or noctalia.trp("activity.pending_at", n, { count = n })
+    local when = relativeTime(entry.at)
+    if when ~= nil then
+        text = text .. " · " .. when
+    end
+    return text
+end
+
+-- ui.graph takes no pointer props of its own (only row/column/box/image/button
+-- do), so per-point hover is a row of hit targets placed right under the
+-- line. Each is a ghost button so it can carry a native tooltip at the
+-- pointer, not just a box for the hit test. It cannot highlight the point on
+-- the line itself, only drive the tooltip and the caption above it.
+--
+-- Real points sit at (k-1)/(#history-1) of the width (see
+-- padGraphLookbehind), i.e. #history-1 equal gaps, not #history equal slots
+-- - so this builds one equal-width segment per gap rather than per entry,
+-- ending each segment exactly on the point at its right edge. That leaves
+-- entry 1 (at the left edge, with no gap before it) without its own hover
+-- zone, but keeps every other spike landing right at the end of its segment
+-- instead of drifting toward the start of an oversized one.
+local function activityHoverRow(history)
+    local segments = {}
+    for i = 2, #history do
+        segments[i - 1] = ui.button({
+            key = "activity-hit-" .. i,
+            variant = "ghost",
+            flexGrow = 1,
+            height = 12,
+            tooltip = describeEntry(history[i]),
+            onHover = function(state)
+                if state == "true" then
+                    activityHoverIndex = i
+                elseif activityHoverIndex == i then
+                    activityHoverIndex = nil
+                else
+                    return
+                end
+                render()
+            end,
+        })
+    end
+    return ui.row({ key = "activity-hits", gap = 1 }, segments)
+end
+
+-- A small trend graph of pending-update counts across recent checks, plus
+-- when the last update ran (or, while hovering a point, that point's own
+-- description). Off entirely when show_activity_graph is off, and hidden
+-- until there is enough history to draw a line.
+local function activitySection()
+    if snapshot == nil or noctalia.getConfig("show_activity_graph") ~= true then
+        return nil
+    end
+    local history = type(snapshot.history) == "table" and snapshot.history or {}
+    if #history < 2 then
+        return nil
+    end
+
+    local hoveredEntry = activityHoverIndex ~= nil and history[activityHoverIndex] or nil
+    local caption
+    if hoveredEntry ~= nil then
+        caption = describeEntry(hoveredEntry)
+    else
+        local lastUpdateAt = tonumber(snapshot.lastUpdateAt)
+        if lastUpdateAt == nil then
+            caption = tr("activity.never_updated")
+        else
+            local days = math.floor((os.time() - lastUpdateAt) / 86400)
+            caption = days <= 0 and tr("activity.updated_today")
+                or noctalia.trp("activity.updated_days_ago", days, { count = days })
+        end
+    end
+
+    return ui.column({ key = "activity", gap = 4 }, {
+        ui.row({ justify = "space_between", align = "center" }, {
+            ui.label({ text = tr("activity.title"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+            ui.label({ text = caption, fontSize = 10, color = "on_surface_variant" }),
+        }),
+        ui.graph({
+            values = padGraphLookbehind(upsampleLinear(activityValues(history), ACTIVITY_GRAPH_SUBDIVISIONS)),
+            color = "primary",
+            fillOpacity = 0.15,
+            lineWidth = 2,
+            height = 36,
+        }),
+        activityHoverRow(history),
+    })
+end
+
 local function body()
     local children = {}
 
     local rows = sourceRows()
     if #rows > 0 then
-        table.insert(children, ui.scroll({ key = "sources", flexGrow = 1, gap = 6 }, rows))
+        table.insert(children, ui.scroll({ key = "sources", flexGrow = 1, gap = 3 }, rows))
     else
         table.insert(children, ui.spacer({ key = "filler", flexGrow = 1 }))
     end
@@ -321,6 +501,11 @@ local function body()
             color = "on_surface_variant",
             maxLines = 2,
         }))
+    end
+
+    local activity = activitySection()
+    if activity ~= nil then
+        table.insert(children, activity)
     end
 
     return children
@@ -389,9 +574,10 @@ render = function()
             }),
             ui.button({
                 key = "dismiss" .. (hasUpdates and "" or "-off"),
-                text = tr("action_dismiss"), variant = "ghost", enabled = hasUpdates and snapshot.dismissed ~= true,
+                text = tr("action_dismiss"), variant = "ghost", enabled = hasUpdates,
                 onClick = function()
                     request("dismiss")
+                    panel.close()
                 end,
             }),
             ui.button({
@@ -400,6 +586,7 @@ render = function()
                 tooltip = tr("tip_update"),
                 onClick = function()
                     request("update")
+                    panel.close()
                 end,
             }),
         }))
@@ -413,6 +600,7 @@ function onOpen(_context)
     expanded = {}
     hoverKey = nil
     hoverText = ""
+    activityHoverIndex = nil
     render()
 end
 
@@ -424,6 +612,7 @@ noctalia.state.watch(STATE_KEY, function(value)
         expanded = {}
         hoverKey = nil
         hoverText = ""
+        activityHoverIndex = nil
     end
     snapshot = value
     render()

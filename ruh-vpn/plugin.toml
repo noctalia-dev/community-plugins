@@ -1,0 +1,78 @@
+id           = "umedbazarov/ruh-vpn"
+name         = "Ruh VPN"
+version      = "0.1.0"
+plugin_api   = 3
+author       = "Умеджон Базаров"
+license      = "MIT"
+icon         = "shield-lock"
+description  = "VPN/proxy manager (sing-box): SSH, VLESS, VMess, Shadowsocks, SOCKS5, routing rules, kill switch."
+tags         = ["bar", "panel", "service", "shortcut", "network", "privacy"]
+dependencies = ["sing-box", "python3", "ssh", "sshpass", "gsettings", "pkexec", "setcap", "getcap", "nft", "pkill"]
+
+# Plugin settings
+[[setting]]
+key            = "backend_python"
+type           = "file"
+label_key      = "settings.backend_python.label"
+description_key = "settings.backend_python.description"
+default        = "python3"
+
+[[setting]]
+key            = "auto_start"
+type           = "bool"
+label_key      = "settings.auto_start.label"
+description_key = "settings.auto_start.description"
+default        = false
+
+[[setting]]
+key            = "geoip_country"
+type           = "bool"
+label_key      = "settings.geoip_country.label"
+description_key = "settings.geoip_country.description"
+default        = true
+
+[[setting]]
+key            = "control_port"
+type           = "int"
+label_key      = "settings.control_port.label"
+description_key = "settings.control_port.description"
+default        = 11090
+min            = 1024
+max            = 65535
+advanced       = true
+
+# Headless service: supervises the Python backend
+[[service]]
+id    = "vpn_service"
+entry = "service.luau"
+
+# Bar widget
+[[widget]]
+id    = "vpn_widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "show_ping"
+  type      = "bool"
+  label_key = "settings.show_ping.label"
+  default   = true
+
+  [[widget.setting]]
+  key       = "show_traffic"
+  type      = "bool"
+  label_key = "settings.show_traffic.label"
+  default   = false
+
+# Main panel
+[[panel]]
+id        = "vpn_panel"
+entry     = "panel.luau"
+width     = 460
+height    = 560
+placement = "attached"
+position  = "auto"
+
+# Control-center tile
+[[shortcut]]
+id    = "vpn_toggle"
+entry = "shortcut.luau"

@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "host": {
+      "label": "主机",
+      "description": "Mihomo 外部控制器的地址或 IP。"
+    },
+    "port": {
+      "label": "端口",
+      "description": "Mihomo 外部控制器的端口（默认为 9090）。"
+    },
+    "secret": {
+      "label": "密钥",
+      "description": "Mihomo 配置中的外部控制器密钥；未启用认证时留空。"
+    },
+    "use_https": {
+      "label": "HTTPS",
+      "description": "使用 https:// 而非 http://（external-controller-tls 或 TLS 反向代理）。"
+    },
+    "allow_insecure_tls": {
+      "label": "允许不安全的 TLS",
+      "description": "控制器使用自签名证书时跳过证书校验。"
+    },
+    "test_url": {
+      "label": "测试 URL",
+      "description": "延迟测试使用的 URL；留空则使用各策略组配置的测试 URL。"
+    },
+    "refresh_interval": {
+      "label": "刷新间隔",
+      "description": "状态轮询间隔（1–60 秒）。"
+    }
+  },
+  "panel": {
+    "title": "Mihomo 控制",
+    "status_online": "在线",
+    "status_offline": "离线",
+    "status_connecting": "连接中",
+    "mode_rule": "规则",
+    "mode_global": "全局",
+    "mode_direct": "直连",
+    "refresh": "刷新",
+    "traffic": "流量",
+    "connections": "条连接",
+    "memory": "内存",
+    "proxy_groups": "策略组",
+    "no_groups": "未找到策略组。",
+    "delay_test": "测试延迟",
+    "test_all": "全部测试",
+    "restart": "重启",
+    "timeout": "超时",
+    "no_members": "无成员",
+    "members_count": {
+      "one": "{count} 个成员",
+      "other": "{count} 个成员"
+    },
+    "hidden": "隐藏",
+    "online_with_version": "{version} · {endpoint}",
+    "online_plain": "{endpoint}",
+    "offline_with_error": "{error}",
+    "offline_plain": "{endpoint}"
+  },
+  "widget": {
+    "status": "状态",
+    "mode": "模式",
+    "connections": "连接数",
+    "up": "上传",
+    "down": "下载",
+    "status_online_with_version": "在线 · {version}",
+    "status_online_plain": "在线",
+    "status_connecting": "连接中",
+    "status_offline_with_error": "离线 — {error}",
+    "status_offline_plain": "离线"
+  },
+  "shortcut": {
+    "label": "Mihomo：{mode}",
+    "mode_rule": "规则",
+    "mode_global": "全局",
+    "mode_direct": "直连"
+  },
+  "notify": {
+    "mode_changed": "Mihomo 模式已更改",
+    "proxy_selected": "已选择代理",
+    "proxy_selected_body": "{group} → {proxy}",
+    "delay_done": "延迟测试完成",
+    "delay_all_done": "全部策略组测试完成",
+    "delay_body": "已测试 {count} 个节点，选中 {delay} 毫秒",
+    "delay_body_no_selection": "已测试 {count} 个节点",
+    "delay_timeout": "所有节点均超时（504）——请检查测试 URL",
+    "restarting": "Mihomo 正在重启",
+    "connections_closed": "所有连接已关闭",
+    "request_failed": "Mihomo 请求失败"
+  }
+}

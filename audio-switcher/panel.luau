@@ -31,6 +31,8 @@ local editSlot = ""
 local feedback = ""
 local feedbackError = false
 local requestCounter = 0
+local groupingOutputs = false
+local selectedGroupOutputs = {}
 -- Slider onChange is also emitted when the host applies a new controlled value.
 -- Keep the last callback value only for onDragEnd; rendering from it would turn
 -- the first external update into a sticky local draft and freeze later updates.
@@ -71,6 +73,12 @@ local function activeDevice(kind)
   return nil
 end
 
+local function inputDisplayName(device)
+  if device == nil then return "" end
+  local port = noctalia.string.trim(tostring(device.activePortDescription or ""))
+  return port ~= "" and port or tostring(device.name or "")
+end
+
 local function visibleCount(kind)
   local count = 0
   local devices = kind == "output" and asArray(snapshot.outputs) or asArray(snapshot.inputs)
@@ -89,6 +97,14 @@ local function hiddenCount(kind)
   return count
 end
 
+local function selectedGroupCount()
+  local count = 0
+  for _, selected in pairs(selectedGroupOutputs) do
+    if selected then count += 1 end
+  end
+  return count
+end
+
 local function selectedIndex(values, selected)
   for index, value in ipairs(values) do
     if value == selected then return index - 1 end
@@ -100,7 +116,7 @@ local function volumeCard(kind)
   local isOutput = kind == "output"
   local device = activeDevice(kind)
   local volume = tonumber(isOutput and snapshot.outputVolume or snapshot.inputVolume) or 0
-  local muted = isOutput and snapshot.outputMuted == true or snapshot.inputMuted == true
+  local muted = (isOutput and snapshot.outputMuted == true) or (not isOutput and snapshot.inputMuted == true)
   local icon = isOutput and (muted and "volume-off" or "volume") or (muted and "microphone-mute" or "microphone")
   return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_variant/0.45" }, {
     ui.row({ align = "center", gap = 8 }, {
@@ -108,7 +124,7 @@ local function volumeCard(kind)
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = tr(isOutput and "panel.output_volume" or "panel.input_volume"), fontWeight = "bold" }),
         ui.label({
-          text = device and device.name or tr("panel.no_device"),
+          text = device and (isOutput and device.name or inputDisplayName(device)) or tr("panel.no_device"),
           fontSize = 11,
           color = "on_surface_variant",
           maxLines = 1,
@@ -147,7 +163,10 @@ end
 local function deviceSubtitle(device)
   local status = deviceStatus(device)
   local description = noctalia.string.trim(tostring(device.description or ""))
+  local port = noctalia.string.trim(tostring(device.activePortDescription or ""))
+  if port ~= "" and port ~= device.name and port ~= description then status = status .. "  ·  " .. port end
   if description == "" or description == "(null)" or description:lower() == "null" then return status end
+  if description == device.name or description == port then return status end
   return status .. "  ·  " .. description
 end
 
@@ -211,12 +230,71 @@ local function deviceRow(device, kind)
   local hideAction = function()
     sendCommand("set_hidden", { id = device.id, kind = kind, hidden = not device.hidden })
   end
+  local selectAction = function()
+    selectedGroupOutputs[device.id] = not selectedGroupOutputs[device.id]
+    render()
+  end
+  local disbandAction = function()
+    sendCommand("remove_output_group", { id = device.id })
+  end
+  local ports = kind == "input" and asArray(device.ports) or {}
+  local portOptions = {}
+  local selectedPortIndex = 0
+  for index, port in ipairs(ports) do
+    local label = tostring(port.description or port.name or "")
+    if port.available == false then label = tr("device.unavailable_port", { port = label }) end
+    portOptions[#portOptions + 1] = label
+    if port.active then selectedPortIndex = index - 1 end
+  end
+  local selectPortAction = function(index, _label)
+    local port = ports[math.floor(tonumber(index) or -1) + 1]
+    if port ~= nil and not port.active then
+      sendCommand("set_input_port", { id = device.id, port = port.name })
+    end
+  end
   local actionText = device.active and tr("device.current")
     or (device.bluetooth and not device.available and tr("actions.connect_and_use") or tr("actions.use"))
   local actionVariant = device.active and "ghost" or "primary"
   local statusColor = device.active and "secondary" or "on_surface_variant"
-  local row = ui.column({ gap = 6 }, {
-    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = device.active and "primary" or "outline/0.55", borderWidth = 1, fill = device.active and "primary/0.07" or "surface/0" }, {
+  local actions = {}
+  if groupingOutputs and kind == "output" then
+    table.insert(actions, ui.button({
+      text = selectedGroupOutputs[device.id] and tr("actions.selected") or tr("actions.select"),
+      glyph = selectedGroupOutputs[device.id] and "check" or "plus",
+      variant = selectedGroupOutputs[device.id] and "primary" or "outline",
+      controlSize = "sm",
+      enabled = device.available == true and device.group ~= true and snapshot.busy ~= true,
+      onClick = selectAction,
+    }))
+  else
+    table.insert(actions, ui.button({
+      text = actionText,
+      variant = actionVariant,
+      controlSize = "sm",
+      enabled = not device.active and snapshot.busy ~= true,
+      onClick = useAction,
+    }))
+    if kind == "output" and device.group then
+      table.insert(actions, ui.button({
+        text = tr("actions.disband"),
+        glyph = "unlink",
+        variant = "outline",
+        controlSize = "sm",
+        enabled = snapshot.busy ~= true,
+        onClick = disbandAction,
+      }))
+    else
+      table.insert(actions, ui.button({ glyph = "edit", variant = "ghost", controlSize = "sm", tooltip = tr("actions.edit"), onClick = editAction }))
+      table.insert(actions, ui.button({
+        glyph = device.hidden and "eye" or "eye-off",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = tr(device.hidden and "actions.show" or "actions.hide"),
+        onClick = hideAction,
+      }))
+    end
+  end
+  local rowChildren = {
       ui.glyph({ name = device.icon or (kind == "output" and "volume" or "microphone"), size = 19, color = device.active and "primary" or "on_surface_variant" }),
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = tostring(device.name or device.description or device.id), fontWeight = "bold", maxLines = 1 }),
@@ -234,26 +312,58 @@ local function deviceRow(device, kind)
         fontWeight = "bold",
         visible = device.bluetooth == true,
       }),
-      ui.button({
-        text = actionText,
-        variant = actionVariant,
-        controlSize = "sm",
-        enabled = not device.active and snapshot.busy ~= true,
-        onClick = useAction,
-      }),
-      ui.button({ glyph = "edit", variant = "ghost", controlSize = "sm", tooltip = tr("actions.edit"), onClick = editAction }),
-      ui.button({
-        glyph = device.hidden and "eye" or "eye-off",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = tr(device.hidden and "actions.show" or "actions.hide"),
-        onClick = hideAction,
-      }),
-    }),
+  }
+  for _, action in ipairs(actions) do table.insert(rowChildren, action) end
+  local row = ui.column({ gap = 6 }, {
+    ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = selectedGroupOutputs[device.id] and "primary" or (device.active and "primary" or "outline/0.55"), borderWidth = 1, fill = selectedGroupOutputs[device.id] and "primary/0.1" or (device.active and "primary/0.07" or "surface/0") }, rowChildren),
   })
   local children = { row }
+  if kind == "input" and #ports > 1 then
+    table.insert(children, ui.row({ gap = 8, align = "center", paddingH = 8 }, {
+      ui.label({ text = tr("device.port"), color = "on_surface_variant", fontSize = 10 }),
+      ui.select({
+        options = portOptions,
+        selectedIndex = selectedPortIndex,
+        flexGrow = 1,
+        enabled = snapshot.busy ~= true,
+        onChange = selectPortAction,
+      }),
+    }))
+  end
   if editingId == device.id then table.insert(children, editor(device)) end
   return ui.column({ gap = 6 }, children)
+end
+
+local function groupingToolbar()
+  if activeTab ~= "output" then return ui.column({ visible = false }, {}) end
+  if not groupingOutputs then
+    return ui.row({ justify = "end" }, {
+      ui.button({
+        text = tr("actions.group_outputs"),
+        glyph = "link",
+        variant = "outline",
+        enabled = snapshot.busy ~= true,
+        onClick = "onStartGrouping",
+      }),
+    })
+  end
+  local count = selectedGroupCount()
+  return ui.row({ align = "center", gap = 8, padding = 8, radius = 9, fill = "primary/0.08" }, {
+    ui.label({
+      text = tr("panel.group_hint", { count = count }),
+      flexGrow = 1,
+      color = "on_surface_variant",
+      fontSize = 11,
+    }),
+    ui.button({ text = tr("actions.cancel"), variant = "ghost", onClick = "onCancelGrouping" }),
+    ui.button({
+      text = tr("actions.create_group", { count = count }),
+      glyph = "link",
+      variant = "primary",
+      enabled = count >= 2 and snapshot.busy ~= true,
+      onClick = "onCreateGroup",
+    }),
+  })
 end
 
 local function deviceList(kind)
@@ -276,7 +386,8 @@ end
 local function header()
   local output = activeDevice("output")
   local input = activeDevice("input")
-  local subtitle = (output and output.name or tr("panel.no_output")) .. "  ·  " .. (input and input.name or tr("panel.no_input"))
+  local subtitle = (output and output.name or tr("panel.no_output")) .. "  ·  "
+    .. (input and inputDisplayName(input) or tr("panel.no_input"))
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "switch-horizontal", size = 24, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 2 }, {
@@ -357,6 +468,7 @@ render = function()
     header(),
     ui.row({ gap = 12, align = "stretch" }, { volumeCard("output"), volumeCard("input") }),
     toolbar(),
+    groupingToolbar(),
     ui.column({ gap = 3 }, statusRows),
     ui.scroll({ flexGrow = 1, gap = 6 }, { deviceList(activeTab) }),
     ui.label({
@@ -371,6 +483,8 @@ end
 function onOpen(_context)
   feedback = ""
   feedbackError = false
+  groupingOutputs = false
+  selectedGroupOutputs = {}
   sendCommand("refresh")
   render()
 end
@@ -384,16 +498,7 @@ function onRefresh() sendCommand("refresh") end
 function onScanBluetooth() sendCommand("scan_bluetooth") end
 function onCycleOutput() sendCommand("cycle_output") end
 function onCycleInput() sendCommand("cycle_input") end
-function onOpenSettingsClicked()
-  local started = noctalia.runAsync("noctalia msg settings-open plugins", function(result)
-    if result.timedOut == true or tonumber(result.exitCode) ~= 0 then
-      noctalia.notifyError(tr("title"), tr("errors.command_start"))
-    end
-  end, 5000)
-  if not started then
-    noctalia.notifyError(tr("title"), tr("errors.command_start"))
-  end
-end
+function onOpenSettingsClicked() noctalia.openSettings() end
 
 function onShowOutputs()
   activeTab = "output"
@@ -406,7 +511,33 @@ function onShowInputs()
   activeTab = "input"
   editingId = nil
   showHidden = false
+  groupingOutputs = false
+  selectedGroupOutputs = {}
   render()
+end
+
+function onStartGrouping()
+  groupingOutputs = true
+  selectedGroupOutputs = {}
+  editingId = nil
+  showHidden = false
+  feedback = ""
+  render()
+end
+
+function onCancelGrouping()
+  groupingOutputs = false
+  selectedGroupOutputs = {}
+  render()
+end
+
+function onCreateGroup()
+  local ids = {}
+  for _, device in ipairs(asArray(snapshot.outputs)) do
+    if selectedGroupOutputs[device.id] then table.insert(ids, device.id) end
+  end
+  if #ids < 2 then return end
+  sendCommand("create_output_group", { ids = ids })
 end
 
 function onToggleHidden()
@@ -478,6 +609,10 @@ noctalia.state.watch(RESULT_KEY, function(result)
   if type(result) ~= "table" or not tostring(result.requestId or ""):match("^panel%-") then return end
   feedback = tostring(result.message or "")
   feedbackError = result.ok ~= true
+  if result.ok == true and result.action == "create_output_group" then
+    groupingOutputs = false
+    selectedGroupOutputs = {}
+  end
   if result.ok ~= true and (result.action == "set_output_volume" or result.action == "set_input_volume") then
     outputVolumeCommitValue = nil
     inputVolumeCommitValue = nil

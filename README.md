@@ -58,13 +58,13 @@ Anything that looks like it is hiding what it does will be rejected, regardless 
 
 ## Writing a plugin
 
-The [plugin development docs](https://docs.noctalia.dev/v5/plugins/development/) are the reference: the
-[manifest](https://docs.noctalia.dev/v5/plugins/development/manifest/), the
-[entry types](https://docs.noctalia.dev/v5/plugins/development/entries/) (`[[widget]]`, `[[panel]]`, `[[shortcut]]`,
+The [plugin development docs](https://docs.noctalia.dev/noctalia/plugins/development/) are the reference: the
+[manifest](https://docs.noctalia.dev/noctalia/plugins/development/manifest/), the
+[entry types](https://docs.noctalia.dev/noctalia/plugins/development/entries/) (`[[widget]]`, `[[panel]]`, `[[shortcut]]`,
 `[[service]]`, `[[desktop_widget]]`, `[[launcher_provider]]`), the
-[declarative UI](https://docs.noctalia.dev/v5/plugins/development/declarative-ui/) vocabulary, the
-[runtime API](https://docs.noctalia.dev/v5/plugins/development/runtime-api/), and the
-[workflow](https://docs.noctalia.dev/v5/plugins/development/workflow/) for developing and testing locally.
+[declarative UI](https://docs.noctalia.dev/noctalia/plugins/development/declarative-ui/) vocabulary, the
+[runtime API](https://docs.noctalia.dev/noctalia/plugins/development/runtime-api/), and the
+[workflow](https://docs.noctalia.dev/noctalia/plugins/development/workflow/) for developing and testing locally.
 
 The fastest start is to read
 [`noctalia/example`](https://github.com/noctalia-dev/official-plugins/tree/main/example) in the official repo. It

@@ -1,0 +1,48 @@
+id = "cleboost/jetbrains-provider"
+name = "JetBrains Provider"
+version = "1.0.0"
+plugin_api = 3
+author = "Cleboost"
+license = "MIT"
+icon = "folder-open"
+description = "Open a recent JetBrains project from the launcher. Type /jb to list your projects."
+tags = ["launcher", "development", "productivity"]
+dependencies = ["bash", "awk", "nohup"]
+
+[[setting]]
+key = "config_dir"
+type = "folder"
+label_key = "settings.config_dir.label"
+description_key = "settings.config_dir.description"
+default = "~/.config/JetBrains"
+
+[[setting]]
+key = "toolbox_dir"
+type = "folder"
+label_key = "settings.toolbox_dir.label"
+description_key = "settings.toolbox_dir.description"
+default = "~/.local/share/JetBrains/Toolbox/apps"
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 20
+min = 1
+max = 100
+
+[[setting]]
+key = "ignored_ides"
+type = "string_list"
+label_key = "settings.ignored_ides.label"
+description_key = "settings.ignored_ides.description"
+default = []
+
+[[launcher_provider]]
+id = "provider"
+entry = "jb_provider.luau"
+prefix = "jb"
+glyph = "code"
+include_in_global_search = false
+debounce_ms = 0

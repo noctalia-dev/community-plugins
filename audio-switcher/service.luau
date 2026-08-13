@@ -10,6 +10,8 @@ local PREFERENCES_VERSION = 1
 local REFRESH_INTERVAL_MS = 3000
 local BLUETOOTH_CONNECT_RETRIES = 16
 local BLUETOOTH_CONNECT_RETRY_SECONDS = 0.25
+local GROUP_SINK_PREFIX = "noctalia_group_"
+local GROUP_DESCRIPTION = "Noctalia_Output_Group"
 
 local dataDir = noctalia.pluginDataDir()
 local preferencesPath = dataDir and (dataDir .. "/preferences.json") or nil
@@ -58,6 +60,8 @@ local volumeRefreshes = {
   input = { running = false, again = false },
 }
 local audioEventRevisions = { output = 0, input = 0 }
+local combineSinkOption = "slaves"
+local groupNameCounter = 0
 
 local refreshAll
 local setOutput
@@ -97,7 +101,7 @@ local function runCommand(args, callback, timeoutMs)
 end
 
 local function runPactl(args, callback, timeoutMs)
-  local command = { "pactl" }
+  local command = { "env", "LC_ALL=C", "pactl" }
   for _, value in ipairs(args) do table.insert(command, value) end
   return runCommand(command, callback, timeoutMs)
 end
@@ -205,9 +209,56 @@ local function firstVolumePercent(volume)
   return 0
 end
 
+local function parseCurrentVolume(output)
+  local decoded = noctalia.json.decode(tostring(output or ""))
+  if type(decoded) == "table" and type(decoded.volume) == "table" then
+    return firstVolumePercent(decoded.volume)
+  end
+  return tonumber(tostring(output or ""):match("(%d+)%%"))
+end
+
+local function parseCurrentMute(output)
+  local decoded = noctalia.json.decode(tostring(output or ""))
+  if type(decoded) == "table" and type(decoded.mute) == "boolean" then
+    return decoded.mute
+  end
+  local value = tostring(output or ""):match("Mute:%s*(%a+)")
+  if value == "yes" then return true end
+  if value == "no" then return false end
+  return nil
+end
+
 local function propertiesOf(item)
   return type(item.properties) == "table" and item.properties or {}
 end
+
+-- BEGIN INPUT PORT HELPERS
+local function inputPortText(value)
+  return tostring(value or ""):match("^%s*(.-)%s*$") or ""
+end
+
+local function parseInputPorts(item)
+  local activeValue = type(item.active_port) == "table" and item.active_port.name or item.active_port
+  local activeName = inputPortText(activeValue)
+  local ports = {}
+  for _, port in ipairs(type(item.ports) == "table" and item.ports or {}) do
+    if type(port) == "table" then
+      local name = inputPortText(port.name)
+      if name ~= "" then
+        local description = inputPortText(port.description)
+        local availability = inputPortText(port.availability):lower()
+        ports[#ports + 1] = {
+          name = name,
+          description = description ~= "" and description or name,
+          available = availability ~= "not available",
+          active = name == activeName,
+        }
+      end
+    end
+  end
+  return ports, activeName
+end
+-- END INPUT PORT HELPERS
 
 local function bluetoothAddress(properties)
   local value = trim(properties["api.bluez5.address"])
@@ -217,13 +268,14 @@ local function bluetoothAddress(properties)
   return value:upper()
 end
 
-local function makeOutput(item, defaultName)
+local function makeOutput(item, defaultName, group)
   local properties = propertiesOf(item)
   local address = bluetoothAddress(properties)
   local isBluetooth = address ~= ""
   local stableId = isBluetooth and bluetoothOutputId(address) or tostring(item.name or "")
   local fallback = tostring(properties["device.alias"] or item.description or item.name or stableId)
-  local icon, iconStyle = resolvedDeviceIcon(stableId, isBluetooth and "headphones" or "device-speaker")
+  if group ~= nil then fallback = noctalia.tr("device.output_group") end
+  local icon, iconStyle = resolvedDeviceIcon(stableId, group ~= nil and "link" or (isBluetooth and "headphones" or "device-speaker"))
   return {
     id = stableId,
     targetName = tostring(item.name or ""),
@@ -239,6 +291,9 @@ local function makeOutput(item, defaultName)
     muted = item.mute == true,
     icon = icon,
     iconStyle = iconStyle,
+    group = group ~= nil,
+    groupModuleId = group and group.moduleId or nil,
+    groupMembers = group and group.members or nil,
   }
 end
 
@@ -252,7 +307,16 @@ local function makeInput(item, defaultName)
   local stableId = isBluetooth and bluetoothInputId(address) or tostring(item.name or "")
   local fallback = tostring(properties["device.alias"] or item.description or item.name or stableId)
   if isBluetooth then setPreference(preferences.knownBluetoothInputs, address, fallback) end
-  local icon, iconStyle = resolvedDeviceIcon(stableId, isBluetooth and "headset" or "microphone")
+  local ports, activePortName = parseInputPorts(item)
+  local activePortDescription = ""
+  for _, port in ipairs(ports) do
+    if port.active then activePortDescription = port.description break end
+  end
+  local portLooksLikeHeadset = (activePortName .. " " .. activePortDescription):lower():find("headset", 1, true) ~= nil
+  local icon, iconStyle = resolvedDeviceIcon(
+    stableId,
+    isBluetooth and "headset" or (portLooksLikeHeadset and "headset" or "microphone")
+  )
   return {
     id = stableId,
     targetName = tostring(item.name or ""),
@@ -268,6 +332,9 @@ local function makeInput(item, defaultName)
     muted = item.mute == true,
     icon = icon,
     iconStyle = iconStyle,
+    ports = ports,
+    activePort = activePortName,
+    activePortDescription = activePortDescription,
   }
 end
 
@@ -285,16 +352,42 @@ local function parseInfo(output)
   return {
     defaultSink = tostring(decoded.default_sink_name or ""),
     defaultSource = tostring(decoded.default_source_name or ""),
+    serverName = tostring(decoded.server_name or ""),
   }
 end
 
-local function parseOutputs(output, defaultName)
+local function moduleArgumentValue(argument, key)
+  return tostring(argument or ""):match("%f[%w_]" .. key .. "=([^%s]+)")
+end
+
+local function parseOutputGroups(output)
+  local groups = {}
+  for line in (tostring(output or "") .. "\n"):gmatch("(.-)\n") do
+    local moduleId, moduleName, argument = line:match("^(%d+)%s+([^%s]+)%s+(.-)%s*$")
+    if moduleName == "module-combine-sink" then
+      local sinkName = moduleArgumentValue(argument, "sink_name")
+      local membersValue = moduleArgumentValue(argument, "sinks")
+        or moduleArgumentValue(argument, "slaves")
+      if sinkName ~= nil and sinkName:sub(1, #GROUP_SINK_PREFIX) == GROUP_SINK_PREFIX then
+        local members = {}
+        for member in tostring(membersValue or ""):gmatch("[^,]+") do
+          table.insert(members, member)
+        end
+        groups[sinkName] = { moduleId = tonumber(moduleId), members = members }
+      end
+    end
+  end
+  return groups
+end
+
+local function parseOutputs(output, defaultName, groups)
   local decoded = decodeJson(output)
   local devices = {}
   if decoded == nil then return devices end
   for _, item in ipairs(decoded) do
     if type(item) == "table" and trim(item.name) ~= "" then
-      table.insert(devices, makeOutput(item, defaultName))
+      local name = tostring(item.name or "")
+      table.insert(devices, makeOutput(item, defaultName, groups and groups[name] or nil))
     end
   end
   sortDevices(devices)
@@ -508,23 +601,22 @@ local function loadCurrentVolume(kind, callback)
       callback(false)
       return
     end
-    local volumeData = decodeJson(volumeResult.stdout)
-    if volumeData == nil or type(volumeData.volume) ~= "table" then
+    local volume = parseCurrentVolume(volumeResult.stdout)
+    if volume == nil then
       callback(false)
       return
     end
-    local volume = firstVolumePercent(volumeData.volume)
     runPactl({ "-f", "json", muteCommand, target }, function(muteResult)
       if muteResult.exitCode ~= 0 then
         callback(false)
         return
       end
-      local muteData = decodeJson(muteResult.stdout)
-      if muteData == nil then
+      local muted = parseCurrentMute(muteResult.stdout)
+      if muted == nil then
         callback(false)
         return
       end
-      callback(true, volume, muteData.mute == true)
+      callback(true, volume, muted)
     end)
   end)
 end
@@ -568,59 +660,67 @@ local function loadAudio(callback)
       callback(false, noctalia.tr("errors.invalid_audio_data"))
       return
     end
-    runPactl({ "-f", "json", "list", "sinks" }, function(sinkResult)
-      if sinkResult.exitCode ~= 0 then
-        callback(false, trim(sinkResult.stderr))
+    combineSinkOption = info.serverName:find("PipeWire", 1, true) ~= nil and "sinks" or "slaves"
+    runPactl({ "list", "short", "modules" }, function(moduleResult)
+      if moduleResult.exitCode ~= 0 then
+        callback(false, trim(moduleResult.stderr))
         return
       end
-      runPactl({ "-f", "json", "list", "sources" }, function(sourceResult)
-        if sourceResult.exitCode ~= 0 then
-          callback(false, trim(sourceResult.stderr))
+      local groups = parseOutputGroups(moduleResult.stdout)
+      runPactl({ "-f", "json", "list", "sinks" }, function(sinkResult)
+        if sinkResult.exitCode ~= 0 then
+          callback(false, trim(sinkResult.stderr))
           return
         end
-        local currentOutputVolume = snapshot.outputVolume
-        local currentInputVolume = snapshot.inputVolume
-        local currentOutputMuted = snapshot.outputMuted
-        local currentInputMuted = snapshot.inputMuted
-        snapshot.outputs = parseOutputs(sinkResult.stdout, info.defaultSink)
-        snapshot.inputs = parseInputs(sourceResult.stdout, info.defaultSource)
-        snapshot.defaultOutputId = ""
-        snapshot.defaultInputId = ""
-        snapshot.outputVolume = 0
-        snapshot.inputVolume = 0
-        snapshot.outputMuted = false
-        snapshot.inputMuted = false
-        for _, output in ipairs(snapshot.outputs) do
-          if output.active then
-            snapshot.defaultOutputId = output.id
-            snapshot.outputVolume = output.volume
-            snapshot.outputMuted = output.muted
-            break
+        runPactl({ "-f", "json", "list", "sources" }, function(sourceResult)
+          if sourceResult.exitCode ~= 0 then
+            callback(false, trim(sourceResult.stderr))
+            return
           end
-        end
-        for _, input in ipairs(snapshot.inputs) do
-          if input.active then
-            snapshot.defaultInputId = input.id
-            snapshot.inputVolume = input.volume
-            snapshot.inputMuted = input.muted
-            break
+          local currentOutputVolume = snapshot.outputVolume
+          local currentInputVolume = snapshot.inputVolume
+          local currentOutputMuted = snapshot.outputMuted
+          local currentInputMuted = snapshot.inputMuted
+          snapshot.outputs = parseOutputs(sinkResult.stdout, info.defaultSink, groups)
+          snapshot.inputs = parseInputs(sourceResult.stdout, info.defaultSource)
+          snapshot.defaultOutputId = ""
+          snapshot.defaultInputId = ""
+          snapshot.outputVolume = 0
+          snapshot.inputVolume = 0
+          snapshot.outputMuted = false
+          snapshot.inputMuted = false
+          for _, output in ipairs(snapshot.outputs) do
+            if output.active then
+              snapshot.defaultOutputId = output.id
+              snapshot.outputVolume = output.volume
+              snapshot.outputMuted = output.muted
+              break
+            end
           end
-        end
-        if audioEventRevisions.output ~= outputEventRevision then
-          snapshot.outputVolume = currentOutputVolume
-          snapshot.outputMuted = currentOutputMuted
-        else
-          snapshot.outputVolume = reconcileVolumeDisplay("output", snapshot.outputVolume)
-        end
-        if audioEventRevisions.input ~= inputEventRevision then
-          snapshot.inputVolume = currentInputVolume
-          snapshot.inputMuted = currentInputMuted
-        else
-          snapshot.inputVolume = reconcileVolumeDisplay("input", snapshot.inputVolume)
-        end
-        updateActiveDeviceVolume("output", snapshot.outputVolume, snapshot.outputMuted)
-        updateActiveDeviceVolume("input", snapshot.inputVolume, snapshot.inputMuted)
-        callback(true, "")
+          for _, input in ipairs(snapshot.inputs) do
+            if input.active then
+              snapshot.defaultInputId = input.id
+              snapshot.inputVolume = input.volume
+              snapshot.inputMuted = input.muted
+              break
+            end
+          end
+          if audioEventRevisions.output ~= outputEventRevision then
+            snapshot.outputVolume = currentOutputVolume
+            snapshot.outputMuted = currentOutputMuted
+          else
+            snapshot.outputVolume = reconcileVolumeDisplay("output", snapshot.outputVolume)
+          end
+          if audioEventRevisions.input ~= inputEventRevision then
+            snapshot.inputVolume = currentInputVolume
+            snapshot.inputMuted = currentInputMuted
+          else
+            snapshot.inputVolume = reconcileVolumeDisplay("input", snapshot.inputVolume)
+          end
+          updateActiveDeviceVolume("output", snapshot.outputVolume, snapshot.outputMuted)
+          updateActiveDeviceVolume("input", snapshot.inputVolume, snapshot.inputMuted)
+          callback(true, "")
+        end)
       end)
     end)
   end)
@@ -756,6 +856,119 @@ local function setDefaultTarget(command, kind, device)
   end)
 end
 
+local function uniqueGroupSinkName()
+  groupNameCounter += 1
+  local base = GROUP_SINK_PREFIX .. tostring(os.time()) .. "_" .. tostring(groupNameCounter)
+  local candidate = base
+  local suffix = 1
+  while findOutputById(candidate) ~= nil do
+    suffix += 1
+    candidate = base .. "_" .. tostring(suffix)
+  end
+  return candidate
+end
+
+local function createOutputGroup(command)
+  if actionBusy then
+    resultMessage(command, false, noctalia.tr("errors.busy"))
+    return
+  end
+  local selected = {}
+  local seen = {}
+  for _, id in ipairs(type(command.ids) == "table" and command.ids or {}) do
+    local device = findOutputById(tostring(id or ""))
+    if device ~= nil and device.available and not device.group and trim(device.targetName) ~= "" and not seen[device.id] then
+      seen[device.id] = true
+      table.insert(selected, device)
+    end
+  end
+  if #selected < 2 then
+    resultMessage(command, false, noctalia.tr("errors.group_requires_two"))
+    return
+  end
+
+  local targetNames = {}
+  for _, device in ipairs(selected) do table.insert(targetNames, device.targetName) end
+  local sinkName = uniqueGroupSinkName()
+  actionBusy = true
+  publishSnapshot()
+  runPactl({
+    "load-module",
+    "module-combine-sink",
+    "sink_name=" .. sinkName,
+    combineSinkOption .. "=" .. table.concat(targetNames, ","),
+    "sink_properties=device.description=" .. GROUP_DESCRIPTION,
+  }, function(loadResult)
+    local moduleId = tonumber(trim(loadResult.stdout))
+    if loadResult.exitCode ~= 0 or moduleId == nil then
+      local message = trim(loadResult.stderr)
+      finishAction(command, false, message ~= "" and message or noctalia.tr("errors.group_create_failed"))
+      return
+    end
+    runPactl({ "set-default-sink", sinkName }, function(defaultResult)
+      if defaultResult.exitCode ~= 0 then
+        runPactl({ "unload-module", tostring(moduleId) }, function()
+          local message = trim(defaultResult.stderr)
+          finishAction(command, false, message ~= "" and message or noctalia.tr("errors.group_switch_failed"))
+        end)
+        return
+      end
+      moveStreams("output", sinkName, function()
+        finishAction(command, true, noctalia.tr("notifications.group_created"))
+      end)
+    end)
+  end)
+end
+
+local function removeOutputGroup(command)
+  if actionBusy then
+    resultMessage(command, false, noctalia.tr("errors.busy"))
+    return
+  end
+  local group = findOutputById(tostring(command.id or ""))
+  if group == nil or not group.group or tonumber(group.groupModuleId) == nil then
+    resultMessage(command, false, noctalia.tr("errors.group_not_found"))
+    return
+  end
+
+  local fallback = nil
+  for _, targetName in ipairs(type(group.groupMembers) == "table" and group.groupMembers or {}) do
+    for _, device in ipairs(snapshot.outputs) do
+      if not device.group and device.available and device.targetName == targetName then
+        fallback = device
+        break
+      end
+    end
+    if fallback ~= nil then break end
+  end
+
+  actionBusy = true
+  publishSnapshot()
+  local function unloadGroup()
+    runPactl({ "unload-module", tostring(group.groupModuleId) }, function(result)
+      if result.exitCode ~= 0 then
+        local message = trim(result.stderr)
+        finishAction(command, false, message ~= "" and message or noctalia.tr("errors.group_remove_failed"))
+        return
+      end
+      finishAction(command, true, noctalia.tr("notifications.group_removed"))
+    end)
+  end
+
+  if group.active and fallback ~= nil then
+    runPactl({ "set-default-sink", fallback.targetName }, function(result)
+      if result.exitCode ~= 0 then
+        local message = trim(result.stderr)
+        finishAction(command, false, message ~= "" and message or noctalia.tr("errors.group_switch_failed"))
+        return
+      end
+      moveStreams("output", fallback.targetName, unloadGroup)
+    end)
+  else
+    unloadGroup()
+  end
+end
+
 assignSlot = function(address)
   address = tostring(address or ""):upper()
   if address == "" or tonumber(preferences.slots[address]) ~= nil then return end
@@ -878,14 +1091,87 @@ setInput = function(command, id)
   setDefaultTarget(command, "input", device)
 end
 
+local function findInputPort(device, portName)
+  for _, port in ipairs(type(device.ports) == "table" and device.ports or {}) do
+    if port.name == portName then return port end
+  end
+  return nil
+end
+
+local function setInputPort(command, id, portName)
+  if actionBusy then
+    resultMessage(command, false, noctalia.tr("errors.busy"))
+    return
+  end
+  local device = findInputById(id)
+  if device == nil then
+    finishAction(command, false, noctalia.tr("errors.device_not_found"))
+    return
+  end
+  local port = findInputPort(device, portName)
+  if port == nil then
+    finishAction(command, false, noctalia.tr("errors.input_port_not_found"))
+    return
+  end
+  if port.available == false then
+    finishAction(command, false, noctalia.tr("errors.input_port_unavailable"))
+    return
+  end
+  if trim(device.targetName) == "" then
+    finishAction(command, false, noctalia.tr("errors.device_unavailable"))
+    return
+  end
+
+  actionBusy = true
+  publishSnapshot()
+  runPactl({ "set-source-port", device.targetName, port.name }, function(portResult)
+    if portResult.exitCode ~= 0 then
+      local message = trim(portResult.stderr)
+      finishAction(command, false, message ~= "" and message or noctalia.tr("errors.input_port_switch_failed"))
+      return
+    end
+    runPactl({ "set-default-source", device.targetName }, function(defaultResult)
+      if defaultResult.exitCode ~= 0 then
+        local message = trim(defaultResult.stderr)
+        finishAction(command, false, message ~= "" and message or noctalia.tr("errors.switch_failed"))
+        return
+      end
+      moveStreams("input", device.targetName, function()
+        finishAction(
+          command,
+          true,
+          noctalia.tr("notifications.input_port_selected", { port = port.description }),
+          noctalia.getConfig("show_notification_on_switch")
+        )
+      end)
+    end)
+  end)
+end
+
 local function cycleDevice(command, kind)
   local devices = kind == "output" and snapshot.outputs or snapshot.inputs
   local visible = {}
   local activeIndex = 0
   for _, device in ipairs(devices) do
     if not device.hidden and (kind == "output" or device.available) then
-      table.insert(visible, device)
-      if device.active then activeIndex = #visible end
+      local ports = kind == "input" and type(device.ports) == "table" and device.ports or {}
+      if kind == "input" and #ports > 1 then
+        local addedPort = false
+        for _, port in ipairs(ports) do
+          if port.available ~= false then
+            table.insert(visible, { id = device.id, port = port.name })
+            addedPort = true
+            if device.active and port.active then activeIndex = #visible end
+          end
+        end
+        if not addedPort then
+          table.insert(visible, device)
+          if device.active then activeIndex = #visible end
+        end
+      else
+        table.insert(visible, device)
+        if device.active then activeIndex = #visible end
+      end
     end
   end
   if #visible == 0 then
@@ -893,7 +1179,14 @@ local function cycleDevice(command, kind)
     return
   end
   local nextIndex = activeIndex % #visible + 1
-  if kind == "output" then setOutput(command, visible[nextIndex].id) else setInput(command, visible[nextIndex].id) end
+  local target = visible[nextIndex]
+  if kind == "output" then
+    setOutput(command, target.id)
+  elseif target.port ~= nil then
+    setInputPort(command, target.id, target.port)
+  else
+    setInput(command, target.id)
+  end
 end
 
 local function findAddressBySlot(slot)
@@ -1032,9 +1325,28 @@ end
 local function toggleMute(command, kind)
   local target = kind == "output" and "@DEFAULT_SINK@" or "@DEFAULT_SOURCE@"
   local pactlCommand = kind == "output" and "set-sink-mute" or "set-source-mute"
+  local currentMuted = kind == "output" and snapshot.outputMuted or false
+  if kind == "input" then currentMuted = snapshot.inputMuted end
+  local requestedMuted = not currentMuted
   runPactl({ pactlCommand, target, "toggle" }, function(result)
-    resultMessage(command, result.exitCode == 0, trim(result.stderr))
-    refreshAll()
+    local ok = result.exitCode == 0
+    resultMessage(command, ok, trim(result.stderr))
+    if not ok then
+      refreshAll()
+      return
+    end
+
+    local volume
+    if kind == "output" then
+      snapshot.outputMuted = requestedMuted
+      volume = snapshot.outputVolume
+    else
+      snapshot.inputMuted = requestedMuted
+      volume = snapshot.inputVolume
+    end
+    updateActiveDeviceVolume(kind, volume, requestedMuted)
+    publishSnapshot()
+    refreshCurrentVolume(kind)
   end)
 end
 
@@ -1074,6 +1386,12 @@ local function executeCommand(command)
     setOutput(command, tostring(command.id or ""))
   elseif action == "set_input" then
     setInput(command, tostring(command.id or ""))
+  elseif action == "set_input_port" then
+    setInputPort(command, tostring(command.id or ""), tostring(command.port or ""))
+  elseif action == "create_output_group" then
+    createOutputGroup(command)
+  elseif action == "remove_output_group" then
+    removeOutputGroup(command)
   elseif action == "cycle_output" then
     cycleDevice(command, "output")
   elseif action == "cycle_input" then

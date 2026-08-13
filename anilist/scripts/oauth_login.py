@@ -113,8 +113,14 @@ def main() -> int:
         emit({"ok": False, "error": str(exc)}, result_path)
         return 1
 
-    result: dict[str, str] = {"status": "pending"}
+    result: dict[str, str | bool] = {"status": "pending"}
+    emitted = False
     done = threading.Event()
+
+    def report(payload: dict) -> None:
+        nonlocal emitted
+        emit(payload, result_path)
+        emitted = True
 
     class CallbackHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
@@ -132,6 +138,7 @@ def main() -> int:
             if error:
                 result["status"] = "error"
                 result["error"] = str(error)
+                report({"ok": False, "error": str(error)})
                 self._success_page("Login failed", "Return to Noctalia and try again.")
                 done.set()
                 return
@@ -140,6 +147,7 @@ def main() -> int:
             if not code:
                 result["status"] = "error"
                 result["error"] = "missing authorization code"
+                report({"ok": False, "error": "missing authorization code"})
                 self._success_page("Login failed", "No authorization code was received.")
                 done.set()
                 return
@@ -147,20 +155,24 @@ def main() -> int:
             try:
                 token = exchange_code(client_id, client_secret, code)
             except urllib.error.HTTPError as exc:
+                message = format_http_error(exc)
                 result["status"] = "error"
-                result["error"] = format_http_error(exc)
+                result["error"] = message
+                report({"ok": False, "error": message})
                 self._success_page("Login failed", "Could not finish login. Return to Noctalia and try again.")
                 done.set()
                 return
             except Exception as exc:  # noqa: BLE001
                 result["status"] = "error"
                 result["error"] = str(exc)
+                report({"ok": False, "error": str(exc)})
                 self._success_page("Login failed", "Could not finish login. Return to Noctalia and try again.")
                 done.set()
                 return
 
             result["status"] = "ok"
             result["access_token"] = token
+            report({"ok": True, "access_token": token})
             self._success_page(
                 "Connected to AniList",
                 "You can close this tab and return to Noctalia.",
@@ -232,6 +244,9 @@ def main() -> int:
         result["error"] = "login timed out"
 
     server.server_close()
+
+    if emitted:
+        return 0 if result.get("status") == "ok" else 1
 
     if result.get("status") == "ok" and result.get("access_token"):
         emit({"ok": True, "access_token": result["access_token"]}, result_path)

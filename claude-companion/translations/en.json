@@ -28,6 +28,26 @@
     "title": "pulse",
     "total": "Σ {tin} in / {tout} out"
   },
+  "sessions": {
+    "empty": "No live Claude sessions. Start one in a terminal, or with /claude.",
+    "retire": "Retire",
+    "title": "Claude — {count} sessions",
+    "title_one": "Claude — 1 session"
+  },
+  "settings": {
+    "breath_speed": {
+      "description": "How fast the pulse dot and orb breathe. 1.0 is the default; higher is faster, lower is slower.",
+      "label": "Breath speed"
+    },
+    "orb_swell": {
+      "description": "How far the desktop orb magnifies as it breathes. 0 keeps it a static size; 1.0 is the default; higher swells more.",
+      "label": "Orb swell"
+    },
+    "pulse_glow_floor": {
+      "description": "How dim the bar dot gets at the low point of its breath. 0 dims to black; higher stays brighter. 0.45 is the default.",
+      "label": "Bar dot glow floor"
+    }
+  },
   "state": {
     "orb": {
       "error": "error",

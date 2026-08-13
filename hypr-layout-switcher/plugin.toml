@@ -1,0 +1,18 @@
+id = "maddingo/hypr-layout-switcher"
+name = "Hyprland Layout Switcher"
+description = "Shows and cycles the active workspace's layout"
+version = "0.1.0"
+plugin_api = 3
+author = "maddingo"
+license = "MIT"
+icon = "layout-grid"
+tags = ["hyprland"]
+dependencies = ["hyprland"]
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "toggle"
+entry = "widget.luau"

@@ -2,17 +2,20 @@
 # The bar glyph toggles a search panel: the search folder is indexed with
 # `find` (honoring the excluded directories), every keystroke is matched
 # through `fzf --filter`, and picking a result opens it with the system
-# MIME association (xdg-open).
+# MIME association (xdg-open). The panel's disk button widens the search to
+# the mounted USB/removable volumes, detected with `lsblk`.
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.19"
+version = "0.0.25"
 plugin_api = 15
 author = "nightwatch75"
 license = "MIT"
-# The exact commands the plugin spawns (fzf aside, findutils + coreutils +
-# xdg-utils on any Linux desktop).
-dependencies = ["fzf", "find", "mktemp", "mv", "wc", "head", "rm", "xdg-open"]
+# The exact commands the plugin spawns (fzf, lsblk and gdbus aside, findutils +
+# coreutils + xdg-utils on any Linux desktop). lsblk only runs while the search
+# scope includes the external disks, gdbus only on a reveal-in-file-manager
+# click, and that one falls back to xdg-open when it is missing.
+dependencies = ["fzf", "find", "lsblk", "gdbus", "mktemp", "mv", "wc", "head", "rm", "date", "xdg-open"]
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."

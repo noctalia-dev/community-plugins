@@ -1,0 +1,165 @@
+{
+  "chat": {
+    "assistant": "Trợ lý",
+    "back": "Quay lại danh sách phiên",
+    "dismiss_error": "Bỏ qua",
+    "empty": "Chưa có tin nhắn. Gửi prompt để bắt đầu.",
+    "open_terminal": "Mở trong terminal",
+    "placeholder": "Hỏi OpenCode bất cứ điều gì…  (Enter = Gửi, Shift+Enter = xuống dòng)",
+    "refresh": "Làm mới",
+    "select_agent": "Agent",
+    "select_model": "Mô hình",
+    "send": "Gửi (Enter)",
+    "stop": "Dừng",
+    "thinking": "Đang suy nghĩ…",
+    "title": "OpenCode Chat",
+    "you": "Bạn"
+  },
+  "chooser": {
+    "delete": "Xóa phiên",
+    "delete_cancel": "Hủy",
+    "delete_confirm": "Xác nhận xóa",
+    "empty": "Chưa có phiên nào. Tạo một phiên để bắt đầu.",
+    "new_session": "Tạo phiên mới",
+    "no_match": "Không có phiên nào khớp.",
+    "open": "Mở phiên",
+    "refresh": "Làm mới",
+    "search": "Tìm phiên…",
+    "title": "OpenCode — Phiên"
+  },
+  "error": {
+    "abort_failed": "Không thể hủy phiên",
+    "connection_failed": "Không thể kết nối đến máy chụ",
+    "connection_failed_detail": "Máy chủ không phản hồi health check.",
+    "create_session_failed": "Không thể tạo phiên",
+    "delete_session_failed": "Không thể xóa phiên",
+    "exe_not_found": "Không tìm thấy opencode trên PATH",
+    "exe_not_found_detail": "Cài đặt opencode và đảm bảo nó có trên PATH.",
+    "external_not_configured": "URL máy chủ bên ngoài chưa được cấu hình",
+    "permission_failed": "Không thể phản hồi yêu cầu quyền",
+    "prompt_failed": "Không thể gửi prompt",
+    "question_failed": "Không thể trả lời câu hỏi",
+    "server_failed": "Không thể khởi động máy chủ OpenCode",
+    "server_timeout": "Máy chủ không khởi động kịp thời gian",
+    "server_timeout_detail": "Máy chủ không trở nên sỏng trong khoảng thời gian chờ.",
+    "session_error": "Phiên gặp lỗi",
+    "session_error_detail": "Agent đã dừng do gặp lỗi.",
+    "session_not_found": "Không tìm thấy phiên",
+    "sse_disconnected": "Luồng sự kiện đã ngắt kết nối"
+  },
+  "mcp": {
+    "connected": "Đã kết nối",
+    "disabled": "Đã tắt",
+    "failed": "Lỗi",
+    "title": "Máy chủ MCP"
+  },
+  "notify": {
+    "new_session": "Đang tạo phiên mới…",
+    "permission_body": "OpenCode đang chờ bạn phê duyệt.",
+    "permission_title": "Yêu cầu quyền",
+    "title": "OpenCode"
+  },
+  "permission": {
+    "allow": "Cho phép",
+    "allow_remember": "Luôn cho phép",
+    "default_message": "OpenCode muốn thực hiện một hành động cần sự chấp thuận của bạn.",
+    "deny": "Từ chối",
+    "title": "Cần cấp quyền"
+  },
+  "question": {
+    "cancel": "Hủy",
+    "custom": "Trả lời tùy chỉnh",
+    "submit": "Gửi",
+    "title": "Câu hỏi"
+  },
+  "settings": {
+    "auto_start": {
+      "description": "Tự động khởi động máy chủ cục bộ khi plugin tải.",
+      "label": "Tự động khởi động"
+    },
+    "debug_logging": {
+      "description": "In thông tin gỡ lỗi vào nhật ký Noctalia.",
+      "label": "Gỡ lỗi"
+    },
+    "default_agent": {
+      "description": "Agent mặc định cho phiên mới. Mặc định: 'build'.",
+      "label": "Agent mặc định"
+    },
+    "default_model": {
+      "label": "Model mặc định"
+    },
+    "default_workspace": {
+      "description": "Thư mục làm việc mặc định cho phiên mới. Để trống để dùng thư mục hiện tại.",
+      "label": "Thư mục làm việc mặc định"
+    },
+    "language": {
+      "description": "Ngôn ngữ giao diện của plugin này. 'Tự động' theo ngôn ngữ của Noctalia.",
+      "label": "Ngôn ngữ",
+      "options": {
+        "auto": "Tự động (theo shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "max_messages_load": {
+      "description": "Số tin nhắn tải mỗi phiên (1–100). Kéo thanh trượt lên mức cao nhất để không giới hạn. Mặc định: 50.",
+      "label": "Số tin nhắn tải tối đa"
+    },
+    "panel_mode": {
+      "description": "Full-height sát phải mở panel cao trọn màn hình ghim vào mép phải; Compact hiển thị panel nổi gần chỗ bấm trên thanh bar.",
+      "label": "Kiểu panel",
+      "options": {
+        "compact": "Gọn (gần điểm bấm)",
+        "fill_right": "Thanh cao full màn bên phải"
+      }
+    },
+    "server_host": {
+      "description": "Hostname máy chủ cục bộ bind vào. Mặc định: 127.0.0.1 (chỉ loopback).",
+      "label": "Máy chủ host"
+    },
+    "server_mode": {
+      "description": "Cách plugin kết nối đến OpenCode. 'auto' quản lý máy chụ cục bộ; 'external' kết nối đến URL do người dùng chỉ định.",
+      "label": "Chế độ máy chủ"
+    },
+    "server_port": {
+      "description": "Cổng máy chủ cục bộ lắng nghe. Mặc định: 4096.",
+      "label": "Cổng máy chủ"
+    },
+    "server_url": {
+      "description": "URL cơ sở của máy chủ OpenCode bên ngoài (ví dụ: http://127.0.0.1:4096). Dùng khi chế độ máy chủ là 'external'.",
+      "label": "URL máy chủ bên ngoài"
+    },
+    "show_reasoning": {
+      "description": "Hiển thị nội dung reasoning/thinking trong khung chat.",
+      "label": "Hiện reasoning"
+    },
+    "show_tool_calls": {
+      "description": "Hiển thị trạng thái tool call trong khung chat.",
+      "label": "Hiện tool calls"
+    },
+    "ui_mode": {
+      "description": "Full hiển thị bố cục rộng rãi; Compact thu nhỏ padding, chữ và ẩn chi tiết phụ để panel gọn gàng tối giản.",
+      "label": "Chế độ giao diện",
+      "options": {
+        "compact": "Compact",
+        "full": "Full"
+      }
+    }
+  },
+  "state": {
+    "tip": {
+      "busy": "OpenCode: đang xử lý…",
+      "offline": "OpenCode: ngắt kết nối",
+      "online": "OpenCode: đã kết nối",
+      "starting": "OpenCode: đang khởi động…",
+      "waiting_permission": "OpenCode: chờ cấp quyền"
+    },
+    "unread": "{count} phản hồi chưa đọc"
+  },
+  "time": {
+    "days_ago": "{n} ngày trước",
+    "hours_ago": "{n} giờ trước",
+    "just_now": "vừa xong",
+    "minutes_ago": "{n} phút trước"
+  }
+}

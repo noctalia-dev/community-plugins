@@ -12,6 +12,18 @@
 local STATE_KEY = "topgrade_state"
 local REQUEST_KEY = "topgrade_request"
 
+-- Read out of the plugin's own manifest (readFile resolves a relative path
+-- against the plugin directory), so the header cannot drift from the version
+-- the store shows. Empty when unreadable — a missing version is not worth an
+-- error line in the panel.
+local pluginVersion = (function()
+    local text = noctalia.readFile("plugin.toml")
+    if type(text) ~= "string" then
+        return ""
+    end
+    return ("\n" .. text):match('\nversion%s*=%s*"([^"]+)"') or ""
+end)()
+
 local snapshot = nil
 local expanded = {} -- manager key -> the package list is open
 local hoverKey = nil -- package row currently under the pointer
@@ -331,14 +343,21 @@ render = function()
     local hasUpdates = totalOf() > 0 and (phase == "ready" or phase == "running")
 
     local children = {
-        ui.row({ gap = 8, align = "center" }, {
+        -- Every child of the header carries a stable key, so the reconciler
+        -- matches roles instead of guessing by position and type.
+        ui.row({ key = "header", gap = 8, align = "center" }, {
             ui.label({
+                key = "title",
                 text = tr("title"),
                 fontSize = 16,
                 fontWeight = "bold",
                 color = "on_surface",
-                flexGrow = 1,
             }),
+            -- Version off the manifest, small and dimmed: it answers "which
+            -- build am I running" without competing with the title. The spacer
+            -- rather than a flexGrow title keeps the two together on the left.
+            ui.label({ key = "version", text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
+            ui.spacer({ key = "gap", flexGrow = 1 }),
             ui.button({
                 key = "header-check" .. (busy() and "-off" or ""),
                 glyph = "refresh",
@@ -353,6 +372,7 @@ render = function()
             -- supplies the plugin id, so a plugin can only ever open its own).
             -- The panel closes on the way; the engine keeps running.
             ui.button({
+                key = "settings",
                 glyph = "settings",
                 variant = "ghost",
                 tooltip = tr("tip_settings"),
@@ -361,6 +381,7 @@ render = function()
                 end,
             }),
             ui.button({
+                key = "close",
                 glyph = "close",
                 variant = "ghost",
                 tooltip = tr("tip_close"),

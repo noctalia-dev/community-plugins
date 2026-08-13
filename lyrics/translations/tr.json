@@ -1,0 +1,75 @@
+{
+  "instrumental": "Enstrümental",
+  "intro": "Giriş",
+  "no_lyrics": "♪ Şarkı sözleri mevcut değil",
+  "panel": {
+    "close": "Kapat",
+    "loading": "Şarkı sözleri yükleniyor…",
+    "no_candidates": "Alternatif bir LRCLIB sonucu yok",
+    "no_track": "Şarkı çalmıyor",
+    "result": "Şarkı sözleri sonuçları",
+    "selection_failed": "Seçilen şarkı sözleri yüklenemedi",
+    "synced": "Eşleştirildi",
+    "title": "Şarkı sözlerini seçin",
+    "unsynced": "Eşleştirilmedi"
+  },
+  "select_lyrics": "Şarkı sözlerini seçin",
+  "settings": {
+    "active_color": {
+      "description": "Şu anki ve daha önce söylenmiş olan şarkı sözlerindeki karakterler için kullanılan renk. Varsayılan olarak arayüz yazı rengi kullanılır.",
+      "label": "Aktif şarkı sözü rengi"
+    },
+    "animation": {
+      "description": "Şarkı sözlerinin satır değişimine göre animasyonu.",
+      "label": "Animasyon",
+      "options": {
+        "blink": "Yanıp sönerek",
+        "cascade": "Karakter kademeli",
+        "fade": "Yalnızca solarak",
+        "karaoke": "Karaoke gradyanı + solma",
+        "none": "Animasyonsuz",
+        "pulse": "Nabız solması",
+        "typewriter": "Daktilo belirmesi",
+        "wave": "Dalga şeklinde karakterler"
+      }
+    },
+    "apple_developer_token": {
+      "description": "Apple Music kataloğu ve şarkı sözü isteği için kullanılan geliştirici token'ı.",
+      "label": "Apple Music geliştirici token'ı"
+    },
+    "apple_storefront": {
+      "description": "Apple Music mağaza kodu, örneğin tr, us, cn, jp, veya hk.",
+      "label": "Apple Music mağazası"
+    },
+    "apple_user_token": {
+      "label": "Apple Music kullanıcı token'ı"
+    },
+    "char_width": {
+      "description": "Araç genişliğini ve kırpma kaydırmasını sabitlemek için kullanılan, karakter başına yaklaşık piksel genişliği.",
+      "label": "Karakter genişliği (px)"
+    },
+    "cover_radius": {
+      "description": "Özel kapak şekli için kullanılan köşe yarıçapı.",
+      "label": "Kapak köşesi yarıçapı"
+    },
+    "cover_shape": {
+      "description": "Albüm kapağının şekli.",
+      "label": "Kapak şekli",
+      "options": {
+        "circle": "Çember",
+        "custom": "Özel çap",
+        "rounded": "Yuvarlanmış kare",
+        "square": "Kare"
+      }
+    },
+    "cover_size": {
+      "label": "Kapak boyutu"
+    },
+    "cue_font_mode": {
+      "options": {
+        "custom": "Özel font",
+        "follow": "Arayüz fontunu kullan"
+      }
+    }
+  }
+}

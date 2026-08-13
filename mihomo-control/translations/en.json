@@ -1,0 +1,92 @@
+{
+  "settings": {
+    "host": {
+      "label": "Host",
+      "description": "Hostname or IP of the Mihomo external controller."
+    },
+    "port": {
+      "label": "Port",
+      "description": "Port of the Mihomo external controller (9090 by default)."
+    },
+    "secret": {
+      "label": "Secret",
+      "description": "External-controller secret from your Mihomo config; empty when authentication is disabled."
+    },
+    "use_https": {
+      "label": "HTTPS",
+      "description": "Connect with https:// instead of http:// (external-controller-tls or a TLS reverse proxy)."
+    },
+    "allow_insecure_tls": {
+      "label": "Allow insecure TLS",
+      "description": "Skip certificate verification when the controller uses a self-signed certificate."
+    },
+    "test_url": {
+      "label": "Test URL",
+      "description": "URL used for latency tests; empty uses each group's configured test URL."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "Seconds between status polls (1–60)."
+    }
+  },
+  "panel": {
+    "title": "Mihomo Control",
+    "status_online": "Online",
+    "status_offline": "Offline",
+    "status_connecting": "Connecting",
+    "mode_rule": "Rule",
+    "mode_global": "Global",
+    "mode_direct": "Direct",
+    "refresh": "Refresh",
+    "traffic": "Traffic",
+    "connections": "connections",
+    "memory": "RAM",
+    "proxy_groups": "Proxy groups",
+    "no_groups": "No proxy groups found.",
+    "delay_test": "Test latency",
+    "test_all": "Test all",
+    "restart": "Restart",
+    "timeout": "timeout",
+    "no_members": "no members",
+    "members_count": {
+      "one": "{count} member",
+      "other": "{count} members"
+    },
+    "hidden": "hidden",
+    "online_with_version": "{version} · {endpoint}",
+    "online_plain": "{endpoint}",
+    "offline_with_error": "{error}",
+    "offline_plain": "{endpoint}"
+  },
+  "widget": {
+    "status": "Status",
+    "mode": "Mode",
+    "connections": "Connections",
+    "up": "Up total",
+    "down": "Down total",
+    "status_online_with_version": "Online · {version}",
+    "status_online_plain": "Online",
+    "status_connecting": "Connecting",
+    "status_offline_with_error": "Offline — {error}",
+    "status_offline_plain": "Offline"
+  },
+  "shortcut": {
+    "label": "Mihomo: {mode}",
+    "mode_rule": "Rule",
+    "mode_global": "Global",
+    "mode_direct": "Direct"
+  },
+  "notify": {
+    "mode_changed": "Mihomo mode changed",
+    "proxy_selected": "Proxy selected",
+    "proxy_selected_body": "{group} → {proxy}",
+    "delay_done": "Latency test finished",
+    "delay_all_done": "All groups tested",
+    "delay_body": "{count} nodes tested, selected {delay} ms",
+    "delay_body_no_selection": "{count} nodes tested",
+    "delay_timeout": "All nodes timed out (504) — check the test URL",
+    "restarting": "Mihomo is restarting",
+    "connections_closed": "All connections closed",
+    "request_failed": "Mihomo request failed"
+  }
+}

@@ -12,13 +12,13 @@
 # Without one it sends a bare event, which lands in the widget's shared
 # "default" test slot — fine for a poke, wrong for a real integration.
 #
-# Env: PULSE_TARGET  plugin dispatch id (default lowcache/claude-companion:pulse)
+# Env: PULSE_TARGET  plugin dispatch id (default lowcache/claude-companion:pulse-svc)
 #      PULSE_DRYRUN  non-empty -> print the command instead of dispatching
 #
 # Fail-open by contract: exits 0 no matter what, output swallowed, dispatch
 # capped at 3 s. A hook must never block or error the agent driving it.
 
-TARGET="${PULSE_TARGET:-lowcache/claude-companion:pulse}"
+TARGET="${PULSE_TARGET:-lowcache/claude-companion:pulse-svc}"
 event="${1:-idle}"
 session="$2"
 

@@ -6,10 +6,12 @@
   "panel": {
     "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
     "brightness": "Brilho",
+    "browser_truncated": "Mostrando as primeiras {count} correspondências. Refine sua busca para reduzir a lista.",
     "color_temp": "Temperatura de Cor",
     "connecting": "Conectando…",
     "disconnected_reconnecting": "Desconectado. Reconectando…",
     "hue": "Matiz",
+    "load_entities_failed": "Não foi possível carregar a lista de entidades. Tente novamente.",
     "loading_entities": "Carregando entidades…",
     "manage_entities_title": "Gerenciar Entidades",
     "no_entities_found": "Nenhuma entidade encontrada",

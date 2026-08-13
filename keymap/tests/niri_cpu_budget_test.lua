@@ -80,7 +80,10 @@ noctalia = {
   end,
 }
 
+local instructionBlocks = 0
+debug.sethook(function() instructionBlocks = instructionBlocks + 1 end, "", 1000)
 assert(loadfile("niri_service.luau"))()
+debug.sethook()
 bit32 = originalBit32
 string.sub = originalStringSub
 
@@ -91,10 +94,11 @@ assert(reads["/fixture/config.kdl"] == 1, "Niri root config should only be read 
 assert(reads["/fixture/mine/binds.kdl"] == 1, "Niri bind include should only be read once")
 assert(reads["/fixture/mine/debug.kdl"] == 1, "Niri optional include should only be read once")
 assert(reads["/fixture/mine/theme.kdl"] == 1, "Niri non-bind include should only be read once")
-assert(xorCalls > 0, "Niri parser did not use the native-xor fingerprint path")
+assert(xorCalls == 0, "Niri visible binds still use per-character fingerprinting")
+assert(instructionBlocks < 700, "Niri parser exceeded its regression instruction budget")
 assert(
   stringSubCalls < 45000,
   "Niri parser scanned an unrelated include character by character: " .. tostring(stringSubCalls)
 )
 
-print("niri CPU-budget regression tests: ok")
+print(string.format("niri CPU-budget regression tests: ok (%d blocks)", instructionBlocks))

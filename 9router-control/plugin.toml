@@ -1,0 +1,68 @@
+id = "weinguyen/9router-control"
+name = "9Router Control"
+version = "0.1.0"
+plugin_api = 3
+author = "weinguyen"
+license = "MIT"
+icon = "route"
+description = "Manage 9Router model combos from the Noctalia bar — list, reorder chains, edit routing without the web dashboard."
+tags = ["ai", "productivity", "development", "network", "bar", "panel"]
+dependencies = ["cat", "curl", "cut", "sha256sum", "sleep"]
+
+# ── User settings ─────────────────────────────────────────────────────────────
+[[setting]]
+key = "server_host"
+type = "string"
+default = "127.0.0.1"
+label_key = "settings.server_host.label"
+description_key = "settings.server_host.description"
+
+[[setting]]
+key = "server_port"
+type = "double"
+default = 20128
+label_key = "settings.server_port.label"
+description_key = "settings.server_port.description"
+
+[[setting]]
+key = "data_dir"
+type = "string"
+default = "~/.9router"
+label_key = "settings.data_dir.label"
+description_key = "settings.data_dir.description"
+
+[[setting]]
+key = "language"
+type = "select"
+default = "auto"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+options = [
+  { value = "auto", label_key = "settings.language.options.auto" },
+  { value = "en", label_key = "settings.language.options.en" },
+  { value = "vi", label_key = "settings.language.options.vi" },
+]
+
+[[setting]]
+key = "debug_logging"
+type = "bool"
+default = false
+label_key = "settings.debug_logging.label"
+description_key = "settings.debug_logging.description"
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+open_near_click = true
+placement = "floating"
+width = 520
+height = 680
+
+[[service]]
+id = "service"
+entry = "service.luau"

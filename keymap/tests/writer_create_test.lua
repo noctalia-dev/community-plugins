@@ -6,6 +6,7 @@ local failure = {
 	preflight = false,
 	validator = false,
 	reloadOnce = false,
+	remove = false,
 }
 local reloadAttempts = 0
 
@@ -44,6 +45,7 @@ noctalia = {
 		return true
 	end,
 	removeFile = function(path)
+		if failure.remove then return false end
 		files[path] = nil
 		return true
 	end,
@@ -139,7 +141,7 @@ local function reset(case)
 	files = {}
 	stateValues = {}
 	commands = {}
-	failure = { preflight = false, validator = false, reloadOnce = false }
+	failure = { preflight = false, validator = false, reloadOnce = false, remove = false }
 	reloadAttempts = 0
 	local directory = "/tmp/keymap-create-test/" .. case.id
 	case.rootPath = directory .. "/" .. case.rootName
@@ -188,6 +190,26 @@ local function expectedRoot(case)
 	return case.root .. "\n" .. includeBlock(case) .. "\n"
 end
 
+local function expectedDirectRoot(case, entries)
+	if case.compositor == "Niri" then
+		local content = case.root .. "\nbinds {\n"
+		for _, entry in ipairs(entries) do content = content .. entry end
+		return content .. "}\n"
+	end
+	if case.compositor == "MangoWC" then
+		local content = case.root .. "\nkeymode=default\n"
+		for _, entry in ipairs(entries) do content = content .. "\n" .. entry end
+		return content
+	end
+	local content = case.root
+	for _, entry in ipairs(entries) do content = content .. "\n" .. entry end
+	return content
+end
+
+local function expectedMigratedRoot(case, entries)
+	return expectedDirectRoot(case, entries)
+end
+
 local function managedHeader(case)
 	return case.comment .. " Managed by Noctalia Keymap.\n"
 		.. case.comment .. " Existing entries are preserved; new entries are appended.\n"
@@ -233,21 +255,19 @@ local function runHappyPath(case)
 	reset(case)
 	local firstResult = submit(case, case.first, case.id .. "-first")
 	assert(firstResult.ok == true, case.id .. ": first create failed: " .. tostring(firstResult.error))
-	assert(firstResult.managed_path == case.managedPath, case.id .. ": wrong managed path")
-	assert(files[case.rootPath] == expectedRoot(case), case.id .. ": marked include differs")
-	assert(files[case.managedPath] == expectedManaged(case, { case.first.entry }),
-		case.id .. ": first managed content differs\n" .. tostring(files[case.managedPath]))
+	assert(firstResult.managed_path == case.rootPath, case.id .. ": wrong result path")
+	assert(files[case.rootPath] == expectedDirectRoot(case, { case.first.entry }),
+		case.id .. ": first direct write differs\n" .. tostring(files[case.rootPath]))
+	assert(files[case.managedPath] == nil, case.id .. ": first create left a managed file")
 	assertNormalCommandSequence(case, case.id .. " first create")
 	assertNoTemporaryFiles(case.id .. " first create")
 
 	commands = {}
 	local secondResult = submit(case, case.second, case.id .. "-second")
 	assert(secondResult.ok == true, case.id .. ": second create failed: " .. tostring(secondResult.error))
-	assert(files[case.rootPath] == expectedRoot(case), case.id .. ": second create duplicated include")
-	local _, includeCount = files[case.rootPath]:gsub(case.includeLine:gsub("([^%w])", "%%%1"), "")
-	assert(includeCount == 1, case.id .. ": include line count is " .. tostring(includeCount))
-	assert(files[case.managedPath] == expectedManaged(case, { case.first.entry, case.second.entry }),
-		case.id .. ": second managed content differs\n" .. tostring(files[case.managedPath]))
+	assert(files[case.rootPath] == expectedDirectRoot(case, { case.first.entry, case.second.entry }),
+		case.id .. ": second direct write differs\n" .. tostring(files[case.rootPath]))
+	assert(files[case.managedPath] == nil, case.id .. ": second create left a managed file")
 	assertNormalCommandSequence(case, case.id .. " second create")
 
 	local rootBefore = files[case.rootPath]
@@ -301,12 +321,128 @@ local function runReloadRollbackOnAppend(case)
 	assertNoTemporaryFiles(case.id .. " reload rollback")
 end
 
+local function runManagedMigration(case)
+	reset(case)
+	files[case.rootPath] = expectedRoot(case)
+	files[case.managedPath] = expectedManaged(case, { case.first.entry })
+	local result = submit(case, case.second, case.id .. "-migration")
+	assert(result.ok == true, case.id .. ": migration failed: " .. tostring(result.error))
+	assert(files[case.rootPath] == expectedMigratedRoot(case, { case.first.entry, case.second.entry }),
+		case.id .. ": migrated root differs\n" .. tostring(files[case.rootPath]))
+	assert(files[case.managedPath] == nil, case.id .. ": managed file was not removed after migration")
+	assertNormalCommandSequence(case, case.id .. " migration")
+	assertNoTemporaryFiles(case.id .. " migration")
+end
+
+local function runManagedMigrationRollback(case)
+	reset(case)
+	local rootBefore = expectedRoot(case)
+	local managedBefore = expectedManaged(case, { case.first.entry })
+	files[case.rootPath] = rootBefore
+	files[case.managedPath] = managedBefore
+	failure.validator = true
+	failure.validatorCommand = validatorCommand(case)
+	local result = submit(case, case.second, case.id .. "-migration-rollback")
+	assert(result.ok == false and result.error == "verify_failed",
+		case.id .. ": migration validation failure was not reported")
+	assert(files[case.rootPath] == rootBefore, case.id .. ": failed migration did not restore root")
+	assert(files[case.managedPath] == managedBefore,
+		case.id .. ": failed migration removed or changed the managed file")
+	assertNoTemporaryFiles(case.id .. " migration rollback")
+end
+
+local function runPlainIncludeMigration(case)
+	reset(case)
+	files[case.rootPath] = case.root .. case.includeLine .. "\n"
+	files[case.managedPath] = expectedManaged(case, { case.first.entry })
+	local result = submit(case, case.second, case.id .. "-plain-migration")
+	assert(result.ok == true, case.id .. ": plain-include migration failed: " .. tostring(result.error))
+	local migrated = files[case.rootPath]
+	assert(type(migrated) == "string" and not migrated:find(case.includeLine, 1, true),
+		case.id .. ": plain include remained after migration")
+	assert(migrated:find(case.first.entry, 1, true) and migrated:find(case.second.entry, 1, true),
+		case.id .. ": plain-include migration lost shortcuts")
+	assert(files[case.managedPath] == nil,
+		case.id .. ": plain-include migration did not remove the managed file")
+end
+
+local function runManagedMigrationReloadRollback(case)
+	reset(case)
+	local rootBefore = expectedRoot(case)
+	local managedBefore = expectedManaged(case, { case.first.entry })
+	files[case.rootPath] = rootBefore
+	files[case.managedPath] = managedBefore
+	failure.reloadOnce = true
+	failure.reloadCommand = case.reloadCommand
+	local result = submit(case, case.second, case.id .. "-migration-reload-rollback")
+	assert(result.ok == false and result.error == "reload_failed",
+		case.id .. ": migration reload failure was not reported")
+	assert(files[case.rootPath] == rootBefore, case.id .. ": reload rollback did not restore root")
+	assert(files[case.managedPath] == managedBefore,
+		case.id .. ": reload rollback removed or changed the managed file")
+	assert(reloadAttempts == 2, case.id .. ": restored legacy configuration was not reloaded")
+	assertNoTemporaryFiles(case.id .. " migration reload rollback")
+end
+
+local function runManagedMigrationRemoveRollback(case)
+	reset(case)
+	local rootBefore = expectedRoot(case)
+	local managedBefore = expectedManaged(case, { case.first.entry })
+	files[case.rootPath] = rootBefore
+	files[case.managedPath] = managedBefore
+	failure.remove = true
+	local result = submit(case, case.second, case.id .. "-migration-remove-rollback")
+	assert(result.ok == false and result.error == "migration_remove_failed",
+		case.id .. ": migration removal failure was not reported")
+	assert(files[case.rootPath] == rootBefore, case.id .. ": removal rollback did not restore root")
+	assert(files[case.managedPath] == managedBefore,
+		case.id .. ": removal rollback changed the managed file")
+	assert(#commands == 4 and commands[4].command == case.reloadCommand,
+		case.id .. ": removal rollback did not reload the restored configuration")
+	assertNoTemporaryFiles(case.id .. " migration remove rollback")
+end
+
+local function runAutomaticMigration(case)
+	reset(case)
+	files[case.rootPath] = expectedRoot(case)
+	files[case.managedPath] = expectedManaged(case, { case.first.entry })
+	watchers["keymap.snapshot"](stateValues["keymap.snapshot"])
+	local result = stateValues["keymap.migration_result"]
+	assert(type(result) == "table" and result.ok == true,
+		case.id .. ": automatic migration failed: " .. tostring(result and result.error))
+	assert(files[case.rootPath] == expectedMigratedRoot(case, { case.first.entry }),
+		case.id .. ": automatic migration changed shortcut content")
+	assert(files[case.managedPath] == nil,
+		case.id .. ": automatic migration did not remove the legacy file")
+	assertNormalCommandSequence(case, case.id .. " automatic migration")
+	assertNoTemporaryFiles(case.id .. " automatic migration")
+end
+
 assert(loadfile("writer_service.luau"))()
 
 for _, case in ipairs(CASES) do
+	runAutomaticMigration(case)
 	runHappyPath(case)
 	runVerifyRollback(case)
 	runReloadRollbackOnAppend(case)
+	runManagedMigration(case)
+	runManagedMigrationRollback(case)
+	runPlainIncludeMigration(case)
+	runManagedMigrationReloadRollback(case)
+	runManagedMigrationRemoveRollback(case)
+end
+
+do
+	local case = CASES[2]
+	reset(case)
+	local existing = 'layout "us"\nbinds {\n    // a closing brace in a comment: }\n'
+		.. '    Mod+X { spawn "brace } in a string"; }\n}\n'
+	files[case.rootPath] = existing
+	local result = submit(case, case.first, "niri-existing-binds")
+	assert(result.ok == true, "niri existing binds create failed: " .. tostring(result.error))
+	local expected = existing:sub(1, -3) .. case.first.entry .. "}\n"
+	assert(files[case.rootPath] == expected,
+		"niri entry was not inserted before the matching top-level binds close")
 end
 
 local NATIVE_CASES = {
@@ -338,8 +474,9 @@ for _, native in ipairs(NATIVE_CASES) do
 	}
 	local result = submit(case, spec, native.id)
 	assert(result.ok == true, native.id .. ": native create failed: " .. tostring(result.error))
-	assert(files[case.managedPath] == expectedManaged(case, { native.entry }),
-		native.id .. ": wrong native managed entry")
+	assert(files[case.rootPath] == expectedDirectRoot(case, { native.entry }),
+		native.id .. ": wrong native root entry")
+	assert(files[case.managedPath] == nil, native.id .. ": native create left a managed file")
 end
 
 do
