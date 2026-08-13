@@ -1,5 +1,13 @@
 --!strict
 
+-- ================================== --
+-- ===== API STRINGS DEFINITION ===== --
+-- ================================== --
+local BZR_DBUS_BUSNAME: string = "io.github.kolunmi.Bazaar.SearchProvider"
+local BZR_DBUS_OBJ_PATH: string = "/io/github/kolunmi/Bazaar/SearchProvider"
+local BZR_DBUS_INTERFACE: string = "org.gnome.Shell.SearchProvider2"
+
+
 -- ============================= --
 -- ====== TYPES DEFINITION ===== --
 -- ============================= --
@@ -13,51 +21,16 @@ type BzrErrReport = {
   err_body: string?,    -- The subtitle (body) this error should display.
 }
 
--- Type definition for the return value of bzrInitialSearch()
+-- -- Type definition for the return value of bzrInitialSearch()
 type BzrInitialSearchReturn = {
   entries_string: string, -- The string generated for the command in bzrGetMetadata()
   num_elem: number,       -- The number of elements inside of `entries_string`
 }
 
--- Imitating Rust Result<> type via Lua
-
-type BzrOk<T> = { ok: true, data: T }
-type BzrErr<E> = { ok: false, err: E }
-type BzrResult<T, E> = BzrOk<T> | BzrErr<E>
-
--- Instantiates a BzrOK table. For use with BzrResult
--- return types.
-local function bzrMakeOk<T>(data: T): BzrOk<T>
-  return { ok = true, data = data }
-end
-
--- Instantiates a BzrErr table. For use with BzrResult
--- return types
-local function bzrMakeErr<E>(err: E): BzrErr<E>
-  return { ok = false, err = err }
-end
-
-
 
 -- ================================= --
 -- ===== APPLICATION FUNCTIONS ===== --
 -- ================================= --
-
--- General Application flow:
---
--- <User Input>
--- ├── Check for `busctl`. If it does not exist, bzrNotifyError(). Execution stops
--- │ initialBazaarSearch()
--- ├── On error: bzrNotifyError(). Execution Stops
--- │ bzrNotify( callback = getMetadata )
--- ├── If global query does not match passed in query, stop execution.
--- │ getMetadata()
--- ├── If global query does not match passed in query, stop execution.
--- ├── On other error: bzrNotifyError(). Execution stops
--- │ bzrNotify( callback = bzrFinishQuery )
--- ├── If global query does not match passed in query, stop execution.
--- │ Set results. Stop Execution
-
 
 
 -- Input sanitization function for Flatpak IDs
@@ -67,7 +40,7 @@ end
 --
 -- Returns the sanitized string
 local function bzrFlatpakIDSanitize(s: string): string
-  local retval, _ = s:gsub("[^[a-z][A-Z][0-9]_%-%.]", "")
+  local retval, _ = s:gsub("[^a-zA-Z0-9_%-%.]", "")
   return retval
 end
 
@@ -119,15 +92,15 @@ end
 --
 -- Returns rows generated, or an optional error row in the
 -- case of problems arising.
-local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchReturn): BzrResult<{LauncherResult}, LauncherResult>
+local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchReturn)
   
   -- Construct our second command, this time getting metadata
   -- from the GetResultMetas DBus function
   
   local cmd_string = "busctl --user --json=short "
-                  .. "call io.github.kolunmi.Bazaar "
-                  .. "/io/github/kolunmi/Bazaar/SearchProvider "
-                  .. "org.gnome.Shell.SearchProvider2 "
+                  .. "call " .. BZR_DBUS_BUSNAME .. " "
+                  .. BZR_DBUS_OBJ_PATH .. " "
+                  .. BZR_DBUS_INTERFACE .. " "
                   .. "GetResultMetas "
                   .. bzr_search_data.entries_string
 
@@ -136,36 +109,37 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
 
       if result.exitCode ~= 0 then
         -- busctl failed, print stderr so we can see why
-        return bzrMakeErr(bzrCreateErrorReport({
+        launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "getMetadata",
           query = query,
           err_title = "'busctl' failed with exit code " .. tostring(result.exitCode),
           err_body = result.stderr
-        }))
+        })})
+        return 
       end
 
       -- Get Tabular version of data thanks to JSON parsing
       local busdata, err = noctalia.json.decode(result.stdout)
       if not busdata then
-        return bzrMakeErr(bzrCreateErrorReport({
+        return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "getMetadata",
           err_title = "Failed to parse 'busctl' JSON data",
           err_body = err,
           query = query,
-        }))
+        })})
       end
 
       -- Double check the parameter type
       if busdata["type"] ~= "aa{sv}" then
-        return bzrMakeErr(bzrCreateErrorReport({
+        return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "getMetadata",
           query = query,
           err_title = "Search returned malformed value - 'busctl' return type identifier is incorrect",
           err_body = "Expected \"aa{sv}\", got \"" .. busdata["type"] .. "\"",
-        }))
+        })})
       end
 
       
@@ -190,15 +164,9 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
         end
       end
 
-      return bzrMakeOk(rows)
+      launcher.setResults(query, rows)
     end
   )
-
-  return bzrMakeErr(bzrCreateErrorReport({
-    stage = "getMetadata",
-    query = query,
-    err_title = "Somehow got out of command execution",
-  }))
 end
 
 
@@ -207,52 +175,54 @@ end
 --
 -- Returns the data necessary for getMetadata and optionally
 -- an error, if something went wrong.
-local function bzrInitialSearch(query): BzrResult<BzrInitialSearchReturn, LauncherResult>
+local function bzrInitialSearch(query)
+  noctalia.log("I am here")
   local text = noctalia.string.trim(query)
   local cmd_string = "busctl "
                   .. "--user --json=short "
-                  .. "call "
-                  .. "io.github.kolunmi.Bazaar "
-                  .. "/io/github/kolunmi/Bazaar/SearchProvider "
-                  .. "org.gnome.Shell.SearchProvider2 "
+                  .. "call " .. BZR_DBUS_BUSNAME .. " "
+                  .. BZR_DBUS_OBJ_PATH .. " "
+                  .. BZR_DBUS_INTERFACE .. " "
                   .. "GetInitialResultSet "
                   .. "as 1 \"" .. bzrUserInputSanitize(text) .. "\""
+  noctalia.log(cmd_string)
 
   noctalia.runAsync(
     cmd_string,
     function(result)
+      noctalia.log(tostring(result.exitCode))
       if result.exitCode ~= 0 then
         -- busctl failed, print stderr so we can see why
-        return bzrMakeErr(bzrCreateErrorReport({
+        return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
           query = query,
           err_title = "'busctl' failed with exit code " .. tostring(result.exitCode),
           err_body = result.stderr
-        }))
+        })})
       end
 
       -- Get Tabular version of data thanks to JSON parsing
       local busdata, err = noctalia.json.decode(result.stdout)
       if not busdata then
-        return bzrMakeErr(bzrCreateErrorReport({
+        return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
           err_title = "Failed to parse 'busctl' JSON data",
           err_body = err,
           query = query,
-        }))
+        })})
       end
 
       -- Double check the parameter type
       if busdata["type"] ~= "as" then
-        return bzrMakeErr(bzrCreateErrorReport({
+        return launcher.setResults(query, {bzrCreateErrorReport({
           cmd_string = cmd_string,
           stage = "initialBazaarSearch",
           err_title = "Search returned malformed value - arraystring identifier is incorrect",
           err_body = "Expected \"as\", got \"" .. busdata["type"] .. "\"",
           query = query,
-        }))
+        })})
       end
 
       local obtained_entries = busdata["data"][1]
@@ -261,6 +231,7 @@ local function bzrInitialSearch(query): BzrResult<BzrInitialSearchReturn, Launch
       local actual_elem_added = 0
       local entries_string = ""
       for i = 1, n_elem_to_count do
+        noctalia.log(obtained_entries[i])
         -- Sanitize Flatpak ID (just in case of malicious input)
         local sanitized_fpkid = bzrFlatpakIDSanitize(obtained_entries[i])
         -- If sanitized ID does not match given ID, skip this. We don't want
@@ -275,15 +246,9 @@ local function bzrInitialSearch(query): BzrResult<BzrInitialSearchReturn, Launch
       entries_string = "as " .. tostring(actual_elem_added) .. entries_string
 
       -- Proceed to step 2 of getting entries
-      return bzrMakeOk({ entries_string = entries_string, num_elem = actual_elem_added })
+      bzrGetMetadata(query, { entries_string = entries_string, num_elem = actual_elem_added })
     end
   )
-
-  return bzrMakeErr(bzrCreateErrorReport({
-    stage = "initialBazaarSearch",
-    query = query,
-    err_title = "Somehow got out of command execution",
-  }))
 end
 
 -- ================================================ --
@@ -304,35 +269,8 @@ function onQuery(query)
     return
   end
 
-  -- Test mode enabled, as well as typing in test phrase
-  if noctalia.getConfig("testmode_enable") and query == ".dbg" then
-    launcher.setResults(query, {{
-      id = "test:test",
-      title = "Testmode Active",
-    }})
-    return
-  end
-
   -- Otherwise, do Bazaar search
-  local result_step1: BzrResult<BzrInitialSearchReturn, LauncherResult> = bzrInitialSearch(query)
-  if not result_step1.ok then
-    -- something went wrong in first part, display said
-    -- error to user
-    launcher.setResults(query, { result_step1.err })
-    return
-  end
-
-  -- Step 2 of Bazaar search
-  local step1_entries: BzrInitialSearchReturn = result_step1.data
-  local result_step2 = bzrGetMetadata(query, step1_entries)
-  if not result_step2.ok then
-    launcher.setResults(query, { result_step2.err} )
-    return
-  end
-
-  -- Everything seems to have gone okay, so put results on screen
-  local entries: {LauncherResult} = result_step2.data
-  launcher.setResults(query, entries)
+  bzrInitialSearch(query)
 end
 
 --onActivate is what is called when we press Enter on something
@@ -348,9 +286,9 @@ function onActivate(id: string)
     if sanitized_fltpk == id then
       noctalia.runAsync(
         "busctl --user "
-        .. " call io.github.kolunmi.Bazaar "
-        .. "/io/github/kolunmi/Bazaar/SearchProvider "
-        .. "org.gnome.Shell.SearchProvider2 "
+        .. "call " .. BZR_DBUS_BUSNAME .. " "
+        .. BZR_DBUS_OBJ_PATH .. " "
+        .. BZR_DBUS_INTERFACE .. " "
         .. "ActivateResult "
         .. "sasu \"" .. id .. "\" 0 " .. tostring(os.time()) 
       )
