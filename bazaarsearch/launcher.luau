@@ -87,7 +87,7 @@ local function bzrCreateErrorReport(data: BzrErrReport): LauncherResult
     id = "bzrerror:" .. full_err_msg,
     title = err_title,
     subtitle = bzrTR("error.report.user_instruction"),
-    glpyh = "toast-error"
+    glyph = "toast-error"
   }
 end
 
