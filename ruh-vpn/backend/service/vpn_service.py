@@ -53,6 +53,11 @@ from backend.storage.persistence import (
 )
 
 
+# sing-box auto_route default table (iproute2_table_index); every sing-box
+# based client (v2rayN, GUI.for.SingBox, …) shares it unless reconfigured.
+SINGBOX_ROUTE_TABLE = 2022
+
+
 def _now_log(level: str, message: str) -> None:
     print(f"[{level}] {message}", flush=True)
 
@@ -875,6 +880,23 @@ class VpnService:
                 self.state.emit_status()
                 return False
 
+        # Our own leftovers are gone by now (stop_all + pkill ran at the top of
+        # _start_locked, and TUN routes die with the process), so anything left
+        # in the auto_route table belongs to another sing-box based client
+        # (v2rayN etc.).  sing-box would only fail later with a cryptic
+        # "add route 0: file exists" (issue #327).
+        if await self._tun_route_table_busy():
+            self._log(
+                "error",
+                f"route table {SINGBOX_ROUTE_TABLE} is not empty; "
+                "another sing-box based VPN client appears to be connected",
+            )
+            self.state.status.message = (
+                "Another VPN's TUN is active — disconnect it first"
+            )
+            self.state.emit_status()
+            return False
+
         route_exclusions = await self._resolve_transport_endpoints(server)
         if not route_exclusions:
             host, _ = self._server_endpoint(server)
@@ -903,6 +925,19 @@ class VpnService:
             self.state.emit_status()
             return False
         return True
+
+    async def _tun_route_table_busy(self) -> bool:
+        """True when the sing-box auto_route table already holds routes."""
+        if shutil.which("ip") is None:
+            return False
+        for family in ("-4", "-6"):
+            rc, out = await self._run_capture(
+                ["ip", family, "route", "show", "table", str(SINGBOX_ROUTE_TABLE)]
+            )
+            # rc != 0 means the table does not exist — that is the clean case
+            if rc == 0 and out.strip():
+                return True
+        return False
 
     async def _resolve_host_ips(self, host: str, port: Optional[int]) -> list[str]:
         """Resolve a host to canonical literal IPs; a literal IP passes through."""

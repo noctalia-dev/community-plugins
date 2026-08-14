@@ -1,6 +1,6 @@
 id           = "umedbazarov/ruh-vpn"
 name         = "Ruh VPN"
-version      = "0.1.0"
+version      = "0.1.1"
 plugin_api   = 3
 author       = "Умеджон Базаров"
 license      = "MIT"

@@ -1326,8 +1326,8 @@ tags = ["network", "indicator", "bar", "panel", "service"]
 [[plugin]]
 id = "umedbazarov/ruh-vpn"
 name = "Ruh VPN"
-version = "0.1.0"
-updated_at = 1786323782
+version = "0.1.1"
+updated_at = 1786708218
 added_at = 1786323782
 author = "Умеджон Базаров"
 license = "MIT"
