@@ -141,7 +141,7 @@ local function bzrGetMetadata(query: string, bzr_search_data: BzrInitialSearchRe
           cmd_string = cmd_string,
           stage = "getMetadata",
           query = query,
-          err_title = bzrTR("err.msg.malformed_value_retval"),
+          err_title = bzrTR("error.msg.malformed_value_retval"),
           err_body = bzrTR("error.msg.busctl_incorrect_ident", { expected = "aa{sv}", recieved = busdata["type"] }),
         })})
       end
