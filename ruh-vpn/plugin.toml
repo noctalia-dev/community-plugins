@@ -1,13 +1,13 @@
 id           = "umedbazarov/ruh-vpn"
 name         = "Ruh VPN"
-version      = "0.1.0"
+version      = "0.1.1"
 plugin_api   = 3
 author       = "Умеджон Базаров"
 license      = "MIT"
 icon         = "shield-lock"
 description  = "VPN/proxy manager (sing-box): SSH, VLESS, VMess, Shadowsocks, SOCKS5, routing rules, kill switch."
 tags         = ["bar", "panel", "service", "shortcut", "network", "privacy"]
-dependencies = ["sing-box", "python3", "ssh", "sshpass", "gsettings", "pkexec", "setcap", "getcap", "nft", "pkill"]
+dependencies = ["sing-box", "python3", "ssh", "sshpass", "gsettings", "pkexec", "setcap", "getcap", "nft", "pkill", "ip"]
 
 # Plugin settings
 [[setting]]
