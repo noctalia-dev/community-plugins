@@ -3,7 +3,7 @@
 
 id = "dumbasaroc/bazaarsearch"
 name = "Bazaar Search"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "DumbAsARoc"
 license = "GPL-3.0"
