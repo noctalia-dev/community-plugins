@@ -94,6 +94,20 @@ local function runTs(args, callback, timeoutMs)
   return noctalia.runAsync(shellCommand(args), callback, timeoutMs or 25000)
 end
 
+-- Same rule as `tailscale status` (text): unused Mullvad exits belong on
+-- `exit-node list`, not in Peer. `--json` does not apply this, and the raw
+-- dump is large enough to trip Noctalia's 25ms plugin CPU budget.
+local function statusJsonCommand(bin)
+  local jq = [[
+    .Peer |= with_entries(select(
+      (.value.ExitNodeOption != true)
+      or (.value.ExitNode == true)
+      or ((.value.DNSName // "") | endswith("mullvad.ts.net.") | not)
+    ))
+  ]]
+  return shellCommand({ bin, "status", "--json" }) .. " | jq -c " .. shellQuote(jq)
+end
+
 local function updateRevision(signature)
   if signature ~= dataSignature then
     dataSignature = signature
@@ -584,8 +598,8 @@ refreshAll = function()
     end
   end
 
-  -- status --json (slim: only decode once; peer count is usually small)
-  runTs({ bin, "status", "--json" }, function(result)
+  -- status --json (jq slims before Luau decode; see statusJsonCommand)
+  noctalia.runAsync(statusJsonCommand(bin), function(result)
     if generation ~= refreshGeneration then
       return
     end
