@@ -1,7 +1,7 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
 version = "1.0.0"
-plugin_api = 8
+plugin_api = 9
 author = "felipeartur"
 license = "MIT"
 icon = "brain"
@@ -116,9 +116,9 @@ default = true
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 380
-# Two metric cards is the common case; richer providers scroll.
-height = 380
+# Master/detail: the provider list on the left, its cards on the right.
+width = 720
+height = 520
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

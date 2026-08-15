@@ -211,10 +211,121 @@ local function textRow(section)
     })
 end
 
+-- ── Provider list ─────────────────────────────────────────────────────────────
+
+-- Same map the capsule uses; no require() below API 22, so it is duplicated.
+local GLYPHS = {
+    anthropic = "message-chatbot",
+    anthropic_api = "message-chatbot",
+    openai = "brand-openai",
+    zai = "bolt",
+    openrouter = "route",
+    deepseek = "fish",
+    kimi = "moon",
+    moonshot = "moon",
+    kilo = "robot",
+    novita = "cloud",
+    grok = "brand-x",
+    supergrok = "brand-x",
+    antigravity = "sparkles",
+    cursor = "cursor-text",
+    minimax = "wave-square",
+    kiro = "ghost",
+    copilot = "brand-github-copilot",
+    gemini = "brand-google",
+}
+
+local function headline(entry)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
+    return entry.metrics[1]
+end
+
+local function providerRow(entry, selected)
+    local metric = headline(entry)
+    local percent = metric ~= nil and tonumber(metric.percent) or nil
+    local broken = entry.status == "error"
+    local tint = selected and "on_primary" or severityRole(metric)
+    local muted = selected and "on_primary" or "on_surface_variant"
+
+    local right
+    if broken then
+        right = ui.glyph({ name = "alert-circle", size = 14, color = selected and "on_primary" or "error" })
+    else
+        right = ui.label({
+            text = percent ~= nil and string.format("%d%%", percent) or "—",
+            fontSize = 13, fontWeight = "bold", color = tint,
+        })
+    end
+
+    local lines = {
+        ui.label({
+            text = tostring(entry.display_name or entry.id),
+            fontSize = 12, fontWeight = "semibold",
+            color = selected and "on_primary" or "on_surface", maxLines = 1,
+        }),
+    }
+    if percent ~= nil and not broken then
+        lines[#lines + 1] = ui.progress({
+            progress = percent / 100,
+            fill = selected and "on_primary" or tint,
+            track = selected and "on_primary/0.25" or "on_surface/0.16",
+            radius = 2, height = 3,
+        })
+    end
+    lines[#lines + 1] = ui.label({
+        text = broken and noctalia.tr("ui.unavailable") or tostring(entry.plan or entry.id or ""),
+        fontSize = 10, color = muted, maxLines = 1,
+    })
+
+    return ui.row({
+        gap = 8, align = "center", padding = 8, radius = 8,
+        fill = selected and "primary" or "surface_variant",
+        onClick = function()
+            -- currentEntry() reads this back, so the panel and the capsule that
+            -- opened it stay on the same provider.
+            noctalia.state.set("selected", tostring(entry.id))
+            render()
+        end,
+    }, {
+        ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 16, color = tint }),
+        ui.column({ gap = 3, flexGrow = 1 }, lines),
+        right,
+    })
+end
+
 -- ── Render ────────────────────────────────────────────────────────────────────
 
-local function render()
-    local entry = currentEntry()
+local function listPane(entry)
+    local rows = {}
+    for _, candidate in ipairs(entries()) do
+        rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
+    end
+    if #rows == 0 then
+        rows[1] = ui.label({
+            text = errorMsg ~= "" and errorMsg or noctalia.tr("ui.loading"),
+            fontSize = 11, color = errorMsg ~= "" and "error" or "on_surface_variant",
+        })
+    end
+
+    return ui.column({ gap = 10, padding = 14, width = 250 }, {
+        ui.row({ gap = 8, align = "center" }, {
+            ui.glyph({ name = "brain", size = 18, color = "primary" }),
+            ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "primary" }),
+            ui.spacer({ flexGrow = 1 }),
+            ui.button({
+                glyph = "refresh",
+                variant = "ghost",
+                controlSize = "sm",
+                enabled = not polling,
+                tooltip = polling and noctalia.tr("ui.refreshing") or noctalia.tr("ui.refresh"),
+                onClick = "doRefresh",
+            }),
+        }),
+        ui.scroll({ gap = 6, flexGrow = 1 }, rows),
+    })
+end
+
+local function detailPane(entry)
     local title = noctalia.tr("ui.title")
     local subtitle = ""
     if entry ~= nil then
@@ -223,25 +334,15 @@ local function render()
         if subtitle == title then subtitle = "" end
     end
 
-    local head = {
-        ui.glyph({ name = "brain", size = 18, color = "primary" }),
-        ui.column({ gap = 0, flexGrow = 1 }, {
-            ui.label({ text = title, fontSize = 14, fontWeight = "bold", color = "on_surface" }),
-            ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant", visible = subtitle ~= "" }),
-        }),
-        ui.button({
-            glyph = "refresh",
-            variant = "ghost",
-            controlSize = "sm",
-            enabled = not polling,
-            tooltip = polling and noctalia.tr("ui.refreshing") or noctalia.tr("ui.refresh"),
-            onClick = "doRefresh",
-        }),
-    }
-
     local children = {
-        ui.row({ gap = 8, align = "center" }, head),
-        ui.separator({}),
+        ui.row({ gap = 8, align = "center" }, {
+            ui.column({ gap = 0, flexGrow = 1 }, {
+                ui.label({ text = title, fontSize = 15, fontWeight = "bold", color = "on_surface" }),
+                ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant", visible = subtitle ~= "" }),
+            }),
+            ui.button({ glyph = "x", variant = "ghost", controlSize = "sm",
+                        tooltip = noctalia.tr("ui.close"), onClick = "doClose" }),
+        }),
     }
 
     local status = ""
@@ -254,8 +355,7 @@ local function render()
     end
     if status ~= "" then
         children[#children + 1] = ui.label({
-            text = status,
-            fontSize = 11,
+            text = status, fontSize = 11,
             color = errorMsg ~= "" and "error" or "on_surface_variant",
         })
     end
@@ -279,22 +379,36 @@ local function render()
     if entry ~= nil then
         local updated = updatedText(entry)
         if entry.stale == true and updated ~= "" then updated = updated .. " · " .. noctalia.tr("ui.stale") end
-        children[#children + 1] = ui.separator({})
         children[#children + 1] = ui.row({ gap = 5, align = "center" }, {
             ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" }),
-            ui.label({ text = updated, fontSize = 11, color = entry.stale == true and "error" or "on_surface_variant" }),
+            ui.label({ text = updated, fontSize = 11,
+                       color = entry.stale == true and "error" or "on_surface_variant" }),
             ui.spacer({ flexGrow = 1 }),
             ui.label({ text = tostring(entry.id or ""), fontSize = 11, color = "on_surface_variant" }),
         })
     end
 
-    panel.render(ui.column({ gap = 10, padding = 14 }, children))
+    return ui.column({ gap = 10, padding = 14, flexGrow = 1 }, children)
+end
+
+function render()
+    local entry = currentEntry()
+    panel.render(ui.row({ gap = 0 }, {
+        listPane(entry),
+        -- ui.separator is horizontal only; a one-pixel column is the divider.
+        ui.column({ width = 1, fill = "on_surface/0.12" }, {}),
+        detailPane(entry),
+    }))
 end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────────
 
 function doRefresh()
     noctalia.state.set("command", { action = "refresh", at = os.time() })
+end
+
+function doClose()
+    panel.close()
 end
 
 noctalia.state.watch("report", function(value)

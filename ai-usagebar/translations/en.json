@@ -76,6 +76,7 @@
     "updated_ago": "Updated {minutes} min ago",
     "stale": "stale",
     "refresh": "Refresh now",
-    "refreshing": "Reading…"
+    "refreshing": "Reading…",
+    "close": "Close"
   }
 }
