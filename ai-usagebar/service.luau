@@ -4,17 +4,8 @@
 -- One call returns every configured vendor, so the capsules and the panel are
 -- pure subscribers of noctalia.state and never spawn a process of their own.
 
-local function shellQuote(value)
-    return "'" .. string.gsub(tostring(value), "'", "'\\''") .. "'"
-end
-
-local function command()
-    local configured = tostring(noctalia.getConfig("binPath") or "ai-usagebar")
-    if string.sub(configured, 1, 1) == "~" then
-        configured = noctalia.expandPath(configured)
-    end
-    return shellQuote(configured) .. " usage --json"
-end
+-- `ai-usagebar` is a declared dependency, so it is expected on PATH.
+local COMMAND = "ai-usagebar usage --json"
 
 local function intervalMs()
     local minutes = tonumber(noctalia.getConfig("refreshMinutes")) or 5
@@ -29,7 +20,7 @@ local function refresh()
     inFlight = true
     noctalia.state.set("polling", true)
 
-    noctalia.runAsync(command(), function(result)
+    noctalia.runAsync(COMMAND, function(result)
         inFlight = false
         noctalia.state.set("polling", false)
 

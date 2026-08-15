@@ -1,9 +1,5 @@
 {
   "settings": {
-    "bin_path": {
-      "label": "ai-usagebar path",
-      "description": "Command or absolute path to the ai-usagebar binary."
-    },
     "refresh_minutes": {
       "label": "Refresh interval (minutes)",
       "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls."

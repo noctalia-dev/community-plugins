@@ -18,8 +18,9 @@ talks to a provider, holds a token, or reads a credential file: it runs
 
 ## Requirements
 
-Install `ai-usagebar` on `PATH` (`ai-usagebar-bin` on the AUR, or the release
-tarballs from the project's GitHub Releases). Configure your providers once in
+Install `ai-usagebar` on `PATH` — the plugin runs it by name, with no path
+setting to fill in (`ai-usagebar-bin` on the AUR, or the release tarballs from
+the project's GitHub Releases). Configure your providers once in
 `~/.config/ai-usagebar/config.toml` — the CLI owns credentials and endpoints,
 this plugin never sees them.
 
@@ -55,7 +56,6 @@ Plugin-level, shared by the poller, every capsule and the panel:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `binPath` | `string` | `ai-usagebar` | Command or absolute path to the binary. A leading `~` is expanded. |
 | `refreshMinutes` | `int` | `5` | Minutes between CLI calls, 1–120. Countdowns tick locally in between. |
 
 Per widget instance, so two capsules can follow two providers:

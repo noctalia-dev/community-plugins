@@ -13,12 +13,7 @@ dependencies = ["ai-usagebar"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 
-[[setting]]
-key = "binPath"
-type = "string"
-label_key = "settings.bin_path.label"
-description_key = "settings.bin_path.description"
-default = "ai-usagebar"
+# No path setting: `ai-usagebar` is a declared dependency, so it is on PATH.
 
 [[setting]]
 key = "refreshMinutes"
@@ -99,6 +94,8 @@ entry = "panel.luau"
 width = 380
 # Two metric cards is the common case; richer providers scroll.
 height = 380
+# The shell draws the Placement and Position rows for every plugin panel whether
+# or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"
 position = "auto"
 dismiss_on_outside_click = true
