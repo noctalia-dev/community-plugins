@@ -160,12 +160,14 @@ end
 
 -- The five `tailscale set` toggles, as one row of icon buttons: a lit button
 -- means the flag is on. Order matches how often they get touched.
+-- `label` is the translation key: en.json segments have to be lowercase, so it
+-- cannot just be the snapshot field name.
 local PREFS = {
-  { key = "shieldsUp", glyph = "shield" },
-  { key = "acceptRoutes", glyph = "route" },
-  { key = "runSSH", glyph = "server" },
-  { key = "advertiseExitNode", glyph = "world-upload" },
-  { key = "allowLanAccess", glyph = "network" },
+  { key = "shieldsUp", label = "shields-up", glyph = "shield" },
+  { key = "acceptRoutes", label = "accept-routes", glyph = "route" },
+  { key = "runSSH", label = "run-ssh", glyph = "server" },
+  { key = "advertiseExitNode", label = "advertise-exit-node", glyph = "world-upload" },
+  { key = "allowLanAccess", label = "allow-lan-access", glyph = "network" },
 }
 
 local function prefsRow()
@@ -182,7 +184,7 @@ local function prefsRow()
       controlSize = "sm",
       selected = on,
       flexGrow = 1,
-      tooltip = `{tr(`pref.{pref.key}`)} — {tr(on and "pref.on" or "pref.off")}`,
+      tooltip = `{tr(`pref.{pref.label}`)} — {tr(on and "pref.on" or "pref.off")}`,
       onClick = function()
         setPref(pref.key, not on)
       end,

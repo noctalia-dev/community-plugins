@@ -389,12 +389,14 @@ end
 
 -- The five toggles `tailscale set` exposes, mapped to their flag. Turning one
 -- off needs an explicit =false, so both directions pass the value.
+-- `flag` is what `tailscale set --<flag>` wants; `label` is the translation key,
+-- which en.json requires to be lowercase, so neither can be the field name.
 local PREF_FLAGS = {
-  shieldsUp = "shields-up",
-  acceptRoutes = "accept-routes",
-  runSSH = "ssh",
-  advertiseExitNode = "advertise-exit-node",
-  allowLanAccess = "exit-node-allow-lan-access",
+  shieldsUp = { flag = "shields-up", label = "shields-up" },
+  acceptRoutes = { flag = "accept-routes", label = "accept-routes" },
+  runSSH = { flag = "ssh", label = "run-ssh" },
+  advertiseExitNode = { flag = "advertise-exit-node", label = "advertise-exit-node" },
+  allowLanAccess = { flag = "exit-node-allow-lan-access", label = "allow-lan-access" },
 }
 
 noctalia.state.watch("tn.cmd", function(raw)
@@ -415,12 +417,12 @@ noctalia.state.watch("tn.cmd", function(raw)
   elseif cmd.action == "exit_clear" then
     runThenRefresh(`{bin} set --exit-node=`, "toast.exit-node-disabled")
   elseif cmd.action == "set_pref" then
-    local flag = PREF_FLAGS[cmd.pref or ""]
-    if flag then
+    local pref = PREF_FLAGS[cmd.pref or ""]
+    if pref then
       local on = cmd.enabled == true
-      runThenRefresh(`{bin} set --{flag}={on and "true" or "false"}`,
+      runThenRefresh(`{bin} set --{pref.flag}={on and "true" or "false"}`,
         on and "toast.pref-on" or "toast.pref-off", nil,
-        { name = noctalia.tr(`pref.{cmd.pref}`) })
+        { name = noctalia.tr(`pref.{pref.label}`) })
     end
   elseif cmd.action == "taildrop_get" then
     receiveTaildrop()

@@ -107,11 +107,11 @@
     "relayed": "No direct connection — traffic is relayed through a DERP server."
   },
   "pref": {
-    "shieldsUp": "Shields up (block incoming connections)",
-    "acceptRoutes": "Accept subnet routes",
-    "runSSH": "Tailscale SSH server",
-    "advertiseExitNode": "Advertise as exit node",
-    "allowLanAccess": "Allow LAN access while using an exit node",
+    "shields-up": "Shields up (block incoming connections)",
+    "accept-routes": "Accept subnet routes",
+    "run-ssh": "Tailscale SSH server",
+    "advertise-exit-node": "Advertise as exit node",
+    "allow-lan-access": "Allow LAN access while using an exit node",
     "on": "on",
     "off": "off"
   }
