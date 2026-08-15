@@ -76,9 +76,11 @@ The panel is a two pane view. On the left is every provider you have set up,
 with its headline percentage. On the right is the selected one in detail: one
 card per reported metric, with a quota bar over a thinner "window elapsed" bar,
 so a fill that outruns the clock bar means quota is burning ahead of pace.
-Credit balances and free text rows the CLI reports get rendered as well. The
-refresh button asks the CLI for fresh numbers, and the header says how old the
-reading is.
+Credit balances and free text rows the CLI reports get rendered as well.
+Opening the panel asks the CLI for fresh numbers, and the header says how old
+the reading is. There is no refresh button and no close button: the read
+happens on open, and the panel closes when you click away from it or press the
+same widget again.
 
 The list follows the CLI. A provider that `ai-usagebar` has no credential for
 never appears, while one that is set up and failing keeps its row and shows the

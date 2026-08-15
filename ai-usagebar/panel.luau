@@ -327,21 +327,6 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
--- A cold read takes a second or two, so the button gives way to a loader while
--- the poller is in flight.
-local function refreshControl()
-    if polling then
-        return ui.glyph({ name = "loader-2", size = 16, color = "primary" })
-    end
-    return ui.button({
-        glyph = "refresh",
-        variant = "ghost",
-        controlSize = "sm",
-        tooltip = noctalia.tr("ui.refresh"),
-        onClick = "doRefresh",
-    })
-end
-
 local function listPane(entry)
     local rows = {}
     for _, candidate in ipairs(entries()) do
@@ -361,7 +346,9 @@ local function listPane(entry)
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "primary" }),
             ui.spacer({ flexGrow = 1 }),
-            refreshControl(),
+            -- Opening the panel is the refresh, so the only thing the header
+            -- shows is whether that read is still running.
+            ui.glyph({ name = "loader-2", size = 16, color = "primary", visible = polling }),
         }),
         ui.scroll({ gap = 6, flexGrow = 1 }, rows),
     })
@@ -382,8 +369,6 @@ local function detailPane(entry)
                 ui.label({ text = title, fontSize = 15, fontWeight = "bold", color = "on_surface" }),
                 ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant", visible = subtitle ~= "" }),
             }),
-            ui.button({ glyph = "x", variant = "ghost", controlSize = "sm",
-                        tooltip = noctalia.tr("ui.close"), onClick = "doClose" }),
         }),
     }
 
@@ -460,14 +445,6 @@ end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────────
 
-function doRefresh()
-    noctalia.state.set("command", { action = "refresh", at = os.time() })
-end
-
-function doClose()
-    panel.close()
-end
-
 noctalia.state.watch("report", function(value)
     if type(value) == "table" then
         report = value
@@ -489,6 +466,9 @@ noctalia.state.watch("polling", function(value)
 end)
 
 function onOpen(_context)
+    -- Every open asks for fresh numbers. The CLI answers from its own cache
+    -- when it has one, so this costs nothing on a quick reopen.
+    noctalia.state.set("command", { action = "refresh", at = os.time() })
     report = noctalia.state.get("report")
     local existingError = noctalia.state.get("error")
     errorMsg = type(existingError) == "string" and existingError or ""

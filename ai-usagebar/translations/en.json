@@ -75,9 +75,6 @@
     "updated_now": "Updated just now",
     "updated_ago": "Updated {minutes} min ago",
     "stale": "stale",
-    "refresh": "Refresh now",
-    "refreshing": "Reading…",
-    "close": "Close",
     "elapsed": "{percent}% of the window elapsed"
   }
 }
