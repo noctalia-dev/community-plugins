@@ -27,9 +27,10 @@ this plugin never sees them.
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings → Bar. The capsule shows
-the headline percentage of a provider, behind that provider's icon and colored
-by the severity the CLI reports: calm while there is room, amber past 75%, red
-past 90%.
+the headline percentage of a provider, behind that provider's icon. It reads in
+the bar's own colour while there is room, turns `warning` when the CLI calls the
+window high, and `error` when it calls it critical — the accent stays on the
+gauge fill, so a calm capsule looks like the widgets beside it.
 
 Left on `Automatic`, the capsule follows the **busiest** provider, so what sits
 in the bar is the plan about to bite. Raise `provider_limit` and it carries the
@@ -104,7 +105,7 @@ Per widget instance, so two capsules can follow two providers:
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, 1–4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_name` | `bool` | `false` | Adds the product name, so two capsules do not look alike. |
-| `color_by_usage` | `bool` | `true` | Off keeps the capsule in the bar's own text color instead of tinting by severity. |
+| `color_by_usage` | `bool` | `true` | Off drops the `warning`/`error` tint, so the capsule never changes colour. |
 
 ## IPC
 
