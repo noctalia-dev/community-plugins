@@ -53,10 +53,10 @@ description_key = "settings.auto-start-work.description"
 default = false
 
 [[setting]]
-key     = "enable-alarm-sound"
+key     = "use-bundled-alarm-sound"
 type    = "bool"
-label_key = "settings.enable-alarm-sound.label"
-description_key = "settings.enable-alarm-sound.description"
+label_key = "settings.use-bundled-alarm-sound.label"
+description_key = "settings.use-bundled-alarm-sound.description"
 default = false
 
 [[setting]]

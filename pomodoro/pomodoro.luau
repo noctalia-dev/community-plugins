@@ -6,7 +6,7 @@ local config = (function()
         sessionsBeforeLongBreak = noctalia.getConfig("sessions-before-long-break"),
         autoStartBreaks = noctalia.getConfig("auto-start-breaks"),
         autoStartWork = noctalia.getConfig("auto-start-work"),
-        enableAlarmSound = noctalia.getConfig("enable-alarm-sound"),
+        useBundledAlarmSound = noctalia.getConfig("use-bundled-alarm-sound"),
         bypassNoctaliaSoundGlobals = noctalia.getConfig("bypass-noctalia-sound-globals"),
     }
 end)()
@@ -105,7 +105,7 @@ local function notifyStageFinished(state, sessionData)
         else
             noctalia.tr("notification.long-break-complete")
 
-    if config.enableAlarmSound then
+    if config.useBundledAlarmSound then
         if config.bypassNoctaliaSoundGlobals then
             local pluginDir = noctalia.pluginDir()
             if pluginDir then
