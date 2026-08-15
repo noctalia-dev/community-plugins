@@ -8,7 +8,7 @@
 local COMMAND = "ai-usagebar usage --json"
 
 local function intervalMs()
-    local minutes = tonumber(noctalia.getConfig("refreshMinutes")) or 5
+    local minutes = tonumber(noctalia.getConfig("refresh_minutes")) or 5
     if minutes < 1 then minutes = 1 end
     return math.floor(minutes * 60 * 1000)
 end

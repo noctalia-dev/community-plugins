@@ -27,9 +27,27 @@ this plugin never sees them.
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings → Bar. The capsule shows
-the headline percentage of one provider, colored by the severity the CLI
-reports: calm while there is room, amber past 75%, red past 90%. Add the widget
-a second time and point it at another provider to watch two plans at once.
+the headline percentage of a provider, behind that provider's icon and colored
+by the severity the CLI reports: calm while there is room, amber past 75%, red
+past 90%.
+
+Left on `Automatic`, the capsule follows the **busiest** provider, so what sits
+in the bar is the plan about to bite. Raise `provider_limit` and it carries the
+next busiest ones too, with a `+N` for whatever did not fit. Pin a provider
+instead, or add the widget twice, when you want two fixed plans side by side.
+
+Four styles, all with the same reading:
+
+| Style | Shape |
+| --- | --- |
+| `pill` | Icon and percentage. The compact one. |
+| `gauge` | Icon, a small quota bar over a thinner "window elapsed" bar, percentage. |
+| `meter` | Icon and five segments, filled in twenties. No digits. |
+| `label` | Icon, provider name and percentage stacked over the bars. |
+
+Next to that, `extras` puts the time left in the window (`3h 51m`), the pace
+against the clock (`↑3` is three points ahead of where the window says you
+should be, `↓3` is three under), both, or neither.
 
 - **Hover** lists every window that provider reports: value, time left, and the
   clock time the reset lands on.
@@ -56,16 +74,18 @@ Plugin-level, shared by the poller, every capsule and the panel:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `refreshMinutes` | `int` | `5` | Minutes between CLI calls, 1–120. Countdowns tick locally in between. |
+| `refresh_minutes` | `int` | `5` | Minutes between CLI calls, 1–120. Countdowns tick locally in between. |
 
 Per widget instance, so two capsules can follow two providers:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows `[ui] primary` from the CLI's own config, then the first provider that reported. |
-| `style` | `select` | `pill` | `pill` is the percentage alone; `gauge` adds a small bar next to it. |
-| `showName` | `bool` | `false` | Adds the product name, so two capsules do not look alike. |
-| `colorByUsage` | `bool` | `true` | Off keeps the capsule in the bar's own text color instead of tinting by severity. |
+| `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows the busiest provider, with the CLI's own `[ui] primary` breaking ties. |
+| `style` | `select` | `pill` | `pill`, `gauge`, `meter` or `label` — see the table above. |
+| `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, 1–4. Only applies on `auto`. |
+| `extras` | `select` | `countdown` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
+| `show_name` | `bool` | `false` | Adds the product name, so two capsules do not look alike. |
+| `color_by_usage` | `bool` | `true` | Off keeps the capsule in the bar's own text color instead of tinting by severity. |
 
 ## IPC
 

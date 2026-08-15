@@ -6,7 +6,7 @@ author = "felipeartur"
 license = "MIT"
 icon = "brain"
 description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
-tags = ["bar", "panel", "ai", "utility"]
+tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
 # `ai-usagebar usage --json` and draws the result.
 dependencies = ["ai-usagebar"]
@@ -16,7 +16,7 @@ dependencies = ["ai-usagebar"]
 # No path setting: `ai-usagebar` is a declared dependency, so it is on PATH.
 
 [[setting]]
-key = "refreshMinutes"
+key = "refresh_minutes"
 type = "int"
 label_key = "settings.refresh_minutes.label"
 description_key = "settings.refresh_minutes.description"
@@ -72,17 +72,42 @@ default = "pill"
 options = [
   { value = "pill", label_key = "settings.style.option.pill" },
   { value = "gauge", label_key = "settings.style.option.gauge" },
+  { value = "meter", label_key = "settings.style.option.meter" },
+  { value = "label", label_key = "settings.style.option.label" },
+]
+
+# One capsule can carry more than one provider; "auto" fills it with the busiest.
+[[widget.setting]]
+key = "provider_limit"
+type = "int"
+label_key = "settings.provider_limit.label"
+description_key = "settings.provider_limit.description"
+default = 1
+min = 1
+max = 4
+
+[[widget.setting]]
+key = "extras"
+type = "select"
+label_key = "settings.extras.label"
+description_key = "settings.extras.description"
+default = "countdown"
+options = [
+  { value = "countdown", label_key = "settings.extras.option.countdown" },
+  { value = "pace", label_key = "settings.extras.option.pace" },
+  { value = "both", label_key = "settings.extras.option.both" },
+  { value = "none", label_key = "settings.extras.option.none" },
 ]
 
 [[widget.setting]]
-key = "showName"
+key = "show_name"
 type = "bool"
 label_key = "settings.show_name.label"
 description_key = "settings.show_name.description"
 default = false
 
 [[widget.setting]]
-key = "colorByUsage"
+key = "color_by_usage"
 type = "bool"
 label_key = "settings.color_by_usage.label"
 description_key = "settings.color_by_usage.description"

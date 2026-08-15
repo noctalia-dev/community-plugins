@@ -1,15 +1,41 @@
 --!nonstrict
--- Bar capsule. Reads whatever the poller published and draws one provider.
+-- Bar capsule. Reads whatever the poller published and draws one provider, or
+-- the busiest few when `provider_limit` is raised.
 --
--- Per-instance settings, so adding the widget twice watches two providers.
+-- Per-instance settings, so two capsules can follow two different providers.
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local style = tostring(noctalia.getConfig("style") or "pill")
-local showName = noctalia.getConfig("showName") == true
-local colorByUsage = noctalia.getConfig("colorByUsage") ~= false
+local extras = tostring(noctalia.getConfig("extras") or "countdown")
+local limit = math.max(1, math.min(4, tonumber(noctalia.getConfig("provider_limit")) or 1))
+local showName = noctalia.getConfig("show_name") == true
+local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
 
 local report = nil
 local errorMsg = ""
+
+-- Tabler has no Anthropic mark, so providers without a brand glyph get a
+-- semantic one. Same approach the other CLI-backed meters in this repo take.
+local GLYPHS = {
+    anthropic = "message-chatbot",
+    anthropic_api = "message-chatbot",
+    openai = "brand-openai",
+    zai = "bolt",
+    openrouter = "route",
+    deepseek = "fish",
+    kimi = "moon",
+    moonshot = "moon",
+    kilo = "robot",
+    novita = "cloud",
+    grok = "brand-x",
+    supergrok = "brand-x",
+    antigravity = "sparkles",
+    cursor = "cursor-text",
+    minimax = "wave-square",
+    kiro = "ghost",
+    copilot = "brand-github-copilot",
+    gemini = "brand-google",
+}
 
 -- ── Report helpers ────────────────────────────────────────────────────────────
 
@@ -59,37 +85,71 @@ local function resetClock(metric)
     return clock
 end
 
+-- "Resets in 4h 01m · 19% elapsed · 2pts ahead" — how much of the window is
+-- gone, and how far the spend is from that line.
+local function elapsedPercent(metric)
+    local value = tostring(metric and metric.detail or ""):match("(%d+)%%%s*elapsed")
+    return value ~= nil and tonumber(value) or nil
+end
+
+-- Returns points and direction: 2, "ahead" is burning faster than the clock.
+local function pace(metric)
+    local points, word = tostring(metric and metric.detail or ""):match("(%d+)pts%s+(%a+)")
+    if points == nil then return nil, nil end
+    return tonumber(points), word
+end
+
 local function entries()
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     return report.entries
 end
 
--- "auto" follows `[ui] primary` from the CLI's own config, then the first
--- provider that actually reported.
-local function currentEntry()
-    local all = entries()
-    if vendor ~= "auto" then
-        for _, entry in ipairs(all) do
-            if entry.id == vendor then return entry end
-        end
-        return nil
-    end
-
-    local primary = type(report) == "table" and report.primary or nil
-    if primary ~= nil then
-        for _, entry in ipairs(all) do
-            if entry.id == primary then return entry end
-        end
-    end
-    for _, entry in ipairs(all) do
-        if entry.status == "ready" then return entry end
-    end
-    return all[1]
-end
-
 local function headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
     return entry.metrics[1]
+end
+
+local SEVERITY_RANK = { critical = 3, high = 2, medium = 1, low = 0 }
+
+local function rank(entry)
+    local metric = headline(entry)
+    if metric == nil then return -1, -1 end
+    return SEVERITY_RANK[tostring(metric.severity or "")] or 0, tonumber(metric.percent) or 0
+end
+
+-- A pinned vendor shows only itself. "auto" shows the busiest providers, so the
+-- one about to bite is the one on the bar, and `primary` breaks ties.
+local function shown()
+    local all = entries()
+    if vendor ~= "auto" then
+        for _, entry in ipairs(all) do
+            if entry.id == vendor then return { entry }, 0 end
+        end
+        return {}, 0
+    end
+
+    local ready = {}
+    for _, entry in ipairs(all) do
+        if entry.status ~= "error" then ready[#ready + 1] = entry end
+    end
+    local primary = type(report) == "table" and report.primary or nil
+    table.sort(ready, function(a, b)
+        local aRank, aPct = rank(a)
+        local bRank, bPct = rank(b)
+        if aRank ~= bRank then return aRank > bRank end
+        if aPct ~= bPct then return aPct > bPct end
+        if a.id == primary then return true end
+        if b.id == primary then return false end
+        return tostring(a.id) < tostring(b.id)
+    end)
+
+    local picked = {}
+    for i = 1, math.min(limit, #ready) do picked[i] = ready[i] end
+    if #picked == 0 then return {}, 0 end
+    -- A single-provider capsule is a deliberate choice, so it stays quiet about
+    -- the rest; the "+N" only appears once the capsule is meant to carry more.
+    if limit == 1 then return picked, 0 end
+    return picked, #ready - #picked
 end
 
 -- The CLI already tiers every percentage; mirroring its thresholds here would
@@ -110,85 +170,152 @@ end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
-local function tooltip(entry)
+-- Quota above, window elapsed below: a fill longer than the clock bar is spend
+-- running ahead of time.
+local function bars(percent, elapsed, tint, width)
+    local stack = {
+        ui.progress({ progress = percent / 100, fill = tint, track = "on_surface/0.16",
+                      radius = 3, width = width, height = 4 }),
+    }
+    if elapsed ~= nil then
+        stack[#stack + 1] = ui.progress({ progress = elapsed / 100, fill = "on_surface/0.45",
+                                          track = "on_surface/0.10", radius = 1, width = width, height = 2 })
+    end
+    return ui.column({ gap = 1, align = "center" }, stack)
+end
+
+local function paceNodes(metric, tint)
+    if extras ~= "pace" and extras ~= "both" then return nil end
+    local points, word = pace(metric)
+    if points == nil then return nil end
+    local ahead = word == "ahead"
+    return ui.row({ gap = 0, align = "center" }, {
+        ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10,
+                   color = ahead and tint or "on_surface_variant" }),
+        ui.label({ text = tostring(points), fontSize = 10,
+                   color = ahead and tint or "on_surface_variant", maxLines = 1 }),
+    })
+end
+
+local function countdownNode(metric)
+    if extras ~= "countdown" and extras ~= "both" then return nil end
+    local left = countdown(metric)
+    if left == "" then return nil end
+    return ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 })
+end
+
+-- One provider's chip. The style decides the shape; the extras ride along.
+local function chip(entry)
+    local metric = headline(entry)
+    local tint = severityRole(metric)
+    local percent = metric ~= nil and tonumber(metric.percent) or nil
+    local text = percent ~= nil and string.format("%d%%", percent) or "—"
+    local glyph = ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 13, color = tint })
+    local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint, maxLines = 1 })
+    local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
+                                         color = "on_surface_variant", maxLines = 1 }) or nil
+
+    local nodes = {}
+    local function add(node) if node ~= nil then nodes[#nodes + 1] = node end end
+
+    if style == "meter" and percent ~= nil then
+        -- Five ticks instead of digits: the reading at a glance, no numbers.
+        local ticks = {}
+        for i = 0, 4 do
+            ticks[#ticks + 1] = ui.box({
+                width = 3, height = 11, radius = 1,
+                fill = percent > i * 20 and tint or "on_surface/0.22",
+            })
+        end
+        add(glyph); add(name)
+        add(ui.row({ gap = 2, align = "center" }, ticks))
+    elseif style == "label" and percent ~= nil then
+        -- Name and number stacked over the bar, for a bar with room to spare.
+        add(glyph)
+        add(ui.column({ gap = 1, align = "center" }, {
+            ui.row({ gap = 3, align = "center" }, {
+                ui.label({ text = shortName(entry), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
+                pct,
+            }),
+            bars(percent, elapsedPercent(metric), tint, 44),
+        }))
+    elseif style == "gauge" and percent ~= nil then
+        add(glyph); add(name)
+        add(bars(percent, elapsedPercent(metric), tint, 26))
+        add(pct)
+    else
+        add(glyph); add(name); add(pct)
+    end
+
+    add(countdownNode(metric))
+    add(paceNodes(metric, tint))
+
+    if entry.stale == true then
+        add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
+    end
+    return ui.row({ gap = 4, align = "center" }, nodes)
+end
+
+local function tooltip(picked, hidden)
     if errorMsg ~= "" then return { { key = "AI Usage", value = errorMsg } } end
-    if entry == nil then
+    if #picked == 0 then
         local waiting = vendor == "auto" and "Waiting for usage data"
             or ("`" .. vendor .. "` is not configured in ai-usagebar")
         return { { key = "AI Usage", value = waiting } }
     end
-    if entry.status == "error" then
-        return { { key = tostring(entry.display_name or entry.id), value = tostring(entry.error or "Unavailable") } }
-    end
 
     local rows = {}
-    if entry.plan ~= nil and tostring(entry.plan) ~= "" then
-        rows[#rows + 1] = { key = "Plan", value = tostring(entry.plan) }
-    end
-    for _, metric in ipairs(entry.metrics or {}) do
-        local value = tostring(metric.value or ""):gsub(" of ", " / ")
-        local left = countdown(metric)
-        if left ~= "" then
-            local clock = resetClock(metric)
-            value = value .. " · " .. left .. (clock ~= "" and (" (" .. clock .. ")") or "")
+    for _, entry in ipairs(picked) do
+        local title = tostring(entry.display_name or entry.id)
+        if entry.status == "error" then
+            rows[#rows + 1] = { key = title, value = tostring(entry.error or "Unavailable") }
+        else
+            if entry.plan ~= nil and tostring(entry.plan) ~= "" then
+                rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
+            end
+            for _, metric in ipairs(entry.metrics or {}) do
+                local value = tostring(metric.value or ""):gsub(" of ", " / ")
+                local left = countdown(metric)
+                if left ~= "" then
+                    local clock = resetClock(metric)
+                    value = value .. " · " .. left .. (clock ~= "" and (" (" .. clock .. ")") or "")
+                end
+                rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
+            end
+            if entry.stale == true then
+                rows[#rows + 1] = { key = "Updated", value = "showing last known data" }
+            end
         end
-        rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
     end
-    if entry.stale == true then
-        rows[#rows + 1] = { key = "Updated", value = "showing last known data" }
+    if hidden > 0 then
+        rows[#rows + 1] = { key = "Not shown", value = tostring(hidden) .. " more provider(s) — click to open the panel" }
     end
     if #rows == 0 then
-        rows[#rows + 1] = { key = tostring(entry.display_name or entry.id), value = "No usage reported" }
+        rows[#rows + 1] = { key = "AI Usage", value = "No usage reported" }
     end
     return rows
 end
 
 local function render()
-    local entry = currentEntry()
-    local metric = headline(entry)
-    local tint = severityRole(metric)
-    local percent = metric ~= nil and tonumber(metric.percent) or nil
-    local text = percent ~= nil and (string.format("%d%%", percent)) or "—"
+    local picked, hidden = shown()
 
-    local children = { ui.glyph({ name = "brain", size = 13, color = tint }) }
+    local children = {}
+    for _, entry in ipairs(picked) do
+        children[#children + 1] = chip(entry)
+    end
 
-    if showName and entry ~= nil then
-        children[#children + 1] = ui.label({
-            text = shortName(entry),
-            fontSize = 11,
-            color = "on_surface_variant",
-            maxLines = 1,
+    if #children == 0 then
+        children[1] = ui.row({ gap = 4, align = "center" }, {
+            ui.glyph({ name = "brain", size = 13, color = "on_surface_variant" }),
+            ui.glyph({ name = "alert-circle", size = 12, color = "error" }),
         })
+    elseif hidden > 0 then
+        children[#children + 1] = ui.label({ text = "+" .. tostring(hidden), fontSize = 10,
+                                             color = "on_surface_variant", maxLines = 1 })
     end
 
-    if style == "gauge" and percent ~= nil then
-        children[#children + 1] = ui.progress({
-            progress = percent / 100,
-            fill = tint,
-            track = "on_surface/0.16",
-            radius = 6,
-            width = 26,
-            height = 5,
-        })
-    end
-
-    children[#children + 1] = ui.label({
-        text = text,
-        fontSize = 11,
-        fontWeight = "semibold",
-        color = tint,
-        maxLines = 1,
-    })
-
-    local broken = errorMsg ~= "" or (entry ~= nil and entry.status == "error") or entry == nil
-    if broken then
-        children[#children + 1] = ui.glyph({ name = "alert-circle", size = 12, color = "error" })
-    elseif entry.stale == true then
-        children[#children + 1] = ui.glyph({ name = "clock-exclamation", size = 12, color = "secondary" })
-    end
-
-    barWidget.render(ui.row({ gap = 5, align = "center" }, children))
-    barWidget.setTooltip(tooltip(entry))
+    barWidget.render(ui.row({ gap = 7, align = "center" }, children))
+    barWidget.setTooltip(tooltip(picked, hidden))
 end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────────
@@ -209,9 +336,9 @@ noctalia.state.watch("error", function(value)
 end)
 
 function onClick()
-    local entry = currentEntry()
+    local picked = shown()
     -- One panel serves every capsule and is not told which one opened it.
-    noctalia.state.set("selected", entry ~= nil and entry.id or vendor)
+    noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or vendor)
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 
@@ -223,7 +350,7 @@ report = noctalia.state.get("report")
 local existingError = noctalia.state.get("error")
 if type(existingError) == "string" then errorMsg = existingError end
 
--- Live countdowns in the tooltip without waking the CLI.
+-- Live countdowns without waking the CLI.
 noctalia.setUpdateInterval(30000)
 render()
 

@@ -32,7 +32,9 @@
       "description": "How this capsule looks in the bar.",
       "option": {
         "pill": "Percentage",
-        "gauge": "Gauge and percentage"
+        "gauge": "Gauge and percentage",
+        "meter": "Segments",
+        "label": "Name, gauge and percentage"
       }
     },
     "show_name": {
@@ -42,6 +44,20 @@
     "color_by_usage": {
       "label": "Color by usage",
       "description": "Primary while there is room, then amber, then red as the quota fills."
+    },
+    "provider_limit": {
+      "label": "Providers in the capsule",
+      "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic."
+    },
+    "extras": {
+      "label": "Extra reading",
+      "description": "What rides next to the percentage: the time left in the window, how far the spend is from the clock, or neither.",
+      "option": {
+        "countdown": "Time until reset",
+        "pace": "Pace against the clock",
+        "both": "Both",
+        "none": "Neither"
+      }
     }
   }
 }
