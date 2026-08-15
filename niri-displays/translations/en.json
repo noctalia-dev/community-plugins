@@ -1,0 +1,44 @@
+{
+  "title": "Niri Displays",
+  "settings": {
+    "scale_presets": {
+      "label": "Resolution scale presets",
+      "description": "Automatically apply a scale after a resolution change. Use WIDTHxHEIGHT=SCALE for every display or PORT:WIDTHxHEIGHT=SCALE for one port. Examples: 3840x2160=1.5 · DP-3:1920x1080=1"
+    },
+    "refresh_interval": {
+      "label": "Fallback refresh interval (seconds)",
+      "description": "Recovery polling interval. Output changes normally refresh immediately through Noctalia's output hook, and focused-display changes are tracked reactively."
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "show_resolution": {
+      "label": "Show display details",
+      "description": "Show the focused display's port and current resolution beside the bar icon. Disable for an icon-only widget."
+    }
+  },
+  "panel": {
+    "subtitle": "Configure your display outputs in Niri",
+    "focused": "Focused",
+    "disabled": "Disabled",
+    "resolution": "Resolution",
+    "refresh_rate": "Refresh rate",
+    "scale": "Scale",
+    "preset_match": "Auto scale for {resolution}: {scale}×",
+    "loading": "Reading displays from Niri…",
+    "empty": "Niri reports no connected displays.",
+    "retry": "Retry",
+    "updated": "Updated {time}",
+    "more_displays": "…and {count} more displays",
+    "temporary_note": "Changes use Niri's temporary output IPC and are not written to your Niri config."
+  },
+  "error": {
+    "title": "Couldn't read Niri displays",
+    "niri_missing": "The niri executable was not found in PATH.",
+    "outputs": "Could not query outputs from Niri.",
+    "parse_outputs": "Niri returned output data that could not be parsed.",
+    "timeout": "Niri did not respond in time.",
+    "command": "Niri rejected the display change.",
+    "mode_missing": "No refresh rate is available for that resolution."
+  }
+}
