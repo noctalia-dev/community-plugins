@@ -35,12 +35,16 @@ function onQuery(text)
         continue
       end
     end
+    -- The state goes in the subtitle, not in `badge`: a badge is drawn in the
+    -- icon slot and scaled up to fill it, so a whole phrase like "Up to date"
+    -- swallows the row and hides the state glyph.
+    local status = noctalia.tr(`state.{folder.state}`)
+    local action = noctalia.tr("launcher.rescan-hint", { id = folder.id })
     table.insert(results, {
       id = folder.id,
       title = folder.label,
-      subtitle = noctalia.tr("launcher.rescan-hint", { id = folder.id }),
+      subtitle = `{status} · {action}`,
       glyph = STATE_GLYPHS[folder.state] or "cloud-question",
-      badge = noctalia.tr(`state.{folder.state}`),
       score = score,
     })
   end
