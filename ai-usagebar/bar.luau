@@ -49,11 +49,14 @@ end
 local function resetClock(metric)
     local at = parseIso(metric and metric.reset_at)
     if at == nil then return "" end
-    local pattern = noctalia.timeFormat() or "HH:mm"
+    local clock = noctalia.formatTime(noctalia.timeFormat(), at)
+    -- The weekday is prepended here rather than folded into the pattern: the
+    -- host's format grammar passes unknown text through verbatim, so a "ddd"
+    -- prefix would render as the literal word.
     if os.date("%Y-%m-%d", at) ~= os.date("%Y-%m-%d") then
-        pattern = "ddd " .. pattern
+        return os.date("%a", at) .. " " .. clock
     end
-    return noctalia.formatTime(pattern, at)
+    return clock
 end
 
 local function entries()

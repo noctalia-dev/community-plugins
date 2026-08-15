@@ -42,11 +42,11 @@ end
 local function resetClock(section)
     local at = parseIso(section and section.reset_at)
     if at == nil then return "" end
-    local pattern = noctalia.timeFormat() or "HH:mm"
+    local clock = noctalia.formatTime(noctalia.timeFormat(), at)
     if os.date("%Y-%m-%d", at) ~= os.date("%Y-%m-%d") then
-        pattern = "ddd " .. pattern
+        return os.date("%a", at) .. " " .. clock
     end
-    return noctalia.formatTime(pattern, at)
+    return clock
 end
 
 local function severityRole(section)

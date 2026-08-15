@@ -97,7 +97,8 @@ default = true
 id = "panel"
 entry = "panel.luau"
 width = 380
-height = 520
+# Two metric cards is the common case; richer providers scroll.
+height = 380
 placement = "attached"
 position = "auto"
 dismiss_on_outside_click = true
