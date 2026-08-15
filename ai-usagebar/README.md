@@ -136,8 +136,8 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 ## Notes
 
 - One process, `ai-usagebar usage --json`, spawned by a single headless service
-  on the configured interval, plus on demand from a right click, the panel's
-  refresh button, or the IPC event above. Capsules and the panel are subscribers
+  on the configured interval, plus on demand from a right click, from opening
+  the panel, or from the IPC event above. Capsules and the panel are subscribers
   of plugin state, so a second monitor or a second capsule costs no extra
   process.
 - The plugin makes no network calls and writes no files of its own. Everything
