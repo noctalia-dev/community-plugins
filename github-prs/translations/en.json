@@ -1,0 +1,47 @@
+{
+  "title": "GitHub Pull Requests",
+  "settings": {
+    "rules": {
+      "label": "Search rules",
+      "description": "One GitHub search query fragment per entry; results are merged. Each is prefixed with 'is:pr is:open' (and 'archived:false' unless you set archived: yourself). Examples: author:@me · review-requested:@me org:acme · assignee:@me -repo:acme/legacy draft:false"
+    },
+    "excluded_repositories": {
+      "label": "Excluded repositories",
+      "description": "Repository names to hide after fetching. * is supported; names without an owner match every organization. Examples: legacy-* · acme/private-*"
+    },
+    "refresh_interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often pull requests are re-fetched."
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "hide_when_zero": {
+      "label": "Hide when empty",
+      "description": "Hide the bar widget when there are no open pull requests."
+    }
+  },
+  "panel": {
+    "updated_at": "Updated {time}",
+    "loading": "Loading pull requests…",
+    "empty": "No open pull requests. All clear!",
+    "empty_no_rules": "No search rules configured. Add rules in Settings → Plugins → GitHub Pull Requests.",
+    "error_title": "Couldn't fetch pull requests",
+    "retry": "Retry",
+    "partial_warning": "{failed} of {total} rules failed: {message}",
+    "truncated_note": "…{count} more matches not shown (per-rule cap is 50)",
+    "more_rows": "…and {count} more",
+    "draft": "Draft",
+    "review": {
+      "approved": "Approved",
+      "changes_requested": "Changes requested",
+      "review_required": "Review needed"
+    }
+  },
+  "error": {
+    "gh_missing": "GitHub CLI (gh) not found in PATH. Install it, then run: gh auth login",
+    "timeout": "gh timed out",
+    "truncated": "gh output was truncated",
+    "parse": "Could not parse gh output"
+  }
+}

@@ -1,0 +1,73 @@
+# GitHub Pull Requests — pull requests in your bar, fetched via the gh CLI.
+# Three entries: a headless fetch service (owns all gh calls, publishes shared
+# state), a bar widget (count + status tint, click toggles the panel), and a
+# panel (PRs grouped by repo with CI status and review badges).
+
+id = "raycursive/github-prs"
+name = "GitHub Pull Requests"
+version = "0.3.0"
+plugin_api = 9
+author = "raycursive"
+license = "MIT"
+dependencies = ["gh", "xdg-open"]
+tags = ["bar", "development", "panel", "productivity", "service"]
+icon = "git-pull-request"
+description = "Track matching GitHub pull requests from the bar, including CI and review status, using the gh CLI."
+
+# Each rule is a GitHub search query fragment; the service prefixes it with
+# "is:pr is:open" (and "archived:false" unless the rule mentions archived:).
+[[setting]]
+key = "rules"
+type = "string_list"
+label_key = "settings.rules.label"
+description_key = "settings.rules.description"
+default = ["author:@me"]
+
+[[setting]]
+key = "excluded_repositories"
+type = "string_list"
+label_key = "settings.excluded_repositories.label"
+description_key = "settings.excluded_repositories.description"
+default = []
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 180
+min = 30
+max = 3600
+
+# Headless service: runs one gh call per rule, merges + dedupes, publishes to
+# the plugin's shared state for the widget and panel.
+[[service]]
+id = "fetch"
+entry = "fetch.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "git-pull-request"
+
+  [[widget.setting]]
+  key = "hide_when_zero"
+  type = "bool"
+  label_key = "settings.hide_when_zero.label"
+  description_key = "settings.hide_when_zero.description"
+  default = false
+
+# Open with the bar widget click, or: noctalia msg panel-toggle raycursive/github-prs:panel
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 660
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
