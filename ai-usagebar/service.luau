@@ -31,11 +31,17 @@ end
 local inFlight = false
 
 -- The CLI caches for a minute, so a manual refresh usually answers in about ten
--- milliseconds. Holding the busy state for a beat is what makes the loader in
--- the capsule and the panel visible at all; the service's own tick times it.
+-- milliseconds, too fast for the loader to survive a frame. The busy state is
+-- held for a beat instead, timed by the service's own tick.
 local MIN_BUSY_MS = 600
 local busyUntil = 0
 local clearPending = false
+
+-- A floor between spawns. Opening the panel asks for a read, and a panel can be
+-- opened as fast as a pointer can click, so this bounds how often the plugin
+-- can start a process no matter how the request arrives.
+local MIN_GAP_MS = 2000
+local lastStart = 0
 
 local function stopPolling()
     clearPending = false
@@ -45,8 +51,11 @@ end
 
 local function refresh()
     if inFlight then return end
+    local now = noctalia.nowMs()
+    if now - lastStart < MIN_GAP_MS then return end
+    lastStart = now
     inFlight = true
-    busyUntil = noctalia.nowMs() + MIN_BUSY_MS
+    busyUntil = now + MIN_BUSY_MS
     clearPending = false
     noctalia.state.set("polling", true)
     noctalia.setUpdateInterval(120)

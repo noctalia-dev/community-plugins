@@ -161,7 +161,7 @@ local function textRole(metric)
     if not colorByUsage then return "on_surface" end
     local severity = metric ~= nil and tostring(metric.severity or "") or ""
     if severity == "critical" then return "error" end
-    if severity == "high" then return "warning" end
+    if severity == "high" then return "tertiary" end
     return "on_surface"
 end
 
@@ -169,7 +169,7 @@ local function barRole(metric)
     if not colorByUsage then return "primary" end
     local severity = metric ~= nil and tostring(metric.severity or "") or ""
     if severity == "critical" then return "error" end
-    if severity == "high" then return "warning" end
+    if severity == "high" then return "tertiary" end
     return "primary"
 end
 
@@ -202,9 +202,9 @@ local function paceNodes(metric, tint)
     local ahead = word == "ahead"
     return ui.row({ gap = 0, align = "center" }, {
         ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10,
-                   color = ahead and tint or "on_surface_variant" }),
+                   color = ahead and "tertiary" or "on_surface_variant" }),
         ui.label({ text = tostring(points), fontSize = 10,
-                   color = ahead and tint or "on_surface_variant", maxLines = 1 }),
+                   color = ahead and "tertiary" or "on_surface_variant", maxLines = 1 }),
     })
 end
 
@@ -264,7 +264,7 @@ local function chip(entry)
     add(paceNodes(metric, tint))
 
     if entry.stale == true then
-        add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
+        add(ui.glyph({ name = "clock-exclamation", size = 11, color = "tertiary" }))
     end
     return ui.row({ gap = 4, align = "center" }, nodes)
 end

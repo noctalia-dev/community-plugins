@@ -54,14 +54,14 @@ end
 local function textRole(section)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end
-    if severity == "high" then return "warning" end
+    if severity == "high" then return "tertiary" end
     return "on_surface"
 end
 
 local function barRole(section)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end
-    if severity == "high" then return "warning" end
+    if severity == "high" then return "tertiary" end
     return "primary"
 end
 
@@ -90,8 +90,8 @@ local function pace(detail)
     last = noctalia.string.trim(last)
     if last:find("elapsed") then return "", "on_surface_variant" end
     -- Ahead of the clock is worth flagging. Under it means there is room left.
-    if last:find("ahead") then return last, "warning" end
-    if last:find("under") then return last, "success" end
+    if last:find("ahead") then return last, "tertiary" end
+    if last:find("under") then return last, "on_surface_variant" end
     return last, "on_surface_variant"
 end
 
@@ -346,8 +346,8 @@ local function listPane(entry)
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "primary" }),
             ui.spacer({ flexGrow = 1 }),
-            -- Opening the panel is the refresh, so the only thing the header
-            -- shows is whether that read is still running.
+            -- The panel refreshes when it opens, so the header only has to
+            -- show whether that read is still running.
             ui.glyph({ name = "loader-2", size = 16, color = "primary", visible = polling }),
         }),
         ui.scroll({ gap = 6, flexGrow = 1 }, rows),
@@ -380,12 +380,12 @@ local function detailPane(entry)
             ui.label({
                 text = tostring(entry.status or ""),
                 fontSize = 10,
-                color = entry.status == "ready" and "success" or "warning",
+                color = entry.status == "ready" and "on_surface_variant" or "error",
             }),
         }
         if entry.stale == true then
             chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
-            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "warning" })
+            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "tertiary" })
         end
         local fetched = parseIso(entry.fetched_at)
         if fetched ~= nil then
@@ -467,7 +467,8 @@ end)
 
 function onOpen(_context)
     -- Every open asks for fresh numbers. The CLI answers from its own cache
-    -- when it has one, so this costs nothing on a quick reopen.
+    -- when it has one, and the poller drops requests that arrive too close
+    -- together, so reopening the panel repeatedly is cheap.
     noctalia.state.set("command", { action = "refresh", at = os.time() })
     report = noctalia.state.get("report")
     local existingError = noctalia.state.get("error")
