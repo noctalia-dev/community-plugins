@@ -7,7 +7,6 @@
 local report = nil
 local errorMsg = ""
 local polling = false
-local pulse = false
 
 -- Same parsing the capsule does. There is no require() below API 22, so the
 -- four helpers below are copied instead of shared.
@@ -328,16 +327,11 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
--- A cold read takes a second or two, so the control says so while it waits.
--- The button gives way to two loader arcs that alternate on the faster update
--- interval `polling` turns on, which reads as one turning loader.
+-- A cold read takes a second or two, so the button gives way to a loader while
+-- the poller is in flight.
 local function refreshControl()
     if polling then
-        return ui.glyph({
-            name = pulse and "loader-2" or "loader-3",
-            size = 16,
-            color = "primary",
-        })
+        return ui.glyph({ name = "loader-2", size = 16, color = "primary" })
     end
     return ui.button({
         glyph = "refresh",
@@ -491,8 +485,6 @@ end)
 
 noctalia.state.watch("polling", function(value)
     polling = value == true
-    -- Second ticks are enough for a countdown, not for a pulse.
-    noctalia.setUpdateInterval(polling and 220 or 1000)
     render()
 end)
 
@@ -506,8 +498,8 @@ function onOpen(_context)
     render()
 end
 
+-- Panel second tick, for the countdowns.
 function update()
-    if polling then pulse = not pulse end
     render()
 end
 
