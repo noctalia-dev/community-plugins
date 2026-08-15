@@ -1,7 +1,7 @@
 id           = "thepunkoff/pomodoro"
 name         = "Pomodoro Timer"
 version      = "1.2.0"
-plugin_api   = 3
+plugin_api   = 20
 author       = "thepunkoff"
 license = "MIT"
 icon = "brain"
@@ -57,7 +57,15 @@ key     = "enable-alarm-sound"
 type    = "bool"
 label_key = "settings.enable-alarm-sound.label"
 description_key = "settings.enable-alarm-sound.description"
-default = true
+default = false
+
+[[setting]]
+key     = "bypass-noctalia-sound-globals"
+type    = "bool"
+label_key = "settings.bypass-noctalia-sound-globals.label"
+description_key = "settings.bypass-noctalia-sound-globals.description"
+visible_when = { key = "enable-alarm-sound", values = ["true"] }
+default = false
 
 [[widget]]
 id = "widget"

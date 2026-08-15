@@ -7,9 +7,20 @@ local config = (function()
         autoStartBreaks = noctalia.getConfig("auto-start-breaks"),
         autoStartWork = noctalia.getConfig("auto-start-work"),
         enableAlarmSound = noctalia.getConfig("enable-alarm-sound"),
+        bypassNoctaliaSoundGlobals = noctalia.getConfig("bypass-noctalia-sound-globals"),
     }
 end)()
 noctalia.state.set("pomodoro.config", config)
+
+local function onAlarmSoundLoaded(ok, err)
+    if not ok then
+        noctalia.notifyError("Couldn't load alarm sound", err)
+    end
+end
+local soundAccepted = noctalia.sound.load("alarm", "alarm.mp3", onAlarmSoundLoaded)
+if not soundAccepted then
+    noctalia.notifyError("Couldn't queue alarm sound")
+end
 
 local sessionData = {}
 for i = 1, config.sessionsBeforeLongBreak do
@@ -95,10 +106,14 @@ local function notifyStageFinished(state, sessionData)
             noctalia.tr("notification.long-break-complete")
 
     if config.enableAlarmSound then
-        local pluginDir = noctalia.pluginDir()
-        if pluginDir then
-            local alarmDir = pluginDir .. "/alarm.mp3"
-            noctalia.runAsync("pw-play " .. alarmDir)
+        if config.bypassNoctaliaSoundGlobals then
+            local pluginDir = noctalia.pluginDir()
+            if pluginDir then
+                local alarmDir = pluginDir .. "/alarm.mp3"
+                noctalia.runAsync("pw-play " .. alarmDir)
+            end
+        else
+            noctalia.sound.play("alarm")
         end
     end
 
