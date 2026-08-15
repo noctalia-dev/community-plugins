@@ -63,8 +63,12 @@ function onConfigChanged()
     refresh()
 end
 
-function onIpc(event, _payload)
+function onIpc(event, payload)
     if event == "refresh" then refresh() end
+    -- `select <provider-id>` points the panel at one provider from a script.
+    if event == "select" and type(payload) == "string" and payload ~= "" then
+        noctalia.state.set("selected", payload)
+    end
 end
 
 noctalia.setUpdateInterval(intervalMs())

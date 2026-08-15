@@ -43,10 +43,10 @@ local function resetClock(section)
     local at = parseIso(section and section.reset_at)
     if at == nil then return "" end
     local clock = noctalia.formatTime(noctalia.timeFormat(), at)
-    if os.date("%Y-%m-%d", at) ~= os.date("%Y-%m-%d") then
-        return os.date("%a", at) .. " " .. clock
-    end
-    return clock
+    if os.date("%Y-%m-%d", at) == os.date("%Y-%m-%d") then return clock end
+    -- A weekday alone is ambiguous once the window is more than a week out.
+    if at - os.time() > 6 * 86400 then return os.date("%d %b", at) .. " " .. clock end
+    return os.date("%a", at) .. " " .. clock
 end
 
 -- Text keeps the surface colour until the reading earns `warning` or `error`;
@@ -90,8 +90,8 @@ local function pace(detail)
     last = noctalia.string.trim(last)
     if last:find("elapsed") then return "", "on_surface_variant" end
     -- Ahead of the clock is the reading worth flagging; under is the roomy side.
-    if last:find("ahead") then return last, "secondary" end
-    if last:find("under") then return last, "tertiary" end
+    if last:find("ahead") then return last, "warning" end
+    if last:find("under") then return last, "success" end
     return last, "on_surface_variant"
 end
 
@@ -150,6 +150,11 @@ local function metricCard(section)
     local header = {
         ui.glyph({ name = metricIcon(section.label), size = 14, color = tint }),
         ui.label({ text = tostring(section.label or ""), fontSize = 11, color = "on_surface_variant" }),
+        ui.label({
+            text = tostring(section.severity or ""),
+            fontSize = 9, fontWeight = "semibold", color = tint,
+            visible = tostring(section.severity or "") ~= "",
+        }),
         ui.spacer({ flexGrow = 1 }),
     }
     if showValue then
@@ -177,6 +182,10 @@ local function metricCard(section)
             track = "on_surface/0.10",
             radius = 2,
             height = 2,
+        })
+        body[#body + 1] = ui.label({
+            text = noctalia.tr("ui.elapsed", { percent = elapsed }),
+            fontSize = 10, color = "on_surface_variant",
         })
     end
 
@@ -370,6 +379,33 @@ local function detailPane(entry)
         }),
     }
 
+    -- The entry's own fields, spelled out rather than implied by a colour.
+    if entry ~= nil then
+        local chips = {
+            ui.label({ text = tostring(entry.id or ""), fontSize = 10, color = "on_surface_variant" }),
+            ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" }),
+            ui.label({
+                text = tostring(entry.status or ""),
+                fontSize = 10,
+                color = entry.status == "ready" and "success" or "warning",
+            }),
+        }
+        if entry.stale == true then
+            chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
+            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "warning" })
+        end
+        local fetched = parseIso(entry.fetched_at)
+        if fetched ~= nil then
+            chips[#chips + 1] = ui.spacer({ flexGrow = 1 })
+            chips[#chips + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
+            chips[#chips + 1] = ui.label({
+                text = updatedText(entry) .. " · " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
+                fontSize = 10, color = "on_surface_variant",
+            })
+        end
+        children[#children + 1] = ui.row({ gap = 4, align = "center" }, chips)
+    end
+
     local status = ""
     if errorMsg ~= "" then
         status = errorMsg
@@ -399,18 +435,6 @@ local function detailPane(entry)
         children[#children + 1] = ui.scroll({ gap = 8, flexGrow = 1 }, cards)
     else
         children[#children + 1] = ui.spacer({ flexGrow = 1 })
-    end
-
-    if entry ~= nil then
-        local updated = updatedText(entry)
-        if entry.stale == true and updated ~= "" then updated = updated .. " · " .. noctalia.tr("ui.stale") end
-        children[#children + 1] = ui.row({ gap = 5, align = "center" }, {
-            ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" }),
-            ui.label({ text = updated, fontSize = 11,
-                       color = entry.stale == true and "error" or "on_surface_variant" }),
-            ui.spacer({ flexGrow = 1 }),
-            ui.label({ text = tostring(entry.id or ""), fontSize = 11, color = "on_surface_variant" }),
-        })
     end
 
     return ui.column({ gap = 10, padding = 14, flexGrow = 1 }, children)

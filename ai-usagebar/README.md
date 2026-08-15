@@ -82,6 +82,14 @@ The list is a mirror of the CLI, not a catalogue: a provider `ai-usagebar` has
 no credential for never appears, while one that is set up and failing keeps its
 row and shows the error.
 
+The detail pane spells out everything the CLI reports for that provider, rather
+than implying it: the plan and account name, the provider id, its status, a
+stale flag when the reading is old, and when it was fetched. Each window gets
+its label and the severity the CLI assigned it, the percentage and the raw
+value string when they differ, how much of the window has elapsed, the time
+left with the exact clock time — or date — its reset lands on, and the pace
+line. Credit blocks and free-text rows are rendered as the CLI writes them.
+
 To open the panel from a terminal:
 
 ```sh
@@ -113,6 +121,12 @@ Force a refresh without waiting for the interval:
 
 ```sh
 noctalia msg plugin felipeartur/ai-usagebar:poller all refresh
+```
+
+Point the panel at a provider, by the id `ai-usagebar` uses for it:
+
+```sh
+noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 ```
 
 ## Notes
