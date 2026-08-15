@@ -30,14 +30,34 @@ end
 
 local inFlight = false
 
+-- The CLI caches for a minute, so a manual refresh usually answers in about ten
+-- milliseconds. Holding the busy state for a beat is what makes the loader in
+-- the capsule and the panel visible at all; the service's own tick times it.
+local MIN_BUSY_MS = 600
+local busyUntil = 0
+local clearPending = false
+
+local function stopPolling()
+    clearPending = false
+    noctalia.state.set("polling", false)
+    noctalia.setUpdateInterval(intervalMs())
+end
+
 local function refresh()
     if inFlight then return end
     inFlight = true
+    busyUntil = noctalia.nowMs() + MIN_BUSY_MS
+    clearPending = false
     noctalia.state.set("polling", true)
+    noctalia.setUpdateInterval(120)
 
     noctalia.runAsync(COMMAND, function(result)
         inFlight = false
-        noctalia.state.set("polling", false)
+        if noctalia.nowMs() >= busyUntil then
+            stopPolling()
+        else
+            clearPending = true
+        end
 
         local decoded = result ~= nil and noctalia.json.decode(result.stdout or "") or nil
         if type(decoded) == "table" and type(decoded.entries) == "table" then
@@ -70,6 +90,12 @@ noctalia.state.watch("command", function(value)
 end)
 
 function update()
+    -- While a read is in flight the fast tick is the busy timer, not a poll.
+    if inFlight then return end
+    if clearPending then
+        if noctalia.nowMs() >= busyUntil then stopPolling() end
+        return
+    end
     noctalia.setUpdateInterval(intervalMs())
     refresh()
 end
