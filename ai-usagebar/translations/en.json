@@ -70,7 +70,7 @@
     "updated": "Updated",
     "stale_hint": "showing last known data",
     "hidden_label": "Not shown",
-    "hidden_value": "{count} more — click to open the panel",
+    "hidden_value": "{count} more, click to open the panel",
     "loading": "Loading…",
     "updated_now": "Updated just now",
     "updated_ago": "Updated {minutes} min ago",

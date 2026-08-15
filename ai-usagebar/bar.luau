@@ -17,8 +17,8 @@ local errorMsg = ""
 -- Tabler has no Anthropic mark, so providers without a brand glyph get a
 -- semantic one. Same approach the other CLI-backed meters in this repo take.
 local GLYPHS = {
-    anthropic = "message-chatbot",
-    anthropic_api = "message-chatbot",
+    anthropic = "asterisk-simple",
+    anthropic_api = "asterisk-simple",
     openai = "brand-openai",
     zai = "bolt",
     openrouter = "route",
@@ -85,8 +85,8 @@ local function resetClock(metric)
     return clock
 end
 
--- "Resets in 4h 01m · 19% elapsed · 2pts ahead" — how much of the window is
--- gone, and how far the spend is from that line.
+-- "Resets in 4h 01m · 19% elapsed · 2pts ahead" says how much of the window is
+-- gone and how far the spend is from that line.
 local function elapsedPercent(metric)
     local value = tostring(metric and metric.detail or ""):match("(%d+)%%%s*elapsed")
     return value ~= nil and tonumber(value) or nil
@@ -117,8 +117,8 @@ local function rank(entry)
     return SEVERITY_RANK[tostring(metric.severity or "")] or 0, tonumber(metric.percent) or 0
 end
 
--- A pinned vendor shows only itself. "auto" shows the busiest providers, so the
--- one about to bite is the one on the bar, and `primary` breaks ties.
+-- A pinned vendor shows only itself. "auto" shows the busiest providers, so
+-- the one closest to running out is the one on the bar. `primary` breaks ties.
 local function shown()
     local all = entries()
     if vendor ~= "auto" then
@@ -146,16 +146,16 @@ local function shown()
     local picked = {}
     for i = 1, math.min(limit, #ready) do picked[i] = ready[i] end
     if #picked == 0 then return {}, 0 end
-    -- A single-provider capsule is a deliberate choice, so it stays quiet about
-    -- the rest; the "+N" only appears once the capsule is meant to carry more.
+    -- Someone who asked for one provider does not need a count of the others,
+    -- so the "+N" only appears once the capsule carries more than one.
     if limit == 1 then return picked, 0 end
     return picked, #ready - #picked
 end
 
--- The CLI already tiers every percentage; mirroring its thresholds here would
--- be a second source of truth. Text stays in the bar's own colour until the
--- reading is worth interrupting for, which is the shell's own idiom: accent
--- lives on the bar fill, `warning` and `error` are earned.
+-- The CLI already tiers every percentage, and copying its thresholds here
+-- would be a second source of truth. Text stays in the bar's own colour until
+-- the reading is high or critical, and the accent colour is used on the bar
+-- fill only.
 local function textRole(metric)
     if not colorByUsage then return "on_surface" end
     local severity = metric ~= nil and tostring(metric.severity or "") or ""
@@ -214,7 +214,8 @@ local function countdownNode(metric)
     return ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 })
 end
 
--- One provider's chip. The style decides the shape; the extras ride along.
+-- One provider's chip. The style decides the shape, and the extras are
+-- appended to whatever it produced.
 local function chip(entry)
     local metric = headline(entry)
     local tint = textRole(metric)

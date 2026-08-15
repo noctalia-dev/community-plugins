@@ -1,15 +1,15 @@
 --!nonstrict
 -- Expanded panel for one provider.
 --
--- It renders `sections[]` — the CLI's lossless view — so credit blocks and free
--- text that the `metrics[]` convenience view drops still show up.
+-- It renders `sections[]`, which is the CLI's lossless view, so credit blocks
+-- and free text that the shorter `metrics[]` view drops still show up.
 
 local report = nil
 local errorMsg = ""
 local polling = false
 
--- Same parsing the capsule does; plugin_api 8 has no module system, so the four
--- helpers below are duplicated rather than required.
+-- Same parsing the capsule does. There is no require() below API 22, so the
+-- four helpers below are copied instead of shared.
 local function parseIso(value)
     if type(value) ~= "string" then return nil end
     local y, mo, d, h, mi, s = value:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
@@ -49,8 +49,8 @@ local function resetClock(section)
     return os.date("%a", at) .. " " .. clock
 end
 
--- Text keeps the surface colour until the reading earns `warning` or `error`;
--- the accent lives on the bar fill, which is how the shell's own panels read.
+-- Text stays on the surface colour until the CLI calls the window high or
+-- critical. The accent colour is used on the bar fill only.
 local function textRole(section)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end
@@ -66,8 +66,8 @@ local function barRole(section)
 end
 
 -- The CLI reports a vendor it has no credential for as a `credentials error`.
--- This is a front-end: what was never set up is not a row, and a genuine
--- failure of a configured provider still is.
+-- Those are not listed, because they were never set up. A configured provider
+-- that fails for any other reason keeps its row.
 local function configured(entry)
     if entry.status ~= "error" then return true end
     return not tostring(entry.error or ""):lower():find("credentials error")
@@ -89,7 +89,7 @@ local function pace(detail)
     for part in text:gmatch("[^·]+") do last = part end
     last = noctalia.string.trim(last)
     if last:find("elapsed") then return "", "on_surface_variant" end
-    -- Ahead of the clock is the reading worth flagging; under is the roomy side.
+    -- Ahead of the clock is worth flagging. Under it means there is room left.
     if last:find("ahead") then return last, "warning" end
     if last:find("under") then return last, "success" end
     return last, "on_surface_variant"
@@ -246,8 +246,8 @@ end
 
 -- Same map the capsule uses; no require() below API 22, so it is duplicated.
 local GLYPHS = {
-    anthropic = "message-chatbot",
-    anthropic_api = "message-chatbot",
+    anthropic = "asterisk-simple",
+    anthropic_api = "asterisk-simple",
     openai = "brand-openai",
     zai = "bolt",
     openrouter = "route",
