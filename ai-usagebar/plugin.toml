@@ -1,0 +1,103 @@
+id = "felipeartur/ai-usagebar"
+name = "AI Usage"
+version = "1.0.0"
+plugin_api = 8
+author = "felipeartur"
+license = "MIT"
+icon = "brain"
+description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
+tags = ["bar", "panel", "ai", "utility"]
+# The CLI owns credentials, vendor endpoints and caching. This plugin only runs
+# `ai-usagebar usage --json` and draws the result.
+dependencies = ["ai-usagebar"]
+
+# ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
+
+[[setting]]
+key = "binPath"
+type = "string"
+label_key = "settings.bin_path.label"
+description_key = "settings.bin_path.description"
+default = "ai-usagebar"
+
+[[setting]]
+key = "refreshMinutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+# One poller for the whole shell: a single `usage --json` call returns every
+# vendor, so N capsules on M monitors still cost one process per cycle.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+# Per-instance, so a second capsule can track a second provider.
+[[widget.setting]]
+key = "vendor"
+type = "select"
+label_key = "settings.vendor.label"
+description_key = "settings.vendor.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.vendor.option.auto" },
+  { value = "anthropic", label_key = "settings.vendor.option.anthropic" },
+  { value = "openai", label_key = "settings.vendor.option.openai" },
+  { value = "anthropic_api", label_key = "settings.vendor.option.anthropic_api" },
+  { value = "zai", label_key = "settings.vendor.option.zai" },
+  { value = "openrouter", label_key = "settings.vendor.option.openrouter" },
+  { value = "deepseek", label_key = "settings.vendor.option.deepseek" },
+  { value = "kimi", label_key = "settings.vendor.option.kimi" },
+  { value = "kilo", label_key = "settings.vendor.option.kilo" },
+  { value = "novita", label_key = "settings.vendor.option.novita" },
+  { value = "moonshot", label_key = "settings.vendor.option.moonshot" },
+  { value = "grok", label_key = "settings.vendor.option.grok" },
+  { value = "supergrok", label_key = "settings.vendor.option.supergrok" },
+  { value = "antigravity", label_key = "settings.vendor.option.antigravity" },
+  { value = "cursor", label_key = "settings.vendor.option.cursor" },
+  { value = "minimax", label_key = "settings.vendor.option.minimax" },
+  { value = "kiro", label_key = "settings.vendor.option.kiro" },
+]
+
+[[widget.setting]]
+key = "style"
+type = "select"
+label_key = "settings.style.label"
+description_key = "settings.style.description"
+default = "pill"
+options = [
+  { value = "pill", label_key = "settings.style.option.pill" },
+  { value = "gauge", label_key = "settings.style.option.gauge" },
+]
+
+[[widget.setting]]
+key = "showName"
+type = "bool"
+label_key = "settings.show_name.label"
+description_key = "settings.show_name.description"
+default = false
+
+[[widget.setting]]
+key = "colorByUsage"
+type = "bool"
+label_key = "settings.color_by_usage.label"
+description_key = "settings.color_by_usage.description"
+default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 520
+placement = "attached"
+position = "auto"
+dismiss_on_outside_click = true
