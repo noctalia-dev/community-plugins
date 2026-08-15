@@ -49,6 +49,20 @@ Next to that, `extras` puts the time left in the window (`3h 51m`), the pace
 against the clock (`↑3` is three points ahead of where the window says you
 should be, `↓3` is three under), both, or neither.
 
+If you add the widget by hand in `config.toml`, give it a name. A bar list entry
+that is a raw widget id becomes an anonymous instance, and an anonymous instance
+has no settings of its own — the gear opens empty:
+
+```toml
+[widget.ai_usage]
+type = "felipeartur/ai-usagebar:bar"
+style = "gauge"
+provider_limit = 2
+
+[bar.default]
+start = [ "clock", "ai_usage" ]
+```
+
 - **Hover** lists every window that provider reports: value, time left, and the
   clock time the reset lands on.
 - **Left click** opens the `AI Usage` panel for the provider that capsule
