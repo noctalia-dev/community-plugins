@@ -13,6 +13,21 @@ local function intervalMs()
     return math.floor(minutes * 60 * 1000)
 end
 
+-- Everything below this line is text the CLI produced, and every bit of it ends
+-- up on screen. It is cleaned once, here, where it enters the plugin:
+-- an error can quote the request that failed, and a request can carry a key in
+-- its query string. A runaway line would also push a bar capsule off screen.
+local function safeText(value)
+    local text = noctalia.string.trim(tostring(value or ""))
+    text = text:gsub("%s+", " ")
+    text = text:gsub("([%w_%-]*[Kk][Ee][Yy][%w_%-]*=)[^%s]+", "%1<redacted>")
+    text = text:gsub("([Tt][Oo][Kk][Ee][Nn][%w_%-]*=)[^%s]+", "%1<redacted>")
+    text = text:gsub("([Ss][Ee][Cc][Rr][Ee][Tt][%w_%-]*=)[^%s]+", "%1<redacted>")
+    text = text:gsub("([Bb]earer%s+)[%w%._%-]+", "%1<redacted>")
+    if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
+    return text
+end
+
 local inFlight = false
 
 local function refresh()
@@ -28,9 +43,11 @@ local function refresh()
         if type(decoded) == "table" and type(decoded.entries) == "table" then
             -- A vendor that failed still comes back as an entry with `status =
             -- "error"`, so a non-zero exit is not a reason to drop the report.
+            for _, entry in ipairs(decoded.entries) do
+                if entry.error ~= nil then entry.error = safeText(entry.error) end
+            end
             noctalia.state.set("report", decoded)
             noctalia.state.set("error", "")
-            noctalia.state.set("polledAt", os.time())
             return
         end
 
@@ -40,11 +57,10 @@ local function refresh()
         elseif result.timedOut then
             message = "ai-usagebar timed out"
         elseif result.exitCode ~= 0 then
-            local stderr = noctalia.string.trim(result.stderr or "")
+            local stderr = safeText(result.stderr)
             message = stderr ~= "" and stderr or ("ai-usagebar exited with code " .. tostring(result.exitCode))
         end
         noctalia.state.set("error", message)
-        noctalia.state.set("polledAt", os.time())
     end, 30000)
 end
 
