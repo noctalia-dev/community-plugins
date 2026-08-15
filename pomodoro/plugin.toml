@@ -64,7 +64,7 @@ key     = "bypass-noctalia-sound-globals"
 type    = "bool"
 label_key = "settings.bypass-noctalia-sound-globals.label"
 description_key = "settings.bypass-noctalia-sound-globals.description"
-visible_when = { key = "enable-alarm-sound", values = ["true"] }
+visible_when = { key = "use-bundled-alarm-sound", values = ["true"] }
 default = false
 
 [[widget]]
