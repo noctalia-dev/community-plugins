@@ -153,12 +153,22 @@ local function shown()
 end
 
 -- The CLI already tiers every percentage; mirroring its thresholds here would
--- be a second source of truth.
-local function severityRole(metric)
+-- be a second source of truth. Text stays in the bar's own colour until the
+-- reading is worth interrupting for, which is the shell's own idiom: accent
+-- lives on the bar fill, `warning` and `error` are earned.
+local function textRole(metric)
     if not colorByUsage then return "on_surface" end
     local severity = metric ~= nil and tostring(metric.severity or "") or ""
     if severity == "critical" then return "error" end
-    if severity == "high" then return "secondary" end
+    if severity == "high" then return "warning" end
+    return "on_surface"
+end
+
+local function barRole(metric)
+    if not colorByUsage then return "primary" end
+    local severity = metric ~= nil and tostring(metric.severity or "") or ""
+    if severity == "critical" then return "error" end
+    if severity == "high" then return "warning" end
     return "primary"
 end
 
@@ -207,7 +217,8 @@ end
 -- One provider's chip. The style decides the shape; the extras ride along.
 local function chip(entry)
     local metric = headline(entry)
-    local tint = severityRole(metric)
+    local tint = textRole(metric)
+    local fill = barRole(metric)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local glyph = ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 13, color = tint })
@@ -224,7 +235,7 @@ local function chip(entry)
         for i = 0, 4 do
             ticks[#ticks + 1] = ui.box({
                 width = 3, height = 11, radius = 1,
-                fill = percent > i * 20 and tint or "on_surface/0.22",
+                fill = percent > i * 20 and fill or "on_surface/0.22",
             })
         end
         add(glyph); add(name)
@@ -237,11 +248,11 @@ local function chip(entry)
                 ui.label({ text = shortName(entry), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
                 pct,
             }),
-            bars(percent, elapsedPercent(metric), tint, 44),
+            bars(percent, elapsedPercent(metric), fill, 44),
         }))
     elseif style == "gauge" and percent ~= nil then
         add(glyph); add(name)
-        add(bars(percent, elapsedPercent(metric), tint, 26))
+        add(bars(percent, elapsedPercent(metric), fill, 26))
         add(pct)
     else
         add(glyph); add(name); add(pct)

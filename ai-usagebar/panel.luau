@@ -49,11 +49,28 @@ local function resetClock(section)
     return clock
 end
 
-local function severityRole(section)
+-- Text keeps the surface colour until the reading earns `warning` or `error`;
+-- the accent lives on the bar fill, which is how the shell's own panels read.
+local function textRole(section)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end
-    if severity == "high" then return "secondary" end
+    if severity == "high" then return "warning" end
+    return "on_surface"
+end
+
+local function barRole(section)
+    local severity = tostring(section and section.severity or "")
+    if severity == "critical" then return "error" end
+    if severity == "high" then return "warning" end
     return "primary"
+end
+
+-- The CLI reports a vendor it has no credential for as a `credentials error`.
+-- This is a front-end: what was never set up is not a row, and a genuine
+-- failure of a configured provider still is.
+local function configured(entry)
+    if entry.status ~= "error" then return true end
+    return not tostring(entry.error or ""):lower():find("credentials error")
 end
 
 -- ── Detail line parsing ───────────────────────────────────────────────────────
@@ -95,10 +112,14 @@ end
 
 local function currentEntry()
     local wanted = noctalia.state.get("selected")
+    local first = nil
     for _, entry in ipairs(entries()) do
-        if entry.id == wanted then return entry end
+        if configured(entry) then
+            if entry.id == wanted then return entry end
+            if first == nil then first = entry end
+        end
     end
-    return entries()[1]
+    return first
 end
 
 local function updatedText(entry)
@@ -120,7 +141,8 @@ end
 
 local function metricCard(section)
     local percent = tonumber(section.percent) or 0
-    local tint = severityRole(section)
+    local tint = textRole(section)
+    local fill = barRole(section)
     local value = tostring(section.value or ""):gsub(" of ", " / ")
     -- Only worth a column of its own when it says more than the percentage.
     local showValue = value ~= "" and value ~= string.format("%d%%", percent)
@@ -142,7 +164,7 @@ local function metricCard(section)
 
     local body = {
         ui.row({ gap = 6, align = "center" }, header),
-        ui.progress({ progress = percent / 100, fill = tint, track = "on_surface/0.16", radius = 3, height = 5 }),
+        ui.progress({ progress = percent / 100, fill = fill, track = "on_surface/0.16", radius = 3, height = 5 }),
     }
 
     -- Two readings: quota spent above, window elapsed below. A shorter clock bar
@@ -244,7 +266,8 @@ local function providerRow(entry, selected)
     local metric = headline(entry)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local broken = entry.status == "error"
-    local tint = selected and "on_primary" or severityRole(metric)
+    local tint = selected and "on_primary" or textRole(metric)
+    local fill = selected and "on_primary" or barRole(metric)
     local muted = selected and "on_primary" or "on_surface_variant"
 
     local right
@@ -267,7 +290,7 @@ local function providerRow(entry, selected)
     if percent ~= nil and not broken then
         lines[#lines + 1] = ui.progress({
             progress = percent / 100,
-            fill = selected and "on_primary" or tint,
+            fill = fill,
             track = selected and "on_primary/0.25" or "on_surface/0.16",
             radius = 2, height = 3,
         })
@@ -298,7 +321,9 @@ end
 local function listPane(entry)
     local rows = {}
     for _, candidate in ipairs(entries()) do
+      if configured(candidate) then
         rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
+      end
     end
     if #rows == 0 then
         rows[1] = ui.label({

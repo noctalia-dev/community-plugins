@@ -70,11 +70,16 @@ start = [ "clock", "ai_usage" ]
 - **Right click** refreshes immediately.
 - **Middle click** opens the widget's settings, as everywhere else in the shell.
 
-The panel shows one card per reported metric: a quota bar over a thinner
-"window elapsed" bar, so a fill that outruns the clock bar is quota burning
-ahead of pace. Credit balances and free-text rows the CLI reports are rendered
-too, not dropped. Its refresh button asks the CLI for fresh numbers, and the
-footer says how old the current reading is.
+The panel is a two-pane view: every provider you have set up on the left with
+its headline percentage, and the selected one's detail on the right — one card
+per reported metric, a quota bar over a thinner "window elapsed" bar, so a fill
+that outruns the clock bar is quota burning ahead of pace. Credit balances and
+free-text rows the CLI reports are rendered too, not dropped. Its refresh button
+asks the CLI for fresh numbers, and the footer says how old the reading is.
+
+The list is a mirror of the CLI, not a catalogue: a provider `ai-usagebar` has
+no credential for never appears, while one that is set up and failing keeps its
+row and shows the error.
 
 To open the panel from a terminal:
 
