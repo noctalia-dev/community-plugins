@@ -59,5 +59,23 @@
         "none": "Neither"
       }
     }
+  },
+  "ui": {
+    "title": "AI Usage",
+    "now": "now",
+    "waiting": "Waiting for usage data",
+    "not_configured": "`{vendor}` is not configured in ai-usagebar",
+    "unavailable": "Unavailable",
+    "no_usage": "No usage reported",
+    "updated": "Updated",
+    "stale_hint": "showing last known data",
+    "hidden_label": "Not shown",
+    "hidden_value": "{count} more — click to open the panel",
+    "loading": "Loading…",
+    "updated_now": "Updated just now",
+    "updated_ago": "Updated {minutes} min ago",
+    "stale": "stale",
+    "refresh": "Refresh now",
+    "refreshing": "Reading…"
   }
 }

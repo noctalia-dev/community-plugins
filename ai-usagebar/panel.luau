@@ -23,7 +23,7 @@ local function parseIso(value)
 end
 
 local function formatDuration(seconds)
-    if seconds <= 0 then return "now" end
+    if seconds <= 0 then return noctalia.tr("ui.now") end
     local minutes = math.floor(seconds / 60)
     local days = math.floor(minutes / 1440)
     local hours = math.floor((minutes % 1440) / 60)
@@ -105,8 +105,8 @@ local function updatedText(entry)
     local at = parseIso(entry and entry.fetched_at)
     if at == nil then return "" end
     local minutes = math.floor((os.time() - at) / 60)
-    if minutes < 1 then return "Updated just now" end
-    return "Updated " .. tostring(minutes) .. " min ago"
+    if minutes < 1 then return noctalia.tr("ui.updated_now") end
+    return noctalia.tr("ui.updated_ago", { minutes = minutes })
 end
 
 local function metricIcon(label)
@@ -215,7 +215,7 @@ end
 
 local function render()
     local entry = currentEntry()
-    local title = "AI Usage"
+    local title = noctalia.tr("ui.title")
     local subtitle = ""
     if entry ~= nil then
         title = tostring(entry.plan or entry.display_name or entry.id)
@@ -234,7 +234,7 @@ local function render()
             variant = "ghost",
             controlSize = "sm",
             enabled = not polling,
-            tooltip = polling and "Reading…" or "Refresh now",
+            tooltip = polling and noctalia.tr("ui.refreshing") or noctalia.tr("ui.refresh"),
             onClick = "doRefresh",
         }),
     }
@@ -248,9 +248,9 @@ local function render()
     if errorMsg ~= "" then
         status = errorMsg
     elseif entry == nil then
-        status = "Loading…"
+        status = noctalia.tr("ui.loading")
     elseif entry.status == "error" then
-        status = tostring(entry.error or "Unavailable")
+        status = tostring(entry.error or noctalia.tr("ui.unavailable"))
     end
     if status ~= "" then
         children[#children + 1] = ui.label({
@@ -278,7 +278,7 @@ local function render()
 
     if entry ~= nil then
         local updated = updatedText(entry)
-        if entry.stale == true and updated ~= "" then updated = updated .. " · stale" end
+        if entry.stale == true and updated ~= "" then updated = updated .. " · " .. noctalia.tr("ui.stale") end
         children[#children + 1] = ui.separator({})
         children[#children + 1] = ui.row({ gap = 5, align = "center" }, {
             ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" }),

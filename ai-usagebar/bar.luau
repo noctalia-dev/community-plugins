@@ -55,7 +55,7 @@ local function parseIso(value)
 end
 
 local function formatDuration(seconds)
-    if seconds <= 0 then return "now" end
+    if seconds <= 0 then return noctalia.tr("ui.now") end
     local minutes = math.floor(seconds / 60)
     local days = math.floor(minutes / 1440)
     local hours = math.floor((minutes % 1440) / 60)
@@ -257,18 +257,18 @@ local function chip(entry)
 end
 
 local function tooltip(picked, hidden)
-    if errorMsg ~= "" then return { { key = "AI Usage", value = errorMsg } } end
+    if errorMsg ~= "" then return { { key = noctalia.tr("ui.title"), value = errorMsg } } end
     if #picked == 0 then
-        local waiting = vendor == "auto" and "Waiting for usage data"
-            or ("`" .. vendor .. "` is not configured in ai-usagebar")
-        return { { key = "AI Usage", value = waiting } }
+        local waiting = vendor == "auto" and noctalia.tr("ui.waiting")
+            or noctalia.tr("ui.not_configured", { vendor = vendor })
+        return { { key = noctalia.tr("ui.title"), value = waiting } }
     end
 
     local rows = {}
     for _, entry in ipairs(picked) do
         local title = tostring(entry.display_name or entry.id)
         if entry.status == "error" then
-            rows[#rows + 1] = { key = title, value = tostring(entry.error or "Unavailable") }
+            rows[#rows + 1] = { key = title, value = tostring(entry.error or noctalia.tr("ui.unavailable")) }
         else
             if entry.plan ~= nil and tostring(entry.plan) ~= "" then
                 rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
@@ -283,15 +283,15 @@ local function tooltip(picked, hidden)
                 rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
             end
             if entry.stale == true then
-                rows[#rows + 1] = { key = "Updated", value = "showing last known data" }
+                rows[#rows + 1] = { key = noctalia.tr("ui.updated"), value = noctalia.tr("ui.stale_hint") }
             end
         end
     end
     if hidden > 0 then
-        rows[#rows + 1] = { key = "Not shown", value = tostring(hidden) .. " more provider(s) — click to open the panel" }
+        rows[#rows + 1] = { key = noctalia.tr("ui.hidden_label"), value = noctalia.tr("ui.hidden_value", { count = hidden }) }
     end
     if #rows == 0 then
-        rows[#rows + 1] = { key = "AI Usage", value = "No usage reported" }
+        rows[#rows + 1] = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.no_usage") }
     end
     return rows
 end
