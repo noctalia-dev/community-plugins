@@ -7,6 +7,7 @@
 local report = nil
 local errorMsg = ""
 local polling = false
+local pulse = false
 
 -- Same parsing the capsule does. There is no require() below API 22, so the
 -- four helpers below are copied instead of shared.
@@ -327,6 +328,26 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
+-- A cold read takes a second or two, so the control says so while it waits.
+-- The button gives way to two loader arcs that alternate on the faster update
+-- interval `polling` turns on, which reads as one turning loader.
+local function refreshControl()
+    if polling then
+        return ui.glyph({
+            name = pulse and "loader-2" or "loader-3",
+            size = 16,
+            color = "primary",
+        })
+    end
+    return ui.button({
+        glyph = "refresh",
+        variant = "ghost",
+        controlSize = "sm",
+        tooltip = noctalia.tr("ui.refresh"),
+        onClick = "doRefresh",
+    })
+end
+
 local function listPane(entry)
     local rows = {}
     for _, candidate in ipairs(entries()) do
@@ -346,14 +367,7 @@ local function listPane(entry)
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "primary" }),
             ui.spacer({ flexGrow = 1 }),
-            ui.button({
-                glyph = "refresh",
-                variant = "ghost",
-                controlSize = "sm",
-                enabled = not polling,
-                tooltip = polling and noctalia.tr("ui.refreshing") or noctalia.tr("ui.refresh"),
-                onClick = "doRefresh",
-            }),
+            refreshControl(),
         }),
         ui.scroll({ gap = 6, flexGrow = 1 }, rows),
     })
@@ -477,6 +491,8 @@ end)
 
 noctalia.state.watch("polling", function(value)
     polling = value == true
+    -- Second ticks are enough for a countdown, not for a pulse.
+    noctalia.setUpdateInterval(polling and 220 or 1000)
     render()
 end)
 
@@ -490,8 +506,8 @@ function onOpen(_context)
     render()
 end
 
--- Panel second tick.
 function update()
+    if polling then pulse = not pulse end
     render()
 end
 

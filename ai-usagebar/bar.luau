@@ -13,6 +13,8 @@ local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
 
 local report = nil
 local errorMsg = ""
+local polling = false
+local pulse = false
 
 -- Tabler has no Anthropic mark, so providers without a brand glyph get a
 -- semantic one. Same approach the other CLI-backed meters in this repo take.
@@ -316,6 +318,15 @@ local function render()
         children[#children + 1] = chip(entry)
     end
 
+    if polling then
+        -- Two arcs alternating on the fast tick read as one turning loader.
+        children[#children + 1] = ui.glyph({
+            name = pulse and "loader-2" or "loader-3",
+            size = 11,
+            color = "on_surface_variant",
+        })
+    end
+
     if #children == 0 then
         children[1] = ui.row({ gap = 4, align = "center" }, {
             ui.glyph({ name = "brain", size = 13, color = "on_surface_variant" }),
@@ -347,6 +358,13 @@ noctalia.state.watch("error", function(value)
     end
 end)
 
+noctalia.state.watch("polling", function(value)
+    polling = value == true
+    -- A cold read takes a second or two; the capsule says so while it waits.
+    noctalia.setUpdateInterval(polling and 220 or 30000)
+    render()
+end)
+
 function onClick()
     local picked = shown()
     -- One panel serves every capsule and is not told which one opened it.
@@ -367,5 +385,6 @@ noctalia.setUpdateInterval(30000)
 render()
 
 function update()
+    if polling then pulse = not pulse end
     render()
 end
