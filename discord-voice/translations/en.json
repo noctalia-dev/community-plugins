@@ -1,0 +1,79 @@
+{
+  "title": "Discord Voice",
+  "starting": "Connecting to Discord…",
+  "open_discord": "Open in Discord",
+  "unknown_server": "Unknown server",
+  "unknown_user": "Unknown user",
+  "voice_channel": "Voice channel",
+  "settings": {
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "discord_binary": {
+      "label": "Discord executable",
+      "description": "Discord desktop executable used to launch the app and open the active voice channel."
+    },
+    "show_channel_name": {
+      "label": "Show channel name",
+      "description": "Show the current voice channel beside the Discord glyph."
+    },
+    "hide_when_disconnected": {
+      "label": "Hide outside voice",
+      "description": "Hide the bar widget when no voice channel is connected."
+    }
+  },
+  "bar": {
+    "authorize": "Authorize",
+    "authorizing": "Authorizing…",
+    "offline": "Offline"
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "disconnected": "Disconnected",
+    "no_route": "No route",
+    "ping": "{ping} ms"
+  },
+  "auth": {
+    "title": "Authorize Discord Voice",
+    "description": "Discord will ask you to grant local voice read and control access through its StreamKit integration.",
+    "button": "Authorize Discord",
+    "waiting": "Waiting for Discord",
+    "waiting_description": "Complete the authorization prompt in the Discord desktop app."
+  },
+  "offline": {
+    "title": "Discord is unavailable",
+    "description": "Start the Discord desktop app. The bridge will reconnect automatically."
+  },
+  "not_in_voice": {
+    "title": "Not in an active channel"
+  },
+  "saved": {
+    "channels": "Recent channels",
+    "empty": "Your five most recently joined channels will appear here.",
+    "join": "Join"
+  },
+  "controls": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "deafen": "Deafen",
+    "undeafen": "Undeafen",
+    "hang_up": "Hang up"
+  },
+  "participants": {
+    "title": "Participants ({count})",
+    "empty": "Nobody is visible in this channel yet."
+  },
+  "participant": {
+    "you": "(you)",
+    "speaking": "Speaking",
+    "listening": "Listening"
+  },
+  "error": {
+    "title": "Discord voice error",
+    "python_missing": "python3 is required but was not found in PATH.",
+    "bridge_start": "Could not start the Discord voice bridge.",
+    "bridge_stalled": "The Discord voice bridge stopped responding.",
+    "command": "The Discord voice command failed."
+  }
+}
