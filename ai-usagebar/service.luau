@@ -60,7 +60,7 @@ local function refresh()
     noctalia.state.set("polling", true)
     noctalia.setUpdateInterval(120)
 
-    noctalia.runAsync(COMMAND, function(result)
+    local started = noctalia.runAsync(COMMAND, function(result)
         inFlight = false
         if noctalia.nowMs() >= busyUntil then
             stopPolling()
@@ -91,6 +91,14 @@ local function refresh()
         end
         noctalia.state.set("error", message)
     end, 30000)
+
+    -- A refusal to spawn never calls back, and without this the poller would
+    -- sit in flight forever and stop asking.
+    if not started then
+        inFlight = false
+        noctalia.state.set("error", "could not run ai-usagebar")
+        stopPolling()
+    end
 end
 
 -- Manual refresh from a capsule or the panel.
