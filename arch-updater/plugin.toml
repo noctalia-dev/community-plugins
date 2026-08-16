@@ -1,12 +1,12 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "1.1.1"
+version = "2.0.0"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
-dependencies = ["pacman-contrib", "awk", "flatpak", "pacman", "paru", "sed", "sh", "sudo", "test", "uname", "xdg-open", "yay"]
+description = "Check pacman, AUR and Flatpak updates, then upgrade in the background: one click, a polkit password prompt, live log in the panel."
+dependencies = ["pacman-contrib", "awk", "flatpak", "pacman", "paru", "pkexec", "sed", "sh", "sudo", "tail", "test", "uname", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ label_key = "settings.notify_on_updates.label"
 description_key = "settings.notify_on_updates.description"
 default = true
 
-# ── Extras (not in the v4 plugin) ───────────────────────────────────────────
+# ── Extras ───────────────────────────────────────────────────────────────────
 
 [[setting]]
 key = "show_download_size"
@@ -86,26 +86,23 @@ label_key = "settings.check_reboot_needed.label"
 description_key = "settings.check_reboot_needed.description"
 default = true
 
-# ── Activity ─────────────────────────────────────────────────────────────────
-
-[[setting]]
-key = "show_activity_graph"
-type = "bool"
-label_key = "settings.show_activity_graph.label"
-description_key = "settings.show_activity_graph.description"
-default = true
-
-[[setting]]
-key = "activity_history_length"
-type = "int"
-label_key = "settings.activity_history_length.label"
-description_key = "settings.activity_history_length.description"
-default = 10
-min = 3
-max = 30
-visible_when = { key = "show_activity_graph", values = ["true"] }
-
 # ── Update run ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "hide_polkit_hint"
+type = "bool"
+label_key = "settings.hide_polkit_hint.label"
+description_key = "settings.hide_polkit_hint.description"
+default = false
+
+[[setting]]
+key = "log_lines"
+type = "int"
+label_key = "settings.log_lines.label"
+description_key = "settings.log_lines.description"
+default = 14
+min = 6
+max = 30
 
 [[setting]]
 key = "terminal"
@@ -113,13 +110,6 @@ type = "string"
 label_key = "settings.terminal.label"
 description_key = "settings.terminal.description"
 default = ""
-
-[[setting]]
-key = "assume_yes"
-type = "bool"
-label_key = "settings.assume_yes.label"
-description_key = "settings.assume_yes.description"
-default = false
 advanced = true
 
 [[setting]]

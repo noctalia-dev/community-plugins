@@ -1,33 +1,44 @@
 --!nonstrict
 -- arch-updater singleton engine. Checks pacman, the AUR helper and Flatpak,
--- publishes the result as shared state, and runs the update in a terminal.
+-- publishes the result as shared state, and runs the update in the
+-- BACKGROUND: one click, pkexec (polkit) asks for the password, the run is
+-- fully non-interactive (--noconfirm and friends) and its log streams into
+-- the panel.
 --
 --   state    "arch_state"   = { nonce, phase, step, total, pacman, aur,
 --                                flatpak, downloadSizeMiB, rebootRecommended,
---                                newsUnread, newsLatestTitle, err,
---                                checkedAt, ignoredCount, history, lastUpdateAt }
---   requests "arch_request" = { nonce, action }  -- check|update|dismiss
+--                                newsUnread, newsLatestTitle, err, checkedAt,
+--                                ignoredCount, ignoredPending, ignoredDynamic,
+--                                ignoredConfig, logTail, logPath, runExit,
+--                                progress = { done, total } }
+--   requests "arch_request" = { nonce, action, pkg }
+--                              -- check|update|update_terminal|dismiss|open_news
+--                              -- |ignore|unignore (pkg = package name)
 --
--- Checking runs pacman, then the AUR helper, then Flatpak, then (if pacman
--- has pending packages) a `pacman -Si` pass for the download size.
---
--- Update never runs in the background. runUpdate() opens a terminal so
--- pacman/the AUR helper can prompt and sudo can ask for a password, then
--- polls for the process to end and re-checks automatically.
+-- The update run is spawned fully detached (double-fork + setsid), writing to
+-- <plugin data dir>/update.log; it survives a shell restart. The engine polls
+-- the log every RUN_POLL_SECONDS with `tail` and finishes when the runner's
+-- "::EXIT <code>" marker appears. If a run cannot proceed non-interactively
+-- it exits non-zero without touching the system, and the panel offers a
+-- terminal fallback ("update_terminal") where prompts work normally.
 
 local STATE_KEY = "arch_state"
 local REQUEST_KEY = "arch_request"
 local NEWS_FILE = "news_state.json"
+local IGNORE_FILE = "ignore.json"
 local NEWS_URL = "https://archlinux.org/feeds/news/"
 local NEWS_PAGE = "https://archlinux.org/news/"
-local HISTORY_FILE = "history_state.json"
+local LOG_FILE = "update.log"
+local POLKIT_RULE_NAME = "49-arch-updater-pacman.rules"
+local POLKIT_RULE_PATH = "/etc/polkit-1/rules.d/49-arch-updater-pacman.rules"
 
 local CHECK_TIMEOUT_MS = 45000 -- pacman/AUR/flatpak checks: each may sync a mirror
 local SIZE_TIMEOUT_MS = 20000 -- pacman -Si: local db, no mirror sync
-local FAST_TIMEOUT_MS = 5000 -- reboot check: local filesystem only
+local FAST_TIMEOUT_MS = 5000 -- log tail / reboot check: local filesystem only
 local NEWS_RECHECK_HOURS = 6
 local RUN_POLL_SECONDS = 2
-local RUN_GRACE_SECONDS = 12
+local RUN_STALE_LIMIT_S = 1800 -- no log growth for this long = the run is stuck
+local RUN_RESUME_MAX_AGE_S = 6 * 3600 -- older unfinished logs are not resumed
 local AUTO_CHECK_DELAY = 10 -- ticks before an enabled auto-check's first run
 local MAX_LISTED = 300 -- packages kept per source for the panel's expandable list
 
@@ -46,22 +57,26 @@ local checkedAt = ""
 local stateNonce = 0
 local lastRequestNonce = 0
 
-local runTicks = 0
-local runSeen = false
 local runPollTicks = 0
-local updateProcessName = "pacman"
+local runExit = nil -- exit code of the last background run, nil while unknown
+local runDone = 0 -- progress: package lines seen in the log so far
+local runTotal = 0 -- progress: pending count when the run started
+local runStaleS = 0 -- seconds without log growth during a run
+local logTail = {} -- last log lines for the panel
+local lastTailText = ""
 local sinceCheck = 0
 local startupTicks = 0
 local sinceNewsCheck = 0
 local newsStateLoaded = false
 local newsDirty = false
-local history = {} -- { n, at, afterUpdate } per check, oldest first, trimmed to activity_history_length
-local lastUpdateAt = nil -- os.time() of the last update run that finished
-local historyStateLoaded = false
-local checkIsPostUpdate = false -- next finished check followed an update run
+local ignoredPending = {} -- ignored packages that had a pending update in the last check
+local dynamicIgnore = nil -- panel-managed ignore list, persisted in IGNORE_FILE
+local polkitRuleInstalled = nil -- nil until the async check ran, then boolean
+local polkitInstallBusy = false
 
 local startCheck
 local checkNews
+local finishRun
 
 local function cfg(key)
     return noctalia.getConfig(key)
@@ -79,10 +94,67 @@ local function shellQuote(value)
     return "'" .. value:gsub("'", "'\\''") .. "'"
 end
 
+local function logPath()
+    local dir, err = noctalia.pluginDataDir()
+    if dir == nil then
+        noctalia.log("arch-updater: cannot resolve plugin data dir: " .. tostring(err))
+        return nil
+    end
+    return dir .. "/" .. LOG_FILE
+end
+
 -- Package names reach the command line (--ignore, pacman -Si), so only
 -- pacman's own name grammar is accepted. Anything else is dropped with a log
 -- line instead of being quoted.
-local function ignoreList()
+local function validName(name)
+    return name:match("^[a-zA-Z0-9._+-]+$") ~= nil
+end
+
+-- Two plugin-side ignore sources: the "ignore_packages" setting and a
+-- panel-managed list in IGNORE_FILE (the panel cannot write settings).
+-- pacman.conf's IgnorePkg arrives from the checkers as "[ignored]" lines
+-- and is displayed only, never managed here.
+local function ignorePath()
+    local dir, err = noctalia.pluginDataDir()
+    if dir == nil then
+        noctalia.log("arch-updater: cannot resolve plugin data dir: " .. tostring(err))
+        return nil
+    end
+    return dir .. "/" .. IGNORE_FILE
+end
+
+local function loadDynamicIgnore()
+    if dynamicIgnore ~= nil then
+        return
+    end
+    dynamicIgnore = {}
+    local path = ignorePath()
+    local encoded = path ~= nil and noctalia.readFile(path) or nil
+    local ok, decoded = pcall(function()
+        return encoded ~= nil and noctalia.json.decode(encoded) or nil
+    end)
+    if ok and type(decoded) == "table" and type(decoded.packages) == "table" then
+        for _, entry in ipairs(decoded.packages) do
+            local name = trim(tostring(entry))
+            if validName(name) then
+                table.insert(dynamicIgnore, name)
+            end
+        end
+    end
+end
+
+local function saveDynamicIgnore()
+    local path = ignorePath()
+    if path == nil then
+        return
+    end
+    local encoded = noctalia.json.encode({ packages = dynamicIgnore })
+    if encoded ~= nil then
+        noctalia.writeFile(path, encoded)
+    end
+end
+
+local function configIgnoreList()
     local raw = cfg("ignore_packages")
     if type(raw) ~= "table" then
         return {}
@@ -90,10 +162,29 @@ local function ignoreList()
     local names = {}
     for _, entry in ipairs(raw) do
         local name = trim(tostring(entry))
-        if name:match("^[a-zA-Z0-9._+-]+$") ~= nil then
+        if validName(name) then
             table.insert(names, name)
         elseif name ~= "" then
             noctalia.log("arch-updater: ignoring invalid package name '" .. name .. "'")
+        end
+    end
+    return names
+end
+
+local function ignoreList()
+    loadDynamicIgnore()
+    local names = {}
+    local seen = {}
+    for _, name in ipairs(configIgnoreList()) do
+        if not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
+        end
+    end
+    for _, name in ipairs(dynamicIgnore) do
+        if not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
         end
     end
     return names
@@ -110,7 +201,9 @@ end
 -- ── Parsing ──────────────────────────────────────────────────────────────────
 
 -- One "name oldver -> newver" line per package: checkupdates' format, which
--- yay -Qua and paru -Qua also use.
+-- yay -Qua and paru -Qua also use. A trailing "[ignored]" is pacman.conf's
+-- IgnorePkg: the run skips those, so they go to ignoredPending instead of
+-- the pending count.
 local function parseVersionLines(output, ignored)
     local items = {}
     local n = 0
@@ -119,10 +212,17 @@ local function parseVersionLines(output, ignored)
         for token in line:gmatch("%S+") do
             table.insert(parts, token)
         end
-        if #parts >= 4 and not ignored[parts[1]] then
-            n += 1
-            if #items < MAX_LISTED then
-                table.insert(items, { name = parts[1], from = parts[2], to = parts[4] })
+        if #parts >= 4 then
+            local name, from, to = parts[1], parts[2], parts[4]
+            if parts[#parts] == "[ignored]" then
+                table.insert(ignoredPending, { name = name, from = from, to = to, source = "system" })
+            elseif ignored[name] then
+                table.insert(ignoredPending, { name = name, from = from, to = to, source = "plugin" })
+            else
+                n += 1
+                if #items < MAX_LISTED then
+                    table.insert(items, { name = name, from = from, to = to })
+                end
             end
         end
     end
@@ -140,10 +240,14 @@ local function parseTabLines(output, ignored)
             table.insert(fields, field)
         end
         local name = fields[1] or ""
-        if name ~= "" and not ignored[name] then
-            n += 1
-            if #items < MAX_LISTED then
-                table.insert(items, { name = name, from = fields[2] or "", to = fields[3] or "" })
+        if name ~= "" then
+            if ignored[name] then
+                table.insert(ignoredPending, { name = name, from = fields[2] or "", to = fields[3] or "", source = "plugin" })
+            else
+                n += 1
+                if #items < MAX_LISTED then
+                    table.insert(items, { name = name, from = fields[2] or "", to = fields[3] or "" })
+                end
             end
         end
     end
@@ -204,9 +308,15 @@ local function publish()
         err = errMsg,
         checkedAt = checkedAt,
         ignoredCount = #ignoreList(),
-        history = history,
-        lastUpdateAt = lastUpdateAt,
-        flatpakEnabled = cfg("flatpak_enabled") == true,
+        ignoredPending = ignoredPending,
+        ignoredDynamic = dynamicIgnore or {},
+        ignoredConfig = configIgnoreList(),
+        polkitRule = polkitRuleInstalled,
+        flatpakEnabled = cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak"),
+        logTail = logTail,
+        logPath = logPath(),
+        runExit = runExit,
+        progress = { done = runDone, total = runTotal },
     })
 end
 
@@ -216,7 +326,6 @@ local checkFlatpak
 local checkSize
 local checkReboot
 local finishCheck
-local recordCheck
 
 local function failCheck(message)
     phase = "error"
@@ -383,7 +492,7 @@ local function checkAur(ignored)
 end
 
 startCheck = function()
-    if phase == "checking" then
+    if phase == "checking" or phase == "running" then
         return
     end
     if not noctalia.commandExists("checkupdates") then
@@ -397,6 +506,7 @@ startCheck = function()
     errMsg = nil
     sources = { pacman = { n = 0, items = {} }, aur = { n = 0, items = {}, helper = "" }, flatpak = { n = 0, items = {} } }
     downloadSizeMiB = nil
+    ignoredPending = {}
     step = tr("source.pacman")
     publish()
 
@@ -431,7 +541,6 @@ finishCheck = function()
     phase = total > 0 and "ready" or "clean"
     checkedAt = noctalia.formatTime("%H:%M")
     sinceCheck = 0
-    recordCheck()
     publish()
     if total > 0 and cfg("notify_on_updates") == true then
         noctalia.notify(tr("title"), noctalia.trp("notify_updates", total, { count = total }))
@@ -473,92 +582,6 @@ local function saveNewsState()
     if encoded ~= nil then
         noctalia.writeFile(path, encoded)
     end
-end
-
--- ── Activity history ─────────────────────────────────────────────────────────
-
-local function historyStatePath()
-    local dir, err = noctalia.pluginDataDir()
-    if dir == nil then
-        noctalia.log("arch-updater: cannot resolve plugin data dir: " .. tostring(err))
-        return nil
-    end
-    return dir .. "/" .. HISTORY_FILE
-end
-
-local function loadHistoryState()
-    if historyStateLoaded then
-        return
-    end
-    historyStateLoaded = true
-    local path = historyStatePath()
-    local encoded = path ~= nil and noctalia.readFile(path) or nil
-    local ok, decoded = pcall(function()
-        return encoded ~= nil and noctalia.json.decode(encoded) or nil
-    end)
-    if ok and type(decoded) == "table" then
-        if type(decoded.history) == "table" then
-            -- Migrates the old format (a plain array of counts) to entries with
-            -- a timestamp and an afterUpdate flag, both unknown for old data.
-            local migrated = {}
-            for _, entry in ipairs(decoded.history) do
-                if type(entry) == "table" then
-                    table.insert(migrated, {
-                        n = tonumber(entry.n) or 0,
-                        at = tonumber(entry.at),
-                        afterUpdate = entry.afterUpdate == true,
-                    })
-                elseif type(entry) == "number" then
-                    table.insert(migrated, { n = entry, at = nil, afterUpdate = false })
-                end
-            end
-            history = migrated
-        end
-        if type(decoded.lastUpdateAt) == "number" then
-            lastUpdateAt = decoded.lastUpdateAt
-        end
-    end
-end
-
-local function saveHistoryState()
-    local path = historyStatePath()
-    if path == nil then
-        return
-    end
-    local encoded = noctalia.json.encode({ history = history, lastUpdateAt = lastUpdateAt })
-    if encoded ~= nil then
-        noctalia.writeFile(path, encoded)
-    end
-end
-
--- Appends the current total to the activity history, trimmed to the
--- configured length. A no-op when the graph is turned off, so disabling it
--- also stops collecting data, not just hides it.
-recordCheck = function()
-    local wasPostUpdate = checkIsPostUpdate
-    checkIsPostUpdate = false
-    if cfg("show_activity_graph") ~= true then
-        return
-    end
-    loadHistoryState()
-    table.insert(history, { n = total, at = os.time(), afterUpdate = wasPostUpdate })
-    local maxLen = math.max(3, math.min(30, tonumber(cfg("activity_history_length")) or 10))
-    while #history > maxLen do
-        table.remove(history, 1)
-    end
-    saveHistoryState()
-end
-
--- Marks the check that follows as the one that verifies an update run, so its
--- history entry can say "Updated" instead of just a pending count.
-local function recordUpdateRun()
-    checkIsPostUpdate = true
-    if cfg("show_activity_graph") ~= true then
-        return
-    end
-    loadHistoryState()
-    lastUpdateAt = os.time()
-    saveHistoryState()
 end
 
 local HTML_ENTITIES = {
@@ -649,7 +672,164 @@ local function openNews()
     noctalia.runAsync("xdg-open " .. shellQuote(NEWS_PAGE) .. " >/dev/null 2>&1")
 end
 
--- ── Updating ─────────────────────────────────────────────────────────────────
+-- ── Polkit rule ──────────────────────────────────────────────────────────────
+
+-- Without this rule pkexec re-authenticates every pacman transaction of a
+-- run (db sync + each install batch = several password dialogs); with it
+-- one password covers the whole run. Embedded because the plugin's own
+-- directory is not exposed to Lua; keep in sync with polkit/*.rules.
+local POLKIT_RULE = [=[/* Installed by the arch-updater Noctalia plugin (one password per update
+ * run instead of one per pacman transaction). Authentication is kept for
+ * ~5 minutes, like sudo's timestamp. Scope: only pkexec launching
+ * /usr/bin/pacman, only for an active local session of a wheel member.
+ * Remove: sudo rm /etc/polkit-1/rules.d/49-arch-updater-pacman.rules
+ */
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") == "/usr/bin/pacman" &&
+        subject.active && subject.local &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.AUTH_ADMIN_KEEP;
+    }
+});
+]=]
+
+-- /etc/polkit-1/rules.d is 750 root:polkitd on Arch, so an unprivileged
+-- `test -f` cannot see the rule. Three answers: file visible (yes),
+-- directory readable without the file (no), directory opaque — then a
+-- marker written on successful install is the best available memory. Worst
+-- case is a missing hint, never a broken update.
+local function polkitMarkerPath()
+    local dir = noctalia.pluginDataDir()
+    return dir ~= nil and (dir .. "/polkit_rule_installed") or nil
+end
+
+local function checkPolkitRule()
+    local cmd = "if [ -f " .. POLKIT_RULE_PATH .. " ]; then echo yes;"
+        .. " elif [ -r /etc/polkit-1/rules.d ]; then echo no;"
+        .. " else echo opaque; fi"
+    noctalia.runAsync(cmd, function(result)
+        local answer = trim(result.stdout or "")
+        if answer == "yes" then
+            polkitRuleInstalled = true
+        elseif answer == "no" then
+            polkitRuleInstalled = false
+            local marker = polkitMarkerPath()
+            if marker ~= nil then
+                noctalia.runAsync("rm -f " .. shellQuote(marker))
+            end
+        elseif answer == "opaque" then
+            local marker = polkitMarkerPath()
+            polkitRuleInstalled = marker ~= nil and noctalia.readFile(marker) ~= nil
+        else
+            return
+        end
+        publish()
+    end, FAST_TIMEOUT_MS)
+end
+
+-- The rule text is staged in the data dir because pkexec needs a file
+-- path; polkit picks up rules.d changes on the fly.
+local function installPolkitRule()
+    if polkitInstallBusy or not noctalia.commandExists("pkexec") then
+        return
+    end
+    local dir = noctalia.pluginDataDir()
+    if dir == nil then
+        return
+    end
+    local staged = dir .. "/" .. POLKIT_RULE_NAME
+    noctalia.writeFile(staged, POLKIT_RULE)
+    polkitInstallBusy = true
+    local cmd = "pkexec install -Dm644 -o root -g root " .. shellQuote(staged) .. " " .. POLKIT_RULE_PATH
+    local started = noctalia.runAsync(cmd, function(result)
+        polkitInstallBusy = false
+        if result.exitCode == 0 then
+            -- Recorded in the marker because rules.d is opaque to the user.
+            local marker = polkitMarkerPath()
+            if marker ~= nil then
+                noctalia.writeFile(marker, "1")
+            end
+            polkitRuleInstalled = true
+            publish()
+            noctalia.notify(tr("title"), tr("notify_polkit_ok"))
+        elseif result.exitCode ~= 126 then
+            -- 126 = the polkit dialog was dismissed; anything else failed.
+            noctalia.notifyError(tr("title"), tr("err_polkit_install"))
+            checkPolkitRule()
+        end
+    end, 120000)
+    if not started then
+        polkitInstallBusy = false
+    end
+end
+
+-- ── Updating (background) ────────────────────────────────────────────────────
+
+-- The core upgrade command, fully non-interactive. pkexec raises the polkit
+-- password dialog; --noconfirm answers every remaining question with its
+-- default. AUR helpers run as the user and escalate through pkexec themselves
+-- (--sudo pkexec), so no terminal and no sudo tty are ever needed.
+local function buildBackgroundCommand()
+    local override = trim(cfg("update_cmd"))
+    if override ~= "" then
+        return override
+    end
+
+    local ignored = ignoreList()
+    local ignoreFlag = #ignored > 0 and (" --ignore " .. table.concat(ignored, ",")) or ""
+    local quietFlags = " --noconfirm --noprogressbar --color never"
+
+    local helper = resolveAurHelper()
+    local parts = {}
+    if helper ~= nil and helper ~= "custom" and noctalia.commandExists(helper) then
+        local autoAnswers = helper == "paru" and " --skipreview"
+            or " --answerdiff None --answerclean None --answeredit None"
+        table.insert(parts, helper .. " -Syu --sudo pkexec" .. autoAnswers .. quietFlags .. ignoreFlag)
+    else
+        table.insert(parts, "pkexec pacman -Syu" .. quietFlags .. ignoreFlag)
+    end
+
+    if cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak") then
+        if #ignored > 0 then
+            -- Same ignore list as pacman/AUR: filter ignored refs out of the
+            -- pending Flatpak list before updating, so an app hidden from the
+            -- panel's count can't still slip in through a bare `flatpak update`.
+            local skipList = shellQuote(table.concat(ignored, "\n"))
+            table.insert(
+                parts,
+                "{ flatpak_refs=$(flatpak remote-ls --updates --columns=application 2>/dev/null | awk -v ignore="
+                    .. skipList
+                    .. [=[ 'BEGIN { n = split(ignore, arr, "\n"); for (i = 1; i <= n; i++) skip[arr[i]] = 1 } !($0 in skip)'); ]=]
+                    .. [[if [ -n "$flatpak_refs" ]; then flatpak update -y --noninteractive $flatpak_refs; fi; }]]
+            )
+        else
+            table.insert(parts, "flatpak update -y --noninteractive")
+        end
+    end
+
+    return table.concat(parts, " && ")
+end
+
+-- Interactive variant for the terminal fallback: no --noconfirm, prompts and
+-- the PKGBUILD review work as usual. Output is tee'd into the same log so the
+-- engine still sees the "::EXIT" marker and re-checks when the run ends.
+local function buildTerminalCommand()
+    local ignored = ignoreList()
+    local ignoreFlag = #ignored > 0 and (" --ignore " .. table.concat(ignored, ",")) or ""
+
+    local helper = resolveAurHelper()
+    local parts = {}
+    if helper ~= nil and helper ~= "custom" and noctalia.commandExists(helper) then
+        table.insert(parts, helper .. " -Syu" .. ignoreFlag)
+    else
+        table.insert(parts, "sudo pacman -Syu" .. ignoreFlag)
+    end
+    if cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak") then
+        table.insert(parts, "flatpak update")
+    end
+    return table.concat(parts, " && ")
+end
 
 -- Uses Noctalia's terminal discovery ($TERMINAL, then the usual emulators)
 -- unless a terminal is configured.
@@ -664,53 +844,18 @@ local function launchTerminal(cmd)
     return noctalia.runAsync(term .. " " .. separator .. " sh -lc " .. shellQuote(cmd))
 end
 
--- Builds the update command from the AUR helper, ignore list and Flatpak
--- settings. "update_cmd" overrides it outright, for cases the built default
--- doesn't cover.
-local function buildUpdateCommand()
-    local override = trim(cfg("update_cmd"))
-    if override ~= "" then
-        updateProcessName = "pacman"
-        return override
-    end
-
-    local ignored = ignoreList()
-    local ignoreFlag = #ignored > 0 and (" --ignore " .. table.concat(ignored, ",")) or ""
-    local yesFlag = cfg("assume_yes") == true and " --noconfirm" or ""
-
-    local helper = resolveAurHelper()
-    local parts = {}
-    if helper ~= nil and helper ~= "custom" and noctalia.commandExists(helper) then
-        table.insert(parts, helper .. " -Syu" .. yesFlag .. ignoreFlag)
-        updateProcessName = helper
-    else
-        table.insert(parts, "sudo pacman -Syu" .. yesFlag .. ignoreFlag)
-        updateProcessName = "pacman"
-    end
-
-    if cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak") then
-        local flatpakYes = cfg("assume_yes") == true and " -y" or ""
-        if #ignored > 0 then
-            -- Same ignore list as pacman/AUR: filter ignored refs out of the
-            -- pending Flatpak list before updating, so an app hidden from the
-            -- panel's count can't still slip in through a bare `flatpak update`.
-            local skipList = shellQuote(table.concat(ignored, "\n"))
-            table.insert(
-                parts,
-                "flatpak_refs=$(flatpak remote-ls --updates --columns=application 2>/dev/null | awk -v ignore="
-                    .. skipList
-                    .. [=[ 'BEGIN { n = split(ignore, arr, "\n"); for (i = 1; i <= n; i++) skip[arr[i]] = 1 } !($0 in skip)'); ]=]
-                    .. [[if [ -n "$flatpak_refs" ]; then flatpak update]]
-                    .. flatpakYes
-                    .. [[ $flatpak_refs; fi]]
-            )
-        else
-            table.insert(parts, "flatpak update" .. flatpakYes)
-        end
-    end
-
-    table.insert(parts, "echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1")
-    return table.concat(parts, "; ")
+local function beginRun()
+    phase = "running"
+    errMsg = nil
+    step = ""
+    runExit = nil
+    runDone = 0
+    runTotal = total
+    runStaleS = 0
+    runPollTicks = 0
+    logTail = {}
+    lastTailText = ""
+    publish()
 end
 
 local function runUpdate()
@@ -723,62 +868,262 @@ local function runUpdate()
         publish()
         return
     end
-    if not launchTerminal(buildUpdateCommand()) then
+    if not noctalia.commandExists("pkexec") then
+        phase = "error"
+        errMsg = tr("err_no_pkexec")
+        publish()
+        noctalia.notifyError(tr("title"), tr("err_no_pkexec"))
+        return
+    end
+    local path = logPath()
+    if path == nil then
+        phase = "error"
+        errMsg = tr("err_spawn")
+        publish()
+        return
+    end
+
+    -- "::START <epoch>" lets a restarted engine tell a live run from a stale
+    -- log; "::EXIT <code>" is the completion marker the poller waits for.
+    local quoted = shellQuote(path)
+    local script = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
+        .. "; { " .. buildBackgroundCommand() .. " ; } >> " .. quoted .. " 2>&1"
+        .. "; printf '::EXIT %s\\n' \"$?\" >> " .. quoted
+
+    if not noctalia.runAsync(script) then
+        phase = "error"
+        errMsg = tr("err_spawn")
+        publish()
+        return
+    end
+    beginRun()
+end
+
+local function runUpdateTerminal()
+    if phase == "running" or phase == "checking" then
+        return
+    end
+    local path = logPath()
+    if path == nil then
+        return
+    end
+    local quoted = shellQuote(path)
+    local wrapped = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
+        .. "; { " .. buildTerminalCommand() .. "; printf '::EXIT %s\\n' \"$?\" ; } 2>&1 | tee -a " .. quoted
+        .. "; echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1"
+    if not launchTerminal(wrapped) then
         phase = "error"
         errMsg = tr("err_no_terminal")
         publish()
         noctalia.notifyError(tr("title"), tr("err_no_terminal"))
         return
     end
-    phase = "running"
-    errMsg = nil
-    step = ""
-    runTicks = 0
-    runPollTicks = 0
-    runSeen = false
-    publish()
+    beginRun()
 end
 
--- Polls for the update process. Seeing it then losing it means the run
--- ended, and triggers a re-check. Never seeing it within the grace period
--- re-checks anyway instead of sitting in "running" forever.
-local function pollRun()
-    runPollTicks += 1
-    if runPollTicks < RUN_POLL_SECONDS then
+finishRun = function(code)
+    runExit = code
+    runStaleS = 0
+    if code == 0 then
+        noctalia.notify(tr("title"), tr("notify_run_ok"))
+        phase = "clean"
+        publish()
+        startCheck() -- verify: phase becomes checking, then clean/ready
+    else
+        phase = "error"
+        errMsg = tr("err_run_failed", { code = tostring(code) })
+        publish()
+        noctalia.notifyError(tr("title"), errMsg)
+    end
+end
+
+local function stripAnsi(line)
+    return (line:gsub("\27%[[%d;]*[A-Za-z]", ""):gsub("\r", ""))
+end
+
+local function isProgressLine(line)
+    return line:match("^upgrading ") ~= nil
+        or line:match("^installing ") ~= nil
+        or line:match("^reinstalling ") ~= nil
+        or line:match("^downgrading ") ~= nil
+end
+
+-- One `tail` per poll: the last screenful for display plus a full-file
+-- progress count, so the bar doesn't reset when early lines scroll out of
+-- the tail window.
+local function pollRunLog()
+    local path = logPath()
+    if path == nil then
         return
     end
-    runPollTicks = 0
-    noctalia.processMatches(function(matched)
+    local keep = math.max(6, math.min(30, tonumber(cfg("log_lines")) or 14))
+    local quoted = shellQuote(path)
+    local cmd = "tail -n " .. tostring(keep + 8) .. " " .. quoted .. " 2>/dev/null"
+        .. "; printf '::COUNT %s\\n' \"$(grep -cE '^(upgrading|installing|reinstalling|downgrading) ' " .. quoted .. " 2>/dev/null)\""
+    local started = noctalia.runAsync(cmd, function(result)
         if phase ~= "running" then
             return
         end
-        if matched then
-            runSeen = true
+        local text = result.stdout or ""
+        if text == lastTailText then
+            runStaleS += RUN_POLL_SECONDS
+            if runStaleS >= RUN_STALE_LIMIT_S then
+                finishRun(-1)
+            end
             return
         end
-        if runSeen or runTicks >= RUN_GRACE_SECONDS then
-            recordUpdateRun()
-            startCheck()
+        lastTailText = text
+        runStaleS = 0
+
+        local lines = {}
+        local exitCode = nil
+        for line in text:gmatch("[^\n]+") do
+            local exitMatch = line:match("^::EXIT (%-?%d+)")
+            local countMatch = line:match("^::COUNT (%d+)")
+            if exitMatch ~= nil then
+                exitCode = tonumber(exitMatch)
+            elseif countMatch ~= nil then
+                runDone = tonumber(countMatch) or runDone
+            elseif line:match("^::START ") == nil then
+                line = stripAnsi(line)
+                if trim(line) ~= "" then
+                    table.insert(lines, line)
+                end
+            end
         end
-    end, updateProcessName)
+        local tail = {}
+        for i = math.max(1, #lines - keep + 1), #lines do
+            table.insert(tail, lines[i])
+        end
+        logTail = tail
+
+        if exitCode ~= nil then
+            finishRun(exitCode)
+        else
+            publish()
+        end
+    end, FAST_TIMEOUT_MS)
+    if not started then
+        noctalia.log("arch-updater: could not poll the update log")
+    end
+end
+
+-- A fresh engine (login, shell restart) re-attaches to an unfinished run:
+-- the detached updater survives Noctalia, so an update.log with a recent
+-- ::START and no ::EXIT means it is still going.
+local function resumeRunIfActive()
+    local path = logPath()
+    if path == nil then
+        return
+    end
+    local quoted = shellQuote(path)
+    local cmd = "head -n 1 " .. quoted .. " 2>/dev/null; tail -n 3 " .. quoted .. " 2>/dev/null"
+    local started = noctalia.runAsync(cmd, function(result)
+        if phase ~= "idle" then
+            return
+        end
+        local text = result.stdout or ""
+        local startedAt = tonumber(text:match("::START (%d+)"))
+        if startedAt == nil then
+            return
+        end
+        if text:match("::EXIT %-?%d+") ~= nil then
+            return
+        end
+        if os.time() - startedAt > RUN_RESUME_MAX_AGE_S then
+            return
+        end
+        beginRun()
+    end, FAST_TIMEOUT_MS)
+    if not started then
+        noctalia.log("arch-updater: could not inspect the update log")
+    end
 end
 
 -- ── Requests, lifecycle ──────────────────────────────────────────────────────
 
-local function handle(action)
+-- Persists in IGNORE_FILE and takes effect immediately by moving the
+-- package out of the current snapshot; n is only decremented when the
+-- package was actually listed (entries beyond MAX_LISTED have no name).
+local function addIgnore(pkg)
+    local name = trim(tostring(pkg or ""))
+    if not validName(name) then
+        return
+    end
+    loadDynamicIgnore()
+    for _, existing in ipairs(ignoreList()) do
+        if existing == name then
+            return
+        end
+    end
+    table.insert(dynamicIgnore, name)
+    saveDynamicIgnore()
+    for _, entry in ipairs({ sources.pacman, sources.aur, sources.flatpak }) do
+        for index, item in ipairs(entry.items or {}) do
+            if item.name == name then
+                table.remove(entry.items, index)
+                entry.n = math.max(0, (entry.n or 0) - 1)
+                table.insert(ignoredPending, { name = item.name, from = item.from, to = item.to, source = "plugin" })
+                break
+            end
+        end
+    end
+    total = sources.pacman.n + sources.aur.n + sources.flatpak.n
+    if phase == "ready" and total == 0 then
+        phase = "clean"
+    end
+    publish()
+end
+
+-- Only the panel-managed list is editable here; settings entries and
+-- pacman.conf's IgnorePkg are managed where they live.
+local function removeIgnore(pkg)
+    local name = trim(tostring(pkg or ""))
+    if name == "" then
+        return
+    end
+    loadDynamicIgnore()
+    local found = false
+    for index, existing in ipairs(dynamicIgnore) do
+        if existing == name then
+            table.remove(dynamicIgnore, index)
+            found = true
+            break
+        end
+    end
+    if not found then
+        return
+    end
+    saveDynamicIgnore()
+    -- A recheck brings the package's pending update (if any) back.
+    if phase ~= "running" and phase ~= "checking" then
+        startCheck()
+    else
+        publish()
+    end
+end
+
+local function handle(action, pkg)
     if action == "check" then
-        -- Also works as a manual unstick: if the process-poll heuristic in
-        -- pollRun() ever misses the update finishing, this forces a re-check
-        -- instead of leaving the UI stuck on "running".
         startCheck()
     elseif action == "update" then
         runUpdate()
+    elseif action == "update_terminal" then
+        runUpdateTerminal()
+    elseif action == "ignore" then
+        addIgnore(pkg)
+    elseif action == "unignore" then
+        removeIgnore(pkg)
+    elseif action == "polkit_install" then
+        installPolkitRule()
     elseif action == "dismiss" then
         sources.pacman = { n = 0, items = {} }
         sources.aur = { n = 0, items = {}, helper = sources.aur.helper }
         sources.flatpak = { n = 0, items = {} }
         total = 0
         downloadSizeMiB = nil
+        runExit = nil
+        logTail = {}
         phase = "clean"
         publish()
     elseif action == "open_news" then
@@ -795,21 +1140,32 @@ noctalia.state.watch(REQUEST_KEY, function(value)
         return
     end
     lastRequestNonce = nonce
-    handle(value.action)
+    handle(value.action, value.pkg)
 end)
 
 -- Scriptable control:
 --   noctalia msg plugin yuuto/arch-updater:service all check
 --   noctalia msg plugin yuuto/arch-updater:service all update
+--   noctalia msg plugin yuuto/arch-updater:service all update_terminal
 --   noctalia msg plugin yuuto/arch-updater:service all dismiss
-function onIpc(event, _payload)
-    handle(event)
+--   noctalia msg plugin yuuto/arch-updater:service all ignore:NAME
+--   noctalia msg plugin yuuto/arch-updater:service all unignore:NAME
+function onIpc(event, payload)
+    local action, arg = tostring(event):match("^(%w+):(.+)$")
+    if action ~= nil then
+        handle(action, arg)
+    else
+        handle(event, payload)
+    end
 end
 
 function update()
     if phase == "running" then
-        runTicks += 1
-        pollRun()
+        runPollTicks += 1
+        if runPollTicks >= RUN_POLL_SECONDS then
+            runPollTicks = 0
+            pollRunLog()
+        end
     elseif phase ~= "checking" then
         local hours = tonumber(cfg("auto_check_hours")) or 0
         if hours > 0 then
@@ -832,8 +1188,7 @@ function update()
         -- Fires once at startup (== AUTO_CHECK_DELAY), then every
         -- NEWS_RECHECK_HOURS. Resetting back to AUTO_CHECK_DELAY (not 0)
         -- keeps the "== AUTO_CHECK_DELAY" branch from re-firing every 10
-        -- seconds, which would trip the health watchdog and get the whole
-        -- plugin auto-disabled.
+        -- seconds.
         if sinceNewsCheck == AUTO_CHECK_DELAY or sinceNewsCheck >= NEWS_RECHECK_HOURS * 3600 + AUTO_CHECK_DELAY then
             if sinceNewsCheck > AUTO_CHECK_DELAY then
                 sinceNewsCheck = AUTO_CHECK_DELAY
@@ -853,5 +1208,6 @@ if not noctalia.commandExists("checkupdates") then
     phase = "missing"
     errMsg = tr("err_no_checkupdates")
 end
-loadHistoryState() -- so the graph shows prior sessions' data before the first check runs
 publish()
+resumeRunIfActive()
+checkPolkitRule()
