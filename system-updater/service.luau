@@ -377,6 +377,16 @@ local function wrap_update_command(cmd)
     return "echo tordex/system-updater:pid:$$;(" .. cmd .. ") 2>&1;echo tordex/system-updater:done:$?"
 end
 
+-- Validate the package name to ensure it does not contain any invalid characters.
+-- This is used to prevent command injection when updating a single package.
+local function validate_package_name(package_name)
+    if string.find(package_name, "[^%w%-%._:]") then
+        err("Package name contains invalid characters: " .. package_name)
+        return false
+    end
+    return true
+end
+
 -- Start an update for the specified adapter and package. If no adapter or package is specified, all enabled adapters will be updated.
 local function start_update(adapter_name, package)
     if adapters == nil then
@@ -393,6 +403,9 @@ local function start_update(adapter_name, package)
     table.clear(recheck_adapter)
 
     if adapter_name ~= nil and package ~= nil then
+        if not validate_package_name(package) then
+            return
+        end
         -- Update a single package using the specified adapter
         local adapter = adapters[adapter_name]
         if adapter ~= nil and adapter.enabled then
