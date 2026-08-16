@@ -23,7 +23,8 @@ local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph"))
 
     local phase = state ~= nil and state.state or "idle"
-    if state.error then
+    local error = state ~= nil and state.error or false
+    if error then
         barWidget.setGlyphColor("error")
     elseif phase ~= "idle" then
         barWidget.setGlyphColor("secondary")
