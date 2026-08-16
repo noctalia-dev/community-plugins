@@ -181,21 +181,30 @@ end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
+-- A provider can report more than it was given, so the reading is clamped
+-- before it becomes a bar width.
+local function ratio(percent)
+    local value = (tonumber(percent) or 0) / 100
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
+end
+
 -- Quota above, window elapsed below: a fill longer than the clock bar is spend
 -- running ahead of time.
 local function bars(percent, elapsed, tint, width)
     local stack = {
-        ui.progress({ progress = percent / 100, fill = tint, track = "on_surface/0.16",
+        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.16",
                       radius = 3, width = width, height = 4 }),
     }
     if elapsed ~= nil then
-        stack[#stack + 1] = ui.progress({ progress = elapsed / 100, fill = "on_surface/0.45",
+        stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
                                           track = "on_surface/0.10", radius = 1, width = width, height = 2 })
     end
     return ui.column({ gap = 1, align = "center" }, stack)
 end
 
-local function paceNodes(metric, tint)
+local function paceNodes(metric)
     if extras ~= "pace" and extras ~= "both" then return nil end
     local points, word = pace(metric)
     if points == nil then return nil end
@@ -261,7 +270,7 @@ local function chip(entry)
     end
 
     add(countdownNode(metric))
-    add(paceNodes(metric, tint))
+    add(paceNodes(metric))
 
     if entry.stale == true then
         add(ui.glyph({ name = "clock-exclamation", size = 11, color = "tertiary" }))

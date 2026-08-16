@@ -13,8 +13,8 @@ local function intervalMs()
     return math.floor(minutes * 60 * 1000)
 end
 
--- Everything below this line is text the CLI produced, and every bit of it ends
--- up on screen. It is cleaned once, here, where it enters the plugin:
+-- Everything the CLI produces ends up on screen, so all of it is cleaned once,
+-- here, where it enters the plugin:
 -- an error can quote the request that failed, and a request can carry a key in
 -- its query string. A runaway line would also push a bar capsule off screen.
 local function safeText(value)
@@ -23,9 +23,18 @@ local function safeText(value)
     text = text:gsub("([%w_%-]*[Kk][Ee][Yy][%w_%-]*=)[^%s]+", "%1<redacted>")
     text = text:gsub("([Tt][Oo][Kk][Ee][Nn][%w_%-]*=)[^%s]+", "%1<redacted>")
     text = text:gsub("([Ss][Ee][Cc][Rr][Ee][Tt][%w_%-]*=)[^%s]+", "%1<redacted>")
-    text = text:gsub("([Bb]earer%s+)[%w%._%-]+", "%1<redacted>")
+    text = text:gsub("([Bb]earer%s+)[^%s]+", "%1<redacted>")
     if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
     return text
+end
+
+-- Every string in the report, not just the error: a plan name, an account name
+-- or a metric detail is CLI text too, and any of them can arrive long.
+local function scrub(value)
+    if type(value) == "string" then return safeText(value) end
+    if type(value) ~= "table" then return value end
+    for key, inner in pairs(value) do value[key] = scrub(inner) end
+    return value
 end
 
 local inFlight = false
@@ -72,10 +81,7 @@ local function refresh()
         if type(decoded) == "table" and type(decoded.entries) == "table" then
             -- A vendor that failed still comes back as an entry with `status =
             -- "error"`, so a non-zero exit is not a reason to drop the report.
-            for _, entry in ipairs(decoded.entries) do
-                if entry.error ~= nil then entry.error = safeText(entry.error) end
-            end
-            noctalia.state.set("report", decoded)
+            noctalia.state.set("report", scrub(decoded))
             noctalia.state.set("error", "")
             return
         end

@@ -130,6 +130,13 @@ local function updatedText(entry)
     return noctalia.tr("ui.updated_ago", { minutes = minutes })
 end
 
+local function ratio(percent)
+    local value = (tonumber(percent) or 0) / 100
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
+end
+
 local function metricIcon(label)
     local text = tostring(label or ""):lower()
     if text:find("week") or text:find("month") then return "calendar" end
@@ -169,7 +176,7 @@ local function metricCard(section)
 
     local body = {
         ui.row({ gap = 6, align = "center" }, header),
-        ui.progress({ progress = percent / 100, fill = fill, track = "on_surface/0.16", radius = 3, height = 5 }),
+        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.16", radius = 3, height = 5 }),
     }
 
     -- Two readings: quota spent above, window elapsed below. A shorter clock bar
@@ -177,7 +184,7 @@ local function metricCard(section)
     local elapsed = elapsedPercent(section.detail)
     if elapsed ~= nil then
         body[#body + 1] = ui.progress({
-            progress = elapsed / 100,
+            progress = ratio(elapsed),
             fill = "on_surface/0.45",
             track = "on_surface/0.10",
             radius = 2,
@@ -298,7 +305,7 @@ local function providerRow(entry, selected)
     }
     if percent ~= nil and not broken then
         lines[#lines + 1] = ui.progress({
-            progress = percent / 100,
+            progress = ratio(percent),
             fill = fill,
             track = selected and "on_primary/0.25" or "on_surface/0.16",
             radius = 2, height = 3,
