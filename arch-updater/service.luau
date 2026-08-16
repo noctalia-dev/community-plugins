@@ -829,8 +829,15 @@ function update()
 
     if cfg("check_arch_news") == true then
         sinceNewsCheck += 1
-        if sinceNewsCheck >= NEWS_RECHECK_HOURS * 3600 or sinceNewsCheck == AUTO_CHECK_DELAY then
-            sinceNewsCheck = 0
+        -- Fires once at startup (== AUTO_CHECK_DELAY), then every
+        -- NEWS_RECHECK_HOURS. Resetting back to AUTO_CHECK_DELAY (not 0)
+        -- keeps the "== AUTO_CHECK_DELAY" branch from re-firing every 10
+        -- seconds, which would trip the health watchdog and get the whole
+        -- plugin auto-disabled.
+        if sinceNewsCheck == AUTO_CHECK_DELAY or sinceNewsCheck >= NEWS_RECHECK_HOURS * 3600 + AUTO_CHECK_DELAY then
+            if sinceNewsCheck > AUTO_CHECK_DELAY then
+                sinceNewsCheck = AUTO_CHECK_DELAY
+            end
             checkNews()
         end
     end
