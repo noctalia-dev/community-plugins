@@ -380,7 +380,7 @@ end
 -- Validate the package name to ensure it does not contain any invalid characters.
 -- This is used to prevent command injection when updating a single package.
 local function validate_package_name(package_name)
-    if string.find(package_name, "[^%w%-%._:]") then
+    if string.find(package_name, "[^%w%+%-%._:]") then
         err("Package name contains invalid characters: " .. package_name)
         return false
     end
