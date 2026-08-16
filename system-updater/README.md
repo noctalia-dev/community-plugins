@@ -41,7 +41,7 @@ Flatpak update adapter requires  ```python``` and ```flatpak``` to be installed 
 
 ### Cargo
 
-Cargo update adapter requires  ```cargo```, ```python``` and ```cargo-install-update``` to be installed into ```$PATH```.
+Cargo update adapter requires  ```cargo```, ```python```, ```cargo-install-update```, `awk` and `bash` to be installed into ```$PATH```.
 
 ## Usage
 

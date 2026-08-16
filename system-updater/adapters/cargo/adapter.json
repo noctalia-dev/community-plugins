@@ -1,7 +1,7 @@
 {
     "name": "Cargo",
     "enabled": true,
-    "dependencies": ["cargo", "python", "cargo-install-update"],
+    "dependencies": ["cargo", "python", "cargo-install-update", "awk", "bash"],
     "check_command": "python {adapter_dir}/check.py",
     "update_package_command": "cargo install \"{package_name}\"",
     "update_all_command": "cargo-install-update install-update --all --git",
