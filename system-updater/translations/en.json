@@ -40,15 +40,15 @@
     "other": "{count} packages to upgrade"
   },
   "adapter_actions": {
-    "PackageKit_cancel": {
+    "packagekit_cancel": {
       "label": "Cancel",
       "tip": "Cancel the offline update process"
     },
-    "PackageKit_reboot": {
+    "packagekit_reboot": {
       "label": "Reboot and update",
       "tip": "Reboot the system to complete the offline update process"
     },
-    "PackageKit_info_reboot_required": {
+    "packagekit_info_reboot_required": {
       "label": "Offline update is triggered. Reboot is required to complete the update process."
     }
   },

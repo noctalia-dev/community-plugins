@@ -240,8 +240,8 @@ start_check_queue = function()
             adapters[adapter].show_actions = data.actions or {}
             adapters[adapter].total = #adapters[adapter].updates
             for _, action in ipairs(adapters[adapter].show_actions) do
-                local label_key = "adapter_actions." .. adapter .. "_" .. action.command .. ".label"
-                local tip_key = "adapter_actions." .. adapter .. "_" .. action.command .. ".tip"
+                local label_key = "adapter_actions." .. adapter:lower() .. "_" .. action.command .. ".label"
+                local tip_key = "adapter_actions." .. adapter:lower() .. "_" .. action.command .. ".tip"
                 local label_text = noctalia.tr(label_key)
                 local tip_text = noctalia.tr(tip_key)
                 if label_text ~= label_key then
@@ -253,7 +253,7 @@ start_check_queue = function()
             end
             -- If the adapter returned an info_key, we will try to translate it and use it as the info text.
             if data.info_key ~= nil then
-                local info_key = "adapter_actions." .. adapter .. "_" .. data.info_key .. ".label"
+                local info_key = "adapter_actions." .. adapter:lower() .. "_" .. data.info_key .. ".label"
                 local info_text = noctalia.tr(info_key)
                 if info_text ~= info_key then
                     adapters[adapter].info = noctalia.tr(info_key) or adapters[adapter].info

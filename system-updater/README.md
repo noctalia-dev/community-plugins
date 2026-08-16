@@ -37,7 +37,7 @@ PackageKit update adapter requires ```python``` and ```pkgcli``` to be installed
 
 ### Flatpak
 
-Flatpak update adapter requires  ```python``` and ```pkgcli``` to be installed into ```$PATH```.
+Flatpak update adapter requires  ```python``` and ```flatpak``` to be installed into ```$PATH```.
 
 ### Cargo
 
