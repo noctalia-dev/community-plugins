@@ -39,9 +39,16 @@ end
 
 local lastLineAt = tonumber(noctalia.formatTime("%s")) or 0
 local streamStarted = false
+local restartInProgress = false
+local nextRestartProbeAt = 0
+
+local function nowSeconds()
+  return tonumber(noctalia.formatTime("%s")) or 0
+end
 
 local function onBridgeLine(line)
-  lastLineAt = tonumber(noctalia.formatTime("%s")) or 0
+  lastLineAt = nowSeconds()
+  nextRestartProbeAt = 0
   local event, err = noctalia.json.decode(line)
   if type(event) ~= "table" then
     noctalia.log("discord-voice: ignored malformed bridge output: " .. tostring(err or "unknown error"))
@@ -68,9 +75,51 @@ local function startBridge()
   noctalia.state.set(BRIDGE_STATE_KEY, initialSnapshot("starting", ""))
   streamStarted = noctalia.runStream("python3 " .. bridgeScript .. " daemon", onBridgeLine)
   if streamStarted then
-    lastLineAt = tonumber(noctalia.formatTime("%s")) or 0
+    lastLineAt = nowSeconds()
   else
     noctalia.state.set(BRIDGE_STATE_KEY, initialSnapshot("error", noctalia.tr("error.bridge_start")))
+  end
+end
+
+local function markBridgeStalled()
+  local current = noctalia.state.get(BRIDGE_STATE_KEY)
+  local previous = type(current) == "table"
+    and shallowCopy(current)
+    or initialSnapshot("error", "")
+  previous.status_message = noctalia.tr("error.bridge_stalled")
+  noctalia.state.set(BRIDGE_STATE_KEY, previous)
+end
+
+local function restartBridge()
+  if restartInProgress then
+    return
+  end
+  restartInProgress = true
+  markBridgeStalled()
+
+  local started = noctalia.runAsync(
+    "python3 " .. bridgeScript .. " command shutdown",
+    function(result)
+      restartInProgress = false
+      local response = noctalia.json.decode(result.stdout or "")
+      local bridgeAbsent = type(response) == "table" and response.bridge_state == "absent"
+      if result.exitCode == 0 or bridgeAbsent then
+        streamStarted = false
+        nextRestartProbeAt = 0
+        startBridge()
+        return
+      end
+
+      -- A live but unresponsive helper may still own the control socket. Do
+      -- not launch a duplicate; probe it again later in case it exits.
+      nextRestartProbeAt = nowSeconds() + 30
+      markBridgeStalled()
+    end,
+    10000
+  )
+  if not started then
+    restartInProgress = false
+    nextRestartProbeAt = nowSeconds() + 30
   end
 end
 
@@ -85,12 +134,9 @@ function update()
     startBridge()
     return
   end
-  if (tonumber(noctalia.formatTime("%s")) or 0) - lastLineAt > 20 then
-    local previous = shallowCopy(noctalia.state.get(BRIDGE_STATE_KEY))
-    previous.status_message = noctalia.tr("error.bridge_stalled")
-    noctalia.state.set(BRIDGE_STATE_KEY, previous)
-    streamStarted = false
-    startBridge()
+  local now = nowSeconds()
+  if now - lastLineAt > 20 and now >= nextRestartProbeAt then
+    restartBridge()
   end
 end
 

@@ -12,6 +12,7 @@ Python 3.10+ standard library only.
 from __future__ import annotations
 
 import asyncio
+import errno
 import json
 import logging
 import math
@@ -272,6 +273,8 @@ class DiscordIPC:
             runtime_path = Path(runtime)
             directories.append(runtime_path)
             directories.append(runtime_path / "app" / "com.discordapp.Discord")
+            directories.append(runtime_path / "snap.discord")
+            directories.extend(sorted(runtime_path.glob("snap.discord_*")))
 
         snap_data = os.environ.get("SNAP_USER_DATA")
         if snap_data:
@@ -699,6 +702,9 @@ class DiscordVoiceBridge:
                 "saved_channel": (sorted_favorites[0] if sorted_favorites else None)
                 or (sorted_recents[0] if sorted_recents else None),
             }
+        if command == "shutdown":
+            self.stop_event.set()
+            return {"ok": True}
         if command == "authorize":
             await self._begin_authorization()
             return {"ok": True}
@@ -709,7 +715,7 @@ class DiscordVoiceBridge:
                     "GET_SELECTED_VOICE_CHANNEL", kind="selected_channel"
                 )
                 await self._request("GET_VOICE_SETTINGS", kind="voice_settings")
-                await self._refresh_saved_channel_counts()
+                await self._sync_channel_subscriptions()
             return {"ok": True}
         if not self.authenticated:
             return {"ok": False, "error": "Authorize Discord first"}
@@ -872,7 +878,11 @@ class DiscordVoiceBridge:
         if event is not None:
             payload["evt"] = event
         self.pending[nonce] = {"kind": kind, "meta": meta or {}}
-        await self.ipc.send(OP_FRAME, payload)
+        try:
+            await self.ipc.send(OP_FRAME, payload)
+        except Exception:
+            self.pending.pop(nonce, None)
+            raise
         return nonce
 
     async def _subscribe(
@@ -884,9 +894,21 @@ class DiscordVoiceBridge:
     ) -> None:
         await self._request("SUBSCRIBE", args, kind="subscribe", meta=meta, event=event)
 
-    async def _unsubscribe(self, event: str, args: dict[str, Any]) -> None:
+    async def _unsubscribe(
+        self,
+        event: str,
+        args: dict[str, Any],
+        *,
+        meta: dict[str, Any] | None = None,
+    ) -> None:
         try:
-            await self._request("UNSUBSCRIBE", args, kind="unsubscribe", event=event)
+            await self._request(
+                "UNSUBSCRIBE",
+                args,
+                kind="unsubscribe",
+                meta=meta,
+                event=event,
+            )
         except ConnectionError:
             pass
 
@@ -927,6 +949,12 @@ class DiscordVoiceBridge:
                 channel_id = pending["meta"]["channel_id"]
                 self.saved_channel_counts[channel_id] = 0
                 self._emit_snapshot()
+            elif kind in ("subscribe", "unsubscribe"):
+                # The pending request has already been removed, so a later
+                # synchronization may retry this transition. Do not update the
+                # confirmed subscription set for a rejected request.
+                self.status_message = message
+                self._emit_snapshot()
             elif kind == "mic_volume":
                 meta = pending["meta"]
                 target = meta["target_volume"]
@@ -960,6 +988,23 @@ class DiscordVoiceBridge:
     async def _handle_response(self, pending: dict[str, Any], data: Any) -> None:
         kind = pending["kind"]
         response = data if isinstance(data, dict) else {}
+
+        if kind in ("subscribe", "unsubscribe"):
+            meta = pending["meta"]
+            channel_id = meta.get("channel_id")
+            event = meta.get("event")
+            if isinstance(channel_id, str) and isinstance(event, str):
+                subscribed = self.channel_event_subscriptions.setdefault(
+                    channel_id, set()
+                )
+                if kind == "subscribe":
+                    subscribed.add(event)
+                else:
+                    subscribed.discard(event)
+                    if not subscribed:
+                        self.channel_event_subscriptions.pop(channel_id, None)
+                await self._sync_channel_subscriptions()
+            return
 
         if kind == "authorize":
             code = response.get("code")
@@ -1103,18 +1148,26 @@ class DiscordVoiceBridge:
         await self._subscribe(
             event,
             {"channel_id": channel_id},
-            meta={"channel_id": channel_id},
+            meta={"channel_id": channel_id, "event": event},
         )
-        self.channel_event_subscriptions.setdefault(channel_id, set()).add(event)
 
     async def _unsubscribe_channel_event(self, channel_id: str, event: str) -> None:
-        await self._unsubscribe(event, {"channel_id": channel_id})
-        subscribed = self.channel_event_subscriptions.get(channel_id)
-        if subscribed is None:
-            return
-        subscribed.discard(event)
-        if not subscribed:
-            self.channel_event_subscriptions.pop(channel_id, None)
+        await self._unsubscribe(
+            event,
+            {"channel_id": channel_id},
+            meta={"channel_id": channel_id, "event": event},
+        )
+
+    def _pending_channel_events(self, kind: str) -> dict[str, set[str]]:
+        pending: dict[str, set[str]] = {}
+        for request in self.pending.values():
+            if request["kind"] != kind:
+                continue
+            channel_id = request["meta"].get("channel_id")
+            event = request["meta"].get("event")
+            if isinstance(channel_id, str) and isinstance(event, str):
+                pending.setdefault(channel_id, set()).add(event)
+        return pending
 
     async def _sync_channel_subscriptions(self) -> None:
         if not self.authenticated:
@@ -1126,12 +1179,16 @@ class DiscordVoiceBridge:
             for channel_id in self._saved_channel_ids():
                 desired[channel_id] = {"VOICE_STATE_CREATE", "VOICE_STATE_DELETE"}
 
+        pending_subscribes = self._pending_channel_events("subscribe")
+        pending_unsubscribes = self._pending_channel_events("unsubscribe")
         for channel_id, events in list(self.channel_event_subscriptions.items()):
-            for event in events - desired.get(channel_id, set()):
+            unwanted = events - desired.get(channel_id, set())
+            for event in unwanted - pending_unsubscribes.get(channel_id, set()):
                 await self._unsubscribe_channel_event(channel_id, event)
         for channel_id, events in desired.items():
             subscribed = self.channel_event_subscriptions.get(channel_id, set())
-            for event in events - subscribed:
+            missing = events - subscribed
+            for event in missing - pending_subscribes.get(channel_id, set()):
                 await self._subscribe_channel_event(channel_id, event)
 
         await self._refresh_saved_channel_counts()
@@ -1366,18 +1423,35 @@ async def send_control_command(
         request["value"] = value
     if user_id is not None:
         request["user_id"] = user_id
-    reader, writer = await asyncio.wait_for(
-        asyncio.open_unix_connection(str(control_socket_path())), timeout=3
-    )
-    writer.write(json.dumps(request, separators=(",", ":")).encode("utf-8") + b"\n")
-    await writer.drain()
-    encoded = await asyncio.wait_for(reader.readline(), timeout=5)
-    writer.close()
+    writer: asyncio.StreamWriter | None = None
     try:
-        await writer.wait_closed()
-    except OSError:
-        pass
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_unix_connection(str(control_socket_path())), timeout=3
+        )
+        writer.write(json.dumps(request, separators=(",", ":")).encode("utf-8") + b"\n")
+        await writer.drain()
+        encoded = await asyncio.wait_for(reader.readline(), timeout=5)
+    finally:
+        if writer:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
     return json.loads(encoded.decode("utf-8"))
+
+
+def control_error_state(error: BaseException) -> str:
+    """Classify whether a watchdog may safely launch a replacement bridge."""
+
+    if isinstance(error, OSError) and error.errno in (
+        errno.ENOENT,
+        errno.ECONNREFUSED,
+    ):
+        return "absent"
+    if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
+        return "unresponsive"
+    return "unavailable"
 
 
 def main() -> int:
@@ -1436,6 +1510,7 @@ def main() -> int:
         response = {
             "ok": False,
             "error": f"Discord voice bridge is unavailable: {error}",
+            "bridge_state": control_error_state(error),
         }
     print(json.dumps(response, separators=(",", ":")))
     return 0 if response.get("ok") else 1

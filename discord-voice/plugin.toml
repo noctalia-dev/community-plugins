@@ -1,6 +1,6 @@
 id = "raycursive/discord-voice"
 name = "Discord Voice"
-version = "0.3.1"
+version = "0.3.2"
 plugin_api = 9
 author = "raycursive"
 license = "MIT"
