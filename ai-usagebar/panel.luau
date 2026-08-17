@@ -375,6 +375,14 @@ local function errorBlock()
         noctalia.state.set("command", { action = "refresh", at = os.time() })
     end)
 
+    -- Retrying is pointless until the CLI exists, so that one failure gets the
+    -- install page as well. The URL is a literal, so there is nothing to quote.
+    if failure.code == "not_installed" then
+        children[#children + 1] = actionRow("external-link", "github.com/akitaonrails/ai-usagebar", function()
+            noctalia.runAsync("xdg-open https://github.com/akitaonrails/ai-usagebar")
+        end)
+    end
+
     return ui.column({ gap = 6 }, children)
 end
 

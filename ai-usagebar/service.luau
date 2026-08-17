@@ -53,16 +53,19 @@ local function failure(code, detail)
 end
 
 -- The run's outcome as one code. A missing binary is split out from the
--- generic failure because it is the one a user can fix directly, and shells
--- report it as one of two messages.
+-- generic failure because the panel can offer an install link for that one,
+-- and shells report it as one of two messages. Both arrive with status 127,
+-- which a CLI that merely cannot open its own config file does not use, so the
+-- code has to agree with the message before the install link is offered.
 local function classify(result)
     if result == nil then return failure("spawn_failed") end
     if result.timedOut then return failure("timed_out") end
 
     local stderr = safeText(result.stderr)
     local lower = stderr:lower()
-    if lower:find("command not found", 1, true)
-        or lower:find("no such file or directory", 1, true) then
+    if result.exitCode == 127
+        and (lower:find("command not found", 1, true)
+            or lower:find("no such file or directory", 1, true)) then
         return failure("not_installed", stderr)
     end
     if result.exitCode ~= 0 then
