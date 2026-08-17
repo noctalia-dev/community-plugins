@@ -64,6 +64,7 @@ noctalia msg plugin raycursive/discord-voice:bridge all dump
 - The plugin requests only the Discord OAuth scopes `rpc`, `rpc.voice.read`, and `rpc.voice.write`. It does not request message, notification, relationship, or guild-member scopes.
 - Authorization sends the code to `https://streamkit.discord.com/overlay/token`. Participant avatars are downloaded from `https://cdn.discordapp.com`; no downloaded content is executed.
 - The Python bridge connects to Discord and to its own control channel over local Unix sockets. Noctalia spawns the bridge, and the bar or panel may spawn the configured Discord executable.
+- The bridge authenticates the connected Discord process by UID and rejects endpoints owned by another user or whose peer credentials cannot be verified, including sockets found in shared temporary directories.
 - The access token is stored at `$NOCTALIA_STATE_HOME/noctalia/discord-voice/token.json`, or under `$XDG_STATE_HOME` when the Noctalia override is unset. Recent and favorite channel metadata is stored beside it in `channels.json`. The directory uses mode `0700` and both files use mode `0600`.
 - Participant avatars are cached under `$XDG_CACHE_HOME/noctalia/discord-voice/avatars/`. The bridge's control socket is created under `$XDG_RUNTIME_DIR`, with a per-user `/tmp` fallback, and removed on a clean shutdown.
 - Discord's StreamKit token exchange does not provide a refresh token. Authorize again after the access token expires.

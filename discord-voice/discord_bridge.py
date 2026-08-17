@@ -297,15 +297,49 @@ class DiscordIPC:
     def connected(self) -> bool:
         return self.writer is not None and not self.writer.is_closing()
 
+    @staticmethod
+    def _peer_uid(writer: asyncio.StreamWriter) -> int | None:
+        """Return the connected Unix peer UID, or None when it cannot be verified."""
+
+        peer_socket = writer.get_extra_info("socket")
+        peercred_option = getattr(socket, "SO_PEERCRED", None)
+        if peer_socket is None or peercred_option is None:
+            return None
+
+        try:
+            credentials = peer_socket.getsockopt(
+                socket.SOL_SOCKET, peercred_option, struct.calcsize("3i")
+            )
+            _, uid, _ = struct.unpack("3i", credentials)
+        except (AttributeError, OSError, struct.error):
+            return None
+        return uid
+
     async def connect(self) -> Path | None:
+        expected_uid = os.geteuid()
         for path in self.candidate_paths():
             if not path.exists():
                 continue
             try:
-                self.reader, self.writer = await asyncio.open_unix_connection(path)
-                return path
+                reader, writer = await asyncio.open_unix_connection(path)
             except OSError:
                 continue
+
+            peer_uid = self._peer_uid(writer)
+            if peer_uid == expected_uid:
+                self.reader, self.writer = reader, writer
+                return path
+
+            if peer_uid is None:
+                reason = "peer credentials could not be verified"
+            else:
+                reason = f"peer UID {peer_uid} does not match {expected_uid}"
+            log.warning("Rejected Discord IPC at %s: %s", path, reason)
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
         return None
 
     async def send(self, opcode: int, payload: dict[str, Any]) -> None:
