@@ -336,6 +336,10 @@ end
 
 local function render()
     local picked, hidden = shown()
+    -- A failure drops the reading here too, so the bar cannot be read as a
+    -- live percentage while the panel behind it says the CLI is unreachable.
+    -- Empty is already the shape that draws the alert glyph.
+    if failure.code ~= "" then picked, hidden = {}, 0 end
 
     local children = {}
     for _, entry in ipairs(picked) do

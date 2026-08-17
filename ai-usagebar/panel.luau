@@ -394,12 +394,7 @@ local function listPane(entry)
       end
     end
     if #rows == 0 then
-        -- Headline only; the detail pane spells the failure out.
-        rows[1] = ui.label({
-            text = failure.code ~= "" and noctalia.tr("ui.error." .. failure.code)
-                or noctalia.tr("ui.loading"),
-            fontSize = 11, color = failure.code ~= "" and "error" or "on_surface_variant",
-        })
+        rows[1] = ui.label({ text = noctalia.tr("ui.loading"), fontSize = 11, color = "on_surface_variant" })
     end
 
     return ui.column({ gap = 10, padding = 14, width = 250 }, {
@@ -437,19 +432,14 @@ local function detailPane(entry)
     if entry ~= nil then
         local chips = {
             ui.label({ text = tostring(entry.id or ""), fontSize = 10, color = "on_surface_variant" }),
-        }
-        -- While a read is failing, `status` still describes the last good one,
-        -- so a `ready` chip would sit directly above an alert saying
-        -- otherwise. The stale chip stands in for it.
-        if failure.code == "" then
-            chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
-            chips[#chips + 1] = ui.label({
+            ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" }),
+            ui.label({
                 text = tostring(entry.status or ""),
                 fontSize = 10,
                 color = entry.status == "ready" and "on_surface_variant" or "error",
-            })
-        end
-        if entry.stale == true or failure.code ~= "" then
+            }),
+        }
+        if entry.stale == true then
             chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
             chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "tertiary" })
         end
@@ -465,14 +455,10 @@ local function detailPane(entry)
         children[#children + 1] = ui.row({ gap = 4, align = "center" }, chips)
     end
 
-    if failure.code ~= "" then
-        children[#children + 1] = errorBlock()
-    else
-        local status = entry == nil and noctalia.tr("ui.loading")
-            or entry.status == "error" and tostring(entry.error or noctalia.tr("ui.unavailable"))
-        if status then
-            children[#children + 1] = ui.label({ text = status, fontSize = 11, color = "on_surface_variant" })
-        end
+    local status = entry == nil and noctalia.tr("ui.loading")
+        or entry.status == "error" and tostring(entry.error or noctalia.tr("ui.unavailable"))
+    if status then
+        children[#children + 1] = ui.label({ text = status, fontSize = 11, color = "on_surface_variant" })
     end
 
     local cards = {}
@@ -496,6 +482,23 @@ end
 
 function render()
     local entry = currentEntry()
+    -- A failure replaces the report rather than sitting above it. The numbers
+    -- are from a read that is no longer happening, and leaving them up puts a
+    -- provider list and a percentage next to an alert saying neither can be
+    -- trusted.
+    if failure.code ~= "" then
+        -- The panel keeps the fixed size the manifest gives it, so the block
+        -- is width-bounded rather than stretched across 720px of button.
+        panel.render(ui.column({ gap = 10, padding = 14, width = 320 }, {
+            ui.row({ gap = 8, align = "center" }, {
+                ui.glyph({ name = "brain", size = 18, color = "primary" }),
+                ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "primary" }),
+            }),
+            errorBlock(),
+        }))
+        return
+    end
+
     panel.render(ui.row({ gap = 0 }, {
         listPane(entry),
         -- ui.separator is horizontal only; a one-pixel column is the divider.
