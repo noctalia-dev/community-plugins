@@ -32,7 +32,7 @@ local function render_panel()
 
     local children = {
         ui.row({ align = "center", justify = "space_between" }, {
-            ui.column({ gap = 2 }, {
+            ui.column({ gap = 2, flexGrow = 1 }, {
                 ui.label({
                     text = title_text,
                     fontSize = 16,
@@ -54,10 +54,7 @@ local function render_panel()
     }
 
     if is_available then
-        table.insert(
-            children,
-            ui.separator({ thickness = 1, color = "outline/0.3", spacing = 8 })
-        )
+        table.insert(children, ui.separator({ thickness = 1, color = "outline/0.3", spacing = 8 }))
 
         if is_writable then
             table.insert(
@@ -88,6 +85,7 @@ local function render_panel()
                             step = 5,
                             value = threshold,
                             enabled = is_writable,
+                            flexGrow = 1,
                             onChange = "onSliderChange",
                         }),
                         ui.label({
@@ -155,6 +153,12 @@ function onRunSetup()
 end
 
 noctalia.state.watch(common.STATE.CURRENT_THRESHOLD, function()
+    if is_open then
+        render_panel()
+    end
+end)
+
+noctalia.state.watch(common.STATE.BATTERY_MODEL_NAME, function()
     if is_open then
         render_panel()
     end

@@ -3,7 +3,10 @@ local common = {}
 
 common.PANEL_ID = "damian-ds7/battery-threshold:panel"
 
-common.THRESHOLD_FILE = "/charge_control_end_threshold"
+common.BATTERY_FILES = {
+    THRESHOLD = "/charge_control_end_threshold",
+    MODEL = "/model_name",
+}
 
 common.STATE = {
     IS_AVAILABLE = "is_available",
@@ -14,8 +17,20 @@ common.STATE = {
     SET_THRESHOLD_REQUEST = "set_threshold_request",
 }
 
+common.CONFIG = {
+    CHARGE_THRESHOLD = "charge_threshold",
+    BATTERY_DEVICE = "battery_device",
+}
+
 common.MIN_THRESHOLD = 40
 common.MAX_THRESHOLD = 100
+
+local data_dir, data_dir_err = noctalia.pluginDataDir()
+if not data_dir or data_dir_err then
+    noctalia.log("Failed to get plugin data directory: " .. tostring(data_dir_err or "unknown error"))
+end
+
+common.THRESHOLD_FILE_PATH = if data_dir then data_dir .. "/threshold.txt" else nil
 
 function common.clamp(value: number): number
     if value < common.MIN_THRESHOLD then
