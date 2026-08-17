@@ -7,7 +7,7 @@ license     = "GPL-3.0"
 icon        = "car-fan"
 description = "ThinkPad fan speed monitor and manual level control with temperature readout — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
-dependencies = []
+dependencies = ["sh", "cat", "sudo", "bash", "dirname", "getent", "groupadd", "usermod", "chgrp", "chmod", "rm", "udevadm"]
 
 [[setting]]
 key            = "colorize_by_status"
