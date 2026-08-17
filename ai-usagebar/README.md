@@ -24,6 +24,10 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI owns the credentials and the
 endpoints, and this plugin never sees them.
 
+`xdg-open` is optional. It is spawned by one row in the panel, the link to the
+CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
+xdg-utils that row does nothing and the rest of the plugin is unaffected.
+
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
