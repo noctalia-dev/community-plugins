@@ -437,14 +437,19 @@ local function detailPane(entry)
     if entry ~= nil then
         local chips = {
             ui.label({ text = tostring(entry.id or ""), fontSize = 10, color = "on_surface_variant" }),
-            ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" }),
-            ui.label({
+        }
+        -- While a read is failing, `status` still describes the last good one,
+        -- so a `ready` chip would sit directly above an alert saying
+        -- otherwise. The stale chip stands in for it.
+        if failure.code == "" then
+            chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
+            chips[#chips + 1] = ui.label({
                 text = tostring(entry.status or ""),
                 fontSize = 10,
                 color = entry.status == "ready" and "on_surface_variant" or "error",
-            }),
-        }
-        if entry.stale == true then
+            })
+        end
+        if entry.stale == true or failure.code ~= "" then
             chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
             chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "tertiary" })
         end

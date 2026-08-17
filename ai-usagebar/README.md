@@ -145,3 +145,11 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
   keeps showing, flagged in the capsule and in the panel header.
+- The file watcher follows the `.luau` entries only, so the files in
+  `translations/` are read once, when the plugin loads. Editing a string takes
+  a reload before the new text shows up:
+
+  ```sh
+  noctalia msg plugins disable felipeartur/ai-usagebar
+  noctalia msg plugins enable felipeartur/ai-usagebar
+  ```
