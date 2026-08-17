@@ -19,8 +19,14 @@ local MAX_PARSE_DEPTH = 32
 local MAX_PARSE_FILES = 256
 local BINDINGS_CACHE_FILE = "bindings-cache.json"
 local CACHE_SCHEMA = 1
-
+-- A refresh is synchronous everywhere except the Hyprland Lua path, so it only
+-- stays pending across calls for as long as `hyprctl binds -j` takes. Past this
+-- the in-flight refresh is treated as lost — a callback aborted by the host
+-- never gets to clear the flag, and without this every later refresh would be
+-- silently swallowed as "already running".
+local STALE_REFRESH_SECONDS = 15
 local refreshing = false
+local refreshStartedAt = 0
 local refreshQueued = false
 local refreshGeneration = 0
 local lastGood = nil
@@ -506,19 +512,34 @@ local function parseHyprContent(content, sourceFile, context)
   return includes
 end
 
-local function niriTokens(content)
+local function countNewlines(text)
+  local _, newlines = text:gsub("\n", "")
+  return newlines
+end
+
+-- Whitespace runs, string bodies and bare words are located with a single
+-- string.find each instead of being walked one character at a time: a real
+-- config is tens of kilobytes, and the per-character loop spent enough Luau
+-- instructions to blow the callback budget when a refresh was requested at
+-- runtime, which left `refreshing` stuck and froze the cheatsheet.
+local function niriTokens(content, lineOffset)
   local tokens = {}
+  local size = #content
   local index = 1
-  local line = 1
-  while index <= #content do
+  local line = 1 + (lineOffset or 0)
+  while index <= size do
+    local start = content:find("%S", index)
+    if start == nil then
+      break
+    end
+    if start > index then
+      line += countNewlines(content:sub(index, start - 1))
+      index = start
+    end
+
     local char = content:sub(index, index)
     local nextChar = content:sub(index + 1, index + 1)
-    if char == "\n" then
-      line += 1
-      index += 1
-    elseif char:match("%s") then
-      index += 1
-    elseif char == "/" and nextChar == "/" then
+    if char == "/" and nextChar == "/" then
       local ending = content:find("\n", index + 2, true) or (#content + 1)
       table.insert(tokens, { type = "comment", value = content:sub(index + 2, ending - 1), line = line })
       index = ending
@@ -526,52 +547,152 @@ local function niriTokens(content)
       local ending = content:find("*/", index + 2, true) or (#content - 1)
       local value = content:sub(index + 2, ending - 1)
       table.insert(tokens, { type = "comment", value = value, line = line })
-      local _, newlines = value:gsub("\n", "")
-      line += newlines
+      line += countNewlines(value)
       index = ending + 2
     elseif char == "\"" then
       local startLine = line
-      local value = {}
-      index += 1
-      local escaped = false
-      while index <= #content do
-        local stringChar = content:sub(index, index)
-        if escaped then
-          local replacements = { n = "\n", r = "\r", t = "\t" }
-          table.insert(value, replacements[stringChar] or stringChar)
-          escaped = false
-        elseif stringChar == "\\" then
-          escaped = true
-        elseif stringChar == "\"" then
-          index += 1
+      local pieces = {}
+      local cursor = index + 1
+      while cursor <= size do
+        local stop = content:find("[\"\\]", cursor)
+        if stop == nil then
+          local tail = content:sub(cursor)
+          table.insert(pieces, tail)
+          line += countNewlines(tail)
+          cursor = size + 1
           break
-        else
-          if stringChar == "\n" then
-            line += 1
-          end
-          table.insert(value, stringChar)
         end
-        index += 1
+        if stop > cursor then
+          local chunk = content:sub(cursor, stop - 1)
+          table.insert(pieces, chunk)
+          -- Only literal newlines advance the line counter; an escaped "\n"
+          -- becomes a newline in the value but occupies one source line.
+          line += countNewlines(chunk)
+        end
+        if content:sub(stop, stop) == "\"" then
+          cursor = stop + 1
+          break
+        end
+        local replacements = { n = "\n", r = "\r", t = "\t" }
+        local escaped = content:sub(stop + 1, stop + 1)
+        table.insert(pieces, replacements[escaped] or escaped)
+        cursor = stop + 2
       end
-      table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
+      table.insert(tokens, { type = "string", value = table.concat(pieces), line = startLine })
+      index = cursor
     elseif char == "{" or char == "}" or char == ";" then
       table.insert(tokens, { type = char, value = char, line = line })
       index += 1
     else
-      local start = index
-      while index <= #content do
-        char = content:sub(index, index)
-        nextChar = content:sub(index + 1, index + 1)
-        if char:match("%s") or char == "\"" or char == "{" or char == "}" or char == ";"
-          or (char == "/" and (nextChar == "/" or nextChar == "*")) then
+      -- A word ends at whitespace, a quote, a brace, a semicolon, or a comment
+      -- opener; a lone slash stays part of the word (paths, for instance).
+      local cursor = index
+      local stop
+      while true do
+        stop = content:find("[%s\"{};/]", cursor)
+        if stop == nil then
+          stop = size + 1
           break
         end
-        index += 1
+        if content:sub(stop, stop) ~= "/" then break end
+        local after = content:sub(stop + 1, stop + 1)
+        if after == "/" or after == "*" then break end
+        cursor = stop + 1
       end
-      table.insert(tokens, { type = "word", value = content:sub(start, index - 1), line = line })
+      table.insert(tokens, { type = "word", value = content:sub(index, stop - 1), line = line })
+      index = stop
     end
   end
   return tokens
+end
+
+-- Walks from an opening brace to its matching close, stepping over strings and
+-- comments so a brace inside either one does not unbalance the count.
+local function niriBlockEnd(content, openIndex)
+  local size = #content
+  local depth = 0
+  local cursor = openIndex
+  while cursor <= size do
+    local stop = content:find("[\"{}/]", cursor)
+    if stop == nil then return size end
+    local char = content:sub(stop, stop)
+    if char == "{" then
+      depth += 1
+      cursor = stop + 1
+    elseif char == "}" then
+      depth -= 1
+      if depth <= 0 then return stop end
+      cursor = stop + 1
+    elseif char == "\"" then
+      cursor = stop + 1
+      while cursor <= size do
+        local quote = content:find("[\"\\]", cursor)
+        if quote == nil then return size end
+        if content:sub(quote, quote) == "\"" then
+          cursor = quote + 1
+          break
+        end
+        cursor = quote + 2
+      end
+    else
+      local nextChar = content:sub(stop + 1, stop + 1)
+      if nextChar == "/" then
+        cursor = (content:find("\n", stop + 2, true) or size) + 1
+      elseif nextChar == "*" then
+        local ending = content:find("*/", stop + 2, true)
+        cursor = ending ~= nil and ending + 2 or size + 1
+      else
+        cursor = stop + 1
+      end
+    end
+  end
+  return size
+end
+
+-- Every binding lives in `binds { … }`, but a real config spends most of its
+-- bytes on outputs, layout, window rules and animations. Tokenizing those too
+-- is what pushed a refresh past the host's per-callback CPU budget, so the
+-- tokenizer is pointed at the binds blocks alone. The line scan is anchored and
+-- skips block comments, so a commented-out `// binds {` example is not mistaken
+-- for the real thing; if nothing matches, the whole file is parsed as before.
+local function insideBlockComment(content, position)
+  local cursor = 1
+  while true do
+    local opened = content:find("/*", cursor, true)
+    if opened == nil or opened >= position then return false end
+    local closed = content:find("*/", opened + 2, true)
+    if closed == nil or closed >= position then return true end
+    cursor = closed + 2
+  end
+end
+
+local function niriBindsRegions(content)
+  local regions = {}
+  local searchAt = 1
+  local blockStart = content:find("^[ \t]*binds[ \t]*{") ~= nil and 1 or nil
+  while true do
+    local braceAt
+    if blockStart == nil then
+      blockStart, braceAt = content:find("\n[ \t]*binds[ \t]*{", searchAt)
+      if blockStart == nil then break end
+      blockStart += 1
+    else
+      braceAt = content:find("{", blockStart, true)
+    end
+
+    if insideBlockComment(content, blockStart) then
+      searchAt = blockStart + 1
+    else
+      local blockEnd = niriBlockEnd(content, braceAt :: number)
+      table.insert(regions, {
+        text = content:sub(blockStart, blockEnd),
+        offset = countNewlines(content:sub(1, blockStart - 1)),
+      })
+      searchAt = blockEnd + 1
+    end
+    blockStart = nil
+  end
+  return regions
 end
 
 local function niriActionText(tokens)
@@ -621,15 +742,32 @@ local function niriHeaderDescription(header)
 end
 
 local function parseNiriContent(content, sourceFile, context)
+  -- One pattern pass over the file rather than a match per line: the host bills
+  -- the callback for every string call, and a real config is a thousand lines.
   local includes = {}
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local includePath = rawLine:match('^%s*include%s+"([^"]+)"')
-    if includePath ~= nil then
-      table.insert(includes, { path = includePath, optional = false })
+  local firstInclude = content:match('^[ \t]*include%s+"([^"]+)"')
+  if firstInclude ~= nil then
+    table.insert(includes, { path = firstInclude, optional = false })
+  end
+  for includePath in content:gmatch('\n[ \t]*include%s+"([^"]+)"') do
+    table.insert(includes, { path = includePath, optional = false })
+  end
+
+  local regions = niriBindsRegions(content)
+  local tokens
+  if #regions == 0 then
+    tokens = niriTokens(content)
+  elseif #regions == 1 then
+    tokens = niriTokens(regions[1].text, regions[1].offset)
+  else
+    tokens = {}
+    for _, region in ipairs(regions) do
+      for _, token in ipairs(niriTokens(region.text, region.offset)) do
+        table.insert(tokens, token)
+      end
     end
   end
 
-  local tokens = niriTokens(content)
   local index = 1
   while index <= #tokens do
     if tokens[index].type == "word" and tokens[index].value == "binds"
@@ -1210,7 +1348,7 @@ local function performRefresh(generation, request)
 end
 
 refresh = function(request)
-  if refreshing then
+  if refreshing and os.time() - refreshStartedAt < STALE_REFRESH_SECONDS then
     refreshQueued = true
     return
   end
@@ -1219,6 +1357,7 @@ refresh = function(request)
   refreshGeneration += 1
   local generation = refreshGeneration
   refreshing = true
+  refreshStartedAt = os.time()
   local previous = matchingLastGood(request)
   if previous == nil then
     publish("loading", request, nil, "", true)
