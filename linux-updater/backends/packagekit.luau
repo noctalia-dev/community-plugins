@@ -31,8 +31,9 @@ return function(env)
     }
 
     -- pkcon exits 5 when there is nothing to report; normalize to 0 so only
-    -- a genuine failure reaches the engine.
-    backend.checkCommand = [[pkcon -p get-updates 2>/dev/null; code=$?; if [ "$code" -eq 5 ]; then exit 0; fi; exit "$code"]]
+    -- a genuine failure reaches the engine. LC_ALL=C: pkcon localizes the
+    -- severity words the parser keys on ("Security", "Bug fix", ...).
+    backend.checkCommand = [[LC_ALL=C pkcon -p get-updates 2>/dev/null; code=$?; if [ "$code" -eq 5 ]; then exit 0; fi; exit "$code"]]
 
     -- Result lines look like:
     --   Security     curl-8.9.1-4.fc41.x86_64 (updates)

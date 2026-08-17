@@ -56,7 +56,9 @@ polkit.addRule(function(action, subject) {
     -- deliberate on their side, not a parsing gap. Held packages carry
     -- "[upgradable from: ...]" too and are filtered by the parser below via
     -- the system hold list appended after a separator line.
-    backend.checkCommand = [[apt list --upgradable 2>/dev/null; echo '::HOLDS'; apt-mark showhold 2>/dev/null]]
+    -- LC_ALL=C: apt localizes the "[upgradable from: ...]" bracket the
+    -- parser keys on, so a non-English locale would count zero updates.
+    backend.checkCommand = [[LC_ALL=C apt list --upgradable 2>/dev/null; echo '::HOLDS'; apt-mark showhold 2>/dev/null]]
 
     function backend.parseCheck(output, ignored, ignoredOut)
         local items = {}
