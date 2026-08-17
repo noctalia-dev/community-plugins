@@ -45,6 +45,33 @@ local function scrub(value)
     return value
 end
 
+-- The one place a failure is named. Subscribers translate the code, and the
+-- CLI's own text travels with it as `detail`, redacted like any other string
+-- that reaches the screen.
+local function failure(code, detail)
+    return { code = code, detail = safeText(detail) }
+end
+
+-- The run's outcome as one code. A missing binary is split out from the
+-- generic failure because it is the one a user can fix directly, and shells
+-- report it as one of two messages.
+local function classify(result)
+    if result == nil then return failure("spawn_failed") end
+    if result.timedOut then return failure("timed_out") end
+
+    local stderr = safeText(result.stderr)
+    local lower = stderr:lower()
+    if lower:find("command not found", 1, true)
+        or lower:find("no such file or directory", 1, true) then
+        return failure("not_installed", stderr)
+    end
+    if result.exitCode ~= 0 then
+        return failure("failed", stderr ~= "" and stderr
+            or ("ai-usagebar exited with code " .. tostring(result.exitCode)))
+    end
+    return failure("no_data", stderr)
+end
+
 local inFlight = false
 
 -- The CLI caches for a minute, so a manual refresh usually answers in about ten
@@ -90,27 +117,18 @@ local function refresh()
             -- A vendor that failed still comes back as an entry with `status =
             -- "error"`, so a non-zero exit is not a reason to drop the report.
             noctalia.state.set("report", scrub(decoded))
-            noctalia.state.set("error", "")
+            noctalia.state.set("error", failure(""))
             return
         end
 
-        local message = "ai-usagebar returned no usage data"
-        if result == nil then
-            message = "could not run ai-usagebar"
-        elseif result.timedOut then
-            message = "ai-usagebar timed out"
-        elseif result.exitCode ~= 0 then
-            local stderr = safeText(result.stderr)
-            message = stderr ~= "" and stderr or ("ai-usagebar exited with code " .. tostring(result.exitCode))
-        end
-        noctalia.state.set("error", message)
+        noctalia.state.set("error", classify(result))
     end, 30000)
 
     -- A refusal to spawn never calls back, and without this the poller would
     -- sit in flight forever and stop asking.
     if not started then
         inFlight = false
-        noctalia.state.set("error", "could not run ai-usagebar")
+        noctalia.state.set("error", failure("spawn_failed"))
         stopPolling()
     end
 end

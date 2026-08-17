@@ -12,8 +12,17 @@ local showName = noctalia.getConfig("show_name") == true
 local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
 
 local report = nil
-local errorMsg = ""
 local polling = false
+
+-- The poller names the failure, so the capsule only has a code to translate.
+-- Anything else in that state slot reads as no failure at all.
+local NO_FAILURE = { code = "", detail = "" }
+
+local function asFailure(value)
+    return type(value) == "table" and value or NO_FAILURE
+end
+
+local failure = NO_FAILURE
 
 -- Tabler has no Anthropic mark, so providers without a brand glyph get a
 -- semantic one. Same approach the other CLI-backed meters in this repo take.
@@ -279,7 +288,14 @@ local function chip(entry)
 end
 
 local function tooltip(picked, hidden)
-    if errorMsg ~= "" then return { { key = noctalia.tr("ui.title"), value = errorMsg } } end
+    if failure.code ~= "" then
+        local key = "ui.error." .. failure.code
+        local rows = { { key = noctalia.tr(key), value = noctalia.tr(key .. "_hint") } }
+        if failure.detail ~= "" then
+            rows[2] = { key = noctalia.tr("ui.details"), value = failure.detail }
+        end
+        return rows
+    end
     if #picked == 0 then
         local waiting = vendor == "auto" and noctalia.tr("ui.waiting")
             or noctalia.tr("ui.not_configured", { vendor = vendor })
@@ -349,16 +365,14 @@ end
 noctalia.state.watch("report", function(value)
     if type(value) == "table" then
         report = value
-        errorMsg = ""
+        failure = NO_FAILURE
         render()
     end
 end)
 
 noctalia.state.watch("error", function(value)
-    if type(value) == "string" then
-        errorMsg = value
-        render()
-    end
+    failure = asFailure(value)
+    render()
 end)
 
 noctalia.state.watch("polling", function(value)
@@ -378,8 +392,7 @@ function onRightClick()
 end
 
 report = noctalia.state.get("report")
-local existingError = noctalia.state.get("error")
-if type(existingError) == "string" then errorMsg = existingError end
+failure = asFailure(noctalia.state.get("error"))
 
 -- Live countdowns without waking the CLI.
 noctalia.setUpdateInterval(30000)

@@ -5,8 +5,17 @@
 -- and free text that the shorter `metrics[]` view drops still show up.
 
 local report = nil
-local errorMsg = ""
 local polling = false
+
+-- The poller names the failure, so the panel only has a code to translate.
+-- Anything else in that state slot reads as no failure at all.
+local NO_FAILURE = { code = "", detail = "" }
+
+local function asFailure(value)
+    return type(value) == "table" and value or NO_FAILURE
+end
+
+local failure = NO_FAILURE
 
 -- Same parsing the capsule does. There is no require() below API 22, so the
 -- four helpers below are copied instead of shared.
@@ -334,6 +343,41 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
+local function actionRow(glyph, text, onClick)
+    return ui.row({
+        gap = 5, align = "center", padding = 6, radius = 6,
+        fill = "surface_variant", onClick = onClick,
+    }, {
+        ui.glyph({ name = glyph, size = 12, color = "primary" }),
+        ui.label({ text = text, fontSize = 11, color = "primary" }),
+    })
+end
+
+-- The failure and the suggested fix read first; the CLI's own words come last
+-- and smallest, where a bug report can still quote them.
+local function errorBlock()
+    local key = "ui.error." .. failure.code
+    local children = {
+        ui.row({ gap = 6, align = "center" }, {
+            ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
+            ui.label({ text = noctalia.tr(key), fontSize = 12, fontWeight = "bold", color = "error" }),
+        }),
+        ui.label({ text = noctalia.tr(key .. "_hint"), fontSize = 11, color = "on_surface_variant" }),
+    }
+
+    if failure.detail ~= "" then
+        children[#children + 1] = ui.label({
+            text = failure.detail, fontSize = 10, color = "on_surface_variant", maxLines = 3,
+        })
+    end
+
+    children[#children + 1] = actionRow("refresh", noctalia.tr("ui.retry"), function()
+        noctalia.state.set("command", { action = "refresh", at = os.time() })
+    end)
+
+    return ui.column({ gap = 6 }, children)
+end
+
 local function listPane(entry)
     local rows = {}
     for _, candidate in ipairs(entries()) do
@@ -342,9 +386,11 @@ local function listPane(entry)
       end
     end
     if #rows == 0 then
+        -- Headline only; the detail pane spells the failure out.
         rows[1] = ui.label({
-            text = errorMsg ~= "" and errorMsg or noctalia.tr("ui.loading"),
-            fontSize = 11, color = errorMsg ~= "" and "error" or "on_surface_variant",
+            text = failure.code ~= "" and noctalia.tr("ui.error." .. failure.code)
+                or noctalia.tr("ui.loading"),
+            fontSize = 11, color = failure.code ~= "" and "error" or "on_surface_variant",
         })
     end
 
@@ -406,19 +452,14 @@ local function detailPane(entry)
         children[#children + 1] = ui.row({ gap = 4, align = "center" }, chips)
     end
 
-    local status = ""
-    if errorMsg ~= "" then
-        status = errorMsg
-    elseif entry == nil then
-        status = noctalia.tr("ui.loading")
-    elseif entry.status == "error" then
-        status = tostring(entry.error or noctalia.tr("ui.unavailable"))
-    end
-    if status ~= "" then
-        children[#children + 1] = ui.label({
-            text = status, fontSize = 11,
-            color = errorMsg ~= "" and "error" or "on_surface_variant",
-        })
+    if failure.code ~= "" then
+        children[#children + 1] = errorBlock()
+    else
+        local status = entry == nil and noctalia.tr("ui.loading")
+            or entry.status == "error" and tostring(entry.error or noctalia.tr("ui.unavailable"))
+        if status then
+            children[#children + 1] = ui.label({ text = status, fontSize = 11, color = "on_surface_variant" })
+        end
     end
 
     local cards = {}
@@ -455,16 +496,14 @@ end
 noctalia.state.watch("report", function(value)
     if type(value) == "table" then
         report = value
-        errorMsg = ""
+        failure = NO_FAILURE
         render()
     end
 end)
 
 noctalia.state.watch("error", function(value)
-    if type(value) == "string" then
-        errorMsg = value
-        render()
-    end
+    failure = asFailure(value)
+    render()
 end)
 
 noctalia.state.watch("polling", function(value)
@@ -478,8 +517,7 @@ function onOpen(_context)
     -- together, so reopening the panel repeatedly is cheap.
     noctalia.state.set("command", { action = "refresh", at = os.time() })
     report = noctalia.state.get("report")
-    local existingError = noctalia.state.get("error")
-    errorMsg = type(existingError) == "string" and existingError or ""
+    failure = asFailure(noctalia.state.get("error"))
     polling = noctalia.state.get("polling") == true
     -- Countdowns tick locally; the CLI is only woken by the poller's interval.
     panel.setWantsSecondTicks(true)

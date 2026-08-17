@@ -61,13 +61,27 @@
     }
   },
   "ui": {
+    "details": "Details",
     "elapsed": "{percent}% of the window elapsed",
+    "error": {
+      "failed": "Could not read usage",
+      "failed_hint": "ai-usagebar exited with an error.",
+      "no_data": "No usage reported",
+      "no_data_hint": "ai-usagebar ran but reported no usage. Check the providers in `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar is not installed",
+      "not_installed_hint": "The CLI is not on PATH. Install it, then try again.",
+      "spawn_failed": "Could not start ai-usagebar",
+      "spawn_failed_hint": "The process never started. Try again in a moment.",
+      "timed_out": "ai-usagebar did not answer",
+      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+    },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
     "loading": "Loading…",
     "no_usage": "No usage reported",
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
+    "retry": "Try again",
     "stale": "stale",
     "stale_hint": "showing last known data",
     "title": "AI Usage",
