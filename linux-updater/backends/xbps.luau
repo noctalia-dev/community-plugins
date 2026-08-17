@@ -69,6 +69,9 @@ polkit.addRule(function(action, subject) {
         return n, items
     end
 
+    -- The upgrade is gated (&&) on every hold: if placing one fails, the
+    -- upgrade must not run and update packages the user ignored. The unhold
+    -- cleanup stays unconditional.
     function backend.buildBackgroundCommand(ignored)
         local upgrade = "pkexec xbps-install -Suy"
         if #ignored == 0 then
@@ -80,7 +83,7 @@ polkit.addRule(function(action, subject) {
             table.insert(holdCmds, "pkexec xbps-pkgdb -m hold " .. name)
             table.insert(unholdCmds, "pkexec xbps-pkgdb -m unhold " .. name)
         end
-        return table.concat(holdCmds, "; ") .. "; " .. upgrade
+        return table.concat(holdCmds, " && ") .. " && " .. upgrade
             .. "; s=$?; " .. table.concat(unholdCmds, "; ") .. "; exit $s"
     end
 
@@ -95,7 +98,7 @@ polkit.addRule(function(action, subject) {
             table.insert(holdCmds, "sudo xbps-pkgdb -m hold " .. name)
             table.insert(unholdCmds, "sudo xbps-pkgdb -m unhold " .. name)
         end
-        return table.concat(holdCmds, "; ") .. "; " .. upgrade
+        return table.concat(holdCmds, " && ") .. " && " .. upgrade
             .. "; s=$?; " .. table.concat(unholdCmds, "; ") .. "; exit $s"
     end
 

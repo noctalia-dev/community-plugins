@@ -97,6 +97,13 @@ exit 0]]
 
     backend.sizeCommand = nil
 
+    -- "name version" per line for the given (quoted) names; the engine uses
+    -- it after an interactive terminal run to keep only the packages whose
+    -- installed version actually moved. %{EVR} matches the check's rpm side.
+    function backend.installedVersionsCommand(quotedNames)
+        return "rpm -q --qf '%{NAME} %{EVR}\\n' " .. table.concat(quotedNames, " ") .. " 2>/dev/null"
+    end
+
     -- needs-restarting (dnf-utils) knows about services and libraries, not
     -- just the kernel; fall back to the kernel-modules check without it.
     backend.rebootCommand = [[if command -v needs-restarting >/dev/null 2>&1; then

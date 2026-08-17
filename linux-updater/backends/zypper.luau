@@ -79,6 +79,9 @@ polkit.addRule(function(action, subject) {
         return n, items
     end
 
+    -- The upgrade is gated (&&) on the locks: if placing a lock fails, the
+    -- upgrade must not run and update packages the user ignored. The
+    -- removelock cleanup stays unconditional.
     function backend.buildBackgroundCommand(ignored)
         local upgrade = "pkexec zypper --non-interactive " .. upgradeVerb
         if #ignored == 0 then
@@ -86,7 +89,7 @@ polkit.addRule(function(action, subject) {
         end
         local names = table.concat(ignored, " ")
         return "pkexec zypper --non-interactive addlock " .. names
-            .. "; " .. upgrade
+            .. " && " .. upgrade
             .. "; s=$?; pkexec zypper --non-interactive removelock " .. names .. "; exit $s"
     end
 
@@ -101,6 +104,13 @@ polkit.addRule(function(action, subject) {
     end
 
     backend.sizeCommand = nil
+
+    -- "name version" per line for the given (quoted) names; the engine uses
+    -- it after an interactive terminal run to keep only the packages whose
+    -- installed version actually moved. rpm is always present on openSUSE.
+    function backend.installedVersionsCommand(quotedNames)
+        return "rpm -q --qf '%{NAME} %{EVR}\\n' " .. table.concat(quotedNames, " ") .. " 2>/dev/null"
+    end
 
     -- zypper needs-rebooting: exit 102 = reboot needed, 0 = not needed;
     -- anything else (old zypper) falls back to the kernel-modules check.

@@ -1,0 +1,3 @@
+Listing...
+curl/noble-updates,noble-security 8.5.0-2ubuntu10.11 amd64 [upgradable from: 8.5.0-2ubuntu10]
+libcurl4t64/noble-updates,noble-security 8.5.0-2ubuntu10.11 amd64 [upgradable from: 8.5.0-2ubuntu10]

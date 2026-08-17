@@ -12,6 +12,8 @@
 --   resolveAurHelper(), aurCheckCommand(helper),
 --   buildBackgroundCommand(ignoreList), buildTerminalCommand(ignoreList),
 --   sizeCommand(quotedNames) | nil, rebootCommand,
+--   installedVersionsCommand(quotedNames) | nil ("name version" per line,
+--   used to verify what an interactive terminal run actually applied),
 --   findPkgSh, rollbackInstall, depsListCommand(name), reverseDepsCountSh
 
 return function(env)
@@ -168,6 +170,13 @@ polkit.addRule(function(action, subject) {
     sum += v
 }
 END { printf "%.2f", sum }']]
+    end
+
+    -- "name version" per line for the given (quoted) names; the engine uses
+    -- it after an interactive terminal run to keep only the packages whose
+    -- installed version actually moved (the user may decline some).
+    function backend.installedVersionsCommand(quotedNames)
+        return "LC_ALL=C pacman -Q " .. table.concat(quotedNames, " ") .. " 2>/dev/null"
     end
 
     -- A kernel upgrade replaces the whole /usr/lib/modules/<version> tree;

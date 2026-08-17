@@ -95,15 +95,17 @@ polkit.addRule(function(action, subject) {
 
     -- Two pkexec calls (update, then upgrade) instead of one pkexec'd shell:
     -- the polkit rule can then stay scoped to apt-get/apt-mark, and with
-    -- keep-authorization one password still covers the run.
+    -- keep-authorization one password still covers the run. The upgrade is
+    -- gated (&&) on the refresh and the holds: if placing a hold fails, the
+    -- upgrade must not run and update packages the user ignored. The unhold
+    -- cleanup stays unconditional.
     function backend.buildBackgroundCommand(ignored)
-        local upgrade = "pkexec apt-get -qq update; pkexec apt-get" .. UPGRADE_FLAGS
         if #ignored == 0 then
-            return upgrade
+            return "pkexec apt-get -qq update && pkexec apt-get" .. UPGRADE_FLAGS
         end
         local names = table.concat(ignored, " ")
-        return "pkexec apt-get -qq update; pkexec apt-mark hold " .. names
-            .. "; " .. "pkexec apt-get" .. UPGRADE_FLAGS
+        return "pkexec apt-get -qq update && pkexec apt-mark hold " .. names
+            .. " && pkexec apt-get" .. UPGRADE_FLAGS
             .. "; s=$?; pkexec apt-mark unhold " .. names .. "; exit $s"
     end
 
@@ -120,6 +122,13 @@ polkit.addRule(function(action, subject) {
     -- `apt-get -s` omits the "Need to get" line in simulate mode, so a
     -- cheap size estimate is not available; capability off.
     backend.sizeCommand = nil
+
+    -- "name version" per line for the given (quoted) names; the engine uses
+    -- it after an interactive terminal run to keep only the packages whose
+    -- installed version actually moved.
+    function backend.installedVersionsCommand(quotedNames)
+        return "dpkg-query -W -f '${Package} ${Version}\\n' " .. table.concat(quotedNames, " ") .. " 2>/dev/null"
+    end
 
     backend.rebootCommand = [[test -f /var/run/reboot-required && echo missing || echo present]]
 

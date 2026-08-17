@@ -4,11 +4,12 @@
 -- actions this panel emits, so closing the panel never interrupts a check or
 -- a run in progress.
 --
--- One click on "Update" starts the background run: pkexec raises the polkit
--- password dialog, everything else is non-interactive. While it runs, the
--- package list gives way to a live tail of the update log plus a progress
--- bar. A failed run keeps its log on screen and offers a terminal fallback
--- where prompts work normally.
+-- "Update" follows the update_mode setting: a non-interactive background
+-- run (default — pkexec raises the polkit password dialog, everything else
+-- is automatic) or a terminal window where prompts work as usual. Either
+-- way the package list gives way to a live tail of the update log plus a
+-- progress bar while it runs. A failed background run keeps its log on
+-- screen and offers a terminal retry where prompts work normally.
 
 local STATE_KEY = "linup_state"
 local REQUEST_KEY = "linup_request"
@@ -20,6 +21,7 @@ local hoverText = "" -- what the detail line shows
 local listOpen = false -- at least one source is expanded this render
 local openedRunAt = nil -- history run whose package list replaces the sources
 local armedKey = nil -- rollback button waiting for its confirming second click
+local activityHoverIndex = nil -- activity graph point currently under the pointer
 
 local render
 
@@ -124,6 +126,9 @@ local function headline()
     elseif phase == "running" then
         if snapshot ~= nil and snapshot.runKind == "rollback" then
             return tr("status_rolling_back"), "secondary"
+        end
+        if snapshot ~= nil and snapshot.runMode == "terminal" then
+            return tr("status_running_terminal"), "secondary"
         end
         return tr("status_running"), "secondary"
     elseif phase == "clean" then
@@ -411,6 +416,186 @@ local function ignoredRows()
     return rows
 end
 
+-- ── Activity graph (opt-in) ──────────────────────────────────────────────────
+
+-- Normalizes the pending-count history to 0..1 for ui.graph, relative to the
+-- min/max in the window (not a fixed scale, since pending counts vary wildly
+-- between systems). A flat window (min == max, e.g. every check so far found
+-- the same count) centers the line at 0.5 instead of pinning it to the top
+-- edge, where it would be indistinguishable from the box border.
+local function activityValues(history)
+    local minN, maxN = tonumber(history[1].n) or 0, tonumber(history[1].n) or 0
+    for _, entry in ipairs(history) do
+        local n = tonumber(entry.n) or 0
+        if n < minN then
+            minN = n
+        end
+        if n > maxN then
+            maxN = n
+        end
+    end
+    local range = maxN - minN
+    local values = {}
+    for _, entry in ipairs(history) do
+        local n = tonumber(entry.n) or 0
+        table.insert(values, range > 0 and (n - minN) / range or 0.5)
+    end
+    return values
+end
+
+local ACTIVITY_GRAPH_SUBDIVISIONS = 8
+
+local function upsampleLinear(values, subdivisions)
+    if #values < 2 or subdivisions <= 1 then
+        return values
+    end
+    local out = {}
+    for i = 1, #values - 1 do
+        local a, b = values[i], values[i + 1]
+        for s = 0, subdivisions - 1 do
+            table.insert(out, a + (b - a) * (s / subdivisions))
+        end
+    end
+    table.insert(out, values[#values])
+    return out
+end
+
+local function padGraphLookbehind(values)
+    if #values == 0 then
+        return values
+    end
+    local out = { values[1], values[1] }
+    for _, v in ipairs(values) do
+        table.insert(out, v)
+    end
+    return out
+end
+
+-- "2 hours ago", "3 days ago", etc. nil for entries that never recorded a
+-- timestamp.
+local function relativeTime(at)
+    local t = tonumber(at)
+    if t == nil then
+        return nil
+    end
+    local diff = os.time() - t
+    if diff < 60 then
+        return tr("activity.just_now")
+    elseif diff < 3600 then
+        local m = math.floor(diff / 60)
+        return noctalia.trp("activity.minutes_ago", m, { count = m })
+    elseif diff < 86400 then
+        local h = math.floor(diff / 3600)
+        return noctalia.trp("activity.hours_ago", h, { count = h })
+    else
+        local d = math.floor(diff / 86400)
+        return noctalia.trp("activity.days_ago", d, { count = d })
+    end
+end
+
+-- "Updated · 2 hours ago" for the check that verified an update run, else
+-- "3 pending updates · 2 hours ago". Shared by the hover tooltip and the
+-- top-right caption so both describe a point the same way.
+local function describeEntry(entry)
+    local n = tonumber(entry.n) or 0
+    local text = entry.afterUpdate == true and tr("activity.updated")
+        or noctalia.trp("activity.pending_at", n, { count = n })
+    local when = relativeTime(entry.at)
+    if when ~= nil then
+        text = text .. " · " .. when
+    end
+    return text
+end
+
+-- ui.graph takes no pointer props of its own and the framework has no
+-- overlay control, so per-point hover cannot live on the line itself: it is
+-- a row of hit targets right under it, drawn as an axis of small dots (the
+-- hovered one lights up in the accent color) so the interactivity is
+-- visible without the ghost-button hover flash.
+--
+-- Real points sit at (k-1)/(#history-1) of the width (see
+-- padGraphLookbehind), i.e. #history-1 equal gaps, not #history equal slots
+-- - so this builds one equal-width segment per gap rather than per entry,
+-- ending each segment (and its dot) exactly on the point at its right edge.
+-- That leaves entry 1 (at the left edge, with no gap before it) without its
+-- own hover zone, but keeps every other spike landing right at the end of
+-- its segment instead of drifting toward the start of an oversized one.
+local function activityHoverRow(history)
+    local segments = {}
+    for i = 2, #history do
+        local hovered = activityHoverIndex == i
+        segments[i - 1] = ui.row({
+            key = "activity-hit-" .. i .. (hovered and "-on" or ""),
+            flexGrow = 1,
+            height = 12,
+            align = "center",
+            justify = "end",
+            onHover = function(state)
+                if state == "true" then
+                    activityHoverIndex = i
+                elseif activityHoverIndex == i then
+                    activityHoverIndex = nil
+                else
+                    return
+                end
+                render()
+            end,
+        }, {
+            ui.box({
+                width = hovered and 7 or 5,
+                height = hovered and 7 or 5,
+                radius = 4,
+                fill = hovered and "primary" or "outline/0.6",
+            }),
+        })
+    end
+    return ui.row({ key = "activity-hits", gap = 1 }, segments)
+end
+
+-- A small trend graph of pending-update counts across recent checks, plus
+-- when the last update ran (or, while hovering a point, that point's own
+-- description). Off entirely when show_activity_graph is off, and hidden
+-- until there is enough history to draw a line.
+local function activitySection()
+    if snapshot == nil or noctalia.getConfig("show_activity_graph") ~= true then
+        return nil
+    end
+    local history = type(snapshot.activity) == "table" and snapshot.activity or {}
+    if #history < 2 then
+        return nil
+    end
+
+    local hoveredEntry = activityHoverIndex ~= nil and history[activityHoverIndex] or nil
+    local caption
+    if hoveredEntry ~= nil then
+        caption = describeEntry(hoveredEntry)
+    else
+        local lastUpdateAt = tonumber(snapshot.lastUpdateAt)
+        if lastUpdateAt == nil then
+            caption = tr("activity.never_updated")
+        else
+            local days = math.floor((os.time() - lastUpdateAt) / 86400)
+            caption = days <= 0 and tr("activity.updated_today")
+                or noctalia.trp("activity.updated_days_ago", days, { count = days })
+        end
+    end
+
+    return ui.column({ key = "activity", gap = 4 }, {
+        ui.row({ justify = "space_between", align = "center" }, {
+            ui.label({ text = tr("activity.title"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+            ui.label({ text = caption, fontSize = 10, color = "on_surface_variant" }),
+        }),
+        ui.graph({
+            values = padGraphLookbehind(upsampleLinear(activityValues(history), ACTIVITY_GRAPH_SUBDIVISIONS)),
+            color = "primary",
+            fillOpacity = 0.15,
+            lineWidth = 2,
+            height = 36,
+        }),
+        activityHoverRow(history),
+    })
+end
+
 -- ── Run history and rollback ─────────────────────────────────────────────────
 
 local function historyRuns()
@@ -694,8 +879,15 @@ local function extras()
         }))
     end
 
-    -- Offered until the polkit keep-authorization rule is installed.
-    if snapshot.polkitRule == false and phaseOf() ~= "running" and noctalia.getConfig("hide_polkit_hint") ~= true then
+    -- Offered until the polkit keep-authorization rule is installed. Only in
+    -- background mode: a terminal run goes through sudo, so the repeated
+    -- polkit prompts the rule solves never happen there.
+    if
+        snapshot.polkitRule == false
+        and noctalia.getConfig("update_mode") ~= "terminal"
+        and phaseOf() ~= "running"
+        and noctalia.getConfig("hide_polkit_hint") ~= true
+    then
         table.insert(lines, ui.row({ key = "polkit", gap = 6, align = "center" }, {
             ui.glyph({ name = "shield", size = 13, color = "on_surface_variant" }),
             ui.label({
@@ -861,10 +1053,18 @@ render = function()
         table.insert(children, node)
     end
 
+    -- Both footers hide while a check or run is on screen, so neither ever
+    -- competes with the live log for space.
+    local activity = not busy() and activitySection() or nil
     local history = not busy() and historySection() or nil
-    if history ~= nil then
+    if activity ~= nil or history ~= nil then
         table.insert(children, ui.separator({}))
-        table.insert(children, history)
+        if activity ~= nil then
+            table.insert(children, activity)
+        end
+        if history ~= nil then
+            table.insert(children, history)
+        end
     else
         local caption = footerCaption()
         if caption ~= nil then
@@ -875,7 +1075,9 @@ render = function()
 
     if phase ~= "missing" then
         local footer = {}
-        if runFailed() then
+        -- Not offered after a failed rollback: re-running the *update*
+        -- command in a terminal is not a retry of the rollback.
+        if runFailed() and (snapshot == nil or snapshot.runKind ~= "rollback") then
             table.insert(footer, ui.button({
                 key = "retry-terminal",
                 glyph = "terminal", text = tr("action_run_terminal"), variant = "ghost", flexGrow = 1,
@@ -893,13 +1095,16 @@ render = function()
                 panel.close()
             end,
         }))
+        local terminalMode = noctalia.getConfig("update_mode") == "terminal"
         table.insert(footer, ui.button({
             key = "update" .. (hasUpdates and "" or "-off"),
-            glyph = "download", text = tr("action_update"), variant = "primary", enabled = hasUpdates,
-            tooltip = tr("tip_update"),
+            glyph = terminalMode and "terminal" or "download",
+            text = tr("action_update"), variant = "primary", enabled = hasUpdates,
+            tooltip = terminalMode and tr("tip_update_terminal") or tr("tip_update"),
             onClick = function()
                 -- The panel stays open: the log section takes over so the
-                -- run can be watched live.
+                -- run can be watched live (the log is tee'd from the
+                -- terminal too).
                 request("update")
             end,
         }))
@@ -916,6 +1121,7 @@ function onOpen(_context)
     hoverText = ""
     openedRunAt = nil
     armedKey = nil
+    activityHoverIndex = nil
     render()
 end
 

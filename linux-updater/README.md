@@ -12,11 +12,16 @@ automatically from `/etc/os-release`.
 
 ## Features
 
-- **Background updates.** The run is spawned detached (it survives a shell
-  restart), fully non-interactive, logged to a file the panel tails live
-  with a progress bar; the bar widget shows a percentage. On success:
-  notification and an automatic re-check. A failed run keeps its log on
-  screen and offers an interactive **Retry in terminal** fallback.
+- **Background or terminal updates.** By default the run is spawned
+  detached (it survives a shell restart), fully non-interactive, logged to
+  a file the panel tails live with a progress bar; the bar widget shows a
+  percentage. On success: notification and an automatic re-check. A failed
+  run keeps its log on screen and offers an interactive **Retry in
+  terminal** fallback. The `update_mode` setting can instead open every
+  update in a terminal window, where prompts work as usual — the log, the
+  progress bar and the history keep working (the terminal output is tee'd
+  into the same log, and the history entry is verified against the
+  installed versions, so declined packages are not recorded).
 - **Update history with rollback.** Every finished run becomes a segment on
   the history strip (hover for date and size, click for the package list).
   On Arch, single packages or whole runs roll back from the package cache —
@@ -39,7 +44,8 @@ automatically from `/etc/os-release`.
 - **Extras.** Download-size estimate and Arch news (pacman backend), AUR
   via paru/yay, Flatpak on every backend, reboot recommendation with the
   best available method per distribution, desktop notifications, launcher
-  quick actions (`/up`), full log in a terminal pager.
+  quick actions (`/up`), full log in a terminal pager, an opt-in activity
+  graph of pending-update counts across recent checks.
 
 ## Plugin
 
@@ -72,17 +78,28 @@ instead); Gentoo has no backend yet — the backend interface in
 
 ## Requirements
 
-- The distribution's own package manager, on `PATH`: `pacman` +
-  `pacman-contrib` (Arch family), `dnf` (Fedora), `apt-get`
-  (Debian family), `zypper` (openSUSE), `xbps-install` (Void), or `pkcon`
-  (PackageKit) as the generic fallback. Only the one matching your
-  distribution is needed; the panel says what is missing.
+The `dependencies` list in `plugin.toml` names every external command the
+plugin can spawn across all backends; only the subset below matters on any
+one system.
+
+- The distribution's own package-manager tooling, on `PATH` — one family
+  is enough, and the panel says what is missing:
+  - Arch family: `pacman`, `checkupdates` + `pactree` (both from
+    `pacman-contrib`);
+  - Fedora family: `dnf`, `rpm`;
+  - Debian family: `apt`, `apt-get`, `apt-mark`, `dpkg-query`, and
+    `systemctl` for the apt-timers self-check;
+  - openSUSE: `zypper`, `rpm`;
+  - Void: `xbps-install`, `xbps-pkgdb`;
+  - anything else: `pkcon` (PackageKit).
 - `pkexec` (polkit) with an authentication agent — Noctalia's built-in
   agent works out of the box. Not needed for the PackageKit backend, which
   uses its own polkit policies.
-- `sh`, `awk`, `sed`, `tail`, `test`, `uname` — base tools on any install.
-- Optional: `paru`/`yay` (AUR, Arch family), `flatpak`, `xdg-open`,
-  `sudo` + a terminal emulator for the **Retry in terminal** fallback.
+- POSIX base tools, present on any install: `sh`, `awk`, `date`, `grep`,
+  `head`, `install`, `rm`, `sed`, `tail`, `tee`, `test`, `uname`, `wc`.
+- Optional: `paru`/`yay` (AUR, Arch family), `flatpak`, `xdg-open` (open
+  package pages), `less` (full-log pager), `sudo` + a terminal emulator
+  for terminal-mode updates and the **Retry in terminal** fallback.
 
 ## Usage
 
@@ -96,12 +113,13 @@ noctalia msg panel-toggle umedbazarov/linux-updater:panel
 
 The panel lists pending packages by source (system manager, AUR, Flatpak).
 Each package row has an ignore button, a copy button and an open button.
-**Update** starts the background run: pkexec raises the polkit dialog,
-everything else is non-interactive; the package list gives way to a live
-log tail with a progress bar, the bar widget shows a percentage, and the
-run survives a shell restart. When it ends you get a notification and an
-automatic re-check; a failed run keeps its log on screen and offers
-**Retry in terminal**.
+**Update** starts the run per the `update_mode` setting — in the
+background (default: pkexec raises the polkit dialog, everything else is
+non-interactive, the run survives a shell restart) or in a terminal window
+where prompts work as usual. Either way the package list gives way to a
+live log tail with a progress bar and the bar widget shows a percentage.
+When it ends you get a notification and an automatic re-check; a failed
+background run keeps its log on screen and offers **Retry in terminal**.
 
 The strip at the bottom is the update history: one segment per run, hover
 for the date, click for the run's package list. Where the backend supports
@@ -131,11 +149,14 @@ fuzzy-search pending packages.
 | `show_download_size` | `bool` | `true` | Show the download estimate where the backend supports it. |
 | `check_arch_news` | `bool` | `true` | Arch news feed (pacman backend only). |
 | `check_reboot_needed` | `bool` | `true` | Flag when a reboot is recommended. |
+| `show_activity_graph` | `bool` | `false` | Record and graph pending-update counts across recent checks. |
+| `activity_history_length` | `int` | `10` | Checks kept for the activity graph (3–30). |
+| `update_mode` | `select` | `background` | How Update runs: non-interactive background run or a terminal window. |
 | `rollback_auto_ignore` | `bool` | `false` | After a rollback, add the rolled-back packages to the plugin ignore list. |
 | `hide_setup_hints` | `bool` | `false` | Hide the one-time setup suggestions. |
 | `hide_polkit_hint` | `bool` | `false` | Hide the polkit keep-authorization rule suggestion. |
 | `log_lines` | `int` | `14` | Log lines shown during a run (6–30). |
-| `terminal` | `string` | *(empty)* | Terminal for the fallback; empty uses Noctalia's detection. |
+| `terminal` | `string` | *(empty)* | Terminal for terminal-mode updates and the fallback; empty uses Noctalia's detection. |
 | `update_cmd` | `string` | *(empty)* | Full override for the background update command. |
 
 ## IPC
@@ -143,6 +164,7 @@ fuzzy-search pending packages.
 ```sh
 noctalia msg plugin umedbazarov/linux-updater:service all check
 noctalia msg plugin umedbazarov/linux-updater:service all update
+noctalia msg plugin umedbazarov/linux-updater:service all update_background
 noctalia msg plugin umedbazarov/linux-updater:service all update_terminal
 noctalia msg plugin umedbazarov/linux-updater:service all dismiss
 noctalia msg plugin umedbazarov/linux-updater:service all ignore:NAME
@@ -154,9 +176,11 @@ noctalia msg plugin umedbazarov/linux-updater:service all unignore:NAME
 - **Commands spawned.** Per backend, listed in `backends/*.luau` (each file
   documents its own commands): the distribution's check command
   unprivileged; the update through `pkexec <manager>` (or PackageKit's own
-  polkit path), detached, logged to `<data>/update.log` and followed with
-  `tail`; `flatpak list/remote-ls/update`; `pactree`/`rpm`/`apt-mark`/
-  `zypper locks`/`xbps-pkgdb` where the matrix says so.
+  polkit path, or `sudo` in terminal mode), detached, logged to
+  `<data>/update.log` and followed with `tail`;
+  `flatpak list/remote-ls/update`; `pactree`/`rpm`/`dpkg-query`/`apt-mark`/
+  `zypper locks`/`xbps-pkgdb` where the matrix says so. The full command
+  list is declared in `dependencies` in `plugin.toml`.
 - **Privileges.** Escalation only through polkit, only for package-manager
   binaries; the optional keep-authorization rules (shipped in `polkit/`,
   installable from the panel with one confirmed click) are scoped to those
@@ -164,6 +188,7 @@ noctalia msg plugin umedbazarov/linux-updater:service all unignore:NAME
   configuration files are never edited.
 - **Files written.** Only in the plugin data directory: `update.log`,
   `runs.json` (history), `ignore.json`, `news_state.json`, `run_meta.json`,
+  `activity_state.json` (only when the activity graph is on),
   a staged polkit rule and its install marker — plus
   `/etc/polkit-1/rules.d/49-linux-updater-<pm>.rules` when you explicitly
   click the install button.
@@ -180,8 +205,10 @@ Honest coverage, so expectations are set right:
 - **dnf / apt / zypper / xbps / PackageKit: command layers verified in
   containers** on real package managers — including the full
   `upgrade → dnf history undo` cycle on Fedora and apt's hold semantics —
-  and every parser runs against recorded real-output fixtures in CI-able
-  tests.
+  and every parser runs against recorded real-output fixtures: the
+  fixtures live in `fixtures/`, the test harness is `tests/run.sh` (needs
+  the `luau` CLI; not wired into this repository's CI, which validates
+  manifests only).
 - **Not yet verified by anyone:** live polkit dialogs and the full UI on
   non-Arch distributions (containers cannot reproduce a polkit session),
   the dnf4 output branch (fixtures cover dnf5), Debian-specific deviations

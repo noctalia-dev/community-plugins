@@ -1,12 +1,12 @@
 id = "umedbazarov/linux-updater"
 name = "Linux Updater"
-version = "0.6.0"
+version = "0.7.0"
 plugin_api = 9
 author = "umedbazarov"
 license = "MIT"
 icon = "package"
 description = "Check and install system updates in the background on any major distro: live log, update history, rollback."
-dependencies = ["sh", "awk", "sed", "tail", "test", "uname", "pkexec", "pacman-contrib", "pacman", "dnf", "apt-get", "zypper", "xbps-install", "pkcon", "paru", "yay", "flatpak", "sudo", "xdg-open"]
+dependencies = ["apt", "apt-get", "apt-mark", "awk", "date", "dnf", "dpkg-query", "flatpak", "grep", "head", "install", "less", "pacman", "pacman-contrib", "paru", "pkcon", "pkexec", "rm", "rpm", "sed", "sh", "sudo", "systemctl", "tail", "tee", "test", "uname", "wc", "xbps-install", "xbps-pkgdb", "xdg-open", "yay", "zypper"]
 tags = ["arch", "debian", "fedora", "opensuse", "void", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -102,7 +102,35 @@ label_key = "settings.check_reboot_needed.label"
 description_key = "settings.check_reboot_needed.description"
 default = true
 
+[[setting]]
+key = "show_activity_graph"
+type = "bool"
+label_key = "settings.show_activity_graph.label"
+description_key = "settings.show_activity_graph.description"
+default = false
+
+[[setting]]
+key = "activity_history_length"
+type = "int"
+label_key = "settings.activity_history_length.label"
+description_key = "settings.activity_history_length.description"
+default = 10
+min = 3
+max = 30
+visible_when = { key = "show_activity_graph", values = ["true"] }
+
 # ── Update run ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "update_mode"
+type = "select"
+label_key = "settings.update_mode.label"
+description_key = "settings.update_mode.description"
+default = "background"
+options = [
+  { value = "background", label_key = "settings.update_mode.options.background" },
+  { value = "terminal", label_key = "settings.update_mode.options.terminal" },
+]
 
 [[setting]]
 key = "rollback_auto_ignore"
