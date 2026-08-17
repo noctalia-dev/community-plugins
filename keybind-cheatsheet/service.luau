@@ -837,14 +837,14 @@ local function scanHyprLuaContent(content, sourceFile, context)
       for _, str in ipairs(literals) do
         local cleaned = trim(str)
         if cleaned ~= "" then
-          table.insert(nonEmpty, cleaned)
+          table.insert(nonEmpty, str)
         end
       end
 
       if #nonEmpty > 0 then
         pendingDescription = false
         local combined = table.concat(nonEmpty)
-        local hasConcat = code:find("%.%.", 1, true) ~= nil or (rhs ~= nil and rhs:find("%.%.", 1, true) ~= nil)
+        local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
         local kind = hasConcat and "prefix" or "exact"
         local cat = category ~= "" and category or "Other"
 
