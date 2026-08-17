@@ -161,7 +161,8 @@ local function probeProfileAndEta()
 
   local profileCmd = HAS_PPD and "powerprofilesctl get" or "true"
   local etaCmd = HAS_UPOWER
-      and ("upower -i /org/freedesktop/UPower/devices/battery_" .. deviceName())
+      and ("upower -i "
+        .. shellQuote("/org/freedesktop/UPower/devices/battery_" .. deviceName()))
     or "true"
   local cmd = profileCmd .. "; echo " .. SEP .. "; " .. etaCmd
 

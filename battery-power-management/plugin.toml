@@ -8,7 +8,7 @@ icon        = "battery-charging"
 description = "Battery widget with live power draw, power-profile switching, and charge-limit control — no root at runtime."
 tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
 
-dependencies = ["powerprofilesctl", "upower"]
+dependencies = ["powerprofilesctl", "upower", "sh", "cat", "sudo", "bash", "dirname", "getent", "groupadd", "usermod", "chgrp", "chmod", "udevadm"]
 
 [[setting]]
 key            = "colorize_by_profile"

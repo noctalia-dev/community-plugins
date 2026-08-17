@@ -47,34 +47,71 @@ share one state snapshot (no Lua memory is shared between them):
 [power-profiles-daemon](https://gitlab.freedesktop.org/upower/power-profiles-daemon);
 `upower` is packaged as `upower` on every major distro.
 
+The service reads sysfs and runs the two tools above through a shell, so `sh`
+and `cat` must be on `PATH` — both ship with every distro (coreutils and the
+system shell), so there is nothing to install. The bundled setup script
+additionally uses `sudo`, `bash`, `dirname`, `getent`, `groupadd`, `usermod`,
+`chgrp`, `chmod`, and `udevadm`, all part of coreutils, shadow-utils, and
+systemd/udev.
+
 The charge-threshold slider additionally needs the sysfs attribute
 `charge_control_end_threshold` to be present **and writable by your user** — see
-Usage.
+Setup.
 
 ## Usage
 
-Install this checkout as a development source and enable the plugin:
+Install the plugin from Noctalia's plugin manager, then add the **Battery &
+Power Management** widget from the bar's Add-widget picker.
+
+**Contributors only** — to run it from a checkout instead, register that
+checkout as a development source:
 
 ```sh
-noctalia msg plugins source add dev path ~/Documents/Projects/community-plugins
+noctalia msg plugins source add dev path /path/to/community-plugins
 noctalia msg plugins enable piero-93/battery-power-management
 ```
 
-Then add the **Battery & Power Management** widget from the bar's Add-widget
-picker. `.luau` edits hot-reload; `plugin.toml` changes apply on the next config
-reload.
+`.luau` edits hot-reload; `plugin.toml` changes apply on the next config reload.
 
-**Charge-threshold permissions (optional).** Writing the charge limit needs
-write access to a root-owned sysfs file. The included script sets that up once,
-without giving the plugin root at runtime:
+## Setup (optional — charge threshold only)
+
+Writing the charge limit needs write access to a root-owned sysfs file. The
+included script sets that up once, without giving the plugin root at runtime:
 
 ```sh
-cd ~/Documents/Projects/community-plugins/battery-power-management/scripts
-sudo ./setup-threshold-permissions.sh BAT0     # use your battery, e.g. BAT1
+cd ~/.local/share/noctalia/plugins/battery-power-management/scripts
+sudo ./setup-threshold-permissions.sh        # or: sudo ./setup-threshold-permissions.sh BAT1
 ```
 
-Then **log out and back in**. If you skip this, everything else still works; only
-the threshold slider is affected (it shows a notification on write failure).
+Without an argument the rule matches `BAT*`, covering every battery in the
+machine; pass a device name to scope it to one. The script is idempotent, and it
+makes these changes to your system:
+
+| Change | Detail |
+|--------|--------|
+| Creates a group | `battery_ctl`, and adds you to it with `usermod -aG` |
+| Installs a udev rule | `/etc/udev/rules.d/99-noctalia-battery-power-management.rules` — `chgrp battery_ctl` + `chmod 0664` on `charge_control_end_threshold` |
+
+The group is shared with the separate `battery-threshold` plugin on purpose (same
+capability, same semantics), but the rule filename is plugin-specific so the two
+never overwrite each other.
+
+Then **log out and back in**. If you skip this setup, everything else still
+works; only the threshold slider is affected (it shows a notification on write
+failure).
+
+### NixOS
+
+`/etc/udev/rules.d` is generated from system config on NixOS, so the script exits
+instead of writing to it. Add the equivalent declaratively:
+
+```nix
+users.groups.battery_ctl = { };
+users.users.<you>.extraGroups = [ "battery_ctl" ];
+services.udev.extraRules = ''
+  ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="BAT*", RUN+="${pkgs.coreutils}/bin/chgrp battery_ctl /sys$devpath/charge_control_end_threshold", RUN+="${pkgs.coreutils}/bin/chmod 0664 /sys$devpath/charge_control_end_threshold"
+'';
+```
 
 ## Settings
 
@@ -92,12 +129,21 @@ the threshold slider is affected (it shows a notification on write failure).
 For review transparency (this plugin is trusted, unsandboxed Luau):
 
 - **Reads** `/sys/class/power_supply/<device>/uevent` and
-  `/sys/class/power_supply/<device>/charge_control_end_threshold` (poll ~2 s).
-- **Runs** `powerprofilesctl get` / `powerprofilesctl set <profile>` and
-  `upower -i /org/freedesktop/UPower/devices/battery_<device>`.
-- **Writes** `<threshold> > /sys/class/power_supply/<device>/charge_control_end_threshold`
-  only when you move the slider (guarded by `commandExists` and permissions).
+  `/sys/class/power_supply/<device>/charge_control_end_threshold` every 5 s.
+- **Runs** `powerprofilesctl get` and
+  `upower -i /org/freedesktop/UPower/devices/battery_<device>` on every third
+  poll (~15 s), each guarded by `commandExists`, plus
+  `powerprofilesctl set <profile>` when you pick a profile.
+- **Writes** the threshold to
+  `/sys/class/power_supply/<device>/charge_control_end_threshold` only when you
+  move the slider.
+- All of the above go through `noctalia.runAsync`, which executes via
+  `/bin/sh -c`, so each poll spawns a shell (and a `cat` for the sysfs read).
+  The configurable device name is reduced to a single path segment and
+  shell-quoted before use; the threshold is clamped to 50–100.
 - **No network access.**
+- The **setup script** is never invoked by the plugin; you run it yourself with
+  `sudo`. Its system changes are listed in Setup above.
 
 ## License
 

@@ -7,14 +7,20 @@
 # grants that group write access to the attribute via a udev rule.
 #
 # Usage:  sudo ./setup-threshold-permissions.sh [BATTERY_DEVICE]
-#         BATTERY_DEVICE defaults to BAT0 (match the plugin's "Battery device" setting).
+#         BATTERY_DEVICE defaults to BAT*, which covers every battery on the
+#         machine. Pass a name (e.g. BAT1) to scope the rule to one of them.
+#
+# The rule is installed under a plugin-specific filename so it cannot collide
+# with the one shipped by the separate `battery-threshold` plugin, which uses
+# the same `battery_ctl` group. Idempotent -- safe to re-run.
 #
 # Run once, then log out and back in for the group change to take effect.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
-BAT="${1:-BAT0}"
-RULE_FILE="/etc/udev/rules.d/99-battery-threshold.rules"
+BAT="${1:-BAT*}"
+GROUP_NAME=battery_ctl
+RULE_FILE=/etc/udev/rules.d/99-noctalia-battery-power-management.rules
 
 if [ "${EUID}" -ne 0 ]; then
   echo "Error: run as root, e.g. sudo $0 ${BAT}" >&2
@@ -27,17 +33,25 @@ if [ -z "${TARGET_USER}" ]; then
   exit 1
 fi
 
-if ! getent group battery_ctl >/dev/null; then
-  echo "Creating group battery_ctl..."
-  groupadd battery_ctl
+if [ ! -w "$(dirname "${RULE_FILE}")" ]; then
+  echo "Cannot write to $(dirname "${RULE_FILE}") -- this looks like an immutable" >&2
+  echo "/etc (e.g. NixOS, where udev rules are generated from system config)." >&2
+  echo "See this plugin's README.md for the declarative NixOS setup instead." >&2
+  exit 1
 fi
 
-echo "Adding ${TARGET_USER} to battery_ctl..."
-usermod -aG battery_ctl "${TARGET_USER}"
+CHGRP_BIN="$(command -v chgrp)"
+CHMOD_BIN="$(command -v chmod)"
 
+echo "Creating group '${GROUP_NAME}' (if missing) and adding ${TARGET_USER}..."
+getent group "${GROUP_NAME}" >/dev/null || groupadd "${GROUP_NAME}"
+usermod -aG "${GROUP_NAME}" "${TARGET_USER}"
+
+# /sys$devpath resolves per matched device, so a single rule covers every
+# battery when BAT is left at its BAT* default.
 echo "Writing ${RULE_FILE} for ${BAT}..."
 cat >"${RULE_FILE}" <<EOF
-ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="${BAT}", RUN+="/bin/chgrp battery_ctl /sys/class/power_supply/${BAT}/charge_control_end_threshold", RUN+="/bin/chmod 0664 /sys/class/power_supply/${BAT}/charge_control_end_threshold"
+ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="${BAT}", RUN+="${CHGRP_BIN} ${GROUP_NAME} /sys\$devpath/charge_control_end_threshold", RUN+="${CHMOD_BIN} 0664 /sys\$devpath/charge_control_end_threshold"
 EOF
 
 echo "Reloading udev rules..."
