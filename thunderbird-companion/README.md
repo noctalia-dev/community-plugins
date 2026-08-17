@@ -15,8 +15,8 @@ for accounts, credentials, synchronization, composing, and message storage.
 
 - `thunderbird` 128 or newer provides the mailbox and companion MailExtension
   APIs.
-- `python3` builds the bundled MailExtension and runs the bundled
-  native-messaging host.
+- `python3` builds the bundled MailExtension, runs the bundled
+  native-messaging host, and installs the bridge when you select **Set up bridge**.
 - `xdg-open` opens the generated extension package directory on request.
 
 The bridge currently targets a native Linux Thunderbird installation. Sandboxed

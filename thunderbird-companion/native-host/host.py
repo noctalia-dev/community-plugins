@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Native-messaging bridge between Thunderbird and Noctalia.
 
 Thunderbird owns stdin/stdout using the native-messaging framing protocol.
@@ -21,7 +20,6 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
-
 
 HOST_NAME = "dev.noctalia.thunderbird_companion"
 MAX_NATIVE_MESSAGE_BYTES = 4 * 1024 * 1024
@@ -115,7 +113,7 @@ def read_native_message() -> dict[str, Any] | None:
         return None
     payload = json.loads(encoded.decode("utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("native message must be an object")
+        raise TypeError("native message must be an object")
     return payload
 
 

@@ -452,14 +452,14 @@ local function setup_bridge()
     return
   end
   local plugin_dir = noctalia.pluginDir()
-  local script = type(plugin_dir) == "string" and plugin_dir .. "/scripts/setup-bridge.sh"
-    or "scripts/setup-bridge.sh"
+  local script = type(plugin_dir) == "string" and plugin_dir .. "/scripts/setup-bridge.py"
+    or "scripts/setup-bridge.py"
   state.setupStatus = "running"
   state.setupError = ""
   publish()
 
   local started = noctalia.runAsync(
-    "bash " .. shell_quote(script) .. " --machine-readable",
+    "python3 " .. shell_quote(script) .. " --machine-readable",
     function(result)
       if result.exitCode ~= 0 or result.timedOut then
         local message = trim(result.stderr)
