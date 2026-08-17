@@ -17,6 +17,10 @@ end
 
 local failure = NO_FAILURE
 
+-- Read once: a session either has xdg-utils or it does not, and the panel
+-- would otherwise stat PATH on every second tick it spends in a failure.
+local HAS_OPENER = noctalia.commandExists("xdg-open")
+
 -- Same parsing the capsule does. There is no require() below API 22, so the
 -- four helpers below are copied instead of shared.
 local function parseIso(value)
@@ -376,8 +380,9 @@ local function errorBlock()
     end)
 
     -- Retrying is pointless until the CLI exists, so that one failure gets the
-    -- install page as well. The URL is a literal, so there is nothing to quote.
-    if failure.code == "not_installed" then
+    -- install page as well. The URL is a literal, so there is nothing to quote,
+    -- and the row is only offered where something can open it.
+    if failure.code == "not_installed" and HAS_OPENER then
         children[#children + 1] = actionRow("external-link", "github.com/akitaonrails/ai-usagebar", function()
             noctalia.runAsync("xdg-open https://github.com/akitaonrails/ai-usagebar")
         end)

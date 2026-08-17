@@ -61,7 +61,10 @@ local function classify(result)
     if result == nil then return failure("spawn_failed") end
     if result.timedOut then return failure("timed_out") end
 
-    local stderr = safeText(result.stderr)
+    -- Matched raw. `failure` scrubs what it is given, and scrubbing first would
+    -- mean matching against text already capped at 200 characters, so a noisy
+    -- run could push the message that names the failure out of reach.
+    local stderr = tostring(result.stderr or "")
     local lower = stderr:lower()
     if result.exitCode == 127
         and (lower:find("command not found", 1, true)
@@ -69,7 +72,9 @@ local function classify(result)
         return failure("not_installed", stderr)
     end
     if result.exitCode ~= 0 then
-        return failure("failed", stderr ~= "" and stderr
+        -- Whitespace-only stderr scrubs down to nothing, so the exit code has
+        -- to answer for it rather than a detail that arrives on screen empty.
+        return failure("failed", stderr:find("%S") and stderr
             or ("ai-usagebar exited with code " .. tostring(result.exitCode)))
     end
     return failure("no_data", stderr)
