@@ -20,10 +20,18 @@ end
 local function safeText(value)
     local text = noctalia.string.trim(tostring(value or ""))
     text = text:gsub("%s+", " ")
-    text = text:gsub("([%w_%-]*[Kk][Ee][Yy][%w_%-]*=)[^%s]+", "%1<redacted>")
-    text = text:gsub("([Tt][Oo][Kk][Ee][Nn][%w_%-]*=)[^%s]+", "%1<redacted>")
-    text = text:gsub("([Ss][Ee][Cc][Rr][Ee][Tt][%w_%-]*=)[^%s]+", "%1<redacted>")
-    text = text:gsub("([Bb]earer%s+)[^%s]+", "%1<redacted>")
+    -- `scrub` runs this over ~165 strings per two-vendor read, and four
+    -- backtracking patterns on each one exhaust the callback's CPU budget,
+    -- which costs the whole report. All four need a literal `=` or `earer` to
+    -- match, so a plan name or a percentage skips them.
+    if text:find("=", 1, true) then
+        text = text:gsub("([%w_%-]*[Kk][Ee][Yy][%w_%-]*=)[^%s]+", "%1<redacted>")
+        text = text:gsub("([Tt][Oo][Kk][Ee][Nn][%w_%-]*=)[^%s]+", "%1<redacted>")
+        text = text:gsub("([Ss][Ee][Cc][Rr][Ee][Tt][%w_%-]*=)[^%s]+", "%1<redacted>")
+    end
+    if text:find("earer", 1, true) then
+        text = text:gsub("([Bb]earer%s+)[^%s]+", "%1<redacted>")
+    end
     if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
     return text
 end
