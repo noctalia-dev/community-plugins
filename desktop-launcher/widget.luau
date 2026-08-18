@@ -22,6 +22,7 @@ local function getContent(appid)
     local paths = {
         "~/.local/share/applications",
         "/usr/share/applications",
+        "/var/lib/flatpak/exports/share/applications",
     }
 
     for _, path in ipairs(paths) do
