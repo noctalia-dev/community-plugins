@@ -71,15 +71,35 @@ return function(env)
         return n, items
     end
 
-    -- PackageKit cannot exclude packages per transaction, so the plugin
-    -- ignore list stays a display-side filter here; a "hold" equivalent
-    -- would need the native manager and belongs to a native backend.
-    function backend.buildBackgroundCommand(_ignored)
-        return "pkcon -y --plain refresh && pkcon -y --plain update"
+    -- PackageKit cannot exclude packages per transaction, but `pkcon
+    -- update` accepts explicit names — so with a plugin ignore list the
+    -- engine passes the pending-minus-ignored snapshot (pendingNames) and
+    -- the update names exactly those. nil = no filter needed (update all),
+    -- {} = everything pending is ignored (refresh only). Dependencies of an
+    -- updated package can still pull an ignored one in — the same
+    -- best-effort semantics as --exclude elsewhere.
+    backend.ignoreByExplicitList = true
+
+    function backend.buildBackgroundCommand(_ignored, pendingNames)
+        local base = "pkcon -y --plain refresh"
+        if pendingNames == nil then
+            return base .. " && pkcon -y --plain update"
+        end
+        if #pendingNames == 0 then
+            return base
+        end
+        return base .. " && pkcon -y --plain update " .. table.concat(pendingNames, " ")
     end
 
-    function backend.buildTerminalCommand(_ignored)
-        return "pkcon refresh && pkcon update"
+    function backend.buildTerminalCommand(_ignored, pendingNames)
+        local base = "pkcon refresh"
+        if pendingNames == nil then
+            return base .. " && pkcon update"
+        end
+        if #pendingNames == 0 then
+            return base
+        end
+        return base .. " && pkcon update " .. table.concat(pendingNames, " ")
     end
 
     backend.sizeCommand = nil

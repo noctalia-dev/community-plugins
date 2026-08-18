@@ -6,7 +6,7 @@
 -- the panel.
 --
 --   state    "linup_state"   = { nonce, phase, step, total, pacman, aur,
---                                flatpak, downloadSizeMiB, rebootRecommended,
+--                                flatpak, extras, downloadSizeMiB, rebootRecommended,
 --                                newsUnread, newsLatestTitle, err, checkedAt,
 --                                ignoredCount, ignoredPending, ignoredDynamic,
 --                                ignoredConfig, history, activity, lastUpdateAt,
@@ -92,6 +92,7 @@ local activityLoaded = false
 local checkIsPostUpdate = false -- next finished check followed an update run
 local runKind = "update" -- update|rollback: what the current run does
 local runMode = "background" -- background|terminal: how the current run was launched
+local runFailHintKey = nil -- backend-specific "why it failed" key for the current rollback
 local runPackages = nil -- packages of the current run, for the history entry
 local probeResult = nil -- cache/required-by info for one run, {at, pkgs}
 
@@ -182,6 +183,58 @@ local backend = BACKEND_FACTORIES[resolveBackendId()]({
     commandExists = noctalia.commandExists,
     osRelease = OS_RELEASE,
 })
+
+-- Cross-distro extra sources (npm, cargo, pip, gem, snap, brew): opt-in
+-- per-manager, checked after Flatpak and appended to the update run where
+-- they support updating. All display-only in the run history — no rollback
+-- and no installed-versions verification, like Flatpak.
+local EXTRAS = require("./extras.luau")({
+    trim = trim,
+    shellQuote = shellQuote,
+    cfg = cfg,
+    MAX_LISTED = MAX_LISTED,
+    commandExists = noctalia.commandExists,
+})
+
+local extraSources = {} -- key -> { n, items } for the extras of the last check
+
+local function enabledExtras()
+    local list = {}
+    for _, extra in ipairs(EXTRAS) do
+        if cfg(extra.settingKey) == true and noctalia.commandExists(extra.tool) then
+            table.insert(list, extra)
+        end
+    end
+    return list
+end
+
+-- Sources whose packages the backend itself installed — the only ones the
+-- backend's own rollback and the installed-versions verification may touch.
+local function nativeSource(source)
+    return source == "pacman" or source == "aur"
+end
+
+-- Per-item rollback capability of the non-backend sources, published so the
+-- panel can offer the right control: "version" reinstalls the recorded old
+-- version through the manager itself, "revert" restores the manager's own
+-- previous state (snap), "commit" pins the previous Flatpak commit.
+local SOURCE_ROLLBACK = (function()
+    local map = { flatpak = "commit" }
+    for _, extra in ipairs(EXTRAS) do
+        if extra.rollbackKind ~= nil then
+            map[extra.key] = extra.rollbackKind
+        end
+    end
+    return map
+end)()
+
+local EXTRAS_BY_KEY = (function()
+    local map = {}
+    for _, extra in ipairs(EXTRAS) do
+        map[extra.key] = extra
+    end
+    return map
+end)()
 -- nil when the backend needs no keep-authorization rule (e.g. PackageKit
 -- brings its own polkit policies) — the whole rule machinery is off then.
 local POLKIT_RULE_PATH = backend.polkitRuleName ~= nil
@@ -202,6 +255,28 @@ end
 -- line instead of being quoted.
 local function validName(name)
     return name:match("^[a-zA-Z0-9._+-]+$") ~= nil
+end
+
+-- The ignore list also holds extra-source names, which may be npm scoped
+-- packages ("@scope/pkg") — wider than the native grammar but still shaped
+-- (must start with a word character or @, no shell metacharacters).
+local function validIgnoreName(name)
+    return name:match("^[%w@][%w@/._+-]*$") ~= nil
+end
+
+-- Backend commands splice ignore names in unquoted (--ignore a,b,
+-- apt-mark hold ...), and a scoped npm name there would make e.g. apt-mark
+-- fail — which, correctly, aborts the gated upgrade. So the backend only
+-- ever sees names of its own grammar; the wider ones stay with the quoted
+-- consumers (flatpak filter, extras).
+local function nativeIgnoreNames(ignored)
+    local names = {}
+    for _, name in ipairs(ignored) do
+        if validName(name) then
+            table.insert(names, name)
+        end
+    end
+    return names
 end
 
 -- Two plugin-side ignore sources: the "ignore_packages" setting and a
@@ -230,7 +305,7 @@ local function loadDynamicIgnore()
     if ok and type(decoded) == "table" and type(decoded.packages) == "table" then
         for _, entry in ipairs(decoded.packages) do
             local name = trim(tostring(entry))
-            if validName(name) then
+            if validIgnoreName(name) then
                 table.insert(dynamicIgnore, name)
             end
         end
@@ -256,7 +331,7 @@ local function configIgnoreList()
     local names = {}
     for _, entry in ipairs(raw) do
         local name = trim(tostring(entry))
-        if validName(name) then
+        if validIgnoreName(name) then
             table.insert(names, name)
         elseif name ~= "" then
             noctalia.log("linux-updater: ignoring invalid package name '" .. name .. "'")
@@ -292,11 +367,33 @@ local function ignoreSet()
     return set
 end
 
+-- Settings that change what a check would count. Once any of them moves,
+-- the published numbers describe a check the new settings would not
+-- produce, so the result is dropped (back to "not checked yet") instead of
+-- shown; cosmetic settings (glyph, log lines) leave it alone. Note that a
+-- backend switch additionally needs a plugin reload to take effect — the
+-- stale count is still wrong to keep either way. Checked once per tick.
+local checkSig = nil -- nil until the startup snapshot below
+
+local function checkSignature()
+    local parts = {
+        tostring(cfg("backend")),
+        tostring(cfg("aur_helper")),
+        tostring(cfg("aur_check_cmd")),
+        tostring(cfg("flatpak_enabled")),
+        table.concat(configIgnoreList(), ","),
+    }
+    for _, extra in ipairs(EXTRAS) do
+        table.insert(parts, tostring(cfg(extra.settingKey)))
+    end
+    return table.concat(parts, "\0")
+end
+
 -- Appends to the panel-managed list without touching the current snapshot;
 -- used in bulk after a rollback when rollback_auto_ignore is on.
 local function addIgnoreName(name)
     name = trim(tostring(name or ""))
-    if not validName(name) then
+    if not validIgnoreName(name) then
         return
     end
     loadDynamicIgnore()
@@ -398,10 +495,20 @@ end
 -- back through the pacman cache.
 local function collectPendingPackages()
     local packages = {}
-    for _, source in ipairs({ { key = "pacman", entry = sources.pacman }, { key = "aur", entry = sources.aur }, { key = "flatpak", entry = sources.flatpak } }) do
+    local slots = { { key = "pacman", entry = sources.pacman }, { key = "aur", entry = sources.aur }, { key = "flatpak", entry = sources.flatpak } }
+    for _, extra in ipairs(EXTRAS) do
+        -- Check-only extras (pip) are not part of the run, so recording their
+        -- packages as applied would lie.
+        if extra.buildUpdateCommand ~= nil and extraSources[extra.key] ~= nil then
+            table.insert(slots, { key = extra.key, entry = extraSources[extra.key] })
+        end
+    end
+    for _, source in ipairs(slots) do
         for _, item in ipairs(source.entry.items or {}) do
             if #packages < MAX_RUN_PACKAGES then
-                table.insert(packages, { name = item.name, from = item.from, to = item.to, source = source.key })
+                -- commit: only Flatpak items carry one; it is what their
+                -- per-item rollback pins.
+                table.insert(packages, { name = item.name, from = item.from, to = item.to, source = source.key, commit = item.commit })
             end
         end
     end
@@ -493,7 +600,8 @@ end
 -- ── Parsing ──────────────────────────────────────────────────────────────────
 
 -- Flatpak has no "name oldver -> newver" line, so the query joins installed
--- and pending by application id (tab-separated name/from/to).
+-- and pending by application id (tab-separated name/from/to, plus the full
+-- active commit as a fourth field — that is what a rollback pins).
 local function parseTabLines(output, ignored)
     local items = {}
     local n = 0
@@ -509,7 +617,11 @@ local function parseTabLines(output, ignored)
             else
                 n += 1
                 if #items < MAX_LISTED then
-                    table.insert(items, { name = name, from = fields[2] or "", to = fields[3] or "" })
+                    local item = { name = name, from = fields[2] or "", to = fields[3] or "" }
+                    if fields[4] ~= nil and fields[4] ~= "" then
+                        item.commit = fields[4]
+                    end
+                    table.insert(items, item)
                 end
             end
         end
@@ -532,6 +644,25 @@ local function publish()
         pacman = sources.pacman,
         aur = sources.aur,
         flatpak = sources.flatpak,
+        extras = (function()
+            -- Ordered array for the panel: only the extras of the last check,
+            -- each carrying its label key so the panel needs no table of its
+            -- own. Entries with n == 0 are kept for the "Up to date" caption.
+            local list = {}
+            for _, extra in ipairs(EXTRAS) do
+                local entry = extraSources[extra.key]
+                if entry ~= nil then
+                    table.insert(list, {
+                        key = extra.key,
+                        n = entry.n,
+                        items = entry.items,
+                        label = extra.labelKey,
+                        updatable = extra.buildUpdateCommand ~= nil,
+                    })
+                end
+            end
+            return list
+        end)(),
         downloadSizeMiB = downloadSizeMiB,
         rebootRecommended = rebootRecommended,
         newsUnread = newsUnread,
@@ -549,6 +680,8 @@ local function publish()
         ignoredDynamic = dynamicIgnore or {},
         ignoredConfig = configIgnoreList(),
         polkitRule = polkitRuleInstalled,
+        sourceRollback = SOURCE_ROLLBACK,
+        nativeItemRollback = backend.rollbackItemCommand ~= nil,
         history = historyForState(),
         activity = activityHistory,
         lastUpdateAt = activityLastUpdateAt,
@@ -563,9 +696,10 @@ local function publish()
     })
 end
 
--- ── Checking pipeline: pacman → AUR → Flatpak → size → reboot → done ────────
+-- ── Checking pipeline: backend → AUR → Flatpak → extras → size → reboot ─────
 
 local checkFlatpak
+local checkExtras
 local checkSize
 local checkReboot
 local finishCheck
@@ -624,10 +758,42 @@ checkSize = function()
     end
 end
 
+-- One extra source at a time, so a slow mirror never stacks timeouts; a
+-- failing query is logged and its source left unknown for this check (not
+-- zero — "up to date" because a registry was down would be a lie).
+checkExtras = function(ignored)
+    local queue = enabledExtras()
+    local function pump()
+        local extra = table.remove(queue, 1)
+        if extra == nil then
+            checkSize()
+            return
+        end
+        step = tr(extra.labelKey)
+        publish()
+        local started = noctalia.runAsync(extra.checkCommand, function(result)
+            if result.timedOut or result.exitCode ~= 0 then
+                noctalia.log("linux-updater: " .. extra.key .. " check failed (exit "
+                    .. tostring(result.exitCode) .. (result.timedOut and ", timeout" or "") .. ")")
+                extraSources[extra.key] = nil
+            else
+                local n, items = extra.parseCheck(result.stdout, ignored, ignoredPending)
+                extraSources[extra.key] = { n = n, items = items }
+            end
+            pump()
+        end, CHECK_TIMEOUT_MS)
+        if not started then
+            noctalia.log("linux-updater: could not run the " .. extra.key .. " check")
+            pump()
+        end
+    end
+    pump()
+end
+
 checkFlatpak = function(ignored)
     if cfg("flatpak_enabled") ~= true or not noctalia.commandExists("flatpak") then
         sources.flatpak = { n = 0, items = {} }
-        checkSize()
+        checkExtras(ignored)
         return
     end
     step = tr("source.flatpak")
@@ -638,6 +804,10 @@ checkFlatpak = function(ignored)
     -- Each call's own output and exit code are captured before piping into
     -- awk, so a real flatpak failure (e.g. no remote, network down) fails
     -- the whole command instead of awk quietly succeeding on empty input.
+    -- The trailing loop appends each pending app's FULL active commit
+    -- (flatpak info -c): the `active` list column truncates to 12 chars,
+    -- and `update --commit=` rejects a prefix with a server 404 (verified
+    -- in an Ubuntu container) — only the full 64-char commit can roll back.
     local cmd = [[
 listOut=$(flatpak list --columns=application,version,active 2>/dev/null); listCode=$?
 updOut=$(flatpak remote-ls --updates --columns=application,version,commit 2>/dev/null); updCode=$?
@@ -651,25 +821,32 @@ fi
 tag=="L" { v[app]=$2; c[app]=$3 }
 tag=="R" { from=v[app]; to=$2
            if (from=="" || to=="" || from==to) { from=substr(c[app],1,7); to=substr($3,1,7) }
-           print app"\t"from"\t"to }']]
+           print app"\t"from"\t"to }' | while IFS="$(printf '\t')" read -r app from to; do
+    printf '%s\t%s\t%s\t%s\n' "$app" "$from" "$to" "$(flatpak info "$app" -c 2>/dev/null)"
+done]]
+    -- Like the AUR: a broken Flatpak check fails its own slot and the check
+    -- moves on to the extras.
     local started = noctalia.runAsync(cmd, function(result)
         if result.timedOut then
-            sources.flatpak = { n = 0, items = {} }
-            checkSize()
+            noctalia.log("linux-updater: flatpak check timed out")
+            sources.flatpak = { n = 0, items = {}, failed = true }
+            checkExtras(ignored)
             return
         end
         if result.exitCode ~= 0 then
             noctalia.log("linux-updater: flatpak check failed (exit " .. tostring(result.exitCode) .. ")")
-            failCheck(tr("err_flatpak_failed"))
+            sources.flatpak = { n = 0, items = {}, failed = true }
+            checkExtras(ignored)
             return
         end
         local n, items = parseTabLines(result.stdout, ignored)
         sources.flatpak = { n = n, items = items }
-        checkSize()
+        checkExtras(ignored)
     end, CHECK_TIMEOUT_MS)
     if not started then
-        sources.flatpak = { n = 0, items = {} }
-        checkSize()
+        noctalia.log("linux-updater: could not run the flatpak check")
+        sources.flatpak = { n = 0, items = {}, failed = true }
+        checkExtras(ignored)
     end
 end
 
@@ -698,9 +875,15 @@ local function checkAur(ignored)
     end
     step = helper == "custom" and tr("source.aur") or tr("source.aur_named", { helper = helper })
     publish()
+    -- An unreachable AUR (mirror down, RPC blocked) must not abort the whole
+    -- check: the other sources are still checkable. The slot is marked failed
+    -- so the panel reports it instead of claiming "up to date" — same idea as
+    -- the unknown extras, which a broken registry leaves out of the state.
+    local helperShown = helper == "custom" and "" or helper
     local started = noctalia.runAsync(cmd, function(result)
         if result.timedOut then
-            sources.aur = { n = 0, items = {}, helper = "" }
+            noctalia.log("linux-updater: AUR check timed out")
+            sources.aur = { n = 0, items = {}, helper = helperShown, failed = true }
             checkFlatpak(ignored)
             return
         end
@@ -710,15 +893,17 @@ local function checkAur(ignored)
         -- doesn't.
         if result.exitCode ~= 0 and trim(result.stderr or "") ~= "" then
             noctalia.log("linux-updater: AUR check failed: " .. trim(result.stderr))
-            failCheck(tr("err_aur_failed"))
+            sources.aur = { n = 0, items = {}, helper = helperShown, failed = true }
+            checkFlatpak(ignored)
             return
         end
         local n, items = backend.parseCheck(result.stdout, ignored, ignoredPending)
-        sources.aur = { n = n, items = items, helper = helper == "custom" and "" or helper }
+        sources.aur = { n = n, items = items, helper = helperShown }
         checkFlatpak(ignored)
     end, CHECK_TIMEOUT_MS)
     if not started then
-        sources.aur = { n = 0, items = {}, helper = "" }
+        noctalia.log("linux-updater: could not run the AUR check")
+        sources.aur = { n = 0, items = {}, helper = helperShown, failed = true }
         checkFlatpak(ignored)
     end
 end
@@ -737,6 +922,7 @@ startCheck = function()
     phase = "checking"
     errMsg = nil
     sources = { pacman = { n = 0, items = {} }, aur = { n = 0, items = {}, helper = "" }, flatpak = { n = 0, items = {} } }
+    extraSources = {}
     downloadSizeMiB = nil
     ignoredPending = {}
     step = tr("source.pacman")
@@ -763,8 +949,16 @@ startCheck = function()
     end
 end
 
+local function pendingTotal()
+    local sum = sources.pacman.n + sources.aur.n + sources.flatpak.n
+    for _, entry in pairs(extraSources) do
+        sum += entry.n
+    end
+    return sum
+end
+
 finishCheck = function()
-    total = sources.pacman.n + sources.aur.n + sources.flatpak.n
+    total = pendingTotal()
     step = ""
     phase = total > 0 and "ready" or "clean"
     checkedAt = noctalia.formatTime("%H:%M")
@@ -1009,16 +1203,75 @@ local function buildFlatpakPart(ignored, flags)
         .. [[if [ -n "$flatpak_refs" ]; then flatpak update]] .. flags .. [[ $flatpak_refs; fi; }]]
 end
 
+-- The extras' upgrade parts, shared by both modes (none of them prompt).
+-- Plain "update everything" normally; with a plugin ignore list the pending
+-- snapshot minus the ignored names is passed explicitly instead — the parse
+-- already routed ignored names out of items. When the snapshot is truncated
+-- (n > #items) the explicit list would silently drop packages, so it falls
+-- back to update-all with a log line: an ignore miss beats a lost update.
+local function buildExtrasParts(ignored)
+    local parts = {}
+    for _, extra in ipairs(enabledExtras()) do
+        if extra.buildUpdateCommand ~= nil then
+            local names = nil
+            local entry = extraSources[extra.key]
+            if #ignored > 0 and entry ~= nil then
+                if entry.n == #entry.items then
+                    if entry.n == 0 then
+                        -- Everything this manager had pending (if anything)
+                        -- is ignored; a plain update-all would grab it.
+                        continue
+                    end
+                    names = {}
+                    for _, item in ipairs(entry.items) do
+                        table.insert(names, shellQuote(item.name))
+                    end
+                else
+                    noctalia.log("linux-updater: " .. extra.key .. " pending list truncated, ignore list not applied")
+                end
+            end
+            table.insert(parts, extra.buildUpdateCommand(names))
+        end
+    end
+    return parts
+end
+
+-- For backends that cannot exclude per transaction (backend.ignoreByExplicitList,
+-- PackageKit): with a non-empty ignore list the pending-minus-ignored snapshot
+-- is passed as explicit (quoted) names, same policy as the extras. nil = no
+-- filtering needed; {} = everything pending is ignored, skip the upgrade.
+-- A truncated snapshot (n > #items) falls back to update-all with a log line:
+-- an ignore miss beats a lost update.
+local function nativePendingNames(ignored)
+    if backend.ignoreByExplicitList ~= true or #ignored == 0 then
+        return nil
+    end
+    if sources.pacman.n ~= #sources.pacman.items then
+        noctalia.log("linux-updater: pending list truncated, ignore list not applied to " .. backend.id)
+        return nil
+    end
+    local names = {}
+    for _, item in ipairs(sources.pacman.items) do
+        if validName(tostring(item.name or "")) then
+            table.insert(names, shellQuote(item.name))
+        end
+    end
+    return names
+end
+
 local function buildBackgroundCommand()
     local override = trim(cfg("update_cmd"))
     if override ~= "" then
         return override
     end
     local ignored = ignoreList()
-    local parts = { backend.buildBackgroundCommand(ignored) }
+    local parts = { backend.buildBackgroundCommand(nativeIgnoreNames(ignored), nativePendingNames(ignored)) }
     local flatpakPart = buildFlatpakPart(ignored, " -y --noninteractive")
     if flatpakPart ~= nil then
         table.insert(parts, flatpakPart)
+    end
+    for _, part in ipairs(buildExtrasParts(ignored)) do
+        table.insert(parts, part)
     end
     return table.concat(parts, " && ")
 end
@@ -1029,10 +1282,13 @@ end
 -- marker and re-checks when the run ends.
 local function buildTerminalCommand()
     local ignored = ignoreList()
-    local parts = { backend.buildTerminalCommand(ignored) }
+    local parts = { backend.buildTerminalCommand(nativeIgnoreNames(ignored), nativePendingNames(ignored)) }
     local flatpakPart = buildFlatpakPart(ignored, "")
     if flatpakPart ~= nil then
         table.insert(parts, flatpakPart)
+    end
+    for _, part in ipairs(buildExtrasParts(ignored)) do
+        table.insert(parts, part)
     end
     return table.concat(parts, " && ")
 end
@@ -1077,7 +1333,7 @@ local function saveRunMeta()
     if path == nil then
         return
     end
-    local encoded = noctalia.json.encode({ kind = runKind, mode = runMode, total = runTotal, packages = runPackages })
+    local encoded = noctalia.json.encode({ kind = runKind, mode = runMode, failHint = runFailHintKey, total = runTotal, packages = runPackages })
     if encoded ~= nil then
         noctalia.writeFile(path, encoded)
     end
@@ -1092,6 +1348,7 @@ local function loadRunMeta()
     if ok and type(decoded) == "table" then
         runKind = decoded.kind == "rollback" and "rollback" or "update"
         runMode = decoded.mode == "terminal" and "terminal" or "background"
+        runFailHintKey = type(decoded.failHint) == "string" and decoded.failHint or nil
         runTotal = tonumber(decoded.total) or 0
         runPackages = type(decoded.packages) == "table" and decoded.packages or nil
     end
@@ -1110,6 +1367,7 @@ local function beginRun(kind, expectTotal, mode)
     step = ""
     runKind = kind or "update"
     runMode = mode or "background"
+    runFailHintKey = nil
     runExit = nil
     runDone = 0
     runTotal = expectTotal or total
@@ -1149,9 +1407,14 @@ local function runUpdate()
 
     -- "::START <epoch>" lets a restarted engine tell a live run from a stale
     -- log; "::EXIT <code>" is the completion marker the poller waits for.
+    -- export LC_ALL=C: the progress patterns grep for English package-manager
+    -- lines ("upgrading ...", "Unpacking ..."), which the managers translate.
+    -- pkexec whitelists LC_* through its environment scrub, so the escalated
+    -- manager inherits it. Terminal runs deliberately keep the user's locale
+    -- (their window, their language) at the cost of the progress count there.
     local quoted = shellQuote(path)
     local script = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
-        .. "; { " .. buildBackgroundCommand() .. " ; } >> " .. quoted .. " 2>&1"
+        .. "; { export LC_ALL=C; " .. buildBackgroundCommand() .. " ; } >> " .. quoted .. " 2>&1"
         .. "; printf '::EXIT %s\\n' \"$?\" >> " .. quoted
 
     if not noctalia.runAsync(script) then
@@ -1193,9 +1456,10 @@ end
 -- interactive terminal run lets the user decline packages along the way.
 -- Before recording, the backend's installed-versions query weeds out entries
 -- whose installed version never left `from`: they were not actually updated,
--- so a rollback segment offering to "undo" them would lie. Flatpak entries
--- and entries without a known old version are kept as-is (display only).
--- Any failure to verify records the full snapshot, like before.
+-- so a rollback segment offering to "undo" them would lie. Flatpak and
+-- extra-source entries, and entries without a known old version, are kept
+-- as-is (display only). Any failure to verify records the full snapshot,
+-- like before.
 local function verifyAndRecordRun(kind, packages, txId)
     local function fallback()
         recordRun(kind, packages, txId)
@@ -1210,7 +1474,7 @@ local function verifyAndRecordRun(kind, packages, txId)
     end
     local names = {}
     for _, item in ipairs(packages) do
-        if item.source ~= "flatpak" and tostring(item.from or "") ~= "" and validName(tostring(item.name or "")) then
+        if nativeSource(item.source) and tostring(item.from or "") ~= "" and validName(tostring(item.name or "")) then
             table.insert(names, shellQuote(item.name))
         end
     end
@@ -1232,7 +1496,7 @@ local function verifyAndRecordRun(kind, packages, txId)
         end
         local applied = {}
         for _, item in ipairs(packages) do
-            if item.source == "flatpak" or tostring(item.from or "") == "" then
+            if not nativeSource(item.source) or tostring(item.from or "") == "" then
                 table.insert(applied, item)
             elseif installed[item.name] ~= nil and installed[item.name] ~= item.from then
                 table.insert(applied, item)
@@ -1287,7 +1551,13 @@ finishRun = function(code)
         runPackages = nil
         clearRunMeta()
         phase = "error"
-        errMsg = tr("err_run_failed", { code = tostring(code) })
+        -- A rollback with a backend-specific failure cause names it instead
+        -- of the generic exit-code line; the log stays on screen either way.
+        if runKind == "rollback" and runFailHintKey ~= nil then
+            errMsg = tr(runFailHintKey, { code = tostring(code) })
+        else
+            errMsg = tr("err_run_failed", { code = tostring(code) })
+        end
         publish()
         noctalia.notifyError(tr("title"), errMsg)
     end
@@ -1394,7 +1664,9 @@ local function resumeRunIfActive()
             return
         end
         loadRunMeta()
+        local hint = runFailHintKey -- beginRun clears it; restore the resumed run's own
         beginRun(runKind, runTotal > 0 and runTotal or nil, runMode)
+        runFailHintKey = hint
     end, FAST_TIMEOUT_MS)
     if not started then
         resumeProbed = true
@@ -1472,11 +1744,73 @@ local function reversedItem(item)
     return { name = item.name, from = item.to, to = item.from, source = item.source }
 end
 
--- Per-package rollback. The package's dependencies that were updated in the
--- same run ride along in the same transaction (pactree intersected with the
--- run's package list), so a program and its libraries move back together.
+-- Rollback of one Flatpak item: pin the full active commit recorded at
+-- check time. The full 64-char checksum is required — the server rejects
+-- a prefix with a 404. When the remote no longer serves that commit the
+-- run fails honestly in the log, nothing changes.
+local function flatpakRollbackCommand(item)
+    local name = trim(tostring(item.name or ""))
+    local commit = tostring(item.commit or "")
+    if name:match("^[%w._-]+$") == nil or commit:match("^%x+$") == nil or #commit ~= 64 then
+        return nil
+    end
+    return "flatpak update -y --noninteractive --commit=" .. commit .. " " .. shellQuote(name)
+end
+
+-- Shared detached runner for the single-command rollbacks (extras, Flatpak
+-- commit pins, dnf per-package downgrade): same log, markers and poller as
+-- everything else. failHintKey, when set, replaces the generic run-failure
+-- message so the panel can say WHY (e.g. "the old version left the
+-- repositories") instead of just an exit code.
+local function runDetachedRollback(cmd, items, failHintKey)
+    if phase == "running" or phase == "checking" then
+        return
+    end
+    local path = logPath()
+    if path == nil then
+        return
+    end
+    local quoted = shellQuote(path)
+    local script = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
+        .. "; { export LC_ALL=C; " .. cmd .. " ; } >> " .. quoted .. " 2>&1"
+        .. "; printf '::EXIT %s\\n' \"$?\" >> " .. quoted
+    if not noctalia.runAsync(script) then
+        phase = "error"
+        errMsg = tr("err_spawn")
+        publish()
+        return
+    end
+    runPackages = items
+    beginRun("rollback", #items)
+    runFailHintKey = failHintKey
+    saveRunMeta()
+end
+
+-- Per-item rollback for the non-backend sources: the manager's own command
+-- (npm/gem/cargo reinstall the recorded version, snap reverts, flatpak pins
+-- a commit). No run-mate dependency resolution — each manager handles its
+-- own.
+local function startExtraRollback(item)
+    local cmd
+    if item.source == "flatpak" then
+        cmd = flatpakRollbackCommand(item)
+    else
+        local extra = EXTRAS_BY_KEY[item.source]
+        cmd = extra ~= nil and extra.buildRollbackCommand ~= nil and extra.buildRollbackCommand(item) or nil
+    end
+    if cmd == nil then
+        return
+    end
+    runDetachedRollback(cmd, { reversedItem(item) })
+end
+
+-- Per-package rollback. Native packages go through the backend's cache path:
+-- dependencies updated in the same run ride along in the same transaction
+-- (pactree intersected with the run's package list), so a program and its
+-- libraries move back together. Everything else routes to its source's own
+-- rollback command.
 local function startRollback(payload)
-    if backend.caps.rollback ~= "cache" or type(payload) ~= "table" then
+    if type(payload) ~= "table" then
         return
     end
     local run = findRun(payload.at)
@@ -1486,17 +1820,37 @@ local function startRollback(payload)
     local name = trim(tostring(payload.pkg or ""))
     local target = nil
     for _, item in ipairs(run.packages) do
-        if item.name == name and item.source ~= "flatpak" then
+        if item.name == name then
             target = item
             break
         end
     end
-    if target == nil or not validName(name) or not versionOk(tostring(target.from or "")) then
+    if target == nil then
+        return
+    end
+    if not nativeSource(target.source) then
+        startExtraRollback(target)
+        return
+    end
+    -- Native backends without a package cache can still step one package
+    -- back through their own manager (dnf downgrade) — with the backend's
+    -- failure hint, since "the old version left the repositories" is the
+    -- usual outcome worth naming.
+    if backend.caps.rollback ~= "cache" then
+        if backend.rollbackItemCommand ~= nil then
+            local cmd = backend.rollbackItemCommand(target)
+            if cmd ~= nil then
+                runDetachedRollback(cmd, { reversedItem(target) }, backend.rollbackFailHintKey)
+            end
+        end
+        return
+    end
+    if not validName(name) or not versionOk(tostring(target.from or "")) then
         return
     end
     local runMates = {}
     for _, item in ipairs(run.packages) do
-        if item.source ~= "flatpak" and item.name ~= name and validName(item.name) and versionOk(tostring(item.from or "")) then
+        if nativeSource(item.source) and item.name ~= name and validName(item.name) and versionOk(tostring(item.from or "")) then
             runMates[item.name] = item
         end
     end
@@ -1550,7 +1904,7 @@ local function runNativeRollback(run)
     end
     local items = {}
     for _, item in ipairs(run.packages) do
-        if item.source ~= "flatpak" then
+        if nativeSource(item.source) then
             table.insert(items, reversedItem(item))
         end
     end
@@ -1582,7 +1936,7 @@ local function startRollbackRun(payload)
     local specs = {}
     local items = {}
     for _, item in ipairs(run.packages) do
-        if item.source ~= "flatpak" and validName(item.name) and versionOk(tostring(item.from or "")) then
+        if nativeSource(item.source) and validName(item.name) and versionOk(tostring(item.from or "")) then
             table.insert(specs, { name = item.name, version = item.from })
             table.insert(items, reversedItem(item))
         end
@@ -1590,29 +1944,16 @@ local function startRollbackRun(payload)
     runRollback(specs, items)
 end
 
--- Cache availability and reverse-dependency counts for one run, fetched
--- when the panel opens that run's package list: greys out packages whose
--- old file is gone and shows how many installed packages require each one.
+-- Per-item rollback feasibility and reverse-dependency counts for one run,
+-- fetched when the panel opens that run's package list: greys out packages
+-- whose old version is gone — from the package cache (cache backends) or
+-- from the repositories (backend.itemProbeSh, dnf) — so the reason appears
+-- BEFORE a doomed attempt, and shows how many installed packages require
+-- each one.
 local function probeRun(payload)
-    if backend.caps.rollback ~= "cache" then
-        return
-    end
-    local run = findRun(type(payload) == "table" and payload.at or payload)
-    if run == nil then
-        return
-    end
-    local specs = {}
-    for _, item in ipairs(run.packages) do
-        if item.source ~= "flatpak" and validName(item.name) and versionOk(tostring(item.from or "")) then
-            table.insert(specs, { name = item.name, version = item.from })
-        end
-    end
-    if #specs == 0 then
-        probeResult = { at = run.at, pkgs = {} }
-        publish()
-        return
-    end
-    local cmd = "set -- " .. specArgs(specs) .. "\n" .. backend.findPkgSh .. [[
+    local probeBody
+    if backend.caps.rollback == "cache" then
+        probeBody = backend.findPkgSh .. [[
 
 while [ "$#" -ge 2 ]; do
     if find_pkg "$1" "$2" >/dev/null; then c=ok; else c=miss; fi
@@ -1621,6 +1962,32 @@ while [ "$#" -ge 2 ]; do
     printf '%s|%s|%s\n' "$1" "$c" "$n"
     shift 2
 done]]
+    elseif backend.itemProbeSh ~= nil then
+        probeBody = [[while [ "$#" -ge 2 ]; do
+    ]] .. backend.itemProbeSh .. [[
+
+    printf '%s|%s|0\n' "$1" "$c"
+    shift 2
+done]]
+    else
+        return
+    end
+    local run = findRun(type(payload) == "table" and payload.at or payload)
+    if run == nil then
+        return
+    end
+    local specs = {}
+    for _, item in ipairs(run.packages) do
+        if nativeSource(item.source) and validName(item.name) and versionOk(tostring(item.from or "")) then
+            table.insert(specs, { name = item.name, version = item.from })
+        end
+    end
+    if #specs == 0 then
+        probeResult = { at = run.at, pkgs = {} }
+        publish()
+        return
+    end
+    local cmd = "set -- " .. specArgs(specs) .. "\n" .. probeBody
     noctalia.runAsync(cmd, function(result)
         if result.timedOut then
             return
@@ -1694,11 +2061,15 @@ end
 
 local function addIgnore(payload)
     local name = payloadPkg(payload)
-    if not validName(name) then
+    if not validIgnoreName(name) then
         return
     end
     addIgnoreName(name)
-    for _, entry in ipairs({ sources.pacman, sources.aur, sources.flatpak }) do
+    local slots = { sources.pacman, sources.aur, sources.flatpak }
+    for _, entry in pairs(extraSources) do
+        table.insert(slots, entry)
+    end
+    for _, entry in ipairs(slots) do
         for index, item in ipairs(entry.items or {}) do
             if item.name == name then
                 table.remove(entry.items, index)
@@ -1708,7 +2079,7 @@ local function addIgnore(payload)
             end
         end
     end
-    total = sources.pacman.n + sources.aur.n + sources.flatpak.n
+    total = pendingTotal()
     if phase == "ready" and total == 0 then
         phase = "clean"
     end
@@ -1777,6 +2148,7 @@ local function handle(action, payload)
         sources.pacman = { n = 0, items = {} }
         sources.aur = { n = 0, items = {}, helper = sources.aur.helper }
         sources.flatpak = { n = 0, items = {} }
+        extraSources = {}
         total = 0
         downloadSizeMiB = nil
         runExit = nil
@@ -1818,6 +2190,27 @@ function onIpc(event, payload)
 end
 
 function update()
+    local sig = checkSignature()
+    if checkSig ~= nil and sig ~= checkSig then
+        checkSig = sig
+        -- Only settled phases are dropped: a run or a check in flight
+        -- finishes under the settings it started with and re-publishes.
+        if phase == "ready" or phase == "clean" or phase == "error" then
+            phase = "idle"
+            sources = { pacman = { n = 0, items = {} }, aur = { n = 0, items = {}, helper = "" }, flatpak = { n = 0, items = {} } }
+            extraSources = {}
+            total = 0
+            downloadSizeMiB = nil
+            ignoredPending = {}
+            errMsg = nil
+            runExit = nil
+            checkedAt = ""
+            publish()
+        end
+    elseif checkSig == nil then
+        checkSig = sig
+    end
+
     if phase == "running" then
         runPollTicks += 1
         if runPollTicks >= RUN_POLL_SECONDS then

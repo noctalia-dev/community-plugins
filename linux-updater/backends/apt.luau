@@ -12,15 +12,18 @@
 --
 -- debconf prompts need no DEBIAN_FRONTEND here: with no controlling tty it
 -- falls back to its noninteractive frontend on its own, and the detached
--- runner never has one. Rollback is off: /var/cache/apt/archives is
--- routinely empty (Ubuntu cleans it) and old versions leave the repos.
+-- runner never has one. Rollback is opportunistic, from the .deb files in
+-- /var/cache/apt/archives: Debian keeps them by default, Ubuntu routinely
+-- cleans them — the run probe greys out packages whose old file is gone,
+-- so the panel never offers a rollback it cannot perform.
 
 return function(env)
     local MAX_LISTED = env.MAX_LISTED
+    local shellQuote = env.shellQuote
 
     local backend = {
         id = "apt",
-        caps = { bgUpdate = true, size = false, rollback = false, news = false, aur = false },
+        caps = { bgUpdate = true, size = false, rollback = "cache", news = false, aur = false },
         checkTool = "apt-get",
         missingToolKey = "err_no_apt",
         nativeLabelKey = "source.system",
@@ -133,6 +136,34 @@ polkit.addRule(function(action, subject) {
     end
 
     backend.rebootCommand = [[test -f /var/run/reboot-required && echo missing || echo present]]
+
+    -- sh helper: prints the cached .deb for "name version". The filename
+    -- encodes the epoch colon as %3a ("1:2.0-1" -> "1%3a2.0-1"); the arch
+    -- part is globbed (amd64/arm64/all).
+    backend.findPkgSh = [[find_pkg() {
+ver=$(printf '%s' "$2" | sed 's/:/%3a/g')
+for f in /var/cache/apt/archives/"$1"_"$ver"_*.deb; do
+    if [ -f "$f" ]; then printf '%s\n' "$f"; return 0; fi
+done
+return 1
+}]]
+
+    -- apt-get resolves dependencies for local .deb paths and refuses the
+    -- whole transaction if the downgrade would break other packages —
+    -- the same semantics the pacman cache path relies on.
+    backend.rollbackInstall = "pkexec apt-get install -y --allow-downgrades"
+        .. " -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
+
+    -- Recursive installed-dependency names of a package, one per line, for
+    -- the run-mates resolution (virtual <names> unwrapped).
+    function backend.depsListCommand(name)
+        return "apt-cache depends --recurse --installed " .. shellQuote(name)
+            .. [[ 2>/dev/null | awk '/^ *(Pre)?Depends:/{gsub(/[<>]/,"",$2); print $2}']]
+    end
+
+    -- Installed reverse dependencies count for "$1"; the first two rdepends
+    -- lines are the package name and the "Reverse Depends:" header.
+    backend.reverseDepsCountSh = [[n=$(apt-cache rdepends --installed "$1" 2>/dev/null | tail -n +3 | wc -l)]]
 
     -- The unprivileged check depends on the apt-daily timers keeping the
     -- package lists fresh; offer to enable them when they are off.

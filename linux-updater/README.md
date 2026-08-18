@@ -24,10 +24,14 @@ automatically from `/etc/os-release`.
   installed versions, so declined packages are not recorded).
 - **Update history with rollback.** Every finished run becomes a segment on
   the history strip (hover for date and size, click for the package list).
-  On Arch, single packages or whole runs roll back from the package cache —
-  dependencies from the same run travel along, and pacman refuses anything
-  that would break other packages. On Fedora a whole run is undone with
-  `dnf history undo`. A second click confirms every rollback.
+  Rollback takes whatever road the distribution offers: on Arch and
+  Debian/Ubuntu single packages or whole runs come back from the package
+  cache (dependencies from the same run travel along, and the package
+  manager refuses anything that would break other packages), on Fedora a
+  whole run is undone with `dnf history undo` and single packages with
+  `dnf downgrade` while the old version is still in a repo. Buttons grey
+  out with the reason when the cached file or repo version is gone. A
+  second click confirms every rollback.
 - **Ignore management.** Every package row has an ignore button; ignored
   packages live in an expandable section with restore buttons. The system's
   own mechanisms (`IgnorePkg`, `apt-mark hold`) are detected and shown with
@@ -41,6 +45,16 @@ automatically from `/etc/os-release`.
   off (the polkit rule, apt's list-refresh timers), the panel says so and
   offers a one-click, one-confirmation fix. Nothing is ever changed
   silently.
+- **Extra sources (opt-in).** Beyond the system manager: global npm
+  packages, cargo-installed binaries (via cargo-update), RubyGems, Snap
+  and Homebrew can each be checked and updated in the same run, and pip
+  can be checked (check-only by design: distribution Pythons are
+  externally managed, PEP 668). Each is its own off-by-default toggle and
+  is silently skipped when its tool is absent. They work with any
+  backend, like Flatpak — and most of them roll back too, each through
+  its manager's own mechanism: npm/gem/cargo reinstall the recorded old
+  version, snap reverts to the locally kept previous revision, and
+  Flatpak apps pin the previous commit recorded at check time.
 - **Extras.** Download-size estimate and Arch news (pacman backend), AUR
   via paru/yay, Flatpak on every backend, reboot recommendation with the
   best available method per distribution, desktop notifications, launcher
@@ -63,14 +77,25 @@ automatically from `/etc/os-release`.
 | Background update | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Old→new versions in the list | ✓ | ✓ | ✓ | ✓ | new only | new only |
 | Download size estimate | ✓ | — | — | — | — | — |
-| Rollback | per package / per run, from the package cache | whole run, `dnf history undo` | — | — (use snapper) | — | — |
+| Rollback | per package / per run, from the package cache | whole run (`dnf history undo`) + per package (`dnf downgrade`, while the old version is in a repo) | per package / per run, from the apt archive cache (kept on Debian, routinely cleaned on Ubuntu; gone entries are greyed out) | — (use snapper) | — | — |
 | System ignore shown | `IgnorePkg` | — | `apt-mark hold` | — | — | — |
-| Plugin ignore honored on update | `--ignore` | `--exclude` | hold for the run | lock for the run | hold for the run | display only |
+| Plugin ignore honored on update | `--ignore` | `--exclude` | hold for the run | lock for the run | hold for the run | explicit pending-minus-ignored list |
 | Distribution news | Arch news feed | — | — | — | — | — |
 | AUR layer | ✓ (paru/yay) | — | — | — | — | — |
 | Reboot detection | kernel modules | `needs-restarting` | `/var/run/reboot-required` | `zypper needs-rebooting` | kernel modules | kernel modules |
 
-Flatpak checking and updating works on every backend. NixOS is not
+Flatpak checking and updating works on every backend, and so do the
+opt-in extra sources (npm, Cargo, pip [check-only], RubyGems, Snap,
+Homebrew) — they ride along with the update run, honor the plugin ignore
+list, and offer per-item rollback where their manager has a mechanism
+for it: `npm -g install <old>`, `gem install -v <old>`,
+`cargo install --version <old>`, `snap revert`, and
+`flatpak update --commit=<recorded>` for Flatpak apps. pip and Homebrew
+have none. A secondary source that cannot be checked (an unreachable AUR
+mirror, a registry that is down) fails only itself: the remaining sources
+are still checked, and the panel reports the failed one instead of
+counting it as up to date. Only a failure of the system package manager's
+own check stops the run. NixOS is not
 supported by design (see
 [nix-monitor](https://noctalia.dev/plugins/avivbintangaringga/nix-monitor)
 instead); Gentoo has no backend yet — the backend interface in
@@ -100,6 +125,9 @@ one system.
 - Optional: `paru`/`yay` (AUR, Arch family), `flatpak`, `xdg-open` (open
   package pages), `less` (full-log pager), `sudo` + a terminal emulator
   for terminal-mode updates and the **Retry in terminal** fallback.
+- Optional, only when the matching extra source is enabled: `npm`,
+  `cargo-install-update` (from cargo-update), `pip`, `gem`, `snap`,
+  `brew`.
 
 ## Usage
 
@@ -143,6 +171,12 @@ fuzzy-search pending packages.
 | `aur_helper` | `select` | `auto` | AUR helper (Arch family only): auto/yay/paru/custom/off. |
 | `aur_check_cmd` | `string` | *(empty)* | Custom AUR check command when `aur_helper` is `custom`. |
 | `flatpak_enabled` | `bool` | `true` | Also check and update Flatpak. |
+| `npm_enabled` | `bool` | `false` | Also check and update global npm packages. |
+| `cargo_enabled` | `bool` | `false` | Also check and update cargo-installed binaries (needs cargo-update). |
+| `pip_enabled` | `bool` | `false` | Also check outdated pip packages (check-only, PEP 668). |
+| `gem_enabled` | `bool` | `false` | Also check and update RubyGems. |
+| `snap_enabled` | `bool` | `false` | Also check and update snaps (snapd's own polkit). |
+| `brew_enabled` | `bool` | `false` | Also check and update Homebrew packages. |
 | `ignore_packages` | `string_list` | *(empty)* | Packages excluded from the count and skipped on update (see matrix for the mechanism per backend). |
 | `auto_check_hours` | `int` | `0` | Check automatically every N hours; 0 never. |
 | `notify_on_updates` | `bool` | `true` | Desktop notification when updates are found. |
@@ -158,6 +192,11 @@ fuzzy-search pending packages.
 | `log_lines` | `int` | `14` | Log lines shown during a run (6–30). |
 | `terminal` | `string` | *(empty)* | Terminal for terminal-mode updates and the fallback; empty uses Noctalia's detection. |
 | `update_cmd` | `string` | *(empty)* | Full override for the background update command. |
+
+Settings that change what a check would count (backend, AUR helper, the
+Flatpak and extra-source toggles, the ignore list) invalidate the last
+result: the panel returns to "Not checked yet" instead of showing numbers
+the new settings would not produce. Cosmetic settings leave it alone.
 
 ## IPC
 
@@ -179,8 +218,12 @@ noctalia msg plugin umedbazarov/linux-updater:service all unignore:NAME
   polkit path, or `sudo` in terminal mode), detached, logged to
   `<data>/update.log` and followed with `tail`;
   `flatpak list/remote-ls/update`; `pactree`/`rpm`/`dpkg-query`/`apt-mark`/
-  `zypper locks`/`xbps-pkgdb` where the matrix says so. The full command
-  list is declared in `dependencies` in `plugin.toml`.
+  `zypper locks`/`xbps-pkgdb` where the matrix says so; and, per enabled
+  extra source, its own read-only listing (`npm -g outdated`,
+  `cargo install-update --list`, `pip list --outdated`, `gem outdated`,
+  `snap refresh --list`, `brew outdated`) plus its update command in the
+  run. The full command list is declared in `dependencies` in
+  `plugin.toml`.
 - **Privileges.** Escalation only through polkit, only for package-manager
   binaries; the optional keep-authorization rules (shipped in `polkit/`,
   installable from the panel with one confirmed click) are scoped to those
@@ -209,12 +252,30 @@ Honest coverage, so expectations are set right:
   fixtures live in `fixtures/`, the test harness is `tests/run.sh` (needs
   the `luau` CLI; not wired into this repository's CI, which validates
   manifests only).
+- **Rollback and ignore paths verified in containers:** the apt cache
+  rollback (Ubuntu 24.04: a curl+libcurl4t64 pair downgraded in one
+  transaction from `/var/cache/apt/archives`, epoch-encoded filenames),
+  the dnf per-package downgrade (Fedora 41: exact-version downgrade
+  succeeds while the version is in a repo; the repoquery probe answers
+  ok/miss so the panel can grey the button with the reason), and
+  PackageKit's explicit-list update (Fedora 41 with a hand-started
+  dbus/polkitd: `pkcon update curl` upgraded curl and left the
+  "ignored" package untouched).
+- **Extra sources: verified in containers** — full update → rollback
+  cycles for npm (node:22), RubyGems (ruby:3.3) and Cargo (rust:1) with
+  the plugin's exact commands; pip's outdated listing (python:3.12); and
+  the whole Flatpak commit story on Ubuntu 24.04 (downgrade by full
+  commit works, a 12-char prefix is rejected by the server — which is why
+  the check records the full active commit). The fixtures under
+  `fixtures/extras/` are these containers' real outputs. **Snap and
+  Homebrew parsers are written from documented formats only** (snapd
+  needs systemd, brew a full bootstrap — neither fits a container run).
 - **Not yet verified by anyone:** live polkit dialogs and the full UI on
   non-Arch distributions (containers cannot reproduce a polkit session),
   the dnf4 output branch (fixtures cover dnf5), Debian-specific deviations
-  from Ubuntu. Treat non-Arch backends as **beta** — the capability matrix
-  above is enforced in code, so the worst case is a missing feature, not a
-  broken system.
+  from Ubuntu, snap/brew against live tools. Treat non-Arch backends as
+  **beta** — the capability matrix above is enforced in code, so the
+  worst case is a missing feature, not a broken system.
 
 **I would be genuinely glad to see this tested on other package managers
 and distributions — Fedora, Ubuntu/Debian/Mint, openSUSE, Void, anything

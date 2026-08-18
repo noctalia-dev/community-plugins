@@ -130,5 +130,29 @@ fi]]
         return "pkexec dnf -y history undo " .. tostring(txId)
     end
 
+    -- Per-package rollback: downgrade to the exact recorded version
+    -- (name-[epoch:]version-release). Only possible while that version is
+    -- still in an enabled repository — Fedora's base repo keeps the GA
+    -- version forever, but intermediate updates disappear.
+    function backend.rollbackItemCommand(item)
+        local name = tostring(item.name or "")
+        local from = tostring(item.from or "")
+        if name:match("^[%w._+-]+$") == nil or from:match("^[%w:._+~^-]+$") == nil then
+            return nil
+        end
+        return "pkexec dnf -y downgrade " .. env.shellQuote(name .. "-" .. from)
+    end
+
+    -- Availability probe for "$1" (name) "$2" (version), run when a history
+    -- run is opened: sets c=ok when the exact old version is still in the
+    -- repositories, c=miss otherwise, so the panel can grey the button and
+    -- say why BEFORE a doomed attempt. -C keeps it on the local metadata
+    -- cache — no network, and an unreadable cache degrades to miss.
+    backend.itemProbeSh = [[if [ -n "$(dnf -q -C repoquery --qf '%{name}' "$1-$2" 2>/dev/null | head -n 1)" ]; then c=ok; else c=miss; fi]]
+
+    -- Shown instead of the generic run-failure text when a per-package
+    -- rollback exits non-zero: the by-far-usual cause is worth naming.
+    backend.rollbackFailHintKey = "err_dnf_rollback_unavailable"
+
     return backend
 end

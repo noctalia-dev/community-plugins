@@ -63,8 +63,9 @@ polkit.addRule(function(action, subject) {
 
     -- checkupdates exits 2 for "no updates" (not an error), 1 for a real
     -- failure. Normalize the former to 0 so only a genuine failure reaches
-    -- the engine.
-    backend.checkCommand = [[checkupdates 2>/dev/null; code=$?; if [ "$code" -eq 2 ]; then exit 0; fi; exit "$code"]]
+    -- the engine. LC_ALL=C: pacman translates the "[ignored]" marker the
+    -- parser keys on ("[Ignoriert]" on a German system).
+    backend.checkCommand = [[LC_ALL=C checkupdates 2>/dev/null; code=$?; if [ "$code" -eq 2 ]; then exit 0; fi; exit "$code"]]
 
     -- One "name oldver -> newver" line per package: checkupdates' format,
     -- which yay -Qua and paru -Qua also use. A trailing "[ignored]" is
@@ -123,8 +124,9 @@ polkit.addRule(function(action, subject) {
             return raw ~= "" and raw or nil
         end
         -- stderr is inspected by the engine to tell a real failure from the
-        -- "-Qua" family's usual no-updates exit code.
-        return helper .. " -Qua"
+        -- "-Qua" family's usual no-updates exit code. LC_ALL=C for the same
+        -- reason as the check: the helpers are localized too.
+        return "LC_ALL=C " .. helper .. " -Qua"
     end
 
     local function ignoreFlag(ignored)

@@ -59,13 +59,22 @@ end
 
 -- Opens a generic Arch package search instead of a per-repo mirror URL, so
 -- it stays correct across Arch-based distros.
+local PACKAGE_URLS = {
+    aur = "https://aur.archlinux.org/packages/",
+    flatpak = "https://flathub.org/apps/",
+    npm = "https://www.npmjs.com/package/",
+    cargo = "https://crates.io/crates/",
+    pip = "https://pypi.org/project/",
+    gem = "https://rubygems.org/gems/",
+    snap = "https://snapcraft.io/",
+    brew = "https://formulae.brew.sh/formula/",
+}
+
 local function openPackage(sourceKey, name)
     if sourceKey == "pacman" then
         openUrl("https://archlinux.org/packages/?q=" .. noctalia.string.urlEncode(name))
-    elseif sourceKey == "aur" then
-        openUrl("https://aur.archlinux.org/packages/" .. noctalia.string.urlEncode(name))
-    elseif sourceKey == "flatpak" then
-        openUrl("https://flathub.org/apps/" .. noctalia.string.urlEncode(name))
+    elseif PACKAGE_URLS[sourceKey] ~= nil then
+        openUrl(PACKAGE_URLS[sourceKey] .. noctalia.string.urlEncode(name))
     end
 end
 
@@ -150,10 +159,20 @@ local function sourceLabel(key, entry)
     if key == "pacman" and snapshot ~= nil and type(snapshot.nativeLabel) == "string" then
         return tr(snapshot.nativeLabel)
     end
+    -- Extra sources carry their own label key in the state entry.
+    if type(entry.label) == "string" then
+        return tr(entry.label)
+    end
     return tr("source." .. key)
 end
 
-local SOURCE_GLYPHS = { pacman = "package", aur = "cloud", flatpak = "app-window" }
+local SOURCE_GLYPHS = { pacman = "package", aur = "cloud", flatpak = "app-window", npm = "box", cargo = "box", pip = "box", gem = "box", snap = "box", brew = "box" }
+
+-- Sources whose packages the backend itself installed — the only ones the
+-- rollback controls apply to.
+local function nativeSource(source)
+    return source == "pacman" or source == "aur"
+end
 
 local function sourceGlyph(key)
     return SOURCE_GLYPHS[key] or "package"
@@ -170,6 +189,9 @@ local function orderedSources()
         { key = "aur", entry = snapshot.aur },
         { key = "flatpak", entry = snapshot.flatpak },
     }
+    for _, extra in ipairs(type(snapshot.extras) == "table" and snapshot.extras or {}) do
+        table.insert(candidates, { key = extra.key, entry = extra })
+    end
     local pending = {}
     for _, candidate in ipairs(candidates) do
         if type(candidate.entry) == "table" and (candidate.entry.n or 0) > 0 then
@@ -197,8 +219,33 @@ local function cleanSources()
     if snapshot.aur ~= nil and (snapshot.aur.n or 0) == 0 and noctalia.getConfig("aur_helper") ~= "off" then
         table.insert(candidates, { key = "aur", entry = snapshot.aur })
     end
+    -- Extras appear here only when their check actually ran this round.
+    for _, extra in ipairs(type(snapshot.extras) == "table" and snapshot.extras or {}) do
+        table.insert(candidates, { key = extra.key, entry = extra })
+    end
     for _, candidate in ipairs(candidates) do
-        if type(candidate.entry) == "table" and (candidate.entry.n or 0) == 0 then
+        -- A failed slot also has n == 0, but "up to date" is exactly what it
+        -- doesn't know — those go to failedSources() instead.
+        if type(candidate.entry) == "table" and (candidate.entry.n or 0) == 0 and candidate.entry.failed ~= true then
+            table.insert(names, sourceLabel(candidate.key, candidate.entry))
+        end
+    end
+    return names
+end
+
+-- Sources whose check could not complete this round (mirror down, registry
+-- unreachable): the rest of the check went on without them.
+local function failedSources()
+    if snapshot == nil then
+        return {}
+    end
+    local names = {}
+    local candidates = {
+        { key = "aur", entry = snapshot.aur },
+        { key = "flatpak", entry = snapshot.flatpak },
+    }
+    for _, candidate in ipairs(candidates) do
+        if type(candidate.entry) == "table" and candidate.entry.failed == true then
             table.insert(names, sourceLabel(candidate.key, candidate.entry))
         end
     end
@@ -711,27 +758,89 @@ local function rollbackButton(key, tooltip, onConfirm)
     })
 end
 
+-- What kind of per-item rollback a non-backend source offers ("version",
+-- "revert" or "commit"), published by the engine; nil = none.
+local function sourceRollbackKind(source)
+    if snapshot ~= nil and type(snapshot.sourceRollback) == "table" then
+        return snapshot.sourceRollback[source]
+    end
+    return nil
+end
+
+-- The rollback control of one non-native item: the source's own command
+-- needs the recorded old version (npm/gem/cargo), nothing at all (snap
+-- revert), or the recorded Flatpak commit. Items lacking that data get the
+-- plain glyph.
+local function extraRollbackControl(key, run, item)
+    local kind = sourceRollbackKind(item.source)
+    local from = tostring(item.from or "")
+    local tooltip = nil
+    if kind == "revert" then
+        tooltip = tr("tip_rollback_revert")
+    elseif kind == "version" and from ~= "" then
+        tooltip = tr("tip_rollback_extra", { version = from })
+    elseif kind == "commit" and type(item.commit) == "string" then
+        tooltip = tr("tip_rollback_commit")
+    end
+    if tooltip == nil then
+        return nil
+    end
+    return rollbackButton(key, tooltip, function()
+        request("rollback", { pkg = item.name, at = run.at })
+    end)
+end
+
+-- Whether this native item can offer a per-package rollback and how:
+-- "cache" (the backend's package cache, run-mates ride along) or "item"
+-- (the manager's own downgrade, dnf). nil = dots.
+local function nativeItemKind(run)
+    if rollbackAvailable() then
+        return "cache"
+    end
+    -- The manager's downgrade only goes backwards, so a rollback entry
+    -- (whose "old" version is the newer one) gets no button — the way
+    -- forward from there is a plain Update.
+    if snapshot ~= nil and snapshot.nativeItemRollback == true and run.rollback ~= true then
+        return "item"
+    end
+    return nil
+end
+
 local function rollbackRow(run, index, item, probePkgs)
     local key = "rb-" .. tostring(run.at) .. "-" .. index
     local info = probePkgs ~= nil and probePkgs[item.name] or nil
     local children = {}
+    local kind = nativeSource(item.source) and nativeItemKind(run) or nil
 
-    if item.source == "flatpak" or not rollbackAvailable() then
-        table.insert(children, ui.glyph({
+    if not nativeSource(item.source) then
+        table.insert(children, extraRollbackControl(key, run, item) or ui.glyph({
             name = item.source == "flatpak" and "app-window" or "point",
             size = 12,
             color = "on_surface_variant",
         }))
+    elseif kind == nil then
+        table.insert(children, ui.glyph({
+            name = "point",
+            size = 12,
+            color = "on_surface_variant",
+        }))
     elseif info ~= nil and info.cache ~= true then
+        -- The probe says the old version is gone — from the cache or from
+        -- the repositories; the tooltip names which.
         table.insert(children, ui.button({
             key = key .. "-miss",
             glyph = "undo", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
             enabled = false,
-            tooltip = tr("rollback_missing"),
+            tooltip = tr(kind == "cache" and "rollback_missing" or "rollback_missing_repo"),
             onClick = function() end,
         }))
     else
-        local tooltip = tr("tip_rollback", { version = tostring(item.from or "") })
+        local tooltip
+        if kind == "cache" then
+            tooltip = tr("tip_rollback", { version = tostring(item.from or "") })
+        else
+            tooltip = tr("tip_rollback_item", { version = tostring(item.from or "") })
+        end
         if info ~= nil and (info.req or 0) > 0 then
             tooltip = tooltip .. "\n" .. noctalia.trp("rollback_required_by", info.req, { count = info.req })
         end
@@ -777,7 +886,7 @@ local function runViewRows()
     }
     local rollable = 0
     for _, item in ipairs(run.packages or {}) do
-        if item.source ~= "flatpak" then
+        if nativeSource(item.source) then
             rollable += 1
         end
     end
@@ -1048,6 +1157,20 @@ render = function()
         }),
         ui.label({ text = text, color = color, maxLines = 2 }),
     }
+
+    -- A source whose check failed is announced right under the headline —
+    -- at the bottom it read as fine print, and "up to date" without it
+    -- would be a lie.
+    if not busy() then
+        for _, name in ipairs(failedSources()) do
+            table.insert(children, ui.label({
+                text = tr("check_failed_source", { source = name }),
+                fontSize = 11,
+                color = "error",
+                maxLines = 2,
+            }))
+        end
+    end
 
     for _, node in ipairs(body()) do
         table.insert(children, node)

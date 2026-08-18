@@ -39,10 +39,9 @@
     "one": "1 package ignored",
     "other": "{count} packages ignored"
   },
-  "err_aur_failed": "AUR check failed, see the system log for details",
+  "check_failed_source": "{source} check failed, see the system log for details",
   "err_check_failed": "The update check failed, see the system log for details",
   "err_check_timeout": "Timed out while checking for updates",
-  "err_flatpak_failed": "Flatpak check failed, see the system log for details",
   "err_no_apt": "apt-get not found, this backend needs the Debian package manager",
   "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
   "err_no_dnf": "dnf not found, this backend needs the Fedora package manager",
@@ -88,8 +87,10 @@
   },
   "polkit_hint": "Polkit asks for a password several times per update",
   "reboot_recommended": "Reboot recommended, the running kernel is no longer installed",
+  "err_dnf_rollback_unavailable": "Rollback failed (exit {code}): dnf could not install the old version — it has most likely left the repositories. The log below has dnf's own message.",
   "rollback_confirm": "Sure?",
   "rollback_missing": "The old version is no longer in the package cache",
+  "rollback_missing_repo": "The old version is no longer available in the repositories",
   "rollback_required_by": {
     "one": "Careful: 1 installed package requires it",
     "other": "Careful: {count} installed packages require it"
@@ -132,6 +133,30 @@
     "auto_check_hours": {
       "description": "Check for updates automatically every N hours. 0 (default) never checks on its own.",
       "label": "Auto-check interval (hours)"
+    },
+    "brew_enabled": {
+      "description": "Also check and update Homebrew packages ('brew outdated' / 'brew upgrade'). Skipped when brew is not installed.",
+      "label": "Include Homebrew"
+    },
+    "cargo_enabled": {
+      "description": "Also check and update cargo-installed binaries via cargo-update ('cargo install-update'). Skipped when cargo-install-update is not installed.",
+      "label": "Include Cargo binaries"
+    },
+    "gem_enabled": {
+      "description": "Also check and update RubyGems ('gem outdated' / 'gem update'). Skipped when gem is not installed.",
+      "label": "Include RubyGems"
+    },
+    "npm_enabled": {
+      "description": "Also check and update global npm packages ('npm -g outdated' / 'npm -g update'). Skipped when npm is not installed; a root-owned global prefix will make the update step fail — use a user-level prefix (nvm, fnm).",
+      "label": "Include npm (global)"
+    },
+    "pip_enabled": {
+      "description": "Also check outdated pip packages ('pip list --outdated'). Check-only: the update run never touches them, because distribution Pythons are externally managed (PEP 668) and blind upgrades break environments.",
+      "label": "Include pip (check only)"
+    },
+    "snap_enabled": {
+      "description": "Also check and update snaps ('snap refresh --list' / 'snap refresh'). Skipped when snap is not installed; the refresh escalates through snapd's own polkit policies.",
+      "label": "Include Snap"
     },
     "backend": {
       "description": "Which package-manager backend drives checks and updates. Auto detects the distribution from /etc/os-release: Arch and derivatives get the native pacman backend, everything else falls back to PackageKit.",
@@ -220,8 +245,14 @@
   "source": {
     "aur": "AUR",
     "aur_named": "AUR ({helper})",
+    "brew": "Homebrew",
+    "cargo": "Cargo",
     "flatpak": "Flatpak",
+    "gem": "RubyGems",
+    "npm": "npm",
     "pacman": "Pacman",
+    "pip": "pip",
+    "snap": "Snap",
     "system": "System"
   },
   "status_checking": "Checking for updates…",
@@ -244,7 +275,11 @@
   "tip_ignore": "Ignore this package: hide it from the count and skip it on update",
   "tip_open_page": "Open package page",
   "tip_polkit_install": "Install a polkit rule (asks for your password once): afterwards one password covers a whole update run, kept for ~5 minutes like sudo. Note: the rule applies to any pkexec launch of the package-manager binaries from your active local session, not only this plugin.",
-  "tip_rollback": "Roll back to {version}, together with its dependencies from this run. pacman refuses the whole transaction if it would break other packages.",
+  "tip_rollback": "Roll back to {version}, together with its dependencies from this run. The package manager refuses the whole transaction if it would break other packages.",
+  "tip_rollback_item": "Downgrade to {version} with the package manager. Works while the old version is still in the repositories.",
+  "tip_rollback_commit": "Roll back this Flatpak app to its previous commit. If the remote no longer serves it, the run fails without changing anything.",
+  "tip_rollback_extra": "Reinstall version {version} through this package manager; it resolves its own dependencies.",
+  "tip_rollback_revert": "Revert to the previous revision, which snapd keeps locally.",
   "tip_rollback_run": "Downgrade every package of this run in one transaction",
   "tip_run_terminal": "Open a terminal window where prompts work normally",
   "tip_unignore": "Stop ignoring this package",

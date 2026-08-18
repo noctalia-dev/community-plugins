@@ -149,6 +149,111 @@ eq(items[1].name, "libarchive", "xbps name")
 eq(items[1].to, "3.8.9_1", "xbps version")
 '
 
+# ── extra sources: one parser per manager, factory returns the whole array ──
+run_extra() {
+    fixture=$1
+    key=$2
+    asserts=$3
+    run_case extras.luau "$fixture" "
+local byKey = {}
+for _, e in ipairs(backend) do byKey[e.key] = e end
+local extra = byKey[\"$key\"] or fatal(\"extra $key missing\")
+local ign = {}
+local n, items = extra.parseCheck(FIXTURE, {}, ign)
+$asserts"
+}
+run_extra fixtures/extras/npm-outdated-parseable.txt npm '
+eq(n, 4, "npm count")
+eq(items[1].name, "corepack", "npm name")
+eq(items[1].from, "0.34.6", "npm current")
+eq(items[1].to, "0.35.0", "npm wanted")
+eq(items[3].name, "semver", "npm plain package")
+eq(items[4].name, "@angular/cli", "npm scoped name keeps its prefix")
+eq(items[4].from, "18.2.8", "npm scoped current")
+eq(extra.buildRollbackCommand(items[3]), "npm -g install '\''semver@7.5.0'\''", "npm rollback reinstalls the old version")
+eq(extra.buildRollbackCommand(items[4]), "npm -g install '\''@angular/cli@18.2.8'\''", "npm scoped rollback")
+eq(extra.buildRollbackCommand({ name = "x", from = "" }), nil, "npm rollback needs a recorded old version")
+local ign2 = {}
+local n2 = extra.parseCheck(FIXTURE, { ["@angular/cli"] = true }, ign2)
+eq(n2, 3, "scoped ignore drops from the count")
+eq(ign2[1].name, "@angular/cli", "scoped ignore routed to the ignored section")
+'
+run_extra fixtures/extras/cargo-install-update-list.txt cargo '
+eq(n, 1, "cargo count (No rows, header and registry-poll line skipped)")
+eq(items[1].name, "ripgrep", "cargo name")
+eq(items[1].from, "14.0.3", "cargo installed, v stripped")
+eq(items[1].to, "15.2.0", "cargo latest")
+eq(extra.buildRollbackCommand(items[1]), "cargo install --force --version '\''14.0.3'\'' '\''ripgrep'\''", "cargo rollback pins the version")
+'
+run_extra fixtures/extras/pip-list-outdated.txt pip '
+eq(n, 2, "pip count (both header lines skipped)")
+eq(items[2].name, "requests", "pip name")
+eq(items[2].from, "2.31.0", "pip installed")
+eq(items[2].to, "2.34.2", "pip latest")
+eq(extra.buildUpdateCommand, nil, "pip stays check-only")
+eq(extra.rollbackKind, nil, "pip has no rollback")
+'
+run_extra fixtures/extras/gem-outdated.txt gem '
+eq(n, 3, "gem count")
+eq(items[2].name, "rake", "gem name")
+eq(items[2].from, "13.1.0", "gem installed (highest of the side-by-side versions)")
+eq(items[2].to, "13.4.2", "gem latest")
+eq(items[3].from, "6.6.3.1", "gem four-part version")
+eq(
+    extra.buildRollbackCommand(items[2]),
+    "gem uninstall -x -I '\''rake'\'' -v '\''13.4.2'\'' >/dev/null 2>&1; gem install '\''rake'\'' -v '\''13.1.0'\''",
+    "gem rollback removes the new version, then ensures the old one"
+)
+'
+run_extra fixtures/extras/snap-refresh-list.txt snap '
+eq(n, 2, "snap count (header skipped)")
+eq(items[2].name, "firefox", "snap name")
+eq(items[2].from, "", "snap has no old version")
+eq(items[2].to, "130.0.1-1", "snap new version")
+eq(extra.rollbackKind, "revert", "snap rollback is a revert")
+eq(extra.buildRollbackCommand(items[2]), "snap revert '\''firefox'\''", "snap revert needs no version")
+'
+run_extra fixtures/extras/brew-outdated-quiet.txt brew '
+eq(n, 2, "brew count")
+eq(items[1].name, "wget", "brew name")
+eq(items[1].to, "", "brew reports names only")
+eq(extra.rollbackKind, nil, "brew has no rollback")
+'
+
+# ── packagekit: ignore honored via an explicit pending-minus-ignored list ────
+run_case backends/packagekit.luau /dev/null '
+eq(backend.buildBackgroundCommand({}, nil), "pkcon -y --plain refresh && pkcon -y --plain update", "pk no filter = update all")
+eq(
+    backend.buildBackgroundCommand({"x"}, {"'\''curl'\''", "'\''vim'\''"}),
+    "pkcon -y --plain refresh && pkcon -y --plain update '\''curl'\'' '\''vim'\''",
+    "pk explicit names"
+)
+eq(backend.buildBackgroundCommand({"x"}, {}), "pkcon -y --plain refresh", "pk everything ignored = refresh only")
+eq(backend.ignoreByExplicitList, true, "pk asks the engine for the pending list")
+'
+
+# ── apt: opportunistic cache rollback pieces ─────────────────────────────────
+run_case backends/apt.luau /dev/null '
+eq(backend.caps.rollback, "cache", "apt rollback is cache-kind")
+if backend.findPkgSh:find("%3a", 1, true) == nil then fatal("apt findPkgSh must encode the epoch colon as %3a") end
+if backend.rollbackInstall:find("--allow-downgrades", 1, true) == nil then fatal("apt rollback install needs --allow-downgrades") end
+if backend.depsListCommand("curl"):find("--recurse --installed", 1, true) == nil then fatal("apt deps list must be recursive and installed-only") end
+'
+
+# ── dnf: per-item downgrade with reasoned failure ────────────────────────────
+run_case backends/dnf.luau /dev/null '
+eq(
+    backend.rollbackItemCommand({ name = "openssl-libs", from = "1:3.2.2-9.fc41" }),
+    "pkexec dnf -y downgrade '\''openssl-libs-1:3.2.2-9.fc41'\''",
+    "dnf downgrade pins the exact recorded version, epoch included"
+)
+eq(backend.rollbackItemCommand({ name = "curl", from = "" }), nil, "dnf item rollback needs a recorded version")
+if backend.itemProbeSh:find("repoquery", 1, true) == nil or backend.itemProbeSh:find("%-C", 1) == nil then
+    fatal("dnf probe must be a cache-only repoquery")
+end
+eq(backend.rollbackFailHintKey, "err_dnf_rollback_unavailable", "dnf failure names its cause")
+'
+
 # ── fail-closed ignores: the upgrade must be gated (&&) on refresh/hold/lock
 # setup, never chained with ";" — a failed hold must stop the upgrade ────────
 check_gated() {

@@ -31,13 +31,23 @@ end
 
 local SOURCE_GLYPH = { pacman = "package", aur = "box", flatpak = "app-window" }
 
+local PACKAGE_URLS = {
+    aur = "https://aur.archlinux.org/packages/",
+    flatpak = "https://flathub.org/apps/",
+    npm = "https://www.npmjs.com/package/",
+    cargo = "https://crates.io/crates/",
+    pip = "https://pypi.org/project/",
+    gem = "https://rubygems.org/gems/",
+    snap = "https://snapcraft.io/",
+    brew = "https://formulae.brew.sh/formula/",
+}
+
 local function packageUrl(sourceKey, name)
     if sourceKey == "pacman" then
         return "https://archlinux.org/packages/?q=" .. noctalia.string.urlEncode(name)
-    elseif sourceKey == "aur" then
-        return "https://aur.archlinux.org/packages/" .. noctalia.string.urlEncode(name)
     end
-    return "https://flathub.org/apps/" .. noctalia.string.urlEncode(name)
+    local prefix = PACKAGE_URLS[sourceKey] or PACKAGE_URLS.flatpak
+    return prefix .. noctalia.string.urlEncode(name)
 end
 
 local function commandResults()
@@ -56,6 +66,9 @@ local function packageResults(query)
 
     local results = {}
     local sourceList = { { key = "pacman", entry = state.pacman }, { key = "aur", entry = state.aur }, { key = "flatpak", entry = state.flatpak } }
+    for _, extra in ipairs(type(state.extras) == "table" and state.extras or {}) do
+        table.insert(sourceList, { key = extra.key, entry = extra })
+    end
     for _, source in ipairs(sourceList) do
         local items = type(source.entry) == "table" and source.entry.items or nil
         if type(items) == "table" then
