@@ -1,5 +1,3 @@
-local apps = noctalia.getConfig("apps")
-
 -- https://github.com/noctalia-dev/noctalia/blob/main/src/system/desktop_entry_launch.cpp#L45
 local function stripFieldCodes(exec)
     local result = exec:gsub("%%(.?)( ?)", function(nextChar, trailingSpace)
@@ -20,30 +18,41 @@ local function stripFieldCodes(exec)
     return result
 end
 
-local function getContent(content, key)
+local function getContent(appid)
+    local paths = {
+        "~/.local/share/applications",
+        "/usr/share/applications",
+    }
+
+    for _, path in ipairs(paths) do
+        local content = noctalia.readFile(path .. appid .. ".desktop")
+        if content then
+            return content
+        end
+    end
+
+    return nil
+end
+
+local function getKeyContent(content, key)
     return content:match("[\r\n]" .. key .. "=([^\r\n]*)")
 end
 
 local function parse(appid)
-    local content = noctalia.readFile("~/.local/share/applications/" .. appid .. ".desktop")
-    or noctalia.readFile("/usr/share/applications/" .. appid .. ".desktop")
-    if not content then
-        return nil
-    end
-
+    local content = getContent(appid)
     local data = {}
 
-    local name = getContent(content, "Name")
+    local name = getKeyContent(content, "Name")
     if name then
         data.name = name
     end
 
-    local exec = getContent(content, "Exec")
+    local exec = getKeyContent(content, "Exec")
     if exec then
         data.exec = stripFieldCodes(exec)
     end
 
-    local terminal = getContent(content, "Terminal")
+    local terminal = getKeyContent(content, "Terminal")
     if terminal then
         data.terminal = terminal == "true"
     end
@@ -52,6 +61,7 @@ local function parse(appid)
 end
 
 local function getApps()
+    local apps = noctalia.getConfig("apps")
     local appsTable = {}
 
     for _, app in ipairs(apps) do
