@@ -40,6 +40,11 @@ or **Inputs**, then choose **Use**. For a disconnected Bluetooth output the same
 button connects it, waits for its PipeWire endpoint, makes it the default, and
 moves current playback streams to it.
 
+When an input exposes multiple hardware ports, such as an internal microphone
+and a headset microphone, the active port name is shown in the panel and
+widget. Use the port selector below the input to switch it; **Cycle** also
+includes every currently available port.
+
 Use the pencil button to set a local display name, choose the device icon, and
 change a Bluetooth keybind number. The number is assigned automatically after a
 device connects successfully for the first time and can then be changed. Hidden
@@ -60,7 +65,6 @@ Use the settings button in the panel header to open Noctalia's plugin settings.
 | Plugin | `show_percentage` | `bool` | `true` | Show the output volume beside the bar icon; disable it for an icon-only widget. |
 | Plugin | `show_notification_on_switch` | `bool` | `true` | Show a notification when switching device. |
 | Plugin | `show_actions_in_tooltip` | `bool` | `true` | Show actions in tooltip. |
-| Plugin | `scroll_step` | `int` | `5` | Volume points changed by each wheel step over the bar widget (1–25). |
 
 ## IPC and keybinds
 

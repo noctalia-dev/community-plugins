@@ -1,14 +1,14 @@
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "1.0.1"
-plugin_api = 19
+version = "2.0.1"
+plugin_api = 3
 author = "yocraft"
 license = "MIT"
 deprecated = false
 icon = "battery"
 description = "Desktop/Lockscreen widget to show battery."
 tags = [ "desktop", "hardware", "system", "utility" ]
-dependencies = []
+dependencies = [ "upower", "gdbus" ]
 
 [[desktop_widget]]
 id = "widget"
@@ -38,6 +38,18 @@ entry = "widget.luau"
     label_key = "settings.show_label.label"
     description_key = "settings.show_label.description"
     default = true
+
+    [[desktop_widget.setting]]
+    key = "label_content"
+    type = "select"
+    label_key = "settings.label_content.label"
+    description_key = "settings.label_content.description"
+    default = "percent"
+    options = [
+        { value = "percent", label_key = "settings.label_content.percent" },
+        { value = "time", label_key = "settings.label_content.time" },
+        { value = "rate", label_key = "settings.label_content.rate" },
+    ]
 
     [[desktop_widget.setting]]
     key = "hide_plugged"
@@ -98,12 +110,3 @@ entry = "widget.luau"
     description_key = "settings.battery_name.description"
     default = "BAT0"
     visible_when = { key = "battery", values = ["custom"] }
-
-    [[desktop_widget.setting]]
-    key = "refresh_interval"
-    type = "int"
-    label_key = "settings.refresh_interval.label"
-    description_key = "settings.refresh_interval.description"
-    default = 60
-    min = 1
-    max = 600

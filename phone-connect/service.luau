@@ -15,13 +15,6 @@ local function t(key)
 	return table[key] or key
 end
 
--- Track last-applied config values so onConfigChanged only re-applies
--- custom_image / device_alias when they actually change, not on every
--- unrelated config edit (e.g. language switch). Prevents wiping a
--- device's image/alias that was set via the global setting.
-local lastCustomImage = nil
-local lastDeviceAlias = nil
-
 -- ── State contract (read by UI entries) ──────────────────────────────────────
 --   noctalia.state "pc.backend"   : { available=bool, name="KDE Connect"|"None",
 --                                     announcedName="", selfId="" }
@@ -76,14 +69,15 @@ local BATTERY_IFACE = "org.kde.kdeconnect.device.battery"
 local CONN_IFACE = "org.kde.kdeconnect.device.connectivity_report"
 local MPRIS_IFACE = "org.kde.kdeconnect.device.mprisremote"
 
--- Build a gdbus call that returns one property as a variant.
-local function gdbusGetProp(devPath, iface, prop)
+-- Build a gdbus call that returns every property of an interface at once
+-- (a{sv} dict). One subprocess per interface instead of one per property.
+local function gdbusGetAll(devPath, iface)
 	return table.concat({
 		"gdbus call --session",
 		"--dest", shellQuote(SVC),
 		"--object-path", shellQuote(devPath),
-		"--method", shellQuote(PROPS_IFACE .. ".Get"),
-		shellQuote(iface), shellQuote(prop),
+		"--method", shellQuote(PROPS_IFACE .. ".GetAll"),
+		shellQuote(iface),
 	}, " ")
 end
 
@@ -132,10 +126,44 @@ local function parseGdbusStringArray(raw)
 	return out
 end
 
+-- Parse one value from inside a `<>` variant of a GetAll dict:
+--   true/false | number | 'string' | "string" | ['a','b'] array
+local function parseVariantInner(v)
+	if v == "true" then return true end
+	if v == "false" then return false end
+	local n = tonumber(v)
+	if n then return n end
+	local s = v:match("^'(.*)'$") or v:match('^"(.*)"$')
+	if s ~= nil then return s end
+	if v:sub(1, 1) == "[" then
+		local arr = {}
+		for item in v:gmatch("'([^']*)'") do table.insert(arr, item) end
+		for item in v:gmatch('"([^"]*)"') do table.insert(arr, item) end
+		return arr
+	end
+	return v
+end
+
+-- Parse a gdbus Properties.GetAll result like:
+--   ({'charge': <91>, 'isCharging': <true>},)
+-- into a table keyed by property name. %b<> keeps multi-token values
+-- (arrays) intact; keys are always single-quoted.
+local function parseGdbusVariantDict(raw)
+	local out = {}
+	if raw == nil then return out end
+	for key, vraw in raw:gmatch("'([^']+)'%s*:%s*(%b<>)") do
+		out[key] = parseVariantInner(vraw:sub(2, -2))
+	end
+	return out
+end
+
 -- ── Device data model ────────────────────────────────────────────────────────
 -- In-memory device table keyed by id (mirrors original PhoneConnectService.devices).
 local devices= {}
 local deviceOrder= {}
+-- forward-declared: fetchMpris re-evaluates the poll interval; the definition
+-- lives in the Lifecycle section below.
+local intervalMs
 
 local function snapshotDevices()
 	local snap = {}
@@ -188,18 +216,10 @@ end
 		saveData(data)
 	end
 
-	local function loadImageMap()
-		return loadData().imageMap or {}
-	end
-
 	local function persistImageMap(map)
 		local data = loadData()
 		data.imageMap = map
 		saveData(data)
-	end
-
-	local function loadAliasMap()
-		return loadData().aliasMap or {}
 	end
 
 	local function persistAliasMap(map)
@@ -295,36 +315,84 @@ local function detectBackend()
 end
 
 -- ── Fetch device properties via gdbus ────────────────────────────────────────
--- Fetches the device interface properties and merges into the in-memory record.
+-- Fetches the device interface properties in one GetAll call and merges them
+-- into the in-memory record: one subprocess instead of one per field.
 local function fetchDeviceProps(id, cb)
 	local devPath = DAEMON_PATH .. "/devices/" .. id
-	-- GetAll would be ideal but gdbus call needs the method signature; use
-	-- individual Get calls for the fields we need (simple and robust).
-	local fields = {
-		{ "name" }, { "type" }, { "isReachable" }, { "isPaired" },
-		{ "pairState" }, { "verificationKey" },
-	}
-	-- We issue them sequentially via a small recursive helper to keep ordering
-	-- simple. (Concurrent runAsync would race on the shared `devices` table.)
-	local i = 1
-	local function next()
-		if i > #fields then
-			publishDevices()
-			if cb then cb() end
-			return
-		end
-		local prop = fields[i][1]
-		i = i + 1
-		noctalia.runAsync(gdbusGetProp(devPath, DEV_IFACE, prop), function(res)
-			local d = devices[id] or { id = id }
-			if res and not res.error then
-				d[prop] = parseGdbusValue(res.stdout or "")
+	noctalia.runAsync(gdbusGetAll(devPath, DEV_IFACE), function(res)
+		local d = devices[id] or { id = id }
+		if res and not res.error then
+			local p = parseGdbusVariantDict(res.stdout or "")
+			d.name = p.name
+			d.type = p.type
+			d.isReachable = p.isReachable
+			d.isPaired = p.isPaired
+			d.pairState = p.pairState
+			d.verificationKey = p.verificationKey
+			d.supportedPlugins = p.supportedPlugins
+			-- split addresses into IPv4 / IPv6 for the info footer
+			local v4, v6
+			if type(p.reachableAddresses) == "table" then
+				for _, a in ipairs(p.reachableAddresses) do
+					if type(a) == "string" then
+						if not v4 and a:find(".", 1, true) then v4 = a end
+						if not v6 and a:find(":", 1, true) then v6 = a end
+					end
+				end
 			end
-			devices[id] = d
-			next()
-		end)
+			d.ipv4 = v4
+			d.ipv6 = v6
+		else
+			-- The property fetch failed: the device is offline or its DBus
+			-- object is gone. Fall back to unreachable so the UI shows
+			-- "Offline" instead of a stale "Connected" from the last
+			-- successful fetch (the old code kept the previous value).
+			d.isReachable = false
+		end
+		devices[id] = d
+		publishDevices()
+		if cb then cb() end
+	end)
+end
+
+-- Fetch MPRIS media fields for one device in one GetAll call. Resolves
+-- localAlbumArtUrl -> mediaArtPath and publishes once. Shared by the poll
+-- path and the real-time monitor.
+local function fetchMpris(id, cb)
+	local d = devices[id]
+	if not d then
+		if cb then cb() end
+		return
 	end
-	next()
+	local devPath = DAEMON_PATH .. "/devices/" .. id
+	noctalia.runAsync(gdbusGetAll(devPath .. "/mprisremote", MPRIS_IFACE), function(res)
+		local d2 = devices[id]
+		if d2 and res and not res.error then
+			local p = parseGdbusVariantDict(res.stdout or "")
+			d2.mediaisPlaying = p.isPlaying
+			d2.mediatitle = p.title
+			d2.mediaartist = p.artist
+			d2.mediaalbum = p.album
+			d2.mediavolume = p.volume
+			d2.medialocalAlbumArtUrl = p.localAlbumArtUrl
+			d2.medialength = p.length
+			d2.mediaposition = p.position
+			d2.mediacanSeek = p.canSeek
+			local art = d2.medialocalAlbumArtUrl
+			if art and art ~= "" then
+				if art:sub(1, 7) == "file://" then art = art:sub(8) end
+				d2.mediaArtPath = art
+			end
+			devices[id] = d2
+		end
+		publishDevices()
+		-- Re-evaluate the poll interval now that media state is fresh:
+		-- without this, playback start/stop only switches the 1s fast poll
+		-- on the next update() (up to 30s later), because intervalMs() runs
+		-- before refreshDevices() in update().
+		noctalia.setUpdateInterval(intervalMs())
+		if cb then cb() end
+	end)
 end
 
 -- Fetch battery + connectivity sub-interface properties (only if paired+reachable).
@@ -333,105 +401,69 @@ local function fetchDeviceExtras(id)
 	if not d then return end
 	if not (d.isPaired and d.isReachable) then return end
 	local devPath = DAEMON_PATH .. "/devices/" .. id
-	-- battery.charge / battery.isCharging
-	noctalia.runAsync(gdbusGetProp(devPath .. "/battery",
-		BATTERY_IFACE, "charge"), function(res)
+	-- battery.charge / battery.isCharging in one GetAll
+	noctalia.runAsync(gdbusGetAll(devPath .. "/battery", BATTERY_IFACE), function(res)
 		if res and not res.error then
 			local d2 = devices[id]
 			if d2 then
-				d2.batteryCharge = parseGdbusValue(res.stdout or "")
+				local p = parseGdbusVariantDict(res.stdout or "")
+				d2.batteryCharge = p.charge
+				d2.batteryCharging = p.isCharging
 				devices[id] = d2
 				publishDevices()
 			end
 		end
 	end)
-	noctalia.runAsync(gdbusGetProp(devPath .. "/battery",
-		BATTERY_IFACE, "isCharging"), function(res)
-		if res and not res.error then
-			local d2 = devices[id]
-			if d2 then
-				d2.batteryCharging = parseGdbusValue(res.stdout or "")
-				devices[id] = d2
-				publishDevices()
-			end
-		end
-	end)
-	-- connectivity
-	noctalia.runAsync(gdbusGetProp(devPath .. "/connectivity_report",
-		CONN_IFACE, "cellularNetworkType"),
+	-- connectivity in one GetAll
+	noctalia.runAsync(gdbusGetAll(devPath .. "/connectivity_report", CONN_IFACE),
 		function(res)
 			if res and not res.error then
 				local d2 = devices[id]
 				if d2 then
-					d2.networkType = parseGdbusValue(res.stdout or "")
+					local p = parseGdbusVariantDict(res.stdout or "")
+					d2.networkType = p.cellularNetworkType
+					d2.networkStrength = p.cellularNetworkStrength
 					devices[id] = d2
 					publishDevices()
-				end
-			end
-		end)
-	noctalia.runAsync(gdbusGetProp(devPath .. "/connectivity_report",
-		CONN_IFACE, "cellularNetworkStrength"),
-			function(res)
-				if res and not res.error then
-					local d2 = devices[id]
-					if d2 then
-						d2.networkStrength = parseGdbusValue(res.stdout or "")
-						devices[id] = d2
-						publishDevices()
-						-- if network still default, nudge the phone to report
-						-- (but not more than once per 120s)
-						if (type(d2.networkType) ~= "string" or d2.networkType == "")
-							and d2.networkStrength == -1 then
-							local now = os.time()
-							local last = d2._netRefreshAt or 0
-							if now - last > 120 then
-								d2._netRefreshAt = now
-								devices[id] = d2
-								runCli("--refresh -d " .. shellQuote(id))
-							end
+					-- if network still default, nudge the phone to report
+					-- (but not more than once per 120s)
+					if (type(d2.networkType) ~= "string" or d2.networkType == "")
+						and d2.networkStrength == -1 then
+						local now = os.time()
+						local last = d2._netRefreshAt or 0
+						if now - last > 120 then
+							d2._netRefreshAt = now
+							devices[id] = d2
+							runCli("--refresh -d " .. shellQuote(id))
 						end
 					end
 				end
-			end)
-	-- mprisremote: media fields fetched sequentially (parallel had callback races).
-	-- We publish once at the end to avoid flicker.
-	local mprisFields = { "isPlaying", "title", "artist", "album", "volume",
-		"localAlbumArtUrl", "length", "position", "canSeek" }
-	local mi = 1
-	local function fetchMprisNext()
-		if mi > #mprisFields then
-			local d2 = devices[id]
-			if d2 and d2.medialocalAlbumArtUrl and d2.medialocalAlbumArtUrl ~= "" then
-				local art = d2.medialocalAlbumArtUrl
-				if art:sub(1, 7) == "file://" then art = art:sub(8) end
-				d2.mediaArtPath = art
-				devices[id] = d2
 			end
-			publishDevices()
-			return
-		end
-		local prop = mprisFields[mi]
-		mi = mi + 1
-		noctalia.runAsync(gdbusGetProp(devPath .. "/mprisremote", MPRIS_IFACE, prop),
-			function(res)
-				if res and not res.error then
-					local d2 = devices[id]
-					if d2 then
-						d2["media" .. prop] = parseGdbusValue(res.stdout or "")
-						devices[id] = d2
-					end
-				end
-				fetchMprisNext()
-			end)
-	end
-	fetchMprisNext()
+		end)
+	-- mprisremote: media fields fetched in one GetAll via fetchMpris; it
+		-- resolves album art and publishes once.
+		fetchMpris(id)
 end
 
 -- ── Full device list refresh ─────────────────────────────────────────────────
 local refreshing = false
+local refreshLockedAt = 0  -- os.clock() when the lock was taken
+-- forward-declared: refreshDevices calls ensureMonitors, defined below
+local ensureMonitors
 local function refreshDevices()
-	if refreshing then return end
+	if refreshing then
+		-- Watchdog: if a refresh callback never fires (e.g. the gdbus child
+		-- was reaped without a result), the lock would wedge and every later
+		-- refresh would be swallowed. Release it after 3s so polling recovers.
+		if os.clock() - refreshLockedAt > 3.0 then
+			refreshing = false
+			noctalia.log("[phone-connect] refresh lock stale; reset")
+		else
+			return
+		end
+	end
 	refreshing = true
+	refreshLockedAt = os.clock()
 	noctalia.runAsync(
 		"gdbus call --session --dest " .. SVC
 			.. " --object-path " .. DAEMON_PATH
@@ -469,6 +501,9 @@ local function refreshDevices()
 					for _, id2 in ipairs(deviceOrder) do
 						fetchDeviceExtras(id2)
 					end
+					-- keep real-time daemon/media monitors in sync with the
+					-- current device set
+					ensureMonitors()
 					return
 				end
 				local id = deviceOrder[idx]
@@ -479,14 +514,116 @@ local function refreshDevices()
 		end)
 end
 
+-- ── Real-time media sync via gdbus monitor ──────────────────────────────────
+-- Polling (update()) covers state at a 1-30s cadence, but media title/position/
+-- volume changes should reach the UI as soon as the phone reports them. Each
+-- reachable paired device gets a `gdbus monitor` stream on its mprisremote
+-- path; a PropertiesChanged line triggers a targeted fetchMpris(). A daemon-level
+-- stream watches device add/remove/visibility and triggers refreshDevices().
+-- The runtime terminates active streams when the script reloads or the plugin
+-- stops, so we only track which devices already have a stream. If a stream
+-- fails to start, ensureMonitors() simply retries on the next refresh — the
+-- poll path keeps working either way, so this layer is best-effort.
+local monitors = {}          -- [deviceId] = true when a stream is active
+local daemonMonitorActive = false
+local lastDaemonEventAt = 0  -- os.clock() of the last handled daemon signal
+local lastMediaEventAt = {}  -- [deviceId] = os.clock() of last handled signal
+
+ensureMonitors = function()
+	-- daemon-level stream: device added/removed/visibility/list changes.
+	if not daemonMonitorActive then
+		local ok = noctalia.runStream(
+			"gdbus monitor --session --dest " .. SVC
+				.. " --object-path " .. shellQuote(DAEMON_PATH),
+			function(line)
+				if line == nil or line == "" then return end
+				-- deviceListChanged is usually preceded by several per-device
+				-- lines; debounce so one burst becomes one refresh.
+				local now = os.clock()
+				if now - lastDaemonEventAt > 0.5 then
+					lastDaemonEventAt = now
+					refreshDevices()
+				end
+			end)
+		if ok then daemonMonitorActive = true end
+	end
+	-- per-device media streams. Only paired+reachable devices emit signals.
+	for _, id in ipairs(deviceOrder) do
+		local d = devices[id]
+		if not monitors[id] and d and d.isPaired and d.isReachable then
+			local ok = noctalia.runStream(
+				"gdbus monitor --session --dest " .. SVC
+					.. " --object-path " .. shellQuote(DAEMON_PATH .. "/devices/" .. id .. "/mprisremote"),
+				function(line)
+					if line == nil or line == "" then return end
+					-- kdeconnectd emits lowercase "propertiesChanged"; match
+					-- case-insensitively so both spellings are caught.
+					if not line:lower():find("propertieschanged") then return end
+					-- position ticks arrive frequently while playing; debounce
+					-- so we don't spam fetchMpris (9 serialized gdbus calls).
+					local now = os.clock()
+					local last = lastMediaEventAt[id] or 0
+					if now - last > 0.25 then
+						lastMediaEventAt[id] = now
+						fetchMpris(id)
+					end
+				end)
+			if ok then monitors[id] = true end
+		end
+	end
+	-- drop bookkeeping for devices that are gone
+	for id in pairs(monitors) do
+		if not devices[id] then monitors[id] = nil end
+	end
+end
+
 -- ── Command execution (from UI entries via pc.cmd) ──────────────────────────
--- We use polling for state (verified reliable) instead of DBus signal
--- monitoring: empirically, dbus-monitor captured ZERO kdeconnect-path signals
--- even when triggering refresh/ping/pairing cycles, because kdeconnectd emits
--- most state changes from the phone side on device-specific paths and they are
--- sparse on a stable paired device. So: periodic update() refreshes state, and
--- state-mutating commands trigger an immediate refreshDevices() on completion
--- for responsive UI without waiting for the next poll.
+-- State refresh is poll-driven (update()) for reliability, plus a best-effort
+-- `gdbus monitor` layer (ensureMonitors above) for real-time media updates.
+-- Historically dbus-monitor captured zero kdeconnect-path signals, so the poll
+-- path stays the source of truth and monitors are only an accelerator: state-
+-- mutating commands below still trigger an immediate refreshDevices() on
+-- completion for responsive UI without waiting for the next poll.
+
+-- File-picker result polling. GUI pickers (zenity/kdialog) outlive the
+-- runAsync call that spawns them (a detached `cmd &` shell), so the panel asks
+-- us to watch a tmp file for the chosen path; we pick it up on update().
+-- pendingPick.purpose decides what happens with the chosen path:
+--   "image" -> set the device's avatar (pc.imageMap)
+--   "share" -> send the file to the device via kdeconnect-cli --share
+local pendingPick = nil   -- { device, path, started, purpose }
+local function pollPendingPick()
+	if not pendingPick then return end
+	local raw = noctalia.readFile(pendingPick.path)
+	if raw and raw ~= "" then
+		local p = raw:gsub("[\r\n%s]+$", "")
+		if p ~= "" then
+			if pendingPick.purpose == "share" then
+				noctalia.runAsync(
+					"kdeconnect-cli --share " .. shellQuote(p)
+						.. " -d " .. shellQuote(pendingPick.device),
+					function(res)
+						if res and res.error then
+							noctalia.notifyError(t("error.share_failed"), res.error)
+						end
+					end)
+				noctalia.notify(t("notify.file_shared"), p)
+			else
+				local map = noctalia.state.get("pc.imageMap") or {}
+				map[pendingPick.device] = p
+				noctalia.state.set("pc.imageMap", map)
+				persistImageMap(map)
+				noctalia.log("[phone-connect] picked image for " .. pendingPick.device .. ": " .. p)
+			end
+		end
+		noctalia.removeFile(pendingPick.path)
+		pendingPick = nil
+	elseif os.time() - pendingPick.started > 120 then
+		-- give up: user cancelled or the picker never wrote anything
+		noctalia.removeFile(pendingPick.path)
+		pendingPick = nil
+	end
+end
 
 local function runCli(args, cb)
 	noctalia.runAsync("kdeconnect-cli " .. args, function(res)
@@ -573,6 +710,41 @@ local function handleCommand(cmd)
 		if path == "" then map[dev] = nil else map[dev] = path end
 		noctalia.state.set("pc.imageMap", map)
 		persistImageMap(map)
+	elseif op == "set_alias" then
+		-- per-device alias; empty clears back to the device's real name
+		local map = noctalia.state.get("pc.aliasMap") or {}
+		local alias = cmd.alias or ""
+		if alias == "" then map[dev] = nil else map[dev] = alias end
+		noctalia.state.set("pc.aliasMap", map)
+		persistAliasMap(map)
+	elseif op == "pick_image" or op == "pick_share" then
+		-- Open the GUI file picker detached (a `cmd &` shell returns instantly,
+		-- so the picker survives runAsync's subprocess timeout) and write the
+		-- chosen path to a tmp file that pollPendingPick() consumes on update().
+		-- purpose: pick_image -> device avatar, pick_share -> send file to device.
+		if pendingPick then
+			noctalia.notifyError(t("error.pick_in_progress"))
+		else
+			local picker
+			if noctalia.commandExists("kdialog") then
+				picker = "kdialog --getopenfilename ~ ''"
+			elseif noctalia.commandExists("zenity") then
+				picker = "zenity --file-selection"
+			else
+				noctalia.notifyError(t("error.pick_failed"), "kdialog/zenity not found")
+				return
+			end
+			local tmp = noctalia.pluginDataDir() .. "/pick-" .. tostring(dev) .. ".tmp"
+			pendingPick = {
+				device = dev,
+				path = tmp,
+				started = os.time(),
+				purpose = (op == "pick_share") and "share" or "image",
+			}
+			-- write nothing yet; pollPendingPick keys off a non-empty file
+			noctalia.removeFile(tmp)
+			noctalia.runAsync(picker .. " > " .. shellQuote(tmp) .. " 2>/dev/null &")
+		end
 	elseif op == "pair" then
 		mutating(function(cb) gdbusDeviceMethod(dev, "requestPairing", cb) end)
 	elseif op == "accept" then
@@ -603,7 +775,7 @@ local function handleCommand(cmd)
 						local first = (res.stdout or ""):match("'([^']+)'")
 						if first then dirPath = first end
 					end
-					noctalia.runAsync("xdg-open " .. shellQuote(dirPath), function() end)
+					noctalia.runAsync("xdg-open " .. shellQuote(dirPath))
 					noctalia.notify(t("notify.opening_browser"), dirPath)
 				end)
 			end)
@@ -678,16 +850,9 @@ local function handleCommand(cmd)
 	end
 end
 
--- ── Signal monitoring ────────────────────────────────────────────────────────
--- Deliberately NOT implemented: see note above the command section. Polling
--- (update()) + immediate refresh after mutating commands covers state updates
--- reliably without the fragility of parsing dbus-monitor's multi-line variant
--- output. Revisit only if a concrete need for push notifications (e.g. incoming
--- shareReceived) arises; even then, prefer `gdbus monitor` filtered to one
--- member over a generic parser.
-
 -- ── Lifecycle ────────────────────────────────────────────────────────────────
-local function intervalMs()
+intervalMs = function()
+	if pendingPick then return 1000 end  -- poll the picker result promptly
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	if secs <= 0 then return 3600000 end   -- disabled: large interval to minimize wakeups
 	-- if media is playing, poll faster for live position updates
@@ -700,6 +865,7 @@ end
 function update()
 	local secs = tonumber(noctalia.getConfig("state_update_interval")) or 30
 	noctalia.setUpdateInterval(intervalMs())
+	pollPendingPick()
 	if secs <= 0 then return end            -- disabled: skip auto-refresh
 	detectBackend()
 	refreshDevices()
@@ -707,30 +873,6 @@ end
 
 function onConfigChanged()
 	noctalia.setUpdateInterval(intervalMs())
-	-- apply custom_image to selected device (only when actually changed)
-	local img = noctalia.getConfig("custom_image")
-	if img ~= nil and img ~= lastCustomImage then
-		lastCustomImage = img
-		local sel = noctalia.state.get("pc.selected")
-		if sel and sel ~= "" then
-			local map = noctalia.state.get("pc.imageMap") or {}
-			if img == "" then map[sel] = nil else map[sel] = img end
-			noctalia.state.set("pc.imageMap", map)
-			persistImageMap(map)
-		end
-	end
-	-- apply device_alias to selected device (only when actually changed)
-	local alias = noctalia.getConfig("device_alias")
-	if alias ~= nil and alias ~= lastDeviceAlias then
-		lastDeviceAlias = alias
-		local sel = noctalia.state.get("pc.selected")
-		if sel and sel ~= "" then
-			local amap = noctalia.state.get("pc.aliasMap") or {}
-			if alias == "Your-Phone" then amap[sel] = nil else amap[sel] = alias end
-			noctalia.state.set("pc.aliasMap", amap)
-			persistAliasMap(amap)
-		end
-	end
 	-- reload translations when language changes
 	local lang = noctalia.getConfig("language") or "en"
 	if lang ~= noctalia.state.get("pc.lang") then
@@ -755,10 +897,6 @@ function onIpc(event, payload)
 end
 
 -- Top-level init runs once at load.
--- Seed config trackers so the first onConfigChanged after reload doesn't
--- re-apply default custom_image/device_alias and wipe a device's image/alias.
-lastCustomImage = noctalia.getConfig("custom_image") or ""
-lastDeviceAlias = noctalia.getConfig("device_alias") or ""
 detectBackend()
 refreshDevices()
 -- Command channel: UI entries write { op, device, seq, ... } to "pc.cmd".

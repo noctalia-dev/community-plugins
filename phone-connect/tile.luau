@@ -39,7 +39,8 @@ local function countReachable()
 	local n = 0
 	for _, id in ipairs(order) do
 		local d = devices[id]
-		if d and d.isReachable == true then n = n + 1 end
+		-- connected = paired AND reachable; reachable alone is mere visibility
+		if d and d.isPaired and d.isReachable == true then n = n + 1 end
 	end
 	return n
 end
@@ -58,7 +59,8 @@ local function render()
 	local d = selectedDevice()
 	shortcut.setEnabled(true)
 
-	if d and d.isReachable and type(d.batteryCharge) == "number" and d.batteryCharge >= 0 then
+	-- connected = paired AND reachable; reachable alone is mere visibility
+	if d and d.isPaired and d.isReachable and type(d.batteryCharge) == "number" and d.batteryCharge >= 0 then
 		-- show selected device battery when reachable
 		shortcut.setIcon("device-mobile")
 		shortcut.setLabel(tostring(d.batteryCharge) .. "%")

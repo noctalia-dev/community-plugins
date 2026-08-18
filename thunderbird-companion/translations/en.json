@@ -1,0 +1,83 @@
+{
+  "notify": {
+    "command_failed": "Thunderbird action failed",
+    "launch_failed": "Could not launch Thunderbird",
+    "new_mail": "New mail",
+    "new_mail_body": "{sender}: {subject}",
+    "setup_failed": "Could not start bridge setup"
+  },
+  "panel": {
+    "archive": "Archive",
+    "bridge_incompatible_body": "The installed companion is incompatible with this plugin. Reinstall the bundled bridge, then install the prepared XPI.",
+    "bridge_incompatible_title": "Update Thunderbird companion",
+    "close": "Close",
+    "compose": "Compose",
+    "copy_package_path": "Copy package path",
+    "empty": "Inbox zero",
+    "empty_body": "No unread messages were reported by Thunderbird.",
+    "last_sync": "Last sync {time}",
+    "mark_all_read": "Mark all unread messages as read",
+    "mark_read": "Mark as read",
+    "no_subject": "(No subject)",
+    "offline_body": "Open Thunderbird and make sure the companion extension is enabled. Cached messages remain visible below.",
+    "open_addons": "Open Add-ons",
+    "open_message": "Open message",
+    "open_package_folder": "Open package folder",
+    "open_thunderbird": "Open Thunderbird",
+    "refresh": "Refresh",
+    "reply": "Reply",
+    "retry_setup": "Retry setup",
+    "setup_body": "Install the bundled native bridge and build the companion extension.",
+    "setup_bridge": "Set up bridge",
+    "setup_error_title": "Bridge setup failed",
+    "setup_ready_body": "Select Open package folder below, then drag thunderbird-companion.xpi into Thunderbird Add-ons and approve its permissions.",
+    "setup_ready_title": "Companion package ready",
+    "setup_running": "Preparing companion…",
+    "setup_running_body": "Installing the bundled native host and building the Thunderbird extension package.",
+    "setup_title": "Connect Thunderbird",
+    "status_bridge_incompatible": "Companion update required",
+    "status_offline": "Thunderbird bridge is offline",
+    "status_online": "Connected",
+    "status_setup_required": "Bridge setup required",
+    "status_stale": "Last snapshot is stale",
+    "status_thunderbird_missing": "Thunderbird command not found",
+    "title": "Thunderbird",
+    "unknown_folder": "Unknown folder",
+    "unknown_sender": "Unknown sender",
+    "unread": {
+      "one": "{count} unread message",
+      "other": "{count} unread messages"
+    },
+    "update_bridge": "Update companion"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icon shown in the bar.",
+      "label": "Widget icon"
+    },
+    "max_messages": {
+      "description": "Maximum number of recent unread messages shown in the panel.",
+      "label": "Messages in panel"
+    },
+    "notify_new": {
+      "description": "Show Noctalia notifications when new unread messages appear. Disabled by default to avoid duplicating Thunderbird notifications.",
+      "label": "Notify about new mail"
+    },
+    "thunderbird_command": {
+      "description": "Command used to launch Thunderbird. Change this for a wrapper or non-standard installation.",
+      "label": "Thunderbird command"
+    }
+  },
+  "widget": {
+    "bridge_incompatible": "Thunderbird companion update required",
+    "compose": "Compose a new message",
+    "no_unread": "No unread messages",
+    "offline": "Thunderbird bridge is offline",
+    "setup_required": "Thunderbird bridge setup required",
+    "thunderbird_missing": "Thunderbird command not found",
+    "unread": {
+      "one": "{count} unread message",
+      "other": "{count} unread messages"
+    }
+  }
+}

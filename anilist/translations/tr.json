@@ -17,6 +17,8 @@
     "filter_planning": "Planlanan",
     "filter_reading": "Okunan",
     "filter_repeating": "Tekrar eden",
+    "filter_rereading": "Tekrar okunan",
+    "filter_rewatching": "tekrar izlemek",
     "increment": "Sonraki bölüm",
     "loading": "Listelerin yükleniyor…",
     "logged_in_as": "{name} olarak giriş yapıldı",

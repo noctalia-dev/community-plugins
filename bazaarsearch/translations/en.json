@@ -1,0 +1,38 @@
+{
+  "error": {
+    "msg": {
+      "busctl_fail": "'busctl' failed with exit code {exitCode}",
+      "busctl_incorrect_ident": "Expected '{expected}', got '{recieved}'",
+      "busctl_json_fail": "Failed to parse 'busctl' JSON data",
+      "busctl_not_found": "'busctl' is not found in the PATH",
+      "busctl_not_found_body": "Please make sure that 'busctl' is installed and is correctly set somewhere along the PATH",
+      "malformed_value_retval": "Search returned malformed value - 'busctl' return type identifier is incorrect"
+    },
+    "no_cmd_prov": "No command provided",
+    "no_stage_prov": "No function provided",
+    "notify": {
+      "activate": {
+        "msg": "Selected Flatpak ID failed sanitization check, ignoring launch command.",
+        "title": "Bazaar Search Error"
+      },
+      "copy": {
+        "msg": "Error message copied to clipboard",
+        "title": "Bazaar Search Error"
+      }
+    },
+    "report": {
+      "command": "Command",
+      "error": "Error",
+      "header": "ERROR REPORT",
+      "query": "Query",
+      "stage": "Function",
+      "user_instruction": "Select this to copy an error report for the maintainer."
+    }
+  },
+  "settings": {
+    "max_entries": {
+      "description": "The maximum number of Flatpak entries parsed at a time. Too many will make the plugin stop working!",
+      "label": "Maximum Entries"
+    }
+  }
+}

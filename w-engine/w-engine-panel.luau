@@ -78,6 +78,9 @@ local function tr(key, subst)
 	return noctalia.tr(key)
 end
 
+-- Get All output for all fonctionnality --
+
+
 -- ── Workshop discovery ───────────────────────────────────────────────────────
 
 local function candidateRoots()
@@ -214,6 +217,26 @@ local function outputStatus()
 	end
 	local entry = outputs[outputName]
 	return type(entry) == "table" and entry or {}
+end
+
+
+local function hasStopState()		-- check for render stop button
+	if outputName ~= "All" then
+		local state = outputStatus()
+		return state.current ~= nil or state.restorable == true
+	end
+
+	local outputs = type(status) == "table" and status.outputs or nil
+	if type(outputs) ~= "table" then
+		return false
+	end
+
+	for _, entry in pairs(outputs) do
+		if type(entry) == "table" and (entry.current ~= nil or entry.restorable == true) then
+			return true
+		end
+	end
+	return false
 end
 
 local function storedDefaults()
@@ -553,7 +576,6 @@ local ENGINE_TOGGLES = {
 -- ── Rendering ────────────────────────────────────────────────────────────────
 
 local function header()
-	local state = outputStatus()
 	local children = {
 		ui.label({
 			text = tr("panel.title"),
@@ -575,7 +597,7 @@ local function header()
 		}),
 	}
 
-	if state.current or state.restorable then
+	if hasStopState() then
 		table.insert(
 			children,
 			ui.button({
@@ -596,6 +618,10 @@ local function header()
 		if output.name == outputName then
 			selectedIndex = index - 1
 		end
+	end
+	table.insert(outputs, "All")
+	if outputName == "All" then
+		selectedIndex = #outputs - 1
 	end
 	table.insert(children, ui.select({ options = outputs, selectedIndex = selectedIndex, onChange = "outputSelected" }))
 	table.insert(
@@ -1170,12 +1196,83 @@ local function tilePreview(item, isSelected, isCurrent)
 	})
 end
 
+-- Favorite list
+
+local FavoriteList = {}
+
+local function getDataPath()
+	return noctalia.pluginDataDir() .. "/data.json"
+end
+
+local function loadData()
+	local raw = noctalia.readFile(getDataPath())
+	if not raw then
+		return {}
+	end
+	local ok, decoded = pcall(function()
+		return noctalia.json.decode(raw)
+	end)
+	if not ok or type(decoded) ~= "table" then
+		return {}
+	end
+	return decoded
+end
+
+local function saveData(data)
+	return noctalia.writeFile(getDataPath(), noctalia.json.encode(data))
+end
+
+local function loadFavoriteList()
+	local data = loadData()
+	FavoriteList = data.favorites or {}
+end
+
+local function persistFavoriteList()
+	local data = loadData() -- récupère les autres clés existantes (ex: settingsPath)
+	data.favorites = FavoriteList
+	saveData(data)
+end
+
+local function addFavoriteList(item)
+	noctalia.notify("Add Favorite")
+	table.insert(FavoriteList, item)
+	persistFavoriteList()
+end
+
+local function removeFavoriteList(item, nb)
+	noctalia.notify("Remove Favorite")
+	table.remove(FavoriteList, nb)
+	persistFavoriteList()
+end
+
+local function checkInFavoriteList(item)
+	local nb = 1
+	for _, entryName in ipairs(FavoriteList) do
+		if entryName.name == item.name then
+			removeFavoriteList(item, nb)
+			return
+		end
+		nb = nb + 1
+	end
+	addFavoriteList(item)
+end
+
 local function tileCaption(item, index, isSelected)
 	-- Numbered to show rotation order.
 	local caption = isSelected and (tostring(index) .. ". " .. item.name) or item.name
 
 	-- A fixed label width keeps every tile the same size; long titles truncate.
 	return ui.row({ gap = 2, align = "center" }, {
+		ui.button({
+			glyph = "star",
+			variant = "ghost",
+			controlSize = "sm",
+			tooltip = "Add at your favorite wallpaper",
+			onClick = function()
+				checkInFavoriteList(item)
+				render()
+			end
+		}),
 		ui.label({
 			text = caption,
 			fontSize = 11,
@@ -1239,15 +1336,45 @@ render = function()
 	if #catalog == 0 then
 		table.insert(body, ui.label({ text = tr("panel.no_wallpapers"), fontSize = 12, color = "on_surface_variant" }))
 	end
-	-- paddingRight keeps the last column clear of the scrollbar.
-	table.insert(
-		body,
-		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, rows)
-	)
+
+	local favoriteRows = {}
+	local favoriteRow = {}
+	for index, item in ipairs(FavoriteList) do
+		table.insert(favoriteRow, tile(item, state))
+		if #favoriteRow == columns or index == #FavoriteList then
+			table.insert(favoriteRows, ui.row({ gap = 12, align = "start" }, favoriteRow))
+			favoriteRow = {}
+		end
+	end
+
+	-- Single scroll for all list (Wallpaper and Favorite Wallpaper)
+	local scrollContent = {}
+	table.insert(scrollContent, ui.label({ text = "Favorites", fontSize = 13, fontWeight = "bold", color = "on_surface" }))
+	if #FavoriteList == 0 then
+		table.insert(scrollContent, ui.label({ text = "No favorite", fontSize = 12, color = "on_surface_variant" }))
+	else
+		for _, r in ipairs(favoriteRows) do
+			table.insert(scrollContent, r)
+		end
+	end
+
+	table.insert(scrollContent,
+		ui.separator({ spacing = 12 }
+	))
+
+	table.insert(scrollContent,
+		ui.label({ text = "All wallpapers", fontSize = 13, fontWeight = "bold", color = "on_surface" }
+	))
+
+	for _, r in ipairs(rows) do
+		table.insert(scrollContent, r)
+	end
+
+	table.insert(body,
+		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, scrollContent))
 
 	panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
 end
-
 -- ── Handlers ─────────────────────────────────────────────────────────────────
 
 -- Adopts the service's view of this output. Selection, interval and order are
@@ -1291,6 +1418,7 @@ end
 
 function onOpen(_context)
 	isOpen = true
+	loadFavoriteList()
 	outputName = noctalia.focusedOutputName() or outputName
 	if not outputName then
 		local outputs = noctalia.outputs()

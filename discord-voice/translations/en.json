@@ -1,0 +1,79 @@
+{
+  "auth": {
+    "button": "Authorize Discord",
+    "description": "Discord will ask you to grant local voice read and control access through its StreamKit integration.",
+    "title": "Authorize Discord Voice",
+    "waiting": "Waiting for Discord",
+    "waiting_description": "Complete the authorization prompt in the Discord desktop app."
+  },
+  "bar": {
+    "authorize": "Authorize",
+    "authorizing": "Authorizing…",
+    "offline": "Offline"
+  },
+  "connection": {
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "disconnected": "Disconnected",
+    "no_route": "No route",
+    "ping": "{ping} ms"
+  },
+  "controls": {
+    "deafen": "Deafen",
+    "hang_up": "Hang up",
+    "mute": "Mute",
+    "undeafen": "Undeafen",
+    "unmute": "Unmute"
+  },
+  "error": {
+    "bridge_stalled": "The Discord voice bridge stopped responding.",
+    "bridge_start": "Could not start the Discord voice bridge.",
+    "command": "The Discord voice command failed.",
+    "python_missing": "python3 is required but was not found in PATH.",
+    "title": "Discord voice error"
+  },
+  "not_in_voice": {
+    "title": "Not in an active channel"
+  },
+  "offline": {
+    "description": "Start the Discord desktop app. The bridge will reconnect automatically.",
+    "title": "Discord is unavailable"
+  },
+  "open_discord": "Open in Discord",
+  "participant": {
+    "listening": "Listening",
+    "speaking": "Speaking",
+    "you": "(you)"
+  },
+  "participants": {
+    "empty": "Nobody is visible in this channel yet.",
+    "title": "Participants ({count})"
+  },
+  "saved": {
+    "channels": "Recent channels",
+    "empty": "Your five most recently joined channels will appear here.",
+    "join": "Join"
+  },
+  "settings": {
+    "discord_binary": {
+      "description": "Discord desktop executable used to launch the app and open the active voice channel.",
+      "label": "Discord executable"
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "hide_when_disconnected": {
+      "description": "Hide the bar widget when no voice channel is connected.",
+      "label": "Hide outside voice"
+    },
+    "show_channel_name": {
+      "description": "Show the current voice channel beside the Discord glyph.",
+      "label": "Show channel name"
+    }
+  },
+  "starting": "Connecting to Discord…",
+  "title": "Discord Voice",
+  "unknown_server": "Unknown server",
+  "unknown_user": "Unknown user",
+  "voice_channel": "Voice channel"
+}

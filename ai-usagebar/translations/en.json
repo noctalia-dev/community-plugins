@@ -1,0 +1,94 @@
+{
+  "settings": {
+    "color_by_usage": {
+      "description": "Primary while there is room, then amber, then red as the quota fills.",
+      "label": "Color by usage"
+    },
+    "extras": {
+      "description": "What rides next to the percentage: the time left in the window, how far the spend is from the clock, or neither.",
+      "label": "Extra reading",
+      "option": {
+        "both": "Both",
+        "countdown": "Time until reset",
+        "none": "Neither",
+        "pace": "Pace against the clock"
+      }
+    },
+    "provider_limit": {
+      "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic.",
+      "label": "Providers in the capsule"
+    },
+    "refresh_minutes": {
+      "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls.",
+      "label": "Refresh interval (minutes)"
+    },
+    "show_name": {
+      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
+      "label": "Show provider name"
+    },
+    "style": {
+      "description": "How this capsule looks in the bar.",
+      "label": "Style",
+      "option": {
+        "gauge": "Gauge and percentage",
+        "label": "Name, gauge and percentage",
+        "meter": "Segments",
+        "pill": "Percentage"
+      }
+    },
+    "vendor": {
+      "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
+      "label": "Provider",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
+        "auto": "Automatic (primary)",
+        "cursor": "Cursor",
+        "deepseek": "DeepSeek",
+        "grok": "Grok",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "minimax": "MiniMax",
+        "moonshot": "Moonshot",
+        "novita": "Novita",
+        "openai": "Codex",
+        "openrouter": "OpenRouter",
+        "supergrok": "SuperGrok",
+        "zai": "Z.AI"
+      }
+    }
+  },
+  "ui": {
+    "details": "Details",
+    "elapsed": "{percent}% of the window elapsed",
+    "error": {
+      "failed": "Could not read usage",
+      "failed_hint": "ai-usagebar exited with an error.",
+      "no_data": "No usage reported",
+      "no_data_hint": "ai-usagebar ran but reported no usage. Check the providers in `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar is not installed",
+      "not_installed_hint": "The CLI is not on PATH. Install it, then try again.",
+      "spawn_failed": "Could not start ai-usagebar",
+      "spawn_failed_hint": "The process never started. Try again in a moment.",
+      "timed_out": "ai-usagebar did not answer",
+      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+    },
+    "hidden_label": "Not shown",
+    "hidden_value": "{count} more, click to open the panel",
+    "loading": "Loading…",
+    "no_usage": "No usage reported",
+    "not_configured": "`{vendor}` is not configured in ai-usagebar",
+    "now": "now",
+    "retry": "Try again",
+    "stale": "stale",
+    "stale_hint": "showing last known data",
+    "title": "AI Usage",
+    "unavailable": "Unavailable",
+    "updated": "Updated",
+    "updated_ago": "Updated {minutes} min ago",
+    "updated_now": "Updated just now",
+    "waiting": "Waiting for usage data"
+  }
+}

@@ -27,79 +27,65 @@ local nonceCounter = 0
 -- source the plugin was installed from, which differs per machine. The data directory is
 -- reported, so the file is written there once and referenced from disk.
 --
--- gamer-mode/logo.svg holds the same bytes and is the copy to edit; tests/logo.lua fails
--- if the two drift apart.
-local LOGO_SVG = [==[
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+-- gamer-mode/logo-dark.svg and logo-light.svg hold the same bytes and are the copies to
+-- edit; tests/logo.lua fails if any of them drift apart. Two files rather than one that
+-- gets rewritten: the shell caches textures by {path, targetSize}, so overwriting a
+-- single path would keep serving the previous theme's raster after a theme flip.
+local LOGO_SVG_DARK = [==[
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
   <defs>
-    <linearGradient id="outerFlame" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#C0392B"/>
-      <stop offset="100%" stop-color="#E74C3C"/>
+    <linearGradient id="body" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#B3200E"/>
+      <stop offset="0.45" stop-color="#F0630A"/>
+      <stop offset="1" stop-color="#FFC02E"/>
     </linearGradient>
-    <linearGradient id="midFlame" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#E67E22"/>
-      <stop offset="100%" stop-color="#F39C12"/>
-    </linearGradient>
-    <linearGradient id="innerFlame" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="#F1C40F"/>
-      <stop offset="100%" stop-color="#FFEB3B"/>
+    <linearGradient id="core" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FFB020"/>
+      <stop offset="1" stop-color="#FFF3B0"/>
     </linearGradient>
   </defs>
-
-  <path fill="url(#outerFlame)" d="M 120 280 C 100 220, 110 170, 150 130 C 170 110, 180 70, 170 40 C 210 70, 230 110, 240 150 C 260 100, 290 60, 330 80 C 370 100, 360 150, 390 180 C 410 200, 420 240, 390 290 Z"/>
-  <path fill="url(#midFlame)" d="M 140 280 C 130 230, 145 190, 175 160 C 195 140, 210 100, 210 80 C 235 115, 250 150, 265 175 C 285 130, 315 105, 340 120 C 370 140, 355 185, 375 210 C 390 230, 395 260, 375 290 Z"/>
-  <path fill="url(#innerFlame)" d="M 170 280 C 160 240, 180 210, 200 185 C 215 165, 225 130, 230 115 C 245 145, 260 175, 275 195 C 290 160, 310 145, 325 155 C 345 170, 335 210, 350 235 C 360 250, 360 270, 345 280 Z"/>
-
-  <rect x="90" y="235" width="16" height="175" rx="4" fill="#7F8C8D"/>
-  <rect x="84" y="245" width="6" height="25" rx="2" fill="#95A5A6"/>
-  <rect x="84" y="365" width="6" height="25" rx="2" fill="#95A5A6"/>
-
-  <rect x="160" y="395" width="170" height="20" rx="2" fill="#1B2631"/>
-  <path fill="#F1C40F" d="M 170 398 h 8 v 12 h -8 z M 183 398 h 8 v 12 h -8 z M 196 398 h 8 v 12 h -8 z M 209 398 h 8 v 12 h -8 z M 222 398 h 8 v 12 h -8 z M 235 398 h 8 v 12 h -8 z M 253 398 h 8 v 12 h -8 z M 266 398 h 8 v 12 h -8 z M 279 398 h 8 v 12 h -8 z M 292 398 h 8 v 12 h -8 z M 305 398 h 8 v 12 h -8 z M 318 398 h 8 v 12 h -8 z"/>
-
-  <rect x="104" y="245" width="290" height="150" rx="14" fill="#2C3E50"/>
-  <rect x="114" y="255" width="270" height="130" rx="10" fill="#34495E"/>
-
-  <path stroke="#1ABC9C" stroke-width="4" stroke-linecap="round" fill="none" d="M 125 267 L 373 267"/>
-  <path stroke="#1ABC9C" stroke-width="4" stroke-linecap="round" fill="none" d="M 125 373 L 373 373"/>
-
-  <circle cx="185" cy="320" r="48" fill="#1A252F"/>
-  <circle cx="185" cy="320" r="42" fill="#2C3E50"/>
-  <g fill="#1A252F">
-    <path d="M 185 320 L 175 282 A 42 42 0 0 1 195 282 Z"/>
-    <path d="M 185 320 L 223 310 A 42 42 0 0 1 223 330 Z"/>
-    <path d="M 185 320 L 195 358 A 42 42 0 0 1 175 358 Z"/>
-    <path d="M 185 320 L 147 330 A 42 42 0 0 1 147 310 Z"/>
-  </g>
-  <circle cx="185" cy="320" r="16" fill="#34495E"/>
-  <circle cx="185" cy="320" r="8" fill="#7F8C8D"/>
-
-  <circle cx="313" cy="320" r="48" fill="#1A252F"/>
-  <circle cx="313" cy="320" r="42" fill="#2C3E50"/>
-  <g fill="#1A252F">
-    <path d="M 313 320 L 303 282 A 42 42 0 0 1 323 282 Z"/>
-    <path d="M 313 320 L 351 310 A 42 42 0 0 1 351 330 Z"/>
-    <path d="M 313 320 L 323 358 A 42 42 0 0 1 303 358 Z"/>
-    <path d="M 313 320 L 275 330 A 42 42 0 0 1 275 310 Z"/>
-  </g>
-  <circle cx="313" cy="320" r="16" fill="#34495E"/>
-  <circle cx="313" cy="320" r="8" fill="#7F8C8D"/>
-
-  <circle cx="130" cy="110" r="4" fill="#FFEB3B"/>
-  <circle cx="380" cy="130" r="5" fill="#F39C12"/>
-  <circle cx="280" cy="50" r="3" fill="#FFEB3B"/>
-  <circle cx="200" cy="40" r="4" fill="#E74C3C"/>
+  <path fill="url(#body)" d="M32 4 C 38 18, 50 24, 50 38 A 18 18 0 0 1 14 38 C 14 27, 22 24, 24 14 C 29 19, 30 27, 28 33 C 31 28, 33 16, 32 4 Z"/>
+  <path fill="url(#core)" d="M32 30 C 36 36, 40 39, 40 44 A 8 8 0 0 1 24 44 C 24 39, 29 36, 32 30 Z"/>
 </svg>
 ]==]
+
+-- Deeper stops so the mark still has contrast against a light surface. The palette is
+-- not readable from a plugin, so this is a fixed pair rather than a derived colour.
+local LOGO_SVG_LIGHT = [==[
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <defs>
+    <linearGradient id="body" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#8C1408"/>
+      <stop offset="0.45" stop-color="#D24A05"/>
+      <stop offset="1" stop-color="#E89100"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#E08A00"/>
+      <stop offset="1" stop-color="#FFD867"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#body)" d="M32 4 C 38 18, 50 24, 50 38 A 18 18 0 0 1 14 38 C 14 27, 22 24, 24 14 C 29 19, 30 27, 28 33 C 31 28, 33 16, 32 4 Z"/>
+  <path fill="url(#core)" d="M32 30 C 36 36, 40 39, 40 44 A 8 8 0 0 1 24 44 C 24 39, 29 36, 32 30 Z"/>
+</svg>
+]==]
+
+-- Distinct filenames per variant, never one path rewritten: the texture cache is keyed by
+-- {path, targetSize}, so overwriting one file would keep serving the old theme's raster.
+function M.logoVariant(dark)
+    return dark and "logo-dark.svg" or "logo-light.svg"
+end
 
 local function logoPath()
     local directory = noctalia.pluginDataDir()
     if not directory then
         return nil
     end
-    local path = directory .. "/logo.svg"
+    -- There is no theme-change callback, so the variant is resolved on every render. It is
+    -- a filename choice and a fileExists in the common case.
+    local dark = noctalia.isDarkMode() ~= false
+    local path = directory .. "/" .. M.logoVariant(dark)
     if not noctalia.fileExists(path) then
-        if not noctalia.writeFile(path, LOGO_SVG) then
+        if not noctalia.writeFile(path, dark and LOGO_SVG_DARK or LOGO_SVG_LIGHT) then
             noctalia.log("gamermode: could not write the panel logo")
             return nil
         end
@@ -138,6 +124,42 @@ end
 -- buildRows produces one entry per reading the machine actually reports. Unsupported
 -- readings are absent rather than drawn as an empty bar, which would look like a real
 -- idle reading.
+-- The shell tints a sysmon value from its normal colour towards the highlight colour as
+-- the metric climbs, holding flat below the activity threshold and saturating at the
+-- critical one, with a jump to kActivityOnset the moment it crosses (sysmon_widget.cpp
+-- gradientFactor). Duplicated from monitor.luau rather than shared: plugin entries run in
+-- separate sandboxed Luau states with no `require`.
+local ACTIVITY_ONSET = 0.25
+
+function M.gradientFactor(value, activity, critical)
+    if value == nil or activity == nil or critical == nil then
+        return 0
+    end
+    local v = math.max(value, 0)
+    local top = math.max(critical, 0)
+    if top <= 0 or v <= 0 then
+        return 0
+    end
+    local floor = math.max(0, math.min(activity, top))
+    if v <= floor then
+        return 0
+    end
+    if v >= top then
+        return 1
+    end
+    return ACTIVITY_ONSET + (1 - ACTIVITY_ONSET) * (v - floor) / (top - floor)
+end
+
+-- Every row's `progress` is already the fraction the shell would gradient on, so the bar
+-- and the reading cannot disagree.
+function M.barFill(row)
+    local tint = M.gradientFactor(row.progress, row.activity, row.critical)
+    if tint <= 0 then
+        return "primary"
+    end
+    return string.format("error/%.2f", 0.80 + 0.20 * tint)
+end
+
 function M.buildRows(m, showTemps)
     local rows = {}
     if type(m) ~= "table" or not m.available then
@@ -148,12 +170,16 @@ function M.buildRows(m, showTemps)
         label = "CPU",
         glyph = "cpu-usage",
         progress = clamp(m.cpuPerc),
+            activity = 0.50,
+            critical = 0.90,
         detail = withTemp(percent(m.cpuPerc), showTemps, m.cpuTemp),
     }
     rows[#rows + 1] = {
         label = "RAM",
         glyph = "memory",
         progress = clamp(m.memPerc),
+            activity = 0.60,
+            critical = 0.90,
         detail = usedOfTotal(m.memUsedMb, m.memTotalMb),
     }
 
@@ -165,6 +191,8 @@ function M.buildRows(m, showTemps)
             label = "Swap",
             glyph = "storage",
             progress = clamp(m.swapPerc),
+            activity = 0.20,
+            critical = 0.80,
             detail = usedOfTotal(m.swapUsedMb, m.swapTotalMb),
         }
     end
@@ -174,6 +202,8 @@ function M.buildRows(m, showTemps)
             label = "GPU",
             glyph = "gpu-usage",
             progress = clamp(m.gpuPerc),
+            activity = 0.50,
+            critical = 0.95,
             detail = withTemp(percent(m.gpuPerc), showTemps, m.gpuTemp),
         }
     end
@@ -182,6 +212,8 @@ function M.buildRows(m, showTemps)
             label = "VRAM",
             glyph = "storage",
             progress = clamp(m.vramPerc),
+            activity = 0.50,
+            critical = 0.90,
             detail = usedOfTotal(m.vramUsedMb, m.vramTotalMb),
         }
     end
@@ -299,33 +331,90 @@ end
 
 -- ── rendering ──
 
-local function metricRow(row)
+-- One builder for readings with a bar and readings without. After the hierarchy pass the
+-- two differed only by the progress node, and keeping two copies meant every colour
+-- decision had to be made twice.
+local function readingRow(entry, withBar)
+    local line = ui.row({ align = "center", gap = 8 }, {
+        ui.glyph({ name = entry.glyph, size = 14, color = "on_surface_variant" }),
+        ui.label({ text = entry.label, color = "on_surface_variant", width = 48 }),
+        -- A spacer pushes the detail right. `align` is not a label prop: setting it left
+        -- the text unaligned and the shell logged a warning on every render.
+        ui.spacer({ flexGrow = 1 }),
+        ui.label({ text = entry.detail, color = "on_surface", fontSize = 11 }),
+    })
+    if not withBar then
+        return line
+    end
     return ui.column({ gap = 4 }, {
-        ui.row({ align = "center", gap = 8 }, {
-            ui.glyph({ name = row.glyph, size = 14, color = "on_surface_variant" }),
-            ui.label({ text = row.label, color = "on_surface_variant", width = 48 }),
-            -- A spacer pushes the detail right. `align` is not a label prop: setting it
-            -- left the text unaligned and the shell logged a warning on every render.
-            ui.spacer({ flexGrow = 1 }),
-            ui.label({ text = row.detail, color = "on_surface_variant", fontSize = 11 }),
-        }),
+        line,
         ui.progress({
             height = 4,
-            progress = row.progress,
-            fill = "primary",
+            progress = entry.progress,
+            fill = M.barFill(entry),
             track = "surface_variant",
             radius = 2,
         }),
     })
 end
 
-local function figureRow(figure)
-    return ui.row({ align = "center", gap = 8 }, {
-        ui.glyph({ name = figure.glyph, size = 14, color = "on_surface_variant" }),
-        ui.label({ text = figure.label, color = "on_surface_variant", width = 48 }),
-        ui.spacer({ flexGrow = 1 }),
-        ui.label({ text = figure.detail, color = "on_surface_variant", fontSize = 11 }),
-    })
+-- How hard the machine is working, 0..1, mirroring monitor.luau's heatOf. Usage leads
+-- because that is what a player feels; temperature follows. cpuPerc/gpuPerc are 0..1
+-- fractions, matching what the service publishes.
+local function heatOf(m)
+    if not (type(m) == "table" and m.available) then
+        return 0
+    end
+    local gpuUsage = 0
+    if m.gpuAvailable and tonumber(m.gpuPerc) then
+        gpuUsage = tonumber(m.gpuPerc)
+    end
+    local usage = math.max(tonumber(m.cpuPerc) or 0, gpuUsage)
+    local hottest = math.max(tonumber(m.cpuTemp) or 0, tonumber(m.gpuTemp) or 0)
+    local tempHeat = 0
+    if hottest > 0 then
+        tempHeat = math.max(0, math.min(1, (hottest - 50) / 40))
+    end
+    return math.max(0, math.min(1, usage * 0.7 + tempHeat * 0.3))
+end
+
+local haloPhase = 0
+
+-- A ring, not a bloom. Nothing can be drawn behind the mark -- the tree is pure flexbox
+-- with no stack or z-index -- so the halo is ui.image's own border, animated per frame.
+-- Hex rather than a role token because fire is not a theme colour.
+function M.haloSpec(phase, heat)
+    local hot = math.max(0, math.min(1, tonumber(heat) or 0))
+    local pulse = 0.5 + 0.5 * math.sin(tonumber(phase) or 0)
+    local intensity = 0.25 + 0.75 * hot
+    local alpha = math.floor((0.20 + 0.55 * intensity * pulse) * 255 + 0.5)
+    local green = math.floor(90 + 110 * hot + 0.5)
+    local blue = math.floor(20 + 40 * hot * pulse + 0.5)
+    return {
+        border = string.format("#%02x%02x%02x%02x", 255, green, blue, alpha),
+        borderWidth = 1 + 2 * intensity * pulse,
+    }
+end
+
+-- A soft bar under the header that breathes. ui.box's softness is what keeps it from
+-- reading as a second separator; a hard 2px rule there just looks like a mistake.
+function M.emberSpec(phase, heat)
+    local hot = math.max(0, math.min(1, tonumber(heat) or 0))
+    local pulse = 0.5 + 0.5 * math.sin(tonumber(phase) or 0)
+    local opacity = 0.18 + 0.42 * (0.3 + 0.7 * hot) * pulse
+    return {
+        fill = string.format("#ff%02x1e", math.floor(90 + 110 * hot + 0.5)),
+        opacity = math.max(0, math.min(1, opacity)),
+        softness = 2 + 2 * hot,
+    }
+end
+
+-- Vsync ticks are coalesced and stop dead while the panel is closed, but they are still a
+-- cost, so they are only asked for while there is something to animate.
+local function syncFrameTick()
+    if panel.setNeedsFrameTick then
+        panel.setNeedsFrameTick(gameMode.enabled == true)
+    end
 end
 
 local function toggleButton()
@@ -342,11 +431,22 @@ end
 
 local function header()
     local logo = logoPath()
-    local mark = logo
-            and ui.image({ path = logo, width = 42, height = 42, fit = "contain" })
+    local mark
+    if logo then
+        -- radius is set unconditionally: putting it inside the branch would pop the mark
+        -- between square and circular every time the mode is toggled.
+        local props = { path = logo, width = 42, height = 42, fit = "contain", radius = 21 }
+        if gameMode.enabled then
+            local halo = M.haloSpec(haloPhase, heatOf(metrics))
+            props.border = halo.border
+            props.borderWidth = halo.borderWidth
+        end
+        mark = ui.image(props)
+    else
         -- The glyph is the fallback for the one case that can fail: no plugin data
         -- directory to write the logo into.
-        or ui.glyph({ name = "device-gamepad-2", size = 22, color = "primary" })
+        mark = ui.glyph({ name = "device-gamepad-2", size = 22, color = "primary" })
+    end
 
     return ui.row({ align = "center", gap = 10 }, {
         mark,
@@ -492,6 +592,17 @@ local function body()
     local showTemps = noctalia.getConfig("show_temps") ~= false
     local children = {}
 
+    if gameMode.enabled then
+        local ember = M.emberSpec(haloPhase, heatOf(metrics))
+        children[#children + 1] = ui.box({
+            height = 2,
+            radius = 1,
+            fill = ember.fill,
+            opacity = ember.opacity,
+            softness = ember.softness,
+        })
+    end
+
     local rows = M.buildRows(metrics, showTemps)
     if #rows == 0 then
         children[#children + 1] = ui.label({
@@ -502,10 +613,10 @@ local function body()
     else
         children[#children + 1] = sectionLabel("panel.performance")
         for _, row in ipairs(rows) do
-            children[#children + 1] = metricRow(row)
+            children[#children + 1] = readingRow(row, true)
         end
         for _, figure in ipairs(M.buildFigures(metrics)) do
-            children[#children + 1] = figureRow(figure)
+            children[#children + 1] = readingRow(figure, false)
         end
         if not metrics.gpuAvailable then
             children[#children + 1] = ui.label({
@@ -555,6 +666,19 @@ function onOpen()
     metrics = noctalia.state.get("metrics") or metrics
     gameMode = noctalia.state.get("game_mode") or gameMode
     power = noctalia.state.get("power") or power
+    render()
+    -- Watchers fire on change, so opening the panel while gamer mode is already on would
+    -- otherwise leave the halo frozen until the next toggle.
+    syncFrameTick()
+end
+
+-- Called at vsync while the panel is open and something is animating. Advancing a phase
+-- and re-rendering is the whole of it; the halo and the ember are pure functions of it.
+function onFrameTick(deltaMs)
+    if not gameMode.enabled then
+        return
+    end
+    haloPhase = (haloPhase + (tonumber(deltaMs) or 16) * 0.0025) % (math.pi * 2)
     render()
 end
 
@@ -620,6 +744,7 @@ end)
 
 noctalia.state.watch("game_mode", function(value)
     gameMode = type(value) == "table" and value or { enabled = false, busy = false, suspended = {} }
+    syncFrameTick()
     render()
 end)
 

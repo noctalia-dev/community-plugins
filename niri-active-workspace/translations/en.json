@@ -1,22 +1,22 @@
 {
-  "plugin_name": "Niri Active Workspace",
   "plugin_description": "Shows only the focused niri workspace in the bar.",
+  "plugin_name": "Niri Active Workspace",
   "settings": {
+    "glyph": {
+      "description": "Icon shown before the label.",
+      "label": "Icon"
+    },
     "label_mode": {
-      "label": "Label",
+      "both": "Index and name",
       "description": "What to show for the focused workspace.",
-      "name_or_index": "Name, or index when unnamed",
-      "name": "Name only",
       "index": "Index only",
-      "both": "Index and name"
+      "label": "Label",
+      "name": "Name only",
+      "name_or_index": "Name, or index when unnamed"
     },
     "show_position": {
-      "label": "Show position",
-      "description": "Append the focused workspace's position, e.g. 3/5."
-    },
-    "glyph": {
-      "label": "Icon",
-      "description": "Icon shown before the label."
+      "description": "Append the focused workspace's position, e.g. 3/5.",
+      "label": "Show position"
     }
   }
 }

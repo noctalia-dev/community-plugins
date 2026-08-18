@@ -8,7 +8,7 @@ devices in a panel, and control the service over IPC.
 | Field | Value |
 | --- | --- |
 | ID | `cleboost/hotspot` |
-| Entries | Bar widget: `toggle`; panel: `panel`; service: `hotspot` |
+| Entries | Bar widget: `toggle`; shortcut: `cc-toggle`; panel: `panel`; service: `hotspot` |
 
 ## Requirements
 
@@ -19,9 +19,9 @@ Install `nmcli` from NetworkManager, plus `iw` and `ip` from iproute2, on
 ## Usage
 
 1. Open the plugin settings and set the hotspot name and password.
-2. Add the `toggle` widget to a bar.
-3. Left-click the widget to open the panel with the connected device list.
-4. Right-click the widget to start or stop the hotspot.
+2. Add the `toggle` widget to a bar and/or the `cc-toggle` shortcut in Settings → Control Center.
+3. Left-click the bar widget to open the panel with the connected device list.
+4. Right-click the bar widget, or click the Control Center shortcut, to start or stop the hotspot.
 
 ```sh
 noctalia msg panel-toggle cleboost/hotspot:panel

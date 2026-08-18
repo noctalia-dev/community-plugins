@@ -1,0 +1,126 @@
+id = "felipeartur/ai-usagebar"
+name = "AI Usage"
+version = "1.1.0"
+plugin_api = 9
+author = "felipeartur"
+license = "MIT"
+icon = "brain"
+description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
+tags = ["bar", "panel", "ai", "indicator", "utility"]
+# The CLI owns credentials, vendor endpoints and caching. This plugin only runs
+# `ai-usagebar usage --json` and draws the result.
+dependencies = ["ai-usagebar", "xdg-open"]
+
+# ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
+
+# No path setting: `ai-usagebar` is a declared dependency, so it is on PATH.
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+# One poller for the whole shell: a single `usage --json` call returns every
+# vendor, so N capsules on M monitors still cost one process per cycle.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+# Per-instance, so a second capsule can track a second provider.
+[[widget.setting]]
+key = "vendor"
+type = "select"
+label_key = "settings.vendor.label"
+description_key = "settings.vendor.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.vendor.option.auto" },
+  { value = "anthropic", label_key = "settings.vendor.option.anthropic" },
+  { value = "openai", label_key = "settings.vendor.option.openai" },
+  { value = "anthropic_api", label_key = "settings.vendor.option.anthropic_api" },
+  { value = "zai", label_key = "settings.vendor.option.zai" },
+  { value = "openrouter", label_key = "settings.vendor.option.openrouter" },
+  { value = "deepseek", label_key = "settings.vendor.option.deepseek" },
+  { value = "kimi", label_key = "settings.vendor.option.kimi" },
+  { value = "kilo", label_key = "settings.vendor.option.kilo" },
+  { value = "novita", label_key = "settings.vendor.option.novita" },
+  { value = "moonshot", label_key = "settings.vendor.option.moonshot" },
+  { value = "grok", label_key = "settings.vendor.option.grok" },
+  { value = "supergrok", label_key = "settings.vendor.option.supergrok" },
+  { value = "antigravity", label_key = "settings.vendor.option.antigravity" },
+  { value = "cursor", label_key = "settings.vendor.option.cursor" },
+  { value = "minimax", label_key = "settings.vendor.option.minimax" },
+  { value = "kiro", label_key = "settings.vendor.option.kiro" },
+]
+
+[[widget.setting]]
+key = "style"
+type = "select"
+label_key = "settings.style.label"
+description_key = "settings.style.description"
+default = "pill"
+options = [
+  { value = "pill", label_key = "settings.style.option.pill" },
+  { value = "gauge", label_key = "settings.style.option.gauge" },
+  { value = "meter", label_key = "settings.style.option.meter" },
+  { value = "label", label_key = "settings.style.option.label" },
+]
+
+# One capsule can carry more than one provider; "auto" fills it with the busiest.
+[[widget.setting]]
+key = "provider_limit"
+type = "int"
+label_key = "settings.provider_limit.label"
+description_key = "settings.provider_limit.description"
+default = 1
+min = 1
+max = 4
+
+[[widget.setting]]
+key = "extras"
+type = "select"
+label_key = "settings.extras.label"
+description_key = "settings.extras.description"
+default = "countdown"
+options = [
+  { value = "countdown", label_key = "settings.extras.option.countdown" },
+  { value = "pace", label_key = "settings.extras.option.pace" },
+  { value = "both", label_key = "settings.extras.option.both" },
+  { value = "none", label_key = "settings.extras.option.none" },
+]
+
+[[widget.setting]]
+key = "show_name"
+type = "bool"
+label_key = "settings.show_name.label"
+description_key = "settings.show_name.description"
+default = false
+
+[[widget.setting]]
+key = "color_by_usage"
+type = "bool"
+label_key = "settings.color_by_usage.label"
+description_key = "settings.color_by_usage.description"
+default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+# Master/detail: the provider list on the left, its cards on the right.
+width = 720
+height = 400
+# The shell draws the Placement and Position rows for every plugin panel whether
+# or not they are declared; declaring them only picks the default the user gets.
+placement = "attached"
+position = "auto"
+dismiss_on_outside_click = true

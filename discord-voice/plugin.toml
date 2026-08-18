@@ -1,0 +1,54 @@
+id = "raycursive/discord-voice"
+name = "Discord Voice"
+version = "0.3.2"
+plugin_api = 9
+author = "raycursive"
+license = "MIT"
+dependencies = ["discord", "python3"]
+tags = ["audio", "bar", "network", "panel", "privacy", "service"]
+icon = "brand-discord"
+description = "Monitor and control local Discord voice sessions, including participants, volume, speaking, and latency."
+
+[[setting]]
+key = "discord_binary"
+type = "file"
+label_key = "settings.discord_binary.label"
+description_key = "settings.discord_binary.description"
+default = "/usr/bin/discord"
+
+[[service]]
+id = "bridge"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "brand-discord"
+
+  [[widget.setting]]
+  key = "show_channel_name"
+  type = "bool"
+  label_key = "settings.show_channel_name.label"
+  description_key = "settings.show_channel_name.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_disconnected"
+  type = "bool"
+  label_key = "settings.hide_when_disconnected.label"
+  description_key = "settings.hide_when_disconnected.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 600
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true

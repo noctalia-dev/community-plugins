@@ -1,34 +1,34 @@
 {
-  "title": "Niri Animations",
-  "preset": "Preset",
-  "no_preset": "Sin preset (pack base)",
-  "animations_on": "Animaciones activas",
   "animations_off": "Animaciones apagadas",
+  "animations_on": "Animaciones activas",
+  "no_preset": "Sin preset (pack base)",
+  "preset": "Preset",
   "random": "Al azar",
-  "speed": "Velocidad",
-  "speed_hint": "arriba de 1 es más lento",
-  "shortcut_label": "Animaciones",
-  "status_presets_found": "presets en",
-  "status_base_pack": "Pack base",
-  "status_off": "Animaciones desactivadas.",
-  "status_read_error": "No pude leer",
-  "status_write_error": "No pude escribir",
   "settings": {
-    "presets_dir": {
-      "label": "Carpeta de presets",
-      "description": "Carpeta donde se buscan los presets .kdl de animación"
-    },
-    "target_file": {
-      "label": "Archivo destino",
-      "description": "Archivo que se reescribe con el preset y la velocidad elegidos. Tu config de niri tiene que incluirlo después de las animaciones base."
-    },
     "include_prefix": {
-      "label": "Prefijo del include",
-      "description": "Prefijo de ruta que se escribe en la línea include, relativo al archivo destino"
+      "description": "Prefijo de ruta que se escribe en la línea include, relativo al archivo destino",
+      "label": "Prefijo del include"
+    },
+    "presets_dir": {
+      "description": "Carpeta donde se buscan los presets .kdl de animación",
+      "label": "Carpeta de presets"
     },
     "reload_command": {
-      "label": "Comando de recarga",
-      "description": "Se ejecuta después de escribir, para que el compositor tome el cambio"
+      "description": "Se ejecuta después de escribir, para que el compositor tome el cambio",
+      "label": "Comando de recarga"
+    },
+    "target_file": {
+      "description": "Archivo que se reescribe con el preset y la velocidad elegidos. Tu config de niri tiene que incluirlo después de las animaciones base.",
+      "label": "Archivo destino"
     }
-  }
+  },
+  "shortcut_label": "Animaciones",
+  "speed": "Velocidad",
+  "speed_hint": "arriba de 1 es más lento",
+  "status_base_pack": "Pack base",
+  "status_off": "Animaciones desactivadas.",
+  "status_presets_found": "presets en",
+  "status_read_error": "No pude leer",
+  "status_write_error": "No pude escribir",
+  "title": "Niri Animations"
 }

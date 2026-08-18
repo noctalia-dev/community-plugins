@@ -1,0 +1,133 @@
+{
+  "notify": {
+    "connections_closed": "All connections closed",
+    "delay_all_done": "All groups tested",
+    "delay_body": "{count} nodes tested, selected {delay} ms",
+    "delay_body_no_selection": "{count} nodes tested",
+    "delay_done": "Latency test finished",
+    "delay_timeout": "All nodes timed out (504) — check the test URL",
+    "mode_changed": "Mihomo mode changed",
+    "proxy_selected": "Proxy selected",
+    "proxy_selected_body": "{group} → {proxy}",
+    "request_failed": "Mihomo request failed",
+    "restarting": "Mihomo is restarting"
+  },
+  "panel": {
+    "connections": "connections",
+    "delay_test": "Test latency",
+    "drag_group": "Drag to reorder",
+    "hidden": "hidden",
+    "members_count": {
+      "one": "{count} member",
+      "other": "{count} members"
+    },
+    "memory": "RAM",
+    "mode_direct": "Direct",
+    "mode_global": "Global",
+    "mode_rule": "Rule",
+    "no_groups": "No proxy groups found.",
+    "no_members": "no members",
+    "offline_plain": "{endpoint}",
+    "offline_with_error": "{error}",
+    "online_plain": "{endpoint}",
+    "online_with_version": "{version} · {endpoint}",
+    "proxy_groups": "Proxy groups",
+    "refresh": "Refresh",
+    "restart": "Restart",
+    "status_connecting": "Connecting",
+    "status_offline": "Offline",
+    "status_online": "Online",
+    "test_all": "Test all",
+    "timeout": "timeout",
+    "title": "Mihomo Control",
+    "traffic": "Traffic"
+  },
+  "settings": {
+    "allow_insecure_tls": {
+      "description": "Skip certificate verification when the controller uses a self-signed certificate.",
+      "label": "Allow insecure TLS"
+    },
+    "host": {
+      "description": "Hostname or IP of the Mihomo external controller.",
+      "label": "Host"
+    },
+    "icon_color": {
+      "description": "Color of the tintable Mihomo glyph.",
+      "label": "Icon color"
+    },
+    "icon_color_mode": {
+      "description": "Color the Mihomo glyph by connection status or use one custom color.",
+      "label": "Icon color mode",
+      "options": {
+        "custom": "Custom",
+        "status": "Connection status"
+      }
+    },
+    "icon_size": {
+      "description": "Size of the bar icon in pixels (10–32).",
+      "label": "Icon size"
+    },
+    "label_content": {
+      "description": "Choose what is shown beside the Mihomo icon.",
+      "label": "Widget label",
+      "options": {
+        "connections": "Connection count",
+        "download": "Download speed",
+        "latency": "First group latency",
+        "mode": "Proxy mode",
+        "none": "None (icon only)",
+        "proxy": "First group selection",
+        "traffic": "Download + upload",
+        "upload": "Upload speed"
+      }
+    },
+    "panel_placement": {
+      "description": "Choose whether the control panel opens centered on screen or attached to the bar widget.",
+      "label": "Panel placement",
+      "options": {
+        "attached": "Attached",
+        "floating": "Floating"
+      }
+    },
+    "port": {
+      "description": "Port of the Mihomo external controller (9090 by default).",
+      "label": "Port"
+    },
+    "refresh_interval": {
+      "description": "Seconds between status polls (1–60).",
+      "label": "Refresh interval"
+    },
+    "secret": {
+      "description": "External-controller secret from your Mihomo config; empty when authentication is disabled.",
+      "label": "Secret"
+    },
+    "test_url": {
+      "description": "URL used for latency tests; empty uses each group's configured test URL.",
+      "label": "Test URL"
+    },
+    "use_https": {
+      "description": "Connect with https:// instead of http:// (external-controller-tls or a TLS reverse proxy).",
+      "label": "HTTPS"
+    }
+  },
+  "shortcut": {
+    "label": "Mihomo: {mode}",
+    "mode_direct": "Direct",
+    "mode_global": "Global",
+    "mode_rule": "Rule"
+  },
+  "widget": {
+    "connections": "Connections",
+    "connections_short": "{count} conn",
+    "down": "Down total",
+    "latency_timeout": "timeout",
+    "mode": "Mode",
+    "status": "Status",
+    "status_connecting": "Connecting",
+    "status_offline_plain": "Offline",
+    "status_offline_with_error": "Offline — {error}",
+    "status_online_plain": "Online",
+    "status_online_with_version": "Online · {version}",
+    "up": "Up total"
+  }
+}

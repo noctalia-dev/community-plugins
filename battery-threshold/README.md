@@ -49,6 +49,8 @@ noctalia msg plugin damian-ds7/battery-threshold:service all setup
 
 ## Notes
 
+- **Supported Devices**: Only works on laptops with battery charge threshold
+  support (ThinkPad, ASUS), tested on Asus Zenbook 14
 - **Permissions & Setup**: Requires write access to
   `/sys/class/power_supply/BAT0/charge_control_end_threshold`. Automated setup
   creates the `battery_ctl` group, adds the active user to it, and installs

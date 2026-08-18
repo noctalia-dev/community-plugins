@@ -27,10 +27,73 @@ function onConfigChanged()
     updateState()
 end
 
--- Play a notification sound using system players
+-- Get Noctalia global sound volume (normalized between 0.0 and 1.0)
+local function getSoundVolume()
+    local rawVol = noctalia.getConfig("sound_volume")
+    if rawVol == nil then rawVol = noctalia.getConfig("soundVolume") end
+    if rawVol == nil then rawVol = noctalia.getConfig("audio.sound_volume") end
+    if rawVol == nil and noctalia.sound and type(noctalia.sound.getVolume) == "function" then
+        rawVol = noctalia.sound.getVolume()
+    end
+    local vol = tonumber(rawVol)
+    if vol == nil then
+        return 1.0
+    end
+    if vol > 1.0 then
+        vol = vol / 100.0
+    end
+    return math.clamp(vol, 0.0, 1.0)
+end
+
+-- Check whether sound cues are permitted by both plugin and Noctalia global configuration
+local function isSoundAllowed()
+    if not settings.enable_sound then
+        return false
+    end
+
+    -- Check Noctalia global sound configuration options
+    local enableSounds = noctalia.getConfig("enable_sounds")
+    if enableSounds == false or enableSounds == "false" then
+        return false
+    end
+
+    local soundEnabled = noctalia.getConfig("sound_enabled")
+    if soundEnabled == false or soundEnabled == "false" then
+        return false
+    end
+
+    local audioEnableSounds = noctalia.getConfig("audio.enable_sounds")
+    if audioEnableSounds == false or audioEnableSounds == "false" then
+        return false
+    end
+
+    if getSoundVolume() <= 0 then
+        return false
+    end
+
+    return true
+end
+
+-- Play a notification sound using system players with volume scaling matching Noctalia's volume setting
 local function playSound(soundName)
+    if not isSoundAllowed() then
+        return
+    end
+
+    local vol = getSoundVolume()
+    if vol <= 0 then
+        return
+    end
+
     local path = "/usr/share/sounds/freedesktop/stereo/" .. soundName .. ".oga"
-    noctalia.runAsync("canberra-gtk-play -i " .. soundName .. " || paplay " .. path .. " || pw-play " .. path .. " || aplay " .. path .. " || true")
+    local paVol = math.floor(vol * 65536)
+    local pwVol = string.format("%.2f", vol)
+
+    local cmd = string.format(
+        "pw-play --volume=%s %s || paplay --volume=%d %s || canberra-gtk-play -i %s || aplay %s || true",
+        pwVol, path, paVol, path, soundName, path
+    )
+    noctalia.runAsync(cmd)
 end
 
 local lastLoggedIdle = nil
@@ -53,6 +116,63 @@ local function updateState()
 end
 
 local wasSystemIdle = false
+
+-- Helper functions for timer state transitions
+local function triggerBreak()
+    inBreak = true
+    breakTimer = 0
+    breakElapsed = 0
+    activeTime = 0
+    
+    if settings.enable_notifications then
+        noctalia.notify(
+            noctalia.tr("notifications.eyecare-break-title") or "Time for a break",
+            noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds }) or string.format("Focus on an object 20 feet away for %d seconds.", settings.break_duration_seconds)
+        )
+    end
+    if settings.enable_sound then
+        playSound("message")
+    end
+end
+
+local function finishBreak()
+    inBreak = false
+    breakTimer = 0
+    breakElapsed = 0
+    activeTime = 0
+
+    if settings.enable_notifications then
+        noctalia.notify(
+            noctalia.tr("notifications.eyecare-break-finished-title") or "Break finished",
+            noctalia.tr("notifications.eyecare-break-finished-body") or "Your eyes are rested. You can return to your screen."
+        )
+    end
+    if settings.enable_sound then
+        playSound("complete")
+    end
+end
+
+local function abortBreak()
+    inBreak = false
+    breakTimer = 0
+    breakElapsed = 0
+    activeTime = 0
+end
+
+local function resetTimer()
+    inBreak = false
+    breakTimer = 0
+    breakElapsed = 0
+    activeTime = 0
+    idleTime = 0
+
+    if settings.enable_notifications then
+        noctalia.notify(
+            noctalia.tr("notifications.eyecare-reset-title") or "Eye-Care",
+            noctalia.tr("notifications.eyecare-reset-body") or "Timer has been reset."
+        )
+    end
+end
 
 -- Tick cycle actions (every 1 second)
 function update()
@@ -84,20 +204,7 @@ function update()
             end
         elseif breakTimer >= settings.break_duration_seconds then
             -- Break completed successfully
-            inBreak = false
-            breakTimer = 0
-            breakElapsed = 0
-            activeTime = 0
-            
-            if settings.enable_notifications then
-                noctalia.notify(
-                    noctalia.tr("notifications.eyecare-break-finished-title"),
-                    noctalia.tr("notifications.eyecare-break-finished-body")
-                )
-            end
-            if settings.enable_sound then
-                playSound("complete")
-            end
+            finishBreak()
         end
     else
         -- Not in break
@@ -119,8 +226,8 @@ function update()
                 
                 if settings.enable_notifications then
                     noctalia.notify(
-                        noctalia.tr("notifications.eyecare-break-title"),
-                        noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds })
+                        noctalia.tr("notifications.eyecare-break-title") or "Time for a break",
+                        noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds }) or string.format("Focus on an object 20 feet away for %d seconds.", settings.break_duration_seconds)
                     )
                 end
                 if settings.enable_sound then
@@ -133,39 +240,6 @@ function update()
     updateState()
 end
 
--- Helper functions for timer state transitions
-local function triggerBreak()
-    inBreak = true
-    breakTimer = 0
-    breakElapsed = 0
-    activeTime = 0
-    
-    if settings.enable_notifications then
-        noctalia.notify(
-            noctalia.tr("notifications.eyecare-break-title"),
-            noctalia.tr("notifications.eyecare-break-body", { seconds = settings.break_duration_seconds })
-        )
-    end
-    if settings.enable_sound then
-        playSound("message")
-    end
-end
-
-local function abortBreak()
-    inBreak = false
-    breakTimer = 0
-    breakElapsed = 0
-    activeTime = 0
-end
-
-local function resetTimer()
-    inBreak = false
-    breakTimer = 0
-    breakElapsed = 0
-    activeTime = 0
-    idleTime = 0
-end
-
 -- Listen to compositor IPC commands
 function onIpc(event, payload)
     if event == "idled" then
@@ -174,7 +248,9 @@ function onIpc(event, payload)
         isSystemIdle = false
     elseif event == "trigger-break" then
         triggerBreak()
-    elseif event == "finish-break" or event == "abort-break" then
+    elseif event == "finish-break" then
+        finishBreak()
+    elseif event == "abort-break" then
         abortBreak()
     elseif event == "reset" then
         resetTimer()

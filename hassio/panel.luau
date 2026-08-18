@@ -21,6 +21,7 @@ local browserLoadingSince = nil
 local browserFailed = false
 
 local BROWSER_TIMEOUT_SECONDS = 20
+local MAX_BROWSER_ROWS = 200
 local searchText = ""
 local monitoredEntities = {} -- current monitored list (owned here, saved to file)
 local panelOpenCount = 0
@@ -152,6 +153,52 @@ end
 local ENTITY_LIST_TEMPLATE =
     "{% for s in states %}{{ s.entity_id }}\t{{ s.name | replace('\\t',' ') | replace('\\n',' ') }}\n{% endfor %}"
 
+-- Same shape minus the friendly names, for instances that reject the template above.
+local ENTITY_ID_TEMPLATE =
+    "{% for s in states %}{{ s.entity_id }}\n{% endfor %}"
+
+local MAX_ENTITY_ID_LENGTH = 255
+local MAX_FRIENDLY_NAME_LENGTH = 255
+-- Comfortably past id + name, so a record is never cut short by it.
+local MAX_RECORD_SCAN = 1024
+
+-- Scans with plain string.find only. A Lua pattern such as "([^\t\n]+)\t" backtracks
+-- through every separator-free byte and gmatch then restarts one byte later, so a
+-- response that lost its tabs costs O(bytes^2) inside a single uninterruptible C call:
+-- seconds of CPU, which the host kills for overrunning the callback budget.
+local function parseEntityList(body)
+    local list = {}
+    local len = #body
+    -- Without any newline the whole body is one record, so a space is not a separator.
+    local splitOnSpace = string.find(body, "\n", 1, true) ~= nil
+    local pos = 1
+    while pos <= len do
+        local eol = string.find(body, "\n", pos, true) or (len + 1)
+        local lineEnd = eol - 1
+        if string.sub(body, lineEnd, lineEnd) == "\r" then lineEnd -= 1 end
+
+        -- Searching the body itself would re-scan to the far end on every separator-less
+        -- line, which is the quadratic behaviour this parser exists to avoid.
+        local record = string.sub(body, pos, math.min(lineEnd, pos + MAX_RECORD_SCAN - 1))
+        local sep = string.find(record, "\t", 1, true)
+        if not sep and splitOnSpace then sep = string.find(record, " ", 1, true) end
+
+        local entityId = sep and string.sub(record, 1, sep - 1) or record
+        local dot = string.find(entityId, ".", 1, true)
+        if dot and dot > 1 and dot < #entityId and #entityId <= MAX_ENTITY_ID_LENGTH then
+            local name = sep and string.sub(record, sep + 1) or ""
+            if #name > MAX_FRIENDLY_NAME_LENGTH then name = string.sub(name, 1, MAX_FRIENDLY_NAME_LENGTH) end
+            table.insert(list, {
+                entity_id     = entityId,
+                friendly_name = name ~= "" and name or entityId,
+                domain        = string.sub(entityId, 1, dot - 1),
+            })
+        end
+        pos = eol + 1
+    end
+    return list
+end
+
 -- HA iterates `states` in entity_id order, so this is normally just the linear check.
 local function sortEntitiesIfNeeded(list)
     for i = 2, #list do
@@ -168,6 +215,56 @@ local function finishBrowserLoad(list, failed)
     browserLoadingSince = nil
     browserFailed = failed == true
     render()
+end
+
+-- /api/states on a large instance decodes for longer than one callback is allowed to
+-- run, so the conversion is resumable: whatever is left over is finished by update(),
+-- which gets a fresh budget on every tick.
+local pendingStates = nil
+local pendingList = nil
+local pendingCursor = 1
+local STATES_PER_TICK = 1000
+
+local function consumePendingStates()
+    local states = pendingStates
+    if states == nil then return end
+
+    if type(states) ~= "table" then
+        pendingStates = nil
+        pendingList = nil
+        noctalia.log("Could not list entities: /api/states was not decodable")
+        finishBrowserLoad({}, true)
+        return
+    end
+
+    local list = pendingList
+    local total = #states
+    local i = pendingCursor
+    local last = math.min(i + STATES_PER_TICK - 1, total)
+    while i <= last do
+        local s = states[i]
+        local entityId = type(s) == "table" and s.entity_id or nil
+        if type(entityId) == "string" then
+            local attrs = s.attributes
+            local dot = string.find(entityId, ".", 1, true)
+            table.insert(list, {
+                entity_id     = entityId,
+                friendly_name = (type(attrs) == "table" and attrs.friendly_name) or entityId,
+                domain        = dot and string.sub(entityId, 1, dot - 1) or entityId,
+            })
+        end
+        i += 1
+        -- Kept in step with `list` so an aborted chunk resumes without duplicating.
+        pendingCursor = i
+    end
+
+    if i > total then
+        -- Cleared only once the sort is through, so an abort here retries next tick.
+        sortEntitiesIfNeeded(list)
+        pendingStates = nil
+        pendingList = nil
+        finishBrowserLoad(list)
+    end
 end
 
 -- Continues an already-started load, so it deliberately doesn't re-check browserLoading.
@@ -190,21 +287,50 @@ local function fetchAllEntitiesFromStates()
         end
 
         local states = noctalia.json.decode(body)
-        if type(states) ~= "table" then
-            noctalia.log("Could not list entities: /api/states was not decodable")
-            finishBrowserLoad({}, true)
+        -- Nothing but plain assignments may sit between the decode and here. The decode
+        -- alone can outlast the budget, and the host only aborts at the next call or
+        -- loop instruction, so these stores still commit and update() can take over.
+        pendingStates = states
+        pendingList = {}
+        pendingCursor = 1
+        consumePendingStates()
+    end)
+end
+
+-- Continues an already-started load, so it deliberately doesn't re-check browserLoading.
+local function fetchAllEntitiesFromTemplate(template, label, onUnusable)
+    local cleanToken = getCleanToken()
+    local url = getCleanUrl()
+
+    noctalia.http({
+        url = url .. "/api/template",
+        method = "POST",
+        headers = {
+            "Authorization: Bearer " .. cleanToken,
+            "Content-Type: application/json",
+        },
+        body = noctalia.json.encode({ template = template }),
+    }, function(response: HttpResponse)
+        local httpStatus = response and response.status or 0
+        local body = response and response.body or ""
+
+        if httpStatus < 200 or httpStatus >= 300 or body == "" then
+            noctalia.log(label .. " template unavailable (status " .. tostring(httpStatus) .. ")")
+            onUnusable()
             return
         end
 
-        local list = {}
-        for _, s in ipairs(states) do
-            local attrs = s.attributes or {}
-            table.insert(list, {
-                entity_id    = s.entity_id,
-                friendly_name = attrs.friendly_name or s.entity_id,
-                domain       = s.entity_id:match("^([^.]+)"),
-            })
+        local list = parseEntityList(body)
+
+        if #list == 0 then
+            -- The preview is what tells us how a given instance actually answers.
+            local preview = string.gsub(string.sub(body, 1, 120), "%c", ".")
+            noctalia.log(label .. " template returned nothing usable (" .. #body
+                .. " bytes, starts with: " .. preview .. ")")
+            onUnusable()
+            return
         end
+
         sortEntitiesIfNeeded(list)
         finishBrowserLoad(list)
     end)
@@ -212,6 +338,8 @@ end
 
 local function fetchAllEntities()
     if browserLoading then return end
+    pendingStates = nil
+    pendingList = nil
     local cleanToken = getCleanToken()
     local url = getCleanUrl()
     if not url or url == "" or cleanToken == "" then
@@ -227,42 +355,11 @@ local function fetchAllEntities()
     browserFailed = false
     render()
 
-    noctalia.http({
-        url = url .. "/api/template",
-        method = "POST",
-        headers = {
-            "Authorization: Bearer " .. cleanToken,
-            "Content-Type: application/json",
-        },
-        body = noctalia.json.encode({ template = ENTITY_LIST_TEMPLATE }),
-    }, function(response: HttpResponse)
-        local httpStatus = response and response.status or 0
-        local body = response and response.body or ""
-
-        if httpStatus < 200 or httpStatus >= 300 or body == "" then
-            noctalia.log("Entity list template unavailable (status " .. tostring(httpStatus)
-                .. "), falling back to /api/states")
-            fetchAllEntitiesFromStates()
-            return
-        end
-
-        local list = {}
-        for entityId, name in body:gmatch("([^\t\n]+)\t([^\n]*)") do
-            table.insert(list, {
-                entity_id     = entityId,
-                friendly_name = name ~= "" and name or entityId,
-                domain        = entityId:match("^([^.]+)"),
-            })
-        end
-
-        if #list == 0 then
-            noctalia.log("Entity list template returned nothing usable, falling back to /api/states")
-            fetchAllEntitiesFromStates()
-            return
-        end
-
-        sortEntitiesIfNeeded(list)
-        finishBrowserLoad(list)
+    -- Cheapest source first. The id-only template needs no filters and no `name`
+    -- attribute, so it still answers on instances where the full one doesn't, and
+    -- /api/states is only reached when neither template works.
+    fetchAllEntitiesFromTemplate(ENTITY_LIST_TEMPLATE, "Entity list", function()
+        fetchAllEntitiesFromTemplate(ENTITY_ID_TEMPLATE, "Entity id", fetchAllEntitiesFromStates)
     end)
 end
 
@@ -599,11 +696,18 @@ local function buildBrowserBody()
 
     local q = searchText:lower()
     local filtered = {}
+    -- A row is six UI nodes and a closure, so rendering every match on a large instance
+    -- overruns the callback budget on each keystroke. Nobody scrolls past a few hundred.
+    local truncated = false
     for _, e in ipairs(allEntities) do
         if q == ""
             or e.entity_id:lower():find(q, 1, true)
             or e.friendly_name:lower():find(q, 1, true)
         then
+            if #filtered >= MAX_BROWSER_ROWS then
+                truncated = true
+                break
+            end
             table.insert(filtered, e)
         end
     end
@@ -622,6 +726,14 @@ local function buildBrowserBody()
                 ui.label({ text = e.entity_id, color = "on_surface_variant", fontSize = 12 }),
             }),
             ui.button({ glyph = pinned and "pin-filled" or "pin", onClick = function() toggleBrowserPin(entityId) end }),
+        }))
+    end
+
+    if truncated then
+        table.insert(rows, ui.label({
+            text = tr("browser_truncated", { count = MAX_BROWSER_ROWS }),
+            color = "on_surface_variant",
+            fontSize = 12,
         }))
     end
 
@@ -672,6 +784,12 @@ end
 
 function update()
     local now = os.clock()
+
+    -- A load that is still converting is making progress, so it outranks the timeout.
+    if pendingStates ~= nil then
+        consumePendingStates()
+        return
+    end
 
     if browserLoading and browserLoadingSince and (now - browserLoadingSince) > BROWSER_TIMEOUT_SECONDS then
         browserLoading = false

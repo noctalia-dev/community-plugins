@@ -26,19 +26,27 @@ body:
       default: 0
       options:
         - --- SELECT ---
+        - 9router-control
+        - ai-usagebar
         - anilist
         - arch-updater
         - audio-switcher
         - battery-graph
+        - battery-power-management
         - battery-threshold
         - battery-widget
+        - bazaarsearch
         - bookmarks
         - calculator
         - cat
         - claude-companion
+        - codexbar-meter
         - color_picker
+        - config-swap
         - daily-wallpaper
         - deepseek_usage
+        - discord-voice
+        - dns-switcher
         - drive-health
         - dropwall
         - ds4-color
@@ -46,6 +54,9 @@ body:
         - file-search
         - game-launcher
         - gamer-mode
+        - git_companion
+        - github-prs
+        - gocryptfs
         - godot-provider
         - gslapper
         - hassio
@@ -58,42 +69,66 @@ body:
         - imagemagick-clock
         - ip-monitor
         - jetbrains-provider
+        - k8s-status
         - keybind-cheatsheet
         - keymap
+        - kineticwe-layouts
         - lid-guard
+        - link-ip-monitor
         - llamanager
         - lrc
         - lyrics
         - mango_layouts
         - mangowm-keymode
         - mawaqit
+        - mihomo-control
         - mimir
         - mini-docker
         - nextboot-selector
         - niri-active-workspace
         - niri-animations
+        - niri-displays
         - nix-monitor
         - noctwhspr
         - obs-integration
+        - obsidian
+        - opencode-companion
+        - opnsense
+        - palette-creator
         - pass
         - phone-connect
         - pomodoro
         - portctl
         - prismlauncher-instances
+        - procmon
         - proton-pass
+        - pulsar-mouse
         - qrcode
         - rss-notifier
+        - ruh-vpn
         - screen-toolkit
         - sharednd
+        - shell-command
         - shelly
         - special-workspaces
+        - spotify-lyrics
         - ssh-launcher
+        - syncthing
+        - system-updater
+        - tailnet
+        - tailscale
+        - thinkpad-fan
+        - thinkpad-led
+        - thunderbird-companion
         - tmux-provider
         - todo
         - topgrade-wrapper
+        - udiskie
         - um5606_fan_state
         - upbeat
+        - voxtype
         - w-engine
+        - wallpaper-switcher
         - web-launcher
         - wl-screen-mirror
         - zed-provider

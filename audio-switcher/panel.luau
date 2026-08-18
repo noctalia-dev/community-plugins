@@ -73,6 +73,12 @@ local function activeDevice(kind)
   return nil
 end
 
+local function inputDisplayName(device)
+  if device == nil then return "" end
+  local port = noctalia.string.trim(tostring(device.activePortDescription or ""))
+  return port ~= "" and port or tostring(device.name or "")
+end
+
 local function visibleCount(kind)
   local count = 0
   local devices = kind == "output" and asArray(snapshot.outputs) or asArray(snapshot.inputs)
@@ -110,7 +116,7 @@ local function volumeCard(kind)
   local isOutput = kind == "output"
   local device = activeDevice(kind)
   local volume = tonumber(isOutput and snapshot.outputVolume or snapshot.inputVolume) or 0
-  local muted = isOutput and snapshot.outputMuted == true or snapshot.inputMuted == true
+  local muted = (isOutput and snapshot.outputMuted == true) or (not isOutput and snapshot.inputMuted == true)
   local icon = isOutput and (muted and "volume-off" or "volume") or (muted and "microphone-mute" or "microphone")
   return ui.column({ flexGrow = 1, gap = 8, padding = 12, radius = 12, fill = "surface_variant/0.45" }, {
     ui.row({ align = "center", gap = 8 }, {
@@ -118,7 +124,7 @@ local function volumeCard(kind)
       ui.column({ flexGrow = 1, gap = 2 }, {
         ui.label({ text = tr(isOutput and "panel.output_volume" or "panel.input_volume"), fontWeight = "bold" }),
         ui.label({
-          text = device and device.name or tr("panel.no_device"),
+          text = device and (isOutput and device.name or inputDisplayName(device)) or tr("panel.no_device"),
           fontSize = 11,
           color = "on_surface_variant",
           maxLines = 1,
@@ -157,7 +163,10 @@ end
 local function deviceSubtitle(device)
   local status = deviceStatus(device)
   local description = noctalia.string.trim(tostring(device.description or ""))
+  local port = noctalia.string.trim(tostring(device.activePortDescription or ""))
+  if port ~= "" and port ~= device.name and port ~= description then status = status .. "  ·  " .. port end
   if description == "" or description == "(null)" or description:lower() == "null" then return status end
+  if description == device.name or description == port then return status end
   return status .. "  ·  " .. description
 end
 
@@ -228,6 +237,21 @@ local function deviceRow(device, kind)
   local disbandAction = function()
     sendCommand("remove_output_group", { id = device.id })
   end
+  local ports = kind == "input" and asArray(device.ports) or {}
+  local portOptions = {}
+  local selectedPortIndex = 0
+  for index, port in ipairs(ports) do
+    local label = tostring(port.description or port.name or "")
+    if port.available == false then label = tr("device.unavailable_port", { port = label }) end
+    portOptions[#portOptions + 1] = label
+    if port.active then selectedPortIndex = index - 1 end
+  end
+  local selectPortAction = function(index, _label)
+    local port = ports[math.floor(tonumber(index) or -1) + 1]
+    if port ~= nil and not port.active then
+      sendCommand("set_input_port", { id = device.id, port = port.name })
+    end
+  end
   local actionText = device.active and tr("device.current")
     or (device.bluetooth and not device.available and tr("actions.connect_and_use") or tr("actions.use"))
   local actionVariant = device.active and "ghost" or "primary"
@@ -294,6 +318,18 @@ local function deviceRow(device, kind)
     ui.row({ align = "center", gap = 8, padding = 7, radius = 9, border = selectedGroupOutputs[device.id] and "primary" or (device.active and "primary" or "outline/0.55"), borderWidth = 1, fill = selectedGroupOutputs[device.id] and "primary/0.1" or (device.active and "primary/0.07" or "surface/0") }, rowChildren),
   })
   local children = { row }
+  if kind == "input" and #ports > 1 then
+    table.insert(children, ui.row({ gap = 8, align = "center", paddingH = 8 }, {
+      ui.label({ text = tr("device.port"), color = "on_surface_variant", fontSize = 10 }),
+      ui.select({
+        options = portOptions,
+        selectedIndex = selectedPortIndex,
+        flexGrow = 1,
+        enabled = snapshot.busy ~= true,
+        onChange = selectPortAction,
+      }),
+    }))
+  end
   if editingId == device.id then table.insert(children, editor(device)) end
   return ui.column({ gap = 6 }, children)
 end
@@ -350,7 +386,8 @@ end
 local function header()
   local output = activeDevice("output")
   local input = activeDevice("input")
-  local subtitle = (output and output.name or tr("panel.no_output")) .. "  ·  " .. (input and input.name or tr("panel.no_input"))
+  local subtitle = (output and output.name or tr("panel.no_output")) .. "  ·  "
+    .. (input and inputDisplayName(input) or tr("panel.no_input"))
   return ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "switch-horizontal", size = 24, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 2 }, {
@@ -461,16 +498,7 @@ function onRefresh() sendCommand("refresh") end
 function onScanBluetooth() sendCommand("scan_bluetooth") end
 function onCycleOutput() sendCommand("cycle_output") end
 function onCycleInput() sendCommand("cycle_input") end
-function onOpenSettingsClicked()
-  local started = noctalia.runAsync("noctalia msg settings-open plugins", function(result)
-    if result.timedOut == true or tonumber(result.exitCode) ~= 0 then
-      noctalia.notifyError(tr("title"), tr("errors.command_start"))
-    end
-  end, 5000)
-  if not started then
-    noctalia.notifyError(tr("title"), tr("errors.command_start"))
-  end
-end
+function onOpenSettingsClicked() noctalia.openSettings() end
 
 function onShowOutputs()
   activeTab = "output"

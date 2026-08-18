@@ -32,7 +32,6 @@ end
 local function pending()
     return snapshot ~= nil
         and snapshot.phase == "ready"
-        and snapshot.dismissed ~= true
         and (snapshot.total or 0) > 0
 end
 

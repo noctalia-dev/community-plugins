@@ -1,6 +1,6 @@
 id = "pozzoo/hassio"
 name = "Home Assistant"
-version = "2.0.5"
+version = "2.0.6"
 plugin_api = 9
 author = "Pozzoo"
 license = "MIT"

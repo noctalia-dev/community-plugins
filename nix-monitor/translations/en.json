@@ -40,6 +40,10 @@
       "description": "Add 'Press enter to exit' on the terminal window",
       "label": "Close on press Enter"
     },
+    "generation_check_interval": {
+      "description": "How often to check NixOS and Home Manager generations (in minutes)",
+      "label": "Generation check interval"
+    },
     "hide_clean_button": {
       "description": "Whether to hide the clean button on the panel",
       "label": "Hide clean button"

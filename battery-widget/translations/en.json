@@ -1,4 +1,7 @@
 {
+  "notify": {
+    "error": "Something went wrong. Check the Noctalia log for details."
+  },
   "settings": {
     "battery": {
       "auto": "Auto",
@@ -26,6 +29,13 @@
     "hide_plugged": {
       "description": "Hide the battery widget when connected to AC power.",
       "label": "Hide When Plugged In"
+    },
+    "label_content": {
+      "description": "What the battery label shows: charge percentage, time remaining, or power draw.",
+      "label": "Label Content",
+      "percent": "Percent",
+      "rate": "Rate",
+      "time": "Time"
     },
     "layout": {
       "description": "Widget layout.",
