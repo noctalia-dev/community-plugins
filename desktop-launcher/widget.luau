@@ -20,11 +20,11 @@ end
 
 local function getContent(appid)
     local paths = {
-        "~/.local/share/applications",
+        "~/.local/share/applications/",
         "~/.local/share/flatpak/exports/share/applications/",
-        "/usr/local/share/applications",
-        "/usr/share/applications",
-        "/var/lib/flatpak/exports/share/applications",
+        "/usr/local/share/applications/",
+        "/usr/share/applications/",
+        "/var/lib/flatpak/exports/share/applications/",
     }
 
     for _, path in ipairs(paths) do
@@ -43,6 +43,10 @@ end
 
 local function parse(appid)
     local content = getContent(appid)
+    if not content then
+        return nil
+    end
+
     local data = {}
 
     local name = getKeyContent(content, "Name")
