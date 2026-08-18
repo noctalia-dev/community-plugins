@@ -15,7 +15,7 @@ local date_label = ui.label({
   color = "on_surface_variant"
 })
 
-local function update()
+function update()
   time_label.text = noctalia.formatTime(settings.time_format)
   if settings.show_date then
     date_label.text = noctalia.formatTime(settings.date_format)
@@ -25,9 +25,7 @@ local function update()
   end
 end
 
-noctalia.createTimer(30000, function()
-  update()
-end)
+noctalia.setUpdateInterval(30000)
 
 update()
 root:append(time_label)
