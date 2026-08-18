@@ -1,0 +1,28 @@
+id = "andresparrab/cast-tv"
+name = "Cast to TV"
+version = "1.0.1"
+author = "andresparrab"
+license = "MIT"
+icon = "cast"
+description = "Cast this desktop to a Wi-Fi Direct (Miracast) smart TV via FluxCast."
+plugin_api = 23
+tags = ["bar", "panel", "shortcut", "network", "media"]
+dependencies = ["fluxcast", "wf-recorder"]
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "picker"
+entry = "panel.luau"
+width = 340
+height = 460
+placement = "attached"
+position = "auto"
+dismiss_on_outside_click = true
+keyboard_focus = "on_demand"
