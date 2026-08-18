@@ -176,7 +176,7 @@
       "description": "How the Update button runs the upgrade. 'In a terminal window' (default) behaves like the original plugin: prompts and the PKGBUILD review work as usual. 'In the background' is fully non-interactive (--noconfirm, review skipped) with a live log in the panel.",
       "label": "Update mode",
       "options": {
-        "background": "In the background (non-interactive)",
+        "background": "In the background (non-interactive & HIGH RISK)",
         "terminal": "In a terminal window"
       }
     },
@@ -213,7 +213,7 @@
   "tip_unignore": "Stop ignoring this package",
   "tip_open_page": "Open package page",
   "tip_history_segment": "Click to see this run's packages",
-  "tip_polkit_install": "Install a polkit rule (asks for your password once): afterwards one password covers a whole update run, kept for ~5 minutes like sudo. Note: the rule applies to any pkexec-launched pacman from your active local session (wheel group), not only this plugin.",
+  "tip_polkit_install": "Install the polkit rule so updates can run in the background with one password prompt",
   "tip_rollback": "Roll back to {version}, together with its dependencies from this run. pacman refuses the whole transaction if it would break other packages.",
   "tip_rollback_run": "Downgrade every package of this run in one transaction",
   "tip_run_terminal": "Open a terminal window where prompts work normally",
