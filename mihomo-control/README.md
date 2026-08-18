@@ -85,6 +85,28 @@ the same command tables the panel sends (`mode`, `select`, `delay_test`,
 `self-test` runs in-process checks for group ordering, traffic dedup helpers,
 and watchdog interval setup; results are published to `mihomo.self_test`.
 
+## Testing
+
+Offline unit tests (plain Lua, no running shell required):
+
+```sh
+cd mihomo-control
+lua5.4 tests/group_order_test.lua
+noctalia plugins lint .
+```
+
+Full smoke test (adds live IPC when Noctalia is running):
+
+```sh
+./mihomo-control/tests/smoke.sh
+```
+
+Runtime self-test against the loaded service:
+
+```sh
+noctalia msg plugin mdj2812/mihomo-control:service all self-test
+```
+
 ## Notes
 
 - The plugin only talks HTTP to the configured external controller. It spawns
@@ -110,7 +132,7 @@ and watchdog interval setup; results are published to `mihomo.self_test`.
 ## Development
 
 - `service.luau` — headless API backend, publishes `mihomo.*` state.
-- `group_logic.lua` — pure helpers for group ordering and traffic dedup.
+- `group_logic.lua` — pure helpers for group ordering and traffic dedup (unit-tested).
 - `widget.luau` — bar widget (rates + tooltip).
 - `panel.luau` — control panel.
 - `shortcut.luau` — rule/global mode toggle.
