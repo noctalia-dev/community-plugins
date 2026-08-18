@@ -21,6 +21,8 @@ end
 local function getContent(appid)
     local paths = {
         "~/.local/share/applications",
+        "~/.local/share/flatpak/exports/share/applications/",
+        "/usr/local/share/applications",
         "/usr/share/applications",
         "/var/lib/flatpak/exports/share/applications",
     }
