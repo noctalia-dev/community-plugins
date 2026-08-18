@@ -293,13 +293,14 @@ end
 local function keyPill(text, bucketId, key)
   return ui.column({
     key = key,
+    minWidth = 20,
     fill = colorValue(bucketId, "background"),
     radius = 4,
     paddingH = 7,
     paddingV = 3,
     align = "center",
   }, {
-    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold", maxLines = 1 }),
+    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold" }),
   })
 end
 
@@ -883,6 +884,7 @@ return {
   restoreHiddenBindings = restoreHiddenBindings,
   categoryPriority = categoryPriority,
   friendlyAction = friendlyAction,
+  keyPill = keyPill,
   applySnapshot = applySnapshot,
   onOpen = onOpen,
   onClose = onClose,

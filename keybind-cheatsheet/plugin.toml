@@ -1,6 +1,6 @@
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.2"
+version = "0.2.3"
 plugin_api = 9
 author = "kenn"
 license = "MIT"
