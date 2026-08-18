@@ -10,7 +10,11 @@
     "proxy_selected": "已选择代理",
     "proxy_selected_body": "{group} → {proxy}",
     "request_failed": "Mihomo 请求失败",
-    "restarting": "Mihomo 正在重启"
+    "restarting": "Mihomo 正在重启",
+    "self_test_failed": "Mihomo 自检失败",
+    "self_test_failed_body": "请查看 Noctalia 日志或 mihomo.self_test 状态了解详情。",
+    "self_test_passed": "Mihomo 自检通过",
+    "self_test_passed_body": "策略组排序与服务检查均已通过。"
   },
   "panel": {
     "connections": "条连接",

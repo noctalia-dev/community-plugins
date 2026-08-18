@@ -10,7 +10,11 @@
     "proxy_selected": "Proxy selected",
     "proxy_selected_body": "{group} → {proxy}",
     "request_failed": "Mihomo request failed",
-    "restarting": "Mihomo is restarting"
+    "restarting": "Mihomo is restarting",
+    "self_test_failed": "Mihomo self-test failed",
+    "self_test_failed_body": "See Noctalia logs or mihomo.self_test state for details.",
+    "self_test_passed": "Mihomo self-test passed",
+    "self_test_passed_body": "Group ordering and service checks succeeded."
   },
   "panel": {
     "connections": "connections",

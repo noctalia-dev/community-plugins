@@ -82,6 +82,8 @@ noctalia msg plugin mdj2812/mihomo-control:service all cmd '{"op":"mode","mode":
 `refresh` re-polls version, config, connections and proxy groups. `cmd` accepts
 the same command tables the panel sends (`mode`, `select`, `delay_test`,
 `delay_test_all`, `reorder_group`, `restart`, `close_connections`, `refresh`).
+`self-test` runs in-process checks for group ordering, traffic dedup helpers,
+and watchdog interval setup; results are published to `mihomo.self_test`.
 
 ## Notes
 
@@ -108,6 +110,7 @@ the same command tables the panel sends (`mode`, `select`, `delay_test`,
 ## Development
 
 - `service.luau` — headless API backend, publishes `mihomo.*` state.
+- `group_logic.lua` — pure helpers for group ordering and traffic dedup.
 - `widget.luau` — bar widget (rates + tooltip).
 - `panel.luau` — control panel.
 - `shortcut.luau` — rule/global mode toggle.
