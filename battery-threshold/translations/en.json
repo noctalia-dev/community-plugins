@@ -12,11 +12,8 @@
   "panel": {
     "adjust-limit": "Drag slider to adjust limit",
     "button": "Configure Permissions",
-    "max": "Max",
-    "multiple-batteries": "{count} Batteries Detected",
     "not-available": "Not available on this system",
     "read-only": "Read-only: Install udev rule for write access",
-    "sync-all": "Set all to 80%",
     "title": "Battery Threshold"
   },
   "settings": {

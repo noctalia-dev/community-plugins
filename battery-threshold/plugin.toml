@@ -20,8 +20,8 @@ entry = "widget.luau"
 [[panel]]
 id              = "panel"
 entry           = "panel.luau"
-width           = 340
-height          = 340
+width           = 320
+height          = 220
 placement       = "floating"
 position        = "center"
 open_near_click = true

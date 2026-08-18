@@ -4,7 +4,7 @@
 # Battery Threshold Udev Setup
 # ------------------------------
 # This script sets up udev rules to allow a non-root user to write to
-# /sys/class/power_supply/BAT*/charge_control_end_threshold.
+# /sys/class/power_supply/BAT0/charge_control_end_threshold.
 # It creates a group 'battery_ctl' and adds the target user to this group.
 #
 # Usage:
@@ -88,20 +88,12 @@ SUBSYSTEM=="power_supply", KERNEL=="BAT*", \
     RUN+="/bin/chmod g+w /sys$devpath/charge_control_end_threshold"
 EOF
 
-echo "Applying permissions to existing batteries..."
-for threshold_file in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
-  if [ -f "$threshold_file" ]; then
-    chgrp battery_ctl "$threshold_file" 2>/dev/null || true
-    chmod g+w "$threshold_file" 2>/dev/null || true
-  fi
-done
-
 echo "Reloading rules..."
 
 udevadm control --reload-rules && udevadm trigger
 
 echo ""
-echo "Permissions applied! You may need to log out and log back in for new group membership to take full effect in active desktop sessions."
+echo "You may need a reboot for the plugin's write access to take effect."
 echo "Done!"
 echo ""
 read -rp "Press Enter to exit..."
