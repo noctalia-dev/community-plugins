@@ -20,6 +20,8 @@ local hoverText = "" -- what the detail line shows
 local listOpen = false -- at least one source is expanded this render
 local openedRunAt = nil -- history run whose package list replaces the sources
 local armedKey = nil -- rollback button waiting for its confirming second click
+local armedAt = 0 -- when it was armed; the confirm auto-disarms after a while
+local ARM_TIMEOUT_S = 8
 local activityHoverIndex = nil -- activity graph point currently under the pointer
 
 local render
@@ -682,6 +684,7 @@ local function rollbackButton(key, tooltip, onConfirm)
         tooltip = tooltip,
         onClick = function()
             armedKey = key
+            armedAt = os.time()
             render()
         end,
     })
@@ -1068,6 +1071,15 @@ function onOpen(_context)
     armedKey = nil
     activityHoverIndex = nil
     render()
+end
+
+-- An armed confirm is a one-click trigger for a privileged downgrade: if the
+-- confirming click doesn't come soon, put the plain button back.
+function update()
+    if armedKey ~= nil and os.time() - armedAt >= ARM_TIMEOUT_S then
+        armedKey = nil
+        render()
+    end
 end
 
 noctalia.state.watch(STATE_KEY, function(value)
