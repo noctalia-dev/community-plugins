@@ -1,0 +1,26 @@
+id = "yocraft/desktop-launcher"
+name = "Desktop Launcher"
+version = "1.0.0"
+plugin_api = 3
+author = "yocraft"
+license = "MIT"
+deprecated = false
+icon = "launcher"
+description = ""
+tags = [ "desktop", "utility" ]
+dependencies = []
+
+[[desktop_widget]]
+id = "widget"
+entry = "widget.luau"
+
+    [[desktop_widget.setting]]
+    key = "apps"
+    type = "string_list"
+    label_key = "settings.apps.label"
+    default = [
+        "firefox",
+        "foot",
+        "nvim",
+    ]
+
