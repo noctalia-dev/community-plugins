@@ -6,7 +6,7 @@ author = "yocraft"
 license = "MIT"
 deprecated = false
 icon = "launcher"
-description = ""
+description = "Launch your favorite apps from your desktop in one click."
 tags = [ "desktop", "utility" ]
 dependencies = []
 

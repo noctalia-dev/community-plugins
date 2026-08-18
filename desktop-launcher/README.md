@@ -1,6 +1,6 @@
 # Desktop Launcher
 
-Desktop/lockscreen widget to launch your favorite apps in one click.
+Desktop widget to launch your favorite apps from your desktop in one click.
 
 ## Plugin
 
@@ -20,3 +20,5 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 | `apps` | `string_list` | `` | Apps list and order. |
 
 ## Notes
+
+Flatpak is supported.
