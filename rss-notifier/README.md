@@ -7,12 +7,12 @@ Monitor RSS/Atom feeds and get notifications for new items.
 | Field | Value |
 | --- | --- |
 | ID | `nilsonlinux/rss-notifier` |
-| Entries | Bar widget: `indicator`; panel: `panel`|
+| Entries | Bar widget: `indicator`; panel: `Panel`|
 
 **Entries:**
 - **Service:** `fetcher` - Background service that fetches and parses feeds
 - **Widget:** `badge` - Shows unread count on the bar
-- **Panel:** `panel` - Displays feed items in a panel
+- **Panel:** `Panel` - Displays feed items in a panel
 
 **IPC Command:**
 
