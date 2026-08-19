@@ -57,8 +57,8 @@
       "description": "Highlight the currently sung word when Apple syllable timings exist. Line-only lyrics light the whole active line to match Cider."
     },
     "lyrics_osd_glow": {
-      "label": "Lyric glass",
-      "description": "Small frosted blur behind overlay glyphs so they stay readable on wallpaper. Not a color glow."
+      "label": "Lyric drop shadow",
+      "description": "Offset dark shadow under overlay glyphs so they stay readable on wallpaper."
     },
     "lyrics_karaoke_style": {
       "label": "Karaoke colors",

@@ -76,7 +76,7 @@ Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cide
 | `lyrics_osd_show_next`    | `bool`   | `true`                   | Dim upcoming lyric line.                                                    |
 | `lyrics_osd_animate_cues` | `bool`   | `true`                   | Animate intro cue dots.                                                     |
 | `lyrics_osd_karaoke`      | `bool`   | `true`                   | Word-level sing-along when Apple timings exist.                             |
-| `lyrics_osd_glow`         | `bool`   | `true`                   | Overlay-only frosted glyph veil.                                            |
+| `lyrics_osd_glow`         | `bool`   | `true`                   | Overlay-only drop shadow under glyphs.                                      |
 | `lyrics_karaoke_style`    | `select` | `theme`                  | Theme role tokens vs custom hex.                                            |
 | `lyrics_karaoke_sung`     | `string` | `""`                     | Custom sung-word hex.                                                       |
 | `lyrics_karaoke_active`   | `string` | `""`                     | Custom active-word hex.                                                     |

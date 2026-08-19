@@ -74,6 +74,7 @@ from lyrics_overlay_cfg import (  # noqa: E402
     successor_next_alpha,
     surface_mix_u,
     token_rgba_for_paint,
+    line_only_current_rgba,
     track_cross_alphas,
     group_karaoke_words,
 )
@@ -86,10 +87,10 @@ POSITION_PATH = CACHE / "position.json"
 STATE_PATH = CACHE / "state.json"
 BAR_GAP_PX = 6
 TICK_MS = 33
-# Glyph-shaped frosted veil (downscale/upscale blur). Small pad = tight radius.
-GLASS_PAD_PX = 7
-GLASS_DOWNSCALE = 0.22
-GLASS_RGBA = (0.04, 0.04, 0.06, 0.52)
+# Offset dark glyph copy (CSS-style drop-shadow), not a blurred halo.
+SHADOW_OFFSET_X = 2.0
+SHADOW_OFFSET_Y = 3.0
+SHADOW_RGBA = (0.0, 0.0, 0.0, 0.72)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -419,7 +420,7 @@ class LyricsHud(Gtk.Window):
         self._drawing.queue_draw()
         return True
 
-    def _draw_glass_behind(
+    def _draw_drop_shadow(
         self,
         cr: Any,
         layout: Pango.Layout,
@@ -427,47 +428,18 @@ class LyricsHud(Gtk.Window):
         y: float,
         glyph_a: float,
     ) -> None:
-        """Dark frosted veil that follows the glyphs — not a colored bloom.
-
-        Wayland overlays cannot backdrop-filter the wallpaper, so this blurs
-        the letter shapes themselves into a small smoked-glass halo.
-        """
-        tw, th = layout.get_pixel_size()
-        if tw <= 0 or th <= 0 or glyph_a <= 0.05:
+        """Offset dark glyph copy so lyrics stay readable on wallpaper."""
+        if glyph_a <= 0.05:
             return
-        pad = GLASS_PAD_PX
-        width = max(1, tw + 2 * pad)
-        height = max(1, th + 2 * pad)
-        glyph = cairo.ImageSurface(cairo.FORMAT_A8, width, height)
-        gcr = cairo.Context(glyph)
-        gcr.set_source_rgba(1.0, 1.0, 1.0, 1.0)
-        gcr.move_to(pad, pad)
-        PangoCairo.show_layout(gcr, layout)
-        glyph.flush()
-
-        bw = max(1, int(width * GLASS_DOWNSCALE))
-        bh = max(1, int(height * GLASS_DOWNSCALE))
-        small = cairo.ImageSurface(cairo.FORMAT_A8, bw, bh)
-        scr = cairo.Context(small)
-        scr.set_operator(cairo.OPERATOR_SOURCE)
-        scr.scale(bw / width, bh / height)
-        scr.set_source_surface(glyph, 0, 0)
-        pattern = scr.get_source()
-        if hasattr(pattern, "set_filter"):
-            pattern.set_filter(cairo.FILTER_BILINEAR)
-        scr.paint()
-        small.flush()
-
         cr.save()
-        cr.translate(x - pad, y - pad)
-        cr.scale(width / bw, height / bh)
         cr.set_source_rgba(
-            GLASS_RGBA[0],
-            GLASS_RGBA[1],
-            GLASS_RGBA[2],
-            GLASS_RGBA[3] * glyph_a,
+            SHADOW_RGBA[0],
+            SHADOW_RGBA[1],
+            SHADOW_RGBA[2],
+            SHADOW_RGBA[3] * glyph_a,
         )
-        cr.mask_surface(small, 0, 0)
+        cr.move_to(x + SHADOW_OFFSET_X, y + SHADOW_OFFSET_Y)
+        PangoCairo.show_layout(cr, layout)
         cr.restore()
 
     def _draw_text_shadowed(
@@ -477,11 +449,11 @@ class LyricsHud(Gtk.Window):
         x: float,
         y: float,
         rgba: tuple[float, float, float, float],
-        glass: bool = True,
+        shadow: bool = True,
     ) -> None:
-        # Frosted glyph veil for contrast, then the sharp letters. No color glow.
-        if glass and self._paint.get("glow") is not False and rgba[3] > 0.05:
-            self._draw_glass_behind(cr, layout, x, y, rgba[3])
+        # Drop shadow first, then sharp letters.
+        if shadow and self._paint.get("glow") is not False and rgba[3] > 0.05:
+            self._draw_drop_shadow(cr, layout, x, y, rgba[3])
         cr.set_source_rgba(*rgba)
         cr.move_to(x, y)
         PangoCairo.show_layout(cr, layout)
@@ -772,7 +744,7 @@ class LyricsHud(Gtk.Window):
                 width,
                 y,
                 _line_text(self._current) or "…",
-                self._mul_a(self._paint["next"], alpha),
+                self._mul_a(line_only_current_rgba(self._paint), alpha),
                 22,
                 True,
                 CURRENT_MAX_LINES,

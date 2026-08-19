@@ -458,6 +458,14 @@ def token_rgba_for_paint(
     return live
 
 
+def line_only_current_rgba(
+    paint: dict[str, Any],
+) -> tuple[float, float, float, float]:
+    """Whole live line is sung when the source has no syllable timings."""
+    sung = paint.get("sung") or SUNG_RGBA
+    return sung
+
+
 def estimated_position_ms(pos: dict[str, Any], now: float | None = None) -> float:
     """Extrapolate from Cider's last anchor while playing.
 

@@ -94,6 +94,20 @@ class ClockExtrapolationTests(unittest.TestCase):
         self.assertNotAlmostEqual(live_future[1], paint["sung"][1], places=1)
         overlay = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
         self.assertNotIn('self._mul_a(self._paint["sung"], alpha)', overlay)
+        self.assertIn("line_only_current_rgba", overlay)
+
+    def test_line_only_lyrics_paint_current_as_sung(self) -> None:
+        paint = cfg.resolve_karaoke_paint({"karaoke_style": "theme"})
+        rgba = cfg.line_only_current_rgba(paint)
+        self.assertAlmostEqual(rgba[0], paint["sung"][0], places=3)
+        self.assertAlmostEqual(rgba[1], paint["sung"][1], places=3)
+        self.assertGreater(rgba[0], 0.9)
+        overlay = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
+        self.assertIn("line_only_current_rgba(self._paint)", overlay)
+        self.assertNotIn(
+            'self._mul_a(self._paint["next"], alpha),\n                22,',
+            overlay,
+        )
 
 
 class WrapBudgetTests(unittest.TestCase):
@@ -119,11 +133,14 @@ class WrapBudgetTests(unittest.TestCase):
         self.assertIn("set_wrap(Pango.WrapMode.WORD_CHAR)", text)
         self.assertIn("set_height(-max(1, int(max_lines)))", text)
 
-    def test_overlay_glass_is_blur_not_color_bloom(self) -> None:
+    def test_overlay_uses_drop_shadow_not_blur_glow(self) -> None:
         text = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
-        self.assertIn("mask_surface", text)
-        self.assertIn("_draw_glass_behind", text)
-        self.assertNotIn("(5.0, 0.14)", text)
+        self.assertIn("_draw_drop_shadow", text)
+        self.assertIn("SHADOW_OFFSET_X", text)
+        self.assertIn("SHADOW_OFFSET_Y", text)
+        self.assertNotIn("mask_surface", text)
+        self.assertNotIn("_draw_glass_behind", text)
+        self.assertNotIn("FILTER_BILINEAR", text)
 
 
 class WordSpacingTests(unittest.TestCase):
