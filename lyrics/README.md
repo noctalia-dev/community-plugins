@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.4.5
+# Noctalia Lyrics 1.4.6
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,

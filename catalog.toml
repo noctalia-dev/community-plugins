@@ -284,8 +284,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.5"
-updated_at = 1785811198
+version = "1.4.6"
+updated_at = 1787087752
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -529,8 +529,8 @@ rev = "ff289e523fb3dca794979dd3476d336642296463"
 [[plugin]]
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.2"
-updated_at = 1787015428
+version = "0.2.3"
+updated_at = 1787097214
 added_at = 1784677847
 author = "kenn"
 license = "MIT"
@@ -774,13 +774,13 @@ tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "1.1.0"
-updated_at = 1786156028
+version = "2.0.0"
+updated_at = 1787088683
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
+description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
 plugin_api = 9
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
@@ -932,16 +932,22 @@ tags = ["launcher", "development", "productivity"]
 [[plugin]]
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "2.0.1"
-updated_at = 1786589080
+version = "2.1.0"
+updated_at = 1787087700
 added_at = 1785554104
 author = "yocraft"
 license = "MIT"
 icon = "battery"
-description = "Desktop/Lockscreen widget to show battery."
+description = "Desktop/Lockscreen widget that displays battery level, status, charging rate, and time remaining."
 deprecated = false
-plugin_api = 3
+plugin_api = 26
 tags = ["desktop", "hardware", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "2.0.1"
+updated_at = 1786589080
+rev = "b75eb1cb33dfaa17624aa0d0384d26fee168e9b1"
 
 [[plugin]]
 id = "marccvictoria/llamanager"

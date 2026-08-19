@@ -1,12 +1,12 @@
 id = "yocraft/battery-widget"
 name = "Battery Widget"
-version = "2.0.1"
-plugin_api = 3
+version = "2.1.0"
+plugin_api = 26
 author = "yocraft"
 license = "MIT"
 deprecated = false
 icon = "battery"
-description = "Desktop/Lockscreen widget to show battery."
+description = "Desktop/Lockscreen widget that displays battery level, status, charging rate, and time remaining."
 tags = [ "desktop", "hardware", "system", "utility" ]
 dependencies = [ "upower", "gdbus" ]
 

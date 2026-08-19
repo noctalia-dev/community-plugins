@@ -4,9 +4,11 @@
 -- actions this panel emits, so closing the panel never interrupts a check or
 -- a run in progress.
 --
--- "Check Updates" only queries pacman, the AUR helper and (optionally)
--- Flatpak. Only then do "Update" (open a terminal and run the upgrade) and
--- "Dismiss" (clear the pending list and close the panel) light up.
+-- "Update" follows the update_mode setting: a terminal window (default,
+-- like the original plugin) or a non-interactive background run. Either
+-- way the package list gives way to a live tail of the update log plus a
+-- progress bar while it runs. A failed background run keeps its log on
+-- screen and offers a terminal retry where prompts work normally.
 
 local STATE_KEY = "arch_state"
 local REQUEST_KEY = "arch_request"
@@ -15,8 +17,12 @@ local snapshot = nil
 local expanded = {} -- source key -> the package list is open
 local hoverKey = nil -- package row currently under the pointer
 local hoverText = "" -- what the detail line shows
-local activityHoverIndex = nil -- activity graph point currently under the pointer
 local listOpen = false -- at least one source is expanded this render
+local openedRunAt = nil -- history run whose package list replaces the sources
+local armedKey = nil -- rollback button waiting for its confirming second click
+local armedAt = 0 -- when it was armed; the confirm auto-disarms after a while
+local ARM_TIMEOUT_S = 8
+local activityHoverIndex = nil -- activity graph point currently under the pointer
 
 local render
 
@@ -24,10 +30,20 @@ local function tr(key, args)
     return noctalia.tr(key, args)
 end
 
-local function request(action)
+-- extra: a package name string, or a table merged into the request payload
+-- (pkg/version/at for the rollback family).
+local function request(action, extra)
     local prev = noctalia.state.get(REQUEST_KEY)
     local nonce = (type(prev) == "table" and tonumber(prev.nonce) or 0) + 1
-    noctalia.state.set(REQUEST_KEY, { nonce = nonce, action = action })
+    local payload = { nonce = nonce, action = action }
+    if type(extra) == "table" then
+        for key, value in pairs(extra) do
+            payload[key] = value
+        end
+    elseif extra ~= nil then
+        payload.pkg = extra
+    end
+    noctalia.state.set(REQUEST_KEY, payload)
 end
 
 local function shellQuote(value)
@@ -79,11 +95,19 @@ local function busy()
     return phase == "checking" or phase == "running"
 end
 
--- Only "checking" blocks a new check: "running" still allows one, since it
--- doubles as a manual unstick if the update's process-poll heuristic ever
--- misses the terminal finishing.
 local function checking()
     return phaseOf() == "checking"
+end
+
+local function runFailed()
+    return phaseOf() == "error" and snapshot ~= nil and tonumber(snapshot.runExit) ~= nil and tonumber(snapshot.runExit) ~= 0
+end
+
+local function logLines()
+    if snapshot == nil or type(snapshot.logTail) ~= "table" then
+        return {}
+    end
+    return snapshot.logTail
 end
 
 local function headline()
@@ -99,6 +123,12 @@ local function headline()
         end
         return tr("status_checking"), "secondary"
     elseif phase == "running" then
+        if snapshot ~= nil and snapshot.runKind == "rollback" then
+            return tr("status_rolling_back"), "secondary"
+        end
+        if snapshot ~= nil and snapshot.runMode == "terminal" then
+            return tr("status_running_terminal"), "secondary"
+        end
         return tr("status_running"), "secondary"
     elseif phase == "clean" then
         return tr("status_clean"), "on_surface"
@@ -146,12 +176,18 @@ local function orderedSources()
     return pending
 end
 
+-- Sources that are installed, enabled and have nothing pending. Flatpak is
+-- skipped entirely when it is not on the system, so the panel doesn't brag
+-- about a tool that isn't there.
 local function cleanSources()
     if snapshot == nil then
         return {}
     end
     local names = {}
-    local candidates = { { key = "pacman", entry = snapshot.pacman }, { key = "flatpak", entry = snapshot.flatpak } }
+    local candidates = { { key = "pacman", entry = snapshot.pacman } }
+    if snapshot.flatpakEnabled == true then
+        table.insert(candidates, { key = "flatpak", entry = snapshot.flatpak })
+    end
     if snapshot.aur ~= nil and (snapshot.aur.n or 0) == 0 and noctalia.getConfig("aur_helper") ~= "off" then
         table.insert(candidates, { key = "aur", entry = snapshot.aur })
     end
@@ -181,6 +217,13 @@ local function packageRow(sourceKey, index, item)
             text = to, fontSize = 11, color = "primary", fontWeight = "semibold", maxWidth = VERSION_WIDTH, maxLines = 1,
         }))
     end
+    table.insert(children, ui.button({
+        glyph = "eye-off", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+        tooltip = tr("tip_ignore"),
+        onClick = function()
+            request("ignore", item.name)
+        end,
+    }))
     table.insert(children, ui.button({
         glyph = "copy", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
         tooltip = tr("tip_copy"),
@@ -252,52 +295,119 @@ local function sourceRows()
     return rows
 end
 
--- Download size, reboot recommendation and Arch news. Each is its own line,
--- so turning one off in settings just removes that line.
-local function extras()
-    local lines = {}
+-- ── Ignored packages ─────────────────────────────────────────────────────────
+
+-- One display list: packages the last check saw as ignored (with versions),
+-- then panel-managed and settings-based ignores with nothing pending.
+local function ignoredEntries()
     if snapshot == nil then
-        return lines
+        return {}
     end
-
-    if type(snapshot.downloadSizeMiB) == "number" then
-        local size = snapshot.downloadSizeMiB
-        local text = size >= 1024 and tr("size_gib", { value = string.format("%.2f", size / 1024) })
-            or tr("size_mib", { value = string.format("%.1f", size) })
-        table.insert(lines, ui.row({ key = "size", gap = 6, align = "center" }, {
-            ui.glyph({ name = "download", size = 13, color = "on_surface_variant" }),
-            ui.label({ text = text, fontSize = 12, color = "on_surface_variant" }),
-        }))
+    local entries = {}
+    local seen = {}
+    local pending = type(snapshot.ignoredPending) == "table" and snapshot.ignoredPending or {}
+    for _, item in ipairs(pending) do
+        if type(item) == "table" and item.name ~= nil and not seen[item.name] then
+            seen[item.name] = true
+            table.insert(entries, item)
+        end
     end
-
-    if snapshot.rebootRecommended == true then
-        table.insert(lines, ui.row({ key = "reboot", gap = 6, align = "center" }, {
-            ui.glyph({ name = "alert-triangle", size = 13, color = "warning" }),
-            ui.label({ text = tr("reboot_recommended"), fontSize = 12, color = "warning", flexGrow = 1 }),
-        }))
+    local dynamic = type(snapshot.ignoredDynamic) == "table" and snapshot.ignoredDynamic or {}
+    for _, name in ipairs(dynamic) do
+        if not seen[name] then
+            seen[name] = true
+            table.insert(entries, { name = name, source = "plugin" })
+        end
     end
-
-    if (snapshot.newsUnread or 0) > 0 then
-        table.insert(lines, ui.row({ key = "news", gap = 6, align = "center" }, {
-            ui.glyph({ name = "news", size = 13, color = "on_surface" }),
-            ui.label({
-                text = noctalia.trp("news_unread", snapshot.newsUnread, { title = snapshot.newsLatestTitle or "" }),
-                fontSize = 12,
-                color = "on_surface",
-                flexGrow = 1,
-                maxLines = 2,
-            }),
-            ui.button({
-                text = tr("action_open_news"), variant = "ghost", controlSize = "sm",
-                onClick = function()
-                    request("open_news")
-                end,
-            }),
-        }))
+    local config = type(snapshot.ignoredConfig) == "table" and snapshot.ignoredConfig or {}
+    for _, name in ipairs(config) do
+        if not seen[name] then
+            seen[name] = true
+            table.insert(entries, { name = name, source = "settings" })
+        end
     end
-
-    return lines
+    return entries
 end
+
+-- Only panel-managed ignores can be lifted from here.
+local function isRemovable(name)
+    if snapshot == nil or type(snapshot.ignoredDynamic) ~= "table" then
+        return false
+    end
+    for _, entry in ipairs(snapshot.ignoredDynamic) do
+        if entry == name then
+            return true
+        end
+    end
+    return false
+end
+
+local function ignoredRow(index, item)
+    local children = {
+        ui.label({ text = item.name, fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 1 }),
+    }
+    if item.to ~= nil and item.to ~= "" then
+        table.insert(children, ui.label({
+            text = item.to, fontSize = 11, color = "on_surface_variant", maxWidth = VERSION_WIDTH, maxLines = 1,
+        }))
+    end
+    if item.source ~= "system" and isRemovable(item.name) then
+        table.insert(children, ui.button({
+            glyph = "eye", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("tip_unignore"),
+            onClick = function()
+                request("unignore", item.name)
+            end,
+        }))
+    elseif item.source == "system" then
+        -- IgnorePkg belongs to root; the tag only explains where to lift it.
+        table.insert(children, ui.button({
+            text = tr("ignored_tag_system"), variant = "ghost", controlSize = "sm",
+            tooltip = tr("ignored_tip_system"),
+            onClick = function() end,
+        }))
+    else
+        table.insert(children, ui.button({
+            text = tr("ignored_tag_settings"), variant = "ghost", controlSize = "sm",
+            tooltip = tr("ignored_tip_settings"),
+            onClick = function()
+                noctalia.runAsync("noctalia msg settings-open-plugin yuuto/arch-updater >/dev/null 2>&1")
+            end,
+        }))
+    end
+    return ui.row({ key = "ign-" .. index, paddingH = 18, gap = 6, align = "center" }, children)
+end
+
+local function ignoredRows()
+    local entries = ignoredEntries()
+    if #entries == 0 then
+        return {}
+    end
+    local open = expanded["ignored"] == true
+    local rows = {}
+    table.insert(rows, ui.row({
+        key = "src-ignored" .. (open and "-open" or ""),
+        gap = 8,
+        align = "center",
+        onClick = function()
+            expanded["ignored"] = not expanded["ignored"]
+            render()
+        end,
+    }, {
+        ui.glyph({ name = open and "chevron-down" or "chevron-right", size = 12, color = "on_surface_variant" }),
+        ui.glyph({ name = "eye-off", size = 13, color = "on_surface_variant" }),
+        ui.label({ text = tr("ignored_title"), color = "on_surface_variant", flexGrow = 1 }),
+        ui.label({ text = tostring(#entries), color = "on_surface_variant", fontWeight = "bold" }),
+    }))
+    if open then
+        for index, item in ipairs(entries) do
+            table.insert(rows, ignoredRow(index, item))
+        end
+    end
+    return rows
+end
+
+-- ── Activity graph (the upstream feature, opt-in) ───────────────────────────
 
 -- Normalizes the pending-count history to 0..1 for ui.graph, relative to the
 -- min/max in the window (not a fixed scale, since pending counts vary wildly
@@ -388,28 +498,29 @@ local function describeEntry(entry)
     return text
 end
 
--- ui.graph takes no pointer props of its own (only row/column/box/image/button
--- do), so per-point hover is a row of hit targets placed right under the
--- line. Each is a ghost button so it can carry a native tooltip at the
--- pointer, not just a box for the hit test. It cannot highlight the point on
--- the line itself, only drive the tooltip and the caption above it.
+-- ui.graph takes no pointer props of its own and the framework has no
+-- overlay control, so per-point hover cannot live on the line itself: it is
+-- a row of hit targets right under it, drawn as an axis of small dots (the
+-- hovered one lights up in the accent color) so the interactivity is
+-- visible without the ghost-button hover flash.
 --
 -- Real points sit at (k-1)/(#history-1) of the width (see
 -- padGraphLookbehind), i.e. #history-1 equal gaps, not #history equal slots
 -- - so this builds one equal-width segment per gap rather than per entry,
--- ending each segment exactly on the point at its right edge. That leaves
--- entry 1 (at the left edge, with no gap before it) without its own hover
--- zone, but keeps every other spike landing right at the end of its segment
--- instead of drifting toward the start of an oversized one.
+-- ending each segment (and its dot) exactly on the point at its right edge.
+-- That leaves entry 1 (at the left edge, with no gap before it) without its
+-- own hover zone, but keeps every other spike landing right at the end of
+-- its segment instead of drifting toward the start of an oversized one.
 local function activityHoverRow(history)
     local segments = {}
     for i = 2, #history do
-        segments[i - 1] = ui.button({
-            key = "activity-hit-" .. i,
-            variant = "ghost",
+        local hovered = activityHoverIndex == i
+        segments[i - 1] = ui.row({
+            key = "activity-hit-" .. i .. (hovered and "-on" or ""),
             flexGrow = 1,
             height = 12,
-            tooltip = describeEntry(history[i]),
+            align = "center",
+            justify = "end",
             onHover = function(state)
                 if state == "true" then
                     activityHoverIndex = i
@@ -420,6 +531,13 @@ local function activityHoverRow(history)
                 end
                 render()
             end,
+        }, {
+            ui.box({
+                width = hovered and 7 or 5,
+                height = hovered and 7 or 5,
+                radius = 4,
+                fill = hovered and "primary" or "outline/0.6",
+            }),
         })
     end
     return ui.row({ key = "activity-hits", gap = 1 }, segments)
@@ -433,7 +551,7 @@ local function activitySection()
     if snapshot == nil or noctalia.getConfig("show_activity_graph") ~= true then
         return nil
     end
-    local history = type(snapshot.history) == "table" and snapshot.history or {}
+    local history = type(snapshot.activity) == "table" and snapshot.activity or {}
     if #history < 2 then
         return nil
     end
@@ -469,43 +587,369 @@ local function activitySection()
     })
 end
 
+-- ── Run history and rollback ─────────────────────────────────────────────────
+
+local function historyRuns()
+    if snapshot == nil or type(snapshot.history) ~= "table" then
+        return {}
+    end
+    return snapshot.history -- newest first
+end
+
+local function findHistoryRun(at)
+    for _, run in ipairs(historyRuns()) do
+        if tonumber(run.at) == tonumber(at) then
+            return run
+        end
+    end
+    return nil
+end
+
+local function describeRun(run)
+    local text = os.date("%d.%m %H:%M", tonumber(run.at) or 0)
+        .. " · " .. noctalia.trp("run_packages", run.n or 0, { count = run.n or 0 })
+    if run.rollback == true then
+        text = text .. " · " .. tr("history_rollback_tag")
+    end
+    return text
+end
+
+-- The footer strip: one equal-width segment per recorded run, oldest on the
+-- left. Hover describes the run, click opens its package list.
+local function historySection()
+    local runs = historyRuns()
+    if #runs == 0 then
+        return nil
+    end
+    local segments = {}
+    for i = #runs, 1, -1 do
+        local run = runs[i]
+        table.insert(segments, ui.button({
+            key = "run-" .. tostring(run.at),
+            -- primary: painted in the theme's accent color, so the strip is
+            -- visible at rest (ghost would only show on hover)
+            variant = "primary",
+            flexGrow = 1,
+            height = 10,
+            tooltip = describeRun(run) .. "\n" .. tr("tip_history_segment"),
+            onClick = function()
+                openedRunAt = run.at
+                armedKey = nil
+                request("probe_run", { at = run.at })
+                render()
+            end,
+        }))
+    end
+    local header = {
+        ui.label({ text = tr("history_title"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant", flexGrow = 1 }),
+    }
+    if snapshot ~= nil and snapshot.checkedAt ~= nil and snapshot.checkedAt ~= "" then
+        table.insert(header, ui.label({
+            text = tr("caption_checked", { time = snapshot.checkedAt }),
+            fontSize = 10,
+            color = "on_surface_variant",
+        }))
+    end
+    return ui.column({ key = "history", gap = 3 }, {
+        ui.row({ key = "history-head", gap = 6, align = "center" }, header),
+        ui.row({ key = "history-segments", gap = 2 }, segments),
+    })
+end
+
+local function probeFor(run)
+    if snapshot ~= nil and type(snapshot.probe) == "table" and tonumber(snapshot.probe.at) == tonumber(run.at) then
+        return snapshot.probe.pkgs
+    end
+    return nil
+end
+
+-- Two-click rollback: the first click arms the button (it turns into a
+-- confirm label), the second sends the request. Anything else re-renders
+-- the armed state away.
+local function rollbackButton(key, tooltip, onConfirm)
+    if armedKey == key then
+        return ui.button({
+            key = key .. "-armed",
+            text = tr("rollback_confirm"), variant = "primary", controlSize = "sm",
+            tooltip = tooltip,
+            onClick = function()
+                armedKey = nil
+                onConfirm()
+            end,
+        })
+    end
+    return ui.button({
+        key = key,
+        glyph = "undo", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+        tooltip = tooltip,
+        onClick = function()
+            armedKey = key
+            armedAt = os.time()
+            render()
+        end,
+    })
+end
+
+local function rollbackRow(run, index, item, probePkgs)
+    local key = "rb-" .. tostring(run.at) .. "-" .. index
+    local info = probePkgs ~= nil and probePkgs[item.name] or nil
+    local children = {}
+
+    if item.source == "flatpak" then
+        table.insert(children, ui.glyph({ name = "app-window", size = 12, color = "on_surface_variant" }))
+    elseif info ~= nil and info.cache ~= true then
+        table.insert(children, ui.button({
+            key = key .. "-miss",
+            glyph = "undo", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            enabled = false,
+            tooltip = tr("rollback_missing"),
+            onClick = function() end,
+        }))
+    else
+        local tooltip = tr("tip_rollback", { version = tostring(item.from or "") })
+        if info ~= nil and (info.req or 0) > 0 then
+            tooltip = tooltip .. "\n" .. noctalia.trp("rollback_required_by", info.req, { count = info.req })
+        end
+        table.insert(children, rollbackButton(key, tooltip, function()
+            request("rollback", { pkg = item.name, version = item.from, at = run.at })
+        end))
+    end
+
+    table.insert(children, ui.label({ text = item.name, fontSize = 11, color = "on_surface", flexGrow = 1, maxLines = 1 }))
+    if item.from ~= nil and item.from ~= "" then
+        table.insert(children, ui.label({
+            text = item.from, fontSize = 11, color = "on_surface_variant", maxWidth = VERSION_WIDTH, maxLines = 1,
+        }))
+    end
+    table.insert(children, ui.label({ text = "→", fontSize = 11, color = "on_surface_variant" }))
+    table.insert(children, ui.label({
+        text = tostring(item.to or ""), fontSize = 11, color = "primary", maxWidth = VERSION_WIDTH, maxLines = 1,
+    }))
+    return ui.row({ key = key .. "-row", gap = 6, align = "center" }, children)
+end
+
+-- The opened run: header with a back button and a whole-run rollback, then
+-- one row per package showing the run's from -> to and a rollback control.
+local function runViewRows()
+    local run = findHistoryRun(openedRunAt)
+    if run == nil then
+        openedRunAt = nil
+        return nil
+    end
+    local probePkgs = probeFor(run)
+    local rows = {}
+    local header = {
+        ui.button({
+            glyph = "chevron-left", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("action_back"),
+            onClick = function()
+                openedRunAt = nil
+                armedKey = nil
+                render()
+            end,
+        }),
+        ui.label({ text = describeRun(run), fontSize = 12, fontWeight = "bold", color = "on_surface", flexGrow = 1, maxLines = 1 }),
+    }
+    local rollable = 0
+    for _, item in ipairs(run.packages or {}) do
+        if item.source ~= "flatpak" then
+            rollable += 1
+        end
+    end
+    if rollable > 0 and run.rollback ~= true then
+        table.insert(header, rollbackButton("rb-all-" .. tostring(run.at), tr("tip_rollback_run"), function()
+            request("rollback_run", { at = run.at })
+        end))
+    end
+    table.insert(rows, ui.row({ key = "run-head", gap = 6, align = "center" }, header))
+    for index, item in ipairs(run.packages or {}) do
+        table.insert(rows, rollbackRow(run, index, item, probePkgs))
+    end
+    return rows
+end
+
+-- Live tail of the update log, with a progress bar while packages are being
+-- processed. Shown during a run and kept on screen after a failed one.
+local function logSection()
+    local children = {}
+
+    local header = {
+        ui.label({ text = tr("log_title"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant", flexGrow = 1 }),
+    }
+    local done = snapshot ~= nil and type(snapshot.progress) == "table" and tonumber(snapshot.progress.done) or 0
+    local expect = snapshot ~= nil and type(snapshot.progress) == "table" and tonumber(snapshot.progress.total) or 0
+    if phaseOf() == "running" and expect > 0 then
+        table.insert(header, ui.label({
+            text = tostring(math.min(done, expect)) .. " / " .. tostring(expect),
+            fontSize = 11,
+            color = "on_surface_variant",
+        }))
+    end
+    table.insert(children, ui.row({ key = "log-head", gap = 6, align = "center" }, header))
+
+    if phaseOf() == "running" and expect > 0 then
+        table.insert(children, ui.progress({ key = "log-progress", progress = math.min(done / expect, 1) }))
+    end
+
+    local lines = logLines()
+    local rows = {}
+    if #lines == 0 then
+        table.insert(rows, ui.label({
+            key = "log-empty", text = tr("log_waiting"), fontSize = 10, color = "on_surface_variant",
+        }))
+    else
+        for index, line in ipairs(lines) do
+            table.insert(rows, ui.label({
+                key = "log-" .. index,
+                text = line,
+                fontSize = 10,
+                color = "on_surface_variant",
+                maxLines = 1,
+            }))
+        end
+    end
+    table.insert(children, ui.column({ key = "log-lines", gap = 2, flexGrow = 1 }, rows))
+
+    if snapshot ~= nil and type(snapshot.logPath) == "string" and snapshot.logPath ~= "" then
+        table.insert(children, ui.row({ key = "log-actions", gap = 6 }, {
+            ui.button({
+                text = tr("action_open_log"), variant = "ghost", controlSize = "sm",
+                -- Opened by the service in a terminal pager: xdg-open on a
+                -- text file dies silently when the default handler is a
+                -- terminal editor.
+                onClick = function()
+                    request("open_log")
+                end,
+            }),
+        }))
+    end
+
+    return ui.column({ key = "log", gap = 6, flexGrow = 1 }, children)
+end
+
+-- Download size, reboot recommendation and Arch news. Each is its own line,
+-- so turning one off in settings just removes that line.
+local function extras()
+    local lines = {}
+    if snapshot == nil then
+        return lines
+    end
+
+    if type(snapshot.downloadSizeMiB) == "number" then
+        local size = snapshot.downloadSizeMiB
+        local text = size >= 1024 and tr("size_gib", { value = string.format("%.2f", size / 1024) })
+            or tr("size_mib", { value = string.format("%.1f", size) })
+        table.insert(lines, ui.row({ key = "size", gap = 6, align = "center" }, {
+            ui.glyph({ name = "download", size = 13, color = "on_surface_variant" }),
+            ui.label({ text = text, fontSize = 12, color = "on_surface_variant" }),
+        }))
+    end
+
+    if snapshot.rebootRecommended == true then
+        table.insert(lines, ui.row({ key = "reboot", gap = 6, align = "center" }, {
+            ui.glyph({ name = "alert-triangle", size = 13, color = "warning" }),
+            ui.label({ text = tr("reboot_recommended"), fontSize = 12, color = "warning", flexGrow = 1 }),
+        }))
+    end
+
+    -- Offered until the polkit keep-authorization rule is installed. Only in
+    -- background mode: a terminal run goes through sudo, so the repeated
+    -- polkit prompts the rule solves never happen there.
+    if
+        snapshot.polkitRule == false
+        and noctalia.getConfig("update_mode") == "background"
+        and phaseOf() ~= "running"
+        and noctalia.getConfig("hide_polkit_hint") ~= true
+    then
+        table.insert(lines, ui.row({ key = "polkit", gap = 6, align = "center" }, {
+            ui.glyph({ name = "shield", size = 13, color = "on_surface_variant" }),
+            ui.label({
+                text = tr("polkit_hint"),
+                fontSize = 12,
+                color = "on_surface_variant",
+                flexGrow = 1,
+                maxLines = 2,
+            }),
+            ui.button({
+                text = tr("action_polkit_install"), variant = "ghost", controlSize = "sm",
+                tooltip = tr("tip_polkit_install"),
+                onClick = function()
+                    request("polkit_install")
+                end,
+            }),
+        }))
+    end
+
+    if (snapshot.newsUnread or 0) > 0 then
+        table.insert(lines, ui.row({ key = "news", gap = 6, align = "center" }, {
+            ui.glyph({ name = "news", size = 13, color = "on_surface" }),
+            ui.label({
+                text = noctalia.trp("news_unread", snapshot.newsUnread, { title = snapshot.newsLatestTitle or "" }),
+                fontSize = 12,
+                color = "on_surface",
+                flexGrow = 1,
+                maxLines = 2,
+            }),
+            ui.button({
+                text = tr("action_open_news"), variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    request("open_news")
+                end,
+            }),
+        }))
+    end
+
+    return lines
+end
+
 local function body()
     local children = {}
 
-    local rows = sourceRows()
-    if #rows > 0 then
-        table.insert(children, ui.scroll({ key = "sources", flexGrow = 1, gap = 3 }, rows))
+    -- The middle of the panel: the live log while updating (and after a
+    -- failure), an opened history run, or the package list.
+    if phaseOf() == "running" or (runFailed() and #logLines() > 0) then
+        table.insert(children, logSection())
     else
-        table.insert(children, ui.spacer({ key = "filler", flexGrow = 1 }))
-    end
+        local runRows = openedRunAt ~= nil and runViewRows() or nil
+        if runRows ~= nil then
+            table.insert(children, ui.scroll({ key = "run-view", flexGrow = 1, gap = 4 }, runRows))
+            return children
+        end
+        local rows = sourceRows()
+        for _, row in ipairs(ignoredRows()) do
+            table.insert(rows, row)
+        end
+        if #rows > 0 then
+            table.insert(children, ui.scroll({ key = "sources", flexGrow = 1, gap = 3 }, rows))
+        else
+            table.insert(children, ui.spacer({ key = "filler", flexGrow = 1 }))
+        end
 
-    if listOpen then
-        table.insert(children, ui.label({
-            key = "hover-detail",
-            text = hoverText ~= "" and hoverText or tr("hover_hint"),
-            fontSize = 11,
-            color = hoverText ~= "" and "on_surface" or "on_surface_variant",
-            maxLines = 1,
-        }))
+        if listOpen then
+            table.insert(children, ui.label({
+                key = "hover-detail",
+                text = hoverText ~= "" and hoverText or tr("hover_hint"),
+                fontSize = 11,
+                color = hoverText ~= "" and "on_surface" or "on_surface_variant",
+                maxLines = 1,
+            }))
+        end
     end
 
     for _, line in ipairs(extras()) do
         table.insert(children, line)
     end
 
-    local clean = cleanSources()
-    if #clean > 0 then
-        table.insert(children, ui.label({
-            text = tr("up_to_date", { sources = table.concat(clean, ", ") }),
-            fontSize = 11,
-            color = "on_surface_variant",
-            maxLines = 2,
-        }))
-    end
-
-    local activity = activitySection()
-    if activity ~= nil then
-        table.insert(children, activity)
+    if not busy() then
+        local clean = cleanSources()
+        if #clean > 0 then
+            table.insert(children, ui.label({
+                text = tr("up_to_date", { sources = table.concat(clean, ", ") }),
+                fontSize = 11,
+                color = "on_surface_variant",
+                maxLines = 2,
+            }))
+        end
     end
 
     return children
@@ -516,7 +960,7 @@ local function footerCaption()
         return nil
     end
     local parts = { tr("caption_checked", { time = snapshot.checkedAt }) }
-    local ignored = tonumber(snapshot.ignoredCount) or 0
+    local ignored = #ignoredEntries()
     if ignored > 0 then
         table.insert(parts, noctalia.trp("caption_ignored", ignored, {}))
     end
@@ -528,16 +972,16 @@ render = function()
 
     local text, color = headline()
     local phase = phaseOf()
-    local hasUpdates = totalOf() > 0 and (phase == "ready" or phase == "running")
+    local hasUpdates = totalOf() > 0 and phase == "ready"
 
     local children = {
         ui.row({ gap = 8, align = "center" }, {
             ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
             ui.button({
-                key = "header-check" .. (checking() and "-off" or ""),
+                key = "header-check" .. (busy() and "-off" or ""),
                 glyph = "refresh",
                 variant = "ghost",
-                enabled = not checking() and phase ~= "missing",
+                enabled = not busy() and phase ~= "missing",
                 tooltip = tr("tip_check"),
                 onClick = function()
                     request("check")
@@ -557,39 +1001,62 @@ render = function()
         table.insert(children, node)
     end
 
-    local caption = footerCaption()
-    if caption ~= nil then
+    -- Both footers hide while a check or run is on screen, so neither ever
+    -- competes with the live log for space.
+    local activity = not busy() and activitySection() or nil
+    local history = not busy() and historySection() or nil
+    if activity ~= nil or history ~= nil then
         table.insert(children, ui.separator({}))
-        table.insert(children, ui.label({ text = caption, fontSize = 11, color = "on_surface_variant", maxLines = 2 }))
+        if activity ~= nil then
+            table.insert(children, activity)
+        end
+        if history ~= nil then
+            table.insert(children, history)
+        end
+    else
+        local caption = footerCaption()
+        if caption ~= nil then
+            table.insert(children, ui.separator({}))
+            table.insert(children, ui.label({ text = caption, fontSize = 11, color = "on_surface_variant", maxLines = 2 }))
+        end
     end
 
     if phase ~= "missing" then
-        table.insert(children, ui.row({ gap = 8, align = "center" }, {
-            ui.button({
-                key = "check" .. (checking() and "-off" or ""),
-                glyph = "refresh", text = tr("action_check"), variant = "ghost", enabled = not checking(), flexGrow = 1,
+        local footer = {}
+        -- Not offered after a failed rollback: re-running the *update*
+        -- command in a terminal is not a retry of the rollback.
+        if runFailed() and (snapshot == nil or snapshot.runKind ~= "rollback") then
+            table.insert(footer, ui.button({
+                key = "retry-terminal",
+                glyph = "terminal", text = tr("action_run_terminal"), variant = "ghost", flexGrow = 1,
+                tooltip = tr("tip_run_terminal"),
                 onClick = function()
-                    request("check")
+                    request("update_terminal")
                 end,
-            }),
-            ui.button({
-                key = "dismiss" .. (hasUpdates and "" or "-off"),
-                text = tr("action_dismiss"), variant = "ghost", enabled = hasUpdates,
-                onClick = function()
-                    request("dismiss")
-                    panel.close()
-                end,
-            }),
-            ui.button({
-                key = "update" .. (hasUpdates and not busy() and "" or "-off"),
-                glyph = "download", text = tr("action_update"), variant = "primary", enabled = hasUpdates and not busy(),
-                tooltip = tr("tip_update"),
-                onClick = function()
-                    request("update")
-                    panel.close()
-                end,
-            }),
+            }))
+        end
+        table.insert(footer, ui.button({
+            key = "dismiss" .. (hasUpdates and "" or "-off"),
+            text = tr("action_dismiss"), variant = "ghost", enabled = hasUpdates,
+            onClick = function()
+                request("dismiss")
+                panel.close()
+            end,
         }))
+        local backgroundMode = noctalia.getConfig("update_mode") == "background"
+        table.insert(footer, ui.button({
+            key = "update" .. (hasUpdates and "" or "-off"),
+            glyph = backgroundMode and "download" or "terminal",
+            text = tr("action_update"), variant = "primary", enabled = hasUpdates,
+            tooltip = backgroundMode and tr("tip_update") or tr("tip_update_terminal"),
+            onClick = function()
+                -- The panel stays open: the log section takes over so the
+                -- run can be watched live (the log is tee'd from the
+                -- terminal too).
+                request("update")
+            end,
+        }))
+        table.insert(children, ui.row({ gap = 8, align = "center", justify = "end" }, footer))
     end
 
     panel.render(ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, children))
@@ -600,8 +1067,19 @@ function onOpen(_context)
     expanded = {}
     hoverKey = nil
     hoverText = ""
+    openedRunAt = nil
+    armedKey = nil
     activityHoverIndex = nil
     render()
+end
+
+-- An armed confirm is a one-click trigger for a privileged downgrade: if the
+-- confirming click doesn't come soon, put the plain button back.
+function update()
+    if armedKey ~= nil and os.time() - armedAt >= ARM_TIMEOUT_S then
+        armedKey = nil
+        render()
+    end
 end
 
 noctalia.state.watch(STATE_KEY, function(value)
@@ -612,7 +1090,10 @@ noctalia.state.watch(STATE_KEY, function(value)
         expanded = {}
         hoverKey = nil
         hoverText = ""
-        activityHoverIndex = nil
+    end
+    if value.phase == "running" and (snapshot == nil or snapshot.phase ~= "running") then
+        openedRunAt = nil
+        armedKey = nil
     end
     snapshot = value
     render()

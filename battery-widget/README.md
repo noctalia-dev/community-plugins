@@ -1,6 +1,6 @@
 # Battery Widget
 
-Desktop/lockscreen widget that displays the current battery level and charging status.
+Desktop/Lockscreen widget that displays battery level, status, charging rate, and time remaining.
 
 ## Plugin
 

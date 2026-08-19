@@ -2,8 +2,27 @@ local glyph
 local color
 local data = { percent = 0, status = "unknown" }
 
-local label_content = noctalia.getConfig("label_content")
-local warning_threshold = 10
+local function getConf(key, default)
+    local value = noctalia.getConfig(key)
+    if value == nil then
+        return default
+    else
+        return value
+    end
+end
+
+local config = {
+    warning_threshold = noctalia.getSetting("battery.warning_threshold") or 10,
+    layout = getConf("layout", "horizontal"),
+    show_glyph = getConf("show_glyph", true),
+    show_label = getConf("show_label", true),
+    label_content = getConf("label_content", "percent"),
+    hide_plugged = getConf("hide_plugged", false),
+    hide_full = getConf("hide_full", false),
+    color = getConf("color", "on_surface"),
+    warning_color = getConf("warning_color", "error"),
+    charging_color = getConf("charging_color", "on_surface"),
+}
 
 local path = "/sys/class/power_supply/"
 local batName
@@ -33,8 +52,6 @@ if not noctalia.commandExists("gdbus") then
 end
 
 local function parse(output)
-    data = data or {}
-
     local percent = output:match("'Percentage':%s*<([%d%.]+)>")
     if percent then
         data.percent = tonumber(percent) or 0
@@ -45,7 +62,7 @@ local function parse(output)
         data.status = stateMap[tonumber(state)] or "unknown"
     end
 
-    if label_content == "time" then
+    if config.label_content == "time" then
         local timeToEmpty = output:match("'TimeToEmpty':%s*<int64%s+(%-?%d+)>")
         if timeToEmpty then
             data.timeToEmpty = tonumber(timeToEmpty)
@@ -55,7 +72,7 @@ local function parse(output)
         if timeToFull then
             data.timeToFull = tonumber(timeToFull)
         end
-    elseif label_content == "rate" then
+    elseif config.label_content == "rate" then
         local rate = output:match("'EnergyRate':%s*<([%-%d%.]+)>")
         if rate then
             data.rate = tonumber(rate)
@@ -66,12 +83,12 @@ local function parse(output)
 end
 
 local function getBatName()
-    local config = noctalia.getConfig("battery")
+    local config = noctalia.getConfig("battery") or "auto"
 
     if config == "bat0" then
         return "BAT0"
     elseif config == "custom" then
-        return noctalia.getConfig("battery_name")
+        return noctalia.getConfig("battery_name") or "BAT0"
     end
 
     local folders = noctalia.listDir(path)
@@ -102,42 +119,16 @@ local function getGlyph()
     end
 end
 
-local function getWarningThreshold()
-    noctalia.runAsync(
-        "grep warning_threshold ~/.local/state/noctalia/settings.toml | awk '{print $3}'",
-        function(result)
-            if result.exitCode ~= 0 then
-                noctalia.log("battery-widget: failed to get warning_threshold: " .. result.stderr)
-                return
-            end
-
-            local res = result.stdout
-
-            if not res then
-                noctalia.log("battery-widget: invalid warning_threshold, keeping default")
-                return
-            end
-
-            local parsed = tonumber(noctalia.string.trim(res))
-            if parsed then
-                warning_threshold = parsed
-            else
-                noctalia.log("battery-widget: invalid warning_threshold, keeping default")
-            end
-        end
-    )
-end
-
 local function getColor()
     if data.status == "charging" or data.status == "fully-charged" or data.status == "pending-charge" then
-        color = noctalia.getConfig("charging_color")
+        color = config.charging_color
         return
     end
-    if data.percent <= warning_threshold then
-        color = noctalia.getConfig("warning_color")
+    if data.percent <= config.warning_threshold then
+        color = config.warning_color
         return
     end
-    color = noctalia.getConfig("color")
+    color = config.color
 end
 
 local function formatTime(seconds)
@@ -170,11 +161,11 @@ local function formatPercent()
 end
 
 local function getLabelText()
-    if label_content == "time" then
+    if config.label_content == "time" then
         local connected = data.status == "charging" or data.status == "fully-charged" or data.status == "pending-charge"
         local seconds = connected and data.timeToFull or data.timeToEmpty
         return formatTime(seconds) or formatPercent()
-    elseif label_content == "rate" then
+    elseif config.label_content == "rate" then
         return formatRate(data.rate) or formatPercent()
     end
 
@@ -182,21 +173,21 @@ local function getLabelText()
 end
 
 local function render()
-    if (noctalia.getConfig("hide_plugged") and (data.status == "charging" or data.status == "pending-charge"))
-        or (noctalia.getConfig("hide_full") and data.status == "fully-charged") then
+    if (config.hide_plugged and (data.status == "charging" or data.status == "pending-charge"))
+        or (config.hide_full and data.status == "fully-charged") then
         desktopWidget.render(ui.row())
         return
     end
 
     local content = {}
-    if noctalia.getConfig("show_glyph") then
+    if config.show_glyph then
         table.insert(content, ui.glyph({ name = glyph, color = color }))
     end
-    if noctalia.getConfig("show_label") then
+    if config.show_label then
         table.insert(content, ui.label({ text = getLabelText(), color = color }))
     end
 
-    local vertical = noctalia.getConfig("layout") == "vertical"
+    local vertical = config.layout == "vertical"
 
     local layout = vertical and ui.column or ui.row
 
@@ -241,10 +232,10 @@ end
 
 local function watchBattery()
     local patterns = { "Percentage", "State" }
-    if label_content == "time" then
+    if config.label_content == "time" then
         table.insert(patterns, "TimeToEmpty")
         table.insert(patterns, "TimeToFull")
-    elseif label_content == "rate" then
+    elseif config.label_content == "rate" then
         table.insert(patterns, "EnergyRate")
     end
 
@@ -270,8 +261,6 @@ if not batName then
     notifyError()
     return
 end
-
-getWarningThreshold()
 
 initData()
 watchBattery()
