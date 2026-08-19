@@ -26,13 +26,17 @@ REQUIRED_FIELD_PREFIXES = (
     "- **Noctalia version tested against:**",
     "- **Plugin API level:**",
 )
-REQUIRED_CHECKLIST_ITEMS = (
+PLUGIN_TYPE_ITEMS = (
     "New plugin",
     "Update to an existing plugin (version bumped in `plugin.toml`)",
+)
+COMPOSITOR_TEST_ITEMS = (
     "Tested on Niri",
     "Tested on Hyprland",
     "Tested on Sway",
     "Tested on another compositor:",
+)
+MANDATORY_READY_ITEMS = (
     "The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.",
     "It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.",
     "`README.md` follows the [README template](https://github.com/noctalia-dev/community-plugins/blob/main/README_TEMPLATE.md), documents every entry id and dependency, and includes exact panel IPC commands and launcher prefixes where applicable.",
@@ -46,6 +50,7 @@ REQUIRED_CHECKLIST_ITEMS = (
     "Every network call, filesystem write, and spawned process is something the description above accounts for.",
     "I have the right to publish this code under the `license` declared in `plugin.toml`.",
 )
+REQUIRED_CHECKLIST_ITEMS = PLUGIN_TYPE_ITEMS + COMPOSITOR_TEST_ITEMS + MANDATORY_READY_ITEMS
 CLOSURE_INTRO = f"""{COMMENT_MARKER}
 This pull request was automatically closed because its description no longer contains
 every part of [the pull request template](https://github.com/noctalia-dev/community-plugins/blob/main/.github/PULL_REQUEST_TEMPLATE.md)
@@ -55,10 +60,9 @@ Missing:
 """
 CLOSURE_OUTRO = """
 Please add the items listed above back to the description, keeping their exact wording, then
-reopen the pull request. Reopening re-runs this check. Only the marker line, the `##` headings,
-the `- **Field:**` lines, and the `- [ ]` checklist entries are required; the guidance comments
-in the template are yours to delete, and checklist boxes may stay unchecked while the pull
-request is a draft.
+reopen the pull request. Reopening re-runs this check. Draft pull requests may leave boxes
+unchecked. Before a pull request is ready for review, exactly one plugin type, at least one
+tested compositor, and every item under Checklist and Code review attestation must be checked.
 """
 
 
@@ -67,7 +71,14 @@ def build_closure_comment(missing: list[str]) -> str:
     return f"{CLOSURE_INTRO}{bullets}{CLOSURE_OUTRO}"
 
 
-def missing_requirements(body: object) -> list[str]:
+def checklist_state(normalized_body: str, item: str) -> str | None:
+    for state in (" ", "x", "X"):
+        if f"- [{state}] {item}" in normalized_body:
+            return state
+    return None
+
+
+def missing_requirements(body: object, *, require_completed: bool = False) -> list[str]:
     if not isinstance(body, str):
         body = ""
 
@@ -86,12 +97,27 @@ def missing_requirements(body: object) -> list[str]:
         if prefix not in normalized_body:
             missing.append(f"the `{prefix}` field")
 
-    for item in REQUIRED_CHECKLIST_ITEMS:
-        if not any(
-            f"- [{state}] {item}" in normalized_body
-            for state in (" ", "x", "X")
-        ):
+    states = {
+        item: checklist_state(normalized_body, item)
+        for item in REQUIRED_CHECKLIST_ITEMS
+    }
+    for item, state in states.items():
+        if state is None:
             missing.append(f"the checklist entry: {item}")
+
+    if not require_completed:
+        return missing
+
+    checked_plugin_types = sum(states[item] in ("x", "X") for item in PLUGIN_TYPE_ITEMS)
+    if checked_plugin_types != 1:
+        missing.append("exactly one checked plugin type: New plugin or Update to an existing plugin")
+
+    if not any(states[item] in ("x", "X") for item in COMPOSITOR_TEST_ITEMS):
+        missing.append("at least one checked compositor testing entry")
+
+    for item in MANDATORY_READY_ITEMS:
+        if states[item] == " ":
+            missing.append(f"the checked checklist entry: {item}")
 
     return missing
 
@@ -147,7 +173,11 @@ def enforce(event: dict[str, object], token: str) -> list[str]:
     if not isinstance(pull_request, dict):
         raise ValueError("event does not contain a pull_request object")
 
-    missing = missing_requirements(pull_request.get("body"))
+    is_draft = pull_request.get("draft") is True
+    missing = missing_requirements(
+        pull_request.get("body"),
+        require_completed=not is_draft,
+    )
     if not missing:
         return []
 

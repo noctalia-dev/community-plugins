@@ -1,0 +1,167 @@
+{
+  "action": {
+    "browse": "Browse",
+    "cast": "Cast",
+    "clipboard": "Clipboard",
+    "disconnect": "Disconnect",
+    "pair": "Pair",
+    "ping": "Ping",
+    "refresh": "Refresh",
+    "ring": "Ring",
+    "share": "Share",
+    "stop": "Stop",
+    "unpair": "Unpair",
+    "usb": "USB Mode"
+  },
+  "error": {
+    "browse_failed": "Failed to browse device",
+    "cast_failed": "Cast failed",
+    "cli_failed": "Command failed",
+    "conn_failed": "Wireless connection failed",
+    "conn_hint": "Could not connect to the debug port. On your phone's Wireless debugging main screen (not the pairing popup), read the port under \"IP address & Port\" and enter it in the Debug port field, then retry.",
+    "device_offline": "Device paired but offline. Keep the phone's screen on, confirm \"IP address & Port\" on the Wireless debugging main screen, enter that port in the Debug port field and retry.",
+    "pair_failed": "Pairing failed",
+    "pick_failed": "Failed to open file picker",
+    "pick_in_progress": "A file picker is already open",
+    "share_failed": "Failed to share"
+  },
+  "media": {
+    "mute": "Mute",
+    "next": "Next",
+    "pause": "Pause",
+    "play": "Play",
+    "previous": "Previous",
+    "stop": "Stop",
+    "unmute": "Unmute"
+  },
+  "notify": {
+    "browse_failed": "Open browse failed",
+    "disconnected": "Disconnected: {name}",
+    "file_shared": "Sending file to device...",
+    "network_recovered": "Network recovered, retrying auto-connect",
+    "opening_browser": "Opening file browser...",
+    "pair_success": "Paired successfully",
+    "retry_exhausted": "Failed to connect to {name} after 3 retries. Please confirm the phone is online.",
+    "sms_sent": "SMS sent",
+    "started": "Mirroring started: {name}",
+    "stopped": "Mirroring stopped: {name}",
+    "uninstalled": "Plugin uninstalled. Close any running scrcpy windows manually."
+  },
+  "panel": {
+    "adb_hint": "ADB device — cast from the action panel.",
+    "bit_rate": "Bitrate",
+    "cancel": "Cancel",
+    "cast_offline_hint": "Device is not reachable by adb. Check the USB cable / wireless debugging, then retry.",
+    "close": "Close",
+    "confirm": "OK",
+    "debug_port_placeholder": "Debug port (default 5555)",
+    "devices_connected": "{connected} connected",
+    "empty": "No devices found. Pair a device in KDE Connect.",
+    "max_fps": "FPS",
+    "max_size": "Resolution",
+    "no_media": "No media playing",
+    "now_playing": "Now Playing",
+    "pair_addr_placeholder": "IP:Port (e.g. 192.168.1.3:39001)",
+    "pair_add": "Pair new wireless device",
+    "pair_btn": "Pair (ADB)",
+    "pair_code_placeholder": "Pairing code (6 digits)",
+    "pair_first_hint": "On your phone's Wireless debugging main screen: the debug port is under \"IP address & Port\". If you can't find it, leave it at 5555 — the plugin will also try 5555 and the pairing port automatically. The pairing port + 6-digit code are in \"Pair device with pairing code\".",
+    "pair_first_title": "First-time wireless setup",
+    "pair_hint": "The **pairing port** is one-time — used by `adb pair` with the 6-digit code. The **debug port** is for long-term `adb connect` / scrcpy. After pairing, use the debug port to connect.",
+    "pair_missing": "Enter both the pairing port and code first.",
+    "pair_port_placeholder": "Pairing port",
+    "params": "Cast Parameters",
+    "params_hint": "Applies to the selected device only",
+    "preset_custom": "Custom",
+    "preset_hd": "HD",
+    "preset_perf": "Balanced",
+    "preset_save": "Power save",
+    "record": "Record",
+    "record_desc": "Record the mirror to a file",
+    "sms": "Send SMS",
+    "sms_dest": "Phone number",
+    "sms_msg": "Message",
+    "sms_send": "Send",
+    "start_cast": "Start Casting",
+    "turn_screen_off": "Screen Off",
+    "turn_screen_off_desc": "Phone screen off while mirroring"
+  },
+  "settings": {
+    "battery_display": {
+      "description": "Choose whether the bar widget shows the battery icon, percentage, both, or neither.",
+      "hidden": "Hidden",
+      "icon": "Icon only",
+      "icon_and_percent": "Icon and percentage",
+      "label": "Battery Display",
+      "percent": "Percentage only"
+    },
+    "bit_rate": {
+      "description": "Video stream bitrate in megabits per second.",
+      "label": "Bitrate (Mbps)"
+    },
+    "enable_charging_animation": {
+      "description": "Highlight the bar widget when the device is charging.",
+      "label": "Show Charging Fill"
+    },
+    "enable_clipboard_action": {
+      "description": "Show a quick action to send the clipboard to the device.",
+      "label": "Show Clipboard Action"
+    },
+    "language": {
+      "description": "Display language",
+      "en": "English",
+      "label": "Language",
+      "zh-hans": "简体中文"
+    },
+    "max_fps": {
+      "description": "Cap the video frame rate.",
+      "label": "Max FPS"
+    },
+    "max_size": {
+      "description": "Limit the long edge of the video stream (pixels).",
+      "label": "Max Resolution"
+    },
+    "migrated": {
+      "description": "Edit these directly in the panel: click the device's avatar to change its image, click its name to rename it. Per-device and saved automatically.",
+      "label": "Device image and name"
+    },
+    "panel_placement": {
+      "attached": "Attached to bar",
+      "description": "How the details panel opens: attached to the bar, or floating.",
+      "floating": "Floating (center)",
+      "label": "Panel Placement",
+      "widget": "Below widget (floating)"
+    },
+    "poll_interval": {
+      "description": "How often to scan for devices.",
+      "label": "Poll Interval (ms)"
+    },
+    "record": {
+      "description": "Record the screen to a file.",
+      "label": "Record"
+    },
+    "record_max_files": {
+      "description": "Maximum number of recording files to keep. Oldest are deleted.",
+      "label": "Max Recordings"
+    },
+    "show_device_name": {
+      "description": "Show the selected device's name or alias in the bar widget.",
+      "label": "Show Device Name"
+    },
+    "state_update_interval": {
+      "description": "Seconds between automatic device state refreshes. 0 disables auto-refresh.",
+      "label": "State Update Interval"
+    },
+    "turn_screen_off": {
+      "description": "Turn off the phone screen while mirroring.",
+      "label": "Turn Screen Off"
+    }
+  },
+  "status": {
+    "connected": "Connected",
+    "mirroring": "Mirroring",
+    "no_backend": "KDE Connect not running",
+    "no_devices": "No devices",
+    "offline": "Offline"
+  }
+}

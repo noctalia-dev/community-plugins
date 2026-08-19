@@ -1,0 +1,14 @@
+id = "zeti1223/thinkpad-led"
+name = "ThinkPad Logo LED"
+version = "1.1.0"
+plugin_api = 3
+author = "zeti1223"
+license = "MIT"
+dependencies = ["sh"]
+tags = ["bar", "hardware"]
+icon = "bulb"
+description = "Turn the ThinkPad lid logo LED on or off."
+
+[[widget]]
+id = "led"
+entry = "widget.luau"

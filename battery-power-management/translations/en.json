@@ -1,0 +1,56 @@
+{
+  "notify": {
+    "threshold_error_body": "Could not write the charge limit. Check the udev permissions (see the plugin README).",
+    "threshold_error_title": "Battery threshold"
+  },
+  "panel": {
+    "charge_threshold": "Charge limit",
+    "power_profile": "Power profile",
+    "profile_balanced": "Balanced",
+    "profile_performance": "Performance",
+    "profile_power-saver": "Power saver",
+    "remaining": "{time} left",
+    "time_to_full": "Full in {time}"
+  },
+  "settings": {
+    "battery_device": {
+      "description": "sysfs battery name, e.g. BAT0 or BAT1",
+      "label": "Battery device"
+    },
+    "color_performance": {
+      "description": "Accent color used when the Performance profile is active",
+      "label": "Performance color"
+    },
+    "color_power_saver": {
+      "description": "Accent color used when the Power-saver profile is active",
+      "label": "Power-saver color"
+    },
+    "colorize_by_profile": {
+      "description": "Tint the widget by the active power profile",
+      "label": "Colorize by profile"
+    },
+    "show_balanced_icon": {
+      "description": "Also show the profile glyph while on the Balanced profile (only when Show profile icon is on)",
+      "label": "Show balanced icon"
+    },
+    "show_profile": {
+      "description": "Display the active power-profile glyph in the widget",
+      "label": "Show profile icon"
+    }
+  },
+  "status": {
+    "charging": "Charging",
+    "discharging": "Discharging",
+    "full": "Full",
+    "not_charging": "Not charging",
+    "unknown": "Unknown"
+  },
+  "tooltip": {
+    "level": "Level",
+    "power": "Power",
+    "profile": "Profile",
+    "remaining": "Remaining",
+    "status": "Status",
+    "to_full": "To full"
+  }
+}

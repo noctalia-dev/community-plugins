@@ -1,13 +1,13 @@
 id           = "thepunkoff/pomodoro"
 name         = "Pomodoro Timer"
-version      = "1.1.0"
-plugin_api   = 3
+version      = "1.2.0"
+plugin_api   = 20
 author       = "thepunkoff"
 license = "MIT"
 icon = "brain"
 description = "Simple pomodoro timer."
 tags = ["bar", "panel", "service", "productivity", "time"]
-dependencies = []
+dependencies = ["pw-play"]
 
 [[setting]]
 key     = "work-duration"
@@ -50,6 +50,21 @@ key     = "auto-start-work"
 type    = "bool"
 label_key = "settings.auto-start-work.label"
 description_key = "settings.auto-start-work.description"
+default = false
+
+[[setting]]
+key     = "use-bundled-alarm-sound"
+type    = "bool"
+label_key = "settings.use-bundled-alarm-sound.label"
+description_key = "settings.use-bundled-alarm-sound.description"
+default = false
+
+[[setting]]
+key     = "bypass-noctalia-sound-globals"
+type    = "bool"
+label_key = "settings.bypass-noctalia-sound-globals.label"
+description_key = "settings.bypass-noctalia-sound-globals.description"
+visible_when = { key = "use-bundled-alarm-sound", values = ["true"] }
 default = false
 
 [[widget]]

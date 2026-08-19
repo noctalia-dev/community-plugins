@@ -19,6 +19,10 @@
     "refresh_minutes": {
       "description": "Frequência com que os feeds são checados em busca de novidades.",
       "label": "Intervalo de atualização (minutos)"
+    },
+    "show_feed_images": {
+      "description": "Mostra a imagem de capa de cada item (ou o favicon do site como alternativa) na lista de itens.",
+      "label": "Mostrar imagens dos feeds"
     }
   }
 }

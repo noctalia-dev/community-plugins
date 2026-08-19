@@ -16,7 +16,6 @@
 -- lands in /tmp as MP4; GIF is produced on save via record.sh convert-gif.
 
 local PANEL_ID = "alexander/screen-toolkit:panel"
-local FULL_PANEL_ID = "alexander/screen-toolkit:panel-full"
 local LEGACY_PANEL_ID = "alexander/screen-toolkit:panel-legacy"
 local RESULT_PANEL_ID = "alexander/screen-toolkit:result"
 
@@ -937,7 +936,7 @@ local HANDLERS = {
   setAudioIn = function(payload) overrideAudioIn = (type(payload) == "table" and payload.value or payload) == true end,
   toggle = function()
     local mode = cfg("panel-mode")
-    local id = mode == "full" and FULL_PANEL_ID or (mode == "legacy" and LEGACY_PANEL_ID or PANEL_ID)
+    local id = mode == "legacy" and LEGACY_PANEL_ID or PANEL_ID
     noctalia.togglePanel(id)
   end,
 }

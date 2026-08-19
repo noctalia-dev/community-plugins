@@ -19,6 +19,10 @@
     "refresh_minutes": {
       "description": "How often feeds are checked for new items.",
       "label": "Refresh interval (minutes)"
+    },
+    "show_feed_images": {
+      "description": "Show each item's cover image (or the site's favicon as a fallback) in the item list.",
+      "label": "Show feed images"
     }
   }
 }

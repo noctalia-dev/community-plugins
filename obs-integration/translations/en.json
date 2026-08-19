@@ -50,6 +50,7 @@
     "service_run": "Service Manual Run",
     "service_run_all": "Service Run All",
     "status_blocked": "Blocked",
+    "status_broken": "Broken",
     "status_building": "Building",
     "status_excluded": "Excluded",
     "status_failed": "Failed",

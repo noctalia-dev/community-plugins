@@ -1,0 +1,57 @@
+{
+  "panel": {
+    "bin_missing": "{bin} is not installed. Install it to use this plugin.",
+    "gitlab_scope_missing": "Set a Repository or Group in settings to view your items.",
+    "last_update": "Last update",
+    "last_update_placeholder": "...",
+    "merge_requests": "Merge Requests",
+    "no_items": "No items",
+    "pull_requests": "Pull Requests",
+    "tab_issues": "Issues ({count})",
+    "tab_prs": "{label} ({count})",
+    "title": "Git Companion",
+    "untitled": "Untitled"
+  },
+  "service": {
+    "bin_missing": "{bin} is not installed.",
+    "gitlab_scope_missing": "GitLab requires a repo or group scope in settings.",
+    "title": "Git Companion"
+  },
+  "settings": {
+    "bar_display_mode": {
+      "description": "Choose what text to show next to the icon in the bar.",
+      "label": "Bar Display Mode",
+      "options": {
+        "both": "Both",
+        "issues": "Issues only",
+        "none": "Nothing",
+        "prs": "PRs/MRs only"
+      }
+    },
+    "group": {
+      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
+      "label": "Group / Owner"
+    },
+    "platform": {
+      "description": "Choose between GitHub or GitLab.",
+      "label": "Platform",
+      "options": {
+        "github": "GitHub",
+        "gitlab": "GitLab"
+      }
+    },
+    "refresh_interval": {
+      "description": "How often to fetch updates from the API.",
+      "label": "Refresh Interval (seconds)"
+    },
+    "repo": {
+      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
+      "label": "Repository"
+    }
+  },
+  "widget": {
+    "mrs": "MRs",
+    "prs": "PRs",
+    "tooltip": "{issues} Issues, {prs} {label}"
+  }
+}

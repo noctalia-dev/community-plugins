@@ -1,6 +1,6 @@
 id          = "nilsonlinux/rss-notifier"
 name        = "RSS/Atom Notifier"
-version     = "1.0.2"
+version     = "1.0.3"
 plugin_api  = 14
 author      = "Nilsonlinux"
 license     = "MIT"
@@ -47,6 +47,13 @@ min             = 1
 max             = 50
 advanced        = true
 
+[[setting]]
+key             = "show_feed_images"
+type            = "bool"
+label_key       = "settings.show_feed_images.label"
+description_key = "settings.show_feed_images.description"
+default         = true
+
 # ---------------------------------------------------------------------------
 # Service: runs in the background, without UI, searches and parses feeds
 # ---------------------------------------------------------------------------
@@ -63,22 +70,29 @@ entry = "service.luau"
 id    = "badge"
 entry = "widget.luau"
 
-[[widget.setting]]
-key             = "glyph"
-type            = "glyph"
-label_key       = "settings.glyph.label"
-description_key = "settings.glyph.description"
-default         = "rss"
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "rss"
+
+  [[widget.setting]]
+  key             = "show_feed_images"
+  type            = "bool"
+  label_key       = "settings.show_feed_images.label"
+  description_key = "settings.show_feed_images.description"
+  default         = true
 
 # ---------------------------------------------------------------------------
-# Panel: small window with the list of items, opened by clicking on the widget
+# Panel: popup with the item list, opened by clicking the widget
 # ---------------------------------------------------------------------------
 
 [[panel]]
-id              = "list"
+id              = "Panel"
 entry           = "panel.luau"
-width           = 360
-height          = 440
-placement       = "attached"
+width           = 420
+height          = 560
+placement       = "attached"   # attached to the bar, near the widget
 position        = "auto"
 open_near_click = true
