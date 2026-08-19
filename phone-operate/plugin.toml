@@ -1,0 +1,197 @@
+id = "icefish/phone-operate"
+name = "Phone Operate"
+version = "0.1.1"
+plugin_api = 22
+author = "icefish"
+license = "MIT"
+icon = "devices"
+description = "Mirror and control Android phones via scrcpy, with KDE Connect device actions."
+tags = ["bar", "panel", "service", "launcher", "media", "utility", "niri"]
+dependencies = ["scrcpy", "android-tools", "kdeconnect", "sshfs"]
+
+# ── KDE Connect 设置（来自 phone-connect） ─────────────────────────
+
+[[setting]]
+key = "state_update_interval"
+type = "int"
+label_key = "settings.state_update_interval.label"
+description_key = "settings.state_update_interval.description"
+default = 30
+min = 0
+max = 300
+
+[[setting]]
+key = "enable_charging_animation"
+type = "bool"
+label_key = "settings.enable_charging_animation.label"
+description_key = "settings.enable_charging_animation.description"
+default = true
+
+[[setting]]
+key = "show_device_name"
+type = "bool"
+label_key = "settings.show_device_name.label"
+description_key = "settings.show_device_name.description"
+default = false
+
+[[setting]]
+key = "battery_display"
+type = "select"
+label_key = "settings.battery_display.label"
+description_key = "settings.battery_display.description"
+default = "icon_and_percent"
+options = [
+  { value = "icon_and_percent", label_key = "settings.battery_display.icon_and_percent" },
+  { value = "percent", label_key = "settings.battery_display.percent" },
+  { value = "icon", label_key = "settings.battery_display.icon" },
+  { value = "hidden", label_key = "settings.battery_display.hidden" },
+]
+
+[[setting]]
+key = "migrated_notice"
+type = "string"
+label_key = "settings.migrated.label"
+description_key = "settings.migrated.description"
+default = ""
+
+[[setting]]
+key = "language"
+type = "select"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+default = "en"
+options = [
+  { value = "en", label_key = "settings.language.en" },
+  { value = "zh-Hans", label_key = "settings.language.zh-hans" },
+]
+
+[[setting]]
+key = "enable_clipboard_action"
+type = "bool"
+label_key = "settings.enable_clipboard_action.label"
+description_key = "settings.enable_clipboard_action.description"
+default = true
+
+[[setting]]
+key = "panel_placement"
+type = "select"
+label_key = "settings.panel_placement.label"
+description_key = "settings.panel_placement.description"
+default = "attached"
+options = [
+  { value = "attached", label_key = "settings.panel_placement.attached" },
+  { value = "floating", label_key = "settings.panel_placement.floating" },
+  { value = "widget", label_key = "settings.panel_placement.widget" },
+]
+
+# ── scrcpy 投屏设置（phone-operate 原有） ─────────────────────────
+
+[[setting]]
+key = "max_size"
+type = "int"
+label_key = "settings.max_size.label"
+description_key = "settings.max_size.description"
+default = 1920
+min = 256
+max = 3840
+
+[[setting]]
+key = "bit_rate"
+type = "int"
+label_key = "settings.bit_rate.label"
+description_key = "settings.bit_rate.description"
+default = 8
+min = 1
+max = 30
+
+[[setting]]
+key = "max_fps"
+type = "int"
+label_key = "settings.max_fps.label"
+description_key = "settings.max_fps.description"
+default = 60
+min = 1
+max = 240
+
+[[setting]]
+key = "turn_screen_off"
+type = "bool"
+label_key = "settings.turn_screen_off.label"
+description_key = "settings.turn_screen_off.description"
+default = false
+
+[[setting]]
+key = "record"
+type = "bool"
+label_key = "settings.record.label"
+description_key = "settings.record.description"
+default = false
+
+[[setting]]
+key = "record_max_files"
+type = "int"
+label_key = "settings.record_max_files.label"
+description_key = "settings.record_max_files.description"
+default = 10
+min = 1
+max = 100
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 3000
+min = 1000
+max = 30000
+
+# ── Entries ──────────────────────────────────────────────────────────
+
+[[service]]
+id = "core"
+entry = "service.luau"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "tile"
+entry = "tile.luau"
+
+# 三面板：attached/悬浮居中/部件下方悬浮（panel_placement 设置选择）
+[[panel]]
+id = "main"
+entry = "panel.luau"
+width = 570
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "main_floating"
+entry = "panel.luau"
+width = 570
+height = 600
+placement = "floating"
+position = "center"
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "main_widget"
+entry = "panel.luau"
+width = 570
+height = 600
+placement = "floating"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
+
+# launcher：ph 前缀搜 adb 设备直接投屏
+[[launcher_provider]]
+id = "device"
+entry = "launcher.luau"
+prefix = "ph"
+glyph = "device-mobile"

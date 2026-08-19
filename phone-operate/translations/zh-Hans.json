@@ -1,0 +1,167 @@
+{
+  "action": {
+    "browse": "浏览",
+    "cast": "投屏",
+    "clipboard": "剪贴板",
+    "disconnect": "断开",
+    "pair": "配对",
+    "ping": "Ping",
+    "refresh": "刷新",
+    "ring": "响铃",
+    "share": "分享",
+    "stop": "停止",
+    "unpair": "取消配对",
+    "usb": "回 USB"
+  },
+  "error": {
+    "browse_failed": "浏览设备失败",
+    "cast_failed": "投屏失败",
+    "cli_failed": "命令失败",
+    "conn_failed": "无线连接失败",
+    "conn_hint": "无法连接调试端口。请在手机「无线调试」主界面（不是配对弹窗）查看『IP 地址和端口』一行显示的端口，填入「调试端口」输入框后重试。",
+    "device_offline": "设备已配对但处于离线状态（offline）。请保持手机亮屏、在「无线调试」主界面确认『IP 地址和端口』，把该端口填入「调试端口」框后重试。",
+    "pair_failed": "配对失败",
+    "pick_failed": "无法打开文件选择器",
+    "pick_in_progress": "文件选择器已打开",
+    "share_failed": "分享失败"
+  },
+  "media": {
+    "mute": "静音",
+    "next": "下一首",
+    "pause": "暂停",
+    "play": "播放",
+    "previous": "上一首",
+    "stop": "停止",
+    "unmute": "恢复音量"
+  },
+  "notify": {
+    "browse_failed": "打开浏览失败",
+    "disconnected": "已断开连接：{name}",
+    "file_shared": "正在发送文件到设备...",
+    "network_recovered": "网络已恢复，正在重新自动连接",
+    "opening_browser": "正在打开文件浏览器...",
+    "pair_success": "配对成功",
+    "retry_exhausted": "连接 {name} 失败，3 次重试均未成功，请确认手机在线",
+    "sms_sent": "短信已发送",
+    "started": "已开始投屏：{name}",
+    "stopped": "已停止投屏：{name}",
+    "uninstalled": "插件已卸载，正在运行的 scrcpy 窗口请手动关闭"
+  },
+  "panel": {
+    "adb_hint": "ADB 设备——通过操作面板投屏。",
+    "bit_rate": "码率",
+    "cancel": "取消",
+    "cast_offline_hint": "设备未被 adb 识别。请检查 USB 连接或无线调试，然后重试。",
+    "close": "关闭",
+    "confirm": "确定",
+    "debug_port_placeholder": "调试端口（默认 5555）",
+    "devices_connected": "已连接 {connected}",
+    "empty": "未找到设备。请在 KDE Connect 中配对设备。",
+    "max_fps": "帧率",
+    "max_size": "分辨率",
+    "no_media": "无媒体播放",
+    "now_playing": "正在播放",
+    "pair_addr_placeholder": "IP:端口（如 192.168.1.3:39001）",
+    "pair_add": "配对新无线设备",
+    "pair_btn": "配对 (ADB)",
+    "pair_code_placeholder": "配对码（6 位数字）",
+    "pair_first_hint": "手机「无线调试」主界面：调试端口在『IP 地址和端口』一行。找不到就留 5555——插件会自动再试 5555 和配对端口。配对端口和 6 位配对码在「使用配对码配对设备」弹窗里。",
+    "pair_first_title": "首次无线连接设置",
+    "pair_hint": "**配对端口**为一次性——用 `adb pair` 配 6 位配对码。**调试端口**用于长期 `adb connect` / scrcpy。配对后用调试端口连接。",
+    "pair_missing": "请先输入配对端口和配对码。",
+    "pair_port_placeholder": "配对端口",
+    "params": "投屏参数",
+    "params_hint": "参数仅对选中设备生效",
+    "preset_custom": "自定义",
+    "preset_hd": "高清",
+    "preset_perf": "性能",
+    "preset_save": "省电",
+    "record": "录屏",
+    "record_desc": "将投屏录制到文件",
+    "sms": "发送短信",
+    "sms_dest": "手机号码",
+    "sms_msg": "短信内容",
+    "sms_send": "发送",
+    "start_cast": "开始投屏",
+    "turn_screen_off": "熄屏",
+    "turn_screen_off_desc": "手机屏幕熄灭，继续投屏"
+  },
+  "settings": {
+    "battery_display": {
+      "description": "选择栏部件显示电池图标、百分比、两者或都不显示。",
+      "hidden": "隐藏",
+      "icon": "仅图标",
+      "icon_and_percent": "图标和百分比",
+      "label": "电池显示",
+      "percent": "仅百分比"
+    },
+    "bit_rate": {
+      "description": "视频流码率，单位 Mbps。",
+      "label": "码率 (Mbps)"
+    },
+    "enable_charging_animation": {
+      "description": "设备充电时高亮显示栏部件。",
+      "label": "充电高亮"
+    },
+    "enable_clipboard_action": {
+      "description": "显示一键发送剪贴板到设备的快捷操作。",
+      "label": "显示剪贴板操作"
+    },
+    "language": {
+      "description": "显示语言。",
+      "en": "English",
+      "label": "界面语言",
+      "zh-hans": "简体中文"
+    },
+    "max_fps": {
+      "description": "限制视频帧率上限。",
+      "label": "最大帧率"
+    },
+    "max_size": {
+      "description": "限制视频流长边像素数。",
+      "label": "最大分辨率"
+    },
+    "migrated": {
+      "description": "直接在面板中修改：点击设备头像更换图片，点击设备名称重命名。每台设备独立，自动保存。",
+      "label": "设备头像与名称"
+    },
+    "panel_placement": {
+      "attached": "贴合栏",
+      "description": "详情面板的弹出方式。",
+      "floating": "悬浮居中",
+      "label": "面板弹出方式",
+      "widget": "部件下方悬浮"
+    },
+    "poll_interval": {
+      "description": "扫描设备的频率。",
+      "label": "轮询间隔 (ms)"
+    },
+    "record": {
+      "description": "将屏幕录制到文件。",
+      "label": "录屏"
+    },
+    "record_max_files": {
+      "description": "保留的录屏文件最大数量，超出时删除最旧的。",
+      "label": "最大录屏数"
+    },
+    "show_device_name": {
+      "description": "在栏部件中显示选中设备的名称或别名。",
+      "label": "显示设备名称"
+    },
+    "state_update_interval": {
+      "description": "自动刷新设备状态的间隔秒数。0 表示禁用。",
+      "label": "状态刷新间隔"
+    },
+    "turn_screen_off": {
+      "description": "投屏时关闭手机屏幕。",
+      "label": "熄屏投屏"
+    }
+  },
+  "status": {
+    "connected": "已连接",
+    "mirroring": "投屏中",
+    "no_backend": "KDE Connect 未运行",
+    "no_devices": "无设备",
+    "offline": "离线"
+  }
+}
