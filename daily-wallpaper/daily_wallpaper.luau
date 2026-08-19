@@ -1,7 +1,12 @@
 --!nonstrict
 -- Daily Wallpaper service for Noctalia 5.
 -- Fetches one Bing or NASA image per day, caches it locally, and applies it via
--- the native Noctalia wallpaper API.
+-- the native Noctalia wallpaper API. Also captures each source's caption text
+-- (Bing's `copyright` field; NASA's gallery-item caption) and publishes it as
+-- "today" state for widget.luau/panel.luau/desktop_widget.luau to display —
+-- neither source's raw API gives a wallpaper-application step any reason to
+-- keep this text, so it has to be captured here, at the point each source is
+-- resolved, or it is lost.
 
 local CHECK_INTERVAL_MS = 10 * 60 * 1000
 local RETENTION_SECONDS = 5 * 24 * 60 * 60
@@ -49,8 +54,41 @@ end
 local function decodeHtml(value)
   local decoded = value:gsub("&amp;", "&")
   decoded = decoded:gsub("&quot;", '"')
-  decoded = decoded:gsub("&#39;", "'")
+  -- Numeric entities generally (covers both &#39; and &#039;, which NASA's
+  -- markup uses for apostrophes in captions).
+  decoded = decoded:gsub("&#(%d+);", function(n)
+    local code = tonumber(n)
+    return (code and code < 256) and string.char(code) or ""
+  end)
   return decoded
+end
+
+-- Bing's `copyright` field reads like "Caption text (© Photographer/Source)" —
+-- split the trailing parenthesized attribution off into its own field so
+-- title and credit can be shown separately.
+local function splitCopyright(copyright)
+  local body, credit = copyright:match("^(.-)%s*%(([^()]*)%)%s*$")
+  if body and credit then
+    return decodeHtml(body), decodeHtml(credit)
+  end
+  return decodeHtml(copyright), ""
+end
+
+-- Publishes today's caption/credit/"learn more" link for the bar widget,
+-- panel, and desktop widget. Independent of whether the image itself still
+-- needs downloading — metadata is available as soon as a source resolves.
+local function publishToday(selectedSource, date, info)
+  if type(info) ~= "table" then
+    return
+  end
+  noctalia.state.set("today", {
+    date = date,
+    source = selectedSource,
+    title = info.title or "",
+    credit = info.credit or "",
+    link = info.link or "",
+  })
+  noctalia.log(`Daily Wallpaper caption: {info.title or ""}`)
 end
 
 local function absoluteNasaUrl(url)
@@ -170,7 +208,12 @@ local function resolveBing(locale, done)
       return
     end
 
-    done(`bing-{locale}`, `https://www.bing.com{urlBase}_UHD.jpg`, `https://www.bing.com{urlBase}_1920x1080.jpg`)
+    local title, credit = splitCopyright(first.copyright or "")
+    local link = (type(first.copyrightlink) == "string" and first.copyrightlink ~= "")
+        and first.copyrightlink or ""
+
+    done(`bing-{locale}`, `https://www.bing.com{urlBase}_UHD.jpg`, `https://www.bing.com{urlBase}_1920x1080.jpg`,
+      { title = title, credit = credit, link = link })
   end)
 
   if not started then
@@ -199,7 +242,16 @@ local function resolveNasa(done)
       return
     end
 
-    done("nasa", primary, fallback)
+    -- NASA gives one caption sentence per gallery item and no separate
+    -- credit line (unlike Bing's "(© ...)" suffix), so title is the whole
+    -- caption and credit stays empty. The gallery item's own link goes to
+    -- NASA's full article about the image — a much richer "learn more"
+    -- target than Bing's quiz page.
+    local caption = page:match('class="hds%-gallery%-item%-caption[^"]*">([^<]*)</div>')
+    local link = page:match('class="hds%-gallery%-item%-link[^"]*"%s+href="([^"]+)"')
+
+    done("nasa", primary, fallback,
+      { title = decodeHtml(caption or ""), credit = "", link = link or "" })
   end)
 
   if not started then
@@ -244,10 +296,22 @@ local function fetchAndApply(force)
     checking = false
     cleanupOldWallpapers(dir)
     applyWallpaper(dest, false)
+    -- The image was already cached (e.g. from before a restart), but this
+    -- process may not have captured its caption yet — re-resolve for
+    -- metadata only, without re-downloading the (already-cached) image.
+    local function onInfoOnly(_prefix, _primaryUrl, _fallbackUrl, info)
+      publishToday(selectedSource, date, info)
+    end
+    if selectedSource == "nasa" then
+      resolveNasa(onInfoOnly)
+    else
+      resolveBing(locale, onInfoOnly)
+    end
     return
   end
 
-  local function onResolved(prefix, primaryUrl, fallbackUrl)
+  local function onResolved(prefix, primaryUrl, fallbackUrl, info)
+    publishToday(selectedSource, date, info)
     local resolvedDest = cachePath(prefix, date)
     downloadAndApply(primaryUrl, fallbackUrl, resolvedDest)
   end

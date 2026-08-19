@@ -1,13 +1,13 @@
 id = "nzlov/daily-wallpaper"
 name = "Daily Wallpaper"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 3
 author = "nzlov"
 license = "MIT"
-dependencies = []
-tags = ["wallpaper", "desktop"]
+dependencies = ["xdg-open"]
+tags = ["wallpaper", "desktop", "bar", "panel", "service"]
 icon = "photo"
-description = "Fetches a new daily wallpaper from Bing or NASA."
+description = "Fetches a new daily wallpaper from Bing or NASA, and shows its caption on the bar, in a panel, and on the desktop."
 
 [[setting]]
 key = "source"
@@ -29,3 +29,39 @@ default = ""
 [[service]]
 id = "service"
 entry = "daily_wallpaper.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.widget.glyph.label"
+  default = "photo"
+
+  [[widget.setting]]
+  key = "show_text"
+  type = "bool"
+  label_key = "settings.widget.show_text.label"
+  default = true
+
+  [[widget.setting]]
+  key = "max_chars"
+  type = "int"
+  label_key = "settings.widget.max_chars.label"
+  default = 28
+  min = 8
+  max = 80
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 320
+placement = "attached"
+open_near_click = true
+
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop_widget.luau"
