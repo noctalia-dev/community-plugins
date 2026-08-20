@@ -166,20 +166,14 @@ end
 -- would be a second source of truth. Text stays in the bar's own colour until
 -- the reading is high or critical, and the accent colour is used on the bar
 -- fill only.
-local function textRole(metric)
-    if not colorByUsage then return "on_surface" end
+-- `calm` is the colour when the CLI has raised nothing. With the tint switched
+-- off it is the colour for everything.
+local function severityRole(metric, calm)
+    if not colorByUsage then return calm end
     local severity = metric ~= nil and tostring(metric.severity or "") or ""
     if severity == "critical" then return "error" end
     if severity == "high" then return "tertiary" end
-    return "on_surface"
-end
-
-local function barRole(metric)
-    if not colorByUsage then return "primary" end
-    local severity = metric ~= nil and tostring(metric.severity or "") or ""
-    if severity == "critical" then return "error" end
-    if severity == "high" then return "tertiary" end
-    return "primary"
+    return calm
 end
 
 local function shortName(entry)
@@ -237,12 +231,15 @@ end
 -- appended to whatever it produced.
 local function chip(entry)
     local metric = headline(entry)
-    local tint = textRole(metric)
-    local fill = barRole(metric)
+    local tint = severityRole(metric, "on_surface")
+    local fill = severityRole(metric, "primary")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local glyph = ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 13, color = tint })
-    local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint, maxLines = 1 })
+    -- Right-aligned in a fixed column, so the capsule is the same width at 9%
+    -- as at 100% and stops nudging its neighbours on the bar once per read.
+    local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint,
+                           maxLines = 1, width = 30, textAlign = "end" })
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 
@@ -346,21 +343,22 @@ local function render()
         children[#children + 1] = chip(entry)
     end
 
-    if polling then
-        children[#children + 1] = ui.glyph({ name = "loader-2", size = 11, color = "on_surface_variant" })
-    end
-
     if #children == 0 then
-        children[1] = ui.row({ gap = 4, align = "center" }, {
-            ui.glyph({ name = "brain", size = 13, color = "on_surface_variant" }),
-            ui.glyph({ name = "alert-circle", size = 12, color = "error" }),
+        -- One glyph, coloured by the state. A second icon beside it reads as a
+        -- second problem, and the plugin's own mark in the error colour says
+        -- the same thing in the space of one.
+        children[1] = ui.glyph({
+            name = "brain", size = 13,
+            color = failure.code ~= "" and "error" or "on_surface_variant",
         })
     elseif hidden > 0 then
         children[#children + 1] = ui.label({ text = "+" .. tostring(hidden), fontSize = 10,
                                              color = "on_surface_variant", maxLines = 1 })
     end
 
-    barWidget.render(ui.row({ gap = 7, align = "center" }, children))
+    -- A read in flight dims the capsule rather than appending a spinner to it:
+    -- a node that comes and goes every cycle shoves every widget to its right.
+    barWidget.render(ui.row({ gap = 6, align = "center", opacity = polling and 0.55 or 1 }, children))
     barWidget.setTooltip(tooltip(picked, hidden))
 end
 

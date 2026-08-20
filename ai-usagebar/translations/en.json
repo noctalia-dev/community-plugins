@@ -77,11 +77,16 @@
     },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
-    "loading": "Loading…",
+    "install": "Install page",
     "no_usage": "No usage reported",
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
+    "refresh": "Refresh now",
     "retry": "Try again",
+    "severity": {
+      "critical": "critical",
+      "high": "high"
+    },
     "stale": "stale",
     "stale_hint": "showing last known data",
     "title": "AI Usage",

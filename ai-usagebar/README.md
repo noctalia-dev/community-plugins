@@ -24,9 +24,9 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI owns the credentials and the
 endpoints, and this plugin never sees them.
 
-`xdg-open` is optional. It is spawned by one row in the panel, the link to the
-CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
-xdg-utils that row does nothing and the rest of the plugin is unaffected.
+`xdg-open` is optional. It is spawned by one button in the panel, the link to
+the CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
+xdg-utils that button is not drawn and the rest of the plugin is unaffected.
 
 ## Usage
 
@@ -81,21 +81,22 @@ with its headline percentage. On the right is the selected one in detail: one
 card per reported metric, with a quota bar over a thinner "window elapsed" bar,
 so a fill that outruns the clock bar means quota is burning ahead of pace.
 Credit balances and free text rows the CLI reports get rendered as well.
-Opening the panel asks the CLI for fresh numbers, and the header says how old
-the reading is. There is no refresh button and no close button: the read
-happens on open, and the panel closes when you click away from it or press the
-same widget again.
+Opening the panel asks the CLI for fresh numbers, and the detail pane says how
+old the reading is. The refresh button in the header asks again; it turns into
+a spinner while the CLI is answering. There is no close button: the panel
+closes when you click away from it or press the same widget again.
 
 The list follows the CLI. A provider that `ai-usagebar` has no credential for
 never appears, while one that is set up and failing keeps its row and shows the
 error.
 
-The detail pane spells out everything the CLI reports for that provider instead
-of implying it: the plan and account name, the provider id, its status, a stale
-flag when the reading is old, and when it was fetched. Each window gets its
-label, the severity the CLI assigned it, the percentage, the raw value string
-when that says more than the percentage, how much of the window has elapsed, the
-time left with the clock time (or date) its reset lands on, and the pace line.
+The detail pane spells out what the CLI reports for that provider instead of
+implying it: the plan and account name, when it was fetched, a stale flag when
+the reading is old, and the status when it is anything other than a healthy
+read. Each window gets its label, the percentage, the raw value string when
+that says more than the percentage, how much of the window has elapsed, the
+time left with the clock time (or date) its reset lands on, the pace line, and
+the severity as a word whenever the CLI calls the window high or critical.
 Credit blocks and free text rows appear as the CLI writes them.
 
 To open the panel from a terminal:
@@ -148,7 +149,7 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   it knows arrives on that command's stdout.
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
-  keeps showing, flagged in the capsule and in the panel header.
+  keeps showing, flagged in the capsule and in the panel's detail pane.
 - The file watcher follows the `.luau` entries only, so the files in
   `translations/` are read once, when the plugin loads. Editing a string takes
   a reload before the new text shows up:
