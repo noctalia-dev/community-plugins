@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "glyph": {
+      "label": "Glyph",
+      "description": "Icon to be displayed in widget"
+    },
+    "show_glyph": {
+      "label": "Show Glyph",
+      "description": "Whether or not to show glyph in the widget"
+    },
+    "label": {
+      "label": "Label",
+      "description": "Widget label"
+    },
+    "show_label": {
+      "label": "Show Label",
+      "description": "Whether or not to show label in the widget"
+    }
+  }
+}

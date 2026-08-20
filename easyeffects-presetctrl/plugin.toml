@@ -1,0 +1,49 @@
+id = "nuddel69/easyeffects-presetctrl"
+name = "EasyEffects PresetCtrl"
+version = "1.0.0"
+plugin_api = 3
+author = "Nuddel69"
+license = "AGPL-3.0"
+dependencies = ["easyeffects"]
+tags = ["audio", "utility", "music"]
+icon = "music-cog"
+description = "A plugin to switch EasyEffects output presets from a simple widget"
+
+[[widget]]
+id = "preset_picker"
+entry = "widget.luau"
+
+[[widget.setting]]
+key = "glyph"
+type = "glyph"
+label_key = "settings.glyph.label"
+description_key = "settings.glyph.description"
+default = "music-cog"
+
+[[widget.setting]]
+key = "show_glyph"
+type = "bool"
+label_key = "settings.show_glyph.label"
+default = true
+
+[[widget.setting]]
+key = "label"
+type = "string"
+label_key = "settings.label.label"
+description_key = "settings.label.description"
+default = "Audio Preset"
+
+[[widget.setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+default = true
+
+
+[[panel]]
+id = "picker"
+entry = "picker.luau"
+width = 420
+height = 230
+placement = "attached"
+open_near_click = true
