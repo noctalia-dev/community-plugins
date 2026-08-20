@@ -14,86 +14,15 @@ local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
 local report = nil
 local polling = false
 
--- The poller names the failure, so the capsule only has a code to translate.
--- Anything else in that state slot reads as no failure at all.
-local NO_FAILURE = { code = "", detail = "" }
-
-local function asFailure(value)
-    return type(value) == "table" and value or NO_FAILURE
-end
+local shared = require("./shared.luau")
+local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
+local countdown, resetClock = shared.countdown, shared.resetClock
+local ratio, headline = shared.ratio, shared.headline
+local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
--- Tabler has no Anthropic mark, so providers without a brand glyph get a
--- semantic one. Same approach the other CLI-backed meters in this repo take.
-local GLYPHS = {
-    anthropic = "asterisk-simple",
-    anthropic_api = "asterisk-simple",
-    openai = "brand-openai",
-    zai = "bolt",
-    openrouter = "route",
-    deepseek = "fish",
-    kimi = "moon",
-    moonshot = "moon",
-    kilo = "robot",
-    novita = "cloud",
-    grok = "brand-x",
-    supergrok = "brand-x",
-    antigravity = "sparkles",
-    cursor = "cursor-text",
-    minimax = "wave-square",
-    kiro = "ghost",
-    copilot = "brand-github-copilot",
-    gemini = "brand-google",
-}
-
 -- ── Report helpers ────────────────────────────────────────────────────────────
-
--- "2026-08-15T11:29:59.872624Z" -> unix seconds. The stamps are UTC, so the
--- naive os.time() reading (which assumes local time) is corrected by the local
--- offset measured at that same instant.
-local function parseIso(value)
-    if type(value) ~= "string" then return nil end
-    local y, mo, d, h, mi, s = value:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
-    if y == nil then return nil end
-    local asLocal = os.time({
-        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
-        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
-    })
-    local utcAsLocal = os.time(os.date("!*t", asLocal))
-    return asLocal + (asLocal - utcAsLocal)
-end
-
-local function formatDuration(seconds)
-    if seconds <= 0 then return noctalia.tr("ui.now") end
-    local minutes = math.floor(seconds / 60)
-    local days = math.floor(minutes / 1440)
-    local hours = math.floor((minutes % 1440) / 60)
-    local rest = minutes % 60
-    if days > 0 then return string.format("%dd %dh", days, hours) end
-    if hours > 0 then return string.format("%dh %dm", hours, rest) end
-    return string.format("%dm", rest)
-end
-
-local function countdown(metric)
-    local at = parseIso(metric and metric.reset_at)
-    if at == nil then return "" end
-    return formatDuration(at - os.time())
-end
-
--- The clock time the countdown lands on: "14:20", or "Sat 14:20" past midnight.
-local function resetClock(metric)
-    local at = parseIso(metric and metric.reset_at)
-    if at == nil then return "" end
-    local clock = noctalia.formatTime(noctalia.timeFormat(), at)
-    -- The weekday is prepended here rather than folded into the pattern: the
-    -- host's format grammar passes unknown text through verbatim, so a "ddd"
-    -- prefix would render as the literal word.
-    if os.date("%Y-%m-%d", at) ~= os.date("%Y-%m-%d") then
-        return os.date("%a", at) .. " " .. clock
-    end
-    return clock
-end
 
 -- "Resets in 4h 01m · 19% elapsed · 2pts ahead" says how much of the window is
 -- gone and how far the spend is from that line.
@@ -112,11 +41,6 @@ end
 local function entries()
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     return report.entries
-end
-
-local function headline(entry)
-    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    return entry.metrics[1]
 end
 
 local SEVERITY_RANK = { critical = 3, high = 2, medium = 1, low = 0 }
@@ -162,18 +86,13 @@ local function shown()
     return picked, #ready - #picked
 end
 
--- The CLI already tiers every percentage, and copying its thresholds here
--- would be a second source of truth. Text stays in the bar's own colour until
--- the reading is high or critical, and the accent colour is used on the bar
--- fill only.
+-- `calm` is the colour when the CLI has raised nothing. With the tint switched
+-- off it is the colour for everything.
 -- `calm` is the colour when the CLI has raised nothing. With the tint switched
 -- off it is the colour for everything.
 local function severityRole(metric, calm)
     if not colorByUsage then return calm end
-    local severity = metric ~= nil and tostring(metric.severity or "") or ""
-    if severity == "critical" then return "error" end
-    if severity == "high" then return "tertiary" end
-    return calm
+    return shared.severityRole(metric, calm)
 end
 
 local function shortName(entry)
@@ -183,15 +102,6 @@ local function shortName(entry)
 end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
-
--- A provider can report more than it was given, so the reading is clamped
--- before it becomes a bar width.
-local function ratio(percent)
-    local value = (tonumber(percent) or 0) / 100
-    if value < 0 then return 0 end
-    if value > 1 then return 1 end
-    return value
-end
 
 -- Quota above, window elapsed below: a fill longer than the clock bar is spend
 -- running ahead of time.

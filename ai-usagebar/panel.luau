@@ -7,70 +7,17 @@
 local report = nil
 local polling = false
 
--- The poller names the failure, so the panel only has a code to translate.
--- Anything else in that state slot reads as no failure at all.
-local NO_FAILURE = { code = "", detail = "" }
-
-local function asFailure(value)
-    return type(value) == "table" and value or NO_FAILURE
-end
+local shared = require("./shared.luau")
+local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
+local countdown, resetClock = shared.countdown, shared.resetClock
+local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
+local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
 -- Read once: a session either has xdg-utils or it does not, and the panel
 -- would otherwise stat PATH on every second tick it spends in a failure.
 local HAS_OPENER = noctalia.commandExists("xdg-open")
-
--- Same parsing the capsule does. There is no require() below API 22, so the
--- four helpers below are copied instead of shared.
-local function parseIso(value)
-    if type(value) ~= "string" then return nil end
-    local y, mo, d, h, mi, s = value:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
-    if y == nil then return nil end
-    local asLocal = os.time({
-        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
-        hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
-    })
-    local utcAsLocal = os.time(os.date("!*t", asLocal))
-    return asLocal + (asLocal - utcAsLocal)
-end
-
-local function formatDuration(seconds)
-    if seconds <= 0 then return noctalia.tr("ui.now") end
-    local minutes = math.floor(seconds / 60)
-    local days = math.floor(minutes / 1440)
-    local hours = math.floor((minutes % 1440) / 60)
-    local rest = minutes % 60
-    if days > 0 then return string.format("%dd %dh", days, hours) end
-    if hours > 0 then return string.format("%dh %dm", hours, rest) end
-    return string.format("%dm", rest)
-end
-
-local function countdown(section)
-    local at = parseIso(section and section.reset_at)
-    if at == nil then return "" end
-    return formatDuration(at - os.time())
-end
-
-local function resetClock(section)
-    local at = parseIso(section and section.reset_at)
-    if at == nil then return "" end
-    local clock = noctalia.formatTime(noctalia.timeFormat(), at)
-    if os.date("%Y-%m-%d", at) == os.date("%Y-%m-%d") then return clock end
-    -- A weekday alone is ambiguous once the window is more than a week out.
-    if at - os.time() > 6 * 86400 then return os.date("%d %b", at) .. " " .. clock end
-    return os.date("%a", at) .. " " .. clock
-end
-
--- The CLI tiers every percentage; copying its thresholds here would be a second
--- source of truth. `calm` is what to use when it has raised nothing: text stays
--- on the surface colour, and the accent is kept for bar fills.
-local function severityRole(section, calm)
-    local severity = tostring(section and section.severity or "")
-    if severity == "critical" then return "error" end
-    if severity == "high" then return "tertiary" end
-    return calm
-end
 
 -- The CLI reports a vendor it has no credential for as a `credentials error`.
 -- Those are not listed, because they were never set up. A configured provider
@@ -135,13 +82,6 @@ local function updatedText(entry)
     local minutes = math.floor((os.time() - at) / 60)
     if minutes < 1 then return noctalia.tr("ui.updated_now") end
     return noctalia.tr("ui.updated_ago", { minutes = minutes })
-end
-
-local function ratio(percent)
-    local value = (tonumber(percent) or 0) / 100
-    if value < 0 then return 0 end
-    if value > 1 then return 1 end
-    return value
 end
 
 local function metricIcon(label)
@@ -287,33 +227,6 @@ local function textRow(section)
 end
 
 -- ── Provider list ─────────────────────────────────────────────────────────────
-
--- Same map the capsule uses; no require() below API 22, so it is duplicated.
-local GLYPHS = {
-    anthropic = "asterisk-simple",
-    anthropic_api = "asterisk-simple",
-    openai = "brand-openai",
-    zai = "bolt",
-    openrouter = "route",
-    deepseek = "fish",
-    kimi = "moon",
-    moonshot = "moon",
-    kilo = "robot",
-    novita = "cloud",
-    grok = "brand-x",
-    supergrok = "brand-x",
-    antigravity = "sparkles",
-    cursor = "cursor-text",
-    minimax = "wave-square",
-    kiro = "ghost",
-    copilot = "brand-github-copilot",
-    gemini = "brand-google",
-}
-
-local function headline(entry)
-    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    return entry.metrics[1]
-end
 
 local function providerRow(entry, selected)
     local metric = headline(entry)

@@ -118,24 +118,11 @@ end
 
 local inFlight = false
 
--- The CLI caches for a minute, so a manual refresh usually answers in about ten
--- milliseconds, too fast for the loader to survive a frame. The busy state is
--- held for a beat instead, timed by the service's own tick.
-local MIN_BUSY_MS = 600
-local busyUntil = 0
-local clearPending = false
-
 -- A floor between spawns. Opening the panel asks for a read, and a panel can be
 -- opened as fast as a pointer can click, so this bounds how often the plugin
 -- can start a process no matter how the request arrives.
 local MIN_GAP_MS = 2000
 local lastStart = 0
-
-local function stopPolling()
-    clearPending = false
-    noctalia.state.set("polling", false)
-    noctalia.setUpdateInterval(intervalMs())
-end
 
 local function refresh()
     if inFlight then return end
@@ -143,18 +130,11 @@ local function refresh()
     if now - lastStart < MIN_GAP_MS then return end
     lastStart = now
     inFlight = true
-    busyUntil = now + MIN_BUSY_MS
-    clearPending = false
     noctalia.state.set("polling", true)
-    noctalia.setUpdateInterval(120)
 
     local started = noctalia.runAsync(COMMAND, function(result)
         inFlight = false
-        if noctalia.nowMs() >= busyUntil then
-            stopPolling()
-        else
-            clearPending = true
-        end
+        noctalia.state.set("polling", false)
 
         local decoded = result ~= nil and noctalia.json.decode(result.stdout or "") or nil
         if type(decoded) == "table" and type(decoded.entries) == "table" then
@@ -172,8 +152,8 @@ local function refresh()
     -- sit in flight forever and stop asking.
     if not started then
         inFlight = false
+        noctalia.state.set("polling", false)
         noctalia.state.set("error", failure("spawn_failed"))
-        stopPolling()
     end
 end
 
@@ -183,13 +163,8 @@ noctalia.state.watch("command", function(value)
 end)
 
 function update()
-    -- While a read is in flight the fast tick is the busy timer, not a poll.
+    -- A read in flight answers on its own callback; the tick only starts them.
     if inFlight then return end
-    if clearPending then
-        if noctalia.nowMs() >= busyUntil then stopPolling() end
-        return
-    end
-    noctalia.setUpdateInterval(intervalMs())
     refresh()
 end
 
