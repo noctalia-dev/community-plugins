@@ -14,6 +14,31 @@
         "bing": "Bing",
         "nasa": "NASA"
       }
+    },
+    "widget": {
+      "glyph": {
+        "label": "Glyph"
+      },
+      "show_text": {
+        "label": "Show caption text next to glyph"
+      },
+      "max_chars": {
+        "label": "Max caption characters on the bar"
+      }
     }
+  },
+  "widget": {
+    "title": "Daily Wallpaper",
+    "loading_short": "Loading…",
+    "tooltip_loading": "Fetching today's wallpaper caption…",
+    "tooltip_error": "Could not fetch today's wallpaper caption.",
+    "panel_launch_failed": "Could not open the Daily Wallpaper panel."
+  },
+  "panel": {
+    "title": "Daily Wallpaper",
+    "loading": "Fetching today's wallpaper caption…",
+    "error": "Could not fetch today's wallpaper caption.",
+    "date": "{source} · {date}",
+    "learn_more": "Learn more"
   }
 }
