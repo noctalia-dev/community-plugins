@@ -387,6 +387,15 @@ local function listPane(entry)
                 enabled = not polling,
                 onClick = requestRefresh,
             }),
+            -- The capsule already answers a middle click with this, but the
+            -- panel is where someone is looking at a provider and deciding the
+            -- capsule should show a different one.
+            ui.button({
+                glyph = "settings",
+                variant = "ghost", controlSize = "sm",
+                tooltip = noctalia.tr("ui.settings"),
+                onClick = function() noctalia.openSettings() end,
+            }),
         }),
         ui.scroll({ gap = 6, flexGrow = 1 }, rows),
     })

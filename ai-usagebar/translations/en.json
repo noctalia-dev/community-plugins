@@ -83,6 +83,7 @@
     "now": "now",
     "refresh": "Refresh now",
     "retry": "Try again",
+    "settings": "Plugin settings",
     "severity": {
       "critical": "critical",
       "high": "high"

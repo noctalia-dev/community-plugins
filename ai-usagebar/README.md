@@ -28,6 +28,10 @@ endpoints, and this plugin never sees them.
 the CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
 xdg-utils that button is not drawn and the rest of the plugin is unaffected.
 
+The plugin asks for **plugin API 22**, which is where Noctalia gained
+`require()`. On a shell older than that it will not install. Version 1.1.0 asked
+for API 9 and still runs there.
+
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
@@ -83,8 +87,9 @@ so a fill that outruns the clock bar means quota is burning ahead of pace.
 Credit balances and free text rows the CLI reports get rendered as well.
 Opening the panel asks the CLI for fresh numbers, and the detail pane says how
 old the reading is. The refresh button in the header asks again; it turns into
-a spinner while the CLI is answering. There is no close button: the panel
-closes when you click away from it or press the same widget again.
+a spinner while the CLI is answering. The gear beside it opens this plugin's
+settings. There is no close button: the panel closes when you click away from
+it or press the same widget again.
 
 The list follows the CLI. A provider that `ai-usagebar` has no credential for
 never appears, while one that is set up and failing keeps its row and shows the
@@ -150,11 +155,3 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
   keeps showing, flagged in the capsule and in the panel's detail pane.
-- The file watcher follows the `.luau` entries only, so the files in
-  `translations/` are read once, when the plugin loads. Editing a string takes
-  a reload before the new text shows up:
-
-  ```sh
-  noctalia msg plugins disable felipeartur/ai-usagebar
-  noctalia msg plugins enable felipeartur/ai-usagebar
-  ```
