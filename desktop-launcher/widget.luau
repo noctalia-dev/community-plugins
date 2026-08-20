@@ -1,3 +1,16 @@
+local function getConf(key, default)
+    local value = noctalia.getConfig(key)
+    if value == nil then
+        return default
+    else
+        return value
+    end
+end
+
+local config = {
+    layout = getConf("layout", "rows"),
+}
+
 -- https://github.com/noctalia-dev/noctalia/blob/main/src/system/desktop_entry_launch.cpp#L45
 local function stripFieldCodes(exec)
     local result = exec:gsub("%%(.?)( ?)", function(nextChar, trailingSpace)
@@ -109,7 +122,11 @@ local function getApps()
 end
 
 local function render()
-    desktopWidget.render(ui.row({ gap = 8 },
+    local layout = config.layout == "columns" and ui.column or ui.row
+    desktopWidget.render(
+        layout({
+            gap = 8,
+        },
         getApps()
     ))
 end

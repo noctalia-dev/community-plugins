@@ -2,6 +2,11 @@
     "settings": {
         "apps": {
             "label": "Applications"
+        },
+        "layout": {
+            "label": "Layout",
+            "rows": "Rows",
+            "columns": "Columns"
         }
     }
 }

@@ -24,3 +24,12 @@ entry = "widget.luau"
         "nvim",
     ]
 
+    [[desktop_widget.setting]]
+    key = "layout"
+    type = "select"
+    label_key = "settings.layout.label"
+    default = "rows"
+    options = [
+        { value = "rows", label_key = "settings.layout.rows" },
+        { value = "columns", label_key = "settings.layout.columns" },
+    ]
