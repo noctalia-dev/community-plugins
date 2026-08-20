@@ -1,7 +1,7 @@
 id = "blackbartblues/clipper"
 name = "Clipper"
 version = "0.1.0"
-plugin_api = 27
+plugin_api = 29
 author = "blackbartblues"
 license = "MIT"
 dependencies = ["cliphist", "wl-copy", "wl-paste", "wtype", "hyprctl", "niri", "nc"]

@@ -33,9 +33,11 @@ local MAX_NOTES = 20
 local MAX_NOTE_TITLE_BYTES = 200
 local MAX_NOTE_CONTENT_BYTES = 256 * 1024
 local MAX_NOTE_COORDINATE = 100000
+local SELECTION_MENU_TTL_SECONDS = 30
 local DATABASE_MODE_PRIVATE = "private"
 local DATABASE_MODE_GLOBAL = "global"
 local ipcRequestSequence = 0
+local ipcRequestId
 
 local dataDir, dataDirError = noctalia.pluginDataDir()
 local privateDatabasePath = dataDir ~= nil and (dataDir .. "/cliphist.db") or nil
@@ -347,6 +349,9 @@ local thumbnailQueue = {}
 local thumbnailRunning = false
 local thumbnailCache = {}
 local thumbnailCleanupQueue = {}
+local thumbnailUpdatesPending = false
+local selectionMenuGeneration = 0
+local pendingSelection = nil
 
 local function environmentValue(key)
   if type(noctalia.getenv) ~= "function" then return "" end
@@ -496,7 +501,14 @@ end
 local startNextThumbnail
 
 startNextThumbnail = function()
-  if thumbnailRunning or #thumbnailQueue == 0 then return end
+  if thumbnailRunning then return end
+  if #thumbnailQueue == 0 then
+    if thumbnailUpdatesPending then
+      thumbnailUpdatesPending = false
+      publishSnapshot("ready", "")
+    end
+    return
+  end
   local job = table.remove(thumbnailQueue, 1)
   local environment = cliphistEnvironment()
   if environment == nil then return end
@@ -517,7 +529,7 @@ startNextThumbnail = function()
         for _, item in ipairs(snapshotItems) do
           if item.id == job.id and item.is_image == true then
             item.image_path = job.path
-            publishSnapshot("ready", "")
+            thumbnailUpdatesPending = true
             break
           end
         end
@@ -595,7 +607,10 @@ refreshHistory = function()
   -- bounded by (history_limit + 1) previews.
   local command = environment .. " cliphist list | head -n " .. tostring(limit + 1)
   refreshInFlight = true
-  publishSnapshot("loading", "")
+  -- Keep an already rendered snapshot visible while refreshing. Publishing an
+  -- otherwise identical loading snapshot rebuilds the full panel for a status
+  -- label that usually lasts only a few milliseconds.
+  if #snapshotItems == 0 then publishSnapshot("loading", "") end
   local started = noctalia.runAsync(command, function(result)
     local stderr = result ~= nil and tostring(result.stderr or "") or ""
     if result == nil or result.timedOut == true or result.exitCode ~= 0
@@ -812,7 +827,7 @@ local function handleCopyPinned(requestId, id, paste)
   end)
 end
 
-local function handleCreateNote(requestId)
+local function handleCreateNote(requestId, initialContent)
   if dataDir == nil then
     publishResult(requestId, "create_note", false, "data_dir_unavailable")
     notifyError("data_dir_unavailable")
@@ -828,7 +843,7 @@ local function handleCreateNote(requestId)
   local note = {
     id = id,
     title = "",
-    content = "",
+    content = boundedString(initialContent, MAX_NOTE_CONTENT_BYTES),
     color = opaqueNoteColor(validColor(cfg("notes_color"), "#FFD54F")),
     x = 24 + (#notes * 36),
     y = 24 + (#notes * 28),
@@ -845,6 +860,112 @@ local function handleCreateNote(requestId)
   end
   publishSnapshot("ready", "")
   publishResult(requestId, "create_note", true, "", { id = id })
+end
+
+local function handleAppendToNote(requestId, id, content)
+  local note = findById(notes, id)
+  if note == nil then
+    publishResult(requestId, "append_note", false, "note_not_found", { id = id })
+    return
+  end
+
+  local addition = boundedString(content, MAX_NOTE_CONTENT_BYTES)
+  local separator = note.content ~= "" and "\n\n" or ""
+  local available = MAX_NOTE_CONTENT_BYTES - #note.content
+  if #separator >= available then separator = "" end
+  addition = boundedString(addition, math.max(0, available - #separator))
+  if addition == "" then
+    publishResult(requestId, "append_note", false, "note_content_full", { id = id })
+    notifyError("note_content_full")
+    return
+  end
+
+  local oldContent, oldUpdated = note.content, note.updated_at
+  note.content = note.content .. separator .. addition
+  note.updated_at = os.time()
+  if not saveNotes() then
+    note.content, note.updated_at = oldContent, oldUpdated
+    publishResult(requestId, "append_note", false, "note_save_failed", { id = id })
+    notifyError("note_save_failed")
+    return
+  end
+  publishSnapshot("ready", "")
+  publishResult(requestId, "append_note", true, "", { id = id })
+end
+
+local function openSelectionMenu(content, generation)
+  local items = {
+    {
+      id = "new",
+      label = tr("selection.create_new"),
+      enabled = #notes < MAX_NOTES,
+    },
+  }
+  for _, note in ipairs(notes) do
+    local title = note.title ~= "" and note.title or tr("panel.notes.untitled")
+    items[#items + 1] = {
+      id = "note:" .. note.id,
+      label = tr("selection.add_to", { title = title }),
+    }
+  end
+
+  pendingSelection = {
+    content = content,
+    generation = generation,
+    expires_at = os.clock() + SELECTION_MENU_TTL_SECONDS,
+  }
+  local opened = type(service) == "table" and type(service.openContextMenu) == "function"
+    and service.openContextMenu({
+      items = items,
+      maxVisible = 12,
+      onActivate = "onSelectionContextAction",
+      context = generation,
+    }) == true
+  if not opened then
+    pendingSelection = nil
+    notifyError("selection_menu_unavailable")
+  end
+end
+
+local function requestSelectionMenu()
+  selectionMenuGeneration = selectionMenuGeneration + 1
+  local generation = selectionMenuGeneration
+  pendingSelection = nil
+  if not noctalia.commandExists("wl-paste") then
+    notifyError("wl_paste_unavailable")
+    return
+  end
+
+  local started = noctalia.runAsync("wl-paste --primary --no-newline --type text", function(result)
+    if generation ~= selectionMenuGeneration then return end
+    local content = result ~= nil and result.timedOut ~= true and result.exitCode == 0
+      and boundedString(result.stdout, MAX_NOTE_CONTENT_BYTES) or ""
+    if content == "" or content:find("%S") == nil then
+      notifyError("selection_unavailable")
+      return
+    end
+    openSelectionMenu(content, generation)
+  end, ACTION_TIMEOUT_MS)
+  if not started then notifyError("selection_unavailable") end
+end
+
+function onSelectionContextAction(actionId, generation)
+  local selection = pendingSelection
+  if selection == nil or tonumber(generation) ~= selection.generation
+    or os.clock() >= selection.expires_at then
+    return
+  end
+  pendingSelection = nil
+
+  local requestId = ipcRequestId()
+  if actionId == "new" then
+    handleCreateNote(requestId, selection.content)
+    return
+  end
+  local noteId = type(actionId) == "string" and actionId:match("^note:(.+)$") or nil
+  if noteId ~= nil and validPersistentId(noteId, "note") then
+    handleAppendToNote(requestId, noteId, selection.content)
+  end
 end
 
 local function handleMoveNote(requestId, id, raw)
@@ -1121,7 +1242,7 @@ local function handleRequest(raw)
   end
 end
 
-local function ipcRequestId()
+ipcRequestId = function()
   ipcRequestSequence = ipcRequestSequence + 1
   return "ipc-" .. tostring(os.time()) .. "-" .. tostring(ipcRequestSequence)
 end
@@ -1150,6 +1271,10 @@ end
 -- CLI/automation calls subject to the same allowlist, ID validation, size
 -- limits, dependency checks and busy-state handling as requests from the UI.
 function onIpc(event, payload)
+  if event == "selection-menu" then
+    requestSelectionMenu()
+    return
+  end
   local noPayloadOperations = {
     refresh = "refresh",
     clear = "wipe",
@@ -1255,7 +1380,9 @@ noctalia.state.watch(PANEL_OPEN_KEY, function(value)
   panelOpen = value == true
   if panelOpen then
     capturePasteTarget()
-    if snapshotDirty then refreshHistory() end
+    -- Global mode is populated externally, so every reopen verifies the latest
+    -- database. Private mode can trust its watcher-maintained dirty flag.
+    if snapshotDirty or databaseMode() == DATABASE_MODE_GLOBAL then refreshHistory() end
   end
 end)
 
@@ -1264,6 +1391,9 @@ noctalia.state.watch(REQUEST_KEY, handleRequest)
 function update()
   if #thumbnailCleanupQueue > 0 then
     noctalia.removeFile(table.remove(thumbnailCleanupQueue, 1))
+  end
+  if pendingSelection ~= nil and os.clock() >= pendingSelection.expires_at then
+    pendingSelection = nil
   end
   if pendingPaste == nil or os.clock() < pendingPaste.deadline then return end
   local paste = pendingPaste

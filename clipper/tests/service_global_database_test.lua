@@ -106,6 +106,14 @@ completeNext({ exitCode = 0, stdout = "42\tglobal preview\n", stderr = "", timed
 assert(stateValues.clipper_snapshot.items[1].id == "42")
 noctalia.state.set("clipper_panel_open", false)
 
+-- Reopening global history verifies externally managed clipboard changes, but
+-- keeps the previous snapshot visible instead of flashing a loading state.
+noctalia.state.set("clipper_panel_open", true)
+assert(#asyncCalls == 1)
+assert(stateValues.clipper_snapshot.status == "ready")
+completeNext({ exitCode = 0, stdout = "42\tglobal preview\n", stderr = "", timedOut = false })
+noctalia.state.set("clipper_panel_open", false)
+
 request({ request_id = "global-activate", operation = "activate", id = "42", paste = false })
 assert(#asyncCalls == 1)
 assert(asyncCalls[1].command == globalCliphistCommand .. " decode '42' | wl-copy")

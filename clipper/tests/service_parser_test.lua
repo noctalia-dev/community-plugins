@@ -3,6 +3,7 @@ local stateWatchers = {}
 local asyncCalls = {}
 local streamCalls = {}
 local notifications = {}
+local contextMenuRequests = {}
 local files = {}
 local mockEnv = {}
 local config = {
@@ -95,10 +96,20 @@ noctalia = {
 		return true
 	end,
 	setUpdateInterval = function(value) stateValues.update_interval = value end,
-	tr = function(key) return key end,
+	tr = function(key, args)
+		if key == "selection.add_to" then return "Add to " .. tostring(args.title) end
+		return key
+	end,
 	notify = function(title, body) notifications[#notifications + 1] = { title, body } end,
 	notifyError = function(title, body) notifications[#notifications + 1] = { title, body } end,
 	log = function(_message) end,
+}
+
+service = {
+	openContextMenu = function(request)
+		contextMenuRequests[#contextMenuRequests + 1] = request
+		return true
+	end,
 }
 
 local function request(value)
@@ -274,8 +285,53 @@ request({ request_id = "note-export-1", operation = "export_note", id = firstNot
 assert(stateValues.clipper_result.ok == true)
 assert(type(stateValues.clipper_result.path) == "string")
 assert(files[stateValues.clipper_result.path] == "Body")
+
+-- The selection workflow reads primary selection before opening a native menu.
+-- Its actions are generated from current note titles and retain only one
+-- short-lived, generation-checked selection.
+onIpc("selection-menu", "")
+assert(#asyncCalls == 1)
+assert(asyncCalls[1].command == "wl-paste --primary --no-newline --type text")
+assert(asyncCalls[1].timeout == 5000)
+completeNext({ exitCode = 0, stdout = "Selected text", stderr = "", timedOut = false })
+assert(#contextMenuRequests == 1)
+local firstMenu = contextMenuRequests[1]
+assert(firstMenu.onActivate == "onSelectionContextAction")
+assert(type(firstMenu.context) == "number")
+assert(#firstMenu.items == 3)
+assert(firstMenu.items[1].id == "new" and firstMenu.items[1].enabled == true)
+local menuItemsById = {}
+for _, item in ipairs(firstMenu.items) do menuItemsById[item.id] = item end
+assert(menuItemsById["note:" .. firstNote.id].label == "Add to Title")
+assert(menuItemsById["note:" .. secondNote.id].label == "Add to panel.notes.untitled")
+
+onSelectionContextAction("note:" .. firstNote.id, firstMenu.context)
+assert(firstNote.content == "Body\n\nSelected text")
+assert(stateValues.clipper_result.operation == "append_note" and stateValues.clipper_result.ok == true)
+
+onIpc("selection-menu", "")
+completeNext({ exitCode = 0, stdout = "A new card", stderr = "", timedOut = false })
+local secondMenu = contextMenuRequests[2]
+onSelectionContextAction("new", secondMenu.context)
+local selectionNote = stateValues.clipper_snapshot.notes[#stateValues.clipper_snapshot.notes]
+assert(selectionNote.content == "A new card")
+assert(stateValues.clipper_result.operation == "create_note" and stateValues.clipper_result.ok == true)
+
+-- An old menu callback cannot consume or redirect a newer selection.
+onIpc("selection-menu", "")
+completeNext({ exitCode = 0, stdout = "Current generation", stderr = "", timedOut = false })
+local currentMenu = contextMenuRequests[3]
+local noteCountBeforeStaleAction = #stateValues.clipper_snapshot.notes
+onSelectionContextAction("new", secondMenu.context)
+assert(#stateValues.clipper_snapshot.notes == noteCountBeforeStaleAction)
+onSelectionContextAction("note:" .. secondNote.id, currentMenu.context)
+assert(secondNote.content == "Current generation")
+
+onIpc("selection-menu", "")
+completeNext({ exitCode = 1, stdout = "", stderr = "no selection", timedOut = false })
+assert(#contextMenuRequests == 3, "failed selection unexpectedly opened a menu")
 request({ request_id = "note-delete-1", operation = "delete_note", id = firstNote.id })
-assert(#stateValues.clipper_snapshot.notes == 1)
+assert(#stateValues.clipper_snapshot.notes == noteCountBeforeStaleAction - 1)
 
 -- Delete sends only the validated ID to cliphist, never preview/content.
 local deleted = request({ request_id = "delete-1", operation = "delete", id = "42" })

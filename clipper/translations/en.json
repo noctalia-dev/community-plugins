@@ -6,6 +6,10 @@
   "shortcut": {
     "label": "Clipboard history"
   },
+  "selection": {
+    "create_new": "Create new sticky note",
+    "add_to": "Add to “{title}”"
+  },
   "panel": {
     "title": "Clipper",
     "image_preview_pending": "Binary image stored in clipboard history",
@@ -110,9 +114,13 @@
     "paste_start_failed": "The automatic paste process could not be started.",
     "invalid_id": "The selected clipboard entry is no longer valid.",
     "global_wipe_disabled": "Clearing history is disabled while Clipper uses the global cliphist database.",
+    "wl_paste_unavailable": "wl-paste is unavailable. Install wl-clipboard or check your PATH.",
+    "selection_unavailable": "No readable selected text is available.",
+    "selection_menu_unavailable": "The selection menu could not be opened.",
     "data_dir_unavailable": "Clipper's private data directory is unavailable. Pins and notes are disabled.",
     "max_notes": "The notecard limit has been reached.",
     "note_save_failed": "The notecard could not be saved.",
+    "note_content_full": "The notecard has no room for more text.",
     "note_export_failed": "The notecard could not be exported.",
     "note_exported": "Notecard exported to {path}.",
     "deleted": "Clipboard entry deleted.",

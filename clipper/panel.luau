@@ -222,30 +222,21 @@ local function kindLabel(kind)
   return tr(key)
 end
 
-local function filterItems()
+local function historyView()
   local query = normalized(searchQuery)
   local result = {}
+  local counts = { all = 0, text = 0, image = 0, color = 0, link = 0, code = 0, file = 0 }
   for _, item in ipairs(asArray(snapshot.items)) do
     local kind = itemKind(item)
+    counts.all = counts.all + 1
+    if counts[kind] ~= nil then counts[kind] = counts[kind] + 1 end
     local matchesKind = activeFilter == "all" or kind == activeFilter
     local matchesQuery = query == "" or normalized(item.preview):find(query, 1, true) ~= nil
     if matchesKind and matchesQuery then
-      local copy = {}
-      for key, value in pairs(item) do copy[key] = value end
-      copy.kind = kind
-      result[#result + 1] = copy
+      result[#result + 1] = item
     end
   end
-  return result
-end
-
-local function filterCount(kind)
-  if kind == "all" then return #asArray(snapshot.items) end
-  local count = 0
-  for _, item in ipairs(asArray(snapshot.items)) do
-    if itemKind(item) == kind then count += 1 end
-  end
-  return count
+  return result, counts
 end
 
 local function previewText(item, limit)
@@ -580,8 +571,12 @@ local function noteCard(note, index)
     onPress = focus,
   })
 
-  local paper = ui.column({
-    key = "note-card-content-" .. noteId,
+  return ui.column({
+    key = "note-card-" .. noteId,
+    position = "absolute",
+    x = tonumber(note.x) or (24 + ((index - 1) * 36)),
+    y = tonumber(note.y) or (24 + ((index - 1) * 28)),
+    zIndex = tonumber(note.z) or index,
     width = NOTE_PAPER_SIZE,
     height = NOTE_PAPER_SIZE,
     padding = 12,
@@ -595,44 +590,6 @@ local function noteCard(note, index)
     ui.row({ key = "note-header-" .. noteId, gap = 5, align = "center" }, headerChildren),
     noteBody,
   })
-
-  local content = ui.column({
-    key = "note-paper-wrap-" .. noteId,
-    width = NOTE_PAPER_SIZE + 4,
-    gap = 0,
-  }, {
-    ui.row({ key = "note-paper-side-shadow-" .. noteId, gap = 0, align = "end" }, {
-      paper,
-      ui.box({
-        key = "note-side-shadow-" .. noteId,
-        width = 4,
-        height = NOTE_PAPER_SIZE - 5,
-        fill = "shadow/0.16",
-        radius = 2,
-        softness = 1,
-      }),
-    }),
-    ui.row({ key = "note-bottom-shadow-row-" .. noteId, height = 4, justify = "end" }, {
-      ui.box({
-        key = "note-bottom-shadow-" .. noteId,
-        width = NOTE_PAPER_SIZE - 5,
-        height = 4,
-        fill = "shadow/0.20",
-        radius = 2,
-        softness = 1,
-      }),
-    }),
-  })
-
-  return ui.column({
-    key = "note-position-" .. noteId,
-    position = "absolute",
-    x = tonumber(note.x) or (24 + ((index - 1) * 36)),
-    y = tonumber(note.y) or (24 + ((index - 1) * 28)),
-    zIndex = tonumber(note.z) or index,
-    width = NOTE_PAPER_SIZE + 4,
-    height = NOTE_PAPER_SIZE + 4,
-  }, { content })
 end
 
 local function headerNode()
@@ -744,13 +701,13 @@ local function notesPane()
   })
 end
 
-local function filtersNode()
+local function filtersNode(counts)
   local buttons = {}
   for _, filter in ipairs(FILTERS) do
     local filterId = filter.id
     buttons[#buttons + 1] = ui.button({
       key = "filter-" .. filterId,
-      text = tr(filter.key) .. " " .. tostring(filterCount(filterId)),
+      text = tr(filter.key) .. " " .. tostring(counts[filterId] or 0),
       glyph = filter.glyph,
       variant = activeFilter == filterId and "primary" or "ghost",
       controlSize = "sm",
@@ -765,7 +722,7 @@ local function filtersNode()
 end
 
 local function historyPane(usableWidth)
-  local filtered = filterItems()
+  local filtered, counts = historyView()
   local desiredPerPage = clamp(tonumber(cfg("history_cards", 30)) or 30, 3, 30)
   local widthLimited = math.max(3, math.floor((usableWidth + 8) / (HISTORY_CARD_SIZE + 8)))
   local perPage = math.min(desiredPerPage, widthLimited)
@@ -820,7 +777,7 @@ local function historyPane(usableWidth)
     borderWidth = 1,
   }, {
     ui.row({ gap = 8, align = "center" }, historyHeader),
-    filtersNode(),
+    filtersNode(counts),
     ui.row({ gap = 8, align = "start", flexGrow = 1 }, cards),
     ui.row({ gap = 7, align = "center", justify = "center" }, {
       ui.button({ glyph = "chevron-left", variant = "ghost", controlSize = "sm", enabled = historyPage > 1, onClick = "onPreviousPage" }),
@@ -874,7 +831,6 @@ end
 function onOpen()
   noctalia.state.set(PANEL_OPEN_KEY, true)
   panel.setWantsSecondTicks(true)
-  request("refresh")
   render()
 end
 

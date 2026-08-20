@@ -100,6 +100,7 @@ noctalia msg plugin blackbartblues/clipper:service all unpin pin-1700000000-1
 
 # Notecards
 noctalia msg plugin blackbartblues/clipper:service all create-note
+noctalia msg plugin blackbartblues/clipper:service all selection-menu
 noctalia msg plugin blackbartblues/clipper:service all update-note '{"id":"note-1700000000-1","title":"Title","content":"Body"}'
 noctalia msg plugin blackbartblues/clipper:service all move-note '{"id":"note-1700000000-1","x":160,"y":240}'
 noctalia msg plugin blackbartblues/clipper:service all reorder-note '{"id":"note-1700000000-1","target_index":1}'
@@ -108,6 +109,8 @@ noctalia msg plugin blackbartblues/clipper:service all export-note note-17000000
 noctalia msg plugin blackbartblues/clipper:service all delete-note note-1700000000-1
 ```
 
+`selection-menu` reads the current Wayland primary text selection first, then opens a native context menu at the cursor. It offers to create a new sticky note or append the selection to every existing note. This is the intended target for a compositor key binding; the popup placement itself uses Wayland layer-shell and xdg-shell rather than compositor-specific IPC.
+
 Automations can also send the same request shape used internally by the panel:
 
 ```sh
@@ -115,7 +118,7 @@ noctalia msg plugin blackbartblues/clipper:service all request \
   '{"operation":"activate","id":"42","paste":false}'
 ```
 
-Supported `operation` values are `refresh`, `activate`, `pin`, `delete`, `wipe`, `unpin`, `copy_pinned`, `create_note`, `update_note`, `move_note`, `reorder_note`, `cycle_note_color`, `export_note`, and `delete_note`. `wipe` is rejected in global database mode. IPC is asynchronous: the CLI confirms dispatch, while the result is published to Noctalia state as `clipper_result`.
+Supported `operation` values are `refresh`, `activate`, `pin`, `delete`, `wipe`, `unpin`, `copy_pinned`, `create_note`, `update_note`, `move_note`, `reorder_note`, `cycle_note_color`, `export_note`, and `delete_note`. `selection-menu` is a dedicated IPC event because it performs an asynchronous primary-selection read before choosing one of those mutations. `wipe` is rejected in global database mode. IPC is asynchronous: the CLI confirms dispatch, while the result is published to Noctalia state as `clipper_result`.
 
 The service publishes these state keys for integrations:
 
