@@ -581,14 +581,18 @@ local function renderLibrary()
         "CURRENT"
       ),
       filterButton(
+        "repeating",
+        if mediaTab == "MANGA" then tr("filter_rereading") else tr("filter_rewatching"),
+        "REPEATING"
+      ),
+      filterButton("completed", tr("filter_completed"), "COMPLETED"),
+      filterButton("paused", tr("filter_paused"), "PAUSED"),
+      filterButton(
         "planning",
         if mediaTab == "MANGA" then tr("filter_planning_manga") else tr("filter_planning"),
         "PLANNING"
       ),
-      filterButton("completed", tr("filter_completed"), "COMPLETED"),
-      filterButton("paused", tr("filter_paused"), "PAUSED"),
       filterButton("dropped", tr("filter_dropped"), "DROPPED"),
-      filterButton("repeating", tr("filter_repeating"), "REPEATING"),
       filterButton("all", tr("filter_all"), "ALL"),
     }),
   }))

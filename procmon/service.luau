@@ -36,13 +36,14 @@ end
 
 -- `args` is placed last so the fixed fields are positional and everything
 -- after them is the full command line (which may contain spaces). The shell
--- pre-sorts by CPU and truncates to the top 120 rows so the Luau parse stays
+-- pre-sorts by CPU and truncates to the top 80 rows so the Luau parse stays
 -- tiny: parsing every process blew the async callback's CPU budget even with a
--- single-pass gmatch. btm shows a screenful anyway, so top-120 is plenty.
+-- single-pass gmatch. The panel caps at 80 rows (MAX_ROWS), so parsing more is
+-- wasted work -- top-80 is exactly what gets displayed.
 -- The trailing ##STAT/##MEM sections carry real total CPU/RAM from /proc so the
 -- bars read the machine's actual usage -- ps %cpu is a per-process lifetime
 -- average, so summing the top rows and capping at 100 always pegged the bar.
-local PS_CMD = "ps -eo pid=,user=,%cpu=,%mem=,rss=,stat=,time=,args= --sort=-%cpu | head -n 120"
+local PS_CMD = "ps -eo pid=,user=,%cpu=,%mem=,rss=,stat=,time=,args= --sort=-%cpu | head -n 80"
 
 -- Real total CPU/RAM come from /proc in a SEPARATE, tiny command so the async
 -- callback that parses it stays far under the CPU budget. Folding the markers
@@ -170,35 +171,22 @@ local function sampleRam(raw)
 	return math.floor(usedKb / totalKb * 100 + 0.5), math.floor(usedKb / 1024), math.floor(totalKb / 1024)
 end
 
-local sampling = false
+-- inFlight counts outstanding async callbacks. sample() only starts when it is
+-- 0, so a slow `ps` can never overlap the next tick's subprocesses -- overlapping
+-- spawns were a big part of the CPU-budget blowout.
+local inFlight = 0
+local tick = 0
 
 local function sample()
-	if sampling then
+	if inFlight > 0 then
 		return -- one in-flight sample at a time
 	end
-	sampling = true
+	tick += 1
 
-	noctalia.runAsync(PS_CMD, function(res)
-		local ok, perr = pcall(function()
-			sampling = false
-			if res == nil or res.timedOut or res.exitCode ~= 0 then
-				local detail = res and (res.stderr or res.stdout or "") or "no result"
-				setState("err", detail)
-				return
-			end
-			local procs = parse(res.stdout)
-			setState("procs", procs)
-			setState("refreshedAtMs", os.time() * 1000)
-		end)
-		if not ok then
-			sampling = false
-			log("ps callback error: " .. tostring(perr))
-		end
-	end, PS_TIMEOUT_MS)
-
+	-- Cheap /proc stats every tick: the bars stay real-time.
+	inFlight += 1
 	noctalia.runAsync(STATS_CMD, function(res)
 		local ok, perr = pcall(function()
-			sampling = false
 			if res == nil or res.timedOut or res.exitCode ~= 0 then
 				return
 			end
@@ -215,10 +203,32 @@ local function sample()
 			setState("err", "")
 		end)
 		if not ok then
-			sampling = false
 			log("stats callback error: " .. tostring(perr))
 		end
+		inFlight -= 1
 	end, PS_TIMEOUT_MS)
+
+	-- The `ps` subprocess is the biggest CPU cost; the process table changes
+	-- slowly, so sample it every 2nd tick while stats stay fresh every tick.
+	if tick % 2 == 1 then
+		inFlight += 1
+		noctalia.runAsync(PS_CMD, function(res)
+			local ok, perr = pcall(function()
+				if res == nil or res.timedOut or res.exitCode ~= 0 then
+					local detail = res and (res.stderr or res.stdout or "") or "no result"
+					setState("err", detail)
+					return
+				end
+				local procs = parse(res.stdout)
+				setState("procs", procs)
+				setState("refreshedAtMs", os.time() * 1000)
+			end)
+			if not ok then
+				log("ps callback error: " .. tostring(perr))
+			end
+			inFlight -= 1
+		end, PS_TIMEOUT_MS)
+	end
 end
 
 -- Seed placeholders so subscribers have something before the first sample.

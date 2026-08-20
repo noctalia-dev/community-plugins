@@ -19,7 +19,7 @@
 
 id = "harveywuk/pulsar-mouse"
 name = "Pulsar Mouse"
-version = "1.6.1"
+version = "1.7.0"
 plugin_api = 9
 author = "harveywuk"
 license = "MIT"
@@ -41,6 +41,50 @@ entry = "bar.luau"
   max = 32
   step = 1
 
+  # Per-state glyph colors. The defaults reproduce what used to be hardcoded,
+  # so an existing install looks identical until someone changes one. Marked
+  # advanced since the interesting knob for most people is glyph_size - these
+  # are for matching a specific colorscheme.
+  #
+  # Deliberately NOT called `color`: a bar widget's settings share one TOML
+  # table with Noctalia's own per-widget presentation settings, and `color`
+  # is already taken there (the "Color role for this widget's icon and
+  # label" one). Declaring it here doesn't shadow that setting, it aliases
+  # it - one `color = ...` key ends up backing both pickers, so setting
+  # either silently moves the other. The desktop widget has no such clash,
+  # which is why its equivalent is still plain `color`.
+  [[widget.setting]]
+  key = "normal_color"
+  type = "color"
+  label_key = "settings.normal_color.label"
+  description_key = "settings.normal_color.description"
+  default = "on_surface"
+  advanced = true
+
+  [[widget.setting]]
+  key = "charging_color"
+  type = "color"
+  label_key = "settings.charging_color.label"
+  description_key = "settings.charging_color.description"
+  default = "secondary"
+  advanced = true
+
+  [[widget.setting]]
+  key = "warning_color"
+  type = "color"
+  label_key = "settings.warning_color.label"
+  description_key = "settings.warning_color.description"
+  default = "error"
+  advanced = true
+
+  [[widget.setting]]
+  key = "error_color"
+  type = "color"
+  label_key = "settings.error_color.label"
+  description_key = "settings.error_color.description"
+  default = "error"
+  advanced = true
+
 [[panel]]
 id = "controls"
 entry = "panel.luau"
@@ -60,6 +104,32 @@ entry = "desktop.luau"
   label_key = "settings.color.label"
   description_key = "settings.color.description"
   default = "primary"
+
+  # The other three states (see bar's copy of these) - `color` above stays
+  # non-advanced since it's the one that was always here.
+  [[desktop_widget.setting]]
+  key = "charging_color"
+  type = "color"
+  label_key = "settings.charging_color.label"
+  description_key = "settings.charging_color.description"
+  default = "secondary"
+  advanced = true
+
+  [[desktop_widget.setting]]
+  key = "warning_color"
+  type = "color"
+  label_key = "settings.warning_color.label"
+  description_key = "settings.warning_color.description"
+  default = "error"
+  advanced = true
+
+  [[desktop_widget.setting]]
+  key = "error_color"
+  type = "color"
+  label_key = "settings.error_color.label"
+  description_key = "settings.error_color.description"
+  default = "error"
+  advanced = true
 
   [[desktop_widget.setting]]
   key = "show_progress"

@@ -65,6 +65,10 @@
       "label": "Hotspot name"
     }
   },
+  "shortcut": {
+    "active": "Hotspot on",
+    "inactive": "Hotspot off"
+  },
   "title": "Wi-Fi Hotspot",
   "tooltip": {
     "active": "{ssid} is active · {count} device(s) connected · click for panel · right-click to stop",

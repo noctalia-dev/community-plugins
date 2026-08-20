@@ -623,7 +623,7 @@ end
 local function parseNiriContent(content, sourceFile, context)
   local includes = {}
   for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local includePath = rawLine:match('^%s*include%s+"([^"]+)"')
+    local includePath = rawLine:match('^%s*include%s+["\']([^"\']+)["\']')
     if includePath ~= nil then
       table.insert(includes, { path = includePath, optional = false })
     end
@@ -777,9 +777,42 @@ local function readConfig(rootPath, parser)
   return context
 end
 
+local function extractLuaStringLiterals(expr)
+  local literals = {}
+  local index = 1
+  while index <= #expr do
+    local char = expr:sub(index, index)
+    if char == '"' or char == "'" then
+      local quote = char
+      index += 1
+      local value = {}
+      local escaped = false
+      while index <= #expr do
+        local c = expr:sub(index, index)
+        if escaped then
+          table.insert(value, c)
+          escaped = false
+        elseif c == "\\" then
+          escaped = true
+        elseif c == quote then
+          break
+        else
+          table.insert(value, c)
+        end
+        index += 1
+      end
+      table.insert(literals, table.concat(value))
+    end
+    index += 1
+  end
+  return literals
+end
+
 local function scanHyprLuaContent(content, sourceFile, context)
   local category = ""
   local includes = {}
+  local pendingDescription = false
+
   for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
     local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
     if heading ~= nil and heading ~= "" then
@@ -796,13 +829,34 @@ local function scanHyprLuaContent(content, sourceFile, context)
       table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
     end
 
-    local description = code:match('description%s*=%s*"([^"]*)"')
-      or code:match("description%s*=%s*'([^']*)'")
-      or code:match('desc%s*=%s*"([^"]*)"')
-      or code:match("desc%s*=%s*'([^']*)'")
-    if description ~= nil and description ~= "" then
-      local kind = code:find("%.%.") ~= nil and "prefix" or "exact"
-      table.insert(context.rules, { kind = kind, value = description, category = category ~= "" and category or "Other" })
+    local rhs = code:match('description%s*=%s*(.*)$') or code:match('desc%s*=%s*(.*)$')
+    if rhs ~= nil or pendingDescription then
+      local expr = rhs or code
+      local literals = extractLuaStringLiterals(expr)
+      local nonEmpty = {}
+      for _, str in ipairs(literals) do
+        local cleaned = trim(str)
+        if cleaned ~= "" then
+          table.insert(nonEmpty, str)
+        end
+      end
+
+      if #nonEmpty > 0 then
+        pendingDescription = false
+        local combined = table.concat(nonEmpty)
+        local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
+        local kind = hasConcat and "prefix" or "exact"
+        local cat = category ~= "" and category or "Other"
+
+        table.insert(context.rules, { kind = kind, value = combined, category = cat })
+        for _, piece in ipairs(nonEmpty) do
+          if piece ~= combined then
+            table.insert(context.rules, { kind = "exact", value = piece, category = cat })
+          end
+        end
+      elseif rhs ~= nil and #literals == 0 then
+        pendingDescription = true
+      end
     end
   end
   return includes

@@ -99,7 +99,13 @@ local function render()
         barWidget.setGlyphColor("on_surface")
     end
 
-    if pending() and noctalia.getConfig("show_count") == true then
+    if phase == "running" and snapshot ~= nil and type(snapshot.progress) == "table"
+        and (tonumber(snapshot.progress.total) or 0) > 0 then
+        -- Live progress replaces the count while the background run is going.
+        local done = tonumber(snapshot.progress.done) or 0
+        local expect = tonumber(snapshot.progress.total) or 1
+        barWidget.setText(tostring(math.min(math.floor(done / expect * 100), 100)) .. "%")
+    elseif pending() and noctalia.getConfig("show_count") == true then
         barWidget.setText(tostring(snapshot.total))
     else
         barWidget.setText("")

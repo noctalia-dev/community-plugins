@@ -1,0 +1,58 @@
+id = "mdj2812/thunderbird-companion"
+name = "Thunderbird Companion"
+version = "0.1.0"
+plugin_api = 9
+author = "mdj2812"
+license = "MIT"
+icon = "mail"
+description = "Shows Thunderbird unread mail in Noctalia with recent-message actions through a local companion bridge."
+tags = ["bar", "panel", "service", "productivity", "utility"]
+dependencies = ["thunderbird", "python3", "xdg-open"]
+
+[[setting]]
+key = "notify_new"
+type = "bool"
+default = false
+label_key = "settings.notify_new.label"
+description_key = "settings.notify_new.description"
+
+[[setting]]
+key = "max_messages"
+type = "int"
+default = 20
+min = 5
+max = 50
+label_key = "settings.max_messages.label"
+description_key = "settings.max_messages.description"
+
+[[setting]]
+key = "thunderbird_command"
+type = "string"
+default = "thunderbird"
+advanced = true
+label_key = "settings.thunderbird_command.label"
+description_key = "settings.thunderbird_command.description"
+
+[[service]]
+id = "bridge"
+entry = "service.luau"
+
+[[widget]]
+id = "mail"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  default = "mail"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+
+[[panel]]
+id = "inbox"
+entry = "panel.luau"
+width = 480
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true

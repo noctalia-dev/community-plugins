@@ -1,8 +1,5 @@
 {
   "action_check": "Check Updates",
-  "action_dismiss": "Dismiss",
-  "action_open_news": "Open news",
-  "action_update": "Update",
   "activity": {
     "days_ago": {
       "one": "1 day ago",
@@ -30,6 +27,13 @@
     },
     "updated_today": "Updated today"
   },
+  "action_dismiss": "Dismiss",
+  "action_back": "Back",
+  "action_open_log": "Open full log",
+  "action_polkit_install": "Ask once",
+  "action_open_news": "Open news",
+  "action_run_terminal": "Retry in terminal",
+  "action_update": "Update",
   "caption_checked": "checked {time}",
   "caption_ignored": {
     "one": "1 package ignored",
@@ -40,19 +44,45 @@
   "err_check_timeout": "Timed out while checking for updates",
   "err_flatpak_failed": "Flatpak check failed, see the system log for details",
   "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
+  "err_no_pkexec": "pkexec not found, install polkit to update in the background",
   "err_no_terminal": "No terminal emulator found, set one in the plugin settings",
   "err_no_xdg_open": "xdg-open not found, cannot open the package page",
+  "err_polkit_install": "Could not install the polkit rule, see the system log for details",
+  "err_run_failed": "Update failed (exit {code}), check the log or retry in a terminal",
   "err_spawn": "Could not run checkupdates",
+  "history_rollback_tag": "rollback",
+  "history_title": "Update history",
   "hover_hint": "Hover a package for its full versions",
+  "ignored_tag_settings": "settings",
+  "ignored_tag_system": "pacman.conf",
+  "ignored_tip_settings": "Ignored via the plugin settings, remove it there. Click to open them.",
+  "ignored_tip_system": "Ignored by IgnorePkg in /etc/pacman.conf, edit that file (as root) to lift it",
+  "ignored_title": "Ignored",
   "launcher": {
     "check_subtitle": "Check pacman, AUR and Flatpak for updates",
     "news_subtitle": "Open the Arch Linux news page",
-    "update_subtitle": "Open a terminal and run the update"
+    "update_subtitle": "Install the pending updates (terminal or background, per the update mode setting)"
   },
+  "log_title": "Update log",
+  "log_waiting": "Waiting for the polkit password prompt and the first output…",
   "more_packages": "+{count} more",
   "news_unread": {
     "one": "1 unread Arch news post: \"{title}\"",
     "other": "{count} unread Arch news posts, latest: \"{title}\""
+  },
+  "notify_polkit_ok": "Polkit rule installed: one password per update run from now on",
+  "notify_rollback_ok": "Rollback finished successfully",
+  "notify_run_ok": "Update finished successfully",
+  "polkit_hint": "Polkit asks for a password several times per update",
+  "rollback_confirm": "Sure?",
+  "rollback_missing": "The old version is no longer in the pacman/AUR cache",
+  "rollback_required_by": {
+    "one": "Careful: 1 installed package requires it",
+    "other": "Careful: {count} installed packages require it"
+  },
+  "run_packages": {
+    "one": "1 package",
+    "other": "{count} packages"
   },
   "notify_updates": {
     "one": "1 package to upgrade",
@@ -67,9 +97,9 @@
       "description": "How many of the most recent checks to keep for the activity graph.",
       "label": "Activity history length"
     },
-    "assume_yes": {
-      "description": "Pass --noconfirm / -y so package managers do not ask for confirmation. Off means you confirm each one in the terminal window.",
-      "label": "Answer yes automatically"
+    "show_activity_graph": {
+      "description": "Track pending-update counts across recent checks and when you last updated, shown as a small graph above the update history strip. Off (default) also stops recording the history.",
+      "label": "Show activity graph"
     },
     "aur_check_cmd": {
       "description": "Only used when the AUR helper above is 'Custom command'. Must print one 'name oldver -> newver' line per package, like 'yay -Qua' does.",
@@ -106,6 +136,10 @@
       "description": "The glyph shown for the widget on the bar.",
       "label": "Bar glyph"
     },
+    "hide_polkit_hint": {
+      "description": "Hide the panel line offering to install the polkit keep-authorization rule (one password per update run).",
+      "label": "Hide the polkit rule suggestion"
+    },
     "hide_on_empty": {
       "description": "Hide the widget entirely when there are no pending updates and no reboot recommendation. Off (default) always shows the glyph.",
       "label": "Hide when there is nothing to show"
@@ -114,13 +148,17 @@
       "description": "Package names to leave out of the count and pass as --ignore to the update itself, in addition to pacman.conf's own IgnorePkg.",
       "label": "Ignore packages"
     },
+    "log_lines": {
+      "description": "How many of the latest update-log lines the panel shows while an update is running.",
+      "label": "Log lines in the panel"
+    },
     "notify_on_updates": {
       "description": "Send a desktop notification when a check finds packages to upgrade.",
       "label": "Notify when updates are found"
     },
-    "show_activity_graph": {
-      "description": "Track pending-update counts across recent checks and when you last updated, shown as a small graph in the panel. Turning this off also stops recording the history.",
-      "label": "Show activity graph"
+    "rollback_auto_ignore": {
+      "description": "After a successful rollback, add the rolled-back packages to the plugin's ignore list so the next check does not immediately offer them again.",
+      "label": "Ignore packages after a rollback"
     },
     "show_count": {
       "description": "Show the number of pending updates next to the bar glyph.",
@@ -131,11 +169,19 @@
       "label": "Show download size"
     },
     "terminal": {
-      "description": "Terminal command used for the update run, e.g. kitty or ghostty. Empty (default) uses Noctalia's terminal detection ($TERMINAL, then the common emulators).",
+      "description": "Terminal command for terminal-mode updates and the 'Retry in terminal' fallback, e.g. kitty or ghostty. Empty (default) uses Noctalia's terminal detection ($TERMINAL, then the common emulators).",
       "label": "Terminal"
     },
+    "update_mode": {
+      "description": "How the Update button runs the upgrade. 'In a terminal window' (default) behaves like the original plugin: prompts and the PKGBUILD review work as usual. 'In the background' is fully non-interactive (--noconfirm, review skipped) with a live log in the panel.",
+      "label": "Update mode",
+      "options": {
+        "background": "In the background (non-interactive & HIGH RISK)",
+        "terminal": "In a terminal window"
+      }
+    },
     "update_cmd": {
-      "description": "Full override for the command run in the terminal on Update. Empty (default) builds it from the AUR helper, ignore list, Flatpak and 'Answer yes' settings above.",
+      "description": "Full override for the background update command. Empty (default) builds it from the AUR helper, ignore list and Flatpak settings above, running pacman through pkexec.",
       "label": "Custom update command"
     }
   },
@@ -157,12 +203,22 @@
     "one": "1 package to upgrade",
     "other": "{count} packages to upgrade"
   },
-  "status_running": "Update running in a terminal…",
+  "status_rolling_back": "Rolling back in the background…",
+  "status_running": "Updating in the background…",
+  "status_running_terminal": "Updating in a terminal window…",
   "tip_check": "Check for updates now",
   "tip_close": "Close",
   "tip_copy": "Copy name and versions",
+  "tip_ignore": "Ignore this package: hide it from the count and skip it on update",
+  "tip_unignore": "Stop ignoring this package",
   "tip_open_page": "Open package page",
-  "tip_update": "Run the update in a terminal window",
+  "tip_history_segment": "Click to see this run's packages",
+  "tip_polkit_install": "Install the polkit rule so updates can run in the background with one password prompt",
+  "tip_rollback": "Roll back to {version}, together with its dependencies from this run. pacman refuses the whole transaction if it would break other packages.",
+  "tip_rollback_run": "Downgrade every package of this run in one transaction",
+  "tip_run_terminal": "Open a terminal window where prompts work normally",
+  "tip_update": "Update in the background: polkit asks for your password, everything else is automatic",
+  "tip_update_terminal": "Update in a terminal window: prompts and the PKGBUILD review work as usual",
   "title": "Arch Updater",
   "tooltip_checked": "Checked",
   "tooltip_hints": "click: panel · right: check now",

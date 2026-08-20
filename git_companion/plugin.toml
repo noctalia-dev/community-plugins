@@ -1,0 +1,74 @@
+id = "tphilippot/git_companion"
+name = "Git Companion"
+version = "1.0.0"
+plugin_api = 23
+author = "thomas-philippot"
+license = "MIT"
+icon = "brand-git"
+description = "Monitor your git repositories from the Noctalia bar. See your current PRs/MRs and issues at a glance."
+tags = ["development", "bar", "panel", "service", "productivity"]
+dependencies = ["gh", "glab", "xdg-open"]
+
+# ── Plugin-level settings ────────────────────────────────────
+
+[[setting]]
+key = "platform"
+type = "select"
+label_key = "settings.platform.label"
+description_key = "settings.platform.description"
+default = "github"
+options = [
+  { value = "github", label_key = "settings.platform.options.github" },
+  { value = "gitlab", label_key = "settings.platform.options.gitlab" }
+]
+
+[[setting]]
+key = "repo"
+type = "string"
+label_key = "settings.repo.label"
+description_key = "settings.repo.description"
+default = ""
+
+[[setting]]
+key = "group"
+type = "string"
+label_key = "settings.group.label"
+description_key = "settings.group.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 60
+min = 10
+
+[[setting]]
+key = "bar_display_mode"
+type = "select"
+label_key = "settings.bar_display_mode.label"
+description_key = "settings.bar_display_mode.description"
+default = "both"
+options = [
+  { value = "none", label_key = "settings.bar_display_mode.options.none" },
+  { value = "prs", label_key = "settings.bar_display_mode.options.prs" },
+  { value = "issues", label_key = "settings.bar_display_mode.options.issues" },
+  { value = "both", label_key = "settings.bar_display_mode.options.both" }
+]
+
+# ── Entryfiles ────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "main"
+entry = "panel.luau"
+placement = "attached"
+open_near_click = true

@@ -1,11 +1,11 @@
 -- panel.luau
--- Janela pop-up mostrada ao clicar no widget da barra: lista os itens mais
--- recentes, ou um estado vazio com icone quando nao ha nada novo.
+-- Popup shown when clicking the bar widget: lists the most recent items, or
+-- an empty state with an icon when there's nothing new.
 
 local items = {}
 local hoveredKey = nil
 
--- declaradas antes para permitir referencia cruzada entre elas
+-- declared upfront to allow cross-referencing between them
 local render
 local dismissItem
 local itemRow
@@ -15,14 +15,14 @@ local function openLink(link)
   if not link or link == "" then
     return
   end
-  -- escapa aspas simples pra evitar quebrar o comando do shell
+  -- escape single quotes so we don't break the shell command
   local safe = link:gsub("'", "'\\''")
   noctalia.runAsync("xdg-open '" .. safe .. "'")
 end
 
 dismissItem = function(item)
-  -- remove localmente (resposta imediata) e avisa o service pra nao
-  -- reaparecer nas proximas atualizacoes
+  -- remove locally (immediate feedback) and tell the service so it doesn't
+  -- reappear on future updates
   for i, it in ipairs(items) do
     if it == item then
       table.remove(items, i)
@@ -42,6 +42,40 @@ itemRow = function(item)
   local key = item.id or item.link or item.title
   local hovered = hoveredKey == key
 
+  local showImages = noctalia.getConfig("show_feed_images")
+  if showImages == nil then
+    showImages = true -- default enabled
+  end
+
+  local rowChildren = {}
+
+  if showImages then
+    if item.image and item.image ~= "" then
+      table.insert(rowChildren, ui.image({ path = item.image, width = 56, height = 56, radius = 10, fit = "cover" }))
+    else
+      table.insert(rowChildren, ui.row({ width = 56, height = 56, radius = 10, fill = "surface_variant/0.7", align = "center", justify = "center" }, {
+        ui.glyph({ name = "rss", size = 20, color = "outline" }),
+      }))
+    end
+  end
+
+  table.insert(rowChildren, ui.column({
+    gap      = 2,
+    flexGrow = 1,
+    onClick  = function() openLink(item.link) end,
+  }, {
+    ui.label({ text = item.title or "(sem titulo)", fontWeight = "bold", maxLines = 2 }),
+    ui.label({ text = item.feedTitle or "", fontSize = 12, color = "outline" }),
+  }))
+
+  table.insert(rowChildren, ui.button({
+    glyph       = "close",
+    variant     = "outline",
+    controlSize = "sm",
+    tooltip     = "Dispensar",
+    onClick     = function() dismissItem(item) end,
+  }))
+
   return ui.row({
     key         = key,
     gap         = 6,
@@ -55,23 +89,7 @@ itemRow = function(item)
       hoveredKey = isHovering and key or nil
       render()
     end,
-  }, {
-    ui.column({
-      gap      = 2,
-      flexGrow = 1,
-      onClick  = function() openLink(item.link) end,
-    }, {
-      ui.label({ text = item.title or "(sem titulo)", fontWeight = "bold", maxLines = 2 }),
-      ui.label({ text = item.feedTitle or "", fontSize = 12, color = "outline" }),
-    }),
-    ui.button({
-      glyph       = "close",
-      variant     = "outline",
-      controlSize = "sm",
-      tooltip     = "Dispensar",
-      onClick     = function() dismissItem(item) end,
-    }),
-  })
+  }, rowChildren)
 end
 
 emptyState = function()
@@ -91,8 +109,8 @@ render = function()
     for _, item in ipairs(items) do
       table.insert(rows, itemRow(item))
     end
-    -- flexGrow preenche o espaco que sobrar dentro da coluna raiz - so
-    -- funciona se essa coluna tiver uma altura definida (ver abaixo).
+    -- flexGrow fills the leftover space inside the root column - only works
+    -- if that column has a defined height (see below).
     body = ui.scroll({ gap = 6, flexGrow = 1 }, rows)
   end
 
@@ -103,9 +121,9 @@ render = function()
   table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
   table.insert(headerButtons, ui.button({ glyph = "close", variant = "outline", controlSize = "sm", onClick = "onCloseClicked" }))
 
-  -- um pouco menor que os 415 do painel (ver plugin.toml) para sobrar uma
-  -- margem de seguranca antes da borda arredondada, em vez de encostar nela
-  panel.render(ui.column({ gap = 10, padding = 12, height = 415 }, {
+  -- 560 (panel height, see plugin.toml) minus a 30px safety margin before
+  -- the rounded edge, instead of touching it
+  panel.render(ui.column({ gap = 10, padding = 12, height = 530 }, {
     ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = "RSS/Atom Notifier", fontSize = 15, fontWeight = "bold" }),
       ui.row({ gap = 4 }, headerButtons),
@@ -122,9 +140,9 @@ noctalia.state.watch("items", function(raw)
 end)
 
 function onOpen(_context)
-  -- o painel so e criado na primeira vez que e aberto - se o service ja
-  -- tinha publicado itens antes disso (ex: na checagem de boot), o watch()
-  -- sozinho nao pega esse valor antigo. Busca o estado atual na abertura.
+  -- the panel is only created the first time it's opened - if the service
+  -- had already published items before that (e.g. on the boot-time check),
+  -- watch() alone won't pick up that old value. Fetch the current state on open.
   local ok, raw = pcall(noctalia.state.get, "items")
   if ok and raw then
     local decodeOk, decoded = pcall(noctalia.json.decode, raw)
@@ -134,7 +152,7 @@ function onOpen(_context)
   end
 
   render()
-  -- abrir o painel conta como "li as novidades": zera o badge no service
+  -- opening the panel counts as "read the news": resets the badge on the service
   noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all mark-read")
 end
 
@@ -150,4 +168,8 @@ end
 
 function onCloseClicked()
   panel.close()
+end
+
+function onConfigChanged()
+  render() -- picks up show_feed_images (or other setting) changes immediately
 end

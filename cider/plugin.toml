@@ -1,0 +1,185 @@
+# Cider rich now-playing OSD + lyrics bridge for Noctalia
+
+id = "dragged/cider"
+name = "Cider"
+version = "1.8.3"
+plugin_api = 23
+author = "dragged"
+license = "MIT"
+dependencies = ["python3", "gtk3", "gtk-layer-shell", "python-gobject"]
+tags = ["media", "music", "audio", "bar", "panel", "service"]
+icon = "music"
+description = "Cider now-playing alerts and a sticky karaoke lyrics HUD."
+
+[[setting]]
+key = "apptoken"
+type = "string"
+label_key = "settings.apptoken.label"
+description_key = "settings.apptoken.description"
+default = ""
+
+[[setting]]
+key = "base_url"
+type = "string"
+label_key = "settings.base_url.label"
+description_key = "settings.base_url.description"
+default = "http://127.0.0.1:10767"
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "notification"
+options = [
+  { value = "notification", label_key = "settings.display_mode.options.notification" },
+  { value = "osd", label_key = "settings.display_mode.options.osd" },
+  { value = "off", label_key = "settings.display_mode.options.off" },
+]
+
+[[setting]]
+key = "save_to_history"
+type = "bool"
+label_key = "settings.save_to_history.label"
+description_key = "settings.save_to_history.description"
+default = false
+
+[[setting]]
+key = "osd_duration_ms"
+type = "int"
+label_key = "settings.osd_duration_ms.label"
+description_key = "settings.osd_duration_ms.description"
+default = 4500
+min = 1000
+max = 20000
+
+[[setting]]
+key = "lyrics_osd_enabled"
+type = "bool"
+label_key = "settings.lyrics_osd_enabled.label"
+description_key = "settings.lyrics_osd_enabled.description"
+default = true
+
+[[setting]]
+key = "lyrics_osd_position"
+type = "select"
+label_key = "settings.lyrics_osd_position.label"
+description_key = "settings.lyrics_osd_position.description"
+default = "top_center"
+options = [
+  { value = "bottom_center", label_key = "settings.lyrics_osd_position.options.bottom_center" },
+  { value = "bottom_left", label_key = "settings.lyrics_osd_position.options.bottom_left" },
+  { value = "bottom_right", label_key = "settings.lyrics_osd_position.options.bottom_right" },
+  { value = "top_center", label_key = "settings.lyrics_osd_position.options.top_center" },
+  { value = "top_left", label_key = "settings.lyrics_osd_position.options.top_left" },
+  { value = "top_right", label_key = "settings.lyrics_osd_position.options.top_right" },
+  { value = "center", label_key = "settings.lyrics_osd_position.options.center" },
+  { value = "center_left", label_key = "settings.lyrics_osd_position.options.center_left" },
+  { value = "center_right", label_key = "settings.lyrics_osd_position.options.center_right" },
+]
+
+[[setting]]
+key = "lyrics_osd_show_next"
+type = "bool"
+label_key = "settings.lyrics_osd_show_next.label"
+description_key = "settings.lyrics_osd_show_next.description"
+default = true
+
+[[setting]]
+key = "lyrics_osd_animate_cues"
+type = "bool"
+label_key = "settings.lyrics_osd_animate_cues.label"
+description_key = "settings.lyrics_osd_animate_cues.description"
+default = true
+
+[[setting]]
+key = "lyrics_osd_karaoke"
+type = "bool"
+label_key = "settings.lyrics_osd_karaoke.label"
+description_key = "settings.lyrics_osd_karaoke.description"
+default = true
+
+[[setting]]
+key = "lyrics_osd_glow"
+type = "bool"
+label_key = "settings.lyrics_osd_glow.label"
+description_key = "settings.lyrics_osd_glow.description"
+default = true
+
+[[setting]]
+key = "lyrics_karaoke_style"
+type = "select"
+label_key = "settings.lyrics_karaoke_style.label"
+description_key = "settings.lyrics_karaoke_style.description"
+default = "theme"
+options = [
+  { value = "theme", label_key = "settings.lyrics_karaoke_style.options.theme" },
+  { value = "custom", label_key = "settings.lyrics_karaoke_style.options.custom" },
+]
+
+[[setting]]
+key = "lyrics_karaoke_sung"
+type = "string"
+label_key = "settings.lyrics_karaoke_sung.label"
+description_key = "settings.lyrics_karaoke_sung.description"
+default = ""
+visible_when = { key = "lyrics_karaoke_style", values = ["custom"] }
+
+[[setting]]
+key = "lyrics_karaoke_active"
+type = "string"
+label_key = "settings.lyrics_karaoke_active.label"
+description_key = "settings.lyrics_karaoke_active.description"
+default = ""
+visible_when = { key = "lyrics_karaoke_style", values = ["custom"] }
+
+[[setting]]
+key = "lyrics_karaoke_upcoming"
+type = "string"
+label_key = "settings.lyrics_karaoke_upcoming.label"
+description_key = "settings.lyrics_karaoke_upcoming.description"
+default = ""
+visible_when = { key = "lyrics_karaoke_style", values = ["custom"] }
+
+[[setting]]
+key = "lyrics_osd_show_idle"
+type = "bool"
+label_key = "settings.lyrics_osd_show_idle.label"
+description_key = "settings.lyrics_osd_show_idle.description"
+default = true
+
+[[service]]
+id = "bridge"
+entry = "service.luau"
+
+[[panel]]
+id = "osd"
+entry = "osd.luau"
+width = 400
+height = 148
+placement = "floating"
+position = "top_right"
+persistent = true
+keyboard_focus = "none"
+dismiss_on_outside_click = false
+
+[[widget]]
+id = "now-playing"
+entry = "widget.luau"
+
+[[widget.setting]]
+key = "show_cover"
+type = "bool"
+label_key = "settings.show_cover.label"
+description_key = "settings.show_cover.description"
+default = true
+
+[[widget.setting]]
+key = "cover_size"
+type = "int"
+label_key = "settings.cover_size.label"
+description_key = "settings.cover_size.description"
+default = 18
+min = 12
+max = 32
+

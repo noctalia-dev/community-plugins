@@ -11,6 +11,7 @@
       "stat": "S"
     },
     "count": "{n} processes",
+    "keys_hint": "Ctrl+F filter · Ctrl+D kill selected · arrows move",
     "kill_tip": "Kill {pid}",
     "load": "Load",
     "no_processes": "No matching processes",

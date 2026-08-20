@@ -1,0 +1,18 @@
+{
+    "name": "PackageKit",
+    "enabled": true,
+    "dependencies": ["python", "pkgcli"],
+    "check_command": "python {adapter_dir}/check.py",
+    "update_package_command": "pkgcli -y -q update \"{package_name}\"",
+    "update_all_command": "pkgcli -y -q offline-update prepare",
+    "actions": {
+        "reboot": {
+            "command": "noctalia msg session reboot",
+            "check_after": false
+        },
+        "cancel": {
+            "command": "pkgcli -y -q offline-update cancel",
+            "check_after": true
+        }
+    }
+}

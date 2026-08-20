@@ -1,12 +1,12 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "1.1.0"
+version = "2.0.0"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, get an Arch news and reboot heads-up, then upgrade from a terminal."
-dependencies = ["pacman-contrib", "awk", "flatpak", "pacman", "paru", "sed", "sh", "sudo", "test", "uname", "xdg-open", "yay"]
+description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
+dependencies = ["pacman-contrib", "awk", "date", "flatpak", "grep", "head", "install", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ label_key = "settings.notify_on_updates.label"
 description_key = "settings.notify_on_updates.description"
 default = true
 
-# ── Extras (not in the v4 plugin) ───────────────────────────────────────────
+# ── Extras ───────────────────────────────────────────────────────────────────
 
 [[setting]]
 key = "show_download_size"
@@ -86,14 +86,12 @@ label_key = "settings.check_reboot_needed.label"
 description_key = "settings.check_reboot_needed.description"
 default = true
 
-# ── Activity ─────────────────────────────────────────────────────────────────
-
 [[setting]]
 key = "show_activity_graph"
 type = "bool"
 label_key = "settings.show_activity_graph.label"
 description_key = "settings.show_activity_graph.description"
-default = true
+default = false
 
 [[setting]]
 key = "activity_history_length"
@@ -108,18 +106,45 @@ visible_when = { key = "show_activity_graph", values = ["true"] }
 # ── Update run ───────────────────────────────────────────────────────────────
 
 [[setting]]
+key = "update_mode"
+type = "select"
+label_key = "settings.update_mode.label"
+description_key = "settings.update_mode.description"
+default = "terminal"
+options = [
+  { value = "terminal", label_key = "settings.update_mode.options.terminal" },
+  { value = "background", label_key = "settings.update_mode.options.background" },
+]
+
+[[setting]]
+key = "rollback_auto_ignore"
+type = "bool"
+label_key = "settings.rollback_auto_ignore.label"
+description_key = "settings.rollback_auto_ignore.description"
+default = false
+
+[[setting]]
+key = "hide_polkit_hint"
+type = "bool"
+label_key = "settings.hide_polkit_hint.label"
+description_key = "settings.hide_polkit_hint.description"
+default = false
+
+[[setting]]
+key = "log_lines"
+type = "int"
+label_key = "settings.log_lines.label"
+description_key = "settings.log_lines.description"
+default = 14
+min = 6
+max = 30
+
+[[setting]]
 key = "terminal"
 type = "string"
 label_key = "settings.terminal.label"
 description_key = "settings.terminal.description"
 default = ""
-
-[[setting]]
-key = "assume_yes"
-type = "bool"
-label_key = "settings.assume_yes.label"
-description_key = "settings.assume_yes.description"
-default = false
 advanced = true
 
 [[setting]]

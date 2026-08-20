@@ -6,6 +6,7 @@ on:
       - opened
       - edited
       - reopened
+      - ready_for_review
 
 concurrency:
   group: enforce-pr-template-${{ github.event.pull_request.number }}

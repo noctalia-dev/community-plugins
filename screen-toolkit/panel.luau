@@ -3,8 +3,8 @@
 --
 -- Thin client for the toolkit. Two layouts are provided, selected by the
 -- "panel-mode" plugin setting:
---   * compact  — a dense grid grouped into tinted sections (default)
---   * full     — the original spacious layout with section titles
+--   * standard — the default dense grid grouped into tinted sections
+--   * legacy   — recreates the Noctalia-v4 layout
 -- The panel entry to open (and thus its host-owned size) is chosen by the
 -- bar [[widget]] / control-center [[shortcut]] from the same setting.
 -- It only dispatches actions to the [[service]] through the "command"
@@ -43,8 +43,8 @@ end
 
 local function getMode()
   local mode = noctalia.getConfig("panel-mode")
-  if mode == "full" or mode == "compact" or mode == "legacy" then return mode end
-  return "full"
+  if mode == "standard" or mode == "legacy" then return mode end
+  return "standard"
 end
 
 -- Capture tools must not see the panel in the frame, so close it first.
@@ -78,7 +78,7 @@ end
 
 -- ── Tool data ──────────────────────────────────────────────────────────────
  
--- For Compact-mode and Full-mode layouts
+-- For Compact-mode layout
 local TOOLS = {
   { action = "colorPicker", label_key = "tools.colorpicker", glyph = "palette" },
   { action = "ocr", label_key = "tools.ocr", glyph = "scan" },
@@ -117,7 +117,7 @@ local TOOLS_LEGACY = {
 
 local function getActiveItems()
   local mode = getMode()
-  if mode == "compact" or mode == "full" then
+  if mode == "standard" then
     local list = {}
     for _, t in ipairs(TOOLS) do table.insert(list, { type = "tool", action = t.action }) end
     for _, t in ipairs(ANNOTATE_TOOLS) do table.insert(list, { type = "tool", action = t.action }) end
@@ -198,7 +198,7 @@ local function headerActions(includeClose)
   end
   if includeClose then
     table.insert(actions, ui.button({
-      key = "header-close-btn", glyph = "close", onClick = function() panel.close() end,
+      key = "header-close-btn", glyph = "close", width = 24, height = 24, glyphSize = 12, onClick = function() panel.close() end,
     }))
   end
   return ui.row({ gap = 4 }, actions)
@@ -206,7 +206,7 @@ end
 
 -- ── Compact mode ───────────────────────────────────────────────────────────
 
-local function compactHeader()
+local function standardHeader()
   return ui.row({ align = "center", gap = 6 }, {
     ui.glyph({ name = "crosshair", size = 16, color = "primary" }),
     ui.label({ text = tr("panel.title"), flexGrow = 1, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
@@ -227,78 +227,33 @@ local function setHoveredTool(action)
   updateFocusedTool()
 end
 
-local function compactTile(t)
+local function standardTile(t)
   local isFocused = (hoveredTool == t.action) or (focusedTool == t.action)
   local color = isFocused and "primary" or "on_surface"
+  local hoverFn = function(state) setHoveredTool((state == "true") and t.action or nil); render() end
+  local clickFn = function() runTool(t.action) end
   return ui.column({
     key = "tile-" .. t.action, flexGrow = 1, gap = 2, align = "center", paddingV = 4, radius = 8,
-    fill = isFocused and "primary/0.15" or "surface_variant", border = isFocused and "primary" or "surface_variant", borderWidth = isFocused and 1 or 0,
-    onClick = function() runTool(t.action) end,
-    onHover = function(state) setHoveredTool((state == "true") and t.action or nil); render() end,
   }, {
-    ui.column({ width = 30, height = 30, radius = 9, fill = isFocused and "primary/0.2" or "on_primary", border = isFocused and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center" }, {
+    ui.column({ width = 30, height = 30, radius = 9, fill = isFocused and "primary/0.2" or "on_primary", border = isFocused and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center", onClick = clickFn, onHover = hoverFn }, {
       ui.glyph({ name = t.glyph, size = 16, color = color }),
     }),
-    ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
+    ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color, onClick = clickFn, onHover = hoverFn }),
   })
 end
 
-local function compactToolsRow(tools)
+local function standardToolsRow(tools)
   local row = {}
-  for _, t in ipairs(tools) do row[#row + 1] = compactTile(t) end
+  for _, t in ipairs(tools) do row[#row + 1] = standardTile(t) end
   return ui.row({ flexGrow = 1, gap = 2 }, row)
 end
 
-local function compactSection(tools)
-  return ui.column({ gap = 4, paddingV = 8, paddingH = 6, radius = 12, fill = "surface_variant" }, { compactToolsRow(tools) })
+local function standardSection(tools)
+  return ui.column({ gap = 4, paddingV = 4, paddingH = 6, radius = 12, fill = "surface_variant" }, { standardToolsRow(tools) })
 end
 
-local function compactGrid()
-  return ui.column({ gap = 6 }, { compactSection(TOOLS), compactSection(ANNOTATE_TOOLS), compactSection(RECORD_TOOLS) })
-end
-
--- ── Full mode ──────────────────────────────────────────────────────────────
-
-local function fullHeader()
-  return ui.row({ align = "center", gap = 10 }, {
-    ui.glyph({ name = "crosshair", size = 24, color = "primary" }),
-    ui.label({ text = tr("panel.title"), flexGrow = 1, fontSize = 22, fontWeight = "bold", color = "on_surface" }),
-    headerActions(true),
-  })
-end
-
-local function fullTile(t)
-  local isFocused = (hoveredTool == t.action) or (focusedTool == t.action)
-  local color = isFocused and "primary" or "on_surface"
-  return ui.column({
-    key = "tile-" .. t.action, flexGrow = 1, gap = 6, align = "center", paddingV = 6, radius = 12,
-    fill = "surface_variant", borderWidth = 1, border = color == "primary" and "primary" or "outline",
-    onClick = function() runTool(t.action) end,
-    onHover = function(state) setHoveredTool((state == "true") and t.action or nil); render() end,
-  }, {
-    ui.column({ width = 30, height = 30, radius = 9, fill = "on_primary", border = color == "primary" and "primary" or "on_primary", borderWidth = 1, align = "center", justify = "center" }, {
-      ui.glyph({ name = t.glyph, size = 16, color = color }),
-    }),
-    ui.label({ text = tr(t.label_key), maxWidth = 100, maxLines = 1, textAlign = "center", fontSize = 11, color = color }),
-  })
-end
-
-local function fullToolsRow(tools)
-  local row = {}
-  for _, t in ipairs(tools) do row[#row + 1] = fullTile(t) end
-  return ui.row({ flexGrow = 1, gap = 6 }, row)
-end
-
-local function sectionLabel(text)
-  return ui.label({ text = text, fontSize = 11, fontWeight = "bold", color = "on_surface_variant" })
-end
-
-local function fullGrid()
-  return ui.column({ flexGrow = 1, gap = 4, justify = "space_between" }, {
-    sectionLabel(tr("panel.section_capture")), fullToolsRow(TOOLS),
-    sectionLabel(tr("panel.section_annotate")), fullToolsRow(ANNOTATE_TOOLS),
-    sectionLabel(tr("panel.section_record")), fullToolsRow(RECORD_TOOLS),
-  })
+local function standardGrid()
+  return ui.column({ gap = 6 }, { standardSection(TOOLS), standardSection(ANNOTATE_TOOLS), standardSection(RECORD_TOOLS) })
 end
 
 -- ── Legacy mode ────────────────────────────────────────────────────────────
@@ -489,7 +444,7 @@ function onKey(chord, pressed)
   elseif key == "down" then
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex <= 4 and (focusedIndex + 4) or (focusedIndex - 4)
-    elseif mode == "compact" or mode == "full" then
+    elseif mode == "standard" then
       focusedIndex = (focusedIndex <= 6 and math.min(7 + math.floor((focusedIndex - 1) / 2), 9)) or (focusedIndex <= 9 and (10 + (focusedIndex - 7)) or ((focusedIndex - 10) + 1))
     else
       focusedIndex = (focusedIndex % #items) + 1
@@ -497,7 +452,7 @@ function onKey(chord, pressed)
   elseif key == "up" then
     if mode == "legacy" and activeView == "main" then
       focusedIndex = focusedIndex > 4 and (focusedIndex - 4) or (focusedIndex + 4)
-    elseif mode == "compact" or mode == "full" then
+    elseif mode == "standard" then
       focusedIndex = (focusedIndex >= 10 and math.min(7 + (focusedIndex - 10), 9)) or (focusedIndex >= 7 and ((focusedIndex - 7) * 2 + 1) or math.min(10 + math.floor((focusedIndex - 1) / 2), 13))
     else
       focusedIndex = (focusedIndex - 2) % #items + 1
@@ -527,8 +482,7 @@ end
 render = function()
   updateFocusedTool()
   local mode = getMode()
-  local body = (mode == "full" and ui.column({ flexGrow = 1, gap = 10 }, { fullHeader(), fullGrid() }))
-    or (mode == "compact" and ui.column({ flexGrow = 1, gap = 6 }, { compactHeader(), compactGrid() }))
+  local body = (mode == "standard" and ui.column({ flexGrow = 1, gap = 6 }, { standardHeader(), standardGrid() }))
     or (activeView == "annotate" and MarkupSubpanel())
     or (activeView == "record" and RecordSubpanel())
     or ui.column({ flexGrow = 1, gap = 6 }, { legacyHeader(), legacyGrid() })

@@ -85,7 +85,7 @@
   "search_placeholder": "Yer imlerinde ara...",
   "settings": {
     "bk_sort_by": {
-      "description": "\"/bk\" sonuçlarının arama yapılmadığı durumda yer imlerini nasıl sıralacağını belirler.",
+      "description": "Yer imlerinin \"/bk\" sonuçlarında, arama yapılmadığında nasıl sıralanacağını belirler.",
       "label": "/bk sıralama önceliği",
       "options": {
         "history": "Son kullanılanlar",

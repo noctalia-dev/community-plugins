@@ -15,6 +15,17 @@ enforce_pr_template = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(enforce_pr_template)
 
 
+def ready_template() -> str:
+    body = TEMPLATE_PATH.read_text().replace("- [ ]", "- [x]")
+    body = body.replace(
+        "- [x] Update to an existing plugin (version bumped in `plugin.toml`)",
+        "- [ ] Update to an existing plugin (version bumped in `plugin.toml`)",
+    )
+    for item in enforce_pr_template.COMPOSITOR_TEST_ITEMS[1:]:
+        body = body.replace(f"- [x] {item}", f"- [ ] {item}")
+    return body
+
+
 class TemplateValidationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -26,6 +37,49 @@ class TemplateValidationTests(unittest.TestCase):
     def test_accepts_checked_checklist_items(self) -> None:
         checked = self.template.replace("- [ ]", "- [x]")
         self.assertEqual(enforce_pr_template.missing_requirements(checked), [])
+
+    def test_accepts_completed_ready_template(self) -> None:
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(
+                ready_template(),
+                require_completed=True,
+            ),
+            [],
+        )
+
+    def test_ready_template_requires_every_mandatory_item(self) -> None:
+        item = enforce_pr_template.MANDATORY_READY_ITEMS[3]
+        body = ready_template().replace(f"- [x] {item}", f"- [ ] {item}")
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(
+                body,
+                require_completed=True,
+            ),
+            [f"the checked checklist entry: {item}"],
+        )
+
+    def test_ready_template_requires_exactly_one_plugin_type(self) -> None:
+        item = enforce_pr_template.PLUGIN_TYPE_ITEMS[1]
+        body = ready_template().replace(f"- [ ] {item}", f"- [x] {item}")
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(
+                body,
+                require_completed=True,
+            ),
+            ["exactly one checked plugin type: New plugin or Update to an existing plugin"],
+        )
+
+    def test_ready_template_requires_a_tested_compositor(self) -> None:
+        body = ready_template()
+        for item in enforce_pr_template.COMPOSITOR_TEST_ITEMS:
+            body = body.replace(f"- [x] {item}", f"- [ ] {item}")
+        self.assertEqual(
+            enforce_pr_template.missing_requirements(
+                body,
+                require_completed=True,
+            ),
+            ["at least one checked compositor testing entry"],
+        )
 
     def test_accepts_template_line_wrapping(self) -> None:
         wrapped = self.template.replace(
@@ -85,19 +139,31 @@ class TemplateEnforcementTests(unittest.TestCase):
     ISSUE_URL = "https://api.github.test/repos/noctalia-dev/community-plugins/issues/123"
     PULL_REQUEST_URL = "https://api.github.test/repos/noctalia-dev/community-plugins/pulls/123"
 
-    def event(self, body: str) -> dict[str, object]:
+    def event(self, body: str, *, draft: bool = False) -> dict[str, object]:
         return {
             "pull_request": {
                 "body": body,
+                "draft": draft,
                 "issue_url": self.ISSUE_URL,
                 "url": self.PULL_REQUEST_URL,
             }
         }
 
     def test_valid_template_does_not_call_github(self) -> None:
-        template = TEMPLATE_PATH.read_text()
+        template = ready_template()
         with mock.patch.object(enforce_pr_template, "github_request") as request:
             self.assertEqual(enforce_pr_template.enforce(self.event(template), "token"), [])
+        request.assert_not_called()
+
+    def test_draft_template_allows_unchecked_boxes(self) -> None:
+        with mock.patch.object(enforce_pr_template, "github_request") as request:
+            self.assertEqual(
+                enforce_pr_template.enforce(
+                    self.event(TEMPLATE_PATH.read_text(), draft=True),
+                    "token",
+                ),
+                [],
+            )
         request.assert_not_called()
 
     def test_invalid_template_comments_once_and_closes_pull_request(self) -> None:
@@ -145,7 +211,7 @@ class TemplateEnforcementTests(unittest.TestCase):
 
     def test_identical_enforcement_comment_is_not_duplicated(self) -> None:
         body = "AI-generated replacement body"
-        missing = enforce_pr_template.missing_requirements(body)
+        missing = enforce_pr_template.missing_requirements(body, require_completed=True)
         existing_comment = {"body": enforce_pr_template.build_closure_comment(missing)}
         with mock.patch.object(
             enforce_pr_template,
@@ -171,7 +237,7 @@ class TemplateEnforcementTests(unittest.TestCase):
         )
 
     def test_stale_enforcement_comment_is_replaced_with_current_findings(self) -> None:
-        body = TEMPLATE_PATH.read_text().replace("## Testing", "## Verification")
+        body = ready_template().replace("## Testing", "## Verification")
         stale = {
             "body": enforce_pr_template.build_closure_comment(
                 ["the template marker line `<!-- noctalia-pr-template:v1 -->`"]

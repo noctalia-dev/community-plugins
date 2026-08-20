@@ -1,18 +1,24 @@
 <!-- noctalia-pr-template:v1 -->
 <!-- ^ Keep the marker line above this comment.
 
-     A bot closes pull requests whose description loses the marker line, a "##" heading,
-     a "- **Field:**" line, or a "- [ ]" checklist entry. Fill those in, do not delete them.
-     Everything else, including every one of these guidance comments, is yours to delete.
+     A bot closes pull requests whose description loses required template structure.
+     Draft pull requests may leave checkboxes incomplete. Before marking a pull request
+     ready for review:
+     - check exactly one plugin type;
+     - check at least one compositor under Testing; and
+     - check every item under Checklist and Code review attestation.
 
-     Not ready for review yet? Mark the pull request as Draft; checklist boxes may stay
-     unchecked while it is a draft. -->
+     An explanation does not replace a required check. If a required statement is not
+     true yet, keep the pull request as Draft.
+
+     Everything else, including every one of these guidance comments, is yours to delete. -->
 
 ## Plugin
 
 <!-- The canonical id. The part after the "/" is the plugin's directory in this repo. -->
 
 - **Id:** `<author>/<plugin>`
+<!-- Check exactly one plugin type. -->
 - [ ] New plugin
 - [ ] Update to an existing plugin (version bumped in `plugin.toml`)
 
@@ -28,6 +34,7 @@
 ## Testing
 
 <!-- How you exercised it: entries opened, IPC messages sent, settings toggled. -->
+<!-- Check every compositor on which you actually tested the plugin. At least one is required before review. -->
 
 - [ ] Tested on Niri
 - [ ] Tested on Hyprland
@@ -41,6 +48,8 @@
 <!-- Show the plugin running. Required for anything with a visual surface. -->
 
 ## Checklist
+**Ready-for-review requirement:** Every box in this section must be checked. If any statement is not true, keep the
+pull request as Draft. An explanation does not replace a required check.
 
 - [ ] The directory name matches the part of `id` after the `/` in `plugin.toml` exactly.
 - [ ] It ships `plugin.toml`, `README.md`, `thumbnail.webp`, and `translations/en.json`.
@@ -57,6 +66,7 @@
 ## Code review attestation
 
 Plugins run as trusted, unsandboxed Luau in the user's session. Confirm:
+**Ready-for-review requirement:** Every attestation below must be checked.
 
 - [ ] The code is readable and not obfuscated, minified, or generated.
 - [ ] It does not download and execute remote code.

@@ -350,7 +350,7 @@ end
 local STATUS_STYLE = {
 	succeeded = { glyph = "check", color = "secondary", labelKey = "status_succeeded" },
 	failure = { glyph = "x", color = "error", labelKey = "status_failed" },
-	broken = { glyph = "alert-circle", color = "error", labelKey = "status_failed" },
+	broken = { glyph = "alert-circle", color = "error", labelKey = "status_broken" },
 	unresolvable = { glyph = "alert-circle", color = "error", labelKey = "status_unresolvable" },
 	building = { glyph = "loader", color = "primary", labelKey = "status_building" },
 	dispatching = { glyph = "loader", color = "primary", labelKey = "status_building" },
@@ -368,7 +368,7 @@ local STATUS_GROUPS = {
 	["success"] = "succeeded",
 	["finished"] = "finished",
 	["failed"] = "failure",
-	["broken"] = "failure",
+	["broken"] = "broken",
 	["unresolvable"] = "unresolvable",
 	["building"] = "building",
 	["dispatching"] = "building",
