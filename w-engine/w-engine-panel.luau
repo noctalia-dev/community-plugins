@@ -30,6 +30,9 @@ local columns = 4
 local previewWidth = 168
 local previewHeight = 93
 
+local PAGE_SIZE = 48
+local actualPage = 1
+
 local workshopRoot = nil
 local catalog = nil -- cached: the grid re-renders far more often than the disk changes
 local catalogStamp = nil -- mtime of the Workshop dir the cache was built from
@@ -108,8 +111,6 @@ local function requestThumbnails(thumbs)
 	end, 60000)
 end
 
-PAGE_SIZE = 48
-
 local function isInTranch(index, actualPage)
 	if actualPage == 0 then
 		return false
@@ -176,6 +177,12 @@ local function loadCatalog(actualPage): { Wallpaper }
 
 	if missing then
 		requestThumbnails(thumbs)
+	end
+
+	if #items == 0 then
+		actualPage = actualPage - 1
+		noctalia.notify(tr("plugin_name") ,tr("no_more_page"))
+		render()
 	end
 	return items
 end
@@ -1286,8 +1293,6 @@ local function tile(item: Wallpaper, state)
 		tileCaption(item, index, isSelected),
 	})
 end
-
-local actualPage = 1
 
 render = function()
 	if not isOpen then
