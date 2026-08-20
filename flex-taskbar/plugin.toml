@@ -1,0 +1,473 @@
+id = "sudiptacmd/flex-taskbar"
+name = "Flex Taskbar"
+version = "1.0.0"
+plugin_api = 15
+author = "sudiptacmd"
+license = "MIT"
+icon = "layout-navbar"
+description = "A highly customizable Niri taskbar with pinned apps, per-window dots, and a focused-window underline."
+tags = ["bar", "panel", "niri", "productivity", "theming", "utility"]
+dependencies = ["niri", "gtk-launch", "wl-copy", "wl-paste", "head", "rm"]
+
+[[setting]]
+key = "preview_enabled"
+type = "bool"
+label_key = "settings.preview_enabled.label"
+description_key = "settings.preview_enabled.description"
+default = true
+
+[[setting]]
+key = "preview_hover_delay"
+type = "int"
+label_key = "settings.preview_hover_delay.label"
+description_key = "settings.preview_hover_delay.description"
+default = 220
+min = 0
+max = 1500
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_hide_delay"
+type = "int"
+label_key = "settings.preview_hide_delay.label"
+description_key = "settings.preview_hide_delay.description"
+default = 450
+min = 100
+max = 2000
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_max_windows"
+type = "int"
+label_key = "settings.preview_max_windows.label"
+description_key = "settings.preview_max_windows.description"
+default = 3
+min = 1
+max = 3
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_width"
+type = "int"
+label_key = "settings.preview_width.label"
+default = 190
+min = 100
+max = 210
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_height"
+type = "int"
+label_key = "settings.preview_height.label"
+default = 115
+min = 60
+max = 140
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_gap"
+type = "int"
+label_key = "settings.preview_gap.label"
+default = 10
+min = 0
+max = 24
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_radius"
+type = "int"
+label_key = "settings.preview_radius.label"
+default = 8
+min = 0
+max = 24
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_show_titles"
+type = "bool"
+label_key = "settings.preview_show_titles.label"
+default = true
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_title_size"
+type = "int"
+label_key = "settings.preview_title_size.label"
+default = 11
+min = 8
+max = 18
+visible_when = { key = "preview_show_titles", values = ["true"] }
+
+[[setting]]
+key = "preview_refresh_seconds"
+type = "int"
+label_key = "settings.preview_refresh_seconds.label"
+description_key = "settings.preview_refresh_seconds.description"
+default = 12
+min = 2
+max = 120
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_card_color"
+type = "color"
+label_key = "settings.preview_card_color.label"
+default = "#ffffff12"
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_border_color"
+type = "color"
+label_key = "settings.preview_border_color.label"
+default = "#ffffff20"
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[setting]]
+key = "preview_border_width"
+type = "double"
+label_key = "settings.preview_border_width.label"
+default = 1.0
+min = 0.0
+max = 3.0
+visible_when = { key = "preview_enabled", values = ["true"] }
+
+[[widget]]
+id = "taskbar"
+entry = "taskbar.luau"
+
+  [[widget.setting]]
+  key = "pinned_apps"
+  type = "string_list"
+  label_key = "settings.pinned_apps.label"
+  description_key = "settings.pinned_apps.description"
+  default = ["firefox", "kitty", "org.gnome.Nautilus", "code", "com.anthropic.Claude", "vesktop", "google-chrome", "github-desktop"]
+
+  [[widget.setting]]
+  key = "show_unpinned_running"
+  type = "bool"
+  label_key = "settings.show_unpinned_running.label"
+  description_key = "settings.show_unpinned_running.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_stopped_pins"
+  type = "bool"
+  label_key = "settings.hide_stopped_pins.label"
+  description_key = "settings.hide_stopped_pins.description"
+  default = false
+
+  [[widget.setting]]
+  key = "app_aliases"
+  type = "string_map"
+  label_key = "settings.app_aliases.label"
+  description_key = "settings.app_aliases.description"
+  default = { "com.google.Chrome" = "google-chrome", "code-url-handler" = "code", "github.desktop" = "github-desktop" }
+  advanced = true
+
+  [[widget.setting]]
+  key = "launch_commands"
+  type = "string_map"
+  label_key = "settings.launch_commands.label"
+  description_key = "settings.launch_commands.description"
+  default = {}
+  advanced = true
+
+  [[widget.setting]]
+  key = "icon_overrides"
+  type = "string_map"
+  label_key = "settings.icon_overrides.label"
+  description_key = "settings.icon_overrides.description"
+  default = {}
+  advanced = true
+
+  [[widget.setting]]
+  key = "label_overrides"
+  type = "string_map"
+  label_key = "settings.label_overrides.label"
+  description_key = "settings.label_overrides.description"
+  default = {}
+  advanced = true
+
+  [[widget.setting]]
+  key = "current_output_only"
+  type = "bool"
+  label_key = "settings.current_output_only.label"
+  description_key = "settings.current_output_only.description"
+  default = false
+
+  [[widget.setting]]
+  key = "order"
+  type = "select"
+  label_key = "settings.order.label"
+  default = "pinned_first"
+  options = [
+    { value = "pinned_first", label_key = "settings.order.pinned_first" },
+    { value = "running_first", label_key = "settings.order.running_first" },
+    { value = "alphabetical", label_key = "settings.order.alphabetical" },
+  ]
+
+  [[widget.setting]]
+  key = "icon_size"
+  type = "int"
+  label_key = "settings.icon_size.label"
+  default = 24
+  min = 12
+  max = 48
+
+  [[widget.setting]]
+  key = "icon_radius"
+  type = "int"
+  label_key = "settings.icon_radius.label"
+  default = 5
+  min = 0
+  max = 24
+
+  [[widget.setting]]
+  key = "item_width"
+  type = "int"
+  label_key = "settings.item_width.label"
+  description_key = "settings.item_width.description"
+  default = 34
+  min = 20
+  max = 80
+
+  [[widget.setting]]
+  key = "item_gap"
+  type = "int"
+  label_key = "settings.item_gap.label"
+  default = 3
+  min = 0
+  max = 20
+
+  [[widget.setting]]
+  key = "item_padding"
+  type = "int"
+  label_key = "settings.item_padding.label"
+  default = 3
+  min = 0
+  max = 16
+
+  [[widget.setting]]
+  key = "item_radius"
+  type = "int"
+  label_key = "settings.item_radius.label"
+  default = 8
+  min = 0
+  max = 30
+
+  [[widget.setting]]
+  key = "item_border_width"
+  type = "double"
+  label_key = "settings.item_border_width.label"
+  default = 0.0
+  min = 0.0
+  max = 4.0
+
+  [[widget.setting]]
+  key = "item_border_color"
+  type = "color"
+  label_key = "settings.item_border_color.label"
+  default = "#00000000"
+  visible_when = { key = "item_border_width", values = ["1", "2", "3", "4"] }
+
+  [[widget.setting]]
+  key = "background_style"
+  type = "select"
+  label_key = "settings.background_style.label"
+  default = "active"
+  options = [
+    { value = "none", label_key = "settings.background_style.none" },
+    { value = "running", label_key = "settings.background_style.running" },
+    { value = "active", label_key = "settings.background_style.active" },
+    { value = "always", label_key = "settings.background_style.always" },
+  ]
+
+  [[widget.setting]]
+  key = "running_background_color"
+  type = "color"
+  label_key = "settings.running_background_color.label"
+  default = "#ffffff12"
+
+  [[widget.setting]]
+  key = "active_background_color"
+  type = "color"
+  label_key = "settings.active_background_color.label"
+  default = "#7aa2f726"
+
+  [[widget.setting]]
+  key = "hover_background_color"
+  type = "color"
+  label_key = "settings.hover_background_color.label"
+  default = "#00000000"
+
+  [[widget.setting]]
+  key = "active_opacity"
+  type = "double"
+  label_key = "settings.active_opacity.label"
+  default = 1.0
+  min = 0.1
+  max = 1.0
+
+  [[widget.setting]]
+  key = "inactive_opacity"
+  type = "double"
+  label_key = "settings.inactive_opacity.label"
+  default = 1.0
+  min = 0.1
+  max = 1.0
+
+  [[widget.setting]]
+  key = "stopped_opacity"
+  type = "double"
+  label_key = "settings.stopped_opacity.label"
+  default = 1.0
+  min = 0.1
+  max = 1.0
+
+  [[widget.setting]]
+  key = "show_labels"
+  type = "bool"
+  label_key = "settings.show_labels.label"
+  default = false
+
+  [[widget.setting]]
+  key = "label_size"
+  type = "int"
+  label_key = "settings.label_size.label"
+  default = 12
+  min = 8
+  max = 24
+  visible_when = { key = "show_labels", values = ["true"] }
+
+  [[widget.setting]]
+  key = "label_max_width"
+  type = "int"
+  label_key = "settings.label_max_width.label"
+  default = 90
+  min = 30
+  max = 240
+  visible_when = { key = "show_labels", values = ["true"] }
+
+  [[widget.setting]]
+  key = "show_window_dots"
+  type = "bool"
+  label_key = "settings.show_window_dots.label"
+  default = true
+
+  [[widget.setting]]
+  key = "dot_size"
+  type = "int"
+  label_key = "settings.dot_size.label"
+  default = 3
+  min = 1
+  max = 10
+  visible_when = { key = "show_window_dots", values = ["true"] }
+
+  [[widget.setting]]
+  key = "dot_gap"
+  type = "int"
+  label_key = "settings.dot_gap.label"
+  default = 2
+  min = 0
+  max = 10
+  visible_when = { key = "show_window_dots", values = ["true"] }
+
+  [[widget.setting]]
+  key = "max_dots"
+  type = "int"
+  label_key = "settings.max_dots.label"
+  description_key = "settings.max_dots.description"
+  default = 8
+  min = 1
+  max = 20
+  visible_when = { key = "show_window_dots", values = ["true"] }
+
+  [[widget.setting]]
+  key = "dot_color"
+  type = "color"
+  label_key = "settings.dot_color.label"
+  default = "#a9b1d6"
+  visible_when = { key = "show_window_dots", values = ["true"] }
+
+  [[widget.setting]]
+  key = "focused_dot_color"
+  type = "color"
+  label_key = "settings.focused_dot_color.label"
+  default = "#7aa2f7"
+  visible_when = { key = "show_window_dots", values = ["true"] }
+
+  [[widget.setting]]
+  key = "show_active_underline"
+  type = "bool"
+  label_key = "settings.show_active_underline.label"
+  default = true
+
+  [[widget.setting]]
+  key = "underline_width"
+  type = "int"
+  label_key = "settings.underline_width.label"
+  default = 18
+  min = 3
+  max = 60
+  visible_when = { key = "show_active_underline", values = ["true"] }
+
+  [[widget.setting]]
+  key = "underline_thickness"
+  type = "int"
+  label_key = "settings.underline_thickness.label"
+  default = 2
+  min = 1
+  max = 8
+  visible_when = { key = "show_active_underline", values = ["true"] }
+
+  [[widget.setting]]
+  key = "underline_radius"
+  type = "int"
+  label_key = "settings.underline_radius.label"
+  default = 2
+  min = 0
+  max = 8
+  visible_when = { key = "show_active_underline", values = ["true"] }
+
+  [[widget.setting]]
+  key = "underline_color"
+  type = "color"
+  label_key = "settings.underline_color.label"
+  default = "#7aa2f7"
+  visible_when = { key = "show_active_underline", values = ["true"] }
+
+  [[widget.setting]]
+  key = "indicator_gap"
+  type = "int"
+  label_key = "settings.indicator_gap.label"
+  default = 1
+  min = 0
+  max = 8
+
+  [[widget.setting]]
+  key = "fallback_glyph"
+  type = "glyph"
+  label_key = "settings.fallback_glyph.label"
+  default = "app-window"
+  advanced = true
+
+  [[widget.setting]]
+  key = "poll_interval"
+  type = "int"
+  label_key = "settings.poll_interval.label"
+  description_key = "settings.poll_interval.description"
+  default = 350
+  min = 100
+  max = 5000
+  advanced = true
+
+[[panel]]
+id = "previews"
+entry = "previews.luau"
+width = 720
+height = 210
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = false
+keyboard_focus = "none"
