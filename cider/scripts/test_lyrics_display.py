@@ -88,10 +88,18 @@ class ClockExtrapolationTests(unittest.TestCase):
         far = {"text": "thing", "start": 2_000, "end": 2_200}
         unsung_line = cfg.token_rgba_for_paint(far, 2_000, 2_200, 0, paint)
         self.assertAlmostEqual(unsung_line[0], cfg.NEXT_RGBA[0], places=2)
+        # Fixed palette so active vs sung stay distinct even when Noctalia
+        # theme tokens land on similar greens.
+        contrast = {
+            "sung": (1.0, 1.0, 1.0, 1.0),
+            "active": (1.0, 0.0, 0.0, 1.0),
+            "upcoming": cfg.NEXT_RGBA,
+            "next": cfg.NEXT_RGBA,
+        }
         later = {"text": "thing", "start": 200, "end": 400}
-        live_future = cfg.token_rgba_for_paint(later, 0, 400, 80, paint)
-        self.assertAlmostEqual(live_future[1], paint["active"][1], places=2)
-        self.assertNotAlmostEqual(live_future[1], paint["sung"][1], places=1)
+        live_future = cfg.token_rgba_for_paint(later, 0, 400, 80, contrast)
+        self.assertAlmostEqual(live_future[1], contrast["active"][1], places=2)
+        self.assertNotAlmostEqual(live_future[1], contrast["sung"][1], places=1)
         overlay = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
         self.assertNotIn('self._mul_a(self._paint["sung"], alpha)', overlay)
         self.assertIn("line_only_current_rgba", overlay)
