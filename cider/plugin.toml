@@ -2,7 +2,7 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.8.3"
+version = "1.8.4"
 plugin_api = 23
 author = "dragged"
 license = "MIT"
