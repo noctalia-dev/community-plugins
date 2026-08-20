@@ -1367,7 +1367,6 @@ render = function()
 			text = "previous page",
 			variant = "ghost",
 			controlSize = "sm",
-			tooltip = tr("panel.defaults_tooltip"),
 			onClick = function()
 				if actualPage > 1 then
 					actualPage = actualPage - 1
@@ -1380,14 +1379,12 @@ render = function()
 			text = tostring(actualPage),
 			variant = "ghost",
 			controlSize = "sm",
-			tooltip = tr("panel.defaults_tooltip"),
 			onClick = "",
 		}),
 		ui.button({
 			text = "next page",
 			variant = "ghost",
 			controlSize = "sm",
-			tooltip = tr("panel.defaults_tooltip"),
 			onClick = function()
 				actualPage = actualPage + 1
 				catalog = nil
