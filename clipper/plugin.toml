@@ -1,0 +1,135 @@
+id = "blackbartblues/clipper"
+name = "Clipper"
+version = "0.1.0"
+plugin_api = 29
+author = "blackbartblues"
+license = "MIT"
+dependencies = ["cliphist", "wl-copy", "wl-paste", "wtype", "hyprctl", "niri", "nc"]
+tags = ["bar", "panel", "service", "shortcut", "productivity", "utility", "hyprland", "niri", "mangowc"]
+icon = "clipboard"
+description = "Clipboard history, pinned clips, and quick notes in a searchable panel."
+
+[[setting]]
+key = "database_mode"
+type = "select"
+label_key = "settings.database_mode.label"
+description_key = "settings.database_mode.description"
+default = "private"
+options = [
+  { value = "private", label_key = "settings.database_mode.options.private" },
+  { value = "global", label_key = "settings.database_mode.options.global" },
+]
+
+[[setting]]
+key = "manage_watchers"
+type = "bool"
+label_key = "settings.manage_watchers.label"
+description_key = "settings.manage_watchers.description"
+default = true
+visible_when = { key = "database_mode", values = ["private"] }
+
+[[setting]]
+key = "history_limit"
+type = "int"
+label_key = "settings.history_limit.label"
+description_key = "settings.history_limit.description"
+default = 200
+min = 10
+max = 2000
+step = 10
+
+[[setting]]
+key = "enable_notecards"
+type = "bool"
+label_key = "settings.enable_notecards.label"
+description_key = "settings.enable_notecards.description"
+default = true
+
+[[setting]]
+key = "max_pinned"
+type = "int"
+label_key = "settings.max_pinned.label"
+description_key = "settings.max_pinned.description"
+default = 20
+min = 1
+max = 100
+step = 1
+
+[[setting]]
+key = "auto_paste_delay"
+type = "int"
+label_key = "settings.auto_paste_delay.label"
+description_key = "settings.auto_paste_delay.description"
+default = 300
+min = 0
+max = 5000
+step = 50
+
+[[setting]]
+key = "history_cards"
+type = "int"
+label_key = "settings.history_cards.label"
+description_key = "settings.history_cards.description"
+default = 30
+min = 3
+max = 30
+step = 1
+
+[[setting]]
+key = "panel_margin_percent"
+type = "int"
+label_key = "settings.panel_margin_percent.label"
+description_key = "settings.panel_margin_percent.description"
+default = 0
+min = 0
+max = 10
+step = 1
+
+[[setting]]
+key = "card_color"
+type = "color"
+label_key = "settings.card_color.label"
+description_key = "settings.card_color.description"
+default = "surface_variant"
+
+[[setting]]
+key = "pinned_color"
+type = "color"
+label_key = "settings.pinned_color.label"
+description_key = "settings.pinned_color.description"
+default = "primary"
+
+[[setting]]
+key = "notes_color"
+type = "color"
+label_key = "settings.notes_color.label"
+description_key = "settings.notes_color.description"
+default = "#FFD54F"
+
+[[setting]]
+key = "show_close_button"
+type = "bool"
+label_key = "settings.show_close_button.label"
+description_key = "settings.show_close_button.description"
+default = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = "fill"
+height = "fill"
+placement = "floating"
+decorated = false
+position = "center"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
