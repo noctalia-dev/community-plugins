@@ -8,6 +8,7 @@ local function getConf(key, default)
 end
 
 local config = {
+    lang = noctalia.getSetting("shell.lang"),
     grid_layout = getConf("grid_layout", false),
     columns = getConf("columns", 5),
 }
@@ -52,6 +53,7 @@ local function getContent(appid)
 end
 
 local function getKeyContent(content, key)
+    -- Not working with lang setting, need refactor
     return content:match("[\r\n]" .. key .. "=([^\r\n]*)")
 end
 
@@ -66,6 +68,13 @@ local function parse(appid)
     local name = getKeyContent(content, "Name")
     if name then
         data.name = name
+    end
+
+    if config.lang ~= nil then
+        local lang_name = getKeyContent(content, string.format("Name[%s]", config.lang))
+        if lang_name then
+            data.name = lang_name
+        end
     end
 
     local exec = getKeyContent(content, "Exec")

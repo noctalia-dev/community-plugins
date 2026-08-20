@@ -24,3 +24,4 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 ## Notes
 
 Flatpak is supported.
+Application names follow Noctalia's language setting.
