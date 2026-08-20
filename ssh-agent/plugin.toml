@@ -1,0 +1,107 @@
+# Noctalia v5 plugin manifest for SSH Agent.
+# v5 plugins run as Luau scripts in isolated VMs (no more QML). Each [[entry]]
+# below is a separate script; they only talk to each other through
+# noctalia.state (shared key/value) and onIpc — there is no shared
+# "mainInstance" object like v4's pluginApi.mainInstance.
+#
+# Docs: https://docs.noctalia.dev/v5/plugins/
+
+id = "martasskv5/ssh-agent"
+name = "SSH Agent"
+version = "1.0.0"
+plugin_api = 9
+author = "martasskv5"
+license = "MIT"
+dependencies = ["zenity", "ssh-add", "ssh-agent", "pkill", "mkdir", "ksshaskpass", "ssh-askpass", "lxqt-openssh-askpass", "ssh"]
+tags = ["utility", "network"]
+icon = "key"
+description = "Manage your SSH agent, loaded keys, and saved SSH sessions from the bar."
+
+# ── Bar widget ────────────────────────────────────────────────────────────
+# Settings are declared once here but shared across every entry in the
+# plugin via noctalia.getConfig(key) — the service and panel read the same
+# values. This replaces v4's Settings.qml + manifest.metadata.defaultSettings.
+[[widget]]
+id = "ssh-agent-widget"
+entry = "widget.luau"
+
+[[setting]]
+key = "socket_path"
+type = "string"
+label_key = "settings.socket_path.label"
+description_key = "settings.socket_path.description"
+default = ""
+
+[[setting]]
+key = "sessions_file"
+type = "string"
+label_key = "settings.sessions_file.label"
+description_key = "settings.sessions_file.description"
+default = "~/.ssh/sessions.json"
+
+[[setting]]
+key = "default_key_browse_path"
+type = "string"
+label_key = "settings.default_key_browse_path.label"
+description_key = "settings.default_key_browse_path.description"
+default = "~/.ssh/"
+
+[[setting]]
+key = "terminal_command"
+type = "string"
+label_key = "settings.terminal_command.label"
+description_key = "settings.terminal_command.description"
+default = ""
+
+[[setting]]
+key = "show_saved_sessions"
+type = "bool"
+label_key = "settings.show_saved_sessions.label"
+description_key = "settings.show_saved_sessions.description"
+default = true
+
+[[setting]]
+key = "show_notifications"
+type = "bool"
+label_key = "settings.show_notifications.label"
+description_key = "settings.show_notifications.description"
+default = true
+
+[[setting]]
+key = "auto_start_mode"
+type = "select"
+label_key = "settings.auto_start_mode.label"
+description_key = "settings.auto_start_mode.description"
+default = "connect_existing"
+
+[[setting.options]]
+value = "create_new"
+label_key = "settings.auto_start_mode.options.create_new"
+
+[[setting.options]]
+value = "connect_existing"
+label_key = "settings.auto_start_mode.options.connect_existing"
+
+[[setting.options]]
+value = "ask_each_time"
+label_key = "settings.auto_start_mode.options.ask_each_time"
+
+# ── Headless service ──────────────────────────────────────────────────────
+# Owns the ssh-agent process, ssh-add calls, and the sessions file. Runs for
+# the whole session, independent of whether the widget/panel are open —
+# this replaces Main.qml + its Process{} blocks.
+[[service]]
+id = "ssh-agent-service"
+entry = "service.luau"
+
+# ── Panel ─────────────────────────────────────────────────────────────────
+# Declarative UI (ui.* tree), replaces Panel.qml. Size is host-owned and
+# declared here so the surface is right on first open.
+# Open manually with: noctalia msg panel-toggle martasskv5/ssh-agent:panel
+[[panel]]
+id = "ssh-agent-panel"
+entry = "panel.luau"
+# width = 480
+# height = 340
+placement = "attached"
+position = "auto"

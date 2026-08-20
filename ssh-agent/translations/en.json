@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "socket_path": {
+      "label": "Agent Socket Path",
+      "description": "Path to the ssh-agent UNIX socket. Leave empty to use /tmp/ssh-agent-$USER.sock"
+    },
+    "sessions_file": {
+      "label": "Saved Sessions File",
+      "description": "JSON file used to store saved SSH sessions"
+    },
+    "default_key_browse_path": {
+      "label": "Default Key Browse Path",
+      "description": "Default path used when browsing for SSH keys to add"
+    },
+    "terminal_command": {
+      "label": "Preferred Terminal",
+      "description": "Optional terminal command used to launch SSH sessions (e.g. kitty). Leave empty to use the system default terminal"
+    },
+    "show_saved_sessions": {
+      "label": "Show Saved Sessions",
+      "description": "Display saved SSH sessions in the main window"
+    },
+    "show_notifications": {
+      "label": "Show Notifications",
+      "description": "Display success and failure toasts for SSH operations"
+    },
+    "auto_start_mode": {
+      "label": "Startup Behavior",
+      "description": "What to do when Noctalia starts",
+      "options": {
+        "create_new": "Create New",
+        "connect_existing": "Connect Existing",
+        "ask_each_time": "Ask Each Time"
+      }
+    }
+  }
+}
