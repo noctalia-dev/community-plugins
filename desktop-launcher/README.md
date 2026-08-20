@@ -18,7 +18,8 @@ Add it to your desktop/lockscreen widgets using the widget editor. You can confi
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `apps` | `string_list` | `` | Apps list and order. |
-| `layout` | `select` | `rows` | Choose whether items are arranged in rows or columns. |
+| `layout` | `bool` | `false` | Display applications in a grid layout. |
+| `columns` | `int` | `5` | Number of columns for the grid layout. |
 
 ## Notes
 

@@ -25,11 +25,16 @@ entry = "widget.luau"
     ]
 
     [[desktop_widget.setting]]
-    key = "layout"
-    type = "select"
-    label_key = "settings.layout.label"
-    default = "rows"
-    options = [
-        { value = "rows", label_key = "settings.layout.rows" },
-        { value = "columns", label_key = "settings.layout.columns" },
-    ]
+    key = "grid_layout"
+    type = "bool"
+    label_key = "settings.grid_layout.label"
+    default = false
+
+    [[desktop_widget.setting]]
+    key = "columns"
+    type = "int"
+    label_key = "settings.columns.label"
+    default = 5
+    min = 1
+    max = 20
+    visible_when = { key = "grid_layout", values = ["true"] }

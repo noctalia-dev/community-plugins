@@ -8,7 +8,8 @@ local function getConf(key, default)
 end
 
 local config = {
-    layout = getConf("layout", "rows"),
+    grid_layout = getConf("grid_layout", false),
+    columns = getConf("columns", 5),
 }
 
 -- https://github.com/noctalia-dev/noctalia/blob/main/src/system/desktop_entry_launch.cpp#L45
@@ -80,6 +81,32 @@ local function parse(appid)
     return data
 end
 
+local function appBox(app, data)
+    return ui.column({
+        fill = "surface",
+        padding = 8,
+        radius = 12,
+        align = "center",
+        minWidth = 100,
+        justify = "space_between",
+        gap = 4,
+        onClick = function() launchApp(data.exec, data.terminal) end
+    }, {
+            ui.image({
+                path = noctalia.appIconPath(app),
+                width = 60,
+                height = 60,
+            }),
+            ui.label({
+                text = data.name,
+                fontWeight = "heavy",
+                maxWidth = 84,
+                maxLines = 1,
+                fontSize = 14,
+            })
+        })
+end
+
 local function getApps()
     local apps = noctalia.getConfig("apps")
     local appsTable = {}
@@ -91,44 +118,43 @@ local function getApps()
             continue
         end
 
-        table.insert(appsTable,
-            ui.column({
-                fill = "surface",
-                padding = 8,
-                radius = 12,
-                align = "center",
-                minWidth = 100,
-                justify = "space_between",
-                gap = 4,
-                onClick = function() launchApp(data.exec, data.terminal) end
-            }, {
-                    ui.image({
-                        path = noctalia.appIconPath(app),
-                        width = 60,
-                        height = 60,
-                    }),
-                    ui.label({
-                        text = data.name,
-                        fontWeight = "heavy",
-                        maxWidth = 84,
-                        maxLines = 1,
-                        fontSize = 14,
-                    })
-                })
-        )
+        table.insert(appsTable, appBox(app, data))
     end
 
     return appsTable
 end
 
+local function getRows(apps)
+    local rows = {}
+    local row = {}
+
+    for i, app in ipairs(apps) do
+        table.insert(row, app)
+
+        if #row == config.columns or i == #apps then
+            table.insert(rows,
+                ui.row({ gap = 8 }, row)
+            )
+
+            row = {}
+        end
+    end
+
+    return rows
+end
+
 local function render()
-    local layout = config.layout == "columns" and ui.column or ui.row
-    desktopWidget.render(
-        layout({
-            gap = 8,
-        },
-        getApps()
-    ))
+    local apps = getApps()
+
+    if config.grid_layout then
+        desktopWidget.render(ui.column({ gap = 8, },
+            getRows(apps)
+        ))
+    else
+        desktopWidget.render(ui.row({ gap = 8, },
+            apps
+        ))
+    end
 end
 
 function launchApp(exec, terminal)

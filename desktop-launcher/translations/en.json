@@ -3,10 +3,11 @@
         "apps": {
             "label": "Applications"
         },
-        "layout": {
-            "label": "Layout",
-            "rows": "Rows",
-            "columns": "Columns"
+        "grid_layout": {
+            "label": "Grid Layout"
+        },
+        "columns": {
+            "label": "Columns"
         }
     }
 }
