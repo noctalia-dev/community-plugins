@@ -17,21 +17,57 @@ end
 -- here, where it enters the plugin:
 -- an error can quote the request that failed, and a request can carry a key in
 -- its query string. A runaway line would also push a bar capsule off screen.
+-- A secret's value runs until whitespace or the quote or brace that closes it,
+-- so a JSON field loses its value and keeps its punctuation.
+local SECRET_VALUE = "[^%s\"',}]+"
+local SECRET_WORDS = {
+    "[Kk][Ee][Yy]",
+    "[Tt][Oo][Kk][Ee][Nn]",
+    "[Ss][Ee][Cc][Rr][Ee][Tt]",
+    "[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]",
+}
+-- Nine characters before the rest of a provider key, so a bare "sk-" in prose
+-- is not mistaken for one.
+local KEY_TAIL = string.rep("[%w_%-]", 9)
+
 local function safeText(value)
     local text = noctalia.string.trim(tostring(value or ""))
     text = text:gsub("%s+", " ")
-    -- `scrub` runs this over ~165 strings per two-vendor read, and four
-    -- backtracking patterns on each one exhaust the callback's CPU budget,
-    -- which costs the whole report. All four need a literal `=` or `earer` to
-    -- match, so a plan name or a percentage skips them.
-    if text:find("=", 1, true) then
-        text = text:gsub("([%w_%-]*[Kk][Ee][Yy][%w_%-]*=)[^%s]+", "%1<redacted>")
-        text = text:gsub("([Tt][Oo][Kk][Ee][Nn][%w_%-]*=)[^%s]+", "%1<redacted>")
-        text = text:gsub("([Ss][Ee][Cc][Rr][Ee][Tt][%w_%-]*=)[^%s]+", "%1<redacted>")
+
+    -- `scrub` runs this over ~165 strings per two-vendor read, and backtracking
+    -- patterns on every one of them exhaust the callback's CPU budget, which
+    -- costs the whole report. So nothing expensive runs until a literal search
+    -- says it could match. The keyword is what opens the gate. A separator will
+    -- not do: `=` and `:` both turn up in ordinary readings, in a ratio, a clock
+    -- time, a URL, so gating on those ran the patterns over almost every string.
+    local lower = text:lower()
+
+    if lower:find("key", 1, true) or lower:find("token", 1, true)
+        or lower:find("secret", 1, true) or lower:find("password", 1, true) then
+        for _, word in ipairs(SECRET_WORDS) do
+            local name = "[%w_%-]*" .. word .. "[%w_%-]*"
+            -- name=value: a query string or a shell assignment.
+            text = text:gsub("(" .. name .. "=)" .. SECRET_VALUE, "%1<redacted>")
+            -- name: value: an HTTP header or a JSON field.
+            text = text:gsub("(" .. name .. "\"?%s*:%s*\"?)" .. SECRET_VALUE, "%1<redacted>")
+        end
     end
-    if text:find("earer", 1, true) then
-        text = text:gsub("([Bb]earer%s+)[^%s]+", "%1<redacted>")
+
+    if lower:find("bearer", 1, true) then
+        text = text:gsub("([Bb][Ee][Aa][Rr][Ee][Rr]%s+)" .. SECRET_VALUE, "%1<redacted>")
     end
+
+    -- Credentials in the userinfo half of a URL the CLI echoed back.
+    if lower:find("://", 1, true) then
+        text = text:gsub("(://)[^%s/@]+:[^%s/@]+(@)", "%1<redacted>%2")
+    end
+
+    -- The provider key shape this plugin sits next to all day. Anchored at a
+    -- word start, so "desk-top" is not a key.
+    if lower:find("sk-", 1, true) then
+        text = text:gsub("%f[%w](sk%-)" .. KEY_TAIL .. "[%w_%-]*", "%1<redacted>")
+    end
+
     if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
     return text
 end
