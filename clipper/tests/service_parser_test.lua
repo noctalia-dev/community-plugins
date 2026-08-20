@@ -6,6 +6,9 @@ local notifications = {}
 local contextMenuRequests = {}
 local files = {}
 local mockEnv = {}
+local mkdirCalls = {}
+local mkdirAllowed = true
+local failExportWrites = false
 local config = {
 	-- database_mode is deliberately omitted: missing or invalid values must
 	-- preserve the backward-compatible private database.
@@ -19,7 +22,12 @@ local fakeClock = 10
 local cliphistCommand = "CLIPHIST_DB_PATH='/virtual/clipper-data/cliphist.db' CLIPHIST_MAX_ITEMS=3 CLIPHIST_PREVIEW_WIDTH=240 cliphist"
 
 local realClock = os.clock
+local realDate = os.date
 os.clock = function() return fakeClock end
+os.date = function(format)
+	if format == "%Y%m%d-%H%M%S" then return "20260820-231500" end
+	return realDate(format)
+end
 
 noctalia = {
 	pluginDataDir = function() return "/virtual/clipper-data", nil end,
@@ -49,7 +57,11 @@ noctalia = {
 	},
 	getenv = function(key) return mockEnv[key] end,
 	readFile = function(path) return files[path] end,
-	writeFile = function(path, value) files[path] = value return true end,
+	writeFile = function(path, value)
+		if failExportWrites and path:find("/virtual/home/Documents/Clipper/", 1, true) == 1 then return false end
+		files[path] = value
+		return true
+	end,
 	renameFile = function(from, to)
 		if files[from] == nil then return false end
 		files[to] = files[from]
@@ -57,7 +69,10 @@ noctalia = {
 		return true
 	end,
 	removeFile = function(path) files[path] = nil return true end,
-	mkdirAll = function(_path) return true end,
+	mkdirAll = function(path)
+		mkdirCalls[#mkdirCalls + 1] = path
+		return mkdirAllowed
+	end,
 	listDir = function(path)
 		local entries = {}
 		local prefix = path .. "/"
@@ -262,6 +277,7 @@ request({ request_id = "note-create-1", operation = "create_note" })
 local firstNote = stateValues.clipper_snapshot.notes[1]
 assert(firstNote ~= nil and firstNote.color == "#112233")
 assert(firstNote.x == 24 and firstNote.y == 24 and firstNote.z == 1)
+assert(files["/virtual/clipper-data/notes.json"] == "{}", "notecards were not persisted in plugin data")
 request({
 	request_id = "note-update-1", operation = "update_note", id = firstNote.id,
 	title = "Title", content = "Body",
@@ -283,8 +299,29 @@ assert(firstNote.x == 412 and firstNote.y == 238)
 assert(firstNote.z > secondNote.z)
 request({ request_id = "note-export-1", operation = "export_note", id = firstNote.id })
 assert(stateValues.clipper_result.ok == true)
-assert(type(stateValues.clipper_result.path) == "string")
-assert(files[stateValues.clipper_result.path] == "Body")
+local firstExportPath = stateValues.clipper_result.path
+assert(type(firstExportPath) == "string")
+assert(firstExportPath:match("^/virtual/home/Documents/Clipper/notecard%-%d%d%d%d%d%d%d%d%-%d%d%d%d%d%d%-note%-%d+%-%d+%.txt$") ~= nil)
+assert(mkdirCalls[#mkdirCalls] == "/virtual/home/Documents/Clipper")
+assert(files[firstExportPath] == "Title\n\nBody", "notecard export lost its title or content")
+
+-- Repeated exports in the same second never overwrite an earlier file.
+request({ request_id = "note-export-2", operation = "export_note", id = firstNote.id })
+local secondExportPath = stateValues.clipper_result.path
+assert(secondExportPath == firstExportPath:gsub("%.txt$", "-2.txt"))
+assert(files[firstExportPath] == "Title\n\nBody" and files[secondExportPath] == "Title\n\nBody")
+
+-- Directory and file failures are reported without publishing a false path.
+mkdirAllowed = false
+request({ request_id = "note-export-mkdir-failure", operation = "export_note", id = firstNote.id })
+assert(stateValues.clipper_result.ok == false and stateValues.clipper_result.error == "note_export_failed")
+assert(stateValues.clipper_result.path == nil)
+mkdirAllowed = true
+failExportWrites = true
+request({ request_id = "note-export-write-failure", operation = "export_note", id = firstNote.id })
+assert(stateValues.clipper_result.ok == false and stateValues.clipper_result.error == "note_export_failed")
+assert(stateValues.clipper_result.path == nil)
+failExportWrites = false
 
 -- The selection workflow reads primary selection before opening a native menu.
 -- Its actions are generated from current note titles and retain only one
@@ -317,6 +354,12 @@ local selectionNote = stateValues.clipper_snapshot.notes[#stateValues.clipper_sn
 assert(selectionNote.content == "A new card")
 assert(stateValues.clipper_result.operation == "create_note" and stateValues.clipper_result.ok == true)
 
+-- The named export IPC preserves an untitled note's body without adding a
+-- synthetic title to the portable file.
+onIpc("export-note", selectionNote.id)
+assert(stateValues.clipper_result.operation == "export_note" and stateValues.clipper_result.ok == true)
+assert(files[stateValues.clipper_result.path] == "A new card")
+
 -- An old menu callback cannot consume or redirect a newer selection.
 onIpc("selection-menu", "")
 completeNext({ exitCode = 0, stdout = "Current generation", stderr = "", timedOut = false })
@@ -326,6 +369,15 @@ onSelectionContextAction("new", secondMenu.context)
 assert(#stateValues.clipper_snapshot.notes == noteCountBeforeStaleAction)
 onSelectionContextAction("note:" .. secondNote.id, currentMenu.context)
 assert(secondNote.content == "Current generation")
+
+-- A title-only notecard exports its title without trailing blank lines.
+request({
+	request_id = "note-title-only", operation = "update_note", id = secondNote.id,
+	title = "Only title", content = "",
+})
+request({ request_id = "note-title-only-export", operation = "export_note", id = secondNote.id })
+assert(stateValues.clipper_result.ok == true)
+assert(files[stateValues.clipper_result.path] == "Only title")
 
 onIpc("selection-menu", "")
 completeNext({ exitCode = 1, stdout = "", stderr = "no selection", timedOut = false })
@@ -420,4 +472,5 @@ onIpc("unknown-event", "")
 assert(stateValues.clipper_result.ok == false and stateValues.clipper_result.error == "invalid_operation")
 
 os.clock = realClock
+os.date = realDate
 print("clipper service parser tests: ok")

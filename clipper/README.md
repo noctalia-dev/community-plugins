@@ -10,7 +10,7 @@ Clipper combines searchable clipboard history, persistent pinned clips, image pr
 
 ![Clipper panel with pinned clips, notecards, and clipboard history](screenshots/panel.webp)
 
-The desktop behind the transparent workspace is blurred in the screenshot; the Clipper surfaces remain unchanged.
+The fullscreen workspace keeps an opaque Noctalia surface behind the pinned clips, notecards, and clipboard history.
 
 ## Plugin
 
@@ -62,15 +62,40 @@ In the history area, drag a card by its top bar into the pinned column. Notecard
 | `auto_paste_delay` | `int` | `300` | Delay in milliseconds before restoring the previous window and sending `Ctrl`+`Shift`+`V`. |
 | `history_cards` | `int` | `30` | Maximum cards per history page; the panel reduces the count when the available width is smaller. |
 | `panel_margin_percent` | `int` | `0` | Margin around the fullscreen workspace as a percentage of the active display. |
-| `show_panel_background` | `bool` | `false` | Draws a background behind the complete workspace. Pinned clips and history keep their own opaque surfaces. |
 | `card_color` | `color` | `surface_variant` | Base theme role or custom color for text history cards; recognized content types retain distinct accents. |
 | `pinned_color` | `color` | `primary` | Theme role or custom color for pinned cards. |
 | `notes_color` | `color` | `#FFD54F` | Initial paper color for new notecards. Each note can cycle through the built-in paper palette. |
 | `show_close_button` | `bool` | `true` | Shows the close action in the panel header. |
 
+## Notecard storage and export
+
+Notecards remain editable plugin data until explicitly deleted. On a default Noctalia installation they are stored together in:
+
+```text
+~/.local/state/noctalia/plugins/data/blackbartblues/clipper/notes.json
+```
+
+With the default XDG state directory, this is `$HOME/.local/state/noctalia/plugins/data/blackbartblues/clipper/notes.json`. The JSON record contains each note's title, body, paper color, canvas coordinates, stacking order, and timestamps. Exporting does not move or delete that record.
+
+**Export** creates a separate UTF-8 text file in:
+
+```text
+~/Documents/Clipper/notecard-YYYYMMDD-HHMMSS-note-<timestamp>-<sequence>.txt
+```
+
+The exported file contains the title, one blank line, and the body. An untitled note exports only its body; a note without a body exports only its title. Repeated exports in the same second receive `-2`, `-3`, and subsequent suffixes instead of overwriting an existing file. After export, the editable original therefore remains in `notes.json` and the portable copy is in `~/Documents/Clipper`.
+
 ## IPC
 
-Panel-level IPC controls the current panel view. The panel entry must be open for these events to have an active instance:
+Panel lifecycle calls:
+
+```sh
+noctalia msg panel-open blackbartblues/clipper:panel
+noctalia msg panel-close blackbartblues/clipper:panel
+noctalia msg panel-toggle blackbartblues/clipper:panel
+```
+
+Panel-entry IPC controls the current view. The panel must be open for these events to have an active instance:
 
 ```sh
 noctalia msg plugin blackbartblues/clipper:panel all refresh
@@ -81,7 +106,7 @@ noctalia msg plugin blackbartblues/clipper:panel all new-note
 
 `filter` accepts `all`, `text`, `image`, `color`, `link`, `code`, or `file`.
 
-The singleton service exposes every data operation. Clipboard history IDs are the numeric IDs shown by `cliphist list`; pin and note IDs are available in the shared snapshot described below.
+The singleton service exposes every persistent data operation. Clipboard history IDs are the numeric IDs shown by `cliphist list`; pin and note IDs are available in the shared snapshot described below. These are all named service calls:
 
 ```sh
 # History
@@ -111,7 +136,7 @@ noctalia msg plugin blackbartblues/clipper:service all delete-note note-17000000
 
 `selection-menu` reads the current Wayland primary text selection first, then opens a native context menu at the cursor. It offers to create a new sticky note or append the selection to every existing note. This is the intended target for a compositor key binding; the popup placement itself uses Wayland layer-shell and xdg-shell rather than compositor-specific IPC.
 
-Automations can also send the same request shape used internally by the panel:
+Automations can also use the generic `request` call. It accepts the following exact operation names:
 
 ```sh
 noctalia msg plugin blackbartblues/clipper:service all request \
@@ -132,7 +157,7 @@ English is the source language and runtime fallback in `translations/en.json`. A
 
 ## Notes
 
-- Private history, pinned payloads, notecard metadata, and decoded image thumbnails are stored in Noctalia's plugin data directory. Notecard exports are written to `~/Documents/Clipper`.
+- Private history, pinned payloads, notecard metadata, and decoded image thumbnails are stored in Noctalia's plugin data directory. The exact notecard and export paths are documented above.
 - Global database mode follows cliphist's normal database resolution, including `XDG_CACHE_HOME`. Clipper does not start duplicate watchers in this mode; an external cliphist watcher must already populate the database.
 - **Delete** permanently modifies the selected database and therefore affects other clipboard frontends in global mode. **Clear history** is only available for Clipper's private database.
 - Clipboard bytes are streamed between `cliphist`, files, and `wl-copy`; history payloads are not decoded into Luau. Preview metadata and cached image thumbnails are bounded.

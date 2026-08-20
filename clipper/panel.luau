@@ -605,12 +605,25 @@ local function headerNode()
   end
 
   local children = {
-    ui.row({ gap = 9, align = "center", flexGrow = 1 }, {
+    ui.row({ gap = 9, align = "center" }, {
       ui.glyph({ name = "clipboard", size = 25, color = "primary" }),
       ui.column({ gap = 1 }, {
         ui.label({ text = tr("panel.title"), fontSize = 17, fontWeight = "bold" }),
         ui.label({ text = statusText, fontSize = 9, color = "on_surface_variant" }),
       }),
+    }),
+    ui.button({
+      key = "new-note-button",
+      text = tr("panel.notes.create"),
+      glyph = "add",
+      controlSize = "sm",
+      onClick = "onCreateNote",
+    }),
+    ui.label({
+      text = tr("panel.notes.count", { count = #asArray(snapshot.notes) }),
+      color = "on_surface_variant",
+      fontSize = 9,
+      flexGrow = 1,
     }),
     ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("panel.actions.refresh"), onClick = "onRefresh" }),
     ui.button({ glyph = "settings", variant = "ghost", tooltip = tr("panel.actions.settings"), onClick = "onSettings" }),
@@ -618,7 +631,7 @@ local function headerNode()
   if cfg("show_close_button", true) == true then
     children[#children + 1] = ui.button({ glyph = "close", variant = "ghost", tooltip = tr("panel.actions.close"), onClick = "onCloseClicked" })
   end
-  return ui.row({ gap = 8, align = "center", paddingH = 4 }, children)
+  return ui.row({ key = "clipper-header", gap = 8, align = "center", paddingH = 4 }, children)
 end
 
 local function pinnedPane()
@@ -671,13 +684,12 @@ local function notesPane()
       ui.glyph({ name = "notes", size = 36, color = "tertiary" }),
       ui.label({ text = tr("panel.notes.empty"), fontSize = 13, fontWeight = "bold" }),
       ui.label({ text = tr("panel.notes.empty_hint"), color = "on_surface_variant", maxLines = 2, textAlign = "center" }),
-      ui.button({ text = tr("panel.notes.create"), glyph = "add", onClick = "onCreateNote" }),
     })
   else
     for index, note in ipairs(noteList) do canvasChildren[#canvasChildren + 1] = noteCard(note, index) end
   end
 
-  local canvas = ui.dropZone({
+  return ui.dropZone({
     key = "notes-canvas",
     accepts = { NOTE_DRAG_TYPE },
     value = "canvas",
@@ -686,19 +698,6 @@ local function notesPane()
     flexGrow = 1,
     clipChildren = true,
   }, canvasChildren)
-
-  return ui.column({
-    key = "notes-pane",
-    flexGrow = 1,
-    padding = 10,
-    gap = 9,
-  }, {
-    ui.row({ gap = 7, align = "center", justify = "end" }, {
-      ui.label({ text = tr("panel.notes.count", { count = #asArray(snapshot.notes) }), color = "on_surface_variant", fontSize = 9 }),
-      ui.button({ text = tr("panel.notes.create"), glyph = "add", controlSize = "sm", onClick = "onCreateNote" }),
-    }),
-    canvas,
-  })
 end
 
 local function filtersNode(counts)
@@ -790,7 +789,6 @@ end
 function render()
   beginDynamicCallbacks()
   local geometry = panelGeometry()
-  local showPanelBackground = cfg("show_panel_background", false) == true
   local body = {
     headerNode(),
     ui.row({ key = "workspace", gap = 10, flexGrow = 1, align = "stretch" }, {
@@ -821,7 +819,7 @@ function render()
       align = "stretch",
       padding = 12,
       gap = 10,
-      fill = showPanelBackground and "surface/0.96" or "#00000000",
+      fill = "surface/0.96",
       radius = geometry.radius,
     }, body),
   }))

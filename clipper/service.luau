@@ -1073,6 +1073,25 @@ local function handleCycleNoteColor(requestId, id)
   publishResult(requestId, "cycle_note_color", true, "", { id = id })
 end
 
+local function noteExportText(note)
+  local title = boundedString(note.title, MAX_NOTE_TITLE_BYTES)
+  local content = boundedString(note.content, MAX_NOTE_CONTENT_BYTES)
+  if title == "" then return content end
+  if content == "" then return title end
+  return title .. "\n\n" .. content
+end
+
+local function availableExportPath(id)
+  local stem = exportDir .. "/notecard-" .. os.date("%Y%m%d-%H%M%S") .. "-" .. id
+  local path = stem .. ".txt"
+  if not noctalia.fileExists(path) then return path end
+  for suffix = 2, 999 do
+    path = stem .. "-" .. tostring(suffix) .. ".txt"
+    if not noctalia.fileExists(path) then return path end
+  end
+  return nil
+end
+
 local function handleExportNote(requestId, id)
   local note = findById(notes, id)
   if note == nil then
@@ -1084,9 +1103,8 @@ local function handleExportNote(requestId, id)
     notifyError("note_export_failed")
     return
   end
-  local fileName = "notecard-" .. os.date("%Y%m%d-%H%M%S") .. "-" .. id .. ".txt"
-  local path = exportDir .. "/" .. fileName
-  if noctalia.writeFile(path, note.content) ~= true then
+  local path = availableExportPath(id)
+  if path == nil or noctalia.writeFile(path, noteExportText(note)) ~= true then
     publishResult(requestId, "export_note", false, "note_export_failed", { id = id })
     notifyError("note_export_failed")
     return

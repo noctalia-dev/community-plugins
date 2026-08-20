@@ -86,13 +86,6 @@ max = 10
 step = 1
 
 [[setting]]
-key = "show_panel_background"
-type = "bool"
-label_key = "settings.show_panel_background.label"
-description_key = "settings.show_panel_background.description"
-default = false
-
-[[setting]]
 key = "card_color"
 type = "color"
 label_key = "settings.card_color.label"

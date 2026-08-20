@@ -4,7 +4,6 @@ local config = {
 	database_mode = "global",
 	history_cards = 17,
 	panel_margin_percent = 0,
-	show_panel_background = false,
 	show_close_button = true,
 	pinned_color = "primary",
 	card_color = "surface_variant",
@@ -104,6 +103,23 @@ assert(type(moveRequest) == "table", "note drop did not issue a service request"
 assert(moveRequest.operation == "move_note", "note drop issued the wrong operation")
 assert(moveRequest.id == "note-1", "note drop lost the note id")
 assert(moveRequest.x == 123.5 and moveRequest.y == 456.25, "note drop lost the canvas coordinates")
+
+local function findByKey(node, key)
+	if node.props ~= nil and node.props.key == key then return node end
+	for _, child in ipairs(node.children or {}) do
+		local found = findByKey(child, key)
+		if found ~= nil then return found end
+	end
+	return nil
+end
+
+local root = assert(findByKey(renderedTree, "clipper-root"), "missing Clipper root")
+assert(root.props.fill == "surface/0.96", "the workspace background is not always visible")
+local header = assert(findByKey(renderedTree, "clipper-header"), "missing Clipper header")
+assert(header.children[2].props.key == "new-note-button", "New note is not in the left header group")
+local workspace = assert(findByKey(renderedTree, "workspace"), "missing workspace")
+assert(workspace.children[1].props.key == "pinned-drop-zone", "pinned area moved unexpectedly")
+assert(workspace.children[2].props.key == "notes-canvas", "notecard canvas does not start at the pinned top edge")
 
 local function measure(node, depth, path)
 	local maxDepth = depth

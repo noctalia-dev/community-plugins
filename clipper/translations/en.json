@@ -163,10 +163,6 @@
       "label": "Panel edge margin",
       "description": "Margin around the fullscreen Clipper workspace, as a percentage of the active display."
     },
-    "show_panel_background": {
-      "label": "Show panel background",
-      "description": "Draw one background behind the entire Clipper workspace. Pinned clips and clipboard history always keep their own surfaces."
-    },
     "card_color": {
       "label": "History card color",
       "description": "Noctalia theme role or custom color used for clipboard history cards."
