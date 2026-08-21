@@ -6,7 +6,7 @@ author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "rss"
 description = "Monitors RSS/Atom feeds and notifies you when new items appear."
-tags        = ["utility", "indicator"]
+tags        = ["utility", "indicator", "panel", "bar", "service"]
 dependencies = ["xdg-open"]
 
 # ---------------------------------------------------------------------------
