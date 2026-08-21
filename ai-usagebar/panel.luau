@@ -274,7 +274,7 @@ end
 -- ── Render ────────────────────────────────────────────────────────────────────
 
 local function requestRefresh()
-    noctalia.state.set("command", { action = "refresh", at = os.time() })
+    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
 end
 
 -- The CLI's own words come last and smallest, where a bug report can quote them.
@@ -520,7 +520,7 @@ end)
 function onOpen(_context)
     -- Every open asks for fresh numbers. The CLI answers from its own cache when it
     -- has one, and the poller drops requests that arrive too close together.
-    noctalia.state.set("command", { action = "refresh", at = os.time() })
+    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
     report = noctalia.state.get("report")
     failure = asFailure(noctalia.state.get("error"))
     polling = noctalia.state.get("polling") == true

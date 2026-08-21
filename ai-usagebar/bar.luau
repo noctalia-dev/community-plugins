@@ -285,7 +285,7 @@ function onClick()
 end
 
 function onRightClick()
-    noctalia.state.set("command", { action = "refresh", at = os.time() })
+    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
 end
 
 report = noctalia.state.get("report")
