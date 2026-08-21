@@ -1,8 +1,7 @@
 --!nonstrict
--- Headless poller: the single owner of `ai-usagebar usage --json`.
---
--- One call returns every configured vendor, so the capsules and the panel are
--- pure subscribers of noctalia.state and never spawn a process of their own.
+-- Headless poller: the single owner of `ai-usagebar usage --json`. One call
+-- returns every configured vendor, so the capsules and the panel are subscribers
+-- of noctalia.state and never spawn a process of their own.
 
 -- `ai-usagebar` is a declared dependency, so it is expected on PATH.
 local COMMAND = "ai-usagebar usage --json"
@@ -13,16 +12,14 @@ local function intervalMs()
     return math.floor(minutes * 60 * 1000)
 end
 
--- Everything the CLI produces ends up on screen, so all of it is cleaned once,
--- here, where it enters the plugin:
--- an error can quote the request that failed, and a request can carry a key in
--- its query string. A runaway line would also push a bar capsule off screen.
--- A secret's value runs until whitespace or the quote or brace that closes it,
+-- Everything the CLI prints reaches the screen, so it is cleaned here, on the
+-- way in: an error can quote the request that failed, and that request can carry
+-- a key. A secret's value runs to the whitespace, quote or brace that closes it,
 -- so a JSON field loses its value and keeps its punctuation.
 local SECRET_VALUE = "[^%s\"',}]+"
--- Built once. `scrub` calls safeText on every string in the report — ~165 for a
--- two-vendor read — and rebuilding these four pattern pairs on each of those
--- calls cost more than matching them did.
+-- Built once: safeText runs on every string in the report, about 165 of them for
+-- a two-vendor read, and rebuilding these pairs each time cost more than matching
+-- them.
 local SECRET_PATTERNS = {}
 for _, word in ipairs({ "key", "token", "secret", "password" }) do
     local anyCase = (word:gsub("%a", function(c) return "[" .. c:upper() .. c .. "]" end))
@@ -43,17 +40,14 @@ local function safeText(value)
     local text = noctalia.string.trim(tostring(value or ""))
     text = text:gsub("%s+", " ")
 
-    -- Capped before the redaction runs rather than after. The patterns are the
-    -- expensive part of the callback, and a callback that overruns its CPU
-    -- budget loses the whole report — so the work they do is bounded by what
-    -- the plugin would draw anyway.
+    -- Capped before the redaction, not after. The patterns are the expensive part
+    -- of the callback, and a callback that overruns its CPU budget loses the whole
+    -- report, so they only ever scan what the plugin would draw.
     if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
 
-    -- Nothing expensive runs until a literal search says it could match, and
-    -- each keyword opens only its own two patterns. The keyword is what opens
-    -- the gate. A separator will not do: `=` and `:` both turn up in ordinary
-    -- readings, in a ratio, a clock time, a URL, so gating on those ran the
-    -- patterns over almost every string.
+    -- A literal search gates each keyword's own two patterns. Gating on the
+    -- separator instead does not work: `=` and `:` turn up in ordinary readings,
+    -- in ratios, clock times and URLs.
     local lower = text:lower()
 
     for _, secret in ipairs(SECRET_PATTERNS) do
@@ -72,8 +66,7 @@ local function safeText(value)
         text = text:gsub("(://)[^%s/@]+:[^%s/@]+(@)", "%1<redacted>%2")
     end
 
-    -- The provider key shape this plugin sits next to all day. Anchored at a
-    -- word start, so "desk-top" is not a key.
+    -- Anchored at a word start, so "desk-top" is not a key.
     if lower:find("sk-", 1, true) then
         text = text:gsub("%f[%w](sk%-)" .. KEY_TAIL .. "[%w_%-]*", "%1<redacted>")
     end
@@ -81,8 +74,8 @@ local function safeText(value)
     return text
 end
 
--- Every string in the report, not just the error: a plan name, an account name
--- or a metric detail is CLI text too, and any of them can arrive long.
+-- Every string, not just the error: a plan name or a metric detail is CLI text
+-- too, and any of them can arrive long.
 local function scrub(value)
     if type(value) == "string" then return safeText(value) end
     if type(value) ~= "table" then return value end
@@ -90,25 +83,21 @@ local function scrub(value)
     return value
 end
 
--- The one place a failure is named. Subscribers translate the code, and the
--- CLI's own text travels with it as `detail`, redacted like any other string
--- that reaches the screen.
+-- The one place a failure is named. Subscribers translate the code; the CLI's
+-- own words travel with it as `detail`.
 local function failure(code, detail)
     return { code = code, detail = safeText(detail) }
 end
 
--- The run's outcome as one code. A missing binary is split out from the
--- generic failure because the panel can offer an install link for that one,
--- and shells report it as one of two messages. Both arrive with status 127,
--- which a CLI that merely cannot open its own config file does not use, so the
--- code has to agree with the message before the install link is offered.
+-- The run's outcome as one code. A missing binary gets its own, because the
+-- panel offers an install link for that one. Shells report it as one of two
+-- messages, both with status 127, so code and message have to agree.
 local function classify(result)
     if result == nil then return failure("spawn_failed") end
     if result.timedOut then return failure("timed_out") end
 
-    -- Matched raw. `failure` scrubs what it is given, and scrubbing first would
-    -- mean matching against text already capped at 200 characters, so a noisy
-    -- run could push the message that names the failure out of reach.
+    -- Matched raw: `failure` scrubs what it is given, and matching after the
+    -- 200-character cap would let a noisy run push the message out of reach.
     local stderr = tostring(result.stderr or "")
     local lower = stderr:lower()
     if result.exitCode == 127
@@ -117,8 +106,8 @@ local function classify(result)
         return failure("not_installed", stderr)
     end
     if result.exitCode ~= 0 then
-        -- Whitespace-only stderr scrubs down to nothing, so the exit code has
-        -- to answer for it rather than a detail that arrives on screen empty.
+        -- Whitespace-only stderr scrubs down to nothing, so the exit code answers
+        -- for it instead.
         return failure("failed", stderr:find("%S") and stderr
             or ("ai-usagebar exited with code " .. tostring(result.exitCode)))
     end
@@ -127,9 +116,8 @@ end
 
 local inFlight = false
 
--- A floor between spawns. Opening the panel asks for a read, and a panel can be
--- opened as fast as a pointer can click, so this bounds how often the plugin
--- can start a process no matter how the request arrives.
+-- A floor between spawns. Opening the panel asks for a read, and a panel opens as
+-- fast as a pointer can click.
 local MIN_GAP_MS = 2000
 local lastStart = 0
 
@@ -147,8 +135,8 @@ local function refresh()
 
         local decoded = result ~= nil and noctalia.json.decode(result.stdout or "") or nil
         if type(decoded) == "table" and type(decoded.entries) == "table" then
-            -- A vendor that failed still comes back as an entry with `status =
-            -- "error"`, so a non-zero exit is not a reason to drop the report.
+            -- A failed vendor still comes back as an entry with `status = "error"`,
+            -- so a non-zero exit is no reason to drop the report.
             noctalia.state.set("report", scrub(decoded))
             noctalia.state.set("error", failure(""))
             return
@@ -157,8 +145,8 @@ local function refresh()
         noctalia.state.set("error", classify(result))
     end, 30000)
 
-    -- A refusal to spawn never calls back, and without this the poller would
-    -- sit in flight forever and stop asking.
+    -- A refusal to spawn never calls back, and the poller would sit in flight
+    -- forever.
     if not started then
         inFlight = false
         noctalia.state.set("polling", false)
@@ -166,7 +154,6 @@ local function refresh()
     end
 end
 
--- Manual refresh from a capsule or the panel.
 noctalia.state.watch("command", function(value)
     if type(value) == "table" and value.action == "refresh" then refresh() end
 end)

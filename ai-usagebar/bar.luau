@@ -1,8 +1,7 @@
 --!nonstrict
--- Bar capsule. Reads whatever the poller published and draws one provider, or
--- the busiest few when `provider_limit` is raised.
---
--- Per-instance settings, so two capsules can follow two different providers.
+-- Bar capsule. Draws what the poller published: one provider, or the busiest few
+-- when `provider_limit` is raised. Settings are per-instance, so a second capsule
+-- can follow a second provider.
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local style = tostring(noctalia.getConfig("style") or "pill")
@@ -15,21 +14,14 @@ local report = nil
 local polling = false
 
 local shared = require("./shared.luau")
-local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
+local GLYPHS = shared.GLYPHS
 local countdown, resetClock = shared.countdown, shared.resetClock
-local ratio, headline = shared.ratio, shared.headline
+local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
 -- ── Report helpers ────────────────────────────────────────────────────────────
-
--- "Resets in 4h 01m · 19% elapsed · 2pts ahead" says how much of the window is
--- gone and how far the spend is from that line.
-local function elapsedPercent(metric)
-    local value = tostring(metric and metric.detail or ""):match("(%d+)%%%s*elapsed")
-    return value ~= nil and tonumber(value) or nil
-end
 
 -- Returns points and direction: 2, "ahead" is burning faster than the clock.
 local function pace(metric)
@@ -43,7 +35,7 @@ local function entries()
     return report.entries
 end
 
-local SEVERITY_RANK = { critical = 3, high = 2, medium = 1, low = 0 }
+local SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
 
 local function rank(entry)
     local metric = headline(entry)
@@ -51,8 +43,9 @@ local function rank(entry)
     return SEVERITY_RANK[tostring(metric.severity or "")] or 0, tonumber(metric.percent) or 0
 end
 
--- A pinned vendor shows only itself. "auto" shows the busiest providers, so
--- the one closest to running out is the one on the bar. `primary` breaks ties.
+-- A pinned vendor shows only itself. "auto" ranks by severity then percentage,
+-- so the provider closest to running out is the one on the bar. `primary` breaks
+-- ties.
 local function shown()
     local all = entries()
     if vendor ~= "auto" then
@@ -80,16 +73,12 @@ local function shown()
     local picked = {}
     for i = 1, math.min(limit, #ready) do picked[i] = ready[i] end
     if #picked == 0 then return {}, 0 end
-    -- Someone who asked for one provider does not need a count of the others,
-    -- so the "+N" only appears once the capsule carries more than one.
     if limit == 1 then return picked, 0 end
     return picked, #ready - #picked
 end
 
--- `calm` is the colour when the CLI has raised nothing. With the tint switched
--- off it is the colour for everything.
--- `calm` is the colour when the CLI has raised nothing. With the tint switched
--- off it is the colour for everything.
+-- `calm` is the colour when the CLI has raised nothing, and every colour when
+-- the tint is switched off.
 local function severityRole(metric, calm)
     if not colorByUsage then return calm end
     return shared.severityRole(metric, calm)
@@ -97,13 +86,14 @@ end
 
 local function shortName(entry)
     local name = tostring(entry.display_name or entry.name or entry.id or "")
-    -- "Claude · gmail" is the panel's business; the bar has room for the product.
+    -- "Claude · gmail" is the panel's business; the bar only has room for the
+    -- product name.
     return (name:gsub("%s*·.*$", ""))
 end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
--- Quota above, window elapsed below: a fill longer than the clock bar is spend
+-- Quota above, window elapsed below: a longer fill than clock bar is spend
 -- running ahead of time.
 local function bars(percent, elapsed, tint, width)
     local stack = {
@@ -137,8 +127,6 @@ local function countdownNode(metric)
     return ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 })
 end
 
--- One provider's chip. The style decides the shape, and the extras are
--- appended to whatever it produced.
 local function chip(entry)
     local metric = headline(entry)
     local tint = severityRole(metric, "on_surface")
@@ -146,8 +134,8 @@ local function chip(entry)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local glyph = ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 13, color = tint })
-    -- Right-aligned in a fixed column, so the capsule is the same width at 9%
-    -- as at 100% and stops nudging its neighbours on the bar once per read.
+    -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
+    -- and stops nudging its neighbours once per read.
     local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint,
                            maxLines = 1, width = 30, textAlign = "end" })
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
@@ -157,7 +145,6 @@ local function chip(entry)
     local function add(node) if node ~= nil then nodes[#nodes + 1] = node end end
 
     if style == "meter" and percent ~= nil then
-        -- Five ticks instead of digits: the reading at a glance, no numbers.
         local ticks = {}
         for i = 0, 4 do
             ticks[#ticks + 1] = ui.box({
@@ -168,18 +155,17 @@ local function chip(entry)
         add(glyph); add(name)
         add(ui.row({ gap = 2, align = "center" }, ticks))
     elseif style == "label" and percent ~= nil then
-        -- Name and number stacked over the bar, for a bar with room to spare.
         add(glyph)
         add(ui.column({ gap = 1, align = "center" }, {
             ui.row({ gap = 3, align = "center" }, {
                 ui.label({ text = shortName(entry), fontSize = 10, color = "on_surface_variant", maxLines = 1 }),
                 pct,
             }),
-            bars(percent, elapsedPercent(metric), fill, 44),
+            bars(percent, elapsedPercent(metric and metric.detail), fill, 44),
         }))
     elseif style == "gauge" and percent ~= nil then
         add(glyph); add(name)
-        add(bars(percent, elapsedPercent(metric), fill, 26))
+        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 26))
         add(pct)
     else
         add(glyph); add(name); add(pct)
@@ -243,9 +229,9 @@ end
 
 local function render()
     local picked, hidden = shown()
-    -- A failure drops the reading here too, so the bar cannot be read as a
-    -- live percentage while the panel behind it says the CLI is unreachable.
-    -- Empty is already the shape that draws the alert glyph.
+    -- A failure drops the reading, so the capsule cannot show a live percentage
+    -- while the panel behind it says the CLI is unreachable. Empty already draws
+    -- the alert glyph.
     if failure.code ~= "" then picked, hidden = {}, 0 end
 
     local children = {}
@@ -254,9 +240,8 @@ local function render()
     end
 
     if #children == 0 then
-        -- One glyph, coloured by the state. A second icon beside it reads as a
-        -- second problem, and the plugin's own mark in the error colour says
-        -- the same thing in the space of one.
+        -- One glyph, coloured by the state. A second icon beside it would read as
+        -- a second problem.
         children[1] = ui.glyph({
             name = "brain", size = 13,
             color = failure.code ~= "" and "error" or "on_surface_variant",
@@ -266,8 +251,8 @@ local function render()
                                              color = "on_surface_variant", maxLines = 1 })
     end
 
-    -- A read in flight dims the capsule rather than appending a spinner to it:
-    -- a node that comes and goes every cycle shoves every widget to its right.
+    -- A read in flight dims the capsule instead of appending a spinner: a node
+    -- that comes and goes every cycle shoves every widget to its right.
     barWidget.render(ui.row({ gap = 6, align = "center", opacity = polling and 0.55 or 1 }, children))
     barWidget.setTooltip(tooltip(picked, hidden))
 end

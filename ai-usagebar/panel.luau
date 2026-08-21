@@ -1,8 +1,6 @@
 --!nonstrict
--- Expanded panel for one provider.
---
--- It renders `sections[]`, which is the CLI's lossless view, so credit blocks
--- and free text that the shorter `metrics[]` view drops still show up.
+-- Expanded panel for one provider. It renders `sections[]`, the CLI's lossless
+-- view, so the credit blocks and free text that `metrics[]` drops still show up.
 
 local report = nil
 local polling = false
@@ -11,17 +9,18 @@ local shared = require("./shared.luau")
 local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
+local elapsedPercent = shared.elapsedPercent
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
--- Read once: a session either has xdg-utils or it does not, and the panel
--- would otherwise stat PATH on every second tick it spends in a failure.
+-- Read once: a session either has xdg-utils or it does not, and the panel would
+-- otherwise stat PATH on every second tick it spends in a failure.
 local HAS_OPENER = noctalia.commandExists("xdg-open")
 
--- The CLI reports a vendor it has no credential for as a `credentials error`.
--- Those are not listed, because they were never set up. A configured provider
--- that fails for any other reason keeps its row.
+-- A vendor with no credential comes back as a `credentials error`. It was never
+-- set up, so it is not listed. A configured provider that fails for any other
+-- reason keeps its row.
 local function configured(entry)
     if entry.status ~= "error" then return true end
     return not tostring(entry.error or ""):lower():find("credentials error")
@@ -29,12 +28,7 @@ end
 
 -- ── Detail line parsing ───────────────────────────────────────────────────────
 -- "Resets in 1h 58m · 60% elapsed · 30pts ahead". The reset half is already in
--- `reset_at`; what is left is the pace pair.
-
-local function elapsedPercent(detail)
-    local value = tostring(detail or ""):match("(%d+)%%%s*elapsed")
-    return value ~= nil and tonumber(value) or nil
-end
+-- `reset_at`; what is left is the pace.
 
 local function pace(detail)
     local text = tostring(detail or "")
@@ -43,9 +37,8 @@ local function pace(detail)
     for part in text:gmatch("[^·]+") do last = part end
     last = noctalia.string.trim(last)
     if last:find("elapsed") then return "", "on_surface_variant" end
-    -- Ahead of the clock is worth flagging. Under it means there is room left.
+    -- Ahead of the clock is worth flagging; under it means there is room left.
     if last:find("ahead") then return last, "tertiary" end
-    if last:find("under") then return last, "on_surface_variant" end
     return last, "on_surface_variant"
 end
 
@@ -93,8 +86,6 @@ end
 
 -- ── Cards ─────────────────────────────────────────────────────────────────────
 
--- A severity word, and only when the CLI raised one. Colour on its own leaves
--- the reading to anyone who can tell the two accents apart.
 local function severityWord(section)
     local severity = tostring(section and section.severity or "")
     if severity ~= "high" and severity ~= "critical" then return nil end
@@ -122,8 +113,7 @@ local function metricCard(section)
     if showValue then
         header[#header + 1] = ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
     end
-    -- Every card ends on the same right edge, so a column of them reads as one
-    -- ruler instead of a ragged margin.
+    -- Fixed width, so a column of cards ends on one right edge.
     header[#header + 1] = ui.label({
         text = string.format("%d%%", percent),
         fontSize = 15,
@@ -138,8 +128,6 @@ local function metricCard(section)
         ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.16", radius = 3, height = 6 }),
     }
 
-    -- Two readings: quota spent above, window elapsed below. A shorter clock bar
-    -- than fill bar is quota burning ahead of time.
     local elapsed = elapsedPercent(section.detail)
     if elapsed ~= nil then
         body[#body + 1] = ui.progress({
@@ -151,9 +139,6 @@ local function metricCard(section)
         })
     end
 
-    -- One line under the bars carries the whole time story: what is left of the
-    -- window, when it lands, how much of it is gone, and whether the spend is
-    -- running ahead. Four separate lines said the same thing four times taller.
     local left = countdown(section)
     local clock = resetClock(section)
     local paceText, paceColor = pace(section.detail)
@@ -162,9 +147,8 @@ local function metricCard(section)
         footer[#footer + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
         footer[#footer + 1] = ui.label({ text = left, fontSize = 11, color = "on_surface_variant" })
         if clock ~= "" then
-            -- Parenthesised and muted: it is the time the countdown beside it
-            -- lands on, not a reading of its own. In the accent colour it was
-            -- the loudest thing in the card after the percentage.
+            -- Parenthesised and muted: it is where the countdown beside it lands,
+            -- not a reading of its own.
             footer[#footer + 1] = ui.label({
                 text = "(" .. clock .. ")", fontSize = 11, color = "on_surface_variant",
             })
@@ -205,9 +189,8 @@ local function blockCard(section)
     }
     for _, line in ipairs(section.body or {}) do
         local text = noctalia.string.trim(tostring(line))
-        -- A line the CLI left as a bare "balance:" reads as a row that failed
-        -- to render. Nothing is a value, and it is spelled the same way here as
-        -- it is everywhere else in the panel.
+        -- A bare "balance:" from the CLI would read as a row that failed to
+        -- render, so nothing gets spelled the way it is everywhere else.
         if text:find(":$") then text = text .. " —" end
         body[#body + 1] = ui.label({
             text = text ~= "" and text or "—",
@@ -234,9 +217,8 @@ local function providerRow(entry, selected)
     local broken = entry.status == "error"
     local tint = severityRole(metric, "on_surface")
 
-    -- The reading keeps its own severity colour whether or not the row is
-    -- selected. A selected row that recolours its number hides the one thing
-    -- the list exists to compare.
+    -- The reading keeps its severity colour whether or not the row is selected:
+    -- recolouring it hides the one thing the list exists to compare.
     local right
     if broken then
         right = ui.row({ width = 34, justify = "end" }, {
@@ -271,16 +253,13 @@ local function providerRow(entry, selected)
     })
 
     return ui.row({
-        -- Keyed, so the click handler survives the second tick the countdowns
-        -- ride on rather than being rebuilt under the pointer once a second.
+        -- Keyed, so the click handler survives the second tick the countdowns ride
+        -- on instead of being rebuilt under the pointer.
         key = "provider-" .. tostring(entry.id),
         gap = 8, align = "center", padding = 8, radius = 8,
-        -- Selection is a tint, not a slab of accent: a filled `primary` row has
-        -- to invert every colour inside it, and then it shouts over the reading.
+        -- A tint, not a slab: a filled `primary` row inverts every colour in it.
         fill = selected and "primary/0.14" or "surface_variant/0.45",
         onClick = function()
-            -- currentEntry() reads this back, so the panel and the capsule that
-            -- opened it stay on the same provider.
             noctalia.state.set("selected", tostring(entry.id))
             render()
         end,
@@ -298,8 +277,7 @@ local function requestRefresh()
     noctalia.state.set("command", { action = "refresh", at = os.time() })
 end
 
--- The failure and the suggested fix read first; the CLI's own words come last
--- and smallest, where a bug report can still quote them.
+-- The CLI's own words come last and smallest, where a bug report can quote them.
 local function errorBlock()
     local key = "ui.error." .. failure.code
     local children = {
@@ -316,8 +294,6 @@ local function errorBlock()
         })
     end
 
-    -- The shell's own button, so a retry here looks like every other retry in
-    -- Noctalia and follows the user's theme without being told to.
     local actions = {
         ui.button({
             text = noctalia.tr("ui.retry"), glyph = "refresh",
@@ -327,10 +303,10 @@ local function errorBlock()
         }),
     }
 
-    -- Retrying is pointless until the CLI exists, so that one failure gets the
-    -- install page as well. The URL is a literal, so there is nothing to quote,
-    -- and the button is only offered where something can open it. It reads as a
-    -- label with the address in its tooltip: a raw URL is not a button caption.
+    -- Retrying is pointless until the CLI exists, so that failure gets the install
+    -- page too. The URL is a literal, and the button is only offered where
+    -- something can open it. The address lives in the tooltip: a raw URL is not a
+    -- button caption.
     if failure.code == "not_installed" and HAS_OPENER then
         actions[#actions + 1] = ui.button({
             text = noctalia.tr("ui.install"), glyph = "external-link",
@@ -346,9 +322,8 @@ local function errorBlock()
     return ui.column({ gap = 8 }, children)
 end
 
--- A muted stand-in at the shape of what is coming, so a cold read is not a
--- spinner parked where the content is about to land. One shape serves both
--- panes: it is a placeholder, and two kinds of placeholder is one too many.
+-- A muted stand-in shaped like what is coming, so a cold read is not a spinner
+-- parked where the content will land. One shape serves both panes.
 local function skeleton(key)
     return ui.column({
         key = "skeleton-" .. key,
@@ -373,13 +348,12 @@ local function listPane(entry)
     return ui.column({ gap = 10, padding = 14, width = 250 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
-            -- The accent belongs to the selection and the bars. A title that
-            -- takes it too leaves the panel with no quiet level to fall back to.
+            -- The accent belongs to the selection and the bars. A title that took
+            -- it too would leave the panel with no quiet level.
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
-            -- One slot for the read: the button becomes the spinner while the
-            -- CLI answers, rather than a second glyph appearing beside it and
-            -- pushing the header around once a cycle.
+            -- One slot for the read: the button becomes the spinner while the CLI
+            -- answers, instead of a second glyph pushing the header around.
             ui.button({
                 glyph = polling and "loader-2" or "refresh",
                 variant = "ghost", controlSize = "sm",
@@ -387,9 +361,8 @@ local function listPane(entry)
                 enabled = not polling,
                 onClick = requestRefresh,
             }),
-            -- The capsule already answers a middle click with this, but the
-            -- panel is where someone is looking at a provider and deciding the
-            -- capsule should show a different one.
+            -- The capsule answers a middle click with this too, but the panel is
+            -- where someone decides the capsule should follow another provider.
             ui.button({
                 glyph = "settings",
                 variant = "ghost", controlSize = "sm",
@@ -410,15 +383,14 @@ local function detailPane(entry)
         if subtitle == title then subtitle = "" end
     end
 
-    -- No entry yet means the skeletons below are the whole pane. A title here
-    -- would only repeat the one the list pane is already showing.
+    -- With no entry the skeletons below are the whole pane, and a title here would
+    -- repeat the list pane's.
     local children = {}
     if entry ~= nil then
-        -- The row keeps the title block honest about its height. A bare
-        -- ui.column dropped into a column takes the pane's free space for
-        -- itself, which parks the title at the top of a hundred pixels of
-        -- nothing and pushes the rest of the header down. Wrapped, the block is
-        -- only as tall as the two labels in it.
+        -- The row keeps the title block honest about its height: a bare ui.column
+        -- dropped into a column claims the pane's free space, parking the title at
+        -- the top of a hundred pixels of nothing. Wrapped, it is as tall as the two
+        -- labels in it.
         children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
             ui.column({ gap = 0, flexGrow = 1 }, {
                 ui.label({ text = title, fontSize = 15, fontWeight = "bold",
@@ -429,9 +401,8 @@ local function detailPane(entry)
         })
     end
 
-    -- What the entry says about itself, in words rather than a colour. The
-    -- provider id and a "ready" status are the plugin talking to itself: the id
-    -- is the row that was just clicked, and a healthy read is the default.
+    -- The id and a "ready" status are skipped: the id is the row that was just
+    -- clicked, and a healthy read is the default.
     if entry ~= nil then
         local chips = {}
         local function separate()
@@ -481,8 +452,6 @@ local function detailPane(entry)
     if #cards > 0 then
         children[#children + 1] = ui.scroll({ gap = 8, flexGrow = 1 }, cards)
     elseif entry ~= nil then
-        -- A provider with nothing to draw says so. Half an empty panel is not
-        -- an answer to the question the panel was opened to answer.
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),
             ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 11, color = "on_surface_variant" }),
@@ -499,14 +468,12 @@ end
 
 function render()
     local entry = currentEntry()
-    -- A failure replaces the report. The numbers are from a read that is no
-    -- longer happening, and leaving them up puts a provider list and a
-    -- percentage next to an alert saying neither can be trusted.
+    -- A failure replaces the report: those numbers came from a read that is no
+    -- longer happening.
     if failure.code ~= "" then
-        -- The panel keeps the fixed size the manifest gives it, and a failure
-        -- has nowhere near 720x400 of things to say. The block stays bounded to
-        -- a readable width and sits in the middle of the panel, where an empty
-        -- surround reads as composition instead of a half-drawn frame.
+        -- The panel keeps the fixed size the manifest gives it, and a failure has
+        -- nowhere near 720x400 to say. Bounded to a readable width and centred, the
+        -- empty surround reads as composition rather than a half-drawn frame.
         panel.render(ui.column({ flexGrow = 1, padding = 14, align = "center", justify = "center" }, {
             ui.column({ gap = 10, width = 320 }, {
                 ui.row({ gap = 8, align = "center" }, {
@@ -520,10 +487,9 @@ function render()
         return
     end
 
-    -- Both panes have to be told to fill the panel, or their ui.scroll children
-    -- ask for their natural height instead of the height they were given: the
-    -- cards then overflow the panel and the free space is handed to whatever
-    -- else in the column will take it, which pushes the header away from them.
+    -- Both panes have to be told to fill the panel, or their ui.scroll children ask
+    -- for their natural height: the cards overflow, and the free space goes to
+    -- whatever else in the column will take it.
     panel.render(ui.row({ gap = 0, flexGrow = 1, align = "stretch" }, {
         listPane(entry),
         ui.separator({ orientation = "vertical", color = "outline", opacity = 0.28 }),
@@ -552,9 +518,8 @@ noctalia.state.watch("polling", function(value)
 end)
 
 function onOpen(_context)
-    -- Every open asks for fresh numbers. The CLI answers from its own cache
-    -- when it has one, and the poller drops requests that arrive too close
-    -- together, so reopening the panel repeatedly is cheap.
+    -- Every open asks for fresh numbers. The CLI answers from its own cache when it
+    -- has one, and the poller drops requests that arrive too close together.
     noctalia.state.set("command", { action = "refresh", at = os.time() })
     report = noctalia.state.get("report")
     failure = asFailure(noctalia.state.get("error"))

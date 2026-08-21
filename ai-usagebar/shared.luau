@@ -1,14 +1,12 @@
 --!nonstrict
--- What the capsule and the panel both need.
---
--- One copy, so the ISO parsing, the severity tiers and the provider glyphs
--- cannot drift between two entries that have to agree with each other on
--- screen. Needs plugin_api 22, which is where require() arrived.
+-- What the capsule and the panel both need, in one copy, so the ISO parsing and
+-- the severity tiers cannot drift between two entries that have to agree on
+-- screen. Needs plugin_api 22, where require() arrived.
 
 local M = {}
 
--- Tabler has no Anthropic mark, so providers without a brand glyph get a
--- semantic one. Same approach the other CLI-backed meters in this repo take.
+-- Tabler has no Anthropic mark, so a provider without a brand glyph gets a
+-- semantic one.
 M.GLYPHS = {
     anthropic = "asterisk-simple",
     anthropic_api = "asterisk-simple",
@@ -30,17 +28,16 @@ M.GLYPHS = {
     gemini = "brand-google",
 }
 
--- The poller names the failure, so a subscriber only ever has a code to
--- translate. Anything else in that state slot reads as no failure at all.
+-- Anything else in the `error` slot means no failure.
 M.NO_FAILURE = { code = "", detail = "" }
 
 function M.asFailure(value)
     return type(value) == "table" and value or M.NO_FAILURE
 end
 
--- "2026-08-15T11:29:59.872624Z" -> unix seconds. The stamps are UTC, so the
--- naive os.time() reading (which assumes local time) is corrected by the local
--- offset measured at that same instant.
+-- "2026-08-15T11:29:59.872624Z" -> unix seconds. The stamps are UTC, and
+-- os.time() reads its table as local, so the offset is measured at that same
+-- instant and added back.
 function M.parseIso(value)
     if type(value) ~= "string" then return nil end
     local y, mo, d, h, mi, s = value:match("^(%d+)%-(%d+)%-(%d+)T(%d+):(%d+):(%d+)")
@@ -71,22 +68,28 @@ function M.countdown(section)
     return M.formatDuration(at - os.time())
 end
 
--- The clock time the countdown lands on: "14:20" today, "Sat 14:20" past
--- midnight, and a date once a weekday alone stops naming one day.
+-- Where the countdown lands: "14:20" today, "Sat 14:20" past midnight, and a date
+-- once a weekday alone stops naming one day.
 function M.resetClock(section)
     local at = M.parseIso(section and section.reset_at)
     if at == nil then return "" end
     local clock = noctalia.formatTime(noctalia.timeFormat(), at)
     if os.date("%Y-%m-%d", at) == os.date("%Y-%m-%d") then return clock end
-    -- The weekday is prepended here instead of folded into the pattern: the
-    -- host's format grammar passes unknown text through verbatim, so a "ddd"
-    -- prefix would render as the literal word.
+    -- Prepended rather than folded into the pattern: the host's format grammar
+    -- passes unknown text through verbatim, so "ddd" would render as the word.
     if at - os.time() > 6 * 86400 then return os.date("%d %b", at) .. " " .. clock end
     return os.date("%a", at) .. " " .. clock
 end
 
--- A provider can report more than it was given, so the reading is clamped
--- before it becomes a bar width.
+-- How much of the window is gone, out of "Resets in 1h 58m · 60% elapsed · 30pts
+-- ahead". Both entries draw it under the quota bar.
+function M.elapsedPercent(detail)
+    local value = tostring(detail or ""):match("(%d+)%%%s*elapsed")
+    return value ~= nil and tonumber(value) or nil
+end
+
+-- A provider can report more than it was given, so clamp before this becomes a
+-- bar width.
 function M.ratio(percent)
     local value = (tonumber(percent) or 0) / 100
     if value < 0 then return 0 end
@@ -99,9 +102,9 @@ function M.headline(entry)
     return entry.metrics[1]
 end
 
--- The CLI tiers every percentage; copying its thresholds here would be a second
--- source of truth. `calm` is what to use when it has raised nothing: text stays
--- on the surface colour, and the accent is kept for bar fills.
+-- The CLI tiers every percentage, and copying its thresholds here would be a
+-- second source of truth. `calm` is for when it raised nothing: text stays on the
+-- surface colour, and the accent is kept for bar fills.
 function M.severityRole(section, calm)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end

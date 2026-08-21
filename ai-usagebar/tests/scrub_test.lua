@@ -1,15 +1,13 @@
--- Redaction test for service.luau's safeText().
+-- Redaction test for service.luau's safeText() and scrub().
 --
--- Everything the CLI writes reaches the screen, and a CLI that fails an HTTP
--- request tends to quote the request. safeText is the only thing standing
--- between that and a rendered label, so it gets a test.
---
--- The functions are read out of service.luau rather than copied here: a copy
--- would keep passing after the real one changed.
+-- A CLI that fails an HTTP request tends to quote the request, and safeText is
+-- the only thing between that and a rendered label. The functions are read out of
+-- service.luau rather than copied, so a copy cannot keep passing after the real
+-- one changes.
 --
 --   lua tests/scrub_test.lua      (or luajit)
 --
--- Run it from the plugin directory. Exits non-zero on the first failure.
+-- Run it from the plugin directory. Exits non-zero if anything fails.
 
 local SOURCE = "service.luau"
 
@@ -57,7 +55,7 @@ local SECRETS = {
     { "OPENAI_API_KEY sk-proj-REALKEYVALUE not accepted", "REALKEY" },
     { "password=hunter2", "hunter2" },
     -- The cap runs before the patterns, so a secret in a runaway line has to
-    -- survive being truncated around.
+    -- survive the truncation.
     { "api_key=sk-ant-REALKEY123 " .. string.rep("noise ", 60), "REALKEY123" },
 }
 
@@ -106,21 +104,17 @@ if #long > 210 then
     fail("long text was not capped: " .. #long .. " characters")
 end
 
--- The poller scrubs the whole report inside one async callback, and a callback
--- that overruns its CPU budget is killed by the shell: the reading is lost, not
--- merely late. So the cost of a scrub is asserted, not just its output.
+-- The poller scrubs the whole report inside one async callback, and the shell
+-- kills a callback that overruns its CPU budget: the reading is lost, not just
+-- late. So the cost is asserted, not only the output.
 --
--- The meter is `string.gsub`: every pattern in safeText runs through it, and the
--- work happens inside the C matcher, where an instruction-count hook sees
--- nothing. Counting the calls and the bytes handed to them measures the two
--- things that made the 1.2.0 scrubber overrun — a keyword opening all four
--- keywords' substitutions, and the length cap running after them instead of
--- before.
+-- The meter is `string.gsub`, which every pattern in safeText runs through. The
+-- work itself happens inside the C matcher, where an instruction-count hook sees
+-- nothing, so what gets counted is the calls and the bytes handed to them.
 --
--- The report below is the shape of a real `usage --json`: four vendors, six
+-- The report below has the shape of a real `usage --json`: four vendors, six
 -- metrics each, and the credential error the CLI writes for a provider it has no
--- key for — the string that opens the redaction patterns on an otherwise healthy
--- run.
+-- key for, which is the string that opens the redaction patterns.
 local function sampleReport()
     local entries = {}
     for _, vendor in ipairs({ "anthropic", "openai", "zai", "openrouter" }) do
@@ -163,12 +157,12 @@ end
 scrub(sampleReport())
 string.gsub = realGsub
 
--- Bytes, not calls: the count barely moves, because normalising whitespace is one
--- gsub per string either way. What moved is how much text the redaction patterns
--- were handed — 37352 bytes for this report in 1.2.0, against 17664 now. The
--- ceiling sits between the two, close enough that widening the gate back to all
--- four keywords at once (22400) trips it as surely as putting the length cap back
--- after the patterns (37352) does.
+-- Bytes, not calls: the count barely moves, since normalising whitespace is one
+-- gsub per string either way. What moves is how much text the patterns are handed,
+-- 37352 bytes for this report before the rewrite against 17664 after. The ceiling
+-- sits between the two, near enough that widening the gate back to all four
+-- keywords at once (22400) trips it as surely as moving the cap back after the
+-- patterns (37352).
 local MAX_BYTES = 20000
 if bytes > MAX_BYTES then
     fail("the redaction patterns were handed " .. bytes .. " bytes of a four-vendor report"
