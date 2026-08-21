@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "poll_interval_ms": {
+      "label": "Polling Interval (ms)",
+      "description": "How often to read hardware fan sensors"
+    },
+    "show_label": {
+      "label": "Show Label",
+      "description": "Show RPM or profile text next to the fan icon"
+    },
+    "display_mode": {
+      "label": "Display Mode",
+      "description": "Whether to display live RPM, active profile, or both",
+      "options": {
+        "rpm": "Live RPM",
+        "profile": "Profile Name",
+        "both": "Both"
+      }
+    }
+  },
+  "tooltip": {
+    "cpu_fan": "CPU Fan",
+    "gpu_fan": "GPU Fan",
+    "profile": "Profile"
+  }
+}
