@@ -27,8 +27,8 @@ operation, so all authentication stays in your normal OBS configuration.
 
 The panel opens on **My Projects**: every project you maintain, plus every
 project where you are listed as a package maintainer on OBS. Search filters the
-list, and the sort button toggles A-Z / Z-A order. The pen icon edits the
-project metadata (`osc meta prj -e`).
+list, and the sort button toggles A-Z / Z-A order. The **pen** icon edits the
+project metadata (`osc meta prj -e`), and the **external link** icon opens the project page on OBS.
 
 ### Inside a project
 
@@ -60,6 +60,7 @@ its actions:
   server-side service runs, and a confirmation is not required.
 - **Rebuild package** — pick a repository and architecture (or **All**) and trigger `osc rebuild`. Confirmation is required before it runs.
 - **Build Status** — Shows real-time build results for the package across all repositories and architectures. Click **Refresh status** to pull latest results.
+- **Open in OBS** — Opens the package page in your browser.
 - **Edit package meta** — `osc meta pkg -e` in a terminal.
 - **Remove package** — deletes the checkout from disk only (never touches the
   OBS project); confirm before it runs. If it was the last package in the

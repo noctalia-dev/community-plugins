@@ -48,11 +48,12 @@ Optional:
 - **`swappy`** / **`satty`** — annotation editor (Markup tool)
 - **`gimp`** — fallback annotation editor when swappy/satty are missing
 - **`translate-shell`** (`trans`) — OCR translation
-- **hyprctl** — annotate the focused window (Hyprland only)
+- **hyprctl** — annotate the focused window (Hyprland)
+- **`niri`** — annotate the focused window (Niri)
 
 Compositor support: region tools, measure, annotate and recording work on any
 Wayland compositor with `wlroots` protocols. `Annotate Window` requires Hyprland
-(`hyprctl`).
+(`hyprctl`) or Niri (`niri msg`).
 
 ## Usage
 
@@ -129,7 +130,8 @@ not expose a portable cursor flag, so its behavior depends on the compositor.
 - **Markup** captures the region and opens it in `swappy` (or `satty`). Saving
   happens in that editor; satty saves to your screenshot path automatically.
   **Markup Window** shows a crosshair — click the window you want to annotate
-  and it captures that window (Hyprland only).
+  and it captures that window (Hyprland). On Niri it captures the focused
+  window directly.
 - **Measure** reports the region's pixel size and copies it to the clipboard.
 - **OCR** extracts text and copies it to the clipboard. The result includes the
   capture preview and an editable multiline text area, so you can correct, trim,
@@ -229,7 +231,7 @@ Summary of every service command:
 | `measure` | — | Report a region's pixel size |
 | `annotate` | — | Open a region in the annotation editor |
 | `annotateFullscreen` | — | Annotate the full screen |
-| `annotateWindow` | — | Annotate the focused window (Hyprland only) |
+| `annotateWindow` | — | Annotate the focused window (Hyprland / Niri) |
 | `record` | — | Record a region as GIF |
 | `recordMp4` | — | Record a region as MP4 |
 | `recordFullscreen` | — | Record the full screen as GIF |

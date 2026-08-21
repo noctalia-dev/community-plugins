@@ -197,7 +197,7 @@
   "tooltips": {
     "annotate": "Draw and annotate a region",
     "annotate_fullscreen": "Annotate the entire screen",
-    "annotate_window": "Annotate the focused window (Hyprland)",
+    "annotate_window": "Annotate the focused window",
     "colorpicker": "Pick a color from screen",
     "lens": "Search image with Google Lens",
     "measure": "Measure region size in pixels",
