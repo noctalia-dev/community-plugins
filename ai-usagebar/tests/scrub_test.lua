@@ -4,7 +4,7 @@
 -- request tends to quote the request. safeText is the only thing standing
 -- between that and a rendered label, so it gets a test.
 --
--- The function is read out of service.luau rather than copied here: a copy
+-- The functions are read out of service.luau rather than copied here: a copy
 -- would keep passing after the real one changed.
 --
 --   lua tests/scrub_test.lua      (or luajit)
@@ -21,8 +21,9 @@ local function loadSafeText()
     local source = file:read("*a")
     file:close()
 
-    -- The slice runs from the redaction constants to the end of the function.
-    local chunk = source:match("(local SECRET_VALUE.-\nend)\n")
+    -- The slice runs from the redaction constants through scrub, which is what
+    -- the poller's callback actually calls.
+    local chunk = source:match("(local SECRET_VALUE.-)\nlocal function failure")
     if chunk == nil then
         error("could not find safeText in " .. SOURCE .. "; update the markers here")
     end
@@ -31,14 +32,16 @@ local function loadSafeText()
     local env = {
         string = string,
         ipairs = ipairs,
+        pairs = pairs,
+        type = type,
         tostring = tostring,
         noctalia = { string = { trim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end } },
     }
-    local loaded = load(chunk .. "\nreturn safeText", "safeText", "t", env)
+    local loaded = load(chunk .. "\nreturn safeText, scrub", "scrubber", "t", env)
     return loaded()
 end
 
-local safeText = loadSafeText()
+local safeText, scrub = loadSafeText()
 
 -- Each case names the material that must not survive.
 local SECRETS = {
@@ -53,6 +56,9 @@ local SECRETS = {
     { "authorization: bearer sk-ant-api03-REALKEY", "REALKEY" },
     { "OPENAI_API_KEY sk-proj-REALKEYVALUE not accepted", "REALKEY" },
     { "password=hunter2", "hunter2" },
+    -- The cap runs before the patterns, so a secret in a runaway line has to
+    -- survive being truncated around.
+    { "api_key=sk-ant-REALKEY123 " .. string.rep("noise ", 60), "REALKEY123" },
 }
 
 -- Readings the plugin draws every minute. A scrubber that eats these is worse
@@ -100,9 +106,80 @@ if #long > 210 then
     fail("long text was not capped: " .. #long .. " characters")
 end
 
+-- The poller scrubs the whole report inside one async callback, and a callback
+-- that overruns its CPU budget is killed by the shell: the reading is lost, not
+-- merely late. So the cost of a scrub is asserted, not just its output.
+--
+-- The meter is `string.gsub`: every pattern in safeText runs through it, and the
+-- work happens inside the C matcher, where an instruction-count hook sees
+-- nothing. Counting the calls and the bytes handed to them measures the two
+-- things that made the 1.2.0 scrubber overrun — a keyword opening all four
+-- keywords' substitutions, and the length cap running after them instead of
+-- before.
+--
+-- The report below is the shape of a real `usage --json`: four vendors, six
+-- metrics each, and the credential error the CLI writes for a provider it has no
+-- key for — the string that opens the redaction patterns on an otherwise healthy
+-- run.
+local function sampleReport()
+    local entries = {}
+    for _, vendor in ipairs({ "anthropic", "openai", "zai", "openrouter" }) do
+        local metrics = {}
+        for index = 1, 6 do
+            metrics[index] = {
+                label = "Session (5h)",
+                value = "62% of monthly limit consumed",
+                detail = "Resets in 4h 01m at 12:40",
+                reset_at = "2026-08-20T11:29:59.872624Z",
+                severity = "normal",
+                percent = 62,
+            }
+        end
+        entries[#entries + 1] = {
+            id = vendor,
+            name = vendor,
+            display_name = "Claude Pro",
+            plan = "Claude Pro",
+            status = "ok",
+            stale = false,
+            fetched_at = "2026-08-20T11:29:59.872624Z",
+            metrics = metrics,
+            sections = { { type = "session" }, { type = "weekly" } },
+            error = "credentials error: " .. vendor .. ": no API key. Either set an API key in a"
+                .. " valid environment variable or set `api_key` under [" .. vendor .. "] in the"
+                .. " config file. " .. string.rep("Retry later. ", 40),
+        }
+    end
+    return { entries = entries }
+end
+
+local calls, bytes = 0, 0
+local realGsub = string.gsub
+string.gsub = function(subject, ...)
+    calls = calls + 1
+    bytes = bytes + #subject
+    return realGsub(subject, ...)
+end
+scrub(sampleReport())
+string.gsub = realGsub
+
+-- Bytes, not calls: the count barely moves, because normalising whitespace is one
+-- gsub per string either way. What moved is how much text the redaction patterns
+-- were handed — 37352 bytes for this report in 1.2.0, against 17664 now. The
+-- ceiling sits between the two, close enough that widening the gate back to all
+-- four keywords at once (22400) trips it as surely as putting the length cap back
+-- after the patterns (37352) does.
+local MAX_BYTES = 20000
+if bytes > MAX_BYTES then
+    fail("the redaction patterns were handed " .. bytes .. " bytes of a four-vendor report"
+        .. " in " .. calls .. " gsub calls, past the " .. MAX_BYTES .. " bytes this callback"
+        .. " budgets for")
+end
+
 if failures > 0 then
     io.write(failures, " failure(s)\n")
     os.exit(1)
 end
 
-io.write("ok: ", #SECRETS, " secrets redacted, ", #BENIGN, " readings untouched, length capped\n")
+io.write("ok: ", #SECRETS, " secrets redacted, ", #BENIGN, " readings untouched, length capped, ",
+    calls, " gsub calls over ", bytes, " bytes per report\n")

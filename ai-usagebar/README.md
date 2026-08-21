@@ -155,3 +155,19 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
   keeps showing, flagged in the capsule and in the panel's detail pane.
+
+## Tests
+
+The redaction that stands between the CLI's output and the screen is the one
+part of this plugin worth a test, so it has one. From the `ai-usagebar`
+directory:
+
+```sh
+lua tests/scrub_test.lua
+```
+
+It reads `safeText` and `scrub` out of `service.luau` rather than copying them,
+and checks three things: that a set of real credential shapes never survive, that
+ordinary readings pass through unchanged, and that scrubbing a four-vendor report
+stays inside the CPU budget the poller's async callback is given — an overrun
+there loses the whole reading, not just time.
