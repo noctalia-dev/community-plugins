@@ -77,8 +77,13 @@ start = [ "clock", "ai_usage" ]
   clock time the reset lands on.
 - **Left click** opens the `AI Usage` panel for the provider that capsule
   tracks.
-- **Right click** refreshes immediately.
+- **Right click** asks the poller for a read. One process serves every capsule,
+  and it will not start a second one within two seconds of the last, so holding
+  the button down does not spawn a queue of them.
 - **Middle click** opens the widget's settings, as everywhere else in the shell.
+
+Left and middle are the script's; right is a gesture binding, so it is listed in
+the widget's settings and can be pointed at any other action, or at `none`.
 
 The panel is a two pane view. On the left is every provider you have set up,
 with its headline percentage. On the right is the selected one in detail: one
