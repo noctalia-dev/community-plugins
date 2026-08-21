@@ -20,12 +20,21 @@ end
 -- A secret's value runs until whitespace or the quote or brace that closes it,
 -- so a JSON field loses its value and keeps its punctuation.
 local SECRET_VALUE = "[^%s\"',}]+"
-local SECRET_WORDS = {
-    "[Kk][Ee][Yy]",
-    "[Tt][Oo][Kk][Ee][Nn]",
-    "[Ss][Ee][Cc][Rr][Ee][Tt]",
-    "[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]",
-}
+-- Built once. `scrub` calls safeText on every string in the report — ~165 for a
+-- two-vendor read — and rebuilding these four pattern pairs on each of those
+-- calls cost more than matching them did.
+local SECRET_PATTERNS = {}
+for _, word in ipairs({ "key", "token", "secret", "password" }) do
+    local anyCase = (word:gsub("%a", function(c) return "[" .. c:upper() .. c .. "]" end))
+    local name = "[%w_%-]*" .. anyCase .. "[%w_%-]*"
+    SECRET_PATTERNS[#SECRET_PATTERNS + 1] = {
+        word = word,
+        -- name=value: a query string or a shell assignment.
+        assign = "(" .. name .. "=)" .. SECRET_VALUE,
+        -- name: value: an HTTP header or a JSON field.
+        colon = "(" .. name .. "\"?%s*:%s*\"?)" .. SECRET_VALUE,
+    }
+end
 -- Nine characters before the rest of a provider key, so a bare "sk-" in prose
 -- is not mistaken for one.
 local KEY_TAIL = string.rep("[%w_%-]", 9)
@@ -34,22 +43,23 @@ local function safeText(value)
     local text = noctalia.string.trim(tostring(value or ""))
     text = text:gsub("%s+", " ")
 
-    -- `scrub` runs this over ~165 strings per two-vendor read, and backtracking
-    -- patterns on every one of them exhaust the callback's CPU budget, which
-    -- costs the whole report. So nothing expensive runs until a literal search
-    -- says it could match. The keyword is what opens the gate. A separator will
-    -- not do: `=` and `:` both turn up in ordinary readings, in a ratio, a clock
-    -- time, a URL, so gating on those ran the patterns over almost every string.
+    -- Capped before the redaction runs rather than after. The patterns are the
+    -- expensive part of the callback, and a callback that overruns its CPU
+    -- budget loses the whole report — so the work they do is bounded by what
+    -- the plugin would draw anyway.
+    if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
+
+    -- Nothing expensive runs until a literal search says it could match, and
+    -- each keyword opens only its own two patterns. The keyword is what opens
+    -- the gate. A separator will not do: `=` and `:` both turn up in ordinary
+    -- readings, in a ratio, a clock time, a URL, so gating on those ran the
+    -- patterns over almost every string.
     local lower = text:lower()
 
-    if lower:find("key", 1, true) or lower:find("token", 1, true)
-        or lower:find("secret", 1, true) or lower:find("password", 1, true) then
-        for _, word in ipairs(SECRET_WORDS) do
-            local name = "[%w_%-]*" .. word .. "[%w_%-]*"
-            -- name=value: a query string or a shell assignment.
-            text = text:gsub("(" .. name .. "=)" .. SECRET_VALUE, "%1<redacted>")
-            -- name: value: an HTTP header or a JSON field.
-            text = text:gsub("(" .. name .. "\"?%s*:%s*\"?)" .. SECRET_VALUE, "%1<redacted>")
+    for _, secret in ipairs(SECRET_PATTERNS) do
+        if lower:find(secret.word, 1, true) then
+            text = text:gsub(secret.assign, "%1<redacted>")
+            text = text:gsub(secret.colon, "%1<redacted>")
         end
     end
 
@@ -68,7 +78,6 @@ local function safeText(value)
         text = text:gsub("%f[%w](sk%-)" .. KEY_TAIL .. "[%w_%-]*", "%1<redacted>")
     end
 
-    if #text > 200 then text = string.sub(text, 1, 200) .. "..." end
     return text
 end
 
