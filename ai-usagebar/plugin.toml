@@ -1,7 +1,7 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.1.0"
-plugin_api = 9
+version = "1.3.0"
+plugin_api = 22
 author = "felipeartur"
 license = "MIT"
 icon = "brain"
@@ -35,6 +35,16 @@ entry = "service.luau"
 [[widget]]
 id = "bar"
 entry = "bar.luau"
+
+# Right click asks the poller for a read. Declared rather than handled in
+# bar.luau because a binding is what the settings editor lists and what a user
+# can point somewhere else; an onRightClick callback is neither.
+#
+# Left stays in the script: it sets `selected` before opening the panel, so the
+# panel lands on the provider this capsule tracks, which `panel-toggle` alone
+# cannot do.
+  [widget.actions]
+  right = "plugin felipeartur/ai-usagebar:poller all refresh"
 
 # Per-instance, so a second capsule can track a second provider.
 [[widget.setting]]
