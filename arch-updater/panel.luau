@@ -23,12 +23,47 @@ local armedKey = nil -- rollback button waiting for its confirming second click
 local armedAt = 0 -- when it was armed; the confirm auto-disarms after a while
 local ARM_TIMEOUT_S = 8
 local activityHoverIndex = nil -- activity graph point currently under the pointer
+local changelogOpen = false -- changelog view replaces the sources
+local changelogAutoOpenPending = false -- set with changelogOpen when a just-finished update opened it, so onOpen() doesn't reset it away unseen
 
 local render
 
 local function tr(key, args)
     return noctalia.tr(key, args)
 end
+
+-- CHANGELOG.md, parsed once at load: "## version — date" headers, "- " bullet
+-- lines under each. readFile resolves relative to the plugin directory.
+local function parseChangelog(text)
+    local releases = {}
+    local current = nil
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        local version, date = line:match("^##%s+(%S+)%s*(.-)%s*$")
+        if version ~= nil then
+            -- Strip the "— " (or "- ") separator before the date. Done as a
+            -- literal gsub rather than folded into the match pattern above,
+            -- since Lua patterns treat a multi-byte UTF-8 dash inside a
+            -- character class as a set of individual bytes, not one glyph.
+            date = date:gsub("^—%s*", ""):gsub("^%-%s*", "")
+            current = { version = version, date = date, lines = {} }
+            table.insert(releases, current)
+        elseif current ~= nil then
+            local bullet = line:match("^%-%s+(.*)$")
+            if bullet ~= nil then
+                table.insert(current.lines, bullet)
+            end
+        end
+    end
+    return releases
+end
+
+local changelog = (function()
+    local text = noctalia.readFile("CHANGELOG.md")
+    if type(text) ~= "string" then
+        return {}
+    end
+    return parseChangelog(text)
+end)()
 
 -- extra: a package name string, or a table merged into the request payload
 -- (pkg/version/at for the rollback family).
@@ -768,6 +803,45 @@ local function runViewRows()
     return rows
 end
 
+-- The changelog view: a back button, then one release per entry in
+-- CHANGELOG.md with its bullet points underneath.
+local function changelogRows()
+    local rows = {}
+    table.insert(rows, ui.row({ key = "changelog-head", gap = 6, align = "center" }, {
+        ui.button({
+            glyph = "chevron-left", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+            tooltip = tr("action_back"),
+            onClick = function()
+                changelogOpen = false
+                render()
+            end,
+        }),
+        ui.label({ text = tr("changelog_title"), fontSize = 12, fontWeight = "bold", color = "on_surface", flexGrow = 1, maxLines = 1 }),
+    }))
+    if #changelog == 0 then
+        table.insert(rows, ui.row({ key = "changelog-empty", paddingH = 18 }, {
+            ui.label({ text = tr("changelog_empty"), fontSize = 11, color = "on_surface_variant" }),
+        }))
+        return rows
+    end
+    for ri, release in ipairs(changelog) do
+        local heading = "v" .. release.version
+        if release.date ~= nil and release.date ~= "" then
+            heading = heading .. "  ·  " .. release.date
+        end
+        table.insert(rows, ui.row({ key = "changelog-v" .. ri, gap = 6, align = "center" }, {
+            ui.label({ text = heading, fontSize = 12, fontWeight = "bold", color = "on_surface" }),
+        }))
+        for li, bullet in ipairs(release.lines) do
+            table.insert(rows, ui.row({ key = "changelog-" .. ri .. "-" .. li, paddingH = 10, gap = 6 }, {
+                ui.label({ text = "•", fontSize = 11, color = "on_surface_variant" }),
+                ui.label({ text = bullet, fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 3 }),
+            }))
+        end
+    end
+    return rows
+end
+
 -- Live tail of the update log, with a progress bar while packages are being
 -- processed. Shown during a run and kept on screen after a failed one.
 local function logSection()
@@ -906,9 +980,14 @@ local function body()
     local children = {}
 
     -- The middle of the panel: the live log while updating (and after a
-    -- failure), an opened history run, or the package list.
+    -- failure), the changelog, an opened history run, or the package list.
+    -- The live log always wins over the changelog: a run in progress is more
+    -- urgent than release notes.
     if phaseOf() == "running" or (runFailed() and #logLines() > 0) then
         table.insert(children, logSection())
+    elseif changelogOpen then
+        table.insert(children, ui.scroll({ key = "changelog-view", flexGrow = 1, gap = 4 }, changelogRows()))
+        return children
     else
         local runRows = openedRunAt ~= nil and runViewRows() or nil
         if runRows ~= nil then
@@ -988,6 +1067,17 @@ render = function()
                 end,
             }),
             ui.button({
+                key = "header-changelog" .. (changelogOpen and "-on" or ""),
+                glyph = "history",
+                variant = changelogOpen and "primary" or "ghost",
+                tooltip = tr("tip_changelog"),
+                onClick = function()
+                    changelogOpen = not changelogOpen
+                    armedKey = nil
+                    render()
+                end,
+            }),
+            ui.button({
                 glyph = "close", variant = "ghost", tooltip = tr("tip_close"),
                 onClick = function()
                     panel.close()
@@ -1002,8 +1092,10 @@ render = function()
     end
 
     -- Both footers hide while a check or run is on screen, so neither ever
-    -- competes with the live log for space.
-    local activity = not busy() and activitySection() or nil
+    -- competes with the live log for space. The activity graph also hides
+    -- while the changelog is open: it plots pending-update counts, which
+    -- has nothing to do with release notes.
+    local activity = not busy() and not changelogOpen and activitySection() or nil
     local history = not busy() and historySection() or nil
     if activity ~= nil or history ~= nil then
         table.insert(children, ui.separator({}))
@@ -1050,10 +1142,14 @@ render = function()
             text = tr("action_update"), variant = "primary", enabled = hasUpdates,
             tooltip = backgroundMode and tr("tip_update") or tr("tip_update_terminal"),
             onClick = function()
-                -- The panel stays open: the log section takes over so the
-                -- run can be watched live (the log is tee'd from the
-                -- terminal too).
                 request("update")
+                if not backgroundMode then
+                    -- Terminal mode hands the run off to its own window, so
+                    -- the panel has nothing left to show; background mode
+                    -- keeps it open since the live log is the only place
+                    -- progress is visible.
+                    panel.close()
+                end
             end,
         }))
         table.insert(children, ui.row({ gap = 8, align = "center", justify = "end" }, footer))
@@ -1070,6 +1166,13 @@ function onOpen(_context)
     openedRunAt = nil
     armedKey = nil
     activityHoverIndex = nil
+    -- A fresh auto-open from a just-finished update (see the state watcher
+    -- below) survives this reset once, so it's not discarded before it's
+    -- ever seen; any other reason for opening still defaults to the sources.
+    if not changelogAutoOpenPending then
+        changelogOpen = false
+    end
+    changelogAutoOpenPending = false
     render()
 end
 
@@ -1094,6 +1197,23 @@ noctalia.state.watch(STATE_KEY, function(value)
     if value.phase == "running" and (snapshot == nil or snapshot.phase ~= "running") then
         openedRunAt = nil
         armedKey = nil
+        changelogOpen = false
+    end
+    -- lastUpdateAt only moves for a real, successful update run (never a
+    -- rollback or a plain check, see recordUpdateRun in service.luau), and it
+    -- is bumped the moment the run succeeds, before the auto re-check even
+    -- starts - so a change here is an exact, one-shot "an update just
+    -- finished" signal.
+    local prevUpdateAt = snapshot ~= nil and tonumber(snapshot.lastUpdateAt) or nil
+    local newUpdateAt = tonumber(value.lastUpdateAt)
+    if
+        prevUpdateAt ~= nil
+        and newUpdateAt ~= nil
+        and newUpdateAt ~= prevUpdateAt
+        and noctalia.getConfig("show_changelog_after_update") ~= false
+    then
+        changelogOpen = true
+        changelogAutoOpenPending = true
     end
     snapshot = value
     render()

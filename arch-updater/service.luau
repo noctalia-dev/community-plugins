@@ -36,6 +36,7 @@ local NEWS_FILE = "news_state.json"
 local IGNORE_FILE = "ignore.json"
 local RUNS_FILE = "runs.json"
 local RUN_META_FILE = "run_meta.json"
+local RUN_PID_FILE = "run.pid"
 local ACTIVITY_FILE = "history_state.json" -- upstream's activity-graph data, name kept for compatibility
 local MAX_RUNS = 15 -- update runs kept for the history strip / rollback
 local MAX_RUN_PACKAGES = 100 -- per-run package list cap (storage and state)
@@ -51,6 +52,8 @@ local FAST_TIMEOUT_MS = 5000 -- log tail / reboot check: local filesystem only
 local NEWS_RECHECK_HOURS = 6
 local RUN_POLL_SECONDS = 2
 local RUN_STALE_LIMIT_S = 1800 -- no log growth for this long = the background run is stuck
+local RUN_PID_GRACE_S = 20 -- a terminal run's pidfile has this long to appear before it's given up on
+local TERMINAL_CLOSED_CODE = -2 -- finishRun sentinel: the terminal's process died with no ::EXIT marker
 local RUN_RESUME_MAX_AGE_S = 6 * 3600 -- older unfinished logs are not resumed
 local AUTO_CHECK_DELAY = 10 -- ticks before an enabled auto-check's first run
 local MAX_LISTED = 300 -- packages kept per source for the panel's expandable list
@@ -75,6 +78,8 @@ local runExit = nil -- exit code of the last background run, nil while unknown
 local runDone = 0 -- progress: package lines seen in the log so far
 local runTotal = 0 -- progress: pending count when the run started
 local runStaleS = 0 -- seconds without log growth during a run
+local runStartedAt = 0 -- os.time() the current run began, for the terminal pidfile grace window
+local pidConfirmedAlive = false -- true once a terminal run's pidfile has ever shown a live process
 local logTail = {} -- last log lines for the panel
 local lastTailText = ""
 local sinceCheck = 0
@@ -1108,6 +1113,15 @@ local function runMetaPath()
     return dir ~= nil and (dir .. "/" .. RUN_META_FILE) or nil
 end
 
+-- Written by the terminal run's own shell (echo $$) as its first action, so
+-- pollRunLog can tell a closed terminal window from one legitimately sitting
+-- at a PKGBUILD prompt: the log alone cannot, since closing the window kills
+-- the pipeline before it ever gets to write an ::EXIT marker.
+local function runPidPath()
+    local dir = noctalia.pluginDataDir()
+    return dir ~= nil and (dir .. "/" .. RUN_PID_FILE) or nil
+end
+
 local function saveRunMeta()
     local path = runMetaPath()
     if path == nil then
@@ -1138,6 +1152,10 @@ local function clearRunMeta()
     if path ~= nil then
         noctalia.runAsync("rm -f -- " .. shellQuote(path))
     end
+    local pidPath = runPidPath()
+    if pidPath ~= nil then
+        noctalia.runAsync("rm -f -- " .. shellQuote(pidPath))
+    end
 end
 
 local function beginRun(kind, expectTotal, mode)
@@ -1150,6 +1168,8 @@ local function beginRun(kind, expectTotal, mode)
     runDone = 0
     runTotal = expectTotal or total
     runStaleS = 0
+    runStartedAt = os.time()
+    pidConfirmedAlive = false
     runPollTicks = 0
     logTail = {}
     lastTailText = ""
@@ -1214,7 +1234,12 @@ local function runUpdateTerminal()
         return
     end
     local quoted = shellQuote(path)
-    local wrapped = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
+    -- echo $$ first thing: pollRunLog's pidfile check is how a closed
+    -- terminal window gets noticed at all, since closing it SIGHUPs the
+    -- pipeline before the trailing ::EXIT printf ever runs.
+    local pidPath = runPidPath()
+    local pidWrite = pidPath ~= nil and ("echo $$ > " .. shellQuote(pidPath) .. "; ") or ""
+    local wrapped = pidWrite .. "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
         .. "; { " .. buildTerminalCommand() .. "; printf '::EXIT %s\\n' \"$?\" ; } 2>&1 | tee -a " .. quoted
         .. "; echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1"
     if not launchTerminal(wrapped) then
@@ -1305,6 +1330,13 @@ finishRun = function(code)
         phase = "clean"
         publish()
         startCheck() -- verify: phase becomes checking, then clean/ready
+    elseif code == TERMINAL_CLOSED_CODE then
+        runPackages = nil
+        clearRunMeta()
+        phase = "error"
+        errMsg = tr("err_terminal_closed")
+        publish()
+        noctalia.notifyError(tr("title"), errMsg)
     else
         runPackages = nil
         clearRunMeta()
@@ -1333,6 +1365,20 @@ local function pollRunLog()
     local quoted = shellQuote(path)
     local cmd = "tail -n " .. tostring(keep + 8) .. " " .. quoted .. " 2>/dev/null"
         .. "; printf '::COUNT %s\\n' \"$(grep -cE '^(upgrading|installing|reinstalling|downgrading) |^(Updating|Installing) (app|runtime)/' " .. quoted .. " 2>/dev/null)\""
+    -- A terminal run's pidfile: prints nothing while it hasn't appeared yet
+    -- (still launching), "::ALIVE 1" while the process it names is running,
+    -- "::ALIVE 0" once that process is gone - the only way to notice the
+    -- window was closed, since that kills the pipeline before ::EXIT.
+    if runMode == "terminal" then
+        local pidPath = runPidPath()
+        if pidPath ~= nil then
+            local pidQuoted = shellQuote(pidPath)
+            cmd = cmd
+                .. "; p=$(cat " .. pidQuoted .. " 2>/dev/null)"
+                .. "; if [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null; then printf '::ALIVE 1\\n'"
+                .. "; elif [ -n \"$p\" ]; then printf '::ALIVE 0\\n'; fi"
+        end
+    end
     local started = noctalia.runAsync(cmd, function(result)
         if phase ~= "running" then
             return
@@ -1348,6 +1394,13 @@ local function pollRunLog()
                 if runStaleS >= RUN_STALE_LIMIT_S then
                     finishRun(-1)
                 end
+            elseif not pidConfirmedAlive and os.time() - runStartedAt > RUN_PID_GRACE_S then
+                -- Nothing has changed (no tail growth, no pidfile) since the
+                -- grace window opened and the pidfile has never once shown a
+                -- live process: the terminal never actually started. A run
+                -- already confirmed alive skips this - it may legitimately
+                -- sit idle at a prompt for as long as the user needs.
+                finishRun(TERMINAL_CLOSED_CODE)
             end
             return
         end
@@ -1356,19 +1409,26 @@ local function pollRunLog()
 
         local lines = {}
         local exitCode = nil
+        local aliveMarker = nil
         for line in text:gmatch("[^\n]+") do
             local exitMatch = line:match("^::EXIT (%-?%d+)")
             local countMatch = line:match("^::COUNT (%d+)")
+            local aliveMatch = line:match("^::ALIVE (%d)")
             if exitMatch ~= nil then
                 exitCode = tonumber(exitMatch)
             elseif countMatch ~= nil then
                 runDone = tonumber(countMatch) or runDone
+            elseif aliveMatch ~= nil then
+                aliveMarker = aliveMatch
             elseif line:match("^::START ") == nil then
                 line = stripAnsi(line)
                 if trim(line) ~= "" then
                     table.insert(lines, line)
                 end
             end
+        end
+        if aliveMarker == "1" then
+            pidConfirmedAlive = true
         end
         local tail = {}
         for i = math.max(1, #lines - keep + 1), #lines do
@@ -1378,6 +1438,10 @@ local function pollRunLog()
 
         if exitCode ~= nil then
             finishRun(exitCode)
+        elseif runMode == "terminal" and aliveMarker == "0" then
+            -- The pidfile's process is gone and no ::EXIT ever showed up:
+            -- the terminal window was closed mid-run.
+            finishRun(TERMINAL_CLOSED_CODE)
         else
             publish()
         end

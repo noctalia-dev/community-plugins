@@ -1,12 +1,12 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.0"
+version = "2.0.1"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
 icon = "package"
 description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
-dependencies = ["pacman-contrib", "awk", "date", "flatpak", "grep", "head", "install", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
+dependencies = ["pacman-contrib", "awk", "cat", "date", "flatpak", "grep", "head", "install", "kill", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -115,6 +115,13 @@ options = [
   { value = "terminal", label_key = "settings.update_mode.options.terminal" },
   { value = "background", label_key = "settings.update_mode.options.background" },
 ]
+
+[[setting]]
+key = "show_changelog_after_update"
+type = "bool"
+label_key = "settings.show_changelog_after_update.label"
+description_key = "settings.show_changelog_after_update.description"
+default = true
 
 [[setting]]
 key = "rollback_auto_ignore"

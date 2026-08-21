@@ -35,6 +35,8 @@
   "action_run_terminal": "Retry in terminal",
   "action_update": "Update",
   "caption_checked": "checked {time}",
+  "changelog_empty": "No changelog available",
+  "changelog_title": "What's new",
   "caption_ignored": {
     "one": "1 package ignored",
     "other": "{count} packages ignored"
@@ -49,6 +51,7 @@
   "err_no_xdg_open": "xdg-open not found, cannot open the package page",
   "err_polkit_install": "Could not install the polkit rule, see the system log for details",
   "err_run_failed": "Update failed (exit {code}), check the log or retry in a terminal",
+  "err_terminal_closed": "The terminal window closed before the update finished, check the log or retry in a terminal",
   "err_spawn": "Could not run checkupdates",
   "history_rollback_tag": "rollback",
   "history_title": "Update history",
@@ -160,6 +163,10 @@
       "description": "After a successful rollback, add the rolled-back packages to the plugin's ignore list so the next check does not immediately offer them again.",
       "label": "Ignore packages after a rollback"
     },
+    "show_changelog_after_update": {
+      "description": "Open the panel's changelog automatically once an update run finishes successfully.",
+      "label": "Show changelog after updating"
+    },
     "show_count": {
       "description": "Show the number of pending updates next to the bar glyph.",
       "label": "Show the update count"
@@ -206,6 +213,7 @@
   "status_rolling_back": "Rolling back in the background…",
   "status_running": "Updating in the background…",
   "status_running_terminal": "Updating in a terminal window…",
+  "tip_changelog": "See what's new in each release",
   "tip_check": "Check for updates now",
   "tip_close": "Close",
   "tip_copy": "Copy name and versions",
