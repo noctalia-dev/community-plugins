@@ -77,22 +77,47 @@ local function callback(prefix, fn)
 end
 
 local KEY_LABELS = {
-  XF86AudioRaiseVolume = "Vol Up",
-  XF86AudioLowerVolume = "Vol Down",
-  XF86AudioMute = "Mute",
-  XF86AudioMicMute = "Mic Mute",
-  XF86MonBrightnessUp = "Bright Up",
-  XF86MonBrightnessDown = "Bright Down",
-  XF86AudioPlay = "Play/Pause",
-  XF86AudioPause = "Pause",
-  XF86AudioNext = "Next",
-  XF86AudioPrev = "Previous",
-  Print = "PrtSc",
-  Prior = "PgUp",
-  Next = "PgDn",
-  Return = "Enter",
-  Escape = "Esc",
+  xf86audioraisevolume = "Vol Up",
+  xf86audiolowervolume = "Vol Down",
+  xf86audiomute = "Mute",
+  xf86audiomicmute = "Mic Mute",
+  xf86monbrightnessup = "Bright Up",
+  xf86monbrightnessdown = "Bright Down",
+  xf86audioplay = "Play/Pause",
+  xf86audiopause = "Pause",
+  xf86audionext = "Next",
+  xf86audioprev = "Previous",
+  print = "PrtSc",
+  prtsc = "PrtSc",
+  prior = "PgUp",
+  page_up = "PgUp",
+  pageup = "PgUp",
+  next = "PgDn",
+  page_down = "PgDn",
+  pagedown = "PgDn",
+  ["return"] = "Enter",
+  enter = "Enter",
+  escape = "Esc",
+  esc = "Esc",
   space = "Space",
+  backspace = "Backspace",
+  delete = "Del",
+  del = "Del",
+  insert = "Ins",
+  ins = "Ins",
+  tab = "Tab",
+  home = "Home",
+  ["end"] = "End",
+  caps_lock = "CapsLock",
+  capslock = "CapsLock",
+  num_lock = "NumLock",
+  numlock = "NumLock",
+  scroll_lock = "ScrollLock",
+  scrolllock = "ScrollLock",
+  up = "↑",
+  down = "↓",
+  left = "←",
+  right = "→",
   btn_left = "Mouse Left",
   btn_right = "Mouse Right",
   btn_middle = "Mouse Middle",
@@ -101,7 +126,12 @@ local KEY_LABELS = {
 }
 
 local function formatKey(key)
-  return KEY_LABELS[key] or key:gsub("^mouse:", "Mouse ")
+  if key == nil or key == "" then return "" end
+  local exact = KEY_LABELS[key]
+  if exact ~= nil then return exact end
+  local lowered = KEY_LABELS[lower(key)]
+  if lowered ~= nil then return lowered end
+  return key:gsub("^mouse:", "Mouse ")
 end
 
 local function niriCategoryFor(action)
@@ -878,6 +908,7 @@ local function lifecycleState()
 end
 
 return {
+  formatKey = formatKey,
   bindingAvailableInView = bindingAvailableInView,
   bindingContentOpacity = bindingContentOpacity,
   hiddenBindingCount = hiddenBindingCount,
