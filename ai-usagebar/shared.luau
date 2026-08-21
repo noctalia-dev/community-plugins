@@ -28,6 +28,14 @@ M.GLYPHS = {
     gemini = "brand-google",
 }
 
+-- Ask the poller for a read. It only looks at `action`; `at` is never read, and
+-- is there so two requests in a row are not the same value. nowMs is the only
+-- sub-second clock the API has, so os.time() would stamp two clicks in the same
+-- second identically.
+function M.requestRefresh()
+    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
+end
+
 -- Anything else in the `error` slot means no failure.
 M.NO_FAILURE = { code = "", detail = "" }
 

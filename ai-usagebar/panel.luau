@@ -10,6 +10,7 @@ local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local elapsedPercent = shared.elapsedPercent
+local requestRefresh = shared.requestRefresh
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
@@ -273,10 +274,6 @@ end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
 
-local function requestRefresh()
-    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
-end
-
 -- The CLI's own words come last and smallest, where a bug report can quote them.
 local function errorBlock()
     local key = "ui.error." .. failure.code
@@ -520,7 +517,7 @@ end)
 function onOpen(_context)
     -- Every open asks for fresh numbers. The CLI answers from its own cache when it
     -- has one, and the poller drops requests that arrive too close together.
-    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
+    requestRefresh()
     report = noctalia.state.get("report")
     failure = asFailure(noctalia.state.get("error"))
     polling = noctalia.state.get("polling") == true

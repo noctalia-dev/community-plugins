@@ -18,6 +18,7 @@ local GLYPHS = shared.GLYPHS
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
+local requestRefresh = shared.requestRefresh
 
 local failure = NO_FAILURE
 
@@ -285,7 +286,7 @@ function onClick()
 end
 
 function onRightClick()
-    noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
+    requestRefresh()
 end
 
 report = noctalia.state.get("report")
