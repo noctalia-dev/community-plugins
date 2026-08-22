@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "delay": {
+      "description": "Select the refresh rate (1 == 0.1s)",
+      "label": "Refresh rate"
+    },
+    "sort_column_background": {
+      "description": "Select the background color for the sort column",
+      "label": "Sort column background"
+    },
+    "sort_column_color": {
+      "description": "Select the text color for the sort column",
+      "label": "Sort column text color"
+    }
+  },
+  "nvtop": {
+    "nodata": "No data available",
+    "gpu_clock": "GPU Clock",
+    "memory_clock": "Memory Clock",
+    "gpu_load": "GPU Load",
+    "fan_speed": "Fan Speed",
+    "power": "Power",
+    "temperature": "Temperature",
+    "memory_used": "Memory Used",
+    "memory_free": "Memory Free",
+    "memory_total": "Memory Total",
+    "process": {
+      "pid": {
+        "label": "PID",
+        "tip": "Process ID"
+      },
+      "gpu_usage": {
+        "label": "GPU",
+        "tip": "GPU Usage"
+      },
+      "encode": {
+        "label": "ENC",
+        "tip": "Video Encoder Usage"
+      },
+      "decode": {
+        "label": "DEC",
+        "tip": "Video Decoder Usage"
+      },
+      "gpu_mem": {
+        "label": "VRAM",
+        "tip": "GPU Memory Usage"
+      },
+      "cmdline": {
+        "label": "Command Line",
+        "tip": "Process Command Line"
+      }
+    }
+  }
+}
