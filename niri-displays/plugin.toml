@@ -7,7 +7,7 @@ license = "MIT"
 dependencies = ["niri"]
 tags = ["bar", "niri", "panel", "service", "system", "utility"]
 icon = "device-desktop"
-description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, and scale."
+description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, scale, rotation, and position."
 
 [[setting]]
 key = "scale_presets"

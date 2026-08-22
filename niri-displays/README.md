@@ -1,6 +1,6 @@
 # Niri Displays
 
-Inspect connected outputs and make temporary display changes directly from Noctalia. The plugin uses Niri's IPC to expose resolution, refresh-rate, scale, and focused-output state.
+Inspect connected outputs and make temporary display changes directly from Noctalia. The plugin uses Niri's IPC to expose resolution, refresh-rate, scale, rotation (transform), position, and focused-output state.
 
 ## Plugin
 
@@ -19,7 +19,7 @@ Inspect connected outputs and make temporary display changes directly from Nocta
 
 Enable `raycursive/niri-displays` in **Settings → Plugins**, then add the `bar` entry from **Settings → Bar → Widgets**. The `displays` service starts automatically, watches Noctalia's output-change hook, and uses slow polling as a recovery fallback.
 
-Click the bar widget to open the `panel` entry. Each connected output shows its connector, make/model, focused state, current mode, refresh rate, and scale. Select a mode or refresh rate reported by Niri, or drag the scale slider, to apply a temporary change.
+Click the bar widget to open the `panel` entry. Each connected output shows its connector, make/model, focused state, current mode, refresh rate, scale, rotation, and position. Select a mode, refresh rate, or rotation reported by Niri, adjust the position, or drag the scale slider, to apply a temporary change.
 
 Open the panel without the bar widget with:
 
@@ -69,7 +69,7 @@ noctalia msg plugin raycursive/niri-displays:displays all dump
 
 ## Notes
 
-- Discovery spawns `niri msg --json outputs` and `niri msg --json focused-output`. Changes spawn `niri msg output <connector> mode ...` or `niri msg output <connector> scale ...`.
+- Discovery spawns `niri msg --json outputs` and `niri msg --json focused-output`. Changes spawn `niri msg output <connector> mode ...`, `niri msg output <connector> scale ...`, `niri msg output <connector> transform ...`, or `niri msg output <connector> position ...`.
 - Niri intentionally does not persist these IPC changes to `config.kdl`. A Niri restart or a later configuration reload can restore configured values; keep permanent defaults in your Niri configuration.
 - A matching scale preset can change output scale automatically when the service starts, reloads, detects a resolution change, or receives a settings change.
 - The plugin does not write files or make network requests. Command errors are shown without discarding the last successful in-memory output snapshot.
