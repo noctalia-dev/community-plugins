@@ -10,6 +10,13 @@
   "err_spawn": "Could not run nmcli",
   "err_timeout": "Timed out applying the DNS change (authorization prompt left unanswered?)",
   "err_unknown_provider": "Unknown provider id: {id}",
+  "menu": {
+    "apply": "Apply this provider",
+    "copy": "Copy these addresses",
+    "reapply": "Re-apply this provider",
+    "test": "Look up {name} through this resolver",
+    "test_hint": "Type a hostname below to look it up here"
+  },
   "resolve_busy": "Resolving…",
   "resolve_empty": "No records found",
   "resolve_invalid": "Enter a valid hostname",
