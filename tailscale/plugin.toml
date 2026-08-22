@@ -2,7 +2,7 @@
 
 id = "davemhammer/tailscale"
 name = "Tailscale"
-version = "1.0.6"
+version = "1.0.7"
 plugin_api = 10
 author = "davemhammer"
 license = "MIT"

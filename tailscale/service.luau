@@ -96,7 +96,8 @@ end
 
 -- Same rule as `tailscale status` (text): unused Mullvad exits belong on
 -- `exit-node list`, not in Peer. `--json` does not apply this, and the raw
--- dump is large enough to trip Noctalia's 25ms plugin CPU budget.
+-- dump is large enough to trip Noctalia's 25ms plugin CPU budget. After the
+-- Peer filter, drop unused fields (sshHostKeys, CapMap, …) so decode stays small.
 local function statusJsonCommand(bin)
   local jq = [[
     .Peer |= with_entries(select(
@@ -104,6 +105,15 @@ local function statusJsonCommand(bin)
       or (.value.ExitNode == true)
       or ((.value.DNSName // "") | endswith("mullvad.ts.net.") | not)
     ))
+    | {
+        BackendState, Version, TailscaleIPs, MagicDNSSuffix, Health,
+        CurrentTailnet, ExitNodeStatus,
+        Self: ((.Self // {}) | {ID, HostName, DNSName, Online, OS, Relay, ExitNodeOption, TailscaleIPs}),
+        Peer: ((.Peer // {}) | with_entries(.value |= {
+          ID, HostName, DNSName, Online, Active, OS, Relay,
+          ExitNode, ExitNodeOption, TailscaleIPs, RxBytes, TxBytes, LastSeen
+        }))
+      }
   ]]
   return shellCommand({ bin, "status", "--json" }) .. " | jq -c " .. shellQuote(jq)
 end
@@ -518,6 +528,7 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
   refreshStartedAt = 0
   noctalia.setUpdateInterval(refreshIntervalMs())
 
+  local prevRev = snapshot.revision
   updateRevision(table.concat({
     snapshot.backendState,
     snapshot.ipv4,
@@ -528,7 +539,9 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
     asString(snapshot.runSSH),
     asString(snapshot.advertiseExitNode),
   }, "|"))
-  publishSnapshot()
+  if snapshot.revision ~= prevRev then
+    publishSnapshot()
+  end
 end
 
 refreshAll = function()
