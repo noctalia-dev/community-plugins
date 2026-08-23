@@ -16,7 +16,6 @@
     "filter_paused": "Durdurulan",
     "filter_planning": "Planlanan",
     "filter_reading": "Okunan",
-    "filter_repeating": "Tekrar eden",
     "filter_rereading": "Tekrar okunan",
     "filter_rewatching": "tekrar izlemek",
     "increment": "Sonraki bölüm",
@@ -27,5 +26,51 @@
     "logout": "Oturumu kapat",
     "mark_complete": "Tamamla",
     "open_anilist": "AniList'te aç"
+  },
+  "service": {
+    "network_error": "AniList'e ulaşılamadı.",
+    "not_configured": "Eklenti ayarlarından AniList istemci kimliği (client ID) ve istemci sırrını (client secret) ayarlayın.",
+    "oauth_busy": "Zaten devam eden bir giriş işlemi var.",
+    "oauth_failed": "Tarayıcı ile giriş başarısız oldu.",
+    "oauth_unavailable": "Yerel giriş yardımcısı başlatılamadı. python3 yüklü mü?"
+  },
+  "settings": {
+    "access_token": {
+      "description": "Halihazırda bir taşıyıcı belirteciniz (bearer token) varsa tarayıcı girişini atlayın. Genellikle boş bırakılır.",
+      "label": "Erişim belirteci (isteğe bağlı)"
+    },
+    "client_id": {
+      "description": "AniList geliştirici uygulaması istemci kimliğiniz (anilist.co/settings/developer). Yönlendirme URL'si http://127.0.0.1:7823/callback olmalıdır.",
+      "label": "İstemci Kimliği (Client ID)"
+    },
+    "client_secret": {
+      "description": "Aynı AniList uygulamasının istemci sırrı. Asla herkese açık paylaşmayın — her kullanıcı kendi uygulamasını kullanmalıdır.",
+      "label": "İstemci Sırrı (Client Secret)"
+    },
+    "count_mode": {
+      "description": "Çubuk simgesinin yanında hangi sayının gösterileceği.",
+      "label": "Çubuk sayısı",
+      "options": {
+        "completed": "Tamamlanan (anime)",
+        "current": "İzleniyor (devam eden anime)",
+        "in_progress": "Devam eden (anime + manga)",
+        "planning": "Planlanan (anime)",
+        "total": "Toplam (tüm animeler)"
+      }
+    },
+    "glyph": {
+      "label": "Çubuk simgesi"
+    }
+  },
+  "widget": {
+    "tooltip_completed": "{count} anime tamamlandı",
+    "tooltip_current": "{count} anime izleniyor",
+    "tooltip_empty": "AniList — kütüphaneyi aç",
+    "tooltip_error": "AniList — {error}",
+    "tooltip_in_progress": "{count} devam eden (anime + manga)",
+    "tooltip_loading": "AniList — yükleniyor…",
+    "tooltip_oauth": "AniList — tarayıcıdan giriş bekleniyor…",
+    "tooltip_planning": "{count} anime planlandı",
+    "tooltip_total": "Listenizde {count} anime var"
   }
 }

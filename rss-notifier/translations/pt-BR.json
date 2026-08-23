@@ -14,7 +14,7 @@
     },
     "notify_new": {
       "description": "Mostra uma notificação para cada item novo encontrado nos feeds.",
-      "label": "Notificar novos itens"
+      "label": "Notificar sobre novos itens"
     },
     "refresh_minutes": {
       "description": "Frequência com que os feeds são checados em busca de novidades.",

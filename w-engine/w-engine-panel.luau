@@ -30,40 +30,12 @@ local columns = 4
 local previewWidth = 168
 local previewHeight = 93
 
+local PAGE_SIZE = 48
+local actualPage = 1
+
 local workshopRoot = nil
 local catalog = nil -- cached: the grid re-renders far more often than the disk changes
 local catalogStamp = nil -- mtime of the Workshop dir the cache was built from
-
-local isOpen = false
-local outputName = nil
-local multiSelect = false
-local selected = {} -- ids, in the order they were picked
-local minutesText = "15"
-local order = "sequential"
-local status = {}
-
--- Per-wallpaper configuration view.
-local view = "grid" -- "grid" | "config" | "defaults"
-local configId = nil
-local configName = ""
-local configProps = {}
-local engineDraft = {} -- working copy of options[id].engine
-local propsDraft = {}  -- working copy of options[id].properties
-local showUnlabeled = false
-
--- Global defaults view.
-local defaultsDraft = {} -- working copy of defaults.engine
-local clearOverrides = false
-
-type Wallpaper = {
-	nb: string,
-	name: string,
-	path: string,
-}
-
-local thumbsRequested = false
-
--- Forward declaration: callbacks defined above the rendering section redraw
 -- through this.
 local render
 
@@ -139,11 +111,18 @@ local function requestThumbnails(thumbs)
 	end, 60000)
 end
 
-local function loadCatalog(): { Wallpaper }
+local function isInTranch(index, actualPage)
+	if actualPage == 0 then
+		return false
+	end
+	local checkMax = PAGE_SIZE * actualPage
+	local checkMin = checkMax - PAGE_SIZE
+	return index > checkMin and index <= checkMax
+end
+
+local function loadCatalog(actualPage): { Wallpaper }
 	local items = {}
 	workshopRoot = nil
-	-- Several stock locations can exist at once, and last match wins, so a
-	-- personnalPath entry takes precedence.
 	for _, path in ipairs(candidateRoots()) do
 		if noctalia.listDir(path) then
 			workshopRoot = path
@@ -163,36 +142,47 @@ local function loadCatalog(): { Wallpaper }
 
 	local thumbs = thumbDir()
 	local missing = false
+	local numericIndex = 0
+
 	for _, entryName in entries do
-		if tonumber(entryName) then -- Workshop items are numeric ids
-			local content = noctalia.readFile(workshopRoot .. entryName .. "/project.json")
-			if content then
-				local value = noctalia.json.decode(content)
-				if type(value) == "table" then
-					-- Prefer the cached still: Workshop previews are often animated
-					-- GIFs, which the grid would decode and animate for as long as
-					-- the panel is open.
-					local path = workshopRoot .. entryName .. "/" .. (value.preview or "preview.jpg")
-					local thumb = thumbs and (thumbs .. "/" .. entryName .. ".jpg") or nil
-					if thumb and noctalia.fileExists(thumb) then
-						path = thumb
-					else
-						missing = true
+		if tonumber(entryName) then  -- check if is workshop id
+			numericIndex = numericIndex + 1
+			if isInTranch(numericIndex, actualPage) then
+				local content = noctalia.readFile(workshopRoot .. entryName .. "/project.json")
+				if content then
+					local value = noctalia.json.decode(content)
+					if type(value) == "table" then
+						-- Prefer the cached still: Workshop previews are often animated
+						-- GIFs, which the grid would decode and animate for as long as
+						-- the panel is open.
+						local path = workshopRoot .. entryName .. "/" .. (value.preview or "preview.jpg")
+						local thumb = thumbs and (thumbs .. "/" .. entryName .. ".jpg") or nil
+						if thumb and noctalia.fileExists(thumb) then
+							path = thumb
+						else
+							missing = true
+						end
+						table.insert(items, {
+							nb = entryName,
+							name = value.title or entryName,
+							path = path,
+						})
 					end
-					table.insert(items, {
-						nb = entryName,
-						name = value.title or entryName,
-						path = path,
-					})
+				else
+					noctalia.notify(tr("panel.title"), tr("panel.missing_project_json", { name = entryName }))
 				end
-			else
-				noctalia.notify(tr("panel.title"), tr("panel.missing_project_json", { name = entryName }))
 			end
 		end
 	end
 
 	if missing then
 		requestThumbnails(thumbs)
+	end
+
+	if #items == 0 then
+		actualPage = actualPage - 1
+		noctalia.notify(tr("plugin_name") ,tr("no_more_page"))
+		render()
 	end
 	return items
 end
@@ -1308,7 +1298,7 @@ render = function()
 	if not isOpen then
 		return
 	end
-	catalog = catalog or loadCatalog()
+	catalog = catalog or loadCatalog(actualPage)
 	if view == "defaults" then
 		panel.render(defaultsView())
 		return
@@ -1349,6 +1339,8 @@ render = function()
 
 	-- Single scroll for all list (Wallpaper and Favorite Wallpaper)
 	local scrollContent = {}
+
+	-- Favorite list part
 	table.insert(scrollContent, ui.label({ text = "Favorites", fontSize = 13, fontWeight = "bold", color = "on_surface" }))
 	if #FavoriteList == 0 then
 		table.insert(scrollContent, ui.label({ text = "No favorite", fontSize = 12, color = "on_surface_variant" }))
@@ -1362,6 +1354,7 @@ render = function()
 		ui.separator({ spacing = 12 }
 	))
 
+	-- All list part
 	table.insert(scrollContent,
 		ui.label({ text = "All wallpapers", fontSize = 13, fontWeight = "bold", color = "on_surface" }
 	))
@@ -1372,6 +1365,38 @@ render = function()
 
 	table.insert(body,
 		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, scrollContent))
+
+
+	table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+		ui.button({
+			text = "previous page",
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = function()
+				if actualPage > 1 then
+					actualPage = actualPage - 1
+					catalog = nil
+					render()
+				end
+			end,
+		}),
+		ui.button({
+			text = tostring(actualPage),
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = "",
+		}),
+		ui.button({
+			text = "next page",
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = function()
+				actualPage = actualPage + 1
+				catalog = nil
+				render()
+			end,
+		}),
+	}))
 
 	panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
 end

@@ -101,6 +101,13 @@ class DualTokenHeaderTests(unittest.TestCase):
         self.assertIn('self._session.headers["apptoken"]', text)
         self.assertIn('self._session.headers["apitoken"]', text)
 
+    def test_artwork_cdn_fetch_is_tokenless(self) -> None:
+        source = Path(__file__).resolve().parent / "cider_bridge.py"
+        text = source.read_text(encoding="utf-8")
+        # Remote CDN must not reuse the Cider-token Session (ItsLemmy review).
+        self.assertIn("resp = requests.get(url, timeout=10)", text)
+        self.assertNotIn("self._session.get(url, timeout=10)", text)
+
 
 if __name__ == "__main__":
     unittest.main()

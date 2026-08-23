@@ -132,7 +132,7 @@ noctalia msg plugin mdj2812/mihomo-control:service all self-test
 ## Development
 
 - `service.luau` — headless API backend, publishes `mihomo.*` state.
-- `group_logic.lua` — pure helpers for group ordering and traffic dedup (unit-tested).
+- `group_logic.luau` — pure helpers for group ordering and traffic dedup (unit-tested).
 - `widget.luau` — bar widget (rates + tooltip).
 - `panel.luau` — control panel.
 - `shortcut.luau` — rule/global mode toggle.

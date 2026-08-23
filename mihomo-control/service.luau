@@ -44,15 +44,7 @@ local function require_group_logic()
   if group_logic ~= nil then
     return group_logic
   end
-  local source, err = noctalia.readFile("group_logic.lua")
-  if source == nil then
-    error("failed to read group_logic.lua: " .. tostring(err))
-  end
-  local chunk, load_err = load(source, "@group_logic.lua")
-  if chunk == nil then
-    error("failed to load group_logic.lua: " .. tostring(load_err))
-  end
-  group_logic = chunk()
+  group_logic = require("./group_logic.luau")
   return group_logic
 end
 
@@ -669,7 +661,7 @@ local function run_self_test(quiet)
   logic.apply_group_order(ordered, { "beta", "alpha" })
   check(
     "apply_group_order",
-    ordered[1].name == "beta" and ordered[2].name == "alpha" and ordered[3].name == "zeta",
+    ordered[1].name == "beta" and ordered[2].name == "alpha" and ordered[3].name == "zeta"
   )
 
   local reordered, order = logic.reorder_groups({
@@ -681,7 +673,7 @@ local function run_self_test(quiet)
 
   check(
     "traffic_changed",
-    logic.traffic_changed({ up = 1, down = 2, upTotal = 3, downTotal = 4 }, { up = 9, down = 2, upTotal = 3, downTotal = 4 }),
+    logic.traffic_changed({ up = 1, down = 2, upTotal = 3, downTotal = 4 }, { up = 9, down = 2, upTotal = 3, downTotal = 4 })
   )
 
   check("interval_at_load", interval_applied_at_load)

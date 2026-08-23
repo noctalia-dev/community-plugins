@@ -17,13 +17,82 @@
     "filter_dropped": "Abgebrochen",
     "filter_paused": "Pausiert",
     "filter_planning": "Geplant",
+    "filter_planning_manga": "Geplant zu lesen",
+    "filter_reading": "Lesen",
     "filter_rereading": "Erneut lesen",
     "filter_rewatching": "Wiederholen",
+    "increment": "Nächste Folge/Kapitel",
+    "loading": "Listen werden geladen...",
+    "loading_more": "Lade mehr Einträge...",
+    "loading_progress": "Listen werden geladen... {anime} Anime, {manga} Manga",
     "logged_in_as": "Angemeldet als {name}",
     "login_help": "Gib deine Client ID und dein Client Secret in den Plugin Einstellungen ein und klicke auf Verbinden. Dein Browser wird geöffnet, du autorisierst AniList und das Plugin schließt die Anmeldung ab. ",
     "login_title": "Bei AniList anmelden",
     "login_waiting": "Warten auf Browser-Anmeldung…",
     "logout": "Abmelden",
-    "mark_complete": "Abschließen"
+    "mark_complete": "Abschließen",
+    "next_episode": "Folge {episode} in Kürze",
+    "open_anilist": "Auf AniList öffnen",
+    "progress_anime": "Folge {current}/{total}",
+    "progress_anime_unknown": "Folge {current}",
+    "progress_manga": "Kapitel {current}/{total}",
+    "progress_manga_unknown": "Kapitel {current}",
+    "refresh": "Liste neu laden",
+    "refreshing": "Wird aktualisiert…",
+    "settings": "Plugin Einstellungen",
+    "tab_anime": "Anime",
+    "tab_manga": "Manga",
+    "title": "AniList (Inoffiziell)",
+    "updating": "Aktualisiere..."
+  },
+  "service": {
+    "empty_response": "AniList hat eine leere Antwort zurückgegeben",
+    "invalid_response": "AniList hat eine unlesbare Antwort zurückgegeben",
+    "invalid_token": "Ungültiger oder abgelaufener Zugriffstoken",
+    "mutation_failed": "Update fehlgeschlagen",
+    "network_error": "AniList konnte nicht erreicht werden",
+    "not_configured": "Lege AniList Client ID und Client Secret in den Plugin Einstellungen fest",
+    "oauth_busy": "Der Anmeldevorgang läuft bereits",
+    "oauth_failed": "Browser Login fehlgeschlagen",
+    "oauth_unavailable": "Der lokale Anmelde-Helper konnte nicht gestartet werden. Ist Python 3 installiert?"
+  },
+  "settings": {
+    "access_token": {
+      "description": "Überspringe die Browser-Anmeldung wenn du bereits einen Bearer Token hast. Normalerweise leer lassen",
+      "label": "Zugriffs Token (optional)"
+    },
+    "client_id": {
+      "description": "Deine AniList Entwickler App Client ID (anilist.co/settings/developer). Weiterleitungs-URL muss http://127.0.0.1:7823/callback sein",
+      "label": "Client ID"
+    },
+    "client_secret": {
+      "description": "das Client Secret von der gleichen AniList App. Gib es niemals öffentlich weiter — jeder Nutzer sollte seine eigene App nutzen",
+      "label": "Client Secret"
+    },
+    "count_mode": {
+      "description": "Welche Zahl soll neben dem Bar-Symbol angezeigt werden?",
+      "label": "Anzahl",
+      "options": {
+        "completed": "Abgeschlossen {anime}",
+        "current": "Ansehen (Anime am Schauen)",
+        "in_progress": "Am Schauen/Lesen (Anime + Manga)",
+        "planning": "Geplant (Anime)",
+        "total": "Gesamt (Alle Anime)"
+      }
+    },
+    "glyph": {
+      "label": "Bar-Symbol"
+    }
+  },
+  "widget": {
+    "tooltip_completed": "{count} Anime angeschlossen",
+    "tooltip_current": "{count} Anime am Schauen",
+    "tooltip_empty": "AniList — Bibliothek öffnen",
+    "tooltip_error": "AniList — {error}",
+    "tooltip_in_progress": "{count} Am Schauen (Anime + Manga)",
+    "tooltip_loading": "AniList — Wird geladen...",
+    "tooltip_oauth": "AniList — Warte auf Browser-Login...",
+    "tooltip_planning": "{count} Anime geplant",
+    "tooltip_total": "{count} Anime auf deiner Liste"
   }
 }

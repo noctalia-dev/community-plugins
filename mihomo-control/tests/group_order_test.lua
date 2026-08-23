@@ -29,7 +29,7 @@ local function assert_tables_eq(actual, expected, message)
   end
 end
 
-local logic = dofile(plugin_root() .. "/group_logic.lua")
+local logic = dofile(plugin_root() .. "/group_logic.luau")
 
 local groups = {
   { name = "zeta" },

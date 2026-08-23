@@ -995,7 +995,9 @@ class CiderBridge:
             if dest.exists() and dest.stat().st_size > 0:
                 return str(dest)
             try:
-                resp = self._session.get(url, timeout=10)
+                # Tokened Session is only for Cider's local API. Artwork URLs are
+                # Apple Music CDN (*.mzstatic.com) — same bare get as LRCLIB.
+                resp = requests.get(url, timeout=10)
                 resp.raise_for_status()
                 if not resp.content:
                     return ""

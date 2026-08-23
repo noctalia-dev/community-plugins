@@ -1,0 +1,55 @@
+{
+  "pulse": {
+    "title": "",
+    "total": "Σ {tin} gelen / {tout} giden"
+  },
+  "sessions": {
+    "empty": "Aktif Claude oturumu yok. Terminalde veya /claude komutuyla bir tane başlatın.",
+    "retire": "Sonlandır",
+    "title": "Claude — {count} oturum",
+    "title_one": "Claude — 1 oturum"
+  },
+  "settings": {
+    "breath_speed": {
+      "description": "Nabız noktası ve kürenin ne kadar hızlı nefes alıp vereceği. Varsayılan 1.0'dır; yüksek değerler daha hızlı, düşükler daha yavaştır.",
+      "label": "Nefes hızı"
+    },
+    "orb_swell": {
+      "description": "Masaüstü küresinin nefes alırken ne kadar büyüyeceği. 0 boyutu sabit tutar; varsayılan 1.0'dır; yüksek değerler daha fazla büyütür.",
+      "label": "Küre büyüme payı"
+    },
+    "pulse_glow_floor": {
+      "description": "Çubuk noktasının nefes alma döngüsünün en düşük noktasında ne kadar kararacağı. 0 tamamen karartır; yüksek değerler daha parlak kalır. Varsayılan 0.45'tir.",
+      "label": "Çubuk noktası taban parlaklığı"
+    }
+  },
+  "state": {
+    "orb": {
+      "error": "hata",
+      "idle": "boşta",
+      "needs_attention": "size ihtiyacı var",
+      "text": "yanıt veriyor",
+      "tool_start": "araç çalıştırıyor",
+      "turn_end": "tamamlandı — sizi bekliyor",
+      "turn_start": "düşünüyor"
+    },
+    "tip": {
+      "error": "Claude: hata",
+      "idle": "Claude: boşta",
+      "needs_attention": "Claude'un size ihtiyacı var",
+      "text": "Claude: yanıt veriyor",
+      "tool_start": "Claude: araç çalıştırıyor",
+      "turn_end": "Claude: tamamlandı — sizi bekliyor",
+      "turn_start": "Claude: düşünüyor"
+    },
+    "word": {
+      "error": "hata",
+      "idle": "boşta",
+      "needs_attention": "size ihtiyacı var",
+      "text": "yanıt veriyor",
+      "tool_start": "araç",
+      "turn_end": "bitti",
+      "turn_start": "düşünüyor"
+    }
+  }
+}

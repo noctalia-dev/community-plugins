@@ -9,6 +9,7 @@ local imageSize = 400
 local generateButton = noctalia.getConfig("generate_button")
 local keepOnClose = noctalia.getConfig("keep_on_close")
 local notifyConf = noctalia.getConfig("notify")
+local corner_radius_scale = 1.0
 
 -- when toggling off keep_on_close, the image will not be deleted, so this runs every config change
 if not keepOnClose then
@@ -88,7 +89,7 @@ local function render()
                     path = imagePath,
                     width = imageSize,
                     height = imageSize,
-                    radius = 24,
+                    radius = 24 * corner_radius_scale,
                     onClick = "onImageClick",
                 })
             })
@@ -187,9 +188,13 @@ local function generate(text)
 end
 
 function onOpen(_context)
+    -- here because it needs to be reloaded when the setting is changed
+    corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
+
     if not keepOnClose then
         status = "idle"
     end
+
     render()
 end
 
