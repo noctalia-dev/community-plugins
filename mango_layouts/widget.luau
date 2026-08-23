@@ -26,7 +26,7 @@ local custom_color = noctalia.getConfig("custom_color")
 function update()
   noctalia.setUpdateInterval(1000)
   noctalia.runAsync(
-    "mmsg get all-monitors | jq -r '.monitors[] | select(.active == true) | .layout_symbol'",
+    'mmsg -g | awk -v active="" \'/selmon 1/{active=$1} $1==active && $2=="layout"{print $3}\'',
     function(result)
       if result and result.exitCode == 0 then
         local sym = result.stdout:gsub("%s+", "")

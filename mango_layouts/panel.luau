@@ -26,7 +26,7 @@ local function onPickAt(index)
 	local slot = pickSlots[index]
 	if slot == nil then return end
 	selectedLayout = slot.sym
-	noctalia.runAsync("mmsg dispatch setlayout," .. slot.entry.name)
+	noctalia.runAsync("mmsg -d setlayout," .. slot.entry.name)
 	panel.close()
 end
 
@@ -142,7 +142,7 @@ function onOpen(context)
 	selectedLayout = ""
 	render()
 	noctalia.runAsync(
-		"mmsg get all-monitors | jq -r '.monitors[] | select(.active == true and .last_open_surface != null) | .layout_symbol'",
+		'mmsg -g | awk -v active="" \'/selmon 1/{active=$1} $1==active && $2=="layout"{print $3}\'',
 		function(result)
 			if result == nil or result.exitCode ~= 0 then return end
 			local sym = result.stdout:gsub("%s+", "")
