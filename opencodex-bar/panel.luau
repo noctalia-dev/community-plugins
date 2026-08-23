@@ -50,11 +50,22 @@ local currentSnapshot = noctalia.state.get("snapshot") or {
   status = "loading",
   providers = {},
 }
+local currentAction = noctalia.state.get("action") or { status = "idle" }
 local activeTab = "usage"
 local panelOpen = false
 local renderPanel
 local hoveredUsageDate = nil
 local selectedUsageDate = nil
+local pendingAccountAction = nil
+local hoveredAccountAction = nil
+
+-- Translation catalogs are cached by some Noctalia builds while a development
+-- plugin is hot-reloaded. Keep new action controls readable until the next full
+-- plugin reload instead of exposing a raw key such as "action.use_reset".
+local function trOr(key, fallback, substitutions)
+  local translated = noctalia.tr(key, substitutions)
+  return translated == key and fallback or translated
+end
 
 local function refresh()
   noctalia.state.set("command", { type = "refresh", nonce = noctalia.nowMs() })
@@ -173,6 +184,161 @@ local function accountStatus(account)
   return nil, nil
 end
 
+local function accountAction(commandType, account)
+  pendingAccountAction = nil
+  noctalia.state.set("command", {
+    type = commandType,
+    accountId = account.id,
+    nonce = noctalia.nowMs(),
+  })
+  renderPanel()
+end
+
+local function actionMessage()
+  if currentAction.status == "idle" or currentAction.status == "working" then return nil, nil end
+  local key
+  if currentAction.status == "success" then
+    if currentAction.type == "select_account" then
+      key = "action_result.selected"
+    elseif type(currentAction.remaining) == "number" then
+      local count = tostring(math.max(0, math.floor(currentAction.remaining)))
+      return trOr("action_result.reset_remaining", "Usage limits reset. " .. count .. " reset credits remain.", {
+        count = count,
+      }), "primary"
+    else
+      key = "action_result.reset"
+    end
+  elseif currentAction.code == "nothing_to_reset" then
+    key = "action_result.nothing_to_reset"
+  elseif currentAction.code == "no_credit" then
+    key = "action_result.no_credit"
+  else
+    key = currentAction.type == "select_account" and "action_result.select_failed" or "action_result.reset_failed"
+  end
+  local fallbacks = {
+    ["action_result.selected"] = "Account selected for the next turn.",
+    ["action_result.reset"] = "Usage limits reset successfully.",
+    ["action_result.nothing_to_reset"] = "This account currently has no usage limits to reset.",
+    ["action_result.no_credit"] = "No reset credit is available for this account.",
+    ["action_result.select_failed"] = "Could not change the active account.",
+    ["action_result.reset_failed"] = "Could not use the reset credit.",
+  }
+  return trOr(key, fallbacks[key] or key), currentAction.status == "success" and "primary" or "error"
+end
+
+local function isCodexProvider(provider)
+  local providerId = tostring(provider.id or ""):lower()
+  return providerId == "openai" or providerId == "codex"
+end
+
+local function beginAccountAction(commandType, account)
+  pendingAccountAction = { type = commandType, accountId = account.id }
+  renderPanel()
+end
+
+local function accountActionEnabled(account)
+  return account.paused ~= true and account.needsReauth ~= true
+    and currentAction.status ~= "working"
+end
+
+-- Account actions are compact text links rather than padded buttons. They use
+-- the same typography and underline treatment so neither action dominates the
+-- reset-credit row.
+local function accountActionHover(key, hovered)
+  if hovered == "true" then
+    hoveredAccountAction = key
+  elseif hoveredAccountAction == key then
+    hoveredAccountAction = nil
+  end
+  renderPanel()
+end
+
+local function switchAccountControl(account, key)
+  local working = currentAction.status == "working"
+    and currentAction.accountId == account.id
+    and currentAction.type == "select_account"
+  local enabled = accountActionEnabled(account)
+  local hovered = enabled and hoveredAccountAction == key
+  local color = hovered and "tertiary" or "primary"
+  local props = { key = key, gap = 0, opacity = enabled and 1 or 0.55 }
+  if enabled then
+    props.onClick = function() beginAccountAction("select_account", account) end
+    props.onHover = function(state) accountActionHover(key, state) end
+  end
+  return ui.column(props, {
+    ui.label({
+      text = working and trOr("action.selecting", "Switching…")
+        or trOr("action.select", "Switch Account"),
+      color = color,
+      fontSize = 11,
+      fontWeight = "bold",
+    }),
+    ui.box({ height = hovered and 2 or 1, minWidth = 47, fill = color }),
+  })
+end
+
+-- Noctalia labels do not expose text-decoration or click handlers. A compact
+-- clickable column with a one-pixel rule gives the reset action link styling
+-- while keeping it directly in the reset-credit sentence.
+local function resetAccountLink(account, key)
+  local working = currentAction.status == "working"
+    and currentAction.accountId == account.id
+    and currentAction.type == "reset_account"
+  local enabled = accountActionEnabled(account)
+  local hovered = enabled and hoveredAccountAction == key
+  local color = hovered and "tertiary" or "primary"
+  local text = working and trOr("action.resetting", "Resetting…")
+    or trOr("action.use_reset", "Use Reset")
+  local props = { key = key, gap = 0, opacity = enabled and 1 or 0.55 }
+  if enabled then
+    props.onClick = function() beginAccountAction("reset_account", account) end
+    props.onHover = function(state) accountActionHover(key, state) end
+  end
+  return ui.column(props, {
+    ui.label({ text = text, color = color, fontSize = 11, fontWeight = "bold" }),
+    ui.box({ height = hovered and 2 or 1, minWidth = 48, fill = color }),
+  })
+end
+
+local function accountConfirmation(card, provider, account, key)
+  if not isCodexProvider(provider) then return end
+  local confirmation = pendingAccountAction
+  if type(confirmation) ~= "table" or confirmation.accountId ~= account.id then return end
+
+  local isReset = confirmation.type == "reset_account"
+  table.insert(card, ui.label({
+    key = key .. ":confirm:text",
+    text = trOr(
+      isReset and "confirm.reset" or "confirm.select",
+      (isReset and "Use one reset credit for " or "Use ")
+        .. (account.label or account.id) .. (isReset and "?" or " for the next turn?"),
+      { account = account.label or account.id }
+    ),
+    color = isReset and "tertiary" or "on_surface/0.75",
+    fontSize = 11,
+    maxWidth = 350,
+    maxLines = 3,
+  }))
+  table.insert(card, ui.row({ key = key .. ":confirm:buttons", gap = 5, align = "center" }, {
+    ui.spacer({ flexGrow = 1 }),
+    ui.button({
+      text = trOr("action.cancel", "Cancel"),
+      variant = "ghost",
+      controlSize = "sm",
+      onClick = function()
+        pendingAccountAction = nil
+        renderPanel()
+      end,
+    }),
+    ui.button({
+      text = trOr(isReset and "action.confirm_reset" or "action.confirm_select", "Confirm"),
+      variant = isReset and "secondary" or "primary",
+      controlSize = "sm",
+      onClick = function() accountAction(confirmation.type, account) end,
+    }),
+  }))
+end
+
 -- One limit row: label + percentage, bar, countdown.
 -- Two elements per limit, not three: the reset countdown rides on the label
 -- row rather than taking a line of its own underneath the bar.
@@ -238,15 +404,31 @@ local function accountCard(rows, provider, account, providerHasAccountQuota, nam
   -- surfacing next to a bar that looks close to full.
   local credits = account.quota ~= nil and account.quota.resetCredits or nil
   if credits ~= nil and credits > 0 then
-    table.insert(card, ui.row({ key = key .. ":credits", gap = 5, align = "center" }, {
+    local creditRow = {
       ui.glyph({ name = "refresh-dot", size = 12, color = "primary" }),
       ui.label({
-        text = noctalia.trp("quota.reset_credits", credits, { count = tostring(math.floor(credits)) }),
+        text = noctalia.trp("quota.reset_credits", credits, { count = tostring(math.floor(credits)) }) .. (isCodexProvider(provider) and " ·" or ""),
         color = "primary",
         fontSize = 11,
       }),
+    }
+    if isCodexProvider(provider) then
+      table.insert(creditRow, resetAccountLink(account, key .. ":reset"))
+      if account.active ~= true then
+        table.insert(creditRow, ui.spacer({ flexGrow = 1 }))
+        table.insert(creditRow, switchAccountControl(account, key .. ":select"))
+      end
+    end
+    table.insert(card, ui.row({ key = key .. ":credits", gap = 5, align = "center" }, creditRow))
+  elseif isCodexProvider(provider) and account.active ~= true then
+    -- Selection remains available when OpenCodex reports no reset-credit data.
+    table.insert(card, ui.row({ key = key .. ":select-row", align = "center" }, {
+      ui.spacer({ flexGrow = 1 }),
+      switchAccountControl(account, key .. ":select"),
     }))
   end
+
+  accountConfirmation(card, provider, account, key)
 
   if account.quotaUnavailable then
     table.insert(card, ui.label({
@@ -261,6 +443,18 @@ local function accountCard(rows, provider, account, providerHasAccountQuota, nam
 end
 
 local function accountsTab(body)
+  local message, color = actionMessage()
+  if message ~= nil then
+    table.insert(body, ui.label({
+      key = "action:result",
+      text = message,
+      color = color,
+      fontSize = 11,
+      maxWidth = 370,
+      maxLines = 2,
+    }))
+  end
+
   local providers = enabledProviders()
   if #providers == 0 then
     -- The status line names the failure; this says what to do about it.
@@ -297,7 +491,8 @@ local function accountsTab(body)
     local named = #accounts > 1
 
     if not named and accounts[1] ~= nil then
-      local status, statusColor = accountStatus(accounts[1])
+      local account = accounts[1]
+      local status, statusColor = accountStatus(account)
       if status ~= nil then
         table.insert(header, ui.label({ text = status, color = statusColor, fontSize = 11, fontWeight = "bold" }))
       end
@@ -693,6 +888,14 @@ end
 noctalia.state.watch("snapshot", function(value)
   if type(value) == "table" then
     currentSnapshot = value
+    renderPanel()
+  end
+end)
+
+noctalia.state.watch("action", function(value)
+  if type(value) == "table" then
+    currentAction = value
+    if value.status ~= "working" then pendingAccountAction = nil end
     renderPanel()
   end
 end)

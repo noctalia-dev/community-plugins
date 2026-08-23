@@ -1,6 +1,6 @@
 --!nonstrict
 -- OpenCodexBar service. This is the only entry that talks to OpenCodex.
--- The other entries receive only the normalized `snapshot` state.
+-- The other entries exchange normalized snapshot, command, and action state.
 
 local common = require("./common.luau")
 
@@ -32,6 +32,9 @@ local activeRequests = 0
 local pumping = false
 
 local tokenCache = { path = nil, value = nil, loaded = false }
+local actionInFlight = false
+local actionGeneration = 0
+local actionStartedMs = 0
 
 local function nowMs()
   return noctalia.nowMs()
@@ -159,11 +162,12 @@ local function adminToken()
   return tokenCache.value
 end
 
-local function errorFor(kind)
-  return { kind = kind }
+local function errorFor(kind, status, code)
+  return { kind = kind, status = status, code = code }
 end
 
-local function startRequest(path, callback)
+local function startRequest(path, callback, options)
+  options = options or {}
   local root = requestBaseUrl()
   if root == nil then
     callback(nil, errorFor("api_error"))
@@ -171,6 +175,9 @@ local function startRequest(path, callback)
   end
 
   local headers = { "Accept: application/json" }
+  if options.body ~= nil then
+    table.insert(headers, "Content-Type: application/json")
+  end
   local token = adminToken()
   if token ~= nil then
     table.insert(headers, "X-OpenCodex-API-Key: " .. token)
@@ -178,8 +185,9 @@ local function startRequest(path, callback)
 
   local accepted = noctalia.http({
     url = root .. path,
-    method = "GET",
+    method = options.method or "GET",
     headers = headers,
+    body = options.body,
   }, function(response)
     if type(response) ~= "table" then
       callback(nil, errorFor("offline"))
@@ -193,18 +201,23 @@ local function startRequest(path, callback)
       return
     end
     if status == 401 or status == 403 then
-      callback(nil, errorFor("auth_error"))
+      callback(nil, errorFor("auth_error", status))
       return
     end
     -- 404 means this endpoint does not apply to the deployment (a setup with no
     -- Codex pool has no /api/codex-auth), not that a refresh failed. Reporting
     -- it as an error would park such a setup in "degraded" for good.
     if status == 404 then
-      callback(nil, errorFor("not_found"))
+      callback(nil, errorFor("not_found", status))
       return
     end
     if status < 200 or status >= 300 then
-      callback(nil, errorFor("api_error"))
+      local code = nil
+      if type(response.body) == "string" and response.body ~= "" then
+        local decoded = noctalia.json.decode(response.body)
+        if type(decoded) == "table" then code = nonEmpty(decoded.code) or nonEmpty(decoded.error) end
+      end
+      callback(nil, errorFor("api_error", status, code))
       return
     end
 
@@ -236,13 +249,13 @@ local function pump()
   pumping = false
 end
 
-local function request(path, callback)
+local function request(path, callback, options)
   table.insert(queue, function()
     startRequest(path, function(data, err)
       activeRequests = activeRequests - 1
       callback(data, err)
       pump()
-    end)
+    end, options)
   end)
   pump()
 end
@@ -380,6 +393,7 @@ local function normalizeAccount(raw, activeId, isMain)
   return {
     id = id,
     label = accountLabel(raw, isMain),
+    isMain = isMain == true,
     active = raw.active == true or (activeId ~= nil and activeId == id),
     paused = tribool(raw.paused),
     needsReauth = tribool(raw.needsReauth),
@@ -983,9 +997,89 @@ function refresh(force)
   maybeFinish()
 end
 
-noctalia.state.watch("command", function(command)
-  if type(command) == "table" and command.type == "refresh" then
+local function findCodexAccount(accountId)
+  local provider = providerById((snapshot and snapshot.providers) or {}, "openai")
+  for _, account in ipairs((provider and provider.accounts) or {}) do
+    if account.id == accountId then return account end
+  end
+  return nil
+end
+
+local function publishAction(value)
+  noctalia.state.set("action", value)
+end
+
+local function runAccountAction(command)
+  if actionInFlight then return end
+  local accountId = nonEmpty(command.accountId)
+  local account = accountId ~= nil and findCodexAccount(accountId) or nil
+  local actionType = command.type
+  if account == nil or account.paused == true or account.needsReauth == true then
+    publishAction({ status = "error", type = actionType, accountId = accountId, code = "invalid_account" })
+    return
+  end
+  if actionType == "reset_account" then
+    local credits = account.quota and number(account.quota.resetCredits) or nil
+    if credits == nil or credits <= 0 then
+      publishAction({ status = "error", type = actionType, accountId = accountId, code = "no_credit" })
+      return
+    end
+  end
+
+  actionInFlight = true
+  actionGeneration = actionGeneration + 1
+  local myActionGeneration = actionGeneration
+  actionStartedMs = nowMs()
+  publishAction({ status = "working", type = actionType, accountId = accountId })
+  tokenCache = { path = nil, value = nil, loaded = false }
+
+  local path, method, body
+  if actionType == "select_account" then
+    path, method = "/api/codex-auth/active", "PUT"
+    body = noctalia.json.encode({ accountId = accountId })
+  else
+    path, method = "/api/codex-auth/reset-credits/consume", "POST"
+    body = noctalia.json.encode({ accountId = accountId })
+  end
+
+  request(path, function(data, err)
+    if actionGeneration ~= myActionGeneration then return end
+    actionInFlight = false
+    if err ~= nil then
+      publishAction({
+        status = "error",
+        type = actionType,
+        accountId = accountId,
+        code = err.code or err.kind,
+        httpStatus = err.status,
+      })
+      return
+    end
+
+    local code = type(data) == "table" and nonEmpty(data.code) or nil
+    if actionType == "reset_account" and code ~= "reset" and code ~= "already_redeemed" then
+      publishAction({ status = "error", type = actionType, accountId = accountId, code = code or "api_error" })
+      refresh(true)
+      return
+    end
+
+    publishAction({
+      status = "success",
+      type = actionType,
+      accountId = accountId,
+      code = code,
+      remaining = type(data) == "table" and number(data.remaining) or nil,
+    })
     refresh(true)
+  end, { method = method, body = body })
+end
+
+noctalia.state.watch("command", function(command)
+  if type(command) ~= "table" then return end
+  if command.type == "refresh" then
+    refresh(true)
+  elseif command.type == "select_account" or command.type == "reset_account" then
+    runAccountAction(command)
   end
 end)
 
@@ -996,6 +1090,14 @@ end
 
 function update()
   local now = nowMs()
+
+  -- Apply the same lost-callback protection to mutations. A late response from
+  -- an abandoned action is ignored rather than overwriting a newer result.
+  if actionInFlight and now - actionStartedMs >= REFRESH_TIMEOUT_MS then
+    actionGeneration = actionGeneration + 1
+    actionInFlight = false
+    publishAction({ status = "error", code = "timeout" })
+  end
 
   -- A refresh whose callbacks were lost would otherwise block every later one.
   -- Bumping the generation orphans it; the in-flight requests still settle
@@ -1019,6 +1121,7 @@ function update()
 end
 
 publish(initialSnapshot())
+publishAction({ status = "idle" })
 lastForcedRefreshMs = nowMs()
 noctalia.setUpdateInterval(1000)
 refresh(false)

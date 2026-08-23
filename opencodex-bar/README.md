@@ -1,6 +1,6 @@
 # OpenCodexBar
 
-Read-only [OpenCodex](https://github.com/lidge-jun/opencodex) account, quota, and usage monitor for Noctalia.
+[OpenCodex](https://github.com/lidge-jun/opencodex) account, quota, usage, and account-routing control for Noctalia.
 
 ## Plugin
 
@@ -9,7 +9,7 @@ Read-only [OpenCodex](https://github.com/lidge-jun/opencodex) account, quota, an
 | ID | `wy3z/opencodex-bar` |
 | Entries | Bar widget: `usage`; panel: `panel`; service: `service` |
 
-Only `service` contacts OpenCodex. Widget and panel read a shared snapshot and never see the credential.
+Only `service` contacts OpenCodex. Widget and panel use shared state and never see the credential.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ Install from the Noctalia plugin store and add the `usage` widget to a bar. Clic
 noctalia msg panel-toggle wy3z/opencodex-bar:panel
 ```
 
-- Accounts: health, reauth, quota windows, resets, Codex reset credits
+- Accounts: health, reauth, quota windows, active Codex account selection, and confirmed reset-credit use
 - Usage: today, 30-day request grid, provider/model totals, estimated cost
 
 Right-click the widget or use Refresh to force a quota refresh. The link button runs `xdg-open` on `base_url`.
@@ -49,9 +49,9 @@ Disabled OpenCodex providers are hidden the same way. Hidden providers are strip
 
 ## Notes
 
-- Network: authenticated `GET` to `base_url` only (`X-OpenCodex-API-Key`). No mutating calls. Non-loopback HTTP is refused.
+- Network: authenticated Management API requests to `base_url` (`X-OpenCodex-API-Key`). Polling uses `GET`; confirmed account actions use `PUT /api/codex-auth/active` and `POST /api/codex-auth/reset-credits/consume`. Non-loopback HTTP is refused.
 - Credential: env, then file. If neither provides a valid token, OpenCodex rejects Management API requests. The credential stays in the service; it is not shown, written, or published to plugin state.
-- Files: reads the token file. Writes nothing.
+- Files: reads the token file. Writes nothing locally. Account selection and reset-credit use mutate OpenCodex state only after an in-panel confirmation.
 - Process: `xdg-open` with the dashboard URL. Nothing else is spawned.
 - Daily costs are estimates, not invoices. The grid is request volume, not spend.
 - Bar % is the mean of each visible account's busiest quota window.

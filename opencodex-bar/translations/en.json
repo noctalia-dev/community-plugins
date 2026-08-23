@@ -45,7 +45,27 @@
   },
   "action": {
     "refresh": "Refresh quotas",
-    "dashboard": "Open the OpenCodex dashboard"
+    "dashboard": "Open the OpenCodex dashboard",
+    "select": "Switch Account",
+    "selecting": "Switching…",
+    "use_reset": "Use Reset",
+    "resetting": "Resetting…",
+    "cancel": "Cancel",
+    "confirm_select": "Confirm",
+    "confirm_reset": "Confirm"
+  },
+  "confirm": {
+    "select": "Use {account} for the next turn?",
+    "reset": "Use one reset credit for {account}? This immediately resets its current usage limits."
+  },
+  "action_result": {
+    "selected": "Account selected for the next turn.",
+    "select_failed": "Could not change the active account.",
+    "reset": "Usage limits reset successfully.",
+    "reset_remaining": "Usage limits reset. {count} reset credits remain.",
+    "reset_failed": "Could not use the reset credit.",
+    "nothing_to_reset": "This account currently has no usage limits to reset.",
+    "no_credit": "No reset credit is available for this account."
   },
   "status": {
     "loading": "Contacting OpenCodex…",
@@ -88,7 +108,7 @@
     "days": "resets in {days}d {hours}h"
   },
   "account": {
-    "active": "ACTIVE",
+    "active": "CURRENT",
     "paused": "PAUSED",
     "reauth": "REAUTH",
     "warning": "WARNING",
