@@ -166,7 +166,7 @@
     "show_changelog_after_update": {
       "description": "Open the panel's changelog automatically once an update run finishes successfully.",
       "label": "Show changelog after updating"
-    }
+    },
     "show_activity_graph": {
       "description": "Track pending-update counts across recent checks and when you last updated, shown as a small graph above the update history strip. Off (default) also stops recording the history.",
       "label": "Show activity graph"
