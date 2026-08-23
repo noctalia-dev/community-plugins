@@ -93,6 +93,10 @@
       "description": "Maximum duration in seconds for GIF recordings.",
       "label": "Max GIF Duration"
     },
+    "hide_when_unused": {
+      "description": "Hide the bar widget when no recording is active. It will appear only while recording.",
+      "label": "Hide When Unused"
+    },
     "hide_cursor": {
       "description": "Exclude the cursor from recordings. Screenshots never include the cursor.",
       "label": "Hide Cursor in Recordings"

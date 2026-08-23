@@ -158,6 +158,13 @@ description_key = "settings.record_audio_in.description"
 default = false
 
 [[setting]]
+key = "hide-when-unused"
+type = "bool"
+label_key = "settings.hide_when_unused.label"
+description_key = "settings.hide_when_unused.description"
+default = false
+
+[[setting]]
 key = "hide-cursor"
 type = "bool"
 label_key = "settings.hide_cursor.label"
