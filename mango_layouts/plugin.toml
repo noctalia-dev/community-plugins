@@ -1,6 +1,6 @@
 id         = "ezequiel/mango_layouts"
 name       = "Mango Layouts"
-version    = "1.0.0"
+version    = "1.0.1"
 plugin_api = 14
 author     = "ezequiel"
 license    = "MIT"
