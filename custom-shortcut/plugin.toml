@@ -1,0 +1,36 @@
+id = "yocraft/custom-shortcut"
+name = "Custom Shortcut"
+version = "1.0.0"
+plugin_api = 3
+author = "yocraft"
+license = "MIT"
+deprecated = false
+icon = "command"
+description = "Add a custom control center tile."
+tags = [ "shortcut", "utility" ]
+dependencies = []
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[setting]]
+key = "label"
+type = "string"
+label_key = "settings.label.label"
+description_key = "settings.label.description"
+default = "Custom"
+
+[[setting]]
+key = "icon"
+type = "glyph"
+label_key = "settings.icon.label"
+description_key = "settings.icon.description"
+default = "question-mark"
+
+[[setting]]
+key = "onclick_cmd"
+type = "string"
+label_key = "settings.onclick_cmd.label"
+description_key = "settings.onclick_cmd.description"
+default = "notify-send \"Custom Shortcut\""

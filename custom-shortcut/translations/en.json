@@ -1,0 +1,16 @@
+{
+    "settings": {
+        "label": {
+            "label": "Label",
+            "description": "Text of the control center shortcut."
+        },
+        "icon": {
+            "label": "Icon",
+            "description": "Icon of the control center shortcut."
+        },
+        "onclick_cmd": {
+            "label": "Command",
+            "description": "Command executed when the shortcut is clicked."
+        }
+    }
+}
