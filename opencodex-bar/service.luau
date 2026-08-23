@@ -354,12 +354,19 @@ local function normalizeQuota(value)
   }
 end
 
--- Deliberately never an email address: the panel lists accounts in the open,
--- and an alias, log label or "Main account" identifies them just as well.
+-- Deliberately never an email address: the panel lists accounts in the open.
+-- Give OpenCodex's native login a stable friendly name; aliases and log labels
+-- identify added pool accounts without exposing their email addresses.
 local function accountLabel(account, isMain)
+  if isMain then
+    local label = noctalia.tr("account.main")
+    -- Some Noctalia builds retain the previous English catalog during plugin
+    -- hot reloads. Keep the requested capitalization correct in that case.
+    if label == "account.main" or label == "Main account" then return "Main Account" end
+    return label
+  end
   local label = nonEmpty(account.alias) or nonEmpty(account.logLabel)
   if label ~= nil then return label end
-  if isMain then return noctalia.tr("account.main") end
   return nonEmpty(account.id) or nonEmpty(account.accountId) or noctalia.tr("account.fallback")
 end
 
@@ -393,6 +400,7 @@ local function normalizeAccount(raw, activeId, isMain)
   return {
     id = id,
     label = accountLabel(raw, isMain),
+    plan = nonEmpty(raw.plan),
     isMain = isMain == true,
     active = raw.active == true or (activeId ~= nil and activeId == id),
     paused = tribool(raw.paused),

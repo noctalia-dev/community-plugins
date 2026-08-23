@@ -26,7 +26,7 @@ Install from the Noctalia plugin store and add the `usage` widget to a bar. Clic
 noctalia msg panel-toggle wy3z/opencodex-bar:panel
 ```
 
-- Accounts: health, reauth, quota windows, active Codex account selection, and confirmed reset-credit use
+- Accounts: subscription plans, health, reauth, quota windows, active Codex account selection, and confirmed reset-credit use
 - Usage: today, 30-day request grid, provider/model totals, estimated cost
 
 Right-click the widget or use Refresh to force a quota refresh. The link button runs `xdg-open` on `base_url`.
@@ -55,4 +55,4 @@ Disabled OpenCodex providers are hidden the same way. Hidden providers are strip
 - Process: `xdg-open` with the dashboard URL. Nothing else is spawned.
 - Daily costs are estimates, not invoices. The grid is request volume, not spend.
 - Bar % is the mean of each visible account's busiest quota window.
-- Accounts are labelled alias / log label / "Main account" / OpenCodex id — never email.
+- Accounts are labelled alias / log label / "Main Account" / OpenCodex id — never email. Subscription plans use the values reported by OpenCodex.

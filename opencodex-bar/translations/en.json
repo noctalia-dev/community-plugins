@@ -114,7 +114,7 @@
     "warning": "WARNING",
     "fallback": "Account",
     "none": "No accounts",
-    "main": "Main account"
+    "main": "Main Account"
   },
   "pool": {
     "strategy": "Pool: {strategy}"

@@ -170,6 +170,18 @@ local function usedColor(value)
   return tone("ok")
 end
 
+local function accountPlan(account)
+  if type(account.plan) ~= "string" or account.plan == "" then return nil end
+  -- Keep OpenCodex's actual plan identifier, changing only its presentation.
+  -- In particular, do not conflate distinct values such as `pro`/`prolite` or
+  -- `team`/`business` with friendlier but potentially inaccurate names.
+  local words = {}
+  for word in account.plan:gsub("[_%-]+", " "):gmatch("%S+") do
+    table.insert(words, word:sub(1, 1):upper() .. word:sub(2):lower())
+  end
+  return #words > 0 and table.concat(words, " ") or nil
+end
+
 local function accountStatus(account)
   if account.paused == true then return noctalia.tr("account.paused"), "error" end
   if account.needsReauth == true then return noctalia.tr("account.reauth"), "error" end
@@ -376,11 +388,27 @@ local function accountCard(rows, provider, account, providerHasAccountQuota, nam
 
   if named then
     local status, statusColor = accountStatus(account)
+    local plan = accountPlan(account)
     local title = {
-      ui.label({ text = account.label or account.id, flexGrow = 1, fontWeight = "bold", maxWidth = 250 }),
+      ui.label({
+        text = account.label or account.id,
+        fontSize = 13,
+        fontWeight = "bold",
+        maxWidth = 220,
+      }),
     }
+    if plan ~= nil then
+      table.insert(title, ui.label({
+        text = plan,
+        color = "on_surface/0.6",
+        fontSize = 10,
+        flexGrow = 1,
+      }))
+    else
+      table.insert(title, ui.spacer({ flexGrow = 1 }))
+    end
     if status ~= nil then
-      table.insert(title, ui.label({ text = status, color = statusColor, fontSize = 11, fontWeight = "bold" }))
+      table.insert(title, ui.label({ text = status, color = statusColor, fontSize = 10, fontWeight = "bold" }))
     end
     table.insert(card, ui.row({ key = key .. ":title", gap = 8, align = "center" }, title))
   end
@@ -485,16 +513,25 @@ local function accountsTab(body)
     local hasAccountQuota = common.anyAccountQuota(provider)
     local header = {
       providerMark(provider.id, 16),
-      ui.label({ text = provider.label or provider.id, fontWeight = "bold", flexGrow = 1 }),
+      ui.label({
+        text = provider.label or provider.id,
+        fontSize = 14,
+        fontWeight = "bold",
+        flexGrow = 1,
+      }),
     }
     local accounts = provider.accounts or {}
     local named = #accounts > 1
 
     if not named and accounts[1] ~= nil then
       local account = accounts[1]
+      local plan = accountPlan(account)
       local status, statusColor = accountStatus(account)
+      if plan ~= nil then
+        table.insert(header, ui.label({ text = plan, color = "on_surface/0.6", fontSize = 10 }))
+      end
       if status ~= nil then
-        table.insert(header, ui.label({ text = status, color = statusColor, fontSize = 11, fontWeight = "bold" }))
+        table.insert(header, ui.label({ text = status, color = statusColor, fontSize = 10, fontWeight = "bold" }))
       end
     end
     table.insert(body, ui.row({ key = "hdr:" .. provider.id, gap = 8, align = "center" }, header))
@@ -515,7 +552,7 @@ local function accountsTab(body)
         key = "pool:" .. provider.id,
         text = noctalia.tr("pool.strategy", { strategy = provider.pool.strategy }),
         color = "on_surface/0.6",
-        fontSize = 11,
+        fontSize = 10,
       }))
     end
     if index < #providers then
