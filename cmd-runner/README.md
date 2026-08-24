@@ -1,6 +1,6 @@
 # Command Runner
 
-Save and execute CLI commands silently in the background with a single click and one-time sudo password cache.
+Save and execute CLI commands silently in the background with a single click and secure sudo password cache.
 
 ## Plugin
 
