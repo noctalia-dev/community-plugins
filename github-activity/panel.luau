@@ -77,7 +77,7 @@ local function buildMonthHeader()
     }, {
       ui.label({
         text = segmentWeeks >= 2 and (monthNames[segmentMonth] or "") or "",
-        fontSize = 9,
+        fontSize = 10,
         color = "on_surface_variant",
         textAlign = "center",
       }),
@@ -102,13 +102,18 @@ local function buildWeekdayLabels()
   local names = { "", "Mon", "", "Wed", "", "Fri", "" }
   local labels = {}
   for day = 1, 7 do
-    table.insert(labels, ui.label({
-      text = names[day],
-      width = 28,
+    table.insert(labels, ui.column({
+      width = 30,
       height = 12,
-      fontSize = 9,
-      color = "on_surface_variant",
-      textAlign = "end",
+      align = "end",
+      justify = "center",
+    }, {
+      ui.label({
+        text = names[day],
+        fontSize = 11,
+        color = "on_surface_variant",
+        textAlign = "end",
+      }),
     }))
   end
   return ui.column({ gap = 3, align = "end" }, labels)
@@ -158,7 +163,7 @@ local function prepareGridColumns()
 
   if gridWeek > gridWeekCount then
     cachedHeatmap = ui.row({ gap = 1, align = "start" }, gridColumns)
-    cachedCalendar = ui.row({ gap = 8, align = "end", justify = "center" }, {
+    cachedCalendar = ui.row({ gap = 10, align = "end", justify = "center" }, {
       buildWeekdayLabels(),
       ui.column({ gap = 6, align = "start" }, {
         buildMonthHeader(),
@@ -192,8 +197,8 @@ end
 
 local function metric(label, value, visual)
   return ui.column({ gap = 6, align = "center", flexGrow = 1 }, {
-    ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
-    ui.label({ text = tostring(value), fontSize = 22, fontWeight = "bold" }),
+    ui.label({ text = label, fontSize = 12, color = "on_surface_variant" }),
+    ui.label({ text = tostring(value), fontSize = 25, fontWeight = "bold" }),
     visual,
   })
 end
@@ -220,7 +225,7 @@ function render()
   local root = {
     ui.row({ align = "center", gap = 12, paddingH = 18, paddingV = 10 }, {
       ui.glyph({ name = "brand-github", size = 25, color = "on_surface" }),
-      ui.label({ text = tr("panel.title"), fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
+      ui.label({ text = tr("panel.title"), fontSize = 19, fontWeight = "bold", flexGrow = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("action.refresh"), onClick = "onRefreshClicked" }),
     }),
     ui.separator({ thickness = 1, color = "outline/0.35" }),
@@ -248,7 +253,7 @@ function render()
     local selectedText = day ~= nil
       and tr("panel.day_total", { date = day.date, count = day.count })
       or tr("panel.year_total", { login = data.login, count = data.total })
-    table.insert(body, ui.label({ text = selectedText, height = 14, fontSize = 10, color = "on_surface_variant", textAlign = "center" }))
+    table.insert(body, ui.label({ text = selectedText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
     table.insert(body, ui.separator({ thickness = 1, color = "outline/0.35" }))
     table.insert(body, ui.row({ gap = 14, align = "stretch" }, {
       metric(tr("metric.today"), data.today, activityBlocks(data.today > 0 and 1 or 0, 1)),
