@@ -29,7 +29,9 @@ noctalia msg panel-toggle weinguyen/procmon:panel
 The panel shows CPU, RAM and swap bars with the 1/5/15-minute load averages,
 then a process table. Sort by the column dropdown (PID, CPU%, MEM%, RSS,
 COMMAND) and flip asc/desc with the arrow button. Type in the filter box to
-match a process by name, user or PID. Click the ✕ button on a row to run the
+match a process by name, user or PID. When a filter is active, the footer shows
+the summed RSS ("Σ RAM") of every matching process — handy for apps like Brave
+that fan out into many processes. Click the ✕ button on a row to run the
 configured kill command against that PID (default `kill -TERM`). Zombie
 processes are tinted with the error color so they stand out.
 The table refreshes on the interval set in the `refresh_interval` setting. The
@@ -54,7 +56,8 @@ while it is open.
 
 - The bar widget only renders data the service publishes; it never runs
   commands. The panel runs the configured `kill_command` when a row's ✕ is
-  clicked.
+  clicked, and a debounced `ps | awk` query to sum RSS when a filter is active
+  (the "Σ RAM" figure).
 - Requires `plugin_api = 13`. The panel renders a windowed slice of the
   process table and follows the keyboard cursor with edge-follow scrolling
   (window slides only when the cursor pushes past an edge, so scrolling up

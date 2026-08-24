@@ -1,6 +1,6 @@
 id = "weinguyen/procmon"
 name = "Process Monitor"
-version = "0.5.0"
+version = "0.6.0"
 plugin_api = 13
 author = "weinguyen"
 license = "MIT"
@@ -71,7 +71,7 @@ height = 660
 placement = "floating"
 position = "center"
 open_near_click = true
-capture_keys = ["ctrl+f", "ctrl+d", "up", "down", "escape"]
+capture_keys = ["ctrl+f", "ctrl+d", "ctrl+k", "up", "down", "escape"]
 
 [[service]]
 id = "service"

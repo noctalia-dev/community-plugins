@@ -98,6 +98,7 @@ local function signature()
 	local s = tostring(n) .. "|" .. filter .. "|" .. sortKey .. sortDir
 		.. "|" .. tostring(cpuPct) .. "|" .. tostring(ramPct)
 		.. "|" .. cpuUnit .. memUnit
+		.. "|" .. tostring(st("rssTotalMb") or 0) .. "|" .. tostring(st("rssFilterMb") or 0)
 	local upto = n < SIG_SAMPLE and n or SIG_SAMPLE
 	for i = 1, upto do
 		local p = procs[i]
@@ -137,6 +138,10 @@ local function killPid(pid)
 		cmd = "kill -TERM"
 	end
 	noctalia.runAsync(cmd .. " " .. pid)
+end
+
+local function killPidForce(pid)
+	noctalia.runAsync("kill -KILL " .. pid)
 end
 
 -- ── stats bars ──────────────────────────────────────────────────────────────
@@ -477,6 +482,25 @@ function render()
 	local refreshedStr = refreshedAt > 0 and os.date("%H:%M:%S", refreshedAt) or "—"
 	local err = st("err")
 
+	-- Footer count + summed RAM (total when no filter, filtered when set).
+	-- The service computes both every tick and publishes them to state. Fall back
+	-- to the total while the filtered value is still being computed, so the label
+	-- never flickers away on a keystroke.
+	local ramSum = st("rssTotalMb")
+	if filter ~= "" and st("rssFilterMb") ~= nil then
+		ramSum = st("rssFilterMb")
+	end
+	local countRow = {
+		ui.label({ text = tr("panel.count", { n = totalCount }), fontSize = 11, color = "on_surface_variant" }),
+	}
+	if ramSum ~= nil then
+		table.insert(countRow, ui.label({
+			text = tr("panel.ram_sum", { ram = fmtMem(ramSum) }),
+			fontSize = 11,
+			color = "primary",
+		}))
+	end
+
 	panel.render(ui.column({ padding = 12, gap = 8, flexGrow = 1, align = "stretch" }, {
 		ui.row({ align = "center", justify = "space_between" }, {
 			ui.label({ text = tr("panel.title"), fontSize = 15, fontWeight = "bold" }),
@@ -493,6 +517,7 @@ function render()
 				focus = wantsFocus,
 				onChange = function(v)
 					filter = v
+					noctalia.state.set("filter", v)
 					render()
 				end,
 			}),
@@ -525,7 +550,7 @@ function render()
 		ui.row({ gap = 6, align = "center" }, buildHeader()),
 		body,
 		ui.row({ gap = 10, align = "center" }, {
-			ui.label({ text = tr("panel.count", { n = totalCount }), fontSize = 11, color = "on_surface_variant" }),
+			ui.row({ gap = 10, align = "center" }, countRow),
 			ui.row({ gap = 8, align = "center", flexGrow = 1 }, {
 				ui.label({ text = tr("panel.refresh"), fontSize = 11, color = "on_surface_variant" }),
 				ui.slider({
@@ -538,8 +563,11 @@ function render()
 			}),
 			ui.label({ text = err, fontSize = 11, color = "error" }),
 		}),
-		ui.row({ gap = 8, align = "center" }, {
+		ui.row({ gap = 4, align = "center" }, {
 			ui.label({ text = tr("panel.keys_hint"), fontSize = 10, color = "on_surface_variant" }),
+			ui.glyph({ name = "arrow-up", size = 12, color = "on_surface_variant" }),
+			ui.glyph({ name = "arrow-down", size = 12, color = "on_surface_variant" }),
+			ui.label({ text = tr("panel.move"), fontSize = 10, color = "on_surface_variant" }),
 		}),
 		}))
 		lastSig = signature()
@@ -563,6 +591,8 @@ noctalia.state.watch("procs", maybeRender)
 noctalia.state.watch("stats", maybeRender)
 noctalia.state.watch("refreshedAtMs", maybeRender)
 noctalia.state.watch("err", maybeRender)
+noctalia.state.watch("rssTotalMb", maybeRender)
+noctalia.state.watch("rssFilterMb", maybeRender)
 noctalia.state.watch("refreshMs", function()
 	-- Track the fetch speed on the panel's own tick so the table stays live when
 	-- the user drops the interval below the 1s second-tick floor.
@@ -658,6 +688,16 @@ function onKey(chord, pressed)
 		return
 	end
 
+	if chord == "ctrl+k" then
+		-- Force-kill (SIGKILL) the selected process, bypassing kill_command.
+		local list = visibleList()
+		local p = list[selectedIdx]
+		if p then
+			killPidForce(p.pid)
+		end
+		return
+	end
+
 	if chord == "ctrl+f" then
 		filterRev += 1
 		focusFilterOnRender = true
@@ -675,6 +715,7 @@ function onOpen(_context)
 	sortKey = cfg("sort_by") or "cpu"
 	sortDir = "desc"
 	filter = ""
+	noctalia.state.set("filter", "")
 	-- No auto-focus on the filter: the panel opens in list mode so the arrow
 	-- keys and Ctrl+D work immediately (btop-style). Press Ctrl+F to start
 	-- typing a filter; the box is focused then.

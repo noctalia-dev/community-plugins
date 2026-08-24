@@ -34,6 +34,10 @@ local function log(msg)
 	noctalia.log("[procmon/service] " .. msg)
 end
 
+local function shq(s)
+	return "'" .. s:gsub("'", "'\\''") .. "'"
+end
+
 -- `args` is placed last so the fixed fields are positional and everything
 -- after them is the full command line (which may contain spaces). The shell
 -- pre-sorts by CPU and truncates to the top 80 rows so the Luau parse stays
@@ -62,6 +66,20 @@ local ROW = "(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+([^\n]*)"
 
 -- Upper bound on how long `ps` may take before we give up on a sample.
 local PS_TIMEOUT_MS = 5000
+
+-- Sum of RSS across ALL processes (single number). No filter, so no self-match
+-- concern — the query's own transient processes (sh/ps/awk) add a negligible
+-- ~17MB to the total.
+local RSS_TOTAL_CMD = "ps -eo rss= | awk '{s += $1} END {print s+0}'"
+
+-- Sum of RSS for processes matching a filter. The filter text appears in the
+-- query's own command lines (sh -c wrapper, ps, awk), so they'd self-match;
+-- exclude the shell by PID ($$) and ps/awk by comm. index() = plain substring
+-- (mirrors the panel's find(f,1,true)); tolower() = case-insensitive.
+local function rssFilterCmd(f)
+	local awk = "index(tolower($0), tolower(f)) && $2 != self && $3 != \"awk\" && $3 != \"ps\" {s += $1} END {print s+0}"
+	return "ps -eo rss=,pid=,comm=,args= | awk -v f=" .. shq(f) .. " -v self=$$ '" .. awk .. "'"
+end
 
 local function parse(raw)
 	local list, n = {}, 0
@@ -208,6 +226,41 @@ local function sample()
 		inFlight -= 1
 	end, PS_TIMEOUT_MS)
 
+	-- Total RSS of all processes, every tick (cheap single-number sum).
+	inFlight += 1
+	noctalia.runAsync(RSS_TOTAL_CMD, function(res)
+		local ok, perr = pcall(function()
+			if res and res.exitCode == 0 and not res.timedOut then
+				local kb = tonumber(res.stdout:match("%d+"))
+				setState("rssTotalMb", kb and (kb / 1024) or 0)
+			end
+		end)
+		if not ok then
+			log("rss total callback error: " .. tostring(perr))
+		end
+		inFlight -= 1
+	end, PS_TIMEOUT_MS)
+
+	-- Filtered RSS, when a filter is active (published by the panel).
+	local f = st("filter") or ""
+	if f ~= "" then
+		inFlight += 1
+		noctalia.runAsync(rssFilterCmd(f), function(res)
+			local ok, perr = pcall(function()
+				if res and res.exitCode == 0 and not res.timedOut then
+					local kb = tonumber(res.stdout:match("%d+"))
+					setState("rssFilterMb", kb and (kb / 1024) or 0)
+				end
+			end)
+			if not ok then
+				log("rss filter callback error: " .. tostring(perr))
+			end
+			inFlight -= 1
+		end, PS_TIMEOUT_MS)
+	else
+		setState("rssFilterMb", nil)
+	end
+
 	-- The `ps` subprocess is the biggest CPU cost; the process table changes
 	-- slowly, so sample it every 2nd tick while stats stay fresh every tick.
 	if tick % 2 == 1 then
@@ -236,6 +289,9 @@ setState("procs", {})
 setState("stats", { cpu = { usagePercent = 0 }, ram = { usagePercent = 0, usedMb = 0, totalMb = 0 } })
 setState("refreshedAtMs", 0)
 setState("err", "")
+setState("rssTotalMb", 0)
+setState("rssFilterMb", nil)
+setState("filter", "")
 
 local function refreshInterval()
 	return tonumber(st("refreshMs") or cfg("refresh_interval")) or 1000

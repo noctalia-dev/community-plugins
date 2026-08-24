@@ -11,7 +11,9 @@
       "stat": "S"
     },
     "count": "{n} processes",
-    "keys_hint": "Ctrl+F filter · Ctrl+D kill selected · arrows move",
+    "ram_sum": "Σ RSS {ram}",
+    "keys_hint": "Ctrl+F filter · Ctrl+D kill · Ctrl+K force kill ·",
+    "move": "move",
     "kill_tip": "Kill {pid}",
     "load": "Load",
     "no_processes": "No matching processes",
