@@ -120,6 +120,35 @@ def exit_alpha(u: float) -> float:
     return 1.0 - smoothstep((float(u) - 0.08) / 0.72)
 
 
+def line_anim_forward(pos_delta_ms: int, slack_ms: int = 180) -> bool:
+    """Legacy tick-delta direction. Prefer line_anim_forward_from_index."""
+    return int(pos_delta_ms) >= -max(0, int(slack_ms))
+
+
+def line_anim_forward_from_index(prev_idx: int, next_idx: int) -> bool:
+    """Stack direction from lyric line index (stable across seek settle ticks)."""
+    return int(next_idx) >= int(prev_idx)
+
+
+def line_anim_duration_ms(index_delta: int, base_ms: int = LINE_ANIM_MS) -> int:
+    """Adjacent flips get full ease; scrub jumps shorten so motion stays snappy."""
+    gap = abs(int(index_delta))
+    base = max(180, int(base_ms))
+    if gap <= 1:
+        return base
+    if gap == 2:
+        return int(base * 0.82)
+    return int(base * 0.68)
+
+
+def line_anim_interrupt_elapsed_ms(prev_u: float, duration_ms: int) -> float:
+    """Keep a little continuity when a seek cuts an in-flight transition."""
+    u = float(prev_u)
+    if u <= 0.02 or u >= 0.98:
+        return 0.0
+    return 0.12 * max(180.0, float(duration_ms))
+
+
 TRACK_CROSS_MS = 1200
 TRACK_FADE_MS = 800
 SURFACE_ANIM_MS = 420

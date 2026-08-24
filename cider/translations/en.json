@@ -1,106 +1,106 @@
 {
-  "lyrics_osd": {
-    "disabled": "Lyrics OSD disabled in settings",
-    "idle": "No lyrics"
-  },
-  "osd": {
-    "not_playing": "Not playing"
-  },
   "settings": {
     "apptoken": {
-      "description": "From Cider → Settings → Connectivity → External Application Access (apptoken header). Leave empty to reuse ~/.config/cider-kde-notifier/config.json.",
-      "label": "Cider API token"
+      "label": "Cider API token",
+      "description": "From Cider → Settings → Connectivity → External Application Access (apptoken header). Leave empty to reuse ~/.config/cider-kde-notifier/config.json."
     },
     "base_url": {
-      "description": "Usually http://127.0.0.1:10767",
-      "label": "Cider API URL"
-    },
-    "cover_size": {
-      "description": "Artwork edge length on the bar chip, in logical pixels (12–32).",
-      "label": "Cover size"
+      "label": "Cider API URL",
+      "description": "Usually http://127.0.0.1:10767"
     },
     "display_mode": {
-      "description": "Noctalia notification (recommended), rich OSD panel, or silent on track changes.",
       "label": "Track alert style",
+      "description": "Noctalia notification (recommended), rich OSD panel, or silent on track changes.",
       "options": {
         "notification": "Notification",
-        "off": "Off",
-        "osd": "OSD panel"
+        "osd": "OSD panel",
+        "off": "Off"
       }
     },
-    "lyrics_karaoke_active": {
-      "description": "Hex for the word currently being sung when Custom. Empty keeps Noctalia primary. Example: #83c2c8",
-      "label": "Active word color"
+    "save_to_history": {
+      "label": "Save track alerts to history",
+      "description": "When using notifications, also keep them in notification history. Off by default."
     },
-    "lyrics_karaoke_style": {
-      "description": "Theme follows the live Noctalia palette (on_surface + primary). Custom uses the hex fields below.",
-      "label": "Karaoke colors",
-      "options": {
-        "custom": "Custom hex",
-        "theme": "Noctalia theme"
-      }
-    },
-    "lyrics_karaoke_sung": {
-      "description": "Hex for already-sung words when Karaoke colors is Custom. Empty keeps the theme color. Example: #f2f3f3",
-      "label": "Sung word color"
-    },
-    "lyrics_karaoke_upcoming": {
-      "description": "Hex for not-yet-sung words in the current line when Custom. Empty uses sung color at lower opacity.",
-      "label": "Upcoming word color"
-    },
-    "lyrics_osd_animate_cues": {
-      "description": "Pulse three cue dots through intros, interludes, and song mixes. Off = static dots.",
-      "label": "Animate cue dots"
+    "osd_duration_ms": {
+      "label": "Alert duration (ms)",
+      "description": "How long the notification or now-playing OSD stays visible after a track change."
     },
     "lyrics_osd_enabled": {
-      "description": "Bar widget click toggles sticky lyrics. Off = click does nothing.",
-      "label": "Enable lyrics HUD"
-    },
-    "lyrics_osd_glow": {
-      "description": "Offset dark shadow under overlay glyphs so they stay readable on wallpaper.",
-      "label": "Lyric drop shadow"
-    },
-    "lyrics_osd_karaoke": {
-      "description": "Highlight the currently sung word when Apple syllable timings exist. Line-only lyrics light the whole active line to match Cider.",
-      "label": "Word sing-along highlight"
+      "label": "Enable lyrics HUD",
+      "description": "Bar widget click toggles sticky lyrics. Off = click does nothing."
     },
     "lyrics_osd_position": {
-      "description": "Where the overlay sits on screen. Reopen the HUD after changing.",
       "label": "Lyrics HUD position",
+      "description": "Where the overlay sits on screen. Reopen the HUD after changing.",
       "options": {
         "bottom_center": "Bottom center",
         "bottom_left": "Bottom left",
         "bottom_right": "Bottom right",
-        "center": "Center",
-        "center_left": "Center left",
-        "center_right": "Center right",
         "top_center": "Top center",
         "top_left": "Top left",
-        "top_right": "Top right"
+        "top_right": "Top right",
+        "center": "Center",
+        "center_left": "Center left",
+        "center_right": "Center right"
       }
     },
-    "lyrics_osd_show_idle": {
-      "description": "When the HUD is open with no lyrics yet, show a muted music/idle message instead of a blank overlay.",
-      "label": "Show idle placeholder"
-    },
     "lyrics_osd_show_next": {
-      "description": "Dim preview of the upcoming lyric under the current line.",
-      "label": "Show next line"
+      "label": "Show next line",
+      "description": "Dim preview of the upcoming lyric under the current line."
     },
-    "osd_duration_ms": {
-      "description": "How long the notification or now-playing OSD stays visible after a track change.",
-      "label": "Alert duration (ms)"
+    "lyrics_osd_animate_cues": {
+      "label": "Animate cue dots",
+      "description": "Pulse three cue dots through intros, interludes, and song mixes. Off = static dots."
     },
-    "save_to_history": {
-      "description": "When using notifications, also keep them in notification history. Off by default.",
-      "label": "Save track alerts to history"
+    "lyrics_osd_karaoke": {
+      "label": "Word sing-along highlight",
+      "description": "Highlight the currently sung word when Apple syllable timings exist. Line-only lyrics light the whole active line to match Cider."
+    },
+    "lyrics_osd_glow": {
+      "label": "Lyric drop shadow",
+      "description": "Offset dark shadow under overlay glyphs so they stay readable on wallpaper."
+    },
+    "lyrics_karaoke_style": {
+      "label": "Karaoke colors",
+      "description": "Theme follows the live Noctalia palette (on_surface + primary). Custom uses the hex fields below.",
+      "options": {
+        "theme": "Noctalia theme",
+        "custom": "Custom hex"
+      }
+    },
+    "lyrics_karaoke_sung": {
+      "label": "Sung word color",
+      "description": "Hex for already-sung words when Karaoke colors is Custom. Empty keeps the theme color. Example: #f2f3f3"
+    },
+    "lyrics_karaoke_active": {
+      "label": "Active word color",
+      "description": "Hex for the word currently being sung when Custom. Empty keeps Noctalia primary. Example: #83c2c8"
+    },
+    "lyrics_karaoke_upcoming": {
+      "label": "Upcoming word color",
+      "description": "Hex for not-yet-sung words in the current line when Custom. Empty uses sung color at lower opacity."
+    },
+    "lyrics_osd_show_idle": {
+      "label": "Show idle placeholder",
+      "description": "When the HUD is open with no lyrics yet, show a muted music/idle message instead of a blank overlay."
     },
     "show_cover": {
-      "description": "Show the current Cider artwork on the bar chip when a local cover file is available.",
-      "label": "Show cover"
+      "label": "Show cover",
+      "description": "Show the current Cider artwork on the bar chip when a local cover file is available."
+    },
+    "cover_size": {
+      "label": "Cover size",
+      "description": "Artwork edge length on the bar chip, in logical pixels (12–32)."
     }
   },
   "widget": {
     "idle": "Cider"
+  },
+  "osd": {
+    "not_playing": "Not playing"
+  },
+  "lyrics_osd": {
+    "idle": "No lyrics",
+    "disabled": "Lyrics OSD disabled in settings"
   }
 }

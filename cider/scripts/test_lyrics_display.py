@@ -273,6 +273,44 @@ class CueMixTests(unittest.TestCase):
         self.assertNotIn('mix_rgba(self._paint["next"], self._paint["sung"]', overlay)
         self.assertIn("self._draw_karaoke(cr, width, current_y, alpha)", overlay)
 
+    def test_overlay_python_parses(self) -> None:
+        import ast
+
+        src = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
+        ast.parse(src)
+
+    def test_line_anim_direction_follows_seek(self) -> None:
+        self.assertTrue(cfg.line_anim_forward(0))
+        self.assertTrue(cfg.line_anim_forward(40))
+        self.assertTrue(cfg.line_anim_forward(-50))  # mild clock catch-up
+        self.assertFalse(cfg.line_anim_forward(-500))
+        self.assertFalse(cfg.line_anim_forward(-5_000))
+        self.assertTrue(cfg.line_anim_forward_from_index(3, 4))
+        self.assertTrue(cfg.line_anim_forward_from_index(3, 3))
+        self.assertFalse(cfg.line_anim_forward_from_index(5, 2))
+        self.assertEqual(cfg.line_anim_duration_ms(1), cfg.LINE_ANIM_MS)
+        self.assertLess(cfg.line_anim_duration_ms(4), cfg.LINE_ANIM_MS)
+        self.assertGreater(cfg.line_anim_interrupt_elapsed_ms(0.4, 460), 0.0)
+        self.assertEqual(cfg.line_anim_interrupt_elapsed_ms(1.0, 460), 0.0)
+        # Shrink path past → current must work (promote_scale cannot).
+        self.assertAlmostEqual(
+            cfg.depth_layout_scale(
+                0.0, cfg.PAST_FONT_PX, cfg.CURRENT_FONT_PX, cfg.CURRENT_FONT_PX
+            ),
+            cfg.PAST_FONT_PX / cfg.CURRENT_FONT_PX,
+        )
+        self.assertAlmostEqual(
+            cfg.depth_layout_scale(
+                1.0, cfg.PAST_FONT_PX, cfg.CURRENT_FONT_PX, cfg.CURRENT_FONT_PX
+            ),
+            1.0,
+        )
+        overlay = (ROOT / "scripts" / "lyrics_overlay.py").read_text(encoding="utf-8")
+        self.assertIn("_draw_arrive_from_past", overlay)
+        self.assertIn("line_anim_forward_from_index", overlay)
+        self.assertIn("self._anim_forward", overlay)
+        self.assertIn("line_anim_duration_ms", overlay)
+
     def test_cue_dots_grow_forward_not_slide_up(self) -> None:
         # Layout is always CUE_BASE. Incoming visual size is far → base.
         self.assertAlmostEqual(

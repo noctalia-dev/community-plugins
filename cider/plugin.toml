@@ -2,8 +2,8 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.8.4"
-plugin_api = 23
+version = "1.9.2"
+plugin_api = 24
 author = "dragged"
 license = "MIT"
 dependencies = ["python3", "gtk3", "gtk-layer-shell", "python-gobject"]
