@@ -1,0 +1,24 @@
+{
+  "settings": {
+    "max-items": {
+      "label": "Maximum videos",
+      "desc": "How many videos the panel lists."
+    },
+    "include-shorts": {
+      "label": "Include shorts",
+      "desc": "Show YouTube shorts in the feed and the unread count."
+    },
+    "show-thumbnails": {
+      "label": "Thumbnails",
+      "desc": "Show thumbnails vidi has cached (~/.cache/vidi/preview_images) when available."
+    },
+    "open-action": {
+      "label": "Click action",
+      "desc": "What happens when a video is clicked.",
+      "vidi": "Open in vidi",
+      "browser": "Open in browser",
+      "mpv": "Play in mpv",
+      "copy": "Copy link"
+    }
+  }
+}
