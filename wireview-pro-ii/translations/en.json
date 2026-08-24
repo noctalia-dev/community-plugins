@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "faults_layout": {
+      "label": "Fault page layout",
+      "description": "Stack the active and recorded sections on narrow displays.",
+      "side_by_side": "Side by side",
+      "stacked": "Stacked"
+    }
+  }
+}
