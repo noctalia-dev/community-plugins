@@ -78,8 +78,8 @@ start = [ "clock", "ai_usage" ]
 - **Left click** opens the `AI Usage` panel for the provider that capsule
   tracks.
 - **Right click** asks the poller for a read. One process serves every capsule,
-  and it will not start a second one within two seconds of the last, so holding
-  the button down does not spawn a queue of them.
+  and it coalesces repeated clicks into at most one pending read, so holding the
+  button down does not spawn a queue of processes.
 - **Middle click** opens the widget's settings, as everywhere else in the shell.
 
 Left and middle are the script's; right is a gesture binding, so it is listed in
@@ -159,7 +159,8 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   it knows arrives on that command's stdout.
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
-  keeps showing, flagged in the capsule and in the panel's detail pane.
+  keeps showing, flagged by an icon in the list, the capsule, and the panel's
+  detail pane.
 
 ## Tests
 
@@ -168,10 +169,12 @@ part worth a test. From the `ai-usagebar` directory:
 
 ```sh
 lua tests/scrub_test.lua
+lua tests/refresh_test.lua
 ```
 
-It reads `safeText` and `scrub` out of `service.luau` rather than copying them,
-then checks that real credential shapes never survive, that ordinary readings
-pass through unchanged, and that scrubbing a four-vendor report stays inside the
-CPU budget the poller's async callback is given. An overrun there loses the whole
-reading, not just time.
+The first test reads `safeText` and `scrub` out of `service.luau` rather than
+copying them, then checks that real credential shapes never survive, that ordinary
+readings pass through unchanged, and that scrubbing a four-vendor report stays
+inside the CPU budget the poller's async callback is given. The second exercises
+the coalesced refresh state and checks that every configured provider has visual
+metadata. An overrun in the first test loses the whole reading, not just time.

@@ -14,7 +14,7 @@ local report = nil
 local polling = false
 
 local shared = require("./shared.luau")
-local GLYPHS = shared.GLYPHS
+local providerVisual = shared.providerVisual
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
@@ -131,9 +131,11 @@ local function chip(entry)
     local metric = headline(entry)
     local tint = severityRole(metric, "on_surface")
     local fill = severityRole(metric, "primary")
+    local visual = providerVisual(entry.id)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
-    local glyph = ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 13, color = tint })
+    local glyph = ui.glyph({ name = visual.glyph, size = 13,
+                              color = severityRole(metric, visual.role) })
     -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
     -- and stops nudging its neighbours once per read.
     local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint,

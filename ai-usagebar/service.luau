@@ -99,10 +99,7 @@ local function classify(result)
     -- Matched raw: `failure` scrubs what it is given, and matching after the
     -- 200-character cap would let a noisy run push the message out of reach.
     local stderr = tostring(result.stderr or "")
-    local lower = stderr:lower()
-    if result.exitCode == 127
-        and (lower:find("command not found", 1, true)
-            or lower:find("no such file or directory", 1, true)) then
+    if result.exitCode == 127 then
         return failure("not_installed", stderr)
     end
     if result.exitCode ~= 0 then
@@ -115,18 +112,34 @@ local function classify(result)
 end
 
 local inFlight = false
+local pendingRefresh = false
 
 -- A floor between spawns. Opening the panel asks for a read, and a panel opens as
 -- fast as a pointer can click.
 local MIN_GAP_MS = 2000
 local lastStart = 0
 
+local function queueRefresh()
+    pendingRefresh = true
+    noctalia.state.set("refresh_queued", true)
+    noctalia.setUpdateInterval(250)
+end
+
 local function refresh()
-    if inFlight then return end
+    if inFlight then
+        queueRefresh()
+        return
+    end
     local now = noctalia.nowMs()
-    if now - lastStart < MIN_GAP_MS then return end
+    if MIN_GAP_MS - (now - lastStart) > 0 then
+        queueRefresh()
+        return
+    end
     lastStart = now
+    pendingRefresh = false
+    noctalia.setUpdateInterval(intervalMs())
     inFlight = true
+    noctalia.state.set("refresh_queued", false)
     noctalia.state.set("polling", true)
 
     local started = noctalia.runAsync(COMMAND, function(result)
@@ -139,16 +152,19 @@ local function refresh()
             -- so a non-zero exit is no reason to drop the report.
             noctalia.state.set("report", scrub(decoded))
             noctalia.state.set("error", failure(""))
-            return
+        else
+            noctalia.state.set("error", classify(result))
         end
 
-        noctalia.state.set("error", classify(result))
+        if pendingRefresh then refresh() end
     end, 30000)
 
     -- A refusal to spawn never calls back, and the poller would sit in flight
     -- forever.
     if not started then
         inFlight = false
+        pendingRefresh = false
+        noctalia.state.set("refresh_queued", false)
         noctalia.state.set("polling", false)
         noctalia.state.set("error", failure("spawn_failed"))
     end

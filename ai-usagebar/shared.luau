@@ -5,28 +5,34 @@
 
 local M = {}
 
--- Tabler has no Anthropic mark, so a provider without a brand glyph gets a
--- semantic one.
-M.GLYPHS = {
-    anthropic = "asterisk-simple",
-    anthropic_api = "asterisk-simple",
-    openai = "brand-openai",
-    zai = "bolt",
-    openrouter = "route",
-    deepseek = "fish",
-    kimi = "moon",
-    moonshot = "moon",
-    kilo = "robot",
-    novita = "cloud",
-    grok = "brand-x",
-    supergrok = "brand-x",
-    antigravity = "sparkles",
-    cursor = "cursor-text",
-    minimax = "wave-square",
-    kiro = "ghost",
-    copilot = "brand-github-copilot",
-    gemini = "brand-google",
+-- Tabler has no Anthropic mark, so providers without a brand glyph use a
+-- semantic one. Roles keep service identity distinct without hardcoded colors.
+M.PROVIDER_VISUALS = {
+    anthropic = { glyph = "asterisk-simple", role = "tertiary" },
+    anthropic_api = { glyph = "asterisk-simple", role = "tertiary" },
+    openai = { glyph = "brand-openai", role = "primary" },
+    zai = { glyph = "bolt", role = "tertiary" },
+    openrouter = { glyph = "route", role = "secondary" },
+    deepseek = { glyph = "fish", role = "primary" },
+    kimi = { glyph = "moon", role = "tertiary" },
+    moonshot = { glyph = "moon", role = "tertiary" },
+    kilo = { glyph = "robot", role = "secondary" },
+    novita = { glyph = "cloud", role = "secondary" },
+    grok = { glyph = "brand-x", role = "on_surface" },
+    supergrok = { glyph = "brand-x", role = "on_surface" },
+    antigravity = { glyph = "sparkles", role = "secondary" },
+    cursor = { glyph = "cursor-text", role = "primary" },
+    minimax = { glyph = "wave-square", role = "secondary" },
+    kiro = { glyph = "ghost", role = "secondary" },
+    copilot = { glyph = "brand-github-copilot", role = "secondary" },
+    gemini = { glyph = "brand-google", role = "secondary" },
 }
+
+local DEFAULT_PROVIDER_VISUAL = { glyph = "brain", role = "on_surface_variant" }
+
+function M.providerVisual(id)
+    return M.PROVIDER_VISUALS[tostring(id)] or DEFAULT_PROVIDER_VISUAL
+end
 
 -- Ask the poller for a read. It only looks at `action`; `at` is never read, and
 -- is there so two requests in a row are not the same value. nowMs is the only

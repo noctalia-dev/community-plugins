@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.3.0"
+version = "1.4.0"
 plugin_api = 22
 author = "felipeartur"
 license = "MIT"
@@ -9,7 +9,7 @@ description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
 # `ai-usagebar usage --json` and draws the result.
-dependencies = ["ai-usagebar", "xdg-open"]
+dependencies = ["ai-usagebar"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 

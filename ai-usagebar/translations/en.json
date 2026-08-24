@@ -82,6 +82,8 @@
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
     "refresh": "Refresh now",
+    "refresh_queued": "Refresh queued",
+    "refreshing": "Refreshing usage",
     "retry": "Try again",
     "settings": "Plugin settings",
     "severity": {

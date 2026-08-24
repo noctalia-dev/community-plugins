@@ -41,6 +41,30 @@ end
 
 local safeText, scrub = loadSafeText()
 
+local function loadClassify()
+    local file = io.open(SOURCE, "r")
+    local source = file:read("*a")
+    file:close()
+    local chunk = source:match("(local SECRET_VALUE.-)\nlocal inFlight")
+    if chunk == nil then error("could not find classify in " .. SOURCE) end
+    local env = {
+        string = string,
+        ipairs = ipairs,
+        pairs = pairs,
+        type = type,
+        tostring = tostring,
+        noctalia = { string = { trim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end } },
+    }
+    local loaded = load(chunk .. "\nreturn classify", "classifier", "t", env)
+    return loaded()
+end
+
+local classify = loadClassify()
+
+local panelFile = io.open("panel.luau", "r")
+local panelSource = panelFile:read("*a")
+panelFile:close()
+
 -- Each case names the material that must not survive.
 local SECRETS = {
     { "GET /v1/usage?api_key=sk-ant-abc123456 failed", "abc123456" },
@@ -81,6 +105,21 @@ local failures = 0
 local function fail(message)
     failures = failures + 1
     io.write("FAIL  ", message, "\n")
+end
+
+-- A healthy usage entry is reported as `ok` by the CLI. Only `error` is a
+-- failed provider state.
+local healthy = classify({ exitCode = 0, stdout = "not json", stderr = "" })
+if healthy.code ~= "no_data" then
+    fail("malformed successful output should be no_data")
+end
+local missing = classify({ exitCode = 127, stderr = "comando não encontrado" })
+if missing.code ~= "not_installed" then
+    fail("exit code 127 should mean not_installed regardless of shell language")
+end
+if panelSource:find('entry.status ~= "ready"', 1, true)
+    or not panelSource:find('entry.status == "error"', 1, true) then
+    fail("panel must treat only error entries as failed")
 end
 
 for _, case in ipairs(SECRETS) do

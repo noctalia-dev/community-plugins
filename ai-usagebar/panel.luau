@@ -4,9 +4,12 @@
 
 local report = nil
 local polling = false
+local refreshQueued = false
+local refreshPhase = 0
+local refreshFrameMs = 0
 
 local shared = require("./shared.luau")
-local GLYPHS, parseIso = shared.GLYPHS, shared.parseIso
+local providerVisual, parseIso = shared.providerVisual, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local elapsedPercent = shared.elapsedPercent
@@ -24,7 +27,7 @@ local HAS_OPENER = noctalia.commandExists("xdg-open")
 -- reason keeps its row.
 local function configured(entry)
     if entry.status ~= "error" then return true end
-    return not tostring(entry.error or ""):lower():find("credentials error")
+    return not tostring(entry.error or ""):lower():find("^credentials error:")
 end
 
 -- ── Detail line parsing ───────────────────────────────────────────────────────
@@ -143,33 +146,36 @@ local function metricCard(section)
     local left = countdown(section)
     local clock = resetClock(section)
     local paceText, paceColor = pace(section.detail)
-    local footer = {}
+    local timing = {}
     if left ~= "" then
-        footer[#footer + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
-        footer[#footer + 1] = ui.label({ text = left, fontSize = 11, color = "on_surface_variant" })
+        timing[#timing + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
+        timing[#timing + 1] = ui.label({ text = left, fontSize = 11, color = "on_surface_variant" })
         if clock ~= "" then
             -- Parenthesised and muted: it is where the countdown beside it lands,
             -- not a reading of its own.
-            footer[#footer + 1] = ui.label({
+            timing[#timing + 1] = ui.label({
                 text = "(" .. clock .. ")", fontSize = 11, color = "on_surface_variant",
             })
         end
     end
+    local context = {}
     if elapsed ~= nil then
-        if #footer > 0 then
-            footer[#footer + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
-        end
-        footer[#footer + 1] = ui.label({
+        context[#context + 1] = ui.label({
             text = noctalia.tr("ui.elapsed", { percent = elapsed }),
-            fontSize = 11, color = "on_surface_variant", maxLines = 1,
+            fontSize = 10, color = "on_surface_variant", maxLines = 1,
         })
     end
-    if #footer > 0 or paceText ~= "" then
-        footer[#footer + 1] = ui.spacer({ flexGrow = 1 })
-        if paceText ~= "" then
-            footer[#footer + 1] = ui.label({ text = paceText, fontSize = 11, fontWeight = "semibold", color = paceColor })
-        end
-        body[#body + 1] = ui.row({ gap = 5, align = "center" }, footer)
+    if paceText ~= "" then
+        context[#context + 1] = ui.spacer({ flexGrow = 1 })
+        context[#context + 1] = ui.label({
+            text = paceText, fontSize = 10, fontWeight = "semibold", color = paceColor, maxLines = 1,
+        })
+    end
+    if #timing > 0 then
+        body[#body + 1] = ui.row({ gap = 5, align = "center" }, timing)
+    end
+    if #context > 0 then
+        body[#body + 1] = ui.row({ gap = 5, align = "center" }, context)
     end
 
     local rest = plainDetail(section.detail)
@@ -177,7 +183,8 @@ local function metricCard(section)
         body[#body + 1] = ui.label({ text = rest, fontSize = 11, color = "on_surface_variant" })
     end
 
-    return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_variant" }, body)
+    return ui.column({ gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45",
+                       border = "outline/0.12", borderWidth = 1 }, body)
 end
 
 local function blockCard(section)
@@ -197,16 +204,18 @@ local function blockCard(section)
             text = text ~= "" and text or "—",
             fontSize = 11,
             color = "on_surface_variant",
+            maxLines = 1,
         })
     end
-    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.45" }, body)
+    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.38",
+                       border = "outline/0.18", borderWidth = 1 }, body)
 end
 
 local function textRow(section)
     return ui.row({ gap = 6, align = "center" }, {
         ui.label({ text = tostring(section.label or ""), fontSize = 11, color = "on_surface_variant" }),
         ui.spacer({ flexGrow = 1 }),
-        ui.label({ text = tostring(section.value or ""), fontSize = 11, color = "on_surface" }),
+        ui.label({ text = tostring(section.value or ""), fontSize = 11, color = "on_surface", maxLines = 1 }),
     })
 end
 
@@ -222,15 +231,23 @@ local function providerRow(entry, selected)
     -- recolouring it hides the one thing the list exists to compare.
     local right
     if broken then
-        right = ui.row({ width = 34, justify = "end" }, {
+        right = ui.row({ width = 48, justify = "end" }, {
             ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
         })
     else
-        right = ui.label({
-            text = percent ~= nil and string.format("%d%%", percent) or "—",
-            fontSize = 13, fontWeight = "bold", color = tint,
-            width = 34, textAlign = "end",
-        })
+        local rightChildren = {
+            ui.label({
+                text = percent ~= nil and string.format("%d%%", percent) or "—",
+                fontSize = 13, fontWeight = "bold", color = tint,
+                width = 34, textAlign = "end",
+            }),
+        }
+        if entry.stale == true then
+            rightChildren[#rightChildren + 1] = ui.glyph({
+                name = "clock-exclamation", size = 12, color = "tertiary",
+            })
+        end
+        right = ui.row({ gap = 3, width = 48, justify = "end", align = "center" }, rightChildren)
     end
 
     local lines = {
@@ -253,20 +270,23 @@ local function providerRow(entry, selected)
         fontSize = 10, color = "on_surface_variant", maxLines = 1,
     })
 
+    local visual = providerVisual(entry.id)
     return ui.row({
         -- Keyed, so the click handler survives the second tick the countdowns ride
         -- on instead of being rebuilt under the pointer.
         key = "provider-" .. tostring(entry.id),
         gap = 8, align = "center", padding = 8, radius = 8,
         -- A tint, not a slab: a filled `primary` row inverts every colour in it.
-        fill = selected and "primary/0.14" or "surface_variant/0.45",
+        fill = selected and "primary/0.10" or "surface_variant/0.30",
+        border = selected and "primary/0.55" or "outline/0.12",
+        borderWidth = 1,
         onClick = function()
             noctalia.state.set("selected", tostring(entry.id))
             render()
         end,
     }, {
-        ui.glyph({ name = GLYPHS[tostring(entry.id)] or "brain", size = 16,
-                   color = selected and "primary" or "on_surface_variant" }),
+        ui.glyph({ name = visual.glyph, size = 16,
+                   color = selected and "primary" or visual.role }),
         ui.column({ gap = 3, flexGrow = 1 }, lines),
         right,
     })
@@ -352,9 +372,12 @@ local function listPane(entry)
             -- One slot for the read: the button becomes the spinner while the CLI
             -- answers, instead of a second glyph pushing the header around.
             ui.button({
-                glyph = polling and "loader-2" or "refresh",
+                glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
                 variant = "ghost", controlSize = "sm",
-                tooltip = noctalia.tr("ui.refresh"),
+                opacity = polling and (0.72 + 0.28 * (0.5 + 0.5 * math.cos(refreshPhase)))
+                    or refreshQueued and 0.78 or 1,
+                tooltip = noctalia.tr(refreshQueued and "ui.refresh_queued"
+                    or polling and "ui.refreshing" or "ui.refresh"),
                 enabled = not polling,
                 onClick = requestRefresh,
             }),
@@ -389,6 +412,8 @@ local function detailPane(entry)
         -- the top of a hundred pixels of nothing. Wrapped, it is as tall as the two
         -- labels in it.
         children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
+            ui.glyph({ name = providerVisual(entry.id).glyph, size = 18,
+                       color = providerVisual(entry.id).role }),
             ui.column({ gap = 0, flexGrow = 1 }, {
                 ui.label({ text = title, fontSize = 15, fontWeight = "bold",
                            color = "on_surface", maxLines = 1 }),
@@ -407,7 +432,7 @@ local function detailPane(entry)
                 chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
             end
         end
-        if entry.status ~= "ready" then
+        if entry.status == "error" then
             chips[#chips + 1] = ui.label({
                 text = tostring(entry.status or ""), fontSize = 10, color = "error", maxLines = 1,
             })
@@ -444,6 +469,19 @@ local function detailPane(entry)
             cards[#cards + 1] = blockCard(section)
         elseif section.type == "text" then
             cards[#cards + 1] = textRow(section)
+        elseif section.type == "spacer" then
+            cards[#cards + 1] = ui.spacer({ height = tonumber(section.height) or 8 })
+        elseif section.type == "title" then
+            cards[#cards + 1] = ui.label({
+                text = tostring(section.value or section.label or ""),
+                fontSize = 12, fontWeight = "semibold", color = "on_surface",
+            })
+        else
+            -- Keep schema additions visible instead of silently losing report data.
+            cards[#cards + 1] = ui.label({
+                text = tostring(section.value or section.label or section.type or "—"),
+                fontSize = 11, color = "on_surface_variant",
+            })
         end
     end
     if #cards > 0 then
@@ -460,7 +498,7 @@ local function detailPane(entry)
         })
     end
 
-    return ui.column({ gap = 10, padding = 14, flexGrow = 1 }, children)
+    return ui.column({ gap = 8, padding = 14, flexGrow = 1 }, children)
 end
 
 function render()
@@ -511,6 +549,13 @@ end)
 
 noctalia.state.watch("polling", function(value)
     polling = value == true
+    panel.setNeedsFrameTick(polling or refreshQueued)
+    render()
+end)
+
+noctalia.state.watch("refresh_queued", function(value)
+    refreshQueued = value == true
+    panel.setNeedsFrameTick(polling or refreshQueued)
     render()
 end)
 
@@ -521,14 +566,30 @@ function onOpen(_context)
     report = noctalia.state.get("report")
     failure = asFailure(noctalia.state.get("error"))
     polling = noctalia.state.get("polling") == true
+    refreshQueued = noctalia.state.get("refresh_queued") == true
     -- Countdowns tick locally; the CLI is only woken by the poller's interval.
     panel.setWantsSecondTicks(true)
+    panel.setNeedsFrameTick(polling or refreshQueued)
     render()
 end
 
 -- Panel second tick, for the countdowns.
 function update()
     render()
+end
+
+function onFrameTick(deltaMs)
+    if not polling and not refreshQueued then return end
+    refreshFrameMs = refreshFrameMs + (tonumber(deltaMs) or 0)
+    if refreshFrameMs < 50 then return end
+    refreshPhase = (refreshPhase + refreshFrameMs / 1000) % (math.pi * 2)
+    refreshFrameMs = 0
+    render()
+end
+
+function onClose()
+    panel.setNeedsFrameTick(false)
+    panel.setWantsSecondTicks(false)
 end
 
 render()
