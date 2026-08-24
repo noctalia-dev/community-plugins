@@ -2,7 +2,7 @@
 
 id = "davemhammer/opnsense"
 name = "OPNsense"
-version = "1.1.6"
+version = "1.1.7"
 plugin_api = 10
 author = "davemhammer"
 license = "MIT"

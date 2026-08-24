@@ -1,11 +1,23 @@
 {
   "settings": {
+    "charging_color": {
+      "description": "Used while the mouse is charging",
+      "label": "Charging Color"
+    },
     "color": {
       "description": "Accent color for the percentage text and progress bar",
       "label": "Color"
     },
+    "error_color": {
+      "description": "Used when the mouse or the pulsar-mouse CLI can't be found",
+      "label": "Error Color"
+    },
     "glyph_size": {
       "label": "Glyph Size"
+    },
+    "normal_color": {
+      "description": "Glyph color at a normal battery level, and on a wired mouse",
+      "label": "Normal Color"
     },
     "show_percent": {
       "description": "Turn off to rely on just the glyph (and progress bar, if shown)",
@@ -13,6 +25,10 @@
     },
     "show_progress": {
       "label": "Show Progress Bar"
+    },
+    "warning_color": {
+      "description": "Used at or below the mouse's Low Power Mode threshold",
+      "label": "Low Battery Color"
     }
   },
   "ui": {

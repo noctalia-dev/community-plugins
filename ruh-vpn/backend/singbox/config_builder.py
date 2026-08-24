@@ -116,6 +116,12 @@ def build_transport_config(server: Server, listen_port: int = 11080) -> dict[str
     Listens on 127.0.0.1:listen_port (SOCKS5) and forwards through the
     server-specific outbound.
 
+    The server address is usually a domain, and this is the only config that
+    resolves it locally.  Without an explicit resolver sing-box may pick an
+    AAAA record and dial IPv6, which dies with "network is unreachable" on
+    IPv4-only networks (issue #327).  prefer_ipv4 (not ipv4_only) keeps
+    IPv6-only endpoints working.
+
     For SSH, this returns None — SSH is handled outside sing-box.
     """
     if isinstance(server, SSHServer):
@@ -125,6 +131,11 @@ def build_transport_config(server: Server, listen_port: int = 11080) -> dict[str
     outbound = build_outbound(server, tag="proxy")
     return {
         "log": DEFAULT_LOG,
+        "dns": {
+            "servers": [{"type": "local", "tag": "local"}],
+            "final": "local",
+            "strategy": "prefer_ipv4",
+        },
         "inbounds": [
             {
                 "type": "socks",
@@ -138,7 +149,11 @@ def build_transport_config(server: Server, listen_port: int = 11080) -> dict[str
             outbound,
             {"type": "direct", "tag": "direct"},
         ],
-        "route": {"final": "proxy", "auto_detect_interface": True},
+        "route": {
+            "final": "proxy",
+            "auto_detect_interface": True,
+            "default_domain_resolver": "local",
+        },
     }
 
 

@@ -34,7 +34,9 @@ is `python3`, which works when the packages are installed system-wide.
 
 SSH connections require `ssh`; password-based SSH connections additionally
 require `sshpass`. System proxy mode requires `gsettings`. TUN mode and the kill
-switch use `pkexec`, `setcap`, `getcap` and `nft` for privileged operations.
+switch use `pkexec`, `setcap`, `getcap` and `nft` for privileged operations;
+TUN mode also uses `ip` (iproute2) for a read-only pre-flight check that no
+other VPN client already holds the sing-box routing table.
 
 ## Usage
 

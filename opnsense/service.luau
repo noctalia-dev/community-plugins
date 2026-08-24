@@ -781,10 +781,10 @@ refreshAll = function()
   -- Lean core set — no firewall log dump (on-demand via fetchLogs).
   local paths = {
     { path = "core/system/status", key = "status" },
-    { path = "diagnostics/interface/getInterfaceStatistics", key = "ifstats" },
-    { path = "diagnostics/interface/getInterfaceNames", key = "ifnames" },
-    { path = "diagnostics/system/systemInformation", key = "info" },
-    { path = "diagnostics/system/systemResources", key = "resources" },
+    { path = "diagnostics/interface/get_interface_statistics", key = "ifstats" },
+    { path = "diagnostics/interface/get_interface_names", key = "ifnames" },
+    { path = "diagnostics/system/system_information", key = "info" },
+    { path = "diagnostics/system/system_resources", key = "resources" },
     { path = "routes/gateway/status", key = "gateways" },
   }
 

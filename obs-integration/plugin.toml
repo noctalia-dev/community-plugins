@@ -1,6 +1,6 @@
 id = "neyfua/obs-integration"
 name = "OBS Integration"
-version = "1.1.2"
+version = "1.1.3"
 plugin_api = 9
 author = "neyfua"
 license = "MIT"
@@ -30,7 +30,7 @@ entry = "widget.luau"
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-width = 410
-height = 450
+width = 400
+height = 470
 placement = "floating"
-position = "center"
+position = "top_center"

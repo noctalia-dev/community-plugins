@@ -1,0 +1,84 @@
+{
+  "action_check": "Check Updates",
+  "action_update": "Update",
+  "adapter_actions": {
+    "packagekit_cancel": {
+      "label": "Cancel",
+      "tip": "Cancel the offline update process"
+    },
+    "packagekit_info_reboot_required": {
+      "label": "Offline update is triggered. Reboot is required to complete the update process."
+    },
+    "packagekit_reboot": {
+      "label": "Reboot and update",
+      "tip": "Reboot the system to complete the offline update process"
+    }
+  },
+  "error_phase_action": "Error occurred while performing the action",
+  "error_phase_check": "Error occurred while checking for updates",
+  "error_phase_update": "Error occurred while updating",
+  "error_timeout": "The command timed out.",
+  "last_check_time": "Last checked: {time}",
+  "notify_check_body_action": "✔ {adapter}: done, action required.",
+  "notify_check_body_error": "🗙 {adapter}: failed.",
+  "notify_check_body_found": "✔ {adapter}: {total} packages to upgrade.",
+  "notify_check_body_success": "✔ {adapter}: up to date.",
+  "notify_check_error_title": "System Updates Manager: Error checking for updates",
+  "notify_check_finished_title": "System Updates Manager: Check completed",
+  "notify_update_body_error": "🗙 {adapter}: failed.",
+  "notify_update_body_success": "✔ {adapter}: done.",
+  "notify_update_error_title": "System Updates Manager: Error applying updates",
+  "notify_update_finished_title": "System Updates Manager: Updates applied",
+  "settings": {
+    "adapters_folder": {
+      "description": "The folder where adapters definitions are stored. One adapter per subfolder. Each adapter folder must contain an adapter.json with the adapter definition.",
+      "label": "Adapters folder"
+    },
+    "auto_check_minutes": {
+      "description": "Check for updates automatically every N minutes. if <= 10 never checks on its own — nothing runs until you ask for it.",
+      "label": "Auto-check interval (minutes)"
+    },
+    "enable_cargo": {
+      "description": "Enable the Cargo adapter for managing system updates.",
+      "label": "Enable Cargo adapter"
+    },
+    "enable_flatpak": {
+      "description": "Enable the Flatpak adapter for managing system updates.",
+      "label": "Enable Flatpak adapter"
+    },
+    "enable_packagekit": {
+      "description": "Enable the PackageKit adapter for managing system updates.",
+      "label": "Enable PackageKit adapter"
+    },
+    "glyph": {
+      "description": "The glyph shown for the system updater widget on the bar.",
+      "label": "Bar glyph"
+    },
+    "notify_on_updates": {
+      "description": "Send a desktop notification when a check finds packages to upgrade or after applying updates.",
+      "label": "Notify when updates are found or applied"
+    },
+    "show_count": {
+      "description": "Show the number of pending updates next to the bar glyph.",
+      "label": "Show the update count"
+    }
+  },
+  "status_checking": "Checking for updates…",
+  "status_clean": "Everything is up to date",
+  "status_idle": {
+    "one": "1 package to upgrade",
+    "other": "{count} packages to upgrade"
+  },
+  "status_never_checked": "Updates have never been checked",
+  "status_updating": "Downloading and applying updates…",
+  "tip_check": "Check for updates now",
+  "tip_check_adapter": "{adapter}: Check for updates now",
+  "tip_close": "Close",
+  "tip_copy_to_clipboard": "Copy text to clipboard",
+  "tip_delete_error": "Delete this error message",
+  "tip_settings": "Plugin settings",
+  "tip_update": "Update pending packages",
+  "tip_update_adapter": "{adapter}: Update pending packages",
+  "tip_update_package": "Update the selected package",
+  "title": "System Updates Manager"
+}

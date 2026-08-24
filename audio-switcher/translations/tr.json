@@ -1,0 +1,138 @@
+{
+  "actions": {
+    "select": "Seç",
+    "selected": "Seçildi",
+    "settings": "Eklenti ayarları",
+    "show": "Cihazı göster",
+    "use": "Kullan"
+  },
+  "device": {
+    "active": "Aktif",
+    "available": "Kullanılabilir",
+    "bluetooth_connected": "Bluetooth bağlandı",
+    "bluetooth_disconnected": "Bluetooth bağlantısı kesildi",
+    "current": "Geçerli",
+    "output_group": "Çıkış grubu",
+    "port": "Port",
+    "unavailable_port": "{port} (kullanılamıyor)"
+  },
+  "editor": {
+    "alias": "Görünen ad",
+    "icon": "Cihaz simgesi",
+    "icon_options": {
+      "automatic": "Otomatik",
+      "over_ear": "Kulak üstü kulaklık",
+      "speaker": "Hoparlör",
+      "tws": "TWS kulak içi kulaklık",
+      "wired": "Kablolu kulaklık"
+    },
+    "slot": "Kısayol numarası",
+    "slot_hint": "Bu numarayı connect IPC komutuyla kullanın, örneğin: connect 2.",
+    "title": "Cihaz tercihleri"
+  },
+  "errors": {
+    "audio_unavailable": "Ses servisi kullanılamıyor.",
+    "bluetooth_audio_timeout": "Bluetooth bağlandı ancak ses çıkışı PipeWire'da zamanında görünmedi.",
+    "bluetooth_connect_failed": "Bluetooth cihazına bağlanılamadı.",
+    "bluetooth_device_not_found": "Bluetooth cihazı bulunamadı. Tekrar taramayı deneyin.",
+    "bluetooth_pair_failed": "Bluetooth cihazı eşleştirilemedi.",
+    "busy": "Başka bir ses işlemi hala devam ediyor.",
+    "command_start": "Sistem komutu başlatılamadı.",
+    "device_not_found": "Seçilen cihaz artık mevcut değil.",
+    "device_unavailable": "Seçilen cihaz şu anda kullanılamıyor.",
+    "group_create_failed": "Çıkış grubu oluşturulamadı.",
+    "group_not_found": "Çıkış grubu artık mevcut değil.",
+    "group_remove_failed": "Çıkış grubu dağıtılamadı.",
+    "group_requires_two": "En az iki kullanılabilir çıkış seçin.",
+    "group_switch_failed": "Çıkış grubu oluşturuldu ancak seçilemedi.",
+    "input_port_not_found": "Seçilen giriş bağlantı noktası artık mevcut değil.",
+    "input_port_switch_failed": "Giriş bağlantı noktası değiştirilemedi.",
+    "input_port_unavailable": "Seçilen giriş bağlantı noktası şu anda kullanılamıyor.",
+    "invalid_audio_data": "Ses servisi geçersiz veri döndürdü.",
+    "invalid_slot": "Kısayol numarası 1 ile 99 arasında bir tam sayı olmalıdır.",
+    "invalid_volume": "İstenen ses seviyesi geçersiz.",
+    "no_visible_devices": "Geçiş yapılabilecek görünür cihaz yok.",
+    "pactl_missing": "pactl gerekli ancak PATH içinde bulunamadı.",
+    "scan_in_progress": "Bluetooth taraması zaten devam ediyor.",
+    "slot_in_use": "{slot} numaralı kısayol zaten başka bir cihaza atanmış.",
+    "slot_not_found": "{slot} numaralı kısayola atanmış bir Bluetooth cihazı yok.",
+    "switch_failed": "Varsayılan ses cihazı değiştirilemedi."
+  },
+  "notifications": {
+    "bluetooth_disconnected": "Bluetooth cihazının bağlantısı kesildi.",
+    "group_created": "Çıkış grubu oluşturuldu ve seçildi.",
+    "group_removed": "Çıkış grubu dağıtıldı.",
+    "input_port_selected": "Giriş bağlantı noktası {port} olarak değiştirildi.",
+    "input_selected": "Giriş cihazı {device} olarak değiştirildi.",
+    "output_selected": "Çıkış cihazı {device} olarak değiştirildi.",
+    "preferences_saved": "Cihaz tercihleri kaydedildi.",
+    "scan_complete": "Bluetooth taraması tamamlandı.",
+    "slot_saved": "Kısayol numarası {slot} kaydedildi."
+  },
+  "panel": {
+    "group_hint": "{count} adet seçildi. En az iki kullanılabilir çıkış seçin.",
+    "hidden": "Gizli",
+    "hidden_count": "Gizli: {count}",
+    "input_volume": "Mikrofon",
+    "keybind_hint": "Gizli cihazlar cycle-output ve cycle-input komutları tarafından atlanır. Bluetooth numaraları connect IPC komutuyla kullanılabilir.",
+    "loading": "Ses cihazları yükleniyor…",
+    "mute": "Sesi kapat",
+    "no_device": "Cihaz yok",
+    "no_devices": "Ses cihazı bulunamadı.",
+    "no_input": "Giriş yok",
+    "no_output": "Çıkış yok",
+    "no_visible_devices": "Bu listedeki tüm cihazlar gizli.",
+    "output_volume": "Ses",
+    "scan_bluetooth": "Bluetooth ses cihazlarını tara",
+    "scanning": "Bluetooth cihazları taranıyor…",
+    "switching": "Ses cihazı değiştiriliyor…",
+    "unmute": "Sesi aç",
+    "visible_count": "Görünür: {count}"
+  },
+  "settings": {
+    "scroll_step": {
+      "description": "Fare tekerleği kaydırmasının çubuk widget'ındaki ses seviyesini yüzde kaç değiştireceği.",
+      "label": "Kaydırma adımı"
+    },
+    "show_actions_in_tooltip": {
+      "description": "Eylemleri araç ipucunda göster.",
+      "label": "Araç ipucunda eylemleri göster"
+    },
+    "show_notification_on_switch": {
+      "description": "Cihaz değiştirildiğinde bildirim göster.",
+      "label": "Cihaz değişiminde bildirim göster"
+    },
+    "show_percentage": {
+      "description": "Çubuk simgesinin yanında geçerli çıkış ses yüzdesini gösterin. Yalnızca simgeyi göstermek için devre dışı bırakın.",
+      "label": "Yüzdeyi göster"
+    }
+  },
+  "tabs": {
+    "inputs": "Girişler",
+    "outputs": "Çıkışlar"
+  },
+  "title": "Ses Değiştirici",
+  "widget": {
+    "action": {
+      "left_click": {
+        "description": "Ses Değiştirici'yi aç",
+        "key": "Sol tıklama"
+      },
+      "middle_click": {
+        "description": "Görünür girişler arasında geçiş yap",
+        "key": "Orta tıklama"
+      },
+      "right_click": {
+        "description": "Görünür çıkışlar arasında geçiş yap",
+        "key": "Sağ tıklama"
+      },
+      "scroll": {
+        "description": "Çıkış ses seviyesini değiştir",
+        "key": "Kaydırma"
+      }
+    },
+    "input": "Giriş",
+    "output": "Çıkış",
+    "tooltip": "Çıkış: {output} ({output_volume})\nGiriş: {input} ({input_volume})\nKaydırma: çıkış ses seviyesini değiştir\nSol tıklama: Ses Değiştirici'yi aç\nSağ tıklama: çıkışlar arasında geçiş yap\nOrta tıklama: girişler arasında geçiş yap"
+  }
+}

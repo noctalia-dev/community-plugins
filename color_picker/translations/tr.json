@@ -1,0 +1,48 @@
+{
+  "color_copied": "{color} rengi kopyalandı.",
+  "color_picked": "{color} rengi seçildi.",
+  "color_picker": "Renk Seçici",
+  "could_not_parse": "hyprpicker çıktısı ayrıştırılamadı.",
+  "glyph": "Simge",
+  "hex": "HEX",
+  "hyprpicker_not_installed": "hyprpicker yüklü değil.",
+  "no_color_picked": "Henüz bir renk seçilmedi.",
+  "no_history": "Geçmişte henüz renk yok.",
+  "opacity": "Opaklık",
+  "recent_colors": "Son Renkler",
+  "rgb": "",
+  "settings": {
+    "hyprpicker_cursor": {
+      "description": "Dondurulmuş ekran önizlemesine imleci de dahil eder.",
+      "label": "İmleci göster"
+    },
+    "hyprpicker_disable_preview": {
+      "description": "Renk seçimi sırasında canlı renk önizlemesini kapatır.",
+      "label": "Canlı Önizlemeyi Devre Dışı Bırak"
+    },
+    "hyprpicker_format": {
+      "description": "Panoya kopyalanacak varsayılan renk biçimi (Hex veya RGB).",
+      "label": "Varsayılan Biçim"
+    },
+    "hyprpicker_lowercase": {
+      "description": "Hex kodunu küçük harflerle verir.",
+      "label": "Küçük Harfli Hex"
+    },
+    "hyprpicker_no_zoom": {
+      "description": "Renk seçimi sırasında büyütücü yakınlaştırma merceğini kapatır.",
+      "label": "Yakınlaştırma Merceğini Devre Dışı Bırak"
+    },
+    "hyprpicker_radius": {
+      "description": "Piksel cinsinden yakınlaştırma merceği daire yarıçapı (1 ila 1000 arası).",
+      "label": "Yakınlaştırma Yarıçapı"
+    },
+    "hyprpicker_scale": {
+      "description": "Yakınlaştırma merceği büyütme oranı (1 ila 10 arası).",
+      "label": "Yakınlaştırma Ölçeği"
+    },
+    "swatch_radius": {
+      "description": "Geçmiş renk örneklerinin ve geçerli renk önizlemesinin köşe yuvarlaklığı.",
+      "label": "Renk Örnekleri Köşe Yuvarlaklığı"
+    }
+  }
+}

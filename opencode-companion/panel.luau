@@ -43,7 +43,6 @@ local session_query = ""
 local question_choices = {}
 
 local SVC = "weinguyen/opencode-companion:service"
-local PANEL_ID = "weinguyen/opencode-companion:panel"
 
 -- Layout constants (recomputed from the ui_mode setting on every render).
 local compact = false
@@ -93,6 +92,14 @@ local draft = ""
 -- on-screen text. Changing the input's key forces the reconciler to build a fresh
 -- (empty) input, which is how we clear the field after sending.
 local composer_seq = 0
+
+-- Chat scroll control (API 21). `chat_scroll_rev` is bumped to request a
+-- one-shot jump to the bottom (deferred to the next layout pass); `chat_stick`
+-- keeps the view pinned to the bottom while content grows, and is cleared when
+-- the user scrolls away so reading history doesn't yank them down.
+local chat_scroll_rev = 0
+local chat_stick = true
+local last_scrolled_session = nil
 
 local view = "session_chooser"
 local snap_cache = {}  -- last rendered fingerprint
@@ -176,17 +183,8 @@ local function tr(key, args)
     return str
 end
 
--- Fingerprint a value to detect real changes (avoid re-render storms)
-local function fp(v)
-    if type(v) ~= "table" then return tostring(v) end
-    local parts = {}
-    for k, val in pairs(v) do
-        parts[#parts + 1] = tostring(k) .. "=" .. tostring(val)
-    end
-    table.sort(parts)
-    return table.concat(parts, "\1")
-end
-
+-- Fingerprint a list of records by the given fields, so the panel re-renders
+-- only when one of those fields actually changes.
 local function fp_list(list, fields)
     if type(list) ~= "table" then return "" end
     local parts = {}
@@ -272,9 +270,7 @@ local function dispatch_ipc(event, payload)
     noctalia.runAsync(cmd)
 end
 
--- MCP status footer: colored server names, one per line. Returns nil when
--- there's nothing meaningful to show. Kept intentionally minimal — the
--- MCP status footer: a single collapsible toggle row (chevron + title +
+-- MCP status footer: a single collapsible toggle row (chevron + title + the
 -- connected/total count). Clicking expands it to show one pill per server.
 -- Collapsed by default so it never crowds the message list.
 local MCP_META = {
@@ -523,6 +519,33 @@ end
 
 -- ── chat view ───────────────────────────────────────────────────────────────
 
+-- noctalia's MarkdownView doesn't wrap fenced code blocks (the code label is
+-- not width-constrained), so long lines overflow the panel. Split assistant
+-- text into code / non-code segments: code renders as a wrapping monospace
+-- label, everything else keeps markdown rendering.
+local function split_markdown(txt)
+    local segs = {}
+    local in_code = false
+    local buf = ""
+    local function flush()
+        if buf ~= "" then
+            segs[#segs + 1] = { code = in_code, text = buf }
+            buf = ""
+        end
+    end
+    for line in (txt .. "\n"):gmatch("([^\n]*)\n") do
+        local stripped = line:match("^%s*(.*)$") or ""
+        if stripped:sub(1, 3) == "```" then
+            flush()
+            in_code = not in_code
+        else
+            buf = buf .. line .. "\n"
+        end
+    end
+    flush()
+    return segs
+end
+
 local function render_message(msg_data)
     if type(msg_data) ~= "table" then return nil end
     local info = msg_data.info
@@ -549,11 +572,40 @@ local function render_message(msg_data)
                     or txt:sub(1, 1) == "<" and txt:find("_context>", 1, true) ~= nil
                 )
                 if not is_injected then
-                    cells[#cells + 1] = ui.label({
-                        text = txt,
-                        maxWidth = WRAP,
-                        flexGrow = 1,
-                    })
+                    if role == "assistant" then
+                        -- Render text as markdown (headings, bold, lists, tables)
+                        -- but split out fenced code blocks, which MarkdownView
+                        -- never wraps and would overflow the panel. Code segments
+                        -- render as wrapping monospace labels.
+                        local segs = split_markdown(txt)
+                        for _, seg in ipairs(segs) do
+                            if seg.code then
+                                cells[#cells + 1] = ui.column({
+                                    padding = 8,
+                                    radius = 8,
+                                    fill = "surface_variant/0.45",
+                                }, {
+                                    ui.label({
+                                        text = seg.text:gsub("\n+$", ""),
+                                        fontSize = 12,
+                                        fontFamily = "monospace",
+                                        maxWidth = WRAP - 16,
+                                    }),
+                                })
+                            else
+                                cells[#cells + 1] = ui.markdown({
+                                    text = seg.text,
+                                    width = WRAP,
+                                })
+                            end
+                        end
+                    else
+                        cells[#cells + 1] = ui.label({
+                            text = txt,
+                            maxWidth = WRAP,
+                            flexGrow = 1,
+                        })
+                    end
                 end
             elseif ptype == "reasoning" and type(part.text) == "string" and part.text ~= "" then
                 -- Only show reasoning if enabled (checked at render time via config)
@@ -986,12 +1038,12 @@ local function render_chat(active, messages, permissions, questions, conn)
         end
     end
 
-    -- Message list, newest-first. Newest at the top so the panel always opens on
-    -- the latest message without needing a scroll API (shell < API 21 resets a
-    -- re-mounted scroll to offset 0 = top). Scrolling down reveals older
-    -- messages. The scroll node carries a stable `key` so its offset survives
-    -- re-renders even when siblings above it appear/disappear. Children are
-    -- passed directly to the scroll (not wrapped in a column).
+    -- Message list, oldest-first. Newest at the bottom; the scroll node is
+    -- pinned to the bottom (stickToBottom) and jumps there on open/session
+    -- switch (scrollToBottomRev), so the panel always shows the latest message.
+    -- The scroll node carries a stable `key` so its offset survives re-renders
+    -- even when siblings above it appear/disappear. Children are passed directly
+    -- to the scroll (not wrapped in a column).
     local msg_items = {}
     if type(messages) ~= "table" or #messages == 0 then
         msg_items[#msg_items + 1] = ui.label({ text = tr("chat.empty"), maxWidth = WRAP, opacity = 0.7 })
@@ -1019,22 +1071,35 @@ local function render_chat(active, messages, permissions, questions, conn)
         -- disappears once the assistant's first text part streams in.
         local waiting = is_processing()
             and (not newest_is_assistant or not newest_has_text)
-        -- Newest-first: build the list from the end so bubble order is latest
-        -- first, oldest last.
-        for i = #messages, 1, -1 do
+        -- Oldest-first: newest message at the bottom (API 21 supports
+        -- stick-to-bottom + jump-to-bottom, so the panel opens on the latest
+        -- message and follows the stream).
+        for i = 1, #messages do
             local rendered = render_message(messages[i])
             if rendered then
                 msg_items[#msg_items + 1] = rendered
             end
         end
-        -- Thinking bubble sits right ABOVE the newest message (top of the
-        -- newest-first list), like a spinner over the reply in progress.
+        -- Thinking bubble sits right BELOW the newest message (end of the
+        -- oldest-first list), like a spinner over the reply in progress.
         if waiting then
-            table.insert(msg_items, 1, render_thinking())
+            msg_items[#msg_items + 1] = render_thinking()
         end
     end
 
-    rows[#rows + 1] = ui.scroll({ key = "chat_messages", flexGrow = 1, gap = GAP }, msg_items)
+    rows[#rows + 1] = ui.scroll({
+        key = "chat_messages",
+        flexGrow = 1,
+        gap = GAP,
+        stickToBottom = chat_stick,
+        scrollToBottomRev = chat_scroll_rev,
+        onScroll = function(offset, maxOffset)
+            -- The reconciler passes both args as strings; coerce before compare.
+            local o = tonumber(offset) or 0
+            local mo = tonumber(maxOffset) or 0
+            chat_stick = (o >= mo - 1)
+        end,
+    }, msg_items)
 
     -- MCP status footer
     local mcp_footer = render_mcp_status()
@@ -1066,13 +1131,13 @@ local function render_chat(active, messages, permissions, questions, conn)
             value = draft,
             placeholder = tr("chat.placeholder"),
             multiline = true,
+            submitOnEnter = true,
             flexGrow = 1,
             onChange = function(text)
                 draft = text
             end,
-            -- Multiline: Enter inserts a newline; Ctrl+Enter submits (send). This
-            -- is the input control's built-in mapping and cannot distinguish
-            -- Shift+Enter, so Ctrl+Enter is the send chord.
+            -- Chat-style submit (API 21): Enter submits, Shift+Enter inserts a
+            -- newline. Ctrl+Enter still submits as a fallback chord.
             onSubmit = function(text)
                 send_draft(text)
             end,
@@ -1106,6 +1171,14 @@ end
 render = function()
     apply_layout()
     local active = noctalia.state.get(STATE.active)
+    -- Jump to the bottom when the active session changes (new session or
+    -- restore-on-boot), so the panel opens on the latest message.
+    local active_id = (type(active) == "table" and active.id) or nil
+    if active_id ~= last_scrolled_session then
+        last_scrolled_session = active_id
+        chat_scroll_rev = chat_scroll_rev + 1
+        chat_stick = true
+    end
     local sessions = noctalia.state.get(STATE.sessions) or {}
     local messages = noctalia.state.get(STATE.messages) or {}
     local permissions = noctalia.state.get(STATE.permissions) or {}
@@ -1160,6 +1233,9 @@ end
 
 function onOpen(_context)
     panel.setWantsSecondTicks(true)
+    -- Re-entering the panel: jump to the bottom of the current session.
+    chat_scroll_rev = chat_scroll_rev + 1
+    chat_stick = true
     -- Subscribe to all relevant state changes
     for _, key in pairs(STATE) do
         noctalia.state.watch(key, function()

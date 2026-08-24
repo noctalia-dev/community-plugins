@@ -20,14 +20,26 @@
     "clipboard_failed": "Failed to send clipboard",
     "no_backend": "No backend",
     "pairing_failed": "Pairing failed",
+    "pick_failed": "Failed to open file picker",
+    "pick_in_progress": "A file picker is already open",
     "ping_failed": "Failed to send ping",
     "reject_failed": "Failed to reject pairing",
     "ring_failed": "Failed to ring device",
     "share_failed": "Failed to share",
     "unpair_failed": "Unpair failed"
   },
+  "media": {
+    "mute": "Mute",
+    "next": "Next",
+    "pause": "Pause",
+    "play": "Play",
+    "previous": "Previous",
+    "stop": "Stop",
+    "unmute": "Unmute"
+  },
   "notify": {
     "clipboard_sent": "Clipboard sent",
+    "file_shared": "Sending file to device...",
     "opening_browser": "Opening file browser...",
     "paired": "Device paired",
     "pairing_sent": "Pairing request sent",
@@ -38,7 +50,8 @@
   },
   "panel": {
     "battery": "Battery",
-    "devices_connected": "{connected} connected • {paired} paired",
+    "close": "Close",
+    "devices_connected": "{connected} connected",
     "empty": "No devices found. Pair a device in KDE Connect.",
     "image_path": "Custom Image",
     "network": "Network",
@@ -58,6 +71,14 @@
     "unpaired": "Unpaired"
   },
   "settings": {
+    "battery_display": {
+      "description": "Choose whether the bar widget shows the battery icon, percentage, both, or neither.",
+      "hidden": "Hidden",
+      "icon": "Icon only",
+      "icon_and_percent": "Icon and percentage",
+      "label": "Battery Display",
+      "percent": "Percentage only"
+    },
     "custom_image": {
       "description": "Set a custom image for the selected device. Leave empty for default icon.",
       "label": "Device Image"
@@ -85,6 +106,10 @@
       "description": "Number of recent images to display.",
       "label": "Max Recent Images"
     },
+    "migrated": {
+      "description": "Edit these directly in the panel: click the device's avatar to change its image, click its name to rename it. Per-device and saved automatically.",
+      "label": "Device image and name"
+    },
     "panel_placement": {
       "attached": "Attached to bar",
       "description": "How the details panel opens: attached to the bar, or floating.",
@@ -95,6 +120,10 @@
     "scan_subdirectories": {
       "description": "Recursively scan subdirectories of the recent images path.",
       "label": "Scan Subdirectories"
+    },
+    "show_device_name": {
+      "description": "Show the selected device's name or alias in the bar widget.",
+      "label": "Show Device Name"
     },
     "show_device_placeholder": {
       "description": "Show the device graphic in the details panel.",

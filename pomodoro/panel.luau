@@ -148,26 +148,12 @@ function onOpen(context)
     render(state, sessionData)
 end
 
-local function notifyStageFinished(state, sessionData)
-    local sessionNumber = state.sessionPtr.session
-    local stageNumber = state.sessionPtr.stage
-    local body =
-        if stageNumber == 1 then
-            noctalia.tr("notification.work-complete")
-        elseif sessionNumber < #sessionData then
-            noctalia.tr("notification.short-break-complete")
-        else
-            noctalia.tr("notification.long-break-complete")
-    noctalia.notify("Pomodoro Timer", body)
-end
-
 --- main
 noctalia.state.watch("pomodoro.state", function(state)
     local config = noctalia.state.get("pomodoro.config")
     local sessionData = noctalia.state.get("pomodoro.sessionData")
 
     if state.secondsLeft == 0 then
-        notifyStageFinished(state, sessionData)
         noctalia.state.set("pomodoro.nextCommand", "skip")
         if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then
             noctalia.state.set("pomodoro.nextCommand", "toggle")

@@ -1,8 +1,10 @@
 # OBS Integration
 
-Manage openSUSE Build Service projects and packages from Noctalia. The bar
-widget toggles a panel for browsing your projects, checking out packages,
-editing metadata and files, and triggering rebuilds on OBS — without leaving
+![thumbnail](thumbnail.webp)
+
+Manage openSUSE Build Service projects and packages directly inside Noctalia. 
+The bar widget toggles a panel for browsing your projects, checking out packages,
+editing metadata and files, and triggering rebuilds on OBS without leaving
 the shell.
 
 ## Plugin
@@ -14,27 +16,19 @@ the shell.
 
 ## Requirements
 
-Install the openSUSE Build Service `osc` CLI on `PATH` and configure your
+Install the openSUSE Build Service `osc` CLI and configure your
 credentials in `~/.config/osc/oscrc` (for example with `osc apiservice` setup
 or by copying a working `oscrc`). The plugin shells out to `osc` for every
 operation, so all authentication stays in your normal OBS configuration.
 
 ## Usage
 
-Add the `obs-integrate` widget to a bar. Left-click it to open the panel.
-
-Open the panel directly with:
-
-```sh
-noctalia msg panel-toggle neyfua/obs-integration:panel
-```
-
 ### My Projects
 
 The panel opens on **My Projects**: every project you maintain, plus every
 project where you are listed as a package maintainer on OBS. Search filters the
-list, and the sort button toggles A-Z / Z-A order. The pen icon edits the
-project metadata (`osc meta prj -e`).
+list, and the sort button toggles A-Z / Z-A order. The **pen** icon edits the
+project metadata (`osc meta prj -e`), and the **external link** icon opens the project page on OBS.
 
 ### Inside a project
 
@@ -66,6 +60,7 @@ its actions:
   server-side service runs, and a confirmation is not required.
 - **Rebuild package** — pick a repository and architecture (or **All**) and trigger `osc rebuild`. Confirmation is required before it runs.
 - **Build Status** — Shows real-time build results for the package across all repositories and architectures. Click **Refresh status** to pull latest results.
+- **Open in OBS** — Opens the package page in your browser.
 - **Edit package meta** — `osc meta pkg -e` in a terminal.
 - **Remove package** — deletes the checkout from disk only (never touches the
   OBS project); confirm before it runs. If it was the last package in the
@@ -81,6 +76,12 @@ The panel reopens where you left off — inside the same project or package.
 | --- | --- | --- | --- |
 | `checkout_dir` | `string` | `~/OBS` | Base directory where packages are checked out. Packages land in `<checkout_dir>/<project>/<package>`. |
 | `show_label` | `bool` | `false` | Show the "OBS" label next to the bar icon. |
+
+## IPC
+
+```sh
+noctalia msg panel-toggle neyfua/obs-integration:panel
+```
 
 ## Notes
 

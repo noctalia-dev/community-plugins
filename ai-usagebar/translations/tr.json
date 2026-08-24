@@ -1,0 +1,66 @@
+{
+  "settings": {
+    "style": {
+      "description": "Bu kapsülün çubukta nasıl görüneceği.",
+      "label": "Stil",
+      "option": {
+        "gauge": "Gösterge ve yüzde",
+        "label": "İsim, gösterge ve yüzde",
+        "meter": "Segmentler",
+        "pill": "Yüzde"
+      }
+    },
+    "vendor": {
+      "description": "Bu kapsülün hangi planı takip edeceği. İkisini izlemek için widget'ı iki kez ekleyin.",
+      "label": "Sağlayıcı",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
+        "auto": "Otomatik (birincil)",
+        "cursor": "Cursor",
+        "deepseek": "DeepSeek",
+        "grok": "Grok",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "minimax": "MiniMax",
+        "moonshot": "Moonshot",
+        "novita": "Novita",
+        "openai": "Codex",
+        "openrouter": "OpenRouter",
+        "supergrok": "SuperGrok",
+        "zai": "Z.AI"
+      }
+    }
+  },
+  "ui": {
+    "details": "Ayrıntılar",
+    "elapsed": "Aralığın %{percent}'i geçti",
+    "error": {
+      "failed": "Kullanım bilgisi okunamadı",
+      "failed_hint": "Kullanım bilgisi okunamadı",
+      "no_data": "Kullanım bildirilmedi",
+      "no_data_hint": "Kullanım bildirilmedi",
+      "not_installed": "ai-usagebar yüklü değil",
+      "not_installed_hint": "ai-usagebar yüklü değil",
+      "spawn_failed": "ai-usagebar başlatılamadı",
+      "spawn_failed_hint": "ai-usagebar başlatılamadı",
+      "timed_out": "ai-usagebar yanıt vermedi",
+      "timed_out_hint": "ai-usagebar yanıt vermedi"
+    },
+    "hidden_label": "Gösterilmiyor",
+    "hidden_value": "{count} tane daha, paneli açmak için tıklayın",
+    "loading": "Yükleniyor…",
+    "no_usage": "Kullanım bildirilmedi",
+    "not_configured": "`{vendor}` ai-usagebar içinde yapılandırılmamış",
+    "now": "şimdi",
+    "retry": "Tekrar dene",
+    "stale": "güncel değil",
+    "stale_hint": "en son bilinen veriyi gösteriyor",
+    "title": "Yapay Zeka Kullanımı",
+    "unavailable": "Kullanılamıyor",
+    "updated": "Güncellendi",
+    "updated_ago": "{minutes} dakika önce güncellendi\n"
+  }
+}

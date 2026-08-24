@@ -151,9 +151,7 @@ local connection = {
     server_version = nil,
 }
 
--- Server process info (managed mode only)
-local managed_pid = nil
-local managed_port = nil
+
 
 -- Active session tracking
 local active_session = nil
@@ -172,6 +170,9 @@ local last_error = nil
 
 -- Optimistic user message appended on send, replaced once the server echoes it.
 local optimistic_msg = nil
+-- Monotonic counter so two sends within the same second still get distinct
+-- optimistic ids (load_messages dedups on message id).
+local optimistic_seq = 0
 
 -- When the active session went busy (os.time seconds). Used to auto-recover a
 -- stale busy status if the server never emits idle/error (dropped SSE event),
@@ -366,6 +367,12 @@ local function publish()
     if dirty.mcp_status or dirty.all then
         noctalia.state.set("opencode.mcp_status", mcp_status)
     end
+    if dirty.providers or dirty.all then
+        noctalia.state.set("opencode.providers", providers)
+    end
+    if dirty.agents or dirty.all then
+        noctalia.state.set("opencode.agents", agents)
+    end
     if dirty.pending_permissions or dirty.all then
         noctalia.state.set("opencode.pending_permissions", pending_permissions)
     end
@@ -400,6 +407,17 @@ local function set_connection_status(status, err)
     publish()
 end
 
+-- After answering/dismissing a permission or question, return to "online" only
+-- when nothing is left waiting; otherwise keep "waiting_permission". The widget
+-- glyph must not flip to online while other cards still await user input.
+local function refresh_waiting_status()
+    if #pending_permissions > 0 or #pending_questions > 0 then
+        set_connection_status("waiting_permission")
+    else
+        set_connection_status("online")
+    end
+end
+
 local function set_last_error(message, detail)
     last_error = { message = message, detail = detail }
     mark_dirty("last_error")
@@ -429,7 +447,6 @@ local function start_managed_server()
             local ok, data = pcall(noctalia.json.decode, resp.body)
             if ok and data.healthy then
                 connection.server_version = data.version
-                managed_port = port
                 set_connection_status("online")
                 debug_log("Connected to existing server at " .. host .. ":" .. port)
                 load_initial_data()
@@ -482,8 +499,6 @@ local function start_managed_server()
                     local ok2, data2 = pcall(noctalia.json.decode, resp2.body)
                     if ok2 and data2.healthy then
                         connection.server_version = data2.version
-                        managed_port = port
-                        managed_pid = true  -- we spawned it
                         set_connection_status("online")
                         debug_log("Server started successfully")
                         load_initial_data()
@@ -771,10 +786,14 @@ end
 -- ── session management ───────────────────────────────────────────────────────
 
 local function set_active_session(session)
+    -- Drop any in-flight optimistic bubble unless we're re-selecting the very
+    -- same session. Switching sessions (or deselecting) with a pending user
+    -- message would otherwise bleed that bubble into the next session's list.
+    local same_session = session and active_session and session.id == active_session.id
     active_session = session
     messages = {}
     last_messages_body = nil  -- force a fresh decode for the new session
-    if not session then
+    if not same_session then
         optimistic_msg = nil
     end
     mark_dirty("active_session")
@@ -896,12 +915,20 @@ local function send_prompt(session_id, text, model, agent)
     if not safe_id(session_id) then return end
     if type(text) ~= "string" or text == "" then return end
 
+    -- The user is actively sending in the panel: clear any unread responses
+    -- from a previous turn so the badge counts only this turn's replies.
+    if unread_count ~= 0 then
+        unread_count = 0
+        mark_dirty("unread_count")
+    end
+
     -- Optimistically append the user message so it appears immediately on the
     -- right. It is replaced by the server's copy once echoed (see load_messages).
+    optimistic_seq = optimistic_seq + 1
     local now_ms = os.time() * 1000
     optimistic_msg = {
         info = {
-            id = "local-" .. tostring(now_ms),
+            id = "local-" .. tostring(now_ms) .. "-" .. tostring(optimistic_seq),
             role = "user",
             sessionID = session_id,
             time = { created = now_ms },
@@ -968,7 +995,7 @@ local function respond_to_permission(session_id, permission_id, response, rememb
                 end
             end
             mark_dirty("pending_permissions")
-            set_connection_status("online")
+            refresh_waiting_status()
             publish()
         else
             set_last_error(tr("error.permission_failed"), "HTTP " .. tostring(resp.status))
@@ -991,7 +1018,7 @@ local function respond_to_question(request_id, answers)
                 end
             end
             mark_dirty("pending_questions")
-            set_connection_status("online")
+            refresh_waiting_status()
             publish()
         else
             set_last_error(tr("error.question_failed"), "HTTP " .. tostring(resp.status))
@@ -1010,7 +1037,7 @@ local function reject_question(request_id)
                 end
             end
             mark_dirty("pending_questions")
-            set_connection_status("online")
+            refresh_waiting_status()
             publish()
         else
             set_last_error(tr("error.question_failed"), "HTTP " .. tostring(resp.status))
@@ -1026,6 +1053,11 @@ local SSE = {}
 last_messages_reload = 0
 RELOAD_THROTTLE_S = 0.3
 
+-- Throttle for session-list reloads (session.updated/session.diff fire once
+-- or twice per reply; the list fetch is heavier than the message one).
+last_sessions_reload = 0
+SESSIONS_RELOAD_THROTTLE_S = 1
+
 -- Dedup set for unread counting (prevents inflating count on every part update)
 local counted_messages = {}
 local COUNTED_MAX = 100
@@ -1034,8 +1066,12 @@ local COUNTED_MAX = 100
 local function parse_sse_line(line)
     if line == nil then return nil, nil end
     if line == "" then return nil, nil end
-    if line:sub(1, 6) == "data: " then
-        local json_str = line:sub(7)
+    if line:sub(1, 5) == "data:" then
+        -- SSE allows both "data:{...}" and "data: {...}"; accept either.
+        local json_str = line:sub(6)
+        if json_str:sub(1, 1) == " " then
+            json_str = json_str:sub(2)
+        end
         local ok, data = pcall(noctalia.json.decode, json_str)
         if ok and type(data) == "table" then
             return data.type, data
@@ -1115,6 +1151,17 @@ function SSE.handle_event(event_type, event)
         return
     end
 
+    if event_type == "message.part.delta" then
+        -- Per-token incremental text delta while a reply streams. Do NOT reload
+        -- here: the server emits one of these per token, so reloading on each
+        -- would decode the whole history every ~RELOAD_THROTTLE_S and blow the
+        -- async callback CPU budget (crossed during json.decode). The
+        -- less-frequent message.part.updated / message.updated events carry the
+        -- accumulated full state and drive the (throttled) reload. This branch
+        -- only exists to acknowledge the event and avoid the Unknown-event log.
+        return
+    end
+
     if event_type == "message.part.updated" or event_type == "message.updated" then
         local session_id = event.sessionID or (event.properties and event.properties.sessionID)
         local props = event.properties or event
@@ -1159,8 +1206,6 @@ function SSE.handle_event(event_type, event)
                     set_connection_status("busy")
                 elseif st == "idle" then
                     set_connection_status("online")
-                    unread_count = 0
-                    mark_dirty("unread_count")
                 elseif st == "error" then
                     set_connection_status("online")
                 end
@@ -1177,8 +1222,6 @@ function SSE.handle_event(event_type, event)
             mark_dirty("session_status")
             if active_session and active_session.id == session_id then
                 set_connection_status("online")
-                unread_count = 0
-                mark_dirty("unread_count")
                 counted_messages = {}
                 load_messages(session_id)
             end
@@ -1197,8 +1240,10 @@ function SSE.handle_event(event_type, event)
         local name = (type(err) == "table" and err.name) or "UnknownError"
         local detail = (type(err) == "table" and type(err.data) == "table" and err.data.message)
             or tr("error.session_error_detail")
-        session_status[session_id or ""] = "error"
-        mark_dirty("session_status")
+        if session_id then
+            session_status[session_id] = "error"
+            mark_dirty("session_status")
+        end
         if not active_session or not session_id or active_session.id == session_id then
             -- MessageAbortedError is expected when the user hits Stop; don't shout.
             if name ~= "MessageAbortedError" then
@@ -1263,7 +1308,7 @@ function SSE.handle_event(event_type, event)
                 end
             end
             mark_dirty("pending_permissions")
-            set_connection_status("online")
+            refresh_waiting_status()
             publish()
         end
         return
@@ -1310,8 +1355,20 @@ function SSE.handle_event(event_type, event)
                 end
             end
             mark_dirty("pending_questions")
-            set_connection_status("online")
+            refresh_waiting_status()
             publish()
+        end
+        return
+    end
+
+    if event_type == "session.updated" or event_type == "session.diff" then
+        -- Session metadata changed (e.g. auto-generated title after the first
+        -- prompt). Refresh the session list (throttled) so the chooser shows the
+        -- current titles; these fire roughly once per reply.
+        local now = os.clock()
+        if now - last_sessions_reload > SESSIONS_RELOAD_THROTTLE_S then
+            last_sessions_reload = now
+            load_sessions()
         end
         return
     end
@@ -1461,7 +1518,6 @@ end
 
 function onExit()
     SSE.stop()
-    managed_pid = nil
     sse_stream = nil
 end
 
