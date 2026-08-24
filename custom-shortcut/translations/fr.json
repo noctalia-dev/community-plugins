@@ -6,7 +6,7 @@
         },
         "icon": {
             "label": "Icône",
-            "description": "Icêne du raccourci du centre de contrôle."
+            "description": "Icône du raccourci du centre de contrôle."
         },
         "onclick_cmd": {
             "label": "Commande",
