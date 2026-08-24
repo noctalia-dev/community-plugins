@@ -9,6 +9,7 @@ local detail = noctalia.state.get("error") or ""
 local selectedDate = nil
 local selectedByKey = {}
 local cachedHeatmap = nil
+local cachedCalendar = nil
 local gridColumns = {}
 local gridLevels = {}
 local gridDetails = {}
@@ -19,6 +20,7 @@ local gridReady = false
 local open = false
 local tr = noctalia.tr
 local cellColors = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
+local monthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }
 
 local function requestRefresh()
   noctalia.state.set("refresh_request", noctalia.nowMs())
@@ -34,6 +36,7 @@ end
 
 local function resetGrid(source)
   cachedHeatmap = nil
+  cachedCalendar = nil
   gridColumns = {}
   gridLevels = {}
   gridDetails = {}
@@ -43,6 +46,72 @@ local function resetGrid(source)
   gridPreparingDay = 1
   gridReady = source ~= nil and type(source.rows) == "table"
   gridWeekCount = 0
+end
+
+local function monthForWeek(week)
+  local preferredDays = { 4, 1, 2, 3, 5, 6, 7 }
+  for _, day in ipairs(preferredDays) do
+    local rawDetail = (gridDetails[day] or {})[week] or ""
+    local date = string.match(rawDetail, "^([^|]+)|")
+    if date ~= nil then
+      return tonumber(string.sub(date, 6, 7))
+    end
+  end
+  return nil
+end
+
+local function buildMonthHeader()
+  local segments = {}
+  local segmentMonth = nil
+  local segmentWeeks = 0
+
+  local function appendSegment()
+    if segmentMonth == nil or segmentWeeks == 0 then
+      return
+    end
+    table.insert(segments, ui.column({
+      width = segmentWeeks * 11 - 1,
+      height = 12,
+      align = "center",
+      justify = "center",
+    }, {
+      ui.label({
+        text = segmentWeeks >= 2 and (monthNames[segmentMonth] or "") or "",
+        fontSize = 9,
+        color = "on_surface_variant",
+        textAlign = "center",
+      }),
+    }))
+  end
+
+  for week = 1, gridWeekCount do
+    local month = monthForWeek(week)
+    if segmentMonth ~= nil and month ~= segmentMonth then
+      appendSegment()
+      segmentWeeks = 0
+    end
+    segmentMonth = month or segmentMonth
+    segmentWeeks = segmentWeeks + 1
+  end
+  appendSegment()
+
+  return ui.row({ gap = 1, align = "center" }, segments)
+end
+
+local function buildWeekdayLabels()
+  local names = { "", "Mon", "", "Wed", "", "Fri", "" }
+  local labels = {}
+  for day = 1, 7 do
+    table.insert(labels, ui.label({
+      text = names[day],
+      width = 28,
+      height = 12,
+      fontSize = 9,
+      color = "on_surface_variant",
+      textAlign = "end",
+    }))
+  end
+  return ui.column({ gap = 3, align = "end" }, labels)
 end
 
 local function prepareGridDay()
@@ -63,7 +132,7 @@ local function prepareGridColumns()
   end
 
   -- One native week per tick keeps every callback well below Noctalia's Luau
-  -- budget. The completed tree is otherwise identical to the original UI.
+  -- budget while preserving individual hover targets for every day.
   local lastWeek = math.min(gridWeek, gridWeekCount)
   while gridWeek <= lastWeek do
     local cells = {}
@@ -77,18 +146,25 @@ local function prepareGridColumns()
           key = key,
           fill = cellColors[(gridLevels[day][gridWeek] or 0) + 1],
           radius = 2,
-          width = 11,
-          height = 11,
+          width = 10,
+          height = 12,
           onHover = "onDayHover",
         }))
       end
     end
-    table.insert(gridColumns, ui.column({ key = "week-" .. tostring(gridWeek), gap = 2, align = "center" }, cells))
+    table.insert(gridColumns, ui.column({ key = "week-" .. tostring(gridWeek), gap = 3, align = "center" }, cells))
     gridWeek = gridWeek + 1
   end
 
   if gridWeek > gridWeekCount then
     cachedHeatmap = ui.row({ gap = 1, align = "start" }, gridColumns)
+    cachedCalendar = ui.row({ gap = 8, align = "end", justify = "center" }, {
+      buildWeekdayLabels(),
+      ui.column({ gap = 6, align = "start" }, {
+        buildMonthHeader(),
+        cachedHeatmap,
+      }),
+    })
   end
 end
 
@@ -101,10 +177,24 @@ local function selectedDay()
   return selectedByKey["day-" .. selectedDate]
 end
 
-local function metric(label, value)
-  return ui.column({ gap = 2, align = "center", flexGrow = 1 }, {
-    ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
-    ui.label({ text = tostring(value), fontSize = 20, fontWeight = "bold" }),
+local function activityBlocks(filled, total)
+  local blocks = {}
+  for index = 1, total do
+    table.insert(blocks, ui.box({
+      width = 9,
+      height = 9,
+      radius = 2,
+      fill = index <= filled and "primary" or "surface_variant",
+    }))
+  end
+  return ui.row({ gap = 3, align = "center", justify = "center" }, blocks)
+end
+
+local function metric(label, value, visual)
+  return ui.column({ gap = 6, align = "center", flexGrow = 1 }, {
+    ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
+    ui.label({ text = tostring(value), fontSize = 22, fontWeight = "bold" }),
+    visual,
   })
 end
 
@@ -127,21 +217,22 @@ local function statusText()
 end
 
 function render()
-  local body = {
-    ui.row({ align = "center", gap = 10 }, {
-      ui.glyph({ name = "brand-github", size = 19, color = "primary" }),
-      ui.label({ text = tr("panel.title"), fontSize = 17, fontWeight = "bold", flexGrow = 1 }),
+  local root = {
+    ui.row({ align = "center", gap = 12, paddingH = 18, paddingV = 10 }, {
+      ui.glyph({ name = "brand-github", size = 25, color = "on_surface" }),
+      ui.label({ text = tr("panel.title"), fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("action.refresh"), onClick = "onRefreshClicked" }),
-      ui.button({ glyph = "x", variant = "ghost", tooltip = tr("action.close"), onClick = "onCloseClicked" }),
     }),
+    ui.separator({ thickness = 1, color = "outline/0.35" }),
   }
+  local body = {}
 
   local message = statusText()
   if message ~= "" then
     table.insert(body, ui.label({ text = message, fontSize = 11, color = status == "ready" and "on_surface_variant" or "primary", maxLines = 2 }))
   end
 
-  if data == nil or cachedHeatmap == nil then
+  if data == nil or cachedCalendar == nil then
     local emptyText = data ~= nil and "Preparing interactive calendar…"
       or (detail ~= "" and statusText() or tr("status.no_data"))
     table.insert(body, ui.spacer({ flexGrow = 1 }))
@@ -151,26 +242,36 @@ function render()
       ui.button({ text = tr("action.try_again"), glyph = "refresh", variant = "primary", onClick = "onRefreshClicked" }),
     }))
   else
-    table.insert(body, ui.label({ text = tr("panel.year_total", { login = data.login, count = data.total }), fontSize = 12, color = "on_surface_variant" }))
-    table.insert(body, ui.row({ justify = "center", align = "start" }, { cachedHeatmap }))
+    table.insert(body, cachedCalendar)
 
     local day = selectedDay()
     local selectedText = day ~= nil
       and tr("panel.day_total", { date = day.date, count = day.count })
-      or "Hover a day to inspect its activity."
-    table.insert(body, ui.label({ text = selectedText, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
-    table.insert(body, ui.separator({ spacing = 2 }))
-    table.insert(body, ui.row({ gap = 8, align = "center" }, {
-      metric(tr("metric.today"), data.today),
-      metric(tr("metric.current_streak"), tr("metric.days", { count = data.currentStreak })),
-      metric(tr("metric.best_streak"), tr("metric.days", { count = data.bestStreak })),
+      or tr("panel.year_total", { login = data.login, count = data.total })
+    table.insert(body, ui.label({ text = selectedText, height = 14, fontSize = 10, color = "on_surface_variant", textAlign = "center" }))
+    table.insert(body, ui.separator({ thickness = 1, color = "outline/0.35" }))
+    table.insert(body, ui.row({ gap = 14, align = "stretch" }, {
+      metric(tr("metric.today"), data.today, activityBlocks(data.today > 0 and 1 or 0, 1)),
+      ui.separator({ orientation = "vertical", thickness = 1, color = "outline/0.35" }),
+      metric(
+        tr("metric.current_streak"),
+        data.currentStreak,
+        activityBlocks(math.min(data.currentStreak, 12), math.max(1, math.min(data.currentStreak, 12)))
+      ),
+      ui.separator({ orientation = "vertical", thickness = 1, color = "outline/0.35" }),
+      metric(tr("metric.best_streak"), data.bestStreak, activityBlocks(math.min(data.bestStreak, 12), 12)),
     }))
-    table.insert(body, ui.row({ justify = "end" }, {
+  end
+
+  table.insert(root, ui.column({ gap = 12, paddingH = 18, paddingV = 14, fill = "surface", flexGrow = 1 }, body))
+  if data ~= nil and cachedCalendar ~= nil then
+    table.insert(root, ui.separator({ thickness = 1, color = "outline/0.35" }))
+    table.insert(root, ui.row({ justify = "end", paddingH = 14, paddingV = 10 }, {
       ui.button({ text = tr("action.open_profile"), glyph = "external-link", variant = "outline", onClick = "onOpenProfile" }),
     }))
   end
 
-  panel.render(ui.column({ gap = 12, padding = 20, fill = "surface" }, body))
+  panel.render(ui.column({ gap = 0, fill = "surface", flexGrow = 1, align = "stretch" }, root))
 end
 
 function onDayHover(hovered, key)
