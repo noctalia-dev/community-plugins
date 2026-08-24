@@ -1,0 +1,28 @@
+id = "alexmnrs/github-activity"
+name = "GitHub Activity"
+version = "1.0.0"
+plugin_api = 24
+author = "AlexMnrs"
+license = "MIT"
+icon = "brand-github"
+description = "A native GitHub contribution calendar for your Noctalia bar."
+tags = ["bar", "panel", "service", "development", "productivity", "utility", "network", "hyprland", "arch"]
+dependencies = ["gh", "xdg-open"]
+
+[[widget]]
+id = "activity"
+entry = "widget.luau"
+
+[[panel]]
+id = "calendar"
+entry = "panel.luau"
+width = 680
+height = 360
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[service]]
+id = "sync"
+entry = "sync.luau"

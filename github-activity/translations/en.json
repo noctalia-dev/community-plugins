@@ -1,0 +1,42 @@
+{
+  "plugin": {
+    "name": "GitHub Activity",
+    "description": "A native GitHub contribution calendar for your Noctalia bar."
+  },
+  "widget": {
+    "tooltip": "{login}\\nToday: {today} contributions\\nCurrent streak: {streak} days\\n{freshness}",
+    "cached": "Cached data",
+    "up_to_date": "Up to date"
+  },
+  "panel": {
+    "title": "GitHub Activity",
+    "year_total": "{login} · {count} contributions in the last year",
+    "day_total": "{date} · {count} contributions",
+    "hover_day": "Hover a day to inspect its activity.",
+    "no_today": "Today's contribution is not in the returned calendar."
+  },
+  "metric": {
+    "today": "Today",
+    "current_streak": "Current streak",
+    "best_streak": "Best streak",
+    "days": "{count} days"
+  },
+  "action": {
+    "refresh": "Refresh",
+    "close": "Close",
+    "try_again": "Try again",
+    "open_profile": "Open profile"
+  },
+  "status": {
+    "loading": "Loading contribution data…",
+    "refreshing": "Refreshing contribution data…",
+    "stale": "Showing cached contribution data.",
+    "missing_gh": "GitHub CLI (gh) is required to load activity.",
+    "auth_error": "GitHub CLI needs authentication: gh auth login -h github.com",
+    "request_error": "GitHub Activity could not reach GitHub.",
+    "invalid_response": "GitHub returned an unexpected contribution calendar.",
+    "unavailable": "GitHub activity is unavailable.",
+    "no_data": "No contribution data is available yet.",
+    "missing_xdg_open": "xdg-open is required to open your profile."
+  }
+}
