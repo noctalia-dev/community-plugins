@@ -1,0 +1,85 @@
+id = "tmelik/system-monitor"
+name = "System Monitor"
+version = "1.2.0"
+plugin_api = 16
+author = "TMelik"
+license = "GPL-3.0-only"
+dependencies = []
+tags = ["bar", "indicator", "system"]
+icon = "cpu"
+description = "A compact bar widget combining CPU, temperature, memory, disk, and network activity."
+
+[[widget]]
+id = "summary"
+entry = "widget.luau"
+
+[widget.actions]
+left = "panel-toggle control-center system"
+
+[[widget.setting]]
+key = "show_cpu_usage"
+type = "bool"
+label_key = "settings.show_cpu_usage.label"
+default = true
+
+[[widget.setting]]
+key = "show_cpu_temperature"
+type = "bool"
+label_key = "settings.show_cpu_temperature.label"
+default = true
+
+[[widget.setting]]
+key = "show_ram"
+type = "bool"
+label_key = "settings.show_ram.label"
+default = true
+
+[[widget.setting]]
+key = "show_swap"
+type = "bool"
+label_key = "settings.show_swap.label"
+default = true
+
+[[widget.setting]]
+key = "show_disk"
+type = "bool"
+label_key = "settings.show_disk.label"
+default = true
+
+[[widget.setting]]
+key = "show_download"
+type = "bool"
+label_key = "settings.show_download.label"
+default = true
+
+[[widget.setting]]
+key = "show_upload"
+type = "bool"
+label_key = "settings.show_upload.label"
+default = true
+
+[[widget.setting]]
+key = "show_separators"
+type = "bool"
+label_key = "settings.show_separators.label"
+default = true
+
+[[widget.setting]]
+key = "show_tooltip"
+type = "bool"
+label_key = "settings.show_tooltip.label"
+default = true
+
+[[widget.setting]]
+key = "compact_network"
+type = "bool"
+label_key = "settings.compact_network.label"
+description_key = "settings.compact_network.description"
+default = true
+
+[[widget.setting]]
+key = "disk_path"
+type = "string"
+label_key = "settings.disk_path.label"
+description_key = "settings.disk_path.description"
+default = "/"

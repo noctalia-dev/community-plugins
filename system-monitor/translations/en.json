@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "show_cpu_usage": { "label": "CPU usage" },
+    "show_cpu_temperature": { "label": "CPU temperature" },
+    "show_ram": { "label": "RAM usage" },
+    "show_swap": { "label": "Swap usage" },
+    "show_disk": { "label": "Disk usage" },
+    "show_download": { "label": "Download rate" },
+    "show_upload": { "label": "Upload rate" },
+    "show_separators": { "label": "Category separators" },
+    "show_tooltip": { "label": "Detailed tooltip" },
+    "compact_network": {
+      "label": "Compact network units",
+      "description": "Use short labels such as M/s instead of MB/s."
+    },
+    "disk_path": {
+      "label": "Disk path",
+      "description": "Filesystem path whose disk usage should be displayed."
+    }
+  }
+}
