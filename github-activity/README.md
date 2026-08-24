@@ -4,6 +4,8 @@ A native GitHub contribution calendar for the Noctalia v5 bar. It displays
 today's contributions in a compact widget and opens an adaptive, theme-aware
 annual heatmap on click.
 
+![GitHub Activity panel](thumbnail.webp)
+
 ## Plugin
 
 | Field | Value |
