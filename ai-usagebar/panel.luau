@@ -407,8 +407,11 @@ local function detailPane(entry)
     local title = noctalia.tr("ui.title")
     local subtitle = ""
     if entry ~= nil then
-        title = tostring(entry.plan or entry.display_name or entry.id)
-        subtitle = tostring(entry.display_name or entry.id)
+        -- The provider names the pane, the plan qualifies it -- the same order the
+        -- row in the list uses. The CLI keeps them apart: `display_name` is
+        -- "Codex", `plan` is "ChatGPT Free".
+        title = tostring(entry.display_name or entry.id)
+        subtitle = tostring(entry.plan or "")
         if subtitle == title then subtitle = "" end
     end
 
