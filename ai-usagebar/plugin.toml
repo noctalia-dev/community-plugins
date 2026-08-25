@@ -73,6 +73,45 @@ options = [
   { value = "kiro", label_key = "settings.vendor.option.kiro" },
 ]
 
+# Keys named after the core `sysmon` widget, so the CPU capsule and this one are
+# configured with the same vocabulary.
+[[widget.setting]]
+key = "visualization"
+type = "select"
+label_key = "settings.visualization.label"
+description_key = "settings.visualization.description"
+default = "gauge"
+options = [
+  { value = "gauge", label_key = "settings.visualization.option.gauge" },
+  { value = "meter", label_key = "settings.visualization.option.meter" },
+  { value = "none", label_key = "settings.visualization.option.none" },
+]
+
+[[widget.setting]]
+key = "show_value"
+type = "bool"
+label_key = "settings.show_value.label"
+description_key = "settings.show_value.description"
+default = true
+
+[[widget.setting]]
+key = "show_glyph"
+type = "bool"
+label_key = "settings.show_glyph.label"
+description_key = "settings.show_glyph.description"
+default = true
+
+[[widget.setting]]
+key = "glyph_position"
+type = "select"
+label_key = "settings.glyph_position.label"
+description_key = "settings.glyph_position.description"
+default = "before"
+options = [
+  { value = "before", label_key = "settings.glyph_position.option.before" },
+  { value = "after", label_key = "settings.glyph_position.option.after" },
+]
+
 # One capsule can carry more than one provider; "auto" fills it with the busiest.
 [[widget.setting]]
 key = "provider_limit"

@@ -14,6 +14,14 @@
         "pace": "Pace against the clock"
       }
     },
+    "glyph_position": {
+      "description": "Which side of the reading the icon sits on.",
+      "label": "Icon position",
+      "option": {
+        "before": "Before",
+        "after": "After"
+      }
+    },
     "provider_limit": {
       "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic.",
       "label": "Providers in the capsule"
@@ -22,9 +30,17 @@
       "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls.",
       "label": "Refresh interval (minutes)"
     },
+    "show_glyph": {
+      "description": "Show the provider's icon.",
+      "label": "Show icon"
+    },
     "show_name": {
       "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
       "label": "Show provider name"
+    },
+    "show_value": {
+      "description": "Show the percentage as text.",
+      "label": "Show value"
     },
     "vendor": {
       "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
@@ -47,6 +63,15 @@
         "openrouter": "OpenRouter",
         "supergrok": "SuperGrok",
         "zai": "Z.AI"
+      }
+    },
+    "visualization": {
+      "description": "What the capsule draws beside the reading.",
+      "label": "Visualization",
+      "option": {
+        "gauge": "Quota bar over the window clock",
+        "meter": "Five segments",
+        "none": "Nothing"
       }
     }
   },

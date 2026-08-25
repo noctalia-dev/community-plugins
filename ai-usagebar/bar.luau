@@ -5,6 +5,12 @@
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local extras = tostring(noctalia.getConfig("extras") or "countdown")
+-- Named after the core `sysmon` widget's own keys, so a reading in this capsule
+-- is configured the same way as the CPU one beside it.
+local visualization = tostring(noctalia.getConfig("visualization") or "gauge")
+local showValue = noctalia.getConfig("show_value") ~= false
+local showGlyph = noctalia.getConfig("show_glyph") ~= false
+local glyphAfter = tostring(noctalia.getConfig("glyph_position") or "before") == "after"
 local limit = math.max(1, math.min(4, tonumber(noctalia.getConfig("provider_limit")) or 1))
 local showName = noctalia.getConfig("show_name") == true
 local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
@@ -15,7 +21,7 @@ local polling = false
 local shared = require("./shared.luau")
 local providerGlyph = shared.providerGlyph
 local countdown, resetClock = shared.countdown, shared.resetClock
-local headline = shared.headline
+local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
@@ -92,6 +98,20 @@ end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
+-- Quota above, window elapsed below: a fill longer than the clock bar is spend
+-- running ahead of time.
+local function bars(percent, elapsed, tint, width)
+    local stack = {
+        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.16",
+                      radius = 3, width = width, height = 4 }),
+    }
+    if elapsed ~= nil then
+        stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
+                                          track = "on_surface/0.10", radius = 1, width = width, height = 2 })
+    end
+    return ui.column({ gap = 1, align = "center" }, stack)
+end
+
 local function paceNodes(metric)
     if extras ~= "pace" and extras ~= "both" then return nil end
     local points, word = pace(metric)
@@ -117,18 +137,36 @@ local function chip(entry)
     local tint = severityRole(metric, "on_surface")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
-    local glyph = ui.glyph({ name = providerGlyph(entry.id), size = 13, color = tint })
+    local fill = severityRole(metric, "primary")
+    local glyph = showGlyph
+        and ui.glyph({ name = providerGlyph(entry.id), size = 13, color = tint }) or nil
     -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
     -- and stops nudging its neighbours once per read.
-    local pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold", color = tint,
-                           maxLines = 1, width = 30, textAlign = "end" })
+    local pct = showValue and ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
+                                         color = tint, maxLines = 1, width = 30, textAlign = "end" }) or nil
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 
     local nodes = {}
     local function add(node) if node ~= nil then nodes[#nodes + 1] = node end end
 
-    add(glyph); add(name); add(pct)
+    if not glyphAfter then add(glyph) end
+    add(name)
+    if percent ~= nil and visualization == "gauge" then
+        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 26))
+    elseif percent ~= nil and visualization == "meter" then
+        -- Five segments filled in twenties: the reading at a glance, no digits.
+        local ticks = {}
+        for i = 0, 4 do
+            ticks[#ticks + 1] = ui.box({
+                width = 3, height = 11, radius = 1,
+                fill = percent > i * 20 and fill or "on_surface/0.22",
+            })
+        end
+        add(ui.row({ gap = 2, align = "center" }, ticks))
+    end
+    add(pct)
+    if glyphAfter then add(glyph) end
 
     add(countdownNode(metric))
     add(paceNodes(metric))
