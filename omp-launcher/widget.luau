@@ -1,6 +1,6 @@
 --!nonstrict
 -- Oh My Pi (omp) Launcher Button for Noctalia Bar
--- Multi-state visual effects: Sky-Blue when thinking/running, Amber when waiting for prompt, Muted when idle.
+-- Vector Pi glyph with dynamic pulse dot and click-to-toggle dropdown panel (hover tooltip disabled).
 
 local dir = noctalia.pluginDir()
 local SCRIPT_PATH = dir .. "/status.py"
@@ -11,7 +11,6 @@ local function render(data)
   local isRunning = data and data.running == true
   local pulse = data and data.pulse or "idle"
   local pulseColor = data and data.pulse_color or "#38BDF8"
-  local tooltip = data and data.tooltip or "Oh My Pi (omp) — click to open panel"
 
   local children = {
     ui.image({ path = LOGO_PATH, width = 16, height = 16, fit = "contain" }),
@@ -20,7 +19,7 @@ local function render(data)
 
   -- Visual Effect Dot:
   -- Sky Blue (#38BDF8) when thinking / running tools
-  -- Amber (#F59E0B) when waiting for user prompt / input
+  -- Clean White (#FFFFFF) when waiting for user prompt / input
   if isRunning then
     table.insert(children, ui.box({
       width = 5,
@@ -32,7 +31,7 @@ local function render(data)
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  barWidget.setTooltip(tooltip)
+  -- Hover tooltip intentionally disabled: the real dropdown panel handles all details
 end
 
 local function refresh()
