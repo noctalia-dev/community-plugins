@@ -28,8 +28,9 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
         word = word,
         -- Only the keyword that collides with a metric label keeps its numbers.
         keepsReadings = word == "token",
-        -- name=value: a query string or a shell assignment.
-        assign = "(" .. name .. "=)" .. SECRET_VALUE,
+        -- name=value: a query string, a shell assignment, or a line out of the
+        -- CLI's own TOML, where the separator is padded and the value quoted.
+        assign = "(" .. name .. "%s*=%s*\"?)" .. SECRET_VALUE,
         -- name: value: an HTTP header or a JSON field. The value is captured
         -- rather than swallowed, because this shape is also how the CLI labels a
         -- reading -- "Tokens: 45000 / 100000" -- and a plugin that draws token

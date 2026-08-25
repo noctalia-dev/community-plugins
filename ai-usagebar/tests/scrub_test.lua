@@ -79,6 +79,9 @@ local SECRETS = {
     -- The numeric exemption that keeps "Tokens: 45000" readable is offered to
     -- `token` alone, and never to a long run of digits.
     { "password: 1234", "1234" },
+    -- A padded separator is how the CLI's own config file spells it.
+    { 'api_key = "sk-ant-api03-REALKEY"', "REALKEY" },
+    { "export ANTHROPIC_API_KEY = sk-ant-api03-REALKEY", "REALKEY" },
     { "secret: 99", "99" },
     { "api_key: 123456789012345", "123456789012345" },
     { "OPENAI_API_KEY sk-proj-REALKEYVALUE not accepted", "REALKEY" },
