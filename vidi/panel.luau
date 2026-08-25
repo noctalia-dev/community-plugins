@@ -13,7 +13,7 @@ local function openVidi(arg)
     noctalia.notifyError("Vidi", "vidi binary not found on PATH or ~/.local/bin")
     return
   end
-  noctalia.runInTerminal(bin .. (arg and " " .. arg or ""))
+  noctalia.runInTerminal(Feed.shellQuote(bin) .. (arg and " " .. Feed.shellQuote(arg) or ""))
 end
 
 local function openVideo(video)
@@ -24,6 +24,12 @@ local function openVideo(video)
       return
     end
     noctalia.runAsync({ "mpv", "--force-media-title=" .. video.title, video.url })
+  elseif action == "browser" then
+    if not noctalia.commandExists("xdg-open") then
+      noctalia.notifyError("Vidi", "xdg-open is not available")
+      return
+    end
+    noctalia.runAsync({ "xdg-open", video.url })
   elseif action == "copy" then
     copyLink(video.url)
   else

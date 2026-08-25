@@ -1,7 +1,7 @@
 id = "fel/vidi"
 license = "MIT"
 name = "Vidi"
-version = "0.2.0"
+version = "0.3.0"
 plugin_api = 24
 author = "fel"
 icon = "brand-youtube"

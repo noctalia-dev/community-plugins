@@ -147,6 +147,10 @@ function Feed.thumbPath(videoId)
   return noctalia.expandPath(THUMB_DIR .. "/" .. videoId .. ".png")
 end
 
+function Feed.shellQuote(s)
+  return "'" .. string.gsub(tostring(s), "'", "'\\''") .. "'"
+end
+
 function Feed.vidiCommand()
   if noctalia.commandExists("vidi") then
     return "vidi"

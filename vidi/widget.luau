@@ -70,7 +70,7 @@ function onRightClick()
     noctalia.notifyError("Vidi", "vidi binary not found on PATH or ~/.local/bin")
     return
   end
-  noctalia.runInTerminal(bin)
+  noctalia.runInTerminal(Feed.shellQuote(bin))
 end
 
 function onMiddleClick()

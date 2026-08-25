@@ -16,6 +16,8 @@ Noctalia bar — an unread badge plus a panel with the newest uploads, thumbnail
 Install `vidi` (≥ 0.5.0) and `jq` on `PATH`. The widget reads vidi's feed cache
 (`~/.cache/vidi/feed_cache.json`), so open the Subscriptions screen in vidi at least once
 to build it. Playing a video in vidi needs the CLI deep-link added in vidi 0.5.0.
+`mpv` is only required if you set Click action to `mpv`; the `browser` action uses
+`xdg-open`, which ships with every desktop environment.
 
 ## Usage
 
