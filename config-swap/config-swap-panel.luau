@@ -298,7 +298,7 @@ local function saveConfig()
 	local settingFile: infoConfig = {
 		name = name,
 		description = "save for reset",
-		path = configBox .. "/" .. name,
+		path = "config/" .. name,
 		origin = "not give",
 		wallpaperPath = nil,
 		depedencie = false,
