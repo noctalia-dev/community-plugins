@@ -83,13 +83,6 @@ local function updatedText(entry)
     return noctalia.tr("ui.updated_ago", { minutes = minutes })
 end
 
-local function metricIcon(label)
-    local text = tostring(label or ""):lower()
-    if text:find("week") or text:find("month") then return "calendar" end
-    if text:find("credit") or text:find("balance") or text:find("extra") then return "shopping-cart" end
-    return "hourglass"
-end
-
 -- ── Cards ─────────────────────────────────────────────────────────────────────
 
 local function severityWord(section)
@@ -107,7 +100,6 @@ local function metricCard(section)
     local showValue = value ~= "" and value ~= string.format("%d%%", percent)
 
     local header = {
-        ui.glyph({ name = metricIcon(section.label), size = 14, color = "on_surface_variant" }),
         ui.label({ text = tostring(section.label or ""), fontSize = 12, fontWeight = "semibold",
                    color = "on_surface", maxLines = 1 }),
         ui.spacer({ flexGrow = 1 }),
@@ -191,11 +183,8 @@ end
 
 local function blockCard(section)
     local body = {
-        ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = metricIcon(section.label), size = 14, color = "on_surface_variant" }),
-            ui.label({ text = tostring(section.label or ""), fontSize = 12, fontWeight = "semibold",
-                       color = "on_surface", maxLines = 1 }),
-        }),
+        ui.label({ text = tostring(section.label or ""), fontSize = 12, fontWeight = "semibold",
+                   color = "on_surface", maxLines = 1 }),
     }
     for _, line in ipairs(section.body or {}) do
         local text = noctalia.string.trim(tostring(line))
@@ -340,18 +329,6 @@ local function errorBlock()
     return ui.column({ gap = 8 }, children)
 end
 
--- A muted stand-in shaped like what is coming, so a cold read is not a spinner
--- parked where the content will land. One shape serves both panes.
-local function skeleton(key)
-    return ui.column({
-        key = "skeleton-" .. key,
-        gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45",
-    }, {
-        ui.box({ width = 96, height = 10, radius = 3, fill = "on_surface/0.10" }),
-        ui.box({ height = 4, radius = 2, fill = "on_surface/0.06" }),
-    })
-end
-
 local function listPane(entry)
     local rows = {}
     for _, candidate in ipairs(entries()) do
@@ -359,10 +336,6 @@ local function listPane(entry)
         rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
       end
     end
-    if #rows == 0 then
-        for index = 1, 3 do rows[index] = skeleton("row-" .. index) end
-    end
-
     return ui.column({ gap = 10, padding = 14, width = 250 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
@@ -405,8 +378,7 @@ local function detailPane(entry)
         if subtitle == title then subtitle = "" end
     end
 
-    -- With no entry the skeletons below are the whole pane, and a title here would
-    -- repeat the list pane's.
+    -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
         -- The row keeps the title block honest about its height: a bare ui.column
@@ -493,10 +465,6 @@ local function detailPane(entry)
             ui.label({ text = noctalia.tr("ui.no_usage"), fontSize = 11, color = "on_surface_variant" }),
         })
         children[#children + 1] = ui.spacer({ flexGrow = 1 })
-    else
-        children[#children + 1] = ui.column({ gap = 8, flexGrow = 1 }, {
-            skeleton("card-1"), skeleton("card-2"),
-        })
     end
 
     return ui.column({ gap = 8, padding = 14, flexGrow = 1 }, children)
