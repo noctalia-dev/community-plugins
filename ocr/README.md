@@ -61,7 +61,8 @@ Each widget instance also has:
 - Processes spawned per capture: one `/bin/sh` pipeline running `mktemp`,
   `slurp`, `grim`, `tesseract` and `rm`.
 - Filesystem writes: a single temporary PNG in `$XDG_RUNTIME_DIR` (falling
-  back to `/tmp`), deleted immediately after recognition, success or failure.
+  back to `/tmp`). It is created only after the region selection succeeds and
+  an `EXIT` trap removes it on every path — cancel, failure, or success.
   Nothing else is written or read.
 - A cancelled selection (Esc in `slurp`) is silent by design.
 - The capture must finish within 60 s (the runtime's subprocess timeout cap) —

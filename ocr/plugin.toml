@@ -10,7 +10,7 @@
 
 id = "fel/ocr"
 name = "OCR"
-version = "1.0.3"
+version = "1.0.4"
 plugin_api = 3
 author = "Fel"
 license = "MIT"

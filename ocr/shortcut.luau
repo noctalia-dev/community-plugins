@@ -31,20 +31,20 @@ local function buildCommand(wholeOutput)
 		psm = "6"
 	end
 
-	local capture
+	local mktemp = 'img="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/noctalia-ocr-XXXXXX.png")" || exit 41; '
+	local pipeline
 	if wholeOutput then
 		local out = noctalia.focusedOutputName()
 		local target = if out then "-o " .. shellQuote(out) .. " " else ""
-		capture = 'grim ' .. target .. '"$img"'
+		pipeline = mktemp .. 'grim ' .. target .. '"$img" || exit 42; '
 	else
-		capture = 'geom="$(slurp)" || exit 40; grim -g "$geom" "$img"'
+		pipeline = 'geom="$(slurp)" || exit 40; ' .. mktemp .. 'grim -g "$geom" "$img" || exit 42; '
 	end
 
-	return 'img="$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/noctalia-ocr-XXXXXX.png")" || exit 41; '
-		.. capture
-		.. ' || { rm -f "$img"; exit 42; }; '
+	return 'trap \'rm -f "$img" 2>/dev/null\' EXIT; '
+		.. pipeline
 		.. 'txt="$(tesseract "$img" stdout -l ' .. langs .. ' --psm ' .. psm .. ' 2>/dev/null)"; rc=$?; '
-		.. 'rm -f "$img"; [ "$rc" -ne 0 ] && exit 43; printf "%s" "$txt"'
+		.. '[ "$rc" -ne 0 ] && exit 43; printf "%s" "$txt"'
 end
 
 local function handleResult(result)
