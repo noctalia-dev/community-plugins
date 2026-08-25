@@ -69,7 +69,7 @@
       "description": "A gauge beside the reading, or nothing.",
       "label": "Visualization",
       "option": {
-        "gauge": "Quota bar over the window clock",
+        "gauge": "Quota bar",
         "none": "Nothing"
       }
     }

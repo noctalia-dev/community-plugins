@@ -138,8 +138,10 @@ local function chip(entry)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local fill = severityRole(metric, "primary")
+    -- The mark says which provider, never how full it is. Severity rides on the
+    -- reading and the gauge, the same split the panel uses.
     local glyph = showGlyph
-        and ui.glyph({ name = providerGlyph(entry.id), size = 13, color = tint }) or nil
+        and ui.glyph({ name = providerGlyph(entry.id), size = 13, color = "on_surface" }) or nil
     -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
     -- and stops nudging its neighbours once per read.
     local pct = showValue and ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
@@ -223,6 +225,12 @@ local function render()
 
     local children = {}
     for _, entry in ipairs(picked) do
+        -- Two providers in one capsule run together on a gap alone, and the
+        -- countdown of the first reads as part of the second.
+        if #children > 0 then
+            children[#children + 1] = ui.separator({ orientation = "vertical",
+                                                     color = "outline", spacing = 0 })
+        end
         children[#children + 1] = chip(entry)
     end
 
