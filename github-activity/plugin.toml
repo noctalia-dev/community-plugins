@@ -1,6 +1,6 @@
 id = "alexmnrs/github-activity"
 name = "GitHub Activity"
-version = "1.2.1"
+version = "1.3.0"
 plugin_api = 24
 author = "AlexMnrs"
 license = "MIT"
@@ -24,6 +24,30 @@ options = [
 [[widget]]
 id = "activity"
 entry = "widget.luau"
+
+[[widget.setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.widget_display_mode.label"
+description_key = "settings.widget_display_mode.description"
+default = "icon_and_value"
+options = [
+  { value = "icon_only", label_key = "settings.widget_display_mode.options.icon_only" },
+  { value = "icon_and_value", label_key = "settings.widget_display_mode.options.icon_and_value" },
+]
+
+[[widget.setting]]
+key = "display_metric"
+type = "select"
+label_key = "settings.widget_display_metric.label"
+description_key = "settings.widget_display_metric.description"
+default = "today"
+visible_when = { key = "display_mode", values = ["icon_and_value"] }
+options = [
+  { value = "today", label_key = "settings.widget_display_metric.options.today" },
+  { value = "current_streak", label_key = "settings.widget_display_metric.options.current_streak" },
+  { value = "year_total", label_key = "settings.widget_display_metric.options.year_total" },
+]
 
 [[panel]]
 id = "calendar"

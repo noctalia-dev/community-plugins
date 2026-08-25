@@ -6,6 +6,8 @@ local data = noctalia.state.get("data")
 local status = noctalia.state.get("status") or "loading"
 local stale = noctalia.state.get("stale") == true
 local tr = noctalia.tr
+local displayMode = Settings.widgetDisplayMode(noctalia.getConfig("display_mode"))
+local displayMetric = Settings.widgetDisplayMetric(noctalia.getConfig("display_metric"))
 
 local function tooltip()
   if data ~= nil then
@@ -18,6 +20,7 @@ local function tooltip()
       login = data.login,
       today = data.today,
       streak = data.currentStreak,
+      total = data.total,
       freshness = freshness,
       refresh = refreshSchedule,
     })
@@ -34,9 +37,25 @@ local function tooltip()
   return tr("status.loading")
 end
 
+local function displayText()
+  if displayMode == "icon_only" then
+    return ""
+  end
+
+  if data == nil then
+    return "—"
+  elseif displayMetric == "current_streak" then
+    return tostring(data.currentStreak)
+  elseif displayMetric == "year_total" then
+    return tostring(data.total)
+  end
+
+  return tostring(data.today)
+end
+
 local function render()
   barWidget.setGlyph("brand-github")
-  barWidget.setText(data ~= nil and tostring(data.today) or "—")
+  barWidget.setText(displayText())
   barWidget.setTooltip(tooltip())
   barWidget.setVisible(true)
 end

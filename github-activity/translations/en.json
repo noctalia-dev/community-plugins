@@ -12,10 +12,27 @@
         "thirty": "Every 30 minutes",
         "sixty": "Every 60 minutes"
       }
+    },
+    "widget_display_mode": {
+      "label": "Widget display",
+      "description": "Choose whether this widget shows only the GitHub icon or also a numeric value.",
+      "options": {
+        "icon_only": "Icon only",
+        "icon_and_value": "Icon and value"
+      }
+    },
+    "widget_display_metric": {
+      "label": "Widget metric",
+      "description": "Choose the contribution metric shown next to the GitHub icon.",
+      "options": {
+        "today": "Today's contributions",
+        "current_streak": "Current streak",
+        "year_total": "Contributions in the last year"
+      }
     }
   },
   "widget": {
-    "tooltip": "{login}\nToday: {today} contributions\nCurrent streak: {streak} days\n{freshness}\n{refresh}",
+    "tooltip": "{login}\nToday: {today} contributions\nCurrent streak: {streak} days\nLast year: {total} contributions\n{freshness}\n{refresh}",
     "cached": "Cached data",
     "up_to_date": "Up to date"
   },
