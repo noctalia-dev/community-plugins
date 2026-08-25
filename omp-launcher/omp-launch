@@ -4,22 +4,30 @@
 # Resolves candidate directories from ~/.omp/agent/sessions/ recency and git projects.
 # Adapts dynamically to whichever dmenu and terminal emulator are installed on the system.
 #
-#   omp-launch              pick a directory, start a fresh omp session
-#   omp-launch --continue   pick a directory, resume its last session
-#   omp-launch --home       skip the picker, start in $HOME (--allow-home)
-#   omp-launch --list       print candidate directories and exit
+#   omp-launch                          interactive project picker (dmenu / terminal)
+#   omp-launch --target <dir>           start fresh omp in specified directory
+#   omp-launch --target <dir> --continue resume last session in specified directory
+#   omp-launch --continue               pick a directory, resume its last session
+#   omp-launch --home                   start in $HOME (--allow-home)
+#   omp-launch --list                   print candidate directories and exit
 set -uo pipefail
 
+TARGET=""
+MODE=""
 OMP_ARGS=()
 PROMPT='Open OMP in...'
 
-case "${1-}" in
-    --continue) OMP_ARGS+=(--continue); PROMPT='Resume OMP in...' ;;
-    --home)     MODE=home ;;
-    --list)     MODE=list ;;
-    '')         ;;
-    *)          printf 'omp-launch: unknown option %s\n' "$1" >&2; exit 2 ;;
-esac
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --continue) OMP_ARGS+=(--continue); PROMPT='Resume OMP in...' ;;
+        --home)     MODE=home ;;
+        --list)     MODE=list ;;
+        --target)   TARGET="$2"; shift ;;
+        -*)         printf 'omp-launch: unknown option %s\n' "$1" >&2; exit 2 ;;
+        *)          TARGET="$1" ;;
+    esac
+    shift
+done
 
 die() {
     if command -v notify-send >/dev/null 2>&1; then
@@ -101,7 +109,6 @@ pick_menu() {
     elif command -v dmenu >/dev/null 2>&1; then
         dmenu -p "$prompt" 2>/dev/null
     else
-        # No graphical picker available
         return 1
     fi
 }
@@ -149,7 +156,9 @@ if [[ ${MODE-} == list ]]; then
     exit 0
 fi
 
-if [[ ${MODE-} == home ]]; then
+if [[ -n "$TARGET" ]]; then
+    target=$(printf '%s' "$TARGET" | expand)
+elif [[ ${MODE-} == home ]]; then
     target="$HOME"
     OMP_ARGS+=(--allow-home)
 else
@@ -157,8 +166,6 @@ else
     if [[ -n $choice ]]; then
         target=$(printf '%s' "$choice" | expand)
     else
-        # If user cancelled picker, exit cleanly
-        # If no dmenu exists on system, fall back to $HOME with OMP's interactive resume
         if ! command -v vicinae >/dev/null 2>&1 && \
            ! command -v fuzzel >/dev/null 2>&1 && \
            ! command -v rofi >/dev/null 2>&1 && \

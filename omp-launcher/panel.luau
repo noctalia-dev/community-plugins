@@ -1,6 +1,6 @@
 --!nonstrict
 -- Oh My Pi (omp) Interactive Panel
--- Multi-state visual effects: Sky-Blue when thinking, Clean White when ready for input.
+-- Clean layout with direct target launching and smooth focus handoff.
 
 local dir = noctalia.pluginDir()
 local LOGO_PATH   = dir .. "/omp-logo.svg"
@@ -15,11 +15,8 @@ end
 local function launchTarget(targetPath, continueSession)
   local cmd = shellQuote(LAUNCH_PATH)
   noctalia.togglePanel("emiliovenegas/omp-launcher:panel")
-  if continueSession then
-    noctalia.runAsync("sleep 0.15 && bash -c 'cd " .. shellQuote(targetPath) .. " && " .. cmd .. " --continue'")
-  else
-    noctalia.runAsync("sleep 0.15 && bash -c 'cd " .. shellQuote(targetPath) .. " && " .. cmd .. "'")
-  end
+  local args = " --target " .. shellQuote(targetPath) .. (continueSession and " --continue" or "")
+  noctalia.runAsync("sleep 0.15 && " .. cmd .. args)
 end
 
 local function render()
@@ -68,7 +65,7 @@ local function render()
 
   table.insert(content, ui.separator({}))
 
-  -- 2. Active Sessions
+  -- 2. Active Sessions (Resume Button Directly Targets Project Directory)
   if runningCount > 0 and #activeSessions > 0 then
     table.insert(content, ui.label({
       text = "ACTIVE SESSIONS",
@@ -102,7 +99,7 @@ local function render()
     table.insert(content, ui.separator({}))
   end
 
-  -- 3. Recent Workspaces
+  -- 3. Recent Workspaces (Open Button Directly Targets Project Directory)
   table.insert(content, ui.label({
     text = "RECENT WORKSPACES",
     fontSize = 9.5,
