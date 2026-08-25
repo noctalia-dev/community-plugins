@@ -17,7 +17,7 @@ The following dependencies must be installed and available on `PATH`:
 * `hyprctl` — detects and focuses an existing Spotify window under Hyprland.
 * `spotify-launcher` — launches Spotify when it is not already running.
 
-The current implementation is designed for Hyprland and expects Spotify to expose the MPRIS player name `spotify` and window class `Spotify`.
+The current implementation is designed for Hyprland and expects Spotify to expose the MPRIS player name `spotify`, the plugin supports Spotify window classes `spotify` (native Wayland) and `Spotify` (XWayland).
 
 ## Usage
 

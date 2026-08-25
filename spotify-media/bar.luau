@@ -97,12 +97,19 @@ function openSpotify()
     "-j",
   }, function(result)
     local clients = result.stdout or ""
+    local spotifyClass = nil
 
-    if string.find(clients, '"class"%s*:%s*"Spotify"') then
+    if string.find(clients, '"class"%s*:%s*"spotify"') then
+      spotifyClass = "spotify"
+    elseif string.find(clients, '"class"%s*:%s*"Spotify"') then
+      spotifyClass = "Spotify"
+    end
+
+    if spotifyClass ~= nil then
       noctalia.runAsync({
         "hyprctl",
         "dispatch",
-        'hl.dsp.focus({ window = "class:^Spotify$" })',
+        'hl.dsp.focus({ window = "class:^' .. spotifyClass .. '$" })',
       })
     else
       noctalia.runAsync({ "spotify-launcher" })
@@ -160,7 +167,7 @@ local function render()
 
   barWidget.render(container({
     gap = 0,
-    align = "center",
+    align = "center"
   }, {
     -- Artwork + song info
     ui.row({
@@ -171,8 +178,8 @@ local function render()
       ui.image({
         key = "cover",
         path = imagePath,
-        width = 18,
-        height = 18,
+        width = 20,
+        height = 20,
         radius = 4,
         fit = "cover",
         onClick = "openSpotify",
@@ -183,7 +190,7 @@ local function render()
         text = scrollingText(displayText),
         variant = "ghost",
         contentAlign = "start",
-        height = 20,
+        height = 22,
         width = 136,
         tooltip = displayText,
         onClick = "openSpotify",
@@ -196,8 +203,8 @@ local function render()
       glyphSize = 16,
       align = "center",
       variant = "ghost",
-      width = 20,
-      height = 20,
+      width = 22,
+      height = 22,
       tooltip = "Previous",
       onClick = "previousTrack",
     }),
@@ -208,8 +215,8 @@ local function render()
       glyphSize = 14,
       align = "center",
       variant = "ghost",
-      width = 20,
-      height = 20,
+      width = 22,
+      height = 22,
       tooltip = playing and "Pause" or "Play",
       onClick = "togglePlayback",
     }),
@@ -220,8 +227,8 @@ local function render()
       glyphSize = 16,
       align = "center",
       variant = "ghost",
-      width = 20,
-      height = 20,
+      width = 22,
+      height = 22,
       tooltip = "Next",
       onClick = "nextTrack",
     }),
