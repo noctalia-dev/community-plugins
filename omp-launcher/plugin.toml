@@ -6,7 +6,7 @@ plugin_api   = 3
 icon         = "math"
 author       = "emiliovenegas"
 license      = "MIT"
-dependencies = [ "python3", "omp" ]
+dependencies = [ "bash", "omp", "pgrep", "python3" ]
 tags         = [ "bar", "launcher", "ai", "productivity", "development" ]
 
 [[widget]]

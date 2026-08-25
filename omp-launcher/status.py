@@ -4,6 +4,33 @@ import json
 import time
 import subprocess
 
+def resolve_slug(slug, home):
+    if slug == "-tmp" or slug == "tmp":
+        return "/tmp"
+    if slug == "-" or not slug:
+        return home
+    
+    raw = slug[1:] if slug.startswith("-") else slug
+    parts = raw.split("-")
+    
+    curr = home
+    i = 0
+    while i < len(parts):
+        matched = False
+        for j in range(len(parts), i, -1):
+            chunk = "-".join(parts[i:j])
+            candidate = os.path.join(curr, chunk)
+            if os.path.isdir(candidate):
+                curr = candidate
+                i = j
+                matched = True
+                break
+        if not matched:
+            curr = os.path.join(curr, parts[i])
+            i += 1
+            
+    return curr
+
 def get_omp_status():
     home = os.path.expanduser('~')
     sessions_dir = os.path.join(home, '.omp', 'agent', 'sessions')
@@ -11,9 +38,13 @@ def get_omp_status():
     # 1. Check running omp processes
     running_count = 0
     try:
-        p = subprocess.run(["pgrep", "-c", "-f", "node.*/bin/omp|/bin/omp|omp.*--continue"], capture_output=True, text=True)
-        if p.returncode == 0 and p.stdout.strip().isdigit():
-            running_count = int(p.stdout.strip())
+        p = subprocess.run(["pgrep", "-x", "omp"], capture_output=True, text=True)
+        if p.returncode == 0 and p.stdout.strip():
+            running_count = len([x for x in p.stdout.strip().splitlines() if x.strip()])
+        else:
+            p2 = subprocess.run(["pgrep", "-c", "-f", r"(^|/)omp(\s|$)"], capture_output=True, text=True)
+            if p2.returncode == 0 and p2.stdout.strip().isdigit():
+                running_count = int(p2.stdout.strip())
     except Exception:
         pass
         
@@ -25,22 +56,7 @@ def get_omp_status():
         for entry in os.scandir(sessions_dir):
             if not entry.is_dir():
                 continue
-            slug = entry.name
-            if slug == "-tmp":
-                real_path = "/tmp"
-            elif slug.startswith("-"):
-                real_path = os.path.join(home, slug[1:].replace('-', '/'))
-                if not os.path.isdir(real_path):
-                    parts = slug[1:].split('-')
-                    curr = home
-                    for part in parts:
-                        cand = os.path.join(curr, part)
-                        if os.path.isdir(cand):
-                            curr = cand
-                    real_path = curr
-            else:
-                real_path = os.path.join(home, slug)
-
+            real_path = resolve_slug(entry.name, home)
             if os.path.isdir(real_path):
                 try:
                     mt = entry.stat().st_mtime

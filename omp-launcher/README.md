@@ -13,8 +13,10 @@ An interactive, native bar launcher button for [Oh My Pi (`omp`)](https://github
 
 - `omp` (Oh My Pi CLI) on `PATH`.
 - `python3` on `PATH`.
+- `pgrep` on `PATH`.
+- `bash` on `PATH`.
 
-A graphical dmenu (vicinae) is used when available. If absent the widget falls back automatically through: `alacritty` → `kitty` → `ghostty` → `foot` → `xdg-terminal-exec`. At least one terminal emulator must be installed for left-click to work.
+The bundled launcher script (`omp-launch`) dynamically uses a graphical dmenu (`vicinae`, `fuzzel`, `rofi`, `wofi`, `bemenu`, or `dmenu`) when available. If no dmenu is present, it falls back to your terminal emulator (`$TERMINAL`, `xdg-terminal-exec`, `alacritty`, `kitty`, `ghostty`, `foot`, `wezterm`, `gnome-terminal`, `konsole`, or `xterm`).
 
 ## Usage
 
@@ -31,14 +33,14 @@ capsule = true
 
 ### Click gestures
 
-- **Left-click** — opens the interactive project picker (vicinae dmenu or terminal fallback).
+- **Left-click** — opens the interactive project picker (dmenu or terminal fallback).
 - **Middle-click** — resumes the most recent project session directly (`omp --continue`).
 - **Right-click** — launches a new session in `$HOME` (`omp --allow-home`).
 
-The capsule glows and shows a live dot while any `omp` session is active.
+The capsule glows with an active session indicator dot whenever an `omp` session is running.
 
 ## Notes
 
-- **Session discovery**: reads recency timestamps from `~/.omp/agent/sessions/`.
-- **Active detection**: scans local processes — no network calls, no external services.
-- **Privacy**: every process and session check runs entirely on the local machine.
+- **Session discovery**: reads project recency timestamps from `~/.omp/agent/sessions/`.
+- **Active detection**: scans local processes with `pgrep` every 10 seconds.
+- **Privacy**: no external network requests; all checks and launcher operations run entirely on the local machine.

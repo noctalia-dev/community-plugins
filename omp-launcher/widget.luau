@@ -4,7 +4,8 @@
 
 local dir = noctalia.pluginDir()
 local SCRIPT_PATH = dir .. "/status.py"
-local LOGO_PATH = dir .. "/omp-logo.svg"
+local LAUNCH_PATH = dir .. "/omp-launch"
+local LOGO_PATH   = dir .. "/omp-logo.svg"
 
 local function render(data)
   local isRunning = data and data.running == true
@@ -30,7 +31,7 @@ local function render(data)
 end
 
 local function refresh()
-  noctalia.runAsync("python3 " .. SCRIPT_PATH, function(r)
+  noctalia.runAsync("python3 '" .. SCRIPT_PATH .. "'", function(r)
     if not r or r.exitCode ~= 0 or not r.stdout or r.stdout == "" then
       render(nil)
       return
@@ -58,16 +59,16 @@ function update()
 end
 
 function onClick()
-  noctalia.runAsync("omp-launch")
+  noctalia.runAsync("'" .. LAUNCH_PATH .. "'")
   refresh()
 end
 
 function onMiddleClick()
-  noctalia.runAsync("omp-launch --continue")
+  noctalia.runAsync("'" .. LAUNCH_PATH .. "' --continue")
   refresh()
 end
 
 function onRightClick()
-  noctalia.runAsync("omp-launch --home")
+  noctalia.runAsync("'" .. LAUNCH_PATH .. "' --home")
   refresh()
 end
