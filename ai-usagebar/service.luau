@@ -90,14 +90,12 @@ local function failure(code, detail)
 end
 
 -- The run's outcome as one code. A missing binary gets its own, because the
--- panel offers an install link for that one. Shells report it as one of two
--- messages, both with status 127, so code and message have to agree.
+-- panel offers an install link for that one. Status 127 is the shell's own
+-- "command not found"; the CLI never exits with it once it is on PATH.
 local function classify(result)
     if result == nil then return failure("spawn_failed") end
     if result.timedOut then return failure("timed_out") end
 
-    -- Matched raw: `failure` scrubs what it is given, and matching after the
-    -- 200-character cap would let a noisy run push the message out of reach.
     local stderr = tostring(result.stderr or "")
     if result.exitCode == 127 then
         return failure("not_installed", stderr)
