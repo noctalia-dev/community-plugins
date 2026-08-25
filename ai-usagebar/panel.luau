@@ -7,6 +7,11 @@ local polling = false
 local refreshQueued = false
 local refreshPhase = 0
 local refreshFrameMs = 0
+-- The state watchers below run whether or not the panel is on screen, and the
+-- poller sets `polling` on every automatic cycle. Without this, the first open
+-- of the session would leave a closed panel re-arming per-frame callbacks every
+-- `refresh_minutes` for as long as the session lasts.
+local open = false
 
 local shared = require("./shared.luau")
 local providerVisual, parseIso = shared.providerVisual, shared.parseIso
@@ -376,8 +381,8 @@ local function listPane(entry)
                 variant = "ghost", controlSize = "sm",
                 opacity = polling and (0.72 + 0.28 * (0.5 + 0.5 * math.cos(refreshPhase)))
                     or refreshQueued and 0.78 or 1,
-                tooltip = noctalia.tr(refreshQueued and "ui.refresh_queued"
-                    or polling and "ui.refreshing" or "ui.refresh"),
+                tooltip = noctalia.tr(polling and "ui.refreshing"
+                    or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
                 enabled = not polling,
                 onClick = requestRefresh,
             }),
@@ -549,17 +554,18 @@ end)
 
 noctalia.state.watch("polling", function(value)
     polling = value == true
-    panel.setNeedsFrameTick(polling or refreshQueued)
+    panel.setNeedsFrameTick(open and (polling or refreshQueued))
     render()
 end)
 
 noctalia.state.watch("refresh_queued", function(value)
     refreshQueued = value == true
-    panel.setNeedsFrameTick(polling or refreshQueued)
+    panel.setNeedsFrameTick(open and (polling or refreshQueued))
     render()
 end)
 
 function onOpen(_context)
+    open = true
     -- Every open asks for fresh numbers. The CLI answers from its own cache when it
     -- has one, and the poller drops requests that arrive too close together.
     requestRefresh()
@@ -579,7 +585,7 @@ function update()
 end
 
 function onFrameTick(deltaMs)
-    if not polling and not refreshQueued then return end
+    if not open or (not polling and not refreshQueued) then return end
     refreshFrameMs = refreshFrameMs + (tonumber(deltaMs) or 0)
     if refreshFrameMs < 50 then return end
     refreshPhase = (refreshPhase + refreshFrameMs / 1000) % (math.pi * 2)
@@ -588,6 +594,7 @@ function onFrameTick(deltaMs)
 end
 
 function onClose()
+    open = false
     panel.setNeedsFrameTick(false)
     panel.setWantsSecondTicks(false)
 end
