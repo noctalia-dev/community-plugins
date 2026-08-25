@@ -31,7 +31,7 @@ local function render(data)
 
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 5, align = "center" }, children))
-  -- Hover tooltip intentionally disabled: the real dropdown panel handles all details
+  barWidget.setTooltip(nil)
 end
 
 local function refresh()
