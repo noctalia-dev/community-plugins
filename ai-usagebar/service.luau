@@ -28,9 +28,23 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
         word = word,
         -- name=value: a query string or a shell assignment.
         assign = "(" .. name .. "=)" .. SECRET_VALUE,
-        -- name: value: an HTTP header or a JSON field.
-        colon = "(" .. name .. "\"?%s*:%s*\"?)" .. SECRET_VALUE,
+        -- name: value: an HTTP header or a JSON field. The value is captured
+        -- rather than swallowed, because this shape is also how the CLI labels a
+        -- reading -- "Tokens: 45000 / 100000" -- and a plugin that draws token
+        -- counts cannot redact them.
+        colon = "(" .. name .. "\"?%s*:%s*\"?)(" .. SECRET_VALUE .. ")",
     }
+end
+
+-- A quota, a percentage or a price is not a credential. Anything that starts
+-- with a letter still is, so "password: hunter2" is redacted.
+local function isReading(value)
+    return value:match("^%d[%d%.,]*%%?$") ~= nil
+end
+
+local function redactColon(prefix, value)
+    if isReading(value) then return prefix .. value end
+    return prefix .. "<redacted>"
 end
 -- Nine characters before the rest of a provider key, so a bare "sk-" in prose
 -- is not mistaken for one.
@@ -53,7 +67,7 @@ local function safeText(value)
     for _, secret in ipairs(SECRET_PATTERNS) do
         if lower:find(secret.word, 1, true) then
             text = text:gsub(secret.assign, "%1<redacted>")
-            text = text:gsub(secret.colon, "%1<redacted>")
+            text = text:gsub(secret.colon, redactColon)
         end
     end
 

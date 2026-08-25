@@ -98,6 +98,11 @@ local BENIGN = {
     "2026-08-20T11:29:59.872624Z",
     "Desk-top mode",
     "ChatGPT Free",
+    -- The colon form of the redaction is also how the CLI labels a reading.
+    "Tokens: 45000 / 100000",
+    "tokens_used: 1500",
+    "Session tokens: 98%",
+    "Prompt tokens: 1,024",
 }
 
 local failures = 0
