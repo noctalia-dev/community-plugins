@@ -114,9 +114,9 @@ local function paceNodes(metric)
     local ahead = word == "ahead"
     return ui.row({ gap = 0, align = "center" }, {
         ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10,
-                   color = ahead and "tertiary" or "on_surface_variant" }),
+                   color = ahead and "secondary" or "on_surface_variant" }),
         ui.label({ text = tostring(points), fontSize = 10,
-                   color = ahead and "tertiary" or "on_surface_variant", maxLines = 1 }),
+                   color = ahead and "secondary" or "on_surface_variant", maxLines = 1 }),
     })
 end
 
@@ -177,7 +177,7 @@ local function chip(entry)
     add(paceNodes(metric))
 
     if entry.stale == true then
-        add(ui.glyph({ name = "clock-exclamation", size = 11, color = "tertiary" }))
+        add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
     end
     return ui.row({ gap = 4, align = "center" }, nodes)
 end

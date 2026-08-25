@@ -51,7 +51,7 @@ local function pace(detail)
     last = noctalia.string.trim(last)
     if last:find("elapsed") then return "", "on_surface_variant" end
     -- Ahead of the clock is worth flagging; under it means there is room left.
-    if last:find("ahead") then return last, "tertiary" end
+    if last:find("ahead") then return last, "secondary" end
     return last, "on_surface_variant"
 end
 
@@ -253,7 +253,7 @@ local function providerRow(entry, selected)
         }
         if entry.stale == true then
             rightChildren[#rightChildren + 1] = ui.glyph({
-                name = "clock-exclamation", size = 12, color = "tertiary",
+                name = "clock-exclamation", size = 12, color = "secondary",
             })
         end
         right = ui.row({ gap = 3, width = 48, justify = "end", align = "center" }, rightChildren)
@@ -448,7 +448,7 @@ local function detailPane(entry)
         end
         if entry.stale == true then
             separate()
-            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "tertiary" })
+            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "secondary" })
         end
         local fetched = parseIso(entry.fetched_at)
         if fetched ~= nil then

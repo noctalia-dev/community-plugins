@@ -7,15 +7,19 @@ local M = {}
 
 -- Tabler has no Anthropic mark, so providers without a brand glyph use a
 -- semantic one. Roles keep service identity distinct without hardcoded colors.
+-- ponytail: `tertiary` is avoided here as well -- it renders at 2.8:1 in the
+-- stock dark theme, under the 3:1 an icon needs. Only measured against that
+-- theme; if another one darkens `secondary` the same way, this needs a role the
+-- host guarantees is a foreground.
 M.PROVIDER_VISUALS = {
-    anthropic = { glyph = "asterisk-simple", role = "tertiary" },
-    anthropic_api = { glyph = "asterisk-simple", role = "tertiary" },
+    anthropic = { glyph = "asterisk-simple", role = "secondary" },
+    anthropic_api = { glyph = "asterisk-simple", role = "secondary" },
     openai = { glyph = "brand-openai", role = "primary" },
-    zai = { glyph = "bolt", role = "tertiary" },
+    zai = { glyph = "bolt", role = "secondary" },
     openrouter = { glyph = "route", role = "secondary" },
     deepseek = { glyph = "fish", role = "primary" },
-    kimi = { glyph = "moon", role = "tertiary" },
-    moonshot = { glyph = "moon", role = "tertiary" },
+    kimi = { glyph = "moon", role = "secondary" },
+    moonshot = { glyph = "moon", role = "secondary" },
     kilo = { glyph = "robot", role = "secondary" },
     novita = { glyph = "cloud", role = "secondary" },
     grok = { glyph = "brand-x", role = "on_surface" },
@@ -119,10 +123,15 @@ end
 -- The CLI tiers every percentage, and copying its thresholds here would be a
 -- second source of truth. `calm` is for when it raised nothing: text stays on the
 -- surface colour, and the accent is kept for bar fills.
+--
+-- `high` is deliberately not `tertiary`. Noctalia themes are free to make that
+-- role a dark one -- in the stock dark theme it lands at 2.8:1 on a card, below
+-- the 3.9:1 of `on_surface_variant`, the colour of the text it is supposed to
+-- outrank -- so a flagged reading came out dimmer than the muted line beside it.
 function M.severityRole(section, calm)
     local severity = tostring(section and section.severity or "")
     if severity == "critical" then return "error" end
-    if severity == "high" then return "tertiary" end
+    if severity == "high" then return "secondary" end
     return calm
 end
 
