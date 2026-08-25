@@ -24,9 +24,9 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI owns the credentials and the
 endpoints, and this plugin never sees them.
 
-`xdg-open` is optional. It is spawned by one button in the panel, the link to
-the CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
-xdg-utils that button is not drawn and the rest of the plugin is unaffected.
+`xdg-open` is optional. The panel spawns it for one button, the link to the
+CLI's project page it offers when `ai-usagebar` is not on `PATH`. Without
+xdg-utils the panel leaves that button out and nothing else changes.
 
 The plugin asks for **plugin API 22**, which is where Noctalia gained
 `require()`. On a shell older than that it will not install. Version 1.1.0 asked
@@ -35,9 +35,11 @@ for API 9 and still runs there.
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
-the headline percentage of a provider, behind that provider's icon. It reads in
-the bar's own colour while there is room, picks up the theme's `secondary` when
-the CLI calls the window high, and `error` when it calls it critical.
+one provider's headline percentage next to that provider's mark. The reading
+sits in the bar's own colour while there is room, picks up the theme's
+`secondary` when the CLI calls the window high, and `error` when it calls it
+critical. The mark itself never changes colour: it says which provider, not how
+full the plan is.
 
 Left on `Automatic`, the capsule follows the busiest provider, so what sits in
 the bar is the plan closest to running out. Raise `provider_limit` and it
@@ -82,7 +84,7 @@ start = [ "clock", "ai_usage" ]
 Left and middle are the script's; right is a gesture binding, so it is listed in
 the widget's settings and can be pointed at any other action, or at `none`.
 
-The panel is a two pane view. On the left is every provider you have set up,
+The panel is a two-pane view. On the left is every provider you have set up,
 with its headline percentage. On the right is the selected one in detail: one
 card per reported metric, with a quota bar over a thinner "window elapsed" bar,
 so a fill that outruns the clock bar means quota is burning ahead of pace.
@@ -93,9 +95,10 @@ a spinner while the CLI is answering. The gear beside it opens this plugin's
 settings. There is no close button: the panel closes when you click away from
 it or press the same widget again.
 
-The list follows the CLI. A provider that `ai-usagebar` has no credential for
-never appears, while one that is set up and failing keeps its row and shows the
-error.
+The list follows the CLI. A provider the CLI reports no API key for never
+appears, because it was never set up. One that is set up and unreachable keeps
+its row and shows the CLI's own words, so Antigravity with its local server
+down says to open Antigravity rather than vanishing.
 
 The detail pane spells out what the CLI reports for that provider instead of
 implying it: the plan and account name, when it was fetched, a stale flag when
@@ -176,5 +179,5 @@ The first test reads `safeText` and `scrub` out of `service.luau` rather than
 copying them, then checks that real credential shapes never survive, that ordinary
 readings pass through unchanged, and that scrubbing a four-vendor report stays
 inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state and checks that every configured provider has visual
-metadata. An overrun in the first test loses the whole reading, not just time.
+the coalesced refresh state and checks that every provider it knows about has a
+glyph of its own rather than the fallback. An overrun in the first test loses the whole reading, not just time.
