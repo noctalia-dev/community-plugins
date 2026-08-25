@@ -1,0 +1,22 @@
+id = "azokyen/spotify-media"
+name = "Spotify Media"
+version = "0.1.0"
+plugin_api = 24
+author = "azokyen"
+license = "MIT"
+
+dependencies = [
+  "playerctl",
+  "hyprctl",
+  "spotify-launcher",
+]
+
+icon = "brand-spotify"
+
+description = "Compact Spotify now-playing widget with playback controls."
+
+tags = ["bar", "media", "music", "hyprland"]
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
