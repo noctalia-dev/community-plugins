@@ -76,6 +76,11 @@ local SECRETS = {
     { "-H 'X-Api-Key: sk-ant-api03-REALKEY'", "REALKEY" },
     { "curl https://user:hunter2@api.anthropic.com/v1/usage", "hunter2" },
     { "authorization: bearer sk-ant-api03-REALKEY", "REALKEY" },
+    -- The numeric exemption that keeps "Tokens: 45000" readable is offered to
+    -- `token` alone, and never to a long run of digits.
+    { "password: 1234", "1234" },
+    { "secret: 99", "99" },
+    { "api_key: 123456789012345", "123456789012345" },
     { "OPENAI_API_KEY sk-proj-REALKEYVALUE not accepted", "REALKEY" },
     { "password=hunter2", "hunter2" },
     -- The cap runs before the patterns, so a secret in a runaway line has to

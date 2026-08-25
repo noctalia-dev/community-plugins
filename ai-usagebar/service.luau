@@ -26,6 +26,8 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
     local name = "[%w_%-]*" .. anyCase .. "[%w_%-]*"
     SECRET_PATTERNS[#SECRET_PATTERNS + 1] = {
         word = word,
+        -- Only the keyword that collides with a metric label keeps its numbers.
+        keepsReadings = word == "token",
         -- name=value: a query string or a shell assignment.
         assign = "(" .. name .. "=)" .. SECRET_VALUE,
         -- name: value: an HTTP header or a JSON field. The value is captured
@@ -36,10 +38,12 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
     }
 end
 
--- A quota, a percentage or a price is not a credential. Anything that starts
--- with a letter still is, so "password: hunter2" is redacted.
+-- A quota or a percentage is not a credential. The exemption is deliberately
+-- narrow: short, digits only, and offered to `token` alone. "Tokens: 45000" is a
+-- reading this plugin exists to draw, while a bare number after `password` or
+-- `secret` never is, and a long run of digits is a credential whatever labels it.
 local function isReading(value)
-    return value:match("^%d[%d%.,]*%%?$") ~= nil
+    return #value <= 9 and value:match("^%d[%d%.,]*%%?$") ~= nil
 end
 
 local function redactColon(prefix, value)
@@ -67,7 +71,7 @@ local function safeText(value)
     for _, secret in ipairs(SECRET_PATTERNS) do
         if lower:find(secret.word, 1, true) then
             text = text:gsub(secret.assign, "%1<redacted>")
-            text = text:gsub(secret.colon, redactColon)
+            text = text:gsub(secret.colon, secret.keepsReadings and redactColon or "%1<redacted>")
         end
     end
 
