@@ -102,6 +102,26 @@ function M.elapsedPercent(detail)
     return value ~= nil and tonumber(value) or nil
 end
 
+-- The pace is the trailing segment of "Resets in 1h 58m · 60% elapsed · 30pts
+-- ahead". `elapsed` sitting there means the reading carries no pace at all.
+-- Returns that segment's text, then the points and the direction inside it.
+function M.pace(detail)
+    local text = tostring(detail or "")
+    local points, word = text:match("(%d+)pts%s+(%a+)")
+    points = tonumber(points)
+    if not text:find("·") then return "", points, word end
+    local last = ""
+    for part in text:gmatch("[^·]+") do last = part end
+    last = noctalia.string.trim(last)
+    if last:find("elapsed") then return "", points, word end
+    return last, points, word
+end
+
+function M.entries(report)
+    if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
+    return report.entries
+end
+
 -- A provider can report more than it was given, so clamp before this becomes a
 -- bar width.
 function M.ratio(percent)
@@ -115,6 +135,11 @@ function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
     return entry.metrics[1]
 end
+
+-- The rank the capsule sorts by, next to the role both entries colour with, so
+-- the tiers cannot be edited in one file and forgotten in the other. `low` is
+-- absent on purpose: it falls through to 0 like anything the CLI adds later.
+M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
 
 -- The CLI tiers every percentage, and copying its thresholds here would be a
 -- second source of truth. `calm` is for when it raised nothing: text stays on the

@@ -10,7 +10,7 @@ local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
-local elapsedPercent = shared.elapsedPercent
+local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
@@ -36,18 +36,6 @@ end
 -- "Resets in 1h 58m · 60% elapsed · 30pts ahead". The reset half is already in
 -- `reset_at`; what is left is the pace.
 
-local function pace(detail)
-    local text = tostring(detail or "")
-    if not text:find("·") then return "", "on_surface_variant" end
-    local last = ""
-    for part in text:gmatch("[^·]+") do last = part end
-    last = noctalia.string.trim(last)
-    if last:find("elapsed") then return "", "on_surface_variant" end
-    -- Ahead of the clock is worth flagging; under it means there is room left.
-    if last:find("ahead") then return last, "secondary" end
-    return last, "on_surface_variant"
-end
-
 -- Details that carry no reset at all, e.g. "62% of monthly limit consumed".
 local function plainDetail(detail)
     local head = tostring(detail or ""):match("^[^·]*") or ""
@@ -58,10 +46,7 @@ end
 
 -- ── Entry selection ───────────────────────────────────────────────────────────
 
-local function entries()
-    if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
-    return report.entries
-end
+local function entries() return shared.entries(report) end
 
 local function currentEntry()
     local wanted = noctalia.state.get("selected")
@@ -139,7 +124,9 @@ local function metricCard(section)
 
     local left = countdown(section)
     local clock = resetClock(section)
-    local paceText, paceColor = pace(section.detail)
+    -- Ahead of the clock is worth flagging; under it means there is room left.
+    local paceText, _, paceWord = pace(section.detail)
+    local paceColor = paceWord == "ahead" and "secondary" or "on_surface_variant"
     local timing = {}
     if left ~= "" then
         timing[#timing + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
@@ -200,14 +187,6 @@ local function blockCard(section)
     end
     return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.38",
                        border = "outline/0.18", borderWidth = 1 }, body)
-end
-
-local function textRow(section)
-    return ui.row({ gap = 6, align = "center" }, {
-        ui.label({ text = tostring(section.label or ""), fontSize = 11, color = "on_surface_variant" }),
-        ui.spacer({ flexGrow = 1 }),
-        ui.label({ text = tostring(section.value or ""), fontSize = 11, color = "on_surface", maxLines = 1 }),
-    })
 end
 
 -- ── Provider list ─────────────────────────────────────────────────────────────
@@ -432,7 +411,13 @@ local function detailPane(entry)
         elseif section.type == "block" then
             cards[#cards + 1] = blockCard(section)
         elseif section.type == "text" then
-            cards[#cards + 1] = textRow(section)
+            cards[#cards + 1] = ui.row({ gap = 6, align = "center" }, {
+                ui.label({ text = tostring(section.label or ""), fontSize = 11,
+                           color = "on_surface_variant" }),
+                ui.spacer({ flexGrow = 1 }),
+                ui.label({ text = tostring(section.value or ""), fontSize = 11,
+                           color = "on_surface", maxLines = 1 }),
+            })
         elseif section.type == "spacer" then
             cards[#cards + 1] = ui.spacer({ height = tonumber(section.height) or 8 })
         elseif section.type == "title" then

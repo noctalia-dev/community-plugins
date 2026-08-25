@@ -22,25 +22,14 @@ local shared = require("./shared.luau")
 local providerGlyph = shared.providerGlyph
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
+local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
 -- ── Report helpers ────────────────────────────────────────────────────────────
 
--- Returns points and direction: 2, "ahead" is burning faster than the clock.
-local function pace(metric)
-    local points, word = tostring(metric and metric.detail or ""):match("(%d+)pts%s+(%a+)")
-    if points == nil then return nil, nil end
-    return tonumber(points), word
-end
-
-local function entries()
-    if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
-    return report.entries
-end
-
-local SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
+local function entries() return shared.entries(report) end
 
 local function rank(entry)
     local metric = headline(entry)
@@ -112,26 +101,6 @@ local function bars(percent, elapsed, tint, width)
     return ui.column({ gap = 1, align = "center" }, stack)
 end
 
-local function paceNodes(metric)
-    if extras ~= "pace" and extras ~= "both" then return nil end
-    local points, word = pace(metric)
-    if points == nil then return nil end
-    local ahead = word == "ahead"
-    return ui.row({ gap = 0, align = "center" }, {
-        ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10,
-                   color = ahead and "secondary" or "on_surface_variant" }),
-        ui.label({ text = tostring(points), fontSize = 10,
-                   color = ahead and "secondary" or "on_surface_variant", maxLines = 1 }),
-    })
-end
-
-local function countdownNode(metric)
-    if extras ~= "countdown" and extras ~= "both" then return nil end
-    local left = countdown(metric)
-    if left == "" then return nil end
-    return ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 })
-end
-
 local function chip(entry)
     local metric = headline(entry)
     local tint = severityRole(metric, "on_surface")
@@ -160,8 +129,23 @@ local function chip(entry)
     add(pct)
     if glyphAfter then add(glyph) end
 
-    add(countdownNode(metric))
-    add(paceNodes(metric))
+    if extras == "countdown" or extras == "both" then
+        local left = countdown(metric)
+        if left ~= "" then
+            add(ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 }))
+        end
+    end
+    if extras == "pace" or extras == "both" then
+        local _, points, word = pace(metric and metric.detail)
+        if points ~= nil then
+            local ahead = word == "ahead"
+            local role = ahead and "secondary" or "on_surface_variant"
+            add(ui.row({ gap = 0, align = "center" }, {
+                ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10, color = role }),
+                ui.label({ text = tostring(points), fontSize = 10, color = role, maxLines = 1 }),
+            }))
+        end
+    end
 
     if entry.stale == true then
         add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
