@@ -6,36 +6,32 @@
 local M = {}
 
 -- Tabler has no Anthropic mark, so providers without a brand glyph use a
--- semantic one. Roles keep service identity distinct without hardcoded colors.
--- ponytail: `tertiary` is avoided here as well -- it renders at 2.8:1 in the
--- stock dark theme, under the 3:1 an icon needs. Only measured against that
--- theme; if another one darkens `secondary` the same way, this needs a role the
--- host guarantees is a foreground.
-M.PROVIDER_VISUALS = {
-    anthropic = { glyph = "asterisk-simple", role = "secondary" },
-    anthropic_api = { glyph = "asterisk-simple", role = "secondary" },
-    openai = { glyph = "brand-openai", role = "primary" },
-    zai = { glyph = "bolt", role = "secondary" },
-    openrouter = { glyph = "route", role = "secondary" },
-    deepseek = { glyph = "fish", role = "primary" },
-    kimi = { glyph = "moon", role = "secondary" },
-    moonshot = { glyph = "moon", role = "secondary" },
-    kilo = { glyph = "robot", role = "secondary" },
-    novita = { glyph = "cloud", role = "secondary" },
-    grok = { glyph = "brand-x", role = "on_surface" },
-    supergrok = { glyph = "brand-x", role = "on_surface" },
-    antigravity = { glyph = "sparkles", role = "secondary" },
-    cursor = { glyph = "cursor-text", role = "primary" },
-    minimax = { glyph = "wave-square", role = "secondary" },
-    kiro = { glyph = "ghost", role = "secondary" },
-    copilot = { glyph = "brand-github-copilot", role = "secondary" },
-    gemini = { glyph = "brand-google", role = "secondary" },
+-- semantic one. The glyph is identity and nothing else: it takes no colour of
+-- its own, so every colour left in the panel means something -- severity on the
+-- bars, and the selected row.
+M.PROVIDER_GLYPHS = {
+    anthropic = "asterisk-simple",
+    anthropic_api = "asterisk-simple",
+    openai = "brand-openai",
+    zai = "bolt",
+    openrouter = "route",
+    deepseek = "fish",
+    kimi = "moon",
+    moonshot = "moon",
+    kilo = "robot",
+    novita = "cloud",
+    grok = "brand-x",
+    supergrok = "brand-x",
+    antigravity = "sparkles",
+    cursor = "cursor-text",
+    minimax = "wave-square",
+    kiro = "ghost",
+    copilot = "brand-github-copilot",
+    gemini = "brand-google",
 }
 
-local DEFAULT_PROVIDER_VISUAL = { glyph = "brain", role = "on_surface_variant" }
-
-function M.providerVisual(id)
-    return M.PROVIDER_VISUALS[tostring(id)] or DEFAULT_PROVIDER_VISUAL
+function M.providerGlyph(id)
+    return M.PROVIDER_GLYPHS[tostring(id)] or "brain"
 end
 
 -- Ask the poller for a read. It only looks at `action`; `at` is never read, and

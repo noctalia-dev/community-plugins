@@ -58,9 +58,8 @@ for _, id in ipairs({
     "kilo", "novita", "moonshot", "grok", "supergrok", "antigravity", "cursor",
     "minimax", "kiro",
 }) do
-    local visual = assert(shared.PROVIDER_VISUALS[id], "missing provider visual for " .. id)
-    assert(type(visual.glyph) == "string" and visual.glyph ~= "", "missing glyph for " .. id)
-    assert(type(visual.role) == "string" and visual.role ~= "", "missing role for " .. id)
+    local glyph = shared.PROVIDER_GLYPHS[id]
+    assert(type(glyph) == "string" and glyph ~= "", "missing glyph for " .. id)
 end
 
 io.write("ok: refresh queue coalesced, provider visuals complete\n")

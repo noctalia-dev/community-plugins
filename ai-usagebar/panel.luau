@@ -14,7 +14,7 @@ local refreshFrameMs = 0
 local open = false
 
 local shared = require("./shared.luau")
-local providerVisual, parseIso = shared.providerVisual, shared.parseIso
+local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local elapsedPercent = shared.elapsedPercent
@@ -279,7 +279,6 @@ local function providerRow(entry, selected)
         fontSize = 10, color = "on_surface_variant", maxLines = 1,
     })
 
-    local visual = providerVisual(entry.id)
     return ui.row({
         -- Keyed, so the click handler survives the second tick the countdowns ride
         -- on instead of being rebuilt under the pointer.
@@ -294,8 +293,8 @@ local function providerRow(entry, selected)
             render()
         end,
     }, {
-        ui.glyph({ name = visual.glyph, size = 16,
-                   color = selected and "primary" or visual.role }),
+        ui.glyph({ name = providerGlyph(entry.id), size = 16,
+                   color = selected and "primary" or "on_surface" }),
         ui.column({ gap = 3, flexGrow = 1 }, lines),
         right,
     })
@@ -424,8 +423,7 @@ local function detailPane(entry)
         -- the top of a hundred pixels of nothing. Wrapped, it is as tall as the two
         -- labels in it.
         children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = providerVisual(entry.id).glyph, size = 18,
-                       color = providerVisual(entry.id).role }),
+            ui.glyph({ name = providerGlyph(entry.id), size = 18, color = "on_surface" }),
             ui.column({ gap = 0, flexGrow = 1 }, {
                 ui.label({ text = title, fontSize = 15, fontWeight = "bold",
                            color = "on_surface", maxLines = 1 }),
