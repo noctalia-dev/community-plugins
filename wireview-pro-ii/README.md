@@ -17,7 +17,8 @@ configuration.
 
 ## Requirements
 
-- A running `wireviewd` API 1 or API 2 daemon and its default Varlink socket at
+- A running [`wireviewd`](https://github.com/Gustav0ar/wireview-pro-ii) API 1 or
+  API 2 daemon and its default Varlink socket at
   `/run/wireviewd/io.github.Gustav0ar.WireView`.
 - `python3`, used by the bundled direct Varlink transport.
 - `sleep`, used only to pace monitor reconnection after the daemon restarts.

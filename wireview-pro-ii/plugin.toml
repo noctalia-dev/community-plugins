@@ -7,7 +7,7 @@ license = "MIT"
 dependencies = ["python3", "sleep"]
 tags = ["bar", "panel", "service", "system", "hardware", "utility"]
 icon = "bolt"
-description = "Live WireView Pro II power, pin, temperature, fault, and configuration telemetry."
+description = "Live WireView Pro II telemetry and controls. Requires wireviewd: https://github.com/Gustav0ar/wireview-pro-ii"
 
 [[service]]
 id = "monitor"
