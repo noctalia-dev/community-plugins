@@ -1,6 +1,7 @@
 --!nonstrict
 
 local Activity = require("./lib/activity.luau")
+local Settings = require("./lib/settings.luau")
 
 local data = noctalia.state.get("data")
 local status = noctalia.state.get("status") or "loading"
@@ -233,6 +234,13 @@ local function statusText()
   return stale and tr("status.stale") or ""
 end
 
+local function refreshSchedule()
+  return tr("status.refresh_schedule", {
+    time = os.date("%H:%M", math.floor(data.fetchedAt)),
+    interval = Settings.refreshIntervalMinutes(noctalia.getConfig("refresh_interval_minutes")),
+  })
+end
+
 function render()
   local root = {
     ui.row({ align = "center", gap = 12, paddingH = 18, paddingV = 10 }, {
@@ -266,6 +274,7 @@ function render()
       and tr("panel.day_total", { date = day.date, count = day.count })
       or tr("panel.year_total", { login = data.login, count = data.total })
     table.insert(body, ui.label({ text = selectedText, height = 14, fontSize = 11, color = "on_surface_variant", textAlign = "center" }))
+    table.insert(body, ui.label({ text = refreshSchedule(), height = 12, fontSize = 10, color = "on_surface_variant", textAlign = "center" }))
     table.insert(body, ui.separator({ thickness = 1, color = "outline/0.35" }))
     table.insert(body, ui.row({ gap = 14, align = "stretch" }, {
       metric(tr("metric.today"), data.today, activityBlocks(data.today > 0 and 1 or 0, 1)),

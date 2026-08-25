@@ -1,6 +1,7 @@
 --!nonstrict
 
 local Activity = require("./lib/activity.luau")
+local Settings = require("./lib/settings.luau")
 
 local QUERY = [[
 query {
@@ -88,7 +89,6 @@ def suffixrun:
   }
 ]=]
 
-local REFRESH_INTERVAL_MS = 30 * 60 * 1000
 local cachePath = nil
 local inFlight = false
 
@@ -189,7 +189,11 @@ local function refresh()
   end)
 end
 
-noctalia.setUpdateInterval(REFRESH_INTERVAL_MS)
+local function configureRefreshInterval()
+  noctalia.setUpdateInterval(Settings.refreshIntervalMs(noctalia.getConfig("refresh_interval_minutes")))
+end
+
+configureRefreshInterval()
 initialiseCache()
 refresh()
 
@@ -202,6 +206,11 @@ function update()
 end
 
 function onEnable()
+  refresh()
+end
+
+function onConfigChanged()
+  configureRefreshInterval()
   refresh()
 end
 

@@ -1,5 +1,7 @@
 --!nonstrict
 
+local Settings = require("./lib/settings.luau")
+
 local data = noctalia.state.get("data")
 local status = noctalia.state.get("status") or "loading"
 local stale = noctalia.state.get("stale") == true
@@ -8,11 +10,16 @@ local tr = noctalia.tr
 local function tooltip()
   if data ~= nil then
     local freshness = stale and tr("widget.cached") or tr("widget.up_to_date")
+    local refreshSchedule = tr("status.refresh_schedule", {
+      time = os.date("%H:%M", math.floor(data.fetchedAt)),
+      interval = Settings.refreshIntervalMinutes(noctalia.getConfig("refresh_interval_minutes")),
+    })
     return tr("widget.tooltip", {
       login = data.login,
       today = data.today,
       streak = data.currentStreak,
       freshness = freshness,
+      refresh = refreshSchedule,
     })
   end
 

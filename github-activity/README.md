@@ -33,6 +33,16 @@ gh auth login -h github.com
 3. Left-click the widget to open the annual calendar.
 4. Right-click the widget or use the panel's refresh button to refresh now.
 
+## Settings
+
+| Setting | Options | Default |
+| --- | --- | --- |
+| Automatic refresh interval | 15, 30, or 60 minutes | 30 minutes |
+
+Changing the interval applies it immediately and requests a refresh unless a
+request is already in progress. The widget tooltip and calendar panel show the
+last update time and selected automatic refresh interval.
+
 The panel can also be toggled through IPC:
 
 ```bash

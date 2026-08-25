@@ -3,8 +3,19 @@
     "name": "GitHub Activity",
     "description": "A native GitHub contribution calendar for your Noctalia bar."
   },
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often GitHub contribution data refreshes automatically.",
+      "options": {
+        "fifteen": "Every 15 minutes",
+        "thirty": "Every 30 minutes",
+        "sixty": "Every 60 minutes"
+      }
+    }
+  },
   "widget": {
-    "tooltip": "{login}\\nToday: {today} contributions\\nCurrent streak: {streak} days\\n{freshness}",
+    "tooltip": "{login}\nToday: {today} contributions\nCurrent streak: {streak} days\n{freshness}\n{refresh}",
     "cached": "Cached data",
     "up_to_date": "Up to date"
   },
@@ -53,6 +64,7 @@
     "invalid_response": "GitHub returned an unexpected contribution calendar.",
     "unavailable": "GitHub activity is unavailable.",
     "no_data": "No contribution data is available yet.",
-    "missing_xdg_open": "xdg-open is required to open your profile."
+    "missing_xdg_open": "xdg-open is required to open your profile.",
+    "refresh_schedule": "Last updated at {time} · Auto-refresh every {interval} min"
   }
 }

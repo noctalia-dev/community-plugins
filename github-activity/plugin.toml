@@ -1,6 +1,6 @@
 id = "alexmnrs/github-activity"
 name = "GitHub Activity"
-version = "1.0.1"
+version = "1.2.1"
 plugin_api = 24
 author = "AlexMnrs"
 license = "MIT"
@@ -8,6 +8,18 @@ icon = "brand-github"
 description = "A native GitHub contribution calendar for your Noctalia bar."
 tags = ["bar", "panel", "service", "development", "productivity", "utility", "network", "hyprland", "arch"]
 dependencies = ["gh", "xdg-open"]
+
+[[setting]]
+key = "refresh_interval_minutes"
+type = "select"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = "30"
+options = [
+  { value = "15", label_key = "settings.refresh_interval.options.fifteen" },
+  { value = "30", label_key = "settings.refresh_interval.options.thirty" },
+  { value = "60", label_key = "settings.refresh_interval.options.sixty" },
+]
 
 [[widget]]
 id = "activity"
