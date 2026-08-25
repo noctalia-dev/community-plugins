@@ -210,10 +210,13 @@ local function render()
     local children = {}
     for _, entry in ipairs(picked) do
         -- Two providers in one capsule run together on a gap alone, and the
-        -- countdown of the first reads as part of the second.
+        -- countdown of the first reads as part of the second. `outline` at the
+        -- row's own gap was too faint to divide anything, so the rule gets a
+        -- brighter tint and air of its own.
         if #children > 0 then
             children[#children + 1] = ui.separator({ orientation = "vertical",
-                                                     color = "outline", spacing = 0 })
+                                                     color = "on_surface/0.35",
+                                                     thickness = 1, spacing = 3 })
         end
         children[#children + 1] = chip(entry)
     end
