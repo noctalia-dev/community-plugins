@@ -47,11 +47,10 @@ side.
 
 The capsule is put together the way the core `sysmon` widget is, with the same
 key names, so the CPU reading beside it is configured with the same vocabulary.
-`visualization` draws a `gauge` (a quota bar over a thinner bar for how much of
-the window has gone, so a longer fill than clock is spend running ahead), five
-`meter` segments filled in twenties, or `none`. `show_value`, `show_glyph` and
-`glyph_position` decide whether the percentage and the icon are there and which
-side the icon sits on.
+`visualization` draws a `gauge`, a quota bar over a thinner bar for how much of
+the window has gone, so a longer fill than clock is spend running ahead, or
+`none`. `show_value`, `show_glyph` and `glyph_position` decide whether the
+percentage and the icon are there and which side the icon sits on.
 
 `extras` puts the time left in the window (`3h 51m`), the pace against the
 clock (`↑3` is three points ahead of where the window says you should be, `↓3`
@@ -64,7 +63,7 @@ has no settings of its own, so the gear opens empty:
 ```toml
 [widget.ai_usage]
 type = "felipeartur/ai-usagebar:bar"
-visualization = "meter"
+visualization = "gauge"
 provider_limit = 2
 
 [bar.default]
@@ -126,7 +125,7 @@ Per widget instance, so two capsules can follow two providers:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows the busiest provider, with the CLI's own `[ui] primary` breaking ties. |
-| `visualization` | `select` | `gauge` | `gauge`, `meter` or `none`, as described above. |
+| `visualization` | `select` | `none` | `gauge` or `none`, as described above. |
 | `show_value` | `bool` | `true` | Show the percentage as text. |
 | `show_glyph` | `bool` | `true` | Show the provider's icon. |
 | `glyph_position` | `select` | `before` | `before` or `after` the reading. |

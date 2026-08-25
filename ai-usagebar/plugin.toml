@@ -80,11 +80,10 @@ key = "visualization"
 type = "select"
 label_key = "settings.visualization.label"
 description_key = "settings.visualization.description"
-default = "gauge"
+default = "none"
 options = [
-  { value = "gauge", label_key = "settings.visualization.option.gauge" },
-  { value = "meter", label_key = "settings.visualization.option.meter" },
   { value = "none", label_key = "settings.visualization.option.none" },
+  { value = "gauge", label_key = "settings.visualization.option.gauge" },
 ]
 
 [[widget.setting]]

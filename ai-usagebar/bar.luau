@@ -7,7 +7,7 @@ local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local extras = tostring(noctalia.getConfig("extras") or "countdown")
 -- Named after the core `sysmon` widget's own keys, so a reading in this capsule
 -- is configured the same way as the CPU one beside it.
-local visualization = tostring(noctalia.getConfig("visualization") or "gauge")
+local visualization = tostring(noctalia.getConfig("visualization") or "none")
 local showValue = noctalia.getConfig("show_value") ~= false
 local showGlyph = noctalia.getConfig("show_glyph") ~= false
 local glyphAfter = tostring(noctalia.getConfig("glyph_position") or "before") == "after"
@@ -154,16 +154,6 @@ local function chip(entry)
     add(name)
     if percent ~= nil and visualization == "gauge" then
         add(bars(percent, elapsedPercent(metric and metric.detail), fill, 26))
-    elseif percent ~= nil and visualization == "meter" then
-        -- Five segments filled in twenties: the reading at a glance, no digits.
-        local ticks = {}
-        for i = 0, 4 do
-            ticks[#ticks + 1] = ui.box({
-                width = 3, height = 11, radius = 1,
-                fill = percent > i * 20 and fill or "on_surface/0.22",
-            })
-        end
-        add(ui.row({ gap = 2, align = "center" }, ticks))
     end
     add(pct)
     if glyphAfter then add(glyph) end
@@ -248,9 +238,7 @@ local function render()
                                              color = "on_surface_variant", maxLines = 1 })
     end
 
-    -- A read in flight dims the capsule instead of appending a spinner: a node
-    -- that comes and goes every cycle shoves every widget to its right.
-    barWidget.render(ui.row({ gap = 6, align = "center", opacity = polling and 0.55 or 1 }, children))
+    barWidget.render(ui.row({ gap = 6, align = "center" }, children))
     barWidget.setTooltip(tooltip(picked, hidden))
 end
 

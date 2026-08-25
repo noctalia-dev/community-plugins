@@ -1,11 +1,11 @@
 {
   "settings": {
     "color_by_usage": {
-      "description": "Primary while there is room, then amber, then red as the quota fills.",
+      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
       "label": "Color by usage"
     },
     "extras": {
-      "description": "What rides next to the percentage: the time left in the window, how far the spend is from the clock, or neither.",
+      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
       "label": "Extra reading",
       "option": {
         "both": "Both",
@@ -31,7 +31,7 @@
       "label": "Refresh interval (minutes)"
     },
     "show_glyph": {
-      "description": "Show the provider's icon.",
+      "description": "The provider's icon. Off leaves the reading on its own.",
       "label": "Show icon"
     },
     "show_name": {
@@ -39,7 +39,7 @@
       "label": "Show provider name"
     },
     "show_value": {
-      "description": "Show the percentage as text.",
+      "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
     },
     "vendor": {
@@ -66,11 +66,10 @@
       }
     },
     "visualization": {
-      "description": "What the capsule draws beside the reading.",
+      "description": "A gauge beside the reading, or nothing.",
       "label": "Visualization",
       "option": {
         "gauge": "Quota bar over the window clock",
-        "meter": "Five segments",
         "none": "Nothing"
       }
     }
