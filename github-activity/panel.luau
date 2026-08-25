@@ -19,7 +19,6 @@ local gridPreparingDay = 1
 local gridReady = false
 local open = false
 local tr = noctalia.tr
-local cellColors = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
 local monthNames = {
   tr("panel.months.jan"),
   tr("panel.months.feb"),
@@ -162,7 +161,7 @@ local function prepareGridColumns()
         selectedByKey[key] = { date = date, count = tonumber(countText) or 0 }
         table.insert(cells, ui.box({
           key = key,
-          fill = cellColors[(gridLevels[day][gridWeek] or 0) + 1],
+          fill = Activity.color(gridLevels[day][gridWeek]),
           radius = 2,
           width = 10,
           height = 12,
@@ -322,10 +321,6 @@ end
 
 function onRefreshClicked()
   requestRefresh()
-end
-
-function onCloseClicked()
-  panel.close()
 end
 
 function onOpenProfile()

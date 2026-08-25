@@ -12,8 +12,6 @@
     "title": "GitHub Activity",
     "year_total": "{login} · {count} contributions in the last year",
     "day_total": "{date} · {count} contributions",
-    "hover_day": "Hover a day to inspect its activity.",
-    "no_today": "Today's contribution is not in the returned calendar.",
     "preparing": "Preparing interactive calendar…",
     "months": {
       "jan": "Jan",
@@ -38,12 +36,10 @@
   "metric": {
     "today": "Today",
     "current_streak": "Current streak",
-    "best_streak": "Best streak",
-    "days": "{count} days"
+    "best_streak": "Best streak"
   },
   "action": {
     "refresh": "Refresh",
-    "close": "Close",
     "try_again": "Try again",
     "open_profile": "Open profile"
   },
