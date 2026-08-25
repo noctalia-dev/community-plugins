@@ -1,6 +1,6 @@
 --!nonstrict
 -- Oh My Pi (omp) Launcher Button for Noctalia Bar
--- Native vector UI rendering with Pi glyph, active process detection, and recent project context.
+-- Multi-state visual effects: Sky-Blue when thinking/running, Amber when waiting for prompt, Muted when idle.
 
 local dir = noctalia.pluginDir()
 local SCRIPT_PATH = dir .. "/status.py"
@@ -9,19 +9,24 @@ local LOGO_PATH   = dir .. "/omp-logo.svg"
 
 local function render(data)
   local isRunning = data and data.running == true
-  local tooltip = data and data.tooltip or "Oh My Pi (omp) — left: pick project · middle: resume · right: home"
+  local pulse = data and data.pulse or "idle"
+  local pulseColor = data and data.pulse_color or "#38BDF8"
+  local tooltip = data and data.tooltip or "Oh My Pi (omp) — click to open panel"
 
   local children = {
     ui.image({ path = LOGO_PATH, width = 16, height = 16, fit = "contain" }),
     ui.label({ text = "omp", fontSize = 11, color = "#FFFFFF", fontWeight = "bold" }),
   }
 
+  -- Visual Effect Dot:
+  -- Sky Blue (#38BDF8) when thinking / running tools
+  -- Amber (#F59E0B) when waiting for user prompt / input
   if isRunning then
     table.insert(children, ui.box({
       width = 5,
       height = 5,
       radius = 3,
-      fill = "#38BDF8", -- Sky blue active session dot matching logo gradient
+      fill = pulseColor,
     }))
   end
 
@@ -42,6 +47,7 @@ local function refresh()
     end)
 
     if ok and type(data) == "table" then
+      noctalia.state.set("omp_launcher", data)
       render(data)
     else
       render(nil)
@@ -51,7 +57,7 @@ end
 
 -- Initial setup
 render(nil)
-noctalia.setUpdateInterval(10000) -- Refresh status every 10s
+noctalia.setUpdateInterval(1200) -- Refresh status every 1.2s for instant pulse responsiveness
 refresh()
 
 function update()
@@ -59,7 +65,7 @@ function update()
 end
 
 function onClick()
-  noctalia.runAsync("'" .. LAUNCH_PATH .. "'")
+  noctalia.togglePanel("emiliovenegas/omp-launcher:panel")
   refresh()
 end
 

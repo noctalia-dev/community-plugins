@@ -2,6 +2,7 @@
 import os
 import json
 import time
+import glob
 import subprocess
 
 def resolve_slug(slug, home):
@@ -9,10 +10,8 @@ def resolve_slug(slug, home):
         return "/tmp"
     if slug == "-" or not slug:
         return home
-    
     raw = slug[1:] if slug.startswith("-") else slug
     parts = raw.split("-")
-    
     curr = home
     i = 0
     while i < len(parts):
@@ -28,79 +27,194 @@ def resolve_slug(slug, home):
         if not matched:
             curr = os.path.join(curr, parts[i])
             i += 1
-            
     return curr
+
+def format_ago(mtime):
+    diff = max(0, int(time.time() - mtime))
+    if diff < 60:
+        return "just now"
+    if diff < 3600:
+        return f"{diff // 60}m ago"
+    if diff < 86400:
+        return f"{diff // 3600}h ago"
+    return f"{diff // 86400}d ago"
+
+def get_last_jsonl_entry(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - 8192), 0)
+            chunk = f.read().decode('utf-8', errors='ignore')
+            lines = [l for l in chunk.strip().split('\n') if l.strip()]
+            for l in reversed(lines):
+                try:
+                    return json.loads(l)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+    return None
 
 def get_omp_status():
     home = os.path.expanduser('~')
     sessions_dir = os.path.join(home, '.omp', 'agent', 'sessions')
     
-    # 1. Check running omp processes
-    running_count = 0
-    try:
-        p = subprocess.run(["pgrep", "-x", "omp"], capture_output=True, text=True)
-        if p.returncode == 0 and p.stdout.strip():
-            running_count = len([x for x in p.stdout.strip().splitlines() if x.strip()])
+    # 1. Active Client Sessions from ~/.omp/run/daemons/*/clients/*.json
+    active_sessions = []
+    seen_pids = set()
+    client_files = glob.glob(os.path.join(home, '.omp', 'run', 'daemons', '*', 'clients', '*.json'))
+    for cf in client_files:
+        try:
+            with open(cf, 'r') as f:
+                cdata = json.load(f)
+                pid = cdata.get("pid")
+                pdir = cdata.get("projectDir")
+                if pid and pdir and pid not in seen_pids:
+                    try:
+                        os.kill(pid, 0)
+                        seen_pids.add(pid)
+                        short = os.path.basename(pdir) if pdir != home else "~"
+                        if pdir == "/tmp":
+                            short = "/tmp"
+                        display_p = pdir.replace(home, '~')
+                        active_sessions.append({
+                            "pid": pid,
+                            "path": pdir,
+                            "display": display_p,
+                            "short": short
+                        })
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+            
+    # Fallback to pgrep
+    if not active_sessions:
+        try:
+            p = subprocess.run(["pgrep", "-x", "omp"], capture_output=True, text=True)
+            if p.returncode == 0 and p.stdout.strip():
+                for line in p.stdout.strip().splitlines():
+                    if line.strip().isdigit():
+                        active_sessions.append({
+                            "pid": int(line.strip()),
+                            "path": home,
+                            "display": "~",
+                            "short": "omp"
+                        })
+        except Exception:
+            pass
+
+    running_count = len(active_sessions)
+
+    # 2. Find All Recent Session Files & Match Exact File mtimes
+    all_jsonls = glob.glob(os.path.join(sessions_dir, '*', '*.jsonl'))
+    latest_jsonl_file = None
+    latest_file_mtime = 0
+
+    if all_jsonls:
+        all_jsonls.sort(key=os.path.getmtime, reverse=True)
+        latest_jsonl_file = all_jsonls[0]
+        try:
+            latest_file_mtime = os.path.getmtime(latest_jsonl_file)
+        except OSError:
+            pass
+
+    # 3. Dynamic Pulse State Detection (Thinking = Sky Blue, Prompting = Clean White, Idle = Muted)
+    pulse = "idle"
+    pulse_color = "#94A3B8"
+    pulse_label = "Idle"
+
+    if running_count > 0:
+        time_since_write = time.time() - latest_file_mtime if latest_file_mtime > 0 else 999
+        last_entry = get_last_jsonl_entry(latest_jsonl_file) if latest_jsonl_file else None
+
+        if time_since_write < 6.0:
+            pulse = "thinking"
+            pulse_color = "#38BDF8"
+            pulse_label = "Thinking..."
+        elif last_entry:
+            custom_type = last_entry.get("customType")
+            role = last_entry.get("role") or (last_entry.get("message", {}).get("role") if isinstance(last_entry.get("message"), dict) else None)
+            if custom_type == "tool_execution_start" or role == "toolResult":
+                pulse = "thinking"
+                pulse_color = "#38BDF8"
+                pulse_label = "Thinking..."
+            else:
+                pulse = "prompting"
+                pulse_color = "#FFFFFF"
+                pulse_label = "Ready for input"
         else:
-            p2 = subprocess.run(["pgrep", "-c", "-f", r"(^|/)omp(\s|$)"], capture_output=True, text=True)
-            if p2.returncode == 0 and p2.stdout.strip().isdigit():
-                running_count = int(p2.stdout.strip())
-    except Exception:
-        pass
-        
-    # 2. Get most recent project from sessions
-    recent_path = None
-    recent_mtime = 0
+            pulse = "prompting"
+            pulse_color = "#FFFFFF"
+            pulse_label = "Ready for input"
+
+    # 4. Recent Workspaces Discovery
+    recent_projects = []
+    seen_paths = set()
     
     if os.path.isdir(sessions_dir):
+        entries = []
         for entry in os.scandir(sessions_dir):
             if not entry.is_dir():
                 continue
-            real_path = resolve_slug(entry.name, home)
-            if os.path.isdir(real_path):
+            rpath = resolve_slug(entry.name, home)
+            if os.path.isdir(rpath):
                 try:
-                    mt = entry.stat().st_mtime
-                    if mt > recent_mtime:
-                        recent_mtime = mt
-                        recent_path = real_path
+                    jfiles = glob.glob(os.path.join(entry.path, "*.jsonl"))
+                    if jfiles:
+                        mt = max(os.path.getmtime(jf) for jf in jfiles)
+                    else:
+                        mt = entry.stat().st_mtime
                 except OSError:
-                    pass
-                    
-    if recent_path:
-        short_name = os.path.basename(recent_path) or "root"
-        display_path = recent_path.replace(home, '~')
+                    mt = 0.0
+                entries.append((mt, rpath))
+                
+        entries.sort(key=lambda x: x[0], reverse=True)
         
-        diff_sec = max(0, int(time.time() - recent_mtime))
-        if diff_sec < 60:
-            ago_str = "just now"
-        elif diff_sec < 3600:
-            ago_str = f"{diff_sec // 60}m ago"
-        elif diff_sec < 86400:
-            ago_str = f"{diff_sec // 3600}h ago"
-        else:
-            ago_str = f"{diff_sec // 86400}d ago"
-    else:
-        short_name = "None"
-        display_path = "~"
-        ago_str = "never"
-        
-    status_str = f"{running_count} active" if running_count > 0 else "Idle"
+        for mt, rpath in entries:
+            if rpath in seen_paths:
+                continue
+            seen_paths.add(rpath)
+            short = os.path.basename(rpath) if rpath != home else "~"
+            if rpath == "/tmp":
+                short = "/tmp"
+            display_p = rpath.replace(home, '~')
+            recent_projects.append({
+                "path": rpath,
+                "display": display_p,
+                "short": short,
+                "ago": format_ago(mt),
+                "mtime": mt
+            })
+            if len(recent_projects) >= 8:
+                break
+
+    latest_project = recent_projects[0]["display"] if recent_projects else "~"
+    latest_short = recent_projects[0]["short"] if recent_projects else "root"
+    latest_ago = recent_projects[0]["ago"] if recent_projects else "never"
+    
     tooltip_lines = [
         "Oh My Pi (omp) Launcher",
-        f"• Status: {status_str}",
-        f"• Latest Project: {display_path} ({ago_str})",
+        f"• Status: {running_count} active ({pulse_label})",
+        f"• Latest: {latest_project} ({latest_ago})",
         "",
-        "Left-click: Pick project to open in OMP",
-        f"Middle-click: Resume latest ({short_name})",
-        "Right-click: Launch in $HOME (--allow-home)"
+        "Left-click: Open session panel & project picker",
+        f"Middle-click: Resume latest ({latest_short})",
+        "Right-click: Launch in $HOME"
     ]
-    
+
     return {
         "running": running_count > 0,
         "running_count": running_count,
-        "latest_project": display_path,
-        "latest_short": short_name,
-        "latest_ago": ago_str,
+        "pulse": pulse,
+        "pulse_color": pulse_color,
+        "pulse_label": pulse_label,
+        "active_sessions": active_sessions,
+        "recent_projects": recent_projects,
+        "latest_project": latest_project,
+        "latest_short": latest_short,
+        "latest_ago": latest_ago,
         "tooltip": "\n".join(tooltip_lines)
     }
 

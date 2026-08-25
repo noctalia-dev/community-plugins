@@ -1,13 +1,13 @@
 # Oh My Pi Launcher
 
-An interactive, native bar launcher button for [Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi) with real-time background session detection, recent project tracking, and one-click session resume.
+An interactive, native bar launcher button and dropdown session manager for [Oh My Pi (`omp`)](https://github.com/can1357/oh-my-pi) with real-time background session detection, multi-state telemetry pulse, recent workspace tracking, and one-click session resume.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `emiliovenegas/omp-launcher` |
-| Entries | Bar widget: `omp-launcher` |
+| Entries | Bar widget: `omp-launcher`; Panel: `panel` |
 
 ## Requirements
 
@@ -16,7 +16,7 @@ An interactive, native bar launcher button for [Oh My Pi (`omp`)](https://github
 - `pgrep` on `PATH`.
 - `bash` on `PATH`.
 
-The bundled launcher script (`omp-launch`) dynamically uses a graphical dmenu (`vicinae`, `fuzzel`, `rofi`, `wofi`, `bemenu`, or `dmenu`) when available. If no dmenu is present, it falls back to your terminal emulator (`$TERMINAL`, `xdg-terminal-exec`, `alacritty`, `kitty`, `ghostty`, `foot`, `wezterm`, `gnome-terminal`, `konsole`, or `xterm`).
+The bundled launcher script (`omp-launch`) dynamically uses a graphical dmenu (`vicinae`, `fuzzel`, `rofi`, `wofi`, `bemenu`, or `dmenu`) when available. If no dmenu is present, it falls back to your installed terminal emulator (`$TERMINAL`, `xdg-terminal-exec`, `alacritty`, `kitty`, `ghostty`, `foot`, `wezterm`, `gnome-terminal`, `konsole`, or `xterm`).
 
 ## Usage
 
@@ -33,14 +33,22 @@ capsule = true
 
 ### Click gestures
 
-- **Left-click** — opens the interactive project picker (dmenu or terminal fallback).
-- **Middle-click** — resumes the most recent project session directly (`omp --continue`).
-- **Right-click** — launches a new session in `$HOME` (`omp --allow-home`).
+- **Left-click** — opens the interactive **Oh My Pi dropdown panel** with live active sessions, recent workspaces, and quick actions.
+- **Middle-click** — resumes the most recent project session directly in a terminal (`omp --continue`).
+- **Right-click** — launches a fresh session in `$HOME` (`omp --allow-home`).
 
-The capsule glows with an active session indicator dot whenever an `omp` session is running.
+The capsule dot lights up in **Sky Blue** (`#38BDF8`) while OMP is thinking / executing tools, switches to **White** (`#FFFFFF`) when waiting for user input, and turns off when idle.
+
+### Panel IPC
+
+You can toggle the interactive dropdown panel directly via keybind or script:
+
+```sh
+noctalia msg panel-toggle emiliovenegas/omp-launcher:panel
+```
 
 ## Notes
 
 - **Session discovery**: reads project recency timestamps from `~/.omp/agent/sessions/`.
-- **Active detection**: scans local processes with `pgrep` every 10 seconds.
+- **Active detection**: scans running local processes with `pgrep` and daemon client tables.
 - **Privacy**: no external network requests; all checks and launcher operations run entirely on the local machine.
