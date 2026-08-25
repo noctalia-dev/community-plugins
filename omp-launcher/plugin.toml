@@ -1,0 +1,14 @@
+id           = "emiliovenegas/omp-launcher"
+name         = "Oh My Pi Launcher"
+description  = "Native Oh My Pi (omp) launcher with active session indicator and project discovery."
+version      = "1.0.0"
+plugin_api   = 3
+icon         = "math"
+author       = "emiliovenegas"
+license      = "MIT"
+dependencies = [ "python3", "alacritty", "omp" ]
+tags         = [ "bar", "launcher", "ai", "productivity", "development" ]
+
+[[widget]]
+id    = "omp-launcher"
+entry = "widget.luau"
