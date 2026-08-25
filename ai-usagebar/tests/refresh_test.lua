@@ -58,8 +58,8 @@ for _, id in ipairs({
     "kilo", "novita", "moonshot", "grok", "supergrok", "antigravity", "cursor",
     "minimax", "kiro",
 }) do
-    local glyph = shared.PROVIDER_GLYPHS[id]
-    assert(type(glyph) == "string" and glyph ~= "", "missing glyph for " .. id)
+    -- "brain" is the fallback, so a provider still on it has no glyph of its own.
+    assert(shared.providerGlyph(id) ~= "brain", "missing glyph for " .. id)
 end
 
 io.write("ok: refresh queue coalesced, provider visuals complete\n")

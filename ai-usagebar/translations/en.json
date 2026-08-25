@@ -26,16 +26,6 @@
       "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
       "label": "Show provider name"
     },
-    "style": {
-      "description": "How this capsule looks in the bar.",
-      "label": "Style",
-      "option": {
-        "gauge": "Gauge and percentage",
-        "label": "Name, gauge and percentage",
-        "meter": "Segments",
-        "pill": "Percentage"
-      }
-    },
     "vendor": {
       "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
       "label": "Provider",

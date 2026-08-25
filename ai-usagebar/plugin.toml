@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.4.0"
+version = "2.0.0"
 plugin_api = 22
 author = "felipeartur"
 license = "MIT"
@@ -71,19 +71,6 @@ options = [
   { value = "cursor", label_key = "settings.vendor.option.cursor" },
   { value = "minimax", label_key = "settings.vendor.option.minimax" },
   { value = "kiro", label_key = "settings.vendor.option.kiro" },
-]
-
-[[widget.setting]]
-key = "style"
-type = "select"
-label_key = "settings.style.label"
-description_key = "settings.style.description"
-default = "pill"
-options = [
-  { value = "pill", label_key = "settings.style.option.pill" },
-  { value = "gauge", label_key = "settings.style.option.gauge" },
-  { value = "meter", label_key = "settings.style.option.meter" },
-  { value = "label", label_key = "settings.style.option.label" },
 ]
 
 # One capsule can carry more than one provider; "auto" fills it with the busiest.

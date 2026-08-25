@@ -36,9 +36,8 @@ for API 9 and still runs there.
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
 the headline percentage of a provider, behind that provider's icon. It reads in
-the bar's own colour while there is room, picks up the theme's `tertiary` when
-the CLI calls the window high, and `error` when it calls it critical. The accent
-stays on the gauge fill, so a calm capsule looks like the widgets beside it.
+the bar's own colour while there is room, picks up the theme's `secondary` when
+the CLI calls the window high, and `error` when it calls it critical.
 
 Left on `Automatic`, the capsule follows the busiest provider, so what sits in
 the bar is the plan closest to running out. Raise `provider_limit` and it
@@ -46,18 +45,9 @@ carries the next busiest ones too, with a `+N` for whatever did not fit. Pin a
 provider instead, or add the widget twice, when you want two fixed plans side by
 side.
 
-Four styles, all with the same reading:
-
-| Style | Shape |
-| --- | --- |
-| `pill` | Icon and percentage. The compact one. |
-| `gauge` | Icon, a small quota bar over a thinner "window elapsed" bar, percentage. |
-| `meter` | Icon and five segments, filled in twenties, with no percentage. |
-| `label` | Icon, provider name and percentage stacked over the bars. |
-
-Next to that, `extras` puts the time left in the window (`3h 51m`), the pace
-against the clock (`↑3` is three points ahead of where the window says you
-should be, `↓3` is three under), both, or neither.
+`extras` puts the time left in the window (`3h 51m`), the pace against the
+clock (`↑3` is three points ahead of where the window says you should be, `↓3`
+is three under), both, or neither.
 
 If you add the widget by hand in `config.toml`, give it a name. A bar list entry
 that is a raw widget id becomes an anonymous instance, and an anonymous instance
@@ -66,7 +56,6 @@ has no settings of its own, so the gear opens empty:
 ```toml
 [widget.ai_usage]
 type = "felipeartur/ai-usagebar:bar"
-style = "gauge"
 provider_limit = 2
 
 [bar.default]
@@ -128,7 +117,6 @@ Per widget instance, so two capsules can follow two providers:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows the busiest provider, with the CLI's own `[ui] primary` breaking ties. |
-| `style` | `select` | `pill` | `pill`, `gauge`, `meter` or `label`, as described in the table above. |
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, from 1 to 4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_name` | `bool` | `false` | Adds the product name, so two capsules do not look alike. |

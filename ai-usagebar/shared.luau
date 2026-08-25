@@ -9,7 +9,7 @@ local M = {}
 -- semantic one. The glyph is identity and nothing else: it takes no colour of
 -- its own, so every colour left in the panel means something -- severity on the
 -- bars, and the selected row.
-M.PROVIDER_GLYPHS = {
+local PROVIDER_GLYPHS = {
     anthropic = "asterisk-simple",
     anthropic_api = "asterisk-simple",
     openai = "brand-openai",
@@ -31,7 +31,7 @@ M.PROVIDER_GLYPHS = {
 }
 
 function M.providerGlyph(id)
-    return M.PROVIDER_GLYPHS[tostring(id)] or "brain"
+    return PROVIDER_GLYPHS[tostring(id)] or "brain"
 end
 
 -- Ask the poller for a read. It only looks at `action`; `at` is never read, and
@@ -64,7 +64,7 @@ function M.parseIso(value)
     return asLocal + (asLocal - utcAsLocal)
 end
 
-function M.formatDuration(seconds)
+local function formatDuration(seconds)
     if seconds <= 0 then return noctalia.tr("ui.now") end
     local minutes = math.floor(seconds / 60)
     local days = math.floor(minutes / 1440)
@@ -79,7 +79,7 @@ end
 function M.countdown(section)
     local at = M.parseIso(section and section.reset_at)
     if at == nil then return "" end
-    return M.formatDuration(at - os.time())
+    return formatDuration(at - os.time())
 end
 
 -- Where the countdown lands: "14:20" today, "Sat 14:20" past midnight, and a date

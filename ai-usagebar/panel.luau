@@ -400,23 +400,14 @@ local function detailPane(entry)
     -- clicked, and a healthy read is the default.
     if entry ~= nil then
         local chips = {}
-        local function separate()
-            if #chips > 0 then
-                chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
-            end
-        end
-        if entry.status == "error" then
-            chips[#chips + 1] = ui.label({
-                text = tostring(entry.status or ""), fontSize = 10, color = "error", maxLines = 1,
-            })
-        end
         if entry.stale == true then
-            separate()
             chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "secondary" })
         end
         local fetched = parseIso(entry.fetched_at)
         if fetched ~= nil then
-            separate()
+            if #chips > 0 then
+                chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
+            end
             chips[#chips + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
             chips[#chips + 1] = ui.label({
                 text = updatedText(entry) .. " · " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
