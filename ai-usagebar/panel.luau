@@ -27,12 +27,16 @@ local failure = NO_FAILURE
 -- otherwise stat PATH on every second tick it spends in a failure.
 local HAS_OPENER = noctalia.commandExists("xdg-open")
 
--- A vendor with no credential comes back as a `credentials error`. It was never
--- set up, so it is not listed. A configured provider that fails for any other
--- reason keeps its row.
+-- A vendor the user never set up is not listed. The CLI prefixes every such
+-- message with `credentials error:`, but that bucket also holds providers that
+-- ARE set up and merely unreachable right now -- "credentials error:
+-- Antigravity: no local server found ... open Antigravity" -- so the row is only
+-- dropped when the CLI says there is no key at all. Anything else keeps its row
+-- and shows the CLI's own words, which say what to do about it.
 local function configured(entry)
     if entry.status ~= "error" then return true end
-    return not tostring(entry.error or ""):lower():find("^credentials error:")
+    local message = tostring(entry.error or ""):lower()
+    return not (message:find("^credentials error:") and message:find("no api key", 1, true))
 end
 
 -- ── Detail line parsing ───────────────────────────────────────────────────────
