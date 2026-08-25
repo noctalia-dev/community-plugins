@@ -13,7 +13,27 @@
     "year_total": "{login} · {count} contributions in the last year",
     "day_total": "{date} · {count} contributions",
     "hover_day": "Hover a day to inspect its activity.",
-    "no_today": "Today's contribution is not in the returned calendar."
+    "no_today": "Today's contribution is not in the returned calendar.",
+    "preparing": "Preparing interactive calendar…",
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    },
+    "weekdays": {
+      "mon": "Mon",
+      "wed": "Wed",
+      "fri": "Fri"
+    }
   },
   "metric": {
     "today": "Today",

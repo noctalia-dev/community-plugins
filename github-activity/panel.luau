@@ -20,7 +20,20 @@ local gridReady = false
 local open = false
 local tr = noctalia.tr
 local cellColors = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
-local monthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }
+local monthNames = {
+  tr("panel.months.jan"),
+  tr("panel.months.feb"),
+  tr("panel.months.mar"),
+  tr("panel.months.apr"),
+  tr("panel.months.may"),
+  tr("panel.months.jun"),
+  tr("panel.months.jul"),
+  tr("panel.months.aug"),
+  tr("panel.months.sep"),
+  tr("panel.months.oct"),
+  tr("panel.months.nov"),
+  tr("panel.months.dec"),
+}
 
 local function requestRefresh()
   noctalia.state.set("refresh_request", noctalia.nowMs())
@@ -99,7 +112,7 @@ local function buildMonthHeader()
 end
 
 local function buildWeekdayLabels()
-  local names = { "", "Mon", "", "Wed", "", "Fri", "" }
+  local names = { "", tr("panel.weekdays.mon"), "", tr("panel.weekdays.wed"), "", tr("panel.weekdays.fri"), "" }
   local labels = {}
   for day = 1, 7 do
     table.insert(labels, ui.column({
@@ -238,7 +251,7 @@ function render()
   end
 
   if data == nil or cachedCalendar == nil then
-    local emptyText = data ~= nil and "Preparing interactive calendar…"
+    local emptyText = data ~= nil and tr("panel.preparing")
       or (detail ~= "" and statusText() or tr("status.no_data"))
     table.insert(body, ui.spacer({ flexGrow = 1 }))
     table.insert(body, ui.column({ gap = 12, align = "center" }, {
