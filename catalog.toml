@@ -1455,8 +1455,8 @@ tags = ["bar", "niri", "panel", "service", "system", "utility"]
 [[plugin]]
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.4.0"
-updated_at = 1787585275
+version = "1.1.0"
+updated_at = 1787016147
 added_at = 1786903781
 author = "felipeartur"
 license = "MIT"
