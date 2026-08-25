@@ -15,7 +15,13 @@ end
 local function launchTarget(targetPath, continueSession)
   local cmd = shellQuote(LAUNCH_PATH)
   noctalia.togglePanel("emiliovenegas/omp-launcher:panel")
-  local args = " --target " .. shellQuote(targetPath) .. (continueSession and " --continue" or "")
+  local args = ""
+  if type(targetPath) == "string" and targetPath ~= "" then
+    args = " --target " .. shellQuote(targetPath)
+  end
+  if continueSession then
+    args = args .. " --continue"
+  end
   noctalia.runAsync("sleep 0.15 && " .. cmd .. args)
 end
 

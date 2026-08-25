@@ -44,8 +44,9 @@ def get_last_jsonl_entry(filepath):
         with open(filepath, 'rb') as f:
             f.seek(0, 2)
             size = f.tell()
+            if size == 0:
+                return None
             f.seek(max(0, size - 8192), 0)
-            chunk = f.read().decode('utf-8', errors='ignore')
             lines = [l for l in chunk.strip().split('\n') if l.strip()]
             for l in reversed(lines):
                 try:
