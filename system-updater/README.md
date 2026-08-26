@@ -1,10 +1,10 @@
 # System Updates Manager
 
-Manage system updates inside the noctalia panel. Currently supported PackageKit, Flatpak and Cargo.
+Manage system updates inside the noctalia panel. Currently supported PackageKit, Flatpak, Cargo, pipx, Gear Lever, and XBPS.
 
 # Features
 
-* Check updates with [PackageKit](https://www.freedesktop.org/software/PackageKit), [Flatpak](https://flatpak.org/) and Cargo.
+* Check updates with [PackageKit](https://www.freedesktop.org/software/PackageKit), [Flatpak](https://flatpak.org/), [Cargo](https://doc.rust-lang.org/cargo/), [pipx](https://pipx.pypa.io/latest/index.html), [Gear Lever](https://gearlever.mijorus.it/), and [XBPS](https://github.com/void-linux/xbps).
 * Extensible with user created adapters
 * Support for offline updates with PackageKit
 * Single package update is supported
@@ -43,6 +43,18 @@ Flatpak update adapter requires  ```python``` and ```flatpak``` to be installed 
 
 Cargo update adapter requires  ```cargo```, ```python```, ```cargo-install-update```, `awk` and `bash` to be installed into ```$PATH```.
 
+### pipx
+
+pipx update adapter requires ```pipx```, ```jq```, and ```grep``` to be installed into ```$PATH```. The adapter can update pipx itself if [your pipx installation is self-managed](https://pipx.pypa.io/latest/how-to/install-pipx.html#self-managed-pipx).
+
+### Gear Lever
+
+Gear Lever update adapter requires ```gearlever```, ```sed```, and ```coreutils``` (```echo```, ```tr```, ```head```) to be installed into ```$PATH```.
+
+### XBPS
+
+XBPS update adapter requires ```xbps``` (```xbps-install```, ```xbps-query```), ```jq```, ```bash```, ```grep```, and ```coreutils``` (```echo```, ```cut```) to be installed into ```$PATH```.
+
 ## Usage
 
 Add the system-updater widget from Noctalia's widget picker, then click it to open the panel. You can also open the panel directly or bind it in your compositor:
@@ -66,9 +78,11 @@ noctalia msg panel-toggle tordex/system-updater:panel
 | `enable_packagekit` | `bool` | `true` | Enable the PackageKit adapter for managing system updates. |
 | `enable_flatpak` | `bool` | `true` | Enable the Flatpak adapter for managing system updates. |
 | `enable_cargo` | `bool` | `true` | Enable the Cargo adapter for managing system updates. |
+| `enable_pipx` | `bool` | `true` | Enable the pipx adapter for managing system updates. |
+| `enable_gearlever` | `bool` | `true` | Enable the Gear Lever adapter for managing system updates. |
+| `enable_xbps` | `bool` | `true` | Enable the XBPS adapter for managing system updates. |
 | `auto_check_minutes` | `int` | `60` | Check for updates automatically every N minutes. if <= 10 never checks on its own — nothing runs until you ask for it. |
 | `adapters_folder` | `folder` |  | The folder where adapters definitions are stored. One adapter per subfolder. Each adapter folder must contain an adapter.json with the adapter definition. |
-| `notify_on_updates` | `bool` | `true` | Send a desktop notification when a check finds packages to upgrade or after applying updates. |
 | `notify_on_updates` | `bool` | `true` | Send a desktop notification when a check finds packages to upgrade or after applying updates. |
 | `glyph` | `glyph` | `package` | The glyph shown for the system updater widget on the bar. |
 | `show_count` | `bool` | `true` | Show the number of pending updates next to the bar glyph. |

@@ -1,7 +1,7 @@
 {
-    "name": "xbps",
+    "name": "XBPS",
     "enabled": true,
-    "dependencies": ["xbps-install", "jq", "bash"],
+    "dependencies": ["xbps-install", "xbps-query", "jq", "grep", "bash", "echo", "cut"],
     "check_command": "{adapter_dir}/check.bash",
     "update_package_command": "sudo xbps-install -Suy \"{package_name}\"",
     "update_all_command": "sudo xbps-install -Suy",

@@ -89,6 +89,12 @@ local function load_adapters()
                             adapter.enabled = false
                         elseif adapter.name == "Cargo" and cfg("enable_cargo") == false then
                             adapter.enabled = false
+                        if adapter.name == "pipx" and cfg("enable_pipx") == false then
+                            adapter.enabled = false
+                        elseif adapter.name == "Gear LEver" and cfg("enable_gearlever") == false then
+                            adapter.enabled = false
+                        elseif adapter.name == "XBPS" and cfg("enable_xbps") == false then
+                            adapter.enabled = false
                         end
 
                         for _, dep in ipairs(adapter.dependencies or {}) do

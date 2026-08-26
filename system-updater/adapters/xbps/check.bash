@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 PACKAGES=$(xbps-install -Mnu | jq -Rr '. | match("(.*?)-([^-]*?) ").captures | map(.string) | join("|")')
 PREFIX=""
 echo '{"updates":['
