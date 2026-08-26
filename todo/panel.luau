@@ -19,19 +19,18 @@
 --     grab the grip and drop onto one of the thin insertion zones between rows.
 --     Changing a priority only recolours the chip and never moves the row.
 --
--- Interaction: a row is a static line by default. Click its text to edit;
--- press Enter or the ✓ button to commit back to the static line. The coloured
+-- Interaction: a row is a static line by default. Click its text, its pencil
+-- button, or press Enter/✓ while editing to move between the two. The coloured
 -- chip cycles the priority (a legend at the foot of the panel maps each colour
 -- to its category, and each entry's glyph button sets every task to it). The
--- ☐/☑ button toggles done, which strikes the text through. Right-clicking the
--- text raises a native context menu (plugin_api >= 28) with edit, done, an
--- explicit priority pick and delete — see openRowMenu for why that one node,
--- and why the row carries no pencil or trash button of its own. The header
--- also carries two glyph buttons that mark every task done/undone in one
--- click (setAllDone), and a trash button that deletes every done row after
--- an inline confirmation strip (confirm/cancel) — the plugin UI has no
--- dialog primitive. The header + adds a task at the head of the manual
--- order, not the foot. No external commands are run.
+-- ☐/☑ button toggles done, which strikes the text through, and the trash
+-- button deletes that one task. Right-clicking the text raises a native
+-- context menu (plugin_api >= 28) with the same actions plus an explicit
+-- priority pick — see openRowMenu. The footer also carries two glyph buttons
+-- that mark every task done/undone (setAllDone). The header + adds a task at
+-- the head of the manual order, not the foot; its trash button deletes every
+-- done row after an inline confirmation strip (confirm/cancel) — the plugin
+-- UI has no dialog primitive. No external commands are run.
 --
 -- The bar widget (todo.luau) lights its glyph while the panel is open via the
 -- shared "todo_open" state; it reads todo.json itself for the pending count.
@@ -629,22 +628,6 @@ render = function()
         ui.spacer({ key = "gap", flexGrow = 1 }),
         sortToggle,
         ui.button({
-            key = "header-all-done",
-            glyph = "checks",
-            variant = "ghost",
-            enabled = done < #items,
-            tooltip = tr("tip_all_done"),
-            onClick = "onAllDone",
-        }),
-        ui.button({
-            key = "header-all-undone",
-            glyph = "square",
-            variant = "ghost",
-            enabled = done > 0,
-            tooltip = tr("tip_all_undone"),
-            onClick = "onAllUndone",
-        }),
-        ui.button({
             key = "header-clear-done" .. (done == 0 and "-off" or ""),
             glyph = "trash",
             variant = "ghost",
@@ -669,8 +652,32 @@ render = function()
         })
     end
 
+    -- Bulk done/undone glyphs. Kept in the footer, not the header — the
+    -- header is already full (title, version, sort toggle, clear-done, add,
+    -- settings, close), and this pairs naturally with the bulk-priority
+    -- glyphs on the legend right below it.
+    local bulkDone = ui.row({ gap = 16, align = "center", justify = "center" }, {
+        ui.button({
+            key = "footer-all-done",
+            glyph = "checks",
+            variant = "ghost",
+            enabled = done < #items,
+            tooltip = tr("tip_all_done"),
+            onClick = "onAllDone",
+        }),
+        ui.button({
+            key = "footer-all-undone",
+            glyph = "square",
+            variant = "ghost",
+            enabled = done > 0,
+            tooltip = tr("tip_all_undone"),
+            onClick = "onAllUndone",
+        }),
+    })
+
     local legend = ui.column({ gap = 8 }, {
         ui.separator({}),
+        bulkDone,
         ui.row({ gap = 16, align = "center", justify = "center" }, {
             legendEntry("important"),
             legendEntry("medium"),

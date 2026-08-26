@@ -3,16 +3,16 @@
 # complete (the text is struck through), edit or delete with the row's own
 # buttons, and click each row's colour chip to cycle its priority (important →
 # medium → low). Right-click a task for the same actions plus an explicit
-# priority pick, in a native context menu. The header carries bulk actions too:
-# mark every task done/undone, and set every task to one priority. A header
-# toggle switches ordering between priority (auto-sorted) and manual, where a
-# ☰ grip on each row drags it to reorder.
+# priority pick, in a native context menu. The footer carries bulk actions
+# too: mark every task done/undone, and set every task to one priority. A
+# header toggle switches ordering between priority (auto-sorted) and manual,
+# where a ☰ grip on each row drags it to reorder.
 # The whole list is a single JSON file in the configured folder; no external
 # commands are run.
 
 id = "nightwatch75/todo"
 name = "To Do"
-version = "1.1.0"
+version = "1.1.1"
 # 28 for panel.openContextMenu: the row's right-click menu carries edit,
 # priority and delete, which is what let the row drop two glyph buttons. Also
 # 23 for noctalia.readFileAsync — the bar widget re-reads todo.json every 2

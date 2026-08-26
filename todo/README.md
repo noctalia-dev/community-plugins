@@ -36,7 +36,7 @@ noctalia msg panel-toggle nightwatch75/todo:panel
 | ☐ / ☑ button (row)                | Toggle done/to-do (done tasks are struck through)     |
 | ✏️ / 🗑 button (row)               | Edit / delete that task                               |
 | Glyph next to a legend entry      | Set every task to that priority                       |
-| ✔️✔️ / ☐ button (panel header)     | Mark every task done / undone                         |
+| ✔️✔️ / ☐ button (panel footer)     | Mark every task done / undone                         |
 | 🗑 button (panel header)           | Delete every done task (asks first)                   |
 | ⚙ button (panel header)           | Open this plugin's page in *Settings → Plugins*       |
 
