@@ -3,7 +3,9 @@
 An agent-agnostic contract for driving the `pulse-svc` service aggregator (and everything
 downstream of it: the pulse bar widget, the presence orb, tooltips, `claude.pulse` subscribers). The
 service knows nothing about Claude Code — it consumes **events** and an optional
-**telemetry payload** over noctalia's plugin IPC. Any coding agent that can run
+**telemetry payload** over noctalia's plugin IPC. Eight of those events describe agent
+lifecycle; one (`consent_request`) is a control event and is documented separately
+below. Any coding agent that can run
 a shell command on its lifecycle hooks (gemini-cli, codex, opencode, aider, a
 CI job, a cron script) can light up the same bar dot.
 
@@ -141,6 +143,53 @@ pulse-emit turn_end mysess gpt-5 12000 800   # with burn figures
 pulse-emit session_end mysess                # retire the slot
 long_build && pulse-emit needs_attention ci  # non-agent uses work too
 ```
+
+## Control events (not lifecycle)
+
+Everything above describes the eight **lifecycle** events, which say what an agent is
+doing. `consent_request` is different in kind: it does not describe a state, it names
+an outstanding question, and only the consent gate emits it.
+
+```
+noctalia msg plugin <target> all consent_request "<request-id>,<session-id>"
+```
+
+- `request-id` matches a file at
+  `$XDG_RUNTIME_DIR/claude-companion/consent/<request-id>.req` — the request itself is
+  never carried in the payload, because the payload must stay space-free and a shell
+  command is not a place to put one.
+- `session-id` is the ordinary short session id, so the service can drive that session
+  to `needs_attention` while the prompt is outstanding. Pass an empty field to publish
+  the request without touching the session table.
+
+The service mirrors the id to `claude.consent` and opens the consent panel. There is
+**no matching resolve event**: the request file is the source of truth, the panel
+re-reads it on each tick, and the ordinary `turn_start` from the agent's next
+lifecycle hook moves the session off `needs_attention` on its own.
+
+`ask` is the other control event, and it is addressed to the `claude-ask` entry:
+
+```
+noctalia msg plugin <plugin-id>:claude-ask all ask
+```
+
+A bare poke, no payload. The question is written to
+`$XDG_RUNTIME_DIR/claude-companion/ask` first, for the same reason as above — a
+question has spaces and a payload does not. It exists so the ask panel can reach the
+quick-ask backend without owning a second copy of its read-only flags.
+
+`claude-ask` is a `[[service]]` pointed at `claude.luau`, the same file the `claude`
+launcher entry uses. It exists because a `[[launcher_provider]]` is **not
+IPC-addressable**: dispatching to `<plugin-id>:claude` answers `no plugin entry
+matched` on every target (`all`, `focused`, a bare connector), so this event had no
+receiver at all until 1.5.0 and quick-ask from the bar silently did nothing. Pointing a
+service at the same file gives the poke an addressable receiver while keeping ONE copy
+of the read-only flags in `backend_command()`. The file declares only locals and
+callbacks, so the second instance does no work until it is poked.
+
+An adapter for another agent can emit `consent_request` if that agent has a blocking
+approval hook of its own, but nothing downstream requires it — an agent that never
+emits it simply never raises a prompt.
 
 ## Downstream: the `claude.pulse` state mirror
 
