@@ -1,0 +1,21 @@
+{
+  "title": "Hyprland Display Config",
+  "settings": {
+    "hyprland_config": {
+      "label": "Hyprland config file",
+      "description": "Path to the hyprland.lua that require()s the plugin's generated config"
+    },
+    "workspace_count": {
+      "label": "Workspace count",
+      "description": "How many workspace-ID chips to offer for monitor assignment"
+    }
+  },
+  "panel": {
+    "refresh": "Refresh",
+    "apply_error": "Failed to apply: {message}",
+    "unbound_workspaces": "Unassigned workspaces"
+  },
+  "widget": {
+    "tooltip": "Configure displays and workspaces"
+  }
+}

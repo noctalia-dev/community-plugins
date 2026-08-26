@@ -1,0 +1,46 @@
+id = "maddingo/hypr-display-config"
+name = "Hyprland Display Config"
+description = "Visually configure monitor layout and assign workspaces to monitors"
+version = "0.2.0"
+plugin_api = 9
+author = "maddingo"
+license = "MIT"
+icon = "layout-grid"
+tags = ["hyprland", "panel", "hardware", "desktop"]
+dependencies = ["hyprland"]
+
+[[setting]]
+key = "hyprland_config"
+type = "file"
+label_key = "settings.hyprland_config.label"
+description_key = "settings.hyprland_config.description"
+default = "~/.config/hypr/hyprland.lua"
+
+[[setting]]
+key = "workspace_count"
+type = "int"
+label_key = "settings.workspace_count.label"
+description_key = "settings.workspace_count.description"
+default = 10
+min = 1
+max = 36
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[service]]
+id = "writer_service"
+entry = "writer_service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 1200
+height = 700
+placement = "floating"
+position = "center"
