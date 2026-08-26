@@ -7,7 +7,7 @@ local glyphs = {
   scrolling = "arrows-horizontal",
 }
 
-local current = "dwindle"
+local current = noctalia.state.get("layout") or "dwindle"
 
 local function render()
   barWidget.setGlyph(glyphs[current] or "layout-grid")
