@@ -32,6 +32,27 @@ local function utf8Chars(value)
   return chars
 end
 
+local function charWidth(char)
+  local cp = utf8.codepoint(char)
+
+  if cp == nil then
+    return 1
+  end
+
+  -- Common CJK / Japanese / Korean ranges.
+  if
+    (cp >= 0x1100 and cp <= 0x11FF) or
+    (cp >= 0x2E80 and cp <= 0xA4CF) or
+    (cp >= 0xAC00 and cp <= 0xD7A3) or
+    (cp >= 0xF900 and cp <= 0xFAFF) or
+    (cp >= 0xFE10 and cp <= 0xFE6F) or
+    (cp >= 0xFF00 and cp <= 0xFFEF)
+  then
+    return 2
+  end
+
+  return 1
+end
 
 local function scrollingText(value)
   local chars = utf8Chars(value)
@@ -48,9 +69,21 @@ local function scrollingText(value)
 
   local output = {}
 
-  for i = 0, SCROLL_WIDTH - 1 do
+  local usedWidth = 0
+  local i = 0
+
+  while usedWidth < SCROLL_WIDTH do
     local index = ((scrollOffset + i - 1) % sequenceLength) + 1
-    table.insert(output, sequence[index])
+    local char = sequence[index]
+    local width = charWidth(char)
+
+    if usedWidth + width > SCROLL_WIDTH then
+      break
+    end
+
+    table.insert(output, char)
+    usedWidth = usedWidth + width
+    i = i + 1
   end
 
   return table.concat(output)
@@ -62,7 +95,7 @@ local function stripNewline(value)
     return ""
   end
 
-  return value:gsub("[\r\n]+$", "")
+  return value:gsub("[\r\n]+", " ")
 end
 
 
