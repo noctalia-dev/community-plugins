@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "show_cpu": {
+      "label": "显示CPU使用率",
+      "description": "在状态栏显示CPU使用百分比"
+    },
+    "show_ram": {
+      "label": "显示内存使用率",
+      "description": "在状态栏显示内存使用百分比"
+    },
+    "show_gpu": {
+      "label": "显示GPU使用率",
+      "description": "在状态栏显示GPU使用百分比"
+    },
+    "show_disk": {
+      "label": "显示磁盘使用率",
+      "description": "在状态栏显示磁盘使用百分比"
+    },
+    "show_network": {
+      "label": "显示网络使用率",
+      "description": "在状态栏显示网络使用情况"
+    }
+  },
+  "title": "SystemPulse"
+}

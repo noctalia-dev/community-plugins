@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "show_cpu": {
+      "label": "CPU Kullanımını Göster",
+      "description": "Çubukta CPU kullanım yüzdesini göster"
+    },
+    "show_ram": {
+      "label": "RAM Kullanımını Göster",
+      "description": "Çubukta RAM kullanım yüzdesini göster"
+    },
+    "show_gpu": {
+      "label": "GPU Kullanımını Göster",
+      "description": "Çubukta GPU kullanım yüzdesini göster"
+    },
+    "show_disk": {
+      "label": "Disk Kullanımını Göster",
+      "description": "Çubukta disk kullanım yüzdesini göster"
+    },
+    "show_network": {
+      "label": "Ağ Kullanımını Göster",
+      "description": "Çubukta ağ kullanımını göster"
+    }
+  },
+  "title": "SystemPulse"
+}

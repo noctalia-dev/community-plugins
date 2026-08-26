@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "show_cpu": {
+      "label": "CPU-Anzeige",
+      "description": "CPU-Auslastung in der Leiste anzeigen"
+    },
+    "show_ram": {
+      "label": "RAM-Anzeige",
+      "description": "RAM-Auslastung in der Leiste anzeigen"
+    },
+    "show_gpu": {
+      "label": "GPU-Anzeige",
+      "description": "GPU-Auslastung in der Leiste anzeigen"
+    },
+    "show_disk": {
+      "label": "Festplatten-Anzeige",
+      "description": "Festplattenauslastung in der Leiste anzeigen"
+    },
+    "show_network": {
+      "label": "Netzwerk-Anzeige",
+      "description": "Netzwerkauslastung in der Leiste anzeigen"
+    }
+  },
+  "title": "SystemPulse"
+}
