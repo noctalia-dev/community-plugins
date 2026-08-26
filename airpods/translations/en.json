@@ -1,0 +1,63 @@
+{
+  "common": {
+    "on": "On",
+    "off": "Off"
+  },
+  "errors": {
+    "ctl_rejected": "librepods-ctl rejected the command"
+  },
+  "panel": {
+    "adaptive_noise": "Adaptive noise",
+    "battery": "BATTERY",
+    "case": "Case",
+    "charging": "Charging",
+    "conversation_awareness": "Conversation Awareness",
+    "conversation_awareness_caption": "Lower the volume when you start talking",
+    "daemon_down": "librepods is not running",
+    "ear": {
+      "both": "Pause when both are out",
+      "headset_on": "Pause when removed",
+      "off": "Do not pause when removed",
+      "one": "Pause when one is out"
+    },
+    "ear_detection": "Ear detection",
+    "guidance": {
+      "connected": "Open the case or connect your AirPods to see battery and listening controls.",
+      "daemon_down": "Start the librepods daemon to see battery and listening controls."
+    },
+    "headphones": "Headphones",
+    "in_ear": "In ear",
+    "left": "Left",
+    "lid_closed": "Closed",
+    "lid_open": "Open",
+    "listening_mode": "LISTENING MODE",
+    "mode": {
+      "adaptive": "Adaptive",
+      "anc": "Noise Cancellation",
+      "off": "Off",
+      "transparency": "Transparency",
+      "unknown": "Unknown"
+    },
+    "not_connected": "Not connected",
+    "one_bud_anc": "One-Bud ANC",
+    "one_bud_anc_caption": "Keep noise cancellation on with one pod in",
+    "right": "Right",
+    "schema_unsupported": "Unsupported status schema",
+    "title": "AirPods"
+  },
+  "settings": {
+    "ctl_path": {
+      "description": "Leave empty to find librepods-ctl on PATH.",
+      "label": "Path to librepods-ctl"
+    },
+    "hide_when_disconnected": {
+      "description": "Leaves the bar entirely rather than sitting there with nothing to say.",
+      "label": "Hide the icon when no AirPods are connected"
+    }
+  },
+  "widget": {
+    "daemon_down": "librepods is not running",
+    "mode": "Mode",
+    "not_connected": "Not connected"
+  }
+}
