@@ -192,8 +192,6 @@ function update()
   for _, m in pairs(monitors) do
     if m.tick then m.tick() end
   end
-  if apps and apps.tick then apps.tick() end
-  processes = (apps and apps.getProcesses) and apps.getProcesses() or {}
   render()
 end
 
