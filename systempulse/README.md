@@ -3,7 +3,8 @@
 A bar widget that displays live CPU and RAM usage, with a detailed panel showing CPU, RAM, Disk, Network, and GPU monitoring. Clicking the widget toggles the panel.
 
 ## Requirements
-Nvtop
+
+Requires `Nvtop` for detailed GPU telemetry (utilization, temperature, clock speeds, fan, power, VRAM, encoder/decoder). Without it, GPU monitoring falls back to basic values from `systemStats()`.
 ## Plugin
 
 | Field | Value |

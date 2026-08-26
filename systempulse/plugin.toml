@@ -7,7 +7,7 @@ plugin_api = 22
 author = "arrifat346afs "
 license = "MIT"
 dependencies = ["Nvtop"]
-tags = ["system", "monitor", "performance"]
+tags = ["system", "hardware", "utility"]
 icon = "cpu"
 description = "A bar widget that displays system stats and opens a detailed SystemPulse panel."
 
