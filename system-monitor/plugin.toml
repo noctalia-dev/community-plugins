@@ -1,13 +1,13 @@
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.2.0"
-plugin_api = 16
+version = "1.5.1"
+plugin_api = 26
 author = "TMelik"
 license = "GPL-3.0-only"
-dependencies = []
+dependencies = ["ps", "cat"]
 tags = ["bar", "indicator", "system"]
 icon = "cpu"
-description = "A compact bar widget combining CPU, temperature, memory, disk, and network activity."
+description = "A compact bar widget combining CPU, optional GPU, memory, disk, and network activity."
 
 [[widget]]
 id = "summary"
@@ -27,6 +27,42 @@ key = "show_cpu_temperature"
 type = "bool"
 label_key = "settings.show_cpu_temperature.label"
 default = true
+
+[[widget.setting]]
+key = "show_gpu_usage"
+type = "select"
+label_key = "settings.show_gpu_usage.label"
+description_key = "settings.show_gpu_usage.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.tri_state.auto" },
+  { value = "on", label_key = "settings.tri_state.on" },
+  { value = "off", label_key = "settings.tri_state.off" },
+]
+
+[[widget.setting]]
+key = "show_gpu_temperature"
+type = "select"
+label_key = "settings.show_gpu_temperature.label"
+description_key = "settings.show_gpu_temperature.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.tri_state.auto" },
+  { value = "on", label_key = "settings.tri_state.on" },
+  { value = "off", label_key = "settings.tri_state.off" },
+]
+
+[[widget.setting]]
+key = "show_gpu_vram"
+type = "select"
+label_key = "settings.show_gpu_vram.label"
+description_key = "settings.show_gpu_vram.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.tri_state.auto" },
+  { value = "on", label_key = "settings.tri_state.on" },
+  { value = "off", label_key = "settings.tri_state.off" },
+]
 
 [[widget.setting]]
 key = "show_ram"
@@ -59,6 +95,30 @@ label_key = "settings.show_upload.label"
 default = true
 
 [[widget.setting]]
+key = "highlight_values"
+type = "bool"
+label_key = "settings.highlight_values.label"
+default = true
+
+[[widget.setting]]
+key = "activity_color"
+type = "color"
+label_key = "settings.activity_color.label"
+default = "primary"
+
+[[widget.setting]]
+key = "critical_color"
+type = "color"
+label_key = "settings.critical_color.label"
+default = "error"
+
+[[widget.setting]]
+key = "hide_unavailable"
+type = "bool"
+label_key = "settings.hide_unavailable.label"
+default = false
+
+[[widget.setting]]
 key = "show_separators"
 type = "bool"
 label_key = "settings.show_separators.label"
@@ -71,11 +131,54 @@ label_key = "settings.show_tooltip.label"
 default = true
 
 [[widget.setting]]
+key = "show_cpu_details_in_tooltip"
+type = "bool"
+label_key = "settings.show_cpu_details_in_tooltip.label"
+description_key = "settings.show_cpu_details_in_tooltip.description"
+default = false
+
+[[widget.setting]]
+key = "show_top_processes"
+type = "bool"
+label_key = "settings.show_top_processes.label"
+description_key = "settings.show_top_processes.description"
+default = true
+
+[[widget.setting]]
 key = "compact_network"
 type = "bool"
 label_key = "settings.compact_network.label"
 description_key = "settings.compact_network.description"
 default = true
+
+[[widget.setting]]
+key = "network_interface"
+type = "string"
+label_key = "settings.network_interface.label"
+description_key = "settings.network_interface.description"
+default = ""
+
+[[widget.setting]]
+key = "ram_display_mode"
+type = "select"
+label_key = "settings.ram_display_mode.label"
+default = "percentage"
+options = [
+  { value = "percentage", label_key = "settings.display_mode.percentage" },
+  { value = "used", label_key = "settings.display_mode.used" },
+  { value = "available", label_key = "settings.display_mode.available" },
+]
+
+[[widget.setting]]
+key = "disk_display_mode"
+type = "select"
+label_key = "settings.disk_display_mode.label"
+default = "percentage"
+options = [
+  { value = "percentage", label_key = "settings.display_mode.percentage" },
+  { value = "used", label_key = "settings.display_mode.used" },
+  { value = "available", label_key = "settings.display_mode.available" },
+]
 
 [[widget.setting]]
 key = "disk_path"
