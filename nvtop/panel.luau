@@ -7,7 +7,7 @@ local nvtop_pid = -1
 -- The index of the currently selected GPU, which is used to display the correct GPU info.
 local selected_gpu = 1
 
-local g_order_by = "gpu_mem_bytes_alloc"
+local g_order_by_context = "mem"
 
 -- Forward declaration of the render function to allow it to be called from other functions.
 local render
@@ -212,7 +212,7 @@ end
 local processes_data = {
     {
         data_key = "pid",
-        context_key = "pid",
+        context_key = {"pid"},
         label = noctalia.tr("nvtop.process.pid.label"),
         tip = noctalia.tr("nvtop.process.pid.tip"),
         flexGrow = 2,
@@ -222,7 +222,7 @@ local processes_data = {
     },
     {
         data_key = "gpu_usage",
-        context_key = "gpu",
+        context_key = {"gpu"},
         label = noctalia.tr("nvtop.process.gpu_usage.label"),
         tip = noctalia.tr("nvtop.process.gpu_usage.tip"),
         flexGrow = 1.5,
@@ -232,7 +232,7 @@ local processes_data = {
     },
     {
         data_key = "encode",
-        context_key = "enc",
+        context_key = {"enc"},
         label = noctalia.tr("nvtop.process.encode.label"),
         tip = noctalia.tr("nvtop.process.encode.tip"),
         flexGrow = 1.5,
@@ -242,7 +242,7 @@ local processes_data = {
     },
     {
         data_key = "decode",
-        context_key = "dec",
+        context_key = {"dec"},
         label = noctalia.tr("nvtop.process.decode.label"),
         tip = noctalia.tr("nvtop.process.decode.tip"),
         flexGrow = 1.5,
@@ -252,7 +252,7 @@ local processes_data = {
     },
     {
         data_key = "gpu_mem_bytes_alloc",
-        context_key = "mem",
+        context_key = {"mem"},
         label = noctalia.tr("nvtop.process.gpu_mem.label"),
         tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
         flexGrow = 2,
@@ -262,7 +262,61 @@ local processes_data = {
     },
     {
         data_key = "cmdline",
-        context_key = "cmd",
+        context_key = {"cmd"},
+        label = noctalia.tr("nvtop.process.cmdline.label"),
+        tip = noctalia.tr("nvtop.process.cmdline.tip"),
+        flexGrow = 10,
+        textAlign = "start",
+        process_value = function(value) return value end,
+        sort_value = function(value) return tostring(value) end,
+    },
+}
+
+-- Define the process data columns to display in the panel.
+local processes_data_shared_encode_decode = {
+    {
+        data_key = "pid",
+        context_key = {"pid"},
+        label = noctalia.tr("nvtop.process.pid.label"),
+        tip = noctalia.tr("nvtop.process.pid.tip"),
+        flexGrow = 2,
+        textAlign = "end",
+        process_value = function(value) return value end,
+        sort_value = function(value) return tonumber(value) end
+    },
+    {
+        data_key = "gpu_usage",
+        context_key = {"gpu"},
+        label = noctalia.tr("nvtop.process.gpu_usage.label"),
+        tip = noctalia.tr("nvtop.process.gpu_usage.tip"),
+        flexGrow = 1.5,
+        textAlign = "end",
+        process_value = function(value) return value or "n/a" end,
+        sort_value = function(value) return persent_to_number(value) end
+    },
+    {
+        data_key = "encode_decode",
+        context_key = {"enc", "dec"},
+        label = noctalia.tr("nvtop.process.encode_decode.label"),
+        tip = noctalia.tr("nvtop.process.encode_decode.tip"),
+        flexGrow = 2,
+        textAlign = "end",
+        process_value = function(value) return value or "n/a" end,
+        sort_value = function(value) return persent_to_number(value) end
+    },
+    {
+        data_key = "gpu_mem_bytes_alloc",
+        context_key = {"mem"},
+        label = noctalia.tr("nvtop.process.gpu_mem.label"),
+        tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
+        flexGrow = 2,
+        textAlign = "end",
+        process_value = function(value) return format_memory_size(value) end,
+        sort_value = function(value) return tonumber(value) end,
+    },
+    {
+        data_key = "cmdline",
+        context_key = {"cmd"},
         label = noctalia.tr("nvtop.process.cmdline.label"),
         tip = noctalia.tr("nvtop.process.cmdline.tip"),
         flexGrow = 10,
@@ -275,6 +329,53 @@ local processes_data = {
 local processes_data_transfer = {}
 for _, column in ipairs(processes_data) do
     processes_data_transfer[column.data_key] = column.sort_value
+end
+
+local processes_data_transfer_shared_encode_decode = {}
+for _, column in ipairs(processes_data_shared_encode_decode) do
+    processes_data_transfer_shared_encode_decode[column.data_key] = column.sort_value
+end
+
+local function is_shared_encode_decode(gpu_idx)
+    for key, _ in nvtop_data[gpu_idx] do
+        if key == "encode_decode" then
+            return true
+        end
+    end
+    return false
+end
+
+local function get_processes_data(gpu_idx)
+    if is_shared_encode_decode(gpu_idx) then
+        return processes_data_shared_encode_decode
+    else
+        return processes_data
+    end
+end
+
+local function get_processes_data_transfer(gpu_idx)
+    if is_shared_encode_decode(gpu_idx) then
+        return processes_data_transfer_shared_encode_decode
+    else
+        return processes_data_transfer
+    end
+end
+
+local function get_order_by(context, gpu_idx)
+    local clear_context = context
+    if context:sub(1, 1) == "-" then
+        clear_context = context:sub(2)
+    end
+    for _, column in ipairs(get_processes_data(gpu_idx)) do
+        if table.find(column.context_key, clear_context) then
+            local ret = column.data_key
+            if context:sub(1, 1) == "-" then
+                ret = "-" .. column.data_key
+            end
+            return ret
+        end
+    end
+    return "gpu_mem_bytes_alloc"
 end
 
 local function values_are_equal(a, b)
@@ -316,19 +417,21 @@ local function compare_values(a, b, reverse)
 end
 
 -- Sort the processes based on the selected column and order (ascending or descending).
-local function sort_processes(processes)
-    local order_by = g_order_by
+local function sort_processes(processes, gpu_idx)
+    local order_by = get_order_by(g_order_by_context, gpu_idx)
     local reverse = true
     if order_by:sub(1, 1) == "-" then
         order_by = order_by:sub(2)
         reverse = false
     end
 
+    local data = get_processes_data_transfer(gpu_idx)
+
     table.sort(processes, function(a, b)
-        local a_value = processes_data_transfer[order_by](a[order_by])
-        local b_value = processes_data_transfer[order_by](b[order_by])
-        local a_value2 = processes_data_transfer["gpu_mem_bytes_alloc"](a["gpu_mem_bytes_alloc"])
-        local b_value2 = processes_data_transfer["gpu_mem_bytes_alloc"](b["gpu_mem_bytes_alloc"])
+        local a_value = data[order_by](a[order_by])
+        local b_value = data[order_by](b[order_by])
+        local a_value2 = data["gpu_mem_bytes_alloc"](a["gpu_mem_bytes_alloc"])
+        local b_value2 = data["gpu_mem_bytes_alloc"](b["gpu_mem_bytes_alloc"])
 
         if a_value == nil and b_value == nil then
             return false
@@ -347,21 +450,22 @@ local function sort_processes(processes)
 end
 
 local function sort_all_processes()
-    for _, gpu in ipairs(nvtop_data) do
+    for idx, gpu in ipairs(nvtop_data) do
         if gpu.processes then
-            sort_processes(gpu.processes)
+            sort_processes(gpu.processes, idx)
         end
     end
 end
 
 -- Render the header row for the process list, with sortable columns.
-local function render_processes_header()
+local function render_processes_header(gpu_idx)
     local children = {}
-    for _, column in ipairs(processes_data) do
+    local order_by = get_order_by(g_order_by_context, gpu_idx)
+    for _, column in ipairs(get_processes_data(gpu_idx)) do
         local sort_indicator = ""
-        if g_order_by == column.data_key then
+        if order_by == column.data_key then
             sort_indicator = "▼ "
-        elseif g_order_by == "-" .. column.data_key then
+        elseif order_by == "-" .. column.data_key then
             sort_indicator = "▲ "
         end
         table.insert(children, ui.button({
@@ -371,12 +475,12 @@ local function render_processes_header()
             variant = "ghost",
             controlSize = "sm",
             fontSize = 10,
-            selected = g_order_by == column.data_key or g_order_by == "-" .. column.data_key,
+            selected = order_by == column.data_key or order_by == "-" .. column.data_key,
             onClick = function()
-                if g_order_by == column.data_key then
-                    g_order_by = "-" .. column.data_key
+                if table.find(column.context_key, g_order_by_context) then
+                    g_order_by_context = "-" .. column.context_key[1]
                 else
-                    g_order_by = column.data_key
+                    g_order_by_context = column.context_key[1]
                 end
                 sort_all_processes()
                 render()
@@ -385,21 +489,32 @@ local function render_processes_header()
     end
     return ui.row({
         gap = 8,
+        fill = "surface_variant",
+        radius = 8,
     }, children)
 end
 
+local hover_row_key = nil
+local expanded_pid = nil
+
 -- Render the list of processes for the selected GPU, with sortable columns.
-local function render_processes(selected_idx)
+local function render_processes(gpu_idx)
     local children = {}
-    for _, process in ipairs(nvtop_data[selected_idx].processes) do
+    local order_by = get_order_by(g_order_by_context, gpu_idx)
+    local default_hover_fill = noctalia.getConfig("process_hover_background") or "surface_variant"
+    local default_hover_color = noctalia.getConfig("process_hover_color") or "on_surface_variant"
+    for _, process in ipairs(nvtop_data[gpu_idx].processes) do
         local process_children = {}
-        for _, column in ipairs(processes_data) do
-            local fill = "surface_variant"
-            local color = "on_surface"
+        local is_hovered = hover_row_key == "proc-row-" .. process.pid
+        for _, column in ipairs(get_processes_data(gpu_idx)) do
+            local fill = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_fill or "surface"
+            local color = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_color or "on_surface"
             local fontWeight = "medium"
-            if g_order_by == column.data_key or g_order_by == "-" .. column.data_key then
-                fill = noctalia.getConfig("sort_column_background") or "secondary"
-                color = noctalia.getConfig("sort_column_color") or "on_secondary"
+            if order_by == column.data_key or order_by == "-" .. column.data_key then
+                if not is_hovered then
+                    fill = noctalia.getConfig("sort_column_background") or "surface_variant"
+                    color = noctalia.getConfig("sort_column_color") or "on_surface_variant"
+                end
                 fontWeight = "bold"
             end
             table.insert(process_children, ui.column({
@@ -417,10 +532,120 @@ local function render_processes(selected_idx)
                 })
             }))
         end
-        table.insert(children, ui.row({
-            key = "proc-row-" .. process.pid,
-            gap = 8,
-        }, process_children))
+
+        if expanded_pid ~= nil and expanded_pid == process.pid then
+            table.insert(children, ui.column({
+                radius = 2,
+                border = "outline",
+                borderWidth = 1,
+                padding = 1,
+                fill = default_hover_fill
+            }, {
+                ui.row({
+                    key = "proc-row-" .. process.pid,
+                    gap = 8,
+                    onClick = function()
+                        expanded_pid = nil
+                        render()
+                    end
+                }, process_children),
+                ui.row({
+                    key = "proc-row-expanded-" .. process.pid,
+                    gap = 8,
+                    padding = 4,
+                    radius = 2,
+                    fill = default_hover_fill,
+                }, {
+                    ui.button({
+                        text = noctalia.tr("nvtop.process_buttons.kill.label"),
+                        tooltip = noctalia.tr("nvtop.process_buttons.kill.tip"),
+                        glyph = "square-x",
+                        variant = "destructive",
+                        controlSize = "sm",
+                        onClick = function()
+                            noctalia.runAsync({"kill", tostring(process.pid)})
+                            expanded_pid = nil
+                            render()
+                        end
+                    }),
+                    ui.button({
+                        text = noctalia.tr("nvtop.process_buttons.force_kill.label"),
+                        tooltip = noctalia.tr("nvtop.process_buttons.force_kill.tip"),
+                        glyph = "skull",
+                        variant = "destructive",
+                        controlSize = "sm",
+                        onClick = function()
+                            noctalia.runAsync({"kill", "-9", tostring(process.pid)})
+                            expanded_pid = nil
+                            render()
+                        end
+                    }),
+                    ui.spacer({flexGrow = 1}),
+                    ui.button({
+                        text = noctalia.tr("nvtop.process_buttons.copy_pid.label"),
+                        tooltip = noctalia.tr("nvtop.process_buttons.copy_pid.tip"),
+                        glyph = "clipboard",
+                        variant = "default",
+                        controlSize = "sm",
+                        onClick = function()
+                            noctalia.copyToClipboard(process.pid, "text/plain")
+                            expanded_pid = nil
+                            render()
+                        end
+                    }),
+                    ui.button({
+                        text = noctalia.tr("nvtop.process_buttons.copy_cmdline.label"),
+                        tooltip = noctalia.tr("nvtop.process_buttons.copy_cmdline.tip"),
+                        glyph = "clipboard",
+                        variant = "default",
+                        controlSize = "sm",
+                        onClick = function()
+                            noctalia.copyToClipboard(process.cmdline, "text/plain")
+                            expanded_pid = nil
+                            render()
+                        end
+                    }),
+                    ui.button({
+                        text = noctalia.tr("nvtop.process_buttons.cancel.label"),
+                        tooltip = noctalia.tr("nvtop.process_buttons.cancel.tip"),
+                        glyph = "cancel",
+                        variant = "primary",
+                        controlSize = "sm",
+                        onClick = function()
+                            expanded_pid = nil
+                            render()
+                        end
+                    })
+                })
+            }))
+        else
+            table.insert(children, ui.row({
+                key = "proc-row-" .. process.pid,
+                gap = 8,
+                padding = 1,
+                radius = 2,
+                border = "outline",
+                borderWidth = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and 1 or 0,
+                fill = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_fill or "surface",
+                onHover = function(state, key)
+                    local old_state = hover_row_key
+                    if state == "true" then
+                        hover_row_key = "proc-row-" .. process.pid
+                    else
+                        hover_row_key = nil
+                    end
+                    if old_state ~= hover_row_key then
+                        render()
+                    end
+                end,
+                onClick = function()
+                    if expanded_pid == nil or expanded_pid ~= process.pid then
+                        expanded_pid = process.pid
+                        render()
+                    end
+                end
+            }, process_children))
+        end
     end
 
     return ui.column({
@@ -429,11 +654,15 @@ local function render_processes(selected_idx)
         borderWidth = 1,
         flexGrow = 1,
         radius = 12,
+        padding = 4
     }, {
-        render_processes_header(),
+        render_processes_header(gpu_idx),
         ui.scroll({ 
             flexGrow = 1, 
-            gap = 1
+            border = "outline",
+            borderWidth = 1,
+            fill = "surface",
+            radius = 10,
         }, children)
     })
 end
@@ -497,18 +726,9 @@ end
 -- Handle the panel opening event, and check for a context key to sort the process list by.
 function onOpen(context)
     if context ~= nil and context ~= "" then
-        context = context:lower()
-        for _, column in ipairs(processes_data) do
-            if column.context_key == context or "-" .. column.context_key == context then
-                g_order_by = column.data_key
-                if context:sub(1, 1) == "-" then
-                    g_order_by = "-" .. column.data_key
-                end
-                sort_all_processes()
-                render()
-                break
-            end
-        end
+        g_order_by_context = context:lower()
+        sort_all_processes()
+        render()
     end
     stop_nvtop()
     run_nvtop()

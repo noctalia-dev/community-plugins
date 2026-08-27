@@ -4,14 +4,16 @@ Monitor real-time information about your GPU status and running processes with n
 
 # Features
 
-* Uses `nvtop` to monitor real-time information about your GPU status.
-* Support for multiple GPUs
-* View processes using the GPU
-* Process columns: **PID**, **GPU Usage**, **Video Encoder Usage**, **Video Decoder Usage**, **GPU Memory Usage**, and **Command Line**
-* Sort processes by any column by clicking its header
-* Customizable polling interval
-* Customizable colors for the sorted column
-* The plugin runs `nvtop` when the panel is opened and closes it when the panel is closed. This helps you save resources.
+* Uses `nvtop` to monitor real-time GPU status.
+* Supports multiple GPUs.
+* View processes using the GPU.
+* Process columns: **PID**, **GPU Usage**, **Video Encoder Usage**, **Video Decoder Usage**, **GPU Memory Usage**, and **Command Line**.
+* Sort processes by any column by clicking its header.
+* Kill a process with SIGINT or terminate it with SIGKILL.
+* Copy a process PID or command line to the clipboard.
+* Customizable polling interval.
+* Customizable colors for the sorted column.
+* The plugin launches `nvtop` when the panel opens and closes it when the panel is closed. This helps save resources.
 
 ![NVTOP panel](screenshots/panel.png)
 
@@ -56,14 +58,14 @@ noctalia msg panel-toggle tordex/nvtop:panel [order_by]
 
 Possible values for `order_by`:
 
-| `order_by` value   | Effect                        |
-|--------------------|-------------------------------|
-| `pid`              | Order by Process ID (PID)     |
-| `gpu`              | Order by GPU Usage            |
-| `enc`              | Order by Video Encoder Usage  |
-| `dec`              | Order by Video Decoder Usage  |
-| `mem`              | GPU Memory Usage              |
-| `cmd`              | Order by Process Command Line |
+| `order_by` value | Effect |
+| --- | --- |
+| `pid` | Sort by Process ID (PID) |
+| `gpu` | Sort by GPU Usage |
+| `enc` | Sort by Video Encoder Usage |
+| `dec` | Sort by Video Decoder Usage |
+| `mem` | Sort by GPU Memory Usage |
+| `cmd` | Sort by Process Command Line |
 
 Without `order_by`, the panel opens with the previous sort mode.
 
@@ -73,11 +75,16 @@ Add `-` before `order_by` to reverse the sort order. For example:
 noctalia msg panel-toggle tordex/nvtop:panel -mem
 ```
 
+Note: some GPUs share an encoder/decoder. In this case, the `ENC` and `DEC` columns are replaced by a single `ENC/DEC` column. The `order_by` values `enc` and `dec` still work, and both sort processes by the `ENC/DEC` column.
+
+
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `delay` | `int` | `5` | Refresh rate. 1 == 0.1s. Valid values 1-20 |
-| `sort_column_background` | `color` | `secondary` | The background color for the sort column. |
-| `sort_column_color` | `color` | `on_secondary` | The text color for the sort column. |
+| `delay` | `int` | `5` | Refresh rate. `1` == `0.1s`. Valid values: `1-20`. |
+| `sort_column_background` | `color` | `surface_variant` | Background color for the sorted column. |
+| `sort_column_color` | `color` | `on_surface_variant` | Text color for the sorted column. |
+| `process_hover_background` | `color` | `surface_variant` | Background color for the hovered row. |
+| `process_hover_color` | `color` | `on_surface_variant` | Text color for the hovered row. |
 
