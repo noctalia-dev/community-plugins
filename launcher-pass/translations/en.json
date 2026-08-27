@@ -1,0 +1,32 @@
+{
+  "command": {
+    "description": "Search gnu pass password entries"
+  },
+  "result": {
+    "goBack": "Go back",
+    "folder": "Folder",
+    "password": "Password",
+    "loading": "Loading password entries..."
+  },
+  "detail": {
+    "pending": "Password actions for {entry} are not implemented yet"
+  },
+  "settings": {
+    "storePath": {
+      "label": "Password store path",
+      "desc": "Custom path to the password store (default: ~/.password-store)"
+    },
+    "clipTimeout": {
+      "label": "Clipboard timeout",
+      "desc": "Seconds before the clipboard is cleared (blank = use PASSWORD_STORE_CLIP_TIME)"
+    },
+    "typeDelay": {
+      "label": "Type delay",
+      "desc": "Delay in milliseconds before typing starts (default: 500)"
+    },
+    "wtypeDelay": {
+      "label": "wtype keystroke delay",
+      "desc": "Delay between keystrokes in milliseconds for wtype (default: 12)"
+    }
+  }
+}
