@@ -34,6 +34,28 @@ local deviceColors = {
   system = "on_surface_variant",
 }
 
+-- Panel background translucency; content stays opaque via fill alpha, not group opacity.
+local function panelBgAlpha()
+  local v = noctalia.getConfig("panel_background_opacity")
+  if type(v) ~= "number" then
+    return 1.0
+  end
+  if v ~= v then
+    return 1.0
+  end
+  if v < 0.0 then
+    return 0.0
+  end
+  if v > 1.0 then
+    return 1.0
+  end
+  return v
+end
+
+local function panelBgFill()
+  return "surface/" .. string.format("%.2f", panelBgAlpha())
+end
+
 -- Builds a single device card for the sidebar: a mini sparkline preview plus
 -- label, subtitle and current value. Clicking it switches the main view to
 -- that device's tab.
@@ -80,9 +102,9 @@ local function sidebarItem(id, label, subtitle, value, module)
         graphElement,
       }),
       ui.column({ width = 110, gap = 2 }, {
-        ui.label({ text = label, fontSize = 13, fontWeight = "bold", width = 110 }),
-        ui.label({ text = subtitle, fontSize = 10, color = "on_surface_variant", width = 110 }),
-        ui.label({ text = value, fontSize = 11, color = color, width = 110 }),
+        ui.label({ text = label, fontSize = 13, fontWeight = "bold", width = 110, maxWidth = 110, maxLines = 1 }),
+        ui.label({ text = subtitle, fontSize = 10, color = "on_surface_variant", width = 110, maxWidth = 110, maxLines = 1 }),
+        ui.label({ text = value, fontSize = 11, color = color, width = 110, maxWidth = 110, maxLines = 1 }),
       }),
     }),
   })
@@ -111,9 +133,9 @@ local function appItem(proc)
     gap = 8,
     align = "center",
   }, {
-    ui.label({ text = name, fontSize = 10, flexGrow = 1 }),
-    ui.label({ text = string.format("%.0f%%", proc.cpu), fontSize = 10, width = 40, textAlign = "end" }),
-    ui.label({ text = formatMem(proc.rss), fontSize = 10, width = 60, textAlign = "end" }),
+    ui.label({ text = name, fontSize = 10, flexGrow = 1, maxLines = 1 }),
+    ui.label({ text = string.format("%.0f%%", proc.cpu), fontSize = 10, width = 40, maxWidth = 40, maxLines = 1, textAlign = "end" }),
+    ui.label({ text = formatMem(proc.rss), fontSize = 10, width = 60, maxWidth = 60, maxLines = 1, textAlign = "end" }),
   })
 end
 
@@ -161,8 +183,9 @@ end
 
 -- Rebuilds the whole panel layout. Called on open, tab switches and ticks.
 function render()
-  panel.render(ui.column({ flexGrow = 1, gap = 0,padding = 0,align = "stretch"  }, {
-    ui.row({ align = "center", justify = "space_between"}, {
+  local fill = panelBgFill()
+  panel.render(ui.column({ flexGrow = 1, gap = 0, padding = 0, align = "stretch", fill = fill }, {
+    ui.row({ align = "center", justify = "space_between" }, {
       ui.label({ text = "SystemPulse", fontSize = 16, fontWeight = "bold" }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),

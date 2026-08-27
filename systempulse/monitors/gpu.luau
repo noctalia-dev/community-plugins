@@ -160,7 +160,7 @@ local function buildStatsPanel()
     table.insert(stats, { label = "Power Draw", value = formatPower(powerDraw) })
   end
   if vramUsedBytes ~= nil and vramTotalBytes ~= nil then
-    table.insert(stats, { label = "Memory Usage", value = string.format("%s / %s", formatBytes(vramUsedBytes), formatBytes(vramTotalBytes)) })
+    table.insert(stats, { label = "Memory Usage", value = string.format( formatBytes(vramUsedBytes), formatBytes(vramTotalBytes)) })
   end
   if memClock ~= nil then
     table.insert(stats, { label = "Memory Clock", value = formatClock(memClock) })
