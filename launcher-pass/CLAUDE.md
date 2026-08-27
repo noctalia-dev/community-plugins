@@ -1,0 +1,248 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A plugin for **Noctalia**, a Wayland desktop shell built on [Quickshell](https://quickshell.outfoxxed.me/). It adds a launcher provider that browses a [GNU Pass](https://www.passwordstore.org/) store and copies/types passwords, OTP codes, and arbitrary fields. All code is QML (Qt 6 / QtQuick). There is no build step and no test suite — Noctalia loads the QML directly at runtime.
+
+## What this needs to become
+
+A plugin for **Noctalia v5** written in [Luau](https://luau.org/) using the [Noctalia plugin dialect](https://docs.noctalia.dev/noctalia/plugins/development/), implementing the same feature set as the current QML version.
+
+This is a **full rewrite**, not a translation. QML's declarative property bindings, `Process`/`Timer`/`IpcHandler` objects, and the `pluginApi`/`launcher` object contract have no equivalent — the v5 plugin is a set of `.luau` scripts driven by a fixed `noctalia.*` runtime API and a `plugin.toml` manifest. Keep [Behaviour to preserve](#behaviour-to-preserve) intact; everything else is expected to change shape.
+
+Target `plugin_api` level: pick the lowest that supplies everything used (per the docs, the argv form of `runAsync` lands at level 24). Level **28** is the current ceiling (Noctalia `v5.0.0-beta.9`+). Decide deliberately and record the choice in `plugin.toml`.
+
+---
+
+## Target file structure (v5)
+
+```
+launcher-pass/
+├── plugin.toml            # manifest: identity + [[launcher_provider]] entry + settings schema
+├── launcher.luau          # the launcher provider entry script (the whole feature)
+├── translations/
+│   ├── en.json            # flat dotted-key bundle; reference for all keys
+│   ├── de.json  fr.json  it.json  ...   # one per locale, same keys as en.json
+├── README.md
+└── thumbnail.webp         # replaces preview.png (community-plugins submission requirement)
+```
+
+Files that go away: `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/` (becomes `translations/`).
+
+Do not keep `.qml` files in the final tree. During the port it is fine to have both side by side; the deliverable has only the v5 layout.
+
+### `plugin.toml` shape
+
+```toml
+id = "mellotanica/launcher-pass"      # "<author>/<plugin>", globally unique
+name = "Launcher pass"
+version = "2.0.0"                    # MAJOR.MINOR.PATCH only, no prerelease suffix
+plugin_api = 28
+author = "Marco Melletti"
+license = "MIT"
+icon = "lock"
+description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
+tags = ["Launcher"]
+
+[[launcher_provider]]
+id = "pass"
+entry = "launcher.luau"
+prefix = "pass"                      # user types ">pass " (Noctalia adds the ">")
+glyph = "lock"
+include_in_global_search = false
+debounce_ms = 200                    # replaces the old 200 ms searchTimer
+
+  # per-entry settings; each label/description MUST point at a translation key
+  [[launcher_provider.setting]]
+  key = "storePath"
+  type = "folder"
+  label_key = "settings.storePath.label"
+  description_key = "settings.storePath.desc"
+  default = ""
+
+  [[launcher_provider.setting]]
+  key = "clipTimeout"
+  type = "string"                    # kept as string so "" means "fall back to env"
+  label_key = "settings.clipTimeout.label"
+  description_key = "settings.clipTimeout.desc"
+  default = ""
+
+  [[launcher_provider.setting]]
+  key = "typeDelay"
+  type = "int"
+  label_key = "settings.typeDelay.label"
+  description_key = "settings.typeDelay.desc"
+  default = 500                      # milliseconds (see gotcha below)
+  min = 0
+  advanced = true
+
+  [[launcher_provider.setting]]
+  key = "wtypeDelay"
+  type = "int"
+  label_key = "settings.wtypeDelay.label"
+  description_key = "settings.wtypeDelay.desc"
+  default = 12
+  min = 0
+  advanced = true
+```
+
+The manifest-driven settings schema replaces `Settings.qml` entirely — Noctalia auto-generates the settings UI from these tables. Read values back with `noctalia.getConfig("storePath")` etc. Setting types available: `string`, `string_list`, `string_map`, `bool`, `int`, `double`, `select`, `file`, `folder`, `glyph`, `color`. Use `advanced = true` for what was the old "Advanced" tab; `visible_when` for conditional rows.
+
+### Translations
+
+`translations/<locale>.json` is a **flat** map of dotted keys to strings (no nesting like the old `i18n/*.json`):
+
+```json
+{
+  "command.description": "Search gnu pass password entries",
+  "result.goBack": "Go back",
+  "action.copyField": "Copy {key}"
+}
+```
+
+Look up with `noctalia.tr("action.copyField", { key = "username" })`. `{name}`-style placeholders are substituted from the second arg. `noctalia.trp(key, count)` for plurals. Every user-facing string goes through `tr`, and every key must exist in **every** locale file (`en.json` is the canonical set).
+
+---
+
+## Launcher provider contract (v5)
+
+The entry script defines global functions the host calls, and pushes results back through `launcher.*`. There is no per-result `onActivate` closure and no `getResults` return value.
+
+| Hook / call | Purpose |
+|---|---|
+| `function onQuery(text)` | Host calls this on each keystroke after the prefix (subject to `debounce_ms`). `text` is everything after `>pass `. |
+| `function onActivate(id)` | Host calls this when the user picks a row. `id` is the string you put on that result. |
+| `launcher.setResults(query, results)` | Publish rows. `query` **must echo** the `text` from the `onQuery` call they answer, so stale async results are dropped. Empty list clears. |
+| `launcher.setQuery(text)` | Programmatically rewrite the launcher input; keeps the launcher open and re-fires `onQuery`. This is how drill-in / back navigation works now. |
+
+Result table fields: `id`, `title`, `subtitle?`, `glyph?` (Tabler/Nerd-Font name), `icon?` (themed), `badge?`, `query?` (set launcher input on activate instead of calling `onActivate`), `score?` (sort key, descending; ties break on insertion order).
+
+### Consequences for the design
+
+- **State lives as `local` upvalues in the module.** The VM persists for the plugin's lifetime, so `currentPath`, `entryStack`, `mode` (`browse` / `detail`), `selectedEntry`, `cachedEntries`, and `lastQuery` are just file-scope locals mutated across `onQuery` / `onActivate` calls. But the launcher input is the source of truth — after any navigation, call `launcher.setQuery(...)` so the two stay in sync.
+- **Drill-in replaces per-row callbacks.** Either give folder/entry rows a `query` field (`">pass "..path.."/"`) so activating them re-runs `onQuery`, or dispatch on `id` in `onActivate` and then `setQuery`/`setResults` yourself. Pick one and be consistent.
+- **Async is first-class.** `onQuery` runs off the UI thread with a per-call time budget. Return fast: publish a "Loading…" row synchronously via `setResults`, kick off `noctalia.runAsync(...)`, and call `setResults(sameQuery, realRows)` from the callback. Do not block waiting on `pass`/`find`.
+- **No `include_in_global_search`** — this provider only answers its own prefix, matching current behaviour.
+
+---
+
+## Runtime API mapping (QML → Luau)
+
+| Current (QML) | v5 replacement |
+|---|---|
+| `Process { command; environment }` + `StdioCollector` | `noctalia.runAsync(argvOrString, cb)`; `cb` gets `{exitCode, stdout, stderr, timedOut, stdoutTruncated, stderrTruncated}` |
+| `Process` streaming | `noctalia.runStream(cmd, onLine)` |
+| `Timer { interval: 200 }` debounce | `debounce_ms` in `plugin.toml` (no user-space timer API) |
+| `Timer { interval: 300 }` pinentry probe | No scheduler is exposed — approximate with `noctalia.runAsync({"sleep", "0.3"}, cb)` or drop it (see open questions) |
+| `Quickshell.env("HOME")` / `env(...)` | `noctalia.getenv("HOME")`; `noctalia.expandPath("~/.password-store")` |
+| `ToastService.showNotice(...)` | `noctalia.notify(title, body)` / `noctalia.notifyError(title, body)` |
+| `wl-copy` via `sh -c` | `noctalia.copyToClipboard(text, mime)` for plain fields |
+| `pass -c` / `pass otp -c` (auto-clear via `PASSWORD_STORE_CLIP_TIME`) | keep `pass` doing the clearing; pass env through argv: `noctalia.runAsync({"env", "PASSWORD_STORE_DIR="..dir, "PASSWORD_STORE_CLIP_TIME="..t, "pass", "-c", entry}, cb)` |
+| `pluginApi.pluginSettings.x` / `defaultSettings` | `noctalia.getConfig("x")` (defaults come from the manifest schema) |
+| `pluginApi.tr(k, obj)` | `noctalia.tr(k, tbl)` / `noctalia.trp` |
+| `pluginApi.saveSettings()` / `Settings.qml` | gone — settings are manifest-declared and host-managed |
+| `Main.qml` `IpcHandler.toggle()` | no launcher-provider IPC toggle in v5; `noctalia msg` drives entry handlers, not "open the launcher". Revisit the README IPC section. |
+| `JSON.parse` / `JSON.stringify` | `noctalia.json.decode` / `noctalia.json.encode` |
+| `.trim()` | `noctalia.string.trim` |
+| custom `fuzzyMatch` | reimplement in Luau to keep exact semantics (see below); `noctalia.fuzzyScore(pattern, text)` exists but has different behaviour |
+| `console.log` | `noctalia.log(msg)` |
+
+Other useful runtime calls: `noctalia.commandExists("wtype")` (probe optional deps — `wtype`, `pass-otp` — and hide rows / warn when missing), `noctalia.pluginDataDir()` (persistent storage, if ever needed), `noctalia.nowMs()`.
+
+### Subprocess rules
+
+- **Argv array = no shell.** `{"pass", "show", entry}` runs the binary directly with each element as one literal arg — no quoting, no `shellEscape`. Prefer this everywhere possible; it removes a whole class of injection bugs the current code guards against by hand.
+- **String form = shell parsing.** Only needed where you must pipe, e.g. feeding a secret to `wtype` over stdin: `printf %s '<value>' | wtype -d <n> -`. Here you still need single-quote escaping (`'` → `'\''`) — port `shellEscape` for this path only. Consider whether `wtype` can read the value another way to avoid the shell entirely.
+- **`runAsync` argv form has no documented `env` option** — prepend `env KEY=VAL ...` as argv elements (see the `pass -c` row above).
+
+---
+
+## Behaviour to preserve
+
+Port these behaviours exactly; they define the plugin regardless of language.
+
+1. **Prefix**: activates only on `>pass` / `>pass <query>`. A bare `>pass` with no query lists the store root.
+2. **Two modes**:
+   - *Browse* — folders + password entries under `currentPath`, filtered by the text after `>pass `. Entering a folder pushes onto a nav stack; a "Go back" row pops it.
+   - *Detail* — entered after `pass show <entry>` succeeds. Rows: Copy Password, Type Password, then Copy/Type OTP **only if** the decrypted body contains `otpauth://`, then Copy/Type for every `key: value` field parsed from the body. Plus a "Go back" row.
+3. **Listing**: empty query → immediate children only (`find -maxdepth 1`, files `*.gpg` + dirs). Non-empty query → recursive `*.gpg` under `currentPath`. Strip `.gpg` from display names; in recursive results synthesize parent-folder rows.
+4. **Fuzzy match semantics** (`fuzzyMatch` in the QML): lowercase; split query on whitespace; **every part must appear as a contiguous substring** of the target (spaces act as wildcards between fragments); non-match → excluded. Score favours earlier path segments and alphabetically earlier names. Cap at 50 rows. Reimplement with plain (non-pattern) `string.find(hay, needle, 1, true)`.
+5. **Pass entry parse**: first non-empty line = password; subsequent lines split on the first `": "` into `key`/`value`; presence of `otpauth://` sets an OTP flag.
+6. **Clipboard timeout**: `clipTimeout` setting wins if a positive integer; else `PASSWORD_STORE_CLIP_TIME` from the environment; else let `pass` use its own default. Applies to Copy Password and Copy OTP (both go through `pass -c` / `pass otp -c`).
+7. **Typing**: `sleep(typeDelay/1000)` then type the value via `wtype -d <wtypeDelay>`. `typeDelay` is **milliseconds** (the UI label "Launcher Close Delay" is misleading); `wtypeDelay` is ms between keystrokes.
+8. **Store path**: `storePath` setting, else `~/.password-store` (expanded). Exported as `PASSWORD_STORE_DIR` to every `pass` invocation.
+9. **Copy vs type OTP**: `pass otp -c` for copy (with clip env), `pass otp` + `wtype` for type.
+10. **Notifications**: show a "Copied to clipboard" notice after a successful copy.
+11. **i18n**: no hard-coded user-facing strings.
+
+---
+
+## Behaviour to implement
+
+Add these new behaviours not implemented in QML code:
+
+1. **Copy/Type username**: add to the list of options shown when a password entry is selected the option to Copy/Type the username for that password, that is the value of the `login`,`user` or `username` field if available in the `key: value` list or the name of the password entry otherwise.
+2. **Password fields sorting**: the list of options shown when a password entry is selected should be sorted with the following order:
+    1. `password`
+    2. `otp` (if available)
+    3. `username`
+    4. `key: value` fields in the order they appear in the password file contents (excluding already considered `username`/`login`)
+
+---
+
+## Luau conventions & gotchas
+
+- **1-based indexing.** `t[1]` is the first element; `#t` is length; `ipairs`/`pairs` for iteration. Every loop ported from the QML `for (i = 0; i < n; i++)` shifts.
+- **`string.find` / `string.match` use Lua patterns, not regex.** `.`, `-`, `%`, `(`, `)`, `[`, `]`, `+`, `*`, `?`, `^`, `$` are magic. For literal substring search pass `plain = true`: `string.find(s, "otpauth://", 1, true)`. `%` escapes a magic char in a pattern.
+- **Concatenation is `..`**, not `+`. `+` on strings errors.
+- **No `undefined`; only `nil`.** `t.missing` is `nil`. `x and a or b` is the ternary idiom (beware when `a` can be falsy). `a or default` for fallbacks.
+- **`nil` holes break arrays and `#`.** Build lists by appending (`table.insert(t, v)` or `t[#t+1] = v`); don't leave gaps.
+- **Split/trim are not built in.** Use `noctalia.string.trim`; write a splitter with `string.gmatch(s, "[^\n]+")` for line splitting, or `string.gmatch(s, "%S+")` for whitespace tokens.
+- **`local` everything.** Un-`local` names are globals — and for entry scripts, only globals are callable by the host (`onQuery`, `onActivate`). Keep exactly the host hooks global; everything else `local`.
+- **Callbacks may be function values** (closures capturing scope) — this needs `plugin_api >= 9`, which the target level covers. Named globals also work.
+- **Isolated VM, per-call time budget.** Do no heavy work synchronously in `onQuery`/`onActivate`. All `pass`/`find`/`wtype` calls go through `runAsync` with a callback; publish incremental `setResults`.
+- **No `Math.random`/wall-clock in a way that matters here**; use `noctalia.nowMs()` if a timestamp is needed.
+- **Numbers are doubles**; `math.floor` / `tostring` / `tonumber` for int-ish conversions (e.g. parsing `clipTimeout`).
+
+---
+
+## Open questions to resolve during the port
+
+- **Is the pinentry dance still needed?** The old code closed and reopened the launcher because the QML overlay stole focus from the GPG pinentry dialog. With `runAsync` (non-blocking, off-thread) the v5 launcher may not need it at all. Try the plain path first — `runAsync({"env","PASSWORD_STORE_DIR="..dir,"pass","show",entry}, cb)`, show a "Decrypting…" row, populate detail mode in `cb` — and only add focus juggling if pinentry actually fails to appear. There is no 300 ms timer primitive to reproduce `pinentryTimer` exactly.
+- **IPC `toggle`.** `Main.qml`'s `IpcHandler` has no v5 analogue for launcher providers. Confirm against the Workflow docs whether anything replaces it; update the README "IPC" section accordingly (likely: remove it, or document opening the launcher generically).
+- **`wtype` stdin.** Decide whether to keep the `printf … | wtype -` shell pipe (needs the ported `shellEscape`) or find an argv-only way to hand `wtype` the secret.
+- **`thumbnail.webp`.** community-plugins submission wants a `thumbnail.webp`; convert `preview.png` or regenerate.
+
+---
+
+## Legacy reference — current v4 / QML implementation
+
+Kept for behaviour archaeology. None of this structure survives the port.
+
+`manifest.json` declares three QML entry points, each instantiated with a `pluginApi` property:
+
+| File | Role |
+|------|------|
+| `Main.qml` | Background component. Only an `IpcHandler` exposing `toggle()`. |
+| `LauncherProvider.qml` | The entire feature. Implements Noctalia v4's launcher-provider object contract. |
+| `Settings.qml` | Settings UI, built from Noctalia's `N*` widgets; persists via `pluginApi.saveSettings()`. |
+
+`LauncherProvider.qml` is driven by Noctalia calling well-known functions / reading well-known properties (`name`, `supportedLayouts`, `handleSearch`, `supportsAutoPaste`; `init()`, `onOpened()`, `handleCommand(text)`, `commands()`, `getResults(text)`). `pluginApi` provided `pluginSettings`, `manifest`, `tr()`, `saveSettings()`, `withCurrentScreen(cb)`, `toggleLauncher(screen)`; `launcher` provided `setSearchText()`, `updateResults()`, `close()`. Each result row was `{ name, description, icon, isTablerIcon, singleLine, onActivate }`, with `onActivate` closures capturing loop vars via an IIFE.
+
+Search: `performSearch()` shelled out to `find` (maxdepth 1 for empty query, recursive for non-empty), then `fuzzyMatch()` scored client-side with a 200 ms `searchTimer` debounce.
+
+The pinentry dance: `pass show` triggers a GPG pinentry dialog that needs focus. `pinentryTimer` (300 ms) detected `showProc` running with no stdout yet → set `pinentryActive`, `launcher.close()`. On `showProc` exit, if `pinentryActive`, reopen via `pluginApi.toggleLauncher()` and set `restoringFromPinentry`; `onOpened()` checked that flag first and returned early so the restored session kept its state.
+
+Settings: `manifest.json` → `metadata.defaultSettings` held defaults/keys (`storePath`, `typeDelay`, `wtypeDelay`, `clipTimeout`); `Settings.qml` read `pluginApi.pluginSettings` with those as fallback and wrote back in `saveSettings()`. `typeDelay` was milliseconds despite its "Launcher Close Delay" label. The repo's `settings.json` was a stale local snapshot, not authoritative. `PASSWORD_STORE_DIR` came from `storePath` or `~/.password-store`; `PASSWORD_STORE_CLIP_TIME` from `clipTimeout` or the ambient env var (`getPassEnvironment()` for copy actions).
+
+Conventions: all shell-interpolated values passed through `shellEscape()` (single-quote escaping) before `sh -c`. `qs.Commons`, `qs.Widgets`, `qs.Services.UI` were Noctalia shell modules, not part of this repo. Every user-facing string went through `pluginApi.tr()` with a key in every `i18n/*.json`.
+
+---
+
+## Workflow
+
+- Define the next steps in brief clear text
+- Prompt the user for a quick test of what was modified proposing a test sequence
+- Create a local commit detailing what has been modified and why, add the coauthored tag, **NEVER** perform any other git operations
