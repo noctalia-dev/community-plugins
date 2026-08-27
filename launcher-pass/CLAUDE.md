@@ -12,7 +12,53 @@ A plugin for **Noctalia v5** written in [Luau](https://luau.org/) using the [Noc
 
 This is a **full rewrite**, not a translation. QML's declarative property bindings, `Process`/`Timer`/`IpcHandler` objects, and the `pluginApi`/`launcher` object contract have no equivalent — the v5 plugin is a set of `.luau` scripts driven by a fixed `noctalia.*` runtime API and a `plugin.toml` manifest. Keep [Behaviour to preserve](#behaviour-to-preserve) intact; everything else is expected to change shape.
 
-Target `plugin_api` level: pick the lowest that supplies everything used (per the docs, the argv form of `runAsync` lands at level 24). Level **28** is the current ceiling (Noctalia `v5.0.0-beta.9`+). Decide deliberately and record the choice in `plugin.toml`.
+Target `plugin_api` level: pick the lowest that supplies everything used (per the docs, the argv form of `runAsync` lands at level 24). Level **28** is the current ceiling (Noctalia `v5.0.0-beta.9`+). **Decided: `plugin_api = 24`** — see Port status.
+
+---
+
+## Port status — 2026-08-27
+
+**Browse mode is complete; detail mode (`pass show` + copy/type) is not started.** The v4 `.qml` files and `i18n/` are still present side-by-side and must be deleted before submission.
+
+### Files added
+
+| File | State |
+|---|---|
+| `plugin.toml` | Complete manifest + settings schema. |
+| `launcher.luau` | Browse mode done. Activating a password entry is a stub notification. |
+| `translations/en.json` | Keys used so far only. Other locales not ported. |
+
+### Decisions that diverge from the guidance further down this doc
+
+- **`plugin_api = 24`**, not 28 — the highest-level feature used is the argv form of `runAsync`. Bump when a later step needs more.
+- **Settings are top-level `[[setting]]` blocks, not `[[launcher_provider.setting]]`.** The manifest docs only document nested settings for `widget`/`panel`; every sibling launcher plugin (`pass`, `file-search`, `k8s-status`) uses top-level `[[setting]]`, and for a launcher-only plugin the two are equivalent. All four settings are present (`storePath` folder, `clipTimeout` string, `typeDelay`/`wtypeDelay` int + `advanced`).
+- **`translations/en.json` is nested JSON**, not the flat dotted-key map originally specified. `noctalia.tr("settings.storePath.label")` resolves the dotted key against nesting — this is how the working sibling plugins' translations are shaped.
+- **Navigation state is encoded in the query string, not module `local`s.** A trailing `/` marks a folder context (`onQuery("work/aws/")` → browse inside `work/aws`; `onQuery("work/aws/pr")` → recursive search there). This is the `proton-pass` pattern and makes reopening `>pass` reset to the store root for free (the old `onOpened()` behaviour). Module state is caches only.
+- **Fuzzy *ranking* was rewritten** (match semantics unchanged — see "Behaviour to preserve #4"). The QML base-27 segment score let leaf *length* dominate, floating `root_new_1` above a shallower `root`. `rankEntry` sorts by: (1) count of query fragments that equal a whole path segment, (2) fewer path segments, (3) alphabetical. Query-aware, unlike the QML formula.
+
+### How `launcher.luau` works now
+
+- **Prefix routing** — `onQuery(text)`, `text` is everything after `>pass ` (leading/trailing space tolerated). Bare `>pass ` lists the store root.
+- **Drill-in** — folder rows carry a `query` field (`"<path>/"`) for the host's native re-query; they *also* carry an `id` (`nav:<path>` / `back:<parent>`) so `onActivate` can fall back to `launcher.setQuery(<non-empty>)`. A bare empty string passed to `setQuery` does **not** re-fire `onQuery` in the tested build — root "Go back" uses `" "`, which trims to empty.
+- **Listing** — browse (`search == ""`): `find -maxdepth 1` as a plain argv. Recursive search: shell string `find … -printf '%P\n' | grep -iF -e <frag> | … | head -n <GREP_CAP=500>`. The `grep -iF` chain does the fixed-string / case-insensitive / all-fragments-substring / order-independent match in C, so Luau only ever parses the capped hit set — this is what keeps the callback under the per-call CPU budget. `.gpg` stripped in Luau; parent folders synthesised from recursive hits and re-checked against the fragments.
+- **Caching + prefetch** — browse listings cached 30 s, search results 8 s (per exact query). At module load, and whenever a browse view renders, the immediate child-folder listings are fetched in the background (cap 10, deduped via `pendingFetch` + TTL). Activating a folder then hits a warm cache and renders with no subprocess on the critical path; the residual delay is just `debounce_ms` (200).
+
+### Next steps, in order
+
+1. **Detail mode** — `runAsync({"env", "PASSWORD_STORE_DIR="..dir, "pass", "show", entry}, cb)`, "Decrypting…" row, populate in `cb`. Parse per "Behaviour to preserve #5". Rows in the order from "Behaviour to implement #2": Password, OTP (only if `otpauth://`), Username (`login`/`user`/`username` field, else entry basename), then remaining `key: value` fields in file order — each with a Copy and a Type variant, plus "Go back". Needs a query-string encoding for detail context (or a small module-local `mode`/`selectedEntry`) consistent with the stateless nav model. Try the plain path first; only add pinentry focus-juggling if the GPG dialog fails to appear.
+2. **Copy / Type actions** — copy password/OTP via `env PASSWORD_STORE_DIR=… [PASSWORD_STORE_CLIP_TIME=…] pass -c` / `pass otp -c` (clip timeout per "Behaviour to preserve #6"); copy plain field via `noctalia.copyToClipboard`; type = `sleep <typeDelay/1000>` then feed the value to `wtype -d <wtypeDelay>` (decide stdin approach — open question). "Copied to clipboard" notice on success. Probe `wtype` / `pass-otp` with `commandExists` and hide rows / warn when missing.
+3. **Translations** — add detail-mode keys; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
+4. **README** — rewrite for v5 (settings, prefix, dependencies); resolve the IPC section (open question).
+5. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
+6. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
+
+### Open questions — updated
+
+- **Navigation model** — *resolved*: query-string-encoded, stateless. Result-row `query` field confirmed working (post-prefix text, no `>`), same as `setQuery`. Empty-string `setQuery` does not re-fire `onQuery`.
+- **pinentry dance** — still open; untested until detail mode exists.
+- **IPC `toggle`** — still open; no v5 analogue found, README section needs a decision.
+- **`wtype` stdin** — still open; `shellEscape` not yet ported.
+- **`thumbnail.webp`** — still open.
 
 ---
 
@@ -34,6 +80,8 @@ Files that go away: `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifes
 Do not keep `.qml` files in the final tree. During the port it is fine to have both side by side; the deliverable has only the v5 layout.
 
 ### `plugin.toml` shape
+
+> **Superseded by the shipped `plugin.toml`** (see Port status): `plugin_api = 24`, and settings are top-level `[[setting]]` blocks, not `[[launcher_provider.setting]]`. The block below is the original sketch.
 
 ```toml
 id = "mellotanica/launcher-pass"      # "<author>/<plugin>", globally unique
@@ -92,6 +140,8 @@ The manifest-driven settings schema replaces `Settings.qml` entirely — Noctali
 
 ### Translations
 
+> **Shipped as nested JSON instead** (see Port status) — `noctalia.tr` resolves the dotted key against nesting, matching the working sibling plugins. The rule below ("every key in every locale, `en.json` canonical") still holds.
+
 `translations/<locale>.json` is a **flat** map of dotted keys to strings (no nesting like the old `i18n/*.json`):
 
 ```json
@@ -121,7 +171,7 @@ Result table fields: `id`, `title`, `subtitle?`, `glyph?` (Tabler/Nerd-Font name
 
 ### Consequences for the design
 
-- **State lives as `local` upvalues in the module.** The VM persists for the plugin's lifetime, so `currentPath`, `entryStack`, `mode` (`browse` / `detail`), `selectedEntry`, `cachedEntries`, and `lastQuery` are just file-scope locals mutated across `onQuery` / `onActivate` calls. But the launcher input is the source of truth — after any navigation, call `launcher.setQuery(...)` so the two stay in sync.
+- **State lives as `local` upvalues in the module.** The VM persists for the plugin's lifetime, so `currentPath`, `entryStack`, `mode` (`browse` / `detail`), `selectedEntry`, `cachedEntries`, and `lastQuery` are just file-scope locals mutated across `onQuery` / `onActivate` calls. But the launcher input is the source of truth — after any navigation, call `launcher.setQuery(...)` so the two stay in sync. **As shipped**, browse-mode navigation carries *no* module state at all — the folder path is encoded in the query string (trailing `/`) and module `local`s are caches only. Detail mode (step 1) will need either its own query encoding or a minimal `mode`/`selectedEntry` pair; keep whichever is chosen consistent with the stateless browse model.
 - **Drill-in replaces per-row callbacks.** Either give folder/entry rows a `query` field (`">pass "..path.."/"`) so activating them re-runs `onQuery`, or dispatch on `id` in `onActivate` and then `setQuery`/`setResults` yourself. Pick one and be consistent.
 - **Async is first-class.** `onQuery` runs off the UI thread with a per-call time budget. Return fast: publish a "Loading…" row synchronously via `setResults`, kick off `noctalia.runAsync(...)`, and call `setResults(sameQuery, realRows)` from the callback. Do not block waiting on `pass`/`find`.
 - **No `include_in_global_search`** — this provider only answers its own prefix, matching current behaviour.
@@ -168,7 +218,7 @@ Port these behaviours exactly; they define the plugin regardless of language.
    - *Browse* — folders + password entries under `currentPath`, filtered by the text after `>pass `. Entering a folder pushes onto a nav stack; a "Go back" row pops it.
    - *Detail* — entered after `pass show <entry>` succeeds. Rows: Copy Password, Type Password, then Copy/Type OTP **only if** the decrypted body contains `otpauth://`, then Copy/Type for every `key: value` field parsed from the body. Plus a "Go back" row.
 3. **Listing**: empty query → immediate children only (`find -maxdepth 1`, files `*.gpg` + dirs). Non-empty query → recursive `*.gpg` under `currentPath`. Strip `.gpg` from display names; in recursive results synthesize parent-folder rows.
-4. **Fuzzy match semantics** (`fuzzyMatch` in the QML): lowercase; split query on whitespace; **every part must appear as a contiguous substring** of the target (spaces act as wildcards between fragments); non-match → excluded. Score favours earlier path segments and alphabetically earlier names. Cap at 50 rows. Reimplement with plain (non-pattern) `string.find(hay, needle, 1, true)`.
+4. **Fuzzy match semantics** (`fuzzyMatch` in the QML): lowercase; split query on whitespace; **every part must appear as a contiguous substring** of the target (spaces act as wildcards between fragments); non-match → excluded. Cap at 50 rows. Reimplement with plain (non-pattern) `string.find(hay, needle, 1, true)`. **The *matching* rule is preserved as-is.** The *ranking* was rewritten (see Port status → `rankEntry`): the QML "earlier path segments / alphabetically earlier names" base-27 score made leaf length dominate; the shipped key is query-aware (exact-segment hits, then depth, then alphabetical).
 5. **Pass entry parse**: first non-empty line = password; subsequent lines split on the first `": "` into `key`/`value`; presence of `otpauth://` sets an OTP flag.
 6. **Clipboard timeout**: `clipTimeout` setting wins if a positive integer; else `PASSWORD_STORE_CLIP_TIME` from the environment; else let `pass` use its own default. Applies to Copy Password and Copy OTP (both go through `pass -c` / `pass otp -c`).
 7. **Typing**: `sleep(typeDelay/1000)` then type the value via `wtype -d <wtypeDelay>`. `typeDelay` is **milliseconds** (the UI label "Launcher Close Delay" is misleading); `wtypeDelay` is ms between keystrokes.
@@ -209,6 +259,8 @@ Add these new behaviours not implemented in QML code:
 ---
 
 ## Open questions to resolve during the port
+
+> See Port status → "Open questions — updated" for current status. The navigation-model question is resolved; pinentry, IPC `toggle`, `wtype` stdin and `thumbnail.webp` are still open.
 
 - **Is the pinentry dance still needed?** The old code closed and reopened the launcher because the QML overlay stole focus from the GPG pinentry dialog. With `runAsync` (non-blocking, off-thread) the v5 launcher may not need it at all. Try the plain path first — `runAsync({"env","PASSWORD_STORE_DIR="..dir,"pass","show",entry}, cb)`, show a "Decrypting…" row, populate detail mode in `cb` — and only add focus juggling if pinentry actually fails to appear. There is no 300 ms timer primitive to reproduce `pinentryTimer` exactly.
 - **IPC `toggle`.** `Main.qml`'s `IpcHandler` has no v5 analogue for launcher providers. Confirm against the Workflow docs whether anything replaces it; update the README "IPC" section accordingly (likely: remove it, or document opening the launcher generically).
