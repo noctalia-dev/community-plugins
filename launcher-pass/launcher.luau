@@ -449,13 +449,25 @@ local function closeLauncherPanel(cb)
   noctalia.runAsync({ "noctalia", "msg", "panel-close", "launcher" }, cb)
 end
 
+-- The character that starts a launcher command (our own CLAUDE.md examples
+-- write ">pass ...", but the leading ">" itself is a user setting —
+-- shell.launcher.provider_prefix, e.g. "/" on this system). Reading it wrong
+-- would reopen the panel with a string it no longer recognises as a command
+-- at all. noctalia.getSetting requires plugin_api = 26.
+local DEFAULT_LEADER = ">"
+
+local function launcherLeader()
+  return noctalia.getSetting("shell.launcher.provider_prefix") or DEFAULT_LEADER
+end
+
 -- Reopens with the exact input the launcher had before it was closed, as the
 -- panel's "context" argument — the host re-delivers that as a fresh onQuery,
 -- so whatever is now in detailCache/listCache gets rendered without this
 -- script tracking "what was on screen" itself. `text` is the raw onQuery
--- text (no ">pass " prefix), so the context reconstructs the full input.
+-- text (no leader/prefix), so the context reconstructs the full input.
 local function reopenLauncherPanel(text)
-  noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", ">pass " .. text }, function() end)
+  local context = launcherLeader() .. "pass " .. text
+  noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", context }, function() end)
 end
 
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
