@@ -26,7 +26,7 @@ Monitor real-time information about your GPU status and running processes with n
 
 ## Requirements
 
-The plugin requires `nvtop`, `jq`, and `pkill` to be installed and available in `$PATH`.
+The plugin requires `nvtop`, `jq`, `kill`, and `pkill` to be installed and available in `$PATH`.
 
 ## Usage
 
