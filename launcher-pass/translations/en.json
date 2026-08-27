@@ -9,7 +9,22 @@
     "loading": "Loading password entries..."
   },
   "detail": {
-    "pending": "Password actions for {entry} are not implemented yet"
+    "decrypting": "Decrypting password entry...",
+    "error": "Failed to decrypt entry",
+    "actionPending": "{action} is not implemented yet"
+  },
+  "action": {
+    "copyPassword": "Copy Password",
+    "copyPasswordDesc": "Copy password to clipboard",
+    "typePassword": "Type Password",
+    "typePasswordDesc": "Type password using wtype",
+    "copyOtp": "Copy OTP",
+    "typeOtp": "Type OTP",
+    "otpDesc": "Copy/type current OTP code",
+    "copyUsername": "Copy Username",
+    "typeUsername": "Type Username",
+    "copyField": "Copy {key}",
+    "typeField": "Type {key}"
   },
   "settings": {
     "storePath": {

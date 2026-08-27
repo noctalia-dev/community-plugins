@@ -18,14 +18,14 @@ Target `plugin_api` level: pick the lowest that supplies everything used (per th
 
 ## Port status — 2026-08-27
 
-**Browse mode is complete; detail mode (`pass show` + copy/type) is not started.** The v4 `.qml` files and `i18n/` are still present side-by-side and must be deleted before submission.
+**Browse mode and detail-mode listing are complete; the row actions (copy/type/OTP/clipboard-timeout/wtype) are still stub notifications.** The v4 `.qml` files and `i18n/` are still present side-by-side and must be deleted before submission.
 
 ### Files added
 
 | File | State |
 |---|---|
 | `plugin.toml` | Complete manifest + settings schema. |
-| `launcher.luau` | Browse mode done. Activating a password entry is a stub notification. |
+| `launcher.luau` | Browse mode done. Detail mode (`pass show`, parsing, row list, "Go back") done. Every row's Copy/Type action is a stub notification — real copy/type/OTP/wtype lands next. |
 | `translations/en.json` | Keys used so far only. Other locales not ported. |
 
 ### Decisions that diverge from the guidance further down this doc
@@ -35,27 +35,30 @@ Target `plugin_api` level: pick the lowest that supplies everything used (per th
 - **`translations/en.json` is nested JSON**, not the flat dotted-key map originally specified. `noctalia.tr("settings.storePath.label")` resolves the dotted key against nesting — this is how the working sibling plugins' translations are shaped.
 - **Navigation state is encoded in the query string, not module `local`s.** A trailing `/` marks a folder context (`onQuery("work/aws/")` → browse inside `work/aws`; `onQuery("work/aws/pr")` → recursive search there). This is the `proton-pass` pattern and makes reopening `>pass` reset to the store root for free (the old `onOpened()` behaviour). Module state is caches only.
 - **Fuzzy *ranking* was rewritten** (match semantics unchanged — see "Behaviour to preserve #4"). The QML base-27 segment score let leaf *length* dominate, floating `root_new_1` above a shallower `root`. `rankEntry` sorts by: (1) count of query fragments that equal a whole path segment, (2) fewer path segments, (3) alphabetical. Query-aware, unlike the QML formula.
+- **Detail mode is also query-string-encoded**, same trick as the trailing-`/` folder marker: a leading `:` on the post-prefix text means "detail view of entry `<rest>`" (`onQuery(":work/aws/root")`). Browsing never produces text starting with `:`, so a fresh `>pass ` always falls through to browse — no `onOpened()`-style reset hook needed. `onActivate` on an `entry:<path>` row does `launcher.setQuery(":" .. path)`.
+- **Row actions use a module-local lookup table, not id-encoded data.** Each Copy/Type row gets an opaque `act:<n>` id (n derived from the row count so far — no separate counter); `detailActions[id]` holds `{entryPath, verb, kind, key, value, label}` for `onActivate` to read. Avoids encoding field keys/values (which can contain almost anything) into the id string. Only one detail view is ever live, so the table is simply rebuilt (`detailActions = {}`) on every render rather than namespaced per entry.
 
 ### How `launcher.luau` works now
 
 - **Prefix routing** — `onQuery(text)`, `text` is everything after `>pass ` (leading/trailing space tolerated). Bare `>pass ` lists the store root.
 - **Drill-in** — folder rows carry a `query` field (`"<path>/"`) for the host's native re-query; they *also* carry an `id` (`nav:<path>` / `back:<parent>`) so `onActivate` can fall back to `launcher.setQuery(<non-empty>)`. A bare empty string passed to `setQuery` does **not** re-fire `onQuery` in the tested build — root "Go back" uses `" "`, which trims to empty.
 - **Listing** — browse (`search == ""`): `find -maxdepth 1` as a plain argv. Recursive search: shell string `find … -printf '%P\n' | grep -iF -e <frag> | … | head -n <GREP_CAP=500>`. The `grep -iF` chain does the fixed-string / case-insensitive / all-fragments-substring / order-independent match in C, so Luau only ever parses the capped hit set — this is what keeps the callback under the per-call CPU budget. `.gpg` stripped in Luau; parent folders synthesised from recursive hits and re-checked against the fragments.
-- **Caching + prefetch** — browse listings cached 30 s, search results 8 s (per exact query). At module load, and whenever a browse view renders, the immediate child-folder listings are fetched in the background (cap 10, deduped via `pendingFetch` + TTL). Activating a folder then hits a warm cache and renders with no subprocess on the critical path; the residual delay is just `debounce_ms` (200).
+- **Caching + prefetch** — browse listings cached 30 s, search results 8 s (per exact query), decrypted detail entries 60 s (per entry path, so a debounce re-fire while the detail view is open doesn't trigger a second `pass show` / pinentry). At module load, and whenever a browse view renders, the immediate child-folder listings are fetched in the background (cap 10, deduped via `pendingFetch` + TTL). Activating a folder then hits a warm cache and renders with no subprocess on the critical path; the residual delay is just `debounce_ms` (200).
+- **Detail mode** — activating an `entry:<path>` row sets the query to `:<path>`; `onQuery` routes that (leading `:`) to `fetchDetail`, which shows a "Decrypting…" row, runs `runAsync({"env", "PASSWORD_STORE_DIR="..dir, "pass", "show", entryPath}, cb)`, and on success parses + caches + renders. `parsePassEntry` splits first-line password / `key: value` fields / `otpauth://` detection; `extractUsername` pulls the first `login`/`user`/`username` field (case-insensitive) out of the field list and falls back to the entry's basename. Rows render as Password, OTP (if present), Username, then remaining fields in file order, each as a Copy + Type pair, plus "Go back" to the entry's parent folder. A failed/timed-out `pass show` renders a "Go back" + error row instead. **Every row's `onActivate` is currently a stub `noctalia.notify`** — see Next steps #1.
 
 ### Next steps, in order
 
-1. **Detail mode** — `runAsync({"env", "PASSWORD_STORE_DIR="..dir, "pass", "show", entry}, cb)`, "Decrypting…" row, populate in `cb`. Parse per "Behaviour to preserve #5". Rows in the order from "Behaviour to implement #2": Password, OTP (only if `otpauth://`), Username (`login`/`user`/`username` field, else entry basename), then remaining `key: value` fields in file order — each with a Copy and a Type variant, plus "Go back". Needs a query-string encoding for detail context (or a small module-local `mode`/`selectedEntry`) consistent with the stateless nav model. Try the plain path first; only add pinentry focus-juggling if the GPG dialog fails to appear.
-2. **Copy / Type actions** — copy password/OTP via `env PASSWORD_STORE_DIR=… [PASSWORD_STORE_CLIP_TIME=…] pass -c` / `pass otp -c` (clip timeout per "Behaviour to preserve #6"); copy plain field via `noctalia.copyToClipboard`; type = `sleep <typeDelay/1000>` then feed the value to `wtype -d <wtypeDelay>` (decide stdin approach — open question). "Copied to clipboard" notice on success. Probe `wtype` / `pass-otp` with `commandExists` and hide rows / warn when missing.
-3. **Translations** — add detail-mode keys; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
-4. **README** — rewrite for v5 (settings, prefix, dependencies); resolve the IPC section (open question).
-5. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
-6. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
+1. **Copy / Type actions** — wire up the `act:<n>` rows' real behaviour in place of the stub notify: copy password/OTP via `env PASSWORD_STORE_DIR=… [PASSWORD_STORE_CLIP_TIME=…] pass -c` / `pass otp -c` (clip timeout per "Behaviour to preserve #6"); copy plain field/username via `noctalia.copyToClipboard`; type = `sleep <typeDelay/1000>` then feed the value to `wtype -d <wtypeDelay>` (decide stdin approach — open question). "Copied to clipboard" notice on success. Probe `wtype` / `pass-otp` with `commandExists` and hide rows / warn when missing. Try the plain path first; only add pinentry focus-juggling if the GPG dialog fails to appear (open question below).
+2. **Translations** — add the new `action.*`/`detail.*` keys now in `en.json`; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
+3. **README** — rewrite for v5 (settings, prefix, dependencies); resolve the IPC section (open question).
+4. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
+5. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
 
 ### Open questions — updated
 
 - **Navigation model** — *resolved*: query-string-encoded, stateless. Result-row `query` field confirmed working (post-prefix text, no `>`), same as `setQuery`. Empty-string `setQuery` does not re-fire `onQuery`.
-- **pinentry dance** — still open; untested until detail mode exists.
+- **Detail-mode encoding** — *resolved*: leading `:` on the query text, consistent with the trailing-`/` folder marker (see Decisions above). Row actions dispatch via a module-local `detailActions` table keyed by row id, not id-encoded data.
+- **pinentry dance** — still open; untested against a real pinentry prompt (only `pass show`'s happy path has been exercised). Try plain `runAsync` first; only add focus juggling if the GPG dialog fails to appear.
 - **IPC `toggle`** — still open; no v5 analogue found, README section needs a decision.
 - **`wtype` stdin** — still open; `shellEscape` not yet ported.
 - **`thumbnail.webp`** — still open.

@@ -13,8 +13,13 @@
 --   * folder drill-in / "Go back", with the navigation state carried entirely
 --     in the launcher query string (a trailing "/" marks a folder context)
 --
--- NOT implemented yet (later steps): `pass show`, copy/type, OTP, clipboard
--- timeout, wtype. Activating a password entry is a stub notification.
+-- Port step 2: detail mode. Activating a password entry runs `pass show` and
+-- lists Copy/Type rows for password, OTP (if present), username, and every
+-- remaining key: value field, in that order. Detail is entered by rewriting
+-- the query to a leading ":" + entry path (never produced by browsing, so a
+-- fresh ">pass " always resets to browse for free, same trick as the
+-- trailing-"/" folder marker). Row actions are stubbed with a notification —
+-- actual copy/type/OTP/clipboard-timeout/wtype wiring is the next step.
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
@@ -24,10 +29,18 @@ local MAX_RESULTS = 50
 local GREP_CAP = 500
 local BROWSE_TTL_MS = 30000
 local SEARCH_TTL_MS = 8000
+-- Decrypted entries stay cached a while so re-rendering the same detail view
+-- (e.g. a debounce re-fire) doesn't trigger a second `pass show` / pinentry.
+local DETAIL_TTL_MS = 60000
 
 -- ── module state — caches only, no navigation state ────────────────────────
 local lastQuery = nil -- most recent onQuery text, for dropping stale async
 local listCache = {}  -- cacheKey -> { at = <ms>, ttl = <ms>, entries = { ... } }
+local detailCache = {} -- entryPath -> { at, ttl, password, hasOtp, username, fields }
+-- id -> stub context for the row actions of the *currently rendered* detail
+-- view. Only one detail view is ever live, so this is rebuilt on every render
+-- rather than namespaced per entry.
+local detailActions = {}
 
 -- ── small helpers ──────────────────────────────────────────────────────────
 local function tr(key, subst)
@@ -67,6 +80,23 @@ local function folderDir(folder)
     return storeDir()
   end
   return storeDir() .. "/" .. folder
+end
+
+local function parentOf(path)
+  return path:match("^(.*)/[^/]*$") or ""
+end
+
+-- Shared "Go back" row for both browse (subtitle = folder) and detail
+-- (subtitle = entry path) views. `query` rewrites the launcher input, which
+-- re-fires onQuery; a bare " " trims back to the root browse context.
+local function goBackRow(parent, subtitle)
+  return {
+    id = "back:" .. parent,
+    query = parent ~= "" and (parent .. "/") or " ",
+    title = tr("result.goBack"),
+    subtitle = subtitle,
+    glyph = "arrow-left",
+  }
 end
 
 local function fragments(search)
@@ -223,16 +253,7 @@ local function renderRows(folder, search, entries)
   local rows = {}
 
   if folder ~= "" then
-    local parent = folder:match("^(.*)/[^/]*$") or ""
-    rows[#rows + 1] = {
-      id = "back:" .. parent,
-      -- rewrites the launcher input, which re-fires onQuery; a bare " " trims
-      -- back to the root context
-      query = parent ~= "" and (parent .. "/") or " ",
-      title = tr("result.goBack"),
-      subtitle = folder,
-      glyph = "arrow-left",
-    }
+    rows[#rows + 1] = goBackRow(parentOf(folder), folder)
   end
 
   local frags = fragments(search)
@@ -299,10 +320,165 @@ local function renderRows(folder, search, entries)
   return rows
 end
 
+-- ── detail mode ───────────────────────────────────────────────────────────
+-- Parse `pass show` output: first non-empty line is the password; every
+-- later line with a ": " splits into a key/value field, in file order; any
+-- line containing "otpauth://" flags the entry as OTP-capable.
+local function parsePassEntry(output)
+  local password, hasOtp = nil, false
+  local fields = {}
+  for line in output:gmatch("[^\n]+") do
+    line = trim(line)
+    if line ~= "" then
+      if password == nil then
+        password = line
+      else
+        if string.find(line, "otpauth://", 1, true) then
+          hasOtp = true
+        end
+        local s, e = string.find(line, ": ", 1, true)
+        if s then
+          fields[#fields + 1] = { key = line:sub(1, s - 1), value = line:sub(e + 1) }
+        end
+      end
+    end
+  end
+  return password or "", hasOtp, fields
+end
+
+-- Username = the value of the first login/user/username field (case
+-- insensitive), with that field removed from the remaining list; falls back
+-- to the entry's own basename when no such field exists.
+local USERNAME_KEYS = { login = true, user = true, username = true }
+
+local function extractUsername(entryPath, fields)
+  local username, usedIndex
+  for i, f in ipairs(fields) do
+    if USERNAME_KEYS[f.key:lower()] then
+      username, usedIndex = f.value, i
+      break
+    end
+  end
+  local remaining = {}
+  for i, f in ipairs(fields) do
+    if i ~= usedIndex then
+      remaining[#remaining + 1] = f
+    end
+  end
+  return username or (entryPath:match("[^/]+$") or entryPath), remaining
+end
+
+-- Appends a Copy/Type row pair for one field and records a stub context for
+-- each under a fresh "act:<n>" id, derived from the row count so no separate
+-- counter is needed. Real copy/type/OTP wiring is the next port step; for now
+-- onActivate just notifies using `label`.
+local function addAction(rows, entryPath, spec)
+  local copyId, typeId = "act:" .. (#rows + 1), "act:" .. (#rows + 2)
+  local copyTitle, typeTitle = tr(spec.copyKey, spec.subst), tr(spec.typeKey, spec.subst)
+  detailActions[copyId] = { entryPath = entryPath, verb = "copy", kind = spec.kind, key = spec.key, value = spec.value, label = copyTitle }
+  detailActions[typeId] = { entryPath = entryPath, verb = "type", kind = spec.kind, key = spec.key, value = spec.value, label = typeTitle }
+  rows[#rows + 1] = { id = copyId, title = copyTitle, subtitle = spec.copySubtitle, glyph = "copy" }
+  rows[#rows + 1] = { id = typeId, title = typeTitle, subtitle = spec.typeSubtitle, glyph = "typography" }
+end
+
+-- Row order per CLAUDE.md "Behaviour to implement": password, OTP (if
+-- present), username, then remaining key: value fields in file order.
+local function renderDetailRows(entryPath, data)
+  detailActions = {}
+  local rows = { goBackRow(parentOf(entryPath), entryPath) }
+
+  addAction(rows, entryPath, {
+    kind = "password",
+    copyKey = "action.copyPassword", typeKey = "action.typePassword",
+    copySubtitle = tr("action.copyPasswordDesc"), typeSubtitle = tr("action.typePasswordDesc"),
+    value = data.password,
+  })
+
+  if data.hasOtp then
+    local otpDesc = tr("action.otpDesc")
+    addAction(rows, entryPath, {
+      kind = "otp",
+      copyKey = "action.copyOtp", typeKey = "action.typeOtp",
+      copySubtitle = otpDesc, typeSubtitle = otpDesc,
+    })
+  end
+
+  addAction(rows, entryPath, {
+    kind = "username",
+    copyKey = "action.copyUsername", typeKey = "action.typeUsername",
+    copySubtitle = data.username, typeSubtitle = data.username,
+    value = data.username,
+  })
+
+  for _, f in ipairs(data.fields) do
+    addAction(rows, entryPath, {
+      kind = "field", key = f.key, value = f.value, subst = { key = f.key },
+      copyKey = "action.copyField", typeKey = "action.typeField",
+      copySubtitle = f.value, typeSubtitle = f.value,
+    })
+  end
+
+  return rows
+end
+
+-- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
+-- rows. `text` is the raw onQuery text (leading ":" + entryPath), echoed back
+-- to setResults / checked against lastQuery exactly like the browse path.
+local function fetchDetail(entryPath, text)
+  local hit = detailCache[entryPath]
+  if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
+    launcher.setResults(text, renderDetailRows(entryPath, hit))
+    return
+  end
+
+  launcher.setResults(text, {
+    goBackRow(parentOf(entryPath), entryPath),
+    { id = "decrypting", title = tr("detail.decrypting"), glyph = "refresh" },
+  })
+
+  noctalia.runAsync({ "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath }, function(result)
+    if lastQuery ~= text then
+      return -- a newer query superseded this one
+    end
+    if result.exitCode ~= 0 or result.timedOut then
+      launcher.setResults(text, {
+        goBackRow(parentOf(entryPath), entryPath),
+        { id = "error", title = tr("detail.error"), subtitle = entryPath, glyph = "alert-triangle" },
+      })
+      return
+    end
+
+    local password, hasOtp, fields = parsePassEntry(result.stdout or "")
+    local username, remaining = extractUsername(entryPath, fields)
+    local data = {
+      at = noctalia.nowMs(),
+      ttl = DETAIL_TTL_MS,
+      password = password,
+      hasOtp = hasOtp,
+      username = username,
+      fields = remaining,
+    }
+    detailCache[entryPath] = data
+    launcher.setResults(text, renderDetailRows(entryPath, data))
+  end)
+end
+
 -- ── host hooks ────────────────────────────────────────────────────────────
 function onQuery(text)
   lastQuery = text
-  local folder, search = splitPath(trim(text))
+  local trimmed = trim(text)
+
+  -- A leading ":" is never produced by browsing (folder/search text has no
+  -- reason to start with it), so it doubles as the detail-mode marker: the
+  -- rest of the string is the entry path. A fresh ">pass " (no marker) always
+  -- falls through to browse, resetting detail state for free.
+  local entryPath = trimmed:match("^:(.+)$")
+  if entryPath then
+    fetchDetail(entryPath, text)
+    return
+  end
+
+  local folder, search = splitPath(trimmed)
   local recursive = search ~= ""
   local dir = folderDir(folder)
   local cacheKey = recursive
@@ -350,7 +526,7 @@ function onQuery(text)
 end
 
 function onActivate(id)
-  if id == nil or id == "" or id == "loading" then
+  if id == nil or id == "" or id == "loading" or id == "decrypting" or id == "error" then
     return
   end
 
@@ -360,8 +536,14 @@ function onActivate(id)
   elseif kind == "back" then
     launcher.setQuery(rest ~= "" and (rest .. "/") or " ")
   elseif kind == "entry" then
-    -- pass show / copy / type land in a later port step.
-    noctalia.notify(tr("command.description"), tr("detail.pending", { entry = rest }))
+    launcher.setQuery(":" .. rest)
+  elseif kind == "act" then
+    -- Real copy/type/OTP/wtype wiring is the next port step; for now just
+    -- confirm which action would have run.
+    local ctx = detailActions[id]
+    if ctx then
+      noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
+    end
   end
 end
 
