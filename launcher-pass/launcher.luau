@@ -112,6 +112,10 @@ local function browseArgv(dir)
   }
 end
 
+local function browseCacheKey(dir)
+  return table.concat({ dir, "s", "" }, "\0")
+end
+
 -- Recursive search: every *.gpg path under `dir`, AND-filtered by the query
 -- fragments with a chain of `grep -iF` (fixed-string, case-insensitive,
 -- order-independent — the same semantics as the QML substring test), capped.
@@ -171,6 +175,47 @@ local function parseEntries(text, folder, recursive)
   end
 
   return entries
+end
+
+-- ── background prefetch ──────────────────────────────────────────────────
+-- Navigation always drills into a folder already visible in the current list,
+-- so as soon as a browse view is rendered its child folders are listed in the
+-- background. Activating one then hits a warm cache and renders with no
+-- subprocess on the critical path.
+local PREFETCH_MAX = 10
+local pendingFetch = {} -- browse cacheKey -> true while a background find runs
+
+local function prefetchBrowse(dir, folderPath)
+  local key = browseCacheKey(dir)
+  local hit = listCache[key]
+  if pendingFetch[key] or (hit and (noctalia.nowMs() - hit.at) < hit.ttl) then
+    return
+  end
+  pendingFetch[key] = true
+  noctalia.runAsync(browseArgv(dir), function(result)
+    pendingFetch[key] = nil
+    if result.exitCode == 0 and not result.timedOut then
+      listCache[key] = {
+        at = noctalia.nowMs(),
+        ttl = BROWSE_TTL_MS,
+        entries = parseEntries(result.stdout or "", folderPath, false),
+      }
+    end
+  end)
+end
+
+local function prefetchChildren(entries)
+  local base = storeDir()
+  local n = 0
+  for _, e in ipairs(entries) do
+    if e.isDir then
+      n = n + 1
+      if n > PREFETCH_MAX then
+        break
+      end
+      prefetchBrowse(base .. "/" .. e.fullPath, e.fullPath)
+    end
+  end
 end
 
 -- ── result rows ───────────────────────────────────────────────────────────
@@ -260,11 +305,20 @@ function onQuery(text)
   local folder, search = splitPath(trim(text))
   local recursive = search ~= ""
   local dir = folderDir(folder)
-  local cacheKey = table.concat({ dir, recursive and "r" or "s", search }, "\0")
+  local cacheKey = recursive
+      and table.concat({ dir, "r", search }, "\0")
+      or browseCacheKey(dir)
+
+  local function publish(entries)
+    if not recursive then
+      prefetchChildren(entries) -- warm the sub-folders the user might open next
+    end
+    launcher.setResults(text, renderRows(folder, search, entries))
+  end
 
   local hit = listCache[cacheKey]
   if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
-    launcher.setResults(text, renderRows(folder, search, hit.entries))
+    publish(hit.entries)
     return
   end
 
@@ -285,7 +339,7 @@ function onQuery(text)
     if lastQuery ~= text then
       return -- a newer query superseded this one
     end
-    launcher.setResults(text, renderRows(folder, search, entries))
+    publish(entries)
   end
 
   if recursive then
@@ -310,3 +364,7 @@ function onActivate(id)
     noctalia.notify(tr("command.description"), tr("detail.pending", { entry = rest }))
   end
 end
+
+-- Warm the store-root listing at load so the first ">pass" renders instantly;
+-- rendering it then prefetches its sub-folders, and so on down the tree.
+prefetchBrowse(storeDir(), "")

@@ -59,4 +59,3 @@ entry = "launcher.luau"
 prefix = "pass"                     # user types ">pass " (Noctalia adds the ">")
 glyph = "lock"
 include_in_global_search = false
-debounce_ms = 200                   # replaces the old 200 ms searchTimer
