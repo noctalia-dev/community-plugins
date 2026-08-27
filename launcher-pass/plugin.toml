@@ -55,6 +55,15 @@ default = 12                        # milliseconds between keystrokes
 min = 0
 advanced = true
 
+[[setting]]
+key = "pinentryGraceMs"
+type = "int"
+label_key = "settings.pinentryGraceMs.label"
+description_key = "settings.pinentryGraceMs.desc"
+default = 500                       # milliseconds; see pinentryGraceMs() in launcher.luau
+min = 0
+advanced = true
+
 [[launcher_provider]]
 id = "pass"
 entry = "launcher.luau"

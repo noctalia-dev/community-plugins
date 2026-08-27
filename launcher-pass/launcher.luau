@@ -25,9 +25,13 @@
 -- exclusive keyboard grab, so the GPG pinentry dialog `pass show` pops on a
 -- locked store never receives focus while the panel is open. There is no
 -- noctalia.* call to hand focus to an arbitrary window, so — same fix as the
--- old QML version — `pass show` runs with the panel closed and the panel is
--- reopened afterwards, via the `noctalia msg panel-close/panel-open` CLI IPC
--- (see closeLauncherPanel/reopenLauncherPanel below).
+-- old QML version — the panel is closed and reopened afterwards, via the
+-- `noctalia msg panel-close/panel-open` CLI IPC (see
+-- closeLauncherPanel/reopenLauncherPanel below). This only happens when
+-- needed: `pass show` is raced against a short grace period
+-- (pinentryGraceMs, default 200ms), and if gpg-agent already had the
+-- passphrase cached the result comes back before the grace period elapses,
+-- so the panel is never touched at all.
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
@@ -470,6 +474,21 @@ local function reopenLauncherPanel(text)
   noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", context }, function() end)
 end
 
+-- If `pass show` finishes within this grace period, gpg-agent already had
+-- the passphrase cached — no pinentry dialog ever appeared, so closing and
+-- reopening the panel would just be a pointless flicker. Configurable via
+-- the pinentryGraceMs setting; this is only the fallback for a
+-- missing/invalid value.
+local PINENTRY_GRACE_DEFAULT_MS = 200
+
+local function pinentryGraceMs()
+  local ms = tonumber(noctalia.getConfig("pinentryGraceMs"))
+  if ms == nil or ms < 0 then
+    return PINENTRY_GRACE_DEFAULT_MS
+  end
+  return ms
+end
+
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
 -- rows. `text` is the raw onQuery text (leading ":" + entryPath), echoed back
 -- to setResults / checked against lastQuery exactly like the browse path.
@@ -515,15 +534,33 @@ local function fetchDetail(entryPath, text)
     launcher.setResults(text, renderDetailRows(entryPath, data))
   end
 
-  closeLauncherPanel(function()
-    noctalia.runAsync(
-      { "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath },
-      function(result)
-        afterShow(result)
+  -- Race the decrypt against a short grace period instead of closing the
+  -- panel up front: if gpg-agent already has the passphrase cached, `pass
+  -- show` returns almost instantly with no pinentry dialog ever appearing,
+  -- and closing/reopening the panel for that would be a pointless flicker.
+  -- Only if the grace period elapses first do we assume pinentry is up and
+  -- belatedly close the panel so it can get focus.
+  local resolved = false   -- true once the `pass show` callback has fired
+  local panelClosed = false -- true once the panel was actually closed
+
+  noctalia.runAsync(
+    { "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath },
+    function(result)
+      resolved = true
+      afterShow(result)
+      if panelClosed then
         reopenLauncherPanel(text)
-      end,
-      DECRYPT_TIMEOUT_MS
-    )
+      end
+    end,
+    DECRYPT_TIMEOUT_MS
+  )
+
+  noctalia.runAsync({ "sleep", tostring(pinentryGraceMs() / 1000) }, function()
+    if resolved then
+      return -- `pass show` already finished — no pinentry dialog to focus
+    end
+    panelClosed = true
+    closeLauncherPanel(function() end)
   end)
 end
 
