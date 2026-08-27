@@ -60,7 +60,7 @@ key = "pinentryGraceMs"
 type = "int"
 label_key = "settings.pinentryGraceMs.label"
 description_key = "settings.pinentryGraceMs.desc"
-default = 500                       # milliseconds; see pinentryGraceMs() in launcher.luau
+default = 200                       # milliseconds; see pinentryGraceMs() in launcher.luau
 min = 0
 advanced = true
 
