@@ -17,7 +17,7 @@ Don't run Claude Code? The signal bus is agent-agnostic — any agent, CI job, o
 | Field | Value |
 | --- | --- |
 | ID | `lowcache/claude-companion` |
-| Entries | Service: `pulse-svc`; bar widget: `pulse`; desktop widget: `orb`; panels: `answer`, `sessions`, `consent`, `ask`; launcher: `claude` |
+| Entries | Services: `pulse-svc`, `claude-ask`; bar widget: `pulse`; desktop widget: `orb`; panels: `answer`, `sessions`, `consent`, `ask`; launcher: `claude` |
 | Launcher Prefix | `/claude` |
 
 Built and live-tested against Noctalia 5.0.0 (build `623210223c`), with an offline widget spec suite keeping the state machine honest.
@@ -155,7 +155,13 @@ that matcher; it is your `settings.json`, not the plugin's.
 
 **The panel** leads with Claude's own description of what the command is for, then the
 command itself, then the cwd and session. Three answers: **Allow once**, **Always
-allow** (appends to the allowlist), **Deny**.
+allow** (appends to the allowlist), **Deny**. It opens itself when a request arrives and
+closes when you answer; opening it by hand shows whatever is pending, or an empty state
+when nothing is:
+
+```sh
+noctalia msg panel-toggle lowcache/claude-companion:consent
+```
 
 **Nothing here classifies anything.** The allowlist ships empty and only ever grows by
 your explicit click, keyed on the *exact* command string. There is no pattern matching
