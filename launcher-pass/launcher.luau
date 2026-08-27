@@ -20,6 +20,14 @@
 -- fresh ">pass " always resets to browse for free, same trick as the
 -- trailing-"/" folder marker). Row actions are stubbed with a notification —
 -- actual copy/type/OTP/clipboard-timeout/wtype wiring is the next step.
+--
+-- The pinentry dance: the launcher panel is a layer-shell surface with an
+-- exclusive keyboard grab, so the GPG pinentry dialog `pass show` pops on a
+-- locked store never receives focus while the panel is open. There is no
+-- noctalia.* call to hand focus to an arbitrary window, so — same fix as the
+-- old QML version — `pass show` runs with the panel closed and the panel is
+-- reopened afterwards, via the `noctalia msg panel-close/panel-open` CLI IPC
+-- (see closeLauncherPanel/reopenLauncherPanel below).
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
@@ -32,6 +40,12 @@ local SEARCH_TTL_MS = 8000
 -- Decrypted entries stay cached a while so re-rendering the same detail view
 -- (e.g. a debounce re-fire) doesn't trigger a second `pass show` / pinentry.
 local DETAIL_TTL_MS = 60000
+-- `pass show` pauses on pinentry for as long as the user takes to enter a
+-- passphrase or touch a hardware key — that can legitimately be a while, and
+-- cutting it short would kill pinentry mid-entry. This is a safety net, not a
+-- UX timer: it only exists so a truly wedged gpg-agent eventually reopens the
+-- launcher panel instead of leaving it closed forever.
+local DECRYPT_TIMEOUT_MS = 300000
 
 -- ── module state — caches only, no navigation state ────────────────────────
 local lastQuery = nil -- most recent onQuery text, for dropping stale async
@@ -421,6 +435,29 @@ local function renderDetailRows(entryPath, data)
   return rows
 end
 
+-- ── pinentry dance ────────────────────────────────────────────────────────
+-- `noctalia msg panel-close/panel-open <id> [context]` is the CLI IPC the
+-- host binary exposes for its own panels (confirmed against the installed
+-- `noctalia --help` / `noctalia msg --help` text: "Close the active panel,
+-- or close the named panel if it is active" / "Open a panel by id,
+-- optionally with context"). `panel-close` is a no-op unless the launcher is
+-- the active panel, so this is safe to call even if it's already closed.
+-- Argv form throughout — no shell parsing needed and none of these values
+-- are attacker-controlled anyway, but it's the house style (see CLAUDE.md
+-- "Subprocess rules").
+local function closeLauncherPanel(cb)
+  noctalia.runAsync({ "noctalia", "msg", "panel-close", "launcher" }, cb)
+end
+
+-- Reopens with the exact input the launcher had before it was closed, as the
+-- panel's "context" argument — the host re-delivers that as a fresh onQuery,
+-- so whatever is now in detailCache/listCache gets rendered without this
+-- script tracking "what was on screen" itself. `text` is the raw onQuery
+-- text (no ">pass " prefix), so the context reconstructs the full input.
+local function reopenLauncherPanel(text)
+  noctalia.runAsync({ "noctalia", "msg", "panel-open", "launcher", ">pass " .. text }, function() end)
+end
+
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
 -- rows. `text` is the raw onQuery text (leading ":" + entryPath), echoed back
 -- to setResults / checked against lastQuery exactly like the browse path.
@@ -436,7 +473,11 @@ local function fetchDetail(entryPath, text)
     { id = "decrypting", title = tr("detail.decrypting"), glyph = "refresh" },
   })
 
-  noctalia.runAsync({ "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath }, function(result)
+  -- Populate detailCache / setResults *before* reopening the panel: reopening
+  -- re-delivers `text` to onQuery, and that re-entrant fetchDetail must see a
+  -- warm cache or it would start a second `pass show` (and a second pinentry
+  -- prompt) right on top of this one.
+  local function afterShow(result)
     if lastQuery ~= text then
       return -- a newer query superseded this one
     end
@@ -460,6 +501,17 @@ local function fetchDetail(entryPath, text)
     }
     detailCache[entryPath] = data
     launcher.setResults(text, renderDetailRows(entryPath, data))
+  end
+
+  closeLauncherPanel(function()
+    noctalia.runAsync(
+      { "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath },
+      function(result)
+        afterShow(result)
+        reopenLauncherPanel(text)
+      end,
+      DECRYPT_TIMEOUT_MS
+    )
   end)
 end
 
