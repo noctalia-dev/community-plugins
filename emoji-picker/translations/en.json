@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "paste_command": {
+      "label": "Paste command",
+      "description": "Optional shell command run after copying. {emoji} is replaced with the shell-quoted character (e.g. 'ydotool key -d 20 29:1 47:1 47:0 29:0' to press Ctrl+V, or 'wtype {emoji}' to type it). Leave empty to copy to the clipboard only."
+    }
+  }
+}
