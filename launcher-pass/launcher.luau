@@ -6,9 +6,10 @@
 --   * ">pass" / ">pass <query>" prefix routing (Noctalia strips the prefix)
 --   * store listing via `find`; recursive search is pre-filtered in the
 --     subprocess with piped `grep -iF` so Luau only ever handles matched lines
---   * the fuzzyMatch() semantics of LauncherProvider.qml (whitespace-split
---     query, every fragment a contiguous substring, order-independent; score
---     favouring earlier path segments and alphabetically-earlier names)
+--   * match semantics from LauncherProvider.qml's fuzzyMatch(): whitespace-split
+--     query, every fragment a contiguous substring, order-independent
+--   * ranking: query-aware (see rankEntry) — the QML base-27 segment score let
+--     leaf *length* dominate, floating "foo_new_1" above a shallower "foo"
 --   * folder drill-in / "Go back", with the navigation state carried entirely
 --     in the launcher query string (a trailing "/" marks a folder context)
 --
@@ -23,10 +24,6 @@ local MAX_RESULTS = 50
 local GREP_CAP = 500
 local BROWSE_TTL_MS = 30000
 local SEARCH_TTL_MS = 8000
-
--- Per-segment weight for the score: QML divided each segment value by 1000^p,
--- i.e. multiplied by 1e-3^p.
-local SEG_W = { 1, 1e-3, 1e-6, 1e-9, 1e-12, 1e-15, 1e-18, 1e-21 }
 
 -- ── module state — caches only, no navigation state ────────────────────────
 local lastQuery = nil -- most recent onQuery text, for dropping stale async
@@ -80,21 +77,28 @@ local function fragments(search)
   return frags
 end
 
--- ── query-independent path score (exact port of fuzzyMatch()'s scoring) ────
--- The QML score depends only on the target string, never on the query, so it
--- is computed once per entry and memoised on the entry table.
-local function pathScore(nameLower)
-  local score = 0
-  local idx = 1
-  for seg in (nameLower .. "/"):gmatch("([^/]*)/") do
-    local v = 0
-    for i = 1, #seg do
-      v = v * 27 + (122 - seg:byte(i)) -- 122 == 'z'
-    end
-    score = score + v * (SEG_W[idx] or (1e-3) ^ (idx - 1))
-    idx = idx + 1
+-- ── ranking ──────────────────────────────────────────────────────────────
+-- Returns (exact, depth) for one entry against the query fragments:
+--   exact = how many fragments equal a whole path segment (an exact hit on a
+--           segment boundary beats a mere substring — e.g. "root" == the leaf
+--           "root" ranks above "root" inside "root_new_1")
+--   depth = number of path segments (shallower wins the tie)
+-- Rows are then sorted by exact desc, depth asc, then full path alphabetically.
+local function rankEntry(nameLower, frags)
+  local segs = {}
+  for s in nameLower:gmatch("[^/]+") do
+    segs[#segs + 1] = s
   end
-  return score
+  local exact = 0
+  for _, f in ipairs(frags) do
+    for _, s in ipairs(segs) do
+      if s == f then
+        exact = exact + 1
+        break
+      end
+    end
+  end
+  return exact, #segs
 end
 
 -- ── subprocess commands ───────────────────────────────────────────────────
@@ -207,19 +211,20 @@ local function renderRows(folder, search, entries)
   end
 
   if #frags == 0 then
-    -- empty search: QML returns score 1 for every entry -> pure alphabetical
+    -- empty search (folder browse): pure alphabetical
     table.sort(matched, function(a, b)
       return a.nameLower < b.nameLower
     end)
   else
     for _, e in ipairs(matched) do
-      if e.score == nil then
-        e.score = pathScore(e.nameLower)
-      end
+      e.exact, e.depth = rankEntry(e.nameLower, frags)
     end
     table.sort(matched, function(a, b)
-      if a.score ~= b.score then
-        return a.score > b.score
+      if a.exact ~= b.exact then
+        return a.exact > b.exact
+      end
+      if a.depth ~= b.depth then
+        return a.depth < b.depth
       end
       return a.nameLower < b.nameLower
     end)
