@@ -160,6 +160,22 @@ local state = {
   delay = {},
 }
 
+local function publish(key)
+  noctalia.state.set("mihomo." .. key, state[key])
+end
+
+local function set_online()
+  state.connection.status = "online"
+  state.connection.error = ""
+  publish("connection")
+end
+
+local function set_offline(err)
+  state.connection.status = "offline"
+  state.connection.error = err or ""
+  publish("connection")
+end
+
 -- Mihomo's /proxies response is a map and therefore has no stable user-facing
 -- group order. Keep the panel's preferred order per server profile in the
 -- plugin data directory; newly discovered groups that are not in this list are
@@ -351,22 +367,6 @@ end
 
 local function apply_group_order(groups)
   require_group_logic().apply_group_order(groups, group_order)
-end
-
-local function publish(key)
-  noctalia.state.set("mihomo." .. key, state[key])
-end
-
-local function set_online()
-  state.connection.status = "online"
-  state.connection.error = ""
-  publish("connection")
-end
-
-local function set_offline(err)
-  state.connection.status = "offline"
-  state.connection.error = err or ""
-  publish("connection")
 end
 
 -- ── HTTP helpers ────────────────────────────────────────────────────────────
