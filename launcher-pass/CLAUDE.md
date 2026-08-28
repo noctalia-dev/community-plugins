@@ -190,12 +190,20 @@ DECRYPT_TIMEOUT_MS)` — 5 min, a safety net for a slow passphrase / hardware ke
 against a `{"sleep", <pinentryGraceMs/1000>}` (default 200 ms). If `pass show`
 wins, gpg-agent had the passphrase cached, no dialog appeared, the panel is never
 touched — no flicker. If the sleep wins, the panel is closed; when `pass show`
-finally resolves it reopens with context `<leader> .. "pass " .. text`, which the
-host re-delivers as a fresh `onQuery` that finds the now-warm `detailCache` and
-re-renders. `<leader>` is `noctalia.getSetting("shell.launcher.provider_prefix")`
-(fallback `">"`) — **never hardcode it**, or the reopened context isn't
-recognised as a command. `copyViaPass` / `typeViaWtype` sidestep all this by
-closing the launcher up front and never reopening.
+finally resolves **successfully** it reopens with context `<leader> .. "pass " ..
+text`, which the host re-delivers as a fresh `onQuery` that finds the now-warm
+`detailCache` and re-renders. `<leader>` is
+`noctalia.getSetting("shell.launcher.provider_prefix")` (fallback `">"`) —
+**never hardcode it**, or the reopened context isn't recognised as a command.
+`copyViaPass` / `typeViaWtype` sidestep all this by closing the launcher up front
+and never reopening.
+
+The reopen is **conditional on the decrypt succeeding**. If `pass show` exits
+non-zero (the user dismissed the pinentry dialog, or gpg errored) or times out,
+the panel stays closed — that is the graceful exit. Reopening on failure would
+re-fire `onQuery` → `fetchDetail` → a fresh `pass show` (the failure is never
+cached) with nothing user-driven in between, looping the pinentry prompt
+forever. Retrying is then an explicit act: the user reopens the launcher.
 
 ---
 

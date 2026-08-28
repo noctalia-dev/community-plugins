@@ -34,7 +34,9 @@
 -- happens when needed: `pass show` is raced against a short grace period
 -- (pinentryGraceMs, default 200ms), and if gpg-agent already had the
 -- passphrase cached the result comes back before the grace period elapses,
--- so the panel is never touched at all.
+-- so the panel is never touched at all. The reopen is also conditional on the
+-- decrypt succeeding — a cancelled or failed pinentry leaves the launcher
+-- closed rather than looping a fresh prompt.
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
@@ -58,8 +60,10 @@ local DETAIL_TTL_MS = 60000
 -- `pass show` pauses on pinentry for as long as the user takes to enter a
 -- passphrase or touch a hardware key — that can legitimately be a while, and
 -- cutting it short would kill pinentry mid-entry. This is a safety net, not a
--- UX timer: it only exists so a truly wedged gpg-agent eventually reopens the
--- launcher panel instead of leaving it closed forever.
+-- UX timer: it only exists so a truly wedged gpg-agent can't pin the async
+-- callback open forever. On expiry the decrypt counts as failed, so the panel
+-- stays closed (see fetchDetail) — the same graceful exit as a cancelled
+-- pinentry, not a reopen.
 local DECRYPT_TIMEOUT_MS = 300000
 
 -- ── module state — caches only, no navigation state ────────────────────────
@@ -701,6 +705,13 @@ local function fetchDetail(entryPath, text, filter)
       return -- a newer query superseded this one
     end
     if result.exitCode ~= 0 or result.timedOut then
+      -- Decrypt failed — the user dismissed the pinentry dialog, or gpg
+      -- errored, or it timed out. Show the error row for the case where the
+      -- panel is still open (grace period never elapsed); when the panel was
+      -- closed for pinentry this is a no-op the user won't see, and crucially
+      -- the caller does *not* reopen it (that would re-fire onQuery ->
+      -- fetchDetail -> a fresh `pass show` with no user action between, looping
+      -- the prompt forever).
       launcher.setResults(text, {
         goBackRow(parentOf(entryPath), entryPath),
         { id = "error", title = tr("detail.error"), subtitle = entryPath, glyph = "alert-triangle" },
@@ -736,7 +747,14 @@ local function fetchDetail(entryPath, text, filter)
     function(result)
       resolved = true
       afterShow(result)
-      if panelClosed then
+      -- Reopen only on a successful decrypt. On failure (cancelled pinentry,
+      -- gpg error, timeout) the passphrase is no longer wanted; reopening
+      -- would re-deliver `text` to onQuery and start the whole `pass show` /
+      -- pinentry cycle again with nothing user-driven to break it. Leaving
+      -- the launcher closed is the graceful exit — the user reopens it to
+      -- retry.
+      local ok = result.exitCode == 0 and not result.timedOut
+      if panelClosed and ok then
         reopenLauncherPanel(text)
       end
     end,
