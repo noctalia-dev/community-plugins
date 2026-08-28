@@ -64,6 +64,34 @@ default = 200                       # milliseconds; see pinentryGraceMs() in lau
 min = 0
 advanced = true
 
+# Detail-view row layout. "copy" -> Copy row before Type row for each value;
+# "type" -> Type before Copy. Grouping "interleaved" -> per value: the pair,
+# then the next value; "grouped" -> every Copy row, then every Type row (each
+# block in the detailActionOrder direction). See renderDetailRows().
+[[setting]]
+key = "detailActionOrder"
+type = "select"
+label_key = "settings.detailActionOrder.label"
+description_key = "settings.detailActionOrder.desc"
+default = "copy"
+advanced = true
+options = [
+  { value = "copy", label_key = "settings.detailActionOrder.options.copy" },
+  { value = "type", label_key = "settings.detailActionOrder.options.type" },
+]
+
+[[setting]]
+key = "detailActionGrouping"
+type = "select"
+label_key = "settings.detailActionGrouping.label"
+description_key = "settings.detailActionGrouping.desc"
+default = "interleaved"
+advanced = true
+options = [
+  { value = "interleaved", label_key = "settings.detailActionGrouping.options.interleaved" },
+  { value = "grouped", label_key = "settings.detailActionGrouping.options.grouped" },
+]
+
 [[launcher_provider]]
 id = "pass"
 entry = "launcher.luau"

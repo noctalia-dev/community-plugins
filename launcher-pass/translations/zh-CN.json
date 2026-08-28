@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Pinentry 宽限期",
       "desc": "在假定 GPG pinentry 提示需要焦点并隐藏启动器之前，等待密码解密的毫秒数（默认：200）"
+    },
+    "detailActionOrder": {
+      "label": "详情视图操作顺序",
+      "desc": "在条目详情视图中，每个值的哪一行排在前面",
+      "options": {
+        "copy": "先复制",
+        "type": "先输入"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "详情视图操作分组",
+      "desc": "将每个值的复制行和输入行交替排列，或先列出所有复制行再列出所有输入行",
+      "options": {
+        "interleaved": "交替",
+        "grouped": "按操作分组"
+      }
     }
   }
 }

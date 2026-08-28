@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Pinentry tolerans süresi",
       "desc": "Bir GPG pinentry isteminin odak gerektirdiğini varsayıp başlatıcıyı gizlemeden önce parolanın çözülmesi için beklenecek milisaniye (varsayılan: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Ayrıntı görünümünde eylem sırası",
+      "desc": "Bir girdinin ayrıntı görünümünde her değer için hangi satırın önce geleceği",
+      "options": {
+        "copy": "Önce kopyala",
+        "type": "Önce yaz"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Ayrıntı görünümünde eylem gruplaması",
+      "desc": "Her değerin Kopyala ve Yaz satırlarını dönüşümlü sırala veya önce tüm Kopyala satırlarını, sonra tüm Yaz satırlarını listele",
+      "options": {
+        "interleaved": "Dönüşümlü",
+        "grouped": "Eyleme göre gruplanmış"
+      }
     }
   }
 }

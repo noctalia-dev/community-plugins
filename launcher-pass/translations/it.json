@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Periodo di tolleranza pinentry",
       "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Ordine delle azioni nella vista dettagli",
+      "desc": "Quale riga viene prima per ogni valore nella vista dettagli di una voce",
+      "options": {
+        "copy": "Prima Copia",
+        "type": "Prima Digita"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Raggruppamento delle azioni nella vista dettagli",
+      "desc": "Alterna le righe Copia e Digita di ogni valore, oppure elenca tutte le righe Copia e poi tutte le righe Digita",
+      "options": {
+        "interleaved": "Alternate",
+        "grouped": "Raggruppate per azione"
+      }
     }
   }
 }

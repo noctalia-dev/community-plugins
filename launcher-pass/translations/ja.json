@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Pinentry猶予期間",
       "desc": "GPGのpinentryプロンプトがフォーカスを必要としてランチャーを非表示にすると判断する前に、パスワードの復号を待つミリ秒数（デフォルト：200）"
+    },
+    "detailActionOrder": {
+      "label": "詳細表示のアクション順序",
+      "desc": "エントリの詳細表示で各値についてどの行を先に表示するか",
+      "options": {
+        "copy": "コピーを先に",
+        "type": "入力を先に"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "詳細表示のアクションのグループ化",
+      "desc": "各値のコピー行と入力行を交互に並べるか、すべてのコピー行の後にすべての入力行を並べるか",
+      "options": {
+        "interleaved": "交互",
+        "grouped": "アクションごとにグループ化"
+      }
     }
   }
 }

@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Período de tolerância do pinentry",
       "desc": "Milissegundos a aguardar pela desencriptação de uma palavra-passe antes de assumir que uma solicitação pinentry do GPG precisa de foco e ocultar o lançador (predefinido: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Ordem das ações na vista de detalhes",
+      "desc": "Que linha aparece primeiro para cada valor na vista de detalhes de uma entrada",
+      "options": {
+        "copy": "Copiar primeiro",
+        "type": "Digitar primeiro"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Agrupamento das ações na vista de detalhes",
+      "desc": "Alternar as linhas Copiar e Digitar de cada valor, ou listar todas as linhas Copiar e depois todas as linhas Digitar",
+      "options": {
+        "interleaved": "Alternadas",
+        "grouped": "Agrupadas por ação"
+      }
     }
   }
 }

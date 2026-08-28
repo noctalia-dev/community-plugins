@@ -78,6 +78,8 @@ so the dialog can take focus and reopens once decryption finishes.
 | `typeDelay` | `int` | `500` | Milliseconds to wait after the launcher closes before `wtype` starts typing, so the compositor can restore focus to the field you were in. *(Advanced. The v4 label "Launcher Close Delay" was misleading — this is the pre-typing delay.)* |
 | `wtypeDelay` | `int` | `12` | Milliseconds between simulated keystrokes. Increase it if characters are dropped. *(Advanced.)* |
 | `pinentryGraceMs` | `int` | `200` | Milliseconds to wait for a decrypt to finish before assuming a pinentry dialog is blocking and hiding the launcher. If your GPG agent already has the passphrase cached, the launcher never flickers. *(Advanced.)* |
+| `detailActionOrder` | `select` | `copy` | In an entry's detail view, whether the **Copy** row (`copy`) or the **Type** row (`type`) comes first for each value. *(Advanced.)* |
+| `detailActionGrouping` | `select` | `interleaved` | `interleaved`: each value's Copy and Type rows sit together. `grouped`: every Copy row first, then every Type row (each block in the `detailActionOrder` direction). *(Advanced.)* |
 
 ## IPC
 

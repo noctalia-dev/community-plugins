@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Pinentry-Kulanzzeit",
       "desc": "Millisekunden, die auf die Entschlüsselung eines Passworts gewartet wird, bevor angenommen wird, dass ein GPG-Pinentry-Dialog den Fokus benötigt, und der Launcher ausgeblendet wird (Standard: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Aktionsreihenfolge in der Detailansicht",
+      "desc": "Welche Zeile für jeden Wert in der Detailansicht eines Eintrags zuerst kommt",
+      "options": {
+        "copy": "Kopieren zuerst",
+        "type": "Eingeben zuerst"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Aktionsgruppierung in der Detailansicht",
+      "desc": "Kopieren- und Eingeben-Zeilen je Wert abwechseln, oder erst alle Kopieren-Zeilen und dann alle Eingeben-Zeilen auflisten",
+      "options": {
+        "interleaved": "Abwechselnd",
+        "grouped": "Nach Aktion gruppiert"
+      }
     }
   }
 }

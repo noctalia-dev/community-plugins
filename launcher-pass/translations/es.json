@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Período de gracia de pinentry",
       "desc": "Milisegundos de espera para descifrar una contraseña antes de asumir que una solicitud pinentry de GPG necesita el foco y ocultar el lanzador (por defecto: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Orden de acciones en la vista de detalles",
+      "desc": "Qué fila aparece primero para cada valor en la vista de detalles de una entrada",
+      "options": {
+        "copy": "Copiar primero",
+        "type": "Escribir primero"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Agrupación de acciones en la vista de detalles",
+      "desc": "Alternar las filas Copiar y Escribir de cada valor, o listar todas las filas Copiar y luego todas las filas Escribir",
+      "options": {
+        "interleaved": "Alternadas",
+        "grouped": "Agrupadas por acción"
+      }
     }
   }
 }

@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Période de grâce pinentry",
       "desc": "Millisecondes d'attente du déchiffrement d'un mot de passe avant de supposer qu'une invite GPG pinentry a besoin du focus et de masquer le lanceur (par défaut: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Ordre des actions dans la vue détaillée",
+      "desc": "Quelle ligne vient en premier pour chaque valeur dans la vue détaillée d'une entrée",
+      "options": {
+        "copy": "Copier d'abord",
+        "type": "Saisir d'abord"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Regroupement des actions dans la vue détaillée",
+      "desc": "Alterner les lignes Copier et Saisir de chaque valeur, ou lister toutes les lignes Copier puis toutes les lignes Saisir",
+      "options": {
+        "interleaved": "Alterné",
+        "grouped": "Groupé par action"
+      }
     }
   }
 }

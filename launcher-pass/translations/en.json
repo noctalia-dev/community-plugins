@@ -50,6 +50,22 @@
     "pinentryGraceMs": {
       "label": "Pinentry grace period",
       "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 200)"
+    },
+    "detailActionOrder": {
+      "label": "Detail view action order",
+      "desc": "Which row comes first for each value in an entry's detail view",
+      "options": {
+        "copy": "Copy first",
+        "type": "Type first"
+      }
+    },
+    "detailActionGrouping": {
+      "label": "Detail view action grouping",
+      "desc": "Interleave each value's Copy and Type rows, or list all Copy rows then all Type rows",
+      "options": {
+        "interleaved": "Interleaved",
+        "grouped": "Grouped by action"
+      }
     }
   }
 }

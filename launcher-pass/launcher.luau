@@ -459,28 +459,30 @@ local function extractUsername(entryPath, fields)
   return username or (entryPath:match("[^/]+$") or entryPath), remaining
 end
 
--- Appends a Copy row (and a Type row too, unless `wtype` is unavailable) for
--- one value, recording each row's dispatch context in `detailActions` under a
--- fresh "act:<n>" id derived from the current row count — no separate counter.
--- `onActivate` reads the context back and hands it to `runAction`.
-local function addAction(rows, entryPath, spec)
-  local copyId = "act:" .. (#rows + 1)
-  local copyTitle = tr(spec.copyKey, spec.subst)
-  detailActions[copyId] =
-    { entryPath = entryPath, verb = "copy", kind = spec.kind, key = spec.key, value = spec.value, label = copyTitle }
-  rows[#rows + 1] = { id = copyId, title = copyTitle, subtitle = spec.copySubtitle, glyph = "copy" }
-
-  if wtypeAvailable() then
-    local typeId = "act:" .. (#rows + 1)
-    local typeTitle = tr(spec.typeKey, spec.subst)
-    detailActions[typeId] =
-      { entryPath = entryPath, verb = "type", kind = spec.kind, key = spec.key, value = spec.value, label = typeTitle }
-    rows[#rows + 1] = { id = typeId, title = typeTitle, subtitle = spec.typeSubtitle, glyph = "typography" }
-  end
+-- Build one action row for `spec` + `verb` ("copy" | "type"), record its
+-- dispatch context in `detailActions` under an "act:<n>" id, and return the
+-- row. `onActivate` reads the context back and hands it to `runAction`.
+local function actionRow(entryPath, spec, verb, n)
+  local id = "act:" .. n
+  local isCopy = verb == "copy"
+  local title = tr(isCopy and spec.copyKey or spec.typeKey, spec.subst)
+  detailActions[id] = {
+    entryPath = entryPath, verb = verb, kind = spec.kind,
+    key = spec.key, value = spec.value, label = title,
+  }
+  return {
+    id = id,
+    title = title,
+    subtitle = isCopy and spec.copySubtitle or spec.typeSubtitle,
+    glyph = isCopy and "copy" or "typography",
+  }
 end
 
--- Row order per CLAUDE.md "Behaviour to implement": password, OTP (if
--- present), username, then remaining key: value fields in file order.
+-- Value order (CLAUDE.md "Behaviour to implement"): password, OTP (if present),
+-- username, then remaining key: value fields in file order. Within that, the
+-- Copy/Type rows are laid out per the detailActionOrder (which verb first) and
+-- detailActionGrouping (pair each value's rows, or all Copy then all Type)
+-- settings.
 --
 -- `filter` is the text the user typed after "<entryPath> " in the detail
 -- query. When non-empty it fuzzy-filters the rendered rows by title, using the
@@ -491,35 +493,62 @@ local function renderDetailRows(entryPath, data, filter)
   detailActions = {}
   local rows = { goBackRow(parentOf(entryPath), entryPath) }
 
-  addAction(rows, entryPath, {
-    kind = "password",
-    copyKey = "action.copyPassword", typeKey = "action.typePassword",
-    copySubtitle = tr("action.copyPasswordDesc"), typeSubtitle = tr("action.typePasswordDesc"),
-    value = data.password,
-  })
-
+  local specs = {
+    {
+      kind = "password",
+      copyKey = "action.copyPassword", typeKey = "action.typePassword",
+      copySubtitle = tr("action.copyPasswordDesc"), typeSubtitle = tr("action.typePasswordDesc"),
+      value = data.password,
+    },
+  }
   if data.hasOtp then
     local otpDesc = tr("action.otpDesc")
-    addAction(rows, entryPath, {
+    specs[#specs + 1] = {
       kind = "otp",
       copyKey = "action.copyOtp", typeKey = "action.typeOtp",
       copySubtitle = otpDesc, typeSubtitle = otpDesc,
-    })
+    }
   end
-
-  addAction(rows, entryPath, {
+  specs[#specs + 1] = {
     kind = "username",
     copyKey = "action.copyUsername", typeKey = "action.typeUsername",
     copySubtitle = data.username, typeSubtitle = data.username,
     value = data.username,
-  })
-
+  }
   for _, f in ipairs(data.fields) do
-    addAction(rows, entryPath, {
+    specs[#specs + 1] = {
       kind = "field", key = f.key, value = f.value, subst = { key = f.key },
       copyKey = "action.copyField", typeKey = "action.typeField",
       copySubtitle = f.value, typeSubtitle = f.value,
-    })
+    }
+  end
+
+  -- verbs to emit, in the configured order; "type" drops out when wtype is
+  -- missing (leaving a single verb, so the order setting stops mattering).
+  local ordered = noctalia.getConfig("detailActionOrder") == "type"
+      and { "type", "copy" } or { "copy", "type" }
+  local verbs = {}
+  for _, v in ipairs(ordered) do
+    if v == "copy" or wtypeAvailable() then
+      verbs[#verbs + 1] = v
+    end
+  end
+
+  local n = 0
+  if noctalia.getConfig("detailActionGrouping") == "grouped" then
+    for _, verb in ipairs(verbs) do
+      for _, spec in ipairs(specs) do
+        n = n + 1
+        rows[#rows + 1] = actionRow(entryPath, spec, verb, n)
+      end
+    end
+  else
+    for _, spec in ipairs(specs) do
+      for _, verb in ipairs(verbs) do
+        n = n + 1
+        rows[#rows + 1] = actionRow(entryPath, spec, verb, n)
+      end
+    end
   end
 
   local frags = fragments(filter or "")
