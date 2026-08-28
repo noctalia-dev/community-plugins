@@ -3,6 +3,10 @@
 All notable changes to Arch Updater are documented here. The panel's changelog
 icon (the history icon next to Check) shows this same file.
 
+## 2.0.2 - 2026-08-28
+
+- Fixed: Update in terminal mode always failed on the Flatpak step, auto-declining its confirmation prompt with "n" (exit 1) even when nothing was typed. flatpak's prompt refuses to be interactive once its stdout isn't a real terminal, which is the case here since the whole run is piped into `tee` for the log; pacman/AUR prompts aren't affected by this. The Flatpak step now runs non-interactively (`-y --noninteractive`) in terminal mode too, same as background mode already did; pacman/AUR review stays fully interactive.
+
 ## 2.0.1 - 2026-08-21
 
 - Added: a changelog view in the panel. Click the history icon next to Check to see what changed in each release. It also opens automatically once an update finishes, unless turned off in settings (Show changelog after updating).
