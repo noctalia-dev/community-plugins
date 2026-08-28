@@ -53,10 +53,11 @@ Target `plugin_api` level: pick the lowest that supplies everything used (per th
 ### Next steps, in order
 
 1. **Copy / Type actions** — wire up the `act:<n>` rows' real behaviour in place of the stub notify: copy password/OTP via `env PASSWORD_STORE_DIR=… [PASSWORD_STORE_CLIP_TIME=…] pass -c` / `pass otp -c` (clip timeout per "Behaviour to preserve #6"); copy plain field/username via `noctalia.copyToClipboard`; type = `sleep <typeDelay/1000>` then feed the value to `wtype -d <wtypeDelay>` (decide stdin approach — open question). "Copied to clipboard" notice on success. Probe `wtype` / `pass-otp` with `commandExists` and hide rows / warn when missing. `pass -c` / `pass otp -c` can also hit pinentry (an expired gpg-agent cache) — reuse `closeLauncherPanel`/`reopenLauncherPanel` around those calls the same way `fetchDetail` does.
-2. **Translations** — add the new `action.*`/`detail.*` keys now in `en.json`; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
-3. **README** — rewrite for v5 (settings, prefix, dependencies); document the resolved IPC section (`noctalia msg panel-*`, see Decisions above).
-4. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
-5. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
+2. **Optimizations** - consider using native `noctalia.fuzzyScore()` method to sort output with guidance to respect default priorities and reduce cpu usage for large password stores.
+3. **Translations** — add the new `action.*`/`detail.*` keys now in `en.json`; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
+4. **README** — rewrite for v5 (settings, prefix, dependencies); document the resolved IPC section (`noctalia msg panel-*`, see Decisions above).
+5. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
+6. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
 
 ### Open questions — updated
 
