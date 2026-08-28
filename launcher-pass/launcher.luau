@@ -629,8 +629,12 @@ end
 -- likewise closed the launcher before piping the value to wl-copy). No
 -- clipboard auto-clear here — `pass` isn't in the loop — matching QML, which
 -- only ran the clearing timer for `pass -c` / `pass otp -c`.
+-- noctalia.copyToClipboard requires the MIME type as a second argument
+-- (it errors "missing argument #2 ... string expected" without it).
+local CLIP_MIME = "text/plain"
+
 local function copyPlain(value, subject)
-  noctalia.copyToClipboard(value or "")
+  noctalia.copyToClipboard(value or "", CLIP_MIME)
   noctalia.notify(tr("notification.copied"), subject)
   closeLauncherPanel(function() end)
 end
