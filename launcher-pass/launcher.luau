@@ -622,10 +622,25 @@ local function copyViaPass(cmd, subject)
   end)
 end
 
--- Dispatch one detail row's recorded action. Copy Password and Copy OTP are
--- wired (both go through `pass -c` / `pass otp -c`, so both reuse copyViaPass
--- and its clip-timeout + close-launcher-first pinentry handling); the field /
--- username copies and every Type action still fall through to the stub notice.
+-- Plain-value copy — the username, and (next step) the key: value fields.
+-- These values are already in memory from the earlier `pass show`, so there's
+-- no subprocess and no pinentry: copy straight through noctalia.copyToClipboard
+-- and close the launcher, the same terminal state as the `pass -c` path (QML
+-- likewise closed the launcher before piping the value to wl-copy). No
+-- clipboard auto-clear here — `pass` isn't in the loop — matching QML, which
+-- only ran the clearing timer for `pass -c` / `pass otp -c`.
+local function copyPlain(value, subject)
+  noctalia.copyToClipboard(value or "")
+  noctalia.notify(tr("notification.copied"), subject)
+  closeLauncherPanel(function() end)
+end
+
+-- Dispatch one detail row's recorded action. Copy Password / Copy OTP go
+-- through `pass -c` / `pass otp -c` (copyViaPass: clip-timeout env +
+-- close-launcher-first pinentry handling). Copy Username copies the value
+-- extractUsername already resolved (first login/user/username field,
+-- case-insensitive; entry basename otherwise) via copyPlain. Copy field and
+-- every Type action still fall through to the stub notice.
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
   if ctx.verb == "copy" and ctx.kind == "password" then
@@ -634,6 +649,10 @@ local function runAction(ctx)
   end
   if ctx.verb == "copy" and ctx.kind == "otp" then
     copyViaPass({ "pass", "otp", "-c", ctx.entryPath }, subject)
+    return
+  end
+  if ctx.verb == "copy" and ctx.kind == "username" then
+    copyPlain(ctx.value, subject)
     return
   end
   noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
