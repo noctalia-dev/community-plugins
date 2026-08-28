@@ -15,7 +15,7 @@ author = "Marco Melletti"
 license = "MIT"
 icon = "lock"
 description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
-tags = ["Launcher"]
+tags = ["launcher", "privacy", "productivity", "utility"]
 dependencies = ["pass", "find", "grep", "pass-otp", "wtype"]
 
 # Settings are declared plugin-wide ([[setting]], the form the sibling launcher
