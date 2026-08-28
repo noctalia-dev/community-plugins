@@ -1,0 +1,55 @@
+{
+  "command": {
+    "description": "搜索 gnu pass 密码条目"
+  },
+  "result": {
+    "goBack": "返回",
+    "folder": "文件夹",
+    "password": "密码",
+    "loading": "正在加载密码条目..."
+  },
+  "detail": {
+    "decrypting": "正在解密密码条目...",
+    "error": "解密条目失败"
+  },
+  "notification": {
+    "copied": "已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "typeFailed": "输入失败"
+  },
+  "action": {
+    "copyPassword": "复制密码",
+    "copyPasswordDesc": "复制密码到剪贴板",
+    "typePassword": "输入密码",
+    "typePasswordDesc": "使用 wtype 输入密码",
+    "copyOtp": "复制 OTP",
+    "typeOtp": "输入 OTP",
+    "otpDesc": "复制/输入当前 OTP 码",
+    "copyUsername": "复制用户名",
+    "typeUsername": "输入用户名",
+    "copyField": "复制{key}",
+    "typeField": "输入{key}"
+  },
+  "settings": {
+    "storePath": {
+      "label": "密码库路径",
+      "desc": "密码库的自定义路径（默认：~/.password-store）"
+    },
+    "clipTimeout": {
+      "label": "剪贴板超时",
+      "desc": "剪贴板清除前的秒数（留空 = 使用 PASSWORD_STORE_CLIP_TIME）"
+    },
+    "typeDelay": {
+      "label": "输入延迟",
+      "desc": "开始输入前的延迟毫秒数（默认：500）"
+    },
+    "wtypeDelay": {
+      "label": "Wtype 按键延迟",
+      "desc": "wtype 按键之间延迟毫秒数（默认：12）"
+    },
+    "pinentryGraceMs": {
+      "label": "Pinentry 宽限期",
+      "desc": "在假定 GPG pinentry 提示需要焦点并隐藏启动器之前，等待密码解密的毫秒数（默认：200）"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "command": {
+    "description": "Cerca voci password di gnu pass"
+  },
+  "result": {
+    "goBack": "Torna indietro",
+    "folder": "Cartella",
+    "password": "Password",
+    "loading": "Caricamento voci password..."
+  },
+  "detail": {
+    "decrypting": "Decifratura della voce password...",
+    "error": "Decifratura della voce non riuscita"
+  },
+  "notification": {
+    "copied": "Copiato negli appunti",
+    "copyFailed": "Copia non riuscita",
+    "typeFailed": "Digitazione non riuscita"
+  },
+  "action": {
+    "copyPassword": "Copia password",
+    "copyPasswordDesc": "Copia password negli appunti",
+    "typePassword": "Digita password",
+    "typePasswordDesc": "Digita password con wtype",
+    "copyOtp": "Copia OTP",
+    "typeOtp": "Digita OTP",
+    "otpDesc": "Copia/digita codice OTP attuale",
+    "copyUsername": "Copia nome utente",
+    "typeUsername": "Digita nome utente",
+    "copyField": "Copia {key}",
+    "typeField": "Digita {key}"
+  },
+  "settings": {
+    "storePath": {
+      "label": "Percorso dell'archivio password",
+      "desc": "Percorso personalizzato all'archivio password (predefinito: ~/.password-store)"
+    },
+    "clipTimeout": {
+      "label": "Timeout degli appunti",
+      "desc": "Secondi prima che gli appunti vengano cancellati (vuoto = usa PASSWORD_STORE_CLIP_TIME)"
+    },
+    "typeDelay": {
+      "label": "Ritardo digitazione",
+      "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)"
+    },
+    "wtypeDelay": {
+      "label": "Ritardo battitura wtype",
+      "desc": "Ritardo tra le battiture in millisecondi per wtype (predefinito: 12)"
+    },
+    "pinentryGraceMs": {
+      "label": "Periodo di tolleranza pinentry",
+      "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)"
+    }
+  }
+}

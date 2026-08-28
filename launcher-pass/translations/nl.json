@@ -1,0 +1,55 @@
+{
+  "command": {
+    "description": "Zoek gnu pass wachtwoordvermeldingen"
+  },
+  "result": {
+    "goBack": "Terug",
+    "folder": "Map",
+    "password": "Wachtwoord",
+    "loading": "Wachtwoordvermeldingen laden..."
+  },
+  "detail": {
+    "decrypting": "Wachtwoordvermelding ontsleutelen...",
+    "error": "Ontsleutelen van vermelding mislukt"
+  },
+  "notification": {
+    "copied": "Gekopieerd naar klembord",
+    "copyFailed": "Kopiëren mislukt",
+    "typeFailed": "Typen mislukt"
+  },
+  "action": {
+    "copyPassword": "Wachtwoord kopiëren",
+    "copyPasswordDesc": "Wachtwoord naar klembord kopiëren",
+    "typePassword": "Wachtwoord typen",
+    "typePasswordDesc": "Wachtwoord typen met wtype",
+    "copyOtp": "OTP kopiëren",
+    "typeOtp": "OTP typen",
+    "otpDesc": "Huidige OTP-code kopiëren/typen",
+    "copyUsername": "Gebruikersnaam kopiëren",
+    "typeUsername": "Gebruikersnaam typen",
+    "copyField": "{key} kopiëren",
+    "typeField": "{key} typen"
+  },
+  "settings": {
+    "storePath": {
+      "label": "Wachtwoordopslagpad",
+      "desc": "Aangepast pad naar de wachtwoordopslag (standaard: ~/.password-store)"
+    },
+    "clipTimeout": {
+      "label": "Klembord-time-out",
+      "desc": "Seconden voordat het klembord wordt gewist (leeg = PASSWORD_STORE_CLIP_TIME gebruiken)"
+    },
+    "typeDelay": {
+      "label": "Typvertraging",
+      "desc": "Vertraging in milliseconden voordat het typen begint (standaard: 500)"
+    },
+    "wtypeDelay": {
+      "label": "Wtype toetsvertraging",
+      "desc": "Vertraging tussen toetsaanslagen in milliseconden voor wtype (standaard: 12)"
+    },
+    "pinentryGraceMs": {
+      "label": "Pinentry-respijtperiode",
+      "desc": "Milliseconden wachten tot een wachtwoord is ontsleuteld voordat wordt aangenomen dat een GPG-pinentry-prompt focus nodig heeft en de launcher wordt verborgen (standaard: 200)"
+    }
+  }
+}

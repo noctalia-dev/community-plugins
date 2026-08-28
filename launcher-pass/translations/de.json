@@ -1,0 +1,55 @@
+{
+  "command": {
+    "description": "Gnu Pass Passworteinträge durchsuchen"
+  },
+  "result": {
+    "goBack": "Zurück",
+    "folder": "Ordner",
+    "password": "Passwort",
+    "loading": "Lade Passworteinträge..."
+  },
+  "detail": {
+    "decrypting": "Passworteintrag wird entschlüsselt...",
+    "error": "Entschlüsseln des Eintrags fehlgeschlagen"
+  },
+  "notification": {
+    "copied": "In Zwischenablage kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "typeFailed": "Eingeben fehlgeschlagen"
+  },
+  "action": {
+    "copyPassword": "Passwort kopieren",
+    "copyPasswordDesc": "Passwort in Zwischenablage kopieren",
+    "typePassword": "Passwort eingeben",
+    "typePasswordDesc": "Passwort mit wtype eingeben",
+    "copyOtp": "OTP kopieren",
+    "typeOtp": "OTP eingeben",
+    "otpDesc": "Aktuellen OTP-Code kopieren/eingeben",
+    "copyUsername": "Benutzername kopieren",
+    "typeUsername": "Benutzername eingeben",
+    "copyField": "{key} kopieren",
+    "typeField": "{key} eingeben"
+  },
+  "settings": {
+    "storePath": {
+      "label": "Passwort-Speicherpfad",
+      "desc": "Benutzerdefinierter Pfad zum Passwort-Speicher (Standard: ~/.password-store)"
+    },
+    "clipTimeout": {
+      "label": "Zwischenablage-Timeout",
+      "desc": "Sekunden, bis die Zwischenablage geleert wird (leer = PASSWORD_STORE_CLIP_TIME verwenden)"
+    },
+    "typeDelay": {
+      "label": "Eingabeverzögerung",
+      "desc": "Verzögerung in Millisekunden vor Beginn der Eingabe (Standard: 500)"
+    },
+    "wtypeDelay": {
+      "label": "Wtype-Tastenverzögerung",
+      "desc": "Verzögerung zwischen Tastenanschlägen in Millisekunden für wtype (Standard: 12)"
+    },
+    "pinentryGraceMs": {
+      "label": "Pinentry-Kulanzzeit",
+      "desc": "Millisekunden, die auf die Entschlüsselung eines Passworts gewartet wird, bevor angenommen wird, dass ein GPG-Pinentry-Dialog den Fokus benötigt, und der Launcher ausgeblendet wird (Standard: 200)"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "command": {
+    "description": "gnu passのパスワードエントリを検索"
+  },
+  "result": {
+    "goBack": "戻る",
+    "folder": "フォルダ",
+    "password": "パスワード",
+    "loading": "パスワードエントリを読み込み中..."
+  },
+  "detail": {
+    "decrypting": "パスワードエントリを復号中...",
+    "error": "エントリの復号に失敗しました"
+  },
+  "notification": {
+    "copied": "クリップボードにコピーしました",
+    "copyFailed": "コピーに失敗しました",
+    "typeFailed": "入力に失敗しました"
+  },
+  "action": {
+    "copyPassword": "パスワードをコピー",
+    "copyPasswordDesc": "パスワードをクリップボードにコピー",
+    "typePassword": "パスワードを入力",
+    "typePasswordDesc": "wtypeでパスワードを入力",
+    "copyOtp": "OTPをコピー",
+    "typeOtp": "OTPを入力",
+    "otpDesc": "現在のOTPコードをコピー/入力",
+    "copyUsername": "ユーザー名をコピー",
+    "typeUsername": "ユーザー名を入力",
+    "copyField": "{key}をコピー",
+    "typeField": "{key}を入力"
+  },
+  "settings": {
+    "storePath": {
+      "label": "パスワードストアパス",
+      "desc": "パスワードストアへのカスタムパス（デフォルト：~/.password-store）"
+    },
+    "clipTimeout": {
+      "label": "クリップボードタイムアウト",
+      "desc": "クリップボードが消去されるまでの秒数（空欄の場合は PASSWORD_STORE_CLIP_TIME を使用）"
+    },
+    "typeDelay": {
+      "label": "入力遅延",
+      "desc": "入力開始前の遅延ミリ秒（デフォルト：500）"
+    },
+    "wtypeDelay": {
+      "label": "Wtypeキー入力遅延",
+      "desc": "wtypeのキー間遅延ミリ秒（デフォルト：12）"
+    },
+    "pinentryGraceMs": {
+      "label": "Pinentry猶予期間",
+      "desc": "GPGのpinentryプロンプトがフォーカスを必要としてランチャーを非表示にすると判断する前に、パスワードの復号を待つミリ秒数（デフォルト：200）"
+    }
+  }
+}
