@@ -3,6 +3,8 @@
 
 local M = {}
 
+M.PROXIES_INLINE_DECODE_LIMIT = 65536
+
 function M.clamp_interval(seconds)
   local value = tonumber(seconds) or 2
   return math.max(1, math.min(60, value))
@@ -90,6 +92,106 @@ function M.traffic_changed(previous, next_values)
       and (tonumber(next_values.upTotal) or previous.upTotal) == previous.upTotal
       and (tonumber(next_values.downTotal) or previous.downTotal) == previous.downTotal
   )
+end
+
+-- Mihomo's /connections payload can be large when many flows are active. The
+-- panel only needs totals and a count, so scrape those fields without a full
+-- json.decode that can exceed Noctalia's per-callback CPU budget.
+function M.parse_connections_summary(body)
+  if type(body) ~= "string" or body == "" then
+    return nil
+  end
+  local downloadTotal = tonumber(body:match('"downloadTotal"%s*:%s*(%d+)'))
+  local uploadTotal = tonumber(body:match('"uploadTotal"%s*:%s*(%d+)'))
+  local memory = tonumber(body:match('"memory"%s*:%s*(%d+)'))
+  if downloadTotal == nil and uploadTotal == nil and memory == nil then
+    return nil
+  end
+  local count = 0
+  for _ in body:gmatch('"chains"%s*:') do
+    count = count + 1
+  end
+  return {
+    count = count,
+    downloadTotal = downloadTotal or 0,
+    uploadTotal = uploadTotal or 0,
+    memory = memory or 0,
+  }
+end
+
+function M.proxies_body_needs_external_decode(body)
+  return type(body) == "string" and #body > M.PROXIES_INLINE_DECODE_LIMIT
+end
+
+function M.build_groups_from_proxies(proxies, default_test_url)
+  if type(proxies) ~= "table" then
+    return {}
+  end
+  local default = default_test_url or "https://www.gstatic.com/generate_204"
+
+  local proxy_delays = {}
+  for name, info in pairs(proxies) do
+    if type(info) == "table" and type(info.history) == "table" and #info.history > 0 then
+      local last = info.history[#info.history]
+      if type(last) == "table" and last.delay ~= nil then
+        proxy_delays[tostring(name)] = tonumber(last.delay) or 0
+      end
+    end
+  end
+
+  local groups = {}
+  for name, info in pairs(proxies) do
+    if type(info) == "table" and type(info.all) == "table" then
+      local members = {}
+      for _, member_name in ipairs(info.all) do
+        local member = tostring(member_name)
+        table.insert(members, {
+          name = member,
+          delay = proxy_delays[member],
+        })
+      end
+      table.insert(groups, {
+        name = tostring(name),
+        type = tostring(info.type or ""),
+        now = info.now ~= nil and tostring(info.now) or nil,
+        hidden = info.hidden == true,
+        testUrl = type(info.testUrl) == "string" and info.testUrl or default,
+        members = members,
+      })
+    end
+  end
+  return groups
+end
+
+function M.build_groups_from_slim_proxies(slim, default_test_url)
+  if type(slim) ~= "table" or type(slim.groups) ~= "table" then
+    return {}
+  end
+  local default = default_test_url or "https://www.gstatic.com/generate_204"
+  local delays = type(slim.delays) == "table" and slim.delays or {}
+  local groups = {}
+
+  for _, group in ipairs(slim.groups) do
+    if type(group) == "table" and type(group.name) == "string" then
+      local members = {}
+      for _, member_name in ipairs(type(group.members) == "table" and group.members or {}) do
+        local member = tostring(member_name)
+        table.insert(members, {
+          name = member,
+          delay = delays[member],
+        })
+      end
+      table.insert(groups, {
+        name = group.name,
+        type = tostring(group.type or ""),
+        now = group.now ~= nil and tostring(group.now) or nil,
+        hidden = group.hidden == true,
+        testUrl = type(group.testUrl) == "string" and group.testUrl or default,
+        members = members,
+      })
+    end
+  end
+  return groups
 end
 
 return M

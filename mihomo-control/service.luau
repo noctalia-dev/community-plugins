@@ -38,6 +38,10 @@ local function safe_call(label, fn)
   end
 end
 
+local function shell_quote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
 local group_logic
 
 local function require_group_logic()
@@ -277,18 +281,47 @@ local function poll_connections()
     if not success(res) then
       return
     end
-    local data = decode(res.body)
+    local data = require_group_logic().parse_connections_summary(res.body)
     if data then
-      state.connections.count = type(data.connections) == "table" and #data.connections or 0
-      state.connections.downloadTotal = tonumber(data.downloadTotal) or 0
-      state.connections.uploadTotal = tonumber(data.uploadTotal) or 0
-      state.connections.memory = tonumber(data.memory) or 0
+      state.connections.count = data.count
+      state.connections.downloadTotal = data.downloadTotal
+      state.connections.uploadTotal = data.uploadTotal
+      state.connections.memory = data.memory
       publish("connections")
     end
   end)
 end
 
 -- ── Proxy groups ────────────────────────────────────────────────────────────
+
+local PROXIES_JQ = [[
+def last_delay:
+  if ((.history // []) | length) > 0 then .history[-1].delay else null end;
+.proxies as $p | {
+  delays: (
+    $p | to_entries
+    | map(select((.value | last_delay) != null) | {key: .key, value: (.value | last_delay)})
+    | from_entries
+  ),
+  groups: (
+    $p | to_entries
+    | map(select(.value.all != null) | {
+        name: .key,
+        type: (.value.type // ""),
+        now: .value.now,
+        hidden: (.value.hidden == true),
+        testUrl: (if (.value.testUrl | type) == "string" then .value.testUrl else null end),
+        members: .value.all
+      })
+  )
+}
+]]
+
+local proxies_poll_pending = false
+
+local function default_test_url()
+  return settings.test_url ~= "" and settings.test_url or DEFAULT_TEST_URL
+end
 
 local function merge_delays(group_name)
   local delays = state.delay[group_name]
@@ -307,59 +340,70 @@ local function merge_delays(group_name)
   end
 end
 
+local function publish_proxy_groups(groups)
+  apply_group_order(groups)
+  state.groups = groups
+  for _, group in groups do
+    merge_delays(group.name)
+  end
+  publish("groups")
+end
+
+local function poll_proxies_from_body(body)
+  local logic = require_group_logic()
+  local test_url = default_test_url()
+
+  if logic.proxies_body_needs_external_decode(body) then
+    if proxies_poll_pending then
+      return
+    end
+    local dir = noctalia.pluginDataDir()
+    if dir == nil then
+      return
+    end
+    local path = dir .. "/proxies-poll.json"
+    local written = noctalia.writeFile(path, body)
+    if not written then
+      log("failed to cache /proxies body for jq projection")
+      return
+    end
+
+    proxies_poll_pending = true
+    local cmd = "jq -c "
+      .. shell_quote(PROXIES_JQ)
+      .. " "
+      .. shell_quote(path)
+    noctalia.runAsync(cmd, function(result)
+      proxies_poll_pending = false
+      safe_call("proxies jq", function()
+        if not result or result.exitCode ~= 0 then
+          return
+        end
+        local slim = decode(result.stdout or "")
+        if not slim then
+          return
+        end
+        publish_proxy_groups(logic.build_groups_from_slim_proxies(slim, test_url))
+      end)
+    end, 30000)
+    return
+  end
+
+  local data = decode(body)
+  if not data or type(data.proxies) ~= "table" then
+    return
+  end
+  publish_proxy_groups(logic.build_groups_from_proxies(data.proxies, test_url))
+end
+
 local function poll_proxies()
   request("GET", "/proxies", auth_headers(), nil, function(res)
     if not success(res) then
       return
     end
-    local data = decode(res.body)
-    if not data or type(data.proxies) ~= "table" then
-      return
-    end
-
-    -- Every proxy (and nested group) carries a `history` array with the last
-    -- known delay from mihomo's health checks; 0 means the last probe failed.
-    -- Use the newest entry as each proxy's latency so the panel can show
-    -- per-node latencies without waiting for a manual test.
-    local proxy_delays = {}
-    for name, info in data.proxies do
-      if type(info) == "table" and type(info.history) == "table" and #info.history > 0 then
-        local last = info.history[#info.history]
-        if type(last) == "table" and last.delay ~= nil then
-          proxy_delays[tostring(name)] = tonumber(last.delay) or 0
-        end
-      end
-    end
-
-    local groups = {}
-    for name, info in data.proxies do
-      -- Any entry with an `all` list is a proxy group (Selector, URLTest,
-      -- Fallback, LoadBalance, and Relay on forks that still ship it).
-      -- Filtering by type would silently drop group kinds we did not think of.
-      if type(info) == "table" and type(info.all) == "table" then
-        local members = {}
-        for _, member_name in info.all do
-          table.insert(members, {
-            name = tostring(member_name),
-            delay = proxy_delays[tostring(member_name)],
-          })
-        end
-        table.insert(groups, {
-          name = tostring(name),
-          type = tostring(info.type),
-          now = info.now ~= nil and tostring(info.now) or nil,
-          hidden = info.hidden == true,
-          testUrl = type(info.testUrl) == "string" and info.testUrl or DEFAULT_TEST_URL,
-          members = members,
-        })
-      end
-    end
-    apply_group_order(groups)
-    state.groups = groups
-    for _, group in groups do
-      merge_delays(group.name)
-    end
-    publish("groups")
+    safe_call("poll proxies", function()
+      poll_proxies_from_body(res.body or "")
+    end)
   end)
 end
 

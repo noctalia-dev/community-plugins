@@ -72,4 +72,62 @@ local traffic = { up = 1, down = 2, upTotal = 3, downTotal = 4 }
 assert(logic.traffic_changed(traffic, { up = 1, down = 2, upTotal = 3, downTotal = 4 }) == false, "identical traffic is unchanged")
 assert(logic.traffic_changed(traffic, { up = 9, down = 2, upTotal = 3, downTotal = 4 }) == true, "changed traffic is detected")
 
+local sample_connections = [[
+{"downloadTotal":6694145524,"uploadTotal":123456,"connections":[
+{"id":"a","metadata":{"host":"example.com"},"upload":1,"download":2,"chains":["DIRECT"]},
+{"id":"b","metadata":{"host":"other.com"},"upload":3,"download":4,"chains":["Proxy"]}
+],"memory":116858880}
+]]
+local summary = logic.parse_connections_summary(sample_connections)
+assert(summary ~= nil, "connections summary parses")
+assert_eq(summary.count, 2, "connection count")
+assert_eq(summary.downloadTotal, 6694145524, "download total")
+assert_eq(summary.uploadTotal, 123456, "upload total")
+assert_eq(summary.memory, 116858880, "memory")
+assert(logic.parse_connections_summary("") == nil, "empty body is rejected")
+assert(logic.parse_connections_summary("{") == nil, "invalid body is rejected")
+
+local sample_proxies = {
+  proxies = {
+    ["Node A"] = {
+      history = { { delay = 42 } },
+    },
+    ["Node B"] = {
+      history = { { delay = 0 } },
+    },
+    Selector = {
+      type = "Selector",
+      now = "Node A",
+      hidden = false,
+      testUrl = "http://example.test/generate_204",
+      all = { "Node A", "Node B" },
+    },
+  },
+}
+local built = logic.build_groups_from_proxies(sample_proxies.proxies, "http://fallback.test")
+assert_eq(#built, 1, "one proxy group")
+assert_eq(built[1].name, "Selector", "group name")
+assert_eq(built[1].members[1].delay, 42, "member delay from history")
+assert_eq(built[1].members[2].delay, 0, "failed probe delay is kept")
+
+local slim = {
+  delays = { ["Node A"] = 42, ["Node B"] = 0 },
+  groups = {
+    {
+      name = "Selector",
+      type = "Selector",
+      now = "Node A",
+      hidden = false,
+      testUrl = "http://example.test/generate_204",
+      members = { "Node A", "Node B" },
+    },
+  },
+}
+local from_slim = logic.build_groups_from_slim_proxies(slim, "http://fallback.test")
+assert_eq(#from_slim, 1, "slim projection yields one group")
+assert_eq(from_slim[1].members[1].delay, 42, "slim member delay")
+
+assert(logic.proxies_body_needs_external_decode(string.rep("x", logic.PROXIES_INLINE_DECODE_LIMIT)) == false, "at-limit body stays inline")
+assert(logic.proxies_body_needs_external_decode(string.rep("x", logic.PROXIES_INLINE_DECODE_LIMIT + 1)) == true, "over-limit body uses jq")
+
 print("mihomo-control group_logic tests: ok")
