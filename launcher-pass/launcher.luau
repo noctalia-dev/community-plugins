@@ -643,8 +643,9 @@ end
 -- through `pass -c` / `pass otp -c` (copyViaPass: clip-timeout env +
 -- close-launcher-first pinentry handling). Copy Username copies the value
 -- extractUsername already resolved (first login/user/username field,
--- case-insensitive; entry basename otherwise) via copyPlain. Copy field and
--- every Type action still fall through to the stub notice.
+-- case-insensitive; entry basename otherwise), and Copy <field> copies a
+-- parsed key: value line as-is — both plain, via copyPlain. Every Type action
+-- still falls through to the stub notice.
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
   if ctx.verb == "copy" and ctx.kind == "password" then
@@ -657,6 +658,10 @@ local function runAction(ctx)
   end
   if ctx.verb == "copy" and ctx.kind == "username" then
     copyPlain(ctx.value, subject)
+    return
+  end
+  if ctx.verb == "copy" and ctx.kind == "field" then
+    copyPlain(ctx.value, ctx.key or subject)
     return
   end
   noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
