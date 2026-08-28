@@ -52,10 +52,11 @@ jobs:
           git push
   
   update-issue-templates:
+    needs: update-catalog
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: ${{ github.repository == 'noctalia-dev/community-plugins' }}
+    if: ${{ github.repository == 'noctalia-dev/community-plugins' && !cancelled() }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -84,5 +85,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git commit -m "chore: update issue templates [skip ci]"
+          git pull --rebase
           git push
         

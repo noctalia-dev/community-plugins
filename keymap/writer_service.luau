@@ -1,12 +1,13 @@
 --!nonstrict
--- Managed keybind writer for Keymap.
--- The Keymap storage namespace is shared by managed files, includes,
--- category markers, and hidden blocks.
+-- Transactional keybind writer for Keymap.
+-- New shortcuts are written into the configured source. Legacy managed files
+-- are inlined and removed only after validation and reload succeed.
 
 local CREATE_REQUEST_KEY = "keymap.create_request"
 local CREATE_RESULT_KEY = "keymap.create_result"
 local UPDATE_REQUEST_KEY = "keymap.update_request"
 local UPDATE_RESULT_KEY = "keymap.update_result"
+local MIGRATION_RESULT_KEY = "keymap.migration_result"
 local REFRESH_REQUEST_KEY = "keymap.refresh_request"
 local LAST_HANDLED_REQUEST_KEY = "keymap.last_handled_create_request"
 local LAST_HANDLED_UPDATE_KEY = "keymap.last_handled_update_request"
@@ -23,6 +24,7 @@ local HIDDEN_DATA_CHUNK_BYTES = 48
 
 local busy = false
 local temporaryCounter = 0
+local automaticMigrationAttempt = ""
 
 local FORMATS = {
 	Hyprland = {
@@ -121,13 +123,54 @@ local function matchesLibraryTemplate(template, value)
 	return value:match(pattern .. "$") ~= nil
 end
 
-local function validateCommandLibrary(raw, compositor, command)
+local function validNiriSpawnAction(action)
+	if type(action) ~= "string" or action:find("[%c]") ~= nil
+		or action:sub(1, 5) ~= "spawn" or not action:sub(6, 6):match("%s") then
+		return false
+	end
+	local cursor = 6
+	local arguments = 0
+	while true do
+		while cursor <= #action and action:sub(cursor, cursor):match("%s") do
+			cursor = cursor + 1
+		end
+		if cursor > #action then return arguments > 0 end
+		if action:sub(cursor, cursor) ~= '"' then return false end
+		local escaped = false
+		local closed = false
+		for index = cursor + 1, #action do
+			local char = action:sub(index, index)
+			if escaped then
+				escaped = false
+			elseif char == "\\" then
+				escaped = true
+			elseif char == '"' then
+				cursor = index + 1
+				closed = true
+				break
+			end
+		end
+		if not closed then return false end
+		arguments = arguments + 1
+		if cursor <= #action and not action:sub(cursor, cursor):match("%s") then
+			return false
+		end
+	end
+end
+
+local function validateCommandLibrary(raw, compositor, command, allowExistingNative)
 	local commandKind = raw.command_kind == nil and "shell" or raw.command_kind
 	if commandKind ~= "shell" and commandKind ~= "native" then
 		return nil, nil, "invalid_command_kind"
 	end
 	local libraryEntryId = type(raw.library_entry_id) == "string" and raw.library_entry_id or ""
 	if commandKind == "shell" then return commandKind, libraryEntryId, nil end
+	if allowExistingNative == true then
+		if compositor ~= "Niri" or not validNiriSpawnAction(command) then
+			return nil, nil, "niri_spawn_invalid"
+		end
+		return commandKind, "", nil
+	end
 	if libraryEntryId == "" then return nil, nil, "library_entry_invalid" end
 	local entry = COMMAND_LIBRARY_ENTRIES[libraryEntryId]
 	local expectedSource = ({ Hyprland = "hyprland", Niri = "niri", MangoWC = "mangowc" })[compositor]
@@ -140,7 +183,7 @@ local function validateCommandLibrary(raw, compositor, command)
 	return commandKind, libraryEntryId, nil
 end
 
-local function validateRequest(raw)
+local function validateRequest(raw, allowExistingNative)
 	if type(raw) ~= "table" then return nil, "invalid_request" end
 
 	local rawRequestId = raw.request_id
@@ -166,7 +209,9 @@ local function validateRequest(raw)
 	command, errorCode = validateText(raw.command, "command", false, MAX_COMMAND_BYTES)
 	if errorCode ~= nil then return nil, errorCode end
 	local commandKind, libraryEntryId
-	commandKind, libraryEntryId, errorCode = validateCommandLibrary(raw, compositor, command)
+	commandKind, libraryEntryId, errorCode = validateCommandLibrary(
+		raw, compositor, command, allowExistingNative
+	)
 	if errorCode ~= nil then return nil, errorCode end
 	local description
 	description, errorCode = validateText(raw.description, "description", false, 1024)
@@ -265,17 +310,21 @@ local function conflictsWithSnapshot(request, excludedId)
 	local keys = comparableKeys(request.keys)
 	for _, category in ipairs(type(snapshot) == "table" and snapshot.categories or {}) do
 		for _, bind in ipairs(type(category.binds) == "table" and category.binds or {}) do
-			local bindKeys = comparableKeys(type(bind.keys) == "table" and bind.keys or { bind.key })
-			local sameKeys = #bindKeys == #keys
-			if sameKeys then
-				for index, key in ipairs(keys) do
-					if bindKeys[index] ~= key then sameKeys = false break end
+			local combos = type(bind.combos) == "table" and #bind.combos > 0 and bind.combos
+				or { { modifiers = bind.modifiers, key = bind.key, keys = bind.keys } }
+			for _, combo in ipairs(combos) do
+				local bindKeys = comparableKeys(type(combo.keys) == "table" and combo.keys or { combo.key })
+				local sameKeys = #bindKeys == #keys
+				if sameKeys then
+					for index, key in ipairs(keys) do
+						if bindKeys[index] ~= key then sameKeys = false break end
+					end
 				end
-			end
-			if tostring(bind.id or "") ~= tostring(excludedId or "") and sameKeys
-				and comparableModifiers(bind.modifiers) == modifiers
-				and tostring(bind.activation or "press") == request.activation then
-				return true
+				if tostring(bind.id or "") ~= tostring(excludedId or "") and sameKeys
+					and comparableModifiers(combo.modifiers) == modifiers
+					and tostring(bind.activation or "press") == request.activation then
+					return true
+				end
 			end
 		end
 	end
@@ -298,6 +347,14 @@ local function publishUpdateResult(requestId, ok, errorCode, targetPath)
 end
 
 local function publishOperationResult(request, ok, errorCode, path)
+	if request.silentMigration == true then
+		noctalia.state.set(MIGRATION_RESULT_KEY, {
+			ok = ok == true, error = errorCode or "", source = request.source or "",
+			legacy_path = path or "",
+		})
+		if ok ~= true then automaticMigrationAttempt = "" end
+		return
+	end
 	if request.operation ~= nil then
 		publishUpdateResult(request.request_id, ok, errorCode, path)
 	else
@@ -373,56 +430,139 @@ local function generatedEntry(request)
 		.. "," .. dispatcher .. " #\"" .. description .. "\"\n"
 end
 
-local function buildManagedContent(request, existing, entry)
-	if existing == nil then
-		if request.compositor == "Niri" then
-			return managedHeader(request.compositor) .. "binds {\n" .. entry .. "}\n", nil
-		end
-		if request.compositor == "MangoWC" then
-			return managedHeader(request.compositor) .. "\nkeymode=default\n\n" .. entry, nil
-		end
-		return managedHeader(request.compositor) .. "\n" .. entry, nil
-	end
-	if not ownsManagedFile(request.compositor, existing) then return nil, "managed_file_collision" end
-	if #existing > MAX_MANAGED_BYTES then return nil, "managed_file_too_large" end
-	if existing:find(entry, 1, true) ~= nil then return existing, nil end
-
-	local output
-	if request.compositor == "Niri" then
-		local beforeClose = existing:match("^(.*\n)%s*}%s*$")
-		if beforeClose == nil then return nil, "managed_file_invalid" end
-		output = beforeClose .. entry .. "}\n"
-	else
-		local separator = (existing == "" or existing:sub(-1) == "\n") and "" or "\n"
-		output = existing .. separator .. entry
-	end
-	if #output > MAX_MANAGED_BYTES then return nil, "managed_file_too_large" end
-	return output, nil
-end
-
 local function includeBlock(format)
 	local beginMarker = format.comment .. " BEGIN Keymap managed include"
 	local endMarker = format.comment .. " END Keymap managed include"
 	return beginMarker, endMarker, beginMarker .. "\n" .. format.includeLine .. "\n" .. endMarker
 end
 
-local function hasExactLine(content, expected)
-	for line in (content .. "\n"):gmatch("([^\n]*)\n") do
-		if trim(line) == expected then return true end
+local function replaceExactLine(content, expected, replacement)
+	local cursor = 1
+	while cursor <= #content + 1 do
+		local newline = content:find("\n", cursor, true)
+		local lineEnd = newline or (#content + 1)
+		if trim(content:sub(cursor, lineEnd - 1)) == expected then
+			local suffixStart = newline ~= nil and newline + 1 or lineEnd
+			return content:sub(1, cursor - 1) .. replacement .. content:sub(suffixStart), true
+		end
+		if newline == nil then break end
+		cursor = newline + 1
 	end
-	return false
+	return content, false
 end
 
-local function buildRootContent(root, format)
+local function managedPayload(compositor, content)
+	if not ownsManagedFile(compositor, content) then return nil, "managed_file_collision" end
+	if #content > MAX_MANAGED_BYTES then return nil, "managed_file_too_large" end
+	local payload = content:sub(#managedHeader(compositor) + 1)
+	if payload:sub(1, 1) == "\n" then payload = payload:sub(2) end
+	return payload, nil
+end
+
+local function inlineManagedContent(root, format, payload)
 	local beginMarker, endMarker, block = includeBlock(format)
-	if root:find(block, 1, true) ~= nil or hasExactLine(root, format.includeLine) then
-		return root, nil
+	local blockStart, blockEnd = root:find(block, 1, true)
+	if blockStart ~= nil then
+		local suffixStart = blockEnd + 1
+		if payload:sub(-1) == "\n" and root:sub(suffixStart, suffixStart) == "\n" then
+			suffixStart = suffixStart + 1
+		end
+		return root:sub(1, blockStart - 1) .. payload .. root:sub(suffixStart), nil
 	end
 	if root:find(beginMarker, 1, true) ~= nil or root:find(endMarker, 1, true) ~= nil then
 		return nil, "managed_include_invalid"
 	end
+	local replaced, found = replaceExactLine(root, format.includeLine, payload)
+	if found then return replaced, nil end
 	local separator = root == "" and "" or (root:sub(-1) == "\n" and "\n" or "\n\n")
-	return root .. separator .. block .. "\n", nil
+	return root .. separator .. payload, nil
+end
+
+local function niriBindsClose(content)
+	local index = 1
+	local depth = 0
+	local quote = nil
+	local escaped = false
+	local lineComment = false
+	local blockComment = false
+	local bindsDepth = nil
+	while index <= #content do
+		local char = content:sub(index, index)
+		local pair = content:sub(index, index + 1)
+		if lineComment then
+			if char == "\n" then lineComment = false end
+			index = index + 1
+		elseif blockComment then
+			if pair == "*/" then
+				blockComment = false
+				index = index + 2
+			else
+				index = index + 1
+			end
+		elseif quote ~= nil then
+			if escaped then escaped = false
+			elseif char == "\\" then escaped = true
+			elseif char == quote then quote = nil end
+			index = index + 1
+		elseif pair == "//" then
+			lineComment = true
+			index = index + 2
+		elseif pair == "/*" then
+			blockComment = true
+			index = index + 2
+		elseif char == '"' or char == "'" then
+			quote = char
+			index = index + 1
+		elseif bindsDepth == nil and depth == 0 and content:sub(index, index + 4) == "binds"
+			and (index == 1 or not content:sub(index - 1, index - 1):match("[%w_%-]"))
+			and not content:sub(index + 5, index + 5):match("[%w_%-]") then
+			local open = index + 5
+			while content:sub(open, open):match("%s") do open = open + 1 end
+			if content:sub(open, open) == "{" then
+				depth = depth + 1
+				bindsDepth = depth
+				index = open + 1
+			else
+				index = index + 5
+			end
+		elseif char == "{" then
+			depth = depth + 1
+			index = index + 1
+		elseif char == "}" then
+			if bindsDepth ~= nil and depth == bindsDepth then return index end
+			depth = depth - 1
+			index = index + 1
+		else
+			index = index + 1
+		end
+	end
+	return nil
+end
+
+local function appendEntryToRoot(compositor, root, entry)
+	if root:find(entry, 1, true) ~= nil then return root, nil end
+	if compositor == "Niri" then
+		local closeAt = niriBindsClose(root)
+		if closeAt == nil then
+			local separator = root == "" and "" or (root:sub(-1) == "\n" and "\n" or "\n\n")
+			return root .. separator .. "binds {\n" .. entry .. "}\n", nil
+		end
+		local lineStart = (root:sub(1, closeAt - 1):match(".*\n()") or 1)
+		if root:sub(lineStart, closeAt - 1):match("^%s*$") then
+			return root:sub(1, lineStart - 1) .. entry .. root:sub(lineStart), nil
+		end
+		return root:sub(1, closeAt - 1) .. "\n" .. entry .. root:sub(closeAt), nil
+	end
+	if compositor == "MangoWC" then
+		local activeKeymode = nil
+		for line in (root .. "\n"):gmatch("([^\n]*)\n") do
+			local mode = line:match("^%s*keymode%s*=%s*([^%s#]+)")
+			if mode ~= nil then activeKeymode = mode end
+		end
+		if activeKeymode ~= "default" then entry = "keymode=default\n\n" .. entry end
+	end
+	local separator = root == "" and "" or (root:sub(-1) == "\n" and "\n" or "\n\n")
+	return root .. separator .. entry, nil
 end
 
 local function atomicWrite(path, content)
@@ -510,7 +650,20 @@ local function reloadAndFinish(request, transaction)
 			publishFailureAfterRollback(request, transaction, "reload_failed", true)
 			return
 		end
-		finishSuccess(request, transaction.managedPath)
+		if transaction.removeManagedAfterSuccess then
+			if noctalia.readFile(transaction.source) ~= transaction.rootNew
+				or noctalia.readFile(transaction.managedPath) ~= transaction.managedOld then
+				publishOperationResult(request, false, "migration_cleanup_changed", transaction.managedPath)
+				busy = false
+				return
+			end
+			if noctalia.removeFile(transaction.managedPath) ~= true then
+				publishFailureAfterRollback(request, transaction, "migration_remove_failed", true)
+				return
+			end
+		end
+		local successPath = request.operation == nil and transaction.source or transaction.managedPath
+		finishSuccess(request, successPath)
 	end, RELOAD_TIMEOUT_MS)
 	if not started then
 		publishFailureAfterRollback(request, transaction, "reload_start_failed", true)
@@ -670,19 +823,31 @@ processValidatedRequest = function(request)
 		end
 	end
 	local entry = generatedEntry(request)
-	local existingExactEntry = existing ~= nil and existing:find(entry, 1, true) ~= nil
+	local existingExactEntry = root:find(entry, 1, true) ~= nil
+		or (existing ~= nil and existing:find(entry, 1, true) ~= nil)
 	if conflictsWithSnapshot(request) and not existingExactEntry then
 		publishResult(request.request_id, false, "conflict_blocked", managedPath)
 		busy = false
 		return
 	end
-	local managed, managedError = buildManagedContent(request, existing, entry)
-	if managed == nil then
-		publishResult(request.request_id, false, managedError, managedPath)
-		busy = false
-		return
+
+	local migratedRoot = root
+	if existing ~= nil then
+		local payload, payloadError = managedPayload(request.compositor, existing)
+		if payload == nil then
+			publishResult(request.request_id, false, payloadError, managedPath)
+			busy = false
+			return
+		end
+		local migrationError
+		migratedRoot, migrationError = inlineManagedContent(root, request.format, payload)
+		if migratedRoot == nil then
+			publishResult(request.request_id, false, migrationError, managedPath)
+			busy = false
+			return
+		end
 	end
-	local newRoot, rootError = buildRootContent(root, request.format)
+	local newRoot, rootError = appendEntryToRoot(request.compositor, migratedRoot, entry)
 	if newRoot == nil then
 		publishResult(request.request_id, false, rootError, managedPath)
 		busy = false
@@ -720,24 +885,11 @@ processValidatedRequest = function(request)
 		rootWritten = false,
 		managedPath = managedPath,
 		managedOld = existing,
-		managedNew = managed,
+		managedNew = existing,
 		managedExisted = existing ~= nil,
 		managedWritten = false,
+		removeManagedAfterSuccess = existing ~= nil,
 	}
-	if existing ~= managed then
-		if existing ~= nil and noctalia.readFile(managedPath) ~= existing then
-			publishResult(request.request_id, false, "managed_file_changed", managedPath)
-			busy = false
-			return
-		end
-		local ok, writeError = atomicWrite(managedPath, managed)
-		if not ok then
-			publishResult(request.request_id, false, "managed_" .. writeError, managedPath)
-			busy = false
-			return
-		end
-		transaction.managedWritten = true
-	end
 	if root ~= newRoot then
 		if noctalia.readFile(request.source) ~= root then
 			publishFailureAfterRollback(request, transaction, "source_changed", false)
@@ -751,10 +903,79 @@ processValidatedRequest = function(request)
 		transaction.rootWritten = true
 	end
 	if not transaction.managedWritten and not transaction.rootWritten then
-		finishSuccess(request, managedPath)
+		if transaction.removeManagedAfterSuccess then
+			if noctalia.readFile(managedPath) ~= existing then
+				publishResult(request.request_id, false, "migration_cleanup_changed", managedPath)
+				busy = false
+				return
+			end
+			if noctalia.removeFile(managedPath) ~= true then
+				publishResult(request.request_id, false, "migration_remove_failed", managedPath)
+				busy = false
+				return
+			end
+		end
+		finishSuccess(request, request.source)
 		return
 	end
 	verifyAndReload(request, transaction)
+end
+
+local function processAutomaticMigration(snapshotValue)
+	if busy or type(snapshotValue) ~= "table" or snapshotValue.status ~= "ready" then return end
+	local compositor = snapshotValue.compositor
+	local format = FORMATS[compositor]
+	local source = snapshotValue.source
+	if format == nil or type(source) ~= "string" or source:sub(1, 1) ~= "/"
+		or source:match("([^/]+)$") == format.managedName then return end
+	local managedPath = dirname(source) .. "/" .. format.managedName
+	if not noctalia.fileExists(managedPath) then return end
+	local signature = compositor .. "\n" .. source
+	if automaticMigrationAttempt == signature then return end
+	automaticMigrationAttempt = signature
+	busy = true
+	local request = {
+		request_id = "automatic-migration", compositor = compositor, source = source,
+		format = format, silentMigration = true,
+	}
+	local function fail(errorCode)
+		publishOperationResult(request, false, errorCode, managedPath)
+		busy = false
+	end
+	local preflight = "[ ! -L " .. shellQuote(source) .. " ] && [ ! -L "
+		.. shellQuote(managedPath) .. " ]"
+	local started = noctalia.runAsync(preflight, function(result)
+		if result.timedOut == true or result.exitCode ~= 0 then
+			fail("symlink_unsupported")
+			return
+		end
+		local root = noctalia.readFile(source)
+		local existing = noctalia.readFile(managedPath)
+		if type(root) ~= "string" then fail("source_unreadable") return end
+		if type(existing) ~= "string" then fail("managed_file_unreadable") return end
+		if #root > MAX_ROOT_BYTES then fail("source_too_large") return end
+		local payload, payloadError = managedPayload(compositor, existing)
+		if payload == nil then fail(payloadError) return end
+		local newRoot, migrationError = inlineManagedContent(root, format, payload)
+		if newRoot == nil then fail(migrationError) return end
+		if #newRoot > MAX_ROOT_BYTES then fail("source_too_large") return end
+		if noctalia.readFile(source) ~= root or noctalia.readFile(managedPath) ~= existing then
+			fail("source_changed")
+			return
+		end
+		local transaction = {
+			source = source, rootOld = root, rootNew = newRoot, rootWritten = false,
+			managedPath = managedPath, managedOld = existing, managedNew = existing,
+			managedExisted = true, managedWritten = false, removeManagedAfterSuccess = true,
+		}
+		if root ~= newRoot then
+			local ok, writeError = atomicWrite(source, newRoot)
+			if not ok then fail("source_" .. writeError) return end
+			transaction.rootWritten = true
+		end
+		verifyAndReload(request, transaction)
+	end, 2000)
+	if not started then fail("preflight_failed") end
 end
 
 local function xorNibbleSlow(left, right)
@@ -1017,6 +1238,74 @@ local function renderHyprUpdate(target, request)
 	return line, nil
 end
 
+local function niriActionBodyRange(snippet)
+	local index = 1
+	local depth = 0
+	local openAt = nil
+	local quote = nil
+	local escaped = false
+	local lineComment = false
+	local blockComment = false
+	while index <= #snippet do
+		local char = snippet:sub(index, index)
+		local pair = snippet:sub(index, index + 1)
+		if lineComment then
+			if char == "\n" then lineComment = false end
+			index = index + 1
+		elseif blockComment then
+			if pair == "*/" then
+				blockComment = false
+				index = index + 2
+			else
+				index = index + 1
+			end
+		elseif quote ~= nil then
+			if escaped then escaped = false
+			elseif char == "\\" then escaped = true
+			elseif char == quote then quote = nil end
+			index = index + 1
+		elseif pair == "//" then
+			lineComment = true
+			index = index + 2
+		elseif pair == "/*" then
+			blockComment = true
+			index = index + 2
+		elseif char == '"' or char == "'" then
+			quote = char
+			index = index + 1
+		elseif char == "{" then
+			depth = depth + 1
+			if openAt == nil then openAt = index end
+			index = index + 1
+		elseif char == "}" then
+			if openAt ~= nil and depth == 1 then return openAt + 1, index - 1 end
+			depth = depth - 1
+			index = index + 1
+		else
+			index = index + 1
+		end
+	end
+	return nil, nil
+end
+
+local function replaceNiriNativeSpawn(snippet, previousAction, nextAction)
+	local bodyStart, bodyEnd = niriActionBodyRange(snippet)
+	if bodyStart == nil then return nil end
+	local body = snippet:sub(bodyStart, bodyEnd)
+	local leading = body:match("^(%s*)") or ""
+	local trailing = body:match("(%s*)$") or ""
+	local coreEnd = #body - #trailing
+	local core = coreEnd >= #leading and body:sub(#leading + 1, coreEnd) or ""
+	local semicolon = ""
+	if core:sub(-1) == ";" then
+		semicolon = ";"
+		core = trim(core:sub(1, -2))
+	end
+	if core ~= trim(previousAction) then return nil end
+	local replacement = leading .. nextAction .. semicolon .. trailing
+	return snippet:sub(1, bodyStart - 1) .. replacement .. snippet:sub(bodyEnd + 1)
+end
+
 local function renderNiriUpdate(target, request)
 	local snippet, count = target.raw_snippet:gsub("^(%s*)%S+", "%1" .. niriCombo(request), 1)
 	if count ~= 1 then return nil, "target_not_editable" end
@@ -1026,7 +1315,15 @@ local function renderNiriUpdate(target, request)
 	end
 	snippet = described
 	if target.capabilities.command == true then
-		snippet = replaceLiteralAfter(snippet, "spawn%-sh%s+", request.command, false)
+		if target.capabilities.native_spawn == true then
+			if request.command_kind ~= "native" or not validNiriSpawnAction(request.command) then
+				return nil, "niri_spawn_invalid"
+			end
+			snippet = replaceNiriNativeSpawn(snippet, target.action, request.command)
+		else
+			if request.command_kind ~= "shell" then return nil, "native_update_unsupported" end
+			snippet = replaceLiteralAfter(snippet, "spawn%-sh%s+", request.command, false)
+		end
 		if snippet == nil then return nil, "command_not_editable" end
 	end
 	return snippet, nil
@@ -1862,10 +2159,6 @@ local function processUpdateRequest(raw)
 	if type(rawId) == "number" then rawId = tostring(rawId) end
 	if busy then publishUpdateResult(rawId, false, "busy", "") return end
 	if type(raw) ~= "table" then publishUpdateResult(rawId, false, "invalid_request", "") return end
-	if raw.command_kind == "native" then
-		publishUpdateResult(rawId, false, "native_update_unsupported", "")
-		return
-	end
 	if raw.operation == "rename_category" then
 		local category, ambiguous = findSnapshotCategory(raw.category_id)
 		if ambiguous then publishUpdateResult(rawId, false, "category_ambiguous", "") return end
@@ -1896,12 +2189,22 @@ local function processUpdateRequest(raw)
 		return
 	end
 	local capabilities = type(target.capabilities) == "table" and target.capabilities or {}
+	local nativeSpawnTarget = capabilities.native_spawn == true
+		and tostring(target.command_kind or "") == "native"
+	if raw.command_kind == "native" and not nativeSpawnTarget then
+		publishUpdateResult(rawId, false, "native_update_unsupported", target.source)
+		return
+	end
+	if nativeSpawnTarget and raw.command_kind ~= "native" then
+		publishUpdateResult(rawId, false, "native_update_unsupported", target.source)
+		return
+	end
 	local validationRaw = {}
 	for key, value in pairs(raw) do validationRaw[key] = value end
 	if trim(tostring(validationRaw.command or "")) == "" and capabilities.command ~= true then
 		validationRaw.command = "__preserve_native_action__"
 	end
-	local request, errorCode = validateRequest(validationRaw)
+	local request, errorCode = validateRequest(validationRaw, nativeSpawnTarget)
 	if request == nil then publishUpdateResult(rawId, false, errorCode, target.source) return end
 	request.operation = "update"
 	request.target_id = tostring(raw.target_id or "")
@@ -1976,3 +2279,9 @@ noctalia.state.watch(UPDATE_REQUEST_KEY, function(request)
 	end
 	processUpdateRequest(request)
 end)
+
+noctalia.state.watch(SNAPSHOT_KEY, function(snapshotValue)
+	processAutomaticMigration(snapshotValue)
+end)
+
+processAutomaticMigration(noctalia.state.get(SNAPSHOT_KEY))

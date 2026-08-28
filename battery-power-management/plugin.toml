@@ -1,0 +1,70 @@
+id          = "piero-93/battery-power-management"
+name        = "Battery & Power Management"
+version     = "1.0.0"
+plugin_api  = 3
+author      = "piero-93"
+license     = "GPL-3.0"
+icon        = "battery-charging"
+description = "Battery widget with live power draw, power-profile switching, and charge-limit control — no root at runtime."
+tags        = ["bar", "panel", "system", "hardware", "indicator", "utility"]
+
+dependencies = ["powerprofilesctl", "upower", "sh", "cat", "sudo", "bash", "dirname", "getent", "groupadd", "usermod", "chgrp", "chmod", "udevadm"]
+
+[[setting]]
+key            = "colorize_by_profile"
+type           = "bool"
+label_key      = "settings.colorize_by_profile.label"
+description_key = "settings.colorize_by_profile.description"
+default        = true
+
+[[setting]]
+key            = "color_power_saver"
+type           = "color"
+label_key      = "settings.color_power_saver.label"
+description_key = "settings.color_power_saver.description"
+default        = "secondary"
+
+[[setting]]
+key            = "color_performance"
+type           = "color"
+label_key      = "settings.color_performance.label"
+description_key = "settings.color_performance.description"
+default        = "error"
+
+[[setting]]
+key            = "show_profile"
+type           = "bool"
+label_key      = "settings.show_profile.label"
+description_key = "settings.show_profile.description"
+default        = true
+
+[[setting]]
+key            = "show_balanced_icon"
+type           = "bool"
+label_key      = "settings.show_balanced_icon.label"
+description_key = "settings.show_balanced_icon.description"
+default        = false
+
+[[setting]]
+key            = "battery_device"
+type           = "string"
+label_key      = "settings.battery_device.label"
+description_key = "settings.battery_device.description"
+default        = "BAT0"
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 270
+height          = 220
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"

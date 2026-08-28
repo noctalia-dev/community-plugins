@@ -286,6 +286,33 @@ local function activeModifierSignature()
   return table.concat(ordered, "+")
 end
 
+local function modifierSignatureLabel(signature)
+  if signature == "" then return tr("panel.keyboard.no_modifiers") end
+  local labels = {}
+  for modifier in tostring(signature):gmatch("[^+]+") do
+    labels[#labels + 1] = modifier == "CTRL" and "Ctrl"
+      or (modifier == "SUPER" and "Super" or (modifier == "SHIFT" and "Shift" or (
+        modifier == "ALT" and "Alt" or modifier
+      )))
+  end
+  return table.concat(labels, " + ")
+end
+
+local function modifierSignatureSelectable(signature)
+  for modifier in tostring(signature):gmatch("[^+]+") do
+    if activeModifiers[modifier] == nil then return false end
+  end
+  return true
+end
+
+local function selectModifierSignature(signature)
+  local selected = {}
+  for modifier in tostring(signature):gmatch("[^+]+") do selected[modifier] = true end
+  for _, modifier in ipairs(MODIFIER_ORDER) do
+    activeModifiers[modifier] = selected[modifier] == true
+  end
+end
+
 local function expandedKeys(value)
   local canonical = canonicalKey(value)
   local first, last = canonical:match("^(%d)%-(%d)$")
@@ -310,19 +337,25 @@ local function keyboardIndex()
   local any = {}
   for _, category in ipairs(asArray(snapshot.categories)) do
     for _, bind in ipairs(asArray(category.binds)) do
-      local signature = modifierSignature(bind.modifiers)
-      local indexedKeys = type(bind.keys) == "table" and bind.keys or expandedKeys(bind.key)
-      for _, rawKey in ipairs(indexedKeys) do
-        local key = canonicalKey(rawKey)
-        local entry = {
-          bind = bind,
-          category = asString(category.name, tr("panel.uncategorized")),
-        }
-        local chord = signature .. "|" .. key
-        exact[chord] = exact[chord] or {}
-        exact[chord][#exact[chord] + 1] = entry
-        any[key] = any[key] or {}
-        any[key][#any[key] + 1] = entry
+      -- Merged rows carry every combination: index each one at its own chord
+      -- instead of pointing the display label at a phantom key.
+      local combos = type(bind.combos) == "table" and #bind.combos > 0 and bind.combos
+        or { { modifiers = bind.modifiers, key = bind.key, keys = bind.keys } }
+      for _, combo in ipairs(combos) do
+        local signature = modifierSignature(combo.modifiers)
+        local indexedKeys = type(combo.keys) == "table" and combo.keys or expandedKeys(combo.key)
+        for _, rawKey in ipairs(indexedKeys) do
+          local key = canonicalKey(rawKey)
+          local entry = {
+            bind = bind,
+            category = asString(category.name, tr("panel.uncategorized")),
+          }
+          local chord = signature .. "|" .. key
+          exact[chord] = exact[chord] or {}
+          exact[chord][#exact[chord] + 1] = entry
+          any[key] = any[key] or {}
+          any[key][#any[key] + 1] = entry
+        end
       end
     end
   end
@@ -341,6 +374,19 @@ local function keyCallback(id, code)
   return callback
 end
 
+local layerCallbackCache = {}
+local function layerCallback(signature)
+  local callback = layerCallbackCache[signature]
+  if callback == nil then
+    callback = function()
+      selectModifierSignature(signature)
+      render()
+    end
+    layerCallbackCache[signature] = callback
+  end
+  return callback
+end
+
 local function contains(haystack, needle)
   return string.find(normalized(haystack), needle, 1, true) ~= nil
 end
@@ -353,6 +399,14 @@ local function bindMatches(bind, needle)
   for _, modifier in ipairs(asArray(bind.modifiers)) do
     if contains(modifier, needle) then
       return true
+    end
+  end
+  if type(bind.combos) == "table" then
+    for _, combo in ipairs(bind.combos) do
+      if contains(combo.key, needle) then return true end
+      for _, modifier in ipairs(asArray(combo.modifiers)) do
+        if contains(modifier, needle) then return true end
+      end
     end
   end
   return false
@@ -1059,6 +1113,17 @@ local function selectedKeyDetails(index)
 
   local signature = activeModifierSignature()
   local entries = asArray(index.exact[signature .. "|" .. selectedKeyboardKey])
+  local otherSignatures = {}
+  local seenSignatures = {}
+  for _, entry in ipairs(asArray(index.any[selectedKeyboardKey])) do
+    local entrySignature = modifierSignature(entry.bind.modifiers)
+    if entrySignature ~= signature and not seenSignatures[entrySignature] then
+      seenSignatures[entrySignature] = true
+      otherSignatures[#otherSignatures + 1] = entrySignature
+    end
+  end
+  table.sort(otherSignatures)
+  local usedOnAnotherLayer = #entries == 0 and #otherSignatures > 0
   local chordParts = {}
   for _, modifier in ipairs(MODIFIER_ORDER) do
     if activeModifiers[modifier] then
@@ -1073,8 +1138,11 @@ local function selectedKeyDetails(index)
     ui.row({ gap = 8, align = "center" }, {
       ui.label({ text = chord, color = "on_surface", fontSize = 13, fontWeight = "bold", flexGrow = 1 }),
       ui.label({
-        text = #entries > 0 and tr("panel.keyboard.occupied") or tr("panel.keyboard.free"),
-        color = #entries > 0 and asString(cfg("category_color"), "primary") or "on_surface_variant",
+        text = #entries > 0 and tr("panel.keyboard.occupied") or (
+          usedOnAnotherLayer and tr("panel.keyboard.other_layer") or tr("panel.keyboard.free")
+        ),
+        color = (#entries > 0 or usedOnAnotherLayer)
+          and asString(cfg("category_color"), "primary") or "on_surface_variant",
         fontSize = 11,
         fontWeight = "bold",
       }),
@@ -1082,11 +1150,26 @@ local function selectedKeyDetails(index)
   }
   if #entries == 0 then
     children[#children + 1] = ui.label({
-      text = tr("panel.keyboard.free_hint"),
+      text = tr(usedOnAnotherLayer and "panel.keyboard.other_layer_hint" or "panel.keyboard.free_hint"),
       color = "on_surface_variant",
       fontSize = 11,
       maxLines = 2,
     })
+    if usedOnAnotherLayer then
+      local layerButtons = {
+        ui.label({ text = tr("panel.keyboard.available_layers"), color = "on_surface_variant", fontSize = 10 }),
+      }
+      for _, otherSignature in ipairs(otherSignatures) do
+        layerButtons[#layerButtons + 1] = ui.button({
+          text = modifierSignatureLabel(otherSignature),
+          variant = "outline",
+          controlSize = "sm",
+          enabled = modifierSignatureSelectable(otherSignature),
+          onClick = layerCallback(otherSignature),
+        })
+      end
+      children[#children + 1] = ui.row({ gap = 6, align = "center" }, layerButtons)
+    end
   else
     for entryIndex, entry in ipairs(entries) do
       if entryIndex > 5 then
@@ -1185,17 +1268,22 @@ local function creatorConflict(index)
   local signature = activeModifierSignature()
   for _, category in ipairs(asArray(snapshot.categories)) do
     for _, bind in ipairs(asArray(category.binds)) do
-      if not (formMode == "edit" and asString(bind.id) == editingBindId)
-        and modifierSignature(bind.modifiers) == signature
-        and asString(bind.activation, "press") == creatorActivation then
-        local rawKeys = type(bind.keys) == "table" and bind.keys or expandedKeys(bind.key)
-        if #rawKeys == #creatorKeys then
-          local matches = true
-          for index, rawKey in ipairs(rawKeys) do
-            if canonicalKey(rawKey) ~= creatorKeys[index] then matches = false break end
-          end
-          if matches then
-            return { bind = bind, category = asString(category.name, tr("panel.uncategorized")) }
+      if not (formMode == "edit" and asString(bind.id) == editingBindId) then
+        local combos = type(bind.combos) == "table" and #bind.combos > 0 and bind.combos
+          or { { modifiers = bind.modifiers, key = bind.key, keys = bind.keys } }
+        for _, combo in ipairs(combos) do
+          if modifierSignature(combo.modifiers) == signature
+            and asString(bind.activation, "press") == creatorActivation then
+            local rawKeys = type(combo.keys) == "table" and combo.keys or expandedKeys(combo.key)
+            if #rawKeys == #creatorKeys then
+              local matches = true
+              for index, rawKey in ipairs(rawKeys) do
+                if canonicalKey(rawKey) ~= creatorKeys[index] then matches = false break end
+              end
+              if matches then
+                return { bind = bind, category = asString(category.name, tr("panel.uncategorized")) }
+              end
+            end
           end
         end
       end
@@ -1422,6 +1510,9 @@ local function creatorForm(index)
     creatorCategoryIndex = #names
   end
   local isEditing = formMode == "edit"
+  local nativeSpawnEdit = isEditing and editingCapabilities.native_spawn == true
+  local commandLibraryEnabled = not isEditing
+    or (editingCapabilities.command == true and not nativeSpawnEdit)
   local showManualCombination = isEditing or viewMode == "list"
   local usesNewCategory = creatorCategoryIndex >= #names
   local compositor = normalized(snapshot.compositor)
@@ -1538,8 +1629,9 @@ local function creatorForm(index)
       ui.button({
         text = tr("panel.command_library.open"), glyph = "books",
         variant = commandLibraryOpen and "primary" or "ghost", controlSize = "sm",
-        enabled = not isEditing or editingCapabilities.command == true,
-        tooltip = tr("panel.command_library.open_hint"),
+        enabled = commandLibraryEnabled,
+        tooltip = nativeSpawnEdit and tr("panel.editor.native_spawn_library")
+          or tr("panel.command_library.open_hint"),
         onClick = "onCommandLibraryToggle",
       }),
     }),
@@ -1553,7 +1645,13 @@ local function creatorForm(index)
         text = tr("panel.command_library.placeholder_hint"), color = "tertiary", fontSize = 9,
         maxLines = 2, flexGrow = 1,
       }) or ui.spacer({ flexGrow = 1 }),
-    }) or ui.row({ visible = false }, {}),
+    }) or ui.row({ gap = 6, align = "center" }, {
+      ui.glyph({ name = "lock", size = 13, color = "on_surface_variant" }),
+      ui.label({
+        text = tr("panel.editor.native_command"), color = "on_surface_variant",
+        fontSize = 9, maxLines = 2, flexGrow = 1,
+      }),
+    }),
     commandLibraryNode(),
     ui.row({ gap = 8, align = "center" }, {
       ui.label({
@@ -1661,7 +1759,7 @@ selectKeyboardKey = function(code)
 end
 
 
-local function keyPill(token, isKey)
+local function keyPill(token, isKey, compact)
   local fill
   local textColor
   if isKey then
@@ -1675,7 +1773,7 @@ local function keyPill(token, isKey)
     border = "outline",
     borderWidth = 1,
     radius = 7,
-    paddingH = 7,
+    paddingH = compact and 4 or 7,
     paddingV = 2,
     align = "center",
     justify = "center",
@@ -1683,7 +1781,7 @@ local function keyPill(token, isKey)
     ui.label({
       text = asString(token, "?"),
       color = asString(textColor, "on_surface"),
-      fontSize = 11,
+      fontSize = compact and 9 or 11,
       fontWeight = "bold",
       maxLines = 1,
     }),
@@ -1982,7 +2080,8 @@ local function openBindEditor(bind, categoryName)
   end
   creatorActivation = asString(bind.activation, bind.release == true and "release" or "press")
   creatorCommand = asString(bind.command)
-  creatorCommandKind = "shell"
+  creatorCommandKind = editingCapabilities.native_spawn == true
+    and asString(bind.command_kind, "native") or "shell"
   creatorLibraryEntryId = ""
   creatorDescription = asString(bind.description)
   creatorContextCompositor = asString(snapshot.compositor)
@@ -2106,44 +2205,45 @@ end
 
 local function bindRow(bind, categoryName, columnCount, rowIndex)
   local width = keyWidth(columnCount)
-  local keys = {}
-  local tokens = {}
-  local estimatedWidth = 0
-  for _, modifier in ipairs(asArray(bind.modifiers)) do
-    tokens[#tokens + 1] = asString(modifier, "?")
-    estimatedWidth = estimatedWidth + #asString(modifier, "?") * 7 + 18
-    keys[#keys + 1] = keyPill(modifier, false)
-  end
-  local mainKey = asString(bind.key, "?")
-  tokens[#tokens + 1] = mainKey
-  estimatedWidth = estimatedWidth + #mainKey * 7 + 18 + math.max(0, #tokens - 1) * 4
-  keys[#keys + 1] = keyPill(mainKey, true)
+  local combos = type(bind.combos) == "table" and #bind.combos > 0 and bind.combos
+    or { { modifiers = bind.modifiers, key = bind.key } }
 
   local keyArea
-  if estimatedWidth > width then
-    keyArea = ui.row({
-      width = width,
-      fill = asString(cfg("key_color"), "surface"),
-      border = "outline",
-      borderWidth = 1,
-      radius = 7,
-      paddingH = 6,
-      paddingV = 2,
-      align = "center",
-      justify = "center",
-    }, {
-      ui.label({
-        text = table.concat(tokens, " + "),
-        color = asString(cfg("key_text_color"), "on_surface"),
-        fontSize = 10,
-        fontWeight = "bold",
-        textAlign = "center",
-        maxWidth = width - 12,
-        maxLines = 2,
-      }),
-    })
+  local single = #combos == 1
+  if single then
+    local tokens = #asArray(combos[1].modifiers) + 1
+    local estimatedWidth = 0
+    for _, modifier in ipairs(asArray(combos[1].modifiers)) do
+      estimatedWidth = estimatedWidth + #asString(modifier, "?") * 7 + 18
+    end
+    estimatedWidth = estimatedWidth + #asString(combos[1].key, "?") * 7 + 18 + math.max(0, tokens - 1) * 4
+    local compact = estimatedWidth > width
+    local keys = {}
+    for _, modifier in ipairs(asArray(combos[1].modifiers)) do
+      keys[#keys + 1] = keyPill(modifier, false, compact)
+    end
+    keys[#keys + 1] = keyPill(asString(combos[1].key, "?"), true, compact)
+    keyArea = ui.row({ width = width, gap = compact and 2 or 4, align = "center" }, keys)
   else
-    keyArea = ui.row({ width = width, gap = 4, align = "center" }, keys)
+    -- One line of pills per key combination, so merged shortcuts still read
+    -- as distinct physical presses instead of one opaque label.
+    local lines = {}
+    for _, combo in ipairs(combos) do
+      local estimatedWidth = 0
+      local mods = asArray(combo.modifiers)
+      for _, modifier in ipairs(mods) do
+        estimatedWidth = estimatedWidth + #asString(modifier, "?") * 7 + 18
+      end
+      estimatedWidth = estimatedWidth + #asString(combo.key, "?") * 7 + 18 + math.max(0, #mods) * 4
+      local compact = estimatedWidth > width
+      local pills = {}
+      for _, modifier in ipairs(mods) do
+        pills[#pills + 1] = keyPill(modifier, false, compact)
+      end
+      pills[#pills + 1] = keyPill(asString(combo.key, "?"), true, compact)
+      lines[#lines + 1] = ui.row({ gap = compact and 2 or 4, align = "center" }, pills)
+    end
+    keyArea = ui.column({ width = width, gap = 4 }, lines)
   end
 
   local description = asString(bind.description, tr("panel.no_description"))
@@ -2448,6 +2548,11 @@ local function statusBody(status, errorText)
   if translatedError == errorKey then
     translatedError = tr("panel.unknown_error")
   end
+  -- Internal parser failures carry the raw Lua error for diagnosis.
+  local detail = asString(snapshot.error_detail)
+  if isError and detail ~= "" then
+    translatedError = translatedError .. "\n" .. detail
+  end
   return ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 12 }, {
     ui.glyph({
       name = isError and "alert-circle" or "refresh",
@@ -2465,7 +2570,7 @@ local function statusBody(status, errorText)
       color = "on_surface_variant",
       textAlign = "center",
       maxWidth = 680,
-      maxLines = 4,
+      maxLines = 8,
     }),
     ui.label({
       text = tr("panel.path_hint"),
@@ -2767,7 +2872,11 @@ function onOpen(_context)
     hiddenDeleteConfirmBindId = ""
     clearCategoryRename()
   end
-  if snapshot.status == nil or snapshot.status == "idle" then
+  -- A "loading" snapshot observed at open time cannot still be in flight: the
+  -- service keeps running while the panel is closed, so any refresh it had
+  -- accepted has long since published. Treat it as stale (e.g. an interrupted
+  -- callback from an older plugin version) and request a fresh snapshot.
+  if snapshot.status == nil or snapshot.status == "idle" or snapshot.status == "loading" then
     requestRefresh()
   end
   render()
@@ -2987,7 +3096,8 @@ function onCreatorDescriptionChanged(value)
 end
 
 function onCommandLibraryToggle()
-  if formMode == "edit" and editingCapabilities.command ~= true then return end
+  if formMode == "edit" and (editingCapabilities.command ~= true
+    or editingCapabilities.native_spawn == true) then return end
   commandLibraryOpen = not commandLibraryOpen
   creatorError = ""
   render()
@@ -3015,6 +3125,7 @@ function onCommandLibraryReadinessChanged(index, _text)
 end
 
 function onCommandLibraryUseCustom()
+  if formMode == "edit" and editingCapabilities.native_spawn == true then return end
   if creatorCommandKind == "native" then
     creatorCommand = ""
     creatorRevision += 1

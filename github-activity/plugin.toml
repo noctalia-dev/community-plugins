@@ -1,0 +1,99 @@
+id = "alexmnrs/github-activity"
+name = "GitHub Activity"
+version = "1.4.0"
+plugin_api = 24
+author = "AlexMnrs"
+license = "MIT"
+icon = "brand-github"
+description = "A native GitHub contribution calendar for your Noctalia bar."
+tags = ["bar", "panel", "service", "development", "productivity", "utility", "network", "hyprland", "arch"]
+dependencies = ["gh", "xdg-open"]
+
+[[setting]]
+key = "refresh_interval_minutes"
+type = "select"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = "30"
+options = [
+  { value = "15", label_key = "settings.refresh_interval.options.fifteen" },
+  { value = "30", label_key = "settings.refresh_interval.options.thirty" },
+  { value = "60", label_key = "settings.refresh_interval.options.sixty" },
+]
+
+[[widget]]
+id = "activity"
+entry = "widget.luau"
+
+[[widget.setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.widget_display_mode.label"
+description_key = "settings.widget_display_mode.description"
+default = "icon_and_value"
+options = [
+  { value = "icon_only", label_key = "settings.widget_display_mode.options.icon_only" },
+  { value = "icon_and_value", label_key = "settings.widget_display_mode.options.icon_and_value" },
+]
+
+[[widget.setting]]
+key = "display_metric"
+type = "select"
+label_key = "settings.widget_display_metric.label"
+description_key = "settings.widget_display_metric.description"
+default = "today"
+visible_when = { key = "display_mode", values = ["icon_and_value"] }
+options = [
+  { value = "today", label_key = "settings.widget_display_metric.options.today" },
+  { value = "current_streak", label_key = "settings.widget_display_metric.options.current_streak" },
+  { value = "year_total", label_key = "settings.widget_display_metric.options.year_total" },
+]
+
+[[panel]]
+id = "calendar"
+entry = "panel.luau"
+width = 680
+height = 430
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[panel.setting]]
+key = "show_today"
+type = "bool"
+label_key = "settings.panel_content.show_today.label"
+description_key = "settings.panel_content.show_today.description"
+default = true
+
+[[panel.setting]]
+key = "show_current_streak"
+type = "bool"
+label_key = "settings.panel_content.show_current_streak.label"
+description_key = "settings.panel_content.show_current_streak.description"
+default = true
+
+[[panel.setting]]
+key = "show_best_streak"
+type = "bool"
+label_key = "settings.panel_content.show_best_streak.label"
+description_key = "settings.panel_content.show_best_streak.description"
+default = true
+
+[[panel.setting]]
+key = "show_year_total"
+type = "bool"
+label_key = "settings.panel_content.show_year_total.label"
+description_key = "settings.panel_content.show_year_total.description"
+default = true
+
+[[panel.setting]]
+key = "show_profile_button"
+type = "bool"
+label_key = "settings.panel_content.show_profile_button.label"
+description_key = "settings.panel_content.show_profile_button.description"
+default = true
+
+[[service]]
+id = "sync"
+entry = "sync.luau"

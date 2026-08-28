@@ -1,0 +1,34 @@
+{
+  "level": {
+    "auto": "Auto",
+    "full": "Full speed"
+  },
+  "notify": {
+    "fan_error_body": "Could not set the fan level. Check the write permissions (see the plugin README).",
+    "fan_error_title": "Fan control"
+  },
+  "panel": {
+    "auto": "Auto",
+    "full": "Full",
+    "title": "Fan control"
+  },
+  "settings": {
+    "allow_popup": {
+      "description": "Open the manual fan-level panel by left-clicking the widget",
+      "label": "Left-click opens the control panel"
+    },
+    "colorize_by_status": {
+      "description": "Tint the widget when the fan is forced off or at a manual level",
+      "label": "Colorize by status"
+    },
+    "thermal_zone": {
+      "description": "sysfs thermal zone used for the temperature, e.g. thermal_zone0",
+      "label": "Thermal zone"
+    }
+  },
+  "tooltip": {
+    "level": "Level",
+    "speed": "Speed",
+    "temperature": "Temperature"
+  }
+}

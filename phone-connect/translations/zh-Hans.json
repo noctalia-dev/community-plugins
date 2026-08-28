@@ -20,14 +20,26 @@
     "clipboard_failed": "发送剪贴板失败",
     "no_backend": "无后端",
     "pairing_failed": "配对失败",
+    "pick_failed": "无法打开文件选择器",
+    "pick_in_progress": "文件选择器已打开",
     "ping_failed": "发送 Ping 失败",
     "reject_failed": "拒绝配对失败",
     "ring_failed": "响铃失败",
     "share_failed": "分享失败",
     "unpair_failed": "取消配对失败"
   },
+  "media": {
+    "mute": "静音",
+    "next": "下一首",
+    "pause": "暂停",
+    "play": "播放",
+    "previous": "上一首",
+    "stop": "停止",
+    "unmute": "恢复音量"
+  },
   "notify": {
     "clipboard_sent": "剪贴板已发送",
+    "file_shared": "正在发送文件到设备...",
     "opening_browser": "正在打开文件浏览器...",
     "paired": "设备已配对",
     "pairing_sent": "已发送配对请求",
@@ -38,7 +50,8 @@
   },
   "panel": {
     "battery": "电量",
-    "devices_connected": "已连接 {connected} · 已配对 {paired}",
+    "close": "关闭",
+    "devices_connected": "已连接 {connected}",
     "empty": "未找到设备。请在 KDE Connect 中配对设备。",
     "image_path": "自定义图片",
     "network": "网络",
@@ -56,6 +69,14 @@
     "unpaired": "未配对"
   },
   "settings": {
+    "battery_display": {
+      "description": "选择栏部件显示电池图标、百分比、两者或都不显示。",
+      "hidden": "隐藏",
+      "icon": "仅图标",
+      "icon_and_percent": "图标和百分比",
+      "label": "电池显示",
+      "percent": "仅百分比"
+    },
     "custom_image": {
       "description": "选中设备后在此设置自定义头像图片。留空恢复默认图标。",
       "label": "设备头像"
@@ -78,12 +99,20 @@
       "label": "界面语言",
       "zh-hans": "简体中文"
     },
+    "migrated": {
+      "description": "直接在面板中修改：点击设备头像更换图片，点击设备名称重命名。每台设备独立，自动保存。",
+      "label": "设备头像与名称"
+    },
     "panel_placement": {
       "attached": "贴合栏",
       "description": "详情面板的弹出方式。",
       "floating": "悬浮居中",
       "label": "面板弹出方式",
       "widget": "部件下方悬浮"
+    },
+    "show_device_name": {
+      "description": "在栏部件中显示选中设备的名称或别名。",
+      "label": "显示设备名称"
     },
     "state_update_interval": {
       "description": "自动刷新设备状态的间隔秒数。0 表示禁用。",

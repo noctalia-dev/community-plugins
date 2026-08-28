@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <sqlite3.h>
+#include "sqlite_reader.h"
 #include <libgen.h>
 #include <ctype.h>
 #include <time.h>
@@ -393,6 +393,70 @@ void scan_steam() {
     free(steamapps_paths);
 }
 
+typedef struct {
+    SqliteTable *t;
+    int col_id;
+    int col_name;
+    int col_slug;
+    int col_runner;
+    int col_installed;
+} LutrisCtx;
+
+static int lutris_row_cb(void *ctxp, long long rowid, const unsigned char *rec, int reclen) {
+    LutrisCtx *c = ctxp;
+    SqliteRecHeader h;
+    if (!sq_parse_header(rec, reclen, &h)) return 0;
+
+    char id[MAX_STR] = "0";
+    char name[MAX_STR] = "";
+    char slug[MAX_STR] = "";
+    char runner[MAX_STR] = "linux";
+
+    if (c->t->id_is_rowid)
+        snprintf(id, sizeof(id), "%lld", rowid);
+    else if (c->col_id >= 0)
+        sq_col_text(&h, rec, reclen, c->col_id, id, sizeof(id));
+
+    int has_name = sq_col_text(&h, rec, reclen, c->col_name, name, sizeof(name));
+    int has_slug = sq_col_text(&h, rec, reclen, c->col_slug, slug, sizeof(slug));
+
+    if (!has_name || !has_slug) return 0;
+    if (game_exists(name)) return 0;
+
+    int has_runner = sq_col_text(&h, rec, reclen, c->col_runner, runner, sizeof(runner));
+    if (!has_runner) strncpy(runner, "linux", sizeof(runner) - 1);
+
+    char cover[MAX_PATH] = "";
+    const char *cover_dirs[] = {
+        "/.local/share/lutris/coverart",
+        "/.var/app/net.lutris.Lutris/data/lutris/coverart",
+        "/.cache/lutris/coverart",
+        NULL
+    };
+
+    for (int cd = 0; cover_dirs[cd]; cd++) {
+        char cover_dir[MAX_PATH];
+        snprintf(cover_dir, sizeof(cover_dir), "%s%s", get_home(), cover_dirs[cd]);
+
+        const char *exts[] = {".jpg", ".png", ".jpeg", NULL};
+        for (int e = 0; exts[e]; e++) {
+            char fp[MAX_PATH];
+            snprintf(fp, sizeof(fp), "%s/%s%s", cover_dir, slug, exts[e]);
+            if (file_exists(fp)) {
+                strncpy(cover, fp, MAX_PATH - 1);
+                break;
+            }
+        }
+        if (cover[0]) break;
+    }
+
+    char run_command[MAX_RUN_CMD];
+    snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
+
+    add_game(id, name, "lutris", cover, "", run_command, slug);
+    return 0;
+}
+
 void scan_lutris() {
     char db_paths[8][MAX_PATH];
     int num_dbs = 0;
@@ -474,80 +538,48 @@ void scan_lutris() {
 
     if (!chosen_db) return;
 
-    sqlite3 *db;
-    int rc = sqlite3_open_v2(chosen_db, &db, SQLITE_OPEN_READONLY, NULL);
-    if (rc != SQLITE_OK) return;
+    SqliteDb db;
+    if (!sq_open(&db, chosen_db)) return;
 
-    sqlite3_stmt *stmt;
+    struct {
+        const char *name;
+        int require_installed;
+        int filter_installed;
+    } cands[] = {
+        {"games", 1, 1},
+        {"installed_game", 0, 0},
+        {"game", 1, 1},
+        {NULL, 0, 0}
+    };
 
-    const char *query =
-        "SELECT id, name, slug, runner "
-        "FROM games WHERE installed = 1";
+    SqliteTable t;
 
-    rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+    for (int i = 0; cands[i].name; i++) {
+        memset(&t, 0, sizeof(t));
+        if (!sq_find_table(&db, cands[i].name, &t)) continue;
 
-    if (rc != SQLITE_OK) {
-        const char *alt_queries[] = {
-            "SELECT id, name, slug, runner FROM installed_game",
-            "SELECT id, name, slug, runner FROM game WHERE installed = 1",
-            NULL
-        };
+        int col_id = sq_column_index(&t, "id");
+        int col_name = sq_column_index(&t, "name");
+        int col_slug = sq_column_index(&t, "slug");
+        int col_runner = sq_column_index(&t, "runner");
+        if (col_id < 0 || col_name < 0 || col_slug < 0 || col_runner < 0) continue;
 
-        for (int q = 0; alt_queries[q]; q++) {
-            rc = sqlite3_prepare_v2(db, alt_queries[q], -1, &stmt, NULL);
-            if (rc == SQLITE_OK) break;
-        }
+        int col_installed = sq_column_index(&t, "installed");
+        if (cands[i].require_installed && col_installed < 0) continue;
 
-        if (rc != SQLITE_OK) {
-            sqlite3_close(db);
-            return;
-        }
+        LutrisCtx ctx;
+        ctx.t = &t;
+        ctx.col_id = col_id;
+        ctx.col_name = col_name;
+        ctx.col_slug = col_slug;
+        ctx.col_runner = col_runner;
+        ctx.col_installed = cands[i].filter_installed ? col_installed : -1;
+
+        sq_walk_table(&db, t.rootpage, lutris_row_cb, &ctx);
+        break;
     }
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        const char *id = (const char *)sqlite3_column_text(stmt, 0);
-        const char *name = (const char *)sqlite3_column_text(stmt, 1);
-        const char *slug = (const char *)sqlite3_column_text(stmt, 2);
-        const char *runner = (const char *)sqlite3_column_text(stmt, 3);
-
-        if (!name || !slug) continue;
-        if (game_exists(name)) continue;
-
-        char cover[MAX_PATH] = "";
-        const char *cover_dirs[] = {
-            "/.local/share/lutris/coverart",
-            "/.var/app/net.lutris.Lutris/data/lutris/coverart",
-            "/.cache/lutris/coverart",
-            NULL
-        };
-
-        for (int c = 0; cover_dirs[c]; c++) {
-            char cd[MAX_PATH];
-            snprintf(cd, sizeof(cd), "%s%s", get_home(), cover_dirs[c]);
-
-            const char *exts[] = {".jpg", ".png", ".jpeg", NULL};
-            for (int e = 0; exts[e]; e++) {
-                char fp[MAX_PATH];
-                snprintf(fp, sizeof(fp), "%s/%s%s", cd, slug, exts[e]);
-                if (file_exists(fp)) {
-                    strncpy(cover, fp, MAX_PATH - 1);
-                    break;
-                }
-            }
-            if (cover[0]) break;
-        }
-
-        char run_command[MAX_RUN_CMD];
-        snprintf(run_command, sizeof(run_command), "lutris:rungame/%s", slug);
-
-        if (!id) id = "0";
-        if (!runner) runner = "linux";
-
-        add_game(id, name, "lutris", cover, "", run_command, slug ? slug : "");
-    }
-
-    sqlite3_finalize(stmt);
-    sqlite3_close(db);
+    sq_close(&db);
 }
 
 void scan_lutris_manual_files() {

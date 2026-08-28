@@ -83,6 +83,13 @@ noctalia = {
 local instructionBlocks = 0
 debug.sethook(function() instructionBlocks = instructionBlocks + 1 end, "", 1000)
 assert(loadfile("niri_service.luau"))()
+-- The parser yields to stay inside each callback's CPU budget; the host's
+-- update timer resumes it. Pump ticks until the snapshot settles.
+local pumps = 0
+while values["keymap.snapshot"].status == "loading" and pumps < 40 do
+  update()
+  pumps = pumps + 1
+end
 debug.sethook()
 bit32 = originalBit32
 string.sub = originalStringSub

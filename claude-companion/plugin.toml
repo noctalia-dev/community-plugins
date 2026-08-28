@@ -4,7 +4,7 @@
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.3.0"
+version = "1.5.0"
 # Plugin API level this manifest targets — mandatory as of the Noctalia 5 beta
 # manifest parser (replaces the older min_noctalia gate). 3 is the oldest-supported
 # level and covers every feature this plugin uses ([[panel]], ui controls, plugin IPC
@@ -63,6 +63,25 @@ min = 0.0
 max = 3.0
 step = 0.05
 
+# The tool-consent gate (hooks/consent.py). OFF is the default and behaves exactly as
+# if the hook were not installed — this sits in the critical path of every gated tool
+# call, so it must be opted into rather than arrive with an upgrade.
+#   learn    record what Claude runs, never block; seeds the allowlist from real traffic
+#   enforce  block anything not already allowlisted, and ask here
+# pulse-svc mirrors this value into $XDG_RUNTIME_DIR/claude-companion/mode, because the
+# hook runs outside the shell and cannot call getConfig. A missing file means off.
+[[setting]]
+key = "consent_mode"
+type = "select"
+label_key = "settings.consent_mode.label"
+description_key = "settings.consent_mode.description"
+default = "off"
+options = [
+  { value = "off", label_key = "settings.consent_mode.option.off" },
+  { value = "learn", label_key = "settings.consent_mode.option.learn" },
+  { value = "enforce", label_key = "settings.consent_mode.option.enforce" },
+]
+
 # The pulse aggregator (headless) — the single source of truth for Claude session
 # state. Receives hook events via onIpc (noctalia msg plugin …:pulse-svc all <event>)
 # and the launcher quick-ask via state.watch("claude.state"), rolls all sessions up,
@@ -110,9 +129,42 @@ entry = "sessions.luau"
 width = 440
 height = 360
 
+# The consent panel — the desktop half of the tool-approval gate. hooks/consent.py
+# blocks a PreToolUse call, dispatches consent_request into pulse-svc, and the service
+# opens this panel with the request id as its context. Answering releases the hook;
+# not answering lets it hit its own deadline and fall through to Claude Code's normal
+# permission prompt. Inert unless `consent_mode` is set to enforce.
+[[panel]]
+id = "consent"
+entry = "consent.luau"
+width = 480
+height = 340
+
+# The ask panel — a one-off question straight from the bar, opened by a MIDDLE-click
+# on the pulse (left is the answer panel, right is sessions). It owns no backend: the
+# question goes to a file and an `ask` poke goes to the claude entry, which runs the
+# same quick-ask path as `/claude ? …`. The answer lands in the answer panel and a
+# toast, exactly as a launcher ask does.
+[[panel]]
+id = "ask"
+entry = "ask.luau"
+width = 460
+height = 200
+
 # /claude — launch a real Claude Code session in the terminal, or a one-shot ask.
 # The single backend chokepoint (invoke/parse) is inlined here: v5 has no plugin
 # module system, and this is the only entry that talks to a model.
+# The quick-ask receiver. Same file as the launcher provider BY DESIGN: a
+# [[launcher_provider]] is not IPC-addressable -- `msg plugin <id>:claude all ask`
+# answers "no plugin entry matched" on every target -- so the ask panel's poke had no
+# receiver and quick-ask from the bar never ran. Pointing a [[service]] at claude.luau
+# gives the poke an entry kind that IS addressable without a second copy of
+# backend_command()'s read-only flags. The file defines only locals and callbacks, so
+# this instance costs nothing at load and sits idle until poked.
+[[service]]
+id = "claude-ask"
+entry = "claude.luau"
+
 [[launcher_provider]]
 id = "claude"
 entry = "claude.luau"

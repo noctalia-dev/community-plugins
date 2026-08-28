@@ -1,0 +1,30 @@
+{
+  "add_model": {
+    "empty": "Kullanılabilir model yok",
+    "no_match": "Aramanızla eşleşen model bulunamadı.",
+    "search": "Modelleri ara…",
+    "title": "Model ekle"
+  },
+  "create": {
+    "back": "Geri",
+    "cancel": "İptal",
+    "models_label": "Modeller",
+    "name_label": "İsim",
+    "name_placeholder": "örn. my-fallback",
+    "submit": "Oluştur"
+  },
+  "detail": {
+    "add_model": "Model ekle",
+    "delete_no": "İptal",
+    "delete_yes": "Evet, sil",
+    "models_title": "Model Zinciri",
+    "move_down": "Aşağı kaydır",
+    "move_up": "Yukarı kaydır",
+    "refresh": "Yenile",
+    "remove_model": "Modeli sil",
+    "rename": "Yeniden Adlandır",
+    "rename_cancel": "İptal",
+    "rename_placeholder": "Yeni isim...",
+    "rename_save": "Kaydet"
+  }
+}

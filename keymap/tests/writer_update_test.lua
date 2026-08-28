@@ -35,7 +35,9 @@ noctalia = {
 	removeFile = function(path) files[path] = nil return true end,
 	runAsync = function(command, callback, _timeout)
 		local result = { exitCode = 0, timedOut = false }
-		if failVerify and command:find("verify", 1, true) ~= nil then result.exitCode = 1 end
+		if failVerify and (command:find("verify", 1, true) ~= nil
+			or command:find("niri validate", 1, true) ~= nil
+			or command:find("mango -c", 1, true) ~= nil) then result.exitCode = 1 end
 		if failReload and command == "hyprctl reload" then
 			reloadAttempts = reloadAttempts + 1
 			if reloadAttempts == 1 then result.exitCode = 1 end
@@ -111,6 +113,13 @@ local function runCase(case)
 		case.id, source, case.snippet, case.capabilities,
 		case.startLine, case.endLine
 	)
+	bind.modifiers = case.originalModifiers or case.modifiers
+	bind.keys = case.originalKeys or case.keys
+	bind.key = bind.keys and bind.keys[1] or nil
+	bind.activation = case.originalActivation or case.activation
+	bind.command = case.originalCommand
+	bind.command_kind = case.targetCommandKind
+	bind.action = case.targetAction
 	-- Active Hyprland source entries use exact byte comparison to keep hashing
 	-- out of the service's tightly budgeted refresh callback.
 	if case.compositor == "Hyprland" then bind.fingerprint = "exact-v1" end
@@ -472,6 +481,78 @@ runCase({
 	modifiers = { "SUPER", "SHIFT" }, keys = { "G" }, activation = "press",
 	command = "new-command --flag", description = "New title",
 	expected = 'binds {\n    Mod+Shift+G repeat=false hotkey-overlay-title="New title" { spawn-sh "new-command --flag"; }\n}\n',
+})
+
+local niriNativeAction = 'spawn "noctalia" "msg" "panel-toggle" "old:panel"'
+local niriNativeSnippet = '    Mod+B repeat=false hotkey-overlay-title="Run panel" { '
+	.. niriNativeAction .. '; }'
+runCase({
+	id = "niri-native-spawn", compositor = "Niri", rootName = "niri-native-spawn.kdl",
+	root = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	content = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	snippet = niriNativeSnippet, category = "Applications",
+	capabilities = {
+		combo = true, description = true, command = true,
+		native_spawn = true, activation = false,
+	},
+	originalModifiers = { "SUPER" }, originalKeys = { "B" }, originalActivation = "press",
+	originalCommand = niriNativeAction, targetCommandKind = "native", targetAction = niriNativeAction,
+	modifiers = { "SUPER" }, keys = { "B" }, activation = "press",
+	command = 'spawn "noctalia" "msg" "panel-toggle" "new:panel" ""', commandKind = "native",
+	description = "Run updated panel",
+	expected = 'binds {\n    Mod+B repeat=false hotkey-overlay-title="Run updated panel"'
+		.. ' { spawn "noctalia" "msg" "panel-toggle" "new:panel" ""; }\n}\n',
+})
+
+runCase({
+	id = "niri-native-spawn-rollback", compositor = "Niri", rootName = "niri-native-rollback.kdl",
+	root = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	content = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	snippet = niriNativeSnippet, category = "Applications", failVerify = true,
+	capabilities = {
+		combo = true, description = true, command = true,
+		native_spawn = true, activation = false,
+	},
+	originalCommand = niriNativeAction, targetCommandKind = "native", targetAction = niriNativeAction,
+	modifiers = { "SUPER" }, keys = { "B" }, activation = "press",
+	command = 'spawn "noctalia" "msg" "panel-toggle" "rollback:panel"', commandKind = "native",
+	description = "Rollback panel",
+})
+
+local niriMultilineAction = 'spawn "notify-send" "Old value"'
+local niriMultilineSnippet = '    Mod+N hotkey-overlay-title="Notify" {\n        '
+	.. niriMultilineAction .. ';\n    }'
+runCase({
+	id = "niri-native-spawn-multiline", compositor = "Niri", rootName = "niri-native-multiline.kdl",
+	root = "binds {\n" .. niriMultilineSnippet .. "\n}\n",
+	content = "binds {\n" .. niriMultilineSnippet .. "\n}\n",
+	snippet = niriMultilineSnippet, startLine = 2, endLine = 4, category = "Applications",
+	capabilities = {
+		combo = true, description = true, command = true,
+		native_spawn = true, activation = false,
+	},
+	originalModifiers = { "SUPER" }, originalKeys = { "N" }, originalActivation = "press",
+	originalCommand = niriMultilineAction, targetCommandKind = "native", targetAction = niriMultilineAction,
+	modifiers = { "SUPER" }, keys = { "N" }, activation = "press",
+	command = 'spawn "notify-send" "A \\"quoted\\" value"', commandKind = "native",
+	description = "Notify",
+	expected = 'binds {\n    Mod+N hotkey-overlay-title="Notify" {\n'
+		.. '        spawn "notify-send" "A \\"quoted\\" value";\n    }\n}\n',
+})
+
+runCase({
+	id = "niri-native-spawn-invalid", compositor = "Niri", rootName = "niri-native-invalid.kdl",
+	root = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	content = "binds {\n" .. niriNativeSnippet .. "\n}\n",
+	snippet = niriNativeSnippet, category = "Applications",
+	capabilities = {
+		combo = true, description = true, command = true,
+		native_spawn = true, activation = false,
+	},
+	originalCommand = niriNativeAction, targetCommandKind = "native", targetAction = niriNativeAction,
+	modifiers = { "SUPER" }, keys = { "B" }, activation = "press",
+	command = 'spawn "noctalia"; quit', commandKind = "native", description = "Unsafe edit",
+	error = "niri_spawn_invalid",
 })
 
 local mangoSnippet = 'bind=SUPER,G,spawn_shell,old-command #"Old title"'

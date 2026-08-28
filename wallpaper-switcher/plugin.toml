@@ -1,0 +1,18 @@
+id = "kavya-nama/wallpaper-switcher"
+name = "Wallpaper Switcher"
+version = "1.0.0"
+plugin_api = 3
+author = "kavya-nama"
+license = "MIT"
+icon = "image"
+description = "Switch to the next wallpaper from a bar widget."
+tags = ["bar", "shortcut", "wallpaper"]
+dependencies = []
+
+[[widget]]
+id = "switch"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "switch-shortcut"
+entry = "shortcut.luau"

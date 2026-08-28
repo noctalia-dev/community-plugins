@@ -38,6 +38,6 @@ Projects are read from Godot's projects.cfg file, typically at
 and refreshed when you clear the query.
 
 The `sort_by` setting sorts by writing the project's ids in a json inside the plugins' 
-[`pluginDataDir`](https://docs.noctalia.dev/v5/plugins/development/runtime-api/?section=filesystem#filesystem).
+[`pluginDataDir`](https://docs.noctalia.dev/noctalia/plugins/development/runtime-api/?section=filesystem#filesystem).
 
 Small parts of the code were taken or based upon the [zed-provider](https://github.com/noctalia-dev/community-plugins/tree/main/zed-provider) plugin.

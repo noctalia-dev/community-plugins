@@ -1,15 +1,23 @@
 # To Do — a prioritised task list on the bar. Click the glyph to toggle a panel
-# of editable task rows: add with +, tick to complete (the text is struck
-# through), delete, and click each row's colour chip to cycle its priority
-# (important → medium → low). A header toggle switches ordering between priority
-# (auto-sorted) and manual, where a ☰ grip on each row drags it to reorder.
+# of editable task rows: add with + or N (new tasks land at the top), tick to
+# complete (the text is struck through), edit or delete with the row's own
+# buttons, and click each row's colour chip to cycle its priority (important →
+# medium → low). Right-click a task for the same actions plus an explicit
+# priority pick, in a native context menu. The footer carries bulk actions
+# too: mark every task done/undone, and set every task to one priority. A
+# header toggle switches ordering between priority (auto-sorted) and manual,
+# where a ☰ grip on each row drags it to reorder.
 # The whole list is a single JSON file in the configured folder; no external
 # commands are run.
 
 id = "nightwatch75/todo"
 name = "To Do"
-version = "0.0.14"
-plugin_api = 15
+version = "1.1.1"
+# 28 for panel.openContextMenu: the row's right-click menu carries edit,
+# priority and delete, which is what let the row drop two glyph buttons. Also
+# 23 for noctalia.readFileAsync — the bar widget re-reads todo.json every 2
+# seconds and must not block the bar to do it.
+plugin_api = 28
 author = "nightwatch75"
 license = "MIT"
 dependencies = []
@@ -17,25 +25,45 @@ tags = ["bar", "panel", "productivity"]
 icon = "checklist"
 description = "A prioritised task list with a bar widget and editable panel."
 
-# Plugin-level setting: the folder holding the task file, shared by the panel
-# (reads/writes it) and the bar widget (reads it for the pending count).
+# Plugin-level settings, shared by the panel (reads/writes the task file,
+# plays the completion sound) and the bar widget (reads the folder for the
+# pending count).
 [[setting]]
 key = "todo_folder"
 type = "folder"
 label_key = "settings.todo_folder.label"
 description_key = "settings.todo_folder.description"
 
+[[setting]]
+key = "sound_on_complete"
+type = "bool"
+label_key = "settings.sound_on_complete.label"
+description_key = "settings.sound_on_complete.description"
+default = false
+
 [[panel]]
 id = "panel"
 entry = "panel.luau"
 width = 400
-height = 460
+height = 600
 placement = "attached"
 open_near_click = true
+# "n"/"s" reach onKey only while no ui.input has focus (the host reserves
+# printable keys for a focused text field) — see panel.luau's onKey guard.
+# Return/Escape are deliberately not captured: Return already reaches the
+# editing ui.input's onSubmit, and Escape can never be captured by a panel
+# (the host always reserves it to close/dismiss).
+capture_keys = ["n", "s"]
 
 [[widget]]
 id = "todo"
 entry = "todo.luau"
+
+  # Left click toggles the panel — declared here instead of hard-coded in
+  # todo.luau's onClick, so the user can remap it from the bar's own gesture
+  # settings like any built-in widget.
+  [widget.actions]
+  left = "panel-toggle nightwatch75/todo:panel"
 
   [[widget.setting]]
   key = "glyph"

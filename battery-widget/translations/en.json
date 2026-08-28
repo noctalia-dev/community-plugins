@@ -1,4 +1,7 @@
 {
+  "notify": {
+    "error": "Something went wrong. Check the Noctalia log for details."
+  },
   "settings": {
     "battery": {
       "auto": "Auto",
@@ -27,6 +30,13 @@
       "description": "Hide the battery widget when connected to AC power.",
       "label": "Hide When Plugged In"
     },
+    "label_content": {
+      "description": "What the battery label shows: charge percentage, time remaining, or power draw.",
+      "label": "Label Content",
+      "percent": "Percent",
+      "rate": "Rate",
+      "time": "Time"
+    },
     "layout": {
       "description": "Widget layout.",
       "horizontal": "Horizontal",
@@ -46,7 +56,7 @@
       "label": "Show Label"
     },
     "warning_color": {
-      "description": "Color applied when charge is at or below 20%.",
+      "description": "Color applied when charge is at or below noctalia's warning threshold.",
       "label": "Warning Color"
     }
   }

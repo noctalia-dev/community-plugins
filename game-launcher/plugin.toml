@@ -1,12 +1,12 @@
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.1.2"
+version = "1.3.0"
 plugin_api = 13
 author = "Alexander"
 license = "MIT"
 icon = "device-gamepad-2"
 description = "Browse and launch games from Steam, Lutris, and Heroic."
-dependencies = ["cc", "libsqlite3-dev", "xdg-utils"]
+dependencies = ["cc", "xdg-utils"]
 tags = ["gaming", "launcher", "utility"]
 
 [[widget]]

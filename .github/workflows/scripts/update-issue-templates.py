@@ -30,6 +30,7 @@ name: Bug Report
 description: Report a bug in a community plugin
 title: "[BUG] "
 labels: ["bug"]
+type: "Bug"
 
 body:
   - type: checkboxes
@@ -154,6 +155,7 @@ name: Feature Request
 description: Suggest an improvement to a community plugin
 title: "[FEATURE] "
 labels: ["feature"]
+type: "Feature"
 
 body:
   - type: checkboxes

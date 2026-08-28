@@ -1,0 +1,127 @@
+{
+  "settings": {
+    "color_by_usage": {
+      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
+      "label": "Color by usage"
+    },
+    "extras": {
+      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
+      "label": "Extra reading",
+      "option": {
+        "both": "Both",
+        "countdown": "Time until reset",
+        "none": "Neither",
+        "pace": "Pace against the clock"
+      }
+    },
+    "glyph_position": {
+      "description": "Which side of the reading the icon sits on.",
+      "label": "Icon position",
+      "option": {
+        "after": "After",
+        "before": "Before"
+      }
+    },
+    "provider_limit": {
+      "description": "How many providers one capsule shows, busiest first, with a +N for the rest. Only applies when the provider is Automatic.",
+      "label": "Providers in the capsule"
+    },
+    "refresh_minutes": {
+      "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls.",
+      "label": "Refresh interval (minutes)"
+    },
+    "show_glyph": {
+      "description": "The provider's icon. Off leaves the reading on its own.",
+      "label": "Show icon"
+    },
+    "show_name": {
+      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
+      "label": "Show provider name"
+    },
+    "show_value": {
+      "description": "The percentage as text. Off leaves the gauge to say it.",
+      "label": "Show value"
+    },
+    "style": {
+      "description": "How this capsule looks in the bar.",
+      "label": "Style",
+      "option": {
+        "gauge": "Gauge and percentage",
+        "label": "Name, gauge and percentage",
+        "meter": "Segments",
+        "pill": "Percentage"
+      }
+    },
+    "vendor": {
+      "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
+      "label": "Provider",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "Anthropic API",
+        "antigravity": "Antigravity",
+        "auto": "Automatic (primary)",
+        "cursor": "Cursor",
+        "deepseek": "DeepSeek",
+        "grok": "Grok",
+        "kilo": "Kilo",
+        "kimi": "Kimi",
+        "kiro": "Kiro",
+        "minimax": "MiniMax",
+        "moonshot": "Moonshot",
+        "novita": "Novita",
+        "openai": "Codex",
+        "openrouter": "OpenRouter",
+        "supergrok": "SuperGrok",
+        "zai": "Z.AI"
+      }
+    },
+    "visualization": {
+      "description": "A gauge beside the reading, or nothing.",
+      "label": "Visualization",
+      "option": {
+        "gauge": "Quota bar",
+        "none": "Nothing"
+      }
+    }
+  },
+  "ui": {
+    "details": "Details",
+    "elapsed": "{percent}% of the window elapsed",
+    "error": {
+      "failed": "Could not read usage",
+      "failed_hint": "ai-usagebar exited with an error.",
+      "no_data": "No usage reported",
+      "no_data_hint": "ai-usagebar ran but reported no usage. Check the providers in `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar is not installed",
+      "not_installed_hint": "The CLI is not on PATH. Install it, then try again.",
+      "spawn_failed": "Could not start ai-usagebar",
+      "spawn_failed_hint": "The process never started. Try again in a moment.",
+      "timed_out": "ai-usagebar did not answer",
+      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+    },
+    "hidden_label": "Not shown",
+    "hidden_value": "{count} more, click to open the panel",
+    "install": "Install page",
+    "loading": "Loading…",
+    "no_usage": "No usage reported",
+    "not_configured": "`{vendor}` is not configured in ai-usagebar",
+    "now": "now",
+    "refresh": "Refresh now",
+    "refresh_queued": "Refresh queued",
+    "refreshing": "Refreshing usage",
+    "retry": "Try again",
+    "settings": "Plugin settings",
+    "severity": {
+      "critical": "critical",
+      "high": "high"
+    },
+    "stale": "stale",
+    "stale_hint": "showing last known data",
+    "title": "AI Usage",
+    "unavailable": "Unavailable",
+    "updated": "Updated",
+    "updated_ago": "Updated {minutes} min ago",
+    "updated_now": "Updated just now",
+    "waiting": "Waiting for usage data"
+  }
+}

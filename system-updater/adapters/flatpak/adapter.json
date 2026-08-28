@@ -1,0 +1,9 @@
+{
+    "name": "Flatpak",
+    "enabled": true,
+    "dependencies": ["flatpak", "python"],
+    "check_command": "python {adapter_dir}/check.py",
+    "update_package_command": "flatpak -y --noninteractive update \"{package_name}\"",
+    "update_all_command": "flatpak -y --noninteractive update",
+    "actions": {}
+}

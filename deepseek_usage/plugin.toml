@@ -1,0 +1,47 @@
+id = "coder/deepseek_usage"
+name = "DeepSeek Usage"
+version = "1.0.0"
+plugin_api = 19
+author = "coder"
+license = "MIT"
+dependencies = ["xdg-open"]
+tags = ["utility", "productivity", "bar", "panel"]
+icon = "wallet"
+description = "DeepSeek API credit and balance monitor for Noctalia shell"
+
+[[widget]]
+id = "bar"
+entry = "deepseek_usage.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = 480
+placement = "attached"
+position = "auto"
+
+[[setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 15
+min = 1
+max = 1440
+
+[[setting]]
+key = "low_balance_threshold"
+type = "double"
+label_key = "settings.low_balance_threshold.label"
+description_key = "settings.low_balance_threshold.description"
+default = 2.0
+min = 0.0
+max = 100.0

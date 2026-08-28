@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "refresh_seconds": {
+      "label": "Refresh interval",
+      "description": "Seconds between live Codex quota checks."
+    },
+    "show_inactive": {
+      "label": "Include inactive accounts",
+      "description": "Also query Codex connections disabled in OmniRoute."
+    },
+    "show_value": {
+      "label": "Show value in bar",
+      "description": "Display the lowest remaining quota percentage."
+    }
+  },
+  "widget": {
+    "title": "OmniRoute Quota",
+    "loading": "Loading Codex quotas",
+    "remaining": "remaining",
+    "error": "Quota error",
+    "no_accounts": "No Codex accounts found"
+  },
+  "panel": {
+    "title": "OmniRoute Quota",
+    "subtitle": "Codex account capacity",
+    "refreshing": "Refreshing Codex accounts...",
+    "refresh": "Refresh now",
+    "error": "Could not load quotas",
+    "no_accounts": "No active Codex accounts found in OmniRoute.",
+    "remaining": "remaining",
+    "used": "used",
+    "active": "ACTIVE",
+    "inactive": "INACTIVE",
+    "local_usage": "7-day local usage",
+    "reset_unknown": "Reset time unavailable",
+    "resetting": "Resetting now",
+    "resets_days": "Resets in {days}d {hours}h",
+    "resets_hours": "Resets in {hours}h {minutes}m",
+    "resets_minutes": "Resets in {minutes}m"
+  }
+}

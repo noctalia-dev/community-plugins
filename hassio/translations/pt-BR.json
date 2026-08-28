@@ -6,6 +6,7 @@
   "panel": {
     "auth_failed": "Falha na autenticação. Verifique seu token de acesso.",
     "brightness": "Brilho",
+    "browser_truncated": "Mostrando as primeiras {count} correspondências. Refine sua busca para reduzir a lista.",
     "color_temp": "Temperatura de Cor",
     "connecting": "Conectando…",
     "disconnected_reconnecting": "Desconectado. Reconectando…",

@@ -1,9 +1,9 @@
 -- widget.luau
 -- Phone Connect - bar widget (thin UI entry).
 --
--- Renders a bar pill reflecting the selected device: device glyph + battery
--- percent, colored by state (charging -> primary, low -> error, offline ->
--- dimmed). Left-click opens the details panel; right-click opens settings.
+-- Renders a device glyph with an optional name and configurable battery status,
+-- colored by state (charging -> primary, low -> error, offline -> dimmed).
+-- Left-click opens the details panel; right-click opens settings.
 -- Reads state from the service entry; no DBus logic here.
 
 -- Local translation: reads from pc.trTable (published by service) so users
@@ -24,7 +24,8 @@ local function panelId()
 end
 
 local function glyphFor(d)
-	if not d or not d.isReachable then return "phone-off" end
+	-- connected = paired AND reachable; reachable alone is mere visibility
+	if not d or not (d.isPaired and d.isReachable) then return "phone-off" end
 	local t = d.type
 	if t == "tablet" then return "device-tablet" end
 	if t == "laptop" then return "device-laptop" end
@@ -57,6 +58,8 @@ local function render()
 	local backend = noctalia.state.get("pc.backend") or { available = false }
 	local d = selectedDevice()
 	local enableCharging = noctalia.getConfig("enable_charging_animation")
+	local showDeviceName = noctalia.getConfig("show_device_name") == true
+	local batteryDisplay = noctalia.getConfig("battery_display") or "icon_and_percent"
 
 	local children
 	if not backend.available then
@@ -73,7 +76,8 @@ local function render()
 				color = "on_surface/0.5" }),
 		}
 	else
-		local reachable = d.isReachable == true
+		-- connected = paired AND reachable; reachable alone is mere visibility
+		local reachable = d.isPaired == true and d.isReachable == true
 		local charge = d.batteryCharge
 		local charging = d.batteryCharging == true
 		local hasCharge = type(charge) == "number" and charge >= 0
@@ -87,20 +91,29 @@ local function render()
 		end
 
 		local kids = { ui.glyph({ name = glyphFor(d), size = 14, color = glyphColor }) }
+		if showDeviceName then
+			local aliasMap = noctalia.state.get("pc.aliasMap") or {}
+			local name = aliasMap[d.id] or d.name or "Your-Phone"
+			table.insert(kids, ui.label({ text = name, fontSize = 11, color = glyphColor }))
+		end
 
 		if reachable and hasCharge then
-			-- battery glyph + percent, colored by level
 			local batColor = "on_surface"
 			if charging then batColor = "primary"
 			elseif charge <= 20 then batColor = "error" end
-			table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
-				size = 12, color = batColor }))
-			table.insert(kids, ui.label({
-				text = tostring(charge) .. "%", fontSize = 11,
-				fontWeight = "medium", color = batColor,
-			}))
+
+			if batteryDisplay == "icon_and_percent" or batteryDisplay == "icon" then
+				table.insert(kids, ui.glyph({ name = batteryGlyph(charge, charging),
+					size = 12, color = batColor }))
+			end
+			if batteryDisplay == "icon_and_percent" or batteryDisplay == "percent" then
+				table.insert(kids, ui.label({
+					text = tostring(charge) .. "%", fontSize = 11,
+					fontWeight = "medium", color = batColor,
+				}))
+			end
 		elseif not reachable and d.isPaired then
-			-- offline but paired: show a small dimmed "offline" tag
+			-- Offline status remains visible even when other elements are hidden.
 			table.insert(kids, ui.label({ text = t("status.offline"),
 				fontSize = 10, color = "on_surface/0.5" }))
 		end
@@ -128,6 +141,7 @@ noctalia.state.watch("pc.devices", render)
 noctalia.state.watch("pc.order", render)
 noctalia.state.watch("pc.selected", render)
 noctalia.state.watch("pc.backend", render)
+noctalia.state.watch("pc.aliasMap", render)
 noctalia.state.watch("pc.trTable", render)
 
 render()

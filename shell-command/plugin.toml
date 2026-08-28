@@ -1,0 +1,32 @@
+id           = "weinguyen/shell-command"
+name         = "Shell Command"
+version      = "0.1.0"
+plugin_api   = 3
+author       = "weinguyen"
+license      = "MIT"
+icon         = "terminal"
+description  = "Run a shell command from the launcher. Type /sh then command open it your default terminal."
+tags         = ["launcher", "productivity", "development"]
+dependencies = ["bash", "fish", "ls", "sh"]
+
+[[setting]]
+key             = "default_workspace"
+type            = "folder"
+default         = ""
+label_key       = "settings.default_workspace.label"
+description_key = "settings.default_workspace.description"
+
+[[setting]]
+key             = "snippets"
+type            = "string_list"
+default         = []
+label_key       = "settings.snippets.label"
+description_key = "settings.snippets.description"
+
+[[launcher_provider]]
+id                       = "provider"
+entry                    = "shell_provider.luau"
+prefix                   = "sh"
+glyph                    = "terminal"
+include_in_global_search = false
+debounce_ms              = 150

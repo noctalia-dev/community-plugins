@@ -1,0 +1,54 @@
+id = "teagar/omniroute-quota"
+name = "OmniRoute Quota"
+version = "0.1.0"
+plugin_api = 22
+author = "Teagar"
+license = "MIT"
+icon = "route"
+description = "Monitor Codex 5-hour and weekly quotas for every OmniRoute account."
+tags = ["ai", "bar", "panel", "service", "indicator", "utility"]
+dependencies = ["node"]
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+default = 120
+min = 30
+max = 1800
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+
+[[setting]]
+key = "show_inactive"
+type = "bool"
+default = false
+label_key = "settings.show_inactive.label"
+description_key = "settings.show_inactive.description"
+
+[[setting]]
+key = "show_value"
+type = "bool"
+default = true
+label_key = "settings.show_value.label"
+description_key = "settings.show_value.description"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [widget.actions]
+  right = "plugin teagar/omniroute-quota:service all refresh"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+open_near_click = true
+placement = "attached"
+position = "auto"
+width = 520
+height = 620
+dismiss_on_outside_click = true

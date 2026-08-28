@@ -12,17 +12,17 @@ Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly f
 
 ## Requirements
 
-Requires `libsqlite3-dev`, `xdg-utils` (provides `xdg-open`), and `gcc` on PATH.
+Requires `xdg-utils` (provides `xdg-open`) and `gcc` on PATH.
 
 ```sh
 # Debian/Ubuntu
-sudo apt install libsqlite3-dev xdg-utils gcc
+sudo apt install xdg-utils gcc
 
 # Fedora
-sudo dnf install sqlite-devel xdg-utils gcc
+sudo dnf install xdg-utils gcc
 
 # Arch
-sudo pacman -S sqlite xdg-utils gcc
+sudo pacman -S xdg-utils gcc
 ```
 
 The scanner binary (`gamelauncher`) is compiled automatically on first use — the plugin runs `cc` to build it when needed. No manual build step required.
@@ -55,7 +55,7 @@ From the launcher, type `/g` followed by a game name to search. Activate a resul
 
 The plugin addresses all findings from Noctalia's security audit:
 
-**1. No shell commands in C scanner** — The scanner (`gamelauncher.c`) uses only local filesystem reads and SQLite queries. No `system()`, `popen()`, `curl`, `wget`, `python3`, or `grep` is invoked. All network requests (cover downloads) are handled in Luau via Noctalia's built-in `noctalia.http` and `noctalia.download` APIs, which respect offline mode.
+**1. No shell commands in C scanner** — The scanner (`gamelauncher.c`) uses only local filesystem reads and a bundled SQLite database reader. No `system()`, `popen()`, `curl`, `wget`, `python3`, or `grep` is invoked. All network requests (cover downloads) are handled in Luau via Noctalia's built-in `noctalia.http` and `noctalia.download` APIs, which respect offline mode.
 
 **2. No shell injection in launch paths** — The C scanner outputs protocol URLs only (e.g., `steam://rungameid/730`, `lutris:rungame/slug`, `heroic://launch/appid`). Luau validates each URL against known protocol prefixes, filters every character through a strict allowlist (`[%w_%-%.%/]` — no shell metacharacters), and double-quotes the argument before passing it to `xdg-open` via `noctalia.runAsync`.
 

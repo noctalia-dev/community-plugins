@@ -133,7 +133,7 @@ end
 -- preview and whether anything was dropped (→ the toast gains a pointer to the
 -- full answer).
 local PREVIEW_MAX = 200
-local function preview(text)
+local function preview(text: string)
   local flat = text:gsub("%s+", " ")
   if #flat <= PREVIEW_MAX then return flat, false end
   local cut = flat:sub(1, PREVIEW_MAX):match("^(.*)%s%S*$") or flat:sub(1, PREVIEW_MAX)
@@ -261,6 +261,57 @@ function onQuery(query)
   })
 end
 
+
+-- The quick-ask, extracted so the launcher and the ask panel share ONE path.
+-- v5 has no plugin module system, so a second caller would otherwise mean a second
+-- copy of the read-only backend flags in backend_command() -- and a copy that
+-- drifted would silently hand a "question" the tools it is promised not to have.
+local function run_ask(ask)
+  -- pre-flight: an expired token would 401 only after burning the request,
+  -- and the remedy needs a terminal anyway — so say so now and skip the
+  -- launch. No claude.state touch: no ask session ever starts.
+  if token_expired() then
+    publish_answer(ask, auth_remedy(), true)
+    if not panel_showing() then noctalia.notifyError(tr("notify.title"), auth_remedy()) end
+  end
+  set_state(EVENT.turn_start)
+  -- Accumulate streamed assistant text; the final `result` event also carries
+  -- the full text, so prefer it at turn_end and fall back to the accumulation.
+  local acc = ""
+  noctalia.runStream(backend_command(ask), function(line)
+    local ev = parse(line)
+    if not ev then return end
+    set_state(ev.kind)
+    if ev.kind == EVENT.text and ev.text and ev.text ~= "" then
+      acc = acc .. ev.text
+    elseif ev.kind == EVENT.turn_end then
+      local final = (ev.text and ev.text ~= "") and ev.text or acc
+      if final == "" then
+        noctalia.notify(tr("notify.title"), tr("notify.no_output"))
+      else
+        publish_answer(ask, final, false)
+        if not panel_showing() then
+          local body, clipped = preview(final)
+          if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
+          noctalia.notify(tr("notify.title"), body)
+        end
+      end
+    elseif ev.kind == EVENT.error then
+      local final = (ev.text and ev.text ~= "") and ev.text or acc
+      if final == "" then final = tr("notify.ask_failed") end
+      -- a 401 that slipped past the pre-flight: deliver the remedy, not the
+      -- raw API error blob
+      if is_auth_error(final) then final = auth_remedy() end
+      publish_answer(ask, final, true)
+      if not panel_showing() then
+        local body, clipped = preview(final)
+        if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
+        noctalia.notifyError(tr("notify.title"), body)
+      end
+    end
+  end)
+end
+
 function onActivate(id)
   -- A launched TUI session drives the pulse itself via the global Claude Code
   -- hooks (with its own session id + token telemetry), so we DON'T set claude.state
@@ -282,51 +333,34 @@ function onActivate(id)
   end
   local ask = id:match("^ask:(.*)$")
   if ask then
-    -- pre-flight: an expired token would 401 only after burning the request,
-    -- and the remedy needs a terminal anyway — so say so now and skip the
-    -- launch. No claude.state touch: no ask session ever starts.
-    if token_expired() then
-      publish_answer(ask, auth_remedy(), true)
-      if not panel_showing() then noctalia.notifyError(tr("notify.title"), auth_remedy()) end
-      return
-    end
-    set_state(EVENT.turn_start)
-    -- Accumulate streamed assistant text; the final `result` event also carries
-    -- the full text, so prefer it at turn_end and fall back to the accumulation.
-    local acc = ""
-    noctalia.runStream(backend_command(ask), function(line)
-      local ev = parse(line)
-      if not ev then return end
-      set_state(ev.kind)
-      if ev.kind == EVENT.text and ev.text and ev.text ~= "" then
-        acc = acc .. ev.text
-      elseif ev.kind == EVENT.turn_end then
-        local final = (ev.text and ev.text ~= "") and ev.text or acc
-        if final == "" then
-          noctalia.notify(tr("notify.title"), tr("notify.no_output"))
-        else
-          publish_answer(ask, final, false)
-          if not panel_showing() then
-            local body, clipped = preview(final)
-            if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
-            noctalia.notify(tr("notify.title"), body)
-          end
-        end
-      elseif ev.kind == EVENT.error then
-        local final = (ev.text and ev.text ~= "") and ev.text or acc
-        if final == "" then final = tr("notify.ask_failed") end
-        -- a 401 that slipped past the pre-flight: deliver the remedy, not the
-        -- raw API error blob
-        if is_auth_error(final) then final = auth_remedy() end
-        publish_answer(ask, final, true)
-        if not panel_showing() then
-          local body, clipped = preview(final)
-          if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
-          noctalia.notifyError(tr("notify.title"), body)
-        end
-      end
-    end)
+    run_ask(ask)
     return
   end
   -- "_askhint" and any other ids: no-op.
+end
+
+-- ── ask over IPC (the bar-widget entry point) ────────────────────────────────
+-- The ask panel (ask.luau, opened by a middle-click on the bar pulse) cannot call
+-- run_ask directly: v5 has no plugin module system and entries share no state. So it
+-- hands the question over the same way presence and the consent request do — the text
+-- goes to a file, and a bare poke arrives here — because an IPC payload is a single
+-- space-free token (PROTOCOL.md "Transport") and a question is neither.
+--
+-- This keeps claude.luau the one door: the panel owns no backend flags, so the
+-- read-only sandbox in backend_command() cannot drift between two callers.
+local function ask_question_path()
+  local dir = noctalia.getenv and noctalia.getenv("XDG_RUNTIME_DIR")
+  if type(dir) ~= "string" or dir == "" then return nil end
+  return dir .. "/claude-companion/ask"
+end
+
+function onIpc(event, _payload)
+  if event ~= "ask" then return end
+  local path = ask_question_path()
+  if not path then return end
+  local q = noctalia.readFile(path)
+  if type(q) ~= "string" then return end
+  q = trim(q)
+  if q == "" then return end
+  run_ask(q)
 end

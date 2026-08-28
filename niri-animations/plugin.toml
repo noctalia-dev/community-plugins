@@ -1,0 +1,75 @@
+# Animation preset picker for niri, with a global speed control.
+#
+# Writes one file (an `include` line plus an `animations` block) and reloads niri's config.
+# It never touches config.kdl — that file is expected to include the target file last.
+
+id = "imjustdoingmypart/niri-animations"
+name = "Niri Animations"
+version = "0.2.0"
+plugin_api = 9
+author = "ImJustDoingMyPart"
+license = "MIT"
+dependencies = ["niri"]
+tags = ["niri", "animation", "panel", "shortcut"]
+icon = "movie"
+description = "Pick a niri animation preset, tune global speed, or turn animations off."
+
+# Root-level settings: these seed EVERY entry (panels and shortcut alike). They live here
+# rather than under [[panel.setting]] because [[shortcut]] entries do not receive entry-level
+# settings, and the tile needs target_file to know whether animations are currently on.
+
+[[setting]]
+key = "presets_dir"
+type = "string"
+label_key = "settings.presets_dir.label"
+description_key = "settings.presets_dir.description"
+default = "~/.config/niri/animations"
+
+[[setting]]
+key = "target_file"
+type = "string"
+label_key = "settings.target_file.label"
+description_key = "settings.target_file.description"
+default = "~/.config/niri/animations.kdl"
+
+[[setting]]
+key = "include_prefix"
+type = "string"
+label_key = "settings.include_prefix.label"
+description_key = "settings.include_prefix.description"
+default = "./animations"
+
+[[setting]]
+key = "reload_command"
+type = "string"
+label_key = "settings.reload_command.label"
+description_key = "settings.reload_command.description"
+default = "niri msg action load-config-file"
+
+# Two entries, same script, different anchoring. placement/position are host-owned: the host
+# reads them from this manifest at load time, so a plugin cannot change its own placement at
+# runtime and there is no user-facing key to override a plugin panel's placement. Shipping
+# both variants is the only way to offer the choice.
+#
+#   noctalia msg panel-toggle imjustdoingmypart/niri-animations:picker   (floating, centered)
+#   noctalia msg panel-toggle imjustdoingmypart/niri-animations:docked   (attached to the bar)
+
+[[panel]]
+id = "picker"
+entry = "panel.luau"
+width = 420
+height = 300
+placement = "floating"
+position = "center"
+
+[[panel]]
+id = "docked"
+entry = "panel.luau"
+width = 420
+height = 300
+placement = "attached"
+
+# Control-center tile; opens the attached variant.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

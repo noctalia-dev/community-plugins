@@ -785,7 +785,7 @@ end
 local function poll()
   if pollInFlight then return end
   pollInFlight = true
-  local cmd = [[playerctl --all-players metadata --format $'{{playerInstance}}\x1f{{playerName}}\x1f{{lc(status)}}\x1f{{title}}\x1f{{artist}}\x1f{{album}}\x1f{{position}}\x1f{{mpris:length}}\x1f{{mpris:artUrl}}\x1f{{mpris:trackid}}\x1f{{xesam:url}}\x1f{{xesam:asText}}\x1e' 2>/dev/null]]
+  local cmd = [[playerctl --all-players metadata --format "$(printf '{{playerInstance}}\037{{playerName}}\037{{lc(status)}}\037{{title}}\037{{artist}}\037{{album}}\037{{position}}\037{{mpris:length}}\037{{mpris:artUrl}}\037{{mpris:trackid}}\037{{xesam:url}}\037{{xesam:asText}}\036')" 2>/dev/null]]
 
   local started = noctalia.runAsync(cmd, function(r)
     pollInFlight = false
