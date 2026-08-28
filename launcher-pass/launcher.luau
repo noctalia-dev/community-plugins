@@ -59,6 +59,10 @@ local detailCache = {} -- entryPath -> { at, ttl, password, hasOtp, username, fi
 -- view. Only one detail view is ever live, so this is rebuilt on every render
 -- rather than namespaced per entry.
 local detailActions = {}
+-- Most recently viewed entry path. The detail query is "<path> <filter>" and a
+-- path can contain spaces, so splitDetailQuery() uses this (plus detailCache)
+-- to decide where the path ends and the fuzzy filter begins.
+local lastDetailPath = nil
 
 -- ── small helpers ──────────────────────────────────────────────────────────
 local function tr(key, subst)
@@ -185,6 +189,19 @@ local function fragments(search)
     frags[#frags + 1] = f
   end
   return frags
+end
+
+-- The QML fuzzyMatch() rule (Behaviour to preserve #4): every whitespace-split
+-- fragment must appear as a contiguous, case-insensitive substring of the
+-- target; the spaces between fragments act as wildcards, and order doesn't
+-- matter. `hayLower` must already be lowercased; `frags` comes from fragments().
+local function matchesFragments(hayLower, frags)
+  for _, f in ipairs(frags) do
+    if not string.find(hayLower, f, 1, true) then
+      return false
+    end
+  end
+  return true
 end
 
 -- ── ranking ──────────────────────────────────────────────────────────────
@@ -344,14 +361,7 @@ local function renderRows(folder, search, entries)
   -- output is already small.
   local matched = {}
   for _, e in ipairs(entries) do
-    local ok = true
-    for _, f in ipairs(frags) do
-      if not string.find(e.nameLower, f, 1, true) then
-        ok = false
-        break
-      end
-    end
-    if ok then
+    if matchesFragments(e.nameLower, frags) then
       matched[#matched + 1] = e
     end
   end
@@ -470,7 +480,13 @@ end
 
 -- Row order per CLAUDE.md "Behaviour to implement": password, OTP (if
 -- present), username, then remaining key: value fields in file order.
-local function renderDetailRows(entryPath, data)
+--
+-- `filter` is the text the user typed after "<entryPath> " in the detail
+-- query. When non-empty it fuzzy-filters the rendered rows by title, using the
+-- same rule as browse (matchesFragments) — so ":<path> otp" narrows to just
+-- the Copy/Type OTP rows. `detailActions` is still populated for every row
+-- (filtered-out ids simply never reach onActivate).
+local function renderDetailRows(entryPath, data, filter)
   detailActions = {}
   local rows = { goBackRow(parentOf(entryPath), entryPath) }
 
@@ -505,7 +521,17 @@ local function renderDetailRows(entryPath, data)
     })
   end
 
-  return rows
+  local frags = fragments(filter or "")
+  if #frags == 0 then
+    return rows
+  end
+  local kept = {}
+  for _, r in ipairs(rows) do
+    if matchesFragments((r.title or ""):lower(), frags) then
+      kept[#kept + 1] = r
+    end
+  end
+  return kept
 end
 
 -- ── pinentry dance ────────────────────────────────────────────────────────
@@ -558,13 +584,56 @@ local function pinentryGraceMs()
   return ms
 end
 
+-- Split the post-":" text into (entryPath, filter). The detail query is
+-- "<entryPath> <filter>" (onActivate appends the space) and an entry path can
+-- itself contain spaces, so the boundary is resolved against known paths
+-- rather than the first space: the last-viewed entry first, then any warm
+-- detailCache key, longest match winning. Nothing known yet (the very first
+-- decrypt) → the whole trimmed string is the path, no filter.
+local function splitDetailQuery(rest)
+  local function tryPath(p)
+    if p == nil or p == "" then
+      return nil
+    end
+    if rest == p then
+      return p, ""
+    end
+    if #rest > #p and rest:sub(1, #p + 1) == p .. " " then
+      return p, trim(rest:sub(#p + 2))
+    end
+    return nil
+  end
+
+  local p, f = tryPath(lastDetailPath)
+  if p then
+    return p, f
+  end
+
+  local bestPath, bestFilter
+  for cached in pairs(detailCache) do
+    local cp, cf = tryPath(cached)
+    if cp and (bestPath == nil or #cp > #bestPath) then
+      bestPath, bestFilter = cp, cf
+    end
+  end
+  if bestPath then
+    return bestPath, bestFilter
+  end
+
+  return trim(rest), ""
+end
+
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
--- rows. `text` is the raw onQuery text (leading ":" + entryPath), echoed back
--- to setResults / checked against lastQuery exactly like the browse path.
-local function fetchDetail(entryPath, text)
+-- rows. `text` is the raw onQuery text (leading ":" + entryPath + " " +
+-- filter), echoed back to setResults / checked against lastQuery exactly like
+-- the browse path. `filter` fuzzy-narrows the rendered rows (see
+-- renderDetailRows).
+local function fetchDetail(entryPath, text, filter)
+  lastDetailPath = entryPath -- disambiguates the next splitDetailQuery
+
   local hit = detailCache[entryPath]
   if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
-    launcher.setResults(text, renderDetailRows(entryPath, hit))
+    launcher.setResults(text, renderDetailRows(entryPath, hit, filter))
     return
   end
 
@@ -600,7 +669,7 @@ local function fetchDetail(entryPath, text)
       fields = remaining,
     }
     detailCache[entryPath] = data
-    launcher.setResults(text, renderDetailRows(entryPath, data))
+    launcher.setResults(text, renderDetailRows(entryPath, data, filter))
   end
 
   -- Race the decrypt against a short grace period instead of closing the
@@ -747,18 +816,23 @@ end
 -- ── host hooks ────────────────────────────────────────────────────────────
 function onQuery(text)
   lastQuery = text
-  local trimmed = trim(text)
 
   -- A leading ":" is never produced by browsing (folder/search text has no
-  -- reason to start with it), so it doubles as the detail-mode marker: the
-  -- rest of the string is the entry path. A fresh ">pass " (no marker) always
-  -- falls through to browse, resetting detail state for free.
-  local entryPath = trimmed:match("^:(.+)$")
-  if entryPath then
-    fetchDetail(entryPath, text)
+  -- reason to start with it), so it doubles as the detail-mode marker. The
+  -- rest is "<entryPath>" or "<entryPath> <filter>" — split via
+  -- splitDetailQuery (the trailing space onActivate appends means the "just
+  -- opened" form is "<entryPath> " → filter ""). A fresh ">pass " (no marker)
+  -- always falls through to browse, resetting detail state for free. Parsed
+  -- off `text` directly, not the trimmed copy, so the filter's own spacing
+  -- survives.
+  local detailRest = text:match("^%s*:(.+)$")
+  if detailRest then
+    local entryPath, filter = splitDetailQuery(detailRest)
+    fetchDetail(entryPath, text, filter)
     return
   end
 
+  local trimmed = trim(text)
   local folder, search = splitPath(trimmed)
   local recursive = search ~= ""
   local dir = folderDir(folder)
@@ -817,7 +891,10 @@ function onActivate(id)
   elseif kind == "back" then
     launcher.setQuery(rest ~= "" and (rest .. "/") or " ")
   elseif kind == "entry" then
-    launcher.setQuery(":" .. rest)
+    -- Trailing space: detail mode is ":<path> <filter>", so the just-opened
+    -- state is ":<path> " with an empty filter, ready for the user to type a
+    -- row filter (":<path> otp" → only the OTP rows).
+    launcher.setQuery(":" .. rest .. " ")
   elseif kind == "act" then
     local ctx = detailActions[id]
     if ctx then
