@@ -1,34 +1,35 @@
 --!nonstrict
 -- launcher-pass — Noctalia v5 launcher provider for the GNU Pass store.
+-- Design notes and the QML-era behaviour archaeology live in CLAUDE.md.
 --
--- Port step 1 of the QML -> Luau rewrite (see CLAUDE.md): browse mode only.
--- Implemented here:
---   * ">pass" / ">pass <query>" prefix routing (Noctalia strips the prefix)
+-- Browse mode:
+--   * "<leader>pass" / "<leader>pass <query>" routing (Noctalia strips the
+--     leader + trigger and calls onQuery with the rest)
 --   * store listing via `find`; recursive search is pre-filtered in the
 --     subprocess with piped `grep -iF` so Luau only ever handles matched lines
---   * match semantics from LauncherProvider.qml's fuzzyMatch(): whitespace-split
---     query, every fragment a contiguous substring, order-independent
---   * ranking: query-aware (see rankEntry) — the QML base-27 segment score let
---     leaf *length* dominate, floating "foo_new_1" above a shallower "foo"
---   * folder drill-in / "Go back", with the navigation state carried entirely
---     in the launcher query string (a trailing "/" marks a folder context)
+--   * match semantics (matchesFragments): whitespace-split query, every
+--     fragment a contiguous case-insensitive substring, order-independent
+--   * ranking: query-aware (see rankEntry) — exact-segment hits, then depth,
+--     then alphabetical
+--   * folder drill-in / "Go back", navigation state carried entirely in the
+--     launcher query string (a trailing "/" marks a folder context)
 --
--- Port step 2: detail mode. Activating a password entry runs `pass show` and
--- lists Copy/Type rows for password, OTP (if present), username, and every
--- remaining key: value field, in that order. Detail is entered by rewriting
--- the query to a leading ":" + entry path (never produced by browsing, so a
--- fresh ">pass " always resets to browse for free, same trick as the
--- trailing-"/" folder marker). Row actions are stubbed with a notification —
--- actual copy/type/OTP/clipboard-timeout/wtype wiring is the next step.
+-- Detail mode:
+--   Activating an entry rewrites the query to ":" + entry path + " " (a
+--   leading ":" is never produced by browsing, so a fresh "<leader>pass "
+--   always resets to browse for free). onQuery routes that to fetchDetail,
+--   which runs `pass show`, parses it, and lists Copy/Type rows for password,
+--   OTP (if the body has an otpauth:// line), username, then every remaining
+--   key: value field, in that order. Text typed after ":" + path + " "
+--   fuzzy-filters those rows (same matchesFragments rule).
 --
 -- The pinentry dance: the launcher panel is a layer-shell surface with an
--- exclusive keyboard grab, so the GPG pinentry dialog `pass show` pops on a
--- locked store never receives focus while the panel is open. There is no
--- noctalia.* call to hand focus to an arbitrary window, so — same fix as the
--- old QML version — the panel is closed and reopened afterwards, via the
--- `noctalia msg panel-close/panel-open` CLI IPC (see
--- closeLauncherPanel/reopenLauncherPanel below). This only happens when
--- needed: `pass show` is raced against a short grace period
+-- exclusive keyboard grab, so a GPG pinentry dialog that `pass show` pops on
+-- a locked store never receives focus while the panel is open. There is no
+-- noctalia.* call to hand focus to an arbitrary window, so the panel is
+-- closed and reopened afterwards via the `noctalia msg panel-close/panel-open`
+-- CLI IPC (see closeLauncherPanel/reopenLauncherPanel below). This only
+-- happens when needed: `pass show` is raced against a short grace period
 -- (pinentryGraceMs, default 200ms), and if gpg-agent already had the
 -- passphrase cached the result comes back before the grace period elapses,
 -- so the panel is never touched at all.
