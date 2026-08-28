@@ -26,22 +26,22 @@ dependencies = ["pass", "find", "grep", "pass-otp", "wtype"]
 [[setting]]
 key = "storePath"
 type = "folder"
-label_key = "settings.storePath.label"
-description_key = "settings.storePath.desc"
+label_key = "settings.store-path.label"
+description_key = "settings.store-path.desc"
 default = ""
 
 [[setting]]
 key = "clipTimeout"
 type = "string"                     # kept a string so "" means "fall back to env"
-label_key = "settings.clipTimeout.label"
-description_key = "settings.clipTimeout.desc"
+label_key = "settings.clip-timeout.label"
+description_key = "settings.clip-timeout.desc"
 default = ""
 
 [[setting]]
 key = "typeDelay"
 type = "int"
-label_key = "settings.typeDelay.label"
-description_key = "settings.typeDelay.desc"
+label_key = "settings.type-delay.label"
+description_key = "settings.type-delay.desc"
 default = 500                       # milliseconds (label is historically misleading)
 min = 0
 advanced = true
@@ -49,8 +49,8 @@ advanced = true
 [[setting]]
 key = "wtypeDelay"
 type = "int"
-label_key = "settings.wtypeDelay.label"
-description_key = "settings.wtypeDelay.desc"
+label_key = "settings.wtype-delay.label"
+description_key = "settings.wtype-delay.desc"
 default = 12                        # milliseconds between keystrokes
 min = 0
 advanced = true
@@ -58,8 +58,8 @@ advanced = true
 [[setting]]
 key = "pinentryGraceMs"
 type = "int"
-label_key = "settings.pinentryGraceMs.label"
-description_key = "settings.pinentryGraceMs.desc"
+label_key = "settings.pinentry-grace-ms.label"
+description_key = "settings.pinentry-grace-ms.desc"
 default = 200                       # milliseconds; see pinentryGraceMs() in launcher.luau
 min = 0
 advanced = true
@@ -71,25 +71,25 @@ advanced = true
 [[setting]]
 key = "detailActionOrder"
 type = "select"
-label_key = "settings.detailActionOrder.label"
-description_key = "settings.detailActionOrder.desc"
+label_key = "settings.detail-action-order.label"
+description_key = "settings.detail-action-order.desc"
 default = "copy"
 advanced = true
 options = [
-  { value = "copy", label_key = "settings.detailActionOrder.options.copy" },
-  { value = "type", label_key = "settings.detailActionOrder.options.type" },
+  { value = "copy", label_key = "settings.detail-action-order.options.copy" },
+  { value = "type", label_key = "settings.detail-action-order.options.type" },
 ]
 
 [[setting]]
 key = "detailActionGrouping"
 type = "select"
-label_key = "settings.detailActionGrouping.label"
-description_key = "settings.detailActionGrouping.desc"
+label_key = "settings.detail-action-grouping.label"
+description_key = "settings.detail-action-grouping.desc"
 default = "interleaved"
 advanced = true
 options = [
-  { value = "interleaved", label_key = "settings.detailActionGrouping.options.interleaved" },
-  { value = "grouped", label_key = "settings.detailActionGrouping.options.grouped" },
+  { value = "interleaved", label_key = "settings.detail-action-grouping.options.interleaved" },
+  { value = "grouped", label_key = "settings.detail-action-grouping.options.grouped" },
 ]
 
 [[launcher_provider]]

@@ -3,7 +3,7 @@
     "description": "Search gnu pass password entries"
   },
   "result": {
-    "goBack": "Go back",
+    "go-back": "Go back",
     "folder": "Folder",
     "password": "Password",
     "loading": "Loading password entries..."
@@ -14,44 +14,44 @@
   },
   "notification": {
     "copied": "Copied to clipboard",
-    "copyFailed": "Copy failed",
-    "typeFailed": "Type failed"
+    "copy-failed": "Copy failed",
+    "type-failed": "Type failed"
   },
   "action": {
-    "copyPassword": "Copy Password",
-    "copyPasswordDesc": "Copy password to clipboard",
-    "typePassword": "Type Password",
-    "typePasswordDesc": "Type password using wtype",
-    "copyOtp": "Copy OTP",
-    "typeOtp": "Type OTP",
-    "otpDesc": "Copy/type current OTP code",
-    "copyUsername": "Copy Username",
-    "typeUsername": "Type Username",
-    "copyField": "Copy {key}",
-    "typeField": "Type {key}"
+    "copy-password": "Copy Password",
+    "copy-password-desc": "Copy password to clipboard",
+    "type-password": "Type Password",
+    "type-password-desc": "Type password using wtype",
+    "copy-otp": "Copy OTP",
+    "type-otp": "Type OTP",
+    "otp-desc": "Copy/type current OTP code",
+    "copy-username": "Copy Username",
+    "type-username": "Type Username",
+    "copy-field": "Copy {key}",
+    "type-field": "Type {key}"
   },
   "settings": {
-    "storePath": {
+    "store-path": {
       "label": "Password store path",
       "desc": "Custom path to the password store (default: ~/.password-store)"
     },
-    "clipTimeout": {
+    "clip-timeout": {
       "label": "Clipboard timeout",
       "desc": "Seconds before the clipboard is cleared (blank = use PASSWORD_STORE_CLIP_TIME)"
     },
-    "typeDelay": {
+    "type-delay": {
       "label": "Type delay",
       "desc": "Delay in milliseconds before typing starts (default: 500)"
     },
-    "wtypeDelay": {
+    "wtype-delay": {
       "label": "wtype keystroke delay",
       "desc": "Delay between keystrokes in milliseconds for wtype (default: 12)"
     },
-    "pinentryGraceMs": {
+    "pinentry-grace-ms": {
       "label": "Pinentry grace period",
       "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 200)"
     },
-    "detailActionOrder": {
+    "detail-action-order": {
       "label": "Detail view action order",
       "desc": "Which row comes first for each value in an entry's detail view",
       "options": {
@@ -59,7 +59,7 @@
         "type": "Type first"
       }
     },
-    "detailActionGrouping": {
+    "detail-action-grouping": {
       "label": "Detail view action grouping",
       "desc": "Interleave each value's Copy and Type rows, or list all Copy rows then all Type rows",
       "options": {

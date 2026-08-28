@@ -178,7 +178,7 @@ local function goBackRow(parent, subtitle)
   return {
     id = "back:" .. parent,
     query = parent ~= "" and (parent .. "/") or " ",
-    title = tr("result.goBack"),
+    title = tr("result.go-back"),
     subtitle = subtitle,
     glyph = "arrow-left",
   }
@@ -516,29 +516,29 @@ local function renderDetailRows(entryPath, data, filter)
   local specs = {
     {
       kind = "password",
-      copyKey = "action.copyPassword", typeKey = "action.typePassword",
-      copySubtitle = tr("action.copyPasswordDesc"), typeSubtitle = tr("action.typePasswordDesc"),
+      copyKey = "action.copy-password", typeKey = "action.type-password",
+      copySubtitle = tr("action.copy-password-desc"), typeSubtitle = tr("action.type-password-desc"),
       value = data.password,
     },
   }
   if data.hasOtp then
-    local otpDesc = tr("action.otpDesc")
+    local otpDesc = tr("action.otp-desc")
     specs[#specs + 1] = {
       kind = "otp",
-      copyKey = "action.copyOtp", typeKey = "action.typeOtp",
+      copyKey = "action.copy-otp", typeKey = "action.type-otp",
       copySubtitle = otpDesc, typeSubtitle = otpDesc,
     }
   end
   specs[#specs + 1] = {
     kind = "username",
-    copyKey = "action.copyUsername", typeKey = "action.typeUsername",
+    copyKey = "action.copy-username", typeKey = "action.type-username",
     copySubtitle = data.username, typeSubtitle = data.username,
     value = data.username,
   }
   for _, f in ipairs(data.fields) do
     specs[#specs + 1] = {
       kind = "field", key = f.key, value = f.value, subst = { key = f.key },
-      copyKey = "action.copyField", typeKey = "action.typeField",
+      copyKey = "action.copy-field", typeKey = "action.type-field",
       copySubtitle = f.value, typeSubtitle = f.value,
     }
   end
@@ -765,7 +765,7 @@ local function copyViaPass(cmd, subject)
       if result.exitCode == 0 and not result.timedOut then
         noctalia.notify(tr("notification.copied"), subject)
       else
-        noctalia.notifyError(tr("notification.copyFailed"), subject)
+        noctalia.notifyError(tr("notification.copy-failed"), subject)
       end
     end, DECRYPT_TIMEOUT_MS)
   end)
@@ -806,7 +806,7 @@ local function typeValue(value, subject)
       { "wtype", "-d", tostring(intSetting("wtypeDelay", 12)), "--", value or "" },
       function(result)
         if result.exitCode ~= 0 or result.timedOut then
-          noctalia.notifyError(tr("notification.typeFailed"), subject)
+          noctalia.notifyError(tr("notification.type-failed"), subject)
         end
       end
     )
@@ -829,7 +829,7 @@ local function typeOtp(entryPath, subject)
       if result.exitCode == 0 and not result.timedOut then
         typeValue(trim(result.stdout or ""), subject)
       else
-        noctalia.notifyError(tr("notification.typeFailed"), subject)
+        noctalia.notifyError(tr("notification.type-failed"), subject)
       end
     end, DECRYPT_TIMEOUT_MS)
   end)

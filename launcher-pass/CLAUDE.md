@@ -247,7 +247,11 @@ should survive into future changes:
   settings for `widget`/`panel`, and every sibling launcher plugin uses top-level
   blocks; for a launcher-only plugin the two are equivalent. `select` settings
   use inline-table `options = [{ value, label_key }, …]`, each `label_key` a
-  `settings.<key>.options.<value>` translation key.
+  `settings.<key>.options.<value>` translation key. The setting `key` stays
+  camelCase (`detailActionOrder`), but **translation keys must be kebab-case**
+  (`settings.detail-action-order.options.copy`) — the plugin-store validator
+  rejects any uppercase or dotted-into-one segment in `translations/*.json`
+  keys and in `label_key` / `description_key` values.
 - **Seven settings.** `storePath` (folder), `clipTimeout` (string — kept a string
   so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
   `pinentryGraceMs` (int, `advanced`), `detailActionOrder` /
@@ -293,7 +297,7 @@ should survive into future changes:
   passphrase produces no flicker.
 - **`<leader>` (`shell.launcher.provider_prefix`, `/` by default) is read at
   runtime.** The one value in the pinentry reopen that must never be hardcoded.
-- **`translations/*.json` is nested JSON.** `noctalia.tr("settings.storePath.label")`
+- **`translations/*.json` is nested JSON.** `noctalia.tr("settings.store-path.label")`
   resolves the dotted key against the nesting — how the working sibling plugins
   are shaped. `en.json` is canonical; every key must exist in all 11 locales
   (verified by regenerating all of them from one source whenever keys change).

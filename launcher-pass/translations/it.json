@@ -3,7 +3,7 @@
     "description": "Cerca password di gnu pass"
   },
   "result": {
-    "goBack": "Torna indietro",
+    "go-back": "Torna indietro",
     "folder": "Cartella",
     "password": "Password",
     "loading": "Caricamento elenco password..."
@@ -14,44 +14,44 @@
   },
   "notification": {
     "copied": "Copiato negli appunti",
-    "copyFailed": "Copia non riuscita",
-    "typeFailed": "Digitazione non riuscita"
+    "copy-failed": "Copia non riuscita",
+    "type-failed": "Digitazione non riuscita"
   },
   "action": {
-    "copyPassword": "Copia password",
-    "copyPasswordDesc": "Copia password negli appunti",
-    "typePassword": "Digita password",
-    "typePasswordDesc": "Digita password con wtype",
-    "copyOtp": "Copia OTP",
-    "typeOtp": "Digita OTP",
-    "otpDesc": "Copia/digita codice OTP attuale",
-    "copyUsername": "Copia nome utente",
-    "typeUsername": "Digita nome utente",
-    "copyField": "Copia {key}",
-    "typeField": "Digita {key}"
+    "copy-password": "Copia password",
+    "copy-password-desc": "Copia password negli appunti",
+    "type-password": "Digita password",
+    "type-password-desc": "Digita password con wtype",
+    "copy-otp": "Copia OTP",
+    "type-otp": "Digita OTP",
+    "otp-desc": "Copia/digita codice OTP attuale",
+    "copy-username": "Copia nome utente",
+    "type-username": "Digita nome utente",
+    "copy-field": "Copia {key}",
+    "type-field": "Digita {key}"
   },
   "settings": {
-    "storePath": {
+    "store-path": {
       "label": "Percorso dell'archivio password",
       "desc": "Percorso personalizzato all'archivio password (predefinito: ~/.password-store)"
     },
-    "clipTimeout": {
+    "clip-timeout": {
       "label": "Timeout degli appunti",
       "desc": "Secondi prima che gli appunti vengano cancellati (vuoto = usa PASSWORD_STORE_CLIP_TIME)"
     },
-    "typeDelay": {
+    "type-delay": {
       "label": "Ritardo digitazione",
       "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)"
     },
-    "wtypeDelay": {
+    "wtype-delay": {
       "label": "Ritardo battitura wtype",
       "desc": "Ritardo tra le battiture in millisecondi per wtype (predefinito: 12)"
     },
-    "pinentryGraceMs": {
+    "pinentry-grace-ms": {
       "label": "Periodo di tolleranza pinentry",
       "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)"
     },
-    "detailActionOrder": {
+    "detail-action-order": {
       "label": "Ordine delle azioni nella vista dettagli",
       "desc": "Quale riga viene prima per ogni valore nella vista dettagli di una voce",
       "options": {
@@ -59,7 +59,7 @@
         "type": "Prima Digita"
       }
     },
-    "detailActionGrouping": {
+    "detail-action-grouping": {
       "label": "Raggruppamento delle azioni nella vista dettagli",
       "desc": "Alterna le righe Copia e Digita di ogni valore, oppure elenca tutte le righe Copia e poi tutte le righe Digita",
       "options": {
