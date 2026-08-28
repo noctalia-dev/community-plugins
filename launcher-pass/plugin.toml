@@ -36,6 +36,7 @@ type = "string"                     # kept a string so "" means "fall back to en
 label_key = "settings.clip-timeout.label"
 description_key = "settings.clip-timeout.desc"
 default = ""
+advanced = true
 
 [[setting]]
 key = "typeDelay"
@@ -44,6 +45,7 @@ label_key = "settings.type-delay.label"
 description_key = "settings.type-delay.desc"
 default = 500                       # milliseconds (label is historically misleading)
 min = 0
+max = 5000
 advanced = true
 
 [[setting]]
@@ -60,8 +62,9 @@ key = "pinentryGraceMs"
 type = "int"
 label_key = "settings.pinentry-grace-ms.label"
 description_key = "settings.pinentry-grace-ms.desc"
-default = 200                       # milliseconds; see pinentryGraceMs() in launcher.luau
+default = 50                       # milliseconds; see pinentryGraceMs() in launcher.luau
 min = 0
+max = 1000
 advanced = true
 
 # Detail-view row layout. "copy" -> Copy row before Type row for each value;
@@ -74,7 +77,6 @@ type = "select"
 label_key = "settings.detail-action-order.label"
 description_key = "settings.detail-action-order.desc"
 default = "copy"
-advanced = true
 options = [
   { value = "copy", label_key = "settings.detail-action-order.options.copy" },
   { value = "type", label_key = "settings.detail-action-order.options.type" },
@@ -86,7 +88,6 @@ type = "select"
 label_key = "settings.detail-action-grouping.label"
 description_key = "settings.detail-action-grouping.desc"
 default = "interleaved"
-advanced = true
 options = [
   { value = "interleaved", label_key = "settings.detail-action-grouping.options.interleaved" },
   { value = "grouped", label_key = "settings.detail-action-grouping.options.grouped" },
