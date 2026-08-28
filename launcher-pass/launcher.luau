@@ -9,8 +9,8 @@
 --     subprocess with piped `grep -iF` so Luau only ever handles matched lines
 --   * match semantics (matchesFragments): whitespace-split query, every
 --     fragment a contiguous case-insensitive substring, order-independent
---   * ranking: query-aware (see rankEntry) — exact-segment hits, then depth,
---     then alphabetical
+--   * ranking (see rankEntry): sum of noctalia.fuzzyScore(fragment, path)
+--     — the host's native fzy scorer — then depth, then alphabetical
 --   * folder drill-in / "Go back", navigation state carried entirely in the
 --     launcher query string (a trailing "/" marks a folder context)
 --
@@ -206,27 +206,26 @@ local function matchesFragments(hayLower, frags)
 end
 
 -- ── ranking ──────────────────────────────────────────────────────────────
--- Returns (exact, depth) for one entry against the query fragments:
---   exact = how many fragments equal a whole path segment (an exact hit on a
---           segment boundary beats a mere substring — e.g. "root" == the leaf
---           "root" ranks above "root" inside "root_new_1")
+-- Returns (score, depth) for one entry against the query fragments:
+--   score = sum of noctalia.fuzzyScore(fragment, path) — the host's native
+--           fzy scorer (case-insensitive; exact match = 1024; bonuses for
+--           prefix / word-boundary / consecutive-run matches; longer text
+--           penalised). A fragment the scorer rejects contributes 0 — it
+--           already passed matchesFragments, so the row stays, just ranks
+--           low. Summing per fragment keeps the match order-independent and
+--           the inter-fragment space a wildcard, unlike passing the whole
+--           query as one fzy pattern.
 --   depth = number of path segments (shallower wins the tie)
--- Rows are then sorted by exact desc, depth asc, then full path alphabetically.
+-- Rows are then sorted by score desc, depth asc, then path alphabetically.
+-- Moving the scoring into the C scorer is the point of this step — for a big
+-- store with a broad query it runs over the whole capped grep hit set.
 local function rankEntry(nameLower, frags)
-  local segs = {}
-  for s in nameLower:gmatch("[^/]+") do
-    segs[#segs + 1] = s
-  end
-  local exact = 0
+  local score = 0
   for _, f in ipairs(frags) do
-    for _, s in ipairs(segs) do
-      if s == f then
-        exact = exact + 1
-        break
-      end
-    end
+    score = score + (noctalia.fuzzyScore(f, nameLower) or 0)
   end
-  return exact, #segs
+  local _, slashes = nameLower:gsub("/", "")
+  return score, slashes + 1
 end
 
 -- ── subprocess commands ───────────────────────────────────────────────────
@@ -374,11 +373,11 @@ local function renderRows(folder, search, entries)
     end)
   else
     for _, e in ipairs(matched) do
-      e.exact, e.depth = rankEntry(e.nameLower, frags)
+      e.score, e.depth = rankEntry(e.nameLower, frags)
     end
     table.sort(matched, function(a, b)
-      if a.exact ~= b.exact then
-        return a.exact > b.exact
+      if a.score ~= b.score then
+        return a.score > b.score
       end
       if a.depth ~= b.depth then
         return a.depth < b.depth
