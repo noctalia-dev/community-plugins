@@ -19,7 +19,7 @@ launcher-pass/
 ├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 7, [[launcher_provider]]
 ├── launcher.luau         the whole feature (one entry script)
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
-│   └── en de fr it es ja nl pt ru tr zh-CN
+│   └── en it
 ├── README.md            the plugin's public page (follows the repo's README_TEMPLATE.md)
 └── thumbnail.webp       plugin-store card image
 ```
@@ -392,7 +392,7 @@ time each call. Capture fixtures from the real store:
 ### Translations
 
 Adding or changing a user-facing string: update `en.json`, then regenerate **all
-11** `translations/*.json` from a single source so the key sets stay identical
+existing** `translations/*.json` from a single source so the key sets stay identical
 (nested JSON; `noctalia.tr` resolves dotted keys against the nesting). A
 throwaway Python generator with a per-locale flat-key map + a nested template is
 the way — keep `en.json` byte-identical whether hand-edited or generated.

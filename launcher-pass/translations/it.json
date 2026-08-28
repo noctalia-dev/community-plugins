@@ -1,16 +1,16 @@
 {
   "command": {
-    "description": "Cerca voci password di gnu pass"
+    "description": "Cerca password di gnu pass"
   },
   "result": {
     "goBack": "Torna indietro",
     "folder": "Cartella",
     "password": "Password",
-    "loading": "Caricamento voci password..."
+    "loading": "Caricamento elenco password..."
   },
   "detail": {
-    "decrypting": "Decifratura della voce password...",
-    "error": "Decifratura della voce non riuscita"
+    "decrypting": "Decifratura della password...",
+    "error": "Decifratura della password non riuscita"
   },
   "notification": {
     "copied": "Copiato negli appunti",
