@@ -67,9 +67,21 @@ local settings = {
   interval = 2,
 }
 
+local group_order = {}
+local servers_store = {
+  activeId = "",
+  servers = {},
+  groupOrders = {},
+}
+local servers_path = nil
+
 local function reload_settings()
   local interval = tonumber(noctalia.getConfig("refresh_interval")) or 2
   settings.interval = require_group_logic().clamp_interval(interval)
+
+  if type(servers_store) ~= "table" then
+    servers_store = { activeId = "", servers = {}, groupOrders = {} }
+  end
 
   local active = require_group_logic().find_server(servers_store.servers, servers_store.activeId)
   if active ~= nil then
@@ -152,14 +164,6 @@ local state = {
 -- group order. Keep the panel's preferred order per server profile in the
 -- plugin data directory; newly discovered groups that are not in this list are
 -- appended alphabetically.
-local group_order = {}
-local servers_store = {
-  activeId = "",
-  servers = {},
-  groupOrders = {},
-}
-local servers_path = nil
-
 local function resolve_servers_path()
   if servers_path ~= nil then
     return servers_path
