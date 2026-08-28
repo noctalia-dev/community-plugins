@@ -1,66 +1,115 @@
-# launcher-pass
+# Launcher pass
 
-A Noctalia launcher provider plugin for GNU Pass password store.
+Browse a [GNU Pass](https://www.passwordstore.org/) password store from the
+Noctalia launcher and copy or auto-type passwords, OTP codes, usernames, and any
+other field — without opening a terminal.
 
-## Features
+## Plugin
 
-- Browse password store directories
-- Fuzzy search across all passwords (spaces treated as wildcards)
-- Navigate subdirectories
-- Copy/type password or any field from password entries
-- OTP code support (via `pass otp`)
-- Quick access via `>pass` command
-- Configurable password store path
+| Field | Value |
+| --- | --- |
+| ID | `mellotanica/launcher-pass` |
+| Entries | Launcher provider: `pass` |
+| Launcher Prefix | `/pass` |
 
-## Usage
-
-1. Open the launcher with your configured keybind
-2. Type `>pass` to access the plugin
-3. Press space and start typing to fuzzy search passwords
-4. Select a password entry to see options:
-   - **Copy Password**: Copy password to clipboard
-   - **Type Password**: Type password using wtype
-   - **Copy OTP**: Copy current OTP code to clipboard
-   - **Type OTP**: Type current OTP code using wtype
-   - **Copy <field>**: Copy any field (username, URL, etc.)
-   - **Type <field>**: Type any field using wtype
-
-## IPC
-
-    qs -c noctalia-shell ipc call plugin:launcher-pass toggle
+The prefix is `pass` preceded by your launcher's provider prefix
+(`shell.launcher.provider_prefix`, `/` by default). Every example below assumes
+the default, so adjust `/pass` if you changed it.
 
 ## Requirements
 
-- [GNU Pass](https://www.passwordstore.org/) password store
-- `wl-copy` for clipboard operations
-- `wtype` for keyboard input (optional)
-- `pass-otp` extension for OTP codes (optional)
+Install `pass`, `find`, and `grep` on `PATH`. `pass` also needs `gpg` and a
+Wayland clipboard helper (`wl-clipboard`) for its `-c` copy mode.
 
-## Configuration
+Optional:
 
-By default, the plugin uses the password store rooted in `~/.password-store`. You can configure a custom path in the plugin settings.
+- `pass-otp` — enables the **Copy OTP** / **Type OTP** rows. They appear only for
+  entries whose decrypted body contains an `otpauth://` line.
+- `wtype` — enables every **Type** row. If it is not on `PATH` the Type rows are
+  hidden and only the Copy rows are shown.
 
-Other configurable values are:
+A working password store is expected where `pass` looks for it:
+`$PASSWORD_STORE_DIR` when set, otherwise `~/.password-store`. Override it with
+the **Password store path** setting.
 
-- `Launcher Close Delay`: a time in seconds that will be awaited after launcher is closed before starting auto typing, this might be required to let the focus return to the proper input field.
-- `Wtype Keystroke Delay`: delay between keystrokes in milliseconds, increase this value if the input fields do not keep pace with auto typing.
-- `Clipboard Timeout`: number of seconds before the clipboard is cleared when copy to clipboard action is selected for password or OTP fields, if this configuration is left empty the default `pass` environment variable `PASSWORD_STORE_CLIP_TIME` is used, otherwise the local configuration will take precedence.
+## Usage
 
-## Keybinds
+Open the Noctalia launcher and type `/pass`.
 
-| Action | Description |
-|--------|-------------|
-| `>pass` | Open pass browser |
-| `>pass <query>` | Search passwords |
+| Input | Result |
+| --- | --- |
+| `/pass` | list the store root |
+| `/pass <query>` | fuzzy-search the whole store (see below) |
+| `/pass work/` | browse inside the `work` folder |
+| `/pass work/aws pr` | fuzzy-search inside `work/aws` |
 
+Activating a **folder** drills into it; a **"Go back"** row returns to the
+parent. Activating an **entry** decrypts it with `pass show` and opens its detail
+view, which lists, in order:
 
-## Fuzzy Search
+1. **Copy Password** / **Type Password**
+2. **Copy OTP** / **Type OTP** — only when the entry has an `otpauth://` line
+3. **Copy Username** / **Type Username** — the value of the first `login`,
+   `user`, or `username` field (case-insensitive), or the entry's own name when
+   there is none
+4. **Copy `<field>`** / **Type `<field>`** for every remaining `key: value` line,
+   in file order
+5. **Go back** to the entry's folder
 
-Spaces are treated as wildcards. For example, searching `hom comp` will match:
-- `/home/computer/`
-- `/web/home/page/computing.gpg`
-- `/homcomppass.gpg`
+In the detail view, keep typing to filter these rows: `/pass work/aws/root otp`
+shows only the two OTP rows. The filter uses the same match rule as search
+(spaces are wildcards).
 
-## License
+**Copy** puts the value on the clipboard. Password and OTP go through `pass -c` /
+`pass otp -c`, so the clipboard is cleared automatically after the timeout;
+usernames and other fields are copied directly and are *not* auto-cleared.
+**Type** closes the launcher, waits *Type delay*, then types the value with
+`wtype`.
 
-MIT
+If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
+so the dialog can take focus and reopens once decryption finishes.
+
+## Settings
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `storePath` | `folder` | *(empty → `~/.password-store`)* | Exported as `PASSWORD_STORE_DIR` to every `pass` call. |
+| `clipTimeout` | `string` | *(empty)* | Seconds before `pass` clears the clipboard after **Copy Password** / **Copy OTP**. Empty falls back to the `PASSWORD_STORE_CLIP_TIME` environment variable, then to `pass`'s own default. Only a positive integer takes effect. |
+| `typeDelay` | `int` | `500` | Milliseconds to wait after the launcher closes before `wtype` starts typing, so the compositor can restore focus to the field you were in. *(Advanced. The v4 label "Launcher Close Delay" was misleading — this is the pre-typing delay.)* |
+| `wtypeDelay` | `int` | `12` | Milliseconds between simulated keystrokes. Increase it if characters are dropped. *(Advanced.)* |
+| `pinentryGraceMs` | `int` | `200` | Milliseconds to wait for a decrypt to finish before assuming a pinentry dialog is blocking and hiding the launcher. If your GPG agent already has the passphrase cached, the launcher never flickers. *(Advanced.)* |
+
+## IPC
+
+This plugin exposes no custom IPC actions. To open the launcher straight into
+this provider, use Noctalia's panel IPC:
+
+```sh
+noctalia msg panel-open   launcher "/pass "
+noctalia msg panel-toggle launcher "/pass "
+noctalia msg panel-close  launcher
+```
+
+Replace `/` with your `provider_prefix` if you changed it. The plugin uses these
+same `panel-close` / `panel-open` commands internally to juggle focus around the
+GPG pinentry prompt.
+
+## Notes
+
+- **Auto-paste:** Noctalia's `shell.launcher.auto_paste` (Ctrl+V / Shift+Insert
+  after a copy) only applies to the built-in providers — the plugin runtime has
+  no hook to opt in. The **Type** rows exist to cover that case; they insert the
+  value with `wtype` regardless of the `auto_paste` setting.
+- **Filesystem reads:** `find` / `grep` list non-hidden directories and `*.gpg`
+  file names under the store. Decrypted contents are read only when you open an
+  entry's detail view (`pass show`), and are cached in memory for 60 s.
+- **Spawned processes:** `find`, `grep` (listing and search); `pass show`,
+  `pass -c`, `pass otp`, `pass otp -c` (per action); `wtype` and `sleep` (Type
+  actions); `noctalia msg panel-*` (pinentry focus handling).
+- **Secrets:** decrypted values live only in the plugin's in-memory cache and on
+  the system clipboard via `pass` / Noctalia. Noctalia state stores only entry
+  paths and titles, never decrypted content. Navigation state is encoded in the
+  launcher query, not persisted.
+- **Network:** none.
+- **Writes:** the plugin writes no files; `pass`, `gpg`, and clipboard tools
+  manage their own runtime state.
