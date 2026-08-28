@@ -1,0 +1,68 @@
+# Case Convert — convert text between naming conventions from the launcher.
+#
+# Type the provider prefix (default `/case`) followed by the text to convert, or
+# type nothing to convert the current selection / clipboard. Enter copies the
+# highlighted conversion.
+
+id = "kjvdven/case-convert"
+name = "Case Convert"
+version = "1.0.0"
+plugin_api = 3
+author = "kjvdven"
+license = "MIT"
+icon = "text-recognition"
+description = "Convert text between naming conventions (camelCase, kebab-case, snake_case, …) straight from the launcher."
+tags = ["launcher", "utility", "development"]
+# Optional: only used to read the primary selection when the query is empty.
+# Without it the plugin falls back to the clipboard.
+dependencies = ["wl-paste"]
+
+[[launcher_provider]]
+id = "case"
+entry = "case.luau"
+prefix = "case"
+glyph = "text-recognition"
+include_in_global_search = false
+debounce_ms = 60
+
+  # Filter bar. Labels must match the `category` field on the result rows.
+  [[launcher_provider.category]]
+  label = "Programming"
+  glyph = "code"
+
+  [[launcher_provider.category]]
+  label = "Text"
+  glyph = "text-caption"
+
+  [[launcher_provider.category]]
+  label = "Fun"
+  glyph = "mood-smile"
+
+# Plugin-level settings. Launcher providers cannot carry entry-level settings
+# (only widget, desktop_widget and panel entries can), so these live at the root
+# and are read with noctalia.getConfig() from case.luau.
+[[setting]]
+key = "input_source"
+type = "select"
+label_key = "settings.input_source.label"
+description_key = "settings.input_source.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.input_source.options.auto" },
+  { value = "selection", label_key = "settings.input_source.options.selection" },
+  { value = "clipboard", label_key = "settings.input_source.options.clipboard" },
+]
+
+[[setting]]
+key = "preserve_casing"
+type = "bool"
+label_key = "settings.preserve_casing.label"
+description_key = "settings.preserve_casing.description"
+default = true
+
+[[setting]]
+key = "notify_on_copy"
+type = "bool"
+label_key = "settings.notify_on_copy.label"
+description_key = "settings.notify_on_copy.description"
+default = true

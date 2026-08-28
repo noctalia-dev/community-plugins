@@ -1,0 +1,21 @@
+{
+  "settings": {
+    "input_source": {
+      "label": "Input source",
+      "description": "Where the text comes from when you type nothing after the prefix.",
+      "options": {
+        "auto": "Selection, then clipboard",
+        "selection": "Primary selection only",
+        "clipboard": "Clipboard only"
+      }
+    },
+    "preserve_casing": {
+      "label": "Preserve casing",
+      "description": "Keep the original casing inside words, so acronyms and product names such as NASA or iPhone survive the conversion."
+    },
+    "notify_on_copy": {
+      "label": "Notify on copy",
+      "description": "Show a notification after copying a conversion to the clipboard."
+    }
+  }
+}
