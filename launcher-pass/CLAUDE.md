@@ -71,6 +71,7 @@ Target `plugin_api` level: pick the lowest that supplies everything used (per th
 4. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
 5. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
 6. **Optimizations** - consider using native `noctalia.fuzzyScore()` method to sort output with guidance to respect default priorities and reduce cpu usage for large password stores.
+7. **Customization** - add settings to chose the default order of the detail entries (copy first or type first) and if copy and type operations should be interleaved or grouped by type
 
 ### Open questions — updated
 
