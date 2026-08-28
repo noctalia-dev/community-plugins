@@ -316,5 +316,6 @@ Conventions: all shell-interpolated values passed through `shellEscape()` (singl
 ## Workflow
 
 - Define the next steps in brief clear text
+- If anything is unclear or can be interpreted in multiple ways stop and ask the user how to go on
 - Prompt the user for a quick test of what was modified proposing a test sequence
 - Create a local commit detailing what has been modified and why, add the coauthored tag, **NEVER** perform any other git operations
