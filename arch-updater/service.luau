@@ -1073,7 +1073,12 @@ local function buildTerminalCommand()
         table.insert(parts, "sudo pacman -Syu" .. ignoreFlag)
     end
     if cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak") then
-        table.insert(parts, flatpakUpdateCommand(""))
+        -- flatpak's own Y/n prompt gates on isatty(stdout); since this whole
+        -- command is piped into `tee` for the log, flatpak sees a non-tty
+        -- stdout and auto-declines with "n" no matter what's typed
+        -- (flatpak/flatpak#4409). There's no real interactivity to preserve
+        -- here, so just make it non-interactive like the background mode.
+        table.insert(parts, flatpakUpdateCommand(" -y --noninteractive"))
     end
     return table.concat(parts, " && ")
 end
