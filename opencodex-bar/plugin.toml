@@ -1,6 +1,6 @@
 id          = "wy3z/opencodex-bar"
 name        = "OpenCodexBar"
-version     = "1.0.0"
+version     = "1.0.1"
 plugin_api  = 24
 author      = "wy3z"
 license     = "MIT"
@@ -63,7 +63,10 @@ entry = "service.luau"
 id    = "usage"
 entry = "widget.luau"
 
-
+  # Host-side toggle: runs on the UI thread with the click's bar anchor, so the
+  # panel does not depend on a queued onClick() that can lose the press.
+  [widget.actions]
+  left = "panel-toggle wy3z/opencodex-bar:panel"
 
   [[widget.setting]]
   key             = "show_percentage"

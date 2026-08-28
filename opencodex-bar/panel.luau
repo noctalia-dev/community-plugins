@@ -51,7 +51,7 @@ local currentSnapshot = noctalia.state.get("snapshot") or {
   providers = {},
 }
 local currentAction = noctalia.state.get("action") or { status = "idle" }
-local activeTab = "usage"
+local activeTab = "accounts"
 local panelOpen = false
 local renderPanel
 local hoveredUsageDate = nil
@@ -939,6 +939,9 @@ end)
 
 function onOpen()
   panelOpen = true
+  -- Accounts is the landing tab on every open. The panel runtime stays loaded
+  -- after close, so without this the last visited tab (often Usage) would stick.
+  activeTab = "accounts"
   -- Countdowns and the "updated Ns ago" line are the only live text here; a
   -- panel gets no update tick at all unless it asks for one.
   pcall(function() panel.setWantsSecondTicks(true) end)

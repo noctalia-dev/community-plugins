@@ -72,8 +72,15 @@ end
 local MARK_SIZE = 13
 local GAUGE_H = 12
 local GAUGE_W = 8
+-- Keep a chip large enough that bar hide/show (Control Center) cannot collapse
+-- the plugin InputArea to an unclickable sliver.
+local CHIP_MIN = 18
+
+local lastVisual = nil
+local lastTooltip = nil
 
 local function usedColorFor(used)
+  if used == nil then return "on_surface" end
   return used >= CRITICAL_USED and pick(RED) or "on_surface"
 end
 
@@ -81,21 +88,30 @@ end
 -- full gauge means no headroom left. ui.progress cannot do this: ProgressBar
 -- supports a Vertical orientation internally, but the reconciler never exposes
 -- it, so the gauge is a track column holding a level box pinned to the bottom.
+-- Always draw the track, even with no quota: a nil icon made the chip vanish
+-- after a bar hide/show until the next snapshot, which ate the first clicks.
 local function usageGauge(used)
-  if used == nil then return nil end
-  local level = math.max(0, math.min(100, used)) / 100
+  local level = type(used) == "number" and math.max(0, math.min(100, used)) / 100 or 0
   -- Keep a sliver visible at zero so the gauge never reads as "no data".
   local filled = level <= 0 and 1 or math.max(2, math.floor(GAUGE_H * level + 0.5))
   return ui.column({
     key = "gauge",
     width = GAUGE_W,
     height = GAUGE_H,
+    minWidth = GAUGE_W,
+    minHeight = GAUGE_H,
     radius = 3,
     fill = "on_surface/0.18",
     justify = "end",
     align = "stretch",
   }, {
-    ui.box({ key = "level", height = filled, radius = 2, fill = usedColorFor(used) }),
+    ui.box({
+      key = "level",
+      width = GAUGE_W,
+      height = filled,
+      radius = 2,
+      fill = usedColorFor(used),
+    }),
   })
 end
 
@@ -128,37 +144,61 @@ local function render(snapshot)
   local color = usedColor(used, status)
 
   local mode = configured("icon_source", "bars")
+  local showPct = configured("show_percentage", true)
   local critical = used ~= nil and used >= CRITICAL_USED
-
-  local icon = nil
-  if mode == "bars" then
-    icon = usageGauge(used)
-  else
-    local glyph = mode == "fixed"
+  local usedText = used ~= nil and string.format("%.0f%%", used) or "—"
+  local glyph = nil
+  if mode ~= "bars" then
+    glyph = mode == "fixed"
       and configured("glyph", "brand-openai")
       or common.providerGlyph(iconProvider(snapshot)) or "robot"
     if critical and mode ~= "fixed" then glyph = "alert-triangle-filled" end
-    icon = ui.glyph({ key = "glyph", name = glyph, size = MARK_SIZE, color = color })
   end
 
+  local tip = tooltip(snapshot, used, counted or 0)
+  local visual = table.concat({
+    mode, glyph or "", usedText, tostring(color), tostring(showPct), noctalia.isDarkMode() and "d" or "l",
+  }, "|")
+  if visual == lastVisual then
+    if tip ~= lastTooltip then
+      lastTooltip = tip
+      barWidget.setTooltip(tip)
+    end
+    return
+  end
+  lastVisual = visual
+  lastTooltip = tip
+
+  local icon = mode == "bars" and usageGauge(used)
+    or ui.glyph({ key = "glyph", name = glyph, size = MARK_SIZE, color = color })
+
   local children = { icon }
-  if configured("show_percentage", true) then
+  if showPct then
     table.insert(children, ui.label({
       key = "used",
-      text = used ~= nil and string.format("%.0f%%", used) or "—",
+      text = usedText,
       color = color,
     }))
   end
 
   local container = barWidget.isVertical() and ui.column or ui.row
-  barWidget.render(container({ gap = 4, align = "center" }, children))
-  barWidget.setTooltip(tooltip(snapshot, used, counted or 0))
+  barWidget.render(container({
+    key = "chip",
+    gap = 4,
+    align = "center",
+    minWidth = CHIP_MIN,
+    minHeight = CHIP_MIN,
+    paddingH = 4,
+  }, children))
+  barWidget.setTooltip(tip)
 end
 
 noctalia.state.watch("snapshot", function(value)
   render(value)
 end)
 
+-- Fallback when the left widget action is unbound. With the default
+-- `panel-toggle` binding, the host consumes left-click and this does not fire.
 function onClick()
   noctalia.togglePanel(PANEL_ID)
 end
