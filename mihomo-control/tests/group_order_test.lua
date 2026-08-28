@@ -130,4 +130,38 @@ assert_eq(from_slim[1].members[1].delay, 42, "slim member delay")
 assert(logic.proxies_body_needs_external_decode(string.rep("x", logic.PROXIES_INLINE_DECODE_LIMIT)) == false, "at-limit body stays inline")
 assert(logic.proxies_body_needs_external_decode(string.rep("x", logic.PROXIES_INLINE_DECODE_LIMIT + 1)) == true, "over-limit body uses jq")
 
+local server = logic.normalize_server({
+  id = "home",
+  name = "Home",
+  host = "127.0.0.1",
+  port = 9090,
+  secret = "token",
+})
+assert(server ~= nil, "server normalizes")
+assert_eq(server.port, 9090, "server port")
+
+local public = logic.public_server_view(server)
+assert(public.secret == nil, "public view hides secret")
+assert(public.hasSecret == true, "public view notes secret")
+
+local store = logic.normalize_servers_store({
+  activeId = "home",
+  servers = { server },
+  groupOrders = { home = { "A", "B" } },
+})
+assert_eq(store.activeId, "home", "store active id")
+assert_eq(#store.servers, 1, "store keeps servers")
+assert_eq(store.groupOrders.home[1], "A", "store keeps group order")
+
+local updated = logic.upsert_server(store.servers, {
+  id = "home",
+  name = "Home Lab",
+  host = "10.0.0.2",
+  port = 9090,
+})
+assert_eq(updated[1].name, "Home Lab", "upsert replaces server")
+
+local reduced = logic.delete_server(updated, "home")
+assert_eq(#reduced, 0, "delete removes server")
+
 print("mihomo-control group_logic tests: ok")
