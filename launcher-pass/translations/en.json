@@ -13,6 +13,10 @@
     "error": "Failed to decrypt entry",
     "actionPending": "{action} is not implemented yet"
   },
+  "notification": {
+    "copied": "Copied to clipboard",
+    "copyFailed": "Copy failed"
+  },
   "action": {
     "copyPassword": "Copy Password",
     "copyPasswordDesc": "Copy password to clipboard",

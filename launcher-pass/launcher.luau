@@ -82,6 +82,45 @@ local function storeDir()
   return (noctalia.expandPath(p):gsub("/+$", ""))
 end
 
+-- Clipboard-clear timeout for `pass -c` / `pass otp -c` (Behaviour to preserve
+-- #6): the clipTimeout setting wins when it parses to a positive integer, else
+-- PASSWORD_STORE_CLIP_TIME from the environment (same test), else nil — let
+-- `pass` fall back to its own default. Returned as a string, ready to drop
+-- straight into an `env KEY=VAL` argv element.
+local function positiveInt(raw)
+  if raw == nil or raw == "" then
+    return nil
+  end
+  local n = tonumber(raw)
+  if n and n > 0 then
+    return tostring(math.floor(n))
+  end
+  return nil
+end
+
+local function clipTimeout()
+  return positiveInt(noctalia.getConfig("clipTimeout"))
+      or positiveInt(noctalia.getenv("PASSWORD_STORE_CLIP_TIME"))
+end
+
+-- `env KEY=VAL ... <cmd...>` argv for a `pass` invocation: always exports
+-- PASSWORD_STORE_DIR, and PASSWORD_STORE_CLIP_TIME too when `withClip` is set
+-- and a timeout is configured. `cmd` is the pass command and its arguments as
+-- a plain list ({"pass", "-c", entryPath}); no shell, no quoting.
+local function passArgv(cmd, withClip)
+  local argv = { "env", "PASSWORD_STORE_DIR=" .. storeDir() }
+  if withClip then
+    local t = clipTimeout()
+    if t then
+      argv[#argv + 1] = "PASSWORD_STORE_CLIP_TIME=" .. t
+    end
+  end
+  for _, a in ipairs(cmd) do
+    argv[#argv + 1] = a
+  end
+  return argv
+end
+
 -- Split the (trimmed) post-prefix query into a folder context and a search
 -- term. Everything up to and including the last "/" is the folder; the rest is
 -- the fuzzy search. No "/" -> root folder, whole text is the search.
@@ -544,7 +583,7 @@ local function fetchDetail(entryPath, text)
   local panelClosed = false -- true once the panel was actually closed
 
   noctalia.runAsync(
-    { "env", "PASSWORD_STORE_DIR=" .. storeDir(), "pass", "show", entryPath },
+    passArgv({ "pass", "show", entryPath }),
     function(result)
       resolved = true
       afterShow(result)
@@ -562,6 +601,35 @@ local function fetchDetail(entryPath, text)
     panelClosed = true
     closeLauncherPanel(function() end)
   end)
+end
+
+-- ── detail-row actions ────────────────────────────────────────────────────
+-- Copy actions close the launcher up front, exactly as the QML version did
+-- with launcher.close(): with the panel gone a GPG pinentry prompt (from an
+-- expired gpg-agent cache) receives focus on its own, so `pass -c` needs no
+-- close/reopen dance around it — and the launcher staying closed afterwards
+-- is the terminal state QML's copy actions left it in. `pass -c` clears the
+-- clipboard itself after PASSWORD_STORE_CLIP_TIME (see passArgv / clipTimeout).
+local function copyViaPass(cmd, subject)
+  closeLauncherPanel(function()
+    noctalia.runAsync(passArgv(cmd, true), function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        noctalia.notify(tr("notification.copied"), subject)
+      else
+        noctalia.notifyError(tr("notification.copyFailed"), subject)
+      end
+    end, DECRYPT_TIMEOUT_MS)
+  end)
+end
+
+-- Dispatch one detail row's recorded action. Only Copy Password is wired so
+-- far; the rest still fall through to the pending-notice stub.
+local function runAction(ctx)
+  if ctx.verb == "copy" and ctx.kind == "password" then
+    copyViaPass({ "pass", "-c", ctx.entryPath }, ctx.entryPath:match("[^/]+$") or ctx.entryPath)
+    return
+  end
+  noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
 end
 
 -- ── host hooks ────────────────────────────────────────────────────────────
@@ -639,11 +707,9 @@ function onActivate(id)
   elseif kind == "entry" then
     launcher.setQuery(":" .. rest)
   elseif kind == "act" then
-    -- Real copy/type/OTP/wtype wiring is the next port step; for now just
-    -- confirm which action would have run.
     local ctx = detailActions[id]
     if ctx then
-      noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
+      runAction(ctx)
     end
   end
 end
