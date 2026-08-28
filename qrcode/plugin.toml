@@ -1,6 +1,6 @@
 id = "yocraft/qrcode"
 name = "QR Code Encoder"
-version = "1.0.1"
+version = "1.1.0"
 plugin_api = 15
 author = "yocraft"
 license = "MIT"
@@ -31,6 +31,10 @@ entry = "widget.luau"
     description_key = "widget.custom_image.description"
     default = ""
     extensions = [".png", ".jpg", ".jpeg", ".webp", ".svg"]
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
 
 [[panel]]
 id = "panel"

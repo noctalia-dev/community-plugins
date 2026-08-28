@@ -23,6 +23,10 @@
     "tooltip_remove": "Remover"
   },
   "settings": {
+    "colorize_latency": {
+      "description": "Colore o valor em ms de acordo com a latência (verde abaixo de 100ms, amarelo entre 100-300ms, vermelho a partir de 300ms). Desmarque para mostrar sem coloração.",
+      "label": "Colorir tempo de resposta"
+    },
     "glyph": {
       "description": "Ícone mostrado na barra para este widget.",
       "label": "Ícone da barra"

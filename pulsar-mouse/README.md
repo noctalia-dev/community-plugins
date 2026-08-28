@@ -30,7 +30,7 @@ noctalia msg plugins enable harveywuk/pulsar-mouse
 
 ### Bar Widget
 
-Add the `bar` bar widget to your bar. Shows a battery glyph, icon-only, with a tooltip for the full status (percentage, charging, signal strength when available) - the glyph is the only thing rendered regardless of bar orientation; the glyph turns a secondary accent color while charging, or red once battery drops to the mouse's configured Low Power Mode threshold (see Controls Panel; falls back to 15% on a driver that doesn't expose that threshold, e.g. nordic.py). On a wired mouse (no battery to show) it stays visible as a plain neutral glyph rather than hiding, since it's the only way to open the controls panel - DPI/lighting controls still work on a wired mouse, only the Power tab doesn't apply. If `pulsar-mouse-gui` isn't installed or running at all, this widget still works, it just always reads a fresh value directly from the mouse instead of the GUI's cached one (see Data source).
+Add the `bar` bar widget to your bar. Shows a battery glyph, icon-only, with a tooltip for the full status (percentage, charging, signal strength when available) - the glyph is the only thing rendered regardless of bar orientation; by default the glyph turns a secondary accent color while charging, or red once battery drops to the mouse's configured Low Power Mode threshold (see Controls Panel; falls back to 15% on a driver that doesn't expose that threshold, e.g. nordic.py) - each of those state colors is configurable, see Settings. On a wired mouse (no battery to show) it stays visible as a plain neutral glyph rather than hiding, since it's the only way to open the controls panel - DPI/lighting controls still work on a wired mouse, only the Power tab doesn't apply. If `pulsar-mouse-gui` isn't installed or running at all, this widget still works, it just always reads a fresh value directly from the mouse instead of the GUI's cached one (see Data source).
 
 ### Controls Panel
 
@@ -77,15 +77,26 @@ The `bar` and `battery` entries both read battery percentage/charging/low-power-
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `glyph_size` | `int` | `16` | Glyph size, 10-32. |
+| `normal_color` | `color` | `on_surface` | Glyph color at a normal battery level, and on a wired mouse. |
+| `charging_color` | `color` | `secondary` | Glyph color while charging. |
+| `warning_color` | `color` | `error` | Glyph color at or below the Low Power Mode threshold. |
+| `error_color` | `color` | `error` | Glyph color when the mouse or the CLI can't be found. |
 
 ### Desktop Widget
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `color` | `color` | `primary` | Accent color for the percentage text and progress bar. |
+| `color` | `color` | `primary` | Accent color for the percentage text and progress bar at a normal battery level. |
+| `charging_color` | `color` | `secondary` | Used while charging. |
+| `warning_color` | `color` | `error` | Used at or below the Low Power Mode threshold. |
+| `error_color` | `color` | `error` | Used when the mouse or the CLI can't be found. |
 | `show_progress` | `bool` | `true` | Shows or hides the battery-level progress bar. |
 | `show_percent` | `bool` | `true` | Turn off to rely on just the glyph and progress bar. |
 | `glyph_size` | `int` | `28` | Glyph size, 16-64. |
+
+The four state colors are per-widget, so the bar and desktop widgets can differ. All of them (bar's `normal_color` included) sit behind the settings UI's **advanced** toggle, except the desktop widget's `color`. The defaults reproduce exactly what these were before they were configurable, so an existing setup looks unchanged until you touch one.
+
+The normal-state setting is called `normal_color` on the bar widget but `color` on the desktop widget. That asymmetry is deliberate: a bar widget's plugin settings share a TOML table with Noctalia's own per-widget presentation settings, where `color` is already taken ("Color role for this widget's icon and label"). A plugin declaring `color` there does not shadow it, it aliases it - one key backs both pickers, so setting either silently moves the other. Desktop widgets have no such clash, and renaming that one would break existing configs.
 
 ## Notes
 

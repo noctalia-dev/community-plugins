@@ -5,8 +5,8 @@
 -- on the up -> down transition (and, when enabled, down -> up).
 --
 -- Persistence: pluginDataDir()/state.json ({ ips = { {ip=, label=}, ... } })
--- State: link_ip_monitor.statuses   = { {ip=, label=, status=, latency_ms=}, ... }
---        link_ip_monitor.down_count = number
+-- State: ip_monitor.statuses   = { {ip=, label=, status=, latency_ms=}, ... }
+--        ip_monitor.down_count = number
 -- Panel commands: ip_monitor.cmd =
 --   { op = "add"|"remove"|"refresh"|"reorder", ip = "...", label? = "...", index? = N }
 
@@ -144,8 +144,8 @@ local function publishState()
     })
   end
 
-  noctalia.state.set("link_ip_monitor.statuses", statuses)
-  noctalia.state.set("link_ip_monitor.down_count", downCount)
+  noctalia.state.set("ip_monitor.statuses", statuses)
+  noctalia.state.set("ip_monitor.down_count", downCount)
 end
 
 local function checkHost(entry)
@@ -252,7 +252,7 @@ end
 -- watches it, processes it, and clears it back to nil).
 -- ---------------------------------------------------------------------------
 
-noctalia.state.watch("link_ip_monitor.cmd", function(cmd)
+noctalia.state.watch("ip_monitor.cmd", function(cmd)
   if type(cmd) ~= "table" then
     return
   end
@@ -274,7 +274,7 @@ noctalia.state.watch("link_ip_monitor.cmd", function(cmd)
   elseif op == "refresh" then
     checkAll()
   end
-  noctalia.state.set("link_ip_monitor.cmd", nil)
+  noctalia.state.set("ip_monitor.cmd", nil)
 end)
 
 -- ---------------------------------------------------------------------------

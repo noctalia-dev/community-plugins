@@ -1,0 +1,47 @@
+{
+  "error": {
+    "gh_missing": "GitHub CLI (gh) not found in PATH. Install it, then run: gh auth login",
+    "parse": "Could not parse gh output",
+    "timeout": "gh timed out",
+    "truncated": "gh output was truncated"
+  },
+  "panel": {
+    "draft": "Draft",
+    "empty": "No open pull requests. All clear!",
+    "empty_no_rules": "No search rules configured. Add rules in Settings → Plugins → GitHub Pull Requests.",
+    "error_title": "Couldn't fetch pull requests",
+    "loading": "Loading pull requests…",
+    "more_rows": "…and {count} more",
+    "partial_warning": "{failed} of {total} rules failed: {message}",
+    "retry": "Retry",
+    "review": {
+      "approved": "Approved",
+      "changes_requested": "Changes requested",
+      "review_required": "Review needed"
+    },
+    "truncated_note": "…{count} more matches not shown (per-rule cap is 50)",
+    "updated_at": "Updated {time}"
+  },
+  "settings": {
+    "excluded_repositories": {
+      "description": "Repository names to hide after fetching. * is supported; names without an owner match every organization. Examples: legacy-* · acme/private-*",
+      "label": "Excluded repositories"
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "hide_when_zero": {
+      "description": "Hide the bar widget when there are no open pull requests.",
+      "label": "Hide when empty"
+    },
+    "refresh_interval": {
+      "description": "How often pull requests are re-fetched.",
+      "label": "Refresh interval (seconds)"
+    },
+    "rules": {
+      "description": "One GitHub search query fragment per entry; results are merged. Each is prefixed with 'is:pr is:open' (and 'archived:false' unless you set archived: yourself). Examples: author:@me · review-requested:@me org:acme · assignee:@me -repo:acme/legacy draft:false",
+      "label": "Search rules"
+    }
+  },
+  "title": "GitHub Pull Requests"
+}

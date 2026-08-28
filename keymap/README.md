@@ -134,7 +134,10 @@ removes the option to type a command manually.
 Native actions are offered while creating a shortcut. In the editor, the
 library offers Noctalia shell commands only: converting an existing shell bind
 to a different native syntax cannot be rewritten safely across all supported
-source forms.
+source forms. Existing Niri `spawn` actions in the documented, single-line
+argv form are editable in place. Keymap keeps them as native `spawn` actions
+and requires the program and every argument to remain separately quoted; it
+never converts them to `spawn-sh`. Other native actions remain read-only.
 
 Hyprland supports multi-key sequences such as `Super + C + V`. Niri and
 MangoWC accept one ordinary key in this writer. Niri exposes press activation;
@@ -165,7 +168,9 @@ compositor entries are emitted as native Hyprland Lua, Niri KDL, or MangoWC
 actions rather than wrappers around an IPC command. The writer checks the
 selected entry ID, compositor, source, and completed template again before it
 touches a file. Existing native actions remain preserved but are not converted
-to another native catalog action by the editor.
+to another native catalog action by the editor. The one supported native edit
+is changing the quoted argv of an existing Niri `spawn` action without changing
+its action type.
 
 ![Known command library](screenshots/command-library.webp)
 
@@ -288,7 +293,8 @@ them automatically.
 | `niri_config` | `~/.config/niri/config.kdl` | Niri KDL root. |
 | `mangowc_config` | `~/.config/mango/config.conf` | MangoWC config root. |
 | `merge_sequential` | `true` | Fold related numbered shortcuts into one row. |
-| `show_undescribed` | `true` | Show Hyprland binds without descriptions. |
+| `merge_similar` | `false` | Fold shortcuts that trigger the same action into one read-only row. |
+| `show_undescribed` | `true` | Show Hyprland binds without descriptions and Niri binds without a `hotkey-overlay-title`. |
 | `keyboard_layout` | `100` | Default 100%, 96%, 80%, 75%, 65%, or 60% view. |
 | `columns` | `3` | One to four balanced category columns. |
 | `card_color` / `card_opacity` | `surface_variant` / `35` | Card background role or custom color and opacity. |
@@ -357,8 +363,8 @@ niri validate -c examples/niri.kdl
 The suite covers category markers, hidden-block recovery, Hyprland command
 parsing and text fallback, all keyboard layouts, create/update/write rollback,
 the three example configurations, command-library integrity and native action
-creation, short DnD identifiers, automatic path discovery, and translation-key
-coverage.
+creation, native Niri `spawn` editing, merged-combination conflict detection,
+short DnD identifiers, automatic path discovery, and translation-key coverage.
 
 ## License
 

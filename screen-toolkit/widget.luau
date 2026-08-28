@@ -6,10 +6,13 @@
 -- Recording logic lives in the [[service]] — this widget
 -- only reflects the published state and drives the service through the
 -- "command" state channel.
+-- When "hide-when-unused" is enabled, the widget is hidden until a
+-- recording starts (issue #444).
 
-local recording = false
+local recording = noctalia.state.get("recording") == true
+local hideWhenUnused = noctalia.getConfig("hide-when-unused") == true
 local phase = 0
-local startedAt = nil
+local startedAt = noctalia.state.get("recordStartedAt")
 
 local function elapsed()
   if not startedAt then return "00:00" end
@@ -18,6 +21,12 @@ local function elapsed()
 end
 
 local function render()
+  if hideWhenUnused and not recording then
+    barWidget.setVisible(false)
+    return
+  end
+  barWidget.setVisible(true)
+
   local container = barWidget.isVertical() and ui.column or ui.row
   local children = {}
   if recording then
@@ -52,12 +61,17 @@ noctalia.state.watch("recordStartedAt", function(value)
   render()
 end)
 
+function onConfigChanged()
+  hideWhenUnused = noctalia.getConfig("hide-when-unused") == true
+  render()
+end
+
 function onClick()
   -- The bar icon never stops a recording; it just opens the panel so the
   -- stop button (in the panel header, next to the close X) is reachable.
   local mode = noctalia.getConfig("panel-mode")
-  local panelId = mode == "full" and "alexander/screen-toolkit:panel-full" or (mode == "legacy" and "alexander/screen-toolkit:panel-legacy" or "alexander/screen-toolkit:panel")
-  noctalia.togglePanel(panelId)
+  local id = (mode == "legacy") and "alexander/screen-toolkit:panel-legacy" or "alexander/screen-toolkit:panel"
+  noctalia.togglePanel(id)
 end
 
 function onRightClick()

@@ -26,6 +26,23 @@ local MAX_ROWS = 80
 -- selected. Ctrl+D kills the selected process directly.
 local selectedIdx = 0
 
+-- Windowed table rendering, edge-follow (htop/btop style). The panel renders
+-- only a VIEW_CAP-row slice [winStart..winEnd] that fits the table viewport.
+-- Rows ~30px (kill button height=26 + paddingV 2), so 10 fill the 660px panel
+-- without clipping the last one (tuned so no dead gap sits below the list).
+-- The cursor moves freely INSIDE the window; the window slides only when the
+-- cursor pushes past an edge — down at the bottom edge, up at the top edge. So
+-- scrolling back up from the bottom does not collapse the page: the rows above
+-- (6,7,8,9) stay in view while the highlight climbs, and only reaching the
+-- window's top edge starts following up again. There is no host "scroll to row
+-- N" (API 21 only jumps to absolute bottom), so the slice is what the panel
+-- draws and the window IS the visible page.
+-- ponytail: VIEW_CAP is tuned to the panel's table height; could derive it from
+-- a scroll fill-measure if the API ever exposes available height.
+local VIEW_CAP = 10
+local winStart = 1
+local winEnd = VIEW_CAP
+
 -- Cheap fingerprint of everything the table shows, so the 1s tick only rebuilds
 -- the heavy UI tree when the data actually changed. Rebuilding 200 rows every
 -- second exceeded the panel update CPU budget; sampling the first SIG_SAMPLE
@@ -253,12 +270,14 @@ local function dataRow(p, idx)
 		color = selected and "primary" or "on_surface",
 	}))
 
-	-- Kill button (fixed trailing width)
+	-- Kill button (fixed trailing width). Explicit height keeps the row short
+	-- enough that VIEW_CAP rows fit without clipping the last one.
 	table.insert(children, ui.button({
 		glyph = "square-x",
 		glyphSize = 14,
 		variant = "ghost",
 		controlSize = "sm",
+		height = 26,
 		width = KILL_W,
 		tooltip = tr("panel.kill_tip", { pid = p.pid }),
 		onClick = function()
@@ -376,6 +395,43 @@ local function visibleList()
 	return list, #list
 end
 
+-- Keep the window [winStart..winEnd] covering the cursor and inside the list.
+-- Called from render() after the cursor is clamped, so it also heals the window
+-- when the list shrank (filter/sort/data) and left the cursor or window out of
+-- bounds. The lazy up-follow during navigation lives in onKey, not here (this
+-- only heals shrink/regrow).
+local function clampWindow(n)
+	if n == 0 then
+		winStart, winEnd = 1, 0
+		return
+	end
+	-- Cursor below the window (list regrew or follow-down persisted): extend.
+	if selectedIdx > winEnd then
+		winEnd = selectedIdx
+		winStart = math.max(1, winEnd - VIEW_CAP + 1)
+		-- Cursor above the window: the list shrank (a filter) or re-sorted and left the
+	-- cursor outside. Flatten back to the top page — cleared search shows row 1.
+	elseif selectedIdx < winStart then
+		winStart = 1
+		winEnd = math.min(VIEW_CAP, n)
+	end
+	-- Never let the window extend past the list nor below row 1.
+	if winEnd > n then
+		winEnd = n
+		winStart = math.max(1, winEnd - VIEW_CAP + 1)
+	end
+	if winStart < 1 then
+		winStart = 1
+	end
+	-- Re-expand a below-capacity window to a full page. Only fires when the list
+	-- shrank (filter) then regrew: otherwise the window would stay a few rows wide
+	-- and grow one row per Down press. Filling back to VIEW_CAP makes a cleared
+	-- search show the whole page again. No-op during normal navigation.
+	if n >= VIEW_CAP and winEnd - winStart + 1 < VIEW_CAP then
+		winEnd = math.min(winStart + VIEW_CAP - 1, n)
+	end
+end
+
 function render()
 	local wantsFocus = focusFilterOnRender
 	focusFilterOnRender = false
@@ -393,15 +449,28 @@ function render()
 
 	local body
 	if #shown == 0 then
-		body = ui.row({ align = "center", justify = "center", flexGrow = 1 }, {
-			ui.label({ text = tr("panel.no_processes"), color = "on_surface_variant" }),
+		-- Keep the body a ui.scroll in BOTH states so the flexGrow container keeps
+		-- a stable height. Rendering a bare ui.row here (and switching back to a
+		-- scroll once results return) left the scroll container stuck short, which
+		-- clipped the bottom of the list after a 0-result search.
+		winStart, winEnd = 1, 0
+		-- Same stable key as the results scroll so the UI tree reconciles this as
+		-- one persistent scroll node across the 0-result <-> results transition,
+		-- keeping the flexGrow viewport height stable (avoids bottom clipping).
+		body = ui.scroll({ key = "proc-list", flexGrow = 1 }, {
+			ui.row({ align = "center", justify = "center", flexGrow = 1 }, {
+				ui.label({ text = tr("panel.no_processes"), color = "on_surface_variant" }),
+			}),
 		})
 	else
+		clampWindow(#shown)
 		local itemRows = {}
-		for i, p in ipairs(shown) do
-			table.insert(itemRows, dataRow(p, i))
+		for i = winStart, winEnd do
+			if shown[i] then
+				table.insert(itemRows, dataRow(shown[i], i))
+			end
 		end
-		body = ui.scroll({ flexGrow = 1, gap = 2, align = "stretch" }, itemRows)
+		body = ui.scroll({ key = "proc-list", flexGrow = 1, gap = 2, align = "stretch" }, itemRows)
 	end
 
 	local refreshedAt = (st("refreshedAtMs") or 0) / 1000
@@ -554,7 +623,25 @@ function onKey(chord, pressed)
 	if chord == "up" or chord == "down" then
 		local list = visibleList()
 		if #list > 0 then
-			selectedIdx = math.max(1, math.min(#list, selectedIdx + (chord == "down" and 1 or -1)))
+			if chord == "down" then
+				selectedIdx = math.min(#list, selectedIdx + 1)
+				-- Cursor pushed past the bottom edge: extend the window one row and
+				-- slide its top so the new row is revealed below the cursor.
+				if selectedIdx > winEnd then
+					winEnd = selectedIdx
+					winStart = math.max(1, winEnd - VIEW_CAP + 1)
+				end
+			else
+				selectedIdx = math.max(1, selectedIdx - 1)
+				-- Cursor rose past the top edge: only now follow up — slide the window's
+				-- top to the cursor and refill down. Rows inside the window (6,7,8,9
+				-- while stepping down from 10) never shift the window; reaching below the
+				-- top edge (5) is what starts scrolling up again.
+				if selectedIdx < winStart then
+					winStart = selectedIdx
+					winEnd = math.min(winStart + VIEW_CAP - 1, #list)
+				end
+			end
 			render()
 		end
 		return
@@ -592,5 +679,7 @@ function onOpen(_context)
 	-- keys and Ctrl+D work immediately (btop-style). Press Ctrl+F to start
 	-- typing a filter; the box is focused then.
 	selectedIdx = 0
+	winStart = 1
+	winEnd = VIEW_CAP
 	render()
 end

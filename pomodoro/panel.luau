@@ -102,13 +102,14 @@ local function render(state, sessionData)
 
             -- buttons
             ui.column({ gap = 8 }, {
-                ui.row({ gap = 8, justify = "space_between" }, {
+                ui.row({ gap = 8 }, {
                     ui.button({
                         variant = "primary",
                         text = startButtonText,
                         glyph = startButtonGlyph,
                         onClick = "onStartButtonClick",
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
 
                     ui.button({
@@ -116,17 +117,19 @@ local function render(state, sessionData)
                         glyph = "player-skip-forward",
                         onClick = "onSkipButtonClick",
                         enabled = skipButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
                 }),
 
-                ui.row({ gap = 8, justify = "space_between" }, {
+                ui.row({ gap = 8 }, {
                     ui.button({
                         text = noctalia.tr("button.reset"),
                         glyph = "refresh",
                         onClick = "onResetButtonClick",
                         enabled = resetButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
 
                     ui.button({
@@ -134,7 +137,8 @@ local function render(state, sessionData)
                         glyph = "rotate",
                         onClick = "onResetAllButtonClick",
                         enabled = resetAllButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
                 }),
             }),
@@ -148,26 +152,12 @@ function onOpen(context)
     render(state, sessionData)
 end
 
-local function notifyStageFinished(state, sessionData)
-    local sessionNumber = state.sessionPtr.session
-    local stageNumber = state.sessionPtr.stage
-    local body =
-        if stageNumber == 1 then
-            noctalia.tr("notification.work-complete")
-        elseif sessionNumber < #sessionData then
-            noctalia.tr("notification.short-break-complete")
-        else
-            noctalia.tr("notification.long-break-complete")
-    noctalia.notify("Pomodoro Timer", body)
-end
-
 --- main
 noctalia.state.watch("pomodoro.state", function(state)
     local config = noctalia.state.get("pomodoro.config")
     local sessionData = noctalia.state.get("pomodoro.sessionData")
 
     if state.secondsLeft == 0 then
-        notifyStageFinished(state, sessionData)
         noctalia.state.set("pomodoro.nextCommand", "skip")
         if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then
             noctalia.state.set("pomodoro.nextCommand", "toggle")

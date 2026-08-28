@@ -61,7 +61,7 @@ noctalia msg plugin davemhammer/tailscale:service all toggle
 
 ## Notes
 
-- Shells out to `tailscale status --json`, `tailscale debug prefs | jq …` (safe field projection), `tailscale exit-node list`, `tailscale set …`, `tailscale up` / `down`, optional `tailscale ping` / `tailscale ssh` in a terminal, and `xdg-open` for the admin URL.
+- Shells out to `tailscale status --json | jq …` (same Mullvad-exit filter as text `status`; those nodes stay on the Exit tab via `exit-node list`), `tailscale debug prefs | jq …` (safe field projection), `tailscale exit-node list`, `tailscale set …`, `tailscale up` / `down`, optional `tailscale ping` / `tailscale ssh` in a terminal, and `xdg-open` for the admin URL. A raw `--json` dump on a Mullvad-enabled tailnet is large enough to trip Noctalia's plugin CPU budget and auto-disable the service.
 - Advertise-exit state is read from prefs `AdvertiseRoutes` (`0.0.0.0/0` / `::/0`), not only `ExitNodeOption`.
 - Network: only through the Tailscale CLI/daemon (no separate HTTP client in the plugin).
 - Filesystem: no plugin-written credentials; uses local Tailscale state via the CLI.

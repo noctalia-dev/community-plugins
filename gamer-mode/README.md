@@ -11,7 +11,7 @@ background resource hogs and restores what was running before.
 | Field | Value |
 | --- | --- |
 | ID | `nomadcxx/gamer-mode` |
-| Entries | Bar widget: `gamermode`; panel: `main`; service: `service` |
+| Entries | Bar widgets: `gamermode`, `monitor`; panel: `main`; service: `service` |
 
 ## Requirements
 
@@ -30,16 +30,18 @@ panel hides its power row and the toggle still works.
 | Left-click | Opens the panel. Set **Left-click action** to `toggle` to toggle instead. |
 | Right-click | Toggles gamer mode, whatever **Left-click action** says. |
 
-The glyph takes the accent colour while gamer mode runs.
-
-The tooltip carries the live readings:
-
-```
-CPU 25% 59°C | RAM 10.9G | GPU 18% 61°C | VRAM 2.5G
-```
+The glyph takes the accent colour while gamer mode runs. Its tooltip shows the
+live readings in an aligned table and ends with gamer-mode state.
 
 The panel shows a bar per reading, the power profile selector, the suspend
 profile selector, what the plugin has suspended, and the maintenance actions.
+
+![The panel with gamer mode running](panel.webp)
+
+Running under load. CPU and GPU sit past their thresholds, so their bars have
+warmed; RAM and swap have not. The halo rings the mark, the ember sits under the
+header, and the suspend profile shows as a label because the session already
+recorded one.
 
 Pick `light` or `heavy` in the panel and press Enable, and that profile applies
 for the session. A plugin reads its own settings and cannot write them, so the
@@ -60,6 +62,102 @@ Toggle the panel:
 ```sh
 noctalia msg panel-toggle nomadcxx/gamer-mode:main
 ```
+
+## Monitor
+
+Add the `monitor` widget when you want the readings on the bar. Keep the
+`gamermode` widget for a compact toggle icon. Both entries use the same click
+actions: left-click follows **Left-click action**, and right-click toggles gamer
+mode.
+
+The monitor groups related readings in a fixed order. A metric shown on the bar
+stays out of its tooltip, so hovering adds the disabled readings instead of
+repeating the row. The tooltip always includes gamer-mode state and the number
+of suspended targets. Vertical bars stack each reading and omit the flame.
+
+![Monitor widget with gamer mode off above and on below](monitor.webp)
+
+Gamer mode off above, running under load below. The flame is lit, and the
+readings past their thresholds have warmed toward the highlight colour.
+
+### The pill
+
+The monitor draws no background of its own, for the same reason the shell's
+built-in `sysmon` widgets do not: the bar draws it. Turn it on the way you would
+for any widget and the shell frames the readout in the same stadium capsule,
+sized and centred by the bar rather than guessed at by the plugin:
+
+```toml
+[widget.gamermonitor]
+type = "nomadcxx/gamer-mode:monitor"
+capsule = true
+```
+
+`capsule_fill`, `capsule_padding`, `capsule_radius`, and `capsule_opacity` work
+here as they do elsewhere. The monitor can also join a `capsule_group`, sharing
+one capsule with the `sysmon` widgets beside it.
+
+Values hug their text by default, so the readout is exactly as wide as its
+readings and grows as network rates change. **Reserved value width** trades that
+for a steady width: set it to the widest reading you expect and values
+right-align inside the reservation instead of pushing their neighbours. It sets
+a floor rather than a clamp, so nothing gets truncated.
+
+### Warning colours
+
+Each reading warms towards the theme's error colour as it climbs, holding its
+normal colour below an activity threshold and saturating at a critical one. The
+thresholds are the shell's own defaults for each metric: 50%/90% for CPU,
+60°C/85°C for temperatures, 1/50 MB/s for network. A monitor grouped beside the
+built-in `sysmon` widgets therefore warms in step with them.
+
+| Monitor setting | Default | Description |
+| --- | --- | --- |
+| CPU usage | On | Shows processor load. |
+| CPU temperature | On | Shows processor temperature. |
+| RAM used | On | Shows used memory in GiB. |
+| Swap used | Off | Shows swap percentage when swap exists. |
+| GPU usage | On | Shows graphics load when the shell reports a GPU. |
+| GPU temperature | On | Shows graphics temperature when available. |
+| VRAM used | Off | Shows used video memory when available. |
+| Load average | Off | Shows the one-minute load average. |
+| Network rates | On | Shows aggregate download and upload rates. |
+| Icons | On | Places a glyph beside each reading. Turn it off for numbers only. |
+| Reserved value width | `0` | Pixels held for each reading. Zero lets values hug their text. |
+| Highlight while gamer mode is on | On | Adds the flame band under the readings. |
+| Flame height | `5` | How tall the flame band is, in pixels (2-12). See the note below on why the useful range is small. |
+| Flame | `flare` | `off`, a 900 ms `flare`, or `always`. |
+| Flame style | `graph` | One graph node, or 28 sharper `bars`. |
+
+The widget holds the band's slot open whether or not it burns, so toggling gamer
+mode never shifts your readings. It reserves an equal gap above them to match the
+band below, which keeps them centred in the pill instead of pinned to its top
+edge.
+
+That is why the band stays small. On a 42px bar at the default capsule thickness
+of `0.76`, the pill measures 32px inside and the readings take 22, leaving 10 to
+split between the gap and the band. Ask for more than half and the flame lands
+outside the pill.
+
+Raise **capsule thickness** in your bar settings if you want a bigger flame. It
+sets the pill's height, so a taller pill gives you a taller band: at `0.95` the
+pill runs about 40px and fits 9px of flame with the readings still centred.
+
+### While gamer mode is on
+
+A ring wraps the panel mark and thickens as load climbs, and a soft ember pulses
+under the header. The panel's vsync frame tick drives each of them, and the shell
+stops that tick when you close the panel, so an idle or closed panel costs
+nothing.
+
+The mark ships as two files, one dark ramp and one light, and the shell picks
+between them by dark mode. A plugin cannot read palette colours, so those stay a
+fixed pair instead of following your theme.
+
+`always` holds the widget at about 30 frames per second while gamer mode runs.
+Noctalia keeps widget timers running when another window covers the bar, so
+this setting consumes CPU during play. `flare` returns to a one-second idle tick
+after 900 ms.
 
 ### Maintenance
 
@@ -94,6 +192,8 @@ because succeeding into an out-of-memory kill would defeat the point.
 | Setting | Default | Description |
 | --- | --- | --- |
 | Bar icon | `device-gamepad-2` | Glyph shown in the bar. Names a glyph from the shell's registry. |
+| Custom icon | Empty | SVG or PNG used instead of the glyph. File changes reload in the bar. |
+| Custom icon, gamer mode on | Empty | Optional active-state image for the toggle. |
 | Left-click action | `open_panel` | Opens the panel or toggles gamer mode. Right-click toggles either way. |
 | Poll interval | `3` | Seconds between metric updates: 2, 3, or 5. |
 | Gamer mode profile | `light` | Selects which target profile a toggle applies. |
@@ -104,6 +204,10 @@ because succeeding into an out-of-memory kill would defeat the point.
 The setting names the profile a bar click applies. The panel selector overrides
 it for the enable it is sent with, and the bar's right-click toggle does not see
 that selection, so it uses the setting.
+
+Noctalia cannot tint a custom image. Set **Custom icon, gamer mode on** if the
+toggle needs a distinct active state; otherwise it reuses the resting image and
+reports state in the tooltip.
 
 ## Target list
 
@@ -377,9 +481,8 @@ still be suspended.
   same reason.
 - No I/O weighting for user units. cgroup v2 delegates `cpu`, `memory`, and
   `pids` to the user manager, and not `io`.
-- The bar widget carries the readings in its tooltip. Plugin API 19 does hand a
-  widget `onHover(entered)`, so a richer hover surface is possible and is not
-  built.
+- The toggle widget carries the readings in its tooltip. The monitor shows your
+  selected readings in the bar and puts the rest in its tooltip.
 - The panel shows no per-core CPU breakdown and no top-process list.
 - Nothing places the widget on your bar for you. The manifest has no field for a
   default bar section, and a plugin can read its settings but not write them, so

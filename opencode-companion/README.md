@@ -89,21 +89,20 @@ noctalia msg plugin weinguyen/opencode-companion:service all create_session
 
 ## Settings
 
-| Setting              | Type   | Default       | Description                                                     |
-| -------------------- | ------ | ------------- | --------------------------------------------------------------- |
-| `server_mode`        | string | `"auto"`      | `"auto"` manages a local server; `"external"` connects to a URL |
-| `server_host`        | string | `"127.0.0.1"` | Hostname the managed server binds to (loopback only)            |
-| `server_port`        | double | `4096`        | Port the managed server listens on                              |
-| `server_url`         | string | `""`          | External server URL (used in `"external"` mode)                 |
-| `default_workspace`  | folder | `""`          | Default working directory for new sessions                      |
-| `default_model`      | string | `""`          | Default model in `provider/model` format                        |
-| `default_agent`      | string | `"build"`     | Default agent for new sessions                                  |
-| `auto_start`         | bool   | `true`        | Auto-start the managed server                                   |
-| `show_tool_calls`    | bool   | `true`        | Show tool call status cards                                     |
-| `show_reasoning`     | bool   | `false`       | Show reasoning/thinking text                                    |
-| `notify_on_complete` | bool   | `true`        | Notify when a response completes                                |
-| `max_messages_load`  | double | `50`          | Max messages to load per session                                |
-| `debug_logging`      | bool   | `false`       | Print debug messages                                            |
+| Setting             | Type   | Default       | Description                                                     |
+| ------------------- | ------ | ------------- | --------------------------------------------------------------- |
+| `server_mode`       | string | `"auto"`      | `"auto"` manages a local server; `"external"` connects to a URL |
+| `server_host`       | string | `"127.0.0.1"` | Hostname the managed server binds to (loopback only)            |
+| `server_port`       | double | `4096`        | Port the managed server listens on                              |
+| `server_url`        | string | `""`          | External server URL (used in `"external"` mode)                 |
+| `default_workspace` | folder | `""`          | Default working directory for new sessions                      |
+| `default_model`     | string | `""`          | Default model in `provider/model` format                        |
+| `default_agent`     | string | `"build"`     | Default agent for new sessions                                  |
+| `auto_start`        | bool   | `true`        | Auto-start the managed server                                   |
+| `show_tool_calls`   | bool   | `true`        | Show tool call status cards                                     |
+| `show_reasoning`    | bool   | `false`       | Show reasoning/thinking text                                    |
+| `max_messages_load` | double | `50`          | Max messages to load per session                                |
+| `debug_logging`     | bool   | `false`       | Print debug messages                                            |
 
 ## Session Lifecycle
 

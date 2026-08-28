@@ -7,7 +7,7 @@ Transform any text or URL into a QR code completely offline. Then scan or copy t
 | Field | Value |
 | --- | --- |
 | ID | `yocraft/qrcode` |
-| Entries | Bar widget: `widget`; panel: `panel` |
+| Entries | Bar widget: `widget`; panel: `panel`; shortcut: `shortcut` |
 
 ## Requirements
 
@@ -15,7 +15,7 @@ Install `qrencode` on `PATH`.
 
 ## Usage
 
-Open the panel from the bar widget or with this command:
+Open the panel from the `QR Code Encoder` bar widget, the control center tile, or with this command:
 ```sh
 noctalia msg panel-toggle yocraft/qrcode:panel
 ```

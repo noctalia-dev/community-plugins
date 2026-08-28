@@ -17,9 +17,10 @@
 --
 -- Icon-only (no percentage label): battery level and charging state are
 -- already in the hover tooltip, so a bar-row number would just be the same
--- fact twice. Just the Tabler "mouse-filled" glyph, tinted red by
--- statusColor() same as before, swapping to "mouse-off" for a genuine
--- error/no-mouse state.
+-- fact twice. Just the Tabler "mouse-filled" glyph, tinted per state by
+-- statusColor(), swapping to "mouse-off" for a genuine error/no-mouse state.
+-- Each of those state colors is a setting (normal/charging/low/error),
+-- defaulting to what they were previously hardcoded to.
 --
 -- Signal quality has no synchronous getter (see gui.py's own comment on
 -- this) - it only arrives via an async hidraw event the GUI listens for, so
@@ -57,6 +58,17 @@ local checkingCli = false
 local isVertical = false
 local glyphSize = noctalia.getConfig("glyph_size")
 
+-- Per-state colors, defaulted in plugin.toml to the values these used to be
+-- hardcoded to. Read once here rather than per-render, same as glyph_size -
+-- a settings change reloads the widget anyway.
+--
+-- `normal_color`, not `color` - see plugin.toml for why that name is
+-- unusable on a bar widget.
+local normalColor = noctalia.getConfig("normal_color")
+local chargingColor = noctalia.getConfig("charging_color")
+local warningColor = noctalia.getConfig("warning_color")
+local errorColor = noctalia.getConfig("error_color")
+
 local function statusGlyph(color)
   local name = (errorText ~= nil or percent == nil) and "mouse-off" or "mouse-filled"
   return ui.glyph({ name = name, size = glyphSize, color = color })
@@ -64,15 +76,15 @@ end
 
 local function statusColor()
   if errorText ~= nil then
-    return "error"
+    return errorColor
   end
   if charging then
-    return "secondary"
+    return chargingColor
   end
   if percent ~= nil and percent <= (lowPowerThreshold or LOW_POWER_DEFAULT) then
-    return "error"
+    return warningColor
   end
-  return "on_surface"
+  return normalColor
 end
 
 local function tooltipText()
@@ -98,8 +110,10 @@ local function render()
   local glyph
   if not wireless then
     -- No battery to show, but still clickable - a wired mouse still has
-    -- DPI/lighting controls in the panel, just not the Power tab.
-    glyph = ui.glyph({ name = "mouse-filled", size = glyphSize, color = "on_surface" })
+    -- DPI/lighting controls in the panel, just not the Power tab. Takes the
+    -- normal-state color: there's nothing wrong here, it's just permanently
+    -- the only state this mouse has.
+    glyph = ui.glyph({ name = "mouse-filled", size = glyphSize, color = normalColor })
     barWidget.setTooltip(noctalia.tr("ui.wired"))
   else
     glyph = statusGlyph(statusColor())

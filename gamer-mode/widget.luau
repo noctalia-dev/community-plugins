@@ -20,47 +20,76 @@ local function percent(fraction)
     return string.format("%d%%", math.floor((tonumber(fraction) or 0) * 100 + 0.5))
 end
 
--- withTemp appends a temperature only when there is one to show, so a machine without
--- sensors reads as "GPU 18%" rather than "GPU 18% 0°C".
-local function withTemp(label, showTemps, temp)
-    if showTemps and tonumber(temp) then
-        return label .. string.format(" %d°C", math.floor(tonumber(temp) + 0.5))
+-- Rows rather than a joined string: setTooltip renders a list of {key, value} tables as
+-- an aligned two-column block.
+function M.tooltipRows(m, showTemps, gm)
+    m = type(m) == "table" and m or {}
+    local rows = {}
+    if not m.available then
+        rows[#rows + 1] = { key = noctalia.tr("widget.tooltip_loading"), value = "—" }
+    else
+        rows[#rows + 1] = { key = noctalia.tr("widget.cpu"), value = percent(m.cpuPerc) }
+        if showTemps and tonumber(m.cpuTemp) then
+            rows[#rows + 1] = { key = noctalia.tr("widget.cpu_temp"), value = string.format("%d°C", math.floor(tonumber(m.cpuTemp) + 0.5)) }
+        end
+        rows[#rows + 1] = { key = noctalia.tr("widget.ram"), value = gibibytes(m.memUsedMb) }
+
+        -- GPU and VRAM rows are omitted entirely when unsupported: an empty reading is
+        -- more honest than a zero that looks like an idle GPU.
+        if m.gpuAvailable and m.gpuPerc then
+            rows[#rows + 1] = { key = noctalia.tr("widget.gpu"), value = percent(m.gpuPerc) }
+        end
+        if showTemps and tonumber(m.gpuTemp) then
+            rows[#rows + 1] = { key = noctalia.tr("widget.gpu_temp"), value = string.format("%d°C", math.floor(tonumber(m.gpuTemp) + 0.5)) }
+        end
+        if m.vramUsedMb then
+            rows[#rows + 1] = { key = noctalia.tr("widget.vram"), value = gibibytes(m.vramUsedMb) }
+        end
     end
-    return label
+
+    local validGm = type(gm) == "table" and gm or {}
+    local suspended = type(validGm.suspended) == "table" and validGm.suspended or {}
+    rows[#rows + 1] = {
+        key = noctalia.tr("widget.gamer_mode"),
+        value = validGm.enabled == true
+            and noctalia.trp("widget.gamer_mode_on", #suspended)
+            or noctalia.tr("widget.gamer_mode_off"),
+    }
+    return rows
 end
 
-function M.formatTooltip(m, showTemps, gm)
-    m = m or {}
-    if not m.available then
-        return noctalia.tr("widget.tooltip_loading")
-    end
+-- Trimmed locally on purpose. The real binding is `noctalia.string.trim`, but the test
+-- harness exposes a top-level `noctalia.trim`, so code written against the mock would
+-- pass the suite and fail in the shell. A Lua pattern depends on neither.
+local function trimmed(value)
+    return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
-    local parts = {
-        withTemp("CPU " .. percent(m.cpuPerc), showTemps, m.cpuTemp),
-        "RAM " .. gibibytes(m.memUsedMb),
-    }
-    -- GPU and VRAM segments are omitted entirely when unsupported: an empty reading is
-    -- more honest than a zero that looks like an idle GPU.
-    if m.gpuAvailable and m.gpuPerc then
-        parts[#parts + 1] = withTemp("GPU " .. percent(m.gpuPerc), showTemps, m.gpuTemp)
+local function iconFile()
+    local resting = trimmed(noctalia.getConfig("icon_file"))
+    if resting == "" then
+        return nil
     end
-    if m.vramUsedMb then
-        parts[#parts + 1] = "VRAM " .. gibibytes(m.vramUsedMb)
+    if gameMode.enabled then
+        local active = trimmed(noctalia.getConfig("icon_file_active"))
+        if active ~= "" then
+            return active
+        end
     end
-
-    local tooltip = table.concat(parts, " | ")
-    if gm and gm.enabled then
-        tooltip = noctalia.tr("notify.enabled_title") .. " | " .. tooltip
-    end
-    return tooltip
+    return resting
 end
 
 local function render()
-    barWidget.setGlyph(noctalia.getConfig("glyph") or "device-gamepad-2")
-    barWidget.setTooltip(M.formatTooltip(metrics, noctalia.getConfig("show_temps") ~= false, gameMode))
-    -- Accent the glyph while gamer mode is on, so the bar shows the state at a glance
-    -- without needing the tooltip.
-    barWidget.setGlyphColor(gameMode.enabled and "primary" or "on_surface")
+    local icon = iconFile()
+    if icon then
+        -- watch = true, so editing the file updates the bar without a reload. An image
+        -- cannot be tinted, which is what icon_file_active exists to work around.
+        barWidget.setImage(icon, true, 18)
+    else
+        barWidget.setGlyph(noctalia.getConfig("glyph") or "device-gamepad-2")
+        barWidget.setGlyphColor(gameMode.enabled and "primary" or "on_surface")
+    end
+    barWidget.setTooltip(M.tooltipRows(metrics, noctalia.getConfig("show_temps") ~= false, gameMode))
 end
 
 local function sendCommand(action)

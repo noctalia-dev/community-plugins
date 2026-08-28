@@ -61,6 +61,21 @@ local lastNonce = nil
 local workshopRoot = nil
 local rngState = 0
 
+-- Get All output for all fonctionnality --
+
+local allOutputs = nil
+local isAllOutputs = false
+
+local function getAllOutput()
+	local outputs = {}
+	for index, output in ipairs(noctalia.outputs()) do
+		table.insert(outputs, output.name)
+	end
+    return outputs
+end
+
+allOutputs = getAllOutput()
+
 local function tr(key, subst)
 	if subst then
 		return noctalia.tr(key, subst)
@@ -593,7 +608,7 @@ local function handleRequest(request)
 	end
 	lastNonce = request.nonce
 
-	local output = request.output
+	local output = request.output			-- here
 	if type(output) ~= "string" or output == "" then
 		output = noctalia.focusedOutputName()
 	end
@@ -601,12 +616,46 @@ local function handleRequest(request)
 		return
 	end
 
+	if output == "All" then
+		isAllOutputs = true
+	end
+	if output ~= "All" then
+		isAllOutputs = false
+	end
+
 	local action = request.action
 	if action == "apply" then
+		if isAllOutputs then 				-- loop for All Output
+			for _, outputForAll in ipairs(allOutputs) do
+				setCycle(outputForAll, false)
+				apply(outputForAll, request.id)
+			end
+			return
+		end
 		-- A one-shot pick takes over from any cycle on that output.
 		setCycle(output, false)
 		apply(output, request.id)
+
 	elseif action == "select" then
+		
+		if isAllOutputs then				-- loop for All Output
+			for _, outputForAll in ipairs(allOutputs) do
+				local ids = {}
+				if type(request.ids) == "table" then
+					for _, id in ipairs(request.ids) do
+						if type(id) == "string" and id ~= "" then
+							table.insert(ids, id)
+						end
+					end
+				end
+				data.selection[outputForAll] = ids
+				shuffled[outputForAll] = nil
+				saveData()
+				publishStatus()
+			end
+			return
+		end
+
 		local ids = {}
 		if type(request.ids) == "table" then
 			for _, id in ipairs(request.ids) do
@@ -619,7 +668,34 @@ local function handleRequest(request)
 		shuffled[output] = nil
 		saveData()
 		publishStatus()
+
 	elseif action == "cycle" then
+
+		if isAllOutputs then					-- loop for All Output
+			for _, outputForAll in ipairs(allOutputs) do
+				setCycle(outputForAll, request.enabled, request.minutes, request.order)
+				local cycle = cycleFor(outputForAll)
+				if cycle.enabled then
+					local ids = selectionFor(outputForAll)
+					if #ids == 0 then
+						setCycle(outputForAll, false)
+						noctalia.notify(tr("panel.title"), tr("panel.cycle_needs_selection"))
+					else
+						-- Start on the first pick straight away rather than leaving the
+						-- previous wallpaper up for a whole interval.
+						local first = cycle.order == "random" and nextRandom(outputForAll, ids) or ids[1]
+						apply(outputForAll, first)
+						noctalia.notify(
+							tr("panel.title"),
+							tr("panel.cycle_started", { count = #ids, minutes = cycle.minutes })
+						)
+					end
+				end
+				publishStatus()
+			end
+			return
+		end
+
 		setCycle(output, request.enabled, request.minutes, request.order)
 		local cycle = cycleFor(output)
 		if cycle.enabled then
@@ -640,6 +716,21 @@ local function handleRequest(request)
 		end
 		publishStatus()
 	elseif action == "stop" then
+		
+		if isAllOutputs then
+			for _, outputForAll in ipairs(allOutputs) do
+				
+				setCycle(outputForAll, false)
+				data.current[outputForAll] = nil
+				saveData()
+				stopProcess(outputForAll, nil)
+				restoreShellWallpaper(outputForAll)
+				publishStatus()
+
+			end
+			return
+		end
+
 		setCycle(output, false)
 		data.current[output] = nil
 		saveData()

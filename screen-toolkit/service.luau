@@ -16,11 +16,11 @@
 -- lands in /tmp as MP4; GIF is produced on save via record.sh convert-gif.
 
 local PANEL_ID = "alexander/screen-toolkit:panel"
-local FULL_PANEL_ID = "alexander/screen-toolkit:panel-full"
 local LEGACY_PANEL_ID = "alexander/screen-toolkit:panel-legacy"
 local RESULT_PANEL_ID = "alexander/screen-toolkit:result"
 
 local SCRIPT_CAPTURE = noctalia.pluginDir() .. "/scripts/capture.sh"
+local SCRIPT_CAPTURE_NIRI = noctalia.pluginDir() .. "/scripts/capture-niri.sh"
 local SCRIPT_OCR = noctalia.pluginDir() .. "/scripts/ocr.sh"
 local SCRIPT_LENS = noctalia.pluginDir() .. "/scripts/lens-upload.sh"
 local SCRIPT_RECORD = noctalia.pluginDir() .. "/scripts/record.sh"
@@ -54,6 +54,13 @@ end
 local function copyFileUri(path)
   local escaped = tostring(path):gsub(" ", "%%20"):gsub("'", "%%27"):gsub('"', "%%22")
   noctalia.copyToClipboard(`file://{escaped}`, "text/uri-list")
+end
+
+-- Compositor detection. `niri msg` talks over a socket whose path niri exports
+-- as NIRI_SOCKET; when that is set we route annotate-window through the niri
+-- capture script, otherwise we fall back to the Hyprland path (hyprctl).
+local function isNiri()
+  return (noctalia.getenv("NIRI_SOCKET") or "") ~= ""
 end
 
 -- Whether the cursor is excluded from recordings. Grim screenshots exclude the
@@ -544,11 +551,17 @@ local function annotateFullscreen()
 end
 
 local function annotateWindow()
-  if not noctalia.commandExists("hyprctl") then
-    noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = "hyprctl" }))
+  local script, dep
+  if isNiri() then
+    script, dep = SCRIPT_CAPTURE_NIRI, "niri"
+  else
+    script, dep = SCRIPT_CAPTURE, "hyprctl"
+  end
+  if not noctalia.commandExists(dep) then
+    noctalia.notifyError(noctalia.tr("messages.missing_dep", { dep = dep }))
     return
   end
-  noctalia.runAsync(`sleep {CAPTURE_DELAY}; {captureEnv()}{SCRIPT_CAPTURE} annotate-window`, function(res)
+  noctalia.runAsync(`sleep {CAPTURE_DELAY}; {captureEnv()}{script} annotate-window`, function(res)
     if res.exitCode ~= 0 then
       noctalia.notifyError(noctalia.tr("messages.capture_failed"))
       return
@@ -937,7 +950,7 @@ local HANDLERS = {
   setAudioIn = function(payload) overrideAudioIn = (type(payload) == "table" and payload.value or payload) == true end,
   toggle = function()
     local mode = cfg("panel-mode")
-    local id = mode == "full" and FULL_PANEL_ID or (mode == "legacy" and LEGACY_PANEL_ID or PANEL_ID)
+    local id = mode == "legacy" and LEGACY_PANEL_ID or PANEL_ID
     noctalia.togglePanel(id)
   end,
 }

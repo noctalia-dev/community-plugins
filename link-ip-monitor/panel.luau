@@ -14,7 +14,7 @@ local draftError = ""
 local pendingDelete = nil
 local showAddForm = false
 
-local DRAG_TYPE = "link-ip-monitor-host"
+local DRAG_TYPE = "ip-monitor-host"
 
 local STATUS_COLORS = {
   up       = { fill = "#2e7d32", text = "#ffffff" },
@@ -84,6 +84,16 @@ local STATUS_TR_KEY = {
   checking = "panel.status_checking",
 }
 
+local function latencyColor(ms)
+  if ms < 100 then
+    return "#2e7d32" -- green
+  elseif ms < 300 then
+    return "#f2b705" -- yellow
+  else
+    return "#c62828" -- red
+  end
+end
+
 local function pill(status)
   local colors = STATUS_COLORS[status] or STATUS_COLORS.checking
   local label = noctalia.tr(STATUS_TR_KEY[status] or "panel.status_checking")
@@ -119,7 +129,7 @@ function onIpDropped(payload, value)
   if type(payload) ~= "string" or payload == "" or insertAt == nil then
     return
   end
-  noctalia.state.set("link_ip_monitor.cmd", { op = "reorder", ip = payload, index = insertAt })
+  noctalia.state.set("ip_monitor.cmd", { op = "reorder", ip = payload, index = insertAt })
 end
 
 local function hostRow(item)
@@ -135,7 +145,7 @@ local function hostRow(item)
         controlSize = "sm",
         tooltip     = noctalia.tr("panel.tooltip_confirm_remove"),
         onClick     = function()
-          noctalia.state.set("link_ip_monitor.cmd", { op = "remove", ip = id })
+          noctalia.state.set("ip_monitor.cmd", { op = "remove", ip = id })
           pendingDelete = nil
           render()
         end,
@@ -179,10 +189,14 @@ local function hostRow(item)
   -- and when the measurement exists).
   local statusChildren = { pill(item.status) }
   if item.status == "up" and item.latency_ms ~= nil then
+    local color = "on_surface_variant"
+    if noctalia.getConfig("colorize_latency") ~= false then
+      color = latencyColor(item.latency_ms)
+    end
     table.insert(statusChildren, ui.label({
-      text     = tostring(math.floor(item.latency_ms + 0.5)) .. " ms",
+      text     = tostring(item.latency_ms) .. " ms",
       fontSize = 10,
-      color    = "on_surface_variant",
+      color    = color,
     }))
   end
 
@@ -262,7 +276,7 @@ render = function()
       variant     = "ghost",
       controlSize = "sm",
       tooltip     = noctalia.tr("panel.tooltip_check_now"),
-      onClick     = function() noctalia.state.set("link_ip_monitor.cmd", { op = "refresh" }) end,
+      onClick     = function() noctalia.state.set("ip_monitor.cmd", { op = "refresh" }) end,
     }),
     ui.button({
       glyph       = "close",
@@ -324,12 +338,12 @@ function onAdd()
   draftKey += 1
   draftError = ""
   showAddForm = false
-  noctalia.state.set("link_ip_monitor.cmd", { op = "add", ip = host, label = label })
+  noctalia.state.set("ip_monitor.cmd", { op = "add", ip = host, label = label })
   render()
 end
 
 function onOpen(_context)
-  ips = noctalia.state.get("link_ip_monitor.statuses") or {}
+  ips = noctalia.state.get("ip_monitor.statuses") or {}
   pendingDelete = nil
   draftIp = ""
   draftLabel = ""
@@ -339,7 +353,7 @@ function onOpen(_context)
   render()
 end
 
-noctalia.state.watch("link_ip_monitor.statuses", function(value)
+noctalia.state.watch("ip_monitor.statuses", function(value)
   ips = (type(value) == "table") and value or {}
 
   if pendingDelete ~= nil then

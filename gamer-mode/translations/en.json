@@ -79,6 +79,77 @@
       "description": "Glyph shown on the bar.",
       "label": "Bar icon"
     },
+    "icon_file": {
+      "description": "An SVG or PNG to use instead of the glyph. Edits to the file appear in the bar straight away.",
+      "label": "Custom icon"
+    },
+    "icon_file_active": {
+      "description": "Shown while gamer mode is on. A custom icon cannot be recoloured, so without this the state is only in the tooltip.",
+      "label": "Custom icon, gamer mode on"
+    },
+    "monitor": {
+      "flame": {
+        "description": "Burns while gamer mode is on, as hot as the machine is working. \"Always\" keeps it animating the whole session, which costs CPU while you play.",
+        "label": "Flame",
+        "options": {
+          "always": "Always",
+          "flare": "Flare on switch",
+          "off": "Off"
+        }
+      },
+      "flame_height": {
+        "description": "Height of the flame band in pixels. The band is mirrored by an equal space above it so the readings stay centred, so it can only be half of whatever the pill has spare. Raise the bar's capsule thickness for a taller flame.",
+        "label": "Flame height"
+      },
+      "flame_style": {
+        "description": "How the flame is drawn. \"Graph\" is one node and the cheapest; \"bars\" is crisper up close and costs 28.",
+        "label": "Flame style",
+        "options": {
+          "bars": "Bars",
+          "graph": "Graph"
+        }
+      },
+      "highlight_gamer_mode": {
+        "description": "Tints the readout instead of adding an icon, so nothing moves when it switches.",
+        "label": "Highlight while gamer mode is on"
+      },
+      "label_min_width": {
+        "description": "Pixels to reserve for each reading. Zero lets every value hug its text, so the readout is as wide as it needs to be. Raise it if you would rather the width held steady than stayed tight.",
+        "label": "Reserved value width"
+      },
+      "show_cpu": {
+        "description": "Show processor load in the bar.",
+        "label": "CPU usage"
+      },
+      "show_cpu_temp": {
+        "label": "CPU temperature"
+      },
+      "show_glyphs": {
+        "description": "Show an icon beside each reading. Off gives numbers only.",
+        "label": "Icons"
+      },
+      "show_gpu": {
+        "label": "GPU usage"
+      },
+      "show_gpu_temp": {
+        "label": "GPU temperature"
+      },
+      "show_load": {
+        "label": "Load average"
+      },
+      "show_net": {
+        "label": "Network rates"
+      },
+      "show_ram": {
+        "label": "RAM used"
+      },
+      "show_swap": {
+        "label": "Swap used"
+      },
+      "show_vram": {
+        "label": "VRAM used"
+      }
+    },
     "poll_interval": {
       "description": "Seconds between metric updates.",
       "label": "Poll interval",
@@ -106,6 +177,22 @@
     }
   },
   "widget": {
-    "tooltip_loading": "Gamer Mode: loading metrics..."
+    "cpu": "CPU",
+    "cpu_temp": "CPU temp",
+    "gamer_mode": "Gamer mode",
+    "gamer_mode_off": "Off",
+    "gamer_mode_on": {
+      "one": "On, 1 suspended",
+      "other": "On, {count} suspended"
+    },
+    "gpu": "GPU",
+    "gpu_temp": "GPU temp",
+    "load": "Load",
+    "net_rx": "Down",
+    "net_tx": "Up",
+    "ram": "RAM",
+    "swap": "Swap",
+    "tooltip_loading": "Gamer Mode: loading metrics...",
+    "vram": "VRAM"
   }
 }

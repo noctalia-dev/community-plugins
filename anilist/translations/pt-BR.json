@@ -1,0 +1,10 @@
+{
+  "panel": {
+    "close": "Fechar",
+    "close_preview": "Fechar pré-visualização",
+    "connect": "Conecte-se ao AniList",
+    "cover_preview": "Ver capa",
+    "decrement": "Episódio/capítulo anterior",
+    "download_cover": "Baixar capa"
+  }
+}

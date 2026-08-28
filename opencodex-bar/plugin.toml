@@ -1,0 +1,109 @@
+id          = "wy3z/opencodex-bar"
+name        = "OpenCodexBar"
+version     = "1.0.0"
+plugin_api  = 24
+author      = "wy3z"
+license     = "MIT"
+icon        = "brand-openai"
+description = "OpenCodex account, quota, usage, and routing control."
+tags        = ["bar", "panel", "service", "ai", "indicator", "utility"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key             = "base_url"
+type            = "string"
+label_key       = "settings.base_url.label"
+description_key = "settings.base_url.description"
+default         = "http://127.0.0.1:10100"
+
+[[setting]]
+key             = "admin_token_file"
+type            = "file"
+label_key       = "settings.admin_token_file.label"
+description_key = "settings.admin_token_file.description"
+default         = "~/.opencodex/admin-api-token"
+
+[[setting]]
+key             = "poll_seconds"
+type            = "int"
+label_key       = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default         = 30
+min             = 10
+max             = 300
+
+[[setting]]
+key             = "force_refresh_minutes"
+type            = "int"
+label_key       = "settings.force_refresh_minutes.label"
+description_key = "settings.force_refresh_minutes.description"
+default         = 10
+min             = 5
+max             = 60
+
+[[setting]]
+key             = "hidden_providers"
+type            = "string"
+label_key       = "settings.hidden_providers.label"
+description_key = "settings.hidden_providers.description"
+default         = ""
+
+[[setting]]
+key             = "theme_colors"
+type            = "bool"
+label_key       = "settings.theme_colors.label"
+description_key = "settings.theme_colors.description"
+default         = false
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "usage"
+entry = "widget.luau"
+
+
+
+  [[widget.setting]]
+  key             = "show_percentage"
+  type            = "bool"
+  label_key       = "settings.show_percentage.label"
+  description_key = "settings.show_percentage.description"
+  default         = true
+
+
+  [[widget.setting]]
+  key             = "icon_source"
+  type            = "select"
+  label_key       = "settings.icon_source.label"
+  description_key = "settings.icon_source.description"
+  default         = "bars"
+
+    [[widget.setting.options]]
+    value     = "bars"
+    label_key = "settings.icon_source.bars"
+
+    [[widget.setting.options]]
+    value     = "active"
+    label_key = "settings.icon_source.active"
+
+    [[widget.setting.options]]
+    value     = "fixed"
+    label_key = "settings.icon_source.fixed"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "brand-openai"
+  visible_when    = { key = "icon_source", values = ["fixed"] }
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 440
+height          = 520
+placement       = "attached"
+open_near_click = true

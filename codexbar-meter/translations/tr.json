@@ -1,0 +1,17 @@
+{
+  "plugin_name": "CodexBar Ölçer",
+  "settings": {
+    "bar_provider_limit": {
+      "description": "Çubuk kapsülünde gösterilen maksimum sağlayıcı ölçer sayısı; panel ve araç ipucu yine tüm sağlayıcıları içermeye devam eder.",
+      "label": "Çubuk sağlayıcı sınırı"
+    },
+    "codexbar_path": {
+      "description": "Etkin CodexBar sağlayıcılarını sorgulamak için kullanılan komut veya mutlak yol.",
+      "label": "CodexBar komutu"
+    },
+    "refresh_interval": {
+      "description": "Arka plan kullanım yenilemeleri arasındaki saniye.",
+      "label": "Yenileme aralığı"
+    }
+  }
+}

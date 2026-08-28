@@ -1,0 +1,56 @@
+id = "raycursive/niri-displays"
+name = "Niri Displays"
+version = "0.3.0"
+plugin_api = 9
+author = "raycursive"
+license = "MIT"
+dependencies = ["niri"]
+tags = ["bar", "niri", "panel", "service", "system", "utility"]
+icon = "device-desktop"
+description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, and scale."
+
+[[setting]]
+key = "scale_presets"
+type = "string_list"
+label_key = "settings.scale_presets.label"
+description_key = "settings.scale_presets.description"
+default = []
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 30
+min = 5
+max = 300
+
+[[service]]
+id = "displays"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "device-desktop"
+
+  [[widget.setting]]
+  key = "show_resolution"
+  type = "bool"
+  label_key = "settings.show_resolution.label"
+  description_key = "settings.show_resolution.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 680
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true

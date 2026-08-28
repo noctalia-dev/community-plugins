@@ -93,17 +93,22 @@
       "description": "Maximum duration in seconds for GIF recordings.",
       "label": "Max GIF Duration"
     },
+    "hide_when_unused": {
+      "description": "Hide the bar widget when no recording is active. It will appear only while recording.",
+      "label": "Hide When Unused"
+    },
     "hide_cursor": {
       "description": "Exclude the cursor from recordings. Screenshots never include the cursor.",
       "label": "Hide Cursor in Recordings"
     },
     "panel_mode": {
-      "description": "Layout of the main panel. Compact is the dense grid; Full is the original spacious grid.",
+      "description": "Layout of the main panel. Standard is the default dense grid; Legacy recreates the Noctalia-v4 layout.",
       "label": "Panel Mode",
       "options": {
         "compact": "Compact",
         "full": "Full",
-        "legacy": "Legacy"
+        "legacy": "Legacy",
+        "standard": "Standard"
       }
     },
     "record_audio_in": {
@@ -196,7 +201,7 @@
   "tooltips": {
     "annotate": "Draw and annotate a region",
     "annotate_fullscreen": "Annotate the entire screen",
-    "annotate_window": "Annotate the focused window (Hyprland)",
+    "annotate_window": "Annotate the focused window",
     "colorpicker": "Pick a color from screen",
     "lens": "Search image with Google Lens",
     "measure": "Measure region size in pixels",

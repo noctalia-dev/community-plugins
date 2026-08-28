@@ -1,6 +1,6 @@
-id           = "nilsonlinux/link-ip-monitor" 
+id           = "nilsonlinux/link-ip-monitor"
 name         = "Link/IP Monitor"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 14
 author       = "Nilsonlinux"
 license      = "MIT"
@@ -37,6 +37,13 @@ key             = "notify_on_recovery"
 type            = "bool"
 label_key       = "settings.notify_on_recovery.label"
 description_key = "settings.notify_on_recovery.description"
+default         = true
+
+[[setting]]
+key             = "colorize_latency"
+type            = "bool"
+label_key       = "settings.colorize_latency.label"
+description_key = "settings.colorize_latency.description"
 default         = true
 
 # ---------------------------------------------------------------------------

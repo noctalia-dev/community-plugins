@@ -25,10 +25,11 @@ automatically, keeping only the host to ping). An optional description can
 be set alongside it.
 
 Each row in the panel shows the label (or the host, if no label was set), a
-status pill, the response time in ms while online, a drag handle to
-reorder the list, and a trash button to remove that entry (asks for
-confirmation). Right-click the widget, or use the refresh button in the
-panel, to force an immediate check.
+status pill, the response time in ms while online — colored green under
+100ms, yellow between 100 and 300ms, and red at 300ms or above — a drag
+handle to reorder the list, and a trash button to remove that entry (asks
+for confirmation). Right-click the widget, or use the refresh button in
+the panel, to force an immediate check.
 
 Open the panel directly with:
 ```sh
@@ -51,6 +52,7 @@ plugin API has no way to write settings back from a script.
 | `interval_seconds` | `int` | `30` | How often each host is checked. |
 | `timeout_seconds` | `int` | `1` | How long to wait for a ping reply before treating it as a failure. |
 | `notify_on_recovery` | `bool` | `true` | Send a notification when a host that was down responds again. |
+| `colorize_latency` | `bool` | `true` | Colors the ms value by latency (green under 100ms, yellow 100-300ms, red 300ms+). Turn off to show it in a neutral color. |
 | `glyph` (widget) | `glyph` | `activity` | Icon shown in the bar for the `status` widget. |
 
 ## Notes

@@ -1,0 +1,79 @@
+{
+  "settings": {
+    "color_by_usage": {
+      "description": "Primária enquanto houver espaço; depois âmbar, e então vermelha, à medida que a cota se preenche.",
+      "label": "Cor por uso"
+    },
+    "extras": {
+      "description": "O que aparece ao lado da porcentagem: o tempo restante no período, a distância do gasto em relação ao prazo, ou nenhum dos dois.",
+      "label": "Leitura complementar",
+      "option": {
+        "both": "Ambas",
+        "countdown": "Tempo até a reinicialização",
+        "none": "Nenhum",
+        "pace": "Corra contra o relógio"
+      }
+    },
+    "provider_limit": {
+      "description": "Define quantos provedores uma cápsula exibe, começando pelos mais movimentados e indicando o restante como \"+N\". Aplica-se apenas quando o provedor é definido como \"Automático\".",
+      "label": "Prestadores na cápsula"
+    },
+    "refresh_minutes": {
+      "description": "Com que frequência a CLI é solicitada para obter dados de uso atualizados. As contagens regressivas são processadas localmente entre as chamadas.",
+      "label": "Intervalo de atualização (minutos)"
+    },
+    "show_name": {
+      "description": "Adiciona o nome do produto ao lado da porcentagem, para que duas cápsulas não pareçam iguais.",
+      "label": "Mostrar nome do provedor"
+    },
+    "style": {
+      "description": "Como esta cápsula fica no bar.",
+      "label": "Estilo",
+      "option": {
+        "gauge": "Medida e porcentagem",
+        "label": "Nome, calibre e porcentagem",
+        "meter": "Segmentos",
+        "pill": "Percentagem"
+      }
+    },
+    "vendor": {
+      "description": "O plano que esta cápsula monitora. Adicione o widget duas vezes para acompanhar dois.",
+      "label": "Prestador de serviços",
+      "option": {
+        "anthropic": "Claude",
+        "anthropic_api": "API da Anthropic",
+        "auto": "Automático (primário)",
+        "cursor": "Cursor",
+        "deepseek": "DeepSeek",
+        "grok": "Grok",
+        "kilo": "Quilo"
+      }
+    }
+  },
+  "ui": {
+    "details": "Detalhes",
+    "elapsed": "{percent}% da janela decorridos",
+    "error": {
+      "failed": "Não foi possível ler o uso",
+      "failed_hint": "O ai-usagebar foi encerrado com um erro.",
+      "no_data": "Nenhum uso registrado",
+      "no_data_hint": "O ai-usagebar foi executado, mas não relatou nenhum uso. Verifique os provedores em `~/.config/ai-usagebar/config.toml`.",
+      "not_installed": "ai-usagebar não está instalado",
+      "not_installed_hint": "A CLI não está no PATH. Instale-a e tente novamente.",
+      "spawn_failed": "Não foi possível iniciar o ai-usagebar",
+      "spawn_failed_hint": "O processo nunca foi iniciado. Tente novamente em instantes.",
+      "timed_out": "ai-usagebar não respondeu",
+      "timed_out_hint": "A leitura demorou muito. Um provedor pode estar respondendo lentamente."
+    },
+    "hidden_label": "Não exibido",
+    "hidden_value": "Mais {count}, clique para abrir o painel",
+    "loading": "Carregando…",
+    "no_usage": "Nenhum uso registrado",
+    "not_configured": "`{vendor}` não está configurado no ai-usagebar",
+    "now": "agora",
+    "retry": "Tente novamente",
+    "stale_hint": "exibindo os últimos dados conhecidos",
+    "title": "Uso de IA",
+    "unavailable": "Indisponível"
+  }
+}

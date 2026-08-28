@@ -39,6 +39,10 @@ local refreshing = false
 local render
 local refresh
 
+local env = getfenv()
+local dynamicCallbacks = {}
+local callbackIndex = 0
+
 local function tr(key, values)
   return noctalia.tr(key, values)
 end
@@ -56,23 +60,64 @@ local function startsWith(value, prefix)
   return value:sub(1, #prefix) == prefix
 end
 
+local function resetCallbacks()
+  for _, name in ipairs(dynamicCallbacks) do
+    env[name] = nil
+  end
+  dynamicCallbacks = {}
+  callbackIndex = 0
+end
+
+local function callback(prefix, fn)
+  callbackIndex += 1
+  local name = "keybindCheatsheet_" .. prefix .. "_" .. callbackIndex
+  env[name] = fn
+  table.insert(dynamicCallbacks, name)
+  return name
+end
+
 local KEY_LABELS = {
-  XF86AudioRaiseVolume = "Vol Up",
-  XF86AudioLowerVolume = "Vol Down",
-  XF86AudioMute = "Mute",
-  XF86AudioMicMute = "Mic Mute",
-  XF86MonBrightnessUp = "Bright Up",
-  XF86MonBrightnessDown = "Bright Down",
-  XF86AudioPlay = "Play/Pause",
-  XF86AudioPause = "Pause",
-  XF86AudioNext = "Next",
-  XF86AudioPrev = "Previous",
-  Print = "PrtSc",
-  Prior = "PgUp",
-  Next = "PgDn",
-  Return = "Enter",
-  Escape = "Esc",
+  xf86audioraisevolume = "Vol Up",
+  xf86audiolowervolume = "Vol Down",
+  xf86audiomute = "Mute",
+  xf86audiomicmute = "Mic Mute",
+  xf86monbrightnessup = "Bright Up",
+  xf86monbrightnessdown = "Bright Down",
+  xf86audioplay = "Play/Pause",
+  xf86audiopause = "Pause",
+  xf86audionext = "Next",
+  xf86audioprev = "Previous",
+  print = "PrtSc",
+  prtsc = "PrtSc",
+  prior = "PgUp",
+  page_up = "PgUp",
+  pageup = "PgUp",
+  next = "PgDn",
+  page_down = "PgDn",
+  pagedown = "PgDn",
+  ["return"] = "Enter",
+  enter = "Enter",
+  escape = "Esc",
+  esc = "Esc",
   space = "Space",
+  backspace = "Backspace",
+  delete = "Del",
+  del = "Del",
+  insert = "Ins",
+  ins = "Ins",
+  tab = "Tab",
+  home = "Home",
+  ["end"] = "End",
+  caps_lock = "CapsLock",
+  capslock = "CapsLock",
+  num_lock = "NumLock",
+  numlock = "NumLock",
+  scroll_lock = "ScrollLock",
+  scrolllock = "ScrollLock",
+  up = "↑",
+  down = "↓",
+  left = "←",
+  right = "→",
   btn_left = "Mouse Left",
   btn_right = "Mouse Right",
   btn_middle = "Mouse Middle",
@@ -81,7 +126,12 @@ local KEY_LABELS = {
 }
 
 local function formatKey(key)
-  return KEY_LABELS[key] or key:gsub("^mouse:", "Mouse ")
+  if key == nil or key == "" then return "" end
+  local exact = KEY_LABELS[key]
+  if exact ~= nil then return exact end
+  local lowered = KEY_LABELS[lower(key)]
+  if lowered ~= nil then return lowered end
+  return key:gsub("^mouse:", "Mouse ")
 end
 
 local function niriCategoryFor(action)
@@ -273,13 +323,14 @@ end
 local function keyPill(text, bucketId, key)
   return ui.column({
     key = key,
+    minWidth = 20,
     fill = colorValue(bucketId, "background"),
     radius = 4,
     paddingH = 7,
     paddingV = 3,
     align = "center",
   }, {
-    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold", maxLines = 1 }),
+    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold" }),
   })
 end
 
@@ -546,7 +597,7 @@ local function bindingRow(binding, occurrence)
   local description = effectiveDescription(binding)
   local identity = binding.id .. "#" .. occurrence
   if view == "edit" and editingId == identity then
-    local visibilityChanged = function()
+    local visibilityChanged = callback("visibility", function()
       if hidden then
         preferences.hidden[binding.id] = nil
       else
@@ -554,15 +605,15 @@ local function bindingRow(binding, occurrence)
       end
       savePreferences()
       render()
-    end
-    local inputChanged = function(value) editDraft = value end
-    local submit = function(value) saveCustomDescription(binding, value) end
-    local save = function() saveCustomDescription(binding, editDraft) end
-    local cancel = function()
+    end)
+    local inputChanged = callback("editChange", function(value) editDraft = value end)
+    local submit = callback("editSubmit", function(value) saveCustomDescription(binding, value) end)
+    local save = callback("editSave", function() saveCustomDescription(binding, editDraft) end)
+    local cancel = callback("editCancel", function()
       editingId = nil
       editDraft = ""
       render()
-    end
+    end)
     return ui.row({ key = "edit-" .. identity, gap = 6, align = "center", paddingV = 0 }, {
       ui.row({ minWidth = 188, gap = 3, align = "center", opacity = contentOpacity }, pills),
       ui.input({ key = "description-" .. identity, value = editDraft, placeholder = tr("edit_description"), focus = true, controlSize = "sm", flexGrow = 1, onChange = inputChanged, onSubmit = submit }),
@@ -589,12 +640,12 @@ local function bindingRow(binding, occurrence)
     ui.column({ flexGrow = 1, gap = 0, opacity = contentOpacity }, labels),
   }
   if view == "edit" then
-    local edit = function()
+    local edit = callback("edit", function()
       editingId = identity
       editDraft = description
       render()
-    end
-    local visibilityChanged = function()
+    end)
+    local visibilityChanged = callback("visibility", function()
       if hidden then
         preferences.hidden[binding.id] = nil
       else
@@ -602,7 +653,7 @@ local function bindingRow(binding, occurrence)
       end
       savePreferences()
       render()
-    end
+    end)
     table.insert(row, ui.button({ glyph = "pencil", width = 22, height = 22, glyphSize = 12, variant = "ghost", controlSize = "sm", tooltip = tr("edit_description"), onClick = edit }))
     table.insert(row, ui.button({ glyph = hidden and "eye-off" or "eye", width = 22, height = 22, glyphSize = 13, variant = "ghost", controlSize = "sm", selected = hidden, tooltip = hidden and tr("show_binding") or tr("hide_binding"), onClick = visibilityChanged }))
   end
@@ -647,16 +698,16 @@ local function hiddenCount()
 end
 
 local function colorControl(bucket, property)
-  local choose = function() chooseColor(bucket.id, property) end
-  local paste = function() pasteColor(bucket.id, property) end
-  local reset = function()
+  local choose = callback("chooseColor", function() chooseColor(bucket.id, property) end)
+  local paste = callback("pasteColor", function() pasteColor(bucket.id, property) end)
+  local reset = callback("resetColor", function()
     if preferences.colors[bucket.id] ~= nil then
       preferences.colors[bucket.id][property] = nil
       if next(preferences.colors[bucket.id]) == nil then preferences.colors[bucket.id] = nil end
       savePreferences()
       render()
     end
-  end
+  end)
   return ui.row({ gap = 5, align = "center", flexGrow = 1 }, {
     ui.box({ width = 24, height = 24, radius = 5, fill = colorValue(bucket.id, property), border = "outline", borderWidth = 1 }),
     ui.button({ text = property == "background" and tr("background") or tr("text"), variant = "ghost", controlSize = "sm", flexGrow = 1, onClick = choose }),
@@ -678,11 +729,11 @@ local function appearanceBody()
       }),
     }))
   end
-  local resetAll = function()
+  local resetAll = callback("resetAllColors", function()
     preferences.colors = {}
     savePreferences()
     render()
-  end
+  end)
   table.insert(rows, ui.separator({ spacing = 6 }))
   table.insert(rows, ui.row({ gap = 8, align = "center" }, {
     ui.button({ glyph = "restore", text = tr("reset_colors"), onClick = resetAll }),
@@ -691,19 +742,19 @@ local function appearanceBody()
 end
 
 local function renderHeader()
-  local refreshClick = function() refresh() end
-  local editMode = function()
+  local refreshClick = callback("refresh", function() refresh() end)
+  local editMode = callback("editMode", function()
     view = view == "edit" and "bindings" or "edit"
     editingId = nil
     editDraft = ""
     render()
-  end
-  local appearance = function()
+  end)
+  local appearance = callback("appearance", function()
     view = view == "appearance" and "bindings" or "appearance"
     editingId = nil
     editDraft = ""
     render()
-  end
+  end)
   local title = tr("title")
   if currentCompositor ~= "" then
     title = (currentCompositor == "mango" and "Mango" or (currentCompositor == "niri" and "Niri" or "Hyprland")) .. " Keymap"
@@ -715,16 +766,16 @@ local function renderHeader()
     }),
   }
   if (view == "bindings" or view == "edit") and not loading and panelError == nil then
-    local searchChanged = function(value)
+    local searchChanged = callback("search", function(value)
       query = value
       editingId = nil
       render()
-    end
-    local clearSearch = function()
+    end)
+    local clearSearch = callback("clearSearch", function()
       query = ""
       searchRevision += 1
       render()
-    end
+    end)
     table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged }))
     table.insert(children, ui.button({ glyph = "x", width = 26, variant = "ghost", controlSize = "sm", enabled = query ~= "", tooltip = tr("clear"), onClick = clearSearch }))
   end
@@ -733,11 +784,11 @@ local function renderHeader()
   end
   if view == "edit" then
     local count = hiddenCount()
-    local restoreHidden = function()
+    local restoreHidden = callback("restoreHidden", function()
       restoreHiddenBindings(bindings, preferences.hidden)
       savePreferences()
       render()
-    end
+    end)
     table.insert(children, ui.label({ text = tr("hidden_count", { count = count }), color = "on_surface_variant", fontSize = 12 }))
     table.insert(children, ui.button({ glyph = "eye", variant = "ghost", controlSize = "sm", enabled = count > 0, tooltip = tr("restore_hidden"), onClick = restoreHidden }))
   end
@@ -749,6 +800,7 @@ end
 
 render = function()
   if not panelOpen then return end
+  resetCallbacks()
   local contentState = "bindings"
   if view == "appearance" then
     contentState = "appearance"
@@ -795,6 +847,7 @@ local function releasePanelState(clearModel)
   query = ""
   editingId = nil
   editDraft = ""
+  resetCallbacks()
   if clearModel then
     bindings = {}
     parseWarnings = {}
@@ -849,17 +902,20 @@ local function lifecycleState()
     refreshing = refreshing,
     bindingCount = #bindings,
     snapshotLoaded = snapshot ~= nil,
+    callbackCount = #dynamicCallbacks,
     editDraft = editDraft,
   }
 end
 
 return {
+  formatKey = formatKey,
   bindingAvailableInView = bindingAvailableInView,
   bindingContentOpacity = bindingContentOpacity,
   hiddenBindingCount = hiddenBindingCount,
   restoreHiddenBindings = restoreHiddenBindings,
   categoryPriority = categoryPriority,
   friendlyAction = friendlyAction,
+  keyPill = keyPill,
   applySnapshot = applySnapshot,
   onOpen = onOpen,
   onClose = onClose,

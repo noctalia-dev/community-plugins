@@ -1,6 +1,6 @@
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.4.0"
+version = "1.5.0"
 plugin_api = 9
 author = "blackbartblues"
 license = "MIT"
@@ -52,6 +52,13 @@ type = "bool"
 label_key = "settings.merge_sequential.label"
 description_key = "settings.merge_sequential.description"
 default = true
+
+[[setting]]
+key = "merge_similar"
+type = "bool"
+label_key = "settings.merge_similar.label"
+description_key = "settings.merge_similar.description"
+default = false
 
 [[setting]]
 key = "show_undescribed"

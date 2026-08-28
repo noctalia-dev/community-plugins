@@ -42,8 +42,9 @@ local function render()
     -- everything responding: green icon, no badge
     table.insert(children, ui.glyph({ name = glyphName, size = 14, color = COLOR_UP }))
   else
-    -- no hosts configured yet: neutral color (neither green nor red)
-    table.insert(children, ui.glyph({ name = glyphName, size = 14 }))
+    -- no hosts configured yet: neutral color (neither green nor red) —
+    -- must be set explicitly, omitting `color` renders the glyph blank.
+    table.insert(children, ui.glyph({ name = glyphName, size = 14, color = "on_surface" }))
   end
 
   local container = barWidget.isVertical() and ui.column or ui.row
@@ -57,12 +58,12 @@ local function render()
   end
 end
 
-noctalia.state.watch("link_ip_monitor.down_count", function(value)
+noctalia.state.watch("ip_monitor.down_count", function(value)
   downCount = value or 0
   render()
 end)
 
-noctalia.state.watch("link_ip_monitor.statuses", function(value)
+noctalia.state.watch("ip_monitor.statuses", function(value)
   statuses = (type(value) == "table") and value or {}
   render()
 end)
@@ -82,6 +83,6 @@ function onClick()
 end
 
 function onRightClick()
-  noctalia.state.set("link_ip_monitor.cmd", { op = "refresh" })
+  noctalia.state.set("ip_monitor.cmd", { op = "refresh" })
   noctalia.notify(noctalia.tr("title"), noctalia.tr("widget.checking_now"))
 end

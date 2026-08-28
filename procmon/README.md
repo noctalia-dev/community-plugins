@@ -25,6 +25,7 @@ usage (plus the process count). Click the widget to toggle the process panel:
 ```sh
 noctalia msg panel-toggle weinguyen/procmon:panel
 ```
+
 The panel shows CPU, RAM and swap bars with the 1/5/15-minute load averages,
 then a process table. Sort by the column dropdown (PID, CPU%, MEM%, RSS,
 COMMAND) and flip asc/desc with the arrow button. Type in the filter box to
@@ -54,7 +55,10 @@ while it is open.
 - The bar widget only renders data the service publishes; it never runs
   commands. The panel runs the configured `kill_command` when a row's ✕ is
   clicked.
-- Requires `plugin_api = 13`. CPU%, RAM%, swap and the 1/5/15-minute load
-  averages are sampled from `/proc` (`/proc/stat`, `/proc/meminfo`,
-  `/proc/loadavg`) by the service, so they work with no separate system-monitor
-  dependency.
+- Requires `plugin_api = 13`. The panel renders a windowed slice of the
+  process table and follows the keyboard cursor with edge-follow scrolling
+  (window slides only when the cursor pushes past an edge, so scrolling up
+  doesn't collapse the page until the top edge is reached). CPU%, RAM%, swap
+  and the 1/5/15-minute load averages are sampled from `/proc` (`/proc/stat`,
+  `/proc/meminfo`, `/proc/loadavg`) by the service, so they work with no
+  separate system-monitor dependency.

@@ -23,6 +23,10 @@
     "tooltip_remove": "Remove"
   },
   "settings": {
+    "colorize_latency": {
+      "description": "Colors the ms value by latency (green under 100ms, yellow 100-300ms, red 300ms+). Turn off to show it in a neutral color.",
+      "label": "Colorize response time"
+    },
     "glyph": {
       "description": "Icon shown in the bar for this widget.",
       "label": "Bar icon"

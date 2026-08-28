@@ -1,7 +1,7 @@
 id = "weinguyen/opencode-companion"
 name = "OpenCode Companion"
-version = "0.1.0"
-plugin_api = 3
+version = "0.2.0"
+plugin_api = 21
 author = "weinguyen"
 license = "MIT"
 icon = "code-circle"
@@ -79,13 +79,6 @@ type = "bool"
 default = false
 label_key = "settings.show_reasoning.label"
 description_key = "settings.show_reasoning.description"
-
-[[setting]]
-key = "notify_on_complete"
-type = "bool"
-default = true
-label_key = "settings.notify_on_complete.label"
-description_key = "settings.notify_on_complete.description"
 
 # Integer slider: 1..100 caps loaded history; the top notch (101) means
 # "unlimited" (service.luau treats >= 101 as an effectively unbounded limit).

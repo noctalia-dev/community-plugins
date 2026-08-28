@@ -1,0 +1,68 @@
+# OCR — grab text from the screen. Click the bar widget (or control-center
+# shortcut) to select a region with slurp, capture it with grim, run tesseract
+# over it, and copy the recognized text to the clipboard.
+#
+# Click mapping (widget): left = OCR a selected region, right = OCR the whole
+# focused output. The shortcut mirrors both.
+#
+# Settings are plugin-level ([[setting]] at the root): one set shared by both
+# entries, edited from Settings → Plugins.
+
+id = "fel/ocr"
+name = "OCR"
+version = "1.0.3"
+plugin_api = 3
+author = "Fel"
+license = "MIT"
+dependencies = ["grim", "slurp", "tesseract"]
+tags = ["utility", "productivity"]
+icon = "scan"
+description = "Select a screen region and copy its text via tesseract OCR."
+
+[[setting]]
+key = "languages"
+type = "string"
+label_key = "settings.languages.label"
+description_key = "settings.languages.description"
+default = "eng"
+
+[[setting]]
+key = "psm"
+type = "select"
+label_key = "settings.psm.label"
+description_key = "settings.psm.description"
+default = "6"
+options = [
+  { value = "3", label_key = "settings.psm.options.auto" },
+  { value = "6", label_key = "settings.psm.options.block" },
+  { value = "7", label_key = "settings.psm.options.line" },
+]
+
+[[setting]]
+key = "copy_to_clipboard"
+type = "bool"
+label_key = "settings.copy_to_clipboard.label"
+default = true
+
+[[setting]]
+key = "show_notification"
+type = "bool"
+label_key = "settings.show_notification.label"
+description_key = "settings.show_notification.description"
+default = true
+
+# Bar tile: left click = OCR region, right click = OCR focused output.
+[[widget]]
+id = "ocr"
+entry = "ocr.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "scan"
+
+# Control-center quick tile mirroring the widget's click mapping.
+[[shortcut]]
+id = "grab"
+entry = "shortcut.luau"

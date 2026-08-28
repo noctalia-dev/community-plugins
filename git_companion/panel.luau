@@ -8,15 +8,17 @@
 local snapshot = {
   prs = noctalia.state.get("prs") or {},
   issues = noctalia.state.get("issues") or {},
+  reviews = noctalia.state.get("reviews") or {},
   prsCount = noctalia.state.get("prs_count") or 0,
   issuesCount = noctalia.state.get("issues_count") or 0,
+  reviewsCount = noctalia.state.get("reviews_count") or 0,
   updatedAt = noctalia.state.get("last_update") or "",
   status = noctalia.state.get("status") or "ok",
   username = noctalia.state.get("username") or "",
   bio = noctalia.state.get("bio") or "",
   avatarPath = noctalia.state.get("avatar_path") or "",
 }
-local currentTab = "prs" -- "prs" or "issues"
+local currentTab = "prs" -- a TABS id
 local hoveredKey = nil
 
 local render
@@ -36,8 +38,80 @@ local function itemsForTab()
   return type(value) == "table" and value or {}
 end
 
+local TABS = {
+  { id = "prs", setting = "show_prs", glyph = "git-pull-request" },
+  { id = "issues", setting = "show_issues", glyph = "info-circle" },
+  { id = "reviews", setting = "show_reviews", glyph = "eye" },
+}
+
+local function visibleTabs()
+  local shown = {}
+  for _, tab in ipairs(TABS) do
+    if noctalia.getConfig(tab.setting) ~= false then table.insert(shown, tab) end
+  end
+  return shown
+end
+
+local function resolveTab(shown)
+  for _, tab in ipairs(shown) do
+    if tab.id == currentTab then return tab end
+  end
+  return shown[1]
+end
+
 local function itemGlyph()
-  return currentTab == "prs" and "git-pull-request" or "info-circle"
+  for _, tab in ipairs(TABS) do
+    if tab.id == currentTab then return tab.glyph end
+  end
+  return "info-circle"
+end
+
+local BADGE_BUCKETS = {
+  { key = "branch_badge_primary", color = "primary" },
+  { key = "branch_badge_secondary", color = "secondary" },
+  { key = "branch_badge_tertiary", color = "tertiary" },
+  { key = "branch_badge_alert", color = "error" },
+}
+
+local function matchesBranch(branch, pattern)
+  local prefix = pattern:match("^(.*)%*$")
+  if prefix then return branch:sub(1, #prefix) == prefix end
+  return branch == pattern
+end
+
+-- First bucket holding a matching pattern wins. A branch listed under two
+-- colours is the user's call, so there is nothing to arbitrate here.
+local function branchColor(branch)
+  if not branch or branch == "" then return nil end
+  for _, bucket in ipairs(BADGE_BUCKETS) do
+    local patterns = noctalia.getConfig(bucket.key)
+    if type(patterns) == "table" then
+      for _, pattern in ipairs(patterns) do
+        if type(pattern) == "string" then
+          local trimmed = noctalia.string.trim(pattern)
+          if trimmed ~= "" and matchesBranch(branch, trimmed) then
+            return bucket.color
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+local function branchBadge(branch, color, hovered)
+  local textColor = hovered and "on_tertiary" or color
+  return ui.row({
+    fill = textColor .. "/0.18",
+    border = textColor .. "/0.32",
+    borderWidth = 1,
+    radius = 8,
+    paddingH = 7,
+    paddingV = 2,
+    align = "center",
+  }, {
+    ui.label({ text = branch, fontSize = 10, fontWeight = "medium", color = textColor }),
+  })
 end
 
 local function statusBox(glyph, message)
@@ -63,7 +137,7 @@ end
 
 local function hasBlockingStatus()
   local status = snapshot.status
-  return status ~= nil and status ~= "ok" and status ~= "loading"
+  return status ~= nil and status ~= "ok"
 end
 
 local function getSubtitle(group, repo, bio)
@@ -95,22 +169,44 @@ local function userRow()
   local repo = noctalia.getConfig("repo") or ""
   local subtitle = getSubtitle(group, repo, snapshot.bio)
   local updatedAt = snapshot.updatedAt
-  return ui.row({ gap = 10, align = "center" }, {
-    avatar(),
-    ui.column({ gap = 2, flexGrow = 1 }, {
+
+
+  local children = {}
+  if snapshot.username ~= "" then
+    table.insert(children, avatar())
+    table.insert(children, ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = snapshot.username, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
       ui.label({ text = subtitle, fontWeight = "thin", color = "on_surface", fontSize = 11, maxLines = 1 }),
-    }),
-    ui.column({ gap = 2, align = "end" }, {
-      ui.label({ text = tr("last_update"), color = "on_surface_variant", fontSize = 10 }),
-      ui.label({ text = updatedAt ~= "" and updatedAt or tr("last_update_placeholder"), color = "on_surface", fontSize = 11 }),
-    }),
-  })
+    }))
+  else
+    table.insert(children, ui.spacer({ flexGrow = 1 }))
+  end
+  table.insert(children, ui.column({ gap = 2, align = "end" }, {
+    ui.label({ text = tr("last_update"), color = "on_surface_variant", fontSize = 10 }),
+    ui.label({ text = updatedAt ~= "" and updatedAt or tr("last_update_placeholder"), color = "on_surface", fontSize = 11 }),
+  }))
+  return ui.row({ gap = 10, align = "center" }, children)
 end
 
 local function itemCard(item)
   local key = tostring(item.url or item.ref or item.title)
   local hovered = hoveredKey == key
+
+  -- Second line: the branch badge, when the target branch matches a configured
+  -- pattern, then the reference. Issues carry no target branch, so they never
+  -- get a badge without an explicit check.
+  local subtitle = {}
+  local badgeColor = branchColor(item.targetBranch)
+  if badgeColor then
+    table.insert(subtitle, branchBadge(item.targetBranch, badgeColor, hovered))
+  end
+  table.insert(subtitle, ui.label({
+    text = item.ref or "",
+    fontSize = 11,
+    color = hovered and "on_tertiary" or "on_surface_variant",
+    maxLines = 1,
+  }))
+
   return ui.column({
     key = key,
     gap = 8,
@@ -128,7 +224,7 @@ local function itemCard(item)
     ui.row({ gap = 10, align = "center" }, {
       ui.column({ gap = 2, flexGrow = 1 }, {
         ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
-        ui.label({ text = item.ref or "", fontSize = 11, color = hovered and "on_tertiary" or "on_surface_variant", maxLines = 1 }),
+        ui.row({ gap = 6, align = "center" }, subtitle),
       }),
       ui.glyph({ name = "circle-check", size = 24, color = hovered and "on_tertiary" or "primary", visible = item.detailed_merge_status == "mergeable" }),
     }),
@@ -147,6 +243,24 @@ local function itemList()
   return rows
 end
 
+-- Only the PR/MR label depends on the platform, so labels stay per-tab.
+local function tabLabel(tab)
+  if tab.id == "prs" then
+    local platform = noctalia.getConfig("platform")
+    local requestLabel = platform == "gitlab" and tr("merge_requests") or tr("pull_requests")
+    return tr("tab_prs", { label = requestLabel, count = snapshot.prsCount })
+  elseif tab.id == "issues" then
+    return tr("tab_issues", { count = snapshot.issuesCount })
+  end
+  return tr("tab_reviews", { count = snapshot.reviewsCount })
+end
+
+local TAB_ACTIONS = {
+  prs = "onTabPrs",
+  issues = "onTabIssues",
+  reviews = "onTabReviews",
+}
+
 local function tabButton(label, tab, callback)
   return ui.button({
     text = label,
@@ -164,8 +278,10 @@ end
 
 render = function()
   local platform = noctalia.getConfig("platform")
-  local requestLabel = platform == "gitlab" and tr("merge_requests") or tr("pull_requests")
   local blocked = hasBlockingStatus()
+  local shown = visibleTabs()
+  local active = resolveTab(shown)
+  if active then currentTab = active.id end
 
   -- Body: the tabbed list when healthy, a centered status box otherwise.
   -- The tab row is hidden in the blocking state so the card collapses.
@@ -173,14 +289,18 @@ render = function()
   if blocked then
     local glyph, message = statusInfo()
     table.insert(body, statusBox(glyph, message))
+  elseif not active then
+    -- Every tab turned off: nothing to select, so say so rather than render an
+    -- empty strip above an empty list.
+    table.insert(body, userRow())
+    table.insert(body, statusBox("eye-off", tr("no_tabs")))
   else
-    if snapshot.username ~= "" then
-      table.insert(body, userRow())
+    table.insert(body, userRow())
+    local strip = {}
+    for _, tab in ipairs(shown) do
+      table.insert(strip, tabButton(tabLabel(tab), tab.id, TAB_ACTIONS[tab.id]))
     end
-    table.insert(body, ui.row({ gap = 4, align = "center" }, {
-      tabButton(tr("tab_prs", { label = requestLabel, count = snapshot.prsCount }), "prs", "onTabPrs"),
-      tabButton(tr("tab_issues", { count = snapshot.issuesCount }), "issues", "onTabIssues"),
-    }))
+    table.insert(body, ui.row({ gap = 4, align = "center" }, strip))
     table.insert(body, ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, itemList()))
   end
 
@@ -198,6 +318,7 @@ end
 
 function onTabPrs() switchTab("prs") end
 function onTabIssues() switchTab("issues") end
+function onTabReviews() switchTab("reviews") end
 
 function onCloseClicked() panel.close() end
 
@@ -208,8 +329,10 @@ end
 -- Watch for state changes from the service
 noctalia.state.watch("prs", function(value) snapshot.prs = value or {}; render() end)
 noctalia.state.watch("issues", function(value) snapshot.issues = value or {}; render() end)
+noctalia.state.watch("reviews", function(value) snapshot.reviews = value or {}; render() end)
 noctalia.state.watch("prs_count", function(value) snapshot.prsCount = value or 0; render() end)
 noctalia.state.watch("issues_count", function(value) snapshot.issuesCount = value or 0; render() end)
+noctalia.state.watch("reviews_count", function(value) snapshot.reviewsCount = value or 0; render() end)
 noctalia.state.watch("last_update", function(value) snapshot.updatedAt = value or ""; render() end)
 noctalia.state.watch("status", function(value) snapshot.status = value or "ok"; render() end)
 noctalia.state.watch("username", function(value) snapshot.username = value or ""; render() end)
