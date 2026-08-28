@@ -103,6 +103,29 @@ local function clipTimeout()
       or positiveInt(noctalia.getenv("PASSWORD_STORE_CLIP_TIME"))
 end
 
+-- Non-negative integer setting (0 is a valid value here, unlike positiveInt),
+-- with a fallback for a missing / non-numeric stored value. Used for the
+-- typeDelay / wtypeDelay millisecond settings.
+local function intSetting(key, default)
+  local n = tonumber(noctalia.getConfig(key))
+  if n == nil or n < 0 then
+    return default
+  end
+  return math.floor(n)
+end
+
+-- Type actions shell out to `wtype`; probe for it once (the answer can't
+-- change over a session) and drop the Type rows entirely when it's missing,
+-- rather than letting every Type action fail.
+local wtypeChecked, wtypeOk = false, false
+local function wtypeAvailable()
+  if not wtypeChecked then
+    wtypeChecked = true
+    wtypeOk = noctalia.commandExists("wtype") and true or false
+  end
+  return wtypeOk
+end
+
 -- `env KEY=VAL ... <cmd...>` argv for a `pass` invocation: always exports
 -- PASSWORD_STORE_DIR, and PASSWORD_STORE_CLIP_TIME too when `withClip` is set
 -- and a timeout is configured. `cmd` is the pass command and its arguments as
@@ -425,17 +448,24 @@ local function extractUsername(entryPath, fields)
   return username or (entryPath:match("[^/]+$") or entryPath), remaining
 end
 
--- Appends a Copy/Type row pair for one field and records a stub context for
--- each under a fresh "act:<n>" id, derived from the row count so no separate
--- counter is needed. Real copy/type/OTP wiring is the next port step; for now
--- onActivate just notifies using `label`.
+-- Appends a Copy row (and a Type row too, unless `wtype` is unavailable) for
+-- one value, recording each row's dispatch context in `detailActions` under a
+-- fresh "act:<n>" id derived from the current row count — no separate counter.
+-- `onActivate` reads the context back and hands it to `runAction`.
 local function addAction(rows, entryPath, spec)
-  local copyId, typeId = "act:" .. (#rows + 1), "act:" .. (#rows + 2)
-  local copyTitle, typeTitle = tr(spec.copyKey, spec.subst), tr(spec.typeKey, spec.subst)
-  detailActions[copyId] = { entryPath = entryPath, verb = "copy", kind = spec.kind, key = spec.key, value = spec.value, label = copyTitle }
-  detailActions[typeId] = { entryPath = entryPath, verb = "type", kind = spec.kind, key = spec.key, value = spec.value, label = typeTitle }
+  local copyId = "act:" .. (#rows + 1)
+  local copyTitle = tr(spec.copyKey, spec.subst)
+  detailActions[copyId] =
+    { entryPath = entryPath, verb = "copy", kind = spec.kind, key = spec.key, value = spec.value, label = copyTitle }
   rows[#rows + 1] = { id = copyId, title = copyTitle, subtitle = spec.copySubtitle, glyph = "copy" }
-  rows[#rows + 1] = { id = typeId, title = typeTitle, subtitle = spec.typeSubtitle, glyph = "typography" }
+
+  if wtypeAvailable() then
+    local typeId = "act:" .. (#rows + 1)
+    local typeTitle = tr(spec.typeKey, spec.subst)
+    detailActions[typeId] =
+      { entryPath = entryPath, verb = "type", kind = spec.kind, key = spec.key, value = spec.value, label = typeTitle }
+    rows[#rows + 1] = { id = typeId, title = typeTitle, subtitle = spec.typeSubtitle, glyph = "typography" }
+  end
 end
 
 -- Row order per CLAUDE.md "Behaviour to implement": password, OTP (if
@@ -639,32 +669,79 @@ local function copyPlain(value, subject)
   closeLauncherPanel(function() end)
 end
 
--- Dispatch one detail row's recorded action. Copy Password / Copy OTP go
--- through `pass -c` / `pass otp -c` (copyViaPass: clip-timeout env +
--- close-launcher-first pinentry handling). Copy Username copies the value
--- extractUsername already resolved (first login/user/username field,
--- case-insensitive; entry basename otherwise), and Copy <field> copies a
--- parsed key: value line as-is — both plain, via copyPlain. Every Type action
--- still falls through to the stub notice.
+-- ── type actions (wtype) ─────────────────────────────────────────────────
+-- Noctalia has no plugin-facing keystroke/paste API — a launcher provider
+-- can't opt into the host's native auto-paste (PluginLauncherProvider never
+-- reports supportsAutoPaste()), so typing is done here with `wtype`.
+--
+-- `wtype` types into whatever window currently holds focus, so every Type
+-- action closes the launcher panel first (as QML did with launcher.close()),
+-- then waits `typeDelay` ms for the compositor to hand focus back to the
+-- window the user was on before feeding the value to `wtype -d <wtypeDelay>`.
+-- The value goes after `--` as a single positional arg, so a value starting
+-- with "-" is still treated as text and no shell / quote-escaping is needed
+-- (unlike QML's `printf … | wtype -` pipe).
+local function typeValue(value, subject)
+  noctalia.runAsync({ "sleep", tostring(intSetting("typeDelay", 500) / 1000) }, function()
+    noctalia.runAsync(
+      { "wtype", "-d", tostring(intSetting("wtypeDelay", 12)), "--", value or "" },
+      function(result)
+        if result.exitCode ~= 0 or result.timedOut then
+          noctalia.notifyError(tr("notification.typeFailed"), subject)
+        end
+      end
+    )
+  end)
+end
+
+-- Plain value already in memory (password / username / field): close the
+-- launcher, then type it.
+local function typeViaWtype(value, subject)
+  closeLauncherPanel(function()
+    typeValue(value, subject)
+  end)
+end
+
+-- OTP: the code isn't cached, so fetch it with `pass otp` (no -c) first. That
+-- can hit pinentry, which gets focus fine since the panel is already closed.
+local function typeOtp(entryPath, subject)
+  closeLauncherPanel(function()
+    noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        typeValue(trim(result.stdout or ""), subject)
+      else
+        noctalia.notifyError(tr("notification.typeFailed"), subject)
+      end
+    end, DECRYPT_TIMEOUT_MS)
+  end)
+end
+
+-- Dispatch one detail row's recorded action.
+--   copy: password / OTP go through `pass -c` / `pass otp -c` (copyViaPass:
+--     clip-timeout env + close-launcher-first pinentry handling); username and
+--     fields are copied verbatim from memory via copyPlain.
+--   type: `wtype`, after a launcher close + typeDelay; OTP is fetched with
+--     `pass otp` first. (Type rows only exist when `wtype` is installed.)
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
-  if ctx.verb == "copy" and ctx.kind == "password" then
+  local fieldSubject = ctx.kind == "field" and (ctx.key or subject) or subject
+
+  if ctx.verb == "type" then
+    if ctx.kind == "otp" then
+      typeOtp(ctx.entryPath, subject)
+    else
+      typeViaWtype(ctx.value, fieldSubject)
+    end
+    return
+  end
+
+  if ctx.kind == "password" then
     copyViaPass({ "pass", "-c", ctx.entryPath }, subject)
-    return
-  end
-  if ctx.verb == "copy" and ctx.kind == "otp" then
+  elseif ctx.kind == "otp" then
     copyViaPass({ "pass", "otp", "-c", ctx.entryPath }, subject)
-    return
+  else
+    copyPlain(ctx.value, fieldSubject)
   end
-  if ctx.verb == "copy" and ctx.kind == "username" then
-    copyPlain(ctx.value, subject)
-    return
-  end
-  if ctx.verb == "copy" and ctx.kind == "field" then
-    copyPlain(ctx.value, ctx.key or subject)
-    return
-  end
-  noctalia.notify(ctx.label, tr("detail.actionPending", { action = ctx.label }))
 end
 
 -- ── host hooks ────────────────────────────────────────────────────────────

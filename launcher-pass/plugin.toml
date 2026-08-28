@@ -16,7 +16,7 @@ license = "MIT"
 icon = "lock"
 description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
 tags = ["Launcher"]
-dependencies = ["pass", "find", "grep", "pass-otp"]
+dependencies = ["pass", "find", "grep", "pass-otp", "wtype"]
 
 # Settings are declared plugin-wide ([[setting]], the form the sibling launcher
 # plugins use) rather than nested under [[launcher_provider.setting]]; this plugin
@@ -70,3 +70,4 @@ entry = "launcher.luau"
 prefix = "pass"                     # user types ">pass " (Noctalia adds the ">")
 glyph = "lock"
 include_in_global_search = false
+debounce_ms = 20
