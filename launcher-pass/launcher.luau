@@ -5,12 +5,14 @@
 -- Browse mode:
 --   * "<leader>pass" / "<leader>pass <query>" routing (Noctalia strips the
 --     leader + trigger and calls onQuery with the rest)
---   * store listing via `find`; recursive search is pre-filtered in the
---     subprocess with piped `grep -iF` so Luau only ever handles matched lines
+--   * store listed once by `find` into an index *file*; every query greps
+--     that file in a subprocess (`browseGrepArgv` / `searchGrepCmd`), so
+--     Luau only ever parses the capped hit set — the filtering never spends
+--     the host's per-callback CPU budget
 --   * match semantics (matchesFragments): whitespace-split query, every
 --     fragment a contiguous case-insensitive substring, order-independent
---   * ranking (see rankEntry): sum of noctalia.fuzzyScore(fragment, path)
---     — the host's native fzy scorer — then depth, then alphabetical
+--   * ranking: cheap pure-Luau `prerank` over every hit, then a bounded
+--     `noctalia.fuzzyScore` pass (`fuzzySum`) over just the top SCORE_POOL
 --   * folder drill-in / "Go back", navigation state carried entirely in the
 --     launcher query string (a trailing "/" marks a folder context)
 --
@@ -36,12 +38,20 @@
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
--- Hard cap on lines pulled out of the grep pipe before scoring. QML scored the
--- whole match set then took 50; for a pathological one-letter query this keeps
--- Luau's work bounded, at the cost of approximate ranking past this many hits.
-local GREP_CAP = 500
-local BROWSE_TTL_MS = 30000
-local SEARCH_TTL_MS = 8000
+-- The store tree is walked once by `find` into an index *file*; every keystroke
+-- greps that file in a subprocess, so the filtering never touches the Luau CPU
+-- budget and the tree is re-walked only on the background refresh past this
+-- TTL (a stale file is grepped meanwhile).
+local INDEX_TTL_MS = 60000
+-- Hard cap on grep hits pulled back into Luau (search / browse respectively).
+local SCAN_CAP = 500
+local BROWSE_CAP = 2000
+-- Only the strongest `SCORE_POOL` candidates (by the cheap pure-Luau prerank)
+-- get a `noctalia.fuzzyScore` pass — each fuzzyScore call crosses into C with
+-- a ~26 KB stack frame, so scoring every hit of a broad query ("w") blows the
+-- 25 ms callback budget. Kept a bit above MAX_RESULTS so the visible page is
+-- fully fzy-ordered.
+local SCORE_POOL = 64
 -- Decrypted entries stay cached a while so re-rendering the same detail view
 -- (e.g. a debounce re-fire) doesn't trigger a second `pass show` / pinentry.
 local DETAIL_TTL_MS = 60000
@@ -53,8 +63,10 @@ local DETAIL_TTL_MS = 60000
 local DECRYPT_TIMEOUT_MS = 300000
 
 -- ── module state — caches only, no navigation state ────────────────────────
-local lastQuery = nil -- most recent onQuery text, for dropping stale async
-local listCache = {}  -- cacheKey -> { at = <ms>, ttl = <ms>, entries = { ... } }
+local lastQuery = nil     -- most recent onQuery text, for dropping stale async
+local indexReady = false  -- the index file exists (built at least once)
+local indexAt = 0         -- nowMs() of the last successful index build
+local pendingIndex = false -- an index build is in flight
 local detailCache = {} -- entryPath -> { at, ttl, password, hasOtp, username, fields }
 -- id -> stub context for the row actions of the *currently rendered* detail
 -- view. Only one detail view is ever live, so this is rebuilt on every render
@@ -72,11 +84,6 @@ end
 
 local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
-end
-
--- single-quote wrap for the string (shell) form of runAsync
-local function shq(s)
-  return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
 local function storeDir()
@@ -160,13 +167,6 @@ local function splitPath(text)
   return (folder:gsub("/+$", "")), search
 end
 
-local function folderDir(folder)
-  if folder == "" then
-    return storeDir()
-  end
-  return storeDir() .. "/" .. folder
-end
-
 local function parentOf(path)
   return path:match("^(.*)/[^/]*$") or ""
 end
@@ -205,210 +205,231 @@ local function matchesFragments(hayLower, frags)
   return true
 end
 
--- ── ranking ──────────────────────────────────────────────────────────────
--- Returns (score, depth) for one entry against the query fragments:
---   score = sum of noctalia.fuzzyScore(fragment, path) — the host's native
---           fzy scorer (case-insensitive; exact match = 1024; bonuses for
---           prefix / word-boundary / consecutive-run matches; longer text
---           penalised). A fragment the scorer rejects contributes 0 — it
---           already passed matchesFragments, so the row stays, just ranks
---           low. Summing per fragment keeps the match order-independent and
---           the inter-fragment space a wildcard, unlike passing the whole
---           query as one fzy pattern.
---   depth = number of path segments (shallower wins the tie)
--- Rows are then sorted by score desc, depth asc, then path alphabetically.
--- Moving the scoring into the C scorer is the point of this step — for a big
--- store with a broad query it runs over the whole capped grep hit set.
-local function rankEntry(nameLower, frags)
-  local score = 0
-  for _, f in ipairs(frags) do
-    score = score + (noctalia.fuzzyScore(f, nameLower) or 0)
-  end
-  local _, slashes = nameLower:gsub("/", "")
-  return score, slashes + 1
+-- ── store index (a file that grep filters per keystroke) ────────────────
+-- `find` walks the store tree once into an index file: every non-hidden
+-- `*.gpg` entry and every folder, as `%P` paths relative to the store root, a
+-- trailing "/" marking folders. Every keystroke greps that file in a
+-- subprocess, so filtering never spends the Luau CPU budget and the tree is
+-- re-walked only on the background refresh past INDEX_TTL_MS. Luau parses only
+-- the capped grep hit set.
+local function shq(s)
+  return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
--- ── subprocess commands ───────────────────────────────────────────────────
--- Browse: immediate children of `dir` (files *.gpg + non-hidden dirs). Small,
--- so it runs as a plain argv (no shell).
-local function browseArgv(dir)
-  return {
-    "find", dir, "-maxdepth", "1", "-mindepth", "1",
-    "-type", "f", "-name", "*.gpg", "-printf", "%f\n",
-    "-o", "-type", "d", "-not", "-name", ".*", "-printf", "%f/\n",
-  }
+-- Escape ERE metacharacters so a folder name (which can hold ".", "+", …, e.g.
+-- "web/bambulab.com") drops literally into a `grep -E` pattern.
+local function reEsc(s)
+  return (s:gsub("[%^%$%(%)%.%[%]%*%+%-%?{}|\\]", "\\%0"))
 end
 
-local function browseCacheKey(dir)
-  return table.concat({ dir, "s", "" }, "\0")
+local function indexPath()
+  return noctalia.pluginDataDir() .. "/store.index"
 end
 
--- Recursive search: every *.gpg path under `dir`, AND-filtered by the query
--- fragments with a chain of `grep -iF` (fixed-string, case-insensitive,
--- order-independent — the same semantics as the QML substring test), capped.
-local function searchCmd(dir, frags)
-  local cmd = "find " .. shq(dir) .. " -mindepth 1 -type f -name '*.gpg' -printf '%P\\n'"
-  for _, f in ipairs(frags) do
-    cmd = cmd .. " | grep -iF -e " .. shq(f)
-  end
-  return cmd .. " | head -n " .. GREP_CAP
-end
-
--- ── parse `find` / grep output into entry rows ────────────────────────────
--- { name, nameLower, fullPath, isDir }. recursive == true: names may contain
--- "/", so parent folders are synthesised as their own rows.
-local function parseEntries(text, folder, recursive)
-  local entries = {}
-  local seenDirs = {}
-  local skipName = nil
-  if folder ~= "" then
-    skipName = folder:match("[^/]+$") or folder
-  end
-
-  for line in text:gmatch("[^\n]+") do
-    line = trim(line)
-    if line ~= "" then
-      local isDir = line:sub(-1) == "/"
-      local name = isDir and line:sub(1, -2) or line
-      if not isDir and name:sub(-4) == ".gpg" then
-        name = name:sub(1, -5)
-      end
-
-      if not (isDir and name == skipName) then
-        local fullPath = folder == "" and name or (folder .. "/" .. name)
-
-        if recursive then
-          local parent = name:match("^(.*)/[^/]*$")
-          if parent and parent ~= "" and not seenDirs[parent] then
-            seenDirs[parent] = true
-            local parentFull = folder == "" and parent or (folder .. "/" .. parent)
-            entries[#entries + 1] = {
-              name = parent,
-              nameLower = parent:lower(),
-              fullPath = parentFull,
-              isDir = true,
-            }
-          end
-        end
-
-        entries[#entries + 1] = {
-          name = name,
-          nameLower = name:lower(),
-          fullPath = fullPath,
-          isDir = isDir,
-        }
-      end
-    end
-  end
-
-  return entries
-end
-
--- ── background prefetch ──────────────────────────────────────────────────
--- Navigation always drills into a folder already visible in the current list,
--- so as soon as a browse view is rendered its child folders are listed in the
--- background. Activating one then hits a warm cache and renders with no
--- subprocess on the critical path.
-local PREFETCH_MAX = 10
-local pendingFetch = {} -- browse cacheKey -> true while a background find runs
-
-local function prefetchBrowse(dir, folderPath)
-  local key = browseCacheKey(dir)
-  local hit = listCache[key]
-  if pendingFetch[key] or (hit and (noctalia.nowMs() - hit.at) < hit.ttl) then
+-- Rebuilds the index file. `onReady` (optional) fires afterwards whether the
+-- build succeeded or not. Deduped via `pendingIndex`. The callback does almost
+-- no Luau work (`find` redirects straight to the file), so it is safe at load.
+local function buildIndex(onReady)
+  if pendingIndex then
     return
   end
-  pendingFetch[key] = true
-  noctalia.runAsync(browseArgv(dir), function(result)
-    pendingFetch[key] = nil
+  pendingIndex = true
+  local cmd = "find " .. shq(storeDir())
+      .. " -mindepth 1 -name '.*' -prune"
+      .. " -o -type f -name '*.gpg' -printf '%P\\n'"
+      .. " -o -type d -printf '%P/\\n'"
+      .. " > " .. shq(indexPath())
+  noctalia.runAsync(cmd, function(result)
+    pendingIndex = false
     if result.exitCode == 0 and not result.timedOut then
-      listCache[key] = {
-        at = noctalia.nowMs(),
-        ttl = BROWSE_TTL_MS,
-        entries = parseEntries(result.stdout or "", folderPath, false),
-      }
+      indexReady = true
+      indexAt = noctalia.nowMs()
+    end
+    if onReady then
+      onReady()
     end
   end)
 end
 
-local function prefetchChildren(entries)
-  local base = storeDir()
-  local n = 0
-  for _, e in ipairs(entries) do
-    if e.isDir then
-      n = n + 1
-      if n > PREFETCH_MAX then
-        break
+-- Search: AND-chain of `grep -iF` over the fragments (fixed-string, case
+-- insensitive, order-independent — the QML substring rule), capped. Returned
+-- as a shell string because the AND is a pipe chain.
+local function searchGrepCmd(frags)
+  local cmd = "grep -iF -e " .. shq(frags[1]) .. " " .. shq(indexPath())
+  for i = 2, #frags do
+    cmd = cmd .. " | grep -iF -e " .. shq(frags[i])
+  end
+  return cmd .. " | head -n " .. SCAN_CAP
+end
+
+-- Browse: exactly the direct children of `folder` (`grep -E`, bounded by that
+-- folder's own child count). Still `| head`-capped as a paranoia bound so a
+-- pathological folder can't hand Luau a huge list to sort.
+local function browseGrepCmd(folder)
+  local pat = folder == "" and "^[^/]+/?$" or ("^" .. reEsc(folder) .. "/[^/]+/?$")
+  return "grep -E " .. shq(pat) .. " " .. shq(indexPath()) .. " | head -n " .. BROWSE_CAP
+end
+
+-- grep output line -> { fullPath, isDir }. `.gpg` stripped here.
+local function parseHits(text)
+  local hits = {}
+  for line in text:gmatch("[^\n]+") do
+    if line ~= "" then
+      local isDir = line:sub(-1) == "/"
+      local path = isDir and line:sub(1, -2) or line
+      if not isDir and path:sub(-4) == ".gpg" then
+        path = path:sub(1, -5)
       end
-      prefetchBrowse(base .. "/" .. e.fullPath, e.fullPath)
+      if path ~= "" then
+        hits[#hits + 1] = { fullPath = path, isDir = isDir }
+      end
     end
   end
+  return hits
+end
+
+-- ── ranking ──────────────────────────────────────────────────────────────
+-- Cheap, pure-Luau relevance proxy — no C-boundary crossings, so it is safe
+-- to run over every match of a broad query. Returns (segHits, depth):
+--   segHits = how many fragments equal a whole path segment (an exact hit on
+--             a "/"-bounded segment — e.g. the leaf "root" — beats a mere
+--             substring, matching the QML intent).
+--   depth   = number of path segments (shallower wins the tie).
+-- The top SCORE_POOL rows by this key then get a real noctalia.fuzzyScore
+-- pass for the final ordering (see renderSearchRows).
+local function prerank(relLower, frags)
+  local segs = {}
+  for s in relLower:gmatch("[^/]+") do
+    segs[#segs + 1] = s
+  end
+  local hits = 0
+  for _, f in ipairs(frags) do
+    for _, s in ipairs(segs) do
+      if s == f then
+        hits = hits + 1
+        break
+      end
+    end
+  end
+  return hits, #segs
+end
+
+-- Sum of noctalia.fuzzyScore(fragment, path) — the host's native fzy scorer
+-- (case-insensitive; exact = 1024; prefix / word-boundary / consecutive-run
+-- bonuses). Per fragment so the match stays order-independent and the
+-- inter-fragment space stays a wildcard; a fragment fzy rejects scores 0.
+local function fuzzySum(relLower, frags)
+  local score = 0
+  for _, f in ipairs(frags) do
+    score = score + (noctalia.fuzzyScore(f, relLower) or 0)
+  end
+  return score
 end
 
 -- ── result rows ───────────────────────────────────────────────────────────
-local function renderRows(folder, search, entries)
-  local rows = {}
+local function entryRow(e, title)
+  if e.isDir then
+    return {
+      id = "nav:" .. e.fullPath,
+      query = e.fullPath .. "/",
+      title = title,
+      subtitle = tr("result.folder"),
+      glyph = "folder",
+    }
+  end
+  return {
+    id = "entry:" .. e.fullPath,
+    title = title,
+    subtitle = tr("result.password"),
+    glyph = "key",
+  }
+end
 
+-- Browse rows: the grep already returned only direct children of `folder`
+-- (`browseGrepArgv`); sort them by basename, cap, prepend "Go back".
+local function renderBrowseRows(folder, hits)
+  local rows = {}
+  if folder ~= "" then
+    rows[#rows + 1] = goBackRow(parentOf(folder), folder)
+  end
+  for _, h in ipairs(hits) do
+    h.name = h.fullPath:match("[^/]+$") or h.fullPath
+    h.nameLower = h.name:lower()
+  end
+  table.sort(hits, function(a, b)
+    return a.nameLower < b.nameLower
+  end)
+  for i = 1, math.min(#hits, MAX_RESULTS) do
+    rows[#rows + 1] = entryRow(hits[i], hits[i].name)
+  end
+  return rows
+end
+
+-- Search rows: `hits` is the capped grep set. Re-check matchesFragments
+-- against each hit's path *relative to* `folder` (grep matched the raw line),
+-- cheap prerank over every match, then a real noctalia.fuzzyScore pass over
+-- only the top SCORE_POOL, cap at MAX_RESULTS. Rows show the folder-relative
+-- path.
+local function renderSearchRows(folder, frags, hits)
+  local rows = {}
   if folder ~= "" then
     rows[#rows + 1] = goBackRow(parentOf(folder), folder)
   end
 
-  local frags = fragments(search)
+  local prefix = folder ~= "" and (folder .. "/") or ""
+  local plen = #prefix
 
-  -- Re-check fragments against the suffix-stripped name: `grep` matched the raw
-  -- "%P" line (with ".gpg"), whereas QML fuzzy-matched the stripped name, and
-  -- synthesised parent-folder rows were fuzzy-matched too. Cheap: the grep
-  -- output is already small.
   local matched = {}
-  for _, e in ipairs(entries) do
-    if matchesFragments(e.nameLower, frags) then
-      matched[#matched + 1] = e
+  for _, h in ipairs(hits) do
+    local disp
+    if plen == 0 then
+      disp = h.fullPath
+    elseif h.fullPath:sub(1, plen) == prefix then
+      disp = h.fullPath:sub(plen + 1)
     end
-  end
-
-  if #frags == 0 then
-    -- empty search (folder browse): pure alphabetical
-    table.sort(matched, function(a, b)
-      return a.nameLower < b.nameLower
-    end)
-  else
-    for _, e in ipairs(matched) do
-      e.score, e.depth = rankEntry(e.nameLower, frags)
-    end
-    table.sort(matched, function(a, b)
-      if a.score ~= b.score then
-        return a.score > b.score
+    if disp then
+      local rel = disp:lower()
+      if matchesFragments(rel, frags) then
+        matched[#matched + 1] = { h = h, disp = disp, rel = rel }
       end
-      if a.depth ~= b.depth then
-        return a.depth < b.depth
-      end
-      return a.nameLower < b.nameLower
-    end)
-  end
-
-  local n = math.min(#matched, MAX_RESULTS)
-  for i = 1, n do
-    local e = matched[i]
-    if e.isDir then
-      rows[#rows + 1] = {
-        id = "nav:" .. e.fullPath,
-        query = e.fullPath .. "/",
-        title = e.name,
-        subtitle = tr("result.folder"),
-        glyph = "folder",
-      }
-    else
-      rows[#rows + 1] = {
-        id = "entry:" .. e.fullPath,
-        title = e.name,
-        subtitle = tr("result.password"),
-        glyph = "key",
-      }
     end
   end
 
+  for _, m in ipairs(matched) do
+    m.pre, m.depth = prerank(m.rel, frags)
+  end
+  table.sort(matched, function(a, b)
+    if a.pre ~= b.pre then
+      return a.pre > b.pre
+    end
+    if a.depth ~= b.depth then
+      return a.depth < b.depth
+    end
+    return a.rel < b.rel
+  end)
+
+  local pool = math.min(#matched, SCORE_POOL)
+  local head = {}
+  for i = 1, pool do
+    head[i] = matched[i]
+    head[i].score = fuzzySum(head[i].rel, frags)
+  end
+  table.sort(head, function(a, b)
+    if a.score ~= b.score then
+      return a.score > b.score
+    end
+    if a.depth ~= b.depth then
+      return a.depth < b.depth
+    end
+    return a.rel < b.rel
+  end)
+
+  for i = 1, math.min(#head, MAX_RESULTS) do
+    rows[#rows + 1] = entryRow(head[i].h, head[i].disp)
+  end
   return rows
 end
+
 
 -- ── detail mode ───────────────────────────────────────────────────────────
 -- Parse `pass show` output: first non-empty line is the password; every
@@ -590,7 +611,7 @@ end
 
 -- Reopens with the exact input the launcher had before it was closed, as the
 -- panel's "context" argument — the host re-delivers that as a fresh onQuery,
--- so whatever is now in detailCache/listCache gets rendered without this
+-- so whatever is now in detailCache / the store index gets rendered without this
 -- script tracking "what was on screen" itself. `text` is the raw onQuery
 -- text (no leader/prefix), so the context reconstructs the full input.
 local function reopenLauncherPanel(text)
@@ -863,50 +884,49 @@ function onQuery(text)
 
   local trimmed = trim(text)
   local folder, search = splitPath(trimmed)
-  local recursive = search ~= ""
-  local dir = folderDir(folder)
-  local cacheKey = recursive
-      and table.concat({ dir, "r", search }, "\0")
-      or browseCacheKey(dir)
+  local frags = fragments(search)
 
-  local function publish(entries)
-    if not recursive then
-      prefetchChildren(entries) -- warm the sub-folders the user might open next
+  -- Grep the index file for this query. grep exits 1 (no lines) as well as 0
+  -- (matches) — both are success; anything else / a timeout renders as empty.
+  local function dispatch()
+    if (noctalia.nowMs() - indexAt) >= INDEX_TTL_MS then
+      buildIndex(nil) -- refresh in the background; grep the current file now
     end
-    launcher.setResults(text, renderRows(folder, search, entries))
+    local function onGrep(render)
+      return function(result)
+        if lastQuery ~= text then
+          return -- a newer query superseded this one
+        end
+        local ok = (result.exitCode == 0 or result.exitCode == 1) and not result.timedOut
+        local hits = ok and parseHits(result.stdout or "") or {}
+        launcher.setResults(text, render(hits))
+      end
+    end
+    if #frags == 0 then
+      noctalia.runAsync(browseGrepCmd(folder), onGrep(function(hits)
+        return renderBrowseRows(folder, hits)
+      end))
+    else
+      noctalia.runAsync(searchGrepCmd(frags), onGrep(function(hits)
+        return renderSearchRows(folder, frags, hits)
+      end))
+    end
   end
 
-  local hit = listCache[cacheKey]
-  if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
-    publish(hit.entries)
+  if indexReady then
+    dispatch()
     return
   end
 
   launcher.setResults(text, {
     { id = "loading", title = tr("result.loading"), glyph = "refresh" },
   })
-
-  local cb = function(result)
-    local entries = {}
-    if result.exitCode == 0 and not result.timedOut then
-      entries = parseEntries(result.stdout or "", folder, recursive)
-    end
-    listCache[cacheKey] = {
-      at = noctalia.nowMs(),
-      ttl = recursive and SEARCH_TTL_MS or BROWSE_TTL_MS,
-      entries = entries,
-    }
+  buildIndex(function()
     if lastQuery ~= text then
       return -- a newer query superseded this one
     end
-    publish(entries)
-  end
-
-  if recursive then
-    noctalia.runAsync(searchCmd(dir, fragments(search)), cb)
-  else
-    noctalia.runAsync(browseArgv(dir), cb)
-  end
+    dispatch()
+  end)
 end
 
 function onActivate(id)
@@ -932,6 +952,6 @@ function onActivate(id)
   end
 end
 
--- Warm the store-root listing at load so the first ">pass" renders instantly;
--- rendering it then prefetches its sub-folders, and so on down the tree.
-prefetchBrowse(storeDir(), "")
+-- Build the store index at load so the first query renders without waiting on
+-- `find`.
+buildIndex(nil)

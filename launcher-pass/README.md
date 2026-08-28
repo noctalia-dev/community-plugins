@@ -102,16 +102,18 @@ GPG pinentry prompt.
   after a copy) only applies to the built-in providers — the plugin runtime has
   no hook to opt in. The **Type** rows exist to cover that case; they insert the
   value with `wtype` regardless of the `auto_paste` setting.
-- **Filesystem reads:** `find` / `grep` list non-hidden directories and `*.gpg`
-  file names under the store. Decrypted contents are read only when you open an
-  entry's detail view (`pass show`), and are cached in memory for 60 s.
-- **Spawned processes:** `find`, `grep` (listing and search); `pass show`,
-  `pass -c`, `pass otp`, `pass otp -c` (per action); `wtype` and `sleep` (Type
-  actions); `noctalia msg panel-*` (pinentry focus handling).
+- **Index file:** `find` lists the non-hidden folders and `*.gpg` names under the
+  store once into `<plugin data dir>/store.index` (rebuilt in the background,
+  ~once a minute). Every keystroke `grep`s that file — it holds paths only, never
+  decrypted content. Decrypted contents are read only when you open an entry's
+  detail view (`pass show`), and are cached in memory for 60 s.
+- **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
+  show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `wtype` and `sleep`
+  (Type actions); `noctalia msg panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
-  the system clipboard via `pass` / Noctalia. Noctalia state stores only entry
-  paths and titles, never decrypted content. Navigation state is encoded in the
-  launcher query, not persisted.
+  the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
+  index file holds decrypted content. Navigation state is encoded in the launcher
+  query, not persisted.
 - **Network:** none.
-- **Writes:** the plugin writes no files; `pass`, `gpg`, and clipboard tools
-  manage their own runtime state.
+- **Writes:** only the `store.index` file above; `pass`, `gpg`, and clipboard
+  tools manage their own runtime state.
