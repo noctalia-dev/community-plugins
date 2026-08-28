@@ -64,11 +64,11 @@ Target `plugin_api` level: pick the lowest that supplies everything used (per th
    **Native auto-paste is not reachable from a plugin.** Checked the Noctalia v5 source: `LauncherPanel::finishActivation()` fires auto-paste only when `copied && provider.supportsAutoPaste()`. The runtime *does* set `copiedToClipboard` from a `CopyToClipboard` side-effect in `onActivate`, but `PluginLauncherProvider` never overrides `supportsAutoPaste()` (stays `false`), and there is no manifest key / `noctalia.*` call / `noctalia msg` command to flip it or to trigger `clipboard_paste::pasteEntry` (the virtual-keyboard paste). So `shell.launcher.auto_paste` is honoured only for the built-in calculator/emoji/dmenu-copy providers. `wtype` is the only insertion path for this plugin until an upstream `auto_paste` manifest flag lands.
 
    Not done: `commandExists` probe for the `pass-otp` extension (a failed `pass otp -c` / `pass otp` just shows `notification.copyFailed` / `notification.typeFailed`).
-2. **Optimizations** - consider using native `noctalia.fuzzyScore()` method to sort output with guidance to respect default priorities and reduce cpu usage for large password stores.
-3. **Translations** — add the new `action.*`/`detail.*` keys now in `en.json`; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
-4. **README** — rewrite for v5 (settings, prefix, dependencies); document the resolved IPC section (`noctalia msg panel-*`, see Decisions above).
-5. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
-6. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
+2. **Translations** — add the new `action.*`/`detail.*` keys now in `en.json`; port `de fr it es ja nl pt ru tr zh-CN` from `i18n/` to `translations/`, same key set as `en.json`.
+3. **README** — rewrite for v5 (settings, prefix, dependencies); document the resolved IPC section (`noctalia msg panel-*`, see Decisions above).
+4. **`thumbnail.webp`** — convert/regenerate from `preview.png`.
+5. **Cleanup** — delete `Main.qml`, `LauncherProvider.qml`, `Settings.qml`, `manifest.json`, `settings.json`, `preview.png`, `i18n/`.
+6. **Optimizations** - consider using native `noctalia.fuzzyScore()` method to sort output with guidance to respect default priorities and reduce cpu usage for large password stores.
 
 ### Open questions — updated
 
