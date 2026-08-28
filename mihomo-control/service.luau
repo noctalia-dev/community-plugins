@@ -13,6 +13,9 @@
 --   { op = "restart" }                           POST /restart (core re-execs)
 --   { op = "close_connections" }
 --   { op = "refresh" }
+--   { op = "select_server", id = "<server id>" }
+--   { op = "save_server", id?, name, host, port, secret?, use_https?, allow_insecure_tls?, test_url? }
+--   { op = "delete_server", id = "<server id>" }
 --
 -- Endpoints used (MetaCubeX/Meta-Docs "API" reference):
 --   GET    /version /configs /connections /proxies      polling
@@ -65,12 +68,29 @@ local settings = {
 }
 
 local function reload_settings()
+  local interval = tonumber(noctalia.getConfig("refresh_interval")) or 2
+  settings.interval = require_group_logic().clamp_interval(interval)
+
+  local active = require_group_logic().find_server(servers_store.servers, servers_store.activeId)
+  if active ~= nil then
+    settings.host = active.host
+    settings.port = active.port
+    settings.secret = active.secret
+    settings.use_https = active.useHttps
+    settings.insecure = active.allowInsecureTls
+    local global_test_url = noctalia.getConfig("test_url")
+    if active.testUrl ~= "" then
+      settings.test_url = active.testUrl
+    else
+      settings.test_url = type(global_test_url) == "string" and noctalia.string.trim(global_test_url) or ""
+    end
+    return
+  end
+
   local host = noctalia.getConfig("host")
   local port = noctalia.getConfig("port")
   local secret = noctalia.getConfig("secret")
   local test_url = noctalia.getConfig("test_url")
-  local interval = tonumber(noctalia.getConfig("refresh_interval")) or 2
-
   settings.host = type(host) == "string" and host ~= "" and host or "127.0.0.1"
   local port_number = tonumber(port)
   settings.port = (type(port_number) == "number" and port_number >= 1 and port_number <= 65535)
@@ -80,7 +100,6 @@ local function reload_settings()
   settings.use_https = noctalia.getConfig("use_https") == true
   settings.insecure = noctalia.getConfig("allow_insecure_tls") == true
   settings.test_url = type(test_url) == "string" and noctalia.string.trim(test_url) or ""
-  settings.interval = require_group_logic().clamp_interval(interval)
 end
 
 -- Keep the service watchdog fed even before the first update() tick.
@@ -130,54 +149,200 @@ local state = {
 }
 
 -- Mihomo's /proxies response is a map and therefore has no stable user-facing
--- group order. Keep the panel's preferred order in the plugin data directory;
--- newly discovered groups that are not in this list are appended alphabetically.
+-- group order. Keep the panel's preferred order per server profile in the
+-- plugin data directory; newly discovered groups that are not in this list are
+-- appended alphabetically.
 local group_order = {}
-local data_path = nil
+local servers_store = {
+  activeId = "",
+  servers = {},
+  groupOrders = {},
+}
+local servers_path = nil
 
-local function resolve_data_path()
-  if data_path ~= nil then
-    return data_path
+local function resolve_servers_path()
+  if servers_path ~= nil then
+    return servers_path
   end
   local dir = noctalia.pluginDataDir()
   if dir == nil then
     return nil
   end
-  data_path = dir .. "/state.json"
-  return data_path
+  servers_path = dir .. "/servers.json"
+  return servers_path
 end
 
-local function load_group_order()
-  local path = resolve_data_path()
-  if path == nil then
-    return
+local function plugin_settings_snapshot()
+  return {
+    host = noctalia.getConfig("host"),
+    port = noctalia.getConfig("port"),
+    secret = noctalia.getConfig("secret"),
+    use_https = noctalia.getConfig("use_https") == true,
+    allow_insecure_tls = noctalia.getConfig("allow_insecure_tls") == true,
+    test_url = noctalia.getConfig("test_url"),
+  }
+end
+
+local function migrate_legacy_group_order()
+  local dir = noctalia.pluginDataDir()
+  if dir == nil then
+    return nil
   end
-  local raw = noctalia.readFile(path)
+  local raw = noctalia.readFile(dir .. "/state.json")
   if raw == nil then
-    return
+    return nil
   end
   local ok, decoded = pcall(noctalia.json.decode, raw)
   if not ok or type(decoded) ~= "table" or type(decoded.groupOrder) ~= "table" then
-    return
+    return nil
   end
-
-  group_order = require_group_logic().normalize_group_order(decoded.groupOrder)
+  return require_group_logic().normalize_group_order(decoded.groupOrder)
 end
 
-local function save_group_order()
-  local path = resolve_data_path()
+local function save_servers_store()
+  local path = resolve_servers_path()
   if path == nil then
     return
   end
-  local ok, encoded = pcall(noctalia.json.encode, { groupOrder = group_order })
+  local ok, encoded = pcall(noctalia.json.encode, servers_store)
   if not ok or type(encoded) ~= "string" then
-    noctalia.log("[mihomo-control] failed to encode proxy-group order")
+    log("failed to encode servers store")
     return
   end
   local written, err = noctalia.writeFile(path, encoded)
   if not written then
-    noctalia.log("[mihomo-control] failed to save proxy-group order: " .. tostring(err or "unknown error"))
+    log("failed to save servers store: " .. tostring(err or "unknown error"))
   end
+end
+
+local function load_group_order_for_active()
+  local logic = require_group_logic()
+  local order = servers_store.groupOrders[servers_store.activeId]
+  group_order = type(order) == "table" and logic.normalize_group_order(order) or {}
+end
+
+local function persist_active_group_order()
+  if servers_store.activeId == "" then
+    return
+  end
+  servers_store.groupOrders[servers_store.activeId] = require_group_logic().normalize_group_order(group_order)
+end
+
+local function publish_servers()
+  noctalia.state.set("mihomo.servers", require_group_logic().public_servers_state(servers_store))
+end
+
+local function ensure_servers_store()
+  local logic = require_group_logic()
+  if #servers_store.servers > 0 then
+    return
+  end
+  local legacy_order = migrate_legacy_group_order()
+  local default = logic.server_from_plugin_settings("default", "Default", plugin_settings_snapshot())
+  if default == nil then
+    return
+  end
+  servers_store.servers = { default }
+  servers_store.activeId = default.id
+  if legacy_order ~= nil then
+    servers_store.groupOrders[default.id] = legacy_order
+  end
+  save_servers_store()
+end
+
+local function load_servers_store()
+  local path = resolve_servers_path()
+  if path == nil then
+    return
+  end
+  local raw = noctalia.readFile(path)
+  if raw ~= nil then
+    local ok, decoded = pcall(noctalia.json.decode, raw)
+    if ok and type(decoded) == "table" then
+      servers_store = require_group_logic().normalize_servers_store(decoded)
+    end
+  end
+  ensure_servers_store()
+  load_group_order_for_active()
+end
+
+local function sync_active_server_from_plugin_settings()
+  local logic = require_group_logic()
+  local active = logic.find_server(servers_store.servers, servers_store.activeId)
+  if active == nil then
+    return false
+  end
+  local cfg = plugin_settings_snapshot()
+  active.host = type(cfg.host) == "string" and cfg.host ~= "" and cfg.host or active.host
+  local port = logic.normalize_port(cfg.port)
+  if port ~= nil then
+    active.port = port
+  end
+  if type(cfg.secret) == "string" then
+    active.secret = cfg.secret
+  end
+  active.useHttps = cfg.use_https == true
+  active.allowInsecureTls = cfg.allow_insecure_tls == true
+  if type(cfg.test_url) == "string" then
+    active.testUrl = noctalia.string.trim(cfg.test_url)
+  end
+  servers_store.servers = logic.upsert_server(servers_store.servers, active)
+  save_servers_store()
+  return true
+end
+
+local function reset_published_runtime_state()
+  state.connection.status = "connecting"
+  state.connection.version = ""
+  state.connection.meta = false
+  state.connection.error = ""
+  state.config.mode = "rule"
+  state.traffic = { up = 0, down = 0, upTotal = 0, downTotal = 0 }
+  state.connections = { count = 0, downloadTotal = 0, uploadTotal = 0, memory = 0 }
+  state.groups = {}
+  state.delay = {}
+  publish("connection")
+  publish("config")
+  publish("traffic")
+  publish("connections")
+  publish("groups")
+  publish("delay")
+end
+
+local function reconnect_controller()
+  reload_settings()
+  state.connection.host = settings.host
+  state.connection.port = settings.port
+  publish("connection")
+
+  if traffic_stream ~= nil then
+    traffic_stream.stop()
+    traffic_stream = nil
+  end
+  stream_attempt_tick = -1
+
+  poll_version()
+  poll_configs()
+  poll_connections()
+  poll_proxies()
+  start_traffic_stream()
+end
+
+local function apply_active_server(reset_runtime)
+  if reset_runtime == true then
+    reset_published_runtime_state()
+  end
+  reconnect_controller()
+  publish_servers()
+end
+
+local function load_group_order()
+  load_group_order_for_active()
+end
+
+local function save_group_order()
+  persist_active_group_order()
+  save_servers_store()
 end
 
 local function apply_group_order(groups)
@@ -601,6 +766,83 @@ local function handle_command(cmd)
     poll_proxies()
     return
   end
+  if op == "select_server" then
+    local id = tostring(cmd.id or "")
+    local logic = require_group_logic()
+    if id ~= "" and id ~= servers_store.activeId and logic.find_server(servers_store.servers, id) ~= nil then
+      persist_active_group_order()
+      servers_store.activeId = id
+      load_group_order_for_active()
+      save_servers_store()
+      local selected = logic.find_server(servers_store.servers, id)
+      apply_active_server(true)
+      noctalia.notify(
+        noctalia.tr("notify.server_switched"),
+        selected and selected.name or id
+      )
+    end
+    return
+  end
+  if op == "save_server" then
+    local logic = require_group_logic()
+    local id = tostring(cmd.id or "")
+    local existing = id ~= "" and logic.find_server(servers_store.servers, id) or nil
+    local secret = tostring(cmd.secret or "")
+    if existing ~= nil and secret == "" then
+      secret = existing.secret
+    end
+    local server = logic.normalize_server({
+      id = id ~= "" and id or ("srv-" .. tostring(os.time()) .. "-" .. tostring(#servers_store.servers + 1)),
+      name = cmd.name,
+      host = cmd.host,
+      port = cmd.port,
+      secret = secret,
+      use_https = cmd.use_https,
+      allow_insecure_tls = cmd.allow_insecure_tls,
+      test_url = cmd.test_url,
+    })
+    if server == nil then
+      noctalia.notifyError(noctalia.tr("notify.request_failed"), noctalia.tr("notify.server_invalid"))
+      return
+    end
+    servers_store.servers = logic.upsert_server(servers_store.servers, server)
+    save_servers_store()
+    if servers_store.activeId == server.id then
+      apply_active_server(true)
+    else
+      publish_servers()
+    end
+    noctalia.notify(
+      noctalia.tr("notify.server_saved"),
+      server.name
+    )
+    return
+  end
+  if op == "delete_server" then
+    local logic = require_group_logic()
+    local id = tostring(cmd.id or "")
+    if id == "" or #servers_store.servers <= 1 then
+      noctalia.notifyError(noctalia.tr("notify.request_failed"), noctalia.tr("notify.server_delete_last"))
+      return
+    end
+    if logic.find_server(servers_store.servers, id) == nil then
+      return
+    end
+    persist_active_group_order()
+    servers_store.servers = logic.delete_server(servers_store.servers, id)
+    servers_store.groupOrders[id] = nil
+    if servers_store.activeId == id then
+      servers_store.activeId = servers_store.servers[1].id
+      load_group_order_for_active()
+      save_servers_store()
+      apply_active_server(true)
+    else
+      save_servers_store()
+      publish_servers()
+    end
+    noctalia.notify(noctalia.tr("notify.server_deleted"))
+    return
+  end
   if op == "mode" then
     local mode = cmd.mode
     if MODES[mode] then
@@ -786,22 +1028,10 @@ function update()
 end
 
 function onConfigChanged()
+  sync_active_server_from_plugin_settings()
   reload_settings()
   apply_interval()
-  state.connection.host = settings.host
-  state.connection.port = settings.port
-  publish("connection")
-
-  if traffic_stream ~= nil then
-    traffic_stream.stop()
-    traffic_stream = nil
-  end
-  stream_attempt_tick = -1
-
-  poll_version()
-  poll_configs()
-  poll_connections()
-  poll_proxies()
+  apply_active_server(false)
 end
 
 function onIpc(event, payload)
@@ -824,9 +1054,9 @@ end
 
 -- ── Init ────────────────────────────────────────────────────────────────────
 
+load_servers_store()
 reload_settings()
 apply_interval()
-load_group_order()
 state.connection.host = settings.host
 state.connection.port = settings.port
 publish("connection")
@@ -835,6 +1065,7 @@ publish("traffic")
 publish("connections")
 publish("groups")
 publish("delay")
+publish_servers()
 
 poll_version()
 poll_configs()
