@@ -1,13 +1,10 @@
 --!nonstrict
 -- Spotify Lyrics Panel – 3-line synced lyrics view with album art.
 --
--- Reads state from noctalia.state (published by bar.luau) and renders
--- album art + prev / current / next lyric lines reactively via
--- noctalia.state.watch().
---
--- NOTE: Panels do NOT get update() called on a timer. Only bar widgets,
--- desktop widgets, and services receive update(). Panels must use
--- noctalia.state.watch() or onFrameTick for live updates.
+-- Reads state from noctalia.state (published by service.luau) or directly
+-- from disk fallback, and renders album art + prev / current / next lyric lines.
+
+local STATE_PATH = noctalia.expandPath("~/.cache/noctalia/lyrics/current.json")
 
 --------------------------------------------------------------------------------
 -- Layout constants
@@ -45,6 +42,51 @@ local function clampText(text, fontSize, maxLines)
 end
 
 --------------------------------------------------------------------------------
+-- State Reader
+--------------------------------------------------------------------------------
+
+local function readStateFromFile()
+  local content = noctalia.readFile(STATE_PATH)
+  if not content or content == "" then return nil end
+  local ok, state = pcall(function() return noctalia.json.decode(content) end)
+  if ok and type(state) == "table" then return state end
+  return nil
+end
+
+local function getState()
+  local status = noctalia.state.get("lyricsStatus")
+  if status and status ~= "" then
+    return {
+      status   = status,
+      title    = noctalia.state.get("lyricsTitle")    or "",
+      artist   = noctalia.state.get("lyricsArtist")   or "",
+      prev     = noctalia.state.get("lyricsPrev")     or "",
+      current  = noctalia.state.get("lyricsCurrent")  or "",
+      next     = noctalia.state.get("lyricsNext")     or "",
+      art_path = noctalia.state.get("lyricsArtPath")  or "",
+    }
+  end
+
+  local fileState = readStateFromFile()
+  if fileState then
+    return {
+      status   = fileState.status   or "",
+      title    = fileState.title    or "",
+      artist   = fileState.artist   or "",
+      prev     = fileState.prev     or "",
+      current  = fileState.current  or "",
+      next     = fileState.next     or "",
+      art_path = fileState.art_path or "",
+    }
+  end
+
+  return {
+    status = "", title = "", artist = "",
+    prev = "", current = "", next = "", art_path = ""
+  }
+end
+
+--------------------------------------------------------------------------------
 -- Rendering
 --------------------------------------------------------------------------------
 
@@ -53,7 +95,6 @@ local function renderEmpty()
     flexGrow = 1, gap = 8, align = "stretch", justify = "center",
     padding = PANEL_PADDING,
     minWidth = PANEL_WIDTH, height = PANEL_HEIGHT,
-    overflow = "hidden",
   }, {
     ui.row({ justify = "center" }, {
       ui.glyph({ name = "music", size = 28, color = "on_surface/0.2" }),
@@ -98,7 +139,6 @@ local function renderPaused(title, artist, current, artPath)
     flexGrow = 1, gap = 8, align = "stretch", justify = "center",
     padding = PANEL_PADDING,
     minWidth = PANEL_WIDTH, height = PANEL_HEIGHT,
-    overflow = "hidden",
   }, {
     ui.row({ gap = 12, align = "center", justify = "center" }, headerChildren),
     ui.label({
@@ -184,29 +224,22 @@ local function renderPlaying(title, artist, prev, current, nextLine, artPath)
     flexGrow = 1, gap = 8, align = "stretch", justify = "center",
     padding = PANEL_PADDING,
     minWidth = PANEL_WIDTH, height = PANEL_HEIGHT,
-    overflow = "hidden",
   }, rows))
 end
 
 --------------------------------------------------------------------------------
--- Full re-render from current noctalia.state snapshot
+-- Full re-render
 --------------------------------------------------------------------------------
 
 local function renderFromState()
-  local status   = noctalia.state.get("lyricsStatus")   or ""
-  local title    = noctalia.state.get("lyricsTitle")     or ""
-  local artist   = noctalia.state.get("lyricsArtist")    or ""
-  local prev     = noctalia.state.get("lyricsPrev")      or ""
-  local current  = noctalia.state.get("lyricsCurrent")   or ""
-  local nextLine = noctalia.state.get("lyricsNext")      or ""
-  local artPath  = noctalia.state.get("lyricsArtPath")   or ""
+  local state = getState()
 
-  if status == "" or status == "Stopped" then
+  if state.status == "" or state.status == "Stopped" then
     renderEmpty()
-  elseif status == "Paused" then
-    renderPaused(title, artist, current, artPath)
+  elseif state.status == "Paused" then
+    renderPaused(state.title, state.artist, state.current, state.art_path)
   else
-    renderPlaying(title, artist, prev, current, nextLine, artPath)
+    renderPlaying(state.title, state.artist, state.prev, state.current, state.next, state.art_path)
   end
 end
 

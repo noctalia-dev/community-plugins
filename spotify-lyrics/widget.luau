@@ -5,6 +5,8 @@
 -- with larger font sizes for desktop readability.
 -- Long lyrics are dynamically scaled to smaller fonts to prevent overflow.
 
+local STATE_PATH = noctalia.expandPath("~/.cache/noctalia/lyrics/current.json")
+
 --------------------------------------------------------------------------------
 -- Layout constants
 --------------------------------------------------------------------------------
@@ -22,7 +24,7 @@ local lastState     = nil
 local lastClock     = os.clock()
 
 --------------------------------------------------------------------------------
--- Dynamic font sizing (see panel.luau for rationale)
+-- Dynamic font sizing
 --------------------------------------------------------------------------------
 
 local function fitFontSize(text, defaultSize)
@@ -91,23 +93,33 @@ local function estimateContentHeight(state)
 end
 
 --------------------------------------------------------------------------------
--- State reader – pulls lyrics data from noctalia.state (populated by bar.luau)
+-- State reader
 --------------------------------------------------------------------------------
+
+local function readStateFromFile()
+  local content = noctalia.readFile(STATE_PATH)
+  if not content or content == "" then return nil end
+  local ok, state = pcall(function() return noctalia.json.decode(content) end)
+  if ok and type(state) == "table" then return state end
+  return nil
+end
 
 local function readState()
   local status = noctalia.state.get("lyricsStatus")
-  if not status or status == "" then return nil end
+  if status and status ~= "" then
+    return {
+      status    = status,
+      title     = noctalia.state.get("lyricsTitle")    or "",
+      artist    = noctalia.state.get("lyricsArtist")   or "",
+      prev_prev = noctalia.state.get("lyricsPrevPrev") or "",
+      prev      = noctalia.state.get("lyricsPrev")     or "",
+      current   = noctalia.state.get("lyricsCurrent")  or "",
+      next      = noctalia.state.get("lyricsNext")     or "",
+      next_next = noctalia.state.get("lyricsNextNext") or "",
+    }
+  end
 
-  return {
-    status    = status,
-    title     = noctalia.state.get("lyricsTitle")    or "",
-    artist    = noctalia.state.get("lyricsArtist")   or "",
-    prev_prev = noctalia.state.get("lyricsPrevPrev") or "",
-    prev      = noctalia.state.get("lyricsPrev")     or "",
-    current   = noctalia.state.get("lyricsCurrent")  or "",
-    next      = noctalia.state.get("lyricsNext")     or "",
-    next_next = noctalia.state.get("lyricsNextNext") or "",
-  }
+  return readStateFromFile()
 end
 
 --------------------------------------------------------------------------------
@@ -118,7 +130,7 @@ local function renderEmpty()
   desktopWidget.render(ui.column({
     gap = 8, align = "center", justify = "center",
     minWidth = WIDGET_WIDTH, minHeight = currentHeight,
-    maxHeight = MAX_HEIGHT, overflow = "hidden",
+    maxHeight = MAX_HEIGHT,
   }, {
     ui.glyph({ name = "music", size = 28, color = "on_surface/0.3" }),
     ui.label({
@@ -132,7 +144,7 @@ local function renderPaused(state)
   desktopWidget.render(ui.column({
     gap = 8, align = "center", justify = "center",
     minWidth = WIDGET_WIDTH, minHeight = currentHeight,
-    maxHeight = MAX_HEIGHT, overflow = "hidden",
+    maxHeight = MAX_HEIGHT,
   }, {
     ui.glyph({ name = "player-pause", size = 22, color = "on_surface/0.4" }),
     ui.label({
@@ -205,7 +217,7 @@ local function renderPlaying(state)
   desktopWidget.render(ui.column({
     gap = 10, align = "center", justify = "center",
     minWidth = WIDGET_WIDTH, minHeight = currentHeight,
-    maxHeight = MAX_HEIGHT, overflow = "hidden",
+    maxHeight = MAX_HEIGHT,
   }, rows))
 end
 
