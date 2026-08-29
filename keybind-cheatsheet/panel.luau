@@ -28,6 +28,30 @@ local panelOpen = false
 local panelError = nil
 local refreshError = nil
 local snapshot = nil
+local invalidateBindingCaches -- defined below, called from the state watcher above it
+
+-- Progressive rendering. Building the whole tree at once (a full keymap is
+-- 130+ rows, each with several key pills) does not fit the plugin CPU
+-- budget: onOpen and every keystroke got killed mid-render, leaving the
+-- panel half-drawn with dead buttons. Each render draws at most
+-- `renderLimit` rows; update() raises the limit and re-renders, so the rest
+-- of the list fills in over the next few ticks (each tick is a fresh
+-- budget) and the panel stays interactive throughout.
+local RENDER_FIRST = 24
+local RENDER_STEP = 40
+local renderLimit = RENDER_FIRST
+local renderedRows = 0
+local renderTruncated = false
+local scheduleFill -- defined below; called at the end of render
+local renderNow -- the actual (expensive) draw; `render` only schedules it
+local renderPending = false
+local invalidateRowCache -- defined with the row cache, called from invalidateBindingCaches above it
+-- The fill-in chain passes keepLimit = true to renderNow; every other
+-- render (a click, a keystroke, a state update) restarts from a small
+-- chunk, so a handler never pays for the full 130-row tree on top of its
+-- own work. Deliberately a parameter and not a shared flag: a callback
+-- killed by the CPU budget would leave a flag stuck forever, and with it
+-- the whole panel.
 local query = ""
 local searchRevision = 0
 local view = "bindings"
@@ -200,6 +224,7 @@ local function loadPreferences()
 end
 
 local function savePreferences()
+  if invalidateBindingCaches ~= nil then invalidateBindingCaches() end
   local path = preferencesPath()
   if path == nil then return end
   local encoded = noctalia.json.encode(preferences, true)
@@ -212,6 +237,7 @@ end
 
 local function applySnapshot(value)
   snapshot = type(value) == "table" and value or nil
+  invalidateBindingCaches()
   if snapshot == nil then
     bindings = {}
     parseWarnings = {}
@@ -444,17 +470,44 @@ local function effectiveCategory(binding)
   return binding.compositor == "niri" and niriCategoryFor(binding.action) or tr("other")
 end
 
+-- The search haystack and the resolved category are rebuilt for every
+-- binding on every render otherwise; with a full keymap (130+ bindings)
+-- that alone pushes onOpen and each keystroke past the plugin CPU budget,
+-- which leaves the panel half-drawn and its buttons dead. Both are cached
+-- per binding id and dropped whenever the data behind them changes.
+local haystackCache = {}
+local categoryCache = {}
+
+invalidateBindingCaches = function()
+  haystackCache = {}
+  categoryCache = {}
+  if invalidateRowCache ~= nil then invalidateRowCache() end
+end
+
+local function cachedCategory(binding)
+  local cached = categoryCache[binding.id]
+  if cached == nil then
+    cached = effectiveCategory(binding)
+    categoryCache[binding.id] = cached
+  end
+  return cached
+end
+
 local function bindingMatches(binding)
   local needle = lower(trim(query))
   if needle == "" then return true end
-  local haystack = lower(table.concat({
-    table.concat(binding.modifiers, " "),
-    binding.key,
-    formatKey(binding.key),
-    effectiveDescription(binding),
-    binding.action,
-    effectiveCategory(binding),
-  }, " "))
+  local haystack = haystackCache[binding.id]
+  if haystack == nil then
+    haystack = lower(table.concat({
+      table.concat(binding.modifiers, " "),
+      binding.key,
+      formatKey(binding.key),
+      effectiveDescription(binding),
+      binding.action,
+      cachedCategory(binding),
+    }, " "))
+    haystackCache[binding.id] = haystack
+  end
   return haystack:find(needle, 1, true) ~= nil
 end
 
@@ -519,7 +572,7 @@ local function visibleGroups()
     local hidden = preferences.hidden[binding.id] == true
     local undescribed = authoredDescription(binding) == "" and binding.compositor ~= "niri"
     if bindingAvailableInView(hidden, undescribed, managing, showUndescribed) and bindingMatches(binding) then
-      local category = effectiveCategory(binding)
+      local category = cachedCategory(binding)
       local group = byName[category]
       if group == nil then
         group = { name = category, bindings = {}, sourceOrder = #groups + 1, order = 0, weight = 1 }
@@ -585,8 +638,25 @@ local function saveCustomDescription(binding, value)
   render()
 end
 
+-- Built ui nodes are immutable descriptions, so a row that looks the same
+-- can be reused verbatim: rebuilding all 130 rows costs ~22 ms, which is
+-- most of a callback's CPU budget. The key carries everything a row's
+-- appearance depends on, so any change misses the cache naturally.
+local rowCache = {}
+
+invalidateRowCache = function()
+  rowCache = {}
+end
+
 local function bindingRow(binding, occurrence)
   local hidden = preferences.hidden[binding.id] == true
+  local cacheKey = binding.id .. "#" .. occurrence .. "|" .. (hidden and "h" or "-")
+    .. "|" .. view .. "|" .. (editingId == (binding.id .. "#" .. occurrence) and "e" or "-")
+    .. "|" .. (preferences.descriptions[binding.id] or "")
+  local cached = rowCache[cacheKey]
+  if cached ~= nil then
+    return cached
+  end
   local contentOpacity = bindingContentOpacity(hidden)
   local pills = {}
   for index, modifier in ipairs(binding.modifiers) do
@@ -657,7 +727,9 @@ local function bindingRow(binding, occurrence)
     table.insert(row, ui.button({ glyph = "pencil", width = 22, height = 22, glyphSize = 12, variant = "ghost", controlSize = "sm", tooltip = tr("edit_description"), onClick = edit }))
     table.insert(row, ui.button({ glyph = hidden and "eye-off" or "eye", width = 22, height = 22, glyphSize = 13, variant = "ghost", controlSize = "sm", selected = hidden, tooltip = hidden and tr("show_binding") or tr("hide_binding"), onClick = visibilityChanged }))
   end
-  return ui.row({ key = identity, gap = 6, align = "center", paddingV = 0 }, row)
+  local node = ui.row({ key = identity, gap = 6, align = "center", paddingV = 0 }, row)
+  rowCache[cacheKey] = node
+  return node
 end
 
 local function categoryNode(group)
@@ -667,6 +739,11 @@ local function categoryNode(group)
   }
   local occurrences = {}
   for _, binding in ipairs(group.bindings) do
+    if renderedRows >= renderLimit then
+      renderTruncated = true
+      break
+    end
+    renderedRows += 1
     occurrences[binding.id] = (occurrences[binding.id] or 0) + 1
     table.insert(children, bindingRow(binding, occurrences[binding.id]))
   end
@@ -674,6 +751,8 @@ local function categoryNode(group)
 end
 
 local function bindingsBody()
+  renderedRows = 0
+  renderTruncated = false
   local groups = visibleGroups()
   if #groups == 0 then
     return ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
@@ -798,7 +877,10 @@ local function renderHeader()
   return ui.row({ align = "center", justify = "space_between", gap = 7 }, children)
 end
 
-render = function()
+renderNow = function(keepLimit)
+  if not keepLimit then
+    renderLimit = RENDER_FIRST
+  end
   if not panelOpen then return end
   resetCallbacks()
   local contentState = "bindings"
@@ -834,6 +916,9 @@ render = function()
     table.insert(children, bindingsBody())
   end
   panel.render(ui.column({ key = "keybind-cheatsheet-" .. contentState, flexGrow = 1, gap = 8, align = "stretch" }, children))
+  if renderTruncated and scheduleFill ~= nil then
+    scheduleFill()
+  end
 end
 
 noctalia.state.watch(SNAPSHOT_KEY, function(value)
@@ -860,16 +945,68 @@ local function releasePanelState(clearModel)
   end
 end
 
+-- Any handler (button, keystroke, state update) calls render(); the draw
+-- itself happens in a fresh async callback, so the handler's own budget is
+-- not spent on a 130-row tree and never gets killed mid-click.
+render = function()
+  if renderPending then
+    return
+  end
+  renderPending = true
+  local started = noctalia.runAsync("true", function()
+    renderPending = false
+    renderNow()
+  end, 2000)
+  if not started then
+    renderPending = false
+    renderNow()
+  end
+end
+
+-- Called on the panel's own tick: each call is a fresh CPU budget, so the
+-- remaining rows are added a chunk at a time until everything is on screen.
+-- Panels get no update() tick, so the fill-in is driven by a chain of
+-- trivial async commands instead: each callback runs with a fresh CPU
+-- budget, raises the limit and re-renders, until nothing is left to draw.
+local fillPending = false
+
+scheduleFill = function()
+  if fillPending or not renderTruncated then
+    return
+  end
+  fillPending = true
+  local started = noctalia.runAsync("true", function()
+    fillPending = false
+    if renderTruncated then
+      renderLimit += RENDER_STEP
+      renderNow(true)
+    end
+  end, 2000)
+  if not started then
+    fillPending = false
+  end
+end
+
 function onOpen(_context)
+  renderLimit = RENDER_FIRST
   panelOpen = true
   view = "bindings"
   query = ""
   searchRevision += 1
   editingId = nil
   editDraft = ""
-  loadPreferences()
-  applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
+  -- Reading the preferences JSON and re-applying the snapshot are each
+  -- expensive enough that doing both plus a render inside onOpen exceeds
+  -- the CPU budget; they run as their own async steps, and the panel draws
+  -- immediately from whatever state it already has.
   render()
+  noctalia.runAsync("true", function()
+    loadPreferences()
+    noctalia.runAsync("true", function()
+      applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
+      render()
+    end, 2000)
+  end, 2000)
 end
 
 function onClose()

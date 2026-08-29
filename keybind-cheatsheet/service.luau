@@ -530,45 +530,63 @@ local function niriTokens(content)
       line += newlines
       index = ending + 2
     elseif char == "\"" then
+      -- Fast path: an unescaped string is one find() plus one sub(), not a
+      -- per-character interpreter loop - the loop below made mid-size configs
+      -- (~550+ lines) exceed the plugin CPU budget, killing the parse
+      -- silently and leaving the panel on "Reading keybindings..." forever.
       local startLine = line
-      local value = {}
-      index += 1
-      local escaped = false
-      while index <= #content do
-        local stringChar = content:sub(index, index)
-        if escaped then
-          local replacements = { n = "\n", r = "\r", t = "\t" }
-          table.insert(value, replacements[stringChar] or stringChar)
-          escaped = false
-        elseif stringChar == "\\" then
-          escaped = true
-        elseif stringChar == "\"" then
-          index += 1
-          break
-        else
-          if stringChar == "\n" then
-            line += 1
-          end
-          table.insert(value, stringChar)
-        end
+      local closing = content:find("\"", index + 1, true)
+      local segment = closing ~= nil and content:sub(index + 1, closing - 1) or nil
+      if segment ~= nil and segment:find("\\", 1, true) == nil then
+        local _, newlines = segment:gsub("\n", "")
+        line += newlines
+        table.insert(tokens, { type = "string", value = segment, line = startLine })
+        index = closing + 1
+      else
+        local value = {}
         index += 1
+        local escaped = false
+        while index <= #content do
+          local stringChar = content:sub(index, index)
+          if escaped then
+            local replacements = { n = "\n", r = "\r", t = "\t" }
+            table.insert(value, replacements[stringChar] or stringChar)
+            escaped = false
+          elseif stringChar == "\\" then
+            escaped = true
+          elseif stringChar == "\"" then
+            index += 1
+            break
+          else
+            if stringChar == "\n" then
+              line += 1
+            end
+            table.insert(value, stringChar)
+          end
+          index += 1
+        end
+        table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
       end
-      table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
     elseif char == "{" or char == "}" or char == ";" then
       table.insert(tokens, { type = char, value = char, line = line })
       index += 1
+    elseif char == " " or char == "\t" or char == "\r" then
+      -- Whole whitespace runs in one match: indentation was costing one
+      -- interpreter iteration per space.
+      local run = content:match("^[ \t\r]+", index)
+      index += #run
     else
-      local start = index
-      while index <= #content do
-        char = content:sub(index, index)
-        nextChar = content:sub(index + 1, index + 1)
-        if char:match("%s") or char == "\"" or char == "{" or char == "}" or char == ";"
-          or (char == "/" and (nextChar == "/" or nextChar == "*")) then
-          break
-        end
-        index += 1
+      -- One match per word instead of one iteration per character; a word
+      -- only ends early when a comment starts inside the run ("//", "/*").
+      local word = content:match('^[^%s"{};]+', index)
+      local slash = word:find("//", 1, true)
+      local block = word:find("/%*")
+      local cut = math.min(slash or (#word + 1), block or (#word + 1))
+      if cut <= #word then
+        word = word:sub(1, cut - 1)
       end
-      table.insert(tokens, { type = "word", value = content:sub(start, index - 1), line = line })
+      table.insert(tokens, { type = "word", value = word, line = line })
+      index += #word
     end
   end
   return tokens
@@ -1244,6 +1262,168 @@ local function refreshHyprLua(generation, request)
   end
 end
 
+-- ── Shell-side niri parse ────────────────────────────────────────────────────
+-- The Luau runtime here is heavily instrumented: tokenizing a 33 KB config
+-- measured 31.6 ms - alone past the plugin CPU budget, which accumulates per
+-- coroutine, so chunking cannot help either. The niri config is therefore
+-- parsed by awk in a subprocess (one short line per bind), and the Lua side
+-- only converts ~a hundred rows into binding tables.
+local pendingRows = nil -- rows queued for per-tick conversion (see drainPendingRows)
+
+local NIRI_AWK = [==[
+# Emits: BIND\tline\thotkey\ttitle\taction\tcategory for a niri KDL config.
+function emit() {
+  gsub(/\t/, " ", action); gsub(/"/, "", action)
+  gsub(/^[ ]+|[ ;]+$/, "", action)
+  printf "BIND\t%d\t%s\t%s\t%s\t%s\n", bindline, hotkey, title, action, cat
+  inbind = 0; hotkey = ""; title = ""; action = ""
+}
+{
+  line = $0
+  if (!inbinds) {
+    if (line ~ /^[[:space:]]*binds[[:space:]]*\{/) { inbinds = 1; depth = 1 }
+    next
+  }
+  if (line ~ /^[[:space:]]*\/\//) {
+    if (match(line, /#[[:space:]]*"[^"]*"/)) {
+      t = substr(line, RSTART, RLENGTH)
+      sub(/#[[:space:]]*"/, "", t); sub(/"$/, "", t)
+      cat = t
+    }
+    next
+  }
+  if (!inbind && match(line, /^[[:space:]]*[A-Za-z0-9+._]+([[:space:]]|\{)/)) {
+    split(line, hp, /[[:space:]]+/)
+    cand = hp[1] == "" ? hp[2] : hp[1]
+    if (cand != "}" && cand != "{") {
+      inbind = 1; hotkey = cand; bindline = NR; title = ""; action = ""
+      if (match(line, /hotkey-overlay-title="[^"]*"/)) {
+        t = substr(line, RSTART, RLENGTH)
+        sub(/hotkey-overlay-title="/, "", t); sub(/"$/, "", t)
+        title = t
+      }
+      bracepos = index(line, "{")
+      if (bracepos > 0) {
+        binddepth = 1
+        body = substr(line, bracepos + 1)
+        n = length(body)
+        for (i = 1; i <= n; i++) {
+          c = substr(body, i, 1)
+          if (c == "{") binddepth++
+          else if (c == "}") { binddepth--; if (binddepth == 0) { emit(); break } }
+          else action = action c
+        }
+      } else binddepth = 0
+      next
+    }
+  }
+  if (inbind) {
+    n = length(line)
+    for (i = 1; i <= n; i++) {
+      c = substr(line, i, 1)
+      if (c == "{") { binddepth++; if (binddepth == 1) continue }
+      else if (c == "}") { binddepth--; if (binddepth == 0) { emit(); break } }
+      else if (binddepth >= 1) action = action c
+    }
+    next
+  }
+  n = length(line)
+  for (i = 1; i <= n; i++) {
+    c = substr(line, i, 1)
+    if (c == "{") depth++
+    else if (c == "}") { depth--; if (depth == 0) inbinds = 0 }
+  }
+}
+]==]
+
+local function refreshNiriShell(generation, request)
+  local root = request.root
+  local rootDir = pathDirname(root)
+  local cmd = table.concat({
+    "root=" .. "'" .. root:gsub("'", "'\\''") .. "'",
+    'files="$root"',
+    -- one include level is enough for the usual config.kdl layout
+    'for inc in $(sed -n \'s/^[[:space:]]*include[[:space:]]*"\\([^"]*\\)".*/\\1/p\' "$root" 2>/dev/null); do',
+    '  case "$inc" in /*) files="$files $inc" ;; *) files="$files ' .. rootDir:gsub("'", "") .. '/$inc" ;; esac',
+    "done",
+    "awk " .. "'" .. NIRI_AWK:gsub("'", "'\\''") .. "'" .. ' $files 2>/dev/null',
+  }, "\n")
+
+  local accepted = noctalia.runAsync(cmd, function(result)
+    if generation ~= refreshGeneration then return end
+    local context = { bindings = {}, warnings = {}, sources = {}, globs = {}, rootRead = false }
+    if noctalia.fileInfo ~= nil then
+      local info = noctalia.fileInfo(root)
+      context.rootRead = info ~= nil and not info.isDir
+    else
+      context.rootRead = true
+    end
+    table.insert(context.sources, { path = root })
+    -- Only the cheap split happens here: even converting ~130 rows into
+    -- binding tables blows the (very small) async-callback CPU budget, so
+    -- the conversion is drained a few rows per update() tick instead.
+    local rows = {}
+    if not result.timedOut and result.exitCode == 0 then
+      for row in (result.stdout or ""):gmatch("[^\n]+") do
+        table.insert(rows, row)
+      end
+    end
+    pendingRows = { generation = generation, request = request, root = root, rows = rows, index = 1, context = context }
+  end, 10000)
+
+  if not accepted then
+    finishRefresh(generation, request, {}, {}, tr("missing_config"), nil)
+  end
+end
+
+-- A few rows per tick: each update() call is a fresh CPU-budget window.
+local ROWS_PER_TICK = 10
+
+local function drainPendingRows()
+  local pending = pendingRows
+  if pending == nil then return end
+  if pending.generation ~= refreshGeneration then
+    pendingRows = nil
+    return
+  end
+  local context = pending.context
+  local processed = 0
+  while pending.index <= #pending.rows and processed < ROWS_PER_TICK do
+    local row = pending.rows[pending.index]
+    pending.index += 1
+    processed += 1
+    local lineNo, hotkey, title, action = row:match("^BIND\t(%d+)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t")
+    local cat = row:match("\t([^\t]*)$")
+    if hotkey ~= nil and hotkey ~= "" then
+      local keyParts = {}
+      for part in hotkey:gmatch("[^+]+") do
+        table.insert(keyParts, part)
+      end
+      local key = table.remove(keyParts) or hotkey
+      addBinding(context.bindings, {
+        compositor = "niri",
+        bindingType = "bind",
+        modifiers = normalizeModifiers(table.concat(keyParts, " "), {}),
+        key = key,
+        action = action or "",
+        description = title or "",
+        category = (cat ~= nil and cat ~= "") and cat or niriCategoryFor(action or ""),
+        sourceFile = pending.root,
+        sourceLine = tonumber(lineNo),
+      })
+    end
+  end
+  if pending.index > #pending.rows then
+    pendingRows = nil
+    finishRefresh(pending.generation, pending.request, context.bindings, context.warnings, configReadError(context), context)
+  end
+end
+
+function update()
+  drainPendingRows()
+end
+noctalia.setUpdateInterval(50)
+
 local function performRefresh(generation, request)
   if request == nil then
     finishRefresh(generation, { compositor = "", parser = "", root = "" }, {}, {}, tr("unsupported"), nil)
@@ -1251,8 +1431,7 @@ local function performRefresh(generation, request)
     local context = readConfig(request.root, parseMangoContent)
     finishRefresh(generation, request, context.bindings, context.warnings, configReadError(context), context)
   elseif request.parser == "niri" then
-    local context = readConfig(request.root, parseNiriContent)
-    finishRefresh(generation, request, context.bindings, context.warnings, configReadError(context), context)
+    refreshNiriShell(generation, request)
   elseif request.parser == "hypr-lua" then
     refreshHyprLua(generation, request)
   elseif request.parser == "hypr-conf" then
