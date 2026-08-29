@@ -1,8 +1,6 @@
 --!nonstrict
 -- Service entry for Command Runner plugin
 
-local SALT = "noctalia_cmd_runner_salt_5f8a"
-
 local function trim(s)
   return noctalia.string.trim(tostring(s or ""))
 end
@@ -11,97 +9,85 @@ local function shellQuote(value)
   return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
 end
 
--- Helper functions for base64 encoding and encryption/decryption
-local function base64Encode(data)
-  local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-  return ((data:gsub('.', function(x) 
-    local r,b_val='',x:byte()
-    for i=8,1,-1 do r=r..(b_val%2^i-b_val%2^(i-1)>0 and '1' or '0') end
-    return r;
-  end)..'0000'):gsub('%d%d%d%d%d%d', function(x)
-    if (#x < 6) then return '' end
-    local c=0
-    for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
-    return b:sub(c+1,c+1)
-  end)..({ '', '==', '=' })[#data%3+1])
+-- System keyring attributes used to scope all secrets to this plugin
+local KR_PLUGIN = "noctalia-plugin"
+local KR_PLUGIN_VAL = "nocode-96/cmd-runner"
+local KR_ID = "cmd-id"
+
+local function keyringLabel(cmdName)
+  return "Noctalia Command Runner: " .. tostring(cmdName or "")
 end
 
-local function base64Decode(data)
-  local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-  data = string.gsub(data, '[^'..b..'=]', '')
-  return (data:gsub('.', function(x)
-    if (x == '=') then return '' end
-    local r,f='',(b:find(x)-1)
-    for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
-    return r;
-  end):gsub('%d%d%d%d%d%d%d%d', function(x)
-    local c=0
-    for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
-    return string.char(c)
-  end))
-end
-
-local function encryptPassword(pass)
-  if not pass or pass == "" then return "" end
-  if pass:sub(1, 4) == "enc:" then return pass end -- already encrypted
-  
-  local result = {}
-  for i = 1, #pass do
-    local p_byte = pass:byte(i)
-    local s_byte = SALT:byte(((i - 1) % #SALT) + 1)
-    local enc_byte = (p_byte + s_byte) % 256
-    table.insert(result, string.char(enc_byte))
+-- Store a password in the system keyring (secret-tool / libsecret)
+-- The password is piped via stdin; it never appears in /proc/cmdline of secret-tool.
+-- Note: printf's argv briefly contains the password – acknowledged as transient.
+local function storePassword(cmdId, cmdName, pass, callback)
+  if not pass or pass == "" then
+    if callback then callback(false) end
+    return
   end
-  return "enc:" .. base64Encode(table.concat(result))
+  local label = keyringLabel(cmdName)
+  local cmd = "printf '%s' " .. shellQuote(pass) ..
+    " | secret-tool store --label " .. shellQuote(label) ..
+    " " .. KR_PLUGIN .. " " .. shellQuote(KR_PLUGIN_VAL) ..
+    " " .. KR_ID .. " " .. shellQuote(cmdId)
+  noctalia.runAsync(cmd, function(result)
+    if callback then callback(result and result.exitCode == 0) end
+  end, 5000)
 end
 
-local function decryptPassword(enc)
-  if not enc or enc == "" then return "" end
-  if enc:sub(1, 4) ~= "enc:" then return enc end -- plain text fallback
-  
-  local raw_enc = enc:sub(5)
-  local decoded = base64Decode(raw_enc)
-  local result = {}
-  for i = 1, #decoded do
-    local d_byte = decoded:byte(i)
-    local s_byte = SALT:byte(((i - 1) % #SALT) + 1)
-    local dec_byte = (d_byte - s_byte) % 256
-    table.insert(result, string.char(dec_byte))
-  end
-  return table.concat(result)
+-- Remove a stored password from the system keyring
+local function clearPassword(cmdId, callback)
+  local cmd = "secret-tool clear " ..
+    KR_PLUGIN .. " " .. shellQuote(KR_PLUGIN_VAL) ..
+    " " .. KR_ID .. " " .. shellQuote(cmdId)
+  noctalia.runAsync(cmd, function(_)
+    if callback then callback() end
+  end, 5000)
 end
 
+-- Check whether the keyring holds a secret for a given command
+local function hasPasswordInKeyring(cmdId, callback)
+  local cmd = "secret-tool lookup " ..
+    KR_PLUGIN .. " " .. shellQuote(KR_PLUGIN_VAL) ..
+    " " .. KR_ID .. " " .. shellQuote(cmdId)
+  noctalia.runAsync(cmd, function(result)
+    local has = result and result.exitCode == 0 and
+      type(result.stdout) == "string" and result.stdout ~= ""
+    callback(has == true)
+  end, 5000)
+end
+
+-- Default demo command (no sudo, no stored password)
 local defaultCommands = {
   {
     id = "cmd_demo_1",
     name = "System Update Check",
     command = "echo 'Checking system updates...' && sleep 1 && echo 'System is up to date'",
     icon = "refresh",
-    isSudo = false,
-    sudoPassword = ""
+    isSudo = false
   }
 }
 
-local commandsFile = (noctalia.pluginDir() or "") .. "/commands.json"
+-- User data lives in pluginDataDir, not pluginDir.
+-- pluginDir is a managed checkout that may be re-materialised on update.
+local function commandsFilePath()
+  local dir = noctalia.pluginDataDir()
+  if not dir or dir == "" then return nil end
+  return dir .. "/commands.json"
+end
 
 local function loadCommands()
-  local content = noctalia.readFile(commandsFile)
+  local path = commandsFilePath()
+  if not path then return defaultCommands end
+
+  local content = noctalia.readFile(path)
   if content and trim(content) ~= "" then
-    local decoded, err = noctalia.json.decode(content)
-    if type(decoded) == "table" and #decoded >= 0 then
-      -- Auto-encrypt passwords on load if they are stored in plain text
-      local changed = false
+    local decoded = noctalia.json.decode(content)
+    if type(decoded) == "table" then
+      -- Strip any legacy sudoPassword fields that may have been written by older versions
       for _, c in ipairs(decoded) do
-        if c.sudoPassword and c.sudoPassword ~= "" and c.sudoPassword:sub(1, 4) ~= "enc:" then
-          c.sudoPassword = encryptPassword(c.sudoPassword)
-          changed = true
-        end
-      end
-      if changed then
-        local encoded = noctalia.json.encode(decoded)
-        if encoded then
-          noctalia.writeFile(commandsFile, encoded)
-        end
+        c.sudoPassword = nil
       end
       return decoded
     end
@@ -110,75 +96,96 @@ local function loadCommands()
 end
 
 local function saveCommands(list)
-  local savedList = {}
+  local path = commandsFilePath()
+  if not path then return end
+
+  local saved = {}
   for _, c in ipairs(list) do
     local copy = {}
     for k, v in pairs(c) do
-      copy[k] = v
+      -- sudoPassword must never be persisted to disk; passwords live in the keyring only
+      if k ~= "sudoPassword" then copy[k] = v end
     end
-    if copy.sudoPassword then
-      copy.sudoPassword = encryptPassword(copy.sudoPassword)
-    end
-    table.insert(savedList, copy)
+    table.insert(saved, copy)
   end
 
-  local encoded, err = noctalia.json.encode(savedList)
-  if encoded then
-    noctalia.writeFile(commandsFile, encoded)
-  end
+  local encoded = noctalia.json.encode(saved)
+  if encoded then noctalia.writeFile(path, encoded) end
 end
 
 local currentCommands = loadCommands()
-local runningMap = {}
-local outputMap = {}
-local exitCodeMap = {}
+local runningMap    = {}
+local outputMap     = {}
+local exitCodeMap   = {}
+local hasPasswordMap = {}
+
+-- Refresh which commands have a password stored in the keyring, then publish state
+local function refreshPasswordFlags(callback)
+  local pending = 0
+  for _, cmd in ipairs(currentCommands) do
+    if cmd.isSudo then
+      pending = pending + 1
+    end
+  end
+  if pending == 0 then
+    if callback then callback() end
+    return
+  end
+  local done = 0
+  for _, cmd in ipairs(currentCommands) do
+    if cmd.isSudo then
+      local id = cmd.id
+      hasPasswordInKeyring(id, function(has)
+        hasPasswordMap[id] = has
+        done = done + 1
+        if done >= pending and callback then callback() end
+      end)
+    end
+  end
+end
 
 local function publishState()
-  -- Scrub actual passwords from public state for security
   local publicCommands = {}
   for _, c in ipairs(currentCommands) do
     local copy = {}
     for k, v in pairs(c) do
-      if k ~= "sudoPassword" then
-        copy[k] = v
-      else
-        copy.hasPassword = (v ~= nil and v ~= "")
-      end
+      if k ~= "sudoPassword" then copy[k] = v end
     end
+    copy.hasPassword = hasPasswordMap[c.id] == true
     table.insert(publicCommands, copy)
   end
 
   noctalia.state.set("cmd_runner_state", {
-    commands = publicCommands,
-    runningMap = runningMap,
-    outputMap = outputMap,
+    commands    = publicCommands,
+    runningMap  = runningMap,
+    outputMap   = outputMap,
     exitCodeMap = exitCodeMap,
-    updatedAt = os.time()
+    updatedAt   = os.time()
   })
 end
 
-publishState()
+-- Initial state publish after async keyring checks
+refreshPasswordFlags(function() publishState() end)
 
 local function executeCommand(cmdId)
   local targetCmd = nil
   for _, c in ipairs(currentCommands) do
-    if c.id == cmdId then
-      targetCmd = c
-      break
-    end
+    if c.id == cmdId then targetCmd = c; break end
   end
-
-  if not targetCmd or trim(targetCmd.command) == "" then
-    return
-  end
+  if not targetCmd or trim(targetCmd.command) == "" then return end
 
   runningMap[cmdId] = true
   publishState()
 
-  local fullCmd = ""
+  local fullCmd
   if targetCmd.isSudo then
-    local pass = decryptPassword(targetCmd.sudoPassword)
-    fullCmd = "printf '%s\\n' " .. shellQuote(pass) .. " | sudo -S -p '' -- " .. targetCmd.command
+    -- Retrieve the password from the system keyring via stdout and pipe directly to
+    -- sudo -S.  The password never appears in any process's argv, so it is not
+    -- visible in /proc/<pid>/cmdline.
+    fullCmd = "secret-tool lookup " ..
+      KR_PLUGIN .. " " .. shellQuote(KR_PLUGIN_VAL) ..
+      " " .. KR_ID .. " " .. shellQuote(cmdId) ..
+      " | sudo -S -p '' -- " .. targetCmd.command
   else
     fullCmd = targetCmd.command
   end
@@ -186,17 +193,20 @@ local function executeCommand(cmdId)
   noctalia.runAsync(fullCmd, function(result)
     runningMap[cmdId] = false
     local code = (result and type(result.exitCode) == "number") and result.exitCode or -1
-    local outText = trim((result and result.stdout or "") .. "\n" .. (result and result.stderr or ""))
+    local out = trim((result and result.stdout or "") .. "\n" .. (result and result.stderr or ""))
     exitCodeMap[cmdId] = code
-    outputMap[cmdId] = outText
+    outputMap[cmdId]   = out
     publishState()
 
-    local showToast = noctalia.getConfig("show_toast") ~= false
-    if showToast then
+    if noctalia.getConfig("show_toast") ~= false then
       if code == 0 then
-        noctalia.notify(noctalia.tr("title"), noctalia.tr("notify.success", { name = targetCmd.name }))
+        noctalia.notify(
+          noctalia.tr("title"),
+          noctalia.tr("notify.success", { name = targetCmd.name }))
       else
-        noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.error", { name = targetCmd.name, code = code }))
+        noctalia.notifyError(
+          noctalia.tr("title"),
+          noctalia.tr("notify.error", { name = targetCmd.name, code = code }))
       end
     end
   end, 120000)
@@ -204,48 +214,70 @@ end
 
 local function handleCommandAction(actionData)
   if type(actionData) ~= "table" then return end
-
   local act = actionData.action
+
   if act == "run" and actionData.id then
     executeCommand(actionData.id)
+
   elseif act == "add" and actionData.item then
     local item = actionData.item
-    item.sudoPassword = encryptPassword(item.sudoPassword or "")
+    local pass = item.sudoPassword or ""
+    item.sudoPassword = nil
     table.insert(currentCommands, item)
     saveCommands(currentCommands)
-    publishState()
+    if item.isSudo and pass ~= "" then
+      storePassword(item.id, item.name, pass, function(ok)
+        hasPasswordMap[item.id] = ok
+        publishState()
+      end)
+    else
+      publishState()
+    end
+
   elseif act == "update" and actionData.item then
+    local incoming = actionData.item
+    local newPass = incoming.sudoPassword or ""
+    incoming.sudoPassword = nil
     for i, c in ipairs(currentCommands) do
-      if c.id == actionData.item.id then
-        local newPass = actionData.item.sudoPassword or ""
-        -- If the updated command keeps sudo but the sent password is empty and we had a password, keep it
-        if newPass == "" and c.sudoPassword and c.sudoPassword ~= "" and actionData.item.isSudo then
-          newPass = c.sudoPassword
-        else
-          newPass = encryptPassword(newPass)
-        end
-        
-        local updatedItem = {
-          id = actionData.item.id,
-          name = actionData.item.name,
-          command = actionData.item.command,
-          icon = actionData.item.icon,
-          isSudo = actionData.item.isSudo,
-          sudoPassword = newPass
+      if c.id == incoming.id then
+        currentCommands[i] = {
+          id      = incoming.id,
+          name    = incoming.name,
+          command = incoming.command,
+          icon    = incoming.icon,
+          isSudo  = incoming.isSudo,
         }
-        currentCommands[i] = updatedItem
+        if incoming.isSudo and newPass ~= "" then
+          -- New password provided: update keyring entry
+          storePassword(incoming.id, incoming.name, newPass, function(ok)
+            hasPasswordMap[incoming.id] = ok
+            saveCommands(currentCommands)
+            publishState()
+          end)
+        elseif not incoming.isSudo then
+          -- Sudo disabled: remove any keyring entry
+          clearPassword(incoming.id, function()
+            hasPasswordMap[incoming.id] = false
+            saveCommands(currentCommands)
+            publishState()
+          end)
+        else
+          -- Sudo still enabled but no new password entered: keep existing keyring entry
+          saveCommands(currentCommands)
+          publishState()
+        end
         break
       end
     end
-    saveCommands(currentCommands)
-    publishState()
+
   elseif act == "delete" and actionData.id then
     local newList = {}
     for _, c in ipairs(currentCommands) do
-      if c.id ~= actionData.id then
-        table.insert(newList, c)
-      end
+      if c.id ~= actionData.id then table.insert(newList, c) end
     end
+    clearPassword(actionData.id, function()
+      hasPasswordMap[actionData.id] = nil
+    end)
     currentCommands = newList
     saveCommands(currentCommands)
     publishState()

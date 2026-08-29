@@ -1,1 +1,1 @@
-[{"command":"echo 'Checking system updates...' && sleep 1 && echo 'System is up to date'","icon":"refresh","id":"cmd_demo_1","isSudo":false,"name":"System Update Check","sudoPassword":""},{"command":"sudo hda-verb /dev/snd/hwC1D0 0x1d SET_PIN_WIDGET_CONTROL 0x0","icon":"terminal","id":"cmd_304120","isSudo":true,"name":"hda","sudoPassword":"enc:oKOYrQ=="}]
+[]

@@ -16,10 +16,18 @@
     "delete": "Delete",
     "edit": "Edit",
     "name_label": "Command Name",
+    "name_placeholder": "e.g. System Update",
     "cmd_label": "CLI Command",
+    "cmd_placeholder": "e.g. apt update && apt upgrade -y",
     "sudo_label": "Requires Sudo (root)",
+    "sudo_enabled": "[✓] Requires sudo (root)",
+    "sudo_disabled": "[  ] Requires sudo (root)",
     "sudo_pass_label": "Sudo Password (entered once)",
-    "no_commands": "No commands saved."
+    "sudo_pass_placeholder": "Sudo password...",
+    "sudo_pass_placeholder_saved": "Password saved (leave blank to keep)",
+    "no_commands": "No commands saved.",
+    "status_success": "✓ Status: Success (Code 0)",
+    "status_failed": "✗ Status: Failed (Code {code})"
   },
   "settings": {
     "show_toast": {

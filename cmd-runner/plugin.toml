@@ -6,7 +6,7 @@ author = "Noah B."
 license = "MIT"
 icon = "terminal"
 description = "Save and execute CLI commands silently in the background with a one-time sudo password cache."
-dependencies = []
+dependencies = ["sudo", "secret-tool"]
 tags = ["bar", "panel", "service", "utility", "system"]
 
 [[setting]]
