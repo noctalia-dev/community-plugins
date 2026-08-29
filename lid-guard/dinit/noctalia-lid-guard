@@ -1,0 +1,4 @@
+# Dinit backend for Noctalia Lid Guard.
+type = process
+command = /usr/bin/elogind-inhibit --what=handle-lid-switch --who="Noctalia Lid Guard" --why="Keep background jobs running while the laptop lid is closed" --mode=block /usr/bin/sleep infinity
+restart = false

@@ -1,10 +1,24 @@
 --!nonstrict
--- Owns the systemd inhibitor. Widgets and shortcuts communicate with this
+-- Owns the lid inhibitor. Widgets and shortcuts communicate with this
 -- singleton through noctalia.state.
 
-local UNIT = "noctalia-lid-guard.service"
-local CHECK_COMMAND = `systemctl --user is-active --quiet {UNIT}`
-local START_COMMAND = `systemctl --user reset-failed {UNIT} >/dev/null 2>&1 || true; ` .. table.concat({
+local SYSTEMD_UNIT = "noctalia-lid-guard.service"
+local DINIT_UNIT = "noctalia-lid-guard"
+local hasDinit = noctalia.commandExists("dinitctl")
+  and noctalia.commandExists("elogind-inhibit")
+  and noctalia.commandExists("sleep")
+local hasSystemd = noctalia.commandExists("systemctl")
+  and noctalia.commandExists("systemd-run")
+  and noctalia.commandExists("systemd-inhibit")
+  and noctalia.commandExists("sleep")
+local backend = if hasDinit then "dinit" elseif hasSystemd then "systemd" else ""
+local UNIT = if backend == "dinit" then DINIT_UNIT else SYSTEMD_UNIT
+local CHECK_COMMAND = if backend == "dinit"
+  then `dinitctl --user is-started {UNIT}`
+  else `systemctl --user is-active --quiet {UNIT}`
+local START_COMMAND = if backend == "dinit"
+  then `dinitctl --user start {UNIT}`
+  else `systemctl --user reset-failed {UNIT} >/dev/null 2>&1 || true; ` .. table.concat({
   `systemd-run --user --quiet --collect --unit={UNIT}`,
   `--description='Noctalia Lid Guard'`,
   `systemd-inhibit --what=handle-lid-switch`,
@@ -12,14 +26,13 @@ local START_COMMAND = `systemctl --user reset-failed {UNIT} >/dev/null 2>&1 || t
   `--why='Keep background jobs running while the laptop lid is closed'`,
   `--mode=block sleep infinity`,
 }, " ")
-local STOP_COMMAND = `systemctl --user stop {UNIT}`
+local STOP_COMMAND = if backend == "dinit"
+  then `dinitctl --user stop {UNIT}`
+  else `systemctl --user stop {UNIT}`
 
 local active = false
 local busy = false
-local available = noctalia.commandExists("systemctl")
-  and noctalia.commandExists("systemd-run")
-  and noctalia.commandExists("systemd-inhibit")
-  and noctalia.commandExists("sleep")
+local available = backend ~= ""
 local revision = 0
 
 local function publish(errorMessage)

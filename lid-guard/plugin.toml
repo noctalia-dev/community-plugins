@@ -7,7 +7,8 @@ license = "MIT"
 icon = "shield-lock"
 description = "Keep the laptop awake when its lid is closed, so background jobs can continue running."
 tags = ["bar", "indicator", "productivity", "service", "shortcut", "system", "utility"]
-dependencies = ["systemctl", "systemd-run", "systemd-inhibit", "sleep"]
+# The plugin supports either Dinit + elogind or systemd + logind.
+dependencies = []
 
 [[service]]
 id = "lid-guard-service"
