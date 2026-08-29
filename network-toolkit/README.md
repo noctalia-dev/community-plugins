@@ -14,8 +14,8 @@ A unified network management hub for Noctalia providing real-time Wi-Fi, Etherne
 Install the following tools on `PATH`:
 
 - **`networkmanager`** (`nmcli`) — Wi-Fi scanning, connection management, hotspot orchestration, and DNS routing.
-- **`bluez`** / **`bluez-utils`** (`bluetoothctl`) — Bluetooth adapter power, scanning, device pairing, and trust settings.
-- **`iproute2`** (`ip`) — Interface address resolution and neighbor discovery.
+- **`bluez-utils`** (`bluetoothctl`) — Bluetooth adapter power, scanning, device pairing, and trust settings.
+- **`ip`** — Interface address resolution and neighbor discovery.
 - **`iw`** — Virtual AP interface provisioning (`__ap`) and wireless client enumeration.
 - **`qrencode`** *(optional)* — Generates shareable Wi-Fi QR codes in the panel.
 
