@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "is_system_active": {
+      "label": "Sistema activo",
+      "description": "Interruptor maestro que activa los efectos de Hyprland Visual Editor."
+    },
+    "active_anim_file": {
+      "label": "Animación activa"
+    },
+    "active_border_file": {
+      "label": "Borde activo"
+    },
+    "active_shader_file": {
+      "label": "Shader activo"
+    }
+  },
+  "panel": {
+    "home": "Inicio",
+    "animations": "Animaciones",
+    "borders": "Bordes",
+    "effects": "Efectos",
+    "enabled": "HVE activado",
+    "disabled": "HVE desactivado",
+    "no_presets": "No hay presets — ejecuta scan.sh",
+    "none": "Ninguno",
+    "presets_available": "presets disponibles",
+    "apply": "Aplicar",
+    "current_preset": "Preset aplicado actualmente",
+    "enable_warning": "Activa el interruptor para aplicar cambios",
+    "apply_hint": "Elige un preset y pulsa Aplicar para aplicarlo al instante",
+    "credits": "Basado en el widget original de XimoCP · portado a Luau por Hermy y Linux Fertxo",
+    "count_animations": "animaciones",
+    "count_borders": "bordes",
+    "count_shaders": "shaders"
+  },
+  "widget": {
+    "tooltip": "Hyprland Visual Editor — abrir el panel"
+  }
+}
