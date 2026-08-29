@@ -86,7 +86,7 @@
     "bluetoothctl_not_found": "bluetoothctl is not installed"
   },
   "settings": {
-    "refreshInterval": {
+    "refreshinterval": {
       "label": "Refresh Interval (Seconds)",
       "description": "How often the background service updates network state."
     },
