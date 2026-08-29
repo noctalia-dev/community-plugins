@@ -8,6 +8,10 @@ work as normal (the default, same behavior as before), or fully in the
 background — polkit asks for your password, the panel shows a live log tail
 and a progress bar, and a notification reports the result. Either way the
 run is logged and recorded in an update history with per-package rollback.
+A maintenance section keeps an eye on the package cache, orphaned packages
+and (with fwupd) firmware updates, and the update log is scanned for known
+failure signatures — a failed initramfs generation warns you before you
+reboot into it.
 
 ## Plugin
 
@@ -21,11 +25,14 @@ run is logged and recorded in an update history with per-package rollback.
 
 - `pacman-contrib` on `PATH` (for `checkupdates` and `pactree`), required.
 - `pacman`, `sh`, `awk`, `sed`, `grep`, `tail`, `head`, `tee`, `wc`, `date`,
-  `rm`, `install`, `test`, `cat`, `kill` and `uname`, required — base tools
-  from any standard Arch install (coreutils and friends), used to run and
-  parse the checks, build the download size estimate, check the running
-  kernel, follow and open the update log, install the optional polkit rule,
-  and detect whether a terminal update run's process is still alive.
+  `rm`, `install`, `test`, `cat`, `kill`, `cut`, `du`, `df` and `uname`,
+  required — base tools from any standard Arch install (coreutils and
+  friends), used to run and parse the checks, build the download size
+  estimate, check the running kernel, measure the package cache and free
+  disk space, follow and open the update log, install the optional polkit
+  rule, and detect whether a terminal update run's process is still alive.
+- `systemd-inhibit` (systemd), used to block sleep during background update
+  runs; skipped when absent.
 - `pkexec` (polkit) with an authentication agent, required for the
   background update mode and for rollback. Noctalia's built-in polkit agent
   works out of the box.
@@ -33,6 +40,8 @@ run is logged and recorded in an update history with per-package rollback.
   Auto-detected by default, see the **AUR helper** setting.
 - `flatpak`, optional, for the Flatpak check and update.
 - `xdg-open`, optional, to open a package page or the Arch news page.
+- `fwupdmgr` (fwupd), optional — when installed, the maintenance section
+  offers firmware updates in a terminal window.
 - `less`, plus `sudo` and a terminal emulator, for the terminal update mode
   (the default), the **Retry in terminal** fallback and the **Open full
   log** viewer: Noctalia's own terminal detection (`$TERMINAL`, then the
@@ -112,6 +121,44 @@ changed: anything declined during an interactive terminal run is left out
 of the entry, so the history never offers to "undo" an update that did not
 happen. Failed runs are not recorded.
 
+### Maintenance
+
+After each check, a small section under the package list reports the state
+of the system around updates (all gathered without root):
+
+- **Package cache** — its size, and how many superseded versions a prune
+  would remove (from `paccache`'s dry run) with the space they'd free. The
+  trash button runs the prune through one `pkexec` call: it keeps the
+  configured number of versions of each installed package (**Cached
+  versions to keep**, default 2) and drops cached files of uninstalled
+  packages entirely.
+- **Orphaned packages** — the `pacman -Qtdq` list. The trash button (a
+  second click confirms, like rollback) removes them with their unneeded
+  dependencies via `pkexec pacman -Rns`; the tooltip lists what would go.
+  The scan repeats afterwards, since removing orphans can orphan the next
+  layer.
+- **Firmware updates** — shown only when `fwupdmgr` is installed; the
+  button opens a terminal running `fwupdmgr refresh; fwupdmgr update`.
+
+Around the update run itself:
+
+- **Keyring first** (on by default): each run starts with
+  `pacman -Sy --needed archlinux-keyring`, so packages signed with new keys
+  don't fail after a long gap between updates.
+- **Free-space check**: an update is refused up front when the root
+  filesystem has less than **Minimum free space** (default 1 GiB) plus
+  twice the estimated download size free — better than pacman dying on a
+  full disk halfway through a transaction.
+- **Sleep inhibitor**: background runs hold a systemd sleep/idle inhibitor
+  so a closed lid can't interrupt a transaction.
+- **Log analysis**: when a run finishes, its log is scanned for known
+  failure signatures — a failed initramfs generation (shown in red and
+  raised as a critical notification: check it before rebooting), a failed
+  pacman transaction, and package signature errors.
+
+The whole section can be turned off with the **Maintenance section**
+setting.
+
 ### Activity graph
 
 The optional activity graph (off by default, **Show activity graph**)
@@ -186,6 +233,11 @@ setting.
 | `show_activity_graph` | `bool` | `false` | Track pending-update counts across checks and show them as a small graph. Off also stops recording. |
 | `activity_history_length` | `int` | `10` | How many recent checks the activity graph keeps (3–30). |
 | `update_mode` | `select` | `terminal` | How **Update** runs the upgrade: in a terminal window (interactive, like before) or in the background (non-interactive). |
+| `keyring_first` | `bool` | `true` | Refresh `archlinux-keyring` (`pacman -Sy --needed`) right before each update run. |
+| `inhibit_sleep` | `bool` | `true` | Hold a systemd sleep/idle inhibitor for the duration of a background update run. |
+| `min_free_mib` | `int` | `1024` | Refuse to start an update when root has less than this (plus twice the download estimate) free. `0` disables. |
+| `maintenance_enabled` | `bool` | `true` | Scan and show the maintenance section (cache, orphans, firmware) after each check. |
+| `cache_keep` | `int` | `2` | How many versions of each installed package the cache prune keeps (1–5). |
 | `rollback_auto_ignore` | `bool` | `false` | After a successful rollback, add the rolled-back packages to the plugin's ignore list. |
 | `hide_polkit_hint` | `bool` | `false` | Hide the panel line offering to install the polkit keep-authorization rule. |
 | `log_lines` | `int` | `14` | How many of the latest update-log lines the panel shows during a run (6–30). |
@@ -205,6 +257,10 @@ noctalia msg plugin yuuto/arch-updater:service all update_terminal
 noctalia msg plugin yuuto/arch-updater:service all dismiss
 noctalia msg plugin yuuto/arch-updater:service all ignore:NAME
 noctalia msg plugin yuuto/arch-updater:service all unignore:NAME
+noctalia msg plugin yuuto/arch-updater:service all prune_cache
+noctalia msg plugin yuuto/arch-updater:service all remove_orphans
+noctalia msg plugin yuuto/arch-updater:service all fwupd_update
+noctalia msg plugin yuuto/arch-updater:service all maintenance
 ```
 
 `update` follows the **Update mode** setting; `update_background` and
@@ -228,6 +284,13 @@ panel-managed ignore list.
   reverse-dependency warning. After a successful run, `pacman -Q` verifies
   which packages actually changed before the history entry is written.
   **Open full log** shows the log with `less` in your terminal.
+  Maintenance scan: `du -sb` and `df -Pk` for sizes, `pacman -Qtdq` for
+  orphans, `paccache -dk<n>` (dry run) for prunable versions; the finished
+  run's log is checked with `grep` for known failure signatures. Prune:
+  one `pkexec sh -c 'paccache -rk<n>; paccache -ruk0'`; orphan removal:
+  `pkexec pacman -Rns` on the scanned list; firmware:
+  `fwupdmgr refresh; fwupdmgr update` in your terminal. Background runs
+  are wrapped in `systemd-inhibit --what=sleep:idle`.
 - **Privileges.** Escalation happens only through polkit: `pkexec pacman`
   for repo packages and rollback, and the AUR helper escalates its install
   steps through `pkexec` itself (`--sudo pkexec`). AUR builds run

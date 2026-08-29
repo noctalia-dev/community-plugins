@@ -701,7 +701,7 @@ end
 -- Two-click rollback: the first click arms the button (it turns into a
 -- confirm label), the second sends the request. Anything else re-renders
 -- the armed state away.
-local function rollbackButton(key, tooltip, onConfirm)
+local function rollbackButton(key, tooltip, onConfirm, glyph)
     if armedKey == key then
         return ui.button({
             key = key .. "-armed",
@@ -715,7 +715,7 @@ local function rollbackButton(key, tooltip, onConfirm)
     end
     return ui.button({
         key = key,
-        glyph = "undo", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+        glyph = glyph or "undo", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
         tooltip = tooltip,
         onClick = function()
             armedKey = key
@@ -976,6 +976,90 @@ local function extras()
     return lines
 end
 
+-- ── Maintenance: cache, orphans, firmware ────────────────────────────────────
+
+local function formatGib(bytes)
+    return string.format("%.1f", (tonumber(bytes) or 0) / 1073741824)
+end
+
+local function maintenanceSection()
+    if snapshot == nil or type(snapshot.maintenance) ~= "table" or busy() or changelogOpen or openedRunAt ~= nil then
+        return nil
+    end
+    local m = snapshot.maintenance
+    local busyM = snapshot.maintenanceBusy == true
+    local rows = {}
+
+    -- Cache size plus what a prune would free (paccache dry run).
+    if tonumber(m.cacheBytes) ~= nil then
+        local text = tr("maint_cache", { size = formatGib(m.cacheBytes) })
+        if (tonumber(m.pruneCount) or 0) > 0 then
+            text = text .. " · " .. tr("maint_cache_prunable", { count = tostring(m.pruneCount), saved = tostring(m.pruneSaved or "") })
+        end
+        local row = {
+            ui.glyph({ name = "database", size = 13, color = "on_surface_variant" }),
+            ui.label({ text = text, fontSize = 12, color = "on_surface_variant", flexGrow = 1, maxLines = 2 }),
+        }
+        if (tonumber(m.pruneCount) or 0) > 0 then
+            table.insert(row, ui.button({
+                key = "maint-prune" .. (busyM and "-off" or ""),
+                glyph = "trash", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+                enabled = not busyM,
+                tooltip = tr("tip_prune"),
+                onClick = function()
+                    request("prune_cache")
+                end,
+            }))
+        end
+        table.insert(rows, ui.row({ key = "maint-cache", gap = 6, align = "center" }, row))
+    end
+
+    -- Orphans go through the same armed confirm as rollback: their removal
+    -- is a root pacman -Rns.
+    local orphans = type(m.orphans) == "table" and m.orphans or {}
+    if #orphans > 0 and not busyM then
+        local names = table.concat(orphans, ", ")
+        if #names > 200 then
+            names = names:sub(1, 200) .. "…"
+        end
+        table.insert(rows, ui.row({ key = "maint-orphans", gap = 6, align = "center" }, {
+            ui.glyph({ name = "package-off", size = 13, color = "on_surface_variant" }),
+            ui.label({
+                text = noctalia.trp("maint_orphans", #orphans, { count = #orphans }),
+                fontSize = 12, color = "on_surface_variant", flexGrow = 1,
+            }),
+            rollbackButton("maint-orphans-rm", tr("tip_orphans", { names = names }), function()
+                request("remove_orphans")
+            end, "trash"),
+        }))
+    end
+
+    -- Firmware (fwupd): shown only when the tool is on the system; the
+    -- update itself is interactive, so it opens a terminal.
+    if m.fwupd == true then
+        table.insert(rows, ui.row({ key = "maint-fwupd", gap = 6, align = "center" }, {
+            ui.glyph({ name = "cpu", size = 13, color = "on_surface_variant" }),
+            ui.label({ text = tr("maint_fwupd"), fontSize = 12, color = "on_surface_variant", flexGrow = 1 }),
+            ui.button({
+                glyph = "external-link", variant = "ghost", controlSize = "sm", width = 22, height = 22, glyphSize = 12,
+                tooltip = tr("tip_fwupd"),
+                onClick = function()
+                    request("fwupd_update")
+                end,
+            }),
+        }))
+    end
+
+    if busyM then
+        table.insert(rows, ui.label({ key = "maint-busy", text = tr("maint_busy"), fontSize = 11, color = "secondary" }))
+    end
+
+    if #rows == 0 then
+        return nil
+    end
+    return ui.column({ key = "maintenance", gap = 4 }, rows)
+end
+
 local function body()
     local children = {}
 
@@ -1017,6 +1101,11 @@ local function body()
 
     for _, line in ipairs(extras()) do
         table.insert(children, line)
+    end
+
+    local maint = maintenanceSection()
+    if maint ~= nil then
+        table.insert(children, maint)
     end
 
     if not busy() then
@@ -1086,6 +1175,25 @@ render = function()
         }),
         ui.label({ text = text, color = color, maxLines = 2 }),
     }
+
+    -- Known failure signatures found in the last run's log: a broken
+    -- initramfs must be seen before the next reboot, not after.
+    if not busy() and snapshot ~= nil and type(snapshot.logWarnings) == "table" then
+        for _, tag in ipairs(snapshot.logWarnings) do
+            local key = tag == "INITRAMFS" and "warn_initramfs"
+                or tag == "COMMIT" and "warn_commit"
+                or tag == "SIGNATURE" and "warn_signature"
+                or nil
+            if key ~= nil then
+                table.insert(children, ui.label({
+                    text = tr(key),
+                    fontSize = 11,
+                    color = tag == "SIGNATURE" and "warning" or "error",
+                    maxLines = 2,
+                }))
+            end
+        end
+    end
 
     for _, node in ipairs(body()) do
         table.insert(children, node)

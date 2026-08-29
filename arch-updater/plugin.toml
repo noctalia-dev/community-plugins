@@ -1,12 +1,12 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.1"
+version = "2.1.0"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
 icon = "package"
-description = "Check pacman, AUR and Flatpak updates, then upgrade in a terminal or in the background, with run history and rollback."
-dependencies = ["pacman-contrib", "awk", "cat", "date", "flatpak", "grep", "head", "install", "kill", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
+description = "Check pacman, AUR and Flatpak updates, upgrade in a terminal or the background, with history, rollback and maintenance."
+dependencies = ["pacman-contrib", "awk", "cat", "cut", "date", "df", "du", "flatpak", "grep", "head", "install", "kill", "less", "pacman", "paru", "pkexec", "rm", "sed", "sh", "sudo", "systemd-inhibit", "tail", "tee", "test", "uname", "wc", "xdg-open", "yay"]
 tags = ["arch", "bar", "panel", "launcher", "system", "utility"]
 
 # ── General ──────────────────────────────────────────────────────────────────
@@ -122,6 +122,48 @@ type = "bool"
 label_key = "settings.show_changelog_after_update.label"
 description_key = "settings.show_changelog_after_update.description"
 default = true
+
+[[setting]]
+key = "keyring_first"
+type = "bool"
+label_key = "settings.keyring_first.label"
+description_key = "settings.keyring_first.description"
+default = true
+
+[[setting]]
+key = "inhibit_sleep"
+type = "bool"
+label_key = "settings.inhibit_sleep.label"
+description_key = "settings.inhibit_sleep.description"
+default = true
+
+[[setting]]
+key = "min_free_mib"
+type = "int"
+label_key = "settings.min_free_mib.label"
+description_key = "settings.min_free_mib.description"
+default = 1024
+min = 0
+max = 16384
+
+# ── Maintenance ──────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "maintenance_enabled"
+type = "bool"
+label_key = "settings.maintenance_enabled.label"
+description_key = "settings.maintenance_enabled.description"
+default = true
+
+[[setting]]
+key = "cache_keep"
+type = "int"
+label_key = "settings.cache_keep.label"
+description_key = "settings.cache_keep.description"
+default = 2
+min = 1
+max = 5
+visible_when = { key = "maintenance_enabled", values = ["true"] }
 
 [[setting]]
 key = "rollback_auto_ignore"
