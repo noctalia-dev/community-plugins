@@ -10,10 +10,10 @@ tags = ["network", "bluetooth", "bar", "panel", "service", "shortcut", "utility"
 dependencies = ["networkmanager", "iw", "ip", "qrencode", "bluez-utils"]
 
 [[setting]]
-key = "refreshInterval"
+key = "refreshinterval"
 type = "int"
-label_key = "settings.refreshInterval.label"
-description_key = "settings.refreshInterval.description"
+label_key = "settings.refreshinterval.label"
+description_key = "settings.refreshinterval.description"
 default = 5
 min = 2
 max = 60
