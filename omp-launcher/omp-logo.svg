@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <defs>
+    <linearGradient id="ompLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F43F5E"/>
+      <stop offset="20%" stop-color="#EC4899"/>
+      <stop offset="45%" stop-color="#C084FC"/>
+      <stop offset="70%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#38BDF8"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#ompLogoGrad)" d="
+    M 3 2.5
+    H 21
+    V 7
+    H 18.5
+    V 22
+    H 14
+    V 7
+    H 10
+    V 16.5
+    H 5.5
+    V 7
+    H 3
+    Z
+  "/>
+</svg>

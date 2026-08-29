@@ -28,8 +28,10 @@ body:
         - --- SELECT ---
         - 9router-control
         - ai-usagebar
+        - airpods
         - anilist
         - arch-updater
+        - asus-fan
         - audio-switcher
         - battery-graph
         - battery-power-management
@@ -45,6 +47,7 @@ body:
         - codexbar-meter
         - color_picker
         - config-swap
+        - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
         - discord-voice
@@ -57,6 +60,7 @@ body:
         - game-launcher
         - gamer-mode
         - git_companion
+        - github-activity
         - github-prs
         - gocryptfs
         - godot-provider
@@ -74,6 +78,7 @@ body:
         - k8s-status
         - keybind-cheatsheet
         - keymap
+        - keyviz
         - kineticwe-layouts
         - lid-guard
         - link-ip-monitor
@@ -92,9 +97,14 @@ body:
         - niri-displays
         - nix-monitor
         - noctwhspr
+        - nvtop
         - obs-integration
         - obsidian
+        - ocr
+        - omniroute-quota
+        - omp-launcher
         - opencode-companion
+        - opencodex-bar
         - opnsense
         - palette-creator
         - pass
@@ -115,9 +125,12 @@ body:
         - shelly
         - special-workspaces
         - spotify-lyrics
+        - spotify-media
         - ssh-launcher
         - syncthing
+        - system-monitor
         - system-updater
+        - systempulse
         - tailnet
         - tailscale
         - thinkpad-fan
@@ -129,10 +142,12 @@ body:
         - udiskie
         - um5606_fan_state
         - upbeat
+        - vidi
         - voxtype
         - w-engine
         - wallpaper-switcher
         - web-launcher
+        - wireview-pro-ii
         - wl-screen-mirror
         - zed-provider
 

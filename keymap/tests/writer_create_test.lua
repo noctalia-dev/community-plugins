@@ -524,6 +524,36 @@ do
 	assert(files[case.managedPath] == nil, "foreign native action changed files")
 end
 
+-- A grouped read-only row still occupies every combination it represents.
+-- The writer must reject a new shortcut that collides with any secondary
+-- combo, not only the first key shown by the merged row.
+do
+	local case = CASES[2]
+	reset(case)
+	stateValues["keymap.snapshot"].categories = {
+		{
+			name = "Windows",
+			binds = {
+				{
+					id = "similar:close-window", activation = "press",
+					combos = {
+						{ modifiers = { "SUPER" }, key = "W" },
+						{ modifiers = { "ALT" }, key = "F4" },
+					},
+				},
+			},
+		},
+	}
+	local result = submit(case, {
+		modifiers = { "ALT" }, keys = { "F4" }, activation = "press",
+		command = "other-command", description = "Conflicting action", category = "Windows",
+	}, "merged-combo-conflict")
+	assert(result.ok == false and result.error == "conflict_blocked",
+		"secondary merged combo was accepted")
+	assert(files[case.rootPath] == case.root and files[case.managedPath] == nil,
+		"merged combo conflict changed files")
+end
+
 do
 	local case = CASES[1]
 	reset(case)

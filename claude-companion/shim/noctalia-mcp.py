@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_INFO = {"name": "noctalia-mcp", "version": "0.1.0"}
@@ -365,6 +366,76 @@ def _set_wallpaper(a):
     return sh(argv)
 
 
+# ── presence (the agent's own voice) ──────────────────────────────────────────
+# Every other signal about Claude is INFERRED: hooks fire on lifecycle edges and the
+# service deduces a state from them. This is the one channel where the agent says what
+# it is doing in its own words, and the surfaces show that instead of a guess.
+#
+# The message goes to a file rather than into the IPC payload because a payload must
+# be a single space-free token (PROTOCOL.md "Transport") and prose is neither. The
+# dispatch is a bare poke; the service reads the file, and an ABSENT file means no
+# message — so clearing is an unlink, not a sentinel value.
+PRESENCE_STATES = {
+    "idle", "turn_start", "text", "tool_start", "needs_attention", "turn_end", "error",
+}
+
+
+def _presence_path():
+    """None when XDG_RUNTIME_DIR is unset: same stance as the consent gate, which
+    refuses to fall back to a world-writable /tmp for anything it later trusts."""
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if not base or not os.path.isdir(base):
+        return None
+    d = os.path.join(base, "claude-companion")
+    try:
+        os.makedirs(d, mode=0o700, exist_ok=True)
+    except OSError:
+        return None
+    return os.path.join(d, "presence")
+
+
+def _poke():
+    sh(["noctalia", "msg", "plugin",
+        "lowcache/claude-companion:pulse-svc", "all", "presence"])
+
+
+def _set_presence(a):
+    text = str(a.get("message") or "").strip()
+    if not text:
+        return "error: 'message' is required"
+    # One glanceable line. A paragraph on a bar tooltip is not presence, it is a wall.
+    text = " ".join(text.split())[:120]
+    state = str(a.get("state") or "").strip()
+    if state and state not in PRESENCE_STATES:
+        return "error: 'state' must be one of " + ", ".join(sorted(PRESENCE_STATES))
+    path = _presence_path()
+    if not path:
+        return "error: no XDG_RUNTIME_DIR; presence unavailable"
+    # `session` is reserved: MCP servers are not handed the Claude session id, so
+    # presence is currently a rollup-level fact. Writing the field now means adding
+    # per-session attribution later is not a format change.
+    row = {"message": text, "state": state, "session": "", "at": int(time.time())}
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump(row, f)
+    except OSError as e:
+        return f"error: {e}"
+    _poke()
+    return "presence set: " + text
+
+
+def _clear_presence(_a):
+    path = _presence_path()
+    if path:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    _poke()
+    return "presence cleared"
+
+
 # name -> (description, inputSchema properties, handler). Commands verified against
 # noctalia 5.0.0 (`noctalia msg --help`); window/workspace ops route through the
 # compositor abstraction above (niri / Hyprland / Sway).
@@ -404,6 +475,28 @@ TOOLS = {
         "Top processes by CPU (pid, %cpu, %mem, command) as text.",
         {},
         _get_processes,
+    ),
+    # ── presence (the agent's own voice) ──────────────────────────────────────
+    "set_presence": (
+        "Say what you are doing right now, in your own words, on the user's desktop. "
+        "Shows on the bar tooltip, the presence orb and any pending permission prompt, "
+        "so they can see your reasoning without reading the terminal. Call it when you "
+        "start something slow, change direction, or get stuck. One short line.",
+        {
+            "message": {"type": "string", "required": True,
+                        "description": "One glanceable line, e.g. 'reading the auth "
+                                       "middleware to find where the token expires'."},
+            "state": {"type": "string",
+                      "description": "Optional lifecycle hint: idle, turn_start, text, "
+                                     "tool_start, needs_attention, turn_end, error."},
+        },
+        _set_presence,
+    ),
+    "clear_presence": (
+        "Drop the presence line you set with set_presence. Call it when the thing you "
+        "described is finished and nothing has replaced it.",
+        {},
+        _clear_presence,
     ),
     # ── memory (durable, cross-session) ───────────────────────────────────────
     "remember": (

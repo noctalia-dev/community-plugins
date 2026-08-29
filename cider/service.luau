@@ -11,6 +11,12 @@ local nowPlaying = nil
 local pendingOsdKey = ""
 local pendingOsdAt = 0
 local ART_WAIT_MS = 1200
+-- False until a live bridge track/status "connected". Blocks rehydrate from
+-- stale state.json after Cider quit (ghost notifications).
+local ciderOnline = false
+-- Consecutive update ticks with window.present == false while a track is shown.
+local ciderAbsentStreak = 0
+local CIDER_ABSENT_HIDE_TICKS = 3 -- ~600ms at 200ms update interval
 
 local STATE_PATH = "~/.cache/noctalia-cider/state.json"
 local EVENT_PATH = "~/.cache/noctalia-cider/event.json"
@@ -219,9 +225,22 @@ local function refreshConfig()
 end
 
 refreshConfig()
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+
+-- API 24+: argv form avoids /bin/sh quoting and stops pkill -f from matching
+-- the launcher cmdline (lyrics_overlay / bridge paths used to sit in the shell string).
+local function runArgv(argv)
+  return noctalia.runAsync(argv)
 end
+
+local function noctaliaMsg(...)
+  local argv = { "noctalia", "msg" }
+  local n = select("#", ...)
+  for i = 1, n do
+    argv[#argv + 1] = select(i, ...)
+  end
+  return runArgv(argv)
+end
+
 local function pluginRoot()
   return noctalia.pluginDir() or "."
 end
@@ -249,8 +268,8 @@ end
 
 local function publishNowPlaying(np)
   nowPlaying = np
-  noctalia.state.set("now_playing", np)
   if type(np) == "table" then
+    noctalia.state.set("now_playing", np)
     noctalia.state.set("title", np.title or "")
     noctalia.state.set("artist", np.artist or "")
     noctalia.state.set("album", np.album or "")
@@ -265,8 +284,17 @@ local function publishNowPlaying(np)
     noctalia.state.set("remaining_text", formatTime(np.remaining_ms))
     noctalia.state.set("progress", dur > 0 and math.min(1, pos / dur) or 0)
   else
-    -- Cider inactive / cleared — bar chip must go idle, not keep last track.
+    -- Empty table (not nil) so widget watchers always receive a clear payload.
     lastTrackKey = ""
+    noctalia.state.set("now_playing", {
+      title = "",
+      artist = "",
+      album = "",
+      artwork_path = "",
+      playback_state = "stopped",
+      position_ms = 0,
+      duration_ms = 0,
+    })
     noctalia.state.set("title", "")
     noctalia.state.set("artist", "")
     noctalia.state.set("album", "")
@@ -290,15 +318,16 @@ local lyricsHudVisible = false
 -- panel-close is idempotent. togglePanel would invert an already-open
 -- now-playing toast. Also close a leftover lyrics-osd panel from older builds.
 local function closeLyricsPanel()
-  noctalia.runAsync("noctalia msg panel-close " .. LYRICS_PANEL_ID .. " 2>/dev/null || true")
+  noctaliaMsg("panel-close", LYRICS_PANEL_ID)
 end
 
 local function stopLyricsOverlay()
-  -- Kill the overlay by pidfile. Never `pkill -f lyrics_overlay.py`: that
-  -- pattern matches this runAsync argv and can kill the launcher instead.
-  noctalia.runAsync(
-    "sh -c 'f=\"$HOME/.cache/noctalia-cider/lyrics_overlay.pid\"; [ -f \"$f\" ] && kill \"$(cat \"$f\")\" 2>/dev/null; rm -f \"$f\"'"
-  )
+  -- Kill the overlay by pidfile. Never `pkill -f lyrics_overlay.py`.
+  runArgv({
+    "sh",
+    "-c",
+    'f="$HOME/.cache/noctalia-cider/lyrics_overlay.pid"; [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null; rm -f "$f"',
+  })
 end
 
 local function persistSurfaceVisible()
@@ -316,14 +345,8 @@ local function ensureLyricsOverlay()
     noctalia.log("cider: missing lyrics_overlay.py")
     return
   end
-  -- Overlay replaces a stale pid itself. Do not pkill by overlay script name:
-  -- a -f match hits this runAsync shell and kills the launcher first.
-  noctalia.runAsync(
-    string.format(
-      "nohup python3 %s >/tmp/noctalia-cider-lyrics-overlay.log 2>&1 &",
-      shellQuote(script)
-    )
-  )
+  -- Detached argv launch (no shell). Overlay replaces a stale pid itself.
+  runArgv({ "python3", script })
 end
 
 local function applyLyricsSurface()
@@ -371,13 +394,13 @@ local lastNotifyTrackKey = ""
 
 local function closeOsd()
   osdCloseAt = 0
-  noctalia.runAsync("noctalia msg panel-close dragged/cider:osd")
+  noctaliaMsg("panel-close", "dragged/cider:osd")
 end
 
 local function openOsd()
   pendingOsdKey = ""
   pendingOsdAt = 0
-  noctalia.runAsync("noctalia msg panel-open dragged/cider:osd")
+  noctaliaMsg("panel-open", "dragged/cider:osd")
   -- Always (re)arm dismiss timer from this open.
   osdCloseAt = os.clock() * 1000 + osdDurationMs
 end
@@ -429,7 +452,7 @@ local function showTrackNotification(np)
     noctalia.notify(payload.summary, payload.body)
     return
   end
-  local ok = noctalia.runAsync("noctalia msg notification-show " .. shellQuote(encoded))
+  local ok = noctaliaMsg("notification-show", encoded)
   if not ok then
     noctalia.notify(payload.summary, payload.body)
   end
@@ -576,13 +599,59 @@ local function applyLocalLyrics(event)
   end
 end
 
+local function markCiderOffline()
+  ciderOnline = false
+  ciderAbsentStreak = 0
+  lastTrackKey = ""
+  lastNotifyTrackKey = ""
+  lastOsdTrackKey = ""
+  pendingOsdKey = ""
+  pendingOsdAt = 0
+  clearLocalLyrics()
+  publishNowPlaying(nil)
+end
+
+local function ciderWindowPresent()
+  local raw = noctalia.readFile(WINDOW_PATH)
+  if raw == nil or raw == "" then
+    return nil
+  end
+  local ok, decoded = pcall(function()
+    return noctalia.json.decode(raw)
+  end)
+  if not ok or type(decoded) ~= "table" then
+    return nil
+  end
+  return decoded.present == true
+end
+
+local function maybeHideWhenCiderClosed()
+  -- Belt-and-suspenders: compositor says Cider's window is gone. Don't wait for
+  -- socket death — that lag is what left the bar chip stuck on the last song.
+  local hasSong = type(nowPlaying) == "table"
+      and ((tostring(nowPlaying.title or "") ~= "") or (tostring(nowPlaying.artist or "") ~= ""))
+  if not hasSong then
+    ciderAbsentStreak = 0
+    return
+  end
+  local present = ciderWindowPresent()
+  if present == true then
+    ciderAbsentStreak = 0
+    return
+  end
+  if present == false then
+    ciderAbsentStreak = ciderAbsentStreak + 1
+    if ciderAbsentStreak >= CIDER_ABSENT_HIDE_TICKS then
+      markCiderOffline()
+    end
+  end
+end
+
 local function handleEvent(event)
   if type(event) ~= "table" or type(event.type) ~= "string" then return end
 
   if event.type == "clear" then
-    lastTrackKey = ""
-    clearLocalLyrics()
-    publishNowPlaying(nil)
+    markCiderOffline()
     return
   end
 
@@ -590,15 +659,17 @@ local function handleEvent(event)
     local msg = tostring(event.message or "")
     noctalia.state.set("bridge_status", msg)
     -- Disconnect / dead API: treat as inactive Cider.
-    if msg == "disconnected" or msg:match("^api_dead") or msg:match("^connect_failed") then
-      lastTrackKey = ""
-      clearLocalLyrics()
-      publishNowPlaying(nil)
+    if msg == "disconnected" or msg == "cider_closed"
+        or msg:match("^api_dead") or msg:match("^connect_failed") then
+      markCiderOffline()
+    elseif msg == "connected" then
+      ciderOnline = true
     end
     return
   end
 
   if event.type == "time" or event.type == "state" or event.type == "track" or event.type == "art" then
+    ciderOnline = true
     local np = {
       title = event.title or "",
       artist = event.artist or "",
@@ -667,8 +738,8 @@ end
 local pollInFlight = false
 
 local function pollBridgeFiles()
-  -- Order: track before lyrics so a service start does not flash stale lines.
-  -- Async chain: STATE → EVENT → LYRICS → POSITION (API 23 readFileAsync).
+  -- Order: clear/status before state rehydrate so a dead Cider cannot ghost-notify.
+  -- Async chain: EVENT → STATE → LYRICS → POSITION (API 23 readFileAsync).
   if pollInFlight then
     return
   end
@@ -680,7 +751,7 @@ local function pollBridgeFiles()
 
   local function applyPosition(posRaw)
     -- Position last — highest-frequency Cider clock for lyrics lock.
-    if posRaw and posRaw ~= "" and posRaw ~= lastPositionRaw then
+    if ciderOnline and posRaw and posRaw ~= "" and posRaw ~= lastPositionRaw then
       lastPositionRaw = posRaw
       local decoded = noctalia.json.decode(posRaw)
       if type(decoded) == "table" then
@@ -724,29 +795,15 @@ local function pollBridgeFiles()
     end
   end
 
-  local function applyEvent(eventRaw)
-    if eventRaw and eventRaw ~= "" then
-      local decoded = noctalia.json.decode(eventRaw)
-      if type(decoded) == "table" then
-        local eid = tostring(decoded._id or "")
-        if eid ~= "" and eid ~= lastEventId then
-          lastEventId = eid
-          -- Skip lyrics edges here — lyrics.json is the durable source and avoids
-          -- double-clear races with track events in the same poll.
-          if decoded.type ~= "lyrics" then
-            handleEvent(decoded)
-          end
-        end
-      end
-    end
-    local queued = noctalia.readFileAsync(LYRICS_PATH, applyLyrics)
-    if not queued then
-      finishPoll()
-    end
-  end
-
   local function applyState(stateRaw)
-    if stateRaw and stateRaw ~= "" then
+    -- Never rehydrate from disk while Cider is offline — stale state.json was
+    -- the ghost-notification source after quit (STATE poll before CLEAR).
+    if not ciderOnline then
+      if type(nowPlaying) == "table" then
+        publishNowPlaying(nil)
+        clearLocalLyrics()
+      end
+    elseif stateRaw and stateRaw ~= "" then
       local decoded = noctalia.json.decode(stateRaw)
       if type(decoded) == "table" and (decoded.title or decoded.artist) then
         if lastTrackKey == "" then
@@ -770,13 +827,35 @@ local function pollBridgeFiles()
       publishNowPlaying(nil)
       clearLocalLyrics()
     end
-    local queued = noctalia.readFileAsync(EVENT_PATH, applyEvent)
+    local queued = noctalia.readFileAsync(LYRICS_PATH, applyLyrics)
     if not queued then
       finishPoll()
     end
   end
 
-  local queued = noctalia.readFileAsync(STATE_PATH, applyState)
+  local function applyEvent(eventRaw)
+    if eventRaw and eventRaw ~= "" then
+      local decoded = noctalia.json.decode(eventRaw)
+      if type(decoded) == "table" then
+        local eid = tostring(decoded._id or "")
+        if eid ~= "" and eid ~= lastEventId then
+          lastEventId = eid
+          -- Skip lyrics edges here — lyrics.json is the durable source and avoids
+          -- double-clear races with track events in the same poll.
+          if decoded.type ~= "lyrics" then
+            handleEvent(decoded)
+          end
+        end
+      end
+    end
+    local queued = noctalia.readFileAsync(STATE_PATH, applyState)
+    if not queued then
+      finishPoll()
+    end
+  end
+
+  -- Event before state: clear/connect_failed must land before any state rehydrate.
+  local queued = noctalia.readFileAsync(EVENT_PATH, applyEvent)
   if not queued then
     finishPoll()
   end
@@ -793,13 +872,9 @@ local function startBridge()
   noctalia.mkdirAll("~/.cache/noctalia-cider/art")
   noctalia.writeFile("~/.cache/noctalia-cider/apptoken", apptoken or "")
   -- bash, not chmod +x: git-store installs can be read-only. Token is a file,
-  -- not argv, so `ps` cannot scrape it.
-  local cmd = string.format(
-    "bash %s %s ~/.cache/noctalia-cider >/tmp/noctalia-cider-bridge.log 2>&1 &",
-    shellQuote(launcher),
-    shellQuote(baseUrl)
-  )
-  local ok = noctalia.runAsync(cmd)
+  -- not argv, so `ps` cannot scrape it. Omit state-dir arg — start-bridge.sh
+  -- defaults to $HOME/.cache/noctalia-cider (tilde does not expand in argv).
+  local ok = runArgv({ "bash", launcher, baseUrl })
   if ok then
     bridgeStarted = true
     noctalia.state.set("bridge_status", "starting")
@@ -826,6 +901,7 @@ end
 
 function update()
   pollBridgeFiles()
+  maybeHideWhenCiderClosed()
   maybeCloseOsd()
   -- Smooth OSD progress from the last trusted Cider anchor (no fake +200 jumps).
   if type(nowPlaying) == "table" then
@@ -844,7 +920,7 @@ function onConfigChanged()
   applyLyricsSurface()
   if baseUrl ~= prevUrl or apptoken ~= prevToken then
     bridgeStarted = false
-    noctalia.runAsync("pkill -f cider_bridge.py 2>/dev/null || true")
+    runArgv({ "pkill", "-f", "cider_bridge.py" })
     startBridge()
   end
 end
@@ -882,11 +958,11 @@ end
 function onExit(_signal, reason)
   -- Reload keeps the replacement bridge; start-bridge.sh already replaces it.
   if reason == "disable" or reason == "uninstall" or reason == "shutdown" then
-    noctalia.runAsync("pkill -f cider_bridge.py >/dev/null 2>&1 || true")
+    runArgv({ "pkill", "-f", "cider_bridge.py" })
     stopLyricsOverlay()
   end
   if reason == "disable" or reason == "uninstall" then
-    noctalia.runAsync("noctalia msg panel-close dragged/cider:osd 2>/dev/null || true")
+    noctaliaMsg("panel-close", "dragged/cider:osd")
     closeLyricsPanel()
   end
 end

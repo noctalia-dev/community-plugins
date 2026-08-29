@@ -210,7 +210,7 @@ local function runPicker(onResult: (string?, string?) -> ())
 
     noctalia.copyToClipboard(copyText, "text/plain;charset=utf-8")
     onResult(hex, copyText)
-  end)
+  end, 60000)
 end
 
 --==============================================

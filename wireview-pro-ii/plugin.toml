@@ -1,0 +1,38 @@
+id = "gustav0ar/wireview-pro-ii"
+name = "WireView Pro II"
+version = "0.3.0"
+plugin_api = 9
+author = "Gustavo"
+license = "MIT"
+dependencies = ["python3", "sleep"]
+tags = ["bar", "panel", "service", "system", "hardware", "utility"]
+icon = "bolt"
+description = "Live WireView Pro II telemetry and controls. Requires wireviewd: https://github.com/Gustav0ar/wireview-pro-ii"
+
+[[service]]
+id = "monitor"
+entry = "service.luau"
+
+[[widget]]
+id = "summary"
+entry = "widget.luau"
+
+[[panel]]
+id = "dashboard"
+entry = "panel.luau"
+width = 900
+height = 680
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+  [[panel.setting]]
+  key = "faults_layout"
+  type = "select"
+  label_key = "settings.faults_layout.label"
+  description_key = "settings.faults_layout.description"
+  default = "side_by_side"
+  options = [
+    { value = "side_by_side", label_key = "settings.faults_layout.side_by_side" },
+    { value = "stacked", label_key = "settings.faults_layout.stacked" },
+  ]

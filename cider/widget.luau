@@ -1,6 +1,7 @@
 --!nonstrict
 -- Compact Cider now-playing bar widget.
 -- Only re-render on identity/playing changes — position ticks must not flash opacity.
+-- Hide entirely when nothing is active (no title/artist).
 
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end
@@ -11,6 +12,20 @@ local artist = ""
 local artwork = ""
 local playing = false
 local lastRenderKey = ""
+local visible = true
+
+local function hasTrack()
+  return title ~= "" or artist ~= ""
+end
+
+local function setChipVisible(want)
+  want = want == true
+  if want == visible then
+    return
+  end
+  visible = want
+  barWidget.setVisible(want)
+end
 
 local function renderKey()
   return table.concat({
@@ -20,6 +35,7 @@ local function renderKey()
     playing and "1" or "0",
     showCover and "1" or "0",
     tostring(coverSize),
+    hasTrack() and "1" or "0",
   }, "|")
 end
 
@@ -29,6 +45,12 @@ local function render(force)
     return
   end
   lastRenderKey = key
+
+  if not hasTrack() then
+    setChipVisible(false)
+    return
+  end
+  setChipVisible(true)
 
   local children = {}
   if showCover and artwork ~= "" and noctalia.fileExists(artwork) then
@@ -50,14 +72,8 @@ local function render(force)
   if artist ~= "" then
     label = title ~= "" and (title .. " · " .. artist) or artist
   end
-  if label == "" then label = noctalia.tr("widget.idle") end
   -- Stable color — never opacity-pulse on playback_state flicker.
-  local color = "on_surface"
-  if label == noctalia.tr("widget.idle") then
-    color = "on_surface/0.55"
-  elseif not playing then
-    color = "on_surface/0.7"
-  end
+  local color = playing and "on_surface" or "on_surface/0.7"
   children[#children + 1] = ui.label({
     text = label,
     maxLines = 1,
@@ -78,6 +94,10 @@ local function applyNowPlaying(np)
     nextPlaying = np.playback_state == "playing"
   end
   if nextTitle == title and nextArtist == artist and nextArtwork == artwork and nextPlaying == playing then
+    -- Still force-hide if we somehow rendered while empty.
+    if not hasTrack() then
+      setChipVisible(false)
+    end
     return
   end
   title, artist, artwork, playing = nextTitle, nextArtist, nextArtwork, nextPlaying
@@ -104,6 +124,9 @@ function onConfigChanged()
 end
 
 function onClick()
+  if not hasTrack() then
+    return
+  end
   local enabled = noctalia.state.get("lyrics_osd_enabled")
   if enabled == nil then
     enabled = noctalia.getConfig("lyrics_osd_enabled")
@@ -112,7 +135,14 @@ function onClick()
     return
   end
   -- Text-only HUD: gtk-layer-shell overlay.
-  noctalia.runAsync("noctalia msg plugin dragged/cider:bridge all toggle-lyrics-hud")
+  noctalia.runAsync({
+    "noctalia",
+    "msg",
+    "plugin",
+    "dragged/cider:bridge",
+    "all",
+    "toggle-lyrics-hud",
+  })
 end
 
 -- Seed once from cache; no periodic update() — that was flashing grey/white.

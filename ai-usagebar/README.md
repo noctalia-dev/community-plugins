@@ -24,17 +24,22 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI owns the credentials and the
 endpoints, and this plugin never sees them.
 
-`xdg-open` is optional. It is spawned by one row in the panel, the link to the
-CLI's project page offered when `ai-usagebar` is not on `PATH`. Without
-xdg-utils that row does nothing and the rest of the plugin is unaffected.
+`xdg-open` is optional. The panel spawns it for one button, the link to the
+CLI's project page it offers when `ai-usagebar` is not on `PATH`. Without
+xdg-utils the panel leaves that button out and nothing else changes.
+
+The plugin asks for **plugin API 22**, which is where Noctalia gained
+`require()`. On a shell older than that it will not install. Version 1.1.0 asked
+for API 9 and still runs there.
 
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
-the headline percentage of a provider, behind that provider's icon. It reads in
-the bar's own colour while there is room, picks up the theme's `tertiary` when
-the CLI calls the window high, and `error` when it calls it critical. The accent
-stays on the gauge fill, so a calm capsule looks like the widgets beside it.
+one provider's headline percentage next to that provider's mark. The reading
+sits in the bar's own colour while there is room, picks up the theme's
+`secondary` when the CLI calls the window high, and `error` when it calls it
+critical. The mark itself never changes colour: it says which provider, not how
+full the plan is.
 
 Left on `Automatic`, the capsule follows the busiest provider, so what sits in
 the bar is the plan closest to running out. Raise `provider_limit` and it
@@ -42,18 +47,16 @@ carries the next busiest ones too, with a `+N` for whatever did not fit. Pin a
 provider instead, or add the widget twice, when you want two fixed plans side by
 side.
 
-Four styles, all with the same reading:
+The capsule is put together the way the core `sysmon` widget is, with the same
+key names, so the CPU reading beside it is configured with the same vocabulary.
+`visualization` draws a `gauge`, a quota bar over a thinner bar for how much of
+the window has gone, so a longer fill than clock is spend running ahead, or
+`none`. `show_value`, `show_glyph` and `glyph_position` decide whether the
+percentage and the icon are there and which side the icon sits on.
 
-| Style | Shape |
-| --- | --- |
-| `pill` | Icon and percentage. The compact one. |
-| `gauge` | Icon, a small quota bar over a thinner "window elapsed" bar, percentage. |
-| `meter` | Icon and five segments, filled in twenties, with no percentage. |
-| `label` | Icon, provider name and percentage stacked over the bars. |
-
-Next to that, `extras` puts the time left in the window (`3h 51m`), the pace
-against the clock (`↑3` is three points ahead of where the window says you
-should be, `↓3` is three under), both, or neither.
+`extras` puts the time left in the window (`3h 51m`), the pace against the
+clock (`↑3` is three points ahead of where the window says you should be, `↓3`
+is three under), both, or neither.
 
 If you add the widget by hand in `config.toml`, give it a name. A bar list entry
 that is a raw widget id becomes an anonymous instance, and an anonymous instance
@@ -62,7 +65,7 @@ has no settings of its own, so the gear opens empty:
 ```toml
 [widget.ai_usage]
 type = "felipeartur/ai-usagebar:bar"
-style = "gauge"
+visualization = "gauge"
 provider_limit = 2
 
 [bar.default]
@@ -73,29 +76,37 @@ start = [ "clock", "ai_usage" ]
   clock time the reset lands on.
 - **Left click** opens the `AI Usage` panel for the provider that capsule
   tracks.
-- **Right click** refreshes immediately.
+- **Right click** asks the poller for a read. One process serves every capsule,
+  and it coalesces repeated clicks into at most one pending read, so holding the
+  button down does not spawn a queue of processes.
 - **Middle click** opens the widget's settings, as everywhere else in the shell.
 
-The panel is a two pane view. On the left is every provider you have set up,
+Left and middle are the script's; right is a gesture binding, so it is listed in
+the widget's settings and can be pointed at any other action, or at `none`.
+
+The panel is a two-pane view. On the left is every provider you have set up,
 with its headline percentage. On the right is the selected one in detail: one
 card per reported metric, with a quota bar over a thinner "window elapsed" bar,
 so a fill that outruns the clock bar means quota is burning ahead of pace.
 Credit balances and free text rows the CLI reports get rendered as well.
-Opening the panel asks the CLI for fresh numbers, and the header says how old
-the reading is. There is no refresh button and no close button: the read
-happens on open, and the panel closes when you click away from it or press the
-same widget again.
+Opening the panel asks the CLI for fresh numbers, and the detail pane says how
+old the reading is. The refresh button in the header asks again; it turns into
+a spinner while the CLI is answering. The gear beside it opens this plugin's
+settings. There is no close button: the panel closes when you click away from
+it or press the same widget again.
 
-The list follows the CLI. A provider that `ai-usagebar` has no credential for
-never appears, while one that is set up and failing keeps its row and shows the
-error.
+The list follows the CLI. A provider the CLI reports no API key for never
+appears, because it was never set up. One that is set up and unreachable keeps
+its row and shows the CLI's own words, so Antigravity with its local server
+down says to open Antigravity rather than vanishing.
 
-The detail pane spells out everything the CLI reports for that provider instead
-of implying it: the plan and account name, the provider id, its status, a stale
-flag when the reading is old, and when it was fetched. Each window gets its
-label, the severity the CLI assigned it, the percentage, the raw value string
-when that says more than the percentage, how much of the window has elapsed, the
-time left with the clock time (or date) its reset lands on, and the pace line.
+The detail pane spells out what the CLI reports for that provider instead of
+implying it: the plan and account name, when it was fetched, a stale flag when
+the reading is old, and the status when it is anything other than a healthy
+read. Each window gets its label, the percentage, the raw value string when
+that says more than the percentage, how much of the window has elapsed, the
+time left with the clock time (or date) its reset lands on, the pace line, and
+the severity as a word whenever the CLI calls the window high or critical.
 Credit blocks and free text rows appear as the CLI writes them.
 
 To open the panel from a terminal:
@@ -117,7 +128,10 @@ Per widget instance, so two capsules can follow two providers:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows the busiest provider, with the CLI's own `[ui] primary` breaking ties. |
-| `style` | `select` | `pill` | `pill`, `gauge`, `meter` or `label`, as described in the table above. |
+| `visualization` | `select` | `none` | `gauge` or `none`, as described above. |
+| `show_value` | `bool` | `true` | Show the percentage as text. |
+| `show_glyph` | `bool` | `true` | Show the provider's icon. |
+| `glyph_position` | `select` | `before` | `before` or `after` the reading. |
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, from 1 to 4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | What rides beside the percentage: `countdown`, `pace`, `both` or `none`. |
 | `show_name` | `bool` | `false` | Adds the product name, so two capsules do not look alike. |
@@ -148,12 +162,22 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   it knows arrives on that command's stdout.
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
-  keeps showing, flagged in the capsule and in the panel header.
-- The file watcher follows the `.luau` entries only, so the files in
-  `translations/` are read once, when the plugin loads. Editing a string takes
-  a reload before the new text shows up:
+  keeps showing, flagged by an icon in the list, the capsule, and the panel's
+  detail pane.
 
-  ```sh
-  noctalia msg plugins disable felipeartur/ai-usagebar
-  noctalia msg plugins enable felipeartur/ai-usagebar
-  ```
+## Tests
+
+Everything the CLI prints is redacted on its way to the screen, and that is the
+part worth a test. From the `ai-usagebar` directory:
+
+```sh
+lua tests/scrub_test.lua
+lua tests/refresh_test.lua
+```
+
+The first test reads `safeText` and `scrub` out of `service.luau` rather than
+copying them, then checks that real credential shapes never survive, that ordinary
+readings pass through unchanged, and that scrubbing a four-vendor report stays
+inside the CPU budget the poller's async callback is given. The second exercises
+the coalesced refresh state and checks that every provider it knows about has a
+glyph of its own rather than the fallback. An overrun in the first test loses the whole reading, not just time.

@@ -38,7 +38,7 @@ local function send(action, payload)
 end
 
 local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
 local function getMode()

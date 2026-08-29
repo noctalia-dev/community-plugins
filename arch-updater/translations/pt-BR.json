@@ -1,7 +1,7 @@
 {
   "settings": {
     "show_activity_graph": {
-      "description": "Acompanhe a contagem de atualizações pendentes com base nas verificações recentes e na data da última atualização; essas informações são exibidas em um pequeno gráfico no painel. Desativar esse recurso também interrompe o registro do histórico."
+      "description": "Monitore a contagem de atualizações pendentes com base nas verificações recentes e na data da última atualização; esses dados são exibidos em um pequeno gráfico acima da faixa do histórico de atualizações. A opção \"Desativado\" (padrão) também interrompe o registro do histórico."
     }
   }
 }

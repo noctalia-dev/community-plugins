@@ -104,8 +104,13 @@ assert(loadfile("service.luau"))()
 debug.sethook()
 local initialInstructionBlocks = instructionBlocks
 instructionBlocks, firstAsyncInstructionBlocks = 0, nil
+-- The panel only ever increments through state.set; mirror that so the
+-- service's staleness guard sees a genuine increment instead of an echo.
+-- The watcher defers the refresh to the update tick, so invoke update() the
+-- way the host's service timer would.
 debug.sethook(function() instructionBlocks = instructionBlocks + 1 end, "", 1000)
-watchers["keymap.refresh_request"](1)
+noctalia.state.set("keymap.refresh_request", (tonumber(noctalia.state.get("keymap.refresh_request")) or 0) + 1)
+update()
 debug.sethook()
 local refreshInstructionBlocks = instructionBlocks
 local refreshScanInstructionBlocks = firstAsyncInstructionBlocks

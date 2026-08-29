@@ -48,7 +48,7 @@ local function trim(s)
 end
 
 local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
 local function copyFileUri(path)
@@ -119,7 +119,7 @@ local function focusedGeometry()
 end
 
 local function parseGeometry(geom)
-  local gx, gy, gw, gh = geom:match("^(%d+),(%d+)%s+(%d+)x(%d+)$")
+  local gx, gy, gw, gh = geom:match("^(-?%d+),(-?%d+)%s+(%d+)x(%d+)$")
   if not gx then return nil end
   return tonumber(gx), tonumber(gy), tonumber(gw), tonumber(gh)
 end
@@ -372,6 +372,7 @@ local function runOcr()
         gw = tonumber(gw),
         gh = tonumber(gh),
       })
+      publish("translateResult", nil)
       publish("activeTool", "ocr")
       saveResults()
       noctalia.togglePanel(RESULT_PANEL_ID)
@@ -411,12 +412,18 @@ local function ocrTranslate(payload)
   publish("translateResult", nil)
   local targetLang = if type(payload) == "table" then payload.lang else payload
   local lang = if type(targetLang) == "string" and targetLang ~= "" then targetLang else "en"
-  noctalia.runAsync(`trans -brief -to {shellQuote(lang)} {shellQuote(text)}`, function(res)
+  noctalia.runAsync(`trans -brief -no-bidi -to {shellQuote(lang)} {shellQuote(text)}`, function(res)
     if res.exitCode ~= 0 then
       publish("translateResult", noctalia.tr("messages.translate_failed"))
       return
     end
-    publish("translateResult", trim(res.stdout or ""))
+    -- trans bidi conversion outputs presentation-forms + terminal padding (visual order);
+    -- -no-bidi gives logical order (U+0600) for Qt/HarfBuzz shaping. Collapse stray newlines.
+    local out = trim(res.stdout or "")
+    out = out:gsub("%s+", " ")
+    -- strip BOM FEFF that trans emits in bidi mode
+    out = out:gsub("^\239\187\191", "")
+    publish("translateResult", out)
   end)
 end
 
@@ -659,15 +666,31 @@ local function buildRecorderCommand(bin, geom, out)
     local cursor = cursorHidden and "no" or "yes"
     local target = "-w screen"
     if isRegion then
-      local gx, gy, gw, gh = tostring(geom):match("^(%d+),(%d+) (%d+)x(%d+)$")
+      local gx, gy, gw, gh = tostring(geom):match("^(-?%d+),(-?%d+) (%d+)x(%d+)$")
       if gx then target = string.format("-w region -region %sx%s+%s+%s", gw, gh, gx, gy) end
+    else
+      local fg = focusedGeometry()
+      if fg then
+        local fx, fy, fw, fh = fg:match("^(-?%d+),(-?%d+) (%d+)x(%d+)$")
+        if fx then target = string.format("-w region -region %sx%s+%s+%s", fw, fh, fx, fy) end
+      end
     end
     return string.format("gpu-screen-recorder %s -f %d -k %s -bm qp -ffmpeg-opts qp=25 -cursor %s -cr limited %s -v no -o %s", target, fps, codec, cursor, gsrAudioFlags(), shellQuote(out))
   end
 
   local isWl = bin == "wl-screenrec"
   local parts = { bin }
-  if isRegion then table.insert(parts, "-g " .. shellQuote(geom)) end
+  if isRegion then
+    table.insert(parts, "-g " .. shellQuote(geom))
+  else
+    local focused = noctalia.focusedOutputName()
+    if focused and focused ~= "" then
+      table.insert(parts, "-o " .. shellQuote(focused))
+    else
+      local fg = focusedGeometry()
+      if fg then table.insert(parts, "-g " .. shellQuote(fg)) end
+    end
+  end
   table.insert(parts, "-f " .. shellQuote(out))
 
   if isWl then

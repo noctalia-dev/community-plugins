@@ -40,7 +40,7 @@ _WINDOW_POLL_SEC = 0.35
 
 @dataclass
 class TrackEvent:
-    type: str  # track | time | state | lyrics | clear | status
+    type: str  # track | time | state | lyrics | clear | status | art
     title: str = ""
     artist: str = ""
     album: str = ""
@@ -57,6 +57,9 @@ class TrackEvent:
     lyrics_lrc: str = ""
     lyrics_lines: list[dict[str, Any]] | None = None
     message: str = ""
+    # When True, update state.json metadata but leave position.json alone so the
+    # overlay keeps extrapolating from the last real Cider time sample.
+    skip_position: bool = False
 
 
 _EMIT_LOCK = threading.Lock()
@@ -82,9 +85,13 @@ _POS_ANCHOR_MS = 0
 _POS_ANCHOR_WALL = 0.0
 _POS_PLAYING = False
 _POS_DURATION_MS = 0
-# Ignore small backward snaps from stale state/poll samples (not real seeks).
+# Clock hygiene for position.json (overlay extrapolates from these anchors).
+# Untrusted poll/state samples: reject tiny forward spikes, ignore mild behind
+# snaps. Trusted time events (real Cider playbackTimeDidChange / new track)
+# always re-anchor so scrubbing seeks track immediately.
+_AHEAD_REJECT_MS = 400
 _STALE_REWIND_MIN_MS = 350
-_STALE_REWIND_MAX_MS = 4000
+_SEEK_ACCEPT_MS = 1500
 
 
 def _set_position_anchor(position_ms: int, playing: bool, duration_ms: int = 0) -> None:
@@ -112,11 +119,22 @@ def _estimated_position_ms() -> int:
     return est
 
 
-def _write_position(position_ms: int, playing: bool, duration_ms: int = 0) -> None:
+def _write_position(
+    position_ms: int,
+    playing: bool,
+    duration_ms: int = 0,
+    *,
+    trust: bool = False,
+) -> None:
     """Write last-known Cider anchor. HUD/Luau extrapolate between ticks.
 
     Never store wall-clock-extrapolated values here — that double-counts with
-    consumers and lets stale state events yank the sing-along clock backward.
+    consumers.
+
+    trust=True  — live playbackTimeDidChange / new track: always re-anchor so
+                  scrubbing seeks move lyrics immediately.
+    trust=False — poll/state snapshots: reject spurious ahead spikes, ignore
+                  mild behind snaps, but accept |delta| >= SEEK as a seek.
     """
     global _POS_ANCHOR_MS, _POS_ANCHOR_WALL, _POS_PLAYING, _POS_DURATION_MS
     position_ms = max(0, int(position_ms))
@@ -127,16 +145,23 @@ def _write_position(position_ms: int, playing: bool, duration_ms: int = 0) -> No
         if duration_ms:
             _POS_DURATION_MS = duration_ms
         dur = _POS_DURATION_MS
-        if _POS_ANCHOR_WALL > 0 and _POS_PLAYING:
+        if (not trust) and _POS_ANCHOR_WALL > 0 and _POS_PLAYING:
             elapsed = max(0, int((time.time() - _POS_ANCHOR_WALL) * 1000))
             est = _POS_ANCHOR_MS + elapsed
             if dur > 0:
                 est = min(est, dur)
-            rewind = est - position_ms
-            if playing and _STALE_REWIND_MIN_MS <= rewind < _STALE_REWIND_MAX_MS:
-                # Stale sample while still playing — keep extrapolating from old anchor.
-                return
-            if (not playing) and rewind >= _STALE_REWIND_MIN_MS:
+            delta = position_ms - est  # +ahead of clock, -behind
+            if playing:
+                if delta > _AHEAD_REJECT_MS:
+                    # Spurious forward spike from a poll. Forward seeks arrive on
+                    # trusted playbackTimeDidChange ticks instead.
+                    return
+                rewind = -delta
+                if _STALE_REWIND_MIN_MS <= rewind < _SEEK_ACCEPT_MS:
+                    # Mild behind from a stale poll — don't scrub.
+                    return
+                # rewind >= SEEK_ACCEPT: treat as scrub/seek backward.
+            elif (-delta) >= _STALE_REWIND_MIN_MS:
                 # Pause with a stale timestamp: freeze at the live estimate.
                 position_ms = est
 
@@ -358,17 +383,21 @@ def emit(event: TrackEvent) -> None:
     payload = asdict(event)
     if payload.get("lyrics_lines") is None:
         payload.pop("lyrics_lines", None)
+    skip_position = bool(payload.pop("skip_position", False))
     body = json.dumps(payload, ensure_ascii=False)
     with _EMIT_LOCK:
         _STATE_DIR.mkdir(parents=True, exist_ok=True)
         # Continuous snapshot for progress polling
         if event.type in {"track", "time", "state", "art"}:
             _atomic_write(_STATE_DIR / "state.json", body)
-            if event.type in {"track", "time", "state"}:
+            if event.type in {"track", "time", "state"} and not skip_position:
                 _write_position(
                     int(event.position_ms or 0),
                     str(event.playback_state or "") == "playing",
                     int(event.duration_ms or 0),
+                    # Live time ticks + new tracks are authoritative (seeks).
+                    # Snapshot/state polls stay filtered against sprint/scrub noise.
+                    trust=event.type in {"time", "track"},
                 )
         elif event.type == "clear":
             _wipe_playback_sidecars()
@@ -750,6 +779,9 @@ class CiderBridge:
             emit(TrackEvent(type="status", message="disconnected"))
 
     def start(self) -> None:
+        # Drop leftovers from a previous session until a live snapshot arrives.
+        # Otherwise Luau can rehydrate a stale playing track after Cider quit.
+        _wipe_playback_sidecars()
         threading.Thread(target=self._run_sio, name="cider-sio", daemon=True).start()
         if self.poll_interval_sec > 0:
             threading.Thread(target=self._poll_loop, name="cider-poll", daemon=True).start()
@@ -766,9 +798,20 @@ class CiderBridge:
 
     def _window_loop(self) -> None:
         last_body = ""
+        was_present = False
         while not self._stop.is_set():
             try:
                 payload = probe_cider_window()
+                present = payload.get("present") is True
+                # Closing Cider removes its window — clear immediately instead of
+                # waiting for socket/API death (that lag left the bar chip stuck).
+                if was_present and not present:
+                    self._track_key = ""
+                    self._lyrics_key = ""
+                    self._last = {}
+                    emit(TrackEvent(type="clear"))
+                    emit(TrackEvent(type="status", message="cider_closed"))
+                was_present = present
                 body = json.dumps(payload, ensure_ascii=False)
                 if body != last_body:
                     _write_window(payload)
@@ -790,6 +833,12 @@ class CiderBridge:
                     wait_timeout=10,
                 )
             except Exception as exc:
+                # Wipe durable snapshots — otherwise Luau rehydrates a stale
+                # "playing" track from state.json and fires ghost notifications.
+                self._track_key = ""
+                self._lyrics_key = ""
+                self._last = {}
+                emit(TrackEvent(type="clear"))
                 emit(TrackEvent(type="status", message=f"connect_failed:{exc}"))
                 self._stop.wait(5)
 
@@ -895,14 +944,19 @@ class CiderBridge:
         song_id = str(play_params.get("id") or catalog_id or "")
         isrc = str(attrs.get("isrc") or "")
         duration_ms = int(attrs.get("durationInMillis") or 0)
+        fresh_position = False
         if attrs.get("currentPlaybackTime") is not None:
             position_ms = int(float(attrs["currentPlaybackTime"]) * 1000)
+            fresh_position = True
         elif attrs.get("remainingTime") is not None and duration_ms:
             position_ms = max(0, duration_ms - int(float(attrs["remainingTime"]) * 1000))
+            fresh_position = True
         else:
-            # No fresh Cider timestamp — keep the live extrapolated clock.
-            # Using a stale _last.position_ms rewinds sing-along by up to seconds.
+            # No fresh Cider timestamp — keep the live extrapolated clock in
+            # memory, but do not rewrite position.json (that re-anchored `t`
+            # and could amplify drift).
             position_ms = _estimated_position_ms() if self._last else 0
+            fresh_position = False
 
         artwork = attrs.get("artwork") or {}
         artwork_url = ""
@@ -942,6 +996,8 @@ class CiderBridge:
             event_type = "track"
         elif reason == "track" and not is_new_track:
             event_type = "state"
+        # New tracks always need a position anchor; metadata-only snapshots do not.
+        skip_position = (not fresh_position) and event_type != "track"
         event = TrackEvent(
             type=event_type,
             title=title,
@@ -957,6 +1013,7 @@ class CiderBridge:
             isrc=isrc,
             has_lyrics=bool(attrs.get("hasLyrics")),
             has_synced=bool(attrs.get("hasTimeSyncedLyrics")),
+            skip_position=skip_position,
         )
         self._last = asdict(event)
         self._last["playback_state"] = state

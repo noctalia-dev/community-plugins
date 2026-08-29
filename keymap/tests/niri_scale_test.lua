@@ -64,6 +64,12 @@ noctalia = {
 }
 
 assert(loadfile("niri_service.luau"))()
+-- The parser yields between slices; pump update ticks until it settles.
+local pumps = 0
+while values["keymap.snapshot"].status == "loading" and pumps < 100 do
+  update()
+  pumps = pumps + 1
+end
 bit32 = originalBit32
 
 local snapshot = values["keymap.snapshot"]

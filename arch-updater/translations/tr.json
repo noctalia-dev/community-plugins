@@ -20,7 +20,7 @@
   "launcher": {
     "check_subtitle": "pacman, AUR, ve Flatpak'i güncellemeler için kontrol et",
     "news_subtitle": "Arch Linux bültenini aç",
-    "update_subtitle": "Terminali aç ve güncellemeleri başlat"
+    "update_subtitle": "Bekleyen güncellemeleri yükleyin (güncelleme modu ayarına bağlı olarak terminalde veya arka planda)"
   },
   "more_packages": "+{count} tane daha",
   "news_unread": {

@@ -16,7 +16,7 @@ Replaces the sparse stock media OSD **for Cider only**. Other players keep Nocta
 
 ## Requirements
 
-- Noctalia v5.0.0-beta.8+ (`plugin_api` 23)
+- Noctalia v5.0.0-beta.9+ (`plugin_api` 24 — argv `runAsync`)
 - Cider with Connectivity / External API enabled
 - `python3` on `PATH`, with `python-socketio`, `requests`, and `websocket-client` (`pip install -r requirements.txt` from this plugin directory)
 - Overlay HUD: `gtk3`, `gtk-layer-shell`, and `python-gobject`

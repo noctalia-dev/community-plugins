@@ -123,13 +123,54 @@ local function matchesLibraryTemplate(template, value)
 	return value:match(pattern .. "$") ~= nil
 end
 
-local function validateCommandLibrary(raw, compositor, command)
+local function validNiriSpawnAction(action)
+	if type(action) ~= "string" or action:find("[%c]") ~= nil
+		or action:sub(1, 5) ~= "spawn" or not action:sub(6, 6):match("%s") then
+		return false
+	end
+	local cursor = 6
+	local arguments = 0
+	while true do
+		while cursor <= #action and action:sub(cursor, cursor):match("%s") do
+			cursor = cursor + 1
+		end
+		if cursor > #action then return arguments > 0 end
+		if action:sub(cursor, cursor) ~= '"' then return false end
+		local escaped = false
+		local closed = false
+		for index = cursor + 1, #action do
+			local char = action:sub(index, index)
+			if escaped then
+				escaped = false
+			elseif char == "\\" then
+				escaped = true
+			elseif char == '"' then
+				cursor = index + 1
+				closed = true
+				break
+			end
+		end
+		if not closed then return false end
+		arguments = arguments + 1
+		if cursor <= #action and not action:sub(cursor, cursor):match("%s") then
+			return false
+		end
+	end
+end
+
+local function validateCommandLibrary(raw, compositor, command, allowExistingNative)
 	local commandKind = raw.command_kind == nil and "shell" or raw.command_kind
 	if commandKind ~= "shell" and commandKind ~= "native" then
 		return nil, nil, "invalid_command_kind"
 	end
 	local libraryEntryId = type(raw.library_entry_id) == "string" and raw.library_entry_id or ""
 	if commandKind == "shell" then return commandKind, libraryEntryId, nil end
+	if allowExistingNative == true then
+		if compositor ~= "Niri" or not validNiriSpawnAction(command) then
+			return nil, nil, "niri_spawn_invalid"
+		end
+		return commandKind, "", nil
+	end
 	if libraryEntryId == "" then return nil, nil, "library_entry_invalid" end
 	local entry = COMMAND_LIBRARY_ENTRIES[libraryEntryId]
 	local expectedSource = ({ Hyprland = "hyprland", Niri = "niri", MangoWC = "mangowc" })[compositor]
@@ -142,7 +183,7 @@ local function validateCommandLibrary(raw, compositor, command)
 	return commandKind, libraryEntryId, nil
 end
 
-local function validateRequest(raw)
+local function validateRequest(raw, allowExistingNative)
 	if type(raw) ~= "table" then return nil, "invalid_request" end
 
 	local rawRequestId = raw.request_id
@@ -168,7 +209,9 @@ local function validateRequest(raw)
 	command, errorCode = validateText(raw.command, "command", false, MAX_COMMAND_BYTES)
 	if errorCode ~= nil then return nil, errorCode end
 	local commandKind, libraryEntryId
-	commandKind, libraryEntryId, errorCode = validateCommandLibrary(raw, compositor, command)
+	commandKind, libraryEntryId, errorCode = validateCommandLibrary(
+		raw, compositor, command, allowExistingNative
+	)
 	if errorCode ~= nil then return nil, errorCode end
 	local description
 	description, errorCode = validateText(raw.description, "description", false, 1024)
@@ -267,17 +310,21 @@ local function conflictsWithSnapshot(request, excludedId)
 	local keys = comparableKeys(request.keys)
 	for _, category in ipairs(type(snapshot) == "table" and snapshot.categories or {}) do
 		for _, bind in ipairs(type(category.binds) == "table" and category.binds or {}) do
-			local bindKeys = comparableKeys(type(bind.keys) == "table" and bind.keys or { bind.key })
-			local sameKeys = #bindKeys == #keys
-			if sameKeys then
-				for index, key in ipairs(keys) do
-					if bindKeys[index] ~= key then sameKeys = false break end
+			local combos = type(bind.combos) == "table" and #bind.combos > 0 and bind.combos
+				or { { modifiers = bind.modifiers, key = bind.key, keys = bind.keys } }
+			for _, combo in ipairs(combos) do
+				local bindKeys = comparableKeys(type(combo.keys) == "table" and combo.keys or { combo.key })
+				local sameKeys = #bindKeys == #keys
+				if sameKeys then
+					for index, key in ipairs(keys) do
+						if bindKeys[index] ~= key then sameKeys = false break end
+					end
 				end
-			end
-			if tostring(bind.id or "") ~= tostring(excludedId or "") and sameKeys
-				and comparableModifiers(bind.modifiers) == modifiers
-				and tostring(bind.activation or "press") == request.activation then
-				return true
+				if tostring(bind.id or "") ~= tostring(excludedId or "") and sameKeys
+					and comparableModifiers(combo.modifiers) == modifiers
+					and tostring(bind.activation or "press") == request.activation then
+					return true
+				end
 			end
 		end
 	end
@@ -1191,6 +1238,74 @@ local function renderHyprUpdate(target, request)
 	return line, nil
 end
 
+local function niriActionBodyRange(snippet)
+	local index = 1
+	local depth = 0
+	local openAt = nil
+	local quote = nil
+	local escaped = false
+	local lineComment = false
+	local blockComment = false
+	while index <= #snippet do
+		local char = snippet:sub(index, index)
+		local pair = snippet:sub(index, index + 1)
+		if lineComment then
+			if char == "\n" then lineComment = false end
+			index = index + 1
+		elseif blockComment then
+			if pair == "*/" then
+				blockComment = false
+				index = index + 2
+			else
+				index = index + 1
+			end
+		elseif quote ~= nil then
+			if escaped then escaped = false
+			elseif char == "\\" then escaped = true
+			elseif char == quote then quote = nil end
+			index = index + 1
+		elseif pair == "//" then
+			lineComment = true
+			index = index + 2
+		elseif pair == "/*" then
+			blockComment = true
+			index = index + 2
+		elseif char == '"' or char == "'" then
+			quote = char
+			index = index + 1
+		elseif char == "{" then
+			depth = depth + 1
+			if openAt == nil then openAt = index end
+			index = index + 1
+		elseif char == "}" then
+			if openAt ~= nil and depth == 1 then return openAt + 1, index - 1 end
+			depth = depth - 1
+			index = index + 1
+		else
+			index = index + 1
+		end
+	end
+	return nil, nil
+end
+
+local function replaceNiriNativeSpawn(snippet, previousAction, nextAction)
+	local bodyStart, bodyEnd = niriActionBodyRange(snippet)
+	if bodyStart == nil then return nil end
+	local body = snippet:sub(bodyStart, bodyEnd)
+	local leading = body:match("^(%s*)") or ""
+	local trailing = body:match("(%s*)$") or ""
+	local coreEnd = #body - #trailing
+	local core = coreEnd >= #leading and body:sub(#leading + 1, coreEnd) or ""
+	local semicolon = ""
+	if core:sub(-1) == ";" then
+		semicolon = ";"
+		core = trim(core:sub(1, -2))
+	end
+	if core ~= trim(previousAction) then return nil end
+	local replacement = leading .. nextAction .. semicolon .. trailing
+	return snippet:sub(1, bodyStart - 1) .. replacement .. snippet:sub(bodyEnd + 1)
+end
+
 local function renderNiriUpdate(target, request)
 	local snippet, count = target.raw_snippet:gsub("^(%s*)%S+", "%1" .. niriCombo(request), 1)
 	if count ~= 1 then return nil, "target_not_editable" end
@@ -1200,7 +1315,15 @@ local function renderNiriUpdate(target, request)
 	end
 	snippet = described
 	if target.capabilities.command == true then
-		snippet = replaceLiteralAfter(snippet, "spawn%-sh%s+", request.command, false)
+		if target.capabilities.native_spawn == true then
+			if request.command_kind ~= "native" or not validNiriSpawnAction(request.command) then
+				return nil, "niri_spawn_invalid"
+			end
+			snippet = replaceNiriNativeSpawn(snippet, target.action, request.command)
+		else
+			if request.command_kind ~= "shell" then return nil, "native_update_unsupported" end
+			snippet = replaceLiteralAfter(snippet, "spawn%-sh%s+", request.command, false)
+		end
 		if snippet == nil then return nil, "command_not_editable" end
 	end
 	return snippet, nil
@@ -2036,10 +2159,6 @@ local function processUpdateRequest(raw)
 	if type(rawId) == "number" then rawId = tostring(rawId) end
 	if busy then publishUpdateResult(rawId, false, "busy", "") return end
 	if type(raw) ~= "table" then publishUpdateResult(rawId, false, "invalid_request", "") return end
-	if raw.command_kind == "native" then
-		publishUpdateResult(rawId, false, "native_update_unsupported", "")
-		return
-	end
 	if raw.operation == "rename_category" then
 		local category, ambiguous = findSnapshotCategory(raw.category_id)
 		if ambiguous then publishUpdateResult(rawId, false, "category_ambiguous", "") return end
@@ -2070,12 +2189,22 @@ local function processUpdateRequest(raw)
 		return
 	end
 	local capabilities = type(target.capabilities) == "table" and target.capabilities or {}
+	local nativeSpawnTarget = capabilities.native_spawn == true
+		and tostring(target.command_kind or "") == "native"
+	if raw.command_kind == "native" and not nativeSpawnTarget then
+		publishUpdateResult(rawId, false, "native_update_unsupported", target.source)
+		return
+	end
+	if nativeSpawnTarget and raw.command_kind ~= "native" then
+		publishUpdateResult(rawId, false, "native_update_unsupported", target.source)
+		return
+	end
 	local validationRaw = {}
 	for key, value in pairs(raw) do validationRaw[key] = value end
 	if trim(tostring(validationRaw.command or "")) == "" and capabilities.command ~= true then
 		validationRaw.command = "__preserve_native_action__"
 	end
-	local request, errorCode = validateRequest(validationRaw)
+	local request, errorCode = validateRequest(validationRaw, nativeSpawnTarget)
 	if request == nil then publishUpdateResult(rawId, false, errorCode, target.source) return end
 	request.operation = "update"
 	request.target_id = tostring(raw.target_id or "")

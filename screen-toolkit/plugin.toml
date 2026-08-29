@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.3.0"
+version = "1.4.0"
 plugin_api = 13
 author = "alexander"
 license = "MIT"
@@ -155,6 +155,13 @@ key = "record-audio-in"
 type = "bool"
 label_key = "settings.record_audio_in.label"
 description_key = "settings.record_audio_in.description"
+default = false
+
+[[setting]]
+key = "hide-when-unused"
+type = "bool"
+label_key = "settings.hide_when_unused.label"
+description_key = "settings.hide_when_unused.description"
 default = false
 
 [[setting]]

@@ -15,6 +15,45 @@ local EXACT_SOURCE_FINGERPRINT = "exact-v1"
 
 local refreshing = false
 local refreshQueued = false
+local lastRefreshRequest = nil
+local pendingRefresh = false
+local parseCoroutine = nil
+local parseSource = ""
+local parseUpdatedAt = ""
+local fastTicks = false
+
+-- The host meters every callback with an interrupt-driven CPU budget. Large
+-- MangoWC trees exceed it when parsed in one resume, so the parser yields to
+-- the next update tick every few lines. A wall-clock early-out tightens the
+-- slice further when the sandbox exposes os.clock; without it, the fixed
+-- line budget alone keeps each resume safely small.
+local PARSE_LINE_SLICE = 25
+local PARSE_SLICE_SECONDS = 0.005
+local sliceStartedAt = nil
+local parseGeneration = 0
+local linesThisResume = 0
+
+local function setFastTicks(enabled)
+	if fastTicks == enabled then return end
+	if type(noctalia.setUpdateInterval) ~= "function" then return end
+	fastTicks = enabled
+	noctalia.setUpdateInterval(enabled and 60 or 1000)
+end
+
+local function noteSliceStart()
+	if type(os) == "table" and type(os.clock) == "function" then
+		sliceStartedAt = os.clock()
+	else
+		sliceStartedAt = nil
+	end
+end
+
+local function sliceExpired()
+	if sliceStartedAt == nil then
+		return false
+	end
+	return os.clock() - sliceStartedAt >= PARSE_SLICE_SECONDS
+end
 
 local function config(key, fallback)
 	local value = noctalia.getConfig(key)
@@ -219,21 +258,30 @@ end
 -- Locate an ordinary inline comment while preserving the plugin convention
 -- #"description" and quoted hashes in shell commands.
 local function findUnquotedComment(line)
+	-- find-based token hop: the per-character sub() loop was the parser's
+	-- dominant cost under the host's interrupt-driven CPU meter.
+	if line:find('[#"\'\\]') == nil then
+		return nil
+	end
 	local inSingle = false
 	local inDouble = false
-	local escaped = false
-	for index = 1, #line do
-		local char = line:sub(index, index)
-		if escaped then
-			escaped = false
-		elseif char == "\\" and (inSingle or inDouble) then
-			escaped = true
+	local index = 1
+	while index <= #line do
+		local nextAt = line:find('[#"\'\\]', index)
+		if nextAt == nil then return nil end
+		local char = line:sub(nextAt, nextAt)
+		if char == "\\" and (inSingle or inDouble) then
+			index = nextAt + 2
 		elseif char == "'" and not inDouble then
 			inSingle = not inSingle
+			index = nextAt + 1
 		elseif char == '"' and not inSingle then
 			inDouble = not inDouble
-		elseif char == "#" and not inSingle and not inDouble and line:sub(index + 1, index + 1) ~= '"' then
-			return index
+			index = nextAt + 1
+		elseif char == "#" and not inSingle and not inDouble and line:sub(nextAt + 1, nextAt + 1) ~= '"' then
+			return nextAt
+		else
+			index = nextAt + 1
 		end
 	end
 	return nil
@@ -281,16 +329,32 @@ local function extractCategory(line)
 	return trim(rest:match("^%d+%.%s*(.+)$") or rest)
 end
 
+-- Display names shared with the Hyprland and Niri services. Keep the three
+-- tables identical so a key reads the same no matter which compositor reports
+-- it.
 local KEY_NAMES = {
 	RETURN = "Enter", ESCAPE = "Esc", SPACE = "Space", PRINT = "PrtSc",
 	PRIOR = "PgUp", NEXT = "PgDn", EQUAL = "=", MINUS = "-", PLUS = "+",
 	COMMA = ",", PERIOD = ".", SEMICOLON = ";", APOSTROPHE = "'", GRAVE = "`",
 	SLASH = "/", BACKSLASH = "\\", BRACKETLEFT = "[", BRACKETRIGHT = "]",
+	LEFT = "Left", RIGHT = "Right", UP = "Up", DOWN = "Down",
+	WHEELSCROLLUP = "Scroll Up", WHEELSCROLLDOWN = "Scroll Down",
+	WHEELSCROLLLEFT = "Scroll Left", WHEELSCROLLRIGHT = "Scroll Right",
+	TOUCHPADSCROLLUP = "Touchpad Up", TOUCHPADSCROLLDOWN = "Touchpad Down",
+	TOUCHPADSCROLLLEFT = "Touchpad Left", TOUCHPADSCROLLRIGHT = "Touchpad Right",
+	MOUSELEFT = "Left Click", MOUSERIGHT = "Right Click", MOUSEMIDDLE = "Middle Click",
+	MOUSEFORWARD = "Mouse Forward", MOUSEBACK = "Mouse Back",
+	MOUSE_DOWN = "Scroll Down", MOUSE_UP = "Scroll Up",
+	["MOUSE:272"] = "Left Click", ["MOUSE:273"] = "Right Click", ["MOUSE:274"] = "Middle Click",
 	XF86AUDIORAISEVOLUME = "Vol Up", XF86AUDIOLOWERVOLUME = "Vol Down",
 	XF86AUDIOMUTE = "Mute", XF86AUDIOMICMUTE = "Mic Mute", XF86AUDIOPLAY = "Play",
 	XF86AUDIOPAUSE = "Pause", XF86AUDIONEXT = "Next", XF86AUDIOPREV = "Prev",
-	XF86AUDIOSTOP = "Stop", XF86MONBRIGHTNESSUP = "Bright Up",
-	XF86MONBRIGHTNESSDOWN = "Bright Down",
+	XF86AUDIOSTOP = "Stop", XF86AUDIOMEDIA = "Media",
+	XF86MONBRIGHTNESSUP = "Bright Up", XF86MONBRIGHTNESSDOWN = "Bright Down",
+	XF86CALCULATOR = "Calc", XF86MAIL = "Mail", XF86SEARCH = "Search",
+	XF86EXPLORER = "Files", XF86WWW = "Browser", XF86HOMEPAGE = "Home",
+	XF86FAVORITES = "Favorites", XF86POWEROFF = "Power", XF86SLEEP = "Sleep",
+	XF86EJECT = "Eject",
 }
 
 local AXIS_NAMES = {
@@ -653,38 +717,48 @@ local function parseFile(context, path, optional, depth)
 	local pendingMarkerLine = nil
 	local pendingMarkerRaw = nil
 	local lineNumber = 0
-	local hiddenLines = sourceLines(source)
-	local hiddenCategory = nil
-	local hiddenKeymode = context.keymode
-	local hiddenCursor = 1
 	local hiddenConsumed = {}
-	while hiddenCursor <= #hiddenLines do
-		local block, blockEnd, candidate = hiddenBlockAt(hiddenLines, hiddenCursor)
-		if candidate then
-			for consumed = hiddenCursor, blockEnd do hiddenConsumed[consumed] = true end
-			if block == nil then
-				context.warnings[#context.warnings + 1] = "hidden_block_invalid:" .. path .. ":" .. tostring(hiddenCursor)
+	if source:find("# Keymap hidden ", 1, true) ~= nil then
+		local hiddenLines = sourceLines(source)
+		local hiddenCategory = nil
+		local hiddenKeymode = context.keymode
+		local hiddenCursor = 1
+		while hiddenCursor <= #hiddenLines do
+			local block, blockEnd, candidate = hiddenBlockAt(hiddenLines, hiddenCursor)
+			if candidate then
+				for consumed = hiddenCursor, blockEnd do hiddenConsumed[consumed] = true end
+				if block == nil then
+					context.warnings[#context.warnings + 1] = "hidden_block_invalid:" .. path .. ":" .. tostring(hiddenCursor)
+				else
+					context.hidden[#context.hidden + 1] = hiddenTarget(
+						block, path, hiddenCursor, blockEnd,
+						hiddenCategory or context.defaultCategory, hiddenKeymode
+					)
+				end
+				hiddenCursor = blockEnd + 1
 			else
-				context.hidden[#context.hidden + 1] = hiddenTarget(
-					block, path, hiddenCursor, blockEnd,
-					hiddenCategory or context.defaultCategory, hiddenKeymode
-				)
+				local raw = hiddenLines[hiddenCursor]
+				local category = extractCategory(raw)
+				if category ~= nil then hiddenCategory = category end
+				local effective = trim(raw:sub(1, (findUnquotedComment(raw) or (#raw + 1)) - 1))
+				local directive, value = effective:match("^([%w%-]+)%s*=%s*(.*)$")
+				if directive ~= nil and directive:lower() == "keymode" then
+					hiddenKeymode = trim(value) ~= "" and trim(value) or "default"
+				end
+				hiddenCursor = hiddenCursor + 1
 			end
-			hiddenCursor = blockEnd + 1
-		else
-			local raw = hiddenLines[hiddenCursor]
-			local category = extractCategory(raw)
-			if category ~= nil then hiddenCategory = category end
-			local effective = trim(raw:sub(1, (findUnquotedComment(raw) or (#raw + 1)) - 1))
-			local directive, value = effective:match("^([%w%-]+)%s*=%s*(.*)$")
-			if directive ~= nil and directive:lower() == "keymode" then
-				hiddenKeymode = trim(value) ~= "" and trim(value) or "default"
-			end
-			hiddenCursor = hiddenCursor + 1
 		end
 	end
 	for rawLine in (source .. "\n"):gmatch("([^\n]*)\n") do
 		lineNumber = lineNumber + 1
+		-- Yield once a slice gets expensive so a multi-file parse never holds
+		-- the callback past its budget; update() resumes on the next tick. The
+		-- counter spans included files, so many short files cannot dodge it.
+		linesThisResume = linesThisResume + 1
+		if linesThisResume >= PARSE_LINE_SLICE or sliceExpired() then
+			linesThisResume = 0
+			coroutine.yield()
+		end
 		if not hiddenConsumed[lineNumber] then
 		local commentAt = findUnquotedComment(rawLine)
 		local effective = trim(commentAt ~= nil and rawLine:sub(1, commentAt - 1) or rawLine)
@@ -784,7 +858,7 @@ local function mergedBind(run)
 		kind = first.kind,
 		flags = first.flags,
 		activation = type(first.flags) == "table" and first.flags.release == true and "release" or "press",
-		command = first.command, managed = first.managed == true,
+		command = first.command, action = first.action, managed = first.managed == true,
 		source = first.source,
 		line = first.line,
 		start_line = startLine, end_line = endLine,
@@ -860,6 +934,65 @@ local function mergeSequential(binds)
 	return output
 end
 
+-- Collapse binds that trigger the same action into one row carrying every
+-- key combination. Grouped rows lose edit provenance on purpose: one row
+-- cannot be rewritten to a single source location.
+local function mergeSimilar(binds)
+	local grouped = {}
+	local order = {}
+	for index, bind in ipairs(binds) do
+		local signature = "action:" .. tostring(bind.action)
+		local group = grouped[signature]
+		if group == nil then
+			group = { first = index, parts = {} }
+			grouped[signature] = group
+			order[#order + 1] = signature
+		end
+		group.parts[#group.parts + 1] = bind
+	end
+	local mergedAt = {}
+	local swallowed = {}
+	for _, signature in ipairs(order) do
+		local group = grouped[signature]
+		if #group.parts > 1 then
+			local first = group.parts[1]
+			local combos = {}
+			local ids = {}
+			for _, part in ipairs(group.parts) do
+				combos[#combos + 1] = { modifiers = part.modifiers, key = part.key }
+				ids[#ids + 1] = part.id
+			end
+			mergedAt[group.first] = {
+				id = "similar:" .. table.concat(ids, "|"),
+				modifiers = {},
+				key = combos[1].key,
+				combos = combos,
+				description = first.description,
+				dispatcher = first.dispatcher,
+				mode = first.mode,
+				kind = first.kind,
+				flags = first.flags,
+				activation = first.activation,
+				command = first.command,
+				action = first.action,
+				capabilities = disabledEditCapabilities(),
+			}
+			for partIndex = 2, #group.parts do
+				swallowed[group.parts[partIndex]] = true
+			end
+		end
+	end
+	local output = {}
+	for index, bind in ipairs(binds) do
+		if mergedAt[index] ~= nil then
+			output[#output + 1] = mergedAt[index]
+		elseif not swallowed[bind] then
+			output[#output + 1] = bind
+		end
+	end
+	return output
+end
+
 local function parseConfig(source)
 	local context = {
 		defaultCategory = noctalia.tr("category.other"),
@@ -868,6 +1001,7 @@ local function parseConfig(source)
 		keymode = "default", fatalError = nil,
 	}
 	parseFile(context, source, false, 0)
+	local shouldMergeSimilar = config("merge_similar", false) == true
 	if config("merge_sequential", true) == true then
 		for _, category in ipairs(context.categories) do
 			category.binds = mergeSequential(category.binds)
@@ -879,12 +1013,17 @@ local function parseConfig(source)
 			category.binds = clean
 		end
 	end
+	if shouldMergeSimilar then
+		for _, category in ipairs(context.categories) do
+			category.binds = mergeSimilar(category.binds)
+		end
+	end
 	return context
 end
 
 local function snapshot(status, source, errorCode, categories, total, warnings, updatedAt, hidden)
 	return {
-		status = status, error = errorCode or "", compositor = "MangoWC", source = source,
+		status = status, error = errorCode or "", error_detail = "", compositor = "MangoWC", source = source,
 		updated_at = updatedAt or "", total = total or 0, categories = categories or {},
 		warnings = warnings or {},
 		hidden = hidden or {},
@@ -908,6 +1047,13 @@ end
 
 function refresh()
 	if not isActive() then
+		-- Invalidate any in-flight parse from a previous compositor selection:
+		-- its result must never overwrite the new owner's snapshot.
+		parseGeneration = parseGeneration + 1
+		parseCoroutine = nil
+		refreshing = false
+		refreshQueued = false
+		setFastTicks(false)
 		return
 	end
 	if refreshing then
@@ -915,8 +1061,12 @@ function refresh()
 		return
 	end
 	refreshing = true
+	parseGeneration = parseGeneration + 1
+	local generation = parseGeneration
 
 	local source = configPath()
+	parseSource = source
+	parseUpdatedAt = os.date("%H:%M:%S")
 	-- The panel keeps its last ready snapshot while this status is loading.
 	-- Avoid serializing the complete bind tree a second time on every refresh.
 	noctalia.state.set(
@@ -924,39 +1074,104 @@ function refresh()
 		snapshot("loading", source, "", {}, 0, {}, "", {})
 	)
 
-	local parsed = parseConfig(source)
-	if #parsed.files == 0 then
-		publishError(source, "mangowc_config_unreadable", parsed.warnings)
+	parseCoroutine = coroutine.create(function()
+		local parsed = parseConfig(source)
+		if generation ~= parseGeneration then
+			return
+		end
+		if #parsed.files == 0 then
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("error", source, "mangowc_config_unreadable", {}, 0, parsed.warnings, parseUpdatedAt))
+			return
+		end
+		if parsed.fatalError ~= nil then
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("error", source, parsed.fatalError, {}, 0, parsed.warnings, parseUpdatedAt))
+			return
+		end
+		if parsed.total == 0 and #parsed.hidden == 0 then
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("error", source, "mangowc_no_binds", {}, 0, parsed.warnings, parseUpdatedAt))
+			return
+		end
+		noctalia.state.set(
+			SNAPSHOT_KEY,
+			snapshot("ready", source, "", parsed.categories, parsed.total, parsed.warnings, parseUpdatedAt, parsed.hidden)
+		)
+	end)
+	-- Resume once within this budget; a large config suspends and continues on
+	pumpParse()
+end
+
+-- Resume the in-flight parse until it either finishes or yields. Called from
+-- refresh() and from update() ticks, so every slice runs inside its own
+-- budget window.
+function pumpParse()
+	if parseCoroutine == nil then
+		return
+	end
+	noteSliceStart()
+	linesThisResume = 0
+	local ok, err = coroutine.resume(parseCoroutine)
+	if not ok then
+		parseCoroutine = nil
+		setFastTicks(false)
+		local failed = snapshot("error", parseSource, "mangowc_parse_failed", {}, 0, {}, parseUpdatedAt)
+		failed.error_detail = tostring(err)
+		noctalia.state.set(SNAPSHOT_KEY, failed)
 		finishRefresh()
 		return
 	end
-	if parsed.fatalError ~= nil then
-		publishError(source, parsed.fatalError, parsed.warnings)
+	if coroutine.status(parseCoroutine) == "dead" then
+		parseCoroutine = nil
+		setFastTicks(false)
 		finishRefresh()
 		return
 	end
-	if parsed.total == 0 and #parsed.hidden == 0 then
-		publishError(source, "mangowc_no_binds", parsed.warnings)
-		finishRefresh()
-		return
-	end
-	noctalia.state.set(
-		SNAPSHOT_KEY,
-		snapshot("ready", source, "", parsed.categories, parsed.total, parsed.warnings, os.date("%H:%M:%S"), parsed.hidden)
-	)
-	finishRefresh()
+	-- Still suspended: left parked for the next update() tick.
+	setFastTicks(true)
 end
 
 function onIpc(event, _payload)
-	if event == "refresh" then refresh() end
+	if event == "refresh" then
+		local current = tonumber(noctalia.state.get(REFRESH_REQUEST_KEY)) or 0
+		noctalia.state.set(REFRESH_REQUEST_KEY, current + 1)
+	end
 end
 
 function onConfigChanged()
-	refresh()
+	pendingRefresh = true
 end
 
-noctalia.state.watch(REFRESH_REQUEST_KEY, function(_request)
-	refresh()
+-- The watch callback only records intent and acknowledges the request with a
+-- cheap loading marker: parsing inside the 25ms callback slot risks
+-- exhausting the budget when other work shares it, and a budget abort there
+-- would leave the snapshot stuck at "loading". The periodic update tick
+-- performs the actual refresh in slices, one budget window at a time.
+function update()
+	if pendingRefresh then
+		pendingRefresh = false
+		refresh()
+	elseif parseCoroutine ~= nil then
+		pumpParse()
+	else
+		setFastTicks(false)
+	end
+end
+
+-- Refresh requests issued before this service loaded are covered by the boot
+-- refresh below; the watcher only reacts to genuinely new counter values,
+-- ignoring host echoes of a value this service already handled.
+lastRefreshRequest = noctalia.state.get(REFRESH_REQUEST_KEY)
+noctalia.state.watch(REFRESH_REQUEST_KEY, function(request)
+	if request ~= lastRefreshRequest then
+		lastRefreshRequest = request
+		pendingRefresh = true
+		-- Acknowledge immediately so the panel leaves its ready state even
+		-- though the parse itself waits for the update tick.
+		if isActive() then
+			local current = noctalia.state.get(SNAPSHOT_KEY)
+			local source = type(current) == "table" and current.source or nil
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("loading", source, "", {}, 0, {}, "", {}))
+		end
+	end
 end)
 
 refresh()

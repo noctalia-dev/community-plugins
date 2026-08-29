@@ -64,6 +64,12 @@ noctalia = {
 local instructionBlocks = 0
 debug.sethook(function() instructionBlocks = instructionBlocks + 1 end, "", 1000)
 assert(loadfile("mangowc_service.luau"))()
+-- The parser yields between slices; pump update ticks until it settles.
+local pumps = 0
+while values["keymap.snapshot"].status == "loading" and pumps < 100 do
+  update()
+  pumps = pumps + 1
+end
 debug.sethook()
 bit32 = originalBit32
 

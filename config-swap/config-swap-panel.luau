@@ -298,7 +298,7 @@ local function saveConfig()
 	local settingFile: infoConfig = {
 		name = name,
 		description = "save for reset",
-		path = configBox .. "/" .. name,
+		path = "config/" .. name,
 		origin = "not give",
 		wallpaperPath = nil,
 		depedencie = false,
@@ -395,7 +395,6 @@ local function renderInfoStore()
 end
 
 local function renderList()
-
 	pickSlots = {}
 	local tiles = {}
 	local list = listConfig or {}
@@ -409,28 +408,30 @@ local function renderList()
 
 		local imagePath = previewCache[data.name] or previewImage
 
-		table.insert(tiles, ui.column({ gap = 4, key = data.path, align = "center" }, {
+		table.insert(tiles, ui.column({ gap = 8, key = data.path, align = "stretch", width = previewWidth }, {
 			ui.image({
-      			path = imagePath,
+				path = imagePath,
 				width = previewWidth,
 				height = previewHeight,
 				fit = "cover",
 				radius = 8,
-      			onClick = ""
-  			}),
-			ui.row( {gap = 12, align = "start"}, {
-				ui.button({ text = tr("install"), onClick = function()
+			}),
+			ui.label({
+				text = data.name,
+				fontSize = 14,
+				fontWeight = "medium",
+				color = "on_surface",
+				textAlign = "center",
+				maxLines = 1,
+			}),
+			ui.button({
+				text = tr("install"),
+				variant = "primary",
+				width = previewWidth,
+				onClick = function()
 					downloadConfig(data)
 				end
-				}),
-				ui.label({
-				text = data.name,
-				fontSize = 11,
-				maxLines = 1,
-				maxWidth = 120,
-				textAlign = "center",
-				}),
-			} ), 
+			}),
 		}))
 	end
 	local rows = {}
@@ -445,8 +446,8 @@ local function renderList()
 
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = tr("title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.label({ text = tr("store_title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("store_title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 			ui.button({ text = tr("show_list"), onClick = function()
 				selectedView = 1
 				render()
@@ -530,8 +531,6 @@ function getListInstall()
 	return listShow
 end
 
--- Render installed configs grid
-
 local function renderInstall()
 	pickSlots = {}
 	local tiles = {}
@@ -540,34 +539,36 @@ local function renderInstall()
 		local data = list[count]
 		local slotIndex = count - 1
 		pickSlots[slotIndex] = data.path
-		table.insert(tiles, ui.column({ gap = 4, key = data.path, align = "center" }, {
+
+		table.insert(tiles, ui.column({ gap = 8, key = data.path, align = "stretch", width = previewWidth }, {
 			ui.image({
-      			path = configBox .. "/" .. data.name .. "/preview.png",
+				path = configBox .. "/" .. data.name .. "/preview.png",
 				width = previewWidth,
 				height = previewHeight,
 				fit = "cover",
 				radius = 8,
-      			onClick = function()
+				onClick = function()
 					renderConfig(data)
 				end
-  			}),
-			ui.row( {gap = 12, align = "start"}, {
-				ui.button({ text = "delete", onClick = function()
+			}),
+			ui.label({
+				text = data.name,
+				fontSize = 14,
+				fontWeight = "medium",
+				color = "on_surface",
+				textAlign = "center",
+				maxLines = 1,
+			}),
+			ui.row({ gap = 8, justify = "space_between", align = "center" }, {
+				ui.button({ text = "delete", variant = "outline", onClick = function()
 					renderDeleteConfirmation(data.name)
 				end
 				}),
-				ui.label({
-				text = data.name,
-				fontSize = 11,
-				maxLines = 1,
-				maxWidth = 120,
-				textAlign = "center",
-				}),
-				ui.button({ text = "apply", onClick = function()
+				ui.button({ text = "apply", variant = "primary", onClick = function()
 					renderConfirmApply(data)
 				end
 				}),
-			} ), 
+			}),
 		}))
 	end
 	local rows = {}
@@ -581,8 +582,8 @@ local function renderInstall()
 	end
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
 		ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-			ui.label({ text = tr("title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
-			ui.label({ text = tr("installed_title"), align = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+			ui.label({ text = tr("installed_title"), textAlign = "center", fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
 			ui.button({ text = tr("show_store"), onClick = function()
 				selectedView = 2
 				render()

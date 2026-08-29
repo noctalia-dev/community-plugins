@@ -267,6 +267,17 @@ function onRightClick()
   end
 end
 
+-- Middle-click opens the ask panel. Quick-ask was only reachable as `/claude ? …`,
+-- which meant opening the launcher, typing a prefix and remembering the `?` — a lot
+-- of ceremony for the lightest thing here, and the reason the feature went unused.
+-- Same panel-open (not -toggle) reasoning as onClick above. Left is the answer,
+-- right is sessions, middle was free.
+function onMiddleClick()
+  if not noctalia.runAsync("noctalia msg panel-open 'lowcache/claude-companion:ask'") then
+    noctalia.notifyError(tr("pulse.title"), tr("pulse.panel_launch_failed"))
+  end
+end
+
 -- Breath timer. Re-arm the interval each tick (the pattern proven live in the
 -- barpulse prototype), advance the clock, repaint the glyph brightness only —
 -- glyph/tooltip are event-driven in render() (fired from the state.watch below).

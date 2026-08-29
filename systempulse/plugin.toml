@@ -1,0 +1,74 @@
+# SystemPulse plugin: a bar widget that shows CPU/RAM usage and opens a detailed panel.
+
+id = "arrifat346afs/systempulse"
+name = "SystemPulse"
+version = "1.1.0"
+plugin_api = 22
+author = "arrifat346afs "
+license = "MIT"
+dependencies = ["Nvtop"]
+tags = ["system", "hardware", "utility"]
+icon = "cpu"
+description = "A bar widget that displays system stats and opens a detailed SystemPulse panel."
+
+[[widget]]
+id = "sysmon"
+entry = "systemmonitor.luau"
+
+  [[widget.setting]]
+  key = "show_cpu"
+  type = "bool"
+  label_key = "settings.show_cpu.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_ram"
+  type = "bool"
+  label_key = "settings.show_ram.label"
+  default = true
+
+  [[widget.setting]]
+  key = "show_gpu"
+  type = "bool"
+  label_key = "settings.show_gpu.label"
+  default = false
+
+  [[widget.setting]]
+  key = "show_disk"
+  type = "bool"
+  label_key = "settings.show_disk.label"
+  default = false
+
+  [[widget.setting]]
+  key = "show_network"
+  type = "bool"
+  label_key = "settings.show_network.label"
+  default = false
+
+# Control-center quick-toggle tile. Add it from Settings → Control Center shortcuts.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+# Panel opened when the widget is clicked. Attached to the bar so the panel
+# background follows the bar's background_opacity.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 1080
+height = 720
+placement = "attached"
+position = "center"
+open_near_click = true
+
+  # Panel background translucency; content stays opaque. Edited under
+  # Settings → Plugins (gear icon).
+  [[panel.setting]]
+  key = "panel_background_opacity"
+  type = "double"
+  label_key = "settings.panel_background_opacity.label"
+  description_key = "settings.panel_background_opacity.description"
+  default = 1.0
+  min = 0.0
+  max = 1.0
+  step = 0.01

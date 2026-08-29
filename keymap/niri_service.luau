@@ -9,9 +9,47 @@ local MAX_FILES = 64
 local MAX_SOURCE_BYTES = 512 * 1024
 local MAX_HIDDEN_BYTES = 2 * 1024 * 1024
 local EXACT_SOURCE_FINGERPRINT = "exact-v1"
+-- The host meters every callback with an interrupt-driven CPU budget. Real
+-- Niri configs exceed it when parsed in one resume, so the parser yields to
+-- the next update tick every few lines. A wall-clock early-out tightens the
+-- slice further when the sandbox exposes os.clock; without it, the fixed
+-- line budget alone keeps each resume safely small.
+local PARSE_LINE_SLICE = 25
+local PARSE_SLICE_SECONDS = 0.005
+local sliceStartedAt = nil
+
+local function noteSliceStart()
+	if type(os) == "table" and type(os.clock) == "function" then
+		sliceStartedAt = os.clock()
+	else
+		sliceStartedAt = nil
+	end
+end
+
+local function sliceExpired()
+	if sliceStartedAt == nil then
+		return false
+	end
+	return os.clock() - sliceStartedAt >= PARSE_SLICE_SECONDS
+end
 
 local refreshing = false
 local refreshQueued = false
+local lastRefreshRequest = nil
+local pendingRefresh = false
+local parseCoroutine = nil
+local parseSource = ""
+local parseUpdatedAt = ""
+local parseGeneration = 0
+local linesThisResume = 0
+local fastTicks = false
+
+local function setFastTicks(enabled)
+	if fastTicks == enabled then return end
+	if type(noctalia.setUpdateInterval) ~= "function" then return end
+	fastTicks = enabled
+	noctalia.setUpdateInterval(enabled and 60 or 1000)
+end
 
 local function config(key, fallback)
 	local value = noctalia.getConfig(key)
@@ -183,72 +221,125 @@ local function quotedLiteral(text, startAt)
 	return nil, nil
 end
 
--- Returns executable code and a trailing // comment. Comment markers inside
--- strings are preserved. KDL block comments remain stateful across lines.
-local function stripComments(line, inBlockComment)
-	local code = {}
-	local comment = nil
-	local quote = nil
-	local escaped = false
-	local index = 1
-	while index <= #line do
-		local char = line:sub(index, index)
-		local pair = line:sub(index, index + 1)
-		if inBlockComment then
-			if pair == "*/" then
-				inBlockComment = false
-				index = index + 2
-			else
-				index = index + 1
-			end
-		elseif quote ~= nil then
-			code[#code + 1] = char
-			if escaped then
-				escaped = false
-			elseif char == "\\" then
-				escaped = true
-			elseif char == quote then
-				quote = nil
-			end
-			index = index + 1
-		elseif char == '"' or char == "'" then
-			quote = char
-			code[#code + 1] = char
-			index = index + 1
-		elseif pair == "//" then
-			comment = line:sub(index + 2)
-			break
-		elseif pair == "/*" then
-			inBlockComment = true
-			index = index + 2
-		else
-			code[#code + 1] = char
-			index = index + 1
+-- Native spawn actions pass an argv vector directly to Niri rather than
+-- invoking a shell. Expose only the conservative, single-line KDL form to the
+-- editor: `spawn` followed by one or more ordinary quoted string arguments.
+-- More elaborate KDL remains visible but read-only so editing can never
+-- silently change its execution semantics.
+local function editableNativeSpawn(action)
+	if type(action) ~= "string" or action:find("[%c]") ~= nil
+		or action:sub(1, 5) ~= "spawn" or not action:sub(6, 6):match("%s") then
+		return false
+	end
+	local cursor = 6
+	local arguments = 0
+	while true do
+		while cursor <= #action and action:sub(cursor, cursor):match("%s") do
+			cursor = cursor + 1
+		end
+		if cursor > #action then return arguments > 0 end
+		-- Niri's documented argv form uses KDL double-quoted strings. Keeping
+		-- this subset strict also lets the writer validate edits without a full
+		-- KDL parser.
+		if action:sub(cursor, cursor) ~= '"' then return false end
+		local _, nextAt = quotedLiteral(action, cursor)
+		if nextAt == nil then return false end
+		arguments = arguments + 1
+		cursor = nextAt
+		if cursor <= #action and not action:sub(cursor, cursor):match("%s") then
+			return false
 		end
 	end
-	return table.concat(code), comment, inBlockComment
+end
+
+-- Returns executable code and a trailing // comment. Comment markers inside
+-- strings are preserved. KDL block comments remain stateful across lines.
+-- Every host call runs under an interrupt-driven CPU budget, so this stays
+-- find-based: character loops over plain code are the parser's hot path.
+local function stripComments(line, inBlockComment)
+	if not inBlockComment and line:find('[/"\'\']') == nil then
+		return line, nil, false
+	end
+	if inBlockComment then
+		local closeAt = line:find("*/", 1, true)
+		if closeAt == nil then
+			return "", nil, true
+		end
+		local rest, comment, stillInBlock = stripComments(line:sub(closeAt + 2), false)
+		return rest, comment, stillInBlock
+	end
+	-- Find the first interesting token: comment opener or quote.
+	local slashAt = line:find("//", 1, true)
+	local blockAt = line:find("/*", 1, true)
+	local quoteAt = line:find('["\']')
+	local cut = nil
+	if slashAt ~= nil and (cut == nil or slashAt < cut) then cut = slashAt end
+	if blockAt ~= nil and (cut == nil or blockAt < cut) then cut = blockAt end
+	if quoteAt ~= nil and (cut == nil or quoteAt < cut) then cut = quoteAt end
+	if cut == nil then
+		return line, nil, false
+	end
+	if slashAt == cut then
+		return line:sub(1, cut - 1), line:sub(cut + 2), false
+	end
+	if blockAt == cut then
+		local rest, comment, stillInBlock = stripComments(line:sub(cut + 2), true)
+		return line:sub(1, cut - 1) .. rest, comment, stillInBlock
+	end
+	-- Quote first: find its closing quote, then re-scan the remainder.
+	local quote = line:sub(cut, cut)
+	local scan = cut + 1
+	while scan <= #line do
+		local nextAt = line:find('[%\\' .. quote .. ']', scan)
+		if nextAt == nil then
+			-- Unterminated quote: treat the rest as literal code.
+			return line, nil, false
+		end
+		local char = line:sub(nextAt, nextAt)
+		if char == "\\" then
+			scan = nextAt + 2
+		else
+			local rest, comment, inBlock = stripComments(line:sub(nextAt + 1), false)
+			return line:sub(1, nextAt) .. rest, comment, inBlock
+		end
+	end
+	return line, nil, false
 end
 
 local function braceDelta(text)
 	local delta = 0
 	local quote = nil
 	local escaped = false
-	for index = 1, #text do
-		local char = text:sub(index, index)
+	-- find-based token hop: orders of magnitude cheaper under the host's
+	-- interrupt-driven CPU meter than one sub() call per character.
+	if text:find('[{}"\'\\]') == nil then
+		return 0
+	end
+	local index = 1
+	while index <= #text do
+		local char
 		if quote ~= nil then
-			if escaped then
-				escaped = false
-			elseif char == "\\" then
-				escaped = true
-			elseif char == quote then
+			local nextAt = text:find('[%\\' .. quote .. ']', index)
+			if nextAt == nil then break end
+			char = text:sub(nextAt, nextAt)
+			if char == "\\" then
+				index = nextAt + 2
+			else
 				quote = nil
+				index = nextAt + 1
 			end
-		elseif char == '"' or char == "'" then
-			quote = char
-		elseif char == "{" then
-			delta = delta + 1
-		elseif char == "}" then
-			delta = delta - 1
+		else
+			local nextAt = text:find('[{}"\'\\]', index)
+			if nextAt == nil then break end
+			char = text:sub(nextAt, nextAt)
+			if char == '"' or char == "'" then
+				quote = char
+			elseif char == "{" then
+				delta = delta + 1
+			elseif char == "}" then
+				delta = delta - 1
+			end
+			index = nextAt + 1
 		end
 	end
 	return delta
@@ -256,21 +347,32 @@ end
 
 local function firstOpenBrace(text)
 	local quote = nil
-	local escaped = false
-	for index = 1, #text do
-		local char = text:sub(index, index)
+	if text:find('[{"\'\\]', 1) == nil then
+		return nil
+	end
+	local index = 1
+	while index <= #text do
 		if quote ~= nil then
-			if escaped then
-				escaped = false
-			elseif char == "\\" then
-				escaped = true
-			elseif char == quote then
+			local nextAt = text:find('[%\\' .. quote .. ']', index)
+			if nextAt == nil then return nil end
+			if text:sub(nextAt, nextAt) == "\\" then
+				index = nextAt + 2
+			else
 				quote = nil
+				index = nextAt + 1
 			end
-		elseif char == '"' or char == "'" then
-			quote = char
-		elseif char == "{" then
-			return index
+		else
+			local nextAt = text:find('[{"\'\\]', index)
+			if nextAt == nil then return nil end
+			local char = text:sub(nextAt, nextAt)
+			if char == '"' or char == "'" then
+				quote = char
+				index = nextAt + 1
+			elseif char == "{" then
+				return nextAt
+			else
+				index = nextAt + 1
+			end
 		end
 	end
 	return nil
@@ -279,29 +381,43 @@ end
 local function contentBeforeOuterClose(text)
 	local depth = 1
 	local quote = nil
-	local escaped = false
-	for index = 1, #text do
-		local char = text:sub(index, index)
+	local index = 1
+	while index <= #text do
 		if quote ~= nil then
-			if escaped then
-				escaped = false
-			elseif char == "\\" then
-				escaped = true
-			elseif char == quote then
+			local nextAt = text:find('[%\\' .. quote .. ']', index)
+			if nextAt == nil then return text end
+			if text:sub(nextAt, nextAt) == "\\" then
+				index = nextAt + 2
+			else
 				quote = nil
+				index = nextAt + 1
 			end
-		elseif char == '"' or char == "'" then
-			quote = char
-		elseif char == "{" then
-			depth = depth + 1
-		elseif char == "}" then
-			depth = depth - 1
-			if depth == 0 then
-				return text:sub(1, index - 1)
+		else
+			local nextAt = text:find('[{}"\'\\]', index)
+			if nextAt == nil then return text end
+			local char = text:sub(nextAt, nextAt)
+			if char == '"' or char == "'" then
+				quote = char
+			elseif char == "{" then
+				depth = depth + 1
+			elseif char == "}" then
+				depth = depth - 1
+				if depth == 0 then
+					return text:sub(1, nextAt - 1)
+				end
 			end
+			index = nextAt + 1
 		end
 	end
 	return text
+end
+
+local function rawActionMatches(snippet, action)
+	local openAt = firstOpenBrace(snippet)
+	if openAt == nil then return false end
+	local body = trim(contentBeforeOuterClose(snippet:sub(openAt + 1)))
+	body = trim(body:gsub(";%s*$", ""))
+	return body == trim(action)
 end
 
 local function includeNode(code)
@@ -324,20 +440,34 @@ local MODIFIER_ALIASES = {
 	ISO_Level5_Shift = "ISO_Level5_Shift",
 }
 
+-- Display names shared with the Hyprland and MangoWC services. Keep the three
+-- tables identical so a key reads the same no matter which compositor reports
+-- it.
 local KEY_NAMES = {
 	RETURN = "Enter", SPACE = "Space", ESCAPE = "Esc", PRINT = "PrtSc",
 	PRIOR = "PgUp", NEXT = "PgDn",
+	BRACKETLEFT = "[", BRACKETRIGHT = "]",
+	LEFT = "Left", RIGHT = "Right", UP = "Up", DOWN = "Down",
+	EQUAL = "=", MINUS = "-", PLUS = "+",
+	COMMA = ",", PERIOD = ".", SEMICOLON = ";", APOSTROPHE = "'", GRAVE = "`",
+	SLASH = "/", BACKSLASH = "\\",
 	WHEELSCROLLUP = "Scroll Up", WHEELSCROLLDOWN = "Scroll Down",
 	WHEELSCROLLLEFT = "Scroll Left", WHEELSCROLLRIGHT = "Scroll Right",
 	TOUCHPADSCROLLUP = "Touchpad Up", TOUCHPADSCROLLDOWN = "Touchpad Down",
 	TOUCHPADSCROLLLEFT = "Touchpad Left", TOUCHPADSCROLLRIGHT = "Touchpad Right",
 	MOUSELEFT = "Left Click", MOUSERIGHT = "Right Click", MOUSEMIDDLE = "Middle Click",
 	MOUSEFORWARD = "Mouse Forward", MOUSEBACK = "Mouse Back",
+	MOUSE_DOWN = "Scroll Down", MOUSE_UP = "Scroll Up",
+	["MOUSE:272"] = "Left Click", ["MOUSE:273"] = "Right Click", ["MOUSE:274"] = "Middle Click",
 	XF86AUDIORAISEVOLUME = "Vol Up", XF86AUDIOLOWERVOLUME = "Vol Down",
 	XF86AUDIOMUTE = "Mute", XF86AUDIOMICMUTE = "Mic Mute",
 	XF86AUDIOPLAY = "Play", XF86AUDIOPAUSE = "Pause", XF86AUDIONEXT = "Next",
-	XF86AUDIOPREV = "Prev", XF86AUDIOSTOP = "Stop",
+	XF86AUDIOPREV = "Prev", XF86AUDIOSTOP = "Stop", XF86AUDIOMEDIA = "Media",
 	XF86MONBRIGHTNESSUP = "Bright Up", XF86MONBRIGHTNESSDOWN = "Bright Down",
+	XF86CALCULATOR = "Calc", XF86MAIL = "Mail", XF86SEARCH = "Search",
+	XF86EXPLORER = "Files", XF86WWW = "Browser", XF86HOMEPAGE = "Home",
+	XF86FAVORITES = "Favorites", XF86POWEROFF = "Power", XF86SLEEP = "Sleep",
+	XF86EJECT = "Eject",
 }
 
 local function splitCombo(combo)
@@ -557,11 +687,17 @@ local function hiddenTarget(block, path, startLine, endLine, inheritedCategory)
 	}
 end
 
+-- Clean records stay editable, so numeric runs keep their source provenance
+-- through the displayed range (the writer re-checks every constituent snippet
+-- before replacing the whole run).
+
 local function cleanBind(bind)
 	return {
 		id = bind.id, modifiers = bind.modifiers, key = bind.key,
 		description = bind.description, dispatcher = bind.dispatcher,
-		activation = "press", command = bind.command, action = bind.action,
+		activation = "press", command = bind.command, command_kind = bind.command_kind,
+		action = bind.action,
+		has_overlay_title = bind.has_overlay_title,
 		source = bind.source, start_line = bind.start_line, end_line = bind.end_line,
 		raw_snippet = bind.raw_snippet, fingerprint = bind.fingerprint,
 		managed = bind.managed == true, capabilities = bind.capabilities,
@@ -608,11 +744,7 @@ local function mergeSequential(binds)
 	end
 	local output = {}
 	for index, bind in ipairs(binds) do
-		-- An editable range cannot safely carry the provenance of one real bind.
-		-- Preserve every effective record individually once provenance is present.
-		if bind.fingerprint ~= nil then
-			output[#output + 1] = cleanBind(bind)
-		elseif replacements[index] ~= nil then
+		if replacements[index] ~= nil then
 			output[#output + 1] = replacements[index]
 		elseif not skipped[index] then
 			output[#output + 1] = cleanBind(bind)
@@ -621,14 +753,77 @@ local function mergeSequential(binds)
 	return output
 end
 
+-- Collapse binds that trigger the same action into one row carrying every
+-- key combination (for example "Close Window" on Super+W and Alt+F4).
+-- Grouped rows lose edit provenance on purpose: one row cannot be rewritten
+-- to a single source location.
+local function mergeSimilar(binds)
+	local grouped = {}
+	local order = {}
+	for index, bind in ipairs(binds) do
+		local signature = "action:"
+			.. tostring(bind.dispatcher) .. "\0" .. tostring(bind.action)
+		local group = grouped[signature]
+		if group == nil then
+			group = { first = index, parts = {} }
+			grouped[signature] = group
+			order[#order + 1] = signature
+		end
+		group.parts[#group.parts + 1] = bind
+	end
+	local mergedAt = {}
+	local swallowed = {}
+	for _, signature in ipairs(order) do
+		local group = grouped[signature]
+		if #group.parts > 1 then
+			local first = group.parts[1]
+			local combos = {}
+			local ids = {}
+			for _, part in ipairs(group.parts) do
+				combos[#combos + 1] = { modifiers = part.modifiers, key = part.key }
+				ids[#ids + 1] = part.id
+			end
+			mergedAt[group.first] = {
+				id = "similar:" .. table.concat(ids, "|"),
+				modifiers = {},
+				key = combos[1].key,
+				combos = combos,
+				description = first.description,
+				dispatcher = first.dispatcher,
+				activation = "press",
+				command = first.command,
+				action = first.action,
+				capabilities = {
+					combo = false, category = false, description = false,
+					command = false, activation = false,
+				},
+			}
+			for partIndex = 2, #group.parts do
+				swallowed[group.parts[partIndex]] = true
+			end
+		end
+	end
+	local output = {}
+	for index, bind in ipairs(binds) do
+		if mergedAt[index] ~= nil then
+			output[#output + 1] = mergedAt[index]
+		elseif not swallowed[bind] then
+			output[#output + 1] = bind
+		end
+	end
+	return output
+end
+
 local function buildCategories(records)
+	local showUndescribed = config("show_undescribed", true) == true
 	local shouldMerge = config("merge_sequential", true) == true
+	local shouldMergeSimilar = config("merge_similar", false) == true
 	local byName = {}
 	local order = {}
 	local seen = {}
 	local total = 0
 	for _, bind in ipairs(records) do
-		if not bind._overridden then
+		if not bind._overridden and (showUndescribed or bind.has_overlay_title ~= false) then
 			if not seen[bind._category] then
 				seen[bind._category] = true
 				order[#order + 1] = bind._category
@@ -658,6 +853,9 @@ local function buildCategories(records)
 				output[#output + 1] = cleanBind(bind)
 			end
 		end
+		if shouldMergeSimilar then
+			output = mergeSimilar(output)
+		end
 		categories[#categories + 1] = { id = id, name = name, binds = output }
 	end
 	return categories, total
@@ -674,26 +872,32 @@ local function parseBind(combo, attributes, action, category, records, activeByC
 	if previous ~= nil then
 		previous._overridden = true
 	end
-	local description = titleAttribute(attributes)
-	if description == nil or description == "" then
-		description = actionDescription(normalizedAction, verb)
-	end
+	local overlayTitle = titleAttribute(attributes)
+	local hasOverlayTitle = overlayTitle ~= nil and overlayTitle ~= ""
+	local description = hasOverlayTitle and overlayTitle or actionDescription(normalizedAction, verb)
+	local rawSnippet = provenance.raw_snippet or ""
 	local command = ""
+	local commandKind = "shell"
 	if verb == "spawn-sh" then
 		command = quotedLiteral(normalizedAction:sub(#verb + 1), 1) or ""
+	elseif verb == "spawn" and editableNativeSpawn(normalizedAction)
+		and rawActionMatches(rawSnippet, normalizedAction) then
+		command = normalizedAction
+		commandKind = "native"
 	end
-	local rawSnippet = provenance.raw_snippet or ""
 	local bind = {
 		id = stableBindId({ signature, verb, normalizedAction }),
 		modifiers = modifiers, key = key, description = description, dispatcher = verb,
-		activation = "press", command = command, action = normalizedAction,
+		activation = "press", command = command, command_kind = commandKind, action = normalizedAction,
+		has_overlay_title = hasOverlayTitle,
 		source = provenance.source, start_line = provenance.start_line,
 		end_line = provenance.end_line, raw_snippet = rawSnippet,
 		fingerprint = EXACT_SOURCE_FINGERPRINT,
 		managed = provenance.source:match("([^/]+)$") == "keymap.kdl",
 		capabilities = {
 			combo = true, category = true, description = true,
-			command = verb == "spawn-sh", activation = false,
+			command = verb == "spawn-sh" or commandKind == "native",
+			native_spawn = commandKind == "native", activation = false,
 		},
 		_rawKey = rawKey, _category = category or actionCategory(normalizedAction, verb),
 	}
@@ -804,6 +1008,15 @@ local function parseConfig(root, rootSource)
 
 		for rawLine in (source .. "\n"):gmatch("([^\n]*)\n") do
 			lineNumber = lineNumber + 1
+			-- Yield once a slice gets expensive so a multi-file parse never
+			-- holds the callback past its budget; update() resumes on the
+			-- next tick with a fresh window. The counter spans included files,
+			-- so many short includes cannot dodge the yield check.
+			linesThisResume = linesThisResume + 1
+			if linesThisResume >= PARSE_LINE_SLICE or sliceExpired() then
+				linesThisResume = 0
+				coroutine.yield()
+			end
 			local code, comment
 			code, comment, inBlockComment = stripComments(rawLine, inBlockComment)
 			local stripped = trim(code)
@@ -891,10 +1104,11 @@ local function parseConfig(root, rootSource)
 	return categories, total, hidden, warnings, fatalError
 end
 
-local function snapshot(status, source, errorCode, categories, total, warnings, updatedAt, hidden)
+local function snapshot(status, source, errorCode, categories, total, warnings, updatedAt, hidden, errorDetail)
 	return {
 		status = status,
 		error = errorCode or "",
+		error_detail = errorDetail or "",
 		compositor = "Niri",
 		source = source,
 		updated_at = updatedAt or "",
@@ -917,6 +1131,13 @@ function refresh()
 	-- Each compositor service receives the same events. Only the selected or
 	-- auto-detected service may publish, preventing snapshot races.
 	if detectedCompositor() ~= "niri" then
+		-- Invalidate any in-flight parse from a previous compositor selection:
+		-- its result must never overwrite the new owner's snapshot.
+		parseGeneration = parseGeneration + 1
+		parseCoroutine = nil
+		refreshing = false
+		refreshQueued = false
+		setFastTicks(false)
 		return
 	end
 	if refreshing then
@@ -924,10 +1145,14 @@ function refresh()
 		return
 	end
 	refreshing = true
+	parseGeneration = parseGeneration + 1
+	local generation = parseGeneration
 	local source = sourcePath()
+	parseSource = source
+	parseUpdatedAt = os.date("%H:%M:%S")
 	-- The panel keeps its last ready snapshot while this status is loading.
 	-- Do not copy the full bind tree through the shared-state serializer merely
-	-- to replace it again at the end of this synchronous refresh.
+	-- to replace it again at the end of this refresh.
 	noctalia.state.set(
 		SNAPSHOT_KEY,
 		snapshot("loading", source, "", {}, 0, {}, "", {})
@@ -937,49 +1162,113 @@ function refresh()
 	if type(rootSource) ~= "string" then
 		noctalia.state.set(
 			SNAPSHOT_KEY,
-			snapshot("error", source, "niri_config_unreadable", {}, 0, {}, os.date("%H:%M:%S"))
+			snapshot("error", source, "niri_config_unreadable", {}, 0, {}, parseUpdatedAt)
 		)
 		finishRefresh()
 		return
 	end
 
-	local categories, total, hidden, warnings, fatalError = parseConfig(source, rootSource)
-	if fatalError ~= nil then
-		noctalia.state.set(
-			SNAPSHOT_KEY,
-			snapshot("error", source, fatalError, {}, 0, warnings, os.date("%H:%M:%S"))
-		)
-	elseif total == 0 and #hidden == 0 then
-		noctalia.state.set(
-			SNAPSHOT_KEY,
-			snapshot("error", source, "niri_no_binds", {}, 0, warnings, os.date("%H:%M:%S"))
-		)
-	else
-		noctalia.state.set(
-			SNAPSHOT_KEY,
-			snapshot("ready", source, "", categories, total, warnings, os.date("%H:%M:%S"), hidden)
-		)
+	parseCoroutine = coroutine.create(function()
+		local categories, total, hidden, warnings, fatalError = parseConfig(source, rootSource)
+		if generation ~= parseGeneration then
+			-- A compositor switch or a newer refresh superseded this parse.
+			return
+		end
+		if fatalError ~= nil then
+			noctalia.state.set(
+				SNAPSHOT_KEY,
+				snapshot("error", source, fatalError, {}, 0, warnings, parseUpdatedAt)
+			)
+		elseif total == 0 and #hidden == 0 then
+			noctalia.state.set(
+				SNAPSHOT_KEY,
+				snapshot("error", source, "niri_no_binds", {}, 0, warnings, parseUpdatedAt)
+			)
+		else
+			noctalia.state.set(
+				SNAPSHOT_KEY,
+				snapshot("ready", source, "", categories, total, warnings, parseUpdatedAt, hidden)
+			)
+		end
+	end)
+	-- Resume once within this budget; a large config suspends and continues on
+	pumpParse()
+end
+
+-- Resume the in-flight parse until it either finishes or yields. Called from
+-- refresh() and from update() ticks, so every slice runs inside its own
+-- budget window.
+function pumpParse()
+	if parseCoroutine == nil then
+		return
 	end
-	finishRefresh()
+	noteSliceStart()
+	linesThisResume = 0
+	local ok, err = coroutine.resume(parseCoroutine)
+	if not ok then
+		parseCoroutine = nil
+		setFastTicks(false)
+		noctalia.state.set(
+			SNAPSHOT_KEY,
+			snapshot("error", parseSource, "niri_parse_failed", {}, 0, {}, parseUpdatedAt, {}, tostring(err))
+		)
+		finishRefresh()
+		return
+	end
+	if coroutine.status(parseCoroutine) == "dead" then
+		parseCoroutine = nil
+		setFastTicks(false)
+		finishRefresh()
+		return
+	end
+	-- Still suspended: left parked for the next update() tick.
+	setFastTicks(true)
 end
 
 function onIpc(event, _payload)
 	if event == "refresh" then
-		refresh()
+		local current = tonumber(noctalia.state.get(REFRESH_REQUEST_KEY)) or 0
+		noctalia.state.set(REFRESH_REQUEST_KEY, current + 1)
 	end
 end
 
 function onConfigChanged()
-	refresh()
+	pendingRefresh = true
 end
 
--- Manual lifecycle: refreshes are driven by initial load, config changes, IPC,
--- and the shared refresh request. The host's periodic update hook is a no-op.
+-- The watch callback only records intent and acknowledges the request with a
+-- cheap loading marker: parsing inside the 25ms callback slot risks
+-- exhausting the budget when other work shares it, and a budget abort there
+-- would leave the snapshot stuck at "loading". The periodic update tick
+-- performs the actual refresh in slices, one budget window at a time.
 function update()
+	if pendingRefresh then
+		pendingRefresh = false
+		refresh()
+	elseif parseCoroutine ~= nil then
+		pumpParse()
+	else
+		setFastTicks(false)
+	end
 end
 
-noctalia.state.watch(REFRESH_REQUEST_KEY, function(_request)
-	refresh()
+-- Refresh requests issued before this service loaded are covered by the boot
+-- refresh below; the watcher only reacts to genuinely new counter values,
+-- ignoring host echoes of a value this service already handled.
+lastRefreshRequest = noctalia.state.get(REFRESH_REQUEST_KEY)
+noctalia.state.watch(REFRESH_REQUEST_KEY, function(request)
+	if request ~= lastRefreshRequest then
+		lastRefreshRequest = request
+		pendingRefresh = true
+		-- Acknowledge immediately so the panel leaves its ready state even
+		-- though the parse itself waits for the update tick. Keep the previous
+		-- categories out of the marker: the panel hides them while loading.
+		if detectedCompositor() == "niri" then
+			local current = noctalia.state.get(SNAPSHOT_KEY)
+			local source = type(current) == "table" and current.source or nil
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("loading", source, "", {}, 0, {}, "", {}))
+		end
+	end
 end)
 
 refresh()

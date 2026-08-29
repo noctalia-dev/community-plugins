@@ -20,6 +20,25 @@ local ocrEditText = type(ocrResult) == "table" and ocrResult.text or ""
 local translateResult = noctalia.state.get("translateResult")
 local qrResult = noctalia.state.get("qrResult")
 local paletteColors = noctalia.state.get("paletteColors") or {}
+local ocrTab = "original"
+local selectedTranslateLang = "ar"
+local translateLanguages = {
+  { code = "en", name = "English" },
+  { code = "ar", name = "العربية" },
+  { code = "fr", name = "Français" },
+  { code = "de", name = "Deutsch" },
+  { code = "es", name = "Español" },
+  { code = "zh", name = "中文" },
+  { code = "ja", name = "日本語" },
+  { code = "ru", name = "Русский" },
+  { code = "pt", name = "Português" },
+  { code = "it", name = "Italiano" },
+  { code = "tr", name = "Türkçe" },
+  { code = "fa", name = "فارسی" },
+  { code = "he", name = "עברית" },
+  { code = "ur", name = "اردو" },
+}
+local render -- forward for tab callbacks inside renderOcr
 
 -- ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -33,12 +52,20 @@ local function send(action, payload)
 end
 
 local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", [["'"']]) .. "'"
+  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
 end
 
 local function copyText(text)
   if not text or text == "" then return end
   noctalia.copyToClipboard(text, "text/plain;charset=utf-8")
+end
+
+local function isRTL(text)
+  local s = tostring(text)
+  -- Detect RTL scripts (Arabic, Hebrew, Persian, Urdu, etc.)
+  -- Arabic U+0600-U+08FF and Hebrew U+0590-U+05FF encode as D7/D8/D9 bytes in UTF-8
+  -- Look for UTF-8 lead bytes 0xD7 (215), 0xD8 (216), 0xD9 (217) followed by continuation byte
+  return s:find("[\215\216\217][\128-\191]") ~= nil
 end
 
 local function actionButton(glyph, text, onClick, variant)
@@ -148,15 +175,17 @@ local function header()
     }),
     ui.label({ text = title, flexGrow = 1, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
     ui.button({
+      glyph = "trash",
       text = tr("panel.clear"),
       variant = "ghost",
       controlSize = "sm",
+      tooltip = tr("panel.clear"),
       onClick = function()
         if recordState == "ready" then send("recordDiscard") else send("clearResult") end
         panel.close()
       end,
     }),
-    ui.button({ glyph = "close", onClick = function() panel.close() end }),
+    ui.button({ glyph = "close", variant = "ghost", controlSize = "sm", onClick = function() panel.close() end }),
   })
 end
 
@@ -327,82 +356,109 @@ local function renderOcr()
   local email = text:match("[%w%._%%+%-]+@[%w%.%-]+%.[%a][%a]+")
   local imgW = tonumber(ocrResult.gw) or 0
   local imgH = tonumber(ocrResult.gh) or 0
-  local imgHeight = 110
+  local imgHeight = 90
   if imgW > 0 and imgH > 0 then
-    imgHeight = math.max(90, math.min(200, math.floor(480 * (imgH / imgW))))
+    imgHeight = math.max(70, math.min(140, math.floor(360 * (imgH / imgW))))
   end
-  local scrollChildren = {
-    ui.label({ text = tr("panel.ocr_text"), fontSize = 12, fontWeight = "bold", color = "on_surface_variant" }),
-  }
+  local lineCount = 1
+  for _ in tostring(text):gmatch("\n") do lineCount = lineCount + 1 end
+  lineCount = lineCount + math.floor(#text / 60)
+  local inputHeight = math.max(70, math.min(180, lineCount * 20 + 32))
+  local hasTranslation = translateResult and translateResult ~= ""
+  if hasTranslation and ocrTab ~= "original" and ocrTab ~= "translation" then ocrTab = "original" end
+  local scrollChildren = {}
+  -- Source image card — tinted to differentiate from editable output
   if ocrResult.capturePath and ocrResult.capturePath ~= "" then
-    table.insert(scrollChildren, ui.image({
-      key = "ocr-image-" .. tostring(ocrResult.cacheBust or ocrResult.capturePath),
-      path = ocrResult.capturePath,
-      height = imgHeight,
-      fit = "contain",
-      radius = 12,
-      borderWidth = 1,
-      border = "outline",
+    table.insert(scrollChildren, ui.row({ justify = "space_between", align = "center" }, {
+      ui.row({ gap = 6, align = "center" }, {
+        ui.glyph({ name = "photo", size = 14, color = "primary" }),
+        ui.label({ text = tr("panel.ocr_source") ~= "panel.ocr_source" and tr("panel.ocr_source") or "Source", fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
+      }),
+      ui.label({ text = imgW > 0 and string.format("%dx%d", imgW, imgH) or "", fontSize = 10, color = "on_surface_variant" }),
     }))
-  end
-  -- ui.input does not support radius / border / padding, so frame the editor
-  -- in a matching container to align it with the picture and keep long text
-  -- from touching the edges.
-  table.insert(scrollChildren, ui.column({
-      radius = 12,
-      borderWidth = 1,
-      border = "outline",
-      paddingH = 10,
-      paddingV = 8,
-    }, {
-      ui.input({
-        key = "ocr-edit-" .. tostring(ocrResult.cacheBust or "current"),
-        value = text,
-        multiline = true,
-        height = 220,
-        flexGrow = 1,
-        onChange = function(value) ocrEditText = value or "" end,
+    table.insert(scrollChildren, ui.column({ fill = "surface_variant/0.35", radius = 12, padding = 6, borderWidth = 1, border = "outline" }, {
+      ui.image({
+        key = "ocr-image-" .. tostring(ocrResult.cacheBust or ocrResult.capturePath),
+        path = ocrResult.capturePath,
+        height = imgHeight,
+        fit = "contain",
+        radius = 8,
       }),
     }))
-  if translateResult and translateResult ~= "" then
-    table.insert(scrollChildren, ui.separator({ spacing = 6 }))
-    table.insert(scrollChildren, ui.label({ text = tr("panel.translation"), fontSize = 12, fontWeight = "bold", color = "primary" }))
-    table.insert(scrollChildren, ui.label({ text = translateResult, fontSize = 13 }))
   end
-  local buttons = {
-    ui.button({
-      glyph = "copy",
-      tooltip = tr("panel.copy_text"),
-      controlSize = "sm",
-      onClick = function() copyText(ocrEditText) end,
+  table.insert(scrollChildren, ui.row({ justify = "space_between", align = "center" }, {
+    ui.row({ gap = 6, align = "center" }, {
+      ui.glyph({ name = "edit", size = 14, color = "primary" }),
+      ui.label({ text = tr("panel.ocr_text"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
     }),
+    ui.button({ glyph = "copy", variant = "ghost", controlSize = "sm", tooltip = tr("panel.copy_text"), onClick = function() copyText(ocrEditText) end }),
+  }))
+  table.insert(scrollChildren, ui.input({
+    key = "ocr-edit-" .. tostring(ocrResult.cacheBust or "current"),
+    value = text,
+    multiline = true,
+    height = inputHeight,
+    flexGrow = 1,
+    onChange = function(value) ocrEditText = value or "" end,
+  }))
+  if hasTranslation then
+    local rtl = isRTL(translateResult)
+    local displayText = tostring(translateResult):gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", "")
+    table.insert(scrollChildren, ui.separator({ spacing = 6 }))
+    table.insert(scrollChildren, ui.row({ justify = "space_between", align = "center" }, {
+      ui.label({ text = tr("panel.translation"), fontSize = 11, fontWeight = "bold", color = "primary" }),
+      ui.button({ glyph = "copy", variant = "ghost", controlSize = "sm", tooltip = tr("panel.copy_text"), onClick = function() copyText(displayText) end }),
+    }))
+    table.insert(scrollChildren, ui.column({
+        fill = "surface_variant/0.25",
+        radius = 10,
+        paddingH = 10,
+        paddingV = 8,
+        flexGrow = 1,
+      }, {
+        ui.label({
+          text = displayText,
+          fontSize = 13,
+          textAlign = if rtl then "right" else "left",
+          fontFamily = if rtl then "Noto Naskh Arabic" else nil,
+        }),
+      }))
+  end
+  -- Controls — icon-only with tooltips + searchable language picker (replaces raw "ar" input)
+  local langOptions = {}
+  local langCodes = {}
+  for _, l in ipairs(translateLanguages) do
+    table.insert(langOptions, l.code .. " — " .. l.name)
+    table.insert(langCodes, l.code)
+  end
+  local selectedIdx = 0
+  for i, c in ipairs(langCodes) do if c == selectedTranslateLang then selectedIdx = i - 1; break end end
+  local controls = {
+    ui.button({ glyph = "copy", variant = "ghost", controlSize = "sm", tooltip = tr("panel.copy_text"), onClick = function() copyText(ocrTab == "translation" and translateResult or ocrEditText) end }),
   }
   if url then
-    table.insert(buttons, actionButton("external-link", tr("panel.open_url"), function()
-      noctalia.runAsync("xdg-open " .. shellQuote(url))
-    end))
+    table.insert(controls, ui.button({ glyph = "external-link", variant = "ghost", controlSize = "sm", tooltip = tr("panel.open_url"), onClick = function() noctalia.runAsync("xdg-open " .. shellQuote(url)) end }))
   elseif email then
-    table.insert(buttons, actionButton("mail", tr("panel.compose_mail"), function()
-      noctalia.runAsync("xdg-open " .. shellQuote("mailto:" .. email))
-    end))
+    table.insert(controls, ui.button({ glyph = "mail", variant = "ghost", controlSize = "sm", tooltip = tr("panel.compose_mail"), onClick = function() noctalia.runAsync("xdg-open " .. shellQuote("mailto:" .. email)) end }))
   end
-  table.insert(buttons, actionButton("search", tr("panel.search_text"), function() send("ocrSearch", { text = ocrEditText }) end))
-  local translateInput = ui.input({
-    key = "ocr-translate-input",
-    placeholder = "en",
+  table.insert(controls, ui.button({ glyph = "search", variant = "ghost", controlSize = "sm", tooltip = tr("panel.search_text"), onClick = function() send("ocrSearch", { text = ocrEditText }) end }))
+  table.insert(controls, ui.button({ glyph = "share", variant = "ghost", controlSize = "sm", tooltip = tr("panel.share"), onClick = function() send("share", ocrResult.capturePath) end }))
+  table.insert(controls, ui.spacer({ flexGrow = 1 }))
+  table.insert(controls, ui.select({
+    options = langOptions,
+    selectedIndex = selectedIdx,
+    width = 160,
     controlSize = "sm",
-    width = 72,
-    onSubmit = function(value) send("ocrTranslate", { lang = value, text = ocrEditText }) end,
-  })
-  table.insert(buttons, actionButton("share", tr("panel.share"), function() send("share", ocrResult.capturePath) end))
-  table.insert(buttons, ui.spacer({ flexGrow = 1 }))
-  table.insert(buttons, ui.row({ gap = 4, align = "center" }, {
-    ui.label({ text = tr("panel.translate_label"), fontSize = 9, color = "on_surface_variant" }),
-    translateInput,
+    onChange = function(value)
+      local idx = tonumber(value) or 0
+      selectedTranslateLang = langCodes[idx + 1] or "en"
+      render()
+    end,
   }))
-  return ui.column({ flexGrow = 1, gap = 6 }, {
-    ui.row({ gap = 6 }, buttons),
-    ui.scroll({ flexGrow = 1, gap = 6 }, scrollChildren),
+  table.insert(controls, ui.button({ glyph = "language", variant = "primary", controlSize = "sm", tooltip = tr("panel.translate"), onClick = function() send("ocrTranslate", { lang = selectedTranslateLang, text = ocrEditText }) end }))
+  return ui.column({ flexGrow = 1, gap = 8 }, {
+    ui.row({ gap = 4, align = "center" }, controls),
+    ui.scroll({ flexGrow = 1, gap = 8 }, scrollChildren),
   })
 end
 
@@ -485,7 +541,7 @@ local function body()
   return emptyState("crosshair", tr("panel.empty"))
 end
 
-local function render()
+render = function()
   panel.render(ui.column({ flexGrow = 1, gap = 10 }, {
     header(),
     body(),
@@ -522,6 +578,9 @@ noctalia.state.watch("ocrResult", function(v)
   ocrEditText = type(v) == "table" and v.text or ""
   if panelOpen then render() end
 end)
-noctalia.state.watch("translateResult", function(v) translateResult = v; if panelOpen then render() end end)
+noctalia.state.watch("translateResult", function(v)
+  translateResult = v
+  if panelOpen then render() end
+end)
 noctalia.state.watch("qrResult", function(v) qrResult = v; if panelOpen then render() end end)
 noctalia.state.watch("paletteColors", function(v) paletteColors = v or {}; if panelOpen then render() end end)

@@ -97,6 +97,10 @@
       "description": "Exclude the cursor from recordings. Screenshots never include the cursor.",
       "label": "Hide Cursor in Recordings"
     },
+    "hide_when_unused": {
+      "description": "Hide the bar widget when no recording is active. It will appear only while recording.",
+      "label": "Hide When Unused"
+    },
     "panel_mode": {
       "description": "Layout of the main panel. Standard is the default dense grid; Legacy recreates the Noctalia-v4 layout.",
       "label": "Panel Mode",

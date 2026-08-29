@@ -3,6 +3,11 @@
 -- service entry (service.luau) publishes "dns_state" and executes the
 -- "apply_request" entries this panel emits. Picking a provider applies it
 -- immediately (one nmcli change, no reactivation).
+--
+-- Right-clicking a provider raises a native context menu (plugin_api >= 28):
+-- apply it, copy its addresses, or send the name in the lookup box THROUGH it
+-- without switching to it — which is the question the panel could not answer
+-- before, since the tester only ever queried the resolver already in use.
 
 local STATE_KEY = "dns_state" -- published by service.luau
 local REQUEST_KEY = "apply_request" -- consumed by service.luau
@@ -43,10 +48,6 @@ local function trim(value)
     return (value:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function shellQuote(value)
-    return "'" .. value:gsub("'", "'\\''") .. "'"
-end
-
 -- The nonce is monotonic across writers (widget instances and the panel):
 -- each seeds from the last request already in the shared state.
 local function requestApply(entry)
@@ -59,9 +60,10 @@ local function requestApply(entry)
 end
 
 -- A conservative hostname shape (letters/digits/dot/hyphen, no leading dot or
--- hyphen, 253 chars max — the DNS wire-format limit). shellQuote() below is
--- the actual safety net; this only keeps an obviously-wrong query from ever
--- reaching a shell as a "valid enough" no-op.
+-- hyphen, 253 chars max — the DNS wire-format limit). Since 0.2.0 the lookup
+-- runs as an argv (plugin_api >= 24), so there is no shell to defend against
+-- and no quoting to get right: the name is one argument, whatever is in it.
+-- This check is now only about not sending an obviously-wrong query at all.
 local function isValidHostname(name)
     return name ~= "" and #name <= 253 and name:match("^[%w][%w%.%-]*$") ~= nil
 end
@@ -97,7 +99,11 @@ end
 -- pointed at the active provider's own address when it has one, so the
 -- answer reflects that resolver specifically rather than whatever the system
 -- resolver layer (systemd-resolved, etc.) does with it.
-local function runResolve()
+--
+-- `serverOverride` ({ ip, label }) aims the query at a provider that is NOT
+-- active — the row menu's lookup entry — which is a read-only question about
+-- that resolver and changes no configuration at all.
+local function runResolve(serverOverride)
     local name = trim(resolveQuery)
     if not isValidHostname(name) then
         resolveError = tr("resolve_invalid")
@@ -106,7 +112,7 @@ local function runResolve()
         return
     end
 
-    local server = activeServerInfo()
+    local server = serverOverride or activeServerInfo()
     local useDig = noctalia.commandExists("dig")
     local useNslookup = not useDig and noctalia.commandExists("nslookup")
     if not useDig and not useNslookup then
@@ -124,11 +130,16 @@ local function runResolve()
     local tool = useDig and "dig" or "nslookup"
     local cmd
     if useDig then
-        cmd = "dig +time=3 +tries=1 +short "
-            .. (server ~= nil and ("@" .. shellQuote(server.ip) .. " ") or "")
-            .. shellQuote(name)
+        cmd = { "dig", "+time=3", "+tries=1", "+short" }
+        if server ~= nil then
+            table.insert(cmd, "@" .. server.ip)
+        end
+        table.insert(cmd, name)
     else
-        cmd = "nslookup " .. shellQuote(name) .. (server ~= nil and (" " .. shellQuote(server.ip)) or "")
+        cmd = { "nslookup", name }
+        if server ~= nil then
+            table.insert(cmd, server.ip)
+        end
     end
 
     local ok = noctalia.runAsync(cmd, function(result)
@@ -169,6 +180,39 @@ local function runResolve()
     end
 end
 
+-- The provider row's right-click menu (plugin_api >= 28). Only a ui.button's
+-- onRightClick reports the pointer serial openContextMenu needs, and the row IS
+-- a button, so it raises this itself. `onActivate` must NAME a global
+-- (openContextMenu is a raw binding, not a UI tree prop, so closures are not
+-- registered for it); the provider id rides along in `context` and onProviderMenu
+-- looks the entry up again in the current snapshot rather than capturing it.
+--
+-- Apply stays enabled on the active row too: `nmcli con mod` + `device reapply`
+-- is idempotent, so re-applying is a real action (it pushes the profile back
+-- onto the live connection). That also guarantees the one enabled entry the
+-- host requires, whatever the other two are doing.
+local function openProviderMenu(entry, active, text)
+    local hasIp = type(entry.ip) == "string" and entry.ip ~= ""
+    local name = trim(resolveQuery)
+    panel.openContextMenu({
+        onActivate = "onProviderMenu",
+        context = entry.id,
+        items = {
+            { kind = "header", label = text },
+            { id = "apply", label = tr(active and "menu.reapply" or "menu.apply") },
+            { id = "copy", label = tr("menu.copy"), enabled = hasIp },
+            -- Named after the hostname it would send, so the entry says what
+            -- it does; with nothing usable in the box it turns into the hint
+            -- for how to make it work, disabled.
+            {
+                id = "test",
+                label = isValidHostname(name) and tr("menu.test", { name = name }) or tr("menu.test_hint"),
+                enabled = hasIp and isValidHostname(name),
+            },
+        },
+    })
+end
+
 -- A row names its provider and the addresses it would set, so picking one is not
 -- a guess about what it does. The ISP default has no fixed addresses -- whatever
 -- the LAN hands out -- so it stays a bare label, and the footer shows what is
@@ -191,7 +235,18 @@ local function providerRow(entry)
                 requestApply(entry)
             end
         end,
+        onRightClick = function()
+            openProviderMenu(entry, active, text)
+        end,
     })
+end
+
+local function copyServers(text)
+    if text == nil or text == "" then
+        return
+    end
+    noctalia.copyToClipboard(text, "text/plain")
+    noctalia.notify(tr("title"), tr("copied", { ip = text }))
 end
 
 local function statusFooter()
@@ -326,11 +381,36 @@ function onCopyServers()
     if (text == nil or text == "") and snapshot.current ~= nil then
         text = snapshot.current.ip
     end
-    if text == nil or text == "" then
+    copyServers(text)
+end
+
+-- Dispatch for a provider row's context menu. `action` is the id of the entry
+-- picked, `context` the provider id it was opened on — looked up again here,
+-- since a poll may have replaced the whole list in between.
+function onProviderMenu(action, context)
+    if snapshot == nil or type(snapshot.list) ~= "table" then
         return
     end
-    noctalia.copyToClipboard(text, "text/plain")
-    noctalia.notify(tr("title"), tr("copied", { ip = text }))
+    local entry = nil
+    for _, candidate in ipairs(snapshot.list) do
+        if candidate.id == context then
+            entry = candidate
+            break
+        end
+    end
+    if entry == nil then
+        return
+    end
+    if action == "apply" then
+        requestApply(entry)
+    elseif action == "copy" then
+        copyServers(entry.ip)
+    elseif action == "test" then
+        local ip = type(entry.ip) == "string" and entry.ip:match("%S+") or nil
+        if ip ~= nil then
+            runResolve({ ip = ip, label = entry.label })
+        end
+    end
 end
 
 -- Opens the settings window on this plugin's own page (the host supplies the

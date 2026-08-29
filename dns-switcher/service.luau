@@ -18,6 +18,11 @@
 -- of those two nmcli calls individually (never onto a wrapping shell), so a
 -- sudoers NOPASSWD rule naming the nmcli binary itself is enough — see
 -- apply() below and the README's Privileges section.
+--
+-- Since 0.2.0 every command here is an argument vector rather than a shell
+-- line (plugin_api >= 24), so there is no shell to quote for anywhere in this
+-- plugin. The detection and apply pipelines that used to be one `sh -c` script
+-- each are now chains of individual nmcli calls parsed in Luau.
 
 local STATE_KEY = "dns_state"       -- published here, read by widget + panel
 local REQUEST_KEY = "apply_request" -- sent by widget/panel, consumed here
@@ -177,41 +182,62 @@ local function publish()
     })
 end
 
--- Picks the active connection: prefer wifi/ethernet, else the first
--- non-loopback entry. Emits KEY=value lines parsed by the poll callback;
--- UUID (colon-free) identifies the connection, DEV drives the reapply.
-local DETECT_CMD = [[
-ACT=$(LC_ALL=C nmcli -t -f TYPE,DEVICE,UUID,NAME connection show --active 2>/dev/null)
-LINE=$(printf '%s\n' "$ACT" | grep -E '^(802-11-wireless|802-3-ethernet):' | head -n 1)
-[ -n "$LINE" ] || LINE=$(printf '%s\n' "$ACT" | grep -v '^loopback:' | head -n 1)
-[ -n "$LINE" ] || { echo 'ERR=noconn'; exit 0; }
-DEV=$(printf '%s' "$LINE" | cut -d: -f2)
-UUID=$(printf '%s' "$LINE" | cut -d: -f3)
-echo "NAME=$(printf '%s' "$LINE" | cut -d: -f4-)"
-echo "CFG=$(LC_ALL=C nmcli -g ipv4.dns connection show uuid "$UUID" 2>/dev/null)"
-echo "AUTO=$(LC_ALL=C nmcli -g ipv4.ignore-auto-dns connection show uuid "$UUID" 2>/dev/null)"
-echo "RUN=$(nmcli -g IP4.DNS device show "$DEV" 2>/dev/null | tr '\n' ' ')"
-]]
+-- Every command below is an argument vector, never a shell line: plugin_api
+-- >= 24 lets noctalia.runAsync take the argv directly and exec it, so nothing
+-- this plugin runs is ever parsed by a shell. That is what the privileged path
+-- is really about — a sudoers NOPASSWD rule naming /usr/bin/nmcli authorizes
+-- the binary, and there is now no `sh -c` anywhere for it to fail to cover.
+-- `env LC_ALL=C` replaces what the old shell line set: nmcli's field values are
+-- locale-independent, but its stderr is not, and apply() below reads it.
+local function nmcli(...)
+    return { "env", "LC_ALL=C", "nmcli", ... }
+end
 
-local function updateDnsState(stdout)
-    local fields = {}
+-- One row of `nmcli -t -f TYPE,DEVICE,UUID,NAME connection show --active`.
+-- TYPE, DEVICE and UUID never contain a colon; NAME can, so it takes the rest
+-- of the line — the same split the previous `cut -d: -f4-` did.
+local function parseConnectionRow(line)
+    local kind, device, uuid, name = line:match("^([^:]*):([^:]*):([^:]*):(.*)$")
+    if uuid == nil or uuid == "" then
+        return nil
+    end
+    return { kind = kind, device = device, uuid = uuid, name = name }
+end
+
+-- The connection to act on: prefer wifi/ethernet, else the first non-loopback
+-- entry. Was a grep/head pipeline inside the detect script; in Luau it is the
+-- one rule both detection and apply() go through, so the two can no longer
+-- disagree about which connection is "the" one.
+local function pickConnection(stdout)
+    local fallback = nil
     for line in stdout:gmatch("[^\n]+") do
-        local key, value = line:match("^(%u+)=(.*)$")
-        if key ~= nil then
-            fields[key] = value
+        local row = parseConnectionRow(line)
+        if row ~= nil then
+            if row.kind == "802-11-wireless" or row.kind == "802-3-ethernet" then
+                return row
+            end
+            if fallback == nil and row.kind ~= "loopback" then
+                fallback = row
+            end
         end
     end
+    return fallback
+end
 
-    if fields.ERR == "noconn" then
+-- `cfg` is the profile's ipv4.dns, `auto` its ipv4.ignore-auto-dns, `run` the
+-- device's live IP4.DNS. Split out of the old KEY=value echo protocol: the
+-- three now arrive as the plain stdout of three nmcli calls.
+local function updateDnsState(con, cfgDns, auto, run)
+    if con == nil then
         current = nil
         errMsg = tr("err_no_connection")
         return
     end
     errMsg = nil
-    conName = fields.NAME or ""
+    conName = con.name or ""
 
     local runtime = {}
-    for token in (fields.RUN or ""):gmatch("%d+%.%d+%.%d+%.%d+") do
+    for token in (run or ""):gmatch("%d+%.%d+%.%d+%.%d+") do
         if isValidIp(token) then
             table.insert(runtime, token)
         end
@@ -220,9 +246,9 @@ local function updateDnsState(stdout)
 
     -- Manual DNS lives in the profile (ipv4.dns + ignore-auto-dns yes);
     -- anything else is the connection default, whatever the LAN hands out.
-    local manual = (fields.AUTO == "yes")
+    local manual = (trim(auto or "") == "yes")
     local cfgIps = {}
-    for token in (fields.CFG or ""):gmatch("%d+%.%d+%.%d+%.%d+") do
+    for token in (cfgDns or ""):gmatch("%d+%.%d+%.%d+%.%d+") do
         if isValidIp(token) then
             table.insert(cfgIps, token)
         end
@@ -259,23 +285,64 @@ local function updateDnsState(stdout)
     }
 end
 
+-- Run one nmcli query and hand its stdout on, or nil when it could not be
+-- asked. Every detection step below has the same shape, and none of them is
+-- fatal on its own: a missing answer just leaves that field empty.
+local function query(argv, done)
+    local ok = noctalia.runAsync(argv, function(result)
+        if result.exitCode == 0 and not result.timedOut then
+            done(result.stdout or "")
+        else
+            done(nil)
+        end
+    end, 4000)
+    if not ok then
+        done(nil)
+    end
+end
+
+-- Detection, as three chained nmcli calls: the active connections, then the
+-- chosen one's profile DNS settings, then the DNS its device is actually
+-- using. It was one shell script with an echo protocol between the two halves;
+-- chained argv calls cost two extra round trips on a poll that runs every
+-- pollSeconds() and buys the shell being gone from the plugin entirely.
+--
+-- `checkInFlight` spans the whole chain, so a poll tick landing mid-chain is
+-- dropped rather than starting a second one.
 local function pollNow()
     if checkInFlight or changing or nmcliMissing then
         return
     end
     checkInFlight = true
-    local ok = noctalia.runAsync(DETECT_CMD, function(result)
+    local function finish()
         checkInFlight = false
-        if result.exitCode == 0 and not result.timedOut then
-            updateDnsState(result.stdout)
-        elseif current == nil then
-            errMsg = tr("status_no_nmcli")
-        end
         publish()
-    end, 4000)
-    if not ok then
-        checkInFlight = false
     end
+    query(nmcli("-t", "-f", "TYPE,DEVICE,UUID,NAME", "connection", "show", "--active"), function(active)
+        if active == nil then
+            -- nmcli itself did not answer; keep whatever was last detected
+            -- rather than claiming there is no connection.
+            if current == nil then
+                errMsg = tr("status_no_nmcli")
+            end
+            finish()
+            return
+        end
+        local con = pickConnection(active)
+        if con == nil then
+            updateDnsState(nil)
+            finish()
+            return
+        end
+        query(nmcli("-g", "ipv4.dns,ipv4.ignore-auto-dns", "connection", "show", "uuid", con.uuid), function(profile)
+            -- Two -g fields, one value per line and in the order asked for.
+            local cfgDns, auto = (profile or ""):match("^([^\n]*)\n([^\n]*)")
+            query(nmcli("-g", "IP4.DNS", "device", "show", con.device), function(run)
+                updateDnsState(con, cfgDns, auto, run)
+                finish()
+            end)
+        end)
+    end)
 end
 
 local function apply(provider)
@@ -292,47 +359,60 @@ local function apply(provider)
         return
     end
 
-    -- Safety net mirroring the v4 plugin: the spec is already validated, the
-    -- gsub guarantees nothing shell-relevant ever reaches the command line.
-    local safeIp = provider.ip:gsub("[^%d%. ]", "")
+    -- The DNS list reaches nmcli as one argv element, so it is never split,
+    -- globbed or re-parsed on the way. validDnsSpec above already limits it to
+    -- one or two dotted quads; this is the value nmcli stores verbatim.
     local mods
-    if safeIp == "" then
-        mods = 'ipv4.dns "" ipv4.ignore-auto-dns no'
+    if provider.ip == "" then
+        mods = { "ipv4.dns", "", "ipv4.ignore-auto-dns", "no" }
     else
-        mods = 'ipv4.dns "' .. safeIp .. '" ipv4.ignore-auto-dns yes'
+        mods = { "ipv4.dns", provider.ip, "ipv4.ignore-auto-dns", "yes" }
     end
 
+    -- The privilege command becomes the leading argv elements of each mutating
+    -- call, split on whitespace: "sudo", "pkexec", "sudo -n" all work; a path
+    -- with spaces in it does not, and a wrapper script is the answer there.
+    -- Prefixed onto each nmcli invocation individually, never onto a wrapping
+    -- shell — the README's sudoers example authorizes the nmcli binary itself
+    -- (NOPASSWD: /usr/bin/nmcli), which would never cover a shell run under
+    -- sudo. Discovering the device/uuid stays unprivileged either way (it is a
+    -- plain read), so only the two mutating calls carry it.
     local priv = cfg("privilege_command")
     if type(priv) ~= "string" then
         priv = ""
     end
-    priv = trim(priv)
-    -- Prefixed onto each nmcli invocation individually, never onto a
-    -- wrapping `sh -c`: the README's sudoers example authorizes the nmcli
-    -- binary itself (NOPASSWD: /usr/bin/nmcli), which never covers a shell
-    -- run under sudo. Discovering the device/uuid stays unprivileged either
-    -- way (it's a plain read), so only the two mutating calls need it.
-    local privPrefix = priv ~= "" and (priv .. " ") or ""
+    local privArgv = {}
+    for word in priv:gmatch("%S+") do
+        table.insert(privArgv, word)
+    end
 
-    local cmd = 'ACT=$(LC_ALL=C nmcli -t -f TYPE,DEVICE,UUID connection show --active 2>/dev/null); '
-        .. [[LINE=$(printf '%s\n' "$ACT" | grep -E '^(802-11-wireless|802-3-ethernet):' | head -n 1); ]]
-        .. [=[[ -n "$LINE" ] || LINE=$(printf '%s\n' "$ACT" | grep -v '^loopback:' | head -n 1); ]=]
-        .. [=[[ -n "$LINE" ] || exit 9; ]=]
-        .. 'DEV=$(printf \'%s\' "$LINE" | cut -d: -f2); '
-        .. 'UUID=$(printf \'%s\' "$LINE" | cut -d: -f3); '
-        .. privPrefix .. 'nmcli con mod "$UUID" ' .. mods .. ' && ' .. privPrefix .. 'nmcli device reapply "$DEV"'
+    -- `env LC_ALL=C` goes in FRONT of the privilege command, not between it and
+    -- nmcli: sudo and pkexec match their policy against the program they are
+    -- asked to run, so `sudo env … nmcli` is a request to run /usr/bin/env and
+    -- the README's `NOPASSWD: /usr/bin/nmcli` rule would stop matching. This
+    -- way the privileged program stays nmcli itself. The locale still reaches
+    -- it under sudo, whose default sudoers keeps LC_* (`env_keep`); pkexec
+    -- scrubs the environment and nmcli's stderr comes back localized there,
+    -- which only costs the message match below its shortcut — the raw stderr
+    -- is still shown.
+    local function privileged(...)
+        local argv = { "env", "LC_ALL=C" }
+        for _, word in ipairs(privArgv) do
+            table.insert(argv, word)
+        end
+        table.insert(argv, "nmcli")
+        for _, word in ipairs({ ... }) do
+            table.insert(argv, word)
+        end
+        return argv
+    end
 
-    changing = true
-    publish()
-    -- 60s budget so an eventual polkit password prompt can be answered.
-    local ok = noctalia.runAsync(cmd, function(result)
+    local function failed(result)
         changing = false
-        if result.exitCode == 0 and not result.timedOut then
-            noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+        if result == nil then
+            noctalia.notifyError(tr("title"), tr("err_spawn"))
         elseif result.timedOut then
             noctalia.notifyError(tr("title"), tr("err_timeout"))
-        elseif result.exitCode == 9 then
-            noctalia.notifyError(tr("title"), tr("err_no_connection"))
         elseif result.exitCode == 126 then
             noctalia.notifyError(tr("title"), tr("err_auth_dismissed"))
         else
@@ -350,11 +430,65 @@ local function apply(provider)
         end
         publish()
         pollNow()
-    end, 60000)
+    end
+
+    changing = true
+    publish()
+
+    -- Three steps where there used to be one shell line: find the connection,
+    -- write the profile, push it onto the live device. The 60s budget is on
+    -- each of the two privileged calls, so a polkit password prompt has the
+    -- same room to be answered as before.
+    local ok = noctalia.runAsync(
+        nmcli("-t", "-f", "TYPE,DEVICE,UUID,NAME", "connection", "show", "--active"),
+        function(listed)
+            if listed.exitCode ~= 0 or listed.timedOut then
+                failed(listed)
+                return
+            end
+            local con = pickConnection(listed.stdout or "")
+            if con == nil then
+                changing = false
+                noctalia.notifyError(tr("title"), tr("err_no_connection"))
+                publish()
+                pollNow()
+                return
+            end
+            local modArgv = privileged("con", "mod", con.uuid)
+            for _, word in ipairs(mods) do
+                table.insert(modArgv, word)
+            end
+            local modOk = noctalia.runAsync(modArgv, function(modded)
+                if modded.exitCode ~= 0 or modded.timedOut then
+                    failed(modded)
+                    return
+                end
+                -- reapply pushes the profile onto the live connection without
+                -- reactivating it, so the network never drops.
+                local reapplyOk = noctalia.runAsync(
+                    privileged("device", "reapply", con.device),
+                    function(reapplied)
+                        if reapplied.exitCode ~= 0 or reapplied.timedOut then
+                            failed(reapplied)
+                            return
+                        end
+                        changing = false
+                        noctalia.notify(tr("title"), tr("applied", { name = provider.label }))
+                        publish()
+                        pollNow()
+                    end, 60000
+                )
+                if not reapplyOk then
+                    failed(nil)
+                end
+            end, 60000)
+            if not modOk then
+                failed(nil)
+            end
+        end, 4000
+    )
     if not ok then
-        changing = false
-        noctalia.notifyError(tr("title"), tr("err_spawn"))
-        publish()
+        failed(nil)
     end
 end
 

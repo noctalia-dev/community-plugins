@@ -39,6 +39,8 @@
     "one": "1 package ignored",
     "other": "{count} packages ignored"
   },
+  "changelog_empty": "No changelog available",
+  "changelog_title": "What's new",
   "err_aur_failed": "AUR check failed, see the system log for details",
   "err_check_failed": "checkupdates failed, see the system log for details",
   "err_check_timeout": "Timed out while checking for updates",
@@ -50,6 +52,7 @@
   "err_polkit_install": "Could not install the polkit rule, see the system log for details",
   "err_run_failed": "Update failed (exit {code}), check the log or retry in a terminal",
   "err_spawn": "Could not run checkupdates",
+  "err_terminal_closed": "The terminal window closed before the update finished, check the log or retry in a terminal",
   "history_rollback_tag": "rollback",
   "history_title": "Update history",
   "hover_hint": "Hover a package for its full versions",
@@ -164,6 +167,10 @@
       "description": "Track pending-update counts across recent checks and when you last updated, shown as a small graph above the update history strip. Off (default) also stops recording the history.",
       "label": "Show activity graph"
     },
+    "show_changelog_after_update": {
+      "description": "Open the panel's changelog automatically once an update run finishes successfully.",
+      "label": "Show changelog after updating"
+    },
     "show_count": {
       "description": "Show the number of pending updates next to the bar glyph.",
       "label": "Show the update count"
@@ -210,6 +217,7 @@
   "status_rolling_back": "Rolling back in the background…",
   "status_running": "Updating in the background…",
   "status_running_terminal": "Updating in a terminal window…",
+  "tip_changelog": "See what's new in each release",
   "tip_check": "Check for updates now",
   "tip_close": "Close",
   "tip_copy": "Copy name and versions",

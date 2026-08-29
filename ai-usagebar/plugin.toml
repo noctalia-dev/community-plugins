@@ -1,7 +1,7 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "1.1.0"
-plugin_api = 9
+version = "2.0.0"
+plugin_api = 22
 author = "felipeartur"
 license = "MIT"
 icon = "brain"
@@ -9,7 +9,7 @@ description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
 # `ai-usagebar usage --json` and draws the result.
-dependencies = ["ai-usagebar", "xdg-open"]
+dependencies = ["ai-usagebar"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 
@@ -35,6 +35,16 @@ entry = "service.luau"
 [[widget]]
 id = "bar"
 entry = "bar.luau"
+
+# Right click asks the poller for a read. Declared rather than handled in
+# bar.luau because a binding is what the settings editor lists and what a user
+# can point somewhere else; an onRightClick callback is neither.
+#
+# Left stays in the script: it sets `selected` before opening the panel, so the
+# panel lands on the provider this capsule tracks, which `panel-toggle` alone
+# cannot do.
+  [widget.actions]
+  right = "plugin felipeartur/ai-usagebar:poller all refresh"
 
 # Per-instance, so a second capsule can track a second provider.
 [[widget.setting]]
@@ -63,17 +73,42 @@ options = [
   { value = "kiro", label_key = "settings.vendor.option.kiro" },
 ]
 
+# Keys named after the core `sysmon` widget, so the CPU capsule and this one are
+# configured with the same vocabulary.
 [[widget.setting]]
-key = "style"
+key = "visualization"
 type = "select"
-label_key = "settings.style.label"
-description_key = "settings.style.description"
-default = "pill"
+label_key = "settings.visualization.label"
+description_key = "settings.visualization.description"
+default = "none"
 options = [
-  { value = "pill", label_key = "settings.style.option.pill" },
-  { value = "gauge", label_key = "settings.style.option.gauge" },
-  { value = "meter", label_key = "settings.style.option.meter" },
-  { value = "label", label_key = "settings.style.option.label" },
+  { value = "none", label_key = "settings.visualization.option.none" },
+  { value = "gauge", label_key = "settings.visualization.option.gauge" },
+]
+
+[[widget.setting]]
+key = "show_value"
+type = "bool"
+label_key = "settings.show_value.label"
+description_key = "settings.show_value.description"
+default = true
+
+[[widget.setting]]
+key = "show_glyph"
+type = "bool"
+label_key = "settings.show_glyph.label"
+description_key = "settings.show_glyph.description"
+default = true
+
+[[widget.setting]]
+key = "glyph_position"
+type = "select"
+label_key = "settings.glyph_position.label"
+description_key = "settings.glyph_position.description"
+default = "before"
+options = [
+  { value = "before", label_key = "settings.glyph_position.option.before" },
+  { value = "after", label_key = "settings.glyph_position.option.after" },
 ]
 
 # One capsule can carry more than one provider; "auto" fills it with the busiest.

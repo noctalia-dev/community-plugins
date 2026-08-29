@@ -39,6 +39,8 @@
     "one": "1 Paket ignoriert",
     "other": "{count} Pakete ignoriert"
   },
+  "changelog_empty": "Kein Changelog verfügbar",
+  "changelog_title": "Was ist neu",
   "err_check_timeout": "Zeitüberschreitung beim Prüfen auf Updates",
   "err_no_checkupdates": "checkupdates nicht gefunden, pacman-contrib installieren und PATH prüfen",
   "err_no_pkexec": "pkexec nicht gefunden, Polkit ist nicht installiert",
@@ -47,6 +49,7 @@
   "err_polkit_install": "Polkit regeln können nicht installiert werden, Details im Systemlog prüfen",
   "err_run_failed": "Update fehlgeschlagen (exit {code}), versuche es erneut im Terminal oder prüfe die Log-Datei",
   "err_spawn": "checkupdates konnte nicht gestartet werden",
+  "err_terminal_closed": "Das Terminal-Fenster wurde geschlossen, bevor das Update fertig war. Versuche es erneut im Terminal oder prüfe die Log-Datei",
   "history_rollback_tag": "Rollback",
   "history_title": "Verlauf aktualisieren",
   "hover_hint": "Zeigt beim Überfahren eines Pakets die vollständigen Versionen",
@@ -143,6 +146,10 @@
       "description": "Zeichnet die Anzahl ausstehender Updates über die letzten Prüfungen sowie den letzten Update-Zeitpunkt auf und zeigt sie als kleines Diagramm im Panel. Deaktiviert stoppt auch die Aufzeichnung.",
       "label": "Aktivitätsdiagramm anzeigen"
     },
+    "show_changelog_after_update": {
+      "description": "Öffnet den Changelog im Panel automatisch, sobald ein Update erfolgreich abgeschlossen wurde.",
+      "label": "Changelog nach dem Update anzeigen"
+    },
     "show_count": {
       "description": "Zeigt die Anzahl ausstehender Updates neben dem Bar-Symbol.",
       "label": "Anzahl der Updates anzeigen"
@@ -189,6 +196,7 @@
   "status_rolling_back": "Rollback läuft…",
   "status_running": "Update läuft in einem Terminal…",
   "status_running_terminal": "Update läuft in einem Terminal-Fenster…",
+  "tip_changelog": "Zeigt, was sich in den einzelnen Versionen geändert hat",
   "tip_check": "Jetzt auf Updates prüfen",
   "tip_close": "Schließen",
   "tip_copy": "Name und Versionen kopieren",

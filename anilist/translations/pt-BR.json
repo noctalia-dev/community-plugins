@@ -5,6 +5,11 @@
     "connect": "Conecte-se ao AniList",
     "cover_preview": "Ver capa",
     "decrement": "Episódio/capítulo anterior",
-    "download_cover": "Baixar capa"
+    "download_cover": "Baixar capa",
+    "login_help": "Configure o seu ID de cliente e o segredo do cliente nas configurações do plugin e, em seguida, clique em Conectar. Seu navegador será aberto, você autorizará o AniList e o plugin concluirá o login automaticamente.",
+    "login_title": "Conectar ao AniList",
+    "login_waiting": "Aguardando login no navegador…",
+    "logout": "Sair",
+    "refresh": "Recarregar lista"
   }
 }

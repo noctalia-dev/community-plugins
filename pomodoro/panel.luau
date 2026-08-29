@@ -102,13 +102,14 @@ local function render(state, sessionData)
 
             -- buttons
             ui.column({ gap = 8 }, {
-                ui.row({ gap = 8, justify = "space_between" }, {
+                ui.row({ gap = 8 }, {
                     ui.button({
                         variant = "primary",
                         text = startButtonText,
                         glyph = startButtonGlyph,
                         onClick = "onStartButtonClick",
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
 
                     ui.button({
@@ -116,17 +117,19 @@ local function render(state, sessionData)
                         glyph = "player-skip-forward",
                         onClick = "onSkipButtonClick",
                         enabled = skipButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
                 }),
 
-                ui.row({ gap = 8, justify = "space_between" }, {
+                ui.row({ gap = 8 }, {
                     ui.button({
                         text = noctalia.tr("button.reset"),
                         glyph = "refresh",
                         onClick = "onResetButtonClick",
                         enabled = resetButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
 
                     ui.button({
@@ -134,7 +137,8 @@ local function render(state, sessionData)
                         glyph = "rotate",
                         onClick = "onResetAllButtonClick",
                         enabled = resetAllButtonEnabled,
-                        flexGrow = 1,
+                        width = 157,
+                        height = 35
                     }),
                 }),
             }),
