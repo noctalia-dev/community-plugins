@@ -54,7 +54,7 @@ All settings can be configured under **Settings → Plugins → Network Toolkit*
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `refreshInterval` | `int` | `5` | Background state refresh interval in seconds (2–60). |
+| `refreshinterval` | `int` | `5` | Background state refresh interval in seconds (2–60). |
 | `color` | `string` | `on_surface_variant` | Theme color token for widget glyphs. |
 | `text_color` | `string` | `on_surface_variant` | Theme color token for widget labels. |
 | `hotspot_ssid` | `string` | `Noctalia-Hotspot` | Default broadcast SSID for the hotspot. |
