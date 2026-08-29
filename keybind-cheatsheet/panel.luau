@@ -776,7 +776,10 @@ local function renderHeader()
       searchRevision += 1
       render()
     end)
-    table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged }))
+    -- The panel is opened to look something up, so typing goes straight to the
+    -- search box without clicking it first. Dropped while a description is
+    -- being edited, so that row's own input keeps the caret.
+    table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged, focus = editingId == nil }))
     table.insert(children, ui.button({ glyph = "x", width = 26, variant = "ghost", controlSize = "sm", enabled = query ~= "", tooltip = tr("clear"), onClick = clearSearch }))
   end
   if not loading or #bindings > 0 then
