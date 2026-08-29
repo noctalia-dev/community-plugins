@@ -309,6 +309,43 @@ def probe_cider_window() -> dict[str, Any]:
             "t": time.time(),
         }
 
+    if shutil.which("umbriel"):
+        try:
+            listing = subprocess.check_output(
+                ["umbriel", "windows"],
+                stderr=subprocess.DEVNULL,
+                timeout=1.5,
+            ).decode("utf-8", "replace")
+        except Exception as exc:
+            log.debug("umbriel probe failed: %s", exc)
+            empty["compositor"] = "umbriel"
+            return empty
+        cider = None
+        for line in listing.splitlines():
+            # Format: [*]app_id<TAB>Title<TAB>[tile|float WxH+X+Y]; '*' = focused
+            focused = line.startswith("*")
+            app_id = line[1:].split("\t", 1)[0].strip() if focused else line.split("\t", 1)[0].strip()
+            title = ""
+            if "\t" in line:
+                rest = line[1:] if focused else line
+                parts = rest.split("\t")
+                if len(parts) >= 2:
+                    title = parts[1].strip()
+            if _is_cider_window(app_id, title):
+                cider = {"app_id": app_id, "title": title, "focused": focused}
+        if cider is None:
+            empty["compositor"] = "umbriel"
+            return empty
+        focused = cider["focused"]
+        return {
+            "present": True,
+            "focused": focused,
+            "on_screen": focused,
+            "suppress_notify": focused,
+            "compositor": "umbriel",
+            "t": time.time(),
+        }
+
     if shutil.which("hyprctl"):
         try:
             clients = json.loads(
