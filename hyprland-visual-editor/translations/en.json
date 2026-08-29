@@ -1,0 +1,39 @@
+{
+  "settings": {
+    "is_system_active": {
+      "label": "System active",
+      "description": "Master switch that enables Hyprland Visual Editor effects."
+    },
+    "active_anim_file": {
+      "label": "Active animation"
+    },
+    "active_border_file": {
+      "label": "Active border"
+    },
+    "active_shader_file": {
+      "label": "Active shader"
+    }
+  },
+  "panel": {
+    "home": "Home",
+    "animations": "Animations",
+    "borders": "Borders",
+    "effects": "Effects",
+    "enabled": "HVE enabled",
+    "disabled": "HVE disabled",
+    "no_presets": "No presets found — run scan.sh",
+    "none": "None",
+    "presets_available": "presets available",
+    "apply": "Apply",
+    "current_preset": "Current preset applied",
+    "enable_warning": "Enable the toggle to apply changes",
+    "apply_hint": "Pick a preset and press Apply to apply it instantly",
+    "credits": "Based on the original widget by XimoCP · ported to Luau by Hermy and Linux Fertxo",
+    "count_animations": "animations",
+    "count_borders": "borders",
+    "count_shaders": "shaders"
+  },
+  "widget": {
+    "tooltip": "Hyprland Visual Editor — open the panel"
+  }
+}
