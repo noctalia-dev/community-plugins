@@ -17,10 +17,10 @@ plugin for Noctalia v5.
 
 ## Requirements
 
-- **Hyprland** running a **Lua** config (`hyprland.lua`) — not the legacy
-  hyprlang `.conf` format.
-- **bash** and **python3** on `PATH` (the preset converter and assembler are
-  shell scripts that call `python3`).
+- `hyprland` running a **Lua** config (`hyprland.lua`) — not the legacy hyprlang
+  `.conf` format (HVE emits `hl.animation` / `hl.config` and loads via `dofile`).
+- `bash` and `python` on `PATH` (the preset converter and assembler are shell
+  scripts that call `python3`).
 
 ## Usage
 
