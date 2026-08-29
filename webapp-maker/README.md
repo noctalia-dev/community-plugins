@@ -32,7 +32,7 @@ The plugin has no bar widget. Open the panel from the plugin's row in
 Settings, or bind it in your compositor:
 
 ```sh
-noctalia msg panel-open umedbazarov/webapp-maker:panel
+noctalia msg panel-toggle umedbazarov/webapp-maker:panel
 ```
 
 Fill in the form:
