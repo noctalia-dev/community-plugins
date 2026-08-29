@@ -2,9 +2,11 @@
 -- Network status, Wi-Fi scanning, and connection management
 local Net = {}
 local nmcliOk = noctalia.commandExists("nmcli")
-local CACHE_FILE = "/tmp/network-toolkit-cache.json"
+local CACHE_FILE = "/tmp/noctalia_net_cache.json"
 local refreshing = false
 local wifiPowerLock = 0
+local connectingSsid = nil
+local lastConnectedSsid = ""
 
 local state = {
     available = nmcliOk, wifiEnabled = true, wifiConnected = false, ethernetConnected = false,
@@ -28,6 +30,7 @@ local function loadCache()
         state.wifiConnected = (c:match('"wifiConnected"%s*:%s*true') ~= nil)
         state.ethernetConnected = (c:match('"ethernetConnected"%s*:%s*true') ~= nil)
         state.signal = tonumber(c:match('"signal"%s*:%s*(%d+)')) or state.signal
+        if state.wifiConnected and state.ssid ~= "" then lastConnectedSsid = state.ssid end
     end
 end
 
@@ -71,11 +74,11 @@ function Net.refresh(callback)
         local hsSsid = noctalia.getConfig("hotspot_ssid") or "Noctalia-Hotspot"
 
         for line in actSec:gmatch("[^\r\n]+") do
-            local typ, _, dev, name = line:match("^([^:]+):([^:]+):([^:]+):(.*)$")
+            local typ, st, dev, name = line:match("^([^:]+):([^:]+):([^:]+):(.*)$")
             if name and dev then
                 if dev:find("%-ap$") or name == "Noctalia-Hotspot" or name == hsSsid then hsAct = true
-                elseif typ == "802-11-wireless" or typ == "wifi" then wifiConn, connSsid, wifiIf = true, name, dev
-                elseif typ == "802-3-ethernet" or typ == "ethernet" then ethConn, ethIf = true, dev end
+                elseif (st == "activated" or st == "connected") and (typ == "802-11-wireless" or typ == "wifi") then wifiConn, connSsid, wifiIf = true, name, dev
+                elseif (st == "activated" or st == "connected") and (typ == "802-3-ethernet" or typ == "ethernet") then ethConn, ethIf = true, dev end
             end
         end
 
@@ -99,7 +102,9 @@ function Net.refresh(callback)
         local savedMap = {}
         for line in savSec:gmatch("[^\r\n]+") do
             local name, typ = line:match("^([^:]+):([^:]+)$")
-            if name and (typ == "802-11-wireless" or typ == "wifi") then savedMap[name] = true end
+            if name and (typ == "802-11-wireless" or typ == "wifi") then
+                if name ~= connectingSsid then savedMap[name] = true end
+            end
         end
 
         local networks, seen = {}, {}
@@ -126,6 +131,7 @@ function Net.refresh(callback)
         if os.time() >= wifiPowerLock then state.wifiEnabled = wEnabled end
         state.wifiConnected, state.ethernetConnected = wifiConn, ethConn
         state.hotspotActive, state.ssid, state.interface, state.ipAddress = hsAct, (wifiConn and connSsid or ""), activeIf, curIp
+        if wifiConn and connSsid ~= "" then lastConnectedSsid = connSsid end
         if #networks > 0 then state.availableNetworks = networks end
         saveCache()
         if callback then callback(state) end
@@ -145,17 +151,35 @@ end
 
 function Net.connectWifi(ssid, password, callback)
     local safe = ssid:gsub("'", "'\\''")
-    local wifiCmd = (type(password) == "string" and password ~= "")
-        and string.format("nmcli device wifi connect '%s' password '%s'", safe, password:gsub("'", "'\\''"))
-        or string.format("nmcli connection up id '%s' 2>/dev/null || nmcli device wifi connect '%s'", safe, safe)
-    -- drop hs temporarily so connection doesn't get messed up
+    local hasPwd = (type(password) == "string" and password ~= "")
+    local prevSsid = (state.wifiConnected and state.ssid ~= "" and state.ssid ~= ssid) and state.ssid
+        or (lastConnectedSsid ~= "" and lastConnectedSsid ~= ssid and lastConnectedSsid or nil)
+    connectingSsid = hasPwd and ssid or nil
+
+    local wifiCmd = hasPwd
+        and string.format("nmcli --wait 8 device wifi connect '%s' password '%s'", safe, password:gsub("'", "'\\''"))
+        or string.format("nmcli --wait 8 connection up id '%s' 2>/dev/null || nmcli --wait 8 device wifi connect '%s'", safe, safe)
     local wasHs = state.hotspotActive
-    local fullCmd = wasHs and ("nmcli connection down 'Noctalia-Hotspot' 2>/dev/null || true; sleep 0.5; " .. wifiCmd) or wifiCmd
+    local fullCmd = wasHs and ("nmcli connection down 'Noctalia-Hotspot' 2>/dev/null || true; sleep 0.2; " .. wifiCmd) or wifiCmd
 
     noctalia.runAsync(fullCmd, function(res)
+        connectingSsid = nil
         local ok = (res.exitCode == 0)
-        Net.refresh(function(s) if callback then callback(s, ok, res.stdout or res.stderr or "", wasHs) end end)
-    end, 15000)
+        if not ok then
+            local restoreCmd = hasPwd and string.format("nmcli connection delete id '%s' 2>/dev/null || nmcli connection delete '%s' 2>/dev/null; ", safe, safe) or ""
+            if prevSsid then
+                local pSafe = prevSsid:gsub("'", "'\\''")
+                restoreCmd = restoreCmd .. string.format("nmcli connection up id '%s' 2>/dev/null || nmcli device wifi connect '%s' 2>/dev/null || nmcli device autoconnect 2>/dev/null || true", pSafe, pSafe)
+            else
+                restoreCmd = restoreCmd .. "nmcli device autoconnect 2>/dev/null || true"
+            end
+            noctalia.runAsync(restoreCmd, function()
+                Net.refresh(function(s) if callback then callback(s, false, res.stdout or res.stderr or "", wasHs) end end)
+            end, 4000)
+        else
+            Net.refresh(function(s) if callback then callback(s, true, res.stdout or res.stderr or "", wasHs) end end)
+        end
+    end, 10000)
 end
 
 function Net.disconnect(callback)

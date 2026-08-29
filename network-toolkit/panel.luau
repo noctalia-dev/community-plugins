@@ -58,7 +58,7 @@ end
 local function renderDeviceRow(key, label, sublabel, glyphName, glyphColor, isHovered, isSelected, rightExtras, onClick)
     local leftItems = { ui.glyph({ name = glyphName, size = 18, color = glyphColor or "on_surface_variant" }) }
     if sublabel and sublabel ~= "" then
-        table.insert(leftItems, ui.column({ gap = 0, paddingB = 2 }, {
+        table.insert(leftItems, ui.column({ gap = 0 }, {
             ui.label({ text = label, fontSize = 13, fontWeight = isSelected and "bold" or "normal", color = "on_surface" }),
             ui.label({ text = sublabel, fontSize = 11, color = "on_surface_variant" }),
         }))
@@ -67,7 +67,7 @@ local function renderDeviceRow(key, label, sublabel, glyphName, glyphColor, isHo
     end
     return ui.row({
         key = "row-" .. key, align = "center", justify = "space_between",
-        fill = isSelected and "primary_container" or "surface",
+        fill = "surface",
         border = (isHovered or isSelected) and "primary" or "surface",
         borderWidth = 1, radius = 8, height = 45, paddingV = 8, paddingH = 12,
         onHover = function(s) setHover(key, s) end
@@ -220,7 +220,7 @@ render = function()
                     if n.security ~= "Open" then table.insert(extras, ui.glyph({ name = "lock", size = 14, color = "on_surface_variant" })) end
                     if isC then table.insert(extras, ui.glyph({ name = spinner, size = 14, color = "primary" })) end
                     table.insert(extras, smallBtn("trash", "ghost", function() sendCommand("wifi", "forget", { ssid = n.ssid }) end))
-                    table.insert(wifiList, renderDeviceRow(k, n.ssid, isC and noctalia.tr("panel.connecting") or nil, signalGlyph(n.signal or 0), isC and "primary" or "on_surface_variant", hoveredId == k, false, extras, function()
+                    table.insert(wifiList, renderDeviceRow(k, n.ssid, nil, signalGlyph(n.signal or 0), isC and "primary" or "on_surface_variant", hoveredId == k, false, extras, function()
                         wifiConnectingSsid = n.ssid; render(); sendCommand("wifi", "connect", { ssid = n.ssid })
                     end))
                 end
