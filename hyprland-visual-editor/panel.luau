@@ -69,22 +69,26 @@ local function resolveTarget(isOn, file)
   return "none"
 end
 
+local function shq(s)
+  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
 local function requestSave()
   local state = "isActive=" .. tostring(isActive) .. "\n"
     .. "activeAnim=" .. activeAnim .. "\n"
     .. "activeBorder=" .. activeBorder .. "\n"
     .. "activeShader=" .. activeShader
-  noctalia.runAsync("mkdir -p " .. cacheDir .. " && printf '%s' '" .. state .. "' > " .. stateFile, nil, 5000)
+  noctalia.runAsync("mkdir -p " .. shq(cacheDir) .. " && printf '%s' " .. shq(state) .. " > " .. shq(stateFile), nil, 5000)
 end
 
 local function applyAnimation(file)
-  noctalia.runAsync("bash " .. pdir .. "/assets/scripts/apply_animation.sh " .. file .. " && hyprctl reload 2>/dev/null", nil, 10000)
+  noctalia.runAsync("bash " .. shq(pdir .. "/assets/scripts/apply_animation.sh") .. " " .. shq(file) .. " && hyprctl reload 2>/dev/null", nil, 10000)
 end
 local function applyBorder(file)
-  noctalia.runAsync("bash " .. pdir .. "/assets/scripts/border.sh " .. file .. " && hyprctl reload 2>/dev/null", nil, 10000)
+  noctalia.runAsync("bash " .. shq(pdir .. "/assets/scripts/border.sh") .. " " .. shq(file) .. " && hyprctl reload 2>/dev/null", nil, 10000)
 end
 local function applyShader(file)
-  noctalia.runAsync("bash " .. pdir .. "/assets/scripts/shader.sh " .. file .. " && hyprctl reload 2>/dev/null", nil, 10000)
+  noctalia.runAsync("bash " .. shq(pdir .. "/assets/scripts/shader.sh") .. " " .. shq(file) .. " && hyprctl reload 2>/dev/null", nil, 10000)
 end
 
 local function tabBar()

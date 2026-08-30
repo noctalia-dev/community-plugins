@@ -26,7 +26,7 @@ while read -r filepath; do
     # 2. ACTUAL FILE READING (Metadata extraction)
     function get_meta() {
         # 2>/dev/null prevents errors on weird files
-        grep -m1 -E "^[ \t]*(#|//) @$1:" "$filepath" 2>/dev/null | cut -d: -f2- | sed 's/^[ \t]*//;s/[ \t]*$//;s/"/\\"/g' | tr -d '\r'
+        grep -m1 -E "^[ \t]*(#|//) ?@$1:" "$filepath" 2>/dev/null | cut -d: -f2- | sed 's/^[ \t]*//;s/[ \t]*$//;s/"/\\"/g' | tr -d '\r'
     }
 
     RAW_T=$(get_meta "Title")
@@ -36,7 +36,7 @@ while read -r filepath; do
     TAG=$(get_meta "Tag")
 
     # Safe default values
-    [ -z "$RAW_T" ] && RAW_T="$ID_NAME"
+    [ -z "$RAW_T" ] && RAW_T="${ID_NAME#*_}"
     [ -z "$ICON" ] && ICON="help"
     [ -z "$COLOR" ] && COLOR="#888888"
     [ -z "$TAG" ] && TAG="USER"

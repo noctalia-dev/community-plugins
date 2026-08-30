@@ -1,6 +1,6 @@
 id = "linux-fertxo/hyprland-visual-editor"
 name = "Hyprland Visual Editor"
-version = "2.0.0"
+version = "2.0.1"
 plugin_api = 3
 author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
 license = "MIT"
