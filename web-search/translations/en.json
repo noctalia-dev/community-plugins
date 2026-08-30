@@ -1,4 +1,8 @@
 {
-  "settings.links.label": "Websites",
-  "settings.links.description": "Websites shown by /web, formatted as Name|https://example.com."
+  "settings": {
+    "links": {
+      "label": "Websites",
+      "description": "Websites shown by /web, formatted as Name|https://example.com."
+    }
+  }
 }
