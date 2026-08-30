@@ -18,9 +18,9 @@ spell-check dictionaries are looked up for you.
 
 ## Requirements
 
-- **niri** with at least two keyboard layouts configured (`xkb { layout "us,ru" }`).
-  Other compositors are not supported yet — the layout query and switch go
-  through `niri msg`.
+- `niri`, with at least two keyboard layouts configured
+  (`xkb { layout "us,ru" }`). Other compositors are not supported yet: the
+  layout query and switch go through `niri msg`.
 - **Access to the keyboard devices.** The correction daemon reads key
   presses from `/dev/input`, which requires membership in the `input`
   group:
@@ -30,8 +30,11 @@ spell-check dictionaries are looked up for you.
   ```
 
   The plugin checks this on startup and tells you if it is missing.
-- `python3` (standard library only), `wtype`, `bash`, `cp`, `chmod`.
-- **hunspell** with a dictionary per layout, strongly recommended. Without
+- `python3` (standard library only) and `wtype`, required — the daemon and
+  the retyping of a corrected word.
+- `bash`, `cp`, `chmod`, `setsid` and `pkill`, required — installing,
+  starting and stopping the daemon. All part of a base system.
+- `hunspell` with a dictionary per layout, strongly recommended. Without
   dictionaries the plugin falls back to heuristics: safe, but it misses
   words. The plugin reports which dictionaries are missing, and can install
   them for you — see **Dictionaries** below.
