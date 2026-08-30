@@ -445,19 +445,67 @@ local function poll_configs()
   end)
 end
 
+local CONNECTIONS_JQ = [[{count: (.connections | length), downloadTotal, uploadTotal, memory}]]
+
+local connections_poll_pending = false
+
+local function publish_connections_summary(summary)
+  if summary == nil then
+    return
+  end
+  state.connections.count = summary.count
+  state.connections.downloadTotal = summary.downloadTotal
+  state.connections.uploadTotal = summary.uploadTotal
+  state.connections.memory = summary.memory
+  publish("connections")
+end
+
+local function poll_connections_from_body(body)
+  local logic = require_group_logic()
+
+  if logic.connections_body_needs_external_decode(body) then
+    if connections_poll_pending then
+      return
+    end
+    local dir = noctalia.pluginDataDir()
+    if dir == nil then
+      return
+    end
+    local path = dir .. "/connections-poll.json"
+    local written = noctalia.writeFile(path, body)
+    if not written then
+      log("failed to cache /connections body for jq projection")
+      return
+    end
+
+    connections_poll_pending = true
+    local cmd = "jq -c "
+      .. shell_quote(CONNECTIONS_JQ)
+      .. " "
+      .. shell_quote(path)
+    noctalia.runAsync(cmd, function(result)
+      connections_poll_pending = false
+      safe_call("connections jq", function()
+        if not result or result.exitCode ~= 0 then
+          return
+        end
+        publish_connections_summary(logic.parse_connections_summary(decode(result.stdout or "")))
+      end)
+    end, 30000)
+    return
+  end
+
+  publish_connections_summary(logic.parse_connections_summary(decode(body)))
+end
+
 local function poll_connections()
   request("GET", "/connections", auth_headers(), nil, function(res)
     if not success(res) then
       return
     end
-    local data = require_group_logic().parse_connections_summary(res.body)
-    if data then
-      state.connections.count = data.count
-      state.connections.downloadTotal = data.downloadTotal
-      state.connections.uploadTotal = data.uploadTotal
-      state.connections.memory = data.memory
-      publish("connections")
-    end
+    safe_call("poll connections", function()
+      poll_connections_from_body(res.body or "")
+    end)
   end)
 end
 

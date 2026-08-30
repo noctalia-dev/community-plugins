@@ -72,20 +72,32 @@ local traffic = { up = 1, down = 2, upTotal = 3, downTotal = 4 }
 assert(logic.traffic_changed(traffic, { up = 1, down = 2, upTotal = 3, downTotal = 4 }) == false, "identical traffic is unchanged")
 assert(logic.traffic_changed(traffic, { up = 9, down = 2, upTotal = 3, downTotal = 4 }) == true, "changed traffic is detected")
 
-local sample_connections = [[
-{"downloadTotal":6694145524,"uploadTotal":123456,"connections":[
-{"id":"a","metadata":{"host":"example.com"},"upload":1,"download":2,"chains":["DIRECT"]},
-{"id":"b","metadata":{"host":"other.com"},"upload":3,"download":4,"chains":["Proxy"]}
-],"memory":116858880}
-]]
+local sample_connections = {
+  downloadTotal = 6694145524,
+  uploadTotal = 123456,
+  memory = 116858880,
+  connections = {
+    { id = "a", chains = { "DIRECT" } },
+    { id = "b", chains = { "Proxy" } },
+  },
+}
 local summary = logic.parse_connections_summary(sample_connections)
 assert(summary ~= nil, "connections summary parses")
 assert_eq(summary.count, 2, "connection count")
 assert_eq(summary.downloadTotal, 6694145524, "download total")
 assert_eq(summary.uploadTotal, 123456, "upload total")
 assert_eq(summary.memory, 116858880, "memory")
-assert(logic.parse_connections_summary("") == nil, "empty body is rejected")
-assert(logic.parse_connections_summary("{") == nil, "invalid body is rejected")
+assert(logic.parse_connections_summary(nil) == nil, "nil is rejected")
+assert(logic.parse_connections_summary("not a table") == nil, "non-table is rejected")
+
+assert(
+  logic.connections_body_needs_external_decode(string.rep("x", logic.CONNECTIONS_INLINE_DECODE_LIMIT)) == false,
+  "at-limit connections body stays inline"
+)
+assert(
+  logic.connections_body_needs_external_decode(string.rep("x", logic.CONNECTIONS_INLINE_DECODE_LIMIT + 1)) == true,
+  "over-limit connections body uses jq"
+)
 
 local sample_proxies = {
   proxies = {

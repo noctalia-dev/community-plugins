@@ -4,6 +4,7 @@
 local M = {}
 
 M.PROXIES_INLINE_DECODE_LIMIT = 65536
+M.CONNECTIONS_INLINE_DECODE_LIMIT = 8192
 
 function M.clamp_interval(seconds)
   local value = tonumber(seconds) or 2
@@ -94,28 +95,19 @@ function M.traffic_changed(previous, next_values)
   )
 end
 
--- Mihomo's /connections payload can be large when many flows are active. The
--- panel only needs totals and a count, so scrape those fields without a full
--- json.decode that can exceed Noctalia's per-callback CPU budget.
-function M.parse_connections_summary(body)
-  if type(body) ~= "string" or body == "" then
+function M.connections_body_needs_external_decode(body)
+  return type(body) == "string" and #body > M.CONNECTIONS_INLINE_DECODE_LIMIT
+end
+
+function M.parse_connections_summary(data)
+  if type(data) ~= "table" then
     return nil
-  end
-  local downloadTotal = tonumber(body:match('"downloadTotal"%s*:%s*(%d+)'))
-  local uploadTotal = tonumber(body:match('"uploadTotal"%s*:%s*(%d+)'))
-  local memory = tonumber(body:match('"memory"%s*:%s*(%d+)'))
-  if downloadTotal == nil and uploadTotal == nil and memory == nil then
-    return nil
-  end
-  local count = 0
-  for _ in body:gmatch('"chains"%s*:') do
-    count = count + 1
   end
   return {
-    count = count,
-    downloadTotal = downloadTotal or 0,
-    uploadTotal = uploadTotal or 0,
-    memory = memory or 0,
+    count = type(data.connections) == "table" and #data.connections or 0,
+    downloadTotal = tonumber(data.downloadTotal) or 0,
+    uploadTotal = tonumber(data.uploadTotal) or 0,
+    memory = tonumber(data.memory) or 0,
   }
 end
 
