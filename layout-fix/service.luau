@@ -18,6 +18,7 @@
 --   noctalia msg plugin umedbazarov/layout-fix:service all undo
 --   noctalia msg plugin umedbazarov/layout-fix:service all auto
 
+local PLUGIN_ID = "umedbazarov/layout-fix"
 local CHECK_INTERVAL_TICKS = 15 -- seconds between "is the daemon alive?" probes
 local STARTUP_DELAY_TICKS = 5
 
@@ -45,6 +46,10 @@ end
 
 local function shellQuote(value)
     return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+local function trim(value)
+    return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
 local function scriptPath()
@@ -112,6 +117,51 @@ local function applyAutoSetting()
     local wanted = cfg("auto", true) == true and "on" or "off"
     noctalia.runAsync(shellQuote(daemonPath) .. " auto " .. wanted .. " >/dev/null 2>&1",
         function() end)
+end
+
+-- ── The keybinding hint ──────────────────────────────────────────────────────
+
+-- Nothing about this plugin is visible: no widget, no panel, and the manual
+-- actions exist only as IPC. So a person who installs it has no way of
+-- learning that `fix` and `undo` are there unless they are told once.
+local function hintPath()
+    local dir = noctalia.pluginDataDir()
+    return dir ~= nil and (dir .. "/hint-shown") or nil
+end
+
+local function markHintShown()
+    local path = hintPath()
+    if path ~= nil then
+        noctalia.writeFile(path, "1\n")
+    end
+end
+
+-- Someone whose config already spawns this plugin's IPC has clearly found
+-- the keybindings, and a notification would only be noise. The marker is
+-- written either way, so the search runs once per installation.
+local function hintIfUnbound()
+    local path = hintPath()
+    if path == nil or noctalia.fileExists(path) then
+        return
+    end
+    if cfg("hotkey_hint", true) ~= true then
+        return
+    end
+    local cmd = "grep -rlF " .. shellQuote(PLUGIN_ID .. ":service")
+        .. " \"$HOME\"/.config/niri \"$HOME\"/.config/hypr \"$HOME\"/.config/sway"
+        .. " 2>/dev/null | head -1"
+    local started = noctalia.runAsync(cmd, function(result)
+        if trim(result.stdout or "") == "" then
+            noctalia.notify(tr("title"), tr("notify_hotkey_hint"))
+        end
+        markHintShown()
+    end, 10000)
+    if not started then
+        -- No shell to ask with: better one hint than none, and the marker
+        -- still keeps it to one.
+        noctalia.notify(tr("title"), tr("notify_hotkey_hint"))
+        markHintShown()
+    end
 end
 
 -- ── Keyboard access and dictionaries ─────────────────────────────────────────
@@ -248,6 +298,7 @@ function update()
                 end
                 applyAutoSetting()
                 checkAccess()
+                hintIfUnbound()
             end)
         end)
         return

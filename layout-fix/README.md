@@ -100,7 +100,12 @@ of your layouts is missing:
 | --- | --- | --- | --- |
 | `auto` | `bool` | `true` | Correct a word as soon as it is finished. Off: only the keybindings correct. |
 | `dictionaries` | `select` | `notify` | What to do about missing dictionaries: notify, install, or ignore. |
-| `hotkey_hint` | `bool` | `true` | Show once how to bind the fix and undo actions. |
+| `hotkey_hint` | `bool` | `true` | Show once how to bind the fix and undo actions — see below. |
+
+The hint is a single notification on the first start, and only for a config
+that does not already spawn this plugin's IPC: with no widget and no panel,
+it is the one place the manual actions can be mentioned at all. Having shown
+it once, the plugin remembers and stays quiet.
 
 ## IPC
 
