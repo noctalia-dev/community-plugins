@@ -29,6 +29,10 @@ CASES = [
     ("программа", 1, True), ("клавиатура", 1, True), ("раскладка", 1, True),
     ("сообщение", 1, True), ("интересно", 1, True), ("время", 1, True),
     ("сегодня", 1, True), ("проверка", 1, True), ("тест", 1, True),
+    # Colloquial words no dictionary lists: the candidate is rejected by
+    # hunspell, so only the heuristics can save these.
+    ("максималка", 1, True), ("движуха", 1, True), ("тестируем", 1, True),
+    ("зачетно", 1, True), ("норимально", 1, True),
     # English words and commands typed in the US layout: never touch them.
     ("hello", 0, False), ("world", 0, False), ("please", 0, False),
     ("thanks", 0, False), ("keyboard", 0, False), ("message", 0, False),
@@ -37,9 +41,15 @@ CASES = [
     ("terminal", 0, False), ("browser", 0, False), ("commit", 0, False),
     ("branch", 0, False), ("plugin", 0, False), ("config", 0, False),
     ("start", 0, False), ("server", 0, False), ("project", 0, False),
+    # Identifiers no dictionary knows either: both sides are unknown words,
+    # so the heuristics have to leave them alone.
+    ("systemd", 0, False), ("kubectl", 0, False), ("noctalia", 0, False),
+    ("hunspell", 0, False), ("pacman", 0, False), ("wayland", 0, False),
+    ("keybinds", 0, False), ("upstream", 0, False),
     # Too short to judge.
     ("ls", 0, False), ("cd", 0, False), ("npm", 0, False),
-    ("git", 0, False), ("ssh", 0, False),
+    ("git", 0, False), ("ssh", 0, False), ("btw", 0, False),
+    ("cli", 0, False), ("api", 0, False), ("cwd", 0, False),
     # Russian typed in the Russian layout: nothing to correct.
     ("привет", 1, False), ("работает", 1, False), ("спасибо", 1, False),
     ("сегодня", 1, False), ("проверка", 1, False), ("сообщение", 1, False),
@@ -59,6 +69,53 @@ def keystrokes(word, table):
             return None
         keys.append(entry)
     return keys
+
+
+# Whole phrases typed in the wrong layout, and what should be on screen
+# afterwards. These exercise the buffer and the lookback over short words,
+# not just the per-word decision.
+PHRASES = [
+    # The short "а" is only fixed because the long word next to it was; the
+    # layout switches after a correction, so the rest is typed correctly.
+    ("а максималка ", 1, True),
+    ("это работает ", 1, True),
+    # Phrases typed in the layout they belong to must come out unchanged.
+    ("git commit and push ", 0, False),
+    ("a docker container ", 0, False),
+    ("a hello world ", 0, False),
+]
+
+
+def phrase_check(watcher, tables, languages, phrase, home, wrong_layout):
+    """Types `phrase` key by key and returns what ends up on screen."""
+    other = next(i for i in sorted(tables) if i != home)
+    keys = keystrokes(phrase, tables[home])
+    if keys is None:
+        return None
+    screen, typed_in = [], other if wrong_layout else home
+
+    def fake_retype(count, text):
+        del screen[len(screen) - count:]
+        screen.extend(text)
+        return True
+
+    def fake_switch(index):
+        nonlocal typed_in
+        typed_in = index
+
+    def fake_target(_watcher):
+        return (typed_in, home if typed_in != home else other,
+                tables[typed_in], tables[home if typed_in != home else other],
+                languages[typed_in], languages[home if typed_in != home else other])
+
+    globals()["retype"], globals()["switch_layout"] = fake_retype, fake_switch
+    globals()["target_layout"] = fake_target
+    for code, shift in keys:
+        screen.append(render([(code, shift)], tables[typed_in]))
+        finished = watcher.feed(code, shift)
+        if finished:
+            autofix(watcher, finished, None if code in RESET_KEYS else code, shift)
+    return "".join(screen)
 
 
 def main():
@@ -107,14 +164,26 @@ def main():
         if verdict != "ok":
             print(f"! {on_screen:<16} -> {candidate:<16} {verdict}")
 
+    phrases_ok = phrases_bad = 0
+    for phrase, home, wrong_layout in PHRASES:
+        watcher = Watcher(tables)
+        watcher.auto = True
+        result = phrase_check(watcher, tables, languages, phrase, home, wrong_layout)
+        if result == phrase:
+            phrases_ok += 1
+        else:
+            phrases_bad += 1
+            print(f"! phrase {phrase!r} came out as {result!r}")
+
     total = ok + wrong + missed
     print()
+    print(f"phrases typed end to end: {phrases_ok}/{phrases_ok + phrases_bad}")
     print(f"correct decisions: {ok}/{total}")
     print(f"false positives (would corrupt text): {wrong}")
     print(f"missed (should have corrected): {missed}")
     if skipped:
         print(f"skipped (word not typable in these layouts): {skipped}")
-    return 1 if wrong else 0
+    return 1 if wrong or phrases_bad else 0
 
 
 if __name__ == "__main__":

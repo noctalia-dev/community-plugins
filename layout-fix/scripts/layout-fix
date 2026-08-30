@@ -45,6 +45,13 @@ MAX_BUFFER = 120           # characters; older keystrokes are forgotten
 IDLE_RESET_SECONDS = 30    # a pause this long ends the current thought
 MIN_AUTO_LENGTH = 3        # shorter words are never touched automatically
 MIN_VOWEL_RATIO = 0.15     # below this a "word" reads as re-encoded garbage
+MIN_HEURISTIC_LENGTH = 6   # a word the dictionary rejects may still be
+                           # corrected from this length on: a short
+                           # re-encoding ("btw" -> "иец") can look like a
+                           # word of the other language by accident
+NEAR_MISS_DISTANCE = 2     # edits between an unlisted word and the closest
+                           # word the dictionary suggests, see _near_miss()
+MAX_LOOKBACK_WORDS = 3     # short words before a corrected one, see lookback()
 
 # struct input_event: timeval (2 x long) + type + code + value
 EVENT_FORMAT = "llHHi"
@@ -52,6 +59,7 @@ EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
 EV_KEY = 0x01
 
 KEY_BACKSPACE = 14
+KEY_SPACE = 57
 KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB = 28, 96, 1, 15
 SHIFT_KEYS = {42, 54}
 RESET_KEYS = {KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB}
@@ -234,6 +242,22 @@ def dictionary_for(code):
 
 # ── Spelling ─────────────────────────────────────────────────────────────────
 
+def distance(first, second, limit=NEAR_MISS_DISTANCE):
+    """Levenshtein distance, giving up once it passes `limit`."""
+    if abs(len(first) - len(second)) > limit:
+        return limit + 1
+    previous = list(range(len(second) + 1))
+    for i, a in enumerate(first, 1):
+        row = [i]
+        for j, b in enumerate(second, 1):
+            row.append(min(previous[j] + 1, row[j - 1] + 1,
+                           previous[j - 1] + (a != b)))
+        if min(row) > limit:
+            return limit + 1
+        previous = row
+    return previous[-1]
+
+
 class Speller:
     """Decides whether a string is a real word of a given language.
 
@@ -283,34 +307,68 @@ class Speller:
         except Exception as err:
             log(f"hunspell for {name} unavailable: {err}")
 
-    def _known(self, word, language):
-        """Does this dictionary know the word as a whole?
+    def _ask(self, word, language):
+        """Raw hunspell answer lines for a word, or None without a dictionary.
 
         The string is only asked about when every character is a letter:
         hunspell splits "hf,jnftn" on the comma and answers per fragment,
         yet that comma is the letter "б" of the other layout, so such a
-        string must never count as a word. Fragment verdicts are combined
-        with AND, or one familiar fragment would speak for the whole string.
+        string must never count as a word.
         """
         proc = self.procs.get(language)
         if proc is None or proc.poll() is not None:
             return None
         if not word or not all(c.isalpha() for c in word):
-            return False
+            return []
         with self.lock:
             try:
                 proc.stdin.write(word + "\n")
                 proc.stdin.flush()
-                verdicts = []
+                lines = []
                 while True:
                     line = proc.stdout.readline()
                     if line in ("", "\n"):
                         break
-                    verdicts.append(line[0] in "*+-")
-                return bool(verdicts) and all(verdicts)
+                    lines.append(line.rstrip("\n"))
+                return lines
             except Exception:
                 self.procs.pop(language, None)
                 return None
+
+    def _known(self, word, language):
+        """Does this dictionary know the word as a whole?
+
+        Fragment verdicts are combined with AND, or one familiar fragment
+        would speak for the whole string.
+        """
+        lines = self._ask(word, language)
+        if lines is None:
+            return None
+        return bool(lines) and all(line[:1] in "*+-" for line in lines)
+
+    def _near_miss(self, word, language):
+        """Is the word within a couple of edits of one the dictionary lists?
+
+        This is what separates a colloquial word from garbage when neither
+        is in the dictionary: hunspell answers "максималка" with "макси
+        малка" (the same letters) and "дшипскнзе" with "подшипнике" (five
+        edits away). Returns None when there is no dictionary to ask.
+        """
+        lines = self._ask(word, language)
+        if lines is None:
+            return None
+        if not lines or ":" not in lines[0]:
+            return False
+        lowered = word.lower()
+        for suggestion in lines[0].split(":", 1)[1].split(","):
+            candidate = suggestion.strip().lower().replace(" ", "").replace("-", "")
+            if distance(lowered, candidate) <= NEAR_MISS_DISTANCE:
+                return True
+        return False
+
+    def knows(self, word, language):
+        """Is this a word of `language`? False when no dictionary can say."""
+        return self._known(word, language) is True
 
     @staticmethod
     def _plausible(word):
@@ -341,19 +399,31 @@ class Speller:
     def should_fix(self, typed, typed_language, fixed, fixed_language):
         """Was this typed in the wrong layout?
 
-        With dictionaries the rule is strict: correct only when the
-        re-encoded word IS in the other language's dictionary while what was
-        typed is absent from its own. That fixes "нормально" typed in Latin
-        and still leaves `systemctl` alone, though neither is English.
-        Without dictionaries the heuristics decide, erring towards leaving
-        text untouched.
+        The typed word's own dictionary is a veto: a word it knows is never
+        touched, which leaves `systemctl` alone though it is not English.
+        A re-encoding the other dictionary lists is corrected outright.
+
+        When neither dictionary lists anything, the question is whether the
+        candidate is a colloquial word ("максималка") or noise a package
+        name happened to spell ("libgcrypt" -> "дшипскнзе"): the candidate
+        must then be a near miss for a real word, be long enough to make
+        that meaningful, and read like a word where what was typed does not.
+        Without dictionaries the heuristics decide alone, erring towards
+        leaving text untouched.
         """
         if len(typed) < MIN_AUTO_LENGTH:
             return False
         typed_known = self._known(typed, typed_language)
+        if typed_known:
+            return False
         fixed_known = self._known(fixed, fixed_language)
-        if typed_known is not None and fixed_known is not None:
-            return fixed_known and not typed_known
+        if fixed_known:
+            # The candidate is a dictionary word; fix unless the typed side
+            # merely lacks a dictionary yet still reads as a word itself.
+            return typed_known is False or not self._plausible(typed)
+        if fixed_known is False:
+            if len(fixed) < MIN_HEURISTIC_LENGTH or not self._near_miss(fixed, fixed_language):
+                return False
         return self._plausible(fixed) and not self._plausible(typed)
 
 
@@ -565,6 +635,43 @@ def target_layout(watcher):
             dictionary_for(codes.get(current)), dictionary_for(codes.get(other)))
 
 
+def lookback(watcher, word_keys, cur_table, cur_language):
+    """Keystrokes of short words typed just before a word being corrected.
+
+    A word too short to judge on its own ("f", "e") is left alone by the
+    automatic rule, so "f vfrcbvfkrf" would end up half corrected. Once the
+    long word next to it turns out to be in the wrong layout, those short
+    neighbours were almost certainly typed in the wrong layout too, so they
+    are rewritten with it — but only across plain spaces, only while they
+    stay short, and never over a word the current language's dictionary
+    recognises ("a", "I", "to" stay untouched).
+    """
+    with watcher.lock:
+        keys = list(watcher.keys)
+    cut = len(keys) - 1 - len(word_keys)
+    if cut < 0 or keys[cut:len(keys) - 1] != word_keys:
+        return []
+    prefix = keys[:cut]
+    extra = []
+    for _ in range(MAX_LOOKBACK_WORDS):
+        if not prefix or prefix[-1][0] != KEY_SPACE:
+            break
+        space, prefix = prefix[-1], prefix[:-1]
+        start = len(prefix)
+        while start > 0 and prefix[start - 1][0] not in watcher.separators:
+            start -= 1
+        previous, prefix = prefix[start:], prefix[:start]
+        if not previous or len(previous) >= MIN_AUTO_LENGTH:
+            break
+        # hunspell accepts every single letter, so its verdict only means
+        # something from two characters on ("to", "по" stay, "f" does not).
+        text = render(previous, cur_table)
+        if len(text) > 1 and SPELLER.knows(text, cur_language):
+            break
+        extra = previous + [space] + extra
+    return extra
+
+
 def autofix(watcher, word_keys, break_code, break_shift):
     """A word is finished: rewrite it if it was typed in the wrong layout.
 
@@ -586,13 +693,19 @@ def autofix(watcher, word_keys, break_code, break_shift):
     if not SPELLER.should_fix(typed, cur_language, fixed, alt_language):
         return
 
+    # Short words typed right before this one go the same way (see lookback);
+    # for Enter/Tab the buffer is already gone, so there is nothing to look at.
+    head = [] if break_code is None else lookback(watcher, word_keys, cur_table, cur_language)
+    keys = head + list(word_keys)
+    typed, fixed = render(keys, cur_table), render(keys, alt_table)
+
     # The separator is already on screen, so erase it too and put it back
     # afterwards (nothing to put back for Enter/Tab).
     if break_code is None:
         tail, extra = "", 0
     else:
         tail, extra = render([(break_code, break_shift)], alt_table), 1
-    if not retype(len(word_keys) + extra, fixed + tail):
+    if not retype(len(keys) + extra, fixed + tail):
         return
     switch_layout(other)
     with watcher.lock:
@@ -600,7 +713,7 @@ def autofix(watcher, word_keys, break_code, break_shift):
         watcher.undo = (typed + typed_tail, fixed + tail, current)
         watcher.keys.clear()
         watcher.fixes += 1
-    log(f"auto-fixed {len(word_keys)} chars")
+    log(f"auto-fixed {len(keys)} chars")
 
 
 def do_fix(watcher):

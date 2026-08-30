@@ -66,13 +66,22 @@ the current language, and its re-encoding *is* a word of the other one.
 That is why `grep`, `systemctl`, `npm` and ordinary English words survive
 untouched, while `yjhvfkmyj` becomes `нормально`.
 
+Colloquial words are in no dictionary, so a re-encoding it does not list
+can still be corrected — but only when it is within a couple of edits of a
+word the dictionary suggests. `максималка` is the same letters as the
+suggestion `макси малка` and gets corrected; `libgcrypt` re-encodes to
+`дшипскнзе`, five edits from anything, and is left alone.
+
 Separators are derived from the actual layout tables — only keys that
 produce a letter in *no* layout end a word. The Latin `,` key is the
 Russian letter `б`, so `hf,jnftn` is treated as one word (`работает`)
 rather than two.
 
 Words shorter than three characters, and anything typed with Ctrl, are
-never touched.
+never touched. A short word is rewritten only in the company of a longer
+one: correcting `vfrcbvfkrf` in `f vfrcbvfkrf` takes the `f` with it,
+across single spaces and never over a word the dictionary knows, so the
+`a` of `a docker` stays as it is.
 
 ## Dictionaries
 
