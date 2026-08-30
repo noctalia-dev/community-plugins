@@ -220,7 +220,7 @@ end
 render = function()
     local children = {
         ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ glyph = "world-plus", size = 18, color = "primary" }),
+            ui.glyph({ name = "world-plus", size = 18, color = "primary" }),
             ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
             ui.button({
                 glyph = "close", variant = "ghost", tooltip = tr("tip_close"),
