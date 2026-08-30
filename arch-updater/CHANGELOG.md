@@ -3,6 +3,14 @@
 All notable changes to Arch Updater are documented here. The panel's changelog
 icon (the history icon next to Check) shows this same file.
 
+## 2.1.0 - 2026-08-29
+
+- Added: a maintenance section under the package list — package cache size with one-click pruning (paccache, configurable versions to keep), orphaned packages with confirmed removal (pacman -Rns), and a firmware-updates shortcut when fwupd is installed.
+- Added: the Arch keyring is refreshed right before each update run (toggleable), so packages signed with new keys don't fail after a long gap between updates.
+- Added: a free-disk-space check before starting an update; the run is refused with a clear message when the root filesystem is too full.
+- Added: background update runs hold a systemd sleep/idle inhibitor, so a closed laptop lid can't interrupt a pacman transaction halfway.
+- Added: the update log is scanned after every run for known failure signatures — a failed initramfs generation (critical: warns before you reboot), failed transactions, and package signature errors.
+
 ## 2.0.1 - 2026-08-21
 
 - Added: a changelog view in the panel. Click the history icon next to Check to see what changed in each release. It also opens automatically once an update finishes, unless turned off in settings (Show changelog after updating).

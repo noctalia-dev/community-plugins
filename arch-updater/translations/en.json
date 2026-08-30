@@ -47,9 +47,12 @@
   "err_flatpak_failed": "Flatpak check failed, see the system log for details",
   "err_no_checkupdates": "checkupdates not found, install pacman-contrib and check your PATH",
   "err_no_pkexec": "pkexec not found, install polkit to update in the background",
+  "err_no_space": "Not enough free disk space: {have} GiB free, about {need} GiB needed. Pruning the package cache may help.",
   "err_no_terminal": "No terminal emulator found, set one in the plugin settings",
   "err_no_xdg_open": "xdg-open not found, cannot open the package page",
+  "err_orphans_failed": "Orphan removal failed, see the log",
   "err_polkit_install": "Could not install the polkit rule, see the system log for details",
+  "err_prune_failed": "Cache pruning failed, see the log",
   "err_run_failed": "Update failed (exit {code}), check the log or retry in a terminal",
   "err_spawn": "Could not run checkupdates",
   "err_terminal_closed": "The terminal window closed before the update finished, check the log or retry in a terminal",
@@ -68,12 +71,22 @@
   },
   "log_title": "Update log",
   "log_waiting": "Waiting for the polkit password prompt and the first output…",
+  "maint_busy": "Maintenance running…",
+  "maint_cache": "Package cache: {size} GiB",
+  "maint_cache_prunable": "{count} old versions ({saved}) prunable",
+  "maint_fwupd": "Firmware updates (fwupd)",
+  "maint_orphans": {
+    "one": "1 orphaned package",
+    "other": "{count} orphaned packages"
+  },
   "more_packages": "+{count} more",
   "news_unread": {
     "one": "1 unread Arch news post: \"{title}\"",
     "other": "{count} unread Arch news posts, latest: \"{title}\""
   },
+  "notify_orphans_ok": "Orphaned packages removed",
   "notify_polkit_ok": "Polkit rule installed: one password per update run from now on",
+  "notify_prune_ok": "Package cache pruned",
   "notify_rollback_ok": "Rollback finished successfully",
   "notify_run_ok": "Update finished successfully",
   "notify_updates": {
@@ -123,6 +136,10 @@
       "description": "Check for updates automatically every N hours. 0 (default) never checks on its own.",
       "label": "Auto-check interval (hours)"
     },
+    "cache_keep": {
+      "label": "Cached versions to keep",
+      "description": "How many versions of each installed package the cache prune keeps. Uninstalled packages' cached files are removed entirely."
+    },
     "check_arch_news": {
       "description": "Fetch the Arch Linux news feed and flag unread posts in the panel.",
       "label": "Check Arch Linux news"
@@ -151,9 +168,25 @@
       "description": "Package names to leave out of the count and pass as --ignore to the update itself, in addition to pacman.conf's own IgnorePkg.",
       "label": "Ignore packages"
     },
+    "inhibit_sleep": {
+      "label": "Block sleep during updates",
+      "description": "Background update runs hold a systemd sleep/idle inhibitor, so a closed lid can't interrupt a pacman transaction halfway."
+    },
+    "keyring_first": {
+      "label": "Refresh the keyring first",
+      "description": "Run pacman -Sy --needed archlinux-keyring right before each update, so packages signed with new keys don't fail after a long gap between updates."
+    },
     "log_lines": {
       "description": "How many of the latest update-log lines the panel shows while an update is running.",
       "label": "Log lines in the panel"
+    },
+    "maintenance_enabled": {
+      "label": "Maintenance section",
+      "description": "After each check, also report the package cache size (with one-click pruning), orphaned packages (with removal) and firmware updates when fwupd is installed."
+    },
+    "min_free_mib": {
+      "label": "Minimum free space (MiB)",
+      "description": "Refuse to start an update when the root filesystem has less than this free, plus twice the estimated download size. 0 disables the check."
     },
     "notify_on_updates": {
       "description": "Send a desktop notification when a check finds packages to upgrade.",
@@ -221,10 +254,13 @@
   "tip_check": "Check for updates now",
   "tip_close": "Close",
   "tip_copy": "Copy name and versions",
+  "tip_fwupd": "Check and install firmware updates in a terminal window",
   "tip_history_segment": "Click to see this run's packages",
   "tip_ignore": "Ignore this package: hide it from the count and skip it on update",
   "tip_open_page": "Open package page",
+  "tip_orphans": "Remove them with their unneeded dependencies (pacman -Rns): {names}",
   "tip_polkit_install": "Install the polkit rule so updates can run in the background with one password prompt",
+  "tip_prune": "Remove superseded package versions from the cache (root, one polkit prompt)",
   "tip_rollback": "Roll back to {version}, together with its dependencies from this run. pacman refuses the whole transaction if it would break other packages.",
   "tip_rollback_run": "Downgrade every package of this run in one transaction",
   "tip_run_terminal": "Open a terminal window where prompts work normally",
@@ -243,5 +279,8 @@
   "tooltip_reboot_key": "Reboot",
   "tooltip_reboot_value": "recommended",
   "tooltip_status": "Status",
-  "up_to_date": "Up to date: {sources}"
+  "up_to_date": "Up to date: {sources}",
+  "warn_commit": "The last run had a failed pacman transaction — check the log",
+  "warn_initramfs": "The last run may have FAILED to generate the initramfs — check the log before rebooting",
+  "warn_signature": "The last run hit package signature errors — a keyring refresh usually fixes this"
 }

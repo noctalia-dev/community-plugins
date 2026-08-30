@@ -101,6 +101,9 @@ local runKind = "update" -- update|rollback: what the current run does
 local runMode = "background" -- background|terminal: how the current run was launched
 local runPackages = nil -- packages of the current run, for the history entry
 local probeResult = nil -- cache/required-by info for one run, {at, pkgs}
+local maintenance = nil -- { cacheBytes, pruneCount, pruneSaved, orphans, availKiB, fwupd }
+local maintenanceBusy = false -- a prune / orphan-removal operation is running
+local logWarnings = {} -- known failure signatures found in the last run's log
 
 local startCheck
 local checkNews
@@ -553,6 +556,9 @@ local function publish()
         runMode = runMode,
         probe = probeResult,
         flatpakEnabled = cfg("flatpak_enabled") == true and noctalia.commandExists("flatpak"),
+        maintenance = maintenance,
+        maintenanceBusy = maintenanceBusy,
+        logWarnings = logWarnings,
         logTail = logTail,
         logPath = logPath(),
         runExit = runExit,
@@ -565,6 +571,7 @@ end
 local checkFlatpak
 local checkSize
 local checkReboot
+local checkMaintenance
 local finishCheck
 
 local function failCheck(message)
@@ -576,7 +583,7 @@ end
 checkReboot = function()
     if cfg("check_reboot_needed") ~= true then
         rebootRecommended = false
-        finishCheck()
+        checkMaintenance()
         return
     end
     -- A kernel upgrade replaces the whole /usr/lib/modules/<version> tree.
@@ -587,14 +594,76 @@ checkReboot = function()
         [[test -d "/usr/lib/modules/$(uname -r)" && echo present || echo missing]],
         function(result)
             rebootRecommended = trim(result.stdout or "") == "missing"
-            finishCheck()
+            checkMaintenance()
         end,
         FAST_TIMEOUT_MS
     )
     if not started then
         rebootRecommended = false
-        finishCheck()
+        checkMaintenance()
     end
+end
+
+-- ── Maintenance: cache size, prunable versions, orphans, free space ──────────
+
+local function cacheKeep()
+    return math.max(1, math.min(5, tonumber(cfg("cache_keep")) or 2))
+end
+
+-- One cheap scan (no root): cache size and prunable-version count from
+-- paccache's dry run, orphaned packages, and the root filesystem's free
+-- space (which also gates update runs, see freeSpaceShortfall).
+local function runMaintenanceScan(done)
+    local parts = {
+        [[printf '::CACHE %s\n' "$(du -sb /var/cache/pacman/pkg 2>/dev/null | cut -f1)"]],
+        [[printf '::AVAIL %s\n' "$(df -Pk / 2>/dev/null | awk 'NR==2{print $4}')"]],
+        [[pacman -Qtdq 2>/dev/null | sed 's/^/::ORPHAN /']],
+    }
+    if noctalia.commandExists("paccache") then
+        table.insert(parts, "LC_ALL=C paccache -dk" .. cacheKeep()
+            .. [[ 2>/dev/null | sed -n 's/.*finished dry run: \([0-9]*\) candidates (disk space saved: \([^)]*\)).*/::PRUNE \1|\2/p']])
+    end
+    local started = noctalia.runAsync(table.concat(parts, "; "), function(result)
+        local scanned = {
+            cacheBytes = nil,
+            pruneCount = 0,
+            pruneSaved = "",
+            orphans = {},
+            availKiB = nil,
+            fwupd = noctalia.commandExists("fwupdmgr"),
+        }
+        for line in (result.stdout or ""):gmatch("[^\n]+") do
+            local cache = line:match("^::CACHE (%d+)")
+            local avail = line:match("^::AVAIL (%d+)")
+            local orphan = line:match("^::ORPHAN (%S+)")
+            local pruneN, pruneSaved = line:match("^::PRUNE (%d+)|(.*)$")
+            if cache ~= nil then
+                scanned.cacheBytes = tonumber(cache)
+            elseif avail ~= nil then
+                scanned.availKiB = tonumber(avail)
+            elseif orphan ~= nil and validName(orphan) then
+                table.insert(scanned.orphans, orphan)
+            elseif pruneN ~= nil then
+                scanned.pruneCount = tonumber(pruneN) or 0
+                scanned.pruneSaved = trim(pruneSaved)
+            end
+        end
+        maintenance = scanned
+        done()
+    end, SIZE_TIMEOUT_MS)
+    if not started then
+        done()
+    end
+end
+
+checkMaintenance = function()
+    -- nil (setting not materialized yet) means the manifest default: on.
+    if cfg("maintenance_enabled") == false then
+        maintenance = nil
+        finishCheck()
+        return
+    end
+    runMaintenanceScan(finishCheck)
 end
 
 checkSize = function()
@@ -1042,6 +1111,13 @@ local function buildBackgroundCommand()
 
     local helper = resolveAurHelper()
     local parts = {}
+    -- Fresh keyring first: after a few weeks without updates the old keyring
+    -- can no longer verify newly signed packages, and the whole run dies on
+    -- "signature is unknown trust". --needed makes this a no-op when the
+    -- keyring is already current. nil (unmaterialized setting) = default on.
+    if cfg("keyring_first") ~= false then
+        table.insert(parts, "pkexec pacman -Sy --needed" .. quietFlags .. " archlinux-keyring")
+    end
     if helper ~= nil and helper ~= "custom" and noctalia.commandExists(helper) then
         local autoAnswers = helper == "paru" and " --skipreview"
             or " --answerdiff None --answerclean None --answeredit None"
@@ -1067,6 +1143,11 @@ local function buildTerminalCommand()
 
     local helper = resolveAurHelper()
     local parts = {}
+    -- Same keyring-first refresh as the background command, via sudo since
+    -- the terminal run has a tty for the password.
+    if cfg("keyring_first") ~= false then
+        table.insert(parts, "sudo pacman -Sy --needed --noconfirm archlinux-keyring")
+    end
     if helper ~= nil and helper ~= "custom" and noctalia.commandExists(helper) then
         table.insert(parts, helper .. " -Syu" .. ignoreFlag)
     else
@@ -1158,10 +1239,73 @@ local function clearRunMeta()
     end
 end
 
+-- Refuses to start a run when the root filesystem is too full: pacman
+-- aborting halfway on ENOSPC is exactly the broken state this plugin exists
+-- to avoid. Returns "have GiB", "need GiB" strings, or nil when fine (or
+-- unknown - never block on missing data). min_free_mib = 0 disables the gate.
+local function freeSpaceShortfall()
+    local minFree = tonumber(cfg("min_free_mib")) or 1024
+    if minFree <= 0 or maintenance == nil or tonumber(maintenance.availKiB) == nil then
+        return nil
+    end
+    local requiredKiB = minFree * 1024
+    if type(downloadSizeMiB) == "number" then
+        -- Twice the download: the archives land in the cache and unpack.
+        requiredKiB += math.floor(downloadSizeMiB * 2 * 1024)
+    end
+    if maintenance.availKiB < requiredKiB then
+        return string.format("%.1f", maintenance.availKiB / 1048576), string.format("%.1f", requiredKiB / 1048576)
+    end
+    return nil
+end
+
+local function blockOnFreeSpace()
+    local have, need = freeSpaceShortfall()
+    if have == nil then
+        return false
+    end
+    phase = "error"
+    errMsg = tr("err_no_space", { have = have, need = need })
+    publish()
+    noctalia.notifyError(tr("title"), errMsg)
+    return true
+end
+
+-- Known failure signatures in the finished run's log. An initramfs that
+-- failed to generate can leave the machine unbootable, so that one also
+-- raises a critical notification; the panel shows the rest.
+local function analyzeRunLog()
+    local path = logPath()
+    if path == nil then
+        return
+    end
+    local cmd = "log=" .. shellQuote(path) .. "; "
+        .. [[if grep -qE 'Updating linux initcpios|Running build hook' "$log" 2>/dev/null && ! grep -q 'Initcpio image generation successful' "$log" 2>/dev/null; then echo INITRAMFS; fi]]
+        .. [[; grep -q 'error: failed to commit transaction' "$log" 2>/dev/null && echo COMMIT]]
+        .. [[; grep -qiE 'signature (from .* )?is (unknown trust|invalid)' "$log" 2>/dev/null && echo SIGNATURE; true]]
+    noctalia.runAsync(cmd, function(result)
+        local warnings = {}
+        for line in (result.stdout or ""):gmatch("[^\n]+") do
+            local tag = trim(line)
+            if tag == "INITRAMFS" or tag == "COMMIT" or tag == "SIGNATURE" then
+                table.insert(warnings, tag)
+                if tag == "INITRAMFS" then
+                    noctalia.notifyError(tr("title"), tr("warn_initramfs"))
+                end
+            end
+        end
+        if #warnings > 0 or #logWarnings > 0 then
+            logWarnings = warnings
+            publish()
+        end
+    end, FAST_TIMEOUT_MS)
+end
+
 local function beginRun(kind, expectTotal, mode)
     phase = "running"
     errMsg = nil
     step = ""
+    logWarnings = {}
     runKind = kind or "update"
     runMode = mode or "background"
     runExit = nil
@@ -1209,9 +1353,20 @@ local function runUpdate()
     -- so the escalated pacman inherits it. Terminal runs deliberately keep
     -- the user's locale (their window, their language), at the cost of the
     -- progress count there.
+    if blockOnFreeSpace() then
+        return
+    end
+
     local quoted = shellQuote(path)
+    local body = "{ export LC_ALL=C; " .. buildBackgroundCommand() .. " ; } >> " .. quoted .. " 2>&1"
+    -- systemd-inhibit keeps the machine from sleeping mid-transaction: a
+    -- laptop lid closed during a pacman commit is a half-written system.
+    if cfg("inhibit_sleep") ~= false and noctalia.commandExists("systemd-inhibit") then
+        body = "systemd-inhibit --what=sleep:idle --who=arch-updater --why='System update in progress' sh -c "
+            .. shellQuote(body)
+    end
     local script = "printf '::START %s\\n' \"$(date +%s)\" > " .. quoted
-        .. "; { export LC_ALL=C; " .. buildBackgroundCommand() .. " ; } >> " .. quoted .. " 2>&1"
+        .. "; " .. body
         .. "; printf '::EXIT %s\\n' \"$?\" >> " .. quoted
 
     if not noctalia.runAsync(script) then
@@ -1227,6 +1382,9 @@ end
 
 local function runUpdateTerminal()
     if phase == "running" or phase == "checking" then
+        return
+    end
+    if blockOnFreeSpace() then
         return
     end
     local path = logPath()
@@ -1310,6 +1468,11 @@ end
 finishRun = function(code)
     runExit = code
     runStaleS = 0
+    -- The log is complete once ::EXIT landed; scan it for known failure
+    -- signatures either way - a run can exit 0 with a broken initramfs.
+    if code ~= TERMINAL_CLOSED_CODE then
+        analyzeRunLog()
+    end
     if code == 0 then
         if runKind == "rollback" then
             -- One atomic pacman -U transaction: exit 0 means it all applied.
@@ -1689,6 +1852,93 @@ done]]
     end, SIZE_TIMEOUT_MS)
 end
 
+-- ── Maintenance actions ──────────────────────────────────────────────────────
+
+local function refreshMaintenance()
+    if cfg("maintenance_enabled") == false then
+        return
+    end
+    runMaintenanceScan(publish)
+end
+
+-- Prunes superseded package versions from the cache (keeping cache_keep of
+-- each installed package) and every version of uninstalled ones. One pkexec
+-- sh so polkit asks once, not per paccache call.
+local function pruneCache()
+    if maintenanceBusy or not noctalia.commandExists("paccache") or not noctalia.commandExists("pkexec") then
+        return
+    end
+    maintenanceBusy = true
+    publish()
+    local cmd = "pkexec sh -c " .. shellQuote("paccache -rk" .. cacheKeep() .. "; paccache -ruk0")
+    local started = noctalia.runAsync(cmd, function(result)
+        maintenanceBusy = false
+        if result.exitCode == 0 then
+            noctalia.notify(tr("title"), tr("notify_prune_ok"))
+            runMaintenanceScan(publish)
+        elseif result.exitCode ~= 126 then
+            -- 126 = the polkit dialog was dismissed; anything else failed.
+            noctalia.notifyError(tr("title"), tr("err_prune_failed"))
+            publish()
+        else
+            publish()
+        end
+    end, 120000)
+    if not started then
+        maintenanceBusy = false
+        publish()
+    end
+end
+
+-- Removes the orphans the last scan found (pacman -Qtdq), recursively with
+-- their now-unneeded deps. The panel arms a confirm before sending this.
+local function removeOrphans()
+    if maintenanceBusy or maintenance == nil or #maintenance.orphans == 0 or not noctalia.commandExists("pkexec") then
+        return
+    end
+    local names = {}
+    for _, name in ipairs(maintenance.orphans) do
+        if validName(name) then
+            table.insert(names, shellQuote(name))
+        end
+    end
+    if #names == 0 then
+        return
+    end
+    maintenanceBusy = true
+    publish()
+    local cmd = "pkexec pacman -Rns --noconfirm --noprogressbar --color never " .. table.concat(names, " ")
+    local started = noctalia.runAsync(cmd, function(result)
+        maintenanceBusy = false
+        if result.exitCode == 0 then
+            noctalia.notify(tr("title"), tr("notify_orphans_ok"))
+            -- Removing orphans can orphan their own former deps; the rescan
+            -- shows the next layer instead of pretending it's all gone.
+            runMaintenanceScan(publish)
+        elseif result.exitCode ~= 126 then
+            noctalia.notifyError(tr("title"), tr("err_orphans_failed"))
+            publish()
+        else
+            publish()
+        end
+    end, 120000)
+    if not started then
+        maintenanceBusy = false
+        publish()
+    end
+end
+
+-- Firmware updates are interactive by nature (reboots, prompts), so they
+-- get a terminal window rather than a background run.
+local function fwupdUpdate()
+    if not noctalia.commandExists("fwupdmgr") then
+        return
+    end
+    if not launchTerminal("fwupdmgr refresh; fwupdmgr update; echo; echo " .. shellQuote(tr("run.press_key")) .. "; read -n 1") then
+        noctalia.notifyError(tr("title"), tr("err_no_terminal"))
+    end
+end
+
 -- ── Requests, lifecycle ──────────────────────────────────────────────────────
 
 -- Persists in IGNORE_FILE and takes effect immediately by moving the
@@ -1778,6 +2028,14 @@ local function handle(action, payload)
         openLog()
     elseif action == "polkit_install" then
         installPolkitRule()
+    elseif action == "prune_cache" then
+        pruneCache()
+    elseif action == "remove_orphans" then
+        removeOrphans()
+    elseif action == "fwupd_update" then
+        fwupdUpdate()
+    elseif action == "maintenance" then
+        refreshMaintenance()
     elseif action == "dismiss" then
         sources.pacman = { n = 0, items = {} }
         sources.aur = { n = 0, items = {}, helper = sources.aur.helper }
