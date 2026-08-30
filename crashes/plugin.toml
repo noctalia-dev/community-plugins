@@ -33,6 +33,20 @@ description_key = "settings.agent_cmd.description"
 default = ""
 
 [[setting]]
+key = "agent_order"
+type = "string"
+label_key = "settings.agent_order.label"
+description_key = "settings.agent_order.description"
+default = ""
+
+[[setting]]
+key = "probe_agent"
+type = "bool"
+label_key = "settings.probe_agent.label"
+description_key = "settings.probe_agent.description"
+default = true
+
+[[setting]]
 key = "extra_prompt"
 type = "string"
 label_key = "settings.extra_prompt.label"
@@ -45,6 +59,14 @@ type = "string"
 label_key = "settings.terminal_cmd.label"
 description_key = "settings.terminal_cmd.description"
 default = "kitty -e"
+
+[[setting]]
+key = "env_file"
+type = "string"
+label_key = "settings.env_file.label"
+description_key = "settings.env_file.description"
+default = ""
+advanced = true
 
 [[service]]
 id = "service"

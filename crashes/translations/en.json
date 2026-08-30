@@ -26,6 +26,14 @@
       "label": "AI agent command",
       "description": "Command that receives the diagnosis prompt as its last argument: \"claude\", \"codex\", \"opencode --prompt\", \"grok --\"… Empty = use the first installed well-known agent."
     },
+    "agent_order": {
+      "label": "Agent order",
+      "description": "Which agents to try and in what order, e.g. \"codex, claude\". Empty: claude, opencode, codex, grok."
+    },
+    "probe_agent": {
+      "label": "Check the agent can answer",
+      "description": "Before opening the window, ask the agent a throwaway question; if it cannot answer — out of quota, logged out, offline — the next one is opened instead. Costs one tiny request per diagnosis. Off: the first installed agent is opened whether or not it works."
+    },
     "extra_prompt": {
       "label": "Extra prompt",
       "description": "Text appended to every diagnosis prompt — e.g. \"Answer in Russian\" or house rules for the agent."
@@ -33,6 +41,10 @@
     "terminal_cmd": {
       "label": "Terminal command",
       "description": "Wrapper that opens the agent in a window, e.g. \"kitty -e\". Leave empty if the agent command opens its own window."
+    },
+    "env_file": {
+      "label": "Environment file",
+      "description": "Sourced before the agent starts. For a proxy or an API key your shell sets but a panel click does not inherit, e.g. ~/.config/agent-env."
     }
   },
   "tab_crashes": "Crashes",

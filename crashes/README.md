@@ -24,6 +24,15 @@ it. A second tab shows the current boot's journal errors by severity.
 - A terminal AI coding agent for the diagnosis buttons (Claude Code, Codex,
   opencode, grok, …). Without one the panel still works as a crash and error
   browser; the diagnosis button then explains what to install.
+
+  Whichever of those are installed are tried in turn: before the window
+  opens the agent is asked a throwaway question, and one that cannot answer
+  — out of quota, logged out, offline — is skipped in favour of the next.
+  You see which was chosen in the terminal itself. Turn that check off with
+  **Check the agent can answer** if you would rather not spend the request,
+  and set the order with **Agent order**. A configured **Agent command** is
+  used on its own: its headless syntax is unknown, so it cannot be tested
+  the same way.
 - `gdb` and your distribution's debuginfod are optional, but the guide the
   agent follows uses them to symbolize a backtrace when they are available.
 
@@ -64,9 +73,12 @@ core is a sysadmin's problem, not a desktop notification.
 | --- | --- | --- | --- |
 | `poll_seconds` | `int` | `20` | How often the coredump list is re-read. |
 | `notify` | `bool` | `true` | Announce new crashes with a critical notification. Turn off if something else already announces them. |
-| `agent_cmd` | `string` | *(empty)* | Command that receives the prompt as its last argument, e.g. `claude`, `codex`, `opencode --prompt`. Empty picks the first installed well-known agent. |
+| `agent_cmd` | `string` | *(empty)* | Command that receives the prompt as its last argument, e.g. `claude`, `codex`, `opencode --prompt`. Empty: pick from the known agents (see below). |
+| `agent_order` | `string` | *(empty)* | Which known agents to try and in what order, e.g. `codex, claude`. Empty: claude, opencode, codex, grok. |
+| `probe_agent` | `bool` | `true` | Check that the agent can answer before opening it, and move on to the next one if it cannot. |
 | `extra_prompt` | `string` | *(empty)* | Text appended to every prompt — e.g. "Answer in German", or house rules for the agent. |
 | `terminal_cmd` | `string` | `kitty -e` | Wrapper that opens the agent in a window. Leave empty if your agent command opens its own window. |
+| `env_file` | `string` | *(empty)* | Sourced before the agent starts. For a proxy or an API key your shell profile sets but a panel click does not inherit. |
 
 ## IPC
 

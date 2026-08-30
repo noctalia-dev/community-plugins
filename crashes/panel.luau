@@ -58,6 +58,67 @@ end
 
 -- ── Diagnosis ───────────────────────────────────────────────────────────────
 
+-- The agents this plugin knows how to start, and how to ask each one a
+-- throwaway question. `probe` is what tells an agent that is out of quota or
+-- logged out from one that is ready: the answer is thrown away, only whether
+-- it came matters. grok has no documented headless mode, so it is only
+-- checked for existence.
+local AGENTS = {
+    { name = "claude", bin = "claude", probe = "claude -p ok", run = 'claude "$0"' },
+    { name = "opencode", bin = "opencode", probe = "opencode run ok",
+      run = 'opencode --prompt "$0"' },
+    { name = "codex", bin = "codex", probe = "codex exec ok", run = 'codex "$0"' },
+    { name = "grok", bin = "grok", probe = nil, run = 'grok -- "$0"' },
+}
+
+local function agentOrder()
+    local wanted = tostring(cfg("agent_order", "")):gsub("^%s+", ""):gsub("%s+$", "")
+    if wanted == "" then
+        return AGENTS
+    end
+    -- The names the user listed, in their order; the rest keep their place
+    -- at the back rather than being dropped.
+    local ordered, taken = {}, {}
+    for name in wanted:gmatch("[^,%s]+") do
+        for _, agent in ipairs(AGENTS) do
+            if agent.name == name and not taken[name] then
+                taken[name] = true
+                table.insert(ordered, agent)
+            end
+        end
+    end
+    for _, agent in ipairs(AGENTS) do
+        if not taken[agent.name] then
+            table.insert(ordered, agent)
+        end
+    end
+    return ordered
+end
+
+-- Runs in the terminal that just opened: pick an agent, then become it. The
+-- picking happens there rather than here so the window appears immediately
+-- and the user can see which agent was chosen and why.
+local function agentChain()
+    local probe = cfg("probe_agent", true) ~= false
+    local parts = {}
+    for _, agent in ipairs(agentOrder()) do
+        local block = "if command -v " .. agent.bin .. " >/dev/null 2>&1; then\n"
+        if probe and agent.probe ~= nil then
+            block = block
+                .. '  printf "Asking %s...\\n" ' .. agent.name .. "\n"
+                .. "  if " .. agent.probe .. " >/dev/null 2>&1; then exec " .. agent.run .. "; fi\n"
+                .. '  printf "%s could not answer - trying the next agent.\\n" ' .. agent.name .. "\n"
+        else
+            block = block .. "  exec " .. agent.run .. "\n"
+        end
+        table.insert(parts, block .. "fi\n")
+    end
+    table.insert(parts, 'echo "No AI agent could be reached '
+        .. '(claude/opencode/codex/grok) - check that one is installed and signed in, '
+        .. 'or set one in the plugin settings."\nread -r _\n')
+    return table.concat(parts)
+end
+
 -- Runs the agent with a prompt in a terminal. terminal_cmd wraps agent_cmd;
 -- an empty terminal_cmd means the agent command opens its own window. The
 -- prompt rides as one quoted argument. PATH: the shell environment here has
@@ -76,23 +137,30 @@ local function launchAgent(key, prompt)
         prompt = prompt .. "\n" .. extra .. "\n"
     end
 
-    -- No agent_cmd set: use the first installed well-known agent (each has
-    -- its own way of taking a prompt). $0 is the prompt.
+    -- No agent_cmd set: the first well-known agent that is installed and can
+    -- actually answer. $0 is the prompt.
     local agent = tostring(cfg("agent_cmd", ""))
     if agent:gsub("%s", "") == "" then
-        agent = 'if command -v claude >/dev/null; then claude "$0"; '
-            .. 'elif command -v opencode >/dev/null; then opencode --prompt "$0"; '
-            .. 'elif command -v codex >/dev/null; then codex "$0"; '
-            .. 'elif command -v grok >/dev/null; then grok -- "$0"; '
-            .. 'else echo "No AI agent found (claude/opencode/codex/grok) — set one in the plugin settings."; read -r _; fi'
-        agent = "bash -c " .. shellQuote(agent)
+        agent = "bash -c " .. shellQuote(agentChain())
     end
     local terminal = tostring(cfg("terminal_cmd", "kitty -e"))
     local wrapped = agent .. " " .. shellQuote(prompt)
     if terminal:gsub("%s", "") ~= "" then
         wrapped = terminal .. " " .. wrapped
     end
-    local launch = 'export PATH="$HOME/.local/bin:$HOME/.local/share/npm/bin:$PATH"; ' .. wrapped
+    -- An env file, if the user named one: agents behind a proxy or reading an
+    -- API key from the shell profile get neither from a panel click.
+    local envFile = tostring(cfg("env_file", "")):gsub("^%s+", ""):gsub("%s+$", "")
+    local sourceEnv = ""
+    if envFile ~= "" then
+        local quoted = envFile:sub(1, 2) == "~/"
+            and ('"$HOME"/' .. shellQuote(envFile:sub(3)))
+            or shellQuote(envFile)
+        sourceEnv = ". " .. quoted .. " 2>/dev/null; "
+    end
+
+    local launch = sourceEnv
+        .. 'export PATH="$HOME/.local/bin:$HOME/.local/share/npm/bin:$PATH"; ' .. wrapped
 
     noctalia.runAsync("setsid bash -c " .. shellQuote(launch) .. " >/dev/null 2>&1 &", function()
         launching[key] = nil
@@ -138,7 +206,7 @@ local function crashRow(entry, index)
     local nameColor = muted and "on_surface_variant" or "on_surface"
 
     return ui.row({ key = "crash-" .. entry.pid .. "-" .. index, gap = 8, align = "center" }, {
-        ui.glyph({ glyph = "bug", size = 14, color = muted and "on_surface_variant" or "error" }),
+        ui.glyph({ name = "bug", size = 14, color = muted and "on_surface_variant" or "error" }),
         ui.column({ gap = 1, flexGrow = 1 }, {
             ui.label({ text = entry.name, fontSize = 13, fontWeight = "bold", color = nameColor, maxLines = 1 }),
             ui.label({
@@ -246,7 +314,7 @@ end
 render = function()
     local children = {
         ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ glyph = "bug", size = 18, color = "primary" }),
+            ui.glyph({ name = "bug", size = 18, color = "primary" }),
             ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
             ui.button({
                 glyph = "refresh", variant = "ghost", tooltip = tr("tip_refresh"),
