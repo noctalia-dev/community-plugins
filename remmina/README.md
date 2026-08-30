@@ -9,7 +9,7 @@ digging through its window, no retyping addresses.
 | Field | Value |
 | --- | --- |
 | ID | `rylos/remmina` |
-| Entries | Launcher provider: `connections` |
+| Entries | Bar widget: `bar`; panel: `connections`; launcher provider: `launcher` |
 | Launcher Prefix | `/rmn` |
 
 ## Requirements
@@ -21,6 +21,18 @@ You also need at least one saved connection profile. The plugin reads the
 profiles Remmina already wrote; it never creates or edits them.
 
 ## Usage
+
+Add the **Remmina** widget to a bar from Settings → Bar. It shows a single
+monitor glyph, with the number of saved connections in its tooltip; clicking it
+opens the panel. You can also open the panel directly:
+
+```sh
+noctalia msg panel-toggle rylos/remmina:connections
+```
+
+The panel lists every connection under its Remmina group, with a filter box on
+top. Clicking a row opens that connection and closes the panel; the button in
+the header opens Remmina's own window instead.
 
 Type `/rmn` in the launcher to list every profile, sorted by group and then by
 name. Keep typing to filter — the filter matches the connection name, its
@@ -56,4 +68,6 @@ window, including the stored password.
   changes, so typing in the launcher does no disk I/O. A profile added or
   removed from Remmina therefore shows up on the next query.
 - A profile with no `name` falls back to its file name, so it is never
-  invisible.
+  invisible. Profiles with no group are listed last, under "Ungrouped".
+- The launcher filter is fuzzy; the panel filter is a plain substring match on
+  the same four fields.

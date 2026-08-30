@@ -4,9 +4,15 @@
   "err-no-remmina-subtitle": "Install Remmina and make sure it is on PATH",
   "filter-empty": "Filter: \"{filter}\"",
   "no-profiles-found": "No matching connection",
+  "panel": {
+    "count": "{count} saved connections",
+    "filter": "Filter connections…",
+    "open-remmina": "Open the Remmina window",
+    "open-tooltip": "Open {name}",
+    "ungrouped": "Ungrouped"
+  },
   "profiles-empty": "No Remmina profiles in this folder",
   "profiles-missing": "Remmina profile folder not found",
-  "title": "Remmina",
   "settings": {
     "max_results": {
       "description": "Maximum number of connections shown in the launcher.",
@@ -20,5 +26,6 @@
       "description": "Show the profile's Remmina group in the result subtitle.",
       "label": "Show group"
     }
-  }
+  },
+  "title": "Remmina"
 }

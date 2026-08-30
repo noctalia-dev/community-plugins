@@ -5,12 +5,23 @@ plugin_api = 24
 author = "Marco Ziliani"
 license = "MIT"
 icon = "device-desktop"
-description = "Open your Remmina connection profiles from the launcher with /rmn."
-tags = ["launcher", "network", "utility", "productivity"]
+description = "Open your saved Remmina connections from the launcher, the bar, or a panel."
+tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
 dependencies = ["remmina"]
 
-[[launcher_provider]]
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
 id = "connections"
+entry = "panel.luau"
+width = 380
+height = 520
+placement = "floating"
+
+[[launcher_provider]]
+id = "launcher"
 entry = "launcher.luau"
 prefix = "rmn"
 glyph = "device-desktop"
