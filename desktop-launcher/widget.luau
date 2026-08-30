@@ -52,41 +52,40 @@ local function getContent(appid)
     return nil
 end
 
-local function getKeyContent(content, key)
-    -- Not working with lang setting, need refactor
-    return content:match("[\r\n]" .. key .. "=([^\r\n]*)")
-end
-
 local function parse(appid)
     local content = getContent(appid)
     if not content then
         return nil
     end
 
+    local localizedKey = config.lang and string.format("Name[%s]", config.lang) or nil
+
     local data = {}
+    local genericName, localizedName
+    local inEntry = false
 
-    local name = getKeyContent(content, "Name")
-    if name then
-        data.name = name
-    end
-
-    if config.lang ~= nil then
-        local lang_name = getKeyContent(content, string.format("Name[%s]", config.lang))
-        if lang_name then
-            data.name = lang_name
+    for line in content:gmatch("[^\r\n]+") do
+        local section = line:match("^%s*%[(.-)%]%s*$")
+        if section then
+            if inEntry then
+                break
+            end
+            inEntry = (section == "Desktop Entry")
+        elseif inEntry then
+            local key, value = line:match("^([^=]+)=(.*)$")
+            if key == "Name" then
+                genericName = value
+            elseif localizedKey and key == localizedKey then
+                localizedName = value
+            elseif key == "Exec" then
+                data.exec = stripFieldCodes(value)
+            elseif key == "Terminal" then
+                data.terminal = (value == "true")
+            end
         end
     end
 
-    local exec = getKeyContent(content, "Exec")
-    if exec then
-        data.exec = stripFieldCodes(exec)
-    end
-
-    local terminal = getKeyContent(content, "Terminal")
-    if terminal then
-        data.terminal = terminal == "true"
-    end
-
+    data.name = localizedName or genericName
     return data
 end
 
