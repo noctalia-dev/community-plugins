@@ -1,0 +1,245 @@
+{
+  "title": "Hyprmodoro",
+  "phase": {
+    "idle": "Idle",
+    "work": "Work",
+    "rest": "Rest",
+    "waiting": "Waiting"
+  },
+  "ui": {
+    "pomodoro": "Pomodoro",
+    "work": "Work",
+    "rest": "Rest",
+    "paused": "paused",
+    "phase": "Phase",
+    "remaining": "Remaining",
+    "durations": "Work / rest",
+    "round": "round {n}",
+    "presets": "Presets",
+    "no_presets": "No valid presets. Set pairs like 25/5 in settings.",
+    "custom": "Custom",
+    "set": "Set",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset",
+    "stop": "Stop",
+    "checking": "Checking hyprmodoro",
+    "checking_body": "Waiting for the first probe to come back.",
+    "recheck": "Check again",
+    "copy_patch": "Copy fix instructions",
+    "copied": "Copied to the clipboard.",
+    "patch_hint": "Install the Hyprland plugin from github.com/Aceix/hyprmodoro, which exposes the hyprctl commands this plugin uses to control the timer: hyprpm add https://github.com/Aceix/hyprmodoro && hyprpm enable hyprmodoro && hyprpm reload",
+    "see_readme": "See the plugin README",
+    "link_config": "Link into hyprland.lua",
+    "save_now": "Save now",
+    "saving": "Writing the settings file…",
+    "minutes_short": "m"
+  },
+  "err": {
+    "absent_title": "hyprmodoro not loaded",
+    "absent_body": "Enable it with `hyprpm enable hyprmodoro && hyprpm reload`.",
+    "readonly_title": "Controls unavailable",
+    "readonly_body": "Hyprland is running a Lua config, where upstream hyprmodoro's controls cannot be reached. Install the build from github.com/Aceix/hyprmodoro to enable them. The timer still displays correctly.",
+    "write_failed": "Could not write {path}",
+    "invalid_config": "Hyprland rejected the generated settings: {message}",
+    "link_failed": "Could not update the main Hyprland config",
+    "already_linked": "The main config already requires this file",
+    "linked": "Added require(\"{module}\") to your Hyprland config",
+    "bad_duration": "Work must be 1–180 minutes, rest 1–60.",
+    "action_failed": "hyprmodoro: {message}"
+  },
+  "settings": {
+    "config_path": {
+      "label": "Settings file",
+      "description": "Generated file holding your hyprmodoro options. A .lua path is written for a Lua config, .conf for hyprlang."
+    },
+    "manage_config_file": {
+      "label": "Manage the settings file",
+      "description": "Turn off to stop overwriting the file and configure hyprmodoro by hand."
+    },
+    "defer_writes": {
+      "label": "Defer writes while a session runs",
+      "description": "Saving reloads Hyprland, which resets a running pomodoro's durations. Leave on unless you want changes written immediately."
+    },
+    "presets": {
+      "label": "Presets",
+      "description": "Comma-separated work/rest pairs in minutes, e.g. 25/5, 50/10. First six are shown."
+    },
+    "poll_running": {
+      "label": "Poll interval while running",
+      "description": "hyprmodoro emits no events, so the timer is polled. Milliseconds."
+    },
+    "poll_idle": {
+      "label": "Poll interval while idle",
+      "description": "Milliseconds. Higher means fewer hyprctl calls at rest."
+    },
+    "show_when_idle": {
+      "label": "Show duration when idle",
+      "description": "Off shows only the icon until a session starts."
+    },
+    "glyph": {
+      "label": "Bar icon",
+      "description": "Used while idle. A running session shows the phase icon instead."
+    },
+    "enabled": {
+      "label": "Enable hyprmodoro",
+      "description": "Turns the Hyprland-side plugin on or off."
+    },
+    "work_duration": {
+      "label": "Work duration",
+      "description": "Minutes. This is the default hyprmodoro starts with; presets override it until Hyprland reloads."
+    },
+    "rest_duration": {
+      "label": "Rest duration",
+      "description": "Minutes."
+    },
+    "auto_transition": {
+      "label": "Auto-transition",
+      "description": "Roll straight into the next session. Forced on when the window title is disabled."
+    },
+    "title_enabled": {
+      "label": "Show timer on window titles"
+    },
+    "title_all_windows": {
+      "label": "Show on all windows"
+    },
+    "title_reserve_space_all": {
+      "label": "Reserve title space on all windows"
+    },
+    "title_floating_window": {
+      "label": "Show on floating windows"
+    },
+    "title_position": {
+      "label": "Title position",
+      "description": "Left and right are always drawn as an overlay.",
+      "options": {
+        "top": "Top",
+        "bottom": "Bottom",
+        "left": "Left",
+        "right": "Right"
+      }
+    },
+    "title_overlay": {
+      "label": "Draw as overlay",
+      "description": "Float over window content instead of resizing the window."
+    },
+    "title_margin": {
+      "label": "Title margin"
+    },
+    "title_spacing": {
+      "label": "Title spacing"
+    },
+    "border_enabled": {
+      "label": "Progress border"
+    },
+    "border_all_windows": {
+      "label": "Border on all windows"
+    },
+    "border_floating_window": {
+      "label": "Border on floating windows"
+    },
+    "border_color": {
+      "label": "Border colour",
+      "description": "Used when the source above is Custom."
+    },
+    "border_alpha": {
+      "label": "Border opacity",
+      "description": "0–255. Hyprland colours carry their own alpha."
+    },
+    "text_color": {
+      "label": "Text colour"
+    },
+    "text_font": {
+      "label": "Font family"
+    },
+    "text_size": {
+      "label": "Font size"
+    },
+    "text_work_prefix": {
+      "label": "Work prefix"
+    },
+    "text_rest_prefix": {
+      "label": "Rest prefix"
+    },
+    "text_waiting_prefix": {
+      "label": "Waiting prefix",
+      "description": "Shown between sessions when auto-transition is off."
+    },
+    "text_skip_on_click": {
+      "label": "Click the timer to skip"
+    },
+    "sound_player": {
+      "label": "Sound player",
+      "description": "Command used to play the files below, e.g. pw-play."
+    },
+    "sound_work_end": {
+      "label": "Work-end sound",
+      "description": "Sounds only play when the player and both files are set."
+    },
+    "sound_rest_end": {
+      "label": "Rest-end sound"
+    },
+    "notification_enabled": {
+      "label": "Notifications"
+    },
+    "notification_use_system": {
+      "label": "Use system notifications",
+      "description": "notify-send instead of Hyprland's own overlay."
+    },
+    "notification_work_end": {
+      "label": "Work-end message"
+    },
+    "notification_rest_end": {
+      "label": "Rest-end message"
+    },
+    "exec_on_work_end": {
+      "label": "Run on work end",
+      "description": "Semicolon-separated commands."
+    },
+    "exec_on_rest_end": {
+      "label": "Run on rest end"
+    },
+    "buttons_size": {
+      "label": "Button size"
+    },
+    "buttons_fg": {
+      "label": "Button foreground"
+    },
+    "buttons_bg": {
+      "label": "Button background"
+    },
+    "buttons_bg_alpha": {
+      "label": "Button background opacity",
+      "description": "0–255."
+    },
+    "hover_text": {
+      "label": "Show text on hover"
+    },
+    "hover_buttons": {
+      "label": "Show buttons on hover"
+    },
+    "hover_height": {
+      "label": "Hover area height",
+      "description": "Percent of window height."
+    },
+    "hover_width": {
+      "label": "Hover area width",
+      "description": "Percent of window width."
+    },
+    "window_min_width": {
+      "label": "Minimum window width"
+    },
+    "window_padding": {
+      "label": "Window padding"
+    },
+    "border_color_source": {
+      "label": "Border colour source",
+      "description": "Accent derives a high-contrast colour from hyprtoolkit's accent at each config load; Custom uses the colour picker below.",
+      "options": {
+        "accent": "Derived from hyprtoolkit accent",
+        "custom": "Custom colour"
+      }
+    }
+  }
+}
