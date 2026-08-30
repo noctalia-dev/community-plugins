@@ -91,8 +91,9 @@ render = function()
         or (hsActive and (hs.ssid or noctalia.tr("status.hotspot_active")) or noctalia.tr("status.disconnected")))
 
     local connIp = (isConn and net.ipAddress ~= "") and (" (" .. net.ipAddress .. ")") or ""
-    local connDetails = isConn and (connTitle .. connIp .. " • " .. tostring(net.signal or 0) .. "% • " .. (net.band ~= "" and net.band or "—") .. (hsActive and (" • Hotspot (" .. tostring(hs.clientCount or 0) .. ")") or ""))
-        or (hsActive and (connTitle .. " • " .. tostring(hs.clientCount or 0) .. " Clients • Hotspot") or (connTitle .. " • —"))
+    local connDetails = net.ethernetConnected and (connTitle .. connIp .. (hsActive and (" • Hotspot (" .. tostring(hs.clientCount or 0) .. ")") or ""))
+        or (net.wifiConnected and (connTitle .. connIp .. " • " .. tostring(net.signal or 0) .. "% • " .. (net.band ~= "" and net.band or "—") .. (hsActive and (" • Hotspot (" .. tostring(hs.clientCount or 0) .. ")") or ""))
+        or (hsActive and (connTitle .. " • " .. tostring(hs.clientCount or 0) .. " Clients • Hotspot") or (connTitle .. " • —")))
 
     local spinner = LOADER[(animFrame % #LOADER) + 1]
     local isCustomDns = (dns.activeProvider ~= nil and dns.activeProvider ~= "default")

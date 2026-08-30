@@ -143,6 +143,14 @@
       "network_bluetooth_dns": "Network + Bluetooth + DNS",
       "network_hotspot_bluetooth_dns": "Network + Hotspot + Bluetooth + DNS"
     },
+    "widget_indicator_dots": {
+      "label": "Widget Status Dots",
+      "description": "Choose which status indicator dots appear on the bar widget.",
+      "hotspot_dns": "Hotspot + DNS",
+      "hotspot": "Hotspot Only",
+      "dns": "DNS Only",
+      "none": "Disabled"
+    },
     "widget_right_click": {
       "label": "Widget Right-Click Action",
       "description": "Action performed when right-clicking the bar widget.",

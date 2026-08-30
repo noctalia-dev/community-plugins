@@ -109,6 +109,19 @@ options = [
 ]
 
 [[setting]]
+key = "widget_indicator_dots"
+type = "select"
+label_key = "settings.widget_indicator_dots.label"
+description_key = "settings.widget_indicator_dots.description"
+default = "hotspot_dns"
+options = [
+    { value = "hotspot_dns", label_key = "settings.widget_indicator_dots.hotspot_dns" },
+    { value = "hotspot", label_key = "settings.widget_indicator_dots.hotspot" },
+    { value = "dns", label_key = "settings.widget_indicator_dots.dns" },
+    { value = "none", label_key = "settings.widget_indicator_dots.none" },
+]
+
+[[setting]]
 key = "widget_right_click"
 type = "select"
 label_key = "settings.widget_right_click.label"

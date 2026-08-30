@@ -2,7 +2,7 @@
 -- Persistent DNS configuration service
 local DNS = {}
 local nmcliOk = noctalia.commandExists("nmcli")
-local FILE = "/tmp/noctalia_device_dns.json"
+local FILE = "/var/tmp/noctalia_dns.json"
 
 local BUILTIN = {
     { id = "default",    label = "System Default (ISP)", ip = "",                          glyph = "shield" },
@@ -126,7 +126,12 @@ function DNS.apply(providerId, customServers, callback)
 end
 
 function DNS.enforce(callback)
-    if current and current.id ~= "default" then applyInternal(current, callback)
+    local s = readSaved()
+    if s and s.provider and s.provider ~= "default" then
+        current = findEntry(s.provider, s.servers)
+        applyInternal(current, callback)
+    elseif current and current.id ~= "default" then
+        applyInternal(current, callback)
     elseif callback then callback(true) end
 end
 

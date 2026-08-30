@@ -24,15 +24,16 @@ Install the following tools on `PATH`:
 - **Wi-Fi & Ethernet**: Live access point scanning with signal metrics and security badges; inline password authentication prompt; saved network quick-connect; QR code generator for connected Wi-Fi credentials; network forget capability.
 - **Concurrent Wi-Fi Hotspot**: Dynamically provisions a virtual access point (`<interface>-ap`, such as `wlp3s0-ap` or `wlan0-ap`) alongside active Wi-Fi station mode on supported hardware via `scripts/hotspot_helper.sh`, allowing you to host a hotspot while remaining connected to your existing Wi-Fi network; live connected client list with hostnames, IP, and MAC addresses.
 - **Bluetooth Device Manager**: Built-in native C BlueZ D-Bus agent (`scripts/bluetooth_helper`) delivering instant desktop pairing authorization popups with PIN/passkey validation; one-click connect, disconnect, device removal, and auto-reconnect (trust) configuration; adapter discoverability toggle.
-- **Universal Persistent DNS Switcher**: Instant switching between curated providers (Cloudflare, Google, Quad9, AdGuard) and custom DNS servers; automatically re-applies chosen DNS across network switches and system reboots.
-- **Bar Widget & Shortcut**: Highly configurable top bar widget supporting single or multi-domain indicator modes; quick-toggle control center shortcut for one-click hotspot activation.
+- **Persistent DNS Switcher**: Instant switching between curated providers (Cloudflare, Google, Quad9, AdGuard) and custom DNS servers; automatically re-applies chosen DNS across network switches and system reboots.
+- **Bar Widget & Shortcut**: Highly configurable top bar widget supporting single or multi-domain indicator modes; quick-toggle control center shortcut for one-click hotspot activation. The widget also displays a red dot if the hotspot is active and a green dot if a custom DNS is being used.
 
 ## Usage
 
 1. Add the `Network Toolkit` widget to your bar in **Settings → Bar Widgets**.
-2. Add the `Hotspot` shortcut tile in **Settings → Control Center Shortcuts**.
+2. Add the `Hotspot` shortcut tile in **Settings → Control Center → Shortcuts**.
 3. **Left-click** the bar widget to open the main network panel.
 4. **Right-click** the bar widget to trigger the configured quick action (toggle Wi-Fi, Hotspot, or Bluetooth).
+5. **Right-click** any section header icon in the panel (Wi-Fi, Hotspot, Bluetooth, DNS) to quickly toggle its power state on or off.
 
 Open the main panel via IPC:
 
@@ -40,13 +41,15 @@ Open the main panel via IPC:
 noctalia msg panel-toggle autumn/network-toolkit:panel
 ```
 
-Or bind it to a keybinding in your Niri configuration (`~/.config/niri/config.kdl`):
+Or bind it to a keybinding in your configuration:
 
 ```kdl
 binds {
     Mod+N { spawn-sh "noctalia msg panel-toggle autumn/network-toolkit:panel"; }
 }
 ```
+
+(Niri configuration example)
 
 ## Settings
 
@@ -66,6 +69,7 @@ All settings can be configured under **Settings → Plugins → Network Toolkit*
 | `bluetooth_download_dir` | `string` | `~/Downloads` | Target directory for incoming Bluetooth file transfers. |
 | `bluetooth_device_name` | `string` | `""` | Custom broadcast alias for the local Bluetooth adapter. |
 | `widget_display_mode` | `select` | `network` | Display mode: `network`, `bluetooth`, `dns`, `network_hotspot`, `network_bluetooth`, `network_dns`, `bluetooth_dns`, `network_bluetooth_dns`, `network_hotspot_bluetooth_dns`. |
+| `widget_indicator_dots` | `select` | `hotspot_dns` | Status dots shown on widget: `hotspot_dns` (Hotspot + DNS), `hotspot` (Hotspot only), `dns` (DNS only), `none` (Disabled). |
 | `widget_right_click` | `select` | `toggle_wifi` | Quick action on right-click: `toggle_wifi`, `toggle_hs`, or `toggle_bt`. |
 
 ## IPC

@@ -9,7 +9,6 @@ net.init(); hotspot.init(); dns.init(); bt.init()
 
 local isFirstSync = true
 local lastNet, lastEth, lastPairKey = "", false, nil
-local LAST_DNS = "/tmp/network-toolkit-last-dns.txt"
 
 local function publishAll()
     local n, b = net.getStatus(), bt.getStatus()
@@ -71,15 +70,12 @@ noctalia.state.watch("network_command", function(cmd)
         elseif a == "scan" then net.scan(publishAll) end
     elseif d == "dns" then
         if a == "apply" then
-            local prov, srv = (type(p) == "table") and (p.provider or "custom") or (p or "default"), (type(p) == "table") and (p.servers or "") or ""
-            if prov ~= "default" then pcall(noctalia.writeFile, LAST_DNS, prov == "custom" and ("custom=" .. srv) or prov) end
+            local prov = (type(p) == "table") and (p.provider or "custom") or (p or "default")
+            local srv = (type(p) == "table") and (p.servers or "") or ""
             publishAll(); dns.apply(prov, srv, publishAll)
         elseif a == "toggle" then
-            if dns.getStatus().activeProvider == "default" then
-                local ok, last = pcall(noctalia.readFile, LAST_DNS)
-                last = (ok and type(last) == "string" and last ~= "") and last:match("^%s*(.-)%s*$") or "cloudflare"
-                if last:sub(1, 7) == "custom=" then dns.apply("custom", last:sub(8), publishAll) else dns.apply(last, "", publishAll) end
-            else dns.apply("default", "", publishAll) end
+            local nextProv = (dns.getStatus().activeProvider == "default") and "cloudflare" or "default"
+            dns.apply(nextProv, "", publishAll)
             publishAll()
         end
     elseif d == "bluetooth" then

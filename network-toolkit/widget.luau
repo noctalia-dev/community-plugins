@@ -65,8 +65,19 @@ local function render()
 
     local container = barWidget.isVertical() and ui.column or ui.row
 
-    local function makeBlock(gName, text, gColor, showDot)
-        local icon = showDot and ui.row({ align = "start", gap = -3 }, { ui.glyph({ name = gName, size = 16, color = gColor or color }), ui.glyph({ name = "circle-filled", size = 6, color = "error" }) }) or ui.glyph({ name = gName, size = 16, color = gColor or color })
+    local isCustomDns = (dns.activeProvider and dns.activeProvider ~= "default")
+    local dnsText = isCustomDns and (dns.current and dns.current.label or dns.activeProvider) or noctalia.tr("panel.system_default")
+    local dnsGlyph = isCustomDns and "shield" or "shield-off"
+
+    local function makeBlock(gName, text, gColor, showHsDot, showDnsDot)
+        local dotList = {}
+        if showHsDot then table.insert(dotList, ui.glyph({ name = "circle-filled", size = 9, color = "error" })) end
+        if showDnsDot then table.insert(dotList, ui.glyph({ name = "circle-filled", size = 9, color = "#65ab74" })) end
+
+        local icon = (#dotList > 0)
+            and ui.row({ align = "start", gap = -6 }, { ui.glyph({ name = gName, size = 16, color = gColor or color }), ui.row({ gap = -3, align = "center" }, dotList) })
+            or ui.glyph({ name = gName, size = 16, color = gColor or color })
+
         local items = { icon }
         if text and text ~= "" then table.insert(items, ui.label({ text = text, fontSize = 14, color = textColor })) end
         return ui.row({ gap = 5, align = "center" }, items)
@@ -87,14 +98,14 @@ local function render()
     end
     local btGlyph = bt.enabled and "bluetooth" or "bluetooth-off"
 
-    local isCustomDns = (dns.activeProvider and dns.activeProvider ~= "default")
-    local dnsText = isCustomDns and (dns.current and dns.current.label or dns.activeProvider) or noctalia.tr("panel.system_default")
-    local dnsGlyph = isCustomDns and "shield" or "shield-off"
+    local dotsMode = noctalia.getConfig("widget_indicator_dots") or "hotspot_dns"
+    local allowHsDot = (dotsMode == "hotspot_dns" or dotsMode == "hotspot")
+    local allowDnsDot = (dotsMode == "hotspot_dns" or dotsMode == "dns")
 
     local children = {}
-    local bNet = makeBlock(netGlyph, (mode:find("hotspot") and netHsText or netText), color, hs.active)
-    local bBt = makeBlock(btGlyph, btText, nil, mode == "bluetooth" and hs.active or false)
-    local bDns = makeBlock(dnsGlyph, dnsText, nil, mode == "dns" and hs.active or false)
+    local bNet = makeBlock(netGlyph, (mode:find("hotspot") and netHsText or netText), color, allowHsDot and hs.active or false, (not mode:find("dns")) and allowDnsDot and isCustomDns or false)
+    local bBt = makeBlock(btGlyph, btText, nil, mode == "bluetooth" and allowHsDot and hs.active or false, mode == "bluetooth" and allowDnsDot and isCustomDns or false)
+    local bDns = makeBlock(dnsGlyph, dnsText, nil, mode == "dns" and allowHsDot and hs.active or false, allowDnsDot and isCustomDns or false)
 
     if mode == "bluetooth" then table.insert(children, bBt)
     elseif mode == "dns" then table.insert(children, bDns)
