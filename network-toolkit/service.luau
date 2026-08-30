@@ -103,6 +103,7 @@ end)
 function update()
     net.refresh(publishAll); hotspot.refresh(publishAll); dns.refresh(publishAll); bt.refresh(publishAll)
     local pSec = tonumber(noctalia.getConfig("refreshinterval")) or 5
+    if pSec < 2 then pSec = 2 elseif pSec > 60 then pSec = 60 end
     noctalia.setUpdateInterval((hotspot.getStatus().active and 1500 or (pSec * 1000)))
 end
 
