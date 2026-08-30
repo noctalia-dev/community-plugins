@@ -6,9 +6,11 @@
     "last_update_placeholder": "...",
     "merge_requests": "Merge Requests",
     "no_items": "No items",
+    "no_tabs": "Every tab is hidden. Enable one in the plugin settings.",
     "pull_requests": "Pull Requests",
     "tab_issues": "Issues ({count})",
     "tab_prs": "{label} ({count})",
+    "tab_reviews": "Code Review ({count})",
     "title": "Git Companion",
     "untitled": "Untitled"
   },
@@ -27,6 +29,25 @@
         "none": "Nothing",
         "prs": "PRs/MRs only"
       }
+    },
+    "branch_badge": {
+      "description": "Choose which target branch to display in a colored badge. (Github not supported)"
+    },
+    "branch_badge_alert": {
+      "label": "Badge — alert"
+    },
+    "branch_badge_primary": {
+      "label": "Badge — primary"
+    },
+    "branch_badge_secondary": {
+      "label": "Badge — secondary"
+    },
+    "branch_badge_tertiary": {
+      "label": "Badge — tertiary"
+    },
+    "count_reviews_with_prs": {
+      "description": "Add reviews to the PR/MR count in the bar. The tooltip always lists both.",
+      "label": "Count Code Reviews with PRs/MRs"
     },
     "group": {
       "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
@@ -47,11 +68,23 @@
     "repo": {
       "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
       "label": "Repository"
+    },
+    "show_issues": {
+      "description": "Show the tab listing the issues assigned to you.",
+      "label": "Show Issues tab"
+    },
+    "show_prs": {
+      "description": "Show the tab listing the pull/merge requests you authored.",
+      "label": "Show PRs/MRs tab"
+    },
+    "show_reviews": {
+      "description": "Show the tab listing open pull/merge requests awaiting your review.",
+      "label": "Show Code Review tab"
     }
   },
   "widget": {
     "mrs": "MRs",
     "prs": "PRs",
-    "tooltip": "{issues} Issues, {prs} {label}"
+    "tooltip": "{issues} Issues, {prs} {label}, {reviews} to review"
   }
 }

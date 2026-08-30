@@ -7,7 +7,7 @@ A seamless, time-synced scrolling lyrics panel for the Noctalia desktop shell. I
 | Field | Value |
 | --- | --- |
 | ID | `goatnath/spotify-lyrics` |
-| Entries | Bar widget: `lyrics`; panel: `lyrics-panel`; desktop widget: `lyrics-desktop` |
+| Entries | Service: `service`; bar widget: `lyrics`; panel: `lyrics-panel`; desktop widget: `lyrics-desktop` |
 
 ## Requirements
 
@@ -58,7 +58,7 @@ systemctl --user enable --now noctalia-lyrics.service
 noctalia msg plugins enable goatnath/spotify-lyrics
 ```
 
-3. Add the `lyrics` widget to your bar's layout in your `~/.local/state/noctalia/settings.toml` (next to the `media` widget).
+3. (Optional) Add the `lyrics` widget to your bar's layout in your `~/.local/state/noctalia/settings.toml` (next to the `media` widget).
 
 ```toml
 start = [ "launcher", "workspaces", "media", "lyrics" ]

@@ -1,0 +1,41 @@
+id = "nocode-96/cmd-runner"
+name = "Command Runner"
+version = "1.0.0"
+plugin_api = 9
+author = "Noah B."
+license = "MIT"
+icon = "terminal"
+description = "Save and execute CLI commands silently in the background with a one-time sudo password cache."
+dependencies = ["sudo", "secret-tool"]
+tags = ["bar", "panel", "service", "utility", "system"]
+
+[[setting]]
+key = "show_toast"
+type = "bool"
+label_key = "settings.show_toast.label"
+description_key = "settings.show_toast.description"
+default = true
+
+[[widget]]
+id = "cmd-runner"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "cmd-service"
+entry = "service.luau"

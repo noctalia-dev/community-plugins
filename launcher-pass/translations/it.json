@@ -1,0 +1,71 @@
+{
+  "action": {
+    "copy-field": "Copia {key}",
+    "copy-otp": "Copia OTP",
+    "copy-password": "Copia password",
+    "copy-password-desc": "Copia password negli appunti",
+    "copy-username": "Copia nome utente",
+    "otp-desc": "Copia/digita codice OTP attuale",
+    "type-field": "Digita {key}",
+    "type-otp": "Digita OTP",
+    "type-password": "Digita password",
+    "type-password-desc": "Digita password con wtype",
+    "type-username": "Digita nome utente"
+  },
+  "command": {
+    "description": "Cerca password di gnu pass"
+  },
+  "detail": {
+    "decrypting": "Decifratura della password...",
+    "error": "Decifratura della password non riuscita"
+  },
+  "notification": {
+    "copied": "Copiato negli appunti",
+    "copy-failed": "Copia non riuscita",
+    "type-failed": "Digitazione non riuscita"
+  },
+  "result": {
+    "folder": "Cartella",
+    "go-back": "Torna indietro",
+    "loading": "Caricamento elenco password...",
+    "password": "Password"
+  },
+  "settings": {
+    "clip-timeout": {
+      "desc": "Secondi prima che gli appunti vengano cancellati (vuoto = usa PASSWORD_STORE_CLIP_TIME)",
+      "label": "Timeout degli appunti"
+    },
+    "detail-action-grouping": {
+      "desc": "Alterna le righe Copia e Digita di ogni valore, oppure elenca tutte le righe Copia e poi tutte le righe Digita",
+      "label": "Raggruppamento delle azioni nella vista dettagli",
+      "options": {
+        "grouped": "Raggruppate per azione",
+        "interleaved": "Alternate"
+      }
+    },
+    "detail-action-order": {
+      "desc": "Quale riga viene prima per ogni valore nella vista dettagli di una voce",
+      "label": "Ordine delle azioni nella vista dettagli",
+      "options": {
+        "copy": "Prima Copia",
+        "type": "Prima Digita"
+      }
+    },
+    "pinentry-grace-ms": {
+      "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)",
+      "label": "Periodo di tolleranza pinentry"
+    },
+    "store-path": {
+      "desc": "Percorso personalizzato all'archivio password (predefinito: ~/.password-store)",
+      "label": "Percorso dell'archivio password"
+    },
+    "type-delay": {
+      "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)",
+      "label": "Ritardo digitazione"
+    },
+    "wtype-delay": {
+      "desc": "Ritardo tra le battiture in millisecondi per wtype (predefinito: 12)",
+      "label": "Ritardo battitura wtype"
+    }
+  }
+}

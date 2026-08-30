@@ -121,7 +121,10 @@ official plugins:
 CI derives ids, panel commands, launcher prefixes, dependencies, and whether settings exist from `plugin.toml`. Its
 error messages show the exact missing value, while maintainers review the usefulness and accuracy of the prose.
 
-### Translations
+> [!WARNING]
+> **Editing existing translations must be done on [Noctalia Translate](https://i18n.noctalia.dev)**, the single
+> source of truth for all translated strings. Do not edit the strings of an existing translation in the locale JSON
+> files here: they will most likely be overwritten on the next i18n pull.
 
 Write `translations/en.json` only. Every `label_key` and `description_key` in your manifest must resolve to a key in
 it, and CI checks this. Do not add machine-translated locales; other languages are handled separately.

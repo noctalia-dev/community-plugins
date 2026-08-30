@@ -1,6 +1,6 @@
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 23
 author = "thomas-philippot"
 license = "MIT"
@@ -56,6 +56,67 @@ options = [
   { value = "issues", label_key = "settings.bar_display_mode.options.issues" },
   { value = "both", label_key = "settings.bar_display_mode.options.both" }
 ]
+
+# Tab visibility. Each list is only fetched when its tab is shown.
+[[setting]]
+key = "show_prs"
+type = "bool"
+label_key = "settings.show_prs.label"
+description_key = "settings.show_prs.description"
+default = true
+
+[[setting]]
+key = "show_issues"
+type = "bool"
+label_key = "settings.show_issues.label"
+description_key = "settings.show_issues.description"
+default = true
+
+[[setting]]
+key = "show_reviews"
+type = "bool"
+label_key = "settings.show_reviews.label"
+description_key = "settings.show_reviews.description"
+default = true
+
+# Hidden while the Code Review tab is off, since it would have no effect.
+[[setting]]
+key = "count_reviews_with_prs"
+type = "bool"
+label_key = "settings.count_reviews_with_prs.label"
+description_key = "settings.count_reviews_with_prs.description"
+default = false
+visible_when = { key = "show_reviews", values = ["true"] }
+
+# Branch badges: one list of branch patterns per theme colour. Declaration
+# order is match priority — the first bucket holding a matching pattern wins.
+[[setting]]
+key = "branch_badge_primary"
+type = "string_list"
+label_key = "settings.branch_badge_primary.label"
+description_key = "settings.branch_badge.description"
+default = ["develop"]
+
+[[setting]]
+key = "branch_badge_secondary"
+type = "string_list"
+label_key = "settings.branch_badge_secondary.label"
+description_key = "settings.branch_badge.description"
+default = ["release/*"]
+
+[[setting]]
+key = "branch_badge_tertiary"
+type = "string_list"
+label_key = "settings.branch_badge_tertiary.label"
+description_key = "settings.branch_badge.description"
+default = []
+
+[[setting]]
+key = "branch_badge_alert"
+type = "string_list"
+label_key = "settings.branch_badge_alert.label"
+description_key = "settings.branch_badge.description"
+default = ["master", "main"]
 
 # ── Entryfiles ────────────────────────────────────
 

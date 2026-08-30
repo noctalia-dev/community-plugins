@@ -1,0 +1,54 @@
+{
+  "error": {
+    "cli-missing": "warp-cli is not installed",
+    "command-failed": "Cloudflare WARP command failed",
+    "mode-locked": "The WARP mode is locked by policy"
+  },
+  "panel": {
+    "always-on": "Always on",
+    "connection": "Connection",
+    "disabled": "Disabled",
+    "edge": "Cloudflare edge",
+    "enabled": "Enabled",
+    "endpoint": "Endpoint",
+    "handshake": "Last handshake",
+    "key-exchange": "Key exchange",
+    "latency": "Latency",
+    "loss": "Packet loss",
+    "mode": "Mode",
+    "mode-description": "Select how WARP should route traffic.",
+    "mode_doh_description": "DNS over HTTPS only; no WARP tunnel.",
+    "mode_dot_description": "DNS over TLS only; no WARP tunnel.",
+    "mode_proxy_description": "Expose a local SOCKS5 proxy without a system tunnel.",
+    "mode_tunnel_only_description": "Encrypt traffic through WARP without WARP DNS.",
+    "mode_warp_description": "WARP tunnel with the standard WARP resolver.",
+    "mode_warp_doh_description": "WARP tunnel plus DNS over HTTPS.",
+    "mode_warp_dot_description": "WARP tunnel plus DNS over TLS.",
+    "policy": "Policy",
+    "post-quantum": "Post-quantum",
+    "protocol": "Protocol",
+    "received": "Received",
+    "refresh": "Refresh statistics",
+    "security": "Security",
+    "sent": "Sent",
+    "split-tunnel": "Split tunnel",
+    "tls": "TLS",
+    "traffic": "Traffic"
+  },
+  "shortcut": {
+    "error": "WARP error",
+    "off": "WARP Off",
+    "on": "WARP On",
+    "unavailable": "WARP unavailable"
+  },
+  "status": {
+    "checking": "Checking",
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "disconnected": "Disconnected",
+    "disconnecting": "Disconnecting",
+    "error": "Error",
+    "unavailable": "Unavailable"
+  },
+  "title": "Cloudflare WARP"
+}

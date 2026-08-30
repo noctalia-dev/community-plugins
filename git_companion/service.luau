@@ -31,18 +31,25 @@ end
 local function buildCommand(kind)
   local parts = {}
   if platform == "gitlab" then
-    local sub = kind == "pr" and "mr" or "issue"
+    local sub = kind == "issue" and "issue" or "mr"
+    -- glab lists only open merge requests by default, so "unmerged" is free.
+    local filter = kind == "review" and "--reviewer=@me" or "--author=@me"
     table.insert(parts, bin)
     table.insert(parts, sub)
     table.insert(parts, "list")
     for _, v in ipairs(scopeArgs()) do table.insert(parts, v) end
-    table.insert(parts, "--author=@me")
+    table.insert(parts, filter)
     table.insert(parts, "--output")
     table.insert(parts, "json")
   else
     -- GitHub
-    local sub = kind == "pr" and "prs" or "issues"
-    local filter = kind == "pr" and "--author=@me" or "--assignee=@me"
+    local sub = kind == "issue" and "issues" or "prs"
+    local filter = "--assignee=@me"
+    if kind == "pr" then
+      filter = "--author=@me"
+    elseif kind == "review" then
+      filter = "--review-requested=@me"
+    end
     table.insert(parts, bin)
     table.insert(parts, "search")
     table.insert(parts, sub)
@@ -59,12 +66,13 @@ end
 
 local function normalizeItem(raw, kind)
   if platform == "gitlab" then
-    local prefix = kind == "pr" and "!" or "#"
+    local prefix = kind == "issue" and "#" or "!"
     return {
       title = raw.title or "",
       url = raw.web_url or "",
       ref = (raw.references and raw.references.full) or (prefix .. (raw.iid or "")),
       detailed_merge_status = raw.detailed_merge_status or "",
+      targetBranch = raw.target_branch or "",
     }
   end
   -- GitHub
@@ -72,7 +80,8 @@ local function normalizeItem(raw, kind)
   return {
     title = raw.title or "",
     url = raw.url or "",
-    ref = repoName .. "#" .. (raw.number or "")
+    ref = repoName .. "#" .. (raw.number or ""),
+    targetBranch = "",
   }
 end
 
@@ -88,13 +97,25 @@ local function processList(kind, output)
   return list
 end
 
+-- A hidden tab is never fetched, so its state is emptied instead of keeping a
+-- stale count the bar would still display.
+local function clearList(kind)
+  noctalia.state.set(kind .. "s", {})
+  noctalia.state.set(kind .. "s_count", 0)
+end
+
 local function fetchList(kind)
   local cmd = buildCommand(kind)
   noctalia.log("[Git Companion] Running: " .. cmd)
   noctalia.runAsync(cmd, function(res)
+    if res.exitCode ~= 0 then
+      noctalia.log("[Git Companion] " .. kind .. " fetch failed: " .. (res.stderr or ""))
+      return
+    end
     local list = processList(kind, res.stdout)
     noctalia.state.set(kind .. "s", list) -- "issues" or "prs"
     noctalia.state.set(kind .. "s_count", #list)
+    noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
   end)
 end
 
@@ -142,14 +163,25 @@ local function refresh()
   end
 
   -- All preconditions met: the panel can render the lists. Individual fetch
-  -- failures are surfaced per-list (see fetchList), not by flipping this.
+  -- failures are logged per-list (see fetchList) and leave the previous list
+  -- in place, so they don't flip this back.
   noctalia.state.set("status", "ok")
-  noctalia.state.set("loading", true)
   fetchUser()
-  fetchList("issue")
-  fetchList("pr")
-  noctalia.state.set("loading", false)
-  noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
+
+  -- Settings are read here rather than at module scope so toggling a tab takes
+  -- effect on the next tick. show_reviews is the master switch for the Code
+  -- Review feature: off means no fetch, and count_reviews_with_prs is ignored.
+  for _, entry in ipairs({
+    { kind = "pr", setting = "show_prs" },
+    { kind = "issue", setting = "show_issues" },
+    { kind = "review", setting = "show_reviews" },
+  }) do
+    if noctalia.getConfig(entry.setting) ~= false then
+      fetchList(entry.kind)
+    else
+      clearList(entry.kind)
+    end
+  end
 end
 
 -- Initial fetch

@@ -1,55 +1,55 @@
 {
-  "title": "Key Visualizer",
-  "tooltip_active": "Key Visualizer: Active",
-  "tooltip_paused": "Key Visualizer: Paused",
-  "notify_resumed": "Keystroke visualizer active",
   "notify_paused": "Keystroke visualizer paused",
-  "shortcut_active": "Keyviz On",
-  "shortcut_paused": "Keyviz Off",
+  "notify_resumed": "Keystroke visualizer active",
   "settings": {
+    "badge_style": {
+      "description": "Appearance and background style of on-screen keycaps",
+      "label": "Visual style",
+      "options": {
+        "accent": "Accent Outline",
+        "glass": "Glass (Blurred)",
+        "keycap_dark": "Keycap (Dark)",
+        "keycap_light": "Keycap (Light)",
+        "solid": "Solid Surface"
+      }
+    },
     "enabled_by_default": {
-      "label": "Enabled by default",
-      "description": "Start keystroke visualizer automatically when Noctalia starts"
-    },
-    "padding": {
-      "label": "Overlay padding",
-      "description": "Internal padding spacing inside the overlay around keycaps (in pixels)"
-    },
-    "margin": {
-      "label": "Keycap spacing",
-      "description": "Spacing gap between visualized key combinations (in pixels)"
-    },
-    "timeout_ms": {
-      "label": "Key timeout (ms)",
-      "description": "How long keys remain visible on screen after release (in milliseconds)"
-    },
-    "max_keys": {
-      "label": "Maximum key combos",
-      "description": "Maximum number of recent key combinations to display simultaneously"
+      "description": "Start keystroke visualizer automatically when Noctalia starts",
+      "label": "Enabled by default"
     },
     "font_size": {
-      "label": "Key font size",
       "description": "Text size of displayed keycaps",
+      "label": "Key font size",
       "options": {
-        "small": "Small (13px)",
+        "large": "Large (20px)",
         "medium": "Medium (16px)",
-        "large": "Large (20px)"
+        "small": "Small (13px)"
       }
     },
-    "badge_style": {
-      "label": "Visual style",
-      "description": "Appearance and background style of on-screen keycaps",
-      "options": {
-        "glass": "Glass (Blurred)",
-        "solid": "Solid Surface",
-        "accent": "Accent Outline",
-        "keycap_dark": "Keycap (Dark)",
-        "keycap_light": "Keycap (Light)"
-      }
+    "margin": {
+      "description": "Spacing gap between visualized key combinations (in pixels)",
+      "label": "Keycap spacing"
+    },
+    "max_keys": {
+      "description": "Maximum number of recent key combinations to display simultaneously",
+      "label": "Maximum key combos"
+    },
+    "padding": {
+      "description": "Internal padding spacing inside the overlay around keycaps (in pixels)",
+      "label": "Overlay padding"
     },
     "show_modifiers_only": {
-      "label": "Shortcuts only",
-      "description": "Only visualize key combinations containing Ctrl, Alt, Shift, or Super"
+      "description": "Only visualize key combinations containing Ctrl, Alt, Shift, or Super",
+      "label": "Shortcuts only"
+    },
+    "timeout_ms": {
+      "description": "How long keys remain visible on screen after release (in milliseconds)",
+      "label": "Key timeout (ms)"
     }
-  }
+  },
+  "shortcut_active": "Keyviz On",
+  "shortcut_paused": "Keyviz Off",
+  "title": "Key Visualizer",
+  "tooltip_active": "Key Visualizer: Active",
+  "tooltip_paused": "Key Visualizer: Paused"
 }

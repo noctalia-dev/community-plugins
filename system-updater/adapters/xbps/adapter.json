@@ -1,0 +1,9 @@
+{
+    "name": "XBPS",
+    "enabled": true,
+    "dependencies": ["xbps-install", "xbps-query", "jq", "grep", "bash", "echo", "cut"],
+    "check_command": "{adapter_dir}/check.bash",
+    "update_package_command": "pkexec xbps-install -Suy \"{package_name}\"",
+    "update_all_command": "pkexec xbps-install -Suy",
+    "actions": {}
+}

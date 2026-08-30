@@ -3,68 +3,70 @@ import sys
 
 from github import Auth, Github
 
-token = os.environ["GITHUB_TOKEN"]
-repo_name = os.environ["REPOSITORY"]
-pull_request_number = os.environ["PULL_REQUEST_NUMBER"]
+import plugin_author
 
-auth = Auth.Token(token)
-gh = Github(auth=auth)
-repo = gh.get_repo(repo_name)
-
-if pull_request_number.isdigit():
-    pull_request_number = int(pull_request_number)
-else:
-    print("Pull Request number is not numeric!")
-    sys.exit(1)
-
-pull_request = repo.get_pull(pull_request_number)
-
-plugin_dirs = set()
-hidden_dirs = set()
-root_files = set()
-
-for file in pull_request.get_files():
-    file_split = file.filename.split("/")
-    if len(file_split) > 1:
-        root_dir = file_split[0]
-        if root_dir.startswith('.'):
-            hidden_dirs.add(root_dir)
-        else:
-            plugin_dirs.add(root_dir)
-    else:
-        root_files.add(file)
-
-if len(plugin_dirs) > 1:
-    print("Multiple plugin changes in one PR!")
-    pull_request.create_issue_comment("This pull request was automatically closed because it contains changes for two or more plugins in one PR!")
-    pull_request.edit(state='closed')
-    sys.exit(0)
-elif len(plugin_dirs) == 1:
-    plugin_dir = plugin_dirs.pop()
-
-    manifest_file = f"{plugin_dir}/plugin.toml"
-
-    if os.path.exists(manifest_file):
-        file_commits = repo.get_commits(path=manifest_file).reversed
-        author = file_commits[0].author
-
-        if author is not None:
-            author = author.login
-        else:
-            print("Author name is null, returning!")
-            sys.exit(1)
-    else:
-        print(f"Plugin manifest doesn't exist, {manifest_file}")
-        sys.exit(0)
-else:
-    print("This is a non-plugin change, returning!")
-    sys.exit(0)
+NOTIFY_MARKER = "noctalia-pr-author-notify:v1"
 
 
-pr_author = pull_request.user.login
+def notify(repo, pull_request) -> int:
+    """Notify the plugin's original author and move the pull request to draft.
 
-if pr_author == author:
-    print("The author and maintainer of the plugin are the same!")
-    sys.exit(0)
-else:
-    pull_request.create_issue_comment(f"CC @{author}")
+    A pull request opened by someone other than the plugin's original author
+    is moved to draft until the author replies; pr-mark-ready-on-author-reply.py
+    marks it ready for review again once they do.
+    """
+    plugin_count, author = plugin_author.plugin_author(repo, pull_request)
+
+    if plugin_count > 1:
+        print("Multiple plugin changes in one PR!")
+        pull_request.create_issue_comment(
+            "This pull request was automatically closed because it contains changes for two or more plugins in one PR!"
+        )
+        pull_request.edit(state="closed")
+        return 0
+
+    if plugin_count != 1:
+        print("This is a non-plugin change, returning!")
+        return 0
+
+    if author is None:
+        print("Could not determine the plugin author, returning!")
+        return 0
+
+    pr_author = pull_request.user.login
+
+    if pr_author == author:
+        print("The author and maintainer of the plugin are the same!")
+        return 0
+
+    pull_request.create_issue_comment(
+        f"<!-- {NOTIFY_MARKER} -->\n"
+        f"CC @{author} — this pull request was automatically moved to draft until you have had a chance "
+        "to look at it. It will be marked ready for review automatically once you reply here."
+    )
+
+    if pull_request.state == "open" and not pull_request.draft:
+        pull_request.convert_to_draft()
+
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    token = os.environ.get("GITHUB_TOKEN", "")
+    repo_name = os.environ.get("REPOSITORY", "")
+    pull_request_number = os.environ.get("PULL_REQUEST_NUMBER", "")
+
+    if not pull_request_number.isdigit():
+        print("Pull Request number is not numeric!")
+        return 1
+
+    auth = Auth.Token(token)
+    gh = Github(auth=auth)
+    repo = gh.get_repo(repo_name)
+    pull_request = repo.get_pull(int(pull_request_number))
+
+    return notify(repo, pull_request)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

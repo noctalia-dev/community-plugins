@@ -1,0 +1,71 @@
+{
+  "action": {
+    "copy-field": "Copy {key}",
+    "copy-otp": "Copy OTP",
+    "copy-password": "Copy Password",
+    "copy-password-desc": "Copy password to clipboard",
+    "copy-username": "Copy Username",
+    "otp-desc": "Copy/type current OTP code",
+    "type-field": "Type {key}",
+    "type-otp": "Type OTP",
+    "type-password": "Type Password",
+    "type-password-desc": "Type password using wtype",
+    "type-username": "Type Username"
+  },
+  "command": {
+    "description": "Search gnu pass password entries"
+  },
+  "detail": {
+    "decrypting": "Decrypting password entry...",
+    "error": "Failed to decrypt entry"
+  },
+  "notification": {
+    "copied": "Copied to clipboard",
+    "copy-failed": "Copy failed",
+    "type-failed": "Type failed"
+  },
+  "result": {
+    "folder": "Folder",
+    "go-back": "Go back",
+    "loading": "Loading password entries...",
+    "password": "Password"
+  },
+  "settings": {
+    "clip-timeout": {
+      "desc": "Seconds before the clipboard is cleared (blank = use PASSWORD_STORE_CLIP_TIME)",
+      "label": "Clipboard timeout"
+    },
+    "detail-action-grouping": {
+      "desc": "Interleave each value's Copy and Type rows, or list all Copy rows then all Type rows",
+      "label": "Detail view action grouping",
+      "options": {
+        "grouped": "Grouped by action",
+        "interleaved": "Interleaved"
+      }
+    },
+    "detail-action-order": {
+      "desc": "Which row comes first for each value in an entry's detail view",
+      "label": "Detail view action order",
+      "options": {
+        "copy": "Copy first",
+        "type": "Type first"
+      }
+    },
+    "pinentry-grace-ms": {
+      "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 200)",
+      "label": "Pinentry grace period"
+    },
+    "store-path": {
+      "desc": "Custom path to the password store (default: ~/.password-store)",
+      "label": "Password store path"
+    },
+    "type-delay": {
+      "desc": "Delay in milliseconds before typing starts (default: 500)",
+      "label": "Type delay"
+    },
+    "wtype-delay": {
+      "desc": "Delay between keystrokes in milliseconds for wtype (default: 12)",
+      "label": "wtype keystroke delay"
+    }
+  }
+}

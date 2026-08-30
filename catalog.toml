@@ -780,8 +780,8 @@ tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.1"
-updated_at = 1787608732
+version = "2.0.2"
+updated_at = 1788120265
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
@@ -1150,15 +1150,15 @@ tags = ["bar", "hardware", "panel", "service", "system", "utility"]
 [[plugin]]
 id = "goatnath/spotify-lyrics"
 name = "Spotify Lyrics"
-version = "1.2.0"
-updated_at = 1786025122
+version = "1.2.1"
+updated_at = 1788120249
 added_at = 1786025122
 author = "goatnath"
 license = "MIT"
 icon = "music"
 description = "Time-synced lyrics panel linked to the media widget."
 plugin_api = 3
-tags = ["music"]
+tags = ["music", "bar", "panel", "desktop", "service"]
 
 [[plugin]]
 id = "tadomika_ari/config-swap"
@@ -1454,13 +1454,13 @@ tags = ["bar", "shortcut", "wallpaper"]
 [[plugin]]
 id = "raycursive/niri-displays"
 name = "Niri Displays"
-version = "0.3.0"
-updated_at = 1786903345
+version = "0.4.0"
+updated_at = 1788119053
 added_at = 1786903345
 author = "raycursive"
 license = "MIT"
 icon = "device-desktop"
-description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, and scale."
+description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, scale, rotation, and position."
 plugin_api = 9
 tags = ["bar", "niri", "panel", "service", "system", "utility"]
 
@@ -1512,8 +1512,8 @@ tags = ["bar", "panel", "launcher", "service", "network", "privacy", "utility"]
 [[plugin]]
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "1.0.0"
-updated_at = 1786923801
+version = "1.1.0"
+updated_at = 1788119926
 added_at = 1786923801
 author = "tordex"
 license = "MIT"
@@ -1525,8 +1525,8 @@ tags = ["bar", "panel", "service", "system"]
 [[plugin]]
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.0.0"
-updated_at = 1786925440
+version = "1.1.0"
+updated_at = 1788120279
 added_at = 1786925440
 author = "thomas-philippot"
 license = "MIT"
@@ -1648,15 +1648,21 @@ tags = ["hardware", "bar", "system", "indicator"]
 [[plugin]]
 id = "tordex/nvtop"
 name = "NVTOP"
-version = "1.0.0"
-updated_at = 1787608918
+version = "2.0.0"
+updated_at = 1788119564
 added_at = 1787608918
 author = "tordex"
 license = "MIT"
 icon = "cpu"
 description = "Monitor real-time information about your GPU status and running processes with nvtop."
-plugin_api = 20
+plugin_api = 24
 tags = ["panel", "system"]
+
+[[plugin.release]]
+plugin_api = 20
+version = "1.0.0"
+updated_at = 1787608918
+rev = "f01631bd804b9b80fd00409ed3d5c7eb08bbde6f"
 
 [[plugin]]
 id = "wy3z/opencodex-bar"
@@ -1833,3 +1839,120 @@ icon = "keyboard"
 description = "Real-time floating on-screen keystroke visualizer for Noctalia."
 plugin_api = 13
 tags = ["utility", "bar", "service", "shortcut", "panel"]
+
+[[plugin]]
+id = "kjvdven/case-convert"
+name = "Case Convert"
+version = "1.0.0"
+updated_at = 1788114941
+added_at = 1788114941
+author = "kjvdven"
+license = "MIT"
+icon = "text-recognition"
+description = "Convert text between naming conventions (camelCase, kebab-case, snake_case, …) straight from the launcher."
+plugin_api = 3
+tags = ["launcher", "utility", "development"]
+
+[[plugin]]
+id = "umedbazarov/crashes"
+name = "Crashes"
+version = "1.0.0"
+updated_at = 1788115004
+added_at = 1788115004
+author = "umedbazarov"
+license = "MIT"
+icon = "bug"
+description = "systemd-coredump crash history: desktop notifications, per-program mutes and one-click AI diagnosis in a terminal."
+plugin_api = 9
+tags = ["panel", "utility"]
+
+[[plugin]]
+id = "cleboost/asus-fans-controller-ec"
+name = "Asus Fans Controler EC"
+version = "1.0.0"
+updated_at = 1788115197
+added_at = 1788115197
+author = "Cleboost"
+license = "MIT"
+icon = "car-fan"
+description = "Control ASUS laptop fans via the embedded controller: speeds, sync, and BIOS handoff."
+plugin_api = 9
+tags = ["hardware", "bar", "panel", "service", "system", "indicator"]
+
+[[plugin]]
+id = "nocode-96/cmd-runner"
+name = "Command Runner"
+version = "1.0.0"
+updated_at = 1788115775
+added_at = 1788115775
+author = "Noah B."
+license = "MIT"
+icon = "terminal"
+description = "Save and execute CLI commands silently in the background with a one-time sudo password cache."
+plugin_api = 9
+tags = ["bar", "panel", "service", "utility", "system"]
+
+[[plugin]]
+id = "umedbazarov/layout-fix"
+name = "Layout Fix"
+version = "1.0.0"
+updated_at = 1788116003
+added_at = 1788116003
+author = "umedbazarov"
+license = "MIT"
+icon = "keyboard"
+description = "Fixes text typed in the wrong keyboard layout and switches the layout, Punto-style. Runs quietly in the background."
+plugin_api = 9
+tags = ["system", "utility", "niri"]
+
+[[plugin]]
+id = "umedbazarov/webapp-maker"
+name = "Webapp Maker"
+version = "1.0.0"
+updated_at = 1788117167
+added_at = 1788117167
+author = "umedbazarov"
+license = "MIT"
+icon = "world-plus"
+description = "Turn websites into desktop apps: a launcher entry with the site's icon, opening in its own browser app window."
+plugin_api = 9
+tags = ["panel", "utility"]
+
+[[plugin]]
+id = "linux-fertxo/hyprland-visual-editor"
+name = "Hyprland Visual Editor"
+version = "2.0.0"
+updated_at = 1788117624
+added_at = 1788117624
+author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
+license = "MIT"
+icon = "adjustments-horizontal"
+description = "Visually edit Hyprland animations, borders and shaders from a Noctalia panel."
+plugin_api = 3
+tags = ["hyprland", "animation", "theming", "panel", "bar"]
+
+[[plugin]]
+id = "mellotanica/launcher-pass"
+name = "Launcher pass"
+version = "2.0.0"
+updated_at = 1788118014
+added_at = 1788118014
+author = "Marco Melletti"
+license = "MIT"
+icon = "lock"
+description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
+plugin_api = 26
+tags = ["launcher", "privacy", "productivity", "utility"]
+
+[[plugin]]
+id = "levi/warp"
+name = "Cloudflare WARP"
+version = "1.2.0"
+updated_at = 1788120574
+added_at = 1788120574
+author = "Levi"
+license = "MIT"
+icon = "cloud-lock"
+description = "Toggle Cloudflare WARP from the bar or Control Center."
+plugin_api = 3
+tags = ["bar", "indicator", "network", "privacy", "shortcut"]

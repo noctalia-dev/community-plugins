@@ -1,13 +1,18 @@
 id = "goatnath/spotify-lyrics"
 name = "Spotify Lyrics"
-version = "1.2.0"
+version = "1.2.1"
 plugin_api = 3
 author = "goatnath"
 license = "MIT"
 dependencies = ["playerctl", "python3", "syncedlyrics"]
-tags = ["music"]
+tags = ["music", "bar", "panel", "desktop", "service"]
 icon = "music"
 description = "Time-synced lyrics panel linked to the media widget."
+
+# Headless background service: reads daemon state and publishes to noctalia.state
+[[service]]
+id = "service"
+entry = "service.luau"
 
 # Minimal bar trigger: tiny glyph icon next to the media widget.
 # Auto-hides when nothing is playing. Click to open the lyrics panel.

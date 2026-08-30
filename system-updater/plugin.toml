@@ -1,10 +1,10 @@
 id = "tordex/system-updater"
 name = "System Updates Manager"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 20
 author = "tordex"
 license = "MIT"
-dependencies = ["pkgcli", "cargo", "cargo-install-update", "python", "flatpak", "awk", "bash"]
+dependencies = ["pkgcli", "cargo", "cargo-install-update", "python", "flatpak", "awk", "bash", "jq", "grep", "coreutils", "sed"]
 tags = ["bar", "panel", "service", "system"]
 icon = "package"
 description = "Manage system updates (PackageKit, Flatpak, Cargo etc.)."
@@ -28,6 +28,27 @@ key = "enable_cargo"
 type = "bool"
 label_key = "settings.enable_cargo.label"
 description_key = "settings.enable_cargo.description"
+default = true
+
+[[setting]]
+key = "enable_pipx"
+type = "bool"
+label_key = "settings.enable_pipx.label"
+description_key = "settings.enable_pipx.description"
+default = true
+
+[[setting]]
+key = "enable_gearlever"
+type = "bool"
+label_key = "settings.enable_gearlever.label"
+description_key = "settings.enable_gearlever.description"
+default = true
+
+[[setting]]
+key = "enable_xbps"
+type = "bool"
+label_key = "settings.enable_xbps.label"
+description_key = "settings.enable_xbps.description"
 default = true
 
 [[setting]]

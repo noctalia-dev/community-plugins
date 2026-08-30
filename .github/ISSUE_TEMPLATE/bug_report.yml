@@ -32,6 +32,7 @@ body:
         - anilist
         - arch-updater
         - asus-fan
+        - asus-fans-controller-ec
         - audio-switcher
         - battery-graph
         - battery-power-management
@@ -41,12 +42,15 @@ body:
         - better-clock
         - bookmarks
         - calculator
+        - case-convert
         - cat
         - cider
         - claude-companion
+        - cmd-runner
         - codexbar-meter
         - color_picker
         - config-swap
+        - crashes
         - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
@@ -70,6 +74,7 @@ body:
         - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-visual-editor
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
@@ -80,6 +85,8 @@ body:
         - keymap
         - keyviz
         - kineticwe-layouts
+        - launcher-pass
+        - layout-fix
         - lid-guard
         - link-ip-monitor
         - llamanager
@@ -147,6 +154,7 @@ body:
         - w-engine
         - wallpaper-switcher
         - web-launcher
+        - webapp-maker
         - wireview-pro-ii
         - wl-screen-mirror
         - zed-provider

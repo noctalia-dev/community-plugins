@@ -1,0 +1,81 @@
+id = "umedbazarov/crashes"
+name = "Crashes"
+version = "1.0.0"
+plugin_api = 9
+author = "umedbazarov"
+license = "MIT"
+icon = "bug"
+description = "systemd-coredump crash history: desktop notifications, per-program mutes and one-click AI diagnosis in a terminal."
+dependencies = ["bash", "coredumpctl", "jq", "notify-send"]
+tags = ["panel", "utility"]
+
+[[setting]]
+key = "poll_seconds"
+type = "int"
+label_key = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default = 20
+min = 5
+max = 600
+
+[[setting]]
+key = "notify"
+type = "bool"
+label_key = "settings.notify.label"
+description_key = "settings.notify.description"
+default = true
+
+[[setting]]
+key = "agent_cmd"
+type = "string"
+label_key = "settings.agent_cmd.label"
+description_key = "settings.agent_cmd.description"
+default = ""
+
+[[setting]]
+key = "agent_order"
+type = "string"
+label_key = "settings.agent_order.label"
+description_key = "settings.agent_order.description"
+default = ""
+
+[[setting]]
+key = "probe_agent"
+type = "bool"
+label_key = "settings.probe_agent.label"
+description_key = "settings.probe_agent.description"
+default = true
+
+[[setting]]
+key = "extra_prompt"
+type = "string"
+label_key = "settings.extra_prompt.label"
+description_key = "settings.extra_prompt.description"
+default = ""
+
+[[setting]]
+key = "terminal_cmd"
+type = "string"
+label_key = "settings.terminal_cmd.label"
+description_key = "settings.terminal_cmd.description"
+default = "kitty -e"
+
+[[setting]]
+key = "env_file"
+type = "string"
+label_key = "settings.env_file.label"
+description_key = "settings.env_file.description"
+default = ""
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 560
+placement = "floating"
+position = "center"

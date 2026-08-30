@@ -4,23 +4,23 @@
     "title": "Claude — quick ask"
   },
   "ask": {
-    "title": "Ask Claude",
+    "delivery": "The answer opens in the answer panel and arrives as a notification.",
+    "no_runtime": "No XDG_RUNTIME_DIR, so there is nowhere to hand the question over.",
     "placeholder": "One quick question…",
     "send": "Ask",
-    "delivery": "The answer opens in the answer panel and arrives as a notification.",
-    "no_runtime": "No XDG_RUNTIME_DIR, so there is nowhere to hand the question over."
+    "title": "Ask Claude"
   },
   "consent": {
-    "title": "Permission request",
-    "title_tool": "Claude wants to run {tool}",
-    "empty": "Nothing is waiting on you right now.",
-    "in_dir": "in {dir}",
-    "session": "session {sid}",
-    "allow_once": "Allow once",
     "allow_always": "Always allow",
+    "allow_once": "Allow once",
     "deny": "Deny",
+    "empty": "Nothing is waiting on you right now.",
     "fallthrough": "No answer here and Claude asks in the terminal instead, as usual.",
-    "said": "Claude says: {said}"
+    "in_dir": "in {dir}",
+    "said": "Claude says: {said}",
+    "session": "session {sid}",
+    "title": "Permission request",
+    "title_tool": "Claude wants to run {tool}"
   },
   "launcher": {
     "ask": "Ask Claude (one-shot)",
@@ -58,6 +58,15 @@
       "description": "How fast the pulse dot and orb breathe. 1.0 is the default; higher is faster, lower is slower.",
       "label": "Breath speed"
     },
+    "consent_mode": {
+      "description": "Approve Claude's tool calls from the desktop. Off behaves as if the gate were not installed. Learn records what Claude runs without ever blocking, so the allowlist is seeded from your real traffic. Enforce asks about anything not yet allowlisted; an unanswered prompt falls through to Claude Code's own permission flow.",
+      "label": "Tool consent gate",
+      "option": {
+        "enforce": "Enforce (ask before running)",
+        "learn": "Learn (record, never block)",
+        "off": "Off"
+      }
+    },
     "orb_swell": {
       "description": "How far the desktop orb magnifies as it breathes. 0 keeps it a static size; 1.0 is the default; higher swells more.",
       "label": "Orb swell"
@@ -65,15 +74,6 @@
     "pulse_glow_floor": {
       "description": "How dim the bar dot gets at the low point of its breath. 0 dims to black; higher stays brighter. 0.45 is the default.",
       "label": "Bar dot glow floor"
-    },
-    "consent_mode": {
-      "label": "Tool consent gate",
-      "description": "Approve Claude's tool calls from the desktop. Off behaves as if the gate were not installed. Learn records what Claude runs without ever blocking, so the allowlist is seeded from your real traffic. Enforce asks about anything not yet allowlisted; an unanswered prompt falls through to Claude Code's own permission flow.",
-      "option": {
-        "off": "Off",
-        "learn": "Learn (record, never block)",
-        "enforce": "Enforce (ask before running)"
-      }
     }
   },
   "state": {

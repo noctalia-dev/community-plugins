@@ -122,6 +122,25 @@ local function normalizeModes(rawModes)
   return modes
 end
 
+-- Map Niri's JSON transform names to the values accepted by
+-- `niri msg output <connector> transform <value>`.
+local function normalizeTransform(rawTransform)
+  local mapping = {
+    Normal = "normal",
+    ["90"] = "90",
+    ["180"] = "180",
+    ["270"] = "270",
+    Flipped = "flipped",
+    Flipped90 = "flipped-90",
+    Flipped180 = "flipped-180",
+    Flipped270 = "flipped-270",
+  }
+  if type(rawTransform) == "string" then
+    return mapping[rawTransform] or "normal"
+  end
+  return "normal"
+end
+
 local function normalizeOutputs(rawOutputs, focusedName, revision)
   local displays = {}
   for connector, raw in pairs(rawOutputs) do
@@ -144,6 +163,7 @@ local function normalizeOutputs(rawOutputs, focusedName, revision)
         x = logical and (tonumber(logical.x) or 0) or 0,
         y = logical and (tonumber(logical.y) or 0) or 0,
         scale = logical and (tonumber(logical.scale) or 1) or 1,
+        transform = logical and normalizeTransform(logical.transform) or "normal",
         width = currentMode and currentMode.width or 0,
         height = currentMode and currentMode.height or 0,
         refresh_rate = currentMode and currentMode.refresh_rate or 0,

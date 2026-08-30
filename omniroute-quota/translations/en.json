@@ -1,41 +1,41 @@
 {
+  "panel": {
+    "active": "ACTIVE",
+    "error": "Could not load quotas",
+    "inactive": "INACTIVE",
+    "local_usage": "7-day local usage",
+    "no_accounts": "No active Codex accounts found in OmniRoute.",
+    "refresh": "Refresh now",
+    "refreshing": "Refreshing Codex accounts...",
+    "remaining": "remaining",
+    "reset_unknown": "Reset time unavailable",
+    "resets_days": "Resets in {days}d {hours}h",
+    "resets_hours": "Resets in {hours}h {minutes}m",
+    "resets_minutes": "Resets in {minutes}m",
+    "resetting": "Resetting now",
+    "subtitle": "Codex account capacity",
+    "title": "OmniRoute Quota",
+    "used": "used"
+  },
   "settings": {
     "refresh_seconds": {
-      "label": "Refresh interval",
-      "description": "Seconds between live Codex quota checks."
+      "description": "Seconds between live Codex quota checks.",
+      "label": "Refresh interval"
     },
     "show_inactive": {
-      "label": "Include inactive accounts",
-      "description": "Also query Codex connections disabled in OmniRoute."
+      "description": "Also query Codex connections disabled in OmniRoute.",
+      "label": "Include inactive accounts"
     },
     "show_value": {
-      "label": "Show value in bar",
-      "description": "Display the lowest remaining quota percentage."
+      "description": "Display the lowest remaining quota percentage.",
+      "label": "Show value in bar"
     }
   },
   "widget": {
-    "title": "OmniRoute Quota",
-    "loading": "Loading Codex quotas",
-    "remaining": "remaining",
     "error": "Quota error",
-    "no_accounts": "No Codex accounts found"
-  },
-  "panel": {
-    "title": "OmniRoute Quota",
-    "subtitle": "Codex account capacity",
-    "refreshing": "Refreshing Codex accounts...",
-    "refresh": "Refresh now",
-    "error": "Could not load quotas",
-    "no_accounts": "No active Codex accounts found in OmniRoute.",
+    "loading": "Loading Codex quotas",
+    "no_accounts": "No Codex accounts found",
     "remaining": "remaining",
-    "used": "used",
-    "active": "ACTIVE",
-    "inactive": "INACTIVE",
-    "local_usage": "7-day local usage",
-    "reset_unknown": "Reset time unavailable",
-    "resetting": "Resetting now",
-    "resets_days": "Resets in {days}d {hours}h",
-    "resets_hours": "Resets in {hours}h {minutes}m",
-    "resets_minutes": "Resets in {minutes}m"
+    "title": "OmniRoute Quota"
   }
 }

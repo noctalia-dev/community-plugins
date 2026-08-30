@@ -103,7 +103,7 @@ class SpotifyLyricsDaemon:
         return []
 
     def get_album_art_path(self, art_url):
-        """Download album art from URL and return local cached file path."""
+        """Download album art from URL or resolve local file path, returning local path."""
         if not art_url or art_url == "":
             return ""
         
@@ -112,6 +112,13 @@ class SpotifyLyricsDaemon:
             path = self.art_cache[art_url]
             if os.path.exists(path):
                 return path
+        
+        # Check if local file:// URL
+        if art_url.startswith("file://"):
+            local_file = urllib.request.url2pathname(art_url[7:])
+            if os.path.exists(local_file):
+                self.art_cache[art_url] = local_file
+                return local_file
         
         # Derive a stable filename from the URL hash
         url_hash = hashlib.md5(art_url.encode()).hexdigest()
@@ -158,22 +165,26 @@ class SpotifyLyricsDaemon:
             if not players:
                 return None
             
-            # Prioritize Spotify
-            player_name = "spotify" if "spotify" in players else players[0]
+            # Prioritize Spotify (handling instance names like spotify.instance1 or Flatpak)
+            spotify_player = next((p for p in players if "spotify" in p.lower()), None)
+            player_name = spotify_player if spotify_player else players[0]
             
-            # Query all metadata in ONE execution using custom delimiters to eliminate subprocess latency
+            # Query all metadata in ONE execution using unit separator (\x1f) delimiter
             output = subprocess.check_output([
                 "playerctl", "-p", player_name, "metadata", 
-                "--format", "{{status}}|||{{position}}|||{{title}}|||{{artist}}|||{{mpris:artUrl}}"
+                "--format", "{{status}}\x1f{{position}}\x1f{{title}}\x1f{{artist}}\x1f{{mpris:artUrl}}"
             ], stderr=subprocess.DEVNULL).decode("utf-8").strip()
             
-            parts = output.split("|||")
+            parts = output.split("\x1f")
             if len(parts) >= 4:
-                status, pos_us, title, artist = parts[0], parts[1], parts[2], parts[3]
+                status, pos_raw, title, artist = parts[0], parts[1], parts[2], parts[3]
                 art_url = parts[4] if len(parts) >= 5 else ""
                 
-                # Position is in microseconds (us), convert to milliseconds (ms)
-                position_ms = int(int(pos_us) / 1000)
+                # Position is in microseconds (us), convert safely to milliseconds (ms)
+                try:
+                    position_ms = int(float(pos_raw) / 1000) if pos_raw else 0
+                except (ValueError, TypeError):
+                    position_ms = 0
                 
                 return {
                     "status": status,
@@ -239,7 +250,7 @@ class SpotifyLyricsDaemon:
                 "art_path": art_path
             }
             
-            # Save state
+            # Save state atomically
             tmp_file = CURRENT_STATE_FILE.with_suffix('.tmp')
             with open(tmp_file, "w", encoding="utf-8") as f:
                 json.dump(state, f)
@@ -247,7 +258,7 @@ class SpotifyLyricsDaemon:
             
             # Update more frequently if playing to maintain tight sync
             if player["status"] == "Playing":
-                time.sleep(0.3)  # Reduce polling frequency to prevent massive OS subprocess leak
+                time.sleep(0.3)
             else:
                 time.sleep(1.0)
 

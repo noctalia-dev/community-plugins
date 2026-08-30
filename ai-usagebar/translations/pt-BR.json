@@ -1,17 +1,25 @@
 {
   "settings": {
     "color_by_usage": {
-      "description": "Primária enquanto houver espaço; depois âmbar, e então vermelha, à medida que a cota se preenche.",
+      "description": "Confere uma tonalidade à leitura à medida que a cota se esgota. A opção \"Off\" mantém a cápsula na cor da própria barra.",
       "label": "Cor por uso"
     },
     "extras": {
-      "description": "O que aparece ao lado da porcentagem: o tempo restante no período, a distância do gasto em relação ao prazo, ou nenhum dos dois.",
+      "description": "O tempo restante na janela, a distância do gasto em relação ao cronômetro, ambos ou nenhum dos dois.",
       "label": "Leitura complementar",
       "option": {
         "both": "Ambas",
         "countdown": "Tempo até a reinicialização",
         "none": "Nenhum",
         "pace": "Corra contra o relógio"
+      }
+    },
+    "glyph_position": {
+      "description": "Em qual lado da leitura o ícone está posicionado.",
+      "label": "Posição do ícone",
+      "option": {
+        "after": "Depois",
+        "before": "Antes"
       }
     },
     "provider_limit": {
@@ -22,9 +30,17 @@
       "description": "Com que frequência a CLI é solicitada para obter dados de uso atualizados. As contagens regressivas são processadas localmente entre as chamadas.",
       "label": "Intervalo de atualização (minutos)"
     },
+    "show_glyph": {
+      "description": "O ícone do provedor. A opção \"Desligado\" deixa a leitura por conta própria.",
+      "label": "Mostrar ícone"
+    },
     "show_name": {
       "description": "Adiciona o nome do produto ao lado da porcentagem, para que duas cápsulas não pareçam iguais.",
       "label": "Mostrar nome do provedor"
+    },
+    "show_value": {
+      "description": "A porcentagem como texto. A opção \"Off\" faz com que o indicador a exiba.",
+      "label": "Mostrar valor"
     },
     "style": {
       "description": "Como esta cápsula fica no bar.",

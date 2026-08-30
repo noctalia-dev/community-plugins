@@ -1,13 +1,13 @@
 id = "raycursive/niri-displays"
 name = "Niri Displays"
-version = "0.3.0"
+version = "0.4.0"
 plugin_api = 9
 author = "raycursive"
 license = "MIT"
 dependencies = ["niri"]
 tags = ["bar", "niri", "panel", "service", "system", "utility"]
 icon = "device-desktop"
-description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, and scale."
+description = "Inspect connected Niri outputs and temporarily adjust resolution, refresh rate, scale, rotation, and position."
 
 [[setting]]
 key = "scale_presets"

@@ -1,0 +1,102 @@
+# launcher-pass — Noctalia v5 launcher provider for the GNU Pass store.
+# Port of the QML v4 plugin to Luau (see CLAUDE.md).
+#
+# plugin_api = 26: the highest-level feature currently used is
+# noctalia.getSetting (lands at level 26), read to find the launcher's
+# configured leader character (shell.launcher.provider_prefix) for the
+# pinentry-dance panel reopen. Bump this only when a later port step pulls in
+# something newer.
+
+id = "mellotanica/launcher-pass"
+name = "Launcher pass"
+version = "2.0.0"
+plugin_api = 26
+author = "Marco Melletti"
+license = "MIT"
+icon = "lock"
+description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
+tags = ["launcher", "privacy", "productivity", "utility"]
+dependencies = ["pass", "find", "grep", "pass-otp", "wtype"]
+
+# Settings are declared plugin-wide ([[setting]], the form the sibling launcher
+# plugins use) rather than nested under [[launcher_provider.setting]]; this plugin
+# only ships a launcher provider, so the two are equivalent here. Read back with
+# noctalia.getConfig("storePath") etc.
+
+[[setting]]
+key = "storePath"
+type = "folder"
+label_key = "settings.store-path.label"
+description_key = "settings.store-path.desc"
+default = ""
+
+[[setting]]
+key = "clipTimeout"
+type = "string"                     # kept a string so "" means "fall back to env"
+label_key = "settings.clip-timeout.label"
+description_key = "settings.clip-timeout.desc"
+default = ""
+advanced = true
+
+[[setting]]
+key = "typeDelay"
+type = "int"
+label_key = "settings.type-delay.label"
+description_key = "settings.type-delay.desc"
+default = 500                       # milliseconds (label is historically misleading)
+min = 0
+max = 5000
+advanced = true
+
+[[setting]]
+key = "wtypeDelay"
+type = "int"
+label_key = "settings.wtype-delay.label"
+description_key = "settings.wtype-delay.desc"
+default = 12                        # milliseconds between keystrokes
+min = 0
+advanced = true
+
+[[setting]]
+key = "pinentryGraceMs"
+type = "int"
+label_key = "settings.pinentry-grace-ms.label"
+description_key = "settings.pinentry-grace-ms.desc"
+default = 50                       # milliseconds; see pinentryGraceMs() in launcher.luau
+min = 0
+max = 1000
+advanced = true
+
+# Detail-view row layout. "copy" -> Copy row before Type row for each value;
+# "type" -> Type before Copy. Grouping "interleaved" -> per value: the pair,
+# then the next value; "grouped" -> every Copy row, then every Type row (each
+# block in the detailActionOrder direction). See renderDetailRows().
+[[setting]]
+key = "detailActionOrder"
+type = "select"
+label_key = "settings.detail-action-order.label"
+description_key = "settings.detail-action-order.desc"
+default = "copy"
+options = [
+  { value = "copy", label_key = "settings.detail-action-order.options.copy" },
+  { value = "type", label_key = "settings.detail-action-order.options.type" },
+]
+
+[[setting]]
+key = "detailActionGrouping"
+type = "select"
+label_key = "settings.detail-action-grouping.label"
+description_key = "settings.detail-action-grouping.desc"
+default = "interleaved"
+options = [
+  { value = "interleaved", label_key = "settings.detail-action-grouping.options.interleaved" },
+  { value = "grouped", label_key = "settings.detail-action-grouping.options.grouped" },
+]
+
+[[launcher_provider]]
+id = "pass"
+entry = "launcher.luau"
+prefix = "pass"                     # user types ">pass " (Noctalia adds the ">")
+glyph = "lock"
+include_in_global_search = false
+debounce_ms = 20

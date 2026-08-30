@@ -1,0 +1,50 @@
+id = "cleboost/asus-fans-controller-ec"
+name = "Asus Fans Controler EC"
+version = "1.0.0"
+plugin_api = 9
+author = "Cleboost"
+license = "MIT"
+icon = "car-fan"
+description = "Control ASUS laptop fans via the embedded controller: speeds, sync, and BIOS handoff."
+tags = ["hardware", "bar", "panel", "service", "system", "indicator"]
+dependencies = ["asus-fan-control-ec"]
+
+[[setting]]
+key = "show_label"
+type = "bool"
+label_key = "settings.show_label.label"
+default = false
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 2000
+min = 250
+max = 60000
+advanced = true
+
+[[setting]]
+key = "privilege_command"
+type = "string"
+label_key = "settings.privilege_command.label"
+description_key = "settings.privilege_command.description"
+default = "sudo -n"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "fan-control"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 540
+placement = "attached"
+position = "top_right"
+open_near_click = true

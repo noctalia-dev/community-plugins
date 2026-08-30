@@ -1,0 +1,9 @@
+{
+    "name": "Gear Lever",
+    "enabled": true,
+    "dependencies": ["gearlever", "sed", "echo", "tr", "head"],
+    "check_command": "echo '{\"updates\":[' ; gearlever --list-updates 2>/dev/null | sed -r 's/\\//:/g' | sed -r 's/(([^ ]+ ?)*[^ ]+) +\\[.*\\] +([^ ]*)/{\"id\":\"\\3\",\"name\":\"\\1\",\"glyph\":\"settings-down\",\"from_version\":\"??\",\"to_version\":\"???\",\"description\":\"\",\"icon\":\"\"}/' | tr '\\n' ',' | head -c -1 ; echo ']}'",
+    "update_package_command": "gearlever --update --yes \"$(echo \"{package_name}\" | sed -r 's/:/\\//g')\"",
+    "update_all_command": "gearlever --update --all --yes",
+    "actions": {}
+}
