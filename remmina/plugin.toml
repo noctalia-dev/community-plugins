@@ -1,0 +1,41 @@
+id = "rylos/remmina"
+name = "Remmina"
+version = "1.0.0"
+plugin_api = 24
+author = "Marco Ziliani"
+license = "MIT"
+icon = "device-desktop"
+description = "Open your Remmina connection profiles from the launcher with /rmn."
+tags = ["launcher", "network", "utility", "productivity"]
+dependencies = ["remmina"]
+
+[[launcher_provider]]
+id = "connections"
+entry = "launcher.luau"
+prefix = "rmn"
+glyph = "device-desktop"
+include_in_global_search = false
+debounce_ms = 0
+
+[[setting]]
+key = "profiles_path"
+type = "file"
+label_key = "settings.profiles_path.label"
+description_key = "settings.profiles_path.description"
+default = "~/.local/share/remmina"
+
+[[setting]]
+key = "show_group"
+type = "bool"
+label_key = "settings.show_group.label"
+description_key = "settings.show_group.description"
+default = true
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 30
+min = 1
+max = 200

@@ -1,0 +1,24 @@
+{
+  "err-launch": "Could not start Remmina",
+  "err-no-remmina": "remmina command not found",
+  "err-no-remmina-subtitle": "Install Remmina and make sure it is on PATH",
+  "filter-empty": "Filter: \"{filter}\"",
+  "no-profiles-found": "No matching connection",
+  "profiles-empty": "No Remmina profiles in this folder",
+  "profiles-missing": "Remmina profile folder not found",
+  "title": "Remmina",
+  "settings": {
+    "max_results": {
+      "description": "Maximum number of connections shown in the launcher.",
+      "label": "Maximum results"
+    },
+    "profiles_path": {
+      "description": "Folder holding your .remmina connection profiles.",
+      "label": "Profile folder"
+    },
+    "show_group": {
+      "description": "Show the profile's Remmina group in the result subtitle.",
+      "label": "Show group"
+    }
+  }
+}
