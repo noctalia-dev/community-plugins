@@ -18,6 +18,7 @@ local PANEL_ID = "kenn/keybind-cheatsheet:cheatsheet"
 local SNAPSHOT_KEY = "keybind-cheatsheet.snapshot"
 local REFRESH_REQUEST_KEY = "keybind-cheatsheet.refresh-request"
 local SELF_TEST_REQUEST_KEY = "keybind-cheatsheet.self-test-request"
+local PANEL_STEP_KEY = "keybind-cheatsheet.panel-step"
 local PREFERENCES_FILE = "preferences.json"
 
 local bindings = {}
@@ -30,28 +31,27 @@ local refreshError = nil
 local snapshot = nil
 local invalidateBindingCaches -- defined below, called from the state watcher above it
 
--- Progressive rendering. Building the whole tree at once (a full keymap is
--- 130+ rows, each with several key pills) does not fit the plugin CPU
--- budget: onOpen and every keystroke got killed mid-render, leaving the
--- panel half-drawn with dead buttons. Each render draws at most
--- `renderLimit` rows; update() raises the limit and re-renders, so the rest
--- of the list fills in over the next few ticks (each tick is a fresh
--- budget) and the panel stays interactive throughout.
+-- Progressive rendering. Building the whole tree at once with a cold row
+-- cache (a full keymap is 130+ rows, each with several key pills) does not
+-- fit the plugin CPU budget: onOpen and snapshot changes got killed
+-- mid-render, leaving the panel half-drawn with dead buttons. Each render
+-- draws at most `renderLimit` rows; the rest fills in over a chain of
+-- state-ping callbacks (each one a fresh budget, see scheduleFill) and the
+-- panel stays interactive throughout.
 local RENDER_FIRST = 24
 local RENDER_STEP = 40
 local renderLimit = RENDER_FIRST
 local renderedRows = 0
 local renderTruncated = false
 local scheduleFill -- defined below; called at the end of render
-local renderNow -- the actual (expensive) draw; `render` only schedules it
-local renderPending = false
+local panelSteps = {} -- queued panel-step functions (see schedulePanelStep below)
+local fillQueued = false
 local invalidateRowCache -- defined with the row cache, called from invalidateBindingCaches above it
--- The fill-in chain passes keepLimit = true to renderNow; every other
--- render (a click, a keystroke, a state update) restarts from a small
--- chunk, so a handler never pays for the full 130-row tree on top of its
--- own work. Deliberately a parameter and not a shared flag: a callback
--- killed by the CPU budget would leave a flag stuck forever, and with it
--- the whole panel.
+-- The fill-in chain passes keepLimit = true to render; every other render
+-- (a click, a keystroke, a state update) restarts from a small chunk, so a
+-- handler never pays for the full 130-row tree on top of its own work.
+-- Deliberately a parameter and not a shared flag: a callback killed by the
+-- CPU budget would leave a flag stuck forever, and with it the whole panel.
 local query = ""
 local searchRevision = 0
 local view = "bindings"
@@ -877,7 +877,7 @@ local function renderHeader()
   return ui.row({ align = "center", justify = "space_between", gap = 7 }, children)
 end
 
-renderNow = function(keepLimit)
+render = function(keepLimit)
   if not keepLimit then
     renderLimit = RENDER_FIRST
   end
@@ -932,6 +932,8 @@ local function releasePanelState(clearModel)
   query = ""
   editingId = nil
   editDraft = ""
+  panelSteps = {}
+  fillQueued = false
   resetCallbacks()
   if clearModel then
     bindings = {}
@@ -945,46 +947,35 @@ local function releasePanelState(clearModel)
   end
 end
 
--- Any handler (button, keystroke, state update) calls render(); the draw
--- itself happens in a fresh async callback, so the handler's own budget is
--- not spent on a 130-row tree and never gets killed mid-click.
-render = function()
-  if renderPending then
-    return
-  end
-  renderPending = true
-  local started = noctalia.runAsync("true", function()
-    renderPending = false
-    renderNow()
-  end, 2000)
-  if not started then
-    renderPending = false
-    renderNow()
-  end
+-- Work that does not fit the current callback's CPU budget is queued as a
+-- panel step: the panel pings itself through the shared state, and the watch
+-- callback fires as its own event with its own budget and runs one queued
+-- step. Panels get no update() tick, and a timer or a helper process would
+-- keep running while idle; this chain only exists while steps are queued.
+local panelStepCounter = 0
+
+local function schedulePanelStep(fn)
+  table.insert(panelSteps, fn)
+  panelStepCounter += 1
+  noctalia.state.set(PANEL_STEP_KEY, panelStepCounter)
 end
 
--- Called on the panel's own tick: each call is a fresh CPU budget, so the
--- remaining rows are added a chunk at a time until everything is on screen.
--- Panels get no update() tick, so the fill-in is driven by a chain of
--- trivial async commands instead: each callback runs with a fresh CPU
--- budget, raises the limit and re-renders, until nothing is left to draw.
-local fillPending = false
+noctalia.state.watch(PANEL_STEP_KEY, function(_value)
+  local fn = table.remove(panelSteps, 1)
+  if fn ~= nil then fn() end
+end)
 
+-- The fill flag is cleared before the render, not after: a callback killed
+-- by the CPU budget would otherwise leave it stuck and the fill chain dead.
 scheduleFill = function()
-  if fillPending or not renderTruncated then
-    return
-  end
-  fillPending = true
-  local started = noctalia.runAsync("true", function()
-    fillPending = false
-    if renderTruncated then
-      renderLimit += RENDER_STEP
-      renderNow(true)
-    end
-  end, 2000)
-  if not started then
-    fillPending = false
-  end
+  if fillQueued then return end
+  fillQueued = true
+  schedulePanelStep(function()
+    fillQueued = false
+    if not panelOpen or not renderTruncated then return end
+    renderLimit += RENDER_STEP
+    render(true)
+  end)
 end
 
 function onOpen(_context)
@@ -997,16 +988,16 @@ function onOpen(_context)
   editDraft = ""
   -- Reading the preferences JSON and re-applying the snapshot are each
   -- expensive enough that doing both plus a render inside onOpen exceeds
-  -- the CPU budget; they run as their own async steps, and the panel draws
+  -- the CPU budget; they run as their own steps, and the panel draws
   -- immediately from whatever state it already has.
   render()
-  noctalia.runAsync("true", function()
+  schedulePanelStep(function()
     loadPreferences()
-    noctalia.runAsync("true", function()
+    schedulePanelStep(function()
       applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
       render()
-    end, 2000)
-  end, 2000)
+    end)
+  end)
 end
 
 function onClose()

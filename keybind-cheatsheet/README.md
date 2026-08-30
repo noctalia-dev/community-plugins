@@ -29,13 +29,14 @@ configuration paths use the portable `~/.config/...` form.
 
 ## Requirements
 
-Install `hyprctl` on `PATH` when using a Hyprland Lua configuration.
+Install `hyprctl` on `PATH` when using a Hyprland Lua configuration. Mango,
+Niri, and classic Hyprland configurations do not spawn external commands.
 
-For Niri, the configuration is read by a small `sh`/`sed`/`awk` pipeline
-(all part of a base system): parsing a mid-size KDL config in Luau exceeds
-the plugin CPU budget, which used to leave the panel stuck on "Reading
-keybindings...". Mango and classic Hyprland configurations are still parsed
-in-process and spawn no external commands.
+Parsing a mid-size Niri config plus rendering its full keymap exceeds one
+Luau CPU-budget window, so the refresh and the panel spread the work across
+event-driven steps (each state-watch callback runs with a fresh budget).
+There are no timers, polling loops, or helper processes; nothing runs while
+the plugin is idle.
 
 No clipboard command is required. Color paste uses Noctalia's native clipboard
 API.
