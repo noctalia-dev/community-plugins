@@ -191,7 +191,8 @@ function Net.disconnect(callback)
 end
 
 function Net.autoConnect(callback)
-    noctalia.runAsync("nmcli networking on 2>/dev/null || nmcli device autoconnect 2>/dev/null", function() Net.refresh(callback) end, 5000)
+    local cmd = "ETH=$(nmcli -t -f DEVICE,TYPE,STATE device 2>/dev/null | awk -F: '$2==\"ethernet\" && $3!=\"unavailable\" && $3!=\"unmanaged\" {print $1; exit}'); [ -n \"$ETH\" ] && (nmcli device connect \"$ETH\" 2>/dev/null || nmcli connection up id \"$ETH\" 2>/dev/null) || nmcli device autoconnect 2>/dev/null || nmcli networking on 2>/dev/null || true"
+    noctalia.runAsync(cmd, function() Net.refresh(callback) end, 5000)
 end
 
 function Net.forgetWifi(ssid, callback)
