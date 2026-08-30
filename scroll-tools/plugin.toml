@@ -1,0 +1,49 @@
+id = "n3ptune-plan3t/scroll-tools"
+name = "Scroll Tools"
+version = "1.0.0"
+plugin_api = 8
+author = "n3ptune-plan3t (n3ptune-plan3t)"
+license = "MIT"
+description = "Scroll-specific bar widgets: scroller mode/position/fit HUD with a control panel, a trails counter, and a binding-mode indicator. Mirrors the scroll integration in dawsers/gtkshell (scroll.cpp/scroll.h) for Noctalia Shell."
+tags = ["Bar", "Panel", "Compositor", "Utility"]
+
+# Noctalia's core already treats Scroll as Sway-IPC-compatible (Scroll exports
+# SWAYSOCK), so generic workspaces/window-title/keyboard-layout widgets work
+# out of the box. This plugin only adds the scroll-specific extras that have
+# no sway/i3 equivalent: scroller modifiers, trails, and binding mode.
+
+[[setting]]
+key = "socket_path"
+label_key = "settings.socket_path.label"
+description_key = "settings.socket_path.description"
+type = "string"
+default = ""
+advanced = true
+
+[[setting]]
+key = "show_icons"
+label_key = "settings.show_icons.label"
+description_key = "settings.show_icons.description"
+type = "bool"
+default = true
+
+[[widget]]
+id = "scroller"
+entry = "scroller_widget.luau"
+
+[[widget]]
+id = "trails"
+entry = "trails_widget.luau"
+
+[[widget]]
+id = "submap"
+entry = "submap_widget.luau"
+
+[[panel]]
+id = "scroller-controls"
+entry = "scroller_panel.luau"
+width = 320
+height = 380
+placement = "attached"
+position = "auto"
+dismiss_on_outside_click = true
