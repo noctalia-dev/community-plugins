@@ -4,7 +4,7 @@ version = "1.0.0"
 plugin_api = 24
 author = "Marco Ziliani"
 license = "MIT"
-icon = "device-desktop"
+icon = "screen-share"
 description = "Open your saved Remmina connections from the launcher, the bar, or a panel."
 tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
 dependencies = ["remmina"]
@@ -13,18 +13,22 @@ dependencies = ["remmina"]
 id = "bar"
 entry = "widget.luau"
 
+# Attached to the bar and opened next to the click, so the panel appears under
+# the widget that opened it rather than in the middle of the screen.
 [[panel]]
 id = "connections"
 entry = "panel.luau"
 width = 380
 height = 520
-placement = "floating"
+placement = "attached"
+position = "auto"
+open_near_click = true
 
 [[launcher_provider]]
 id = "launcher"
 entry = "launcher.luau"
 prefix = "rmn"
-glyph = "device-desktop"
+glyph = "screen-share"
 include_in_global_search = false
 debounce_ms = 0
 

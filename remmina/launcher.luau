@@ -94,7 +94,7 @@ function onQuery(query)
       statusRow(
         noctalia.tr("no-profiles-found"),
         filter ~= "" and noctalia.tr("filter-empty", { filter = filter }) or noctalia.tr("profiles-empty"),
-        "device-desktop"
+        "screen-share"
       ),
     })
     return

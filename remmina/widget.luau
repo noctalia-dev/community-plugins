@@ -15,7 +15,7 @@ local function refreshTooltip()
   barWidget.setTooltip(noctalia.tr("panel.count", { count = #profiles }))
 end
 
-barWidget.setGlyph("device-desktop")
+barWidget.setGlyph("screen-share")
 refreshTooltip()
 
 function onClick()

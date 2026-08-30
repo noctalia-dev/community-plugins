@@ -91,7 +91,7 @@ end
 
 local function header(count)
   return ui.row({ gap = 8, align = "center" }, {
-    ui.glyph({ name = "device-desktop", size = 18 }),
+    ui.glyph({ name = "screen-share", size = 18 }),
     ui.column({ gap = 1, flexGrow = 1 }, {
       ui.label({ text = tr("title"), fontWeight = "bold", fontSize = 14 }),
       ui.label({

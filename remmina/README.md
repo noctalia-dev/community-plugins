@@ -23,8 +23,8 @@ profiles Remmina already wrote; it never creates or edits them.
 ## Usage
 
 Add the **Remmina** widget to a bar from Settings → Bar. It shows a single
-monitor glyph, with the number of saved connections in its tooltip; clicking it
-opens the panel. You can also open the panel directly:
+screen-share glyph, with the number of saved connections in its tooltip;
+clicking it opens the panel right under the widget. You can also open the panel directly:
 
 ```sh
 noctalia msg panel-toggle rylos/remmina:connections
@@ -71,3 +71,6 @@ window, including the stored password.
   invisible. Profiles with no group are listed last, under "Ungrouped".
 - The launcher filter is fuzzy; the panel filter is a plain substring match on
   the same four fields.
+- Every protocol glyph carries the "share" arrow, because every one of them is
+  a remote session: a plain monitor would read as a local display. RDP-style
+  protocols use `device-desktop-share`, VNC uses `screen-share`.

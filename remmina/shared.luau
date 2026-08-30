@@ -11,12 +11,14 @@ local M = {}
 
 -- Tabler icon names, as shipped by the host (Commons/IconsTabler.qml); a name
 -- the set does not have renders as nothing and only warns in the log.
+-- Every protocol here is a remote session, so each glyph carries the "share"
+-- arrow: a plain monitor reads as a local display.
 local GLYPHS = {
-  RDP = "device-desktop",
+  RDP = "device-desktop-share",
   VNC = "screen-share",
-  SPICE = "device-desktop",
-  X2GO = "device-desktop",
-  NX = "device-desktop",
+  SPICE = "device-desktop-share",
+  X2GO = "device-desktop-share",
+  NX = "device-desktop-share",
   SSH = "terminal",
   TELNET = "terminal-2",
   SFTP = "folder",
@@ -43,7 +45,7 @@ function M.profilesPath(configured)
 end
 
 function M.glyphFor(protocol)
-  return GLYPHS[protocol] or "device-desktop"
+  return GLYPHS[protocol] or "device-desktop-share"
 end
 
 -- Remmina writes one lowercase `key=value` per line, no quoting and no
