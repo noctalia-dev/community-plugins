@@ -21,34 +21,40 @@ local SECRET_VALUE = "[^%s\"',}]+"
 -- a two-vendor read, and rebuilding these pairs each time cost more than matching
 -- them.
 local SECRET_PATTERNS = {}
+local function anyCase(word)
+    return (word:gsub("%a", function(c) return "[" .. c:upper() .. c .. "]" end))
+end
 for _, word in ipairs({ "key", "token", "secret", "password" }) do
-    local anyCase = (word:gsub("%a", function(c) return "[" .. c:upper() .. c .. "]" end))
-    local name = "[%w_%-]*" .. anyCase .. "[%w_%-]*"
+    local name = "[%w_%-]*" .. anyCase(word) .. "[%w_%-]*"
     SECRET_PATTERNS[#SECRET_PATTERNS + 1] = {
         word = word,
         -- Only the keyword that collides with a metric label keeps its numbers.
         keepsReadings = word == "token",
         -- name=value: a query string, a shell assignment, or a line out of the
         -- CLI's own TOML, where the separator is padded and the value quoted.
-        assign = "(" .. name .. "%s*=%s*\"?)" .. SECRET_VALUE,
+        assign = "(" .. name .. "%s*=%s*[\"']?)" .. SECRET_VALUE,
         -- name: value: an HTTP header or a JSON field. The value is captured
         -- rather than swallowed, because this shape is also how the CLI labels a
         -- reading -- "Tokens: 45000 / 100000" -- and a plugin that draws token
         -- counts cannot redact them.
-        colon = "(" .. name .. "\"?%s*:%s*\"?)(" .. SECRET_VALUE .. ")",
+        colon = "(" .. name .. "[\"']?%s*:%s*[\"']?)(" .. SECRET_VALUE .. ")",
     }
 end
+local BASIC_AUTH_PATTERN = "(" .. anyCase("authorization") .. "[\"']?%s*:%s*[\"']?"
+    .. anyCase("basic") .. "%s+)" .. SECRET_VALUE
 
 -- A quota or a percentage is not a credential. The exemption is deliberately
 -- narrow: short, digits only, and offered to `token` alone. "Tokens: 45000" is a
 -- reading this plugin exists to draw, while a bare number after `password` or
 -- `secret` never is, and a long run of digits is a credential whatever labels it.
-local function isReading(value)
-    return #value <= 9 and value:match("^%d[%d%.,]*%%?$") ~= nil
+local function isReading(prefix, value)
+    local label = prefix:lower():match("([%w_%-]+)[\"']?%s*:%s*[\"']?$")
+    local metric = label == "token" or label == "tokens" or label == "tokens_used"
+    return metric and #value <= 9 and value:match("^%d[%d%.,]*%%?$") ~= nil
 end
 
 local function redactColon(prefix, value)
-    if isReading(value) then return prefix .. value end
+    if isReading(prefix, value) then return prefix .. value end
     return prefix .. "<redacted>"
 end
 -- Nine characters before the rest of a provider key, so a bare "sk-" in prose
@@ -78,6 +84,10 @@ local function safeText(value)
 
     if lower:find("bearer", 1, true) then
         text = text:gsub("([Bb][Ee][Aa][Rr][Ee][Rr]%s+)" .. SECRET_VALUE, "%1<redacted>")
+    end
+
+    if lower:find("authorization", 1, true) and lower:find("basic", 1, true) then
+        text = text:gsub(BASIC_AUTH_PATTERN, "%1<redacted>")
     end
 
     -- Credentials in the userinfo half of a URL the CLI echoed back.
@@ -163,7 +173,8 @@ local function refresh()
         inFlight = false
         noctalia.state.set("polling", false)
 
-        local decoded = result ~= nil and noctalia.json.decode(result.stdout or "") or nil
+        local decoded = result ~= nil and not result.timedOut
+            and noctalia.json.decode(result.stdout or "") or nil
         if type(decoded) == "table" and type(decoded.entries) == "table" then
             -- A failed vendor still comes back as an entry with `status = "error"`,
             -- so a non-zero exit is no reason to drop the report.

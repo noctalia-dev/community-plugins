@@ -1,5 +1,9 @@
 {
   "settings": {
+    "account": {
+      "description": "Optional named account label from ai-usagebar. Leave empty for the default account. Ignored when the provider is Automatic.",
+      "label": "Account label"
+    },
     "color_by_usage": {
       "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
       "label": "Color by usage"
@@ -42,16 +46,6 @@
       "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
     },
-    "style": {
-      "description": "How this capsule looks in the bar.",
-      "label": "Style",
-      "option": {
-        "gauge": "Gauge and percentage",
-        "label": "Name, gauge and percentage",
-        "meter": "Segments",
-        "pill": "Percentage"
-      }
-    },
     "vendor": {
       "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
       "label": "Provider",
@@ -59,7 +53,8 @@
         "anthropic": "Claude",
         "anthropic_api": "Anthropic API",
         "antigravity": "Antigravity",
-        "auto": "Automatic (primary)",
+        "auto": "Automatic (busiest)",
+        "commandcode": "Command Code",
         "cursor": "Cursor",
         "deepseek": "DeepSeek",
         "grok": "Grok",
@@ -69,7 +64,9 @@
         "minimax": "MiniMax",
         "moonshot": "Moonshot",
         "novita": "Novita",
+        "nous": "Nous Research",
         "openai": "Codex",
+        "opencode_go": "OpenCode Go",
         "openrouter": "OpenRouter",
         "supergrok": "SuperGrok",
         "zai": "Z.AI"
@@ -102,7 +99,6 @@
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
     "install": "Install page",
-    "loading": "Loading…",
     "no_usage": "No usage reported",
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",

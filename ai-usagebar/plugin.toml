@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.0.0"
+version = "2.1.0"
 plugin_api = 22
 author = "felipeartur"
 license = "MIT"
@@ -71,7 +71,20 @@ options = [
   { value = "cursor", label_key = "settings.vendor.option.cursor" },
   { value = "minimax", label_key = "settings.vendor.option.minimax" },
   { value = "kiro", label_key = "settings.vendor.option.kiro" },
+  { value = "nous", label_key = "settings.vendor.option.nous" },
+  { value = "opencode-go", label_key = "settings.vendor.option.opencode_go" },
+  { value = "commandcode", label_key = "settings.vendor.option.commandcode" },
 ]
+
+# Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
+# account separate preserves the provider dropdown while allowing any label the
+# user's ai-usagebar config declares.
+[[widget.setting]]
+key = "account"
+type = "string"
+label_key = "settings.account.label"
+description_key = "settings.account.description"
+default = ""
 
 # Keys named after the core `sysmon` widget, so the CPU capsule and this one are
 # configured with the same vocabulary.

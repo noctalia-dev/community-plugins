@@ -26,12 +26,19 @@ local PROVIDER_GLYPHS = {
     cursor = "cursor-text",
     minimax = "wave-square",
     kiro = "ghost",
+    nous = "flask",
+    ["opencode-go"] = "code",
+    commandcode = "terminal-2",
     copilot = "brand-github-copilot",
     gemini = "brand-google",
 }
 
+function M.baseProvider(id)
+    return (tostring(id or ""):match("^[^@]+") or "")
+end
+
 function M.providerGlyph(id)
-    return PROVIDER_GLYPHS[tostring(id)] or "brain"
+    return PROVIDER_GLYPHS[M.baseProvider(id)] or "brain"
 end
 
 -- Ask the poller for a read. It only looks at `action`; `at` is never read, and
@@ -46,7 +53,11 @@ end
 M.NO_FAILURE = { code = "", detail = "" }
 
 function M.asFailure(value)
-    return type(value) == "table" and value or M.NO_FAILURE
+    if type(value) ~= "table" then return M.NO_FAILURE end
+    return {
+        code = type(value.code) == "string" and value.code or "",
+        detail = type(value.detail) == "string" and value.detail or "",
+    }
 end
 
 -- "2026-08-15T11:29:59.872624Z" -> unix seconds. The stamps are UTC, and
@@ -60,7 +71,12 @@ function M.parseIso(value)
         year = tonumber(y), month = tonumber(mo), day = tonumber(d),
         hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
     })
-    local utcAsLocal = os.time(os.date("!*t", asLocal))
+    local utc = os.date("!*t", asLocal)
+    -- Let os.time resolve DST for these wall-clock fields. os.date marks a UTC
+    -- table as standard time, which is wrong when the same fields fall in the
+    -- local timezone's daylight-saving season.
+    utc.isdst = nil
+    local utcAsLocal = os.time(utc)
     return asLocal + (asLocal - utcAsLocal)
 end
 
@@ -133,7 +149,8 @@ end
 
 function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    return entry.metrics[1]
+    local first = entry.metrics[1]
+    return type(first) == "table" and first or nil
 end
 
 -- The rank the capsule sorts by, next to the role both entries colour with, so

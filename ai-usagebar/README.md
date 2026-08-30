@@ -4,8 +4,9 @@ Your AI plan quota in the Noctalia bar: how much of the window is spent, when it
 resets, and whether you are burning it faster than the clock.
 
 The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar),
-a Rust CLI that reads Claude, Codex, Cursor, Antigravity, Kiro, Z.AI,
-OpenRouter, DeepSeek, Kimi and Grok, among others. This plugin never talks to a
+a Rust CLI that reads Claude, Codex, Cursor, Antigravity, Kiro, Z.AI, Nous
+Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
+others. This plugin never talks to a
 provider, holds a token, or reads a credential file. It runs
 `ai-usagebar usage --json` and draws the answer.
 
@@ -46,6 +47,10 @@ the bar is the plan closest to running out. Raise `provider_limit` and it
 carries the next busiest ones too, with a `+N` for whatever did not fit. Pin a
 provider instead, or add the widget twice, when you want two fixed plans side by
 side.
+
+Named accounts use the label from the CLI config. Pick the provider and put the
+label in `account`: `vendor = "openai"` with `account = "work"` follows the
+`openai@work` report entry. Leave it empty for the provider's default account.
 
 The capsule is put together the way the core `sysmon` widget is, with the same
 key names, so the CPU reading beside it is configured with the same vocabulary.
@@ -128,6 +133,7 @@ Per widget instance, so two capsules can follow two providers:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `vendor` | `select` | `auto` | Which plan this capsule tracks. `auto` follows the busiest provider, with the CLI's own `[ui] primary` breaking ties. |
+| `account` | `string` | empty | Optional named account label from the CLI config. Ignored on `auto`. |
 | `visualization` | `select` | `none` | `gauge` or `none`, as described above. |
 | `show_value` | `bool` | `true` | Show the percentage as text. |
 | `show_glyph` | `bool` | `true` | Show the provider's icon. |
@@ -173,11 +179,18 @@ part worth a test. From the `ai-usagebar` directory:
 ```sh
 lua tests/scrub_test.lua
 lua tests/refresh_test.lua
+lua tests/bar_test.lua
+lua tests/panel_test.lua
+TZ=America/New_York lua tests/shared_test.lua
 ```
 
 The first test reads `safeText` and `scrub` out of `service.luau` rather than
 copying them, then checks that real credential shapes never survive, that ordinary
 readings pass through unchanged, and that scrubbing a four-vendor report stays
 inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state and checks that every provider it knows about has a
-glyph of its own rather than the fallback. An overrun in the first test loses the whole reading, not just time.
+the coalesced refresh state, rejects output from a timed-out process, and checks
+that every provider it knows about has a glyph of its own rather than the fallback.
+The third drives the real bar script through default, named, missing and automatic
+account selection, plus malformed metrics. The fourth checks that malformed panel
+sections degrade safely. The fifth verifies UTC parsing through a daylight-saving
+transition. An overrun in the first test loses the whole reading, not just time.

@@ -86,6 +86,13 @@ local SECRETS = {
     { "api_key: 123456789012345", "123456789012345" },
     { "OPENAI_API_KEY sk-proj-REALKEYVALUE not accepted", "REALKEY" },
     { "password=hunter2", "hunter2" },
+    -- TOML and shell diagnostics may quote assignments with single quotes.
+    { "api_key='single-quoted-api-value'", "single-quoted-api-value" },
+    { "password='single-quoted-password'", "single-quoted-password" },
+    -- Authorization schemes do not necessarily use a field containing key/token.
+    { "Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz" },
+    -- Numeric quota readings stay visible, but a credential-shaped field does not.
+    { "access_token: 123456789", "123456789" },
     -- The cap runs before the patterns, so a secret in a runaway line has to
     -- survive the truncation.
     { "api_key=sk-ant-REALKEY123 " .. string.rep("noise ", 60), "REALKEY123" },

@@ -4,6 +4,7 @@
 -- can follow a second provider.
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
+local account = noctalia.string.trim(tostring(noctalia.getConfig("account") or ""))
 local extras = tostring(noctalia.getConfig("extras") or "countdown")
 -- Named after the core `sysmon` widget's own keys, so a reading in this capsule
 -- is configured the same way as the CPU one beside it.
@@ -16,10 +17,9 @@ local showName = noctalia.getConfig("show_name") == true
 local colorByUsage = noctalia.getConfig("color_by_usage") ~= false
 
 local report = nil
-local polling = false
 
 local shared = require("./shared.luau")
-local providerGlyph = shared.providerGlyph
+local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
@@ -30,6 +30,11 @@ local failure = NO_FAILURE
 -- ── Report helpers ────────────────────────────────────────────────────────────
 
 local function entries() return shared.entries(report) end
+
+local function wantedEntryId()
+    if vendor == "auto" or account == "" then return vendor end
+    return vendor .. "@" .. account
+end
 
 local function rank(entry)
     local metric = headline(entry)
@@ -43,8 +48,9 @@ end
 local function shown()
     local all = entries()
     if vendor ~= "auto" then
+        local wanted = wantedEntryId()
         for _, entry in ipairs(all) do
-            if entry.id == vendor then return { entry }, 0 end
+            if entry.id == wanted then return { entry }, 0 end
         end
         return {}, 0
     end
@@ -59,8 +65,9 @@ local function shown()
         local bRank, bPct = rank(b)
         if aRank ~= bRank then return aRank > bRank end
         if aPct ~= bPct then return aPct > bPct end
-        if a.id == primary then return true end
-        if b.id == primary then return false end
+        local aPrimary = baseProvider(a.id) == primary
+        local bPrimary = baseProvider(b.id) == primary
+        if aPrimary ~= bPrimary then return aPrimary end
         return tostring(a.id) < tostring(b.id)
     end)
 
@@ -80,6 +87,7 @@ end
 
 local function shortName(entry)
     local name = tostring(entry.display_name or entry.name or entry.id or "")
+    if vendor ~= "auto" and account ~= "" then return name end
     -- "Claude · gmail" is the panel's business; the bar only has room for the
     -- product name.
     return (name:gsub("%s*·.*$", ""))
@@ -164,7 +172,7 @@ local function tooltip(picked, hidden)
     end
     if #picked == 0 then
         local waiting = vendor == "auto" and noctalia.tr("ui.waiting")
-            or noctalia.tr("ui.not_configured", { vendor = vendor })
+            or noctalia.tr("ui.not_configured", { vendor = wantedEntryId() })
         return { { key = noctalia.tr("ui.title"), value = waiting } }
     end
 
@@ -177,14 +185,17 @@ local function tooltip(picked, hidden)
             if entry.plan ~= nil and tostring(entry.plan) ~= "" then
                 rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
             end
-            for _, metric in ipairs(entry.metrics or {}) do
-                local value = tostring(metric.value or ""):gsub(" of ", " / ")
-                local left = countdown(metric)
-                if left ~= "" then
-                    local clock = resetClock(metric)
-                    value = value .. " · " .. left .. (clock ~= "" and (" (" .. clock .. ")") or "")
+            local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+            for _, metric in ipairs(metrics) do
+                if type(metric) == "table" then
+                    local value = tostring(metric.value or ""):gsub(" of ", " / ")
+                    local left = countdown(metric)
+                    if left ~= "" then
+                        local clock = resetClock(metric)
+                        value = value .. " · " .. left .. (clock ~= "" and (" (" .. clock .. ")") or "")
+                    end
+                    rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
                 end
-                rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
             end
             if entry.stale == true then
                 rows[#rows + 1] = { key = noctalia.tr("ui.updated"), value = noctalia.tr("ui.stale_hint") }
@@ -252,15 +263,10 @@ noctalia.state.watch("error", function(value)
     render()
 end)
 
-noctalia.state.watch("polling", function(value)
-    polling = value == true
-    render()
-end)
-
 function onClick()
     local picked = shown()
     -- One panel serves every capsule and is not told which one opened it.
-    noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or vendor)
+    noctalia.state.set("selected", picked[1] ~= nil and picked[1].id or wantedEntryId())
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 

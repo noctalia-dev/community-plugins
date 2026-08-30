@@ -51,15 +51,22 @@ assert(values.refresh_queued == false, "queued state should clear when refresh s
 assert(values.polling == true, "queued refresh should become the active poll")
 assert(intervals[#intervals] == 5 * 60 * 1000, "active refresh should restore the configured interval")
 
+callbacks[2]({ timedOut = true, exitCode = 0, stdout = '{"entries":[]}', stderr = "" })
+assert(values.error.code == "timed_out", "a timed-out command must not publish valid-looking stdout")
+
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
+local incompleteFailure = shared.asFailure({})
+assert(incompleteFailure.code == "" and incompleteFailure.detail == "",
+    "an incomplete failure table should behave as no failure")
 for _, id in ipairs({
     "anthropic", "openai", "anthropic_api", "zai", "openrouter", "deepseek", "kimi",
     "kilo", "novita", "moonshot", "grok", "supergrok", "antigravity", "cursor",
-    "minimax", "kiro",
+    "minimax", "kiro", "nous", "opencode-go", "commandcode",
+    "anthropic@gmail", "openai@work",
 }) do
     -- "brain" is the fallback, so a provider still on it has no glyph of its own.
     assert(shared.providerGlyph(id) ~= "brain", "missing glyph for " .. id)
 end
 
-io.write("ok: refresh queue coalesced, provider visuals complete\n")
+io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")

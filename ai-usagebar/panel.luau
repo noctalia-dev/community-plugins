@@ -173,7 +173,8 @@ local function blockCard(section)
         ui.label({ text = tostring(section.label or ""), fontSize = 12, fontWeight = "semibold",
                    color = "on_surface", maxLines = 1 }),
     }
-    for _, line in ipairs(section.body or {}) do
+    local lines = type(section.body) == "table" and section.body or {}
+    for _, line in ipairs(lines) do
         local text = noctalia.string.trim(tostring(line))
         -- A bare "balance:" from the CLI would read as a row that failed to
         -- render, so nothing gets spelled the way it is everywhere else.
@@ -405,32 +406,35 @@ local function detailPane(entry)
     end
 
     local cards = {}
-    for _, section in ipairs((entry ~= nil and entry.sections) or {}) do
-        if section.type == "metric" then
-            cards[#cards + 1] = metricCard(section)
-        elseif section.type == "block" then
-            cards[#cards + 1] = blockCard(section)
-        elseif section.type == "text" then
-            cards[#cards + 1] = ui.row({ gap = 6, align = "center" }, {
-                ui.label({ text = tostring(section.label or ""), fontSize = 11,
-                           color = "on_surface_variant" }),
-                ui.spacer({ flexGrow = 1 }),
-                ui.label({ text = tostring(section.value or ""), fontSize = 11,
-                           color = "on_surface", maxLines = 1 }),
-            })
-        elseif section.type == "spacer" then
-            cards[#cards + 1] = ui.spacer({ height = tonumber(section.height) or 8 })
-        elseif section.type == "title" then
-            cards[#cards + 1] = ui.label({
-                text = tostring(section.value or section.label or ""),
-                fontSize = 12, fontWeight = "semibold", color = "on_surface",
-            })
-        else
-            -- Keep schema additions visible instead of silently losing report data.
-            cards[#cards + 1] = ui.label({
-                text = tostring(section.value or section.label or section.type or "—"),
-                fontSize = 11, color = "on_surface_variant",
-            })
+    local sections = entry ~= nil and type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" then
+            if section.type == "metric" then
+                cards[#cards + 1] = metricCard(section)
+            elseif section.type == "block" then
+                cards[#cards + 1] = blockCard(section)
+            elseif section.type == "text" then
+                cards[#cards + 1] = ui.row({ gap = 6, align = "center" }, {
+                    ui.label({ text = tostring(section.label or ""), fontSize = 11,
+                               color = "on_surface_variant" }),
+                    ui.spacer({ flexGrow = 1 }),
+                    ui.label({ text = tostring(section.value or ""), fontSize = 11,
+                               color = "on_surface", maxLines = 1 }),
+                })
+            elseif section.type == "spacer" then
+                cards[#cards + 1] = ui.spacer({ height = tonumber(section.height) or 8 })
+            elseif section.type == "title" then
+                cards[#cards + 1] = ui.label({
+                    text = tostring(section.value or section.label or ""),
+                    fontSize = 12, fontWeight = "semibold", color = "on_surface",
+                })
+            else
+                -- Keep schema additions visible instead of silently losing report data.
+                cards[#cards + 1] = ui.label({
+                    text = tostring(section.value or section.label or section.type or "—"),
+                    fontSize = 11, color = "on_surface_variant",
+                })
+            end
         end
     end
     if #cards > 0 then
