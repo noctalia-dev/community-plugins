@@ -1,0 +1,47 @@
+{
+  "caption_checked": "checked {time}",
+  "empty": "No crashes recorded",
+  "empty_hint": "When one of your processes dumps core, it shows up here.",
+  "err_poll": "coredumpctl did not answer, see the Noctalia log",
+  "err_uid": "Could not resolve the user id, crash list disabled",
+  "journal_empty": "Nothing at this level in the current boot",
+  "level_alert": "alert and up",
+  "level_crit": "crit and up",
+  "level_emerg": "emerg only",
+  "level_err": "err and up",
+  "level_label": "Level",
+  "no_core": "core gone",
+  "notify_body": "{signal}, PID {pid} — open the Crashes panel to diagnose",
+  "notify_title": "Process crashed: {name}",
+  "settings": {
+    "poll_seconds": {
+      "label": "Poll interval (seconds)",
+      "description": "How often to re-read the systemd-coredump journal."
+    },
+    "notify": {
+      "label": "Desktop notifications",
+      "description": "Announce new crashes of your processes with a critical notification. Turn off if something else already announces them."
+    },
+    "agent_cmd": {
+      "label": "AI agent command",
+      "description": "Command that receives the diagnosis prompt as its last argument: \"claude\", \"codex\", \"opencode --prompt\", \"grok --\"… Empty = use the first installed well-known agent."
+    },
+    "extra_prompt": {
+      "label": "Extra prompt",
+      "description": "Text appended to every diagnosis prompt — e.g. \"Answer in Russian\" or house rules for the agent."
+    },
+    "terminal_cmd": {
+      "label": "Terminal command",
+      "description": "Wrapper that opens the agent in a window, e.g. \"kitty -e\". Leave empty if the agent command opens its own window."
+    }
+  },
+  "tab_crashes": "Crashes",
+  "tab_journal": "Errors",
+  "tip_close": "Close",
+  "tip_diagnose": "Diagnose with AI in a terminal",
+  "tip_mute": "Stop notifying about this program",
+  "tip_no_core": "The core dump is gone (rotated away) — nothing to analyze",
+  "tip_refresh": "Re-read the coredump list now",
+  "tip_unmute": "Notify about this program again",
+  "title": "Crashes"
+}
