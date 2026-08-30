@@ -1,0 +1,32 @@
+id = "notfinaldev/web-search"
+name = "Web Search"
+version = "1.3.0"
+plugin_api = 18
+author = "notfinaldev"
+license = "MIT"
+icon = "world"
+description = "Open favourite websites or search Google from the Noctalia launcher."
+tags = ["launcher", "network", "utility"]
+dependencies = ["python3", "xdg-open"]
+
+[[launcher_provider]]
+id = "search"
+entry = "launcher.luau"
+prefix = "web"
+glyph = "world-search"
+include_in_global_search = true
+
+
+[[setting]]
+key = "links"
+type = "string_list"
+label_key = "settings.links.label"
+description_key = "settings.links.description"
+default = [
+    "GitHub|https://github.com",
+    "GitLab|https://gitlab.com",
+    "Codeberg|https://codeberg.org",
+    "Reddit|https://reddit.com",
+    "YouTube|https://youtube.com",
+    "Gmail|https://mail.google.com",
+]
