@@ -1,0 +1,26 @@
+{
+  "title": "Layout Fix",
+  "err_no_input_access": "No access to the keyboard devices. Run: sudo usermod -aG input $USER — then log out and back in.",
+  "err_dicts_install": "Could not install the dictionaries, see the system log",
+  "notify_dicts_installed": "Dictionaries installed — corrections are now dictionary-accurate",
+  "notify_dicts_missing": "For accurate corrections install: {list} (hunspell dictionaries). Set Dictionaries to \"install automatically\" in the plugin settings, or install them yourself.",
+  "settings": {
+    "auto": {
+      "label": "Correct automatically",
+      "description": "Fix a word as soon as it is finished. Off: corrections happen only through the keybinding."
+    },
+    "hotkey_hint": {
+      "label": "Remind about keybindings",
+      "description": "Show once how to bind the fix and undo actions in your compositor."
+    },
+    "dictionaries": {
+      "label": "Dictionaries",
+      "description": "Hunspell dictionaries make the decision accurate in both directions. Without them the plugin falls back to heuristics, which are safe but miss some words.",
+      "options": {
+        "notify": "Tell me what to install",
+        "install": "Install automatically (asks for the password)",
+        "ignore": "Do not check"
+      }
+    }
+  }
+}
