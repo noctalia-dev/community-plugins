@@ -30,6 +30,28 @@ something newer.
 
 ---
 
+## Open Points
+
+As of now (`noctalia 5.0.0-beta9.3`, `plugin_api` 28), there are still some open points that will need to be covered when possible:
+
+### wtype cmdline leak
+
+Right now `noctalia.runAsync(cmdOrArgv)` does not let the plugin pass data to the supbrocess standard input, nor export environment variables, so the only way to pass the password/login/OTP/field values to `wtype` to perform autofill is by adding the values to the commandline, exposing them to external processes inspecting the `wtype` process commandline.
+
+As soon as a more secure option is available, the `wtype` execution needs to be updated to a more secure variant.
+
+### List item preselection
+
+In every menu where the `Go Back` button is shown, the second item (the one after the back button) should be preselected at the submenu entry.
+
+The current noctalia plugin api does not provide a way to do so, it should be implemented as soon as the plugin interface adds a method to preselect launcher list entries.
+
+### Settings grouping
+
+The plugin has a relevant number of settings, they should be grouped in logical sets inside the settings menu, as soon as the plugin api adds support for such customizations.
+
+---
+
 ## How `launcher.luau` works
 
 The host calls three globals — `onQuery(text)` on every keystroke (after
