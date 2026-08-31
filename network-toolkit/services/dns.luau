@@ -63,7 +63,7 @@ local function readSaved()
 end
 
 local function writeSaved(p, s, l)
-    pcall(noctalia.writeFile, FILE, string.format('{"provider":"%s","servers":"%s","label":"%s"}', p, s, l or ""))
+    pcall(noctalia.writeFile, FILE, string.format('{"provider":"%s","servers":"%s","label":"%s"}', p:gsub('"', '\\"'), (s or ""):gsub('"', '\\"'), (l or ""):gsub('"', '\\"')))
 end
 
 local function applyInternal(entry, callback)

@@ -35,8 +35,11 @@ local function publishAll()
         local key = (r.address or "") .. ":" .. (r.passkey or "") .. ":" .. (r.timestamp or 0)
         if key ~= lastPairKey then
             lastPairKey = key
-            local msg = (r.passkey and r.passkey ~= "") and string.format("%s requested to pair (Passkey: %s)", r.name or r.address, r.passkey) or string.format("%s requested to pair", r.name or r.address)
+            local dName = r.name or r.address or "Bluetooth Device"
+            if dName == "" or dName:find("^Device %x%x:") then dName = r.address or "Bluetooth Device" end
+            local msg = (r.passkey and r.passkey ~= "") and string.format("%s requested to pair (Passkey: %s)", dName, r.passkey) or string.format("%s requested to pair", dName)
             noctalia.notify(noctalia.tr("title"), msg)
+            noctalia.runAsync("noctalia msg panel-open autumn/network-toolkit:panel", function() end, 1500)
         end
     else lastPairKey = nil end
 
@@ -97,10 +100,14 @@ noctalia.state.watch("network_command", function(cmd)
 end)
 
 function update()
+    local okPair, pairContent = pcall(noctalia.readFile, "/tmp/noctalia_bt_pairing.json")
+    local hasPair = (okPair and type(pairContent) == "string" and pairContent ~= "")
+    if hasPair then bt.refresh(publishAll) end
+
     net.refresh(publishAll); hotspot.refresh(publishAll); dns.refresh(publishAll); bt.refresh(publishAll)
     local pSec = tonumber(noctalia.getConfig("refreshinterval")) or 5
     if pSec < 2 then pSec = 2 elseif pSec > 60 then pSec = 60 end
-    noctalia.setUpdateInterval((hotspot.getStatus().active and 1500 or (pSec * 1000)))
+    noctalia.setUpdateInterval((hasPair and 500) or (hotspot.getStatus().active and 1500) or (pSec * 1000))
 end
 
 function onConfigChanged()
@@ -108,6 +115,6 @@ function onConfigChanged()
     update()
 end
 
-noctalia.setUpdateInterval(5000)
+noctalia.setUpdateInterval(1000)
 publishAll()
 update()

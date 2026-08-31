@@ -73,12 +73,22 @@ function Net.refresh(callback)
         local connSsid, wifiIf, ethIf = "", "", ""
         local hsSsid = noctalia.getConfig("hotspot_ssid") or "Noctalia-Hotspot"
 
+        local isHsName = function(n, d)
+            if not n then return false end
+            local ln = n:lower()
+            return ln:find("hotspot") ~= nil or n == hsSsid or n == "Noctalia-Hotspot" or (d ~= nil and d:find("%-ap$") ~= nil)
+        end
+
         for line in actSec:gmatch("[^\r\n]+") do
             local typ, st, dev, name = line:match("^([^:]+):([^:]+):([^:]+):(.*)$")
             if name and dev then
-                if dev:find("%-ap$") or name == "Noctalia-Hotspot" or name == hsSsid then hsAct = true
-                elseif (st == "activated" or st == "connected") and (typ == "802-11-wireless" or typ == "wifi") then wifiConn, connSsid, wifiIf = true, name, dev
-                elseif (st == "activated" or st == "connected") and (typ == "802-3-ethernet" or typ == "ethernet") then ethConn, ethIf = true, dev end
+                if isHsName(name, dev) then
+                    hsAct = true
+                elseif (st == "activated" or st == "connected") and (typ == "802-11-wireless" or typ == "wifi") then
+                    wifiConn, connSsid, wifiIf = true, name, dev
+                elseif (st == "activated" or st == "connected") and (typ == "802-3-ethernet" or typ == "ethernet") then
+                    ethConn, ethIf = true, dev
+                end
             end
         end
 
@@ -87,8 +97,12 @@ function Net.refresh(callback)
             local d, typ, s, c = line:match("^([^:]+):([^:]+):([^:]+):?(.*)$")
             if typ == "wifi" and not d:find("%-ap$") and not d:find("^p2p%-") then
                 if s == "unavailable" or s == "unmanaged" then wEnabled = false end
-                if s == "connected" and c and c ~= "" and not c:find("Hotspot") then wifiConn, connSsid, wifiIf = true, c, d end
-            elseif typ == "ethernet" and s == "connected" then ethConn, ethIf = true, d end
+                if s == "connected" and c and c ~= "" and not isHsName(c, d) then
+                    wifiConn, connSsid, wifiIf = true, c, d
+                end
+            elseif typ == "ethernet" and s == "connected" then
+                ethConn, ethIf = true, d
+            end
         end
 
         local curIp = ""
@@ -102,15 +116,15 @@ function Net.refresh(callback)
         local savedMap = {}
         for line in savSec:gmatch("[^\r\n]+") do
             local name, typ = line:match("^([^:]+):([^:]+)$")
-            if name and (typ == "802-11-wireless" or typ == "wifi") then
+            if name and (typ == "802-11-wireless" or typ == "wifi") and not isHsName(name) then
                 if name ~= connectingSsid then savedMap[name] = true end
             end
         end
 
         local networks, seen = {}, {}
         for line in wifSec:gmatch("[^\r\n]+") do
-            local inUse, ssid, sig, sec, freq = line:match("^([^:]*):([^:]*):([^:]*):([^:]*):(.*)$")
-            if ssid and ssid ~= "" and not seen[ssid] and not ssid:find("Noctalia%-Hotspot") and ssid ~= hsSsid then
+            local _, ssid, sig, sec, freq = line:match("^([^:]*):([^:]*):([^:]*):([^:]*):(.*)$")
+            if ssid and ssid ~= "" and not seen[ssid] and not isHsName(ssid) then
                 seen[ssid] = true
                 local isAct = (wifiConn and connSsid ~= "" and ssid == connSsid)
                 local sigN = tonumber(sig) or 0
@@ -183,7 +197,7 @@ function Net.connectWifi(ssid, password, callback)
 end
 
 function Net.disconnect(callback)
-    local iface = state.interface ~= "" and state.interface or "wlan0"
+    local iface = (state.interface ~= "" and state.interface or "wlan0"):gsub("[^%w%-_.]", "")
     state.wifiConnected, state.ethernetConnected, state.ssid, state.ipAddress = false, false, "", ""
     saveCache()
     if callback then callback(state) end

@@ -25,6 +25,7 @@ function Hotspot.init()
     if not state.available then state.error = noctalia.tr("errors.missing_command") end
     state.ssid = getCfg()
     state.maxConnections = tonumber(noctalia.getConfig("hotspot_max_connections")) or 8
+    if state.available and iwOk then Hotspot.detectCapabilities() end
     return state.available
 end
 
@@ -147,6 +148,9 @@ function Hotspot.toggle(enable, callback)
         return
     end
 
+    local baseIf = (state.baseInterface ~= "" and state.baseInterface or "wlan0"):gsub("[^%w%-_.]", "")
+    local apIf = (state.interface ~= "" and state.interface or (baseIf .. "-ap")):gsub("[^%w%-_.]", "")
+
     local upCmd = string.format([[
 BASE='%s'; AP='%s'
 [ ! -d "/sys/class/net/${AP}" ] && bash '%s' "$BASE" "$AP" >/dev/null 2>&1 || true
@@ -154,14 +158,14 @@ CHAN=$(iw dev "$BASE" info 2>/dev/null | awk '/channel/ {print $2; exit}')
 [ -z "$CHAN" ] && CHAN=6
 [ "$CHAN" -gt 14 ] && BAND="a" || BAND="bg"
 
-UUID=$(nmcli -t -f UUID,NAME connection show 2>/dev/null | awk -F: '$2=="Noctalia-Hotspot" || $2=="'%s'" {print $1; exit}')
+UUID=$(nmcli -t -f UUID,NAME connection show 2>/dev/null | awk -v target='%s' -F: '$2=="Noctalia-Hotspot" || $2==target {print $1; exit}')
 if [ -n "$UUID" ]; then
     nmcli connection modify "$UUID" connection.id "Noctalia-Hotspot" connection.interface-name "$AP" 802-11-wireless.ssid '%s' 802-11-wireless.mode ap 802-11-wireless.band "$BAND" 802-11-wireless.channel "$CHAN" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk '%s' ipv4.method shared ipv6.method disabled connection.autoconnect no 2>/dev/null || true
 else
     nmcli connection add type wifi ifname "$AP" con-name 'Noctalia-Hotspot' ssid '%s' 802-11-wireless.mode ap 802-11-wireless.band "$BAND" 802-11-wireless.channel "$CHAN" wifi-sec.key-mgmt wpa-psk wifi-sec.psk '%s' ipv4.method shared ipv6.method disabled connection.autoconnect no 2>/dev/null || true
 fi
 nmcli connection up 'Noctalia-Hotspot' 2>/dev/null || (sleep 0.5 && nmcli connection up 'Noctalia-Hotspot' 2>/dev/null)
-]], state.baseInterface, state.interface, SCRIPT, sSsid, sSsid, sPass, sSsid, sPass)
+]], baseIf, apIf, SCRIPT, sSsid, sSsid, sPass, sSsid, sPass)
 
     noctalia.runAsync(upCmd, function()
         state.busy = false

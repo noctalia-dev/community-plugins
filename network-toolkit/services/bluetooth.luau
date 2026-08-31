@@ -1,16 +1,56 @@
 --!nonstrict
--- Bluetooth device management and BlueZ agent interface
+-- bluetooth service & pairing agent
 local BT = {}
 local btctlOk = noctalia.commandExists("bluetoothctl")
-local refreshing = false
-local pendingActions = {}
+local refreshExpire = 0
 local btPowerLock, discLock = 0, 0
+local autoConnectOnPower = true
+
+local CACHE_FILE = "/tmp/noctalia_bt_cache.json"
+local AUTOCONNECT_FILE = "/tmp/noctalia_bt_autoconnect.json"
+local autoConnectMap = {}
 
 local state = {
-    available = btctlOk, enabled = false, discoverable = false, scanning = false,
+    available = btctlOk, enabled = true, discoverable = false, scanning = false,
     pairedDevices = {}, availableDevices = {}, pairingRequests = {}, connectedAddrs = {},
     connectingAddrs = {}, alias = "", error = ""
 }
+
+local function saveCache()
+    pcall(noctalia.writeFile, CACHE_FILE, string.format('{"enabled":%s,"discoverable":%s,"alias":"%s"}',
+        tostring(state.enabled), tostring(state.discoverable), state.alias:gsub('"', '\\"')))
+end
+
+local function loadCache()
+    local ok, c = pcall(noctalia.readFile, CACHE_FILE)
+    if ok and type(c) == "string" and c ~= "" then
+        state.enabled = (c:match('"enabled"%s*:%s*true') ~= nil)
+        state.discoverable = (c:match('"discoverable"%s*:%s*true') ~= nil)
+        state.alias = c:match('"alias"%s*:%s*"([^"]*)"') or state.alias
+    else
+        state.enabled = true
+    end
+end
+
+local function loadAutoConnect()
+    local ok, c = pcall(noctalia.readFile, AUTOCONNECT_FILE)
+    if ok and type(c) == "string" and c ~= "" then
+        autoConnectMap = {}
+        for mac, val in c:gmatch('"([%x:]+)"%s*:%s*(%a+)') do
+            autoConnectMap[mac:lower()] = (val == "true")
+        end
+    else
+        autoConnectMap = {}
+    end
+end
+
+local function saveAutoConnect()
+    local entries = {}
+    for mac, val in pairs(autoConnectMap) do
+        table.insert(entries, string.format('"%s":%s', mac:lower(), tostring(val)))
+    end
+    pcall(noctalia.writeFile, AUTOCONNECT_FILE, "{" .. table.concat(entries, ",") .. "}")
+end
 
 local function btTypeGlyph(name)
     local l = (name or ""):lower()
@@ -27,14 +67,20 @@ local function btTypeGlyph(name)
 end
 
 local function ensureAgent()
-    local bin = noctalia.pluginDir() .. "/scripts/bluetooth_helper"
-    noctalia.runAsync(string.format("pgrep -f bluetooth_helper >/dev/null 2>&1 || (setsid '%s' >/dev/null 2>&1 &)", bin), function() end, 2000)
+    local pDir = (type(noctalia.pluginDir) == "function" and noctalia.pluginDir()) or (type(noctalia.pluginDir) == "string" and noctalia.pluginDir) or "/media/SSD/code/github/community-plugins/network-toolkit"
+    local bin = pDir .. "/scripts/bluetooth_helper"
+    noctalia.runAsync(string.format("pidof bluetooth_helper >/dev/null 2>&1 || (nohup '%s' >/dev/null 2>&1 &)", bin), function() end, 2000)
 end
 
 function BT.init()
     state.available = btctlOk
     if not state.available then state.error = noctalia.tr("errors.bluetoothctl_not_found") end
+    loadCache()
+    loadAutoConnect()
+    saveCache()
+    autoConnectOnPower = true
     ensureAgent()
+    noctalia.runAsync("for f in /sys/class/bluetooth/hci*/device/power/control; do [ -w \"$f\" ] && echo on > \"$f\" 2>/dev/null || true; done; rfkill unblock bluetooth 2>/dev/null || true", function() end, 1500)
     return state.available
 end
 
@@ -43,91 +89,107 @@ function BT.getStatus() return state end
 local BATCH = [[
 echo "=SHOW="; bluetoothctl show 2>/dev/null
 echo "=PAIRED="; bluetoothctl devices Paired 2>/dev/null
+echo "=CONN="; bluetoothctl devices Connected 2>/dev/null
 echo "=ALL="; bluetoothctl devices 2>/dev/null
-echo "=INFOS="; bluetoothctl devices Paired 2>/dev/null | awk '{print $2}' | while read -r mac; do
-    echo "---DEV $mac---"; bluetoothctl info "$mac" 2>/dev/null
-done
 echo "=AGENT="; cat /tmp/noctalia_bt_pairing.json 2>/dev/null || true
 ]]
 
 function BT.refresh(callback)
-    if not state.available or refreshing then if callback then callback(state) end; return end
-    refreshing = true
+    if not state.available or os.time() < refreshExpire then if callback then callback(state) end; return end
+    refreshExpire = os.time() + 4
     ensureAgent()
 
     noctalia.runAsync(BATCH, function(res)
-        refreshing = false
-        local out = res.stdout or ""
-        local showSec  = out:match("=SHOW=(.-)=PAIRED=") or ""
-        local pairSec  = out:match("=PAIRED=(.-)=ALL=") or ""
-        local allSec   = out:match("=ALL=(.-)=INFOS=") or ""
-        local infoSec  = out:match("=INFOS=(.-)=AGENT=") or ""
-        local agentSec = out:match("=AGENT=(.*)") or ""
+        refreshExpire = 0
+        local out = (res and res.stdout) or ""
+        out = out:gsub("\27%[[%d;]*[a-zA-Z]", "")
+        out = out:gsub("\r", "")
 
-        if os.time() >= btPowerLock then state.enabled = (showSec:find("Powered:%s*yes") ~= nil) end
-        if os.time() >= discLock then state.discoverable = (showSec:find("Discoverable:%s*yes") ~= nil) end
+        local showSec  = out:match("=SHOW=%s*\n?(.-)\n?=PAIRED=") or ""
+        local pairSec  = out:match("=PAIRED=%s*\n?(.-)\n?=CONN=") or out:match("=PAIRED=%s*\n?(.-)\n?=ALL=") or ""
+        local connSec  = out:match("=CONN=%s*\n?(.-)\n?=ALL=") or ""
+        local allSec   = out:match("=ALL=%s*\n?(.-)\n?=AGENT=") or ""
+        local agentSec = out:match("=AGENT=%s*\n?(.*)") or ""
+
+        if out:find("[Pp]owered:%s*[yY][eE][sS]") or out:find("[Pp]owerState:%s*[oO][nN]") then
+            state.enabled = true
+        elseif out:find("[Pp]owered:%s*[nN][oO]") or out:find("[Pp]owerState:%s*[oO][fF][fF]") then
+            if os.time() >= btPowerLock then state.enabled = false end
+        end
+
+        if out:find("[Dd]iscoverable:%s*[yY][eE][sS]") then
+            if os.time() >= discLock then state.discoverable = true end
+        elseif out:find("[Dd]iscoverable:%s*[nN][oO]") then
+            if os.time() >= discLock then state.discoverable = false end
+        end
+
         local alias = showSec:match("Alias:%s*(.-)\n") or showSec:match("Name:%s*(.-)\n")
-        state.alias = alias and alias:match("^%s*(.-)%s*$") or ""
+        if alias then state.alias = alias:match("^%s*(.-)%s*$") or state.alias end
 
         if not state.enabled then
             state.pairedDevices, state.availableDevices, state.pairingRequests, state.connectedAddrs = {}, {}, {}, {}
+            saveCache()
             if callback then callback(state) end
             return
         end
 
-        local devConn, devTrust, devName = {}, {}, {}
-        local curDev = nil
-        for line in infoSec:gmatch("[^\r\n]+") do
-            local h = line:match("%-%-%-DEV%s+(%S+)%-%-%-")
-            if h then curDev = h
-            elseif curDev then
-                if line:find("Connected:%s*yes") then devConn[curDev] = true end
-                if line:find("Trusted:%s*yes") then devTrust[curDev] = true end
-                local al = line:match("Alias:%s*(.+)") or line:match("Name:%s*(.+)")
-                if al and not devName[curDev] then devName[curDev] = al:match("^%s*(.-)%s*$") end
-            end
+        local devConn = {}
+        for line in connSec:gmatch("[^\r\n]+") do
+            local a = line:match("Device%s+([%x:]+)")
+            if a then devConn[a:lower()] = true end
         end
         state.connectedAddrs = devConn
 
-        local nameMap, paired, pairedMap = {}, {}, {}
+        local nameMap = {}
         for line in allSec:gmatch("[^\r\n]+") do
-            local a, n = line:match("^Device%s+(%S+)%s+(.+)$")
-            if a and n then nameMap[a] = n end
+            local a, n = line:match("Device%s+([%x:]+)%s*(.*)")
+            if a and a:find(":") then
+                n = (n and n:match("^%s*(.-)%s*$")) or ""
+                if n ~= "" then nameMap[a:lower()] = n end
+            end
         end
 
-        local now = os.time()
+        local paired, pairedMap = {}, {}
         for line in pairSec:gmatch("[^\r\n]+") do
-            local a, n = line:match("^Device%s+(%S+)%s+(.+)$")
-            if a and n then
-                pairedMap[a] = true
-                local dName = devName[a] or n
+            local a, n = line:match("Device%s+([%x:]+)%s*(.*)")
+            if a and a:find(":") then
                 local la = a:lower()
-                local isC = (devConn[a] == true)
-                local isPending = pendingActions[la]
-                if isPending then
-                    if now < isPending.expires then
-                        if isC == isPending.connected then pendingActions[la] = nil
-                        else isC = isPending.connected end
-                    else pendingActions[la] = nil end
-                end
+                pairedMap[la] = true
+                n = (n and n:match("^%s*(.-)%s*$")) or ""
+                local dName = (n ~= "" and n) or nameMap[la] or a
+                local isC = (devConn[la] == true)
+                local isAuto = (autoConnectMap[la] == true)
                 table.insert(paired, {
                     address = a, name = dName, connected = isC,
                     connecting = (state.connectingAddrs[la] == true),
-                    trusted = (devTrust[a] == true), autoReconnect = (devTrust[a] == true),
+                    trusted = isAuto, autoReconnect = isAuto,
                     icon = btTypeGlyph(dName)
                 })
+
+                -- Auto-connect on startup if enabled
+                if isAuto and not isC and autoConnectOnPower and state.connectingAddrs[la] ~= true then
+                    noctalia.runAsync(string.format("timeout 4 bluetoothctl connect %s 2>/dev/null || true", a), function()
+                        BT.refresh(function() end)
+                    end, 5000)
+                end
             end
         end
+        autoConnectOnPower = false
         state.pairedDevices = paired
 
-        -- grabs pairing requests from native agent
+        -- grab pairing requests from agent
         local reqs = {}
-        if agentSec and agentSec ~= "" then
-            local a = agentSec:match('"address":%s*"([^"]+)"')
-            local n = agentSec:match('"name":%s*"([^"]+)"') or a
-            local pk = agentSec:match('"passkey":%s*"([^"]*)"') or ""
-            local ts = tonumber(agentSec:match('"timestamp":%s*(%d+)')) or now
-            if a and (now - ts) <= 20 then
+        local rawAgent = agentSec
+        local okF, fileContent = pcall(noctalia.readFile, "/tmp/noctalia_bt_pairing.json")
+        if okF and type(fileContent) == "string" and fileContent ~= "" then rawAgent = fileContent end
+        if rawAgent and rawAgent ~= "" then
+            local a = rawAgent:match('"address":%s*"([^"]+)"')
+            local rawN = rawAgent:match('"name":%s*"([^"]+)"')
+            local la = a and a:lower()
+            local n = (la and nameMap[la]) or ((rawN and not rawN:find("^Device %x%x:")) and rawN) or (a or "Bluetooth Device")
+            local pk = rawAgent:match('"passkey":%s*"([^"]*)"') or ""
+            local ts = tonumber(rawAgent:match('"timestamp":%s*(%d+)')) or os.time()
+            if a and (os.time() - ts) <= 30 then
                 table.insert(reqs, { address = a, name = n, passkey = pk, timestamp = ts, icon = btTypeGlyph(n) })
             end
         end
@@ -135,15 +197,22 @@ function BT.refresh(callback)
 
         -- Available
         local avail = {}
-        for a, n in pairs(nameMap) do
-            if not pairedMap[a] and n ~= "" and a:find(":") then
-                table.insert(avail, { address = a, name = n, icon = btTypeGlyph(n), connected = (devConn[a] == true) })
+        for line in allSec:gmatch("[^\r\n]+") do
+            local a, n = line:match("Device%s+([%x:]+)%s*(.*)")
+            if a and a:find(":") then
+                local la = a:lower()
+                if not pairedMap[la] then
+                    n = (n and n:match("^%s*(.-)%s*$")) or ""
+                    local dName = (n ~= "" and n) or a
+                    table.insert(avail, { address = a, name = dName, icon = btTypeGlyph(dName), connected = (devConn[la] == true) })
+                end
             end
         end
         state.availableDevices = avail
+        saveCache()
 
         if callback then callback(state) end
-    end, 6000)
+    end, 4000)
 end
 
 function BT.scan(callback)
@@ -159,6 +228,7 @@ end
 function BT.toggle(enable, callback)
     btPowerLock = os.time() + 3
     state.enabled = enable
+    if enable then autoConnectOnPower = true end
     if not enable then state.pairedDevices, state.availableDevices, state.pairingRequests, state.connectedAddrs = {}, {}, {}, {} end
     if callback then callback(state) end
     local cmd = enable and "rfkill unblock bluetooth 2>/dev/null; bluetoothctl power on 2>/dev/null" or "bluetoothctl power off 2>/dev/null"
@@ -167,33 +237,53 @@ function BT.toggle(enable, callback)
     end, 3000)
 end
 
+local function validMac(a)
+    return type(a) == "string" and a:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") ~= nil
+end
+
 function BT.connect(addr, callback)
-    local la = (addr or ""):lower()
-    state.connectingAddrs[la] = true
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
+    local dName = addr
     if state.pairedDevices then
-        for _, d in ipairs(state.pairedDevices) do if (d.address or ""):lower() == la then d.connecting = true; break end end
+        for _, d in ipairs(state.pairedDevices) do
+            if (d.address or ""):lower() == la then
+                d.connecting = true
+                dName = d.name or d.address
+                break
+            end
+        end
     end
+    state.connectingAddrs[la] = true
     if callback then callback(state) end
 
-    local cmd = string.format("timeout 4 bluetoothctl connect %s 2>&1 || (bluetoothctl disconnect %s 2>/dev/null; true)", addr, addr)
-    noctalia.runAsync(cmd, function()
-        state.connectingAddrs[la] = nil
-        pendingActions[la] = nil
-        BT.refresh(function(s)
-            local isConn = s.connectedAddrs and (s.connectedAddrs[addr] or s.connectedAddrs[la])
-            if not isConn then
-                noctalia.runAsync(string.format("bluetoothctl disconnect %s 2>/dev/null", addr), function() end, 1000)
-                if noctalia.notifyError then pcall(noctalia.notifyError, noctalia.tr("title"), "Connection failed")
-                else pcall(noctalia.notify, noctalia.tr("title"), "Connection failed") end
+    local cmd = string.format("timeout 8 bluetoothctl connect %s 2>&1; sleep 0.5; bluetoothctl info %s 2>/dev/null", addr, addr)
+    noctalia.runAsync(cmd, function(res)
+        local out = string.lower((res and res.stdout) or "")
+        local isConnected = (out:find("connected:%s*yes") ~= nil) or (out:find("connection successful") ~= nil) or (out:find("successful") ~= nil)
+        local needsRepair = out:find("not authorized") or out:find("authentication failed") or out:find("authentication canceled") or out:find("not permitted")
+
+        if needsRepair then
+            -- If remote device is unpaired, prompt fresh pair
+            noctalia.runAsync("noctalia msg panel-open autumn/network-toolkit:panel", function() end, 1500)
+            local repairCmd = string.format("bluetoothctl remove %s 2>/dev/null; sleep 0.2; bluetoothctl pair %s 2>/dev/null; sleep 1; (bluetoothctl info %s 2>/dev/null | grep -q 'Connected: yes') || bluetoothctl connect %s 2>/dev/null", addr, addr, addr, addr)
+            noctalia.runAsync(repairCmd, function()
+                state.connectingAddrs[la] = nil
+                BT.refresh(callback)
+            end, 15000)
+        else
+            state.connectingAddrs[la] = nil
+            if not isConnected and not needsRepair then
+                noctalia.notifyError(noctalia.tr("title"), string.format("Failed to connect to %s", dName))
             end
-            if callback then callback(s) end
-        end)
-    end, 5000)
+            BT.refresh(callback)
+        end
+    end, 10000)
 end
 
 function BT.disconnect(addr, callback)
-    local la = (addr or ""):lower()
-    pendingActions[la] = { connected = false, expires = os.time() + 4 }
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
     state.connectedAddrs[addr], state.connectedAddrs[la] = nil, nil
     if state.pairedDevices then
         for _, d in ipairs(state.pairedDevices) do if (d.address or ""):lower() == la then d.connected = false; break end end
@@ -203,29 +293,73 @@ function BT.disconnect(addr, callback)
 end
 
 function BT.pair(addr, callback)
-    noctalia.runAsync(string.format("bluetoothctl pair %s 2>/dev/null; bluetoothctl connect %s 2>/dev/null", addr, addr), function() BT.refresh(callback) end, 12000)
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
+    state.connectingAddrs[la] = true
+    if callback then callback(state) end
+    noctalia.runAsync("noctalia msg panel-open autumn/network-toolkit:panel", function() end, 1500)
+    local cmd = string.format("bluetoothctl pair %s 2>/dev/null; sleep 1; (bluetoothctl info %s 2>/dev/null | grep -q 'Connected: yes') || bluetoothctl connect %s 2>/dev/null", addr, addr, addr)
+    noctalia.runAsync(cmd, function()
+        state.connectingAddrs[la] = nil
+        BT.refresh(callback)
+    end, 14000)
 end
 
 function BT.toggleAutoReconnect(addr, callback)
-    local isTr = false
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
+    local nextAuto = not (autoConnectMap[la] == true)
+    autoConnectMap[la] = nextAuto
+    saveAutoConnect()
+
+    local isConnected = false
     if state.pairedDevices then
         for _, d in ipairs(state.pairedDevices) do
-            if d.address == addr then d.trusted = not d.trusted; d.autoReconnect = d.trusted; isTr = d.trusted; break end
+            if (d.address or ""):lower() == la then
+                d.trusted = nextAuto
+                d.autoReconnect = nextAuto
+                isConnected = (d.connected == true)
+                break
+            end
         end
     end
+    if nextAuto and not isConnected then
+        state.connectingAddrs[la] = true
+    end
     if callback then callback(state) end
-    noctalia.runAsync(string.format("bluetoothctl %s %s 2>/dev/null", isTr and "trust" or "untrust", addr), function() BT.refresh(callback) end, 3000)
+
+    if nextAuto then
+        local cmd = string.format("bluetoothctl trust %s 2>/dev/null; sleep 0.2; (bluetoothctl info %s 2>/dev/null | grep -q 'Connected: yes') || timeout 4 bluetoothctl connect %s 2>/dev/null || true", addr, addr, addr)
+        noctalia.runAsync(cmd, function()
+            state.connectingAddrs[la] = nil
+            BT.refresh(callback)
+        end, 6000)
+    else
+        local cmd = string.format("bluetoothctl untrust %s 2>/dev/null", addr)
+        noctalia.runAsync(cmd, function()
+            state.connectingAddrs[la] = nil
+            BT.refresh(callback)
+        end, 3000)
+    end
 end
 
 function BT.acceptPair(addr, callback)
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
     state.pairingRequests = {}
+    state.connectingAddrs[la] = true
     if callback then callback(state) end
+    -- Write action file synchronously so C helper reads it immediately
     pcall(noctalia.writeFile, "/tmp/noctalia_bt_pairing_action", "accept")
-    local cmd = string.format("echo -n 'accept' > /tmp/noctalia_bt_pairing_action; rm -f /tmp/noctalia_bt_pairing.json; sleep 0.2; bluetoothctl connect %s 2>/dev/null", addr)
-    noctalia.runAsync(cmd, function() BT.refresh(callback) end, 10000)
+    local cmd = string.format("sleep 1; (bluetoothctl info %s 2>/dev/null | grep -q 'Connected: yes') || bluetoothctl connect %s 2>/dev/null || true", addr, addr)
+    noctalia.runAsync(cmd, function()
+        state.connectingAddrs[la] = nil
+        BT.refresh(callback)
+    end, 4000)
 end
 
 function BT.rejectPair(addr, callback)
+    if not validMac(addr) then if callback then callback(state) end; return end
     state.pairingRequests = {}
     if callback then callback(state) end
     pcall(noctalia.writeFile, "/tmp/noctalia_bt_pairing_action", "reject")
@@ -234,8 +368,8 @@ function BT.rejectPair(addr, callback)
 end
 
 function BT.remove(addr, callback)
-    local la = (addr or ""):lower()
-    pendingActions[la] = nil
+    if not validMac(addr) then if callback then callback(state) end; return end
+    local la = addr:lower()
     state.connectedAddrs[addr], state.connectedAddrs[la] = nil, nil
     if state.pairedDevices then
         local p = {}

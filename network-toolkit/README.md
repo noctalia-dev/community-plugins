@@ -66,8 +66,6 @@ All settings can be configured under **Settings → Plugins → Network Toolkit*
 | `custom_dns_1` | `string` | `""` | Custom DNS slot 1 (`Name=IP`, e.g. `NextDNS=45.90.28.0 45.90.30.0`). |
 | `custom_dns_2` | `string` | `""` | Custom DNS slot 2. |
 | `custom_dns_3` | `string` | `""` | Custom DNS slot 3. |
-| `bluetooth_download_dir` | `string` | `~/Downloads` | Target directory for incoming Bluetooth file transfers. |
-| `bluetooth_device_name` | `string` | `""` | Custom broadcast alias for the local Bluetooth adapter. |
 | `widget_display_mode` | `select` | `network` | Display mode: `network`, `bluetooth`, `dns`, `network_hotspot`, `network_bluetooth`, `network_dns`, `bluetooth_dns`, `network_bluetooth_dns`, `network_hotspot_bluetooth_dns`. |
 | `widget_indicator_dots` | `select` | `hotspot_dns` | Status dots shown on widget: `hotspot_dns` (Hotspot + DNS), `hotspot` (Hotspot only), `dns` (DNS only), `none` (Disabled). |
 | `widget_right_click` | `select` | `toggle_wifi` | Quick action on right-click: `toggle_wifi`, `toggle_hs`, or `toggle_bt`. |

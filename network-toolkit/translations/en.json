@@ -21,13 +21,8 @@
     "current_connection": "Current Connection",
     "dns_service": "DNS Server",
     "hotspot": "Hotspot",
-    "connected_devices": "Connected Devices",
-    "connected_devices_count": "{count} Connected Devices",
     "connected_devices_ratio": "CONNECTED DEVICES ({count}/{max})",
     "no_devices": "No devices connected",
-    "active": "Active",
-    "inactive": "Inactive",
-    "hotspot_active_tip": "Broadcasting network as {ssid}",
     "hotspot_inactive_tip": "Hotspot is inactive.",
     "system_default": "Default (ISP)",
     "dns_prefix": "DNS:",
@@ -36,9 +31,6 @@
     "saved_networks": "SAVED",
     "available_networks": "AVAILABLE",
     "wifi_off": "Wi-Fi is turned off",
-    "hotspot_active_notice": "Wi-Fi is unavailable while Hotspot is active",
-    "hotspot_active_notice_desc": "Turn off Hotspot to scan and connect to Wi-Fi networks.",
-    "turn_off_hotspot": "Turn Off Hotspot",
     "scanning": "Scanning available networks...",
     "no_networks": "No networks found",
     "password_for": "Password for",
@@ -50,32 +42,24 @@
     "off": "OFF",
     "scan_to_connect": "Scan to connect to Wi-Fi",
     "generating_qr": "Generating QR code...",
-    "share_wifi": "Share Wi-Fi",
     "bluetooth": "Bluetooth",
     "connected_devices": "CONNECTED DEVICES",
     "paired_devices": "PAIRED DEVICES",
     "available_devices": "AVAILABLE DEVICES",
     "connecting": "Connecting...",
-    "connection_failed": "Connection failed",
     "discoverable": "Discoverable",
-    "discoverable_desc": "Visible to nearby devices",
     "no_bt_devices": "No Bluetooth devices found",
     "bt_off": "Bluetooth is turned off",
     "bt_scanning": "Scanning for devices...",
     "pair": "Pair",
-    "unpair": "Remove",
     "accept": "Accept",
     "reject": "Reject",
-    "disconnect_device": "Disconnect",
-    "pairing_requests": "PAIRING REQUESTS",
     "pairing_request_msg": "{name} requested to pair",
-    "pairing_passkey": "Passkey: {key}",
-    "pairing_request_no_key": "{name} requested to pair"
+    "pairing_passkey": "Passkey: {key}"
   },
   "notifications": {
     "dns_switched": "DNS switched to {provider}",
     "dns_switch_failed": "Failed to switch DNS",
-    "dns_reset": "DNS reset to System Default",
     "connected_to": "Connected to {ssid}",
     "connect_failed": "Failed to connect to {ssid}",
     "incorrect_password": "Failed to connect to {ssid}: Incorrect password"
@@ -121,14 +105,6 @@
     "custom_dns_3": {
       "label": "Custom DNS Slot 3",
       "description": "Format: Name = IP1 IP2 (e.g. ControlD = 76.76.2.0). Only appears in DNS menu when filled."
-    },
-    "bluetooth_download_dir": {
-      "label": "Bluetooth Download Location",
-      "description": "Directory where files received via Bluetooth are stored (e.g. ~/Downloads)."
-    },
-    "bluetooth_device_name": {
-      "label": "Bluetooth Device Name",
-      "description": "Custom name/alias for your Bluetooth adapter. Leave empty to use system default."
     },
     "widget_display_mode": {
       "label": "Widget Display Mode",

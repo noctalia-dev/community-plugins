@@ -1,13 +1,32 @@
 --!nonstrict
 -- Network Toolkit panel UI
 local state = noctalia.state.get("network_state") or {}
+local dismissedPairingKeys, removedDevices, deviceActionOverrides = {}, {}, {}
+local btConnecting, wifiConnectingSsid = {}, nil
+
+local function getActivePairingRequests()
+    local okP, pairRaw = pcall(noctalia.readFile, "/tmp/noctalia_bt_pairing.json")
+    if okP and type(pairRaw) == "string" and pairRaw ~= "" then
+        local a = pairRaw:match('"address":%s*"([^"]+)"')
+        local n = pairRaw:match('"name":%s*"([^"]+)"') or "Bluetooth Device"
+        if n == "" or n:find("^Device %x%x:") then n = a or "Bluetooth Device" end
+        local pk = pairRaw:match('"passkey":%s*"([^"]*)"') or ""
+        local ts = tonumber(pairRaw:match('"timestamp":%s*(%d+)')) or os.time()
+        if a and (os.time() - ts) < 45 then
+            local reqKey = a .. ":" .. tostring(ts) .. ":" .. tostring(pk)
+            if not dismissedPairingKeys[reqKey] then
+                return { { address = a, name = n, passkey = pk, timestamp = ts, icon = "bluetooth" } }
+            end
+        end
+    end
+    return nil
+end
+
 local customDnsInput, passwordInput, selectedSsid = "", "", nil
 local showPassword, showWifiQr, qrLoading, showHsQr = false, false, false, false
 local qrImagePath, qrHsPath = "/tmp/network-toolkit-wifi-qr.png", "/tmp/network-toolkit-hotspot-qr.png"
 local hoveredId, cmdSeq, animFrame = nil, 0, 0
 local activeLeftCard, activeRightCard = "wifi", "bluetooth"
-local dismissedPairingAddresses, removedDevices, deviceActionOverrides = {}, {}, {}
-local btConnecting, wifiConnectingSsid = {}, nil
 
 local LOADER = { "loader", "loader-2", "loader-3", "loader-quarter" }
 
@@ -88,12 +107,12 @@ render = function()
     local isConn = net.wifiConnected or net.ethernetConnected
     local connTitle = net.ethernetConnected and (net.interface ~= "" and net.interface or noctalia.tr("status.ethernet"))
         or (net.wifiConnected and (net.ssid ~= "" and net.ssid or noctalia.tr("status.wifi"))
-        or (hsActive and (hs.ssid or noctalia.tr("status.hotspot_active")) or noctalia.tr("status.disconnected")))
+        or noctalia.tr("status.disconnected"))
 
     local connIp = (isConn and net.ipAddress ~= "") and (" (" .. net.ipAddress .. ")") or ""
     local connDetails = net.ethernetConnected and (connTitle .. connIp .. (hsActive and (" • Hotspot (" .. tostring(hs.clientCount or 0) .. ")") or ""))
         or (net.wifiConnected and (connTitle .. connIp .. " • " .. tostring(net.signal or 0) .. "% • " .. (net.band ~= "" and net.band or "—") .. (hsActive and (" • Hotspot (" .. tostring(hs.clientCount or 0) .. ")") or ""))
-        or (hsActive and (connTitle .. " • " .. tostring(hs.clientCount or 0) .. " Clients • Hotspot") or (connTitle .. " • —")))
+        or (hsActive and (noctalia.tr("status.disconnected") .. " • Hotspot Active (" .. tostring(hs.clientCount or 0) .. ")") or (connTitle .. " • —")))
 
     local spinner = LOADER[(animFrame % #LOADER) + 1]
     local isCustomDns = (dns.activeProvider ~= nil and dns.activeProvider ~= "default")
@@ -124,12 +143,16 @@ render = function()
         ui.row({ align = "center", justify = "space_between" }, {
             ui.label({ text = connDetails, fontSize = 12, fontWeight = "bold", color = "on_surface" }),
             ui.button({
-                glyph = isConn and "plug-off" or (hsActive and "broadcast-off" or "plug"), glyphSize = 16,
-                variant = (isConn or hsActive) and "destructive" or "primary", contentAlign = "center",
+                glyph = isConn and "plug-off" or "plug", glyphSize = 16,
+                variant = isConn and "destructive" or "primary", contentAlign = "center",
                 onClick = function()
-                    if isConn then net.wifiConnected, net.ssid, net.ipAddress = false, "", ""; render(); sendCommand("wifi", "disconnect")
-                    elseif hsActive then hs.active = not hs.active; render(); sendCommand("hotspot", "toggle")
-                    else sendCommand("wifi", "auto_connect") end
+                    if isConn then
+                        net.wifiConnected, net.ethernetConnected, net.ssid, net.ipAddress = false, false, "", ""
+                        render()
+                        sendCommand("wifi", "disconnect")
+                    else
+                        sendCommand("wifi", "auto_connect")
+                    end
                 end
             })
         }),
@@ -292,7 +315,13 @@ render = function()
     -- Right Card (Bluetooth / DNS)
     local rightControls = {}
     if bt.scanning and activeRightCard == "bluetooth" then table.insert(rightControls, ui.glyph({ name = spinner, size = 16, color = "primary" })) end
-    if bt.enabled and activeRightCard == "bluetooth" then table.insert(rightControls, ui.button({ glyph = "refresh", glyphSize = 16, variant = "ghost", contentAlign = "center", onClick = function() sendCommand("bluetooth", "scan") end })) end
+    if bt.enabled and activeRightCard == "bluetooth" then
+        table.insert(rightControls, ui.button({ glyph = "refresh", glyphSize = 16, variant = "ghost", contentAlign = "center", onClick = function()
+            if state.bluetooth then state.bluetooth.scanning = true end
+            render()
+            sendCommand("bluetooth", "scan")
+        end }))
+    end
     table.insert(rightControls, ui.button({
         glyph = isCustomDns and "shield" or "shield-off", glyphSize = 16, variant = (activeRightCard == "dns") and "primary" or "ghost", contentAlign = "center",
         onClick = function() if activeRightCard == "bluetooth" then activeRightCard = "dns"; render() else sendCommand("dns", "toggle") end end,
@@ -315,7 +344,44 @@ render = function()
     local rightCard
     if activeRightCard == "bluetooth" then
         local btList = {}
-        if not bt.enabled then
+        local now = os.time()
+        local activeReqs = getActivePairingRequests() or (bt and bt.pairingRequests) or {}
+
+        for _, req in ipairs(activeReqs) do
+            local addr = req.address or ""
+            local reqKey = addr .. ":" .. tostring(req.timestamp or 0) .. ":" .. tostring(req.passkey or "")
+            if not dismissedPairingKeys[reqKey] then
+                local displayName = req.name or addr
+                if displayName == "" or displayName:find("^Device %x%x:") then displayName = addr or "Bluetooth Device" end
+                table.insert(btList, ui.column({ key = "pair-req-" .. addr .. "-" .. tostring(req.timestamp or 0), gap = 8, fill = "surface", radius = 8, paddingV = 8, paddingH = 10 }, {
+                    ui.row({ align = "center", gap = 8 }, {
+                        ui.glyph({ name = req.icon or "bluetooth", size = 18, color = "primary" }),
+                        ui.column({ gap = 2 }, {
+                            ui.label({ text = noctalia.tr("panel.pairing_request_msg", { name = displayName }), fontSize = 12, fontWeight = "bold", color = "on_surface" }),
+                            (req.passkey and req.passkey ~= "") and ui.label({ text = noctalia.tr("panel.pairing_passkey", { key = tostring(req.passkey) }), fontSize = 11, fontWeight = "bold", color = "primary" }) or nil
+                        })
+                    }),
+                    ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+                        ui.button({ text = noctalia.tr("panel.accept"), variant = "ghost", fontSize = 11, flexGrow = 1, contentAlign = "center", onClick = function()
+                            dismissedPairingKeys[reqKey] = true
+                            pcall(noctalia.writeFile, "/tmp/noctalia_bt_pairing_action", "accept")
+                            if state.bluetooth then state.bluetooth.pairingRequests = {} end
+                            render()
+                            sendCommand("bluetooth", "accept_pair", { address = addr })
+                        end }),
+                        ui.button({ text = noctalia.tr("panel.reject"), variant = "ghost", fontSize = 11, flexGrow = 1, contentAlign = "center", onClick = function()
+                            dismissedPairingKeys[reqKey] = true
+                            pcall(noctalia.writeFile, "/tmp/noctalia_bt_pairing_action", "reject")
+                            if state.bluetooth then state.bluetooth.pairingRequests = {} end
+                            render()
+                            sendCommand("bluetooth", "reject_pair", { address = addr })
+                        end })
+                    })
+                }))
+            end
+        end
+
+        if not bt.enabled and #activeReqs == 0 then
             table.insert(btList, hintRow(noctalia.tr("panel.bt_off"), "bluetooth-off"))
         else
             table.insert(btList, ui.row({
@@ -326,39 +392,16 @@ render = function()
                 ui.glyph({ name = bt.discoverable and "toggle-right-filled" or "toggle-left-filled", size = 30, color = bt.discoverable and "primary" or "on_surface_variant" })
             }))
 
-            local now = os.time()
-            for _, req in ipairs(bt.pairingRequests or {}) do
-                local addr = req.address or ""
-                local exp = dismissedPairingAddresses[addr]
-                if not exp or now > exp then
-                    table.insert(btList, ui.column({ key = "pair-req-" .. addr, gap = 8, fill = "surface", radius = 8, paddingV = 8, paddingH = 10 }, {
-                        ui.row({ align = "center", gap = 8 }, {
-                            ui.glyph({ name = req.icon or "bluetooth", size = 18, color = "primary" }),
-                            ui.column({ gap = 2 }, {
-                                ui.label({ text = noctalia.tr("panel.pairing_request_msg", { name = req.name or addr }), fontSize = 12, fontWeight = "bold", color = "on_surface" }),
-                                req.passkey and ui.label({ text = noctalia.tr("panel.pairing_passkey", { key = tostring(req.passkey) }), fontSize = 11, fontWeight = "bold", color = "primary" }) or nil
-                            })
-                        }),
-                        ui.row({ align = "center", justify = "space_between", gap = 8 }, {
-                            ui.button({ text = noctalia.tr("panel.accept"), variant = "primary", fontSize = 11, flexGrow = 1, contentAlign = "center", onClick = function() dismissedPairingAddresses[addr] = os.time() + 10; if state.bluetooth then state.bluetooth.pairingRequests = {} end; render(); sendCommand("bluetooth", "accept_pair", { address = addr }) end }),
-                            ui.button({ text = noctalia.tr("panel.reject"), variant = "destructive", fontSize = 11, flexGrow = 1, contentAlign = "center", onClick = function() dismissedPairingAddresses[addr] = os.time() + 10; if state.bluetooth then state.bluetooth.pairingRequests = {} end; render(); sendCommand("bluetooth", "reject_pair", { address = addr }) end })
-                        })
-                    }))
-                end
-            end
-
             local connP, otherP = {}, {}
             for _, d in ipairs(bt.pairedDevices or {}) do
-                local la = (d.address or ""):lower()
-                local exp = removedDevices[la]
-                if not exp or now > exp then
-                    if d.connected then table.insert(connP, d) else table.insert(otherP, d) end
-                end
+                if d.connected then table.insert(connP, d) else table.insert(otherP, d) end
             end
 
             local function renderBtDevice(d, isConnectedSec)
-                local k, la = "bt-" .. d.address, (d.address or ""):lower()
-                local isAuto = (d.autoReconnect == true or d.trusted == true)
+                local la = (d.address or ""):lower()
+                local k = "bt-" .. (d.address or ""):gsub(":", "")
+                local dName = (d.name and d.name ~= "") and d.name or d.address or "Bluetooth Device"
+                local isAuto = (d.autoReconnect == true)
                 local isC = (btConnecting[la] and (now < btConnecting[la])) or (d.connecting == true)
                 local btns = {}
 
@@ -379,22 +422,29 @@ render = function()
                 end
 
                 table.insert(btns, smallBtn(isAuto and "repeat" or "repeat-off", isAuto and "primary" or "ghost", function()
-                    local nextTr = not d.trusted
-                    deviceActionOverrides[la] = { trusted = nextTr, expires = os.time() + 4 }
-                    d.trusted, d.autoReconnect = nextTr, nextTr; render(); sendCommand("bluetooth", "toggle_autoreconnect", { address = d.address })
+                    local nextAuto = not isAuto
+                    deviceActionOverrides[la] = { trusted = nextAuto, autoReconnect = nextAuto, expires = os.time() + 4 }
+                    d.trusted, d.autoReconnect = nextAuto, nextAuto
+                    if nextAuto and not d.connected then
+                        btConnecting[la] = os.time() + 4
+                        d.connecting = true
+                    end
+                    render()
+                    sendCommand("bluetooth", "toggle_autoreconnect", { address = d.address })
                 end))
 
                 table.insert(btns, smallBtn("trash", "ghost", function()
-                    removedDevices[la] = os.time() + 10; btConnecting[la], deviceActionOverrides[la] = nil, nil
+                    btConnecting[la], deviceActionOverrides[la] = nil, nil
                     if state.bluetooth and state.bluetooth.pairedDevices then
                         local p = {}
                         for _, dev in ipairs(state.bluetooth.pairedDevices) do if (dev.address or ""):lower() ~= la then table.insert(p, dev) end end
                         state.bluetooth.pairedDevices = p
                     end
-                    render(); sendCommand("bluetooth", "remove", { address = d.address })
+                    render()
+                    sendCommand("bluetooth", "remove", { address = d.address })
                 end))
 
-                return renderDeviceRow(k, d.name, (not isConnectedSec and isC) and noctalia.tr("panel.connecting") or nil, d.icon or "bluetooth", (isConnectedSec or isC) and "primary" or "on_surface_variant", hoveredId == k, false, btns, function()
+                return renderDeviceRow(k, dName, (not isConnectedSec and isC) and noctalia.tr("panel.connecting") or nil, d.icon or "bluetooth", (isConnectedSec or isC) and "primary" or "on_surface_variant", hoveredId == k, false, btns, function()
                     if isConnectedSec then
                         deviceActionOverrides[la] = { connected = false, expires = os.time() + 4 }
                         d.connected = false; render(); sendCommand("bluetooth", "disconnect", { address = d.address })
@@ -417,9 +467,10 @@ render = function()
             if #avail > 0 then
                 table.insert(btList, ui.label({ text = noctalia.tr("panel.available_devices"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }))
                 for _, d in ipairs(avail) do
-                    local k = "bt-" .. d.address
+                    local k = "bt-" .. (d.address or ""):gsub(":", "")
+                    local dName = (d.name and d.name ~= "") and d.name or d.address or "Bluetooth Device"
                     local btns = { smallBtn("bluetooth-connected", "ghost", function() sendCommand("bluetooth", "pair", { address = d.address }) end) }
-                    table.insert(btList, renderDeviceRow(k, d.name, nil, d.icon or "bluetooth", "on_surface_variant", hoveredId == k, false, btns, function() sendCommand("bluetooth", "pair", { address = d.address }) end))
+                    table.insert(btList, renderDeviceRow(k, dName, nil, d.icon or "bluetooth", "on_surface_variant", hoveredId == k, false, btns, function() sendCommand("bluetooth", "pair", { address = d.address }) end))
                 end
             elseif #connP == 0 and #otherP == 0 then
                 table.insert(btList, hintRow(bt.scanning and noctalia.tr("panel.bt_scanning") or noctalia.tr("panel.no_bt_devices"), bt.scanning and spinner or "info-circle"))
@@ -451,7 +502,12 @@ render = function()
         ui.row({ align = "center", justify = "space_between" }, {
             ui.row({ align = "center", gap = 6 }, { ui.glyph({ name = "world", size = 18, color = "primary" }), ui.label({ text = noctalia.tr("title"), fontSize = 14, fontWeight = "bold", color = "primary" }) }),
             ui.row({ align = "center", gap = 4 }, {
-                ui.button({ glyph = "refresh", variant = "ghost", contentAlign = "center", onClick = function() sendCommand("system", "refresh") end }),
+                ui.button({ glyph = "refresh", variant = "ghost", contentAlign = "center", onClick = function()
+                    if state.net then state.net.refreshing = true end
+                    if state.bluetooth then state.bluetooth.scanning = true end
+                    render()
+                    sendCommand("system", "refresh")
+                end }),
                 ui.button({ glyph = "x", variant = "ghost", contentAlign = "center", onClick = function() panel.close() end })
             })
         }),
@@ -468,34 +524,28 @@ function onOpen(_context)
     state = noctalia.state.get("network_state") or state
     selectedSsid, passwordInput, showPassword, showWifiQr, showHsQr, hoveredId = nil, "", false, false, false, nil
     activeLeftCard, activeRightCard = "wifi", "bluetooth"
+    local reqs = getActivePairingRequests()
+    if reqs and #reqs > 0 then
+        activeRightCard = "bluetooth"
+        if not state.bluetooth then state.bluetooth = {} end
+        state.bluetooth.pairingRequests = reqs
+    end
     render()
-    if not state.net or not state.net.availableNetworks or #state.net.availableNetworks == 0 then sendCommand("wifi", "scan") end
-    if state.hotspot and state.hotspot.active then sendCommand("hotspot", "refresh") end
-    if state.bluetooth and state.bluetooth.enabled then sendCommand("bluetooth", "refresh") end
+
+    -- Actively refresh all subsystems (Wi-Fi, Hotspot, DNS, Bluetooth) immediately upon opening
+    sendCommand("system", "refresh")
 end
 
 function update()
     local now = os.time()
     local isRef = state.net and state.net.refreshing
     local isBtScan = state.bluetooth and state.bluetooth.scanning
-    if isRef or isBtScan or qrLoading or next(btConnecting) ~= nil or (wifiConnectingSsid ~= nil) then
-        animFrame += 1; render()
-    end
+    local hasConnecting = (next(btConnecting) ~= nil) or (wifiConnectingSsid ~= nil)
+    local hasPairing = (getActivePairingRequests() ~= nil)
 
-    local pairRaw = noctalia.readFile("/tmp/noctalia_bt_pairing.json")
-    if pairRaw and pairRaw ~= "" then
-        local a, n, pk = pairRaw:match('"address":"([^"]+)"'), pairRaw:match('"name":"([^"]+)"') or "Bluetooth Device", pairRaw:match('"passkey":"([^"]*)"') or ""
-        local ts = tonumber(pairRaw:match('"timestamp":(%d+)')) or now
-        if a and (now - ts) < 20 then
-            local exp = dismissedPairingAddresses[a]
-            if not exp or now > exp then
-                if not state.bluetooth then state.bluetooth = {} end
-                local cur = state.bluetooth.pairingRequests or {}
-                local exists = false
-                for _, r in ipairs(cur) do if r.address == a and r.passkey == pk then exists = true; break end end
-                if not exists then state.bluetooth.pairingRequests = { { address = a, name = n, passkey = pk, timestamp = ts } }; render() end
-            end
-        end
+    if isRef or isBtScan or qrLoading or hasConnecting or hasPairing then
+        animFrame += 1
+        render()
     end
 
     if activeLeftCard == "hotspot" and state.hotspot and state.hotspot.active and (now - lastHsPoll >= 1) then
@@ -510,20 +560,13 @@ noctalia.state.watch("network_state", function(newState)
         state = newState
         local now = os.time()
         if state.bluetooth and state.bluetooth.pairedDevices then
-            local filtered = {}
             for _, d in ipairs(state.bluetooth.pairedDevices) do
                 local la = (d.address or ""):lower()
-                local exp = removedDevices[la]
-                if not exp or now > exp then
-                    local ov = deviceActionOverrides[la]
-                    if ov and now < ov.expires then
-                        if ov.connected ~= nil then d.connected = ov.connected end
-                        if ov.trusted ~= nil then d.trusted, d.autoReconnect = ov.trusted, ov.trusted end
-                    end
-                    table.insert(filtered, d)
+                local ov = deviceActionOverrides[la]
+                if ov and now < ov.expires then
+                    if ov.trusted ~= nil then d.trusted, d.autoReconnect = ov.trusted, ov.trusted end
                 end
             end
-            state.bluetooth.pairedDevices = filtered
         end
         render()
     end

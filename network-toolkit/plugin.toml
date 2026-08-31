@@ -76,19 +76,6 @@ label_key = "settings.custom_dns_3.label"
 description_key = "settings.custom_dns_3.description"
 default = ""
 
-[[setting]]
-key = "bluetooth_download_dir"
-type = "string"
-label_key = "settings.bluetooth_download_dir.label"
-description_key = "settings.bluetooth_download_dir.description"
-default = "~/Downloads"
-
-[[setting]]
-key = "bluetooth_device_name"
-type = "string"
-label_key = "settings.bluetooth_device_name.label"
-description_key = "settings.bluetooth_device_name.description"
-default = ""
 
 [[setting]]
 key = "widget_display_mode"

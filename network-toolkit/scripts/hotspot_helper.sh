@@ -8,8 +8,11 @@ if [ -z "$BASE" ]; then
     [ -z "$BASE" ] && command -v iw >/dev/null 2>&1 && BASE=$(iw dev 2>/dev/null | awk '/Interface/ {if ($2 !~ /-ap$/ && $2 !~ /^p2p-/) {print $2; exit}}')
     [ -z "$BASE" ] && BASE="wlan0"
 fi
+BASE=$(echo "$BASE" | tr -cd 'a-zA-Z0-9_.-')
 
 AP="${2:-${HOTSPOT_IFACE:-${BASE}-ap}}"
+AP=$(echo "$AP" | tr -cd 'a-zA-Z0-9_.-')
+[ -z "$AP" ] && AP="${BASE}-ap"
 [ -d "/sys/class/net/${AP}" ] && { ip link set "${AP}" up 2>/dev/null || true; exit 0; }
 
 RUN() {
