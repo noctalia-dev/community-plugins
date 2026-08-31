@@ -57,11 +57,6 @@ Add new shortcuts that will let the user perform the following actions without t
 - Type/Copy otp
 - Autotype action
 
-### Creation menu
-
-Add a "New" option to folder view that will open a submenu letting the user create a new password entry in the current path (editable).
-The new password will be created with `pass generate` and opened with `pass edit` straight afterwards. As soon as the `pass edit` command returns, the launcher will show the details view for the new password.
-
 ---
 
 ## How `launcher.luau` works
@@ -86,10 +81,14 @@ the plugin's lifetime, so module locals survive across calls.
 | `:work/aws/root ` | detail view of entry `work/aws/root`, empty row filter |
 | `:work/aws/root otp` | detail view, row filter `otp` |
 | `:!work/aws/root ` | Generate confirm view for `work/aws/root` (`:!` checked before `:`) |
+| `+work/aws/` | creation menu, editable new path pre-filled `work/aws/` |
+| `+work/aws/new ` | creation menu, new path `work/aws/new` (has a leaf → "Create entry" row) |
+| `+!work/aws/new ` | creation confirm view for `work/aws/new` (`+!` checked before `+`) |
 
 `splitPath` peels the folder (up to the last `/`) from the search term. A leading
-`:` — never produced by browsing — marks detail mode; a leading `:!` marks the
-Generate confirm view (matched first). Module locals are caches
+`:` — never produced by browsing — marks detail mode; `:!` the Generate confirm
+view; `+` the creation menu and `+!` its confirm step (each `…!` variant matched
+first). Module locals are caches
 only (`indexReady`/`indexAt`, `detailCache`, `lastDetailPath`, `detailActions`,
 `lastQuery`). Drill-in / back are `launcher.setQuery(...)`; a bare `""` does not
 re-fire `onQuery`, so root "Go back" uses `" "` (trims to empty).
@@ -135,7 +134,9 @@ crosses into C with a ~26 KB fzy stack frame, so scoring *every* hit of a broad
 query blows the budget. Only the visible page is fully fzy-ordered.
 
 `renderBrowseRows` is simpler: the grep already returned exactly the direct
-children, so it just sorts by basename and caps.
+children, so it just sorts by basename and caps. It also prepends a **"New
+entry"** row (`id = "new:"..folder`, a `query` row to `"+"..folder.."/"`) after
+"Go back" — the entry point to the creation menu (see below).
 
 Rows: `entryRow(e, title)` → `{id = "nav:"..path | "entry:"..path, title,
 subtitle, glyph, query? = path.."/"}`. Search rows show the folder-relative
@@ -257,6 +258,34 @@ generate) and shows the new password ready to Copy/Type. On failure:
 panel stays closed (same reopen-loop rationale as `fetchDetail`). `pass generate
 -i` skips its own overwrite `yesno` prompt, so no tty is needed.
 
+### Creation menu
+
+Its own `+` prefix (never produced by browsing), `+!` for the confirm step
+(matched before `+`, the same leading-`!` trick as `:!`). Entered from the
+**"New entry"** row in every browse view (`renderBrowseRows`, a `query` row to
+`"+"..folder.."/"`) or by typing `+`.
+
+- `onQuery` `+<rest>` → `renderCreateMenuRows(rest)`: `trim(rest)` is the new
+  path (relative to the store root, editable by typing). "Go back" to
+  `parentOf(path)`, then — only when the path has a leaf (non-empty, no trailing
+  `/`) — a **"Create entry"** row (`id = "create-go"`, a `query` row to
+  `"+!"..path.." "`). Empty / folder-only path → a `create-hint` info row
+  instead (non-activatable; in the `onActivate` guard list).
+- `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
+  back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
+  (`newrun:<path>`). Static rows.
+- `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
+  empty / trailing-`/` path (`notification.create-failed`), else closes the
+  panel and runs `pass generate <path>` (no `-i` — a brand-new entry, encrypt
+  only, no pinentry; `pass` rejects `..`, and a name clash makes it prompt →
+  no tty → non-zero exit → reported as failure). On success:
+  `notification.created`; then if `terminalArgv()` resolves, spawn `pass edit
+  <path>` in that terminal (EDITOR from `editorCommand`, as in `editEntry`) and
+  wait for it; finally (or immediately, no terminal) `openNew()` —
+  `detailCache[path] = nil`, `buildIndex(nil)` (so the new entry enters the
+  store index for browse/search), `reopenLauncherPanel(":"..path.." ")` to land
+  on the new entry's detail view.
+
 **Native auto-paste is not reachable from a plugin.** `LauncherPanel::finishActivation()`
 in the Noctalia source fires `shell.launcher.auto_paste` only when
 `provider.supportsAutoPaste()`, which `PluginLauncherProvider` never overrides;
@@ -303,7 +332,10 @@ forever. Retrying is then an explicit act: the user reopens the launcher.
 Do not regress these without a deliberate reason:
 
 1. **Prefix** — activates only on the provider prefix + `pass` / `pass <query>`;
-   a bare `pass ` lists the store root.
+   a bare `pass ` lists the store root. Within the post-`pass ` text, a leading
+   `:` / `:!` / `+` / `+!` are internal navigation markers (detail view, Generate
+   confirm, creation menu, creation confirm) — not user-facing syntax, but a real
+   entry whose name starts with one of those characters is unreachable by typing.
 2. **Match semantics** (`matchesFragments`) — lowercase, split the query on
    whitespace, **every fragment must be a contiguous substring** of the target
    (spaces act as wildcards between fragments), order-independent, non-match
@@ -316,6 +348,10 @@ Do not regress these without a deliberate reason:
    "Generate" row after Edit (always); a "Go back" row. Order/grouping of Copy vs
    Type per `detailActionOrder` / `detailActionGrouping`; value order is fixed.
    Generate is a two-step confirm (Cancel / "Regenerate now").
+   3a. **Browse rows** — every folder view (root included) carries a "New entry"
+   row after "Go back". It opens the creation menu (`+` prefix): an editable new
+   path, a "Create entry" row once the path has a leaf, then a two-step confirm
+   (Cancel / "Create entry now") before `pass generate <path>` [+ `pass edit`].
 4. **Username** — the value of the first `login` / `user` / `username` field
    (case-insensitive), or the entry's basename if none. That field is not also
    shown as a generic field row.

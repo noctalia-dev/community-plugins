@@ -401,12 +401,21 @@ local function entryRow(e, title)
 end
 
 -- Browse rows: the grep already returned only direct children of `folder`
--- (`browseGrepArgv`); sort them by basename, cap, prepend "Go back".
+-- (`browseGrepArgv`); sort them by basename, cap, prepend "Go back" and a
+-- "New entry" row (a `query` row that opens the creation menu at this folder,
+-- see the "+" route in onQuery).
 local function renderBrowseRows(folder, hits)
   local rows = {}
   if folder ~= "" then
     rows[#rows + 1] = goBackRow(parentOf(folder), folder)
   end
+  rows[#rows + 1] = {
+    id = "new:" .. folder,
+    query = "+" .. (folder ~= "" and (folder .. "/") or ""),
+    title = tr("action.new"),
+    subtitle = tr("action.new-desc"),
+    glyph = "plus",
+  }
   for _, h in ipairs(hits) do
     h.name = h.fullPath:match("[^/]+$") or h.fullPath
     h.nameLower = h.name:lower()
@@ -683,6 +692,58 @@ local function renderGenerateConfirmRows(entryPath)
       id = "genrun:" .. entryPath,
       title = tr("action.generate-confirm"),
       subtitle = tr("action.generate-confirm-desc"),
+      glyph = "alert-triangle",
+    },
+  }
+end
+
+-- ── creation menu ────────────────────────────────────────────────────────
+-- Reached by the "New entry" browse row (`query = "+<folder>/"`) or by typing
+-- "+" after the trigger. `rest` is the raw text after "+" — the new entry's
+-- path, relative to the store root, editable by typing. onQuery routes "+!"
+-- (the confirm step) before "+", the same leading-"!" trick as ":!" vs ":".
+--
+-- Menu: a "Go back" row to the parent folder, then — only when the path has a
+-- leaf name (non-empty, no trailing "/") — a "Create entry" row that is a
+-- `query` row to "+!<path> " (the confirm view). An empty / folder-only path
+-- shows a hint row instead.
+local function renderCreateMenuRows(rest)
+  local path = trim(rest)
+  local rows = { goBackRow(parentOf(path), path ~= "" and path or tr("action.new")) }
+  if path ~= "" and path:sub(-1) ~= "/" then
+    rows[#rows + 1] = {
+      id = "create-go",
+      query = "+!" .. path .. " ",
+      title = tr("action.create"),
+      subtitle = path,
+      glyph = "plus",
+    }
+  else
+    rows[#rows + 1] = {
+      id = "create-hint",
+      title = tr("action.create-hint"),
+      glyph = "info-circle",
+    }
+  end
+  return rows
+end
+
+-- The creation confirm view ("+!<path>"): Cancel is a `query` row back to the
+-- editable menu; "Create entry now" is a newrun:<path> row onActivate hands to
+-- newEntry. Static rows, no subprocess here.
+local function renderCreateConfirmRows(path)
+  return {
+    {
+      id = "create-cancel",
+      query = "+" .. path .. " ",
+      title = tr("action.create-cancel"),
+      subtitle = tr("action.create-cancel-desc"),
+      glyph = "arrow-left",
+    },
+    {
+      id = "newrun:" .. path,
+      title = tr("action.create-confirm"),
+      subtitle = path,
       glyph = "alert-triangle",
     },
   }
@@ -1019,6 +1080,61 @@ local function generateEntry(entryPath)
   end)
 end
 
+-- ── new entry (creation menu) ────────────────────────────────────────────
+-- Confirmed path from renderCreateConfirmRows → `pass generate <path>` creates
+-- the entry with a random password (no decrypt / pinentry — it only encrypts;
+-- `pass` rejects "..", and an existing name makes it prompt → no tty → it just
+-- exits non-zero, reported as a failure). Then, when a terminal resolves,
+-- `pass edit <path>` opens $EDITOR on the new file; whenever it returns the
+-- launcher reopens on the new entry's detail view. Without a terminal the
+-- edit step is skipped and the detail view opens straight after generate.
+-- The launcher is closed up front (like editEntry / generateEntry).
+local function newEntry(path)
+  path = trim(path)
+  local subject = path:match("[^/]+$") or path
+  if path == "" or path:sub(-1) == "/" then
+    noctalia.notifyError(tr("notification.create-failed"), subject)
+    return
+  end
+  local term = terminalArgv()
+  local editor = trim(noctalia.getConfig("editorCommand") or "")
+  local extraEnv = editor ~= "" and { "EDITOR=" .. editor } or nil
+  local detailText = ":" .. path .. " "
+
+  local function openNew()
+    detailCache[path] = nil
+    buildIndex(nil) -- pull the new entry into the store index for browse/search
+    reopenLauncherPanel(detailText)
+  end
+
+  closeLauncherPanel(function()
+    noctalia.runAsync(passArgv({ "pass", "generate", path }), function(gen)
+      if gen.exitCode ~= 0 or gen.timedOut then
+        noctalia.log("launcher-pass: `pass generate " .. path .. "` failed (exit "
+          .. tostring(gen.exitCode) .. (gen.timedOut and ", timed out" or "")
+          .. "): " .. trim(gen.stderr or ""))
+        noctalia.notifyError(tr("notification.create-failed"), subject)
+        return
+      end
+      noctalia.notify(tr("notification.created"), subject)
+      if term == nil then
+        openNew()
+        return
+      end
+      local argv = {}
+      for _, a in ipairs(term) do
+        argv[#argv + 1] = a
+      end
+      for _, a in ipairs(passArgv({ "pass", "edit", path }, false, extraEnv)) do
+        argv[#argv + 1] = a
+      end
+      noctalia.runAsync(argv, function()
+        openNew()
+      end)
+    end, DECRYPT_TIMEOUT_MS)
+  end)
+end
+
 -- Dispatch one detail row's recorded action.
 --   copy: password / OTP go through `pass -c` / `pass otp -c` (copyViaPass:
 --     clip-timeout env + close-launcher-first pinentry handling); username and
@@ -1050,6 +1166,21 @@ end
 -- ── host hooks ────────────────────────────────────────────────────────────
 function onQuery(text)
   lastQuery = text
+
+  -- "+!<path>" / "+<path>" — the creation menu and its confirm step. Its own
+  -- prefix ("+"), never produced by browsing; "+!" is checked before "+" (the
+  -- leading-"!" confirm trick, as with ":!" vs ":"). "+" is reached from the
+  -- "New entry" browse row or by typing it; the rest is the editable new path.
+  local createConfirmRest = text:match("^%s*%+!(.*)$")
+  if createConfirmRest then
+    launcher.setResults(text, renderCreateConfirmRows(trim(createConfirmRest)))
+    return
+  end
+  local createRest = text:match("^%s*%+(.*)$")
+  if createRest then
+    launcher.setResults(text, renderCreateMenuRows(createRest))
+    return
+  end
 
   -- ":!<entryPath>" — the Generate confirm view (the "gen:" row rewrites the
   -- query to this via onActivate). Checked before the ":" detail marker
@@ -1124,7 +1255,8 @@ function onQuery(text)
 end
 
 function onActivate(id)
-  if id == nil or id == "" or id == "loading" or id == "decrypting" or id == "error" then
+  if id == nil or id == "" or id == "loading" or id == "decrypting"
+      or id == "error" or id == "create-hint" then
     return
   end
 
@@ -1147,6 +1279,8 @@ function onActivate(id)
     launcher.setQuery(":!" .. rest .. " ")
   elseif kind == "genrun" then
     generateEntry(rest)
+  elseif kind == "newrun" then
+    newEntry(rest)
   elseif kind == "act" then
     local ctx = detailActions[id]
     if ctx then

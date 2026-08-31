@@ -44,8 +44,9 @@ Open the Noctalia launcher and type `/pass`.
 | `/pass work/aws pr` | fuzzy-search inside `work/aws` |
 
 Activating a **folder** drills into it; a **"Go back"** row returns to the
-parent. Activating an **entry** decrypts it with `pass show` and opens its detail
-view, which lists, in order:
+parent. Every folder view also has a **"New entry"** row — see *Creating
+entries* below. Activating an **entry** decrypts it with `pass show` and opens
+its detail view, which lists, in order:
 
 1. **Copy Password** / **Type Password**
 2. **Copy OTP** / **Type OTP** — only when the entry has an `otpauth://` line
@@ -85,6 +86,19 @@ row first swaps in a **Cancel** / **Regenerate now** pair; only the second
 actually runs `pass`. On success a "Password regenerated" notification fires and
 the launcher reopens on the entry's detail view with the new password ready to
 Copy or Type. This is irreversible — the old password is not kept anywhere.
+
+### Creating entries
+
+The **"New entry"** row in any folder view (or typing `/pass +`) opens the
+creation menu on the `+` prefix, pre-filled with the current folder path. Edit
+the path by typing; a **"Create entry"** row appears once the path has a leaf
+name. Activating it shows a **Cancel** / **Create entry now** confirm step with
+the full path. Confirming runs `pass generate <path>` (a fresh random password),
+fires a "Password entry created" notification, then — if a terminal resolves —
+opens `pass edit <path>` so you can add a username and other fields. When the
+editor exits, the launcher opens on the new entry's detail view. `pass` rejects
+paths containing `..`, and a name that already exists fails the creation (no
+overwrite).
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
@@ -131,14 +145,15 @@ GPG pinentry prompt.
   detail view (`pass show`), and are cached in memory for 60 s.
 - **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
   show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `pass generate -i`
-  (Generate action); `wtype` and `sleep` (Type actions); a terminal running
-  `pass edit` (Edit action); `noctalia msg panel-*` (pinentry focus handling).
+  (Generate action); `pass generate` (New entry); `wtype` and `sleep` (Type
+  actions); a terminal running `pass edit` (Edit / New entry actions);
+  `noctalia msg panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
   the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
   index file holds decrypted content. Navigation state is encoded in the launcher
   query, not persisted.
 - **Network:** none.
-- **Writes:** the `store.index` file above; the **Edit** and **Generate** actions
-  ask `pass` to rewrite the entry's own `.gpg` file (`pass edit` / `pass generate
-  -i`). Otherwise `pass`, `gpg`, and clipboard tools manage their own runtime
-  state.
+- **Writes:** the `store.index` file above; the **Edit**, **Generate**, and
+  **New entry** actions ask `pass` to write the entry's own `.gpg` file (`pass
+  edit` / `pass generate -i` / `pass generate`). Otherwise `pass`, `gpg`, and
+  clipboard tools manage their own runtime state.
