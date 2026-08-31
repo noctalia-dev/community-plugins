@@ -30,6 +30,48 @@ something newer.
 
 ---
 
+## New features
+
+New proposed features that are to be implemented:
+
+### Autotype action
+
+Add an optional autotype action that will perform automatic insertion of all login details, this action will perform the following steps:
+
+1. Type username
+2. Type separator character (configurable, default: `<tab>`, it can also be `<enter>`)
+3. Type password
+4. Type `<enter>`
+5. If OTP is available:
+    1. Type OTP
+    2. Type `<enter>`
+
+Step 4. can be disabled via a dedicated option, if OTP is available it will be step 5.2. to be disabled instead.
+
+### Quick action shortcuts
+
+Add new shortcuts that will let the user perform the following actions without the need to open the details view while highlighting a password:
+
+- Type/Copy password
+- Type/Copy username
+- Type/Copy otp
+- Autotype action
+
+### Edit password action
+
+Add an "Edit" option to details view that will spawn a terminal with `pass edit` letting the user modify the password file contents interactively.
+
+### Generate password action
+
+Add a "Generate" option to details view that will ask for confirmation ad after approval it will generate a new password with `pass generate -i` and keep the launcher open to let the user copy or type the new password.
+
+### Creation menu
+
+Add a "New" option to folder view that will open a submenu letting the user create a new password entry in the current path (editable).
+The new password will be created with `pass generate` and opened with `pass edit` straight afterwards. As soon as the `pass edit` command returns, the launcher will show the details view for the new password.
+
+---
+
 ## How `launcher.luau` works
 
 The host calls two globals — `onQuery(text)` on every keystroke (after
