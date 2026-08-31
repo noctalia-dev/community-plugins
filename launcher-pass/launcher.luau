@@ -640,8 +640,9 @@ local function renderDetailRows(entryPath, data, filter)
   end
 
   -- "Generate" — regenerate the password in place (CLAUDE.md "Generate
-  -- password action"). After the Edit row; activating it swaps in a
-  -- confirm/cancel pair (generateConfirm) rather than acting immediately.
+  -- password action"). After the Edit row; activating it rewrites the query
+  -- to ":!<entryPath>", the Generate confirm view (renderGenerateConfirmRows),
+  -- rather than acting immediately.
   rows[#rows + 1] = {
     id = "gen:" .. entryPath,
     title = tr("action.generate"),
@@ -660,6 +661,31 @@ local function renderDetailRows(entryPath, data, filter)
     end
   end
   return kept
+end
+
+-- The Generate confirm view. Reached by rewriting the query to
+-- ":!<entryPath>" (onActivate on the "gen:" row → onQuery routes ":!" here) —
+-- the same query-string-drives-navigation pattern as the ":" detail marker,
+-- not a setResults() call from inside onActivate (which the host does not
+-- render). Two static rows, no decrypt: Cancel is a `query` row back to the
+-- normal detail view; "Regenerate now" is a genrun:<path> row that onActivate
+-- hands to generateEntry.
+local function renderGenerateConfirmRows(entryPath)
+  return {
+    {
+      id = "gen-cancel",
+      query = ":" .. entryPath .. " ",
+      title = tr("action.generate-cancel"),
+      subtitle = tr("action.generate-cancel-desc"),
+      glyph = "arrow-left",
+    },
+    {
+      id = "genrun:" .. entryPath,
+      title = tr("action.generate-confirm"),
+      subtitle = tr("action.generate-confirm-desc"),
+      glyph = "alert-triangle",
+    },
+  }
 end
 
 -- ── pinentry dance ────────────────────────────────────────────────────────
@@ -968,30 +994,6 @@ local function editEntry(entryPath)
 end
 
 -- ── generate action ──────────────────────────────────────────────────────
--- Regenerating an entry's password is destructive (the old value is gone), so
--- the "Generate" row doesn't act on activation — it swaps the rendered rows
--- for a Cancel / "Regenerate now" pair. Cancel is a plain `query` row that
--- re-fires onQuery back into the detail view; "Regenerate now" is a
--- `genrun:<path>` row that onActivate hands to generateEntry.
-local function generateConfirm(entryPath)
-  local detailText = ":" .. entryPath .. " "
-  launcher.setResults(lastQuery or detailText, {
-    {
-      id = "gen-cancel",
-      query = detailText,
-      title = tr("action.generate-cancel"),
-      subtitle = tr("action.generate-cancel-desc"),
-      glyph = "arrow-left",
-    },
-    {
-      id = "genrun:" .. entryPath,
-      title = tr("action.generate-confirm"),
-      subtitle = tr("action.generate-confirm-desc"),
-      glyph = "alert-triangle",
-    },
-  })
-end
-
 -- `pass generate -i <entry>` replaces only the first line (the password);
 -- username, OTP and other fields are kept. It decrypts the existing file, so
 -- it can pop pinentry — the launcher is closed up front (like the Copy/Type
@@ -1008,6 +1010,9 @@ local function generateEntry(entryPath)
         noctalia.notify(tr("notification.generated"), subject)
         reopenLauncherPanel(":" .. entryPath .. " ")
       else
+        noctalia.log("launcher-pass: `pass generate -i " .. entryPath .. "` failed"
+          .. " (exit " .. tostring(result.exitCode) .. (result.timedOut and ", timed out" or "")
+          .. "): " .. trim(result.stderr or ""))
         noctalia.notifyError(tr("notification.generate-failed"), subject)
       end
     end, DECRYPT_TIMEOUT_MS)
@@ -1045,6 +1050,16 @@ end
 -- ── host hooks ────────────────────────────────────────────────────────────
 function onQuery(text)
   lastQuery = text
+
+  -- ":!<entryPath>" — the Generate confirm view (the "gen:" row rewrites the
+  -- query to this via onActivate). Checked before the ":" detail marker
+  -- because "^%s*:(.+)$" would match it too. The whole trimmed remainder is
+  -- the entry path (the confirm view has no row filter, so no split needed).
+  local genRest = text:match("^%s*:!(.+)$")
+  if genRest then
+    launcher.setResults(text, renderGenerateConfirmRows(trim(genRest)))
+    return
+  end
 
   -- A leading ":" is never produced by browsing (folder/search text has no
   -- reason to start with it), so it doubles as the detail-mode marker. The
@@ -1126,7 +1141,10 @@ function onActivate(id)
   elseif kind == "edit" then
     editEntry(rest)
   elseif kind == "gen" then
-    generateConfirm(rest)
+    -- Rewrite to the Generate confirm view (":!<path>"), mirroring how
+    -- "entry:" opens the detail view. A trailing space keeps the reconstructed
+    -- launcher input tidy; onQuery trims it back off.
+    launcher.setQuery(":!" .. rest .. " ")
   elseif kind == "genrun" then
     generateEntry(rest)
   elseif kind == "act" then

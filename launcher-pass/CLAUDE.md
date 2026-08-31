@@ -85,9 +85,11 @@ the plugin's lifetime, so module locals survive across calls.
 | `work/aws/pr` | search inside `work/aws` for `pr` |
 | `:work/aws/root ` | detail view of entry `work/aws/root`, empty row filter |
 | `:work/aws/root otp` | detail view, row filter `otp` |
+| `:!work/aws/root ` | Generate confirm view for `work/aws/root` (`:!` checked before `:`) |
 
 `splitPath` peels the folder (up to the last `/`) from the search term. A leading
-`:` — never produced by browsing — marks detail mode. Module locals are caches
+`:` — never produced by browsing — marks detail mode; a leading `:!` marks the
+Generate confirm view (matched first). Module locals are caches
 only (`indexReady`/`indexAt`, `detailCache`, `lastDetailPath`, `detailActions`,
 `lastQuery`). Drill-in / back are `launcher.setQuery(...)`; a bare `""` does not
 re-fire `onQuery`, so root "Go back" uses `" "` (trims to empty).
@@ -170,9 +172,10 @@ path; browse rows the basename.
   resolvable). It is not an `act:` row: `onActivate` dispatches it straight to
   `editEntry`, no `detailActions` entry. A **Generate** row
   (`id = "gen:"..entryPath`) follows the Edit row, always present. Activating it
-  doesn't act: `generateConfirm` replaces the rows with a Cancel (`query` row
-  back to the detail view) / "Regenerate now" (`genrun:"..entryPath`) pair.
-  Neither `edit:` / `gen:` / `genrun:` uses `detailActions`.
+  doesn't act: `onActivate` rewrites the query to `":!"..entryPath.." "`, which
+  `onQuery` routes to `renderGenerateConfirmRows` — a Cancel (`query` row back
+  to the detail view) / "Regenerate now" (`genrun:"..entryPath`) pair. Neither
+  `edit:` / `gen:` / `genrun:` uses `detailActions`.
 - **Row filter** — a non-empty `filter` fuzzy-narrows the rendered rows by
   `title` with the same `matchesFragments` rule (`:<path> otp` → only the OTP
   rows). `detailActions` is populated for every row *before* filtering, so
@@ -232,19 +235,27 @@ defensive `editEntry` call still fires `notification.edit-failed`.
 
 ### Generate action
 
-Two-step. The `gen:<path>` row → `generateConfirm(path)`, which
-`launcher.setResults(lastQuery or ":"..path.." ", …)` with a **Cancel** row (a
-`query` row that re-fires `onQuery` back into the detail view) and a
-**"Regenerate now"** `genrun:<path>` row. `genrun:` → `generateEntry(path)`:
-closes the panel up front (like Copy/Type — `pass generate -i` decrypts the
-existing file so pinentry may pop and needs focus), runs `pass generate -i
-<path>` (first line only, so username / OTP / fields survive), then **on success
-only** clears `detailCache[path]`, fires `notification.generated`, and
-`reopenLauncherPanel(":"..path.." ")` so the host re-delivers `onQuery` →
-`fetchDetail` re-decrypts (gpg-agent warm from the generate) and shows the new
-password ready to Copy/Type. On failure: `notification.generate-failed`, panel
-stays closed (same reopen-loop rationale as `fetchDetail`). `pass generate -i`
-skips its own overwrite `yesno` prompt, so no tty is needed.
+Two-step, and the first step is **navigation, not a `setResults` call from
+`onActivate`** — the host does not render a `setResults` made during activation
+dispatch (an early version tried it; the confirm view never appeared). Instead
+`onActivate` on `gen:<path>` does `launcher.setQuery(":!"..path.." ")`, exactly
+the way `entry:<path>` opens the detail view. `onQuery` matches `":!"` **before**
+the `":"` detail marker (a leading `!` after the colon; `"^%s*:(.+)$"` would
+otherwise swallow it) and calls `renderGenerateConfirmRows(path)` →
+`launcher.setResults(text, …)`: a **Cancel** row (a `query` row back to
+`":"..path.." "`, the normal detail view) and a **"Regenerate now"**
+`genrun:<path>` row. No decrypt in this view — the rows are static.
+
+`genrun:` → `generateEntry(path)`: closes the panel up front (like Copy/Type —
+`pass generate -i` decrypts the existing file so pinentry may pop and needs
+focus), runs `pass generate -i <path>` (first line only, so username / OTP /
+fields survive), then **on success only** clears `detailCache[path]`, fires
+`notification.generated`, and `reopenLauncherPanel(":"..path.." ")` so the host
+re-delivers `onQuery` → `fetchDetail` re-decrypts (gpg-agent warm from the
+generate) and shows the new password ready to Copy/Type. On failure:
+`noctalia.log` with the exit code + stderr, `notification.generate-failed`,
+panel stays closed (same reopen-loop rationale as `fetchDetail`). `pass generate
+-i` skips its own overwrite `yesno` prompt, so no tty is needed.
 
 **Native auto-paste is not reachable from a plugin.** `LauncherPanel::finishActivation()`
 in the Noctalia source fires `shell.launcher.auto_paste` only when
