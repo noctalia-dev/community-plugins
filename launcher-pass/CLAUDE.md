@@ -278,13 +278,15 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   empty / trailing-`/` path (`notification.create-failed`), else closes the
   panel and runs `pass generate <path>` (no `-i` — a brand-new entry, encrypt
   only, no pinentry; `pass` rejects `..`, and a name clash makes it prompt →
-  no tty → non-zero exit → reported as failure). On success:
-  `notification.created`; then if `terminalArgv()` resolves, spawn `pass edit
-  <path>` in that terminal (EDITOR from `editorCommand`, as in `editEntry`) and
-  wait for it; finally (or immediately, no terminal) `openNew()` —
-  `detailCache[path] = nil`, `buildIndex(nil)` (so the new entry enters the
-  store index for browse/search), `reopenLauncherPanel(":"..path.." ")` to land
-  on the new entry's detail view.
+  no tty → non-zero exit → reported as failure; keeps the `DECRYPT_TIMEOUT_MS`
+  safety net). On success `buildIndex(nil)` (the new entry enters the store
+  index for browse/search); then if `terminalArgv()` resolves, spawn `pass edit
+  <path>` in that terminal (EDITOR from `editorCommand`, as in `editEntry`) with
+  **no `runAsync` timeout** — the user may take a while adding fields. The
+  launcher **stays closed** either way; the only completion signal is
+  `notification.created`, fired when `pass edit` returns (or right after
+  `pass generate` when there is no terminal). No reopen into the detail view —
+  that produced a close/reopen flicker when the editor exited.
 
 **Native auto-paste is not reachable from a plugin.** `LauncherPanel::finishActivation()`
 in the Noctalia source fires `shell.launcher.auto_paste` only when

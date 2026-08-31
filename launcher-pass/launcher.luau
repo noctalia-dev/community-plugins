@@ -1085,10 +1085,16 @@ end
 -- the entry with a random password (no decrypt / pinentry — it only encrypts;
 -- `pass` rejects "..", and an existing name makes it prompt → no tty → it just
 -- exits non-zero, reported as a failure). Then, when a terminal resolves,
--- `pass edit <path>` opens $EDITOR on the new file; whenever it returns the
--- launcher reopens on the new entry's detail view. Without a terminal the
--- edit step is skipped and the detail view opens straight after generate.
--- The launcher is closed up front (like editEntry / generateEntry).
+-- `pass edit <path>` opens $EDITOR on the new file so the user can add a
+-- username and other fields. The launcher is closed up front (like editEntry /
+-- generateEntry) and **stays closed** — no reopen into the detail view (that
+-- caused a close/reopen flicker when `pass edit` returned). The only signal on
+-- completion is `notification.created`; the new entry enters the store index
+-- via buildIndex, so it shows up next time the launcher is opened.
+--
+-- The `pass edit` run has **no timeout** — the user may take a while filling in
+-- extra details. (`pass generate` keeps the DECRYPT_TIMEOUT_MS safety net; it
+-- is a quick non-interactive crypto op.)
 local function newEntry(path)
   path = trim(path)
   local subject = path:match("[^/]+$") or path
@@ -1099,13 +1105,6 @@ local function newEntry(path)
   local term = terminalArgv()
   local editor = trim(noctalia.getConfig("editorCommand") or "")
   local extraEnv = editor ~= "" and { "EDITOR=" .. editor } or nil
-  local detailText = ":" .. path .. " "
-
-  local function openNew()
-    detailCache[path] = nil
-    buildIndex(nil) -- pull the new entry into the store index for browse/search
-    reopenLauncherPanel(detailText)
-  end
 
   closeLauncherPanel(function()
     noctalia.runAsync(passArgv({ "pass", "generate", path }), function(gen)
@@ -1116,9 +1115,9 @@ local function newEntry(path)
         noctalia.notifyError(tr("notification.create-failed"), subject)
         return
       end
-      noctalia.notify(tr("notification.created"), subject)
+      buildIndex(nil) -- pull the new entry into the store index for browse/search
       if term == nil then
-        openNew()
+        noctalia.notify(tr("notification.created"), subject)
         return
       end
       local argv = {}
@@ -1129,7 +1128,7 @@ local function newEntry(path)
         argv[#argv + 1] = a
       end
       noctalia.runAsync(argv, function()
-        openNew()
+        noctalia.notify(tr("notification.created"), subject)
       end)
     end, DECRYPT_TIMEOUT_MS)
   end)
