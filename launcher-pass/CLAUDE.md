@@ -187,7 +187,11 @@ window, so the panel is closed and reopened via CLI IPC:
 
 `fetchDetail` races `pass show` (`runAsync(passArgv{...}, cb,
 DECRYPT_TIMEOUT_MS)` — 5 min, a safety net for a slow passphrase / hardware key)
-against a `{"sleep", <pinentryGraceMs/1000>}` (default 200 ms). If `pass show`
+against a `{"sleep", <pinentryGraceMs/1000>}` (default 50 ms — lower values let a
+real pinentry dialog take focus more easily but flicker the launcher more often;
+higher values, ~200/300 ms, keep the launcher steadier but give a pinentry
+dialog more time to spawn while the panel is still open, and depending on the
+window manager it may then fail to get focus at all). If `pass show`
 wins, gpg-agent had the passphrase cached, no dialog appeared, the panel is never
 touched — no flicker. If the sleep wins, the panel is closed; when `pass show`
 finally resolves **successfully** it reopens with context `<leader> .. "pass " ..

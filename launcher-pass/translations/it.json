@@ -52,7 +52,7 @@
       }
     },
     "pinentry-grace-ms": {
-      "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 200)",
+      "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 50). Valori più bassi permettono a pinentry di ottenere il focus più facilmente ma possono causare più sfarfallio del launcher; valori più alti (circa 200-300) rendono l'interfaccia più stabile ma pinentry potrebbe comparire mentre il launcher è ancora aperto in attesa del timeout e non riuscire a ottenere il focus a seconda del window manager",
       "label": "Periodo di tolleranza pinentry"
     },
     "store-path": {

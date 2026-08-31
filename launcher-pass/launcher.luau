@@ -32,11 +32,15 @@
 -- closed and reopened afterwards via the `noctalia msg panel-close/panel-open`
 -- CLI IPC (see closeLauncherPanel/reopenLauncherPanel below). This only
 -- happens when needed: `pass show` is raced against a short grace period
--- (pinentryGraceMs, default 200ms), and if gpg-agent already had the
+-- (pinentryGraceMs, default 50ms), and if gpg-agent already had the
 -- passphrase cached the result comes back before the grace period elapses,
 -- so the panel is never touched at all. The reopen is also conditional on the
 -- decrypt succeeding — a cancelled or failed pinentry leaves the launcher
--- closed rather than looping a fresh prompt.
+-- closed rather than looping a fresh prompt. Lower values let a real pinentry
+-- dialog steal focus sooner but risk a visible flicker on a warm gpg-agent
+-- cache; higher values (~200/300ms) keep the launcher steadier but give the
+-- dialog more time to spawn while the panel still holds the keyboard grab,
+-- and depending on the window manager it may then fail to get focus at all.
 
 local STORE_DEFAULT = "~/.password-store"
 local MAX_RESULTS = 50
@@ -627,8 +631,12 @@ end
 -- the passphrase cached — no pinentry dialog ever appeared, so closing and
 -- reopening the panel would just be a pointless flicker. Configurable via
 -- the pinentryGraceMs setting; this is only the fallback for a
--- missing/invalid value.
-local PINENTRY_GRACE_DEFAULT_MS = 200
+-- missing/invalid value. Lower values favour a real pinentry dialog getting
+-- focus promptly at the cost of more flicker on a warm cache; higher values
+-- (~200/300ms) trade that flicker away but give the dialog more time to pop
+-- up before the panel closes, and whether it then grabs focus at all depends
+-- on the window manager.
+local PINENTRY_GRACE_DEFAULT_MS = 50
 
 local function pinentryGraceMs()
   local ms = tonumber(noctalia.getConfig("pinentryGraceMs"))
