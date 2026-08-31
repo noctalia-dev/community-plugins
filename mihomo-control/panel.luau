@@ -44,6 +44,7 @@ local server_form_rev = 0
 local TRAFFIC_HISTORY = 90
 local down_history = {}
 local up_history = {}
+local last_active_server_id = nil
 
 local function record_traffic(traffic)
   local down = tonumber(traffic.down) or 0
@@ -73,7 +74,14 @@ local function refresh_snapshot()
   snapshot.traffic = noctalia.state.get("mihomo.traffic") or snapshot.traffic
   snapshot.connections = noctalia.state.get("mihomo.connections") or snapshot.connections
   snapshot.groups = noctalia.state.get("mihomo.groups") or snapshot.groups
-  snapshot.servers = noctalia.state.get("mihomo.servers") or snapshot.servers
+  local servers = noctalia.state.get("mihomo.servers") or snapshot.servers
+  local active_id = type(servers.activeId) == "string" and servers.activeId or ""
+  if active_id ~= last_active_server_id then
+    last_active_server_id = active_id
+    down_history = {}
+    up_history = {}
+  end
+  snapshot.servers = servers
   record_traffic(snapshot.traffic)
 end
 
@@ -124,6 +132,14 @@ local function format_total(bytes)
     return string.format("%.1f KB", value / 1024)
   end
   return string.format("%d B", value)
+end
+
+local function format_memory(bytes)
+  local value = tonumber(bytes) or 0
+  if value <= 0 then
+    return "—"
+  end
+  return format_total(value)
 end
 
 local function latency_text(delay)
@@ -304,13 +320,16 @@ local function server_row()
       fontSize = 12,
     }),
     ui.select({
+      key = "server-select-" .. tostring(active_id),
       options = labels,
       selectedIndex = selected,
       flexGrow = 1,
       onChange = function(index_text)
         local index = (tonumber(index_text) or 0) + 1
-        local server = list[index]
-        if server ~= nil and server.id ~= active_id then
+        local servers = noctalia.state.get("mihomo.servers") or {}
+        local current_list = type(servers.list) == "table" and servers.list or list
+        local server = current_list[index]
+        if server ~= nil then
           send_command({ op = "select_server", id = server.id })
         end
       end,
@@ -514,7 +533,7 @@ local function traffic_card()
     }),
     ui.row({ gap = 16, align = "center" }, {
       ui.label({
-        text = `↓ {format_total(traffic.downTotal)} · ↑ {format_total(traffic.upTotal)} · {format_total(connections.memory)} {noctalia.tr("panel.memory")}`,
+        text = `↓ {format_total(traffic.downTotal)} · ↑ {format_total(traffic.upTotal)} · {format_memory(connections.memory)} {noctalia.tr("panel.memory")}`,
         color = "on_surface_variant",
         fontSize = 12,
       }),

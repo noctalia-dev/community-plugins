@@ -286,27 +286,27 @@ local function load_servers_store()
   load_group_order_for_active()
 end
 
-local function sync_active_server_from_plugin_settings()
+local function sync_default_server_from_plugin_settings()
   local logic = require_group_logic()
-  local active = logic.find_server(servers_store.servers, servers_store.activeId)
-  if active == nil then
+  local default = logic.find_server(servers_store.servers, "default")
+  if default == nil then
     return false
   end
   local cfg = plugin_settings_snapshot()
-  active.host = type(cfg.host) == "string" and cfg.host ~= "" and cfg.host or active.host
+  default.host = type(cfg.host) == "string" and cfg.host ~= "" and cfg.host or default.host
   local port = logic.normalize_port(cfg.port)
   if port ~= nil then
-    active.port = port
+    default.port = port
   end
   if type(cfg.secret) == "string" then
-    active.secret = cfg.secret
+    default.secret = cfg.secret
   end
-  active.useHttps = cfg.use_https == true
-  active.allowInsecureTls = cfg.allow_insecure_tls == true
+  default.useHttps = cfg.use_https == true
+  default.allowInsecureTls = cfg.allow_insecure_tls == true
   if type(cfg.test_url) == "string" then
-    active.testUrl = noctalia.string.trim(cfg.test_url)
+    default.testUrl = noctalia.string.trim(cfg.test_url)
   end
-  servers_store.servers = logic.upsert_server(servers_store.servers, active)
+  servers_store.servers = logic.upsert_server(servers_store.servers, default)
   save_servers_store()
   return true
 end
@@ -327,33 +327,6 @@ local function reset_published_runtime_state()
   publish("connections")
   publish("groups")
   publish("delay")
-end
-
-local function reconnect_controller()
-  reload_settings()
-  state.connection.host = settings.host
-  state.connection.port = settings.port
-  publish("connection")
-
-  if traffic_stream ~= nil then
-    traffic_stream.stop()
-    traffic_stream = nil
-  end
-  stream_attempt_tick = -1
-
-  poll_version()
-  poll_configs()
-  poll_connections()
-  poll_proxies()
-  start_traffic_stream()
-end
-
-local function apply_active_server(reset_runtime)
-  if reset_runtime == true then
-    reset_published_runtime_state()
-  end
-  reconnect_controller()
-  publish_servers()
 end
 
 local function load_group_order()
@@ -627,13 +600,23 @@ end
 -- ── Traffic stream ──────────────────────────────────────────────────────────
 
 local traffic_stream = nil
+local traffic_stream_epoch = 0
 local stream_attempt_tick = -100
+
+local function stop_traffic_stream()
+  traffic_stream_epoch += 1
+  if traffic_stream ~= nil then
+    traffic_stream.stop()
+    traffic_stream = nil
+  end
+end
 
 local function start_traffic_stream()
   if traffic_stream ~= nil then
     return
   end
-  traffic_stream = noctalia.httpStream(
+  local epoch = traffic_stream_epoch
+  local stream = noctalia.httpStream(
     {
       url = base_url() .. "/traffic",
       headers = auth_headers(),
@@ -641,6 +624,9 @@ local function start_traffic_stream()
     },
     function(line)
       safe_call("traffic stream", function()
+        if epoch ~= traffic_stream_epoch then
+          return
+        end
         if line == "" then
           return
         end
@@ -665,15 +651,44 @@ local function start_traffic_stream()
       end)
     end,
     function(result)
+      if epoch ~= traffic_stream_epoch then
+        return
+      end
       traffic_stream = nil
       if result and not result.ok then
         stream_attempt_tick = -1 -- retry soon
       end
     end
   )
-  if traffic_stream == nil then
+  if stream == nil then
     stream_attempt_tick = -1 -- could not start; retry later
+    return
   end
+  traffic_stream = stream
+end
+
+local function reconnect_controller()
+  reload_settings()
+  state.connection.host = settings.host
+  state.connection.port = settings.port
+  publish("connection")
+
+  stop_traffic_stream()
+  stream_attempt_tick = -1
+
+  poll_version()
+  poll_configs()
+  poll_connections()
+  poll_proxies()
+  start_traffic_stream()
+end
+
+local function apply_active_server(reset_runtime)
+  if reset_runtime == true then
+    reset_published_runtime_state()
+  end
+  publish_servers()
+  reconnect_controller()
 end
 
 -- ── Commands ────────────────────────────────────────────────────────────────
@@ -1080,10 +1095,14 @@ function update()
 end
 
 function onConfigChanged()
-  sync_active_server_from_plugin_settings()
+  sync_default_server_from_plugin_settings()
   reload_settings()
   apply_interval()
-  apply_active_server(false)
+  if servers_store.activeId == "default" then
+    apply_active_server(false)
+  else
+    publish_servers()
+  end
 end
 
 function onIpc(event, payload)

@@ -103,8 +103,12 @@ function M.parse_connections_summary(data)
   if type(data) ~= "table" then
     return nil
   end
+  local count = tonumber(data.count)
+  if count == nil and type(data.connections) == "table" then
+    count = #data.connections
+  end
   return {
-    count = type(data.connections) == "table" and #data.connections or 0,
+    count = count or 0,
     downloadTotal = tonumber(data.downloadTotal) or 0,
     uploadTotal = tonumber(data.uploadTotal) or 0,
     memory = tonumber(data.memory) or 0,

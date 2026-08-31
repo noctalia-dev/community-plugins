@@ -87,6 +87,16 @@ assert_eq(summary.count, 2, "connection count")
 assert_eq(summary.downloadTotal, 6694145524, "download total")
 assert_eq(summary.uploadTotal, 123456, "upload total")
 assert_eq(summary.memory, 116858880, "memory")
+
+local jq_summary = logic.parse_connections_summary({
+  count = 105,
+  downloadTotal = 7941293315,
+  uploadTotal = 283438043,
+  memory = 0,
+})
+assert(jq_summary ~= nil, "jq-shaped summary parses")
+assert_eq(jq_summary.count, 105, "jq count field")
+
 assert(logic.parse_connections_summary(nil) == nil, "nil is rejected")
 assert(logic.parse_connections_summary("not a table") == nil, "non-table is rejected")
 
