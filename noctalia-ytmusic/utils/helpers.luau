@@ -7,13 +7,6 @@ function Utils.sanitize(s)
     return s:gsub("[\r\n]", "")
 end
 
-function Utils.fmt_duration(secs)
-    secs = tonumber(secs) or 0
-    local m = math.floor(secs / 60)
-    local s = secs % 60
-    return string.format("%d:%02d", m, s)
-end
-
 function Utils.fmt_seconds(text)
     text = tostring(text or "")
     local h, m, s = text:match("(%d+):(%d%d):(%d%d)")
@@ -40,22 +33,6 @@ function Utils.clean_artist(meta)
     end
     if #parts > 0 then return parts[1] end
     return (meta:gsub("^%s+", ""):gsub("%s+$", ""))
-end
-
-function Utils.extract_thumb_url(node)
-    if type(node) ~= "table" then return nil end
-    local th = node.thumbnail or node.thumbnailRenderer
-    if type(th) == "table" then
-        local tr = th.musicThumbnailRenderer or th
-        local t_list = type(tr) == "table" and (tr.thumbnail and tr.thumbnail.thumbnails or tr.thumbnails) or nil
-        if type(t_list) == "table" and #t_list > 0 then
-            local last = t_list[#t_list]
-            if type(last) == "table" and type(last.url) == "string" and last.url ~= "" then
-                return last.url
-            end
-        end
-    end
-    return nil
 end
 
 return Utils

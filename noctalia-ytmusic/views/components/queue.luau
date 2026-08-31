@@ -15,7 +15,7 @@ local function build_queue()
     if #player.queue == 0 then
         table.insert(child, ui.label({
             text = "Nothing queued yet.",
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         }))
     else

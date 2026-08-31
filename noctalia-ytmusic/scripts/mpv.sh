@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Invoked via:  bash scripts/mpv.sh <fn> <args...>
 
-PIDFILE="/tmp/noctalia-ytmusic-mpv.pid"
-SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-GENFILE="/tmp/noctalia-ytmusic-mpv.gen"
+DIR="/tmp/noctalia-ytmusic"
+PIDFILE="$DIR/mpv.pid"
+SOCK="$DIR/mpv.sock"
+GENFILE="$DIR/mpv.gen"
 
-mpv_play() {   # $1=volume
+mkdir -p "$DIR"
+
+mpv_play() {   # $1=volume $2=url_file $3=title_file
   local vol="${1:-100}"
-  URL=$(cat /tmp/noctalia-ytmusic-url.txt)
-  TITLE=$(cat /tmp/noctalia-ytmusic-title.txt 2>/dev/null)
+  URL=$(cat "$2")
+  TITLE=$(cat "$3" 2>/dev/null)
   if [ -f "$PIDFILE" ]; then
     PREV=$(cat "$PIDFILE" 2>/dev/null)
     [ -n "$PREV" ] && kill "$PREV" >/dev/null 2>&1
@@ -52,7 +55,7 @@ mpv_kill() {
   fi
   pkill -9 -f "input-ipc-server=$SOCK" >/dev/null 2>&1
   echo $(( $(cat "$GENFILE" 2>/dev/null || echo 0) + 1 )) > "$GENFILE"
-  rm -f "$SOCK" /tmp/noctalia-ytmusic-url.txt
+  rm -f "$SOCK"
 }
 
 # Persistent push stream: one connection per mpv instance. mpv pushes

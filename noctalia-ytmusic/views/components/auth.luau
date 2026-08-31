@@ -94,7 +94,7 @@ local function build_signin_prompt()
         ui.label({ text = "Pick the browser you're signed into YouTube Music with", fontSize = theme.fontTitle, color = "on_surface_variant" }),
         ui.label({
             text = state.data.status_text,
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = state.data.status == "error" and "error" or "on_surface_variant"
         }),
         ui.column({ gap = 8, width = "fill" }, browser_rows)

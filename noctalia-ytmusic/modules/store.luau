@@ -24,6 +24,7 @@ function Store.publish()
     snap.liked_ids = Store.state.liked_ids
     snap.cached_audio_ids = Store.state.cached_audio_ids
     snap.downloaded_playlist_ids = Store.state.downloaded_playlist_ids
+    snap.offline_tracks = Store.state.offline_tracks
     snap.quick_picks = Store.state.quick_picks
     snap.home_mixes = Store.state.home_mixes
     snap.recent_playlists = Store.state.recent_playlists

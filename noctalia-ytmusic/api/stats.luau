@@ -3,6 +3,7 @@
 -- Track stats (views/likes) fetched via yt-dlp, cached in a single JSON file.
 
 local logger = require("../utils/log.luau")
+local network = require("../utils/network.luau")
 local log = logger.module("ytapi", "stats")
 
 local const = require("./constants.luau")
@@ -87,7 +88,7 @@ esac
 echo "STATS=$VIEWS|$LIKES"
 ]=]):gsub("VIDEO", safe_id)
 
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = type(res) == "table" and res.stdout or ""
         local views_likes = out:match("STATS=([%d|]+)")
         local views = 0

@@ -1,6 +1,6 @@
 id = "aabidk20/noctalia-ytmusic"
 name = "Noctalia YT Music"
-version = "0.2.0"
+version = "0.2.2"
 plugin_api = 23
 icon = "brand-youtube-filled"
 author = "Aabid"

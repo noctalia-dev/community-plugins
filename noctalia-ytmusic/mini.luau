@@ -3,6 +3,7 @@ local theme = require("./utils/theme.luau")
 local request = require("./views/actions.luau")
 
 local state = {
+    online = true,
     status = "idle",
     player = {
         status = "stopped",
@@ -210,7 +211,6 @@ local function render_mini()
     local rep_tooltip = (rep_mode == "one") and "Repeat Track (1)" or ((rep_mode == "all") and "Repeat Queue" or "Repeat Off")
 
     local is_loading = (player.status == "loading")
-    local is_playing = (player.status == "playing")
     local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
 
     local controls_row = ui.row({ key = "mini-controls", align = "center", justify = "center", gap = 12, width = "fill" }, {
@@ -235,17 +235,27 @@ local function render_mini()
     })
 
     -- Footer Links & Volume
-    local footer_row = ui.row({ key = "mini-footer", align = "center", justify = "end", width = "fill", gap = 8 }, {
-        ui.button({
-            key = "btn-open-settings",
-            glyph = "settings",
-            variant = "ghost",
-            controlSize = "sm",
-            onClick = function()
-                noctalia.openSettings("aabidk20/noctalia-ytmusic")
-            end
-        })
-    })
+    local footer_children = {}
+    if state.online == false then
+        table.insert(footer_children, ui.label({
+            key = "mini-offline-chip",
+            text = "OFFLINE",
+            fontSize = theme.fontCaption,
+            fontWeight = "bold",
+            color = "error"
+        }))
+    end
+    table.insert(footer_children, ui.button({
+        key = "btn-open-settings",
+        glyph = "settings",
+        variant = "ghost",
+        controlSize = "sm",
+        onClick = function()
+            noctalia.openSettings("aabidk20/noctalia-ytmusic")
+        end
+    }))
+
+    local footer_row = ui.row({ key = "mini-footer", align = "center", justify = "end", width = "fill", gap = 8 }, footer_children)
 
     panel.render(ui.column({
         key = "mini-root",
@@ -268,6 +278,9 @@ local function apply_state(s)
     end
     if s.cookie_count ~= nil then
         state.cookie_count = s.cookie_count
+    end
+    if s.online ~= nil then
+        state.online = s.online
     end
     if type(s.player) == "table" then
         for k, v in pairs(s.player) do state.player[k] = v end

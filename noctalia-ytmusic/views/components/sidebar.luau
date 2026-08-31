@@ -5,6 +5,7 @@ local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },
     { id = "discover", label = "Search", icon = "search" },
     { id = "queue", label = "Queue", icon = "library" },
+    { id = "offline", label = "Offline", icon = "download" },
     { id = "settings", label = "Settings", icon = "settings" }
 }
 
@@ -88,9 +89,26 @@ local function build_sidebar()
         end))
     end
 
+    -- Always-visible connectivity cue, independent of which page is open.
+    if data.online == false then
+        table.insert(sidebar_items, ui.row({
+            key = "offline-indicator",
+            gap = 8,
+            align = "center",
+            padding = 6,
+            borderWidth = 0
+        }, {
+            ui.glyph({ name = "wifi-off", size = 15, color = "error" }),
+            ui.label({ text = "Offline mode", fontSize = theme.fontTitle, color = "error" })
+        }))
+    end
+
     table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline", spacing = 8 }))
 
-    if type(data.recent_playlists) == "table" and #data.recent_playlists > 0 then
+    -- Hide stale cached history while signed out; reappears reactively once
+    -- cookies land and status flips to ready.
+    if state.logged_in()
+        and type(data.recent_playlists) == "table" and #data.recent_playlists > 0 then
         table.insert(sidebar_items, ui.row({ key = "label-recent", gap = 0, padding = 6, borderWidth = 0 }, {
             ui.label({
                 text = "RECENTLY PLAYED",
@@ -104,9 +122,10 @@ local function build_sidebar()
             local pl_id = tostring(pl.id or "")
             local key = "recent-" .. idx
             local active = (view.content_page == "playlist" and pl_id ~= "" and data.playlist.id == pl_id)
+            local is_source = (data.player and data.player.source_playlist ~= nil and tostring(data.player.source_playlist) == pl_id)
             table.insert(sidebar_items, sidebar_row(key, "clock", pl.title, nil, active, function()
                 state.open_playlist(pl)
-            end))
+            end, nil, false, is_source and "primary" or nil))
         end
 
         table.insert(sidebar_items, ui.separator({ key = "sep-recent", color = "outline", spacing = 8 }))
