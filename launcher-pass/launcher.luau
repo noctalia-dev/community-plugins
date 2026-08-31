@@ -568,6 +568,26 @@ local function actionRow(entryPath, spec, verb, n)
   }
 end
 
+-- The Autotype row (CLAUDE.md "Autotype action"): one row that types the whole
+-- login in sequence (see autotypeEntry). Present only when the autotypeEnabled
+-- setting is on *and* `wtype` is installed — it is a Type-family action, so it
+-- follows the same availability rule as the Type rows. Not an "act:" row:
+-- onActivate dispatches "autotype:<path>" straight to autotypeEntry.
+local function autotypeRowFor(entryPath)
+  if not wtypeAvailable() then
+    return nil
+  end
+  if noctalia.getConfig("autotypeEnabled") ~= true then
+    return nil
+  end
+  return {
+    id = "autotype:" .. entryPath,
+    title = tr("action.autotype"),
+    subtitle = tr("action.autotype-desc"),
+    glyph = "keyboard",
+  }
+end
+
 -- Value order (CLAUDE.md "Behaviour to implement"): password, OTP (if present),
 -- username, then remaining key: value fields in file order. Within that, the
 -- Copy/Type rows are laid out per the detailActionOrder (which verb first) and
@@ -624,22 +644,48 @@ local function renderDetailRows(entryPath, data, filter)
     end
   end
 
+  -- The login specs are password, OTP (when present), username — index of the
+  -- last of them is 3 with OTP, 2 without. The Autotype row is spliced in right
+  -- after the username's first rendered row, i.e. between the login values and
+  -- the "remaining fields" rows (CLAUDE.md "Autotype action"). In grouped mode
+  -- that lands it inside the first verb block, still between username and
+  -- fields; the trailing spliceAutotype() covers a spec list with no fields.
+  local loginSpecCount = data.hasOtp and 3 or 2
+  local autotypeRow = autotypeRowFor(entryPath)
+  local autotypeDone = false
+  local function spliceAutotype()
+    if autotypeDone then
+      return
+    end
+    autotypeDone = true
+    if autotypeRow then
+      rows[#rows + 1] = autotypeRow
+    end
+  end
+
   local n = 0
   if noctalia.getConfig("detailActionGrouping") == "grouped" then
     for _, verb in ipairs(verbs) do
-      for _, spec in ipairs(specs) do
+      for i, spec in ipairs(specs) do
         n = n + 1
         rows[#rows + 1] = actionRow(entryPath, spec, verb, n)
+        if i == loginSpecCount then
+          spliceAutotype()
+        end
       end
     end
   else
-    for _, spec in ipairs(specs) do
+    for i, spec in ipairs(specs) do
       for _, verb in ipairs(verbs) do
         n = n + 1
         rows[#rows + 1] = actionRow(entryPath, spec, verb, n)
       end
+      if i == loginSpecCount then
+        spliceAutotype()
+      end
     end
   end
+  spliceAutotype()
 
   -- "Edit" — spawn `pass edit` in a terminal (CLAUDE.md "Edit password
   -- action"). Sorted after all the Copy/Type rows; dropped, like the Type
@@ -1055,6 +1101,96 @@ local function typeOtp(entryPath, subject)
   end)
 end
 
+-- ── autotype action ──────────────────────────────────────────────────────
+-- The Autotype row types a whole login in sequence via `wtype` (CLAUDE.md
+-- "Autotype action"):
+--   1. username
+--   2. the separator key — autotypeSeparator: Tab (default) or Return
+--   3. password
+--   4. Return (only when an OTP follows in step 5, or when autotypeSubmit is on)
+--   5. when the entry has an `otpauth://` line: the current OTP, then
+--   5.2. Return (only when autotypeSubmit is on)
+-- i.e. autotypeSubmit toggles the *final* Return — after the OTP when present,
+-- otherwise after the password.
+--
+-- Each step is its own `wtype` process: a text step is `wtype -d <delay> --
+-- <value>` (the `-- <value>` form keeps a value with a leading "-" literal,
+-- like typeValue), a key step is `wtype -k <keysym>`. `wtype` allows only one
+-- terminal `--` (everything after it is text), so literal text and `-k` keys
+-- can't be mixed safely in one invocation for arbitrary values — hence the
+-- chain. A failed step aborts the rest with one notification.type-failed.
+local function runWtypeSteps(steps, i, subject)
+  local argv = steps[i]
+  if argv == nil then
+    return
+  end
+  noctalia.runAsync(argv, function(result)
+    if result.exitCode ~= 0 or result.timedOut then
+      noctalia.notifyError(tr("notification.type-failed"), subject)
+      return
+    end
+    runWtypeSteps(steps, i + 1, subject)
+  end)
+end
+
+local function autotypeEntry(entryPath)
+  local subject = entryPath:match("[^/]+$") or entryPath
+  -- The detail view that showed this row decrypted the entry, so its
+  -- password / username / OTP flag are in detailCache. If the cache expired
+  -- between render and activation there's nothing to type — bail rather than
+  -- fire a half login.
+  local data = detailCache[entryPath]
+  if data == nil then
+    noctalia.notifyError(tr("notification.type-failed"), subject)
+    return
+  end
+
+  local sepKey = noctalia.getConfig("autotypeSeparator") == "enter" and "Return" or "Tab"
+  local submit = noctalia.getConfig("autotypeSubmit") ~= false
+  local delay = tostring(intSetting("wtypeDelay", 12))
+
+  local function typeStep(value)
+    return { "wtype", "-d", delay, "--", value or "" }
+  end
+  local function keyStep(keysym)
+    return { "wtype", "-k", keysym }
+  end
+
+  local function runSequence(otpCode)
+    local steps = {
+      typeStep(data.username),
+      keyStep(sepKey),
+      typeStep(data.password),
+    }
+    if otpCode and otpCode ~= "" then
+      steps[#steps + 1] = keyStep("Return") -- step 4: submit the username/password form
+      steps[#steps + 1] = typeStep(otpCode)
+    end
+    if submit then
+      steps[#steps + 1] = keyStep("Return") -- step 4 (no OTP) or step 5.2 (with OTP)
+    end
+    -- One focus-restore delay after the launcher closes (as typeValue does),
+    -- then walk the chain.
+    noctalia.runAsync({ "sleep", tostring(intSetting("typeDelay", 500) / 1000) }, function()
+      runWtypeSteps(steps, 1, subject)
+    end)
+  end
+
+  closeLauncherPanel(function()
+    if data.hasOtp then
+      noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
+        if result.exitCode == 0 and not result.timedOut then
+          runSequence(trim(result.stdout or ""))
+        else
+          noctalia.notifyError(tr("notification.type-failed"), subject)
+        end
+      end, DECRYPT_TIMEOUT_MS)
+    else
+      runSequence(nil)
+    end
+  end)
+end
+
 -- ── edit action ──────────────────────────────────────────────────────────
 -- `pass edit <entry>` decrypts the file into $EDITOR and re-encrypts it on
 -- save, so it needs a real terminal — spawned via terminalArgv(). It can also
@@ -1337,6 +1473,8 @@ function onActivate(id)
     launcher.setQuery(":" .. rest .. " ")
   elseif kind == "edit" then
     editEntry(rest)
+  elseif kind == "autotype" then
+    autotypeEntry(rest)
   elseif kind == "gen" then
     -- Rewrite to the Generate confirm view (":!<path>"), mirroring how
     -- "entry:" opens the detail view. A trailing space keeps the reconstructed

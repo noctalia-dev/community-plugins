@@ -16,7 +16,7 @@ fields.
 
 ```
 launcher-pass/
-├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 9, [[launcher_provider]]
+├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 12, [[launcher_provider]]
 ├── launcher.luau         the whole feature (one entry script)
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
 │   └── en it
@@ -33,20 +33,6 @@ something newer.
 ## New features
 
 New proposed features that are to be implemented:
-
-### Autotype action
-
-Add an optional autotype action that will perform automatic insertion of all login details, this action will perform the following steps:
-
-1. Type username
-2. Type separator character (configurable, default: `<tab>`, it can also be `<enter>`)
-3. Type password
-4. Type `<enter>`
-5. If OTP is available:
-    1. Type OTP
-    2. Type `<enter>`
-
-Step 4. can be disabled via a dedicated option, if OTP is available it will be step 5.2. to be disabled instead.
 
 ### Quick action shortcuts
 
@@ -167,7 +153,13 @@ path; browse rows the basename.
   first) and `detailActionGrouping` (pair per value, or all-Copy-then-all-Type).
   `actionRow(entryPath, spec, verb, n)` returns one row and records its context
   in `detailActions["act:"..n]` (an explicit counter). Type rows are omitted
-  entirely when `wtype` is absent (`wtypeAvailable`, memoised). An **Edit** row
+  entirely when `wtype` is absent (`wtypeAvailable`, memoised). An **Autotype**
+  row (`id = "autotype:"..entryPath`, `autotypeRowFor`) is spliced in right
+  after the username's first rendered row — between the login values and the
+  remaining-field rows — when the `autotypeEnabled` setting is on *and* `wtype`
+  is present (in grouped mode it lands inside the first verb block, still
+  between username and fields). Not an `act:` row: `onActivate` dispatches
+  `autotype:` straight to `autotypeEntry`. An **Edit** row
   (`id = "edit:"..entryPath`) is appended after all the Copy/Type rows, before
   the "Go back" row — omitted when `terminalArgv()` returns nil (no terminal
   resolvable). It is not an `act:` row: `onActivate` dispatches it straight to
@@ -175,8 +167,8 @@ path; browse rows the basename.
   (`id = "gen:"..entryPath`) follows the Edit row, always present. Activating it
   doesn't act: `onActivate` rewrites the query to `":!"..entryPath.." "`, which
   `onQuery` routes to `renderGenerateConfirmRows` — a Cancel (`query` row back
-  to the detail view) / "Regenerate now" (`genrun:"..entryPath`) pair. Neither
-  `edit:` / `gen:` / `genrun:` uses `detailActions`.
+  to the detail view) / "Regenerate now" (`genrun:"..entryPath`) pair. None of
+  `edit:` / `autotype:` / `gen:` / `genrun:` uses `detailActions`.
 - **Row filter** — a non-empty `filter` fuzzy-narrows the rendered rows by
   `title` with the same `matchesFragments` rule (`:<path> otp` → only the OTP
   rows). `detailActions` is populated for every row *before* filtering, so
@@ -217,6 +209,35 @@ int) → nil (let `pass` default).
   types into the focused window); the `typeDelay` sleep lets the compositor
   restore focus. Failures → `notification.typeFailed`.
 - `typeDelay` / `wtypeDelay` are **milliseconds** (`intSetting`, 0 allowed).
+
+### Autotype action
+
+`autotypeEntry(entryPath)` types a whole login in sequence with `wtype`. It
+reads `username` / `password` / `hasOtp` from the warm `detailCache[entryPath]`
+(the detail view that showed the row decrypted the entry); a cache miss between
+render and activation bails with `notification.type-failed` rather than typing a
+half login. Sequence:
+
+1. `username`
+2. the **separator key** — `autotypeSeparator`: `Tab` (default) or `Return`
+3. `password`
+4. `Return` — emitted when an OTP follows in step 5, **or** when `autotypeSubmit`
+   is on
+5. when `hasOtp`: `pass otp <entryPath>` (no `-c`) → type the code
+   5.2. `Return` — emitted only when `autotypeSubmit` is on
+
+So `autotypeSubmit` (default on) toggles just the **final** `Return`: after the
+OTP when present, otherwise after the password.
+
+Each step is its own `wtype` process, chained through `runWtypeSteps` (a first
+failed step aborts the rest with one `notification.type-failed`): a text step is
+`{"wtype","-d",<wtypeDelay>,"--",value}` (same `-- value` literal-text form as
+`typeValue`), a key step is `{"wtype","-k",<keysym>}`. They are **not** merged
+into one `wtype` call: `wtype` allows a single terminal `--` (everything after it
+is text), so literal text and `-k` keys can't be interleaved safely for
+arbitrary values. `autotypeEntry` closes the launcher first (like the Type
+paths), then — after the OTP fetch, if any — a single `typeDelay` sleep lets the
+compositor restore focus before the chain runs.
 
 ### Edit action
 
@@ -358,11 +379,16 @@ Do not regress these without a deliberate reason:
    search *and* the detail row filter.
 3. **Detail rows** — Copy Password, Copy OTP (**only if** the body has
    `otpauth://`), Copy Username, then Copy for each remaining `key: value` field
-   in file order; a Type counterpart for each when `wtype` is present; an "Edit"
-   row after all of those when a terminal resolves (`terminalArgv()`); a
-   "Generate" row after Edit (always); a "Go back" row. Order/grouping of Copy vs
-   Type per `detailActionOrder` / `detailActionGrouping`; value order is fixed.
-   Generate is a two-step confirm (Cancel / "Regenerate now").
+   in file order; a Type counterpart for each when `wtype` is present; an
+   "Autotype" row between the Username row(s) and the first field row when
+   `autotypeEnabled` is on and `wtype` is present; an "Edit" row after all of
+   those when a terminal resolves (`terminalArgv()`); a "Generate" row after
+   Edit (always); a "Go back" row. Order/grouping of Copy vs Type per
+   `detailActionOrder` / `detailActionGrouping`; value order is fixed. Autotype
+   types username → separator key (`autotypeSeparator`: Tab/Enter) → password →
+   Enter → OTP + Enter (OTP steps only when present); `autotypeSubmit` (default
+   on) toggles the final Enter. Generate is a two-step confirm (Cancel /
+   "Regenerate now").
    3a. **Browse rows** — every folder view (root included) carries a "New entry"
    row after "Go back". It opens the creation menu (`+` prefix): an editable new
    path, a "Create entry" row once the path has a leaf, then a two-step confirm
@@ -408,14 +434,18 @@ should survive into future changes:
   (`settings.detail-action-order.options.copy`) — the plugin-store validator
   rejects any uppercase or dotted-into-one segment in `translations/*.json`
   keys and in `label_key` / `description_key` values.
-- **Nine settings.** `storePath` (folder), `clipTimeout` (string — kept a string
-  so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
+- **Twelve settings.** `storePath` (folder), `clipTimeout` (string — kept a
+  string so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
   `pinentryGraceMs` (int, `advanced`), `detailActionOrder` /
   `detailActionGrouping` (select, `advanced`), `terminalCommand` (string,
   `advanced` — `""` means auto-detect the terminal for the Edit action),
   `editorCommand` (string, `advanced` — `""` means don't export `EDITOR`, let
-  `pass edit` use its own default). Read back with `noctalia.getConfig(key)`;
-  defaults come from the manifest.
+  `pass edit` use its own default), `autotypeEnabled` (bool, default `false` —
+  gates the Autotype row), `autotypeSeparator` (select `tab`/`enter`, default
+  `tab` — the username→password key), `autotypeSubmit` (bool, `advanced`,
+  default `true` — the final submit Enter). Read back with
+  `noctalia.getConfig(key)` (a `bool` setting comes back as a Lua boolean —
+  compare `== true`); defaults come from the manifest.
 - **Navigation state lives in the query string**, not module locals — a trailing
   `/` for a folder context, a leading `:` for detail mode. Reopening the launcher
   resets to the store root for free (no `onOpened`-style hook exists in v5).
@@ -447,6 +477,13 @@ should survive into future changes:
 - **`typeValue` passes the secret as a positional arg after `wtype … --`**, not
   over a `printf %s '<val>' | wtype -` pipe. Argv-only means no shell, no
   single-quote escaping, and a value with a leading `-` is still literal text.
+- **Autotype is a chain of one-shot `wtype` processes, not a single call.**
+  `wtype`'s grammar is `[OPTION_OR_TEXT]… -- [TEXT]…` with one terminal `--`, so
+  once you switch to literal-text mode for an arbitrary value you can't emit a
+  `-k` key after it. Each username/password/OTP segment therefore gets its own
+  `wtype … -- <value>` and each separator/Enter its own `wtype -k <keysym>`,
+  run in sequence (`runWtypeSteps`); the alternative — bare text args before
+  `--` — would misparse a value starting with `-` as an option.
 - **Copy/Type close the launcher up front and never reopen.** QML did the same
   (`launcher.close()` before `pass -c`); with the panel gone a pinentry prompt
   gets focus on its own, so these paths skip the close/reopen dance that

@@ -1,5 +1,7 @@
 {
   "action": {
+    "autotype": "Digitazione automatica",
+    "autotype-desc": "Digita nome utente, password e OTP in sequenza",
     "copy-field": "Copia {key}",
     "copy-otp": "Copia OTP",
     "copy-password": "Copia password",
@@ -54,6 +56,22 @@
     "password": "Password"
   },
   "settings": {
+    "autotype-enabled": {
+      "desc": "Mostra una riga «Digitazione automatica» nella vista dettagli di una voce che digita il nome utente, un tasto separatore, la password e poi l'OTP se la voce ne ha uno. Richiede wtype",
+      "label": "Riga di digitazione automatica"
+    },
+    "autotype-separator": {
+      "desc": "Tasto che passa dal campo nome utente al campo password durante la digitazione automatica",
+      "label": "Separatore dei campi per la digitazione automatica",
+      "options": {
+        "enter": "Invio",
+        "tab": "Tab"
+      }
+    },
+    "autotype-submit": {
+      "desc": "Premi Invio dopo l'ultimo valore digitato automaticamente (dopo l'OTP se presente, altrimenti dopo la password). Disattiva per fermarti prima di confermare",
+      "label": "La digitazione automatica preme Invio per confermare"
+    },
     "clip-timeout": {
       "desc": "Secondi prima che gli appunti vengano cancellati (vuoto = usa PASSWORD_STORE_CLIP_TIME)",
       "label": "Timeout degli appunti"

@@ -1,5 +1,7 @@
 {
   "action": {
+    "autotype": "Autotype login",
+    "autotype-desc": "Type username, password, and OTP in sequence",
     "copy-field": "Copy {key}",
     "copy-otp": "Copy OTP",
     "copy-password": "Copy Password",
@@ -54,6 +56,22 @@
     "password": "Password"
   },
   "settings": {
+    "autotype-enabled": {
+      "desc": "Show an Autotype row in an entry's detail view that types the username, a separator key, the password, then the OTP when the entry has one. Needs wtype",
+      "label": "Autotype login row"
+    },
+    "autotype-separator": {
+      "desc": "Key that moves from the username field to the password field during autotype",
+      "label": "Autotype field separator",
+      "options": {
+        "enter": "Enter",
+        "tab": "Tab"
+      }
+    },
+    "autotype-submit": {
+      "desc": "Press Enter after the last autotyped value (after the OTP when present, otherwise after the password). Turn off to stop before submitting",
+      "label": "Autotype presses Enter to submit"
+    },
     "clip-timeout": {
       "desc": "Seconds before the clipboard is cleared (blank = use PASSWORD_STORE_CLIP_TIME)",
       "label": "Clipboard timeout"

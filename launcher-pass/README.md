@@ -53,12 +53,14 @@ its detail view, which lists, in order:
 3. **Copy Username** / **Type Username** — the value of the first `login`,
    `user`, or `username` field (case-insensitive), or the entry's own name when
    there is none
-4. **Copy `<field>`** / **Type `<field>`** for every remaining `key: value` line,
+4. **Autotype login** — type the whole login in one go (only when enabled and
+   `wtype` is present; see below)
+5. **Copy `<field>`** / **Type `<field>`** for every remaining `key: value` line,
    in file order
-5. **Edit** — open `pass edit <entry>` in a terminal (only when a terminal
+6. **Edit** — open `pass edit <entry>` in a terminal (only when a terminal
    resolves; see below)
-6. **Generate** — regenerate the password in place, behind a confirm prompt
-7. **Go back** to the entry's folder
+7. **Generate** — regenerate the password in place, behind a confirm prompt
+8. **Go back** to the entry's folder
 
 In the detail view, keep typing to filter these rows: `/pass work/aws/root otp`
 shows only the two OTP rows. The filter uses the same match rule as search
@@ -69,6 +71,16 @@ shows only the two OTP rows. The filter uses the same match rule as search
 usernames and other fields are copied directly and are *not* auto-cleared.
 **Type** closes the launcher, waits *Type delay*, then types the value with
 `wtype`.
+
+**Autotype login** closes the launcher and types the whole login in sequence
+with `wtype`: the username, a separator key, the password, then — when the entry
+has an `otpauth://` line — the current OTP. The separator is a **Tab** press by
+default (**Autotype field separator** setting), or an **Enter** press for logins
+that only show the password field after the username is submitted. An **Enter**
+is pressed at the end to submit — after the OTP when present, otherwise after
+the password — unless **Autotype presses Enter to submit** is turned off. The
+row only appears when **Autotype login row** is enabled *and* `wtype` is on
+`PATH`; it is off by default.
 
 **Edit** closes the launcher and runs `pass edit <entry>` in a terminal, letting
 you change the entry's contents in an editor (`pass` re-encrypts on save). The
@@ -116,6 +128,9 @@ so the dialog can take focus and reopens once decryption finishes.
 | `typeDelay` | `int` | `500` | Milliseconds to wait after the launcher closes before `wtype` starts typing, so the compositor can restore focus to the field you were in. *(Advanced. The v4 label "Launcher Close Delay" was misleading — this is the pre-typing delay.)* |
 | `wtypeDelay` | `int` | `12` | Milliseconds between simulated keystrokes. Increase it if characters are dropped. *(Advanced.)* |
 | `pinentryGraceMs` | `int` | `50` | Milliseconds to wait for a decrypt to finish before assuming a pinentry dialog is blocking and hiding the launcher. If your GPG agent already has the passphrase cached, the launcher never flickers. Lower values let the pinentry dialog take focus more easily but can make the launcher flicker more often; higher values (around 200–300ms) give a more stable launcher but risk the pinentry dialog spawning while the launcher is still open and waiting out the timeout, in which case it may not get focus depending on your window manager. *(Advanced.)* |
+| `autotypeEnabled` | `bool` | `false` | Show an **Autotype login** row in the detail view (sorted just after the username rows). Needs `wtype`, like the Type rows. |
+| `autotypeSeparator` | `select` | `tab` | Key autotype presses to move from the username field to the password field: `tab` or `enter`. |
+| `autotypeSubmit` | `bool` | `true` | Whether autotype presses Enter after its last value (after the OTP when present, otherwise after the password). Off stops the sequence just before submitting. *(Advanced.)* |
 | `detailActionOrder` | `select` | `copy` | In an entry's detail view, whether the **Copy** row (`copy`) or the **Type** row (`type`) comes first for each value. *(Advanced.)* |
 | `detailActionGrouping` | `select` | `interleaved` | `interleaved`: each value's Copy and Type rows sit together. `grouped`: every Copy row first, then every Type row (each block in the `detailActionOrder` direction). *(Advanced.)* |
 | `terminalCommand` | `string` | *(empty)* | Terminal for the **Edit** action, as a full command prefix including its exec flag (`foot -e`, `kitty -e`, `gnome-terminal --`). Empty auto-detects from `$TERMINAL`, then a common terminal on `PATH`. When nothing resolves the Edit row is hidden. *(Advanced.)* |
@@ -150,8 +165,9 @@ GPG pinentry prompt.
 - **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
   show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `pass generate -i`
   (Generate action); `test` then `pass generate` (New entry); `wtype` and
-  `sleep` (Type actions); a terminal running `pass edit` (Edit / New entry
-  actions); `noctalia msg panel-*` (pinentry focus handling).
+  `sleep` (Type actions, and a chain of `wtype` calls plus `pass otp` for
+  Autotype); a terminal running `pass edit` (Edit / New entry actions);
+  `noctalia msg panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
   the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
   index file holds decrypted content. Navigation state is encoded in the launcher

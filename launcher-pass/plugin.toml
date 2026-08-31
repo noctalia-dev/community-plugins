@@ -9,7 +9,7 @@
 
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.3.4"
+version = "2.4.0"
 plugin_api = 26
 author = "Marco Melletti"
 license = "MIT"
@@ -115,6 +115,44 @@ options = [
   { value = "interleaved", label_key = "settings.detail-action-grouping.options.interleaved" },
   { value = "grouped", label_key = "settings.detail-action-grouping.options.grouped" },
 ]
+
+# Autotype: a single detail-view row (sorted just after the username row, before
+# the "remaining fields" rows) that types the whole login in sequence — username,
+# a separator key, password, Enter, then the OTP + Enter when the entry has one.
+# Off by default; needs `wtype`, like the Type rows. See autotypeEntry() in
+# launcher.luau.
+[[setting]]
+key = "autotypeEnabled"
+type = "bool"
+label_key = "settings.autotype-enabled.label"
+description_key = "settings.autotype-enabled.desc"
+default = true
+
+# Which key moves from the username field to the password field during autotype:
+# "tab" (a Tab press — the usual form-navigation key) or "enter" (a Return press,
+# for logins that only reveal the password field after the username is submitted).
+[[setting]]
+key = "autotypeSeparator"
+type = "select"
+label_key = "settings.autotype-separator.label"
+description_key = "settings.autotype-separator.desc"
+default = "tab"
+options = [
+  { value = "tab", label_key = "settings.autotype-separator.options.tab" },
+  { value = "enter", label_key = "settings.autotype-separator.options.enter" },
+]
+
+# Whether autotype presses Enter to submit after the last typed value — after the
+# OTP when the entry has one, otherwise after the password. Turn off to stop the
+# sequence just before submitting. (The post-password Enter still fires when an
+# OTP follows it.) Advanced.
+[[setting]]
+key = "autotypeSubmit"
+type = "bool"
+label_key = "settings.autotype-submit.label"
+description_key = "settings.autotype-submit.desc"
+default = true
+advanced = true
 
 [[launcher_provider]]
 id = "pass"
