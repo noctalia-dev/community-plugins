@@ -9,6 +9,8 @@
     "create-cancel": "Cancel",
     "create-cancel-desc": "Go back without creating",
     "create-confirm": "Create entry now",
+    "create-error": "Could not check whether the path is free",
+    "create-exists": "That path already has an entry — cannot create it",
     "create-hint": "Type a name for the new entry",
     "edit": "Edit",
     "edit-desc": "Open pass edit in a terminal",

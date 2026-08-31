@@ -267,21 +267,27 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
 **"New entry"** row in every browse view (`renderBrowseRows`, a `query` row to
 `"+"..folder.."/"`) or by typing `+`.
 
-- `onQuery` `+<rest>` → `renderCreateMenuRows(rest)`: `trim(rest)` is the new
-  path (relative to the store root, editable by typing). "Go back" to
-  `parentOf(path)`, then — only when the path has a leaf (non-empty, no trailing
-  `/`) — a **"Create entry"** row (`id = "create-go"`, a `query` row to
-  `"+!"..path.." "`). Empty / folder-only path → a `create-hint` info row
-  instead (non-activatable; in the `onActivate` guard list).
+- `onQuery` `+<rest>` → `showCreateMenu(text, rest)` (async, like `fetchDetail`):
+  `trim(rest)` is the new path (relative to the store root, editable by typing).
+  Renders "Go back" to `parentOf(path)`, then: empty / folder-only path → a
+  `create-hint` info row; otherwise the **"Create entry"** row (`id =
+  "create-go"`, a `query` row to `"+!"..path.." "`) *optimistically*, then a
+  `test -e <storeDir>/<path>.gpg` (per keystroke, cheap). If the path is taken
+  the row is replaced in place with `create-exists` (`test` erroring →
+  `create-error`) so the confirm / notification phase is never reached for a
+  name that can't be created. Stale callbacks drop on `lastQuery`.
+  `create-hint` / `create-exists` / `create-error` are all non-activatable (in
+  the `onActivate` guard list).
 - `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
   back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
   (`newrun:<path>`). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
-  empty / trailing-`/` path (`notification.create-failed`). Then a
-  `test -e <storeDir>/<path>.gpg` guard — **`pass generate` silently overwrites
-  an existing entry** when run without a tty (its `yesno` overwrite prompt does
-  `[[ -t 0 ]] || return 0`, i.e. answers *yes*), so only a definite "does not
-  exist" (exit 1) proceeds; exit 0 → `notification.create-exists`, anything
+  empty / trailing-`/` path (`notification.create-failed`). Then repeats the
+  `test -e <storeDir>/<path>.gpg` guard as a TOCTOU safety net (and for a
+  hand-typed `+!<path>` that skipped the menu) — **`pass generate` silently
+  overwrites an existing entry** when run without a tty (its `yesno` overwrite
+  prompt does `[[ -t 0 ]] || return 0`, i.e. answers *yes*), so only exit 1
+  "does not exist" proceeds; exit 0 → `notification.create-exists`, anything
   else → `notification.create-failed`. On "proceed": close the panel, run
   `pass generate <path>` (no `-i` — brand-new entry, encrypt only, no pinentry;
   `pass` still rejects `..`; `DECRYPT_TIMEOUT_MS` safety net). On success
@@ -359,10 +365,11 @@ Do not regress these without a deliberate reason:
    3a. **Browse rows** — every folder view (root included) carries a "New entry"
    row after "Go back". It opens the creation menu (`+` prefix): an editable new
    path, a "Create entry" row once the path has a leaf, then a two-step confirm
-   (Cancel / "Create entry now"). On confirm, an existing entry at that path is
-   refused (`test -e` guard — `pass generate` would silently overwrite); a new
-   path runs `pass generate <path>` then `pass edit <path>` (when a terminal
-   resolves).
+   (Cancel / "Create entry now"). A path that already has an entry is refused
+   *in the menu* (the "Create entry" row becomes an "already exists" message,
+   from a `test -e` check) — and again in `newEntry` as a TOCTOU guard, since
+   `pass generate` would silently overwrite. A free path runs `pass generate
+   <path>` then `pass edit <path>` (when a terminal resolves).
 4. **Username** — the value of the first `login` / `user` / `username` field
    (case-insensitive), or the entry's basename if none. That field is not also
    shown as a generic field row.

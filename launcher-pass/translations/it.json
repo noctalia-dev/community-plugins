@@ -9,6 +9,8 @@
     "create-cancel": "Annulla",
     "create-cancel-desc": "Torna indietro senza creare",
     "create-confirm": "Crea la voce ora",
+    "create-error": "Impossibile verificare se il percorso è libero",
+    "create-exists": "Quel percorso ha già una voce — impossibile crearla",
     "create-hint": "Digita un nome per la nuova voce",
     "edit": "Modifica",
     "edit-desc": "Apri pass edit in un terminale",

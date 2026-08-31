@@ -709,29 +709,60 @@ end
 -- path, relative to the store root, editable by typing. onQuery routes "+!"
 -- (the confirm step) before "+", the same leading-"!" trick as ":!" vs ":".
 --
--- Menu: a "Go back" row to the parent folder, then — only when the path has a
--- leaf name (non-empty, no trailing "/") — a "Create entry" row that is a
--- `query` row to "+!<path> " (the confirm view). An empty / folder-only path
--- shows a hint row instead.
-local function renderCreateMenuRows(rest)
+-- Rows: a "Go back" row to the parent folder, then, when the path has a leaf
+-- name (non-empty, no trailing "/"), a "Create entry" row (a `query` row to
+-- "+!<path> ", the confirm view). An empty / folder-only path shows a hint row.
+--
+-- The "Create entry" row is rendered optimistically, then a
+-- `test -e <store>/<path>.gpg` runs (per keystroke, cheap): if the path is
+-- already taken the row is replaced in place with a "already exists" message
+-- so the user never reaches the confirm / notification phase for a name that
+-- can't be created. Stale callbacks are dropped on `lastQuery`.
+local function showCreateMenu(text, rest)
   local path = trim(rest)
-  local rows = { goBackRow(parentOf(path), path ~= "" and path or tr("action.new")) }
-  if path ~= "" and path:sub(-1) ~= "/" then
-    rows[#rows + 1] = {
+  local backRow = goBackRow(parentOf(path), path ~= "" and path or tr("action.new"))
+
+  if path == "" or path:sub(-1) == "/" then
+    launcher.setResults(text, {
+      backRow,
+      { id = "create-hint", title = tr("action.create-hint"), glyph = "info-circle" },
+    })
+    return
+  end
+
+  launcher.setResults(text, {
+    backRow,
+    {
       id = "create-go",
       query = "+!" .. path .. " ",
       title = tr("action.create"),
       subtitle = path,
       glyph = "plus",
-    }
-  else
-    rows[#rows + 1] = {
-      id = "create-hint",
-      title = tr("action.create-hint"),
-      glyph = "info-circle",
-    }
-  end
-  return rows
+    },
+  })
+
+  noctalia.runAsync({ "test", "-e", storeDir() .. "/" .. path .. ".gpg" }, function(res)
+    if lastQuery ~= text then
+      return -- a newer keystroke superseded this menu
+    end
+    if res.exitCode == 1 and not res.timedOut then
+      return -- path is free — keep the optimistic "Create entry" row
+    end
+    local taken = res.exitCode == 0 and not res.timedOut
+    if not taken then
+      noctalia.log("launcher-pass: existence check for '" .. path .. "' failed (exit "
+        .. tostring(res.exitCode) .. (res.timedOut and ", timed out" or "") .. ")")
+    end
+    launcher.setResults(text, {
+      backRow,
+      {
+        id = taken and "create-exists" or "create-error",
+        title = tr(taken and "action.create-exists" or "action.create-error"),
+        subtitle = path,
+        glyph = "alert-triangle",
+      },
+    })
+  end)
 end
 
 -- The creation confirm view ("+!<path>"): Cancel is a `query` row back to the
@@ -1088,13 +1119,14 @@ local function generateEntry(entryPath)
 end
 
 -- ── new entry (creation menu) ────────────────────────────────────────────
--- Confirmed path from renderCreateConfirmRows.
---
--- `pass generate <path>` would **silently overwrite** an existing entry here:
--- its "overwrite?" prompt goes through `yesno`, which returns *yes* the moment
--- stdin is not a tty (`[[ -t 0 ]] || return 0`) — and runAsync gives it no
--- tty. So guard first with a `test -e <store>/<path>.gpg`; only a definite
--- "does not exist" (exit 1) proceeds, an existing file → notification.create-exists.
+-- Confirmed path from renderCreateConfirmRows. `showCreateMenu` already blocks
+-- the confirm step for a path that is taken; this repeats the
+-- `test -e <store>/<path>.gpg` guard as a TOCTOU safety net (and to cover a
+-- hand-typed "+!<path>" that skipped the menu). `pass generate <path>` would
+-- **silently overwrite** an existing entry — its "overwrite?" prompt goes
+-- through `yesno`, which returns *yes* the moment stdin is not a tty
+-- (`[[ -t 0 ]] || return 0`), and runAsync gives it none. Only a definite
+-- "does not exist" (exit 1) proceeds; exit 0 → notification.create-exists.
 --
 -- Then `pass generate <path>` creates the entry with a random password (no
 -- decrypt / pinentry — encrypt only; `pass` still rejects ".."). When a
@@ -1202,7 +1234,7 @@ function onQuery(text)
   end
   local createRest = text:match("^%s*%+(.*)$")
   if createRest then
-    launcher.setResults(text, renderCreateMenuRows(createRest))
+    showCreateMenu(text, createRest)
     return
   end
 
@@ -1280,7 +1312,8 @@ end
 
 function onActivate(id)
   if id == nil or id == "" or id == "loading" or id == "decrypting"
-      or id == "error" or id == "create-hint" then
+      or id == "error" or id == "create-hint" or id == "create-exists"
+      or id == "create-error" then
     return
   end
 

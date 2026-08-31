@@ -93,13 +93,16 @@ The **"New entry"** row in any folder view (or typing `/pass +`) opens the
 creation menu on the `+` prefix, pre-filled with the current folder path. Edit
 the path by typing; a **"Create entry"** row appears once the path has a leaf
 name. Activating it shows a **Cancel** / **Create entry now** confirm step with
-the full path. Confirming closes the launcher and runs `pass generate <path>` (a
-fresh random password), then — if a terminal resolves — opens `pass edit <path>`
-so you can add a username and other fields (no time limit). When the editor
-exits a **"Password entry created"** notification fires and the launcher stays
-closed; the new entry shows up next time you open it. `pass` rejects paths
-containing `..`, and a path that already has an entry is refused with an
-**"already exists"** notification rather than overwritten.
+the full path. If the path already has an entry the **"Create entry"** row turns
+into an *"already exists"* message right there in the menu, so you never reach
+the confirm step for a name that can't be created.
+
+Confirming closes the launcher and runs `pass generate <path>` (a fresh random
+password), then — if a terminal resolves — opens `pass edit <path>` so you can
+add a username and other fields (no time limit). When the editor exits a
+**"Password entry created"** notification fires and the launcher stays closed;
+the new entry shows up next time you open it. `pass` also rejects paths
+containing `..`.
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
