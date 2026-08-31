@@ -24,6 +24,7 @@ local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
+local unavailable = shared.unavailable
 
 local failure = NO_FAILURE
 
@@ -50,14 +51,25 @@ local function shown()
     if vendor ~= "auto" then
         local wanted = wantedEntryId()
         for _, entry in ipairs(all) do
-            if entry.id == wanted then return { entry }, 0 end
+            -- A pinned provider that stopped reporting leaves the capsule empty
+            -- rather than holding a number nothing is refreshing.
+            if entry.id == wanted then
+                if unavailable(entry) then return {}, 0 end
+                return { entry }, 0
+            end
         end
         return {}, 0
     end
 
     local ready = {}
     for _, entry in ipairs(all) do
-        if entry.status ~= "error" then ready[#ready + 1] = entry end
+        -- A provider whose service is down drops out of the bar on the first
+        -- report that says so, rather than sitting there with a frozen reading.
+        -- It is not counted as hidden either: hidden means the panel has more to
+        -- show, and this one has nothing to show.
+        if entry.status ~= "error" and not unavailable(entry) then
+            ready[#ready + 1] = entry
+        end
     end
     local primary = type(report) == "table" and report.primary or nil
     table.sort(ready, function(a, b)
@@ -213,10 +225,11 @@ end
 
 local function render()
     local picked, hidden = shown()
-    -- A failure drops the reading, so the capsule cannot show a live percentage
-    -- while the panel behind it says the CLI is unreachable. Empty already draws
-    -- the alert glyph.
-    if failure.code ~= "" then picked, hidden = {}, 0 end
+    -- A failed read does not erase the last one: the numbers stay, flagged, until
+    -- a good report replaces them or the provider drops out on its own. Erasing
+    -- them left the capsule blank over a transient spawn failure and took the
+    -- whole reading down with it.
+    local flagged = failure.code ~= "" and #picked > 0
 
     local children = {}
     for _, entry in ipairs(picked) do
@@ -242,6 +255,9 @@ local function render()
     elseif hidden > 0 then
         children[#children + 1] = ui.label({ text = "+" .. tostring(hidden), fontSize = 10,
                                              color = "on_surface_variant", maxLines = 1 })
+    end
+    if flagged then
+        children[#children + 1] = ui.glyph({ name = "alert-triangle", size = 11, color = "error" })
     end
 
     barWidget.render(ui.row({ gap = 6, align = "center" }, children))

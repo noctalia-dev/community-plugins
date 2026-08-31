@@ -160,4 +160,44 @@ local sameProvider = loadBar({
 assert(sameProvider.tooltip()[1].key == "Codex · alpha",
     "named accounts of the same primary provider should keep lexical order")
 
-io.write("ok: account selection and malformed metrics handling\n")
+-- A provider whose service is down is dropped from the bar on the first report
+-- that says so: the CLI keeps serving what it cached, and a frozen number beside
+-- live ones reads as live.
+local function downEntry(id, displayName, percent)
+    local down = entry(id, displayName, percent)
+    down.sections = {
+        { type = "text", label = "Warning",
+          value = "credentials error: Antigravity: no local server found." },
+    }
+    return down
+end
+
+local dropped = loadBar({
+    vendor = "auto", account = "", extras = "none", visualization = "none",
+    provider_limit = 3,
+}, {
+    entries = {
+        entry("anthropic", "Claude", 10),
+        downEntry("antigravity", "Antigravity", 90),
+        entry("openai", "Codex", 20),
+    },
+})
+local names = {}
+for _, row in ipairs(dropped.tooltip()) do names[#names + 1] = row.key end
+local listed = false
+for _, name in ipairs(names) do if name == "Antigravity" then listed = true end end
+assert(not listed, "a provider that is down leaves the bar")
+-- Ranked first on severity, it would have led the capsule; the rest still show.
+-- Each provider contributes its name and then its readings.
+assert(names[1] == "Codex" and names[3] == "Claude", "the rest keep their order")
+-- And it is not counted as hidden: hidden means there is more to see.
+for _, row in ipairs(dropped.tooltip()) do
+    assert(row.key ~= "ui.hidden_label", "it is dropped, not hidden behind a +1")
+end
+
+local pinnedDown = loadBar({
+    vendor = "antigravity", account = "", extras = "none", visualization = "none",
+}, { entries = { downEntry("antigravity", "Antigravity", 90) } })
+assert(#pinnedDown.tooltip() > 0, "a pinned provider still explains itself in the tooltip")
+
+io.write("ok: account selection, malformed metrics, and providers that are down\n")

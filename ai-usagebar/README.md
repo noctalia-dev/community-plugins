@@ -102,17 +102,29 @@ it or press the same widget again.
 
 The list follows the CLI. A provider the CLI reports no API key for never
 appears, because it was never set up. One that is set up and unreachable keeps
-its row and shows the CLI's own words, so Antigravity with its local server
-down says to open Antigravity rather than vanishing.
+its row, marked unavailable, and shows the CLI's own words, so Antigravity with
+its local server down says to open Antigravity rather than vanishing.
+
+A provider's readings share one card, so its session and its week are read
+together. Antigravity's plan spans two models and reports each of them once per
+window, so its cards are keyed by model, titled with it, and each reading is
+headed by the window it covers. Every other provider reports one subject, which
+the pane's own header already names, so its readings head themselves and the
+card goes untitled.
 
 The detail pane spells out what the CLI reports for that provider instead of
-implying it: the plan and account name, when it was fetched, a stale flag when
-the reading is old, and the status when it is anything other than a healthy
-read. Each window gets its label, the percentage, the raw value string when
-that says more than the percentage, how much of the window has elapsed, the
-time left with the clock time (or date) its reset lands on, the pace line, and
-the severity as a word whenever the CLI calls the window high or critical.
-Credit blocks and free text rows appear as the CLI writes them.
+implying it: the plan and account name, when it was fetched, and a stale flag
+when the reading is old. Each window gets its label, the percentage, the raw
+value string when that says more than the percentage, how much of the window has
+elapsed, the time left with the clock time (or date) its reset lands on, the
+pace line, and the severity as a word whenever the CLI calls the window high or
+critical. Credit blocks and free text rows appear as the CLI writes them.
+
+A provider that is down draws no gauges. A bar reads as a live reading, and
+nothing is reading it: the warning takes their place, and the numbers it was
+last seen with follow as dated text. If the plan changed since, they are dropped
+instead -- a plan carries the limits every percentage is measured against, so a
+reading taken under the old one says nothing about the new one.
 
 To open the panel from a terminal:
 
@@ -168,8 +180,16 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   it knows arrives on that command's stdout.
 - A provider that fails still comes back as an entry with `status = "error"`, so
   one broken provider does not blank the others. A reading the CLI marks stale
-  keeps showing, flagged by an icon in the list, the capsule, and the panel's
-  detail pane.
+  keeps showing, flagged by an icon in the list and the panel's detail pane.
+- A provider whose service is down leaves the bar on the first report that says
+  so, rather than sitting in the capsule with a number nothing is refreshing. It
+  is not counted behind the `+n`: that count is what the panel has more of, and
+  this one has nothing to show. It comes back the moment a report carries a
+  reading for it again.
+- A failed read does not erase the last one. The failure is said once, as a
+  banner in the panel and a flag on the capsule, over readings that are simply
+  older than they should be; the panel only gives itself over to the failure
+  when there is no report behind it at all.
 
 ## Tests
 

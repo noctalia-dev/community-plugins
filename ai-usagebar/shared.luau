@@ -49,6 +49,30 @@ function M.requestRefresh()
     noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
 end
 
+-- A provider the CLI is no longer reading. It says so two ways: the entry fails
+-- outright, or it keeps serving the numbers it cached and appends a warning
+-- saying why they stopped moving -- Antigravity does the second whenever its
+-- local server is down. Both mean the readings are a record, not a gauge.
+function M.warning(entry)
+    if type(entry) ~= "table" then return "" end
+    local direct = noctalia.string.trim(tostring(entry.error or ""))
+    if direct ~= "" then return direct end
+    local sections = type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text" then
+            local value = tostring(section.value or "")
+            if value:lower():find("error:") ~= nil then
+                return noctalia.string.trim(value)
+            end
+        end
+    end
+    return ""
+end
+
+function M.unavailable(entry)
+    return M.warning(entry) ~= ""
+end
+
 -- Anything else in the `error` slot means no failure.
 M.NO_FAILURE = { code = "", detail = "" }
 
