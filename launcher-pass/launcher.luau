@@ -1312,8 +1312,16 @@ end
 
 function onActivate(id)
   if id == nil or id == "" or id == "loading" or id == "decrypting"
-      or id == "error" or id == "create-hint" or id == "create-exists"
-      or id == "create-error" then
+      or id == "error" then
+    return
+  end
+
+  -- Inert creation-menu rows (the "already exists" / check-error / "type a
+  -- name" messages). The host closes the launcher after an activation that
+  -- doesn't touch it, so re-assert the current query to keep the creation
+  -- menu on screen — otherwise "do nothing".
+  if id == "create-hint" or id == "create-exists" or id == "create-error" then
+    launcher.setQuery(lastQuery or "+")
     return
   end
 

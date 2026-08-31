@@ -276,8 +276,9 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   the row is replaced in place with `create-exists` (`test` erroring →
   `create-error`) so the confirm / notification phase is never reached for a
   name that can't be created. Stale callbacks drop on `lastQuery`.
-  `create-hint` / `create-exists` / `create-error` are all non-activatable (in
-  the `onActivate` guard list).
+  `create-hint` / `create-exists` / `create-error` are inert: activating one
+  does nothing but re-assert `lastQuery` via `setQuery`, so the host keeps the
+  creation menu open instead of closing the launcher.
 - `onQuery` `+!<path>` → `renderCreateConfirmRows(path)`: **Cancel** (`query`
   back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
   (`newrun:<path>`). Static rows.
