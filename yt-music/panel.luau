@@ -1,4 +1,4 @@
-local STATE_KEY = "noctalia_ytmusic.state"
+local STATE_KEY = "yt_music.state"
 
 local state = require("./views/state.luau")
 local rerender = require("./views/rerender.luau")

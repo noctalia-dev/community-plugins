@@ -1,6 +1,6 @@
 local schema = require("../utils/schema.luau")
 
-local STATE_KEY = "noctalia_ytmusic.state"
+local STATE_KEY = "yt_music.state"
 
 -- Service-side singleton state. Only the service (and its domain modules)
 -- require this; the panel uses schema.new() for its own read-only view.

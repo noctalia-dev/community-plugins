@@ -1,4 +1,4 @@
-local REQ_KEY = "noctalia_ytmusic.request"
+local REQ_KEY = "yt_music.request"
 
 -- Millisecond clock + jitter: entries (mini vs full panel) are separate
 -- processes seeding their own counter; seeded >=1ms apart, the >=1000 gap can

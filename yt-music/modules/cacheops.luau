@@ -49,7 +49,7 @@ end
 -- Audio is one shared dir, so its du total is split into downloads vs cached
 -- using offline_meta.json (explicit saves) as the partition.
 local STATS_SCRIPT = [[
-    CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic"
+    CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music"
     [ -d "$CACHE" ] || exit 0
     du -sh "$CACHE"/streams "$CACHE"/thumbnails "$CACHE"/playlists 2>/dev/null | awk '{print $1"|"$2}'
     META="$CACHE/offline_meta.json"
@@ -136,7 +136,7 @@ function Cache.clear(target)
 		end
 	else
 		script = ([[
-			CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic"
+			CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music"
 			rm -rf "$CACHE/%s"/*
 		]]):format(target)
 	end

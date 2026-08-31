@@ -1,4 +1,4 @@
-local REQ_KEY = "noctalia_ytmusic.request"
+local REQ_KEY = "yt_music.request"
 
 local api = require("./api.luau")
 local store = require("./modules/store.luau")
@@ -215,7 +215,7 @@ function update()
 					network.setOnline(now_online)
 					store.publish()
 					if not now_online then
-						noctalia.notify("Noctalia YT Music", "You're offline — playing downloaded tracks only")
+						noctalia.notify("YouTube Music", "You're offline — playing downloaded tracks only")
 					else
 						log("network: back online")
 					end

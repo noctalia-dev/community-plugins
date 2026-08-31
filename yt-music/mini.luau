@@ -1,4 +1,4 @@
-local STATE = "noctalia_ytmusic.state"
+local STATE = "yt_music.state"
 local theme = require("./utils/theme.luau")
 local request = require("./views/actions.luau")
 
@@ -69,7 +69,7 @@ local function render_mini()
                 text = "Open Main Window",
                 variant = "primary",
                 controlSize = "md",
-                onClick = function() noctalia.togglePanel("aabidk20/noctalia-ytmusic:panel") end
+                onClick = function() noctalia.togglePanel("aabidk20/yt-music:panel") end
             })
         }))
         return
@@ -167,7 +167,7 @@ local function render_mini()
                     variant = "ghost",
                     controlSize = "sm",
                     onClick = function()
-                        noctalia.togglePanel("aabidk20/noctalia-ytmusic:panel")
+                        noctalia.togglePanel("aabidk20/yt-music:panel")
                     end
                 })
             })
@@ -251,7 +251,7 @@ local function render_mini()
         variant = "ghost",
         controlSize = "sm",
         onClick = function()
-            noctalia.openSettings("aabidk20/noctalia-ytmusic")
+            noctalia.openSettings("aabidk20/yt-music")
         end
     }))
 

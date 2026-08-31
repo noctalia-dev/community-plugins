@@ -18,7 +18,7 @@ local network = require("../utils/network.luau")
 
 local RESOLVE_SCRIPT = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
+OUT="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music/cookies.txt"
 CACHE_FILE="]=] .. STREAMS_CACHE_DIR .. [=[/VIDEO.url"
 if [ -s "$CACHE_FILE" ]; then
   URL=$(cat "$CACHE_FILE")

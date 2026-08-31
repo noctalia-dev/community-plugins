@@ -1,5 +1,5 @@
 local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
-local DEBUG_LOG_PATH = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic/debug.log"
+local DEBUG_LOG_PATH = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/yt-music/debug.log"
 
 local function debug_enabled()
     return noctalia.getConfig("debug_logging") == true

@@ -1,4 +1,4 @@
-# Noctalia YT Music
+# YouTube Music
 
 A YouTube Music client for Noctalia v5 with a bar miniplayer and a full shell
 panel — browse your library, playlists, and recommendations, and control
@@ -8,7 +8,7 @@ playback with full transport controls, offline caching, and session restore.
 
 | Field | Value |
 | --- | --- |
-| ID | `aabidk20/noctalia-ytmusic` |
+| ID | `aabidk20/yt-music` |
 | Entries | Bar widget: `widget`; panels: `mini`, `panel`; service: `service` |
 
 ## Requirements
@@ -29,8 +29,8 @@ miniplayer, right click opens the full panel, middle click opens the plugin
 settings). You can also toggle any entry with its IPC command:
 
 ```sh
-noctalia msg panel-toggle aabidk20/noctalia-ytmusic:mini
-noctalia msg panel-toggle aabidk20/noctalia-ytmusic:panel
+noctalia msg panel-toggle aabidk20/yt-music:mini
+noctalia msg panel-toggle aabidk20/yt-music:panel
 ```
 
 The full panel groups everything: a home feed with Quick Picks, recommended
@@ -67,10 +67,10 @@ stream, thumbnail, and playlist caches are sized and clearable in Settings.
 The service exposes actions via `noctalia msg` using the plugin state channel:
 
 ```sh
-noctalia msg plugin aabidk20/noctalia-ytmusic:<entry-id> all <action> [payload]
+noctalia msg plugin aabidk20/yt-music:<entry-id> all <action> [payload]
 ```
 
-The bar widget also opens entries directly (`panel-toggle aabidk20/noctalia-ytmusic:mini` and `aabidk20/noctalia-ytmusic:panel`).
+The bar widget also opens entries directly (`panel-toggle aabidk20/yt-music:mini` and `aabidk20/yt-music:panel`).
 
 ## Notes
 
@@ -78,7 +78,7 @@ The bar widget also opens entries directly (`panel-toggle aabidk20/noctalia-ytmu
   thumbnail host (`i.ytimg.com`) via `curl`, `yt-dlp`, and the native HTTP
   API. No third-party servers.
 - **Files** — cookies, playlists, sessions, quick picks, stats, and all audio /
-  stream / thumbnail caches live under `$XDG_CACHE_HOME/noctalia-ytmusic/`;
+  stream / thumbnail caches live under `$XDG_CACHE_HOME/yt-music/`;
   transient scratch files and the mpv socket use `/tmp`.
 - **Cookie extraction** — on sign-in the plugin reads your browser's YouTube
   cookies locally via `yt-dlp --cookies-from-browser` and stores them only in

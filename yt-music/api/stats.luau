@@ -74,7 +74,7 @@ function EXPO.track_stats(video_id: string, cb: ((number, number) -> ())?)
     local safe_id = video_id:gsub("[^%w%-_]", "_")
     local script = ([=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
+OUT="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music/cookies.txt"
 [ -s "$OUT" ] || { echo "NOCACHE=1"; exit 0; }
 LINE=$(yt-dlp --skip-download --no-playlist --no-warnings --cookies "$OUT" --print "%(view_count)s|%(like_count)s" "https://www.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
 VIEWS=$(printf '%s' "$LINE" | cut -d'|' -f1)

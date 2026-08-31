@@ -4,7 +4,7 @@
 -- Scope: api/* only. service.luau / panel.luau never touch these directly.
 
 local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
-local CACHE_ROOT = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
+local CACHE_ROOT = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/yt-music"
 
 local EXPO = {}
 

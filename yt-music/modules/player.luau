@@ -141,10 +141,10 @@ function Player.play_index(index, queue)
 			state.player.status = "stopped"
 			if state.player.repeat_mode == "all" then
 				state.status_text = "Offline: no downloaded tracks to play"
-				noctalia.notify("Noctalia YT Music", "Nothing downloaded to play offline")
+				noctalia.notify("YouTube Music", "Nothing downloaded to play offline")
 			else
 				state.status_text = "Offline: reached end of downloaded tracks"
-				noctalia.notify("Noctalia YT Music", "Reached end of downloaded tracks")
+				noctalia.notify("YouTube Music", "Reached end of downloaded tracks")
 			end
 			publish()
 			return
@@ -326,7 +326,7 @@ function Player.toggle()
 	elseif state.player.status == "paused" then
 		noctalia.runAsync(
 			[[
-            SOCK="/tmp/noctalia-ytmusic/mpv.sock"
+            SOCK="/tmp/yt-music/mpv.sock"
             [ -S "$SOCK" ] && echo "YES" || echo "NO"
         ]],
 			function(res)

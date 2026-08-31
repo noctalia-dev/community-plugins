@@ -82,7 +82,7 @@ end
 local known_thumb_files = {}
 
 local function preload_thumb_cache()
-	noctalia.runAsync("find /tmp -name 'noctalia-ytmusic-thumb-*.jpg' 2>/dev/null", function(res)
+	noctalia.runAsync("find /tmp -name 'yt-music-thumb-*.jpg' 2>/dev/null", function(res)
 		local out = type(res) == "table" and res.stdout or ""
 		for line in out:gmatch("[^\r\n]+") do
 			known_thumb_files[line] = true

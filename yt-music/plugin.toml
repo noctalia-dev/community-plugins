@@ -1,5 +1,5 @@
-id = "aabidk20/noctalia-ytmusic"
-name = "Noctalia YT Music"
+id = "aabidk20/yt-music"
+name = "YouTube Music"
 version = "0.2.2"
 plugin_api = 23
 icon = "brand-youtube-filled"
@@ -21,9 +21,9 @@ id = "widget"
 entry = "widget.luau"
 
 [widget.actions]
-left = "panel-toggle aabidk20/noctalia-ytmusic:mini"
-right = "panel-toggle aabidk20/noctalia-ytmusic:panel"
-middle = "settings-open-plugin aabidk20/noctalia-ytmusic"
+left = "panel-toggle aabidk20/yt-music:mini"
+right = "panel-toggle aabidk20/yt-music:panel"
+middle = "settings-open-plugin aabidk20/yt-music"
 
 [[panel]]
 id = "mini"

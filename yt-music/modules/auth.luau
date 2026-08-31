@@ -66,7 +66,7 @@ function Auth.extract_cookies(browser)
             state.status_text = string.format("Saved %d YouTube cookies from %s (filtered %d others)",
                 kept, label, math.max(0, total - kept))
             if noctalia.notify then
-                noctalia.notify("Noctalia YT Music", state.status_text)
+                noctalia.notify("YouTube Music", state.status_text)
             end
             if api and api.invalidate_auth then
                 api.invalidate_auth()
@@ -95,7 +95,7 @@ function Auth.extract_cookies(browser)
             state.status_text = "No YouTube session found in " .. label
             Auth.open_login(browser)
             if noctalia.notify then
-                noctalia.notify("Noctalia YT Music", "No YouTube login in " .. label .. ". Opening YouTube Music — sign in, then click the button again.")
+                noctalia.notify("YouTube Music", "No YouTube login in " .. label .. ". Opening YouTube Music — sign in, then click the button again.")
             end
         end
         store.publish()

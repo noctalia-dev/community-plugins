@@ -90,7 +90,7 @@ local function build_signin_prompt()
         flexGrow = 1
     }, {
         ui.glyph({ name = "music", size = 44, color = "primary" }),
-        ui.label({ text = "Noctalia YT Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+        ui.label({ text = "YouTube Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
         ui.label({ text = "Pick the browser you're signed into YouTube Music with", fontSize = theme.fontTitle, color = "on_surface_variant" }),
         ui.label({
             text = state.data.status_text,

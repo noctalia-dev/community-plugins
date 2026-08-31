@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Invoked via:  bash scripts/mpv.sh <fn> <args...>
 
-DIR="/tmp/noctalia-ytmusic"
+DIR="/tmp/yt-music"
 PIDFILE="$DIR/mpv.pid"
 SOCK="$DIR/mpv.sock"
 GENFILE="$DIR/mpv.gen"

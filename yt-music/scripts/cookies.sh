@@ -25,10 +25,10 @@ open_browser() {   # $1=browser id
 extract_cookies() {   # $1=browser id
   local browser="$1"
   export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-  TMPD=$(mktemp -d /tmp/noctalia-ytmusic.XXXXXX 2>/dev/null)
-  [ -n "$TMPD" ] || { TMPD=/tmp/noctalia-ytmusic; mkdir -p "$TMPD"; }
+  TMPD=$(mktemp -d /tmp/yt-music.XXXXXX 2>/dev/null)
+  [ -n "$TMPD" ] || { TMPD=/tmp/yt-music; mkdir -p "$TMPD"; }
   RAW="$TMPD/raw_$browser.txt"
-  OUT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic"
+  OUT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music"
   mkdir -p "$OUT_DIR"
   OUT="$OUT_DIR/cookies.txt"
   if [ "$browser" = "zen" ]; then
@@ -59,7 +59,7 @@ extract_cookies() {   # $1=browser id
 }
 
 load_cached_cookies() {
-  OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
+  OUT="${XDG_CACHE_HOME:-$HOME/.cache}/yt-music/cookies.txt"
   if [ -s "$OUT" ]; then
     KEPT=$(grep -vc '^#' "$OUT" 2>/dev/null || echo 0)
     if [ "$KEPT" -gt 0 ]; then
