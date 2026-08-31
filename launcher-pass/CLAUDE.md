@@ -57,10 +57,6 @@ Add new shortcuts that will let the user perform the following actions without t
 - Type/Copy otp
 - Autotype action
 
-### Generate password action
-
-Add a "Generate" option to details view that will ask for confirmation ad after approval it will generate a new password with `pass generate -i` and keep the launcher open to let the user copy or type the new password.
-
 ### Creation menu
 
 Add a "New" option to folder view that will open a submenu letting the user create a new password entry in the current path (editable).
@@ -172,7 +168,11 @@ path; browse rows the basename.
   (`id = "edit:"..entryPath`) is appended after all the Copy/Type rows, before
   the "Go back" row — omitted when `terminalArgv()` returns nil (no terminal
   resolvable). It is not an `act:` row: `onActivate` dispatches it straight to
-  `editEntry`, no `detailActions` entry.
+  `editEntry`, no `detailActions` entry. A **Generate** row
+  (`id = "gen:"..entryPath`) follows the Edit row, always present. Activating it
+  doesn't act: `generateConfirm` replaces the rows with a Cancel (`query` row
+  back to the detail view) / "Regenerate now" (`genrun:"..entryPath`) pair.
+  Neither `edit:` / `gen:` / `genrun:` uses `detailActions`.
 - **Row filter** — a non-empty `filter` fuzzy-narrows the rendered rows by
   `title` with the same `matchesFragments` rule (`:<path> otp` → only the OTP
   rows). `detailActions` is populated for every row *before* filtering, so
@@ -230,6 +230,22 @@ re-decrypts the edited file. No `runAsync` timeout — an interactive edit is
 open-ended. When `terminalArgv()` is nil the row was never rendered; a
 defensive `editEntry` call still fires `notification.edit-failed`.
 
+### Generate action
+
+Two-step. The `gen:<path>` row → `generateConfirm(path)`, which
+`launcher.setResults(lastQuery or ":"..path.." ", …)` with a **Cancel** row (a
+`query` row that re-fires `onQuery` back into the detail view) and a
+**"Regenerate now"** `genrun:<path>` row. `genrun:` → `generateEntry(path)`:
+closes the panel up front (like Copy/Type — `pass generate -i` decrypts the
+existing file so pinentry may pop and needs focus), runs `pass generate -i
+<path>` (first line only, so username / OTP / fields survive), then **on success
+only** clears `detailCache[path]`, fires `notification.generated`, and
+`reopenLauncherPanel(":"..path.." ")` so the host re-delivers `onQuery` →
+`fetchDetail` re-decrypts (gpg-agent warm from the generate) and shows the new
+password ready to Copy/Type. On failure: `notification.generate-failed`, panel
+stays closed (same reopen-loop rationale as `fetchDetail`). `pass generate -i`
+skips its own overwrite `yesno` prompt, so no tty is needed.
+
 **Native auto-paste is not reachable from a plugin.** `LauncherPanel::finishActivation()`
 in the Noctalia source fires `shell.launcher.auto_paste` only when
 `provider.supportsAutoPaste()`, which `PluginLauncherProvider` never overrides;
@@ -285,9 +301,10 @@ Do not regress these without a deliberate reason:
 3. **Detail rows** — Copy Password, Copy OTP (**only if** the body has
    `otpauth://`), Copy Username, then Copy for each remaining `key: value` field
    in file order; a Type counterpart for each when `wtype` is present; an "Edit"
-   row after all of those when a terminal resolves (`terminalArgv()`); a "Go
-   back" row. Order/grouping of Copy vs Type per `detailActionOrder` /
-   `detailActionGrouping`; value order is fixed.
+   row after all of those when a terminal resolves (`terminalArgv()`); a
+   "Generate" row after Edit (always); a "Go back" row. Order/grouping of Copy vs
+   Type per `detailActionOrder` / `detailActionGrouping`; value order is fixed.
+   Generate is a two-step confirm (Cancel / "Regenerate now").
 4. **Username** — the value of the first `login` / `user` / `username` field
    (case-insensitive), or the entry's basename if none. That field is not also
    shown as a generic field row.

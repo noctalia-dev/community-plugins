@@ -7,6 +7,12 @@
     "copy-username": "Copia nome utente",
     "edit": "Modifica",
     "edit-desc": "Apri pass edit in un terminale",
+    "generate": "Genera",
+    "generate-cancel": "Annulla",
+    "generate-cancel-desc": "Mantieni la password attuale",
+    "generate-confirm": "Rigenera ora",
+    "generate-confirm-desc": "Sostituisce la password attuale. Operazione irreversibile.",
+    "generate-desc": "Rigenera la password con pass generate",
     "otp-desc": "Copia/digita codice OTP attuale",
     "type-field": "Digita {key}",
     "type-otp": "Digita OTP",
@@ -25,6 +31,8 @@
     "copied": "Copiato negli appunti",
     "copy-failed": "Copia non riuscita",
     "edit-failed": "Modifica non riuscita",
+    "generate-failed": "Rigenerazione della password non riuscita",
+    "generated": "Password rigenerata",
     "type-failed": "Digitazione non riuscita"
   },
   "result": {

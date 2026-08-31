@@ -7,6 +7,12 @@
     "copy-username": "Copy Username",
     "edit": "Edit",
     "edit-desc": "Open pass edit in a terminal",
+    "generate": "Generate",
+    "generate-cancel": "Cancel",
+    "generate-cancel-desc": "Keep the current password",
+    "generate-confirm": "Regenerate now",
+    "generate-confirm-desc": "Replaces the current password. This cannot be undone.",
+    "generate-desc": "Regenerate the password with pass generate",
     "otp-desc": "Copy/type current OTP code",
     "type-field": "Type {key}",
     "type-otp": "Type OTP",
@@ -25,6 +31,8 @@
     "copied": "Copied to clipboard",
     "copy-failed": "Copy failed",
     "edit-failed": "Edit failed",
+    "generate-failed": "Password regeneration failed",
+    "generated": "Password regenerated",
     "type-failed": "Type failed"
   },
   "result": {

@@ -639,6 +639,16 @@ local function renderDetailRows(entryPath, data, filter)
     }
   end
 
+  -- "Generate" — regenerate the password in place (CLAUDE.md "Generate
+  -- password action"). After the Edit row; activating it swaps in a
+  -- confirm/cancel pair (generateConfirm) rather than acting immediately.
+  rows[#rows + 1] = {
+    id = "gen:" .. entryPath,
+    title = tr("action.generate"),
+    subtitle = tr("action.generate-desc"),
+    glyph = "refresh",
+  }
+
   local frags = fragments(filter or "")
   if #frags == 0 then
     return rows
@@ -957,6 +967,53 @@ local function editEntry(entryPath)
   end)
 end
 
+-- ── generate action ──────────────────────────────────────────────────────
+-- Regenerating an entry's password is destructive (the old value is gone), so
+-- the "Generate" row doesn't act on activation — it swaps the rendered rows
+-- for a Cancel / "Regenerate now" pair. Cancel is a plain `query` row that
+-- re-fires onQuery back into the detail view; "Regenerate now" is a
+-- `genrun:<path>` row that onActivate hands to generateEntry.
+local function generateConfirm(entryPath)
+  local detailText = ":" .. entryPath .. " "
+  launcher.setResults(lastQuery or detailText, {
+    {
+      id = "gen-cancel",
+      query = detailText,
+      title = tr("action.generate-cancel"),
+      subtitle = tr("action.generate-cancel-desc"),
+      glyph = "arrow-left",
+    },
+    {
+      id = "genrun:" .. entryPath,
+      title = tr("action.generate-confirm"),
+      subtitle = tr("action.generate-confirm-desc"),
+      glyph = "alert-triangle",
+    },
+  })
+end
+
+-- `pass generate -i <entry>` replaces only the first line (the password);
+-- username, OTP and other fields are kept. It decrypts the existing file, so
+-- it can pop pinentry — the launcher is closed up front (like the Copy/Type
+-- paths) so the dialog gets focus, then reopened into this entry's detail
+-- view on success so the user can Copy/Type the new password. The detail
+-- cache is dropped first so the reopen re-decrypts. On failure the panel
+-- stays closed (same graceful exit as fetchDetail — no reopen loop).
+local function generateEntry(entryPath)
+  local subject = entryPath:match("[^/]+$") or entryPath
+  closeLauncherPanel(function()
+    noctalia.runAsync(passArgv({ "pass", "generate", "-i", entryPath }), function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        detailCache[entryPath] = nil
+        noctalia.notify(tr("notification.generated"), subject)
+        reopenLauncherPanel(":" .. entryPath .. " ")
+      else
+        noctalia.notifyError(tr("notification.generate-failed"), subject)
+      end
+    end, DECRYPT_TIMEOUT_MS)
+  end)
+end
+
 -- Dispatch one detail row's recorded action.
 --   copy: password / OTP go through `pass -c` / `pass otp -c` (copyViaPass:
 --     clip-timeout env + close-launcher-first pinentry handling); username and
@@ -1068,6 +1125,10 @@ function onActivate(id)
     launcher.setQuery(":" .. rest .. " ")
   elseif kind == "edit" then
     editEntry(rest)
+  elseif kind == "gen" then
+    generateConfirm(rest)
+  elseif kind == "genrun" then
+    generateEntry(rest)
   elseif kind == "act" then
     local ctx = detailActions[id]
     if ctx then

@@ -56,7 +56,8 @@ view, which lists, in order:
    in file order
 5. **Edit** — open `pass edit <entry>` in a terminal (only when a terminal
    resolves; see below)
-6. **Go back** to the entry's folder
+6. **Generate** — regenerate the password in place, behind a confirm prompt
+7. **Go back** to the entry's folder
 
 In the detail view, keep typing to filter these rows: `/pass work/aws/root otp`
 shows only the two OTP rows. The filter uses the same match rule as search
@@ -77,6 +78,13 @@ resolve, the Edit row is hidden. The **Editor command** setting, when set, is
 exported as `EDITOR` for that run; left blank, `EDITOR` is not touched and `pass`
 uses its own default. The decrypted-entry cache is dropped after an edit, so
 reopening the entry shows the new contents.
+
+**Generate** replaces the entry's password with `pass generate -i <entry>` —
+first line only, so the username, OTP, and other fields are kept. Activating the
+row first swaps in a **Cancel** / **Regenerate now** pair; only the second
+actually runs `pass`. On success a "Password regenerated" notification fires and
+the launcher reopens on the entry's detail view with the new password ready to
+Copy or Type. This is irreversible — the old password is not kept anywhere.
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
@@ -122,13 +130,15 @@ GPG pinentry prompt.
   decrypted content. Decrypted contents are read only when you open an entry's
   detail view (`pass show`), and are cached in memory for 60 s.
 - **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
-  show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `wtype` and `sleep`
-  (Type actions); a terminal running `pass edit` (Edit action); `noctalia msg
-  panel-*` (pinentry focus handling).
+  show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `pass generate -i`
+  (Generate action); `wtype` and `sleep` (Type actions); a terminal running
+  `pass edit` (Edit action); `noctalia msg panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
   the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
   index file holds decrypted content. Navigation state is encoded in the launcher
   query, not persisted.
 - **Network:** none.
-- **Writes:** only the `store.index` file above; `pass`, `gpg`, and clipboard
-  tools manage their own runtime state.
+- **Writes:** the `store.index` file above; the **Edit** and **Generate** actions
+  ask `pass` to rewrite the entry's own `.gpg` file (`pass edit` / `pass generate
+  -i`). Otherwise `pass`, `gpg`, and clipboard tools manage their own runtime
+  state.
