@@ -98,8 +98,8 @@ fresh random password), then — if a terminal resolves — opens `pass edit <pa
 so you can add a username and other fields (no time limit). When the editor
 exits a **"Password entry created"** notification fires and the launcher stays
 closed; the new entry shows up next time you open it. `pass` rejects paths
-containing `..`, and a name that already exists fails the creation (no
-overwrite).
+containing `..`, and a path that already has an entry is refused with an
+**"already exists"** notification rather than overwritten.
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
@@ -146,9 +146,9 @@ GPG pinentry prompt.
   detail view (`pass show`), and are cached in memory for 60 s.
 - **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
   show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `pass generate -i`
-  (Generate action); `pass generate` (New entry); `wtype` and `sleep` (Type
-  actions); a terminal running `pass edit` (Edit / New entry actions);
-  `noctalia msg panel-*` (pinentry focus handling).
+  (Generate action); `test` then `pass generate` (New entry); `wtype` and
+  `sleep` (Type actions); a terminal running `pass edit` (Edit / New entry
+  actions); `noctalia msg panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
   the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
   index file holds decrypted content. Navigation state is encoded in the launcher

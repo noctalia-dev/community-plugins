@@ -230,9 +230,11 @@ prefix that takes a command, exec flag included — `foot -e`, `gnome-terminal
 --`); else `{$TERMINAL, "-e"}`; else `{<first of TERMINAL_CANDIDATES on PATH>,
 "-e"}` (`detectedTerminal`, memoised like `wtypeAvailable`); else nil. On the
 `runAsync` callback `detailCache[entryPath]` is cleared so the next detail view
-re-decrypts the edited file. No `runAsync` timeout — an interactive edit is
-open-ended. When `terminalArgv()` is nil the row was never rendered; a
-defensive `editEntry` call still fires `notification.edit-failed`.
+re-decrypts the edited file. The `runAsync` call passes **`EDIT_TIMEOUT_MS`**
+(24 h) — `noctalia.runAsync` applies a short default bound when the 3rd arg is
+omitted, which would kill the terminal a few seconds into the edit. When
+`terminalArgv()` is nil the row was never rendered; a defensive `editEntry`
+call still fires `notification.edit-failed`.
 
 ### Generate action
 
@@ -275,15 +277,19 @@ Its own `+` prefix (never produced by browsing), `+!` for the confirm step
   back to `"+"..path.." "`, the editable menu) and **"Create entry now"**
   (`newrun:<path>`). Static rows.
 - `onActivate` `newrun:<path>` → `newEntry(path)`: re-`trim`s and rejects an
-  empty / trailing-`/` path (`notification.create-failed`), else closes the
-  panel and runs `pass generate <path>` (no `-i` — a brand-new entry, encrypt
-  only, no pinentry; `pass` rejects `..`, and a name clash makes it prompt →
-  no tty → non-zero exit → reported as failure; keeps the `DECRYPT_TIMEOUT_MS`
-  safety net). On success `buildIndex(nil)` (the new entry enters the store
-  index for browse/search); then if `terminalArgv()` resolves, spawn `pass edit
-  <path>` in that terminal (EDITOR from `editorCommand`, as in `editEntry`) with
-  **no `runAsync` timeout** — the user may take a while adding fields. The
-  launcher **stays closed** either way; the only completion signal is
+  empty / trailing-`/` path (`notification.create-failed`). Then a
+  `test -e <storeDir>/<path>.gpg` guard — **`pass generate` silently overwrites
+  an existing entry** when run without a tty (its `yesno` overwrite prompt does
+  `[[ -t 0 ]] || return 0`, i.e. answers *yes*), so only a definite "does not
+  exist" (exit 1) proceeds; exit 0 → `notification.create-exists`, anything
+  else → `notification.create-failed`. On "proceed": close the panel, run
+  `pass generate <path>` (no `-i` — brand-new entry, encrypt only, no pinentry;
+  `pass` still rejects `..`; `DECRYPT_TIMEOUT_MS` safety net). On success
+  `buildIndex(nil)` (new entry enters the store index); then if `terminalArgv()`
+  resolves, spawn `pass edit <path>` in that terminal (EDITOR from
+  `editorCommand`, as in `editEntry`) with **`EDIT_TIMEOUT_MS`** — omitting the
+  bound lets a short runAsync default kill the terminal mid-edit. The launcher
+  **stays closed** either way; the only completion signal is
   `notification.created`, fired when `pass edit` returns (or right after
   `pass generate` when there is no terminal). No reopen into the detail view —
   that produced a close/reopen flicker when the editor exited.
@@ -353,7 +359,10 @@ Do not regress these without a deliberate reason:
    3a. **Browse rows** — every folder view (root included) carries a "New entry"
    row after "Go back". It opens the creation menu (`+` prefix): an editable new
    path, a "Create entry" row once the path has a leaf, then a two-step confirm
-   (Cancel / "Create entry now") before `pass generate <path>` [+ `pass edit`].
+   (Cancel / "Create entry now"). On confirm, an existing entry at that path is
+   refused (`test -e` guard — `pass generate` would silently overwrite); a new
+   path runs `pass generate <path>` then `pass edit <path>` (when a terminal
+   resolves).
 4. **Username** — the value of the first `login` / `user` / `username` field
    (case-insensitive), or the entry's basename if none. That field is not also
    shown as a generic field row.

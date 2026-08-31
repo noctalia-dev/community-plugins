@@ -69,6 +69,12 @@ local DETAIL_TTL_MS = 60000
 -- stays closed (see fetchDetail) — the same graceful exit as a cancelled
 -- pinentry, not a reopen.
 local DECRYPT_TIMEOUT_MS = 300000
+-- `pass edit` opens $EDITOR in a terminal and blocks until the user is done —
+-- which can be minutes when they're filling in fields on a freshly created
+-- entry. `noctalia.runAsync` applies a short default timeout when the 3rd arg
+-- is omitted (it kills the terminal after a few seconds), so interactive edits
+-- pass an effectively-unlimited bound instead of leaving it off.
+local EDIT_TIMEOUT_MS = 24 * 60 * 60 * 1000
 
 -- ── module state — caches only, no navigation state ────────────────────────
 local lastQuery = nil     -- most recent onQuery text, for dropping stale async
@@ -1023,8 +1029,9 @@ end
 -- save, so it needs a real terminal — spawned via terminalArgv(). It can also
 -- pop a pinentry dialog, so the launcher is closed first (and not reopened,
 -- like the Copy/Type paths). The decrypted detail cache for this entry is
--- dropped afterwards so the next detail view reflects the edit. No runAsync
--- timeout: an interactive edit session is open-ended.
+-- dropped afterwards so the next detail view reflects the edit. The runAsync
+-- call passes EDIT_TIMEOUT_MS — omitting the bound lets a short default kill
+-- the terminal mid-edit.
 --
 -- The `editorCommand` setting, when non-empty, is exported as EDITOR for the
 -- run; blank leaves EDITOR unset so `pass` falls back to its own default.
@@ -1050,7 +1057,7 @@ local function editEntry(entryPath)
       if result.exitCode ~= 0 or result.timedOut then
         noctalia.notifyError(tr("notification.edit-failed"), subject)
       end
-    end)
+    end, EDIT_TIMEOUT_MS)
   end)
 end
 
@@ -1081,20 +1088,22 @@ local function generateEntry(entryPath)
 end
 
 -- ── new entry (creation menu) ────────────────────────────────────────────
--- Confirmed path from renderCreateConfirmRows → `pass generate <path>` creates
--- the entry with a random password (no decrypt / pinentry — it only encrypts;
--- `pass` rejects "..", and an existing name makes it prompt → no tty → it just
--- exits non-zero, reported as a failure). Then, when a terminal resolves,
--- `pass edit <path>` opens $EDITOR on the new file so the user can add a
--- username and other fields. The launcher is closed up front (like editEntry /
--- generateEntry) and **stays closed** — no reopen into the detail view (that
--- caused a close/reopen flicker when `pass edit` returned). The only signal on
--- completion is `notification.created`; the new entry enters the store index
--- via buildIndex, so it shows up next time the launcher is opened.
+-- Confirmed path from renderCreateConfirmRows.
 --
--- The `pass edit` run has **no timeout** — the user may take a while filling in
--- extra details. (`pass generate` keeps the DECRYPT_TIMEOUT_MS safety net; it
--- is a quick non-interactive crypto op.)
+-- `pass generate <path>` would **silently overwrite** an existing entry here:
+-- its "overwrite?" prompt goes through `yesno`, which returns *yes* the moment
+-- stdin is not a tty (`[[ -t 0 ]] || return 0`) — and runAsync gives it no
+-- tty. So guard first with a `test -e <store>/<path>.gpg`; only a definite
+-- "does not exist" (exit 1) proceeds, an existing file → notification.create-exists.
+--
+-- Then `pass generate <path>` creates the entry with a random password (no
+-- decrypt / pinentry — encrypt only; `pass` still rejects ".."). When a
+-- terminal resolves, `pass edit <path>` opens $EDITOR so the user can add a
+-- username and other fields — with EDIT_TIMEOUT_MS, since omitting the bound
+-- lets a short runAsync default kill the terminal after a few seconds. The
+-- launcher is closed up front and **stays closed** (no reopen — that flickered
+-- when the editor exited); the only completion signal is notification.created,
+-- and buildIndex pulls the new entry into the store index for next time.
 local function newEntry(path)
   path = trim(path)
   local subject = path:match("[^/]+$") or path
@@ -1106,31 +1115,47 @@ local function newEntry(path)
   local editor = trim(noctalia.getConfig("editorCommand") or "")
   local extraEnv = editor ~= "" and { "EDITOR=" .. editor } or nil
 
-  closeLauncherPanel(function()
-    noctalia.runAsync(passArgv({ "pass", "generate", path }), function(gen)
-      if gen.exitCode ~= 0 or gen.timedOut then
-        noctalia.log("launcher-pass: `pass generate " .. path .. "` failed (exit "
-          .. tostring(gen.exitCode) .. (gen.timedOut and ", timed out" or "")
-          .. "): " .. trim(gen.stderr or ""))
-        noctalia.notifyError(tr("notification.create-failed"), subject)
-        return
-      end
-      buildIndex(nil) -- pull the new entry into the store index for browse/search
-      if term == nil then
-        noctalia.notify(tr("notification.created"), subject)
-        return
-      end
-      local argv = {}
-      for _, a in ipairs(term) do
-        argv[#argv + 1] = a
-      end
-      for _, a in ipairs(passArgv({ "pass", "edit", path }, false, extraEnv)) do
-        argv[#argv + 1] = a
-      end
-      noctalia.runAsync(argv, function()
-        noctalia.notify(tr("notification.created"), subject)
-      end)
-    end, DECRYPT_TIMEOUT_MS)
+  local function generate()
+    closeLauncherPanel(function()
+      noctalia.runAsync(passArgv({ "pass", "generate", path }), function(gen)
+        if gen.exitCode ~= 0 or gen.timedOut then
+          noctalia.log("launcher-pass: `pass generate " .. path .. "` failed (exit "
+            .. tostring(gen.exitCode) .. (gen.timedOut and ", timed out" or "")
+            .. "): " .. trim(gen.stderr or ""))
+          noctalia.notifyError(tr("notification.create-failed"), subject)
+          return
+        end
+        buildIndex(nil) -- pull the new entry into the store index for browse/search
+        if term == nil then
+          noctalia.notify(tr("notification.created"), subject)
+          return
+        end
+        local argv = {}
+        for _, a in ipairs(term) do
+          argv[#argv + 1] = a
+        end
+        for _, a in ipairs(passArgv({ "pass", "edit", path }, false, extraEnv)) do
+          argv[#argv + 1] = a
+        end
+        noctalia.runAsync(argv, function()
+          noctalia.notify(tr("notification.created"), subject)
+        end, EDIT_TIMEOUT_MS)
+      end, DECRYPT_TIMEOUT_MS)
+    end)
+  end
+
+  noctalia.runAsync({ "test", "-e", storeDir() .. "/" .. path .. ".gpg" }, function(res)
+    if res.timedOut or (res.exitCode ~= 0 and res.exitCode ~= 1) then
+      noctalia.log("launcher-pass: existence check for '" .. path .. "' failed (exit "
+        .. tostring(res.exitCode) .. (res.timedOut and ", timed out" or "") .. ")")
+      noctalia.notifyError(tr("notification.create-failed"), subject)
+      return
+    end
+    if res.exitCode == 0 then
+      noctalia.notifyError(tr("notification.create-exists"), subject)
+      return
+    end
+    generate()
   end)
 end
 

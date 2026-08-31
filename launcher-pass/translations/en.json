@@ -37,6 +37,7 @@
   "notification": {
     "copied": "Copied to clipboard",
     "copy-failed": "Copy failed",
+    "create-exists": "An entry with that name already exists",
     "create-failed": "Could not create entry",
     "created": "Password entry created",
     "edit-failed": "Edit failed",

@@ -37,6 +37,7 @@
   "notification": {
     "copied": "Copiato negli appunti",
     "copy-failed": "Copia non riuscita",
+    "create-exists": "Esiste già una voce con quel nome",
     "create-failed": "Impossibile creare la voce",
     "created": "Voce password creata",
     "edit-failed": "Modifica non riuscita",
