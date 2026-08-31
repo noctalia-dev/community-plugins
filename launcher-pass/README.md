@@ -9,7 +9,7 @@ other field — without opening a terminal.
 | Field | Value |
 | --- | --- |
 | ID | `mellotanica/launcher-pass` |
-| Entries | Launcher provider: `pass` |
+| Entries | Launcher provider: `pass`; service: `quick-actions` (IPC) |
 | Launcher Prefix | `/pass` |
 
 The prefix is `pass` preceded by your launcher's provider prefix
@@ -146,8 +146,11 @@ Run one detail action **without opening the launcher**, so you can bind copy /
 type / autotype to a global shortcut:
 
 ```sh
-noctalia msg plugin mellotanica/launcher-pass:pass all <action> [entry-path]
+noctalia msg plugin mellotanica/launcher-pass:quick-actions all <action> [entry-path]
 ```
+
+(The target is `:quick-actions` — a small companion service — not `:pass`; the
+launcher provider itself cannot receive IPC.)
 
 | Action | Effect |
 | --- | --- |
@@ -163,12 +166,14 @@ noctalia msg plugin mellotanica/launcher-pass:pass all <action> [entry-path]
 the last one you opened, acted on, or narrowed a launcher search down to a
 single result. That's remembered until you pick another (it survives closing the
 launcher), so the normal flow is: open `/pass`, type until your entry is the
-only match (or open it), close the launcher, then hit your shortcut. A search
+only match (or open it), then hit your shortcut. A search
 that still shows several entries does **not** change the current entry, so a
 stray broad query can't make `autotype` fire your credentials into the wrong
-window. Pass an explicit `entry-path` (store-relative, e.g. `work/aws/root`;
-everything after `<action>` is taken as the path) to override — it also becomes
-the new current entry.
+window. Pass an explicit `entry-path` (store-relative, e.g. `work/aws/root`) to
+override — it also becomes the new current entry. `noctalia msg` splits its
+arguments on whitespace, so an explicit path must have **no spaces**; an entry
+whose name contains a space can only be reached through the no-path (current
+entry) form.
 
 Each action behaves exactly like activating the matching detail row: same
 clipboard timeout, `wtype` delays, and "Copied to clipboard" / failure
@@ -181,11 +186,11 @@ notification and does nothing.
 Example Hyprland binds:
 
 ```
-# act on whatever entry the launcher last had open / narrowed to
-bind = SUPER, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all autotype
-bind = SUPER SHIFT, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all copy-password
-# or pin a shortcut to one specific entry
-bind = SUPER ALT, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all copy-otp work/aws/root
+-- act on whatever entry the launcher last had open / narrowed to
+hl.bind("SUPER + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all autotype"))
+hl.bind("SUPER + SHIFT + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all copy-password"))
+-- or pin a shortcut to one specific entry
+hl.bind("SUPER + ALT + P", hl.dsp.exec_cmd("noctalia msg plugin mellotanica/launcher-pass:quick-actions all copy-otp work/aws/root"))
 ```
 
 ### Opening the launcher

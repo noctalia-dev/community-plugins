@@ -16,8 +16,8 @@ fields.
 
 ```
 launcher-pass/
-├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 12, [[launcher_provider]]
-├── launcher.luau         the whole feature (one entry script)
+├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 12, [[service]], [[launcher_provider]]
+├── launcher.luau         the whole feature — backs BOTH the [[launcher_provider]] (onQuery/onActivate) and the [[service]] (onIpc); separate VMs, one file
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
 │   └── en it
 ├── README.md            the plugin's public page (follows the repo's README_TEMPLATE.md)
@@ -33,12 +33,15 @@ something newer.
 ## How `launcher.luau` works
 
 The host calls three globals — `onQuery(text)` on every keystroke (after
-`debounce_ms`), `onActivate(id)` when a row is picked, and `onIpc(event,
-payload)` for a `noctalia msg plugin …` call — and the script pushes
-rows back with `launcher.setResults(query, rows)` / rewrites the input with
-`launcher.setQuery(text)`. `text` is everything after the launcher's provider
-prefix + `pass ` (e.g. `/pass `). Everything else is `local`; the VM persists for
-the plugin's lifetime, so module locals survive across calls.
+`debounce_ms`) and `onActivate(id)` when a row is picked (both in the
+`[[launcher_provider]]` VM), plus `onIpc(event, payload)` for a `noctalia msg
+plugin …:quick-actions …` call (in the `[[service]]` VM — see *Quick-action
+IPC*). The script pushes rows back with `launcher.setResults(query, rows)` /
+rewrites the input with `launcher.setQuery(text)`. `text` is everything after
+the launcher's provider prefix + `pass ` (e.g. `/pass `). Everything else is
+`local`; each VM persists for the plugin's lifetime, so module locals survive
+across calls — but the two VMs share no Luau state (v5 has no plugin module
+system), only `noctalia.state`.
 
 ### Navigation is encoded in the query string, not module state
 
@@ -62,9 +65,12 @@ the plugin's lifetime, so module locals survive across calls.
 view; `+` the creation menu and `+!` its confirm step (each `…!` variant matched
 first). Module locals are caches
 only (`indexReady`/`indexAt`, `detailCache`, `lastDetailPath`, `detailActions`,
-`lastQuery`) — plus `currentEntry`, the quick-action IPC target (last entry
-opened / acted on / narrowed to a single hit), which is *not* navigation state:
-nothing routes on it. Drill-in / back are `launcher.setQuery(...)`; a bare `""`
+`lastQuery`). The launcher VM also tracks a "current entry" (last entry opened /
+acted on / narrowed to a single hit) and publishes it via
+`noctalia.state.set(STATE_CURRENT_ENTRY, …)` (`setCurrentEntry`, deduped by
+`lastPublishedEntry`) for the service VM's quick-action IPC — it is *not*
+navigation state, nothing routes on it. Drill-in / back are
+`launcher.setQuery(...)`; a bare `""`
 does not re-fire `onQuery`, so root "Go back" uses `" "` (trims to empty).
 
 ### Listing — index file + grep
@@ -242,33 +248,43 @@ compositor restore focus before the chain runs.
 
 ### Quick-action IPC
 
-`onIpc(event, payload)` (the third host global, alongside `onQuery` /
-`onActivate` — every entry type gets it in the v5 runtime; no `plugin_api` bump)
-runs **one detail action without opening the launcher**, so the user can bind
+Runs **one detail action without opening the launcher**, so the user can bind
 copy / type / autotype to any external shortcut:
 
 ```
-noctalia msg plugin mellotanica/launcher-pass:pass all <event> [entryPath]
+noctalia msg plugin mellotanica/launcher-pass:quick-actions all <event> [entryPath]
 ```
+
+**It is addressed to the `[[service]]` entry, not the launcher provider.**
+`[[launcher_provider]]` entries are *not* IPC-addressable in v5 (`noctalia msg
+plugin …:pass …` errors with "no plugin entry matched"), so the manifest adds a
+headless `[[service]]` entry `quick-actions` that also points at `launcher.luau`.
+`onIpc` therefore only ever fires in the service VM. That VM still runs the
+whole file at load (defines `onQuery`/`onActivate` — unused — and does one
+redundant `buildIndex`; harmless).
 
 **Target resolution.** A launcher provider has no row-highlight callback (only
 `onQuery` / `onActivate`), so "the highlighted entry" can't be read. The target
-is the module local **`currentEntry`**, set wherever the user demonstrably
-picked an entry:
+is the launcher VM's **current entry**, set wherever the user demonstrably
+picked one:
 
 - `fetchDetail` — opened the detail view;
 - `runAction` — activated a Copy/Type row;
 - `onQuery`'s grep callback — the query narrowed to **exactly one** `entry:`
   row (0 or 2+ leaves the previous value; folders never count).
 
-It persists for the VM's lifetime, so it survives the launcher closing — a
-shortcut fired seconds after closing the launcher still hits the entry that was
-on screen. An explicit `[entryPath]` payload overrides it and becomes the new
-`currentEntry` (the runtime passes everything after `<event>` as one unsplit
-string, so the payload *is* the path). `event` not in `QUICK_ACTIONS` →
-`notification.quick-action-unknown`; no payload and no `currentEntry` yet →
-`notification.no-current-entry`; both under the `notification.quick-action-failed`
-title, nothing runs.
+Each of those calls `setCurrentEntry`, which publishes the path via
+`noctalia.state.set(STATE_CURRENT_ENTRY, …)` (deduped by `lastPublishedEntry`)
+— the only channel the service VM can read it on. State persists across the
+launcher closing, so a shortcut fired seconds later still hits the entry that
+was on screen. `onIpc` reads `noctalia.state.get(STATE_CURRENT_ENTRY)` when no
+payload is given. An explicit `[entryPath]` payload overrides it (and is
+re-published as the current entry) — but `noctalia msg` splits its args on
+whitespace, so that payload **must be space-free**; an entry whose name has
+spaces is only reachable through the no-payload / state path. `event` not in
+`QUICK_ACTIONS` → `notification.quick-action-unknown`; no payload and nothing in
+state yet → `notification.no-current-entry`; both under the
+`notification.quick-action-failed` title, nothing runs.
 
 `QUICK_ACTIONS` maps each event to the **same helper the matching detail row
 uses**:
@@ -467,16 +483,19 @@ Do not regress these without a deliberate reason:
 10. **Notifications** — a "Copied to clipboard" notice after a successful copy.
 11. **i18n** — no hard-coded user-facing strings; every string through
     `noctalia.tr`, every key in every locale file.
-12. **Quick-action IPC** — `onIpc(event, payload)` runs exactly one detail
-    action with the launcher closed. Events: `copy-password`, `copy-otp`,
-    `type-otp`, `copy-username`, `type-username`, `type-password`, `autotype`
-    — each routed to the *same* helper as the matching detail row (via
-    `withEntryData` for the ones needing the decrypted body). The target is
-    `currentEntry` (last entry opened / acted on / narrowed to a single search
-    hit), overridable by a `payload` path. Unknown event →
+12. **Quick-action IPC** — `onIpc(event, payload)` on the `[[service]]` entry
+    (`…:quick-actions`, *not* the launcher provider — those aren't
+    IPC-addressable) runs exactly one detail action with the launcher closed.
+    Events: `copy-password`, `copy-otp`, `type-otp`, `copy-username`,
+    `type-username`, `type-password`, `autotype` — each routed to the *same*
+    helper as the matching detail row (via `withEntryData` for the ones needing
+    the decrypted body). Target: the `[entryPath]` payload (space-free — CLI
+    splits on whitespace), else the launcher VM's current entry bridged through
+    `noctalia.state` (`STATE_CURRENT_ENTRY`; last entry opened / acted on /
+    narrowed to a single search hit). Unknown event →
     `notification.quick-action-unknown`; no target →
-    `notification.no-current-entry`. No manifest declaration — events are
-    matched in `QUICK_ACTIONS`, not `plugin.toml`.
+    `notification.no-current-entry`. Events are matched in `QUICK_ACTIONS`, not
+    declared in `plugin.toml`.
 13. **Search result order** — password files rank above folders unless the
     query typed a folder's *entire* folder-relative path (`pathFullyTyped`), in
     which case that folder leads. `m.group` (0 exact folder / 1 file / 2 other
@@ -568,25 +587,34 @@ should survive into future changes:
 - **The pinentry close only happens if `pass show` is still running after
   `pinentryGraceMs`** — a race, not an unconditional close — so a cached
   passphrase produces no flicker.
+- **Quick-action IPC needs a `[[service]]` entry — a launcher provider can't
+  receive IPC.** `noctalia msg plugin …:<launcher-id> …` errors with "no plugin
+  entry matched"; only `[[service]]` / `[[widget]]` / `[[panel]]` / … entries
+  are addressable. So the manifest adds a headless `[[service]]` `quick-actions`
+  pointed at the *same* `launcher.luau` (the v5 pattern — cf. obsidian /
+  claude-companion, which register one file as both a provider and a service).
+  `onIpc` runs only in that service VM.
 - **Quick-action IPC dispatches to the existing action helpers, it does not
   re-implement them.** `QUICK_ACTIONS` is a table of thin closures over
   `copyViaPass` / `typeOtp` / `copyPlain` / `typeValue` / `autotypeEntry` — the
   same code paths the detail rows use, so copy/type/autotype behaviour (clip
   env, pinentry handling, notifications) can't drift between the launcher and a
-  shortcut. The only IPC-specific pieces are `withEntryData` (a decrypt path
-  that isn't tied to rendering a detail view — factored out of `fetchDetail`
-  via `buildEntryData` so the parse/cache logic stays single-sourced) and the
-  `onIpc` payload contract (the v5 runtime passes everything after `<event>` as
-  one unsplit string → the entry path, no parsing).
-- **The IPC target is a tracked "current entry", not an argument.** The user
-  asked for shortcuts that act on the highlighted/last-used entry *without*
-  passing a path. A launcher provider gets no highlight callback, so
-  `currentEntry` is updated on the observable proxies — opening the detail view,
-  acting on a row, and a query narrowing to a single `entry:` hit. The
-  single-hit rule is deliberately strict (not "top of the list"): auto-typing
-  into a focused window is unforgiving, so a broad query with several matches
-  must *not* silently retarget. A `payload` path is still accepted as an
-  explicit override.
+  shortcut. The only IPC-specific piece is `withEntryData` (a decrypt path that
+  isn't tied to rendering a detail view — factored out of `fetchDetail` via
+  `buildEntryData` so the parse/cache logic stays single-sourced).
+- **The IPC target is a tracked "current entry" bridged over `noctalia.state`,
+  not an argument.** The user asked for shortcuts that act on the
+  highlighted/last-used entry *without* passing a path. A launcher provider gets
+  no highlight callback, so the provider VM updates a "current entry" on the
+  observable proxies — opening the detail view, acting on a row, a query
+  narrowing to a single `entry:` hit — and `setCurrentEntry` publishes it via
+  `noctalia.state.set`; the service VM reads it back in `onIpc`
+  (`noctalia.state.get`), since the two VMs share no Luau state. The single-hit
+  rule is deliberately strict (not "top of the list"): auto-typing into a
+  focused window is unforgiving, so a broad query with several matches must
+  *not* silently retarget. A space-free `payload` path is still accepted as an
+  explicit override (`noctalia msg` splits args on whitespace, so a spaced entry
+  name can only come through the state path).
 - **`<leader>` (`shell.launcher.provider_prefix`, `/` by default) is read at
   runtime.** The one value in the pinentry reopen that must never be hardcoded.
 - **`translations/*.json` is nested JSON.** `noctalia.tr("settings.store-path.label")`
@@ -607,7 +635,7 @@ should survive into future changes:
 |---|---|
 | `function onQuery(text)` | keystroke handler; `text` is everything after the prefix (subject to `debounce_ms`) |
 | `function onActivate(id)` | row picked; `id` is the string set on that row |
-| `function onIpc(event, payload)` | `noctalia msg plugin <id>:pass all <event> <payload>`; `payload` is the rest of the command as one unparsed string. Every entry type gets this hook. |
+| `function onIpc(event, payload)` | fires in the `[[service]]` VM only: `noctalia msg plugin <id>:quick-actions all <event> [payload]`. `[[launcher_provider]]` entries are **not** IPC-addressable. `payload` is the CLI args after `<event>`, whitespace-joined → space-free in practice. |
 | `launcher.setResults(query, rows)` | publish rows; `query` **must echo** the answering `onQuery` text so stale async results are dropped; `{}` clears |
 | `launcher.setQuery(text)` | rewrite the launcher input, keep it open, re-fire `onQuery` (drill-in / back). A bare `""` does not re-fire. |
 
@@ -630,6 +658,7 @@ order is already the sorted order).
 | `commandExists(name)` | probe optional deps (`wtype`) |
 | `pluginDataDir()` | persistent per-plugin dir (the index file) |
 | `nowMs()` | monotonic ms |
+| `state.set(key, value)` / `state.get(key)` | cross-entry key-value the host brokers between a plugin's VMs — the only way the `[[service]]` VM sees the launcher VM's `currentEntry`. (`state.watch` exists too; unused here — `onIpc` reads `get` at call time.) |
 | `string.trim(s)` | (also a local `trim` in the script) |
 | `tr(key [, tbl])` / `trp(key, count)` | i18n; `{name}` placeholders from `tbl` |
 | `log(msg)` | debug log |

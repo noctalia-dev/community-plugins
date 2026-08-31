@@ -90,12 +90,18 @@ local detailActions = {}
 -- path can contain spaces, so splitDetailQuery() uses this (plus detailCache)
 -- to decide where the path ends and the fuzzy filter begins.
 local lastDetailPath = nil
--- The entry a path-less quick-action IPC call (onIpc) acts on: the last one
--- the user opened (fetchDetail), acted on (runAction), or narrowed a query
--- down to a single hit for (onQuery). Persists for the VM's lifetime, so it
--- survives the launcher closing. No row-highlight callback exists for a
--- launcher provider, so this is the closest thing to "the current entry".
-local currentEntry = nil
+-- The entry a path-less quick-action IPC call acts on: the last one the user
+-- opened (fetchDetail), acted on (runAction), or narrowed a query down to a
+-- single hit for (onQuery). No row-highlight callback exists for a launcher
+-- provider, so this is the closest thing to "the current entry".
+--
+-- IPC does not reach this VM: `[[launcher_provider]]` entries are not
+-- IPC-addressable, so `onIpc` runs in the sibling `[[service]]` entry instead
+-- (same file, separate VM — v5 has no plugin module system, entries share no
+-- Luau state). The two VMs bridge this one value through `noctalia.state`:
+-- the launcher VM publishes every change under STATE_CURRENT_ENTRY, the
+-- service VM reads it back in `onIpc`.
+local STATE_CURRENT_ENTRY = "launcher-pass.current-entry"
 
 -- ── small helpers ──────────────────────────────────────────────────────────
 local function tr(key, subst)
@@ -104,6 +110,18 @@ end
 
 local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+-- Publish the "current entry" for the service VM's quick-action IPC (see
+-- STATE_CURRENT_ENTRY). Called from the launcher VM only, on the events that
+-- pin down an entry: detail open, row action, and a query that narrowed to a
+-- single hit (that last one can repeat the same value over a few keystrokes —
+-- fine, `state.set` of an unchanged value is cheap and idempotent).
+local function setCurrentEntry(path)
+  if path == nil or path == "" then
+    return
+  end
+  noctalia.state.set(STATE_CURRENT_ENTRY, path)
 end
 
 local function storeDir()
@@ -1012,8 +1030,8 @@ end
 -- the browse path. `filter` fuzzy-narrows the rendered rows (see
 -- renderDetailRows).
 local function fetchDetail(entryPath, text, filter)
-  lastDetailPath = entryPath -- disambiguates the next splitDetailQuery
-  currentEntry = entryPath   -- path-less quick-action IPC targets this
+  lastDetailPath = entryPath      -- disambiguates the next splitDetailQuery
+  setCurrentEntry(entryPath)      -- path-less quick-action IPC targets this
 
   local hit = detailCache[entryPath]
   if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
@@ -1411,7 +1429,7 @@ end
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
   local fieldSubject = ctx.kind == "field" and (ctx.key or subject) or subject
-  currentEntry = ctx.entryPath -- path-less quick-action IPC targets this
+  setCurrentEntry(ctx.entryPath) -- path-less quick-action IPC targets this
 
   if ctx.verb == "type" then
     if ctx.kind == "otp" then
@@ -1494,9 +1512,9 @@ function onQuery(text)
         local hits = ok and parseHits(result.stdout or "") or {}
         local rows = render(hits)
         -- When the query narrows to exactly one entry (folders don't count),
-        -- treat it as the current target for a path-less quick-action IPC — a
+        -- publish it as the current target for a path-less quick-action IPC — a
         -- precise query is unambiguous. A query with 0 or 2+ entry hits leaves
-        -- the previous currentEntry alone.
+        -- the previously published entry alone.
         local onlyEntry, entryCount = nil, 0
         for _, r in ipairs(rows) do
           local p = type(r.id) == "string" and r.id:match("^entry:(.+)$")
@@ -1506,7 +1524,7 @@ function onQuery(text)
           end
         end
         if entryCount == 1 then
-          currentEntry = onlyEntry
+          setCurrentEntry(onlyEntry)
         end
         launcher.setResults(text, rows)
       end
@@ -1584,20 +1602,21 @@ function onActivate(id)
   end
 end
 
--- ── quick-action IPC ─────────────────────────────────────────────────────
--- `noctalia msg plugin mellotanica/launcher-pass:pass all <event> [entryPath]`
+-- ── quick-action IPC (runs in the [[service]] VM) ────────────────────────
+-- `noctalia msg plugin mellotanica/launcher-pass:quick-actions all <event> [entryPath]`
 -- runs one detail action without opening the launcher, so the user can bind
 -- copy / type / autotype to any global shortcut (CLAUDE.md "Quick action
--- shortcuts").
+-- shortcuts"). It is addressed to the `[[service]]` entry id `quick-actions`,
+-- *not* the launcher provider — `[[launcher_provider]]` entries are not
+-- IPC-addressable. This file backs both entries; `onIpc` only ever fires in
+-- the service VM.
 --
--- The target entry is `currentEntry` — the last entry the user opened
--- (`fetchDetail`), acted on (`runAction`), or narrowed a query down to a
--- single hit for (`onQuery`). A launcher provider gets *no* row-highlight
--- callback (only `onQuery` / `onActivate`), so "the highlighted entry" can't
--- be read directly; `currentEntry` is the closest observable "current entry".
--- An explicit `<entryPath>` payload overrides it (and becomes the new
--- `currentEntry`); the Noctalia v5 runtime passes everything after `<event>`
--- as one unparsed string, so that payload *is* the path, no splitting.
+-- Target entry: the `[entryPath]` payload if given, else STATE_CURRENT_ENTRY
+-- from `noctalia.state` — the launcher VM's "current entry" (last opened /
+-- acted on / narrowed to a single hit), bridged across because the two VMs
+-- share no Luau state. `noctalia msg` splits its args on whitespace, so an
+-- explicit `entryPath` payload must be space-free; the state-bridged path has
+-- no such limit (use the no-payload form for entries whose name has spaces).
 --
 -- copy-password / copy-otp / type-otp reuse the same helpers as the detail
 -- rows unchanged (they decrypt via `pass` themselves). copy-username /
@@ -1642,14 +1661,14 @@ function onIpc(event, payload)
   end
   local entryPath = trim(payload or "")
   if entryPath == "" then
-    entryPath = currentEntry or ""
+    entryPath = trim(noctalia.state.get(STATE_CURRENT_ENTRY) or "")
   end
   if entryPath == "" then
     noctalia.log("launcher-pass: IPC '" .. event .. "' has no target (no path given, no entry used yet)")
     noctalia.notifyError(tr("notification.quick-action-failed"), tr("notification.no-current-entry"))
     return
   end
-  currentEntry = entryPath
+  setCurrentEntry(entryPath) -- an explicit path becomes the new current entry
   run(entryPath, entryPath:match("[^/]+$") or entryPath)
 end
 

@@ -9,7 +9,7 @@
 
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.5.1"
+version = "2.6.0"
 plugin_api = 26
 author = "Marco Melletti"
 license = "MIT"
@@ -153,6 +153,16 @@ label_key = "settings.autotype-submit.label"
 description_key = "settings.autotype-submit.desc"
 default = true
 advanced = true
+
+# Headless entry that receives the quick-action IPC (copy / type / autotype on
+# the current entry, bindable to a global shortcut). `[[launcher_provider]]`
+# entries are not IPC-addressable, so `onIpc` lives here; it shares launcher.luau
+# with the provider (separate VM) and reads the "current entry" the provider
+# publishes through noctalia.state. Address it as
+#   noctalia msg plugin mellotanica/launcher-pass:quick-actions all <event> [path]
+[[service]]
+id = "quick-actions"
+entry = "launcher.luau"
 
 [[launcher_provider]]
 id = "pass"
