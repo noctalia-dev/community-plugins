@@ -80,6 +80,10 @@
     "scan_complete": "Bluetooth scan complete.",
     "slot_saved": "Keybind number {slot} saved."
   },
+  "launcher": {
+    "description": "Switch the default audio input (microphone) or output.",
+    "open": "Open Audio Switcher"
+  },
   "panel": {
     "group_hint": "{count} selected. Choose at least two available outputs.",
     "hidden": "Hidden",

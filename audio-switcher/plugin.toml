@@ -1,12 +1,12 @@
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.5.0"
+version = "0.6.0"
 plugin_api = 15
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"
 description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
-tags = ["audio", "bar", "hardware", "panel", "service", "system", "utility"]
+tags = ["audio", "bar", "hardware", "launcher", "panel", "service", "system", "utility"]
 dependencies = ["pactl", "bluetoothctl", "sleep"]
 
 [[setting]]
@@ -49,6 +49,13 @@ height = 650
 placement = "attached"
 position = "top_right"
 open_near_click = true
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "audio"
+glyph = "switch-horizontal"
+include_in_global_search = true
 
 [[service]]
 id = "service"
