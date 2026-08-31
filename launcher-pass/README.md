@@ -20,6 +20,9 @@ the default, so adjust `/pass` if you changed it.
 
 Install `pass`, `find`, and `grep` on `PATH`. `pass` also needs `gpg` and a
 Wayland clipboard helper (`wl-clipboard`) for its `-c` copy mode.
+The standard `sleep`, `head` and `env` (generally shipped by
+`coreutils` package by most linux distributions) are expected to be
+available as well.
 
 Optional:
 
