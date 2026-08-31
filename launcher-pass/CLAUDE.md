@@ -16,7 +16,7 @@ fields.
 
 ```
 launcher-pass/
-├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 7, [[launcher_provider]]
+├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 8, [[launcher_provider]]
 ├── launcher.luau         the whole feature (one entry script)
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
 │   └── en it
@@ -56,10 +56,6 @@ Add new shortcuts that will let the user perform the following actions without t
 - Type/Copy username
 - Type/Copy otp
 - Autotype action
-
-### Edit password action
-
-Add an "Edit" option to details view that will spawn a terminal with `pass edit` letting the user modify the password file contents interactively.
 
 ### Generate password action
 
@@ -172,7 +168,11 @@ path; browse rows the basename.
   first) and `detailActionGrouping` (pair per value, or all-Copy-then-all-Type).
   `actionRow(entryPath, spec, verb, n)` returns one row and records its context
   in `detailActions["act:"..n]` (an explicit counter). Type rows are omitted
-  entirely when `wtype` is absent (`wtypeAvailable`, memoised).
+  entirely when `wtype` is absent (`wtypeAvailable`, memoised). An **Edit** row
+  (`id = "edit:"..entryPath`) is appended after all the Copy/Type rows, before
+  the "Go back" row — omitted when `terminalArgv()` returns nil (no terminal
+  resolvable). It is not an `act:` row: `onActivate` dispatches it straight to
+  `editEntry`, no `detailActions` entry.
 - **Row filter** — a non-empty `filter` fuzzy-narrows the rendered rows by
   `title` with the same `matchesFragments` rule (`:<path> otp` → only the OTP
   rows). `detailActions` is populated for every row *before* filtering, so
@@ -211,6 +211,20 @@ timeout: `clipTimeout` setting (positive int) → `PASSWORD_STORE_CLIP_TIME` env
   types into the focused window); the `typeDelay` sleep lets the compositor
   restore focus. Failures → `notification.typeFailed`.
 - `typeDelay` / `wtypeDelay` are **milliseconds** (`intSetting`, 0 allowed).
+
+### Edit action
+
+`editEntry(entryPath)` closes the launcher (never reopens — `pass edit` runs
+`$EDITOR` and may pop pinentry, both want the keyboard) and runs
+`<term…> env PASSWORD_STORE_DIR=… pass edit <entryPath>`. The term prefix is
+`terminalArgv()`: the `terminalCommand` setting split on whitespace (a full argv
+prefix that takes a command, exec flag included — `foot -e`, `gnome-terminal
+--`); else `{$TERMINAL, "-e"}`; else `{<first of TERMINAL_CANDIDATES on PATH>,
+"-e"}` (`detectedTerminal`, memoised like `wtypeAvailable`); else nil. On the
+`runAsync` callback `detailCache[entryPath]` is cleared so the next detail view
+re-decrypts the edited file. No `runAsync` timeout — an interactive edit is
+open-ended. When `terminalArgv()` is nil the row was never rendered; a
+defensive `editEntry` call still fires `notification.edit-failed`.
 
 **Native auto-paste is not reachable from a plugin.** `LauncherPanel::finishActivation()`
 in the Noctalia source fires `shell.launcher.auto_paste` only when
@@ -266,7 +280,8 @@ Do not regress these without a deliberate reason:
    search *and* the detail row filter.
 3. **Detail rows** — Copy Password, Copy OTP (**only if** the body has
    `otpauth://`), Copy Username, then Copy for each remaining `key: value` field
-   in file order; a Type counterpart for each when `wtype` is present; a "Go
+   in file order; a Type counterpart for each when `wtype` is present; an "Edit"
+   row after all of those when a terminal resolves (`terminalArgv()`); a "Go
    back" row. Order/grouping of Copy vs Type per `detailActionOrder` /
    `detailActionGrouping`; value order is fixed.
 4. **Username** — the value of the first `login` / `user` / `username` field
@@ -306,11 +321,12 @@ should survive into future changes:
   (`settings.detail-action-order.options.copy`) — the plugin-store validator
   rejects any uppercase or dotted-into-one segment in `translations/*.json`
   keys and in `label_key` / `description_key` values.
-- **Seven settings.** `storePath` (folder), `clipTimeout` (string — kept a string
+- **Eight settings.** `storePath` (folder), `clipTimeout` (string — kept a string
   so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
   `pinentryGraceMs` (int, `advanced`), `detailActionOrder` /
-  `detailActionGrouping` (select, `advanced`). Read back with
-  `noctalia.getConfig(key)`; defaults come from the manifest.
+  `detailActionGrouping` (select, `advanced`), `terminalCommand` (string,
+  `advanced` — `""` means auto-detect the terminal for the Edit action). Read
+  back with `noctalia.getConfig(key)`; defaults come from the manifest.
 - **Navigation state lives in the query string**, not module locals — a trailing
   `/` for a folder context, a leading `:` for detail mode. Reopening the launcher
   resets to the store root for free (no `onOpened`-style hook exists in v5).

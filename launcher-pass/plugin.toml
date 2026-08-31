@@ -9,7 +9,7 @@
 
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.0.1"
+version = "2.0.2"
 plugin_api = 26
 author = "Marco Melletti"
 license = "MIT"
@@ -65,6 +65,19 @@ description_key = "settings.pinentry-grace-ms.desc"
 default = 50                       # milliseconds; see pinentryGraceMs() in launcher.luau
 min = 0
 max = 1000
+advanced = true
+
+# Terminal for the detail-view "Edit" action's `pass edit` run. A full argv
+# prefix that takes a command, exec flag included ("foot -e", "kitty -e",
+# "gnome-terminal --"). Blank -> auto-detect: $TERMINAL, else a common terminal
+# on PATH. See terminalArgv() in launcher.luau; the Edit row is hidden when
+# nothing resolves.
+[[setting]]
+key = "terminalCommand"
+type = "string"
+label_key = "settings.terminal-command.label"
+description_key = "settings.terminal-command.desc"
+default = ""
 advanced = true
 
 # Detail-view row layout. "copy" -> Copy row before Type row for each value;

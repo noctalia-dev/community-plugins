@@ -54,7 +54,9 @@ view, which lists, in order:
    there is none
 4. **Copy `<field>`** / **Type `<field>`** for every remaining `key: value` line,
    in file order
-5. **Go back** to the entry's folder
+5. **Edit** — open `pass edit <entry>` in a terminal (only when a terminal
+   resolves; see below)
+6. **Go back** to the entry's folder
 
 In the detail view, keep typing to filter these rows: `/pass work/aws/root otp`
 shows only the two OTP rows. The filter uses the same match rule as search
@@ -65,6 +67,14 @@ shows only the two OTP rows. The filter uses the same match rule as search
 usernames and other fields are copied directly and are *not* auto-cleared.
 **Type** closes the launcher, waits *Type delay*, then types the value with
 `wtype`.
+
+**Edit** closes the launcher and runs `pass edit <entry>` in a terminal, letting
+you change the entry's contents in `$EDITOR` (`pass` re-encrypts on save). The
+terminal comes from the **Terminal command** setting; if that is blank the
+plugin uses `$TERMINAL`, then the first of `ghostty`, `kitty`, `alacritty`,
+`wezterm`, `foot`, `konsole`, `xterm` found on `PATH`. When none of those
+resolve, the Edit row is hidden. The decrypted-entry cache is dropped after an
+edit, so reopening the entry shows the new contents.
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
@@ -80,6 +90,7 @@ so the dialog can take focus and reopens once decryption finishes.
 | `pinentryGraceMs` | `int` | `50` | Milliseconds to wait for a decrypt to finish before assuming a pinentry dialog is blocking and hiding the launcher. If your GPG agent already has the passphrase cached, the launcher never flickers. Lower values let the pinentry dialog take focus more easily but can make the launcher flicker more often; higher values (around 200–300ms) give a more stable launcher but risk the pinentry dialog spawning while the launcher is still open and waiting out the timeout, in which case it may not get focus depending on your window manager. *(Advanced.)* |
 | `detailActionOrder` | `select` | `copy` | In an entry's detail view, whether the **Copy** row (`copy`) or the **Type** row (`type`) comes first for each value. *(Advanced.)* |
 | `detailActionGrouping` | `select` | `interleaved` | `interleaved`: each value's Copy and Type rows sit together. `grouped`: every Copy row first, then every Type row (each block in the `detailActionOrder` direction). *(Advanced.)* |
+| `terminalCommand` | `string` | *(empty)* | Terminal for the **Edit** action, as a full command prefix including its exec flag (`foot -e`, `kitty -e`, `gnome-terminal --`). Empty auto-detects from `$TERMINAL`, then a common terminal on `PATH`. When nothing resolves the Edit row is hidden. *(Advanced.)* |
 
 ## IPC
 
@@ -109,7 +120,8 @@ GPG pinentry prompt.
   detail view (`pass show`), and are cached in memory for 60 s.
 - **Spawned processes:** `find` (index build); `grep` (per keystroke); `pass
   show`, `pass -c`, `pass otp`, `pass otp -c` (per action); `wtype` and `sleep`
-  (Type actions); `noctalia msg panel-*` (pinentry focus handling).
+  (Type actions); a terminal running `pass edit` (Edit action); `noctalia msg
+  panel-*` (pinentry focus handling).
 - **Secrets:** decrypted values live only in the plugin's in-memory cache and on
   the system clipboard via `pass` / Noctalia. Neither Noctalia state nor the
   index file holds decrypted content. Navigation state is encoded in the launcher

@@ -5,6 +5,8 @@
     "copy-password": "Copia password",
     "copy-password-desc": "Copia password negli appunti",
     "copy-username": "Copia nome utente",
+    "edit": "Modifica",
+    "edit-desc": "Apri pass edit in un terminale",
     "otp-desc": "Copia/digita codice OTP attuale",
     "type-field": "Digita {key}",
     "type-otp": "Digita OTP",
@@ -22,6 +24,7 @@
   "notification": {
     "copied": "Copiato negli appunti",
     "copy-failed": "Copia non riuscita",
+    "edit-failed": "Modifica non riuscita",
     "type-failed": "Digitazione non riuscita"
   },
   "result": {
@@ -58,6 +61,10 @@
     "store-path": {
       "desc": "Percorso personalizzato all'archivio password (predefinito: ~/.password-store)",
       "label": "Percorso dell'archivio password"
+    },
+    "terminal-command": {
+      "desc": "Terminale usato per eseguire pass edit, con il suo flag di esecuzione (es. foot -e, kitty -e, gnome-terminal --). Vuoto = rilevamento automatico da $TERMINAL o da un terminale comune nel PATH",
+      "label": "Comando terminale"
     },
     "type-delay": {
       "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)",

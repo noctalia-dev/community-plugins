@@ -5,6 +5,8 @@
     "copy-password": "Copy Password",
     "copy-password-desc": "Copy password to clipboard",
     "copy-username": "Copy Username",
+    "edit": "Edit",
+    "edit-desc": "Open pass edit in a terminal",
     "otp-desc": "Copy/type current OTP code",
     "type-field": "Type {key}",
     "type-otp": "Type OTP",
@@ -22,6 +24,7 @@
   "notification": {
     "copied": "Copied to clipboard",
     "copy-failed": "Copy failed",
+    "edit-failed": "Edit failed",
     "type-failed": "Type failed"
   },
   "result": {
@@ -58,6 +61,10 @@
     "store-path": {
       "desc": "Custom path to the password store (default: ~/.password-store)",
       "label": "Password store path"
+    },
+    "terminal-command": {
+      "desc": "Terminal used to run pass edit, with its exec flag (e.g. foot -e, kitty -e, gnome-terminal --). Blank = auto-detect from $TERMINAL or a common terminal on PATH",
+      "label": "Terminal command"
     },
     "type-delay": {
       "desc": "Delay in milliseconds before typing starts (default: 500)",

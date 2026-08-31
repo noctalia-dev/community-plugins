@@ -146,6 +146,46 @@ local function wtypeAvailable()
   return wtypeOk
 end
 
+-- The "Edit" action runs `pass edit` in a terminal (see editEntry). Noctalia's
+-- own terminal picker isn't reachable from a plugin, so the terminal is
+-- resolved here, in this order: the `terminalCommand` setting (a full argv
+-- prefix that takes a command, incl. the exec flag — "foot -e", "kitty -e",
+-- "gnome-terminal --"); then $TERMINAL + "-e"; then the first of a common list
+-- that exists on PATH + "-e". nil when nothing resolves — the Edit row is
+-- dropped then, the same way the Type rows drop without `wtype`.
+local TERMINAL_CANDIDATES = { "ghostty", "kitty", "alacritty", "wezterm", "foot", "konsole", "xterm" }
+local termProbe -- memoised PATH scan: nil = not scanned, false = none found, string = the winner
+
+local function detectedTerminal()
+  if termProbe == nil then
+    termProbe = false
+    for _, t in ipairs(TERMINAL_CANDIDATES) do
+      if noctalia.commandExists(t) then
+        termProbe = t
+        break
+      end
+    end
+  end
+  return termProbe or nil
+end
+
+local function terminalArgv()
+  local configured = trim(noctalia.getConfig("terminalCommand") or "")
+  if configured ~= "" then
+    local argv = {}
+    for tok in configured:gmatch("%S+") do
+      argv[#argv + 1] = tok
+    end
+    return argv
+  end
+  local envTerm = trim(noctalia.getenv("TERMINAL") or "")
+  if envTerm ~= "" then
+    return { envTerm, "-e" }
+  end
+  local found = detectedTerminal()
+  return found and { found, "-e" } or nil
+end
+
 -- `env KEY=VAL ... <cmd...>` argv for a `pass` invocation: always exports
 -- PASSWORD_STORE_DIR, and PASSWORD_STORE_CLIP_TIME too when `withClip` is set
 -- and a timeout is configured. `cmd` is the pass command and its arguments as
@@ -579,6 +619,19 @@ local function renderDetailRows(entryPath, data, filter)
     end
   end
 
+  -- "Edit" — spawn `pass edit` in a terminal (CLAUDE.md "Edit password
+  -- action"). Sorted after all the Copy/Type rows; dropped, like the Type
+  -- rows, when no terminal resolves (see terminalArgv). Row-filtered below
+  -- along with everything else.
+  if terminalArgv() then
+    rows[#rows + 1] = {
+      id = "edit:" .. entryPath,
+      title = tr("action.edit"),
+      subtitle = tr("action.edit-desc"),
+      glyph = "pencil",
+    }
+  end
+
   local frags = fragments(filter or "")
   if #frags == 0 then
     return rows
@@ -861,6 +914,37 @@ local function typeOtp(entryPath, subject)
   end)
 end
 
+-- ── edit action ──────────────────────────────────────────────────────────
+-- `pass edit <entry>` decrypts the file into $EDITOR and re-encrypts it on
+-- save, so it needs a real terminal — spawned via terminalArgv(). It can also
+-- pop a pinentry dialog, so the launcher is closed first (and not reopened,
+-- like the Copy/Type paths). The decrypted detail cache for this entry is
+-- dropped afterwards so the next detail view reflects the edit. No runAsync
+-- timeout: an interactive edit session is open-ended.
+local function editEntry(entryPath)
+  local subject = entryPath:match("[^/]+$") or entryPath
+  local term = terminalArgv()
+  if term == nil then
+    noctalia.notifyError(tr("notification.edit-failed"), subject)
+    return
+  end
+  closeLauncherPanel(function()
+    local argv = {}
+    for _, a in ipairs(term) do
+      argv[#argv + 1] = a
+    end
+    for _, a in ipairs(passArgv({ "pass", "edit", entryPath })) do
+      argv[#argv + 1] = a
+    end
+    noctalia.runAsync(argv, function(result)
+      detailCache[entryPath] = nil
+      if result.exitCode ~= 0 or result.timedOut then
+        noctalia.notifyError(tr("notification.edit-failed"), subject)
+      end
+    end)
+  end)
+end
+
 -- Dispatch one detail row's recorded action.
 --   copy: password / OTP go through `pass -c` / `pass otp -c` (copyViaPass:
 --     clip-timeout env + close-launcher-first pinentry handling); username and
@@ -970,6 +1054,8 @@ function onActivate(id)
     -- state is ":<path> " with an empty filter, ready for the user to type a
     -- row filter (":<path> otp" → only the OTP rows).
     launcher.setQuery(":" .. rest .. " ")
+  elseif kind == "edit" then
+    editEntry(rest)
   elseif kind == "act" then
     local ctx = detailActions[id]
     if ctx then
