@@ -42,6 +42,7 @@
     "online_with_version": "{version} · {endpoint}",
     "proxy_groups": "Proxy groups",
     "refresh": "Refresh",
+    "refresh_tooltip": "Refresh data (right-click to reload plugin)",
     "restart": "Restart",
     "server": "Server",
     "server_add": "Add server",

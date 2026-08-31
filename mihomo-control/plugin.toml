@@ -15,7 +15,7 @@ license = "MIT"
 icon = "cat"
 description = "Monitor and control Mihomo (Clash Meta) — live traffic, proxy mode, group selection, and connections, local or remote."
 tags = ["network", "indicator", "utility", "bar", "panel", "service", "shortcut"]
-dependencies = []
+dependencies = ["jq"]
 
 # ── Shared settings ──────────────────────────────────────────────────────────
 [[setting]]

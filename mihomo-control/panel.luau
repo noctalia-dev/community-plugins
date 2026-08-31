@@ -14,6 +14,7 @@
 --      and a latency-test button.
 
 local MODES = { "rule", "global", "direct" }
+local PLUGIN_ID = "mdj2812/mihomo-control"
 local GROUP_DRAG_TYPE = "mihomo-proxy-group"
 local GROUP_DROP_HIT_SLOP = 128
 
@@ -88,6 +89,17 @@ end
 local function send_command(cmd)
   cmd.seq = math.floor(os.clock() * 1000000)
   noctalia.state.set("mihomo.command", cmd)
+end
+
+local function reload_plugin()
+  panel.close()
+  noctalia.runAsync(
+    "noctalia msg plugins disable "
+      .. PLUGIN_ID
+      .. " && noctalia msg plugins enable "
+      .. PLUGIN_ID,
+    function() end
+  )
 end
 
 -- Expansion state for proxy-group cards: collapsed by default so long member
@@ -745,10 +757,13 @@ render = function()
         status_chip(),
         ui.button({
           glyph = "refresh",
-          tooltip = noctalia.tr("panel.refresh"),
+          tooltip = noctalia.tr("panel.refresh_tooltip"),
           variant = "ghost",
           onClick = function()
             send_command({ op = "refresh" })
+          end,
+          onRightClick = function()
+            reload_plugin()
           end,
         }),
         ui.button({

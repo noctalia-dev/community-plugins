@@ -42,6 +42,7 @@
     "online_with_version": "{version} · {endpoint}",
     "proxy_groups": "策略组",
     "refresh": "刷新",
+    "refresh_tooltip": "刷新数据（右键重新加载插件）",
     "restart": "重启",
     "server": "服务器",
     "server_add": "添加服务器",
