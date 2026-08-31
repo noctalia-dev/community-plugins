@@ -381,6 +381,23 @@ local function prerank(relLower, frags)
   return hits, #segs
 end
 
+-- True when `frags` reconstruct `relLower` one-for-one, in order — the user
+-- typed the entry's whole (folder-relative) path, not just part of it
+-- ("work/aws" → the folder `work/aws`, not merely a search that `aws` also
+-- matches). Both sides are already lowercased. Used to decide whether a folder
+-- outranks the password files in a search (see renderSearchRows): only an
+-- exactly-typed folder does.
+local function pathFullyTyped(relLower, frags)
+  local i = 0
+  for s in relLower:gmatch("[^/]+") do
+    i = i + 1
+    if frags[i] ~= s then
+      return false
+    end
+  end
+  return i > 0 and i == #frags
+end
+
 -- Sum of noctalia.fuzzyScore(fragment, path) — the host's native fzy scorer
 -- (case-insensitive; exact = 1024; prefix / word-boundary / consecutive-run
 -- bonuses). Per fragment so the match stays order-independent and the
@@ -445,7 +462,9 @@ end
 -- against each hit's path *relative to* `folder` (grep matched the raw line),
 -- cheap prerank over every match, then a real noctalia.fuzzyScore pass over
 -- only the top SCORE_POOL, cap at MAX_RESULTS. Rows show the folder-relative
--- path.
+-- path. Folders rank below the password files unless the query typed a
+-- folder's whole relative path (`pathFullyTyped`), in which case that folder
+-- leads — the `m.group` primary sort key.
 local function renderSearchRows(folder, frags, hits)
   local rows = {}
   if folder ~= "" then
@@ -473,8 +492,22 @@ local function renderSearchRows(folder, frags, hits)
 
   for _, m in ipairs(matched) do
     m.pre, m.depth = prerank(m.rel, frags)
+    -- Primary sort bucket: a folder floats above the password files only when
+    -- its full relative path was typed out; every other folder sinks below
+    -- them. Files sit in the middle, so "show password files first" holds for
+    -- every partial query.
+    if not m.h.isDir then
+      m.group = 1
+    elseif pathFullyTyped(m.rel, frags) then
+      m.group = 0
+    else
+      m.group = 2
+    end
   end
   table.sort(matched, function(a, b)
+    if a.group ~= b.group then
+      return a.group < b.group
+    end
     if a.pre ~= b.pre then
       return a.pre > b.pre
     end
@@ -491,6 +524,9 @@ local function renderSearchRows(folder, frags, hits)
     head[i].score = fuzzySum(head[i].rel, frags)
   end
   table.sort(head, function(a, b)
+    if a.group ~= b.group then
+      return a.group < b.group
+    end
     if a.score ~= b.score then
       return a.score > b.score
     end

@@ -96,12 +96,22 @@ Filtering must not run in Luau: the host aborts an async callback after **25 ms*
    `aws/root`, not `work/aws/root`).
 2. `prerank(relLower, frags)` — pure Luau, no C crossings, run over every match →
    `(segHits, depth)`: fragments equal to a whole `/`-bounded segment, then
-   segment count.
-3. Sort by `(segHits desc, depth asc, rel asc)`, take the top `SCORE_POOL` (64).
+   segment count. Also assign `group`: **0** = a folder whose *whole*
+   folder-relative path was typed (`pathFullyTyped` — `frags` reconstruct the
+   `/`-split `rel` one-for-one), **1** = a password file, **2** = any other
+   folder.
+3. Sort by `(group asc, segHits desc, depth asc, rel asc)`, take the top
+   `SCORE_POOL` (64).
 4. `fuzzySum` = `Σ noctalia.fuzzyScore(fragment, relLower)` over just those 64 —
    the host's native fzy scorer (case-insensitive; exact match = 1024; prefix /
-   word-boundary / consecutive-run bonuses). Re-sort by `(fuzzySum desc, depth
-   asc, rel asc)`, take `MAX_RESULTS` (50).
+   word-boundary / consecutive-run bonuses). Re-sort by `(group asc, fuzzySum
+   desc, depth asc, rel asc)`, take `MAX_RESULTS` (50).
+
+`group` is the primary key in both sorts, so folders never sit among the files
+unless their full path was typed — a partial query like `aws` lists every
+matching `*.gpg` first and drops the `work/aws/` folder below them; typing
+`work/aws` floats that folder to the top. Non-exact folders past position 64
+fall out of the pool and aren't rendered (acceptable — files own the slots).
 
 `fuzzyScore` is only called ≤ `SCORE_POOL` times per keystroke — each call
 crosses into C with a ~26 KB fzy stack frame, so scoring *every* hit of a broad
@@ -467,6 +477,11 @@ Do not regress these without a deliberate reason:
     `notification.quick-action-unknown`; no target →
     `notification.no-current-entry`. No manifest declaration — events are
     matched in `QUICK_ACTIONS`, not `plugin.toml`.
+13. **Search result order** — password files rank above folders unless the
+    query typed a folder's *entire* folder-relative path (`pathFullyTyped`), in
+    which case that folder leads. `m.group` (0 exact folder / 1 file / 2 other
+    folder) is the primary sort key, ahead of prerank and `fuzzySum`. Browse
+    (empty query) is unaffected — it stays basename-sorted.
 
 ---
 
@@ -528,6 +543,14 @@ should survive into future changes:
   order-independent and the inter-fragment space a wildcard. `noctalia.fuzzyScore`
   is subsequence/order-dependent, so it can only *rank*, never *match* — matching
   stays `matchesFragments`.
+- **A folder only outranks the password files on a fully-typed path.** During
+  search the user is almost always after an entry, not a folder — a folder that
+  merely substring-matches (`aws` → `work/aws/`) pushing `*.gpg` hits down the
+  list is noise. So `m.group` sorts files above folders unless `pathFullyTyped`
+  (the query's fragments reconstruct a folder's whole relative path segment for
+  segment) — then that one folder leads, since the user clearly meant to drill
+  in. It's an ordered exact check, not "all segments hit somewhere", so `a b`
+  won't count as fully typing `b/a`.
 - **`typeValue` passes the secret as a positional arg after `wtype … --`**, not
   over a `printf %s '<val>' | wtype -` pipe. Argv-only means no shell, no
   single-quote escaping, and a value with a leading `-` is still literal text.

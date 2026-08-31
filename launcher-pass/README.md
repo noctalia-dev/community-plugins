@@ -45,7 +45,9 @@ Open the Noctalia launcher and type `/pass`.
 
 Activating a **folder** drills into it; a **"Go back"** row returns to the
 parent. Every folder view also has a **"New entry"** row — see *Creating
-entries* below. Activating an **entry** decrypts it with `pass show` and opens
+entries* below. In search results, password entries are listed before folders
+unless you type a folder's full path (e.g. `work/aws`), which floats that
+folder to the top so you can drill in. Activating an **entry** decrypts it with `pass show` and opens
 its detail view, which lists, in order:
 
 1. **Copy Password** / **Type Password**
