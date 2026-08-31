@@ -13,6 +13,12 @@ secret.
 | ID      | `mdj2812/mihomo-control`    |
 | Entries | Bar widget: `widget`; panels: `panel`, `panel-attached`; service: `service`; shortcut: `mode` |
 
+## Requirements
+
+- Network access to the Mihomo external controller (local or remote)
+- On `PATH` (declared in `plugin.toml` `dependencies`):
+  - `jq` — project oversized `/connections` and `/proxies` API responses during polling
+
 ## Usage
 
 Add the **Mihomo Control** widget from the Add-widget picker. By default it
