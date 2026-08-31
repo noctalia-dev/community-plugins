@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Noctalia Thunderbird Companion",
   "description": "Publishes unread message metadata and handles Noctalia mail actions through a local native bridge.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "browser_specific_settings": {
     "gecko": {
       "id": "thunderbird-companion@mdj2812.github.io",
