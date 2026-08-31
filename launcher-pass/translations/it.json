@@ -54,6 +54,10 @@
         "type": "Prima Digita"
       }
     },
+    "editor-command": {
+      "desc": "Editor per l'azione Modifica, esportato come EDITOR verso pass edit (es. nvim, code --wait). Vuoto lascia EDITOR non impostato e pass usa il proprio predefinito",
+      "label": "Comando editor"
+    },
     "pinentry-grace-ms": {
       "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 50). Valori più bassi permettono a pinentry di ottenere il focus più facilmente ma possono causare più sfarfallio del launcher; valori più alti (circa 200-300) rendono l'interfaccia più stabile ma pinentry potrebbe comparire mentre il launcher è ancora aperto in attesa del timeout e non riuscire a ottenere il focus a seconda del window manager",
       "label": "Periodo di tolleranza pinentry"

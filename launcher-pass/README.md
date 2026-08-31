@@ -69,12 +69,14 @@ usernames and other fields are copied directly and are *not* auto-cleared.
 `wtype`.
 
 **Edit** closes the launcher and runs `pass edit <entry>` in a terminal, letting
-you change the entry's contents in `$EDITOR` (`pass` re-encrypts on save). The
+you change the entry's contents in an editor (`pass` re-encrypts on save). The
 terminal comes from the **Terminal command** setting; if that is blank the
 plugin uses `$TERMINAL`, then the first of `ghostty`, `kitty`, `alacritty`,
 `wezterm`, `foot`, `konsole`, `xterm` found on `PATH`. When none of those
-resolve, the Edit row is hidden. The decrypted-entry cache is dropped after an
-edit, so reopening the entry shows the new contents.
+resolve, the Edit row is hidden. The **Editor command** setting, when set, is
+exported as `EDITOR` for that run; left blank, `EDITOR` is not touched and `pass`
+uses its own default. The decrypted-entry cache is dropped after an edit, so
+reopening the entry shows the new contents.
 
 If GPG needs a passphrase, a pinentry dialog appears; the launcher hides itself
 so the dialog can take focus and reopens once decryption finishes.
@@ -91,6 +93,7 @@ so the dialog can take focus and reopens once decryption finishes.
 | `detailActionOrder` | `select` | `copy` | In an entry's detail view, whether the **Copy** row (`copy`) or the **Type** row (`type`) comes first for each value. *(Advanced.)* |
 | `detailActionGrouping` | `select` | `interleaved` | `interleaved`: each value's Copy and Type rows sit together. `grouped`: every Copy row first, then every Type row (each block in the `detailActionOrder` direction). *(Advanced.)* |
 | `terminalCommand` | `string` | *(empty)* | Terminal for the **Edit** action, as a full command prefix including its exec flag (`foot -e`, `kitty -e`, `gnome-terminal --`). Empty auto-detects from `$TERMINAL`, then a common terminal on `PATH`. When nothing resolves the Edit row is hidden. *(Advanced.)* |
+| `editorCommand` | `string` | *(empty)* | Exported as `EDITOR` for the **Edit** action's `pass edit` run (`nvim`, `code --wait`, …). Empty leaves `EDITOR` unset so `pass` uses its own default. *(Advanced.)* |
 
 ## IPC
 

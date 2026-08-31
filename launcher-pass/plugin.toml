@@ -9,7 +9,7 @@
 
 id = "mellotanica/launcher-pass"
 name = "Launcher pass"
-version = "2.0.2"
+version = "2.1.0"
 plugin_api = 26
 author = "Marco Melletti"
 license = "MIT"
@@ -77,6 +77,16 @@ key = "terminalCommand"
 type = "string"
 label_key = "settings.terminal-command.label"
 description_key = "settings.terminal-command.desc"
+default = ""
+advanced = true
+
+# Editor for the "Edit" action. Exported as EDITOR for the `pass edit` run when
+# set; blank leaves EDITOR unset so `pass` uses its own default. See editEntry().
+[[setting]]
+key = "editorCommand"
+type = "string"
+label_key = "settings.editor-command.label"
+description_key = "settings.editor-command.desc"
 default = ""
 advanced = true
 

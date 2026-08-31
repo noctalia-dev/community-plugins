@@ -190,12 +190,19 @@ end
 -- PASSWORD_STORE_DIR, and PASSWORD_STORE_CLIP_TIME too when `withClip` is set
 -- and a timeout is configured. `cmd` is the pass command and its arguments as
 -- a plain list ({"pass", "-c", entryPath}); no shell, no quoting.
-local function passArgv(cmd, withClip)
+-- `extraEnv` (optional) is a list of extra "KEY=VAL" argv elements to export
+-- after the store dir — the Edit action uses it to set EDITOR.
+local function passArgv(cmd, withClip, extraEnv)
   local argv = { "env", "PASSWORD_STORE_DIR=" .. storeDir() }
   if withClip then
     local t = clipTimeout()
     if t then
       argv[#argv + 1] = "PASSWORD_STORE_CLIP_TIME=" .. t
+    end
+  end
+  if extraEnv then
+    for _, e in ipairs(extraEnv) do
+      argv[#argv + 1] = e
     end
   end
   for _, a in ipairs(cmd) do
@@ -921,6 +928,9 @@ end
 -- like the Copy/Type paths). The decrypted detail cache for this entry is
 -- dropped afterwards so the next detail view reflects the edit. No runAsync
 -- timeout: an interactive edit session is open-ended.
+--
+-- The `editorCommand` setting, when non-empty, is exported as EDITOR for the
+-- run; blank leaves EDITOR unset so `pass` falls back to its own default.
 local function editEntry(entryPath)
   local subject = entryPath:match("[^/]+$") or entryPath
   local term = terminalArgv()
@@ -928,12 +938,14 @@ local function editEntry(entryPath)
     noctalia.notifyError(tr("notification.edit-failed"), subject)
     return
   end
+  local editor = trim(noctalia.getConfig("editorCommand") or "")
+  local extraEnv = editor ~= "" and { "EDITOR=" .. editor } or nil
   closeLauncherPanel(function()
     local argv = {}
     for _, a in ipairs(term) do
       argv[#argv + 1] = a
     end
-    for _, a in ipairs(passArgv({ "pass", "edit", entryPath })) do
+    for _, a in ipairs(passArgv({ "pass", "edit", entryPath }, false, extraEnv)) do
       argv[#argv + 1] = a
     end
     noctalia.runAsync(argv, function(result)

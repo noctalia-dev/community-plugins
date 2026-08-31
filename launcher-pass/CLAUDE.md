@@ -16,7 +16,7 @@ fields.
 
 ```
 launcher-pass/
-├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 8, [[launcher_provider]]
+├── plugin.toml          manifest: id, plugin_api, dependencies, [[setting]] × 9, [[launcher_provider]]
 ├── launcher.luau         the whole feature (one entry script)
 ├── translations/         en.json (canonical) + 10 locales, nested JSON, identical key set
 │   └── en it
@@ -185,10 +185,12 @@ path; browse rows the basename.
 ### Copy / Type actions
 
 `storeDir()` = `storePath` setting or `~/.password-store` (expanded).
-`passArgv(cmd, withClip)` builds `{"env", "PASSWORD_STORE_DIR="..dir,
-["PASSWORD_STORE_CLIP_TIME="..t,] <cmd...>}`. `clipTimeout()` resolves the clip
-timeout: `clipTimeout` setting (positive int) → `PASSWORD_STORE_CLIP_TIME` env
-(positive int) → nil (let `pass` default).
+`passArgv(cmd, withClip, extraEnv)` builds `{"env", "PASSWORD_STORE_DIR="..dir,
+["PASSWORD_STORE_CLIP_TIME="..t,] [<extraEnv…>,] <cmd...>}`. `extraEnv` is an
+optional list of extra `KEY=VAL` argv elements — only the Edit action uses it,
+to pass `EDITOR=<editorCommand>`. `clipTimeout()` resolves the clip timeout:
+`clipTimeout` setting (positive int) → `PASSWORD_STORE_CLIP_TIME` env (positive
+int) → nil (let `pass` default).
 
 | Action | Path |
 |---|---|
@@ -216,7 +218,9 @@ timeout: `clipTimeout` setting (positive int) → `PASSWORD_STORE_CLIP_TIME` env
 
 `editEntry(entryPath)` closes the launcher (never reopens — `pass edit` runs
 `$EDITOR` and may pop pinentry, both want the keyboard) and runs
-`<term…> env PASSWORD_STORE_DIR=… pass edit <entryPath>`. The term prefix is
+`<term…> env PASSWORD_STORE_DIR=… [EDITOR=<editorCommand>] pass edit
+<entryPath>`. `editorCommand` is passed to `passArgv` as its `extraEnv` arg only
+when non-empty — blank leaves `EDITOR` unset. The term prefix is
 `terminalArgv()`: the `terminalCommand` setting split on whitespace (a full argv
 prefix that takes a command, exec flag included — `foot -e`, `gnome-terminal
 --`); else `{$TERMINAL, "-e"}`; else `{<first of TERMINAL_CANDIDATES on PATH>,
@@ -321,12 +325,14 @@ should survive into future changes:
   (`settings.detail-action-order.options.copy`) — the plugin-store validator
   rejects any uppercase or dotted-into-one segment in `translations/*.json`
   keys and in `label_key` / `description_key` values.
-- **Eight settings.** `storePath` (folder), `clipTimeout` (string — kept a string
+- **Nine settings.** `storePath` (folder), `clipTimeout` (string — kept a string
   so `""` means "fall back to env"), `typeDelay` / `wtypeDelay` /
   `pinentryGraceMs` (int, `advanced`), `detailActionOrder` /
   `detailActionGrouping` (select, `advanced`), `terminalCommand` (string,
-  `advanced` — `""` means auto-detect the terminal for the Edit action). Read
-  back with `noctalia.getConfig(key)`; defaults come from the manifest.
+  `advanced` — `""` means auto-detect the terminal for the Edit action),
+  `editorCommand` (string, `advanced` — `""` means don't export `EDITOR`, let
+  `pass edit` use its own default). Read back with `noctalia.getConfig(key)`;
+  defaults come from the manifest.
 - **Navigation state lives in the query string**, not module locals — a trailing
   `/` for a folder context, a leading `:` for detail mode. Reopening the launcher
   resets to the store root for free (no `onOpened`-style hook exists in v5).
