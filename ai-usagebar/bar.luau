@@ -63,19 +63,16 @@ local function shown()
 
     local ready = {}
     for _, entry in ipairs(all) do
-        -- A provider whose service is down drops out of the bar on the first
-        -- report that says so, rather than sitting there with a frozen reading.
-        -- It is not counted as hidden either: hidden means the panel has more to
-        -- show, and this one has nothing to show.
+        -- A provider whose service is down drops out on the first report that
+        -- says so, rather than sitting there with a frozen reading. Not counted
+        -- as hidden either: hidden means the panel has more to show.
         if entry.status ~= "error" and not unavailable(entry) then
             ready[#ready + 1] = entry
         end
     end
     local primary = type(report) == "table" and report.primary or nil
-    -- The CLI names its primary either as a provider or as one of that
-    -- provider's accounts, so an entry answers to the whole id as well as to the
-    -- provider in front of the "@". Matching only one form left the tie-break
-    -- with nothing to pick when the other was reported.
+    -- The CLI names its primary either as a provider or as one of its accounts,
+    -- so an entry answers to the whole id and to the part before the "@".
     local function isPrimary(entry)
         return primary ~= nil
             and (tostring(entry.id) == primary or baseProvider(entry.id) == primary)
@@ -117,15 +114,13 @@ local function severityRole(metric, calm)
 end
 
 -- A capsule pinned to a named account keeps the account in its name: two
--- capsules on two accounts of one provider are the same product, and the suffix
--- is the only thing telling them apart. It is fixed for that capsule, so it
--- costs no width between reads.
+-- capsules on two accounts are the same product, and the suffix is what tells
+-- them apart. Fixed for that capsule, so it costs no width between reads.
 local function shortName(entry)
     local name = tostring(entry.display_name or entry.name or entry.id or "")
     if vendor ~= "auto" and account ~= "" then return name end
-    -- Anywhere else "Claude · gmail" is the panel's business: "auto" follows
-    -- whichever provider is busiest, and a name that gains an account on one
-    -- read and loses it on the next would resize the capsule.
+    -- Anywhere else it is the panel's business: under "auto" a name that gains
+    -- an account on one read and loses it on the next would resize the capsule.
     return (name:gsub("%s*·.*$", ""))
 end
 
@@ -151,12 +146,11 @@ local function chip(entry, flagged)
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local fill = severityRole(metric, "primary")
-    -- The mark says which provider, never how full it is. Severity rides on the
-    -- reading and the gauge, the same split the panel uses. A failed read is the
-    -- one thing that colours the mark, and it colours rather than appends: an
-    -- alert glyph that exists only while the read is failing widens the capsule
-    -- and shoves the neighbouring widget once per failed cycle. The tooltip
-    -- still spells the failure out, so the colour is not carrying it alone.
+    -- The mark says which provider, never how full it is; severity rides on the
+    -- reading and the gauge. A failed read is the one thing that colours it, and
+    -- colours rather than appends: a glyph that exists only while the read fails
+    -- would shove the neighbouring widget once per cycle. The tooltip still
+    -- spells the failure out.
     local glyph = showGlyph
         and ui.glyph({ name = providerGlyph(entry.id), size = 13,
                        color = flagged and "error" or "on_surface" }) or nil
@@ -212,9 +206,9 @@ local function tooltip(picked, hidden)
         return rows
     end
     if #picked == 0 then
-        -- A pinned provider the report still lists is configured; it is its
-        -- source that is down. Calling that "not configured" blames the user's
-        -- config for a failure the CLI already worded, so its wording stands.
+        -- A pinned provider the report still lists is configured; its source is
+        -- what is down. Calling that "not configured" would blame the user's
+        -- config for a failure the CLI already worded.
         local down = pinnedDown()
         if down ~= nil then
             return { { key = tostring(down.display_name or down.id), value = warning(down) } }
@@ -261,19 +255,16 @@ end
 
 local function render()
     local picked, hidden = shown()
-    -- A failed read does not erase the last one: the numbers stay, flagged, until
-    -- a good report replaces them or the provider drops out on its own. Erasing
-    -- them left the capsule blank over a transient spawn failure and took the
-    -- whole reading down with it.
+    -- A failed read does not erase the last one: the numbers stay, flagged,
+    -- until a good report replaces them. Erasing them blanked the capsule over a
+    -- transient spawn failure.
     local flagged = failure.code ~= "" and #picked > 0
 
     local children = {}
     for _, entry in ipairs(picked) do
-        -- Two providers in one capsule run together on a gap alone, and the
-        -- countdown of the first reads as part of the second. A dot, not a rule:
-        -- a vertical `ui.separator` in a row gets no height of its own and came
-        -- out two pixels wide by one tall. The panel divides its chips the same
-        -- way.
+        -- Two providers run together on a gap alone: the countdown of the first
+        -- reads as part of the second. A dot, not a rule -- a vertical
+        -- `ui.separator` in a row came out two pixels wide by one tall.
         if #children > 0 then
             children[#children + 1] = ui.label({ text = "·", fontSize = 11,
                                                  color = "on_surface_variant" })

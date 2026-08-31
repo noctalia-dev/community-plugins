@@ -18,21 +18,19 @@ local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
 
--- The plan each provider was on when it last reported for real. A plan carries
--- the limits every percentage is measured against, so a reading taken under the
--- old one says nothing about the new one and is not worth keeping on screen.
+-- The plan each provider last reported on. A plan carries the limits every
+-- percentage is measured against, so a reading taken under the old one says
+-- nothing about the new one.
 local lastPlan = {}
 
--- Read once: a session either has xdg-utils or it does not, and the panel would
--- otherwise stat PATH on every second tick it spends in a failure.
+-- Read once: the panel would otherwise stat PATH on every second tick it spends
+-- in a failure.
 local HAS_OPENER = noctalia.commandExists("xdg-open")
 
 -- A vendor the user never set up is not listed. The CLI prefixes every such
 -- message with `credentials error:`, but that bucket also holds providers that
--- ARE set up and merely unreachable right now -- "credentials error:
--- Antigravity: no local server found ... open Antigravity" -- so the row is only
--- dropped when the CLI says there is no key at all. Anything else keeps its row
--- and shows the CLI's own words, which say what to do about it.
+-- are set up and merely unreachable, so the row is dropped only when the CLI
+-- says there is no key at all.
 local function configured(entry)
     if entry.status ~= "error" then return true end
     local message = tostring(entry.error or ""):lower()
@@ -41,9 +39,7 @@ end
 
 -- ── Detail line parsing ───────────────────────────────────────────────────────
 -- "Resets in 1h 58m · 60% elapsed · 30pts ahead". The reset half is already in
--- `reset_at`; what is left is the pace.
-
--- Details that carry no reset at all, e.g. "62% of monthly limit consumed".
+-- `reset_at`; what is left is the pace, and some details carry no reset at all.
 local function plainDetail(detail)
     local head = tostring(detail or ""):match("^[^·]*") or ""
     head = noctalia.string.trim(head)
@@ -84,9 +80,8 @@ local function severityWord(section)
 end
 
 -- One reading, without the card around it. `title` names it: the metric's own
--- label on a card of its own, or the window's name inside a card that stacks a
--- model's readings. `muted` is for the second case, where the card is already
--- titled and the window is the subordinate line.
+-- label, or the window's name inside a card that stacks a model's readings.
+-- `muted` is for the second case, where the card is already titled.
 local function metricRows(section, title, muted)
     local percent = tonumber(section.percent) or 0
     local tint = severityRole(section, "on_surface")
@@ -148,8 +143,7 @@ local function metricRows(section, title, muted)
         timing[#timing + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
         timing[#timing + 1] = ui.label({ text = left, fontSize = 11, color = "on_surface_variant" })
         if clock ~= "" then
-            -- Parenthesised and muted: it is where the countdown beside it lands,
-            -- not a reading of its own.
+            -- Where the countdown beside it lands, not a reading of its own.
             timing[#timing + 1] = ui.label({
                 text = "(" .. clock .. ")", fontSize = 11, color = "on_surface_variant",
             })
@@ -188,9 +182,8 @@ local CARD = { gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45",
 
 -- A provider's readings share one card, so the session and the week are read
 -- together. `name` titles it only where the readings need telling apart by
--- something the panel does not already say: Antigravity's plan spans two models
--- and reports each of them once per window. Claude and Codex report one subject,
--- already named in the panel's header, so their windows head themselves.
+-- something the panel has not already said: Antigravity reports two models, one
+-- reading per window each. Elsewhere the header names the subject.
 local function stackCard(name, readings)
     local titled = name ~= ""
     local body = {}
@@ -221,8 +214,7 @@ local function blockCard(section)
     local lines = type(section.body) == "table" and section.body or {}
     for _, line in ipairs(lines) do
         local text = noctalia.string.trim(tostring(line))
-        -- A bare "balance:" from the CLI would read as a row that failed to
-        -- render, so nothing gets spelled the way it is everywhere else.
+        -- A bare "balance:" would read as a row that failed to render.
         if text:find(":$") then text = text .. " —" end
         body[#body + 1] = ui.label({
             text = text ~= "" and text or "—",
@@ -235,10 +227,9 @@ local function blockCard(section)
                        border = "outline/0.18", borderWidth = 1 }, body)
 end
 
--- A `text` section the CLI uses for a warning, e.g. Antigravity reporting that
--- its local server is down while still serving cached numbers. The `credentials
--- error:` prefix and the repeated provider name are the CLI talking to a log,
--- not to a panel that already names the provider in its title.
+-- A `text` section the CLI uses for a warning. The `credentials error:` prefix
+-- and the repeated provider name are the CLI talking to a log, not to a panel
+-- that already names the provider in its title.
 local function noteCard(text)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
@@ -260,12 +251,10 @@ local function recordAge(entry)
     return noctalia.tr("ui.last_reading", { minutes = minutes })
 end
 
--- Every reading a provider sent, grouped into the subjects it will be read by.
--- Antigravity names each model once per window, so its readings are keyed by
--- model and the window heads each one; the rest report a single subject the
--- pane's header already names, so their own labels head their readings. Drawn
--- and dated the same way, from one grouping, so the two cannot disagree about
--- what belongs together.
+-- Every reading a provider sent, grouped into the subjects it is read by:
+-- Antigravity by model, with the window heading each reading; everyone else
+-- under one subject the header already names. The card and the record share this
+-- grouping so the two cannot disagree about what belongs together.
 local function groupReadings(items, windowed)
     local order, byName = {}, {}
     for _, item in ipairs(items) do
@@ -286,9 +275,8 @@ local function groupReadings(items, windowed)
     return order, byName
 end
 
--- While a provider is down its numbers are a record of when it was last read,
--- not a gauge of anything now, so they are set in text instead of drawn as bars
--- a glance would read as live.
+-- While a provider is down its numbers record when it was last read, so they
+-- are set in text rather than drawn as bars a glance would read as live.
 local function recordCard(entry, items, windowed)
     local order, byName = groupReadings(items, windowed)
     if #order == 0 then return nil end
@@ -322,12 +310,10 @@ local function recordCard(entry, items, windowed)
                        border = "outline/0.18", borderWidth = 1 }, body)
 end
 
--- Everything in a report that is not a reading: the credit blocks, the headings
--- the CLI sets over them, its warnings, and its free text. A provider that is
--- down loses its gauges, not the rest of what the CLI said about it, so both
--- passes draw these the same way. `warned` says the warning already stands at
--- the top of the column, where it takes the gauges' place; returning nothing
--- keeps it from being said twice.
+-- Everything in a report that is not a reading: credit blocks, headings,
+-- warnings, free text. A provider that is down loses its gauges, not the rest of
+-- what the CLI said, so both passes draw these the same way. `warned` says the
+-- warning already stands at the top, so it is not said twice.
 local function otherCard(section, warned)
     if section.type == "block" then return blockCard(section) end
 
@@ -461,10 +447,9 @@ local function errorBlock()
         }),
     }
 
-    -- Retrying is pointless until the CLI exists, so that failure gets the install
-    -- page too. The URL is a literal, and the button is only offered where
-    -- something can open it. The address lives in the tooltip: a raw URL is not a
-    -- button caption.
+    -- Retrying is pointless until the CLI exists, so that failure gets the
+    -- install page too, offered only where something can open it. The address
+    -- lives in the tooltip: a raw URL is not a button caption.
     if failure.code == "not_installed" and HAS_OPENER then
         actions[#actions + 1] = ui.button({
             text = noctalia.tr("ui.install"), glyph = "external-link",
@@ -490,12 +475,12 @@ local function listPane(entry)
     return ui.column({ gap = 10, padding = 14, width = 250 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
-            -- The accent belongs to the selection and the bars. A title that took
+            -- The accent belongs to the selection and the bars; a title taking
             -- it too would leave the panel with no quiet level.
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
-            -- One slot for the read: the button becomes the spinner while the CLI
-            -- answers, instead of a second glyph pushing the header around.
+            -- One slot for the read: the button becomes the spinner, instead of
+            -- a second glyph pushing the header around.
             ui.button({
                 glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
                 variant = "ghost", controlSize = "sm",
@@ -505,7 +490,7 @@ local function listPane(entry)
                 onClick = requestRefresh,
             }),
             -- The capsule answers a middle click with this too, but the panel is
-            -- where someone decides the capsule should follow another provider.
+            -- where that decision is made.
             ui.button({
                 glyph = "settings",
                 variant = "ghost", controlSize = "sm",
@@ -521,9 +506,8 @@ local function detailPane(entry)
     local title = noctalia.tr("ui.title")
     local subtitle = ""
     if entry ~= nil then
-        -- The provider names the pane, the plan qualifies it -- the same order the
-        -- row in the list uses. The CLI keeps them apart: `display_name` is
-        -- "Codex", `plan` is "ChatGPT Free".
+        -- The provider names the pane, the plan qualifies it, the same order the
+        -- list uses. The CLI keeps them apart: `display_name` vs `plan`.
         title = tostring(entry.display_name or entry.id)
         subtitle = tostring(entry.plan or "")
         if subtitle == title then subtitle = "" end
@@ -532,10 +516,8 @@ local function detailPane(entry)
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
-        -- The row keeps the title block honest about its height: a bare ui.column
-        -- dropped into a column claims the pane's free space, parking the title at
-        -- the top of a hundred pixels of nothing. Wrapped, it is as tall as the two
-        -- labels in it.
+        -- Wrapped in a row so the title block is as tall as its two labels: a
+        -- bare column claims the pane's free space and parks the title above it.
         children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = providerGlyph(entry.id), size = 18, color = "on_surface" }),
             ui.column({ gap = 0, flexGrow = 1 }, {
@@ -547,10 +529,9 @@ local function detailPane(entry)
         })
     end
 
-    -- The id and a "ready" status are skipped: the id is the row that was just
-    -- clicked, and a healthy read is the default. A provider that is down is
-    -- skipped altogether: its record below dates the same fetch in the tense that
-    -- fits it, and the list beside it already says the provider is unavailable.
+    -- The id and a "ready" status are skipped: the id is the row just clicked,
+    -- and a healthy read is the default. A provider that is down is skipped
+    -- altogether: its record below dates the same fetch, in the right tense.
     if entry ~= nil and not unavailable(entry) then
         local chips = {}
         if entry.stale == true then
@@ -572,9 +553,8 @@ local function detailPane(entry)
         end
     end
 
-    -- The read failed, but the numbers below it did not: they are simply older
-    -- than the panel would like. Said once, at the top, rather than by dropping
-    -- every card underneath.
+    -- The read failed, but the numbers below it are only older than the panel
+    -- would like. Said once, at the top, rather than by dropping every card.
     if failure.code ~= "" then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "alert-circle", size = 13, color = "error" }),
@@ -592,10 +572,9 @@ local function detailPane(entry)
     local cards = {}
     local sections = entry ~= nil and type(entry.sections) == "table" and entry.sections or {}
 
-    -- Pass one: pair every reading with the heading standing over it, and drop the
-    -- padding the CLI puts between sections -- the column sets its own gap, and a
-    -- spacer left behind by a consumed heading would double it. Providers that
-    -- send no headings come out of this with the list they always had.
+    -- Pass one: pair every reading with the heading over it, and drop the padding
+    -- the CLI puts between sections -- the column sets its own gap, and a spacer
+    -- left by a consumed heading would double it.
     local windowed = false
     local heading = ""
     local items = {}
@@ -612,18 +591,16 @@ local function detailPane(entry)
     end
 
     -- A provider that is down draws no gauges: a bar reads as a live reading, and
-    -- nothing is reading. The warning takes their place, and the numbers it was
-    -- last seen with follow it as a record -- unless the plan has changed since,
-    -- in which case they were measured against limits that no longer apply.
+    -- nothing is reading. The warning takes their place, and the last numbers
+    -- follow as a record, unless a plan change made them meaningless.
     local warning = entry ~= nil and providerWarning(entry) or ""
     if warning ~= "" then
         cards[#cards + 1] = noteCard(warning)
         local id = tostring(entry.id or "")
         local previous = lastPlan[id]
         local current = tostring(entry.plan or "")
-        -- Only a plan the CLI names on both sides is evidence of a change. An
-        -- entry that fell over and stopped naming one at all says nothing about
-        -- the limits its last reading was measured against.
+        -- Only a plan the CLI names on both sides is evidence of a change: an
+        -- entry that fell over and stopped naming one says nothing.
         if previous ~= nil and previous ~= "" and current ~= "" and previous ~= current then
             cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.plan_changed"), fontSize = 11,
                                            color = "on_surface_variant", maxLines = 2 })
@@ -637,8 +614,8 @@ local function detailPane(entry)
         for _, name in ipairs(order) do cards[#cards + 1] = stackCard(name, byName[name]) end
     end
 
-    -- What is left is the same either way: the report says more than its
-    -- readings, and losing the gauges is no reason to lose the rest.
+    -- The rest is the same either way: losing the gauges is no reason to lose
+    -- what else the CLI said.
     for _, item in ipairs(items) do
         if item.section.type ~= "metric" then
             local card = otherCard(item.section, warning ~= "")
@@ -647,7 +624,7 @@ local function detailPane(entry)
     end
 
     -- A section list that lost every card to a heading would otherwise scroll an
-    -- empty column instead of saying there is nothing to show.
+    -- empty column.
     if #cards > 0 then
         -- 24, not the column's usual 8: the CLI used to pad its own sections and
         -- dropping that padding would have pulled every provider's cards together.
@@ -665,15 +642,14 @@ end
 
 function render()
     local entry = currentEntry()
-    -- A failure with nothing behind it is the whole panel. With a report behind
-    -- it, it is a banner over readings that are still the best answer available:
-    -- a spawn that failed once should not blank a panel the user just opened.
-    -- A report whose every row was dropped still counts as one -- the panel it
-    -- draws is empty, not absent, and the banner belongs inside it.
+    -- A failure with nothing behind it is the whole panel; with a report behind
+    -- it, a banner over readings that are still the best answer available. A
+    -- report whose every row was dropped still counts as one: the panel it draws
+    -- is empty, not absent.
     if failure.code ~= "" and report == nil then
-        -- The panel keeps the fixed size the manifest gives it, and a failure has
-        -- nowhere near 720x400 to say. Bounded to a readable width and centred, the
-        -- empty surround reads as composition rather than a half-drawn frame.
+        -- The panel keeps its manifest size, and a failure has nowhere near
+        -- 720x400 to say. Bounded and centred, the empty surround reads as
+        -- composition rather than a half-drawn frame.
         panel.render(ui.column({ flexGrow = 1, padding = 14, align = "center", justify = "center" }, {
             ui.column({ gap = 10, width = 320 }, {
                 ui.row({ gap = 8, align = "center" }, {
@@ -687,9 +663,8 @@ function render()
         return
     end
 
-    -- Both panes have to be told to fill the panel, or their ui.scroll children ask
-    -- for their natural height: the cards overflow, and the free space goes to
-    -- whatever else in the column will take it.
+    -- Both panes must be told to fill the panel, or their ui.scroll children ask
+    -- for their natural height and the cards overflow.
     panel.render(ui.row({ gap = 0, flexGrow = 1, align = "stretch" }, {
         listPane(entry),
         ui.separator({ orientation = "vertical", color = "outline", opacity = 0.28 }),
@@ -743,7 +718,7 @@ noctalia.state.watch("refresh_queued", function(value)
 end)
 
 function onOpen(_context)
-    -- Every open asks for fresh numbers. The CLI answers from its own cache when it
+    -- Every open asks for fresh numbers. The CLI answers from its cache when it
     -- has one, and the poller drops requests that arrive too close together.
     requestRefresh()
     report = noctalia.state.get("report")
