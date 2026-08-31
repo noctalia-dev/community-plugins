@@ -90,6 +90,12 @@ local detailActions = {}
 -- path can contain spaces, so splitDetailQuery() uses this (plus detailCache)
 -- to decide where the path ends and the fuzzy filter begins.
 local lastDetailPath = nil
+-- The entry a path-less quick-action IPC call (onIpc) acts on: the last one
+-- the user opened (fetchDetail), acted on (runAction), or narrowed a query
+-- down to a single hit for (onQuery). Persists for the VM's lifetime, so it
+-- survives the launcher closing. No row-highlight callback exists for a
+-- launcher provider, so this is the closest thing to "the current entry".
+local currentEntry = nil
 
 -- ── small helpers ──────────────────────────────────────────────────────────
 local function tr(key, subst)
@@ -925,6 +931,45 @@ local function splitDetailQuery(rest)
   return trim(rest), ""
 end
 
+-- `pass show` stdout → the detail-cache record (`parsePassEntry` +
+-- `extractUsername`, stamped with the TTL clock). Shared by `fetchDetail`'s
+-- decrypt callback and `withEntryData` so the two paths can't drift.
+local function buildEntryData(entryPath, stdout)
+  local password, hasOtp, fields = parsePassEntry(stdout or "")
+  local username, remaining = extractUsername(entryPath, fields)
+  return {
+    at = noctalia.nowMs(),
+    ttl = DETAIL_TTL_MS,
+    password = password,
+    hasOtp = hasOtp,
+    username = username,
+    fields = remaining,
+  }
+end
+
+-- Resolve `entryPath`'s decrypted data for an action that is *not* rendering
+-- the detail view (a quick-action IPC call, or the Autotype row): a warm
+-- `detailCache` entry (DETAIL_TTL_MS) short-circuits, otherwise `pass show`
+-- decrypts and caches it. The caller must have closed the launcher already —
+-- there is no panel dance here, so a pinentry dialog gets focus on its own
+-- (like the Copy/Type paths). `cb(nil)` on a failed / timed-out decrypt.
+local function withEntryData(entryPath, cb)
+  local hit = detailCache[entryPath]
+  if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
+    cb(hit)
+    return
+  end
+  noctalia.runAsync(passArgv({ "pass", "show", entryPath }), function(result)
+    if result.exitCode ~= 0 or result.timedOut then
+      cb(nil)
+      return
+    end
+    local data = buildEntryData(entryPath, result.stdout)
+    detailCache[entryPath] = data
+    cb(data)
+  end, DECRYPT_TIMEOUT_MS)
+end
+
 -- Decrypts `entryPath` (cached — see DETAIL_TTL_MS) and publishes its detail
 -- rows. `text` is the raw onQuery text (leading ":" + entryPath + " " +
 -- filter), echoed back to setResults / checked against lastQuery exactly like
@@ -932,6 +977,7 @@ end
 -- renderDetailRows).
 local function fetchDetail(entryPath, text, filter)
   lastDetailPath = entryPath -- disambiguates the next splitDetailQuery
+  currentEntry = entryPath   -- path-less quick-action IPC targets this
 
   local hit = detailCache[entryPath]
   if hit and (noctalia.nowMs() - hit.at) < hit.ttl then
@@ -967,16 +1013,7 @@ local function fetchDetail(entryPath, text, filter)
       return
     end
 
-    local password, hasOtp, fields = parsePassEntry(result.stdout or "")
-    local username, remaining = extractUsername(entryPath, fields)
-    local data = {
-      at = noctalia.nowMs(),
-      ttl = DETAIL_TTL_MS,
-      password = password,
-      hasOtp = hasOtp,
-      username = username,
-      fields = remaining,
-    }
+    local data = buildEntryData(entryPath, result.stdout)
     detailCache[entryPath] = data
     launcher.setResults(text, renderDetailRows(entryPath, data, filter))
   end
@@ -1133,18 +1170,14 @@ local function runWtypeSteps(steps, i, subject)
   end)
 end
 
+-- Runs the autotype sequence for `entryPath`. Called two ways: from the
+-- Autotype detail row (launcher open, `detailCache` warm) and from the
+-- `autotype` quick-action IPC event (launcher closed, cache usually cold) —
+-- so it closes the panel up front and resolves the entry through
+-- `withEntryData` (cache hit, or a fresh `pass show`) rather than assuming a
+-- warm cache. A cold-decrypt failure → notification.type-failed, no typing.
 local function autotypeEntry(entryPath)
   local subject = entryPath:match("[^/]+$") or entryPath
-  -- The detail view that showed this row decrypted the entry, so its
-  -- password / username / OTP flag are in detailCache. If the cache expired
-  -- between render and activation there's nothing to type — bail rather than
-  -- fire a half login.
-  local data = detailCache[entryPath]
-  if data == nil then
-    noctalia.notifyError(tr("notification.type-failed"), subject)
-    return
-  end
-
   local sepKey = noctalia.getConfig("autotypeSeparator") == "enter" and "Return" or "Tab"
   local submit = noctalia.getConfig("autotypeSubmit") ~= false
   local delay = tostring(intSetting("wtypeDelay", 12))
@@ -1156,7 +1189,7 @@ local function autotypeEntry(entryPath)
     return { "wtype", "-k", keysym }
   end
 
-  local function runSequence(otpCode)
+  local function runSequence(data, otpCode)
     local steps = {
       typeStep(data.username),
       keyStep(sepKey),
@@ -1177,17 +1210,23 @@ local function autotypeEntry(entryPath)
   end
 
   closeLauncherPanel(function()
-    if data.hasOtp then
-      noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
-        if result.exitCode == 0 and not result.timedOut then
-          runSequence(trim(result.stdout or ""))
-        else
-          noctalia.notifyError(tr("notification.type-failed"), subject)
-        end
-      end, DECRYPT_TIMEOUT_MS)
-    else
-      runSequence(nil)
-    end
+    withEntryData(entryPath, function(data)
+      if data == nil then
+        noctalia.notifyError(tr("notification.type-failed"), subject)
+        return
+      end
+      if data.hasOtp then
+        noctalia.runAsync(passArgv({ "pass", "otp", entryPath }), function(result)
+          if result.exitCode == 0 and not result.timedOut then
+            runSequence(data, trim(result.stdout or ""))
+          else
+            noctalia.notifyError(tr("notification.type-failed"), subject)
+          end
+        end, DECRYPT_TIMEOUT_MS)
+      else
+        runSequence(data, nil)
+      end
+    end)
   end)
 end
 
@@ -1336,6 +1375,7 @@ end
 local function runAction(ctx)
   local subject = ctx.entryPath:match("[^/]+$") or ctx.entryPath
   local fieldSubject = ctx.kind == "field" and (ctx.key or subject) or subject
+  currentEntry = ctx.entryPath -- path-less quick-action IPC targets this
 
   if ctx.verb == "type" then
     if ctx.kind == "otp" then
@@ -1416,7 +1456,23 @@ function onQuery(text)
         end
         local ok = (result.exitCode == 0 or result.exitCode == 1) and not result.timedOut
         local hits = ok and parseHits(result.stdout or "") or {}
-        launcher.setResults(text, render(hits))
+        local rows = render(hits)
+        -- When the query narrows to exactly one entry (folders don't count),
+        -- treat it as the current target for a path-less quick-action IPC — a
+        -- precise query is unambiguous. A query with 0 or 2+ entry hits leaves
+        -- the previous currentEntry alone.
+        local onlyEntry, entryCount = nil, 0
+        for _, r in ipairs(rows) do
+          local p = type(r.id) == "string" and r.id:match("^entry:(.+)$")
+          if p then
+            entryCount = entryCount + 1
+            onlyEntry = p
+          end
+        end
+        if entryCount == 1 then
+          currentEntry = onlyEntry
+        end
+        launcher.setResults(text, rows)
       end
     end
     if #frags == 0 then
@@ -1490,6 +1546,75 @@ function onActivate(id)
       runAction(ctx)
     end
   end
+end
+
+-- ── quick-action IPC ─────────────────────────────────────────────────────
+-- `noctalia msg plugin mellotanica/launcher-pass:pass all <event> [entryPath]`
+-- runs one detail action without opening the launcher, so the user can bind
+-- copy / type / autotype to any global shortcut (CLAUDE.md "Quick action
+-- shortcuts").
+--
+-- The target entry is `currentEntry` — the last entry the user opened
+-- (`fetchDetail`), acted on (`runAction`), or narrowed a query down to a
+-- single hit for (`onQuery`). A launcher provider gets *no* row-highlight
+-- callback (only `onQuery` / `onActivate`), so "the highlighted entry" can't
+-- be read directly; `currentEntry` is the closest observable "current entry".
+-- An explicit `<entryPath>` payload overrides it (and becomes the new
+-- `currentEntry`); the Noctalia v5 runtime passes everything after `<event>`
+-- as one unparsed string, so that payload *is* the path, no splitting.
+--
+-- copy-password / copy-otp / type-otp reuse the same helpers as the detail
+-- rows unchanged (they decrypt via `pass` themselves). copy-username /
+-- type-username / type-password need the parsed body first: `quickResolve`
+-- closes the launcher (so a pinentry dialog can focus) then hands the cached
+-- or freshly `pass show`-ed data to the action. autotype defers entirely to
+-- `autotypeEntry`, which already closes + resolves the same way.
+local function quickResolve(entryPath, subject, failKey, fn)
+  closeLauncherPanel(function()
+    withEntryData(entryPath, function(data)
+      if data == nil then
+        noctalia.notifyError(tr(failKey), subject)
+        return
+      end
+      fn(data)
+    end)
+  end)
+end
+
+local QUICK_ACTIONS = {
+  ["copy-password"] = function(p, s) copyViaPass({ "pass", "-c", p }, s) end,
+  ["copy-otp"] = function(p, s) copyViaPass({ "pass", "otp", "-c", p }, s) end,
+  ["type-otp"] = function(p, s) typeOtp(p, s) end,
+  ["copy-username"] = function(p, s)
+    quickResolve(p, s, "notification.copy-failed", function(d) copyPlain(d.username, s) end)
+  end,
+  ["type-username"] = function(p, s)
+    quickResolve(p, s, "notification.type-failed", function(d) typeValue(d.username, s) end)
+  end,
+  ["type-password"] = function(p, s)
+    quickResolve(p, s, "notification.type-failed", function(d) typeValue(d.password, s) end)
+  end,
+  ["autotype"] = function(p, _) autotypeEntry(p) end,
+}
+
+function onIpc(event, payload)
+  local run = QUICK_ACTIONS[event]
+  if run == nil then
+    noctalia.log("launcher-pass: unknown IPC event '" .. tostring(event) .. "'")
+    noctalia.notifyError(tr("notification.quick-action-failed"), tr("notification.quick-action-unknown"))
+    return
+  end
+  local entryPath = trim(payload or "")
+  if entryPath == "" then
+    entryPath = currentEntry or ""
+  end
+  if entryPath == "" then
+    noctalia.log("launcher-pass: IPC '" .. event .. "' has no target (no path given, no entry used yet)")
+    noctalia.notifyError(tr("notification.quick-action-failed"), tr("notification.no-current-entry"))
+    return
+  end
+  currentEntry = entryPath
+  run(entryPath, entryPath:match("[^/]+$") or entryPath)
 end
 
 -- Build the store index at load so the first query renders without waiting on

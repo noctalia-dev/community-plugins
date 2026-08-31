@@ -47,6 +47,9 @@
     "edit-failed": "Edit failed",
     "generate-failed": "Password regeneration failed",
     "generated": "Password regenerated",
+    "no-current-entry": "Open a password entry first",
+    "quick-action-failed": "Quick action failed",
+    "quick-action-unknown": "Unknown quick action",
     "type-failed": "Type failed"
   },
   "result": {

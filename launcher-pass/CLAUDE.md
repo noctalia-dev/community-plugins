@@ -30,25 +30,11 @@ something newer.
 
 ---
 
-## New features
-
-New proposed features that are to be implemented:
-
-### Quick action shortcuts
-
-Add new shortcuts that will let the user perform the following actions without the need to open the details view while highlighting a password:
-
-- Type/Copy password
-- Type/Copy username
-- Type/Copy otp
-- Autotype action
-
----
-
 ## How `launcher.luau` works
 
-The host calls two globals — `onQuery(text)` on every keystroke (after
-`debounce_ms`) and `onActivate(id)` when a row is picked — and the script pushes
+The host calls three globals — `onQuery(text)` on every keystroke (after
+`debounce_ms`), `onActivate(id)` when a row is picked, and `onIpc(event,
+payload)` for a `noctalia msg plugin …` call — and the script pushes
 rows back with `launcher.setResults(query, rows)` / rewrites the input with
 `launcher.setQuery(text)`. `text` is everything after the launcher's provider
 prefix + `pass ` (e.g. `/pass `). Everything else is `local`; the VM persists for
@@ -76,8 +62,10 @@ the plugin's lifetime, so module locals survive across calls.
 view; `+` the creation menu and `+!` its confirm step (each `…!` variant matched
 first). Module locals are caches
 only (`indexReady`/`indexAt`, `detailCache`, `lastDetailPath`, `detailActions`,
-`lastQuery`). Drill-in / back are `launcher.setQuery(...)`; a bare `""` does not
-re-fire `onQuery`, so root "Go back" uses `" "` (trims to empty).
+`lastQuery`) — plus `currentEntry`, the quick-action IPC target (last entry
+opened / acted on / narrowed to a single hit), which is *not* navigation state:
+nothing routes on it. Drill-in / back are `launcher.setQuery(...)`; a bare `""`
+does not re-fire `onQuery`, so root "Go back" uses `" "` (trims to empty).
 
 ### Listing — index file + grep
 
@@ -145,7 +133,9 @@ path; browse rows the basename.
   on the first `": "` into `key`/`value`; any `otpauth://` sets the OTP flag.
   `extractUsername` pulls the first `login` / `user` / `username` field
   (case-insensitive), removes it from the field list, falls back to the entry
-  basename.
+  basename. The `pass show` stdout → cache-record step is `buildEntryData`,
+  shared with `withEntryData` (the non-rendering decrypt path used by the
+  quick-action IPC and the Autotype row) so the two can't drift.
 - **`renderDetailRows(entryPath, data, filter)`** builds a `specs` list in the
   fixed value order — **password, OTP (only if the body had `otpauth://`),
   username, then remaining fields in file order** — plus a "Go back" row. The
@@ -212,11 +202,12 @@ int) → nil (let `pass` default).
 
 ### Autotype action
 
-`autotypeEntry(entryPath)` types a whole login in sequence with `wtype`. It
-reads `username` / `password` / `hasOtp` from the warm `detailCache[entryPath]`
-(the detail view that showed the row decrypted the entry); a cache miss between
-render and activation bails with `notification.type-failed` rather than typing a
-half login. Sequence:
+`autotypeEntry(entryPath)` types a whole login in sequence with `wtype`. It is
+reached both from the Autotype detail row (launcher open, `detailCache` warm)
+and from the `autotype` quick-action IPC event (launcher closed, cache cold),
+so it closes the panel up front and resolves the entry through `withEntryData`
+(cache hit, or a fresh `pass show`); a failed decrypt → `notification.type-failed`,
+no typing. Sequence:
 
 1. `username`
 2. the **separator key** — `autotypeSeparator`: `Tab` (default) or `Return`
@@ -238,6 +229,59 @@ is text), so literal text and `-k` keys can't be interleaved safely for
 arbitrary values. `autotypeEntry` closes the launcher first (like the Type
 paths), then — after the OTP fetch, if any — a single `typeDelay` sleep lets the
 compositor restore focus before the chain runs.
+
+### Quick-action IPC
+
+`onIpc(event, payload)` (the third host global, alongside `onQuery` /
+`onActivate` — every entry type gets it in the v5 runtime; no `plugin_api` bump)
+runs **one detail action without opening the launcher**, so the user can bind
+copy / type / autotype to any external shortcut:
+
+```
+noctalia msg plugin mellotanica/launcher-pass:pass all <event> [entryPath]
+```
+
+**Target resolution.** A launcher provider has no row-highlight callback (only
+`onQuery` / `onActivate`), so "the highlighted entry" can't be read. The target
+is the module local **`currentEntry`**, set wherever the user demonstrably
+picked an entry:
+
+- `fetchDetail` — opened the detail view;
+- `runAction` — activated a Copy/Type row;
+- `onQuery`'s grep callback — the query narrowed to **exactly one** `entry:`
+  row (0 or 2+ leaves the previous value; folders never count).
+
+It persists for the VM's lifetime, so it survives the launcher closing — a
+shortcut fired seconds after closing the launcher still hits the entry that was
+on screen. An explicit `[entryPath]` payload overrides it and becomes the new
+`currentEntry` (the runtime passes everything after `<event>` as one unsplit
+string, so the payload *is* the path). `event` not in `QUICK_ACTIONS` →
+`notification.quick-action-unknown`; no payload and no `currentEntry` yet →
+`notification.no-current-entry`; both under the `notification.quick-action-failed`
+title, nothing runs.
+
+`QUICK_ACTIONS` maps each event to the **same helper the matching detail row
+uses**:
+
+| event | path |
+|---|---|
+| `copy-password` | `copyViaPass({"pass","-c",p})` |
+| `copy-otp` | `copyViaPass({"pass","otp","-c",p})` |
+| `type-otp` | `typeOtp(p)` |
+| `copy-username` | `quickResolve` → `copyPlain(data.username)` |
+| `type-username` | `quickResolve` → `typeValue(data.username)` |
+| `type-password` | `quickResolve` → `typeValue(data.password)` |
+| `autotype` | `autotypeEntry(p)` |
+
+`copy-password` / `copy-otp` / `type-otp` decrypt through `pass` themselves and
+need nothing more. The username/password ones need the parsed body first:
+`quickResolve(entryPath, subject, failKey, fn)` closes the launcher (so a
+pinentry dialog can focus) then calls `withEntryData` — a warm `detailCache`
+hit, else a `pass show` — and hands `data` to `fn`, or fires `tr(failKey)` on a
+failed decrypt. `autotype` defers wholly to `autotypeEntry`, which already
+closes + resolves the same way. There is no notification on *success* beyond
+what the reused helper already posts (`copyViaPass` / `copyPlain` →
+`notification.copied`; the type paths are silent) — same as activating the row.
 
 ### Edit action
 
@@ -413,6 +457,16 @@ Do not regress these without a deliberate reason:
 10. **Notifications** — a "Copied to clipboard" notice after a successful copy.
 11. **i18n** — no hard-coded user-facing strings; every string through
     `noctalia.tr`, every key in every locale file.
+12. **Quick-action IPC** — `onIpc(event, payload)` runs exactly one detail
+    action with the launcher closed. Events: `copy-password`, `copy-otp`,
+    `type-otp`, `copy-username`, `type-username`, `type-password`, `autotype`
+    — each routed to the *same* helper as the matching detail row (via
+    `withEntryData` for the ones needing the decrypted body). The target is
+    `currentEntry` (last entry opened / acted on / narrowed to a single search
+    hit), overridable by a `payload` path. Unknown event →
+    `notification.quick-action-unknown`; no target →
+    `notification.no-current-entry`. No manifest declaration — events are
+    matched in `QUICK_ACTIONS`, not `plugin.toml`.
 
 ---
 
@@ -491,6 +545,25 @@ should survive into future changes:
 - **The pinentry close only happens if `pass show` is still running after
   `pinentryGraceMs`** — a race, not an unconditional close — so a cached
   passphrase produces no flicker.
+- **Quick-action IPC dispatches to the existing action helpers, it does not
+  re-implement them.** `QUICK_ACTIONS` is a table of thin closures over
+  `copyViaPass` / `typeOtp` / `copyPlain` / `typeValue` / `autotypeEntry` — the
+  same code paths the detail rows use, so copy/type/autotype behaviour (clip
+  env, pinentry handling, notifications) can't drift between the launcher and a
+  shortcut. The only IPC-specific pieces are `withEntryData` (a decrypt path
+  that isn't tied to rendering a detail view — factored out of `fetchDetail`
+  via `buildEntryData` so the parse/cache logic stays single-sourced) and the
+  `onIpc` payload contract (the v5 runtime passes everything after `<event>` as
+  one unsplit string → the entry path, no parsing).
+- **The IPC target is a tracked "current entry", not an argument.** The user
+  asked for shortcuts that act on the highlighted/last-used entry *without*
+  passing a path. A launcher provider gets no highlight callback, so
+  `currentEntry` is updated on the observable proxies — opening the detail view,
+  acting on a row, and a query narrowing to a single `entry:` hit. The
+  single-hit rule is deliberately strict (not "top of the list"): auto-typing
+  into a focused window is unforgiving, so a broad query with several matches
+  must *not* silently retarget. A `payload` path is still accepted as an
+  explicit override.
 - **`<leader>` (`shell.launcher.provider_prefix`, `/` by default) is read at
   runtime.** The one value in the pinentry reopen that must never be hardcoded.
 - **`translations/*.json` is nested JSON.** `noctalia.tr("settings.store-path.label")`
@@ -511,6 +584,7 @@ should survive into future changes:
 |---|---|
 | `function onQuery(text)` | keystroke handler; `text` is everything after the prefix (subject to `debounce_ms`) |
 | `function onActivate(id)` | row picked; `id` is the string set on that row |
+| `function onIpc(event, payload)` | `noctalia msg plugin <id>:pass all <event> <payload>`; `payload` is the rest of the command as one unparsed string. Every entry type gets this hook. |
 | `launcher.setResults(query, rows)` | publish rows; `query` **must echo** the answering `onQuery` text so stale async results are dropped; `{}` clears |
 | `launcher.setQuery(text)` | rewrite the launcher input, keep it open, re-fire `onQuery` (drill-in / back). A bare `""` does not re-fire. |
 
@@ -567,8 +641,8 @@ to subprocesses (`grep`), parse only capped output, cap C-boundary calls
 - **`nil` holes break `#` and arrays.** Append with `t[#t+1] = v`.
 - **Split/trim aren't built in.** `string.gmatch(s, "[^\n]+")` for lines,
   `"%S+"` for whitespace tokens.
-- **`local` everything.** Only globals are host-callable; keep exactly `onQuery`
-  / `onActivate` global.
+- **`local` everything.** Only globals are host-callable; keep exactly
+  `onQuery` / `onActivate` / `onIpc` global.
 - **Closures as callbacks** need `plugin_api ≥ 9` (covered).
 - **Numbers are doubles.** `math.floor` / `tostring` / `tonumber` for int-ish
   conversions.

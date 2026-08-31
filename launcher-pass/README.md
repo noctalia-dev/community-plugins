@@ -128,7 +128,7 @@ so the dialog can take focus and reopens once decryption finishes.
 | `typeDelay` | `int` | `500` | Milliseconds to wait after the launcher closes before `wtype` starts typing, so the compositor can restore focus to the field you were in. *(Advanced. The v4 label "Launcher Close Delay" was misleading — this is the pre-typing delay.)* |
 | `wtypeDelay` | `int` | `12` | Milliseconds between simulated keystrokes. Increase it if characters are dropped. *(Advanced.)* |
 | `pinentryGraceMs` | `int` | `50` | Milliseconds to wait for a decrypt to finish before assuming a pinentry dialog is blocking and hiding the launcher. If your GPG agent already has the passphrase cached, the launcher never flickers. Lower values let the pinentry dialog take focus more easily but can make the launcher flicker more often; higher values (around 200–300ms) give a more stable launcher but risk the pinentry dialog spawning while the launcher is still open and waiting out the timeout, in which case it may not get focus depending on your window manager. *(Advanced.)* |
-| `autotypeEnabled` | `bool` | `false` | Show an **Autotype login** row in the detail view (sorted just after the username rows). Needs `wtype`, like the Type rows. |
+| `autotypeEnabled` | `bool` | `true` | Show an **Autotype login** row in the detail view (sorted just after the username rows). Needs `wtype`, like the Type rows. |
 | `autotypeSeparator` | `select` | `tab` | Key autotype presses to move from the username field to the password field: `tab` or `enter`. |
 | `autotypeSubmit` | `bool` | `true` | Whether autotype presses Enter after its last value (after the OTP when present, otherwise after the password). Off stops the sequence just before submitting. *(Advanced.)* |
 | `detailActionOrder` | `select` | `copy` | In an entry's detail view, whether the **Copy** row (`copy`) or the **Type** row (`type`) comes first for each value. *(Advanced.)* |
@@ -138,8 +138,55 @@ so the dialog can take focus and reopens once decryption finishes.
 
 ## IPC
 
-This plugin exposes no custom IPC actions. To open the launcher straight into
-this provider, use Noctalia's panel IPC:
+### Quick actions
+
+Run one detail action **without opening the launcher**, so you can bind copy /
+type / autotype to a global shortcut:
+
+```sh
+noctalia msg plugin mellotanica/launcher-pass:pass all <action> [entry-path]
+```
+
+| Action | Effect |
+| --- | --- |
+| `copy-password` | `pass -c` — password to clipboard, auto-cleared |
+| `type-password` | type the password with `wtype` |
+| `copy-username` | username to clipboard (not auto-cleared) |
+| `type-username` | type the username with `wtype` |
+| `copy-otp` | `pass otp -c` — current OTP to clipboard, auto-cleared |
+| `type-otp` | type the current OTP with `wtype` |
+| `autotype` | the full **Autotype login** sequence (respects the autotype settings) |
+
+**Which entry?** With no `entry-path`, the action runs on the **current entry** —
+the last one you opened, acted on, or narrowed a launcher search down to a
+single result. That's remembered until you pick another (it survives closing the
+launcher), so the normal flow is: open `/pass`, type until your entry is the
+only match (or open it), close the launcher, then hit your shortcut. A search
+that still shows several entries does **not** change the current entry, so a
+stray broad query can't make `autotype` fire your credentials into the wrong
+window. Pass an explicit `entry-path` (store-relative, e.g. `work/aws/root`;
+everything after `<action>` is taken as the path) to override — it also becomes
+the new current entry.
+
+Each action behaves exactly like activating the matching detail row: same
+clipboard timeout, `wtype` delays, and "Copied to clipboard" / failure
+notifications. `type-*` and `autotype` need `wtype`; `copy-otp` / `type-otp`
+need `pass-otp`. The entry is decrypted on demand (a pinentry dialog appears if
+GPG needs the passphrase), reusing the 60-second in-memory cache when warm. An
+unknown action, or no current entry yet, shows a "Quick action failed"
+notification and does nothing.
+
+Example Hyprland binds:
+
+```
+# act on whatever entry the launcher last had open / narrowed to
+bind = SUPER, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all autotype
+bind = SUPER SHIFT, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all copy-password
+# or pin a shortcut to one specific entry
+bind = SUPER ALT, P, exec, noctalia msg plugin mellotanica/launcher-pass:pass all copy-otp work/aws/root
+```
+
+### Opening the launcher
 
 ```sh
 noctalia msg panel-open   launcher "/pass "

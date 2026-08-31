@@ -47,6 +47,9 @@
     "edit-failed": "Modifica non riuscita",
     "generate-failed": "Rigenerazione della password non riuscita",
     "generated": "Password rigenerata",
+    "no-current-entry": "Apri prima una voce",
+    "quick-action-failed": "Azione rapida non riuscita",
+    "quick-action-unknown": "Azione rapida sconosciuta",
     "type-failed": "Digitazione non riuscita"
   },
   "result": {
