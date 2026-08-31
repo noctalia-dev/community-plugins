@@ -29,6 +29,9 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
     SECRET_PATTERNS[#SECRET_PATTERNS + 1] = {
         word = word,
         -- Only the keyword that collides with a metric label keeps its numbers.
+        -- Each keyword still redacts on a pass of its own, so a label carrying
+        -- both -- `api_key_tokens`, say -- has the exemption granted here taken
+        -- back by the `key` pass, and goes on being treated as a credential.
         keepsReadings = word == "token",
         -- name=value: a query string, a shell assignment, or a line out of the
         -- CLI's own TOML, where the separator is padded and the value quoted.
@@ -44,12 +47,18 @@ local BASIC_AUTH_PATTERN = "(" .. anyCase("authorization") .. "[\"']?%s*:%s*[\"'
     .. anyCase("basic") .. "%s+)" .. SECRET_VALUE
 
 -- A quota or a percentage is not a credential. The exemption is deliberately
--- narrow: short, digits only, and offered to `token` alone. "Tokens: 45000" is a
--- reading this plugin exists to draw, while a bare number after `password` or
--- `secret` never is, and a long run of digits is a credential whatever labels it.
+-- narrow: short, digits only, and offered to labels that count tokens.
+-- "Tokens: 45000" is a reading this plugin exists to draw, while a bare number
+-- after `password` or `secret` never is, and a long run of digits is a credential
+-- whatever labels it.
+--
+-- The plural is what separates the two: a counter is named after what it counted
+-- -- `input_tokens`, `total_tokens`, `tokens_used` -- while a credential is a
+-- single `token` behind a qualifier, as in `access_token` or `refresh_token`. A
+-- bare `token` is ambiguous, so it is left to the value's own shape to settle.
 local function isReading(prefix, value)
     local label = prefix:lower():match("([%w_%-]+)[\"']?%s*:%s*[\"']?$")
-    local metric = label == "token" or label == "tokens" or label == "tokens_used"
+    local metric = label ~= nil and (label == "token" or label:find("tokens", 1, true) ~= nil)
     return metric and #value <= 9 and value:match("^%d[%d%.,]*%%?$") ~= nil
 end
 

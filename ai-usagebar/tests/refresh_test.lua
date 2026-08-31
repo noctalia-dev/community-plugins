@@ -59,14 +59,26 @@ local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
 local incompleteFailure = shared.asFailure({})
 assert(incompleteFailure.code == "" and incompleteFailure.detail == "",
     "an incomplete failure table should behave as no failure")
-for _, id in ipairs({
-    "anthropic", "openai", "anthropic_api", "zai", "openrouter", "deepseek", "kimi",
-    "kilo", "novita", "moonshot", "grok", "supergrok", "antigravity", "cursor",
-    "minimax", "kiro", "nous", "opencode-go", "commandcode",
-    "anthropic@gmail", "openai@work",
-}) do
+-- Read the offered providers out of the manifest rather than listing them again
+-- here: a copy of the dropdown is a third place to keep the same set current, and
+-- the one that silently stops matching. What is worth asserting is the relation
+-- between the two -- every provider the settings editor offers has a glyph of its
+-- own -- and that only holds if the list comes from the manifest itself.
+local manifest = read("plugin.toml")
+local vendorSetting = manifest:match('key = "vendor".-\n%s*\n') or manifest:match('key = "vendor".*')
+local offered = {}
+for value in vendorSetting:gmatch('{ value = "([^"]+)"') do
+    if value ~= "auto" then offered[#offered + 1] = value end
+end
+assert(#offered > 10, "the vendor dropdown should have been read from the manifest")
+for _, id in ipairs(offered) do
     -- "brain" is the fallback, so a provider still on it has no glyph of its own.
     assert(shared.providerGlyph(id) ~= "brain", "missing glyph for " .. id)
 end
+
+-- A named account is drawn with its provider's glyph, not the fallback.
+assert(shared.providerGlyph("anthropic@gmail") == shared.providerGlyph("anthropic"),
+    "an account should inherit the provider's glyph")
+assert(shared.providerGlyph("unknown") == "brain", "an unknown provider falls back")
 
 io.write("ok: refresh queue coalesced, timeouts rejected, provider visuals complete\n")

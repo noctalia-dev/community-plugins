@@ -1,5 +1,15 @@
 {
   "settings": {
+    "style": {
+      "description": "Bu kapsülün çubukta nasıl görüneceği.",
+      "label": "Stil",
+      "option": {
+        "gauge": "Gösterge ve yüzde",
+        "label": "İsim, gösterge ve yüzde",
+        "meter": "Segmentler",
+        "pill": "Yüzde"
+      }
+    },
     "vendor": {
       "description": "Bu kapsülün hangi planı takip edeceği. İkisini izlemek için widget'ı iki kez ekleyin.",
       "label": "Sağlayıcı",
@@ -41,6 +51,7 @@
     },
     "hidden_label": "Gösterilmiyor",
     "hidden_value": "{count} tane daha, paneli açmak için tıklayın",
+    "loading": "Yükleniyor…",
     "no_usage": "Kullanım bildirilmedi",
     "not_configured": "`{vendor}` ai-usagebar içinde yapılandırılmamış",
     "now": "şimdi",

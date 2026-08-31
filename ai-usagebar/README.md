@@ -126,6 +126,11 @@ last seen with follow as dated text. If the plan changed since, they are dropped
 instead -- a plan carries the limits every percentage is measured against, so a
 reading taken under the old one says nothing about the new one.
 
+The plan a provider was last seen on is remembered only for as long as the panel
+process lives, and only for providers the current report still carries. After a
+shell reload there is no previous plan to compare against, so the first reading
+that follows is shown whatever the plan says.
+
 To open the panel from a terminal:
 
 ```sh

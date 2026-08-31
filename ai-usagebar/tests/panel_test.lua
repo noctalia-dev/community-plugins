@@ -148,14 +148,22 @@ local function withSections(sections, plan)
         plan = plan or "Google AI Pro",
         status = "ready",
         metrics = {},
+        -- Dated well in the past: the header only dates a report it has a stamp
+        -- for, so leaving this out would let the header's own assertions pass by
+        -- never drawing the line they are about.
+        fetched_at = "2020-01-01T00:00:00Z",
         sections = copy,
     }
 end
 
+-- The cards that gauge. Every card in the panel is filled the same way, so what
+-- tells a reading's card from a record of one is the bar inside it.
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_variant/0.45" then out[#out + 1] = column end
+        if column.props.fill == "surface_variant/0.45" and #collect(column, "progress") > 0 then
+            out[#out + 1] = column
+        end
     end
     return out
 end
@@ -197,6 +205,9 @@ end
 -- Down: the CLI keeps serving what it cached and says why it stopped moving.
 local DOWN = {}
 for index, section in ipairs(WINDOWS) do DOWN[index] = section end
+DOWN[#DOWN + 1] = { type = "title", value = "Account" }
+DOWN[#DOWN + 1] = { type = "text", label = "Balance", value = "$4.20" }
+DOWN[#DOWN + 1] = { type = "block", label = "Credits", body = { "granted: 100" } }
 DOWN[#DOWN + 1] = { type = "text", label = "Warning",
                     value = "credentials error: Antigravity: no local server found." }
 
@@ -216,6 +227,24 @@ assert(has(downLabels, "Antigravity: no local server found."), "the warning itse
 assert(has(downLabels, "ui.last_reading_now") or has(downLabels, "ui.last_reading"),
        "the last reading is kept")
 assert(has(downLabels, "Session 3% · Weekly 8%"), "set as text, not as a gauge")
+-- Dropping the gauges is not dropping the report. Everything the CLI said
+-- besides the readings is still the CLI talking about this provider.
+assert(has(downLabels, "Account"), "a heading the CLI sent survives")
+assert(has(downLabels, "Balance") and has(downLabels, "$4.20"), "so does its free text")
+assert(has(downLabels, "Credits") and has(downLabels, "granted: 100"), "and its blocks")
+local warnings = 0
+for _, label in ipairs(downLabels) do
+    if label == "Antigravity: no local server found." then warnings = warnings + 1 end
+end
+assert(warnings == 1, "the warning itself is said once, at the top")
+
+-- One fetch, one date. The record already says how old the numbers are, so the
+-- header must not date the same fetch again in the other tense.
+for _, label in ipairs(downLabels) do
+    -- The header concatenates the age with a clock time, so match on the key.
+    assert(label:find("ui.updated", 1, true) == nil,
+           "a provider that is down is dated once, by its record")
+end
 
 -- A plan carries the limits every percentage is measured against, so readings
 -- taken under the previous one are dropped rather than shown under the new name.
@@ -230,6 +259,16 @@ local _, again = loadPanel(withSections(WINDOWS, "Google AI Pro"))
 local kept = labels(again(withSections(DOWN, "Google AI Pro")))
 assert(has(kept, "ui.last_reading_now") or has(kept, "ui.last_reading"),
        "an unchanged plan keeps its record")
+
+-- A provider that falls over can stop naming its plan at all. Silence is not a
+-- new plan, and the reading it was last seen with is still worth keeping.
+local _, silenced = loadPanel(withSections(WINDOWS, "Google AI Pro"))
+local nameless = withSections(DOWN, "Google AI Pro")
+nameless.plan = nil
+local quiet = labels(silenced(nameless))
+assert(not has(quiet, "ui.plan_changed"), "an omitted plan is not a plan change")
+assert(has(quiet, "ui.last_reading_now") or has(quiet, "ui.last_reading"),
+       "so the record it was last seen with stands")
 
 -- A provider that sends no headings keeps one card, its readings heading
 -- themselves: the panel's own header already names Codex.
@@ -252,6 +291,16 @@ local plainLabels = labels(plain[1])
 assert(plainLabels[1] == "Codex 5h", "the reading heads itself")
 assert(has(plainLabels, "Codex weekly"), "the week sits under the session")
 
+-- The panel outlives every report it draws, so what it remembers between them is
+-- only the providers the current one carries. A provider the user removed and
+-- added back is met like any other first reading, not accused of a change.
+local _, sequence = loadPanel(withSections(WINDOWS, "Google AI Pro"))
+sequence(paced)
+local returned = labels(sequence(withSections(DOWN, "Google AI Ultra")))
+assert(not has(returned, "ui.plan_changed"), "a provider gone from the report is forgotten")
+assert(has(returned, "ui.last_reading_now") or has(returned, "ui.last_reading"),
+       "and what it does report is kept")
+
 -- A failed read with a report behind it is a banner over numbers that are merely
 -- older than the panel would like, not a reason to blank the panel.
 local failed = loadPanel(paced, { code = "timed_out", detail = "" })
@@ -259,5 +308,22 @@ local failedLabels = labels(failed)
 assert(has(failedLabels, "ui.error.timed_out"), "the failure is named")
 assert(has(failedLabels, "Codex 5h"), "and the readings stay under it")
 assert(#cards(failed) == 1, "the cards are not dropped")
+
+-- Every row can be dropped -- a vendor with no key at all is not listed -- and a
+-- report is still a report. The failure is a banner over the panel it arrived
+-- in; only a panel with no report behind it at all gives itself over to one.
+local unlisted = {
+    id = "zai",
+    display_name = "Z.AI",
+    plan = "",
+    status = "error",
+    error = "credentials error: no api key found for zai",
+    metrics = {},
+    sections = {},
+}
+local dropped = loadPanel(unlisted, { code = "timed_out", detail = "" })
+assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
+assert(not has(labels(dropped), "ui.error.timed_out_hint"),
+       "and says the failure once, in the pane, not across the whole panel")
 
 io.write("ok: panel degrades safely, groups by model, and stops gauging what is down\n")

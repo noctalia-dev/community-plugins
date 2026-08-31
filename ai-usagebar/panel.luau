@@ -13,6 +13,7 @@ local ratio, headline, severityRole = shared.ratio, shared.headline, shared.seve
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
+local saysError = shared.saysError
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
@@ -185,11 +186,6 @@ end
 local CARD = { gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45",
                border = "outline/0.12", borderWidth = 1 }
 
--- A provider's readings share one card. Antigravity reports every model once per
--- window, so `name` titles the model and each reading is headed by its window;
--- Claude and Codex name their windows in the readings themselves and get an
--- untitled card. Either way the session and the week are read together instead of
--- being split across the column.
 -- A provider's readings share one card, so the session and the week are read
 -- together. `name` titles it only where the readings need telling apart by
 -- something the panel does not already say: Antigravity's plan spans two models
@@ -235,7 +231,7 @@ local function blockCard(section)
             maxLines = 1,
         })
     end
-    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.38",
+    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.45",
                        border = "outline/0.18", borderWidth = 1 }, body)
 end
 
@@ -247,7 +243,7 @@ local function noteCard(text)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
     return ui.row({ gap = 8, align = "start", padding = 10, radius = 8,
-                    fill = "surface_variant/0.38", border = "outline/0.18", borderWidth = 1 }, {
+                    fill = "surface_variant/0.45", border = "outline/0.18", borderWidth = 1 }, {
         ui.glyph({ name = "alert-triangle", size = 14, color = "secondary" }),
         ui.label({ text = clean, fontSize = 11, color = "on_surface_variant",
                    flexGrow = 1, maxLines = 3 }),
@@ -264,13 +260,16 @@ local function recordAge(entry)
     return noctalia.tr("ui.last_reading", { minutes = minutes })
 end
 
--- While a provider is down its numbers are a record of when it was last read,
--- not a gauge of anything now, so they are set in text instead of drawn as bars
--- a glance would read as live.
-local function recordCard(entry, items, windowed)
+-- Every reading a provider sent, grouped into the subjects it will be read by.
+-- Antigravity names each model once per window, so its readings are keyed by
+-- model and the window heads each one; the rest report a single subject the
+-- pane's header already names, so their own labels head their readings. Drawn
+-- and dated the same way, from one grouping, so the two cannot disagree about
+-- what belongs together.
+local function groupReadings(items, windowed)
     local order, byName = {}, {}
     for _, item in ipairs(items) do
-        if item.kind == "metric" then
+        if item.section.type == "metric" then
             local label = tostring(item.section.label or "")
             local name = windowed and label or ""
             if byName[name] == nil then
@@ -278,12 +277,20 @@ local function recordCard(entry, items, windowed)
                 order[#order + 1] = name
             end
             local readings = byName[name]
-            local title = windowed and item.window or label
-            local value = tostring(item.section.value or "")
-            if value == "" then value = string.format("%d%%", tonumber(item.section.percent) or 0) end
-            readings[#readings + 1] = noctalia.string.trim(title .. " " .. value)
+            readings[#readings + 1] = {
+                section = item.section,
+                title = windowed and item.window or label,
+            }
         end
     end
+    return order, byName
+end
+
+-- While a provider is down its numbers are a record of when it was last read,
+-- not a gauge of anything now, so they are set in text instead of drawn as bars
+-- a glance would read as live.
+local function recordCard(entry, items, windowed)
+    local order, byName = groupReadings(items, windowed)
     if #order == 0 then return nil end
 
     local body = {
@@ -291,7 +298,15 @@ local function recordCard(entry, items, windowed)
                    color = "on_surface", maxLines = 1 }),
     }
     for _, name in ipairs(order) do
-        local line = table.concat(byName[name], " · ")
+        local parts = {}
+        for _, reading in ipairs(byName[name]) do
+            local value = tostring(reading.section.value or "")
+            if value == "" then
+                value = string.format("%d%%", tonumber(reading.section.percent) or 0)
+            end
+            parts[#parts + 1] = noctalia.string.trim(reading.title .. " " .. value)
+        end
+        local line = table.concat(parts, " · ")
         if name ~= "" then
             body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
                 ui.label({ text = name, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
@@ -303,8 +318,45 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
-    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.38",
+    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.45",
                        border = "outline/0.18", borderWidth = 1 }, body)
+end
+
+-- Everything in a report that is not a reading: the credit blocks, the headings
+-- the CLI sets over them, its warnings, and its free text. A provider that is
+-- down loses its gauges, not the rest of what the CLI said about it, so both
+-- passes draw these the same way. `warned` says the warning already stands at
+-- the top of the column, where it takes the gauges' place; returning nothing
+-- keeps it from being said twice.
+local function otherCard(section, warned)
+    if section.type == "block" then return blockCard(section) end
+
+    if section.type == "text" then
+        local label = tostring(section.label or "")
+        local value = tostring(section.value or "")
+        if label:lower() == "warning" or saysError(value) then
+            if warned then return nil end
+            return noteCard(value)
+        end
+        return ui.row({ gap = 6, align = "center" }, {
+            ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
+            ui.spacer({ flexGrow = 1 }),
+            ui.label({ text = value, fontSize = 11, color = "on_surface", maxLines = 1 }),
+        })
+    end
+
+    if section.type == "title" then
+        return ui.label({
+            text = tostring(section.value or section.label or ""),
+            fontSize = 12, fontWeight = "semibold", color = "on_surface",
+        })
+    end
+
+    -- Keep schema additions visible instead of silently losing report data.
+    return ui.label({
+        text = tostring(section.value or section.label or section.type or "—"),
+        fontSize = 11, color = "on_surface_variant",
+    })
 end
 
 -- ── Provider list ─────────────────────────────────────────────────────────────
@@ -496,8 +548,10 @@ local function detailPane(entry)
     end
 
     -- The id and a "ready" status are skipped: the id is the row that was just
-    -- clicked, and a healthy read is the default.
-    if entry ~= nil then
+    -- clicked, and a healthy read is the default. A provider that is down is
+    -- skipped altogether: its record below dates the same fetch in the tense that
+    -- fits it, and the list beside it already says the provider is unavailable.
+    if entry ~= nil and not unavailable(entry) then
         local chips = {}
         if entry.stale == true then
             chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "secondary" })
@@ -535,13 +589,7 @@ local function detailPane(entry)
         })
     end
 
-
     local cards = {}
-    local content = 0
-    local function push(card)
-        cards[#cards + 1] = card
-        content = content + 1
-    end
     local sections = entry ~= nil and type(entry.sections) == "table" and entry.sections or {}
 
     -- Pass one: pair every reading with the heading standing over it, and drop the
@@ -557,10 +605,8 @@ local function detailPane(entry)
             if text and noctalia.string.trim(tostring(section.value or "")) == "" then
                 heading = tostring(section.label or "")
                 windowed = windowed or heading ~= ""
-            elseif section.type == "metric" then
-                items[#items + 1] = { kind = "metric", section = section, window = heading }
             elseif section.type ~= "spacer" then
-                items[#items + 1] = { kind = "other", section = section }
+                items[#items + 1] = { section = section, window = heading }
             end
         end
     end
@@ -571,80 +617,38 @@ local function detailPane(entry)
     -- in which case they were measured against limits that no longer apply.
     local warning = entry ~= nil and providerWarning(entry) or ""
     if warning ~= "" then
-        push(noteCard(warning))
+        cards[#cards + 1] = noteCard(warning)
         local id = tostring(entry.id or "")
         local previous = lastPlan[id]
-        if previous ~= nil and previous ~= tostring(entry.plan or "") then
-            push(ui.label({ text = noctalia.tr("ui.plan_changed"), fontSize = 11,
-                            color = "on_surface_variant", maxLines = 2 }))
+        local current = tostring(entry.plan or "")
+        -- Only a plan the CLI names on both sides is evidence of a change. An
+        -- entry that fell over and stopped naming one at all says nothing about
+        -- the limits its last reading was measured against.
+        if previous ~= nil and previous ~= "" and current ~= "" and previous ~= current then
+            cards[#cards + 1] = ui.label({ text = noctalia.tr("ui.plan_changed"), fontSize = 11,
+                                           color = "on_surface_variant", maxLines = 2 })
         else
             local record = recordCard(entry, items, windowed)
-            if record ~= nil then push(record) end
+            if record ~= nil then cards[#cards + 1] = record end
         end
-        for _, item in ipairs(items) do
-            local section = item.section
-            if item.kind ~= "metric" and section.type == "block" then push(blockCard(section)) end
-        end
-        children[#children + 1] = ui.scroll({ gap = 24, flexGrow = 1 }, cards)
-        return ui.column({ gap = 8, padding = 14, flexGrow = 1 }, children)
+    else
+        -- Pass two: every reading a provider sends, in the cards it is read by.
+        local order, byName = groupReadings(items, windowed)
+        for _, name in ipairs(order) do cards[#cards + 1] = stackCard(name, byName[name]) end
     end
 
-    -- Pass two. Every reading a provider sends goes in one card. Antigravity names
-    -- each model once per window, so its readings are keyed by model and the window
-    -- heads the line; the rest report one subject and their own labels already name
-    -- the windows.
-    local order, byName = {}, {}
+    -- What is left is the same either way: the report says more than its
+    -- readings, and losing the gauges is no reason to lose the rest.
     for _, item in ipairs(items) do
-        if item.kind == "metric" then
-            local label = tostring(item.section.label or "")
-            local name = windowed and label or ""
-            if byName[name] == nil then
-                byName[name] = {}
-                order[#order + 1] = name
-            end
-            local readings = byName[name]
-            readings[#readings + 1] = {
-                section = item.section,
-                title = windowed and item.window or label,
-            }
+        if item.section.type ~= "metric" then
+            local card = otherCard(item.section, warning ~= "")
+            if card ~= nil then cards[#cards + 1] = card end
         end
     end
-    for _, name in ipairs(order) do push(stackCard(name, byName[name])) end
 
-    for _, item in ipairs(items) do
-        local section = item.section
-        if item.kind == "metric" then
-            -- already drawn above
-        elseif section.type == "block" then
-            push(blockCard(section))
-        elseif section.type == "text" then
-            local label = tostring(section.label or "")
-            local value = tostring(section.value or "")
-            if label:lower() == "warning" or value:lower():find("error:") ~= nil then
-                push(noteCard(value))
-            else
-                push(ui.row({ gap = 6, align = "center" }, {
-                    ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
-                    ui.spacer({ flexGrow = 1 }),
-                    ui.label({ text = value, fontSize = 11, color = "on_surface", maxLines = 1 }),
-                }))
-            end
-        elseif section.type == "title" then
-            push(ui.label({
-                text = tostring(section.value or section.label or ""),
-                fontSize = 12, fontWeight = "semibold", color = "on_surface",
-            }))
-        else
-            -- Keep schema additions visible instead of silently losing report data.
-            push(ui.label({
-                text = tostring(section.value or section.label or section.type or "—"),
-                fontSize = 11, color = "on_surface_variant",
-            }))
-        end
-    end
     -- A section list that lost every card to a heading would otherwise scroll an
     -- empty column instead of saying there is nothing to show.
-    if content > 0 then
+    if #cards > 0 then
         -- 24, not the column's usual 8: the CLI used to pad its own sections and
         -- dropping that padding would have pulled every provider's cards together.
         children[#children + 1] = ui.scroll({ gap = 24, flexGrow = 1 }, cards)
@@ -664,7 +668,9 @@ function render()
     -- A failure with nothing behind it is the whole panel. With a report behind
     -- it, it is a banner over readings that are still the best answer available:
     -- a spawn that failed once should not blank a panel the user just opened.
-    if failure.code ~= "" and entry == nil then
+    -- A report whose every row was dropped still counts as one -- the panel it
+    -- draws is empty, not absent, and the banner belongs inside it.
+    if failure.code ~= "" and report == nil then
         -- The panel keeps the fixed size the manifest gives it, and a failure has
         -- nowhere near 720x400 to say. Bounded to a readable width and centred, the
         -- empty surround reads as composition rather than a half-drawn frame.
@@ -693,12 +699,23 @@ end
 
 -- ── Wiring ────────────────────────────────────────────────────────────────────
 
+-- Rebuilt from the report rather than added to, so the map holds one key per
+-- provider on screen instead of every id the panel has seen since it opened.
 local function rememberPlans()
+    local seen = {}
     for _, entry in ipairs(entries()) do
-        if type(entry) == "table" and not unavailable(entry) then
-            lastPlan[tostring(entry.id or "")] = tostring(entry.plan or "")
+        if type(entry) == "table" then
+            local id = tostring(entry.id or "")
+            -- A provider that is down is serving what it cached, so the plan to
+            -- keep is the one it last reported for real.
+            if unavailable(entry) then
+                seen[id] = lastPlan[id]
+            else
+                seen[id] = tostring(entry.plan or "")
+            end
         end
     end
+    lastPlan = seen
 end
 
 noctalia.state.watch("report", function(value)
@@ -743,7 +760,6 @@ end
 function update()
     render()
 end
-
 
 function onClose()
     panel.setWantsSecondTicks(false)

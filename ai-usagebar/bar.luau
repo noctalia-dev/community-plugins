@@ -24,7 +24,7 @@ local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
-local unavailable = shared.unavailable
+local unavailable, warning = shared.unavailable, shared.warning
 
 local failure = NO_FAILURE
 
@@ -72,13 +72,21 @@ local function shown()
         end
     end
     local primary = type(report) == "table" and report.primary or nil
+    -- The CLI names its primary either as a provider or as one of that
+    -- provider's accounts, so an entry answers to the whole id as well as to the
+    -- provider in front of the "@". Matching only one form left the tie-break
+    -- with nothing to pick when the other was reported.
+    local function isPrimary(entry)
+        return primary ~= nil
+            and (tostring(entry.id) == primary or baseProvider(entry.id) == primary)
+    end
     table.sort(ready, function(a, b)
         local aRank, aPct = rank(a)
         local bRank, bPct = rank(b)
         if aRank ~= bRank then return aRank > bRank end
         if aPct ~= bPct then return aPct > bPct end
-        local aPrimary = baseProvider(a.id) == primary
-        local bPrimary = baseProvider(b.id) == primary
+        local aPrimary = isPrimary(a)
+        local bPrimary = isPrimary(b)
         if aPrimary ~= bPrimary then return aPrimary end
         return tostring(a.id) < tostring(b.id)
     end)
@@ -90,6 +98,17 @@ local function shown()
     return picked, #ready - #picked
 end
 
+-- The pinned entry when the report carries it and its source is down. `shown()`
+-- withholds its numbers; the tooltip is still the place that says why.
+local function pinnedDown()
+    if vendor == "auto" then return nil end
+    local wanted = wantedEntryId()
+    for _, entry in ipairs(entries()) do
+        if entry.id == wanted and unavailable(entry) then return entry end
+    end
+    return nil
+end
+
 -- `calm` is the colour when the CLI has raised nothing, and every colour when
 -- the tint is switched off.
 local function severityRole(metric, calm)
@@ -97,11 +116,16 @@ local function severityRole(metric, calm)
     return shared.severityRole(metric, calm)
 end
 
+-- A capsule pinned to a named account keeps the account in its name: two
+-- capsules on two accounts of one provider are the same product, and the suffix
+-- is the only thing telling them apart. It is fixed for that capsule, so it
+-- costs no width between reads.
 local function shortName(entry)
     local name = tostring(entry.display_name or entry.name or entry.id or "")
     if vendor ~= "auto" and account ~= "" then return name end
-    -- "Claude · gmail" is the panel's business; the bar only has room for the
-    -- product name.
+    -- Anywhere else "Claude · gmail" is the panel's business: "auto" follows
+    -- whichever provider is busiest, and a name that gains an account on one
+    -- read and loses it on the next would resize the capsule.
     return (name:gsub("%s*·.*$", ""))
 end
 
@@ -121,16 +145,21 @@ local function bars(percent, elapsed, tint, width)
     return ui.column({ gap = 1, align = "center" }, stack)
 end
 
-local function chip(entry)
+local function chip(entry, flagged)
     local metric = headline(entry)
     local tint = severityRole(metric, "on_surface")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
     local text = percent ~= nil and string.format("%d%%", percent) or "—"
     local fill = severityRole(metric, "primary")
     -- The mark says which provider, never how full it is. Severity rides on the
-    -- reading and the gauge, the same split the panel uses.
+    -- reading and the gauge, the same split the panel uses. A failed read is the
+    -- one thing that colours the mark, and it colours rather than appends: an
+    -- alert glyph that exists only while the read is failing widens the capsule
+    -- and shoves the neighbouring widget once per failed cycle. The tooltip
+    -- still spells the failure out, so the colour is not carrying it alone.
     local glyph = showGlyph
-        and ui.glyph({ name = providerGlyph(entry.id), size = 13, color = "on_surface" }) or nil
+        and ui.glyph({ name = providerGlyph(entry.id), size = 13,
+                       color = flagged and "error" or "on_surface" }) or nil
     -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
     -- and stops nudging its neighbours once per read.
     local pct = showValue and ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
@@ -183,6 +212,13 @@ local function tooltip(picked, hidden)
         return rows
     end
     if #picked == 0 then
+        -- A pinned provider the report still lists is configured; it is its
+        -- source that is down. Calling that "not configured" blames the user's
+        -- config for a failure the CLI already worded, so its wording stands.
+        local down = pinnedDown()
+        if down ~= nil then
+            return { { key = tostring(down.display_name or down.id), value = warning(down) } }
+        end
         local waiting = vendor == "auto" and noctalia.tr("ui.waiting")
             or noctalia.tr("ui.not_configured", { vendor = wantedEntryId() })
         return { { key = noctalia.tr("ui.title"), value = waiting } }
@@ -242,7 +278,7 @@ local function render()
             children[#children + 1] = ui.label({ text = "·", fontSize = 11,
                                                  color = "on_surface_variant" })
         end
-        children[#children + 1] = chip(entry)
+        children[#children + 1] = chip(entry, flagged)
     end
 
     if #children == 0 then
@@ -255,9 +291,6 @@ local function render()
     elseif hidden > 0 then
         children[#children + 1] = ui.label({ text = "+" .. tostring(hidden), fontSize = 10,
                                              color = "on_surface_variant", maxLines = 1 })
-    end
-    if flagged then
-        children[#children + 1] = ui.glyph({ name = "alert-triangle", size = 11, color = "error" })
     end
 
     barWidget.render(ui.row({ gap = 6, align = "center" }, children))

@@ -49,6 +49,13 @@ function M.requestRefresh()
     noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
 end
 
+-- Free text the CLI wrote to complain rather than to report. It marks those one
+-- way only, by writing `error:` into the line. Asked here and nowhere else, so
+-- the panel cannot set a line in a warning card the capsule is reading as data.
+function M.saysError(value)
+    return tostring(value or ""):lower():find("error:") ~= nil
+end
+
 -- A provider the CLI is no longer reading. It says so two ways: the entry fails
 -- outright, or it keeps serving the numbers it cached and appends a warning
 -- saying why they stopped moving -- Antigravity does the second whenever its
@@ -61,7 +68,7 @@ function M.warning(entry)
     for _, section in ipairs(sections) do
         if type(section) == "table" and section.type == "text" then
             local value = tostring(section.value or "")
-            if value:lower():find("error:") ~= nil then
+            if M.saysError(value) then
                 return noctalia.string.trim(value)
             end
         end

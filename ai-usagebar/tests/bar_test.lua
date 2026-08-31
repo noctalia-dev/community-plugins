@@ -25,10 +25,10 @@ local function entry(id, displayName, percent)
     }
 end
 
-local function loadBar(config, report)
+local function loadBar(config, report, err)
     local values = {
         report = report,
-        error = { code = "", detail = "" },
+        error = err or { code = "", detail = "" },
     }
     local rendered, tooltip
     local noctalia = {
@@ -199,5 +199,58 @@ local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
 assert(#pinnedDown.tooltip() > 0, "a pinned provider still explains itself in the tooltip")
+-- Configured but unreachable is not the same as never configured, and the
+-- tooltip may not call one the other. The CLI already worded the failure.
+local pinnedRow = pinnedDown.tooltip()[1]
+assert(pinnedRow.key == "Antigravity", "a pinned provider that is down keeps its name")
+assert(tostring(pinnedRow.value):find("no local server") ~= nil,
+    "the tooltip repeats the CLI's own words instead of calling it unconfigured")
 
-io.write("ok: account selection, malformed metrics, and providers that are down\n")
+-- `[ui] primary` can come back as a full account id, and the tie-break has to
+-- recognise it in that form as well as the bare provider one.
+local primaryNamed = loadBar({
+    vendor = "auto", account = "", extras = "none", visualization = "none",
+}, {
+    primary = "openai@work",
+    entries = {
+        entry("anthropic", "Claude", 50),
+        entry("openai@work", "Codex · work", 50),
+    },
+})
+assert(primaryNamed.tooltip()[1].key == "Codex · work",
+    "a primary reported as a full account id still breaks the tie")
+
+-- A failed read flags the capsule without resizing it: the signal rides on the
+-- colour of something already drawn, so the neighbouring widget does not move
+-- once per failed cycle.
+local function glyphColor(node, name)
+    if type(node) ~= "table" then return nil end
+    if node.kind == "glyph" and node.props.name == name then return node.props.color end
+    for _, child in ipairs(node.children or {}) do
+        local found = glyphColor(child, name)
+        if found ~= nil then return found end
+    end
+    return nil
+end
+
+local function countNodes(node)
+    if type(node) ~= "table" then return 0 end
+    local total = 1
+    for _, child in ipairs(node.children or {}) do total = total + countNodes(child) end
+    return total
+end
+
+local steadyConfig = { vendor = "openai", account = "", extras = "none", visualization = "none" }
+local steadyReport = { entries = { entry("openai", "Codex", 40) } }
+local healthy = loadBar(steadyConfig, steadyReport)
+local broken = loadBar(steadyConfig, steadyReport, { code = "timed_out", detail = "" })
+assert(countNodes(broken.rendered()) == countNodes(healthy.rendered()),
+    "a failed read may not add a node to the capsule")
+assert(glyphColor(broken.rendered(), "alert-triangle") == nil,
+    "no extra glyph widens the capsule on a failed read")
+assert(glyphColor(broken.rendered(), "brand-openai") == "error",
+    "the failure rides on the colour of the mark already drawn")
+assert(glyphColor(healthy.rendered(), "brand-openai") == "on_surface",
+    "a healthy read leaves the mark in its identity colour")
+
+io.write("ok: account selection, malformed metrics, providers that are down, and a steady capsule\n")

@@ -42,6 +42,16 @@
       "description": "A porcentagem como texto. A opção \"Off\" faz com que o indicador a exiba.",
       "label": "Mostrar valor"
     },
+    "style": {
+      "description": "Como esta cápsula fica no bar.",
+      "label": "Estilo",
+      "option": {
+        "gauge": "Medida e porcentagem",
+        "label": "Nome, calibre e porcentagem",
+        "meter": "Segmentos",
+        "pill": "Percentagem"
+      }
+    },
     "vendor": {
       "description": "O plano que esta cápsula monitora. Adicione o widget duas vezes para acompanhar dois.",
       "label": "Prestador de serviços",
@@ -73,6 +83,7 @@
     },
     "hidden_label": "Não exibido",
     "hidden_value": "Mais {count}, clique para abrir o painel",
+    "loading": "Carregando…",
     "no_usage": "Nenhum uso registrado",
     "not_configured": "`{vendor}` não está configurado no ai-usagebar",
     "now": "agora",

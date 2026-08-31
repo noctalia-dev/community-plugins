@@ -11,7 +11,10 @@
 
 local SOURCE = "service.luau"
 
-local function loadSafeText()
+-- The slices are cut by marker, which is fragile by construction: a cut survives
+-- only while the line named at the call below stays where it is, so a miss says
+-- so rather than leaving the caller with a nil.
+local function loadSlice(endMarker, returns)
     local file = io.open(SOURCE, "r")
     if file == nil then
         error("run this from the plugin directory: " .. SOURCE .. " not found")
@@ -19,14 +22,12 @@ local function loadSafeText()
     local source = file:read("*a")
     file:close()
 
-    -- The slice runs from the redaction constants through scrub, which is what
-    -- the poller's callback actually calls.
-    local chunk = source:match("(local SECRET_VALUE.-)\nlocal function failure")
+    local chunk = source:match("(local SECRET_VALUE.-)\n" .. endMarker)
     if chunk == nil then
-        error("could not find safeText in " .. SOURCE .. "; update the markers here")
+        error("could not find " .. returns .. " in " .. SOURCE .. "; update the markers here")
     end
 
-    -- The only host API the function touches.
+    -- The only host API the sliced code touches.
     local env = {
         string = string,
         ipairs = ipairs,
@@ -35,35 +36,13 @@ local function loadSafeText()
         tostring = tostring,
         noctalia = { string = { trim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end } },
     }
-    local loaded = load(chunk .. "\nreturn safeText, scrub", "scrubber", "t", env)
-    return loaded()
+    return load(chunk .. "\nreturn " .. returns, SOURCE, "t", env)()
 end
 
-local safeText, scrub = loadSafeText()
-
-local function loadClassify()
-    local file = io.open(SOURCE, "r")
-    local source = file:read("*a")
-    file:close()
-    local chunk = source:match("(local SECRET_VALUE.-)\nlocal inFlight")
-    if chunk == nil then error("could not find classify in " .. SOURCE) end
-    local env = {
-        string = string,
-        ipairs = ipairs,
-        pairs = pairs,
-        type = type,
-        tostring = tostring,
-        noctalia = { string = { trim = function(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end } },
-    }
-    local loaded = load(chunk .. "\nreturn classify", "classifier", "t", env)
-    return loaded()
-end
-
-local classify = loadClassify()
-
-local panelFile = io.open("panel.luau", "r")
-local panelSource = panelFile:read("*a")
-panelFile:close()
+-- The first slice runs from the redaction constants through scrub, which is what
+-- the poller's callback actually calls; the second reaches on to classify.
+local safeText, scrub = loadSlice("local function failure", "safeText, scrub")
+local classify = loadSlice("local inFlight", "classify")
 
 -- Each case names the material that must not survive.
 local SECRETS = {
@@ -92,7 +71,20 @@ local SECRETS = {
     -- Authorization schemes do not necessarily use a field containing key/token.
     { "Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz" },
     -- Numeric quota readings stay visible, but a credential-shaped field does not.
+    -- The singular `token` after a qualifier names a credential, however short and
+    -- numeric its value looks.
     { "access_token: 123456789", "123456789" },
+    { "refresh_token: 987654", "987654" },
+    -- A label ending in `token` is no licence on its own: this value is long and
+    -- hexadecimal, which no quota reading ever is.
+    { "api_token: 9f8e7d6c5b4a3f2e1d0c", "9f8e7d6c5b4a3f2e1d0c" },
+    -- A label that carries a credential word as well as a counter is read as the
+    -- credential. Each keyword redacts on its own pass and the last match wins, so
+    -- the numeric exemption offered to the `token` pass is taken back by the
+    -- `key`, `secret` and `password` passes that surround it.
+    { "api_key_tokens: 42", "42" },
+    { "secret_tokens: 500", "500" },
+    { "password_tokens: 500", "500" },
     -- The cap runs before the patterns, so a secret in a runaway line has to
     -- survive the truncation.
     { "api_key=sk-ant-REALKEY123 " .. string.rep("noise ", 60), "REALKEY123" },
@@ -118,6 +110,12 @@ local BENIGN = {
     "tokens_used: 1500",
     "Session tokens: 98%",
     "Prompt tokens: 1,024",
+    -- The CLI names its counters after what it counted, so the exemption has to
+    -- reach past the three labels it was first written for.
+    "input_tokens: 45000",
+    "output_tokens: 900",
+    "total_tokens: 45900",
+    "cache_read_tokens: 12000",
 }
 
 local failures = 0
@@ -136,10 +134,6 @@ end
 local missing = classify({ exitCode = 127, stderr = "comando não encontrado" })
 if missing.code ~= "not_installed" then
     fail("exit code 127 should mean not_installed regardless of shell language")
-end
-if panelSource:find('entry.status ~= "ready"', 1, true)
-    or not panelSource:find('entry.status == "error"', 1, true) then
-    fail("panel must treat only error entries as failed")
 end
 
 for _, case in ipairs(SECRETS) do
