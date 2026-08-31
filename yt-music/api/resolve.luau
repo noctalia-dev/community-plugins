@@ -86,7 +86,7 @@ function EXPO.cache_audio(video_id, callback)
 
     local cmd = string.format(
         "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://www.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
-        AUDIO_DIR, path, COOKIE_PATH, video_id
+        AUDIO_DIR, path, COOKIE_PATH, safe_id
     )
     local launched = network.runAsync(cmd, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
