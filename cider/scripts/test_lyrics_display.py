@@ -62,6 +62,123 @@ class OverlayCfgTests(unittest.TestCase):
         self.assertNotIn("bg_opacity", cfg.merge_cfg({"bg_opacity": 40}))
 
 
+class PlainScrollTests(unittest.TestCase):
+    LINES = [
+        {"time": -1, "text": "Short"},
+        {"time": -1, "text": "This line is much longer than the first"},
+        {"time": -1, "text": "End"},
+    ]
+
+    def test_is_plain_lyrics(self) -> None:
+        self.assertTrue(cfg.is_plain_lyrics(self.LINES))
+        self.assertFalse(cfg.is_plain_lyrics([{"time": 0, "text": "synced"}]))
+
+    def test_plain_scroll_starts_on_first_line(self) -> None:
+        idx = cfg.plain_scroll_line_index(self.LINES, 0, 120_000, cfg.DEFAULT_CFG)
+        self.assertEqual(idx, 0)
+
+    def test_plain_scroll_reaches_last_line_near_end(self) -> None:
+        idx = cfg.plain_scroll_line_index(self.LINES, 115_000, 120_000, cfg.DEFAULT_CFG)
+        self.assertEqual(idx, 2)
+
+    def test_plain_scroll_weights_longer_lines(self) -> None:
+        lines = [
+            {"time": -1, "text": "A"},
+            {"time": -1, "text": "BBBBBBBBBBBBBBBBBBBBBBBB"},
+            {"time": -1, "text": "C"},
+        ]
+        early = cfg.plain_scroll_line_index(lines, 2_000, 120_000, cfg.DEFAULT_CFG)
+        mid = cfg.plain_scroll_line_index(lines, 60_000, 120_000, cfg.DEFAULT_CFG)
+        self.assertEqual(early, 0)
+        self.assertEqual(mid, 1)
+
+    def test_plain_scroll_respects_speed(self) -> None:
+        slow = cfg.plain_scroll_line_index(
+            self.LINES, 60_000, 120_000, {"plain_scroll_speed": 50}
+        )
+        fast = cfg.plain_scroll_line_index(
+            self.LINES, 60_000, 120_000, {"plain_scroll_speed": 200}
+        )
+        self.assertGreaterEqual(fast, slow)
+
+    def test_resolve_line_uses_plain_scroll(self) -> None:
+        from lyrics_overlay import resolve_line
+
+        cur, nxt, cue, _progress, idx = resolve_line(
+            self.LINES,
+            70_000,
+            dur_ms=120_000,
+            cfg={"show_untimed": True, "plain_scroll": True},
+        )
+        self.assertFalse(cue)
+        self.assertGreater(idx, 0)
+        self.assertTrue(nxt)
+
+    def test_untimed_hidden_by_default(self) -> None:
+        from lyrics_overlay import resolve_line
+
+        cur, nxt, cue, _progress, idx = resolve_line(
+            self.LINES,
+            70_000,
+            dur_ms=120_000,
+            cfg=cfg.DEFAULT_CFG,
+        )
+        self.assertIsNone(cur)
+        self.assertEqual(nxt, "")
+        self.assertFalse(cfg.plain_lyrics_allowed(cfg.DEFAULT_CFG))
+        self.assertFalse(cfg.plain_scroll_enabled(cfg.DEFAULT_CFG))
+
+    def test_silence_gate_holds_during_quiet_intro(self) -> None:
+        # 30s of silence → active_ms=0 should keep line 0 even though wall is mid-song.
+        idx = cfg.plain_scroll_line_index(
+            self.LINES,
+            40_000,
+            120_000,
+            {"show_untimed": True, "plain_scroll": True, "plain_scroll_silence": True, "plain_scroll_speed": 100},
+            active_ms=0,
+        )
+        self.assertEqual(idx, 0)
+
+    def test_silence_gate_advances_on_active_audio(self) -> None:
+        quiet = cfg.plain_scroll_line_index(
+            self.LINES,
+            60_000,
+            120_000,
+            {"plain_scroll_silence": True},
+            active_ms=0,
+        )
+        loud = cfg.plain_scroll_line_index(
+            self.LINES,
+            60_000,
+            120_000,
+            {"plain_scroll_silence": True},
+            active_ms=45_000,
+        )
+        self.assertLess(quiet, loud)
+
+    def test_effective_pos_maps_active_over_remaining(self) -> None:
+        # After quiet intro: wall=60s, active=30s, dur=180 → ~36s effective.
+        pos = cfg.plain_scroll_effective_pos_ms(60_000, 180_000, 30_000, True)
+        self.assertAlmostEqual(pos, 36_000, delta=1)
+
+
+class AudioMeterUnitTests(unittest.TestCase):
+    def test_rms_silence_is_near_zero(self) -> None:
+        from audio_meter import level_from_rms, rms_s16le
+
+        silent = b"\x00\x00" * 200
+        self.assertLess(rms_s16le(silent), 0.001)
+        self.assertLess(level_from_rms(0.0), 0.1)
+
+    def test_rms_loud_sample_registers(self) -> None:
+        from audio_meter import level_from_rms, rms_s16le
+        import struct
+
+        loud = struct.pack("<" + ("h" * 200), *([20000] * 200))
+        self.assertGreater(rms_s16le(loud), 0.4)
+        self.assertGreater(level_from_rms(rms_s16le(loud)), 20)
+
+
 class ClockExtrapolationTests(unittest.TestCase):
     def test_playing_clock_advances_past_eight_seconds(self) -> None:
         now = 1_000_000.0

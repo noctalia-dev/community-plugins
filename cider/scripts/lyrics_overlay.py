@@ -63,10 +63,15 @@ from lyrics_overlay_cfg import (  # noqa: E402
     line_anim_duration_ms,
     line_anim_forward_from_index,
     line_anim_interrupt_elapsed_ms,
+    is_plain_lyrics,
     merge_cfg,
     next_line_y,
     outro_lyric_alpha,
     overlay_should_show,
+    plain_lyrics_allowed,
+    plain_scroll_enabled,
+    plain_scroll_line_index,
+    plain_scroll_silence_enabled,
     approach_u,
     promote_scale,
     promote_top_y,
@@ -81,6 +86,7 @@ from lyrics_overlay_cfg import (  # noqa: E402
     track_cross_alphas,
     group_karaoke_words,
 )
+from audio_meter import AudioMeter  # noqa: E402
 
 CACHE = Path(os.path.expanduser("~/.cache/noctalia-cider"))
 HUD_PATH = CACHE / "hud.json"
@@ -175,11 +181,44 @@ def _real_words(line: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def resolve_line(
-    lines: list[dict[str, Any]], pos_ms: int
+    lines: list[dict[str, Any]],
+    pos_ms: int,
+    *,
+    dur_ms: int = 0,
+    cfg: dict[str, Any] | None = None,
+    active_ms: int | None = None,
 ) -> tuple[dict[str, Any] | None, str, bool, float, int]:
     if not lines:
         return None, "", False, 0.0, 0
     pos_ms = max(0, pos_ms)
+    if cfg and is_plain_lyrics(lines):
+        if not plain_lyrics_allowed(cfg):
+            return None, "", False, 0.0, 0
+        if plain_scroll_enabled(cfg):
+            idx = plain_scroll_line_index(
+                lines,
+                pos_ms,
+                dur_ms,
+                cfg,
+                active_ms=active_ms,
+            )
+            cur = lines[idx]
+            nxt = ""
+            for j in range(idx + 1, len(lines)):
+                txt = _line_text(lines[j])
+                if txt and not _is_cue(lines[j]):
+                    nxt = txt
+                    break
+            return cur, nxt, False, 0.0, idx
+        # Allowed but no scroll: stay on the first line.
+        cur = lines[0]
+        nxt = ""
+        for j in range(1, len(lines)):
+            txt = _line_text(lines[j])
+            if txt and not _is_cue(lines[j]):
+                nxt = txt
+                break
+        return cur, nxt, False, 0.0, 0
     idx = 0
     for i, line in enumerate(lines):
         t = line.get("time")
@@ -290,6 +329,10 @@ class LyricsHud(Gtk.Window):
         self._hold_current = ""
         self._hold_next = ""
         self._hold_was_cue = False
+        self._plain_active_ms = 0.0
+        self._plain_last_tick = 0.0
+        self._meter = AudioMeter()
+        self._meter_wanted = False
         self.set_size_request(100, HUD_HEIGHT)
         self.connect("realize", self._apply_click_through)
         self.connect("map", self._apply_click_through)
@@ -378,6 +421,7 @@ class LyricsHud(Gtk.Window):
         self._note_surface(want)
         surface_u = self._surface_progress()
         if surface_u <= 0.001:
+            self._sync_meter(False)
             return True
 
         lyrics = _read_json(LYRICS_PATH) or {}
@@ -406,6 +450,8 @@ class LyricsHud(Gtk.Window):
             self._anim_forward = True
             self._line_key = None
             self._line_idx = 0
+            self._plain_active_ms = 0.0
+            self._plain_last_tick = 0.0
         if play_id:
             self._play_id = play_id
         lyrics_id = display_track_id(lyrics)
@@ -417,8 +463,33 @@ class LyricsHud(Gtk.Window):
                 self._track_anim_t0 = time.time()
                 self._track_start_u = 0.52
 
+        plain = is_plain_lyrics(lines)
+        silence_gate = plain_scroll_silence_enabled(self._cfg) and plain
+        self._sync_meter(silence_gate)
+        active_ms: int | None = None
+        if silence_gate:
+            self._meter.set_threshold(float(self._cfg.get("plain_scroll_silence_level") or 8))
+            snap = self._meter.snapshot()
+            now = time.time()
+            if self._plain_last_tick > 0 and self._playing and snap.get("active") is True:
+                delta = max(0.0, (now - self._plain_last_tick) * 1000.0)
+                # Cap so a stalled GTK tick cannot jump the scroll clock.
+                self._plain_active_ms += min(delta, float(TICK_MS) * 3.0)
+            self._plain_last_tick = now
+            active_ms = int(self._plain_active_ms)
+        else:
+            self._plain_last_tick = 0.0
+
+        # Untimed lyrics opt-in: hide when show_untimed is off.
+        if plain and not plain_lyrics_allowed(self._cfg):
+            lines = []
+
         self._current, self._next, self._is_cue, self._cue_progress, line_idx = resolve_line(
-            lines, int(self._pos_ms)
+            lines,
+            int(self._pos_ms),
+            dur_ms=dur,
+            cfg=self._cfg,
+            active_ms=active_ms,
         )
         self._note_line_change(line_idx)
 
@@ -438,6 +509,15 @@ class LyricsHud(Gtk.Window):
 
         self._drawing.queue_draw()
         return True
+
+    def _sync_meter(self, want: bool) -> None:
+        if want and not self._meter_wanted:
+            self._meter.start()
+            self._meter_wanted = True
+        elif not want and self._meter_wanted:
+            self._meter.stop()
+            self._meter_wanted = False
+            self._plain_last_tick = 0.0
 
     def _draw_drop_shadow(
         self,
@@ -1210,10 +1290,22 @@ def main() -> int:
     pid_path.write_text(str(os.getpid()), encoding="utf-8")
 
     win = LyricsHud()
-    win.connect("destroy", Gtk.main_quit)
+
+    def _shutdown(*_args: Any) -> None:
+        try:
+            win._sync_meter(False)
+        except Exception:
+            pass
+        Gtk.main_quit()
+
+    win.connect("destroy", _shutdown)
     try:
         Gtk.main()
     finally:
+        try:
+            win._sync_meter(False)
+        except Exception:
+            pass
         try:
             if pid_path.exists() and pid_path.read_text().strip() == str(os.getpid()):
                 pid_path.unlink(missing_ok=True)
