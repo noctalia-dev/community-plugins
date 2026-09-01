@@ -1,0 +1,19 @@
+{
+  "custom_color_desc": "E.g. primary, on_surface, etc.",
+  "custom_color_label": "Icon/Text Color",
+  "fallback_poll_s_desc": "Only used when the event subscription is unavailable or has died. Changes normally arrive from umbriel's window event, not on this interval.",
+  "fallback_poll_s_label": "Fallback poll (seconds)",
+  "layout_dwindle_label": "Layout: Dwindle",
+  "layout_master_label": "Layout: Master",
+  "layout_scrolling_label": "Layout: Scrolling",
+  "list_mode_label": "Vertical List Mode",
+  "name_dwindle": "Dwindle",
+  "name_master": "Master",
+  "name_scrolling": "Scrolling",
+  "name_unknown": "Layout",
+  "notifications_desc": "Send a notification when a workspace's layout changes. Switching workspaces or moving between monitors does not count as a change.",
+  "notifications_label": "Notify on layout change",
+  "osd_changed": "Layout: {layout}",
+  "show_glyph_label": "Show Icon",
+  "show_text_label": "Show Text"
+}

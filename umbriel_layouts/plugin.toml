@@ -1,0 +1,133 @@
+id          = "soheil7799/umbriel_layouts"
+name        = "Umbriel Layouts"
+version     = "0.2.0"
+plugin_api  = 22
+author      = "soheil7799"
+license     = "MIT"
+icon        = "layout-filled"
+description = "Layout switcher for Umbriel"
+# No compositor tag: the allowed list has hyprland/labwc/mangowc/niri/sway and
+# no umbriel. Proposing it in the PR rather than inventing one here, as the repo
+# README asks.
+tags        = ["bar", "panel", "utility"]
+# `umbriel` is the window manager's own CLI: it both reports the focused
+# workspace's layout and applies a new one. `socat` carries the event
+# subscription -- umbriel's IPC exposes `subscribe` over its unix socket but has
+# no CLI subcommand for it. Without socat the service still works, falling back
+# to interval polling.
+dependencies = ["umbriel", "socat"]
+
+# One watcher for the whole shell. It subscribes to umbriel's `windows` event,
+# which is scheduled from Workspace::arrange() and therefore fires on workspace
+# switch, output focus change, and layout change alike. Living in a service
+# rather than in the widget means a bar on every monitor shares one subscription
+# and one read, and the change OSD fires once instead of once per capsule.
+[[service]]
+id    = "poller"
+entry = "service.luau"
+
+[[widget]]
+id      = "btn"
+entry   = "widget.luau"
+actions = {}
+
+# -- WIDGET SETTINGS --
+[[widget.setting]]
+key       = "show_glyph"
+type      = "bool"
+label_key = "show_glyph_label"
+default   = true
+
+[[widget.setting]]
+key       = "show_text"
+type      = "bool"
+label_key = "show_text_label"
+default   = false
+
+[[widget.setting]]
+key             = "custom_color"
+type            = "string"
+label_key       = "custom_color_label"
+description_key = "custom_color_desc"
+default         = ""
+
+# TWO panel entries for ONE picker, because a panel's size is fixed in the
+# manifest: the Luau panel API is render/close/openContextMenu/setWantsSecondTicks/
+# setNeedsFrameTick, with nothing that resizes, and width/height accept only a
+# positive number or "fill" -- there is no "fit the content". A grid of three
+# icons and a stack of three full-width buttons are different shapes, so one
+# size leaves dead space in the first and scrolls the second. Each entry fixes
+# its own shape, so an entry opened directly by IPC draws what its box is sized
+# for; list_mode only decides which one the capsule opens.
+#
+# Attached + auto so the picker behaves like the shell's own panels: anchored to
+# the capsule that opened it and placed by the shell, rather than pinned to a
+# screen corner. mango_layouts hardcodes floating/bottom_right; that is its
+# choice, not a Noctalia convention. The shell draws the Placement and Position
+# rows for every plugin panel regardless, so this only picks the default.
+[[panel]]
+id                       = "panel_grid"
+entry                    = "panel_grid.luau"
+width                    = 240
+# 3 icons across: one button row + gap + label + padding, plus panel chrome.
+# Tuned by bisection against the real shell, not calculated: 117 scrolls, 118
+# does not. Leave it alone unless the content changes.
+height                   = 118
+placement                = "attached"
+position                 = "auto"
+dismiss_on_outside_click = true
+
+[[panel]]
+id                       = "panel_list"
+entry                    = "panel_list.luau"
+width                    = 220
+# 3 stacked buttons + gaps + padding + chrome. Same bisection: 179 scrolls,
+# 182 does not -- the floor is 2px per entry above the arithmetic.
+height                   = 182
+placement                = "attached"
+position                 = "auto"
+dismiss_on_outside_click = true
+
+# -- GLOBAL SETTINGS --
+[[setting]]
+key       = "list_mode"
+type      = "bool"
+label_key = "list_mode_label"
+default   = false
+
+[[setting]]
+key             = "fallback_poll_s"
+type            = "int"
+label_key       = "fallback_poll_s_label"
+description_key = "fallback_poll_s_desc"
+default         = 10
+min             = 2
+max             = 120
+
+# Named for what it is. This is a notification, subject to Do Not Disturb and
+# recorded in notification history -- Noctalia's OSD popups are a closed set
+# (volume, brightness, mic, keyboard backlight) with no binding a plugin can use.
+[[setting]]
+key             = "notifications"
+type            = "bool"
+label_key       = "notifications_label"
+description_key = "notifications_desc"
+default         = true
+
+[[setting]]
+key       = "show_scrolling"
+type      = "bool"
+label_key = "layout_scrolling_label"
+default   = true
+
+[[setting]]
+key       = "show_dwindle"
+type      = "bool"
+label_key = "layout_dwindle_label"
+default   = true
+
+[[setting]]
+key       = "show_master"
+type      = "bool"
+label_key = "layout_master_label"
+default   = true
