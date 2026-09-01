@@ -73,6 +73,24 @@ class PlainScrollTests(unittest.TestCase):
         self.assertTrue(cfg.is_plain_lyrics(self.LINES))
         self.assertFalse(cfg.is_plain_lyrics([{"time": 0, "text": "synced"}]))
 
+    def test_lyrics_are_plain_prefers_bridge_metadata(self) -> None:
+        synced_lines = [{"time": 0, "text": "synced"}]
+        self.assertFalse(
+            cfg.lyrics_are_plain(synced_lines, {"has_synced": True, "message": "synced"})
+        )
+        self.assertTrue(
+            cfg.lyrics_are_plain(self.LINES, {"has_synced": False, "message": "plain"})
+        )
+        # Line heuristics alone must not downgrade synced payloads.
+        self.assertFalse(
+            cfg.lyrics_are_plain(synced_lines, {"has_synced": True, "message": "synced"})
+        )
+
+    def test_lyrics_are_plain_suppressed_message(self) -> None:
+        self.assertTrue(
+            cfg.lyrics_are_plain([], {"message": "plain_suppressed", "has_synced": False})
+        )
+
     def test_plain_scroll_starts_on_first_line(self) -> None:
         idx = cfg.plain_scroll_line_index(self.LINES, 0, 120_000, cfg.DEFAULT_CFG)
         self.assertEqual(idx, 0)

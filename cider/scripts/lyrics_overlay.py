@@ -64,6 +64,7 @@ from lyrics_overlay_cfg import (  # noqa: E402
     line_anim_forward_from_index,
     line_anim_interrupt_elapsed_ms,
     is_plain_lyrics,
+    lyrics_are_plain,
     merge_cfg,
     next_line_y,
     outro_lyric_alpha,
@@ -191,7 +192,7 @@ def resolve_line(
     if not lines:
         return None, "", False, 0.0, 0
     pos_ms = max(0, pos_ms)
-    if cfg and is_plain_lyrics(lines):
+    if cfg and lyrics_are_plain(lines):
         if not plain_lyrics_allowed(cfg):
             return None, "", False, 0.0, 0
         if plain_scroll_enabled(cfg):
@@ -463,7 +464,7 @@ class LyricsHud(Gtk.Window):
                 self._track_anim_t0 = time.time()
                 self._track_start_u = 0.52
 
-        plain = is_plain_lyrics(lines)
+        plain = lyrics_are_plain(lines, lyrics)
         silence_gate = plain_scroll_silence_enabled(self._cfg) and plain
         self._sync_meter(silence_gate)
         active_ms: int | None = None

@@ -605,6 +605,30 @@ def is_plain_lyrics(lines: list[dict[str, Any]]) -> bool:
     return not saw_timing
 
 
+def lyrics_are_plain(
+    lines: list[dict[str, Any]] | None,
+    meta: dict[str, Any] | None = None,
+) -> bool:
+    """True when the bridge payload is untimed/plain (not LRCLIB/Apple line sync).
+
+    Prefer bridge metadata (`has_synced`, `message`) over line heuristics — cue
+    injection and partial timestamps must not flip synced tracks to plain.
+    """
+    if isinstance(meta, dict):
+        if meta.get("has_synced") is True:
+            return False
+        msg = str(meta.get("message") or "").lower()
+        if msg == "synced":
+            return False
+        if msg in {"plain", "plain_suppressed"}:
+            return True
+        if msg == "none":
+            return False
+    if not isinstance(lines, list) or not lines:
+        return False
+    return is_plain_lyrics(lines)
+
+
 def plain_scroll_duration_ms(dur_ms: int, line_count: int) -> int:
     if dur_ms > 0:
         return dur_ms

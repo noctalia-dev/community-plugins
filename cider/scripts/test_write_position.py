@@ -320,6 +320,15 @@ class GhostNotifyGuardTests(unittest.TestCase):
         self.assertIn("advanced = true", toml)
         self.assertIn('type = "glyph"', toml)
 
+    def test_service_gates_plain_lyrics_and_reapplies_on_config(self) -> None:
+        service = Path(__file__).resolve().parent.parent / "service.luau"
+        text = service.read_text(encoding="utf-8")
+        self.assertIn("function lyricsArePlain", text)
+        self.assertIn("suppressPlainLyricsSidecar", text)
+        self.assertIn("plain_suppressed", text)
+        self.assertIn("lastLyricsEvent", text)
+        self.assertIn("applyLocalLyrics(lastLyricsEvent)", text)
+
     def test_cider_window_gone_clears_playback(self) -> None:
         bridge = Path(__file__).resolve().parent / "cider_bridge.py"
         text = bridge.read_text(encoding="utf-8")

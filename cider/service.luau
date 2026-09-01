@@ -56,6 +56,7 @@ local lyricsPlainScrollSpeed = 100
 local lyricsPlainScrollSilence = false
 local lyricsPlainScrollSilenceLevel = 8
 local lyricsShowUntimed = false
+local lastLyricsEvent = nil
 
 local function dataDir()
   local dir, err = noctalia.pluginDataDir()
@@ -391,6 +392,46 @@ local function toggleLyricsHud()
   applyLyricsSurface()
 end
 
+local function lyricsArePlain(lines, event)
+  if type(event) == "table" then
+    if event.has_synced == true or event.message == "synced" then
+      return false
+    end
+    if event.has_synced == false or event.message == "plain" then
+      return true
+    end
+    if event.message == "none" then
+      return false
+    end
+  end
+  if type(lines) ~= "table" or #lines == 0 then
+    return false
+  end
+  for _, line in ipairs(lines) do
+    if type(line) == "table" then
+      local t = tonumber(line.time)
+      if t ~= nil and t >= 0 then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+local function suppressPlainLyricsSidecar()
+  -- Overlay reads lyrics.json directly; strip plain lines when opt-in is off.
+  noctalia.mkdirAll("~/.cache/noctalia-cider")
+  local encoded = noctalia.json.encode({
+    type = "lyrics",
+    message = "plain_suppressed",
+    has_synced = false,
+    lyrics_lines = {},
+  })
+  if encoded then
+    noctalia.writeFile(LYRICS_PATH, encoded)
+  end
+end
+
 local function clearLocalLyrics()
   syncedLyricsLines = {}
   lyricsReadyLocal = false
@@ -602,20 +643,20 @@ local function noteCiderPosition(positionMs, playing, _eventType)
 end
 
 local function applyLocalLyrics(event)
+  lastLyricsEvent = event
   local lines = nil
   if type(event.lyrics_lines) == "table" and #event.lyrics_lines > 0 then
     lines = event.lyrics_lines
   end
-  local synced = false
-  if lines ~= nil then
-    local firstTime = tonumber(lines[1].time)
-    synced = firstTime ~= nil and firstTime >= 0
-  end
+  local plain = lyricsArePlain(lines, event)
   -- Untimed/plain lyrics are opt-in (lyrics_show_untimed). Synced always publish.
-  if lines ~= nil and (synced or lyricsShowUntimed) then
+  if lines ~= nil and (not plain or lyricsShowUntimed) then
     publishLocalLyrics(lines)
   else
     clearLocalLyrics()
+    if plain then
+      suppressPlainLyricsSidecar()
+    end
   end
   local positionMs = tonumber(event.position_ms)
   if positionMs ~= nil then
@@ -966,6 +1007,9 @@ function onConfigChanged()
   local prevToken = apptoken
   refreshConfig()
   applyLyricsSurface()
+  if type(lastLyricsEvent) == "table" then
+    applyLocalLyrics(lastLyricsEvent)
+  end
   if baseUrl ~= prevUrl or apptoken ~= prevToken then
     bridgeStarted = false
     runArgv({ "pkill", "-f", "cider_bridge.py" })
