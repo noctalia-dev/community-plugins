@@ -1,0 +1,71 @@
+# media-lyrics — Noctalia v5 plugin: media player panel with synced lyrics.
+#
+# Pure-Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
+# (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
+# LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
+# pure Luau, caches locally, and exposes everything to the [[panel]] over
+# noctalia.state. No playerctl, no python daemons, no external tools.
+#
+# Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
+
+id = "tranzem/media-lyrics"
+name = "Media Lyrics"
+version = "0.8.3"
+plugin_api = 24
+author = "tranzem"
+license = "MIT"
+tags = ["media", "music", "panel", "service"]
+icon = "music"
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau, no external dependencies."
+dependencies = ["busctl"]
+
+[[setting]]
+key = "offset_ms"
+type = "int"
+label_key = "settings.offset_ms.label"
+description_key = "settings.offset_ms.description"
+default = 0
+
+[[setting]]
+key = "use_cache"
+type = "bool"
+label_key = "settings.use_cache.label"
+description_key = "settings.use_cache.description"
+default = true
+
+[[setting]]
+key = "local_lyrics_dir"
+type = "folder"
+label_key = "settings.local_lyrics_dir.label"
+description_key = "settings.local_lyrics_dir.description"
+default = "~/.local/share/media-lyrics"
+
+# Bar widget: compact now-playing indicator; opens the panel on click.
+[[widget]]
+id = "now-playing"
+entry = "widget.luau"
+
+  # Free the middle button for play/pause — the host default opens the
+  # widget's settings instead. Declared so onMiddleClick works out of the box.
+  [widget.actions]
+  middle = "none"
+
+# Background service: polls D-Bus for player state, fetches + parses lyrics,
+# and publishes a snapshot to noctalia.state for the panel.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Main panel: compact header (ringed cover | title+artist | transport) + lyrics view.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = 520
+placement = "floating"
+position = "center"
+
+# Control-center tile: quick panel open.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
