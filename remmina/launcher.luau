@@ -49,24 +49,41 @@ local function scoreFor(filter, profile)
   return nil
 end
 
-local function makeRows(list, filter)
-  local rows = {}
-  local limit = maxResults()
+-- Enough to outrank any fuzzy score, so a pinned profile stays on top however
+-- the host orders the results; the bonus is constant, so pinned rows keep
+-- their relative fuzzy ranking among themselves.
+local PIN_SCORE_BONUS = 1e6
+
+local function appendRows(rows, list, filter, limit, pinned)
   for _, profile in ipairs(list) do
+    if #rows >= limit then
+      return
+    end
     local score = filter == "" and nil or scoreFor(filter, profile)
     if filter == "" or score ~= nil then
+      if pinned and score ~= nil then
+        score = score + PIN_SCORE_BONUS
+      end
       table.insert(rows, {
         id = profile.path,
         title = profile.name,
         subtitle = subtitleFor(profile),
         glyph = shared.glyphFor(profile.protocol),
+        badge = pinned and "★" or nil,
         score = score,
       })
-      if #rows >= limit then
-        break
-      end
     end
   end
+end
+
+-- Pinned profiles are emitted first and left out of the main pass, so they sit
+-- at the top of an unfiltered list and never appear twice.
+local function makeRows(list, filter)
+  local rows = {}
+  local limit = maxResults()
+  local pinned, rest = shared.partitionPinned(list)
+  appendRows(rows, pinned, filter, limit, true)
+  appendRows(rows, rest, filter, limit, false)
   return rows
 end
 

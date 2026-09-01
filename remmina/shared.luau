@@ -7,6 +7,12 @@
 local PROFILE_SUFFIX = ".remmina"
 local DEFAULT_PROFILES_PATH = "~/.local/share/remmina"
 
+-- Pinned profiles: the file under pluginDataDir() is the durable copy, the
+-- state key is how the panel's toggle reaches the launcher and the widget
+-- (each entry runs in its own VM, and state is the only thing they share).
+local PINS_FILE = "pinned.json"
+local PINS_STATE_KEY = "pins"
+
 local M = {}
 
 -- Tabler icon names, as shipped by the host (Commons/IconsTabler.qml); a name
@@ -131,6 +137,117 @@ function M.profiles(configuredPath)
   cacheStamp = stamp
   cacheDir = directory
   return cache, nil
+end
+
+-- ── Pinned profiles ─────────────────────────────────────────────────────────
+
+-- Per-VM copy, only consulted when the shared state is empty (a fresh reload).
+local pinsCache = nil
+
+local function pinsFile()
+  local dir = noctalia.pluginDataDir()
+  if dir == nil then
+    return nil
+  end
+  return dir .. "/" .. PINS_FILE
+end
+
+-- Stored as an array of profile paths: a JSON object with paths as keys would
+-- work too, but the array survives a hand edit more gracefully.
+local function readPins()
+  local path = pinsFile()
+  if path == nil then
+    return {}
+  end
+  local content = noctalia.readFile(path)
+  if type(content) ~= "string" or noctalia.string.trim(content) == "" then
+    return {}
+  end
+  local decoded = noctalia.json.decode(content)
+  if type(decoded) ~= "table" then
+    return {}
+  end
+  local map = {}
+  for _, entry in ipairs(decoded) do
+    if type(entry) == "string" and entry ~= "" then
+      map[entry] = true
+    end
+  end
+  return map
+end
+
+local function writePins(map)
+  local path = pinsFile()
+  if path == nil then
+    return false
+  end
+  local list = {}
+  for profilePath, pinned in pairs(map) do
+    if pinned then
+      table.insert(list, profilePath)
+    end
+  end
+  table.sort(list)
+  local encoded = noctalia.json.encode(list, true)
+  if encoded == nil then
+    return false
+  end
+  return noctalia.writeFile(path, encoded)
+end
+
+-- The shared state wins when it holds a table: it is the copy the panel just
+-- updated. Reading the file happens once per VM, after a reload.
+function M.pins()
+  local shared = noctalia.state.get(PINS_STATE_KEY)
+  if type(shared) == "table" then
+    pinsCache = shared
+    return pinsCache
+  end
+  if pinsCache == nil then
+    pinsCache = readPins()
+  end
+  noctalia.state.set(PINS_STATE_KEY, pinsCache)
+  return pinsCache
+end
+
+function M.isPinned(profilePath)
+  return M.pins()[profilePath] == true
+end
+
+-- Publishes a fresh table rather than mutating the current one: whoever holds
+-- a reference to the old copy keeps a consistent snapshot.
+function M.togglePin(profilePath)
+  local current = M.pins()
+  local updated = {}
+  for path, pinned in pairs(current) do
+    if pinned and path ~= profilePath then
+      updated[path] = true
+    end
+  end
+  local nowPinned = current[profilePath] ~= true
+  if nowPinned then
+    updated[profilePath] = true
+  end
+  pinsCache = updated
+  noctalia.state.set(PINS_STATE_KEY, updated)
+  writePins(updated)
+  return nowPinned
+end
+
+-- Splits the (already sorted) list in two, keeping the relative order inside
+-- each half. A pinned profile shows up at the top and *only* there, so the
+-- same connection never appears twice.
+function M.partitionPinned(profiles)
+  local pins = M.pins()
+  local pinned, rest = {}, {}
+  for _, profile in ipairs(profiles) do
+    if pins[profile.path] then
+      table.insert(pinned, profile)
+    else
+      table.insert(rest, profile)
+    end
+  end
+  return pinned, rest
 end
 
 function M.matches(filter, profile)

@@ -9,7 +9,10 @@
     "filter": "Filter connections…",
     "open-remmina": "Open the Remmina window",
     "open-tooltip": "Open {name}",
-    "ungrouped": "Ungrouped"
+    "pin-tooltip": "Pin to the top",
+    "pinned": "Pinned",
+    "ungrouped": "Ungrouped",
+    "unpin-tooltip": "Remove from pinned"
   },
   "profiles-empty": "No Remmina profiles in this folder",
   "profiles-missing": "Remmina profile folder not found",

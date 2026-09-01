@@ -34,6 +34,13 @@ The panel lists every connection under its Remmina group, with a filter box on
 top. Clicking a row opens that connection and closes the panel; the button in
 the header opens Remmina's own window instead.
 
+The star at the right of a row pins that connection. Pinned connections move to
+a **Pinned** group at the top of the panel — and to the top of the launcher,
+marked with a star — so the handful you actually use every day are always the
+first thing you see. Clicking the filled star unpins. The list lives in
+`pinned.json` under the plugin's data directory, so it survives a restart and a
+plugin update.
+
 Type `/rmn` in the launcher to list every profile, sorted by group and then by
 name. Keep typing to filter — the filter matches the connection name, its
 group, the server address and the protocol, so `/rmn rdp` narrows to RDP
