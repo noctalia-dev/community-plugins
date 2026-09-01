@@ -6,6 +6,14 @@ function onClick()
 end
 
 local function render(state)
+    if not state or not state.sessionPtr then
+        barWidget.render(ui.glyph({
+            color = "on_surface",
+            name = noctalia.getConfig("widget-glyph-main"),
+        }))
+        return
+    end
+
     local color = if state.isRunning then "primary" else "on_surface"
     local name =
         if hasResetAllBeenCalled then 
@@ -46,6 +54,10 @@ local function render(state)
 end
 
 --- main
+local function refresh()
+    render(noctalia.state.get("pomodoro.state"))
+end
+
 render(noctalia.state.get("pomodoro.state"))
 
 noctalia.state.watch("pomodoro.nextCommand", function(command)
@@ -53,10 +65,14 @@ noctalia.state.watch("pomodoro.nextCommand", function(command)
         hasResetAllBeenCalled = false
     elseif command == "resetAll" then
         hasResetAllBeenCalled = true
-        render(noctalia.state.get("pomodoro.state"))
+        refresh()
     end
 end)
 
 noctalia.state.watch("pomodoro.state", function(state)
-    render(state)
+    refresh()
+end)
+
+noctalia.state.watch("pomodoro.sessionData", function(_sessionData)
+    refresh()
 end)

@@ -1,38 +1,43 @@
 local config = (function()
     return {
-        workDuration = noctalia.getConfig("work-duration"),
-        shortBreakDuration = noctalia.getConfig("short-break-duration"),
-        longBreakDuration = noctalia.getConfig("long-break-duration"),
-        sessionsBeforeLongBreak = noctalia.getConfig("sessions-before-long-break"),
-        autoStartBreaks = noctalia.getConfig("auto-start-breaks"),
-        autoStartWork = noctalia.getConfig("auto-start-work"),
-        useBundledAlarmSound = noctalia.getConfig("use-bundled-alarm-sound"),
-        bypassNoctaliaSoundGlobals = noctalia.getConfig("bypass-noctalia-sound-globals"),
+        workDuration = noctalia.getConfig("work-duration") or 25,
+        shortBreakDuration = noctalia.getConfig("short-break-duration") or 5,
+        longBreakDuration = noctalia.getConfig("long-break-duration") or 15,
+        sessionsBeforeLongBreak = noctalia.getConfig("sessions-before-long-break") or 4,
+        autoStartBreaks = noctalia.getConfig("auto-start-breaks") == true,
+        autoStartWork = noctalia.getConfig("auto-start-work") == true,
+        useBundledAlarmSound = noctalia.getConfig("use-bundled-alarm-sound") == true,
+        enableWorkTimerSound = noctalia.getConfig("enable-work-timer-sound") == true,
+        bypassNoctaliaSoundGlobals = noctalia.getConfig("bypass-noctalia-sound-globals") == true,
     }
 end)()
 noctalia.state.set("pomodoro.config", config)
 
-local function onAlarmSoundLoaded(ok, err)
-    if not ok then
-        noctalia.notifyError("Couldn't load alarm sound", err)
-    end
-end
-local soundAccepted = noctalia.sound.load("alarm", "alarm.mp3", onAlarmSoundLoaded)
-if not soundAccepted then
-    noctalia.notifyError("Couldn't queue alarm sound")
-end
-
 local sessionData = {}
 for i = 1, config.sessionsBeforeLongBreak do
-    breakDuration = if i < config.sessionsBeforeLongBreak then config.shortBreakDuration else config.longBreakDuration
+    local breakDuration = if i < config.sessionsBeforeLongBreak then config.shortBreakDuration else config.longBreakDuration
     table.insert(sessionData, { config.workDuration * 60, breakDuration * 60 })
 end
 noctalia.state.set("pomodoro.sessionData", sessionData)
+
+local sounds = require("./src/sounds.luau")
+sounds.init({
+    bypassNoctaliaSoundGlobals = config.bypassNoctaliaSoundGlobals,
+    useBundledAlarmSound = config.useBundledAlarmSound,
+    enableWorkTimerSound = config.enableWorkTimerSound,
+})
 
 local isRunning = false
 local sessionPtr = { session = 1, stage = 1 }
 local isDirty = false
 local secondsLeft = 0
+local tickAnchorSecond = nil
+local lastProcessedSecond = nil
+
+local function resetTickClock()
+    tickAnchorSecond = nil
+    lastProcessedSecond = nil
+end
 
 local function getStateSnapshot()
     return {
@@ -57,8 +62,10 @@ noctalia.state.watch("pomodoro.nextCommand", function(command)
     if command == "toggle" then
         isDirty = true
         isRunning = not isRunning
+        resetTickClock()
     elseif command == "skip" then
         isRunning = false
+        resetTickClock()
         if sessionPtr.stage == 1 then
             sessionPtr.stage = 2
         elseif sessionPtr.session < #sessionData then
@@ -70,9 +77,11 @@ noctalia.state.watch("pomodoro.nextCommand", function(command)
         secondsLeft = getStageTotalSeconds()
     elseif command == "reset" then
         isRunning = false
+        resetTickClock()
         secondsLeft = getStageTotalSeconds()
     elseif command == "resetAll" then
         isRunning = false
+        resetTickClock()
         sessionPtr = { session = 1, stage = 1 }
         secondsLeft = getStageTotalSeconds()
         isDirty = false
@@ -85,12 +94,43 @@ end)
 local state = getStateSnapshot()
 noctalia.state.set("pomodoro.state", state)
 
-noctalia.setUpdateInterval(1000)
+noctalia.setUpdateInterval(250)
 function update()
-    if isRunning then
-        secondsLeft -= 1
-        local state = getStateSnapshot()
-        noctalia.state.set("pomodoro.state", state)
+    if not isRunning then
+        return
+    end
+
+    local second = math.floor(noctalia.nowMs() / 1000)
+    if tickAnchorSecond == nil then
+        tickAnchorSecond = second
+        lastProcessedSecond = second
+        return
+    end
+
+    if second <= lastProcessedSecond then
+        return
+    end
+
+    local stateChanged = false
+    for s = lastProcessedSecond + 1, second do
+        if s > tickAnchorSecond and secondsLeft > 0 then
+            secondsLeft -= 1
+
+            local offset = s - tickAnchorSecond
+            if offset > 0 and config.enableWorkTimerSound and sessionPtr.stage == 1 then
+                if offset % 2 == 1 then
+                    sounds.playTick()
+                else
+                    sounds.playTock()
+                end
+            end
+            stateChanged = true
+        end
+    end
+    lastProcessedSecond = second
+
+    if stateChanged then
+        noctalia.state.set("pomodoro.state", getStateSnapshot())
     end
 end
 
@@ -106,15 +146,7 @@ local function notifyStageFinished(state, sessionData)
             noctalia.tr("notification.long-break-complete")
 
     if config.useBundledAlarmSound then
-        if config.bypassNoctaliaSoundGlobals then
-            local pluginDir = noctalia.pluginDir()
-            if pluginDir then
-                local alarmDir = pluginDir .. "/alarm.mp3"
-                noctalia.runAsync("pw-play " .. alarmDir)
-            end
-        else
-            noctalia.sound.play("alarm")
-        end
+        sounds.playAlarm()
     end
 
     noctalia.notify("Pomodoro Timer", body)
