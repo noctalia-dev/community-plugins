@@ -195,7 +195,7 @@
       "label": "Marquee speed"
     },
     "max_chars": {
-      "description": "Visible width before a long lyric line scrolls (marquee).",
+      "description": "Fixed lyric width before a long line scrolls (marquee).",
       "label": "Max characters"
     },
     "max_lines": {
@@ -263,6 +263,15 @@
         "romanization_first": "Romanization, then translation",
         "translation": "Translation only",
         "translation_first": "Translation, then romanization"
+      }
+    },
+    "text_alignment": {
+      "description": "Align lyrics and track information within the fixed lyric width.",
+      "label": "Text alignment",
+      "options": {
+        "center": "Center",
+        "left": "Left",
+        "right": "Right"
       }
     },
     "show_artist": {

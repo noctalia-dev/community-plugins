@@ -32,7 +32,6 @@ local customUrl = noctalia.getConfig("custom_url") or ""
 local customJsonField = noctalia.getConfig("custom_json_field") or "syncedLyrics"
 local pollIntervalMs = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
 local lyricsOffsetMs = tonumber(noctalia.getConfig("lyrics_offset_ms")) or 0
-local displayMode = noctalia.getConfig("display_mode") or "toggle"
 local credentialSignature = ""
 local currentTrack = nil
 local currentEmbeddedLyrics = ""
@@ -876,13 +875,7 @@ local function poll()
       noctalia.state.set("playing", playing)
 
       local cached = cache[tk]
-      if displayMode == "track" then
-        noctalia.state.set("lyrics", nil)
-        noctalia.state.set("lyrics_source_used", nil)
-        candidateCache[tk] = nil
-        selectedCandidateCache[tk] = nil
-        publishCandidates(tk)
-      elseif cached then
+      if cached then
         noctalia.state.set("lyrics", cached)
         noctalia.state.set("lyrics_source_used", "cache")
         publishCandidates(tk)
@@ -930,7 +923,6 @@ function onConfigChanged()
   local nextSources = noctalia.getConfig("lyrics_sources") or lyricsSources
   local nextPollInterval = tonumber(noctalia.getConfig("poll_interval_ms")) or 500
   local nextOffset = tonumber(noctalia.getConfig("lyrics_offset_ms")) or 0
-  local nextDisplayMode = noctalia.getConfig("display_mode") or "toggle"
   local nextCredentialSignature = table.concat({
     noctalia.getConfig("spotify_sp_dc") or "",
     noctalia.getConfig("spotify_access_token") or "",
@@ -948,7 +940,6 @@ function onConfigChanged()
   local sourceChanged = nextSource ~= lyricsSource or nextUrl ~= customUrl or nextField ~= customJsonField
     or table.concat(nextSources, "\n") ~= table.concat(lyricsSources, "\n")
     or nextCredentialSignature ~= credentialSignature
-    or nextDisplayMode ~= displayMode
   local playersChanged = table.concat(nextAllowlist, "\n") ~= table.concat(playerAllowlist, "\n")
     or table.concat(nextBlocklist, "\n") ~= table.concat(playerBlocklist, "\n")
   lyricsSource = nextSource
@@ -957,7 +948,6 @@ function onConfigChanged()
   lyricsSources = nextSources
   pollIntervalMs = math.max(100, nextPollInterval)
   lyricsOffsetMs = nextOffset
-  displayMode = nextDisplayMode
   credentialSignature = nextCredentialSignature
   playerAllowlist = nextAllowlist
   playerBlocklist = nextBlocklist
@@ -976,7 +966,7 @@ function onConfigChanged()
     selectedCandidateCache = {}
     noctalia.state.set("lyrics", nil)
     publishCandidates(trackKey(currentTrack))
-    if displayMode ~= "track" then fetchLyricsNetEase(currentTrack, currentEmbeddedLyrics) end
+    fetchLyricsNetEase(currentTrack, currentEmbeddedLyrics)
   end
 end
 
