@@ -1,0 +1,90 @@
+# Awwwall — mirrors Noctalia's own wallpaper selection into `awww`, a Wayland
+# wallpaper daemon that (unlike Noctalia's built-in static renderer) can display
+# animated GIFs. You keep using the official Wallpaper picker/widget; a headless
+# [[service]] watches the wallpaper Noctalia recorded for each monitor and, on
+# change, hands that same file to `awww img`. A [[widget]] bar toggle owns the
+# whole lifecycle: turning it on starts awww-daemon (if not already running)
+# and hides Noctalia's own wallpaper surface per output
+# (noctalia.setWallpaperEnabled) so awww's surface shows through instead;
+# turning it off restores Noctalia's surface and kills the daemon.
+#
+# Requires the external `awww` command (which includes `awww-daemon`).
+
+id = "0lucasmatheus/awwwall"
+name = "Awwwall"
+version = "0.1.0"
+plugin_api = 25
+author = "0lucasmatheus"
+license = "MIT"
+dependencies = ["awww"]
+tags = ["wallpaper"]
+icon = "photo"
+description = "Mirrors the official wallpaper picker into awww, for animated (GIF) wallpapers."
+
+[[setting]]
+key = "resize"
+type = "select"
+label_key = "settings.resize.label"
+description_key = "settings.resize.description"
+default = "crop"
+options = [
+  { value = "no", label_key = "settings.resize.options.no" },
+  { value = "crop", label_key = "settings.resize.options.crop" },
+  { value = "fit", label_key = "settings.resize.options.fit" },
+  { value = "stretch", label_key = "settings.resize.options.stretch" },
+]
+
+[[setting]]
+key = "transition_type"
+type = "select"
+label_key = "settings.transition_type.label"
+default = "random"
+options = [
+  { value = "none", label_key = "settings.transition_type.options.none" },
+  { value = "simple", label_key = "settings.transition_type.options.simple" },
+  { value = "fade", label_key = "settings.transition_type.options.fade" },
+  { value = "left", label_key = "settings.transition_type.options.left" },
+  { value = "right", label_key = "settings.transition_type.options.right" },
+  { value = "top", label_key = "settings.transition_type.options.top" },
+  { value = "bottom", label_key = "settings.transition_type.options.bottom" },
+  { value = "wipe", label_key = "settings.transition_type.options.wipe" },
+  { value = "wave", label_key = "settings.transition_type.options.wave" },
+  { value = "grow", label_key = "settings.transition_type.options.grow" },
+  { value = "center", label_key = "settings.transition_type.options.center" },
+  { value = "outer", label_key = "settings.transition_type.options.outer" },
+  { value = "random", label_key = "settings.transition_type.options.random" },
+]
+
+[[setting]]
+key = "filter"
+type = "select"
+label_key = "settings.filter.label"
+default = "Nearest"
+options = [
+  { value = "Nearest", label_key = "settings.filter.options.nearest" },
+  { value = "Bilinear", label_key = "settings.filter.options.bilinear" },
+  { value = "CatmullRom", label_key = "settings.filter.options.catmullrom" },
+  { value = "Mitchell", label_key = "settings.filter.options.mitchell" },
+  { value = "Lanczos3", label_key = "settings.filter.options.lanczos3" },
+]
+
+[[setting]]
+key = "transition_duration"
+type = "int"
+label_key = "settings.transition_duration.label"
+description_key = "settings.transition_duration.description"
+default = 1
+min = 0
+max = 30
+step = 1
+
+# Headless background service: polls Noctalia's own wallpaper config per output
+# and mirrors changes into `awww`.
+[[service]]
+id = "mirror"
+entry = "service.luau"
+
+# Bar toggle: turns the mirroring on/off.
+[[widget]]
+id = "toggle"
+entry = "widget.luau"
