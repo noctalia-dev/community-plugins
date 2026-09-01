@@ -11,11 +11,37 @@
 - Existing 1.4 display settings must be reapplied for each lyrics widget after
   upgrading; source and service settings are unchanged.
 
+## 1.4.6
+
+- Fix MPRIS player detection on systems where `/bin/sh` is `dash` rather than
+  Bash, contributed by @Dioxane123 in [#404](https://github.com/noctalia-dev/community-plugins/pull/404).
+
+## 1.4.5
+
+- Add a per-widget option to hide the lyrics widget when no lyrics are
+  available, contributed by @NullSeile in [#216](https://github.com/noctalia-dev/community-plugins/pull/216).
+- Keep the widget visible in track-only mode when that option is enabled.
+
+## 1.4.4
+
+- Add ranked, selectable LRCLIB results through an attached selector panel and
+  `open_selector` shortcut.
+- Bind candidate requests and selected results to the current track so stale
+  responses cannot replace current lyrics.
+
 ## 1.4.3
 
-- Add an option to hide the fallback glyph when album artwork is unavailable.
-- Hide the glyph picker while fallback glyph display is disabled.
-- Add vertical mouse-wheel controls for switching to the next or previous track.
+- Add controls to hide the fallback glyph and its picker when it is disabled.
+- Add mouse-wheel previous/next track controls.
+- Use Noctalia's host scroll handling for the widget.
+
+## 1.4.2
+
+- Add Simplified Chinese translations.
+- Restore `splayer` in the automatic-source settings help text.
+- Add matched-provider and iTunes Search artwork fallbacks when MPRIS artwork is
+  unavailable, with content-type detection, bounded cache cleanup, and stale
+  request protection.
 
 ## 1.4.1
 
