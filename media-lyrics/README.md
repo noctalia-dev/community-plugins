@@ -6,10 +6,6 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | --- | --- |
 | ![Media Lyrics panel (light)](screenshots/panel-light.png) | ![Media Lyrics panel (dark)](screenshots/panel-dark.png) |
 
-| Settings |
-| --- |
-| ![Media Lyrics settings](screenshots/settings.png) |
-
 ## Plugin
 
 | Field | Value |
@@ -45,6 +41,8 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 ## Features
 
 - **Karaoke lyric carousel** — 14 lines visible at once; the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
+- **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
+- **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
 - **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
@@ -54,10 +52,8 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 ## Advantages over alternative lyric plugins
 
 - **Zero external dependencies.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain. Enable → works.
-- **No background daemons.** MPRIS polling, lyric fetching, parsing and caching run inside the plugin's own service — no systemd units, no scripts to launch manually.
-- **No per-player setup.** No API tokens, no external API to enable inside a specific player, no config files. Any MPRIS player is picked up automatically.
 - **Player-agnostic.** Reads MPRIS directly via Noctalia's D-Bus aggregator — works with any player, not tied to a specific app.
-- **A real panel, not a 1–3 line bar widget.** Full-height carousel with 14 visible lines keeps whole verses in view, with transport controls and progress built in.
+- **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 14 visible lines keeps whole verses in view.
 - **Overflow handled properly.** Long titles get a marquee, single-line sanitizer strips embedded newlines, integer button heights prevent glyph overlap.
 - **Offline-friendly.** LRCLIB responses are cached; local `.lrc` files work without network at all.
 
@@ -91,10 +87,10 @@ Upcoming work, roughly in priority order:
 
 - [ ] Album cover inside a capsule shape
 - [ ] Additional lyric sources (NetEase, Musixmatch, embedded MPRIS metadata, …)
-- [ ] Clickable lyric lines — click a line to seek the track to that moment
+- [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
-- [ ] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box
+- [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
 - [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
 
 ## Notes

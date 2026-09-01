@@ -4,6 +4,39 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.5] — 2026-09-01
+
+### Added
+
+- **Clickable lyric lines** — click a synced line to seek the player to that
+  timestamp. Lines without a timestamp (plain lyrics) are not clickable.
+  Implemented as a `ui.row` click target wrapping the label — `ui.label`
+  takes no `onClick` and `ui.button` ignores `color`/`fontWeight` (would
+  break the karaoke gradient).
+- **Manual lyric scroll + line selection** — Up/Down step the lyric cursor
+  (highlighted with a chevron marker), Return/Space seek to the cursor line.
+  Works for synced AND plain lyrics (plain: highlight only, no seek).
+  Before the first timestamp the window starts at line 1 (was frozen).
+  `keyboard_focus = "exclusive"` so the panel receives keys; the host's chord
+  validator accepts only basic names (PageUp/PageDown/Home/End are rejected
+  and would drop the plugin from the store).
+- `onScroll` declared on the panel (the host documents it as bar-widget-only;
+  if a future build delivers wheel events, scrolling steps the cursor).
+
+### Fixed
+
+- **Seek used the wrong D-Bus method** — `SeekActive` is RELATIVE (MPRIS
+  Seek): seeking to a line jumped by the timestamp instead of to it. Now uses
+  `SetPositionActive` (ABSOLUTE, verified live: 2:00 lands at 2:00).
+- **`busctlCall` dropped the D-Bus signature** — typed arguments were passed
+  without their type (`SetPositionActive 90000000` instead of
+  `SetPositionActive x 90000000`), so busctl failed with «Too few parameters
+  for signature» and seek/shuffle/loop silently did nothing. Now the type is
+  passed for every argument (`b`, `s`, `x`).
+- **Bar widget mixed render() and setGlyph/setText** — the host warns that
+  setGlyph/setText have no visible effect once a render() tree is active;
+  the empty state now renders a disc glyph tree too.
+
 ## [0.8.3] — 2026-09-01
 
 ### Changed

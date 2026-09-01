@@ -61,7 +61,8 @@ local T = {
 }
 
 local snap = nil       -- latest snapshot from the service
-local viewOffset = 0   -- manual lyric scroll offset from the playback line
+local cursorLine = 0   -- keyboard/scroll cursor over lyric lines (0 = follow playback)
+local lastTrackKey = "" -- track identity for cursor reset on track change
 local lastSnapMs = 0
 tickMarquee = nil      -- set by buildInfoRow; advances marquee clocks
 
@@ -131,12 +132,26 @@ local function buildLyricsBody(s)
 
   if not s.synced then
     -- unsynced: static list inside a clipping scroll (a bare column does not
-    -- clip its children), dimmed, centered, generous line spacing
+    -- clip its children), dimmed, centered, generous line spacing. The
+    -- keyboard cursor still highlights a line (no seek — no timestamps).
     local rows = {}
     for i, l in ipairs(lines) do
-      rows[#rows + 1] = ui.label({
-        key = "lyr" .. i, text = l.text, fontSize = T.fsFarLyric,
-        color = T.lyricNear, opacity = 0.8, textAlign = "center",
+      local isCursor = (i == cursorLine)
+      rows[#rows + 1] = ui.row({
+        key = "lyr" .. i,
+        align = "center", justify = "center",
+      }, {
+        (isCursor) and ui.glyph({
+          key = "cur" .. i,
+          name = "chevron-right",
+          size = 11,
+          color = T.lyricActive,
+        }) or nil,
+        ui.label({
+          key = "lbl" .. i, text = l.text, fontSize = T.fsFarLyric,
+          color = isCursor and T.lyricActive or T.lyricNear,
+          opacity = isCursor and 1 or 0.8, textAlign = "center",
+        }),
       })
       rows[#rows + 1] = ui.spacer({ key = "lgap" .. i, height = T.gapMicro })
     end
@@ -153,22 +168,48 @@ local function buildLyricsBody(s)
 
   local showCount = math.min(VISIBLE, n)
   local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
-  local base = active - centerY + viewOffset
+  -- The window centers on the keyboard cursor line when the user moved it
+  -- (Up/Down/Return/Space/scroll), otherwise on the active playback line.
+  -- Before the first lyric timestamp active == -1: fall back to line 1 so
+  -- scrolling works from the very start (a raw active-based base was clamped
+  -- to a frozen window until the first words began).
+  local refActive = active >= 1 and active or 1
+  local target = cursorLine >= 1 and cursorLine or refActive
+  local lo = 1
+  local hi = math.max(1, n - showCount + 1)
+  local base = target - centerY
+  base = math.max(lo, math.min(hi, base))
   local rows = {}
   for k = 1, showCount do
     local idx = base + k - 1
     if idx >= 1 and idx <= n then
       local isActive = (idx == active)
+      local isCursor = (idx == cursorLine)
       local dist = math.abs(idx - active)
       local fontSize = isActive and T.fsActiveLyric
         or (dist <= 2 and T.fsNearLyric or T.fsFarLyric)
-      local fontWeight = isActive and "bold"
+      local fontWeight = (isActive or isCursor) and "bold"
         or (dist <= 2 and "medium" or "normal")
-      local color = isActive and T.lyricActive
+      local color = (isActive or isCursor) and T.lyricActive
         or (dist <= 2 and T.lyricNear or T.lyricFar)
-      local opacity = isActive and 1 or (dist <= 2 and 0.9 or (dist <= 5 and 0.55 or 0.3))
-      rows[k] = ui.label({
-        key = "lyr" .. idx,
+      local opacity = (isActive or isCursor) and 1
+        or (dist <= 2 and 0.9 or (dist <= 5 and 0.55 or 0.3))
+      local lineTime = s.lyrics[idx].time
+      -- Clickable line: ui.label does not accept onClick and ui.button
+      -- ignores color/fontWeight (would break the karaoke gradient), so wrap
+      -- the label in a ui.row that owns the click target. Seek only when the
+      -- line has a timestamp. The cursor row gets a leading chevron marker.
+      local children = {}
+      if isCursor then
+        children[#children + 1] = ui.glyph({
+          key = "cur" .. idx,
+          name = "chevron-right",
+          size = math.max(10, fontSize - 3),
+          color = T.lyricActive,
+        })
+      end
+      children[#children + 1] = ui.label({
+        key = "lbl" .. idx,
         text = s.lyrics[idx].text,
         fontSize = fontSize,
         fontWeight = fontWeight,
@@ -176,6 +217,13 @@ local function buildLyricsBody(s)
         opacity = opacity,
         textAlign = "center",
       })
+      rows[k] = ui.row({
+        key = "lyr" .. idx,
+        align = "center", justify = "center",
+        onClick = (lineTime >= 0) and function()
+          sendCmd("seekTo", { sec = lineTime })
+        end or nil,
+      }, children)
     else
       rows[k] = ui.spacer({ key = "gap" .. k, height = 24 })
     end
@@ -482,6 +530,12 @@ noctalia.state.watch("media", function(value)
       if tickMarquee then tickMarquee(deltaSec) end
     end
   end
+  -- track changed: drop the lyric cursor so the panel follows playback again
+  local key = (value.title or "") .. "|" .. (value.artist or "") .. "|" .. tostring(value.lengthSec or 0)
+  if key ~= lastTrackKey then
+    lastTrackKey = key
+    cursorLine = 0
+  end
   snap = value
   lastSnapMs = nowMs()
   render()
@@ -493,10 +547,90 @@ end)
 function update()
 end
 
+-- Lyric cursor helpers. cursorLine is 1-based over s.lyrics; 0 = follow the
+-- active playback line. moveCursor starts from the active line (or line 1
+-- before the first timestamp — fixes the frozen window until the first
+-- words), steps by delta and re-centers the window on the cursor.
+local function activeIndex(s)
+  local pos = interpPos(s)
+  local active = -1
+  local n = #(s.lyrics or {})
+  for i = 1, n do
+    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time <= pos) then active = i end
+    if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
+  end
+  return active
+end
+
+local function moveCursor(delta)
+  local s = snap
+  if not s or not s.lyrics or #s.lyrics == 0 then return end
+  local n = #s.lyrics
+  local cur = cursorLine
+  if cur < 1 or cur > n then
+    cur = activeIndex(s)
+    if cur < 1 then cur = 1 end
+  end
+  cursorLine = math.max(1, math.min(n, cur + delta))
+  render()
+end
+
+-- Activate the line under the cursor: seek the player to its timestamp
+-- (synced lyrics only — plain lines have no timestamps).
+local function seekCursor()
+  local s = snap
+  if not s or not s.synced or not s.lyrics then
+    cursorLine = 0
+    render()
+    return
+  end
+  local cur = cursorLine
+  if cur < 1 or cur > #s.lyrics then
+    cur = activeIndex(s)
+    if cur < 1 then
+      cursorLine = 0
+      render()
+      return
+    end
+  end
+  local lineTime = s.lyrics[cur].time
+  if lineTime >= 0 then
+    sendCmd("seekTo", { sec = lineTime })
+  end
+  cursorLine = 0
+  render()
+end
+
 function onOpen(_context)
-  viewOffset = 0
+  cursorLine = 0
   -- second ticks keep position + lyrics moving between service polls
   panel.setWantsSecondTicks(true)
   noctalia.state.set("panel_req", { action = "refresh" })
   render()
+end
+
+-- Manual lyric scroll. The host's chord validator accepts only a small set
+-- of key names (Up/Down/Left/Right/Return/Space/Escape/Tab — used by
+-- community plugins); PageUp/PageDown/Home/End are REJECTED by the catalog
+-- scan and drop the plugin from the store, so only Up/Down/Return/Space are
+-- declared. Up/Down step the cursor, Return/Space seek to the cursor line.
+-- The window never leaves [1..n] (clamped in buildLyricsBody).
+function onKey(chord, pressed)
+  if not pressed then return end
+  if chord == "Up" then
+    moveCursor(-1)
+  elseif chord == "Down" then
+    moveCursor(1)
+  elseif chord == "Return" or chord == "Space" then
+    seekCursor()
+  end
+end
+
+-- Docs say onScroll is a bar-widget callback, but declare it anyway: if the
+-- host delivers wheel events to panels, this makes wheel scrolling step the
+-- lyric cursor. Harmless no-op otherwise.
+function onScroll(axis, steps, startsGesture)
+  if axis ~= "vertical" or startsGesture then return end
+  local dir = (steps or 0) > 0 and 1 or -1
+  moveCursor(dir)
 end

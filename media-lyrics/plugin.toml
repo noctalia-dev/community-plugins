@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.3"
+version = "0.8.5"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
@@ -64,6 +64,8 @@ width = 520
 height = 520
 placement = "floating"
 position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
 
 # Control-center tile: quick panel open.
 [[shortcut]]

@@ -24,8 +24,14 @@ end
 
 local function renderFrom(m)
   if not m or not m.hasPlayer then
-    barWidget.setGlyph("disc")
-    barWidget.setText("")
+    -- Empty state is ALSO a render() tree: the host warns that
+    -- setGlyph/setText have no visible effect once a render() tree is
+    -- active (verified live), so a plain disc glyph is rendered instead.
+    -- No explicit color roles — the widget instance's Color/Icon Color
+    -- settings apply.
+    barWidget.render(ui.row({ gap = 6, align = "center" }, {
+      ui.glyph({ name = "disc", size = 14 }),
+    }))
     return
   end
   local g = m.playing and glyphPause or glyphPlay

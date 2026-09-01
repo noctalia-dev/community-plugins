@@ -463,11 +463,14 @@ end
 
 -- ============================= command channel =============================
 
-local function busctlCall(method, extraArgs)
+local function busctlCall(method, argType, argValue)
   local argv = { "busctl", "--user", "call", "dev.noctalia.Mpris", "/dev/noctalia/Mpris",
     "dev.noctalia.Mpris", method }
-  if extraArgs then
-    for _, a in ipairs(extraArgs) do argv[#argv + 1] = a end
+  -- busctl requires the D-Bus signature for typed arguments ("Too few
+  -- parameters for signature" otherwise); methods without args need none.
+  if argType then
+    argv[#argv + 1] = argType
+    argv[#argv + 1] = tostring(argValue)
   end
   noctalia.runAsync(argv)
 end
@@ -482,15 +485,17 @@ noctalia.state.watch("panel_cmd", function(value)
   elseif a == "prev" then
     busctlCall("PreviousActive")
   elseif a == "shuffle" then
-    busctlCall("SetShuffleActive", { tostring(not snapshot.shuffle) })
+    busctlCall("SetShuffleActive", "b", tostring(not snapshot.shuffle))
   elseif a == "loop" then
     local order = { None = "Playlist", Playlist = "Track", Track = "None" }
     local nextLoop = order[snapshot.loopStatus] or "None"
-    busctlCall("SetLoopStatusActive", { nextLoop })
+    busctlCall("SetLoopStatusActive", "s", nextLoop)
   elseif a == "seekTo" then
     local sec = tonumber(value.sec)
     if sec then
-      busctlCall("SeekActive", { tostring(math.floor(sec * 1e6 + 0.5)) })
+      -- SetPositionActive is ABSOLUTE (like MPRIS SetPosition); SeekActive
+      -- is RELATIVE (MPRIS Seek) and would jump by the timestamp, not to it.
+      busctlCall("SetPositionActive", "x", math.floor(sec * 1e6 + 0.5))
     end
   end
   -- refresh promptly after a command
