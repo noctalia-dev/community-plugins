@@ -21,6 +21,7 @@
 
 local GH_TIMEOUT_MS = 30000
 local DEFAULT_INTERVAL_S = 180
+local DEFAULT_HOSTNAME = "github.com"
 local MIN_INTERVAL_S = 30
 local RESULTS_PER_RULE = 50
 
@@ -57,6 +58,15 @@ local function readRules()
     end
   end
   return rules
+end
+
+local function readHostname()
+  local hostname = noctalia.getConfig("hostname")
+  if type(hostname) ~= "string" then
+    return DEFAULT_HOSTNAME
+  end
+  hostname = noctalia.string.trim(hostname)
+  return hostname ~= "" and hostname or DEFAULT_HOSTNAME
 end
 
 local function readExcludedRepositories()
@@ -144,8 +154,10 @@ local function buildSearchQuery(rule)
   return q .. " " .. rule
 end
 
-local function buildCommand(rule)
-  return "gh api graphql -f query="
+local function buildCommand(rule, hostname)
+  return "gh api --hostname "
+    .. quoteShellArgument(hostname)
+    .. " graphql -f query="
     .. quoteShellArgument(GRAPHQL_QUERY)
     .. " -f q="
     .. quoteShellArgument(buildSearchQuery(rule))
@@ -245,6 +257,7 @@ local function startFetch()
   end
 
   local rules = readRules()
+  local hostname = readHostname()
   local excludedRepositories = readExcludedRepositories()
   if #rules == 0 then
     publish({}, "ok", "", 0, 0, true)
@@ -278,7 +291,7 @@ local function startFetch()
   end
 
   for _, rule in ipairs(rules) do
-    local started = noctalia.runAsync(buildCommand(rule), function(result)
+    local started = noctalia.runAsync(buildCommand(rule, hostname), function(result)
       if thisGeneration ~= fetchGeneration then
         return -- config changed mid-flight; a newer fetch owns the state
       end

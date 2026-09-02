@@ -30,6 +30,10 @@
     "glyph": {
       "label": "Bar glyph"
     },
+    "hostname": {
+      "description": "GitHub hostname passed to the GitHub CLI. Use github.com for GitHub.com or your GitHub Enterprise hostname.",
+      "label": "GitHub hostname"
+    },
     "hide_when_zero": {
       "description": "Hide the bar widget when there are no open pull requests.",
       "label": "Hide when empty"

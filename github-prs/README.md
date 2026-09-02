@@ -43,6 +43,7 @@ noctalia msg panel-toggle raycursive/github-prs:panel
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `rules` | `string_list` | `author:@me` | GitHub search fragments; one `gh api graphql` request runs per non-empty rule. |
+| `hostname` | `string` | `github.com` | GitHub hostname passed to `gh api`; set this to your GitHub Enterprise hostname when applicable. |
 | `excluded_repositories` | `string_list` | empty | Case-insensitive repository-name or `owner/name` glob patterns removed after fetching. |
 | `refresh_interval` | `int` | `180` seconds | Background refresh interval, limited to 30–3600 seconds. |
 | `glyph` | `glyph` | `git-pull-request` | Glyph used by this bar-widget instance. |
@@ -62,7 +63,7 @@ noctalia msg plugin raycursive/github-prs:fetch all dump
 
 ## Notes
 
-- For every configured rule, the service spawns `gh api graphql`, which sends the resulting search query to GitHub using the GitHub CLI's current authentication. The plugin does not read or store a GitHub token itself.
+- For every configured rule, the service spawns `gh api --hostname <hostname> graphql`, which sends the resulting search query to GitHub using the GitHub CLI's current authentication. The plugin does not read or store a GitHub token itself.
 - Selecting a pull request spawns `xdg-open` with the GitHub URL. The plugin does not write files.
 - Each rule returns at most 50 rows. The panel reports additional matches as truncated instead of silently presenting the list as complete.
 - A partial rule failure is shown alongside successful results. If every rule fails, the last successful in-memory result remains visible until the plugin reloads or a later fetch succeeds.

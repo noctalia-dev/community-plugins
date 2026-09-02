@@ -5,7 +5,7 @@
 
 id = "raycursive/github-prs"
 name = "GitHub Pull Requests"
-version = "0.3.0"
+version = "0.3.1"
 plugin_api = 9
 author = "raycursive"
 license = "MIT"
@@ -22,6 +22,13 @@ type = "string_list"
 label_key = "settings.rules.label"
 description_key = "settings.rules.description"
 default = ["author:@me"]
+
+[[setting]]
+key = "hostname"
+type = "string"
+label_key = "settings.hostname.label"
+description_key = "settings.hostname.description"
+default = "github.com"
 
 [[setting]]
 key = "excluded_repositories"
