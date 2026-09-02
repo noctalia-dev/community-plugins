@@ -155,5 +155,9 @@ end
 noctalia.state.watch("pomodoro.state", function(state)
     if state.secondsLeft == 0 then
         notifyStageFinished(state, sessionData)
+        noctalia.state.set("pomodoro.nextCommand", "skip")
+        if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then
+            noctalia.state.set("pomodoro.nextCommand", "toggle")
+        end
     end
 end)

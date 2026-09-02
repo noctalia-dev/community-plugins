@@ -169,24 +169,8 @@ function onOpen(context)
     refresh()
 end
 
-local function handleStateSideEffects(state)
-    local config = noctalia.state.get("pomodoro.config")
-    local sessionData = noctalia.state.get("pomodoro.sessionData")
-    if not state or not config or not sessionData or not state.sessionPtr then
-        return
-    end
-
-    if state.secondsLeft == 0 then
-        noctalia.state.set("pomodoro.nextCommand", "skip")
-        if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then
-            noctalia.state.set("pomodoro.nextCommand", "toggle")
-        end
-    end
-end
-
 --- main
 noctalia.state.watch("pomodoro.state", function(state)
-    handleStateSideEffects(state)
     refresh()
 end)
 
