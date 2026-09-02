@@ -2,7 +2,7 @@
 
 id = "davemhammer/k8s-status"
 name = "K8s Status"
-version = "1.1.5"
+version = "1.1.6"
 plugin_api = 10
 author = "davemhammer"
 license = "MIT"
