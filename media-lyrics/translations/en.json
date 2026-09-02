@@ -21,6 +21,47 @@
     "unsynced": "unsynced"
   },
   "settings": {
+    "album_art_only": {
+      "label": "Album art only",
+      "description": "Show only the album artwork (no text)."
+    },
+    "hide_album_art": {
+      "label": "Hide album art",
+      "description": "Hide the artwork and its fallback icon."
+    },
+    "hide_artist": {
+      "label": "Hide artist",
+      "description": "Show only the track title."
+    },
+    "artist_first": {
+      "label": "Artist first",
+      "description": "Show \"Artist - Title\" instead of \"Title - Artist\"."
+    },
+    "min_length": {
+      "label": "Min length",
+      "description": "Minimum widget length in pixels."
+    },
+    "max_length": {
+      "label": "Max length",
+      "description": "Maximum widget length in pixels — the text area width (long titles scroll or truncate to fit it)."
+    },
+    "art_size": {
+      "label": "Art size",
+      "description": "Album artwork size in pixels."
+    },
+    "title_scroll": {
+      "label": "Title scroll",
+      "description": "Scroll long titles that exceed the max length.",
+      "options": {
+        "none": "None",
+        "always": "Always",
+        "on_hover": "On hover"
+      }
+    },
+    "hide_when_no_media": {
+      "label": "Hide when no media",
+      "description": "Hide the widget when no MPRIS player is active."
+    },
     "offset_ms": {
       "label": "Lyrics offset (ms)",
       "description": "Shift lyric timing: positive values show lines earlier, negative later."

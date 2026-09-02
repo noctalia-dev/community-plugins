@@ -4,6 +4,36 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-09-03
+
+### Added
+
+- **Bar widget album cover** — the `now-playing` chip shows the artwork
+  (squircle, ~0.62 em glyph budget for text, `noctalia.fileExists` guard with
+  a state-glyph fallback when the art is missing; render deduped by a content
+  key so the 150 ms service publishes never flicker the chip). Paused
+  playback dims the chip like the built-in media widget.
+- **Widget display settings** — the same knobs as the shell's built-in media
+  widget, edited in the widget's own settings popup (middle click):
+  `album_art_only`, `hide_album_art`, `hide_artist`, `artist_first`,
+  `min_length`, `max_length`, `art_size`, `title_scroll` (none/always/on
+  hover), `hide_when_no_media` (chip hides via `barWidget.setVisible`).
+- **Gesture parity with the built-in media widget** — right click toggles
+  play/pause, mouse back/forward and the wheel skip tracks (declared in
+  `[widget.actions]` so they show up in the settings editor); middle click is
+  left to the host default `settings-open-widget`. Vertical bars show the
+  artwork only (like `media_widget.cpp`: `artOnly = isVertical`).
+
+### Fixed
+
+- **Chip stayed dimmed after resume** — the paused-dim `opacity` was sent as
+  `nil` on resume, and the host reads a nil prop as "unchanged", leaving the
+  0.65 dim applied forever. Opacity is now always an explicit number
+  (`m.playing and 1 or 0.65`); verified live (play → pause → resume pixel
+  luminance returns to baseline).
+- Bar widget now shows the artist too (default `Title - Artist`), matching
+  the built-in widget, instead of the title alone.
+
 ## [0.8.13] — 2026-09-02
 
 ### Fixed

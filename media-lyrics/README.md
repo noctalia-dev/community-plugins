@@ -41,7 +41,31 @@ noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
 noctalia msg panel-toggle tranzem/media-lyrics:panel-large
 ```
 
-Add the `now-playing` widget to your bar to get a compact indicator that opens the panel on click. A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
+Add the `now-playing` widget to your bar: a compact chip with the album
+cover and **Title - Artist** of the active MPRIS player. Its gestures mirror
+the shell's built-in media widget:
+
+- **Left click** — open the lyrics panel.
+- **Right click** — play/pause.
+- **Middle click** — this widget's display settings.
+- **Wheel / mouse back / forward** — previous / next track.
+- On a **vertical bar** the chip collapses to the artwork only.
+
+Display options are edited in the widget's own settings popup (middle click):
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `album_art_only` | off | Show only the artwork, no text |
+| `hide_album_art` | off | Hide the artwork and its fallback icon |
+| `hide_artist` | off | Show only the track title |
+| `artist_first` | off | Show `Artist - Title` instead of `Title - Artist` |
+| `min_length` | 80 | Minimum widget length (px) — accepted for parity; plugin chips are sized by the host to their content |
+| `max_length` | 220 | Text area width (px); long titles truncate or scroll to fit |
+| `art_size` | 16 | Artwork size (px) |
+| `title_scroll` | none | Scroll long titles: `none`, `always`, or `on hover` |
+| `hide_when_no_media` | off | Hide the chip when no MPRIS player is active |
+
+A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 
 ```toml
 "Ctrl+Alt+M" = "spawn:noctalia msg panel-toggle tranzem/media-lyrics:panel"
