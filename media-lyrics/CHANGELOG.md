@@ -4,6 +4,56 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.10] — 2026-09-02
+
+### Fixed
+
+- **Community review compliance** (noctalia-dev/community-plugins #592):
+  - `curl` now declared in `dependencies` and the README Requirements —
+    the service spawns it for LRCLIB fetches (`-sSf -m 8 -4`, argv-only, no
+    shell). `sleep` (coreutils) documented in the README Notes.
+  - Plugin description no longer claims "no external dependencies" — it
+    states the real runtime needs (`busctl` + `curl`).
+  - Panel chrome is fully routed through `noctalia.tr()` with keys in
+    `translations/en.json` ("Loading lyrics…", "Lyrics error: ", "No lyrics
+    found", "No media player", "(no title)", "NOW PLAYING", "Reload lyrics",
+    "synced"/"unsynced") — other locales can now be provided via Noctalia
+    Translate instead of rendering hardcoded English.
+  - Thumbnail regenerated with the official thumbnail generator
+    (assets.noctalia.dev, 960×540 WebP).
+
+## [0.8.9] — 2026-09-01
+
+### Fixed
+
+- **Compact panel: layout fix actually wired up** — `panelLayout()` was
+  defined but never used in `buildInfoRow`; the header still rendered with
+  the fixed 520px metrics and the transport block stayed clipped at 440px.
+  `buildInfoRow` now applies the preset layout (cover size, gap, text width,
+  transport button sizes, no-player row height).
+
+## [0.8.8] — 2026-09-01
+
+### Fixed
+
+- **Compact panel: transport block clipped** — the header (cover + title +
+  transport + time) overflowed 440px. `panelLayout()` now scales cover size,
+  text column width and transport button sizes per preset (compact 36/168/14,
+  medium 50/286/18, large 56/370/20); the disc placeholder glyph scales too.
+- **Per-preset placement/position settings removed** — only the medium
+  `panel` declares `placement`/`position`; compact and large inherit the
+  default so the settings UI shows one placement/position block, not three.
+
+## [0.8.7] — 2026-09-01
+
+### Added
+
+- **Panel size presets** — `panel_size` setting (compact 440 / medium 520 /
+  large 640) selects which panel preset the bar widget and control-center
+  tile open. Three `[[panel]]` entries share one `panel.luau`; the visible
+  lyric lines scale with the preset (10 / 14 / 16). Medium keeps the
+  historical `panel` id for IPC compatibility.
+
 ## [0.8.5] — 2026-09-01
 
 ### Added

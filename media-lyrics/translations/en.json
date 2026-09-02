@@ -1,8 +1,28 @@
 {
+  "panel": {
+    "loading-lyrics": "Loading lyrics…",
+    "lyrics-error": "Lyrics error: ",
+    "no-lyrics": "No lyrics found",
+    "no-media-player": "No media player",
+    "no-title": "(no title)",
+    "now-playing": "NOW PLAYING",
+    "reload-lyrics": "Reload lyrics",
+    "synced": "synced",
+    "unsynced": "unsynced"
+  },
   "settings": {
     "offset_ms": {
       "label": "Lyrics offset (ms)",
       "description": "Shift lyric timing: positive values show lines earlier, negative later."
+    },
+    "panel_size": {
+      "label": "Panel size",
+      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
+      "options": {
+        "compact": "Compact (440)",
+        "medium": "Medium (520)",
+        "large": "Large (640)"
+      }
     },
     "use_cache": {
       "label": "Cache lyrics",

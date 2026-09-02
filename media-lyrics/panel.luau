@@ -110,7 +110,30 @@ local marqueeState = {}   -- [key] = { text, elapsed }
 
 -- ============================= lyrics rendering =============================
 
-local VISIBLE = 14          -- lyric lines visible at once (carousel window)
+-- Visible lyric lines depend on the panel preset (panel_size setting):
+-- compact 440px fits 10, medium 520px fits 14 (historical default), large
+-- 640px fits 16.
+local function visibleLines()
+  local sz = noctalia.getConfig("panel_size")
+  if sz == "compact" then return 10 end
+  if sz == "large" then return 16 end
+  return 14
+end
+
+-- Header layout per panel preset: cover size, gaps, text column width and
+-- transport button sizes. Compact is ~432 usable px, medium ~512, large
+-- ~632 (panel width minus root padding); the numbers keep the whole header
+-- (cover + text + transport + time) inside those bounds.
+local function panelLayout()
+  local sz = noctalia.getConfig("panel_size")
+  if sz == "compact" then
+    return { cover = 36, gapInline = 8, textW = 168, ctl = 14, main = 18 }
+  elseif sz == "large" then
+    return { cover = 56, gapInline = 14, textW = 370, ctl = 20, main = 24 }
+  end
+  return { cover = 50, gapInline = 12, textW = 286, ctl = 18, main = 22 }
+end
+
 local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
 
 local function buildLyricsBody(s)
@@ -118,15 +141,15 @@ local function buildLyricsBody(s)
   local n = #lines
 
   if s.lyricsStatus == "loading" then
-    return { ui.label({ text = "Loading lyrics…", color = T.colMeta,
+    return { ui.label({ text = noctalia.tr("panel.loading-lyrics"), color = T.colMeta,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
   end
   if s.lyricsStatus == "error" then
-    return { ui.label({ text = "Lyrics error: " .. (s.lyricsError or ""),
+    return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
   if s.lyricsStatus ~= "ready" or n == 0 then
-    return { ui.label({ text = "No lyrics found", color = T.emptyState,
+    return { ui.label({ text = noctalia.tr("panel.no-lyrics"), color = T.emptyState,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
   end
 
@@ -166,7 +189,7 @@ local function buildLyricsBody(s)
     if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
   end
 
-  local showCount = math.min(VISIBLE, n)
+  local showCount = math.min(visibleLines(), n)
   local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
   -- The window centers on the keyboard cursor line when the user moved it
   -- (Up/Down/Return/Space/scroll), otherwise on the active playback line.
@@ -240,8 +263,8 @@ end
 --     frame is the image's own border (ui.image border/borderWidth/radius);
 --   * vertical ui.progress bars do not render at all -> single horizontal
 --     native progress bar under the art (agreed auto-fallback).
-local function buildCover(s)
-  local COVER = T.cover
+local function buildCover(s, coverSize)
+  local COVER = coverSize or T.cover
   if s.artUrl and s.artUrl ~= "" then
     return ui.image({
       key = "cover", path = s.artUrl, width = COVER, height = COVER,
@@ -253,7 +276,7 @@ local function buildCover(s)
     return ui.box({ key = "coverbox", width = COVER, height = COVER,
       fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
-        ui.glyph({ name = "disc", size = 44, color = "on_surface_variant" }),
+        ui.glyph({ name = "disc", size = math.max(28, COVER - 8), color = "on_surface_variant" }),
       })
   end
 end
@@ -272,17 +295,18 @@ end
 -- ============================= header (cover + info + transport) =============================
 
 local function buildInfoRow(s)
+  local L = panelLayout()
   if not s.hasPlayer then
-    return { ui.row({ key = "noplayer", height = T.cover + 2 * T.ring, align = "center" }, {
-      ui.label({ text = "No media player", color = T.emptyState, fontSize = T.fsMeta }),
+    return { ui.row({ key = "noplayer", height = L.cover + 2 * T.ring, align = "center" }, {
+      ui.label({ text = noctalia.tr("panel.no-media-player"), color = T.emptyState, fontSize = T.fsMeta }),
     }) }
   end
 
-  local cover = buildCover(s)
+  local cover = buildCover(s, L.cover)
 
   local function ctl(glyph, action, enabled, size)
     return ui.button({
-      glyph = glyph, glyphSize = size or 18, variant = "ghost",
+      glyph = glyph, glyphSize = size or L.ctl, variant = "ghost",
       enabled = enabled ~= false, onClick = function() sendCmd(action) end,
     })
   end
@@ -295,13 +319,13 @@ local function buildInfoRow(s)
   -- quiet time label underneath, right-aligned
   local transportCol = ui.column({ key = "transportCol", gap = 2, align = "center", justify = "center" }, {
     ui.row({ gap = T.gapMicro, align = "center", justify = "end" }, {
-      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, 18),
+      ctl(glyphFor.prev, "prev", s.canGoPrev ~= false, L.ctl),
       ui.button({
-        glyph = mainGlyph, glyphSize = 22, variant = "primary",
+        glyph = mainGlyph, glyphSize = L.main, variant = "primary",
         enabled = s.hasPlayer == true, onClick = function() sendCmd("toggle") end,
         controlSize = "sm",
       }),
-      ctl(glyphFor.next, "next", s.canGoNext ~= false, 18),
+      ctl(glyphFor.next, "next", s.canGoNext ~= false, L.ctl),
     }),
     ui.label({ key = "time", text = fmtTime(cur) .. " / " .. fmtTime(total),
       fontSize = T.fsTime, color = T.colTime }),
@@ -313,7 +337,7 @@ local function buildInfoRow(s)
   -- NOT ellipsized - it stays static for MARQUEE_HOLD seconds, then scrolls
   -- char-by-char (charUnits widths), holds at the end, and scrolls back.
   -- Height never jumps: button height is fixed per line.
-  local TEXT_W = 286            -- cover 52 + gap 12 + text 286 + transport ~130 < 511 usable
+  local TEXT_W = L.textW
   local MARQUEE_HOLD = 2        -- seconds of static display before scrolling
   local MARQUEE_SPEED = 24      -- pixels per second
   -- MPRIS metadata can contain embedded newlines ("Golden Empire feat.\n
@@ -447,7 +471,7 @@ local function buildInfoRow(s)
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    textLine("ttl", singleLine(s.title ~= "" and s.title or "(no title)"),
+    textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("panel.no-title")),
       T.fsTitle, "semibold", T.colTitle),
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
@@ -456,10 +480,10 @@ local function buildInfoRow(s)
   return {
     ui.row({ key = "infoRow", align = "center", justify = "start", height = 62 }, {
       ui.column({ key = "coverWrap", gap = 1, align = "center",
-        width = T.cover + 2 }, {
+        width = L.cover + 2 }, {
           cover,
         }),
-      ui.spacer({ key = "coverGap", width = T.gapInline }),
+      ui.spacer({ key = "coverGap", width = L.gapInline }),
       infoCol,
       ui.spacer({ key = "spring1", flexGrow = 1 }),
       transportCol,
@@ -481,18 +505,19 @@ local function render()
   local footerTxt = ""
   if s.lyricsStatus == "ready" then
     footerTxt = (s.lyricsProvider ~= "" and s.lyricsProvider or "")
-      .. (s.synced and " - synced" or " - unsynced")
+      .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
+        or (" - " .. noctalia.tr("panel.unsynced")))
   end
 
   panel.render(ui.column({ flexGrow = 1, padding = T.pad, gap = T.gapBand }, {
     -- A. chrome header: overline left, two ghost glyph buttons right
     ui.row({ key = "chrome", align = "center", justify = "space_between" }, {
-      ui.label({ text = "NOW PLAYING", fontSize = T.fsOverline, fontWeight = "semibold",
+      ui.label({ text = noctalia.tr("panel.now-playing"), fontSize = T.fsOverline, fontWeight = "semibold",
         color = T.colOverline }),
       ui.row({ gap = T.gapMicro, align = "center" }, {
         ui.button({ glyph = "refresh", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,
-          tooltip = "Reload lyrics",
+          tooltip = noctalia.tr("panel.reload-lyrics"),
           onClick = function() noctalia.state.set("panel_req", { action = "reloadLyrics" }) end }),
         ui.button({ glyph = "close", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,

@@ -1,6 +1,6 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (14 visible lines), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau, zero external dependencies**: no playerctl, no python daemons, no GTK overlays.
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (14 visible lines), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -17,9 +17,10 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 
 - Noctalia v5 (plugin API 24+)
 - `busctl` (systemd, present on every Arch install)
+- `curl` — used for the LRCLIB HTTPS fetch (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell; LRCLIB resolves IPv4 faster than the built-in HTTP client on some setups)
 - Outbound HTTPS access to `https://lrclib.net` for synced lyrics
 
-No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus.
+No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus. `sleep` (coreutils) is used for a short refresh delay after transport commands.
 
 ## Usage
 
@@ -28,6 +29,16 @@ Enable the plugin, then open the panel:
 ```sh
 noctalia msg plugins enable tranzem/media-lyrics
 noctalia msg panel-toggle tranzem/media-lyrics:panel
+```
+
+The panel opens at the size preset selected by the `panel_size` setting
+(compact 440 / medium 520 / large 640). The `now-playing` bar widget and the
+`toggle` control-center tile both open the selected preset; you can also open
+a specific preset directly:
+
+```sh
+noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
+noctalia msg panel-toggle tranzem/media-lyrics:panel-large
 ```
 
 Add the `now-playing` widget to your bar to get a compact indicator that opens the panel on click. A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
@@ -51,7 +62,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Advantages over alternative lyric plugins
 
-- **Zero external dependencies.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain. Enable → works.
+- **Lean runtime.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain — just `busctl` and `curl`, present on virtually every Linux system. Enable → works.
 - **Player-agnostic.** Reads MPRIS directly via Noctalia's D-Bus aggregator — works with any player, not tied to a specific app.
 - **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 14 visible lines keeps whole verses in view.
 - **Overflow handled properly.** Long titles get a marquee, single-line sanitizer strips embedded newlines, integer button heights prevent glyph overlap.
@@ -61,6 +72,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `panel_size` | `select` | `medium` | Panel size preset: `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
@@ -91,10 +103,11 @@ Upcoming work, roughly in priority order:
 - [ ] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget
 - [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
-- [ ] Widget size setting — user-configurable bar-widget size (glyph size, title length, scale) via plugin settings
+- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640; the bar widget itself keeps its hard-coded look)
 
 ## Notes
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
-- Lyrics are fetched from the public LRCLIB API; nothing is uploaded. Cache and local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Lyrics are fetched from the public LRCLIB API with `curl`; nothing is uploaded. Cache and local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB fetch, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.

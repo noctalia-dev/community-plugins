@@ -10,14 +10,14 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.5"
+version = "0.8.10"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
-description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau, no external dependencies."
-dependencies = ["busctl"]
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
+dependencies = ["busctl", "curl"]
 
 [[setting]]
 key = "offset_ms"
@@ -25,6 +25,18 @@ type = "int"
 label_key = "settings.offset_ms.label"
 description_key = "settings.offset_ms.description"
 default = 0
+
+[[setting]]
+key = "panel_size"
+type = "select"
+label_key = "settings.panel_size.label"
+description_key = "settings.panel_size.description"
+default = "medium"
+options = [
+  { value = "compact", label_key = "settings.panel_size.options.compact" },
+  { value = "medium", label_key = "settings.panel_size.options.medium" },
+  { value = "large", label_key = "settings.panel_size.options.large" },
+]
 
 [[setting]]
 key = "use_cache"
@@ -57,6 +69,9 @@ id = "service"
 entry = "service.luau"
 
 # Main panel: compact header (ringed cover | title+artist | transport) + lyrics view.
+# Three size presets share one entry; panel_size selects which one the widget
+# and the control-center tile open. Medium (520) is the default and keeps the
+# historical `panel` id for IPC compatibility.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
@@ -64,6 +79,22 @@ width = 520
 height = 520
 placement = "floating"
 position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+[[panel]]
+id = "panel-compact"
+entry = "panel.luau"
+width = 440
+height = 440
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+[[panel]]
+id = "panel-large"
+entry = "panel.luau"
+width = 640
+height = 640
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 

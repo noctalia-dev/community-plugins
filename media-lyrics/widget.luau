@@ -8,6 +8,16 @@
 local glyphPlay = "player-play"
 local glyphPause = "player-pause"
 
+-- Which panel preset to open: the plugin setting panel_size selects among
+-- compact (440), medium (520, default) and large (640) presets declared in
+-- plugin.toml. Medium keeps the historical `panel` id for IPC compatibility.
+local function panelIdForSize()
+  local sz = noctalia.getConfig("panel_size")
+  if sz == "compact" then return "panel-compact" end
+  if sz == "large" then return "panel-large" end
+  return "panel"
+end
+
 local TITLE_MAX = 26
 
 local function truncate(s)
@@ -56,7 +66,7 @@ end)
 noctalia.setUpdateInterval(2000)
 
 function onClick()
-  noctalia.togglePanel("tranzem/media-lyrics:panel")
+  noctalia.togglePanel("tranzem/media-lyrics:" .. panelIdForSize())
 end
 
 function onMiddleClick()
