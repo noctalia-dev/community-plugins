@@ -29,10 +29,10 @@ When [`enable_sounds`](https://docs.noctalia.dev/noctalia/services/audio/) is se
 
 ```toml
 [plugin_settings."thepunkoff/pomodoro"]
-enable-alarm-sound = true
+use-bundled-alarm-sound = true
 ```
 
-or use `Enable Alarm Sound` in the GUI plugin settings. Note that after enabling this the notification will play both the default sound and the bundled one at the same time. To silence the default sound use Noctalia's notification filtering:
+or use `Use Bundled Alarm Sound` in the GUI plugin settings. Note that after enabling this the notification will play both the default sound and the bundled one at the same time. To silence the default sound use Noctalia's notification filtering:
 
 ```toml
 [notification]
@@ -54,7 +54,7 @@ To play the sound even when `enable_sounds` (`Shell Sounds`) is set to false (e.
 bypass-noctalia-sound-globals = true
 ```
 
-or `Bypass Noctalia Sound Globals` in the GUI plugin settings. This will use the `pw-play` tool to play the sound directly through PipeWire, so make sure to have it installed.
+or `Bypass Noctalia Sound Globals` in the GUI plugin settings. This will use the `ffplay` tool to play the sound directly, so make sure to have it installed.
 
 To open the panel with a command:
 ```sh
@@ -80,7 +80,7 @@ noctalia msg panel-toggle thepunkoff/pomodoro:panel
 More IPC commands to directly control the timer are coming soon.
 
 ## Requirements
-- (optional) `pw-play` for playing alarm sound independently from Noctalia's global sound settings.
+- (optional) `ffplay` for playing bundled sounds independently from Noctalia's global sound settings.
 
 ## Licensing
 
@@ -88,4 +88,5 @@ This project is licensed under the MIT License.
 
 Additional assets:
 - JetBrains Mono font, which is licensed separately under the SIL Open Font License 1.1 (OFL-1.1). See `THIRD_PARTY_LICENCES/OFL.txt` for the full license text.
-- Alarm Sound: `alarm.mp3` - Sourced from [Pixabay](https://pixabay.com/) (Royalty-free, [Pixabay Content License](https://pixabay.com/service/license-summary/))
+- Alarm sound: `alarm.mp3` - Sourced from [Pixabay](https://pixabay.com/) (Royalty-free, [Pixabay Content License](https://pixabay.com/service/license-summary/))
+- Tick/Tock sounds: `tick1-9.wav/tock1-9.wav` - Sourced from [Pixabay](https://pixabay.com/sound-effects/film-special-effects-clock-ticking-down-376897/), manually cut into parts. (Royalty-free, [Pixabay Content License](https://pixabay.com/service/license-summary/))

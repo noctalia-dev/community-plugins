@@ -89,7 +89,7 @@ function M.init(opts)
 
     for i = 1, 9 do
         if enableWorkTimerSound then
-            local tickPath = resourcesDir .. "tick" .. i .. "c.wav"
+            local tickPath = resourcesDir .. "tick" .. i .. ".wav"
             if noctalia.fileExists(tickPath) then
                 table.insert(tickSounds, {
                     name = "tick-" .. i,
@@ -98,7 +98,7 @@ function M.init(opts)
                 })
             end
 
-            local tockPath = resourcesDir .. "tock" .. i .. "c.wav"
+            local tockPath = resourcesDir .. "tock" .. i .. ".wav"
             if noctalia.fileExists(tockPath) then
                 table.insert(tockSounds, {
                     name = "tock-" .. i,
