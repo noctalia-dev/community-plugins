@@ -11,7 +11,7 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | Field | Value |
 | --- | --- |
 | ID | `tranzem/media-lyrics` |
-| Entries | Bar widget: `now-playing`; panel: `panel`; service: `service`; shortcut: `toggle` |
+| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640); service: `service`; shortcut: `toggle` |
 
 ## Requirements
 

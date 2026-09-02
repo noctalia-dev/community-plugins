@@ -4,6 +4,15 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.12] — 2026-09-02
+
+### Fixed
+
+- **README Plugin section documents every panel entry** — the Plugin table
+  now lists `panel`, `panel-compact` and `panel-large` (the size presets
+  added in 0.8.7); the community `validate` CI requires each panel entry id
+  to appear in the README.
+
 ## [0.8.11] — 2026-09-02
 
 ### Fixed
