@@ -4,13 +4,13 @@
 # (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
 # LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
 # pure Luau, caches locally, and exposes everything to the [[panel]] over
-# noctalia.state. No playerctl, no python daemons, no external tools.
+# noctalia.state. Runtime needs busctl (MPRIS poll) and curl (LRCLIB HTTPS).
 #
 # Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.12"
+version = "0.8.13"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
@@ -68,7 +68,7 @@ entry = "widget.luau"
 id = "service"
 entry = "service.luau"
 
-# Main panel: compact header (ringed cover | title+artist | transport) + lyrics view.
+# Main panel: header (cover | title/artist | transport) + karaoke lyrics view.
 # Three size presets share one entry; panel_size selects which one the widget
 # and the control-center tile open. Medium (520) is the default and keeps the
 # historical `panel` id for IPC compatibility.

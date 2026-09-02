@@ -20,10 +20,39 @@ end
 
 local TITLE_MAX = 26
 
+-- UTF-8 helpers: a byte >= 0xC0 starts a character (2–4 bytes), a byte in
+-- 0x80..0xBF is a continuation. charCount walks whole characters so titles
+-- in any script truncate on char boundaries, never mid-sequence.
+local function charCount(s)
+  local i, n = 1, 0
+  while i <= #s do
+    local b = s:byte(i)
+    if b >= 0xF0 then i = i + 4
+    elseif b >= 0xE0 then i = i + 3
+    elseif b >= 0xC0 then i = i + 2
+    else i = i + 1 end
+    n = n + 1
+  end
+  return n
+end
+
+local function charPrefix(s, maxChars)
+  local i, n = 1, 0
+  while i <= #s and n < maxChars do
+    local b = s:byte(i)
+    if b >= 0xF0 then i = i + 4
+    elseif b >= 0xE0 then i = i + 3
+    elseif b >= 0xC0 then i = i + 2
+    else i = i + 1 end
+    n = n + 1
+  end
+  return s:sub(1, i - 1)
+end
+
 local function truncate(s)
   s = tostring(s or "")
-  if #s <= TITLE_MAX then return s end
-  return s:sub(1, TITLE_MAX - 1) .. "…"
+  if charCount(s) <= TITLE_MAX then return s end
+  return charPrefix(s, TITLE_MAX - 1) .. "…"
 end
 
 local function media()
@@ -45,7 +74,7 @@ local function renderFrom(m)
     return
   end
   local g = m.playing and glyphPause or glyphPlay
-  local title = truncate(m.title ~= "" and m.title or "No title")
+  local title = truncate(m.title ~= "" and m.title or noctalia.tr("common.no-title"))
   -- No explicit color roles: the host applies the widget instance's Color /
   -- Icon Color settings (Default = theme role). Explicit roles here would
   -- silently ignore the user's per-widget color configuration.

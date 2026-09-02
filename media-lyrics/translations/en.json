@@ -1,10 +1,20 @@
 {
+  "common": {
+    "no-title": "(no title)",
+    "unknown-artist": "Unknown artist"
+  },
+  "provider": {
+    "local": "Local",
+    "cache": "Cache"
+  },
+  "service": {
+    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+  },
   "panel": {
     "loading-lyrics": "Loading lyrics…",
     "lyrics-error": "Lyrics error: ",
     "no-lyrics": "No lyrics found",
     "no-media-player": "No media player",
-    "no-title": "(no title)",
     "now-playing": "NOW PLAYING",
     "reload-lyrics": "Reload lyrics",
     "synced": "synced",

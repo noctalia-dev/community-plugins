@@ -4,6 +4,31 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.13] — 2026-09-02
+
+### Fixed
+
+- **Review-hardening round 2** (community review prep):
+  - i18n coverage extended: widget title fallback, panel "Unknown artist",
+    and the footer provider labels ("Local"/"Cache") now route through
+    `noctalia.tr()` (keys: `common.*`, `provider.*`).
+  - Network failures are no longer reported as "no lyrics found": a
+    transport error (curl exit ≠ 0 and ≠ 22) surfaces
+    `service.lyrics-unreachable` through the lyrics-error state, which the
+    panel now reaches for the first time.
+  - No nil children in the UI tree: the unsynced-list chevron was emitted
+    as `cond and node or nil` inside a children array (the host logs
+    "ui tree node is not a table"); children are now appended conditionally.
+  - UTF-8-safe cuts: `wrapLyric` hard-slices and the bar-widget title
+    truncation never split a multi-byte sequence (Cyrillic titles/lines).
+  - Karaoke class (font size/weight) is precomputed once into arrays shared
+    by the window budget and the render loop — they cannot drift apart.
+  - README/docs: "14 visible lines" corrected to 10/14/16 per preset; the
+    "Bilingual UI (en/ru)" claim softened to "translatable via Noctalia
+    i18n" (no ru file ships by community rule); stale comments in
+    plugin.toml/service.luau/panel.luau updated (150 ms poll, no "ring",
+    no "zero external tools").
+
 ## [0.8.12] — 2026-09-02
 
 ### Fixed

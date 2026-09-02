@@ -5,7 +5,7 @@
 -- shell/core/plugin/lyrics/src/lyrics.cpp) to Noctalia v5 Luau:
 --   * Clavis MediaManager.active      -> Noctalia D-Bus aggregator
 --                                        dev.noctalia.Mpris GetActivePlayer
---                                        (poll via busctl every 500 ms)
+--                                        (poll via busctl every 150 ms)
 --   * Clavis.Lyrics providers         -> LRCLIB /api/get then /api/search
 --   * Lyrics::parseLrc / indexForTime -> pure Luau ports below
 --   * cache + local dir               -> pluginDataDir()/lyrics + configured dir
@@ -277,14 +277,14 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
   -- 1) local directory (default ~/.local/share/media-lyrics)
   local localRaw = tryLocalLyrics(artist, title)
   if localRaw then
-    acceptLyrics("Local", localRaw, "", key)
+    acceptLyrics(noctalia.tr("provider.local"), localRaw, "", key)
     return
   end
 
   -- 2) cache
   local cached = loadCachedLyrics(title == "" and "" or artist, title)
   if cached then
-    acceptLyrics("Cache", cached, "", key)
+    acceptLyrics(noctalia.tr("provider.cache"), cached, "", key)
     return
   end
 
@@ -300,11 +300,13 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
   -- on this setup (curl=28 timeout, 30s, 0 bytes) while the curl CLI resolves
   -- IPv4 happily (~50ms). Force IPv4 and a short timeout.
   local function httpGet(url, cb)
-    -- -f: 4xx/5xx -> non-zero exit (treated as fetch failure, not parse error)
+    -- -f: 4xx/5xx -> non-zero exit (treated as fetch failure, not parse error).
+    -- exitCode is passed through so callers can tell "HTTP miss" (curl -f
+    -- exit 22) from a transport/network failure (DNS, timeout, conn reset).
     noctalia.runAsync({ "curl", "-sSf", "-m", "8", "-4",
       "-H", "User-Agent: " .. LRCLIB_UA, url }, function(result)
       cb({ ok = result.exitCode == 0, status = result.exitCode == 0 and 200 or 0,
-        body = result.stdout or "" })
+        body = result.stdout or "", exit = result.exitCode })
     end)
   end
 
@@ -321,6 +323,17 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
     if okData then
       if acceptLyrics("LRCLIB", okData.synced, okData.plain, key) then
         cacheLyrics(artist, title, okData.synced, okData.plain)
+      end
+      return
+    end
+
+    -- Transport failure (DNS / timeout / connection), not an HTTP miss:
+    -- curl -f exits 22 for 4xx/5xx; anything else means the request never
+    -- completed, so a search against the same host would fail the same way.
+    -- Surface a real error instead of the misleading "no lyrics found".
+    if not resp.ok and resp.exit ~= 22 then
+      if gen == fetchGeneration then
+        finishError(noctalia.tr("service.lyrics-unreachable"))
       end
       return
     end
@@ -354,6 +367,12 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key)
             return
           end
         end
+      end
+      if not resp2.ok and resp2.exit ~= 22 then
+        if gen == fetchGeneration then
+          finishError(noctalia.tr("service.lyrics-unreachable"))
+        end
+        return
       end
       finishEmpty()
     end)

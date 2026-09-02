@@ -1,6 +1,6 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (14 visible lines), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS).
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -51,20 +51,20 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Features
 
-- **Karaoke lyric carousel** — 14 lines visible at once; the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
+- **Karaoke lyric carousel** — 10/14/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
 - **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
 - **Album cover + progress bar** — interpolated progress between polls, transport controls (prev / play-pause / next), shuffle and repeat state.
-- **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Bilingual UI (en/ru).
+- **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Translatable UI: strings go through Noctalia's i18n (`noctalia.tr`, English ships in the plugin; other locales via Noctalia Translate).
 
 ## Advantages over alternative lyric plugins
 
 - **Lean runtime.** No playerctl, python daemons, pip packages, or GTK overlays to install and maintain — just `busctl` and `curl`, present on virtually every Linux system. Enable → works.
 - **Player-agnostic.** Reads MPRIS directly via Noctalia's D-Bus aggregator — works with any player, not tied to a specific app.
-- **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 14 visible lines keeps whole verses in view.
+- **A real panel, not a 1–3 line bar widget.** Full-screen-height carousel with 10–16 visible lines (per size preset) keeps whole verses in view.
 - **Overflow handled properly.** Long titles get a marquee, single-line sanitizer strips embedded newlines, integer button heights prevent glyph overlap.
 - **Offline-friendly.** LRCLIB responses are cached; local `.lrc` files work without network at all.
 

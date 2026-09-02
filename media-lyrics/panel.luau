@@ -192,11 +192,20 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   for i = 1, #words do
     local w = words[i]
     if #w > budget then
+      -- hard-slice, but never split a UTF-8 sequence: step back over
+      -- continuation bytes (0x80..0xBF) to the last char boundary
       local rest = w
       while #rest > budget do
         if cur ~= "" then out[#out + 1] = cur; cur = "" end
-        out[#out + 1] = rest:sub(1, budget)
-        rest = rest:sub(budget + 1)
+        local cut = budget
+        local bt = rest:byte(cut)
+        while bt and bt >= 0x80 and bt < 0xC0 and cut > 0 do
+          cut = cut - 1
+          bt = rest:byte(cut)
+        end
+        if cut < 1 then cut = 1 end
+        out[#out + 1] = rest:sub(1, cut)
+        rest = rest:sub(cut + 1)
       end
       cur = rest
     elseif cur == "" then
@@ -236,23 +245,28 @@ local function buildLyricsBody(s)
     local rows = {}
     for i, l in ipairs(lines) do
       local isCursor = (i == cursorLine)
-      rows[#rows + 1] = ui.row({
-        key = "lyr" .. i,
-        align = "center", justify = "center",
-      }, {
-        (isCursor) and ui.glyph({
+      -- Build the children list conditionally — a literal
+      -- `cond and node or nil` inside the children array emits a nil
+      -- child, which the host logs as "ui tree node is not a table".
+      local rowChildren = {}
+      if isCursor then
+        rowChildren[#rowChildren + 1] = ui.glyph({
           key = "cur" .. i,
           name = "chevron-right",
           size = 11,
           color = T.lyricActive,
-        }) or nil,
-        ui.label({
-          key = "lbl" .. i, text = wrapLyric(l.text, T.fsFarLyric, "normal", isCursor and 16 or 0),
-          fontSize = T.fsFarLyric,
-          color = isCursor and T.lyricActive or T.lyricNear,
-          opacity = isCursor and 1 or 0.8, textAlign = "center",
-        }),
+        })
+      end
+      rowChildren[#rowChildren + 1] = ui.label({
+        key = "lbl" .. i, text = wrapLyric(l.text, T.fsFarLyric, "normal", isCursor and 16 or 0),
+        fontSize = T.fsFarLyric,
+        color = isCursor and T.lyricActive or T.lyricNear,
+        opacity = isCursor and 1 or 0.8, textAlign = "center",
       })
+      rows[#rows + 1] = ui.row({
+        key = "lyr" .. i,
+        align = "center", justify = "center",
+      }, rowChildren)
       rows[#rows + 1] = ui.spacer({ key = "lgap" .. i, height = T.gapMicro })
     end
     return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }
@@ -267,24 +281,22 @@ local function buildLyricsBody(s)
   end
 
   -- Lyric class per line: font size / weight from the karaoke distance
-  -- ladder (mirrors the render loop below).
-  local function lineClass(i)
-    local isActive = (i == active)
-    local isCursor = (i == cursorLine)
-    local dist = math.abs(i - active)
-    local fontSize = isActive and T.fsActiveLyric
-      or (dist <= 2 and T.fsNearLyric or T.fsFarLyric)
-    local fontWeight = (isActive or isCursor) and "bold"
-      or (dist <= 2 and "medium" or "normal")
-    return fontSize, fontWeight
+  -- ladder, precomputed ONCE so the window budget and the render loop share
+  -- the same values (they must never drift apart).
+  local fsArr, wArr = {}, {}
+  for i = 1, n do
+    local isA = (i == active)
+    local isC = (i == cursorLine)
+    local d = math.abs(i - active)
+    fsArr[i] = isA and T.fsActiveLyric or (d <= 2 and T.fsNearLyric or T.fsFarLyric)
+    wArr[i] = (isA or isC) and "bold" or (d <= 2 and "medium" or "normal")
   end
   -- Wrapped lines consume more than one visual row. The window must fit a
   -- VERTICAL BUDGET of visibleLines() rows, so count the wrapped sub-lines
   -- a row needs and shrink the window until its total fits (wrapping long
   -- lines must never push the active line below the panel edge).
   local function sublines(i)
-    local fs, w = lineClass(i)
-    return 1 + select(2, wrapLyric(s.lyrics[i].text, fs, w, i == cursorLine and 16 or 0):gsub("\n", ""))
+    return 1 + select(2, wrapLyric(s.lyrics[i].text, fsArr[i], wArr[i], i == cursorLine and 16 or 0):gsub("\n", ""))
   end
   local budget = visibleLines()
   local refActive = active >= 1 and active or 1
@@ -316,10 +328,8 @@ local function buildLyricsBody(s)
       local isActive = (idx == active)
       local isCursor = (idx == cursorLine)
       local dist = math.abs(idx - active)
-      local fontSize = isActive and T.fsActiveLyric
-        or (dist <= 2 and T.fsNearLyric or T.fsFarLyric)
-      local fontWeight = (isActive or isCursor) and "bold"
-        or (dist <= 2 and "medium" or "normal")
+      local fontSize = fsArr[idx]
+      local fontWeight = wArr[idx]
       local color = (isActive or isCursor) and T.lyricActive
         or (dist <= 2 and T.lyricNear or T.lyricFar)
       local opacity = (isActive or isCursor) and 1
@@ -456,7 +466,7 @@ local function buildInfoRow(s)
     text = text:gsub("  +", " ")
     return text
   end
-  local artistLine = singleLine(s.artist ~= "" and s.artist or "Unknown artist")
+  local artistLine = singleLine(s.artist ~= "" and s.artist or noctalia.tr("common.unknown-artist"))
   if s.album ~= "" then artistLine = artistLine .. " - " .. s.album end
 
   -- UTF-8 aware char split + per-char width units (community/lyrics scheme)
@@ -578,7 +588,7 @@ local function buildInfoRow(s)
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
   local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
-    textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("panel.no-title")),
+    textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("common.no-title")),
       T.fsTitle, "semibold", T.colTitle),
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
   })
@@ -648,7 +658,7 @@ end
 -- VERIFIED BY PROBE (this host build): the host NEVER calls update() or
 -- onFrameTick for [[panel]] entries — both counters stayed 0 with
 -- setWantsSecondTicks(true) + setNeedsFrameTick(true). The ONLY periodic
--- signal a panel gets is the service's media publishes (POLL_MS = 500ms):
+-- signal a panel gets is the service's media publishes (POLL_MS = 150ms):
 -- the service re-sets noctalia.state("media") on every poll, and watch()
 -- fires per publish. So the marquee clock MUST tick inside the media watch,
 -- using the wall-clock delta between publishes.
