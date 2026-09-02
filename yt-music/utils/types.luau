@@ -19,6 +19,7 @@ export type Track = {
 export type Playlist = {
     id: string,
     title: string,
+    subtitle: string?,
     count: number?,
     artist: string?,
     thumbnail_url: string?,

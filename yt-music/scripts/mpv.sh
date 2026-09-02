@@ -24,7 +24,7 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file
     --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
     --keep-open=yes \
     --force-media-title="$TITLE" \
-    --input-ipc-server="$SOCK" --ao=pipewire \
+    --input-ipc-server="$SOCK" --ao=pulse,pipewire,alsa,auto \
     >/dev/null 2>&1 &
   echo $! > "$PIDFILE"
   echo $(( $(cat "$GENFILE" 2>/dev/null || echo 0) + 1 )) > "$GENFILE"

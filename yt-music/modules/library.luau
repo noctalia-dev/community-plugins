@@ -74,7 +74,7 @@ function Library.audit_downloaded_playlists()
 
 	local cached = (type(state.cached_audio_ids) == "table") and state.cached_audio_ids or {}
 
-	-- Every pid we know a title for: library first, then recents.
+	-- Every pid we know a title for: library first, then recents, then open playlist.
 	local sources, seen_pid = {}, {}
 	local function add_source(list)
 		if type(list) ~= "table" then
@@ -90,11 +90,15 @@ function Library.audit_downloaded_playlists()
 	end
 	add_source(state.library)
 	add_source(state.recent_playlists)
+	if state.playlist and state.playlist.id then
+		add_source({ state.playlist })
+	end
 
 	state.downloaded_playlist_ids = {}
 	local member_ids = {}
 	local meta = {}
 	local done = 0
+	local meta_added = false
 
 	local function finalize()
 		-- Saved Tracks are EXPLICIT downloads only: songs that were merely
@@ -131,7 +135,7 @@ function Library.audit_downloaded_playlists()
 				pruned = true
 			end
 		end
-		if pruned then
+		if pruned or meta_added then
 			Library.save_offline_meta()
 		end
 
@@ -175,6 +179,10 @@ function Library.audit_downloaded_playlists()
 					for _, tr in ipairs(tracks) do
 						if tr.id then
 							member_ids[tr.id] = true
+							if not state.offline_meta[tr.id] and meta[tr.id] then
+								state.offline_meta[tr.id] = meta[tr.id]
+								meta_added = true
+							end
 						end
 					end
 				end
@@ -230,16 +238,38 @@ function Library.sync_audio_cache()
 	end
 end
 
-function Library.toggle_like(vid)
+function Library.toggle_like(vid, item)
 	vid = vid or state.player.id
 	log("toggle_like: vid=" .. tostring(vid) .. " current=" .. tostring(state.liked_ids and state.liked_ids[vid]))
 	if vid and vid ~= "" then
-		if api and api.invalidate_playlist_cache then
-			api.invalidate_playlist_cache("VLLM")
-		end
 		if state.liked_ids[vid] then
 			state.liked_ids[vid] = nil
 			log("toggle_like: unliking vid=" .. tostring(vid))
+
+			if state.playlist.id == "VLLM" and type(state.playlist.tracks) == "table" then
+				local filtered = {}
+				for _, tr in ipairs(state.playlist.tracks) do
+					if tr.id ~= vid then
+						table.insert(filtered, tr)
+					end
+				end
+				state.playlist.tracks = filtered
+				if api and api.save_playlist_cache then
+					api.save_playlist_cache("VLLM", filtered)
+				end
+			elseif api and api.load_cached_playlist and api.save_playlist_cache then
+				local cached = api.load_cached_playlist("VLLM")
+				if type(cached) == "table" then
+					local filtered = {}
+					for _, tr in ipairs(cached) do
+						if tr.id ~= vid then
+							table.insert(filtered, tr)
+						end
+					end
+					api.save_playlist_cache("VLLM", filtered)
+				end
+			end
+
 			store.publish()
 			if api and api.unlike_video then
 				api.unlike_video(vid, function(ok) end)
@@ -247,6 +277,29 @@ function Library.toggle_like(vid)
 		else
 			state.liked_ids[vid] = true
 			log("toggle_like: liking vid=" .. tostring(vid))
+
+			local liked_item = item or (state.player.id == vid and {
+				id = state.player.id,
+				title = state.player.title,
+				artist = state.player.artist,
+				thumbnail_url = state.player.thumbnail_url,
+				thumb_path = state.player.thumb_path,
+				duration = state.player.duration,
+			} or nil)
+
+			if liked_item then
+				if state.playlist.id == "VLLM" and type(state.playlist.tracks) == "table" then
+					table.insert(state.playlist.tracks, 1, liked_item)
+					if api and api.save_playlist_cache then
+						api.save_playlist_cache("VLLM", state.playlist.tracks)
+					end
+				elseif api and api.load_cached_playlist and api.save_playlist_cache then
+					local cached = api.load_cached_playlist("VLLM") or {}
+					table.insert(cached, 1, liked_item)
+					api.save_playlist_cache("VLLM", cached)
+				end
+			end
+
 			store.publish()
 			if api and api.like_video then
 				api.like_video(vid, function(ok) end)

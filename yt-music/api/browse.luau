@@ -35,7 +35,7 @@ local pending_library: any? = nil
 
 function EXPO.library()
 	log("library called")
-	local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_liked_playlists" }) or ""
+	local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_library_landing" }) or ""
 	local auth = build_auth()
 	local auth_header = auth and ('-H "Authorization: ' .. auth .. '"') or ""
 	local origin_header = '-H "Origin: ' .. ORIGIN .. '"'
@@ -63,7 +63,7 @@ jq '{
   playlists: [.. | select(.musicTwoRowItemRenderer? != null) | .musicTwoRowItemRenderer | {
     id: (.navigationEndpoint.browseEndpoint.browseId // ""),
     title: (.title.runs[0].text // ""),
-    count_text: (.subtitle.runs[0].text // ""),
+    subtitle: ([.subtitle.runs[]?.text] | join("")),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
   } | select(.id != "" and .title != "")] | unique_by(.id)
 }' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=[" 2>/dev/null
@@ -77,14 +77,24 @@ echo "STATUS=OK"
 			local data = noctalia.json.decode(raw or "")
 			local raw_pls = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
 			local playlists = {}
+			local liked_item = nil
 			for _, item in ipairs(raw_pls) do
-				local cnt = tonumber(tostring(item.count_text or ""):match("(%d+)")) or 0
-				table.insert(playlists, {
+				local cnt = tonumber(tostring(item.subtitle or ""):match("(%d+)%s+tracks")) or 0
+				local pl_obj = {
 					id = item.id,
 					title = item.title,
+					subtitle = item.subtitle,
 					count = cnt,
 					thumbnail_url = item.thumbnail_url,
-				})
+				}
+				if item.id == "VLLM" or item.title:lower():find("liked", 1, true) then
+					liked_item = pl_obj
+				else
+					table.insert(playlists, pl_obj)
+				end
+			end
+			if liked_item then
+				table.insert(playlists, 1, liked_item)
 			end
 			if #playlists > 0 then
 				attach_cached_thumbs(playlists)
@@ -366,7 +376,7 @@ jq '{
     subtitle: (.subtitle.runs[0].text // ""),
     videoId: (.navigationEndpoint.watchEndpoint.videoId // ""),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // .thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^VL")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:24]
+  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^(VL)?RD")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:60]
 }' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=[" 2>/dev/null
 echo "STATUS=OK"
 ]=]
@@ -388,8 +398,8 @@ echo "STATUS=OK"
 					local j = math.random(1, i)
 					mixes[i], mixes[j] = mixes[j], mixes[i]
 				end
-				-- loop bound N+1 keeps exactly N items after trimming
-				for i = #mixes, 7, -1 do
+				-- Keep up to 24 candidate mixes for filtering
+				for i = #mixes, 25, -1 do
 					table.remove(mixes)
 				end
 				attach_cached_thumbs(mixes)

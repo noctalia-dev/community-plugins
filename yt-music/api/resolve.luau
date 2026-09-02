@@ -28,8 +28,11 @@ if [ -s "$CACHE_FILE" ]; then
   fi
 fi
 
-[ -s "$OUT" ] || { echo "NOCACHE=1"; exit 0; }
-URL=$(yt-dlp -f bestaudio/best -g --no-playlist --no-warnings --cookies "$OUT" "https://www.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
+COOKIE_FLAG=""
+if [ -s "$OUT" ]; then
+  COOKIE_FLAG="--cookies $OUT"
+fi
+URL=$(yt-dlp --extractor-args "youtube:player_client=mweb,web" -f bestaudio/best -g --no-playlist --no-warnings $COOKIE_FLAG "https://music.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
 if [ -n "$URL" ]; then
   mkdir -p "]=] .. STREAMS_CACHE_DIR .. [=["
   echo "$URL" > "$CACHE_FILE"
@@ -84,9 +87,14 @@ function EXPO.cache_audio(video_id, callback)
         return
     end
 
+    local cookie_opt = ""
+    if noctalia.fileExists(COOKIE_PATH) then
+        cookie_opt = string.format("--cookies '%s'", COOKIE_PATH)
+    end
+
     local cmd = string.format(
-        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://www.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
-        AUDIO_DIR, path, COOKIE_PATH, safe_id
+        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' %s 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
+        AUDIO_DIR, path, cookie_opt, safe_id
     )
     local launched = network.runAsync(cmd, function(res)
         local out = (type(res) == "table" and res.stdout) or ""

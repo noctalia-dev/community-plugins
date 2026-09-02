@@ -30,11 +30,12 @@ local function remember_saved_meta(id, meta)
 	if type(meta) ~= "table" then
 		return
 	end
+	local existing = state.offline_meta[id] or {}
 	state.offline_meta[id] = {
-		title = meta.title,
-		artist = meta.artist,
-		duration = tonumber(meta.duration) or 0,
-		thumbnail_url = meta.thumbnail_url,
+		title = meta.title or existing.title,
+		artist = meta.artist or existing.artist,
+		duration = tonumber(meta.duration) or existing.duration or 0,
+		thumbnail_url = meta.thumbnail_url or existing.thumbnail_url,
 	}
 	library.save_offline_meta()
 end
@@ -118,6 +119,9 @@ local function pump()
 				inflight[id] = nil
 				if ok then
 					state.cached_audio_ids[id] = true
+					if item.meta then
+						remember_saved_meta(id, item.meta)
+					end
 					if plid == "" then
 						note_offline_row(id, item.meta)
 					end
@@ -139,14 +143,17 @@ local function pump()
 end
 
 function Downloader.enqueue(id, plid, meta)
-	if not id or id == "" or inflight[id] or state.cached_audio_ids[id] then
+	if not id or id == "" or inflight[id] then
 		return
 	end
 	local pid = plid or ""
-	if pid == "" then
+	if meta then
 		remember_saved_meta(id, meta)
 	end
-	table.insert(queue, { plid = pid, id = id, meta = (pid == "") and state.offline_meta[id] or nil })
+	if state.cached_audio_ids[id] then
+		return
+	end
+	table.insert(queue, { plid = pid, id = id, meta = meta or state.offline_meta[id] })
 	pending[pid] = (pending[pid] or 0) + 1
 	if pid ~= "" then
 		state.downloading_playlist_ids[pid] = true
@@ -160,7 +167,7 @@ function Downloader.enqueue_playlist(tracks, plid)
 	if api and api.cache_audio and type(tracks) == "table" then
 		for _, tr in ipairs(tracks) do
 			if tr.id and tr.id ~= "" then
-				Downloader.enqueue(tr.id, pid)
+				Downloader.enqueue(tr.id, pid, tr)
 				queued = queued + 1
 			end
 		end

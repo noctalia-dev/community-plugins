@@ -159,28 +159,51 @@ local function media_row(item, idx, custom_click, is_active)
 	table.insert(
 		trailing,
 		ui.label({
+			key = row_key .. "-dur",
 			text = item.duration_text or "",
 			fontSize = theme.fontBody,
 			color = "on_surface_variant",
 		})
 	)
 	if is_explicit then
-		table.insert(trailing, ui.glyph({ name = "check", size = 16, color = "primary" }))
+		table.insert(
+			trailing,
+			ui.row({
+				key = row_key .. "-slot",
+				width = 32,
+				height = 32,
+				align = "center",
+				justify = "center",
+				borderWidth = 0,
+			}, {
+				ui.glyph({ key = row_key .. "-check", name = "check", size = 16, color = "primary" }),
+			})
+		)
 	else
 		table.insert(
 			trailing,
-			ui.button({
-				glyph = "download",
-				variant = "ghost",
-				controlSize = "sm",
-				tooltip = id_on_disk and "Add to offline downloads" or "Download for offline",
-				onClick = function()
-					if item.id and item.id ~= "" then
-						-- Full item rides along so standalone downloads can
-						-- keep their title/artist in the Offline view.
-						request("download_track", { id = item.id, item = item })
-					end
-				end,
+			ui.row({
+				key = row_key .. "-slot",
+				width = 32,
+				height = 32,
+				align = "center",
+				justify = "center",
+				borderWidth = 0,
+			}, {
+				ui.button({
+					key = row_key .. "-dl",
+					glyph = "download",
+					variant = "ghost",
+					controlSize = "sm",
+					tooltip = id_on_disk and "Add to offline downloads" or "Download for offline",
+					onClick = function()
+						if item.id and item.id ~= "" then
+							-- Full item rides along so standalone downloads can
+							-- keep their title/artist in the Offline view.
+							request("download_track", { id = item.id, item = item })
+						end
+					end,
+				}),
 			})
 		)
 	end
@@ -213,7 +236,7 @@ local function media_row(item, idx, custom_click, is_active)
 			}),
 			ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" }),
 		}),
-		ui.row({ gap = 6, align = "center" }, trailing),
+		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center" }, trailing),
 		ui.button({
 			key = row_key .. "-playnext",
 			glyph = "playlist-add",
@@ -231,6 +254,7 @@ local function media_row(item, idx, custom_click, is_active)
 end
 
 return {
+	file_exists_cached = file_exists_cached,
 	fmt_pos = fmt_pos,
 	fmt_count = fmt_count,
 	thumb_or_placeholder = thumb_or_placeholder,

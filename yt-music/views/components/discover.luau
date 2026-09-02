@@ -12,57 +12,57 @@ local function build_discover()
 	table.insert(
 		view,
 		ui.row({ key = "discover-title", align = "center", justify = "space_between" }, {
-			ui.row({ gap = 8, align = "center" }, {
-				ui.glyph({ name = "search", size = 18, color = "primary" }),
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "SEARCH RESULTS", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
 				ui.label({
-					text = "SEARCH RESULTS",
-					fontSize = theme.fontHeading,
-					fontWeight = "bold",
+					text = s.query ~= "" and ('"' .. s.query .. '"') or "Search songs, albums, artists, or playlists",
+					fontSize = theme.fontTitle,
 					color = "on_surface_variant",
 				}),
 			}),
-			ui.label({
-				text = s.query ~= "" and ('"' .. s.query .. '"') or "",
-				fontSize = theme.fontTitle,
-				color = "on_surface_variant",
-			}),
 		})
 	)
+	table.insert(view, ui.row({ key = "spacer-disc-1", height = 8, borderWidth = 0 }))
 
-	table.insert(view, ui.separator({ key = "sep-discover", color = "outline" }))
+	-- Search type filter chips (Top, Songs, Playlists, Albums, Artists)
+	local chips = {
+		{ id = "top", label = "Top" },
+		{ id = "songs", label = "Songs" },
+		{ id = "playlists", label = "Playlists" },
+		{ id = "albums", label = "Albums" },
+		{ id = "artists", label = "Artists" },
+	}
 
-	table.insert(
-		view,
-		ui.row({ key = "search-tabs", gap = 8, align = "center" }, {
-			ui.button({
-				key = "tab-top",
-				text = "Top",
-				variant = s.type == "top" and "primary" or "ghost",
-				controlSize = "sm",
+	local chip_elems = {}
+	for _, c in ipairs(chips) do
+		local active = (s.type == c.id)
+		local key = "search-chip-" .. c.id
+		table.insert(
+			chip_elems,
+			ui.row({
+				key = key,
+				align = "center",
+				justify = "center",
+				paddingV = 6,
+				paddingH = 16,
+				borderWidth = 1,
+				border = active and "primary" or "outline/0.4",
+				fill = active and "primary" or "surface_variant/0.2",
 				onClick = function()
-					state.on_toggle_search_type("top")
+					state.on_toggle_search_type(c.id)
 				end,
-			}),
-			ui.button({
-				key = "tab-songs",
-				text = "Songs",
-				variant = s.type == "songs" and "primary" or "ghost",
-				controlSize = "sm",
-				onClick = function()
-					state.on_toggle_search_type("songs")
-				end,
-			}),
-			ui.button({
-				key = "tab-playlists",
-				text = "Playlists",
-				variant = s.type == "playlists" and "primary" or "ghost",
-				controlSize = "sm",
-				onClick = function()
-					state.on_toggle_search_type("playlists")
-				end,
-			}),
-		})
-	)
+			}, {
+				ui.label({
+					text = c.label,
+					fontSize = theme.fontTitle,
+					fontWeight = active and "bold" or "medium",
+					color = active and "on_primary" or "on_surface",
+				}),
+			})
+		)
+	end
+	table.insert(view, ui.row({ key = "search-chips-row", align = "center", gap = 8 }, chip_elems))
+	table.insert(view, ui.row({ key = "spacer-disc-2", height = 14, borderWidth = 0 }))
 
 	local rows = {}
 	if s.pending then
@@ -85,10 +85,12 @@ local function build_discover()
 		)
 	else
 		for idx, t in ipairs(s.results) do
-			if t.type == "playlist" then
+			if t.type == "playlist" or t.type == "album" or (t.id and tostring(t.id):sub(1, 5) == "MPREb") then
 				table.insert(rows, playlist_comp.playlist_row(t, idx))
 			elseif t.type == "artist" then
 				local key = "artist-" .. tostring(t.id)
+				local is_hovered = (state.view.hover_key.track == key)
+				local is_hero = (t.is_hero == true)
 				table.insert(
 					rows,
 					ui.row({
@@ -96,20 +98,27 @@ local function build_discover()
 						gap = 14,
 						align = "center",
 						padding = 8,
-						borderWidth = 1,
-						border = "primary/0.4",
-						fill = "primary/0.06",
+						borderWidth = 0,
+						fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
 						onClick = function()
 							state.view.hover_key.track = nil
 							state.open_artist(t)
 						end,
+						onHover = "onTrackHover",
 					}, {
-						common.thumb_or_placeholder(t.thumb_path, 96, "user", 28, "primary", "primary/0.15"),
+						common.thumb_or_placeholder(
+							t.thumb_path,
+							is_hero and 96 or 54,
+							"user",
+							is_hero and 28 or 20,
+							is_hovered and "primary" or "on_surface_variant",
+							is_hero and "primary/0.15" or nil
+						),
 						ui.column({ gap = 2, flexGrow = 1 }, {
 							ui.label({
 								text = t.title or "Artist",
-								fontSize = theme.fontHeading,
-								fontWeight = "bold",
+								fontSize = is_hero and theme.fontHeading or theme.fontTitle,
+								fontWeight = is_hero and "bold" or nil,
 								color = "on_surface",
 							}),
 							ui.label({

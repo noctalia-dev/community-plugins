@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.4] - 2026-09-03
+
+### Added
+- **Albums & Artists search**: search tabs now include dedicated filters for Albums and Artists.
+- **Player bar download button**: save the currently playing track for offline listening with one click next to the stats button.
+
+### Fixed
+- **Chromium browser login**: seamless sign-in support for Chrome, Brave, Edge, and Vivaldi — automatically extracts cookies even when the browser is running.
+- Fixed row alignment and button flicker when track thumbnails load in.
+- Fixed crashes caused by special characters in YouTube song titles.
+- Filtered Recommended Mixes on the home feed to show official YouTube Music radios.
+- Clearing thumbnail cache now properly re-downloads missing covers across all pages.
+
+## [0.2.3] - 2026-09-02
+- Sync with community release
+
 ## [0.2.2] - 2026-08-22
 
 ### Added

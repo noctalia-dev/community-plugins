@@ -146,7 +146,7 @@ local function build_playlist_view()
 		})
 	)
 
-	table.insert(child, ui.separator({ key = "sep-pl", color = "outline" }))
+	table.insert(child, ui.row({ key = "spacer-pl-1", height = 8, borderWidth = 0 }))
 
 	local total = #pl.tracks
 	local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))

@@ -2,8 +2,19 @@
 
 local Utils = {}
 
+function Utils.clean_utf8(s)
+    if type(s) ~= "string" or s == "" then return tostring(s or "") end
+    if not s:find("[\128-\255]") then return s end
+    return (s:gsub("[\128-\255]", function(c)
+        local b = string.byte(c)
+        if b >= 0xC0 and b <= 0xF4 then return c end
+        if b >= 0x80 and b <= 0xBF then return c end
+        return ""
+    end))
+end
+
 function Utils.sanitize(s)
-    s = tostring(s or "")
+    s = Utils.clean_utf8(s)
     return s:gsub("[\r\n]", "")
 end
 
@@ -21,7 +32,7 @@ function Utils.fmt_seconds(text)
 end
 
 function Utils.clean_artist(meta)
-    meta = tostring(meta or "")
+    meta = Utils.clean_utf8(meta or "")
     meta = meta:gsub("%s*•%s*[%d.,]+[KMB]?%s*views.*$", "")
     meta = meta:gsub("%s*•%s*%d+:?%d*$", "")
     local parts = {}

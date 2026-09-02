@@ -7,7 +7,7 @@ local Search = {}
 
 function Search.run(query, stype)
     if not (api and api.search) then return end
-    stype = (stype == "playlists" or stype == "top") and stype or "songs"
+    stype = (stype == "playlists" or stype == "top" or stype == "albums" or stype == "artists") and stype or "songs"
     state.search.pending = true
     state.search.query = tostring(query or "")
     state.search.type = stype

@@ -10,7 +10,20 @@ local function build_queue()
     local child = {}
     local PAGE_SIZE = 50
 
-    table.insert(child, ui.label({ text = "QUEUE", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
+	table.insert(
+		child,
+		ui.row({ key = "queue-head", align = "center", justify = "space_between" }, {
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "QUEUE", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+				ui.label({
+					text = #player.queue == 0 and "No tracks in queue" or (#player.queue .. " tracks in queue"),
+					fontSize = theme.fontTitle,
+					color = "on_surface_variant",
+				}),
+			}),
+		})
+	)
+	table.insert(child, ui.row({ key = "spacer-queue-1", height = 8, borderWidth = 0 }))
 
     if #player.queue == 0 then
         table.insert(child, ui.label({

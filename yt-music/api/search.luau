@@ -130,6 +130,10 @@ function EXPO.search(query: string?, count: any, cb: ({ types.SearchResult }?, s
 	local params = "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D"
 	if st == "top" then
 		params = ""
+	elseif st == "albums" then
+		params = "EgWKAQIYAWoKEAkQBRAKEAMQBA%3D%3D"
+	elseif st == "artists" then
+		params = "EgWKAQIgAWoKEAkQBRAKEAMQBA%3D%3D"
 	end
 	innerTube("search", {
 		context = CONTEXT.context,
@@ -174,13 +178,14 @@ jq '
     results: reduce (
       ($card // empty),
       (.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer |
-        ((.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // "") as $vid |
+        ((.playlistItemData.videoId // "") as $vid |
          (.navigationEndpoint.browseEndpoint.browseId // "") as $bid |
+         (.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") as $pt |
          select($vid != "" or $bid != "") |
          select(($skip | index($vid)) == null) |
          {
            id: (if $vid != "" then $vid else $bid end),
-           kind: (if $vid != "" then "song" else if $bid != "" then "playlist" else "other" end end),
+           kind: (if $vid != "" then "song" elif $pt == "MUSIC_PAGE_TYPE_ALBUM" or ($bid | test("^MPREb")) then "album" elif $pt == "MUSIC_PAGE_TYPE_PLAYLIST" or ($bid | test("^(VL|RD|PL)")) then "playlist" elif $pt == "MUSIC_PAGE_TYPE_ARTIST" or ($bid | test("^UC")) then "artist" else "other" end),
            title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
            artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
            album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
@@ -196,13 +201,16 @@ echo "STATUS=OK"
             script = ([=[
 jq '{
   tracks: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
-    id: (.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // ""),
+    id: (.playlistItemData.videoId // .navigationEndpoint.browseEndpoint.browseId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // ""),
     kind: (
       (.playlistItemData.videoId // "") as $vid |
+      (.navigationEndpoint.browseEndpoint.browseId // "") as $bid |
       (.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") as $pt |
       if $vid != "" then "song"
-      elif $pt == "MUSIC_PAGE_TYPE_ARTIST" then "artist"
-      else ""
+      elif $pt == "MUSIC_PAGE_TYPE_ARTIST" or ($bid | test("^UC")) then "artist"
+      elif $pt == "MUSIC_PAGE_TYPE_ALBUM" or ($bid | test("^MPREb")) then "album"
+      elif ($bid | test("^(VL|RD|PL)")) then "playlist"
+      else "song"
       end
     ),
     title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
@@ -210,7 +218,7 @@ jq '{
     album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
     duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
     thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.kind == "song" and .title != "")] | unique_by(.id)
+  } | select(.id != "" and .title != "")] | unique_by(.id)
 }' "%s" > "%s" 2>/dev/null
 echo "STATUS=OK"
 ]=]):format(raw_file, clean_file)
@@ -223,29 +231,34 @@ echo "STATUS=OK"
 				local data = noctalia.json.decode(raw_clean or "")
 				local raw_key = (st == "top") and "results" or "tracks"
 				local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
-				for _, tr in ipairs(raw_items) do
-					if st == "top" and tr.kind == "playlist" then
+				for idx, tr in ipairs(raw_items) do
+					local item_title = helpers.clean_utf8(tr.title or "")
+					local item_artist = clean_artist(tr.artist)
+					local item_album = helpers.clean_utf8(tr.album or "")
+					local is_top_hero = (st == "top" and idx == 1 and tr.kind == "artist")
+					if tr.kind == "playlist" or tr.kind == "album" or (tr.id and tr.id:sub(1, 5) == "MPREb") then
 						table.insert(out, {
 							type = "playlist",
 							id = tr.id,
-							title = tr.title,
-							artist = clean_artist(tr.artist),
+							title = item_title,
+							artist = item_artist,
 							thumbnail_url = tr.thumbnail_url,
 						})
 					elseif tr.kind == "artist" then
 						table.insert(out, {
 							type = "artist",
 							id = tr.id,
-							title = tr.title,
-							artist = clean_artist(tr.artist),
+							title = item_title,
+							artist = item_artist,
+							is_hero = is_top_hero,
 							thumbnail_url = tr.thumbnail_url,
 						})
 					else
 						table.insert(out, {
 							id = tr.id,
-							title = tr.title,
-							artist = clean_artist(tr.artist),
-							album = tr.album,
+							title = item_title,
+							artist = item_artist,
+							album = item_album,
 							duration = fmt_seconds(tr.duration_text),
 							duration_text = tr.duration_text,
 							thumbnail_url = tr.thumbnail_url,

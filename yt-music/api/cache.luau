@@ -9,6 +9,7 @@ local const = require("./constants.luau")
 local LIBRARY_CACHE_PATH = const.LIBRARY_CACHE_PATH
 local RECENT_PLAYLISTS_CACHE_PATH = const.RECENT_PLAYLISTS_CACHE_PATH
 local PLAYLISTS_CACHE_DIR = const.PLAYLISTS_CACHE_DIR
+local ARTISTS_CACHE_DIR = const.ARTISTS_CACHE_DIR
 local SESSION_CACHE_PATH = const.SESSION_CACHE_PATH
 
 local thumbs = require("./thumbnails.luau")
@@ -121,6 +122,37 @@ function EXPO.save_session(player: types.Player)
     local encoded = noctalia.json.encode(session)
     if encoded then
         noctalia.writeFile(SESSION_CACHE_PATH, encoded)
+    end
+end
+
+function EXPO.load_cached_artist(artist_id: string): { artist: any?, tracks: { types.Track }, related: { any } }?
+    if type(artist_id) ~= "string" or artist_id == "" then return nil end
+    local safe_id = artist_id:gsub("[^%w%-_]", "_")
+    local path = ARTISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
+    if not noctalia.fileExists(path) then return nil end
+    local raw = noctalia.readFile(path)
+    if not raw or raw == "" then return nil end
+    local data = noctalia.json.decode(raw)
+    if type(data) == "table" and type(data.tracks) == "table" then
+        if type(data.artist) == "table" then attach_cached_thumbs({ data.artist }) end
+        if type(data.tracks) == "table" then attach_cached_thumbs(data.tracks) end
+        if type(data.related) == "table" then attach_cached_thumbs(data.related) end
+        log("loaded cached artist data for " .. artist_id)
+        return data
+    end
+    return nil
+end
+
+function EXPO.save_artist_cache(artist_id: string, data: { artist: any?, tracks: { types.Track }, related: { any } })
+    if type(artist_id) ~= "string" or artist_id == "" or type(data) ~= "table" then return end
+    local safe_id = artist_id:gsub("[^%w%-_]", "_")
+    local path = ARTISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
+    local encoded = noctalia.json.encode(data)
+    if encoded then
+        noctalia.runAsync("mkdir -p '" .. ARTISTS_CACHE_DIR .. "'", function()
+            noctalia.writeFile(path, encoded)
+            log("saved artist cache for " .. artist_id)
+        end, 5000)
     end
 end
 

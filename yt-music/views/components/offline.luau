@@ -41,20 +41,62 @@ local function build_offline()
 	table.insert(
 		child,
 		ui.row({ key = "off-head", align = "center", justify = "space_between" }, {
-			ui.label({ text = "OFFLINE", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-			ui.label({
-				text = n_pls
-					.. (n_pls == 1 and " playlist" or " playlists")
-					.. " • "
-					.. n_tr
-					.. (n_tr == 1 and " saved track" or " saved tracks"),
-				fontSize = theme.fontTitle,
-				color = "on_surface_variant",
+			ui.column({ gap = 4 }, {
+				ui.label({ text = "OFFLINE", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+				ui.label({
+					text = n_pls
+						.. (n_pls == 1 and " playlist" or " playlists")
+						.. " • "
+						.. n_tr
+						.. (n_tr == 1 and " saved track" or " saved tracks"),
+					fontSize = theme.fontTitle,
+					color = "on_surface_variant",
+				}),
 			}),
 		})
 	)
 
-	table.insert(child, ui.separator({ key = "sep-off", color = "outline" }))
+	table.insert(child, ui.row({ key = "spacer-off-1", height = 8, borderWidth = 0 }))
+
+	-- Filter chips
+	local filter = view.offline_filter or "all"
+	local chips = {
+		{ id = "all", label = "All" },
+		{ id = "playlists", label = "Playlists" },
+		{ id = "tracks", label = "Tracks" },
+	}
+
+	local chip_elems = {}
+	for _, c in ipairs(chips) do
+		local active = (filter == c.id)
+		local key = "off-chip-" .. c.id
+		table.insert(
+			chip_elems,
+			ui.row({
+				key = key,
+				align = "center",
+				justify = "center",
+				paddingV = 6,
+				paddingH = 16,
+				borderWidth = 1,
+				border = active and "primary" or "outline/0.4",
+				fill = active and "primary" or "surface_variant/0.2",
+				onClick = function()
+					view.offline_filter = c.id
+					rerender.call()
+				end,
+			}, {
+				ui.label({
+					text = c.label,
+					fontSize = theme.fontTitle,
+					fontWeight = active and "bold" or "medium",
+					color = active and "on_primary" or "on_surface",
+				}),
+			})
+		)
+	end
+	table.insert(child, ui.row({ key = "off-chips-row", align = "center", gap = 8 }, chip_elems))
+	table.insert(child, ui.row({ key = "spacer-off-2", height = 14, borderWidth = 0 }))
 
 	if n_pls == 0 and n_tr == 0 then
 		table.insert(
@@ -68,7 +110,24 @@ local function build_offline()
 		return child
 	end
 
-	if n_pls > 0 then
+	local show_playlists = (filter == "all" or filter == "playlists") and n_pls > 0
+	local show_tracks = (filter == "all" or filter == "tracks") and n_tr > 0
+
+	if not show_playlists and not show_tracks then
+		table.insert(
+			child,
+			ui.row({ key = "off-empty-filter", align = "center", justify = "center", padding = 40 }, {
+				ui.label({
+					text = "No offline items match your filter",
+					fontSize = theme.fontTitle,
+					color = "on_surface_variant",
+				}),
+			})
+		)
+		return child
+	end
+
+	if show_playlists then
 		table.insert(
 			child,
 			ui.label({
@@ -128,10 +187,12 @@ local function build_offline()
 			table.insert(child, row)
 		end
 
-		table.insert(child, ui.separator({ key = "sep-off-tracks", color = "outline/0.3" }))
+		if show_tracks then
+			table.insert(child, ui.separator({ key = "sep-off-tracks", color = "outline/0.3" }))
+		end
 	end
 
-	if n_tr > 0 then
+	if show_tracks then
 		table.insert(
 			child,
 			ui.row({ key = "off-tracks-head", justify = "space_between", align = "center" }, {
@@ -139,11 +200,6 @@ local function build_offline()
 					text = "SAVED TRACKS",
 					fontSize = theme.fontHeading,
 					fontWeight = "bold",
-					color = "on_surface_variant",
-				}),
-				ui.label({
-					text = "playable without internet",
-					fontSize = theme.fontBody,
 					color = "on_surface_variant",
 				}),
 			})
@@ -166,14 +222,16 @@ local function build_offline()
 		for abs_idx = page_start, page_end do
 			table.insert(page_tracks, tracks[abs_idx])
 		end
+		local track_rows = {}
 		for i, t in ipairs(page_tracks) do
 			table.insert(
-				child,
+				track_rows,
 				common.media_row(t, page_start + i - 1, function()
 					request("play_with_queue", { item = t, index = i, queue = page_tracks })
 				end, data.player.id == t.id)
 			)
 		end
+		table.insert(child, ui.column({ key = "off-tracks-col", gap = 0 }, track_rows))
 
 		local has_prev = (view.offline_view_page > 0)
 		local has_next = (view.offline_view_page < total_pages - 1)

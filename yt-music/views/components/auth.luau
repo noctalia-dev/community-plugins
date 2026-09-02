@@ -42,7 +42,13 @@ local function build_browser_cells()
                 border = is_hovered and "primary" or "outline",
                 fill = is_hovered and "surface_variant/0.8" or "surface_variant/0.4",
                 flexGrow = 1,
-                onClick = function() request("extract", { browser = b.id }) end,
+                onClick = function()
+                    if state.data.browser == b.id and state.data.status_text:find("Opened") then
+                        request("extract", { browser = b.id })
+                    else
+                        request("open_login", { browser = b.id })
+                    end
+                end,
                 onHover = function(h)
                     if h == "true" then
                         if state.view.hover_key.card ~= key then state.view.hover_key.card = key; rerender.call() end
@@ -85,19 +91,25 @@ local function build_signin_prompt()
         key = "signin-prompt",
         align = "center",
         justify = "center",
-        gap = 10,
+        gap = 16,
         padding = 40,
         flexGrow = 1
     }, {
-        ui.glyph({ name = "music", size = 44, color = "primary" }),
+        ui.glyph({ name = "music", size = 48, color = "primary" }),
         ui.label({ text = "YouTube Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-        ui.label({ text = "Pick the browser you're signed into YouTube Music with", fontSize = theme.fontTitle, color = "on_surface_variant" }),
+        ui.row({ height = 4, borderWidth = 0 }),
+        ui.column({ align = "start", gap = 8 }, {
+            ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
+            ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
+            ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
+        }),
+        ui.row({ height = 6, borderWidth = 0 }),
         ui.label({
             text = state.data.status_text,
             fontSize = theme.fontTitle,
-            color = state.data.status == "error" and "error" or "on_surface_variant"
+            color = state.data.status == "error" and "error" or "primary"
         }),
-        ui.column({ gap = 8, width = "fill" }, browser_rows)
+        ui.column({ gap = 12, width = "fill" }, browser_rows)
     })
 end
 
@@ -149,24 +161,19 @@ local function build_cookies_page()
 
     table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
+    table.insert(page, ui.column({ key = "cookie-steps", gap = 6, padding = 4 }, {
+        ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
+        ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
+        ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
+    }))
+
+    table.insert(page, ui.row({ key = "spacer-above-browser-grid", height = 4, borderWidth = 0 }))
+
     local cells = build_browser_cells()
 
     for _, row in ipairs(common.chunk_rows(cells, 3, "browser-grid", 12)) do
         table.insert(page, row)
     end
-
-    table.insert(page, ui.row({ key = "spacer-above-sep-cookie-2", height = 4, borderWidth = 0 }))
-    table.insert(page, ui.separator({ key = "sep-cookie-2", color = "outline/0.3" }))
-
-    table.insert(page, ui.row({ key = "cookie-hint", align = "center", gap = 8, padding = 4 }, {
-        ui.glyph({ name = "info-circle", size = 15, color = "on_surface_variant" }),
-        ui.label({
-            text = "Sign in to YouTube Music in a browser, then click its button to export YouTube cookies. If the browser has no session, the login page opens for you.",
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant",
-            flexGrow = 1
-        })
-    }))
 
     return page
 end

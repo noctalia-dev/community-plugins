@@ -151,6 +151,42 @@ function Cache.clear(target)
 		if target == "downloads" or target == "cached_audio" then
 			require("./library.luau").sync_audio_cache()
 		end
+		if target == "thumbnails" then
+			if api and api.reset_thumb_cache then
+				api.reset_thumb_cache()
+			end
+			local reset_items = function(items)
+				if type(items) == "table" then
+					for _, item in ipairs(items) do
+						if type(item) == "table" then
+							item.thumb_path = nil
+						end
+					end
+				end
+			end
+			reset_items(state.library)
+			reset_items(state.recent_playlists)
+			reset_items(state.quick_picks)
+			reset_items(state.home_mixes)
+			if type(state.search) == "table" then
+				reset_items(state.search.results)
+			end
+			if api and api.ensure_thumbnails then
+				if type(state.library) == "table" and #state.library > 0 then
+					api.ensure_thumbnails(state.library, store.publish, "library")
+				end
+				if type(state.recent_playlists) == "table" and #state.recent_playlists > 0 then
+					api.ensure_thumbnails(state.recent_playlists, store.publish, "recent")
+				end
+				if type(state.quick_picks) == "table" and #state.quick_picks > 0 then
+					api.ensure_thumbnails(state.quick_picks, store.publish, "qp")
+				end
+				if type(state.home_mixes) == "table" and #state.home_mixes > 0 then
+					api.ensure_thumbnails(state.home_mixes, store.publish, "mixes")
+				end
+			end
+			store.publish()
+		end
 	end)
 end
 

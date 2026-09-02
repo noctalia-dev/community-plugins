@@ -67,12 +67,42 @@ local function build_player_bar()
 					end, is_liked)
 				end)(),
 				ui.button({
+					key = "pb-stats",
 					glyph = "activity",
 					variant = "ghost",
 					controlSize = "sm",
 					tooltip = audio_spec_tooltip(),
 					onHover = function() end,
 				}),
+				(function()
+					local pid = player.id
+					if not pid or pid == "" then return nil end
+					local id_on_disk = (state.data.cached_audio_ids and state.data.cached_audio_ids[pid] == true)
+					local is_explicit = (id_on_disk and state.data.offline_meta and state.data.offline_meta[pid] ~= nil)
+					if is_explicit then
+						return ui.glyph({ key = "pb-check", name = "check", size = 16, color = "primary" })
+					else
+						return ui.button({
+							key = "pb-dl",
+							glyph = "download",
+							variant = "ghost",
+							controlSize = "sm",
+							tooltip = id_on_disk and "Add to offline downloads" or "Download current track",
+							onClick = function()
+								request("download_track", {
+									id = pid,
+									item = {
+										id = pid,
+										title = player.title,
+										artist = player.artist,
+										thumb_path = player.thumb_path,
+										duration = player.duration,
+									},
+								})
+							end,
+						})
+					end
+				end)(),
 			}),
 			ui.column({ gap = 3 }, {
 				ui.label({

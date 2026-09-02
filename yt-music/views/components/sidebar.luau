@@ -1,11 +1,14 @@
 local theme = require("../../utils/theme.luau")
 local state = require("../state.luau")
+local common = require("../common.luau")
+local rerender = require("../rerender.luau")
 
 local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },
     { id = "discover", label = "Search", icon = "search" },
-    { id = "queue", label = "Queue", icon = "library" },
+    { id = "queue", label = "Queue", icon = "music" },
     { id = "offline", label = "Offline", icon = "download" },
+    { id = "library", label = "Library", icon = "library" },
     { id = "settings", label = "Settings", icon = "settings" }
 }
 
@@ -15,7 +18,7 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
     local glyph_color = (active or is_hovered) and "primary" or "on_surface_variant"
 
     local icon_elem
-    if thumb_path and noctalia.fileExists(thumb_path) then
+    if thumb_path and common.file_exists_cached(thumb_path) then
         icon_elem = ui.image({ path = thumb_path, width = 26, height = 26, fit = "cover" })
     else
         icon_elem = ui.glyph({ name = icon, size = 17, color = glyph_color })
@@ -151,12 +154,28 @@ local function build_sidebar()
         for idx, pl in ipairs(data.library) do
             local pl_id = tostring(pl.id or "")
             local key = "pl-" .. idx
-            local active = (view.content_page == "playlist" and pl_id ~= "" and data.playlist.id == pl_id)
+            local active = (
+                (view.content_page == "playlist" and pl_id ~= "" and data.playlist and data.playlist.id == pl_id) or
+                (view.content_page == "artist" and pl_id ~= "" and data.artist and data.artist.id == pl_id)
+            )
             local is_source = (data.player and data.player.source_playlist ~= nil and tostring(data.player.source_playlist) == pl_id)
-            local row_icon = (pl.title and pl.title:lower():find("liked", 1, true)) and "heart" or "playlist"
+            local title_lower = (pl.title or ""):lower()
+            local sub_lower = (pl.subtitle or ""):lower()
+            local row_icon = "playlist"
+            if title_lower:find("liked", 1, true) or pl_id == "VLLM" then
+                row_icon = "heart"
+            elseif pl_id:sub(1, 2) == "UC" or sub_lower:find("artist", 1, true) then
+                row_icon = "user"
+            elseif pl_id:sub(1, 5) == "MPREb" or sub_lower:find("album", 1, true) then
+                row_icon = "disc"
+            end
             table.insert(library_list, sidebar_row(key, row_icon, pl.title, nil, active, function()
-                state.open_playlist(pl)
-            end, nil, false, is_source and "primary" or nil))
+                if pl_id:sub(1, 2) == "UC" then
+                    state.open_artist({ id = pl_id, title = pl.title, name = pl.title, thumbnail_url = pl.thumbnail_url, thumb_path = pl.thumb_path })
+                else
+                    state.open_playlist(pl)
+                end
+            end, pl.thumb_path, false, is_source and "primary" or nil))
         end
     end
 

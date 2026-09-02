@@ -23,7 +23,15 @@ end
 
 function Auth.open_login(browser)
     local target = (type(browser) == "string" and browser ~= "") and browser or "default"
+    local label = Auth.browser_label(target)
+    state.browser = target
+    state.browser_label = label
+    state.status_text = "Opened " .. label .. ". Sign in, then click " .. label .. " again to extract."
+    store.publish()
     Bash.run_script("cookies.sh", "open_browser", function() end, 5000, target)
+    if noctalia.notify then
+        noctalia.notify("YouTube Music", "Opened " .. label .. ". Sign into YouTube Music, then click " .. label .. " again.")
+    end
 end
 
 function Auth.extract_cookies(browser)
@@ -93,9 +101,8 @@ function Auth.extract_cookies(browser)
             state.cookie_count = 0
             state.last_error = err_log
             state.status_text = "No YouTube session found in " .. label
-            Auth.open_login(browser)
             if noctalia.notify then
-                noctalia.notify("YouTube Music", "No YouTube login in " .. label .. ". Opening YouTube Music — sign in, then click the button again.")
+                noctalia.notify("YouTube Music", "No YouTube login found in " .. label .. ". Make sure you are signed in on YouTube Music, then click again.")
             end
         end
         store.publish()

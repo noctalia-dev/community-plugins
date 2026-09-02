@@ -79,26 +79,25 @@ function Playlist.open(pid, title)
 	state.playlist.title = tostring(title or "Playlist")
 
 	state.playlist.next_token = nil
-	state.playlist.tracks = {}
 	state.playlist.suggestions = {}
-	state.playlist.fetching = true
-	store.publish()
 
-	-- Offline: serve strictly from disk. Never touch the wire and never let a
-	-- gated/failed fetch overwrite good caches with stale scratch content.
+	local cached = load_cached(pid)
+	if cached and #cached > 0 then
+		if pid == "VLLM" then
+			library.sync_liked_tracks(cached)
+		end
+		state.playlist.tracks = cached
+		state.playlist.fetching = false
+		store.publish()
+		ensure_thumbs("playlist")
+	else
+		state.playlist.tracks = {}
+		state.playlist.fetching = true
+		store.publish()
+	end
+
+	-- Offline: serve strictly from disk.
 	if not network.isOnline() then
-		noctalia.runAsync("true", function()
-			if seq ~= open_seq or state.playlist.id ~= pid then
-				return
-			end
-			local cached = load_cached(pid)
-			if pid == "VLLM" and cached and #cached > 0 then
-				library.sync_liked_tracks(cached)
-			end
-			state.playlist.tracks = (cached and #cached > 0) and cached or {}
-			state.playlist.fetching = false
-			store.publish()
-		end)
 		return
 	end
 
@@ -117,7 +116,8 @@ function Playlist.open(pid, title)
 				if pid == "VLLM" then
 					library.sync_liked_tracks(res.tracks)
 				end
-				state.playlist.tracks = merge_keep_existing(state.playlist.tracks, res.tracks)
+				state.playlist.tracks = res.tracks
+				save_cache(pid)
 			end
 			-- YT Music attaches continuations even when the whole list fits one
 			-- page (they lead to suggestions); once the declared count is met,

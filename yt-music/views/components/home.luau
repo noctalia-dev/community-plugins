@@ -96,7 +96,37 @@ local function build_home()
     table.insert(feed, ui.row({ key = "spacer-above-sep-qp", height = 4, borderWidth = 0 }))
     table.insert(feed, ui.separator({ key = "sep-qp", color = "outline/0.3" }))
 
-    local mixes_source = (type(data.home_mixes) == "table" and #data.home_mixes > 0) and data.home_mixes or nil
+    local lib_ids = {}
+    if type(data.library) == "table" then
+        for _, pl in ipairs(data.library) do
+            if pl.id and pl.id ~= "" then
+                local id_str = tostring(pl.id)
+                lib_ids[id_str] = true
+                if id_str:sub(1, 2) == "VL" then
+                    lib_ids[id_str:sub(3)] = true
+                else
+                    lib_ids["VL" .. id_str] = true
+                end
+            end
+        end
+    end
+
+    local mixes_source = nil
+    if type(data.home_mixes) == "table" and #data.home_mixes > 0 then
+        local filtered = {}
+        for _, mix in ipairs(data.home_mixes) do
+            local mid = tostring(mix.id or "")
+            if mid ~= "" and not lib_ids[mid] then
+                table.insert(filtered, mix)
+                if #filtered >= 6 then
+                    break
+                end
+            end
+        end
+        if #filtered > 0 then
+            mixes_source = filtered
+        end
+    end
 
     if mixes_source then
         table.insert(feed, ui.row({ key = "spacer-mixes", height = 4, borderWidth = 0 }))
@@ -138,69 +168,8 @@ local function build_home()
     table.insert(feed, ui.separator({ key = "sep-mixes", color = "outline/0.3" }))
     table.insert(feed, ui.row({ key = "spacer-library", height = 4, borderWidth = 0 }))
 
-    table.insert(feed, ui.label({ text = "YOUR LIBRARY", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
-
-    if #data.library == 0 then
-        table.insert(feed, ui.label({
-            text = state.logged_in() and "Loading playlists..." or "Sign in to load your library.",
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    elseif not view.home_library_ready then
-        -- First paint on home defers the card grid (dozens of cold fileExists
-        -- probes + node building) by one tick so the panel opens instantly.
-        noctalia.runAsync("true", function()
-            if not view.home_library_ready then
-                view.home_library_ready = true
-                rerender.call()
-            end
-        end)
-        table.insert(feed, ui.label({
-            text = "Loading your playlists...",
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    else
-        local cards = {}
-        for _, pl in ipairs(data.library) do
-            local card_key = "pl-card-" .. pl.id
-            local card_hovered = (view.hover_key.card == card_key)
-
-            local pl_id = tostring(pl.id or "")
-            local is_pl_downloaded = (data.downloaded_playlist_ids and data.downloaded_playlist_ids[pl_id] == true)
-
-            table.insert(cards, ui.column({
-                key = card_key,
-                gap = 10,
-                padding = 10,
-                borderWidth = 1,
-                border = "primary/0.4",
-                fill = card_hovered and "primary/0.12" or "primary/0.04",
-                flexGrow = 1,
-                onClick = function()
-                    view.hover_key.card = nil
-                    state.open_playlist(pl)
-                end,
-                onHover = "onCardHover"
-            }, {
-                common.thumb_or_placeholder(pl.thumb_path, 200, "playlist", 38, "primary", card_hovered and "primary/0.2" or "surface_variant/0.6"),
-                ui.column({ gap = 2, flexGrow = 1 }, {
-                    ui.row({ align = "center", justify = "space_between" }, {
-                        ui.label({ text = pl.title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface", flexGrow = 1 }),
-                        is_pl_downloaded and ui.glyph({ name = "check", size = 16, color = "primary" }) or nil
-                    }),
-                    ui.label({
-                        text = (pl.count and pl.count > 0) and (pl.count .. " tracks") or "Playlist",
-                        fontSize = theme.fontTitle,
-                        color = "on_surface_variant"
-                    })
-                })
-            }))
-        end
-        for _, row in ipairs(common.chunk_rows(cards, 6, "pl-grid", 14)) do
-            table.insert(feed, row)
-        end
-    end
+    -- Temporarily hidden YOUR LIBRARY section for speed test
+    -- table.insert(feed, ui.label({ text = "YOUR LIBRARY", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
     return feed
 end

@@ -135,10 +135,27 @@ local ACTIONS = {
 			return
 		end
 		state.artist =
-			{ id = bid, title = tostring(r.title or "Artist"), thumbnail_url = r.thumbnail_url or "", thumb_path = nil }
-		state.artist_tracks = {}
-		state.artist_related = {}
-		store.publish()
+			{ id = bid, title = tostring(r.title or "Artist"), thumbnail_url = r.thumbnail_url or "", thumb_path = r.thumb_path or nil }
+		
+		local cached = api and api.load_cached_artist and api.load_cached_artist(bid)
+		if cached then
+			if type(cached.artist) == "table" then
+				if cached.artist.thumb_path and noctalia.fileExists(cached.artist.thumb_path) then
+					state.artist.thumb_path = cached.artist.thumb_path
+				end
+				if (not state.artist.thumbnail_url or state.artist.thumbnail_url == "") and cached.artist.thumbnail_url then
+					state.artist.thumbnail_url = cached.artist.thumbnail_url
+				end
+			end
+			state.artist_tracks = cached.tracks or {}
+			state.artist_related = cached.related or {}
+			store.publish()
+		else
+			state.artist_tracks = {}
+			state.artist_related = {}
+			store.publish()
+		end
+
 		if not network.isOnline() then
 			return
 		end
@@ -146,6 +163,9 @@ local ACTIONS = {
 			state.artist_tracks = res.tracks or {}
 			state.artist_related = res.related or {}
 			store.publish()
+			if api and api.save_artist_cache then
+				api.save_artist_cache(bid, { artist = state.artist, tracks = state.artist_tracks, related = state.artist_related })
+			end
 			local items = { state.artist }
 			for _, t in ipairs(state.artist_tracks) do
 				table.insert(items, t)
@@ -250,6 +270,9 @@ noctalia.runAsync("true", function()
 		if cached_recent then
 			state.recent_playlists = cached_recent
 		end
+	end
+	if api and api.fetch_quick_picks then
+		home.refresh_quick_picks()
 	end
 	if api and api.load_session then
 		local sess = api.load_session()

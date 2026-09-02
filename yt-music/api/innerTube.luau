@@ -64,20 +64,25 @@ function EXPO.invalidate_auth()
 end
 
 local function build_auth(): (string?, string?)
-	if not auth_state.ready then
+	if not auth_state.ready or auth_state.sapisid == "" then
 		local values = load_cookie_values()
 		local sapisid = values["SAPISID"]
-		if not sapisid or sapisid == "" then
-			return nil, nil
-		end
 		local cookieParts = {}
 		for k, v in pairs(values) do
 			table.insert(cookieParts, k .. "=" .. v)
 		end
-		auth_state.sapisid = sapisid
-		auth_state.cookie = table.concat(cookieParts, "; ")
-		auth_state.ready = true
+		auth_state.cookie = #cookieParts > 0 and table.concat(cookieParts, "; ") or ""
+		if sapisid and sapisid ~= "" then
+			auth_state.sapisid = sapisid
+			auth_state.ready = true
+		else
+			auth_state.sapisid = ""
+			auth_state.ready = false
+		end
 		auth_memo_ts, auth_memo_header = nil, nil
+	end
+	if auth_state.sapisid == "" then
+		return nil, #auth_state.cookie > 0 and auth_state.cookie or nil
 	end
 	local ts = math.floor(noctalia.nowMs() / 1000)
 	if auth_memo_header and auth_memo_ts == ts then
@@ -95,29 +100,29 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
 		return
 	end
 	local auth, cookie = build_auth()
-	if not auth then
-		log("innerTube: no SAPISID auth, request dropped")
-		cb(nil, "no auth")
-		return
-	end
 	local payload, perr = noctalia.json.encode(request)
 	if not payload then
 		log("innerTube: json encode failed " .. tostring(perr))
 		cb(nil, tostring(perr))
 		return
 	end
-	log("innerTube POST " .. endpoint .. " body=" .. #payload .. " bytes")
+	log("innerTube POST " .. endpoint .. " body=" .. #payload .. " bytes (auth=" .. tostring(auth ~= nil) .. ")")
+	local headers = {
+		"Content-Type: application/json",
+		"Origin: " .. ORIGIN,
+		"User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+	}
+	if auth then
+		table.insert(headers, "Authorization: " .. auth)
+	end
+	if cookie then
+		table.insert(headers, "Cookie: " .. cookie)
+	end
 	local accepted = network.http({
 		url = BASE .. endpoint .. "?key=" .. KEY .. "&prettyPrint=false",
 		method = "POST",
 		body = payload,
-		headers = {
-			"Content-Type: application/json",
-			"Authorization: " .. auth,
-			"Origin: " .. ORIGIN,
-			"Cookie: " .. (cookie or ""),
-			"User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-		},
+		headers = headers,
 	}, function(resp: Response?)
 		if not resp then
 			log("innerTube " .. endpoint .. ": no response")

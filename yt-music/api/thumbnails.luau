@@ -179,4 +179,8 @@ function EXPO.attach_cached_thumbs(items: { { [string]: any } })
 	end
 end
 
+function EXPO.reset_thumb_cache()
+	known_thumb_files = {}
+end
+
 return EXPO
