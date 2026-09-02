@@ -4,6 +4,22 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.11] — 2026-09-02
+
+### Fixed
+
+- **Long lyric lines no longer spill past the panel edge** (reported live on
+  the compact preset): a `ui.label` wider than the panel is clipped at the
+  surface edge, cutting 47+ char lines mid-word. The host does not auto-wrap,
+  so long lines are now soft-wrapped into balanced sub-lines via `\n`
+  (verified that `ui.label` renders `\n`). The wrap budget uses a glyph
+  advance factor of ~0.62 em measured live at scale 1.5 (bold 0.66) and
+  per-preset content widths (compact 404 / medium 484 / large 604).
+- **Karaoke window now fits a vertical sub-line budget** — the visible
+  window shrinks when wrapped lines would push the active line below the
+  panel edge (previously the fixed 10/14/16-row window could clip the
+  bottom rows once lines wrapped).
+
 ## [0.8.10] — 2026-09-02
 
 ### Fixed

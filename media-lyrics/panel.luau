@@ -136,6 +136,82 @@ end
 
 local ACTIVE_ROW = 4        -- 1-based slot of the active line inside the window
 
+-- Long lyric lines must not spill past the panel edge: a ui.label wider
+-- than the panel is clipped at the surface edge (verified live — compact
+-- 440 px panel cut ~47+ char lines mid-word). ui.label DOES render "\n"
+-- (verified live), so long lines are soft-wrapped into sub-lines. Glyph
+-- budget: advance factor 0.62 em measured live on this host at scale 1.5
+-- (mixed-case text, incl. spaces); bold/medium run wider and get a bump.
+-- Width per preset measured live: panel width minus ~36 px of host insets
+-- + root padding (compact 404 / medium 484 / large 604).
+local LYR_WIDTH = { compact = 404, medium = 484, large = 604 }
+-- Advance factors measured live on this host at scale 1.5 (mixed-case text,
+-- incl. spaces): regular ~0.613 em, medium ~0.62, bold ~+6% over regular.
+local LYR_K = { normal = 0.62, medium = 0.62, bold = 0.66 }
+
+-- Split a lyric line into display sub-lines that fit the glyph budget.
+-- Word-aware and BALANCED: when the line needs exactly two sub-lines the
+-- break sits near the middle (not a 40+4 sliver); longer lines fill whole
+-- budget chunks. A single word longer than the whole budget is hard-sliced.
+-- Returns the original string when it already fits. `reserved` shrinks the
+-- budget (cursor rows carry a leading chevron).
+local function wrapLyric(text, fontSize, fontWeight, reserved)
+  if text == nil or text == "" then return text end
+  local sz = noctalia.getConfig("panel_size") or "medium"
+  local maxW = (LYR_WIDTH[sz] or LYR_WIDTH.medium) - 10 - (reserved or 0)
+  local k = LYR_K[fontWeight] or LYR_K.normal
+  local budget = math.max(10, math.floor(maxW / (k * fontSize)))
+  local n = #text
+  if n <= budget then return text end
+  local words = {}
+  for w in (text .. " "):gmatch("(.-) ") do
+    words[#words + 1] = w
+  end
+  -- Balanced two-line break: both halves must fit the budget.
+  if n <= budget * 2 and #words >= 2 then
+    local best, bestScore = 1, math.huge
+    for i = 1, #words - 1 do
+      local a, b = "", ""
+      for j = 1, i do a = a .. (j > 1 and " " or "") .. words[j] end
+      for j = i + 1, #words do b = b .. (j > i + 1 and " " or "") .. words[j] end
+      if #a <= budget and #b <= budget then
+        local score = math.abs(#a - #b)
+        if score < bestScore then best, bestScore = i, score end
+      end
+    end
+    if bestScore ~= math.huge then
+      local a, b = "", ""
+      for j = 1, best do a = a .. (j > 1 and " " or "") .. words[j] end
+      for j = best + 1, #words do b = b .. (j > best + 1 and " " or "") .. words[j] end
+      return a .. "\n" .. b
+    end
+  end
+  -- Three-or-more: fill whole budget chunks, word-aware.
+  local out = {}
+  local cur = ""
+  for i = 1, #words do
+    local w = words[i]
+    if #w > budget then
+      local rest = w
+      while #rest > budget do
+        if cur ~= "" then out[#out + 1] = cur; cur = "" end
+        out[#out + 1] = rest:sub(1, budget)
+        rest = rest:sub(budget + 1)
+      end
+      cur = rest
+    elseif cur == "" then
+      cur = w
+    elseif #cur + 1 + #w <= budget then
+      cur = cur .. " " .. w
+    else
+      out[#out + 1] = cur
+      cur = w
+    end
+  end
+  if cur ~= "" then out[#out + 1] = cur end
+  return table.concat(out, "\n")
+end
+
 local function buildLyricsBody(s)
   local lines = s.lyrics or {}
   local n = #lines
@@ -171,7 +247,8 @@ local function buildLyricsBody(s)
           color = T.lyricActive,
         }) or nil,
         ui.label({
-          key = "lbl" .. i, text = l.text, fontSize = T.fsFarLyric,
+          key = "lbl" .. i, text = wrapLyric(l.text, T.fsFarLyric, "normal", isCursor and 16 or 0),
+          fontSize = T.fsFarLyric,
           color = isCursor and T.lyricActive or T.lyricNear,
           opacity = isCursor and 1 or 0.8, textAlign = "center",
         }),
@@ -189,19 +266,49 @@ local function buildLyricsBody(s)
     if (s.lyrics[i].time >= 0) and (s.lyrics[i].time > pos) then break end
   end
 
-  local showCount = math.min(visibleLines(), n)
-  local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
-  -- The window centers on the keyboard cursor line when the user moved it
-  -- (Up/Down/Return/Space/scroll), otherwise on the active playback line.
-  -- Before the first lyric timestamp active == -1: fall back to line 1 so
-  -- scrolling works from the very start (a raw active-based base was clamped
-  -- to a frozen window until the first words began).
+  -- Lyric class per line: font size / weight from the karaoke distance
+  -- ladder (mirrors the render loop below).
+  local function lineClass(i)
+    local isActive = (i == active)
+    local isCursor = (i == cursorLine)
+    local dist = math.abs(i - active)
+    local fontSize = isActive and T.fsActiveLyric
+      or (dist <= 2 and T.fsNearLyric or T.fsFarLyric)
+    local fontWeight = (isActive or isCursor) and "bold"
+      or (dist <= 2 and "medium" or "normal")
+    return fontSize, fontWeight
+  end
+  -- Wrapped lines consume more than one visual row. The window must fit a
+  -- VERTICAL BUDGET of visibleLines() rows, so count the wrapped sub-lines
+  -- a row needs and shrink the window until its total fits (wrapping long
+  -- lines must never push the active line below the panel edge).
+  local function sublines(i)
+    local fs, w = lineClass(i)
+    return 1 + select(2, wrapLyric(s.lyrics[i].text, fs, w, i == cursorLine and 16 or 0):gsub("\n", ""))
+  end
+  local budget = visibleLines()
   local refActive = active >= 1 and active or 1
   local target = cursorLine >= 1 and cursorLine or refActive
+  local showCount = math.min(budget, n)
+  local centerY = active >= 1 and ACTIVE_ROW or math.ceil(showCount / 2)
   local lo = 1
   local hi = math.max(1, n - showCount + 1)
   local base = target - centerY
   base = math.max(lo, math.min(hi, base))
+  while showCount > 1 do
+    local used = 0
+    for k = base, math.min(n, base + showCount - 1) do
+      used = used + sublines(k)
+    end
+    if used <= budget then break end
+    showCount = showCount - 1
+    -- keep the target line inside the shrunken window
+    base = math.max(1, math.min(n - showCount + 1, target - math.ceil(showCount / 2)))
+    base = math.max(1, math.min(base, target))
+    base = math.max(1, base)
+    if base + showCount - 1 < target then base = target - showCount + 1 end
+    if base < 1 then base = 1 end
+  end
   local rows = {}
   for k = 1, showCount do
     local idx = base + k - 1
@@ -233,7 +340,7 @@ local function buildLyricsBody(s)
       end
       children[#children + 1] = ui.label({
         key = "lbl" .. idx,
-        text = s.lyrics[idx].text,
+        text = wrapLyric(s.lyrics[idx].text, fontSize, fontWeight, isCursor and 16 or 0),
         fontSize = fontSize,
         fontWeight = fontWeight,
         color = color,

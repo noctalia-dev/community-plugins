@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.10"
+version = "0.8.11"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
