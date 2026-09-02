@@ -8,6 +8,7 @@ A Pomodoro timer plugin for Noctalia for productivity. Initially ported from the
 - **Auto-start**: Optionally auto-start breaks and/or work sessions.
 - **Bar Widget**: Shows status and remaining time on the bar widget when the panel is closed.
 - **Notifications**: Toast notification + alarm sound when work/break finishes.
+- **Ticking Sound**: Optional tick/tock sounds each second while a work session is running.
 
 ## TODO
 - IPC
@@ -56,6 +57,25 @@ bypass-noctalia-sound-globals = true
 
 or `Bypass Noctalia Sound Globals` in the GUI plugin settings. This will use the `ffplay` tool to play the sound directly, so make sure to have it installed.
 
+### Ticking Sound Configuration
+To play a ticking (tick/tock) sound each second while a **work** session is running, enable it in Noctalia config:
+
+```toml
+[plugin_settings."thepunkoff/pomodoro"]
+enable-work-timer-sound = true
+```
+
+or use `Enable Work Timer Sound` in the GUI plugin settings. Break timers stay silent.
+
+The ticking sound obeys the same global sound rules as the alarm: it plays through Noctalia's sound system when [`enable_sounds`](https://docs.noctalia.dev/noctalia/services/audio/) (`Shell Sounds`) is `true`. To play it even when `enable_sounds` is `false`, combine it with `bypass-noctalia-sound-globals` (which requires `ffplay`):
+
+```toml
+[plugin_settings."thepunkoff/pomodoro"]
+enable-work-timer-sound = true
+use-bundled-alarm-sound = true
+bypass-noctalia-sound-globals = true
+```
+
 To open the panel with a command:
 ```sh
 noctalia msg panel-toggle thepunkoff/pomodoro:panel
@@ -71,6 +91,9 @@ noctalia msg panel-toggle thepunkoff/pomodoro:panel
 | `sessions-before-long-break` | `int` | `4` | Number of sessions before a long break (min=1). |
 | `auto-start-work` | `bool` | `false` | Automatically start the work timer after a break. |
 | `auto-start-breaks` | `bool` | `false` | Automatically start the break timer after a work session. |
+| `enable-work-timer-sound` | `bool` | `false` | Play tick/tock sounds each second while a work session is running. Break timers stay silent. |
+| `use-bundled-alarm-sound` | `bool` | `false` | Use the bundled alarm sound when work/break is over. |
+| `bypass-noctalia-sound-globals` | `bool` | `false` | Ignore Noctalia's global sound settings and play bundled sounds directly via `ffplay`. |
 
 ## IPC
 ```sh
