@@ -163,7 +163,7 @@
       "label": "Terminal"
     },
     "update_cmd": {
-      "description": "Vollständige Überschreibung des im Terminal ausgeführten Befehls beim Aktualisieren. Leer (Standard) baut ihn aus AUR-Helfer, Ignorierliste, Flatpak und „Automatisch mit Ja bestätigen“ oben zusammen.",
+      "description": "Vollständige Überschreibung des Update-Befehls, im Terminal- und im Hintergrundmodus. Leer (Standard) baut ihn aus AUR-Helfer, Ignorierliste und Flatpak-Einstellungen oben zusammen.",
       "label": "Eigener Update-Befehl"
     },
     "update_mode": {

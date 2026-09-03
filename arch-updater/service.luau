@@ -1061,7 +1061,13 @@ end
 -- as the retry after a failed background run: no --noconfirm, prompts and
 -- the PKGBUILD review work as usual. Output is tee'd into the same log so the
 -- engine still sees the "::EXIT" marker and re-checks when the run ends.
+-- The update_cmd override wins here too, same as in background mode.
 local function buildTerminalCommand()
+    local override = trim(cfg("update_cmd"))
+    if override ~= "" then
+        return override
+    end
+
     local ignored = ignoreList()
     local ignoreFlag = #ignored > 0 and (" --ignore " .. table.concat(ignored, ",")) or ""
 

@@ -1,6 +1,6 @@
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.2"
+version = "2.0.3"
 plugin_api = 9
 author = "yuuto"
 license = "MIT"
