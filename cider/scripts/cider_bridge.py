@@ -179,11 +179,80 @@ def _write_position(
     _atomic_write(_STATE_DIR / "position.json", json.dumps(payload, ensure_ascii=False))
 
 
-def _is_cider_window(app_id: str | None, title: str | None = None) -> bool:
+def _normalize_app_id(app_id: str | None) -> str:
     aid = (app_id or "").strip()
+    if aid.lower().startswith("[xwayland]"):
+        aid = aid.split("]", 1)[1].strip()
+    return aid
+
+
+def _is_cider_window(app_id: str | None, title: str | None = None) -> bool:
+    aid = _normalize_app_id(app_id)
     if aid in _CIDER_APP_IDS or aid.lower() == "cider":
         return True
     return (title or "").strip().lower() == "cider"
+
+
+def _empty_window_probe() -> dict[str, Any]:
+    return {
+        "present": False,
+        "focused": False,
+        "on_screen": False,
+        "suppress_notify": False,
+        "compositor": "none",
+        "t": time.time(),
+    }
+
+
+def _umbriel_windows_text() -> str | None:
+    if not shutil.which("umbriel"):
+        return None
+    try:
+        return subprocess.check_output(
+            ["umbriel", "windows"],
+            stderr=subprocess.DEVNULL,
+            timeout=1.5,
+        ).decode("utf-8")
+    except Exception as exc:
+        log.debug("umbriel windows query failed: %s", exc)
+        return None
+
+
+def _parse_umbriel_windows(text: str) -> list[tuple[bool, str, str]]:
+    rows: list[tuple[bool, str, str]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        focused = line.startswith("*")
+        rest = line[1:] if focused else line
+        rest = rest.lstrip()
+        parts = rest.split("\t")
+        if len(parts) < 2:
+            continue
+        rows.append((focused, parts[0].strip(), parts[1].strip()))
+    return rows
+
+
+def _probe_umbriel() -> dict[str, Any] | None:
+    text = _umbriel_windows_text()
+    if text is None:
+        return None
+    cider_focused = False
+    cider_present = False
+    for focused, app_id, title in _parse_umbriel_windows(text):
+        if not _is_cider_window(app_id, title):
+            continue
+        cider_present = True
+        if focused:
+            cider_focused = True
+    payload = _empty_window_probe()
+    payload["compositor"] = "umbriel"
+    payload["present"] = cider_present
+    payload["focused"] = cider_focused
+    # Listed windows are mapped on the active layout strip.
+    payload["on_screen"] = cider_present
+    payload["suppress_notify"] = cider_focused or cider_present
+    return payload
 
 
 def _niri_json(cmd: list[str]) -> Any | None:
@@ -265,97 +334,100 @@ def _niri_cider_on_screen(
     return cx < view_right and (cx + cw) > view_left
 
 
-def probe_cider_window() -> dict[str, Any]:
-    """Detect Cider focus / on-screen state for notification suppression."""
-    empty = {
-        "present": False,
-        "focused": False,
-        "on_screen": False,
-        "suppress_notify": False,
-        "compositor": "none",
-        "t": time.time(),
-    }
-    if shutil.which("niri"):
-        windows = _niri_json(["niri", "msg", "-j", "windows"])
-        workspaces = _niri_json(["niri", "msg", "-j", "workspaces"])
-        outputs = _niri_json(["niri", "msg", "-j", "outputs"])
-        if not isinstance(windows, list) or not isinstance(workspaces, list):
-            empty["compositor"] = "niri"
-            return empty
-        cider = next(
-            (
-                w
-                for w in windows
-                if _is_cider_window(w.get("app_id"), w.get("title"))
-            ),
-            None,
-        )
-        if cider is None:
-            empty["compositor"] = "niri"
-            return empty
-        focused = bool(cider.get("is_focused"))
-        on_screen = _niri_cider_on_screen(
-            cider,
-            windows,
-            workspaces,
-            outputs if isinstance(outputs, dict) else {},
-        )
-        return {
+def _probe_niri() -> dict[str, Any] | None:
+    if not shutil.which("niri"):
+        return None
+    windows = _niri_json(["niri", "msg", "-j", "windows"])
+    workspaces = _niri_json(["niri", "msg", "-j", "workspaces"])
+    outputs = _niri_json(["niri", "msg", "-j", "outputs"])
+    if not isinstance(windows, list) or not isinstance(workspaces, list):
+        return None
+    cider = next(
+        (
+            w
+            for w in windows
+            if _is_cider_window(w.get("app_id"), w.get("title"))
+        ),
+        None,
+    )
+    payload = _empty_window_probe()
+    payload["compositor"] = "niri"
+    if cider is None:
+        return payload
+    focused = bool(cider.get("is_focused"))
+    on_screen = _niri_cider_on_screen(
+        cider,
+        windows,
+        workspaces,
+        outputs if isinstance(outputs, dict) else {},
+    )
+    payload.update(
+        {
             "present": True,
             "focused": focused,
             "on_screen": on_screen,
             "suppress_notify": focused or on_screen,
-            "compositor": "niri",
-            "t": time.time(),
         }
+    )
+    return payload
 
-    if shutil.which("hyprctl"):
-        try:
-            clients = json.loads(
-                subprocess.check_output(
-                    ["hyprctl", "clients", "-j"],
-                    stderr=subprocess.DEVNULL,
-                    timeout=1.5,
-                ).decode("utf-8")
-            )
-            active = json.loads(
-                subprocess.check_output(
-                    ["hyprctl", "activewindow", "-j"],
-                    stderr=subprocess.DEVNULL,
-                    timeout=1.5,
-                ).decode("utf-8")
-            )
-        except Exception as exc:
-            log.debug("hyprctl probe failed: %s", exc)
-            empty["compositor"] = "hyprland"
-            return empty
-        cider = next(
-            (
-                c
-                for c in (clients or [])
-                if _is_cider_window(c.get("class"), c.get("title"))
-            ),
-            None,
+
+def _probe_hyprland() -> dict[str, Any] | None:
+    if not shutil.which("hyprctl"):
+        return None
+    try:
+        clients = json.loads(
+            subprocess.check_output(
+                ["hyprctl", "clients", "-j"],
+                stderr=subprocess.DEVNULL,
+                timeout=1.5,
+            ).decode("utf-8")
         )
-        if cider is None:
-            empty["compositor"] = "hyprland"
-            return empty
-        focused = bool(active) and active.get("address") == cider.get("address")
-        # Without viewport math, treat same-workspace mapped window as on-screen.
-        on_screen = focused or (
-            not cider.get("hidden", False)
-            and cider.get("workspace", {}).get("id") == (active or {}).get("workspace", {}).get("id")
+        active = json.loads(
+            subprocess.check_output(
+                ["hyprctl", "activewindow", "-j"],
+                stderr=subprocess.DEVNULL,
+                timeout=1.5,
+            ).decode("utf-8")
         )
-        return {
+    except Exception as exc:
+        log.debug("hyprctl probe failed: %s", exc)
+        return None
+    payload = _empty_window_probe()
+    payload["compositor"] = "hyprland"
+    cider = next(
+        (
+            c
+            for c in (clients or [])
+            if _is_cider_window(c.get("class"), c.get("title"))
+        ),
+        None,
+    )
+    if cider is None:
+        return payload
+    focused = bool(active) and active.get("address") == cider.get("address")
+    on_screen = focused or (
+        not cider.get("hidden", False)
+        and cider.get("workspace", {}).get("id") == (active or {}).get("workspace", {}).get("id")
+    )
+    payload.update(
+        {
             "present": True,
             "focused": focused,
             "on_screen": bool(on_screen),
             "suppress_notify": focused or bool(on_screen),
-            "compositor": "hyprland",
-            "t": time.time(),
         }
+    )
+    return payload
 
-    return empty
+
+def probe_cider_window() -> dict[str, Any]:
+    """Detect Cider focus / on-screen state for notification suppression."""
+    for probe in (_probe_umbriel, _probe_niri, _probe_hyprland):
+        payload = probe()
+        if payload is not None:
+            return payload
+    return _empty_window_probe()
 
 
 def _write_window(payload: dict[str, Any]) -> None:

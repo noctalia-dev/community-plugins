@@ -1,13 +1,13 @@
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 23
 author = "thomas-philippot"
 license = "MIT"
 icon = "brand-git"
 description = "Monitor your git repositories from the Noctalia bar. See your current PRs/MRs and issues at a glance."
 tags = ["development", "bar", "panel", "service", "productivity"]
-dependencies = ["gh", "glab", "xdg-open"]
+dependencies = ["gh", "glab", "tea", "git", "xdg-open"]
 
 # ── Plugin-level settings ────────────────────────────────────
 
@@ -19,8 +19,17 @@ description_key = "settings.platform.description"
 default = "github"
 options = [
   { value = "github", label_key = "settings.platform.options.github" },
-  { value = "gitlab", label_key = "settings.platform.options.gitlab" }
+  { value = "gitlab", label_key = "settings.platform.options.gitlab" },
+  { value = "gitea", label_key = "settings.platform.options.gitea" }
 ]
+
+[[setting]]
+key = "gitea_login"
+type = "string"
+label_key = "settings.gitea_login.label"
+description_key = "settings.gitea_login.description"
+default = ""
+visible_when = { key = "platform", values = ["gitea"] }
 
 [[setting]]
 key = "repo"

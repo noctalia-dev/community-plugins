@@ -290,8 +290,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.4.6"
-updated_at = 1787087752
+version = "1.5.0"
+updated_at = 1788274345
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -490,13 +490,14 @@ rev = "5c59d225b811675d858b7f8115c506962438ba2e"
 [[plugin]]
 id = "blackbartblues/keymap"
 name = "Keymap"
-version = "1.5.0"
-updated_at = 1787627868
+version = "1.5.1"
+updated_at = 1788314715
 added_at = 1784597775
 author = "blackbartblues"
 license = "MIT"
 icon = "keyboard"
 description = "View, create, organize, and edit Hyprland, Niri, and MangoWC keybindings."
+deprecated = true
 plugin_api = 9
 tags = ["bar", "panel", "service", "hyprland", "niri", "mangowc", "productivity", "utility"]
 
@@ -567,15 +568,21 @@ tags = ["utility", "hyprland"]
 [[plugin]]
 id = "thepunkoff/pomodoro"
 name = "Pomodoro Timer"
-version = "1.2.1"
-updated_at = 1787615465
+version = "1.3.0"
+updated_at = 1788385923
 added_at = 1784728810
 author = "thepunkoff"
 license = "MIT"
 icon = "brain"
 description = "Simple pomodoro timer."
-plugin_api = 20
+plugin_api = 22
 tags = ["bar", "panel", "service", "productivity", "time"]
+
+[[plugin.release]]
+plugin_api = 20
+version = "1.2.1"
+updated_at = 1787615465
+rev = "58fba57c054d8152b4736671f7b257e129a2dc80"
 
 [[plugin.release]]
 plugin_api = 3
@@ -611,13 +618,14 @@ rev = "0162521282828e0f6313b76bbf45ac919505f251"
 [[plugin]]
 id = "blackbartblues/audio-switcher"
 name = "Audio Switcher"
-version = "0.6.0"
-updated_at = 1788198742
+version = "0.6.1"
+updated_at = 1788314109
 added_at = 1784847459
 author = "blackbartblues"
 license = "MIT"
 icon = "switch-horizontal"
 description = "Switch audio inputs and outputs, hand off Bluetooth devices, and control them from compositor keybinds."
+deprecated = true
 plugin_api = 15
 tags = ["audio", "bar", "hardware", "launcher", "panel", "service", "system", "utility"]
 
@@ -1525,8 +1533,8 @@ tags = ["bar", "panel", "service", "system"]
 [[plugin]]
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.1.0"
-updated_at = 1788120279
+version = "1.2.0"
+updated_at = 1788314708
 added_at = 1786925440
 author = "thomas-philippot"
 license = "MIT"
@@ -1577,8 +1585,8 @@ tags = ["audio", "bar", "network", "panel", "privacy", "service"]
 [[plugin]]
 id = "mdj2812/thunderbird-companion"
 name = "Thunderbird Companion"
-version = "0.1.0"
-updated_at = 1787016139
+version = "0.1.1"
+updated_at = 1788313813
 added_at = 1787016139
 author = "mdj2812"
 license = "MIT"
@@ -1590,8 +1598,8 @@ tags = ["bar", "panel", "service", "productivity", "utility"]
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.9.2"
-updated_at = 1787610333
+version = "1.9.7"
+updated_at = 1788274280
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
@@ -1804,8 +1812,8 @@ tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
 [[plugin]]
 id = "arrifat346afs/systempulse"
 name = "SystemPulse"
-version = "1.1.0"
-updated_at = 1787832988
+version = "1.1.2"
+updated_at = 1788314036
 added_at = 1787832988
 author = "arrifat346afs "
 license = "MIT"
@@ -2021,3 +2029,95 @@ icon = "world"
 description = "Unified control panel for Bluetooth, Wi-Fi, Ethernet, Hotspot, and DNS Switcher."
 plugin_api = 10
 tags = ["network", "bar", "panel", "service", "utility"]
+
+[[plugin]]
+id = "yocraft/desktop-launcher"
+name = "Desktop Launcher"
+version = "1.0.0"
+updated_at = 1788314591
+added_at = 1788314591
+author = "yocraft"
+license = "MIT"
+icon = "launcher"
+description = "Launch your favorite apps from your desktop in one click."
+deprecated = false
+plugin_api = 3
+tags = ["desktop", "utility"]
+
+[[plugin]]
+id = "aabidk20/yt-music"
+name = "YouTube Music"
+version = "0.2.4"
+updated_at = 1788391895
+added_at = 1788315521
+author = "Aabid"
+license = "MIT"
+icon = "brand-youtube-filled"
+description = "YouTube Music client for Noctalia v5 - miniplayer & full view"
+plugin_api = 23
+tags = ["music", "media"]
+
+[[plugin]]
+id = "0lucasmatheus/awwwall"
+name = "Awwwall"
+version = "0.1.0"
+updated_at = 1788316285
+added_at = 1788316285
+author = "0lucasmatheus"
+license = "MIT"
+icon = "photo"
+description = "Mirrors the official wallpaper picker into awww, for animated (GIF) wallpapers."
+plugin_api = 25
+tags = ["wallpaper"]
+
+[[plugin]]
+id = "nirvam/bitdjinn"
+name = "BitDjinn"
+version = "1.0.0"
+updated_at = 1788317224
+added_at = 1788317224
+author = "nirvam"
+license = "MIT"
+icon = "currency-bitcoin"
+description = "Real-time cryptocurrency ticker, trend charts, and blockchain balance monitoring with transaction alerts."
+plugin_api = 19
+tags = ["utility", "indicator", "network", "panel", "bar"]
+
+[[plugin]]
+id = "rylos/remmina"
+name = "Remmina"
+version = "1.0.0"
+updated_at = 1788317461
+added_at = 1788317461
+author = "Marco Ziliani"
+license = "MIT"
+icon = "screen-share"
+description = "Open your saved Remmina connections from the launcher, the bar, or a panel."
+plugin_api = 24
+tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
+
+[[plugin]]
+id = "tranzem/media-lyrics"
+name = "Media Lyrics"
+version = "0.8.13"
+updated_at = 1788381228
+added_at = 1788381228
+author = "tranzem"
+license = "MIT"
+icon = "music"
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
+plugin_api = 24
+tags = ["media", "music", "panel", "service"]
+
+[[plugin]]
+id = "redxtech/super-productivity"
+name = "Super Productivity"
+version = "1.0.0"
+updated_at = 1788400879
+added_at = 1788400879
+author = "Gabe Dunn"
+license = "MIT"
+icon = "checks"
+description = "Show, capture, complete, track, snooze, and open Super Productivity tasks from Noctalia."
+plugin_api = 24
+tags = ["bar", "panel", "service", "launcher", "productivity"]

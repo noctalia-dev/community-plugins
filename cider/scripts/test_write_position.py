@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import cider_bridge
 
@@ -98,6 +99,62 @@ class WritePositionTests(unittest.TestCase):
         source = Path(__file__).resolve().parent / "cider_bridge.py"
         text = source.read_text(encoding="utf-8")
         self.assertIn('trust=event.type in {"time", "track"}', text)
+
+
+class UmbrielWindowProbeTests(unittest.TestCase):
+    SAMPLE = "\n".join(
+        [
+            "*cursor\tCursor Agents\t[tile 1743x1372+17+51]",
+            " [Xwayland] cider\tCider\t[tile 1694x1372+1778+51]",
+            " zen\tZen Browser\t[tile 1694x1372+3490+51]",
+        ]
+    )
+
+    def test_parse_umbriel_windows(self) -> None:
+        rows = cider_bridge._parse_umbriel_windows(self.SAMPLE)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[0][0], True)
+        self.assertEqual(rows[1][1], "[Xwayland] cider")
+        self.assertEqual(rows[1][2], "Cider")
+
+    def test_normalize_xwayland_app_id(self) -> None:
+        self.assertEqual(cider_bridge._normalize_app_id("[Xwayland] cider"), "cider")
+        self.assertTrue(cider_bridge._is_cider_window("[Xwayland] cider", "Cider"))
+
+    def test_probe_umbriel_from_sample(self) -> None:
+        with mock.patch.object(
+            cider_bridge, "_umbriel_windows_text", return_value=self.SAMPLE
+        ):
+            payload = cider_bridge._probe_umbriel()
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertEqual(payload["compositor"], "umbriel")
+        self.assertTrue(payload["present"])
+        self.assertFalse(payload["focused"])
+        self.assertTrue(payload["on_screen"])
+        self.assertTrue(payload["suppress_notify"])
+
+    def test_probe_prefers_umbriel_over_niri(self) -> None:
+        with mock.patch.object(
+            cider_bridge, "_probe_umbriel", return_value={"compositor": "umbriel", "present": True}
+        ) as umbriel_mock, mock.patch.object(
+            cider_bridge, "_probe_niri", return_value={"compositor": "niri", "present": False}
+        ) as niri_mock:
+            payload = cider_bridge.probe_cider_window()
+        umbriel_mock.assert_called_once()
+        niri_mock.assert_not_called()
+        self.assertEqual(payload["compositor"], "umbriel")
+
+    def test_probe_falls_through_when_niri_ipc_dead(self) -> None:
+        with mock.patch.object(
+            cider_bridge, "_probe_umbriel", return_value=None
+        ), mock.patch.object(cider_bridge, "_probe_niri", return_value=None), mock.patch.object(
+            cider_bridge,
+            "_probe_hyprland",
+            return_value={"compositor": "hyprland", "present": False},
+        ):
+            payload = cider_bridge.probe_cider_window()
+        self.assertEqual(payload["compositor"], "hyprland")
 
 
 class OverlayLauncherContractTests(unittest.TestCase):
@@ -243,12 +300,34 @@ class GhostNotifyGuardTests(unittest.TestCase):
             else 10**9,
         )
 
+    def test_service_skips_absent_hide_without_compositor_probe(self) -> None:
+        service = Path(__file__).resolve().parent.parent / "service.luau"
+        text = service.read_text(encoding="utf-8")
+        self.assertIn("compositorProbeUsable", text)
+        self.assertIn('compositor ~= "none"', text)
+
     def test_widget_hides_when_no_track(self) -> None:
         widget = Path(__file__).resolve().parent.parent / "widget.luau"
         text = widget.read_text(encoding="utf-8")
         self.assertIn("barWidget.setVisible", text)
         self.assertIn("setChipVisible(false)", text)
         self.assertIn("function hasTrack()", text)
+        self.assertNotIn("function onClick", text)
+        toml = (Path(__file__).resolve().parent.parent / "plugin.toml").read_text(encoding="utf-8")
+        self.assertIn("[widget.actions]", toml)
+        self.assertIn("toggle-lyrics-hud", toml)
+        self.assertIn('type = "color"', toml)
+        self.assertIn("advanced = true", toml)
+        self.assertIn('type = "glyph"', toml)
+
+    def test_service_gates_plain_lyrics_and_reapplies_on_config(self) -> None:
+        service = Path(__file__).resolve().parent.parent / "service.luau"
+        text = service.read_text(encoding="utf-8")
+        self.assertIn("function lyricsArePlain", text)
+        self.assertIn("suppressPlainLyricsSidecar", text)
+        self.assertIn("plain_suppressed", text)
+        self.assertIn("lastLyricsEvent", text)
+        self.assertIn("applyLocalLyrics(lastLyricsEvent)", text)
 
     def test_cider_window_gone_clears_playback(self) -> None:
         bridge = Path(__file__).resolve().parent / "cider_bridge.py"

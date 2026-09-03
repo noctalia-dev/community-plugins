@@ -34,12 +34,14 @@ body:
         - asus-fan
         - asus-fans-controller-ec
         - audio-switcher
+        - awwwall
         - battery-graph
         - battery-power-management
         - battery-threshold
         - battery-widget
         - bazaarsearch
         - better-clock
+        - bitdjinn
         - bookmarks
         - calculator
         - case-convert
@@ -54,6 +56,7 @@ body:
         - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
+        - desktop-launcher
         - discord-voice
         - dns-switcher
         - drive-health
@@ -96,6 +99,7 @@ body:
         - mango_layouts
         - mangowm-keymode
         - mawaqit
+        - media-lyrics
         - mihomo-control
         - mimir
         - mini-docker
@@ -126,6 +130,7 @@ body:
         - proton-pass
         - pulsar-mouse
         - qrcode
+        - remmina
         - rss-notifier
         - ruh-vpn
         - screen-toolkit
@@ -137,6 +142,7 @@ body:
         - spotify-lyrics
         - spotify-media
         - ssh-launcher
+        - super-productivity
         - syncthing
         - system-monitor
         - system-updater
@@ -163,6 +169,7 @@ body:
         - wireview-pro-ii
         - wl-screen-mirror
         - youtube-search
+        - yt-music
         - zed-provider
 
     validations:

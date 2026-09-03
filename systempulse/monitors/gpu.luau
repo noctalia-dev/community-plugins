@@ -1,5 +1,6 @@
 --!nonstrict
--- GPU monitor detail view using nvtop for direct GPU data.
+-- GPU 0 monitor detail view using nvtop for direct GPU data. On dual-GPU
+-- systems this is the integrated GPU; single-GPU systems use this file as-is.
 
 local MAX_SAMPLES = 60
 
@@ -58,12 +59,32 @@ end
 
 local pendingNvtop = nil
 
+-- Orders GPUs so the integrated GPU comes first (GPU 0 = iGPU, GPU 1 = dGPU).
+-- iGPU signals are checked first because some iGPUs are branded "Arc Graphics".
+local function gpuOrderScore(name)
+  local n = string.lower(name or "")
+  if n:find("graphics") or n:find("uhd") or n:find("iris") then return 0 end
+  if n:find("rtx") or n:find("gtx") or n:find("geforce") or n:find("rx")
+    or n:find("arc") or n:find("quadro") or n:find("tesla")
+    or n:find("firepro") or n:find("radeon pro") then
+    return 2
+  end
+  return 1
+end
+
+local function sortGpusIntegratedFirst(data)
+  table.sort(data, function(a, b)
+    return gpuOrderScore(a.device_name) < gpuOrderScore(b.device_name)
+  end)
+end
+
 local function onNvtopResult(result)
   if result == nil or result.exitCode ~= 0 then return end
   local stdout = result.stdout
   if stdout == nil or stdout == "" then return end
   local ok, data = pcall(noctalia.json.decode, stdout)
   if not ok or type(data) ~= "table" or data[1] == nil then return end
+  sortGpusIntegratedFirst(data)
   pendingNvtop = data[1]
 end
 
@@ -160,7 +181,7 @@ local function buildStatsPanel()
     table.insert(stats, { label = "Power Draw", value = formatPower(powerDraw) })
   end
   if vramUsedBytes ~= nil and vramTotalBytes ~= nil then
-    table.insert(stats, { label = "Memory Usage", value = string.format( formatBytes(vramUsedBytes), formatBytes(vramTotalBytes)) })
+    table.insert(stats, { label = "Memory Usage", value = formatBytes(vramUsedBytes) })
   end
   if memClock ~= nil then
     table.insert(stats, { label = "Memory Clock", value = formatClock(memClock) })

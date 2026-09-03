@@ -15,6 +15,8 @@ end
 local SNAPSHOT_KEY = "keybind-cheatsheet.snapshot"
 local REFRESH_REQUEST_KEY = "keybind-cheatsheet.refresh-request"
 local SELF_TEST_REQUEST_KEY = "keybind-cheatsheet.self-test-request"
+local PARSE_STEP_KEY = "keybind-cheatsheet.parse-step"
+local SELF_TEST_STEP_KEY = "keybind-cheatsheet.self-test-step"
 local MAX_PARSE_DEPTH = 32
 local MAX_PARSE_FILES = 256
 local BINDINGS_CACHE_FILE = "bindings-cache.json"
@@ -506,18 +508,33 @@ local function parseHyprContent(content, sourceFile, context)
   return includes
 end
 
-local function niriTokens(content)
-  local tokens = {}
-  local index = 1
-  local line = 1
-  while index <= #content do
+-- The tokenizer is resumable: the staged refresh below advances it a bounded
+-- number of iterations per budget window, because even the fast-path scan of
+-- a 34 KB config does not fit one window on the instrumented runtime.
+local function newNiriTokenizer(content)
+  return { content = content, tokens = {}, index = 1, line = 1 }
+end
+
+-- Advances by up to maxIterations loop iterations (each one token or run);
+-- returns true once the whole content is tokenized.
+local function niriTokenizeStep(state, maxIterations)
+  local content = state.content
+  local tokens = state.tokens
+  local index = state.index
+  local line = state.line
+  local remaining = maxIterations or math.huge
+  while index <= #content and remaining > 0 do
+    remaining -= 1
     local char = content:sub(index, index)
     local nextChar = content:sub(index + 1, index + 1)
-    if char == "\n" then
-      line += 1
-      index += 1
-    elseif char:match("%s") then
-      index += 1
+    if char == "\n" or char == " " or char == "\t" or char == "\r" then
+      -- Whole whitespace runs (indentation and blank lines included) in one
+      -- match: one interpreter iteration per character was the single biggest
+      -- cost of the old scanner.
+      local run = content:match("^%s+", index)
+      local _, newlines = run:gsub("\n", "")
+      line += newlines
+      index += #run
     elseif char == "/" and nextChar == "/" then
       local ending = content:find("\n", index + 2, true) or (#content + 1)
       table.insert(tokens, { type = "comment", value = content:sub(index + 2, ending - 1), line = line })
@@ -530,48 +547,69 @@ local function niriTokens(content)
       line += newlines
       index = ending + 2
     elseif char == "\"" then
+      -- Fast path: an unescaped string is one find() plus one sub(), not a
+      -- per-character interpreter loop - the loop below made mid-size configs
+      -- (~550+ lines) exceed the plugin CPU budget, killing the parse
+      -- silently and leaving the panel on "Reading keybindings..." forever.
       local startLine = line
-      local value = {}
-      index += 1
-      local escaped = false
-      while index <= #content do
-        local stringChar = content:sub(index, index)
-        if escaped then
-          local replacements = { n = "\n", r = "\r", t = "\t" }
-          table.insert(value, replacements[stringChar] or stringChar)
-          escaped = false
-        elseif stringChar == "\\" then
-          escaped = true
-        elseif stringChar == "\"" then
-          index += 1
-          break
-        else
-          if stringChar == "\n" then
-            line += 1
-          end
-          table.insert(value, stringChar)
-        end
+      local closing = content:find("\"", index + 1, true)
+      local segment = closing ~= nil and content:sub(index + 1, closing - 1) or nil
+      if segment ~= nil and segment:find("\\", 1, true) == nil then
+        local _, newlines = segment:gsub("\n", "")
+        line += newlines
+        table.insert(tokens, { type = "string", value = segment, line = startLine })
+        index = closing + 1
+      else
+        local value = {}
         index += 1
+        local escaped = false
+        while index <= #content do
+          local stringChar = content:sub(index, index)
+          if escaped then
+            local replacements = { n = "\n", r = "\r", t = "\t" }
+            table.insert(value, replacements[stringChar] or stringChar)
+            escaped = false
+          elseif stringChar == "\\" then
+            escaped = true
+          elseif stringChar == "\"" then
+            index += 1
+            break
+          else
+            if stringChar == "\n" then
+              line += 1
+            end
+            table.insert(value, stringChar)
+          end
+          index += 1
+        end
+        table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
       end
-      table.insert(tokens, { type = "string", value = table.concat(value), line = startLine })
     elseif char == "{" or char == "}" or char == ";" then
       table.insert(tokens, { type = char, value = char, line = line })
       index += 1
     else
-      local start = index
-      while index <= #content do
-        char = content:sub(index, index)
-        nextChar = content:sub(index + 1, index + 1)
-        if char:match("%s") or char == "\"" or char == "{" or char == "}" or char == ";"
-          or (char == "/" and (nextChar == "/" or nextChar == "*")) then
-          break
-        end
-        index += 1
+      -- One match per word instead of one iteration per character; a word
+      -- only ends early when a comment starts inside the run ("//", "/*").
+      local word = content:match('^[^%s"{};]+', index)
+      local slash = word:find("//", 1, true)
+      local block = word:find("/%*")
+      local cut = math.min(slash or (#word + 1), block or (#word + 1))
+      if cut <= #word then
+        word = word:sub(1, cut - 1)
       end
-      table.insert(tokens, { type = "word", value = content:sub(start, index - 1), line = line })
+      table.insert(tokens, { type = "word", value = word, line = line })
+      index += #word
     end
   end
-  return tokens
+  state.index = index
+  state.line = line
+  return index > #content
+end
+
+local function niriTokens(content)
+  local state = newNiriTokenizer(content)
+  niriTokenizeStep(state, nil)
+  return state.tokens
 end
 
 local function niriActionText(tokens)
@@ -620,85 +658,135 @@ local function niriHeaderDescription(header)
   return ""
 end
 
-local function parseNiriContent(content, sourceFile, context)
+local function niriIncludes(content)
+  -- Plain find() candidates plus short anchored matches around them: on this
+  -- runtime both the per-line gmatch scan and a single whole-content pattern
+  -- scan each blew a whole CPU-budget window by themselves, while a native
+  -- substring search is microseconds.
   local includes = {}
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local includePath = rawLine:match('^%s*include%s+["\']([^"\']+)["\']')
-    if includePath ~= nil then
-      table.insert(includes, { path = includePath, optional = false })
+  local from = 1
+  while true do
+    local found = content:find("include", from, true)
+    if found == nil then
+      break
     end
-  end
-
-  local tokens = niriTokens(content)
-  local index = 1
-  while index <= #tokens do
-    if tokens[index].type == "word" and tokens[index].value == "binds"
-      and tokens[index + 1] ~= nil and tokens[index + 1].type == "{" then
-      index += 2
-      local category = ""
-      while index <= #tokens and tokens[index].type ~= "}" do
-        local token = tokens[index]
-        if token.type == "comment" then
-          local heading = token.value:match('#%s*"([^"]+)"') or token.value:match("#%s*'([^']+)'")
-          if heading ~= nil then
-            category = trim(heading)
-          end
-          index += 1
-        elseif token.type == "word" then
-          local hotkey = token.value
-          local sourceLine = token.line
-          local header = {}
-          index += 1
-          while index <= #tokens and tokens[index].type ~= "{" and tokens[index].type ~= "}" do
-            table.insert(header, tokens[index])
-            index += 1
-          end
-          if index <= #tokens and tokens[index].type == "{" then
-            local depth = 1
-            local actionTokens = {}
-            index += 1
-            while index <= #tokens and depth > 0 do
-              if tokens[index].type == "{" then
-                depth += 1
-                table.insert(actionTokens, tokens[index])
-              elseif tokens[index].type == "}" then
-                depth -= 1
-                if depth > 0 then
-                  table.insert(actionTokens, tokens[index])
-                end
-              else
-                table.insert(actionTokens, tokens[index])
-              end
-              index += 1
-            end
-            local action = niriActionText(actionTokens)
-            local keyParts = {}
-            for part in hotkey:gmatch("[^+]+") do
-              table.insert(keyParts, part)
-            end
-            local key = table.remove(keyParts) or hotkey
-            local description = niriHeaderDescription(header)
-            addBinding(context.bindings, {
-              compositor = "niri",
-              bindingType = "bind",
-              modifiers = normalizeModifiers(table.concat(keyParts, " "), {}),
-              key = key,
-              action = action,
-              description = description,
-              category = category ~= "" and category or niriCategoryFor(action),
-              sourceFile = sourceFile,
-              sourceLine = sourceLine,
-            })
-          else
-            index += 1
-          end
-        else
-          index += 1
+    from = found + 7
+    local lineStart = found
+    while lineStart > 1 and content:sub(lineStart - 1, lineStart - 1) ~= "\n" do
+      lineStart -= 1
+    end
+    if content:sub(lineStart, found - 1):match("^[ \t]*$") ~= nil then
+      local quote = content:match("^[ \t]+([\"'])", found + 7)
+      if quote ~= nil then
+        local opening = content:find(quote, found + 7, true)
+        local closing = content:find(quote, opening + 1, true)
+        local lineEnd = content:find("\n", opening + 1, true) or (#content + 1)
+        if closing ~= nil and closing < lineEnd and closing > opening + 1 then
+          table.insert(includes, { path = content:sub(opening + 1, closing - 1), optional = false })
         end
       end
     end
-    index += 1
   end
+  return includes
+end
+
+-- The token walk is resumable for the same reason as the tokenizer: the
+-- staged refresh advances it a bounded number of tokens per budget window.
+local function newNiriWalk(tokens, sourceFile)
+  return { tokens = tokens, sourceFile = sourceFile, index = 1, category = "", inBinds = false }
+end
+
+-- Advances the walk by up to maxTokens tokens; returns true when done. A
+-- whole binding is parsed in one iteration (a binding is only a handful of
+-- tokens), so the slice cap stays effective.
+local function niriWalkStep(walk, context, maxTokens)
+  local tokens = walk.tokens
+  local sourceFile = walk.sourceFile
+  local limit = maxTokens ~= nil and walk.index + maxTokens or math.huge
+  while walk.index <= #tokens and walk.index < limit do
+    local token = tokens[walk.index]
+    if not walk.inBinds then
+      if token.type == "word" and token.value == "binds"
+        and tokens[walk.index + 1] ~= nil and tokens[walk.index + 1].type == "{" then
+        walk.inBinds = true
+        walk.category = ""
+        walk.index += 2
+      else
+        walk.index += 1
+      end
+    elseif token.type == "}" then
+      walk.inBinds = false
+      walk.index += 1
+    elseif token.type == "comment" then
+      local heading = token.value:match('#%s*"([^"]+)"') or token.value:match("#%s*'([^']+)'")
+      if heading ~= nil then
+        walk.category = trim(heading)
+      end
+      walk.index += 1
+    elseif token.type == "word" then
+      local index = walk.index
+      local hotkey = token.value
+      local sourceLine = token.line
+      local header = {}
+      index += 1
+      while index <= #tokens and tokens[index].type ~= "{" and tokens[index].type ~= "}" do
+        table.insert(header, tokens[index])
+        index += 1
+      end
+      if index <= #tokens and tokens[index].type == "{" then
+        local depth = 1
+        local actionTokens = {}
+        index += 1
+        while index <= #tokens and depth > 0 do
+          if tokens[index].type == "{" then
+            depth += 1
+            table.insert(actionTokens, tokens[index])
+          elseif tokens[index].type == "}" then
+            depth -= 1
+            if depth > 0 then
+              table.insert(actionTokens, tokens[index])
+            end
+          else
+            table.insert(actionTokens, tokens[index])
+          end
+          index += 1
+        end
+        local action = niriActionText(actionTokens)
+        local keyParts = {}
+        for part in hotkey:gmatch("[^+]+") do
+          table.insert(keyParts, part)
+        end
+        local key = table.remove(keyParts) or hotkey
+        local description = niriHeaderDescription(header)
+        addBinding(context.bindings, {
+          compositor = "niri",
+          bindingType = "bind",
+          modifiers = normalizeModifiers(table.concat(keyParts, " "), {}),
+          key = key,
+          action = action,
+          description = description,
+          category = walk.category ~= "" and walk.category or niriCategoryFor(action),
+          sourceFile = sourceFile,
+          sourceLine = sourceLine,
+        })
+      else
+        index += 1
+      end
+      walk.index = index
+    else
+      walk.index += 1
+    end
+  end
+  return walk.index > #tokens
+end
+
+local function parseNiriTokens(tokens, sourceFile, context)
+  niriWalkStep(newNiriWalk(tokens, sourceFile), context, nil)
+end
+
+local function parseNiriContent(content, sourceFile, context)
+  local includes = niriIncludes(content)
+  parseNiriTokens(niriTokens(content), sourceFile, context)
   return includes
 end
 
@@ -1214,6 +1302,155 @@ local function configReadError(context)
   return tr("missing_config")
 end
 
+-- ── Staged niri parse ────────────────────────────────────────────────────────
+-- Even with the tokenizer fast-paths, scanning a mid-size config does not fit
+-- one CPU-budget window, and the budget accumulates over a coroutine's whole
+-- lifetime, so coroutines cannot spread it (verified: 3-op slices still
+-- died). The refresh is split into bounded steps instead — read a file, queue
+-- its includes, tokenize a slice, walk a slice of tokens, publish — each run
+-- in its own state-watch callback: setting PARSE_STEP_KEY fires the watcher
+-- as a fresh event with a fresh CPU budget. Strictly event-driven: no timers,
+-- no subprocesses, nothing runs while idle.
+local TOKENIZE_SLICE = 300 -- tokenizer iterations per budget window
+local WALK_SLICE = 150 -- tokens walked per budget window (binding conversion is the heavy half)
+local parseJob = nil
+local parseStepCounter = 0
+
+local function scheduleParseStep()
+  parseStepCounter += 1
+  noctalia.state.set(PARSE_STEP_KEY, parseStepCounter)
+end
+
+local function newParseContext()
+  return {
+    bindings = {},
+    variables = {},
+    warnings = {},
+    visited = {},
+    fileCount = 0,
+    rootRead = false,
+    sources = {},
+    globs = {},
+  }
+end
+
+local function startNiriParse(generation, request, retried)
+  parseJob = {
+    generation = generation,
+    request = request,
+    context = newParseContext(),
+    queue = { { pattern = normalizePath(expandEnvironment(request.root)), depth = 0, optional = false, isRoot = true } },
+    retried = retried == true,
+  }
+  scheduleParseStep()
+end
+
+-- One iteration of walkConfig's visit: expand a pattern into concrete file
+-- entries, or read one file and hand its content to the include/tokenize/walk
+-- phases above, each of which runs in its own budget window.
+local function parseStepFile(job, entry)
+  local context = job.context
+  if entry.depth > MAX_PARSE_DEPTH then
+    table.insert(context.warnings, "Include depth exceeded at " .. entry.pattern)
+    return
+  end
+  if context.fileCount >= MAX_PARSE_FILES then
+    table.insert(context.warnings, "File limit reached at " .. (entry.pattern or entry.file))
+    return
+  end
+  if entry.file == nil then
+    local files = expandGlob(entry.pattern, context)
+    if #files == 0 then
+      if not entry.optional then
+        table.insert(context.warnings, "Could not read " .. entry.pattern)
+      end
+      return
+    end
+    for _, file in ipairs(files) do
+      table.insert(job.queue, { file = normalizePath(file), depth = entry.depth, optional = entry.optional, isRoot = entry.isRoot })
+    end
+    return
+  end
+  local file = entry.file
+  if context.visited[file] then
+    return
+  end
+  context.visited[file] = true
+  context.fileCount += 1
+  local content, err = noctalia.readFile(file)
+  if content == nil then
+    if not entry.optional then
+      table.insert(context.warnings, err or ("Could not read " .. file))
+    end
+    return
+  end
+  local info = noctalia.fileInfo(file)
+  if info ~= nil then
+    table.insert(context.sources, { path = file, size = info.size, mtime = info.mtime })
+  end
+  if entry.isRoot then
+    context.rootRead = true
+  end
+  job.content = content
+  job.file = file
+  job.depth = entry.depth
+end
+
+local function parseStep()
+  local job = parseJob
+  if job == nil then return end
+  if job.generation ~= refreshGeneration then
+    parseJob = nil
+    return
+  end
+  local context = job.context
+  if job.walk ~= nil then
+    if niriWalkStep(job.walk, context, WALK_SLICE) then
+      job.walk = nil
+      job.file = nil
+    end
+    scheduleParseStep()
+    return
+  end
+  if job.tokenizer ~= nil then
+    if niriTokenizeStep(job.tokenizer, TOKENIZE_SLICE) then
+      job.walk = newNiriWalk(job.tokenizer.tokens, job.file)
+      job.tokenizer = nil
+    end
+    scheduleParseStep()
+    return
+  end
+  if job.content ~= nil then
+    -- The include scan is a whole-file pass of its own, so it gets its own
+    -- budget window before tokenizing starts.
+    for _, include in ipairs(niriIncludes(job.content)) do
+      table.insert(job.queue, { pattern = resolvePath(include.path, job.file), depth = job.depth + 1, optional = include.optional == true, isRoot = false })
+    end
+    job.tokenizer = newNiriTokenizer(job.content)
+    job.content = nil
+    scheduleParseStep()
+    return
+  end
+  local entry = table.remove(job.queue, 1)
+  if entry == nil then
+    if not context.rootRead and not job.retried then
+      -- Same second chance readConfig gave a transiently unreadable root.
+      startNiriParse(job.generation, job.request, true)
+      return
+    end
+    parseJob = nil
+    finishRefresh(job.generation, job.request, context.bindings, context.warnings, configReadError(context), context)
+    return
+  end
+  parseStepFile(job, entry)
+  scheduleParseStep()
+end
+
+noctalia.state.watch(PARSE_STEP_KEY, function(value)
+  if tonumber(value) ~= parseStepCounter then return end
+  parseStep()
+end)
+
 local function refreshHyprLua(generation, request)
   local scan = scanHyprLua(request.root)
   if not noctalia.commandExists("hyprctl") then
@@ -1251,8 +1488,7 @@ local function performRefresh(generation, request)
     local context = readConfig(request.root, parseMangoContent)
     finishRefresh(generation, request, context.bindings, context.warnings, configReadError(context), context)
   elseif request.parser == "niri" then
-    local context = readConfig(request.root, parseNiriContent)
-    finishRefresh(generation, request, context.bindings, context.warnings, configReadError(context), context)
+    startNiriParse(generation, request)
   elseif request.parser == "hypr-lua" then
     refreshHyprLua(generation, request)
   elseif request.parser == "hypr-conf" then
@@ -1324,58 +1560,33 @@ local function containsAll(values, required)
   return true, nil
 end
 
-local function runSelfTest()
-  local pluginDir = noctalia.pluginDir() or "."
-  local fixtureRoot = pluginDir .. "/tests/fixtures"
-  local expectedRaw = noctalia.readFile(pluginDir .. "/tests/expected.json")
-  local expected = expectedRaw ~= nil and noctalia.json.decode(expectedRaw) or nil
-  local report = { passed = true, cases = {} }
-  if type(expected) ~= "table" then
-    report.passed = false
-    report.error = "Could not read tests/expected.json"
+-- The self-test runs one fixture case per SELF_TEST_STEP_KEY callback: all
+-- four in one budget window no longer fit on the instrumented runtime, even
+-- with byte-sized fixtures.
+local SELF_TEST_CASES = { "mango", "hypr_conf", "niri", "hypr_lua" }
+local selfTestJob = nil
+local selfTestStepCounter = 0
+
+local function scheduleSelfTestStep()
+  selfTestStepCounter += 1
+  noctalia.state.set(SELF_TEST_STEP_KEY, selfTestStepCounter)
+end
+
+local function selfTestCaseBindings(name, fixtureRoot)
+  if name == "mango" then
+    return walkConfig(fixtureRoot .. "/mango/main.conf", parseMangoContent).bindings
+  elseif name == "hypr_conf" then
+    return walkConfig(fixtureRoot .. "/hypr/hyprland.conf", parseHyprContent).bindings
+  elseif name == "niri" then
+    return walkConfig(fixtureRoot .. "/niri/config.kdl", parseNiriContent).bindings
   else
-    local cases = {
-      mango = function()
-        return walkConfig(fixtureRoot .. "/mango/main.conf", parseMangoContent).bindings
-      end,
-      hypr_conf = function()
-        return walkConfig(fixtureRoot .. "/hypr/hyprland.conf", parseHyprContent).bindings
-      end,
-      niri = function()
-        return walkConfig(fixtureRoot .. "/niri/config.kdl", parseNiriContent).bindings
-      end,
-      hypr_lua = function()
-        local scan = scanHyprLua(fixtureRoot .. "/hypr/hyprland.lua")
-        local raw = noctalia.readFile(fixtureRoot .. "/hypr/binds.json") or "[]"
-        return parseHyprJson(raw, scan.rules) or {}
-      end,
-    }
-    for name, execute in pairs(cases) do
-      local parsed = execute()
-      local expectedCase = expected[name]
-      local descriptions = {}
-      local categories = {}
-      for _, binding in ipairs(parsed) do
-        table.insert(descriptions, binding.description)
-        table.insert(
-          categories,
-          binding.description == "" and tr("without_description")
-            or (binding.category ~= "" and binding.category or tr("other"))
-        )
-      end
-      local descriptionsOk, missingDescription = containsAll(descriptions, expectedCase.descriptions)
-      local categoriesOk, missingCategory = containsAll(categories, expectedCase.categories)
-      local passed = #parsed == expectedCase.count and descriptionsOk and categoriesOk
-      report.cases[name] = {
-        passed = passed,
-        expectedCount = expectedCase.count,
-        actualCount = #parsed,
-        missingDescription = missingDescription,
-        missingCategory = missingCategory,
-      }
-      if not passed then report.passed = false end
-    end
+    local scan = scanHyprLua(fixtureRoot .. "/hypr/hyprland.lua")
+    local raw = noctalia.readFile(fixtureRoot .. "/hypr/binds.json") or "[]"
+    return parseHyprJson(raw, scan.rules) or {}
   end
+end
+
+local function finishSelfTest(report)
   local encoded = noctalia.json.encode(report, true) or "{}"
   local dataDir = noctalia.pluginDataDir()
   if dataDir ~= nil then noctalia.writeFile(dataDir .. "/selftest.json", encoded) end
@@ -1385,6 +1596,61 @@ local function runSelfTest()
   else
     noctalia.notifyError(tr("title"), "Parser self-test failed; see the Noctalia log")
   end
+end
+
+local function selfTestStep()
+  local job = selfTestJob
+  if job == nil then return end
+  local report = job.report
+  local name = SELF_TEST_CASES[job.index]
+  if name == nil or report.error ~= nil then
+    selfTestJob = nil
+    finishSelfTest(report)
+    return
+  end
+  job.index += 1
+  local parsed = selfTestCaseBindings(name, job.fixtureRoot)
+  local expectedCase = job.expected[name]
+  local descriptions = {}
+  local categories = {}
+  for _, binding in ipairs(parsed) do
+    table.insert(descriptions, binding.description)
+    table.insert(
+      categories,
+      binding.description == "" and tr("without_description")
+        or (binding.category ~= "" and binding.category or tr("other"))
+    )
+  end
+  local descriptionsOk, missingDescription = containsAll(descriptions, expectedCase.descriptions)
+  local categoriesOk, missingCategory = containsAll(categories, expectedCase.categories)
+  local passed = #parsed == expectedCase.count and descriptionsOk and categoriesOk
+  report.cases[name] = {
+    passed = passed,
+    expectedCount = expectedCase.count,
+    actualCount = #parsed,
+    missingDescription = missingDescription,
+    missingCategory = missingCategory,
+  }
+  if not passed then report.passed = false end
+  scheduleSelfTestStep()
+end
+
+noctalia.state.watch(SELF_TEST_STEP_KEY, function(value)
+  if tonumber(value) ~= selfTestStepCounter then return end
+  selfTestStep()
+end)
+
+local function runSelfTest()
+  local pluginDir = noctalia.pluginDir() or "."
+  local expectedRaw = noctalia.readFile(pluginDir .. "/tests/expected.json")
+  local expected = expectedRaw ~= nil and noctalia.json.decode(expectedRaw) or nil
+  local report = { passed = true, cases = {} }
+  if type(expected) ~= "table" then
+    report.passed = false
+    report.error = "Could not read tests/expected.json"
+  end
+  selfTestJob = { index = 1, fixtureRoot = pluginDir .. "/tests/fixtures", expected = expected, report = report }
+  scheduleSelfTestStep()
 end
 
 function onConfigChanged()

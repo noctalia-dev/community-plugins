@@ -2,10 +2,15 @@
 -- Compact Cider now-playing bar widget.
 -- Only re-render on identity/playing changes — position ticks must not flash opacity.
 -- Hide entirely when nothing is active (no title/artist).
+-- Clicks: [widget.actions] in plugin.toml (left = lyrics HUD, right = show OSD).
 
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end
 local coverSize = tonumber(noctalia.getConfig("cover_size")) or 18
+local glyphName = noctalia.getConfig("glyph")
+if type(glyphName) ~= "string" or glyphName == "" then
+  glyphName = "music"
+end
 
 local title = ""
 local artist = ""
@@ -35,6 +40,7 @@ local function renderKey()
     playing and "1" or "0",
     showCover and "1" or "0",
     tostring(coverSize),
+    glyphName,
     hasTrack() and "1" or "0",
   }, "|")
 end
@@ -63,7 +69,7 @@ local function render(force)
     })
   else
     children[#children + 1] = ui.glyph({
-      name = "music",
+      name = glyphName,
       size = coverSize - 2,
       color = "on_surface",
     })
@@ -119,30 +125,12 @@ function onConfigChanged()
   showCover = noctalia.getConfig("show_cover")
   if showCover == nil then showCover = true end
   coverSize = tonumber(noctalia.getConfig("cover_size")) or 18
+  glyphName = noctalia.getConfig("glyph")
+  if type(glyphName) ~= "string" or glyphName == "" then
+    glyphName = "music"
+  end
   lastRenderKey = ""
   render(true)
-end
-
-function onClick()
-  if not hasTrack() then
-    return
-  end
-  local enabled = noctalia.state.get("lyrics_osd_enabled")
-  if enabled == nil then
-    enabled = noctalia.getConfig("lyrics_osd_enabled")
-  end
-  if enabled == false then
-    return
-  end
-  -- Text-only HUD: gtk-layer-shell overlay.
-  noctalia.runAsync({
-    "noctalia",
-    "msg",
-    "plugin",
-    "dragged/cider:bridge",
-    "all",
-    "toggle-lyrics-hud",
-  })
 end
 
 -- Seed once from cache; no periodic update() — that was flashing grey/white.

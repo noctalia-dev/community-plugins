@@ -1,11 +1,11 @@
-local timeFontFamily = noctalia.loadFont("JetBrainsMono-Regular.ttf")
+local timeFontFamily = noctalia.loadFont("resources/JetBrainsMono-Regular.ttf")
 
 local function formatTime(seconds, total)
   local showingHours = total >= 3600 or seconds >= 3600
   local hours = math.floor(seconds / 3600)
   local mins = math.floor((seconds % 3600) / 60)
   local secs = seconds % 60
-  
+
   if showingHours then
     return string.format("%d:%02d:%02d", hours, mins, secs)
   else
@@ -30,6 +30,21 @@ function onResetAllButtonClick()
 end
 
 local function render(state, sessionData)
+    if not state or not state.sessionPtr or not sessionData then
+        panel.render(
+            ui.column({ flexGrow = 1, align = "center", justify = "center", gap = 8 }, {
+                ui.glyph({ name = "brain", color = "primary" }),
+                ui.label({
+                    text = "Pomodoro",
+                    fontSize = 18,
+                    fontWeight = "bold",
+                    color = "on_surface",
+                }),
+            })
+        )
+        return
+    end
+
     local sessionNumber = state.sessionPtr.session
     local session = sessionData[sessionNumber]
     local stageNumber = state.sessionPtr.stage
@@ -146,23 +161,21 @@ local function render(state, sessionData)
     ) -- panel
 end
 
+local function refresh()
+    render(noctalia.state.get("pomodoro.state"), noctalia.state.get("pomodoro.sessionData"))
+end
+
 function onOpen(context)
-    local state = noctalia.state.get("pomodoro.state")
-    local sessionData = noctalia.state.get("pomodoro.sessionData")
-    render(state, sessionData)
+    refresh()
 end
 
 --- main
 noctalia.state.watch("pomodoro.state", function(state)
-    local config = noctalia.state.get("pomodoro.config")
-    local sessionData = noctalia.state.get("pomodoro.sessionData")
-
-    if state.secondsLeft == 0 then
-        noctalia.state.set("pomodoro.nextCommand", "skip")
-        if (config.autoStartWork and state.sessionPtr.stage == 2) or (config.autoStartBreaks and state.sessionPtr.stage == 1) then
-            noctalia.state.set("pomodoro.nextCommand", "toggle")
-        end
-    end
-
-    render(state, sessionData)
+    refresh()
 end)
+
+noctalia.state.watch("pomodoro.sessionData", function(_sessionData)
+    refresh()
+end)
+
+refresh()

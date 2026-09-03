@@ -1,7 +1,7 @@
 --!nonstrict
 -- Git Companion panel — a mini-docker-style dashboard for your PRs and issues.
 -- Tabs switch between pull requests and issues; clicking an item opens it on
--- the web (GitHub/GitLab) via xdg-open. Layout mirrors mini-docker's panel:
+-- the web (GitHub/GitLab/Gitea) via xdg-open. Layout mirrors mini-docker's panel:
 -- tab buttons with selected/ghost variants, an outline button-card list, and
 -- a centered empty state with a large glyph.
 
@@ -17,6 +17,7 @@ local snapshot = {
   username = noctalia.state.get("username") or "",
   bio = noctalia.state.get("bio") or "",
   avatarPath = noctalia.state.get("avatar_path") or "",
+  errorDetail = noctalia.state.get("error_detail") or "",
 }
 local currentTab = "prs" -- a TABS id
 local hoveredKey = nil
@@ -45,9 +46,15 @@ local TABS = {
 }
 
 local function visibleTabs()
+  -- tea has no review-requested filter, so Gitea can never fill that tab and
+  -- it is dropped rather than shown permanently empty (see service.luau).
+  local platform = noctalia.getConfig("platform")
   local shown = {}
   for _, tab in ipairs(TABS) do
-    if noctalia.getConfig(tab.setting) ~= false then table.insert(shown, tab) end
+    local supported = not (platform == "gitea" and tab.id == "reviews")
+    if supported and noctalia.getConfig(tab.setting) ~= false then
+      table.insert(shown, tab)
+    end
   end
   return shown
 end
@@ -121,16 +128,35 @@ local function statusBox(glyph, message)
   })
 end
 
+local PLATFORM_BIN = {
+  github = "gh",
+  gitlab = "glab",
+  gitea = "tea",
+}
+local PLATFORM_GLYPH = {
+  github = "brand-github",
+  gitlab = "brand-gitlab",
+  gitea = "brand-git", -- Tabler ships no Gitea brand glyph
+}
+
+local function platformGlyph()
+  return PLATFORM_GLYPH[noctalia.getConfig("platform")] or "brand-git"
+end
+
 local function statusInfo()
-  local platform = noctalia.getConfig("platform")
-  local bin = platform == "gitlab" and "glab" or "gh"
+  local bin = PLATFORM_BIN[noctalia.getConfig("platform")] or "gh"
   local status = snapshot.status
   if status == "bin_missing" then
-    return platform == "gitlab" and "brand-gitlab" or "brand-github",
-           tr("bin_missing", { bin = bin })
+    return platformGlyph(), tr("bin_missing", { bin = bin })
   end
   if status == "gitlab_scope_missing" then
     return "alert-triangle", tr("gitlab_scope_missing")
+  end
+  if status == "gitea_ctx_failed" then
+    return "alert-triangle", tr("gitea_ctx_failed")
+  end
+  if status == "gitea_login_missing" then
+    return "alert-triangle", tr("gitea_login_missing")
   end
   return "alert-triangle", tr("no_items")
 end
@@ -261,6 +287,20 @@ local TAB_ACTIONS = {
   reviews = "onTabReviews",
 }
 
+-- A failed fetch is reported next to the list rather than replacing it, so the
+-- items already on screen stay readable while the CLI's own message
+-- ("Error: not found" for a mistyped repo) explains what went wrong.
+local function errorBanner()
+  return ui.row({ gap = 6, align = "center", padding = 8, radius = 8, fill = "surface_variant" }, {
+    ui.glyph({ name = "alert-triangle", size = 16, color = "error" }),
+    ui.label({
+      text = tr("fetch_failed", { bin = PLATFORM_BIN[noctalia.getConfig("platform")] or "gh" })
+        .. " " .. snapshot.errorDetail,
+      fontSize = 11, color = "on_surface_variant", maxLines = 2, flexGrow = 1,
+    }),
+  })
+end
+
 local function tabButton(label, tab, callback)
   return ui.button({
     text = label,
@@ -301,13 +341,14 @@ render = function()
       table.insert(strip, tabButton(tabLabel(tab), tab.id, TAB_ACTIONS[tab.id]))
     end
     table.insert(body, ui.row({ gap = 4, align = "center" }, strip))
+    if snapshot.errorDetail ~= "" then table.insert(body, errorBanner()) end
     table.insert(body, ui.scroll({ flexGrow = 1, gap = 8, align = "stretch", justify = "start" }, itemList()))
   end
 
   panel.render(ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
     -- Header
     ui.row({ align = "center", gap = 8 }, {
-      ui.glyph({ name = platform == "gitlab" and "brand-gitlab" or "brand-github", size = 24, color = "primary" }),
+      ui.glyph({ name = platformGlyph(), size = 24, color = "primary" }),
       ui.label({ text = tr("title"), fontSize = 18, fontWeight = "bold", flexGrow = 1 }),
       ui.button({ glyph = "refresh", variant = "ghost", onClick = "onRefreshClicked" }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
@@ -338,6 +379,7 @@ noctalia.state.watch("status", function(value) snapshot.status = value or "ok"; 
 noctalia.state.watch("username", function(value) snapshot.username = value or ""; render() end)
 noctalia.state.watch("bio", function(value) snapshot.bio = value or ""; render() end)
 noctalia.state.watch("avatar_path", function(value) snapshot.avatarPath = value or ""; render() end)
+noctalia.state.watch("error_detail", function(value) snapshot.errorDetail = value or ""; render() end)
 
 -- Periodically re-render to pick up setting changes (like platform)
 noctalia.setUpdateInterval(5000)

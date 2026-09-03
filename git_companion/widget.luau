@@ -10,6 +10,8 @@ local function getPlatformIcon()
     return "brand-gitlab"
   elseif platform == "github" then
     return "brand-github"
+  elseif platform == "gitea" then
+    return "brand-git" -- Tabler ships no Gitea brand glyph
   end
   return "brand-git" -- Fallback
 end

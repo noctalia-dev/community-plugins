@@ -195,7 +195,7 @@
       "label": "Marquee speed"
     },
     "max_chars": {
-      "description": "Visible width before a long lyric line scrolls (marquee).",
+      "description": "Fixed lyric width before a long line scrolls (marquee).",
       "label": "Max characters"
     },
     "max_lines": {

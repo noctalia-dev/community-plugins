@@ -51,6 +51,12 @@ local lyricsKaraokeStyle = "theme"
 local lyricsKaraokeSung = ""
 local lyricsKaraokeActive = ""
 local lyricsKaraokeUpcoming = ""
+local lyricsPlainScroll = false
+local lyricsPlainScrollSpeed = 100
+local lyricsPlainScrollSilence = false
+local lyricsPlainScrollSilenceLevel = 8
+local lyricsShowUntimed = false
+local lastLyricsEvent = nil
 
 local function dataDir()
   local dir, err = noctalia.pluginDataDir()
@@ -113,6 +119,11 @@ local function persistConfig()
     lyrics_karaoke_sung = lyricsKaraokeSung,
     lyrics_karaoke_active = lyricsKaraokeActive,
     lyrics_karaoke_upcoming = lyricsKaraokeUpcoming,
+    lyrics_plain_scroll = lyricsPlainScroll == true,
+    lyrics_plain_scroll_speed = lyricsPlainScrollSpeed,
+    lyrics_plain_scroll_silence = lyricsPlainScrollSilence == true,
+    lyrics_plain_scroll_silence_level = lyricsPlainScrollSilenceLevel,
+    lyrics_show_untimed = lyricsShowUntimed == true,
   })
   if encoded then
     noctalia.writeFile(path, encoded)
@@ -191,6 +202,11 @@ local function publishLyricsOsdCfg()
     sung = lyricsKaraokeSung,
     active = lyricsKaraokeActive,
     upcoming = lyricsKaraokeUpcoming,
+    plain_scroll = lyricsPlainScroll == true,
+    plain_scroll_speed = lyricsPlainScrollSpeed,
+    plain_scroll_silence = lyricsPlainScrollSilence == true,
+    plain_scroll_silence_level = lyricsPlainScrollSilenceLevel,
+    show_untimed = lyricsShowUntimed == true,
   }
   noctalia.state.set("lyrics_osd_cfg", bag)
   noctalia.state.set("lyrics_osd_enabled", lyricsOsdEnabled == true)
@@ -220,6 +236,15 @@ local function refreshConfig()
   lyricsKaraokeSung = cfgString("lyrics_karaoke_sung", "", durable)
   lyricsKaraokeActive = cfgString("lyrics_karaoke_active", "", durable)
   lyricsKaraokeUpcoming = cfgString("lyrics_karaoke_upcoming", "", durable)
+  lyricsShowUntimed = cfgBool("lyrics_show_untimed", false, durable)
+  lyricsPlainScroll = cfgBool("lyrics_plain_scroll", false, durable)
+  lyricsPlainScrollSpeed = cfgNumber("lyrics_plain_scroll_speed", 100, durable)
+  if lyricsPlainScrollSpeed < 25 then lyricsPlainScrollSpeed = 25 end
+  if lyricsPlainScrollSpeed > 300 then lyricsPlainScrollSpeed = 300 end
+  lyricsPlainScrollSilence = cfgBool("lyrics_plain_scroll_silence", false, durable)
+  lyricsPlainScrollSilenceLevel = cfgNumber("lyrics_plain_scroll_silence_level", 8, durable)
+  if lyricsPlainScrollSilenceLevel < 1 then lyricsPlainScrollSilenceLevel = 1 end
+  if lyricsPlainScrollSilenceLevel > 40 then lyricsPlainScrollSilenceLevel = 40 end
   persistConfig()
   publishLyricsOsdCfg()
 end
@@ -365,6 +390,46 @@ local function toggleLyricsHud()
   end
   lyricsHudVisible = not lyricsHudVisible
   applyLyricsSurface()
+end
+
+local function lyricsArePlain(lines, event)
+  if type(event) == "table" then
+    if event.has_synced == true or event.message == "synced" then
+      return false
+    end
+    if event.has_synced == false or event.message == "plain" then
+      return true
+    end
+    if event.message == "none" then
+      return false
+    end
+  end
+  if type(lines) ~= "table" or #lines == 0 then
+    return false
+  end
+  for _, line in ipairs(lines) do
+    if type(line) == "table" then
+      local t = tonumber(line.time)
+      if t ~= nil and t >= 0 then
+        return false
+      end
+    end
+  end
+  return true
+end
+
+local function suppressPlainLyricsSidecar()
+  -- Overlay reads lyrics.json directly; strip plain lines when opt-in is off.
+  noctalia.mkdirAll("~/.cache/noctalia-cider")
+  local encoded = noctalia.json.encode({
+    type = "lyrics",
+    message = "plain_suppressed",
+    has_synced = false,
+    lyrics_lines = {},
+  })
+  if encoded then
+    noctalia.writeFile(LYRICS_PATH, encoded)
+  end
 end
 
 local function clearLocalLyrics()
@@ -578,16 +643,20 @@ local function noteCiderPosition(positionMs, playing, _eventType)
 end
 
 local function applyLocalLyrics(event)
+  lastLyricsEvent = event
   local lines = nil
-  local synced = false
   if type(event.lyrics_lines) == "table" and #event.lyrics_lines > 0 then
     lines = event.lyrics_lines
-    synced = tonumber(event.lyrics_lines[1].time) ~= nil and tonumber(event.lyrics_lines[1].time) >= 0
   end
-  if lines ~= nil and synced then
+  local plain = lyricsArePlain(lines, event)
+  -- Untimed/plain lyrics are opt-in (lyrics_show_untimed). Synced always publish.
+  if lines ~= nil and (not plain or lyricsShowUntimed) then
     publishLocalLyrics(lines)
   else
     clearLocalLyrics()
+    if plain then
+      suppressPlainLyricsSidecar()
+    end
   end
   local positionMs = tonumber(event.position_ms)
   if positionMs ~= nil then
@@ -611,7 +680,7 @@ local function markCiderOffline()
   publishNowPlaying(nil)
 end
 
-local function ciderWindowPresent()
+local function readWindowProbe()
   local raw = noctalia.readFile(WINDOW_PATH)
   if raw == nil or raw == "" then
     return nil
@@ -622,7 +691,23 @@ local function ciderWindowPresent()
   if not ok or type(decoded) ~= "table" then
     return nil
   end
-  return decoded.present == true
+  return decoded
+end
+
+local function compositorProbeUsable(probe)
+  if type(probe) ~= "table" then
+    return false
+  end
+  local compositor = tostring(probe.compositor or "")
+  return compositor ~= "" and compositor ~= "none"
+end
+
+local function ciderWindowPresent()
+  local probe = readWindowProbe()
+  if probe == nil then
+    return nil
+  end
+  return probe.present == true
 end
 
 local function maybeHideWhenCiderClosed()
@@ -634,16 +719,20 @@ local function maybeHideWhenCiderClosed()
     ciderAbsentStreak = 0
     return
   end
-  local present = ciderWindowPresent()
-  if present == true then
+  local probe = readWindowProbe()
+  if not compositorProbeUsable(probe) then
+    -- No live compositor IPC (e.g. niri binary present but Umbriel running).
     ciderAbsentStreak = 0
     return
   end
-  if present == false then
-    ciderAbsentStreak = ciderAbsentStreak + 1
-    if ciderAbsentStreak >= CIDER_ABSENT_HIDE_TICKS then
-      markCiderOffline()
-    end
+  local present = probe.present == true
+  if present then
+    ciderAbsentStreak = 0
+    return
+  end
+  ciderAbsentStreak = ciderAbsentStreak + 1
+  if ciderAbsentStreak >= CIDER_ABSENT_HIDE_TICKS then
+    markCiderOffline()
   end
 end
 
@@ -918,6 +1007,9 @@ function onConfigChanged()
   local prevToken = apptoken
   refreshConfig()
   applyLyricsSurface()
+  if type(lastLyricsEvent) == "table" then
+    applyLocalLyrics(lastLyricsEvent)
+  end
   if baseUrl ~= prevUrl or apptoken ~= prevToken then
     bridgeStarted = false
     runArgv({ "pkill", "-f", "cider_bridge.py" })

@@ -1,0 +1,104 @@
+# media-lyrics — Noctalia v5 plugin: media player panel with synced lyrics.
+#
+# Pure-Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
+# (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
+# LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
+# pure Luau, caches locally, and exposes everything to the [[panel]] over
+# noctalia.state. Runtime needs busctl (MPRIS poll) and curl (LRCLIB HTTPS).
+#
+# Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
+
+id = "tranzem/media-lyrics"
+name = "Media Lyrics"
+version = "0.8.13"
+plugin_api = 24
+author = "tranzem"
+license = "MIT"
+tags = ["media", "music", "panel", "service"]
+icon = "music"
+description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
+dependencies = ["busctl", "curl"]
+
+[[setting]]
+key = "offset_ms"
+type = "int"
+label_key = "settings.offset_ms.label"
+description_key = "settings.offset_ms.description"
+default = 0
+
+[[setting]]
+key = "panel_size"
+type = "select"
+label_key = "settings.panel_size.label"
+description_key = "settings.panel_size.description"
+default = "medium"
+options = [
+  { value = "compact", label_key = "settings.panel_size.options.compact" },
+  { value = "medium", label_key = "settings.panel_size.options.medium" },
+  { value = "large", label_key = "settings.panel_size.options.large" },
+]
+
+[[setting]]
+key = "use_cache"
+type = "bool"
+label_key = "settings.use_cache.label"
+description_key = "settings.use_cache.description"
+default = true
+
+[[setting]]
+key = "local_lyrics_dir"
+type = "folder"
+label_key = "settings.local_lyrics_dir.label"
+description_key = "settings.local_lyrics_dir.description"
+default = "~/.local/share/media-lyrics"
+
+# Bar widget: compact now-playing indicator; opens the panel on click.
+[[widget]]
+id = "now-playing"
+entry = "widget.luau"
+
+  # Free the middle button for play/pause — the host default opens the
+  # widget's settings instead. Declared so onMiddleClick works out of the box.
+  [widget.actions]
+  middle = "none"
+
+# Background service: polls D-Bus for player state, fetches + parses lyrics,
+# and publishes a snapshot to noctalia.state for the panel.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Main panel: header (cover | title/artist | transport) + karaoke lyrics view.
+# Three size presets share one entry; panel_size selects which one the widget
+# and the control-center tile open. Medium (520) is the default and keeps the
+# historical `panel` id for IPC compatibility.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 520
+height = 520
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+[[panel]]
+id = "panel-compact"
+entry = "panel.luau"
+width = 440
+height = 440
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+[[panel]]
+id = "panel-large"
+entry = "panel.luau"
+width = 640
+height = 640
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+# Control-center tile: quick panel open.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

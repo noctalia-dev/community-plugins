@@ -16,10 +16,10 @@ Replaces the sparse stock media OSD **for Cider only**. Other players keep Nocta
 
 ## Requirements
 
-- Noctalia v5.0.0-beta.9+ (`plugin_api` 24 — argv `runAsync`)
+- Noctalia v5.0.0-beta.9+ (`plugin_api` 24 — argv `runAsync`). Tested on Umbriel, Niri, and Hyprland.
 - Cider with Connectivity / External API enabled
 - `python3` on `PATH`, with `python-socketio`, `requests`, and `websocket-client` (`pip install -r requirements.txt` from this plugin directory)
-- Overlay HUD: `gtk3`, `gtk-layer-shell`, and `python-gobject`
+- Overlay HUD: `gtk3`, `gtk-layer-shell`, and `python-gobject`. Untimed silence gate optionally uses `parec` (PulseAudio / PipeWire).
 
 
 
@@ -57,7 +57,9 @@ media = false
 noctalia msg panel-toggle dragged/cider:osd
 ```
 
-`osd` is the now-playing card (also opened automatically on track change when **Track alert style** is OSD). Lyrics always use the gtk-layer-shell overlay.
+`osd` is the now-playing card (also opened automatically on track change when **Track alert** is OSD). Lyrics always use the gtk-layer-shell overlay.
+
+Bar chip: **left-click** toggles the lyrics HUD; **right-click** shows the OSD card. Both are remappable in the widget editor (`[widget.actions]`).
 
 Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cider’s amapi (LRCLIB fallback) for the sticky HUD.
 
@@ -82,8 +84,14 @@ Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cide
 | `lyrics_karaoke_active`   | `string` | `""`                     | Custom active-word hex.                                                     |
 | `lyrics_karaoke_upcoming` | `string` | `""`                     | Custom upcoming-word hex.                                                   |
 | `lyrics_osd_show_idle`    | `bool`   | `true`                   | Idle placeholder when the HUD is open with no lyrics.                       |
+| `lyrics_show_untimed`     | `bool`   | `false`                  | Show plain (no-timestamp) lyrics. Off = hide them; synced lyrics still show. |
+| `lyrics_plain_scroll`     | `bool`   | `false`                  | Opt-in / advanced: advance untimed lyrics across the song length.           |
+| `lyrics_plain_scroll_speed` | `int`  | `100`                    | Plain-lyrics scroll pace (%; 25–300).                                       |
+| `lyrics_plain_scroll_silence` | `bool` | `false`                | Opt-in / advanced: hold scroll while system audio is quiet (`parec`).       |
+| `lyrics_plain_scroll_silence_level` | `int` | `8`              | Quiet threshold 1–40.                                                       |
 | `show_cover`              | `bool`   | `true`                   | Bar widget: show artwork.                                                   |
 | `cover_size`              | `int`    | `18`                     | Bar widget artwork size, 12–32 px.                                          |
+| `glyph`                   | `glyph`  | `music`                  | Bar widget fallback icon when artwork is hidden/missing.                    |
 
 
 Gap under the bar is shell-global: **Settings → Shell → Panel → floating offset**.

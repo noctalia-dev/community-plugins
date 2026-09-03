@@ -180,7 +180,16 @@ DEFAULT_CFG: dict[str, Any] = {
     "sung": "",
     "active": "",
     "upcoming": "",
+    "plain_scroll": False,
+    "plain_scroll_speed": 100,
+    "plain_scroll_silence": False,
+    "plain_scroll_silence_level": 8,
+    "show_untimed": False,
 }
+
+PLAIN_SCROLL_START_PCT = 0.04
+PLAIN_SCROLL_END_PCT = 0.06
+PLAIN_SCROLL_FALLBACK_MS_PER_LINE = 4000
 
 
 def merge_cfg(raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -192,9 +201,36 @@ def merge_cfg(raw: dict[str, Any] | None) -> dict[str, Any]:
     cfg["backend"] = "overlay"
     position = str(raw.get("position") or cfg["position"])
     cfg["position"] = position
-    for key in ("show_next", "animate_cues", "show_idle", "karaoke", "glow"):
-        if key in raw:
+    opt_in = {"plain_scroll", "plain_scroll_silence", "show_untimed"}
+    for key in (
+        "show_next",
+        "animate_cues",
+        "show_idle",
+        "karaoke",
+        "glow",
+        "plain_scroll",
+        "plain_scroll_silence",
+        "show_untimed",
+    ):
+        if key not in raw:
+            continue
+        # Opt-in flags require an explicit true. Others stay on unless explicitly false.
+        if key in opt_in:
+            cfg[key] = raw[key] is True
+        else:
             cfg[key] = raw[key] is not False
+    speed = raw.get("plain_scroll_speed")
+    if speed is not None:
+        try:
+            cfg["plain_scroll_speed"] = max(25, min(300, int(speed)))
+        except (TypeError, ValueError):
+            pass
+    silence_level = raw.get("plain_scroll_silence_level")
+    if silence_level is not None:
+        try:
+            cfg["plain_scroll_silence_level"] = max(1, min(40, int(silence_level)))
+        except (TypeError, ValueError):
+            pass
     style = str(raw.get("karaoke_style") or cfg["karaoke_style"]).lower()
     cfg["karaoke_style"] = "custom" if style == "custom" else "theme"
     for key in ("sung", "active", "upcoming"):
@@ -531,6 +567,133 @@ def smoothstep(t: float) -> float:
 
 def is_cue_text(text: str) -> bool:
     return str(text or "") in CUE_TEXTS
+
+
+def _plain_line_text(line: dict[str, Any]) -> str:
+    return str(line.get("text") or "").strip()
+
+
+def plain_lyrics_allowed(cfg: dict[str, Any] | None) -> bool:
+    """Untimed lyrics are opt-in via show_untimed (default off)."""
+    if not isinstance(cfg, dict):
+        return False
+    return cfg.get("show_untimed") is True
+
+
+def plain_scroll_enabled(cfg: dict[str, Any] | None) -> bool:
+    return plain_lyrics_allowed(cfg) and isinstance(cfg, dict) and cfg.get("plain_scroll") is True
+
+
+def plain_scroll_silence_enabled(cfg: dict[str, Any] | None) -> bool:
+    return plain_scroll_enabled(cfg) and isinstance(cfg, dict) and cfg.get("plain_scroll_silence") is True
+
+
+def is_plain_lyrics(lines: list[dict[str, Any]]) -> bool:
+    """True when lyrics have no per-line timestamps (time=-1 from bridge)."""
+    if not lines:
+        return False
+    saw_timing = False
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        t = line.get("time")
+        if t is None:
+            continue
+        if int(t) >= 0:
+            saw_timing = True
+            break
+    return not saw_timing
+
+
+def lyrics_are_plain(
+    lines: list[dict[str, Any]] | None,
+    meta: dict[str, Any] | None = None,
+) -> bool:
+    """True when the bridge payload is untimed/plain (not LRCLIB/Apple line sync).
+
+    Prefer bridge metadata (`has_synced`, `message`) over line heuristics — cue
+    injection and partial timestamps must not flip synced tracks to plain.
+    """
+    if isinstance(meta, dict):
+        if meta.get("has_synced") is True:
+            return False
+        msg = str(meta.get("message") or "").lower()
+        if msg == "synced":
+            return False
+        if msg in {"plain", "plain_suppressed"}:
+            return True
+        if msg == "none":
+            return False
+    if not isinstance(lines, list) or not lines:
+        return False
+    return is_plain_lyrics(lines)
+
+
+def plain_scroll_duration_ms(dur_ms: int, line_count: int) -> int:
+    if dur_ms > 0:
+        return dur_ms
+    return max(1, line_count) * PLAIN_SCROLL_FALLBACK_MS_PER_LINE
+
+
+def plain_scroll_effective_pos_ms(
+    wall_pos_ms: int,
+    dur_ms: int,
+    active_ms: int | None,
+    silence_gate: bool,
+) -> int:
+    """Map wall playback time through active-audio elapsed when silence gate is on.
+
+    Quiet stretches do not advance the lyric clock. Remaining wall time still
+    pulls progress toward the end so the last lines arrive near song end.
+    """
+    wall = max(0, int(wall_pos_ms))
+    if not silence_gate or active_ms is None:
+        return wall
+    active = max(0, int(active_ms))
+    duration = max(0, int(dur_ms))
+    if duration <= 0:
+        return active
+    remaining = max(0, duration - wall)
+    denom = max(1, active + remaining)
+    return int(round((active / denom) * duration))
+
+
+def plain_scroll_line_index(
+    lines: list[dict[str, Any]],
+    pos_ms: int,
+    dur_ms: int,
+    cfg: dict[str, Any] | None = None,
+    *,
+    active_ms: int | None = None,
+) -> int:
+    """Pick the active line for untimed lyrics from playback position and song length."""
+    n = len(lines)
+    if n <= 1:
+        return 0
+    cfg = cfg or DEFAULT_CFG
+    silence_gate = cfg.get("plain_scroll_silence") is True
+    pos_ms = plain_scroll_effective_pos_ms(
+        pos_ms, dur_ms, active_ms, silence_gate and active_ms is not None
+    )
+    duration = plain_scroll_duration_ms(int(dur_ms or 0), n)
+    start_ms = int(duration * PLAIN_SCROLL_START_PCT)
+    end_ms = int(duration * (1.0 - PLAIN_SCROLL_END_PCT))
+    scroll_span = max(1000, end_ms - start_ms)
+    if pos_ms <= start_ms:
+        return 0
+    if pos_ms >= end_ms:
+        return n - 1
+    speed = max(0.25, min(3.0, int(cfg.get("plain_scroll_speed") or 100) / 100.0))
+    progress = min(1.0, max(0.0, ((pos_ms - start_ms) / scroll_span) * speed))
+    weights = [max(1, len(_plain_line_text(line))) for line in lines]
+    total = float(sum(weights))
+    target = progress * total
+    cumulative = 0.0
+    for i, weight in enumerate(weights):
+        cumulative += float(weight)
+        if cumulative >= target:
+            return i
+    return n - 1
 
 
 def display_track_id(bag: dict[str, Any] | None) -> str:
