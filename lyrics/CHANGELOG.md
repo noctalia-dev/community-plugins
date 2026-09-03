@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+- Fix the service exceeding Noctalia's async callback CPU budget when playback
+  starts by skipping the potentially very large MPRIS `xesam:asText` field
+  unless MPRIS lyrics are enabled as a source.
+
 ## 1.5.0
 
 - Move display mode, lyric layers, karaoke, animation, scrolling, sizing,
