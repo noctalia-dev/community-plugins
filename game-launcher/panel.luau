@@ -87,6 +87,7 @@ local function launchGame(id)
   for _, g in ipairs(filtered) do
     if g.id == id and g.run_command and #g.run_command > 0 and isValidProtocol(g.run_command) then
       noctalia.runAsync('xdg-open "' .. g.run_command .. '"')
+      onClose()
       return
     end
   end
