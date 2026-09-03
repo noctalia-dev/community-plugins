@@ -835,7 +835,7 @@ local function changelogRows()
         for li, bullet in ipairs(release.lines) do
             table.insert(rows, ui.row({ key = "changelog-" .. ri .. "-" .. li, paddingH = 10, gap = 6 }, {
                 ui.label({ text = "•", fontSize = 11, color = "on_surface_variant" }),
-                ui.label({ text = bullet, fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 3 }),
+                ui.label({ text = bullet, fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
             }))
         end
     end
