@@ -3,6 +3,13 @@
     "applied": "Wallpaper applied",
     "failed": "Daily wallpaper failed"
   },
+  "panel": {
+    "date": "{source} · {date}",
+    "error": "Could not fetch today's wallpaper caption.",
+    "learn_more": "Learn more",
+    "loading": "Fetching today's wallpaper caption…",
+    "title": "Daily Wallpaper"
+  },
   "settings": {
     "locale": {
       "description": "Bing market locale such as en-US, de-DE, or fr-FR. Empty uses en-US.",
@@ -19,26 +26,19 @@
       "glyph": {
         "label": "Glyph"
       },
-      "show_text": {
-        "label": "Show caption text next to glyph"
-      },
       "max_chars": {
         "label": "Max caption characters on the bar"
+      },
+      "show_text": {
+        "label": "Show caption text next to glyph"
       }
     }
   },
   "widget": {
-    "title": "Daily Wallpaper",
     "loading_short": "Loading…",
-    "tooltip_loading": "Fetching today's wallpaper caption…",
-    "tooltip_error": "Could not fetch today's wallpaper caption.",
-    "panel_launch_failed": "Could not open the Daily Wallpaper panel."
-  },
-  "panel": {
+    "panel_launch_failed": "Could not open the Daily Wallpaper panel.",
     "title": "Daily Wallpaper",
-    "loading": "Fetching today's wallpaper caption…",
-    "error": "Could not fetch today's wallpaper caption.",
-    "date": "{source} · {date}",
-    "learn_more": "Learn more"
+    "tooltip_error": "Could not fetch today's wallpaper caption.",
+    "tooltip_loading": "Fetching today's wallpaper caption…"
   }
 }

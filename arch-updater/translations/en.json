@@ -184,7 +184,7 @@
       "label": "Terminal"
     },
     "update_cmd": {
-      "description": "Full override for the update command, in both terminal and background mode. Empty (default) builds it from the AUR helper, ignore list and Flatpak settings above.",
+      "description": "Full override for the background update command. Empty (default) builds it from the AUR helper, ignore list and Flatpak settings above, running pacman through pkexec.",
       "label": "Custom update command"
     },
     "update_mode": {

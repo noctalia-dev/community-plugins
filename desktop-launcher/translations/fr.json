@@ -1,13 +1,13 @@
 {
-    "settings": {
-        "apps": {
-            "label": "Applications"
-        },
-        "grid_layout": {
-            "label": "Disposition en grille"
-        },
-        "columns": {
-            "label": "Colonnes"
-        }
+  "settings": {
+    "apps": {
+      "label": "Applications"
+    },
+    "columns": {
+      "label": "Colonnes"
+    },
+    "grid_layout": {
+      "label": "Disposition en grille"
     }
+  }
 }

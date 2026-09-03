@@ -69,6 +69,10 @@
     "slot_not_found": "No Bluetooth device is assigned to keybind number {slot}.",
     "switch_failed": "Could not switch the default audio device."
   },
+  "launcher": {
+    "description": "Switch the default audio input (microphone) or output.",
+    "open": "Open Audio Switcher"
+  },
   "notifications": {
     "bluetooth_disconnected": "Bluetooth device disconnected.",
     "group_created": "Output group created and selected.",
@@ -79,10 +83,6 @@
     "preferences_saved": "Device preferences saved.",
     "scan_complete": "Bluetooth scan complete.",
     "slot_saved": "Keybind number {slot} saved."
-  },
-  "launcher": {
-    "description": "Switch the default audio input (microphone) or output.",
-    "open": "Open Audio Switcher"
   },
   "panel": {
     "group_hint": "{count} selected. Choose at least two available outputs.",
