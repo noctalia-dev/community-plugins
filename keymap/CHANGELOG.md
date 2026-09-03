@@ -2,6 +2,52 @@
 
 All notable changes to Keymap are documented in this file.
 
+## [1.5.0] - 2026-08-10
+
+### Added
+
+- New `merge_similar` setting: shortcuts that trigger the same action (for
+  example "Close Window" on Super+W and Alt+F4) collapse into a single
+  read-only row listing every key combination.
+
+### Fixed
+
+- Fixed panel stuck on "Loading keybindings" after reopening: refreshes were
+  replaying the full request backlog. Refresh execution is also deferred
+  from the 25 ms state-watch callback into the service's own update tick, so
+  a parse can no longer be aborted by a shared callback budget mid-flight;
+- Fixed missing debugging logs/errors: Internal parser errors now surface their
+  actual Lua error text on the error panel instead of an opaque "unknown error";
+- Fixed `show_undescribed=false` option, which now also hides Niri binds whose
+  `hotkey-overlay-title` is missing, empty (`""`), or `null` values;
+- Fixed `merge_sequential` option, which now correctly merges numbered runs (such
+  as Workspace 1–9);
+- Fixed long keybindings being replaced with a single merged keybind.
+- Enabled safe in-place editing of the program and arguments in ordinary Niri
+  `spawn` actions without converting them to shell commands, and added a clear
+  explanation for native actions that remain read-only.
+
+### Changed
+
+- Unified the key display-name tables across Hyprland, Niri, and MangoWC so
+  the same key reads identically for every compositor (including missing
+  `XF86Calculator`, `XF86Mail`, touchpad scrolls, and punctuation).
+
+### Tests
+
+- Added `coroutine_slice_test.lua` and `parser_lifecycle_test.lua` covering
+  bounded parser resumes, multi-tick completion, and stale-generation
+  cancellation.
+- Added `niri_scanner_test.lua` covering the rewritten scanners against a
+  reference corpus and fuzzed inputs.
+- Added `niri_settings_test.lua` covering sequential merging,
+  undescribed-title filtering, similar-action merging, refresh-watcher echo
+  suppression, and editable native `spawn` detection.
+- Added `merge_similar_test.lua` covering MangoWC and Hyprland similar-action
+  merging plus Hyprland watcher echo suppression.
+- Extended writer tests with merged-combination conflict detection and safe
+  native Niri `spawn` updates, validation failures, and rollback.
+
 ## [1.3.4] - 2026-07-29
 
 ### Fixed

@@ -1,0 +1,48 @@
+{
+  "error": {
+    "account_id": "Could not derive the LibreLinkUp account identifier.",
+    "connections_failed": "LibreLinkUp connections could not be loaded.",
+    "login_failed": "LibreLinkUp login failed. Check your email and password.",
+    "missing_credentials": "Set your LibreLinkUp email and password in the plugin settings.",
+    "no_measurement": "No glucose measurement is available right now.",
+    "parse_failed": "LibreLinkUp returned invalid JSON."
+  },
+  "settings": {
+    "email": {
+      "description": "LibreLinkUp account email used for authentication.",
+      "label": "Email"
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "high_threshold": {
+      "description": "Values above this level are shown in warning color.",
+      "label": "High threshold (mg/dL)"
+    },
+    "low_threshold": {
+      "description": "Values below this level are shown in error color.",
+      "label": "Low threshold (mg/dL)"
+    },
+    "password": {
+      "description": "LibreLinkUp account password.",
+      "label": "Password"
+    },
+    "refresh_interval": {
+      "description": "How often the plugin refreshes glucose data, in seconds.",
+      "label": "Refresh interval"
+    },
+    "show_unit": {
+      "description": "Append mg/dL after the glucose value on the bar.",
+      "label": "Show unit"
+    }
+  },
+  "title": "LibreLinkUp",
+  "disclaimer": {
+    "summary": "Unofficial API — not affiliated with Abbott. Not for medical decisions."
+  },
+  "tooltip": {
+    "loading": "Loading glucose data…",
+    "measured": "Measured: {time}",
+    "reading": "Glucose: {value} {unit} {arrow}"
+  }
+}

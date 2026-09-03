@@ -1,6 +1,6 @@
 id = "nomadcxx/gamer-mode"
 name = "Gamer Mode"
-version = "0.6.4"
+version = "0.7.0"
 plugin_api = 19
 author = "Nomadcxx"
 license = "MIT"
@@ -15,6 +15,22 @@ type = "glyph"
 label_key = "settings.glyph.label"
 description_key = "settings.glyph.description"
 default = "device-gamepad-2"
+
+[[setting]]
+key = "icon_file"
+type = "file"
+label_key = "settings.icon_file.label"
+description_key = "settings.icon_file.description"
+default = ""
+extensions = ["svg", "png"]
+
+[[setting]]
+key = "icon_file_active"
+type = "file"
+label_key = "settings.icon_file_active.label"
+description_key = "settings.icon_file_active.description"
+default = ""
+extensions = ["svg", "png"]
 
 [[setting]]
 key = "click_action"
@@ -92,3 +108,120 @@ keyboard_focus = "on_demand"
 [[widget]]
 id = "gamermode"
 entry = "widget.luau"
+
+[[widget]]
+id = "monitor"
+entry = "monitor.luau"
+
+[[widget.setting]]
+key = "show_cpu"
+type = "bool"
+label_key = "settings.monitor.show_cpu.label"
+description_key = "settings.monitor.show_cpu.description"
+default = true
+
+[[widget.setting]]
+key = "show_cpu_temp"
+type = "bool"
+label_key = "settings.monitor.show_cpu_temp.label"
+default = true
+
+[[widget.setting]]
+key = "show_ram"
+type = "bool"
+label_key = "settings.monitor.show_ram.label"
+default = true
+
+[[widget.setting]]
+key = "show_swap"
+type = "bool"
+label_key = "settings.monitor.show_swap.label"
+default = false
+
+[[widget.setting]]
+key = "show_gpu"
+type = "bool"
+label_key = "settings.monitor.show_gpu.label"
+default = true
+
+[[widget.setting]]
+key = "show_gpu_temp"
+type = "bool"
+label_key = "settings.monitor.show_gpu_temp.label"
+default = true
+
+[[widget.setting]]
+key = "show_vram"
+type = "bool"
+label_key = "settings.monitor.show_vram.label"
+default = false
+
+[[widget.setting]]
+key = "show_load"
+type = "bool"
+label_key = "settings.monitor.show_load.label"
+default = false
+
+[[widget.setting]]
+key = "show_net"
+type = "bool"
+label_key = "settings.monitor.show_net.label"
+default = true
+
+[[widget.setting]]
+key = "show_glyphs"
+type = "bool"
+label_key = "settings.monitor.show_glyphs.label"
+description_key = "settings.monitor.show_glyphs.description"
+default = true
+
+[[widget.setting]]
+key = "label_min_width"
+type = "int"
+label_key = "settings.monitor.label_min_width.label"
+description_key = "settings.monitor.label_min_width.description"
+default = 0
+min = 0
+max = 200
+
+[[widget.setting]]
+key = "highlight_gamer_mode"
+type = "bool"
+label_key = "settings.monitor.highlight_gamer_mode.label"
+description_key = "settings.monitor.highlight_gamer_mode.description"
+default = true
+
+[[widget.setting]]
+key = "flame_height"
+type = "int"
+label_key = "settings.monitor.flame_height.label"
+description_key = "settings.monitor.flame_height.description"
+default = 5
+min = 2
+max = 12
+visible_when = { key = "highlight_gamer_mode", values = ["true"] }
+
+[[widget.setting]]
+key = "flame"
+type = "select"
+label_key = "settings.monitor.flame.label"
+description_key = "settings.monitor.flame.description"
+default = "flare"
+visible_when = { key = "highlight_gamer_mode", values = ["true"] }
+options = [
+  { value = "off", label_key = "settings.monitor.flame.options.off" },
+  { value = "flare", label_key = "settings.monitor.flame.options.flare" },
+  { value = "always", label_key = "settings.monitor.flame.options.always" },
+]
+
+[[widget.setting]]
+key = "flame_style"
+type = "select"
+label_key = "settings.monitor.flame_style.label"
+description_key = "settings.monitor.flame_style.description"
+default = "graph"
+visible_when = { key = "highlight_gamer_mode", values = ["true"] }
+options = [
+  { value = "graph", label_key = "settings.monitor.flame_style.options.graph" },
+  { value = "bars", label_key = "settings.monitor.flame_style.options.bars" },
+]

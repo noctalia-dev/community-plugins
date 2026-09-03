@@ -1,0 +1,73 @@
+{
+  "title": "BitDjinn",
+  "tagline": "Crypto Market & Blockchain Watcher",
+  "settings": {
+    "currency": {
+      "label": "Display Currency",
+      "description": "Preferred fiat/stablecoin currency for prices and valuation.",
+      "usd": "USD ($)",
+      "cny": "CNY (¥)",
+      "eur": "EUR (€)",
+      "usdt": "USDT ($)",
+      "usdc": "USDC ($)"
+    },
+    "interval": {
+      "label": "Market Refresh Interval (s)",
+      "description": "How often crypto prices and trends refresh (seconds)."
+    },
+    "wallet_interval": {
+      "label": "Wallet Check Interval (s)",
+      "description": "How often blockchain addresses are checked for balance and transaction updates."
+    },
+    "notify_tx": {
+      "label": "Transaction Alerts",
+      "description": "Send desktop notification when an address balance or transaction count changes."
+    },
+    "widget_coin": {
+      "label": "Bar Widget Coin",
+      "description": "Which coin to display by default on the status bar."
+    }
+  },
+  "tab": {
+    "market": "Market Trends",
+    "wallets": "Wallets & Alerts"
+  },
+  "market": {
+    "search_placeholder": "Filter coin symbol or name...",
+    "last_updated": "Updated: %s",
+    "vol24h": "24h Vol: %s",
+    "high24h": "24h High: %s",
+    "low24h": "24h Low: %s",
+    "trend": "Trend"
+  },
+  "wallet": {
+    "add_title": "Watch Address",
+    "input_placeholder": "Paste BTC, ETH (0x...), or SOL address",
+    "label_placeholder": "Label (e.g. Cold Wallet, Treasury)",
+    "btn_add": "Add Watcher",
+    "total_valuation": "Total Portfolio Value",
+    "empty": "No addresses being watched. Add your BTC, ETH, or SOL address above.",
+    "tx_count": "%d txs",
+    "copy_success": "Address copied to clipboard",
+    "delete_confirm": "Remove",
+    "invalid_address": "Invalid blockchain address or unsupported network.",
+    "duplicate_address": "Address is already in watch list."
+  },
+  "notify": {
+    "tx_title": "Blockchain Transaction Alert",
+    "balance_increase": "Received +%s %s on %s",
+    "balance_decrease": "Sent -%s %s on %s",
+    "tx_detected": "New transaction detected on %s (%s)"
+  },
+  "shortcut": {
+    "label_on": "Crypto Alerts On",
+    "label_off": "Crypto Alerts Muted"
+  },
+  "ui": {
+    "refresh": "Refresh",
+    "close": "Close",
+    "loading": "Fetching latest data...",
+    "error_network": "Network error, retrying...",
+    "settings": "Plugin Settings"
+  }
+}

@@ -19,13 +19,18 @@
 --     grab the grip and drop onto one of the thin insertion zones between rows.
 --     Changing a priority only recolours the chip and never moves the row.
 --
--- Interaction: a row is a static line by default. Click its text or the pencil
--- button to edit; press Enter or the ✓ button to commit back to the static
--- line. The coloured chip cycles the priority (a legend at the foot of the
--- panel maps each colour to its category). The ☐/☑ button toggles done, which
--- strikes the text through. A header trash button deletes every done row after
--- an inline confirmation strip (confirm/cancel) — the plugin UI has no dialog
--- primitive. No external commands are run.
+-- Interaction: a row is a static line by default. Click its text, its pencil
+-- button, or press Enter/✓ while editing to move between the two. The coloured
+-- chip cycles the priority (a legend at the foot of the panel maps each colour
+-- to its category, and each entry's glyph button sets every task to it). The
+-- ☐/☑ button toggles done, which strikes the text through, and the trash
+-- button deletes that one task. Right-clicking the text raises a native
+-- context menu (plugin_api >= 28) with the same actions plus an explicit
+-- priority pick — see openRowMenu. The footer also carries two glyph buttons
+-- that mark every task done/undone (setAllDone). The header + adds a task at
+-- the head of the manual order, not the foot; its trash button deletes every
+-- done row after an inline confirmation strip (confirm/cancel) — the plugin
+-- UI has no dialog primitive. No external commands are run.
 --
 -- The bar widget (todo.luau) lights its glyph while the panel is open via the
 -- shared "todo_open" state; it reads todo.json itself for the pending count.
@@ -54,6 +59,9 @@ local ROW_CONTENT_W = PANEL_WIDTH - (2 * PANEL_PADDING) - SCROLLBAR_GUTTER
 
 -- Width left for the task text once the chip, the optional grip and the
 -- `trailing` glyph buttons (each preceded by a gap) have taken their share.
+-- `trailing` is 3: the ☐/☑ toggle, the pencil (edit) and the trash (delete)
+-- buttons — kept on the row alongside the right-click context menu, which
+-- offers the same actions plus priority for anyone who prefers it.
 local function taskTextWidth(withGrip, trailing)
     local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (trailing * (GLYPH_BTN_W + ROW_GAP))
     if withGrip then
@@ -62,12 +70,27 @@ local function taskTextWidth(withGrip, trailing)
     return width
 end
 
+local storage = require("./storage.luau")
+
+-- Read out of the plugin's own manifest (readFile resolves a relative path
+-- against the plugin directory), so the header cannot drift from the version
+-- the store shows. Empty when unreadable — a missing version is not worth an
+-- error line in the panel.
+local pluginVersion = (function()
+    local text = noctalia.readFile("plugin.toml")
+    if type(text) ~= "string" then
+        return ""
+    end
+    return ("\n" .. text):match('\nversion%s*=%s*"([^"]+)"') or ""
+end)()
+
 local PRIORITIES = { "important", "medium", "low" }
 local RANK = { important = 1, medium = 2, low = 3 }
 local COLORS = { important = "#e06c75", medium = "#e5c07b", low = "#98c379" }
 local FILE_NAME = "todo.json"
 local AUTOSAVE_IDLE_TICKS = 2 -- 1s panel ticks with no edits before a flush
 local DRAG_TYPE = "todo-row" -- drag identifier matched by the row drop zones
+local COMPLETE_SOUND = "todo-complete" -- name registered with noctalia.sound.load
 
 local items = {} -- array, ALWAYS in manual order (priority mode sorts a copy for display)
 local nextId = 1 -- monotonic id source (identity only, not a sort key)
@@ -79,6 +102,7 @@ local editingId = nil -- id of the row currently in edit mode (at most one)
 local loaded = false -- guard so an early save() can never truncate the file
 local sortMode = "priority" -- "priority" (auto sort) or "manual" (drag reorder)
 local confirmingClear = false -- header trash pressed, awaiting confirm/cancel
+local soundReady = false -- true once COMPLETE_SOUND has finished loading
 
 local render
 
@@ -115,10 +139,6 @@ local function strike(text)
         table.insert(out, "\u{0336}")
     end
     return table.concat(out)
-end
-
-local function normalizePriority(value)
-    return RANK[value] ~= nil and value or "medium"
 end
 
 -- The rows to render, in display order. `items` itself is never reordered by
@@ -167,42 +187,10 @@ local function removeItem(id)
 end
 
 local function load()
-    items = {}
-    nextId = 1
-    sortMode = "priority"
-    local raw = noctalia.readFile(filePath)
-    if raw ~= nil and raw ~= "" then
-        local decoded = noctalia.json.decode(raw)
-        local list = nil
-        if type(decoded) == "table" then
-            -- Object form { version, sort, tasks }; a legacy plain array has no
-            -- `tasks` key and is read as-is (manual order, priority sort).
-            if decoded.tasks ~= nil then
-                if decoded.sort == "manual" or decoded.sort == "priority" then
-                    sortMode = decoded.sort
-                end
-                list = decoded.tasks
-            else
-                list = decoded
-            end
-        end
-        if type(list) == "table" then
-            for _, entry in ipairs(list) do
-                if type(entry) == "table" then
-                    local id = tonumber(entry.id) or nextId
-                    table.insert(items, {
-                        id = id,
-                        text = type(entry.text) == "string" and entry.text or "",
-                        priority = normalizePriority(entry.priority),
-                        done = entry.done == true,
-                    })
-                    if id >= nextId then
-                        nextId = id + 1
-                    end
-                end
-            end
-        end
-    end
+    local state = storage.load(filePath)
+    items = state.items
+    nextId = state.nextId
+    sortMode = state.sortMode
     -- The on-disk order IS the manual order; priority mode sorts at render time.
     loaded = true
 end
@@ -211,18 +199,7 @@ local function save()
     if not loaded then
         return -- never write before the first load reads what is on disk
     end
-    -- Blank tasks are in-progress placeholders; they never reach disk.
-    local toStore = {}
-    for _, item in ipairs(items) do
-        if not isBlank(item.text) then
-            table.insert(toStore, item)
-        end
-    end
-    local encoded = noctalia.json.encode({ version = 2, sort = sortMode, tasks = toStore }, true)
-    if encoded == nil then
-        return
-    end
-    local ok, err = noctalia.writeFile(filePath, encoded)
+    local ok, err = storage.save(filePath, items, sortMode)
     if not ok then
         noctalia.notifyError(tr("title"), err or tr("save_failed"))
         return
@@ -233,9 +210,9 @@ end
 local function addItem()
     local item = { id = nextId, text = "", priority = "medium", done = false }
     nextId += 1
-    -- Appended at the foot of the manual order; the priority view shows it at
-    -- the foot of its group.
-    table.insert(items, item)
+    -- Inserted at the head of the manual order, so a new task is visible
+    -- right away instead of scrolled off the bottom.
+    table.insert(items, 1, item)
     editingId = item.id -- new task opens straight into edit mode
     render()
 end
@@ -279,7 +256,14 @@ end
 local function toggleDone(id)
     local item = findItem(id)
     if item ~= nil then
+        local wasDone = item.done
         item.done = not item.done
+        -- Chime only on the false->true transition (completing, not
+        -- un-completing), and only when the setting is on and the sound
+        -- finished loading.
+        if item.done and not wasDone and soundReady and noctalia.getConfig("sound_on_complete") then
+            noctalia.sound.play(COMPLETE_SOUND)
+        end
         save()
         render()
     end
@@ -294,6 +278,52 @@ local function cyclePriority(id)
         save()
         render()
     end
+end
+
+-- Set an explicit priority (the context menu picks one directly, where the
+-- chip only cycles). Same rule as cyclePriority: the manual position is
+-- untouched, the priority view re-sorts on render.
+local function setPriority(id, priority)
+    local item = findItem(id)
+    if item ~= nil and RANK[priority] ~= nil and item.priority ~= priority then
+        item.priority = priority
+        save()
+        render()
+    end
+end
+
+-- Mark every task done/undone (the header's bulk glyphs). Chimes once on a
+-- bulk-complete, same rule as toggleDone: only when something actually
+-- flips to done and the sound setting is on.
+local function setAllDone(doneValue)
+    if #items == 0 then
+        return
+    end
+    local anyNewlyDone = false
+    for _, item in ipairs(items) do
+        if doneValue and not item.done then
+            anyNewlyDone = true
+        end
+        item.done = doneValue
+    end
+    if anyNewlyDone and soundReady and noctalia.getConfig("sound_on_complete") then
+        noctalia.sound.play(COMPLETE_SOUND)
+    end
+    save()
+    render()
+end
+
+-- Set every task to `priority` (the legend's bulk glyphs). Manual positions
+-- are untouched, same as cyclePriority/setPriority.
+local function setAllPriority(priority)
+    if RANK[priority] == nil or #items == 0 then
+        return
+    end
+    for _, item in ipairs(items) do
+        item.priority = priority
+    end
+    save()
+    render()
 end
 
 -- Switch ordering mode. Only the `sort` choice is persisted — the task array
@@ -362,6 +392,48 @@ local function clearDone()
     end
     confirmingClear = false
     render()
+end
+
+-- Menu header label: the task itself, cut to about one line. utf8.offset keeps
+-- the cut off a multi-byte boundary; text that is not valid UTF-8 (utf8.len
+-- returns nil rather than throwing) falls through unchanged.
+local MENU_HEADER_CHARS = 42
+local function menuHeader(text)
+    local length = utf8.len(text)
+    if length == nil or length <= MENU_HEADER_CHARS then
+        return text
+    end
+    return text:sub(1, (utf8.offset(text, MENU_HEADER_CHARS + 1) or 0) - 1) .. "…"
+end
+
+-- The row's right-click menu (plugin_api >= 28). Only a ui.button's
+-- onRightClick carries the pointer serial openContextMenu needs, so the row's
+-- text button is the one node that can raise this — which is also why the row
+-- keeps just the done toggle: edit, priority and delete all live in here.
+-- `onActivate` must NAME a global (openContextMenu is a raw binding, not a UI
+-- tree prop, so closures are not registered for it); the row id rides along in
+-- `context` and comes back as the callback's second argument.
+local function openRowMenu(item)
+    local entries = {}
+    if not isBlank(item.text) then
+        table.insert(entries, { kind = "header", label = menuHeader(item.text) })
+    end
+    table.insert(entries, { id = "edit", label = tr("menu_edit") })
+    table.insert(entries, { id = "done", label = tr(item.done and "menu_undone" or "menu_done") })
+    table.insert(entries, { kind = "separator" })
+    table.insert(entries, { kind = "header", label = tr("menu_priority") })
+    for _, priority in ipairs(PRIORITIES) do
+        -- A bullet on the current one rather than enabled = false: greyed out
+        -- reads as "unavailable", and picking the priority a task already has
+        -- is a harmless no-op anyway.
+        table.insert(entries, {
+            id = "prio-" .. priority,
+            label = (item.priority == priority and "● " or "") .. tr("prio_" .. priority),
+        })
+    end
+    table.insert(entries, { kind = "separator" })
+    table.insert(entries, { id = "delete", label = tr("menu_delete") })
+    panel.openContextMenu({ onActivate = "onRowMenu", context = tostring(item.id), items = entries })
 end
 
 local function taskRow(item)
@@ -434,9 +506,10 @@ local function taskRow(item)
             end,
         }))
     else
-        -- Static text; clicking it re-opens the editor ("press on the text").
-        -- The explicit width is what makes a long task wrap onto another line
-        -- instead of running under the three buttons that follow it.
+        -- Static text; clicking it re-opens the editor ("press on the text"),
+        -- right-clicking it raises the row menu. The explicit width is what
+        -- makes a long task wrap onto another line instead of running under the
+        -- button that follows it.
         table.insert(children, ui.button({
             key = "view-" .. id,
             text = item.done and strike(item.text) or item.text,
@@ -445,6 +518,9 @@ local function taskRow(item)
             width = taskTextWidth(grip ~= nil, 3),
             onClick = function()
                 enterEdit(id)
+            end,
+            onRightClick = function()
+                openRowMenu(item)
             end,
         }))
         -- Done toggle: strikes the text through.
@@ -456,7 +532,8 @@ local function taskRow(item)
                 toggleDone(id)
             end,
         }))
-        -- Explicit edit affordance next to the row.
+        -- Explicit edit affordance next to the row, same action as clicking
+        -- the text or picking "Edit task" from the row menu.
         table.insert(children, ui.button({
             glyph = "pencil",
             variant = "ghost",
@@ -465,16 +542,15 @@ local function taskRow(item)
                 enterEdit(id)
             end,
         }))
+        table.insert(children, ui.button({
+            glyph = "trash",
+            variant = "ghost",
+            tooltip = tr("tip_delete"),
+            onClick = function()
+                deleteItem(id)
+            end,
+        }))
     end
-
-    table.insert(children, ui.button({
-        glyph = "trash",
-        variant = "ghost",
-        tooltip = tr("tip_delete"),
-        onClick = function()
-            deleteItem(id)
-        end,
-    }))
 
     return ui.row({
         -- edit/done/mode state flips the row's controls; key it to recreate cleanly
@@ -488,11 +564,22 @@ local function taskRow(item)
     }, children)
 end
 
--- A footer legend mapping each chip colour to its category.
+-- A footer legend mapping each chip colour to its category. The trailing
+-- glyph button applies that priority to every task (setAllPriority).
+local BULK_GLYPH = { important = "chevrons-up", medium = "equal", low = "chevrons-down" }
 local function legendEntry(priority)
     return ui.row({ gap = 6, align = "center" }, {
         ui.box({ width = 12, height = 12, radius = 3, fill = COLORS[priority] }),
         ui.label({ text = tr("prio_" .. priority), fontSize = 11, color = "on_surface_variant" }),
+        ui.button({
+            key = "set-all-" .. priority,
+            glyph = BULK_GLYPH[priority],
+            variant = "ghost",
+            tooltip = tr("tip_set_all_" .. priority),
+            onClick = function()
+                setAllPriority(priority)
+            end,
+        }),
     })
 end
 
@@ -533,7 +620,12 @@ render = function()
     end
 
     local header = ui.row({ align = "center", gap = 8 }, {
-        ui.label({ text = tr("title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
+        ui.label({ key = "title", text = tr("title"), fontSize = 16, fontWeight = "bold", color = "on_surface" }),
+        -- Version off the manifest, small and dimmed: it answers "which
+        -- build am I running" without competing with the title. The spacer
+        -- rather than a flexGrow title keeps the two together on the left.
+        ui.label({ key = "version", text = pluginVersion, fontSize = 10, color = "on_surface_variant" }),
+        ui.spacer({ key = "gap", flexGrow = 1 }),
         sortToggle,
         ui.button({
             key = "header-clear-done" .. (done == 0 and "-off" or ""),
@@ -560,8 +652,32 @@ render = function()
         })
     end
 
+    -- Bulk done/undone glyphs. Kept in the footer, not the header — the
+    -- header is already full (title, version, sort toggle, clear-done, add,
+    -- settings, close), and this pairs naturally with the bulk-priority
+    -- glyphs on the legend right below it.
+    local bulkDone = ui.row({ gap = 16, align = "center", justify = "center" }, {
+        ui.button({
+            key = "footer-all-done",
+            glyph = "checks",
+            variant = "ghost",
+            enabled = done < #items,
+            tooltip = tr("tip_all_done"),
+            onClick = "onAllDone",
+        }),
+        ui.button({
+            key = "footer-all-undone",
+            glyph = "square",
+            variant = "ghost",
+            enabled = done > 0,
+            tooltip = tr("tip_all_undone"),
+            onClick = "onAllUndone",
+        }),
+    })
+
     local legend = ui.column({ gap = 8 }, {
         ui.separator({}),
+        bulkDone,
         ui.row({ gap = 16, align = "center", justify = "center" }, {
             legendEntry("important"),
             legendEntry("medium"),
@@ -665,10 +781,58 @@ function onSortToggle()
     setSortMode(sortMode == "manual" and "priority" or "manual")
 end
 
+-- plugin_api >= 13, declared as capture_keys = ["n", "s"] in plugin.toml. The
+-- host only delivers a chord here when no ui.input has focus (a focused text
+-- field reserves every printable key for itself first), but editingId is
+-- checked too as a second, script-level guard in case that ever changes.
+-- Return/Escape are deliberately NOT bound: Return already reaches the
+-- editing input's onSubmit, and a panel can never capture Escape at all.
+function onKey(chord, pressed)
+    if not pressed or editingId ~= nil then
+        return
+    end
+    if chord == "n" then
+        onAdd()
+    elseif chord == "s" then
+        onSortToggle()
+    end
+end
+
+-- Dispatch for the row context menu. `action` is the id of the entry that was
+-- picked, `context` the row id the menu was opened with, as text. The row can
+-- be gone by the time a menu entry is chosen (a reload, or the header trash
+-- clearing it), so re-resolve the id before acting on it.
+function onRowMenu(action, context)
+    local id = tonumber(context)
+    if id == nil or findItem(id) == nil then
+        return
+    end
+    if action == "edit" then
+        enterEdit(id)
+    elseif action == "done" then
+        toggleDone(id)
+    elseif action == "delete" then
+        deleteItem(id)
+    else
+        local priority = action:match("^prio%-(%l+)$")
+        if priority ~= nil then
+            setPriority(id, priority)
+        end
+    end
+end
+
 -- Drop callback for the insertion zones (declarative drag-and-drop). payload is
 -- the dragged row's id as text, value the target gap index as text.
 function onTodoDrop(payload, value)
     moveItemTo(tonumber(payload), tonumber(value))
+end
+
+function onAllDone()
+    setAllDone(true)
+end
+
+function onAllUndone()
+    setAllDone(false)
 end
 
 function onClearDone()
@@ -695,3 +859,10 @@ end
 function onClosePanel()
     panel.close()
 end
+
+-- Loaded once when the script starts (and again on hot reload); playing is a
+-- no-op until this callback flips soundReady, so a slow/failed load just
+-- means the very first completion after a reload stays silent.
+noctalia.sound.load(COMPLETE_SOUND, "sounds/task-complete.wav", function(ok)
+    soundReady = ok == true
+end)

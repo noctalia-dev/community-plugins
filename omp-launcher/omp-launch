@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# omp-launch — universal launcher and project picker for Oh My Pi (omp).
+#
+# Resolves candidate directories from ~/.omp/agent/sessions/ recency and git projects.
+# Adapts dynamically to whichever dmenu and terminal emulator are installed on the system.
+#
+#   omp-launch                          interactive project picker (dmenu / terminal)
+#   omp-launch --target <dir>           start fresh omp in specified directory
+#   omp-launch --target <dir> --continue resume last session in specified directory
+#   omp-launch --continue               pick a directory, resume its last session
+#   omp-launch --home                   start in $HOME (--allow-home)
+#   omp-launch --list                   print candidate directories and exit
+set -uo pipefail
+
+TARGET=""
+MODE=""
+OMP_ARGS=()
+PROMPT='Open OMP in...'
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --continue) OMP_ARGS+=(--continue); PROMPT='Resume OMP in...' ;;
+        --home)     MODE=home ;;
+        --list)     MODE=list ;;
+        --target)   TARGET="$2"; shift ;;
+        -*)         printf 'omp-launch: unknown option %s\n' "$1" >&2; exit 2 ;;
+        *)          TARGET="$1" ;;
+    esac
+    shift
+done
+
+die() {
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a "Oh My Pi" -i dialog-error 'omp-launch' "$1" 2>/dev/null || true
+    fi
+    printf 'omp-launch: %s\n' "$1" >&2
+    exit 1
+}
+
+# Collect candidate directories: newest sessions first, then untouched git repos
+collect_dirs() {
+    python3 - <<'PY'
+import os
+
+def resolve_slug(slug, home):
+    if slug == "-tmp" or slug == "tmp":
+        return "/tmp"
+    if slug == "-" or not slug:
+        return home
+    raw = slug[1:] if slug.startswith("-") else slug
+    parts = raw.split("-")
+    curr = home
+    i = 0
+    while i < len(parts):
+        matched = False
+        for j in range(len(parts), i, -1):
+            chunk = "-".join(parts[i:j])
+            candidate = os.path.join(curr, chunk)
+            if os.path.isdir(candidate):
+                curr = candidate
+                i = j
+                matched = True
+                break
+        if not matched:
+            curr = os.path.join(curr, parts[i])
+            i += 1
+    return curr
+
+home = os.path.expanduser('~')
+sessions_dir = os.path.join(home, '.omp', 'agent', 'sessions')
+
+if os.path.isdir(sessions_dir):
+    for entry in os.scandir(sessions_dir):
+        if not entry.is_dir():
+            continue
+        real_path = resolve_slug(entry.name, home)
+        if os.path.isdir(real_path):
+            try:
+                mtime = entry.stat().st_mtime
+            except OSError:
+                mtime = 0.0
+            print(f"{mtime:.0f}\t{real_path}")
+PY
+
+    find "$HOME/Documents" "$HOME/Projects" -maxdepth 2 -name .git -type d \
+        -printf '0\t%h\n' 2>/dev/null || true
+}
+
+candidates() {
+    collect_dirs | sort -rn -k1,1 | awk -F'\t' '!seen[$2]++ { print $2 }'
+}
+
+shorten() { sed "s|^$HOME|~|"; }
+expand()  { sed "s|^~|$HOME|"; }
+
+# ── Universal Graphical Dmenu Picker ───────────────────────────────────────────
+pick_menu() {
+    local prompt="$1"
+    if command -v vicinae >/dev/null 2>&1; then
+        vicinae dmenu -n 'Oh My Pi' -p "$prompt" --no-quick-look 2>/dev/null
+    elif command -v fuzzel >/dev/null 2>&1; then
+        fuzzel --dmenu -p "$prompt: " 2>/dev/null
+    elif command -v rofi >/dev/null 2>&1; then
+        rofi -dmenu -p "$prompt" 2>/dev/null
+    elif command -v wofi >/dev/null 2>&1; then
+        wofi --dmenu -p "$prompt" 2>/dev/null
+    elif command -v bemenu >/dev/null 2>&1; then
+        bemenu -p "$prompt" 2>/dev/null
+    elif command -v dmenu >/dev/null 2>&1; then
+        dmenu -p "$prompt" 2>/dev/null
+    else
+        return 1
+    fi
+}
+
+# ── Universal Terminal Launcher ────────────────────────────────────────────────
+launch_in_terminal() {
+    local target="$1"
+    shift
+    local cmd=("$@")
+    
+    # 1. Respect user's $TERMINAL environment variable if set
+    if [[ -n "${TERMINAL-}" ]] && command -v "$TERMINAL" >/dev/null 2>&1; then
+        exec "$TERMINAL" --working-directory "$target" -e "${cmd[@]}"
+    fi
+
+    # 2. Try xdg-terminal-exec (freedesktop standard)
+    if command -v xdg-terminal-exec >/dev/null 2>&1; then
+        exec xdg-terminal-exec --working-directory="$target" "${cmd[@]}"
+    fi
+
+    # 3. Detect known installed terminal emulators in order
+    if command -v alacritty >/dev/null 2>&1; then
+        exec alacritty --class omp-agent --working-directory "$target" -e "${cmd[@]}"
+    elif command -v kitty >/dev/null 2>&1; then
+        exec kitty --directory "$target" "${cmd[@]}"
+    elif command -v ghostty >/dev/null 2>&1; then
+        exec ghostty --working-directory="$target" -e "${cmd[@]}"
+    elif command -v foot >/dev/null 2>&1; then
+        exec foot -D "$target" "${cmd[@]}"
+    elif command -v wezterm >/dev/null 2>&1; then
+        exec wezterm start --cwd "$target" -- "${cmd[@]}"
+    elif command -v gnome-terminal >/dev/null 2>&1; then
+        exec gnome-terminal --working-directory="$target" -- "${cmd[@]}"
+    elif command -v konsole >/dev/null 2>&1; then
+        exec konsole --workdir "$target" -e "${cmd[@]}"
+    elif command -v xterm >/dev/null 2>&1; then
+        cd "$target" && exec xterm -e "${cmd[@]}"
+    else
+        cd "$target" && exec "${cmd[@]}"
+    fi
+}
+
+if [[ ${MODE-} == list ]]; then
+    candidates | shorten
+    exit 0
+fi
+
+if [[ -n "$TARGET" ]]; then
+    target=$(printf '%s' "$TARGET" | expand)
+elif [[ ${MODE-} == home ]]; then
+    target="$HOME"
+    OMP_ARGS+=(--allow-home)
+else
+    choice=$(candidates | shorten | pick_menu "$PROMPT" || true)
+    if [[ -n $choice ]]; then
+        target=$(printf '%s' "$choice" | expand)
+    else
+        if ! command -v vicinae >/dev/null 2>&1 && \
+           ! command -v fuzzel >/dev/null 2>&1 && \
+           ! command -v rofi >/dev/null 2>&1 && \
+           ! command -v wofi >/dev/null 2>&1 && \
+           ! command -v bemenu >/dev/null 2>&1 && \
+           ! command -v dmenu >/dev/null 2>&1; then
+            target="$HOME"
+            OMP_ARGS+=(--resume)
+        else
+            exit 0
+        fi
+    fi
+fi
+
+[[ -d $target ]] || die "not a directory: $target"
+
+# Launch omp in the selected target directory
+launch_in_terminal "$target" omp "${OMP_ARGS[@]}"

@@ -1,0 +1,25 @@
+{
+  "database-empty": "Aucun projet JetBrains trouvé",
+  "filter-empty": "Filtre : « {filter} »",
+  "loading": "Chargement…",
+  "loading-subtitle": "Lecture des projets JetBrains",
+  "no-projects-found": "Aucun projet trouvé",
+  "settings": {
+    "config_dir": {
+      "description": "Répertoire racine des dossiers de configuration JetBrains.",
+      "label": "Répertoire de config JetBrains"
+    },
+    "ignored_ides": {
+      "description": "Noms d'IDE à exclure (ex. WebStorm, CLion). Correspond au début du nom du dossier de config.",
+      "label": "IDE ignorés"
+    },
+    "max_results": {
+      "description": "Nombre maximum de projets à afficher.",
+      "label": "Nombre maximum de résultats"
+    },
+    "toolbox_dir": {
+      "description": "Répertoire des apps JetBrains Toolbox pour localiser les lanceurs d'IDE.",
+      "label": "Répertoire Toolbox apps"
+    }
+  }
+}

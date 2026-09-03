@@ -145,6 +145,9 @@
       "description": "根据播放进度逐字点亮当前歌词。",
       "label": "逐字渐变"
     },
+    "hide_when_no_lyrics": {
+      "label": "无歌词时隐藏"
+    },
     "hide_when_paused": {
       "label": "暂停时隐藏"
     },
@@ -192,7 +195,7 @@
       "label": "滚动速度"
     },
     "max_chars": {
-      "description": "长歌词开始滚动前显示的最大字符数。",
+      "description": "歌词的固定显示宽度；超出宽度的长歌词会滚动。",
       "label": "最大字符数"
     },
     "max_lines": {
@@ -260,6 +263,15 @@
         "romanization_first": "罗马音优先，其次翻译",
         "translation": "仅翻译",
         "translation_first": "翻译优先，其次罗马音"
+      }
+    },
+    "text_alignment": {
+      "description": "在固定歌词宽度内对齐歌词和歌曲信息。",
+      "label": "文字对齐",
+      "options": {
+        "center": "居中",
+        "left": "左对齐",
+        "right": "右对齐"
       }
     },
     "show_artist": {

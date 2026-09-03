@@ -1,0 +1,120 @@
+# Kubernetes cluster status: nodes, pods, deployments.
+
+id = "davemhammer/k8s-status"
+name = "K8s Status"
+version = "1.1.5"
+plugin_api = 10
+author = "davemhammer"
+license = "MIT"
+dependencies = ["kubectl", "less"]
+tags = ["system", "development", "utility", "bar", "panel", "service", "launcher"]
+icon = "hexagon"
+description = "Monitor Kubernetes nodes, pods, and deployments; panel and /kube launcher."
+
+[[setting]]
+key = "kubeconfig"
+type = "file"
+label_key = "settings.kubeconfig.label"
+description_key = "settings.kubeconfig.description"
+default = "~/.kube/config"
+
+[[setting]]
+key = "context"
+type = "string"
+label_key = "settings.context.label"
+description_key = "settings.context.description"
+default = ""
+
+[[setting]]
+key = "namespace"
+type = "string"
+label_key = "settings.namespace.label"
+description_key = "settings.namespace.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 15
+min = 5
+max = 120
+
+[[setting]]
+key = "problems_only"
+type = "bool"
+label_key = "settings.problems_only.label"
+description_key = "settings.problems_only.description"
+default = false
+
+[[setting]]
+key = "notify_on_not_ready"
+type = "bool"
+label_key = "settings.notify_on_not_ready.label"
+description_key = "settings.notify_on_not_ready.description"
+default = true
+
+[[setting]]
+key = "kubectl_bin"
+type = "string"
+label_key = "settings.kubectl_bin.label"
+description_key = "settings.kubectl_bin.description"
+default = "kubectl"
+advanced = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_counts"
+  type = "bool"
+  label_key = "settings.show_counts.label"
+  description_key = "settings.show_counts.description"
+  default = true
+
+  [[widget.setting]]
+  key = "ok_color"
+  type = "select"
+  label_key = "settings.ok_color.label"
+  default = "tertiary"
+  options = [
+    { value = "tertiary", label_key = "colors.tertiary" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "secondary", label_key = "colors.secondary" }
+  ]
+
+  [[widget.setting]]
+  key = "warn_color"
+  type = "select"
+  label_key = "settings.warn_color.label"
+  default = "error"
+  options = [
+    { value = "error", label_key = "colors.error" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "on_surface_variant", label_key = "colors.muted" }
+  ]
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 720
+height = 640
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "kube"
+entry = "launcher.luau"
+prefix = "kube"
+glyph = "hexagon"
+include_in_global_search = false
+debounce_ms = 80

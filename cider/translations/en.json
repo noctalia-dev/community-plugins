@@ -1,0 +1,130 @@
+{
+  "settings": {
+    "apptoken": {
+      "label": "API token",
+      "description": "Cider → Settings → Connectivity → External Application Access. Leave empty to reuse ~/.config/cider-kde-notifier/config.json."
+    },
+    "base_url": {
+      "label": "API URL",
+      "description": "Cider Connectivity base URL. Default http://127.0.0.1:10767 works for local installs."
+    },
+    "display_mode": {
+      "label": "Track alert",
+      "description": "What to show when the track changes: a notification, the rich OSD card, or nothing.",
+      "options": {
+        "notification": "Notification",
+        "osd": "OSD card",
+        "off": "Off"
+      }
+    },
+    "save_to_history": {
+      "label": "Keep in notification history",
+      "description": "Also save track-change notifications to history. Off by default."
+    },
+    "osd_duration_ms": {
+      "label": "Alert duration",
+      "description": "How long the notification or OSD card stays visible (milliseconds)."
+    },
+    "lyrics_osd_enabled": {
+      "label": "Lyrics HUD",
+      "description": "Sticky karaoke overlay. Left-click the bar chip toggles it (remappable in the widget editor)."
+    },
+    "lyrics_osd_position": {
+      "label": "HUD position",
+      "description": "Where the overlay sits on screen.",
+      "options": {
+        "bottom_center": "Bottom center",
+        "bottom_left": "Bottom left",
+        "bottom_right": "Bottom right",
+        "top_center": "Top center",
+        "top_left": "Top left",
+        "top_right": "Top right",
+        "center": "Center",
+        "center_left": "Center left",
+        "center_right": "Center right"
+      }
+    },
+    "lyrics_osd_show_next": {
+      "label": "Show next line",
+      "description": "Dim preview of the upcoming lyric under the current line."
+    },
+    "lyrics_osd_animate_cues": {
+      "label": "Animate cue dots",
+      "description": "Pulse the three cue dots through intros and interludes. Off = static dots."
+    },
+    "lyrics_osd_karaoke": {
+      "label": "Word highlight",
+      "description": "Highlight the sung word when Apple syllable timings exist. Line-timed lyrics light the whole line."
+    },
+    "lyrics_osd_glow": {
+      "label": "Drop shadow",
+      "description": "Offset shadow under lyrics so they stay readable on busy wallpapers."
+    },
+    "lyrics_karaoke_style": {
+      "label": "Highlight colors",
+      "description": "Theme follows the live Noctalia palette. Custom uses the color pickers below.",
+      "options": {
+        "theme": "Noctalia theme",
+        "custom": "Custom"
+      }
+    },
+    "lyrics_karaoke_sung": {
+      "label": "Sung color",
+      "description": "Already-sung words when Highlight colors is Custom."
+    },
+    "lyrics_karaoke_active": {
+      "label": "Active color",
+      "description": "Word currently being sung when Custom."
+    },
+    "lyrics_karaoke_upcoming": {
+      "label": "Upcoming color",
+      "description": "Not-yet-sung words in the current line when Custom."
+    },
+    "lyrics_osd_show_idle": {
+      "label": "Idle placeholder",
+      "description": "When the HUD is open with no lyrics yet, show a muted idle message instead of a blank overlay."
+    },
+    "lyrics_show_untimed": {
+      "label": "Show untimed lyrics",
+      "description": "Off by default. Show plain lyrics that have no timestamps. Synced karaoke always shows."
+    },
+    "lyrics_plain_scroll": {
+      "label": "Scroll untimed lyrics",
+      "description": "Advance plain lyrics over the song length instead of freezing on the first line. Drift vs vocals is expected."
+    },
+    "lyrics_plain_scroll_speed": {
+      "label": "Scroll speed",
+      "description": "Pace relative to song length (25–300%). 100 is default."
+    },
+    "lyrics_plain_scroll_silence": {
+      "label": "Pause when quiet",
+      "description": "Hold scroll during quiet system audio (intros/gaps). Soft beds may pause too. Needs parec."
+    },
+    "lyrics_plain_scroll_silence_level": {
+      "label": "Quiet threshold",
+      "description": "How loud audio must be before scroll advances (1–40)."
+    },
+    "show_cover": {
+      "label": "Show artwork",
+      "description": "Show Cider cover art on the bar chip when a local file is available."
+    },
+    "cover_size": {
+      "label": "Artwork size",
+      "description": "Cover edge length on the bar chip (12–32 px)."
+    },
+    "glyph": {
+      "label": "Fallback glyph",
+      "description": "Icon shown on the bar chip when artwork is hidden or missing."
+    }
+  },
+  "widget": {
+    "idle": "Cider"
+  },
+  "osd": {
+    "not_playing": "Not playing"
+  },
+  "lyrics_osd": {
+    "idle": "No lyrics",
+    "disabled": "Lyrics OSD disabled in settings"
+  }
+}

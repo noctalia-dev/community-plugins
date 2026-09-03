@@ -15,6 +15,7 @@ local visibleRowLimit = INITIAL_VISIBLE_ROWS
 
 local snapshot = noctalia.state.get("anilist_snapshot") or {
   revision = 0,
+  oauthLoading = false,
   loading = false,
   refreshing = false,
   busy = false,
@@ -22,6 +23,7 @@ local snapshot = noctalia.state.get("anilist_snapshot") or {
   viewer = nil,
   anime = {},
   manga = {},
+  loadProgress = nil,
 }
 
 local mediaTab = "ANIME"
@@ -229,6 +231,17 @@ local function settingsButton()
   })
 end
 
+local function loadProgressText()
+  local progress = snapshot.loadProgress
+  if type(progress) ~= "table" then
+    return tr("loading")
+  end
+  return tr("loading_progress", {
+    anime = progress.animeLoaded or 0,
+    manga = progress.mangaLoaded or 0,
+  })
+end
+
 local function renderLogin()
   local children = {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
@@ -239,8 +252,10 @@ local function renderLogin()
     ui.label({ text = tr("login_help"), fontSize = 12, color = "on_surface_variant", maxLines = 8 }),
   }
 
-  if snapshot.loading then
+  if snapshot.oauthLoading then
     table.insert(children, ui.label({ text = tr("login_waiting"), color = "primary", fontSize = 13 }))
+  elseif snapshot.loading then
+    table.insert(children, ui.label({ text = loadProgressText(), color = "primary", fontSize = 13 }))
   else
     table.insert(children, ui.button({
       text = tr("connect"),
@@ -566,29 +581,33 @@ local function renderLibrary()
         "CURRENT"
       ),
       filterButton(
+        "repeating",
+        if mediaTab == "MANGA" then tr("filter_rereading") else tr("filter_rewatching"),
+        "REPEATING"
+      ),
+      filterButton("completed", tr("filter_completed"), "COMPLETED"),
+      filterButton("paused", tr("filter_paused"), "PAUSED"),
+      filterButton(
         "planning",
         if mediaTab == "MANGA" then tr("filter_planning_manga") else tr("filter_planning"),
         "PLANNING"
       ),
-      filterButton("completed", tr("filter_completed"), "COMPLETED"),
-      filterButton("paused", tr("filter_paused"), "PAUSED"),
       filterButton("dropped", tr("filter_dropped"), "DROPPED"),
-      filterButton("repeating", tr("filter_repeating"), "REPEATING"),
       filterButton("all", tr("filter_all"), "ALL"),
     }),
   }))
 
-  if snapshot.loading and not snapshot.viewer then
-    table.insert(children, ui.label({ text = tr("loading"), color = "on_surface_variant", padding = { top = 12 } }))
+  if snapshot.loading then
+    table.insert(children, ui.label({ text = loadProgressText(), color = "on_surface_variant", padding = { top = 12 } }))
   elseif snapshot.error ~= "" then
     table.insert(children, ui.label({ text = tr("error", { message = snapshot.error }), color = "error", padding = { top = 12 } }))
-  elseif snapshot.refreshing then
+  elseif snapshot.refreshing and #rows == 0 then
     table.insert(children, ui.label({ text = tr("refreshing"), color = "on_surface_variant", padding = { top = 8 } }))
   elseif snapshot.busy then
     table.insert(children, ui.label({ text = tr("updating"), color = "on_surface_variant", padding = { top = 8 } }))
   end
 
-  if (not snapshot.loading or snapshot.viewer) and #rows == 0 then
+  if not snapshot.loading and #rows == 0 then
     table.insert(children, ui.label({ text = tr("empty"), color = "on_surface_variant", padding = { top = 12 } }))
   else
     local listChildren = {}
@@ -647,7 +666,7 @@ function onOpen(_context)
   noctalia.state.set("anilist_open", true)
   resetListView()
   if snapshot.viewer and snapshot.viewer.id then
-    sendCommand("refresh", { mediaType = mediaTab })
+    sendCommand("refresh", { mediaType = mediaTab, silent = true })
   end
   dirty = true
   render()
@@ -656,7 +675,9 @@ end
 function onClose()
   coverPreview = nil
   noctalia.state.set("anilist_open", false)
-  noctalia.setUpdateInterval(LIST_IDLE_INTERVAL_MS)
+  if not snapshot.oauthLoading then
+    noctalia.setUpdateInterval(LIST_IDLE_INTERVAL_MS)
+  end
 end
 
 function update()

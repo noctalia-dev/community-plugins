@@ -1,0 +1,105 @@
+id = "tordex/system-updater"
+name = "System Updates Manager"
+version = "1.2.1"
+plugin_api = 20
+author = "tordex"
+license = "MIT"
+dependencies = ["pkgcli", "cargo", "cargo-install-update", "python", "flatpak", "awk", "bash", "jq", "grep", "coreutils", "sed"]
+tags = ["bar", "panel", "service", "system"]
+icon = "package"
+description = "Manage system updates (PackageKit, Flatpak, Cargo etc.)."
+
+[[setting]]
+key = "enable_packagekit"
+type = "bool"
+label_key = "settings.enable_packagekit.label"
+description_key = "settings.enable_packagekit.description"
+default = true
+
+[[setting]]
+key = "enable_flatpak"
+type = "bool"
+label_key = "settings.enable_flatpak.label"
+description_key = "settings.enable_flatpak.description"
+default = true
+
+[[setting]]
+key = "enable_cargo"
+type = "bool"
+label_key = "settings.enable_cargo.label"
+description_key = "settings.enable_cargo.description"
+default = true
+
+[[setting]]
+key = "enable_pipx"
+type = "bool"
+label_key = "settings.enable_pipx.label"
+description_key = "settings.enable_pipx.description"
+default = true
+
+[[setting]]
+key = "enable_gearlever"
+type = "bool"
+label_key = "settings.enable_gearlever.label"
+description_key = "settings.enable_gearlever.description"
+default = true
+
+[[setting]]
+key = "enable_xbps"
+type = "bool"
+label_key = "settings.enable_xbps.label"
+description_key = "settings.enable_xbps.description"
+default = true
+
+[[setting]]
+key = "auto_check_minutes"
+type = "int"
+label_key = "settings.auto_check_minutes.label"
+description_key = "settings.auto_check_minutes.description"
+default = 60
+min = 0
+max = 1440
+
+[[setting]]
+key = "adapters_folder"
+type = "folder"
+label_key = "settings.adapters_folder.label"
+description_key = "settings.adapters_folder.description"
+default = ""
+
+[[setting]]
+key = "notify_on_updates"
+type = "bool"
+label_key = "settings.notify_on_updates.label"
+description_key = "settings.notify_on_updates.description"
+default = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "package"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 600
+placement = "attached"
+open_near_click = true

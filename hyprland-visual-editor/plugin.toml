@@ -1,0 +1,51 @@
+id = "linux-fertxo/hyprland-visual-editor"
+name = "Hyprland Visual Editor"
+version = "2.0.1"
+plugin_api = 3
+author = "XimoCP (v4 original) + Hermy & linux-fertxo (v5 Luau port)"
+license = "MIT"
+dependencies = ["hyprland", "bash", "python"]
+tags = ["hyprland", "animation", "theming", "panel", "bar"]
+icon = "adjustments-horizontal"
+description = "Visually edit Hyprland animations, borders and shaders from a Noctalia panel."
+
+[[setting]]
+key = "is_system_active"
+type = "bool"
+label_key = "settings.is_system_active.label"
+description_key = "settings.is_system_active.description"
+default = false
+
+[[setting]]
+key = "active_anim_file"
+type = "string"
+label_key = "settings.active_anim_file.label"
+default = ""
+
+[[setting]]
+key = "active_border_file"
+type = "string"
+label_key = "settings.active_border_file.label"
+default = ""
+
+[[setting]]
+key = "active_shader_file"
+type = "string"
+label_key = "settings.active_shader_file.label"
+default = ""
+
+[[widget]]
+id = "hve-trigger"
+entry = "widget.luau"
+
+[[service]]
+id = "hve-scanner"
+entry = "service.luau"
+
+[[panel]]
+id = "hve-panel"
+entry = "panel.luau"
+width = 700
+height = 360
+placement = "attached"
+position = "auto"

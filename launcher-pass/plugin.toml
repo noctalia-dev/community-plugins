@@ -1,0 +1,173 @@
+# launcher-pass — Noctalia v5 launcher provider for the GNU Pass store.
+# Port of the QML v4 plugin to Luau (see CLAUDE.md).
+#
+# plugin_api = 26: the highest-level feature currently used is
+# noctalia.getSetting (lands at level 26), read to find the launcher's
+# configured leader character (shell.launcher.provider_prefix) for the
+# pinentry-dance panel reopen. Bump this only when a later port step pulls in
+# something newer.
+
+id = "mellotanica/launcher-pass"
+name = "Launcher pass"
+version = "2.6.0"
+plugin_api = 26
+author = "Marco Melletti"
+license = "MIT"
+icon = "lock"
+description = "Noctalia launcher provider for the GNU Pass password store with autotype and advanced search"
+tags = ["launcher", "privacy", "productivity", "utility"]
+dependencies = ["pass", "find", "grep", "pass-otp", "wtype", "sleep", "coreutils"]
+
+# Settings are declared plugin-wide ([[setting]], the form the sibling launcher
+# plugins use) rather than nested under [[launcher_provider.setting]]; this plugin
+# only ships a launcher provider, so the two are equivalent here. Read back with
+# noctalia.getConfig("storePath") etc.
+
+[[setting]]
+key = "storePath"
+type = "folder"
+label_key = "settings.store-path.label"
+description_key = "settings.store-path.desc"
+default = ""
+
+[[setting]]
+key = "clipTimeout"
+type = "string"                     # kept a string so "" means "fall back to env"
+label_key = "settings.clip-timeout.label"
+description_key = "settings.clip-timeout.desc"
+default = ""
+advanced = true
+
+[[setting]]
+key = "typeDelay"
+type = "int"
+label_key = "settings.type-delay.label"
+description_key = "settings.type-delay.desc"
+default = 500                       # milliseconds (label is historically misleading)
+min = 0
+max = 5000
+advanced = true
+
+[[setting]]
+key = "wtypeDelay"
+type = "int"
+label_key = "settings.wtype-delay.label"
+description_key = "settings.wtype-delay.desc"
+default = 12                        # milliseconds between keystrokes
+min = 0
+advanced = true
+
+[[setting]]
+key = "pinentryGraceMs"
+type = "int"
+label_key = "settings.pinentry-grace-ms.label"
+description_key = "settings.pinentry-grace-ms.desc"
+default = 50                       # milliseconds; see pinentryGraceMs() in launcher.luau
+min = 0
+max = 1000
+advanced = true
+
+# Terminal for the detail-view "Edit" action's `pass edit` run. A full argv
+# prefix that takes a command, exec flag included ("foot -e", "kitty -e",
+# "gnome-terminal --"). Blank -> auto-detect: $TERMINAL, else a common terminal
+# on PATH. See terminalArgv() in launcher.luau; the Edit row is hidden when
+# nothing resolves.
+[[setting]]
+key = "terminalCommand"
+type = "string"
+label_key = "settings.terminal-command.label"
+description_key = "settings.terminal-command.desc"
+default = ""
+advanced = true
+
+# Editor for the "Edit" action. Exported as EDITOR for the `pass edit` run when
+# set; blank leaves EDITOR unset so `pass` uses its own default. See editEntry().
+[[setting]]
+key = "editorCommand"
+type = "string"
+label_key = "settings.editor-command.label"
+description_key = "settings.editor-command.desc"
+default = ""
+advanced = true
+
+# Detail-view row layout. "copy" -> Copy row before Type row for each value;
+# "type" -> Type before Copy. Grouping "interleaved" -> per value: the pair,
+# then the next value; "grouped" -> every Copy row, then every Type row (each
+# block in the detailActionOrder direction). See renderDetailRows().
+[[setting]]
+key = "detailActionOrder"
+type = "select"
+label_key = "settings.detail-action-order.label"
+description_key = "settings.detail-action-order.desc"
+default = "copy"
+options = [
+  { value = "copy", label_key = "settings.detail-action-order.options.copy" },
+  { value = "type", label_key = "settings.detail-action-order.options.type" },
+]
+
+[[setting]]
+key = "detailActionGrouping"
+type = "select"
+label_key = "settings.detail-action-grouping.label"
+description_key = "settings.detail-action-grouping.desc"
+default = "interleaved"
+options = [
+  { value = "interleaved", label_key = "settings.detail-action-grouping.options.interleaved" },
+  { value = "grouped", label_key = "settings.detail-action-grouping.options.grouped" },
+]
+
+# Autotype: a single detail-view row (sorted just after the username row, before
+# the "remaining fields" rows) that types the whole login in sequence — username,
+# a separator key, password, Enter, then the OTP + Enter when the entry has one.
+# Off by default; needs `wtype`, like the Type rows. See autotypeEntry() in
+# launcher.luau.
+[[setting]]
+key = "autotypeEnabled"
+type = "bool"
+label_key = "settings.autotype-enabled.label"
+description_key = "settings.autotype-enabled.desc"
+default = true
+
+# Which key moves from the username field to the password field during autotype:
+# "tab" (a Tab press — the usual form-navigation key) or "enter" (a Return press,
+# for logins that only reveal the password field after the username is submitted).
+[[setting]]
+key = "autotypeSeparator"
+type = "select"
+label_key = "settings.autotype-separator.label"
+description_key = "settings.autotype-separator.desc"
+default = "tab"
+options = [
+  { value = "tab", label_key = "settings.autotype-separator.options.tab" },
+  { value = "enter", label_key = "settings.autotype-separator.options.enter" },
+]
+
+# Whether autotype presses Enter to submit after the last typed value — after the
+# OTP when the entry has one, otherwise after the password. Turn off to stop the
+# sequence just before submitting. (The post-password Enter still fires when an
+# OTP follows it.) Advanced.
+[[setting]]
+key = "autotypeSubmit"
+type = "bool"
+label_key = "settings.autotype-submit.label"
+description_key = "settings.autotype-submit.desc"
+default = true
+advanced = true
+
+# Headless entry that receives the quick-action IPC (copy / type / autotype on
+# the current entry, bindable to a global shortcut). `[[launcher_provider]]`
+# entries are not IPC-addressable, so `onIpc` lives here; it shares launcher.luau
+# with the provider (separate VM) and reads the "current entry" the provider
+# publishes through noctalia.state. Address it as
+#   noctalia msg plugin mellotanica/launcher-pass:quick-actions all <event> [path]
+[[service]]
+id = "quick-actions"
+entry = "launcher.luau"
+
+[[launcher_provider]]
+id = "pass"
+entry = "launcher.luau"
+prefix = "pass"                     # user types ">pass " (Noctalia adds the ">")
+glyph = "lock"
+include_in_global_search = false
+debounce_ms = 20

@@ -1,0 +1,873 @@
+#!/usr/bin/env python3
+"""Punto-style keyboard layout correction for niri.
+
+The daemon watches key presses and remembers WHICH KEYS were pressed (not
+the characters), so re-encoding a word into another layout is exact rather
+than guessed:
+
+    ghbdtn rfr ltkf   ->   привет как дела
+
+Layouts are not hard-coded: the tables are built at startup from the
+compositor's own configuration through libxkbcommon, so whatever layouts
+are configured (us+ru, de+ru, ua+us …) are the ones that get used, with
+the right hunspell dictionary picked for each.
+
+Usage:
+    layout-fix daemon    # background service (the Noctalia plugin runs this)
+    layout-fix fix       # re-encode what was typed (bind this to a key)
+    layout-fix undo      # revert the last automatic correction
+    layout-fix auto on   # automatic mode on/off/toggle
+    layout-fix dicts     # dictionaries wanted for the configured layouts
+    layout-fix status    # diagnostics
+
+Privacy: the keystroke buffer lives in memory only, is capped at
+MAX_BUFFER characters, is never written to disk, and is cleared on
+Enter/Tab/Esc and after an idle pause. `status` reports only the buffer
+length, never its contents.
+"""
+
+import ctypes
+import ctypes.util
+import os
+import re
+import socket
+import struct
+import subprocess
+import sys
+import threading
+import time
+
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+SOCKET_PATH = os.path.join(RUNTIME, "layout-fix.sock")
+CONFIG_PATH = os.path.expanduser("~/.config/layout-fix/config")
+
+MAX_BUFFER = 120           # characters; older keystrokes are forgotten
+IDLE_RESET_SECONDS = 30    # a pause this long ends the current thought
+MIN_AUTO_LENGTH = 3        # shorter words are never touched automatically
+MIN_VOWEL_RATIO = 0.15     # below this a "word" reads as re-encoded garbage
+MIN_HEURISTIC_LENGTH = 6   # a word the dictionary rejects may still be
+                           # corrected from this length on: a short
+                           # re-encoding ("btw" -> "иец") can look like a
+                           # word of the other language by accident
+NEAR_MISS_DISTANCE = 2     # edits between an unlisted word and the closest
+                           # word the dictionary suggests, see _near_miss()
+MAX_LOOKBACK_WORDS = 3     # short words before a corrected one, see lookback()
+
+# struct input_event: timeval (2 x long) + type + code + value
+EVENT_FORMAT = "llHHi"
+EVENT_SIZE = struct.calcsize(EVENT_FORMAT)
+EV_KEY = 0x01
+
+KEY_BACKSPACE = 14
+KEY_SPACE = 57
+KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB = 28, 96, 1, 15
+SHIFT_KEYS = {42, 54}
+RESET_KEYS = {KEY_ENTER, KEY_KPENTER, KEY_ESC, KEY_TAB}
+CTRL_KEYS, ALT_KEYS, META_KEYS = {29, 97}, {56, 100}, {125, 126}
+
+# Keys that can carry a letter in some layout. The set of separators is
+# derived from the actual tables instead of being fixed: the Latin "," key
+# is the Russian letter "б", so splitting words on it would tear "hf,jnftn"
+# (работает) into "hf" + "jnftn".
+TYPING_KEYS = set(range(2, 14)) | set(range(16, 28)) | set(range(30, 42)) | {43} | set(range(44, 54)) | {57}
+
+# Vowels per script, for the dictionary-less fallback. Scripts that are not
+# listed simply skip the heuristic and rely on dictionaries.
+VOWELS_BY_SCRIPT = {
+    "latin": set("aeiou"),        # y omitted on purpose: it alone would make
+                                  # "yjhvfkmyj" (нормально) look English
+    "cyrillic": set("аеёиоуыэюя"),
+}
+CYRILLIC_FORBIDDEN = ("жы", "шы", "чя", "щя", "чю", "щю", "йй", "ьь", "ъъ", "ыы")
+CYRILLIC_BAD_START = "ыъь"
+
+# Layout code -> hunspell dictionary. Only the mismatches need listing;
+# anything else is looked up by its own name (de -> de_*, pl -> pl_*).
+DICTIONARY_HINTS = {
+    "us": "en", "gb": "en", "ca": "en", "au": "en",
+    "ua": "uk", "cz": "cs", "gr": "el", "il": "he",
+    "jp": "ja", "kr": "ko", "cn": "zh", "se": "sv",
+    "dk": "da", "no": "nb", "si": "sl", "ee": "et",
+}
+
+SPELLER = None
+
+
+def log(message):
+    print(f"layout-fix: {message}", flush=True)
+
+
+# ── Compositor ───────────────────────────────────────────────────────────────
+
+def niri_layouts():
+    """(index -> display name, current index) from `niri msg keyboard-layouts`."""
+    try:
+        out = subprocess.run(["niri", "msg", "keyboard-layouts"],
+                             capture_output=True, text=True, timeout=3).stdout
+    except Exception:
+        return {}, None
+    names, current = {}, None
+    for line in out.splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        marked = parts[0] == "*"
+        if marked:
+            parts = parts[1:]
+        if not parts or not parts[0].isdigit():
+            continue
+        index = int(parts[0])
+        names[index] = " ".join(parts[1:])
+        if marked:
+            current = index
+    return names, current
+
+
+def layout_codes(names):
+    """Display names from the compositor -> xkb layout codes.
+
+    The compositor reports human names ("English (US)"), while libxkbcommon
+    needs codes ("us"). xkeyboard-config ships the mapping between them in
+    evdev.lst, which is the same list the compositor's names come from.
+    """
+    table = {}
+    for path in ("/usr/share/X11/xkb/rules/evdev.lst",
+                 "/usr/share/X11/xkb/rules/base.lst"):
+        try:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                section = None
+                for line in handle:
+                    stripped = line.strip()
+                    if stripped.startswith("!"):
+                        section = stripped
+                        continue
+                    if section != "! layout" or not stripped:
+                        continue
+                    code, _, description = stripped.partition(" ")
+                    description = description.strip()
+                    if description:
+                        table.setdefault(description.lower(), code)
+        except OSError:
+            continue
+        if table:
+            break
+
+    codes = {}
+    for index, name in names.items():
+        codes[index] = table.get(name.strip().lower())
+    return codes
+
+
+# ── Layout tables from libxkbcommon ──────────────────────────────────────────
+
+class _XkbNames(ctypes.Structure):
+    _fields_ = [("rules", ctypes.c_char_p), ("model", ctypes.c_char_p),
+                ("layout", ctypes.c_char_p), ("variant", ctypes.c_char_p),
+                ("options", ctypes.c_char_p)]
+
+
+def build_tables(codes):
+    """{group index: {keycode: (plain, shifted)}} straight from libxkbcommon.
+
+    Reading the real keymap is what makes the plugin layout-agnostic: no
+    table of Russian letters lives in this file, and a German or Ukrainian
+    layout works the same way without a code change.
+    """
+    ordered = [codes[i] for i in sorted(codes) if codes.get(i)]
+    if len(ordered) < 2:
+        return {}
+    try:
+        lib = ctypes.CDLL(ctypes.util.find_library("xkbcommon") or "libxkbcommon.so.0")
+    except OSError as err:
+        log(f"libxkbcommon unavailable: {err}")
+        return {}
+
+    lib.xkb_context_new.restype = ctypes.c_void_p
+    lib.xkb_context_new.argtypes = [ctypes.c_int]
+    lib.xkb_keymap_new_from_names.restype = ctypes.c_void_p
+    lib.xkb_keymap_new_from_names.argtypes = [ctypes.c_void_p,
+                                              ctypes.POINTER(_XkbNames), ctypes.c_int]
+    lib.xkb_state_new.restype = ctypes.c_void_p
+    lib.xkb_state_new.argtypes = [ctypes.c_void_p]
+    lib.xkb_state_update_mask.argtypes = [ctypes.c_void_p] + [ctypes.c_uint] * 6
+    lib.xkb_state_key_get_utf8.restype = ctypes.c_int
+    lib.xkb_state_key_get_utf8.argtypes = [ctypes.c_void_p, ctypes.c_uint,
+                                           ctypes.c_char_p, ctypes.c_size_t]
+
+    context = lib.xkb_context_new(0)
+    names = _XkbNames(b"evdev", b"pc105", ",".join(ordered).encode(), None, None)
+    keymap = lib.xkb_keymap_new_from_names(context, ctypes.byref(names), 0)
+    if not keymap:
+        log("could not compile the keymap for " + ",".join(ordered))
+        return {}
+    state = lib.xkb_state_new(keymap)
+    buffer = ctypes.create_string_buffer(16)
+
+    def symbol(code, group, shift):
+        # X11 keycodes are evdev codes + 8; shift is mask bit 0.
+        lib.xkb_state_update_mask(state, 1 if shift else 0, 0, 0, 0, 0, group)
+        size = lib.xkb_state_key_get_utf8(state, code + 8, buffer, 16)
+        return buffer.value.decode("utf-8", "replace") if size > 0 else ""
+
+    tables = {}
+    for position, index in enumerate(sorted(codes)):
+        if not codes.get(index):
+            continue
+        table = {}
+        for code in sorted(TYPING_KEYS):
+            plain, shifted = symbol(code, position, False), symbol(code, position, True)
+            if plain or shifted:
+                table[code] = (plain or shifted, shifted or plain)
+        tables[index] = table
+    return tables
+
+
+def script_of(text):
+    """Which script the letters belong to, for the heuristic fallback."""
+    for char in text.lower():
+        if "а" <= char <= "я" or char == "ё":
+            return "cyrillic"
+        if "a" <= char <= "z":
+            return "latin"
+    return None
+
+
+def dictionary_for(code):
+    """xkb layout code -> hunspell dictionary base name (ru -> ru_RU)."""
+    if not code:
+        return None
+    language = DICTIONARY_HINTS.get(code, code)
+    return language
+
+
+# ── Spelling ─────────────────────────────────────────────────────────────────
+
+def distance(first, second, limit=NEAR_MISS_DISTANCE):
+    """Levenshtein distance, giving up once it passes `limit`."""
+    if abs(len(first) - len(second)) > limit:
+        return limit + 1
+    previous = list(range(len(second) + 1))
+    for i, a in enumerate(first, 1):
+        row = [i]
+        for j, b in enumerate(second, 1):
+            row.append(min(previous[j] + 1, row[j - 1] + 1,
+                           previous[j - 1] + (a != b)))
+        if min(row) > limit:
+            return limit + 1
+        previous = row
+    return previous[-1]
+
+
+class Speller:
+    """Decides whether a string is a real word of a given language.
+
+    One hunspell process per dictionary: asking a single process loaded with
+    several dictionaries cannot tell which language matched, and that is
+    exactly the question here.
+    """
+
+    def __init__(self, dictionaries):
+        self.lock = threading.Lock()
+        self.procs = {}
+        self.available = self._installed()
+        for language in dictionaries:
+            name = self._match(language)
+            if name:
+                self._start(language, name)
+        self.loaded = ", ".join(sorted(self.procs)) or ""
+
+    @staticmethod
+    def _installed():
+        try:
+            out = subprocess.run(["hunspell", "-D"], input="", capture_output=True,
+                                 text=True, timeout=5).stderr
+        except Exception:
+            return []
+        found = []
+        for line in out.splitlines():
+            name = line.strip().rsplit("/", 1)[-1]
+            if re.fullmatch(r"[a-z]{2,3}(_[A-Z]{2})?", name):
+                found.append(name)
+        return found
+
+    def _match(self, language):
+        """First installed dictionary for a language (ru -> ru_RU)."""
+        for name in self.available:
+            if name == language or name.startswith(language + "_"):
+                return name
+        return None
+
+    def _start(self, language, name):
+        try:
+            proc = subprocess.Popen(["hunspell", "-a", "-i", "UTF-8", "-d", name],
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            proc.stdout.readline()  # version banner
+            self.procs[language] = proc
+        except Exception as err:
+            log(f"hunspell for {name} unavailable: {err}")
+
+    def _ask(self, word, language):
+        """Raw hunspell answer lines for a word, or None without a dictionary.
+
+        The string is only asked about when every character is a letter:
+        hunspell splits "hf,jnftn" on the comma and answers per fragment,
+        yet that comma is the letter "б" of the other layout, so such a
+        string must never count as a word.
+        """
+        proc = self.procs.get(language)
+        if proc is None or proc.poll() is not None:
+            return None
+        if not word or not all(c.isalpha() for c in word):
+            return []
+        with self.lock:
+            try:
+                proc.stdin.write(word + "\n")
+                proc.stdin.flush()
+                lines = []
+                while True:
+                    line = proc.stdout.readline()
+                    if line in ("", "\n"):
+                        break
+                    lines.append(line.rstrip("\n"))
+                return lines
+            except Exception:
+                self.procs.pop(language, None)
+                return None
+
+    def _known(self, word, language):
+        """Does this dictionary know the word as a whole?
+
+        Fragment verdicts are combined with AND, or one familiar fragment
+        would speak for the whole string.
+        """
+        lines = self._ask(word, language)
+        if lines is None:
+            return None
+        return bool(lines) and all(line[:1] in "*+-" for line in lines)
+
+    def _near_miss(self, word, language):
+        """Is the word within a couple of edits of one the dictionary lists?
+
+        This is what separates a colloquial word from garbage when neither
+        is in the dictionary: hunspell answers "максималка" with "макси
+        малка" (the same letters) and "дшипскнзе" with "подшипнике" (five
+        edits away). Returns None when there is no dictionary to ask.
+        """
+        lines = self._ask(word, language)
+        if lines is None:
+            return None
+        if not lines or ":" not in lines[0]:
+            return False
+        lowered = word.lower()
+        for suggestion in lines[0].split(":", 1)[1].split(","):
+            candidate = suggestion.strip().lower().replace(" ", "").replace("-", "")
+            if distance(lowered, candidate) <= NEAR_MISS_DISTANCE:
+                return True
+        return False
+
+    def knows(self, word, language):
+        """Is this a word of `language`? False when no dictionary can say."""
+        return self._known(word, language) is True
+
+    @staticmethod
+    def _plausible(word):
+        """Does the string look like a word at all (no dictionary needed)?
+
+        The vowel ratio is the telling signal: a real word rarely has fewer
+        than a sixth, while re-encoded garbage ("ghjuhfvvf") is almost all
+        consonants. Cyrillic adds impossible starts and letter pairs, which
+        is what keeps `systemctl` (-> "ыныеуьсед") from passing for a word.
+        """
+        if len(word) < MIN_AUTO_LENGTH:
+            return False
+        script = script_of(word)
+        vowels = VOWELS_BY_SCRIPT.get(script)
+        if vowels is None:
+            return False
+        lowered = word.lower()
+        count = sum(1 for c in lowered if c in vowels)
+        if count == 0 or count / len(lowered) < MIN_VOWEL_RATIO:
+            return False
+        if script == "cyrillic":
+            if lowered[0] in CYRILLIC_BAD_START:
+                return False
+            if any(bad in lowered for bad in CYRILLIC_FORBIDDEN):
+                return False
+        return True
+
+    def should_fix(self, typed, typed_language, fixed, fixed_language):
+        """Was this typed in the wrong layout?
+
+        The typed word's own dictionary is a veto: a word it knows is never
+        touched, which leaves `systemctl` alone though it is not English.
+        A re-encoding the other dictionary lists is corrected outright.
+
+        When neither dictionary lists anything, the question is whether the
+        candidate is a colloquial word ("максималка") or noise a package
+        name happened to spell ("libgcrypt" -> "дшипскнзе"): the candidate
+        must then be a near miss for a real word, be long enough to make
+        that meaningful, and read like a word where what was typed does not.
+        Without dictionaries the heuristics decide alone, erring towards
+        leaving text untouched.
+        """
+        if len(typed) < MIN_AUTO_LENGTH:
+            return False
+        typed_known = self._known(typed, typed_language)
+        if typed_known:
+            return False
+        fixed_known = self._known(fixed, fixed_language)
+        if fixed_known:
+            # The candidate is a dictionary word; fix unless the typed side
+            # merely lacks a dictionary yet still reads as a word itself.
+            return typed_known is False or not self._plausible(typed)
+        if fixed_known is False:
+            if len(fixed) < MIN_HEURISTIC_LENGTH or not self._near_miss(fixed, fixed_language):
+                return False
+        return self._plausible(fixed) and not self._plausible(typed)
+
+
+# ── Keyboard watching ────────────────────────────────────────────────────────
+
+def keyboards():
+    """Keyboard device paths (by-path/*event-kbd), deduplicated."""
+    base = "/dev/input/by-path"
+    found, seen = [], set()
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return found
+    for name in names:
+        if not name.endswith("event-kbd"):
+            continue
+        path = os.path.realpath(os.path.join(base, name))
+        try:
+            key = os.stat(path).st_rdev
+        except OSError:
+            continue
+        if key not in seen:
+            seen.add(key)
+            found.append(path)
+    return found
+
+
+def load_auto():
+    """Is automatic mode on? The setting survives a restart."""
+    try:
+        with open(CONFIG_PATH) as handle:
+            return "auto=on" in handle.read()
+    except OSError:
+        return True
+
+
+def save_auto(value):
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w") as handle:
+        handle.write(f"auto={'on' if value else 'off'}\n")
+
+
+class Watcher:
+    """Keeps recent keystrokes (keycodes + shift state) in memory."""
+
+    def __init__(self, tables):
+        self.lock = threading.Lock()
+        self.tables = tables
+        self.separators = self._separators(tables)
+        self.keys = []
+        self.word = []
+        self.last_input = 0.0
+        self.enabled = True
+        self.auto = load_auto()
+        self.undo = None
+        self.fixes = 0
+        self.seen_events = 0
+        self.seen_text = 0
+
+    @staticmethod
+    def _separators(tables):
+        """Keys that produce a letter in no layout — only those end a word."""
+        result = set()
+        for code in TYPING_KEYS:
+            symbols = [table.get(code, ("", ""))[0] for table in tables.values()]
+            if symbols and not any(s.isalpha() for s in symbols if s):
+                result.add(code)
+        return result
+
+    def reset(self):
+        with self.lock:
+            self.keys.clear()
+            self.word.clear()
+
+    def snapshot(self):
+        with self.lock:
+            return list(self.keys)
+
+    def feed(self, code, shift):
+        """Adds a keystroke. Returns the finished word (its keystrokes) when
+        a separator is typed — that is when automatic mode has something to
+        judge."""
+        now = time.monotonic()
+        with self.lock:
+            if now - self.last_input > IDLE_RESET_SECONDS:
+                self.keys.clear()
+                self.word.clear()
+            self.last_input = now
+            if code == KEY_BACKSPACE:
+                if self.keys:
+                    self.keys.pop()
+                if self.word:
+                    self.word.pop()
+                return None
+            if code in RESET_KEYS:
+                # A newline ends the word too: check it before clearing, or
+                # the last word in a field could never be corrected.
+                finished = self.word if self.auto else None
+                self.keys.clear()
+                self.word = []
+                return finished
+            if code not in TYPING_KEYS:
+                return None
+            self.keys.append((code, shift))
+            if len(self.keys) > MAX_BUFFER:
+                del self.keys[:-MAX_BUFFER]
+            if code in self.separators:
+                finished, self.word = self.word, []
+                return finished if self.auto else None
+            self.word.append((code, shift))
+            return None
+
+    def read_device(self, path):
+        try:
+            handle = open(path, "rb", buffering=0)
+        except OSError:
+            return
+        shift = ctrl = alt = meta = 0
+        with handle:
+            while True:
+                try:
+                    data = handle.read(EVENT_SIZE)
+                except OSError:
+                    return
+                if not data or len(data) < EVENT_SIZE:
+                    return
+                _, _, etype, code, value = struct.unpack(EVENT_FORMAT, data)
+                if etype != EV_KEY:
+                    continue
+                if code in SHIFT_KEYS:
+                    shift = value != 0
+                    continue
+                if code in CTRL_KEYS:
+                    ctrl = value != 0
+                    continue
+                if code in ALT_KEYS:
+                    alt = value != 0
+                    continue
+                if code in META_KEYS:
+                    meta = value != 0
+                    continue
+                if value != 1:      # only key-down events matter
+                    continue
+                self.seen_events += 1
+                if not self.enabled:
+                    continue
+                if ctrl:
+                    # A Ctrl chord edits text behind our back (paste, delete
+                    # word), so the buffer no longer describes the screen.
+                    self.reset()
+                    continue
+                if alt or meta:
+                    # Alt+Shift switches the layout and Super drives the
+                    # compositor: neither changes text, and clearing on them
+                    # would wipe the buffer exactly when a correction is
+                    # about to be requested.
+                    continue
+                self.seen_text += 1
+                finished = self.feed(code, shift)
+                if finished:
+                    autofix(self, finished,
+                            None if code in RESET_KEYS else code, shift)
+
+
+# ── Correcting ───────────────────────────────────────────────────────────────
+
+def render(keys, table):
+    out = []
+    for code, shift in keys:
+        pair = table.get(code)
+        if pair is None:
+            continue
+        out.append(pair[1] if shift else pair[0])
+    return "".join(out)
+
+
+def retype(count, text):
+    """Erase `count` characters and type `text` in their place."""
+    erase = subprocess.run(["wtype"] + ["-k", "BackSpace"] * count,
+                           capture_output=True, text=True, timeout=15)
+    if erase.returncode != 0:
+        log(f"wtype (erase) failed: {erase.stderr.strip()}")
+        return False
+    typed = subprocess.run(["wtype", "--", text], capture_output=True,
+                           text=True, timeout=15)
+    if typed.returncode != 0:
+        log(f"wtype (retype) failed: {typed.stderr.strip()}")
+        return False
+    return True
+
+
+def switch_layout(index):
+    result = subprocess.run(["niri", "msg", "action", "switch-layout", str(index)],
+                            capture_output=True, text=True, timeout=5)
+    if result.returncode != 0:
+        log(f"switch-layout failed: {result.stderr.strip()}")
+
+
+def target_layout(watcher):
+    """(current index, other index, their tables and languages) or None."""
+    names, current = niri_layouts()
+    if current is None or len(names) < 2:
+        return None
+    other = next((i for i in sorted(names) if i != current and i in watcher.tables), None)
+    if other is None or current not in watcher.tables:
+        return None
+    codes = LAYOUT_CODES
+    return (current, other, watcher.tables[current], watcher.tables[other],
+            dictionary_for(codes.get(current)), dictionary_for(codes.get(other)))
+
+
+def lookback(watcher, word_keys, cur_table, cur_language):
+    """Keystrokes of short words typed just before a word being corrected.
+
+    A word too short to judge on its own ("f", "e") is left alone by the
+    automatic rule, so "f vfrcbvfkrf" would end up half corrected. Once the
+    long word next to it turns out to be in the wrong layout, those short
+    neighbours were almost certainly typed in the wrong layout too, so they
+    are rewritten with it — but only across plain spaces, only while they
+    stay short, and never over a word the current language's dictionary
+    recognises ("a", "I", "to" stay untouched).
+    """
+    with watcher.lock:
+        keys = list(watcher.keys)
+    cut = len(keys) - 1 - len(word_keys)
+    if cut < 0 or keys[cut:len(keys) - 1] != word_keys:
+        return []
+    prefix = keys[:cut]
+    extra = []
+    for _ in range(MAX_LOOKBACK_WORDS):
+        if not prefix or prefix[-1][0] != KEY_SPACE:
+            break
+        space, prefix = prefix[-1], prefix[:-1]
+        start = len(prefix)
+        while start > 0 and prefix[start - 1][0] not in watcher.separators:
+            start -= 1
+        previous, prefix = prefix[start:], prefix[:start]
+        if not previous or len(previous) >= MIN_AUTO_LENGTH:
+            break
+        # hunspell accepts every single letter, so its verdict only means
+        # something from two characters on ("to", "по" stay, "f" does not).
+        text = render(previous, cur_table)
+        if len(text) > 1 and SPELLER.knows(text, cur_language):
+            break
+        extra = previous + [space] + extra
+    return extra
+
+
+def autofix(watcher, word_keys, break_code, break_shift):
+    """A word is finished: rewrite it if it was typed in the wrong layout.
+
+    Deliberately conservative — correct only when what was typed does NOT
+    look like a word of the current language while its re-encoding does, so
+    commands (`grep`, `npm`) and ordinary words are left alone.
+    """
+    if len(word_keys) < MIN_AUTO_LENGTH:
+        return
+    resolved = target_layout(watcher)
+    if resolved is None:
+        return
+    current, other, cur_table, alt_table, cur_language, alt_language = resolved
+
+    typed = render(word_keys, cur_table)
+    fixed = render(word_keys, alt_table)
+    if not typed or not fixed or typed == fixed:
+        return
+    if not SPELLER.should_fix(typed, cur_language, fixed, alt_language):
+        return
+
+    # Short words typed right before this one go the same way (see lookback);
+    # for Enter/Tab the buffer is already gone, so there is nothing to look at.
+    head = [] if break_code is None else lookback(watcher, word_keys, cur_table, cur_language)
+    keys = head + list(word_keys)
+    typed, fixed = render(keys, cur_table), render(keys, alt_table)
+
+    # The separator is already on screen, so erase it too and put it back
+    # afterwards (nothing to put back for Enter/Tab).
+    if break_code is None:
+        tail, extra = "", 0
+    else:
+        tail, extra = render([(break_code, break_shift)], alt_table), 1
+    if not retype(len(keys) + extra, fixed + tail):
+        return
+    switch_layout(other)
+    with watcher.lock:
+        typed_tail = render([(break_code, break_shift)], cur_table) if break_code else ""
+        watcher.undo = (typed + typed_tail, fixed + tail, current)
+        watcher.keys.clear()
+        watcher.fixes += 1
+    log(f"auto-fixed {len(keys)} chars")
+
+
+def do_fix(watcher):
+    keys = watcher.snapshot()
+    log(f"fix requested, {len(keys)} chars buffered")
+    if not keys:
+        return "buffer is empty"
+    resolved = target_layout(watcher)
+    if resolved is None:
+        return "need two configured layouts"
+    current, other, cur_table, alt_table, _, _ = resolved
+    target = render(keys, alt_table)
+    if not target:
+        return "nothing to retype"
+    if not retype(len(keys), target):
+        return "wtype failed, see the journal"
+    switch_layout(other)
+    watcher.reset()
+    log(f"fixed {len(keys)} chars")
+    return f"fixed {len(keys)} chars"
+
+
+def do_undo(watcher):
+    """Revert the last automatic correction, in case it was wrong."""
+    with watcher.lock:
+        entry = watcher.undo
+        watcher.undo = None
+    if entry is None:
+        return "nothing to undo"
+    original, applied, layout_before = entry
+    if not retype(len(applied), original):
+        return "wtype failed, see the journal"
+    switch_layout(layout_before)
+    return "undone"
+
+
+# ── Service ──────────────────────────────────────────────────────────────────
+
+LAYOUT_CODES = {}
+
+
+def wanted_dictionaries():
+    names, _ = niri_layouts()
+    codes = layout_codes(names)
+    wanted = []
+    for index in sorted(codes):
+        language = dictionary_for(codes.get(index))
+        if language and language not in wanted:
+            wanted.append(language)
+    return wanted
+
+
+def serve(watcher):
+    if os.path.exists(SOCKET_PATH):
+        os.unlink(SOCKET_PATH)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(SOCKET_PATH)
+    os.chmod(SOCKET_PATH, 0o600)
+    server.listen(4)
+    while True:
+        conn, _ = server.accept()
+        with conn:
+            try:
+                command = conn.recv(64).decode().strip()
+            except OSError:
+                continue
+            if command == "fix":
+                reply = do_fix(watcher)
+            elif command == "undo":
+                reply = do_undo(watcher)
+            elif command == "toggle":
+                watcher.enabled = not watcher.enabled
+                watcher.reset()
+                reply = "watching" if watcher.enabled else "paused"
+            elif command == "reset":
+                watcher.reset()
+                reply = "buffer cleared"
+            elif command.startswith("auto"):
+                arg = command[4:].strip()
+                if arg in {"on", "off", "toggle"}:
+                    watcher.auto = arg == "on" or (arg == "toggle" and not watcher.auto)
+                    save_auto(watcher.auto)
+                reply = "auto is " + ("on" if watcher.auto else "off")
+            elif command == "status":
+                state = "watching" if watcher.enabled else "paused"
+                layouts = ",".join(str(LAYOUT_CODES.get(i) or "?")
+                                   for i in sorted(watcher.tables))
+                reply = (f"{state}, auto {'on' if watcher.auto else 'off'}, "
+                         f"{watcher.fixes} auto-fixes, {len(watcher.snapshot())} chars "
+                         f"buffered [layouts {layouts}; dictionaries "
+                         f"{SPELLER.loaded or 'none, using heuristics'}; "
+                         f"{watcher.seen_events} keys seen, {watcher.seen_text} accepted]")
+            else:
+                reply = "commands: fix | undo | auto [on|off|toggle] | toggle | status | reset"
+            try:
+                conn.sendall(reply.encode())
+            except OSError:
+                pass
+
+
+def daemon():
+    global SPELLER, LAYOUT_CODES
+    names, _ = niri_layouts()
+    LAYOUT_CODES = layout_codes(names)
+    tables = build_tables(LAYOUT_CODES)
+    if len(tables) < 2:
+        log("need at least two keyboard layouts configured in the compositor")
+        return 1
+    languages = [dictionary_for(LAYOUT_CODES.get(i)) for i in sorted(tables)]
+    SPELLER = Speller([lang for lang in languages if lang])
+    log("layouts: " + ", ".join(f"{i}={LAYOUT_CODES.get(i)}" for i in sorted(tables)))
+    log("dictionaries: " + (SPELLER.loaded or "none, using heuristics"))
+
+    devices = keyboards()
+    if not devices:
+        log("no readable keyboards in /dev/input/by-path "
+            "(is your user in the 'input' group?)")
+        return 1
+    watcher = Watcher(tables)
+    for path in devices:
+        threading.Thread(target=watcher.read_device, args=(path,), daemon=True).start()
+    log(f"watching {len(devices)} keyboard(s)")
+    serve(watcher)
+    return 0
+
+
+def client(command):
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+            conn.settimeout(20)
+            conn.connect(SOCKET_PATH)
+            conn.sendall(command.encode())
+            print(conn.recv(512).decode())
+    except (OSError, socket.timeout) as err:
+        print(f"layout-fix daemon is not reachable: {err}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def main():
+    command = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if command == "daemon":
+        return daemon()
+    if command == "dicts":
+        print(" ".join(wanted_dictionaries()))
+        return 0
+    if command in {"fix", "undo", "toggle", "status", "reset"}:
+        return client(command)
+    if command == "auto":
+        arg = sys.argv[2] if len(sys.argv) > 2 else ""
+        return client(("auto " + arg).strip())
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

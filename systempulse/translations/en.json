@@ -1,0 +1,29 @@
+{
+  "settings": {
+    "panel_background_opacity": {
+      "description": "Opacity of the panel background from transparent (0) to opaque (1). Content stays opaque.",
+      "label": "Panel Background Opacity"
+    },
+    "show_cpu": {
+      "description": "Display CPU usage percentage in the bar",
+      "label": "Show CPU Usage"
+    },
+    "show_disk": {
+      "description": "Display Disk usage percentage in the bar",
+      "label": "Show Disk Usage"
+    },
+    "show_gpu": {
+      "description": "Display GPU usage percentage in the bar",
+      "label": "Show GPU Usage"
+    },
+    "show_network": {
+      "description": "Display Network usage in the bar",
+      "label": "Show Network Usage"
+    },
+    "show_ram": {
+      "description": "Display RAM usage percentage in the bar",
+      "label": "Show RAM Usage"
+    }
+  },
+  "title": "SystemPulse"
+}

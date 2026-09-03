@@ -1,0 +1,53 @@
+{
+  "notify": {
+    "duplicate_host": "{host} já está na lista",
+    "host_down": "{host} está inacessível",
+    "host_up": "{host} voltou a responder",
+    "invalid_host": "{host} não é um IP, host ou link válido"
+  },
+  "panel": {
+    "add_label_placeholder": "Descrição (opcional) — ex: Roteador, Servidor",
+    "add_placeholder": "IP, host ou link",
+    "empty": "Nenhum host configurado ainda",
+    "invalid_format": "Inválido — informe um IP (0.0.0.0), um host ou um link",
+    "status_checking": "Checando…",
+    "status_offline": "Offline",
+    "status_online": "Online",
+    "tooltip_add": "Adicionar",
+    "tooltip_add_host": "Adicionar host",
+    "tooltip_cancel": "Cancelar",
+    "tooltip_check_now": "Checar agora",
+    "tooltip_close_form": "Fechar",
+    "tooltip_confirm_remove": "Confirmar remoção",
+    "tooltip_drag": "Arraste para reordenar",
+    "tooltip_remove": "Remover"
+  },
+  "settings": {
+    "colorize_latency": {
+      "description": "Colore o valor em ms de acordo com a latência (verde abaixo de 100ms, amarelo entre 100-300ms, vermelho a partir de 300ms). Desmarque para mostrar sem coloração.",
+      "label": "Colorir tempo de resposta"
+    },
+    "glyph": {
+      "description": "Ícone mostrado na barra para este widget.",
+      "label": "Ícone da barra"
+    },
+    "interval_seconds": {
+      "description": "Com que frequência cada host é checado.",
+      "label": "Intervalo entre checagens (s)"
+    },
+    "notify_on_recovery": {
+      "description": "Envia uma notificação quando um host que estava fora do ar volta a responder.",
+      "label": "Notificar quando o host volta"
+    },
+    "timeout_seconds": {
+      "description": "Quanto tempo esperar por resposta antes de considerar falha.",
+      "label": "Timeout do ping (s)"
+    }
+  },
+  "title": "Link/IP Monitor",
+  "widget": {
+    "checking_now": "Checando agora…",
+    "tooltip_all_up": "Todos os hosts monitorados estão respondendo",
+    "tooltip_down_prefix": "Fora do ar:"
+  }
+}

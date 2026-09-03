@@ -1,0 +1,27 @@
+{
+  "err_dicts_install": "Could not install the dictionaries, see the system log",
+  "err_no_input_access": "No access to the keyboard devices. Run: sudo usermod -aG input $USER — then log out and back in.",
+  "notify_dicts_installed": "Dictionaries installed — corrections are now dictionary-accurate",
+  "notify_hotkey_hint": "Corrections work already. For the manual ones, bind in your compositor: spawn \"noctalia\" \"msg\" \"plugin\" \"umedbazarov/layout-fix:service\" \"all\" \"fix\" — and the same with \"undo\" and \"auto\". The README has ready-made lines.",
+  "notify_dicts_missing": "For accurate corrections install: {list} (hunspell dictionaries). Set Dictionaries to \"install automatically\" in the plugin settings, or install them yourself.",
+  "settings": {
+    "auto": {
+      "description": "Fix a word as soon as it is finished. Off: corrections happen only through the keybinding.",
+      "label": "Correct automatically"
+    },
+    "dictionaries": {
+      "description": "Hunspell dictionaries make the decision accurate in both directions. Without them the plugin falls back to heuristics, which are safe but miss some words.",
+      "label": "Dictionaries",
+      "options": {
+        "ignore": "Do not check",
+        "install": "Install automatically (asks for the password)",
+        "notify": "Tell me what to install"
+      }
+    },
+    "hotkey_hint": {
+      "description": "Show once how to bind the fix and undo actions in your compositor.",
+      "label": "Remind about keybindings"
+    }
+  },
+  "title": "Layout Fix"
+}

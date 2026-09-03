@@ -11,9 +11,9 @@ auth = Auth.Token(token)
 gh = Github(auth=auth)
 repo = gh.get_repo(repo_name)
 
-if issue_number.isdigit():
+try:
     issue_number = int(issue_number)
-else:
+except:
     print("Issue number is not numeric!")
     sys.exit(1)
 

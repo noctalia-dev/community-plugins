@@ -1,0 +1,18 @@
+id = "notfinaldev/spotify"
+name = "Spotify Search"
+version = "1.0.0"
+plugin_api = 3
+author = "notfinaldev"
+license = "MIT"
+icon = "brand-spotify"
+description = "Search and play Spotify tracks with cached album artwork."
+tags = ["launcher", "media", "music"]
+dependencies = ["python3", "spotify_player", "notify-send", "pgrep", "gtk-launch"]
+
+[[launcher_provider]]
+id = "tracks"
+entry = "launcher.luau"
+prefix = "sp"
+glyph = "brand-spotify"
+include_in_global_search = false
+debounce_ms = 350

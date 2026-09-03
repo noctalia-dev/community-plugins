@@ -1,0 +1,48 @@
+{
+  "error": {
+    "account_id": "Impossible de calculer l'identifiant de compte LibreLinkUp.",
+    "connections_failed": "Impossible de charger les connexions LibreLinkUp.",
+    "login_failed": "Échec de connexion LibreLinkUp. Vérifiez l'email et le mot de passe.",
+    "missing_credentials": "Renseignez l'email et le mot de passe LibreLinkUp dans les réglages du plugin.",
+    "no_measurement": "Aucune mesure de glycémie disponible pour le moment.",
+    "parse_failed": "Réponse JSON invalide de LibreLinkUp."
+  },
+  "settings": {
+    "email": {
+      "description": "Email du compte LibreLinkUp utilisé pour l'authentification.",
+      "label": "Email"
+    },
+    "glyph": {
+      "label": "Icône de la barre"
+    },
+    "high_threshold": {
+      "description": "Les valeurs au-dessus de ce seuil s'affichent en orange.",
+      "label": "Seuil haut (mg/dL)"
+    },
+    "low_threshold": {
+      "description": "Les valeurs en dessous de ce seuil s'affichent en rouge.",
+      "label": "Seuil bas (mg/dL)"
+    },
+    "password": {
+      "description": "Mot de passe du compte LibreLinkUp.",
+      "label": "Mot de passe"
+    },
+    "refresh_interval": {
+      "description": "Fréquence de rafraîchissement des données de glycémie, en secondes.",
+      "label": "Intervalle de rafraîchissement"
+    },
+    "show_unit": {
+      "description": "Ajoute mg/dL après la valeur sur la barre.",
+      "label": "Afficher l'unité"
+    }
+  },
+  "title": "LibreLinkUp",
+  "disclaimer": {
+    "summary": "API non officielle — non affilié à Abbott. Ne pas utiliser pour des décisions médicales."
+  },
+  "tooltip": {
+    "loading": "Chargement de la glycémie…",
+    "measured": "Mesure : {time}",
+    "reading": "Glycémie : {value} {unit} {arrow}"
+  }
+}

@@ -91,10 +91,10 @@ exist, Keymap searches safe, compositor-specific locations:
   followed by a scored scan of top-level `.conf` files in the MangoWC
   configuration directory.
 
-The generated `keymap.lua`, `keymap.kdl`, and `keymap.conf` files and files
-whose names contain `backup` are excluded from automatic discovery. If no
-usable shortcut file is found, the panel points to settings so the correct path
-can be entered manually.
+Legacy `keymap.lua`, `keymap.kdl`, and `keymap.conf` files and files whose names
+contain `backup` are excluded from automatic discovery. If no usable shortcut
+file is found, the panel points to settings so the correct path can be entered
+manually.
 
 ## Browsing shortcuts
 
@@ -102,6 +102,8 @@ In keyboard view, enable an exact Super, Ctrl, Shift, and Alt layer. Occupied
 keys open the shortcuts assigned to that combination; unoccupied keys can be
 sent directly to the creator. Change the physical layout from the keyboard
 size selector while editing shortcuts, or set its default in plugin settings.
+When a key is occupied in another modifier layer, select it and use the layer
+buttons in the details card to jump directly to the matching combination.
 
 In list view, type into the search box to filter the complete category tree.
 Sequential shortcuts such as workspaces 1 through 9 can optionally be folded
@@ -132,7 +134,10 @@ removes the option to type a command manually.
 Native actions are offered while creating a shortcut. In the editor, the
 library offers Noctalia shell commands only: converting an existing shell bind
 to a different native syntax cannot be rewritten safely across all supported
-source forms.
+source forms. Existing Niri `spawn` actions in the documented, single-line
+argv form are editable in place. Keymap keeps them as native `spawn` actions
+and requires the program and every argument to remain separately quoted; it
+never converts them to `spawn-sh`. Other native actions remain read-only.
 
 Hyprland supports multi-key sequences such as `Super + C + V`. Niri and
 MangoWC accept one ordinary key in this writer. Niri exposes press activation;
@@ -163,18 +168,25 @@ compositor entries are emitted as native Hyprland Lua, Niri KDL, or MangoWC
 actions rather than wrappers around an IPC command. The writer checks the
 selected entry ID, compositor, source, and completed template again before it
 touches a file. Existing native actions remain preserved but are not converted
-to another native catalog action by the editor.
+to another native catalog action by the editor. The one supported native edit
+is changing the quoted argv of an existing Niri `spawn` action without changing
+its action type.
 
 ![Known command library](screenshots/command-library.webp)
 
-The first created shortcut adds one marked include to the configured root and
-creates a sibling managed file:
+New shortcuts are written directly to the configured source file. For Niri,
+Keymap inserts them into the existing top-level `binds` block or creates that
+block when it is absent.
 
-| Compositor | Managed file | Marked include |
-| --- | --- | --- |
-| Hyprland | `keymap.lua` | `require("keymap")` |
-| Niri | `keymap.kdl` | `include "keymap.kdl"` |
-| MangoWC | `keymap.conf` | `source=./keymap.conf` |
+Older Keymap releases stored created shortcuts in a sibling `keymap.lua`,
+`keymap.kdl`, or `keymap.conf`. As soon as the Keymap service receives a valid
+configuration snapshot, the writer recognizes a legacy file by its ownership
+header and replaces its marked or plain include with the legacy contents. It
+validates and reloads the combined configuration, confirms that neither file
+changed during the operation, and only then removes the legacy file. A
+validation, reload, or removal failure restores the original source and keeps
+the legacy file intact. A same-named file without Keymap's ownership header is
+never migrated or deleted.
 
 ## Editing and organizing
 
@@ -281,7 +293,8 @@ them automatically.
 | `niri_config` | `~/.config/niri/config.kdl` | Niri KDL root. |
 | `mangowc_config` | `~/.config/mango/config.conf` | MangoWC config root. |
 | `merge_sequential` | `true` | Fold related numbered shortcuts into one row. |
-| `show_undescribed` | `true` | Show Hyprland binds without descriptions. |
+| `merge_similar` | `false` | Fold shortcuts that trigger the same action into one read-only row. |
+| `show_undescribed` | `true` | Show Hyprland binds without descriptions and Niri binds without a `hotkey-overlay-title`. |
 | `keyboard_layout` | `100` | Default 100%, 96%, 80%, 75%, 65%, or 60% view. |
 | `columns` | `3` | One to four balanced category columns. |
 | `card_color` / `card_opacity` | `surface_variant` / `35` | Card background role or custom color and opacity. |
@@ -350,8 +363,8 @@ niri validate -c examples/niri.kdl
 The suite covers category markers, hidden-block recovery, Hyprland command
 parsing and text fallback, all keyboard layouts, create/update/write rollback,
 the three example configurations, command-library integrity and native action
-creation, short DnD identifiers, automatic path discovery, and translation-key
-coverage.
+creation, native Niri `spawn` editing, merged-combination conflict detection,
+short DnD identifiers, automatic path discovery, and translation-key coverage.
 
 ## License
 

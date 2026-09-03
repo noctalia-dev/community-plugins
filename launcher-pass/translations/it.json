@@ -1,0 +1,123 @@
+{
+  "action": {
+    "autotype": "Digitazione automatica",
+    "autotype-desc": "Digita nome utente, password e OTP in sequenza",
+    "copy-field": "Copia {key}",
+    "copy-otp": "Copia OTP",
+    "copy-password": "Copia password",
+    "copy-password-desc": "Copia password negli appunti",
+    "copy-username": "Copia nome utente",
+    "create": "Crea voce",
+    "create-cancel": "Annulla",
+    "create-cancel-desc": "Torna indietro senza creare",
+    "create-confirm": "Crea la voce ora",
+    "create-error": "Impossibile verificare se il percorso è libero",
+    "create-exists": "Quel percorso ha già una voce — impossibile crearla",
+    "create-hint": "Digita un nome per la nuova voce",
+    "edit": "Modifica",
+    "edit-desc": "Apri pass edit in un terminale",
+    "generate": "Genera",
+    "generate-cancel": "Annulla",
+    "generate-cancel-desc": "Mantieni la password attuale",
+    "generate-confirm": "Rigenera ora",
+    "generate-confirm-desc": "Sostituisce la password attuale. Operazione irreversibile.",
+    "generate-desc": "Rigenera la password con pass generate",
+    "new": "Nuova voce",
+    "new-desc": "Crea una nuova voce password qui",
+    "otp-desc": "Copia/digita codice OTP attuale",
+    "type-field": "Digita {key}",
+    "type-otp": "Digita OTP",
+    "type-password": "Digita password",
+    "type-password-desc": "Digita password con wtype",
+    "type-username": "Digita nome utente"
+  },
+  "command": {
+    "description": "Cerca password di gnu pass"
+  },
+  "detail": {
+    "decrypting": "Decifratura della password...",
+    "error": "Decifratura della password non riuscita"
+  },
+  "notification": {
+    "copied": "Copiato negli appunti",
+    "copy-failed": "Copia non riuscita",
+    "create-exists": "Esiste già una voce con quel nome",
+    "create-failed": "Impossibile creare la voce",
+    "created": "Voce password creata",
+    "edit-failed": "Modifica non riuscita",
+    "generate-failed": "Rigenerazione della password non riuscita",
+    "generated": "Password rigenerata",
+    "no-current-entry": "Apri prima una voce",
+    "quick-action-failed": "Azione rapida non riuscita",
+    "quick-action-unknown": "Azione rapida sconosciuta",
+    "type-failed": "Digitazione non riuscita"
+  },
+  "result": {
+    "folder": "Cartella",
+    "go-back": "Torna indietro",
+    "loading": "Caricamento elenco password...",
+    "password": "Password"
+  },
+  "settings": {
+    "autotype-enabled": {
+      "desc": "Mostra una riga «Digitazione automatica» nella vista dettagli di una voce che digita il nome utente, un tasto separatore, la password e poi l'OTP se la voce ne ha uno. Richiede wtype",
+      "label": "Riga di digitazione automatica"
+    },
+    "autotype-separator": {
+      "desc": "Tasto che passa dal campo nome utente al campo password durante la digitazione automatica",
+      "label": "Separatore dei campi per la digitazione automatica",
+      "options": {
+        "enter": "Invio",
+        "tab": "Tab"
+      }
+    },
+    "autotype-submit": {
+      "desc": "Premi Invio dopo l'ultimo valore digitato automaticamente (dopo l'OTP se presente, altrimenti dopo la password). Disattiva per fermarti prima di confermare",
+      "label": "La digitazione automatica preme Invio per confermare"
+    },
+    "clip-timeout": {
+      "desc": "Secondi prima che gli appunti vengano cancellati (vuoto = usa PASSWORD_STORE_CLIP_TIME)",
+      "label": "Timeout degli appunti"
+    },
+    "detail-action-grouping": {
+      "desc": "Alterna le righe Copia e Digita di ogni valore, oppure elenca tutte le righe Copia e poi tutte le righe Digita",
+      "label": "Raggruppamento delle azioni nella vista dettagli",
+      "options": {
+        "grouped": "Raggruppate per azione",
+        "interleaved": "Alternate"
+      }
+    },
+    "detail-action-order": {
+      "desc": "Quale riga viene prima per ogni valore nella vista dettagli di una voce",
+      "label": "Ordine delle azioni nella vista dettagli",
+      "options": {
+        "copy": "Prima Copia",
+        "type": "Prima Digita"
+      }
+    },
+    "editor-command": {
+      "desc": "Editor per l'azione Modifica, esportato come EDITOR verso pass edit (es. nvim, code --wait). Vuoto lascia EDITOR non impostato e pass usa il proprio predefinito",
+      "label": "Comando editor"
+    },
+    "pinentry-grace-ms": {
+      "desc": "Millisecondi di attesa per la decifratura di una password prima di presumere che una richiesta pinentry di GPG necessiti del focus e nascondere il launcher (predefinito: 50). Valori più bassi permettono a pinentry di ottenere il focus più facilmente ma possono causare più sfarfallio del launcher; valori più alti (circa 200-300) rendono l'interfaccia più stabile ma pinentry potrebbe comparire mentre il launcher è ancora aperto in attesa del timeout e non riuscire a ottenere il focus a seconda del window manager",
+      "label": "Periodo di tolleranza pinentry"
+    },
+    "store-path": {
+      "desc": "Percorso personalizzato all'archivio password (predefinito: ~/.password-store)",
+      "label": "Percorso dell'archivio password"
+    },
+    "terminal-command": {
+      "desc": "Terminale usato per eseguire pass edit, con il suo flag di esecuzione (es. foot -e, kitty -e, gnome-terminal --). Vuoto = rilevamento automatico da $TERMINAL o da un terminale comune nel PATH",
+      "label": "Comando terminale"
+    },
+    "type-delay": {
+      "desc": "Ritardo in millisecondi prima dell'inizio della digitazione (predefinito: 500)",
+      "label": "Ritardo digitazione"
+    },
+    "wtype-delay": {
+      "desc": "Ritardo tra le battiture in millisecondi per wtype (predefinito: 12)",
+      "label": "Ritardo battitura wtype"
+    }
+  }
+}

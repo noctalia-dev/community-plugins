@@ -1,12 +1,12 @@
 id = "cleboost/hotspot"
 name = "Wi-Fi Hotspot"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 9
 author = "Cleboost"
 license = "MIT"
 icon = "router"
-description = "Start and stop a Wi-Fi hotspot from the bar, with connected device list and IPC control."
-tags = ["network", "bar", "panel", "service", "utility", "system", "indicator"]
+description = "Start and stop a Wi-Fi hotspot from the bar or Control Center, with connected device list and IPC control."
+tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "indicator"]
 dependencies = ["nmcli", "iw", "ip"]
 
 [[setting]]
@@ -52,6 +52,10 @@ entry = "widget.luau"
   type = "glyph"
   label_key = "settings.glyph.label"
   default = "router"
+
+[[shortcut]]
+id = "cc-toggle"
+entry = "shortcut.luau"
 
 [[panel]]
 id = "panel"

@@ -135,6 +135,11 @@ do
     tr = function(key) return key == "category.other" and "Other" or key end,
   }
   assert(loadfile("niri_service.luau"))()
+  local niriPumps = 0
+  while values["keymap.snapshot"].status == "loading" and niriPumps < 100 do
+    update()
+    niriPumps = niriPumps + 1
+  end
   assertExample(values["keymap.snapshot"], "Niri", 39)
   assert(values["keymap.snapshot"].source == "/example-home/.config/niri/config.kdl")
 end
@@ -159,6 +164,11 @@ do
     tr = function(key) return key == "category.other" and "Other" or key end,
   }
   assert(loadfile("mangowc_service.luau"))()
+  local mangoPumps = 0
+  while values["keymap.snapshot"].status == "loading" and mangoPumps < 100 do
+    update()
+    mangoPumps = mangoPumps + 1
+  end
   assertExample(values["keymap.snapshot"], "MangoWC", 40)
   assert(values["keymap.snapshot"].source == "/example-home/.config/mango/config.conf")
 end

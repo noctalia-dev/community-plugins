@@ -30,40 +30,12 @@ local columns = 4
 local previewWidth = 168
 local previewHeight = 93
 
+local PAGE_SIZE = 48
+local actualPage = 1
+
 local workshopRoot = nil
 local catalog = nil -- cached: the grid re-renders far more often than the disk changes
 local catalogStamp = nil -- mtime of the Workshop dir the cache was built from
-
-local isOpen = false
-local outputName = nil
-local multiSelect = false
-local selected = {} -- ids, in the order they were picked
-local minutesText = "15"
-local order = "sequential"
-local status = {}
-
--- Per-wallpaper configuration view.
-local view = "grid" -- "grid" | "config" | "defaults"
-local configId = nil
-local configName = ""
-local configProps = {}
-local engineDraft = {} -- working copy of options[id].engine
-local propsDraft = {}  -- working copy of options[id].properties
-local showUnlabeled = false
-
--- Global defaults view.
-local defaultsDraft = {} -- working copy of defaults.engine
-local clearOverrides = false
-
-type Wallpaper = {
-	nb: string,
-	name: string,
-	path: string,
-}
-
-local thumbsRequested = false
-
--- Forward declaration: callbacks defined above the rendering section redraw
 -- through this.
 local render
 
@@ -77,6 +49,9 @@ local function tr(key, subst)
 	end
 	return noctalia.tr(key)
 end
+
+-- Get All output for all fonctionnality --
+
 
 -- ── Workshop discovery ───────────────────────────────────────────────────────
 
@@ -136,11 +111,18 @@ local function requestThumbnails(thumbs)
 	end, 60000)
 end
 
-local function loadCatalog(): { Wallpaper }
+local function isInTranch(index, actualPage)
+	if actualPage == 0 then
+		return false
+	end
+	local checkMax = PAGE_SIZE * actualPage
+	local checkMin = checkMax - PAGE_SIZE
+	return index > checkMin and index <= checkMax
+end
+
+local function loadCatalog(actualPage): { Wallpaper }
 	local items = {}
 	workshopRoot = nil
-	-- Several stock locations can exist at once, and last match wins, so a
-	-- personnalPath entry takes precedence.
 	for _, path in ipairs(candidateRoots()) do
 		if noctalia.listDir(path) then
 			workshopRoot = path
@@ -160,36 +142,47 @@ local function loadCatalog(): { Wallpaper }
 
 	local thumbs = thumbDir()
 	local missing = false
+	local numericIndex = 0
+
 	for _, entryName in entries do
-		if tonumber(entryName) then -- Workshop items are numeric ids
-			local content = noctalia.readFile(workshopRoot .. entryName .. "/project.json")
-			if content then
-				local value = noctalia.json.decode(content)
-				if type(value) == "table" then
-					-- Prefer the cached still: Workshop previews are often animated
-					-- GIFs, which the grid would decode and animate for as long as
-					-- the panel is open.
-					local path = workshopRoot .. entryName .. "/" .. (value.preview or "preview.jpg")
-					local thumb = thumbs and (thumbs .. "/" .. entryName .. ".jpg") or nil
-					if thumb and noctalia.fileExists(thumb) then
-						path = thumb
-					else
-						missing = true
+		if tonumber(entryName) then  -- check if is workshop id
+			numericIndex = numericIndex + 1
+			if isInTranch(numericIndex, actualPage) then
+				local content = noctalia.readFile(workshopRoot .. entryName .. "/project.json")
+				if content then
+					local value = noctalia.json.decode(content)
+					if type(value) == "table" then
+						-- Prefer the cached still: Workshop previews are often animated
+						-- GIFs, which the grid would decode and animate for as long as
+						-- the panel is open.
+						local path = workshopRoot .. entryName .. "/" .. (value.preview or "preview.jpg")
+						local thumb = thumbs and (thumbs .. "/" .. entryName .. ".jpg") or nil
+						if thumb and noctalia.fileExists(thumb) then
+							path = thumb
+						else
+							missing = true
+						end
+						table.insert(items, {
+							nb = entryName,
+							name = value.title or entryName,
+							path = path,
+						})
 					end
-					table.insert(items, {
-						nb = entryName,
-						name = value.title or entryName,
-						path = path,
-					})
+				else
+					noctalia.notify(tr("panel.title"), tr("panel.missing_project_json", { name = entryName }))
 				end
-			else
-				noctalia.notify(tr("panel.title"), tr("panel.missing_project_json", { name = entryName }))
 			end
 		end
 	end
 
 	if missing then
 		requestThumbnails(thumbs)
+	end
+
+	if #items == 0 then
+		actualPage = actualPage - 1
+		noctalia.notify(tr("plugin_name") ,tr("no_more_page"))
+		render()
 	end
 	return items
 end
@@ -214,6 +207,26 @@ local function outputStatus()
 	end
 	local entry = outputs[outputName]
 	return type(entry) == "table" and entry or {}
+end
+
+
+local function hasStopState()		-- check for render stop button
+	if outputName ~= "All" then
+		local state = outputStatus()
+		return state.current ~= nil or state.restorable == true
+	end
+
+	local outputs = type(status) == "table" and status.outputs or nil
+	if type(outputs) ~= "table" then
+		return false
+	end
+
+	for _, entry in pairs(outputs) do
+		if type(entry) == "table" and (entry.current ~= nil or entry.restorable == true) then
+			return true
+		end
+	end
+	return false
 end
 
 local function storedDefaults()
@@ -553,7 +566,6 @@ local ENGINE_TOGGLES = {
 -- ── Rendering ────────────────────────────────────────────────────────────────
 
 local function header()
-	local state = outputStatus()
 	local children = {
 		ui.label({
 			text = tr("panel.title"),
@@ -575,7 +587,7 @@ local function header()
 		}),
 	}
 
-	if state.current or state.restorable then
+	if hasStopState() then
 		table.insert(
 			children,
 			ui.button({
@@ -596,6 +608,10 @@ local function header()
 		if output.name == outputName then
 			selectedIndex = index - 1
 		end
+	end
+	table.insert(outputs, "All")
+	if outputName == "All" then
+		selectedIndex = #outputs - 1
 	end
 	table.insert(children, ui.select({ options = outputs, selectedIndex = selectedIndex, onChange = "outputSelected" }))
 	table.insert(
@@ -1170,12 +1186,83 @@ local function tilePreview(item, isSelected, isCurrent)
 	})
 end
 
+-- Favorite list
+
+local FavoriteList = {}
+
+local function getDataPath()
+	return noctalia.pluginDataDir() .. "/data.json"
+end
+
+local function loadData()
+	local raw = noctalia.readFile(getDataPath())
+	if not raw then
+		return {}
+	end
+	local ok, decoded = pcall(function()
+		return noctalia.json.decode(raw)
+	end)
+	if not ok or type(decoded) ~= "table" then
+		return {}
+	end
+	return decoded
+end
+
+local function saveData(data)
+	return noctalia.writeFile(getDataPath(), noctalia.json.encode(data))
+end
+
+local function loadFavoriteList()
+	local data = loadData()
+	FavoriteList = data.favorites or {}
+end
+
+local function persistFavoriteList()
+	local data = loadData() -- récupère les autres clés existantes (ex: settingsPath)
+	data.favorites = FavoriteList
+	saveData(data)
+end
+
+local function addFavoriteList(item)
+	noctalia.notify("Add Favorite")
+	table.insert(FavoriteList, item)
+	persistFavoriteList()
+end
+
+local function removeFavoriteList(item, nb)
+	noctalia.notify("Remove Favorite")
+	table.remove(FavoriteList, nb)
+	persistFavoriteList()
+end
+
+local function checkInFavoriteList(item)
+	local nb = 1
+	for _, entryName in ipairs(FavoriteList) do
+		if entryName.name == item.name then
+			removeFavoriteList(item, nb)
+			return
+		end
+		nb = nb + 1
+	end
+	addFavoriteList(item)
+end
+
 local function tileCaption(item, index, isSelected)
 	-- Numbered to show rotation order.
 	local caption = isSelected and (tostring(index) .. ". " .. item.name) or item.name
 
 	-- A fixed label width keeps every tile the same size; long titles truncate.
 	return ui.row({ gap = 2, align = "center" }, {
+		ui.button({
+			glyph = "star",
+			variant = "ghost",
+			controlSize = "sm",
+			tooltip = "Add at your favorite wallpaper",
+			onClick = function()
+				checkInFavoriteList(item)
+				render()
+			end
+		}),
 		ui.label({
 			text = caption,
 			fontSize = 11,
@@ -1211,7 +1298,7 @@ render = function()
 	if not isOpen then
 		return
 	end
-	catalog = catalog or loadCatalog()
+	catalog = catalog or loadCatalog(actualPage)
 	if view == "defaults" then
 		panel.render(defaultsView())
 		return
@@ -1239,15 +1326,80 @@ render = function()
 	if #catalog == 0 then
 		table.insert(body, ui.label({ text = tr("panel.no_wallpapers"), fontSize = 12, color = "on_surface_variant" }))
 	end
-	-- paddingRight keeps the last column clear of the scrollbar.
-	table.insert(
-		body,
-		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, rows)
-	)
+
+	local favoriteRows = {}
+	local favoriteRow = {}
+	for index, item in ipairs(FavoriteList) do
+		table.insert(favoriteRow, tile(item, state))
+		if #favoriteRow == columns or index == #FavoriteList then
+			table.insert(favoriteRows, ui.row({ gap = 12, align = "start" }, favoriteRow))
+			favoriteRow = {}
+		end
+	end
+
+	-- Single scroll for all list (Wallpaper and Favorite Wallpaper)
+	local scrollContent = {}
+
+	-- Favorite list part
+	table.insert(scrollContent, ui.label({ text = "Favorites", fontSize = 13, fontWeight = "bold", color = "on_surface" }))
+	if #FavoriteList == 0 then
+		table.insert(scrollContent, ui.label({ text = "No favorite", fontSize = 12, color = "on_surface_variant" }))
+	else
+		for _, r in ipairs(favoriteRows) do
+			table.insert(scrollContent, r)
+		end
+	end
+
+	table.insert(scrollContent,
+		ui.separator({ spacing = 12 }
+	))
+
+	-- All list part
+	table.insert(scrollContent,
+		ui.label({ text = "All wallpapers", fontSize = 13, fontWeight = "bold", color = "on_surface" }
+	))
+
+	for _, r in ipairs(rows) do
+		table.insert(scrollContent, r)
+	end
+
+	table.insert(body,
+		ui.scroll({ key = "grid-scroll", gap = 12, paddingRight = 8, align = "stretch", flexGrow = 1 }, scrollContent))
+
+
+	table.insert(body, ui.row({ align = "center", justify = "space_between", gap = 8 }, {
+		ui.button({
+			text = "previous page",
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = function()
+				if actualPage > 1 then
+					actualPage = actualPage - 1
+					catalog = nil
+					render()
+				end
+			end,
+		}),
+		ui.button({
+			text = tostring(actualPage),
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = "",
+		}),
+		ui.button({
+			text = "next page",
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = function()
+				actualPage = actualPage + 1
+				catalog = nil
+				render()
+			end,
+		}),
+	}))
 
 	panel.render(ui.column({ flexGrow = 1, gap = 12 }, body))
 end
-
 -- ── Handlers ─────────────────────────────────────────────────────────────────
 
 -- Adopts the service's view of this output. Selection, interval and order are
@@ -1291,6 +1443,7 @@ end
 
 function onOpen(_context)
 	isOpen = true
+	loadFavoriteList()
 	outputName = noctalia.focusedOutputName() or outputName
 	if not outputName then
 		local outputs = noctalia.outputs()

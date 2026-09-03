@@ -1,0 +1,59 @@
+{
+  "caption_checked": "checked {time}",
+  "empty": "No crashes recorded",
+  "empty_hint": "When one of your processes dumps core, it shows up here.",
+  "err_poll": "coredumpctl did not answer, see the Noctalia log",
+  "err_uid": "Could not resolve the user id, crash list disabled",
+  "journal_empty": "Nothing at this level in the current boot",
+  "level_alert": "alert and up",
+  "level_crit": "crit and up",
+  "level_emerg": "emerg only",
+  "level_err": "err and up",
+  "level_label": "Level",
+  "no_core": "core gone",
+  "notify_body": "{signal}, PID {pid} — open the Crashes panel to diagnose",
+  "notify_title": "Process crashed: {name}",
+  "settings": {
+    "agent_cmd": {
+      "description": "Command that receives the diagnosis prompt as its last argument: \"claude\", \"codex\", \"opencode --prompt\", \"grok --\"… Empty = use the first installed well-known agent.",
+      "label": "AI agent command"
+    },
+    "agent_order": {
+      "description": "Which agents to try and in what order, e.g. \"codex, claude\". Empty: claude, opencode, codex, grok.",
+      "label": "Agent order"
+    },
+    "env_file": {
+      "description": "Sourced before the agent starts. For a proxy or an API key your shell sets but a panel click does not inherit, e.g. ~/.config/agent-env.",
+      "label": "Environment file"
+    },
+    "extra_prompt": {
+      "description": "Text appended to every diagnosis prompt — e.g. \"Answer in Russian\" or house rules for the agent.",
+      "label": "Extra prompt"
+    },
+    "notify": {
+      "description": "Announce new crashes of your processes with a critical notification. Turn off if something else already announces them.",
+      "label": "Desktop notifications"
+    },
+    "poll_seconds": {
+      "description": "How often to re-read the systemd-coredump journal.",
+      "label": "Poll interval (seconds)"
+    },
+    "probe_agent": {
+      "description": "Before opening the window, ask the agent a throwaway question; if it cannot answer — out of quota, logged out, offline — the next one is opened instead. Costs one tiny request per diagnosis. Off: the first installed agent is opened whether or not it works.",
+      "label": "Check the agent can answer"
+    },
+    "terminal_cmd": {
+      "description": "Wrapper that opens the agent in a window, e.g. \"kitty -e\". Leave empty if the agent command opens its own window.",
+      "label": "Terminal command"
+    }
+  },
+  "tab_crashes": "Crashes",
+  "tab_journal": "Errors",
+  "tip_close": "Close",
+  "tip_diagnose": "Diagnose with AI in a terminal",
+  "tip_mute": "Stop notifying about this program",
+  "tip_no_core": "The core dump is gone (rotated away) — nothing to analyze",
+  "tip_refresh": "Re-read the coredump list now",
+  "tip_unmute": "Notify about this program again",
+  "title": "Crashes"
+}

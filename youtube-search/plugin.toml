@@ -1,0 +1,17 @@
+id = "notfinaldev/youtube-search"
+name = "YouTube Search"
+version = "1.0.0"
+plugin_api = 18
+author = "notfinaldev"
+license = "MIT"
+icon = "brand-youtube"
+description = "Search YouTube and open videos from the Noctalia launcher."
+tags = ["launcher", "media", "network", "video"]
+dependencies = ["xdg-open", "yt-dlp"]
+
+[[launcher_provider]]
+id = "youtube"
+entry = "youtube.luau"
+prefix = "yt"
+glyph = "brand-youtube"
+include_in_global_search = false

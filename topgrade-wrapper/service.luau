@@ -48,6 +48,12 @@ local MAX_LISTED = 200
 --              `name<TAB>installed<TAB>available`. Either version may be empty
 --              when the tool does not report it.
 --
+-- Every query — and the dry run itself — is spawned with `export LC_ALL=C;` in
+-- front of it: these parsers key off English words and fixed column layouts
+-- (`^Inst `, the zypper table, the pip header), which a translated system turns
+-- into gibberish. Reported upstream from a French desktop (community-plugins
+-- #204). The interactive run is deliberately left in the user's own locale.
+--
 -- The count is simply how many lines came back, so the number on the bar and the
 -- list the panel expands are the same answer to the same question, asked once:
 -- no second round trip to a mirror, and no way for the two to disagree.
@@ -86,7 +92,7 @@ local COUNTERS = {
     {
         key = "apt",
         requires = "apt-get",
-        signals = { "apt%-get[^\n]*upgrade", "apt[^\n]*full%-upgrade", "nala[^\n]*upgrade" },
+        signals = { "apt%-get[^\n]*upgrade", "apt[^\n]*full%-upgrade", "apt[^\n]*dist%-upgrade", "nala[^\n]*upgrade" },
         cmd = [[apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | awk '/^Inst /{gsub(/[][]/,"",$3); gsub(/[()]/,"",$4); print $2"\t"$3"\t"$4}']],
     },
     {
@@ -451,7 +457,7 @@ pumpQueue = function()
     local counter = table.remove(queue, 1)
     step = tr("count." .. counter.key)
     publish()
-    local started = noctalia.runAsync(counter.cmd, function(result)
+    local started = noctalia.runAsync("export LC_ALL=C; " .. counter.cmd, function(result)
         -- A query that timed out or reported an error is recorded as unknown
         -- rather than zero: saying "up to date" because a mirror was down would
         -- be a lie. Note that most of these commands end in a filter, so their
@@ -512,7 +518,7 @@ startCheck = function()
     step = tr("step_planning")
     publish()
 
-    local started = noctalia.runAsync(buildCommand(true), function(result)
+    local started = noctalia.runAsync("export LC_ALL=C; " .. buildCommand(true), function(result)
         if result.timedOut then
             failCheck(tr("err_dry_timeout"))
             return

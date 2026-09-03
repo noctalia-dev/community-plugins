@@ -1,0 +1,39 @@
+{
+  "panel": {
+    "animations": "Animacions",
+    "apply": "Aplica",
+    "apply_hint": "Tria un preset i prem Aplica per aplicar-lo a l'instant",
+    "borders": "Vores",
+    "count_animations": "animacions",
+    "count_borders": "vores",
+    "count_shaders": "shaders",
+    "credits": "Basat en el widget original de XimoCP · portat a Luau per Hermy i Linux Fertxo",
+    "current_preset": "Preset aplicat actualment",
+    "disabled": "HVE desactivat",
+    "effects": "Efectes",
+    "enable_warning": "Activa l'interruptor per aplicar canvis",
+    "enabled": "HVE activat",
+    "home": "Inici",
+    "no_presets": "No hi ha presets — executa scan.sh",
+    "none": "Cap",
+    "presets_available": "presets disponibles"
+  },
+  "settings": {
+    "active_anim_file": {
+      "label": "Animació activa"
+    },
+    "active_border_file": {
+      "label": "Vora activa"
+    },
+    "active_shader_file": {
+      "label": "Shader actiu"
+    },
+    "is_system_active": {
+      "description": "Interruptor mestre que activa els efectes de Hyprland Visual Editor.",
+      "label": "Sistema actiu"
+    }
+  },
+  "widget": {
+    "tooltip": "Hyprland Visual Editor — obrir el panel"
+  }
+}

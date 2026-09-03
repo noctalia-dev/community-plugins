@@ -1,0 +1,28 @@
+{
+  "id": "noctalia-super-productivity",
+  "name": "Noctalia Super Productivity Companion",
+  "version": "1.0.2",
+  "description": "Connects the Noctalia desktop shell to the local Super Productivity task database.",
+  "manifestVersion": 1,
+  "minSupVersion": "18.19.0",
+  "author": "Gabe Dunn",
+  "homepage": "https://github.com/noctalia-dev/community-plugins/tree/main/super-productivity",
+  "icon": "icon.svg",
+  "permissions": [
+    "nodeExecution",
+    "getTasks",
+    "getAllProjects",
+    "getAllTags",
+    "addTask",
+    "updateTask",
+    "selectTask",
+    "dispatchAction"
+  ],
+  "hooks": [
+    "taskComplete",
+    "taskUpdate",
+    "taskDelete",
+    "currentTaskChange",
+    "action"
+  ]
+}

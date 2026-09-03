@@ -1,0 +1,65 @@
+{
+  "clear": "Clear",
+  "input_placeholder": "Ask me anything...",
+  "send": "Send",
+  "settings": {
+    "api_endpoint": {
+      "description": "Base URL for the API (default Ollama uses http://localhost:11434/v1)",
+      "label": "API Endpoint"
+    },
+    "api_key": {
+      "description": "API key for hosted providers (stored locally and never shared)",
+      "label": "API Key"
+    },
+    "glyph": {
+      "label": "Bar Icon"
+    },
+    "max_history": {
+      "description": "Number of messages to keep in conversation context",
+      "label": "Max History"
+    },
+    "mode": {
+      "deep": "Deep — Exhaustive search, multi-step reasoning",
+      "description": "How deeply the AI thinks before responding",
+      "fast": "Fast — Quick answers, minimal tools",
+      "label": "Thinking Mode",
+      "normal": "Normal — Balanced reasoning and tools"
+    },
+    "model_name": {
+      "deepseek_flash": "DeepSeek V4 Flash (fast, cheap)",
+      "deepseek_pro": "DeepSeek V4 Pro (powerful)",
+      "description": "OpenCode Go model to use",
+      "glm52": "GLM-5.2",
+      "grok45": "Grok 4.5",
+      "kimi_code": "Kimi K2.7 Code",
+      "label": "Model"
+    },
+    "show_commands": {
+      "description": "Show executed commands in the chat",
+      "label": "Show Commands"
+    },
+    "tool_blocklist": {
+      "description": "Comma-separated commands never allowed",
+      "label": "Blocked Commands"
+    },
+    "tool_permission": {
+      "allow": "Allow — Run automatically",
+      "ask": "Ask — Prompt before every command",
+      "description": "When the AI can run terminal commands",
+      "label": "Tool Permission",
+      "off": "Off — No tools"
+    },
+    "web_search_enabled": {
+      "description": "Allow Mimir to use DuckDuckGo search and fetch public pages",
+      "label": "Web Search"
+    }
+  },
+  "status_error": "Error",
+  "status_idle": "Idle",
+  "status_offline": "Offline",
+  "status_online": "Online",
+  "status_thinking": "Thinking...",
+  "status_tool": "Running command...",
+  "title": "Mimir",
+  "tooltip": "Mimir AI — {status}"
+}

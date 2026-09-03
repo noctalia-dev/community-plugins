@@ -1,0 +1,142 @@
+id = "autumn/network-toolkit"
+name = "Network Toolkit"
+version = "0.1.0"
+plugin_api = 10
+author = "Autumn"
+license = "MIT"
+icon = "world"
+description = "Unified control panel for Bluetooth, Wi-Fi, Ethernet, Hotspot, and DNS Switcher."
+tags = ["network", "bar", "panel", "service", "utility"]
+dependencies = ["networkmanager", "iw", "ip", "qrencode", "bluez-utils"]
+
+[[setting]]
+key = "refreshinterval"
+type = "int"
+label_key = "settings.refreshinterval.label"
+description_key = "settings.refreshinterval.description"
+default = 5
+min = 2
+max = 60
+
+[[setting]]
+key = "color"
+type = "string"
+label_key = "settings.color.label"
+description_key = "settings.color.description"
+default = "on_surface_variant"
+
+[[setting]]
+key = "text_color"
+type = "string"
+label_key = "settings.text_color.label"
+description_key = "settings.text_color.description"
+default = "on_surface_variant"
+
+[[setting]]
+key = "hotspot_ssid"
+type = "string"
+label_key = "settings.hotspot_ssid.label"
+description_key = "settings.hotspot_ssid.description"
+default = "Noctalia-Hotspot"
+
+[[setting]]
+key = "hotspot_password"
+type = "string"
+label_key = "settings.hotspot_password.label"
+description_key = "settings.hotspot_password.description"
+default = "noctaliapass"
+
+[[setting]]
+key = "hotspot_max_connections"
+type = "int"
+label_key = "settings.hotspot_max_connections.label"
+description_key = "settings.hotspot_max_connections.description"
+default = 8
+min = 1
+max = 32
+
+[[setting]]
+key = "custom_dns_1"
+type = "string"
+label_key = "settings.custom_dns_1.label"
+description_key = "settings.custom_dns_1.description"
+default = ""
+
+[[setting]]
+key = "custom_dns_2"
+type = "string"
+label_key = "settings.custom_dns_2.label"
+description_key = "settings.custom_dns_2.description"
+default = ""
+
+[[setting]]
+key = "custom_dns_3"
+type = "string"
+label_key = "settings.custom_dns_3.label"
+description_key = "settings.custom_dns_3.description"
+default = ""
+
+
+[[setting]]
+key = "widget_display_mode"
+type = "select"
+label_key = "settings.widget_display_mode.label"
+description_key = "settings.widget_display_mode.description"
+default = "network"
+options = [
+    { value = "network", label_key = "settings.widget_display_mode.network" },
+    { value = "bluetooth", label_key = "settings.widget_display_mode.bluetooth" },
+    { value = "dns", label_key = "settings.widget_display_mode.dns" },
+    { value = "network_hotspot", label_key = "settings.widget_display_mode.network_hotspot" },
+    { value = "network_bluetooth", label_key = "settings.widget_display_mode.network_bluetooth" },
+    { value = "network_dns", label_key = "settings.widget_display_mode.network_dns" },
+    { value = "bluetooth_dns", label_key = "settings.widget_display_mode.bluetooth_dns" },
+    { value = "network_bluetooth_dns", label_key = "settings.widget_display_mode.network_bluetooth_dns" },
+    { value = "network_hotspot_bluetooth_dns", label_key = "settings.widget_display_mode.network_hotspot_bluetooth_dns" },
+]
+
+[[setting]]
+key = "widget_indicator_dots"
+type = "select"
+label_key = "settings.widget_indicator_dots.label"
+description_key = "settings.widget_indicator_dots.description"
+default = "hotspot_dns"
+options = [
+    { value = "hotspot_dns", label_key = "settings.widget_indicator_dots.hotspot_dns" },
+    { value = "hotspot", label_key = "settings.widget_indicator_dots.hotspot" },
+    { value = "dns", label_key = "settings.widget_indicator_dots.dns" },
+    { value = "none", label_key = "settings.widget_indicator_dots.none" },
+]
+
+[[setting]]
+key = "widget_right_click"
+type = "select"
+label_key = "settings.widget_right_click.label"
+description_key = "settings.widget_right_click.description"
+default = "toggle_wifi"
+options = [
+    { value = "toggle_wifi", label_key = "settings.widget_right_click.toggle_wifi" },
+    { value = "toggle_hs", label_key = "settings.widget_right_click.toggle_hs" },
+    { value = "toggle_bt", label_key = "settings.widget_right_click.toggle_bt" },
+]
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 700
+height = 505
+placement = "attached"
+position = "top_right"
+open_near_click = true

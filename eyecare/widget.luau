@@ -94,7 +94,6 @@ end
 
 function onRightClick()
     noctalia.state.set("eyecare-request", "reset")
-    noctalia.notify("Eye-Care", "Timer has been reset.")
 end
 
 -- Initial render

@@ -1,0 +1,97 @@
+# Obsidian vault: daily capture + git sync.
+
+id = "davemhammer/obsidian"
+name = "Obsidian"
+version = "1.0.6"
+plugin_api = 10
+author = "davemhammer"
+license = "MIT"
+dependencies = ["obsidian", "git", "xdg-open", "find", "sort", "head", "realpath"]
+tags = ["productivity", "utility", "bar", "panel", "service", "launcher"]
+icon = "notebook"
+description = "Daily capture and git status, commit, pull, and push for an Obsidian vault."
+
+[[setting]]
+key = "vault_path"
+type = "folder"
+label_key = "settings.vault_path.label"
+description_key = "settings.vault_path.description"
+default = "~/Documents/Obsidian Vault"
+
+[[setting]]
+key = "vault_name"
+type = "string"
+label_key = "settings.vault_name.label"
+description_key = "settings.vault_name.description"
+default = ""
+
+[[setting]]
+key = "daily_folder"
+type = "string"
+label_key = "settings.daily_folder.label"
+description_key = "settings.daily_folder.description"
+default = ""
+
+[[setting]]
+key = "daily_format"
+type = "string"
+label_key = "settings.daily_format.label"
+description_key = "settings.daily_format.description"
+default = "%Y-%m-%d"
+
+[[setting]]
+key = "git_commit_message"
+type = "string"
+label_key = "settings.git_commit_message.label"
+description_key = "settings.git_commit_message.description"
+default = "vault: capture from Noctalia"
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 20
+min = 5
+max = 300
+
+[[setting]]
+key = "notify_on_action"
+type = "bool"
+label_key = "settings.notify_on_action.label"
+description_key = "settings.notify_on_action.description"
+default = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_dirty"
+  type = "bool"
+  label_key = "settings.show_dirty.label"
+  description_key = "settings.show_dirty.description"
+  default = true
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 700
+height = 620
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "ob"
+entry = "launcher.luau"
+prefix = "ob"
+glyph = "notebook"
+include_in_global_search = false
+debounce_ms = 80

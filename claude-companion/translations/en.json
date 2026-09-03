@@ -3,6 +3,25 @@
     "empty": "No answers yet. Ask one from the launcher: /claude ? <question>",
     "title": "Claude — quick ask"
   },
+  "ask": {
+    "delivery": "The answer opens in the answer panel and arrives as a notification.",
+    "no_runtime": "No XDG_RUNTIME_DIR, so there is nowhere to hand the question over.",
+    "placeholder": "One quick question…",
+    "send": "Ask",
+    "title": "Ask Claude"
+  },
+  "consent": {
+    "allow_always": "Always allow",
+    "allow_once": "Allow once",
+    "deny": "Deny",
+    "empty": "Nothing is waiting on you right now.",
+    "fallthrough": "No answer here and Claude asks in the terminal instead, as usual.",
+    "in_dir": "in {dir}",
+    "said": "Claude says: {said}",
+    "session": "session {sid}",
+    "title": "Permission request",
+    "title_tool": "Claude wants to run {tool}"
+  },
   "launcher": {
     "ask": "Ask Claude (one-shot)",
     "ask_hint": "Type a question after ?",
@@ -38,6 +57,15 @@
     "breath_speed": {
       "description": "How fast the pulse dot and orb breathe. 1.0 is the default; higher is faster, lower is slower.",
       "label": "Breath speed"
+    },
+    "consent_mode": {
+      "description": "Approve Claude's tool calls from the desktop. Off behaves as if the gate were not installed. Learn records what Claude runs without ever blocking, so the allowlist is seeded from your real traffic. Enforce asks about anything not yet allowlisted; an unanswered prompt falls through to Claude Code's own permission flow.",
+      "label": "Tool consent gate",
+      "option": {
+        "enforce": "Enforce (ask before running)",
+        "learn": "Learn (record, never block)",
+        "off": "Off"
+      }
     },
     "orb_swell": {
       "description": "How far the desktop orb magnifies as it breathes. 0 keeps it a static size; 1.0 is the default; higher swells more.",

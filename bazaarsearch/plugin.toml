@@ -1,0 +1,36 @@
+# Bazaar Search Plugin - fields Flatpak search entries
+# from installed Bazaar daemon
+
+id = "dumbasaroc/bazaarsearch"
+name = "Bazaar Search"
+version = "1.0.1"
+plugin_api = 3
+author = "DumbAsARoc"
+license = "GPL-3.0"
+icon = "package"
+description = "A launcher plugin to search for Flatpaks through Bazaar"
+dependencies = [ "bazaar", "busctl" ]
+tags = [ "launcher", "system", "utility" ]
+
+
+# Settings
+
+[[setting]]
+key = "max_entries"
+type = "int"
+label_key = "settings.max_entries.label"
+description_key = "settings.max_entries.description"
+min = 0
+default = 50
+
+
+# Provider
+
+[[launcher_provider]]
+id = "bazaarsearch"
+entry = "launcher.luau"
+prefix = "bzr"
+glyph = "list-search"
+include_in_global_search = false
+debounce_ms = 0
+

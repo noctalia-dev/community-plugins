@@ -18,6 +18,7 @@ local PANEL_ID = "kenn/keybind-cheatsheet:cheatsheet"
 local SNAPSHOT_KEY = "keybind-cheatsheet.snapshot"
 local REFRESH_REQUEST_KEY = "keybind-cheatsheet.refresh-request"
 local SELF_TEST_REQUEST_KEY = "keybind-cheatsheet.self-test-request"
+local PANEL_STEP_KEY = "keybind-cheatsheet.panel-step"
 local PREFERENCES_FILE = "preferences.json"
 
 local bindings = {}
@@ -28,6 +29,29 @@ local panelOpen = false
 local panelError = nil
 local refreshError = nil
 local snapshot = nil
+local invalidateBindingCaches -- defined below, called from the state watcher above it
+
+-- Progressive rendering. Building the whole tree at once with a cold row
+-- cache (a full keymap is 130+ rows, each with several key pills) does not
+-- fit the plugin CPU budget: onOpen and snapshot changes got killed
+-- mid-render, leaving the panel half-drawn with dead buttons. Each render
+-- draws at most `renderLimit` rows; the rest fills in over a chain of
+-- state-ping callbacks (each one a fresh budget, see scheduleFill) and the
+-- panel stays interactive throughout.
+local RENDER_FIRST = 24
+local RENDER_STEP = 40
+local renderLimit = RENDER_FIRST
+local renderedRows = 0
+local renderTruncated = false
+local scheduleFill -- defined below; called at the end of render
+local panelSteps = {} -- queued panel-step functions (see schedulePanelStep below)
+local fillQueued = false
+local invalidateRowCache -- defined with the row cache, called from invalidateBindingCaches above it
+-- The fill-in chain passes keepLimit = true to render; every other render
+-- (a click, a keystroke, a state update) restarts from a small chunk, so a
+-- handler never pays for the full 130-row tree on top of its own work.
+-- Deliberately a parameter and not a shared flag: a callback killed by the
+-- CPU budget would leave a flag stuck forever, and with it the whole panel.
 local query = ""
 local searchRevision = 0
 local view = "bindings"
@@ -38,6 +62,10 @@ local refreshing = false
 
 local render
 local refresh
+
+local env = getfenv()
+local dynamicCallbacks = {}
+local callbackIndex = 0
 
 local function tr(key, values)
   return noctalia.tr(key, values)
@@ -56,23 +84,64 @@ local function startsWith(value, prefix)
   return value:sub(1, #prefix) == prefix
 end
 
+local function resetCallbacks()
+  for _, name in ipairs(dynamicCallbacks) do
+    env[name] = nil
+  end
+  dynamicCallbacks = {}
+  callbackIndex = 0
+end
+
+local function callback(prefix, fn)
+  callbackIndex += 1
+  local name = "keybindCheatsheet_" .. prefix .. "_" .. callbackIndex
+  env[name] = fn
+  table.insert(dynamicCallbacks, name)
+  return name
+end
+
 local KEY_LABELS = {
-  XF86AudioRaiseVolume = "Vol Up",
-  XF86AudioLowerVolume = "Vol Down",
-  XF86AudioMute = "Mute",
-  XF86AudioMicMute = "Mic Mute",
-  XF86MonBrightnessUp = "Bright Up",
-  XF86MonBrightnessDown = "Bright Down",
-  XF86AudioPlay = "Play/Pause",
-  XF86AudioPause = "Pause",
-  XF86AudioNext = "Next",
-  XF86AudioPrev = "Previous",
-  Print = "PrtSc",
-  Prior = "PgUp",
-  Next = "PgDn",
-  Return = "Enter",
-  Escape = "Esc",
+  xf86audioraisevolume = "Vol Up",
+  xf86audiolowervolume = "Vol Down",
+  xf86audiomute = "Mute",
+  xf86audiomicmute = "Mic Mute",
+  xf86monbrightnessup = "Bright Up",
+  xf86monbrightnessdown = "Bright Down",
+  xf86audioplay = "Play/Pause",
+  xf86audiopause = "Pause",
+  xf86audionext = "Next",
+  xf86audioprev = "Previous",
+  print = "PrtSc",
+  prtsc = "PrtSc",
+  prior = "PgUp",
+  page_up = "PgUp",
+  pageup = "PgUp",
+  next = "PgDn",
+  page_down = "PgDn",
+  pagedown = "PgDn",
+  ["return"] = "Enter",
+  enter = "Enter",
+  escape = "Esc",
+  esc = "Esc",
   space = "Space",
+  backspace = "Backspace",
+  delete = "Del",
+  del = "Del",
+  insert = "Ins",
+  ins = "Ins",
+  tab = "Tab",
+  home = "Home",
+  ["end"] = "End",
+  caps_lock = "CapsLock",
+  capslock = "CapsLock",
+  num_lock = "NumLock",
+  numlock = "NumLock",
+  scroll_lock = "ScrollLock",
+  scrolllock = "ScrollLock",
+  up = "↑",
+  down = "↓",
+  left = "←",
+  right = "→",
   btn_left = "Mouse Left",
   btn_right = "Mouse Right",
   btn_middle = "Mouse Middle",
@@ -81,7 +150,12 @@ local KEY_LABELS = {
 }
 
 local function formatKey(key)
-  return KEY_LABELS[key] or key:gsub("^mouse:", "Mouse ")
+  if key == nil or key == "" then return "" end
+  local exact = KEY_LABELS[key]
+  if exact ~= nil then return exact end
+  local lowered = KEY_LABELS[lower(key)]
+  if lowered ~= nil then return lowered end
+  return key:gsub("^mouse:", "Mouse ")
 end
 
 local function niriCategoryFor(action)
@@ -150,6 +224,7 @@ local function loadPreferences()
 end
 
 local function savePreferences()
+  if invalidateBindingCaches ~= nil then invalidateBindingCaches() end
   local path = preferencesPath()
   if path == nil then return end
   local encoded = noctalia.json.encode(preferences, true)
@@ -162,6 +237,7 @@ end
 
 local function applySnapshot(value)
   snapshot = type(value) == "table" and value or nil
+  invalidateBindingCaches()
   if snapshot == nil then
     bindings = {}
     parseWarnings = {}
@@ -273,13 +349,14 @@ end
 local function keyPill(text, bucketId, key)
   return ui.column({
     key = key,
+    minWidth = 20,
     fill = colorValue(bucketId, "background"),
     radius = 4,
     paddingH = 7,
     paddingV = 3,
     align = "center",
   }, {
-    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold", maxLines = 1 }),
+    ui.label({ text = text, color = colorValue(bucketId, "text"), fontSize = 12, fontWeight = "bold" }),
   })
 end
 
@@ -393,17 +470,44 @@ local function effectiveCategory(binding)
   return binding.compositor == "niri" and niriCategoryFor(binding.action) or tr("other")
 end
 
+-- The search haystack and the resolved category are rebuilt for every
+-- binding on every render otherwise; with a full keymap (130+ bindings)
+-- that alone pushes onOpen and each keystroke past the plugin CPU budget,
+-- which leaves the panel half-drawn and its buttons dead. Both are cached
+-- per binding id and dropped whenever the data behind them changes.
+local haystackCache = {}
+local categoryCache = {}
+
+invalidateBindingCaches = function()
+  haystackCache = {}
+  categoryCache = {}
+  if invalidateRowCache ~= nil then invalidateRowCache() end
+end
+
+local function cachedCategory(binding)
+  local cached = categoryCache[binding.id]
+  if cached == nil then
+    cached = effectiveCategory(binding)
+    categoryCache[binding.id] = cached
+  end
+  return cached
+end
+
 local function bindingMatches(binding)
   local needle = lower(trim(query))
   if needle == "" then return true end
-  local haystack = lower(table.concat({
-    table.concat(binding.modifiers, " "),
-    binding.key,
-    formatKey(binding.key),
-    effectiveDescription(binding),
-    binding.action,
-    effectiveCategory(binding),
-  }, " "))
+  local haystack = haystackCache[binding.id]
+  if haystack == nil then
+    haystack = lower(table.concat({
+      table.concat(binding.modifiers, " "),
+      binding.key,
+      formatKey(binding.key),
+      effectiveDescription(binding),
+      binding.action,
+      cachedCategory(binding),
+    }, " "))
+    haystackCache[binding.id] = haystack
+  end
   return haystack:find(needle, 1, true) ~= nil
 end
 
@@ -468,7 +572,7 @@ local function visibleGroups()
     local hidden = preferences.hidden[binding.id] == true
     local undescribed = authoredDescription(binding) == "" and binding.compositor ~= "niri"
     if bindingAvailableInView(hidden, undescribed, managing, showUndescribed) and bindingMatches(binding) then
-      local category = effectiveCategory(binding)
+      local category = cachedCategory(binding)
       local group = byName[category]
       if group == nil then
         group = { name = category, bindings = {}, sourceOrder = #groups + 1, order = 0, weight = 1 }
@@ -534,8 +638,25 @@ local function saveCustomDescription(binding, value)
   render()
 end
 
+-- Built ui nodes are immutable descriptions, so a row that looks the same
+-- can be reused verbatim: rebuilding all 130 rows costs ~22 ms, which is
+-- most of a callback's CPU budget. The key carries everything a row's
+-- appearance depends on, so any change misses the cache naturally.
+local rowCache = {}
+
+invalidateRowCache = function()
+  rowCache = {}
+end
+
 local function bindingRow(binding, occurrence)
   local hidden = preferences.hidden[binding.id] == true
+  local cacheKey = binding.id .. "#" .. occurrence .. "|" .. (hidden and "h" or "-")
+    .. "|" .. view .. "|" .. (editingId == (binding.id .. "#" .. occurrence) and "e" or "-")
+    .. "|" .. (preferences.descriptions[binding.id] or "")
+  local cached = rowCache[cacheKey]
+  if cached ~= nil then
+    return cached
+  end
   local contentOpacity = bindingContentOpacity(hidden)
   local pills = {}
   for index, modifier in ipairs(binding.modifiers) do
@@ -546,7 +667,7 @@ local function bindingRow(binding, occurrence)
   local description = effectiveDescription(binding)
   local identity = binding.id .. "#" .. occurrence
   if view == "edit" and editingId == identity then
-    local visibilityChanged = function()
+    local visibilityChanged = callback("visibility", function()
       if hidden then
         preferences.hidden[binding.id] = nil
       else
@@ -554,15 +675,15 @@ local function bindingRow(binding, occurrence)
       end
       savePreferences()
       render()
-    end
-    local inputChanged = function(value) editDraft = value end
-    local submit = function(value) saveCustomDescription(binding, value) end
-    local save = function() saveCustomDescription(binding, editDraft) end
-    local cancel = function()
+    end)
+    local inputChanged = callback("editChange", function(value) editDraft = value end)
+    local submit = callback("editSubmit", function(value) saveCustomDescription(binding, value) end)
+    local save = callback("editSave", function() saveCustomDescription(binding, editDraft) end)
+    local cancel = callback("editCancel", function()
       editingId = nil
       editDraft = ""
       render()
-    end
+    end)
     return ui.row({ key = "edit-" .. identity, gap = 6, align = "center", paddingV = 0 }, {
       ui.row({ minWidth = 188, gap = 3, align = "center", opacity = contentOpacity }, pills),
       ui.input({ key = "description-" .. identity, value = editDraft, placeholder = tr("edit_description"), focus = true, controlSize = "sm", flexGrow = 1, onChange = inputChanged, onSubmit = submit }),
@@ -589,12 +710,12 @@ local function bindingRow(binding, occurrence)
     ui.column({ flexGrow = 1, gap = 0, opacity = contentOpacity }, labels),
   }
   if view == "edit" then
-    local edit = function()
+    local edit = callback("edit", function()
       editingId = identity
       editDraft = description
       render()
-    end
-    local visibilityChanged = function()
+    end)
+    local visibilityChanged = callback("visibility", function()
       if hidden then
         preferences.hidden[binding.id] = nil
       else
@@ -602,11 +723,13 @@ local function bindingRow(binding, occurrence)
       end
       savePreferences()
       render()
-    end
+    end)
     table.insert(row, ui.button({ glyph = "pencil", width = 22, height = 22, glyphSize = 12, variant = "ghost", controlSize = "sm", tooltip = tr("edit_description"), onClick = edit }))
     table.insert(row, ui.button({ glyph = hidden and "eye-off" or "eye", width = 22, height = 22, glyphSize = 13, variant = "ghost", controlSize = "sm", selected = hidden, tooltip = hidden and tr("show_binding") or tr("hide_binding"), onClick = visibilityChanged }))
   end
-  return ui.row({ key = identity, gap = 6, align = "center", paddingV = 0 }, row)
+  local node = ui.row({ key = identity, gap = 6, align = "center", paddingV = 0 }, row)
+  rowCache[cacheKey] = node
+  return node
 end
 
 local function categoryNode(group)
@@ -616,6 +739,11 @@ local function categoryNode(group)
   }
   local occurrences = {}
   for _, binding in ipairs(group.bindings) do
+    if renderedRows >= renderLimit then
+      renderTruncated = true
+      break
+    end
+    renderedRows += 1
     occurrences[binding.id] = (occurrences[binding.id] or 0) + 1
     table.insert(children, bindingRow(binding, occurrences[binding.id]))
   end
@@ -623,6 +751,8 @@ local function categoryNode(group)
 end
 
 local function bindingsBody()
+  renderedRows = 0
+  renderTruncated = false
   local groups = visibleGroups()
   if #groups == 0 then
     return ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
@@ -647,16 +777,16 @@ local function hiddenCount()
 end
 
 local function colorControl(bucket, property)
-  local choose = function() chooseColor(bucket.id, property) end
-  local paste = function() pasteColor(bucket.id, property) end
-  local reset = function()
+  local choose = callback("chooseColor", function() chooseColor(bucket.id, property) end)
+  local paste = callback("pasteColor", function() pasteColor(bucket.id, property) end)
+  local reset = callback("resetColor", function()
     if preferences.colors[bucket.id] ~= nil then
       preferences.colors[bucket.id][property] = nil
       if next(preferences.colors[bucket.id]) == nil then preferences.colors[bucket.id] = nil end
       savePreferences()
       render()
     end
-  end
+  end)
   return ui.row({ gap = 5, align = "center", flexGrow = 1 }, {
     ui.box({ width = 24, height = 24, radius = 5, fill = colorValue(bucket.id, property), border = "outline", borderWidth = 1 }),
     ui.button({ text = property == "background" and tr("background") or tr("text"), variant = "ghost", controlSize = "sm", flexGrow = 1, onClick = choose }),
@@ -678,11 +808,11 @@ local function appearanceBody()
       }),
     }))
   end
-  local resetAll = function()
+  local resetAll = callback("resetAllColors", function()
     preferences.colors = {}
     savePreferences()
     render()
-  end
+  end)
   table.insert(rows, ui.separator({ spacing = 6 }))
   table.insert(rows, ui.row({ gap = 8, align = "center" }, {
     ui.button({ glyph = "restore", text = tr("reset_colors"), onClick = resetAll }),
@@ -691,19 +821,19 @@ local function appearanceBody()
 end
 
 local function renderHeader()
-  local refreshClick = function() refresh() end
-  local editMode = function()
+  local refreshClick = callback("refresh", function() refresh() end)
+  local editMode = callback("editMode", function()
     view = view == "edit" and "bindings" or "edit"
     editingId = nil
     editDraft = ""
     render()
-  end
-  local appearance = function()
+  end)
+  local appearance = callback("appearance", function()
     view = view == "appearance" and "bindings" or "appearance"
     editingId = nil
     editDraft = ""
     render()
-  end
+  end)
   local title = tr("title")
   if currentCompositor ~= "" then
     title = (currentCompositor == "mango" and "Mango" or (currentCompositor == "niri" and "Niri" or "Hyprland")) .. " Keymap"
@@ -715,17 +845,20 @@ local function renderHeader()
     }),
   }
   if (view == "bindings" or view == "edit") and not loading and panelError == nil then
-    local searchChanged = function(value)
+    local searchChanged = callback("search", function(value)
       query = value
       editingId = nil
       render()
-    end
-    local clearSearch = function()
+    end)
+    local clearSearch = callback("clearSearch", function()
       query = ""
       searchRevision += 1
       render()
-    end
-    table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged }))
+    end)
+    -- The panel is opened to look something up, so typing goes straight to the
+    -- search box without clicking it first. Dropped while a description is
+    -- being edited, so that row's own input keeps the caret.
+    table.insert(children, ui.input({ key = "search-" .. searchRevision, value = query, placeholder = tr("search_placeholder"), controlSize = "sm", width = 300, onChange = searchChanged, focus = editingId == nil }))
     table.insert(children, ui.button({ glyph = "x", width = 26, variant = "ghost", controlSize = "sm", enabled = query ~= "", tooltip = tr("clear"), onClick = clearSearch }))
   end
   if not loading or #bindings > 0 then
@@ -733,11 +866,11 @@ local function renderHeader()
   end
   if view == "edit" then
     local count = hiddenCount()
-    local restoreHidden = function()
+    local restoreHidden = callback("restoreHidden", function()
       restoreHiddenBindings(bindings, preferences.hidden)
       savePreferences()
       render()
-    end
+    end)
     table.insert(children, ui.label({ text = tr("hidden_count", { count = count }), color = "on_surface_variant", fontSize = 12 }))
     table.insert(children, ui.button({ glyph = "eye", variant = "ghost", controlSize = "sm", enabled = count > 0, tooltip = tr("restore_hidden"), onClick = restoreHidden }))
   end
@@ -747,8 +880,12 @@ local function renderHeader()
   return ui.row({ align = "center", justify = "space_between", gap = 7 }, children)
 end
 
-render = function()
+render = function(keepLimit)
+  if not keepLimit then
+    renderLimit = RENDER_FIRST
+  end
   if not panelOpen then return end
+  resetCallbacks()
   local contentState = "bindings"
   if view == "appearance" then
     contentState = "appearance"
@@ -782,6 +919,9 @@ render = function()
     table.insert(children, bindingsBody())
   end
   panel.render(ui.column({ key = "keybind-cheatsheet-" .. contentState, flexGrow = 1, gap = 8, align = "stretch" }, children))
+  if renderTruncated and scheduleFill ~= nil then
+    scheduleFill()
+  end
 end
 
 noctalia.state.watch(SNAPSHOT_KEY, function(value)
@@ -795,6 +935,9 @@ local function releasePanelState(clearModel)
   query = ""
   editingId = nil
   editDraft = ""
+  panelSteps = {}
+  fillQueued = false
+  resetCallbacks()
   if clearModel then
     bindings = {}
     parseWarnings = {}
@@ -807,16 +950,57 @@ local function releasePanelState(clearModel)
   end
 end
 
+-- Work that does not fit the current callback's CPU budget is queued as a
+-- panel step: the panel pings itself through the shared state, and the watch
+-- callback fires as its own event with its own budget and runs one queued
+-- step. Panels get no update() tick, and a timer or a helper process would
+-- keep running while idle; this chain only exists while steps are queued.
+local panelStepCounter = 0
+
+local function schedulePanelStep(fn)
+  table.insert(panelSteps, fn)
+  panelStepCounter += 1
+  noctalia.state.set(PANEL_STEP_KEY, panelStepCounter)
+end
+
+noctalia.state.watch(PANEL_STEP_KEY, function(_value)
+  local fn = table.remove(panelSteps, 1)
+  if fn ~= nil then fn() end
+end)
+
+-- The fill flag is cleared before the render, not after: a callback killed
+-- by the CPU budget would otherwise leave it stuck and the fill chain dead.
+scheduleFill = function()
+  if fillQueued then return end
+  fillQueued = true
+  schedulePanelStep(function()
+    fillQueued = false
+    if not panelOpen or not renderTruncated then return end
+    renderLimit += RENDER_STEP
+    render(true)
+  end)
+end
+
 function onOpen(_context)
+  renderLimit = RENDER_FIRST
   panelOpen = true
   view = "bindings"
   query = ""
   searchRevision += 1
   editingId = nil
   editDraft = ""
-  loadPreferences()
-  applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
+  -- Reading the preferences JSON and re-applying the snapshot are each
+  -- expensive enough that doing both plus a render inside onOpen exceeds
+  -- the CPU budget; they run as their own steps, and the panel draws
+  -- immediately from whatever state it already has.
   render()
+  schedulePanelStep(function()
+    loadPreferences()
+    schedulePanelStep(function()
+      applySnapshot(noctalia.state.get(SNAPSHOT_KEY))
+      render()
+    end)
+  end)
 end
 
 function onClose()
@@ -849,17 +1033,20 @@ local function lifecycleState()
     refreshing = refreshing,
     bindingCount = #bindings,
     snapshotLoaded = snapshot ~= nil,
+    callbackCount = #dynamicCallbacks,
     editDraft = editDraft,
   }
 end
 
 return {
+  formatKey = formatKey,
   bindingAvailableInView = bindingAvailableInView,
   bindingContentOpacity = bindingContentOpacity,
   hiddenBindingCount = hiddenBindingCount,
   restoreHiddenBindings = restoreHiddenBindings,
   categoryPriority = categoryPriority,
   friendlyAction = friendlyAction,
+  keyPill = keyPill,
   applySnapshot = applySnapshot,
   onOpen = onOpen,
   onClose = onClose,

@@ -1,0 +1,44 @@
+id = "aabidk20/yt-music"
+name = "YouTube Music"
+version = "0.2.4"
+plugin_api = 23
+icon = "brand-youtube-filled"
+author = "Aabid"
+license = "MIT"
+description = "YouTube Music client for Noctalia v5 - miniplayer & full view"
+tags = ["music", "media"]
+dependencies = ["yt-dlp", "mpv", "mpv-mpris", "jq", "curl", "nc"]
+
+[[setting]]
+key = "debug_logging"
+type = "bool"
+label_key = "settings.debug_logging.label"
+description_key = "settings.debug_logging.description"
+default = false
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[widget.actions]
+left = "panel-toggle aabidk20/yt-music:mini"
+right = "panel-toggle aabidk20/yt-music:panel"
+middle = "settings-open-plugin aabidk20/yt-music"
+
+[[panel]]
+id = "mini"
+entry = "mini.luau"
+placement = "floating"
+width = 380
+height = 460
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+placement = "floating"
+width = "fill"
+height = "fill"
+
+[[service]]
+id = "service"
+entry = "service.luau"

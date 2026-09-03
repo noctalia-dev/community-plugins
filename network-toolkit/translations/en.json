@@ -1,0 +1,138 @@
+{
+  "title": "Network Toolkit",
+  "status": {
+    "disconnected": "Disconnected",
+    "ethernet": "Ethernet",
+    "wifi": "Wi-Fi",
+    "hotspot_active": "Hotspot Active"
+  },
+  "tooltip": {
+    "network": "Network",
+    "band": "Band",
+    "speed": "Speed",
+    "dns": "DNS",
+    "bluetooth": "Bluetooth",
+    "left_click": "Left-click",
+    "right_click": "Right-click",
+    "action_switch": "Switch view / Toggle",
+    "action_toggle": "Quick toggle"
+  },
+  "panel": {
+    "current_connection": "Current Connection",
+    "dns_service": "DNS Server",
+    "hotspot": "Hotspot",
+    "connected_devices_ratio": "CONNECTED DEVICES ({count}/{max})",
+    "no_devices": "No devices connected",
+    "hotspot_inactive_tip": "Hotspot is inactive.",
+    "system_default": "Default (ISP)",
+    "dns_prefix": "DNS:",
+    "bt_prefix": "BT:",
+    "wifi": "Wi-Fi",
+    "saved_networks": "SAVED",
+    "available_networks": "AVAILABLE",
+    "wifi_off": "Wi-Fi is turned off",
+    "scanning": "Scanning available networks...",
+    "no_networks": "No networks found",
+    "password_for": "Password for",
+    "password_placeholder": "Enter Wi-Fi Password...",
+    "custom_dns_placeholder": "Custom DNS (e.g. 1.1.1.1 8.8.8.8)",
+    "connect": "Connect",
+    "apply": "Apply",
+    "on": "ON",
+    "off": "OFF",
+    "scan_to_connect": "Scan to connect to Wi-Fi",
+    "generating_qr": "Generating QR code...",
+    "bluetooth": "Bluetooth",
+    "connected_devices": "CONNECTED DEVICES",
+    "paired_devices": "PAIRED DEVICES",
+    "available_devices": "AVAILABLE DEVICES",
+    "connecting": "Connecting...",
+    "discoverable": "Discoverable",
+    "no_bt_devices": "No Bluetooth devices found",
+    "bt_off": "Bluetooth is turned off",
+    "bt_scanning": "Scanning for devices...",
+    "pair": "Pair",
+    "accept": "Accept",
+    "reject": "Reject",
+    "pairing_request_msg": "{name} requested to pair",
+    "pairing_passkey": "Passkey: {key}"
+  },
+  "notifications": {
+    "dns_switched": "DNS switched to {provider}",
+    "dns_switch_failed": "Failed to switch DNS",
+    "connected_to": "Connected to {ssid}",
+    "connect_failed": "Failed to connect to {ssid}",
+    "incorrect_password": "Failed to connect to {ssid}: Incorrect password"
+  },
+  "errors": {
+    "missing_command": "Missing required command dependencies (nmcli/ip)",
+    "nmcli_not_found": "NetworkManager (nmcli) is not installed",
+    "bluetoothctl_not_found": "bluetoothctl is not installed"
+  },
+  "settings": {
+    "refreshinterval": {
+      "label": "Refresh Interval (Seconds)",
+      "description": "How often the background service updates network state."
+    },
+    "color": {
+      "label": "Widget Icon Color",
+      "description": "Custom color token or hex for the status bar widget icon."
+    },
+    "text_color": {
+      "label": "Widget Text Color",
+      "description": "Custom color token (e.g. primary, on_surface) or hex for the widget text."
+    },
+    "hotspot_ssid": {
+      "label": "Hotspot Name / SSID",
+      "description": "Network name broadcasted by your Wi-Fi hotspot."
+    },
+    "hotspot_password": {
+      "label": "Hotspot Password",
+      "description": "Password required for devices to connect (minimum 8 characters)."
+    },
+    "hotspot_max_connections": {
+      "label": "Max Hotspot Connections",
+      "description": "Maximum number of simultaneously connected devices."
+    },
+    "custom_dns_1": {
+      "label": "Custom DNS Slot 1",
+      "description": "Format: Name = IP1 IP2 (e.g. NextDNS = 45.90.28.0 45.90.30.0). Only appears in DNS menu when filled."
+    },
+    "custom_dns_2": {
+      "label": "Custom DNS Slot 2",
+      "description": "Format: Name = IP1 IP2 (e.g. Mullvad = 194.242.2.4). Only appears in DNS menu when filled."
+    },
+    "custom_dns_3": {
+      "label": "Custom DNS Slot 3",
+      "description": "Format: Name = IP1 IP2 (e.g. ControlD = 76.76.2.0). Only appears in DNS menu when filled."
+    },
+    "widget_display_mode": {
+      "label": "Widget Display Mode",
+      "description": "Choose what information is displayed on the status bar widget.",
+      "network": "Network (Default)",
+      "bluetooth": "Bluetooth",
+      "dns": "DNS",
+      "network_hotspot": "Network + Hotspot",
+      "network_bluetooth": "Network + Bluetooth",
+      "network_dns": "Network + DNS",
+      "bluetooth_dns": "Bluetooth + DNS",
+      "network_bluetooth_dns": "Network + Bluetooth + DNS",
+      "network_hotspot_bluetooth_dns": "Network + Hotspot + Bluetooth + DNS"
+    },
+    "widget_indicator_dots": {
+      "label": "Widget Status Dots",
+      "description": "Choose which status indicator dots appear on the bar widget.",
+      "hotspot_dns": "Hotspot + DNS",
+      "hotspot": "Hotspot Only",
+      "dns": "DNS Only",
+      "none": "Disabled"
+    },
+    "widget_right_click": {
+      "label": "Widget Right-Click Action",
+      "description": "Action performed when right-clicking the bar widget.",
+      "toggle_wifi": "Toggle Wi-Fi",
+      "toggle_hs": "Toggle Hotspot",
+      "toggle_bt": "Toggle Bluetooth"
+    }
+  }
+}

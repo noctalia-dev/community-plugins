@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+      - name: Install workflow test dependencies
+        run: python3 -m pip install -r .github/workflows/scripts/PyGithub-requirement.txt
 
       - name: Validate plugin manifests
         run: python3 .github/workflows/scripts/validate-plugins.py

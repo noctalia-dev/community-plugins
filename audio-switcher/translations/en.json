@@ -23,7 +23,9 @@
     "bluetooth_connected": "Bluetooth connected",
     "bluetooth_disconnected": "Bluetooth disconnected",
     "current": "Current",
-    "output_group": "Output group"
+    "output_group": "Output group",
+    "port": "Port",
+    "unavailable_port": "{port} (unavailable)"
   },
   "editor": {
     "alias": "Display name",
@@ -54,6 +56,9 @@
     "group_remove_failed": "Could not disband the output group.",
     "group_requires_two": "Select at least two available outputs.",
     "group_switch_failed": "The output group was created, but could not be selected.",
+    "input_port_not_found": "The selected input port no longer exists.",
+    "input_port_switch_failed": "Could not switch the input port.",
+    "input_port_unavailable": "The selected input port is not currently available.",
     "invalid_audio_data": "The audio service returned invalid data.",
     "invalid_slot": "The keybind number must be a whole number from 1 to 99.",
     "invalid_volume": "The requested volume is invalid.",
@@ -68,11 +73,16 @@
     "bluetooth_disconnected": "Bluetooth device disconnected.",
     "group_created": "Output group created and selected.",
     "group_removed": "Output group disbanded.",
+    "input_port_selected": "Input port switched to {port}.",
     "input_selected": "Input switched to {device}.",
     "output_selected": "Output switched to {device}.",
     "preferences_saved": "Device preferences saved.",
     "scan_complete": "Bluetooth scan complete.",
     "slot_saved": "Keybind number {slot} saved."
+  },
+  "launcher": {
+    "description": "Switch the default audio input (microphone) or output.",
+    "open": "Open Audio Switcher"
   },
   "panel": {
     "group_hint": "{count} selected. Choose at least two available outputs.",

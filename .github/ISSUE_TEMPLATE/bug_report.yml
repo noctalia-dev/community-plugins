@@ -2,6 +2,7 @@ name: Bug Report
 description: Report a bug in a community plugin
 title: "[BUG] "
 labels: ["bug"]
+type: "Bug"
 
 body:
   - type: checkboxes
@@ -25,17 +26,39 @@ body:
       default: 0
       options:
         - --- SELECT ---
+        - 9router-control
+        - ai-usagebar
+        - airpods
         - anilist
         - arch-updater
+        - asus-fan
+        - asus-fans-controller-ec
         - audio-switcher
+        - awwwall
         - battery-graph
+        - battery-power-management
         - battery-threshold
+        - battery-widget
+        - bazaarsearch
+        - better-clock
+        - bitdjinn
         - bookmarks
         - calculator
+        - case-convert
         - cat
+        - cider
         - claude-companion
+        - cmd-runner
+        - codexbar-meter
         - color_picker
+        - config-swap
+        - crashes
+        - custom-shortcut
         - daily-wallpaper
+        - deepseek_usage
+        - desktop-launcher
+        - discord-voice
+        - dns-switcher
         - drive-health
         - dropwall
         - ds4-color
@@ -43,44 +66,110 @@ body:
         - file-search
         - game-launcher
         - gamer-mode
+        - git_companion
+        - github-activity
+        - github-prs
+        - gocryptfs
         - godot-provider
         - gslapper
         - hassio
         - hotspot
+        - hypr-layout-switcher
         - hypr-screen-mirror
         - hypr-submap
+        - hyprland-visual-editor
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
+        - ip-monitor
+        - jetbrains-provider
+        - k8s-status
         - keybind-cheatsheet
         - keymap
+        - keyviz
+        - kineticwe-layouts
+        - launcher-pass
+        - layout-fix
+        - librelinkup
         - lid-guard
+        - link-ip-monitor
+        - llamanager
         - lrc
         - lyrics
+        - mango_layouts
         - mangowm-keymode
         - mawaqit
+        - media-lyrics
+        - mihomo-control
+        - mimir
         - mini-docker
+        - network-toolkit
         - nextboot-selector
+        - niri-active-workspace
+        - niri-animations
+        - niri-displays
         - nix-monitor
         - noctwhspr
+        - nvtop
+        - obs-integration
+        - obsidian
+        - ocr
+        - omniroute-quota
+        - omp-launcher
+        - opencode-companion
+        - opencodex-bar
+        - opnsense
+        - palette-creator
         - pass
+        - phone-connect
+        - phone-operate
         - pomodoro
         - portctl
         - prismlauncher-instances
+        - procmon
         - proton-pass
+        - pulsar-mouse
+        - qrcode
+        - remmina
         - rss-notifier
+        - ruh-vpn
+        - screen-toolkit
         - sharednd
+        - shell-command
         - shelly
         - special-workspaces
+        - spotify
+        - spotify-lyrics
+        - spotify-media
         - ssh-launcher
+        - super-productivity
+        - syncthing
+        - system-monitor
+        - system-updater
+        - systempulse
+        - tailnet
+        - tailscale
+        - thinkpad-fan
+        - thinkpad-led
+        - thunderbird-companion
         - tmux-provider
         - todo
         - topgrade-wrapper
+        - udiskie
         - um5606_fan_state
         - upbeat
+        - vidi
+        - voxtype
         - w-engine
+        - wallpaper-switcher
+        - warp
         - web-launcher
+        - web-search
+        - webapp-maker
+        - wireview-pro-ii
         - wl-screen-mirror
+        - youtube-search
+        - yt-music
         - zed-provider
 
     validations:

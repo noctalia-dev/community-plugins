@@ -16,6 +16,8 @@ local refreshing = false
 local refreshQueued = false
 local refreshGeneration = 0
 local snapshotCompositor = "Hyprland"
+local lastRefreshRequest = nil
+local pendingRefresh = false
 
 local function config(key, fallback)
 	local value = noctalia.getConfig(key)
@@ -640,6 +642,9 @@ local function decodeModifiers(value)
 	return modifiers
 end
 
+-- Display names shared with the Niri and MangoWC services. Keep the three
+-- tables identical so a key reads the same no matter which compositor reports
+-- it.
 local KEY_NAMES = {
 	RETURN = "Enter",
 	SPACE = "Space",
@@ -653,6 +658,29 @@ local KEY_NAMES = {
 	RIGHT = "Right",
 	UP = "Up",
 	DOWN = "Down",
+	EQUAL = "=",
+	MINUS = "-",
+	PLUS = "+",
+	COMMA = ",",
+	PERIOD = ".",
+	SEMICOLON = ";",
+	APOSTROPHE = "'",
+	GRAVE = "`",
+	SLASH = "/",
+	BACKSLASH = "\\",
+	WHEELSCROLLUP = "Scroll Up",
+	WHEELSCROLLDOWN = "Scroll Down",
+	WHEELSCROLLLEFT = "Scroll Left",
+	WHEELSCROLLRIGHT = "Scroll Right",
+	TOUCHPADSCROLLUP = "Touchpad Up",
+	TOUCHPADSCROLLDOWN = "Touchpad Down",
+	TOUCHPADSCROLLLEFT = "Touchpad Left",
+	TOUCHPADSCROLLRIGHT = "Touchpad Right",
+	MOUSELEFT = "Left Click",
+	MOUSERIGHT = "Right Click",
+	MOUSEMIDDLE = "Middle Click",
+	MOUSEFORWARD = "Mouse Forward",
+	MOUSEBACK = "Mouse Back",
 	MOUSE_DOWN = "Scroll Down",
 	MOUSE_UP = "Scroll Up",
 	["MOUSE:272"] = "Left Click",
@@ -885,9 +913,76 @@ local function mergeSequential(binds)
 	return output
 end
 
+-- Collapse binds that trigger the same action into one row carrying every
+-- key combination (for example "Close window" on Super+W and Alt+F4).
+-- Grouped rows lose edit provenance on purpose: one row cannot be rewritten
+-- to a single source location.
+local function mergeSimilar(binds)
+	local grouped = {}
+	local order = {}
+	for index, bind in ipairs(binds) do
+		local identifiable = tostring(bind.command or "") ~= "" or tostring(bind.action or "") ~= ""
+		if identifiable then
+		local signature = "action:"
+			.. tostring(bind.activation) .. "\0"
+			.. tostring(bind.description) .. "\0"
+			.. tostring(bind.dispatcher) .. "\0" .. tostring(bind.command) .. "\0" .. tostring(bind.action)
+		local group = grouped[signature]
+		if group == nil then
+			group = { first = index, parts = {} }
+			grouped[signature] = group
+			order[#order + 1] = signature
+		end
+		group.parts[#group.parts + 1] = bind
+		end
+	end
+	local mergedAt = {}
+	local swallowed = {}
+	for _, signature in ipairs(order) do
+		local group = grouped[signature]
+		if #group.parts > 1 then
+			local first = group.parts[1]
+			local combos = {}
+			local ids = {}
+			for _, part in ipairs(group.parts) do
+				combos[#combos + 1] = { modifiers = part.modifiers, key = part.key }
+				ids[#ids + 1] = part.id
+			end
+			mergedAt[group.first] = {
+				id = "similar:" .. table.concat(ids, "|"),
+				modifiers = {},
+				key = combos[1].key,
+				combos = combos,
+				description = first.description,
+				dispatcher = first.dispatcher,
+				activation = first.activation == "release" and "release" or "press",
+				command = first.command,
+				action = first.action,
+				capabilities = {
+					combo = false, category = false, description = false,
+					command = false, activation = false,
+				},
+			}
+			for partIndex = 2, #group.parts do
+				swallowed[group.parts[partIndex]] = true
+			end
+		end
+	end
+	local output = {}
+	for index, bind in ipairs(binds) do
+		if mergedAt[index] ~= nil then
+			output[#output + 1] = mergedAt[index]
+		elseif not swallowed[bind] then
+			output[#output + 1] = bind
+		end
+	end
+	return output
+end
+
 local function buildCategories(liveBinds, metadata)
 	local showUndescribed = config("show_undescribed", true) == true
 	local shouldMerge = config("merge_sequential", true) == true
+	local shouldMergeSimilar = config("merge_similar", false) == true
 	local otherName = noctalia.tr("category.other")
 	local undescribedName = noctalia.tr("category.undescribed")
 	local byName = {}
@@ -971,12 +1066,17 @@ local function buildCategories(liveBinds, metadata)
 		categories[#categories + 1] = {
 			id = id,
 			name = name,
-			binds = shouldMerge and mergeSequential(binds) or (function()
-				local output = {}
-				for _, bind in ipairs(binds) do
-					output[#output + 1] = cleanBind(bind)
+			binds = (function()
+				local cleaned
+				if shouldMerge then
+					cleaned = mergeSequential(binds)
+				else
+					cleaned = {}
+					for _, bind in ipairs(binds) do
+						cleaned[#cleaned + 1] = cleanBind(bind)
+					end
 				end
-				return output
+				return shouldMergeSimilar and mergeSimilar(cleaned) or cleaned
 			end)(),
 		}
 	end
@@ -1006,6 +1106,7 @@ local function snapshot(status, source, errorCode, categories, total, warnings, 
 	return {
 		status = status,
 		error = errorCode or "",
+		error_detail = "",
 		compositor = snapshotCompositor,
 		source = source,
 		updated_at = updatedAt or "",
@@ -1144,11 +1245,37 @@ function onIpc(event, _payload)
 end
 
 function onConfigChanged()
-	refresh()
+	pendingRefresh = true
 end
 
-noctalia.state.watch(REFRESH_REQUEST_KEY, function(_request)
-	refresh()
+-- The watch callback only records intent and acknowledges the request with a
+-- cheap loading marker: starting hyprctl and scanning Lua sources inside the
+-- 25ms callback slot risks exhausting the budget when other work shares it,
+-- and a budget abort there would leave the snapshot stuck at "loading". The
+-- periodic update tick performs the actual refresh in its own budget slot.
+function update()
+	if pendingRefresh then
+		pendingRefresh = false
+		refresh()
+	end
+end
+
+-- Refresh requests issued before this service loaded are covered by the boot
+-- refresh below; the watcher only reacts to genuinely new counter values,
+-- ignoring host echoes of a value this service already handled.
+lastRefreshRequest = noctalia.state.get(REFRESH_REQUEST_KEY)
+noctalia.state.watch(REFRESH_REQUEST_KEY, function(request)
+	if request ~= lastRefreshRequest then
+		lastRefreshRequest = request
+		pendingRefresh = true
+		-- Acknowledge immediately so the panel leaves its ready state even
+		-- though the refresh itself waits for the update tick.
+		if configuredCompositor() == "hyprland" then
+			local current = noctalia.state.get(SNAPSHOT_KEY)
+			local source = type(current) == "table" and current.source or nil
+			noctalia.state.set(SNAPSHOT_KEY, snapshot("loading", source, "", {}, 0, {}, "", {}))
+		end
+	end
 end)
 
 refresh()

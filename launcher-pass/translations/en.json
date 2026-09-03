@@ -1,0 +1,123 @@
+{
+  "action": {
+    "autotype": "Autotype login",
+    "autotype-desc": "Type username, password, and OTP in sequence",
+    "copy-field": "Copy {key}",
+    "copy-otp": "Copy OTP",
+    "copy-password": "Copy Password",
+    "copy-password-desc": "Copy password to clipboard",
+    "copy-username": "Copy Username",
+    "create": "Create entry",
+    "create-cancel": "Cancel",
+    "create-cancel-desc": "Go back without creating",
+    "create-confirm": "Create entry now",
+    "create-error": "Could not check whether the path is free",
+    "create-exists": "That path already has an entry — cannot create it",
+    "create-hint": "Type a name for the new entry",
+    "edit": "Edit",
+    "edit-desc": "Open pass edit in a terminal",
+    "generate": "Generate",
+    "generate-cancel": "Cancel",
+    "generate-cancel-desc": "Keep the current password",
+    "generate-confirm": "Regenerate now",
+    "generate-confirm-desc": "Replaces the current password. This cannot be undone.",
+    "generate-desc": "Regenerate the password with pass generate",
+    "new": "New entry",
+    "new-desc": "Create a new password entry here",
+    "otp-desc": "Copy/type current OTP code",
+    "type-field": "Type {key}",
+    "type-otp": "Type OTP",
+    "type-password": "Type Password",
+    "type-password-desc": "Type password using wtype",
+    "type-username": "Type Username"
+  },
+  "command": {
+    "description": "Search gnu pass password entries"
+  },
+  "detail": {
+    "decrypting": "Decrypting password entry...",
+    "error": "Failed to decrypt entry"
+  },
+  "notification": {
+    "copied": "Copied to clipboard",
+    "copy-failed": "Copy failed",
+    "create-exists": "An entry with that name already exists",
+    "create-failed": "Could not create entry",
+    "created": "Password entry created",
+    "edit-failed": "Edit failed",
+    "generate-failed": "Password regeneration failed",
+    "generated": "Password regenerated",
+    "no-current-entry": "Open a password entry first",
+    "quick-action-failed": "Quick action failed",
+    "quick-action-unknown": "Unknown quick action",
+    "type-failed": "Type failed"
+  },
+  "result": {
+    "folder": "Folder",
+    "go-back": "Go back",
+    "loading": "Loading password entries...",
+    "password": "Password"
+  },
+  "settings": {
+    "autotype-enabled": {
+      "desc": "Show an Autotype row in an entry's detail view that types the username, a separator key, the password, then the OTP when the entry has one. Needs wtype",
+      "label": "Autotype login row"
+    },
+    "autotype-separator": {
+      "desc": "Key that moves from the username field to the password field during autotype",
+      "label": "Autotype field separator",
+      "options": {
+        "enter": "Enter",
+        "tab": "Tab"
+      }
+    },
+    "autotype-submit": {
+      "desc": "Press Enter after the last autotyped value (after the OTP when present, otherwise after the password). Turn off to stop before submitting",
+      "label": "Autotype presses Enter to submit"
+    },
+    "clip-timeout": {
+      "desc": "Seconds before the clipboard is cleared (blank = use PASSWORD_STORE_CLIP_TIME)",
+      "label": "Clipboard timeout"
+    },
+    "detail-action-grouping": {
+      "desc": "Interleave each value's Copy and Type rows, or list all Copy rows then all Type rows",
+      "label": "Detail view action grouping",
+      "options": {
+        "grouped": "Grouped by action",
+        "interleaved": "Interleaved"
+      }
+    },
+    "detail-action-order": {
+      "desc": "Which row comes first for each value in an entry's detail view",
+      "label": "Detail view action order",
+      "options": {
+        "copy": "Copy first",
+        "type": "Type first"
+      }
+    },
+    "editor-command": {
+      "desc": "Editor for the Edit action, exported as EDITOR to pass edit (e.g. nvim, code --wait). Blank leaves EDITOR unset so pass uses its own default",
+      "label": "Editor command"
+    },
+    "pinentry-grace-ms": {
+      "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 50). Lower values let pinentry grab focus sooner but can flicker the launcher; higher values (~200-300) are steadier but may let pinentry spawn before the timeout and miss focus depending on your window manager",
+      "label": "Pinentry grace period"
+    },
+    "store-path": {
+      "desc": "Custom path to the password store (default: ~/.password-store)",
+      "label": "Password store path"
+    },
+    "terminal-command": {
+      "desc": "Terminal used to run pass edit, with its exec flag (e.g. foot -e, kitty -e, gnome-terminal --). Blank = auto-detect from $TERMINAL or a common terminal on PATH",
+      "label": "Terminal command"
+    },
+    "type-delay": {
+      "desc": "Delay in milliseconds before typing starts (default: 500)",
+      "label": "Type delay"
+    },
+    "wtype-delay": {
+      "desc": "Delay between keystrokes in milliseconds for wtype (default: 12)",
+      "label": "wtype keystroke delay"
+    }
+  }
+}

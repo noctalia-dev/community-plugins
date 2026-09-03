@@ -17,7 +17,8 @@ through visible inputs. Scrolling over it changes the output volume.
 | Field | Value |
 | --- | --- |
 | ID | `blackbartblues/audio-switcher` |
-| Entries | Widget: `widget`; panel: `audio-switcher`; service: `service` |
+| Entries | Widget: `widget`; panel: `audio-switcher`; launcher provider: `launcher`; service: `service` |
+| Launcher Prefix | `/audio` |
 
 ## Requirements
 
@@ -35,10 +36,19 @@ Open the panel from a configured bar widget or run:
 noctalia msg panel-toggle blackbartblues/audio-switcher:audio-switcher
 ```
 
+You can also open Noctalia's launcher and search globally for **Audio Switcher**,
+or type `/audio`, then activate **Open Audio Switcher**. This provides full
+keyboard access to the panel without placing the plugin widget on a bar.
+
 The top sliders control the default output and input volume. Select **Outputs**
 or **Inputs**, then choose **Use**. For a disconnected Bluetooth output the same
 button connects it, waits for its PipeWire endpoint, makes it the default, and
 moves current playback streams to it.
+
+When an input exposes multiple hardware ports, such as an internal microphone
+and a headset microphone, the active port name is shown in the panel and
+widget. Use the port selector below the input to switch it; **Cycle** also
+includes every currently available port.
 
 Use the pencil button to set a local display name, choose the device icon, and
 change a Bluetooth keybind number. The number is assigned automatically after a
@@ -60,7 +70,6 @@ Use the settings button in the panel header to open Noctalia's plugin settings.
 | Plugin | `show_percentage` | `bool` | `true` | Show the output volume beside the bar icon; disable it for an icon-only widget. |
 | Plugin | `show_notification_on_switch` | `bool` | `true` | Show a notification when switching device. |
 | Plugin | `show_actions_in_tooltip` | `bool` | `true` | Show actions in tooltip. |
-| Plugin | `scroll_step` | `int` | `5` | Volume points changed by each wheel step over the bar widget (1–25). |
 
 ## IPC and keybinds
 

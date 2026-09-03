@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.4.4
+# Noctalia Lyrics 1.5.0
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -62,7 +62,7 @@ noctalia msg config-reload
 Run validation after every change:
 
 ```sh
-python3 .github/workflows/validate-plugins.py
+python3 .github/workflows/scripts/validate-plugins.py
 noctalia plugins lint lyrics
 sh lyrics/scripts/setup-deps.sh --check
 cd lyrics
@@ -132,14 +132,23 @@ request directory before writing any credential-bearing file.
 
 The plugin settings control source selection and fallback order, translation
 language, lyric timing offset in milliseconds, MPRIS polling interval in
-milliseconds, double-line translation and romanization, karaoke highlighting,
-marquee behavior, transitions, fonts, spacing, and side padding.
+milliseconds, player filters, and source credentials.
 
 Per-widget settings control the fallback glyph, artist visibility, paused-state
-visibility, album-cover shape and size, and primary, inactive, and secondary
-lyric colors. Credential and source-specific fields are shown only when their
-matching source is selected; source order, credentials, polling, marquee
-metrics, player filters, and fine layout controls are under Advanced settings.
+visibility, visibility when no lyrics are available, album-cover shape and size,
+primary, inactive, and secondary lyric colors, display mode, lyric layers,
+karaoke behavior, scrolling, fixed lyric width, transitions, typography, spacing,
+padding, cue text, and text alignment. Credential and source-specific fields are
+shown only when their matching source is selected; source order, credentials,
+polling, marquee metrics, player filters, and fine layout controls are under
+Advanced settings.
+
+### 1.5 configuration change
+
+Display settings are now stored per lyrics widget. After upgrading from 1.4,
+open each lyrics widget's settings and reapply its preferred display, animation,
+scrolling, typography, and layout options. Source, player, timing, and credential
+settings remain plugin-wide.
 
 ## Feature test checklist
 
@@ -169,13 +178,15 @@ polling, marquee metrics, player filters, and fine padding.
 9. Karaoke: toggle `karaoke_enabled`; line transitions must continue when off.
 10. Hide layers: independently disable `show_translation` and
     `show_romanization`.
-11. Track-only: select `display_mode=track`; no lyric source request should run.
+11. Track-only: select `display_mode=track`; other lyrics widget instances still
+    fetch and display lyrics normally.
 12. Font and double-line sizing: test `font_family`, `primary_font_size`,
     `secondary_font_size`, `line_gap`, `font_weight`, and `font_style`.
 13. Animations: test karaoke, cascade, wave, fade, typewriter, pulse, blink, and
     none.
-14. Layout: test `padding_left`, `padding_right`, and `line_gap` on horizontal and
-    vertical bars.
+14. Layout: test `max_chars` and `text_alignment` with short and long lyrics,
+    plus `padding_left`, `padding_right`, and `line_gap` on horizontal and vertical
+    bars.
 15. LRCLIB selection: play a track with multiple results, briefly hover over the widget,
     and switch between synchronized and plain entries without changing tracks.
 

@@ -18,7 +18,7 @@ noctalia.setUpdateInterval(updateInterval)
 function refresh()
   isPolling = true
 
-  noctalia.runAsync("shelly check-updates --json", function(result)
+  noctalia.runAsync("shelly list-updates all --json", function(result)
     isPolling = false
 
     if result.exitCode ~= 0 then
@@ -28,7 +28,14 @@ function refresh()
         return
     end
 
-    local decoded = noctalia.json.decode(result.stdout)
+    local stdout = result.stdout
+
+    -- Shelly's JSON output may leak stderr into stdout. Remove stderr value to ensure valid JSON.
+    if result.stderr ~= "" then
+        stdout = stdout:gsub(result.stderr, "")
+    end
+
+    local decoded = noctalia.json.decode(stdout)
     if type(decoded) ~= "table" then
         updateError = noctalia.tr("bar.tooltip.error.decode_json")
         noctalia.state.set("update_error", updateError)
