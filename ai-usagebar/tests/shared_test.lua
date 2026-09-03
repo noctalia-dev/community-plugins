@@ -29,4 +29,33 @@ for _, case in ipairs(cases) do
         string.format("%s: expected %d for %s, got %s", name, expected, input, tostring(actual)))
 end
 
+assert(type(shared.terminalAuth) == "function", "terminal authentication classifier should exist")
+assert(type(shared.transportError) == "function", "transport error classifier should exist")
+
+local retired = {
+    id = "anthropic",
+    error = "",
+    sections = {
+        { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+    },
+}
+assert(shared.terminalAuth(retired), "403 authentication rejection should be terminal")
+assert(shared.terminalAuth({ error = "HTTP 401: authorization token expired" }),
+       "401 expired authorization should be terminal")
+assert(not shared.terminalAuth({ error = "HTTP 429 authentication rate limited" }),
+       "rate limiting should stay transient")
+assert(not shared.terminalAuth({ error = "HTTP 500 authentication service unavailable" }),
+       "server errors should stay transient")
+assert(not shared.terminalAuth({ error = "authentication rejected by local configuration" }),
+       "authentication wording without HTTP 401 or 403 should stay visible")
+assert(shared.transportError("HTTP 500: internal error"), "HTTP failures should be transport details")
+assert(not shared.transportError("The weekly window resets soon"), "ordinary prose should remain content")
+
+local filtered = shared.entries({ entries = {
+    retired,
+    { id = "openai", sections = {} },
+} })
+assert(#filtered == 1 and filtered[1].id == "openai",
+       "terminal providers should be filtered from shared entries")
+
 io.write("ok: ISO timestamps stay UTC across DST transitions\n")

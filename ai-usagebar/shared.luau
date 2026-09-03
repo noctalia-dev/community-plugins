@@ -53,6 +53,35 @@ function M.saysError(value)
     return tostring(value or ""):lower():find("error:") ~= nil
 end
 
+function M.transportError(value)
+    return tostring(value or ""):lower():match("http%s*:?%s*%d%d%d") ~= nil
+end
+
+local function terminalAuthText(value)
+    local text = tostring(value or ""):lower()
+    local status = text:match("http%s*:?%s*401") ~= nil
+        or text:match("http%s*:?%s*403") ~= nil
+    local rejected = text:find("reject", 1, true) ~= nil
+        or text:find("invalid", 1, true) ~= nil
+        or text:find("expired", 1, true) ~= nil
+        or text:find("forbidden", 1, true) ~= nil
+        or text:find("unauthorized", 1, true) ~= nil
+    return status and text:find("auth", 1, true) ~= nil and rejected
+end
+
+function M.terminalAuth(entry)
+    if type(entry) ~= "table" then return false end
+    if terminalAuthText(entry.error) then return true end
+    local sections = type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text"
+            and terminalAuthText(section.value) then
+            return true
+        end
+    end
+    return false
+end
+
 -- A provider the CLI is no longer reading: the entry either fails outright, or
 -- keeps serving cached numbers with a warning saying why they stopped moving.
 -- Both mean the readings are a record, not a gauge.
@@ -160,7 +189,13 @@ end
 
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
-    return report.entries
+    local visible = {}
+    for _, entry in ipairs(report.entries) do
+        if type(entry) == "table" and not M.terminalAuth(entry) then
+            visible[#visible + 1] = entry
+        end
+    end
+    return visible
 end
 
 -- A provider can report more than it was given, so clamp before this becomes a

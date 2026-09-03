@@ -119,6 +119,20 @@ local malformedBody = {
 local bodyOk = pcall(loadPanel, malformedBody)
 assert(bodyOk, "malformed block body should render as an empty block")
 
+local rejectedProvider = {
+    id = "anthropic",
+    display_name = "Claude",
+    plan = "Claude Pro",
+    status = "ready",
+    metrics = {},
+    sections = {
+        { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+    },
+}
+local rejectedLabels = labels(loadPanel(rejectedProvider))
+assert(not has(rejectedLabels, "Claude"),
+       "a terminal provider should leave the panel immediately")
+
 -- Antigravity reports each model once per window, under "Session"/"Weekly"
 -- headings the CLI sends as text sections with no value. Claude and Codex send
 -- neither.

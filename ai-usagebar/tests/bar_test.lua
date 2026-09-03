@@ -195,6 +195,18 @@ for _, row in ipairs(dropped.tooltip()) do
     assert(row.key ~= "ui.hidden_label", "it is dropped, not hidden behind a +1")
 end
 
+local rejected = entry("anthropic", "Claude", 90)
+rejected.sections = {
+    { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+}
+local withoutRejected = loadBar({
+    vendor = "auto", account = "", extras = "none", visualization = "none",
+    provider_limit = 2,
+}, { entries = { rejected, entry("openai", "Codex", 20) } })
+local rejectedRows = withoutRejected.tooltip()
+assert(rejectedRows[1].key == "Codex" and #rejectedRows == 2,
+       "a terminal provider should leave the bar immediately")
+
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
