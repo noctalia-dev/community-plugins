@@ -102,12 +102,12 @@ function onFrameTick(_)
         ui.button({
           glyph="world-share",
           onHover=function(s, _) tooltip="tooltips.browser"; tooltipVisible=s=="true" end,
-          onClick=function() noctalia.runAsync(string.format("xdg-open https://quran.com/%s/%s", surahNumber, ayahSurahNumber)) end
+          onClick=function() noctalia.runAsync({"xdg-open", string.format("https://quran.com/%s/%s", surahNumber, ayahSurahNumber)}) end
         }),
         ui.button({
           glyph="book-2",
           onHover=function(s, _) tooltip="tooltips.tafseer"; tooltipVisible=s=="true" end,
-          onClick=function() noctalia.runAsync(string.format("xdg-open https://quran.com/%s/%s/tafsirs", surahNumber, ayahSurahNumber)) end
+          onClick=function() noctalia.runAsync({"xdg-open", string.format("https://quran.com/%s/%s/tafsirs", surahNumber, ayahSurahNumber)}) end
         })
       }),
       ui.label({text=noctalia.tr(tooltip),opacity=tooltipVisible and 1 or 0})
