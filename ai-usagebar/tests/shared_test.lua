@@ -11,7 +11,11 @@ local function read(path)
     return source
 end
 
-local noctalia = {}
+local noctalia = {
+    string = {
+        trim = function(value) return tostring(value):match("^%s*(.-)%s*$") end,
+    },
+}
 local env = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", env))()
 
@@ -58,4 +62,28 @@ local filtered = shared.entries({ entries = {
 assert(#filtered == 1 and filtered[1].id == "openai",
        "terminal providers should be filtered from shared entries")
 
-io.write("ok: ISO timestamps stay UTC across DST transitions\n")
+local function usageEntry(id, percent)
+    return {
+        id = id,
+        status = "ready",
+        stale = false,
+        metrics = { { percent = percent } },
+        sections = {},
+    }
+end
+
+local unavailable = usageEntry("anthropic", 0)
+unavailable.stale = true
+unavailable.sections = {
+    { type = "text", label = "HTTP 429", value = "Rate limited" },
+}
+local ordered = shared.entries({ entries = {
+    unavailable,
+    usageEntry("openai", 32),
+    usageEntry("antigravity", 99),
+} })
+assert(#ordered == 2, "providers with their own refresh failure should be removed")
+assert(ordered[1].id == "antigravity" and ordered[2].id == "openai",
+       "working providers should be ordered by highest usage")
+
+io.write("ok: shared timestamps, availability, and provider order\n")

@@ -100,13 +100,11 @@ a spinner while the CLI is answering. The gear beside it opens this plugin's
 settings. There is no close button: the panel closes when you click away from
 it or press the same widget again.
 
-The list follows the CLI. A provider the CLI reports no API key for never
-appears, because it was never set up. One that is set up and unreachable keeps
-its row, marked unavailable, and shows the CLI's own words, so Antigravity with
-its local server down says to open Antigravity rather than vanishing. An HTTP
-401 or 403 authentication rejection is terminal instead: that provider leaves
-the bar and panel immediately, because its cached quota no longer describes an
-active subscription.
+The list contains only providers with a usable reading. A provider the CLI
+reports no API key for never appears, because it was never set up. A configured
+provider with its own refresh failure also leaves the bar and panel, then
+returns automatically after a healthy read. The remaining providers are sorted
+by headline usage, highest first; equal readings keep the CLI's order.
 
 A provider's readings share one card, so its session and its week are read
 together. Antigravity's plan spans two models and reports each of them once per
@@ -123,16 +121,9 @@ elapsed, the time left with the clock time (or date) its reset lands on, the
 pace line, and the severity as a word whenever the CLI calls the window high or
 critical. Credit blocks and free text rows appear as the CLI writes them.
 
-A provider that is down draws no gauges. A bar reads as a live reading, and
-nothing is reading it: the warning takes their place, and the numbers it was
-last seen with follow as dated text. If the plan changed since, they are dropped
-instead -- a plan carries the limits every percentage is measured against, so a
-reading taken under the old one says nothing about the new one.
-
-The plan a provider was last seen on is remembered only for as long as the panel
-process lives, and only for providers the current report still carries. After a
-shell reload there is no previous plan to compare against, so the first reading
-that follows is shown whatever the plan says.
+A whole-report failure is different: it cannot identify one broken provider,
+so it keeps the last list and marks those readings as old instead of blanking
+the panel during a network interruption.
 
 To open the panel from a terminal:
 
@@ -186,14 +177,9 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   process.
 - The plugin makes no network calls and writes no files of its own. Everything
   it knows arrives on that command's stdout.
-- A provider that fails still comes back as an entry with `status = "error"`, so
-  one broken provider does not blank the others. A reading the CLI marks stale
-  keeps showing, flagged by an icon in the list and the panel's detail pane.
-- A provider whose service is down leaves the bar on the first report that says
-  so, rather than sitting in the capsule with a number nothing is refreshing. It
-  is not counted behind the `+n`: that count is what the panel has more of, and
-  this one has nothing to show. It comes back the moment a report carries a
-  reading for it again.
+- A provider whose service is down leaves the bar and panel on the first report
+  that says so. It is not counted behind the `+n`, and returns when a report
+  carries a healthy reading for it again.
 - A failed read does not erase the last one. The failure is said once, as a
   quiet stale-data row in the panel and a flag on the capsule, over readings
   that are simply older than they should be. Raw HTTP details stay out of the

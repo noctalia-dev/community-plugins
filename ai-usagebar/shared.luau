@@ -103,7 +103,17 @@ function M.warning(entry)
 end
 
 function M.unavailable(entry)
-    return M.warning(entry) ~= ""
+    if type(entry) ~= "table" then return true end
+    if entry.status == "error" or M.warning(entry) ~= "" then return true end
+    if entry.stale ~= true then return false end
+    local sections = type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text"
+            and (M.transportError(section.label) or M.transportError(section.value)) then
+            return true
+        end
+    end
+    return false
 end
 
 -- Anything else in the `error` slot means no failure.
@@ -190,12 +200,21 @@ end
 
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
-    local visible = {}
+    local visible, positions = {}, {}
     for _, entry in ipairs(report.entries) do
-        if type(entry) == "table" and not M.terminalAuth(entry) then
+        if type(entry) == "table" and not M.terminalAuth(entry) and not M.unavailable(entry) then
             visible[#visible + 1] = entry
+            positions[entry] = #visible
         end
     end
+    table.sort(visible, function(a, b)
+        local aMetric = type(a.metrics) == "table" and a.metrics[1] or nil
+        local bMetric = type(b.metrics) == "table" and b.metrics[1] or nil
+        local aPercent = type(aMetric) == "table" and tonumber(aMetric.percent) or -1
+        local bPercent = type(bMetric) == "table" and tonumber(bMetric.percent) or -1
+        if aPercent ~= bPercent then return aPercent > bPercent end
+        return positions[a] < positions[b]
+    end)
     return visible
 end
 

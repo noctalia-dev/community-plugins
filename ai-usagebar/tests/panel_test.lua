@@ -9,10 +9,13 @@ end
 
 local function loadPanel(entry, failure)
     local watchers = {}
+    local isReport = type(entry) == "table" and type(entry.entries) == "table"
+    local report = isReport and entry or entry ~= nil and { entries = { entry } } or nil
+    local first = report ~= nil and report.entries[1] or nil
     local values = {
-        report = entry ~= nil and { entries = { entry } } or nil,
+        report = report,
         error = failure or { code = "", detail = "" },
-        selected = entry ~= nil and entry.id or nil,
+        selected = isReport and entry.selected or first ~= nil and first.id or nil,
     }
     local noctalia = {
         state = {
@@ -216,73 +219,15 @@ for _, card in ipairs(drawn) do
     end
 end
 
--- Down: the CLI keeps serving what it cached and says why it stopped moving.
+-- A provider with its own failure leaves the panel until it reports healthy.
 local DOWN = {}
 for index, section in ipairs(WINDOWS) do DOWN[index] = section end
-DOWN[#DOWN + 1] = { type = "title", value = "Account" }
-DOWN[#DOWN + 1] = { type = "text", label = "Balance", value = "$4.20" }
-DOWN[#DOWN + 1] = { type = "block", label = "Credits", body = { "granted: 100" } }
 DOWN[#DOWN + 1] = { type = "text", label = "Warning",
                     value = "credentials error: Antigravity: no local server found." }
 
 local downTree = loadPanel(withSections(DOWN))
-assert(#cards(downTree) == 0, "a provider that is down draws no gauges")
-assert(#collect(downTree, "progress") == 0, "and no bars either")
-local warned = false
-for _, glyph in ipairs(collect(downTree, "glyph")) do
-    if glyph.props.name == "alert-triangle" then warned = true end
-end
-assert(warned, "the warning takes their place")
 local downLabels = labels(downTree)
-assert(not has(downLabels, "credentials error: Antigravity: no local server found."),
-       "the CLI's log prefix is dropped")
-assert(has(downLabels, "Antigravity: no local server found."), "the warning itself survives")
--- The numbers survive as a record, in text.
-assert(has(downLabels, "ui.last_reading_now") or has(downLabels, "ui.last_reading"),
-       "the last reading is kept")
-assert(has(downLabels, "Session 3% · Weekly 8%"), "set as text, not as a gauge")
--- Dropping the gauges is not dropping the report. Everything the CLI said
--- besides the readings is still the CLI talking about this provider.
-assert(has(downLabels, "Account"), "a heading the CLI sent survives")
-assert(has(downLabels, "Balance") and has(downLabels, "$4.20"), "so does its free text")
-assert(has(downLabels, "Credits") and has(downLabels, "granted: 100"), "and its blocks")
-local warnings = 0
-for _, label in ipairs(downLabels) do
-    if label == "Antigravity: no local server found." then warnings = warnings + 1 end
-end
-assert(warnings == 1, "the warning itself is said once, at the top")
-
--- One fetch, one date. The record already says how old the numbers are, so the
--- header must not date the same fetch again in the other tense.
-for _, label in ipairs(downLabels) do
-    -- The header concatenates the age with a clock time, so match on the key.
-    assert(label:find("ui.updated", 1, true) == nil,
-           "a provider that is down is dated once, by its record")
-end
-
--- A plan carries the limits every percentage is measured against, so readings
--- taken under the previous one are dropped rather than shown under the new name.
-local _, publish = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local switched = labels(publish(withSections(DOWN, "Google AI Ultra")))
-assert(has(switched, "ui.plan_changed"), "the change is said out loud")
-assert(not has(switched, "ui.last_reading_now") and not has(switched, "ui.last_reading"),
-       "and the old readings are not kept")
-
--- Same provider, same plan: the record stands.
-local _, again = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local kept = labels(again(withSections(DOWN, "Google AI Pro")))
-assert(has(kept, "ui.last_reading_now") or has(kept, "ui.last_reading"),
-       "an unchanged plan keeps its record")
-
--- A provider that falls over can stop naming its plan at all. Silence is not a
--- new plan, and the reading it was last seen with is still worth keeping.
-local _, silenced = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local nameless = withSections(DOWN, "Google AI Pro")
-nameless.plan = nil
-local quiet = labels(silenced(nameless))
-assert(not has(quiet, "ui.plan_changed"), "an omitted plan is not a plan change")
-assert(has(quiet, "ui.last_reading_now") or has(quiet, "ui.last_reading"),
-       "so the record it was last seen with stands")
+assert(not has(downLabels, "Antigravity"), "an unavailable provider should leave the panel")
 
 -- A provider that sends no headings keeps one card, its readings heading
 -- themselves: the panel's own header already names Codex.
@@ -299,21 +244,51 @@ local paced = {
           detail = "Resets in 6d 18h · 3% elapsed · 13pts ahead" },
     },
 }
+
+local function provider(id, name, percent)
+    local metric = {
+        type = "metric", label = "Usage", percent = percent,
+        value = tostring(percent) .. "%", detail = "", severity = "low",
+    }
+    return {
+        id = id,
+        display_name = name,
+        plan = "Plan",
+        status = "ready",
+        stale = false,
+        metrics = { metric },
+        sections = { metric },
+    }
+end
+
+local claude = provider("anthropic", "Claude", 0)
+claude.stale = true
+claude.sections[#claude.sections + 1] = {
+    type = "text", label = "HTTP 429", value = "Rate limited",
+}
+local sorted = loadPanel({
+    selected = "anthropic",
+    entries = {
+        claude,
+        provider("openai", "Codex", 32),
+        provider("antigravity", "Antigravity", 99),
+    },
+})
+local providerOrder = {}
+for _, row in ipairs(collect(sorted, "row")) do
+    local key = tostring(row.props.key or "")
+    local id = key:match("^provider%-(.+)$")
+    if id ~= nil then providerOrder[#providerOrder + 1] = id end
+end
+assert(#providerOrder == 2, "providers with their own failures should leave the list")
+assert(providerOrder[1] == "antigravity" and providerOrder[2] == "openai",
+       "the most-used working provider should lead the list")
+
 local plain = cards(loadPanel(paced))
 assert(#plain == 1, "the session and the week share one card here too")
 local plainLabels = labels(plain[1])
 assert(plainLabels[1] == "Codex 5h", "the reading heads itself")
 assert(has(plainLabels, "Codex weekly"), "the week sits under the session")
-
--- The panel outlives every report it draws, so what it remembers between them is
--- only the providers the current one carries. A provider the user removed and
--- added back is met like any other first reading, not accused of a change.
-local _, sequence = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-sequence(paced)
-local returned = labels(sequence(withSections(DOWN, "Google AI Ultra")))
-assert(not has(returned, "ui.plan_changed"), "a provider gone from the report is forgotten")
-assert(has(returned, "ui.last_reading_now") or has(returned, "ui.last_reading"),
-       "and what it does report is kept")
 
 -- A failed read with a report behind it is a banner over numbers that are merely
 -- older than the panel would like, not a reason to blank the panel.
@@ -375,4 +350,4 @@ assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
 assert(not has(labels(dropped), "ui.error.timed_out_hint"),
        "and says the failure once, in the pane, not across the whole panel")
 
-io.write("ok: panel degrades safely, groups by model, and stops gauging what is down\n")
+io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

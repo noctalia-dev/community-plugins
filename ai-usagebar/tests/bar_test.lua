@@ -210,13 +210,9 @@ assert(rejectedRows[1].key == "Codex" and #rejectedRows == 2,
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
-assert(#pinnedDown.tooltip() > 0, "a pinned provider still explains itself in the tooltip")
--- Configured but unreachable is not the same as never configured, and the
--- tooltip may not call one the other. The CLI already worded the failure.
 local pinnedRow = pinnedDown.tooltip()[1]
-assert(pinnedRow.key == "Antigravity", "a pinned provider that is down keeps its name")
-assert(tostring(pinnedRow.value):find("no local server") ~= nil,
-    "the tooltip repeats the CLI's own words instead of calling it unconfigured")
+assert(pinnedRow.value == "antigravity not configured",
+       "a pinned provider with its own failure should leave the bar")
 
 -- `[ui] primary` can come back as a full account id, and the tie-break has to
 -- recognise it in that form as well as the bare provider one.
@@ -265,4 +261,4 @@ assert(glyphColor(broken.rendered(), "brand-openai") == "error",
 assert(glyphColor(healthy.rendered(), "brand-openai") == "on_surface",
     "a healthy read leaves the mark in its identity colour")
 
-io.write("ok: account selection, malformed metrics, providers that are down, and a steady capsule\n")
+io.write("ok: account selection, unavailable providers, and a steady capsule\n")
