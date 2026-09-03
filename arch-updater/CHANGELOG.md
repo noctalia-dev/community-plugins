@@ -5,7 +5,10 @@ icon (the history icon next to Check) shows this same file.
 
 ## 2.0.3 - 2026-09-03
 
-- Fixed: the "Custom update command" setting was ignored in terminal update mode (the default), so a custom script only ran when update mode was set to background. Since 2.0.0 the override was wired into the background path only. It now takes effect in both modes, as it did before 2.0.0.
+- Fixed: a background update killed or crashed without writing its exit marker left the panel stuck on "Updating…", even across logins. The engine now spots a run whose log has stopped growing, clears it, and offers the usual retry. Terminal runs, which may legitimately sit idle at a prompt, are unaffected.
+- Fixed: the changelog could not be opened while an update was running. It now opens mid-update, and the back button returns to the live log.
+- Fixed: long changelog entries were clipped at three lines. They now wrap in full.
+- Fixed: the "Custom update command" setting was ignored in terminal update mode (the default); since 2.0.0 it only applied to background updates. It now takes effect in both modes, as it did before 2.0.0.
 
 ## 2.0.2 - 2026-08-28
 
