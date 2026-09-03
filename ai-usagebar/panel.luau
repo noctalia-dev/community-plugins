@@ -320,7 +320,7 @@ local function otherCard(section, warned)
     if section.type == "text" then
         local label = tostring(section.label or "")
         local value = tostring(section.value or "")
-        if transportError(value) then return nil end
+        if transportError(label) or transportError(value) then return nil end
         if label:lower() == "warning" or saysError(value) then
             if warned then return nil end
             return noteCard(value)

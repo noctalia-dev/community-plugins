@@ -197,7 +197,7 @@ end
 
 local rejected = entry("anthropic", "Claude", 90)
 rejected.sections = {
-    { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+    { type = "text", label = "HTTP 403", value = "authentication rejected" },
 }
 local withoutRejected = loadBar({
     vendor = "auto", account = "", extras = "none", visualization = "none",

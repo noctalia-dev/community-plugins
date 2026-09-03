@@ -36,7 +36,7 @@ local retired = {
     id = "anthropic",
     error = "",
     sections = {
-        { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+        { type = "text", label = "HTTP 403", value = "authentication rejected" },
     },
 }
 assert(shared.terminalAuth(retired), "403 authentication rejection should be terminal")

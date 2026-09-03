@@ -75,7 +75,8 @@ function M.terminalAuth(entry)
     local sections = type(entry.sections) == "table" and entry.sections or {}
     for _, section in ipairs(sections) do
         if type(section) == "table" and section.type == "text"
-            and terminalAuthText(section.value) then
+            and terminalAuthText(tostring(section.label or "") .. " "
+                .. tostring(section.value or "")) then
             return true
         end
     end

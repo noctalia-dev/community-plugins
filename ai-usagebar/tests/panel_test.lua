@@ -126,7 +126,7 @@ local rejectedProvider = {
     status = "ready",
     metrics = {},
     sections = {
-        { type = "text", label = "Warning", value = "HTTP 403 authentication rejected" },
+        { type = "text", label = "HTTP 403", value = "authentication rejected" },
     },
 }
 local rejectedLabels = labels(loadPanel(rejectedProvider))
@@ -345,11 +345,12 @@ local rateLimited = {
     metrics = paced.metrics,
     sections = {
         paced.sections[1],
-        { type = "text", label = "Warning", value = "HTTP 429: rate limited" },
+        { type = "text", label = "HTTP 429", value = "Rate limited" },
     },
 }
 local rateLimitedTree = loadPanel(rateLimited)
-assert(not has(labels(rateLimitedTree), "HTTP 429: rate limited"),
+local rateLimitedLabels = labels(rateLimitedTree)
+assert(not has(rateLimitedLabels, "HTTP 429") and not has(rateLimitedLabels, "Rate limited"),
        "raw transport details should not become loose content")
 assert(#cards(rateLimitedTree) == 1, "transient provider failures keep cached readings")
 
