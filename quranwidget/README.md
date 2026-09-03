@@ -9,6 +9,9 @@ A Noctalia widget to show a random Quranic Ayah/verse on the desktop. Inspired b
 | ID | `mezoahmedii/quranwidget` |
 | Entries | Desktop widget: `quranwidget` |
 
+## Requirements
+- `xdg-open`: For viewing Ayahs in browser
+
 ## Usage
 
 Add the desktop widget to your desktop

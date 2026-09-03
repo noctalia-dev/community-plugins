@@ -7,7 +7,7 @@ author = "MezoAhmedII"
 icon = "book"
 tags = ["desktop", "utility"]
 license = "MIT"
-dependencies = []
+dependencies = ["xdg-open"]
 
 [[desktop_widget]]
 id = "quranwidget"
