@@ -6,6 +6,8 @@ plugin_api = 3
 author = "MezoAhmedII"
 icon = "book"
 tags = ["desktop", "utility"]
+license = "MIT"
+dependencies = []
 
 [[desktop_widget]]
 id = "quranwidget"
