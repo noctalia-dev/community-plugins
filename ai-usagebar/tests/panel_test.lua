@@ -10,9 +10,9 @@ end
 local function loadPanel(entry, failure)
     local watchers = {}
     local values = {
-        report = { entries = { entry } },
+        report = entry ~= nil and { entries = { entry } } or nil,
         error = failure or { code = "", detail = "" },
-        selected = entry.id,
+        selected = entry ~= nil and entry.id or nil,
     }
     local noctalia = {
         state = {
@@ -319,9 +319,43 @@ assert(has(returned, "ui.last_reading_now") or has(returned, "ui.last_reading"),
 -- older than the panel would like, not a reason to blank the panel.
 local failed = loadPanel(paced, { code = "timed_out", detail = "" })
 local failedLabels = labels(failed)
-assert(has(failedLabels, "ui.error.timed_out"), "the failure is named")
+assert(has(failedLabels, "ui.stale_hint"), "cached data names its stale state")
+assert(not has(failedLabels, "ui.error.timed_out"),
+       "a transient failure does not dominate cached data")
 assert(has(failedLabels, "Codex 5h"), "and the readings stay under it")
 assert(#cards(failed) == 1, "the cards are not dropped")
+local retry = false
+for _, button in ipairs(collect(failed, "button")) do
+    if button.props.text == "ui.retry" then retry = true end
+end
+assert(retry, "cached data keeps the retry action")
+local staleGlyph = false
+for _, glyph in ipairs(collect(failed, "glyph")) do
+    if glyph.props.name == "clock-exclamation" and glyph.props.color ~= "error" then
+        staleGlyph = true
+    end
+end
+assert(staleGlyph, "cached data uses a subdued stale glyph")
+
+local rateLimited = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = paced.metrics,
+    sections = {
+        paced.sections[1],
+        { type = "text", label = "Warning", value = "HTTP 429: rate limited" },
+    },
+}
+local rateLimitedTree = loadPanel(rateLimited)
+assert(not has(labels(rateLimitedTree), "HTTP 429: rate limited"),
+       "raw transport details should not become loose content")
+assert(#cards(rateLimitedTree) == 1, "transient provider failures keep cached readings")
+
+local emptyFailure = loadPanel(nil, { code = "timed_out", detail = "" })
+assert(has(labels(emptyFailure), "ui.error.timed_out_hint"),
+       "a failure without cached data keeps the full error state")
 
 -- Every row can be dropped -- a vendor with no key at all is not listed -- and a
 -- report is still a report. The failure is a banner over the panel it arrived

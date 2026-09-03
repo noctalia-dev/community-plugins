@@ -103,7 +103,10 @@ it or press the same widget again.
 The list follows the CLI. A provider the CLI reports no API key for never
 appears, because it was never set up. One that is set up and unreachable keeps
 its row, marked unavailable, and shows the CLI's own words, so Antigravity with
-its local server down says to open Antigravity rather than vanishing.
+its local server down says to open Antigravity rather than vanishing. An HTTP
+401 or 403 authentication rejection is terminal instead: that provider leaves
+the bar and panel immediately, because its cached quota no longer describes an
+active subscription.
 
 A provider's readings share one card, so its session and its week are read
 together. Antigravity's plan spans two models and reports each of them once per
@@ -192,9 +195,10 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
   this one has nothing to show. It comes back the moment a report carries a
   reading for it again.
 - A failed read does not erase the last one. The failure is said once, as a
-  banner in the panel and a flag on the capsule, over readings that are simply
-  older than they should be; the panel only gives itself over to the failure
-  when there is no report behind it at all.
+  quiet stale-data row in the panel and a flag on the capsule, over readings
+  that are simply older than they should be. Raw HTTP details stay out of the
+  reading cards. The panel only gives itself over to the full failure, including
+  its sanitized technical detail, when there is no report behind it at all.
 
 ## Tests
 

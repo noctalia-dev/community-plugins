@@ -13,7 +13,7 @@ local ratio, headline, severityRole = shared.ratio, shared.headline, shared.seve
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
-local saysError = shared.saysError
+local saysError, transportError = shared.saysError, shared.transportError
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
 local failure = NO_FAILURE
@@ -320,6 +320,7 @@ local function otherCard(section, warned)
     if section.type == "text" then
         local label = tostring(section.label or "")
         local value = tostring(section.value or "")
+        if transportError(value) then return nil end
         if label:lower() == "warning" or saysError(value) then
             if warned then return nil end
             return noteCard(value)
@@ -553,13 +554,13 @@ local function detailPane(entry)
         end
     end
 
-    -- The read failed, but the numbers below it are only older than the panel
-    -- would like. Said once, at the top, rather than by dropping every card.
+    -- The read failed, but cached numbers remain the useful answer. Mark their
+    -- age quietly instead of making a transient network failure the headline.
     if failure.code ~= "" then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = "alert-circle", size = 13, color = "error" }),
-            ui.label({ text = noctalia.tr("ui.error." .. failure.code), fontSize = 11,
-                       color = "error", flexGrow = 1, maxLines = 1 }),
+            ui.glyph({ name = "clock-exclamation", size = 13, color = "secondary" }),
+            ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 11,
+                       color = "on_surface_variant", flexGrow = 1, maxLines = 1 }),
             ui.button({
                 text = noctalia.tr("ui.retry"), glyph = "refresh",
                 variant = "ghost", controlSize = "sm",
