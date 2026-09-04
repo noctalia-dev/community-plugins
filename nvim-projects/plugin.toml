@@ -1,0 +1,41 @@
+id = "ashur-d/nvim-projects"
+name = "Neovim Projects"
+version = "1.0.0"
+plugin_api = 3
+author = "Ashur-D"
+license = "MIT"
+icon = "nvim"
+description = "Quickly search and open recent Neovim projects. Type /nvim in the launcher."
+tags = ["launcher", "development", "productivity"]
+dependencies = ["nvim"]
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 20
+min = 1
+max = 50
+
+[[setting]]
+key = "projects_dir"
+type = "folder"
+label_key = "settings.projects_dir.label"
+description_key = "settings.projects_dir.description"
+default = "~/Projects"
+
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+
+[[launcher_provider]]
+id = "provider"
+entry = "nvim_provider.luau"
+prefix = "nvim"
+glyph = "terminal"
+include_in_global_search = false
+debounce_ms = 0

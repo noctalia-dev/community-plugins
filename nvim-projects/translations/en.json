@@ -1,0 +1,21 @@
+{
+  "no-projects-found": "No projects found",
+  "no-recent-projects": "No recent Neovim projects",
+  "filter-empty": "No projects matching \"{filter}\"",
+  "loading": "Loading…",
+  "loading-subtitle": "Scanning recent Neovim sessions and projects",
+  "settings": {
+    "max_results": {
+      "description": "Maximum number of recent projects to show in the launcher",
+      "label": "Max Results"
+    },
+    "projects_dir": {
+      "description": "Directory containing your coding projects (e.g. ~/Projects)",
+      "label": "Projects Directory"
+    },
+    "terminal": {
+      "description": "Custom terminal command (leave empty to use Noctalia default)",
+      "label": "Custom Terminal"
+    }
+  }
+}
