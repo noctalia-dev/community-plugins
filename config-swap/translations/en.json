@@ -41,7 +41,9 @@
     "store_title": "Config Store",
     "title": "Config Swap",
     "welcome_message1": "Please read this carefully before you continue.",
-    "welcome_message2": "This plugin can replace your current Noctalia configuration. We recommend backing up your current settings first — use the Save button in the Installed section. Backups are stored in ~/Config-Swap.",
-    "welcome_message_title": "Welcome to Config Swap!"
+    "welcome_message2": "This plugin can replace your current Noctalia configuration. We recommend backing up your current settings first — use the Save button in the Installed section. Backups are stored in ~/Config-Swap or your custom path",
+    "welcome_message_title": "Welcome to Config Swap!",
+    "error_path": "Incorrect path. Need a path like: ~/{your path}",
+    "success_path": "New Path Set"
   }
 }
