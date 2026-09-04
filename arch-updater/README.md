@@ -190,7 +190,7 @@ setting.
 | `hide_polkit_hint` | `bool` | `false` | Hide the panel line offering to install the polkit keep-authorization rule. |
 | `log_lines` | `int` | `14` | How many of the latest update-log lines the panel shows during a run (6–30). |
 | `terminal` | `string` | *(empty)* | Terminal command for terminal-mode updates, the retry fallback and the log viewer. Empty uses Noctalia's detection. |
-| `update_cmd` | `string` | *(empty)* | Full override for the background update command. Empty builds it from the settings above, running pacman through `pkexec`. |
+| `update_cmd` | `string` | *(empty)* | Full override for the update command, in both terminal and background mode. Empty builds it from the settings above. |
 | `glyph` | `glyph` | `package` | The glyph shown for the widget on the bar. |
 | `show_count` | `bool` | `true` | Show the pending-update count next to the bar glyph. |
 | `hide_on_empty` | `bool` | `false` | Hide the widget entirely when there is nothing to show. |

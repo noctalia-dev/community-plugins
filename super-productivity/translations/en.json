@@ -1,104 +1,16 @@
 {
-  "title": "Super Productivity",
-  "settings": {
-    "auto_start": {
-      "label": "Start Super Productivity automatically",
-      "description": "Starts the desktop app in the background when the companion is unavailable."
-    },
-    "launch_method": {
-      "label": "Launch method",
-      "description": "Method Noctalia uses to start or focus Super Productivity.",
-      "auto": "Auto-detect",
-      "flatpak": "Flatpak",
-      "native": "Native command"
-    },
-    "native_command": {
-      "label": "Native command",
-      "description": "Executable name or absolute path that Noctalia uses to launch Super Productivity. Do not include arguments."
-    },
-    "bridge_dir": {
-      "label": "Bridge directory override",
-      "description": "Optional path to the companion data directory. When empty, Noctalia detects the path automatically."
-    },
-    "poll_seconds": {
-      "label": "Refresh interval",
-      "description": "How often Noctalia reads the companion state, in seconds."
-    },
-    "prefer_tracked_task": {
-      "label": "Show tracked task first",
-      "description": "Places the currently tracked task before due tasks while its timer runs."
-    },
-    "show_timer_controls": {
-      "label": "Show timer controls",
-      "description": "Shows start and stop tracking controls in the expanded details panel."
-    },
-    "sound_on_complete": {
-      "label": "Completion sound",
-      "description": "Plays a sound after Super Productivity confirms task completion."
-    },
-    "notify_due": {
-      "label": "Due notifications",
-      "description": "Shows a notification when an upcoming task reaches its due time."
-    },
-    "overdue_text_color": {
-      "label": "Overdue text color",
-      "description": "Color used for overdue task text in the bar widget and details panel."
-    },
-    "max_upcoming": {
-      "label": "Upcoming task limit",
-      "description": "Maximum number of due tasks available when scrolling the widget."
-    },
-    "glyph": {
-      "label": "Widget glyph",
-      "description": "Icon shown beside the task title."
-    },
-    "show_due_text": {
-      "label": "Show due text",
-      "description": "Shows the relative due time in the bar widget."
-    },
-    "max_title_chars": {
-      "label": "Maximum title length",
-      "description": "Limits task titles to this number of characters in the bar widget."
+  "action": {
+    "success": {
+      "add": "Task added.",
+      "complete": "Task completed.",
+      "default": "Action completed.",
+      "refresh": "Tasks refreshed.",
+      "restore": "Task restored.",
+      "select": "Task opened.",
+      "snooze": "Task rescheduled.",
+      "timer_start": "Timer started.",
+      "timer_stop": "Timer stopped."
     }
-  },
-  "status": {
-    "starting": "Starting companion…",
-    "ready": "Connected",
-    "offline": "Super Productivity is not running",
-    "stale": "Companion data is stale",
-    "companion_missing": "The Super Productivity companion is not installed or enabled",
-    "companion_outdated": "The installed companion needs an update",
-    "protocol_mismatch": "The companion protocol version is incompatible",
-    "setup_hint": "Build the companion package. Install it in Super Productivity. Approve the file-access prompt. Then select Refresh.",
-    "package_ready_hint": "Open the package folder. Then select the ZIP file in Super Productivity."
-  },
-  "bar": {
-    "no_due": "No due tasks",
-    "unavailable": "Tasks unavailable",
-    "position": "Task {index} of {count}",
-    "gestures": "Left: details · Right: complete · Middle: open · Scroll: browse"
-  },
-  "task": {
-    "untitled": "Untitled task",
-    "none_due": "No due tasks",
-    "none_due_hint": "Use quick capture below or add a due date in Super Productivity.",
-    "project": "Project: {value}",
-    "tags": "Tags: {value}",
-    "no_project_tags": "No project or tags",
-    "estimate": "Estimate: {value}",
-    "spent": "Spent: {value}",
-    "position": "Task {index} of {count}"
-  },
-  "due": {
-    "unscheduled": "No due date",
-    "now": "due now",
-    "just_overdue": "just overdue",
-    "in_minutes": "in {count}m",
-    "overdue_minutes": "overdue {count}m",
-    "in_hours": "in {count}h",
-    "overdue_hours": "overdue {count}h",
-    "in_days": "in {count}d",
-    "overdue_days": "overdue {count}d"
   },
   "actions": {
     "add": "Add",
@@ -108,13 +20,13 @@
     "checking_package": "Checking package…",
     "close": "Close",
     "complete": "Complete",
-    "copy_path": "Copy path",
     "copy_package_path": "Copy package path",
+    "copy_path": "Copy path",
     "launch": "Launch app",
-    "open_package_folder": "Open package folder",
     "open": "Open in app",
-    "refresh": "Refresh",
+    "open_package_folder": "Open package folder",
     "rebuild_package": "Rebuild package",
+    "refresh": "Refresh",
     "retry_package": "Retry package build",
     "settings": "Settings",
     "start_timer": "Start timer",
@@ -122,67 +34,71 @@
     "undo": "Undo",
     "working": "Working…"
   },
-  "action": {
-    "success": {
-      "default": "Action completed.",
-      "add": "Task added.",
-      "complete": "Task completed.",
-      "refresh": "Tasks refreshed.",
-      "restore": "Task restored.",
-      "select": "Task opened.",
-      "snooze": "Task rescheduled.",
-      "timer_start": "Timer started.",
-      "timer_stop": "Timer stopped."
-    }
+  "bar": {
+    "gestures": "Left: details · Right: complete · Middle: open · Scroll: browse",
+    "no_due": "No due tasks",
+    "position": "Task {index} of {count}",
+    "unavailable": "Tasks unavailable"
   },
   "capture": {
-    "title": "Quick capture",
     "hint": "Use Super Productivity short syntax: +project, #tag, @tomorrow, !friday, 30m, @every week, and more.",
-    "placeholder": "Write task +Project #tag @tomorrow 30m"
-  },
-  "snooze": {
-    "title": "Reschedule",
-    "hour": "+1 hour",
-    "tomorrow": "Tomorrow",
-    "week": "Next week"
-  },
-  "undo": {
-    "completed": "Completed: {title}"
-  },
-  "package": {
-    "status": {
-      "missing": "Not built",
-      "checking": "Checking…",
-      "stale": "Update required",
-      "running": "Building…",
-      "ready": "Ready",
-      "error": "Build failed"
-    }
+    "placeholder": "Write task +Project #tag @tomorrow 30m",
+    "title": "Quick capture"
   },
   "diagnostics": {
-    "title": "Diagnostics",
-    "status": "Status",
-    "companion": "Companion version",
-    "protocol": "Protocol",
-    "package": "Companion package",
-    "required_companion": "Required companion",
-    "tasks": "Active tasks",
-    "due": "Due tasks",
-    "overdue": "Overdue tasks",
     "app": "Desktop app",
-    "running": "Running",
-    "not_running": "Not running",
-    "launch_method": "Launch method",
     "bridge_dir": "Bridge directory",
-    "package_path": "Package path"
+    "companion": "Companion version",
+    "due": "Due tasks",
+    "launch_method": "Launch method",
+    "not_running": "Not running",
+    "overdue": "Overdue tasks",
+    "package": "Companion package",
+    "package_path": "Package path",
+    "protocol": "Protocol",
+    "required_companion": "Required companion",
+    "running": "Running",
+    "status": "Status",
+    "tasks": "Active tasks",
+    "title": "Diagnostics"
+  },
+  "due": {
+    "in_days": "in {count}d",
+    "in_hours": "in {count}h",
+    "in_minutes": "in {count}m",
+    "just_overdue": "just overdue",
+    "now": "due now",
+    "overdue_days": "overdue {count}d",
+    "overdue_hours": "overdue {count}h",
+    "overdue_minutes": "overdue {count}m",
+    "unscheduled": "No due date"
+  },
+  "error": {
+    "app_unavailable": "Noctalia could not find Super Productivity.",
+    "bridge_unavailable": "Noctalia cannot access the companion bridge directory.",
+    "command_failed": "The companion rejected the command.",
+    "command_timeout": "The companion did not respond in time.",
+    "invalid_snapshot": "The companion published an invalid snapshot.",
+    "launch_failed": "Noctalia could not launch Super Productivity.",
+    "native_command_single": "Enter one executable without arguments as the native command.",
+    "open_package_failed": "Noctalia could not open the companion package folder.",
+    "outcome_unknown": "The companion stopped responding. Check Super Productivity before you try again to prevent a duplicate action.",
+    "package_build_failed": "Noctalia could not build the companion package.",
+    "package_missing": "The package builder did not produce a valid companion ZIP.",
+    "package_verification_failed": "Noctalia could not verify the generated companion package.",
+    "protocol_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
+    "python_unavailable": "Noctalia requires python3 to build the companion package.",
+    "schema_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
+    "task_changed": "The displayed task changed before Noctalia could run the action.",
+    "xdg_open_unavailable": "Noctalia requires xdg-open to open the package folder."
   },
   "launcher": {
-    "capture_title": "Add a Super Productivity task",
-    "capture_hint": "Type a task after /sp. You can use Super Productivity short syntax.",
-    "open_app": "Open Super Productivity",
-    "open_app_hint": "Launch or focus the desktop app.",
     "add": "Add “{task}”",
-    "add_hint": "Create this task using Super Productivity short syntax."
+    "add_hint": "Create this task using Super Productivity short syntax.",
+    "capture_hint": "Type a task after /sp. You can use Super Productivity short syntax.",
+    "capture_title": "Add a Super Productivity task",
+    "open_app": "Open Super Productivity",
+    "open_app_hint": "Launch or focus the desktop app."
   },
   "notify": {
     "added_title": "Task added",
@@ -190,23 +106,107 @@
     "due_title": "Task due",
     "package_failed_title": "Companion package error"
   },
-  "error": {
-    "app_unavailable": "Noctalia could not find Super Productivity.",
-    "bridge_unavailable": "Noctalia cannot access the companion bridge directory.",
-    "package_build_failed": "Noctalia could not build the companion package.",
-    "package_verification_failed": "Noctalia could not verify the generated companion package.",
-    "package_missing": "The package builder did not produce a valid companion ZIP.",
-    "python_unavailable": "Noctalia requires python3 to build the companion package.",
-    "xdg_open_unavailable": "Noctalia requires xdg-open to open the package folder.",
-    "open_package_failed": "Noctalia could not open the companion package folder.",
-    "command_failed": "The companion rejected the command.",
-    "command_timeout": "The companion did not respond in time.",
-    "invalid_snapshot": "The companion published an invalid snapshot.",
-    "launch_failed": "Noctalia could not launch Super Productivity.",
-    "native_command_single": "Enter one executable without arguments as the native command.",
-    "outcome_unknown": "The companion stopped responding. Check Super Productivity before you try again to prevent a duplicate action.",
-    "schema_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
-    "protocol_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
-    "task_changed": "The displayed task changed before Noctalia could run the action."
+  "package": {
+    "status": {
+      "checking": "Checking…",
+      "error": "Build failed",
+      "missing": "Not built",
+      "ready": "Ready",
+      "running": "Building…",
+      "stale": "Update required"
+    }
+  },
+  "settings": {
+    "auto_start": {
+      "description": "Starts the desktop app in the background when the companion is unavailable.",
+      "label": "Start Super Productivity automatically"
+    },
+    "bridge_dir": {
+      "description": "Optional path to the companion data directory. When empty, Noctalia detects the path automatically.",
+      "label": "Bridge directory override"
+    },
+    "glyph": {
+      "description": "Icon shown beside the task title.",
+      "label": "Widget glyph"
+    },
+    "launch_method": {
+      "auto": "Auto-detect",
+      "description": "Method Noctalia uses to start or focus Super Productivity.",
+      "flatpak": "Flatpak",
+      "label": "Launch method",
+      "native": "Native command"
+    },
+    "max_title_chars": {
+      "description": "Limits task titles to this number of characters in the bar widget.",
+      "label": "Maximum title length"
+    },
+    "max_upcoming": {
+      "description": "Maximum number of due tasks available when scrolling the widget.",
+      "label": "Upcoming task limit"
+    },
+    "native_command": {
+      "description": "Executable name or absolute path that Noctalia uses to launch Super Productivity. Do not include arguments.",
+      "label": "Native command"
+    },
+    "notify_due": {
+      "description": "Shows a notification when an upcoming task reaches its due time.",
+      "label": "Due notifications"
+    },
+    "overdue_text_color": {
+      "description": "Color used for overdue task text in the bar widget and details panel.",
+      "label": "Overdue text color"
+    },
+    "poll_seconds": {
+      "description": "How often Noctalia reads the companion state, in seconds.",
+      "label": "Refresh interval"
+    },
+    "prefer_tracked_task": {
+      "description": "Places the currently tracked task before due tasks while its timer runs.",
+      "label": "Show tracked task first"
+    },
+    "show_due_text": {
+      "description": "Shows the relative due time in the bar widget.",
+      "label": "Show due text"
+    },
+    "show_timer_controls": {
+      "description": "Shows start and stop tracking controls in the expanded details panel.",
+      "label": "Show timer controls"
+    },
+    "sound_on_complete": {
+      "description": "Plays a sound after Super Productivity confirms task completion.",
+      "label": "Completion sound"
+    }
+  },
+  "snooze": {
+    "hour": "+1 hour",
+    "title": "Reschedule",
+    "tomorrow": "Tomorrow",
+    "week": "Next week"
+  },
+  "status": {
+    "companion_missing": "The Super Productivity companion is not installed or enabled",
+    "companion_outdated": "The installed companion needs an update",
+    "offline": "Super Productivity is not running",
+    "package_ready_hint": "Open the package folder. Then select the ZIP file in Super Productivity.",
+    "protocol_mismatch": "The companion protocol version is incompatible",
+    "ready": "Connected",
+    "setup_hint": "Build the companion package. Install it in Super Productivity. Approve the file-access prompt. Then select Refresh.",
+    "stale": "Companion data is stale",
+    "starting": "Starting companion…"
+  },
+  "task": {
+    "estimate": "Estimate: {value}",
+    "no_project_tags": "No project or tags",
+    "none_due": "No due tasks",
+    "none_due_hint": "Use quick capture below or add a due date in Super Productivity.",
+    "position": "Task {index} of {count}",
+    "project": "Project: {value}",
+    "spent": "Spent: {value}",
+    "tags": "Tags: {value}",
+    "untitled": "Untitled task"
+  },
+  "title": "Super Productivity",
+  "undo": {
+    "completed": "Completed: {title}"
   }
 }

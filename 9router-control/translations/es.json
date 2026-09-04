@@ -1,0 +1,48 @@
+{
+  "add_model": {
+    "back": "Volver a combo",
+    "empty": "No hay modelos disponibles.",
+    "no_match": "Ningún modelo coincide con tu búsqueda",
+    "search": "Buscar modelos...",
+    "title": "Añadir Modelo"
+  },
+  "create": {
+    "models_hint": "Un modelo por línea, en orden de reserva (por ejemplo, cc/claude-opus-4-7).",
+    "models_label": "Modelos",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "name_label": "Nombre",
+    "name_placeholder": "P.ej. mi-reserva",
+    "submit": "Crear",
+    "title": "Nuevo Combo"
+  },
+  "detail": {
+    "add_model": "Añadir modelo",
+    "back": "Volver a combos",
+    "delete": "Borrar combo",
+    "delete_confirm": "Borrar este combo?",
+    "delete_no": "Cancelar",
+    "delete_yes": "Sí, borrar",
+    "drag_hint": "Arrastra un modelo para ordenar",
+    "models_count": "{count} modelo(s)",
+    "move_down": "Mover abajo",
+    "move_up": "Mover arriba",
+    "no_models": "Este combo no tiene modelos todavía",
+    "refresh": "Refrescar",
+    "remove_model": "Quitar modelo",
+    "rename": "Renombrar",
+    "rename_cancel": "Cancelar",
+    "rename_placeholder": "Nuevo nombre...",
+    "rename_save": "Guardar"
+  },
+  "error": {
+    "add_model_failed": "Fallo al añadir modelo",
+    "auth_required": "Autentificación requerida",
+    "bad_response": "Respuesta inesperada desde 9Router",
+    "connection_failed": "No se pudo conectar a 9Router",
+    "create_failed": "Fallo al crear combo",
+    "delete_failed": "Fallo al borrar combo",
+    "dismiss": "Descartar",
+    "http_status": "HTTP {status}",
+    "invalid_name": "El nombre solo puede contener letras, números, -, _ y ."
+  }
+}

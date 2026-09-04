@@ -38,15 +38,15 @@ tags = ["privacy", "niri"]
 [[plugin]]
 id = "nzlov/daily-wallpaper"
 name = "Daily Wallpaper"
-version = "1.0.0"
-updated_at = 1784083114
+version = "1.1.0"
+updated_at = 1788472786
 added_at = 1784083114
 author = "nzlov"
 license = "MIT"
 icon = "photo"
-description = "Fetches a new daily wallpaper from Bing or NASA."
+description = "Fetches a new daily wallpaper from Bing or NASA, and shows its caption on the bar, in a panel, and on the desktop."
 plugin_api = 3
-tags = ["wallpaper", "desktop"]
+tags = ["wallpaper", "desktop", "bar", "panel", "service"]
 
 [[plugin]]
 id = "joshuaslate/shelly"
@@ -290,8 +290,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.0"
-updated_at = 1788274345
+version = "1.5.1"
+updated_at = 1788444492
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -465,8 +465,8 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.3.0"
-updated_at = 1785726749
+version = "1.4.0"
+updated_at = 1788471403
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -788,8 +788,8 @@ tags = ["network", "bar", "panel", "service", "shortcut", "utility", "system", "
 [[plugin]]
 id = "yuuto/arch-updater"
 name = "Arch Updater"
-version = "2.0.2"
-updated_at = 1788120265
+version = "2.0.3"
+updated_at = 1788468899
 added_at = 1785208995
 author = "yuuto"
 license = "MIT"
@@ -879,8 +879,8 @@ tags = ["bar", "panel", "service", "video", "wallpaper"]
 [[plugin]]
 id = "shin/lrc"
 name = "LRC"
-version = "1.1.0"
-updated_at = 1785500276
+version = "1.2.0"
+updated_at = 1788472631
 added_at = 1785459835
 author = "shin"
 license = "MIT"
@@ -2121,3 +2121,29 @@ icon = "checks"
 description = "Show, capture, complete, track, snooze, and open Super Productivity tasks from Noctalia."
 plugin_api = 24
 tags = ["bar", "panel", "service", "launcher", "productivity"]
+
+[[plugin]]
+id = "setyvii/niri-rules-studio"
+name = "Niri Rules Studio"
+version = "0.1.0"
+updated_at = 1788468778
+added_at = 1788468778
+author = "SetyVII"
+license = "MIT"
+icon = "adjustments-horizontal"
+description = "Create, validate, and manage Niri window rules with a simple GUI."
+plugin_api = 24
+tags = ["bar", "panel", "niri", "utility"]
+
+[[plugin]]
+id = "liamwh/emoji-picker"
+name = "Emoji & Symbol Picker"
+version = "1.0.0"
+updated_at = 1788473658
+added_at = 1788473658
+author = "liamwh"
+license = "MIT"
+icon = "mood-smile"
+description = "Raycast-inspired emoji & Unicode symbol browser: instant search, categories, recents."
+plugin_api = 28
+tags = ["panel", "emoticon", "utility"]

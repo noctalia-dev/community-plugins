@@ -100,7 +100,7 @@
       "label": "Editor command"
     },
     "pinentry-grace-ms": {
-      "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 50). Lower values let pinentry grab focus sooner but can flicker the launcher; higher values (~200-300) are steadier but may let pinentry spawn before the timeout and miss focus depending on your window manager",
+      "desc": "Milliseconds to wait for a password to decrypt before assuming a GPG pinentry prompt needs focus and hiding the launcher (default: 200)",
       "label": "Pinentry grace period"
     },
     "store-path": {

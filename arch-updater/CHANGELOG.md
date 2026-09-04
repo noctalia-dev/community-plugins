@@ -3,6 +3,13 @@
 All notable changes to Arch Updater are documented here. The panel's changelog
 icon (the history icon next to Check) shows this same file.
 
+## 2.0.3 - 2026-09-03
+
+- Fixed: a background update killed or crashed without writing its exit marker left the panel stuck on "Updating…", even across logins. The engine now spots a run whose log has stopped growing, clears it, and offers the usual retry. Terminal runs, which may legitimately sit idle at a prompt, are unaffected.
+- Fixed: the changelog could not be opened while an update was running. It now opens mid-update, and the back button returns to the live log.
+- Fixed: long changelog entries were clipped at three lines. They now wrap in full.
+- Fixed: the "Custom update command" setting was ignored in terminal update mode (the default); since 2.0.0 it only applied to background updates. It now takes effect in both modes, as it did before 2.0.0.
+
 ## 2.0.2 - 2026-08-28
 
 - Fixed: Update in terminal mode always failed on the Flatpak step, auto-declining its confirmation prompt with "n" (exit 1) even when nothing was typed. flatpak's prompt refuses to be interactive once its stdout isn't a real terminal, which is the case here since the whole run is piped into `tee` for the log; pacman/AUR prompts aren't affected by this. The Flatpak step now runs non-interactively (`-y --noninteractive`) in terminal mode too, same as background mode already did; pacman/AUR review stays fully interactive.

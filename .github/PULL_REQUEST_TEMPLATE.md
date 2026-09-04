@@ -1,7 +1,9 @@
 <!-- noctalia-pr-template:v1 -->
 <!-- ^ Keep the marker line above this comment.
 
-     A bot closes pull requests whose description loses required template structure.
+     A bot checks this description and converts an invalid ready pull request back to
+     Draft. It never closes the pull request.
+
      Draft pull requests may leave checkboxes incomplete. Before marking a pull request
      ready for review:
      - check exactly one plugin type;
@@ -56,7 +58,7 @@ pull request as Draft. An explanation does not replace a required check.
 - [ ] `README.md` follows the
       [README template](https://github.com/noctalia-dev/community-plugins/blob/main/README_TEMPLATE.md), documents
       every entry id and dependency, and includes exact panel IPC commands and launcher prefixes where applicable.
-- [ ] I created `thumbnail.webp` with the [thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-generator.html).
+- [ ] `thumbnail.webp` is present and relevant; for a new plugin I created it with the [thumbnail generator](https://assets.noctalia.dev/plugins/thumbnail-generator.html), and for an update I regenerated it with the generator if the visual identity or user-facing appearance changed.
 - [ ] `version` follows semver and is bumped in this PR; `plugin_api` is the oldest API level this plugin requires.
 - [ ] Every non-English translation in this PR uses a locale supported by Noctalia core, and I can read, write, and
       understand that language well enough to review and maintain it (no unreviewed machine/LLM translations).

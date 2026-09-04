@@ -59,11 +59,11 @@
       "label": "Gitea Login"
     },
     "group": {
-      "description": "Filter by group (GitLab) or owner (GitHub, Gitea). Leave empty to use repo.",
+      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
       "label": "Group / Owner"
     },
     "platform": {
-      "description": "Choose between GitHub, GitLab or Gitea.",
+      "description": "Choose between GitHub or GitLab.",
       "label": "Platform",
       "options": {
         "gitea": "Gitea",
@@ -76,7 +76,7 @@
       "label": "Refresh Interval (seconds)"
     },
     "repo": {
-      "description": "e.g. owner/repo (GitHub, Gitea) or project path (GitLab). Leave empty to use group/owner.",
+      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
       "label": "Repository"
     },
     "show_issues": {
@@ -95,6 +95,6 @@
   "widget": {
     "mrs": "MRs",
     "prs": "PRs",
-    "tooltip": "{issues} Issues, {prs} {label}, {reviews} to review"
+    "tooltip": "{issues} Issues, {prs} {label}"
   }
 }

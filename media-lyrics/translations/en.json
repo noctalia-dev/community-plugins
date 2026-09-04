@@ -3,13 +3,6 @@
     "no-title": "(no title)",
     "unknown-artist": "Unknown artist"
   },
-  "provider": {
-    "local": "Local",
-    "cache": "Cache"
-  },
-  "service": {
-    "lyrics-unreachable": "LRCLIB unreachable (network error)"
-  },
   "panel": {
     "loading-lyrics": "Loading lyrics…",
     "lyrics-error": "Lyrics error: ",
@@ -20,27 +13,34 @@
     "synced": "synced",
     "unsynced": "unsynced"
   },
+  "provider": {
+    "cache": "Cache",
+    "local": "Local"
+  },
+  "service": {
+    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+  },
   "settings": {
+    "local_lyrics_dir": {
+      "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB.",
+      "label": "Local lyrics folder"
+    },
     "offset_ms": {
-      "label": "Lyrics offset (ms)",
-      "description": "Shift lyric timing: positive values show lines earlier, negative later."
+      "description": "Shift lyric timing: positive values show lines earlier, negative later.",
+      "label": "Lyrics offset (ms)"
     },
     "panel_size": {
-      "label": "Panel size",
       "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
+      "label": "Panel size",
       "options": {
         "compact": "Compact (440)",
-        "medium": "Medium (520)",
-        "large": "Large (640)"
+        "large": "Large (640)",
+        "medium": "Medium (520)"
       }
     },
     "use_cache": {
-      "label": "Cache lyrics",
-      "description": "Store fetched lyrics in the plugin data directory for offline reuse."
-    },
-    "local_lyrics_dir": {
-      "label": "Local lyrics folder",
-      "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB."
+      "description": "Store fetched lyrics in the plugin data directory for offline reuse.",
+      "label": "Cache lyrics"
     }
   }
 }
