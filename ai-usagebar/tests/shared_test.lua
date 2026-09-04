@@ -137,10 +137,10 @@ assert(#shared.modelHeadlines(bottleneckEntry) == 0,
        "single-model providers should have no sub-model headlines")
 local agyModels = shared.modelHeadlines(antigravityEntry)
 assert(#agyModels == 2, "antigravity should extract both model headlines")
-assert(agyModels[1].model == "Gemini" and agyModels[1].short == "G" and agyModels[1].metric.percent == 0,
-       "gemini should resolve to its active session when not critical")
-assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].short == "C" and agyModels[2].metric.percent == 100 and agyModels[2].metric.severity == "critical",
-       "claude should resolve to its 100% critical bottleneck")
+assert(agyModels[1].model == "Gemini" and agyModels[1].glyph == "brand-google" and agyModels[1].metric.percent == 0,
+       "gemini should resolve to its active session")
+assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].glyph == "asterisk-simple" and agyModels[2].metric.percent == 0 and agyModels[2].blocked == true,
+       "claude should keep its active session and flag blocked == true")
 
 local normalAgy = {
     id = "antigravity",

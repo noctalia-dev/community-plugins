@@ -209,32 +209,15 @@ local function isCritical(metric)
     local pct = tonumber(metric.percent) or 0
     return sev == "critical" or pct >= 100
 end
+M.isCritical = isCritical
 
 function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
     local metrics = entry.metrics
     if #metrics == 0 then return nil end
 
-    -- 1. Check for critical bottleneck (locked out / 100% exhausted)
-    local criticalMetric = nil
-    local maxCritPercent = -1
-    for _, metric in ipairs(metrics) do
-        if isCritical(metric) then
-            local pct = tonumber(metric.percent) or 0
-            if pct > maxCritPercent then
-                criticalMetric = metric
-                maxCritPercent = pct
-            end
-        end
-    end
-    if criticalMetric ~= nil then
-        return criticalMetric
-    end
-
-    -- 2. No critical bottleneck: follow active session window
+    -- 1. For Antigravity: always follow active session usage across models
     if M.baseProvider(entry.id) == "antigravity" then
-        -- The first occurrence of each model label is its active session metric.
-        -- Show highest active session usage among models.
         local seen = {}
         local best = nil
         local bestPct = -1
@@ -254,7 +237,23 @@ function M.headline(entry)
         if best ~= nil then return best end
     end
 
-    -- Standard single-model providers: metrics[1] is the primary session window
+    -- 2. Single-model providers: check for critical bottleneck (100% exhausted)
+    local criticalMetric = nil
+    local maxCritPercent = -1
+    for _, metric in ipairs(metrics) do
+        if isCritical(metric) then
+            local pct = tonumber(metric.percent) or 0
+            if pct > maxCritPercent then
+                criticalMetric = metric
+                maxCritPercent = pct
+            end
+        end
+    end
+    if criticalMetric ~= nil then
+        return criticalMetric
+    end
+
+    -- 3. Standard single-model providers: metrics[1] is the primary session window
     for _, metric in ipairs(metrics) do
         if type(metric) == "table" then return metric end
     end
@@ -267,6 +266,14 @@ local function modelShortName(label)
     if lower:find("claude", 1, true) then return "C" end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "O" end
     return (tostring(label or ""):match("%a") or "?"):upper()
+end
+
+function M.modelGlyph(label)
+    local lower = tostring(label or ""):lower()
+    if lower:find("gemini", 1, true) then return "brand-google" end
+    if lower:find("claude", 1, true) then return "asterisk-simple" end
+    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "brand-openai" end
+    return "sparkles"
 end
 
 function M.modelHeadlines(entry)
@@ -291,21 +298,21 @@ function M.modelHeadlines(entry)
     local result = {}
     for _, model in ipairs(order) do
         local modelMetrics = byModel[model]
-        local chosen = nil
+        local sessionMetric = modelMetrics[1]
+        local blocked = false
         for _, metric in ipairs(modelMetrics) do
             if isCritical(metric) then
-                chosen = metric
+                blocked = true
                 break
             end
         end
-        if chosen == nil then
-            chosen = modelMetrics[1]
-        end
-        if chosen ~= nil then
+        if sessionMetric ~= nil then
             result[#result + 1] = {
                 model = model,
                 short = modelShortName(model),
-                metric = chosen,
+                glyph = M.modelGlyph(model),
+                metric = sessionMetric,
+                blocked = blocked,
             }
         end
     end

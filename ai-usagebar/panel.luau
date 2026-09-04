@@ -10,7 +10,7 @@ local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
-local modelHeadlines = shared.modelHeadlines
+local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
@@ -111,7 +111,7 @@ local function metricRows(section, title, muted)
     -- Fixed width, so a column of cards ends on one right edge.
     header[#header + 1] = ui.label({
         text = string.format("%d%%", percent),
-        fontSize = 15,
+        fontSize = 17,
         fontWeight = "bold",
         color = tint,
         width = 46,
@@ -120,7 +120,7 @@ local function metricRows(section, title, muted)
 
     local body = {
         ui.row({ gap = 6, align = "center" }, header),
-        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.10", radius = 3, height = 6 }),
+        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.10", radius = 3, height = 7 }),
     }
 
     local elapsed = elapsedPercent(section.detail)
@@ -178,7 +178,7 @@ local function metricRows(section, title, muted)
     return body
 end
 
-local CARD = { gap = 6, padding = 10, radius = 12, fill = "surface_variant/0.35",
+local CARD = { gap = 8, padding = 12, radius = 14, fill = "surface_variant/0.40",
                border = "outline/0.08", borderWidth = 1 }
 
 -- A provider's readings share one card, so the session and the week are read
@@ -224,7 +224,7 @@ local function blockCard(section)
             maxLines = 1,
         })
     end
-    return ui.column({ gap = 4, padding = 10, radius = 12, fill = "surface_variant/0.35",
+    return ui.column({ gap = 4, padding = 12, radius = 14, fill = "surface_variant/0.40",
                        border = "outline/0.08", borderWidth = 1 }, body)
 end
 
@@ -234,8 +234,8 @@ end
 local function noteCard(text)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
-    return ui.row({ gap = 8, align = "start", padding = 10, radius = 12,
-                    fill = "surface_variant/0.35", border = "outline/0.08", borderWidth = 1 }, {
+    return ui.row({ gap = 8, align = "start", padding = 12, radius = 14,
+                    fill = "secondary/0.08", border = "outline/0.08", borderWidth = 1 }, {
         ui.glyph({ name = "alert-triangle", size = 14, color = "secondary" }),
         ui.label({ text = clean, fontSize = 11, color = "on_surface_variant",
                    flexGrow = 1, maxLines = 3 }),
@@ -307,7 +307,7 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
-    return ui.column({ gap = 4, padding = 10, radius = 12, fill = "surface_variant/0.35",
+    return ui.column({ gap = 4, padding = 12, radius = 14, fill = "surface_variant/0.40",
                        border = "outline/0.08", borderWidth = 1 }, body)
 end
 
@@ -368,14 +368,14 @@ local function providerRow(entry, selected)
     elseif #submodels > 1 then
         local colChildren = {}
         for _, item in ipairs(submodels) do
-            local mTint = severityRole(item.metric, "on_surface")
+            local mTint = (item.blocked or isCritical(item.metric)) and "error"
+                or severityRole(item.metric, "on_surface")
             local mPct = tonumber(item.metric.percent) or 0
-            colChildren[#colChildren + 1] = ui.row({ gap = 3, align = "center", justify = "end" }, {
-                ui.label({
-                    text = item.short,
-                    fontSize = 10,
-                    color = "on_surface_variant",
-                    maxLines = 1,
+            colChildren[#colChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, {
+                ui.glyph({
+                    name = item.glyph or "sparkles",
+                    size = 11,
+                    color = mTint,
                 }),
                 ui.label({
                     text = string.format("%d%%", mPct),
@@ -424,7 +424,7 @@ local function providerRow(entry, selected)
             progress = ratio(percent),
             fill = severityRole(metric, "primary"),
             track = "on_surface/0.12",
-            radius = 2, height = 3,
+            radius = 2, height = 4,
         })
     end
     lines[#lines + 1] = ui.label({
@@ -446,7 +446,7 @@ local function providerRow(entry, selected)
             render()
         end,
     }, {
-        ui.glyph({ name = providerGlyph(entry.id), size = 16,
+        ui.glyph({ name = providerGlyph(entry.id), size = selected and 18 or 16,
                    color = selected and "primary" or "on_surface" }),
         ui.column({ gap = 3, flexGrow = 1 }, lines),
         right,
@@ -460,7 +460,7 @@ local function errorBlock()
     local key = "ui.error." .. failure.code
     local children = {
         ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
+            ui.glyph({ name = "alert-circle", size = 18, color = "error" }),
             ui.label({ text = noctalia.tr(key), fontSize = 12, fontWeight = "bold", color = "error" }),
         }),
         ui.label({ text = noctalia.tr(key .. "_hint"), fontSize = 11, color = "on_surface_variant" }),
@@ -496,7 +496,8 @@ local function errorBlock()
     end
     children[#children + 1] = ui.row({ gap = 6, align = "center" }, actions)
 
-    return ui.column({ gap = 8 }, children)
+    return ui.column({ gap = 8, padding = 12, radius = 14,
+                       fill = "error/0.06", border = "error/0.12", borderWidth = 1 }, children)
 end
 
 local function listPane(entry)
@@ -506,7 +507,7 @@ local function listPane(entry)
         rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
       end
     end
-    return ui.column({ gap = 10, padding = 14, width = 250 }, {
+    return ui.column({ gap = 10, padding = 14, width = 260 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
             -- The accent belongs to the selection and the bars; a title taking
@@ -550,15 +551,22 @@ local function detailPane(entry)
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
-        -- Wrapped in a row so the title block is as tall as its two labels: a
-        -- bare column claims the pane's free space and parks the title above it.
-        children[#children + 1] = ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = providerGlyph(entry.id), size = 18, color = "on_surface" }),
-            ui.column({ gap = 0, flexGrow = 1 }, {
-                ui.label({ text = title, fontSize = 15, fontWeight = "bold",
-                           color = "on_surface", maxLines = 1 }),
-                ui.label({ text = subtitle, fontSize = 11, color = "on_surface_variant",
-                           maxLines = 1, visible = subtitle ~= "" }),
+        local planBadge = subtitle ~= "" and ui.row({
+            gap = 4, align = "center", padding = 4, radius = 6,
+            fill = "surface_variant/0.45", border = "outline/0.08", borderWidth = 1,
+        }, {
+            ui.label({ text = subtitle, fontSize = 10, fontWeight = "medium",
+                       color = "on_surface_variant", maxLines = 1 }),
+        }) or nil
+
+        children[#children + 1] = ui.row({ gap = 10, align = "center" }, {
+            ui.glyph({ name = providerGlyph(entry.id), size = 22, color = "on_surface" }),
+            ui.column({ gap = 2, flexGrow = 1 }, {
+                ui.row({ gap = 8, align = "center" }, {
+                    ui.label({ text = title, fontSize = 16, fontWeight = "bold",
+                               color = "on_surface", maxLines = 1 }),
+                    planBadge,
+                }),
             }),
         })
     end

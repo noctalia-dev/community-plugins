@@ -90,6 +90,15 @@ local function containsText(node, wanted)
     return false
 end
 
+local function containsGlyph(node, wanted)
+    if type(node) ~= "table" then return false end
+    if type(node.props) == "table" and node.props.name == wanted then return true end
+    for _, child in ipairs(node.children or {}) do
+        if containsGlyph(child, wanted) then return true end
+    end
+    return false
+end
+
 local namedReport = {
     primary = "openai",
     entries = {
@@ -300,7 +309,9 @@ local agyBar = loadBar({
         },
     },
 })
-assert(containsText(agyBar.rendered(), "100%"), "capsule should show 100% bottleneck")
+assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
+assert(containsGlyph(agyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
+assert(containsText(agyBar.rendered(), "0%"), "capsule should show active session 0%")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -320,7 +331,10 @@ local normalAgyBar = loadBar({
         },
     },
 })
+assert(containsGlyph(normalAgyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
+assert(containsGlyph(normalAgyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
+assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")

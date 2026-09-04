@@ -178,7 +178,7 @@ end
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_variant/0.35" and #collect(column, "progress") > 0 then
+        if column.props.fill == "surface_variant/0.40" and #collect(column, "progress") > 0 then
             out[#out + 1] = column
         end
     end
@@ -389,9 +389,14 @@ local agyPanelEntry = {
     },
 }
 local agyPanelTree = loadPanel(agyPanelEntry)
-assert(has(labels(agyPanelTree), "G"), "panel sidebar should display G")
-assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0% for Gemini")
-assert(has(labels(agyPanelTree), "C"), "panel sidebar should display C")
-assert(has(labels(agyPanelTree), "100%"), "panel sidebar should display 100%")
+local function hasGlyph(node, name)
+    for _, g in ipairs(collect(node, "glyph")) do
+        if g.props.name == name then return true end
+    end
+    return false
+end
+assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gemini brand glyph")
+assert(hasGlyph(agyPanelTree, "asterisk-simple"), "panel sidebar should display Claude brand glyph")
+assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
 
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

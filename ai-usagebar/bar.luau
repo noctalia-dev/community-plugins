@@ -22,6 +22,7 @@ local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
+local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 local unavailable, warning = shared.unavailable, shared.warning
@@ -131,11 +132,11 @@ end
 local function bars(percent, elapsed, tint, width)
     local stack = {
         ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.12",
-                      radius = 2, width = width, height = 4 }),
+                      radius = 3, width = width, height = 5 }),
     }
     if elapsed ~= nil then
         stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
-                                          track = "on_surface/0.10", radius = 1, width = width, height = 2 })
+                                          track = "on_surface/0.10", radius = 2, width = width, height = 3 })
     end
     return ui.column({ gap = 1, align = "center" }, stack)
 end
@@ -151,16 +152,46 @@ local function chip(entry, flagged)
     -- colours rather than appends: a glyph that exists only while the read fails
     -- would shove the neighbouring widget once per cycle. The tooltip still
     -- spells the failure out.
-    local glyph = showGlyph
-        and ui.glyph({ name = providerGlyph(entry.id), size = 13,
+    local submodels = modelHeadlines(entry)
+    local hasSubmodels = #submodels > 1
+
+    local glyph = (showGlyph and not hasSubmodels)
+        and ui.glyph({ name = providerGlyph(entry.id), size = 14,
                        color = flagged and "error" or "on_surface" }) or nil
-    local pct = showValue and ui.label({
-        text = text,
-        fontSize = 11,
-        fontWeight = "semibold",
-        color = tint,
-        maxLines = 1,
-    }) or nil
+    local pct = nil
+    if showValue then
+        if hasSubmodels then
+            local parts = {}
+            for _, item in ipairs(submodels) do
+                local mTint = (item.blocked or isCritical(item.metric)) and "error"
+                    or severityRole(item.metric, "on_surface")
+                local mPct = tonumber(item.metric.percent) or 0
+                parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, {
+                    ui.glyph({
+                        name = item.glyph or providerGlyph(entry.id),
+                        size = 12,
+                        color = mTint,
+                    }),
+                    ui.label({
+                        text = string.format("%d%%", mPct),
+                        fontSize = 11,
+                        fontWeight = "semibold",
+                        color = mTint,
+                        maxLines = 1,
+                    }),
+                })
+            end
+            pct = ui.row({ gap = 6, align = "center" }, parts)
+        else
+            pct = ui.label({
+                text = text,
+                fontSize = 11,
+                fontWeight = "semibold",
+                color = tint,
+                maxLines = 1,
+            })
+        end
+    end
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 
@@ -170,12 +201,12 @@ local function chip(entry, flagged)
     if not glyphAfter then add(glyph) end
     add(name)
     if percent ~= nil and visualization == "gauge" then
-        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 26))
+        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 30))
     end
     add(pct)
     if glyphAfter then add(glyph) end
 
-    if (extras == "countdown" or extras == "both") and baseProvider(entry.id) ~= "antigravity" then
+    if (extras == "countdown" or extras == "both") and not hasSubmodels then
         local left = countdown(metric)
         if left ~= "" then
             add(ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 }))
@@ -196,7 +227,7 @@ local function chip(entry, flagged)
     if entry.stale == true then
         add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
     end
-    return ui.row({ gap = 4, align = "center" }, nodes)
+    return ui.row({ gap = 5, align = "center" }, nodes)
 end
 
 local function tooltip(picked, hidden)
@@ -279,7 +310,7 @@ local function render()
         -- One glyph, coloured by the state. A second icon beside it would read as
         -- a second problem.
         children[1] = ui.glyph({
-            name = "brain", size = 13,
+            name = "brain", size = 14,
             color = failure.code ~= "" and "error" or "on_surface_variant",
         })
     elseif hidden > 0 then
@@ -287,7 +318,7 @@ local function render()
                                              color = "on_surface_variant", maxLines = 1 })
     end
 
-    barWidget.render(ui.row({ gap = 6, align = "center" }, children))
+    barWidget.render(ui.row({ gap = 7, align = "center" }, children))
     barWidget.setTooltip(tooltip(picked, hidden))
 end
 
