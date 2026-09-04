@@ -9,7 +9,7 @@ local PAGE_LIMIT = 50
 local COVER_DIR = "covers"
 local BADGE_BASELINES_FILE = "badge-baselines.json"
 local CACHE_FILE = "cache.json"
-local CACHE_VERSION = 1
+local CACHE_VERSION = 2
 local MAX_CONCURRENT_COVERS = 2
 local MIN_IDLE_MS = 30000
 
@@ -43,10 +43,22 @@ local coversInFlight = {} -- subjectId -> true
 local coverQueue = {}     -- rows waiting for a download slot
 local activeCoverDownloads = 0
 local lastAutoRefreshAt = 0
+local sessionGeneration = 0
 local persistCache
 
 local function trim(value)
   return noctalia.string.trim(tostring(value or ""))
+end
+
+local function tokenFingerprint(token)
+  -- DJB2 uses 5381 as the seed and 33 as the multiplier; 2^32 keeps
+  -- the accumulator in the 32-bit range. This is not cryptographic.
+  local hash = 5381
+  for index = 1, #token do
+    local byte = string.byte(token, index)
+    hash = (hash * 33 + byte) % 4294967296
+  end
+  return tostring(#token) .. ":" .. string.format("%08x", hash)
 end
 
 local function shellQuote(value)
@@ -167,6 +179,7 @@ end
 -- or cb({error = "unauthorized" | "network" | "http_<status>" | "parse"}).
 local function fetchCollectionType(collectionType, cb)
   local key = tostring(collectionType)
+  local generation = sessionGeneration
   if fetchInFlight[key] then
     return
   end
@@ -181,6 +194,9 @@ local function fetchCollectionType(collectionType, cb)
       .. "&limit=" .. PAGE_LIMIT
       .. "&offset=" .. offset
     apiGet(collectionsPath(), query, function(ok, status, body)
+      if generation ~= sessionGeneration then
+        return
+      end
       if not ok then
         fetchInFlight[key] = nil
         cb({ error = "network" })
@@ -256,6 +272,7 @@ local function processCoverQueue()
       end
       local path = dir .. "/" .. tostring(row.subjectId) .. "." .. ext
       coversInFlight[row.subjectId] = true
+      local generation = sessionGeneration
       if noctalia.fileExists(path) then
         row.coverPath = path
         coversInFlight[row.subjectId] = nil
@@ -263,6 +280,9 @@ local function processCoverQueue()
         cachedCoversChanged = true
       else
         local accepted = noctalia.download(row.coverUrl, path, function(downloadOk)
+          if generation ~= sessionGeneration then
+            return
+          end
           activeCoverDownloads -= 1
           coversInFlight[row.subjectId] = nil
           if downloadOk then
@@ -300,11 +320,15 @@ end
 local meCache = { result = nil, fetchedAt = 0 }
 
 local function fetchMe(cb)
+  local generation = sessionGeneration
   if meCache.result and (os.time() - meCache.fetchedAt) * 1000 < refreshMs then
     cb(meCache.result)
     return
   end
   apiGet("/v0/me", "", function(ok, status, body)
+    if generation ~= sessionGeneration then
+      return
+    end
     if not ok then
       cb({ error = "network" })
       return
@@ -344,6 +368,7 @@ local function loadWatching(silent, cb)
     return
   end
   snapshot.loading = true
+  local generation = sessionGeneration
   snapshot.error = ""
   if not silent then
     snapshot.refreshing = true
@@ -351,6 +376,9 @@ local function loadWatching(silent, cb)
   publishSnapshot()
 
   local function finish(collection, result)
+    if generation ~= sessionGeneration then
+      return
+    end
     snapshot.loading = false
     snapshot.refreshing = false
     if result.error then
@@ -375,6 +403,9 @@ local function loadWatching(silent, cb)
 
   if accessToken ~= "" then
     fetchMe(function(meResult)
+      if generation ~= sessionGeneration then
+        return
+      end
       if meResult.error then
         snapshot.loading = false
         snapshot.refreshing = false
@@ -392,6 +423,9 @@ local function loadWatching(silent, cb)
       end
       publishSnapshot()
       fetchCollectionType(TYPE_WATCHING, function(result)
+        if generation ~= sessionGeneration then
+          return
+        end
         finish(collectionOf(TYPE_WATCHING), result)
       end)
     end)
@@ -400,6 +434,9 @@ local function loadWatching(silent, cb)
     snapshot.authMode = "public"
     publishSnapshot()
     fetchCollectionType(TYPE_WATCHING, function(result)
+      if generation ~= sessionGeneration then
+        return
+      end
       finish(collectionOf(TYPE_WATCHING), result)
     end)
   end
@@ -421,8 +458,12 @@ local function loadType(collectionType, cb)
     return
   end
   snapshot.loading = true
+  local generation = sessionGeneration
   publishSnapshot()
   fetchCollectionType(collectionType, function(result)
+    if generation ~= sessionGeneration then
+      return
+    end
     snapshot.loading = false
     if result.error then
       setError(result.error)
@@ -507,6 +548,7 @@ local function todayString()
 end
 
 local function fetchEpisodes(subjectId, cb, force)
+  local generation = sessionGeneration
   if not force and episodeCache[subjectId] then
     cb(episodeCache[subjectId])
     return
@@ -519,6 +561,9 @@ local function fetchEpisodes(subjectId, cb, force)
   local function nextPage()
     local query = "subject_id=" .. tostring(subjectId) .. "&type=0&limit=" .. PAGE_LIMIT .. "&offset=" .. offset
     apiGet("/v0/episodes", query, function(ok, status, body)
+      if generation ~= sessionGeneration then
+        return
+      end
       if not ok or status ~= 200 then
         cb(nil)
         return
@@ -576,7 +621,34 @@ local UNWATCHED_MAX_CONCURRENT = 2
 local airedEpBySubject = {}    -- subjectId -> airedEp, retained across refreshes
 local badgeBaselines = {}      -- subjectId -> unwatched count at the last progress action
 
-local function loadBadgeBaselines()
+local function clearAccountState()
+  sessionGeneration += 1
+  fetchInFlight = {}
+  coversInFlight = {}
+  coverQueue = {}
+  activeCoverDownloads = 0
+  snapshot.loading = false
+  snapshot.refreshing = false
+  snapshot.busy = false
+  snapshot.viewer = nil
+  snapshot.unwatched = nil
+  meCache = { result = nil, fetchedAt = 0 }
+  episodeCache = {}
+  airedEpBySubject = {}
+  badgeBaselines = {}
+  unwatchedQueue = {}
+  unwatchedQueued = {}
+  unwatchedInFlight = {}
+  activeUnwatchedFetches = 0
+  for _, collection in ipairs(snapshot.collections) do
+    collection.loaded = false
+    collection.total = 0
+    collection.rows = {}
+    collection.fetchedAt = nil
+  end
+end
+
+local function loadBadgeBaselines(mode)
   local dir = noctalia.pluginDataDir()
   if not dir then
     return
@@ -589,7 +661,19 @@ local function loadBadgeBaselines()
   if not ok or type(parsed) ~= "table" then
     return
   end
-  for subjectId, value in pairs(parsed) do
+  if parsed.authMode ~= mode then
+    return
+  end
+  if mode == "token" and parsed.tokenFingerprint ~= tokenFingerprint(accessToken) then
+    return
+  end
+  if mode == "public" and tostring(parsed.username or "") ~= username then
+    return
+  end
+  if type(parsed.values) ~= "table" then
+    return
+  end
+  for subjectId, value in pairs(parsed.values) do
     local id = tonumber(subjectId)
     local baseline = tonumber(value)
     if id and baseline then
@@ -607,7 +691,12 @@ local function saveBadgeBaselines()
   for subjectId, baseline in pairs(badgeBaselines) do
     encoded[tostring(subjectId)] = baseline
   end
-  noctalia.writeFile(dir .. "/" .. BADGE_BASELINES_FILE, noctalia.json.encode(encoded))
+  noctalia.writeFile(dir .. "/" .. BADGE_BASELINES_FILE, noctalia.json.encode({
+    authMode = snapshot.authMode,
+    username = username,
+    tokenFingerprint = accessToken ~= "" and tokenFingerprint(accessToken) or nil,
+    values = encoded,
+  }))
 end
 
 local function acknowledgeRow(row)
@@ -640,6 +729,7 @@ persistCache = function()
     version = CACHE_VERSION,
     savedAt = os.time(),
     authMode = snapshot.authMode,
+    tokenFingerprint = accessToken ~= "" and tokenFingerprint(accessToken) or nil,
     viewer = snapshot.viewer,
     meCache = meCache,
     collections = snapshot.collections,
@@ -662,6 +752,9 @@ local function loadPersistentCache(mode, configuredUsername)
     return false
   end
   if parsed.authMode ~= mode then
+    return false
+  end
+  if mode == "token" and parsed.tokenFingerprint ~= tokenFingerprint(accessToken) then
     return false
   end
   local cachedViewer = type(parsed.viewer) == "table" and parsed.viewer or nil
@@ -806,6 +899,7 @@ local function patchEpisodes(subjectId, episodeIds, epType, cb)
     return
   end
   snapshot.busy = true
+  local generation = sessionGeneration
   publishSnapshot()
   local url = API_BASE .. "/v0/users/-/collections/" .. tostring(subjectId) .. "/episodes"
   local body = noctalia.json.encode({ episode_id = episodeIds, type = epType })
@@ -815,6 +909,9 @@ local function patchEpisodes(subjectId, episodeIds, epType, cb)
     headers = defaultHeaders({ "Content-Type: application/json" }),
     body = body,
   }, function(resp)
+    if generation ~= sessionGeneration then
+      return
+    end
     snapshot.busy = false
     local ok = resp.ok == true
     local status = resp.status or 0
@@ -859,7 +956,11 @@ local function updateAnimeProgress(subjectId, delta)
   if not row then
     return
   end
+  local generation = sessionGeneration
   fetchEpisodes(subjectId, function(cache)
+    if generation ~= sessionGeneration then
+      return
+    end
     if not cache then
       failWrite("episodes_unavailable")
       return
@@ -872,6 +973,9 @@ local function updateAnimeProgress(subjectId, delta)
         return
       end
       patchEpisodes(subjectId, { eid }, 2, function(result)
+        if generation ~= sessionGeneration then
+          return
+        end
         if result.ok then
           row.epStatus = nextEp
           row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -890,6 +994,9 @@ local function updateAnimeProgress(subjectId, delta)
         return
       end
       patchEpisodes(subjectId, { eid }, 0, function(result)
+        if generation ~= sessionGeneration then
+          return
+        end
         if result.ok then
           row.epStatus = curEp - 1
           row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -912,7 +1019,11 @@ local function markDone(subjectId)
   if row.epStatus >= (row.eps or 0) then
     return
   end
+  local generation = sessionGeneration
   fetchEpisodes(subjectId, function(cache)
+    if generation ~= sessionGeneration then
+      return
+    end
     if not cache then
       failWrite("episodes_unavailable")
       return
@@ -933,6 +1044,9 @@ local function markDone(subjectId)
       return
     end
     patchEpisodes(subjectId, ids, 2, function(result)
+      if generation ~= sessionGeneration then
+        return
+      end
       if result.ok then
         row.epStatus = math.max(row.epStatus, cache.maxEp)
         row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -1007,28 +1121,27 @@ function onIpc(event, _payload)
   if event == "refresh" then
     refreshAll(true)
   elseif event == "logout" then
-    snapshot.viewer = nil
+    clearAccountState()
     snapshot.authMode = "none"
-    snapshot.unwatched = nil
-    meCache = { result = nil, fetchedAt = 0 }
-    unwatchedQueue = {}
-    unwatchedQueued = {}
-    unwatchedInFlight = {}
-    activeUnwatchedFetches = 0
-    airedEpBySubject = {}
-    for _, c in ipairs(snapshot.collections) do
-      c.loaded = false
-      c.total = 0
-      c.rows = {}
-    end
     publishSnapshot()
   end
 end
 
 function init()
-  loadBadgeBaselines()
+  local previousMode = snapshot.authMode
+  local previousToken = accessToken
+  local previousUsername = username
   local mode = resolveAuth()
   refreshMs = math.max(MIN_IDLE_MS, (tonumber(noctalia.getConfig("refresh_minutes")) or 30) * 60000)
+  local credentialsChanged = previousMode ~= "none" and (
+    mode ~= previousMode
+      or (mode == "token" and previousToken ~= accessToken)
+      or (mode == "public" and previousUsername ~= username)
+  )
+  if credentialsChanged then
+    clearAccountState()
+  end
+  loadBadgeBaselines(mode)
   if mode == "none" then
     snapshot.viewer = nil
     snapshot.authMode = "none"
