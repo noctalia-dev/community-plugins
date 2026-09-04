@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2
+
+- Filter duplicate Musixmatch subtitle entries at the same timestamp so
+  repeated API entries do not flash several unrelated lyric lines during
+  playback.
+
 ## 1.5.1
 
 - Fix the service exceeding Noctalia's async callback CPU budget when playback
