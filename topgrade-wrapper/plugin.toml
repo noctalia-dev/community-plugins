@@ -8,14 +8,21 @@
 # number on the bar and the list a panel row expands into are the same answer.
 # The upgrade itself is never run in the background: it opens a terminal window,
 # so package managers can prompt and sudo can ask for the password on the tty.
+# The header's ▶ button skips the check entirely and runs topgrade straight away.
 
 id = "nightwatch75/topgrade-wrapper"
 name = "Topgrade Wrapper"
-version = "0.0.6"
-plugin_api = 15
+version = "0.1.0"
+# 24 for direct argv process execution: the dry-run check that produces the
+# count execs topgrade itself, so no shell parses the configured config path.
+# 22 for relative luau imports (shared.luau), 20 for the notification sound.
+plugin_api = 24
 author = "nightwatch75"
 license = "MIT"
-dependencies = ["topgrade"]
+# `env` runs topgrade under LC_ALL=C for the dry-run check: with no shell in
+# the picture it is the only way left to fix the locale, and the parser
+# matches topgrade's own English step headings.
+dependencies = ["topgrade", "env"]
 tags = ["bar", "panel", "service", "system", "utility"]
 icon = "package"
 description = "Check how many packages topgrade would upgrade, then run the upgrade in a terminal window."
@@ -69,6 +76,13 @@ label_key = "settings.notify_on_updates.label"
 description_key = "settings.notify_on_updates.description"
 default = true
 
+[[setting]]
+key = "sound_on_updates"
+type = "bool"
+label_key = "settings.sound_on_updates.label"
+description_key = "settings.sound_on_updates.description"
+default = false
+
 # Off makes an expanded manager a plain list of names. The hover line under the
 # list still spells out the versions of whatever row the pointer is on, so this
 # only decides how much each row carries at rest.
@@ -119,13 +133,20 @@ entry = "service.luau"
 id = "panel"
 entry = "panel.luau"
 width = 400
-height = 500
+height = 640
 placement = "attached"
 open_near_click = true
 
 [[widget]]
 id = "topgrade-wrapper"
 entry = "topgrade-wrapper.luau"
+
+  # Both gestures are declared here rather than hard-coded in onClick/
+  # onRightClick, so the user can remap them from the bar's own gesture
+  # settings. "right" is the exact IPC line service.luau's onIpc documents.
+  [widget.actions]
+  left = "panel-toggle nightwatch75/topgrade-wrapper:panel"
+  right = "plugin nightwatch75/topgrade-wrapper:service all check"
 
   [[widget.setting]]
   key = "glyph"
