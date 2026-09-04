@@ -5,7 +5,7 @@
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local account = noctalia.string.trim(tostring(noctalia.getConfig("account") or ""))
-local extras = tostring(noctalia.getConfig("extras") or "countdown")
+local extras = tostring(noctalia.getConfig("extras") or "none")
 -- Named after the core `sysmon` widget's own keys, so a reading in this capsule
 -- is configured the same way as the CPU one beside it.
 local visualization = tostring(noctalia.getConfig("visualization") or "none")
@@ -22,7 +22,6 @@ local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
-local modelHeadlines = shared.modelHeadlines
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 local unavailable, warning = shared.unavailable, shared.warning
@@ -155,39 +154,13 @@ local function chip(entry, flagged)
     local glyph = showGlyph
         and ui.glyph({ name = providerGlyph(entry.id), size = 13,
                        color = flagged and "error" or "on_surface" }) or nil
-    local submodels = modelHeadlines(entry)
-    local pct = nil
-    if showValue then
-        if #submodels > 1 then
-            local parts = {}
-            for idx, item in ipairs(submodels) do
-                if idx > 1 then
-                    parts[#parts + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant", maxLines = 1 })
-                end
-                local mTint = severityRole(item.metric, "on_surface")
-                local mPct = tonumber(item.metric.percent) or 0
-                parts[#parts + 1] = ui.row({ gap = 2, align = "center" }, {
-                    ui.label({
-                        text = item.short,
-                        fontSize = 10,
-                        color = "on_surface_variant",
-                        maxLines = 1,
-                    }),
-                    ui.label({
-                        text = string.format("%d%%", mPct),
-                        fontSize = 11,
-                        fontWeight = "semibold",
-                        color = mTint,
-                        maxLines = 1,
-                    }),
-                })
-            end
-            pct = ui.row({ gap = 4, align = "center" }, parts)
-        else
-            pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
-                            color = tint, maxLines = 1, width = 30, textAlign = "end" })
-        end
-    end
+    local pct = showValue and ui.label({
+        text = text,
+        fontSize = 11,
+        fontWeight = "semibold",
+        color = tint,
+        maxLines = 1,
+    }) or nil
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 
@@ -202,7 +175,7 @@ local function chip(entry, flagged)
     add(pct)
     if glyphAfter then add(glyph) end
 
-    if extras == "countdown" or extras == "both" then
+    if (extras == "countdown" or extras == "both") and baseProvider(entry.id) ~= "antigravity" then
         local left = countdown(metric)
         if left ~= "" then
             add(ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 }))

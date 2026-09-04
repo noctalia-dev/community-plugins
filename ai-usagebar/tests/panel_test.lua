@@ -390,7 +390,7 @@ local agyPanelEntry = {
 }
 local agyPanelTree = loadPanel(agyPanelEntry)
 assert(has(labels(agyPanelTree), "G"), "panel sidebar should display G")
-assert(has(labels(agyPanelTree), "24%"), "panel sidebar should display 24%")
+assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0% for Gemini")
 assert(has(labels(agyPanelTree), "C"), "panel sidebar should display C")
 assert(has(labels(agyPanelTree), "100%"), "panel sidebar should display 100%")
 

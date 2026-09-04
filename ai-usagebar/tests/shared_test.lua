@@ -101,7 +101,7 @@ assert(headlineMetric ~= nil and headlineMetric.label == "Codex weekly" and head
        "headline should select the bottleneck/highest severity metric across windows")
 
 local tieSeverityEntry = {
-    id = "antigravity",
+    id = "openai",
     status = "ready",
     stale = false,
     metrics = {
@@ -111,8 +111,8 @@ local tieSeverityEntry = {
     sections = {},
 }
 local tieMetric = shared.headline(tieSeverityEntry)
-assert(tieMetric ~= nil and tieMetric.label == "Weekly" and tieMetric.percent == 45,
-       "headline should pick highest percentage when severity is equal")
+assert(tieMetric ~= nil and tieMetric.label == "Session" and tieMetric.percent == 15,
+       "headline should prioritize active session when broader windows are not critical")
 
 local reordered = shared.entries({ entries = {
     usageEntry("antigravity", 50),
@@ -137,9 +137,25 @@ assert(#shared.modelHeadlines(bottleneckEntry) == 0,
        "single-model providers should have no sub-model headlines")
 local agyModels = shared.modelHeadlines(antigravityEntry)
 assert(#agyModels == 2, "antigravity should extract both model headlines")
-assert(agyModels[1].model == "Gemini" and agyModels[1].short == "G" and agyModels[1].metric.percent == 24,
-       "gemini should resolve to its 24% weekly bottleneck")
+assert(agyModels[1].model == "Gemini" and agyModels[1].short == "G" and agyModels[1].metric.percent == 0,
+       "gemini should resolve to its active session when not critical")
 assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].short == "C" and agyModels[2].metric.percent == 100 and agyModels[2].metric.severity == "critical",
        "claude should resolve to its 100% critical bottleneck")
+
+local normalAgy = {
+    id = "antigravity",
+    status = "ready",
+    stale = false,
+    metrics = {
+        { label = "Gemini", percent = 11, severity = "low" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low" },
+        { label = "Gemini", percent = 43, severity = "low" },
+        { label = "Claude & GPT OSS", percent = 78, severity = "high" },
+    },
+    sections = {},
+}
+local normalHeadline = shared.headline(normalAgy)
+assert(normalHeadline ~= nil and normalHeadline.percent == 11,
+       "antigravity headline should pick highest active session (11%) when no metric is critical")
 
 io.write("ok: shared timestamps, availability, and provider order\n")

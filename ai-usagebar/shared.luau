@@ -203,22 +203,62 @@ end
 -- anything the CLI adds later.
 M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
 
+local function isCritical(metric)
+    if type(metric) ~= "table" then return false end
+    local sev = tostring(metric.severity or "")
+    local pct = tonumber(metric.percent) or 0
+    return sev == "critical" or pct >= 100
+end
+
 function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    local best = nil
-    local bestRank, bestPercent = -1, -1
-    for _, metric in ipairs(entry.metrics) do
-        if type(metric) == "table" then
-            local rank = M.SEVERITY_RANK[tostring(metric.severity or "")] or 0
-            local percent = tonumber(metric.percent) or 0
-            if rank > bestRank or (rank == bestRank and percent > bestPercent) then
-                best = metric
-                bestRank = rank
-                bestPercent = percent
+    local metrics = entry.metrics
+    if #metrics == 0 then return nil end
+
+    -- 1. Check for critical bottleneck (locked out / 100% exhausted)
+    local criticalMetric = nil
+    local maxCritPercent = -1
+    for _, metric in ipairs(metrics) do
+        if isCritical(metric) then
+            local pct = tonumber(metric.percent) or 0
+            if pct > maxCritPercent then
+                criticalMetric = metric
+                maxCritPercent = pct
             end
         end
     end
-    return best
+    if criticalMetric ~= nil then
+        return criticalMetric
+    end
+
+    -- 2. No critical bottleneck: follow active session window
+    if M.baseProvider(entry.id) == "antigravity" then
+        -- The first occurrence of each model label is its active session metric.
+        -- Show highest active session usage among models.
+        local seen = {}
+        local best = nil
+        local bestPct = -1
+        for _, metric in ipairs(metrics) do
+            if type(metric) == "table" and metric.label ~= nil and metric.label ~= "" then
+                local model = tostring(metric.label)
+                if not seen[model] then
+                    seen[model] = true
+                    local pct = tonumber(metric.percent) or 0
+                    if pct > bestPct then
+                        best = metric
+                        bestPct = pct
+                    end
+                end
+            end
+        end
+        if best ~= nil then return best end
+    end
+
+    -- Standard single-model providers: metrics[1] is the primary session window
+    for _, metric in ipairs(metrics) do
+        if type(metric) == "table" then return metric end
+    end
+    return nil
 end
 
 local function modelShortName(label)
@@ -250,22 +290,22 @@ function M.modelHeadlines(entry)
 
     local result = {}
     for _, model in ipairs(order) do
-        local best = nil
-        local bestRank, bestPercent = -1, -1
-        for _, metric in ipairs(byModel[model]) do
-            local rank = M.SEVERITY_RANK[tostring(metric.severity or "")] or 0
-            local percent = tonumber(metric.percent) or 0
-            if rank > bestRank or (rank == bestRank and percent > bestPercent) then
-                best = metric
-                bestRank = rank
-                bestPercent = percent
+        local modelMetrics = byModel[model]
+        local chosen = nil
+        for _, metric in ipairs(modelMetrics) do
+            if isCritical(metric) then
+                chosen = metric
+                break
             end
         end
-        if best ~= nil then
+        if chosen == nil then
+            chosen = modelMetrics[1]
+        end
+        if chosen ~= nil then
             result[#result + 1] = {
                 model = model,
                 short = modelShortName(model),
-                metric = best,
+                metric = chosen,
             }
         end
     end

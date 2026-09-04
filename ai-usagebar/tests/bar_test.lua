@@ -300,9 +300,27 @@ local agyBar = loadBar({
         },
     },
 })
-assert(containsText(agyBar.rendered(), "G"), "capsule should show Gemini's short prefix")
-assert(containsText(agyBar.rendered(), "24%"), "capsule should show Gemini's bottleneck percentage")
-assert(containsText(agyBar.rendered(), "C"), "capsule should show Claude's short prefix")
-assert(containsText(agyBar.rendered(), "100%"), "capsule should show Claude's bottleneck percentage")
+assert(containsText(agyBar.rendered(), "100%"), "capsule should show 100% bottleneck")
+
+local normalAgyBar = loadBar({
+    vendor = "antigravity", account = "", extras = "none", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 11, severity = "low", value = "11%" },
+                { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+                { label = "Gemini", percent = 43, severity = "low", value = "43%" },
+                { label = "Claude & GPT OSS", percent = 78, severity = "high", value = "78%" },
+            },
+        },
+    },
+})
+assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
+assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
