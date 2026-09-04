@@ -1,11 +1,13 @@
 # File Search
 
 A [noctalia](https://github.com/noctalia-dev/noctalia) v5 bar plugin: fuzzy
-search files and folders as you type, with [fzf](https://github.com/junegunn/fzf)
-as the matching subsystem. Click the bar glyph to open a search panel; picking
-a result opens it with the system MIME association (`xdg-open`) — directories
-open in your file manager. One button widens the search to the USB disks you
-have plugged in, or narrows it to those alone.
+search files and folders as you type, matched with
+[fzf](https://github.com/junegunn/fzf). Click the bar glyph to open a search
+panel; picking a result opens it with the system MIME association
+(`xdg-open`) — directories open in the file manager. A `/fs` launcher entry
+gives the same search with native keyboard navigation. The panel can widen
+the search to mounted USB/removable disks, and show a disk-usage donut for
+the search folder.
 
 ## Plugin
 
@@ -25,47 +27,61 @@ your compositor:
 noctalia msg panel-toggle nightwatch75/file-search:panel
 ```
 
-| Action       | Effect                                          |
-|--------------|-------------------------------------------------|
-| Left click   | Open/close the search panel                     |
-| Right click  | Open the search folder in the file manager      |
+| Action      | Effect                                     |
+|-------------|---------------------------------------------|
+| Left click  | Open/close the search panel                |
+| Right click | Open the search folder in the file manager |
 
-Middle click is not used: every bar widget carries a built-in binding for it
-that opens the widget's own settings, and a bound gesture never reaches the
-plugin. Use the panel's ⚙ button, or the command below, for the settings.
+Middle click is not handled: every bar widget carries a built-in binding for
+it that opens the widget's own settings, so a bound gesture never reaches the
+plugin. Use the panel's settings button, or the command below.
 
-In the panel:
+### The panel
 
-| Key     | Action                              |
-|---------|-------------------------------------|
-| `Enter` | Open the top match                  |
-| `Esc`   | Close the panel (noctalia default)  |
+| Key     | Action                             |
+|---------|--------------------------------------|
+| `Enter` | Open the top match                 |
+| `Esc`   | Close the panel (noctalia default) |
+
+Header buttons, left to right:
+
+| Glyph | Button | Effect |
+|---|---|---|
+| 🗠/🗺 | Ranking | Switches how matches are scored (see *Search syntax*) |
+| ◕ | Usage chart | Shows/hides the disk-usage donut |
+| 🗀 | Scope | Cycles what the search covers (see *Searching external disks*) |
+| ↻ | Refresh | Rebuilds the index (and, on the folder scope, re-measures disk usage) |
+| ⚙ | Settings | Opens this plugin's page in *Settings → Plugins* (same as `noctalia msg settings-open-plugin nightwatch75/file-search`) |
+| ✕ | Close | Closes the panel |
+
+Every choice made from these buttons (ranking, scope, usage chart shown or
+not) survives a restart. The plugin version sits next to the panel title; the
+footer shows how many results are listed, how many entries are indexed, and
+how long the last index build took.
 
 On a result row:
 
-| Action      | Effect                                                   |
-|-------------|----------------------------------------------------------|
-| Left click  | Open it with the system MIME association                 |
-| Right click | Copy its path, *or* reveal it in the file manager        |
+| Action      | Effect                                    |
+|-------------|--------------------------------------------|
+| Left click  | Open it with the system MIME association  |
+| Right click | Open the row menu                         |
 
-The 🗐/🗁 button in the panel header picks which of the two, and remembers it.
-*Reveal* opens the containing folder with the item selected. Both leave the
-panel up, so several rows can be picked off in a row. (Middle click is not an
-option: a panel row only ever receives left and right clicks.)
+| Row menu entry        | Effect                                            |
+|------------------------|----------------------------------------------------|
+| Open                   | Same as a left click                              |
+| Show in file manager   | Open the containing folder with the item selected |
+| Copy full path         | Put the absolute path on the clipboard            |
+| Copy name              | Put just the file or folder name on the clipboard |
 
-A path too long for one row is shortened in the middle rather than at the end,
-so the file name — the part the query matched — always stays readable:
+Everything but *Open* leaves the panel up, so several rows can be picked off
+in a row. A path too long for one row is shortened in the middle, keeping the
+file name (the part the query matched) readable:
 `.local/share/flatpak/repo/tmp/cache/…dolphin.idx.sig`.
-
-The plugin version sits next to the panel title. The footer counts what is
-listed and what is indexed, and on the right how long the walk behind that
-index took — per scope, kept across restarts, and still visible while a new
-walk runs, which is when knowing the last one's cost is most useful.
 
 ### Search syntax
 
-The query goes to `fzf` as-is, so its extended-search operators work here. The
-panel keeps a one-line reminder of them above the status bar.
+The query goes to `fzf` as-is, so its extended-search operators work here.
+The panel keeps a one-line reminder of them above the results.
 
 | Query | Matches |
 |---|---|
@@ -77,92 +93,92 @@ panel keeps a one-line reminder of them above the status bar.
 | `.toml$ \| .json$` | either one (spaces around the `\|` are required) |
 
 A lowercase query is case-insensitive; one uppercase letter anywhere makes it
-case-sensitive. There is no regex: fzf does not have one.
+case-sensitive. There is no regex — fzf does not have one.
 
-The 🗠/🗺 button in the header switches how matches are scored, and remembers it:
+The ranking button switches how matches are scored:
 
-| Glyph | Ranking |
+| Ranking | Effect |
 |---|---|
-| 🗺 | **path-aware** *(default)* — a match starting a file or folder name wins, so `config` finds `.ssh/config` and not the deepest `…/Steam Controller Configs/` |
-| 🗠 | generic — fzf's own scoring, which mostly rewards the shortest path |
+| **Path-aware** *(default)* | A match starting a file or folder name wins, so `config` finds `.ssh/config`, not `…/Steam Controller Configs/` |
+| Generic | fzf's own scoring, which mostly rewards the shortest path |
 
-Path-aware costs about a third more CPU per keystroke and needs fzf 0.36 or
-newer; on an older build the button stays on generic and says so.
+Path-aware needs fzf 0.36 or newer; on an older build the button stays on
+generic and its tooltip says why.
 
 ### Searching external disks
 
-The 🗀 button in the panel header cycles what the search covers:
-
-| Glyph | Scope | Covers |
-|-------|-------|--------|
-| 🗀 | Search folder only *(default)* | The `search_folder` setting, as before |
-| 🗀🗀 | Search folder + external disks | Both, in one index |
-| ⚿ | External disks only | Only the mounted removable volumes |
+| Scope | Covers |
+|---|---|
+| Search folder only *(default)* | The `search_folder` setting |
+| Search folder + external disks | Both, in one index |
+| External disks only | Only the mounted removable volumes |
 
 An *external disk* is a mounted volume that came from a USB port or reports
-itself removable: sticks and drives (bus-powered SSDs and LUKS-encrypted ones
-included), SD cards, optical media. Internal drives never count, not even a
-second SATA/NVMe under `/mnt` — put that in `search_folder` instead. The plugin
-mounts nothing; it only sees what your desktop has already mounted.
+itself removable: sticks, bus-powered SSDs, LUKS-encrypted drives, SD cards,
+optical media. Internal drives never count — put those in `search_folder`
+instead. The plugin mounts nothing; it only sees what your desktop already
+mounted. When disks are in scope, the scope button's tooltip also shows free
+space across them.
 
-The choice survives restarts and is shared with the `/fs` launcher, which offers
-the same switch. Each scope keeps its own index, so switching to the disks and
-back does not re-walk your home folder.
+The scope choice is shared with the `/fs` launcher, and each scope keeps its
+own index — switching to the disks and back never re-walks the search
+folder.
 
-**External disks are only ever indexed on command**, because walking a
-multi-terabyte drive takes minutes. Switching scope, opening the panel, changing
-a setting or plugging a disk in never start a walk: the index stays in use and
-the footer says *out of date*. The ↻ button (or *Rebuild search index* in the
-launcher) is what rebuilds it, and a scope never indexed says so and waits. The
-search folder alone keeps re-indexing itself, as before — it takes seconds.
+**External disks are only ever indexed on command.** Opening the panel,
+switching scope, changing a setting or plugging a disk in never starts a
+walk on a disk scope — the index stays as-is and the footer says *out of
+date*. Press refresh (or *Rebuild search index* in the launcher) to walk it.
+The search folder alone keeps re-indexing itself automatically, since that
+takes seconds rather than minutes.
 
-The panel header also carries a ⚙ button that opens this plugin's page in
-*Settings → Plugins*, and a ↻ button that rebuilds the index. The same settings
-page opens from the command line, so it can be bound in your compositor too:
+### Disk usage chart
 
-```sh
-noctalia msg settings-open-plugin nightwatch75/file-search
+A donut under the results shows what fills the search folder: its biggest
+direct children, the rest folded into *other*, and loose files that belong
+to no subfolder. Each legend row gives the size and share of the total. It
+is only offered on the *search folder* scope, since measuring a disk means
+walking it — exactly what this plugin refuses to do unasked.
+
+Click a folder in the legend to search inside it: results narrow to that
+folder, a strip above them names it, and clicking the strip's ✕ (or the same
+row again) lifts the restriction. It combines with whatever you type — pick
+`winboat`, type `img`, get `winboat/data.img`.
+
+Sizes come from `du -x -d1`, measured once and cached for a day, so restarts
+and reopens cost nothing (`du` over a home directory takes a few seconds).
+The refresh button re-measures immediately. Other filesystems are never
+walked — a mount point under the search folder is skipped and named in the
+legend as *not counted: … (other filesystem)*. The `usage_exclude_dirs`
+setting keeps `du` out of specific, slow-but-same-filesystem folders instead.
+
+### Launcher
+
+```
+/fs <text>
 ```
 
-In the noctalia launcher (keyboard-first flow, native navigation):
+| Key       | Action                                   |
+|-----------|--------------------------------------------|
+| ↑ / ↓     | Move through the results                  |
+| `Enter`   | Open the selected result (MIME/`xdg-open`) |
 
-| Key         | Action                                    |
-|-------------|-------------------------------------------|
-| `/fs <text>`| Fuzzy search files and folders            |
-| `↑` / `↓`   | Move through the results                  |
-| `Enter`     | Open the selected result (MIME/xdg-open)  |
-
-With an empty `/fs` query the list also offers *Rebuild search index* and the
-scope switch; the index is shared with the panel. *Rebuild search index* walks
-the tree there and then, keeping the launcher open, and is offered next to the
+An empty `/fs` query also offers *Rebuild search index* and the scope
+switch; the index is shared with the panel. *Rebuild search index* walks the
+tree right away, keeping the launcher open, and is offered next to the
 results whenever the index is out of date.
 
 ## Features
 
 - Live results while you type: the search folder is walked once with `find`
-  into a cache, then every keystroke is fuzzy-matched through
-  `fzf --filter`, so typing stays responsive even on large trees
-- Configurable bar glyph, search folder (defaults to `~`), excluded folder
-  names (`.git, node_modules, .cache, .venv` by default, matched anywhere in
-  the tree), hidden entries on/off, max results
-- One button to search the mounted USB/removable disks as well, or only those:
-  one index per scope, and disks walked only when you ask
-- `Enter` opens the top match; every result row opens on click via the
-  system MIME association — files in their default app, folders in the file
-  manager
-- Launcher provider for a keyboard-first flow: type `/fs <text>` in the
-  noctalia launcher and navigate the results with the native arrow keys +
-  `Enter` (plugin panels cannot receive arrow keys in the current Luau API,
-  so the launcher is the keyboard way to browse results)
+  into a cache, then every keystroke is fuzzy-matched with `fzf --filter`
+- Configurable search folder (defaults to `~`), excluded folder names, hidden
+  entries on/off, max results, and bar glyph
 - Folder results are marked with a trailing `/` and a folder glyph
-- Right click copies a result's path, or reveals it in the file manager with the
-  item selected (`org.freedesktop.FileManager1.ShowItems` — Thunar, Nautilus,
-  Dolphin, Nemo, Caja and PCManFM-Qt all implement it)
-- The search-folder index rebuilds itself when the relevant settings change, and
-  on demand via the panel's refresh button; any index covering an external disk
-  rebuilds on demand only
+- Reveal in file manager uses `org.freedesktop.FileManager1.ShowItems`
+  (Thunar, Nautilus, Dolphin, Nemo, Caja, PCManFM-Qt); falls back to opening
+  the containing folder if no file manager implements it
 - Panel placement (attached/floating), position and open-near-click are the
-  standard per-panel settings noctalia exposes in Settings → Plugins
+  standard per-panel settings noctalia exposes in *Settings → Plugins*
 
 ## Settings
 
@@ -171,25 +187,30 @@ results whenever the index is out of date.
 | `search_folder` | `folder` | *(empty)* | Root folder the search indexes. Empty = your home folder. |
 | `exclude_dirs` | `string` | `.git, node_modules, .cache, .venv` | Folder names skipped while indexing, separated by `,` or `;`, matched anywhere in the tree. |
 | `show_hidden` | `bool` | `false` | Index files and folders whose name starts with a dot. |
+| `usage_exclude_dirs` | `string` | *(empty)* | Folders left out of the disk usage chart, separated by `,` or `;`. A bare name matches anywhere below the search folder; a path (absolute, or starting with `~`) matches that one folder. Folders on another filesystem are already skipped. |
 | `max_results` | `int` | `50` | How many matches the panel lists at most (10–200). |
 | `glyph` (widget) | `glyph` | `search` | Icon shown on the bar. |
 
 ## Requirements
 
-- noctalia v5.0.0-beta.6 or newer — the first tagged release that accepts
-  `plugin_api = 15` (`noctalia.openSettings()`, the panel's ⚙ button)
+- noctalia with `plugin_api = 28` (v5.0.0-beta.9 or newer; on beta.8 the
+  plugin store keeps serving 0.0.29) — for the row context menu, relative
+  Luau imports (the three entries share `shared.luau`) and direct argv
+  process execution, so `du`, `xdg-open` and the reveal call take their
+  arguments with no shell parsing them
 - [`fzf`](https://github.com/junegunn/fzf) — the fuzzy matcher. 0.36 or newer
-  for the path-aware ranking; older builds work, with fzf's default ranking
+  for path-aware ranking; older builds work with fzf's default ranking
 - `find` (GNU findutils) — walks the roots into the index
 - `xdg-open` (xdg-utils) — opens results with the MIME association
-- `mktemp`, `mv`, `wc`, `head`, `rm`, `date` — GNU coreutils, standard on any
-  Linux desktop (`date` times the index walk for the footer)
-- `lsblk` (util-linux) — lists the mounted USB/removable volumes; only run when
+- `mktemp`, `mv`, `wc`, `head`, `rm`, `date`, `du` — GNU coreutils, standard
+  on any Linux desktop. Missing `du`, the usage chart says so; everything
+  else still works
+- `lsblk` (util-linux) — lists mounted USB/removable volumes, only run when
   the scope includes them. Missing, it falls back to `/proc/mounts` and the
   udisks2 layout (`/run/media/<user>/…`, `/media/…`)
-- `gdbus` (glib2) — reveals a result in the file manager
-  (`FileManager1.ShowItems`); only run on that right click. Missing, or with no
-  file manager implementing it, the click opens the containing folder instead
+- `gdbus` (glib2) — reveals a result in the file manager. Missing, or with no
+  file manager implementing `FileManager1`, *Show in file manager* opens the
+  containing folder instead
 
 ## Install
 
@@ -209,49 +230,31 @@ noctalia msg plugins enable nightwatch75/file-search
 
 - The index lives in the plugin's private data directory
   (`noctalia.pluginDataDir()`, by default
-  `~/.local/state/noctalia/plugins/data/nightwatch75/file-search/` — honors
-  `NOCTALIA_STATE_HOME`/`XDG_STATE_HOME`): `list-<scope>` is a plain list of
-  paths, `meta-<scope>` records the scope, roots and exclusions that built it,
-  `count-<scope>` its line count and the walk's duration in milliseconds, and
-  `scope`, `row-action` and `ranking` the one word each
-  header toggle cycles. A fingerprint that no longer matches — a settings
-  change, a scope change, a disk plugged in or removed — rebuilds the
-  search-folder index automatically and marks a disk index out of date.
+  `~/.local/state/noctalia/plugins/data/nightwatch75/file-search/`):
+  `list-<scope>` is the plain list of paths, `meta-<scope>` the fingerprint
+  it was built with, `count-<scope>` its entry count and build time, and
+  `scope`/`ranking`/`usage-chart` the one-word header choices. The disk usage
+  measurement is cached in `usage.json`, rendered as one of two alternating
+  SVG files. A fingerprint mismatch (a settings change, a scope change, a
+  disk plugged in or removed) rebuilds the search-folder index automatically
+  and marks a disk index out of date.
 - Several disks share one index, not one each: a rebuild walks every mounted
-  volume in a single pass. Records are relative to the root when there is only
-  one (the common case, and what keeps the rows short) and absolute when there
-  are several — and they are always read the way the index was *written*, so
-  unplugging one of two disks leaves the rest of the results openable.
-- Volume metadata is pruned at every root, since a disk used on Windows or macOS
-  otherwise contributes tens of thousands of records that are not your files:
-  `lost+found`, `$RECYCLE.BIN`, `RECYCLER`, `System Volume Information`,
-  `.Trash-*`, `.Spotlight-V100`, `.fseventsd`, `.Trashes`, `.TemporaryItems`,
-  `.DocumentRevisions-V100`, `Backups.backupdb`, `*.sparsebundle`,
-  `*.backupbundle`, `._*`, `.DS_Store`, `.AppleDouble`, `.AppleDB`,
-  `.AppleDesktop`, `Network Trash Folder`, `Temporary Items`,
-  `TheVolumeSettingsFolder`.
-- `find` is bound by metadata latency, so a spinning USB drive with a million
-  files runs for minutes — hence on-demand only. A walk covering disks gets 30
-  minutes against 3 for the search folder, and the panel stays usable
-  throughout, scope button included: a second walk is never queued.
-- Cheap by design elsewhere too: the mount scan is cached 30 seconds and never
-  concurrent, and the line count comes from a `count-<scope>` sidecar instead of
-  re-reading a >100 MB index.
-- Detection reads the transport and removable flags of the parent disk, not of
-  the mounted partition — a USB partition reports neither. NVMe and SATA drives
-  advertising hot-plug are deliberately not treated as removable.
-- Both files are written to `mktemp`-created private files and renamed into
-  place, so a rebuild never writes through a symlink planted at the cache
-  path.
-- Names containing a newline are excluded from the index (they would break
-  the one-record-per-line format), and every record is validated against the
-  roots it claims to come from before being opened.
-- Excluded entries match by folder/file *name* (`find -name`), not by path;
-  entries containing `/` are skipped and logged.
-- With hidden entries off, anything starting with a dot is pruned — both
-  hidden folders (not descended into) and hidden files.
-- Unreadable subtrees are silently skipped (permission errors don't fail the
-  index).
+  volume in a single pass, unplugging one still leaves the rest openable.
+- Volume metadata from other operating systems is pruned at every root
+  (`lost+found`, `$RECYCLE.BIN`, `System Volume Information`, `.Trash-*`,
+  macOS Spotlight/Time Machine/AppleDouble leftovers, and similar), since it
+  is never a user file and can otherwise add tens of thousands of records.
+- `find` is bound by metadata latency, so a spinning USB drive with a
+  million files can run for minutes — hence indexed on command only. A walk
+  covering disks gets 30 minutes against 3 for the search folder; the panel
+  stays usable throughout.
+- Both the index and its fingerprint are written to temp files and renamed
+  into place, so a rebuild never writes through a symlink at the cache path.
+- Names containing a newline are excluded from the index, and every record
+  is validated against the roots it claims to come from before being opened.
+- Excluded entries match by folder/file name (`find -name`), not by path;
+  entries containing `/` are skipped and logged. Unreadable subtrees are
+  silently skipped.
 
 ## License
 
