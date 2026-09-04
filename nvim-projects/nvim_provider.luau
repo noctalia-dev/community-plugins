@@ -74,7 +74,6 @@ fi
 
 # 3. Known project / config workspaces
 add_dir "$HOME/.config/nvim"
-add_dir "$HOME/umbriel-dotfiles"
 
 exit 0
 ]]
