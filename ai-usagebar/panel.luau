@@ -120,7 +120,7 @@ local function metricRows(section, title, muted)
 
     local body = {
         ui.row({ gap = 6, align = "center" }, header),
-        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.16", radius = 3, height = 6 }),
+        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.10", radius = 3, height = 6 }),
     }
 
     local elapsed = elapsedPercent(section.detail)
@@ -128,7 +128,7 @@ local function metricRows(section, title, muted)
         body[#body + 1] = ui.progress({
             progress = ratio(elapsed),
             fill = "on_surface/0.45",
-            track = "on_surface/0.10",
+            track = "on_surface/0.08",
             radius = 2,
             height = 3,
         })
@@ -178,8 +178,8 @@ local function metricRows(section, title, muted)
     return body
 end
 
-local CARD = { gap = 6, padding = 10, radius = 8, fill = "surface_variant/0.45",
-               border = "outline/0.12", borderWidth = 1 }
+local CARD = { gap = 6, padding = 10, radius = 12, fill = "surface_variant/0.35",
+               border = "outline/0.08", borderWidth = 1 }
 
 -- A provider's readings share one card, so the session and the week are read
 -- together. `name` titles it only where the readings need telling apart by
@@ -224,8 +224,8 @@ local function blockCard(section)
             maxLines = 1,
         })
     end
-    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.45",
-                       border = "outline/0.18", borderWidth = 1 }, body)
+    return ui.column({ gap = 4, padding = 10, radius = 12, fill = "surface_variant/0.35",
+                       border = "outline/0.08", borderWidth = 1 }, body)
 end
 
 -- A `text` section the CLI uses for a warning. The `credentials error:` prefix
@@ -234,8 +234,8 @@ end
 local function noteCard(text)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
-    return ui.row({ gap = 8, align = "start", padding = 10, radius = 8,
-                    fill = "surface_variant/0.45", border = "outline/0.18", borderWidth = 1 }, {
+    return ui.row({ gap = 8, align = "start", padding = 10, radius = 12,
+                    fill = "surface_variant/0.35", border = "outline/0.08", borderWidth = 1 }, {
         ui.glyph({ name = "alert-triangle", size = 14, color = "secondary" }),
         ui.label({ text = clean, fontSize = 11, color = "on_surface_variant",
                    flexGrow = 1, maxLines = 3 }),
@@ -307,8 +307,8 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
-    return ui.column({ gap = 4, padding = 10, radius = 8, fill = "surface_variant/0.45",
-                       border = "outline/0.18", borderWidth = 1 }, body)
+    return ui.column({ gap = 4, padding = 10, radius = 12, fill = "surface_variant/0.35",
+                       border = "outline/0.08", borderWidth = 1 }, body)
 end
 
 -- Everything in a report that is not a reading: credit blocks, headings,
@@ -370,10 +370,21 @@ local function providerRow(entry, selected)
         for _, item in ipairs(submodels) do
             local mTint = severityRole(item.metric, "on_surface")
             local mPct = tonumber(item.metric.percent) or 0
-            colChildren[#colChildren + 1] = ui.label({
-                text = string.format("%s: %d%%", item.short, mPct),
-                fontSize = 10, fontWeight = "bold", color = mTint,
-                textAlign = "end", maxLines = 1,
+            colChildren[#colChildren + 1] = ui.row({ gap = 3, align = "center", justify = "end" }, {
+                ui.label({
+                    text = item.short,
+                    fontSize = 10,
+                    color = "on_surface_variant",
+                    maxLines = 1,
+                }),
+                ui.label({
+                    text = string.format("%d%%", mPct),
+                    fontSize = 10,
+                    fontWeight = "bold",
+                    color = mTint,
+                    textAlign = "end",
+                    maxLines = 1,
+                }),
             })
         end
         local rightChildren = {
@@ -412,7 +423,7 @@ local function providerRow(entry, selected)
         lines[#lines + 1] = ui.progress({
             progress = ratio(percent),
             fill = severityRole(metric, "primary"),
-            track = "on_surface/0.16",
+            track = "on_surface/0.12",
             radius = 2, height = 3,
         })
     end
@@ -425,7 +436,7 @@ local function providerRow(entry, selected)
         -- Keyed, so the click handler survives the second tick the countdowns ride
         -- on instead of being rebuilt under the pointer.
         key = "provider-" .. tostring(entry.id),
-        gap = 8, align = "center", padding = 8, radius = 8,
+        gap = 8, align = "center", padding = 8, radius = 10,
         -- A tint, not a slab: a filled `primary` row inverts every colour in it.
         fill = selected and "primary/0.10" or "surface_variant/0.30",
         border = selected and "primary/0.55" or "outline/0.12",

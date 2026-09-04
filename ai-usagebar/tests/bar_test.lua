@@ -300,7 +300,9 @@ local agyBar = loadBar({
         },
     },
 })
-assert(containsText(agyBar.rendered(), "G: 24%"), "capsule should show Gemini's bottleneck with G: prefix")
-assert(containsText(agyBar.rendered(), "C: 100%"), "capsule should show Claude's bottleneck with C: prefix")
+assert(containsText(agyBar.rendered(), "G"), "capsule should show Gemini's short prefix")
+assert(containsText(agyBar.rendered(), "24%"), "capsule should show Gemini's bottleneck percentage")
+assert(containsText(agyBar.rendered(), "C"), "capsule should show Claude's short prefix")
+assert(containsText(agyBar.rendered(), "100%"), "capsule should show Claude's bottleneck percentage")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")

@@ -131,8 +131,8 @@ end
 -- running ahead of time.
 local function bars(percent, elapsed, tint, width)
     local stack = {
-        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.16",
-                      radius = 3, width = width, height = 4 }),
+        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.12",
+                      radius = 2, width = width, height = 4 }),
     }
     if elapsed ~= nil then
         stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
@@ -166,15 +166,23 @@ local function chip(entry, flagged)
                 end
                 local mTint = severityRole(item.metric, "on_surface")
                 local mPct = tonumber(item.metric.percent) or 0
-                parts[#parts + 1] = ui.label({
-                    text = string.format("%s: %d%%", item.short, mPct),
-                    fontSize = 11,
-                    fontWeight = "semibold",
-                    color = mTint,
-                    maxLines = 1,
+                parts[#parts + 1] = ui.row({ gap = 2, align = "center" }, {
+                    ui.label({
+                        text = item.short,
+                        fontSize = 10,
+                        color = "on_surface_variant",
+                        maxLines = 1,
+                    }),
+                    ui.label({
+                        text = string.format("%d%%", mPct),
+                        fontSize = 11,
+                        fontWeight = "semibold",
+                        color = mTint,
+                        maxLines = 1,
+                    }),
                 })
             end
-            pct = ui.row({ gap = 2, align = "center" }, parts)
+            pct = ui.row({ gap = 4, align = "center" }, parts)
         else
             pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
                             color = tint, maxLines = 1, width = 30, textAlign = "end" })
