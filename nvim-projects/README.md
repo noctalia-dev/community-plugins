@@ -31,5 +31,5 @@ Open the Noctalia launcher and type `/nvim` to list recent local Neovim sessions
 ## Notes
 
 - Sessions are automatically decoded from `persistence.nvim` state files located at `~/.local/state/nvim/sessions/`.
-- The plugin also scans subdirectories in your configured `projects_dir`, as well as `~/.config/nvim` and `~/umbriel-dotfiles`.
+- The plugin also scans subdirectories in your configured `projects_dir`, as well as `~/.config/nvim`.
 - Opens each project with `cd <dir> && nvim .` using `noctalia.runInTerminal` (or your configured custom terminal).
