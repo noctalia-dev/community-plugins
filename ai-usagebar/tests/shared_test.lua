@@ -121,4 +121,25 @@ local reordered = shared.entries({ entries = {
 assert(reordered[1].id == "openai" and reordered[2].id == "antigravity",
        "a provider with critical 100% weekly limit should rank above a 50% low severity provider")
 
+local antigravityEntry = {
+    id = "antigravity",
+    status = "ready",
+    stale = false,
+    metrics = {
+        { label = "Gemini", percent = 0, severity = "low" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low" },
+        { label = "Gemini", percent = 24, severity = "low" },
+        { label = "Claude & GPT OSS", percent = 100, severity = "critical" },
+    },
+    sections = {},
+}
+assert(#shared.modelHeadlines(bottleneckEntry) == 0,
+       "single-model providers should have no sub-model headlines")
+local agyModels = shared.modelHeadlines(antigravityEntry)
+assert(#agyModels == 2, "antigravity should extract both model headlines")
+assert(agyModels[1].model == "Gemini" and agyModels[1].short == "G" and agyModels[1].metric.percent == 24,
+       "gemini should resolve to its 24% weekly bottleneck")
+assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].short == "C" and agyModels[2].metric.percent == 100 and agyModels[2].metric.severity == "critical",
+       "claude should resolve to its 100% critical bottleneck")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

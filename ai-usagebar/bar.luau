@@ -22,6 +22,7 @@ local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
+local modelHeadlines = shared.modelHeadlines
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 local unavailable, warning = shared.unavailable, shared.warning
@@ -154,10 +155,31 @@ local function chip(entry, flagged)
     local glyph = showGlyph
         and ui.glyph({ name = providerGlyph(entry.id), size = 13,
                        color = flagged and "error" or "on_surface" }) or nil
-    -- Fixed width, right-aligned: the capsule is the same size at 9% as at 100%
-    -- and stops nudging its neighbours once per read.
-    local pct = showValue and ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
-                                         color = tint, maxLines = 1, width = 30, textAlign = "end" }) or nil
+    local submodels = modelHeadlines(entry)
+    local pct = nil
+    if showValue then
+        if #submodels > 1 then
+            local parts = {}
+            for idx, item in ipairs(submodels) do
+                if idx > 1 then
+                    parts[#parts + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant", maxLines = 1 })
+                end
+                local mTint = severityRole(item.metric, "on_surface")
+                local mPct = tonumber(item.metric.percent) or 0
+                parts[#parts + 1] = ui.label({
+                    text = string.format("%s: %d%%", item.short, mPct),
+                    fontSize = 11,
+                    fontWeight = "semibold",
+                    color = mTint,
+                    maxLines = 1,
+                })
+            end
+            pct = ui.row({ gap = 2, align = "center" }, parts)
+        else
+            pct = ui.label({ text = text, fontSize = 11, fontWeight = "semibold",
+                            color = tint, maxLines = 1, width = 30, textAlign = "end" })
+        end
+    end
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 

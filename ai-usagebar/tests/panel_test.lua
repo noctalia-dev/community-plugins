@@ -368,4 +368,28 @@ local bottleneckPanelTree = loadPanel(bottleneckPanelEntry)
 assert(has(labels(bottleneckPanelTree), "100%"),
        "panel sidebar should display the 100% bottleneck reading")
 
+local agyPanelEntry = {
+    id = "antigravity",
+    display_name = "Antigravity",
+    plan = "Google AI Pro",
+    status = "ready",
+    metrics = {
+        { label = "Gemini", percent = 0, severity = "low", value = "0%" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+        { label = "Gemini", percent = 24, severity = "low", value = "24%" },
+        { label = "Claude & GPT OSS", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { type = "text", label = "Session", value = "" },
+        { label = "Gemini", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { type = "text", label = "Weekly", value = "" },
+        { label = "Gemini", percent = 24, severity = "low", type = "metric", value = "24%" },
+        { label = "Claude & GPT OSS", percent = 100, severity = "critical", type = "metric", value = "100%" },
+    },
+}
+local agyPanelTree = loadPanel(agyPanelEntry)
+assert(has(labels(agyPanelTree), "G: 24%"), "panel sidebar should display G: 24%")
+assert(has(labels(agyPanelTree), "C: 100%"), "panel sidebar should display C: 100%")
+
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

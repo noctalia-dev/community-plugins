@@ -10,6 +10,7 @@ local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
+local modelHeadlines = shared.modelHeadlines
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
@@ -355,6 +356,7 @@ local function providerRow(entry, selected)
     -- what it cached: either way the row stops drawing a gauge for it.
     local broken = entry.status == "error" or unavailable(entry)
     local tint = severityRole(metric, "on_surface")
+    local submodels = modelHeadlines(entry)
 
     -- The reading keeps its severity colour whether or not the row is selected:
     -- recolouring it hides the one thing the list exists to compare.
@@ -363,6 +365,26 @@ local function providerRow(entry, selected)
         right = ui.row({ width = 48, justify = "end" }, {
             ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
         })
+    elseif #submodels > 1 then
+        local colChildren = {}
+        for _, item in ipairs(submodels) do
+            local mTint = severityRole(item.metric, "on_surface")
+            local mPct = tonumber(item.metric.percent) or 0
+            colChildren[#colChildren + 1] = ui.label({
+                text = string.format("%s: %d%%", item.short, mPct),
+                fontSize = 10, fontWeight = "bold", color = mTint,
+                textAlign = "end", maxLines = 1,
+            })
+        end
+        local rightChildren = {
+            ui.column({ gap = 1, align = "end" }, colChildren),
+        }
+        if entry.stale == true then
+            rightChildren[#rightChildren + 1] = ui.glyph({
+                name = "clock-exclamation", size = 12, color = "secondary",
+            })
+        end
+        right = ui.row({ gap = 3, width = 56, justify = "end", align = "center" }, rightChildren)
     else
         local rightChildren = {
             ui.label({

@@ -221,6 +221,57 @@ function M.headline(entry)
     return best
 end
 
+local function modelShortName(label)
+    local lower = tostring(label or ""):lower()
+    if lower:find("gemini", 1, true) then return "G" end
+    if lower:find("claude", 1, true) then return "C" end
+    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "O" end
+    return (tostring(label or ""):match("%a") or "?"):upper()
+end
+
+function M.modelHeadlines(entry)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return {} end
+    if M.baseProvider(entry.id) ~= "antigravity" then return {} end
+
+    local order = {}
+    local byModel = {}
+    for _, metric in ipairs(entry.metrics) do
+        if type(metric) == "table" and metric.label ~= nil and metric.label ~= "" then
+            local model = tostring(metric.label)
+            if byModel[model] == nil then
+                byModel[model] = {}
+                order[#order + 1] = model
+            end
+            byModel[model][#byModel[model] + 1] = metric
+        end
+    end
+
+    if #order <= 1 then return {} end
+
+    local result = {}
+    for _, model in ipairs(order) do
+        local best = nil
+        local bestRank, bestPercent = -1, -1
+        for _, metric in ipairs(byModel[model]) do
+            local rank = M.SEVERITY_RANK[tostring(metric.severity or "")] or 0
+            local percent = tonumber(metric.percent) or 0
+            if rank > bestRank or (rank == bestRank and percent > bestPercent) then
+                best = metric
+                bestRank = rank
+                bestPercent = percent
+            end
+        end
+        if best ~= nil then
+            result[#result + 1] = {
+                model = model,
+                short = modelShortName(model),
+                metric = best,
+            }
+        end
+    end
+    return result
+end
+
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}

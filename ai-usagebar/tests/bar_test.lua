@@ -282,4 +282,25 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 
+local agyBar = loadBar({
+    vendor = "antigravity", account = "", extras = "none", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 0, severity = "low", value = "0%" },
+                { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+                { label = "Gemini", percent = 24, severity = "low", value = "24%" },
+                { label = "Claude & GPT OSS", percent = 100, severity = "critical", value = "100%" },
+            },
+        },
+    },
+})
+assert(containsText(agyBar.rendered(), "G: 24%"), "capsule should show Gemini's bottleneck with G: prefix")
+assert(containsText(agyBar.rendered(), "C: 100%"), "capsule should show Claude's bottleneck with C: prefix")
+
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
