@@ -322,6 +322,21 @@ local function needsEmbeddedLyrics()
   return false
 end
 
+local function splitMetadata(value, separator)
+  local fields = {}
+  local start = 1
+  while true do
+    local finish = value:find(separator, start, true)
+    if not finish then
+      fields[#fields + 1] = value:sub(start)
+      break
+    end
+    fields[#fields + 1] = value:sub(start, finish - 1)
+    start = finish + #separator
+  end
+  return fields
+end
+
 local function evictCache()
   local keys = {}
   for k, _ in pairs(cache) do keys[#keys + 1] = k end
@@ -810,11 +825,11 @@ local function poll()
     local players = {}
     local fieldSeparator = string.char(31)
     local recordSeparator = string.char(30)
-    for record in (r.stdout .. recordSeparator):gmatch("(.-)" .. recordSeparator) do
+    for _, record in ipairs(splitMetadata(r.stdout, recordSeparator)) do
       if record ~= "" then
-        local parts = {}
-        for field in (record .. fieldSeparator):gmatch("(.-)" .. fieldSeparator) do
-          parts[#parts + 1] = field:gsub("^%s+", ""):gsub("%s+$", "")
+        local parts = splitMetadata(record, fieldSeparator)
+        for index, field in ipairs(parts) do
+          parts[index] = field:gsub("^%s+", ""):gsub("%s+$", "")
         end
         local player = {
           instance = parts[1] or "",

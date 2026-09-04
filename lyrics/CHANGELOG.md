@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.3
+
+- Replace pattern-based MPRIS metadata parsing with a linear separator scan so
+  unusually large or malformed player metadata cannot exhaust the async
+  callback CPU budget.
+
 ## 1.5.2
 
 - Filter duplicate Musixmatch subtitle entries at the same timestamp so
