@@ -1,0 +1,247 @@
+{
+  "tooltips": {
+    "prev_ayah": "Show previous Ayah",
+    "next_ayah": "Show next Ayah",
+    "refresh": "Show another Ayah",
+    "browser": "View in browser",
+    "tafseer": "View tafseer (explanation) in browser"
+  },
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh Interval",
+      "description": "Time before another Ayah is shown"
+    },
+    "show_translation": {
+      "label": "Show Translation",
+      "description": "Shows the translation or the tafsir of the Ayah below it"
+    },
+    "translation_edition": {
+      "label": "Translation Edition",
+      "description": "The language and edition of the translation",
+      "sq": {
+        "nahi": "Albanian: Efendi Nahi (Hasan Efendi Nahi)",
+        "mehdiu": "Albanian: Feti Mehdiu",
+        "ahmeti": "Albanian: Sherif Ahmeti"
+      },
+      "am": {
+        "sadiq": "Amharic: ሳዲቅ & ሳኒ ሐቢብ"
+      },
+      "quran-buck": "Arabic: Buck",
+      "ar": {
+        "waseet": "Arabic: الـتـفـسـيـر الـوسـيـط (Tafseer Al-Waseet)",
+        "baghawi": "Arabic: تفسير البغوي (Tafseer Al-Baghawi)",
+        "jalalayn": "Arabic: تفسير الجلالين (Jalal ad-Din al-Mahalli and Jalal ad-Din as-Suyuti)",
+        "qurtubi": "Arabic: تفسير القرطبي (Tafseer Al Qurtubi)",
+        "muyassar": "Arabic: تفسير المیسر (King Fahad Quran Complex)",
+        "miqbas": "Arabic: تنوير المقباس من تفسير بن عباس (Tafseer Tanwir al-Miqbas)",
+        "abdulbasitmurattal": "Arabic: عبد الباسط عبد الصمد المرتل (Abdul Basit)",
+        "minshawi": "Arabic: محمد صديق المنشاوي (Minshawi)",
+        "minshawimujawwad": "Arabic: محمد صديق المنشاوي (المجود) (Minshawy (Mujawwad))"
+      },
+      "az": {
+        "musayev": "Azerbaijani: Musayev (Alikhan Musayev)",
+        "mammadaliyev": "Azerbaijani: Məmmədəliyev & Bünyadov (Vasim Mammadaliyev and Ziya Bunyadov)"
+      },
+      "bn": {
+        "hoque": "Bangla: জহুরুল হক",
+        "bengali": "Bangla: মুহিউদ্দীন খান (Muhiuddin Khan)"
+      },
+      "ba": {
+        "mehanovic": "Bashkir: Kur'an - sa prevodom (značenja) na bosanski jezik, utemeljen na Ibn Kesirovom tumačenju, i kratki komentar (Quran translation by Muhamed Mehanovic)"
+      },
+      "ber": {
+        "mensur": "Berber: At Mensur"
+      },
+      "bs": {
+        "korkut": "Bosnian: Korkut (Besim Korkut)",
+        "mlivo": "Bosnian: Mlivo (Mustafa Mlivo)"
+      },
+      "bg": {
+        "theophanov": "Bulgarian: Теофанов (Tzvetan Theophanov)"
+      },
+      "my": {
+        "ghazi": "Burmese: Ghazi Muhammed Hashim (Translation by Ghazi Muhammed Hashim)"
+      },
+      "ce": {
+        "magomedov": "Chechen: Chechen by Magomedov"
+      },
+      "zh": {
+        "jian": "Chinese: Ma Jian",
+        "majian": "Chinese: Ma Jian (Traditional) (Ma Jian)",
+        "mazhonggang": "Chinese: Ma Zhong Gang (马仲刚)"
+      },
+      "cs": {
+        "hrbek": "Czech: Hrbek (Preklad I. Hrbek)",
+        "nykl": "Czech: Nykl (A. R. Nykl)"
+      },
+      "dv": {
+        "divehi": "Divehi: ދިވެހި (Office of the President of Maldives)"
+      },
+      "nl": {
+        "keyzer": "Dutch: Keyzer (Salomo Keyzer)",
+        "leemhuis": "Dutch: Leemhuis",
+        "siregar": "Dutch: Siregar"
+      },
+      "en": {
+        "ahmedali": "English: Ahmed Ali",
+        "ahmedraza": "English: Ahmed Raza Khan",
+        "arberry": "English: Arberry (A. J. Arberry)",
+        "asad": "English: Asad (Muhammad Asad)",
+        "itani": "English: Clear Qur'an - Talal Itani (Clear Qur'an by Talal Itani)",
+        "daryabadi": "English: Daryabadi (Abdul Majid Daryabadi)",
+        "hilali": "English: Hilali & Khan (Muhammad Taqi-ud-Din al-Hilali and Muhammad Muhsin Khan)",
+        "maududi": "English: Maududi (Abul Ala Maududi)",
+        "mubarakpuri": "English: Mubarakpuri",
+        "pickthall": "English: Pickthall (Mohammed Marmaduke William Pickthall)",
+        "qarai": "English: Qarai",
+        "qaribullah": "English: Qaribullah & Darwish (Hasan al-Fatih Qaribullah and Ahmad Darwish)",
+        "sahih": "English: Saheeh International",
+        "sarwar": "English: Sarwar (Muhammad Sarwar)",
+        "shakir": "English: Shakir (Mohammad Habib Shakir)",
+        "wahiduddin": "English: Wahiduddin Khan",
+        "yusufali": "English: Yusuf Ali (Abdullah Yusuf Ali)"
+      },
+      "fr": {
+        "hamidullah": "French: Hamidullah (Muhammad Hamidullah)"
+      },
+      "de": {
+        "aburida": "German: Abu Rida (Abu Rida Muhammad ibn Ahmad ibn Rassoul)",
+        "bubenheim": "German: Bubenheim & Elyas (A. S. F. Bubenheim and N. Elyas)",
+        "khoury": "German: Khoury (Adel Theodor Khoury)",
+        "zaidan": "German: Zaidan (Amir Zaidan)"
+      },
+      "ha": {
+        "gumi": "Hausa: Gumi (Abubakar Mahmoud Gumi)"
+      },
+      "hi": {
+        "farooq": "Hindi: फ़ारूक़ ख़ान & अहमद (Muhammad Farooq Khan and Muhammad Ahmed)",
+        "hindi": "Hindi: फ़ारूक़ ख़ान & नदवी (Suhel Farooq Khan and Saifur Rahman Nadwi)"
+      },
+      "id": {
+        "indonesian": "Indonesian: Bahasa Indonesia (Unknown)",
+        "muntakhab": "Indonesian: Quraish Shihab (Muhammad Quraish Shihab et al.)",
+        "jalalayn": "Indonesian: Tafsir Jalalayn"
+      },
+      "it": {
+        "piccardo": "Italian: Piccardo (Hamza Roberto Piccardo)"
+      },
+      "ja": {
+        "japanese": "Japanese: Japanese (Unknown)"
+      },
+      "ko": {
+        "korean": "Korean: Korean (Unknown)"
+      },
+      "ku": {
+        "asan": "Kurdish: ته‌فسیری ئاسان (Burhan Muhammad-Amin)"
+      },
+      "ms": {
+        "basmeih": "Malay: Basmeih (Abdullah Muhammad Basmeih)"
+      },
+      "ml": {
+        "abdulhameed": "Malayalam: അബ്ദുല്‍ ഹമീദ് & പറപ്പൂര്‍ (Cheriyamundam Abdul Hameed and Kunhi Mohammed Parappoor)",
+        "karakunnu": "Malayalam: കാരകുന്ന് & എളയാവൂര്"
+      },
+      "no": {
+        "berg": "Norwegian: Einar Berg"
+      },
+      "ps": {
+        "abdulwali": "Pashto: عبدالولي"
+      },
+      "fa": {
+        "hedayatfarfooladvand": "Persian: Fooladvand - Hedayatfar",
+        "ayati": "Persian: آیتی (AbdolMohammad Ayati)",
+        "ghomshei": "Persian: الهی قمشه‌ای (Mahdi Elahi Ghomshei)",
+        "ansarian": "Persian: انصاریان (Hussain Ansarian)",
+        "bahrampour": "Persian: بهرام پور (Abolfazl Bahrampour)",
+        "khorramdel": "Persian: خرمدل (Mostafa Khorramdel)",
+        "khorramshahi": "Persian: خرمشاهی (Baha'oddin Khorramshahi)",
+        "sadeqi": "Persian: صادقی تهرانی",
+        "safavi": "Persian: صفوی",
+        "fooladvand": "Persian: فولادوند (Mohammad Mahdi Fooladvand)",
+        "gharaati": "Persian: قرائتی",
+        "mojtabavi": "Persian: مجتبوی (Sayyed Jalaloddin Mojtabavi)",
+        "moezzi": "Persian: معزی (Mohammad Kazem Moezzi)",
+        "makarem": "Persian: مکارم شیرازی (Naser Makarem Shirazi)"
+      },
+      "pl": {
+        "bielawskiego": "Polish: Bielawskiego (Józefa Bielawskiego)"
+      },
+      "pt": {
+        "elhayek": "Portuguese: El-Hayek (Samir El-Hayek)"
+      },
+      "ro": {
+        "grigore": "Romanian: Grigore (George Grigore)"
+      },
+      "ru": {
+        "abuadel": "Russian: Абу Адель (Abu Adel)",
+        "muntahab": "Russian: Аль-Мунтахаб (Ministry of Awqaf, Egypt)",
+        "krachkovsky": "Russian: Крачковский (Ignaty Yulianovich Krachkovsky)",
+        "kuliev": "Russian: Кулиев (Elmir Kuliev)",
+        "kuliev-alsaadi": "Russian: Кулиев + ас-Саади",
+        "osmanov": "Russian: Османов (Magomed-Nuri Osmanovich Osmanov)",
+        "porokhova": "Russian: Порохова (V. Porokhova)",
+        "sablukov": "Russian: Саблуков (Gordy Semyonovich Sablukov)"
+      },
+      "sd": {
+        "amroti": "Sindhi: امروٽي (Taj Mehmood Amroti)"
+      },
+      "si": {
+        "naseemismail": "Sinhala: Naseem Ismail (Naseem Isamil and Masoor Maulana, Kaleel)"
+      },
+      "so": {
+        "abduh": "Somali: Abduh (Mahmud Muhammad Abduh)"
+      },
+      "es": {
+        "asad": "Spanish: Asad (Muhammad Asad - Abdurrasak Pérez)",
+        "bornez": "Spanish: Bornez",
+        "cortes": "Spanish: Cortes (Julio Cortes)",
+        "garcia": "Spanish: Garcia"
+      },
+      "sw": {
+        "barwani": "Swahili: Al-Barwani (Ali Muhsin Al-Barwani)"
+      },
+      "sv": {
+        "bernstrom": "Swedish: Bernström (Knut Bernström)"
+      },
+      "tg": {
+        "ayati": "Tajik: Оятӣ (AbdolMohammad Ayati)"
+      },
+      "ta": {
+        "tamil": "Tamil: ஜான் டிரஸ்ட் (Jan Turst Foundation)"
+      },
+      "tt": {
+        "nugman": "Tatar: Yakub Ibn Nugman"
+      },
+      "th": {
+        "thai": "Thai: ภาษาไทย (King Fahad Quran Complex)"
+      },
+      "tr": {
+        "golpinarli": "Turkish: Abdulbakî Gölpınarlı (Abdulbaki Golpinarli)",
+        "bulac": "Turkish: Alİ Bulaç",
+        "vakfi": "Turkish: Diyanet Vakfı (Diyanet Vakfi)",
+        "diyanet": "Turkish: Diyanet İşleri (Diyanet Isleri)",
+        "yuksel": "Turkish: Edip Yüksel",
+        "yazir": "Turkish: Elmalılı Hamdi Yazır (Elmalili Hamdi Yazir)",
+        "yildirim": "Turkish: Suat Yıldırım (Suat Yildirim)",
+        "ates": "Turkish: Süleyman Ateş (Suleyman Ates)",
+        "ozturk": "Turkish: Öztürk (Yasar Nuri Ozturk)"
+      },
+      "ur": {
+        "maududi": "Urdu: ابوالاعلی مودودی (Abul A'ala Maududi)",
+        "kanzuliman": "Urdu: احمد رضا خان (Ahmed Raza Khan)",
+        "ahmedali": "Urdu: احمد علی (Ahmed Ali)",
+        "jalandhry": "Urdu: جالندہری (Fateh Muhammad Jalandhry)",
+        "qadri": "Urdu: طاہر القادری (Tahir ul Qadri)",
+        "jawadi": "Urdu: علامہ جوادی (Syed Zeeshan Haider Jawadi)",
+        "junagarhi": "Urdu: محمد جوناگڑھی (Muhammad Junagarhi)",
+        "najafi": "Urdu: محمد حسین نجفی"
+      },
+      "ug": {
+        "saleh": "Uyghur: محمد صالح (Muhammad Saleh)"
+      },
+      "uz": {
+        "sodik": "Uzbek: Мухаммад Содик (Muhammad Sodik Muhammad Yusuf)"
+      }
+    }
+  }
+}

@@ -1,0 +1,165 @@
+id = "mezoahmedii/quranwidget"
+name = "Quran Widget"
+description = "A Noctalia widget to show a random Quranic Ayah/verse on the desktop"
+version = "1.0.0"
+plugin_api = 3
+author = "MezoAhmedII"
+icon = "book"
+tags = ["desktop", "utility"]
+license = "MIT"
+dependencies = ["xdg-open"]
+
+[[desktop_widget]]
+id = "quranwidget"
+entry = "widget.luau"
+
+[[desktop_widget.setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 30
+
+[[desktop_widget.setting]]
+key = "show_translation"
+type = "bool"
+label_key = "settings.show_translation.label"
+description_key = "settings.show_translation.description"
+default = true
+
+[[desktop_widget.setting]]
+key = "translation_edition"
+type = "select"
+label_key = "settings.translation_edition.label"
+description_key = "settings.translation_edition.description"
+default = "en.sahih"
+options = [
+    { "value" = "sq.nahi", "label_key" = "settings.translation_edition.sq.nahi" },
+    { "value" = "sq.mehdiu", "label_key" = "settings.translation_edition.sq.mehdiu" },
+    { "value" = "sq.ahmeti", "label_key" = "settings.translation_edition.sq.ahmeti" },
+    { "value" = "am.sadiq", "label_key" = "settings.translation_edition.am.sadiq" },
+    { "value" = "quran-buck", "label_key" = "settings.translation_edition.quran-buck" },
+    { "value" = "ar.waseet", "label_key" = "settings.translation_edition.ar.waseet" },
+    { "value" = "ar.baghawi", "label_key" = "settings.translation_edition.ar.baghawi" },
+    { "value" = "ar.jalalayn", "label_key" = "settings.translation_edition.ar.jalalayn" },
+    { "value" = "ar.qurtubi", "label_key" = "settings.translation_edition.ar.qurtubi" },
+    { "value" = "ar.muyassar", "label_key" = "settings.translation_edition.ar.muyassar" },
+    { "value" = "ar.miqbas", "label_key" = "settings.translation_edition.ar.miqbas" },
+    { "value" = "ar.abdulbasitmurattal", "label_key" = "settings.translation_edition.ar.abdulbasitmurattal" },
+    { "value" = "ar.minshawi", "label_key" = "settings.translation_edition.ar.minshawi" },
+    { "value" = "ar.minshawimujawwad", "label_key" = "settings.translation_edition.ar.minshawimujawwad" },
+    { "value" = "az.musayev", "label_key" = "settings.translation_edition.az.musayev" },
+    { "value" = "az.mammadaliyev", "label_key" = "settings.translation_edition.az.mammadaliyev" },
+    { "value" = "bn.hoque", "label_key" = "settings.translation_edition.bn.hoque" },
+    { "value" = "bn.bengali", "label_key" = "settings.translation_edition.bn.bengali" },
+    { "value" = "ba.mehanovic", "label_key" = "settings.translation_edition.ba.mehanovic" },
+    { "value" = "ber.mensur", "label_key" = "settings.translation_edition.ber.mensur" },
+    { "value" = "bs.korkut", "label_key" = "settings.translation_edition.bs.korkut" },
+    { "value" = "bs.mlivo", "label_key" = "settings.translation_edition.bs.mlivo" },
+    { "value" = "bg.theophanov", "label_key" = "settings.translation_edition.bg.theophanov" },
+    { "value" = "my.ghazi", "label_key" = "settings.translation_edition.my.ghazi" },
+    { "value" = "ce.magomedov", "label_key" = "settings.translation_edition.ce.magomedov" },
+    { "value" = "zh.jian", "label_key" = "settings.translation_edition.zh.jian" },
+    { "value" = "zh.majian", "label_key" = "settings.translation_edition.zh.majian" },
+    { "value" = "zh.mazhonggang", "label_key" = "settings.translation_edition.zh.mazhonggang" },
+    { "value" = "cs.hrbek", "label_key" = "settings.translation_edition.cs.hrbek" },
+    { "value" = "cs.nykl", "label_key" = "settings.translation_edition.cs.nykl" },
+    { "value" = "dv.divehi", "label_key" = "settings.translation_edition.dv.divehi" },
+    { "value" = "nl.keyzer", "label_key" = "settings.translation_edition.nl.keyzer" },
+    { "value" = "nl.leemhuis", "label_key" = "settings.translation_edition.nl.leemhuis" },
+    { "value" = "nl.siregar", "label_key" = "settings.translation_edition.nl.siregar" },
+    { "value" = "en.ahmedali", "label_key" = "settings.translation_edition.en.ahmedali" },
+    { "value" = "en.ahmedraza", "label_key" = "settings.translation_edition.en.ahmedraza" },
+    { "value" = "en.arberry", "label_key" = "settings.translation_edition.en.arberry" },
+    { "value" = "en.asad", "label_key" = "settings.translation_edition.en.asad" },
+    { "value" = "en.itani", "label_key" = "settings.translation_edition.en.itani" },
+    { "value" = "en.daryabadi", "label_key" = "settings.translation_edition.en.daryabadi" },
+    { "value" = "en.hilali", "label_key" = "settings.translation_edition.en.hilali" },
+    { "value" = "en.maududi", "label_key" = "settings.translation_edition.en.maududi" },
+    { "value" = "en.mubarakpuri", "label_key" = "settings.translation_edition.en.mubarakpuri" },
+    { "value" = "en.pickthall", "label_key" = "settings.translation_edition.en.pickthall" },
+    { "value" = "en.qarai", "label_key" = "settings.translation_edition.en.qarai" },
+    { "value" = "en.qaribullah", "label_key" = "settings.translation_edition.en.qaribullah" },
+    { "value" = "en.sahih", "label_key" = "settings.translation_edition.en.sahih" },
+    { "value" = "en.sarwar", "label_key" = "settings.translation_edition.en.sarwar" },
+    { "value" = "en.shakir", "label_key" = "settings.translation_edition.en.shakir" },
+    { "value" = "en.wahiduddin", "label_key" = "settings.translation_edition.en.wahiduddin" },
+    { "value" = "en.yusufali", "label_key" = "settings.translation_edition.en.yusufali" },
+    { "value" = "fr.hamidullah", "label_key" = "settings.translation_edition.fr.hamidullah" },
+    { "value" = "de.aburida", "label_key" = "settings.translation_edition.de.aburida" },
+    { "value" = "de.bubenheim", "label_key" = "settings.translation_edition.de.bubenheim" },
+    { "value" = "de.khoury", "label_key" = "settings.translation_edition.de.khoury" },
+    { "value" = "de.zaidan", "label_key" = "settings.translation_edition.de.zaidan" },
+    { "value" = "ha.gumi", "label_key" = "settings.translation_edition.ha.gumi" },
+    { "value" = "hi.farooq", "label_key" = "settings.translation_edition.hi.farooq" },
+    { "value" = "hi.hindi", "label_key" = "settings.translation_edition.hi.hindi" },
+    { "value" = "id.indonesian", "label_key" = "settings.translation_edition.id.indonesian" },
+    { "value" = "id.muntakhab", "label_key" = "settings.translation_edition.id.muntakhab" },
+    { "value" = "id.jalalayn", "label_key" = "settings.translation_edition.id.jalalayn" },
+    { "value" = "it.piccardo", "label_key" = "settings.translation_edition.it.piccardo" },
+    { "value" = "ja.japanese", "label_key" = "settings.translation_edition.ja.japanese" },
+    { "value" = "ko.korean", "label_key" = "settings.translation_edition.ko.korean" },
+    { "value" = "ku.asan", "label_key" = "settings.translation_edition.ku.asan" },
+    { "value" = "ms.basmeih", "label_key" = "settings.translation_edition.ms.basmeih" },
+    { "value" = "ml.abdulhameed", "label_key" = "settings.translation_edition.ml.abdulhameed" },
+    { "value" = "ml.karakunnu", "label_key" = "settings.translation_edition.ml.karakunnu" },
+    { "value" = "no.berg", "label_key" = "settings.translation_edition.no.berg" },
+    { "value" = "ps.abdulwali", "label_key" = "settings.translation_edition.ps.abdulwali" },
+    { "value" = "fa.hedayatfarfooladvand", "label_key" = "settings.translation_edition.fa.hedayatfarfooladvand" },
+    { "value" = "fa.ayati", "label_key" = "settings.translation_edition.fa.ayati" },
+    { "value" = "fa.ghomshei", "label_key" = "settings.translation_edition.fa.ghomshei" },
+    { "value" = "fa.ansarian", "label_key" = "settings.translation_edition.fa.ansarian" },
+    { "value" = "fa.bahrampour", "label_key" = "settings.translation_edition.fa.bahrampour" },
+    { "value" = "fa.khorramdel", "label_key" = "settings.translation_edition.fa.khorramdel" },
+    { "value" = "fa.khorramshahi", "label_key" = "settings.translation_edition.fa.khorramshahi" },
+    { "value" = "fa.sadeqi", "label_key" = "settings.translation_edition.fa.sadeqi" },
+    { "value" = "fa.safavi", "label_key" = "settings.translation_edition.fa.safavi" },
+    { "value" = "fa.fooladvand", "label_key" = "settings.translation_edition.fa.fooladvand" },
+    { "value" = "fa.gharaati", "label_key" = "settings.translation_edition.fa.gharaati" },
+    { "value" = "fa.mojtabavi", "label_key" = "settings.translation_edition.fa.mojtabavi" },
+    { "value" = "fa.moezzi", "label_key" = "settings.translation_edition.fa.moezzi" },
+    { "value" = "fa.makarem", "label_key" = "settings.translation_edition.fa.makarem" },
+    { "value" = "pl.bielawskiego", "label_key" = "settings.translation_edition.pl.bielawskiego" },
+    { "value" = "pt.elhayek", "label_key" = "settings.translation_edition.pt.elhayek" },
+    { "value" = "ro.grigore", "label_key" = "settings.translation_edition.ro.grigore" },
+    { "value" = "ru.abuadel", "label_key" = "settings.translation_edition.ru.abuadel" },
+    { "value" = "ru.muntahab", "label_key" = "settings.translation_edition.ru.muntahab" },
+    { "value" = "ru.krachkovsky", "label_key" = "settings.translation_edition.ru.krachkovsky" },
+    { "value" = "ru.kuliev", "label_key" = "settings.translation_edition.ru.kuliev" },
+    { "value" = "ru.kuliev-alsaadi", "label_key" = "settings.translation_edition.ru.kuliev-alsaadi" },
+    { "value" = "ru.osmanov", "label_key" = "settings.translation_edition.ru.osmanov" },
+    { "value" = "ru.porokhova", "label_key" = "settings.translation_edition.ru.porokhova" },
+    { "value" = "ru.sablukov", "label_key" = "settings.translation_edition.ru.sablukov" },
+    { "value" = "sd.amroti", "label_key" = "settings.translation_edition.sd.amroti" },
+    { "value" = "si.naseemismail", "label_key" = "settings.translation_edition.si.naseemismail" },
+    { "value" = "so.abduh", "label_key" = "settings.translation_edition.so.abduh" },
+    { "value" = "es.asad", "label_key" = "settings.translation_edition.es.asad" },
+    { "value" = "es.bornez", "label_key" = "settings.translation_edition.es.bornez" },
+    { "value" = "es.cortes", "label_key" = "settings.translation_edition.es.cortes" },
+    { "value" = "es.garcia", "label_key" = "settings.translation_edition.es.garcia" },
+    { "value" = "sw.barwani", "label_key" = "settings.translation_edition.sw.barwani" },
+    { "value" = "sv.bernstrom", "label_key" = "settings.translation_edition.sv.bernstrom" },
+    { "value" = "tg.ayati", "label_key" = "settings.translation_edition.tg.ayati" },
+    { "value" = "ta.tamil", "label_key" = "settings.translation_edition.ta.tamil" },
+    { "value" = "tt.nugman", "label_key" = "settings.translation_edition.tt.nugman" },
+    { "value" = "th.thai", "label_key" = "settings.translation_edition.th.thai" },
+    { "value" = "tr.golpinarli", "label_key" = "settings.translation_edition.tr.golpinarli" },
+    { "value" = "tr.bulac", "label_key" = "settings.translation_edition.tr.bulac" },
+    { "value" = "tr.vakfi", "label_key" = "settings.translation_edition.tr.vakfi" },
+    { "value" = "tr.diyanet", "label_key" = "settings.translation_edition.tr.diyanet" },
+    { "value" = "tr.yuksel", "label_key" = "settings.translation_edition.tr.yuksel" },
+    { "value" = "tr.yazir", "label_key" = "settings.translation_edition.tr.yazir" },
+    { "value" = "tr.yildirim", "label_key" = "settings.translation_edition.tr.yildirim" },
+    { "value" = "tr.ates", "label_key" = "settings.translation_edition.tr.ates" },
+    { "value" = "tr.ozturk", "label_key" = "settings.translation_edition.tr.ozturk" },
+    { "value" = "ur.maududi", "label_key" = "settings.translation_edition.ur.maududi" },
+    { "value" = "ur.kanzuliman", "label_key" = "settings.translation_edition.ur.kanzuliman" },
+    { "value" = "ur.ahmedali", "label_key" = "settings.translation_edition.ur.ahmedali" },
+    { "value" = "ur.jalandhry", "label_key" = "settings.translation_edition.ur.jalandhry" },
+    { "value" = "ur.qadri", "label_key" = "settings.translation_edition.ur.qadri" },
+    { "value" = "ur.jawadi", "label_key" = "settings.translation_edition.ur.jawadi" },
+    { "value" = "ur.junagarhi", "label_key" = "settings.translation_edition.ur.junagarhi" },
+    { "value" = "ur.najafi", "label_key" = "settings.translation_edition.ur.najafi" },
+    { "value" = "ug.saleh", "label_key" = "settings.translation_edition.ug.saleh" },
+    { "value" = "uz.sodik", "label_key" = "settings.translation_edition.uz.sodik" },
+]

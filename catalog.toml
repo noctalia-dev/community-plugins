@@ -290,8 +290,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.1"
-updated_at = 1788444492
+version = "1.5.2"
+updated_at = 1788481615
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -2147,3 +2147,16 @@ icon = "mood-smile"
 description = "Raycast-inspired emoji & Unicode symbol browser: instant search, categories, recents."
 plugin_api = 28
 tags = ["panel", "emoticon", "utility"]
+
+[[plugin]]
+id = "mezoahmedii/quranwidget"
+name = "Quran Widget"
+version = "1.0.0"
+updated_at = 1788482725
+added_at = 1788482725
+author = "MezoAhmedII"
+license = "MIT"
+icon = "book"
+description = "A Noctalia widget to show a random Quranic Ayah/verse on the desktop"
+plugin_api = 3
+tags = ["desktop", "utility"]
