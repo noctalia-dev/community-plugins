@@ -405,7 +405,7 @@ for _, row in ipairs(collect(agyPanelTree, "row")) do
 end
 assert(#agyRows == 1, "antigravity row should exist in panel")
 local agyProgress = collect(agyRows[1], "progress")
-assert(#agyProgress == 2, "antigravity providerRow should have paired dual progress bars")
+assert(#agyProgress == 4, "antigravity providerRow should have 4 progress bars for Gemini and Claude windows")
 
 local codexDualEntry = {
     id = "openai",

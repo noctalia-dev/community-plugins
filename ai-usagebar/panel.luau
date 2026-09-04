@@ -370,11 +370,10 @@ local function providerRow(entry, selected)
         })
     elseif #submodels > 1 then
         local colChildren = {}
-        local barChildren = {}
+        local modelPairGroups = {}
         for _, item in ipairs(submodels) do
             local mBlocked = item.blocked or isCritical(item.metric)
             local mTint = mBlocked and "error" or severityRole(item.metric, "on_surface")
-            local mFill = mBlocked and "error" or severityRole(item.metric, "primary")
             local mPct = tonumber(item.metric.percent) or 0
             colChildren[#colChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, {
                 ui.glyph({
@@ -391,15 +390,23 @@ local function providerRow(entry, selected)
                     maxLines = 1,
                 }),
             })
-            barChildren[#barChildren + 1] = ui.progress({
-                progress = ratio(mPct),
-                fill = mFill,
-                track = "on_surface/0.10",
-                radius = 2,
-                height = 3,
-            })
+
+            local modelBars = {}
+            local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
+            for _, m in ipairs(mMetrics) do
+                local p = tonumber(m.percent) or 0
+                local f = isCritical(m) and "error" or severityRole(m, "primary")
+                modelBars[#modelBars + 1] = ui.progress({
+                    progress = ratio(p),
+                    fill = f,
+                    track = "on_surface/0.10",
+                    radius = 1,
+                    height = 2,
+                })
+            end
+            modelPairGroups[#modelPairGroups + 1] = ui.column({ gap = 2 }, modelBars)
         end
-        gaugeNode = ui.column({ gap = 2 }, barChildren)
+        gaugeNode = ui.column({ gap = 3 }, modelPairGroups)
         local rightChildren = {
             ui.column({ gap = 1, align = "end" }, colChildren),
         }

@@ -312,6 +312,7 @@ function M.modelHeadlines(entry)
                 short = modelShortName(model),
                 glyph = M.modelGlyph(model),
                 metric = sessionMetric,
+                metrics = modelMetrics,
                 blocked = blocked,
             }
         end
