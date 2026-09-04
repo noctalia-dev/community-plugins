@@ -319,8 +319,44 @@ end
 -- warnings, free text. A provider that is down loses its gauges, not the rest of
 -- what the CLI said, so both passes draw these the same way. `warned` says the
 -- warning already stands at the top, so it is not said twice.
+-- A credits block with zero balance and no usage is skipped: showing an empty
+-- card for a user who does not purchase or use credits is noise.
+local function isEmptyCredits(section)
+    if section.type ~= "block" then return false end
+    local label = tostring(section.label or ""):lower()
+    if not label:find("credit", 1, true) then return false end
+
+    local lines = type(section.body) == "table" and section.body or {}
+    if #lines == 0 then return true end
+
+    local hasPositive = false
+    for _, line in ipairs(lines) do
+        local text = tostring(line):lower()
+        local balanceVal = text:match("balance:%s*(.*)")
+        if balanceVal ~= nil then
+            local num = tonumber(balanceVal:match("[%d%.]+"))
+            if num ~= nil and num > 0 then
+                hasPositive = true
+                break
+            end
+        else
+            for numStr in text:gmatch("[%d%.]+") do
+                local n = tonumber(numStr)
+                if n ~= nil and n > 0 then
+                    hasPositive = true
+                    break
+                end
+            end
+        end
+    end
+    return not hasPositive
+end
+
 local function otherCard(section, warned)
-    if section.type == "block" then return blockCard(section) end
+    if section.type == "block" then
+        if isEmptyCredits(section) then return nil end
+        return blockCard(section)
+    end
 
     if section.type == "text" then
         local label = tostring(section.label or "")

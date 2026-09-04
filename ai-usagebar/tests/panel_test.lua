@@ -440,4 +440,40 @@ assert(#codexRows == 1, "codex row should exist in panel")
 local codexProgress = collect(codexRows[1], "progress")
 assert(#codexProgress == 2, "codex providerRow should have paired dual progress bars for session and weekly")
 
+local codexWithEmptyCredits = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+        { label = "Codex weekly", percent = 16, severity = "low", value = "16%" },
+    },
+    sections = {
+        { type = "spacer" },
+        { detail = "Resets in 1h 40m", label = "Codex 5h", percent = 100, severity = "critical", type = "metric", value = "100%" },
+        { type = "spacer" },
+        { detail = "Resets in 6d 20h", label = "Codex weekly", percent = 16, severity = "low", type = "metric", value = "16%" },
+        { type = "spacer" },
+        { body = { "balance: 0", "≈ 0-0 local messages", "≈ 0-0 cloud messages" }, label = "Credits", type = "block" },
+    },
+}
+local emptyCreditsTree = loadPanel(codexWithEmptyCredits)
+assert(not has(labels(emptyCreditsTree), "Credits"), "empty credits block should be hidden")
+
+local codexWithActiveCredits = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { body = { "balance: $12.50", "≈ 50 local messages" }, label = "Credits", type = "block" },
+    },
+}
+local activeCreditsTree = loadPanel(codexWithActiveCredits)
+assert(has(labels(activeCreditsTree), "Credits"), "active credits block with positive balance should be displayed")
+
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
