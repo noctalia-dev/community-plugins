@@ -357,19 +357,24 @@ local function providerRow(entry, selected)
     local broken = entry.status == "error" or unavailable(entry)
     local tint = severityRole(metric, "on_surface")
     local submodels = modelHeadlines(entry)
+    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
 
     -- The reading keeps its severity colour whether or not the row is selected:
     -- recolouring it hides the one thing the list exists to compare.
     local right
+    local gaugeNode = nil
+
     if broken then
         right = ui.row({ width = 48, justify = "end" }, {
             ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
         })
     elseif #submodels > 1 then
         local colChildren = {}
+        local barChildren = {}
         for _, item in ipairs(submodels) do
-            local mTint = (item.blocked or isCritical(item.metric)) and "error"
-                or severityRole(item.metric, "on_surface")
+            local mBlocked = item.blocked or isCritical(item.metric)
+            local mTint = mBlocked and "error" or severityRole(item.metric, "on_surface")
+            local mFill = mBlocked and "error" or severityRole(item.metric, "primary")
             local mPct = tonumber(item.metric.percent) or 0
             colChildren[#colChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, {
                 ui.glyph({
@@ -386,7 +391,15 @@ local function providerRow(entry, selected)
                     maxLines = 1,
                 }),
             })
+            barChildren[#barChildren + 1] = ui.progress({
+                progress = ratio(mPct),
+                fill = mFill,
+                track = "on_surface/0.10",
+                radius = 2,
+                height = 3,
+            })
         end
+        gaugeNode = ui.column({ gap = 2 }, barChildren)
         local rightChildren = {
             ui.column({ gap = 1, align = "end" }, colChildren),
         }
@@ -396,12 +409,65 @@ local function providerRow(entry, selected)
             })
         end
         right = ui.row({ gap = 3, width = 56, justify = "end", align = "center" }, rightChildren)
+    elseif #metrics >= 2 then
+        local m1, m2 = metrics[1], metrics[2]
+        local p1 = tonumber(m1.percent) or 0
+        local p2 = tonumber(m2.percent) or 0
+        local t1 = severityRole(m1, "on_surface")
+        local t2 = severityRole(m2, "on_surface_variant")
+        local f1 = severityRole(m1, "primary")
+        local f2 = severityRole(m2, "primary")
+
+        gaugeNode = ui.column({ gap = 2 }, {
+            ui.progress({ progress = ratio(p1), fill = f1, track = "on_surface/0.10", radius = 2, height = 3 }),
+            ui.progress({ progress = ratio(p2), fill = f2, track = "on_surface/0.10", radius = 2, height = 3 }),
+        })
+
+        local rightChildren = {
+            ui.column({ gap = 1, align = "end" }, {
+                ui.label({
+                    text = string.format("%d%%", p1),
+                    fontSize = 11,
+                    fontWeight = "bold",
+                    color = t1,
+                    textAlign = "end",
+                    maxLines = 1,
+                }),
+                ui.label({
+                    text = string.format("%d%%", p2),
+                    fontSize = 10,
+                    fontWeight = "medium",
+                    color = t2,
+                    textAlign = "end",
+                    maxLines = 1,
+                }),
+            }),
+        }
+        if entry.stale == true then
+            rightChildren[#rightChildren + 1] = ui.glyph({
+                name = "clock-exclamation", size = 12, color = "secondary",
+            })
+        end
+        right = ui.row({ gap = 3, width = 56, justify = "end", align = "center" }, rightChildren)
     else
+        local p1 = percent ~= nil and percent or 0
+        if percent ~= nil then
+            gaugeNode = ui.progress({
+                progress = ratio(p1),
+                fill = severityRole(metric, "primary"),
+                track = "on_surface/0.12",
+                radius = 2,
+                height = 4,
+            })
+        end
         local rightChildren = {
             ui.label({
                 text = percent ~= nil and string.format("%d%%", percent) or "—",
-                fontSize = 13, fontWeight = "bold", color = tint,
-                width = 34, textAlign = "end",
+                fontSize = 13,
+                fontWeight = "bold",
+                color = tint,
+                width = 34,
+                textAlign = "end",
             }),
         }
         if entry.stale == true then
@@ -419,13 +485,8 @@ local function providerRow(entry, selected)
             color = selected and "primary" or "on_surface", maxLines = 1,
         }),
     }
-    if percent ~= nil and not broken then
-        lines[#lines + 1] = ui.progress({
-            progress = ratio(percent),
-            fill = severityRole(metric, "primary"),
-            track = "on_surface/0.12",
-            radius = 2, height = 4,
-        })
+    if gaugeNode ~= nil and not broken then
+        lines[#lines + 1] = gaugeNode
     end
     lines[#lines + 1] = ui.label({
         text = broken and noctalia.tr("ui.unavailable") or tostring(entry.plan or entry.id or ""),

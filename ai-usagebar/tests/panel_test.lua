@@ -399,4 +399,32 @@ assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gem
 assert(hasGlyph(agyPanelTree, "asterisk-simple"), "panel sidebar should display Claude brand glyph")
 assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
 
+local agyRows = {}
+for _, row in ipairs(collect(agyPanelTree, "row")) do
+    if row.props.key == "provider-antigravity" then agyRows[#agyRows + 1] = row end
+end
+assert(#agyRows == 1, "antigravity row should exist in panel")
+local agyProgress = collect(agyRows[1], "progress")
+assert(#agyProgress == 2, "antigravity providerRow should have paired dual progress bars")
+
+local codexDualEntry = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+        { label = "Codex weekly", percent = 16, severity = "low", value = "16%" },
+    },
+    sections = {},
+}
+local codexTree = loadPanel(codexDualEntry)
+local codexRows = {}
+for _, row in ipairs(collect(codexTree, "row")) do
+    if row.props.key == "provider-openai" then codexRows[#codexRows + 1] = row end
+end
+assert(#codexRows == 1, "codex row should exist in panel")
+local codexProgress = collect(codexRows[1], "progress")
+assert(#codexProgress == 2, "codex providerRow should have paired dual progress bars for session and weekly")
+
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
