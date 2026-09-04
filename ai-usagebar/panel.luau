@@ -406,9 +406,9 @@ local function providerRow(entry, selected)
             end
             modelPairGroups[#modelPairGroups + 1] = ui.column({ gap = 2 }, modelBars)
         end
-        gaugeNode = ui.column({ gap = 3 }, modelPairGroups)
+        gaugeNode = ui.column({ gap = 6 }, modelPairGroups)
         local rightChildren = {
-            ui.column({ gap = 1, align = "end" }, colChildren),
+            ui.column({ gap = 4, align = "end" }, colChildren),
         }
         if entry.stale == true then
             rightChildren[#rightChildren + 1] = ui.glyph({
@@ -499,6 +499,9 @@ local function providerRow(entry, selected)
         text = broken and noctalia.tr("ui.unavailable") or tostring(entry.plan or entry.id or ""),
         fontSize = 10, color = "on_surface_variant", maxLines = 1,
     })
+    if #submodels > 1 and not broken then
+        lines[#lines + 1] = ui.spacer({ height = 3 })
+    end
 
     return ui.row({
         -- Keyed, so the click handler survives the second tick the countdowns ride

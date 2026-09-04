@@ -406,6 +406,8 @@ end
 assert(#agyRows == 1, "antigravity row should exist in panel")
 local agyProgress = collect(agyRows[1], "progress")
 assert(#agyProgress == 4, "antigravity providerRow should have 4 progress bars for Gemini and Claude windows")
+local agySpacers = collect(agyRows[1], "spacer")
+assert(#agySpacers >= 1, "antigravity providerRow should include balancing spacer for centered icon alignment")
 
 local codexDualEntry = {
     id = "openai",
