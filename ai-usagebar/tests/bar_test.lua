@@ -261,4 +261,25 @@ assert(glyphColor(broken.rendered(), "brand-openai") == "error",
 assert(glyphColor(healthy.rendered(), "brand-openai") == "on_surface",
     "a healthy read leaves the mark in its identity colour")
 
+local bottleneckBar = loadBar({
+    vendor = "openai", account = "", extras = "none", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "openai",
+            display_name = "Codex",
+            plan = "ChatGPT Plus",
+            status = "ready",
+            metrics = {
+                { label = "Codex 5h", percent = 0, severity = "low", value = "0%" },
+                { label = "Codex weekly", percent = 100, severity = "critical", value = "100%" },
+            },
+        },
+    },
+})
+assert(containsText(bottleneckBar.rendered(), "100%"),
+       "capsule should show the 100% weekly bottleneck when session is 0%")
+assert(not containsText(bottleneckBar.rendered(), "0%"),
+       "capsule should not show 0% when weekly limit is 100%")
+
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")

@@ -198,6 +198,29 @@ function M.pace(detail)
     return last, points, word
 end
 
+-- Kept next to the role both entries colour with, so the tiers cannot be edited
+-- in one file and forgotten in the other. `low` falls through to 0, like
+-- anything the CLI adds later.
+M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
+
+function M.headline(entry)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
+    local best = nil
+    local bestRank, bestPercent = -1, -1
+    for _, metric in ipairs(entry.metrics) do
+        if type(metric) == "table" then
+            local rank = M.SEVERITY_RANK[tostring(metric.severity or "")] or 0
+            local percent = tonumber(metric.percent) or 0
+            if rank > bestRank or (rank == bestRank and percent > bestPercent) then
+                best = metric
+                bestRank = rank
+                bestPercent = percent
+            end
+        end
+    end
+    return best
+end
+
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}
@@ -208,8 +231,11 @@ function M.entries(report)
         end
     end
     table.sort(visible, function(a, b)
-        local aMetric = type(a.metrics) == "table" and a.metrics[1] or nil
-        local bMetric = type(b.metrics) == "table" and b.metrics[1] or nil
+        local aMetric = M.headline(a)
+        local bMetric = M.headline(b)
+        local aRank = M.SEVERITY_RANK[tostring(aMetric and aMetric.severity or "")] or 0
+        local bRank = M.SEVERITY_RANK[tostring(bMetric and bMetric.severity or "")] or 0
+        if aRank ~= bRank then return aRank > bRank end
         local aPercent = type(aMetric) == "table" and tonumber(aMetric.percent) or -1
         local bPercent = type(bMetric) == "table" and tonumber(bMetric.percent) or -1
         if aPercent ~= bPercent then return aPercent > bPercent end
@@ -226,17 +252,6 @@ function M.ratio(percent)
     if value > 1 then return 1 end
     return value
 end
-
-function M.headline(entry)
-    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    local first = entry.metrics[1]
-    return type(first) == "table" and first or nil
-end
-
--- Kept next to the role both entries colour with, so the tiers cannot be edited
--- in one file and forgotten in the other. `low` falls through to 0, like
--- anything the CLI adds later.
-M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
 
 -- The CLI tiers every percentage; copying its thresholds here would be a second
 -- source of truth. `calm` is for when it raised nothing.

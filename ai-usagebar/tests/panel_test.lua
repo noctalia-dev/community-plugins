@@ -350,4 +350,22 @@ assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
 assert(not has(labels(dropped), "ui.error.timed_out_hint"),
        "and says the failure once, in the pane, not across the whole panel")
 
+local bottleneckPanelEntry = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 0, severity = "low", value = "0%" },
+        { label = "Codex weekly", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { label = "Codex 5h", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { label = "Codex weekly", percent = 100, severity = "critical", type = "metric", value = "100%" },
+    },
+}
+local bottleneckPanelTree = loadPanel(bottleneckPanelEntry)
+assert(has(labels(bottleneckPanelTree), "100%"),
+       "panel sidebar should display the 100% bottleneck reading")
+
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")

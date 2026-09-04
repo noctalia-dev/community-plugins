@@ -86,4 +86,39 @@ assert(#ordered == 2, "providers with their own refresh failure should be remove
 assert(ordered[1].id == "antigravity" and ordered[2].id == "openai",
        "working providers should be ordered by highest usage")
 
+local bottleneckEntry = {
+    id = "openai",
+    status = "ready",
+    stale = false,
+    metrics = {
+        { label = "Codex 5h", percent = 0, severity = "low" },
+        { label = "Codex weekly", percent = 100, severity = "critical" },
+    },
+    sections = {},
+}
+local headlineMetric = shared.headline(bottleneckEntry)
+assert(headlineMetric ~= nil and headlineMetric.label == "Codex weekly" and headlineMetric.percent == 100,
+       "headline should select the bottleneck/highest severity metric across windows")
+
+local tieSeverityEntry = {
+    id = "antigravity",
+    status = "ready",
+    stale = false,
+    metrics = {
+        { label = "Session", percent = 15, severity = "low" },
+        { label = "Weekly", percent = 45, severity = "low" },
+    },
+    sections = {},
+}
+local tieMetric = shared.headline(tieSeverityEntry)
+assert(tieMetric ~= nil and tieMetric.label == "Weekly" and tieMetric.percent == 45,
+       "headline should pick highest percentage when severity is equal")
+
+local reordered = shared.entries({ entries = {
+    usageEntry("antigravity", 50),
+    bottleneckEntry,
+} })
+assert(reordered[1].id == "openai" and reordered[2].id == "antigravity",
+       "a provider with critical 100% weekly limit should rank above a 50% low severity provider")
+
 io.write("ok: shared timestamps, availability, and provider order\n")
