@@ -372,27 +372,46 @@ local function providerRow(entry, selected)
         local colChildren = {}
         local modelPairGroups = {}
         for _, item in ipairs(submodels) do
-            local mBlocked = item.blocked or isCritical(item.metric)
-            local mTint = mBlocked and "error" or severityRole(item.metric, "on_surface")
-            local mPct = tonumber(item.metric.percent) or 0
-            colChildren[#colChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, {
+            local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
+            local m1 = mMetrics[1] or item.metric
+            local m2 = mMetrics[2]
+            local p1 = tonumber(m1.percent) or 0
+            local p2 = m2 ~= nil and tonumber(m2.percent) or nil
+            local t1 = isCritical(m1) and "error" or severityRole(m1, "on_surface")
+            local t2 = m2 ~= nil and (isCritical(m2) and "error" or severityRole(m2, "on_surface_variant")) or nil
+            local mTint = item.blocked and "error" or t1
+
+            local pctElements = {
+                ui.label({
+                    text = string.format("%d%%", p1),
+                    fontSize = 10,
+                    fontWeight = "bold",
+                    color = t1,
+                    textAlign = "end",
+                    maxLines = 1,
+                }),
+            }
+            if p2 ~= nil then
+                pctElements[#pctElements + 1] = ui.label({
+                    text = string.format("/ %d%%", p2),
+                    fontSize = 9,
+                    fontWeight = "medium",
+                    color = t2,
+                    textAlign = "end",
+                    maxLines = 1,
+                })
+            end
+
+            colChildren[#colChildren + 1] = ui.row({ gap = 3, align = "center", justify = "end" }, {
                 ui.glyph({
                     name = item.glyph or "sparkles",
                     size = 11,
                     color = mTint,
                 }),
-                ui.label({
-                    text = string.format("%d%%", mPct),
-                    fontSize = 10,
-                    fontWeight = "bold",
-                    color = mTint,
-                    textAlign = "end",
-                    maxLines = 1,
-                }),
+                ui.row({ gap = 2, align = "baseline", justify = "end" }, pctElements),
             })
 
             local modelBars = {}
-            local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
             for _, m in ipairs(mMetrics) do
                 local p = tonumber(m.percent) or 0
                 local f = isCritical(m) and "error" or severityRole(m, "primary")
@@ -408,14 +427,14 @@ local function providerRow(entry, selected)
         end
         gaugeNode = ui.column({ gap = 6 }, modelPairGroups)
         local rightChildren = {
-            ui.column({ gap = 4, align = "end" }, colChildren),
+            ui.column({ gap = 3, align = "end" }, colChildren),
         }
         if entry.stale == true then
             rightChildren[#rightChildren + 1] = ui.glyph({
                 name = "clock-exclamation", size = 12, color = "secondary",
             })
         end
-        right = ui.row({ gap = 3, width = 56, justify = "end", align = "center" }, rightChildren)
+        right = ui.row({ gap = 3, width = 76, justify = "end", align = "center" }, rightChildren)
     elseif #metrics >= 2 then
         local m1, m2 = metrics[1], metrics[2]
         local p1 = tonumber(m1.percent) or 0

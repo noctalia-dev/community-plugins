@@ -398,6 +398,8 @@ end
 assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gemini brand glyph")
 assert(hasGlyph(agyPanelTree, "asterisk-simple"), "panel sidebar should display Claude brand glyph")
 assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
+assert(has(labels(agyPanelTree), "/ 24%"), "panel sidebar should display Gemini weekly percentage / 24%")
+assert(has(labels(agyPanelTree), "/ 100%"), "panel sidebar should display Claude weekly percentage / 100%")
 
 local agyRows = {}
 for _, row in ipairs(collect(agyPanelTree, "row")) do
