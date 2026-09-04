@@ -1,0 +1,99 @@
+id          = "ahmedhossamdev/sticky-notes"
+name        = "Sticky Notes"
+version     = "1.1.0"
+plugin_api  = 24
+author      = "ahmedhossamdev"
+license     = "MIT"
+icon        = "note"
+description = "Colorful sticky notes and interactive checklists from your bar, with pinning, privacy blur, and portable storage."
+tags        = ["bar", "panel", "service", "privacy", "productivity", "utility"]
+dependencies = ["mkdir", "sh", "xdg-open"]
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 400
+height          = 500
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[setting]]
+key       = "default_color"
+type      = "select"
+label_key = "settings.default-color"
+default   = "yellow"
+options   = [
+  { value = "yellow", label_key = "settings.color-yellow" },
+  { value = "pink",   label_key = "settings.color-pink"   },
+  { value = "red",    label_key = "settings.color-red"    },
+  { value = "blue",   label_key = "settings.color-blue"   },
+  { value = "green",  label_key = "settings.color-green"  },
+  { value = "orange", label_key = "settings.color-orange" },
+  { value = "purple", label_key = "settings.color-purple" },
+]
+
+[[setting]]
+key       = "font_size"
+type      = "int"
+label_key = "settings.font-size"
+default   = 13
+min       = 10
+max       = 20
+
+[[setting]]
+key       = "show_count"
+type      = "bool"
+label_key = "settings.show-count"
+default   = true
+
+[[setting]]
+key       = "auto_blur"
+type      = "bool"
+label_key = "settings.auto-blur"
+default   = false
+
+[[setting]]
+key             = "save_shortcut"
+type            = "bool"
+label_key       = "settings.save-shortcut"
+description_key = "settings.save-shortcut-desc"
+default         = true
+
+[[setting]]
+key       = "blur_strength"
+type      = "select"
+label_key = "settings.blur-strength"
+default   = "medium"
+options   = [
+  { value = "light",  label_key = "settings.blur-light"  },
+  { value = "medium", label_key = "settings.blur-medium" },
+  { value = "heavy",  label_key = "settings.blur-heavy"  },
+]
+visible_when = { key = "auto_blur", values = ["true"] }
+
+[[setting]]
+key             = "save_path"
+type            = "string"
+label_key       = "settings.save-path"
+description_key = "settings.save-path-desc"
+default         = "~/Documents/sticky-notes"
+
+[[setting]]
+key       = "file_format"
+type      = "select"
+label_key = "settings.file-format"
+default   = "md"
+options   = [
+  { value = "md",   label_key = "settings.format-md"   },
+  { value = "txt",  label_key = "settings.format-txt"  },
+  { value = "json", label_key = "settings.format-json" },
+]
