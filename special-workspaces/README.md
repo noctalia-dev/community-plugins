@@ -29,6 +29,7 @@ can be hidden with `hide_inactive`.
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `font_size` | `int` | `11` | Workspace name font size. Set `0` to use system default. |
 | `max_label_chars` | `int` | `0` | Maximum Unicode characters shown from each workspace name. `0` shows the full name. |
 | `hide_inactive` | `bool` | `false` | Hide populated workspaces unless they are visible on a monitor. |
 | `capsule_radius` | `int` | `8` | Corner radius in logical pixels. Negative values are treated as `0`. |

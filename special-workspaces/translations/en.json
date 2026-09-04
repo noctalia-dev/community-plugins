@@ -28,6 +28,10 @@
       "description": "Maximum characters shown from each workspace name. Use 0 to show the full name.",
       "label": "Maximum label characters"
     },
+    "font_size": {
+      "description": "Workspace name font size. Set 0 to use system default.",
+      "label": "Font size"
+    },
     "style": {
       "fill": "Fill",
       "ghost": "Ghost"

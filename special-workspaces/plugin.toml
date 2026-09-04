@@ -1,6 +1,6 @@
 id = "jamesfeeder/special-workspaces"
 name = "Special Workspaces"
-version = "1.4.0"
+version = "1.5.0"
 plugin_api = 3
 author = "jamesfeeder"
 license = "MIT"
@@ -16,6 +16,13 @@ entry = "service.luau"
 [[widget]]
 id = "special-workspaces"
 entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "font_size"
+  type = "int"
+  label_key = "settings.font_size.label"
+  description_key = "settings.font_size.description"
+  default = 11
 
   [[widget.setting]]
   key = "max_label_chars"
