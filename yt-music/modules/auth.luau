@@ -27,6 +27,7 @@ function Auth.open_login(browser)
     state.browser = target
     state.browser_label = label
     state.status_text = "Opened " .. label .. ". Sign in, then click " .. label .. " again to extract."
+    log("open_login: browser=" .. target)
     store.publish()
     Bash.run_script("cookies.sh", "open_browser", function() end, 5000, target)
     if noctalia.notify then
@@ -116,6 +117,7 @@ function Auth.load_cached_cookies()
             local kept = tonumber(out:match("KEPT=([^\n]+)") or "0") or 0
             local cookies = out:match("OUT=([^\n]+)") or ""
             if kept > 0 then
+                log("cookies: ready (" .. kept .. ")")
                 state.status = "ready"
                 state.cookies_path = cookies
                 state.cookie_count = kept
@@ -149,18 +151,49 @@ function Auth.load_cached_cookies()
                     end)
                 end
             end
+        else
+            log("cookies: none — signed out")
         end
     end, 8000)
+end
+
+-- Dependency health check, run at boot before the browser list is shown.
+-- Result lands in state.health as name -> {status, detail}; the auth views
+-- render a warning card for anything not ok. Additive only: never blocks.
+function Auth.check_health()
+    state.checking_health = true
+    store.publish()
+    Bash.run_script("health.sh", "health_check", function(res)
+        local out = (type(res) == "table" and res.stdout) or ""
+        local health = {}
+        local parts = {}
+        for name, status, detail in out:gmatch("HEALTH=([^:]+):([^:]+):([^\n]*)") do
+            health[name] = { status = status, detail = detail }
+            table.insert(parts, name .. "=" .. status .. ":" .. detail)
+        end
+        -- Full check-by-check record (versions, netcat variant, stale
+        -- verdicts) lands in debug.log for remote diagnosis.
+        log("health check:")
+        for _, line in ipairs(parts) do
+            log("  " .. line)
+        end
+        state.health = health
+        state.checking_health = false
+        store.publish()
+    end, 15000)
 end
 
 function Auth.detect_browsers()
     Bash.run_script("cookies.sh", "detect_browsers", function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local available = {}
-        for found in out:gmatch("FOUND=([^\n]+)") do
-            available[found] = true
+        local found = {}
+        for id in out:gmatch("FOUND=([^\n]+)") do
+            available[id] = true
+            table.insert(found, id)
         end
         state.available = available
+        log("browsers: " .. (#found > 0 and table.concat(found, ",") or "none detected"))
         store.publish()
     end, 8000)
 end

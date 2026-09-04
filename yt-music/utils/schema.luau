@@ -8,6 +8,8 @@ local function new()
 		cookies_path = "",
 		cookie_count = 0,
 		available = {},
+	health = {},
+	checking_health = false,
 		extracting = false,
 		last_error = "",
 		player = {

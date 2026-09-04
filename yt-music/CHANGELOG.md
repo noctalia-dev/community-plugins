@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.5] - 2026-09-04
+
+### Fixed
+- **Rapid skipping**: songs skipped over are no longer fetched or played
+- **Playback after skipping**: fixed a race where the new player instance could lose its control socket, leaving duration at 0:00 and transport controls dead.
+- **Netcat flavors**: mpv control now works with both OpenBSD netcat and ncat (Fedora/RHEL default).
+
+### Added
+- **Dependency healthcheck**: the login page shows a card checking yt-dlp, mpv, jq, netcat and curl : versions, staleness, and unix-socket support, with a refresh button.
+- **Boot diagnostics**: debug.log now records platform, plugin/host versions, auth state, and detected browsers on every start.
+
 ## [0.2.4] - 2026-09-03
 
 ### Added

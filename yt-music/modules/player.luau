@@ -23,6 +23,32 @@ local original_queue = nil
 local play_generation = 0
 local start_stream
 
+-- Coalesced manual skips: rapid next/prev presses accumulate into
+-- pending_steps and fire once the burst settles, so intermediate songs never
+-- audibly start — only the final landing resolves and plays.
+local pending_steps = 0
+local skip_nonce = 0
+local firing_debounce = false
+local queue_skip -- forward: Player.next/prev coalesce through this, defined below
+
+-- Last click wins, structurally: when a new intent supersedes a still-loading
+-- one, the older yt-dlp stream-resolves are already useless (the generation
+-- guard would drop their results) but still hold spawn slots the final song
+-- needs. Kill them before spawning the new fetch. The pattern matches ONLY
+-- stream resolves (-f bestaudio/best -g); audio downloads use -f bestaudio -o
+-- and are untouched. The -[g] bracket form keeps pkill from matching its own
+-- command line.
+local function kill_stale_resolves(done)
+	local scheduled = noctalia.runAsync("pkill -f 'bestaudio/best -[g]' 2>/dev/null; true", function()
+		if done then
+			done()
+		end
+	end, 2000)
+	if not scheduled and done then
+		done()
+	end
+end
+
 local function player_set(item, stream_url)
 	state.player.title = item.title or "Unknown track"
 	state.player.artist = item.artist or ""
@@ -78,6 +104,27 @@ local function player_set(item, stream_url)
 			start_stream()
 		end
 	end)
+	-- Speculative work happens only for settled playback: the song that
+	-- actually starts earns its next-track prefetch and queue thumbnails.
+	-- Skipped-over intents never get here, so rapid skipping spawns nothing
+	-- but one kill + one resolve per click.
+	if api and api.prefetch_queue then
+		api.prefetch_queue(state.player.queue, state.player.index)
+	elseif api and api.prefetch_track then
+		local q = state.player.queue
+		local idx = state.player.index
+		if q[idx + 1] then
+			api.prefetch_track(q[idx + 1])
+		end
+		if q[idx + 2] then
+			api.prefetch_track(q[idx + 2])
+		end
+	end
+	if api and api.ensure_thumbnails then
+		noctalia.runAsync("true", function()
+			api.ensure_thumbnails(state.player.queue, publish, "queue")
+		end)
+	end
 	if api and api.save_session then
 		noctalia.runAsync("true", function()
 			api.save_session(state.player)
@@ -117,10 +164,21 @@ function Player.play_index(index, queue)
 	if #queue == 0 then
 		return
 	end
+	if not firing_debounce then
+		-- Any direct play voids queued-up manual skips: they were aimed at
+		-- whatever was current before this intent (clicks, play-now, resume,
+		-- natural advance).
+		skip_nonce = skip_nonce + 1
+		pending_steps = 0
+	end
 	if queue ~= state.player.queue then
 		original_queue = nil
 	end
 
+	-- A new intent while the previous one is still loading supersedes it: the
+	-- older fetches are dead weight and the skipped songs earn no prefetch or
+	-- thumbnails — only the song we land on gets work done.
+	local superseding = (state.player.status == "loading")
 	-- Any new play intent invalidates every in-flight resolve before it.
 	play_generation = play_generation + 1
 	local gen = play_generation
@@ -157,7 +215,12 @@ function Player.play_index(index, queue)
 	state.player.queue = queue
 	state.player.index = index
 	local item = queue[index]
-	mpv.send((noctalia.json.encode({ command = { "set_property", "pause", true } })))
+	if not superseding then
+		-- Silence the outgoing track. Skipped when superseding: the previous
+		-- intent already sent exactly one of these, and piled-up delayed
+		-- copies are what used to pause the final song after it started.
+		mpv.send((noctalia.json.encode({ command = { "set_property", "pause", true } })))
+	end
 	state.player.id = item.id or ""
 	state.player.title = item.title or "Loading track..."
 	state.player.artist = item.artist or ""
@@ -176,11 +239,6 @@ function Player.play_index(index, queue)
 		noctalia.notify("Offline mode", "Skipped " .. skipped_offline .. " undownloaded track(s)")
 	end
 
-	if api and api.ensure_thumbnails then
-		noctalia.runAsync("true", function()
-			api.ensure_thumbnails(state.player.queue, publish, "queue")
-		end)
-	end
 	log(
 		"play_index: "
 			.. index
@@ -193,18 +251,7 @@ function Player.play_index(index, queue)
 			.. "'"
 	)
 
-	if api and api.prefetch_queue then
-		api.prefetch_queue(queue, index)
-	elseif api and api.prefetch_track then
-		if queue[index + 1] then
-			api.prefetch_track(queue[index + 1])
-		end
-		if queue[index + 2] then
-			api.prefetch_track(queue[index + 2])
-		end
-	end
-
-	api.resolve_stream(item.id, function(url)
+	local function on_resolved(url)
 		if gen ~= play_generation then
 			log(
 				"play_index: dropped stale stream response (gen "
@@ -226,7 +273,17 @@ function Player.play_index(index, queue)
 		end
 		log("play_index: stream resolved (" .. #url .. " chars), dispatching to mpv")
 		player_set(item, url)
-	end)
+	end
+
+	if superseding then
+		-- Newest intent's fetch spawns only after the stale ones are dead, so
+		-- a saturated pool can never refuse the song we actually land on.
+		kill_stale_resolves(function()
+			api.resolve_stream(item.id, on_resolved)
+		end)
+	else
+		api.resolve_stream(item.id, on_resolved)
+	end
 end
 
 function Player.play(item)
@@ -371,18 +428,62 @@ function Player.next(is_natural_end)
 
 	-- With shuffle on the queue is physically reordered by toggle_shuffle,
 	-- so a plain sequential advance IS the shuffled order.
+	queue_skip(1)
+end
 
-	local next_idx = state.player.index + 1
-	if next_idx > #state.player.queue then
-		if state.player.repeat_mode == "all" then
-			next_idx = 1
-		else
-			state.player.status = "stopped"
-			publish()
-			return
+-- Walk the accumulated manual steps in one go and resolve+play only the
+-- landing: no intermediate player_set, so skipped-over songs (even cached
+-- ones) never become audible.
+local function advance_steps()
+	local steps = pending_steps
+	pending_steps = 0
+	if steps == 0 then
+		return
+	end
+	local n = #state.player.queue
+	if n == 0 then
+		return
+	end
+	local idx = state.player.index
+	local dir = steps > 0 and 1 or -1
+	for _ = 1, math.abs(steps) do
+		idx = idx + dir
+		if idx > n then
+			if state.player.repeat_mode == "all" then
+				idx = 1
+			else
+				-- Past the end without repeat-all: stop, like a single
+				-- next at the tail would.
+				state.player.status = "stopped"
+				publish()
+				return
+			end
+		elseif idx < 1 then
+			idx = n
 		end
 	end
-	Player.play_index(next_idx)
+	firing_debounce = true
+	Player.play_index(idx)
+	firing_debounce = false
+end
+
+-- Each press within the window replaces the previous timer; the burst fires
+-- once quiet. Net-zero bursts (next then prev) stay put.
+queue_skip = function(dir)
+	pending_steps = pending_steps + dir
+	skip_nonce = skip_nonce + 1
+	local my = skip_nonce
+	local scheduled = noctalia.runAsync("sleep 0.25", function()
+		if my ~= skip_nonce then
+			return
+		end
+		advance_steps()
+	end, 2000)
+	if not scheduled then
+		-- No slot even for the timer: run the backlog now rather than
+		-- dropping the press.
+		advance_steps()
+	end
 end
 
 function Player.prev()
@@ -394,11 +495,7 @@ function Player.prev()
 		state.player.position = 0
 		publish()
 	else
-		local prev_idx = state.player.index - 1
-		if prev_idx < 1 then
-			prev_idx = #state.player.queue
-		end
-		Player.play_index(prev_idx)
+		queue_skip(-1)
 	end
 end
 
