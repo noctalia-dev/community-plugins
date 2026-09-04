@@ -169,8 +169,8 @@ local function chip(entry, flagged)
                 parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, {
                     ui.glyph({
                         name = item.glyph or providerGlyph(entry.id),
-                        size = 12,
-                        color = mTint,
+                        size = 13,
+                        color = "on_surface",
                     }),
                     ui.label({
                         text = string.format("%d%%", mPct),

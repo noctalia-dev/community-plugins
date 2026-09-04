@@ -11,6 +11,7 @@ local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
+local modelGlyph = shared.modelGlyph
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
@@ -189,8 +190,11 @@ local function stackCard(name, readings)
     local titled = name ~= ""
     local body = {}
     if titled then
-        body[#body + 1] = ui.label({ text = name, fontSize = 12, fontWeight = "semibold",
-                                     color = "on_surface", maxLines = 1 })
+        body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
+            ui.glyph({ name = modelGlyph(name), size = 16, color = "on_surface" }),
+            ui.label({ text = name, fontSize = 13, fontWeight = "bold",
+                       color = "on_surface", maxLines = 1 }),
+        })
     end
     for index, reading in ipairs(readings) do
         -- Two readings in one card run together without a line between them,
@@ -406,7 +410,7 @@ local function providerRow(entry, selected)
                 ui.glyph({
                     name = item.glyph or "sparkles",
                     size = 11,
-                    color = mTint,
+                    color = "on_surface_variant",
                 }),
                 ui.row({ gap = 2, align = "baseline", justify = "end" }, pctElements),
             })
@@ -526,7 +530,7 @@ local function providerRow(entry, selected)
         -- Keyed, so the click handler survives the second tick the countdowns ride
         -- on instead of being rebuilt under the pointer.
         key = "provider-" .. tostring(entry.id),
-        gap = 8, align = "center", padding = 8, radius = 10,
+        gap = 8, align = "center", padding = 9, radius = 10,
         -- A tint, not a slab: a filled `primary` row inverts every colour in it.
         fill = selected and "primary/0.10" or "surface_variant/0.30",
         border = selected and "primary/0.55" or "outline/0.12",
@@ -597,7 +601,7 @@ local function listPane(entry)
         rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
       end
     end
-    return ui.column({ gap = 10, padding = 14, width = 260 }, {
+    return ui.column({ gap = 10, padding = 14, width = 290 }, {
         ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = "brain", size = 18, color = "primary" }),
             -- The accent belongs to the selection and the bars; a title taking

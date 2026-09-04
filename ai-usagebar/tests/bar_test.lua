@@ -311,6 +311,7 @@ local agyBar = loadBar({
 })
 assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
 assert(containsGlyph(agyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
+assert(glyphColor(agyBar.rendered(), "asterisk-simple") == "on_surface", "model glyph should remain neutral on_surface")
 assert(containsText(agyBar.rendered(), "0%"), "capsule should show active session 0%")
 
 local normalAgyBar = loadBar({

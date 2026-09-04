@@ -401,6 +401,15 @@ assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active ses
 assert(has(labels(agyPanelTree), "/ 24%"), "panel sidebar should display Gemini weekly percentage / 24%")
 assert(has(labels(agyPanelTree), "/ 100%"), "panel sidebar should display Claude weekly percentage / 100%")
 
+local googleGlyphs = {}
+local claudeGlyphs = {}
+for _, g in ipairs(collect(agyPanelTree, "glyph")) do
+    if g.props.name == "brand-google" then googleGlyphs[#googleGlyphs + 1] = g end
+    if g.props.name == "asterisk-simple" then claudeGlyphs[#claudeGlyphs + 1] = g end
+end
+assert(#googleGlyphs >= 2, "brand-google should appear in both sidebar and model detail card header")
+assert(#claudeGlyphs >= 2, "asterisk-simple should appear in both sidebar and model detail card header")
+
 local agyRows = {}
 for _, row in ipairs(collect(agyPanelTree, "row")) do
     if row.props.key == "provider-antigravity" then agyRows[#agyRows + 1] = row end
