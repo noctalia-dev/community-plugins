@@ -1,3 +1,4 @@
+--!nonstrict
 local running = false
 
 local function render()

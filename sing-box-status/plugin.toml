@@ -1,14 +1,14 @@
-id = "dpvpro/sing-box-status"
-name = "Sing-Box Status"
-version = "1.1.0"
-plugin_api = 3
-author = "dpvpro"
-license = "MIT"
-icon = "link"
-description = "Shows status running sing-box."
-min_noctalia = "5.0.0"
-tags = ["sing-box", "proxy", "network"]
+id           = "dpvpro/sing-box-status"
+name         = "Sing-Box Status"
+version      = "1.1.0"
+plugin_api   = 3
+author       = "dpvpro"
+license      = "MIT"
+icon         = "link"
+description  = "Bar widget showing whether the sing-box proxy daemon is running."
+tags         = ["bar", "network"]
+dependencies = ["pgrep"]
 
 [[widget]]
-id = "status"
-entry = "sing-box.luau"
+id    = "status"
+entry = "widget.luau"
