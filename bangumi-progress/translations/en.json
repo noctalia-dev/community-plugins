@@ -1,0 +1,97 @@
+{
+  "settings": {
+    "access_token": {
+      "label": "Bangumi personal access token",
+      "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv (valid about one year). When set, your own collections (including private) are read. When empty, a username below is used to read public collections anonymously."
+    },
+    "username": {
+      "label": "Username",
+      "description": "Used to read public collections anonymously when no access token is set, e.g. sai."
+    },
+    "refresh_minutes": {
+      "label": "Refresh interval (minutes)",
+      "description": "How often to refresh tracking data automatically."
+    },
+    "show_covers": {
+      "label": "Show covers",
+      "description": "Show subject covers in the desktop widget."
+    },
+    "widget_width": {
+      "label": "Content width",
+      "description": "Natural desktop widget width in logical pixels. Do not resize its tile in the desktop editor, or the host will still scale the content proportionally."
+    },
+    "visible_items": {
+      "label": "Visible items",
+      "description": "Number of rows per desktop page; use the previous and next buttons to browse the rest."
+    },
+    "glyph": {
+      "label": "Icon"
+    }
+  },
+  "bar": {
+    "tooltip_loading": "Loading tracking data…",
+    "tooltip_empty": "Nothing watching",
+    "tooltip_not_configured": "Not configured: add an access token or username in plugin settings",
+    "tooltip_unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "tooltip_network": "Network error: cannot reach api.bgm.tv",
+    "tooltip_unwatched": "{count} newly unwatched since the last progress update ({series} watching)",
+    "tooltip_all_caught_up": "No newly unwatched episodes since the last progress update ({series} watching)",
+    "tooltip_counting": "Counting newly unwatched episodes…"
+  },
+  "desktop": {
+    "title": "Bangumi Tracking",
+    "watching_count": "{count} watching",
+    "public_view": "Public collections: {username}",
+    "not_configured": "Not configured: add a Bangumi access token or username in plugin settings",
+    "unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "network_error": "Network error: cannot reach api.bgm.tv",
+    "parse_error": "Failed to parse API response",
+    "http_error": "API error: HTTP {status}",
+    "unknown_error": "Unknown error",
+    "loading": "Loading…",
+    "empty": "No watching items",
+    "more": "{count} more not shown",
+    "previous_page": "Previous page",
+    "next_page": "Next page",
+    "page_range": "{first}-{last} / {total}",
+    "open": "Open subject page",
+    "progress": "W {current}/{total}",
+    "progress_aired": "W {current} · A {aired}/{total}",
+    "progress_unknown": "W {current}"
+  },
+  "panel": {
+    "title": "Bangumi Tracking",
+    "filter_watching": "Watching",
+    "filter_wish": "Planned",
+    "filter_done": "Completed",
+    "filter_on_hold": "On hold",
+    "filter_dropped": "Dropped",
+    "logged_in_as": "Signed in: {name} ({username})",
+    "public_view": "Public collections: {username}",
+    "not_configured": "Not configured",
+    "not_configured_hint": "Bangumi is not configured yet. Add a personal access token (recommended) or a username (public collections only) in plugin settings.",
+    "open_settings": "Open settings",
+    "settings": "Settings",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "updating": "Updating…",
+    "busy": "Updating, please wait",
+    "network_error": "Network error: cannot reach api.bgm.tv",
+    "parse_error": "Failed to parse API response",
+    "http_error": "API error: HTTP {status}",
+    "unknown_error": "Unknown error",
+    "unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "empty": "No items in this category",
+    "progress": "{current}/{total} episodes",
+    "progress_aired": "Watched {current} / aired {aired} / {total} total",
+    "progress_unknown": "{current} episodes watched",
+    "score": "Score {score}",
+    "ep_increment": "Progress +1",
+    "ep_decrement": "Progress -1",
+    "mark_done": "Mark as completed",
+    "open": "Open subject page",
+    "episodes_unavailable": "Could not fetch episode list",
+    "no_next_episode": "No next episode to mark",
+    "no_prev_episode": "No previous episode to unmark"
+  }
+}
