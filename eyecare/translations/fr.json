@@ -1,10 +1,28 @@
 {
   "notifications": {
-    "eyecare-break-title": "Le temps d'une pause"
+    "eyecare-break-body": "Fixez un objet à six mètres pendant {seconds} secondes.",
+    "eyecare-break-finished-body": "Vos yeux sont reposés. Vous pouvez revenir à votre écran.",
+    "eyecare-break-finished-title": "Pause terminée",
+    "eyecare-break-title": "Le temps d'une pause",
+    "eyecare-reset-body": "Le minuteur a été réinitialisé.",
+    "eyecare-reset-title": "Eye-Care"
   },
   "settings": {
+    "eyecare-active-duration": {
+      "description": "Temps passé devant l'écran avant de déclencher une pause (minutes)",
+      "label": "Durée d'activité"
+    },
     "eyecare-break-duration": {
+      "description": "Durée imposée des pauses oculaires (secondes)",
       "label": "Durée de la pause"
+    },
+    "eyecare-notifications": {
+      "description": "Afficher des notifications système pour les rappels",
+      "label": "Activer les notifications"
+    },
+    "eyecare-sound": {
+      "description": "Jouer un son au début et à la fin des pauses",
+      "label": "Activer le retour sonore"
     }
   }
 }
