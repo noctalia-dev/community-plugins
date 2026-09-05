@@ -158,10 +158,26 @@ local function formatDuration(seconds)
     return string.format("%dm", rest)
 end
 
+local function formatFixedDuration(seconds)
+    if seconds <= 0 then return noctalia.tr("ui.now") end
+    local minutes = math.floor(seconds / 60)
+    local days = math.floor(minutes / 1440)
+    local hours = math.floor((minutes % 1440) / 60)
+    local rest = minutes % 60
+    if days > 0 then return string.format("%dd %dh", days, hours) end
+    return string.format("%dh %02dm", hours, rest)
+end
+
 function M.countdown(section)
     local at = M.parseIso(section and section.reset_at)
     if at == nil then return "" end
     return formatDuration(at - os.time())
+end
+
+function M.fixedCountdown(section)
+    local at = M.parseIso(section and section.reset_at)
+    if at == nil then return "" end
+    return formatFixedDuration(at - os.time())
 end
 
 -- Where the countdown lands: "14:20" today, "Sat 14:20" past midnight, a date

@@ -347,4 +347,26 @@ assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
 
+local countdownBar = loadBar({
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 64, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "low", value = "64%" },
+                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "69%" },
+            },
+        },
+    },
+})
+assert(containsText(countdownBar.rendered(), "54m"), "capsule should show Gemini countdown when extras=countdown")
+assert(containsText(countdownBar.rendered(), "2h 0m"), "capsule should show Claude countdown when extras=countdown")
+local countdownTooltip = countdownBar.tooltip()
+assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
+assert(countdownTooltip[2].value == "69% · 2h 00m", "tooltip should show fixed hours and minutes")
+
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")

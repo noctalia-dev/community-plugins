@@ -5,7 +5,7 @@
 
 local vendor = tostring(noctalia.getConfig("vendor") or "auto")
 local account = noctalia.string.trim(tostring(noctalia.getConfig("account") or ""))
-local extras = tostring(noctalia.getConfig("extras") or "none")
+local extras = tostring(noctalia.getConfig("extras") or "countdown")
 -- Named after the core `sysmon` widget's own keys, so a reading in this capsule
 -- is configured the same way as the CPU one beside it.
 local visualization = tostring(noctalia.getConfig("visualization") or "none")
@@ -20,7 +20,7 @@ local report = nil
 
 local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
-local countdown = shared.countdown
+local countdown, fixedCountdown = shared.countdown, shared.fixedCountdown
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
@@ -166,7 +166,7 @@ local function chip(entry, flagged)
                 local mTint = (item.blocked or isCritical(item.metric)) and "error"
                     or severityRole(item.metric, "on_surface")
                 local mPct = tonumber(item.metric.percent) or 0
-                parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, {
+                local rowChildren = {
                     ui.glyph({
                         name = item.glyph or providerGlyph(entry.id),
                         size = 13,
@@ -179,7 +179,19 @@ local function chip(entry, flagged)
                         color = mTint,
                         maxLines = 1,
                     }),
-                })
+                }
+                if extras == "countdown" or extras == "both" then
+                    local left = countdown(item.metric)
+                    if left ~= "" then
+                        rowChildren[#rowChildren + 1] = ui.label({
+                            text = left,
+                            fontSize = 10,
+                            color = "on_surface_variant",
+                            maxLines = 1,
+                        })
+                    end
+                end
+                parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, rowChildren)
             end
             pct = ui.row({ gap = 6, align = "center" }, parts)
         else
@@ -242,8 +254,8 @@ local function formatDualMetric(m1, m2)
     local str2 = type(p2) == "number" and string.format("%d%%", p2) or (p2 ~= nil and tostring(p2):gsub(" of ", " / ") or nil)
 
     local left = ""
-    if m1 ~= nil then left = countdown(m1) end
-    if left == "" and m2 ~= nil then left = countdown(m2) end
+    if m1 ~= nil then left = fixedCountdown(m1) end
+    if left == "" and m2 ~= nil then left = fixedCountdown(m2) end
 
     local val = str1
     if str2 ~= nil and str2 ~= "" then
