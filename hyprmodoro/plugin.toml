@@ -1,0 +1,428 @@
+id = "aceix/hyprmodoro"
+name = "Hyprmodoro"
+version = "1.1.1"
+
+plugin_api = 22
+author = "Aceix"
+license = "MIT"
+dependencies = ["hyprctl"]
+tags = ["bar", "panel", "shortcut", "countdown", "productivity", "hyprland"]
+icon = "clock"
+description = "Pomodoro control and settings GUI for the hyprmodoro Hyprland plugin."
+
+[[service]]
+id = "control"
+entry = "control.luau"
+
+[[service]]
+id = "writer"
+entry = "writer.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_when_idle"
+  type = "bool"
+  label_key = "settings.show_when_idle.label"
+  description_key = "settings.show_when_idle.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "hourglass"
+
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = 500
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "shortcut"
+entry = "shortcut.luau"
+
+[[setting]]
+key = "config_path"
+type = "string"
+label_key = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default = "~/.config/hypr/hyprmodoro.lua"
+
+[[setting]]
+key = "manage_config_file"
+type = "bool"
+label_key = "settings.manage_config_file.label"
+description_key = "settings.manage_config_file.description"
+default = true
+
+[[setting]]
+key = "defer_writes_while_running"
+type = "bool"
+label_key = "settings.defer_writes.label"
+description_key = "settings.defer_writes.description"
+default = true
+
+[[setting]]
+key = "presets"
+type = "string"
+label_key = "settings.presets.label"
+description_key = "settings.presets.description"
+default = "25/5, 50/10, 90/20, 15/3"
+
+[[setting]]
+key = "poll_interval_running"
+type = "int"
+label_key = "settings.poll_running.label"
+description_key = "settings.poll_running.description"
+default = 1000
+min = 250
+max = 5000
+step = 250
+
+[[setting]]
+key = "poll_interval_idle"
+type = "int"
+label_key = "settings.poll_idle.label"
+description_key = "settings.poll_idle.description"
+default = 5000
+min = 1000
+max = 30000
+step = 1000
+
+[[setting]]
+key = "enabled"
+type = "bool"
+label_key = "settings.enabled.label"
+description_key = "settings.enabled.description"
+default = true
+
+[[setting]]
+key = "work_duration"
+type = "int"
+label_key = "settings.work_duration.label"
+description_key = "settings.work_duration.description"
+default = 25
+min = 1
+max = 180
+step = 1
+
+[[setting]]
+key = "rest_duration"
+type = "int"
+label_key = "settings.rest_duration.label"
+description_key = "settings.rest_duration.description"
+default = 5
+min = 1
+max = 60
+step = 1
+
+[[setting]]
+key = "auto_transition"
+type = "bool"
+label_key = "settings.auto_transition.label"
+description_key = "settings.auto_transition.description"
+default = true
+
+[[setting]]
+key = "title__enabled"
+type = "bool"
+label_key = "settings.title_enabled.label"
+default = true
+
+[[setting]]
+key = "title__all_windows"
+type = "bool"
+label_key = "settings.title_all_windows.label"
+default = false
+
+[[setting]]
+key = "title__reserve_space_all"
+type = "bool"
+label_key = "settings.title_reserve_space_all.label"
+default = false
+
+[[setting]]
+key = "title__floating_window"
+type = "bool"
+label_key = "settings.title_floating_window.label"
+default = true
+
+[[setting]]
+key = "title__position"
+type = "select"
+label_key = "settings.title_position.label"
+description_key = "settings.title_position.description"
+default = "top"
+options = [
+  { value = "top", label_key = "settings.title_position.options.top" },
+  { value = "bottom", label_key = "settings.title_position.options.bottom" },
+  { value = "left", label_key = "settings.title_position.options.left" },
+  { value = "right", label_key = "settings.title_position.options.right" },
+]
+
+[[setting]]
+key = "title__overlay"
+type = "bool"
+label_key = "settings.title_overlay.label"
+description_key = "settings.title_overlay.description"
+default = false
+
+[[setting]]
+key = "title__margin"
+type = "int"
+label_key = "settings.title_margin.label"
+default = 15
+min = 0
+max = 100
+step = 1
+
+[[setting]]
+key = "title__spacing"
+type = "int"
+label_key = "settings.title_spacing.label"
+default = 8
+min = 0
+max = 60
+step = 1
+
+[[setting]]
+key = "border__enabled"
+type = "bool"
+label_key = "settings.border_enabled.label"
+default = true
+
+[[setting]]
+key = "border__all_windows"
+type = "bool"
+label_key = "settings.border_all_windows.label"
+default = false
+
+[[setting]]
+key = "border__floating_window"
+type = "bool"
+label_key = "settings.border_floating_window.label"
+default = true
+
+[[setting]]
+key = "border__color_source"
+type = "select"
+label_key = "settings.border_color_source.label"
+description_key = "settings.border_color_source.description"
+default = "accent"
+options = [
+  { value = "accent", label_key = "settings.border_color_source.options.accent" },
+  { value = "custom", label_key = "settings.border_color_source.options.custom" },
+]
+
+[[setting]]
+key = "border__color"
+type = "color"
+label_key = "settings.border_color.label"
+description_key = "settings.border_color.description"
+default = "#333333"
+
+[[setting]]
+key = "border__alpha"
+type = "int"
+label_key = "settings.border_alpha.label"
+description_key = "settings.border_alpha.description"
+default = 136
+min = 0
+max = 255
+step = 1
+
+[[setting]]
+key = "text__color"
+type = "color"
+label_key = "settings.text_color.label"
+default = "#FFFFFF"
+
+[[setting]]
+key = "text__font"
+type = "string"
+label_key = "settings.text_font.label"
+default = "Sans"
+
+[[setting]]
+key = "text__size"
+type = "int"
+label_key = "settings.text_size.label"
+default = 10
+min = 6
+max = 72
+step = 1
+
+[[setting]]
+key = "text__work_prefix"
+type = "string"
+label_key = "settings.text_work_prefix.label"
+default = "🍅"
+
+[[setting]]
+key = "text__rest_prefix"
+type = "string"
+label_key = "settings.text_rest_prefix.label"
+default = "☕"
+
+[[setting]]
+key = "text__waiting_prefix"
+type = "string"
+label_key = "settings.text_waiting_prefix.label"
+description_key = "settings.text_waiting_prefix.description"
+default = "⏸"
+
+[[setting]]
+key = "text__skip_on_click"
+type = "bool"
+label_key = "settings.text_skip_on_click.label"
+default = true
+
+[[setting]]
+key = "sound__player"
+type = "string"
+label_key = "settings.sound_player.label"
+description_key = "settings.sound_player.description"
+default = "pw-play"
+
+[[setting]]
+key = "sound__work_end"
+type = "file"
+label_key = "settings.sound_work_end.label"
+description_key = "settings.sound_work_end.description"
+default = ""
+
+[[setting]]
+key = "sound__rest_end"
+type = "file"
+label_key = "settings.sound_rest_end.label"
+default = ""
+
+[[setting]]
+key = "notification__enabled"
+type = "bool"
+label_key = "settings.notification_enabled.label"
+default = true
+
+[[setting]]
+key = "notification__use_system_notifications"
+type = "bool"
+label_key = "settings.notification_use_system.label"
+description_key = "settings.notification_use_system.description"
+default = true
+
+[[setting]]
+key = "notification__work_end"
+type = "string"
+label_key = "settings.notification_work_end.label"
+default = "Work session complete"
+
+[[setting]]
+key = "notification__rest_end"
+type = "string"
+label_key = "settings.notification_rest_end.label"
+default = "Break is over"
+
+[[setting]]
+key = "exec_on_work_end"
+type = "string"
+label_key = "settings.exec_on_work_end.label"
+description_key = "settings.exec_on_work_end.description"
+default = ""
+
+[[setting]]
+key = "exec_on_rest_end"
+type = "string"
+label_key = "settings.exec_on_rest_end.label"
+default = ""
+
+[[setting]]
+key = "buttons__size"
+type = "int"
+label_key = "settings.buttons_size.label"
+default = 14
+min = 6
+max = 72
+step = 1
+
+[[setting]]
+key = "buttons__color__foreground"
+type = "color"
+label_key = "settings.buttons_fg.label"
+default = "#FFFFFF"
+
+[[setting]]
+key = "buttons__color__background"
+type = "color"
+label_key = "settings.buttons_bg.label"
+default = "#FFFFFF"
+
+[[setting]]
+key = "buttons__background_alpha"
+type = "int"
+label_key = "settings.buttons_bg_alpha.label"
+description_key = "settings.buttons_bg_alpha.description"
+default = 68
+min = 0
+max = 255
+step = 1
+
+[[setting]]
+key = "hover__text"
+type = "bool"
+label_key = "settings.hover_text.label"
+default = false
+
+[[setting]]
+key = "hover__buttons"
+type = "bool"
+label_key = "settings.hover_buttons.label"
+default = true
+
+[[setting]]
+key = "hover__height"
+type = "double"
+label_key = "settings.hover_height.label"
+description_key = "settings.hover_height.description"
+default = 0.0
+min = 0.0
+max = 100.0
+step = 0.5
+
+[[setting]]
+key = "hover__width"
+type = "double"
+label_key = "settings.hover_width.label"
+description_key = "settings.hover_width.description"
+default = 10.0
+min = 0.0
+max = 100.0
+step = 0.5
+
+[[setting]]
+key = "window__min_width"
+type = "int"
+label_key = "settings.window_min_width.label"
+default = 300
+min = 0
+max = 4000
+step = 10
+
+[[setting]]
+key = "window__padding"
+type = "int"
+label_key = "settings.window_padding.label"
+default = 0
+min = 0
+max = 200
+step = 1
