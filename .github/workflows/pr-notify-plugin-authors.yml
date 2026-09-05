@@ -29,7 +29,7 @@ jobs:
 
       - name: Notify Authors
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PR_ENFORCER_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           PULL_REQUEST_NUMBER: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.pull-request-number || github.event.pull_request.number }}
         run: python3 .github/workflows/scripts/pr-notify-plugin-authors.py

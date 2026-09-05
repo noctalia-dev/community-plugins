@@ -50,6 +50,26 @@ class MarkReadyTests(unittest.TestCase):
         self.assertEqual(code, 0)
         pull_request.mark_ready_for_review.assert_called_once()
 
+    def test_notification_comment_does_not_mark_pr_ready(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        pr_mark_ready.mark_ready(
+            None,
+            pull_request,
+            "tordex",
+            f"<!-- {pr_mark_ready.NOTIFY_MARKER} -->",
+        )
+        pull_request.mark_ready_for_review.assert_not_called()
+
+    def test_enforcement_comment_does_not_mark_pr_ready(self) -> None:
+        pull_request = FakePullRequest(comments=[marker_comment()])
+        pr_mark_ready.mark_ready(
+            None,
+            pull_request,
+            "tordex",
+            pr_mark_ready.ENFORCEMENT_MARKER,
+        )
+        pull_request.mark_ready_for_review.assert_not_called()
+
     def test_non_author_comment_does_nothing(self) -> None:
         pull_request = FakePullRequest(comments=[marker_comment()])
         with mock.patch.object(plugin_author, "plugin_author", return_value=(1, "tordex")):

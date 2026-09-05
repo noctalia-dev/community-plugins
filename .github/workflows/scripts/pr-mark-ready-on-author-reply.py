@@ -6,6 +6,7 @@ from github import Auth, Github
 import plugin_author
 
 NOTIFY_MARKER = "noctalia-pr-author-notify:v1"
+ENFORCEMENT_MARKER = "<!-- noctalia-pr-template-enforcement -->"
 
 
 def has_notification_marker(pull_request) -> bool:
@@ -20,9 +21,16 @@ def has_notification_marker(pull_request) -> bool:
             return True
     return False
 
+def is_automation_comment(comment_body: str) -> bool:
+    """True when the comment was created by a PR automation workflow."""
+    return NOTIFY_MARKER in comment_body or ENFORCEMENT_MARKER in comment_body
 
-def mark_ready(repo, pull_request, comment_author) -> int:
+
+def mark_ready(repo, pull_request, comment_author, comment_body: str = "") -> int:
     """Mark a draft pull request ready for review once the plugin author replies."""
+    if is_automation_comment(comment_body):
+        print("Automation comment cannot mark a pull request ready, returning!")
+        return 0
     if pull_request.state != "open" or not pull_request.draft:
         print("Pull request is not an open draft, returning!")
         return 0
@@ -51,6 +59,7 @@ def main(argv: list[str]) -> int:
     repo_name = os.environ.get("REPOSITORY", "")
     pull_request_number = os.environ.get("PULL_REQUEST_NUMBER", "")
     comment_author = os.environ.get("COMMENT_AUTHOR", "")
+    comment_body = os.environ.get("COMMENT_BODY", "")
 
     if not pull_request_number.isdigit():
         print("Pull Request number is not numeric!")
@@ -61,7 +70,7 @@ def main(argv: list[str]) -> int:
     repo = gh.get_repo(repo_name)
     pull_request = repo.get_pull(int(pull_request_number))
 
-    return mark_ready(repo, pull_request, comment_author)
+    return mark_ready(repo, pull_request, comment_author, comment_body)
 
 
 if __name__ == "__main__":
