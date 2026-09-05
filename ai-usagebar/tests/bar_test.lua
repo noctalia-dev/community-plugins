@@ -280,8 +280,8 @@ local bottleneckBar = loadBar({
             plan = "ChatGPT Plus",
             status = "ready",
             metrics = {
-                { label = "Codex 5h", percent = 0, severity = "low", value = "0%" },
-                { label = "Codex weekly", percent = 100, severity = "critical", value = "100%" },
+                { label = "Codex 5h", percent = 0, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "0%" },
+                { label = "Codex weekly", percent = 100, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400), severity = "critical", value = "100%" },
             },
         },
     },
@@ -291,8 +291,8 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%",
-       "bottleneckBar tooltip should combine dual metrics into a single row")
+assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100% · 6d 20h",
+       "bottleneckBar tooltip should show when the blocking weekly limit resets")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",

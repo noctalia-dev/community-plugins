@@ -260,8 +260,12 @@ local function formatDualMetric(m1, m2)
     local str1 = type(p1) == "number" and string.format("%d%%", p1) or tostring(p1 or ""):gsub(" of ", " / ")
     local str2 = type(p2) == "number" and string.format("%d%%", p2) or (p2 ~= nil and tostring(p2):gsub(" of ", " / ") or nil)
 
-    local left = ""
-    if m1 ~= nil then left = fixedCountdown(m1) end
+    -- If one window is exhausted, its reset is the real unlock time. Showing
+    -- the shorter session reset would promise availability while the weekly
+    -- limit still blocks the model.
+    local blocking = isCritical(m1) and m1 or (isCritical(m2) and m2 or nil)
+    local left = blocking ~= nil and fixedCountdown(blocking) or ""
+    if left == "" and m1 ~= nil then left = fixedCountdown(m1) end
     if left == "" and m2 ~= nil then left = fixedCountdown(m2) end
 
     local val = str1
