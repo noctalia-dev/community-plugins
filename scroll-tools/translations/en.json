@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "socket_path": {
+      "label": "Scroll IPC socket path",
+      "description": "Override the socket used to talk to Scroll. Leave empty to use $SCROLLSOCK or $SWAYSOCK."
+    },
+    "show_icons": {
+      "label": "Use icons",
+      "description": "Show compact glyphs in the scroller and binding-mode widgets instead of plain-text labels."
+    }
+  }
+}
