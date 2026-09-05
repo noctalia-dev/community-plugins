@@ -8,7 +8,7 @@
 -- State: ip_monitor.statuses   = { {ip=, label=, status=, latency_ms=}, ... }
 --        ip_monitor.down_count = number
 -- Panel commands: ip_monitor.cmd =
---   { op = "add"|"remove"|"refresh"|"reorder", ip = "...", label? = "...", index? = N }
+--   { op = "add"|"remove"|"edit"|"refresh"|"reorder", ip = "...", new_ip? = "...", label? = "...", index? = N }
 
 local ipList      = {} -- { {ip=, label=}, ... } — "ip" here is the already-normalized host (no scheme/port/path)
 local hostState   = {} -- host -> true (up) / false (down) / nil (not checked yet)
@@ -213,6 +213,39 @@ local function addIp(raw, label)
   return true
 end
 
+-- Returns ok, reason ("invalid" | "duplicate" | "missing") on failure.
+local function editIp(oldIp, newRaw, newLabel)
+  local idx = indexOfIp(oldIp)
+  if idx == nil then
+    return false, "missing"
+  end
+
+  local newHost = normalizeHost(newRaw)
+  if newHost == nil then
+    return false, "invalid"
+  end
+  if newHost ~= oldIp and indexOfIp(newHost) ~= nil then
+    return false, "duplicate"
+  end
+
+  local entry = ipList[idx]
+  if newHost ~= oldIp then
+    hostState[newHost] = hostState[oldIp]
+    hostLatency[newHost] = hostLatency[oldIp]
+    hostState[oldIp] = nil
+    hostLatency[oldIp] = nil
+    entry.ip = newHost
+  end
+  entry.label = trim(newLabel)
+
+  saveState()
+  publishState()
+  if newHost ~= oldIp then
+    checkHost(entry) -- re-check right away under the new host
+  end
+  return true
+end
+
 local function removeIp(ip)
   local idx = indexOfIp(ip)
   if idx ~= nil then
@@ -269,6 +302,16 @@ noctalia.state.watch("ip_monitor.cmd", function(cmd)
     end
   elseif op == "remove" then
     removeIp(cmd.ip)
+  elseif op == "edit" then
+    local ok, reason = editIp(cmd.ip, cmd.new_ip, cmd.label)
+    if not ok then
+      local display = tostring(cmd.new_ip or cmd.ip or "")
+      if reason == "invalid" then
+        noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.invalid_host", { host = display }))
+      elseif reason == "duplicate" then
+        noctalia.notifyError(noctalia.tr("title"), noctalia.tr("notify.duplicate_host", { host = display }))
+      end
+    end
   elseif op == "reorder" then
     reorderIp(cmd.ip, cmd.index)
   elseif op == "refresh" then

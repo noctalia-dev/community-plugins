@@ -20,7 +20,9 @@
     "tooltip_close_form": "Close",
     "tooltip_confirm_remove": "Confirm removal",
     "tooltip_drag": "Drag to reorder",
-    "tooltip_remove": "Remove"
+    "tooltip_edit": "Edit",
+    "tooltip_remove": "Remove",
+    "tooltip_settings": "Settings"
   },
   "settings": {
     "colorize_latency": {

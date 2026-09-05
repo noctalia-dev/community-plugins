@@ -1,6 +1,6 @@
 id           = "nilsonlinux/link-ip-monitor"
 name         = "Link/IP Monitor"
-version      = "1.0.1"
+version      = "1.0.2"
 plugin_api   = 14
 author       = "Nilsonlinux"
 license      = "MIT"
