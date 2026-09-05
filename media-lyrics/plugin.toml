@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.13"
+version = "0.9.0"
 plugin_api = 24
 author = "tranzem"
 license = "MIT"
@@ -52,15 +52,106 @@ label_key = "settings.local_lyrics_dir.label"
 description_key = "settings.local_lyrics_dir.description"
 default = "~/.local/share/media-lyrics"
 
-# Bar widget: compact now-playing indicator; opens the panel on click.
+# Bar widget: compact now-playing chip; opens the panel on click.
 [[widget]]
 id = "now-playing"
 entry = "widget.luau"
 
-  # Free the middle button for play/pause — the host default opens the
-  # widget's settings instead. Declared so onMiddleClick works out of the box.
+  # Gestures mirror the shell's built-in media widget (noctalia-dev/noctalia
+  # src/shell/bar/widget_gesture_defaults.cpp): right toggles playback, thumb
+  # buttons and the scroll wheel skip tracks. Middle is deliberately NOT
+  # bound here — every widget gets the host default `settings-open-widget`,
+  # so middle click opens this widget's settings like any other bar app.
   [widget.actions]
-  middle = "none"
+  right       = "media toggle"
+  back        = "media previous"
+  forward     = "media next"
+  scroll_up   = "media next"
+  scroll_down = "media previous"
+
+  # Display settings — same knobs as the shell's built-in media widget
+  # (media_widget_definition.cpp). Edited in the widget's own settings popup
+  # (middle click) and read with noctalia.getConfig(key) in widget.luau.
+  [[widget.setting]]
+  key = "album_art_only"
+  type = "bool"
+  label_key = "settings.album_art_only.label"
+  description_key = "settings.album_art_only.description"
+  default = false
+
+  [[widget.setting]]
+  key = "hide_album_art"
+  type = "bool"
+  label_key = "settings.hide_album_art.label"
+  description_key = "settings.hide_album_art.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "hide_artist"
+  type = "bool"
+  label_key = "settings.hide_artist.label"
+  description_key = "settings.hide_artist.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "artist_first"
+  type = "bool"
+  label_key = "settings.artist_first.label"
+  description_key = "settings.artist_first.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "min_length"
+  type = "int"
+  label_key = "settings.min_length.label"
+  description_key = "settings.min_length.description"
+  default = 80
+  min = 0
+  max = 800
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "max_length"
+  type = "int"
+  label_key = "settings.max_length.label"
+  description_key = "settings.max_length.description"
+  default = 220
+  min = 40
+  max = 800
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "art_size"
+  type = "int"
+  label_key = "settings.art_size.label"
+  description_key = "settings.art_size.description"
+  default = 16
+  min = 8
+  max = 96
+  visible_when = { key = "hide_album_art", values = ["false"] }
+
+  [[widget.setting]]
+  key = "title_scroll"
+  type = "select"
+  label_key = "settings.title_scroll.label"
+  description_key = "settings.title_scroll.description"
+  default = "none"
+  options = [
+    { value = "none", label_key = "settings.title_scroll.options.none" },
+    { value = "always", label_key = "settings.title_scroll.options.always" },
+    { value = "on_hover", label_key = "settings.title_scroll.options.on_hover" },
+  ]
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "hide_when_no_media"
+  type = "bool"
+  label_key = "settings.hide_when_no_media.label"
+  description_key = "settings.hide_when_no_media.description"
+  default = false
 
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.

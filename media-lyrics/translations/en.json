@@ -3,6 +3,13 @@
     "no-title": "(no title)",
     "unknown-artist": "Unknown artist"
   },
+  "provider": {
+    "local": "Local",
+    "cache": "Cache"
+  },
+  "service": {
+    "lyrics-unreachable": "LRCLIB unreachable (network error)"
+  },
   "panel": {
     "loading-lyrics": "Loading lyrics…",
     "lyrics-error": "Lyrics error: ",
@@ -13,34 +20,68 @@
     "synced": "synced",
     "unsynced": "unsynced"
   },
-  "provider": {
-    "cache": "Cache",
-    "local": "Local"
-  },
-  "service": {
-    "lyrics-unreachable": "LRCLIB unreachable (network error)"
-  },
   "settings": {
-    "local_lyrics_dir": {
-      "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB.",
-      "label": "Local lyrics folder"
+    "album_art_only": {
+      "label": "Album art only",
+      "description": "Show only the album artwork (no text)."
+    },
+    "hide_album_art": {
+      "label": "Hide album art",
+      "description": "Hide the artwork and its fallback icon."
+    },
+    "hide_artist": {
+      "label": "Hide artist",
+      "description": "Show only the track title."
+    },
+    "artist_first": {
+      "label": "Artist first",
+      "description": "Show \"Artist - Title\" instead of \"Title - Artist\"."
+    },
+    "min_length": {
+      "label": "Min length",
+      "description": "Minimum widget length in pixels."
+    },
+    "max_length": {
+      "label": "Max length",
+      "description": "Maximum widget length in pixels — the text area width (long titles scroll or truncate to fit it)."
+    },
+    "art_size": {
+      "label": "Art size",
+      "description": "Album artwork size in pixels."
+    },
+    "title_scroll": {
+      "label": "Title scroll",
+      "description": "Scroll long titles that exceed the max length.",
+      "options": {
+        "none": "None",
+        "always": "Always",
+        "on_hover": "On hover"
+      }
+    },
+    "hide_when_no_media": {
+      "label": "Hide when no media",
+      "description": "Hide the widget when no MPRIS player is active."
     },
     "offset_ms": {
-      "description": "Shift lyric timing: positive values show lines earlier, negative later.",
-      "label": "Lyrics offset (ms)"
+      "label": "Lyrics offset (ms)",
+      "description": "Shift lyric timing: positive values show lines earlier, negative later."
     },
     "panel_size": {
-      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
       "label": "Panel size",
+      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
       "options": {
         "compact": "Compact (440)",
-        "large": "Large (640)",
-        "medium": "Medium (520)"
+        "medium": "Medium (520)",
+        "large": "Large (640)"
       }
     },
     "use_cache": {
-      "description": "Store fetched lyrics in the plugin data directory for offline reuse.",
-      "label": "Cache lyrics"
+      "label": "Cache lyrics",
+      "description": "Store fetched lyrics in the plugin data directory for offline reuse."
+    },
+    "local_lyrics_dir": {
+      "label": "Local lyrics folder",
+      "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB."
     }
   }
 }
