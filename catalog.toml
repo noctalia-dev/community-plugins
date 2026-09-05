@@ -2185,3 +2185,16 @@ icon = "nvim"
 description = "Quickly search and open recent Neovim projects. Type /nvim in the launcher."
 plugin_api = 3
 tags = ["launcher", "development", "productivity"]
+
+[[plugin]]
+id = "osp54/oppo-pods"
+name = "OPPO Pods"
+version = "1.0.0"
+updated_at = 1788624565
+added_at = 1788624565
+author = "osp54"
+license = "MIT"
+icon = "headphones"
+description = "OPPO, OnePlus and realme earbuds battery and noise cancellation control in the bar."
+plugin_api = 24
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
