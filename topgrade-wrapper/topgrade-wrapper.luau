@@ -3,35 +3,25 @@
 --
 -- A pure renderer over the shared state the engine (service.luau) publishes on
 -- "topgrade_state"; the count is therefore already there when the panel has
--- never been opened, and every bar showing the widget agrees. Actions are sent
--- back as "topgrade_request" entries rather than run here, so one engine owns
--- the topgrade process no matter how many widget instances exist.
+-- never been opened, and every bar showing the widget agrees.
 --
--- Click mapping:
---   Left click   — open/close the panel
---   Right click  — check for updates now
+-- Click mapping is declared in plugin.toml's [widget.actions] (plugin_api >=
+-- 14), not hard-coded here, so the user can remap it from the bar's own
+-- gesture settings like any built-in widget:
+--   Left click   — panel-toggle nightwatch75/topgrade-wrapper:panel
+--   Right click  — plugin nightwatch75/topgrade-wrapper:service all check
+--                  (the exact same IPC line service.luau's onIpc documents)
 --
--- There is deliberately no middle-click handler: every bar widget carries a
--- built-in `middle` binding that opens its own settings, and a user binding wins
--- over a script callback, so one here would be dead code. Claiming the gesture
--- back needs [widget.actions], which is plugin_api 14.
+-- There is deliberately no middle-click binding: every bar widget carries a
+-- built-in `middle` binding that opens its own settings, and that default
+-- behaviour is exactly what's wanted here.
 
-local PANEL_ID = "nightwatch75/topgrade-wrapper:panel"
-local REQUEST_KEY = "topgrade_request"
-local STATE_KEY = "topgrade_state"
+local shared = require("./shared.luau")
 
 local snapshot = nil
 
 local function tr(key, args)
-    return noctalia.tr(key, args)
-end
-
--- The nonce is monotonic across writers (every widget instance and the panel):
--- each seeds from the last request already in the shared state.
-local function request(action)
-    local prev = noctalia.state.get(REQUEST_KEY)
-    local nonce = (type(prev) == "table" and tonumber(prev.nonce) or 0) + 1
-    noctalia.state.set(REQUEST_KEY, { nonce = nonce, action = action })
+    return shared.tr(key, args)
 end
 
 -- "pacman 5 · Flatpak 1" — the per-manager breakdown, non-zero entries only.
@@ -117,7 +107,7 @@ local function render()
     barWidget.setTooltip(rows)
 end
 
-noctalia.state.watch(STATE_KEY, function(value)
+noctalia.state.watch(shared.STATE_KEY, function(value)
     if type(value) == "table" then
         snapshot = value
         render()
@@ -130,14 +120,6 @@ function update()
     render()
 end
 
-function onClick()
-    noctalia.togglePanel(PANEL_ID)
-end
-
-function onRightClick()
-    request("check")
-end
-
 noctalia.setUpdateInterval(1000)
-snapshot = noctalia.state.get(STATE_KEY)
+snapshot = noctalia.state.get(shared.STATE_KEY)
 render()

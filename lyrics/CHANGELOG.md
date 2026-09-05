@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.4
+
+- Bound MPRIS metadata output and field processing so unusually large song
+  metadata is discarded instead of exhausting the async callback CPU budget.
+
 ## 1.5.3
 
 - Replace pattern-based MPRIS metadata parsing with a linear separator scan so

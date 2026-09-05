@@ -7,11 +7,14 @@
     "title": "Añadir Modelo"
   },
   "create": {
-    "models_hint": "Un modelo por línea, en orden de reserva (por ejemplo, cc/claude-opus-4-7).",
+    "back": "Atrás",
+    "cancel": "Cancelar",
+    "kind_label": "Tipo",
+    "models_hint": "Un modelo por línea, en orden de respaldo (por ejemplo, cc/claude-opus-4-7).",
     "models_label": "Modelos",
     "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
     "name_label": "Nombre",
-    "name_placeholder": "P.ej. mi-reserva",
+    "name_placeholder": "P.ej. mi-respaldo",
     "submit": "Crear",
     "title": "Nuevo Combo"
   },
@@ -19,11 +22,13 @@
     "add_model": "Añadir modelo",
     "back": "Volver a combos",
     "delete": "Borrar combo",
-    "delete_confirm": "Borrar este combo?",
+    "delete_confirm": "¿Borrar este combo?",
     "delete_no": "Cancelar",
     "delete_yes": "Sí, borrar",
     "drag_hint": "Arrastra un modelo para ordenar",
+    "kind_label": "Tipo",
     "models_count": "{count} modelo(s)",
+    "models_title": "Cadena de Modelos",
     "move_down": "Mover abajo",
     "move_up": "Mover arriba",
     "no_models": "Este combo no tiene modelos todavía",
@@ -36,13 +41,80 @@
   },
   "error": {
     "add_model_failed": "Fallo al añadir modelo",
-    "auth_required": "Autentificación requerida",
+    "auth_required": "Autenticación requerida",
     "bad_response": "Respuesta inesperada desde 9Router",
     "connection_failed": "No se pudo conectar a 9Router",
     "create_failed": "Fallo al crear combo",
     "delete_failed": "Fallo al borrar combo",
     "dismiss": "Descartar",
     "http_status": "HTTP {status}",
-    "invalid_name": "El nombre solo puede contener letras, números, -, _ y ."
+    "invalid_name": "El nombre solo puede contener letras, números, -, _ y .",
+    "kind_failed": "No se pudo actualizar el tipo",
+    "login_failed": "Fallo al iniciar sesión",
+    "need_name_models": "Se requieren un nombre y al menos un modelo.",
+    "need_password": "Por favor, introduce tu contraseña.",
+    "remove_model_failed": "No se pudo quitar el modelo",
+    "rename_failed": "No se pudo renombrar el combo",
+    "reorder_failed": "No se pudo reordenar los modelos"
+  },
+  "kind": {
+    "fallback": "Respaldo",
+    "fusion": "Fusión",
+    "none": "Ninguno",
+    "round_robin": "Round-robin"
+  },
+  "list": {
+    "delete": "Borrar combo",
+    "delete_cancel": "Cancelar",
+    "delete_confirm": "Confirmar borrado",
+    "empty": "Aún no hay combos. Crea uno para empezar",
+    "kind": "Tipo: {kind}",
+    "new_combo": "Nuevo Combo",
+    "no_match": "Ningún combo coincide con tu búsqueda",
+    "open": "Abrir combo",
+    "refresh": "Refrescar",
+    "search": "Buscar combos...",
+    "title": "9Router — Combos"
+  },
+  "login": {
+    "hint": "El panel requiere autenticación. Introduce tu contraseña de 9Router para continuar.",
+    "password_placeholder": "Contraseña...",
+    "submit": "Iniciar sesión",
+    "title": "Inicio de sesión de 9router"
+  },
+  "settings": {
+    "data_dir": {
+      "description": "Directorio de datos de 9Router (se usa para calcular el token CLI cuando el panel requiere inicio de sesión). Por defecto: ~/.9router.",
+      "label": "Directorio de datos"
+    },
+    "debug_logging": {
+      "description": "Muestra mensajes de depuración en el registro de Noctalia.",
+      "label": "Registro de depuración"
+    },
+    "language": {
+      "description": "Idioma de la interfaz de este plugin. 'Auto' sigue el idioma de la shell de Noctalia.",
+      "label": "Idioma",
+      "options": {
+        "auto": "Auto (seguir shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "server_host": {
+      "description": "Nombre del anfitrión del panel de 9Router. Por defecto: 127.0.0.1.",
+      "label": "Anfitrión del servidor"
+    },
+    "server_port": {
+      "description": "Puerto del panel de 9router. Por defecto: 20128.",
+      "label": "Puerto del servidor"
+    }
+  },
+  "state": {
+    "combos": "{count} combo(s)",
+    "tip": {
+      "auth_required": "9router: se requiere inicio de sesión",
+      "offline": "9router: desconectado",
+      "online": "9router: conectado"
+    }
   }
 }

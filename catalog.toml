@@ -265,15 +265,21 @@ tags = ["audio", "bar", "recording", "utility"]
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.25"
-updated_at = 1785461243
+version = "0.2.0"
+updated_at = 1788534085
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
-plugin_api = 15
+plugin_api = 28
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
+
+[[plugin.release]]
+plugin_api = 15
+version = "0.0.25"
+updated_at = 1785461243
+rev = "0cb921baff95dcd0c6cafb097a1f62190ef6db47"
 
 [[plugin.release]]
 plugin_api = 9
@@ -290,8 +296,8 @@ rev = "203aaef232cb47ba37c9b32af82f27225ea1916e"
 [[plugin]]
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.3"
-updated_at = 1788483399
+version = "1.5.4"
+updated_at = 1788533921
 added_at = 1784238037
 author = "h465855hgg"
 license = "MIT"
@@ -730,15 +736,21 @@ tags = ["utility", "productivity", "bar", "panel"]
 [[plugin]]
 id = "nightwatch75/topgrade-wrapper"
 name = "Topgrade Wrapper"
-version = "0.0.6"
-updated_at = 1785684887
+version = "0.1.0"
+updated_at = 1788534428
 added_at = 1785089703
 author = "nightwatch75"
 license = "MIT"
 icon = "package"
 description = "Check how many packages topgrade would upgrade, then run the upgrade in a terminal window."
-plugin_api = 15
+plugin_api = 24
 tags = ["bar", "panel", "service", "system", "utility"]
+
+[[plugin.release]]
+plugin_api = 15
+version = "0.0.6"
+updated_at = 1785684887
+rev = "7a9c1c017a5c28fc0603c1d87f5bb49e1ee20944"
 
 [[plugin.release]]
 plugin_api = 9
@@ -749,8 +761,8 @@ rev = "f6983da41aeffeb5908001b835be4011821e5913"
 [[plugin]]
 id = "jamesfeeder/special-workspaces"
 name = "Special Workspaces"
-version = "1.4.0"
-updated_at = 1785121575
+version = "1.5.0"
+updated_at = 1788548483
 added_at = 1785121575
 author = "jamesfeeder"
 license = "MIT"
@@ -1171,8 +1183,8 @@ tags = ["music", "bar", "panel", "desktop", "service"]
 [[plugin]]
 id = "tadomika_ari/config-swap"
 name = "Config Swap"
-version = "1.1.0"
-updated_at = 1787663144
+version = "1.2.0"
+updated_at = 1788571055
 added_at = 1786027394
 author = "TadomiKa-Ari"
 license = "MIT"
@@ -2047,8 +2059,8 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.2.4"
-updated_at = 1788391895
+version = "0.2.5"
+updated_at = 1788534336
 added_at = 1788315521
 author = "Aabid"
 license = "MIT"
@@ -2151,8 +2163,8 @@ tags = ["panel", "emoticon", "utility"]
 [[plugin]]
 id = "mezoahmedii/quranwidget"
 name = "Quran Widget"
-version = "1.0.0"
-updated_at = 1788482725
+version = "1.0.1"
+updated_at = 1788533941
 added_at = 1788482725
 author = "MezoAhmedII"
 license = "MIT"
@@ -2160,3 +2172,16 @@ icon = "book"
 description = "A Noctalia widget to show a random Quranic Ayah/verse on the desktop"
 plugin_api = 3
 tags = ["desktop", "utility"]
+
+[[plugin]]
+id = "ashur-d/nvim-projects"
+name = "Neovim Projects"
+version = "1.0.0"
+updated_at = 1788572460
+added_at = 1788572460
+author = "Ashur-D"
+license = "MIT"
+icon = "nvim"
+description = "Quickly search and open recent Neovim projects. Type /nvim in the launcher."
+plugin_api = 3
+tags = ["launcher", "development", "productivity"]

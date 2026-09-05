@@ -112,6 +112,7 @@ body:
         - niri-rules-studio
         - nix-monitor
         - noctwhspr
+        - nvim-projects
         - nvtop
         - obs-integration
         - obsidian

@@ -337,6 +337,11 @@ local function splitMetadata(value, separator)
   return fields
 end
 
+local function trimMetadataField(value)
+  if #value > 16384 then return "" end
+  return value:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function evictCache()
   local keys = {}
   for k, _ in pairs(cache) do keys[#keys + 1] = k end
@@ -821,6 +826,10 @@ local function poll()
       clearPlayerState()
       return
     end
+    if #r.stdout > 131072 then
+      clearPlayerState()
+      return
+    end
 
     local players = {}
     local fieldSeparator = string.char(31)
@@ -829,7 +838,7 @@ local function poll()
       if record ~= "" then
         local parts = splitMetadata(record, fieldSeparator)
         for index, field in ipairs(parts) do
-          parts[index] = field:gsub("^%s+", ""):gsub("%s+$", "")
+          parts[index] = trimMetadataField(field)
         end
         local player = {
           instance = parts[1] or "",

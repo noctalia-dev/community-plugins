@@ -1,6 +1,6 @@
 id = "aabidk20/yt-music"
 name = "YouTube Music"
-version = "0.2.4"
+version = "0.2.5"
 plugin_api = 23
 icon = "brand-youtube-filled"
 author = "Aabid"

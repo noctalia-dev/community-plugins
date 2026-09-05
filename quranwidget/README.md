@@ -1,6 +1,6 @@
 # Quran Widget
 
-A Noctalia widget to show a random Quranic Ayah/verse on the desktop. A new Ayah is shown everyy few minutes.
+A Noctalia widget to show a random Quranic Ayah/verse on the desktop. A new Ayah is shown every few minutes.
 
 Inspired by browser extensions like Quran Tab ([Chrome](https://chromewebstore.google.com/detail/quran-tab/afaihcdgkjebgabomemccdneglknjkdd), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/quran-tab-original/)) and Muslim Board ([Chrome](https://chromewebstore.google.com/detail/muslim-board/lmnhjilamobdmdihfkofgiejgokabfad), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/muslimboard/))
 

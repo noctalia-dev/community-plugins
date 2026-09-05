@@ -51,6 +51,7 @@ local EXPO = {}
 
 local stream_cache = {}
 local resolving_in_flight = {}
+local attempt_resolve: (string, number) -> () -- forward: resolve_stream parks the list, attempt spawns
 local STREAM_DISK_TTL = 4 * 3600
 
 function EXPO.get_audio_cache_path(video_id: string): string?
@@ -156,10 +157,19 @@ function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
     end
 
     resolving_in_flight[video_id] = { cb }
+    attempt_resolve(video_id, 0)
+end
 
+-- Spawn the yt-dlp fetch for a video_id whose callback list is already parked
+-- in resolving_in_flight. Attempt 0 is the first try; on host spawn refusal
+-- (burst saturation from rapid skips) one delayed retry follows, then fail.
+attempt_resolve = function(video_id, attempt)
+    local safe_id = video_id:gsub("[^%w%-_]", "_")
     log("resolving stream URL for id=" .. video_id)
     local script = RESOLVE_SCRIPT:gsub("VIDEO", safe_id)
-    network.runAsync(script, function(res)
+    local started_ms = noctalia.nowMs()
+    local launched = network.runAsync(script, function(res)
+        local elapsed_ms = noctalia.nowMs() - started_ms
         local out = type(res) == "table" and res.stdout or ""
         local raw_url = out:match("URL=([^\n\r]+)")
         local url = sanitize_str(raw_url)
@@ -167,18 +177,53 @@ function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
         resolving_in_flight[video_id] = nil
 
         if url ~= "" then
-            log("stream resolved successfully (" .. #url .. " bytes) for id=" .. video_id)
+            log("stream resolved successfully (" .. #url .. " bytes, " .. elapsed_ms .. "ms) for id=" .. video_id)
             stream_cache[video_id] = { url = url, timestamp = os.time() }
             for _, callback in ipairs(callbacks) do
                 if callback then callback(url) end
             end
         else
-            log("stream resolution failed for id=" .. video_id)
+            local reason = "failed"
+            if out:find("NETGATE=OFFLINE", 1, true) then
+                reason = "offline, deferred"
+            elseif type(res) == "table" and res.timedOut then
+                reason = "timed out"
+            elseif type(res) == "table" and (res.exitCode == 143 or res.exitCode == 137) then
+                -- SIGTERM/SIGKILL is our own supersede kill reaping a stale
+                -- fetch during rapid skips — expected, not an error.
+                reason = "superseded (stale fetch reaped)"
+            end
+            log("stream resolution " .. reason .. " (" .. elapsed_ms .. "ms) for id=" .. video_id)
             for _, callback in ipairs(callbacks) do
                 if callback then callback(nil) end
             end
         end
     end, 30000)
+    if not launched and network.isOnline() then
+        -- Host refused the spawn: rapid skips fill every slot with stale
+        -- yt-dlp fetches, so the final song's resolve is the one refused and
+        -- its entry would wedge (UI loading forever + id poisoned). Retry once
+        -- after the burst drains; if that also fails, fail fast with nil so
+        -- the owner falls back to stopped instead of hanging. Offline needs
+        -- no handling: the net gate already scheduled its synthetic failure.
+        if attempt < 1 then
+            log("stream resolve launch refused for id=" .. video_id .. ", retrying")
+            local scheduled = noctalia.runAsync("sleep 1.5", function()
+                if resolving_in_flight[video_id] then
+                    attempt_resolve(video_id, attempt + 1)
+                end
+            end)
+            if scheduled then
+                return
+            end
+        end
+        log("stream resolve launch refused for id=" .. video_id)
+        local pending = resolving_in_flight[video_id] or {}
+        resolving_in_flight[video_id] = nil
+        for _, callback in ipairs(pending) do
+            if callback then callback(nil) end
+        end
+    end
 end
 
 function EXPO.prefetch_track(item: types.Track)

@@ -76,6 +76,10 @@
       "description": "Show `installed → available` beside each package when a manager row is expanded. Off lists names only; hovering a package still shows its full versions under the list either way.",
       "label": "Show package versions"
     },
+    "sound_on_updates": {
+      "description": "Play a short sound when a check finds packages to upgrade.",
+      "label": "Sound when updates are found"
+    },
     "sudo_loop": {
       "description": "Pass --sudoloop so topgrade refreshes the sudo timestamp and asks for your password once. Leaves a sudo session open for the whole run.",
       "label": "Keep sudo alive"
@@ -104,6 +108,7 @@
   "step_unnamed": "topgrade",
   "tip_check": "Check for updates now",
   "tip_close": "Close",
+  "tip_run_now": "Run topgrade now, skipping the check",
   "tip_settings": "Plugin settings",
   "tip_update": "Run topgrade in a terminal window",
   "title": "Topgrade Wrapper",

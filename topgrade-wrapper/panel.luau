@@ -8,9 +8,11 @@
 -- result is a per-manager breakdown plus, when something could not be counted,
 -- the names of the steps it left out. Only then do "Update" (open a terminal
 -- and run topgrade) and "Dismiss" (keep the numbers, quiet the bar) light up.
+-- The header's ▶ button is the escape hatch: it sends the same "update"
+-- request straight away, skipping the count, for anyone who just wants to run
+-- topgrade now.
 
-local STATE_KEY = "topgrade_state"
-local REQUEST_KEY = "topgrade_request"
+local shared = require("./shared.luau")
 
 -- Read out of the plugin's own manifest (readFile resolves a relative path
 -- against the plugin directory), so the header cannot drift from the version
@@ -32,16 +34,36 @@ local listOpen = false -- at least one manager is expanded this render
 
 local render
 
-local function tr(key, args)
-    return noctalia.tr(key, args)
+-- Braille spinner shown next to the headline while checking/running
+-- (plugin_api >= 18: panel.setNeedsFrameTick + onFrameTick). Ticks arrive far
+-- faster than the spinner should visibly advance, so SPINNER_STEP_MS throttles
+-- frames instead of stepping on every callback; setSpinnerTicking only touches
+-- setNeedsFrameTick on an actual on/off transition, so a busy phase that stays
+-- busy across several renders does not re-arm it every time.
+local SPINNER_FRAMES = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+local SPINNER_STEP_MS = 90
+local spinnerIndex = 1
+local spinnerAccumMs = 0
+local spinnerTicking = false
+
+local function setSpinnerTicking(on)
+    if on == spinnerTicking then
+        return
+    end
+    spinnerTicking = on
+    panel.setNeedsFrameTick(on)
+    if not on then
+        spinnerAccumMs = 0
+        spinnerIndex = 1
+    end
 end
 
--- The nonce is monotonic across writers (the panel and every widget instance):
--- each seeds from the last request already in the shared state.
+local function tr(key, args)
+    return shared.tr(key, args)
+end
+
 local function request(action)
-    local prev = noctalia.state.get(REQUEST_KEY)
-    local nonce = (type(prev) == "table" and tonumber(prev.nonce) or 0) + 1
-    noctalia.state.set(REQUEST_KEY, { nonce = nonce, action = action })
+    shared.request(action)
 end
 
 local function versionsShown()
@@ -341,6 +363,10 @@ render = function()
     local text, color = headline()
     local phase = phaseOf()
     local hasUpdates = totalOf() > 0 and (phase == "ready" or phase == "running")
+    setSpinnerTicking(busy())
+    if spinnerTicking then
+        text = SPINNER_FRAMES[spinnerIndex] .. "  " .. text
+    end
 
     local children = {
         -- Every child of the header carries a stable key, so the reconciler
@@ -366,6 +392,19 @@ render = function()
                 tooltip = tr("tip_check"),
                 onClick = function()
                     request("check")
+                end,
+            }),
+            -- Runs topgrade straight away, the same request the bottom "Update"
+            -- button sends once a check finds something — for anyone who does
+            -- not want to count first.
+            ui.button({
+                key = "header-run" .. (busy() and "-off" or ""),
+                glyph = "player-play",
+                variant = "ghost",
+                enabled = not busy() and phase ~= "missing",
+                tooltip = tr("tip_run_now"),
+                onClick = function()
+                    request("update")
                 end,
             }),
             -- Opens the settings window on this plugin's own page (the host
@@ -443,14 +482,36 @@ render = function()
 end
 
 function onOpen(_context)
-    snapshot = noctalia.state.get(STATE_KEY)
+    snapshot = noctalia.state.get(shared.STATE_KEY)
     expanded = {}
     hoverKey = nil
     hoverText = ""
     render()
 end
 
-noctalia.state.watch(STATE_KEY, function(value)
+function onClose()
+    -- Stop the frame tick even if the panel closes mid-check; the next onOpen
+    -- (or the state.watch below) re-arms it if a check/run is still going.
+    setSpinnerTicking(false)
+end
+
+-- plugin_api >= 18. Throttled to SPINNER_STEP_MS regardless of the host's
+-- actual tick rate; render() itself flips setNeedsFrameTick off once the
+-- phase leaves checking/running, so this never spins forever unattended.
+function onFrameTick(deltaMs)
+    if not spinnerTicking then
+        return
+    end
+    spinnerAccumMs += deltaMs
+    if spinnerAccumMs < SPINNER_STEP_MS then
+        return
+    end
+    spinnerAccumMs = 0
+    spinnerIndex = (spinnerIndex % #SPINNER_FRAMES) + 1
+    render()
+end
+
+noctalia.state.watch(shared.STATE_KEY, function(value)
     if type(value) ~= "table" then
         return
     end

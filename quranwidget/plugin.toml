@@ -1,7 +1,7 @@
 id = "mezoahmedii/quranwidget"
 name = "Quran Widget"
 description = "A Noctalia widget to show a random Quranic Ayah/verse on the desktop"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "MezoAhmedII"
 icon = "book"

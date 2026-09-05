@@ -1,7 +1,13 @@
+local function getFontSize()
+  local fontSize = tonumber(noctalia.getConfig("font_size"))
+  return (fontSize ~= 0) and fontSize or nil
+end
+
 local STATE_KEY = "special_workspaces"
 local PILL_HEIGHT = 16
 local PILL_GAP = 4
 local state = noctalia.state.get(STATE_KEY) or {}
+local fontSize = getFontSize()
 local maxLabelChars = tonumber(noctalia.getConfig("max_label_chars")) or 0
 local hideInactive = noctalia.getConfig("hide_inactive") == true
 local capsuleRadius = math.max(0, tonumber(noctalia.getConfig("capsule_radius")) or 8)
@@ -69,7 +75,7 @@ local function render(vertical)
       table.insert(chips, capsule(capsuleProps, {
         ui.label({
           text = vertical and verticalName(label) or label,
-          fontSize = 11,
+          fontSize = fontSize,
           color = textColor,
           textAlign = "center",
         }),
@@ -93,6 +99,7 @@ noctalia.state.watch(STATE_KEY, function(value)
 end)
 
 function onConfigChanged()
+  fontSize = getFontSize()
   maxLabelChars = tonumber(noctalia.getConfig("max_label_chars")) or 0
   hideInactive = noctalia.getConfig("hide_inactive") == true
   capsuleRadius = math.max(0, tonumber(noctalia.getConfig("capsule_radius")) or 8)
