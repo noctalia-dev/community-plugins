@@ -1,0 +1,76 @@
+{
+  "title": "Printers",
+  "settings": {
+    "poll_interval_seconds": {
+      "label": "Poll interval (seconds)",
+      "description": "How often lpstat is queried for printer states and the job queue."
+    },
+    "show_when_idle": {
+      "label": "Always show the bar widget",
+      "description": "Keep the bar widget visible even when the queue is empty and no printer has stopped. Off by default, so it only appears when there is something to see."
+    },
+    "notify_on_fault": {
+      "label": "Notify when a printer stops",
+      "description": "Show a notification the first time a printer reports itself as disabled or stopped."
+    },
+    "cups_url": {
+      "label": "CUPS web interface",
+      "description": "The URL opened by the \"Open CUPS\" button, through xdg-open."
+    },
+    "settings_command": {
+      "label": "Printer settings command",
+      "description": "The command run by the \"Printer settings\" button, e.g. system-config-printer. Arguments are split on spaces; it is not run through a shell."
+    }
+  },
+  "tooltip": {
+    "default": "Default",
+    "queue": "Queue",
+    "state": "State",
+    "stopped": "Printer stopped"
+  },
+  "panel": {
+    "printers": "Printers",
+    "no_printers": "No printers found",
+    "discovered": "available, not yet added",
+    "no_default": "no default printer",
+    "set_default": "Set default",
+    "state_default": "{state} · default",
+    "queue": {
+      "one": "Queue ({count} job)",
+      "other": "Queue ({count} jobs)"
+    },
+    "no_jobs": "Queue is empty",
+    "cancel": "Cancel job",
+    "cancel_all": "Cancel all",
+    "cancel_all_confirm": "Confirm cancelling every job",
+    "open_cups": "Open CUPS",
+    "printer_settings": "Printer settings",
+    "print_clipboard": "Print clipboard",
+    "refresh": "Refresh now",
+    "plugin_settings": "Plugin settings",
+    "remove": "Remove printer",
+    "remove_confirm": "Confirm removing {printer}",
+    "add_printer": "Add a printer",
+    "add": "Add",
+    "already_added": "Already set up as a queue",
+    "will_be_named": "will be added as {name}",
+    "no_devices": "No printers found on the network or USB",
+    "add_note": "Added as driverless IPP Everywhere queues. A printer that needs a vendor driver has to be set up in Printer settings instead.",
+    "queued_as": "already set up as {name}"
+  },
+  "notifications": {
+    "printer_stopped": "{printer} has stopped. Check the printer, then re-enable it from CUPS.",
+    "no_default": "No default printer. Pick one in the panel first.",
+    "clipboard_empty": "The clipboard holds no text to print.",
+    "sent": "Clipboard sent to {printer}.",
+    "missing_command": "{command} is not installed.",
+    "status": {
+      "one": "{printer} · {count} job queued",
+      "other": "{printer} · {count} jobs queued"
+    },
+    "added": "{printer} added.",
+    "add_failed": "Could not add {printer}.",
+    "removed": "{printer} removed.",
+    "remove_failed": "Could not remove {printer}."
+  }
+}

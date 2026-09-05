@@ -1,0 +1,73 @@
+# Printers: CUPS destinations and the active print queue in the bar, with a
+# panel to set the default printer, cancel jobs, print the clipboard and open
+# the CUPS web interface. Everything is discovered from lpstat at runtime; no
+# printer name, host or queue is configured in the plugin.
+
+id           = "andrewdems/printers"
+name         = "Printers"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "andrewdems"
+license      = "MIT"
+icon         = "printer"
+description  = "CUPS printers and print queue in the bar: job count, faults, cancel jobs, set the default printer."
+tags         = ["bar", "panel", "service", "shortcut", "hardware", "system", "utility"]
+dependencies = ["lpstat", "lp", "cancel", "lpoptions", "lpinfo", "lpadmin", "xdg-open"]
+
+[[setting]]
+key = "poll_interval_seconds"
+type = "int"
+label_key = "settings.poll_interval_seconds.label"
+description_key = "settings.poll_interval_seconds.description"
+default = 10
+min = 5
+max = 300
+
+[[setting]]
+key = "show_when_idle"
+type = "bool"
+label_key = "settings.show_when_idle.label"
+description_key = "settings.show_when_idle.description"
+default = false
+
+[[setting]]
+key = "notify_on_fault"
+type = "bool"
+label_key = "settings.notify_on_fault.label"
+description_key = "settings.notify_on_fault.description"
+default = true
+
+[[setting]]
+key = "cups_url"
+type = "string"
+label_key = "settings.cups_url.label"
+description_key = "settings.cups_url.description"
+default = "http://localhost:631/jobs/"
+
+[[setting]]
+key = "settings_command"
+type = "string"
+label_key = "settings.settings_command.label"
+description_key = "settings.settings_command.description"
+default = "system-config-printer"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "printer"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 520
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
