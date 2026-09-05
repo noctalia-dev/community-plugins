@@ -198,7 +198,7 @@ for _, name in ipairs(names) do if name == "Antigravity" then listed = true end 
 assert(not listed, "a provider that is down leaves the bar")
 -- Ranked first on severity, it would have led the capsule; the rest still show.
 -- Each provider contributes its name and then its readings.
-assert(names[1] == "Codex" and names[3] == "Claude", "the rest keep their order")
+assert(names[1] == "Codex" and names[2] == "Claude", "the rest keep their order")
 -- And it is not counted as hidden: hidden means there is more to see.
 for _, row in ipairs(dropped.tooltip()) do
     assert(row.key ~= "ui.hidden_label", "it is dropped, not hidden behind a +1")
@@ -213,7 +213,7 @@ local withoutRejected = loadBar({
     provider_limit = 2,
 }, { entries = { rejected, entry("openai", "Codex", 20) } })
 local rejectedRows = withoutRejected.tooltip()
-assert(rejectedRows[1].key == "Codex" and #rejectedRows == 2,
+assert(rejectedRows[1].key == "Codex" and #rejectedRows == 1,
        "a terminal provider should leave the bar immediately")
 
 local pinnedDown = loadBar({
@@ -290,6 +290,9 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
        "capsule should show the 100% weekly bottleneck when session is 0%")
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
+local bottleneckRows = bottleneckBar.tooltip()
+assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%",
+       "bottleneckBar tooltip should combine dual metrics into a single row")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -313,6 +316,12 @@ assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Ge
 assert(containsGlyph(agyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
 assert(glyphColor(agyBar.rendered(), "asterisk-simple") == "on_surface", "model glyph should remain neutral on_surface")
 assert(containsText(agyBar.rendered(), "0%"), "capsule should show active session 0%")
+local agyTooltip = agyBar.tooltip()
+assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "0% / 24%",
+       "antigravity tooltip first row should be Gemini dual metrics")
+assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100%",
+       "antigravity tooltip second row should be Claude dual metrics")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",

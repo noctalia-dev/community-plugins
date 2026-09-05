@@ -20,7 +20,7 @@ local report = nil
 
 local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
-local countdown, resetClock = shared.countdown, shared.resetClock
+local countdown = shared.countdown
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
@@ -230,6 +230,31 @@ local function chip(entry, flagged)
     return ui.row({ gap = 5, align = "center" }, nodes)
 end
 
+local function formatDualMetric(m1, m2)
+    m1 = type(m1) == "table" and m1 or nil
+    m2 = type(m2) == "table" and m2 or nil
+    if m1 == nil and m2 == nil then return "" end
+
+    local p1 = m1 and (m1.percent ~= nil and tonumber(m1.percent) or tostring(m1.value or ""))
+    local p2 = m2 and (m2.percent ~= nil and tonumber(m2.percent) or tostring(m2.value or ""))
+
+    local str1 = type(p1) == "number" and string.format("%d%%", p1) or tostring(p1 or ""):gsub(" of ", " / ")
+    local str2 = type(p2) == "number" and string.format("%d%%", p2) or (p2 ~= nil and tostring(p2):gsub(" of ", " / ") or nil)
+
+    local left = ""
+    if m1 ~= nil then left = countdown(m1) end
+    if left == "" and m2 ~= nil then left = countdown(m2) end
+
+    local val = str1
+    if str2 ~= nil and str2 ~= "" then
+        val = val .. " / " .. str2
+    end
+    if left ~= "" then
+        val = val .. " · " .. left
+    end
+    return val
+end
+
 local function tooltip(picked, hidden)
     if failure.code ~= "" then
         local key = "ui.error." .. failure.code
@@ -258,19 +283,22 @@ local function tooltip(picked, hidden)
         if entry.status == "error" then
             rows[#rows + 1] = { key = title, value = tostring(entry.error or noctalia.tr("ui.unavailable")) }
         else
-            if entry.plan ~= nil and tostring(entry.plan) ~= "" then
-                rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
-            end
-            local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-            for _, metric in ipairs(metrics) do
-                if type(metric) == "table" then
-                    local value = tostring(metric.value or ""):gsub(" of ", " / ")
-                    local left = countdown(metric)
-                    if left ~= "" then
-                        local clock = resetClock(metric)
-                        value = value .. " · " .. left .. (clock ~= "" and (" (" .. clock .. ")") or "")
+            local submodels = modelHeadlines(entry)
+            if #submodels > 1 then
+                for _, item in ipairs(submodels) do
+                    local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
+                    local val = formatDualMetric(mMetrics[1], mMetrics[2])
+                    if val ~= "" then
+                        rows[#rows + 1] = { key = item.model, value = val }
                     end
-                    rows[#rows + 1] = { key = tostring(metric.label or ""), value = value }
+                end
+            else
+                local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+                local val = formatDualMetric(metrics[1], metrics[2])
+                if val ~= "" then
+                    rows[#rows + 1] = { key = title, value = val }
+                elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
+                    rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
                 end
             end
             if entry.stale == true then
