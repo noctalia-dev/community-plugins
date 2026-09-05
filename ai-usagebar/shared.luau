@@ -324,10 +324,15 @@ function M.modelHeadlines(entry)
         local modelMetrics = byModel[model]
         local sessionMetric = modelMetrics[1]
         local blocked = false
+        local blockingMetric = nil
         for _, metric in ipairs(modelMetrics) do
             if isCritical(metric) then
                 blocked = true
-                break
+                local candidateReset = M.parseIso(metric.reset_at) or -1
+                local blockingReset = M.parseIso(blockingMetric and blockingMetric.reset_at) or -1
+                if blockingMetric == nil or candidateReset >= blockingReset then
+                    blockingMetric = metric
+                end
             end
         end
         if sessionMetric ~= nil then
@@ -339,6 +344,7 @@ function M.modelHeadlines(entry)
                 metric = sessionMetric,
                 metrics = modelMetrics,
                 blocked = blocked,
+                blockingMetric = blockingMetric,
             }
         end
     end

@@ -20,7 +20,7 @@ local report = nil
 
 local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
-local countdown, fixedCountdown = shared.countdown, shared.fixedCountdown
+local fixedCountdown = shared.fixedCountdown
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
 local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
@@ -163,9 +163,10 @@ local function chip(entry, flagged)
         if hasSubmodels then
             local parts = {}
             for _, item in ipairs(submodels) do
-                local mTint = (item.blocked or isCritical(item.metric)) and "error"
-                    or severityRole(item.metric, "on_surface")
-                local mPct = tonumber(item.metric.percent) or 0
+                local shownMetric = item.blockingMetric or item.metric
+                local mTint = isCritical(shownMetric) and "error"
+                    or severityRole(shownMetric, "on_surface")
+                local mPct = tonumber(shownMetric.percent) or 0
                 local rowChildren = {
                     ui.glyph({
                         name = item.glyph or providerGlyph(entry.id),
@@ -181,7 +182,7 @@ local function chip(entry, flagged)
                     }),
                 }
                 if extras == "countdown" or extras == "both" then
-                    local left = countdown(item.metric)
+                    local left = fixedCountdown(shownMetric)
                     if left ~= "" then
                         rowChildren[#rowChildren + 1] = ui.label({
                             text = left,
@@ -226,7 +227,7 @@ local function chip(entry, flagged)
     if glyphAfter then add(glyph) end
 
     if (extras == "countdown" or extras == "both") and not hasSubmodels then
-        local left = countdown(metric)
+        local left = fixedCountdown(metric)
         if left ~= "" then
             add(ui.label({ text = left, fontSize = 10, color = "on_surface_variant", maxLines = 1 }))
         end

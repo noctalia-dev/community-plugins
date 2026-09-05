@@ -79,6 +79,8 @@ start = [ "clock", "ai_usage" ]
 
 - **Hover** lists every window that provider reports: value, time left, and the
   clock time the reset lands on.
+- When a long window is exhausted, the capsule replaces the short-window value
+  with `100%` and counts down to the blocking window's reset.
 - **Left click** opens the `AI Usage` panel for the provider that capsule
   tracks.
 - **Right click** asks the poller for a read. One process serves every capsule,

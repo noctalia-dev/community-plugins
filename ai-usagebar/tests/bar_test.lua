@@ -295,7 +295,7 @@ assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckR
        "bottleneckBar tooltip should show when the blocking weekly limit resets")
 
 local agyBar = loadBar({
-    vendor = "antigravity", account = "", extras = "none", visualization = "none",
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
 }, {
     entries = {
         {
@@ -304,10 +304,10 @@ local agyBar = loadBar({
             plan = "Google AI Pro",
             status = "ready",
             metrics = {
-                { label = "Gemini", percent = 0, severity = "low", value = "0%" },
-                { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+                { label = "Gemini", percent = 11, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "11%" },
+                { label = "Claude & GPT OSS", percent = 0, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3600), severity = "low", value = "0%" },
                 { label = "Gemini", percent = 24, severity = "low", value = "24%" },
-                { label = "Claude & GPT OSS", percent = 100, severity = "critical", value = "100%" },
+                { label = "Claude & GPT OSS", percent = 100, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400), severity = "critical", value = "100%" },
             },
         },
     },
@@ -315,12 +315,15 @@ local agyBar = loadBar({
 assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
 assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Gemini OSS")
 assert(glyphColor(agyBar.rendered(), "robot") == "on_surface", "model glyph should remain neutral on_surface")
-assert(containsText(agyBar.rendered(), "0%"), "capsule should show active session 0%")
+assert(containsText(agyBar.rendered(), "11%"), "available model should keep its active session percentage")
+assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its exhausted long-window percentage")
+assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
+assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
 assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
-assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "0% / 24%",
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
        "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Gemini OSS" and agyTooltip[2].value == "0% / 100%",
+assert(agyTooltip[2].key == "Gemini OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
        "antigravity tooltip second row should be Gemini OSS dual metrics")
 
 local normalAgyBar = loadBar({
@@ -358,16 +361,16 @@ local countdownBar = loadBar({
             status = "ready",
             metrics = {
                 { label = "Gemini", percent = 64, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "low", value = "64%" },
-                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "69%" },
+                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "low", value = "69%" },
             },
         },
     },
 })
-assert(containsText(countdownBar.rendered(), "54m"), "capsule should show Gemini countdown when extras=countdown")
-assert(containsText(countdownBar.rendered(), "2h 0m"), "capsule should show Claude countdown when extras=countdown")
+assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour")
+assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
 assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
 assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
-assert(countdownTooltip[2].value == "69% · 2h 00m", "tooltip should show fixed hours and minutes")
+assert(countdownTooltip[2].value == "69% · 23h 05m", "tooltip should show fixed hours and minutes")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
