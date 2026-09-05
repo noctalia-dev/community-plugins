@@ -1,0 +1,4 @@
+Package  Version Latest Type
+-------- ------- ------ -----
+pip      25.0.1  26.2.1 wheel
+requests 2.31.0  2.34.2 wheel

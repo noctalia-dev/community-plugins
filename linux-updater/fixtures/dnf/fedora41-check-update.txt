@@ -1,0 +1,5 @@
+curl.x86_64         8.9.1-4.fc41      updates
+libcurl.x86_64      8.9.1-4.fc41      updates
+openssl-libs.x86_64 1:3.2.6-2.fc41    updates
+vim-data.noarch     2:9.1.1914-1.fc41 updates
+vim-minimal.x86_64  2:9.1.1914-1.fc41 updates

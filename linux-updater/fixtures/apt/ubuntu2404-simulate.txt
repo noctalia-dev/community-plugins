@@ -1,0 +1,3 @@
+2 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+Inst curl [8.5.0-2ubuntu10] (8.5.0-2ubuntu10.11 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64]) []
+Inst libcurl4t64 [8.5.0-2ubuntu10] (8.5.0-2ubuntu10.11 Ubuntu:24.04/noble-updates, Ubuntu:24.04/noble-security [amd64])

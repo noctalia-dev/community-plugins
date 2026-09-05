@@ -1,0 +1,34 @@
+[*] Updating repository `https://repo-default.voidlinux.org/current/x86_64-repodata' ...
+1 package will be downloaded:
+
+  libarchive-3.8.9_1 
+1 package will be updated:
+
+  libarchive (3.8.8_1 -> 3.8.9_1) 
+
+Size to download:              372KB
+Size required on disk:         798KB
+Space available on disk:       639GB
+
+
+[*] Downloading packages
+libarchive-3.8.9_1.x86_64.xbps.sig2: [512B 100%] 35MB/s ETA: 00m00s
+libarchive-3.8.9_1.x86_64.xbps.sig2: 512B [avg rate: 35MB/s]
+libarchive-3.8.9_1.x86_64.xbps: [371KB 1%] 57MB/s ETA: 00m00s
+libarchive-3.8.9_1.x86_64.xbps: 371KB [avg rate: 5334MB/s]
+libarchive-3.8.9_1: verifying RSA signature...
+
+[*] Collecting package files
+libarchive-3.8.9_1: collecting files...
+libarchive-3.8.8_1: collecting files...
+
+[*] Unpacking packages
+libarchive-3.8.8_1: updating to 3.8.9_1 ...
+libarchive-3.8.9_1: unpacking ...
+libarchive-3.8.9_1: removed obsolete entry: ./usr/lib/libarchive.so.13.8.8
+[1A[K
+[*] Configuring unpacked packages
+libarchive-3.8.9_1: configuring ...
+libarchive-3.8.9_1: updated successfully.
+
+1 downloaded, 0 installed, 1 updated, 1 configured, 0 removed, 0 on hold.

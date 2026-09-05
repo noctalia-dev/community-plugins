@@ -1,0 +1,15 @@
+/* Installed by the linux-updater Noctalia plugin (one password per update
+ * run instead of one per xbps call). Authentication is kept for ~5 minutes.
+ * Scope: only pkexec launching xbps-install or xbps-pkgdb, only for an
+ * active local session of a wheel member.
+ * Remove: sudo rm /etc/polkit-1/rules.d/49-linux-updater-xbps.rules
+ */
+polkit.addRule(function(action, subject) {
+    var prog = action.lookup("program");
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        (prog == "/usr/bin/xbps-install" || prog == "/usr/bin/xbps-pkgdb") &&
+        subject.active && subject.local &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.AUTH_ADMIN_KEEP;
+    }
+});

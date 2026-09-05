@@ -1,0 +1,3 @@
+S  | Repository                 | Name               | Current Version | Available Version | Arch
+---+----------------------------+--------------------+-----------------+-------------------+-------
+v  | openSUSE-Tumbleweed-Update | openSUSE-build-key | 1.0-68.1        | 1.0-69.1          | x86_64

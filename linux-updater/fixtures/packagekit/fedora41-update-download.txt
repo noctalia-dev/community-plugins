@@ -1,0 +1,26 @@
+Transaction:	Getting updates
+Status: 	Waiting in queue
+Status: 	Starting
+Percentage:	100
+Status: 	Finished
+Transaction:	Updating packages
+Status: 	Waiting in queue
+Status: 	Starting
+Status: 	Querying
+Percentage:	10
+Status: 	Downloading packages
+Package:	vim-minimal-2:9.1.1914-1.fc41.x86_64
+Package:	vim-data-2:9.1.1914-1.fc41.noarch
+Package:	openssl-libs-1:3.2.6-2.fc41.x86_64
+Package:	libcurl-8.9.1-4.fc41.x86_64
+Package:	curl-8.9.1-4.fc41.x86_64
+Status: 	Requesting data
+Status: 	Testing changes
+Percentage:	100
+Status: 	Finished
+Results:
+Downloaded   curl-8.9.1-4.fc41.x86_64 (updates)
+Downloaded   libcurl-8.9.1-4.fc41.x86_64 (updates)
+Downloaded   openssl-libs-1:3.2.6-2.fc41.x86_64 (updates)
+Downloaded   vim-data-2:9.1.1914-1.fc41.noarch (updates)
+Downloaded   vim-minimal-2:9.1.1914-1.fc41.x86_64 (updates)
