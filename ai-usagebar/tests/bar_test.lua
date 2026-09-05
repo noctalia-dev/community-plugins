@@ -320,7 +320,7 @@ local agyTooltip = agyBar.tooltip()
 assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
 assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "0% / 24%",
        "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100%",
+assert(agyTooltip[2].key == "Claude" and agyTooltip[2].value == "0% / 100%",
        "antigravity tooltip second row should be Claude dual metrics")
 
 local normalAgyBar = loadBar({

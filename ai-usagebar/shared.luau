@@ -276,6 +276,14 @@ function M.modelGlyph(label)
     return "sparkles"
 end
 
+function M.modelDisplayName(label)
+    local lower = tostring(label or ""):lower()
+    if lower:find("claude", 1, true) then return "Claude" end
+    if lower:find("gemini", 1, true) then return "Gemini" end
+    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
+    return tostring(label or "")
+end
+
 function M.modelHeadlines(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return {} end
     if M.baseProvider(entry.id) ~= "antigravity" then return {} end
@@ -309,6 +317,7 @@ function M.modelHeadlines(entry)
         if sessionMetric ~= nil then
             result[#result + 1] = {
                 model = model,
+                displayName = M.modelDisplayName(model),
                 short = modelShortName(model),
                 glyph = M.modelGlyph(model),
                 metric = sessionMetric,

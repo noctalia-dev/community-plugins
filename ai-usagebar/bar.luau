@@ -289,7 +289,7 @@ local function tooltip(picked, hidden)
                     local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
                     local val = formatDualMetric(mMetrics[1], mMetrics[2])
                     if val ~= "" then
-                        rows[#rows + 1] = { key = item.model, value = val }
+                        rows[#rows + 1] = { key = item.displayName or item.model, value = val }
                     end
                 end
             else
