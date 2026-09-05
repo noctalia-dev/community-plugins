@@ -365,6 +365,7 @@ local countdownBar = loadBar({
 })
 assert(containsText(countdownBar.rendered(), "54m"), "capsule should show Gemini countdown when extras=countdown")
 assert(containsText(countdownBar.rendered(), "2h 0m"), "capsule should show Claude countdown when extras=countdown")
+assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
 assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
 assert(countdownTooltip[2].value == "69% · 2h 00m", "tooltip should show fixed hours and minutes")

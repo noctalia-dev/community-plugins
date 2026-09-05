@@ -191,9 +191,16 @@ local function chip(entry, flagged)
                         })
                     end
                 end
+                if #parts > 0 then
+                    parts[#parts + 1] = ui.label({
+                        text = "·",
+                        fontSize = 11,
+                        color = "on_surface_variant",
+                    })
+                end
                 parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, rowChildren)
             end
-            pct = ui.row({ gap = 6, align = "center" }, parts)
+            pct = ui.row({ gap = 7, align = "center" }, parts)
         else
             pct = ui.label({
                 text = text,
