@@ -1,0 +1,47 @@
+{
+  "plugin": {
+    "name": "OPPO Pods",
+    "description": "Battery monitor and active noise cancellation (ANC) control for OPPO, OnePlus, and realme Bluetooth earbuds"
+  },
+  "settings": {
+    "device_mac": {
+      "label": "Earbuds MAC Address",
+      "description": "Bluetooth MAC address of your earbuds. Leave blank to auto-detect the connected device."
+    },
+    "hide_when_disconnected": {
+      "label": "Hide when disconnected",
+      "description": "Hide the bar widget when the earbuds are not connected."
+    }
+  },
+  "widget": {
+    "not_connected": "Earbuds not connected",
+    "mode": "Mode",
+    "action": {
+      "left_click": "Open Controls",
+      "right_click": "Cycle Noise Mode"
+    }
+  },
+  "panel": {
+    "title": "OPPO Pods",
+    "battery": "Battery",
+    "left": "Left",
+    "right": "Right",
+    "case": "Case",
+    "charging": "Charging",
+    "case_offline": "Closed",
+    "noise_control": "Noise Control",
+    "mode": {
+      "anc": "Noise Cancellation",
+      "transparency": "Transparency",
+      "off": "Off"
+    },
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Not Connected"
+    },
+    "guidance": "Connect your earbuds via Bluetooth to view battery status and control noise cancellation modes."
+  },
+  "notify": {
+    "mode_changed": "Mode: %s"
+  }
+}
