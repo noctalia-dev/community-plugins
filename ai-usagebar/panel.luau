@@ -12,6 +12,7 @@ local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
 local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
 local modelGlyph = shared.modelGlyph
+local modelDisplayName = shared.modelDisplayName
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
 local providerWarning, unavailable = shared.warning, shared.unavailable
@@ -192,7 +193,7 @@ local function stackCard(name, readings)
     if titled then
         body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
             ui.glyph({ name = modelGlyph(name), size = 16, color = "on_surface" }),
-            ui.label({ text = name, fontSize = 13, fontWeight = "bold",
+            ui.label({ text = modelDisplayName(name), fontSize = 13, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
     end
@@ -302,7 +303,7 @@ local function recordCard(entry, items, windowed)
         local line = table.concat(parts, " · ")
         if name ~= "" then
             body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
-                ui.label({ text = name, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+                ui.label({ text = modelDisplayName(name), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
                 ui.spacer({ flexGrow = 1 }),
                 ui.label({ text = line, fontSize = 11, color = "on_surface", maxLines = 1 }),
             })

@@ -286,15 +286,15 @@ end
 
 function M.modelGlyph(label)
     local lower = tostring(label or ""):lower()
+    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return "robot" end
     if lower:find("gemini", 1, true) then return "brand-google" end
-    if lower:find("claude", 1, true) then return "asterisk-simple" end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "brand-openai" end
     return "sparkles"
 end
 
 function M.modelDisplayName(label)
     local lower = tostring(label or ""):lower()
-    if lower:find("claude", 1, true) then return "Claude" end
+    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return "Gemini OSS" end
     if lower:find("gemini", 1, true) then return "Gemini" end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
     return tostring(label or "")

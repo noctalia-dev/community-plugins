@@ -313,15 +313,15 @@ local agyBar = loadBar({
     },
 })
 assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
-assert(containsGlyph(agyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
-assert(glyphColor(agyBar.rendered(), "asterisk-simple") == "on_surface", "model glyph should remain neutral on_surface")
+assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Gemini OSS")
+assert(glyphColor(agyBar.rendered(), "robot") == "on_surface", "model glyph should remain neutral on_surface")
 assert(containsText(agyBar.rendered(), "0%"), "capsule should show active session 0%")
 local agyTooltip = agyBar.tooltip()
 assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
 assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "0% / 24%",
        "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Claude" and agyTooltip[2].value == "0% / 100%",
-       "antigravity tooltip second row should be Claude dual metrics")
+assert(agyTooltip[2].key == "Gemini OSS" and agyTooltip[2].value == "0% / 100%",
+       "antigravity tooltip second row should be Gemini OSS dual metrics")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -342,7 +342,7 @@ local normalAgyBar = loadBar({
     },
 })
 assert(containsGlyph(normalAgyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
-assert(containsGlyph(normalAgyBar.rendered(), "asterisk-simple"), "capsule should show Claude brand glyph")
+assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show robot glyph for Gemini OSS")
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")

@@ -139,8 +139,8 @@ local agyModels = shared.modelHeadlines(antigravityEntry)
 assert(#agyModels == 2, "antigravity should extract both model headlines")
 assert(agyModels[1].model == "Gemini" and agyModels[1].glyph == "brand-google" and agyModels[1].metric.percent == 0,
        "gemini should resolve to its active session")
-assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].glyph == "asterisk-simple" and agyModels[2].metric.percent == 0 and agyModels[2].blocked == true,
-       "claude should keep its active session and flag blocked == true")
+assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].glyph == "robot" and agyModels[2].displayName == "Gemini OSS" and agyModels[2].metric.percent == 0 and agyModels[2].blocked == true,
+       "claude/oss should keep its active session, use robot glyph, and flag blocked == true")
 
 local normalAgy = {
     id = "antigravity",
