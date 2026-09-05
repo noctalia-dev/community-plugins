@@ -11,7 +11,7 @@ Ambient Sounds is a Noctalia mixer for playing several looping ambient tracks at
 
 ## Features
 
-- Mix ten bundled ambient recordings simultaneously.
+- Mix eight bundled ambient recordings simultaneously.
 - Toggle each sound independently and adjust its volume.
 - Apply a per-sound amplification boost.
 - Start or stop the complete mix from one control.
@@ -55,7 +55,11 @@ The plugin does not expose custom IPC events. The `panel-toggle` command above o
 - Each playing sound is a separate `mpv` process with a private Unix socket under `/tmp/noctalia-ambient-<timestamp>/`.
 - Disabling a sound sends mpv a quit command, uses its socket-specific `pkill` fallback, and removes the socket. Closing the panel runtime stops all players and removes the temporary socket files and directory.
 - Sound files are resolved relative to the installed plugin directory, so the plugin does not depend on the author's checkout path.
-- This repository currently lacks source and license records for the bundled recordings. Redistribution is BLOCKED until each file's license and attribution requirements are established. See [ATTRIBUTION.md](ATTRIBUTION.md).
+- Audio sources and license notices are listed in [ATTRIBUTION.md](ATTRIBUTION.md).
+
+## Attribution
+
+`sounds/train.ogg` is by [SDLx](https://freesound.org/people/SDLx/), from [Freesound sound 259988](https://freesound.org/people/SDLx/sounds/259988/), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 
 ## Preview
 
