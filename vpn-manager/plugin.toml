@@ -1,0 +1,83 @@
+# VPN Manager: list/connect/disconnect/import NetworkManager VPN connections
+# of any protocol NM supports (whichever nm-*-service VPN plugins are
+# installed: OpenVPN, WireGuard, IPsec/IKEv2, L2TP, PPTP, SSTP, Cisco
+# AnyConnect, vpnc...), plus automatic connect/disconnect based on whether the
+# current Wi-Fi/Ethernet network is on a trusted (e.g. home) list.
+
+id           = "andrewdems/vpn-manager"
+name         = "VPN Manager"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "andrewdems"
+license      = "MIT"
+icon         = "shield-lock"
+description  = "Connect, disconnect and import NetworkManager VPNs of any protocol, with auto-connect off trusted networks."
+tags         = ["bar", "panel", "service", "shortcut", "network", "privacy", "indicator"]
+dependencies = ["nmcli", "nm-connection-editor", "nmtui-edit", "kdialog", "zenity"]
+
+[[setting]]
+key = "auto_connect_enabled"
+type = "bool"
+label_key = "settings.auto_connect_enabled.label"
+description_key = "settings.auto_connect_enabled.description"
+default = false
+
+[[setting]]
+key = "auto_disconnect_on_trusted"
+type = "bool"
+label_key = "settings.auto_disconnect_on_trusted.label"
+description_key = "settings.auto_disconnect_on_trusted.description"
+default = true
+
+[[setting]]
+key = "trust_all_ethernet"
+type = "bool"
+label_key = "settings.trust_all_ethernet.label"
+description_key = "settings.trust_all_ethernet.description"
+default = true
+
+[[setting]]
+key = "notify_on_autoswitch"
+type = "bool"
+label_key = "settings.notify_on_autoswitch.label"
+description_key = "settings.notify_on_autoswitch.description"
+default = true
+
+[[setting]]
+key = "poll_interval_seconds"
+type = "int"
+label_key = "settings.poll_interval_seconds.label"
+description_key = "settings.poll_interval_seconds.description"
+default = 5
+min = 2
+max = 60
+
+[[setting]]
+key = "stable_checks"
+type = "int"
+label_key = "settings.stable_checks.label"
+description_key = "settings.stable_checks.description"
+default = 3
+min = 1
+max = 20
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 520
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

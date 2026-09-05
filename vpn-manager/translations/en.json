@@ -1,0 +1,101 @@
+{
+  "title": "VPN",
+  "tooltip": {
+    "connected": "VPN: {names}",
+    "disconnected": "VPN: disconnected"
+  },
+  "settings": {
+    "auto_connect_enabled": {
+      "label": "Auto-connect on untrusted networks",
+      "description": "When enabled, connects your default VPN whenever you join a Wi-Fi or Ethernet network that isn't in your trusted list."
+    },
+    "auto_disconnect_on_trusted": {
+      "label": "Auto-disconnect on trusted networks",
+      "description": "When enabled, disconnects a VPN this plugin auto-started once you're back on a trusted network. Never touches a VPN you started manually."
+    },
+    "trust_all_ethernet": {
+      "label": "Treat any wired connection as trusted",
+      "description": "Wired Ethernet is treated as trusted even if its connection name isn't in your trusted list. Turn this off if you plug into untrusted wired networks."
+    },
+    "notify_on_autoswitch": {
+      "label": "Notify on automatic connect/disconnect",
+      "description": "Show a notification whenever the VPN is automatically connected or disconnected."
+    },
+    "poll_interval_seconds": {
+      "label": "Check interval (seconds)",
+      "description": "How often to check VPN and network status."
+    },
+    "stable_checks": {
+      "label": "Stable checks before switching",
+      "description": "How many consecutive checks a network change must persist before auto-connect/disconnect reacts. Higher values avoid flapping during Wi-Fi roaming."
+    }
+  },
+  "panel": {
+    "add_vpn": "Add VPN",
+    "auto_detect": "Auto-detect",
+    "protocol": "Protocol",
+    "import_from_file": "Import from file",
+    "path_placeholder": "~/Downloads/client.ovpn",
+    "import": "Import",
+    "or_paste": "or paste a config",
+    "paste_placeholder": "[Interface] / [Peer] for WireGuard, or full .ovpn contents",
+    "import_pasted": "Import Pasted Config",
+    "manual_note": "PPTP, L2TP/IPsec and IKEv2 usually need fields typed in rather than a file - create those with nmtui or nm-connection-editor and they'll appear above automatically.",
+    "no_connections": "No VPN connections yet. Import one below, or create one with nmtui and it will show up here.",
+    "use_as_default": "Use as auto-connect default",
+    "trusted_networks": "Trusted networks",
+    "trusted_none": "None yet. VPN auto-connect (if enabled in Settings) treats every network as untrusted until you add one.",
+    "trust_current": "+ Trust '{name}'",
+    "trust_placeholder": "SSID or Ethernet connection name",
+    "plugin_settings": "Plugin settings",
+    "details": "Connection details",
+    "details_loading": "Reading connection details…",
+    "details_inactive": "Connect this VPN to see its address and device.",
+    "edit": "Edit connection",
+    "detail": {
+      "state": "State",
+      "device": "Device",
+      "vpn_state": "VPN state",
+      "ipv4": "IPv4",
+      "gateway": "Gateway",
+      "ipv6": "IPv6"
+    },
+    "delete": "Delete connection",
+    "delete_confirm": "Confirm deleting {name}",
+    "keep": "Keep it",
+    "refresh": "Refresh now",
+    "close": "Close",
+    "trust_add": "Add this network to the trusted list",
+    "expand": "Show trusted networks",
+    "collapse": "Hide trusted networks",
+    "browse": "Choose a file and import it",
+    "import_failed": "Import failed",
+    "dismiss": "Dismiss"
+  },
+  "notifications": {
+    "connected_untrusted": "Untrusted network detected - connected {name}.",
+    "connect_failed": "VPN connect failed",
+    "auto_connect_failed": "VPN auto-connect failed",
+    "disconnected_trusted": "Back on a trusted network - disconnected VPN.",
+    "disconnect_failed": "VPN disconnect failed",
+    "auto_disconnect_failed": "VPN auto-disconnect failed",
+    "delete_failed": "Could not delete VPN",
+    "import_failed": "Could not import VPN",
+    "detect_failed": "Couldn't detect the protocol. Pick one explicitly (OpenVPN, WireGuard, OpenConnect, vpnc) and try again.",
+    "imported": "Imported {name}.",
+    "a_connection": "connection",
+    "no_path": "Enter a file path first.",
+    "file_not_found": "File not found: {path}",
+    "no_paste": "Paste a config first.",
+    "no_data_dir": "No writable plugin data directory.",
+    "write_failed": "Failed to write temporary file.",
+    "install_hint": "Install '{package}' and try again.",
+    "no_default": "No default VPN set. Open the VPN panel and tap the star on a connection first.",
+    "status_none": "No VPN connected",
+    "no_editor": "No connection editor found. Install nm-connection-editor or nmtui.",
+    "needs_secrets": "{name} needs a password and no secret agent is running. Save it with 'nmcli connection modify {name} vpn.secrets password=… vpn.data password-flags=0', or connect it by hand once.",
+    "asking_secrets": "{name} needs a password - asking for it in a terminal.",
+    "pick_in_progress": "A file picker is already open.",
+    "no_picker": "No file picker found. Install kdialog or zenity, or type the path."
+  }
+}
