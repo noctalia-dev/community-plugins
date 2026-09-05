@@ -1,10 +1,10 @@
 id = "ashur-d/nvim-projects"
 name = "Neovim Projects"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 3
 author = "Ashur-D"
 license = "MIT"
-icon = "nvim"
+icon = "folder-open"
 description = "Quickly search and open recent Neovim projects. Type /nvim in the launcher."
 tags = ["launcher", "development", "productivity"]
 dependencies = ["nvim"]
