@@ -48,6 +48,9 @@ local refreshAgain = false
 local refreshStartedAt = 0
 local actionBusy = false
 local dataSignature = ""
+local lastStatusRaw = ""
+local lastPrefsRaw = ""
+local lastExitsRaw = ""
 local prevOnline = {} -- id -> true
 
 local function trim(value)
@@ -96,7 +99,8 @@ end
 
 -- Same rule as `tailscale status` (text): unused Mullvad exits belong on
 -- `exit-node list`, not in Peer. `--json` does not apply this, and the raw
--- dump is large enough to trip Noctalia's 25ms plugin CPU budget.
+-- dump is large enough to trip Noctalia's 25ms plugin CPU budget. After the
+-- Peer filter, drop unused fields (sshHostKeys, CapMap, …) so decode stays small.
 local function statusJsonCommand(bin)
   local jq = [[
     .Peer |= with_entries(select(
@@ -104,6 +108,15 @@ local function statusJsonCommand(bin)
       or (.value.ExitNode == true)
       or ((.value.DNSName // "") | endswith("mullvad.ts.net.") | not)
     ))
+    | {
+        BackendState, Version, TailscaleIPs, MagicDNSSuffix, Health,
+        CurrentTailnet, ExitNodeStatus,
+        Self: ((.Self // {}) | {ID, HostName, DNSName, Online, OS, Relay, ExitNodeOption, TailscaleIPs}),
+        Peer: ((.Peer // {}) | with_entries(.value |= {
+          ID, HostName, DNSName, Online, Active, OS, Relay,
+          ExitNode, ExitNodeOption, TailscaleIPs
+        }))
+      }
   ]]
   return shellCommand({ bin, "status", "--json" }) .. " | jq -c " .. shellQuote(jq)
 end
@@ -430,7 +443,40 @@ local function forceUnstick(reason)
   publishSnapshot()
 end
 
-local function applyBag(statusData, prefsData, exitStdout, errors)
+local function applyBag(statusRaw, prefsRaw, exitStdout, errors)
+  statusRaw = statusRaw or ""
+  prefsRaw = prefsRaw or ""
+  exitStdout = exitStdout or ""
+  -- Traffic counters were in the JSON and changed every poll; the panel
+  -- does not show them. Same raw strings => skip decode/parse/state.set.
+  if statusRaw == lastStatusRaw and prefsRaw == lastPrefsRaw and exitStdout == lastExitsRaw then
+    snapshot.loading = false
+    refreshPending = false
+    refreshStartedAt = 0
+    noctalia.setUpdateInterval(refreshIntervalMs())
+    if snapshot.error ~= "" then
+      snapshot.error = ""
+      publishSnapshot()
+    end
+    return
+  end
+
+  local statusData = nil
+  if statusRaw ~= "" then
+    statusData = noctalia.json.decode(statusRaw)
+    if statusData == nil then
+      table.insert(errors, "invalid status JSON")
+    end
+  end
+  local prefsData = nil
+  if prefsRaw ~= "" then
+    prefsData = noctalia.json.decode(prefsRaw)
+  end
+
+  lastStatusRaw = statusRaw
+  lastPrefsRaw = prefsRaw
+  lastExitsRaw = exitStdout
+
   local st = {}
   local prefs = {}
   local exits = {}
@@ -518,6 +564,7 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
   refreshStartedAt = 0
   noctalia.setUpdateInterval(refreshIntervalMs())
 
+  local prevRev = snapshot.revision
   updateRevision(table.concat({
     snapshot.backendState,
     snapshot.ipv4,
@@ -528,7 +575,9 @@ local function applyBag(statusData, prefsData, exitStdout, errors)
     asString(snapshot.runSSH),
     asString(snapshot.advertiseExitNode),
   }, "|"))
-  publishSnapshot()
+  if snapshot.revision ~= prevRev then
+    publishSnapshot()
+  end
 end
 
 refreshAll = function()
@@ -569,7 +618,7 @@ refreshAll = function()
   noctalia.setUpdateInterval(1000)
 
   local pending = 3
-  local bag = { status = nil, prefs = nil, exits = "" }
+  local bag = { statusRaw = "", prefsRaw = "", exits = "" }
   local errors = {}
   local finished = false
 
@@ -582,7 +631,7 @@ refreshAll = function()
       return
     end
     finished = true
-    local okApply, errApply = pcall(applyBag, bag.status, bag.prefs, bag.exits, errors)
+    local okApply, errApply = pcall(applyBag, bag.statusRaw, bag.prefsRaw, bag.exits, errors)
     if not okApply then
       noctalia.log(`tailscale: apply failed: {tostring(errApply)}`)
       snapshot.loading = false
@@ -609,12 +658,7 @@ refreshAll = function()
         table.insert(errors, err ~= "" and err or "status failed")
         return
       end
-      local data = noctalia.json.decode(result.stdout or "")
-      if data == nil then
-        table.insert(errors, "invalid status JSON")
-        return
-      end
-      bag.status = data
+      bag.statusRaw = result.stdout or ""
     end)
     if not okInner then
       table.insert(errors, "status: " .. tostring(errInner))
@@ -631,7 +675,7 @@ refreshAll = function()
     end
     local okInner, errInner = pcall(function()
       if result and result.exitCode == 0 and trim(result.stdout) ~= "" then
-        bag.prefs = noctalia.json.decode(result.stdout)
+        bag.prefsRaw = result.stdout
       end
     end)
     if not okInner then
