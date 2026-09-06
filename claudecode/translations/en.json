@@ -1,0 +1,109 @@
+{
+  "title": "Claude Code Usage",
+  "used": "used",
+  "resets_in": "Resets in",
+  "resetting": "Resetting…",
+  "token_consumption": "Token Consumption",
+  "today": "Today",
+  "week": "Week",
+  "month": "Month",
+  "daily_activity": "Daily Activity",
+  "models_this_week": "Models This Week",
+  "since": "Since",
+  "sessions": "sessions",
+  "msgs": "msgs",
+  "tokens": "tokens",
+  "all_time": "All-time",
+  "all": "All",
+  "profile": "Profile",
+  "days": "Mo,Tu,We,Th,Fr,Sa,Su",
+  "refresh": "Refresh",
+  "refreshing": "Refreshing…",
+  "settings_tooltip": "Plugin settings",
+  "close": "Close",
+  "loading": "Claude Code Usage — loading…",
+  "unavailable": "Claude Code Usage unavailable",
+  "day_detail": "{day} · {tokens} tokens · {cost}",
+  "pace": {
+    "under": "under pace",
+    "over": "over pace",
+    "on": "On pace",
+    "over_quota": "Over quota"
+  },
+  "currency": {
+    "auto_default": "usd"
+  },
+  "settings": {
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often to fetch usage data (minutes)."
+    },
+    "currency": {
+      "label": "Currency",
+      "description": "Currency for displayed costs. Auto follows the interface language.",
+      "options": {
+        "auto": "Auto",
+        "usd": "USD ($)",
+        "eur": "EUR (€)"
+      }
+    },
+    "pill_metric": {
+      "label": "Bar metric",
+      "description": "Which rate window the bar pill shows.",
+      "options": {
+        "five_hour": "5-hour window",
+        "seven_day": "7-day window",
+        "both": "Both (5h · 7d)"
+      }
+    },
+    "pill_style": {
+      "label": "Bar style",
+      "description": "How the bar pill draws the utilization. The ring tracks the 5-hour window when the metric is “Both”.",
+      "options": {
+        "glyph_text": "Glyph + percentage",
+        "ring": "Ring only",
+        "ring_text": "Ring + percentage"
+      }
+    },
+    "pill_extras": {
+      "label": "Bar extras",
+      "description": "What to show beside the percentage. Describes the window the bar metric tracks (the 5-hour one under “Both”).",
+      "options": {
+        "none": "Nothing",
+        "countdown": "Time left",
+        "pace": "Pace (↑/↓ points)",
+        "both": "Time left + pace"
+      }
+    },
+    "ring_size": {
+      "label": "Ring size",
+      "description": "Ring diameter in pixels. Keep it under the bar height."
+    },
+    "ring_thickness": {
+      "label": "Ring thickness"
+    },
+    "ring_color": {
+      "label": "Ring fallback color",
+      "description": "Used only when the palette cannot be read, as with built-in themes."
+    },
+    "ring_track_color": {
+      "label": "Ring track fallback color"
+    },
+    "show_glyph": {
+      "label": "Show glyph",
+      "description": "Only applies to the glyph + percentage style."
+    },
+    "accent": {
+      "label": "Accent color",
+      "description": "Color for values, bars, and today's activity."
+    }
+  },
+  "window": {
+    "session": "Session (5h)",
+    "weekly": "Weekly (7d)",
+    "scoped": "{model} (7d)",
+    "other": "Rate window"
+  },
+  "plan": "Plan",
+  "rate_windows": "Rate Windows"
+}
