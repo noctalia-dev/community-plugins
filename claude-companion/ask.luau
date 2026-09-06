@@ -65,11 +65,15 @@ local function submit(value)
   -- Write, then poke. The backend reads the file on the other side of the dispatch,
   -- so the write must land first — hence one shell command, not two runAsync calls
   -- whose ordering is not guaranteed.
-  noctalia.runAsync(
+  local sent = noctalia.runAsync(
     "mkdir -p -m 700 " .. shq(dir)
       .. " && printf %s " .. shq(q) .. " > " .. shq(dir .. "/ask")
       .. " && noctalia msg plugin " .. shq(BACKEND) .. " all ask"
   )
+  if not sent then
+    noctalia.notifyError(tr("notify.title"), tr("ask.dispatch_failed"))
+    return
+  end
   draft = ""
   noctalia.runAsync("noctalia msg panel-close " .. shq(SELF))
 end

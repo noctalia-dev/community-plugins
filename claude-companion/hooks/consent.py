@@ -55,8 +55,18 @@ POLL = 0.075
 # Tools whose consent key is the path they touch rather than a command string.
 PATH_TOOLS = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 
+# What a path tool would actually write, in the order the tools carry it. The panel
+# renders this: a path on its own is not informed consent, because approving
+# "Write ~/.bashrc" without the bytes is approving any bytes at all.
+CONTENT_FIELDS = ("content", "new_string", "new_source")
+CONTENT_LIMIT = 4000
+
 # The user has already told Claude Code not to ask in these modes.
 SILENT_MODES = {"bypassPermissions", "dontAsk"}
+
+# acceptEdits auto-approves file edits but NOT Bash, so it silences only the path
+# tools. Gating them anyway would re-ask precisely what the user just turned off.
+EDIT_SILENT_MODES = {"acceptEdits"}
 
 
 def _runtime_dir():
@@ -110,6 +120,15 @@ def _key(tool, tool_input):
     return tool + ":" + json.dumps(tool_input, sort_keys=True)
 
 
+def _content(tool_input):
+    """The bytes a path tool proposes to write, clipped. Empty for everything else."""
+    for field in CONTENT_FIELDS:
+        value = tool_input.get(field)
+        if isinstance(value, str) and value:
+            return value[:CONTENT_LIMIT]
+    return ""
+
+
 def _allowed(key):
     sd = _state_dir()
     if not sd:
@@ -130,9 +149,12 @@ def _allowed(key):
     return False
 
 
-def _record(rt, tool, key, tool_input):
-    """learn mode: append one observation. Ephemeral by design — an unpromoted week
-    of observations is not something to carry across a reboot.
+def _record(tool, key, tool_input):
+    """learn mode: append one observation, beside the allowlist it feeds.
+
+    Durable, because the documented run is measured in days: on the runtime tmpfs a
+    week of observations is silently destroyed by the first logout, and `promote`
+    then seeds the allowlist from whatever survived since boot.
 
     Multi-line commands are observed but NOT recorded. The allowlist matches exactly,
     so an ad-hoc heredoc or a chained script will never recur verbatim: promoting one
@@ -140,7 +162,8 @@ def _record(rt, tool, key, tool_input):
     readable. They still prompt under enforce, which is the right outcome — a one-off
     multi-line script is precisely the thing worth being asked about.
     """
-    if not rt or "\n" in key:
+    sd = _state_dir()
+    if not sd or "\n" in key:
         return
     row = {
         "key": key,
@@ -149,7 +172,7 @@ def _record(rt, tool, key, tool_input):
         "at": int(time.time()),
     }
     try:
-        fd = os.open(os.path.join(rt, "learn.jsonl"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        fd = os.open(os.path.join(sd, "learn.jsonl"), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(fd, "a") as f:
             f.write(json.dumps(row) + "\n")
     except OSError:
@@ -182,6 +205,7 @@ def _decide(rt, data, tool, key, tool_input):
         "key": key,
         "command": tool_input.get("command", ""),
         "path": tool_input.get("file_path") or tool_input.get("notebook_path", ""),
+        "content": _content(tool_input),
         "description": tool_input.get("description", ""),
         "cwd": data.get("cwd", ""),
         "session": str(data.get("session_id") or "").split("-")[0],
@@ -288,7 +312,9 @@ def _reply(req_id, choice):
             except OSError:
                 pass
         choice = "allow"
-    if choice not in ("allow", "deny"):
+    # "dismiss" is a real response carrying no verdict: _decide matches the nonce,
+    # finds no allow/deny, and falls through at once instead of waiting out DEADLINE.
+    if choice not in ("allow", "deny", "dismiss"):
         return
 
     try:
@@ -306,12 +332,12 @@ def _promote():
     The one bulk action: after a week in learn, this is what makes the first ENFORCED
     session quiet. Keys already present are skipped, so it is safe to re-run.
     """
-    rt, sd = _runtime_dir(), _state_dir()
-    if not rt or not sd:
+    sd = _state_dir()
+    if not sd:
         return
     seen = []
     try:
-        with open(os.path.join(rt, "learn.jsonl")) as f:
+        with open(os.path.join(sd, "learn.jsonl")) as f:
             for line in f:
                 try:
                     key = json.loads(line).get("key")
@@ -351,19 +377,22 @@ def main():
     mode = _mode(rt)
     if mode == "off":
         return
-    if data.get("permission_mode") in SILENT_MODES:
+    permission_mode = data.get("permission_mode")
+    if permission_mode in SILENT_MODES:
         return
 
     tool = str(data.get("tool_name") or "")
     tool_input = data.get("tool_input")
     if not isinstance(tool_input, dict):
         return
+    if permission_mode in EDIT_SILENT_MODES and tool in PATH_TOOLS:
+        return
 
     key = _key(tool, tool_input)
     if _allowed(key):
         return
     if mode == "learn":
-        _record(rt, tool, key, tool_input)
+        _record(tool, key, tool_input)
         return
 
     verdict = _decide(rt, data, tool, key, tool_input)

@@ -4,8 +4,8 @@ An agent-agnostic contract for driving the `pulse-svc` service aggregator (and e
 downstream of it: the pulse bar widget, the presence orb, tooltips, `claude.pulse` subscribers). The
 service knows nothing about Claude Code — it consumes **events** and an optional
 **telemetry payload** over noctalia's plugin IPC. Eight of those events describe agent
-lifecycle; one (`consent_request`) is a control event and is documented separately
-below. Any coding agent that can run
+lifecycle; three more (`consent_request`, `ask`, `presence`) are control events and are
+documented separately below. Any coding agent that can run
 a shell command on its lifecycle hooks (gemini-cli, codex, opencode, aider, a
 CI job, a cron script) can light up the same bar dot.
 
@@ -147,8 +147,11 @@ long_build && pulse-emit needs_attention ci  # non-agent uses work too
 ## Control events (not lifecycle)
 
 Everything above describes the eight **lifecycle** events, which say what an agent is
-doing. `consent_request` is different in kind: it does not describe a state, it names
-an outstanding question, and only the consent gate emits it.
+doing. The three below are different in kind — they do not describe a state — and each
+has its own emitter: `consent_request` (the consent gate), `ask` (the ask panel) and
+`presence` (the MCP shim).
+
+`consent_request` names an outstanding question rather than a state.
 
 ```
 noctalia msg plugin <target> all consent_request "<request-id>,<session-id>"
@@ -162,12 +165,15 @@ noctalia msg plugin <target> all consent_request "<request-id>,<session-id>"
   to `needs_attention` while the prompt is outstanding. Pass an empty field to publish
   the request without touching the session table.
 
-The service mirrors the id to `claude.consent` and opens the consent panel. There is
-**no matching resolve event**: the request file is the source of truth, the panel
-re-reads it on each tick, and the ordinary `turn_start` from the agent's next
+The service appends the id to a bounded queue published as `claude.consent`
+(`{ id = <head>, ids = { … }, sid = … }`) and opens the consent panel. It is a queue
+rather than a slot because an agent that issues tool calls in parallel produces prompts
+in parallel; the panel shows them oldest-first. There is **no matching resolve event**:
+the request file is the source of truth, so an id whose file has gone is dropped from
+consideration on the next tick, and the ordinary `turn_start` from the agent's next
 lifecycle hook moves the session off `needs_attention` on its own.
 
-`ask` is the other control event, and it is addressed to the `claude-ask` entry:
+`ask` is the second control event, and it is addressed to the `claude-ask` entry:
 
 ```
 noctalia msg plugin <plugin-id>:claude-ask all ask
@@ -187,9 +193,35 @@ service at the same file gives the poke an addressable receiver while keeping ON
 of the read-only flags in `backend_command()`. The file declares only locals and
 callbacks, so the second instance does no work until it is poked.
 
+`presence` is the third control event. It is the one channel where the agent says in
+its own words what it is doing, rather than the service inferring a state from a
+lifecycle edge:
+
+```
+noctalia msg plugin <target> all presence
+```
+
+A bare poke, no payload. The message is written first to
+`$XDG_RUNTIME_DIR/claude-companion/presence`, for the same reason as the other two —
+prose has spaces and a payload does not:
+
+```json
+{"message": "refactoring the auth middleware", "state": "", "session": "", "at": 1788000000}
+```
+
+Only `message` is read today; it surfaces as `claude.pulse.message`. `state` and
+`session` are reserved so adding per-session attribution later is not a format change —
+an emitter may set them, and must not depend on them being honoured. An **absent file
+means no message**, so clearing presence is an unlink, not a sentinel value.
+
+Presence attaches to the rollup, not to the session table: it can never inflate the
+session count or outrank a real state. That also means it is **not attributable** while
+more than one session is running, which is why the consent panel shows it only when
+exactly one is — an unattributed claim must not caption a security decision.
+
 An adapter for another agent can emit `consent_request` if that agent has a blocking
 approval hook of its own, but nothing downstream requires it — an agent that never
-emits it simply never raises a prompt.
+emits it simply never raises a prompt. The same goes for `presence`.
 
 ## Downstream: the `claude.pulse` state mirror
 
