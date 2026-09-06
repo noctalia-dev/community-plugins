@@ -139,7 +139,9 @@ end
 
 local function parseMd(raw)
   if raw:match("<!%-%- blurred: true %-%->") then blurred = true end
-  for metaJson, body in raw:gmatch("<!%-%- sticky%-notes (%b{}) %-%->(.-)\n%-%-%-") do
+  -- The serializer intentionally omits a trailing separator. Appending one
+  -- only while parsing lets this single loop read that final note too.
+  for metaJson, body in (raw .. "\n---"):gmatch("<!%-%- sticky%-notes (%b{}) %-%->(.-)\n%-%-%-") do
     local meta = noctalia.json.decode(metaJson)
     if type(meta) == "table" and type(meta.id) == "string" then
       table.insert(notes, {
@@ -149,26 +151,6 @@ local function parseMd(raw)
         createdAt = type(meta.createdAt) == "number" and meta.createdAt or 0,
         pinned    = meta.pinned == true,
       })
-    end
-  end
-  -- Grab the last note (no trailing ---)
-  local lastMeta, lastBody = raw:match("<!%-%- sticky%-notes (%b{}) %-%->(.-)$")
-  if lastMeta and lastBody then
-    local already = false
-    local meta = noctalia.json.decode(lastMeta)
-    if type(meta) == "table" and type(meta.id) == "string" then
-      for _, n in ipairs(notes) do
-        if n.id == meta.id then already = true; break end
-      end
-      if not already then
-        table.insert(notes, {
-          id        = meta.id,
-          content   = noctalia.string.trim(lastBody),
-          color     = type(meta.color) == "string" and meta.color or "yellow",
-          createdAt = type(meta.createdAt) == "number" and meta.createdAt or 0,
-          pinned    = meta.pinned == true,
-        })
-      end
     end
   end
 end
