@@ -868,30 +868,45 @@ end
 local function extractLuaStringLiterals(expr)
   local literals = {}
   local index = 1
-  while index <= #expr do
-    local char = expr:sub(index, index)
-    if char == '"' or char == "'" then
-      local quote = char
-      index += 1
+  local len = #expr
+  while index <= len do
+    local q1 = expr:find('"', index, true)
+    local q2 = expr:find("'", index, true)
+    if not q1 and not q2 then
+      break
+    end
+    local quotePos = (q1 and q2) and math.min(q1, q2) or (q1 or q2)
+    local quote = expr:sub(quotePos, quotePos)
+    local closing = expr:find(quote, quotePos + 1, true)
+    if not closing then
+      break
+    end
+    local segment = expr:sub(quotePos + 1, closing - 1)
+    if segment:find("\\", 1, true) == nil then
+      table.insert(literals, segment)
+      index = closing + 1
+    else
       local value = {}
       local escaped = false
-      while index <= #expr do
-        local c = expr:sub(index, index)
+      local i = quotePos + 1
+      while i <= len do
+        local c = expr:sub(i, i)
         if escaped then
           table.insert(value, c)
           escaped = false
         elseif c == "\\" then
           escaped = true
         elseif c == quote then
+          i += 1
           break
         else
           table.insert(value, c)
         end
-        index += 1
+        i += 1
       end
       table.insert(literals, table.concat(value))
+      index = i
     end
-    index += 1
   end
   return literals
 end
@@ -901,49 +916,60 @@ local function scanHyprLuaContent(content, sourceFile, context)
   local includes = {}
   local pendingDescription = false
 
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
-    if heading ~= nil and heading ~= "" then
-      category = heading
-    end
-
-    local code = rawLine:gsub("%-%-.*$", "")
-    local module = code:match('require%s*%(%s*"([^"]+)"')
-      or code:match("require%s*%(%s*'([^']+)'")
-      or code:match('require%s+"([^"]+)"')
-      or code:match("require%s+'([^']+)'")
-    if module ~= nil then
-      local modulePath = module:gsub("%.", "/") .. ".lua"
-      table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
-    end
-
-    local rhs = code:match('description%s*=%s*(.*)$') or code:match('desc%s*=%s*(.*)$')
-    if rhs ~= nil or pendingDescription then
-      local expr = rhs or code
-      local literals = extractLuaStringLiterals(expr)
-      local nonEmpty = {}
-      for _, str in ipairs(literals) do
-        local cleaned = trim(str)
-        if cleaned ~= "" then
-          table.insert(nonEmpty, str)
-        end
+  for rawLine in content:gmatch("[^\r\n]+") do
+    local commentIndex = rawLine:find("--", 1, true)
+    if commentIndex ~= nil then
+      local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
+      if heading ~= nil and heading ~= "" then
+        category = heading
       end
+    end
 
-      if #nonEmpty > 0 then
-        pendingDescription = false
-        local combined = table.concat(nonEmpty)
-        local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
-        local kind = hasConcat and "prefix" or "exact"
-        local cat = category ~= "" and category or "Other"
+    local code = rawLine
+    if commentIndex ~= nil then
+      code = rawLine:sub(1, commentIndex - 1)
+    end
 
-        table.insert(context.rules, { kind = kind, value = combined, category = cat })
-        for _, piece in ipairs(nonEmpty) do
-          if piece ~= combined then
-            table.insert(context.rules, { kind = "exact", value = piece, category = cat })
+    if code:find("require", 1, true) ~= nil then
+      local module = code:match('require%s*%(%s*"([^"]+)"')
+        or code:match("require%s*%(%s*'([^']+)'")
+        or code:match('require%s+"([^"]+)"')
+        or code:match("require%s+'([^']+)'")
+      if module ~= nil then
+        local modulePath = module:gsub("%.", "/") .. ".lua"
+        table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
+      end
+    end
+
+    if code:find("desc", 1, true) ~= nil or pendingDescription then
+      local rhs = code:match('description%s*=%s*(.*)$') or code:match('desc%s*=%s*(.*)$')
+      if rhs ~= nil or pendingDescription then
+        local expr = rhs or code
+        local literals = extractLuaStringLiterals(expr)
+        local nonEmpty = {}
+        for _, str in ipairs(literals) do
+          local cleaned = trim(str)
+          if cleaned ~= "" then
+            table.insert(nonEmpty, str)
           end
         end
-      elseif rhs ~= nil and #literals == 0 then
-        pendingDescription = true
+
+        if #nonEmpty > 0 then
+          pendingDescription = false
+          local combined = table.concat(nonEmpty)
+          local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
+          local kind = hasConcat and "prefix" or "exact"
+          local cat = category ~= "" and category or "Other"
+
+          table.insert(context.rules, { kind = kind, value = combined, category = cat })
+          for _, piece in ipairs(nonEmpty) do
+            if piece ~= combined then
+              table.insert(context.rules, { kind = "exact", value = piece, category = cat })
+            end
+          end
+        elseif rhs ~= nil and #literals == 0 then
+          pendingDescription = true
+        end
       end
     end
   end
@@ -1452,14 +1478,14 @@ noctalia.state.watch(PARSE_STEP_KEY, function(value)
 end)
 
 local function refreshHyprLua(generation, request)
-  local scan = scanHyprLua(request.root)
   if not noctalia.commandExists("hyprctl") then
-    finishRefresh(generation, request, {}, scan.warnings, tr("hyprctl_missing"), scan)
+    finishRefresh(generation, request, {}, {}, tr("hyprctl_missing"), nil)
     return
   end
 
   local accepted = noctalia.runAsync("hyprctl binds -j", function(result)
     if generation ~= refreshGeneration then return end
+    local scan = scanHyprLua(request.root)
     if result.exitCode ~= 0 or result.timedOut then
       local message = trim(result.stderr)
       finishRefresh(
@@ -1477,7 +1503,7 @@ local function refreshHyprLua(generation, request)
   end, 10000)
 
   if not accepted then
-    finishRefresh(generation, request, {}, scan.warnings, tr("hyprctl_failed"), scan)
+    finishRefresh(generation, request, {}, {}, tr("hyprctl_failed"), nil)
   end
 end
 

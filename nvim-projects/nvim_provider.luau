@@ -58,12 +58,15 @@ add_dir() {
 }
 
 # 1. Recent Neovim sessions from persistence.nvim
-for f in $(ls -t "$HOME/.local/state/nvim/sessions"/*.vim 2>/dev/null); do
-  b=$(basename "$f" .vim)
-  p="/${b#%}"
-  p="${p//%//}"
-  add_dir "$p"
-done
+if [ -d "$HOME/.local/state/nvim/sessions" ]; then
+  while IFS= read -r -d '' f; do
+    b="${f##*/}"
+    b="${b%.vim}"
+    p="/${b#%}"
+    p="${p//%//}"
+    add_dir "$p"
+  done < <(find "$HOME/.local/state/nvim/sessions" -maxdepth 1 -name "*.vim" -printf '%T@\t%p\0' 2>/dev/null | sort -z -r -n -k1,1 | cut -z -f2-)
+fi
 
 # 2. Subdirectories in projects directory
 if [ -d "$proj_dir" ]; then

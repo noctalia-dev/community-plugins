@@ -542,8 +542,8 @@ rev = "ff289e523fb3dca794979dd3476d336642296463"
 [[plugin]]
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.5"
-updated_at = 1788136844
+version = "0.2.6"
+updated_at = 1788657590
 added_at = 1784677847
 author = "kenn"
 license = "MIT"
@@ -2176,12 +2176,12 @@ tags = ["desktop", "utility"]
 [[plugin]]
 id = "ashur-d/nvim-projects"
 name = "Neovim Projects"
-version = "1.0.0"
-updated_at = 1788572460
+version = "1.0.1"
+updated_at = 1788657365
 added_at = 1788572460
 author = "Ashur-D"
 license = "MIT"
-icon = "nvim"
+icon = "folder-open"
 description = "Quickly search and open recent Neovim projects. Type /nvim in the launcher."
 plugin_api = 3
 tags = ["launcher", "development", "productivity"]
