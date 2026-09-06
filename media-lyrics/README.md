@@ -41,7 +41,31 @@ noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
 noctalia msg panel-toggle tranzem/media-lyrics:panel-large
 ```
 
-Add the `now-playing` widget to your bar to get a compact indicator that opens the panel on click. A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
+Add the `now-playing` widget to your bar: a compact chip with the album
+cover and **Title - Artist** of the active MPRIS player. Its gestures mirror
+the shell's built-in media widget:
+
+- **Left click** — open the lyrics panel.
+- **Right click** — play/pause.
+- **Middle click** — this widget's display settings.
+- **Wheel / mouse back / forward** — previous / next track.
+- On a **vertical bar** the chip collapses to the artwork only.
+
+Display options are edited in the widget's own settings popup (middle click):
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `album_art_only` | off | Show only the artwork, no text |
+| `hide_album_art` | off | Hide the artwork and its fallback icon |
+| `hide_artist` | off | Show only the track title |
+| `artist_first` | off | Show `Artist - Title` instead of `Title - Artist` |
+| `min_length` | 80 | Minimum widget length (px) — accepted for parity; plugin chips are sized by the host to their content |
+| `max_length` | 220 | Text area width (px); long titles truncate or scroll to fit |
+| `art_size` | 16 | Artwork size (px) |
+| `title_scroll` | none | Scroll long titles: `none`, `always`, or `on hover` |
+| `hide_when_no_media` | off | Hide the chip when no MPRIS player is active |
+
+A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 
 ```toml
 "Ctrl+Alt+M" = "spawn:noctalia msg panel-toggle tranzem/media-lyrics:panel"
@@ -97,13 +121,20 @@ noctalia msg config-reload
 
 Upcoming work, roughly in priority order:
 
-- [ ] Album cover inside a capsule shape
+- [ ] Album cover inside a capsule shape (panel info row — the bar-widget
+      chip already shows the artwork since 0.9.0)
 - [ ] Additional lyric sources (NetEase, Musixmatch, embedded MPRIS metadata, …)
+      — most need API keys/tokens; LRCLIB is the no-auth source (see Notes)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
-- [ ] Seek on progress-bar click
-- [ ] Compact mode with a pinnable widget
-- [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
-- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640; the bar widget itself keeps its hard-coded look)
+- [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
+      report coordinates, so a click position cannot be mapped to a timestamp
+      (only lyric-line clicks and the keyboard cursor can seek)
+- [ ] Compact mode with a pinnable widget — the bar chip + panel presets
+      cover the compact surface; a desktop-pinned view would need a new
+      `[[desktop_widget]]` entry (open question)
+- [x] Preconfigured widget actions — default gestures declared in the manifest (DONE in 0.8.1 and reworked in 0.9.0: now mirrors the built-in media widget — right click = play/pause, back/forward + wheel = prev/next; middle click = widget settings)
+- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640)
+- [x] Bar widget album cover + display settings (DONE in 0.9.0: artwork chip, `album_art_only` / `hide_album_art` / `hide_artist` / `artist_first` / `min_length` / `max_length` / `art_size` / `title_scroll` / `hide_when_no_media`; vertical bars show the artwork only)
 
 ## Notes
 

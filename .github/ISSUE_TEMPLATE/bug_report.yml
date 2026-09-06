@@ -130,6 +130,7 @@ body:
         - phone-operate
         - pomodoro
         - portctl
+        - printers
         - prismlauncher-instances
         - procmon
         - proton-pass

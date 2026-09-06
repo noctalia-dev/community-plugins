@@ -2111,8 +2111,8 @@ tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.13"
-updated_at = 1788381228
+version = "0.9.0"
+updated_at = 1788658548
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
@@ -2211,3 +2211,16 @@ icon = "package"
 description = "Inventory Manager for managing product inventory with categories, low stock alerts, and data export."
 plugin_api = 15
 tags = ["utility", "productivity", "service", "panel", "bar"]
+
+[[plugin]]
+id = "andrewdems/printers"
+name = "Printers"
+version = "1.0.0"
+updated_at = 1788658541
+added_at = 1788658541
+author = "andrewdems"
+license = "MIT"
+icon = "printer"
+description = "CUPS printers and print queue in the bar: job count, faults, cancel jobs, set the default printer."
+plugin_api = 24
+tags = ["bar", "panel", "service", "shortcut", "hardware", "system", "utility"]
