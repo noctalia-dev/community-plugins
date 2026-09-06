@@ -55,7 +55,7 @@ Open the launcher and type `/r` followed by a path or a command:
 Bind it in your compositor. For Hyprland:
 
 ```
-bind = SUPER, R, exec, noctalia msg panel-toggle launcher /r
+bind = SUPER, R, exec, noctalia msg panel-toggle launcher "/r "
 ```
 
 ## Settings
