@@ -932,8 +932,8 @@ tags = ["bar", "panel", "service", "media"]
 [[plugin]]
 id = "nilsonlinux/rss-notifier"
 name = "RSS/Atom Notifier"
-version = "1.0.3"
-updated_at = 1787015298
+version = "1.0.4"
+updated_at = 1788703076
 added_at = 1785462185
 author = "Nilsonlinux"
 license = "MIT"
