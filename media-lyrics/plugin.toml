@@ -10,8 +10,8 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.0"
-plugin_api = 24
+version = "0.9.3"
+plugin_api = 30
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
@@ -153,6 +153,16 @@ entry = "widget.luau"
   description_key = "settings.hide_when_no_media.description"
   default = false
 
+  # Extra (beyond the built-in media widget): show the current synced lyric
+  # line in the chip instead of the artist while lyrics are ready.
+  [[widget.setting]]
+  key = "show_lyric_line"
+  type = "bool"
+  label_key = "settings.show_lyric_line.label"
+  description_key = "settings.show_lyric_line.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
 [[service]]
@@ -170,6 +180,10 @@ width = 520
 height = 520
 placement = "floating"
 position = "center"
+# Overlay layer keeps the lyrics above fullscreen windows (karaoke over
+# video). Per-entry Layer dropdown in Settings -> Plugins can switch any
+# preset back to "top" without editing the manifest.
+layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -178,6 +192,7 @@ id = "panel-compact"
 entry = "panel.luau"
 width = 440
 height = 440
+layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -186,6 +201,7 @@ id = "panel-large"
 entry = "panel.luau"
 width = 640
 height = 640
+layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
