@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py idle"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py idle"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py turn_start"
           }
         ]
       }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py tool_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py tool_start"
           }
         ]
       },
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/consent.py",
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/consent.py",
             "timeout": 120
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py turn_start"
           }
         ]
       }
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py needs_attention"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py needs_attention"
           }
         ]
       }
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_end"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py turn_end"
           }
         ]
       }
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py session_end"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/hooks/pulse.py session_end"
           }
         ]
       }
