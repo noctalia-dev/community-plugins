@@ -1,76 +1,108 @@
 {
-  "panel.title": "Inventory Manager",
-  "panel.added": "Added",
-  "panel.updated": "Updated",
-  "panel.stock_singular": "Stock (%d product)",
-  "panel.stock_plural": "Stock (%d products)",
-  "panel.tooltip_drag": "Drag to reorder",
-  "panel.add_product": "Add product",
-  "panel.edit_product": "Edit product",
-  "panel.refresh": "Refresh",
-  "panel.close": "Close",
-  "panel.settings": "Plugin settings",
-  "panel.delete": "Delete product",
-  "panel.no_products": "No products registered",
-  "panel.no_category": "No products in this category",
-  "panel.add_first": "Add your first product",
-  "panel.zerado": "Zeroed",
-  "panel.bucket.available": "Available",
-  "panel.bucket.in_use": "In use",
-  "panel.bucket.defective": "Damage",
-  "panel.bucket.total": "Total",
-  "panel.form.name": "Name",
-  "panel.form.category": "Category",
-  "panel.form.quantity": "Quantity",
-  "panel.form.name_placeholder": "Product name",
-  "panel.form.category_placeholder": "Type a new category name",
-  "panel.form.category_mode_existing": "Existing category",
-  "panel.form.category_mode_new": "New Category",
-  "panel.form.category_tooltip_new": "Type a new category",
-  "panel.form.category_tooltip_existing": "Pick from category list",
-  "panel.form.save": "Save",
-  "panel.form.update": "Update",
-  "panel.form.cancel": "Cancel",
-  "panel.form.edit_title": "Edit Product",
-  "panel.form.add_title": "Add Product",
-  "panel.form.name_required": "Product name is required",
-  "panel.confirm_delete": "Do you really want to delete this?",
-  "panel.confirm": "Confirm",
-  "panel.all": "All",
-  "panel.export": "Export",
-  "panel.import": "Import",
-  "panel.export_success": "Stock exported successfully!",
-  "panel.export_error": "Error exporting stock",
-  "panel.import_success": "Stock imported successfully!",
-  "panel.import_error": "Error importing stock",
-  "panel.import_no_files": "No export files found.",
-  "panel.import_confirm_message": "This will replace all current products with the contents of the imported file. Continue?",
-  "panel.error_negative": "Cannot reduce below zero",
-  "panel.low_stock_notification": "%s is low on stock: %d available (threshold: %d)",
-  "settings.manual_sorting.label": "Manual Sorting",
-  "settings.manual_sorting.description": "Enable drag-and-drop to reorder lists",
-  "settings.low_stock_threshold.label": "Low stock threshold",
-  "settings.low_stock_threshold.description": "Minimum quantity to consider low stock",
-  "settings.enable_low_stock_alerts.label": "Low stock alerts",
-  "settings.enable_low_stock_alerts.description": "Show notifications when products are low in stock",
-  "settings.show_total_quantity.label": "Show total quantity",
-  "settings.show_total_quantity.description": "Show the Total capsule (sum of all buckets) on each product card",
-  "settings.store_name.label": "Store Name",
-  "settings.store_name.description": "Store name to display in the panel",
-  "settings.store_number.label": "Store/Branch Number",
-  "settings.store_number.description": "Store/branch identifier number",
-  "settings.store_cnpj.label": "CNPJ",
-  "settings.store_cnpj.description": "Store CNPJ",
-  "settings.ti_name.label": "IT Name",
-  "settings.ti_name.description": "IT Technician name responsible",
-  "settings.export_folder.label": "Export folder",
-  "settings.export_folder.description": "Folder where exported stock files are saved. Accepts ~.",
-  "settings.glyph.label": "Icon",
-  "settings.glyph.description": "Icon for the bar widget",
-  "settings.show_low_stock_badge.label": "Show low stock badge",
-  "settings.show_low_stock_badge.description": "Show red badge with count of low stock products",
-  "widget.tooltip_low": "%d product(s) low in stock ⚠️",
-  "widget.tooltip_ok": "All products have sufficient stock ✅",
-  "widget.tooltip_empty": "No products registered",
-  "widget.refreshing": "Refreshing..."
+  "panel": {
+    "title": "Inventory Manager",
+    "added": "Added",
+    "updated": "Updated",
+    "stock_singular": "Stock (%d product)",
+    "stock_plural": "Stock (%d products)",
+    "tooltip_drag": "Drag to reorder",
+    "add_product": "Add product",
+    "edit_product": "Edit product",
+    "refresh": "Refresh",
+    "close": "Close",
+    "settings": "Plugin settings",
+    "delete": "Delete product",
+    "no_products": "No products registered",
+    "no_category": "No products in this category",
+    "add_first": "Add your first product",
+    "zerado": "Zeroed",
+    "bucket": {
+      "available": "Available",
+      "in_use": "In use",
+      "defective": "Damage",
+      "total": "Total"
+    },
+    "form": {
+      "name": "Name",
+      "category": "Category",
+      "quantity": "Quantity",
+      "name_placeholder": "Product name",
+      "category_placeholder": "Type a new category name",
+      "category_mode_existing": "Existing category",
+      "category_mode_new": "New Category",
+      "category_tooltip_new": "Type a new category",
+      "category_tooltip_existing": "Pick from category list",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "edit_title": "Edit Product",
+      "add_title": "Add Product",
+      "name_required": "Product name is required"
+    },
+    "confirm_delete": "Do you really want to delete this?",
+    "confirm": "Confirm",
+    "all": "All",
+    "export": "Export",
+    "import": "Import",
+    "export_success": "Stock exported successfully!",
+    "export_error": "Error exporting stock",
+    "import_success": "Stock imported successfully!",
+    "import_error": "Error importing stock",
+    "import_no_files": "No export files found.",
+    "import_confirm_message": "This will replace all current products with the contents of the imported file. Continue?",
+    "error_negative": "Cannot reduce below zero",
+    "low_stock_notification": "%s is low on stock: %d available (threshold: %d)"
+  },
+  "settings": {
+    "manual_sorting": {
+      "label": "Manual Sorting",
+      "description": "Enable drag-and-drop to reorder lists"
+    },
+    "low_stock_threshold": {
+      "label": "Low stock threshold",
+      "description": "Minimum quantity to consider low stock"
+    },
+    "enable_low_stock_alerts": {
+      "label": "Low stock alerts",
+      "description": "Show notifications when products are low in stock"
+    },
+    "show_total_quantity": {
+      "label": "Show total quantity",
+      "description": "Show the Total capsule (sum of all buckets) on each product card"
+    },
+    "store_name": {
+      "label": "Store Name",
+      "description": "Store name to display in the panel"
+    },
+    "store_number": {
+      "label": "Store/Branch Number",
+      "description": "Store/branch identifier number"
+    },
+    "store_cnpj": {
+      "label": "CNPJ",
+      "description": "Store CNPJ"
+    },
+    "ti_name": {
+      "label": "IT Name",
+      "description": "IT Technician name responsible"
+    },
+    "export_folder": {
+      "label": "Export folder",
+      "description": "Folder where exported stock files are saved. Accepts ~."
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Icon for the bar widget"
+    },
+    "show_low_stock_badge": {
+      "label": "Show low stock badge",
+      "description": "Show red badge with count of low stock products"
+    }
+  },
+  "widget": {
+    "tooltip_low": "%d product(s) low in stock ⚠️",
+    "tooltip_ok": "All products have sufficient stock ✅",
+    "tooltip_empty": "No products registered",
+    "refreshing": "Refreshing..."
+  }
 }
