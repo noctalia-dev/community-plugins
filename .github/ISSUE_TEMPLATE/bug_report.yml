@@ -82,6 +82,7 @@ body:
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
+        - inventory-manager
         - ip-monitor
         - jetbrains-provider
         - k8s-status

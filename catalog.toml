@@ -1357,8 +1357,8 @@ rev = "e77d7ef7fbfa7d909e03966e42690a8561f1b190"
 [[plugin]]
 id = "nilsonlinux/link-ip-monitor"
 name = "Link/IP Monitor"
-version = "1.0.1"
-updated_at = 1786712102
+version = "1.0.2"
+updated_at = 1788657701
 added_at = 1786297832
 author = "Nilsonlinux"
 license = "MIT"
@@ -2198,3 +2198,16 @@ icon = "headphones"
 description = "OPPO, OnePlus and realme earbuds battery and noise cancellation control in the bar."
 plugin_api = 24
 tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+
+[[plugin]]
+id = "nilsonlinux/inventory-manager"
+name = "Inventory Manager"
+version = "1.0.0"
+updated_at = 1788657701
+added_at = 1788657701
+author = "Nilsonlinux"
+license = "MIT"
+icon = "package"
+description = "Inventory Manager for managing product inventory with categories, low stock alerts, and data export."
+plugin_api = 15
+tags = ["utility", "productivity", "service", "panel", "bar"]
