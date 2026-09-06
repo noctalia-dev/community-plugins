@@ -1,0 +1,118 @@
+id          = "nilsonlinux/inventory-manager"
+name        = "Inventory Manager"
+version     = "1.0.0"
+plugin_api  = 15
+author      = "Nilsonlinux"
+license     = "MIT"
+icon        = "package"
+description = "Inventory Manager for managing product inventory with categories, low stock alerts, and data export."
+tags        = ["utility", "productivity", "service", "panel", "bar"]
+dependencies = []
+
+# ---------------------------------------------------------------------------
+# Plugin settings
+# ---------------------------------------------------------------------------
+
+[[setting]]
+key             = "manual_sorting"
+type            = "bool"
+label_key       = "settings.manual_sorting.label"
+description_key = "settings.manual_sorting.description"
+default         = true
+
+[[setting]]
+key             = "low_stock_threshold"
+type            = "int"
+label_key       = "settings.low_stock_threshold.label"
+description_key = "settings.low_stock_threshold.description"
+default         = 3
+min             = 0
+max             = 50
+
+[[setting]]
+key             = "enable_low_stock_alerts"
+type            = "bool"
+label_key       = "settings.enable_low_stock_alerts.label"
+description_key = "settings.enable_low_stock_alerts.description"
+default         = true
+
+[[setting]]
+key             = "show_total_quantity"
+type            = "bool"
+label_key       = "settings.show_total_quantity.label"
+description_key = "settings.show_total_quantity.description"
+default         = true
+
+# ---------------------------------------------------------------------------
+# Store information
+# ---------------------------------------------------------------------------
+
+[[setting]]
+key             = "store_name"
+type            = "string"
+label_key       = "settings.store_name.label"
+description_key = "settings.store_name.description"
+default         = ""
+
+[[setting]]
+key             = "store_number"
+type            = "string"
+label_key       = "settings.store_number.label"
+description_key = "settings.store_number.description"
+default         = ""
+
+[[setting]]
+key             = "store_cnpj"
+type            = "string"
+label_key       = "settings.store_cnpj.label"
+description_key = "settings.store_cnpj.description"
+default         = ""
+
+[[setting]]
+key             = "ti_name"
+type            = "string"
+label_key       = "settings.ti_name.label"
+description_key = "settings.ti_name.description"
+default         = ""
+
+[[setting]]
+key             = "export_folder"
+type            = "string"
+label_key       = "settings.export_folder.label"
+description_key = "settings.export_folder.description"
+default         = ""
+
+# ---------------------------------------------------------------------------
+# Components
+# ---------------------------------------------------------------------------
+
+[[service]]
+id    = "inventory-service"
+entry = "service.luau"
+
+[[widget]]
+id    = "inventory-badge"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "package"
+
+  [[widget.setting]]
+  key             = "show_low_stock_badge"
+  type            = "bool"
+  label_key       = "settings.show_low_stock_badge.label"
+  description_key = "settings.show_low_stock_badge.description"
+  default         = true
+
+[[panel]]
+id              = "inventory-panel"
+entry           = "panel.luau"
+width           = 700
+height          = 640
+placement       = "floating"
+position        = "top_center"
+open_near_click = true
