@@ -180,10 +180,6 @@ width = 520
 height = 520
 placement = "floating"
 position = "center"
-# Overlay layer keeps the lyrics above fullscreen windows (karaoke over
-# video). Per-entry Layer dropdown in Settings -> Plugins can switch any
-# preset back to "top" without editing the manifest.
-layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -192,7 +188,6 @@ id = "panel-compact"
 entry = "panel.luau"
 width = 440
 height = 440
-layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
@@ -201,7 +196,6 @@ id = "panel-large"
 entry = "panel.luau"
 width = 640
 height = 640
-layer = "overlay"
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 

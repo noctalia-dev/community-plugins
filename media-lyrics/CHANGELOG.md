@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **plugin_api 24 → 30** — the plugin now declares the full Noctalia 5.0.1
   plugin API (context menus, graph pointer tracking, panel layer). Requires
   Noctalia 5.0.1+.
-- **Lyrics panel floats above fullscreen content** — all three panel presets
-  (`panel`, `panel-compact`, `panel-large`) declare `layer = "overlay"`, so
-  the lyrics window stays visible over fullscreen video (karaoke over a
-  film/YouTube). A per-entry **Layer** dropdown in Settings → Plugins can
-  switch any preset back to `top` without editing the manifest.
+- **Overlay layer above fullscreen content** — on Noctalia 5.0.1 the host
+  injects a per-entry **Layer** setting (Settings → Plugins) for every panel:
+  choose `overlay` on any preset (`panel`, `panel-compact`, `panel-large`) so
+  the lyrics window floats above fullscreen video (karaoke over a film /
+  YouTube). (This store copy does not declare `layer` in the manifest — the
+  store validator does not know the field yet; the canonical repo ships it.)
 
 ## [0.9.2] — 2026-09-06
 
