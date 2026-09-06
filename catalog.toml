@@ -432,8 +432,8 @@ tags = ["clock"]
 [[plugin]]
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.5.0"
-updated_at = 1787833501
+version = "1.5.1"
+updated_at = 1788700152
 added_at = 1784465190
 author = "lowcache"
 license = "MIT"

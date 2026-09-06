@@ -86,7 +86,6 @@ end
 -- A MISSING file means off, which is what makes this safe: if the shell is not
 -- running there is nothing that could answer a prompt, and the gate stays inert.
 local MODES = { off = true, learn = true, enforce = true }
-local last_mode = nil
 
 local function shq(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
@@ -101,18 +100,19 @@ local function runtime_dir()
   return nil
 end
 
--- Written only on change: publish() runs on every event, and rewriting an unchanged
--- mode on each one would be a shell-out per tool call.
+-- Written only when it would change something: publish() runs on every event, and a
+-- shell-out per tool call is not free. The comparison is against the FILE, not a
+-- cached value -- the runtime dir is tmpfs, and a cached "already wrote it" strands
+-- the gate reading "off" for the rest of the session if that file goes away.
 local function mirror_mode()
   local m = noctalia.getConfig and noctalia.getConfig("consent_mode")
   if not MODES[m] then m = "off" end
-  if m == last_mode then return end
   local dir = runtime_dir()
   if not dir then return end
-  last_mode = m
+  if noctalia.readFile(dir .. "/mode") == m then return end
   noctalia.runAsync(
     "mkdir -p -m 700 " .. shq(dir) ..
-    " && printf %s " .. shq(m) .. " > " .. shq(dir .. "/mode")
+    " && (umask 077; printf %s " .. shq(m) .. " > " .. shq(dir .. "/mode") .. ")"
   )
 end
 
@@ -230,7 +230,19 @@ function onIpc(event, payload)
     local f = split(tostring(payload or ""), ",")
     local rid, sid = f[1], f[2]
     if not rid or rid == "" then return end
-    noctalia.state.set("claude.consent", { id = rid, sid = sid or "" })
+    -- Parallel tool calls produce parallel prompts, so this is a queue, not a slot:
+    -- overwriting it left every request but the newest with no surface, stalled until
+    -- its deadline. The panel shows them oldest-first and skips ids whose request file
+    -- is already gone, so entries retire themselves and this only has to be bounded.
+    local q = {}
+    local snap = noctalia.state.get and noctalia.state.get("claude.consent")
+    if type(snap) == "table" and type(snap.ids) == "table" then
+      for _, v in ipairs(snap.ids) do
+        if v ~= rid and #q < 15 then q[#q + 1] = v end
+      end
+    end
+    q[#q + 1] = rid
+    noctalia.state.set("claude.consent", { id = q[1], ids = q, sid = sid or "" })
     if sid and sid ~= "" then
       touch(sid, "needs_attention", nil)
       publish()

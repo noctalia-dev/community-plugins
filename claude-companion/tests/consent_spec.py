@@ -69,13 +69,19 @@ class Harness(unittest.TestCase):
         and the shortened deadline never races it.
         """
         out = io.StringIO()
+        self.dispatches = []
 
         def fake_run(argv, **kw):
+            self.dispatches.append(argv)
             if responder is not None and "consent_request" in argv:
                 responder(self)
             return mock.Mock(returncode=0 if dispatch_ok else 1, stdout=b"", stderr=b"")
 
+        # main() dispatches on argv, so a test-name selector on the command line
+        # ("python3 tests/consent_spec.py Foo.bar") would send it down the CLI branch
+        # and silently exercise nothing. Pin argv to the hook-invocation shape.
         with mock.patch.object(consent, "DEADLINE", deadline), \
+             mock.patch.object(consent.sys, "argv", ["consent.py"]), \
              mock.patch.object(consent.sys, "stdin", io.StringIO(json.dumps(data))), \
              mock.patch.object(consent.sys, "stdout", out), \
              mock.patch.object(consent.subprocess, "run", side_effect=fake_run):
@@ -89,6 +95,9 @@ class Harness(unittest.TestCase):
         with open(os.path.join(cdir, req_id + ".res"), "w") as f:
             json.dump({"nonce": nonce if nonce is not None else req["nonce"],
                        "decision": decision}, f)
+
+    def learn_log(self):
+        return os.path.join(self.st, "noctalia", "claude-companion", "learn.jsonl")
 
     def allowlist(self):
         path = os.path.join(self.st, "noctalia", "claude-companion", "allow.jsonl")
@@ -234,13 +243,14 @@ class Keys(Harness):
 class Allowlist(Harness):
     def test_allowlisted_command_is_silent(self):
         self.set_mode("enforce")
-        consent._reply  # noqa: B018 — presence check, exercised below
         sd = os.path.join(self.st, "noctalia", "claude-companion")
         os.makedirs(sd, exist_ok=True)
         with open(os.path.join(sd, "allow.jsonl"), "w") as f:
             f.write(json.dumps({"key": "Bash:npm test"}) + "\n")
-        # Dispatch would raise if it were reached, proving the gate short-circuits.
-        self.assertEqual(self.run_gate(hook_input(), dispatch_ok=False), "")
+        # Silence alone proves nothing -- every failure path is silent too. What the
+        # short-circuit actually guarantees is that no panel is ever raised.
+        self.assertEqual(self.run_gate(hook_input()), "")
+        self.assertEqual(self.dispatches, [])
 
     def test_corrupt_allowlist_line_is_skipped(self):
         sd = os.path.join(self.st, "noctalia", "claude-companion")
@@ -278,11 +288,117 @@ class Allowlist(Harness):
         self.assertEqual(self.allowlist(), [])
 
 
+class Deadline(Harness):
+    def test_unanswered_request_falls_through(self):
+        # The path a real timeout takes: dispatched, panel up, nobody answers. Counting
+        # polls is what separates "waited, then gave up" from "never waited at all".
+        self.set_mode("enforce")
+        polls = []
+        with mock.patch.object(consent.time, "sleep", polls.append):
+            self.assertEqual(self.run_gate(hook_input(), deadline=0.05), "")
+        self.assertTrue(any("consent_request" in d for d in self.dispatches))
+        self.assertTrue(polls, "gate returned a verdict without ever polling")
+
+    def test_request_file_is_cleaned_up_after_timeout(self):
+        self.set_mode("enforce")
+        self.run_gate(hook_input(), deadline=0.2)
+        cdir = os.path.join(self.rt, "claude-companion", "consent")
+        self.assertEqual(os.listdir(cdir) if os.path.isdir(cdir) else [], [])
+
+
+class AcceptEdits(Harness):
+    """acceptEdits is the user turning off prompts for edits -- and only edits."""
+
+    def test_path_tools_are_skipped(self):
+        self.set_mode("enforce")
+        got = self.run_gate(hook_input(tool_name="Write",
+                                       tool_input={"file_path": "/tmp/x"},
+                                       permission_mode="acceptEdits"))
+        self.assertEqual(got, "")
+        self.assertEqual(self.dispatches, [])
+
+    def test_bash_is_still_gated(self):
+        self.set_mode("enforce")
+        got = self.run_gate(hook_input(permission_mode="acceptEdits"),
+                            responder=lambda s: s.write_response("toolu_01ABC", "deny"))
+        self.assertEqual(json.loads(got)["hookSpecificOutput"]["permissionDecision"], "deny")
+
+
+class Content(Harness):
+    """A path tool's bytes have to reach the panel, or the prompt shows a path and
+    calls that consent."""
+
+    def test_write_content(self):
+        self.assertEqual(consent._content({"content": "export EVIL=1"}), "export EVIL=1")
+
+    def test_edit_new_string(self):
+        self.assertEqual(consent._content({"new_string": "after"}), "after")
+
+    def test_notebook_new_source(self):
+        self.assertEqual(consent._content({"new_source": "import os"}), "import os")
+
+    def test_bash_has_none(self):
+        self.assertEqual(consent._content({"command": "ls"}), "")
+
+    def test_clipped(self):
+        got = consent._content({"content": "x" * (consent.CONTENT_LIMIT + 500)})
+        self.assertEqual(len(got), consent.CONTENT_LIMIT)
+
+    def test_request_carries_it(self):
+        self.set_mode("enforce")
+        seen = {}
+
+        def capture(s):
+            cdir = os.path.join(s.rt, "claude-companion", "consent")
+            with open(os.path.join(cdir, "toolu_01ABC.req")) as f:
+                seen.update(json.load(f))
+            s.write_response()
+
+        self.run_gate(hook_input(tool_name="Write",
+                                 tool_input={"file_path": "/home/u/.bashrc",
+                                             "content": "export EVIL=1"}),
+                      responder=capture)
+        self.assertEqual(seen["path"], "/home/u/.bashrc")
+        self.assertEqual(seen["content"], "export EVIL=1")
+
+
+class Dismiss(Harness):
+    """Esc / click-outside: a response that carries no verdict, so the hook stops
+    waiting instead of holding the tool call open for the rest of its deadline."""
+
+    def test_dismiss_writes_a_verdictless_response(self):
+        cdir = os.path.join(self.rt, "claude-companion", "consent")
+        os.makedirs(cdir, mode=0o700, exist_ok=True)
+        with open(os.path.join(cdir, "r3.req"), "w") as f:
+            json.dump({"id": "r3", "nonce": "n3", "key": "Bash:ls"}, f)
+        consent._reply("r3", "dismiss")
+        with open(os.path.join(cdir, "r3.res")) as f:
+            self.assertEqual(json.load(f), {"nonce": "n3", "decision": "dismiss"})
+
+    def test_dismiss_releases_the_call_immediately(self):
+        self.set_mode("enforce")
+        polls = []
+        with mock.patch.object(consent.time, "sleep", polls.append):
+            got = self.run_gate(
+                hook_input(), deadline=30,
+                responder=lambda s: consent._reply("toolu_01ABC", "dismiss"))
+        self.assertEqual(got, "")          # no verdict: Claude Code asks as usual
+        self.assertEqual(polls, [])        # and it did not wait out the deadline
+
+    def test_dismiss_does_not_allowlist(self):
+        cdir = os.path.join(self.rt, "claude-companion", "consent")
+        os.makedirs(cdir, mode=0o700, exist_ok=True)
+        with open(os.path.join(cdir, "r4.req"), "w") as f:
+            json.dump({"id": "r4", "nonce": "n4", "key": "Bash:ls"}, f)
+        consent._reply("r4", "dismiss")
+        self.assertEqual(self.allowlist(), [])
+
+
 class Learn(Harness):
     def test_learn_records_and_stays_silent(self):
         self.set_mode("learn")
         self.assertEqual(self.run_gate(hook_input(), dispatch_ok=False), "")
-        with open(os.path.join(self.rt, "claude-companion", "learn.jsonl")) as f:
+        with open(self.learn_log()) as f:
             rows = [json.loads(line) for line in f if line.strip()]
         self.assertEqual(rows[0]["key"], "Bash:npm test")
         self.assertEqual(rows[0]["description"], "Run the test suite")
@@ -292,7 +408,7 @@ class Learn(Harness):
         # never match again — recording it would only bloat the allowlist.
         self.set_mode("learn")
         self.run_gate(hook_input(tool_input={"command": "echo a\necho b"}), dispatch_ok=False)
-        self.assertFalse(os.path.exists(os.path.join(self.rt, "claude-companion", "learn.jsonl")))
+        self.assertFalse(os.path.exists(self.learn_log()))
 
     def test_multiline_still_gates_under_enforce(self):
         # Not recording is a learn-mode choice, not an exemption.
