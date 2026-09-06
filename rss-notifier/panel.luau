@@ -5,6 +5,10 @@
 local items = {}
 local hoveredKey = nil
 
+local function tr(key)
+  return noctalia.tr(key)
+end
+
 -- declared upfront to allow cross-referencing between them
 local render
 local dismissItem
@@ -64,7 +68,7 @@ itemRow = function(item)
     flexGrow = 1,
     onClick  = function() openLink(item.link) end,
   }, {
-    ui.label({ text = item.title or "(sem titulo)", fontWeight = "bold", maxLines = 2 }),
+    ui.label({ text = item.title or tr("panel.untitled_item"), fontWeight = "bold", maxLines = 2 }),
     ui.label({ text = item.feedTitle or "", fontSize = 12, color = "outline" }),
   }))
 
@@ -72,7 +76,7 @@ itemRow = function(item)
     glyph       = "close",
     variant     = "outline",
     controlSize = "sm",
-    tooltip     = "Dispensar",
+    tooltip     = tr("panel.dismiss_tooltip"),
     onClick     = function() dismissItem(item) end,
   }))
 
@@ -95,7 +99,7 @@ end
 emptyState = function()
   return ui.column({ gap = 10, align = "center", padding = 32, flexGrow = 1, justify = "center" }, {
     ui.glyph({ name = "rss", size = 32, color = "outline" }),
-    ui.label({ text = "Nenhuma atualização", color = "outline" }),
+    ui.label({ text = tr("panel.empty_state"), color = "outline" }),
   })
 end
 
@@ -116,16 +120,17 @@ render = function()
 
   local headerButtons = {}
   if #items > 0 then
-    table.insert(headerButtons, ui.button({ glyph = "trash", variant = "outline", controlSize = "sm", tooltip = "Limpar tudo", onClick = "onClearAllClicked" }))
+    table.insert(headerButtons, ui.button({ glyph = "trash", variant = "outline", controlSize = "sm", tooltip = tr("panel.clear_all_tooltip"), onClick = "onClearAllClicked" }))
   end
-  table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = "Atualizar agora", onClick = "onRefreshClicked" }))
+  table.insert(headerButtons, ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = tr("panel.refresh_tooltip"), onClick = "onRefreshClicked" }))
+  table.insert(headerButtons, ui.button({ glyph = "settings", variant = "outline", controlSize = "sm", tooltip = tr("panel.settings_tooltip"), onClick = "onSettingsClicked" }))
   table.insert(headerButtons, ui.button({ glyph = "close", variant = "outline", controlSize = "sm", onClick = "onCloseClicked" }))
 
   -- 560 (panel height, see plugin.toml) minus a 30px safety margin before
   -- the rounded edge, instead of touching it
   panel.render(ui.column({ gap = 10, padding = 12, height = 530 }, {
     ui.row({ align = "center", justify = "space_between" }, {
-      ui.label({ text = "RSS/Atom Notifier", fontSize = 15, fontWeight = "bold" }),
+      ui.label({ text = tr("panel.title"), fontSize = 15, fontWeight = "bold" }),
       ui.row({ gap = 4 }, headerButtons),
     }),
     ui.separator({}),
@@ -158,6 +163,10 @@ end
 
 function onRefreshClicked()
   noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all refresh")
+end
+
+function onSettingsClicked()
+  noctalia.runAsync("noctalia msg settings-open-plugin nilsonlinux/rss-notifier")
 end
 
 function onClearAllClicked()

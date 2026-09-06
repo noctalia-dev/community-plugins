@@ -1,4 +1,17 @@
 {
+  "notify": {
+    "refreshing": "Atualizando feeds...",
+    "title": "RSS/Atom Notifier"
+  },
+  "panel": {
+    "clear_all_tooltip": "Limpar tudo",
+    "dismiss_tooltip": "Dispensar",
+    "empty_state": "Nenhuma atualização",
+    "refresh_tooltip": "Atualizar agora",
+    "settings_tooltip": "Configurações do plugin",
+    "title": "RSS/Atom Notifier",
+    "untitled_item": "(sem título)"
+  },
   "settings": {
     "feed_urls": {
       "description": "Uma URL de feed RSS ou Atom por entrada (ex: https://exemplo.com/feed.xml).",
@@ -24,5 +37,9 @@
       "description": "Mostra a imagem de capa de cada item (ou o favicon do site como alternativa) na lista de itens.",
       "label": "Mostrar imagens dos feeds"
     }
+  },
+  "widget": {
+    "tooltip_none": "Nenhum item novo",
+    "tooltip_unread_suffix": "novo(s) item(ns) nos feeds"
   }
 }

@@ -4,6 +4,10 @@
 
 local unread = 0
 
+local function tr(key)
+  return noctalia.tr(key)
+end
+
 local function render()
   local children = {}
 
@@ -27,7 +31,7 @@ local function render()
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 4, align = "center" }, children))
 
-  barWidget.setTooltip(unread > 0 and (tostring(unread) .. " novo(s) item(ns) nos feeds") or "Nenhum item novo")
+  barWidget.setTooltip(unread > 0 and (tostring(unread) .. " " .. tr("widget.tooltip_unread_suffix")) or tr("widget.tooltip_none"))
 end
 
 noctalia.state.watch("unread", function(value)
@@ -55,7 +59,7 @@ function onRightClick()
   -- right click: forces an immediate feed check by sending an IPC event to
   -- the [[service]] entry (which is a singleton, target "all")
   noctalia.runAsync("noctalia msg plugin nilsonlinux/rss-notifier:fetcher all refresh")
-  noctalia.notify("RSS/Atom Notifier", "Atualizando feeds...")
+  noctalia.notify(tr("notify.title"), tr("notify.refreshing"))
 end
 
 function onIpc(event, payload)

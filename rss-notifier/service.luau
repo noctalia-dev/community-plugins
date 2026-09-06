@@ -9,6 +9,10 @@ local recentItems = {}   -- list of the most recent items, newest first
 local faviconCache = {}  -- { [domain] = localFilePath } - avoids re-downloading the same site's favicon
 local dataPath = nil
 
+local function tr(key)
+  return noctalia.tr(key)
+end
+
 local MAX_RECENT_ITEMS  = 50
 local MAX_SEEN_PER_FEED = 300 -- cap on "already seen" ids kept per feed (prevents unbounded growth)
 
@@ -682,7 +686,7 @@ local function processQueueStep()
 
   f.pos = nextPos
   table.insert(f.items, {
-    title = findTagContent(block, "title") or "(sem titulo)",
+    title = findTagContent(block, "title") or tr("panel.untitled_item"),
     link  = extractLink(block),
     id    = extractId(block),
     image = extractImage(block),
