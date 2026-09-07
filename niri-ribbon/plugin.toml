@@ -1,0 +1,101 @@
+# Niri Ribbon - viewport position indicator for niri scrollable-tiling layout.
+#
+# Draws an overview of the focused workspace's whole scrolling ribbon on the
+# bar and highlights where the current viewport sits and how wide it is — so
+# you can tell at a glance how many windows are hidden to the left and right.
+#
+# Acknowledgement: the core idea originates from ews/noctalia-niri-ribbon by
+# J Pablo Puerta <ews@folksonomy.com>
+# (https://github.com/ews/noctalia-niri-ribbon). That project targeted the
+# legacy quickshell-era QML plugin API; this plugin is a ground-up rewrite for
+# the Noctalia v5 spec (plugin.toml + Luau) that keeps the algorithm idea.
+#
+# Important: the niri IPC (26.04 through HEAD) exposes neither the live
+# viewport offset nor a "viewport scrolled" event (the WorkspaceViewChanged
+# event assumed by the original ews project never existed upstream). This
+# plugin estimates the resting viewport position geometrically — see the
+# "Viewport estimation" section at the top of ribbon.luau.
+
+id = "luochen1990/niri-ribbon"
+name = "Niri Ribbon"
+version = "0.1.0"
+plugin_api = 3
+author = "luochen1990"
+license = "MIT"
+dependencies = ["niri"]
+icon = "view-column"
+description = "Viewport position indicator for niri scrollable-tiling layout."
+tags = ["bar", "indicator", "niri"]
+
+[[widget]]
+id = "ribbon"
+entry = "ribbon.luau"
+
+  [[widget.setting]]
+  key = "bar_color"
+  type = "color"
+  label_key = "settings.bar_color.label"
+  description_key = "settings.bar_color.description"
+  # Not surface_variant: it sits in the same color family as the capsule
+  # background and becomes nearly invisible inside the capsule. outline is the
+  # Material border color and contrasts clearly with the surface family in
+  # both light and dark themes.
+  default = "outline"
+
+  [[widget.setting]]
+  key = "viewport_color"
+  type = "color"
+  label_key = "settings.viewport_color.label"
+  description_key = "settings.viewport_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "thickness"
+  type = "double"
+  label_key = "settings.thickness.label"
+  description_key = "settings.thickness.description"
+  default = 4.0
+  min = 1.0
+  max = 12.0
+  step = 0.5
+
+  [[widget.setting]]
+  key = "radius"
+  type = "double"
+  label_key = "settings.radius.label"
+  description_key = "settings.radius.description"
+  default = 2.0
+  min = 0.0
+  max = 6.0
+  step = 0.5
+
+  # Viewport estimation model; should match niri `center-focused-column`:
+  #   fit    — niri `never` (default): focused column snapped near the edge
+  #   center — niri `always`: focused column always centered
+  # See the "Viewport estimation" section at the top of ribbon.luau.
+  [[widget.setting]]
+  key = "viewport_model"
+  type = "select"
+  label_key = "settings.viewport_model.label"
+  description_key = "settings.viewport_model.description"
+  default = "fit"
+
+    [[widget.setting.options]]
+    value = "fit"
+    label_key = "settings.viewport_model.option.fit"
+
+    [[widget.setting.options]]
+    value = "center"
+    label_key = "settings.viewport_model.option.center"
+
+  # The niri `layout.gaps` value (logical pixels), used to estimate the total
+  # canvas width and padding. Defaults to 0.0 (the niri upstream default).
+  [[widget.setting]]
+  key = "gaps"
+  type = "double"
+  label_key = "settings.gaps.label"
+  description_key = "settings.gaps.description"
+  default = 0.0
+  min = 0.0
+  max = 64.0
+  step = 1.0

@@ -1,0 +1,32 @@
+{
+  "settings": {
+    "bar_color": {
+      "description": "Color of the ribbon track (the non-visible area).",
+      "label": "Background Color"
+    },
+    "gaps": {
+      "description": "The 'layout.gaps' value from your niri config, in logical pixels. Used for accurate canvas width and padding calculation.",
+      "label": "Layout Gaps"
+    },
+    "radius": {
+      "description": "Corner radius of the viewport highlight (logical pixels).",
+      "label": "Corner Radius"
+    },
+    "thickness": {
+      "description": "Vertical thickness of the ribbon (logical pixels).",
+      "label": "Thickness"
+    },
+    "viewport_color": {
+      "description": "Color of the highlighted viewport region.",
+      "label": "Viewport Color"
+    },
+    "viewport_model": {
+      "description": "How the viewport position is estimated. Should match your niri 'center-focused-column' setting. 'Fit' (default) works with niri's default 'never'; 'Center' works with 'always'.",
+      "label": "Viewport Model",
+      "option": {
+        "center": "Center (niri: always)",
+        "fit": "Fit (niri: never)"
+      }
+    }
+  }
+}
