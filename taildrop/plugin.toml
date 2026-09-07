@@ -6,6 +6,7 @@
 
 id = "carlocamacho/taildrop"
 name = "Taildrop"
+icon = "network"
 version = "1.0.0"
 plugin_api = 10
 author = "carlocamacho"
