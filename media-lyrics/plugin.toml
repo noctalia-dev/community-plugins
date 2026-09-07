@@ -10,8 +10,8 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.0"
-plugin_api = 24
+version = "0.9.3"
+plugin_api = 30
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
@@ -152,6 +152,16 @@ entry = "widget.luau"
   label_key = "settings.hide_when_no_media.label"
   description_key = "settings.hide_when_no_media.description"
   default = false
+
+  # Extra (beyond the built-in media widget): show the current synced lyric
+  # line in the chip instead of the artist while lyrics are ready.
+  [[widget.setting]]
+  key = "show_lyric_line"
+  type = "bool"
+  label_key = "settings.show_lyric_line.label"
+  description_key = "settings.show_lyric_line.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
 
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.

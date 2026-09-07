@@ -4,6 +4,62 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] — 2026-09-06
+
+### Changed
+
+- **plugin_api 24 → 30** — the plugin now declares the full Noctalia 5.0.1
+  plugin API (context menus, graph pointer tracking, panel layer). Requires
+  Noctalia 5.0.1+.
+- **Overlay layer above fullscreen content** — on Noctalia 5.0.1 the host
+  injects a per-entry **Layer** setting (Settings → Plugins) for every panel:
+  choose `overlay` on any preset (`panel`, `panel-compact`, `panel-large`) so
+  the lyrics window floats above fullscreen video (karaoke over a film /
+  YouTube). (This store copy does not declare `layer` in the manifest — the
+  store validator does not know the field yet; the canonical repo ships it.)
+
+## [0.9.2] — 2026-09-06
+
+### Added
+
+- **Current lyric line in the bar chip** — new widget setting
+  `show_lyric_line` (off by default; widget settings popup, visible when the
+  chip shows text). When on and synced lyrics are ready, the chip shows
+  `Title · <current line>` instead of `Title - Artist`; the line steps with
+  the playback position (snapshot polls every 150 ms) and long lines scroll
+  with the existing marquee. Falls back to the artist line while lyrics are
+  not ready or unsynced.
+- **Embedded MPRIS lyrics (`xesam:asText`)** — a zero-network source: players
+  that embed lyrics in their own `Metadata` (the Noctalia aggregator does not
+  forward the field, so the service asks the player bus directly, once per
+  track change) feed the chain at position 2:
+  local `.lrc` → **embedded** → cache → LRCLIB exact → LRCLIB search →
+  NetEase. Footer provider label: "Embedded". Placeholders are filtered like
+  any other source. (Few players ship `xesam:asText` today; LRCLIB remains
+  the workhorse.)
+
+## [0.9.1] — 2026-09-05
+
+### Added
+
+- **NetEase Cloud Music fallback source** — when LRCLIB finds nothing (or a
+  transport error occurs), the service queries NetEase's public
+  cloudsearch/lyric endpoints (no API key; browser User-Agent + Referer only)
+  and accepts the best-ranked candidate. Synced LRC wins over plain text;
+  candidates are ranked by title/artist match plus a duration bonus against
+  the playing track; NetEase LRC metadata lines (作词/作曲/Artist: …) are
+  stripped before parsing. The chain is: local `.lrc` → cache → LRCLIB exact
+  → LRCLIB search → NetEase fallback.
+- **Instrumental / placeholder guard** — NetEase's placeholder "lyrics" for
+  instrumentals and missing words (纯音乐/暂无歌词) are filtered both at fetch
+  time and at cache-read time, so a cached placeholder cannot short-circuit
+  the chain into a fake "no lyrics".
+
+### Changed
+
+- `service.lyrics-unreachable` copy: "LRCLIB unreachable" → "Lyrics services
+  unreachable" (LRCLIB is no longer the only network source).
+
 ## [0.9.0] — 2026-09-03
 
 ### Added

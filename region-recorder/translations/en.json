@@ -1,0 +1,85 @@
+{
+  "plugin_name": "Region Recorder",
+  "widget": {
+    "idle": "Region Recorder: Click to select region",
+    "selecting": "Region Recorder: Selecting region with slurp...",
+    "recording": "Region Recorder: Recording... (Click to stop)",
+    "unavailable": "Region Recorder: slurp or recorder tool missing"
+  },
+  "shortcut": {
+    "label": "Region Recorder",
+    "idle": "Record Region",
+    "selecting": "Selecting...",
+    "recording": "Stop Recording"
+  },
+  "notify": {
+    "recording_started": "Region recording started",
+    "recording_saved": "Recording saved to %s",
+    "recording_failed": "Failed to start recording",
+    "selection_cancelled": "Region selection cancelled",
+    "no_recorder": "No supported recorder tool (gpu-screen-recorder, wl-screenrec, wf-recorder) found"
+  },
+  "settings": {
+    "video_source": {
+      "label": "Video Source",
+      "description": "Default source mode for recording",
+      "options": {
+        "region": "Region (slurp selection)",
+        "focused": "Focused Monitor",
+        "portal": "XDG Desktop Portal"
+      }
+    },
+    "directory": {
+      "label": "Save Directory",
+      "description": "Directory where recordings are saved"
+    },
+    "filename_pattern": {
+      "label": "Filename Pattern",
+      "description": "Strftime format string for output file names"
+    },
+    "frame_rate": {
+      "label": "Frame Rate (FPS)",
+      "description": "Target framerate for recording"
+    },
+    "framerate_mode": {
+      "label": "Framerate Mode",
+      "description": "Framerate mode (CFR ensures constant framerate for video editors like Kdenlive)",
+      "options": {
+        "cfr": "Constant (CFR) - Recommended for editing",
+        "vfr": "Variable (VFR)",
+        "content": "Match Content (Sync)"
+      }
+    },
+    "video_codec": {
+      "label": "Video Codec",
+      "description": "Video encoding codec",
+      "options": {
+        "h264": "H.264 / AVC",
+        "hevc": "H.265 / HEVC",
+        "av1": "AV1"
+      }
+    },
+    "audio_source": {
+      "label": "Audio Source",
+      "description": "Audio stream to record",
+      "options": {
+        "none": "No Audio",
+        "default_output": "System Output (Desktop)",
+        "default_input": "Microphone",
+        "both": "System Output + Microphone"
+      }
+    },
+    "show_cursor": {
+      "label": "Show Cursor",
+      "description": "Include mouse cursor in the recording"
+    },
+    "copy_to_clipboard": {
+      "label": "Copy File URL to Clipboard",
+      "description": "Copy file:// path to clipboard when recording completes"
+    },
+    "hide_inactive": {
+      "label": "Hide Inactive Widget",
+      "description": "Hide the widget from the bar when idle"
+    }
+  }
+}

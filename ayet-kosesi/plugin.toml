@@ -1,0 +1,14 @@
+id = "alitura1/ayet-kosesi"
+name = "Ayet Köşesi"
+version = "1.0.0"
+plugin_api = 24
+author = "alitura1"
+icon = "book"
+license = "MIT"
+dependencies = ["curl"]
+tags = ["desktop", "time", "utility"]
+description = "Akıl Kuran'dan günlük ayeti masaüstünde gösteren Noctalia eklentisi."
+
+[[desktop_widget]]
+id = "ayet"
+entry = "ayet.luau"

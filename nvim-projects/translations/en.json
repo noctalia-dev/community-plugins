@@ -1,9 +1,9 @@
 {
-  "no-projects-found": "No projects found",
-  "no-recent-projects": "No recent Neovim projects",
   "filter-empty": "No projects matching \"{filter}\"",
   "loading": "Loading…",
   "loading-subtitle": "Scanning recent Neovim sessions and projects",
+  "no-projects-found": "No projects found",
+  "no-recent-projects": "No recent Neovim projects",
   "settings": {
     "max_results": {
       "description": "Maximum number of recent projects to show in the launcher",

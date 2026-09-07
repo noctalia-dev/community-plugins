@@ -38,7 +38,7 @@ class FakePullRequest:
 
 def marker_comment() -> FakeComment:
     return FakeComment(
-        f"<!-- {pr_mark_ready.NOTIFY_MARKER} -->\nCC @tordex — this pull request was automatically moved to draft..."
+        f"<!-- {pr_mark_ready.NOTIFY_MARKER} -->\nCC @tordex: this pull request was automatically moved to draft..."
     )
 
 

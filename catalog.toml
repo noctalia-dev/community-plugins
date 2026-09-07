@@ -1714,8 +1714,8 @@ tags = ["shortcut", "utility"]
 [[plugin]]
 id = "tmelik/system-monitor"
 name = "System Monitor"
-version = "1.5.1"
-updated_at = 1787746877
+version = "1.5.2"
+updated_at = 1788727655
 added_at = 1787614505
 author = "TMelik"
 license = "GPL-3.0-only"
@@ -2111,15 +2111,21 @@ tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.0"
-updated_at = 1788658548
+version = "0.9.3"
+updated_at = 1788723654
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
 icon = "music"
 description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
-plugin_api = 24
+plugin_api = 30
 tags = ["media", "music", "panel", "service"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "0.9.0"
+updated_at = 1788658548
+rev = "0a0222e0cf411e5bf4a2706508f9cc41272c2453"
 
 [[plugin]]
 id = "redxtech/super-productivity"
@@ -2224,3 +2230,113 @@ icon = "printer"
 description = "CUPS printers and print queue in the bar: job count, faults, cancel jobs, set the default printer."
 plugin_api = 24
 tags = ["bar", "panel", "service", "shortcut", "hardware", "system", "utility"]
+
+[[plugin]]
+id = "dpvpro/sing-box-status"
+name = "Sing-Box Status"
+version = "1.1.0"
+updated_at = 1788711076
+added_at = 1788711076
+author = "dpvpro"
+license = "MIT"
+icon = "link"
+description = "Bar widget showing whether the sing-box proxy daemon is running."
+plugin_api = 3
+tags = ["bar", "network"]
+
+[[plugin]]
+id = "zyrex/run-path"
+name = "Run / Open Path"
+version = "1.0.0"
+updated_at = 1788711462
+added_at = 1788711462
+author = "zyrex"
+license = "MIT"
+icon = "folder-open"
+description = "Type a path in the launcher to open it, with live completion, or type anything else to run it as a command."
+plugin_api = 3
+tags = ["launcher", "utility", "productivity"]
+
+[[plugin]]
+id = "reaperhound/ambient-sounds"
+name = "Ambient Sounds"
+version = "0.1.2"
+updated_at = 1788501369
+added_at = 1788501369
+author = "Reaper Hound"
+license = "MIT"
+icon = "headphones"
+description = "Mix looping ambient sounds from a Noctalia panel, bar widget, or shortcut."
+plugin_api = 24
+tags = ["audio", "media", "bar", "panel", "shortcut"]
+
+[[plugin]]
+id = "alitura1/ayet-kosesi"
+name = "Ayet Köşesi"
+version = "1.0.0"
+updated_at = 1788733836
+added_at = 1788733836
+author = "alitura1"
+license = "MIT"
+icon = "book"
+description = "Akıl Kuran'dan günlük ayeti masaüstünde gösteren Noctalia eklentisi."
+plugin_api = 24
+tags = ["desktop", "time", "utility"]
+
+[[plugin]]
+id = "jrohland/claudecode"
+name = "Claude Code Usage"
+version = "1.0.0"
+updated_at = 1788734110
+added_at = 1788734110
+author = "Nicolas Bellamy (Noctalia port by jrohland)"
+license = "MIT"
+icon = "robot"
+description = "Claude Code subscription usage: rate limits, token burn, cost, daily activity and per-model breakdown."
+plugin_api = 26
+tags = ["ai", "development", "indicator", "system", "bar", "desktop", "panel", "service"]
+
+[[plugin]]
+id = "ahmedhossamdev/sticky-notes"
+name = "Sticky Notes"
+version = "1.1.1"
+updated_at = 1788751382
+added_at = 1788740022
+author = "ahmedhossamdev"
+license = "MIT"
+icon = "note"
+description = "Colorful sticky notes and interactive checklists from your bar, with pinning, privacy blur, and portable storage."
+plugin_api = 24
+tags = ["bar", "panel", "service", "privacy", "productivity", "utility"]
+
+[[plugin]]
+id = "h-jangra/region-recorder"
+name = "Region Recorder"
+version = "0.1.0"
+updated_at = 1788786159
+added_at = 1788786159
+author = "h-jangra"
+license = "MIT"
+icon = "crop"
+description = "Minimal region screen recorder for Noctalia."
+plugin_api = 24
+tags = ["recording", "video", "utility", "bar", "shortcut", "service"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "0.1.0"
+updated_at = 1788786159
+rev = "3c34ca17b964f1fcd25b1b0cf964968c31c6a69d"
+
+[[plugin]]
+id = "andrewdems/vpn-manager"
+name = "VPN Manager"
+version = "1.0.0"
+updated_at = 1788789884
+added_at = 1788789884
+author = "andrewdems"
+license = "MIT"
+icon = "shield-lock"
+description = "Connect, disconnect and import NetworkManager VPNs of any protocol, with auto-connect off trusted networks."
+plugin_api = 24
+tags = ["bar", "launcher", "panel", "service", "shortcut", "network", "privacy", "indicator"]

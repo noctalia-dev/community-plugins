@@ -29,12 +29,14 @@ body:
         - 9router-control
         - ai-usagebar
         - airpods
+        - ambient-sounds
         - anilist
         - arch-updater
         - asus-fan
         - asus-fans-controller-ec
         - audio-switcher
         - awwwall
+        - ayet-kosesi
         - battery-graph
         - battery-power-management
         - battery-threshold
@@ -48,6 +50,7 @@ body:
         - cat
         - cider
         - claude-companion
+        - claudecode
         - cmd-runner
         - codexbar-meter
         - color_picker
@@ -137,18 +140,22 @@ body:
         - pulsar-mouse
         - qrcode
         - quranwidget
+        - region-recorder
         - remmina
         - rss-notifier
         - ruh-vpn
+        - run-path
         - screen-toolkit
         - sharednd
         - shell-command
         - shelly
+        - sing-box-status
         - special-workspaces
         - spotify
         - spotify-lyrics
         - spotify-media
         - ssh-launcher
+        - sticky-notes
         - super-productivity
         - syncthing
         - system-monitor
@@ -167,6 +174,7 @@ body:
         - upbeat
         - vidi
         - voxtype
+        - vpn-manager
         - w-engine
         - wallpaper-switcher
         - warp

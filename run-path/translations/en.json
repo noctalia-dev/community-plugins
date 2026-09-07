@@ -1,0 +1,27 @@
+{
+  "cannot-list-directory": "Can't list directory",
+  "err-open-failed": "Could not open the path",
+  "err-run-failed": "Could not run the command",
+  "no-such-directory": "No such directory",
+  "open-row": "Open {name}",
+  "run-row": "Run: {command}",
+  "run-subtitle": "Press Enter to run as a shell command",
+  "settings": {
+    "file_manager": {
+      "description": "Command used to open directories. Defaults to xdg-open, which follows the desktop default; set it to nautilus, thunar, dolphin, etc. to skip the indirection.",
+      "label": "File manager"
+    },
+    "file_opener": {
+      "description": "Command used to open files. Also xdg-open by default.",
+      "label": "File opener"
+    },
+    "max_results": {
+      "description": "Maximum number of completion entries listed at once.",
+      "label": "Maximum results"
+    },
+    "show_hidden": {
+      "description": "Include dotfiles in path completion.",
+      "label": "Show hidden files"
+    }
+  }
+}

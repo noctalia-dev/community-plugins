@@ -61,6 +61,7 @@ local function widgetOptions()
     hideArt = hideArt,
     hideArtist = cfgBool("hide_artist", false),
     artistFirst = cfgBool("artist_first", false),
+    showLine = cfgBool("show_lyric_line", false),
     maxLength = cfgInt("max_length", 220),
     artSize = math.max(8, math.min(96, cfgInt("art_size", 16))),
     scroll = scroll,
@@ -119,11 +120,37 @@ local scrollTick = 0
 local hovered = false
 local lastFull = ""
 
+local function activeLyricLine(m)
+  -- Current synced line for the chip (show_lyric_line): last line whose
+  -- timestamp <= posSec. Falls back to the first line before the first
+  -- timestamp (karaoke convention). posSec in the snapshot is ≤150 ms stale
+  -- (service polls), fine for a subtitle.
+  if m == nil or m.lyricsStatus ~= "ready" or not m.synced then return nil end
+  local lines = m.lyrics
+  if type(lines) ~= "table" or #lines == 0 then return nil end
+  local pos = tonumber(m.posSec) or 0
+  local idx = nil
+  for i, l in ipairs(lines) do
+    local t = tonumber(l.time) or -1
+    if t >= 0 and t <= pos then idx = i end
+  end
+  if idx == nil then idx = 1 end
+  local text = lines[idx] and lines[idx].text or ""
+  text = text:gsub("^%s+", ""):gsub("%s+$", "")
+  if text == "" then return nil end
+  return text
+end
+
 local function buildFull(m, o)
   local title = m.title or ""
   local artist = (not o.hideArtist) and (m.artist or "") or ""
+  local line = o.showLine and activeLyricLine(m) or nil
   local text
-  if title ~= "" and artist ~= "" then
+  if line then
+    -- The chip shows the live lyric line instead of the artist while synced
+    -- lyrics are ready; title stays for context.
+    if title ~= "" then text = title .. " · " .. line else text = line end
+  elseif title ~= "" and artist ~= "" then
     text = o.artistFirst and (artist .. " - " .. title) or (title .. " - " .. artist)
   else
     text = title ~= "" and title or artist
