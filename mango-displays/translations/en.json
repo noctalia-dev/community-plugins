@@ -1,0 +1,71 @@
+{
+  "title": "Display",
+  "rescan": "Rescan outputs",
+  "field": {
+    "resolution": "Resolution",
+    "refresh": "Refresh rate",
+    "enabled": "On",
+    "last_output": "Last output"
+  },
+  "status": {
+    "saved": "Applied and saved to mango.",
+    "save_failed": "Applied, but not saved: {error}",
+    "query_failed": "wlr-randr could not list outputs.",
+    "no_profile_path": "No monitor rules path configured.",
+    "missing_tool": "wlr-randr is not installed.",
+    "no_outputs": "No enabled outputs.",
+    "toggle_failed": "mango could not toggle the monitor.",
+    "mirror_failed": "Could not start the mirror."
+  },
+  "settings": {
+    "glyph": {
+      "label": "Glyph"
+    },
+    "auto_save": {
+      "label": "Save layout automatically",
+      "description": "Rewrite the monitor rules whenever the layout changes, including arrangement made in wdisplays."
+    },
+    "monitor_rules_path": {
+      "label": "Monitor rules file",
+      "description": "Generated monitorrule lines are written here. Source it from your mango config."
+    }
+  },
+  "state": {
+    "off": "Currently off",
+    "current": "{resolution} · {refresh} Hz · {scale}x"
+  },
+  "preview": {
+    "logical": "Apps see {width} × {height}"
+  },
+  "widget": {
+    "tooltip": "Display (right-click to arrange)"
+  },
+  "card": {
+    "monitor": "Monitor",
+    "mode": "Mode",
+    "scale": "Scale",
+    "mirror": "Mirror"
+  },
+  "mirror": {
+    "explain": "{source} is copied onto {destination}",
+    "on": "On",
+    "off": "Off",
+    "from": "From",
+    "to": "To",
+    "service": {
+      "active": "Screen mirroring is active.",
+      "data_unavailable": "The plugin data directory is unavailable.",
+      "disconnected": "A selected monitor was disconnected.",
+      "exited": "wl-mirror exited unexpectedly.",
+      "invalid_pair": "Choose two different connected monitors.",
+      "launch_failed": "Noctalia could not launch wl-mirror.",
+      "missing_tool": "wl-mirror was not found in PATH.",
+      "ready": "Choose an output to mirror.",
+      "start_failed": "wl-mirror failed to start.",
+      "starting": "Launching wl-mirror…",
+      "stop_failed": "Could not stop wl-mirror.",
+      "stopped": "Screen mirroring stopped.",
+      "stopping": "Stopping wl-mirror…"
+    }
+  }
+}
