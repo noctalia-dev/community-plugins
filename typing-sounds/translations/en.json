@@ -15,10 +15,7 @@
     "sound_pack": {
       "label": "Sound Pack",
       "description": "Select mechanical switch sound profile"
-    },
-    "mouse_enabled": {
-      "label": "Mouse Click Sounds",
-      "description": "Play click sound on mouse button press"
+
     },
     "input_devices": {
       "label": "Input Devices",

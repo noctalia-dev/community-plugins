@@ -58,13 +58,6 @@ options = [
 ]
 
 [[setting]]
-key             = "mouse_enabled"
-type            = "bool"
-label_key       = "settings.mouse_enabled.label"
-description_key = "settings.mouse_enabled.description"
-default         = false
-
-[[setting]]
 key             = "input_devices"
 type            = "string_list"
 label_key       = "settings.input_devices.label"

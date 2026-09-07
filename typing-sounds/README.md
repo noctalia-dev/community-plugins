@@ -28,7 +28,6 @@ All configuration, including toggling sounds on/off, volume level, and choosing 
 | `enabled` | `bool` | `true` | Toggle typing sounds on or off. |
 | `volume` | `int` | `100` | Sound volume percentage from 0% to 200% (min=0, max=200, step=5). |
 | `sound_pack` | `select` | `nk-cream` | Select mechanical switch sound profile (18 profiles available). |
-| `mouse_enabled` | `bool` | `false` | Play click sound on mouse button press. |
 | `input_devices` | `string_list` | `["/dev/input/by-id/*kbd*", "/dev/input/by-id/*Keyboard*", "/dev/input/by-path/*kbd*"]` | List of input paths or globs to monitor. |
 | `executable_path` | `file` | `evtest` | Path to the `evtest` binary. |
 

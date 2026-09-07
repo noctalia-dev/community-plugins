@@ -10,7 +10,6 @@ local DEBOUNCE_SEC = 0.04 -- 40ms debounce to prevent duplicate events across vi
 local enabled = noctalia.getConfig("enabled") ~= false
 local volumePct = tonumber(noctalia.getConfig("volume")) or 100
 local soundPack = noctalia.getConfig("sound_pack") or "nk-cream"
-local mouseEnabled = noctalia.getConfig("mouse_enabled") == true
 
 -- Calculate volume factor for pw-play (100% -> 1.0, 200% -> 2.0)
 local volumeFactor = string.format("%.2f", math.clamp(volumePct, 0, 200) / 100)
@@ -58,12 +57,6 @@ local function triggerKeySound(keycode)
     end
 end
 
-local function triggerMouseSound()
-    if mouseEnabled then
-        triggerKeySound("30")
-    end
-end
-
 local function has(line, needle)
     return line:find(needle, 1, true) ~= nil
 end
@@ -78,9 +71,7 @@ local function onEvtestLine(line)
         local codeStr = line:match("code%s+(%d+)")
         if codeStr then
             local code = tonumber(codeStr)
-            if code and code >= 272 and code <= 287 then
-                triggerMouseSound()
-            elseif code then
+            if code then
                 triggerKeySound(code)
             end
         end
