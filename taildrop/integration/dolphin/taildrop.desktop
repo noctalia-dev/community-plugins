@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Service
+X-KDE-ServiceTypes=KonqPopupMenu/Plugin
+MimeType=inode/directory;application/octet-stream;all/allfiles;
+Actions=taildrop
+X-KDE-Priority=TopLevel
+
+# Installed to ~/.local/share/kio/servicemenus/taildrop.desktop
+# Exec runs the helper once with all selected files (%F), so a multi-select
+# becomes a single dialog.
+[Desktop Action taildrop]
+Name=Send via Taildrop
+Icon=send
+Exec=/home/you/.local/bin/noctalia-taildrop %F

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Thunar custom action — "Send via Taildrop".
+
+  Merge this <action> block into ~/.config/Thunar/uca.xml inside the
+  top-level <actions> element, then restart Thunar.
+
+  %F passes all selected files in one invocation, so a multi-select becomes a
+  single dialog. Thunar also supports %f (one per invocation); the plugin
+  coalesces those as well.
+-->
+<actions>
+  <action>
+    <icon>send</icon>
+    <name>Send via Taildrop</name>
+    <command>/home/you/.local/bin/noctalia-taildrop %F</command>
+    <description>Send the selected file(s) to a device via Taildrop</description>
+    <patterns>*</patterns>
+    <image-files/>
+    <text-files/>
+    <audio-files/>
+    <video-files/>
+    <other-files/>
+  </action>
+</actions>
