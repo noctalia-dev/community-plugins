@@ -1,0 +1,28 @@
+id           = "nilsonlinux/speedtest-meter"
+name         = "Speedtest Meter"
+version      = "1.3.2"
+plugin_api   = 18
+author       = "Nilsonlinux"
+license      = "MIT"
+icon         = "brand-speedtest"
+description  = "Run an internet speed test with a live speedometer, then show full technical results: ping, jitter, download/upload, server host, location, country and ISP."
+tags         = ["network", "indicator", "bar", "panel"]
+dependencies = ["speedtest-cli"]
+
+[[panel]]
+id = "speedtest"
+entry = "panel.luau"
+title = "Speedtest Meter"
+width = 470
+height = 700
+
+[[widget]]
+id = "speedtest-widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "brand-speedtest"
