@@ -1,18 +1,17 @@
-id          = "nilsonlinux/speedtest-meter"
-name        = "Speedtest Meter"
-version     = "1.3.2"
-author      = "Nilsonlinux"
-license     = "MIT"
-icon        = "brand-speedtest"
+id = "nilsonlinux/speedtest-meter"
+name = "Speedtest Meter"
+version = "1.3.2"
+author = "Nilsonlinux"
+license = "MIT"
+icon = "brand-speedtest"
 description = "Run an internet speed test with a live speedometer and detailed results."
-plugin_api  = 18
-tags        = ["network", "indicator", "bar", "panel"]
-dependencies = ["speedtest-cli"]
+plugin_api = 18
+tags = ["network", "indicator", "bar", "panel"]
 
-[[panel]]
-id = "speedtest"
+[panel]
 entry = "panel.luau"
-title = "Speedtest Meter"
+label = "Speedtest"
+icon = "brand-speedtest"
 width = 470
 height = 700
 
@@ -21,8 +20,8 @@ id = "speedtest-widget"
 entry = "widget.luau"
 
   [[widget.setting]]
-  key             = "glyph"
-  type            = "glyph"
-  label_key       = "settings.glyph.label"
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
   description_key = "settings.glyph.description"
-  default         = "brand-speedtest"
+  default = "brand-speedtest"
