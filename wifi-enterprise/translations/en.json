@@ -1,0 +1,57 @@
+{
+  "title": "WiFi Enterprise",
+  "settings": {
+    "auto_connect_after_create": {
+      "label": "Connect after creating a profile",
+      "description": "When enabled, connects a new 802.1X profile immediately after it's created."
+    }
+  },
+  "panel": {
+    "stopgap_note": "Stopgap until Noctalia supports enterprise Wi-Fi natively (noctalia-dev/noctalia#3216). Retire this plugin once that ships.",
+    "no_profiles": "No 802.1X profiles yet. Add one below, or create one with nmtui and it will show up here.",
+    "add_profile": "Add Enterprise Network",
+    "edit_profile": "Edit Enterprise Network",
+    "ssid": "Network name (SSID)",
+    "ssid_placeholder": "eduroam",
+    "scan_instead": "Pick from scan",
+    "type_manually": "Type manually",
+    "eap_method": "EAP method",
+    "phase2": "Phase 2 auth",
+    "identity": "Identity",
+    "identity_placeholder": "username@realm",
+    "password": "Password",
+    "password_placeholder": "Password",
+    "password_keep_placeholder": "Leave blank to keep the current password",
+    "show_advanced": "Advanced options",
+    "hide_advanced": "Hide advanced options",
+    "anonymous_identity": "Anonymous identity (optional)",
+    "anonymous_identity_placeholder": "anonymous@realm",
+    "use_system_ca": "Use the system trust store (skip CA certificate)",
+    "no_ca_cert": "No CA certificate selected",
+    "browse": "Browse…",
+    "domain_match": "Domain suffix match (optional)",
+    "domain_match_placeholder": "radius.example.edu",
+    "create": "Create",
+    "save": "Save",
+    "connect": "Connect",
+    "edit": "Edit",
+    "delete": "Delete profile",
+    "delete_confirm": "Confirm deleting {name}",
+    "refresh": "Refresh now",
+    "plugin_settings": "Plugin settings",
+    "close": "Close"
+  },
+  "notifications": {
+    "no_ssid": "Enter a network name first.",
+    "no_identity": "Enter an identity (username) first.",
+    "create_failed": "Could not create the profile: {reason}",
+    "update_failed": "Could not save the profile: {reason}",
+    "delete_failed": "Could not delete the profile: {reason}",
+    "connect_failed": "Connect failed: {reason}",
+    "created": "Created {ssid}.",
+    "updated": "Profile updated.",
+    "pick_in_progress": "A file picker is already open.",
+    "no_picker": "No file picker found. Install kdialog or zenity, or use the system trust store instead.",
+    "no_data_dir": "No writable plugin data directory."
+  }
+}

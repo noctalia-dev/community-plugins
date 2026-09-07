@@ -1,0 +1,41 @@
+# WiFi Enterprise: create, edit and delete 802.1X (WPA2/WPA3-Enterprise, e.g.
+# eduroam) Wi-Fi profiles via nmcli. Noctalia's own Wi-Fi widget can only build
+# wpa-psk/sae connections; this plugin exists solely to cover that gap until
+# native support lands (tracked upstream in noctalia-dev/noctalia#3216).
+# Once a profile exists, Noctalia's own Wi-Fi list connects to it just fine -
+# this plugin only needs to handle creation/editing.
+
+id           = "andrewdems/wifi-enterprise"
+name         = "WiFi Enterprise"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "andrewdems"
+license      = "MIT"
+icon         = "shield-lock"
+description  = "Create, edit and delete 802.1X/enterprise Wi-Fi profiles via nmcli - a stopgap until Noctalia supports it natively."
+tags         = ["panel", "service", "shortcut", "network", "utility"]
+dependencies = ["nmcli", "kdialog", "zenity"]
+
+[[setting]]
+key = "auto_connect_after_create"
+type = "bool"
+label_key = "settings.auto_connect_after_create.label"
+description_key = "settings.auto_connect_after_create.description"
+default = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 400
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[shortcut]]
+id = "open"
+entry = "shortcut.luau"
