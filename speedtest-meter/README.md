@@ -41,6 +41,10 @@ At least one speedtest tool must be installed and on PATH:
 If neither is found, the error screen shows the right install command for
 the detected package manager (pacman/apt/dnf/zypper/apk).
 
+**IPC Command:**
+
+noctalia msg panel-toggle nilsonlinux/speedtest-meter:speedtest
+
 ## Usage
 
 1. Click the widget in the bar to open the panel
@@ -84,6 +88,13 @@ virtually every Linux system.
 - `[[panel]]` field names (`title`/`width`/`height`) in `plugin.toml` are
   still unconfirmed; `[[widget]]`/`[[widget.setting]]` are confirmed against
   a working `rss-notifier` plugin.
+
+## Panel IPC Command
+
+To toggle the panel widget:
+
+noctalia msg panel-toggle nilsonlinux/speedtest-meter:speedtest
+text
 
 ## License
 
