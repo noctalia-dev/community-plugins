@@ -20,11 +20,8 @@ widget can't.
 | Field | Value |
 | --- | --- |
 | ID | `andrewdems/wifi-enterprise` |
-| Entries | Panel: `panel`; Service: `service`; Shortcut: `open` |
-
-There is no bar widget: Noctalia's own Wi-Fi widget already shows connection
-status, so this plugin only needs to be reachable to manage profiles, not to
-duplicate that.
+| Entries | Panel: `panel`; Service: `service`; Shortcut: `open`; Bar widget: `wifi_enterprise_bar`; Launcher: `provider` |
+| Launcher Prefix | `/eap` |
 
 ## Requirements
 
@@ -54,6 +51,15 @@ In the panel:
 
 Once created, the profile shows up in Noctalia's own Wi-Fi list like any
 other, and auto-connects like any other saved network.
+
+The bar widget (`wifi_enterprise_bar`) shows a shield glyph, filled and
+tinted when a configured profile is currently active, and opens the panel on
+click. Add it under Settings > Bar, or put
+`andrewdems/wifi-enterprise:wifi_enterprise_bar` in a bar's widget list in
+`config.toml`.
+
+Typing `/eap` in the launcher offers "Open WiFi Enterprise" plus a "Connect
+to <name>" entry for every configured profile that isn't already active.
 
 ## Settings
 
