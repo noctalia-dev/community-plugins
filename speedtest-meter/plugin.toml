@@ -10,9 +10,9 @@ tags = ["network", "indicator", "bar", "panel"]
 dependencies = ["speedtest-cli"]
 
 [[panel]]
+id = "speedtest"
 entry = "panel.luau"
-label = "Speedtest"
-icon = "brand-speedtest"
+title = "Speedtest"
 width = 470
 height = 700
 
