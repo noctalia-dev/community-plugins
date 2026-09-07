@@ -1,0 +1,12 @@
+{
+  "id": "mxblue-travel",
+  "name": "MX Blue - Full Travel",
+  "key_define_type": "multi",
+  "defines": {
+    "14": "generic_0.wav",
+    "28": "generic_1.wav",
+    "57": "generic_2.wav",
+    "30": "generic_3.wav",
+    "42": "generic_4.wav"
+  }
+}

@@ -1,0 +1,84 @@
+id           = "hthienloc/typing-sounds"
+name         = "Typing Sounds"
+version      = "1.0.0"
+plugin_api   = 20
+author       = "Loc Huynh"
+license      = "MIT"
+icon         = "keyboard"
+description  = "Play mechanical keyboard sounds as you type"
+tags         = ["audio", "fun", "utility", "service"]
+dependencies = ["evtest"]
+
+[[service]]
+id    = "daemon"
+entry = "service.luau"
+
+[[setting]]
+key             = "enabled"
+type            = "bool"
+label_key       = "settings.enabled.label"
+description_key = "settings.enabled.description"
+default         = true
+
+[[setting]]
+key             = "volume"
+type            = "int"
+label_key       = "settings.volume.label"
+description_key = "settings.volume.description"
+default         = 100
+min             = 0
+max             = 200
+step            = 5
+
+[[setting]]
+key             = "sound_pack"
+type            = "select"
+label_key       = "settings.sound_pack.label"
+description_key = "settings.sound_pack.description"
+default         = "nk-cream"
+options = [
+  { value = "cherrymx-black-abs", label_key = "pack.cherrymx-black-abs" },
+  { value = "cherrymx-black-pbt", label_key = "pack.cherrymx-black-pbt" },
+  { value = "cherrymx-blue-abs", label_key = "pack.cherrymx-blue-abs" },
+  { value = "cherrymx-blue-pbt", label_key = "pack.cherrymx-blue-pbt" },
+  { value = "cherrymx-brown-abs", label_key = "pack.cherrymx-brown-abs" },
+  { value = "cherrymx-brown-pbt", label_key = "pack.cherrymx-brown-pbt" },
+  { value = "cherrymx-red-abs", label_key = "pack.cherrymx-red-abs" },
+  { value = "cherrymx-red-pbt", label_key = "pack.cherrymx-red-pbt" },
+  { value = "cream-travel", label_key = "pack.cream-travel" },
+  { value = "eg-crystal-purple", label_key = "pack.eg-crystal-purple" },
+  { value = "eg-oreo", label_key = "pack.eg-oreo" },
+  { value = "holy-pandas", label_key = "pack.holy-pandas" },
+  { value = "mxblack-travel", label_key = "pack.mxblack-travel" },
+  { value = "mxblue-travel", label_key = "pack.mxblue-travel" },
+  { value = "mxbrown-travel", label_key = "pack.mxbrown-travel" },
+  { value = "nk-cream", label_key = "pack.nk-cream" },
+  { value = "topre-purple-hybrid-pbt", label_key = "pack.topre-purple-hybrid-pbt" },
+  { value = "turquoise", label_key = "pack.turquoise" }
+]
+
+[[setting]]
+key             = "mouse_enabled"
+type            = "bool"
+label_key       = "settings.mouse_enabled.label"
+description_key = "settings.mouse_enabled.description"
+default         = false
+
+[[setting]]
+key             = "input_devices"
+type            = "string_list"
+label_key       = "settings.input_devices.label"
+description_key = "settings.input_devices.description"
+default         = [
+  "/dev/input/by-id/*kbd*",
+  "/dev/input/by-id/*Keyboard*",
+  "/dev/input/by-path/*kbd*"
+]
+
+[[setting]]
+key             = "executable_path"
+type            = "file"
+label_key       = "settings.executable_path.label"
+default         = "evtest"
+
+

@@ -1,0 +1,51 @@
+{
+  "plugin": {
+    "name": "Typing Sounds",
+    "description": "Play mechanical keyboard sounds as you type"
+  },
+  "settings": {
+    "enabled": {
+      "label": "Enable Typing Sounds",
+      "description": "Play sounds when typing on keyboard"
+    },
+    "volume": {
+      "label": "Volume",
+      "description": "Sound playback volume percentage (up to 200% amplification)"
+    },
+    "sound_pack": {
+      "label": "Sound Pack",
+      "description": "Select mechanical switch sound profile"
+    },
+    "mouse_enabled": {
+      "label": "Mouse Click Sounds",
+      "description": "Play click sound on mouse button press"
+    },
+    "input_devices": {
+      "label": "Input Devices",
+      "description": "List of /dev/input paths or globs to monitor (e.g. /dev/input/by-id/*kbd*)"
+    },
+    "executable_path": {
+      "label": "evtest Binary Path"
+    }
+  },
+  "pack": {
+    "cherrymx-black-abs": "Cherry MX Black (ABS)",
+    "cherrymx-black-pbt": "Cherry MX Black (PBT)",
+    "cherrymx-blue-abs": "Cherry MX Blue (ABS)",
+    "cherrymx-blue-pbt": "Cherry MX Blue (PBT)",
+    "cherrymx-brown-abs": "Cherry MX Brown (ABS)",
+    "cherrymx-brown-pbt": "Cherry MX Brown (PBT)",
+    "cherrymx-red-abs": "Cherry MX Red (ABS)",
+    "cherrymx-red-pbt": "Cherry MX Red (PBT)",
+    "cream-travel": "NovelKeys Cream Travel",
+    "eg-crystal-purple": "Everglide Crystal Purple",
+    "eg-oreo": "Everglide Oreo",
+    "holy-pandas": "Holy Pandas",
+    "mxblack-travel": "Cherry MX Black Travel",
+    "mxblue-travel": "Cherry MX Blue Travel",
+    "mxbrown-travel": "Cherry MX Brown Travel",
+    "nk-cream": "NovelKeys Cream",
+    "topre-purple-hybrid-pbt": "Topre Purple Hybrid (PBT)",
+    "turquoise": "Turquoise Tealios"
+  }
+}

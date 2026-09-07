@@ -1,0 +1,10 @@
+{
+  "id": "cream-travel",
+  "name": "Full Creamy Goodness",
+  "key_define_type": "multi",
+  "defines": {
+    "14": "BACKSPACE.wav",
+    "28": "ENTER.wav",
+    "57": "SPACE.wav"
+  }
+}

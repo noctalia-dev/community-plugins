@@ -1,0 +1,10 @@
+{
+  "id": "mxbrown-travel",
+  "name": "MX Brown - Full Travel",
+  "key_define_type": "multi",
+  "defines": {
+    "14": "BACKSPACE.wav",
+    "28": "ENTER.wav",
+    "57": "SPACE.wav"
+  }
+}
