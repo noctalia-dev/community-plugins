@@ -41,6 +41,15 @@
     "plugin_settings": "Plugin settings",
     "close": "Close"
   },
+  "tooltip": {
+    "connected": "WiFi Enterprise: connected to {name}",
+    "disconnected": "WiFi Enterprise: no profile connected"
+  },
+  "launcher": {
+    "open_title": "Open WiFi Enterprise",
+    "open_subtitle": "Manage 802.1X profiles",
+    "connect_title": "Connect to {name}"
+  },
   "notifications": {
     "no_ssid": "Enter a network name first.",
     "no_identity": "Enter an identity (username) first.",

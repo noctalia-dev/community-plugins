@@ -13,7 +13,7 @@ author       = "andrewdems"
 license      = "MIT"
 icon         = "shield-lock"
 description  = "Create, edit and delete 802.1X/enterprise Wi-Fi profiles via nmcli - a stopgap until Noctalia supports it natively."
-tags         = ["panel", "service", "shortcut", "network", "utility"]
+tags         = ["bar", "launcher", "panel", "service", "shortcut", "network", "utility"]
 dependencies = ["nmcli", "kdialog", "zenity"]
 
 [[setting]]
@@ -39,3 +39,15 @@ open_near_click = true
 [[shortcut]]
 id = "open"
 entry = "shortcut.luau"
+
+[[widget]]
+id = "wifi_enterprise_bar"
+entry = "bar.luau"
+
+[[launcher_provider]]
+id                       = "provider"
+entry                    = "launcher.luau"
+prefix                   = "eap"
+glyph                    = "shield-lock"
+include_in_global_search = false
+debounce_ms              = 100

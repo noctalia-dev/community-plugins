@@ -58,8 +58,8 @@ click. Add it under Settings > Bar, or put
 `andrewdems/wifi-enterprise:wifi_enterprise_bar` in a bar's widget list in
 `config.toml`.
 
-Typing `/eap` in the launcher offers "Open WiFi Enterprise" plus a "Connect
-to <name>" entry for every configured profile that isn't already active.
+Typing `/eap` in the launcher offers "Open WiFi Enterprise" plus a connect
+entry for every configured profile that isn't already active.
 
 ## Settings
 
