@@ -277,7 +277,8 @@ local function notePreviewCard(note)
   local fontSize = noctalia.getConfig("font_size") or 13
   local dateText = formatDate(note.createdAt)
   local isPinned = note.pinned == true
-  local webLink = firstWebLink(note.content)
+  -- Do not expose a hidden note's URL through the action-row tooltip or link.
+  local webLink = not blurred and firstWebLink(note.content) or nil
   local tasks = checklistTasks(note.content)
   local completedTasks = 0
   for _, task in ipairs(tasks) do
