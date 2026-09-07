@@ -7,8 +7,9 @@ icon = "brand-speedtest"
 description = "Run an internet speed test with a live speedometer and detailed results."
 plugin_api = 18
 tags = ["network", "indicator", "bar", "panel"]
+dependencies = ["speedtest-cli"]
 
-[panel]
+[[panel]]
 entry = "panel.luau"
 label = "Speedtest"
 icon = "brand-speedtest"
@@ -22,6 +23,6 @@ entry = "widget.luau"
   [[widget.setting]]
   key = "glyph"
   type = "glyph"
-  label_key = "settings.glyph.label"
-  description_key = "settings.glyph.description"
+  label_key = "settings_glyph_label"
+  description_key = "settings_glyph_description"
   default = "brand-speedtest"
