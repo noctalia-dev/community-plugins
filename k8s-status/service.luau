@@ -267,7 +267,10 @@ local function parsePodsWide(stdout)
       local node = fields[idx + 1] or ""
       local have, want = parseReady(ready)
       local restartsNum = tonumber((restarts:match("^(%d+)"))) or 0
-      local problem = isProblemPhase(status) or (want > 0 and have < want) or restartsNum > 5
+      -- Finished pods (Completed Jobs/CronJobs) report READY 0/1 because their
+      -- containers exited; the readiness ratio must not flag them (#596).
+      local finished = status == "Succeeded" or status == "Completed"
+      local problem = isProblemPhase(status) or (not finished and want > 0 and have < want) or restartsNum > 5
       table.insert(pods, {
         id = ns .. "/" .. name,
         namespace = ns,
