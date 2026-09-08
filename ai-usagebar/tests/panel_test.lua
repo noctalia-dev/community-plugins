@@ -26,7 +26,10 @@ local function loadPanel(entry, failure)
         commandExists = function() return false end,
         nowMs = function() return 1000 end,
             -- The host substitutes; the harness only needs the key back to assert on.
-        tr = function(key) return key end,
+        tr = function(key, args)
+            if key == "ui.quota_reset" and args then return key .. ": " .. args.time end
+            return key
+        end,
         string = {
             trim = function(value) return tostring(value):match("^%s*(.-)%s*$") end,
         },
@@ -193,7 +196,7 @@ assert(#drawn == 2, "each model gets a card, its windows stacked inside")
 local first = labels(drawn[1])
 assert(first[1] == "Gemini", "the card is titled with the model")
 assert(has(first, "Session") and has(first, "Weekly"), "both windows live in it")
-assert(has(labels(drawn[2]), "Gemini OSS"), "the second model follows below")
+assert(has(labels(drawn[2]), "Claude & GPT OSS"), "the second model keeps its CLI name")
 local geminiTitles = 0
 for _, card in ipairs(drawn) do
     if labels(card)[1] == "Gemini" then geminiTitles = geminiTitles + 1 end
@@ -389,6 +392,8 @@ local agyPanelEntry = {
     },
 }
 local agyPanelTree = loadPanel(agyPanelEntry)
+assert(has(labels(agyPanelTree), "Claude & GPT OSS · ui.quota_exhausted"), "notice must identify the exhausted model without relying on color")
+assert(not has(labels(agyPanelTree), "ui.quota_remaining"), "healthy models must not duplicate the detailed quota reading")
 local function hasGlyph(node, name)
     for _, g in ipairs(collect(node, "glyph")) do
         if g.props.name == name then return true end
@@ -396,7 +401,7 @@ local function hasGlyph(node, name)
     return false
 end
 assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gemini brand glyph")
-assert(hasGlyph(agyPanelTree, "robot"), "panel sidebar should display robot glyph for Gemini OSS")
+assert(hasGlyph(agyPanelTree, "robot"), "panel sidebar should display robot glyph for Claude & GPT OSS")
 assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
 assert(has(labels(agyPanelTree), "/ 24%"), "panel sidebar should display Gemini weekly percentage / 24%")
 assert(has(labels(agyPanelTree), "/ 100%"), "panel sidebar should display Claude weekly percentage / 100%")
@@ -477,3 +482,41 @@ local activeCreditsTree = loadPanel(codexWithActiveCredits)
 assert(has(labels(activeCreditsTree), "Credits"), "active credits block with positive balance should be displayed")
 
 io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
+local parserError = "schema mismatch: openai usage response: invalid type: null"
+local parserPanel = loadPanel({ id = "openai", display_name = "Codex", status = "error",
+    error = parserError, metrics = {}, sections = {} })
+assert(has(labels(parserPanel), "Codex"), "parser failures must not remove Codex from the panel")
+assert(has(labels(parserPanel), "ui.error.failed"), "parser failures should be described as read failures")
+assert(has(labels(parserPanel), parserError), "the panel must retain the diagnostic explaining missing usage")
+
+local oneModelEntry = { id = "antigravity", display_name = "Antigravity", status = "ready", sections = {}, metrics = {
+    { label = "Gemini", percent = 0, severity = "low" },
+    { label = "Gemini", percent = 100, severity = "critical",
+      reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400) },
+} }
+local singleModelTree = loadPanel(oneModelEntry)
+assert(has(labels(singleModelTree), "Gemini · ui.quota_exhausted"), "single-model notice must name the blocked model")
+assert(has(labels(singleModelTree), "ui.quota_reset: 6d 20h"), "notice must show the weekly unlock time")
+oneModelEntry.metrics[1].percent = 100
+oneModelEntry.metrics[1].severity = "critical"
+oneModelEntry.metrics[1].reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
+oneModelEntry.metrics[2].percent = 90
+assert(has(labels(loadPanel(oneModelEntry)), "ui.quota_reset: 2h 00m"), "weekly warning must not override actual session exhaustion")
+local installTree = loadPanel(nil, { code = "not_installed", detail = "" })
+assert(has(labels(installTree), "https://github.com/akitaonrails/ai-usagebar"),
+       "installation instructions must be visible without a browser-opening dependency")
+
+local resetCreditTree = loadPanel({ id = "openai", display_name = "Codex", status = "ready", metrics = {}, sections = {
+    { type = "block", label = "Reset credits", body = {
+        "Full reset (Weekly + 5 hr) · expires Oct 4 19:45 (26d 8h)",
+        "Future credit format without a separator",
+    } },
+} })
+assert(has(labels(resetCreditTree), "Full reset (Weekly + 5 hr)"), "reset type must have its own line")
+assert(has(labels(resetCreditTree), "expires Oct 4 19:45 (26d 8h)"), "credit expiry must remain visible on a separate line")
+assert(has(labels(resetCreditTree), "Future credit format without a separator"), "unknown credit formats must remain readable")
+for _, label in ipairs(collect(resetCreditTree, "label")) do
+    if label.props.text == "expires Oct 4 19:45 (26d 8h)" then
+        assert(label.props.maxLines >= 2, "expiry must wrap instead of truncating at one line")
+    end
+end

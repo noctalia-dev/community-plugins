@@ -72,6 +72,12 @@ local function usageEntry(id, percent)
     }
 end
 
+local parserFailure = { id = "openai", status = "error", metrics = {}, sections = {},
+    error = "schema mismatch: openai usage response: invalid type: null, expected a sequence" }
+assert(#shared.entries({ entries = { parserFailure } }) == 1,
+       "a parser failure must remain visible because it does not prove the account is unavailable")
+assert(shared.unavailable(parserFailure), "failed readings must not be drawn as live metrics")
+
 local unavailable = usageEntry("anthropic", 0)
 unavailable.stale = true
 unavailable.sections = {
@@ -139,8 +145,8 @@ local agyModels = shared.modelHeadlines(antigravityEntry)
 assert(#agyModels == 2, "antigravity should extract both model headlines")
 assert(agyModels[1].model == "Gemini" and agyModels[1].glyph == "brand-google" and agyModels[1].metric.percent == 0,
        "gemini should resolve to its active session")
-assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].glyph == "robot" and agyModels[2].displayName == "Gemini OSS" and agyModels[2].metric.percent == 0 and agyModels[2].blocked == true,
-       "claude/oss should keep its active session, use robot glyph, and flag blocked == true")
+assert(agyModels[2].model == "Claude & GPT OSS" and agyModels[2].glyph == "robot" and agyModels[2].displayName == "Claude & GPT OSS" and agyModels[2].metric.percent == 0 and agyModels[2].blockingMetric.percent == 100,
+       "claude/oss should preserve its identity, session and exhausted quota")
 
 local normalAgy = {
     id = "antigravity",
@@ -157,5 +163,18 @@ local normalAgy = {
 local normalHeadline = shared.headline(normalAgy)
 assert(normalHeadline ~= nil and normalHeadline.percent == 11,
        "antigravity headline should pick highest active session (11%) when no metric is critical")
+
+local session = { label = "Gemini", percent = 100, severity = "critical", reset_at = "2030-01-01T02:00:00Z" }
+local weekly = { label = "Gemini", percent = 100, severity = "critical", reset_at = "2030-01-06T02:00:00Z" }
+assert(shared.headline({ id = "openai", metrics = { session, weekly } }) == weekly,
+       "two exhausted windows must use the latest reset")
+weekly.percent = 90
+local oneModel = { id = "antigravity", metrics = { session, weekly } }
+assert(shared.headline(oneModel) == session, "critical but usable weekly quota must not block the session")
+local oneHeadline = shared.modelHeadlines(oneModel)
+assert(#oneHeadline == 1 and oneHeadline[1].blockingMetric == session,
+       "a single model must retain its actual exhausted window")
+session.percent, weekly.percent = 0, 100
+assert(shared.headline(oneModel) == weekly, "one model must show its exhausted weekly quota")
 
 io.write("ok: shared timestamps, availability, and provider order\n")

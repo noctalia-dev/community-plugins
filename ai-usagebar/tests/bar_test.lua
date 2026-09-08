@@ -313,7 +313,7 @@ local agyBar = loadBar({
     },
 })
 assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
-assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Gemini OSS")
+assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Claude & GPT OSS")
 assert(glyphColor(agyBar.rendered(), "robot") == "on_surface", "model glyph should remain neutral on_surface")
 assert(containsText(agyBar.rendered(), "11%"), "available model should keep its active session percentage")
 assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its exhausted long-window percentage")
@@ -323,8 +323,8 @@ local agyTooltip = agyBar.tooltip()
 assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
 assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
        "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Gemini OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
-       "antigravity tooltip second row should be Gemini OSS dual metrics")
+assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
+       "antigravity tooltip second row should be Claude & GPT OSS dual metrics")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -345,7 +345,7 @@ local normalAgyBar = loadBar({
     },
 })
 assert(containsGlyph(normalAgyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
-assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show robot glyph for Gemini OSS")
+assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show robot glyph for Claude & GPT OSS")
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
@@ -374,3 +374,49 @@ assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m
 assert(countdownTooltip[2].value == "69% · 23h 05m", "tooltip should show fixed hours and minutes")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
+local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
+    { id = "openai", display_name = "Codex", status = "error", metrics = {}, sections = {},
+      error = "schema mismatch: openai usage response: invalid type: null" },
+} })
+assert(containsGlyph(parserFailure.rendered(), "brand-openai"), "Codex must remain identifiable when its parser fails")
+assert(containsText(parserFailure.rendered(), "—"), "a parser failure must show missing data, not zero usage")
+
+local resetSoon = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
+local resetLater = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400)
+local quotaEntry = entry("openai", "Codex", 100)
+quotaEntry.metrics = {
+    { label = "Gemini", percent = 100, severity = "critical", reset_at = resetSoon },
+    { label = "Gemini", percent = 100, severity = "critical", reset_at = resetLater },
+}
+local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
+assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
+assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
+quotaEntry.id = "antigravity"
+quotaEntry.metrics[1].percent = 0
+local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
+assert(containsText(singleModel.rendered(), "100%"), "a single Antigravity model must show weekly exhaustion")
+quotaEntry.metrics[#quotaEntry.metrics + 1] = { label = "Claude & GPT OSS", percent = 95, severity = "critical" }
+local hiddenGlyphs = loadBar({ vendor = "antigravity", show_glyph = false }, { entries = { quotaEntry } })
+assert(not containsGlyph(hiddenGlyphs.rendered(), "brand-google") and not containsGlyph(hiddenGlyphs.rendered(), "robot"),
+       "show_glyph=false must hide every model glyph")
+local function findNode(node, predicate)
+    if predicate(node) then return node end
+    for _, child in ipairs(node.children or {}) do
+        local found = findNode(child, predicate)
+        if found then return found end
+    end
+end
+local uncolored = loadBar({ vendor = "antigravity", color_by_usage = false }, { entries = { quotaEntry } })
+assert(findNode(uncolored.rendered(), function(n) return n.props.text == "100%" end).props.color == "on_surface",
+       "color_by_usage=false must suppress exhausted model tint")
+local after = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none" }, { entries = { quotaEntry } })
+local modelRow = findNode(after.rendered(), function(n)
+    return n.kind == "row" and n.children[1] and n.children[1].props.text == "100%"
+end)
+assert(modelRow and modelRow.children[#modelRow.children].props.name == "brand-google",
+       "glyph_position=after must place the model glyph after its reading")
+local iconOnly = loadBar({ vendor = "antigravity", show_value = false, extras = "none" }, { entries = { quotaEntry } })
+assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(iconOnly.rendered(), "100%"),
+       "show_value=false must preserve enabled model glyphs")
+local quietFailure = loadBar({ vendor = "openai", show_glyph = false }, parserFailure.values.report)
+assert(containsText(quietFailure.rendered(), "—"), "hidden glyph must not create a hole before the parser error label")

@@ -5,21 +5,21 @@
       "label": "Account label"
     },
     "color_by_usage": {
-      "description": "Tints the reading as the quota gets tight. Off keeps the capsule in the bar's own colour.",
+      "description": "Color readings by quota severity. Error indicators remain visible when this is off.",
       "label": "Color by usage"
     },
     "extras": {
-      "description": "The time left in the window, how far the spend is from the clock, both, or neither.",
+      "description": "Show the reset countdown, consumption pace, both, or neither.",
       "label": "Extra reading",
       "option": {
         "both": "Both",
         "countdown": "Time until reset",
         "none": "Neither",
-        "pace": "Pace against the clock"
+        "pace": "Consumption pace"
       }
     },
     "glyph_position": {
-      "description": "Which side of the reading the icon sits on.",
+      "description": "Place the icon before or after the reading.",
       "label": "Icon position",
       "option": {
         "after": "After",
@@ -31,19 +31,19 @@
       "label": "Providers in the capsule"
     },
     "refresh_minutes": {
-      "description": "How often the CLI is asked for fresh usage. Countdowns tick locally between calls.",
+      "description": "How often to request fresh usage from the CLI. Countdowns update locally between calls.",
       "label": "Refresh interval (minutes)"
     },
     "show_glyph": {
-      "description": "The provider's icon. Off leaves the reading on its own.",
+      "description": "Show provider and model icons beside their readings.",
       "label": "Show icon"
     },
     "show_name": {
-      "description": "Adds the product name next to the percentage, so two capsules do not look alike.",
+      "description": "Show the provider name beside the percentage.",
       "label": "Show provider name"
     },
     "show_value": {
-      "description": "The percentage as text. Off leaves the gauge to say it.",
+      "description": "Show usage as a percentage. The gauge and icons have separate settings.",
       "label": "Show value"
     },
     "style": {
@@ -57,13 +57,13 @@
       }
     },
     "vendor": {
-      "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
+      "description": "Choose a provider or select Automatic to follow usage priority.",
       "label": "Provider",
       "option": {
         "anthropic": "Claude",
         "anthropic_api": "Anthropic API",
         "antigravity": "Antigravity",
-        "auto": "Automatic (primary)",
+        "auto": "Automatic (usage priority)",
         "commandcode": "Command Code",
         "cursor": "Cursor",
         "deepseek": "DeepSeek",
@@ -83,7 +83,7 @@
       }
     },
     "visualization": {
-      "description": "A gauge beside the reading, or nothing.",
+      "description": "Show a quota gauge beside the reading.",
       "label": "Visualization",
       "option": {
         "gauge": "Quota bar",
@@ -102,9 +102,9 @@
       "not_installed": "ai-usagebar is not installed",
       "not_installed_hint": "The CLI is not on PATH. Install it, then try again.",
       "spawn_failed": "Could not start ai-usagebar",
-      "spawn_failed_hint": "The process never started. Try again in a moment.",
-      "timed_out": "ai-usagebar did not answer",
-      "timed_out_hint": "The read took too long. A provider may be answering slowly."
+      "spawn_failed_hint": "The process could not start. Try again in a moment.",
+      "timed_out": "ai-usagebar timed out",
+      "timed_out_hint": "The usage request took too long. A provider may be slow to respond."
     },
     "hidden_label": "Not shown",
     "hidden_value": "{count} more, click to open the panel",
@@ -116,6 +116,8 @@
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
+    "quota_exhausted": "Quota exhausted",
+    "quota_reset": "Renews in {time}",
     "refresh": "Refresh now",
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",

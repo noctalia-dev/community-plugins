@@ -26,10 +26,6 @@ local failure = NO_FAILURE
 -- nothing about the new one.
 local lastPlan = {}
 
--- Read once: the panel would otherwise stat PATH on every second tick it spends
--- in a failure.
-local HAS_OPENER = noctalia.commandExists("xdg-open")
-
 -- A vendor the user never set up is not listed. The CLI prefixes every such
 -- message with `credentials error:`, but that bucket also holds providers that
 -- are set up and merely unreachable, so the row is dropped only when the CLI
@@ -105,7 +101,7 @@ local function metricRows(section, title, muted)
     }
     local word = severityWord(section)
     if word ~= nil then
-        header[#header + 1] = ui.label({ text = word, fontSize = 10, fontWeight = "semibold", color = tint })
+        header[#header + 1] = ui.label({ text = word, fontSize = 11, fontWeight = "semibold", color = tint })
     end
     if showValue then
         header[#header + 1] = ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
@@ -156,13 +152,13 @@ local function metricRows(section, title, muted)
     if elapsed ~= nil then
         context[#context + 1] = ui.label({
             text = noctalia.tr("ui.elapsed", { percent = elapsed }),
-            fontSize = 10, color = "on_surface_variant", maxLines = 1,
+            fontSize = 11, color = "on_surface_variant", maxLines = 1,
         })
     end
     if paceText ~= "" then
         context[#context + 1] = ui.spacer({ flexGrow = 1 })
         context[#context + 1] = ui.label({
-            text = paceText, fontSize = 10, fontWeight = "semibold", color = paceColor, maxLines = 1,
+            text = paceText, fontSize = 11, fontWeight = "semibold", color = paceColor, maxLines = 1,
         })
     end
     if #timing > 0 then
@@ -213,6 +209,7 @@ local function stackCard(name, readings)
 end
 
 local function blockCard(section)
+    local resetCredits = section.label == "Reset credits"
     local body = {
         ui.label({ text = tostring(section.label or ""), fontSize = 12, fontWeight = "semibold",
                    color = "on_surface", maxLines = 1 }),
@@ -222,12 +219,20 @@ local function blockCard(section)
         local text = noctalia.string.trim(tostring(line))
         -- A bare "balance:" would read as a row that failed to render.
         if text:find(":$") then text = text .. " —" end
-        body[#body + 1] = ui.label({
-            text = text ~= "" and text or "—",
-            fontSize = 11,
-            color = "on_surface_variant",
-            maxLines = 1,
-        })
+        local kind, expiry = text:match("^(.-)%s+·%s+(.+)$")
+        if resetCredits and kind and expiry then
+            body[#body + 1] = ui.column({ gap = 4 }, {
+                ui.label({ text = kind, fontSize = 12, color = "on_surface", maxLines = 2 }),
+                ui.label({ text = expiry, fontSize = 11, color = "on_surface_variant", maxLines = 2 }),
+            })
+        else
+            body[#body + 1] = ui.label({
+                text = text ~= "" and text or "—",
+                fontSize = 11,
+                color = "on_surface_variant",
+                maxLines = resetCredits and 3 or 1,
+            })
+        end
     end
     return ui.column({ gap = 4, padding = 12, radius = 14, fill = "surface_variant/0.40",
                        border = "outline/0.08", borderWidth = 1 }, body)
@@ -409,7 +414,7 @@ local function providerRow(entry, selected)
         right = ui.row({ width = 48, justify = "end" }, {
             ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
         })
-    elseif #submodels > 1 then
+    elseif #submodels > 0 then
         local colChildren = {}
         local modelPairGroups = {}
         for _, item in ipairs(submodels) do
@@ -420,12 +425,11 @@ local function providerRow(entry, selected)
             local p2 = m2 ~= nil and tonumber(m2.percent) or nil
             local t1 = isCritical(m1) and "error" or severityRole(m1, "on_surface")
             local t2 = m2 ~= nil and (isCritical(m2) and "error" or severityRole(m2, "on_surface_variant")) or nil
-            local mTint = item.blocked and "error" or t1
 
             local pctElements = {
                 ui.label({
                     text = string.format("%d%%", p1),
-                    fontSize = 10,
+                    fontSize = 11,
                     fontWeight = "bold",
                     color = t1,
                     textAlign = "end",
@@ -435,7 +439,7 @@ local function providerRow(entry, selected)
             if p2 ~= nil then
                 pctElements[#pctElements + 1] = ui.label({
                     text = string.format("/ %d%%", p2),
-                    fontSize = 9,
+                    fontSize = 11,
                     fontWeight = "medium",
                     color = t2,
                     textAlign = "end",
@@ -449,7 +453,7 @@ local function providerRow(entry, selected)
                     size = 11,
                     color = "on_surface_variant",
                 }),
-                ui.row({ gap = 2, align = "baseline", justify = "end" }, pctElements),
+                ui.row({ gap = 2, align = "center", justify = "end" }, pctElements),
             })
 
             local modelBars = {}
@@ -502,7 +506,7 @@ local function providerRow(entry, selected)
                 }),
                 ui.label({
                     text = string.format("%d%%", p2),
-                    fontSize = 10,
+                    fontSize = 11,
                     fontWeight = "medium",
                     color = t2,
                     textAlign = "end",
@@ -556,10 +560,11 @@ local function providerRow(entry, selected)
         lines[#lines + 1] = gaugeNode
     end
     lines[#lines + 1] = ui.label({
-        text = broken and noctalia.tr("ui.unavailable") or tostring(entry.plan or entry.id or ""),
-        fontSize = 10, color = "on_surface_variant", maxLines = 1,
+        text = shared.readFailure(entry) and noctalia.tr("ui.error.failed")
+            or broken and noctalia.tr("ui.unavailable") or tostring(entry.plan or entry.id or ""),
+        fontSize = 11, color = "on_surface_variant", maxLines = 1,
     })
-    if #submodels > 1 and not broken then
+    if #submodels > 0 and not broken then
         lines[#lines + 1] = ui.spacer({ height = 3 })
     end
 
@@ -599,7 +604,7 @@ local function errorBlock()
 
     if failure.detail ~= "" then
         children[#children + 1] = ui.label({
-            text = failure.detail, fontSize = 10, color = "on_surface_variant", maxLines = 3,
+            text = failure.detail, fontSize = 11, color = "on_surface_variant", maxLines = 3,
         })
     end
 
@@ -612,17 +617,10 @@ local function errorBlock()
         }),
     }
 
-    -- Retrying is pointless until the CLI exists, so that failure gets the
-    -- install page too, offered only where something can open it. The address
-    -- lives in the tooltip: a raw URL is not a button caption.
-    if failure.code == "not_installed" and HAS_OPENER then
-        actions[#actions + 1] = ui.button({
-            text = noctalia.tr("ui.install"), glyph = "external-link",
-            variant = "ghost", controlSize = "sm",
-            tooltip = "github.com/akitaonrails/ai-usagebar",
-            onClick = function()
-                noctalia.runAsync("xdg-open https://github.com/akitaonrails/ai-usagebar")
-            end,
+    if failure.code == "not_installed" then
+        children[#children + 1] = ui.label({
+            text = "https://github.com/akitaonrails/ai-usagebar",
+            fontSize = 11, color = "on_surface", maxLines = 2,
         })
     end
     children[#children + 1] = ui.row({ gap = 6, align = "center" }, actions)
@@ -686,7 +684,7 @@ local function detailPane(entry)
             gap = 4, align = "center", padding = 4, radius = 6,
             fill = "surface_variant/0.45", border = "outline/0.08", borderWidth = 1,
         }, {
-            ui.label({ text = subtitle, fontSize = 10, fontWeight = "medium",
+            ui.label({ text = subtitle, fontSize = 11, fontWeight = "medium",
                        color = "on_surface_variant", maxLines = 1 }),
         }) or nil
 
@@ -708,17 +706,17 @@ local function detailPane(entry)
     if entry ~= nil and not unavailable(entry) then
         local chips = {}
         if entry.stale == true then
-            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 10, color = "secondary" })
+            chips[#chips + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 11, color = "secondary" })
         end
         local fetched = parseIso(entry.fetched_at)
         if fetched ~= nil then
             if #chips > 0 then
-                chips[#chips + 1] = ui.label({ text = "·", fontSize = 10, color = "on_surface_variant" })
+                chips[#chips + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
             end
             chips[#chips + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
             chips[#chips + 1] = ui.label({
                 text = updatedText(entry) .. " · " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
-                fontSize = 10, color = "on_surface_variant",
+                fontSize = 11, color = "on_surface_variant",
             })
         end
         if #chips > 0 then
@@ -740,6 +738,38 @@ local function detailPane(entry)
                 onClick = requestRefresh,
             }),
         })
+    end
+
+    -- Only exhausted quotas need a notice above the detailed windows.
+    if entry ~= nil and not unavailable(entry) then
+        local models = modelHeadlines(entry)
+        if #models == 0 then
+            models = { { displayName = title, metric = headline(entry) } }
+        end
+        local summary = {}
+        for _, model in ipairs(models) do
+            local metric = model.blockingMetric or model.metric
+            if (tonumber(metric and metric.percent) or 0) >= 100 then
+                local left = shared.fixedCountdown(metric)
+                local details = {
+                    ui.label({ text = model.displayName .. " · " .. noctalia.tr("ui.quota_exhausted"),
+                               fontSize = 11, color = "error", maxLines = 1 }),
+                }
+                if left ~= "" then
+                    details[#details + 1] = ui.label({
+                        text = noctalia.tr("ui.quota_reset", { time = left }),
+                        fontSize = 11, color = "on_surface_variant", maxLines = 1,
+                    })
+                end
+                summary[#summary + 1] = ui.row({ gap = 8, padding = 8, radius = 10,
+                    fill = "surface_variant/0.40", border = "error/0.40",
+                    borderWidth = 1, align = "center" }, {
+                    ui.glyph({ name = "clock-exclamation", size = 16, color = "error" }),
+                    ui.column({ gap = 2, flexGrow = 1 }, details),
+                })
+            end
+        end
+        if #summary > 0 then children[#children + 1] = ui.column({ gap = 6 }, summary) end
     end
 
     local cards = {}

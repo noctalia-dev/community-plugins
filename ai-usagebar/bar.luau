@@ -55,7 +55,7 @@ local function shown()
             -- A pinned provider that stopped reporting leaves the capsule empty
             -- rather than holding a number nothing is refreshing.
             if entry.id == wanted then
-                if unavailable(entry) then return {}, 0 end
+                if unavailable(entry) and not shared.readFailure(entry) then return {}, 0 end
                 return { entry }, 0
             end
         end
@@ -67,7 +67,7 @@ local function shown()
         -- A provider whose service is down drops out on the first report that
         -- says so, rather than sitting there with a frozen reading. Not counted
         -- as hidden either: hidden means the panel has more to show.
-        if entry.status ~= "error" and not unavailable(entry) then
+        if (entry.status ~= "error" and not unavailable(entry)) or shared.readFailure(entry) then
             ready[#ready + 1] = entry
         end
     end
@@ -142,6 +142,14 @@ local function bars(percent, elapsed, tint, width)
 end
 
 local function chip(entry, flagged)
+    if shared.readFailure(entry) then
+        local nodes = { ui.label({ text = "—", fontSize = 11, color = "on_surface_variant" }) }
+        if showGlyph then
+            table.insert(nodes, glyphAfter and #nodes + 1 or 1,
+                ui.glyph({ name = providerGlyph(entry.id), size = 14, color = "error" }))
+        end
+        return ui.row({ gap = 5, align = "center" }, nodes)
+    end
     local metric = headline(entry)
     local tint = severityRole(metric, "on_surface")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
@@ -153,34 +161,36 @@ local function chip(entry, flagged)
     -- would shove the neighbouring widget once per cycle. The tooltip still
     -- spells the failure out.
     local submodels = modelHeadlines(entry)
-    local hasSubmodels = #submodels > 1
+    local hasSubmodels = #submodels > 0
 
     local glyph = (showGlyph and not hasSubmodels)
         and ui.glyph({ name = providerGlyph(entry.id), size = 14,
                        color = flagged and "error" or "on_surface" }) or nil
     local pct = nil
-    if showValue then
+    if showValue or hasSubmodels then
         if hasSubmodels then
             local parts = {}
             for _, item in ipairs(submodels) do
                 local shownMetric = item.blockingMetric or item.metric
-                local mTint = isCritical(shownMetric) and "error"
+                local mTint = colorByUsage and isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "on_surface")
                 local mPct = tonumber(shownMetric.percent) or 0
-                local rowChildren = {
-                    ui.glyph({
+                local rowChildren = {}
+                local modelGlyph = showGlyph and ui.glyph({
                         name = item.glyph or providerGlyph(entry.id),
                         size = 13,
                         color = "on_surface",
-                    }),
-                    ui.label({
+                    }) or nil
+                if modelGlyph and not glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
+                if showValue then
+                    rowChildren[#rowChildren + 1] = ui.label({
                         text = string.format("%d%%", mPct),
                         fontSize = 11,
                         fontWeight = "semibold",
                         color = mTint,
                         maxLines = 1,
-                    }),
-                }
+                    })
+                end
                 if extras == "countdown" or extras == "both" then
                     local left = fixedCountdown(shownMetric)
                     if left ~= "" then
@@ -192,14 +202,17 @@ local function chip(entry, flagged)
                         })
                     end
                 end
-                if #parts > 0 then
+                if modelGlyph and glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
+                if #parts > 0 and #rowChildren > 0 then
                     parts[#parts + 1] = ui.label({
                         text = "·",
                         fontSize = 11,
                         color = "on_surface_variant",
                     })
                 end
-                parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, rowChildren)
+                if #rowChildren > 0 then
+                    parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, rowChildren)
+                end
             end
             pct = ui.row({ gap = 7, align = "center" }, parts)
         else
@@ -264,7 +277,7 @@ local function formatDualMetric(m1, m2)
     -- If one window is exhausted, its reset is the real unlock time. Showing
     -- the shorter session reset would promise availability while the weekly
     -- limit still blocks the model.
-    local blocking = isCritical(m1) and m1 or (isCritical(m2) and m2 or nil)
+    local blocking = shared.blockingMetric(m1 and { m1, m2 } or { m2 })
     local left = blocking ~= nil and fixedCountdown(blocking) or ""
     if left == "" and m1 ~= nil then left = fixedCountdown(m1) end
     if left == "" and m2 ~= nil then left = fixedCountdown(m2) end
@@ -308,7 +321,7 @@ local function tooltip(picked, hidden)
             rows[#rows + 1] = { key = title, value = tostring(entry.error or noctalia.tr("ui.unavailable")) }
         else
             local submodels = modelHeadlines(entry)
-            if #submodels > 1 then
+            if #submodels > 0 then
                 for _, item in ipairs(submodels) do
                     local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
                     local val = formatDualMetric(mMetrics[1], mMetrics[2])

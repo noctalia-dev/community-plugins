@@ -116,6 +116,12 @@ function M.unavailable(entry)
     return false
 end
 
+-- A parser failure says nothing about the account's availability.
+function M.readFailure(entry)
+    return type(entry) == "table" and entry.status == "error"
+        and tostring(entry.error or ""):find("^schema mismatch:") ~= nil
+end
+
 -- Anything else in the `error` slot means no failure.
 M.NO_FAILURE = { code = "", detail = "" }
 
@@ -227,10 +233,26 @@ local function isCritical(metric)
 end
 M.isCritical = isCritical
 
+-- Severity is a warning, not proof of exhaustion. Only a full quota blocks use.
+function M.blockingMetric(metrics)
+    local blocking = nil
+    for _, metric in ipairs(metrics or {}) do
+        if type(metric) == "table" and (tonumber(metric.percent) or 0) >= 100 then
+            local reset = M.parseIso(metric.reset_at) or -1
+            local previous = M.parseIso(blocking and blocking.reset_at) or -1
+            if blocking == nil or reset > previous then blocking = metric end
+        end
+    end
+    return blocking
+end
+
 function M.headline(entry)
     if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
     local metrics = entry.metrics
     if #metrics == 0 then return nil end
+
+    local blocking = M.blockingMetric(metrics)
+    if blocking ~= nil then return blocking end
 
     -- 1. For Antigravity: always follow active session usage across models
     if M.baseProvider(entry.id) == "antigravity" then
@@ -253,35 +275,11 @@ function M.headline(entry)
         if best ~= nil then return best end
     end
 
-    -- 2. Single-model providers: check for critical bottleneck (100% exhausted)
-    local criticalMetric = nil
-    local maxCritPercent = -1
-    for _, metric in ipairs(metrics) do
-        if isCritical(metric) then
-            local pct = tonumber(metric.percent) or 0
-            if pct > maxCritPercent then
-                criticalMetric = metric
-                maxCritPercent = pct
-            end
-        end
-    end
-    if criticalMetric ~= nil then
-        return criticalMetric
-    end
-
-    -- 3. Standard single-model providers: metrics[1] is the primary session window
+    -- Otherwise keep the primary window selected by the CLI.
     for _, metric in ipairs(metrics) do
         if type(metric) == "table" then return metric end
     end
     return nil
-end
-
-local function modelShortName(label)
-    local lower = tostring(label or ""):lower()
-    if lower:find("gemini", 1, true) then return "G" end
-    if lower:find("claude", 1, true) then return "C" end
-    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "O" end
-    return (tostring(label or ""):match("%a") or "?"):upper()
 end
 
 function M.modelGlyph(label)
@@ -294,7 +292,7 @@ end
 
 function M.modelDisplayName(label)
     local lower = tostring(label or ""):lower()
-    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return "Gemini OSS" end
+    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return tostring(label or "") end
     if lower:find("gemini", 1, true) then return "Gemini" end
     if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
     return tostring(label or "")
@@ -317,33 +315,18 @@ function M.modelHeadlines(entry)
         end
     end
 
-    if #order <= 1 then return {} end
-
     local result = {}
     for _, model in ipairs(order) do
         local modelMetrics = byModel[model]
         local sessionMetric = modelMetrics[1]
-        local blocked = false
-        local blockingMetric = nil
-        for _, metric in ipairs(modelMetrics) do
-            if isCritical(metric) then
-                blocked = true
-                local candidateReset = M.parseIso(metric.reset_at) or -1
-                local blockingReset = M.parseIso(blockingMetric and blockingMetric.reset_at) or -1
-                if blockingMetric == nil or candidateReset >= blockingReset then
-                    blockingMetric = metric
-                end
-            end
-        end
+        local blockingMetric = M.blockingMetric(modelMetrics)
         if sessionMetric ~= nil then
             result[#result + 1] = {
                 model = model,
                 displayName = M.modelDisplayName(model),
-                short = modelShortName(model),
                 glyph = M.modelGlyph(model),
                 metric = sessionMetric,
                 metrics = modelMetrics,
-                blocked = blocked,
                 blockingMetric = blockingMetric,
             }
         end
@@ -355,7 +338,8 @@ function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}
     for _, entry in ipairs(report.entries) do
-        if type(entry) == "table" and not M.terminalAuth(entry) and not M.unavailable(entry) then
+        if type(entry) == "table" and not M.terminalAuth(entry)
+            and (not M.unavailable(entry) or M.readFailure(entry)) then
             visible[#visible + 1] = entry
             positions[entry] = #visible
         end
