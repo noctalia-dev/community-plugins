@@ -56,6 +56,12 @@ Use `noctalia` instead of `noctalia-kwe` if that is the binary name on your syst
 
 Applying a theme sets the active wallpaper first, then runs `noctalia msg color-scheme-set <source> <palette>` to switch the palette, and finally `noctalia msg templates-apply` to re-render the configured templates. A theme can hold several wallpapers; the active one is selected in the walls panel.
 
+## Screenshots
+
+| Carousel | Editor | Wallpapers |
+| --- | --- | --- |
+| ![Theme carousel](screenshots/carousel.png) | ![Theme editor](screenshots/editor.png) | ![Wallpapers panel](screenshots/wallpapers.png) |
+
 ## Notes
 
 - Community palettes are listed from the Noctalia palette catalog over HTTP, with an offline fallback to the plugin's cached copy and the shell's community-palette cache.
