@@ -1,0 +1,67 @@
+{
+  "title": "Displays",
+  "action": {
+    "arrange": "Arrange displays",
+    "refresh": "Re-read displays",
+    "advanced": "Advanced settings"
+  },
+  "field": {
+    "resolution": "Resolution",
+    "refresh": "Refresh rate (Hz)",
+    "scale": "Scale",
+    "workspaces": "Minimum workspaces",
+    "transform": "Rotation",
+    "vrr": "Adaptive sync",
+    "hdr": "HDR",
+    "sdr_white": "SDR white (cd/m2)",
+    "tearing": "Allow tearing",
+    "direct_scanout": "Direct scanout",
+    "workspace_axis": "Workspace axis",
+    "workspaces_mode": "Workspace inventory",
+    "workspaces_count": "Workspace count",
+    "dynamic": "Dynamic",
+    "static": "Static",
+    "scrolling_width": "Default column width"
+  },
+  "arrange": {
+    "title": "Arrange displays",
+    "hint": "drop a screen on another to swap, or on a slot to insert"
+  },
+  "tray": {
+    "hint": "Drop here to disable",
+    "restore": "Drag one back onto the canvas to turn it on"
+  },
+  "status": {
+    "applied": "Applied.",
+    "query_failed": "umbriel outputs failed.",
+    "write_failed": "Could not write the include file: {error}",
+    "missing_umbriel": "umbriel is not on PATH.",
+    "no_outputs": "No displays reported.",
+    "no_mode": "{name} reports no usable mode.",
+    "last_output": "The last enabled display cannot be turned off.",
+    "unsupported": "This Umbriel does not support '{key}'. Nothing was changed."
+  },
+  "widget": {
+    "tooltip": "Displays"
+  },
+  "settings": {
+    "outputs_path": {
+      "label": "Include file",
+      "description": "The file this plugin writes [output.*] sections into. It must be listed in the Umbriel config's [include] files."
+    },
+    "glyph": {
+      "label": "Bar glyph"
+    }
+  },
+  "rescue": {
+    "title": "Displays",
+    "body": "{name} was re-enabled: it is the only display left.",
+    "blind": "No display was reported. Every output was re-enabled."
+  },
+  "advanced": {
+    "title": "Advanced",
+    "picture": "Picture",
+    "workspaces": "Workspaces",
+    "flips": "Frame delivery"
+  }
+}
