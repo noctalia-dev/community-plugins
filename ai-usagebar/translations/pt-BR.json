@@ -59,6 +59,7 @@
         "anthropic": "Claude",
         "anthropic_api": "API da Anthropic",
         "auto": "Automático (primário)",
+        "copilot": "Github Copilot",
         "cursor": "Cursor",
         "deepseek": "DeepSeek",
         "grok": "Grok",
