@@ -1,6 +1,6 @@
 # Niri Displays
 
-Inspect connected outputs and make temporary display changes directly from Noctalia. The plugin uses Niri's IPC to expose resolution, refresh-rate, scale, rotation (transform), position, and focused-output state.
+Inspect connected outputs and make temporary display changes directly from Noctalia. The plugin uses Niri's IPC to expose power (output on/off), resolution, refresh-rate, scale, rotation (transform), position, and focused-output state.
 
 ## Plugin
 
@@ -20,6 +20,8 @@ Inspect connected outputs and make temporary display changes directly from Nocta
 Enable `raycursive/niri-displays` in **Settings → Plugins**, then add the `bar` entry from **Settings → Bar → Widgets**. The `displays` service starts automatically, watches Noctalia's output-change hook, and uses slow polling as a recovery fallback.
 
 Click the bar widget to open the `panel` entry. Each connected output shows its connector, make/model, focused state, current mode, refresh rate, scale, rotation, and position. Select a mode, refresh rate, or rotation reported by Niri, adjust the position, or drag the scale slider, to apply a temporary change.
+
+The **Power** toggle at the top of each card runs `niri msg output <port> on` or `off`. A disabled output stays listed with its controls greyed out, so it can be switched back on at any time. The last enabled output is protected: its toggle is locked and labelled "Only display" so a session can never be left without a screen.
 
 Open the panel without the bar widget with:
 
