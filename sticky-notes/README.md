@@ -1,7 +1,7 @@
 # Sticky Notes
 
-Create colourful, persistent notes and Markdown checklists from the Noctalia
-bar. Pin, reorder, blur, and save them in a folder you control.
+Create persistent notes and Markdown checklists from the Noctalia bar. Use
+classic sticky colors or blend them with the current wallpaper palette.
 
 ## Plugin
 
@@ -22,6 +22,9 @@ the save folder, and `xdg-open` to open a web link explicitly stored in a note.
 3. Click its note icon to open the panel, then use **+** to create a note.
 4. Click a note to edit it. **Done** saves it; an empty note is deleted.
 5. Use the star to pin a note, and drag its `≡` handle to reorder it.
+6. Use a note's eye button to hide only that note, or the header eye to hide
+   every note at once.
+7. Use the settings button in the panel header to open the plugin's settings.
 
 Open or close the panel directly:
 
@@ -44,6 +47,8 @@ checkboxes on a note card, with a completion count beside its timestamp.
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `default_color` | select | `yellow` | Colour assigned to a new note. |
+| `use_wallpaper_colors` | bool | `false` | Blends the seven classic colors with Primary, Secondary, and Tertiary colors generated from the current wallpaper. |
+| `no_colors` | bool | `false` | Uses one neutral shell surface color for every note. It overrides wallpaper blending without changing saved note colors. |
 | `font_size` | int | `13` | Preview and editor text size, from 10 to 20 px. |
 | `show_count` | bool | `true` | Shows the number of notes beside the bar icon. |
 | `auto_blur` | bool | `false` | Hides note contents whenever the panel opens. |
@@ -59,7 +64,17 @@ checkboxes on a note card, with a completion count beside its timestamp.
   file.
 - The Markdown file includes note metadata in HTML comments; preserve those
   comments if you edit the file outside Noctalia.
-- Blur mode hides every preview and disables opening note links until you
-  reveal the notes again.
+- Wallpaper-color mode changes only how colors are rendered. It uses
+  `noctalia msg wallpaper-get` to locate the active wallpaper when the plugin
+  API does not provide it, then runs the local `noctalia theme` command to
+  resolve its palette. Turning the setting off restores every note's original
+  saved color.
+- No colors mode gives every card the same neutral shell color. It takes
+  priority over wallpaper-color mode, and turning it off restores the selected
+  classic or wallpaper-blended colors.
+- Per-note blur hides only the selected previews. The header privacy control
+  hides every preview without clearing individual blur choices.
+- Hidden notes cannot be edited and do not expose or open their links until
+  they are revealed again.
 - The plugin has no network calls. It only invokes `xdg-open` for a validated
   `http://`, `https://`, or `www.` link that the user placed in a note.

@@ -1,7 +1,7 @@
 id          = "ahmedhossamdev/sticky-notes"
 name        = "Sticky Notes"
-version     = "1.1.1"
-plugin_api  = 24
+version     = "1.2.0"
+plugin_api  = 26
 author      = "ahmedhossamdev"
 license     = "MIT"
 icon        = "note"
@@ -42,6 +42,20 @@ options   = [
 ]
 
 [[setting]]
+key             = "use_wallpaper_colors"
+type            = "bool"
+label_key       = "settings.use-wallpaper-colors"
+description_key = "settings.use-wallpaper-colors-desc"
+default         = false
+
+[[setting]]
+key             = "no_colors"
+type            = "bool"
+label_key       = "settings.no-colors"
+description_key = "settings.no-colors-desc"
+default         = false
+
+[[setting]]
 key       = "font_size"
 type      = "int"
 label_key = "settings.font-size"
@@ -78,7 +92,6 @@ options   = [
   { value = "medium", label_key = "settings.blur-medium" },
   { value = "heavy",  label_key = "settings.blur-heavy"  },
 ]
-visible_when = { key = "auto_blur", values = ["true"] }
 
 [[setting]]
 key             = "save_path"

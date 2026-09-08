@@ -1,19 +1,16 @@
 --!nonstrict
 -- Sticky Notes panel — scrollable list + full-width edit view.
 
+local wallpaperPalette = require("./palette.luau")
 local DRAG_TYPE = "sticky-notes-note"
--- Pastel note fills are intentionally independent of the active shell theme.
--- A fixed dark foreground keeps them readable in both light and dark modes.
-local NOTE_TEXT_COLOR = "#111111"
-
 local NOTE_COLORS = {
-  { id = "yellow", hex = "#FFF59D", labelKey = "settings.color-yellow" },
-  { id = "pink",   hex = "#F8BBD9", labelKey = "settings.color-pink"   },
-  { id = "red",    hex = "#EF5350", labelKey = "settings.color-red"    },
-  { id = "blue",   hex = "#B3E5FC", labelKey = "settings.color-blue"   },
-  { id = "green",  hex = "#DCEDC8", labelKey = "settings.color-green"  },
-  { id = "orange", hex = "#FFA726", labelKey = "settings.color-orange" },
-  { id = "purple", hex = "#E1BEE7", labelKey = "settings.color-purple" },
+  { id = "yellow", fill = "#FFF59D", text = "#111111", labelKey = "settings.color-yellow" },
+  { id = "pink",   fill = "#F8BBD9", text = "#111111", labelKey = "settings.color-pink"   },
+  { id = "red",    fill = "#EF5350", text = "#111111", labelKey = "settings.color-red"    },
+  { id = "blue",   fill = "#B3E5FC", text = "#111111", labelKey = "settings.color-blue"   },
+  { id = "green",  fill = "#DCEDC8", text = "#111111", labelKey = "settings.color-green"  },
+  { id = "orange", fill = "#FFA726", text = "#111111", labelKey = "settings.color-orange" },
+  { id = "purple", fill = "#E1BEE7", text = "#111111", labelKey = "settings.color-purple" },
 }
 
 local notes = {}
@@ -27,11 +24,18 @@ local editKey = 0
 local prevNoteCount = -1
 
 -- -------------------------------------------------------------------------
-local function colorHex(id)
-  for _, c in ipairs(NOTE_COLORS) do
-    if c.id == id then return c.hex end
+local function noteStyle(id)
+  if noctalia.getConfig("no_colors") == true then
+    return "surface_variant", "on_surface"
   end
-  return "#FFF59D"
+  if noctalia.getConfig("use_wallpaper_colors") == true then
+    local generatedStyle = wallpaperPalette.style(id)
+    if generatedStyle ~= nil then return generatedStyle.fill, generatedStyle.text end
+  end
+  for _, c in ipairs(NOTE_COLORS) do
+    if c.id == id then return c.fill, c.text end
+  end
+  return "#FFF59D", "#111111"
 end
 
 local function formatDate(ts)
@@ -182,6 +186,13 @@ local function colorPicker(note)
   local swatches = {}
   for _, c in ipairs(NOTE_COLORS) do
     local isSelected = note.color == c.id
+    local fill = c.fill
+    if noctalia.getConfig("no_colors") == true then
+      fill = "surface_variant"
+    elseif noctalia.getConfig("use_wallpaper_colors") == true then
+      local generatedStyle = wallpaperPalette.style(c.id)
+      if generatedStyle ~= nil then fill = generatedStyle.fill end
+    end
     table.insert(swatches, ui.column({
       key     = "wrap-" .. c.id,
       fill    = isSelected and "primary" or "surface",
@@ -192,7 +203,7 @@ local function colorPicker(note)
     }, {
       ui.column({
         key     = "sw-" .. c.id,
-        fill    = c.hex,
+        fill    = fill,
         width   = 26,
         height  = 26,
         radius  = 7,
@@ -217,16 +228,15 @@ end
 -- -------------------------------------------------------------------------
 -- Blur overlay
 -- -------------------------------------------------------------------------
-local function blurOverlay()
+local function blurOverlay(textColor, globallyBlurred)
   local strength = noctalia.getConfig("blur_strength") or "medium"
-  -- The overlay renders on top of the note card's pastel fill, so use the
-  -- theme's "surface" color (dark in dark themes) rather than the muted
-  -- "on_surface_variant" which is near-invisible on light backgrounds.
-  local items = { ui.glyph({ name = "eye-off", size = 32, color = "surface" }) }
+  -- Use the foreground paired with the current card style so the privacy
+  -- indicator remains readable with either theme accents or pastel fills.
+  local items = { ui.glyph({ name = "eye-off", size = 32, color = textColor }) }
   if strength ~= "heavy" then
     table.insert(items, ui.label({
-      text = noctalia.tr("panel.blurred-hint"),
-      fontSize = 11, color = "surface", textAlign = "center",
+      text = noctalia.tr(globallyBlurred and "panel.all-blurred-hint" or "panel.blurred-hint"),
+      fontSize = 11, color = textColor, textAlign = "center",
     }))
   end
   return ui.column({ gap = 8, align = "center", justify = "center", padding = 16 }, items)
@@ -273,12 +283,14 @@ function onEditSubmit(_value)
 end
 
 local function notePreviewCard(note)
-  local hex = colorHex(note.color)
+  local fill, textColor = noteStyle(note.color)
   local fontSize = noctalia.getConfig("font_size") or 13
   local dateText = formatDate(note.createdAt)
   local isPinned = note.pinned == true
+  local isNoteBlurred = note.blurred == true
+  local isHidden = blurred or isNoteBlurred
   -- Do not expose a hidden note's URL through the action-row tooltip or link.
-  local webLink = not blurred and firstWebLink(note.content) or nil
+  local webLink = not isHidden and firstWebLink(note.content) or nil
   local tasks = checklistTasks(note.content)
   local completedTasks = 0
   for _, task in ipairs(tasks) do
@@ -286,8 +298,8 @@ local function notePreviewCard(note)
   end
 
   local body
-  if blurred then
-    body = blurOverlay()
+  if isHidden then
+    body = blurOverlay(textColor, blurred)
   elseif #tasks > 0 then
     local taskRows = {}
     for index, task in ipairs(tasks) do
@@ -305,7 +317,7 @@ local function notePreviewCard(note)
           end,
         }),
         ui.label({
-          text = task.text, fontSize = fontSize, color = NOTE_TEXT_COLOR,
+          text = task.text, fontSize = fontSize, color = textColor,
           maxLines = 1,
         }),
       }))
@@ -319,26 +331,26 @@ local function notePreviewCard(note)
       end
       table.insert(taskRows, ui.label({
         text = moreTasks,
-        fontSize = 11, color = NOTE_TEXT_COLOR,
+        fontSize = 11, color = textColor,
       }))
     end
     body = ui.column({ gap = 2, align = "stretch" }, taskRows)
   else
     local preview = previewText(note.content, fontSize)
     body = ui.label({
-      text = preview, fontSize = fontSize, color = NOTE_TEXT_COLOR,
+      text = preview, fontSize = fontSize, color = textColor,
       maxLines = 4,
     })
   end
 
   if pendingDeleteId == note.id then
     return ui.column({
-      key = "card-" .. note.id, fill = hex, radius = 8, padding = 10, gap = 6,
+      key = "card-" .. note.id, fill = fill, radius = 8, padding = 10, gap = 6,
     }, {
       body,
       ui.separator({}),
       ui.row({ gap = 6, align = "center", justify = "center" }, {
-        ui.label({ text = noctalia.tr("panel.confirm-delete"), fontSize = 11, color = NOTE_TEXT_COLOR }),
+        ui.label({ text = noctalia.tr("panel.confirm-delete"), fontSize = 11, color = textColor }),
         ui.button({
           glyph = "check", text = noctalia.tr("panel.delete-yes"),
           variant = "destructive", controlSize = "sm",
@@ -356,8 +368,8 @@ local function notePreviewCard(note)
   end
 
   return ui.column({
-    key = "card-" .. note.id, fill = hex, radius = 8, padding = 10, gap = 6,
-    onClick = not blurred and function()
+    key = "card-" .. note.id, fill = fill, radius = 8, padding = 10, gap = 6,
+    onClick = not isHidden and function()
       editingId = note.id; editingContent = note.content or ""
       pendingDeleteId = nil; editKey += 1; render()
     end or nil,
@@ -383,15 +395,24 @@ local function notePreviewCard(note)
           justify         = "center",
           tooltip         = noctalia.tr("panel.drag-hint"),
         }, {
-          ui.glyph({ name = "menu-2", size = 12, color = NOTE_TEXT_COLOR }),
+          ui.glyph({ name = "menu-2", size = 12, color = textColor }),
         }),
-        ui.label({ text = dateText, fontSize = 10, color = NOTE_TEXT_COLOR }),
+        ui.label({ text = dateText, fontSize = 10, color = textColor }),
         #tasks > 0 and ui.label({
           text = completedTasks .. "/" .. #tasks,
-          fontSize = 10, color = NOTE_TEXT_COLOR,
+          fontSize = 10, color = textColor,
         }) or ui.row({}, {}),
       }),
       ui.row({ gap = 4, align = "center" }, {
+        ui.button({
+          glyph = isNoteBlurred and "eye" or "eye-off",
+          variant = "outline",
+          selected = isNoteBlurred,
+          controlSize = "sm",
+          enabled = not blurred,
+          tooltip = isNoteBlurred and noctalia.tr("panel.unblur-note") or noctalia.tr("panel.blur-note"),
+          onClick = function() sendCmd({ op = "toggle_note_blur", id = note.id }) end,
+        }),
         webLink ~= nil and ui.button({
           glyph = "external-link", variant = "outline", controlSize = "sm",
           tooltip = noctalia.tr("panel.open-link", { url = webLink }),
@@ -405,7 +426,7 @@ local function notePreviewCard(note)
         }),
         ui.button({
           glyph = "pencil", variant = "outline", controlSize = "sm",
-          enabled = not blurred, tooltip = noctalia.tr("panel.edit"),
+          enabled = not isHidden, tooltip = noctalia.tr("panel.edit"),
           onClick = function()
             editingId = note.id; editingContent = note.content or ""
             pendingDeleteId = nil; editKey += 1; render()
@@ -501,12 +522,12 @@ local function editorContentHeight(content, fontSize)
 end
 
 local function editView(note)
-  local hex = colorHex(note.color)
+  local fill = noteStyle(note.color)
   local fontSize = noctalia.getConfig("font_size") or 13
   local content = editingContent or note.content or ""
 
   local card = ui.column({
-    flexGrow = 1, fill = hex, radius = 8, padding = 10, gap = 6,
+    flexGrow = 1, fill = fill, radius = 8, padding = 10, gap = 6,
     align    = "stretch",
   }, {
     colorPicker(note),
@@ -580,6 +601,7 @@ end
 -- Render
 -- -------------------------------------------------------------------------
 function render()
+  wallpaperPalette.refresh(noctalia.focusedOutputName())
   local editNote = editingId ~= nil and findNote(editingId) or nil
   -- If the note we were editing was deleted, fall back to list.
   if editingId ~= nil and editNote == nil then
@@ -624,6 +646,11 @@ function render()
         end,
       }) or ui.row({}, {}),
       ui.button({
+        glyph = "settings", variant = "ghost", controlSize = "sm",
+        tooltip = noctalia.tr("panel.open-settings"),
+        onClick = function() noctalia.openSettings() end,
+      }),
+      ui.button({
         glyph = "close", variant = "ghost", controlSize = "sm",
         onClick = function() panel.close() end,
       }),
@@ -640,6 +667,8 @@ end
 -- -------------------------------------------------------------------------
 -- State watches
 -- -------------------------------------------------------------------------
+wallpaperPalette.setOnChanged(function() render() end)
+
 noctalia.state.watch("sticky_notes.notes", function(value)
   local newNotes = type(value) == "table" and value or {}
   -- Jump to a newly added note (not on initial load). Storage no longer
