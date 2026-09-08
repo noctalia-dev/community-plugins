@@ -1,0 +1,57 @@
+id = "theblackdon/theme-switcher"
+name = "Theme Switcher"
+version = "0.1.0"
+plugin_api = 28
+author = "theblackdon"
+license = "MIT"
+dependencies = []
+tags = ["theming"]
+icon = "palette"
+description = "Browse saved themes in a carousel and apply palette, wallpaper, and templates in one click."
+
+[[shortcut]]
+id = "open"
+entry = "opener.luau"
+
+[[shortcut]]
+id = "wallpaper"
+entry = "wallpaper_shortcut.luau"
+
+[[shortcut]]
+id = "random"
+entry = "random_wallpaper.luau"
+
+[[widget]]
+id = "theme-switcher"
+entry = "widget.luau"
+
+[[panel]]
+id = "carousel"
+entry = "carousel.luau"
+width = 920
+height = 620
+placement = "floating"
+position = "auto"
+keyboard_focus = "on_demand"
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "editor"
+entry = "editor.luau"
+width = 640
+height = 760
+placement = "floating"
+position = "auto"
+keyboard_focus = "on_demand"
+
+[[panel]]
+id = "wallpapers"
+entry = "wallpapers.luau"
+width = 720
+height = 560
+placement = "attached"
+position = "auto"
+
+[[service]]
+id = "wallpaper-ipc"
+entry = "wallpaper_ipc.luau"
