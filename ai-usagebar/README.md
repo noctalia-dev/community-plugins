@@ -3,7 +3,7 @@
 Track AI plan usage, quota resets, and consumption pace in the Noctalia bar.
 
 The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar),
-a Rust CLI that reads Claude, Codex, Github Copilot, Cursor, Antigravity, Kiro,
+a Rust CLI that reads Claude, Codex, GitHub Copilot, Cursor, Antigravity, Kiro,
 Z.AI, Nous Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
 others. The plugin runs `ai-usagebar usage --json` and displays the report.
 It does not call provider APIs or read credential files.
