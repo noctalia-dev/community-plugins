@@ -1,0 +1,129 @@
+{
+  "common": {
+    "off": "Off",
+    "on": "On"
+  },
+  "errors": {
+    "ctl_rejected": "openscq30 rejected the command",
+    "find_failed": "Could not play a locating tone",
+    "no_device": "No supported Soundcore device is connected",
+    "not_installed": "openscq30 not found. Install OpenSCQ30 first.",
+    "control_busy": "Earbuds busy — the Soundcore phone app may be holding the control channel. Close it, then press refresh."
+  },
+  "panel": {
+    "adaptive_note": "Adaptive ANC level is managed by the earbuds.",
+    "adaptive_noise": "Adaptive level",
+    "anc_strength": "ANC strength",
+    "battery": "BATTERY",
+    "case": "Case",
+    "charging": "Charging",
+    "daemon_down": "openscq30 found no connected device",
+    "find": {
+      "caption": "Pauses playback, then a loud tone. Take them off first.",
+      "confirm": "tap again — LOUD",
+      "playing": "Playing a locating tone. Tap the row again to stop.",
+      "stop": "Stop",
+      "title": "FIND"
+    },
+    "guidance": {
+      "connected": "Connect your Soundcore buds to see battery and listening controls.",
+      "daemon_down": "Pair and connect your Soundcore buds, then press refresh."
+    },
+    "headphones": "Headphones",
+    "in_case": "In case",
+    "in_ear": "In ear",
+    "left": "Left",
+    "listening_mode": "LISTENING MODE",
+    "mode": {
+      "adaptive": "Adaptive",
+      "anc": "Noise Cancellation",
+      "off": "Normal",
+      "transparency": "Transparency",
+      "unknown": "Unknown",
+      "anc_short": "ANC"
+    },
+    "not_connected": "Not connected",
+    "right": "Right",
+    "title": "Soundcore",
+    "touch": {
+      "hint": "Choose what each tap does.",
+      "left_double": "Left double",
+      "left_hold": "Left hold",
+      "left_single": "Left single",
+      "left_triple": "Left triple",
+      "off": "Off",
+      "reset": "Reset to defaults",
+      "right_double": "Right double",
+      "right_hold": "Right hold",
+      "right_single": "Right single",
+      "right_triple": "Right triple",
+      "title": "TOUCH",
+      "tone": "Touch tone",
+      "tone_caption": "Play a sound when a touch control fires",
+      "single": "Single",
+      "double": "Double",
+      "triple": "Triple",
+      "hold": "Hold"
+    },
+    "sound": {
+      "title": "SOUND",
+      "transparency_mode": "Transparency mode",
+      "multiscene": "Noise scenario",
+      "wind": "Wind noise suppression"
+    },
+    "device": {
+      "title": "DEVICE",
+      "dual": "Dual connections",
+      "dual_caption": "Stay paired with two hosts. Turning off drops the other host.",
+      "auto_off": "Auto power off",
+      "low_batt": "Low battery prompt",
+      "limit": "Limit high volume",
+      "limit_caption": "Cap the maximum volume for hearing safety.",
+      "limit_db": "Volume limit",
+      "limit_rate": "Limit check interval",
+      "rt_anc": "Real-time adaptive ANC",
+      "rt_anc_caption": "Let the earbuds adjust cancellation continuously."
+    },
+    "info": {
+      "title": "INFO",
+      "fw": "Firmware L/R",
+      "adaptive": "Adaptive level",
+      "serial": "Serial",
+      "dual_devices": "Linked hosts"
+    },
+    "cancel": {
+      "manual": "Manual",
+      "multiscene": "Multi-Scene"
+    }
+  },
+  "settings": {
+    "hide_when_disconnected": {
+      "description": "Leaves the bar entirely rather than sitting there with nothing to say.",
+      "label": "Hide the icon when no Soundcore is connected"
+    },
+    "icon": {
+      "description": "Auto follows the connected device. Earbuds is the in-ear silhouette; Over-ear is the headphone cups.",
+      "label": "Bar icon",
+      "options": {
+        "auto": "Auto",
+        "earbuds": "Earbuds",
+        "over_ear": "Over-ear"
+      }
+    },
+    "openscq30_path": {
+      "description": "Leave empty to find openscq30 on PATH.",
+      "label": "Path to openscq30"
+    },
+    "poll_interval": {
+      "description": "How often the service queries the earbuds, in seconds (2-15). Bluetooth is slow, keep it at 3 or above.",
+      "label": "Poll interval (seconds)"
+    }
+  },
+  "widget": {
+    "finding": "Finding",
+    "mode": "Mode",
+    "not_connected": "Not connected",
+    "openscq30_missing": "openscq30 not found",
+    "stale": "Control busy"
+  }
+}
