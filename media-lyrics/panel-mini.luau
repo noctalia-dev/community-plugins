@@ -67,6 +67,19 @@ local function buildCover(s)
     })
 end
 
+-- Line height heuristic shared with the main panel: floor(fs * 1.35 + 0.5).
+local function lineH(fs)
+  return math.floor(fs * 1.35 + 0.5)
+end
+
+-- The lyric label holds at most two sub-lines. Its row gets a FIXED height
+-- for that worst case: when the text wraps 1 <-> 2 sub-lines the label
+-- changes height, and the root row's align="center" re-centers everything —
+-- the cover visibly shifted down whenever a long line wrapped (bug 2026-09-09).
+-- Reserving the full two-line height makes the info column height CONSTANT,
+-- so the vertical centering never moves. Extra space sits under the lyric.
+local LYRIC_ROW_H = 2 * lineH(T.fsLyric)
+
 local function render()
   local s = snap
   if not s or not s.hasPlayer then
@@ -87,7 +100,12 @@ local function render()
   local info = ui.column({ key = "info", gap = 2, flexGrow = 1 }, {
     ui.label({ text = title, fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle, maxLines = 1 }),
     ui.label({ text = artist, fontSize = T.fsMeta, color = T.colMeta, maxLines = 1 }),
-    ui.label({ text = line, fontSize = T.fsLyric, color = T.colLyric, maxLines = 2, visible = line ~= "" }),
+    -- Fixed-height wrapper row: the label inside may render 1 or 2 sub-lines,
+    -- but the row always occupies the same vertical budget.
+    ui.row({ key = "lyricRow", height = LYRIC_ROW_H, align = "start" }, {
+      ui.label({ text = line, fontSize = T.fsLyric, color = T.colLyric, maxLines = 2,
+        visible = line ~= "" }),
+    }),
   })
 
   panel.render(ui.row({ padding = T.pad, gap = T.gap, align = "center" }, {

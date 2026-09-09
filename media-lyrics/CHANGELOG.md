@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.4] — 2026-09-09
 
+### Fixed
+
+- **panel-mini: the cover no longer shifts down when the lyric line wraps** —
+  the mini panel reserved no vertical space for the second lyric sub-line, so
+  a wrapping line grew the info column and the root row's vertical centering
+  moved the cover between renders. The lyric row now holds a fixed
+  two-sub-line height, keeping the whole band layout constant.
+
 ### Added
 
 - **Lyrics variants picker (switch on the fly)** — the header "list" button is
