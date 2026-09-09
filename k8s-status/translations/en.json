@@ -103,6 +103,8 @@
   "result": {
     "busy": "Another operation is running.",
     "copied": "Copied {name}",
+    "context_pinned": "Context is pinned in the plugin settings.",
+    "context_switched": "Switched to context {name}",
     "deleted": "Deleted pod {name}",
     "describe_started": "Describing {name}…",
     "failed": "Failed: {error}",
