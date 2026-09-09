@@ -1017,6 +1017,24 @@ function onConfigChanged()
   end
 end
 
+local function runToggleLoft()
+  local script = pluginRoot() .. "/scripts/cider_bridge.py"
+  if not noctalia.fileExists(script) then
+    return
+  end
+  -- One-shot helper. start-bridge.sh would wipe playback sidecars.
+  runArgv({ "python3", script, "--toggle-loft" })
+end
+
+local function chipLeft()
+  local probe = readWindowProbe()
+  if type(probe) == "table" and tostring(probe.compositor or "") == "umbriel" then
+    runToggleLoft()
+    return
+  end
+  toggleLyricsHud()
+end
+
 function onIpc(event, payload)
   if event == "show-osd" then
     lastOsdTrackKey = ""
@@ -1028,6 +1046,10 @@ function onIpc(event, payload)
     presentTrack(nowPlaying, key, true)
   elseif event == "hide-osd" then
     closeOsd()
+  elseif event == "chip-left" then
+    chipLeft()
+  elseif event == "toggle-loft" then
+    runToggleLoft()
   elseif event == "toggle-lyrics-hud" then
     toggleLyricsHud()
   elseif event == "show-lyrics-hud" then

@@ -332,7 +332,6 @@ local function fetchMpris(id, cb)
 			d2.mediatitle = p.title
 			d2.mediaartist = p.artist
 			d2.mediaalbum = p.album
-			d2.mediavolume = p.volume
 			d2.medialocalAlbumArtUrl = p.localAlbumArtUrl
 			d2.medialength = p.length
 			d2.mediaposition = p.position
@@ -819,16 +818,6 @@ local function handleCommand(cmd)
 			function()
 				noctalia.runAsync("sleep 0.3", function() refreshDevices() end)
 			end)
-	elseif op == "media_set_volume" then
-		local vol = tonumber(cmd.volume) or 0
-		local path = DAEMON_PATH .. "/devices/" .. dev .. "/mprisremote"
-		noctalia.runAsync(
-			"gdbus call --session --dest " .. SVC
-				.. " --object-path " .. shellQuote(path)
-				.. " --method " .. shellQuote(PROPS_IFACE .. ".Set")
-				.. " " .. shellQuote(MPRIS_IFACE) .. " volume "
-				.. shellQuote("<int32 " .. tostring(vol) .. ">"),
-			function() refreshDevices() end)
 		-- ── scrcpy 操作（source="adb" 的设备） ──
 		elseif op == "cast" then
 			local adbId = cmd.device

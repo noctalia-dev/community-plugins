@@ -1,8 +1,8 @@
 # Phone Operate
 
 Mirror and control your Android phone with scrcpy (wired or wireless), and run
-KDE Connect device actions (ring, ping, clipboard, SMS, media) — all from one
-device card in a Noctalia panel.
+KDE Connect device actions (ring, ping, clipboard, SMS, media) — all from a
+unified Noctalia panel.
 
 ## Plugin
 
@@ -40,18 +40,24 @@ noctalia msg panel-toggle icefish/phone-operate:main_floating
 noctalia msg panel-toggle icefish/phone-operate:main_widget
 ```
 
-The panel lists KDE Connect devices. Each device card offers:
+The panel provides a split workspace for managing KDE Connect and ADB devices:
 
-- **Cast** (when the device also has an adb connection, matched by LAN IP): opens
-  the parameter panel. Pick a preset or set resolution / bitrate / fps, then
-  press **Start Casting**. USB devices cast directly; wireless first-time setup
-  needs the pairing port, debug port, and pairing code from the phone's Wireless
-  debugging screen.
-- **Ring / Ping / Browse / Clipboard / Share / Unpair**
-- **Media controls** (now playing, previous / play-pause / next / stop, seek, volume)
-- **Send SMS** (destination + message)
-
-Click a device's avatar to change its image, or its name to rename it.
+- **Sidebar**: Lists paired and available devices with connection status and
+  unpair / disconnect buttons. Quick action buttons trigger **Ring**, **Ping**,
+  **Browse**, **Clipboard**, and **Share**.
+- **Dashboard**: Shows selected device avatar, battery percentage, Wi-Fi / USB
+  link info, and an editable device alias (pencil icon).
+- **Cast & Connect**: Mirrors and controls the phone screen via `scrcpy`. Pick
+  a preset (**HD**, **Bal**, **Save**) or customize resolution, bitrate, and
+  frame rate. Toggle **Screen Off** to mirror while keeping the phone display
+  dark, or **Record** to save the session to a video file. Press **Cast** /
+  **Stop** to manage the session. USB devices cast directly; wireless devices
+  switch between **Pair** (one-time setup with pair port and 6-digit PIN) and
+  **Connect** (reconnects to the phone's debug port).
+- **Messages**: Send SMS with phone number, clear button (`x`), persistent
+  favorite contacts with names, inline renaming, and live search while typing.
+- **Media bar**: Bottom playback bar showing album art, now playing title and
+  artist, previous / play-pause / next transport buttons, and a seek slider.
 
 ### Bar widget
 

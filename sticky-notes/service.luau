@@ -12,7 +12,7 @@
 --   txt  -> notes.txt   (plain text, notes separated by ---)
 --
 -- State:
---   sticky_notes.notes      -> { { id, content, color, createdAt, pinned }, ... }
+--   sticky_notes.notes      -> { { id, content, color, createdAt, pinned, blurred }, ... }
 --   sticky_notes.blurred    -> bool
 --   sticky_notes.ready      -> bool (saved notes have finished loading)
 --   sticky_notes.save_path  -> string (resolved absolute dir, informational)
@@ -21,6 +21,7 @@
 --   { op = "remove",     id = "..." }
 --   { op = "update",     id = "...", content = "...", color = "..." }
 --   { op = "toggle_pin", id = "..." }
+--   { op = "toggle_note_blur", id = "..." }
 --   { op = "move",       id = "...", group = "p" | "u", index = N }
 --   { op = "toggle_blur" }
 --   { op = "sync" }
@@ -91,7 +92,13 @@ end
 local function serializeMd()
   local parts = {}
   for i, n in ipairs(notes) do
-    local meta = noctalia.json.encode({ id = n.id, color = n.color, createdAt = n.createdAt, pinned = n.pinned == true })
+    local meta = noctalia.json.encode({
+      id = n.id,
+      color = n.color,
+      createdAt = n.createdAt,
+      pinned = n.pinned == true,
+      blurred = n.blurred == true,
+    })
     table.insert(parts, string.format(
       "## Note %d\n\n<!-- sticky-notes %s -->\n\n%s\n",
       i,
@@ -107,8 +114,13 @@ local function serializeTxt()
   local parts = {}
   for i, n in ipairs(notes) do
     table.insert(parts, string.format(
-      "[Note %d | id:%s color:%s pinned:%s]\n%s",
-      i, n.id, n.color, n.pinned == true and "true" or "false", n.content or ""
+      "[Note %d | id:%s color:%s pinned:%s blurred:%s]\n%s",
+      i,
+      n.id,
+      n.color,
+      n.pinned == true and "true" or "false",
+      n.blurred == true and "true" or "false",
+      n.content or ""
     ))
   end
   local header = blurred and "[blurred:true]\n\n" or ""
@@ -130,6 +142,7 @@ local function parseJson(raw)
           color     = type(n.color) == "string" and n.color or "yellow",
           createdAt = type(n.createdAt) == "number" and n.createdAt or 0,
           pinned    = n.pinned == true,
+          blurred   = n.blurred == true,
         })
       end
     end
@@ -150,6 +163,7 @@ local function parseMd(raw)
         color     = type(meta.color) == "string" and meta.color or "yellow",
         createdAt = type(meta.createdAt) == "number" and meta.createdAt or 0,
         pinned    = meta.pinned == true,
+        blurred   = meta.blurred == true,
       })
     end
   end
@@ -157,42 +171,39 @@ end
 
 local function parseTxt(raw)
   if raw:match("%[blurred:true%]") then blurred = true end
-  local function insertTxt(id, color, pinnedStr, body)
+  local function insertTxt(id, color, pinnedStr, blurredStr, body)
     table.insert(notes, {
       id        = id,
       content   = noctalia.string.trim(body),
       color     = color,
       createdAt = 0,
       pinned    = pinnedStr == "true",
+      blurred   = blurredStr == "true",
     })
   end
-  -- New format with pinned flag.
-  for sectionId, sectionColor, sectionPinned, sectionBody in raw:gmatch(
-    "%[Note %d+ | id:([%w_]+) color:([%a]+) pinned:(%a+)%]\n(.-)\n\n%-%-%-%\n"
+  -- The serializer omits a separator after the final note. Add one only for
+  -- parsing so each format loop handles every section, including the last.
+  local terminated = raw .. "\n\n---\n"
+  -- Current format with pinned and per-note blur flags.
+  for sectionId, sectionColor, sectionPinned, sectionBlurred, sectionBody in terminated:gmatch(
+    "%[Note %d+ | id:([%w_]+) color:([%a]+) pinned:(%a+) blurred:(%a+)%]\n(.-)\n\n%-%-%-%\n"
   ) do
-    insertTxt(sectionId, sectionColor, sectionPinned, sectionBody)
+    insertTxt(sectionId, sectionColor, sectionPinned, sectionBlurred, sectionBody)
+  end
+  if #notes == 0 then
+    -- Previous format with a pinned flag (per-note blur defaults to false).
+    for sectionId, sectionColor, sectionPinned, sectionBody in terminated:gmatch(
+      "%[Note %d+ | id:([%w_]+) color:([%a]+) pinned:(%a+)%]\n(.-)\n\n%-%-%-%\n"
+    ) do
+      insertTxt(sectionId, sectionColor, sectionPinned, "false", sectionBody)
+    end
   end
   if #notes == 0 then
     -- Legacy format without pinned flag (defaults to unpinned).
-    for sectionId, sectionColor, sectionBody in raw:gmatch(
+    for sectionId, sectionColor, sectionBody in terminated:gmatch(
       "%[Note %d+ | id:([%w_]+) color:([%a]+)%]\n(.-)\n\n%-%-%-%\n"
     ) do
-      insertTxt(sectionId, sectionColor, "false", sectionBody)
-    end
-  end
-  if #notes == 0 then
-    -- Fallback: last (or only) section has no trailing ---.
-    for sectionId, sectionColor, sectionPinned, sectionBody in raw:gmatch(
-      "%[Note %d+ | id:([%w_]+) color:([%a]+) pinned:(%a+)%]\n(.*)"
-    ) do
-      insertTxt(sectionId, sectionColor, sectionPinned, sectionBody)
-    end
-  end
-  if #notes == 0 then
-    for sectionId, sectionColor, sectionBody in raw:gmatch(
-      "%[Note %d+ | id:([%w_]+) color:([%a]+)%]\n(.*)"
-    ) do
-      insertTxt(sectionId, sectionColor, "false", sectionBody)
+      insertTxt(sectionId, sectionColor, "false", "false", sectionBody)
     end
   end
 end
@@ -289,6 +300,7 @@ local function addNote()
     color     = color,
     createdAt = math.floor(noctalia.nowMs() / 1000),
     pinned    = false,
+    blurred   = false,
   }
   -- Insert at the top of the unpinned group (right after all pinned notes).
   table.insert(notes, pinnedCount() + 1, note)
@@ -332,6 +344,17 @@ local function toggleBlur()
   blurred = not blurred
   saveData()
   publish()
+end
+
+local function toggleNoteBlur(id)
+  for _, n in ipairs(notes) do
+    if n.id == id then
+      n.blurred = not (n.blurred == true)
+      saveData()
+      publish()
+      return
+    end
+  end
 end
 
 -- Toggling pin needs to also reposition the note in storage so the display
@@ -396,6 +419,8 @@ noctalia.state.watch("sticky_notes.cmd", function(cmd)
     updateNote(cmd.id, cmd.content, cmd.color)
   elseif op == "toggle_pin" then
     togglePin(cmd.id)
+  elseif op == "toggle_note_blur" then
+    toggleNoteBlur(cmd.id)
   elseif op == "move" then
     moveTo(cmd.id, cmd.group, cmd.index)
   elseif op == "toggle_blur" then

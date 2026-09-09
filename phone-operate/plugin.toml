@@ -1,6 +1,6 @@
 id = "icefish/phone-operate"
 name = "Phone Operate"
-version = "0.1.1"
+version = "1.0.0"
 plugin_api = 22
 author = "icefish"
 license = "MIT"
@@ -163,8 +163,8 @@ entry = "tile.luau"
 [[panel]]
 id = "main"
 entry = "panel.luau"
-width = 570
-height = 600
+width = 700
+height = 620
 placement = "attached"
 position = "auto"
 open_near_click = true
@@ -173,8 +173,8 @@ keyboard_focus = "on_demand"
 [[panel]]
 id = "main_floating"
 entry = "panel.luau"
-width = 570
-height = 600
+width = 700
+height = 620
 placement = "floating"
 position = "center"
 keyboard_focus = "on_demand"
@@ -182,8 +182,8 @@ keyboard_focus = "on_demand"
 [[panel]]
 id = "main_widget"
 entry = "panel.luau"
-width = 570
-height = 600
+width = 700
+height = 620
 placement = "floating"
 position = "auto"
 open_near_click = true

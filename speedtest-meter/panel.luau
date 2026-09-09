@@ -27,6 +27,7 @@ local gaugeMax = 100 -- dynamic upper bound for the speedometer scale
 local runningElapsed = 0 -- seconds since the current test started (drives the pulse + watchdog)
 local errorMessage: string? = nil
 local result: any = nil -- normalized result table (see normalizeOokla/normalizeLegacy)
+local history: any = {} -- newest-first list, capped at five results
 local clientInfo: any = nil -- decoded geolocation JSON for the local client
 local panelActive = false
 local progressValue = 0 -- 0 to 1 for progress tracking
@@ -54,10 +55,10 @@ local INSTALL_COMMANDS = {
 -- Forward declarations so functions can reference each other regardless of
 -- definition order below.
 local render, renderIdle, renderRunning, renderDone, renderError
-local renderSummaryCard, metricRow
+local metricRow, renderHistory, renderHistoryCard, speedMetricSquare
 local startTest, proceedWithLegacyOrError, runOoklaBackend, runLegacyBackend, onSpeedtestLine
 local normalizeOokla, normalizeLegacy
-local saveLastResult, loadLastResult, fetchClientInfo
+local saveLastResult, loadLastResult, loadHistory, addHistory, fetchClientInfo
 local detectPackageManager
 
 -- ── Helpers ───────────────────────────────────────────────────────────────
@@ -129,9 +130,21 @@ local function heroCircle(labelKey: string, arrowGlyph: string, valueText: strin
 			borderWidth = 3,
 			align = "center",
 			justify = "center",
-			gap = 1,
+			gap = 2,
 		}, {
-			ui.glyph({ name = arrowGlyph, size = 25, color = accent }),
+			-- Direction icon gets its own circular badge, matching the requested result design.
+			ui.column({
+				width = 42,
+				height = 42,
+				radius = 21,
+				fill = soft,
+				border = accent,
+				borderWidth = 1,
+				align = "center",
+				justify = "center",
+			}, {
+				ui.glyph({ name = arrowGlyph, size = 23, color = accent }),
+			}),
 			ui.label({ text = valueText, fontSize = 29, fontWeight = "heavy", color = "on_surface" }),
 			ui.label({ text = noctalia.tr("unit_mbps"), fontSize = 11, fontWeight = "bold", color = "on_surface_variant" }),
 		}),
@@ -275,6 +288,64 @@ loadLastResult = function()
 	end
 end
 
+local HISTORY_FILE = "/history.json"
+
+local persistHistory = function()
+	local dir = noctalia.pluginDataDir()
+	if not dir then
+		return
+	end
+	local encoded = noctalia.json.encode(history, false)
+	if encoded then
+		noctalia.writeFile(dir .. HISTORY_FILE, encoded)
+	end
+end
+
+loadHistory = function()
+	local dir = noctalia.pluginDataDir()
+	if not dir then
+		history = {}
+		return
+	end
+
+	local contents = noctalia.readFile(dir .. HISTORY_FILE)
+	if not contents then
+		history = {}
+		return
+	end
+
+	local data = noctalia.json.decode(contents)
+	if type(data) == "table" then
+		history = {}
+		for i = 1, math.min(#data, 5) do
+			history[i] = data[i]
+		end
+	else
+		history = {}
+	end
+end
+
+addHistory = function(data: any)
+	if not data then
+		return
+	end
+
+	-- Keep a small, newest-first history. The active result is also kept in
+	-- /last-result.json for backwards compatibility with older installations.
+	local entry = {}
+	for key, value in pairs(data) do
+		entry[key] = value
+	end
+	entry.timestamp = os.time()
+
+	local updated = { entry }
+	for i = 1, math.min(#history, 4) do
+		updated[#updated + 1] = history[i]
+	end
+	history = updated
+	persistHistory()
+end
+
 -- Optional enrichment: adds the client's own public IP geolocation
 -- (city/region/country/ISP org) alongside whatever the backend reported.
 fetchClientInfo = function()
@@ -407,6 +478,7 @@ runLegacyBackend = function()
 		result = normalizeLegacy(data)
 		state = "done"
 		saveLastResult(result)
+		addHistory(result)
 		fetchClientInfo()
 		render()
 	end, LEGACY_TIMEOUT_MS)
@@ -454,6 +526,7 @@ onSpeedtestLine = function(line: string)
 		progressValue = 1.0
 		timerRunning = false
 		saveLastResult(result)
+		addHistory(result)
 		fetchClientInfo()
 		render()
 	elseif t == "error" then
@@ -485,35 +558,124 @@ render = function()
 	panel.render(tree)
 end
 
-renderSummaryCard = function(r: any)
-	return ui.column({ gap = 5, fill = "surface_variant", radius = 12, padding = 12, border = "outline", borderWidth = 1 }, {
-		ui.label({ text = noctalia.tr("last_result"), fontSize = 11, color = "on_surface_variant" }),
-		ui.row({ gap = 8, align = "center", justify = "space_between" }, {
-			ui.label({ text = string.format("↓ %.1f Mbps", r.downloadMbps or 0), fontSize = 13, fontWeight = "bold", color = "primary" }),
-			ui.label({ text = string.format("↑ %.1f Mbps", r.uploadMbps or 0), fontSize = 13, fontWeight = "bold", color = "secondary" }),
-			ui.label({ text = formatMetric(r.pingMs, "%.0f ms"), fontSize = 12, color = "on_surface_variant" }),
+speedMetricSquare = function(labelKey: string, value: number?, accent: string, soft: string, arrowGlyph: string)
+	return ui.column({
+		width = 75,
+		radius = 10,
+		fill = soft,
+		border = accent,
+		borderWidth = 1,
+		paddingH = 6,
+		paddingV = 5,
+		gap = 1,
+		align = "center",
+		justify = "center",
+	}, {
+		ui.row({ gap = 3, align = "center" }, {
+			ui.glyph({ name = arrowGlyph, size = 11, color = accent }),
+			ui.label({ text = noctalia.tr(labelKey), fontSize = 8, fontWeight = "bold", color = "on_surface_variant" }),
+		}),
+		ui.label({ text = string.format("%.1f", value or 0), fontSize = 14, fontWeight = "heavy", color = "on_surface" }),
+		ui.label({ text = noctalia.tr("unit_mbps"), fontSize = 7, color = "on_surface_variant" }),
+	})
+end
+
+renderHistoryCard = function(item: any)
+	local timestamp = tonumber(item.timestamp or 0) or 0
+	local dateText = timestamp > 0 and os.date("%d/%m/%Y  %H:%M", timestamp) or "-"
+	local serverText = tostring(item.serverName or "-")
+	local locationText = tostring(item.serverLocation or item.serverCountry or "-")
+	local countryText = tostring(item.serverCountry or "")
+	local locationLine = countryText ~= "" and (locationText .. " - " .. countryText) or locationText
+
+	-- Give the metadata column a real width. On narrow Noctalia panels a
+	-- flex-only column can collapse to almost zero, wrapping the date one
+	-- character per line and making the whole history card very tall.
+	return ui.row({
+		gap = 5,
+		align = "center",
+		fill = "surface_variant",
+		radius = 12,
+		border = "outline",
+		borderWidth = 1,
+		paddingH = 9,
+		paddingV = 5,
+	}, {
+		ui.column({
+			width = 4,
+			height = 50,
+			radius = 2,
+			fill = "primary",
+		}),
+		ui.column({ width = 22, align = "center", justify = "center" }, {
+			ui.glyph({ name = "brand-speedtest", size = 18, color = "on_surface" }),
+		}),
+		ui.column({ width = 104, gap = 1, align = "start", justify = "center" }, {
+			ui.label({ text = dateText, fontSize = 9, color = "on_surface_variant", maxLines = 1, maxWidth = 104 }),
+			ui.label({ text = serverText, fontSize = 10, fontWeight = "bold", color = "on_surface", maxLines = 1, maxWidth = 104 }),
+			ui.label({ text = locationLine, fontSize = 8, color = "on_surface_variant", maxLines = 1, maxWidth = 104 }),
+		}),
+		ui.column({ width = 38, gap = 2, align = "center", justify = "center" }, {
+			ui.glyph({ name = "clock", size = 11, color = "tertiary" }),
+			ui.label({ text = formatMetric(item.pingMs, "%.1f ms"), fontSize = 8, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
+		}),
+		speedMetricSquare("metric_download", item.downloadMbps, "primary", "primary/0.12", "arrow-down"),
+		speedMetricSquare("metric_upload", item.uploadMbps, "secondary", "secondary/0.12", "arrow-up"),
+		ui.column({ width = 12, align = "center", justify = "center" }, {
+			ui.glyph({ name = "chevron-right", size = 15, color = "on_surface_variant" }),
 		}),
 	})
 end
 
-renderIdle = function()
+renderHistory = function()
+	if #history == 0 then
+		return nil
+	end
+
 	local children = {
-		ui.column({ gap = 4, align = "center" }, {
-			ui.glyph({ name = "brand-speedtest", size = 28, color = "primary" }),
-			ui.label({ text = noctalia.tr("app_name"), fontSize = 20, fontWeight = "heavy", color = "on_surface" }),
-			ui.label({ text = noctalia.tr("idle_subtitle"), fontSize = 11, color = "on_surface_variant", textAlign = "center", maxWidth = 360 }),
+		ui.row({ gap = 8, align = "center", justify = "space_between" }, {
+			ui.row({ gap = 8, align = "center" }, {
+				ui.glyph({ name = "history", size = 17, color = "primary" }),
+				ui.label({ text = noctalia.tr("history_title"), fontSize = 16, fontWeight = "heavy", color = "on_surface" }),
+			}),
+			ui.label({ text = noctalia.tr("history_limit"), fontSize = 10, color = "on_surface_variant" }),
 		}),
-		fixedSpace(8),
+		ui.separator({ thickness = 1, color = "outline", spacing = 1 }),
 	}
 
-	if result then
-		table.insert(children, renderSummaryCard(result))
-		table.insert(children, fixedSpace(6))
+	for i = 1, math.min(#history, 5) do
+		children[#children + 1] = renderHistoryCard(history[i])
+	end
+
+	return ui.column({
+		gap = 5,
+		padding = 10,
+		fill = "surface/0.96",
+		radius = 18,
+		border = "outline",
+		borderWidth = 1,
+	}, children)
+end
+
+renderIdle = function()
+	local children = {
+		ui.column({ gap = 3, align = "center" }, {
+			ui.glyph({ name = "brand-speedtest", size = 26, color = "primary" }),
+			ui.label({ text = noctalia.tr("app_name"), fontSize = 19, fontWeight = "heavy", color = "on_surface" }),
+			ui.label({ text = noctalia.tr("idle_subtitle"), fontSize = 11, color = "on_surface_variant", textAlign = "center", maxWidth = 360 }),
+		}),
+		fixedSpace(6),
+	}
+
+	local historyView = renderHistory()
+	if historyView then
+		table.insert(children, historyView)
+		table.insert(children, fixedSpace(4))
 	end
 
 	table.insert(children, ui.button({ text = noctalia.tr("start_test"), glyph = "brand-speedtest", glyphSize = 16, variant = "primary", controlSize = "lg", onClick = startTest }))
 
-	return ui.column({ gap = 10, padding = 18, fill = "surface/0.96", radius = 18, border = "outline", borderWidth = 1, align = "center" }, children)
+	return ui.column({ gap = 6, padding = 14, fill = "surface/0.96", radius = 18, border = "outline", borderWidth = 1, align = "center", minHeight = 670 }, children)
 end
 
 renderRunning = function()
@@ -625,7 +787,17 @@ renderRunning = function()
 		table.insert(children, ui.label({ text = noctalia.tr("hint_stuck"), fontSize = 10, color = "on_surface_variant", textAlign = "center" }))
 	end
 
-	return ui.column({ gap = 10, padding = 18, fill = "surface/0.96", radius = 18, border = "outline", borderWidth = 1, align = "center" }, children)
+	return ui.column({
+		gap = 10,
+		padding = 18,
+		fill = "surface/0.96",
+		radius = 18,
+		border = "outline",
+		borderWidth = 1,
+		align = "center",
+		justify = "center",
+		minHeight = 670,
+	}, children)
 end
 
 renderDone = function()
@@ -671,6 +843,12 @@ renderDone = function()
 		end }) or nil,
 	}))
 
+	local historyView = renderHistory()
+	if historyView then
+		table.insert(children, fixedSpace(7))
+		table.insert(children, historyView)
+	end
+
 	return ui.scroll({
 		gap = 9,
 		padding = 14,
@@ -708,6 +886,9 @@ function onOpen(context: any)
 	panelActive = true
 	if state == "idle" and result == nil then
 		loadLastResult()
+		loadHistory()
+	elseif #history == 0 then
+		loadHistory()
 	end
 	if state == "running" then
 		-- Reopened while a test was still going (or had already finished

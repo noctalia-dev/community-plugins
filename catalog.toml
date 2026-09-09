@@ -1610,8 +1610,8 @@ tags = ["bar", "panel", "service", "productivity", "utility"]
 [[plugin]]
 id = "dragged/cider"
 name = "Cider"
-version = "1.9.7"
-updated_at = 1788274280
+version = "1.10.0"
+updated_at = 1788957625
 added_at = 1787148354
 author = "dragged"
 license = "MIT"
@@ -1642,8 +1642,8 @@ tags = ["desktop", "clock", "time", "utility"]
 [[plugin]]
 id = "icefish/phone-operate"
 name = "Phone Operate"
-version = "0.1.1"
-updated_at = 1787152852
+version = "1.0.0"
+updated_at = 1788955494
 added_at = 1787152852
 author = "icefish"
 license = "MIT"
@@ -2273,8 +2273,8 @@ tags = ["audio", "media", "bar", "panel", "shortcut"]
 [[plugin]]
 id = "alitura1/ayet-kosesi"
 name = "Ayet Köşesi"
-version = "1.4.0"
-updated_at = 1788815727
+version = "1.5.0"
+updated_at = 1788956903
 added_at = 1788733836
 author = "alitura1"
 license = "MIT"
@@ -2299,15 +2299,21 @@ tags = ["ai", "development", "indicator", "system", "bar", "desktop", "panel", "
 [[plugin]]
 id = "ahmedhossamdev/sticky-notes"
 name = "Sticky Notes"
-version = "1.1.1"
-updated_at = 1788751382
+version = "1.2.0"
+updated_at = 1788956529
 added_at = 1788740022
 author = "ahmedhossamdev"
 license = "MIT"
 icon = "note"
 description = "Colorful sticky notes and interactive checklists from your bar, with pinning, privacy blur, and portable storage."
-plugin_api = 24
+plugin_api = 26
 tags = ["bar", "panel", "service", "privacy", "productivity", "utility"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "1.1.1"
+updated_at = 1788751382
+rev = "dbe2ff526487f110d0bfba1831635529ac0edb85"
 
 [[plugin]]
 id = "h-jangra/region-recorder"
@@ -2370,8 +2376,8 @@ tags = ["bar", "panel", "service", "hardware", "mangowc"]
 [[plugin]]
 id = "nilsonlinux/speedtest-meter"
 name = "Speedtest Meter"
-version = "1.3.2"
-updated_at = 1788806018
+version = "1.3.3"
+updated_at = 1788957051
 added_at = 1788806018
 author = "Nilsonlinux"
 license = "MIT"

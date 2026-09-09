@@ -2,7 +2,8 @@
 -- Compact Cider now-playing bar widget.
 -- Only re-render on identity/playing changes — position ticks must not flash opacity.
 -- Hide entirely when nothing is active (no title/artist).
--- Clicks: [widget.actions] in plugin.toml (left = lyrics HUD, right = show OSD).
+-- Clicks: [widget.actions] in plugin.toml (left = HUD, Umbriel middle = loft,
+-- right = OSD).
 
 local showCover = noctalia.getConfig("show_cover")
 if showCover == nil then showCover = true end

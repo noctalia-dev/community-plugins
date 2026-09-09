@@ -84,4 +84,25 @@ function M.loadName(device_id)
 	return data.names and data.names[device_id] or nil
 end
 
+-- 常用联系人：{ { number = "12345", name = "Alice" }, ... }
+function M.loadFavorites()
+	local data = loadAll()
+	local list = data.favorites or {}
+	local clean = {}
+	for _, f in ipairs(list) do
+		if type(f) == "string" then
+			table.insert(clean, { number = f, name = "" })
+		elseif type(f) == "table" and f.number then
+			table.insert(clean, { number = tostring(f.number), name = tostring(f.name or "") })
+		end
+	end
+	return clean
+end
+
+function M.saveFavorites(favs)
+	local data = loadAll()
+	data.favorites = favs
+	saveAll(data)
+end
+
 return M

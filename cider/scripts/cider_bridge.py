@@ -204,21 +204,95 @@ def _empty_window_probe() -> dict[str, Any]:
     }
 
 
-def _umbriel_windows_text() -> str | None:
+def _loft_path() -> Path:
+    return _STATE_DIR / "loft.json"
+
+
+def _read_loft() -> dict[str, Any]:
+    path = _loft_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_loft(payload: dict[str, Any]) -> None:
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    _atomic_write(_loft_path(), json.dumps(payload, ensure_ascii=False))
+
+
+def _clear_loft() -> None:
+    try:
+        _loft_path().unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _umbriel_output_from_workspace(workspace: str | None) -> str:
+    raw = (workspace or "").strip()
+    if ":" in raw:
+        return raw.split(":", 1)[0]
+    return raw
+
+
+def _umbriel_in_scratchpad(window: dict[str, Any] | None) -> bool:
+    """Pad members stay in `windows --json` with an empty workspace."""
+    if window is None:
+        return True
+    return not _umbriel_output_from_workspace(window.get("workspace"))
+
+
+def _umbriel_peer_output(windows: list[dict[str, Any]]) -> str:
+    focused = next((w for w in windows if w.get("focused") is True), None)
+    if focused is not None:
+        output = _umbriel_output_from_workspace(focused.get("workspace"))
+        if output:
+            return output
+    for row in windows:
+        output = _umbriel_output_from_workspace(row.get("workspace"))
+        if output:
+            return output
+    return ""
+
+
+def _lofted_window_payload(loft: dict[str, Any]) -> dict[str, Any]:
+    payload = _empty_window_probe()
+    payload["compositor"] = "umbriel"
+    payload["present"] = True
+    payload["focused"] = False
+    payload["on_screen"] = False
+    payload["suppress_notify"] = False
+    wid = str(loft.get("id") or "")
+    if wid:
+        payload["id"] = wid
+    output = str(loft.get("output") or "")
+    if output:
+        payload["output"] = output
+    return payload
+
+
+def _umbriel_windows_json() -> list[dict[str, Any]] | None:
+    """Listed Umbriel windows, or None when the compositor query failed."""
     if not shutil.which("umbriel"):
         return None
     try:
-        return subprocess.check_output(
-            ["umbriel", "windows"],
+        raw = subprocess.check_output(
+            ["umbriel", "windows", "--json"],
             stderr=subprocess.DEVNULL,
             timeout=1.5,
         ).decode("utf-8")
+        data = json.loads(raw)
     except Exception as exc:
-        log.debug("umbriel windows query failed: %s", exc)
+        log.debug("umbriel windows --json failed: %s", exc)
         return None
+    if not isinstance(data, list):
+        return None
+    return [row for row in data if isinstance(row, dict)]
 
 
 def _parse_umbriel_windows(text: str) -> list[tuple[bool, str, str]]:
+    """TSV listing leftover for tests; live probe uses JSON."""
     rows: list[tuple[bool, str, str]] = []
     for line in text.splitlines():
         if not line.strip():
@@ -233,26 +307,145 @@ def _parse_umbriel_windows(text: str) -> list[tuple[bool, str, str]]:
     return rows
 
 
-def _probe_umbriel() -> dict[str, Any] | None:
-    text = _umbriel_windows_text()
-    if text is None:
+def _umbriel_on_screen(cider: dict[str, Any], windows: list[dict[str, Any]]) -> bool:
+    if cider.get("focused") is True:
+        return True
+    cider_ws = str(cider.get("workspace") or "")
+    focused = next((w for w in windows if w.get("focused") is True), None)
+    if focused is None:
+        return bool(cider.get("active") is True)
+    return cider_ws != "" and cider_ws == str(focused.get("workspace") or "")
+
+
+def apply_umbriel_listing(windows: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    """Map an Umbriel window list (or query failure) onto window.json + loft latch."""
+    loft = _read_loft()
+    cached_id = str(loft.get("id") or "")
+
+    if windows is None:
+        if loft.get("lofted") is True and cached_id:
+            return _lofted_window_payload(loft)
         return None
-    cider_focused = False
-    cider_present = False
-    for focused, app_id, title in _parse_umbriel_windows(text):
-        if not _is_cider_window(app_id, title):
-            continue
-        cider_present = True
-        if focused:
-            cider_focused = True
+
+    cider = next(
+        (w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))),
+        None,
+    )
+    if cider is not None:
+        wid = str(cider.get("id") or cached_id)
+        ws_output = _umbriel_output_from_workspace(cider.get("workspace"))
+        lofted = _umbriel_in_scratchpad(cider)
+        output = ws_output or str(loft.get("output") or "") or _umbriel_peer_output(windows)
+        _write_loft({"id": wid, "output": output, "lofted": lofted})
+        if lofted:
+            return _lofted_window_payload({"id": wid, "output": output, "lofted": True})
+        focused = cider.get("focused") is True
+        on_screen = _umbriel_on_screen(cider, windows)
+        payload = _empty_window_probe()
+        payload["compositor"] = "umbriel"
+        payload["present"] = True
+        payload["focused"] = focused
+        payload["on_screen"] = on_screen
+        payload["suppress_notify"] = focused or on_screen
+        if wid:
+            payload["id"] = wid
+        if output:
+            payload["output"] = output
+        return payload
+
+    if cached_id:
+        output = str(loft.get("output") or "")
+        _write_loft({"id": cached_id, "output": output, "lofted": True})
+        return _lofted_window_payload({"id": cached_id, "output": output, "lofted": True})
+
+    if not windows:
+        return None
+
     payload = _empty_window_probe()
     payload["compositor"] = "umbriel"
-    payload["present"] = cider_present
-    payload["focused"] = cider_focused
-    # Listed windows are mapped on the active layout strip.
-    payload["on_screen"] = cider_present
-    payload["suppress_notify"] = cider_focused or cider_present
     return payload
+
+
+def _probe_umbriel() -> dict[str, Any] | None:
+    return apply_umbriel_listing(_umbriel_windows_json())
+
+
+def _umbriel_msg(action: str) -> bool:
+    if not action or not shutil.which("umbriel"):
+        return False
+    try:
+        subprocess.check_call(
+            ["umbriel", "msg", action],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=1.5,
+        )
+        return True
+    except Exception as exc:
+        log.debug("umbriel msg %s failed: %s", action, exc)
+        return False
+
+
+def _umbriel_action(name: str, output: str) -> str:
+    output = (output or "").strip()
+    if not output:
+        return ""
+    return f"{name}:{output}"
+
+
+def _window_is_focused(windows: list[dict[str, Any]] | None, wid: str) -> bool:
+    if not windows or not wid:
+        return False
+    return any(str(w.get("id") or "") == wid and w.get("focused") is True for w in windows)
+
+
+def toggle_loft(
+    msg: Callable[[str], bool] | None = None,
+    listing: Callable[[], list[dict[str, Any]] | None] | None = None,
+) -> int:
+    """Send or restore Cider on Umbriel. Unaddressable window → no-op."""
+    send = msg or _umbriel_msg
+    list_windows = listing or _umbriel_windows_json
+    windows = list_windows()
+    payload = apply_umbriel_listing(windows)
+    if payload is None or payload.get("compositor") != "umbriel":
+        return 0
+    loft = _read_loft()
+    wid = str(loft.get("id") or payload.get("id") or "")
+    output = str(loft.get("output") or payload.get("output") or "")
+    if not wid or not output:
+        return 0
+    was_lofted = loft.get("lofted") is True
+    cider_now = next(
+        (w for w in (windows or []) if str(w.get("id") or "") == wid),
+        None,
+    )
+    pad_visible = (
+        was_lofted
+        and cider_now is not None
+        and cider_now.get("focused") is True
+    )
+    if was_lofted:
+        # Hidden pad members ignore window-focus. Restore needs the pad shown first.
+        # https://docs.noctalia.dev/umbriel/scratchpads/
+        if not pad_visible:
+            show = _umbriel_action("scratchpad-toggle", output)
+            if show:
+                send(show)
+        send(f"window-focus:{wid}")
+        restore = _umbriel_action("window-restore-from-scratchpad", output)
+        if restore:
+            send(restore)
+        return 0
+    if not send(f"window-focus:{wid}"):
+        return 0
+    if _window_is_focused(list_windows(), wid) is False:
+        return 0
+    pad = _umbriel_action("window-move-to-scratchpad", output)
+    if not pad:
+        return 0
+    send(pad)
+    return 0
 
 
 def _niri_json(cmd: list[str]) -> Any | None:
@@ -847,6 +1040,7 @@ class CiderBridge:
             self._track_key = ""
             self._lyrics_key = ""
             self._last = {}
+            _clear_loft()
             emit(TrackEvent(type="clear"))
             emit(TrackEvent(type="status", message="disconnected"))
 
@@ -870,20 +1064,11 @@ class CiderBridge:
 
     def _window_loop(self) -> None:
         last_body = ""
-        was_present = False
         while not self._stop.is_set():
             try:
                 payload = probe_cider_window()
-                present = payload.get("present") is True
-                # Closing Cider removes its window — clear immediately instead of
-                # waiting for socket/API death (that lag left the bar chip stuck).
-                if was_present and not present:
-                    self._track_key = ""
-                    self._lyrics_key = ""
-                    self._last = {}
-                    emit(TrackEvent(type="clear"))
-                    emit(TrackEvent(type="status", message="cider_closed"))
-                was_present = present
+                # Unlist while the session is alive is loft (KTD1). Chip hide
+                # waits for socket/API death, not a missing window row.
                 body = json.dumps(payload, ensure_ascii=False)
                 if body != last_body:
                     _write_window(payload)
@@ -1337,11 +1522,19 @@ def main() -> int:
     )
     parser.add_argument("--poll", type=float, default=0.0)
     parser.add_argument("--log-level", default="WARNING")
+    parser.add_argument(
+        "--toggle-loft",
+        action="store_true",
+        help="One-shot Umbriel loft send/restore; do not start the bridge.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.WARNING))
     global _STATE_DIR
     _STATE_DIR = Path(args.state_dir).expanduser()
     _STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+    if args.toggle_loft:
+        return toggle_loft()
 
     if not args.token:
         token_file = _STATE_DIR / "apptoken"
