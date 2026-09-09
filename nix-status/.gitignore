@@ -1,0 +1,15 @@
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor swap and backup files
+*.swp
+*.swo
+*~
+
+# Local logs and temporary files
+*.log
+*.tmp
+
+# Noctalia API definitions fetched for local editor tooling
+noctalia.d.luau

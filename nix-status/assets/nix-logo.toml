@@ -1,0 +1,11 @@
+[theme.templates.user.nix_logo]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/nix-logo.svg"
+output_path = "$XDG_CACHE_HOME/noctalia/nix-logo.svg"
+
+[theme.templates.user.nix_logo_updates]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/nix-logo-updates.svg"
+output_path = "$XDG_CACHE_HOME/noctalia/nix-logo-updates.svg"
+
+[theme.templates.user.nix_logo_error]
+input_path = "$XDG_CONFIG_HOME/noctalia/templates/nix-logo-error.svg"
+output_path = "$XDG_CACHE_HOME/noctalia/nix-logo-error.svg"

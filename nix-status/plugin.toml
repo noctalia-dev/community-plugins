@@ -1,0 +1,45 @@
+id = "mindnbytes/nix-status"
+name = "Nix Status"
+version = "0.2.0"
+plugin_api = 30
+author = "mindnbytes"
+license = "MIT"
+icon = "package"
+description = "Monitor NixOS generations, compare system closures, and update configured flake inputs."
+tags = ["bar", "panel", "service", "indicator", "system", "utility", "nixos"]
+dependencies = ["nix", "readlink"]
+
+[[setting]]
+key = "flake_dir"
+type = "folder"
+label_key = "settings.flake_dir.label"
+description_key = "settings.flake_dir.description"
+default = ""
+
+[[setting]]
+key = "nixos_configuration"
+type = "string"
+label_key = "settings.nixos_configuration.label"
+description_key = "settings.nixos_configuration.description"
+default = ""
+
+[[setting]]
+key = "use_themed_logos"
+type = "bool"
+label_key = "settings.use_themed_logos.label"
+description_key = "settings.use_themed_logos.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+[[panel]]
+id = "details"
+entry = "panel.luau"
+placement = "attached"
+open_near_click = true
