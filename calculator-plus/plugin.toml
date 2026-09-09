@@ -1,0 +1,23 @@
+id           = "samuelskovbakke/calculator-plus"
+name         = "Calculator Plus"
+version      = "1.0.0"
+plugin_api   = 9
+author       = "samuelskovbakke"
+license      = "MIT"
+icon         = "calculator-plus"
+description  = "Popup qalc calculator panel with expression history."
+tags         = ["bar", "panel", "utility"]
+dependencies = ["qalc"]
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id              = "calculator-plus"
+entry           = "panel.luau"
+width           = 380
+height          = 480
+placement       = "floating"
+position        = "auto"
+open_near_click = true
