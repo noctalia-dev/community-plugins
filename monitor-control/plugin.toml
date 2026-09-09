@@ -1,0 +1,68 @@
+# Monitor Control - display placement, resolution and refresh rate for the
+# Umbriel compositor, from the Noctalia bar.
+#
+# One [[service]] owns every compositor call and every config write: it polls
+# `umbriel outputs --json`, applies changes by patching [output.*] sections in
+# the Umbriel config (validated with `umbriel validate`, restored on failure),
+# then triggers `umbriel msg config-reload` so the change persists across
+# reboots. The bar [[widget]] and [[panel]] are thin clients on the plugin's
+# shared state channels.
+
+id = "muhammadessam/monitor-control"
+name = "Monitor Control"
+version = "0.1.1"
+plugin_api = 24
+author = "muhammadessam"
+license = "MIT"
+dependencies = ["umbriel"]
+tags = ["bar", "panel", "service", "system", "utility", "hardware"]
+icon = "device-desktop"
+description = "Place monitors left/right/above/below and change resolution and refresh rate; saves to the Umbriel config."
+
+[[setting]]
+key = "config_path"
+type = "string"
+label_key = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default = "~/.config/umbriel/config.toml"
+advanced = true
+
+[[setting]]
+key = "auto_reload"
+type = "bool"
+label_key = "settings.auto_reload.label"
+description_key = "settings.auto_reload.description"
+default = true
+
+# Headless owner of all compositor I/O and config writes.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: focused output's current mode; click opens the panel.
+[[widget]]
+id = "monitor"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_text"
+  type = "bool"
+  label_key = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "device-desktop"
+
+# Display settings surface. Open with:
+#   noctalia msg panel-toggle muhammadessam/monitor-control:panel
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 640
+placement = "floating"
+position = "center"

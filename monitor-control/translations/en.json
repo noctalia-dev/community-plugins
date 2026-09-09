@@ -1,0 +1,53 @@
+{
+  "error": {
+    "parse_failed": "Could not parse umbriel outputs"
+  },
+  "notify": {
+    "apply_failed": "Could not apply change",
+    "reload_failed": "Config saved but the compositor reload failed",
+    "revert_failed": "No previous config backup to restore",
+    "saved_no_reload": "Saved. Live apply is off, so it lands on the next session.",
+    "validate_failed": "New config rejected - file restored"
+  },
+  "panel": {
+    "apply": "Apply mode",
+    "busy": "Applying...",
+    "monitors": "Monitors",
+    "no_outputs": "No outputs reported by the compositor.",
+    "off": "off",
+    "persist_note": "Changes are written to the Umbriel config file and survive reboots.",
+    "place_down": "Place below others",
+    "place_left": "Place left of others",
+    "place_right": "Place right of others",
+    "place_up": "Place above others",
+    "refresh": "Hz",
+    "refresh_state": "Refresh",
+    "resolution": "Resolution",
+    "unavailable": "Monitor Control needs an Umbriel session with the umbriel CLI available."
+  },
+  "settings": {
+    "auto_reload": {
+      "description": "Run a compositor config reload after saving. Disable to only write the file, applied on next session.",
+      "label": "Apply changes live"
+    },
+    "config_path": {
+      "description": "File the plugin patches to persist display settings. Leave the default unless your config lives elsewhere.",
+      "label": "Umbriel config path"
+    },
+    "glyph": {
+      "label": "Glyph"
+    },
+    "show_text": {
+      "description": "Show the focused monitor's resolution and refresh rate next to the icon.",
+      "label": "Show mode text"
+    }
+  },
+  "error": {
+    "parse_failed": "Could not parse umbriel outputs"
+  },
+  "tooltip": {
+    "mode": "Mode",
+    "open": "Open Monitor Control",
+    "output": "Output"
+  }
+}
