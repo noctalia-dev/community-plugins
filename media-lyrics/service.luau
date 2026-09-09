@@ -18,6 +18,10 @@
 local POLL_MS = 150
 local LRCLIB_UA = "media-lyrics/0.1 (Noctalia v5 plugin)"
 
+-- Host-independent lyric logic (LRC parsing, NetEase placeholders/meta/rank,
+-- UTF-8 sanitizers) — extracted so it can be unit-tested without the host.
+local lyrics_lib = require("./lyrics_lib.luau")
+
 -- NetEase Cloud Music fallback source (public endpoints, no auth): the
 -- cloudsearch and song-lyric APIs need a browser User-Agent and a
 -- music.163.com Referer — plain requests return an encrypted blob instead.
@@ -34,6 +38,29 @@ local function nowMs()
   local ok, v = pcall(function() return noctalia.nowMs() end)
   if ok and type(v) == "number" then return v end
   return os.time() * 1000
+end
+
+-- Player filtering (allowlist/blocklist). Each setting is a comma-separated
+-- list of identity or bus-name substrings (case-insensitive). allowlist
+-- non-empty => only matching players pass; blocklist excludes matches.
+local function playerAllowed(ident, busName)
+  local allow = trim(noctalia.getConfig("player_allowlist") or "")
+  local block = trim(noctalia.getConfig("player_blocklist") or "")
+  if allow == "" and block == "" then return true end
+  local hay = (ident .. " " .. busName):lower()
+  if allow ~= "" then
+    local matched = false
+    for part in allow:gmatch("[^,]+") do
+      if hay:find(trim(part):lower(), 1, true) then matched = true break end
+    end
+    if not matched then return false end
+  end
+  if block ~= "" then
+    for part in block:gmatch("[^,]+") do
+      if hay:find(trim(part):lower(), 1, true) then return false end
+    end
+  end
+  return true
 end
 
 -- ============================= state =============================
@@ -60,95 +87,20 @@ local snapshot = {
   lyricsProvider = "",
   synced = false,
   lyrics = {}, -- { { time = sec, text = "..." }, ... }  (time < 0 = unsynced)
+  -- candidate list for the "choose lyrics" selector (LRCLIB search ties)
+  lyricsCandidates = {}, -- { { title, artist, album, duration, synced, plain }, ... }
+  lyricsVariantIndex = 0, -- 0 = automatic chain, N = picked candidate (1-based)
 }
 
 -- ============================= LRC parsing (port of Lyrics::parseLrc) =============================
 
-local function fractionalSeconds(frac)
-  if not frac or frac == "" then return 0.0 end
-  local v = tonumber(frac) or 0
-  local n = #frac
-  if n == 1 then return v / 10.0 end
-  if n == 2 then return v / 100.0 end
-  return v / 1000.0
-end
-
-local function isMetadataLine(line)
-  local l = line:lower()
-  return l:match("^%[ar%s*:") ~= nil or l:match("^%[ti%s*:") ~= nil
-    or l:match("^%[al%s*:") ~= nil or l:match("^%[by%s*:") ~= nil
-    or l:match("^%[re%s*:") ~= nil or l:match("^%[ve%s*:") ~= nil
-    or l:match("^%[offset%s*:") ~= nil
-end
-
-local function looksLikeMalformedTimestamp(line)
-  return line:match("^%[%d+%s*:[^%]]+%]") ~= nil
-end
-
--- Parse an LRC (or plain-text) lyric into a sorted list of { time = sec, text }.
--- time < 0 marks unsynced lines. Mirrors Lyrics::parseLrc from Clavis.
-local function parseLrc(text, offsetMs)
-  local result = {}
-  if trim(text) == "" then return result end
-
-  local fileOffsetMs = 0
-  local off = text:match("%[offset%s*:%s*(-?%d+%.?%d*)%]")
-  if off then fileOffsetMs = tonumber(off) or 0 end
-  local extraOffset = (fileOffsetMs + (offsetMs or 0)) / 1000.0
-
-  for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
-    local timestamps = {}
-    local rest = line
-    -- consume every leading [mm:ss(.ttt)] timestamp tag (also accepts : or - ms separators)
-    while true do
-      local min, sec, epos
-      local sep, frac
-      -- with fractional part
-      min, sec, sep, frac, epos = rest:match("^%s*%[(%d+):(%d%d?)([%.:%-])(%d+)%]()")
-      if not min then
-        -- plain [mm:ss]
-        min, sec, epos = rest:match("^%s*%[(%d+):(%d%d?)%]()")
-        sep, frac = nil, nil
-      end
-      if not min then break end
-      local ts = tonumber(min) * 60 + tonumber(sec) + fractionalSeconds(frac)
-      timestamps[#timestamps + 1] = ts + extraOffset
-      rest = rest:sub(epos)
-    end
-
-    local lyricText = trim(rest)
-    if #timestamps > 0 then
-      if lyricText ~= "" then
-        for _, t in ipairs(timestamps) do
-          result[#result + 1] = { time = t, text = lyricText }
-        end
-      end
-    else
-      local trimmedLine = trim(line)
-      if not (lyricText == "" or isMetadataLine(trimmedLine) or looksLikeMalformedTimestamp(trimmedLine)) then
-        result[#result + 1] = { time = -1.0, text = lyricText }
-      end
-    end
-  end
-
-  -- stable sort: synced lines first (by time), unsynced after, preserving order
-  local function keyed(t)
-    for i, v in ipairs(result) do
-      if v == t then return i end
-    end
-    return 0
-  end
-  table.sort(result, function(a, b)
-    local at, bt = a.time >= 0, b.time >= 0
-    if at ~= bt then return at end
-    if at and bt then
-      if a.time ~= b.time then return a.time < b.time end
-      return keyed(a) < keyed(b) -- stability
-    end
-    return false
-  end)
-  return result
-end
+-- Implementations live in lyrics_lib.luau (require'd above) so they can be
+-- unit-tested without the host; these are thin re-exports for call sites that
+-- reference the old local names.
+local fractionalSeconds = lyrics_lib.fractionalSeconds
+local isMetadataLine = lyrics_lib.isMetadataLine
+local looksLikeMalformedTimestamp = lyrics_lib.looksLikeMalformedTimestamp
+local parseLrc = lyrics_lib.parseLrc
 
 local function indexForTime(lyrics, positionSeconds)
   if not snapshot.synced or positionSeconds == nil or positionSeconds < 0 then return -1 end
@@ -170,7 +122,7 @@ end
 -- ============================= cache / local lyrics =============================
 
 local function sanitizePart(s)
-  return trim((s or ""):gsub('[%c/\\]', "_"))
+  return lyrics_lib.sanitizePart(s)
 end
 
 local function cachePath(artist, title)
@@ -273,25 +225,8 @@ end
 -- (e.g. "[00:00.000] 纯音乐，请欣赏" = "instrumental music, enjoy", or
 -- "暂无歌词" = "no lyrics yet"). Those are NOT lyrics: treat the text as
 -- empty so the chain keeps hunting / ends with a clean "no lyrics".
-local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌词",
-  "此歌曲为没有填词的纯音乐", "此歌曲为纯音乐请欣赏", "纯音乐" }
-local function isPlaceholderLyrics(raw)
-  -- Byte-safe sanitize: multibyte chars must NOT live inside a Lua character
-  -- class together with ASCII punctuation — it corrupts UTF-8 bytes. Strip
-  -- timestamps + ASCII punctuation first, then full-width chars literally.
-  local cleaned = (raw or ""):gsub("%[%d+:%d+%.?%d*%]", "")
-  cleaned = cleaned:gsub("[%s,.!?]", "")
-  cleaned = cleaned:gsub("，", ""):gsub("。", ""):gsub("．", "")
-  cleaned = cleaned:gsub("！", ""):gsub("？", "")
-  if cleaned == "" then return false end
-  for _, p in ipairs(NETEASE_PLACEHOLDERS) do
-    if cleaned == p then return true end
-  end
-  -- variant lines appended after the phrase (e.g. "...请欣赏，谢谢");
-  -- compare CHARACTER length (utf8), not bytes
-  local clen = utf8.len(cleaned) or #cleaned
-  return clen <= 16 and cleaned:find("纯音乐", 1, true) ~= nil
-end
+-- Implementation in lyrics_lib.luau (unit-tested).
+local isPlaceholderLyrics = lyrics_lib.isPlaceholderLyrics
 
 -- chain: local dir -> embedded (xesam:asText) -> cache -> LRCLIB exact ->
 -- LRCLIB search -> NetEase fallback
@@ -367,84 +302,18 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
 
   -- ── NetEase Cloud Music fallback (last resort, no auth) ──────────────────
   -- NetEase LRCs open with metadata credit lines (作词/作曲/编曲/Artist: …)
-  -- that would render as lyric rows; drop them before parsing.
-  local NETEASE_META = {
-    "^%s*作词%s*[:：]", "^%s*作曲%s*[:：]", "^%s*编曲%s*[:：]",
-    "^%s*制作人%s*[:：]", "^%s*混音%s*[:：]", "^%s*母带%s*[:：]",
-    "^%s*录音%s*[:：]", "^%s*监制%s*[:：]", "^%s*和声%s*[:：]",
-    "^%s*出品%s*[:：]", "^%s*发行%s*[:：]", "^%s*企划%s*[:：]",
-    "^%s*统筹%s*[:：]", "^%s*OP%s*[:：]", "^%s*SP%s*[:：]",
-    "^%s*Artist%s*[:：]", "^%s*Album%s*[:：]", "^%s*Producer%s*[:：]",
-    "^%s*Composer%s*[:：]", "^%s*Lyricist%s*[:：]",
-  }
-  local function stripNetEaseMeta(raw)
-    local out = {}
-    for line in (raw .. "\n"):gmatch("(.-)\n") do
-      local text = trim(line)
-      if text ~= "" then
-        local body = text:gsub("^%[%d+:%d+%.?%d*%]%s*", "")
-        local isMeta = false
-        for _, p in ipairs(NETEASE_META) do
-          if body:match(p) then isMeta = true break end
-        end
-        if not isMeta then out[#out + 1] = text end
-      end
-    end
-    return table.concat(out, "\n")
-  end
-
-  local function ciEq(a, b)
-    return trim(a or ""):lower() == trim(b or ""):lower()
-  end
-  local function ciHas(hay, needle)
-    return trim(hay or ""):lower():find(trim(needle or ""):lower(), 1, true) ~= nil
-  end
+  -- that would render as lyric rows; drop them before parsing. The list and
+  -- strip live in lyrics_lib.luau (unit-tested).
+  local stripNetEaseMeta = lyrics_lib.stripNetEaseMeta
 
   -- Rank cloudsearch hits: exact/contains matches on title (3/1) and artist
   -- (2/1), plus a duration bonus (2/1) when cloudsearch `dt` (ms) matches the
   -- playing track's length — the timed version of a song is the one whose
-  -- timestamps line up. Returns score>0 candidates sorted desc {id, score}.
-  local function rankNetEaseSongs(songs, artist, title, durSec)
-    local ranked = {}
-    for _, s in ipairs(songs) do
-      local sname = trim(s.name or "")
-      local artists = ""
-      local arr = type(s.ar) == "table" and s.ar or type(s.artists) == "table" and s.artists or nil
-      if arr then
-        local names = {}
-        for _, a in ipairs(arr) do names[#names + 1] = a.name or "" end
-        artists = table.concat(names, ", ")
-      end
-      -- Eligibility: when we know the artist, the candidate MUST overlap on
-      -- the artist too — a title-only hit for "DNA" happily returns some
-      -- Chinese song with the same name (wrong-language lyrics, 2026-09-03).
-      -- An empty metadata artist (dirty sources) keeps title-based matching.
-      local artistKnown = trim(artist or "") ~= ""
-      local titleOk = ciEq(sname, title) or ciHas(sname, title)
-      local artistOk = (not artistKnown) or ciEq(artists, artist) or ciHas(artists, artist)
-      if titleOk and artistOk then
-        local score = 0
-      if ciEq(sname, title) then score = score + 3 end
-      if ciHas(sname, title) then score = score + 1 end
-      if ciEq(artists, artist) then score = score + 2 end
-      if ciHas(artists, artist) then score = score + 1 end
-      if type(s.dt) == "number" and durSec and durSec > 0 then
-        local d = math.abs(s.dt / 1000 - durSec)
-        if d < 2 then score = score + 2
-        elseif d < 6 then score = score + 1 end
-      end
-        if score > 0 and type(s.id) == "number" then
-          ranked[#ranked + 1] = { id = s.id, score = score }
-        end
-      end
-    end
-    table.sort(ranked, function(a, b) return a.score > b.score end)
-    return ranked
-  end
+  -- timestamps line up. Lives in lyrics_lib.luau (unit-tested).
+  local rankNetEaseSongs = lyrics_lib.rankNetEaseSongs
 
-  -- True when the text carries [mm:ss.xx] timestamps (karaoke-capable).
   local function lrcIsSynced(text)
-    return text:match("%[%d+:%d+%.?%d*%]") ~= nil
+    return lyrics_lib.lrcIsSynced(text)
   end
 
   -- Accept a candidate and cache it on success. Returns success.
@@ -605,29 +474,58 @@ local function loadLyricsForTrack(artist, title, album, durationSec, key, embedd
       if resp2.ok and resp2.status == 200 and type(resp2.body) == "string" then
         local list = noctalia.json.decode(resp2.body)
         if type(list) == "table" and #list > 0 then
+          -- Score every candidate; keep the top-scoring ones. If exactly one
+          -- wins, accept it directly. If several tie, surface them in the
+          -- snapshot so the panel can offer a "choose lyrics" selector.
           local best, bestScore = nil, -1
+          local ties = {}
           for _, cand in ipairs(list) do
             local score = 0
             if trim(cand.artistName or "") == artist then score = score + 2 end
             if trim(cand.trackName or "") == title then score = score + 2 end
             if trim(cand.syncedLyrics or "") ~= "" then score = score + 1 end
-            if score > bestScore then best, bestScore = cand, score end
+            if score > bestScore then best, bestScore, ties = cand, score, { cand }
+            elseif score == bestScore then ties[#ties + 1] = cand end
           end
           if best then
-            local synced = trim(best.syncedLyrics or "")
-            local plain = trim(best.plainLyrics or "")
-            if synced ~= "" then
-              if not acceptAndCache("LRCLIB", synced, plain) then
-                -- parsed but unusable (instrumental): try NetEase
-                fetchNetEaseFallback(artist, title, key, plain ~= "" and
-                  { provider = "LRCLIB", synced = "", plain = plain } or nil)
+            if #ties == 1 or bestScore == 0 then
+              -- Single winner, or NO candidate matched artist/title (score 0):
+              -- accept the single best directly. A score-0 tie would otherwise
+              -- dump the whole search list into the selector and blow the
+              -- panel's CPU budget rendering hundreds of buttons.
+              local synced = trim(best.syncedLyrics or "")
+              local plain = trim(best.plainLyrics or "")
+              if synced ~= "" then
+                if not acceptAndCache("LRCLIB", synced, plain) then
+                  fetchNetEaseFallback(artist, title, key, plain ~= "" and
+                    { provider = "LRCLIB", synced = "", plain = plain } or nil)
+                end
+              elseif plain ~= "" then
+                fetchNetEaseFallback(artist, title, key,
+                  { provider = "LRCLIB", synced = "", plain = plain })
+              else
+                fetchNetEaseFallback(artist, title, key)
               end
-            elseif plain ~= "" then
-              -- plain-only LRCLIB hit: prefer a synced NetEase copy
-              fetchNetEaseFallback(artist, title, key,
-                { provider = "LRCLIB", synced = "", plain = plain })
             else
-              fetchNetEaseFallback(artist, title, key)
+              -- Multiple top candidates: offer a manual choice. Cap the list
+              -- at 8 so the selector stays cheap to render.
+              local cands = {}
+              local cap = math.min(#ties, 8)
+              for i = 1, cap do
+                local c = ties[i]
+                cands[#cands + 1] = {
+                  title = c.trackName or "",
+                  artist = c.artistName or "",
+                  album = c.albumName or "",
+                  duration = c.duration or 0,
+                  synced = trim(c.syncedLyrics or ""),
+                  plain = trim(c.plainLyrics or ""),
+                }
+              end
+              snapshot.lyricsCandidates = cands
+              snapshot.lyricsStatus = "choose"
+              snapshot.lyricsProvider = "LRCLIB"
+              publish()
             end
             return
           end
@@ -647,12 +545,115 @@ local function invalidateLyrics()
   snapshot.lyricsProvider = ""
   snapshot.synced = false
   snapshot.lyricsError = ""
+  -- variant picker state is per-track: drop the list and the active marker.
+  snapshot.lyricsCandidates = {}
+  snapshot.lyricsVariantIndex = 0
+end
+
+-- ===================== lyric variant picker (on the fly) =====================
+
+-- Candidate list for the "lyrics variants" selector, kept in the snapshot so
+-- the user can re-open the list and switch again WITHOUT re-running the fetch
+-- chain. The currently playing lyrics are never touched by opening the list;
+-- lyricsVariantIndex (0 = the automatic chain, N = picked candidate) marks the
+-- active row so the panel can highlight it.
+function publishVariantList(cands)
+  snapshot.lyricsCandidates = cands
+  snapshot.lyricsStatus = "choose"
+  publish()
+end
+
+-- Build the selector list on demand: the automatic chain picks ONE source
+-- (local / embedded / cache / LRCLIB exact / NetEase) and stops, so the full
+-- LRCLIB search result is fetched only when the user opens the picker. The
+-- "Default" row (restore automatic chain) is rendered by the panel from
+-- lyricsProvider; here we only deliver real alternatives.
+local variantPickGeneration = 0
+
+function openLyricChoices()
+  -- Need an actual track to search for.
+  local artist, title = snapshot.artist, snapshot.title
+  if trim(title) == "" then return end
+
+  local pickGen = variantPickGeneration + 1
+  variantPickGeneration = pickGen
+
+  local searchUrl = "https://lrclib.net/api/search?track_name=" .. noctalia.string.urlEncode(title)
+    .. "&artist_name=" .. noctalia.string.urlEncode(artist)
+  noctalia.runAsync({ "curl", "-sSf", "-m", "8", "-4", "-H", "User-Agent: " .. LRCLIB_UA, searchUrl },
+    function(result)
+      if pickGen ~= variantPickGeneration then return end
+      local cands = {}
+      if result.exitCode == 0 and type(result.stdout) == "string" then
+        local list = noctalia.json.decode(result.stdout)
+        if type(list) == "table" then
+          local seen = {}
+          for _, c in ipairs(list) do
+            local synced = trim(c.syncedLyrics or "")
+            local plain = trim(c.plainLyrics or "")
+            if synced ~= "" or plain ~= "" then
+              -- dedupe identical texts (same lyrics re-listed per album)
+              local sig = (synced ~= "") and synced or ("P:" .. plain)
+              if not seen[sig] then
+                seen[sig] = true
+                cands[#cands + 1] = {
+                  title = c.trackName or "", artist = c.artistName or "",
+                  album = c.albumName or "", duration = c.duration or 0,
+                  synced = synced, plain = plain,
+                }
+              end
+            end
+          end
+        end
+      end
+      -- Cap the list so the selector stays cheap to render.
+      while #cands > 8 do cands[#cands] = nil end
+      publishVariantList(cands)
+    end)
+end
+
+-- Apply a picked variant WITHOUT clearing the list, so the user can switch
+-- again immediately. Index 0 = "Default" row: re-run the automatic chain
+-- (same as the reload button). NOTE: acceptAndCache is a closure inside
+-- loadLyricsForTrack and is NOT visible here — use file-level acceptLyrics
+-- + cacheLyrics with the current track key instead.
+function applyLyricVariant(idx)
+  if idx == 0 then
+    -- "Default": re-run the automatic chain for this track.
+    local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
+      .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+    snapshot.lyricsVariantIndex = 0
+    loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key,
+      (embeddedCacheKey == key) and embeddedCache or "")
+    return
+  end
+  local cand = (snapshot.lyricsCandidates or {})[idx]
+  if not cand then return end
+  local synced, plain = trim(cand.synced or ""), trim(cand.plain or "")
+  if synced == "" and plain == "" then return end -- nothing to apply
+  -- Same key format as refreshPlayer (lengthUs integer), so the 150 ms poll
+  -- keeps treating this track as UNCHANGED and does not restart the chain.
+  local key = snapshot.playerName .. "|" .. snapshot.title .. "|" .. snapshot.artist
+    .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
+  local body, extra = synced, plain
+  if synced == "" then body, extra = plain, "" end
+  if acceptLyrics("LRCLIB", body, extra, key) then
+    snapshot.lyricsVariantIndex = idx
+    cacheLyrics(snapshot.artist, snapshot.title, body, extra)
+  end
+  -- keep snapshot.lyricsCandidates intact: the picker can be re-opened and
+  -- the user can switch to another variant at any time.
 end
 
 -- ============================= MPRIS via busctl =============================
 
 local GET_ACTIVE = { "busctl", "--user", "--json=short", "call", "dev.noctalia.Mpris",
   "/dev/noctalia/Mpris", "dev.noctalia.Mpris", "GetActivePlayer" }
+
+-- All players (aa{sv}): used to fall back to the next allowed player when the
+-- active one is filtered out by the allowlist/blocklist.
+local GET_PLAYERS = { "busctl", "--user", "--json=short", "call", "dev.noctalia.Mpris",
+  "/dev/noctalia/Mpris", "dev.noctalia.Mpris", "GetPlayers" }
 
 -- Some MPRIS players expose lyrics via xesam:asText in their own Metadata;
 -- the Noctalia aggregator does not forward that field, so ask the player bus
@@ -699,30 +700,13 @@ end
 
 local refreshInFlight = false
 
-local function refreshPlayer()
-  if refreshInFlight then return end
-  refreshInFlight = true
-  noctalia.runAsync(GET_ACTIVE, function(result)
-    refreshInFlight = false
-    if result.exitCode ~= 0 or trim(result.stdout or "") == "" then
-      clearPlayer()
-      return
-    end
-
-    -- busctl --json=short wraps the reply: { type = "ba{sv}", data = [ found, fields ] }
-    local payload = noctalia.json.decode(result.stdout)
-    local body = payload and payload.data
-    if type(body) ~= "table" or type(body[1]) ~= "boolean" then return end
-    if not body[1] or type(body[2]) ~= "table" then
-      clearPlayer()
-      return
-    end
-
-    local f = body[2]
+-- Apply a single player's fields to the snapshot and (on track change) load
+-- lyrics. Shared by the active-player path and the allowlist fallback.
+-- Declared BEFORE refreshPlayer so it is a visible upvalue there.
+local function applyPlayer(f)
     local title = parseBusctlVariant(f.title) or ""
     local artist = parseBusctlVariant(f.artists) or ""
     local album = parseBusctlVariant(f.album) or ""
-    -- art_url comes as file:// URI; ui.image expects a filesystem path
     local artUrl = parseBusctlVariant(f.art_url) or ""
     artUrl = artUrl:gsub("^file://", "")
     local playing = (parseBusctlVariant(f.playback_status) == "Playing")
@@ -730,6 +714,7 @@ local function refreshPlayer()
     local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
     local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
     local busName = parseBusctlVariant(f.bus_name) or ""
+
     local canSeek = parseBusctlVariant(f.can_seek) == true
     local canNext = parseBusctlVariant(f.can_go_next) == true
     local canPrev = parseBusctlVariant(f.can_go_previous) == true
@@ -771,6 +756,64 @@ local function refreshPlayer()
     else
       publish()
     end
+end
+
+local function refreshPlayer()
+  if refreshInFlight then return end
+  refreshInFlight = true
+  noctalia.runAsync(GET_ACTIVE, function(result)
+    refreshInFlight = false
+    if result.exitCode ~= 0 or trim(result.stdout or "") == "" then
+      clearPlayer()
+      return
+    end
+
+    -- busctl --json=short wraps the reply: { type = "ba{sv}", data = [ found, fields ] }
+    local payload = noctalia.json.decode(result.stdout)
+    local body = payload and payload.data
+    if type(body) ~= "table" or type(body[1]) ~= "boolean" then return end
+    if not body[1] or type(body[2]) ~= "table" then
+      clearPlayer()
+      return
+    end
+
+    local f = body[2]
+    local title = parseBusctlVariant(f.title) or ""
+    local artist = parseBusctlVariant(f.artists) or ""
+    local album = parseBusctlVariant(f.album) or ""
+    -- art_url comes as file:// URI; ui.image expects a filesystem path
+    local artUrl = parseBusctlVariant(f.art_url) or ""
+    artUrl = artUrl:gsub("^file://", "")
+    local playing = (parseBusctlVariant(f.playback_status) == "Playing")
+    local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
+    local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
+    local ident = parseBusctlVariant(f.identity) or parseBusctlVariant(f.bus_name) or ""
+    local busName = parseBusctlVariant(f.bus_name) or ""
+
+    -- Player allowlist/blocklist: if the active player is filtered out, fall
+    -- back to the first allowed player from the full list (e.g. Yandex is
+    -- blocked but zen is running). If none is allowed, show the empty state.
+    if not playerAllowed(ident, busName) then
+      noctalia.runAsync(GET_PLAYERS, function(res)
+        if res.exitCode ~= 0 then clearPlayer() return end
+        local pl = noctalia.json.decode(res.stdout or "")
+        -- GetPlayers returns aa{sv} wrapped as data = [ [player1, player2, ...] ]
+        local list = pl and pl.data and pl.data[1]
+        if type(list) ~= "table" then clearPlayer() return end
+        for _, p in ipairs(list) do
+          local pIdent = parseBusctlVariant(p.identity) or parseBusctlVariant(p.bus_name) or ""
+          local pBus = parseBusctlVariant(p.bus_name) or ""
+          if playerAllowed(pIdent, pBus) then
+            applyPlayer(p)
+            return
+          end
+        end
+        clearPlayer()
+      end)
+      return
+    end
+
+    applyPlayer(f)
   end)
 end
 
@@ -779,13 +822,40 @@ end
 local function busctlCall(method, argType, argValue)
   local argv = { "busctl", "--user", "call", "dev.noctalia.Mpris", "/dev/noctalia/Mpris",
     "dev.noctalia.Mpris", method }
+  local withResult = argType == nil and
+    (method == "NextActive" or method == "PreviousActive" or method == "PlayPauseActive")
   -- busctl requires the D-Bus signature for typed arguments ("Too few
   -- parameters for signature" otherwise); methods without args need none.
   if argType then
     argv[#argv + 1] = argType
     argv[#argv + 1] = tostring(argValue)
   end
-  noctalia.runAsync(argv)
+  local cb = nil
+  if withResult then
+    cb = function(result)
+      -- no-op: we refresh state after the call elsewhere; result is a boolean
+      -- handled flag we intentionally do not wire here
+    end
+  end
+  noctalia.runAsync(argv, cb)
+end
+
+-- Track navigation is a thin wrapper over the busctl command: the return value
+-- is a boolean the player reports (true = handled). MPRIS spec: Next()/Previous()
+-- are optional; some players (e.g. Spotify) reject them, so we update the
+-- snapshot's can_go_next/can_go_prev AFTER the call rather than trusting the
+-- initial metadata. This keeps the transport buttons honest across players and
+-- systems. (PlayPauseActive is nearly universal and rarely rejected; we refresh
+-- state afterward anyway.)
+local function navigate(direction)
+  local method = (direction == "prev") and "PreviousActive" or "NextActive"
+  busctlCall(method)
+  -- after a navigation the player's caps may have changed (e.g. reached the
+  -- start/end of a shuffled queue): refresh promptly so buttons re-enable.
+  local gen = fetchGeneration
+  noctalia.runAsync({ "sleep", "0.5" }, function()
+    if gen == fetchGeneration then refreshPlayer() end
+  end)
 end
 
 noctalia.state.watch("panel_cmd", function(value)
@@ -794,9 +864,9 @@ noctalia.state.watch("panel_cmd", function(value)
   if a == "toggle" then
     busctlCall("PlayPauseActive")
   elseif a == "next" then
-    busctlCall("NextActive")
+    navigate("next")
   elseif a == "prev" then
-    busctlCall("PreviousActive")
+    navigate("prev")
   elseif a == "shuffle" then
     busctlCall("SetShuffleActive", "b", tostring(not snapshot.shuffle))
   elseif a == "loop" then
@@ -828,6 +898,16 @@ noctalia.state.watch("panel_req", function(value)
       .. "|" .. tostring(math.floor(snapshot.lengthSec * 1e6 + 0.5))
     loadLyricsForTrack(snapshot.artist, snapshot.title, snapshot.album, snapshot.lengthSec, key,
       (embeddedCacheKey == key) and embeddedCache or "")
+  elseif value.action == "openLyricChoices" then
+    -- User opened the lyrics-variant picker: fetch LRCLIB search candidates
+    -- on demand and publish the list without touching the playing lyrics.
+    openLyricChoices()
+  elseif value.action == "chooseLyrics" then
+    -- User picked a variant from the "choose lyrics" selector. index 0 =
+    -- "Default" (restore the automatic chain); 1-based into
+    -- snapshot.lyricsCandidates otherwise. The list is kept so the picker
+    -- can be re-opened and the variant switched again at any time.
+    applyLyricVariant(tonumber(value.index) or 0)
   end
 end)
 

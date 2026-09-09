@@ -32,6 +32,7 @@ local SCROLL_TICKS = 2             -- advance one char every N update ticks
 -- Which panel preset to open (panel_size plugin setting).
 local function panelIdForSize()
   local sz = noctalia.getConfig("panel_size")
+  if sz == "mini" then return "panel-mini" end
   if sz == "compact" then return "panel-compact" end
   if sz == "large" then return "panel-large" end
   return "panel"
@@ -125,7 +126,11 @@ local function activeLyricLine(m)
   -- timestamp <= posSec. Falls back to the first line before the first
   -- timestamp (karaoke convention). posSec in the snapshot is ≤150 ms stale
   -- (service polls), fine for a subtitle.
-  if m == nil or m.lyricsStatus ~= "ready" or not m.synced then return nil end
+  -- lyricsStatus "choose" = the variant picker published a list; lyrics may
+  -- still be live (a picked variant or default kept), so accept it too.
+  if m == nil then return nil end
+  if m.lyricsStatus ~= "ready" and m.lyricsStatus ~= "choose" then return nil end
+  if not m.synced then return nil end
   local lines = m.lyrics
   if type(lines) ~= "table" or #lines == 0 then return nil end
   local pos = tonumber(m.posSec) or 0
@@ -308,9 +313,18 @@ local function renderFrom(m, force)
   local children = {}
   local icon = iconChild()
   if icon then children[#children + 1] = icon end
-  -- Wrap the label in a row owning onHover (ui.label takes no hover handler);
-  -- the row passes clicks through to the widget-level onClick.
-  children[#children + 1] = ui.row({
+
+  -- Text block: a single centered label. (A playback-progress bar was
+  -- considered here but dropped — see ROADMAP "show_progress in bar widget".)
+  local label = ui.label({
+    key = "title",
+    text = shown,
+    fontSize = FONT_PX,
+    opacity = dim,
+    maxLines = 1,
+  })
+
+  local textNode = ui.row({
     key = "textwrap",
     align = "center",
     onHover = function(state)
@@ -320,15 +334,8 @@ local function renderFrom(m, force)
         renderFrom(media(), true)
       end
     end,
-  }, {
-    ui.label({
-      key = "title",
-      text = shown,
-      fontSize = FONT_PX,
-      opacity = dim,
-      maxLines = 1,
-    }),
-  })
+  }, { label })
+  children[#children + 1] = textNode
 
   barWidget.render(ui.row({ gap = GAP, align = "center" }, children))
 end
