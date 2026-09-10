@@ -1,11 +1,11 @@
 id = "elijaharch/wl-screen-mirror"
 name = "Wayland Screen Mirror"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 3
 author = "elijaharch"
 license = "MIT"
 dependencies = ["wl-mirror"]
-tags = ["bar", "panel", "service", "utility", "video"]
+tags = ["bar", "panel", "service", "shortcut", "utility", "video"]
 icon = "screen-share"
 description = "Mirror one Wayland output to another with wl-mirror."
 
@@ -25,3 +25,7 @@ open_near_click = true
 [[service]]
 id = "mirror-service"
 entry = "service.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"
