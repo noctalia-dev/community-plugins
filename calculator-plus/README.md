@@ -10,6 +10,13 @@ expression history. Click a history row to copy its result to the clipboard.
 | id      | `samuelskovbakke/calculator-plus`                                  |
 | entries | `calculator-plus-widget` (widget), `calculator-plus-panel` (panel) |
 
+## Requirements
+
+- `qalc`, the command-line calculator from
+  [libqalculate](https://qalculate.github.io/). Install the `libqalculate`
+  (Arch), `qalculate` (Fedora/Debian family package names vary) package for your
+  distro; the binary is usually just called `qalc`.
+
 ## Usage
 
 1. Enable the plugin:
@@ -25,13 +32,6 @@ The panel can also be toggled directly:
 ```
 noctalia msg panel-toggle samuelskovbakke/calculator-plus:calculator
 ```
-
-## Requirements
-
-- `qalc`, the command-line calculator from
-  [libqalculate](https://qalculate.github.io/). Install the `libqalculate`
-  (Arch), `qalculate` (Fedora/Debian family package names vary) package for your
-  distro; the binary is usually just called `qalc`.
 
 ## Notes
 
