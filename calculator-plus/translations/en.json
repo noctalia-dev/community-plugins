@@ -4,5 +4,6 @@
   "panel.placeholder": "Type an expression…",
   "panel.clear": "Clear history",
   "panel.copied": "Copied {value} to clipboard",
-  "panel.error": "Could not evaluate expression"
+  "panel.error": "Could not evaluate expression",
+	"panel.hint": "'clear' clears history - 'exit' closes"
 }

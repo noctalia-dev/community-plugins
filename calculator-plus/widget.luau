@@ -7,3 +7,4 @@ barWidget.setTooltip(noctalia.tr("widget.tooltip"))
 function onClick()
 	noctalia.togglePanel("samuelskovbakke/calculator-plus:calculator")
 end
+
