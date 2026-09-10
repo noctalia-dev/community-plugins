@@ -48,6 +48,8 @@ noctalia msg panel-toggle davemhammer/tailscale:manager
 | `admin_url` | `string` | _(empty)_ | Override admin console URL (default login.tailscale.com admin). |
 | `ssh_user` | `string` | _(empty)_ | Default user for `tailscale ssh`. |
 | `show_counts` | `bool` (widget) | `true` | Show online/total peers on the bar. |
+| `hide_when_healthy` | `bool` (widget) | `false` | Hide the widget entirely while Tailscale runs; it appears only when the daemon is stopped, needs login, or is unreachable. |
+| `flag_problem` | `bool` (widget) | `false` | Error-tinted status dot while Tailscale is not running, instead of the neutral grey one. |
 
 ## IPC
 
