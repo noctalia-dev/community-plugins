@@ -18,7 +18,7 @@ default = true
 
 [[setting]]
 key = "repeat_delay_ms"
-type = "integer"
+type = "int"
 min = 0
 max = 1000
 label_key = "settings.repeat_delay_ms.label"
@@ -27,7 +27,7 @@ default = 400
 
 [[setting]]
 key = "repeat_interval_ms"
-type = "integer"
+type = "int"
 min = 0
 max = 1000
 label_key = "settings.repeat_interval_ms.label"
