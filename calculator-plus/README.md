@@ -27,6 +27,15 @@ expression history. Click a history row to copy its result to the clipboard.
    evaluate it.
 4. Click any row in the history to copy that result to the clipboard.
 
+## Settings
+
+| Setting              | Type    | Default      | Description                                                                      |
+| -------------------- | ------- | ------------ | -------------------------------------------------------------------------------- |
+| `notify_on_copy`     | `bool`  | `true`       | Send a notification whenever an expression or result is copied to the clipboard. |
+| `repeat_delay_ms`    | `int`   | `400`        | Change repeat delay of up/down arrow for history navigation.                     |
+| `repeat_interval_ms` | `int`   | `120`        | Change repeat interval of up/down arrow for history navigation.                  |
+| `glyph`              | `glyph` | `calculator` | Icon glyph name.                                                                 |
+
 ## IPC
 
 The panel can also be toggled directly:

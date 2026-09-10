@@ -6,8 +6,33 @@
     "title": "Calculator",
     "placeholder": "Type an expression...",
     "clear": "Clear history",
+    "close": "Close panel",
     "copied": "Copied {value} to clipboard",
     "error": "Could not evaluate expression",
-    "hint": "'clear' clears history - 'exit' closes"
+    "hint": "'clear' clears history - 'exit' closes",
+    "empty": "No calculations yet, type an expression below",
+    "evaluating": "Evaluating...",
+    "browsing": "History {index}/{total}",
+    "rerun": "Re-run",
+    "copy_expr": "Copy expression",
+    "delete": "Delete"
+  },
+  "settings": {
+    "notify_on_copy": {
+      "label": "Notify on copy",
+      "description": "Send a notification whenever an expression or result is copied to the clipboard."
+    },
+    "repeat_delay_ms": {
+      "label": "Repeat delay in ms",
+      "description": "Change repeat delay of up/down arrow for history navigation."
+    },
+    "repeat_interval_ms": {
+      "label": "Repeat interval in ms",
+      "description": "Change repeat interval of up/down arrow for history navigation."
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "Icon glyph name."
+    }
   }
 }
