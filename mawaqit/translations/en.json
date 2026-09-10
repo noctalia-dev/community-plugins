@@ -5,6 +5,10 @@
     "loading": "Loading prayer times…",
     "now": "Now",
     "sunrise": "Sunrise",
+    "tabs": {
+      "calendar": "Calendar",
+      "prayers": "Prayer Times"
+    },
     "title": "Prayer Times",
     "tooltip": {
       "in": "In",
@@ -16,6 +20,14 @@
   },
   "plugin_description": "Prayer times with live countdown, notifications, and azan.",
   "plugin_name": "Mawaqit",
+  "calendar": {
+    "in_days": "in {days} days",
+    "loading": "Loading calendar…",
+    "next": "Next month",
+    "previous": "Previous month",
+    "today": "Back to today",
+    "today_label": "Today"
+  },
   "settings": {
     "active_color": {
       "description": "Color used when a prayer is happening now or in elapsed mode.",
@@ -35,6 +47,10 @@
     "country": {
       "description": "Country name or 2-letter code (e.g. UK, DZ, FR).",
       "label": "Country"
+    },
+    "fajr_angle": {
+      "description": "Fajr sun angle for Custom Method. Use a decimal greater than 0 and less than 90.",
+      "label": "Fajr angle"
     },
     "dynamic_icon": {
       "description": "Show a sun/moon icon matching the current prayer instead of the fixed icon.",
@@ -56,6 +72,7 @@
     },
     "method": {
       "algeria": "Algeria / MESRS",
+      "custom": "Custom angles",
       "description": "Choose the calculation authority followed in your region.",
       "dubai": "Dubai (experimental)",
       "egypt": "Egyptian General Authority of Survey",
@@ -79,6 +96,10 @@
       "tehran": "Institute of Geophysics, Tehran",
       "tunisia": "Tunisia",
       "turkey": "Diyanet İşleri Başkanlığı, Turkey"
+    },
+    "isha_angle": {
+      "description": "Isha sun angle for Custom Method. Use a decimal greater than 0 and less than 90.",
+      "label": "Isha angle"
     },
     "play_azan": {
       "description": "Play an azan audio file when each prayer time begins.",
@@ -130,6 +151,13 @@
     },
     "widget_icon": {
       "label": "Bar icon"
+    },
+    "week_start_day": {
+      "description": "Choose which day starts the calendar week.",
+      "label": "First day of week",
+      "monday": "Monday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
     }
   }
 }

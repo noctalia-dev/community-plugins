@@ -1,10 +1,10 @@
 id           = "ycf/mawaqit"
 name         = "Mawaqit"
-version      = "1.0.0"
+version      = "1.3.7"
 plugin_api   = 3
 author       = "ycf-anon"
 license      = "MIT"  # Applies to the plugin code. Bundled font (ReemKufi.ttf) is
-                       # SIL Open Font License — see OFL.txt.
+                       # SIL Open Font License — see OFL.txt. Azan provenance is in ASSET_SOURCES.md.
 tags         = ["bar", "panel", "service", "time", "utility"]
 icon         = "building-mosque"
 description  = "Prayer times with live countdown, notifications, and azan."
@@ -55,7 +55,26 @@ options         = [
     { value = "21", label_key = "settings.method.morocco" },
     { value = "22", label_key = "settings.method.portugal" },
     { value = "23", label_key = "settings.method.jordan" },
+    { value = "99", label_key = "settings.method.custom" },
 ]
+
+[[setting]]
+key             = "fajrAngle"
+type            = "string"
+label_key       = "settings.fajr_angle.label"
+description_key = "settings.fajr_angle.description"
+default         = ""
+advanced        = true
+visible_when    = { key = "method", values = ["99"] }
+
+[[setting]]
+key             = "ishaAngle"
+type            = "string"
+label_key       = "settings.isha_angle.label"
+description_key = "settings.isha_angle.description"
+default         = ""
+advanced        = true
+visible_when    = { key = "method", values = ["99"] }
 
 [[setting]]
 key             = "school"
@@ -78,6 +97,18 @@ options         = [
     { value = "-1", label_key = "settings.hijri_day_offset.minus1" },
     { value = "0",  label_key = "settings.hijri_day_offset.default" },
     { value = "1",  label_key = "settings.hijri_day_offset.plus1" },
+]
+
+[[setting]]
+key             = "weekStartDay"
+type            = "select"
+label_key       = "settings.week_start_day.label"
+description_key = "settings.week_start_day.description"
+default         = "1"
+options         = [
+    { value = "6", label_key = "settings.week_start_day.saturday" },
+    { value = "0", label_key = "settings.week_start_day.sunday" },
+    { value = "1", label_key = "settings.week_start_day.monday" },
 ]
 
 [[setting]]
