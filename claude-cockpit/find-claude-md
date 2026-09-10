@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -eu
+
+# claude-cockpit: find-claude-md
+#
+# Prints one absolute path per line, each an existing CLAUDE.md file found
+# under ROOT. Called as an argv (no shell involved — see sessions.luau's
+# M.findClaudeMdFiles), so every argument arrives exactly as given, spaces
+# and all.
+#
+# Usage: find-claude-md <root> [extra-prune-path ...]
+# The extra paths (remote/network mount points sessions.luau detected via
+# /proc/mounts) are pruned exactly like the fixed noise dirs — a stalled
+# NFS/SMB/sshfs share under $HOME must never stall this scan.
+
+ROOT="$1"
+shift
+
+# Same default noise list file-search's exclude_dirs setting ships with, so
+# a build/venv/vendor tree never shows up as if it were a real project.
+PRUNE=(-name ".git" -o -name "node_modules" -o -name ".cache" -o -name ".venv")
+for path in "$@"; do
+    PRUNE+=(-o -path "$path")
+done
+
+# Includes symlinks: CLAUDE.md -> AGENTS.md is a common convention.
+find "$ROOT" \( "${PRUNE[@]}" \) -prune -o \( -type f -o -type l \) -iname 'CLAUDE.md' -print 2>/dev/null
