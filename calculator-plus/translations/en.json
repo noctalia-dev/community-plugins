@@ -5,5 +5,5 @@
   "panel.clear": "Clear history",
   "panel.copied": "Copied {value} to clipboard",
   "panel.error": "Could not evaluate expression",
-	"panel.hint": "'clear' clears history - 'exit' closes"
+  "panel.hint": "'clear' clears history - 'exit' closes"
 }
