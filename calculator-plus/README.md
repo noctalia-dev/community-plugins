@@ -29,9 +29,6 @@ expression history. Click a history row to copy its result to the clipboard.
 
 ## IPC
 
-<!-- Optional unless the plugin exposes actions beyond opening a panel. List
-     exact commands and explain their arguments and effects. -->
-
 The panel can also be toggled directly:
 
 ```sh
