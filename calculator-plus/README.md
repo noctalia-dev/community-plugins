@@ -27,10 +27,15 @@ expression history. Click a history row to copy its result to the clipboard.
    evaluate it.
 4. Click any row in the history to copy that result to the clipboard.
 
+## IPC
+
+<!-- Optional unless the plugin exposes actions beyond opening a panel. List
+     exact commands and explain their arguments and effects. -->
+
 The panel can also be toggled directly:
 
-```
-noctalia msg panel-toggle samuelskovbakke/calculator-plus:calculator
+```sh
+noctalia msg panel-toggle samuelskovbakke/calculator-plus:panel
 ```
 
 ## Notes
