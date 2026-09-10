@@ -151,6 +151,7 @@ body:
         - shell-command
         - shelly
         - sing-box-status
+        - soundcore-buds
         - special-workspaces
         - speedtest-meter
         - spotify
@@ -169,6 +170,7 @@ body:
         - thinkpad-fan
         - thinkpad-led
         - thunderbird-companion
+        - timezone-hub
         - tmux-provider
         - todo
         - topgrade-wrapper

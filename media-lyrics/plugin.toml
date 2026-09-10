@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.3"
+version = "0.9.4"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
@@ -33,6 +33,7 @@ label_key = "settings.panel_size.label"
 description_key = "settings.panel_size.description"
 default = "medium"
 options = [
+  { value = "mini", label_key = "settings.panel_size.options.mini" },
   { value = "compact", label_key = "settings.panel_size.options.compact" },
   { value = "medium", label_key = "settings.panel_size.options.medium" },
   { value = "large", label_key = "settings.panel_size.options.large" },
@@ -51,6 +52,23 @@ type = "folder"
 label_key = "settings.local_lyrics_dir.label"
 description_key = "settings.local_lyrics_dir.description"
 default = "~/.local/share/media-lyrics"
+
+# Player filtering: comma-separated identity or bus-name substrings. When
+# allowlist is non-empty, only matching players are shown; blocklist excludes
+# matching players. Empty = no filtering (show the active player).
+[[setting]]
+key = "player_allowlist"
+type = "string"
+label_key = "settings.player_allowlist.label"
+description_key = "settings.player_allowlist.description"
+default = ""
+
+[[setting]]
+key = "player_blocklist"
+type = "string"
+label_key = "settings.player_blocklist.label"
+description_key = "settings.player_blocklist.description"
+default = ""
 
 # Bar widget: compact now-playing chip; opens the panel on click.
 [[widget]]
@@ -163,6 +181,8 @@ entry = "widget.luau"
   default = false
   visible_when = { key = "album_art_only", values = ["false"] }
 
+  # (show_progress was dropped — see ROADMAP "show_progress in bar widget")
+
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
 [[service]]
@@ -173,6 +193,10 @@ entry = "service.luau"
 # Three size presets share one entry; panel_size selects which one the widget
 # and the control-center tile open. Medium (520) is the default and keeps the
 # historical `panel` id for IPC compatibility.
+# NOTE: the canonical repo also declares layer = "overlay" on every panel
+# (lyrics above fullscreen video); this store copy omits the field until the
+# validator learns it — use the host-injected per-entry Layer dropdown
+# (Settings -> Plugins, Noctalia 5.0.1+) to pick "overlay" instead.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
@@ -198,6 +222,19 @@ width = 640
 height = 640
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
+
+# Compact mini panel: cover + current lyric line only, pinnable to the desktop
+# (placement = "floating", position = "center"). A lightweight always-on
+# karaoke line without the full transport/header chrome.
+[[panel]]
+id = "panel-mini"
+entry = "panel-mini.luau"
+width = 360
+height = 120
+placement = "floating"
+position = "center"
+keyboard_focus = "none"
+dismiss_on_outside_click = false
 
 # Control-center tile: quick panel open.
 [[shortcut]]

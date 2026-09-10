@@ -11,7 +11,7 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | Field | Value |
 | --- | --- |
 | ID | `tranzem/media-lyrics` |
-| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640); service: `service`; shortcut: `toggle` |
+| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640), `panel-mini` (360×120); service: `service`; shortcut: `toggle` |
 
 ## Requirements
 
@@ -42,7 +42,11 @@ a specific preset directly:
 ```sh
 noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
 noctalia msg panel-toggle tranzem/media-lyrics:panel-large
+noctalia msg panel-toggle tranzem/media-lyrics:panel-mini
 ```
+
+`panel-mini` is a compact always-on surface (cover + the current lyric line)
+intended for pinning to the desktop; it does not close on outside clicks.
 
 Add the `now-playing` widget to your bar: a compact chip with the album
 cover and **Title - Artist** of the active MPRIS player. Its gestures mirror
@@ -83,6 +87,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
+- **Lyrics variants picker** — the header "list" button (always visible while a track plays) fetches the full LRCLIB search result on demand and lists alternative lyric versions: pick one to switch instantly (the playing lyrics are never interrupted while the list loads), pick **Default** to restore the automatic chain, or switch again at any time — the candidate list stays in memory per track.
 - **NetEase Cloud Music fallback** — no-auth second source for LRCLIB misses (public endpoints, browser headers only): synced LRC wins, candidates ranked by title/artist + duration, metadata lines stripped; instrumental placeholders are filtered.
 - **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
@@ -102,10 +107,12 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `panel_size` | `select` | `medium` | Panel size preset: `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
+| `panel_size` | `select` | `medium` | Panel size preset: `mini` (360×120 chip panel), `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
+| `player_allowlist` | `string` | *(empty)* | Comma-separated identity/bus-name substrings; when set, only matching players are shown (e.g. `spotify, mpd`). |
+| `player_blocklist` | `string` | *(empty)* | Comma-separated substrings of players to exclude (e.g. `firefox` to ignore a browser's MPRIS). |
 
 ## IPC
 
@@ -133,6 +140,8 @@ Upcoming work, roughly in priority order:
       last in the chain); **embedded MPRIS `xesam:asText` DONE in 0.9.2**
       (zero-network, position 2 in the chain). Remaining: Musixmatch,
       Spotify — most need API keys/tokens (see Notes)
+- [x] Lyrics variants picker — switch between alternative LRCLIB versions on
+      the fly (DONE in 0.9.4: header button, on-demand search, Default row)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
 - [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
       report coordinates, so a click position cannot be mapped to a timestamp

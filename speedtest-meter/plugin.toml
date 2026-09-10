@@ -1,6 +1,6 @@
 id           = "nilsonlinux/speedtest-meter"
 name         = "Speedtest Meter"
-version      = "1.3.3"
+version      = "1.4.4"
 plugin_api   = 18
 author       = "Nilsonlinux"
 license      = "MIT"

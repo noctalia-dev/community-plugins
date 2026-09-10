@@ -1,0 +1,84 @@
+{
+  "device": {
+    "label": "This Device"
+  },
+  "panel": {
+    "title": "Timezone Hub",
+    "subtitle": "Device timezone:",
+    "detecting": "Detecting device timezone…",
+    "add": "Add a timezone",
+    "open-settings": "Open plugin settings",
+    "earlier": "Earlier hours",
+    "later": "Later hours",
+    "now": "Now",
+    "jump-to-now": "Jump back to now"
+  },
+  "row": {
+    "change-device": "Change device timezone",
+    "set-device": "Set as device timezone",
+    "show-in-bar": "Show in bar widget",
+    "hide-from-bar": "Hide from bar widget",
+    "remove": "Remove",
+    "confirm-remove": "Confirm removal",
+    "cancel-remove": "Cancel removal",
+    "drag-tooltip": "Drag to reorder",
+    "same-time": "same time"
+  },
+  "picker": {
+    "back": "Back",
+    "title-device": "Set device timezone",
+    "title-add": "Add a timezone",
+    "search-placeholder": "Search city or region…",
+    "loading": "Loading timezone database…",
+    "empty": "No matching timezones"
+  },
+  "toast": {
+    "title": "Timezone Hub",
+    "device-changed": "Device timezone set to",
+    "device-change-failed": "Failed to change the device timezone. Authorization was denied or timedatectl is unavailable.",
+    "max-bar-zones": "You can show up to three timezones in the bar."
+  },
+  "ipc": {
+    "invalid-zone": "\"{zone}\" is not a valid IANA timezone",
+    "duplicate-zone": "\"{zone}\" is already in the comparison list",
+    "empty-list": "No comparison timezones configured"
+  },
+  "settings": {
+    "time-format": "Time format",
+    "format-24h": "24-hour",
+    "format-12h": "12-hour",
+    "show-date-in-bar": "Show date in bar",
+    "show-date-in-bar-desc": "Show the selected timezone's local date beside the bar clock.",
+    "show-date-in-panel": "Show dates in panel",
+    "show-date-in-panel-desc": "Show each timezone's local date in its comparison row.",
+    "show-relative-time": "Show relative descriptions",
+    "show-relative-time-desc": "Describe whether a city is ahead or behind, on another day, and inside working hours.",
+    "show-sun-times": "Show sunrise and sunset",
+    "show-sun-times-desc": "Calculate local sunrise and sunset from the system timezone database without network access.",
+    "date-format": "Date format",
+    "date-format-weekday": "Weekday · Tue, Sep 09",
+    "date-format-short": "Short · Sep 09",
+    "date-format-iso": "ISO · 2026-09-09",
+    "hours-before": "Hours shown before now",
+    "hours-after": "Hours shown after now",
+    "highlight-work-hours": "Highlight work hours",
+    "work-hours-range": "Work hours",
+    "work-hour-start-desc": "Hour the work day starts (0-23)",
+    "work-hour-end-desc": "Hour the work day ends (1-24)",
+    "no-comparisons": "No comparison timezones yet — add one above."
+  },
+  "relative": {
+    "same-time": "Same time",
+    "ahead": "{offset} ahead",
+    "behind": "{offset} behind",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "day-offset": "{days} days",
+    "morning": "morning",
+    "afternoon": "afternoon",
+    "evening": "evening",
+    "night": "night",
+    "inside-work-hours": "Within working hours",
+    "outside-work-hours": "Outside working hours"
+  }
+}

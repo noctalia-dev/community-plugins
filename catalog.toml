@@ -542,8 +542,8 @@ rev = "ff289e523fb3dca794979dd3476d336642296463"
 [[plugin]]
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.6"
-updated_at = 1788657590
+version = "0.2.7"
+updated_at = 1788993062
 added_at = 1784677847
 author = "kenn"
 license = "MIT"
@@ -2111,8 +2111,8 @@ tags = ["launcher", "bar", "panel", "network", "utility", "productivity"]
 [[plugin]]
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.3"
-updated_at = 1788723654
+version = "0.9.4"
+updated_at = 1788993439
 added_at = 1788381228
 author = "tranzem"
 license = "MIT"
@@ -2376,8 +2376,8 @@ tags = ["bar", "panel", "service", "hardware", "mangowc"]
 [[plugin]]
 id = "nilsonlinux/speedtest-meter"
 name = "Speedtest Meter"
-version = "1.3.3"
-updated_at = 1788957051
+version = "1.4.4"
+updated_at = 1788993261
 added_at = 1788806018
 author = "Nilsonlinux"
 license = "MIT"
@@ -2385,3 +2385,29 @@ icon = "brand-speedtest"
 description = "Run an internet speed test with a live speedometer and detailed results."
 plugin_api = 18
 tags = ["network", "indicator", "bar", "panel"]
+
+[[plugin]]
+id = "ahmedhossamdev/timezone-hub"
+name = "Timezone Hub"
+version = "2.1.0"
+updated_at = 1788998483
+added_at = 1788998483
+author = "ahmedhossamdev"
+license = "MIT"
+icon = "world"
+description = "Change your device timezone and compare it against other cities, with live times and an hour-offset strip for each."
+plugin_api = 24
+tags = ["bar", "clock", "time", "utility"]
+
+[[plugin]]
+id = "sankity/soundcore-buds"
+name = "Soundcore Buds"
+version = "1.0.0"
+updated_at = 1788999441
+added_at = 1788999441
+author = "sankity"
+license = "MIT"
+icon = "headphones"
+description = "Soundcore battery, listening mode and ANC strength in the bar via OpenSCQ30."
+plugin_api = 24
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]

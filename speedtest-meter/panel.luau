@@ -679,19 +679,54 @@ renderIdle = function()
 end
 
 renderRunning = function()
+	-- O backend legacy usa a fase calculada pelo onFrameTick.
+	-- Isso garante que Download e Upload tenham simulações independentes.
+	if backendInUse == "legacy" then
+		local preparationSeconds = 3
+		local phaseSeconds = 8
+		local elapsed = math.max(0, runningElapsed - preparationSeconds)
+
+		if runningElapsed < preparationSeconds then
+			phase = "ping"
+			simulatedMbps = 0
+		else
+			local slot = math.floor(elapsed / phaseSeconds)
+			phase = (slot % 2 == 0) and "download" or "upload"
+
+			local phaseElapsed = elapsed % phaseSeconds
+			local baseSpeed
+
+			if phase == "download" then
+				baseSpeed = lastDownloadMbps
+				if not baseSpeed or baseSpeed <= 0 then
+					baseSpeed = 50
+				end
+			else
+				baseSpeed = lastUploadMbps
+				if not baseSpeed or baseSpeed <= 0 then
+					baseSpeed = 10
+				end
+			end
+
+			local wave = math.sin(phaseElapsed * 1.8) * 0.5 + 0.5
+			local variationRange = math.max(1.5, baseSpeed * 0.22)
+			simulatedMbps = math.max(0.5, baseSpeed + ((wave * 2 - 1) * variationRange))
+		end
+	end
+
 	if liveMbps > gaugeMax then
 		gaugeMax = math.max(50, math.ceil(liveMbps / 50) * 50)
 	end
 
 	local phaseKey = "phase_preparing"
-	if backendInUse == "legacy" then
-		phaseKey = "phase_legacy_running"
-	elseif phase == "ping" then
+	if phase == "ping" then
 		phaseKey = "phase_ping"
 	elseif phase == "download" then
 		phaseKey = "phase_download"
 	elseif phase == "upload" then
 		phaseKey = "phase_upload"
+	elseif backendInUse == "legacy" then
+		phaseKey = "phase_legacy_running"
 	end
 
 	local accent = phase == "upload" and "secondary" or "primary"
@@ -705,18 +740,26 @@ renderRunning = function()
 	end
 	local valueText = string.format("%.1f", displayMbps)
 
-	-- Calcula o progresso baseado no tempo para o legacy backend
 	local progress = progressValue
 	if backendInUse == "legacy" then
-		-- Simula progresso baseado no tempo (0 a 1 em 60 segundos)
-		progress = math.min(1.0, runningElapsed / 60)
+		local preparationSeconds = 3
+		local phaseSeconds = 8
+		local elapsed = math.max(0, runningElapsed - preparationSeconds)
+
+		if runningElapsed < preparationSeconds then
+			progress = math.min(0.15, runningElapsed / preparationSeconds * 0.15)
+		elseif phase == "download" then
+			local phaseElapsed = elapsed % phaseSeconds
+			progress = 0.15 + ((phaseElapsed / phaseSeconds) * 0.35)
+		else
+			local phaseElapsed = elapsed % phaseSeconds
+			progress = 0.50 + ((phaseElapsed / phaseSeconds) * 0.35)
+		end
 	end
-	
-	-- Cria uma barra de progresso em texto (garantido que funciona)
-	local barWidth = 30
+
 	local progressPercent = math.floor(progress * 100)
-	local filled = math.floor(progress * barWidth)
-	local progressBar = string.rep("█", filled) .. string.rep("░", barWidth - filled)
+	local filled = math.floor(progress * 30)
+	local progressBar = string.rep("█", filled) .. string.rep("░", 30 - filled)
 
 	local children = {
 		ui.column({ gap = 4, align = "center" }, {
@@ -725,29 +768,46 @@ renderRunning = function()
 			ui.label({ text = noctalia.tr(phaseKey), fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
 		}),
 		fixedSpace(8),
-		-- Speedometer - sem ícone, apenas o valor em Mbps
+		-- Velocímetro da simulação: contorno ao redor do círculo e
+		-- ícone de Download/Upload dentro de um círculo acima do valor.
 		ui.column({
-			width = 238,
-			height = 238,
-			radius = 120,
+			width = 250,
+			height = 250,
+			radius = 125,
 			fill = soft,
-			borderWidth = 0,
+			border = accent,
+			borderWidth = 3,
 			align = "center",
 			justify = "center",
-			gap = 4,
+			gap = 5,
 		}, {
-			-- Valor da velocidade em fonte bem grande
-			ui.label({ 
-				text = valueText, 
-				fontSize = 72,  -- Aumentado drasticamente
-				fontWeight = "heavy", 
-				color = "on_surface" 
+			ui.column({
+				width = 50,
+				height = 50,
+				radius = 25,
+				fill = soft,
+				border = accent,
+				borderWidth = 2,
+				align = "center",
+				justify = "center",
+			}, {
+				ui.glyph({
+					name = phase == "upload" and "arrow-up" or "arrow-down",
+					size = 28,
+					color = accent,
+				}),
 			}),
-			ui.label({ 
-				text = noctalia.tr("unit_mbps"), 
-				fontSize = 18,  -- Aumentado também
-				fontWeight = "bold", 
-				color = "on_surface_variant" 
+			ui.label({
+				text = valueText,
+				fontSize = 68,
+				fontWeight = "heavy",
+				color = "on_surface",
+			}),
+			ui.label({
+				text = noctalia.tr("unit_mbps"),
+				fontSize = 17,
+				fontWeight = "bold",
+				color = "on_surface_variant",
 			}),
 		}),
 		fixedSpace(6),
@@ -912,30 +972,47 @@ function onFrameTick(deltaMs: number)
 	-- Atualiza o tempo
 	runningElapsed = runningElapsed + (deltaMs / 1000)
 	
-	-- Atualiza o progresso para o legacy backend
+	-- A simulação do legacy alterna independentemente entre Download e Upload.
+	-- O Download usa lastDownloadMbps e o Upload usa lastUploadMbps.
 	if backendInUse == "legacy" then
-		progressValue = math.min(1.0, runningElapsed / 60)
-		
-		-- Usa o último resultado como base para a simulação
-		local baseSpeed = lastDownloadMbps
-		
-		-- Se não houver resultado anterior, usa um valor padrão realista
-		if baseSpeed == 0 or baseSpeed == nil then
-			baseSpeed = 50 -- valor padrão para conexões comuns
+		local preparationSeconds = 3
+		local phaseSeconds = 8
+		local elapsed = math.max(0, runningElapsed - preparationSeconds)
+
+		if runningElapsed < preparationSeconds then
+			phase = "ping"
+			progressValue = math.min(0.15, runningElapsed / preparationSeconds * 0.15)
+			simulatedMbps = 0
+		else
+			local slot = math.floor(elapsed / phaseSeconds)
+			phase = (slot % 2 == 0) and "download" or "upload"
+
+			local phaseElapsed = elapsed % phaseSeconds
+			local baseSpeed
+
+			if phase == "download" then
+				baseSpeed = lastDownloadMbps
+				if not baseSpeed or baseSpeed <= 0 then
+					baseSpeed = 50
+				end
+			else
+				baseSpeed = lastUploadMbps
+				if not baseSpeed or baseSpeed <= 0 then
+					baseSpeed = 10
+				end
+			end
+
+			local wave = math.sin(phaseElapsed * 1.8) * 0.5 + 0.5
+			local variationRange = math.max(1.5, baseSpeed * 0.22)
+			simulatedMbps = math.max(0.5, baseSpeed + ((wave * 2 - 1) * variationRange))
+
+			if phase == "download" then
+				progressValue = 0.15 + ((phaseElapsed / phaseSeconds) * 0.35)
+			else
+				progressValue = 0.50 + ((phaseElapsed / phaseSeconds) * 0.35)
+			end
 		end
-		
-		-- Cria variação realista baseada na velocidade real
-		-- Quanto maior a velocidade, maior a variação possível
-		local variationRange = math.max(5, baseSpeed * 0.3) -- 30% de variação
-		local wave = math.sin(runningElapsed * 1.5) * 0.5 + 0.5  -- 0 a 1 oscilando
-		
-		-- Variação que começa abaixo da velocidade base e vai até acima
-		local variation = (wave * 2 - 1) * variationRange
-		
-		-- A velocidade simulada oscila ao redor da velocidade base
-		simulatedMbps = math.max(0.5, baseSpeed + variation)
-		
-		-- Atualiza o gaugeMax para acomodar a simulação
+
 		if simulatedMbps > gaugeMax then
 			gaugeMax = math.max(50, math.ceil(simulatedMbps / 50) * 50)
 		end

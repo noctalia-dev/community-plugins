@@ -4,6 +4,43 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4] — 2026-09-09
+
+### Fixed
+
+- **panel-mini: the cover no longer shifts down when the lyric line wraps** —
+  the mini panel reserved no vertical space for the second lyric sub-line, so
+  a wrapping line grew the info column and the root row's vertical centering
+  moved the cover between renders. The lyric row now holds a fixed
+  two-sub-line height, keeping the whole band layout constant.
+
+### Added
+
+- **Lyrics variants picker (switch on the fly)** — the header "list" button is
+  now always visible while a track is loaded (previously it only appeared when
+  the automatic chain ended with several tied LRCLIB search candidates, i.e.
+  never for tracks whose lyrics loaded normally). Clicking it asks the service
+  to fetch the full LRCLIB search result list on demand (`openLyricChoices`);
+  the currently playing lyrics are never interrupted while the list loads.
+  The selector shows a "Default (provider)" row — restoring the automatic
+  chain result — plus deduplicated candidates (title — artist (album)), with
+  the active variant marked. The list is kept in the snapshot after a pick,
+  so variants can be switched again at any time without re-fetching. Picking
+  a variant applies it through the same accept/cache path as the chain and
+  survives the 150 ms poll (same track-key claim).
+- Also accepts the fixed status contract: a `choose` snapshot with lyrics
+  loaded (picker closed or a picked variant live) renders the karaoke/plain
+  lyrics and the footer provider label instead of a false "No lyrics found".
+
+### Fixed
+
+- **`chooseLyrics` request crashed in the host** — the handler called
+  `acceptAndCache`, a closure private to `loadLyricsForTrack` (nil at module
+  scope), so applying a picked candidate would error. Variant application now
+  uses the file-level `acceptLyrics` + `cacheLyrics` with the current track key.
+- The bar-widget "current lyric line" chip now keeps working while the variant
+  picker is open (`lyricsStatus == "choose"` with live lyrics is accepted).
+
 ## [0.9.3] — 2026-09-06
 
 ### Changed
@@ -11,12 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **plugin_api 24 → 30** — the plugin now declares the full Noctalia 5.0.1
   plugin API (context menus, graph pointer tracking, panel layer). Requires
   Noctalia 5.0.1+.
-- **Overlay layer above fullscreen content** — on Noctalia 5.0.1 the host
-  injects a per-entry **Layer** setting (Settings → Plugins) for every panel:
-  choose `overlay` on any preset (`panel`, `panel-compact`, `panel-large`) so
-  the lyrics window floats above fullscreen video (karaoke over a film /
-  YouTube). (This store copy does not declare `layer` in the manifest — the
-  store validator does not know the field yet; the canonical repo ships it.)
+- **Lyrics panel floats above fullscreen content** — all three panel presets
+  (`panel`, `panel-compact`, `panel-large`) declare `layer = "overlay"`, so
+  the lyrics window stays visible over fullscreen video (karaoke over a
+  film/YouTube). A per-entry **Layer** dropdown in Settings → Plugins can
+  switch any preset back to `top` without editing the manifest.
 
 ## [0.9.2] — 2026-09-06
 
