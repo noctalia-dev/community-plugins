@@ -10,12 +10,12 @@ tags         = ["bar", "panel", "utility"]
 dependencies = ["qalc"]
 
 [[widget]]
-id    = "calculator-plus"
+id    = "widget"
 entry = "widget.luau"
   
 
 [[panel]]
-id              = "calculator"
+id              = "panel"
 entry           = "panel.luau"
 width           = 380
 height          = 480

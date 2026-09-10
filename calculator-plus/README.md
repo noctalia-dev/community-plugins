@@ -5,10 +5,10 @@ expression history. Click a history row to copy its result to the clipboard.
 
 ## Plugin
 
-| field   | value                                                              |
-| ------- | ------------------------------------------------------------------ |
-| id      | `samuelskovbakke/calculator-plus`                                  |
-| entries | `calculator-plus-widget` (widget), `calculator-plus-panel` (panel) |
+| field   | value                                |
+| ------- | ------------------------------------ |
+| id      | `samuelskovbakke/calculator-plus`    |
+| entries | Bar widget: `widget`; panel: `panel` |
 
 ## Requirements
 
