@@ -10,40 +10,40 @@ tags         = ["bar", "panel", "utility"]
 dependencies = ["qalc"]
 
 [[setting]]
-key = "notify_on_copy"
-type = "bool"
-label_key = "settings.notify_on_copy.label"
+key             = "notify_on_copy"
+type            = "bool"
+label_key       = "settings.notify_on_copy.label"
 description_key = "settings.notify_on_copy.description"
-default = true
+default         = true
 
 [[setting]]
-key = "repeat_delay_ms"
-type = "int"
-min = 0
-max = 1000
-label_key = "settings.repeat_delay_ms.label"
+key             = "repeat_delay_ms"
+type            = "int"
+min             = 0
+max             = 1000
+label_key       = "settings.repeat_delay_ms.label"
 description_key = "settings.repeat_delay_ms.description"
-default = 400
+default         = 400
 
 [[setting]]
-key = "repeat_interval_ms"
-type = "int"
-min = 0
-max = 1000
-label_key = "settings.repeat_interval_ms.label"
+key             = "repeat_interval_ms"
+type            = "int"
+min             = 0
+max             = 1000
+label_key       = "settings.repeat_interval_ms.label"
 description_key = "settings.repeat_interval_ms.description"
-default = 120
+default         = 120
 
 [[widget]]
 id    = "widget"
 entry = "widget.luau"
 
   [[widget.setting]]
-  key = "glyph"
-  type = "glyph"
-  label_key = "settings.glyph.label"
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
   description_key = "settings.glyph.description"
-  default = "calculator"
+  default         = "calculator"
 
 [[panel]]
 id              = "panel"
