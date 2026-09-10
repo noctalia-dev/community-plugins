@@ -1,9 +1,13 @@
 {
-  "widget.tooltip": "Calculator",
-  "panel.title": "Calculator",
-  "panel.placeholder": "Type an expression…",
-  "panel.clear": "Clear history",
-  "panel.copied": "Copied {value} to clipboard",
-  "panel.error": "Could not evaluate expression",
-  "panel.hint": "'clear' clears history - 'exit' closes"
+  "widget": {
+    "tooltip": "Calculator"
+  },
+  "panel": {
+    "title": "Calculator",
+    "placeholder": "Type an expression...",
+    "clear": "Clear history",
+    "copied": "Copied {value} to clipboard",
+    "error": "Could not evaluate expression",
+    "hint": "'clear' clears history - 'exit' closes"
+  }
 }
