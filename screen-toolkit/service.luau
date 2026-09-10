@@ -88,31 +88,28 @@ local function publish(key, value)
   noctalia.state.set(key, value)
 end
 
--- `noctalia.outputs()` reports logical geometry + a scale; grim wants physical
--- pixels, so multiply every axis by the output scale.
+-- `noctalia.outputs()` reports logical geometry; grim, gpu-screen-recorder, wl_screenrec and wf-recorder want logical geometry. Except for gpu-screen-recorder, they all take geometry as formated by this function.
 local function focusedGeometry()
   local outputs = noctalia.outputs()
   for _, o in ipairs(outputs) do
     if o.focused then
-      local scale = o.scale or 1
       return string.format(
         "%d,%d %dx%d",
-        math.floor(o.x * scale),
-        math.floor(o.y * scale),
-        math.round(o.width * scale),
-        math.round(o.height * scale)
+        o.x,
+        o.y,
+        o.width,
+        o.height
       )
     end
   end
   if outputs and #outputs > 0 then
     local o = outputs[1]
-    local scale = o.scale or 1
     return string.format(
       "%d,%d %dx%d",
-      math.floor(o.x * scale),
-      math.floor(o.y * scale),
-      math.round(o.width * scale),
-      math.round(o.height * scale)
+      o.x,
+      o.y,
+      o.width,
+      o.height
     )
   end
   return nil
