@@ -129,6 +129,8 @@ function onEvaluate()
 	end
   if expr == "exit" then
     panel.close()
+    currentInput = ""
+    inputGen = inputGen + 1
     return
   end
 	if expr == "clear" then
