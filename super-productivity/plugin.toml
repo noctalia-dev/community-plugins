@@ -1,6 +1,6 @@
 id          = "redxtech/super-productivity"
 name        = "Super Productivity"
-version     = "1.0.0"
+version     = "1.1.0"
 plugin_api  = 24
 author      = "Gabe Dunn"
 license     = "MIT"
@@ -103,6 +103,13 @@ default         = 30
 min             = 5
 max             = 50
 
+[[setting]]
+key             = "follow_active_task"
+type            = "bool"
+label_key       = "settings.follow_active_task.label"
+description_key = "settings.follow_active_task.description"
+default         = true
+
 [[service]]
 id    = "service"
 entry = "service.luau"
@@ -115,6 +122,13 @@ entry = "widget.luau"
   middle = "none"
 
   [[widget.setting]]
+  key             = "hide_when_no_active_task"
+  type            = "bool"
+  label_key       = "settings.hide_when_no_active_task.label"
+  description_key = "settings.hide_when_no_active_task.description"
+  default         = false
+
+  [[widget.setting]]
   key             = "glyph"
   type            = "glyph"
   label_key       = "settings.glyph.label"
@@ -122,11 +136,27 @@ entry = "widget.luau"
   default         = "checks"
 
   [[widget.setting]]
-  key             = "show_due_text"
+  key             = "show_additional_info"
   type            = "bool"
-  label_key       = "settings.show_due_text.label"
-  description_key = "settings.show_due_text.description"
+  label_key       = "settings.show_additional_info.label"
+  description_key = "settings.show_additional_info.description"
   default         = true
+
+  [[widget.setting]]
+  key             = "additional_info_type"
+  type            = "select"
+  label_key       = "settings.additional_info_type.label"
+  description_key = "settings.additional_info_type.description"
+  default         = "due"
+  visible_when    = { key = "show_additional_info", values = ["true"] }
+
+    [[widget.setting.options]]
+    value     = "due"
+    label_key = "settings.additional_info_type.due"
+
+    [[widget.setting.options]]
+    value     = "spent"
+    label_key = "settings.additional_info_type.spent"
 
   [[widget.setting]]
   key             = "max_title_chars"

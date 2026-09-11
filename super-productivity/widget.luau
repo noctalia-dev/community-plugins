@@ -53,11 +53,25 @@ local function tooltip(task)
   return table.concat(lines, "\n")
 end
 
+local function should_be_visible()
+  if configured("hide_when_no_active_task", false) then
+    return type(snapshot.currentTask) == "table" and snapshot.currentTask.id ~= nil
+  end
+
+  return true
+end
+
 local function render()
+  local visible = should_be_visible()
+  barWidget.setVisible(visible)
+  if not visible then
+    return
+  end
+
   local task = snapshot.view and snapshot.view.task or nil
   local busy = common.action_busy(action)
   local glyph = busy and "loader-2" or configured("glyph", "checks")
-  local glyph_color, text_color, due_color = task_colors(task)
+  local glyph_color, text_color, additional_info_color = task_colors(task)
   local children = {
     ui.glyph({ key = "icon", name = glyph, size = 15, color = glyph_color }),
   }
@@ -70,14 +84,19 @@ local function render()
       color = text_color,
       maxLines = 1,
     }))
-    if configured("show_due_text", true) then
+
+    local show_info = configured("show_additional_info", true)
+    if show_info then
+      local info_type = configured("additional_info_type", "due")
+      local info_text = (info_type == "spent") and common.format_duration(task.timeSpent) or common.relative_due(task)
       table.insert(children, ui.label({
-        key = "due",
-        text = common.relative_due(task),
-        color = due_color,
+        key = "additional_info",
+        text = info_text,
+        color = additional_info_color,
         fontSize = 10,
       }))
     end
+
   elseif snapshot.status == "ready" then
     table.insert(children, ui.label({ key = "empty", text = noctalia.tr("bar.no_due"), color = "on_surface_variant" }))
   else
@@ -98,6 +117,10 @@ noctalia.state.watch(common.ACTION_KEY, function(value)
   action = type(value) == "table" and value or action
   render()
 end)
+
+function onConfigChanged()
+  render()
+end
 
 function onClick()
   noctalia.togglePanel(common.PANEL_ID)
