@@ -1,0 +1,74 @@
+# Network Control - addressing for NetworkManager connections from the Noctalia
+# bar: DHCP or a static address, gateway, DNS servers and search domains, IPv4
+# and IPv6, per connection.
+#
+# One [[service]] owns every nmcli call and the only writes to a connection
+# profile. A write saves the previous profile first, re-activates the connection
+# and then arms a countdown: kept, the new profile stands; otherwise the saved
+# one is restored property by property and the connection brought back up. A
+# wrong static address therefore cannot leave the machine offline. The bar
+# [[widget]] and the [[panel]] are thin clients on the plugin's shared state
+# channels.
+#
+# Requires NetworkManager (nmcli) and `ip`. The plugin only edits profiles, it
+# never touches ~/.config files or systemd units.
+
+id = "muhammadessam/network-control"
+name = "Network Control"
+version = "0.2.0"
+plugin_api = 24
+author = "muhammadessam"
+license = "MIT"
+dependencies = ["nmcli"]
+tags = ["bar", "panel", "service", "network", "system", "utility"]
+icon = "network"
+description = "Join Wi-Fi networks and set DHCP or a static IP, gateway and DNS per connection, with automatic rollback."
+
+[[setting]]
+key = "confirm_seconds"
+type = "int"
+label_key = "settings.confirm_seconds.label"
+description_key = "settings.confirm_seconds.description"
+default = 45
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 15
+
+# Headless owner of all nmcli I/O and of every profile write.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: the default route's address, or the confirm countdown. Click opens
+# the panel.
+[[widget]]
+id = "network"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "show_text"
+  type = "bool"
+  label_key = "settings.show_text.label"
+  description_key = "settings.show_text.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "network"
+
+# The addressing editor. Open with:
+#   noctalia msg panel-toggle muhammadessam/network-control:panel
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 720
+placement = "floating"
+position = "center"
