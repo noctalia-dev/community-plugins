@@ -103,7 +103,11 @@ local function deviceSidebar(visibleOrder, devices, sel)
 	local paired, available = {}, {}
 	for _, id in ipairs(visibleOrder) do
 		local d = devices[id]
-		if d then table.insert(d.source == "adb" or d.isPaired == true and paired or available, id) end
+		if d then
+			local target = paired
+			if d.source ~= "adb" and d.isPaired ~= true then target = available end
+			table.insert(target, id)
+		end
 	end
 
 	local items = {}
