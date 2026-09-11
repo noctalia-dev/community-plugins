@@ -1,7 +1,7 @@
 {
   "settings": {
     "provider": {
-      "description": "Search engine used for the Search result and by activating it.",
+      "description": "Search engine used for the Search result when activated.",
       "label": "Search provider",
       "options": {
         "google": "Google",
