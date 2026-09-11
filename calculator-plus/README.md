@@ -46,9 +46,14 @@ noctalia msg panel-toggle samuelskovbakke/calculator-plus:panel
 
 ## Notes
 
-- Expressions are run as `qalc -t -f <sessionExprs>` via `noctalia.runAsync`
-  using the argument-array form (no shell interpolation), so the panel does not
-  spawn a shell.
-- History is kept only for the lifetime of plugin enablement, it is not written
-  to disk, and can be cleared with a button or by writing `clear` in the input
-  field.
+- Expressions are appended to a scratch file in the plugin's data directory and
+  evaluated with `qalc -t -f <path>` via `noctalia.runAsync` using the
+  argument-array form (no shell interpolation), so the panel does not spawn a
+  shell. Session variables persist across evaluations by re-reading the full
+  expression history from that file each time.
+- The visible history list is kept only for the lifetime of plugin enablement
+  and is not persisted, it can be cleared with a button or by writing `clear` in
+  the input field. (The scratch file used internally to replay session variables
+  to `qalc` does live in the plugin's data directory, but it holds only the raw
+  expression text already visible in the history above, not anything separately
+  sensitive, and is overwritten on every evaluation.)
