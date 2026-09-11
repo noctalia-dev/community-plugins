@@ -161,15 +161,25 @@ local function render()
 	}))
 end
 
+local function scratchPath()
+	return noctalia.pluginDataDir() .. "/session.qalc"
+end
+
 local function evaluate(expr)
 	table.insert(sessionExprs, expr)
 	local body = table.concat(sessionExprs, "\n")
-	local cmd = "qalc -t -f - <<'QALC_EOF'\n" .. body .. "\nQALC_EOF\n"
+
+	local ok, err = noctalia.writeFile(scratchPath(), body)
+	if not ok then
+		noctalia.notifyError(noctalia.tr("panel.title"), err or noctalia.tr("panel.error"))
+		return
+	end
 
 	isEvaluating = true
 	render()
 
-	noctalia.runAsync(cmd, function(result)
+	noctalia.runAsync({ "qalc", "-t", "-f", scratchPath() }, function(result)
+		-- everything from here down is unchanged
 		local ok = result.exitCode == 0
 		local lines = {}
 		if ok then
@@ -186,7 +196,6 @@ local function evaluate(expr)
 			output = noctalia.string.trim(lines[#lines])
 			isErr = false
 		elseif ok then
-			-- silent statement (bare assignment) - qalc prints nothing for these
 			local name, value = expr:match("^%s*([%a_][%w_]*)%s*=%s*(.+)$")
 			output = name and (name .. " = " .. noctalia.string.trim(value)) or expr
 			isErr = false
