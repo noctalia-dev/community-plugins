@@ -1,6 +1,6 @@
 id          = "redxtech/super-productivity"
 name        = "Super Productivity"
-version     = "2.0.1"
+version     = "2.1.0"
 plugin_api  = 43
 author      = "Gabe Dunn"
 license     = "MIT"
