@@ -42,9 +42,6 @@
       "label": "Show mode text"
     }
   },
-  "error": {
-    "parse_failed": "Could not parse umbriel outputs"
-  },
   "tooltip": {
     "mode": "Mode",
     "open": "Open Monitor Control",

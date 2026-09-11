@@ -137,7 +137,7 @@ local function applyConfig(name, fields)
   -- Best-effort rolling backup for the revert action; the restore path on a
   -- rejected validate uses the in-memory copy instead, so a nil data dir or a
   -- failed backup write can never strand an invalid config on disk.
-  local backup = dataFile("config.toml.monitor-control.bak")
+  local backup = dataFile("config.toml.bak")
   if backup ~= nil then
     noctalia.writeFile(backup, text)
   end
@@ -263,7 +263,7 @@ local function handleRequest(value)
     end, VALIDATE_TIMEOUT_MS)
     return
   elseif action == "revert" then
-    local backup = dataFile("config.toml.monitor-control.bak")
+    local backup = dataFile("config.toml.bak")
     local original = backup ~= nil and noctalia.readFile(backup) or nil
     if original == nil then
       noctalia.notifyError(noctalia.tr("notify.revert_failed"))
@@ -300,7 +300,7 @@ end
 noctalia.state.watch("monitor.request", handleRequest)
 
 -- CLI surface, mirroring the state channel so a request is testable without
--- the panel:  noctalia msg plugin muhammadessam/monitor-control:service all request '<json>'
+-- the panel:  noctalia msg plugin muhammadessam/umbriel-monitor-control:service all request '<json>'
 function onIpc(event, payload)
   if event ~= "request" or type(payload) ~= "string" then
     return

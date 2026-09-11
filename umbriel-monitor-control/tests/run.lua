@@ -86,12 +86,34 @@ local nested = out:find("%[output%.DP%-1%.layout%.scrolling%]")
 check("append stays inside section", at ~= nil and nested ~= nil and at < nested)
 check("exactly one position injected", occurrences == 1)
 
--- trailing inline comments on the replaced line survive
+-- trailing inline comments on the replaced line survive verbatim: the comment
+-- must be re-attached with exactly one '#' (an earlier version added a second
+-- one and grew it on every patch)
 out = config.patchConfig(FIXTURE, "eDP-1", { mode = "800x600@60" })
-local modeAt = out:find('mode = "800x600@60"')
-local commentAt = out:find("# WIDTHxHEIGHT")
-check("inline comment preserved", modeAt ~= nil and commentAt ~= nil and modeAt < commentAt)
+local eModeLine = out:match('mode = "800x600@60"[^\n]*')
+check("inline comment preserved verbatim", eModeLine == 'mode = "800x600@60" # WIDTHxHEIGHT')
+check("no doubled comment", out:find("# #", 1, true) == nil)
 check("commented vrr still untouched", out:find('#vrr = "fullscreen"') ~= nil)
+
+-- regression: patching the same commented key repeatedly must not grow hashes
+local repeated = config.patchConfig(FIXTURE, "eDP-1", { mode = "1280x720@60" })
+repeated = config.patchConfig(repeated, "eDP-1", { mode = "800x600@60" })
+repeated = config.patchConfig(repeated, "eDP-1", { mode = "1024x768@60" })
+local repeatedLine = repeated:match('mode = "1024x768@60"[^\n]*')
+local hashes = select(2, repeatedLine:gsub("#", "#"))
+check("comment survives repeated patches", repeatedLine == 'mode = "1024x768@60" # WIDTHxHEIGHT')
+check("comment hash count stays 1", hashes == 1)
+
+-- the same for a commented position line
+out = config.patchConfig(FIXTURE, "eDP-1", { x = 100, y = 200 })
+local ePosLine = out:match("position = %[100, 200%][^\n]*")
+check("position comment preserved verbatim", ePosLine == "position = [100, 200] # Logical top-left")
+
+-- a '#' inside a quoted value is not a comment and must survive as a value
+local quotedHash = "[output.DP-2]\nmode = \"custom#x\"\n"
+out = config.patchConfig(quotedHash, "DP-2", { mode = "1024x768@60" })
+check("hash inside quotes is not a comment", out:find('mode = "1024x768@60"', 1, true) ~= nil
+  and out:find("custom#x", 1, true) == nil)
 
 -- quoted monitor-name header, case-insensitive like Umbriel
 out = config.patchConfig(FIXTURE, "aoc cq32g4 0x1f", { mode = "640x480@60" })
@@ -111,10 +133,15 @@ check("hz 60000 -> 60", config.hzText(60000) == "60")
 local bad, reason = config.patchConfig(FIXTURE, "", { mode = "x" })
 check("empty name rejected", bad == nil and reason ~= nil)
 
--- idempotence: patching with the same mode yields identical text
+-- idempotence: patching with the same mode yields identical text, on a plain
+-- key and on a comment-carrying one
 local once = config.patchConfig(FIXTURE, "DP-1", { mode = "1280x720@60" })
 local twice = config.patchConfig(once, "DP-1", { mode = "1280x720@60" })
 check("idempotent", once == twice)
+
+local cOnce = config.patchConfig(FIXTURE, "eDP-1", { mode = "1280x720@60" })
+local cTwice = config.patchConfig(cOnce, "eDP-1", { mode = "1280x720@60" })
+check("idempotent on commented key", cOnce == cTwice)
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

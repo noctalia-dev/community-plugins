@@ -1,5 +1,5 @@
-# Monitor Control - display placement, resolution and refresh rate for the
-# Umbriel compositor, from the Noctalia bar.
+# Umbriel Monitor Control - display placement, resolution and refresh rate for
+# the Umbriel compositor, from the Noctalia bar.
 #
 # One [[service]] owns every compositor call and every config write: it polls
 # `umbriel outputs --json`, applies changes by patching [output.*] sections in
@@ -8,16 +8,16 @@
 # reboots. The bar [[widget]] and [[panel]] are thin clients on the plugin's
 # shared state channels.
 
-id = "muhammadessam/monitor-control"
-name = "Monitor Control"
-version = "0.1.1"
+id = "muhammadessam/umbriel-monitor-control"
+name = "Umbriel Monitor Control"
+version = "0.1.2"
 plugin_api = 24
 author = "muhammadessam"
 license = "MIT"
 dependencies = ["umbriel"]
-tags = ["bar", "panel", "service", "system", "utility", "hardware"]
+tags = ["bar", "panel", "service", "system", "utility", "hardware", "umbriel"]
 icon = "device-desktop"
-description = "Place monitors left/right/above/below and change resolution and refresh rate; saves to the Umbriel config."
+description = "Umbriel: place monitors left/right/above/below and set resolution and refresh rate; saved to the config."
 
 [[setting]]
 key = "config_path"
@@ -58,7 +58,7 @@ entry = "bar.luau"
   default = "device-desktop"
 
 # Display settings surface. Open with:
-#   noctalia msg panel-toggle muhammadessam/monitor-control:panel
+#   noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 [[panel]]
 id = "panel"
 entry = "panel.luau"

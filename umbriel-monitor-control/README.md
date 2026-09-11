@@ -1,4 +1,4 @@
-# Monitor Control
+# Umbriel Monitor Control
 
 Place and tune your monitors from the Noctalia bar: move a display left,
 right, above or below the others, and change its resolution and refresh rate.
@@ -6,11 +6,15 @@ Every change is written into the Umbriel config file (validated before it
 lands, restored if invalid) and reloaded live, so settings persist across
 reboots.
 
+**Umbriel only.** This plugin drives the Umbriel compositor through its CLI and
+its config file; it does nothing under niri, Hyprland, Sway or any other
+compositor, and hides its widget outside an Umbriel session.
+
 ## Plugin
 
 | Field | Value |
 | --- | --- |
-| ID | `muhammadessam/monitor-control` |
+| ID | `muhammadessam/umbriel-monitor-control` |
 | Entries | Bar widget: `monitor`; panel: `panel`; service: `service` |
 
 ## Requirements
@@ -26,7 +30,7 @@ Add the `monitor` widget to the bar: it shows the focused output's current
 mode; click opens the panel. Or open the panel directly:
 
 ```sh
-noctalia msg panel-toggle muhammadessam/monitor-control:panel
+noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
 In the panel, each monitor card has a resolution dropdown, a refresh-rate
@@ -45,15 +49,15 @@ down) that dock the monitor against the outer edge of the arrangement.
 ## IPC
 
 ```sh
-noctalia msg panel-toggle muhammadessam/monitor-control:panel
+noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
 ## Notes
 
 - **Files written**: the configured Umbriel config (patched `[output.*]`
   sections only; comments and other keys are preserved) and a rolling backup
-  `config.toml.monitor-control.bak` in the plugin's data dir, used to restore
-  if a patched file fails `umbriel validate` or for the revert request.
+  `config.toml.bak` in the plugin's data dir, used to restore if a patched file
+  fails `umbriel validate` or for the revert request.
 - **Commands spawned**: `umbriel outputs --json` (inventory),
   `umbriel validate -c <file>` (pre-reload gate), `umbriel msg config-reload`
   (live apply). No network access.

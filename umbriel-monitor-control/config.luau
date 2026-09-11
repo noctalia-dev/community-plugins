@@ -54,9 +54,10 @@ function M.findSection(lines, name)
   return found, #lines + 1
 end
 
--- Trailing TOML comment on a line ("# ..."), or nil. A '#' inside a
--- double-quoted string is not a comment; scan for the first one outside
--- quotes so values containing '#' survive.
+-- Trailing TOML comment on a line, or nil. Returned WITHOUT its leading '#',
+-- so callers can re-attach exactly one. A '#' inside a double-quoted string is
+-- not a comment; scan for the first one outside quotes so values containing
+-- '#' survive.
 local function trailingComment(line)
   local inString = false
   for index = 1, #line do
@@ -64,7 +65,7 @@ local function trailingComment(line)
     if c == '"' then
       inString = not inString
     elseif c == "#" and not inString then
-      return line:sub(index):match("^%s*(.-)%s*$")
+      return line:sub(index + 1):match("^%s*(.-)%s*$")
     end
   end
   return nil
@@ -72,13 +73,14 @@ end
 
 -- Sets key = value inside [start, stop): replaces an active line for that key
 -- (keeping any trailing comment), otherwise appends it at the end of the
--- section.
+-- section. The comment is re-attached with a single "# ", so patching the same
+-- key repeatedly leaves the line's comment count unchanged.
 function M.setKey(lines, start, stop, key, value)
   for index = start + 1, stop - 1 do
     local trimmed = string.match(lines[index], "^%s*(.-)%s*$")
     if string.match(trimmed, "^" .. key .. "%s*=") then
       local comment = trailingComment(trimmed)
-      if comment ~= nil then
+      if comment ~= nil and comment ~= "" then
         lines[index] = key .. " = " .. value .. " # " .. comment
       else
         lines[index] = key .. " = " .. value

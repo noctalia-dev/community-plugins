@@ -74,7 +74,7 @@ function update()
 end
 
 function onClick()
-  noctalia.togglePanel("muhammadessam/monitor-control:panel")
+  noctalia.togglePanel("muhammadessam/umbriel-monitor-control:panel")
 end
 
 noctalia.state.watch("monitor.state", function(value)
