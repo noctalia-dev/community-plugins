@@ -1,0 +1,200 @@
+id = "yuki/lunar-workspaces"
+name = "Lunar Workspaces"
+version = "1.1.0"
+plugin_api = 12
+author = "yuki"
+license = "MIT"
+min_noctalia = "5.0.0"
+description = "change workspace indicator with per-state custom icons, for Hyprland and Niri."
+
+tags = ["bar", "indicator", "workspaces", "hyprland", "niri"]
+
+dependencies = ["socat", "magick"]
+
+[[setting]]
+key             = "compositor"
+type            = "select"
+label_key       = "settings.compositor.label"
+description_key = "settings.compositor.description"
+default         = "auto"
+options         = [
+  { value = "auto",     label_key = "settings.compositor.auto" },
+  { value = "hyprland", label_key = "settings.compositor.hyprland" },
+  { value = "niri",     label_key = "settings.compositor.niri" },
+]
+
+[[service]]
+id = "workspace-state"
+entry = "service.luau"
+
+[[widget]]
+id = "lunar_workspaces"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "workspace_display_mode"
+  type            = "select"
+  label_key       = "settings.workspace_display_mode.label"
+  description_key = "settings.workspace_display_mode.description"
+  default         = "all"
+  options         = [
+    { value = "all",              label_key = "settings.workspace_display_mode.all" },
+    { value = "active_occupied",  label_key = "settings.workspace_display_mode.active_occupied" },
+    { value = "once",             label_key = "settings.workspace_display_mode.once" },
+  ]
+
+  [[widget.setting]]
+  key             = "workspace_count"
+  type            = "int"
+  label_key       = "settings.workspace_count.label"
+  description_key = "settings.workspace_count.description"
+  default         = 9
+  min             = 1
+  max             = 20
+
+  [[widget.setting]]
+  key             = "enable_animation"
+  type            = "bool"
+  label_key       = "settings.enable_animation.label"
+  description_key = "settings.enable_animation.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "icon_focused"
+  type            = "file"
+  label_key       = "settings.icon_focused.label"
+  description_key = "settings.icon_focused.description"
+  default         = "🌕"
+
+  [[widget.setting]]
+  key             = "icon_urgent"
+  type            = "file"
+  label_key       = "settings.icon_urgent.label"
+  description_key = "settings.icon_urgent.description"
+  default         = "🌟"
+
+  [[widget.setting]]
+  key             = "icon_occupied"
+  type            = "file"
+  label_key       = "settings.icon_occupied.label"
+  description_key = "settings.icon_occupied.description"
+  default         = "🌗"
+
+  [[widget.setting]]
+  key             = "icon_empty"
+  type            = "file"
+  label_key       = "settings.icon_empty.label"
+  description_key = "settings.icon_empty.description"
+  default         = "🌙"
+
+  [[widget.setting]]
+  key             = "size_focused"
+  type            = "int"
+  label_key       = "settings.size_focused.label"
+  description_key = "settings.size_focused.description"
+  default         = 22
+  min             = 8
+  max             = 64
+
+  [[widget.setting]]
+  key             = "size_urgent"
+  type            = "int"
+  label_key       = "settings.size_urgent.label"
+  description_key = "settings.size_urgent.description"
+  default         = 20
+  min             = 8
+  max             = 64
+
+  [[widget.setting]]
+  key             = "size_occupied"
+  type            = "int"
+  label_key       = "settings.size_occupied.label"
+  description_key = "settings.size_occupied.description"
+  default         = 18
+  min             = 8
+  max             = 64
+
+  [[widget.setting]]
+  key             = "size_empty"
+  type            = "int"
+  label_key       = "settings.size_empty.label"
+  description_key = "settings.size_empty.description"
+  default         = 16
+  min             = 8
+  max             = 64
+
+  [[widget.setting]]
+  key             = "focused_pill_style"
+  type            = "select"
+  label_key       = "settings.focused_pill_style.label"
+  description_key = "settings.focused_pill_style.description"
+  default         = "fill"
+  options         = [
+    { value = "fill",  label_key = "settings.pill_style.fill" },
+    { value = "ghost", label_key = "settings.pill_style.ghost" },
+  ]
+
+  [[widget.setting]]
+  key             = "focused_color"
+  type            = "color"
+  label_key       = "settings.focused_color.label"
+  description_key = "settings.focused_color.description"
+  default         = "primary"
+  visible_when    = { key = "focused_pill_style", values = ["fill"] }
+
+  [[widget.setting]]
+  key             = "urgent_pill_style"
+  type            = "select"
+  label_key       = "settings.urgent_pill_style.label"
+  description_key = "settings.urgent_pill_style.description"
+  default         = "fill"
+  options         = [
+    { value = "fill",  label_key = "settings.pill_style.fill" },
+    { value = "ghost", label_key = "settings.pill_style.ghost" },
+  ]
+
+  [[widget.setting]]
+  key             = "urgent_color"
+  type            = "color"
+  label_key       = "settings.urgent_color.label"
+  description_key = "settings.urgent_color.description"
+  default         = "error"
+  visible_when    = { key = "urgent_pill_style", values = ["fill"] }
+
+  [[widget.setting]]
+  key             = "occupied_pill_style"
+  type            = "select"
+  label_key       = "settings.occupied_pill_style.label"
+  description_key = "settings.occupied_pill_style.description"
+  default         = "ghost"
+  options         = [
+    { value = "fill",  label_key = "settings.pill_style.fill" },
+    { value = "ghost", label_key = "settings.pill_style.ghost" },
+  ]
+
+  [[widget.setting]]
+  key             = "occupied_color"
+  type            = "color"
+  label_key       = "settings.occupied_color.label"
+  description_key = "settings.occupied_color.description"
+  default         = "secondary"
+  visible_when    = { key = "occupied_pill_style", values = ["fill"] }
+
+  [[widget.setting]]
+  key             = "empty_pill_style"
+  type            = "select"
+  label_key       = "settings.empty_pill_style.label"
+  description_key = "settings.empty_pill_style.description"
+  default         = "ghost"
+  options         = [
+    { value = "fill",  label_key = "settings.pill_style.fill" },
+    { value = "ghost", label_key = "settings.pill_style.ghost" },
+  ]
+
+  [[widget.setting]]
+  key             = "empty_color"
+  type            = "color"
+  label_key       = "settings.empty_color.label"
+  description_key = "settings.empty_color.description"
+  default         = "surface_variant"
+  visible_when    = { key = "empty_pill_style", values = ["fill"] }
