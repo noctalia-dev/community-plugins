@@ -239,6 +239,19 @@ eq("hidden flag on the profile too", profileArgs[#profileArgs], "yes")
 profileArgs = net.wifiProfileArgs("open", "open", nil, false)
 eq("an open profile carries no security settings", #profileArgs, 8)
 
+-- what the bar tile shows: the network name, not the address
+eq("wifi tile shows the SSID",
+  net.primaryLabel({ address = "192.168.0.141", live = { kind = "wifi", connection = "Vodafone-B3A2" } }),
+  "Vodafone-B3A2")
+eq("ethernet tile falls back to its address",
+  net.primaryLabel({ address = "10.0.0.5", live = { kind = "ethernet", connection = "Wired connection 1" } }),
+  "10.0.0.5")
+eq("wifi with no lease still shows the name",
+  net.primaryLabel({ address = "", live = { kind = "wifi", connection = "Cafe" } }), "Cafe")
+eq("no live data falls back to the route address",
+  net.primaryLabel({ address = "192.168.0.141" }), "192.168.0.141")
+eq("nothing at all is empty", net.primaryLabel(nil), "")
+
 -- the passwd-file line nmcli reads the secret from
 eq("passwd-file line", net.passwdFileContents("hunter2"),
   "802-11-wireless-security.psk:hunter2\n")

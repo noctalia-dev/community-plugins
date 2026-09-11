@@ -9,6 +9,8 @@
 -- While a change is waiting to be confirmed the tile turns into a countdown:
 -- the confirm window is the one moment where a glance beats opening the panel.
 
+local net = require("./net.luau")
+
 local KIND_GLYPHS = {
   wifi = "wifi",
   ethernet = "plug-connected",
@@ -29,21 +31,6 @@ local function orEmpty(value)
     return tr("panel.empty")
   end
   return value
-end
-
--- What the tile calls the network it is on: the SSID, which for a Wi-Fi profile
--- is the profile name. The address belongs in the tooltip, not in the bar.
--- Anything that is not Wi-Fi (Ethernet, a dummy link) has no name worth showing,
--- so it keeps its address.
-local function networkLabel(primary)
-  local live = primary.live
-  if live ~= nil and live.kind == "wifi" and live.connection ~= "" then
-    return live.connection
-  end
-  if primary.address ~= "" then
-    return primary.address
-  end
-  return live ~= nil and live.connection or ""
 end
 
 local function tooltipRows(primary)
@@ -103,7 +90,7 @@ local function render()
   end
   barWidget.setGlyph(glyph)
   if noctalia.getConfig("show_text") == true then
-    barWidget.setText(networkLabel(primary))
+    barWidget.setText(net.primaryLabel(primary))
   else
     barWidget.setText("")
   end

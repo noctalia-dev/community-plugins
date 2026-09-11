@@ -427,6 +427,27 @@ function M.wifiProfileArgs(name, ssid, keyMgmt, hidden)
   return args
 end
 
+-- What the bar tile calls the network it is on: the SSID, which for a Wi-Fi
+-- profile is the profile name. The address belongs in the tooltip, not the bar.
+-- Anything that is not Wi-Fi (Ethernet, a dummy link) has no name worth showing,
+-- so it falls back to its address.
+function M.primaryLabel(primary)
+  if type(primary) ~= "table" then
+    return ""
+  end
+  local live = primary.live
+  if type(live) == "table" and live.kind == "wifi" and (live.connection or "") ~= "" then
+    return live.connection
+  end
+  if (primary.address or "") ~= "" then
+    return primary.address
+  end
+  if type(live) == "table" then
+    return live.connection or ""
+  end
+  return ""
+end
+
 -- nmcli's passwd-file format: one `setting.property:secret` per line.
 function M.passwdFileContents(password)
   return "802-11-wireless-security.psk:" .. password .. "\n"
