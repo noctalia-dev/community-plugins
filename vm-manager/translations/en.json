@@ -1,0 +1,42 @@
+{
+	"settings.poll_interval.label": "Poll interval (seconds)",
+	"settings.poll_interval.description": "How often the service re-reads VM state from libvirt.",
+	"settings.connect_uri.label": "Libvirt connection URI",
+	"settings.connect_uri.description": "The libvirt connection to manage, e.g. qemu:///system, qemu:///session, or a remote URI.",
+
+	"plugin.title": "VM Manager",
+
+	"widget.error": "Could not reach libvirt",
+	"widget.tooltip": "{running} running · {paused} paused · {total} total — click to manage",
+
+	"panel.title": "Virtual Machines",
+	"panel.refresh": "Refresh now",
+	"panel.close": "Close",
+	"panel.error": "Could not reach libvirt",
+	"panel.empty": "No VMs defined",
+	"panel.busy": "{action} in progress…",
+	"panel.start": "Start",
+	"panel.shutdown": "Shutdown",
+	"panel.force_off": "Force Off",
+	"panel.suspend": "Suspend",
+	"panel.resume": "Resume",
+	"panel.console": "Console",
+	"panel.footer": "{running} running · {paused} paused · {total} total",
+	"panel.updated": "updated",
+	"panel.autostart": "Autostart",
+	"panel.autostart_on": "Autostart on boot",
+	"panel.autostart_off": "Disable autostart",
+	"panel.autostart_once": "Autostart once (next boot)",
+
+	"error.not_installed": "virsh is not installed — install the libvirt client tools and reload the plugin.",
+	"error.connect_failed": "Cannot reach libvirt at {uri}. Is libvirtd running? Check: systemctl status libvirtd",
+	"error.access_denied": "Access denied to {uri}. Add your user to the libvirt group and re-login: sudo usermod -aG libvirt $USER",
+	"error.no_domain": "No VM named '{name}' on {uri}. Check: virsh -c {uri} list --all",
+	"error.no_domains": "No VMs were found on {uri}.",
+	"error.autostart_persist": "Autostart only works for persistent (defined) domains — transient domains cannot be autostarted.",
+	"error.exit_code": "virsh exited with code {code}",
+	"error.launch_virsh": "Could not start virsh. Is the libvirt client installed?",
+	"error.launch_virsh_for": "Could not start virsh for {action} {name}. Is the libvirt client installed?",
+	"error.console_failed": "Could not open a console for {name} — is virt-viewer installed?",
+	"error.launch_viewer": "Could not launch virt-viewer for {name}. Is virt-viewer installed?"
+}
