@@ -33,7 +33,9 @@
     "confirm_note": "Writes go to the NetworkManager profile. After the connection comes back up you have {seconds}s to keep the change before it is rolled back.",
     "profile_hint": "Addresses take a prefix; a bare address gets /24.",
     "ipv6_hint": "IPv6 addresses take a prefix; a bare address gets /64.",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "confirm_note_off": "Writes are applied immediately: confirm_seconds is 0, so there is no rollback window.",
+    "permission_unknown": "Checking NetworkManager permissions…"
   },
   "field": {
     "ipv4_method": "Addressing",
@@ -78,12 +80,12 @@
     "enterprise_short": "802.1X, manual setup",
     "radio_off": "The Wi-Fi radio is off — switch it on above to scan.",
     "needs_password": "This network needs a password.",
-    "wep": "WEP is obsolete and not supported here \u2014 set it up with nmcli if you must."
+    "wep": "WEP is obsolete and not supported here — set it up with nmcli if you must."
   },
   "bar": {
     "offline": "offline",
     "confirm_title": "Unconfirmed change",
-    "confirm_body": "seconds left: {seconds}"
+    "confirm_body": "seconds left"
   },
   "tooltip": {
     "device": "Device",
@@ -114,7 +116,11 @@
     "scan_failed": "The scan failed",
     "wifi_failed": "Could not join the network",
     "wifi_connected": "Joined",
-    "revert_failed": "The previous settings could not be restored"
+    "revert_failed": "The previous settings could not be restored",
+    "backup_failed": "The previous settings could not be saved, so nothing was written",
+    "resumed": "An unconfirmed change was still pending — resuming its countdown",
+    "cleanup_failed": "The failed network's profile could not be removed",
+    "stuck": "A network operation stopped responding"
   },
   "error": {
     "form": "The form could not be read.",
@@ -140,7 +146,9 @@
     "gateway_needs_address": {
       "ipv4": "A gateway needs an address: add one or clear the gateway.",
       "ipv6": "A gateway needs an address: add one or clear the gateway."
-    }
+    },
+    "secret_file": "The passphrase file could not be prepared, so the network was not joined",
+    "stuck": "The last operation never reported back, so it was abandoned. Nothing is stuck: try again."
   },
   "settings": {
     "confirm_seconds": {

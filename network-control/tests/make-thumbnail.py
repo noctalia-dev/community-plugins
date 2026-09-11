@@ -1,83 +1,109 @@
 #!/usr/bin/env python3
-"""Build thumbnail.webp: 960x540, the fixed grid the Noctalia store uses.
+"""Rebuild thumbnail.webp with the official Noctalia thumbnail generator.
 
     python3 tests/make-thumbnail.py
 
-The community checklist asks for the official generator; that was not reachable
-when this was made, so this draws the same thing by hand with Noctalia's own
-icon font for the glyph. Overwrite it with the generator's output when you can
-reach https://assets.noctalia.dev/plugins/thumbnail-generator.html.
+The community checklist asks for the generator, not for a hand-drawn card, so this
+drives it: the page is loaded in headless Chrome with the plugin's own copy, the
+generator renders its card at 960x540, and its export canvas is written straight
+to thumbnail.webp (the store lays cards out on a fixed 960x540 grid, so the export
+is taken at pixelRatio 1).
+
+Requires google-chrome or chromium on PATH. The page pulls html-to-image from a
+CDN, so it needs network access.
 """
 
-import json
+import base64
 import pathlib
+import re
+import shutil
+import subprocess
+import sys
+import urllib.parse
 
-from PIL import Image, ImageDraw, ImageFont
-
-SIZE = (960, 540)
-TABLER_JSON = pathlib.Path("/usr/share/noctalia/assets/fonts/tabler.json")
-TABLER_TTF = pathlib.Path("/usr/share/noctalia/assets/fonts/noctalia-tabler.ttf")
-TEXT_TTF = pathlib.Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
-TEXT_REGULAR = pathlib.Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+GENERATOR = "https://assets.noctalia.dev/plugins/thumbnail-generator.html"
 OUT = pathlib.Path(__file__).resolve().parent.parent / "thumbnail.webp"
+CHROME = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser")
 
-# Catppuccin Mocha, the palette the shell is themed with.
-BASE = (30, 30, 46)
-MANTLE = (24, 24, 37)
-SURFACE = (49, 50, 68)
-TEXT = (205, 214, 244)
-SUBTEXT = (166, 173, 200)
-BLUE = (137, 180, 250)
-GREEN = (166, 227, 161)
+# The card's copy. `shot=none` renders without the screenshot panel; point it at a
+# captured panel image once one exists.
+PARAMS = {
+    "title": "Network Control",
+    "tag": "System · Network · Panel",
+    "desc": "Wi-Fi picker and NetworkManager addressing, with rollback.",
+    "accent": "iris",
+    "shot": "none",
+}
+
+EXPORT_HOOK = """
+<script>
+(async function () {
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  for (var i = 0; i < 60 && !window.htmlToImage; i++) { await wait(200); }
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await wait(500);
+    var canvas = await window.htmlToImage.toCanvas(document.getElementById('thumb'),
+      {pixelRatio: 1, width: 960, height: 540, cacheBust: true,
+       style: {margin: '0', boxShadow: 'none'}});
+    var pre = document.createElement('pre');
+    pre.id = 'export';
+    pre.textContent = canvas.toDataURL('image/webp', 0.98);
+    document.body.appendChild(pre);
+    document.title = 'EXPORT_READY';
+  } catch (e) { document.title = 'EXPORT_FAILED: ' + (e && e.message); }
+})();
+</script>
+</body>"""
 
 
-def glyph(name):
-    data = json.loads(TABLER_JSON.read_text())
-    return chr(int(data[name]["codepoint"].removeprefix("U+"), 16))
+def find_chrome():
+    for name in CHROME:
+        path = shutil.which(name)
+        if path:
+            return path
+    sys.exit("no chrome/chromium on PATH: cannot drive the thumbnail generator")
 
 
 def main():
-    image = Image.new("RGB", SIZE, BASE)
-    draw = ImageDraw.Draw(image)
+    chrome = find_chrome()
+    page = subprocess.run(
+        ["curl", "-sL", "--max-time", "60", GENERATOR], capture_output=True, text=True, check=True
+    ).stdout
+    if "URLSearchParams" not in page:
+        sys.exit("the generator page did not look like the generator; aborting")
 
-    # a subtle two-tone backdrop: dark mantle band at the bottom third
-    draw.rectangle([0, 360, SIZE[0], SIZE[1]], fill=MANTLE)
+    local = pathlib.Path("/tmp/noctalia-thumbnail-generator.html")
+    local.write_text(page.replace("</body>", EXPORT_HOOK))
 
-    tabler = ImageFont.truetype(str(TABLER_TTF), 150)
-    wifi = ImageFont.truetype(str(TABLER_TTF), 44)
-    title = ImageFont.truetype(str(TEXT_TTF), 68)
-    body = ImageFont.truetype(str(TEXT_REGULAR), 27)
-    small = ImageFont.truetype(str(TEXT_REGULAR), 22)
+    url = "file://" + str(local) + "?" + urllib.parse.urlencode(PARAMS)
+    dom = subprocess.run(
+        [chrome, "--headless=new", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
+         "--window-size=1200,900", "--virtual-time-budget=25000", "--dump-dom", url],
+        capture_output=True, text=True, timeout=240,
+    ).stdout
 
-    # icon on the left, centred in its own column
-    draw.text((70, 150), glyph("network"), font=tabler, fill=BLUE)
-    draw.text((206, 236), glyph("wifi-3"), font=wifi, fill=GREEN)
+    title = (re.search(r"<title>(.*?)</title>", dom, re.S) or [None, ""])[1]
+    if title.startswith("EXPORT_FAILED"):
+        sys.exit("the generator refused to export: " + title)
+    match = re.search(r'<pre id="export">data:image/webp;base64,([^<]+)</pre>', dom)
+    if not match:
+        sys.exit("no export in the page output: " + title)
 
-    draw.text((300, 168), "Network Control", font=title, fill=TEXT)
-    # keep the subtitle inside the frame: measure rather than hope
-    subtitle = "NetworkManager addressing, in the bar"
-    limit = SIZE[0] - 303 - 40
-    while draw.textlength(subtitle, font=body) > limit and len(subtitle) > 8:
-        subtitle = subtitle[:-2]
-    draw.text((303, 258), subtitle, font=body, fill=SUBTEXT)
-    print("subtitle %r width %.0f/%.0f" % (subtitle, draw.textlength(subtitle, font=body), limit))
+    data = base64.b64decode(match.group(1))
+    OUT.write_bytes(data)
+    print("wrote %s (%d bytes)" % (OUT, len(data)))
 
-    rows = [
-        ("wifi-3", "Join networks, DHCP or static"),
-        ("route", "Address, gateway, DNS, IPv4 + IPv6"),
-        ("arrow-back-up", "Unconfirmed changes roll back"),
-    ]
-    y = 322
-    for icon, text in rows:
-        draw.text((303, y), glyph(icon), font=wifi, fill=BLUE)
-        draw.text((360, y + 9), text, font=small, fill=SUBTEXT)
-        y += 52
-
-    draw.text((303, 480), "muhammadessam/network-control", font=small, fill=(110, 114, 137))
-
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    image.save(OUT, "WEBP", quality=88, method=6)
-    print("wrote", OUT, image.size, OUT.stat().st_size, "bytes")
+    try:
+        from PIL import Image
+    except ImportError:
+        return
+    with Image.open(OUT) as image:
+        print("size:", image.size)
+        if image.size != (960, 540):
+            sys.exit("the store requires 960x540, got %s" % (image.size,))
+    if len(data) > 512 * 1024:
+        sys.exit("the store rejects thumbnails over 512 KiB")
 
 
 if __name__ == "__main__":

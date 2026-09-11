@@ -8,7 +8,8 @@ Drives only the plugin's own IPC surface, so every layer is exercised: request
 
 It creates one throwaway dummy connection (`netctl-e2e` / `netctle2e0`) that
 carries NO gateway, so it can never win the default route away from the real
-uplink, and deletes it at the end. It never touches an existing profile.
+uplink, and deletes it at the end. A profile of that name which this run did not
+create makes the script refuse to start rather than adopt and delete it.
 
 Requires the plugin to be enabled and this machine's shell to be running.
 """
@@ -39,6 +40,11 @@ def send(payload, label=None):
     if label:
         print("  -> %-24s %s" % (label, text))
     return text
+
+
+def profile_names():
+    """Every connection name, so a suite can prove it owns the profile it touches."""
+    return [line.split(":", 1)[-1] for line in nmcli("-t", "-f", "NAME", "con", "show").splitlines()]
 
 
 def nmcli(*args):
@@ -96,7 +102,18 @@ def uplink_routes():
 
 
 print("uplink before:", uplink_routes().strip().replace("\n", " / "))
+
+# This suite owns exactly one profile, the one it creates. A profile of the same
+# name that this run did not create is somebody else's: it is never modified, and
+# the finally block below only ever deletes what setup here created.
+OWNED = False
+if PROFILE in profile_names():
+    print("%s already exists and was not created by this run - refusing to touch it" % PROFILE)
+    raise SystemExit(1)
 print(nmcli("con", "add", "type", "dummy", "con-name", PROFILE, "ifname", IFNAME, "autoconnect", "no"))
+if PROFILE not in profile_names():
+    raise SystemExit("could not create %s" % PROFILE)
+OWNED = True
 nmcli("con", "down", PROFILE)
 uuid = nmcli("-t", "-f", "connection.uuid", "con", "show", PROFILE).split(":", 1)[-1].strip()
 assert uuid, "could not resolve the test profile uuid"
@@ -247,8 +264,12 @@ try:
     send({"action": "wifi-connect", "ssid": "hermes-does-not-exist-42", "password": "irrelevant"}, "connect (unknown)")
     state = wait_idle()
     check("joining an unknown network fails loudly", bool(state.get("error")), state.get("error"))
-    check("the failure names the network", "not exist" in (state.get("error") or "").lower()
-          or "not found" in (state.get("error") or "").lower(), state.get("error"))
+    # The contract is that the message names which network failed and repeats what
+    # NetworkManager said. "could not be found" is NetworkManager's wording; the
+    # SSID prefix is the plugin's own.
+    check("the failure names the network and its reason",
+          "hermes-does-not-exist-42" in (state.get("error") or "")
+          and "could not be found" in (state.get("error") or "").lower(), state.get("error"))
     check("no profile is left behind by the failed join",
           "hermes-does-not-exist-42" not in subprocess.run(["nmcli", "-t", "-f", "NAME", "con", "show"],
                                                            capture_output=True, text=True).stdout)
@@ -291,8 +312,11 @@ try:
     send({"action": "keep"}, "keep")
     time.sleep(2)
 finally:
-    nmcli("con", "down", PROFILE)
-    print(nmcli("con", "delete", PROFILE))
+    if OWNED:
+        nmcli("con", "down", PROFILE)
+        print(nmcli("con", "delete", PROFILE))
+    else:
+        print("nothing to clean up: this run did not create %s" % PROFILE)
     time.sleep(1)
 
 time.sleep(3)

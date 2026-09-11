@@ -29,6 +29,8 @@ local draftReady = false
 -- its text once per key, so a new key is the only way to show new server values.
 local gen = 0
 local lastBusy = false
+-- Set on the busy -> idle edge, cleared once the refreshed profile has landed.
+local reseedWhenProfileChanges = nil
 
 local METHOD_KEYS = {
   auto = "method.auto",
@@ -126,6 +128,19 @@ end
 -- Re-seed only when the fields no longer describe what is on screen: the
 -- selection moved, the first profile arrived, or a write landed. A background
 -- refresh must never wipe what is being typed.
+-- The ten fields, as one comparable string: used to notice that a write or a
+-- rollback actually changed the stored profile.
+local function fingerprint(fields)
+  if type(fields) ~= "table" then
+    return ""
+  end
+  local parts = {}
+  for _, field in ipairs(net.FIELDS) do
+    table.insert(parts, tostring(fields[field.key] or ""))
+  end
+  return table.concat(parts, "\u{1}")
+end
+
 local function syncDraft()
   if snapshot.selected == nil then
     draft = nil
@@ -180,6 +195,9 @@ local function fieldInput(key, placeholder, enabled)
       onChange = function(text)
         if draft ~= nil then
           draft[key] = tostring(text)
+          -- The change list and the Apply button are computed during render, so
+          -- typing has to re-render or Apply stays disabled until Enter.
+          render()
         end
       end,
       onSubmit = function()
@@ -368,7 +386,7 @@ local function editorCard(connection)
         glyph = connection.active and "plug-off" or "plug-connected",
         variant = "outline",
         controlSize = "sm",
-        enabled = not busy,
+        enabled = not locked,
         onClick = function()
           request({ action = connection.active and "down" or "up", uuid = connection.uuid })
         end,
@@ -564,7 +582,7 @@ end
 local function networkRow(network)
   local saved = type(snapshot.saved_ssids) == "table" and snapshot.saved_ssids[network.ssid] ~= nil
   local enterprise = net.isEnterprise(network.security)
-  local locked = snapshot.busy == true or snapshot.scanning == true
+  local locked = snapshot.busy == true or snapshot.scanning == true or snapshot.pending ~= nil
   local busyLabel = network.in_use and tr("wifi.connected") or tr("wifi.connect")
 
   local children = {
@@ -625,7 +643,7 @@ local function manualRow()
     wifiGen = wifiGen + 1
     render()
   end
-  local locked = snapshot.busy == true or snapshot.scanning == true
+  local locked = snapshot.busy == true or snapshot.scanning == true or snapshot.pending ~= nil
   return ui.column({ gap = 4, padding = 6, radius = 6, fill = "surface_variant/0.2" }, {
     ui.label({ text = tr("wifi.manual"), fontSize = 10, color = "on_surface_variant" }),
     ui.row({ gap = 6, align = "center" }, {
@@ -639,6 +657,7 @@ local function manualRow()
         enabled = not locked,
         onChange = function(text)
           manualSsid = tostring(text)
+          render()
         end,
         onSubmit = connect,
       }),
@@ -653,6 +672,7 @@ local function manualRow()
         enabled = not locked,
         onChange = function(text)
           manualPassword = tostring(text)
+          render()
         end,
         onSubmit = connect,
       }),
@@ -781,9 +801,17 @@ function render()
 
   table.insert(children, primarySummary())
   if snapshot.permission_ok ~= true then
+    -- An unprobed permission and a refused one are different things: the first
+    -- resolves itself in a second, the second never does.
+    local known = snapshot.permission_known == true
     table.insert(children, ui.row({ gap = 8, align = "center", padding = 8, radius = 8, fill = "error/0.12" }, {
       ui.glyph({ name = "lock", size = 16, color = "error" }),
-      ui.label({ text = tr("panel.permission"), fontSize = 11, color = "error", flexGrow = 1 }),
+      ui.label({
+        text = tr(known and "panel.permission" or "panel.permission_unknown"),
+        fontSize = 11,
+        color = "error",
+        flexGrow = 1,
+      }),
     }))
   end
   if snapshot.pending ~= nil then
@@ -820,7 +848,9 @@ function render()
   end
 
   table.insert(children, ui.label({
-    text = tr("panel.confirm_note", { seconds = snapshot.confirm_seconds or 0 }),
+    text = (snapshot.confirm_seconds or 0) > 0
+      and tr("panel.confirm_note", { seconds = snapshot.confirm_seconds })
+      or tr("panel.confirm_note_off"),
     fontSize = 10,
     color = "on_surface_variant",
     opacity = 0.8,
@@ -858,8 +888,14 @@ noctalia.state.watch("network.state", function(value)
   lastBusy = value.busy == true
   snapshot = value
   if wasBusy and not lastBusy then
-    -- A write landed (or was reverted): the stored profile moved under us.
+    -- A write finished, but `value.profile` is still the pre-write one: the
+    -- service publishes before it refreshes. Re-seeding here would show the old
+    -- values, so wait for the profile to actually move.
+    reseedWhenProfileChanges = fingerprint(snapshot.profile)
+  end
+  if reseedWhenProfileChanges ~= nil and fingerprint(snapshot.profile) ~= reseedWhenProfileChanges then
     draftReady = false
+    reseedWhenProfileChanges = nil
   end
   syncDraft()
   render()

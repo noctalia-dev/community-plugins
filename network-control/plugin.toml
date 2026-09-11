@@ -10,8 +10,10 @@
 # [[widget]] and the [[panel]] are thin clients on the plugin's shared state
 # channels.
 #
-# Requires NetworkManager (nmcli) and `ip`. The plugin only edits profiles, it
-# never touches ~/.config files or systemd units.
+# Requires NetworkManager (`nmcli`), `ip` for the default-route lookup, and
+# `install`/`chmod` to create the passphrase file 0600 before the secret goes into
+# it. The plugin only edits NetworkManager profiles; it never touches ~/.config
+# files or systemd units.
 
 id = "muhammadessam/network-control"
 name = "Network Control"
@@ -19,7 +21,7 @@ version = "0.2.0"
 plugin_api = 24
 author = "muhammadessam"
 license = "MIT"
-dependencies = ["nmcli"]
+dependencies = ["nmcli", "ip", "install", "chmod"]
 tags = ["bar", "panel", "service", "network", "system", "utility"]
 icon = "network"
 description = "Join Wi-Fi networks and set DHCP or a static IP, gateway and DNS per connection, with automatic rollback."

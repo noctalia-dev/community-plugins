@@ -26,12 +26,15 @@ local function readFixture(name)
   return text
 end
 
+-- Lua 5.1 loads a string only through loadstring; 5.2+ has load for both.
+local chunkLoader = loadstring or load
+
 local function loadModule(relative)
   local file = assert(io.open(DIR .. relative, "r"))
   local src = file:read("*a")
   file:close()
   src = src:gsub("^%-%!%S+%s*\n", "")
-  return assert(load(src, relative))()
+  return assert(chunkLoader(src, relative))()
 end
 
 local net = loadModule("net.luau")
@@ -311,6 +314,10 @@ eq("bad search domain rejected", err, "error.search")
 _, err = net.normalizeSearch("two words are two labels")
 eq("space separated labels are legal", err, nil)
 eq("gateway accepts a scope id", net.normalizeGateway("fe80::1%eth0", "v6"), "fe80::1%eth0")
+for _, bad in ipairs({ "fe80::1%", "fe80::1%eth0%extra", "fe80::1%eth 0" }) do
+  check("ipv6 rejects a malformed scope id: " .. bad, not net.isIPv6(bad))
+end
+
 _, err = net.normalizeGateway("fe80::1%eth0", "v4")
 eq("v6 gateway in the ipv4 field rejected", err, "error.gateway.ipv4")
 eq("empty gateway is fine", net.normalizeGateway("", "v4"), "")
@@ -339,6 +346,18 @@ eq("manual without an address rejected", reason, "error.need_address.ipv4")
 desired, reason, item = net.validateForm(form({ ipv4_gateway = "10.0.0.1" }))
 eq("gateway without an address rejected", reason, "error.gateway_needs_address.ipv4")
 eq("gateway reported", item, "10.0.0.1")
+
+-- an invalid leftover must not block a method that does not carry it
+local cleared = net.validateForm(form({
+  ipv4_method = "disabled", ipv4_addresses = "not-an-address", ipv4_gateway = "nonsense",
+  ipv4_dns = "also-bad", ipv6_method = "ignore", ipv6_addresses = "junk",
+}))
+check("a disabled method clears unparseable values instead of refusing",
+  cleared ~= nil and cleared.ipv4_addresses == "" and cleared.ipv4_dns == "" and cleared.ipv6_addresses == "")
+local linklocal = net.validateForm(form({ ipv4_method = "link-local", ipv4_addresses = "999.1.1.1" }))
+check("link-local clears too", linklocal ~= nil and linklocal.ipv4_addresses == "")
+desired, reason = net.validateForm(form({ ipv4_method = "manual", ipv4_addresses = "999.1.1.1" }))
+eq("a method that does own addressing still validates", reason, "error.address.ipv4")
 
 desired, reason = net.validateForm(form({ ipv4_method = "nonsense" }))
 eq("unknown method rejected", reason, "error.method")

@@ -30,14 +30,31 @@ nmcli -t -f "$PROF" con show "$active_uuid" > "$dir/profile-dhcp.txt"
 device=$(nmcli -t -f DEVICE,STATE,CONNECTION dev status | awk -F: '$2 == "connected" { print $1; exit }')
 nmcli -t -f "$DEV" dev show "$device" > "$dir/device-live.txt"
 
-# A static profile, configured but never brought up: the dummy link would win
-# the default route if it were activated. Only methods that allow addressing can
+# A static profile, configured but never brought up: the dummy link would win the
+# default route if it were activated. Only methods that allow addressing can
 # carry addresses - NM rejects the write otherwise.
-nmcli con add type dummy con-name netctl-fixture ifname netctlfix0 >/dev/null 2>&1 || true
-nmcli con mod netctl-fixture ipv4.method manual ipv4.addresses 10.99.0.5/24 \
+#
+# The profile is this script's own: if a connection of that name already exists it
+# is not touched, not modified and not deleted. The name carries the pid so two
+# runs cannot collide, and the trap removes it however this script exits.
+PROFILE="netctl-fixture-$$"
+cleanup() {
+  if [ "$created" = "yes" ]; then
+    nmcli con delete "$PROFILE" >/dev/null 2>&1 || true
+  fi
+}
+created=no
+trap cleanup EXIT INT TERM
+if nmcli -t -f NAME con show | grep -qx "$PROFILE"; then
+  echo "refusing to run: a connection named $PROFILE already exists" >&2
+  exit 1
+fi
+nmcli con add type dummy con-name "$PROFILE" ifname netctlfix0 >/dev/null || exit 1
+created=yes
+nmcli con mod "$PROFILE" ipv4.method manual ipv4.addresses 10.99.0.5/24 \
   ipv4.gateway 10.99.0.1 ipv4.dns "9.9.9.9,149.112.112.112" ipv4.dns-search example.test \
   ipv6.method manual ipv6.addresses 2001:db8::5/64 ipv6.gateway 2001:db8::1 >/dev/null
-nmcli -t -f "$PROF" con show netctl-fixture > "$dir/profile-static.txt"
+nmcli -t -f "$PROF" con show "$PROFILE" > "$dir/profile-static.txt"
 nmcli con delete netctl-fixture >/dev/null
 
 # The kernel's own choice of route, which is what the widget reports.

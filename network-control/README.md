@@ -15,9 +15,10 @@ machine offline.
 
 ## Requirements
 
-Install `nmcli` (NetworkManager's command line) on `PATH`. The plugin also calls
-`ip` for the default-route lookup and `install`/`chmod` while handling Wi-Fi
-passphrases.
+Install `nmcli` (NetworkManager's command line) on `PATH` — declared in
+`dependencies` together with `ip` (the default-route lookup) and
+`install`/`chmod` (creating the Wi-Fi passphrase file with mode 0600 before the
+secret is written into it).
 
 - `org.freedesktop.NetworkManager.settings.modify.system` must be allowed for the
   session user — it is on a default install. If it is not, the panel says so and
@@ -62,7 +63,9 @@ glyph, the security type, and `saved` on networks that already have a profile.
 marked. Selecting one loads its stored configuration: the IPv4 and IPv6 method,
 addresses, gateway, DNS servers and search domains. Fields the selected method
 does not own (addresses while `Disabled`, for instance) are greyed out and
-cleared on write, because NetworkManager rejects them outright. Below the fields
+cleared on write, because NetworkManager rejects them outright — and because they
+are cleared before validation, a half-typed value left in one of them cannot block
+a write that does not carry it. Below the fields
 is the exact property diff that Apply will write, then Connect / Disconnect for
 the selected profile, and a Restore point once a write has happened.
 
@@ -75,6 +78,17 @@ Applying to an **active** connection re-activates it and then arms a countdown
 (`confirm_seconds`, default 45 s): the panel grows a **Keep** button, the bar tile
 turns into a countdown, and if nothing is kept, the saved profile is restored
 property by property and the connection brought back up.
+
+While a window is open nothing else may change the network: joining a network,
+bringing a connection up or down, toggling the radio and restoring a backup are
+all refused by the service and disabled in the panel, because any of them can move
+the active link before the timer decides what it should be. The window is written
+to disk with an epoch deadline, so a shell restart inside the window resumes the
+countdown rather than dropping the promise; if the deadline passed while the shell
+was down, the rollback happens on the next tick.
+
+With `confirm_seconds = 0` there is no window at all: the change is written and
+the panel says so instead of promising a rollback that will not come.
 
 That window is the point of the plugin. A static address on the interface
 carrying the default route is the one mistake that takes the machine off the
@@ -141,11 +155,18 @@ and logs a one-line summary. That is the file to look at when the panel and
   and deletes it again if the join fails, so a network that did not work is never
   left looking saved.
 - **Files written**, all in the plugin's data directory:
-  `last-profile.json` (the restore point), `secret.tmp` (a Wi-Fi passphrase,
-  0600 and removed as soon as the activation finishes, success or failure —
-  `nmcli con up --passwd-file` reads it instead of taking a secret as an
-  argument, because a command line is world-readable in `/proc` while a stored
-  NetworkManager key is root-only), and `state.json` (diagnose output only).
+  `last-profile.json` (the restore point, written *before* the connection is
+  modified so a failure in between still leaves something to recover from) and
+  `secret.tmp` (a Wi-Fi passphrase — `nmcli con up --passwd-file` reads it
+  instead of taking a secret as an argument, because a command line is
+  world-readable in `/proc` while a stored NetworkManager key is root-only).
+  `secret.tmp` is created empty and 0600 by `install -m 600` before the secret is
+  written into it, removed on every path out including failures, and any file left
+  by a shell that died mid-join is removed at startup. If it cannot be created
+  privately the join fails rather than activating without the passphrase.
+  `state.json` is diagnose output only.
+- **Passphrases and SSIDs are byte-exact**: neither is trimmed, because leading and
+  trailing spaces are legal in both. Only an all-space manual entry is rejected.
 - **Commands spawned**: `nmcli -t -f … con show`, `nmcli -t -f … dev status`,
   `nmcli -t -f … dev show <dev>`, `nmcli -t -f … dev wifi list [--rescan yes]`,
   `nmcli radio`, `nmcli -t general permissions`, `nmcli con mod`, `nmcli con
@@ -163,6 +184,8 @@ and logs a one-line summary. That is the file to look at when the panel and
 - **DNS with DHCP**: DNS servers and search domains are stored on the profile and
   apply to every method, so a static DNS list survives a switch back to DHCP.
 - **Compositor-agnostic**: nothing here talks to the compositor.
+- While a confirmation window is open the service refuses every other mutation
+  (join, up/down, radio, restore) instead of racing the rollback timer.
 - Not implemented, deliberately: creating or deleting profiles from the panel,
   Wi-Fi secrets other than a WPA/SAE passphrase (802.1X identities and
   certificates, WEP), `shared`/hotspot mode, per-route tables, MAC cloning, and
@@ -176,7 +199,8 @@ lua tests/run.lua                    # assertions against net.luau, no host need
 sh tests/capture-fixtures.sh         # re-capture nmcli fixtures from this machine
 python3 tests/check-translations.py  # every tr() key exists in en.json
 python3 tests/e2e-live.py            # live end-to-end, needs the running shell
-python3 tests/make-thumbnail.py      # rebuild thumbnail.webp
+lua tests/secret-path.lua            # the passphrase path, no shell and no NetworkManager
+python3 tests/make-thumbnail.py      # rebuild thumbnail.webp from the official generator
 ```
 
 `tests/e2e-live.py` creates one throwaway dummy connection (no gateway, so it

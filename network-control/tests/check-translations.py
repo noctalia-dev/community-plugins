@@ -43,6 +43,8 @@ LITERAL = re.compile(r'(?:noctalia\.tr|tr|failWifi)\(\s*"([^"]+)"')
 # sectionTitle) or names inside a larger expression, so the literal scan above
 # cannot see them.
 INDIRECT = {
+    # picked inside a ternary: tr(known and "panel.permission" or "panel.permission_unknown")
+    "panel.permission", "panel.permission_unknown", "panel.confirm_note_off",
     "panel.live_ipv4", "panel.live_gateway", "panel.live_dns", "panel.live_ipv6", "panel.live_device",
     "panel.connections", "panel.edit",
     "notify.applied", "notify.reverted", "notify.reverted_timeout", "notify.reverted_failed",

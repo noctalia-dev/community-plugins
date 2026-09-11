@@ -91,20 +91,48 @@ local function firstLine(stderr, stdout)
   return nil
 end
 
--- `nmcli <args>`: the program is prepended here.
+-- Naming the network matters when a few joins are attempted in a row: "could not
+-- be found" on its own does not say which one could not be found.
+local function namedError(name, result)
+  local detail = firstLine(result.stderr, result.stdout)
+  if detail == "" then
+    return name
+  end
+  return name .. ": " .. detail
+end
+
+-- A result for a process that could not be started at all. noctalia.runAsync
+-- returns false and never calls back in that case, so without this a caller that
+-- only reacts in its callback stays busy forever.
+local function startFailure(program)
+  return { exitCode = 127, stdout = "", stderr = program .. ": could not be started", timedOut = false }
+end
+
+-- `nmcli <args>`: the program is prepended here. Every program that is NOT nmcli
+-- must go through runTool - handing this function {"install", ...} runs
+-- `nmcli install`, which fails silently and leaves the real work undone.
 local function run(args, timeoutMs, onResult)
   local argv = { "nmcli" }
   for _, arg in ipairs(args) do
     table.insert(argv, arg)
   end
-  return noctalia.runAsync(argv, onResult, timeoutMs)
+  if noctalia.runAsync(argv, onResult, timeoutMs) == false then
+    onResult(startFailure("nmcli"))
+  end
+end
+
+-- A program other than nmcli, argv[1] included.
+local function runTool(argv, timeoutMs, onResult)
+  if noctalia.runAsync(argv, onResult, timeoutMs) == false then
+    onResult(startFailure(argv[1] or "command"))
+  end
 end
 
 
 -- `ip -j route get 1.1.1.1`, for the widget: the interface the kernel would
 -- actually use, not the first entry in the routing table.
 local function probeRoute(onResult)
-  noctalia.runAsync({ ipCommand, "-j", "route", "get", PROBE_ADDRESS }, onResult, CMD_TIMEOUT_MS)
+  runTool({ ipCommand, "-j", "route", "get", PROBE_ADDRESS }, CMD_TIMEOUT_MS, onResult)
 end
 
 local function connectionByUuid(uuid)
@@ -152,16 +180,24 @@ local function defaultSelection()
   return editable[1] ~= nil and editable[1].uuid or nil
 end
 
+-- Fail closed: until a probe has said `yes`, no write is offered. Assuming
+-- permission and letting nmcli refuse later contradicts the documented behaviour
+-- and shows the user an Apply button that cannot work.
 local function permissionOk()
   if permissions == nil then
-    return true -- not probed yet: assume allowed and let nmcli report otherwise
+    return false
   end
-  local key = "org.freedesktop.NetworkManager.settings.modify.system"
-  local value = permissions[key]
-  return value == nil or value == "yes"
+  return permissions["org.freedesktop.NetworkManager.settings.modify.system"] == "yes"
 end
 
-local lastPublishedError = "init"
+-- A callback that never fires (its process killed, the shell interrupted mid-run)
+-- would otherwise leave `busy` set for the rest of the session, and every later
+-- action is refused by the busy guard: the panel just looks dead. The tick
+-- notices instead of waiting forever.
+local busySinceMs = 0
+local busyWasSet = false
+local BUSY_LIMIT_MS = math.max(CMD_TIMEOUT_MS, UP_TIMEOUT_MS) + 20000
+
 local function publish()
   if errorMessage ~= lastPublishedError then
     lastPublishedError = errorMessage
@@ -169,6 +205,7 @@ local function publish()
   noctalia.state.set("network.state", {
     available = available,
     permission_ok = permissionOk(),
+    permission_known = permissions ~= nil,
     connections = connections,
     devices = deviceStatus,
     networks = networks,
@@ -214,12 +251,13 @@ end
 local function writeBackup(record)
   local path = backupPath()
   if path == nil then
-    return
+    return false
   end
   local encoded = noctalia.json.encode(record, true)
-  if encoded ~= nil then
-    noctalia.writeFile(path, encoded)
+  if encoded == nil then
+    return false
   end
+  return noctalia.writeFile(path, encoded) == true
 end
 
 local function readBackup()
@@ -267,13 +305,23 @@ local function refreshPrimary(next)
   end)
 end
 
+-- Every result is bound to the uuid this refresh started with. Selecting another
+-- connection while nmcli is in flight must not write the old profile into the new
+-- selection: commit() compares uuid == selected, so it would happily write one
+-- profile's values to another.
 local function refreshDetails(next)
-  local connection = connectionByUuid(selected)
+  local target = selected
+  local connection = connectionByUuid(target)
   if connection == nil then
-    profile, live = nil, nil
+    if selected == target then
+      profile, live = nil, nil
+    end
     return next()
   end
-  run({ "-t", "-f", net.PROFILE_FIELDS, "con", "show", selected }, CMD_TIMEOUT_MS, function(result)
+  run({ "-t", "-f", net.PROFILE_FIELDS, "con", "show", target }, CMD_TIMEOUT_MS, function(result)
+    if selected ~= target then
+      return next() -- stale: a newer refresh owns `profile`
+    end
     profile = result.exitCode == 0 and net.profileFromText(result.stdout) or nil
     local device = connection.device
     if device == nil or device == "" then
@@ -281,6 +329,9 @@ local function refreshDetails(next)
       return next()
     end
     run({ "-t", "-f", net.DEVICE_FIELDS, "dev", "show", device }, CMD_TIMEOUT_MS, function(detail)
+      if selected ~= target then
+        return next()
+      end
       live = detail.exitCode == 0 and net.liveFromText(detail.stdout) or nil
       next()
     end)
@@ -305,29 +356,46 @@ end
 
 -- Which SSIDs already have a profile. `nmcli dev wifi connect` creates a new one,
 -- so knowing this is what lets a saved network connect without a password prompt.
-local function loadSsids(list, index, next)
-  if index > #list then
-    return next()
-  end
-  local connection = list[index]
-  run({ "-t", "-f", "802-11-wireless.ssid", "con", "show", connection.uuid }, CMD_TIMEOUT_MS, function(result)
-    local ssid = result.exitCode == 0 and net.profileSsid(result.stdout) or nil
-    if ssid ~= nil and ssid ~= "" then
-      savedSsids[ssid] = connection.uuid
-    end
-    loadSsids(list, index + 1, next)
-  end)
-end
+-- Which SSIDs already have a profile. One `nmcli con show` per saved Wi-Fi
+-- profile, issued together rather than one after another (a serial chain grows
+-- with the number of saved networks and can outlast the refresh interval), and
+-- reused until the set of Wi-Fi profiles actually changes.
+local ssidCache, ssidCacheKey = {}, ""
 
 local function refreshSsids(next)
-  savedSsids = {}
   local wifi = {}
   for _, connection in ipairs(connections) do
     if connection.kind == "wifi" then
       table.insert(wifi, connection)
     end
   end
-  loadSsids(wifi, 1, next)
+  local uuids = {}
+  for _, connection in ipairs(wifi) do
+    table.insert(uuids, connection.uuid)
+  end
+  local key = table.concat(uuids, ",")
+  if key == ssidCacheKey then
+    savedSsids = ssidCache
+    return next()
+  end
+  if #wifi == 0 then
+    ssidCache, ssidCacheKey, savedSsids = {}, "", {}
+    return next()
+  end
+  local found, remaining = {}, #wifi
+  for _, connection in ipairs(wifi) do
+    run({ "-t", "-f", "802-11-wireless.ssid", "con", "show", connection.uuid }, CMD_TIMEOUT_MS, function(result)
+      local ssid = result.exitCode == 0 and net.profileSsid(result.stdout) or nil
+      if ssid ~= nil and ssid ~= "" then
+        found[ssid] = connection.uuid
+      end
+      remaining = remaining - 1
+      if remaining == 0 then
+        ssidCache, ssidCacheKey, savedSsids = found, key, found
+        next()
+      end
+    end)
+  end
 end
 
 -- A completed connect should leave the panel pointed at what just came up.
@@ -389,14 +457,22 @@ local function scan(rescan)
   if scanning or busy then
     return
   end
-  if radios.wifi ~= "enabled" then
+  -- `radios.wifi == nil` means the radio state has not been read yet, which is not
+  -- the same as off: proceed and let nmcli report the real error if it is.
+  if radios.wifi == "disabled" then
     errorMessage = noctalia.tr("wifi.radio_off")
     publish()
     noctalia.notifyError(noctalia.tr("notify.scan_failed"), errorMessage)
     return
   end
   scanning = true
-  errorMessage = nil
+  -- A scan asks for the current list; it does not resolve whatever went wrong
+  -- last. An automatic rescan (the panel opening, the follow-up after a join)
+  -- used to wipe the message explaining a failure the user was still reading.
+  -- Only the Scan button, which asks for a rescan, clears it.
+  if rescan == true then
+    errorMessage = nil
+  end
   publish()
   run({ "-t", "-f", net.WIFI_FIELDS, "dev", "wifi", "list", "--rescan", rescan and "yes" or "no" },
     SCAN_TIMEOUT_MS, function(result)
@@ -504,7 +580,20 @@ local function commit(uuid, desired, current)
     fields = current,
     at = os.time(),
     confirmed = false,
+    -- Epoch rather than the monotonic clock, so the confirm window survives a
+    -- shell restart: the service resumes the countdown when it loads.
+    deadline_at = (connection.active == true and confirmSeconds > 0) and (os.time() + confirmSeconds) or nil,
   }
+
+  -- Persisted *before* the write. A crash in between would otherwise leave a
+  -- changed profile with no rollback point on disk, and nothing to recover from.
+  if not writeBackup(record) then
+    errorMessage = noctalia.tr("notify.backup_failed")
+    publish()
+    noctalia.notifyError(noctalia.tr("notify.backup_failed"))
+    return
+  end
+  lastRecord = record
 
   busy = true
   errorMessage = nil
@@ -512,16 +601,17 @@ local function commit(uuid, desired, current)
 
   run(net.buildModArgs(uuid, desired, current), CMD_TIMEOUT_MS, function(result)
     if result.exitCode ~= 0 or result.timedOut then
+      -- Nothing was written, so nothing is owed: retire the rollback point
+      -- rather than leaving a window that would re-activate the connection.
+      record.confirmed = true
+      record.deadline_at = nil
+      writeBackup(record)
       busy = false
       errorMessage = firstLine(result.stderr, result.stdout)
       publish()
       noctalia.notifyError(noctalia.tr("notify.mod_failed"), errorMessage)
       return
     end
-    -- Written before activation: if the connection does not come back, the
-    -- revert has a file to fall back on even across a shell restart.
-    writeBackup(record)
-    lastRecord = record
 
     local function afterActivation(activated)
       if not activated then
@@ -594,7 +684,7 @@ end
 -- connection, through the same window.
 local function restoreFromBackup()
   local record = lastRecord
-  if busy or record == nil or record.uuid ~= selected then
+  if busy or pending ~= nil or record == nil or record.uuid ~= selected then
     return
   end
   local desired = net.validateForm(record.fields)
@@ -615,7 +705,7 @@ local function selectConnection(uuid)
 end
 
 local function setRadio(kind, on)
-  if busy or (kind ~= "wifi" and kind ~= "wwan") then
+  if busy or pending ~= nil or (kind ~= "wifi" and kind ~= "wwan") then
     return
   end
   busy = true
@@ -635,7 +725,7 @@ local function setRadio(kind, on)
 end
 
 local function setConnectionState(uuid, up)
-  if busy then
+  if busy or pending ~= nil then
     return
   end
   busy = true
@@ -664,6 +754,7 @@ local function diagnose()
     at = os.time(),
     available = available,
     permission_ok = permissionOk(),
+    permission_known = permissions ~= nil,
     permissions = permissions,
     error = errorMessage,
     selected = selected,
@@ -680,6 +771,10 @@ local function diagnose()
     radio = radios,
     pending = pending,
     backup = lastRecord,
+    -- A dump without these two cannot answer "is it still working?", which is the
+    -- first question anyone reading one has.
+    busy = busy,
+    scanning = scanning,
     -- Age, not timestamp: noctalia.nowMs() is monotonic, so a raw value in a dump
     -- is meaningless next to os.time().
     refreshed_age_ms = noctalia.nowMs() - lastRefreshMs,
@@ -715,69 +810,45 @@ end
 -- No confirm window here: the window guards edits to the addressing of a
 -- connection already carrying traffic. A failed join leaves the previous profile
 -- intact and selectable, so there is nothing to roll back to.
-local function failWifi(messageKey)
-  errorMessage = noctalia.tr(messageKey)
-  publish()
-  noctalia.notifyError(noctalia.tr("notify.wifi_failed"), errorMessage)
-end
-
-local function finishWifi(result, ssid, profileName)
-  busy = false
-  if result.exitCode ~= 0 or result.timedOut then
-    errorMessage = firstLine(result.stderr, result.stdout)
-    publish()
-    noctalia.notifyError(noctalia.tr("notify.wifi_failed"), errorMessage)
-    return
-  end
-  -- It worked: whatever the last failure was, it is no longer the state of the
-  -- world. (A failure, by contrast, stays on screen until the next successful
-  -- action - background refreshes deliberately do not clear it.)
-  errorMessage = nil
-  -- Profile name, not SSID: a repeated SSID can need a suffixed name, and the
-  -- editor should land on the profile that actually came up.
-  pendingSelectSsid = profileName or ssid
-  publish()
-  noctalia.notify(noctalia.tr("notify.wifi_connected"), ssid)
-  refresh()
-end
-
--- The passphrase handed over in a file rather than as an argument. The file is
--- created empty and 0600 *before* the secret is written into it -
--- noctalia.writeFile keeps the mode of an existing file - so it is never
--- world-readable on disk, not even for the instant between create and chmod.
+-- Creates the passphrase file 0600 *before* the secret is written into it.
+-- `noctalia.writeFile` keeps the mode of an existing file (verified on this
+-- shell), so an empty file created by `install -m 600` stays private while the
+-- secret goes in. Calls onReady(path) or onReady(nil) - and onReady(nil) means
+-- "refuse", never "carry on without it".
 local function withSecretFile(password, onReady)
   local path = dataFile("secret.tmp")
   if path == nil then
     return onReady(nil)
   end
-  local function write()
+  -- runTool, not run: `run` prepends nmcli, so run({ "install", ... }) would run
+  -- `nmcli install` and leave the real file uncreated and the secret unprotected.
+  runTool({ "install", "-m", "600", "/dev/null", path }, CMD_TIMEOUT_MS, function(created)
+    if created.exitCode ~= 0 or created.timedOut then
+      noctalia.removeFile(path)
+      return onReady(nil)
+    end
     if not noctalia.writeFile(path, net.passwdFileContents(password)) then
+      noctalia.removeFile(path)
       return onReady(nil)
     end
     onReady(path)
-  end
-  run({ "install", "-m", "600", "/dev/null", path }, CMD_TIMEOUT_MS, function(created)
-    if created.exitCode == 0 then
-      return write()
-    end
-    -- No `install`: write, then tighten the mode. A shorter exposure than an
-    -- argv element either way, and the file is removed on every path out.
-    if not noctalia.writeFile(path, net.passwdFileContents(password)) then
-      return onReady(nil)
-    end
-    run({ "chmod", "600", path }, CMD_TIMEOUT_MS, function()
-      onReady(path)
-    end)
   end)
 end
 
+-- Brings a profile up with a passphrase that is never part of a command line:
+-- `nmcli con up <uuid> passwd-file <path>` reads it from a 0600 file that exists
+-- only for the duration of the activation. Without a passphrase the plain
+-- `con up` is used, which is how a saved profile joins.
 local function activateWithSecret(uuid, password, onResult)
   if password == nil or password == "" then
     return run({ "con", "up", uuid }, UP_TIMEOUT_MS, onResult)
   end
   withSecretFile(password, function(path)
     if path == nil then
-      return run({ "con", "up", uuid }, UP_TIMEOUT_MS, onResult)
+      -- Fail closed. Activating without the passphrase the user supplied would
+      -- silently reuse an older stored secret on an existing profile and report
+      -- success - worse than refusing.
+      return onResult({ exitCode = 1, stdout = "", stderr = noctalia.tr("error.secret_file"), timedOut = false })
     end
     run({ "con", "up", uuid, "passwd-file", path }, UP_TIMEOUT_MS, function(result)
       noctalia.removeFile(path)
@@ -786,8 +857,35 @@ local function activateWithSecret(uuid, password, onResult)
   end)
 end
 
--- `con add` refuses a duplicate con-name, and an unrelated profile can already be
--- sitting on the SSID's name.
+local function failWifi(messageKey)
+  errorMessage = noctalia.tr(messageKey)
+  publish()
+  noctalia.notifyError(noctalia.tr("notify.wifi_failed"), errorMessage)
+end
+
+local function finishWifi(result, name, conName)
+  busy = false
+  if result.exitCode == 0 and not result.timedOut then
+    selected = savedSsids[name] or nil
+    errorMessage = nil
+    noctalia.notify(noctalia.tr("notify.wifi_connected"), name)
+  else
+    errorMessage = namedError(name, result)
+    noctalia.notifyError(noctalia.tr("notify.wifi_failed"), errorMessage)
+  end
+  publish()
+  -- 1.5 s so the panel can show the outcome before the list is rebuilt from the
+  -- (possibly still stale) inventory.
+  local timer = noctalia.setTimeout(function()
+    timer = nil
+    refresh()
+  end, 1500)
+  timers[#timers + 1] = timer
+end
+
+-- nmcli names a Wi-Fi profile after the SSID, which is what the scan's "saved"
+-- marking matches on. If that name is taken by a profile this join did not create,
+-- a suffixed name keeps the join from writing over somebody else's connection.
 local function uniqueConnectionName(ssid)
   local taken = {}
   for _, connection in ipairs(connections) do
@@ -796,37 +894,52 @@ local function uniqueConnectionName(ssid)
   if taken[ssid] ~= true then
     return ssid
   end
-  for index = 2, 20 do
-    local candidate = ssid .. " " .. index
+  for index = 2, 99 do
+    local candidate = ssid .. " " .. tostring(index)
     if taken[candidate] ~= true then
       return candidate
     end
   end
-  return ssid
+  return ssid .. " " .. tostring(os.time())
 end
 
--- `nmcli -t con add` still prints prose ("Connection 'x' (uuid) successfully
--- added") rather than a field list, so the new profile is looked up by the name
--- it was just given.
-local function createdUuid(conName, onResult)
-  run({ "-t", "-f", "connection.uuid", "con", "show", conName }, CMD_TIMEOUT_MS, function(shown)
-    onResult(shown.exitCode == 0 and net.get(net.parseFields(shown.stdout), "connection.uuid") or nil)
+-- The uuid of the profile just created, read back by name: `con add` prints the
+-- path it wrote, not the uuid, in the versions that matter here.
+local function createdUuid(conName, next)
+  run({ "-t", "-f", "connection.uuid", "con", "show", conName }, CMD_TIMEOUT_MS, function(result)
+    if result.exitCode ~= 0 or result.timedOut then
+      return next(nil)
+    end
+    next(net.get(net.parseFields(result.stdout), "connection.uuid"))
+  end)
+end
+
+local function deleteOwnProfile(uuid, next)
+  run({ "con", "delete", uuid }, CMD_TIMEOUT_MS, function(result)
+    next(result.exitCode == 0 and not result.timedOut, firstLine(result.stderr, result.stdout))
   end)
 end
 
 local function wifiConnect(ssid, password, hidden)
-  if busy or scanning then
+  -- A join changes the active link, so it must not run while a rollback window is
+  -- still deciding what that link should be.
+  if busy or scanning or pending ~= nil then
     return
   end
-  local name = net.trim(ssid)
-  if name == "" then
+  -- The SSID is bytes, not text: leading and trailing spaces are legal and a
+  -- trimmed copy would name a different network. Only an all-space manual entry
+  -- is rejected.
+  if type(ssid) ~= "string" or net.trim(ssid) == "" then
     return failWifi("error.ssid")
   end
-  if radios.wifi ~= "enabled" then
+  local name = ssid
+  if radios.wifi == "disabled" then
     return failWifi("wifi.radio_off")
   end
 
-  local secret = net.trim(password)
+  -- Same reasoning for the passphrase: spaces inside it are significant, so it is
+  -- never trimmed - only an empty one counts as "not given".
+  local secret = type(password) == "string" and password or ""
   local saved = savedSsids[name]
   local network = networkBySsid(name)
 
@@ -850,8 +963,25 @@ local function wifiConnect(ssid, password, hidden)
   publish()
 
   if secret == "" then
-    -- Open network and nothing secret involved: let nmcli build the profile.
+    -- Open network and nothing secret involved: nmcli builds the profile itself.
+    -- It creates one as part of the join, so a failure has to clean up after it -
+    -- but only when this attempt was the one that created it.
     run(net.wifiConnectArgs(name, hidden), UP_TIMEOUT_MS, function(result)
+      if result.exitCode == 0 and not result.timedOut then
+        return finishWifi(result, name, name)
+      end
+      if saved == nil then
+        run({ "-t", "-f", "connection.uuid", "con", "show", name }, CMD_TIMEOUT_MS, function(shown)
+          local created = shown.exitCode == 0 and net.get(net.parseFields(shown.stdout), "connection.uuid") or nil
+          if created == nil then
+            return finishWifi(result, name, name)
+          end
+          deleteOwnProfile(created, function()
+            finishWifi(result, name, name)
+          end)
+        end)
+        return
+      end
       finishWifi(result, name, name)
     end)
     return
@@ -875,26 +1005,34 @@ local function wifiConnect(ssid, password, hidden)
   run(net.wifiProfileArgs(conName, name, keyMgmt, hidden), CMD_TIMEOUT_MS, function(created)
     if created.exitCode ~= 0 or created.timedOut then
       busy = false
-      errorMessage = firstLine(created.stderr, created.stdout)
+      errorMessage = namedError(name, created)
       publish()
       noctalia.notifyError(noctalia.tr("notify.wifi_failed"), errorMessage)
       return
     end
     createdUuid(conName, function(uuid)
       if uuid == nil then
-        busy = false
-        errorMessage = noctalia.tr("notify.wifi_failed")
-        publish()
+        -- `con add` succeeded and the lookup did not: the profile exists, so it
+        -- has to go, or the SSID would look saved without a usable secret.
+        run({ "con", "delete", conName }, CMD_TIMEOUT_MS, function()
+          busy = false
+          errorMessage = noctalia.tr("notify.wifi_failed")
+          publish()
+          noctalia.notifyError(noctalia.tr("notify.wifi_failed"), conName)
+        end)
         return
       end
       activateWithSecret(uuid, secret, function(result)
         if result.exitCode ~= 0 or result.timedOut then
-          -- This profile was created by this very attempt and never carried
-          -- traffic. Leaving it behind would make the panel treat the SSID as
-          -- saved and offer a one-click join that cannot work without the
-          -- passphrase - so the attempt cleans up after itself, and the next
-          -- one asks for the password again.
-          run({ "con", "delete", uuid }, CMD_TIMEOUT_MS, function()
+          -- Created by this very attempt and never carried traffic. Leaving it
+          -- behind would make the panel treat the SSID as saved and offer a
+          -- one-click join that cannot work without the passphrase.
+          deleteOwnProfile(uuid, function(removed, why)
+            if not removed then
+              -- Say so rather than claiming a clean failure: the profile is still
+              -- there and the next scan will call the network saved.
+              noctalia.notifyError(noctalia.tr("notify.cleanup_failed"), why)
+            end
             finishWifi(result, name, conName)
           end)
           return
@@ -965,22 +1103,51 @@ end
 -- state.watch does not replay to a late-attaching panel), and the periodic
 -- re-read for live addresses.
 function update()
-  if pending ~= nil then
-    if noctalia.nowMs() >= pending.deadline_ms then
-      return revert("notify.reverted_timeout")
-    end
+  local nowMs = noctalia.nowMs()
+  if busy and not busyWasSet then
+    busyWasSet, busySinceMs = true, nowMs
+  elseif not busy then
+    busyWasSet = false
+  elseif nowMs - busySinceMs > BUSY_LIMIT_MS then
+    -- The operation this flag belonged to is gone. Clearing it is the honest
+    -- reading: whatever it was doing either finished without reporting or never
+    -- ran, and either way the panel must be usable again.
+    busy, busyWasSet = false, false
+    errorMessage = noctalia.tr("error.stuck")
     publish()
+    noctalia.notifyError(noctalia.tr("notify.stuck"), errorMessage)
   end
-  if not busy and noctalia.nowMs() - lastRefreshMs >= refreshSeconds * 1000 then
+  if pending ~= nil and nowMs >= pending.deadline_ms then
+    revert("notify.reverted_timeout")
+    return
+  end
+  if not busy and nowMs - lastRefreshMs >= refreshSeconds * 1000 then
     refresh()
   end
 end
 
 noctalia.setUpdateInterval(TICK_MS)
 
--- A backup file left unconfirmed means the shell went away inside a confirm
--- window. Its profile is restored by hand from the panel, never silently: the
--- change may well have been what the user wanted.
+-- A passphrase file left behind by a shell that died mid-join is a plaintext
+-- credential sitting in the data directory: remove it before anything else runs.
+local staleSecret = dataFile("secret.tmp")
+if staleSecret ~= nil and noctalia.fileExists(staleSecret) then
+  noctalia.removeFile(staleSecret)
+end
+
+-- An unconfirmed backup means the shell went away inside a confirm window. The
+-- window is *resumed* rather than dropped - the documented promise is that an
+-- unkept change rolls back - and a deadline that already passed reverts on the
+-- first tick, because update() fires as soon as now >= deadline.
 lastRecord = readBackup()
+if lastRecord ~= nil and lastRecord.confirmed ~= true and lastRecord.deadline_at ~= nil and confirmSeconds > 0 then
+  local remaining = lastRecord.deadline_at - os.time()
+  pending = {
+    uuid = lastRecord.uuid,
+    name = lastRecord.name,
+    deadline_ms = noctalia.nowMs() + (remaining > 0 and remaining * 1000 or 0),
+  }
+  noctalia.notify(noctalia.tr("notify.resumed"), lastRecord.name)
+end
 publish()
 refresh()

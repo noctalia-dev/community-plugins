@@ -557,7 +557,11 @@ function M.isIPv6(s)
   local body = s
   local zone = string.find(body, "%", 1, true)
   if zone ~= nil then
-    if zone == 1 then
+    -- A scope id is one non-empty interface name after a single '%':
+    -- "fe80::1%" and "fe80::1%eth0%extra" are not addresses.
+    local scope = string.sub(body, zone + 1)
+    if zone == 1 or scope == "" or string.find(scope, "%", 1, true) ~= nil
+      or string.match(scope, "^[%w_%-%.]+$") == nil then
       return false
     end
     body = string.sub(body, 1, zone - 1)
@@ -746,44 +750,50 @@ function M.validateForm(form)
       return nil, "error.method", desired[prefix .. "_method"]
     end
 
-    local addresses, addressErr, addressItem = M.normalizeAddresses(desired[prefix .. "_addresses"], family)
-    if addressErr ~= nil then
-      return nil, addressErr, addressItem
-    end
-    -- Manual without an address is the one combination NM refuses to activate;
-    -- catching it here means the profile is never written into that state.
-    if desired[prefix .. "_method"] == "manual" and addresses == "" then
-      return nil, "error.need_address." .. familyName(family), nil
-    end
-
-    local gateway, gatewayErr, gatewayItem = M.normalizeGateway(desired[prefix .. "_gateway"], family)
-    if gatewayErr ~= nil then
-      return nil, gatewayErr, gatewayItem
-    end
-
-    local dns, dnsErr, dnsItem = M.normalizeDns(desired[prefix .. "_dns"], family)
-    if dnsErr ~= nil then
-      return nil, dnsErr, dnsItem
-    end
-
-    local search, searchErr, searchItem = M.normalizeSearch(desired[prefix .. "_dns_search"])
-    if searchErr ~= nil then
-      return nil, searchErr, searchItem
-    end
-
-    desired[prefix .. "_addresses"] = addresses
-    desired[prefix .. "_gateway"] = gateway
-    desired[prefix .. "_dns"] = dns
-    desired[prefix .. "_dns_search"] = search
-
     if M.ADDRESSLESS_METHODS[desired[prefix .. "_method"]] then
+      -- These methods own no addressing at all: NetworkManager rejects addresses,
+      -- gateway and DNS alongside them. Clearing happens *before* validation, so a
+      -- value the user typed earlier and never fixed cannot block a write that
+      -- does not carry it.
       desired[prefix .. "_addresses"] = ""
       desired[prefix .. "_gateway"] = ""
       desired[prefix .. "_dns"] = ""
       desired[prefix .. "_dns_search"] = ""
-    elseif gateway ~= "" and addresses == "" then
-      -- nmcli: "gateway cannot be set if there are no addresses configured".
-      return nil, "error.gateway_needs_address." .. familyName(family), gateway
+    else
+      local addresses, addressErr, addressItem = M.normalizeAddresses(desired[prefix .. "_addresses"], family)
+      if addressErr ~= nil then
+        return nil, addressErr, addressItem
+      end
+      -- Manual without an address is the one combination NM refuses to activate;
+      -- catching it here means the profile is never written into that state.
+      if desired[prefix .. "_method"] == "manual" and addresses == "" then
+        return nil, "error.need_address." .. familyName(family), nil
+      end
+
+      local gateway, gatewayErr, gatewayItem = M.normalizeGateway(desired[prefix .. "_gateway"], family)
+      if gatewayErr ~= nil then
+        return nil, gatewayErr, gatewayItem
+      end
+
+      local dns, dnsErr, dnsItem = M.normalizeDns(desired[prefix .. "_dns"], family)
+      if dnsErr ~= nil then
+        return nil, dnsErr, dnsItem
+      end
+
+      local search, searchErr, searchItem = M.normalizeSearch(desired[prefix .. "_dns_search"])
+      if searchErr ~= nil then
+        return nil, searchErr, searchItem
+      end
+
+      if gateway ~= "" and addresses == "" then
+        -- nmcli: "gateway cannot be set if there are no addresses configured".
+        return nil, "error.gateway_needs_address." .. familyName(family), gateway
+      end
+
+      desired[prefix .. "_addresses"] = addresses
+      desired[prefix .. "_gateway"] = gateway
+      desired[prefix .. "_dns"] = dns
+      desired[prefix .. "_dns_search"] = search
     end
   end
 
