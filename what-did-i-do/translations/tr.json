@@ -1,0 +1,149 @@
+{
+  "format": {
+    "duration_hours_minutes": "{h}sa {m}dk",
+    "duration_hours": "{h}sa",
+    "duration_minutes": "{m}dk",
+    "duration_seconds": "{s}sn",
+    "duration_under_minute": "<1dk",
+    "duration_minutes_seconds": "{m}dk {s}sn"
+  },
+  "desktop_widget": {
+    "empty_apps": "Henüz uygulama etkinliği yok"
+  },
+  "launcher": {
+    "delete_confirm": "Tüm geçmişi sil",
+    "delete_confirm_sub": "Bu cihazda saklanan tüm oturumları kalıcı olarak kaldırır",
+    "deleted": "Geçmiş silindi",
+    "empty": "Henüz etkinlik kaydedilmedi",
+    "loading": "Takipçiden bekleniyor…",
+    "open_panel": "Panoyu aç",
+    "open_panel_sub": "Uygulamalar, oturumlar ve haftalık görünüm",
+    "pause": "Takibi duraklat",
+    "pause_sub": "Sürdürene kadar kaydı durdurur",
+    "resume": "Takibi sürdür",
+    "resume_sub": "Uygulama etkinliğinin kaydını sürdürür",
+    "stats_apps": {
+      "one": "Bugün 1 uygulama",
+      "other": "Bugün {count} uygulama"
+    },
+    "toggle_failed": "Takip servisi yanıt vermiyor"
+  },
+  "notifications": {
+    "delete_done": "Geçmiş silindi",
+    "delete_done_body": "Bu cihazdaki tüm kayıtlı etkinlik kaldırıldı.",
+    "paused": "Takip duraklatıldı",
+    "resumed": "Takip sürdürüldü"
+  },
+  "panel": {
+    "app_id_tip": "Uygulama kimliği:",
+    "about": {
+      "storage": "Depolama",
+      "storage_body": "Oturumlar, Noctalia'nın eklenti başına veri dizinine yerel olarak yazılır. Eklentiyi silmek, veriyi diskten siz kaldırmadıkça veriyi korur.",
+      "title": "Hakkında ve gizlilik",
+      "tracking": "Takip",
+      "tracking_body": "Servis, odaktaki uygulamayı pencere yöneticisinden sorgular. Boşta kalma süresi, ekran kilidi, askıya alma ve duraklatılmış takip asla sayılmaz. Hiçbir veri bu cihazdan ayrılmaz: ağ erişimi, telemetri veya analiz yoktur.",
+      "titles": "Pencere başlıkları",
+      "titles_body": "Pencere başlıkları özel bilgi içerebilir (belgeler, sohbetler, adresler); bu yüzden varsayılan olarak kaydedilmezler. Başlıkları oturumlarla birlikte yerel olarak saklamak için başlık takibini etkinleştirin."
+    },
+    "apps_count": {
+      "one": "1 uygulama",
+      "other": "{count} uygulama"
+    },
+    "current_session": "Geçerli oturum",
+    "delete": {
+      "body": "Bu işlem, bu cihazda kayıtlı tüm oturumları kalıcı olarak kaldırır. Geri alınamaz.",
+      "cancel": "İptal",
+      "confirm": "Sil",
+      "title": "Geçmişi sil"
+    },
+    "empty_guide": "Bilgisayarını kullanmaya başladığında etkinliğin burada görünecek.",
+    "empty_hint": "Kullanımınız bu cihazda kalır.",
+    "empty_history": "Henüz etkinlik kaydedilmedi",
+    "idle": "Odaklanmış uygulama yok",
+    "loading": "Takipçiden bekleniyor…",
+    "paused_banner": "Takip duraklatıldı",
+    "paused_day_hint": "Takip duraklatılmışken hiçbir şey kaydedilmedi.",
+    "retention_note": {
+      "one": "1 günden eski oturumlar otomatik olarak kaldırılır.",
+      "other": "{count} günden eski oturumlar otomatik olarak kaldırılır."
+    },
+    "sessions_count": {
+      "one": "1 oturum",
+      "other": "{count} oturum"
+    },
+    "settings_hint": "Ayarlar",
+    "tab": {
+      "today": "Bugün",
+      "week": "7 gün",
+      "yesterday": "Dün"
+    },
+    "title": "What Did I Do",
+    "top_apps": "En çok kullanılan uygulamalar",
+    "unavailable": "Bu pencere yöneticisi için etkinlik takibi kullanılamıyor.",
+    "unavailable_body": "Mevcut geçmişiniz hâlâ görüntülenebilir.",
+    "waiting_for_tracker": "Takipçiden bekleniyor…",
+    "week": {
+      "average": "Günlük ortalama",
+      "per_day": "Gün başına",
+      "total": "Etkin (7 gün)",
+      "top_apps": "En çok kullanılan uygulamalar (7 gün)"
+    }
+  },
+  "settings": {
+    "glyph": {
+      "description": "Çubuktaki takip edilen sürenin yanında gösterilen simge.",
+      "label": "Widget simgesi"
+    },
+    "history_retention_days": {
+      "description": "Bu kadar günden eski saklanan oturumları siler. Bir gün, bugün hariç her şeyi kaldırır.",
+      "label": "Geçmişi sakla (gün)"
+    },
+    "idle_after_seconds": {
+      "description": "Kullanıcı bu kadar boşta kaldığında takip otomatik olarak durur (10-600 sn).",
+      "label": "Şu kadar saniyede boşta say (saniye)"
+    },
+    "persist_every_seconds": {
+      "description": "Açık oturumların diske yazılma sıklığı (5-600 sn).",
+      "label": "Diske kaydetme sıklığı (saniye)"
+    },
+    "poll_interval": {
+      "description": "Odaktaki uygulamanın örnekleme sıklığı, saniye cinsinden (1-60).",
+      "label": "Sorgulama aralığı (saniye)"
+    },
+    "show_bar_widget": {
+      "description": "Çubuk widget'ını çubuk düzeninizden kaldırmadan gizler.",
+      "label": "Çubuk widget'ını göster"
+    },
+    "show_glyph": {
+      "description": "Takip edilen sürenin yanındaki simgeyi gösterir.",
+      "label": "Simgeyi göster"
+    },
+    "show_text": {
+      "description": "Bugünün toplam süresini çubukta gösterir. Yalnızca simgeli bir widget için kapatın.",
+      "label": "Çubukta süreyi göster"
+    },
+    "track_window_titles": {
+      "description": "Pencere başlıklarını her oturumla birlikte yerel olarak saklar. Başlıklar belge adları veya sohbetler gibi özel bilgi içerebilir.",
+      "label": "Pencere başlıklarını takip et"
+    },
+    "tracking_enabled": {
+      "description": "Hangi uygulamanın odakta olduğunu kaydeder. Devre dışı bırakıldığında mevcut geçmiş korunur.",
+      "label": "Etkinliği takip et"
+    }
+  },
+  "shortcut": {
+    "description": "Takip duraklatıldı",
+    "label": "Etkinliği takip et"
+  },
+  "widget": {
+    "tooltip": {
+      "active": "Bugün etkin",
+      "apps": {
+        "one": "1 uygulama",
+        "other": "{count} uygulama"
+      },
+      "paused": "Takip duraklatıldı",
+      "title": "What Did I Do"
+    }
+  }
+}
