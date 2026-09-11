@@ -1,0 +1,5 @@
+ID Command line                           Date and time       Action(s) Altered
+ 4 dnf -y upgrade                         2026-08-17 02:14:07                10
+ 3 dnf -y -q distro-sync --disablerepo=up 2026-08-17 02:14:03                10
+ 2 dnf -y -q install dnf-utils            2026-08-17 02:13:56                80
+ 1 dnf5 --config /builddir/result/image/b 2025-12-15 07:47:23               124

@@ -1,0 +1,13 @@
+Transaction:	Getting updates
+Status: 	Waiting in queue
+Status: 	Starting
+Status: 	Querying
+Status: 	Loading cache
+Percentage:	100
+Status: 	Finished
+Results:
+Security     curl-8.9.1-4.fc41.x86_64 (updates)
+Security     libcurl-8.9.1-4.fc41.x86_64 (updates)
+Security     openssl-libs-1:3.2.6-2.fc41.x86_64 (updates)
+Bug fix      vim-data-2:9.1.1914-1.fc41.noarch (updates)
+Bug fix      vim-minimal-2:9.1.1914-1.fc41.x86_64 (updates)

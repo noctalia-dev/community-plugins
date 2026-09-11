@@ -1,0 +1,42 @@
+Updating and loading repositories:
+Repositories loaded.
+Package                   Arch   Version           Repository      Size
+Upgrading:
+ curl                     x86_64 8.9.1-4.fc41      updates    796.2 KiB
+   replacing curl         x86_64 8.9.1-2.fc41      fedora     796.2 KiB
+ libcurl                  x86_64 8.9.1-4.fc41      updates    822.1 KiB
+   replacing libcurl      x86_64 8.9.1-2.fc41      fedora     818.1 KiB
+ openssl-libs             x86_64 1:3.2.6-2.fc41    updates      7.8 MiB
+   replacing openssl-libs x86_64 1:3.2.2-9.fc41    fedora       7.8 MiB
+ vim-data                 noarch 2:9.1.1914-1.fc41 updates     10.2 KiB
+   replacing vim-data     noarch 2:9.1.737-1.fc41  fedora      17.8 KiB
+ vim-minimal              x86_64 2:9.1.1914-1.fc41 updates      1.7 MiB
+   replacing vim-minimal  x86_64 2:9.1.737-1.fc41  fedora       1.7 MiB
+
+Transaction Summary:
+ Upgrading:          5 packages
+ Replacing:          5 packages
+
+Total size of inbound packages is 4 MiB. Need to download 4 MiB.
+After this operation, 65 KiB extra will be used (install 11 MiB, remove 11 MiB).
+[1/5] libcurl-0:8.9.1-4.fc41.x86_64     100% | 646.5 KiB/s | 360.1 KiB |  00m01s
+[2/5] curl-0:8.9.1-4.fc41.x86_64        100% | 552.8 KiB/s | 311.8 KiB |  00m01s
+[3/5] vim-data-2:9.1.1914-1.fc41.noarch 100% |  97.4 KiB/s |  17.4 KiB |  00m00s
+[4/5] openssl-libs-1:3.2.6-2.fc41.x86_6 100% |   2.6 MiB/s |   2.3 MiB |  00m01s
+[5/5] vim-minimal-2:9.1.1914-1.fc41.x86 100% |   2.4 MiB/s | 846.4 KiB |  00m00s
+--------------------------------------------------------------------------------
+[5/5] Total                             100% |   2.7 MiB/s |   3.8 MiB |  00m01s
+Running transaction
+[ 1/12] Verify package files            100% | 217.0   B/s |   5.0   B |  00m00s
+[ 2/12] Prepare transaction             100% | 312.0   B/s |  10.0   B |  00m00s
+[ 3/12] Upgrading vim-data-2:9.1.1914-1 100% |   5.5 MiB/s |  11.3 KiB |  00m00s
+[ 4/12] Upgrading openssl-libs-1:3.2.6- 100% | 217.7 MiB/s |   7.8 MiB |  00m00s
+[ 5/12] Upgrading libcurl-0:8.9.1-4.fc4 100% | 160.8 MiB/s | 823.2 KiB |  00m00s
+[ 6/12] Upgrading curl-0:8.9.1-4.fc41.x 100% | 260.0 MiB/s | 798.6 KiB |  00m00s
+[ 7/12] Upgrading vim-minimal-2:9.1.191 100% | 172.0 MiB/s |   1.7 MiB |  00m00s
+[ 8/12] Removing curl-0:8.9.1-2.fc41.x8 100% |  16.6 KiB/s |  17.0   B |  00m00s
+[ 9/12] Removing libcurl-0:8.9.1-2.fc41 100% |   6.8 KiB/s |   7.0   B |  00m00s
+[10/12] Removing vim-minimal-2:9.1.737- 100% |  15.6 KiB/s |  16.0   B |  00m00s
+[11/12] Removing vim-data-2:9.1.737-1.f 100% |   0.0   B/s |   7.0   B |  00m00s
+[12/12] Removing openssl-libs-1:3.2.2-9 100% |   1.5 KiB/s |  39.0   B |  00m00s
+Complete!

@@ -1,0 +1,30 @@
+Transaction:	Getting updates
+Status: 	Waiting in queue
+Status: 	Starting
+Status: 	Loading cache
+Percentage:	0
+Percentage:	50
+Percentage:	100
+Status: 	Querying
+Status: 	Loading cache
+Percentage:	10
+Percentage:	100
+Status: 	Finished
+Transaction:	Updating packages
+Status: 	Waiting in queue
+Status: 	Starting
+Status: 	Loading cache
+Percentage:	100
+Percentage:	100
+Status: 	Querying
+Status: 	Running
+Status: 	Loading cache
+Status: 	Downloading packages
+Percentage:	0
+Package:	curl-8.5.0-2ubuntu10.11.amd64
+Package:	libcurl4t64-8.5.0-2ubuntu10.11.amd64
+Status: 	Running
+Status: 	Finished
+Results:
+Downloaded   curl-8.5.0-2ubuntu10.11.amd64 (ubuntu-noble-updates-main)
+Downloaded   libcurl4t64-8.5.0-2ubuntu10.11.amd64 (ubuntu-noble-updates-main)

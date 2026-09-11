@@ -1,0 +1,5 @@
+    Polling registry 'https://index.crates.io/'..
+
+Package       Installed  Latest   Needs update
+ripgrep       v14.0.3    v15.2.0  Yes
+cargo-update  v22.1.1    v22.1.1  No

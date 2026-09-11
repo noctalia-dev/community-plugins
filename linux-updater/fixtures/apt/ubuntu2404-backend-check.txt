@@ -1,0 +1,6 @@
+Listing...
+curl/noble-updates,noble-security 8.5.0-2ubuntu10.11 amd64 [upgradable from: 8.5.0-2ubuntu10]
+libcurl4t64/noble-updates,noble-security 8.5.0-2ubuntu10.11 amd64 [upgradable from: 8.5.0-2ubuntu10]
+libsystemd0/noble-updates,noble-security 255.4-1ubuntu8.17 amd64 [upgradable from: 255.4-1ubuntu8.16]
+libudev1/noble-updates,noble-security 255.4-1ubuntu8.17 amd64 [upgradable from: 255.4-1ubuntu8.16]
+::HOLDS

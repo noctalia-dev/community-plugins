@@ -1,0 +1,16 @@
+/* Installed by the linux-updater Noctalia plugin (one password per update
+ * run instead of one per dnf transaction). Authentication is kept for
+ * ~5 minutes, like sudo's timestamp. Scope: only pkexec launching dnf,
+ * only for an active local session of a wheel member.
+ * Remove: sudo rm /etc/polkit-1/rules.d/49-linux-updater-dnf.rules
+ */
+polkit.addRule(function(action, subject) {
+    var prog = action.lookup("program");
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        (prog == "/usr/bin/dnf" || prog == "/usr/bin/dnf5" ||
+         prog == "/usr/bin/dnf-3") &&
+        subject.active && subject.local &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.AUTH_ADMIN_KEEP;
+    }
+});
