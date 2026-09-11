@@ -33,6 +33,12 @@ mode; click opens the panel. Or open the panel directly:
 noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
+The panel opens with an **arrangement map**: every enabled output drawn as a
+rectangle where the compositor actually has it, scaled to keep its real
+proportions, with a legend row per monitor (name, mode, `x, y` in logical
+pixels). An output placed above another draws above it, side-by-side displays
+draw in one row. The focused output's rectangle carries the thicker border.
+
 In the panel, each monitor card has a resolution dropdown, a refresh-rate
 dropdown and an Apply button, plus four placement buttons (left / right / up /
 down) that dock the monitor against the outer edge of the arrangement.

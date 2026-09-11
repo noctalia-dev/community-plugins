@@ -3,20 +3,22 @@
 -- The plugin's Luau `require("./config.luau")` is a no-op here; we load the
 -- module from source with the extension swapped.
 
-local function loadModule()
-  local path = (arg and arg[0] or "run.lua"):gsub("tests/run%.lua$", "")
-  if path == (arg and arg[0] or "run.lua") then
+local function loadModule(name)
+  local script = arg and arg[0] or "run.lua"
+  local path = script:gsub("tests/run%.lua$", "")
+  if path == script then
     path = "./"
   end
-  local file = assert(io.open(path .. "config.luau", "r"))
+  local file = assert(io.open(path .. name, "r"))
   local src = file:read("*a")
   file:close()
   -- strip the Luau attribute line; load the module body as a Lua chunk
   src = src:gsub("^%-%!%S+\n", "")
-  return assert(load(src, "config.luau"))()
+  return assert(load(src, name))()
 end
 
-local config = loadModule()
+local config = loadModule("config.luau")
+local layout = loadModule("layout.luau")
 local passed, failed = 0, 0
 
 local function check(name, cond)
@@ -142,6 +144,120 @@ check("idempotent", once == twice)
 local cOnce = config.patchConfig(FIXTURE, "eDP-1", { mode = "1280x720@60" })
 local cTwice = config.patchConfig(cOnce, "eDP-1", { mode = "1280x720@60" })
 check("idempotent on commented key", cOnce == cTwice)
+
+-- ── layout.luau: the arrangement map the panel draws ─────────────────────────
+
+local function output(name, x, y, w, h, enabled, scale)
+  return {
+    name = name,
+    enabled = enabled ~= false,
+    position = { x = x, y = y },
+    scale = scale or 1.0,
+    modes = {
+      { width = w, height = h, refresh_mhz = 143999, current = false },
+      { width = w, height = h, refresh_mhz = 59940, current = true },
+    },
+  }
+end
+
+-- stacked: DP-1 above, eDP-1 below - the live setup on the target machine
+local stacked = { output("DP-1", 0, -1440, 2560, 1440), output("eDP-1", 0, 0, 1920, 1080) }
+local rects = layout.rects(stacked)
+check("one rect per enabled output", #rects == 2)
+check("logical size comes from the current mode", rects[1].w == 2560 and rects[1].h == 1440)
+check("negative y kept", rects[1].y == -1440)
+local minX, minY, maxX, maxY = layout.bounds(rects)
+check("bounds cover the stack", minX == 0 and minY == -1440 and maxX == 2560 and maxY == 1080)
+
+check("disabled outputs are not drawn", #layout.rects({ output("DP-1", 0, 0, 100, 100, false) }) == 0)
+check("no usable mode, no rect", #layout.rects({ { name = "X", enabled = true, modes = {} } }) == 0)
+check("scale divides the mode", (function()
+  local scaled = layout.rects({ output("DP-1", 0, 0, 2560, 1440, true, 2.0) })[1]
+  return scaled.w == 1280 and scaled.h == 720
+end)())
+
+local map = layout.map(rects, 400, 150)
+check("stacked arrangement is two bands", #map.bands == 2)
+check("upper band holds the monitor above", map.bands[1].items[1].name == "DP-1")
+check("lower band holds the monitor below", map.bands[2].items[1].name == "eDP-1")
+check("above draws smaller y than below", map.bands[1].items[1].y < map.bands[2].items[1].y)
+check("map keeps the arrangement inside the canvas", (function()
+  for _, item in ipairs(map.items) do
+    if item.x < 0 or item.y < 0 or item.x + item.w > 400 or item.y + item.h > 150 then
+      return false
+    end
+  end
+  return true
+end)())
+check("aspect ratio preserved (height is the constraint)",
+  math.abs(map.scale - math.min(400 / 2560, 150 / 2520)) < 1e-9)
+
+-- side by side: one band, ordered left to right
+local side = layout.rects({ output("DP-1", 0, 0, 2560, 1440), output("eDP-1", 2560, 0, 1920, 1080) })
+local sideMap = layout.map(side, 400, 150)
+check("side-by-side arrangement is one band", #sideMap.bands == 1)
+check("items ordered left to right", sideMap.bands[1].items[1].name == "DP-1"
+  and sideMap.bands[1].items[2].name == "eDP-1")
+check("second monitor starts where the first ends",
+  sideMap.bands[1].items[2].x >= sideMap.bands[1].items[1].x + sideMap.bands[1].items[1].w - 1)
+
+-- a single monitor is centred, and a tiny one still gets a drawable box
+local alone = layout.map(layout.rects({ output("eDP-1", 0, 0, 1920, 1080) }), 400, 150)
+check("single monitor centred", math.abs(alone.items[1].x - (400 - alone.items[1].w) / 2) <= 1)
+check("single monitor fills the height", alone.items[1].h == 150)
+local tiny = layout.map(layout.rects({ output("TINY", 0, 0, 1920, 1080), output("MICRO", 1920, 0, 1, 1) }), 400, 150)
+check("tiny monitor keeps a drawable box", tiny.items[2].w >= layout.MIN_PX and tiny.items[2].h >= layout.MIN_PX)
+check("empty arrangement draws nothing", #layout.map({}, 400, 150).bands == 0)
+
+-- the drawing plan: offsets that a flex layout turns back into absolute
+-- positions. Every offset must be non-negative, and replaying them must land
+-- each monitor exactly where the map put it.
+local function replayPlan(plan)
+  local ok = true
+  local cursorY = 0
+  for _, row in ipairs(plan.rows) do
+    if row.offsetY < 0 then
+      ok = false
+    end
+    cursorY = cursorY + row.offsetY
+    local cursorX = 0
+    for _, item in ipairs(row.items) do
+      if item.offsetX < 0 or item.offsetY < 0 or item.offsetY + item.h > row.height then
+        ok = false
+      end
+      cursorX = cursorX + item.offsetX
+      if cursorX ~= item.x or cursorY + item.offsetY ~= item.y then
+        ok = false
+      end
+      cursorX = cursorX + item.w
+    end
+    cursorY = cursorY + row.height
+  end
+  return ok, cursorY
+end
+
+local stackedPlan = layout.plan(map)
+check("stacked plan replays to the map positions", replayPlan(stackedPlan))
+check("stacked plan fills the canvas height", select(2, replayPlan(stackedPlan)) == 150)
+check("one plan row per band", #stackedPlan.rows == #map.bands)
+check("upper row starts at the canvas top", stackedPlan.rows[1].offsetY == 0)
+check("lower row starts where the upper one ends", stackedPlan.rows[2].offsetY == 0)
+-- the two live monitors sit at x = 0, so they must share a left edge: this is
+-- the alignment the panel reproduces with a non-flexible spacer
+check("stacked monitors at the same x share a left edge", map.items[1].x == map.items[2].x)
+
+local sidePlan = layout.plan(sideMap)
+check("side-by-side plan replays to the map positions", replayPlan(sidePlan))
+check("side-by-side plan is one row", #sidePlan.rows == 1)
+check("first monitor sits at the row start", sidePlan.rows[1].items[1].offsetX == sidePlan.rows[1].items[1].x)
+check("second monitor offsets past the first", sidePlan.rows[1].items[2].offsetX == 0)
+
+-- two monitors with empty space between them: the gap has to survive as a
+-- spacer, otherwise the map would draw them edge to edge
+local gapped = layout.rects({ output("A", 0, 0, 1000, 1000), output("B", 1500, 0, 1000, 1000) })
+local gappedPlan = layout.plan(layout.map(gapped, 1000, 100))
+check("a gap between monitors becomes a spacer", gappedPlan.rows[1].items[2].offsetX == 50)
+check("gapped plan replays to the map positions", replayPlan(gappedPlan))
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

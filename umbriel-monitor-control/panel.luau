@@ -16,6 +16,18 @@ local snapshot = { available = false, outputs = {} }
 -- across renders and refreshed from the live mode when the panel opens.
 local drafts = {}
 
+-- Pure geometry for the arrangement map (see layout.luau + tests/run.lua).
+local layout = require("./layout.luau")
+
+-- Canvas the arrangement is drawn into, and the palette that ties a map
+-- rectangle to its legend row.
+local MAP_WIDTH, MAP_HEIGHT = 400, 150
+local MONITOR_COLORS = { "#7aa2f7", "#bb9af7", "#9ece6a", "#f7768e", "#e0af68", "#7dcfff" }
+
+local function monitorColor(index)
+  return MONITOR_COLORS[((index - 1) % #MONITOR_COLORS) + 1]
+end
+
 local function tr(key, subst)
   return noctalia.tr(key, subst)
 end
@@ -215,6 +227,81 @@ local function outputCard(output)
   })
 end
 
+-- The arrangement itself: every enabled output as a rectangle at its real
+-- position, scaled to fit MAP_WIDTH x MAP_HEIGHT. Umbriel's y grows downward,
+-- so an output placed above another draws above it, and a side-by-side pair
+-- draws in one row. Boxes cannot hold text, so the legend underneath repeats
+-- each monitor's name, mode and coordinates.
+local function layoutMap(outputs)
+  local rects = layout.rects(outputs)
+  if #rects == 0 then
+    return {}
+  end
+  local map = layout.map(rects, MAP_WIDTH, MAP_HEIGHT)
+  local focused = noctalia.focusedOutputName and noctalia.focusedOutputName() or nil
+
+  local colorOf = {}
+  for index, rect in ipairs(rects) do
+    colorOf[rect.name] = monitorColor(index)
+  end
+
+  local cells = {}
+  local plan = layout.plan(map)
+  for _, row in ipairs(plan.rows) do
+    if row.offsetY > 0 then
+      table.insert(cells, ui.spacer({ height = row.offsetY, flexGrow = 0 }))
+    end
+    local rowChildren = {}
+    for _, item in ipairs(row.items) do
+      if item.offsetX > 0 then
+        table.insert(rowChildren, ui.spacer({ width = item.offsetX, flexGrow = 0 }))
+      end
+      local color = colorOf[item.name] or "primary"
+      local stack = {}
+      if item.offsetY > 0 then
+        table.insert(stack, ui.spacer({ height = item.offsetY, flexGrow = 0 }))
+      end
+      table.insert(stack, ui.box({
+        key = "map:" .. item.name,
+        width = item.w,
+        height = item.h,
+        radius = 4,
+        fill = color .. "AA",
+        border = color,
+        borderWidth = (item.name == focused) and 2 or 1,
+      }))
+      table.insert(rowChildren, ui.column({ gap = 0, padding = 0, width = item.w, height = row.height }, stack))
+    end
+    table.insert(cells, ui.row({ gap = 0, padding = 0, height = row.height, align = "start" }, rowChildren))
+  end
+
+  local legend = {}
+  for index, rect in ipairs(rects) do
+    local color = monitorColor(index)
+    local mode = ""
+    if rect.mode_width ~= nil then
+      mode = `{rect.mode_width}x{rect.mode_height}`
+      if rect.refresh_mhz ~= nil then
+        mode = mode .. ` @ {hzText(rect.refresh_mhz)}Hz`
+      end
+    end
+    table.insert(legend, ui.row({ gap = 8, align = "center" }, {
+      ui.box({ width = 12, height = 12, radius = 3, fill = color .. "AA", border = color, borderWidth = 1 }),
+      ui.label({ text = rect.name, fontSize = 11, fontWeight = "bold" }),
+      ui.label({ text = mode, color = "on_surface_variant", fontSize = 11, flexGrow = 1 }),
+      ui.label({ text = `{rect.x}, {rect.y}`, color = "on_surface_variant", fontSize = 11 }),
+    }))
+  end
+
+  return {
+    ui.column({
+      width = MAP_WIDTH, height = MAP_HEIGHT, gap = 0, padding = 0, radius = 8,
+      fill = "surface_variant/0.3", border = "outline/0.4", borderWidth = 1,
+    }, cells),
+    ui.column({ gap = 4 }, legend),
+  }
+end
+
 function render()
   local header = ui.row({ align = "center", gap = 8 }, {
     ui.glyph({ name = "device-desktop", size = 20, color = "primary" }),
@@ -240,6 +327,11 @@ function render()
   end
   if type(snapshot.error) == "string" and snapshot.error ~= "" then
     table.insert(children, ui.label({ text = snapshot.error, color = "error", fontSize = 11 }))
+  end
+
+  table.insert(children, sectionTitle(tr("panel.layout")))
+  for _, node in ipairs(layoutMap(snapshot.outputs or {})) do
+    table.insert(children, node)
   end
 
   table.insert(children, sectionTitle(tr("panel.monitors")))

@@ -1,4 +1,5 @@
 {
+  "title": "Umbriel Monitor Control",
   "error": {
     "parse_failed": "Could not parse umbriel outputs"
   },
@@ -12,6 +13,7 @@
   "panel": {
     "apply": "Apply mode",
     "busy": "Applying...",
+    "layout": "Arrangement",
     "monitors": "Monitors",
     "no_outputs": "No outputs reported by the compositor.",
     "off": "off",
