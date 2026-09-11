@@ -37,6 +37,18 @@ local function verticalName(name)
   return table.concat(characters, "\n")
 end
 
+local function toggleWorkspace(workspaceName)
+  noctalia.log("Toggling special:" .. workspaceName .. " workspace.")
+  local command = "hyprctl dispatch 'hl.dsp.workspace.toggle_special(\""
+  .. workspaceName .. "\")'"
+  noctalia.runAsync(command, function(result) 
+    if result.exitCode ~= 0 then
+      noctalia.log("hyprctl failed while toggling special:" .. workspaceName
+      .. " with error:\n" .. result.stderr)
+    end
+  end)
+end
+
 local function render(vertical)
   renderedVertical = vertical
   local container = vertical and ui.column or ui.row
@@ -60,6 +72,7 @@ local function render(vertical)
         justify = "center",
         fill = fill,
         radius = capsuleRadius,
+        onClick = function() toggleWorkspace(name) end
       }
       if vertical then
         capsuleProps.width = PILL_HEIGHT
@@ -70,7 +83,6 @@ local function render(vertical)
         capsuleProps.minWidth = capsuleMinWidth
         capsuleProps.paddingH = capsulePadding
       end
-
       local label = displayName(name)
       table.insert(chips, capsule(capsuleProps, {
         ui.label({

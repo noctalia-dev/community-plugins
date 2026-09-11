@@ -21,9 +21,10 @@ chips in the Noctalia bar.
 Enable `jamesfeeder/special-workspaces` in **Settings → Plugins**, then add
 **Special Workspaces** to the bar from **Settings → Bar**.
 
-The widget shows special workspaces in alphabetical order. Active workspaces
-remain visible when empty. Inactive workspaces appear only while populated and
-can be hidden with `hide_inactive`.
+The widget shows special workspaces in alphabetical order.
+Click on a workspace capsule to toggle the workspace.
+Active workspaces remain visible when empty.
+Inactive workspaces appear only while populated and can be hidden with `hide_inactive`.
 
 ## Settings
 
