@@ -163,6 +163,10 @@
       "description": "Optional path to the companion data directory. When empty, Noctalia detects the path automatically.",
       "label": "Bridge directory override"
     },
+    "follow_active_task": {
+      "description": "Automatically switch the widget to the active task when tracking starts or changes in Super Productivity.",
+      "label": "Follow active task"
+    },
     "glyph": {
       "description": "Icon shown beside the task title.",
       "label": "Widget glyph"

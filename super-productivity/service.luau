@@ -361,6 +361,14 @@ local function rest_failure_message(result)
   return "Super Productivity REST API request failed."
 end
 
+local function resolve_preferred_task_id(new_current_task)
+  local current_id = state.currentTask and state.currentTask.id
+  if noctalia.getConfig("follow_active_task") ~= false and new_current_task and current_id ~= new_current_task.id then
+    return new_current_task.id
+  end
+  return if reset_view_on_refresh then nil else state.view and state.view.task and state.view.task.id
+end
+
 local function rest_status_for_failure(result)
   if result.kind == "auth_required" then return "auth_required" end
   if result.kind == "timeout" then return "timeout" end
@@ -389,7 +397,6 @@ local function complete_refresh(results)
   local confirmation
   if failure == nil then
     local now_ms = noctalia.nowMs()
-    local previous_id = if reset_view_on_refresh then nil else state.view and state.view.task.id or nil
     local normalized = rest_state.normalize(
       results.tasks.data,
       results.projects.data,
@@ -397,6 +404,7 @@ local function complete_refresh(results)
       results.status.data,
       now_ms
     )
+    local preferred_id = resolve_preferred_task_id(normalized.currentTask)
     confirmation = table.freeze({
       currentTask = normalized.currentTask and table.freeze({ id = normalized.currentTask.id }) or nil,
       currentTaskId = results.status.data.currentTaskId,
@@ -409,7 +417,7 @@ local function complete_refresh(results)
     state.restStatus = "ready"
     state.restError = ""
     if reset_view_on_refresh then browse_index = 1 end
-    rebuild_view(previous_id)
+    rebuild_view(preferred_id)
     reset_view_on_refresh = false
   else
     local message = rest_failure_message(failure)
