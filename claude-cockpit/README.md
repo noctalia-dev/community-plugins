@@ -85,17 +85,23 @@ AI-generated title, or its last prompt cut short when no title exists yet.
 What this plugin touches, so nothing is a surprise:
 
 - **Reads** `~/.claude/.credentials.json` for the OAuth token that
-  authorizes the usage query (Usage tab only), and every
+  authorizes the usage query, `~/.claude/stats-cache.json` for all-time
+  session/message stats (Usage tab only), and every
   `~/.claude/projects/**/*.jsonl` session transcript — never a whole file,
   only small `grep`/`tac`+`awk` slices, since a single line in one of these
   files can itself be hundreds of KB.
+- **Writes** `~/.claude/pricing-cache.json` (LiteLLM model prices + currency
+  rates, refreshed daily) and `~/.claude/usage-cache.json` (the rate-window
+  API response, cached 120s) — both Usage tab only, both disposable caches
+  safe to delete.
 - **Network**: the Anthropic usage API for your account's rate windows;
   LiteLLM's public model-price table to cost the tokens; the `currency_api_url`
   exchange-rate API (Frankfurter/ECB by default) for USD to the configured
   currency. All over HTTPS, on the usage refresh interval — the Sessions and
   CLAUDE.md tabs make no network calls.
 - **Spawns** `get-claude-usage`, `list-claude-sessions` and `find-claude-md`
-  through `bash`; a configured or auto-discovered terminal to resume a
+  through `bash`; `claude --version` (Usage tab, to set the API's
+  `User-Agent`); a configured or auto-discovered terminal to resume a
   session; `code`/`zed` (or `editor_command`) to open a CLAUDE.md.
   `find-claude-md` walks `$HOME` on the CLAUDE.md tab's first open and its
   refresh button only, never on a timer — remote/network mounts (NFS, SMB,
@@ -107,12 +113,12 @@ What this plugin touches, so nothing is a surprise:
 
 The Usage tab's data engine, `get-claude-usage`, is copied (MIT) from
 [jrohland/claudecode](https://github.com/jrohland/noctalia-v5-claudecode)
-with one line updated (the Frankfurter exchange-rate API moved from
-`frankfurter.app` to `frankfurter.dev`); see its own header comment and
-this plugin's `LICENSE` for attribution. This
-plugin's own `shared.luau` is a trimmed port of its formatters (multi-profile
-CCS support removed — this plugin only ever reads the default `~/.claude`
-account).
+with the Frankfurter exchange-rate API URL updated (`frankfurter.app` moved
+to `frankfurter.dev`) and its Claude Code Switch (`~/.ccs/instances`)
+multi-account scan removed — this plugin only ever reads the default
+`~/.claude` account; see its own header comment and this plugin's `LICENSE`
+for attribution. This plugin's own `shared.luau` is a trimmed port of its
+formatters, same account scope.
 
 Localized in English. Translations for other locales are welcome through
 [Noctalia Translate](https://i18n.noctalia.dev).

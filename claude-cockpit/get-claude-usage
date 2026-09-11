@@ -331,7 +331,9 @@ fetch_profile_usage() {
         "$sub_type" "$tier" "$five_util" "$five_reset" "$seven_util" "$seven_reset" "$extra" "$limits" > "$out_file"
 }
 
-# --- Collect profile list: default + CCS instances ---
+# --- Collect profile list: the default account only. Upstream also scans
+# ~/.ccs/instances for Claude Code Switch profiles; this plugin never reads or
+# queries any account but the one at $CLAUDE_DIR, so that scan is cut here.
 PROFILE_DIRS=()
 PROFILE_NAMES=()
 PROFILE_CREDS=()  # credentials file per profile
@@ -340,18 +342,6 @@ if [ -d "$PROJECTS_DIR" ]; then
     PROFILE_DIRS+=("$PROJECTS_DIR")
     PROFILE_NAMES+=("default")
     PROFILE_CREDS+=("$CREDENTIALS")
-fi
-
-CCS_INSTANCES_DIR="${HOME}/.ccs/instances"
-if [ -d "$CCS_INSTANCES_DIR" ]; then
-    for inst in "$CCS_INSTANCES_DIR"/*/; do
-        [ -d "${inst}projects" ] || continue
-        name=$(basename "$inst" | tr -d ',|:')
-        [ -z "$name" ] && continue
-        PROFILE_DIRS+=("${inst}projects")
-        PROFILE_NAMES+=("$name")
-        PROFILE_CREDS+=("${inst}.credentials.json")
-    done
 fi
 
 # --- Run token counting + usage fetch in parallel for each profile ---
@@ -365,13 +355,7 @@ for idx in "${!PROFILE_DIRS[@]}"; do
     TMPFILES+=("$tmpf")
     USAGE_TMPFILES+=("$usage_tmpf")
 
-    # Per-profile usage cache: default uses the shared cache, CCS instances get their own
-    pname="${PROFILE_NAMES[$idx]}"
-    if [ "$pname" = "default" ]; then
-        prof_cache="$USAGE_CACHE"
-    else
-        prof_cache="${CLAUDE_DIR}/usage-cache-${pname}.json"
-    fi
+    prof_cache="$USAGE_CACHE"
 
     (
         count_profile_tokens "${PROFILE_DIRS[$idx]}" "$tmpf"

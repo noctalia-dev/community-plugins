@@ -114,5 +114,6 @@
     "scoped": "{model} (7d)",
     "session": "Session (5h)",
     "weekly": "Weekly (7d)"
-  }
+  },
+  "yes": "Delete"
 }
