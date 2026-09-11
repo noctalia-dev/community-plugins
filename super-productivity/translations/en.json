@@ -167,6 +167,10 @@
       "description": "Icon shown beside the task title.",
       "label": "Widget glyph"
     },
+    "hide_when_no_active_task": {
+      "description": "Hides the bar widget when no task is currently running.",
+      "label": "Hide when no active task"
+    },
     "launch_method": {
       "auto": "Auto-detect",
       "description": "Method Noctalia uses to start or focus Super Productivity.",

@@ -116,6 +116,7 @@ Super Productivity can request confirmation before Short Syntax creates a new ta
 | `notify_due` | `bool` | `false` | Notifies when a displayed task crosses its due time while the service is running. |
 | `overdue_text_color` | `color` | `error` | Sets overdue task text color in the bar widget and details panel. |
 | `max_upcoming` | `int` | `30` | Sets the scrollable task list size. The allowed range is 5 to 50 tasks. |
+| `hide_when_no_active_task` | `bool` | `false` | Hides the bar widget when no task is currently running. |
 | `glyph` | `glyph` | `checks` | Selects the widget icon. |
 | `show_due_text` | `bool` | `true` | Shows relative due text in the widget. |
 | `max_title_chars` | `int` | `36` | Sets the displayed title length. The allowed range is 12 to 80 characters. |
