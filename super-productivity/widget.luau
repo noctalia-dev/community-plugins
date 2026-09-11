@@ -85,7 +85,7 @@ local function render()
       maxLines = 1,
     }))
 
-    local show_info = configured("show_additional_info", configured("show_due_text", true))
+    local show_info = configured("show_additional_info", true)
     if show_info then
       local info_type = configured("additional_info_type", "due")
       local info_text = (info_type == "spent") and common.format_duration(task.timeSpent) or common.relative_due(task)
