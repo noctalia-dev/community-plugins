@@ -4,10 +4,10 @@ version = "1.1.0"
 plugin_api = 12
 author = "yuki"
 license = "MIT"
-min_noctalia = "5.0.0"
+icon = "moon"
 description = "change workspace indicator with per-state custom icons, for Hyprland and Niri."
 
-tags = ["bar", "indicator", "workspaces", "hyprland", "niri"]
+tags = ["bar", "indicator", "hyprland", "niri"]
 
 dependencies = ["socat", "magick"]
 
