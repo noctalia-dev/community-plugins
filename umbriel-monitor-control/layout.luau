@@ -9,7 +9,8 @@
 local M = {}
 
 -- Logical width, height and the current mode of an output (mode / scale), or
--- nil when the output has no usable mode.
+-- nil when the output has no usable mode. A 90/270 transform swaps the extents,
+-- which is the space `position` lives in.
 function M.logicalSize(output)
   local scale = tonumber(output.scale) or 1
   if scale <= 0 then
@@ -27,7 +28,16 @@ function M.logicalSize(output)
   if current == nil or type(current.width) ~= "number" or type(current.height) ~= "number" then
     return nil
   end
-  return current.width / scale, current.height / scale, current
+  local w, h = current.width, current.height
+  local transform = output.transform or "normal"
+  if transform == "90" or transform == "270" then
+    w, h = h, w
+  end
+  return w / scale, h / scale, current
+end
+
+local function round(value)
+  return math.floor(value + 0.5)
 end
 
 -- Enabled outputs as rectangles in logical space: name, x, y, w, h plus the
@@ -42,10 +52,10 @@ function M.rects(outputs)
         local position = output.position or {}
         table.insert(rects, {
           name = output.name,
-          x = tonumber(position.x) or 0,
-          y = tonumber(position.y) or 0,
-          w = w,
-          h = h,
+          x = round(tonumber(position.x) or 0),
+          y = round(tonumber(position.y) or 0),
+          w = round(w),
+          h = round(h),
           mode_width = mode.width,
           mode_height = mode.height,
           refresh_mhz = mode.refresh_mhz,
@@ -148,6 +158,41 @@ function M.map(rects, width, height)
     offsetX = offsetX,
     offsetY = offsetY,
   }
+end
+
+-- ── placement ────────────────────────────────────────────────────────────────
+
+-- Where a monitor lands when it is docked on a side of the others. One axis
+-- moves: the target goes just outside the neighbours' edge on the side asked
+-- for, and its other coordinate goes onto that same edge, so it lands level
+-- with them (straight above, straight beside) instead of staying in whatever
+-- band it happened to sit in. With the neighbours at the origin - the usual
+-- case - that off-axis coordinate comes out 0, i.e. the plain -x / +x / -y / +y
+-- move. An empty arrangement puts the monitor back at the origin.
+-- target: { x, y, w, h } of the monitor being placed; others: the same for every
+-- other enabled monitor. Returns whole logical pixels, as the config wants them.
+function M.dock(target, others, side)
+  local minX, minY, maxRight, maxBottom = math.huge, math.huge, -math.huge, -math.huge
+  for _, other in ipairs(others or {}) do
+    minX = math.min(minX, other.x)
+    minY = math.min(minY, other.y)
+    maxRight = math.max(maxRight, other.x + other.w)
+    maxBottom = math.max(maxBottom, other.y + other.h)
+  end
+
+  if minX == math.huge then
+    return { x = 0, y = 0 }
+  end
+  if side == "left" then
+    return { x = round(minX - target.w), y = round(minY) }
+  elseif side == "right" then
+    return { x = round(maxRight), y = round(minY) }
+  elseif side == "up" then
+    return { x = round(minX), y = round(minY - target.h) }
+  elseif side == "down" then
+    return { x = round(minX), y = round(maxBottom) }
+  end
+  return nil, "unknown side"
 end
 
 -- A position coordinate typed into the panel: an integer, optionally signed,

@@ -33,35 +33,6 @@ local outputs = {}
 local busy = false
 local lastError = nil
 
-local function hzText(refreshMhz)
-  return config.hzText(refreshMhz)
-end
-
-local function currentMode(output)
-  for _, mode in ipairs(output.modes or {}) do
-    if mode.current == true then
-      return mode
-    end
-  end
-  return nil
-end
-
--- Logical extent of an output in layout coordinates: the current mode size,
--- swapped for 90/270 transforms and divided by the scale.
-local function logicalSize(output)
-  local mode = currentMode(output)
-  if mode == nil then
-    return nil
-  end
-  local w, h = mode.width, mode.height
-  local transform = output.transform or "normal"
-  if transform == "90" or transform == "270" then
-    w, h = h, w
-  end
-  local scale = (type(output.scale) == "number" and output.scale > 0) and output.scale or 1.0
-  return math.floor(w / scale + 0.5), math.floor(h / scale + 0.5)
-end
-
 local function publish()
   noctalia.state.set("monitor.state", {
     available = available,
@@ -180,55 +151,34 @@ end
 
 -- ── placement geometry ───────────────────────────────────────────────────────
 
--- side: "left" | "right" | "up" | "down" - place the named output at that end
--- of the arrangement, against the outer edge of the other enabled outputs,
--- keeping its cross-axis position. An output standing alone returns to origin.
+-- side: "left" | "right" | "up" | "down" - dock the named output on that side of
+-- the other enabled outputs: it lands just outside their edge, level with them
+-- on the other axis (see layout.dock, which holds the maths and its tests).
 local function arrangeFields(name, side)
   local target = nil
-  local others = {}
+  local neighbours = {}
   for _, output in ipairs(outputs) do
     if output.name == name then
       target = output
     elseif output.enabled == true then
-      table.insert(others, output)
+      table.insert(neighbours, output)
     end
   end
   if target == nil then
     return nil, "unknown output"
   end
-  local w, h = logicalSize(target)
+  local w, h = layout.logicalSize(target)
   if w == nil then
     return nil, name .. ": no active mode"
   end
 
-  local x, y = target.position.x, target.position.y
-  if #others == 0 then
-    x, y = 0, 0
-  else
-    local minX, maxRight, minY, maxBottom = math.huge, -math.huge, math.huge, -math.huge
-    for _, other in ipairs(others) do
-      local ow, oh = logicalSize(other)
-      ow = ow or other.width or 0
-      oh = oh or other.height or 0
-      local pos = other.position or { x = 0, y = 0 }
-      minX = math.min(minX, pos.x)
-      maxRight = math.max(maxRight, pos.x + ow)
-      minY = math.min(minY, pos.y)
-      maxBottom = math.max(maxBottom, pos.y + oh)
-    end
-    if side == "left" then
-      x, y = minX - w, y
-    elseif side == "right" then
-      x, y = maxRight, y
-    elseif side == "up" then
-      x, y = x, minY - h
-    elseif side == "down" then
-      x, y = x, maxBottom
-    else
-      return nil, "unknown side"
-    end
-  end
-  return { x = x, y = y }
+  local position = target.position or {}
+  return layout.dock({
+    x = position.x or 0,
+    y = position.y or 0,
+    w = w,
+    h = h,
+  }, layout.rects(neighbours), side)
 end
 
 -- ── request handling ─────────────────────────────────────────────────────────

@@ -41,7 +41,10 @@ draw in one row. The focused output's rectangle carries the thicker border.
 
 In the panel, each monitor card has a resolution dropdown, a refresh-rate
 dropdown and an Apply button, plus four placement buttons (left / right / up /
-down) that dock the monitor against the outer edge of the arrangement.
+down). A placement moves one axis only: the monitor lands just outside the
+others' edge on that side and level with them on the other axis, so left/right
+produce a row and up/down a column. With the other monitors at the origin that
+is the plain `-x` / `+x` / `-y` / `+y` move (y stays 0, x stays 0).
 
 Below them, a **Position** row takes the two coordinates by hand — logical
 pixels, `x` then `y`, as the legend and the map show them (`mode size / scale`;

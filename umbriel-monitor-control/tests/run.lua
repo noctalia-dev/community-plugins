@@ -259,6 +259,55 @@ local gappedPlan = layout.plan(layout.map(gapped, 1000, 100))
 check("a gap between monitors becomes a spacer", gappedPlan.rows[1].items[2].offsetX == 50)
 check("gapped plan replays to the map positions", replayPlan(gappedPlan))
 
+-- ── docking: where a placement button puts the monitor ───────────────────────
+
+local DP1 = { x = 0, y = -1440, w = 2560, h = 1440 }
+local EDP1 = { x = 0, y = 0, w = 1920, h = 1080 }
+local ORIGIN = { { x = 0, y = 0, w = 2560, h = 1440 } }
+
+-- the neighbour sits at the origin: the move is one axis only, the off-axis
+-- coordinate comes out 0
+local right = layout.dock(EDP1, ORIGIN, "right")
+check("right docks past the neighbour's right edge", right.x == 2560)
+check("right keeps y at 0 against an origin neighbour", right.y == 0)
+local left = layout.dock(EDP1, ORIGIN, "left")
+check("left docks before the neighbour's left edge", left.x == -1920)
+check("left keeps y at 0 against an origin neighbour", left.y == 0)
+local up = layout.dock(EDP1, ORIGIN, "up")
+check("up docks above the neighbour's top", up.y == -1080)
+check("up keeps x at 0 against an origin neighbour", up.x == 0)
+local down = layout.dock(EDP1, ORIGIN, "down")
+check("down docks below the neighbour's bottom", down.y == 1440)
+check("down keeps x at 0 against an origin neighbour", down.x == 0)
+
+-- the live stack (DP-1 above eDP-1, both at x = 0): a side placement must land
+-- level with the monitor it docks against, not stay in its own band
+local liveRight = layout.dock(EDP1, { DP1 }, "right")
+check("right lands level with the neighbour", liveRight.x == 2560 and liveRight.y == DP1.y)
+check("right is adjacent to the neighbour", liveRight.x == DP1.x + DP1.w)
+local liveLeft = layout.dock(EDP1, { DP1 }, "left")
+check("left lands level with the neighbour", liveLeft.x == -EDP1.w and liveLeft.y == DP1.y)
+check("left is adjacent to the neighbour", liveLeft.x + EDP1.w == DP1.x)
+local liveUp = layout.dock(DP1, { EDP1 }, "up")
+check("up lands straight above the neighbour", liveUp.x == EDP1.x and liveUp.y == EDP1.y - DP1.h)
+local liveDown = layout.dock(DP1, { EDP1 }, "down")
+check("down lands straight below the neighbour", liveDown.x == EDP1.x and liveDown.y == EDP1.y + EDP1.h)
+
+-- multiple neighbours: the placement clears the whole arrangement
+local wide = layout.dock(EDP1, { DP1, { x = 2560, y = -1440, w = 1920, h = 1080 } }, "right")
+check("right clears every neighbour's right edge", wide.x == 4480)
+check("right still lines up with the top of the arrangement", wide.y == -1440)
+
+check("a lone monitor returns to the origin", (function()
+  local lone = layout.dock(EDP1, {}, "right")
+  return lone.x == 0 and lone.y == 0
+end)())
+local badSide, badReason = layout.dock(EDP1, { DP1 }, "sideways")
+check("an unknown side is refused", badSide == nil and badReason ~= nil)
+
+local frac = layout.dock({ x = 0.4, y = 0.4, w = 1000.5, h = 700.5 }, { { x = 10.5, y = -0.5, w = 1000.5, h = 700.4 } }, "right")
+check("dock returns whole pixels", frac.x == 1011 and frac.y == 0)
+
 -- ── typed coordinates: only whole numbers ever reach the config ──────────────
 
 check("coordinate accepts an integer", layout.coordinate("1440") == 1440)
