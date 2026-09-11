@@ -342,6 +342,21 @@ local function reject_snapshot(message, protocol_version)
   return false
 end
 
+local function resolve_preferred_task_id(new_current_task)
+  if noctalia.getConfig("follow_active_task") ~= false and new_current_task ~= nil then
+    local current_task_changed = (state.currentTask and state.currentTask.id) ~= new_current_task.id
+    if current_task_changed then
+      return new_current_task.id
+    end
+  end
+
+  if reset_view_on_snapshot then
+    return nil
+  end
+
+  return state.view and state.view.task and state.view.task.id or nil
+end
+
 local function apply_snapshot(snapshot)
   if type(snapshot) ~= "table" then
     return reject_snapshot(noctalia.tr("error.invalid_snapshot"), nil)
@@ -358,19 +373,21 @@ local function apply_snapshot(snapshot)
     return reject_snapshot(noctalia.tr("error.invalid_snapshot"), tonumber(snapshot.protocolVersion))
   end
 
-  local previous_id = reset_view_on_snapshot and nil or (state.view and state.view.task.id or nil)
+  local new_current_task = type(snapshot.currentTask) == "table" and snapshot.currentTask or nil
+  local preferred_id = resolve_preferred_task_id(new_current_task)
+
   snapshot_incompatible = false
   state.protocolVersion = tonumber(snapshot.protocolVersion)
   state.companionVersion = tostring(snapshot.companionVersion or "")
   state.generatedAt = generated_at
   state.receivedAt = noctalia.nowMs()
-  state.currentTask = type(snapshot.currentTask) == "table" and snapshot.currentTask or nil
+  state.currentTask = new_current_task
   state.upcoming = type(snapshot.upcoming) == "table" and snapshot.upcoming or {}
   state.counts = type(snapshot.counts) == "table" and snapshot.counts or state.counts
   state.error = ""
   state.status = "ready"
   if reset_view_on_snapshot then browse_index = 1 end
-  rebuild_view(previous_id)
+  rebuild_view(preferred_id)
   reset_view_on_snapshot = false
   return true
 end

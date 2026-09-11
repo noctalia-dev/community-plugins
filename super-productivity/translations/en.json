@@ -168,6 +168,10 @@
       "description": "Hides the bar widget when no task is currently running.",
       "label": "Hide when no active task"
     },
+    "follow_active_task": {
+      "description": "Automatically switch the widget to the active task when tracking starts or changes in Super Productivity.",
+      "label": "Follow active task"
+    },
     "show_due_text": {
       "description": "Shows the relative due time in the bar widget.",
       "label": "Show due text"

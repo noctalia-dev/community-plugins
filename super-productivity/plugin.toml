@@ -122,6 +122,13 @@ entry = "widget.luau"
   default         = false
 
   [[widget.setting]]
+  key             = "follow_active_task"
+  type            = "bool"
+  label_key       = "settings.follow_active_task.label"
+  description_key = "settings.follow_active_task.description"
+  default         = true
+
+  [[widget.setting]]
   key             = "glyph"
   type            = "glyph"
   label_key       = "settings.glyph.label"

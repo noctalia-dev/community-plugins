@@ -96,6 +96,7 @@ Super Productivity can ask for confirmation when short syntax creates a new tag.
 | `overdue_text_color` | `color` | `error` | Sets overdue task text color in the bar widget and details panel. |
 | `max_upcoming` | `int` | `30` | Limits the widget's scrollable task list to between 5 and 50 tasks. |
 | `hide_when_no_active_task` | `bool` | `false` | Hides the bar widget when no task is currently running. |
+| `follow_active_task` | `bool` | `true` | Automatically switches widget view to active task when tracking starts or changes. |
 | `glyph` | `glyph` | `checks` | Selects the widget icon. |
 | `show_due_text` | `bool` | `true` | Shows relative due text in the widget. |
 | `max_title_chars` | `int` | `36` | Limits the displayed widget title to between 12 and 80 characters. |
