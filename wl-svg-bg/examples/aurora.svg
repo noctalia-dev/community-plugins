@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!-- A pure-CSS animated aurora. No JS, no external refs: this file is both the
+       default wallpaper and the proof that the renderer animates rather than
+       rasterizing one frame. -->
+  <defs>
+    <radialGradient id="a" cx="30%" cy="20%" r="80%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="55%" stop-color="#3b82f6" stop-opacity=".55"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="b" cx="70%" cy="70%" r="75%">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="55%" stop-color="#7c3aed" stop-opacity=".5"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="c" cx="50%" cy="90%" r="70%">
+      <stop offset="0%" stop-color="#f472b6" stop-opacity=".8"/>
+      <stop offset="100%" stop-color="#f472b6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="90"/>
+    </filter>
+  </defs>
+
+  <style>
+    /* Long, prime-ish, mutually offset durations so the loop never visibly
+       repeats. Sub-1fps perceptual change: cheap for the compositor, alive to
+       the eye. */
+    @keyframes drift-a {
+      0%,100% { transform: translate(0,0) scale(1); }
+      50%     { transform: translate(9%,5%) scale(1.18); }
+    }
+    @keyframes drift-b {
+      0%,100% { transform: translate(0,0) scale(1.1); }
+      50%     { transform: translate(-8%,-6%) scale(1); }
+    }
+    @keyframes drift-c {
+      0%,100% { transform: translate(0,0) scale(1); opacity: .55; }
+      50%     { transform: translate(5%,-4%) scale(1.25); opacity: .85; }
+    }
+    #veil-a { animation: drift-a 47s ease-in-out infinite; transform-origin: 30% 20%; }
+    #veil-b { animation: drift-b 61s ease-in-out infinite; transform-origin: 70% 70%; }
+    #veil-c { animation: drift-c 83s ease-in-out infinite; transform-origin: 50% 90%; }
+    /* Respect the user's motion preference: a still gradient is still a
+       wallpaper, and this file ships enabled by default. */
+    @media (prefers-reduced-motion: reduce) {
+      #veil-a, #veil-b, #veil-c { animation: none; }
+    }
+  </style>
+
+  <rect width="1920" height="1080" fill="#0b1020"/>
+  <g filter="url(#soft)">
+    <rect id="veil-a" width="1920" height="1080" fill="url(#a)"/>
+    <rect id="veil-b" width="1920" height="1080" fill="url(#b)"/>
+    <rect id="veil-c" width="1920" height="1080" fill="url(#c)"/>
+  </g>
+</svg>

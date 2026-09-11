@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "svg": {
+      "label": "Animated SVG",
+      "description": "The CSS-animated SVG to render as the wallpaper. An example ships with this plugin at examples/aurora.svg. Clearing this field is the off-switch: it stops the renderer and hands the wallpaper back to noctalia."
+    }
+  }
+}

@@ -1,0 +1,28 @@
+id = "theta/wl-svg-bg"
+name = "Animated SVG Wallpaper"
+version = "0.1.0"
+author = "theta"
+license = "MIT"
+# Catalog descriptions are capped at 120 characters (validate-plugins.py).
+description = "Renders a CSS-animated SVG as the wallpaper with its animation running, via WebKit on a layer-shell surface."
+# Exactly 17, not a floor picked for breadth: below it `onEnable` and the
+# Disable/Uninstall exit reasons never fire (plugin_manager.cpp:593,609), which
+# silently breaks the off-switch and the teardown path.
+plugin_api = 17
+icon = "image"
+tags = ["wallpaper", "animation", "service"]
+# Everything this plugin spawns. `wl-svg-bg` is the renderer itself; systemd
+# supplies both systemctl and systemd-run, which manage its unit.
+dependencies = ["wl-svg-bg", "systemd"]
+
+[[service]]
+id = "takeover"
+entry = "service.luau"
+
+[[setting]]
+key = "svg"
+type = "file"
+label_key = "settings.svg.label"
+description_key = "settings.svg.description"
+extensions = ["svg"]
+default = ""
