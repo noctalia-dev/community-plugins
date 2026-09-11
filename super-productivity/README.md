@@ -98,7 +98,8 @@ Super Productivity can ask for confirmation when short syntax creates a new tag.
 | `hide_when_no_active_task` | `bool` | `false` | Hides the bar widget when no task is currently running. |
 | `follow_active_task` | `bool` | `true` | Automatically switches widget view to active task when tracking starts or changes. |
 | `glyph` | `glyph` | `checks` | Selects the widget icon. |
-| `show_due_text` | `bool` | `true` | Shows relative due text in the widget. |
+| `show_additional_info` | `bool` | `true` | Shows additional task information in the widget. |
+| `additional_info_type` | `select` | `due` | Type of additional info to show (`due` or `spent`). Visible when `show_additional_info` is true. |
 | `max_title_chars` | `int` | `36` | Limits the displayed widget title to between 12 and 80 characters. |
 
 ## Notes

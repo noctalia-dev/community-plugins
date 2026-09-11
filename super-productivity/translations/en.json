@@ -117,6 +117,12 @@
     }
   },
   "settings": {
+    "additional_info_type": {
+      "description": "Select what additional information to display in the bar widget.",
+      "label": "Additional info type",
+      "due": "Due",
+      "spent": "Spent"
+    },
     "auto_start": {
       "description": "Starts the desktop app in the background when the companion is unavailable.",
       "label": "Start Super Productivity automatically"
@@ -172,9 +178,9 @@
       "description": "Automatically switch the widget to the active task when tracking starts or changes in Super Productivity.",
       "label": "Follow active task"
     },
-    "show_due_text": {
-      "description": "Shows the relative due time in the bar widget.",
-      "label": "Show due text"
+    "show_additional_info": {
+      "description": "Shows additional information in the bar widget.",
+      "label": "Show additional info"
     },
     "show_timer_controls": {
       "description": "Shows start and stop tracking controls in the expanded details panel.",
