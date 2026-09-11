@@ -115,6 +115,13 @@ entry = "widget.luau"
   middle = "none"
 
   [[widget.setting]]
+  key             = "hide_when_no_active_task"
+  type            = "bool"
+  label_key       = "settings.hide_when_no_active_task.label"
+  description_key = "settings.hide_when_no_active_task.description"
+  default         = false
+
+  [[widget.setting]]
   key             = "glyph"
   type            = "glyph"
   label_key       = "settings.glyph.label"

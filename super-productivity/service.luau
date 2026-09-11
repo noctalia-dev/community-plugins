@@ -106,6 +106,7 @@ local function data_home()
   if configured ~= "" then return without_trailing_slash(configured) end
   return without_trailing_slash(noctalia.expandPath("~/.local/share"))
 end
+
 local function package_directory()
   return data_home() .. "/" .. BRIDGE_NAME
 end

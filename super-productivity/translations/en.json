@@ -164,6 +164,10 @@
       "description": "Places the currently tracked task before due tasks while its timer runs.",
       "label": "Show tracked task first"
     },
+    "hide_when_no_active_task": {
+      "description": "Hides the bar widget when no task is currently running.",
+      "label": "Hide when no active task"
+    },
     "show_due_text": {
       "description": "Shows the relative due time in the bar widget.",
       "label": "Show due text"

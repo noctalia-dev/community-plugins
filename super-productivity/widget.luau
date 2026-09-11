@@ -53,7 +53,21 @@ local function tooltip(task)
   return table.concat(lines, "\n")
 end
 
+local function should_be_visible()
+  if configured("hide_when_no_active_task", false) then
+    return type(snapshot.currentTask) == "table" and snapshot.currentTask.id ~= nil
+  end
+
+  return true
+end
+
 local function render()
+  local visible = should_be_visible()
+  barWidget.setVisible(visible)
+  if not visible then
+    return
+  end
+
   local task = snapshot.view and snapshot.view.task or nil
   local busy = common.action_busy(action)
   local glyph = busy and "loader-2" or configured("glyph", "checks")
@@ -98,6 +112,10 @@ noctalia.state.watch(common.ACTION_KEY, function(value)
   action = type(value) == "table" and value or action
   render()
 end)
+
+function onConfigChanged()
+  render()
+end
 
 function onClick()
   noctalia.togglePanel(common.PANEL_ID)
