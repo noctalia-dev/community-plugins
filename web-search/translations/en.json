@@ -1,5 +1,17 @@
 {
   "settings": {
+    "provider": {
+      "description": "Search engine used for the Search result and by activating it.",
+      "label": "Search provider",
+      "options": {
+        "google": "Google",
+        "duckduckgo": "DuckDuckGo",
+        "ecosia": "Ecosia",
+        "bing": "Bing",
+        "brave": "Brave",
+        "mojeek": "Mojeek"
+      }
+    },
     "links": {
       "description": "Websites shown by /web, formatted as Name|https://example.com.",
       "label": "Websites"
