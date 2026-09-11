@@ -16,6 +16,7 @@
 -- Umbriel session, the binary is what the service actually runs.
 
 local config = require("./config.luau")
+local layout = require("./layout.luau")
 
 local VALIDATE_TIMEOUT_MS = 5000
 local SETTLE_MS = 800
@@ -247,6 +248,16 @@ local function handleRequest(value)
   local fields, action = nil, value.action
   if action == "set-mode" and type(value.mode) == "string" then
     fields = { mode = value.mode }
+  elseif action == "place" and type(value.name) == "string" then
+    -- Exact position typed in the panel. Validated here as well as there, since
+    -- the same request can arrive over IPC without the panel involved.
+    local x, xReason = layout.coordinate(value.x)
+    local y, yReason = layout.coordinate(value.y)
+    if x == nil or y == nil then
+      noctalia.notifyError(noctalia.tr("notify.apply_failed"), tostring(xReason or yReason))
+      return
+    end
+    fields = { x = x, y = y }
   elseif action == "arrange" then
     local placed, reason = arrangeFields(value.name, value.side)
     if placed == nil then

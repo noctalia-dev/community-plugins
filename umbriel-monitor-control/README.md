@@ -43,6 +43,12 @@ In the panel, each monitor card has a resolution dropdown, a refresh-rate
 dropdown and an Apply button, plus four placement buttons (left / right / up /
 down) that dock the monitor against the outer edge of the arrangement.
 
+Below them, a **Position** row takes the two coordinates by hand — logical
+pixels, `x` then `y`, as the legend and the map show them (`mode size / scale`;
+negative `y` is above the origin). Enter in either box or the crosshair button
+applies them. The placement buttons stay the coarse move: press one and the
+fields update to whatever it landed on.
+
 ## Settings
 
 | Setting | Type | Default | Description |

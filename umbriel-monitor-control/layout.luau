@@ -150,6 +150,51 @@ function M.map(rects, width, height)
   }
 end
 
+-- A position coordinate typed into the panel: an integer, optionally signed,
+-- in logical pixels. Returns the number, or nil plus why it was rejected, so
+-- the caller can keep a bad value out of the config.
+M.COORDINATE_LIMIT = 100000
+
+function M.coordinate(text)
+  if type(text) == "number" then
+    if text ~= math.floor(text) then
+      return nil, "not a whole number"
+    end
+    if math.abs(text) > M.COORDINATE_LIMIT then
+      return nil, "out of range"
+    end
+    return text
+  end
+  if type(text) ~= "string" then
+    return nil, "not a number"
+  end
+  local trimmed = text:match("^%s*(.-)%s*$")
+  if trimmed == "" then
+    return nil, "empty"
+  end
+  local sign, digits = trimmed:match("^([%+%-]?)(%d+)$")
+  if digits == nil then
+    return nil, "not a whole number"
+  end
+  local value = tonumber(digits)
+  if sign == "-" then
+    value = -value
+  end
+  if math.abs(value) > M.COORDINATE_LIMIT then
+    return nil, "out of range"
+  end
+  return value
+end
+
+-- The text a coordinate field is seeded with.
+function M.coordinateText(value)
+  local number = M.coordinate(value)
+  if number == nil then
+    return "0"
+  end
+  return tostring(number)
+end
+
 -- Drawing plan: the map as rows of offsets, so a flex layout can reproduce
 -- absolute positions. Every offset is the empty space that precedes a row
 -- (offsetY) or an item inside its row (offsetX), and a caller must emit it as a

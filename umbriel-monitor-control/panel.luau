@@ -16,6 +16,19 @@ local snapshot = { available = false, outputs = {} }
 -- across renders and refreshed from the live mode when the panel opens.
 local drafts = {}
 
+-- connector -> { x, y, seedX, seedY, gen, invalid } exact-position fields.
+-- ui.input seeds from `value` once per `key`, so a field that the live geometry
+-- moves underneath (a placement button, an apply, another tool) has to change
+-- its key to take the new value - while an untouched-at-the-time re-render must
+-- not eat what is being typed. `gen` carries that, `seedX/seedY` decide whether
+-- the field is still untouched.
+local positionDrafts = {}
+
+-- Forward declaration, before anything that re-renders: the card closures and
+-- submitPosition() call render(), and a `local function render` further down
+-- would leave them calling a nil global instead.
+local render
+
 -- Pure geometry for the arrangement map (see layout.luau + tests/run.lua).
 local layout = require("./layout.luau")
 
@@ -100,9 +113,42 @@ local function request(value)
   noctalia.state.set("monitor.request", value)
 end
 
--- Forward declaration: the outputCard closures re-render the panel, and a
--- plain `local function render` below would not be visible to them.
-local render
+-- Live position of an output as the two texts a field is seeded with.
+local function positionFields(output)
+  local position = output.position or {}
+  return layout.coordinateText(position.x or 0), layout.coordinateText(position.y or 0)
+end
+
+local function positionDraft(output)
+  local liveX, liveY = positionFields(output)
+  local draft = positionDrafts[output.name]
+  if draft == nil then
+    draft = { x = liveX, y = liveY, seedX = liveX, seedY = liveY, gen = 0 }
+    positionDrafts[output.name] = draft
+  elseif draft.x == draft.seedX and draft.y == draft.seedY
+    and (draft.seedX ~= liveX or draft.seedY ~= liveY) then
+    -- untouched field, moved geometry: re-seed and force the input to take it
+    draft.x, draft.y, draft.seedX, draft.seedY = liveX, liveY, liveX, liveY
+    draft.gen = draft.gen + 1
+  end
+  return draft
+end
+
+-- Send the typed position, or mark the field invalid and re-render to say so.
+local function submitPosition(output)
+  local draft = positionDraft(output)
+  local x = layout.coordinate(draft.x)
+  local y = layout.coordinate(draft.y)
+  if x == nil or y == nil then
+    draft.invalid = true
+    render()
+    return
+  end
+  draft.invalid = false
+  draft.x, draft.y = tostring(x), tostring(y)
+  draft.seedX, draft.seedY = draft.x, draft.y
+  request({ action = "place", name = output.name, x = x, y = y })
+end
 
 local function sectionTitle(text)
   return ui.label({ text = text, fontWeight = "bold", fontSize = 13 })
@@ -156,7 +202,57 @@ local function outputCard(output)
     }))
   end
 
-  return ui.column({ gap = 8, padding = 10, radius = 8, border = "outline/0.4", borderWidth = 1 }, {
+  -- Exact position: the two logical-pixel coordinates Umbriel stores in the
+  -- config, editable by hand next to the placement buttons. Enter or the
+  -- crosshair sends them; the buttons stay the coarse move.
+  local position = positionDraft(output)
+  local positionRow = ui.row({ gap = 6, align = "center" }, {
+    ui.label({ text = tr("panel.position"), color = "on_surface_variant", fontSize = 11, width = 54 }),
+    ui.input({
+      key = `posx-{output.name}-{position.gen}`,
+      value = position.x,
+      placeholder = tr("panel.position_x"),
+      width = 80,
+      controlSize = "sm",
+      enabled = snapshot.busy ~= true,
+      submitOnEnter = true,
+      onChange = function(value)
+        position.x = tostring(value)
+        position.invalid = false
+      end,
+      onSubmit = function()
+        submitPosition(output)
+      end,
+    }),
+    ui.input({
+      key = `posy-{output.name}-{position.gen}`,
+      value = position.y,
+      placeholder = tr("panel.position_y"),
+      width = 80,
+      controlSize = "sm",
+      enabled = snapshot.busy ~= true,
+      submitOnEnter = true,
+      onChange = function(value)
+        position.y = tostring(value)
+        position.invalid = false
+      end,
+      onSubmit = function()
+        submitPosition(output)
+      end,
+    }),
+    ui.button({
+      glyph = "crosshair",
+      tooltip = tr("panel.apply_position"),
+      variant = "outline",
+      enabled = snapshot.busy ~= true,
+      onClick = function()
+        submitPosition(output)
+      end,
+    }),
+    ui.label({ text = tr("panel.position_unit"), color = "on_surface_variant", fontSize = 10 }),
+  })
+
+  local children = {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "device-desktop", size = 18, color = output.enabled == true and "primary" or "on_surface_variant" }),
       ui.column({ gap = 0, flexGrow = 1 }, {
@@ -224,7 +320,17 @@ local function outputCard(output)
     }),
 
     ui.row({ gap = 6 }, placeRow),
-  })
+
+    positionRow,
+  }
+
+  if position.invalid == true then
+    table.insert(children, ui.label({
+      text = tr("panel.position_invalid"), color = "error", fontSize = 10,
+    }))
+  end
+
+  return ui.column({ gap = 8, padding = 10, radius = 8, border = "outline/0.4", borderWidth = 1 }, children)
 end
 
 -- The arrangement itself: every enabled output as a rectangle at its real
@@ -362,6 +468,7 @@ end
 function onOpen(_context)
   snapshot = noctalia.state.get("monitor.state") or snapshot
   drafts = {}
+  positionDrafts = {}
   request({ action = "refresh" })
   render()
 end
