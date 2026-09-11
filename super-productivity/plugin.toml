@@ -103,6 +103,13 @@ default         = 30
 min             = 5
 max             = 50
 
+[[setting]]
+key             = "follow_active_task"
+type            = "bool"
+label_key       = "settings.follow_active_task.label"
+description_key = "settings.follow_active_task.description"
+default         = true
+
 [[service]]
 id    = "service"
 entry = "service.luau"
@@ -120,13 +127,6 @@ entry = "widget.luau"
   label_key       = "settings.hide_when_no_active_task.label"
   description_key = "settings.hide_when_no_active_task.description"
   default         = false
-
-  [[widget.setting]]
-  key             = "follow_active_task"
-  type            = "bool"
-  label_key       = "settings.follow_active_task.label"
-  description_key = "settings.follow_active_task.description"
-  default         = true
 
   [[widget.setting]]
   key             = "glyph"
