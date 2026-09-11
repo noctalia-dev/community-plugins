@@ -1,0 +1,39 @@
+{
+  "title": "KWallet Secrets",
+  "errors": {
+    "helper_missing": "scripts/kwallet-nm-agent.py is missing from the plugin directory.",
+    "procps_missing": "pkill was not found on PATH (install procps-ng).",
+    "python_missing": "python3 was not found on PATH.",
+    "systemd_cat_missing": "systemd-cat was not found on PATH (install systemd)."
+  },
+  "settings": {
+    "app_id": {
+      "description": "Name shown in KWallet access dialogs.",
+      "label": "Application id"
+    },
+    "debug_logging": {
+      "description": "Log every lookup to the journal (tag noctalia-kwallet-secrets). Secret values are never logged.",
+      "label": "Verbose logging"
+    },
+    "folder_name": {
+      "description": "Wallet folder holding the entries. plasma-nm uses \"Network Management\".",
+      "label": "Wallet folder"
+    },
+    "handle_8021x": {
+      "description": "Also answer 802-1x (WPA-Enterprise) requests, not just PSK networks.",
+      "label": "Handle enterprise networks"
+    },
+    "handle_vpn": {
+      "description": "Also answer VPN requests (OpenVPN and friends, plus NetworkManager's own WireGuard), so VPN secrets come from the wallet instead of a prompt.",
+      "label": "Handle VPN connections"
+    },
+    "unlock_prompt": {
+      "description": "Allow KWallet to prompt when the wallet is locked. Turn off to treat a locked wallet as \"no secret\".",
+      "label": "Allow unlock prompt"
+    },
+    "wallet_name": {
+      "description": "Wallet to read. Leave empty to use KWallet's configured network wallet.",
+      "label": "Wallet name"
+    }
+  }
+}

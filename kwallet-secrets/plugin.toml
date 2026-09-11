@@ -1,0 +1,71 @@
+# KWallet Secrets -- points NetworkManager's agent-owned Wi-Fi secrets at KWallet.
+#
+# Noctalia's built-in secret agent has no persistent store, so every profile with
+# psk-flags=1 prompts for a password. This plugin runs a second NetworkManager
+# secret agent that answers those requests from KWallet's "Network Management"
+# folder -- the same store plasma-nm uses -- with no kded6/plasma-nm involved.
+# VPN profiles have the same problem and are covered from the same folder.
+
+id = "grassyloki/kwallet-secrets"
+name = "KWallet Secrets"
+version = "1.1.0"
+plugin_api = 28
+author = "grassyloki"
+license = "MIT"
+icon = "shield-lock"
+description = "Answers NetworkManager Wi-Fi and VPN secret requests from KWallet instead of prompting."
+tags = ["service", "network", "privacy", "system"]
+dependencies = ["python3", "pkill", "systemd-cat", "kwalletd6"]
+
+[[setting]]
+key = "wallet_name"
+type = "string"
+label_key = "settings.wallet_name.label"
+description_key = "settings.wallet_name.description"
+default = ""
+
+[[setting]]
+key = "folder_name"
+type = "string"
+label_key = "settings.folder_name.label"
+description_key = "settings.folder_name.description"
+default = "Network Management"
+
+[[setting]]
+key = "app_id"
+type = "string"
+label_key = "settings.app_id.label"
+description_key = "settings.app_id.description"
+default = "Noctalia KWallet Secrets"
+
+[[setting]]
+key = "handle_8021x"
+type = "bool"
+label_key = "settings.handle_8021x.label"
+description_key = "settings.handle_8021x.description"
+default = false
+
+[[setting]]
+key = "handle_vpn"
+type = "bool"
+label_key = "settings.handle_vpn.label"
+description_key = "settings.handle_vpn.description"
+default = true
+
+[[setting]]
+key = "unlock_prompt"
+type = "bool"
+label_key = "settings.unlock_prompt.label"
+description_key = "settings.unlock_prompt.description"
+default = true
+
+[[setting]]
+key = "debug_logging"
+type = "bool"
+label_key = "settings.debug_logging.label"
+description_key = "settings.debug_logging.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
