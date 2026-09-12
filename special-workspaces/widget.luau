@@ -95,6 +95,7 @@ local function render(vertical)
     end
   end
 
+  barWidget.setVisible(#chips > 0)
   barWidget.render(container({ gap = PILL_GAP, align = "center" }, chips))
 end
 

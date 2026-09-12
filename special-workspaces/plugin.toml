@@ -1,6 +1,6 @@
 id = "jamesfeeder/special-workspaces"
 name = "Special Workspaces"
-version = "1.6.0"
+version = "1.6.1"
 plugin_api = 3
 author = "jamesfeeder"
 license = "MIT"
