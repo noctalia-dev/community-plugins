@@ -28,6 +28,12 @@ local function logOnce(msg)
 	end
 end
 
+-- Safely embeds a string as a single-quoted argument in a /bin/sh command
+-- line: closes the quote, escapes a literal quote, then reopens it.
+local function shellQuote(str)
+	return "'" .. string.gsub(str, "'", "'\\''") .. "'"
+end
+
 -- Resolves the "compositor" setting to an actual compositor, auto-detecting
 -- via env vars and available binaries when set to "auto".
 local function detectCompositor()
@@ -225,12 +231,12 @@ local function startHyprlandEventStream()
 		return
 	end
 
-	local socket = runtimeDir .. "/hypr/" .. signature .. "/.socket2.sock"
-	local command = "while true; do while [ ! -S '"
+	local socket = shellQuote(runtimeDir .. "/hypr/" .. signature .. "/.socket2.sock")
+	local command = "while true; do while [ ! -S "
 		.. socket
-		.. "' ]; do sleep 5; done; socat -u UNIX-CONNECT:'"
+		.. " ]; do sleep 5; done; socat -u UNIX-CONNECT:"
 		.. socket
-		.. "' - 2>&1; sleep 5; done"
+		.. " - 2>&1; sleep 5; done"
 
 	noctalia.runStream(command, function(line)
 		local event = string.match(line, "^([%a%d_]+)>>")
