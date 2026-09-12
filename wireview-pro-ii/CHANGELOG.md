@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0 - 2026-09-11
+
+- Add a 0° or 180° device-screen orientation selector.
+
 ## 0.3.0 - 2026-08-24
 
 - Add an immediate device-screen selector while keeping the persisted default screen separate.
