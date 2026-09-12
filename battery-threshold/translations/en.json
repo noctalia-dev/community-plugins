@@ -18,7 +18,7 @@
   },
   "settings": {
     "battery-device": "Battery Device",
-    "battery-device-desc": "Battery to configure threshold for",
+    "battery-device-desc": "Battery to configure threshold for (leave empty for all detected batteries)",
     "charge-threshold": "Charge Threshold",
     "charge-threshold-desc": "The percentage at which the battery should stop charging",
     "no-battery-device": "No configurable batteries are available on this system"

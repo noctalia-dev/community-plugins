@@ -1,5 +1,14 @@
 --!nonstrict
 local function get_batteries(): { string }
+    local configured = noctalia.getConfig("battery_device")
+    if
+        typeof(configured) == "string"
+        and configured ~= ""
+        and noctalia.fileExists(configured .. "/charge_control_end_threshold")
+    then
+        return { configured }
+    end
+
     local batteries = {}
     local files, _ = noctalia.listDir("/sys/class/power_supply")
 
@@ -12,26 +21,20 @@ local function get_batteries(): { string }
         end
     end
 
+    table.sort(batteries)
     return batteries
-end
-
-local function get_active_battery(): string?
-    local configured = noctalia.getConfig("battery_device")
-
-    if
-        typeof(configured) == "string"
-        and configured ~= ""
-        and noctalia.fileExists(configured .. "/charge_control_end_threshold")
-    then
-        return configured
-    end
-
-    local list = get_batteries()
-    return list[1]
 end
 
 local function shell_quote(str: string): string
     return "'" .. string.gsub(str, "'", "'\\''") .. "'"
+end
+
+local function read_trimmed(path: string): string?
+    local content, err = noctalia.readFile(path)
+    if content and not err then
+        return noctalia.string.trim(content)
+    end
+    return nil
 end
 
 local function check_writable(path: string, callback: (boolean) -> ())
@@ -52,11 +55,10 @@ local THRESHOLD_FILE_PATH: string? = if data_dir
     else nil
 
 local function set_threshold(value: number)
-    local battery = get_active_battery()
-    if not battery then
+    local batteries = get_batteries()
+    if #batteries == 0 then
         return
     end
-    local threshold_file = battery .. "/charge_control_end_threshold"
 
     local v = math.floor(value + 0.5)
     if v < 40 then
@@ -66,10 +68,24 @@ local function set_threshold(value: number)
         v = 100
     end
 
-    noctalia.log("Setting charge threshold to " .. tostring(v) .. "% on " .. battery)
+    local any_ok = false
+    for _, battery in ipairs(batteries) do
+        local threshold_file = battery .. "/charge_control_end_threshold"
+        noctalia.log("Setting charge threshold to " .. tostring(v) .. "% on " .. battery)
 
-    local ok, err = noctalia.writeFile(threshold_file, tostring(v) .. "\n")
-    if ok then
+        local ok, err = noctalia.writeFile(threshold_file, tostring(v) .. "\n")
+        if ok then
+            any_ok = true
+        else
+            noctalia.log("Failed to write threshold to " .. threshold_file .. ": " .. tostring(err))
+            noctalia.notifyError(
+                noctalia.tr("notification.error-title"),
+                noctalia.tr("notification.error-msg", { file = threshold_file })
+            )
+        end
+    end
+
+    if any_ok then
         noctalia.state.set("current_threshold", v)
         if THRESHOLD_FILE_PATH then
             local save_ok, save_err =
@@ -83,18 +99,12 @@ local function set_threshold(value: number)
                 )
             end
         end
-    else
-        noctalia.log("Failed to write threshold: " .. tostring(err))
-        noctalia.notifyError(
-            noctalia.tr("notification.error-title"),
-            noctalia.tr("notification.error-msg", { file = threshold_file })
-        )
     end
 end
 
 local function check_status()
-    local battery = get_active_battery()
-    if not battery then
+    local batteries = get_batteries()
+    if #batteries == 0 then
         noctalia.state.set("is_available", false)
         noctalia.state.set("is_writable", false)
         noctalia.state.set("current_threshold", 0)
@@ -104,55 +114,62 @@ local function check_status()
 
     noctalia.state.set("is_available", true)
 
-    local model_name = ""
-    local content, err = noctalia.readFile(battery .. "/model_name")
-    if content and not err then
-        model_name = noctalia.string.trim(content)
-    end
-    noctalia.state.set("battery_model_name", model_name)
-
-    local threshold_file = battery .. "/charge_control_end_threshold"
-
-    local threshold_content = noctalia.readFile(threshold_file)
-    local current_val = 0
-    if threshold_content then
-        current_val = tonumber(noctalia.string.trim(threshold_content)) or 0
-        noctalia.state.set("current_threshold", current_val)
-    end
-
-    check_writable(threshold_file, function(writable)
-        noctalia.state.set("is_writable", writable)
-
-        if writable then
-            local saved_val = nil
-            if THRESHOLD_FILE_PATH and noctalia.fileExists(THRESHOLD_FILE_PATH) then
-                local saved_content, read_err = noctalia.readFile(THRESHOLD_FILE_PATH)
-                if saved_content and not read_err then
-                    saved_val = tonumber(noctalia.string.trim(saved_content))
-                elseif read_err then
-                    noctalia.log(
-                        "Failed to read saved threshold from "
-                            .. THRESHOLD_FILE_PATH
-                            .. ": "
-                            .. tostring(read_err)
-                    )
-                end
-            end
-
-            if not saved_val then
-                local config_val = noctalia.getConfig("charge_threshold")
-                if typeof(config_val) == "number" then
-                    saved_val = config_val
-                end
-            end
-
-            if saved_val and saved_val >= 40 and saved_val <= 100 then
-                if saved_val ~= current_val then
-                    set_threshold(saved_val)
-                end
-            end
+    local model_names = {}
+    for _, battery in ipairs(batteries) do
+        local model = read_trimmed(battery .. "/model_name")
+        local name = string.match(battery, "([^/]+)$") or battery
+        if model and model ~= "" then
+            table.insert(model_names, if #batteries > 1 then (name .. ": " .. model) else model)
+        else
+            table.insert(model_names, name)
         end
-    end)
+    end
+    noctalia.state.set("battery_model_name", table.concat(model_names, ", "))
+
+    local first_battery = batteries[1]
+    local threshold_content = read_trimmed(first_battery .. "/charge_control_end_threshold")
+    local current_val = tonumber(threshold_content) or 0
+    noctalia.state.set("current_threshold", current_val)
+
+    local pending_checks = #batteries
+    local any_writable = false
+
+    for _, battery in ipairs(batteries) do
+        local threshold_file = battery .. "/charge_control_end_threshold"
+        check_writable(threshold_file, function(writable)
+            if writable then
+                any_writable = true
+            end
+
+            pending_checks -= 1
+            if pending_checks == 0 then
+                noctalia.state.set("is_writable", any_writable)
+
+                if any_writable then
+                    local saved_val = nil
+                    if THRESHOLD_FILE_PATH and noctalia.fileExists(THRESHOLD_FILE_PATH) then
+                        local saved_content = read_trimmed(THRESHOLD_FILE_PATH)
+                        if saved_content then
+                            saved_val = tonumber(saved_content)
+                        end
+                    end
+
+                    if not saved_val then
+                        local config_val = noctalia.getConfig("charge_threshold")
+                        if typeof(config_val) == "number" then
+                            saved_val = config_val
+                        end
+                    end
+
+                    if saved_val and saved_val >= 40 and saved_val <= 100 then
+                        if saved_val ~= current_val then
+                            set_threshold(saved_val)
+                        end
+                    end
+                end
+            end
+        end)
+    end
 end
 
 local function run_setup()
