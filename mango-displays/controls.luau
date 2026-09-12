@@ -107,6 +107,31 @@ function M.tiles(outputs, selectedName, onPick)
   return ui.row({ gap = 8 }, tiles)
 end
 
+function M.status(text, isError, overwriteNeeded)
+  if text == "" then
+    return nil
+  end
+  local row = {
+    ui.glyph({
+      name = isError and "alert-triangle" or "circle-check",
+      size = 14,
+      color = isError and "error" or "primary",
+    }),
+    ui.label({
+      text = text,
+      fontSize = 11,
+      color = isError and "error" or "on_surface_variant",
+      maxLines = 2,
+      flexGrow = 1,
+    }),
+  }
+  if overwriteNeeded then
+    table.insert(row, ui.button({ text = noctalia.tr("action.cancel"), variant = "outline", controlSize = "sm", onClick = "onCancelOverwrite" }))
+    table.insert(row, ui.button({ text = noctalia.tr("action.overwrite"), variant = "primary", controlSize = "sm", onClick = "onOverwrite" }))
+  end
+  return ui.row({ gap = 6, align = "center" }, row)
+end
+
 function M.message(text)
   return ui.column({ flexGrow = 1, gap = 10, align = "center", justify = "center" }, {
     ui.glyph({ name = "device-desktop-off", size = 26, color = "on_surface_variant" }),

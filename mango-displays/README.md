@@ -32,10 +32,11 @@ type = "prponkshe/mango-displays:bar"
 ```
 
 Left-click the tile to open the panel, right-click to open `wdisplays`. The
-panel also opens over IPC:
+panels also open over IPC:
 
 ```sh
 noctalia msg panel-toggle prponkshe/mango-displays:panel
+noctalia msg panel-toggle prponkshe/mango-displays:advanced
 ```
 
 The panel carries three cards for the selected output - **Monitor** (picker plus
@@ -53,7 +54,7 @@ panel being open.
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `auto_save` | `bool` | `true` | Let the watcher write `monitorrule=` lines when the layout changes on its own, such as a drag in `wdisplays`. With this off, only the panel writes. |
-| `monitor_rules_path` | `string` | `~/.config/mango/monitors.conf` | The mango config the rules are written into. It has to be a file mango sources. |
+| `monitor_rules_path` | `string` | `~/.config/mango/monitors.conf` | The mango config the rules are written into. It has to be a file mango sources. If it contains other config, the panels ask before overwriting it with generated `monitorrule=` lines only. |
 | `glyph` | `glyph` | `device-desktop` | Bar tile icon. |
 
 ## IPC

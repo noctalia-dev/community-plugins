@@ -8,6 +8,7 @@
 -- without anyone opening this panel.
 
 local layout = require("./layout.luau")
+local controls = require("./controls.luau")
 
 -- wlroots takes any positive scale, but fractional factors off this ladder
 -- produce blurry integer-scaled clients more often than they help.
@@ -24,6 +25,7 @@ local status = ""
 local statusIsError = false
 local mirrorErrorShown = false
 local busy = false
+local overwriteNeeded = false
 local mirrorRequestSerial = 0
 local mirrorFrom = ""
 local mirrorTo = ""
@@ -39,6 +41,12 @@ local render
 
 local function tr(key, subst)
   return noctalia.tr(key, subst)
+end
+
+local function clearStatus()
+  status = ""
+  statusIsError = false
+  overwriteNeeded = false
 end
 
 -- ── Model ──────────────────────────────────────────────────────────────────
@@ -173,6 +181,8 @@ local function loadOutputs(onLoaded)
     outputs = found
     if selectedOutput() == nil then
       selectOutput(outputs[1] and outputs[1].name or "")
+    else
+      adoptCurrent(selectedOutput())
     end
     syncMirrorPair()
     if onLoaded ~= nil then
@@ -182,7 +192,7 @@ local function loadOutputs(onLoaded)
   end)
 end
 
-local function persistCurrent()
+local function persistCurrent(overwrite)
   if layout.rulesPath() == nil then
     status = tr("status.no_profile_path")
     statusIsError = true
@@ -192,15 +202,18 @@ local function persistCurrent()
   end
   local ok, err = layout.save(outputs, function()
     busy = false
+    overwriteNeeded = false
     loadOutputs()
-  end)
+  end, overwrite)
   if not ok then
     busy = false
-    status = tr("status.save_failed", { error = tostring(err) })
+    overwriteNeeded = err == layout.NON_MONITOR_RULES
+    status = overwriteNeeded and tr("status.overwrite_required") or tr("status.save_failed", { error = tostring(err) })
     statusIsError = true
     render()
     return
   end
+  overwriteNeeded = false
   status = tr("status.saved")
   statusIsError = false
   render()
@@ -232,6 +245,7 @@ local function applyPending()
   end
 
   busy = true
+  overwriteNeeded = false
   status = ""
   render()
   persistCurrent()
@@ -253,6 +267,7 @@ local function setEnabled(name, on)
   end
 
   busy = true
+  overwriteNeeded = false
   status = ""
   render()
 
@@ -644,26 +659,6 @@ local function header()
   })
 end
 
-local function statusLine()
-  if status == "" then
-    return nil
-  end
-  return ui.row({ gap = 6, align = "center" }, {
-    ui.glyph({
-      name = statusIsError and "alert-triangle" or "circle-check",
-      size = 14,
-      color = statusIsError and "error" or "primary",
-    }),
-    ui.label({
-      text = status,
-      fontSize = 11,
-      color = statusIsError and "error" or "on_surface_variant",
-      maxLines = 2,
-      flexGrow = 1,
-    }),
-  })
-end
-
 local function message(glyph, text, color)
   return ui.column({ flexGrow = 1, gap = 12, align = "center", justify = "center" }, {
     ui.glyph({ name = glyph, size = 48, color = "on_surface_variant" }),
@@ -695,7 +690,7 @@ render = function()
   -- The header and the status line stay pinned and the cards scroll, so the
   -- last thing that happened is readable whatever the content does.
   local nodes = { header(), ui.scroll({ flexGrow = 1, gap = 12 }, cards(output)) }
-  local note = statusLine()
+  local note = controls.status(status, statusIsError, overwriteNeeded)
   if note ~= nil then
     table.insert(nodes, note)
   end
@@ -713,8 +708,7 @@ end)
 
 function onOpen(_context)
   opened = true
-  status = ""
-  statusIsError = false
+  clearStatus()
   mirrorErrorShown = false
   busy = false
   adoptMirrorStatus(noctalia.state.get("mirror_status"))
@@ -727,14 +721,30 @@ function onClose()
 end
 
 function onRescan()
-  status = ""
-  statusIsError = false
+  clearStatus()
   selectedName = ""
   loadOutputs()
 end
 
 function onCloseClick()
   panel.close()
+end
+
+function onCancelOverwrite()
+  overwriteNeeded = false
+  status = ""
+  busy = false
+  loadOutputs()
+end
+
+function onOverwrite()
+  if busy then
+    return
+  end
+  busy = true
+  status = ""
+  render()
+  persistCurrent(true)
 end
 
 function onAdvanced()

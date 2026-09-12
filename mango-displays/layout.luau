@@ -22,7 +22,7 @@ local TRANSFORMS = {
   ["flipped-180"] = 6,
   ["flipped-270"] = 7,
 }
-local ADVANCED_FIELDS = { "hdr", "hdr_min_lum", "hdr_max_lum", "hdr_max_avg_lum", "hdr_force", "icc", "custom" }
+local ADVANCED_FIELDS = { "vrr", "hdr", "hdr_min_lum", "hdr_max_lum", "hdr_max_avg_lum", "hdr_force", "icc", "custom" }
 local MANAGED_FIELDS = {
   name = true,
   make = true,
@@ -36,10 +36,11 @@ local MANAGED_FIELDS = {
   y = true,
   scale = true,
   rr = true,
-  vrr = true,
 }
 
 local M = {}
+
+M.NON_MONITOR_RULES = "non-monitorrule lines"
 
 function M.shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
@@ -193,7 +194,6 @@ local function ruleFor(output, originX, originY)
   table.insert(fields, "y:" .. (output.y - originY))
   table.insert(fields, string.format("scale:%.4f", output.scale))
   table.insert(fields, "rr:" .. (TRANSFORMS[output.transform] or 0))
-  table.insert(fields, "vrr:" .. (output.adaptiveSync and 1 or 0))
   appendAdvanced(fields, output)
   return "monitorrule=" .. table.concat(fields, ",")
 end
@@ -231,7 +231,7 @@ local function ruleKeyForOutput(output)
 end
 
 local function readRuleData(path)
-  local data = { lines = {}, fields = {} }
+  local data = { lines = {}, fields = {}, raw = nil, writable = true }
   if path == nil or not noctalia.fileExists(path) then
     return data
   end
@@ -239,21 +239,21 @@ local function readRuleData(path)
   if raw == nil then
     return data
   end
+  data.raw = raw
   for line in (raw .. "\n"):gmatch("(.-)\n") do
-    local fields = parseRule(line)
+    local trimmed = noctalia.string.trim(line)
+    local fields = parseRule(trimmed)
     if fields ~= nil then
       local key = keyForFields(fields)
       if key ~= "" then
         data.lines[key] = line
         data.fields[key] = fields
       end
+    elseif trimmed ~= "" and trimmed:sub(1, 1) ~= "#" then
+      data.writable = false
     end
   end
   return data
-end
-
-function M.readRuleFields()
-  return readRuleData(M.rulesPath()).fields
 end
 
 local function advancedFields(output, sections)
@@ -267,12 +267,8 @@ local function advancedFields(output, sections)
   return advanced
 end
 
-function M.advancedFields(output)
-  return advancedFields(output, M.readRuleFields())
-end
-
 function M.attachRuleFields(outputs)
-  local sections = M.readRuleFields()
+  local sections = readRuleData(M.rulesPath()).fields
   for _, output in ipairs(outputs) do
     output.ruleFields = advancedFields(output, sections)
   end
@@ -280,10 +276,14 @@ end
 
 -- Returns ok, error, changed. onApplied fires once mango has reloaded, so a
 -- caller can re-read state that the reload changed.
-function M.save(outputs, onApplied)
+function M.save(outputs, onApplied, overwrite)
   local path = M.rulesPath()
   if path == nil then
     return false, "no monitor rules path configured", false
+  end
+  local data = readRuleData(path)
+  if overwrite ~= true and not data.writable then
+    return false, M.NON_MONITOR_RULES, false
   end
 
   -- Rebase on the layout's top-left: XWayland maps clicks into a leading gap,
@@ -302,7 +302,6 @@ function M.save(outputs, onApplied)
     return false, "refusing to save a config with every monitor disabled", false
   end
 
-  local data = readRuleData(path)
   local rules = data.lines
   local sections = data.fields
   for _, output in ipairs(outputs) do
@@ -327,7 +326,7 @@ function M.save(outputs, onApplied)
   end
   local body = table.concat(lines, "\n") .. "\n"
 
-  if noctalia.fileExists(path) and noctalia.readFile(path) == body then
+  if data.raw == body then
     if onApplied ~= nil then
       onApplied()
     end
