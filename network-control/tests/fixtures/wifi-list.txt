@@ -1,0 +1,16 @@
+ :sample-net-0:100:
+ :sample-net-1:100:
+ :sample-net-2:100:WPA2
+*:sample-net-2:84:WPA2
+ ::67:WPA2
+ :sample-net-3:60:WPA2
+ :sample-net-4:60:WPA2 WPA3
+ :sample-net-4:55:WPA2 WPA3
+ :sample-net-5:44:WPA2
+ :sample-net-6:40:WPA2
+ :sample-net-3:40:WPA2
+ :sample-net-5:37:WPA2
+ :sample-net-5:30:WPA2
+ :sample-net-7:25:WPA2 WPA3
+ :sample-net-7:24:WPA2
+ :sample-net-5:22:WPA2

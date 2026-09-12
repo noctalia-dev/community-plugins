@@ -1,0 +1,171 @@
+{
+  "title": "Network Control",
+  "panel": {
+    "unavailable": "nmcli is not on PATH — NetworkManager is required.",
+    "permission": "NetworkManager needs authorization to modify system connections; changes will be refused.",
+    "pending": "{name} was changed. Keeping it in {seconds}s, otherwise the previous settings are restored.",
+    "keep": "Keep",
+    "revert_now": "Revert",
+    "changes": "{count} property change(s) to write",
+    "no_changes": "No changes to write.",
+    "apply": "Apply",
+    "reset": "Reset",
+    "connections": "Connections",
+    "edit": "Addressing",
+    "no_connections": "NetworkManager has no editable connection profiles.",
+    "no_device": "no device",
+    "active": "active",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "empty": "—",
+    "offline": "No route to the network.",
+    "primary": "{name} on {device} — {address}",
+    "no_live": "The device is not reporting addresses right now.",
+    "live_ipv4": "Address",
+    "live_gateway": "Gateway",
+    "live_dns": "DNS",
+    "live_ipv6": "IPv6",
+    "live_device": "Device",
+    "wifi_radio": "Wi-Fi radio",
+    "busy": "Working…",
+    "backup": "Restore point: {summary} ({time})",
+    "restore": "Restore",
+    "confirm_note": "Writes go to the NetworkManager profile. After the connection comes back up you have {seconds}s to keep the change before it is rolled back.",
+    "profile_hint": "Addresses take a prefix; a bare address gets /24.",
+    "ipv6_hint": "IPv6 addresses take a prefix; a bare address gets /64.",
+    "refresh": "Refresh",
+    "confirm_note_off": "Writes are applied immediately: confirm_seconds is 0, so there is no rollback window.",
+    "permission_unknown": "Checking NetworkManager permissions…"
+  },
+  "field": {
+    "ipv4_method": "Addressing",
+    "ipv4_addresses": "Addresses",
+    "ipv4_gateway": "Gateway",
+    "ipv4_dns": "DNS servers",
+    "ipv4_dns_search": "Search domains",
+    "ipv6_method": "Addressing",
+    "ipv6_addresses": "Addresses",
+    "ipv6_gateway": "Gateway",
+    "ipv6_dns": "DNS servers",
+    "ipv6_dns_search": "Search domains"
+  },
+  "method": {
+    "auto": "Automatic (DHCP)",
+    "manual": "Manual (static)",
+    "link_local": "Link-local only",
+    "disabled": "Disabled",
+    "ignore": "Ignored (leave as is)",
+    "unknown": "Unknown"
+  },
+  "wifi": {
+    "section": "Wi-Fi networks",
+    "scan": "Scan for networks",
+    "scanning": "Scanning…",
+    "empty": "not scanned",
+    "empty_hint": "Press Scan to look for networks.",
+    "found": "{count} networks",
+    "age_min": "scanned {minutes} min ago",
+    "toggle": "Show or hide the network list",
+    "connect": "Connect",
+    "connected": "Connected",
+    "saved": "saved",
+    "open": "open",
+    "aps": "{count} APs",
+    "manual": "Join a hidden network",
+    "manual_placeholder": "Network name",
+    "password": "Password",
+    "password_placeholder": "Wi-Fi password",
+    "cancel": "Cancel",
+    "enterprise": "802.1X networks need an identity and a certificate — set those up with nmcli or nm-connection-editor.",
+    "enterprise_short": "802.1X, manual setup",
+    "radio_off": "The Wi-Fi radio is off — switch it on above to scan.",
+    "needs_password": "This network needs a password.",
+    "wep": "WEP is obsolete and not supported here — set it up with nmcli if you must."
+  },
+  "bar": {
+    "offline": "offline",
+    "confirm_title": "Unconfirmed change",
+    "confirm_body": "seconds left"
+  },
+  "tooltip": {
+    "device": "Device",
+    "connection": "Connection",
+    "ipv4": "IPv4",
+    "gateway": "Gateway",
+    "dns": "DNS",
+    "ipv6": "IPv6",
+    "open": "Open Network Control",
+    "offline": "No route to the network."
+  },
+  "notify": {
+    "confirm_title": "Confirm the new settings",
+    "confirm_body": "{name}: keep the change within {seconds}s or the previous settings are restored.",
+    "kept": "Settings kept",
+    "applied": "Settings written",
+    "reverting": "Restoring the previous settings…",
+    "reverted": "Previous settings restored",
+    "reverted_timeout": "Not confirmed — previous settings restored",
+    "reverted_failed": "The connection did not come up — previous settings restored",
+    "no_changes": "Nothing to change",
+    "invalid": "Settings not applied",
+    "stale": "The connection is no longer selected — refresh and try again.",
+    "mod_failed": "NetworkManager refused the settings",
+    "up_failed": "The connection did not come up",
+    "down_failed": "The connection could not be taken down",
+    "radio_failed": "The radio could not be switched",
+    "scan_failed": "The scan failed",
+    "wifi_failed": "Could not join the network",
+    "wifi_connected": "Joined",
+    "revert_failed": "The previous settings could not be restored",
+    "backup_failed": "The previous settings could not be saved, so nothing was written",
+    "resumed": "An unconfirmed change was still pending — resuming its countdown",
+    "cleanup_failed": "The failed network's profile could not be removed",
+    "stuck": "A network operation stopped responding"
+  },
+  "error": {
+    "form": "The form could not be read.",
+    "ssid": "Enter a network name first.",
+    "method": "Unsupported addressing method: {value}",
+    "search": "Not a valid search domain: {value}",
+    "address": {
+      "ipv4": "Not a valid IPv4 address: {value}",
+      "ipv6": "Not a valid IPv6 address: {value}"
+    },
+    "gateway": {
+      "ipv4": "Not a valid IPv4 gateway: {value}",
+      "ipv6": "Not a valid IPv6 gateway: {value}"
+    },
+    "dns": {
+      "ipv4": "Not a valid IPv4 name server: {value}",
+      "ipv6": "Not a valid IPv6 name server: {value}"
+    },
+    "need_address": {
+      "ipv4": "A static IPv4 address is required for this method.",
+      "ipv6": "A static IPv6 address is required for this method."
+    },
+    "gateway_needs_address": {
+      "ipv4": "A gateway needs an address: add one or clear the gateway.",
+      "ipv6": "A gateway needs an address: add one or clear the gateway."
+    },
+    "secret_file": "The passphrase file could not be prepared, so the network was not joined",
+    "stuck": "The last operation never reported back, so it was abandoned. Nothing is stuck: try again."
+  },
+  "settings": {
+    "confirm_seconds": {
+      "label": "Confirm window (seconds)",
+      "description": "How long to wait for confirmation after a change before the previous settings are restored. 0 writes changes immediately."
+    },
+    "refresh_seconds": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often the stored profile and the live addresses are re-read."
+    },
+    "show_text": {
+      "label": "Show address",
+      "description": "Show the default route's address next to the glyph"
+    },
+    "glyph": {
+      "label": "Glyph",
+      "description": "Glyph used when no interface is up"
+    }
+  }
+}
