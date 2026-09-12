@@ -20,8 +20,8 @@ local function render()
         barWidget.setGlyph("coffee")
         barWidget.setText(string.format("Idle: %ds", idleTime))
         barWidget.setTooltip("System is idle. Resting eyes...")
-        barWidget.setGlyphColor("#26a69a") -- Teal
-        barWidget.setColor("#ffffff")
+        barWidget.setGlyphColor("on_surface_variant")
+        barWidget.setColor("on_surface")
         return
     end
 
@@ -30,16 +30,16 @@ local function render()
         local remaining = math.max(0, breakDurationSeconds - breakTimer)
         barWidget.setText(string.format("Break: %ds", remaining))
         barWidget.setTooltip(string.format("Break in progress! Look 20ft away.\nTime remaining: %ds\nClick to abort early\nRight-click to reset", remaining))
-        barWidget.setGlyphColor("#ff5252") -- Soft Red
-        barWidget.setColor("#ff5252")
+        barWidget.setGlyphColor("error")
+        barWidget.setColor("error")
     else
         barWidget.setGlyph("eye")
         local activeLimit = activeDurationMinutes * 60
         local remaining = math.max(0, activeLimit - activeTime)
         barWidget.setText(formatTime(remaining))
         barWidget.setTooltip(string.format("Eye-Care timer active.\nTime remaining: %s\nClick to start break manually\nRight-click to reset", formatTime(remaining)))
-        barWidget.setGlyphColor("#00e676") -- Vibrant Green
-        barWidget.setColor("#ffffff")
+        barWidget.setGlyphColor("primary")
+        barWidget.setColor("on_surface")
     end
 end
 
