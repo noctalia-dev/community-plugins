@@ -76,24 +76,16 @@ Configured under **Settings → Plugins** (the gear on this plugin's row).
 
 Discovery works by calling `noctalia msg panel-toggle <bogus-id>` once per
 launcher session and parsing the `(available: a, b, c)` list out of its
-"unknown panel" error response, then caching it. This is safe from a plugin
-because `noctalia.runAsync()` runs the probe on its own thread with a
-callback — it cannot block the thread that services Noctalia's IPC socket.
-
-The same trick is **not** safe as a `[shell.launcher.dmenu.entry.*]` config
-entry: a dmenu entry's `command` runs synchronously on Noctalia's single
-UI/IPC thread, so shelling out to `noctalia msg` there calls back into the
-very thread that's blocked waiting for it — a self-deadlock that only
-resolves via a ~2s timeout and yields an empty result list.
+"unknown panel" error response, then caching it. `noctalia.runAsync()` runs
+the probe on its own thread with a callback, so it never blocks the thread
+that services Noctalia's IPC socket.
 
 Activation calls the native `noctalia.togglePanel(id)` binding directly,
 in-process, for every plain panel row. The one exception is a control-center
 sub-tab row: `noctalia.togglePanel()` has no way to pass a context (it only
 takes a bare panel id), so those instead run
 `noctalia msg panel-toggle control-center <tab>` via `noctalia.runAsync()` —
-the same safe, off-thread pattern discovery already uses, just for
-activation. It's not in-process, but it's not the synchronous dmenu-style
-call that can deadlock either.
+the same off-thread pattern discovery already uses, just for activation.
 
 The panel list is cached for the launcher session (until the script reloads);
 Noctalia's own panel registry only changes when plugins are enabled/disabled
