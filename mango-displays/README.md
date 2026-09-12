@@ -10,7 +10,7 @@ change lands and survives a reboot in one step.
 | Field | Value |
 | --- | --- |
 | ID | `prponkshe/mango-displays` |
-| Entries | Bar widget: `bar`; panel: `panel`; services: `watcher`, `mirror` |
+| Entries | Bar widget: `bar`; panels: `panel`, `advanced`; services: `watcher`, `mirror` |
 
 ## Requirements
 
@@ -40,11 +40,13 @@ noctalia msg panel-toggle prponkshe/mango-displays:panel
 
 The panel carries three cards for the selected output - **Monitor** (picker plus
 an on/off toggle), **Mode** (resolution and refresh rate) and **Scale** - and a
-**Mirror** card for the layout as a whole. There is no Apply button: picking a
-value writes the rules and reloads mango straight away, and the last thing that
-happened is reported along the bottom of the panel. With `auto_save` on, a
-change made anywhere else (a drag in `wdisplays`, a monitor unplugged) is
-written by the watcher without the panel being open.
+**Mirror** card for the layout as a whole. The settings button opens advanced
+`monitorrule` fields: rotation, VRR, custom modes, HDR metadata and ICC profile.
+There is no Apply button on the main cards: picking a value writes the rules and
+reloads mango straight away, and the last thing that happened is reported along
+the bottom of the panel. With `auto_save` on, a change made anywhere else (a
+drag in `wdisplays`, a monitor unplugged) is written by the watcher without the
+panel being open.
 
 ## Settings
 

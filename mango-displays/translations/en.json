@@ -9,7 +9,16 @@
     "enabled": "On",
     "last_output": "Last output",
     "refresh": "Refresh rate",
-    "resolution": "Resolution"
+    "resolution": "Resolution",
+    "custom": "Custom mode",
+    "hdr": "HDR",
+    "hdr_force": "Force HDR",
+    "hdr_max_avg_lum": "Max average luminance",
+    "hdr_max_lum": "Peak luminance",
+    "hdr_min_lum": "Minimum luminance",
+    "icc": "ICC profile",
+    "rr": "Rotation",
+    "vrr": "Variable refresh rate"
   },
   "mirror": {
     "explain": "{source} is copied onto {destination}",
@@ -67,5 +76,15 @@
   "title": "Display",
   "widget": {
     "tooltip": "Display (right-click to arrange)"
+  },
+  "action": {
+    "apply": "Apply"
+  },
+  "advanced": {
+    "color": "Color profile",
+    "hdr": "HDR",
+    "picture": "Picture",
+    "title": "Advanced display",
+    "unset": "Unset"
   }
 }

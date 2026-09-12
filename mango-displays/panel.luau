@@ -638,6 +638,7 @@ end
 local function header()
   return ui.row({ align = "center", justify = "space_between", gap = 8 }, {
     ui.label({ text = tr("title"), fontSize = 18, fontWeight = "bold", color = "primary", flexGrow = 1 }),
+    ui.button({ glyph = "settings", variant = "outline", controlSize = "sm", tooltip = tr("advanced.title"), enabled = not busy, onClick = "onAdvanced" }),
     ui.button({ glyph = "refresh", variant = "outline", controlSize = "sm", tooltip = tr("rescan"), enabled = not busy, onClick = "onRescan" }),
     ui.button({ glyph = "x", variant = "outline", controlSize = "sm", onClick = "onCloseClick" }),
   })
@@ -734,4 +735,9 @@ end
 
 function onCloseClick()
   panel.close()
+end
+
+function onAdvanced()
+  panel.close()
+  noctalia.togglePanel("prponkshe/mango-displays:advanced")
 end
