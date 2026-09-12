@@ -1,0 +1,53 @@
+{
+  "panel": {
+    "add_button": "Add",
+    "add_name": "Person's name",
+    "add_path": "Path to .ogg/.mp3 sound",
+    "add_title": "Add contact",
+    "add_tooltip": "Add contact",
+    "cancel": "Cancel",
+    "cancel_tooltip": "Close the add form",
+    "delete_cancel_tooltip": "Cancel deletion",
+    "delete_confirm_tooltip": "Confirm deletion",
+    "delete_tooltip": "Remove this contact",
+    "edit_title": "Edit contact",
+    "edit_tooltip": "Edit this contact",
+    "empty_state": "No contacts configured yet.\nClick the + button above to add one.",
+    "error_saving": "Could not save the contact list. Check the log.",
+    "invalid_contact": "Type a name and a sound path first.",
+    "play_tooltip": "Play this contact's sound",
+    "save_button": "Save",
+    "saved": "Contact list updated",
+    "settings_tooltip": "Open plugin settings",
+    "title": "Contact Sounds"
+  },
+  "settings": {
+    "contacts": {
+      "description": "Map of person names to the sound played when a notification mentions them. Key: the exact name. Value: absolute path to a .ogg or .mp3 file.",
+      "label": "Contacts"
+    },
+    "glyph": {
+      "description": "Icon shown in the bar for this widget.",
+      "label": "Icon"
+    },
+    "match_case_sensitive": {
+      "description": "When off, the name is searched ignoring capitalization.",
+      "label": "Case sensitive matching"
+    },
+    "only_apps": {
+      "description": "Optional list of notification app names to restrict matching to. Leave empty to match notifications from any app.",
+      "label": "Only these apps"
+    },
+    "show_widget": {
+      "description": "When off, the bell icon is hidden from the bar.",
+      "label": "Show bar icon"
+    }
+  },
+  "shortcut": {
+    "label": "Contact sounds"
+  },
+  "widget": {
+    "tooltip_empty": "Contact Sounds: no contacts configured. Click to open the panel.",
+    "tooltip_ok": "Contact Sounds: %d contact(s) configured. Click to test them."
+  }
+}

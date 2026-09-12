@@ -1,0 +1,89 @@
+id          = "nilsonlinux/contact-sounds"
+name        = "Contact Notification Sounds"
+version     = "1.0.0"
+plugin_api  = 20
+author      = "Nilsonlinux"
+license     = "MIT"
+icon        = "bell-ringing"
+description = "Plays a unique sound (OGG/MP3) for notifications from people in your contact list."
+tags        = ["audio", "utility", "bar", "panel", "service"]
+dependencies = ["dbus-monitor", "gawk", "python3"]
+
+# ---------------------------------------------------------------------------
+# Plugin-level settings (Settings -> Plugins)
+#   contacts: map "Person name" -> path to the .ogg/.mp3 file
+# ---------------------------------------------------------------------------
+
+[[setting]]
+key             = "contacts"
+type            = "string_map"
+label_key       = "settings.contacts.label"
+description_key = "settings.contacts.description"
+default         = {}
+
+[[setting]]
+key             = "show_widget"
+type            = "bool"
+label_key       = "settings.show_widget.label"
+description_key = "settings.show_widget.description"
+default         = true
+
+[[setting]]
+key             = "match_case_sensitive"
+type            = "bool"
+label_key       = "settings.match_case_sensitive.label"
+description_key = "settings.match_case_sensitive.description"
+default         = false
+advanced        = true
+
+[[setting]]
+key             = "only_apps"
+type            = "string_list"
+label_key       = "settings.only_apps.label"
+description_key = "settings.only_apps.description"
+default         = []
+advanced        = true
+
+# ---------------------------------------------------------------------------
+# Service: listens to D-Bus notifications and plays the contact's sound
+# ---------------------------------------------------------------------------
+
+[[service]]
+id    = "monitor"
+entry = "service.luau"
+
+# ---------------------------------------------------------------------------
+# Panel: lists the contacts and lets you test each sound
+# ---------------------------------------------------------------------------
+
+[[panel]]
+id              = "Panel"
+entry           = "panel.luau"
+width           = 480
+height          = 560
+placement       = "floating"
+position        = "center"
+open_near_click = true
+
+# ---------------------------------------------------------------------------
+# Shortcut: control-center tile that opens the test panel
+# ---------------------------------------------------------------------------
+
+[[shortcut]]
+id    = "sounds"
+entry = "shortcut.luau"
+
+# ---------------------------------------------------------------------------
+# Widget: bar bell that opens the test panel
+# ---------------------------------------------------------------------------
+
+[[widget]]
+id    = "contact-sounds-widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "bell-cog"
