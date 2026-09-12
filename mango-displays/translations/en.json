@@ -9,7 +9,18 @@
     "enabled": "On",
     "last_output": "Last output",
     "refresh": "Refresh rate",
-    "resolution": "Resolution"
+    "resolution": "Resolution",
+    "custom": "Custom mode",
+    "hdr": "HDR",
+    "hdr_force": "Force HDR",
+    "hdr_max_avg_lum": "Max average luminance",
+    "hdr_max_lum": "Peak luminance",
+    "hdr_min_lum": "Minimum luminance",
+    "icc": "ICC profile",
+    "rr": "Rotation",
+    "vrr": "Variable refresh rate",
+    "width": "Width",
+    "height": "Height"
   },
   "mirror": {
     "explain": "{source} is copied onto {destination}",
@@ -62,10 +73,26 @@
     "query_failed": "wlr-randr could not list outputs.",
     "save_failed": "Applied, but not saved: {error}",
     "saved": "Applied and saved to mango.",
-    "toggle_failed": "mango could not toggle the monitor."
+    "toggle_failed": "mango could not toggle the monitor.",
+    "invalid_mode": "Custom mode must be width 1-9999, height 1-9999 and refresh 0.001-9999.",
+    "invalid_value": "{field} must be a number from 0 to 10000.",
+    "overwrite_required": "Monitor rules file contains other config. Overwrite it with generated monitor rules only?"
   },
   "title": "Display",
   "widget": {
     "tooltip": "Display (right-click to arrange)"
+  },
+  "action": {
+    "apply": "Apply",
+    "apply_custom_mode": "Apply custom mode",
+    "cancel": "No",
+    "overwrite": "Overwrite"
+  },
+  "advanced": {
+    "color": "Color profile",
+    "hdr": "HDR",
+    "picture": "Picture",
+    "title": "Advanced display",
+    "unset": "Unset"
   }
 }

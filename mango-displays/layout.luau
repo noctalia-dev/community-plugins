@@ -22,8 +22,25 @@ local TRANSFORMS = {
   ["flipped-180"] = 6,
   ["flipped-270"] = 7,
 }
+local ADVANCED_FIELDS = { "vrr", "hdr", "hdr_min_lum", "hdr_max_lum", "hdr_max_avg_lum", "hdr_force", "icc", "custom" }
+local MANAGED_FIELDS = {
+  name = true,
+  make = true,
+  model = true,
+  serial = true,
+  disable = true,
+  width = true,
+  height = true,
+  refresh = true,
+  x = true,
+  y = true,
+  scale = true,
+  rr = true,
+}
 
 local M = {}
+
+M.NON_MONITOR_RULES = "non-monitorrule lines"
 
 function M.shellQuote(s)
   return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
@@ -135,21 +152,33 @@ end
 
 -- ── monitorrule persistence ────────────────────────────────────────────────
 
-local function ruleFor(output, originX, originY)
-  local fields = {}
+local function appendAdvanced(fields, output)
+  local extra = type(output.ruleFields) == "table" and output.ruleFields or {}
+  for _, key in ipairs(ADVANCED_FIELDS) do
+    local value = extra[key]
+    if type(value) == "string" and value ~= "" then
+      table.insert(fields, key .. ":" .. value)
+    end
+  end
+end
+
+local function identityFields(output)
   if output.make ~= "" and output.model ~= "" then
-    table.insert(fields, "make:" .. output.make)
-    table.insert(fields, "model:" .. output.model)
+    local fields = { "make:" .. output.make, "model:" .. output.model }
     if output.serial ~= "" then
       table.insert(fields, "serial:" .. output.serial)
     end
-  else
-    -- name is a regex, so anchor it or eDP-1 would also match eDP-11.
-    table.insert(fields, "name:^" .. output.name .. "$")
+    return fields
   end
+  return { "name:^" .. output.name .. "$" } -- name is a regex.
+end
+
+local function ruleFor(output, originX, originY)
+  local fields = identityFields(output)
 
   if not output.enabled then
     table.insert(fields, "disable:1")
+    appendAdvanced(fields, output)
     return "monitorrule=" .. table.concat(fields, ",")
   end
 
@@ -165,38 +194,96 @@ local function ruleFor(output, originX, originY)
   table.insert(fields, "y:" .. (output.y - originY))
   table.insert(fields, string.format("scale:%.4f", output.scale))
   table.insert(fields, "rr:" .. (TRANSFORMS[output.transform] or 0))
-  table.insert(fields, "vrr:" .. (output.adaptiveSync and 1 or 0))
+  appendAdvanced(fields, output)
   return "monitorrule=" .. table.concat(fields, ",")
 end
 
--- Rules are keyed on identity rather than grouped per output set, because that
--- is all mango offers. Re-read what is already there so a display that is not
--- plugged in right now keeps its rule.
-local function readRules(path)
-  local rules = {}
-  if not noctalia.fileExists(path) then
-    return rules
+local function parseRule(line)
+  local fields = {}
+  local body = line:match("^monitorrule=(.*)$")
+  if body == nil then
+    return nil
+  end
+  for item in body:gmatch("([^,]+)") do
+    local key, value = item:match("^([^:]+):(.*)$")
+    if key ~= nil then
+      fields[key] = value
+    end
+  end
+  return fields
+end
+
+local function keyForFields(fields)
+  local keys = {}
+  for _, key in ipairs({ "name", "make", "model", "serial" }) do
+    if fields[key] ~= nil then
+      table.insert(keys, key .. ":" .. fields[key])
+    end
+  end
+  table.sort(keys)
+  return table.concat(keys, ",")
+end
+
+local function ruleKeyForOutput(output)
+  local fields = identityFields(output)
+  table.sort(fields)
+  return table.concat(fields, ",")
+end
+
+local function readRuleData(path)
+  local data = { lines = {}, fields = {}, raw = nil, writable = true }
+  if path == nil or not noctalia.fileExists(path) then
+    return data
   end
   local raw = noctalia.readFile(path)
   if raw == nil then
-    return rules
+    return data
   end
+  data.raw = raw
   for line in (raw .. "\n"):gmatch("(.-)\n") do
-    if line:match("^monitorrule=") then
-      -- Key on the identity fields so a rewrite replaces rather than duplicates.
-      local key = line:match("^monitorrule=(.-),disable:") or line:match("^monitorrule=(.*)$")
-      rules[key] = line
+    local trimmed = noctalia.string.trim(line)
+    local fields = parseRule(trimmed)
+    if fields ~= nil then
+      local key = keyForFields(fields)
+      if key ~= "" then
+        data.lines[key] = line
+        data.fields[key] = fields
+      end
+    elseif trimmed ~= "" and trimmed:sub(1, 1) ~= "#" then
+      data.writable = false
     end
   end
-  return rules
+  return data
+end
+
+local function advancedFields(output, sections)
+  local fields = sections[ruleKeyForOutput(output)] or {}
+  local advanced = {}
+  for key, value in pairs(fields) do
+    if not MANAGED_FIELDS[key] then
+      advanced[key] = value
+    end
+  end
+  return advanced
+end
+
+function M.attachRuleFields(outputs)
+  local sections = readRuleData(M.rulesPath()).fields
+  for _, output in ipairs(outputs) do
+    output.ruleFields = advancedFields(output, sections)
+  end
 end
 
 -- Returns ok, error, changed. onApplied fires once mango has reloaded, so a
 -- caller can re-read state that the reload changed.
-function M.save(outputs, onApplied)
+function M.save(outputs, onApplied, overwrite)
   local path = M.rulesPath()
   if path == nil then
     return false, "no monitor rules path configured", false
+  end
+  local data = readRuleData(path)
+  if overwrite ~= true and not data.writable then
+    return false, M.NON_MONITOR_RULES, false
   end
 
   -- Rebase on the layout's top-left: XWayland maps clicks into a leading gap,
@@ -215,12 +302,15 @@ function M.save(outputs, onApplied)
     return false, "refusing to save a config with every monitor disabled", false
   end
 
-  local rules = readRules(path)
+  local rules = data.lines
+  local sections = data.fields
   for _, output in ipairs(outputs) do
+    if output.ruleFields == nil then
+      output.ruleFields = advancedFields(output, sections)
+    end
     local rule = ruleFor(output, originX, originY)
     if rule ~= nil then
-      local key = rule:match("^monitorrule=(.-),disable:") or rule
-      rules[key] = rule
+      rules[keyForFields(parseRule(rule))] = rule
     end
   end
 
@@ -236,7 +326,7 @@ function M.save(outputs, onApplied)
   end
   local body = table.concat(lines, "\n") .. "\n"
 
-  if noctalia.fileExists(path) and noctalia.readFile(path) == body then
+  if data.raw == body then
     if onApplied ~= nil then
       onApplied()
     end
