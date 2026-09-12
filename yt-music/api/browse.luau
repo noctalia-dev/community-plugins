@@ -52,7 +52,7 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
+curl -4 -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
@@ -154,7 +154,7 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
+curl -4 -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
@@ -255,7 +255,7 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
+curl -4 -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
@@ -355,7 +355,7 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
+curl -4 -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \

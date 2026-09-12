@@ -63,7 +63,7 @@ function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -
 		network.runAsync(
 			"mkdir -p "
 				.. Bash.sh_quote(THUMB_DIR)
-				.. " && curl -s -L -o "
+				.. " && curl -4 -s -L -o "
 				.. Bash.sh_quote(path)
 				.. " "
 				.. Bash.sh_quote(url),
@@ -141,7 +141,7 @@ function EXPO.ensure_thumbnails(items, on_updated, tag)
 	local script = ([=[
 mkdir -p "%s"
 if command -v curl >/dev/null 2>&1; then
-  curl -s --parallel --parallel-max 16 --parallel-immediate -K "%s" >/dev/null 2>&1
+  curl -4 -s --parallel --parallel-max 16 --parallel-immediate -K "%s" >/dev/null 2>&1
 fi
 echo "THUMBS_DONE=1"
 ]=]):format(THUMB_DIR, configFile)
@@ -172,7 +172,10 @@ function EXPO.attach_cached_thumbs(items: { { [string]: any } })
 		local item = items[i]
 		if type(item) == "table" and type(item.id) == "string" and item.id ~= "" then
 			local path = path_for(item.id, item.thumbnail_url)
-			if noctalia.fileExists(path) then
+			if known_thumb_files[path] == nil then
+				known_thumb_files[path] = noctalia.fileExists(path)
+			end
+			if known_thumb_files[path] then
 				item.thumb_path = path
 			end
 		end

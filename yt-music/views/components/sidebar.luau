@@ -2,6 +2,7 @@ local theme = require("../../utils/theme.luau")
 local state = require("../state.luau")
 local common = require("../common.luau")
 local rerender = require("../rerender.luau")
+local request = require("../actions.luau")
 
 local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },
@@ -134,12 +135,22 @@ local function build_sidebar()
         table.insert(sidebar_items, ui.separator({ key = "sep-recent", color = "outline", spacing = 8 }))
     end
 
-    table.insert(sidebar_items, ui.row({ key = "label-library", gap = 0, padding = 6, borderWidth = 0 }, {
+    table.insert(sidebar_items, ui.row({ key = "label-library", align = "center", justify = "space_between", padding = 6, borderWidth = 0 }, {
         ui.label({
             text = "YOUR LIBRARY",
             fontSize = theme.fontBody,
             fontWeight = "bold",
             color = "on_surface_variant"
+        }),
+        ui.button({
+            key = "btn-refresh-sidebar-lib",
+            glyph = "refresh",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Sync library",
+            onClick = function()
+                request("refresh_library", {})
+            end
         })
     }))
 
