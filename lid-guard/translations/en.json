@@ -1,7 +1,7 @@
 {
   "error": {
     "command_failed": "The systemd command failed.",
-    "missing_dependencies": "systemctl, systemd-run, systemd-inhibit, and sleep are required.",
+    "missing_dependencies": "Dinit with elogind, or systemd with logind, is required.",
     "state_mismatch": "The requested state could not be confirmed."
   },
   "notification": {
@@ -23,6 +23,6 @@
     "active": "Lid Guard is on — closing the lid will not suspend the laptop",
     "changing": "Changing Lid Guard state…",
     "inactive": "Lid Guard is off — click to keep the laptop awake with the lid closed",
-    "unavailable": "Lid Guard requires systemd"
+    "unavailable": "Lid Guard requires Dinit + elogind or systemd"
   }
 }
