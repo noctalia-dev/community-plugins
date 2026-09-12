@@ -2,6 +2,7 @@ local theme = require("../../utils/theme.luau")
 local state = require("../state.luau")
 local common = require("../common.luau")
 local rerender = require("../rerender.luau")
+local request = require("../actions.luau")
 
 local function build_library()
 	local data = state.data
@@ -20,6 +21,16 @@ local function build_library()
 					fontSize = theme.fontTitle,
 					color = "on_surface_variant",
 				}),
+			}),
+			ui.button({
+				key = "btn-sync-lib-head",
+				glyph = "refresh",
+				variant = "secondary",
+				controlSize = "md",
+				tooltip = "Refresh library",
+				onClick = function()
+					request("refresh_library", {})
+				end,
 			}),
 		})
 	)

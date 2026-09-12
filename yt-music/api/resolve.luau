@@ -93,9 +93,10 @@ function EXPO.cache_audio(video_id, callback)
         cookie_opt = string.format("--cookies '%s'", COOKIE_PATH)
     end
 
+    local out_template = AUDIO_DIR .. "/" .. safe_id .. ".%(ext)s"
     local cmd = string.format(
-        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' %s 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
-        AUDIO_DIR, path, cookie_opt, safe_id
+        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -4 --extractor-args \"youtube:player_client=android,mweb\" -f 'bestaudio/best' -x --audio-format opus --audio-quality 0 -o '%s' %s 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
+        AUDIO_DIR, out_template, cookie_opt, safe_id
     )
     local launched = network.runAsync(cmd, function(res)
         local out = (type(res) == "table" and res.stdout) or ""

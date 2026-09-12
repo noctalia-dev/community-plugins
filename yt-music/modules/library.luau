@@ -40,16 +40,25 @@ function Library.load_offline_meta()
 	end
 end
 
+local save_meta_pending = false
+
 function Library.save_offline_meta()
 	if type(state.offline_meta) ~= "table" then
 		return
 	end
-	local encoded = noctalia.json.encode(state.offline_meta)
-	if encoded then
-		noctalia.writeFile(const.OFFLINE_META_PATH, encoded)
-	else
-		log("offline_meta: encode failed, not saved")
+	if save_meta_pending then
+		return
 	end
+	save_meta_pending = true
+	noctalia.runAsync("true", function()
+		save_meta_pending = false
+		local ok, encoded = pcall(noctalia.json.encode, state.offline_meta)
+		if ok and encoded then
+			noctalia.writeFile(const.OFFLINE_META_PATH, encoded)
+		else
+			log("offline_meta: encode failed, not saved")
+		end
+	end)
 end
 
 -- One pass over every known playlist cache that simultaneously:
@@ -94,7 +103,7 @@ function Library.audit_downloaded_playlists()
 		add_source({ state.playlist })
 	end
 
-	state.downloaded_playlist_ids = {}
+	local new_downloaded_playlist_ids = {}
 	local member_ids = {}
 	local meta = {}
 	local done = 0
@@ -139,6 +148,7 @@ function Library.audit_downloaded_playlists()
 			Library.save_offline_meta()
 		end
 
+		state.downloaded_playlist_ids = new_downloaded_playlist_ids
 		log("audit_downloaded_playlists: " .. done .. " fully downloaded, " .. #offline .. " saved tracks")
 		auditing = false
 		store.publish()
@@ -154,39 +164,41 @@ function Library.audit_downloaded_playlists()
 			return
 		end
 		noctalia.runAsync("true", function()
-			local tracks = api.load_cached_playlist(sources[idx])
-			if tracks and #tracks > 0 then
-				for _, tr in ipairs(tracks) do
-					if tr.id then
-						meta[tr.id] = {
-							title = tr.title,
-							artist = tr.artist,
-							duration = tonumber(tr.duration) or 0,
-							thumbnail_url = tr.thumbnail_url,
-						}
-					end
-				end
-				local all_dl = true
-				for _, tr in ipairs(tracks) do
-					if tr.id and not cached[tr.id] then
-						all_dl = false
-						break
-					end
-				end
-				if all_dl then
-					state.downloaded_playlist_ids[sources[idx]] = true
-					done = done + 1
+			pcall(function()
+				local tracks = api.load_cached_playlist(sources[idx])
+				if tracks and #tracks > 0 then
 					for _, tr in ipairs(tracks) do
 						if tr.id then
-							member_ids[tr.id] = true
-							if not state.offline_meta[tr.id] and meta[tr.id] then
-								state.offline_meta[tr.id] = meta[tr.id]
-								meta_added = true
+							meta[tr.id] = {
+								title = tr.title,
+								artist = tr.artist,
+								duration = tonumber(tr.duration) or 0,
+								thumbnail_url = tr.thumbnail_url,
+							}
+						end
+					end
+					local all_dl = true
+					for _, tr in ipairs(tracks) do
+						if tr.id and not cached[tr.id] then
+							all_dl = false
+							break
+						end
+					end
+					if all_dl then
+						new_downloaded_playlist_ids[sources[idx]] = true
+						done = done + 1
+						for _, tr in ipairs(tracks) do
+							if tr.id then
+								member_ids[tr.id] = true
+								if not state.offline_meta[tr.id] and meta[tr.id] then
+									state.offline_meta[tr.id] = meta[tr.id]
+									meta_added = true
+								end
 							end
 						end
 					end
 				end
-			end
+			end)
 			step(idx + 1)
 		end)
 	end

@@ -88,6 +88,9 @@ function Playlist.open(pid, title)
 		end
 		state.playlist.tracks = cached
 		state.playlist.fetching = false
+		if not state.playlist.count or state.playlist.count == 0 or state.playlist.count == "0" then
+			state.playlist.count = #cached
+		end
 		store.publish()
 		ensure_thumbs("playlist")
 	else
@@ -117,6 +120,9 @@ function Playlist.open(pid, title)
 					library.sync_liked_tracks(res.tracks)
 				end
 				state.playlist.tracks = res.tracks
+				if not state.playlist.count or state.playlist.count == 0 or state.playlist.count == "0" then
+					state.playlist.count = #res.tracks
+				end
 				save_cache(pid)
 			end
 			-- YT Music attaches continuations even when the whole list fits one
@@ -139,21 +145,7 @@ function Playlist.open(pid, title)
 		end)
 	end
 
-	noctalia.runAsync("true", function()
-		if seq ~= open_seq or state.playlist.id ~= pid then
-			return
-		end
-		local cached = load_cached(pid)
-		if cached and #cached > 0 then
-			if pid == "VLLM" then
-				library.sync_liked_tracks(cached)
-			end
-			if #state.playlist.tracks == 0 then
-				state.playlist.tracks = cached
-				store.publish()
-			end
-		end
-	end)
+-- redundant async reload removed
 end
 
 -- play from cached tracks only (play_playlist)
@@ -212,7 +204,9 @@ function Playlist.refresh(pid)
 				state.playlist.count = res.total_count
 			end
 			state.playlist.next_token = res.next_token
-			state.playlist.tracks = res.tracks or {}
+			if res.tracks and #res.tracks > 0 then
+				state.playlist.tracks = res.tracks
+			end
 			local total = tonumber(state.playlist.count) or 0
 			if total > 0 and #state.playlist.tracks >= total then
 				state.playlist.next_token = nil
@@ -230,6 +224,7 @@ do_fetch = function(pid, fetch_token)
 		if state.playlist.id ~= pid then
 			return
 		end
+		pcall(function()
 
 		-- YT Music appends a suggestion shelf to playlist continuations; only
 		-- the first (declared_count - loaded) rows are real playlist members,
@@ -329,6 +324,7 @@ do_fetch = function(pid, fetch_token)
 		store.publish()
 		save_cache(pid)
 		ensure_thumbs("playlist")
+		end)
 	end)
 end
 
