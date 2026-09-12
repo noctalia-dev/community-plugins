@@ -1,0 +1,102 @@
+id = "theskyentist/panel-switcher"
+name = "Panel Switcher"
+version = "1.0.0"
+plugin_api = 3
+author = "TheSkyentist"
+license = "MIT"
+icon = "layout-bottombar"
+description = "List and toggle any registered Noctalia panel (built-in or plugin) from the launcher via /pan."
+tags = ["panel", "launcher", "utility"]
+dependencies = []
+
+[[launcher_provider]]
+id     = "panels"
+entry  = "launcher.luau"
+prefix = "pan"
+glyph  = "layout-bottombar"
+include_in_global_search = false
+debounce_ms = 0
+
+[[setting]]
+key     = "show_cc_tabs"
+type    = "bool"
+label_key = "settings.show_cc_tabs.label"
+description_key = "settings.show_cc_tabs.description"
+default = true
+
+[[setting]]
+key     = "show_tab_media"
+type    = "bool"
+label_key = "settings.show_tab_media.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_audio"
+type    = "bool"
+label_key = "settings.show_tab_audio.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_monitor"
+type    = "bool"
+label_key = "settings.show_tab_monitor.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_system"
+type    = "bool"
+label_key = "settings.show_tab_system.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_power"
+type    = "bool"
+label_key = "settings.show_tab_power.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_network"
+type    = "bool"
+label_key = "settings.show_tab_network.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_bluetooth"
+type    = "bool"
+label_key = "settings.show_tab_bluetooth.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_weather"
+type    = "bool"
+label_key = "settings.show_tab_weather.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_calendar"
+type    = "bool"
+label_key = "settings.show_tab_calendar.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_notifications"
+type    = "bool"
+label_key = "settings.show_tab_notifications.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }
+
+[[setting]]
+key     = "show_tab_screen_time"
+type    = "bool"
+label_key = "settings.show_tab_screen_time.label"
+default = true
+visible_when = { key = "show_cc_tabs", values = ["true"] }

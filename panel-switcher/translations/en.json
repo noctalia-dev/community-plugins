@@ -1,0 +1,47 @@
+{
+  "err-fetch-failed": "Could not list panels",
+  "err-fetch-failed-subtitle": "Is Noctalia running? Try again.",
+  "filter-empty": "Filter: \"{filter}\"",
+  "loading": "Loading…",
+  "loading-subtitle": "Asking Noctalia for the panel list",
+  "no-panels-found": "No panels found",
+  "settings": {
+    "show_cc_tabs": {
+      "label": "Show Control Center tabs",
+      "description": "List Control Center's sub-tabs (Audio, Network, Bluetooth, etc.) as separate results, not just Control Center itself."
+    },
+    "show_tab_media": {
+      "label": "Media"
+    },
+    "show_tab_audio": {
+      "label": "Audio"
+    },
+    "show_tab_monitor": {
+      "label": "Monitor"
+    },
+    "show_tab_system": {
+      "label": "System"
+    },
+    "show_tab_power": {
+      "label": "Power"
+    },
+    "show_tab_network": {
+      "label": "Network"
+    },
+    "show_tab_bluetooth": {
+      "label": "Bluetooth"
+    },
+    "show_tab_weather": {
+      "label": "Weather"
+    },
+    "show_tab_calendar": {
+      "label": "Calendar"
+    },
+    "show_tab_notifications": {
+      "label": "Notifications"
+    },
+    "show_tab_screen_time": {
+      "label": "Screen Time"
+    }
+  }
+}
