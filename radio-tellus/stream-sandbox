@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Loopback bridge for playback in the isolated network namespace.
+set -euo pipefail
+
+proxy_socket=$1
+shift
+bridge_pid=""
+
+cleanup() {
+  local exit_code=$?
+  trap - EXIT INT TERM
+  [[ -z $bridge_pid ]] || kill "$bridge_pid" 2>/dev/null || true
+  [[ -z $bridge_pid ]] || wait "$bridge_pid" 2>/dev/null || true
+  exit "$exit_code"
+}
+trap cleanup EXIT INT TERM
+
+setpriv --pdeathsig TERM --no-new-privs socat \
+  TCP4-LISTEN:18765,bind=127.0.0.1,reuseaddr,fork,max-children=32 \
+  UNIX-CONNECT:"$proxy_socket" >/dev/null 2>&1 &
+bridge_pid=$!
+for (( attempt = 0; attempt < 100; attempt++ )); do
+  if (: > /dev/tcp/127.0.0.1/18765) 2>/dev/null; then break; fi
+  kill -0 "$bridge_pid" 2>/dev/null || break
+  sleep 0.02
+done
+kill -0 "$bridge_pid" 2>/dev/null
+
+export http_proxy=http://127.0.0.1:18765
+export https_proxy=$http_proxy
+export HTTP_PROXY=$http_proxy
+export HTTPS_PROXY=$http_proxy
+export no_proxy=
+export NO_PROXY=
+exec setpriv --no-new-privs "$@"

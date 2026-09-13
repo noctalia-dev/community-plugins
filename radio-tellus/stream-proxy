@@ -1,0 +1,443 @@
+#!/usr/bin/env python3
+"""Bounded HTTP proxy that permits connections only to public destinations.
+
+Adapted from Radio Atlas's radio-proxy.
+Copyright (c) 2026 Akshar Patel. Used under the MIT License; see
+THIRD_PARTY_NOTICES.md.
+"""
+
+import base64
+import hmac
+import ipaddress
+import json
+import os
+import select
+import secrets
+import shutil
+import signal
+import socket
+import socketserver
+import stat
+import subprocess
+import sys
+import threading
+import time
+from urllib.parse import urlsplit
+
+MAX_HEADER_BYTES = 65_536
+MAX_ACTIVE_CONNECTIONS = 32
+MAX_RESOLVED_ENDPOINTS = 16
+HEADER_READ_TIMEOUT_SECONDS = 12
+UPSTREAM_CONNECT_TIMEOUT_SECONDS = 12
+RELAY_IDLE_TIMEOUT_SECONDS = 60
+RELAY_CHUNK_BYTES = 65_536
+NAT64_WELL_KNOWN = ipaddress.ip_network("64:ff9b::/96")
+IPV4_COMPATIBLE = ipaddress.ip_network("::/96")
+IP_COMMAND = shutil.which("ip")
+HTTP_TOKEN_PUNCTUATION = frozenset(b"!#$%&'*+-.^_`|~")
+
+
+class ProxyError(Exception):
+    def __init__(self, status: bytes):
+        self.status = status
+
+
+class UnroutableEndpoint(ProxyError):
+    """A public DNS result that this host currently has no route to."""
+
+
+def embeds_non_public_ipv4(ip):
+    if not isinstance(ip, ipaddress.IPv6Address):
+        return False
+    embedded = []
+    if ip.ipv4_mapped:
+        embedded.append(ip.ipv4_mapped)
+    if ip.sixtofour:
+        embedded.append(ip.sixtofour)
+    if ip.teredo:
+        embedded.extend(ip.teredo)
+    if ip in NAT64_WELL_KNOWN:
+        embedded.append(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF))
+    if ip in IPV4_COMPATIBLE:
+        embedded.append(ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF))
+    return any(not address.is_global for address in embedded)
+
+
+def route_is_local(ip):
+    if IP_COMMAND is None:
+        raise ProxyError(b"502 Bad Gateway")
+    try:
+        result = subprocess.run(
+            [IP_COMMAND, "-j", "route", "get", str(ip)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ProxyError(b"502 Bad Gateway") from error
+    if result.returncode != 0:
+        raise UnroutableEndpoint(b"502 Bad Gateway")
+    try:
+        routes = json.loads(result.stdout)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ProxyError(b"502 Bad Gateway") from error
+    if (
+        not isinstance(routes, list)
+        or not routes
+        or any(not isinstance(route, dict) for route in routes)
+    ):
+        raise ProxyError(b"502 Bad Gateway")
+    return any(
+        route.get("type") == "local" or route.get("dev") == "lo"
+        for route in routes
+    )
+
+
+def public_endpoints(host, port):
+    try:
+        addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as error:
+        raise ProxyError(b"502 Bad Gateway") from error
+    endpoints = []
+    seen = set()
+    for family, kind, protocol, _, address in addresses:
+        if family not in {socket.AF_INET, socket.AF_INET6} or kind != socket.SOCK_STREAM:
+            raise ProxyError(b"502 Bad Gateway")
+        key = (family, address)
+        if key in seen:
+            continue
+        if len(seen) >= MAX_RESOLVED_ENDPOINTS:
+            raise ProxyError(b"502 Bad Gateway")
+        seen.add(key)
+        try:
+            ip = ipaddress.ip_address(address[0].split("%", 1)[0])
+        except (ValueError, TypeError, IndexError) as error:
+            raise ProxyError(b"502 Bad Gateway") from error
+        if (
+            not ip.is_global
+            or ip.is_multicast
+            or ip.is_unspecified
+            or ip.is_reserved
+            or getattr(ip, "is_site_local", False)
+            or embeds_non_public_ipv4(ip)
+        ):
+            raise ProxyError(b"403 Forbidden")
+        try:
+            local_route = route_is_local(ip)
+        except UnroutableEndpoint:
+            continue
+        if local_route:
+            raise ProxyError(b"403 Forbidden")
+        endpoints.append((family, kind, protocol, address))
+    if not endpoints:
+        raise ProxyError(b"502 Bad Gateway")
+    return endpoints
+
+
+def connect_public(host, port):
+    last_error = None
+    deadline = time.monotonic() + UPSTREAM_CONNECT_TIMEOUT_SECONDS
+    for family, kind, protocol, address in public_endpoints(host, port):
+        upstream = socket.socket(family, kind, protocol)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            upstream.close()
+            break
+        upstream.settimeout(remaining)
+        try:
+            upstream.connect(address)
+            return upstream
+        except OSError as error:
+            last_error = error
+            upstream.close()
+    raise ProxyError(b"502 Bad Gateway") from last_error
+
+
+def parse_authority(authority, default_port):
+    if (
+        not authority
+        or len(authority) > 512
+        or "\\" in authority
+        or any(ord(character) <= 32 or ord(character) == 127 for character in authority)
+    ):
+        raise ProxyError(b"400 Bad Request")
+    try:
+        target = urlsplit(f"//{authority}")
+        host = target.hostname
+        port = target.port or default_port
+    except ValueError as error:
+        raise ProxyError(b"400 Bad Request") from error
+    if (
+        not host
+        or "%" in host
+        or target.username is not None
+        or target.password is not None
+    ):
+        raise ProxyError(b"400 Bad Request")
+    if target.path or target.query or target.fragment or not 1 <= port <= 65_535:
+        raise ProxyError(b"400 Bad Request")
+    return host, port
+
+
+def read_header(client):
+    data = bytearray()
+    deadline = time.monotonic() + HEADER_READ_TIMEOUT_SECONDS
+    while b"\r\n\r\n" not in data:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ProxyError(b"408 Request Timeout")
+        client.settimeout(remaining)
+        try:
+            chunk = client.recv(min(16_384, MAX_HEADER_BYTES - len(data) + 1))
+        except TimeoutError as error:
+            raise ProxyError(b"408 Request Timeout") from error
+        if not chunk:
+            raise ProxyError(b"400 Bad Request")
+        data.extend(chunk)
+        if len(data) > MAX_HEADER_BYTES:
+            raise ProxyError(b"431 Request Header Fields Too Large")
+    boundary = data.index(b"\r\n\r\n") + 4
+    return bytes(data[:boundary]), bytes(data[boundary:])
+
+
+def parse_request(header):
+    lines = header[:-4].split(b"\r\n")
+    try:
+        method, target, version = lines[0].decode("ascii").split(" ")
+    except (UnicodeDecodeError, ValueError) as error:
+        raise ProxyError(b"400 Bad Request") from error
+    if any(ord(character) <= 32 or ord(character) == 127 for character in target):
+        raise ProxyError(b"400 Bad Request")
+    if version not in {"HTTP/1.0", "HTTP/1.1"}:
+        raise ProxyError(b"400 Bad Request")
+    parsed_headers = []
+    connection_headers = set()
+    for line in lines[1:]:
+        if not line or line[:1].isspace() or b":" not in line:
+            raise ProxyError(b"400 Bad Request")
+        name, value = line.split(b":", 1)
+        if not name or any(
+            not (
+                character in HTTP_TOKEN_PUNCTUATION
+                or ord("0") <= character <= ord("9")
+                or ord("A") <= character <= ord("Z")
+                or ord("a") <= character <= ord("z")
+            )
+            for character in name
+        ):
+            raise ProxyError(b"400 Bad Request")
+        if any(character < 32 and character != 9 or character == 127 for character in value):
+            raise ProxyError(b"400 Bad Request")
+        try:
+            normalized = name.decode("ascii").lower()
+        except UnicodeDecodeError as error:
+            raise ProxyError(b"400 Bad Request") from error
+        if normalized == "connection":
+            try:
+                connection_headers.update(
+                    token.strip().lower()
+                    for token in value.decode("ascii").split(",")
+                    if token.strip()
+                )
+            except UnicodeDecodeError as error:
+                raise ProxyError(b"400 Bad Request") from error
+        parsed_headers.append((normalized, line))
+    headers = []
+    for normalized, line in parsed_headers:
+        if normalized not in connection_headers and normalized not in {
+            "connection",
+            "content-length",
+            "host",
+            "keep-alive",
+            "proxy-authorization",
+            "proxy-connection",
+            "te",
+            "trailer",
+            "transfer-encoding",
+            "upgrade",
+        }:
+            headers.append(line)
+    if method == "CONNECT":
+        host, port = parse_authority(target, 443)
+        return method, host, port, b""
+    if method not in {"GET", "HEAD"}:
+        raise ProxyError(b"405 Method Not Allowed")
+    if "\\" in target:
+        raise ProxyError(b"400 Bad Request")
+    try:
+        destination = urlsplit(target)
+        port = destination.port or 80
+    except ValueError as error:
+        raise ProxyError(b"400 Bad Request") from error
+    if (
+        destination.scheme.lower() != "http"
+        or not destination.hostname
+        or "%" in destination.hostname
+    ):
+        raise ProxyError(b"400 Bad Request")
+    if destination.username is not None or destination.password is not None:
+        raise ProxyError(b"400 Bad Request")
+    if destination.fragment or not 1 <= port <= 65_535:
+        raise ProxyError(b"400 Bad Request")
+    path = destination.path or "/"
+    if destination.query:
+        path += f"?{destination.query}"
+    try:
+        request_line = f"{method} {path} {version}".encode("ascii")
+        hostname = destination.hostname
+        host_header = (
+            f"[{hostname}]" if ":" in hostname else hostname
+        )
+        if destination.port not in {None, 80}:
+            host_header += f":{destination.port}"
+        host_header = host_header.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise ProxyError(b"400 Bad Request") from error
+    forwarded = b"\r\n".join(
+        [request_line, *headers, b"Host: " + host_header, b"Connection: close", b"", b""]
+    )
+    return method, destination.hostname, port, forwarded
+
+
+def proxy_authorized(header, token):
+    if token is None:
+        return True
+    expected = b"Basic " + base64.b64encode(("radio:" + token).encode("ascii"))
+    for line in header[:-4].split(b"\r\n")[1:]:
+        if b":" not in line:
+            continue
+        name, value = line.split(b":", 1)
+        if name.strip().lower() == b"proxy-authorization":
+            return hmac.compare_digest(value.strip(), expected)
+    return False
+
+
+def relay(left, right, bidirectional=True):
+    readable_sockets = [left, right]
+    while True:
+        readable, _, _ = select.select(
+            readable_sockets, (), (), RELAY_IDLE_TIMEOUT_SECONDS
+        )
+        if not readable:
+            return
+        for source in readable:
+            data = source.recv(RELAY_CHUNK_BYTES)
+            if not data:
+                if source is right or bidirectional:
+                    return
+                readable_sockets.remove(left)
+                continue
+            if source is left and not bidirectional:
+                return
+            (right if source is left else left).sendall(data)
+
+
+class ProxyHandler(socketserver.BaseRequestHandler):
+    def handle(self):
+        self.request.settimeout(HEADER_READ_TIMEOUT_SECONDS)
+        try:
+            header, pending = read_header(self.request)
+            if not proxy_authorized(header, self.server.proxy_token):
+                raise ProxyError(b"407 Proxy Authentication Required")
+            method, host, port, forwarded = parse_request(header)
+            if pending and method != "CONNECT":
+                raise ProxyError(b"400 Bad Request")
+            with connect_public(host, port) as upstream:
+                if method == "CONNECT":
+                    self.request.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
+                else:
+                    upstream.sendall(forwarded)
+                if pending and method == "CONNECT":
+                    upstream.sendall(pending)
+                relay(self.request, upstream, bidirectional=method == "CONNECT")
+        except ProxyError as error:
+            try:
+                authentication = (
+                    b'Proxy-Authenticate: Basic realm="radio-tellus"\r\n'
+                    if error.status.startswith(b"407 ")
+                    else b""
+                )
+                self.request.sendall(
+                    b"HTTP/1.1 "
+                    + error.status
+                    + b"\r\n"
+                    + authentication
+                    + b"Connection: close\r\n\r\n"
+                )
+            except OSError:
+                pass
+        except OSError:
+            pass
+
+
+class BoundedProxyMixin:
+    def __init__(self, *args, **kwargs):
+        self.connection_slots = threading.BoundedSemaphore(MAX_ACTIVE_CONNECTIONS)
+        self.proxy_token = None
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self.connection_slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self.connection_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.connection_slots.release()
+
+
+class UnixProxyServer(BoundedProxyMixin, socketserver.ThreadingUnixStreamServer):
+    daemon_threads = True
+    request_queue_size = MAX_ACTIVE_CONNECTIONS
+
+
+class TcpProxyServer(BoundedProxyMixin, socketserver.ThreadingTCPServer):
+    address_family = socket.AF_INET
+    daemon_threads = True
+    request_queue_size = MAX_ACTIVE_CONNECTIONS
+
+
+def write_ready(path, port, token):
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="ascii") as ready:
+        ready.write(f"{port} {token}\n")
+
+
+def main():
+    tcp_mode = len(sys.argv) == 3 and sys.argv[1] == "--tcp-ready"
+    if not tcp_mode and len(sys.argv) != 2:
+        raise SystemExit("Usage: stream-proxy SOCKET | --tcp-ready READY_FILE")
+    path = sys.argv[2] if tcp_mode else sys.argv[1]
+    os.umask(0o077)
+    if tcp_mode:
+        if os.path.exists(path):
+            raise SystemExit("Proxy ready path already exists")
+        token = secrets.token_urlsafe(32)
+        server = TcpProxyServer(("127.0.0.1", 0), ProxyHandler)
+        server.proxy_token = token
+        write_ready(path, server.server_address[1], token)
+    else:
+        if os.path.exists(path):
+            if not stat.S_ISSOCK(os.stat(path).st_mode):
+                raise SystemExit("Proxy path exists and is not a socket")
+            os.unlink(path)
+        server = UnixProxyServer(path, ProxyHandler)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
+        if os.path.exists(path):
+            os.unlink(path)
+
+
+if __name__ == "__main__":
+    main()

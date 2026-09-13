@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+# Select full or proxy playback isolation from the available capabilities.
+# Copyright (c) 2026 Akshar Patel. Used under the MIT License; see
+# THIRD_PARTY_NOTICES.md.
+set -euo pipefail
+umask 077
+ulimit -c 0
+open_file_limit=$(ulimit -n)
+virtual_memory_limit=$(ulimit -v)
+if [[ $open_file_limit == unlimited ]] || (( open_file_limit > 256 )); then ulimit -n 256; fi
+if [[ $virtual_memory_limit == unlimited ]] || (( virtual_memory_limit > 2097152 )); then
+  ulimit -v 2097152
+fi
+
+if (( $# < 4 )); then
+  printf 'Usage: %s DATA_DIR GENERATION MODE PLAYER [ARG ...]\n' "$0" >&2
+  exit 2
+fi
+
+data_dir=$1
+generation=$2
+requested_mode=$3
+shift 3
+[[ $generation =~ ^[0-9]+-[0-9]+$ ]] || exit 2
+[[ -d $data_dir ]] || exit 2
+[[ -O $data_dir ]] || exit 2
+chmod 700 -- "$data_dir"
+case $requested_mode in auto | full | compatible) ;; *) exit 2 ;; esac
+[[ $1 == mpv ]] || exit 2
+player_path=$(command -v -- "$1")
+[[ -n $player_path && $player_path == /* ]] || exit 3
+player_arguments=("$player_path" "${@:2}")
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+sandbox="$script_dir/stream-sandbox"
+runtime_dir="$data_dir/run-$generation"
+proxy_socket="$runtime_dir/proxy.sock"
+proxy_ready="$runtime_dir/proxy.ready"
+isolation_file="$runtime_dir/isolation"
+session_pid_file="$runtime_dir/session.pid"
+audio_socket="${XDG_RUNTIME_DIR:?Radio Tellus requires XDG_RUNTIME_DIR}/pulse/native"
+proxy_pid=""
+player_pid=""
+[[ -S $audio_socket ]] || exit 5
+
+# Cleanup is limited to clearly stale sessions; unknown data remains.
+readonly stale_runtime_grace_ms=86400000
+readonly stale_runtime_scan_limit=8
+
+runtime_dir_has_only_known_entries() {
+  local candidate=$1 entry name
+  for entry in "$candidate"/* "$candidate"/.[!.]* "$candidate"/..?*; do
+    [[ -e $entry || -L $entry ]] || continue
+    name=${entry##*/}
+    case $name in
+      mpv.sock | proxy.sock | proxy.ready | isolation | session.pid) ;;
+      *) return 1 ;;
+    esac
+    [[ ! -d $entry || -L $entry ]] || return 1
+  done
+}
+
+read_session_marker() {
+  local marker=$1
+  session_marker_pid=""
+  [[ -f $marker && ! -L $marker && -O $marker ]] || return 1
+  IFS= read -r session_marker_pid < "$marker" || true
+  [[ $session_marker_pid =~ ^[1-9][0-9]*$ ]]
+}
+
+prune_stale_runtime_dirs() {
+  local current_ms candidate basename candidate_ms age_ms marker scanned=0
+  local session_marker_pid=""
+  current_ms=${generation%%-*}
+  [[ $current_ms =~ ^[0-9]{1,16}$ ]] || return 0
+
+  shopt -s nullglob
+  for candidate in "$data_dir"/run-*-*; do
+    (( scanned >= stale_runtime_scan_limit )) && break
+    basename=${candidate##*/}
+    [[ $basename =~ ^run-([0-9]{1,16})-[0-9]{1,16}$ ]] || continue
+    [[ -d $candidate && ! -L $candidate && -O $candidate ]] || continue
+    candidate_ms=${BASH_REMATCH[1]}
+    age_ms=$((10#$current_ms - 10#$candidate_ms))
+    (( age_ms >= stale_runtime_grace_ms )) || continue
+    (( scanned += 1 ))
+
+    marker="$candidate/session.pid"
+    if [[ ! -e $marker && ! -L $marker ]]; then
+      # Empty legacy directories are safe to remove.
+      rmdir -- "$candidate" 2>/dev/null || true
+      continue
+    fi
+    # Unknown markers are left untouched.
+    read_session_marker "$marker" || continue
+    # Live-looking sessions remain; PID reuse only delays cleanup.
+    kill -0 "$session_marker_pid" 2>/dev/null && continue
+    runtime_dir_has_only_known_entries "$candidate" || continue
+    rm -f -- "$candidate/mpv.sock" "$candidate/proxy.sock" \
+      "$candidate/proxy.ready" "$candidate/isolation" "$marker"
+    rmdir -- "$candidate" 2>/dev/null || true
+  done
+  shopt -u nullglob
+}
+
+stop_child() {
+  local pid=$1
+  [[ -z $pid ]] || kill "$pid" 2>/dev/null || true
+  [[ -z $pid ]] || wait "$pid" 2>/dev/null || true
+}
+
+path_ready() {
+  case $1 in
+    socket) [[ -S $2 ]] ;;
+    file) [[ -f $2 ]] ;;
+    *) return 2 ;;
+  esac
+}
+
+wait_for_path() {
+  local kind=$1 path=$2 pid=$3
+  for (( attempt = 0; attempt < 100; attempt++ )); do
+    path_ready "$kind" "$path" && return 0
+    kill -0 "$pid" 2>/dev/null || return 1
+    sleep 0.02
+  done
+  path_ready "$kind" "$path"
+}
+
+cleanup() {
+  local exit_code=$?
+  trap - EXIT INT TERM
+  stop_child "$player_pid"
+  stop_child "$proxy_pid"
+  rm -f -- "$runtime_dir/mpv.sock" "$proxy_socket" "$proxy_ready" \
+    "$isolation_file" "$session_pid_file"
+  rmdir -- "$runtime_dir" 2>/dev/null || true
+  exit "$exit_code"
+}
+trap cleanup EXIT INT TERM
+
+prune_stale_runtime_dirs
+mkdir -m 700 -- "$runtime_dir"
+printf '%s\n' "$$" > "$session_pid_file"
+
+full_available=false
+full_paths_available=true
+[[ $player_path == /usr/* && -d /etc/alternatives && -d /etc/fonts \
+  && -d /etc/ssl/certs ]] || full_paths_available=false
+for command in bash ip python3 setpriv socat; do
+  command_path=$(command -v -- "$command" || true)
+  [[ $command_path == /usr/* ]] || full_paths_available=false
+done
+if $full_paths_available && command -v bwrap >/dev/null 2>&1 \
+  && bwrap --unshare-net --unshare-pid \
+  --unshare-ipc --unshare-uts --die-with-parent --ro-bind /usr /usr \
+  --symlink usr/lib /lib --symlink usr/lib64 /lib64 -- \
+  /usr/bin/bash --noprofile --norc -c : >/dev/null 2>&1; then
+  full_available=true
+fi
+
+use_full=false
+if [[ $requested_mode == full ]]; then
+  $full_available || exit 6
+  use_full=true
+elif [[ $requested_mode == auto ]] && $full_available; then
+  use_full=true
+fi
+
+if $use_full; then
+  # The proxy needs host networking but not home or session data.
+  setpriv --pdeathsig TERM bwrap --unshare-pid --unshare-ipc --unshare-uts \
+    --die-with-parent --ro-bind /usr /usr --symlink usr/bin /bin \
+    --symlink usr/lib /lib --symlink usr/lib64 /lib64 --symlink usr/sbin /sbin \
+    --dir /etc --ro-bind-try /etc/hosts /etc/hosts \
+    --ro-bind-try /etc/host.conf /etc/host.conf \
+    --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
+    --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
+    --ro-bind-try /etc/gai.conf /etc/gai.conf \
+    --tmpfs /tmp --dev /dev --proc /proc \
+    --bind "$runtime_dir" /proxy-runtime --ro-bind "$script_dir/stream-proxy" /stream-proxy \
+    --clearenv --setenv HOME /home --setenv LANG C.UTF-8 --setenv PATH /usr/bin:/bin \
+    --hostname radio-tellus-proxy -- setpriv --no-new-privs \
+    python3 -I -S /stream-proxy /proxy-runtime/proxy.sock \
+    >/dev/null 2>&1 &
+  proxy_pid=$!
+  wait_for_path socket "$proxy_socket" "$proxy_pid" || exit 4
+  printf 'full\n' > "$isolation_file"
+
+  bwrap --unshare-net --unshare-pid --unshare-ipc --unshare-uts --die-with-parent \
+    --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib \
+    --symlink usr/lib64 /lib64 --symlink usr/sbin /sbin \
+    --dir /etc --ro-bind /etc/alternatives /etc/alternatives \
+    --ro-bind /etc/fonts /etc/fonts \
+    --dir /etc/ssl --ro-bind /etc/ssl/certs /etc/ssl/certs \
+    --dir /home --dir /run --dir /run/user --dir "/run/user/$EUID" \
+    --dir "/run/user/$EUID/pulse" --ro-bind "$audio_socket" "/run/user/$EUID/pulse/native" \
+    --tmpfs /tmp --dev /dev --proc /proc --bind "$runtime_dir" /radio-runtime \
+    --ro-bind "$sandbox" /radio-sandbox --clearenv --setenv HOME /home \
+    --setenv LANG C.UTF-8 --setenv PATH /usr/bin:/bin \
+    --setenv XDG_RUNTIME_DIR "/run/user/$EUID" \
+    --setenv PULSE_SERVER "unix:/run/user/$EUID/pulse/native" \
+    --hostname radio-tellus -- /radio-sandbox /radio-runtime/proxy.sock \
+    "${player_arguments[@]}" &
+  player_pid=$!
+else
+  # The compatibility listener is authenticated against cross-user use.
+  setpriv --pdeathsig TERM --no-new-privs python3 -I -S "$script_dir/stream-proxy" \
+    --tcp-ready "$proxy_ready" >/dev/null 2>&1 &
+  proxy_pid=$!
+  wait_for_path file "$proxy_ready" "$proxy_pid" || exit 4
+  read -r proxy_port proxy_token < "$proxy_ready"
+  [[ $proxy_port =~ ^[0-9]+$ && $proxy_token =~ ^[A-Za-z0-9_-]+$ ]] || exit 4
+  (( proxy_port >= 1 && proxy_port <= 65535 )) || exit 4
+  proxy_url="http://radio:$proxy_token@127.0.0.1:$proxy_port"
+  printf 'compatible\n' > "$isolation_file"
+
+  for index in "${!player_arguments[@]}"; do
+    if [[ ${player_arguments[index]} == --input-ipc-server=/radio-runtime/mpv.sock ]]; then
+      player_arguments[index]="--input-ipc-server=$runtime_dir/mpv.sock"
+    fi
+  done
+  setpriv --pdeathsig TERM --no-new-privs env -i \
+    HOME=/nonexistent LANG=C.UTF-8 PATH=/usr/bin:/bin \
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" PULSE_SERVER="unix:$audio_socket" \
+    http_proxy="$proxy_url" https_proxy="$proxy_url" \
+    HTTP_PROXY="$proxy_url" HTTPS_PROXY="$proxy_url" no_proxy= NO_PROXY= \
+    "${player_arguments[@]}" &
+  player_pid=$!
+fi
+
+wait "$player_pid"

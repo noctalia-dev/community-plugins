@@ -1,0 +1,130 @@
+{
+  "settings": {
+    "startup_view": {
+      "label": "Open on",
+      "description": "Section selected each time the radio panel opens.",
+      "options": {
+        "discover": "Discover",
+        "moods": "Moods",
+        "genres": "Genres",
+        "places": "Places",
+        "favorites": "Favorites",
+        "recent": "Recent"
+      }
+    },
+    "station_limit": {
+      "label": "Stations per view",
+      "description": "Maximum stations shown in Discover, mood, genre, country, and search results."
+    },
+    "history_limit": {
+      "label": "Recent history size",
+      "description": "Number of recently played stations retained and shown. Set to zero to clear and disable history."
+    },
+    "row_click_action": {
+      "label": "Clicking a station",
+      "description": "Choose whether clicking a station row plays it immediately or only selects it.",
+      "options": {
+        "play": "Play immediately",
+        "select": "Select only"
+      }
+    },
+    "stop_on_panel_close": {
+      "label": "Stop when panel closes",
+      "description": "Stop playback when the panel closes, except when it closes to open Radio Tellus settings."
+    },
+    "cache_hours": {
+      "label": "Catalog cache lifetime",
+      "description": "Hours that cached Discover and country lists may be reused when those views are opened."
+    },
+    "allow_insecure_http": {
+      "label": "Allow unencrypted HTTP streams",
+      "description": "Permit playback of unencrypted HTTP audio. Enable only when you trust the station."
+    },
+    "isolation_mode": {
+      "label": "Playback isolation",
+      "description": "Automatic uses full isolation when available and compatible proxy isolation otherwise. The other modes require their selected behavior.",
+      "options": {
+        "auto": "Automatic",
+        "full": "Require full isolation",
+        "compatible": "Compatible proxy isolation"
+      }
+    },
+    "report_clicks": {
+      "label": "Report station plays",
+      "description": "Attempt one Radio Browser click report after MPV confirms decoded audio. Opting out suppresses pending and future reports."
+    },
+    "shortcuts": {
+      "previous": {
+        "label": "Select previous station",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "next": {
+        "label": "Select next station",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "play": {
+        "label": "Play selected station",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "toggle": {
+        "label": "Play or pause",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "random": {
+        "label": "Random station",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "favorite": {
+        "label": "Add or remove favorite",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "mute": {
+        "label": "Mute or unmute",
+        "description": "Keyboard shortcut used while the radio panel is focused."
+      },
+      "options": {
+        "up": "Up Arrow",
+        "k": "K",
+        "ctrl_p": "Ctrl+P",
+        "down": "Down Arrow",
+        "j": "J",
+        "ctrl_n": "Ctrl+N",
+        "enter": "Enter",
+        "ctrl_enter": "Ctrl+Enter",
+        "space": "Space",
+        "p": "P",
+        "ctrl_space": "Ctrl+Space",
+        "r": "R",
+        "shift_r": "Shift+R",
+        "ctrl_r": "Ctrl+R",
+        "f": "F",
+        "shift_f": "Shift+F",
+        "ctrl_f": "Ctrl+F",
+        "m": "M",
+        "shift_m": "Shift+M",
+        "ctrl_m": "Ctrl+M",
+        "disabled": "Disabled"
+      }
+    },
+    "glyph": {
+      "label": "Bar glyph",
+      "description": "Glyph shown while stopped, or at all times when Show playback status is disabled."
+    },
+    "show_playback_status": {
+      "label": "Show playback status",
+      "description": "Override the configured bar glyph while connecting, playing, paused, or playing silently."
+    },
+    "show_station_name": {
+      "label": "Show station name",
+      "description": "Display the station name while playback is connecting, playing, or paused."
+    },
+    "station_name_limit": {
+      "label": "Station name length",
+      "description": "Maximum Unicode characters displayed for the station name in the bar."
+    },
+    "volume_step": {
+      "label": "Bar volume step",
+      "description": "Percentage points changed by each vertical mouse-wheel step over the bar widget."
+    }
+  }
+}

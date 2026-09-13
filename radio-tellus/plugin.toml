@@ -1,0 +1,264 @@
+# Radio Tellus — an internet radio browser and player for Noctalia.
+
+id = "mirenel/radio-tellus"
+name = "Radio Tellus"
+version = "0.8.26"
+plugin_api = 24
+author = "Mirenel"
+license = "MIT"
+dependencies = [
+  "bash", "bwrap", "chmod", "dirname", "env", "head", "ip", "mkdir", "mpv", "python3", "rm", "rmdir",
+  "setpriv", "sh", "sleep", "socat",
+]
+tags = ["bar", "launcher", "panel", "service", "audio", "media", "music", "network"]
+icon = "radio"
+description = "Browse and play internet radio stations by country, genre, and mood."
+
+[[setting]]
+key = "startup_view"
+type = "select"
+label_key = "settings.startup_view.label"
+description_key = "settings.startup_view.description"
+default = "discover"
+options = [
+  { value = "discover", label_key = "settings.startup_view.options.discover" },
+  { value = "moods", label_key = "settings.startup_view.options.moods" },
+  { value = "genres", label_key = "settings.startup_view.options.genres" },
+  { value = "places", label_key = "settings.startup_view.options.places" },
+  { value = "favorites", label_key = "settings.startup_view.options.favorites" },
+  { value = "recent", label_key = "settings.startup_view.options.recent" },
+]
+
+[[setting]]
+key = "station_limit"
+type = "int"
+label_key = "settings.station_limit.label"
+description_key = "settings.station_limit.description"
+default = 40
+min = 10
+max = 100
+
+[[setting]]
+key = "history_limit"
+type = "int"
+label_key = "settings.history_limit.label"
+description_key = "settings.history_limit.description"
+default = 30
+min = 0
+max = 100
+
+[[setting]]
+key = "row_click_action"
+type = "select"
+label_key = "settings.row_click_action.label"
+description_key = "settings.row_click_action.description"
+default = "play"
+options = [
+  { value = "play", label_key = "settings.row_click_action.options.play" },
+  { value = "select", label_key = "settings.row_click_action.options.select" },
+]
+
+[[setting]]
+key = "stop_on_panel_close"
+type = "bool"
+label_key = "settings.stop_on_panel_close.label"
+description_key = "settings.stop_on_panel_close.description"
+default = false
+
+[[setting]]
+key = "cache_hours"
+type = "int"
+label_key = "settings.cache_hours.label"
+description_key = "settings.cache_hours.description"
+default = 6
+min = 1
+max = 72
+advanced = true
+
+[[setting]]
+key = "allow_insecure_http"
+type = "bool"
+label_key = "settings.allow_insecure_http.label"
+description_key = "settings.allow_insecure_http.description"
+default = false
+advanced = true
+
+[[setting]]
+key = "isolation_mode"
+type = "select"
+label_key = "settings.isolation_mode.label"
+description_key = "settings.isolation_mode.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.isolation_mode.options.auto" },
+  { value = "full", label_key = "settings.isolation_mode.options.full" },
+  { value = "compatible", label_key = "settings.isolation_mode.options.compatible" },
+]
+advanced = true
+
+[[setting]]
+key = "report_clicks"
+type = "bool"
+label_key = "settings.report_clicks.label"
+description_key = "settings.report_clicks.description"
+default = true
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "radio"
+
+  [[widget.setting]]
+  key = "show_playback_status"
+  type = "bool"
+  label_key = "settings.show_playback_status.label"
+  description_key = "settings.show_playback_status.description"
+  default = true
+
+  [[widget.setting]]
+  key = "show_station_name"
+  type = "bool"
+  label_key = "settings.show_station_name.label"
+  description_key = "settings.show_station_name.description"
+  default = true
+
+  [[widget.setting]]
+  key = "station_name_limit"
+  type = "int"
+  label_key = "settings.station_name_limit.label"
+  description_key = "settings.station_name_limit.description"
+  default = 24
+  min = 8
+  max = 60
+  visible_when = { key = "show_station_name", values = ["true"] }
+
+  [[widget.setting]]
+  key = "volume_step"
+  type = "int"
+  label_key = "settings.volume_step.label"
+  description_key = "settings.volume_step.description"
+  default = 5
+  min = 1
+  max = 20
+
+[[service]]
+id = "player-status"
+entry = "player-status.luau"
+
+[[launcher_provider]]
+id = "launcher"
+entry = "launcher.luau"
+prefix = "radio"
+glyph = "radio"
+include_in_global_search = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 820
+height = 720
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
+capture_keys = [
+  "Up", "k", "ctrl+p", "Down", "j", "ctrl+n", "Return", "ctrl+Return",
+  "space", "p", "ctrl+space", "r", "shift+r", "ctrl+r", "f", "shift+f",
+  "ctrl+f", "m", "shift+m", "ctrl+m",
+]
+
+  [[panel.setting]]
+  key = "shortcut_previous"
+  type = "select"
+  label_key = "settings.shortcuts.previous.label"
+  description_key = "settings.shortcuts.previous.description"
+  default = "Up"
+  options = [
+    { value = "Up", label_key = "settings.shortcuts.options.up" },
+    { value = "k", label_key = "settings.shortcuts.options.k" },
+    { value = "ctrl+p", label_key = "settings.shortcuts.options.ctrl_p" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_next"
+  type = "select"
+  label_key = "settings.shortcuts.next.label"
+  description_key = "settings.shortcuts.next.description"
+  default = "Down"
+  options = [
+    { value = "Down", label_key = "settings.shortcuts.options.down" },
+    { value = "j", label_key = "settings.shortcuts.options.j" },
+    { value = "ctrl+n", label_key = "settings.shortcuts.options.ctrl_n" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_play"
+  type = "select"
+  label_key = "settings.shortcuts.play.label"
+  description_key = "settings.shortcuts.play.description"
+  default = "Return"
+  options = [
+    { value = "Return", label_key = "settings.shortcuts.options.enter" },
+    { value = "ctrl+Return", label_key = "settings.shortcuts.options.ctrl_enter" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_toggle"
+  type = "select"
+  label_key = "settings.shortcuts.toggle.label"
+  description_key = "settings.shortcuts.toggle.description"
+  default = "space"
+  options = [
+    { value = "space", label_key = "settings.shortcuts.options.space" },
+    { value = "p", label_key = "settings.shortcuts.options.p" },
+    { value = "ctrl+space", label_key = "settings.shortcuts.options.ctrl_space" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_random"
+  type = "select"
+  label_key = "settings.shortcuts.random.label"
+  description_key = "settings.shortcuts.random.description"
+  default = "r"
+  options = [
+    { value = "r", label_key = "settings.shortcuts.options.r" },
+    { value = "shift+r", label_key = "settings.shortcuts.options.shift_r" },
+    { value = "ctrl+r", label_key = "settings.shortcuts.options.ctrl_r" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_favorite"
+  type = "select"
+  label_key = "settings.shortcuts.favorite.label"
+  description_key = "settings.shortcuts.favorite.description"
+  default = "f"
+  options = [
+    { value = "f", label_key = "settings.shortcuts.options.f" },
+    { value = "shift+f", label_key = "settings.shortcuts.options.shift_f" },
+    { value = "ctrl+f", label_key = "settings.shortcuts.options.ctrl_f" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
+
+  [[panel.setting]]
+  key = "shortcut_mute"
+  type = "select"
+  label_key = "settings.shortcuts.mute.label"
+  description_key = "settings.shortcuts.mute.description"
+  default = "m"
+  options = [
+    { value = "m", label_key = "settings.shortcuts.options.m" },
+    { value = "shift+m", label_key = "settings.shortcuts.options.shift_m" },
+    { value = "ctrl+m", label_key = "settings.shortcuts.options.ctrl_m" },
+    { value = "none", label_key = "settings.shortcuts.options.disabled" },
+  ]
