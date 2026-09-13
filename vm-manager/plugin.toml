@@ -1,6 +1,6 @@
 id           = "tiobaka/vm-manager"
 name         = "VM Manager"
-version      = "0.1.0"
+version      = "0.1.1"
 plugin_api   = 28
 author       = "tiobaka"
 license      = "MIT"

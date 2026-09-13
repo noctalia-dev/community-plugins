@@ -45,7 +45,37 @@ local function parseVirshList(output)
 	return vms
 end
 
--- Queries the autostart-enabled set and tags each VM, then publishes.
+-- Probes the independent next-boot (once) autostart flag on each candidate
+-- via `virsh dominfo` and tags the VM when it is set, then publishes.
+local function tagAutostartOnce(candidates)
+	local function step(index)
+		if index > #candidates then
+			publish()
+			return
+		end
+		local vm = candidates[index]
+		local launched = noctalia.runAsync({ "virsh", "--connect", connectUri(), "dominfo", vm.name }, function(result)
+			if type(result) == "table" and result.exitCode == 0 then
+				-- dominfo prints e.g. "Autostart Once:   enable"
+				if (result.stdout or ""):match("Autostart Once:%s*(%S+)") == "enable" then
+					vm.autostart = true
+				end
+			end
+			step(index + 1)
+		end, 10000)
+		if not launched then
+			step(index + 1)
+		end
+	end
+
+	step(1)
+end
+
+-- Queries the autostart-enabled set and tags each VM, then publishes. A
+-- domain counts as autostarted when either the regular flag or the
+-- independent next-boot (once) flag is set, since libvirt starts it on the
+-- next daemon boot either way; `virsh list --autostart` only reports the
+-- regular flag, so the once flag is probed per-VM.
 local function mergeAutostart(vms)
 	if #vms == 0 then
 		publish()
@@ -53,16 +83,21 @@ local function mergeAutostart(vms)
 	end
 
 	local launched = noctalia.runAsync({ "virsh", "--connect", connectUri(), "list", "--all", "--autostart" }, function(result)
+		local autostartNames = {}
 		if type(result) == "table" and result.exitCode == 0 then
-			local autostartNames = {}
 			for _, vm in ipairs(parseVirshList(result.stdout or "")) do
 				autostartNames[vm.name] = true
 			end
-			for _, vm in ipairs(vms) do
-				vm.autostart = autostartNames[vm.name] == true
+		end
+		local onceCandidates = {}
+		for _, vm in ipairs(vms) do
+			if autostartNames[vm.name] == true then
+				vm.autostart = true
+			else
+				table.insert(onceCandidates, vm)
 			end
 		end
-		publish()
+		tagAutostartOnce(onceCandidates)
 	end, 10000)
 
 	if not launched then
@@ -137,24 +172,39 @@ local function fail(action, name, result)
 	noctalia.notifyError(noctalia.tr("plugin.title"), action .. " " .. name .. ": " .. virshErrorDetail(action, result, name))
 end
 
--- Shared busy-flag + error handling around a virsh subprocess.
-local function runVirsh(cmd, action, name)
+-- Shared busy-flag + error handling around virsh subprocesses. Runs one
+-- command, or a list sequentially (stopping at the first failure); refreshes
+-- once after the last command finishes.
+local function runVirshAll(cmds, action, name)
 	snapshot.busy[name] = action
 	publish()
 
-	local launched = noctalia.runAsync(cmd, function(result)
-		snapshot.busy[name] = nil
-		if type(result) ~= "table" or result.exitCode ~= 0 then
-			fail(action, name, result)
+	local function step(index)
+		if index > #cmds then
+			snapshot.busy[name] = nil
+			refresh()
+			return
 		end
-		refresh()
-	end, 15000)
-
-	if not launched then
-		snapshot.busy[name] = nil
-		noctalia.notifyError(noctalia.tr("plugin.title"), noctalia.tr("error.launch_virsh_for", { action = action, name = name }))
-		publish()
+		local launched = noctalia.runAsync(cmds[index], function(result)
+			if type(result) ~= "table" or result.exitCode ~= 0 then
+				snapshot.busy[name] = nil
+				fail(action, name, result)
+				return
+			end
+			step(index + 1)
+		end, 15000)
+		if not launched then
+			snapshot.busy[name] = nil
+			noctalia.notifyError(noctalia.tr("plugin.title"), noctalia.tr("error.launch_virsh_for", { action = action, name = name }))
+			publish()
+		end
 	end
+
+	step(1)
+end
+
+local function runVirsh(cmd, action, name)
+	runVirshAll({ cmd }, action, name)
 end
 
 local function runVMAction(action, name)
@@ -186,16 +236,22 @@ local function setAutostart(name, mode)
 		return
 	end
 
-	local cmd
+	local cmds
 	if mode == "disable" then
-		cmd = { "virsh", "--connect", connectUri(), "autostart", name, "--disable", "--once" }
+		-- Regular autostart and the next-boot (once) flag are independent in
+		-- libvirt, so both must be cleared: "--disable" only clears the
+		-- regular flag and "--disable --once" only clears a pending once flag.
+		cmds = {
+			{ "virsh", "--connect", connectUri(), "autostart", name, "--disable", "--once" },
+			{ "virsh", "--connect", connectUri(), "autostart", name, "--disable" },
+		}
 	elseif mode == "once" then
-		cmd = { "virsh", "--connect", connectUri(), "autostart", name, "--once" }
+		cmds = { { "virsh", "--connect", connectUri(), "autostart", name, "--once" } }
 	else
-		cmd = { "virsh", "--connect", connectUri(), "autostart", name }
+		cmds = { { "virsh", "--connect", connectUri(), "autostart", name } }
 	end
 
-	runVirsh(cmd, "autostart-" .. mode, name)
+	runVirshAll(cmds, "autostart-" .. mode, name)
 end
 
 local function handleAutostart(action, name)

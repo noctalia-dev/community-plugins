@@ -27,7 +27,11 @@ Install `virsh` (libvirt client) and `virt-viewer` (for the Console button) on
 
 Add the bar widget with `type = "tiobaka/vm-manager:status"` to a bar. It shows
 `running/total` (e.g. `1/2`) and turns into a red `err` glyph when libvirt is
-unreachable; the tooltip explains why. Click it to open the manager panel.
+unreachable; the tooltip explains why.
+
+- **Left click** opens the manager panel.
+- **Right click** (or middle click) opens the VM Manager settings, where the
+  poll interval and libvirt connection URI can be changed.
 
 Open the panel:
 

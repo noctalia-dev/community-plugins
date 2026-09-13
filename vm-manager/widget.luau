@@ -1,5 +1,10 @@
 --!nonstrict
--- widget.luau — bar widget showing running/total VMs; click opens the manager panel.
+-- widget.luau — bar widget showing running/total VMs.
+--
+-- Gestures: left click opens the manager panel (bound in plugin.toml via
+-- [widget.actions]); right click opens this plugin's settings page, as does
+-- Noctalia's built-in middle click. onClick is only a fallback for when a
+-- user unbinds left in their own config.
 
 local PANEL_ID = "tiobaka/vm-manager:manager"
 
@@ -52,7 +57,7 @@ function onClick()
 end
 
 function onRightClick()
-	noctalia.togglePanel(PANEL_ID)
+	noctalia.openSettings()
 end
 
 render()
