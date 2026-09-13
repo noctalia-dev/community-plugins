@@ -81,6 +81,11 @@ noctalia msg panel-toggle rylos/syncthing:panel
 
 ## Notes
 
+- Requests to the Syncthing API go through a small queue (four at a time). The
+  host allows at most eight in-flight HTTP requests per plugin and refuses the
+  rest outright, which used to show up as `folder status HTTP 0` on the ninth
+  and later folders.
+
 - **Network**: all requests go to the local (or configured) Syncthing REST API
   via `noctalia.http` — `/rest/noauth/health`, `/rest/system/status`,
   `/rest/config`, `/rest/system/connections`, `/rest/system/error`,
