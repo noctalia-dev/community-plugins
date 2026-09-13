@@ -41,7 +41,7 @@ The panel lists one card per VM with state-aware actions:
 - `paused` → Resume, Force Off, Console
 - `shut off` → Start
 
-The gear button on each card opens the **Autostart** menu:
+Right-click the gear button on each card to open the **Autostart** menu:
 
 - **Autostart on boot** — start this VM whenever libvirtd starts (system boot).
   Toggles on/off.

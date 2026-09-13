@@ -16,6 +16,10 @@ local SNAPSHOT_DEFAULTS = {
 
 local snapshot = noctalia.state.get("vms") or SNAPSHOT_DEFAULTS
 
+-- Drops the gear tooltip once the autostart menu opens so the delayed hover
+-- tooltip cannot appear on top of the menu; restored on the next hover leave.
+local suppressAutostartMenuTooltip = false
+
 local function sendAction(action, name)
 	noctalia.state.set("vm_action", { action = action, name = name })
 end
@@ -93,13 +97,23 @@ local function autostartButton(vm, disabled)
 	local props = {
 		glyph = "settings",
 		glyphSize = 14,
-		tooltip = noctalia.tr("panel.autostart"),
 		variant = "ghost",
 		enabled = not disabled,
-		onClick = function()
+		onHover = function(state)
+			if state == "false" and suppressAutostartMenuTooltip then
+				suppressAutostartMenuTooltip = false
+				rerender()
+			end
+		end,
+		onRightClick = function()
+			suppressAutostartMenuTooltip = true
 			openAutostartMenu(vm)
+			rerender()
 		end,
 	}
+	if not suppressAutostartMenuTooltip then
+		props.tooltip = noctalia.tr("panel.autostart")
+	end
 	if running then
 		props.controlSize = "sm"
 		props.opacity = 0.5
@@ -191,6 +205,12 @@ local function render()
 	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 4 }, children))
 end
 
+-- Bridge so the gear button (declared above render) can re-render from its
+-- hover/right-click handlers and drop its own tooltip when the menu opens.
+function rerender()
+	render()
+end
+
 noctalia.state.watch("vms", function(value)
 	if type(value) == "table" then
 		snapshot = value
@@ -213,5 +233,6 @@ function onAutostartMenuAction(actionId, context)
 end
 
 function onOpen()
+	suppressAutostartMenuTooltip = false
 	render()
 end

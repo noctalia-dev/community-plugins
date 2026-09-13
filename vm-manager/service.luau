@@ -209,12 +209,12 @@ local function handleAutostart(action, name)
 end
 
 local function openConsole(name)
+	if not noctalia.commandExists("virt-viewer") then
+		noctalia.notifyError(noctalia.tr("plugin.title"), noctalia.tr("error.console_failed", { name = name }))
+		return
+	end
 	local uri = connectUri()
-	local launched = noctalia.runAsync({ "virt-viewer", "--connect", uri, name }, function(result)
-		if type(result) ~= "table" or result.exitCode ~= 0 then
-			noctalia.notifyError(noctalia.tr("plugin.title"), noctalia.tr("error.console_failed", { name = name }))
-		end
-	end, 15000)
+	local launched = noctalia.runAsync({ "virt-viewer", "--connect", uri, name })
 	if not launched then
 		noctalia.notifyError(noctalia.tr("plugin.title"), noctalia.tr("error.launch_viewer", { name = name }))
 	end

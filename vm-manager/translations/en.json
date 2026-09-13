@@ -31,7 +31,7 @@
 		"console": "Console",
 		"footer": "{running} running · {paused} paused · {total} total",
 		"updated": "updated",
-		"autostart": "Autostart",
+		"autostart": "Autostart (right-click)",
 		"autostart_on": "Autostart on boot",
 		"autostart_off": "Disable autostart",
 		"autostart_once": "Autostart once (next boot)"
