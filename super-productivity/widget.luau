@@ -92,6 +92,10 @@ local function tooltip(task)
 end
 
 local function should_be_visible()
+  if snapshot.status ~= "ready" then
+    return true
+  end
+
   if configured("hide_when_no_active_task", false) then
     return type(snapshot.currentTask) == "table" and snapshot.currentTask.id ~= nil
   end
