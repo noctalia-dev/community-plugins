@@ -3,10 +3,12 @@
 -- or Atom <entry>), compares against what's already been seen, notifies on
 -- new items, and publishes the unread count in noctalia.state for the widget.
 
-local seen = {}          -- { [feedUrl] = { ids = { [itemId]=true, ... }, order = { id1, id2, ... } } }
+local seen = {}           -- { [feedUrl] = { ids = { [itemId]=true, ... }, order = { id1, id2, ... } } }
 local unread = 0
-local recentItems = {}   -- list of the most recent items, newest first
-local faviconCache = {}  -- { [domain] = localFilePath } - avoids re-downloading the same site's favicon
+local recentItems = {}    -- list of the most recent items, newest first
+local feeds = {}          -- subscribed feed URLs, managed from the panel (the old feed_urls setting is gone)
+local faviconCache = {}   -- { [domain] = localFilePath | false } - avoids re-downloading the same site's favicon
+local feedImageCache = {} -- { [feedUrl] = localFilePath | false } - the FEED's own photo/logo (the "foto do feed")
 local dataPath = nil
 
 local function tr(key)
@@ -19,7 +21,7 @@ local MAX_SEEN_PER_FEED = 300 -- cap on "already seen" ids kept per feed (preven
 -- Limits to keep parsing fast enough for the (very tight) CPU budget of the
 -- async callback.
 local MAX_BODY_BYTES  = 8000   -- only look at the first ~8KB of the feed body
-local MAX_ITEM_BYTES  = 700    -- trim each <item>/<entry> block before extracting tags (raised to fit enclosure/media:thumbnail)
+local MAX_ITEM_BYTES  = 3000   -- trim each <item>/<entry> block before extracting tags. High enough that the item's own image (enclosure/media/<img> deep inside <description>/<content>) is not cut off when the title/description are long.
 local MAX_ITEMS       = 8      -- stop processing items after this many
 
 local function isUtf8Continuation(b)
@@ -214,8 +216,10 @@ local function loadState()
     if ok and type(decoded) == "table" then
       seen        = decoded.seen or {}
       recentItems = decoded.recentItems or {}
+      feeds       = decoded.feeds or {}
       unread      = decoded.unread or 0
       faviconCache = decoded.faviconCache or {}
+      feedImageCache = decoded.feedImageCache or {}
 
       -- migrate the old format ({ [id]=true, ... } directly) to the new one
       -- ({ ids=..., order=... }), if needed
@@ -241,6 +245,9 @@ local function loadState()
         if item.feedTitle then
           item.feedTitle = sanitizeUtf8(item.feedTitle)
         end
+        if item.description then
+          item.description = sanitizeUtf8(item.description)
+        end
       end
     end
   end
@@ -253,17 +260,79 @@ local function saveState()
     return
   end
   local ok, encoded = pcall(noctalia.json.encode, {
-    seen         = seen,
-    recentItems  = recentItems,
-    unread       = unread,
-    faviconCache = faviconCache,
+    seen           = seen,
+    recentItems    = recentItems,
+    feeds          = feeds,
+    unread         = unread,
+    faviconCache   = faviconCache,
+    feedImageCache = feedImageCache,
   })
   if ok and type(encoded) == "string" then
     pcall(noctalia.writeFile, dataPath, encoded)
   end
 end
 
+-- Checks whether a URL looks like a usable feed URL. Returns the normalized
+-- (trimmed) URL, or nil if it's not http(s).
+local function normalizeFeedUrl(raw)
+  if not raw then
+    return nil
+  end
+  local url = noctalia.string.trim(raw)
+  if url == "" then
+    return nil
+  end
+  if url:sub(1, 7) ~= "http://" and url:sub(1, 8) ~= "https://" then
+    return nil
+  end
+  return url
+end
+
+-- Builds the plugin-owned feed list: keeps the saved feeds, then folds in the
+-- ones the old `feed_urls` config setting still knows about (and any URL
+-- already being tracked in `seen`), so an update never silently loses feeds.
+local function migrateFeeds()
+  local list = {}
+  local known = {}
+  local function push(url)
+    if not url or url == "" then
+      return
+    end
+    url = noctalia.string.trim(url)
+    if url ~= "" and not known[url] then
+      known[url] = true
+      table.insert(list, url)
+    end
+  end
+  for _, url in ipairs(feeds) do
+    push(url)
+  end
+  for url in pairs(seen) do
+    push(url)
+  end
+  local configured
+  local ok = pcall(function()
+    configured = noctalia.getConfig("feed_urls")
+  end)
+  if not ok then
+    configured = nil -- the setting was removed from the manifest; ignore any legacy noise
+  end
+  if type(configured) == "table" then
+    for _, url in ipairs(configured) do
+      push(url)
+    end
+  end
+  feeds = list
+end
+
 -- Same idea for publishing to noctalia.state: never propagate an error upward.
+local function publishFeeds()
+  local ok, encoded = pcall(noctalia.json.encode, feeds)
+  if ok and type(encoded) == "string" then
+    noctalia.state.set("feeds", encoded)
+  end
+end
+
 local function publishItems()
   local ok, encoded = pcall(noctalia.json.encode, recentItems)
   if ok and type(encoded) == "string" then
@@ -313,17 +382,26 @@ pumpThumbQueue = function()
         if job.domain then
           faviconCache[job.domain] = job.dest -- cache so other items from the same site reuse it
         end
+        if job.feedUrl then
+          feedImageCache[job.feedUrl] = job.dest
+        end
         for _, item in ipairs(recentItems) do
-          if item.id == job.id then
+          local match = job.feedUrl and item.feedUrl == job.feedUrl or item.id == job.id
+          if match then
             item.image = job.dest
-            break
           end
         end
         publishItems()
         saveState()
       else
         noctalia.log("rss-notifier: thumbnail download failed for " .. job.url)
-        if job.domain then
+        if job.feedUrl then
+          feedImageCache[job.feedUrl] = false -- remember the failure so we stop retrying this feed's logo
+          if job.fallback then -- logo failed: fall back to the site favicon so the card still has a photo
+            queueFaviconDownload(job.fallback.id, job.fallback.domain, job.fallback.faviconUrl)
+          end
+          saveState()
+        elseif job.domain then
           faviconCache[job.domain] = false -- remember the failure so we stop retrying this domain
           saveState()
         end
@@ -369,6 +447,31 @@ local function queueFaviconDownload(id, domain, faviconUrl)
   end
   local dest = THUMB_DIR .. "/favicon-" .. sanitizeFilename(domain) .. ".img"
   table.insert(thumbQueue, { id = id, url = faviconUrl, dest = dest, domain = domain })
+  pumpThumbQueue()
+end
+
+-- Downloads the FEED's own photo/logo (the <image>/<logo> of the channel),
+-- once per feed. Applied to every item of that feed, so all its cards share
+-- the same "foto do feed". Falls back to the site favicon if the logo fails.
+local function queueFeedImageDownload(feedUrl, imageUrl, fallback)
+  if not THUMB_DIR or not feedUrl or not imageUrl or imageUrl == "" then
+    return
+  end
+  local cached = feedImageCache[feedUrl]
+  if cached == false then
+    return -- logo already failed; the fallback favicon was already queued
+  end
+  if cached then
+    for _, item in ipairs(recentItems) do
+      if item.feedUrl == feedUrl then
+        item.image = cached
+      end
+    end
+    publishItems()
+    return
+  end
+  local dest = THUMB_DIR .. "/feed-" .. sanitizeFilename(feedUrl) .. ".img"
+  table.insert(thumbQueue, { url = imageUrl, dest = dest, feedUrl = feedUrl, fallback = fallback })
   pumpThumbQueue()
 end
 
@@ -469,6 +572,71 @@ local function findAttr(s, tag, attr)
   return tagSrc:sub(valueStart, valueEnd - 1)
 end
 
+-- Removes HTML/XML tags using only literal find() (no pattern engine - this
+-- environment has a very tight CPU budget). Each removed tag becomes a space
+-- so <p>One</p><p>Two</p> still reads as "One Two".
+local function stripTags(s)
+  if not s or s == "" then
+    return s
+  end
+  local out = {}
+  local i = 1
+  local len = #s
+  while i <= len do
+    local lt = s:find("<", i, true)
+    if not lt then
+      out[#out + 1] = s:sub(i)
+      break
+    end
+    if lt > i then
+      out[#out + 1] = s:sub(i, lt - 1)
+    end
+    local gt = s:find(">", lt, true)
+    if not gt then
+      out[#out + 1] = s:sub(lt) -- malformed tag, keep the rest verbatim
+      break
+    end
+    out[#out + 1] = " "
+    i = gt + 1
+  end
+  return table.concat(out)
+end
+
+-- Collapses runs of whitespace (space/tab/newline) into a single space,
+-- preserving full UTF-8 sequences (accents, emoji, curly quotes).
+local function collapseSpace(s)
+  if not s or s == "" then
+    return s
+  end
+  local out = {}
+  local len = #s
+  local i = 1
+  local inSpace = false
+  while i <= len do
+    local b = s:byte(i)
+    if b == 32 or b == 9 or b == 10 or b == 13 then
+      if not inSpace then
+        out[#out + 1] = " "
+        inSpace = true
+      end
+      i = i + 1
+    else
+      local seqLen = 1
+      if b >= 0xF0 then
+        seqLen = 4
+      elseif b >= 0xE0 then
+        seqLen = 3
+      elseif b >= 0xC0 then
+        seqLen = 2
+      end
+      out[#out + 1] = s:sub(i, math.min(i + seqLen - 1, len))
+      inSpace = false
+      i = i + seqLen
+    end
+  end
+  return table.concat(out)
+end
+
 local function extractLink(block)
   local rssLink = findTagContent(block, "link") -- RSS: <link>URL</link>
   if rssLink and rssLink ~= "" then
@@ -482,7 +650,9 @@ local function extractId(block)
 end
 
 -- Tries to find a cover image for the item: <enclosure type="image/...">,
--- <media:thumbnail>, or <media:content medium="image">, in that order.
+-- <media:thumbnail>, <media:content medium="image">, and finally an <img>
+-- tag inside the item HTML (news feeds very often only embed the image in
+-- <description>/<content>, before or in the middle of the text).
 local function extractImage(block)
   local encUrl = findAttr(block, "enclosure", "url")
   if encUrl then
@@ -506,7 +676,43 @@ local function extractImage(block)
     end
   end
 
+  local imgSrc = findAttr(block, "img", "src")
+  if imgSrc and imgSrc ~= "" then
+    return decodeEntities(imgSrc)
+  end
+
   return nil
+end
+
+-- When the image lives deep inside a very long <description>/<content>, the
+-- trimmed block above may not reach it. This rescans the FULL item content
+-- (from right after the opening tag up to the closing tag) so the post's own
+-- image is found no matter where it sits.
+local function extractItemImageDeep(body, itemContentStart, tag)
+  local closeStart = body:find("</" .. tag .. ">", itemContentStart, true)
+  if not closeStart then
+    return nil
+  end
+  return extractImage(body:sub(itemContentStart, closeStart - 1))
+end
+
+-- Plain-text summary of an item for the card: RSS <description> (rarely a
+-- full <content:encoded>, which we deliberately don't touch to save CPU) or
+-- Atom <summary>. Strips tags and collapses whitespace so it reads cleanly.
+local function extractDescription(block)
+  local text = findTagContent(block, "description")
+  if not text or text == "" then
+    text = findTagContent(block, "summary")
+  end
+  if not text or text == "" then
+    return nil
+  end
+  text = collapseSpace(stripTags(text))
+  text = noctalia.string.trim(text)
+  if text == "" then
+    return nil
+  end
+  return truncate(text, 400)
 end
 
 -- Extracts the host from a URL (e.g. "https://example.com/path" -> "example.com"),
@@ -569,7 +775,7 @@ local function findNextBlock(xml, tag, fromPos, maxItemBytes)
     contentEnd = safeCutEnd(xml, contentEnd, openEnd)
   end
   local block = xml:sub(openEnd + 1, contentEnd)
-  return block, closeStart + #closeTag
+  return block, closeStart + #closeTag, openEnd + 1
 end
 
 -- ---------------------------------------------------------------------------
@@ -589,6 +795,7 @@ local function enqueueFeed(url, body, notifyBudget)
     tag          = "item",
     triedEntry   = false,
     feedTitle    = nil,
+    feedImageUrl = nil,
     items        = {},
     notifyBudget = notifyBudget,
   })
@@ -610,14 +817,27 @@ local function finalizeFeed(f)
 
       if not firstRun then
         table.insert(recentItems, 1, {
-          id        = id,
-          title     = item.title,
-          link      = item.link,
-          feedTitle = f.feedTitle,
-          image     = nil, -- filled in later with the LOCAL path, once the download finishes
+          id          = id,
+          title       = item.title,
+          link        = item.link,
+          feedTitle   = f.feedTitle,
+          feedUrl     = url,
+          description = item.description,
+          image       = nil, -- filled in later with the LOCAL path, once the download finishes
         })
+        -- Priority: the ITEM's own image (enclosure/media/<img> in the post)
+        -- first - that's the actual content photo. If the item has none, fall
+        -- back to the feed's own logo (shared by its cards), and finally to
+        -- the site favicon so the card always has a photo.
         if item.image and item.image ~= "" then
           queueThumbDownload(id, item.image)
+        elseif f.feedImageUrl and f.feedImageUrl ~= "" then
+          local domain = extractDomain(url) or extractDomain(item.link)
+          queueFeedImageDownload(url, f.feedImageUrl, {
+            id = id,
+            domain = domain,
+            faviconUrl = domain and faviconUrlFor(domain) or nil,
+          })
         else
           -- prefer the FEED's own domain: item links often go through
           -- redirect/tracking subdomains (e.g. redir.example.com) that have
@@ -658,8 +878,23 @@ local function processQueueStep()
   end
 
   if not f.feedTitle then
-    f.feedTitle = findTagContent(truncate(f.body, 300), "title") or f.url
-    return -- one step per tick: just the title this time
+    f.feedTitle = findTagContent(truncate(f.body, 600), "title")
+    f.feedImageUrl = nil
+    if f.feedTitle and #f.feedTitle > 0 then
+      -- the feed's own photo/logo: RSS <image><url>...</url></image> or
+      -- Atom <logo>...</logo>, pulled from the channel header
+      local imgBlock = findNextBlock(f.body, "image", 1, MAX_ITEM_BYTES)
+      if imgBlock then
+        f.feedImageUrl = findTagContent(imgBlock, "url")
+      end
+      if not f.feedImageUrl or f.feedImageUrl == "" then
+        f.feedImageUrl = findTagContent(truncate(f.body, 1200), "logo")
+      end
+    end
+    if not f.feedTitle or f.feedTitle == "" then
+      f.feedTitle = f.url
+    end
+    return -- one step per tick: just the title (and logo) this time
   end
 
   if #f.items >= MAX_ITEMS then
@@ -668,7 +903,7 @@ local function processQueueStep()
     return
   end
 
-  local block, nextPos = findNextBlock(f.body, f.tag, f.pos, MAX_ITEM_BYTES)
+  local block, nextPos, contentStart = findNextBlock(f.body, f.tag, f.pos, MAX_ITEM_BYTES)
 
   if not block then
     if f.tag == "item" and not f.triedEntry then
@@ -685,11 +920,17 @@ local function processQueueStep()
   end
 
   f.pos = nextPos
+  local image = extractImage(block)
+  if not image then
+    -- the block was cut short (long title/description): search the whole item
+    image = extractItemImageDeep(f.body, contentStart, f.tag)
+  end
   table.insert(f.items, {
     title = findTagContent(block, "title") or tr("panel.untitled_item"),
     link  = extractLink(block),
     id    = extractId(block),
-    image = extractImage(block),
+    image = image,
+    description = extractDescription(block),
   })
 end
 
@@ -709,10 +950,9 @@ local function checkFeed(url, notifyBudget)
 end
 
 local function fetchAll()
-  local urls = noctalia.getConfig("feed_urls") or {}
   local notifyBudget = { count = 0, max = noctalia.getConfig("max_notifications_per_cycle") or 5 }
 
-  for _, url in ipairs(urls) do
+  for _, url in ipairs(feeds) do
     if url and noctalia.string.trim(url) ~= "" then
       checkFeed(url, notifyBudget)
     end
@@ -736,9 +976,11 @@ end
 -- ---------------------------------------------------------------------------
 
 loadState()
+migrateFeeds()
 ensureThumbDir()
 applyInterval()
 noctalia.state.set("unread", unread)
+publishFeeds()
 publishItems()
 fetchAll() -- first read: just marks items as "seen", without notifying (firstRun)
 
@@ -780,5 +1022,43 @@ function onIpc(_event, payload)
     recentItems = {}
     publishItems()
     saveState()
+  elseif _event == "add-feed" then
+    local url = normalizeFeedUrl(payload or "")
+    if url then
+      local exists = false
+      for _, existing in ipairs(feeds) do
+        if existing == url then
+          exists = true
+          break
+        end
+      end
+      if not exists then
+        table.insert(feeds, url)
+        saveState()
+        publishFeeds()
+      end
+      fetchAll() -- fetch (or re-fetch) right away so items show up quickly
+    end
+  elseif _event == "remove-feed" then
+    local url = noctalia.string.trim(payload or "")
+    local removed = false
+    for i, existing in ipairs(feeds) do
+      if existing == url then
+        table.remove(feeds, i)
+        removed = true
+        break
+      end
+    end
+    if removed then
+      seen[url] = nil -- stop tracking it, so restart migration doesn't bring it back
+      for i = #recentItems, 1, -1 do
+        if recentItems[i].feedUrl == url then
+          table.remove(recentItems, i)
+        end
+      end
+      saveState()
+      publishFeeds()
+      publishItems()
+    end
   end
 end

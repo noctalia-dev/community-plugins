@@ -4,19 +4,26 @@
     "title": "RSS/Atom Notifier"
   },
   "panel": {
+    "add_feed_button": "Adicionar",
+    "add_feed_placeholder": "URL do feed (ex: https://exemplo.com/feed.xml)",
+    "add_feed_title": "Adicionar feed",
+    "add_feed_tooltip": "Adicionar feed",
     "clear_all_tooltip": "Limpar tudo",
+    "close_form_tooltip": "Fechar formulário",
     "dismiss_tooltip": "Dispensar",
     "empty_state": "Nenhuma atualização",
+    "feed_error_duplicate": "Este feed já está configurado.",
+    "feed_error_empty": "Digite a URL do feed.",
+    "feed_error_invalid": "URL inválida. Use http:// ou https://",
+    "feeds_empty": "Nenhum feed adicionado ainda.",
+    "feeds_title": "Feeds configurados",
     "refresh_tooltip": "Atualizar agora",
+    "remove_feed_tooltip": "Remover feed",
     "settings_tooltip": "Configurações do plugin",
     "title": "RSS/Atom Notifier",
     "untitled_item": "(sem título)"
   },
   "settings": {
-    "feed_urls": {
-      "description": "Uma URL de feed RSS ou Atom por entrada (ex: https://exemplo.com/feed.xml).",
-      "label": "URLs dos feeds"
-    },
     "glyph": {
       "description": "Ícone mostrado na barra para este widget.",
       "label": "Ícone"
@@ -34,7 +41,7 @@
       "label": "Intervalo de atualização (minutos)"
     },
     "show_feed_images": {
-      "description": "Mostra a imagem de capa de cada item (ou o favicon do site como alternativa) na lista de itens.",
+      "description": "Mostra a foto do feed (logo) nas cards, com a capa do item ou o favicon do site como alternativa.",
       "label": "Mostrar imagens dos feeds"
     }
   },
