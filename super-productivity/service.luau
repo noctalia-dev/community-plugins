@@ -18,6 +18,7 @@ local MAX_CHANGE_REASON = 120
 local SOUND_NAME = "task-complete"
 local BRIDGE_POLL_MS = 2000
 local CONNECTION_GRACE_MS = 30000
+local TRACKED_TASK_POLL_MS = 60000
 
 local state = {
   status = "starting",
@@ -70,6 +71,7 @@ local browse_index = 1
 local last_file_poll_ms = 0
 local last_bridge_search_ms = 0
 local last_process_check_ms = 0
+local last_tracked_poll_ms = 0
 local last_due_check_ms = noctalia.nowMs()
 local service_started_at = last_due_check_ms
 local auto_start_attempted = false
@@ -911,6 +913,10 @@ function update()
     refresh_connection_file()
     refresh_change_file()
     refresh_bridge_error()
+  end
+  if state.currentTask ~= nil and now_ms - last_tracked_poll_ms >= TRACKED_TASK_POLL_MS then
+    last_tracked_poll_ms = now_ms
+    request_rest_state()
   end
   operations:update(now_ms)
   due_notifications(now_ms)
