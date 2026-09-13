@@ -1,96 +1,96 @@
 {
-  "plugin_name": "Lunar Workspaces",
   "plugin_description": "Change workspace indicator with per-state custom icons, for Hyprland and Niri.",
+  "plugin_name": "Lunar Workspaces",
   "settings": {
     "compositor": {
-      "label": "Compositor",
-      "description": "Which compositor to query for workspace state. Auto-detects Hyprland or Niri.",
       "auto": "Auto-detect",
+      "description": "Which compositor to query for workspace state. Auto-detects Hyprland or Niri.",
       "hyprland": "Hyprland",
+      "label": "Compositor",
       "niri": "Niri"
     },
-    "workspace_display_mode": {
-      "label": "Workspace visibility",
-      "description": "Choose which workspace pills to show in the bar.",
-      "all": "All",
-      "active_occupied": "Active / occupied only",
-      "once": "Occupied + 1 empty"
+    "empty_color": {
+      "description": "Fill color behind an empty workspace's icon.",
+      "label": "Empty pill color"
     },
-    "workspace_count": {
-      "label": "Workspace count",
-      "description": "How many workspace slots to check (1 to this number)."
+    "empty_pill_style": {
+      "description": "Show a colored pill behind the empty icon, or make it non-existent (bare icon only).",
+      "label": "Empty pill background"
     },
     "enable_animation": {
-      "label": "Animate transitions",
-      "description": "Smoothly ease icon size on focus/state changes instead of snapping instantly."
+      "description": "Smoothly ease icon size on focus/state changes instead of snapping instantly.",
+      "label": "Animate transitions"
     },
-    "icon_focused": {
-      "label": "Focused icon",
-      "description": "Emoji or absolute path to an image/gif for the focused workspace. Animated gifs need ImageMagick installed. Default: 🌕 Full moon."
+    "focused_color": {
+      "description": "Fill color behind the focused workspace's icon.",
+      "label": "Focused pill color"
     },
-    "icon_urgent": {
-      "label": "Urgent icon",
-      "description": "Emoji or absolute path to an image/gif for a workspace with urgent activity. Animated gifs need ImageMagick installed. Default: 🌟 Star."
-    },
-    "icon_occupied": {
-      "label": "Occupied icon",
-      "description": "Emoji or absolute path to an image/gif for an occupied, unfocused workspace. Animated gifs need ImageMagick installed. Default: 🌗 Half moon."
+    "focused_pill_style": {
+      "description": "Show a colored pill behind the focused icon, or make it non-existent (bare icon only).",
+      "label": "Focused pill background"
     },
     "icon_empty": {
-      "label": "Empty icon",
-      "description": "Emoji or absolute path to an image/gif for an empty workspace. Animated gifs need ImageMagick installed. Default: 🌙 Crescent moon."
+      "description": "Emoji or absolute path to an image/gif for an empty workspace. Animated gifs need ImageMagick installed. Default: 🌙 Crescent moon.",
+      "label": "Empty icon"
     },
-    "size_focused": {
-      "label": "Focused size",
-      "description": "Icon size in pixels for the focused workspace."
+    "icon_focused": {
+      "description": "Emoji or absolute path to an image/gif for the focused workspace. Animated gifs need ImageMagick installed. Default: 🌕 Full moon.",
+      "label": "Focused icon"
     },
-    "size_urgent": {
-      "label": "Urgent size",
-      "description": "Icon size in pixels for an urgent workspace."
+    "icon_occupied": {
+      "description": "Emoji or absolute path to an image/gif for an occupied, unfocused workspace. Animated gifs need ImageMagick installed. Default: 🌗 Half moon.",
+      "label": "Occupied icon"
     },
-    "size_occupied": {
-      "label": "Occupied size",
-      "description": "Icon size in pixels for an occupied workspace."
+    "icon_urgent": {
+      "description": "Emoji or absolute path to an image/gif for a workspace with urgent activity. Animated gifs need ImageMagick installed. Default: 🌟 Star.",
+      "label": "Urgent icon"
     },
-    "size_empty": {
-      "label": "Empty size",
-      "description": "Icon size in pixels for an empty workspace."
+    "occupied_color": {
+      "description": "Fill color behind an occupied workspace's icon.",
+      "label": "Occupied pill color"
+    },
+    "occupied_pill_style": {
+      "description": "Show a colored pill behind the occupied icon, or make it non-existent (bare icon only).",
+      "label": "Occupied pill background"
     },
     "pill_style": {
       "fill": "Filled pill",
       "ghost": "No background"
     },
-    "focused_pill_style": {
-      "label": "Focused pill background",
-      "description": "Show a colored pill behind the focused icon, or make it non-existent (bare icon only)."
+    "size_empty": {
+      "description": "Icon size in pixels for an empty workspace.",
+      "label": "Empty size"
     },
-    "focused_color": {
-      "label": "Focused pill color",
-      "description": "Fill color behind the focused workspace's icon."
+    "size_focused": {
+      "description": "Icon size in pixels for the focused workspace.",
+      "label": "Focused size"
     },
-    "urgent_pill_style": {
-      "label": "Urgent pill background",
-      "description": "Show a colored pill behind the urgent icon, or make it non-existent (bare icon only)."
+    "size_occupied": {
+      "description": "Icon size in pixels for an occupied workspace.",
+      "label": "Occupied size"
+    },
+    "size_urgent": {
+      "description": "Icon size in pixels for an urgent workspace.",
+      "label": "Urgent size"
     },
     "urgent_color": {
-      "label": "Urgent pill color",
-      "description": "Fill color behind an urgent workspace's icon."
+      "description": "Fill color behind an urgent workspace's icon.",
+      "label": "Urgent pill color"
     },
-    "occupied_pill_style": {
-      "label": "Occupied pill background",
-      "description": "Show a colored pill behind the occupied icon, or make it non-existent (bare icon only)."
+    "urgent_pill_style": {
+      "description": "Show a colored pill behind the urgent icon, or make it non-existent (bare icon only).",
+      "label": "Urgent pill background"
     },
-    "occupied_color": {
-      "label": "Occupied pill color",
-      "description": "Fill color behind an occupied workspace's icon."
+    "workspace_count": {
+      "description": "How many workspace slots to check (1 to this number).",
+      "label": "Workspace count"
     },
-    "empty_pill_style": {
-      "label": "Empty pill background",
-      "description": "Show a colored pill behind the empty icon, or make it non-existent (bare icon only)."
-    },
-    "empty_color": {
-      "label": "Empty pill color",
-      "description": "Fill color behind an empty workspace's icon."
+    "workspace_display_mode": {
+      "active_occupied": "Active / occupied only",
+      "all": "All",
+      "description": "Choose which workspace pills to show in the bar.",
+      "label": "Workspace visibility",
+      "once": "Occupied + 1 empty"
     }
   }
 }

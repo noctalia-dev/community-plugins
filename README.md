@@ -162,6 +162,9 @@ Open a PR against `main`. CI validates your manifest, entry scripts, required fi
 - `plugin_api` is the oldest Noctalia plugin API level the plugin requires. Use the current documented level for a new
   plugin, and increase it only when the plugin adopts a capability from a newer API level.
 - `description` is concise catalog copy, limited to 120 characters. Put feature details in the plugin's README.
+- A plugin directory ships at most 200 files. Every clone, CI run, and install checks out every file, so ship
+  generated asset packs (animation frames, sprite sheets) as one archive, or generate them into the user's cache
+  directory on first run.
 - `license` is set in `plugin.toml`. You keep the copyright on your plugin; if it is not MIT, put a `LICENSE` file in
   your plugin directory. There is no repo-wide license covering contributed plugins.
 - Screenshots or a short video for anything with a visual surface.

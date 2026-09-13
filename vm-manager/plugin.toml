@@ -1,0 +1,45 @@
+id           = "tiobaka/vm-manager"
+name         = "VM Manager"
+version      = "0.1.0"
+plugin_api   = 28
+author       = "tiobaka"
+license      = "MIT"
+icon         = "server-2"
+description  = "Manage QEMU/KVM virtual machines via libvirt"
+tags         = ["bar", "panel", "service", "system", "utility"]
+dependencies = ["virsh", "virt-viewer"]
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 3
+min = 1
+max = 60
+
+[[setting]]
+key = "connect_uri"
+type = "string"
+label_key = "settings.connect_uri.label"
+description_key = "settings.connect_uri.description"
+default = "qemu:///system"
+
+[[service]]
+id    = "vms"
+entry = "service.luau"
+
+[[widget]]
+id    = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle tiobaka/vm-manager:manager"
+
+[[panel]]
+id    = "manager"
+entry = "panel.luau"
+width = 520
+height = 560
+placement = "attached"
+open_near_click = true

@@ -58,13 +58,13 @@
     "missing_gh_detail": "Install `gh` on your system PATH to enable GitHub notifications.",
     "missing_gh_title": "GitHub CLI Not Found",
     "missing_xdg_open": "xdg-open is required to open links in your browser.",
+    "network_error": "Network request failed. Check your internet connection.",
+    "notification_link_missing": "Notification link is missing.",
+    "permission_denied": "GitHub notifications permission unavailable. Check `gh auth status`.",
     "rate_limited": "GitHub API rate limit reached",
     "rate_limited_detail": "You have hit the GitHub API rate limit. Please wait a moment before trying again.",
     "rate_limited_title": "Rate Limit Exceeded",
     "request_failed": "GitHub API request failed",
-    "network_error": "Network request failed. Check your internet connection.",
-    "notification_link_missing": "Notification link is missing.",
-    "permission_denied": "GitHub notifications permission unavailable. Check `gh auth status`.",
     "unavailable": "GitHub notifications unavailable"
   },
   "widget": {

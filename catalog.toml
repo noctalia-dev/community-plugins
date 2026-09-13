@@ -471,8 +471,8 @@ tags = ["bar", "animation", "system", "fun"]
 [[plugin]]
 id = "alexander/game-launcher"
 name = "Game Launcher"
-version = "1.4.0"
-updated_at = 1788471403
+version = "1.4.1"
+updated_at = 1789300425
 added_at = 1784595753
 author = "Alexander"
 license = "MIT"
@@ -2567,3 +2567,16 @@ icon = "view-column"
 description = "Viewport position indicator for niri scrollable-tiling layout."
 plugin_api = 3
 tags = ["bar", "indicator", "niri"]
+
+[[plugin]]
+id = "tiobaka/vm-manager"
+name = "VM Manager"
+version = "0.1.0"
+updated_at = 1789266533
+added_at = 1789266533
+author = "tiobaka"
+license = "MIT"
+icon = "server-2"
+description = "Manage QEMU/KVM virtual machines via libvirt"
+plugin_api = 28
+tags = ["bar", "panel", "service", "system", "utility"]

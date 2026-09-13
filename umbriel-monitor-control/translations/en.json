@@ -1,5 +1,4 @@
 {
-  "title": "Umbriel Monitor Control",
   "error": {
     "parse_failed": "Could not parse umbriel outputs"
   },
@@ -12,6 +11,7 @@
   },
   "panel": {
     "apply": "Apply mode",
+    "apply_position": "Set this exact position",
     "busy": "Applying...",
     "layout": "Arrangement",
     "monitors": "Monitors",
@@ -27,7 +27,6 @@
     "position_unit": "px",
     "position_x": "x",
     "position_y": "y",
-    "apply_position": "Set this exact position",
     "refresh": "Hz",
     "refresh_state": "Refresh",
     "resolution": "Resolution",
@@ -50,6 +49,7 @@
       "label": "Show mode text"
     }
   },
+  "title": "Umbriel Monitor Control",
   "tooltip": {
     "mode": "Mode",
     "open": "Open Monitor Control",

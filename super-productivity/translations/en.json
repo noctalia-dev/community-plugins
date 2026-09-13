@@ -76,8 +76,8 @@
     "due": "Due tasks",
     "hook_error": "Hook error",
     "hook_status": "Hook updates",
-    "launch_method": "Launch method",
     "last_error": "Last error",
+    "launch_method": "Launch method",
     "not_running": "Not running",
     "overdue": "Overdue tasks",
     "package": "Companion package",
@@ -113,21 +113,21 @@
     "native_command_single": "Enter one executable without arguments as the native command.",
     "open_package_failed": "Noctalia could not open the companion package folder.",
     "outcome_unknown": "The companion stopped responding. Check Super Productivity before you try again to prevent a duplicate action.",
-    "rest_outcome_unknown": "Super Productivity did not confirm the result. Check the app before trying again.",
     "package_build_failed": "Noctalia could not build the companion package.",
     "package_missing": "The package builder did not produce a valid companion ZIP.",
     "package_verification_failed": "Noctalia could not verify the generated companion package.",
     "protocol_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
     "python_unavailable": "Noctalia requires python3 to build the companion package.",
     "rest_auth_required": "Noctalia could not authenticate with Super Productivity's local REST API.",
+    "rest_outcome_unknown": "Super Productivity did not confirm the result. Check the app before trying again.",
     "rest_request_failed": "The request to Super Productivity's local REST API failed.",
     "rest_timeout": "Super Productivity's local REST API did not respond in time.",
     "rest_unavailable": "Noctalia could not connect to Super Productivity's local REST API.",
     "schema_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
     "task_changed": "The displayed task changed before Noctalia could run the action.",
-    "xdg_open_unavailable": "Noctalia requires xdg-open to open the package folder.",
+    "timer_confirmation_mismatch": "The refreshed timer state does not match the requested change. Check Super Productivity before trying again.",
     "timer_confirmation_unknown": "The timer change could not be confirmed because refreshing REST state failed. Check Super Productivity before trying again.",
-    "timer_confirmation_mismatch": "The refreshed timer state does not match the requested change. Check Super Productivity before trying again."
+    "xdg_open_unavailable": "Noctalia requires xdg-open to open the package folder."
   },
   "launcher": {
     "add": "Add “{task}”",
@@ -194,6 +194,10 @@
       "description": "Color used for overdue task text in the bar widget and details panel.",
       "label": "Overdue text color"
     },
+    "poll_seconds": {
+      "description": "How often Noctalia reads the companion state, in seconds.",
+      "label": "Refresh interval"
+    },
     "prefer_tracked_task": {
       "description": "Places the currently tracked task before due tasks while its timer runs.",
       "label": "Show tracked task first"
@@ -242,7 +246,6 @@
     "hook_protocol_mismatch": "Companion hook notifications are incompatible",
     "hook_protocol_mismatch_hint": "Rebuild the companion package and reinstall it with the matching Noctalia plugin version.",
     "offline": "Super Productivity is not running",
-    "rest_offline": "REST task data is unavailable",
     "package_ready_hint": "Open the package folder. Then select the ZIP file in Super Productivity.",
     "protocol_mismatch": "The companion protocol version is incompatible",
     "ready": "Connected",
@@ -250,6 +253,8 @@
     "rest_auth_required_hint": "Enable the local REST API in Super Productivity Settings → Misc. If needed, set the REST token file override to the active local-rest-api-token file.",
     "rest_error": "The local REST API request failed",
     "rest_error_hint": "Super Productivity must be running with its local REST API enabled. Refresh retries the request.",
+    "rest_loading": "Loading REST task data…",
+    "rest_offline": "REST task data is unavailable",
     "rest_stale": "REST task data is stale",
     "rest_stale_hint": "Noctalia could not refresh task data. Refresh retries after the REST connection is restored.",
     "rest_starting": "Loading task data from the local REST API…",
@@ -259,7 +264,6 @@
     "setup_hint": "Build the companion package. Install it in Super Productivity. Approve the file-access prompt. Then select Refresh.",
     "stale": "Companion data is stale",
     "starting": "Starting companion…",
-    "rest_loading": "Loading REST task data…",
     "unavailable": "REST task data is unavailable"
   },
   "task": {

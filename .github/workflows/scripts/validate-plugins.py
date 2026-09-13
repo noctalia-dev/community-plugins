@@ -98,6 +98,11 @@ WEBP_MAGIC_FORMAT = b"WEBP"
 # Enough of the file to cover the RIFF header plus the first chunk header and the widest
 # dimension field of any WebP variant.
 WEBP_HEADER_BYTES = 32
+# Every clone, CI run, and install checks out every file a plugin ships, so one submission's file
+# count is a repo-wide cost. The largest plugin on main ships 59 files; a generated per-frame
+# animation pack shipped 2530. 200 leaves real asset sets over 3x headroom while rejecting dumps
+# that belong in one archive or in the user's cache directory.
+MAX_PLUGIN_FILES = 200
 
 ROOT_STRING_FIELDS = (
     "id",
@@ -1351,6 +1356,16 @@ class Validator:
             if path.is_symlink():
                 self.add_error(manifest_path, f"'{rel(self.root, path)}' is a symlink; plugins ship real files")
 
+    def validate_file_count(self, manifest_path: Path, plugin_dir: Path) -> None:
+        count = sum(1 for path in plugin_dir.rglob("*") if path.is_file())
+        if count > MAX_PLUGIN_FILES:
+            self.add_error(
+                manifest_path,
+                f"plugin directory ships {count} files; the limit is {MAX_PLUGIN_FILES} "
+                "(every clone, CI run, and install checks out every file - ship generated asset "
+                "packs as one archive or generate them into the user's cache directory on first run)",
+            )
+
     def validate_manifest(self, manifest_path: Path) -> None:
         manifest = self.load_manifest(manifest_path)
         if manifest is None:
@@ -1366,6 +1381,7 @@ class Validator:
         self.validate_readme(plugin_dir, manifest)
         self.validate_luau_api(plugin_dir)
         self.validate_no_symlinks(manifest_path, plugin_dir)
+        self.validate_file_count(manifest_path, plugin_dir)
 
         if "setting" in manifest:
             self.validate_settings(

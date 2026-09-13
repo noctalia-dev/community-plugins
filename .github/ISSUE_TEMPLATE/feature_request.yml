@@ -190,6 +190,7 @@ body:
         - umbriel-monitor-control
         - upbeat
         - vidi
+        - vm-manager
         - voxtype
         - vpn-manager
         - w-engine

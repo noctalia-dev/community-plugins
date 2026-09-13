@@ -382,6 +382,8 @@ local function render()
   end
 end
 
+local scanGames
+
 local function buildBinary()
   if building then return end
   building = true
@@ -410,7 +412,7 @@ local function buildBinary()
   end
 end
 
-local function scanGames()
+function scanGames()
   if loading or building then return end
   if not binaryReady() then
     buildBinary()
