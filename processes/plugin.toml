@@ -1,0 +1,69 @@
+id = "tordex/processes"
+name = "Processes"
+version = "1.0.0"
+plugin_api = 24
+author = "tordex"
+license = "MIT"
+dependencies = ["python", "kill", "pkill"]
+tags = ["panel", "service", "system"]
+icon = "device-desktop-analytics"
+description = "Monitor processes CPU, Memory, Disk read/write metrics"
+
+[[setting]]
+key = "delay"
+type = "int"
+label_key = "settings.delay.label"
+description_key = "settings.delay.description"
+default = 1
+min = 1
+max = 10
+
+[[setting]]
+key = "sort_column_background"
+type = "color"
+label_key = "settings.sort_column_background.label"
+description_key = "settings.sort_column_background.description"
+default = "surface_variant"
+
+[[setting]]
+key = "sort_column_color"
+type = "color"
+label_key = "settings.sort_column_color.label"
+description_key = "settings.sort_column_color.description"
+default = "on_surface_variant"
+
+[[setting]]
+key = "process_hover_background"
+type = "color"
+label_key = "settings.process_hover_background.label"
+description_key = "settings.process_hover_background.description"
+default = "surface_variant"
+
+[[setting]]
+key = "process_hover_color"
+type = "color"
+label_key = "settings.process_hover_color.label"
+description_key = "settings.process_hover_color.description"
+default = "on_surface_variant"
+
+[[setting]]
+key = "show_apps"
+type = "bool"
+label_key = "settings.show_apps.label"
+description_key = "settings.show_apps.description"
+default = true
+
+[[setting]]
+key = "show_processes"
+type = "bool"
+label_key = "settings.show_processes.label"
+description_key = "settings.show_processes.description"
+default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 800
+height = 600
+placement = "attached"
+open_near_click = true
