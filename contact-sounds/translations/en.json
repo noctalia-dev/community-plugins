@@ -1,53 +1,86 @@
 {
-  "panel": {
-    "add_button": "Add",
-    "add_name": "Person's name",
-    "add_path": "Path to .ogg/.mp3 sound",
-    "add_title": "Add contact",
-    "add_tooltip": "Add contact",
-    "cancel": "Cancel",
-    "cancel_tooltip": "Close the add form",
-    "delete_cancel_tooltip": "Cancel deletion",
-    "delete_confirm_tooltip": "Confirm deletion",
-    "delete_tooltip": "Remove this contact",
-    "edit_title": "Edit contact",
-    "edit_tooltip": "Edit this contact",
-    "empty_state": "No contacts configured yet.\nClick the + button above to add one.",
-    "error_saving": "Could not save the contact list. Check the log.",
-    "invalid_contact": "Type a name and a sound path first.",
-    "play_tooltip": "Play this contact's sound",
-    "save_button": "Save",
-    "saved": "Contact list updated",
-    "settings_tooltip": "Open plugin settings",
-    "title": "Contact Sounds"
-  },
-  "settings": {
-    "contacts": {
-      "description": "Map of person names to the sound played when a notification mentions them. Key: the exact name. Value: absolute path to a .ogg or .mp3 file.",
-      "label": "Contacts"
+    "panel": {
+        "add_button": "Add",
+        "add_folder_tooltip": "Add folder",
+        "add_image": "Photo / icon path (optional)",
+        "add_name": "Name",
+        "add_path": "Path to .ogg/.mp3 sound",
+        "add_path_folder": "Path to sounds folder",
+        "add_title": "Add contact",
+        "add_tooltip": "Add contact",
+        "cancel": "Cancel",
+        "cancel_tooltip": "Close the add form",
+        "delete_cancel_tooltip": "Cancel deletion",
+        "delete_confirm_tooltip": "Confirm deletion",
+        "delete_tooltip": "Remove this contact",
+        "edit_title": "Edit",
+        "edit_tooltip": "Edit this entry",
+        "empty_state": "No contacts configured yet.\nClick the + button above to add one.",
+        "error_saving": "Could not save the contact list. Check the log.",
+        "folder_no_sounds": "Folder has no playable sounds",
+        "folder_random": "Random (any sound)",
+        "folder_sounds": "Sound:",
+        "folder_switch_existing": "Pick from previously used folders",
+        "folder_switch_new": "Type a different path manually",
+        "invalid_contact": "Type a name and a sound path first.",
+        "kind_app": "App",
+        "kind_contact": "Contact",
+        "kind_group": "Group",
+        "kind_label": "Type",
+        "mode_file": "Sound file",
+        "mode_folder": "Sounds folder",
+        "mode_label": "Sound source",
+        "path_label": "Sound",
+        "play_tooltip": "Play this contact's sound",
+        "save_button": "Save",
+        "saved": "Contact list updated",
+        "settings_tooltip": "Open plugin settings",
+        "title": "Contact Sounds",
+        "need_sounds": "The folder must contain an audio file (.ogg, .mp3 or .wav)."
     },
-    "glyph": {
-      "description": "Icon shown in the bar for this widget.",
-      "label": "Icon"
+    "settings": {
+        "contact_images": {
+            "description": "Map of names to a photo or icon file path shown in the panel list. App entries fall back to the app's own icon when empty.",
+            "label": "Photo / icon per entry"
+        },
+        "contact_kinds": {
+            "description": "Entry type. 'contact' / 'group' match notification text, 'app' matches the notification app name only.",
+            "label": "Types (Contact / Group / App)"
+        },
+        "contacts": {
+            "description": "Map of person/group/app names to the sound played when a notification mentions them. Value: absolute path to a .ogg/.mp3 file, or a folder of sound files. When a folder is used, the sound shown in the panel list plays (or a random one when nothing is picked).",
+            "label": "Contacts"
+        },
+        "folder_sounds": {
+            "description": "Map of names to the selected sound filename inside a folder entry. Empty means any sound (random).",
+            "label": "Selected folder sound"
+        },
+        "glyph": {
+            "description": "Icon shown in the bar for this widget.",
+            "label": "Icon"
+        },
+        "match_case_sensitive": {
+            "description": "When off, the name is searched ignoring capitalization.",
+            "label": "Case sensitive matching"
+        },
+        "only_apps": {
+            "description": "Optional list of notification app names to restrict matching to. Leave empty to match notifications from any app.",
+            "label": "Only these apps"
+        },
+        "show_widget": {
+            "description": "When off, the bell icon is hidden from the bar.",
+            "label": "Show bar icon"
+        },
+        "sound_folders": {
+            "description": "Registry of known sound-folder paths offered when adding a new entry.",
+            "label": "Known sound folders"
+        }
     },
-    "match_case_sensitive": {
-      "description": "When off, the name is searched ignoring capitalization.",
-      "label": "Case sensitive matching"
+    "shortcut": {
+        "label": "Contact sounds"
     },
-    "only_apps": {
-      "description": "Optional list of notification app names to restrict matching to. Leave empty to match notifications from any app.",
-      "label": "Only these apps"
-    },
-    "show_widget": {
-      "description": "When off, the bell icon is hidden from the bar.",
-      "label": "Show bar icon"
+    "widget": {
+        "tooltip_empty": "Contact Sounds: no contacts configured. Click to open the panel.",
+        "tooltip_ok": "Contact Sounds: %d contact(s) configured. Click to test them."
     }
-  },
-  "shortcut": {
-    "label": "Contact sounds"
-  },
-  "widget": {
-    "tooltip_empty": "Contact Sounds: no contacts configured. Click to open the panel.",
-    "tooltip_ok": "Contact Sounds: %d contact(s) configured. Click to test them."
-  }
 }

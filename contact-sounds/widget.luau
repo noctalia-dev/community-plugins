@@ -10,7 +10,7 @@ local function render()
         return
     end
     barWidget.setVisible(true)
-    local glyphName = noctalia.getConfig("glyph") or "bell-cog"
+    local glyphName = noctalia.getConfig("glyph") or "bell-ringing"
     local children = {}
     if contactCount > 0 then
         table.insert(children, ui.glyph({ name = glyphName, size = 18, color = "primary" }))
