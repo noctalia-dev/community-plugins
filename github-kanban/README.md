@@ -1,6 +1,6 @@
-# Github Kanban
+# GitHub Kanban
 
-Github Kanban is a read-only GitHub dashboard for Noctalia. It brings profile and contribution data, notifications, following activity, pull requests, issues, repositories, and recent Actions runs into a themed panel; dashboard items open their canonical GitHub pages for further action.
+GitHub Kanban is a read-only GitHub dashboard for Noctalia. It brings profile and contribution data, notifications, following activity, pull requests, issues, repositories, and recent Actions runs into a themed panel; dashboard items open their canonical GitHub pages for further action.
 
 ## Plugin
 

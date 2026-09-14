@@ -35,7 +35,7 @@
     "pull_requests": "Pull requests",
     "repositories": "Repositories",
     "reviews": "Reviews",
-    "title": "Github Kanban"
+    "title": "GitHub Kanban"
   },
   "settings": {
     "activity": {
@@ -128,7 +128,7 @@
       }
     },
     "refresh_interval": {
-      "description": "How often Github Kanban refreshes its GitHub data.",
+      "description": "How often GitHub Kanban refreshes its GitHub data.",
       "label": "Refresh interval",
       "options": {
         "fifteen": "Every 15 minutes",
@@ -145,7 +145,7 @@
     "general": {
       "default_dashboard": {
         "label": "General · Default dashboard",
-        "description": "Dashboard shown when Github Kanban opens."
+        "description": "Dashboard shown when GitHub Kanban opens."
       },
       "bar_display_mode": {
         "label": "General · Bar display",
@@ -408,8 +408,8 @@
   },
   "widget": {
     "tooltip": {
-      "one": "Github Kanban\n{count} unread notification",
-      "other": "Github Kanban\n{count} unread notifications"
+      "one": "GitHub Kanban\n{count} unread notification",
+      "other": "GitHub Kanban\n{count} unread notifications"
     }
   },
   "fallback": {
@@ -458,6 +458,10 @@
   "heatmap": {
     "less": "Less",
     "more": "More"
+  },
+  "repository": {
+    "stars": "★ {count}",
+    "forks": "Forks {count}"
   },
   "events": {
     "activity": "Activity",
