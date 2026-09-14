@@ -860,9 +860,14 @@ def group_processes(processes: dict):
 
     return update_group_metrics(user_processes), update_group_metrics(system_processes)
 
+def nofollow_opener(path, flags):
+    return os.open(path, flags | os.O_NOFOLLOW)
+
 def main():
     interval = (int)(sys.argv[1]) if len(sys.argv) > 1 else 1
     skin = sys.argv[2] if len(sys.argv) > 2 else "dark"
+
+    save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
 
     while True:
         processes = fetch_processes(interval)
@@ -878,8 +883,8 @@ def main():
         output_data["system_stats"] = get_system_stats()
         output_data["distro_info"] = get_distro_info()
 
-        cpu_graph_path = f"/dev/shm/noctalia_tordex_procs_cpu_usage.png"
-        mem_graph_path = f"/dev/shm/noctalia_tordex_procs_mem_usage.png"
+        cpu_graph_path = f"{save_path}/noctalia_tordex_procs_cpu_usage.png"
+        mem_graph_path = f"{save_path}/noctalia_tordex_procs_mem_usage.png"
 
 
         # Draw CPU Usage Graph
@@ -910,9 +915,9 @@ def main():
         if mem_graph_path is not None:
             output_data["system_stats"]["mem_graph_path"] = mem_graph_path
 
-        filename = "/dev/shm/noctalia_tordex_procs.json"
+        filename = f"{save_path}/noctalia_tordex_procs.json"
         try:
-            with open(filename, "w") as f:
+            with open(filename, "w", opener=nofollow_opener) as f:
                 json.dump(output_data, f, sort_keys=True)
             print(f"tordex/procs:ready:{filename}", flush=True)
         except FileNotFoundError as e:

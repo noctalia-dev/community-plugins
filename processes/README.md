@@ -1,16 +1,16 @@
 # Processes
 
-Monitor processes CPU, Memory, Disk Read/Write and other metrics.
+Monitor CPU, memory, disk read/write, and other process metrics.
 
 ## Features
 
-* Group processes by application. Supported compositors: Niri, Umbriel, Hyprland, Mango, Sway, Scroll
+* Group processes by application. Supported compositors: Niri, Umbriel, Hyprland, Mango, Sway, and Scroll.
 * Group processes by executable path.
 * Show user and system processes.
 * Process columns: **Name**, **CPU Usage**, **Memory Usage**, **Swap Usage**, **Disk read/write bytes**, **PID**, and **Process user**.
-* Click a process to view extended process information and kill buttons. Click a value to copy it to the clipboard.
+* Click a process to view extended process information and buttons for killing it. Click a value to copy it to the clipboard.
 * Kill a process with SIGINT or terminate it with SIGKILL.
-* Show system information: **Distro name**, **Kernel version**, **CPU name**, **Motherboard name** and **Uptime**.
+* Show system information: **Distro name**, **Kernel version**, **CPU name**, **Motherboard name**, and **Uptime**.
 * Customizable polling interval.
 * Customizable colors for the sorted column.
 * Show graphical gauges for CPU and memory usage.
@@ -27,17 +27,17 @@ Monitor processes CPU, Memory, Disk Read/Write and other metrics.
 
 ## Requirements
 
-The plugin requires `python` to run stats collecting script. You have to install ```pycairo``` ```PyGObject``` modules with ```pip```:
+The plugin requires `python` to run the statistics collection script. You must install the `psutil`, `Pillow`, and `PyGObject` modules with `pip`:
 
 ```sh
-pip install pycairo PyGObject
+pip install PyGObject psutil Pillow
 ```
 
-Also `kill` and `pkill` are required to be installed and available in `$PATH`.
+The `kill` and `pkill` commands must also be installed and available in `$PATH`.
 
-Other requirements depend on the compositor you are using:
+Other requirements depend on the compositor you use:
 
-| Compositor | dependencies |
+| Compositor | Dependencies |
 | --- | --- |
 | Niri | `niri` |
 | Umbriel | `umbriel` |
@@ -50,7 +50,7 @@ Other requirements depend on the compositor you are using:
 
 ## Usage
 
-You can open the panel by binding it in your compositor or by setting the action for `sysmon` widgets:
+You can open the panel by binding it in your compositor or by setting an action for `sysmon` widgets:
 
 ![Actions](screenshots/actions.png)
 
@@ -80,7 +80,7 @@ Possible values for `order_by`:
 | `io` | Sort by Disk read/write bytes |
 | `username` | Sort by Process user |
 
-Without `order_by`, the panel opens with the previous sort mode.
+Without `order_by`, the panel opens using the previous sort mode.
 
 Add `-` before `order_by` to reverse the sort order. For example:
 
@@ -103,20 +103,24 @@ noctalia msg panel-toggle tordex/processes:panel -mem
 
 ## Notes
 
-The panel writes some files to `/dev/shm` when it is opened:
+The panel writes some files to the `${XDG_RUNTIME_DIR}` directory when it is opened:
 
 | File name | Description |
 | --- | --- |
 | `noctalia_tordex_procs.json` | The information about processes and system. |
-| `noctalia_tordex_procs_cpu_usage.png` | Guage for CPU usage |
-| `noctalia_tordex_procs_mem_usage.png` | Guage for Memory usage |
+| `noctalia_tordex_procs_cpu_usage.png` | Gauge for CPU usage |
+| `noctalia_tordex_procs_mem_usage.png` | Gauge for memory usage |
 
 These files are deleted when the panel closes.
 
-The `Application` section in the processes list is available on supported compositors:
+The `Application` section in the process list is available with the following supported compositors:
 * Niri
 * Umbriel
 * Hyprland
 * Sway
 * Scroll
 * Mango
+
+## Third-party notice
+
+The `scripts/stats.py` script includes code from [ps_mem](https://github.com/pixelb/ps_mem), which is licensed under the [LGPL-2.1 license](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).

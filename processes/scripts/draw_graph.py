@@ -1,3 +1,4 @@
+import os
 import math
 from PIL import Image, ImageDraw, ImageFont
 
@@ -106,6 +107,8 @@ def draw_gauge(base_img, center, percent, val_text, label_text, sub_text, skin):
 
     return base_img
 
+def nofollow_opener(path, flags):
+    return os.open(path, flags | os.O_NOFOLLOW)
 
 def draw_graph(percent, val_text, label_text, sub_text, skin, filename):
     img = Image.new("RGBA", (w_hi, h_hi), (0, 0, 0, 0))
@@ -126,7 +129,8 @@ def draw_graph(percent, val_text, label_text, sub_text, skin, filename):
 
     final_img = img.resize((110, 110), Image.Resampling.LANCZOS)
     try:
-        final_img.save(filename, "PNG")
+        with open(filename, "wb", opener=nofollow_opener) as f:
+            final_img.save(f, "PNG")
     except FileNotFoundError as e:
         return False
     return True
