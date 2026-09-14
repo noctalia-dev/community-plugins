@@ -1,0 +1,51 @@
+{
+  "title": "Agent Glow",
+  "started": "Agents are working — wallpaper is live",
+  "stopped": "All agents idle",
+  "tooltip": {
+    "working": "Agents working",
+    "idle": "No agents working"
+  },
+  "panel": {
+    "idle": "No agents working right now"
+  },
+  "settings": {
+    "agents": {
+      "label": "Agent processes",
+      "description": "Comma-separated process name fragments to watch (match is OR). E.g. opencode,claude,codex,gemini,aider,goose."
+    },
+    "poll_interval": {
+      "label": "Poll interval (seconds)",
+      "description": "How often to sample agent CPU activity. Lower reacts faster, higher uses less CPU."
+    },
+    "activity_threshold": {
+      "label": "CPU fallback threshold (% of one core)",
+      "description": "Only for agent types without session data (not opencode/claude): count the family as working while its process tree burns this much CPU. 100% = one full core."
+    },
+    "heartbeat_timeout": {
+      "label": "Heartbeat memory (seconds)",
+      "description": "Agent hooks report activity directly; a family stays lit this long after its last report. Covers quiet gaps between bursts."
+    },
+    "session_timeout": {
+      "label": "Session freshness (seconds)",
+      "description": "A session counts as working while its transcript or database entry was touched within this long. Based on real agent data, not CPU."
+    },
+    "pulse": {
+      "label": "Pulse speed",
+      "description": "How fast the desktop glow breathes while agents work.",
+      "options": {
+        "slow": "Slow",
+        "normal": "Normal",
+        "fast": "Fast"
+      }
+    },
+    "notify": {
+      "label": "Notify on change",
+      "description": "Show a notification when agents start or stop working."
+    },
+    "show_when_idle": {
+      "label": "Show in bar when idle",
+      "description": "Keep a dim indicator in the bar when no agents run. When off, the bar tile only appears while agents work."
+    }
+  }
+}
