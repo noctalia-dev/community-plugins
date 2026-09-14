@@ -4,7 +4,7 @@
 
 id = "estvoid/sony_headphones"
 name = "Sony Headphones"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 18
 author = "estvoid"
 license = "MIT"

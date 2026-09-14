@@ -1,11 +1,26 @@
-# Device artwork (optional)
+# Device artwork
 
-Drop per-model headphone images here as PNG or WEBP, then map them in
-`DEVICE_ART` at the top of `panel.luau`. Each model maps to a list of
-variants; the panel header's photo button cycles through them:
+The images in this directory are **original artwork** created for this plugin:
+stylised, flat illustrations of over-ear and in-ear headphones. They are part
+of the plugin and licensed under its MIT license — no third-party product
+photography, vendor render, or trademarked logo is included.
 
-    ["WH-1000XM5"] = { "assets/wh_1000xm5_black.webp", "assets/wh_1000xm5_white.webp" }
+Each `.webp` is rasterised from the matching `.svg` source next to it. Regenerate
+or tweak the set with:
 
-Recommended size: ~400x350 (panel shows them at 200x175, `fit = "contain"`).
-Transparent background looks best on both themes. If no file matches the
-connected model, the panel falls back to a headphones glyph.
+```sh
+python3 tools/generate_art.py           # writes the .svg sources
+for f in assets/*.svg; do
+  rsvg-convert -o /tmp/art.png "$f"
+  magick /tmp/art.png -quality 92 "${f%.svg}.webp"
+done
+```
+
+Files:
+
+- `over_ear_{black,white,silver,lavender}.webp` — over-ear models
+- `in_ear_{black,white}.webp` — true-wireless models
+
+The per-model mapping lives in `DEVICE_ART` in `panel.luau`; the panel header
+button cycles the variants. To use your own image for a model, drop a PNG/WEBP
+here and point that model's entry at it.

@@ -35,10 +35,10 @@
   },
   "widget": {
     "action": {
-      "cycle_noise": "Cycle Noise Mode",
       "left_click": "Left Click",
+      "right_click": "Right Click",
       "open_controls": "Open Controls",
-      "right_click": "Right Click"
+      "cycle_noise": "Cycle Noise Mode"
     },
     "device": "Device",
     "mode": "Mode",

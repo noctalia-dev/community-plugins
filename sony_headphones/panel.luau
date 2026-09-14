@@ -10,26 +10,30 @@ local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
 -- Forward declaration: render() is defined below but used by callbacks above.
 local render
 
--- User-provided device artwork: per-model variant images from assets/.
--- The subtle photo button in the header cycles through the variants
--- (session-local). (snapshot.device_image from the backend, e.g. a
--- downloaded render, takes precedence when set.)
+-- Original, stylised artwork shipped with the plugin (see assets/README.md
+-- and tools/generate_art.py). Every model maps to a list of variants; the
+-- photo button in the header cycles through them. (snapshot.device_image from
+-- the backend, e.g. a user-supplied render, takes precedence when set.)
+local OVER_EAR = "assets/over_ear_%s.webp"
+local IN_EAR = "assets/in_ear_%s.webp"
+
+local function artset(kind, variants)
+	local out = {}
+	for _, variant in ipairs(variants) do
+		table.insert(out, string.format(kind, variant))
+	end
+	return out
+end
+
 local DEVICE_ART = {
-	["WH-1000XM6"] = { "assets/wh_1000xm6_black.webp", "assets/wh_1000xm6_white.webp" },
-	["WH-1000XM5"] = { "assets/wh_1000xm5_black.webp", "assets/wh_1000xm5_white.webp" },
-	["WH-1000XM4"] = { "assets/wh_1000xm4_black.webp", "assets/wh_1000xm4_white.webp" },
-	["WF-1000XM5"] = { "assets/wf_1000xm5_black.webp", "assets/wf_1000xm5_white.webp" },
-	["WF-1000XM6"] = { "assets/wf_1000xm6_black.webp", "assets/wf_1000xm6_white.webp" },
-	["WH-1000XM4C"] = {
-		"assets/wh_1000mx4c_black.webp",
-		"assets/wh_1000mx4c_silver.webp",
-		"assets/wh_1000mx4c_lavender.webp",
-	},
-	["WH-1000XX"] = {
-		"assets/1000X_The_collexion_black.webp",
-		"assets/1000X_The_collexion_white.webp",
-	},
-	["WH-CH720N"] = { "assets/wh_ch730n_black.webp", "assets/wh_ch730n_white.webp" },
+	["WH-1000XM6"] = artset(OVER_EAR, { "black", "white" }),
+	["WH-1000XM5"] = artset(OVER_EAR, { "black", "white" }),
+	["WH-1000XM4"] = artset(OVER_EAR, { "black", "white" }),
+	["WH-1000XX"] = artset(OVER_EAR, { "black", "white" }),
+	["WH-CH720N"] = artset(OVER_EAR, { "black", "white" }),
+	["WH-1000XM4C"] = artset(OVER_EAR, { "black", "silver", "lavender" }),
+	["WF-1000XM5"] = artset(IN_EAR, { "black", "white" }),
+	["WF-1000XM6"] = artset(IN_EAR, { "black", "white" }),
 }
 
 -- Case-insensitive index so firmware/region spelling differences still match.

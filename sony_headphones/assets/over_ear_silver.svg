@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="350" viewBox="0 0 400 350">
+  <!-- headband -->
+  <path d="M 92 196 C 92 66 308 66 308 196" fill="none" stroke="#d3d6dd" stroke-width="34" stroke-linecap="round"/>
+  <path d="M 110 190 C 110 86 290 86 290 190" fill="none" stroke="#b4b8c2" stroke-width="14" stroke-linecap="round"/>
+  <!-- ear cups -->
+  <ellipse cx="84" cy="204" rx="56" ry="66" fill="#d3d6dd" stroke="#a4a8b3" stroke-width="3"/>
+  <ellipse cx="316" cy="204" rx="56" ry="66" fill="#d3d6dd" stroke="#a4a8b3" stroke-width="3"/>
+  <ellipse cx="84" cy="208" rx="36" ry="46" fill="#b4b8c2"/>
+  <ellipse cx="316" cy="208" rx="36" ry="46" fill="#b4b8c2"/>
+  <!-- highlights -->
+  <ellipse cx="66" cy="176" rx="10" ry="18" fill="#ffffff" opacity="0.14"/>
+  <ellipse cx="298" cy="176" rx="10" ry="18" fill="#ffffff" opacity="0.14"/>
+</svg>

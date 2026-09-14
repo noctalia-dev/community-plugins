@@ -92,7 +92,8 @@ noise-control bytes differ per generation.
 | WF-1000XM5 / WF-1000XM4 | ✅ BlueZ | ⚠️ untested V2 subtypes | please report |
 | LinkBuds / WH-CH720N / ULT | ✅ BlueZ | ⚠️ untested | please report |
 
-Artwork in `assets/` covers XM6/XM5/XM4, WF-XM5/XM6, MX4C
-(black/silver/lavender), the WH-1000XX "1000X The Collexion" (black/white)
-and CH73x (black/white). Lookup is case-insensitive and accepts alternate
-Bluetooth names.
+The bundled artwork is original, stylised flat art shipped with the plugin
+(MIT; see [`assets/README.md`](assets/README.md) and the
+[`tools/generate_art.py`](tools/generate_art.py) generator). It maps over-ear
+models and true-wireless models to colour variants; lookup is
+case-insensitive and accepts alternate Bluetooth names.
