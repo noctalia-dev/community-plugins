@@ -11,9 +11,12 @@ end
 
 function Data.profile(raw)
   if type(raw) ~= "table" then return nil end
+  local login = raw.login or ""
+  local name = raw.name
+  if not name or name == "" then name = login end
   return {
-    login = raw.login or "",
-    name = raw.name or "",
+    login = login,
+    name = name,
     bio = raw.bio or "",
     avatarUrl = raw.avatar_url or "",
     avatarPath = nil,
@@ -73,6 +76,7 @@ function Data.repository(raw, source)
     updatedAt = raw.updated_at or "",
     language = raw.language or "",
     stars = tonumber(raw.stargazers_count) or 0,
+    forks = tonumber(raw.forks_count) or 0,
     ownerLogin = raw.owner and raw.owner.login or "",
     ownerAvatarUrl = raw.owner and raw.owner.avatar_url or "",
     source = source,
@@ -155,8 +159,12 @@ end
 function Data.notification(raw)
   local subject = raw.subject or {}
   local repo = raw.repository or {}
-  local number = tostring(subject.url or ""):match("/issues/(%d+)$") or tostring(subject.url or ""):match("/pulls/(%d+)$")
-  local url = number and ("https://github.com/" .. (repo.full_name or "") .. "/issues/" .. number) or "https://github.com/notifications"
+  local subjectUrl = tostring(subject.url or "")
+  local number = subjectUrl:match("/issues/(%d+)$")
+  local isPullRequest = subjectUrl:match("/pulls/(%d+)$") ~= nil
+  if isPullRequest then number = subjectUrl:match("/pulls/(%d+)$") end
+  local path = isPullRequest and "pull" or "issues"
+  local url = number and ("https://github.com/" .. (repo.full_name or "") .. "/" .. path .. "/" .. number) or "https://github.com/notifications"
   return {
     id = tostring(raw.id or ""),
     title = subject.title or "",
@@ -315,7 +323,7 @@ function Data.runs(raw, repository)
       id = tostring(item.id or ""),
       name = item.name or item.display_title or "",
       status = item.status or "",
-      conclusion = item.conclusion or "",
+      conclusion = item.conclusion and item.conclusion ~= "" and item.conclusion or item.status or "",
       branch = item.head_branch or "",
       event = item.event or "",
       url = item.html_url or ("https://github.com/" .. repository .. "/actions"),

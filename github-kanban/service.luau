@@ -139,7 +139,7 @@ local function cacheProfileAvatar(profile)
   if url == "" or not dir then return end
   local dest = dir .. "/profile-avatar"
   noctalia.download(url, dest, function(ok)
-    if not ok then return end
+    if not ok or dashboard.profile ~= profile then return end
     profile.avatarPath = dest
     publish("profile", profile)
     persist()
@@ -243,22 +243,25 @@ local function refresh()
   noctalia.state.set("errors", dashboard.errors)
 
   local pending = 0
+  local scheduling = true
+  local function finalizeRefresh()
+    if scheduling or pending ~= 0 then return end
+    inFlight = false
+    dashboard.status = dashboard.errors.auth and "auth_error" or (next(dashboard.errors) and "partial" or "ready")
+    dashboard.stale = dashboard.status ~= "ready" and hasCachedData
+    local errorText = dashboard.errors.auth or (dashboard.status == "partial" and noctalia.tr("status.request_error") or "")
+    noctalia.state.set("error", errorText)
+    dashboard.last_update = os.time()
+    noctalia.state.set("last_update", dashboard.last_update)
+    noctalia.state.set("status", dashboard.status)
+    noctalia.state.set("stale", dashboard.stale)
+    noctalia.state.set("errors", dashboard.errors)
+    noctalia.state.set("dashboard", dashboard)
+    persist()
+  end
   local function finishOne()
     pending -= 1
-    if pending == 0 then
-      inFlight = false
-      dashboard.status = dashboard.errors.auth and "auth_error" or (next(dashboard.errors) and "partial" or "ready")
-      dashboard.stale = dashboard.status ~= "ready" and hasCachedData
-      local errorText = dashboard.errors.auth or (dashboard.status == "partial" and noctalia.tr("status.request_error") or "")
-      noctalia.state.set("error", errorText)
-      dashboard.last_update = os.time()
-      noctalia.state.set("last_update", dashboard.last_update)
-      noctalia.state.set("status", dashboard.status)
-      noctalia.state.set("stale", dashboard.stale)
-      noctalia.state.set("errors", dashboard.errors)
-      noctalia.state.set("dashboard", dashboard)
-      persist()
-    end
+    finalizeRefresh()
   end
 
   local function request(key, argv, normalize, after, publishResult, complete)
@@ -281,6 +284,7 @@ local function refresh()
           noctalia.state.set("errors", dashboard.errors)
         else
           dashboard.errors[key] = nil
+          hasCachedData = true
           if publishResult ~= false then publish(key, value) end
           if after then
             after(decoded, value)
@@ -303,12 +307,14 @@ local function refresh()
     local index = 1
     local function nextItem()
       if index > math.min(#items, limit) then
+        hasCachedData = true
         publish(outputKey, result)
         return
       end
+      local itemIndex = index
       local item = items[index]
       index += 1
-      request(errorKey, command(item), function(raw) return normalize(raw, item) end, function(_, values)
+      request(errorKey .. "." .. tostring(itemIndex), command(item), function(raw) return normalize(raw, item) end, function(_, values)
         for _, value in ipairs(values) do table.insert(result, value) end
       end, false, nextItem)
     end
@@ -336,8 +342,7 @@ local function refresh()
     local unread = unreadCount(items)
     dashboard.notifications_count = unread
     noctalia.state.set("notifications_count", unread)
-    requestRepositories()
-  end)
+  end, nil, requestRepositories)
   request("following", commands.following, function(raw)
     local out = {}
     local ignoredUsers = configSet("following_ignored_users")
@@ -418,26 +423,16 @@ local function refresh()
   request("review_prs", commands.review_prs, function(raw) return recentItems(Data.issues(raw, "review_requested"), activityHistoryDays()) end)
   request("authored_issues", commands.authored_issues, function(raw)
     return recentItems(Data.issues(raw, "author"), activityHistoryDays())
-  end, function()
+  end, nil, nil, function()
     request("issues", commands.issues, function(raw)
       return recentItems(Data.issues(raw, "assignee"), activityHistoryDays())
     end)
   end)
-  dashboard.actions = {}
   for _, key in ipairs({ "notifications", "following_events", "following_repo_events", "my_prs", "review_prs", "authored_issues", "issues", "repositories", "following_repos" }) do
     if dashboard[key] == nil then publish(key, list()) end
   end
-  publish("actions", dashboard.actions)
-  if pending == 0 then
-    inFlight = false
-    dashboard.status = "ready"
-    dashboard.stale = false
-    dashboard.last_update = os.time()
-    noctalia.state.set("status", "ready")
-    noctalia.state.set("stale", false)
-    noctalia.state.set("last_update", dashboard.last_update)
-    persist()
-  end
+  scheduling = false
+  finalizeRefresh()
 end
 
 noctalia.setUpdateInterval(refreshInterval())

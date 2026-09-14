@@ -115,9 +115,31 @@ local function loadHeatmapAppearance()
 end
 
 local function parseTimestamp(value)
-  local y, m, d, h, minute, second = tostring(value or ""):match("^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)")
+  local y, m, d, h, minute, second, suffix = tostring(value or ""):match("^(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)(.*)$")
   if not y then return nil end
-  return os.time({ year = tonumber(y), month = tonumber(m), day = tonumber(d), hour = tonumber(h), min = tonumber(minute), sec = tonumber(second) })
+  y, m, d, h, minute, second = tonumber(y), tonumber(m), tonumber(d), tonumber(h), tonumber(minute), tonumber(second)
+  if suffix == "" then
+    return os.time({ year = y, month = m, day = d, hour = h, min = minute, sec = second })
+  end
+
+  local zone = suffix:match("^[%.%d]*([Zz])$")
+  local sign, offsetHours, offsetMinutes = suffix:match("^[%.%d]*([+-])(%d%d):?(%d%d)$")
+  if not zone and not sign then return nil end
+
+  -- Convert the civil date to UTC without asking os.time to interpret it locally.
+  local adjustedYear = y - (m <= 2 and 1 or 0)
+  local era = math.floor(adjustedYear / 400)
+  local yearOfEra = adjustedYear - era * 400
+  local adjustedMonth = m + (m > 2 and -3 or 9)
+  local dayOfYear = math.floor((153 * adjustedMonth + 2) / 5) + d - 1
+  local dayOfEra = yearOfEra * 365 + math.floor(yearOfEra / 4) - math.floor(yearOfEra / 100) + dayOfYear
+  local epoch = (era * 146097 + dayOfEra - 719468) * 86400 + h * 3600 + minute * 60 + second
+  if sign then
+    local offset = (tonumber(offsetHours) * 60 + tonumber(offsetMinutes)) * 60
+    if sign == "-" then offset = -offset end
+    epoch -= offset
+  end
+  return epoch
 end
 
 local function displayTime(value)
@@ -354,9 +376,9 @@ local function card(item, glyph, context)
   if title == "" then title = item.sourceName or item.fullName or item.repository or item.name or item.login or item.type or tr("fallback.untitled") end
   local subtitle = itemText(item, "subtitle")
   if subtitle == "" then subtitle = item.ref or item.repo or item.repository or item.fullName or item.description or item.type or "" end
-  local meta = item.meta or item.conclusion or item.status or item.reason or item.updatedAt or item.createdAt or ""
+  local meta = item.state or item.meta or item.conclusion or item.status or item.reason or item.updatedAt or item.createdAt or ""
   if meta == item.updatedAt or meta == item.createdAt then meta = displayTime(meta) end
-  if meta == item.status or meta == item.conclusion then meta = translatedValue("github.status", meta) end
+  if meta == item.state or meta == item.status or meta == item.conclusion then meta = translatedValue("github.status", meta) end
   if meta == item.reason then meta = translatedValue("github.reason", meta) end
   local avatarSize, avatarRadius = avatarGeometry(28)
   local leading
@@ -428,7 +450,10 @@ local function repositoryCard(item)
   local border, borderWidth = cardBorder(active, false)
   local details = {}
   if noctalia.getConfig("repositories_show_language") ~= false and item.language and item.language ~= "" then details[#details + 1] = item.language end
-  if noctalia.getConfig("repositories_show_stats") ~= false then details[#details + 1] = "★ " .. tostring(item.stars or 0) end
+  if noctalia.getConfig("repositories_show_stats") ~= false then
+    details[#details + 1] = tr("repository.stars", { count = item.stars or 0 })
+    details[#details + 1] = tr("repository.forks", { count = item.forks or 0 })
+  end
   if item.updatedAt and item.updatedAt ~= "" then details[#details + 1] = displayTime(item.updatedAt) end
   return ui.column({
     key = key, flexGrow = 1, gap = densityValue(4, 6, 8), padding = densityValue(8, 11, 14), radius = cardRadius(),
@@ -559,8 +584,9 @@ local function groupedFollowingList(items)
   local groups, groupByKey = {}, {}
   for _, item in ipairs(ordered) do
     local isUser = item.source == "user"
-    local name = isUser and (item.sourceName or item.actor or tr("fallback.github_user")) or (item.repository or tr("fallback.github_repository"))
-    local key = (isUser and "user:" or "repository:") .. name
+    local name = isUser and ((item.sourceName and item.sourceName ~= "" and item.sourceName) or item.actor or tr("fallback.github_user")) or (item.repository or tr("fallback.github_repository"))
+    local identity = isUser and (item.actor or name) or name
+    local key = (isUser and "user:" or "repository:") .. identity
     local group = groupByKey[key]
     if not group then
       group = { key = key, name = name, source = item.source, items = {} }
@@ -871,7 +897,7 @@ end
 
 local function body()
   if state.status == "loading" and next(state.profile) == nil then return statusView() end
-  if state.status == "missing_gh" or state.status == "auth_error" then return statusView() end
+  if (state.status == "missing_gh" or state.status == "auth_error") and not state.stale then return statusView() end
   if currentTab == "overview" then return overview() end
   if currentTab == "notifications" then return notifications() end
   if currentTab == "work" then return work() end
@@ -896,6 +922,15 @@ render = function()
   local freshness = state.lastUpdate
   if type(freshness) == "number" then freshness = noctalia.formatTime("%H:%M", freshness) end
   if state.stale then freshness = tr("status.stale") end
+  local content = #visibleTabs > 0 and body() or listView({}, "inbox")
+  local contentChildren = {}
+  if state.status == "partial" then
+    contentChildren[#contentChildren + 1] = ui.row({ gap = 7, align = "center", padding = 8, radius = cardRadius(), fill = "primary/0.12" }, {
+      ui.glyph({ name = "alert-triangle", size = font(15), color = "primary" }),
+      ui.label({ text = state.error ~= "" and state.error or tr("status.request_error"), color = "on_surface_variant", fontSize = font(11), maxLines = 2, flexGrow = 1 }),
+    })
+  end
+  contentChildren[#contentChildren + 1] = content
   panel.render(ui.column({ flexGrow = 1, gap = 10 }, {
     ui.row({ gap = 8, align = "center" }, {
       ui.glyph({ name = "brand-github", size = 25, color = "primary" }),
@@ -905,7 +940,7 @@ render = function()
       ui.button({ glyph = "close", variant = "ghost", tooltip = tr("action.close"), onClick = function() panel.close() end }),
     }),
     ui.row({ gap = 3, align = "center" }, tabs),
-    #visibleTabs > 0 and body() or listView({}, "inbox"),
+    ui.column({ flexGrow = 1, gap = 8 }, contentChildren),
   }))
 end
 
