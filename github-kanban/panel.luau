@@ -924,7 +924,7 @@ render = function()
   if state.stale then freshness = tr("status.stale") end
   local content = #visibleTabs > 0 and body() or listView({}, "inbox")
   local contentChildren = {}
-  if state.status == "partial" then
+  if state.status == "partial" or state.status == "auth_error" then
     contentChildren[#contentChildren + 1] = ui.row({ gap = 7, align = "center", padding = 8, radius = cardRadius(), fill = "primary/0.12" }, {
       ui.glyph({ name = "alert-triangle", size = font(15), color = "primary" }),
       ui.label({ text = state.error ~= "" and state.error or tr("status.request_error"), color = "on_surface_variant", fontSize = font(11), maxLines = 2, flexGrow = 1 }),
