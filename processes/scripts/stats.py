@@ -26,12 +26,13 @@ from gi.repository import Gtk
 def std_exceptions(etype, value, tb):
     sys.excepthook = sys.__excepthook__
     if issubclass(etype, KeyboardInterrupt) or issubclass(etype, IOError) and value.errno == errno.EPIPE:
-        if os.path.exists("/dev/shm/noctalia_tordex_procs.json"):
-            os.remove("/dev/shm/noctalia_tordex_procs.json")
-        if os.path.exists("/dev/shm/noctalia_tordex_procs_cpu_usage.png"):
-            os.remove("/dev/shm/noctalia_tordex_procs_cpu_usage.png")
-        if os.path.exists("/dev/shm/noctalia_tordex_procs_mem_usage.png"):
-            os.remove("/dev/shm/noctalia_tordex_procs_mem_usage.png")
+        save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
+        if os.path.exists(f"{save_path}/noctalia_tordex_procs.json"):
+            os.remove(f"{save_path}/noctalia_tordex_procs.json")
+        if os.path.exists(f"{save_path}/noctalia_tordex_procs_cpu_usage.png"):
+            os.remove(f"{save_path}/noctalia_tordex_procs_cpu_usage.png")
+        if os.path.exists(f"{save_path}/noctalia_tordex_procs_mem_usage.png"):
+            os.remove(f"{save_path}/noctalia_tordex_procs_mem_usage.png")
     else:
         sys.__excepthook__(etype, value, tb)
 
