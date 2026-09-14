@@ -285,13 +285,14 @@ local function prepareGrid()
         cells[#cells + 1] = ui.box({
           key = key, width = CELL_SIZE, height = CELL_SIZE, radius = CELL_RADIUS,
           fill = COLORS[level + 1], opacity = level == 0 and 0.32 or 1,
-          border = emptyOutline and "outline" or "outline/0", borderWidth = emptyOutline and 1 or 0,
+          border = emptyOutline and "primary/0.45" or "primary/0.24", borderWidth = 1,
           onHover = "onContributionHover",
         })
       else
         cells[#cells + 1] = ui.box({
           width = CELL_SIZE, height = CELL_SIZE, radius = CELL_RADIUS,
           fill = COLORS[1], opacity = 0.32,
+          border = "primary/0.24", borderWidth = 1,
         })
       end
     end
@@ -646,6 +647,7 @@ local function heatmap()
     legend[#legend + 1] = ui.box({
       width = 10, height = 10, radius = CELL_RADIUS,
       fill = COLORS[level], opacity = level == 1 and 0.32 or 1,
+      border = "primary/0.24", borderWidth = 1,
     })
   end
   legend[#legend + 1] = ui.label({ text = tr("heatmap.more"), fontSize = font(9), color = "on_surface_variant" })

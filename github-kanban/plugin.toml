@@ -1,6 +1,6 @@
 id = "shangshui0302/github-kanban"
 name = "Github Kanban"
-version = "0.1.1"
+version = "0.1.0"
 plugin_api = 24
 author = "Shangshui0302"
 license = "MIT"

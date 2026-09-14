@@ -79,7 +79,7 @@ Add the `github` widget to a Noctalia bar and click it to open the dashboard. Ri
 | `heatmap_show_weekdays` | `bool` | `true` | — | Shows weekday labels beside the contribution calendar. |
 | `heatmap_show_total` | `bool` | `true` | — | Shows the annual contribution total. |
 | `heatmap_show_legend` | `bool` | `true` | — | Shows the heatmap intensity legend. |
-| `heatmap_empty_style` | `select` | `background` | `background`, `outline` | Renders zero-contribution cells with the shared translucent fill alone or adds an outline. |
+| `heatmap_empty_style` | `select` | `background` | `background`, `outline` | Uses the standard subtle cell border or a stronger outline for zero-contribution days. |
 | `heatmap_color_mode` | `select` | `noctalia` | `noctalia`, `github`, `custom` | Chooses Noctalia, GitHub, or custom heatmap colors. |
 | `heatmap_custom_level_0` | `string` | `""` | Color string; empty follows theme | Sets custom color for intensity level 0 when custom mode is selected. |
 | `heatmap_custom_level_1` | `string` | `""` | Color string; empty follows theme | Sets custom color for intensity level 1 when custom mode is selected. |

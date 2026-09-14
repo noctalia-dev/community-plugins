@@ -298,7 +298,7 @@
       },
       "heatmap_empty_style": {
         "label": "Appearance · Heatmap · Empty cell style",
-        "description": "Use the shared translucent fill alone or add an outline for days with no contributions.",
+        "description": "Use the standard subtle cell border or a stronger outline for days with no contributions.",
         "options": {
           "background": "Background",
           "outline": "Outline"
