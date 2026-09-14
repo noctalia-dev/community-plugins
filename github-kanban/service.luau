@@ -267,6 +267,7 @@ local function refresh()
   local function request(key, argv, normalize, after, publishResult, complete)
     pending += 1
     local started = noctalia.runAsync(argv, function(result)
+      local succeeded = false
       local decoded, err = decode(result)
       if decoded == nil then
         dashboard.errors[key] = err
@@ -285,18 +286,19 @@ local function refresh()
         else
           dashboard.errors[key] = nil
           hasCachedData = true
+          succeeded = true
           if publishResult ~= false then publish(key, value) end
           if after then
             after(decoded, value)
           end
         end
       end
-      if complete then complete() end
+      if complete then complete(succeeded) end
       finishOne()
     end)
     if not started then
       dashboard.errors[key] = noctalia.tr("status.cli_start_failed")
-      if complete then complete() end
+      if complete then complete(false) end
       finishOne()
     end
   end
@@ -305,10 +307,13 @@ local function refresh()
   local function requestSeries(items, limit, outputKey, errorKey, command, normalize)
     local result = {}
     local index = 1
+    local failed = false
     local function nextItem()
       if index > math.min(#items, limit) then
-        hasCachedData = true
-        publish(outputKey, result)
+        if not failed then
+          hasCachedData = true
+          publish(outputKey, result)
+        end
         return
       end
       local itemIndex = index
@@ -316,7 +321,10 @@ local function refresh()
       index += 1
       request(errorKey .. "." .. tostring(itemIndex), command(item), function(raw) return normalize(raw, item) end, function(_, values)
         for _, value in ipairs(values) do table.insert(result, value) end
-      end, false, nextItem)
+      end, false, function(succeeded)
+        if not succeeded then failed = true end
+        nextItem()
+      end)
     end
     nextItem()
   end
