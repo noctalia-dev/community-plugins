@@ -8,9 +8,12 @@
     "add_feed_placeholder": "Feed URL (e.g. https://example.com/feed.xml)",
     "add_feed_title": "Add feed",
     "add_feed_tooltip": "Add feed",
+    "cancel_feed_tooltip": "Cancel edit",
     "clear_all_tooltip": "Clear all",
     "close_form_tooltip": "Close form",
     "dismiss_tooltip": "Dismiss",
+    "edit_feed_title": "Edit feed",
+    "edit_feed_tooltip": "Edit feed",
     "empty_state": "No updates",
     "feed_error_duplicate": "This feed is already configured.",
     "feed_error_empty": "Enter the feed URL.",
@@ -19,15 +22,12 @@
     "feeds_title": "Configured feeds",
     "refresh_tooltip": "Refresh now",
     "remove_feed_tooltip": "Remove feed",
+    "save_feed_tooltip": "Save feed",
     "settings_tooltip": "Plugin settings",
     "title": "RSS/Atom Notifier",
     "untitled_item": "(untitled)"
   },
   "settings": {
-    "feed_urls": {
-      "description": "One RSS or Atom feed URL per entry (e.g. https://example.com/feed.xml).",
-      "label": "Feed URLs"
-    },
     "glyph": {
       "description": "Icon shown in the bar for this widget.",
       "label": "Icon"
@@ -45,7 +45,7 @@
       "label": "Refresh interval (minutes)"
     },
     "show_feed_images": {
-      "description": "Show each item's cover image (or the site's favicon as a fallback) in the item list.",
+      "description": "Show the feed's photo (logo) on the cards, with the item's cover or the site's favicon as fallback.",
       "label": "Show feed images"
     }
   },

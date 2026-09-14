@@ -10,6 +10,7 @@ local showAddForm = false
 local feedDraft = ""
 local feedDraftKey = 0
 local feedError = ""
+local editingFeed = nil
 
 local function tr(key)
   return noctalia.tr(key)
@@ -155,9 +156,17 @@ render = function()
   if showAddForm then
     local feedRows = {}
     for i, url in ipairs(feeds) do
-      table.insert(feedRows, ui.row({ gap = 6, align = "center" }, {
+      local isEditing = url == editingFeed
+      table.insert(feedRows, ui.row({ key = "feed-row-" .. i, gap = 6, align = "center" }, {
         ui.glyph({ name = "rss", size = 13, color = "outline" }),
         ui.label({ text = url, fontSize = 12, flexGrow = 1, maxLines = 1 }),
+        ui.button({
+          glyph       = "pencil",
+          variant     = isEditing and "primary" or "ghost",
+          controlSize = "sm",
+          tooltip     = tr("panel.edit_feed_tooltip"),
+          onClick     = function() beginEditFeed(url) end,
+        }),
         ui.button({
           glyph       = "x",
           variant     = "ghost",
@@ -168,37 +177,58 @@ render = function()
       }))
     end
 
-    table.insert(children, ui.column({ gap = 6, padding = 8, radius = 8, fill = "surface_variant/0.65" }, {
-      ui.label({ text = tr("panel.add_feed_title"), fontWeight = "bold" }),
+    local isEditing = editingFeed ~= nil
+    local inputRowElements = {
       ui.input({
         key         = "feed-url-" .. feedDraftKey,
         value       = feedDraft,
-        width       = "100%",
+        flexGrow    = 1,
         placeholder = tr("panel.add_feed_placeholder"),
         onChange    = function(value) feedDraft = value; feedError = "" end,
         onSubmit    = "onAddFeed",
       }),
-      (feedError ~= "" and ui.label({ text = feedError, color = "#e05252", fontSize = 11 }) or nil),
-      ui.button({
-        text         = tr("panel.add_feed_button"),
-        glyph        = "plus",
-        variant      = "primary",
-        flexGrow     = 1,
-        contentAlign = "center",
-        onClick      = "onAddFeed",
-      }),
-      ui.separator({}),
-      ui.label({ text = tr("panel.feeds_title"), fontSize = 12, color = "outline", fontWeight = "bold" }),
-      (#feeds > 0 and ui.column({ gap = 4 }, feedRows) or ui.label({ text = tr("panel.feeds_empty"), fontSize = 12, color = "outline" })),
+    }
+    if isEditing then
+      table.insert(inputRowElements, ui.button({
+        glyph       = "x",
+        variant     = "outline",
+        controlSize = "md",
+        tooltip     = tr("panel.cancel_feed_tooltip"),
+        onClick     = "onCancelEdit",
+      }))
+    end
+    table.insert(inputRowElements, ui.button({
+      glyph       = isEditing and "device-floppy" or "plus",
+      variant     = "primary",
+      controlSize = "md",
+      tooltip     = isEditing and tr("panel.save_feed_tooltip") or tr("panel.add_feed_tooltip"),
+      onClick     = "onAddFeed",
     }))
+
+    local formChildren = {
+      ui.label({ text = isEditing and tr("panel.edit_feed_title") or tr("panel.add_feed_title"), fontWeight = "bold" }),
+      ui.row({ gap = 6, align = "center" }, inputRowElements),
+    }
+    if feedError ~= "" then
+      table.insert(formChildren, ui.label({ text = feedError, color = "#e05252", fontSize = 11 }))
+    end
+    for _, element in ipairs(formChildren) do
+      table.insert(children, element)
+    end
     table.insert(children, ui.separator({}))
+    table.insert(children, ui.label({ text = tr("panel.feeds_title"), fontSize = 12, color = "outline", fontWeight = "bold" }))
+    if #feeds > 0 then
+      table.insert(children, ui.scroll({ gap = 4, flexGrow = 1 }, feedRows))
+    else
+      table.insert(children, ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
+        ui.label({ text = tr("panel.feeds_empty"), color = "outline" }),
+      }))
+    end
+  else
+    table.insert(children, body)
   end
 
-  table.insert(children, body)
-
-  -- 720 (panel height, see plugin.toml) minus a 30px safety margin before
-  -- the rounded edge, instead of touching it
-  panel.render(ui.column({ gap = 10, padding = 12, height = 690 }, children))
+  panel.render(ui.column({ gap = 10, padding = 12, flexGrow = 1, align = "stretch" }, children))
 end
 
 noctalia.state.watch("items", function(raw)
@@ -215,6 +245,7 @@ end)
 
 function onToggleAddForm()
   showAddForm = not showAddForm
+  editingFeed = nil
   if not showAddForm then
     feedDraft = ""
     feedDraftKey = feedDraftKey + 1
@@ -225,7 +256,29 @@ end
 
 function removeFeed(url)
   feedError = ""
+  if editingFeed == url then
+    editingFeed = nil
+    feedDraft = ""
+    feedDraftKey = feedDraftKey + 1
+  end
   sendFeedIpc("remove-feed", url)
+  render()
+end
+
+function beginEditFeed(url)
+  editingFeed = url
+  feedDraft = url
+  feedError = ""
+  feedDraftKey = feedDraftKey + 1
+  showAddForm = true
+  render()
+end
+
+function onCancelEdit()
+  editingFeed = nil
+  feedDraft = ""
+  feedDraftKey = feedDraftKey + 1
+  feedError = ""
   render()
 end
 
@@ -242,18 +295,27 @@ function onAddFeed()
     return
   end
   for _, existing in ipairs(feeds) do
-    if existing == url then
+    if existing == url and existing ~= editingFeed then
       feedError = tr("panel.feed_error_duplicate")
       render()
       return
     end
   end
 
+  if editingFeed ~= nil then
+    if url ~= editingFeed then
+      sendFeedIpc("remove-feed", editingFeed)
+      sendFeedIpc("add-feed", url)
+    end
+    editingFeed = nil
+  else
+    sendFeedIpc("add-feed", url)
+  end
+
   feedDraft = ""
   feedDraftKey = feedDraftKey + 1
   feedError = ""
   showAddForm = true -- keep the form open so more feeds can be added
-  sendFeedIpc("add-feed", url)
   render()
 end
 
@@ -277,6 +339,7 @@ function onOpen(_context)
   end
 
 showAddForm = false
+  editingFeed = nil
   feedDraft = ""
   feedDraftKey = feedDraftKey + 1
   feedError = ""
