@@ -10,7 +10,10 @@
     "add_feed_tooltip": "Adicionar feed",
     "clear_all_tooltip": "Limpar tudo",
     "close_form_tooltip": "Fechar formulário",
+    "cancel_feed_tooltip": "Cancelar edição",
     "dismiss_tooltip": "Dispensar",
+    "edit_feed_title": "Editar feed",
+    "edit_feed_tooltip": "Editar feed",
     "empty_state": "Nenhuma atualização",
     "feed_error_duplicate": "Este feed já está configurado.",
     "feed_error_empty": "Digite a URL do feed.",
@@ -19,6 +22,7 @@
     "feeds_title": "Feeds configurados",
     "refresh_tooltip": "Atualizar agora",
     "remove_feed_tooltip": "Remover feed",
+    "save_feed_tooltip": "Salvar feed",
     "settings_tooltip": "Configurações do plugin",
     "title": "RSS/Atom Notifier",
     "untitled_item": "(sem título)"
