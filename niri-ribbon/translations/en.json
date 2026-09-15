@@ -27,6 +27,14 @@
         "center": "Center (niri: always)",
         "fit": "Fit (niri: never)"
       }
+    },
+    "show_active_window": {
+      "label": "Show Active Window",
+      "description": "Show the active tiled window inside the viewport highlight with a solid color."
+    },
+    "active_window_color": {
+      "label": "Active Window Color",
+      "description": "Solid color of the active window marker."
     }
   }
 }

@@ -27,6 +27,14 @@
         "center": "Center (niri: always)",
         "fit": "Fit (niri: never)"
       }
+    },
+    "show_active_window": {
+      "label": "显示活动窗口",
+      "description": "在视口高亮区域内用纯色显示活动平铺窗口。"
+    },
+    "active_window_color": {
+      "label": "活动窗口颜色",
+      "description": "活动窗口标记的纯色。"
     }
   }
 }
