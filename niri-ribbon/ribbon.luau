@@ -252,17 +252,9 @@ local function computeRatios(windows, workspaces, outputs)
   local gapsTotal = (#colIndices - 1) * GAPS
   local canvasWidth = math.max(sumWidths + gapsTotal, viewWidth)
 
-  -- Locate the focused column (prefer workspace.active_window_id, fall back
-  -- to the globally focused window)
+  -- The service supplies the workspace's active window ID; published windows
+  -- contain geometry only, with no global focus flag.
   local targetWinId = activeWinId
-  if targetWinId == nil then
-    for _, w in ipairs(windows) do
-      if w.is_focused and w.workspace_id == wsId then
-        targetWinId = w.id
-        break
-      end
-    end
-  end
   local targetWin = nil
   for _, w in ipairs(wsWindows) do
     if w.id == targetWinId then
@@ -353,6 +345,8 @@ end
 --   steps < 0 (scroll up / left)    -> focus-column-left
 --   steps > 0 (scroll down / right) -> focus-column-right
 -- Niri scrolls the viewport as needed to reveal the newly focused column.
+-- Keep this focus-relative: focus-monitor warps the pointer even when the
+-- requested output is already focused.
 function onScroll(_axis, steps, _startsGesture)
   -- Noctalia guarantees steps is non-zero (continuous sources only fire the
   -- callback once a full detent accrues); this check is purely defensive
@@ -360,14 +354,7 @@ function onScroll(_axis, steps, _startsGesture)
     return
   end
   local action = (steps < 0) and "focus-column-left" or "focus-column-right"
-  local connector = widgetOutputName()
-  local command = "niri msg action " .. action
-  if connector then
-    -- Focus the widget's monitor before issuing a focus-relative niri action.
-    local quoted = "'" .. connector:gsub("'", "'\"'\"'") .. "'"
-    command = "niri msg action focus-monitor " .. quoted .. " && " .. command
-  end
-  noctalia.runAsync(command)
+  noctalia.runAsync("niri msg action " .. action)
 end
 
 noctalia.setUpdateInterval(IDLE_INTERVAL_MS)
