@@ -26,9 +26,23 @@ icon = "view-column"
 description = "Viewport position indicator for niri scrollable-tiling layout."
 tags = ["bar", "indicator", "niri"]
 
+[[service]]
+id = "compositor"
+entry = "service.luau"
+
 [[widget]]
 id = "ribbon"
 entry = "ribbon.luau"
+
+  [[widget.setting]]
+  key = "animation_speed"
+  type = "double"
+  label_key = "settings.animation_speed.label"
+  description_key = "settings.animation_speed.description"
+  default = 1.0
+  min = 0.0
+  max = 3.0
+  step = 0.25
 
   [[widget.setting]]
   key = "bar_color"

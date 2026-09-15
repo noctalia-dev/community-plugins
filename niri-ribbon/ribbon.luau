@@ -8,18 +8,8 @@
 -- this file is a ground-up rewrite against the Noctalia v5 plugin spec
 -- (plugin.toml + Luau).
 --
--- Mechanism: subscribe to `niri msg -j event-stream`; on structural changes
--- fetch windows/workspaces/outputs via three concurrent runAsync queries;
--- once all callbacks arrive, compute ratioStart/ratioWidth and render the
--- ribbon overview with a row + 3 boxes (left gap / viewport highlight /
--- right gap).
---
--- Key design notes:
---   * runStream is killed automatically by Noctalia when the widget unmounts;
---     no manual lifecycle management needed.
---   * fetchAll debounces via an inFlight + dirty flag: when events arrive
---     while a query round is in flight, one more round runs right after it
---     completes, so the final state is never missed.
+-- The shared service publishes compact per-output snapshots. This widget only
+-- estimates viewport geometry and renders; it never polls the compositor.
 --
 -- Viewport estimation: niri does not expose the live scrolling offset on
 -- standard releases. The "fit" model remembers an offset per workspace and
@@ -32,6 +22,7 @@ local BAR_COLOR = noctalia.getConfig("bar_color") or "outline"
 local VIEWPORT_COLOR = noctalia.getConfig("viewport_color") or "primary"
 local SHOW_ACTIVE_WINDOW = noctalia.getConfig("show_active_window") == true
 local ACTIVE_WINDOW_COLOR = noctalia.getConfig("active_window_color") or "secondary"
+local ANIMATION_SPEED = math.max(0, noctalia.getConfig("animation_speed") or 1.0)
 local THICKNESS = noctalia.getConfig("thickness") or 4.0
 local RADIUS = noctalia.getConfig("radius") or 2.0
 -- Viewport estimation model: "fit" (niri default `never`) | "center" (`always`)
@@ -53,20 +44,17 @@ local fromWidth = ratioWidth
 local animationStartedMs = nil
 local initialized = false
 local workspaceViews = {}
-local fetchAll
-local lastFetchMs = 0
-local RESYNC_INTERVAL_MS = 5000
-local ANIMATION_DURATION_MS = 200
+local ANIMATION_DURATION_MS = 200 / math.max(0.01, ANIMATION_SPEED)
 local FRAME_INTERVAL_MS = 16
--- The shell requires a positive update interval; idle ticks only check resync.
-local IDLE_INTERVAL_MS = 1000
+-- The host requires a positive interval. State watches deliver actual updates.
+local IDLE_INTERVAL_MS = 60000
 
 -- ── Rendering ─────────────────────────────────────────────────────────────
 local function render()
   -- Explicit widths also collapse a gap to zero. A flexGrow of zero instead
   -- lets the host measure the box using its previous laid-out width.
   local width = 80
-  local viewport = ui.box({ width = width * ratioWidth, height = THICKNESS, fill = VIEWPORT_COLOR, radius = RADIUS })
+  local viewport
   if SHOW_ACTIVE_WINDOW then
     local left = math.max(ratioStart, math.min(ratioStart + ratioWidth, windowStart))
     local right = math.max(left, math.min(ratioStart + ratioWidth, windowStart + windowWidth))
@@ -82,6 +70,8 @@ local function render()
     })
     viewport = ui.row({ width = width * ratioWidth, height = THICKNESS,
       gap = 0, padding = 0, fill = VIEWPORT_COLOR, radius = RADIUS }, children)
+  else
+    viewport = ui.box({ width = width * ratioWidth, height = THICKNESS, fill = VIEWPORT_COLOR, radius = RADIUS })
   end
   barWidget.render(ui.row({ width = width, height = THICKNESS, gap = 0, padding = 0 }, {
     ui.box({ width = width * ratioStart, height = THICKNESS, fill = BAR_COLOR }),
@@ -95,19 +85,19 @@ local function animateTo(nextStart, nextWidth, nextWindowStart, nextWindowWidth)
   nextWindowStart = SHOW_ACTIVE_WINDOW and nextWindowStart or 0
   nextWindowWidth = SHOW_ACTIVE_WINDOW and nextWindowWidth or 0
   nextWindowStart, nextWindowWidth = nextWindowStart or 0, nextWindowWidth or 0
-  -- Show the first snapshot immediately, without animating a placeholder.
-  if not initialized then
+  if initialized and nextStart == targetStart and nextWidth == targetWidth
+    and nextWindowStart == targetWindowStart and nextWindowWidth == targetWindowWidth then
+    return
+  end
+  -- Initial state and speed zero are immediate, with no animation ticks.
+  if not initialized or ANIMATION_SPEED == 0 then
     initialized = true
     windowStart, windowWidth = nextWindowStart, nextWindowWidth
     targetWindowStart, targetWindowWidth = nextWindowStart, nextWindowWidth
     ratioStart, ratioWidth = nextStart, nextWidth
     targetStart, targetWidth = nextStart, nextWidth
+    animationStartedMs = nil
     render()
-    return
-  end
-  -- Repeated IPC snapshots must not restart an in-progress transition.
-  if nextStart == targetStart and nextWidth == targetWidth
-    and nextWindowStart == targetWindowStart and nextWindowWidth == targetWindowWidth then
     return
   end
   -- Retarget from the last rendered frame so rapid focus changes stay smooth.
@@ -123,10 +113,6 @@ local function animateTo(nextStart, nextWidth, nextWindowStart, nextWindowWidth)
 end
 
 function update()
-  -- Recover from missed events or a stream that has stopped delivering data.
-  if fetchAll and noctalia.nowMs() - lastFetchMs >= RESYNC_INTERVAL_MS then
-    fetchAll()
-  end
   if animationStartedMs == nil then
     return
   end
@@ -346,106 +332,13 @@ local function computeRatios(windows, workspaces, outputs)
   return rStart, rWidth, activeStart, activeWidth
 end
 
--- ── Data fetching (concurrent + debounced) ────────────────────────────────
-local inFlight = false
-local dirty = false
-local snapshot = { windows = nil, workspaces = nil, outputs = nil }
-
-fetchAll = function()
-  if inFlight then
-    dirty = true
-    return
-  end
-  inFlight = true
-  lastFetchMs = noctalia.nowMs()
-  dirty = false
-  snapshot = { windows = nil, workspaces = nil, outputs = nil }
-
-  local remaining = 3
-
-  local function onPart(key, result)
-    if result.exitCode == 0 and result.stdout ~= "" then
-      local ok, data = pcall(noctalia.json.decode, result.stdout)
-      if ok and type(data) == "table" then
-        snapshot[key] = data
-      end
-    end
-    remaining = remaining - 1
-    if remaining == 0 then
-      inFlight = false
-      -- A failed query must not replace a valid view with a full-width placeholder.
-      if snapshot.windows and snapshot.workspaces and snapshot.outputs then
-        animateTo(computeRatios(snapshot.windows, snapshot.workspaces, snapshot.outputs))
-      end
-      if dirty then
-        -- More events arrived during the query round; run one more round to
-        -- capture the final state
-        fetchAll()
-      end
-    end
-  end
-
-  for _, key in ipairs({ "windows", "workspaces", "outputs" }) do
-    local started = noctalia.runAsync("niri msg -j " .. key, function(r)
-      onPart(key, r)
-    end, 3000)
-    -- A process that cannot start has no callback; do not leave inFlight stuck.
-    if started == false then
-      onPart(key, { exitCode = -1, stdout = "" })
-    end
-  end
-end
-
--- ── Event stream ──────────────────────────────────────────────────────────
--- The niri event-stream emits no "viewport scrolled" event (no such event
--- type exists in the upstream niri IPC), so every structural change triggers
--- a full recomputation. The viewport position can only come from the
--- geometric estimation inside computeRatios.
--- Structural event types that trigger recomputation (tagged-union keys of
--- the niri event-stream)
-local STRUCTURAL_EVENTS = {
-  WorkspaceActivated = true,
-  WindowOpenedOrChanged = true,
-  WindowClosed = true,
-  WorkspaceActiveWindowChanged = true,
-  WindowFocusChanged = true,
-  WindowsChanged = true,
-  WorkspacesChanged = true,
-  WindowLayoutsChanged = true,
-}
-local function onEventLine(line)
-  if not line or line == "" then
-    return
-  end
-  local ok, event = pcall(noctalia.json.decode, line)
-  if not ok or type(event) ~= "table" then
-    return
-  end
-  -- The event is a tagged union; hitting any structural key triggers a
-  -- recompute (pairs only iterates keys with non-nil values, equivalent to
-  -- the original `event.X ~= nil` checks)
-  for key in pairs(event) do
-    if STRUCTURAL_EVENTS[key] then
-      fetchAll()
-      return
-    end
-  end
-end
-
--- ── Startup ───────────────────────────────────────────────────────────────
-local function start()
-  if not noctalia.commandExists("niri") then
-    fetchAll = nil
-    noctalia.notifyError("Niri Ribbon", "niri command not found in PATH")
-    render()
-    return
-  end
-
-  -- Initial computation + event-stream subscription (Noctalia kills the
-  -- stream automatically when the widget unmounts)
-  fetchAll()
-  if not noctalia.runStream("niri msg -j event-stream", onEventLine) then
-    noctalia.notifyError("Niri Ribbon", "Unable to subscribe to niri event-stream")
+-- ── Shared compositor state ──────────────────────────────────────────────
+local function applySnapshot(value)
+  if type(value) ~= "table" then return end
+  if value.windows and value.workspaces and value.outputs then
+    animateTo(computeRatios(value.windows, value.workspaces, value.outputs))
+  else
+    animateTo(0, 1)
   end
 end
 
@@ -479,4 +372,8 @@ end
 
 noctalia.setUpdateInterval(IDLE_INTERVAL_MS)
 render()
-start()
+local connector = widgetOutputName()
+local stateKey = connector and ("output:" .. connector) or "focused"
+noctalia.state.watch(stateKey, applySnapshot)
+local initial = noctalia.state.get(stateKey)
+if initial then applySnapshot(initial) end

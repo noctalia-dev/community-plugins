@@ -35,6 +35,10 @@
     "active_window_color": {
       "label": "Active Window Color",
       "description": "Solid color of the active window marker."
+    },
+    "animation_speed": {
+      "label": "Animation Speed",
+      "description": "Animation speed multiplier: 1 is normal, higher is faster, and 0 disables animations."
     }
   }
 }

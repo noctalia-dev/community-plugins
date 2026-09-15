@@ -35,6 +35,10 @@
     "active_window_color": {
       "label": "活动窗口颜色",
       "description": "活动窗口标记的纯色。"
+    },
+    "animation_speed": {
+      "label": "动画速度",
+      "description": "动画速度倍率：1 为正常速度，数值越大越快，0 关闭动画。"
     }
   }
 }
