@@ -66,13 +66,14 @@
       "label": "Lyrics offset (ms)"
     },
     "panel_size": {
-      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",
+      "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640), pinned (640, stays open near the bar). The bar widget and control-center tile open this preset.",
       "label": "Panel size",
       "options": {
         "compact": "Compact (440)",
         "large": "Large (640)",
         "medium": "Medium (520)",
-        "mini": "Mini"
+        "mini": "Mini",
+        "pinned": "Pinned (stays open)"
       }
     },
     "player_allowlist": {
