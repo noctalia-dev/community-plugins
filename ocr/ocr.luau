@@ -122,6 +122,14 @@ function onRightClick()
 	grab(true)
 end
 
+function onIpc(event, payload)
+	if event == "ocr-region" then
+		grab(false)
+	elseif event == "ocr-screen" then
+		grab(true)
+	end
+end
+
 function onConfigChanged()
 	render()
 end
