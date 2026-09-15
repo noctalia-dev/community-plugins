@@ -8,68 +8,21 @@
 -- this file is a ground-up rewrite against the Noctalia v5 plugin spec
 -- (plugin.toml + Luau).
 --
--- Mechanism: subscribe to `niri msg -j event-stream`; on structural changes
--- fetch windows/workspaces/outputs via three concurrent runAsync queries;
--- once all callbacks arrive, compute ratioStart/ratioWidth and render the
--- ribbon overview with a row + 3 boxes (left gap / viewport highlight /
--- right gap).
+-- The shared service publishes compact per-output snapshots. This widget only
+-- estimates viewport geometry and renders; it never polls the compositor.
 --
--- Key design notes:
---   * runStream is killed automatically by Noctalia when the widget unmounts;
---     no manual lifecycle management needed.
---   * fetchAll debounces via an inFlight + dirty flag: when events arrive
---     while a query round is in flight, one more round runs right after it
---     completes, so the final state is never missed.
---
--- ── Viewport estimation (the hard part) ───────────────────────────────────
--- The niri IPC (26.04 through current HEAD) exposes neither the live viewport
--- offset (view_pos) nor any "viewport scrolled" event. The WorkspaceViewChanged
--- event assumed by the original ews implementation has never existed upstream,
--- so this plugin estimates the resting viewport position from the focused
--- window plus geometry.
---
--- Estimation models (selected via `viewport_model`; should match niri
--- `center-focused-column`):
---   * "fit"    — matches niri `center-focused-column: never` (niri default).
---                niri behavior: focusing an off-screen column snaps it near a
---                viewport edge (left or right, whichever moves less); columns
---                already visible stay put. We approximate the steady state of
---                the common interaction (focusing columns left to right) as
---                "focused column right-aligned to the viewport":
---                  view_pos = clamp(col_x + col_w + padding - view_w, 0, canvas)
---                This simplified formula deviates from a per-column simulation
---                (focusing from the leftmost column up to the focused one) by
---                at most one gaps value (usually <= 8px) — imperceptible on a
---                ribbon ~80px wide.
---   * "center" — matches niri `center-focused-column: always`.
---                niri behavior: the focused column is always centered.
---                Formula:
---                  view_pos = col_x + col_w/2 - view_w/2
---
--- Known limitations (inherent without live viewport data; exact rendering
--- would need niri to expose view_pos upstream):
---   (1) When focusing columns right-to-left, niri's actual steady state tends
---       toward "focused column left-aligned", while the "fit" model still
---       assumes right-alignment — a visible deviation.
---   (2) When the newly focused column is already inside the viewport (niri
---       keeps the view unchanged for visible columns), the "fit" model still
---       recomputes as right-aligned, which does not match niri's "keep it".
---       Root cause: the IPC does not expose the current view_pos, so "already
---       visible" cannot be detected. Typical trigger: clicking a non-adjacent
---       column inside the viewport.
---
--- Upstream progress: niri PR#4147 (https://github.com/niri-wm/niri/pull/4147,
--- 2026-06) proposes Workspace.scrolling_view_pos + Event::WorkspaceViewPosChanged
--- — exactly what this plugin needs (per-workspace view_pos with a resting
--- target to avoid animation-interpolated IPC spam). The maintainer (YaLTeR)
--- acknowledged the problem in #2381 but opposed a per-tile approach, and has
--- not commented on that PR yet. Once it lands in a stable release, this plugin
--- can consume the real view_pos and drop the estimation, removing both
--- limitations above.
+-- Viewport estimation: niri does not expose the live scrolling offset on
+-- standard releases. The "fit" model remembers an offset per workspace and
+-- moves it only enough to reveal the focused column, in either direction.
+-- "center" always centers the focused column. These remain estimates when
+-- attaching mid-session, scrolling without changing focus, or using struts.
 
 -- ── Configuration ─────────────────────────────────────────────────────────
 local BAR_COLOR = noctalia.getConfig("bar_color") or "outline"
 local VIEWPORT_COLOR = noctalia.getConfig("viewport_color") or "primary"
+local SHOW_ACTIVE_WINDOW = noctalia.getConfig("show_active_window") == true
+local ACTIVE_WINDOW_COLOR = noctalia.getConfig("active_window_color") or "secondary"
+local ANIMATION_SPEED = math.max(0, noctalia.getConfig("animation_speed") or 1.0)
 local THICKNESS = noctalia.getConfig("thickness") or 4.0
 local RADIUS = noctalia.getConfig("radius") or 2.0
 -- Viewport estimation model: "fit" (niri default `never`) | "center" (`always`)
@@ -81,21 +34,113 @@ local GAPS = noctalia.getConfig("gaps") or 0.0
 -- ── Viewport state ────────────────────────────────────────────────────────
 local ratioStart = 0.0
 local ratioWidth = 1.0
+local windowStart, windowWidth = 0, 0
+local targetWindowStart, targetWindowWidth = 0, 0
+local fromWindowStart, fromWindowWidth = 0, 0
+local targetStart = ratioStart
+local targetWidth = ratioWidth
+local fromStart = ratioStart
+local fromWidth = ratioWidth
+local animationStartedMs = nil
+local initialized = false
+local workspaceViews = {}
+local ANIMATION_DURATION_MS = 200 / math.max(0.01, ANIMATION_SPEED)
+local FRAME_INTERVAL_MS = 16
+-- The host requires a positive interval. State watches deliver actual updates.
+local IDLE_INTERVAL_MS = 60000
 
 -- ── Rendering ─────────────────────────────────────────────────────────────
 local function render()
-  local leftFlex = ratioStart
-  local vpFlex = ratioWidth
-  local rightFlex = math.max(0.0, 1.0 - ratioStart - ratioWidth)
-  -- 3 boxes: flexGrow distributes the row's fixed width proportionally.
-  -- Note: the row needs an explicit width; otherwise the bar plugin_widget
-  -- sizes it with uiHost.width() (= 0) and the whole widget stays invisible
-  -- (flexGrow has no effect inside a zero-width parent).
-  barWidget.render(ui.row({ width = 80, height = THICKNESS, gap = 0, padding = 0 }, {
-    ui.box({ flexGrow = leftFlex, fill = BAR_COLOR }),
-    ui.box({ flexGrow = vpFlex, fill = VIEWPORT_COLOR, radius = RADIUS }),
-    ui.box({ flexGrow = rightFlex, fill = BAR_COLOR }),
+  -- Explicit widths also collapse a gap to zero. A flexGrow of zero instead
+  -- lets the host measure the box using its previous laid-out width.
+  local width = 80
+  local viewport
+  if SHOW_ACTIVE_WINDOW then
+    local left = math.max(ratioStart, math.min(ratioStart + ratioWidth, windowStart))
+    local right = math.max(left, math.min(ratioStart + ratioWidth, windowStart + windowWidth))
+    local children = {
+      ui.box({ width = width * (left - ratioStart), height = THICKNESS, opacity = 0 }),
+    }
+    children[#children + 1] = ui.box({
+      width = width * (right - left), height = THICKNESS,
+      fill = ACTIVE_WINDOW_COLOR, radius = RADIUS,
+    })
+    children[#children + 1] = ui.box({
+      width = width * (ratioStart + ratioWidth - right), height = THICKNESS, opacity = 0,
+    })
+    viewport = ui.row({ width = width * ratioWidth, height = THICKNESS,
+      gap = 0, padding = 0, fill = VIEWPORT_COLOR, radius = RADIUS }, children)
+  else
+    viewport = ui.box({ width = width * ratioWidth, height = THICKNESS, fill = VIEWPORT_COLOR, radius = RADIUS })
+  end
+  barWidget.render(ui.row({ width = width, height = THICKNESS, gap = 0, padding = 0 }, {
+    ui.box({ width = width * ratioStart, height = THICKNESS, fill = BAR_COLOR }),
+    viewport,
+    ui.box({ width = width * math.max(0, 1 - ratioStart - ratioWidth), height = THICKNESS, fill = BAR_COLOR }),
   }))
+end
+
+-- ── Transitions ───────────────────────────────────────────────────────────
+local function animateTo(nextStart, nextWidth, nextWindowStart, nextWindowWidth)
+  nextWindowStart = SHOW_ACTIVE_WINDOW and nextWindowStart or 0
+  nextWindowWidth = SHOW_ACTIVE_WINDOW and nextWindowWidth or 0
+  nextWindowStart, nextWindowWidth = nextWindowStart or 0, nextWindowWidth or 0
+  if initialized and nextStart == targetStart and nextWidth == targetWidth
+    and nextWindowStart == targetWindowStart and nextWindowWidth == targetWindowWidth then
+    return
+  end
+  -- Initial state and speed zero are immediate, with no animation ticks.
+  if not initialized or ANIMATION_SPEED == 0 then
+    initialized = true
+    windowStart, windowWidth = nextWindowStart, nextWindowWidth
+    targetWindowStart, targetWindowWidth = nextWindowStart, nextWindowWidth
+    ratioStart, ratioWidth = nextStart, nextWidth
+    targetStart, targetWidth = nextStart, nextWidth
+    animationStartedMs = nil
+    render()
+    return
+  end
+  -- Retarget from the last rendered frame so rapid focus changes stay smooth.
+  fromWindowStart, fromWindowWidth = windowStart, windowWidth
+  targetWindowStart, targetWindowWidth = nextWindowStart, nextWindowWidth
+  fromStart, fromWidth = ratioStart, ratioWidth
+  targetStart, targetWidth = nextStart, nextWidth
+  local wasAnimating = animationStartedMs ~= nil
+  animationStartedMs = noctalia.nowMs()
+  if not wasAnimating then
+    noctalia.setUpdateInterval(FRAME_INTERVAL_MS)
+  end
+end
+
+function update()
+  if animationStartedMs == nil then
+    return
+  end
+  local progress = math.max(0, math.min(1,
+    (noctalia.nowMs() - animationStartedMs) / ANIMATION_DURATION_MS))
+  local eased = 1 - (1 - progress) ^ 3 -- cubic ease-out
+  -- Interpolating both ratios with the same weight keeps the highlight in bounds.
+  ratioStart = fromStart + (targetStart - fromStart) * eased
+  ratioWidth = fromWidth + (targetWidth - fromWidth) * eased
+  windowStart = fromWindowStart + (targetWindowStart - fromWindowStart) * eased
+  windowWidth = fromWindowWidth + (targetWindowWidth - fromWindowWidth) * eased
+  if progress >= 1 then
+    windowStart, windowWidth = targetWindowStart, targetWindowWidth
+    ratioStart, ratioWidth = targetStart, targetWidth
+    animationStartedMs = nil
+    noctalia.setUpdateInterval(IDLE_INTERVAL_MS)
+  end
+  render()
+end
+
+local function widgetOutputName()
+  if barWidget.outputName then
+    local ok, name = pcall(barWidget.outputName)
+    if ok and type(name) == "string" and name ~= "" then
+      return name
+    end
+  end
+  return nil
 end
 
 -- ── Algorithm ─────────────────────────────────────────────────────────────
@@ -107,15 +152,27 @@ local function computeRatios(windows, workspaces, outputs)
     return 0.0, 1.0
   end
 
-  -- Find the focused workspace, fall back to the first active one
+  -- Workspace IDs are stable; workspace indices repeat across monitors.
+  local liveIds = {}
+  for _, ws in ipairs(workspaces) do
+    liveIds[ws.id] = true
+  end
+  for id in pairs(workspaceViews) do
+    if not liveIds[id] then
+      workspaceViews[id] = nil
+    end
+  end
+
+  local connector = widgetOutputName()
   local focusedWs = nil
   for _, ws in ipairs(workspaces) do
-    if ws.is_focused then
+    if (connector and ws.output == connector and ws.is_active)
+      or (not connector and ws.is_focused) then
       focusedWs = ws
       break
     end
   end
-  if not focusedWs then
+  if not focusedWs and not connector then
     for _, ws in ipairs(workspaces) do
       if ws.is_active then
         focusedWs = ws
@@ -153,6 +210,7 @@ local function computeRatios(windows, workspaces, outputs)
     end
   end
   if #wsWindows == 0 then
+    workspaceViews[wsId] = nil
     return 0.0, 1.0
   end
 
@@ -179,8 +237,9 @@ local function computeRatios(windows, workspaces, outputs)
   end
   table.sort(colIndices)
 
-  -- Single column or none: viewport fills the whole ribbon
-  if #colIndices <= 1 then
+  -- No scrolling geometry available.
+  if #colIndices == 0 then
+    workspaceViews[wsId] = nil
     return 0.0, 1.0
   end
 
@@ -193,17 +252,9 @@ local function computeRatios(windows, workspaces, outputs)
   local gapsTotal = (#colIndices - 1) * GAPS
   local canvasWidth = math.max(sumWidths + gapsTotal, viewWidth)
 
-  -- Locate the focused column (prefer workspace.active_window_id, fall back
-  -- to the globally focused window)
+  -- The service supplies the workspace's active window ID; published windows
+  -- contain geometry only, with no global focus flag.
   local targetWinId = activeWinId
-  if targetWinId == nil then
-    for _, w in ipairs(windows) do
-      if w.is_focused and w.workspace_id == wsId then
-        targetWinId = w.id
-        break
-      end
-    end
-  end
   local targetWin = nil
   for _, w in ipairs(wsWindows) do
     if w.id == targetWinId then
@@ -227,35 +278,32 @@ local function computeRatios(windows, workspaces, outputs)
     colX = colX + (columns[idx] or 0) + GAPS
   end
 
-  -- Estimate the viewport's left edge in canvas coordinates (view_pos)
+  -- Keep each workspace's resting estimate independent of the animation.
+  local previous = workspaceViews[wsId]
+  if previous and previous.output ~= outputName then
+    previous = nil
+  end
   local viewPos
-  if VIEWPORT_MODEL == "center" then
-    -- Focused column always centered: viewport center = column center
+  if targetWinId == nil or targetWin.id ~= targetWinId then
+    -- Floating focus should not move the scrolling ribbon to an arbitrary tile.
+    viewPos = previous and previous.position or 0
+  elseif VIEWPORT_MODEL == "center" then
     viewPos = colX + fWidth / 2 - viewWidth / 2
   else
-    -- "fit" model (steady-state approximation of niri `never`): focused
-    -- column right-aligned to the viewport, left edge clamped to 0.
-    -- Right-alignment puts the focused column at the right viewport edge and
-    -- reveals previously focused columns to the left — the typical steady
-    -- state of focusing columns left to right. If the focused column is wider
-    -- than the viewport, fall back to left alignment (matches niri).
+    local padding = math.min(math.max(0, (viewWidth - fWidth) / 2), GAPS)
+    local leftAligned = colX - padding
+    local rightAligned = colX + fWidth + padding - viewWidth
+    viewPos = previous and previous.position or math.max(0, rightAligned)
     if fWidth >= viewWidth then
       viewPos = colX
-    else
-      -- padding = min((view_w - col_w)/2, gaps), matching niri's
-      -- compute_new_view_offset
-      local padding = math.min((viewWidth - fWidth) / 2, GAPS)
-      viewPos = colX + fWidth + padding - viewWidth
-    end
-    -- Clamp to [0, inf): niri actually allows view_pos < 0 (viewport left
-    -- edge beyond the canvas, background visible on the left), but ribbon
-    -- rendering requires rStart in [0, 1], so negatives clamp to 0 (the
-    -- highlight starts at the ribbon's left end). This is a rendering
-    -- constraint of the plugin, not upstream behavior.
-    if viewPos < 0 then
-      viewPos = 0
+    elseif leftAligned < viewPos then
+      viewPos = leftAligned
+    elseif rightAligned > viewPos then
+      viewPos = rightAligned
     end
   end
+  viewPos = math.max(0, math.min(canvasWidth - viewWidth, viewPos))
+  workspaceViews[wsId] = { position = viewPos, output = outputName }
 
   local rStart = viewPos / canvasWidth
   local rWidth = viewWidth / canvasWidth
@@ -267,105 +315,22 @@ local function computeRatios(windows, workspaces, outputs)
     rStart = 1.0 - rWidth
   end
 
-  return rStart, rWidth
+  local activeStart, activeWidth = 0, 0
+  if targetWinId ~= nil and targetWin.id == targetWinId then
+    activeStart = math.max(rStart, colX / canvasWidth)
+    local activeEnd = math.min(rStart + rWidth, (colX + fWidth) / canvasWidth)
+    activeWidth = math.max(0, activeEnd - activeStart)
+  end
+  return rStart, rWidth, activeStart, activeWidth
 end
 
--- ── Data fetching (concurrent + debounced) ────────────────────────────────
-local inFlight = false
-local dirty = false
-local snapshot = { windows = nil, workspaces = nil, outputs = nil }
-
-local function fetchAll()
-  if inFlight then
-    dirty = true
-    return
-  end
-  inFlight = true
-  dirty = false
-  snapshot = { windows = nil, workspaces = nil, outputs = nil }
-
-  local remaining = 3
-
-  local function onPart(key, result)
-    if result.exitCode == 0 and result.stdout ~= "" then
-      local ok, data = pcall(noctalia.json.decode, result.stdout)
-      if ok then
-        snapshot[key] = data
-      end
-    end
-    remaining = remaining - 1
-    if remaining == 0 then
-      inFlight = false
-      ratioStart, ratioWidth = computeRatios(snapshot.windows, snapshot.workspaces, snapshot.outputs)
-      render()
-      if dirty then
-        -- More events arrived during the query round; run one more round to
-        -- capture the final state
-        fetchAll()
-      end
-    end
-  end
-
-  noctalia.runAsync("niri msg -j windows", function(r)
-    onPart("windows", r)
-  end)
-  noctalia.runAsync("niri msg -j workspaces", function(r)
-    onPart("workspaces", r)
-  end)
-  noctalia.runAsync("niri msg -j outputs", function(r)
-    onPart("outputs", r)
-  end)
-end
-
--- ── Event stream ──────────────────────────────────────────────────────────
--- The niri event-stream emits no "viewport scrolled" event (no such event
--- type exists in the upstream niri IPC), so every structural change triggers
--- a full recomputation. The viewport position can only come from the
--- geometric estimation inside computeRatios.
--- Structural event types that trigger recomputation (tagged-union keys of
--- the niri event-stream)
-local STRUCTURAL_EVENTS = {
-  WorkspaceActivated = true,
-  WindowOpenedOrChanged = true,
-  WindowClosed = true,
-  WorkspaceActiveWindowChanged = true,
-  WindowFocusChanged = true,
-  WindowsChanged = true,
-  WorkspacesChanged = true,
-  WindowLayoutsChanged = true,
-}
-local function onEventLine(line)
-  if not line or line == "" then
-    return
-  end
-  local ok, event = pcall(noctalia.json.decode, line)
-  if not ok or type(event) ~= "table" then
-    return
-  end
-  -- The event is a tagged union; hitting any structural key triggers a
-  -- recompute (pairs only iterates keys with non-nil values, equivalent to
-  -- the original `event.X ~= nil` checks)
-  for key in pairs(event) do
-    if STRUCTURAL_EVENTS[key] then
-      fetchAll()
-      return
-    end
-  end
-end
-
--- ── Startup ───────────────────────────────────────────────────────────────
-local function start()
-  if not noctalia.commandExists("niri") then
-    noctalia.notifyError("Niri Ribbon", "niri command not found in PATH")
-    render()
-    return
-  end
-
-  -- Initial computation + event-stream subscription (Noctalia kills the
-  -- stream automatically when the widget unmounts)
-  fetchAll()
-  if not noctalia.runStream("niri msg -j event-stream", onEventLine) then
-    noctalia.notifyError("Niri Ribbon", "Unable to subscribe to niri event-stream")
+-- ── Shared compositor state ──────────────────────────────────────────────
+local function applySnapshot(value)
+  if type(value) ~= "table" then return end
+  if value.windows and value.workspaces and value.outputs then
+    animateTo(computeRatios(value.windows, value.workspaces, value.outputs))
+  else
+    animateTo(0, 1)
   end
 end
 
@@ -379,8 +344,9 @@ end
 -- niri-ribbon is a horizontal ribbon: both axes map to focus-column changes:
 --   steps < 0 (scroll up / left)    -> focus-column-left
 --   steps > 0 (scroll down / right) -> focus-column-right
--- (In niri scrollable-tiling the focused column auto-centers, so "moving the
--- focused column" is equivalent to "scrolling the viewport sideways".)
+-- Niri scrolls the viewport as needed to reveal the newly focused column.
+-- Keep this focus-relative: focus-monitor warps the pointer even when the
+-- requested output is already focused.
 function onScroll(_axis, steps, _startsGesture)
   -- Noctalia guarantees steps is non-zero (continuous sources only fire the
   -- callback once a full detent accrues); this check is purely defensive
@@ -391,4 +357,10 @@ function onScroll(_axis, steps, _startsGesture)
   noctalia.runAsync("niri msg action " .. action)
 end
 
-start()
+noctalia.setUpdateInterval(IDLE_INTERVAL_MS)
+render()
+local connector = widgetOutputName()
+local stateKey = connector and ("output:" .. connector) or "focused"
+noctalia.state.watch(stateKey, applySnapshot)
+local initial = noctalia.state.get(stateKey)
+if initial then applySnapshot(initial) end

@@ -1,6 +1,6 @@
 # Niri Ribbon - viewport position indicator for niri scrollable-tiling layout.
 #
-# Draws an overview of the focused workspace's whole scrolling ribbon on the
+# Draws an overview of each monitor's active workspace's scrolling ribbon on the
 # bar and highlights where the current viewport sits and how wide it is — so
 # you can tell at a glance how many windows are hidden to the left and right.
 #
@@ -10,26 +10,39 @@
 # legacy quickshell-era QML plugin API; this plugin is a ground-up rewrite for
 # the Noctalia v5 spec (plugin.toml + Luau) that keeps the algorithm idea.
 #
-# Important: the niri IPC (26.04 through HEAD) exposes neither the live
-# viewport offset nor a "viewport scrolled" event (the WorkspaceViewChanged
-# event assumed by the original ews project never existed upstream). This
-# plugin estimates the resting viewport position geometrically — see the
-# "Viewport estimation" section at the top of ribbon.luau.
+# Standard niri IPC does not expose the live viewport offset. This plugin
+# estimates the resting position geometrically and remembers it per workspace;
+# see the
+# viewport estimation notes at the top of ribbon.luau.
 
 id = "luochen1990/niri-ribbon"
 name = "Niri Ribbon"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 3
-author = "luochen1990"
+author = "luochen1990, thatonecalculator"
 license = "MIT"
 dependencies = ["niri"]
 icon = "view-column"
 description = "Viewport position indicator for niri scrollable-tiling layout."
 tags = ["bar", "indicator", "niri"]
 
+[[service]]
+id = "compositor"
+entry = "service.luau"
+
 [[widget]]
 id = "ribbon"
 entry = "ribbon.luau"
+
+  [[widget.setting]]
+  key = "animation_speed"
+  type = "double"
+  label_key = "settings.animation_speed.label"
+  description_key = "settings.animation_speed.description"
+  default = 1.0
+  min = 0.0
+  max = 3.0
+  step = 0.25
 
   [[widget.setting]]
   key = "bar_color"
@@ -48,6 +61,20 @@ entry = "ribbon.luau"
   label_key = "settings.viewport_color.label"
   description_key = "settings.viewport_color.description"
   default = "primary"
+
+  [[widget.setting]]
+  key = "show_active_window"
+  type = "bool"
+  label_key = "settings.show_active_window.label"
+  description_key = "settings.show_active_window.description"
+  default = false
+
+  [[widget.setting]]
+  key = "active_window_color"
+  type = "color"
+  label_key = "settings.active_window_color.label"
+  description_key = "settings.active_window_color.description"
+  default = "secondary"
 
   [[widget.setting]]
   key = "thickness"
@@ -72,7 +99,7 @@ entry = "ribbon.luau"
   # Viewport estimation model; should match niri `center-focused-column`:
   #   fit    — niri `never` (default): focused column snapped near the edge
   #   center — niri `always`: focused column always centered
-  # See the "Viewport estimation" section at the top of ribbon.luau.
+  # See the viewport estimation notes at the top of ribbon.luau.
   [[widget.setting]]
   key = "viewport_model"
   type = "select"

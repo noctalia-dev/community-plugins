@@ -27,6 +27,18 @@
         "center": "Center (niri: always)",
         "fit": "Fit (niri: never)"
       }
+    },
+    "show_active_window": {
+      "label": "Show Active Window",
+      "description": "Show the active tiled window inside the viewport highlight with a solid color."
+    },
+    "active_window_color": {
+      "label": "Active Window Color",
+      "description": "Solid color of the active window marker."
+    },
+    "animation_speed": {
+      "label": "Animation Speed",
+      "description": "Animation speed multiplier: 1 is normal, higher is faster, and 0 disables animations."
     }
   }
 }
