@@ -1,0 +1,43 @@
+{
+  "settings": {
+    "default_volume": {
+      "label": "Default volume",
+      "description": "Volume for mpv playback, 0-100. Used on play and until the widget, panel or launcher changes it."
+    },
+    "search_limit": {
+      "label": "Results per list",
+      "description": "How many episodes to show per podcast and how many iTunes results to fetch, 3-30."
+    },
+    "mpv_bin": {
+      "label": "mpv binary",
+      "description": "mpv executable used for headless playback. Change only if mpv is not on PATH."
+    },
+    "mpris": {
+      "label": "MPRIS integration",
+      "description": "Expose playback to the desktop media player (Noctalia media widget, playerctl) via mpv-mpris when its script is found."
+    },
+    "mpris_path": {
+      "label": "mpv-mpris path",
+      "description": "Custom path to mpris.so. Empty means auto-detect in ~/.config/mpv/scripts and /usr/lib/mpv-mpris."
+    },
+    "podcast_feeds": {
+      "label": "RSS feeds",
+      "description": "Extra podcast RSS URLs, always subscribed alongside the ones added in the panel."
+    },
+    "podindex_key": {
+      "label": "Podcast Index key",
+      "description": "API key from podcastindex.org. Enables Podcast Index search next to iTunes. Empty disables it."
+    },
+    "podindex_secret": {
+      "label": "Podcast Index secret",
+      "description": "API secret from podcastindex.org. Needed together with the key."
+    },
+    "show_name": {
+      "label": "Show episode name"
+    },
+    "max_length": {
+      "label": "Episode name length",
+      "description": "Maximum characters of the episode name shown in the bar, 5-60."
+    }
+  }
+}
