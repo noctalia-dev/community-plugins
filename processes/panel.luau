@@ -3,6 +3,9 @@
 -- Data from the nvtop command, which is updated in real-time.
 local g_data = nil
 
+-- Set when stats.py finished with error
+local g_error_message = nil
+
 -- The PID of the stats.py process, which is used to terminate the process when the panel is closed.
 local g_procs_pid = -1
 
@@ -90,23 +93,62 @@ end
 -- Render a message when there is no data available.
 local function render_no_data_message()
     if g_data == nil then
-        panel.render(ui.row({
-            key = "no-data-row",
-            fill = "surface_variant",
-            border = "outline",
-            padding = 16,
-            radius = 12,
-            gap = 8,
-        },{
-            ui.glyph({
-                key = "no-data-glyph",
-                name = "info-triangle"
-            }),
-            ui.label({
-                key = "no-data-label",
-                text = noctalia.tr("procs.nodata"),
-            })
-        }))
+        if g_error_message == nil then
+            panel.render(ui.row({
+                key = "no-data-row",
+                fill = "surface_variant",
+                border = "outline",
+                padding = 16,
+                radius = 12,
+                gap = 8,
+            },{
+                ui.glyph({
+                    key = "no-data-glyph",
+                    name = "info-circle",
+                    color = "on_surface_variant",
+                    size = 20,
+                }),
+                ui.label({
+                    key = "no-data-label",
+                    text = noctalia.tr("procs.nodata"),
+                    color = "on_surface_variant",
+                    fontSize = 20,
+                })
+            }))
+        else
+            panel.render(ui.column({
+                key = "no-data-row",
+                fill = "error",
+                border = "outline",
+                padding = 16,
+                radius = 12,
+                gap = 8,
+            },{
+                ui.row({
+                    key = "no-data-row",
+                    fill = "error",
+                    gap = 8,
+                },{
+                    ui.glyph({
+                        key = "no-data-glyph",
+                        name = "exclamation-circle",
+                        color = "on_error",
+                        size = 20,
+                    }),
+                    ui.label({
+                        key = "no-data-label",
+                        text = noctalia.tr("procs.nodata"),
+                        color = "on_error",
+                        fontSize = 20,
+                    })
+                }),
+                ui.label({
+                    key = "no-data-label",
+                    text = g_error_message,
+                    color = "on_error",
+                })
+            }))
+        end
         return true
     end
     return false
@@ -1231,6 +1273,7 @@ local function run_processes_stream()
         theme = "light"
     end
     local cmd = "python3 " .. plugin_dir .. "/scripts/stats.py " .. tostring(noctalia.getConfig("delay")) .. " " .. theme
+    g_error_message = nil
     noctalia.runStream(cmd,
         function(line)
             if line:find("tordex/procs:pid:") then
@@ -1249,6 +1292,17 @@ local function run_processes_stream()
                         end
                     end
                 end)
+            elseif starts_with(line, "tordex/procs:done:") then
+                local message = line:match("tordex/procs:done:(.+)")
+                -- You can handle the done message here if needed
+                local decoded = noctalia.json.decode(message) or nil
+                if decoded then
+                    if decoded.status == "error" then
+                        g_error_message = decoded.message or "Unknown error"
+                        g_data = nil
+                        render()
+                    end
+                end
             end
         end)
 end
