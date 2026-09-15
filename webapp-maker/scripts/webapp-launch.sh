@@ -10,7 +10,7 @@ shift
 
 browser=$(xdg-settings get default-web-browser 2>/dev/null)
 case $browser in
-chromium* | chrome* | google-chrome* | brave* | microsoft-edge* | opera* | vivaldi* | helium*) ;;
+chromium* | ungoogled-chromium* | chrome* | google-chrome* | brave* | brave-origin* | microsoft-edge* | opera* | vivaldi* | helium*) ;;
 *) browser="" ;;
 esac
 
@@ -20,7 +20,7 @@ if [[ -n $browser ]]; then
     "$HOME/.local/share/applications/$browser" "/usr/share/applications/$browser" 2>/dev/null | head -1)
 fi
 if [[ -z $exec_bin ]]; then
-  for candidate in chromium google-chrome-stable google-chrome brave vivaldi microsoft-edge-stable; do
+  for candidate in chromium ungoogled-chromium google-chrome-stable google-chrome brave brave-origin vivaldi microsoft-edge-stable; do
     if command -v "$candidate" >/dev/null; then
       exec_bin=$candidate
       break
