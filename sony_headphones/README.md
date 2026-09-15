@@ -92,8 +92,9 @@ noise-control bytes differ per generation.
 | WF-1000XM5 / WF-1000XM4 | ✅ BlueZ | ⚠️ untested V2 subtypes | please report |
 | LinkBuds / WH-CH720N / ULT | ✅ BlueZ | ⚠️ untested | please report |
 
-The bundled artwork is original, stylised flat art shipped with the plugin
-(MIT; see [`assets/README.md`](assets/README.md) and the
-[`tools/generate_art.py`](tools/generate_art.py) generator). It maps over-ear
-models and true-wireless models to colour variants; lookup is
-case-insensitive and accepts alternate Bluetooth names.
+The bundled artwork is a pair of generic headphone symbols from
+[Tabler Icons](https://tabler.io/icons) (MIT; see
+[`assets/README.md`](assets/README.md) and the bundled license text). They map
+over-ear and true-wireless models to black/white variants; lookup is
+case-insensitive and accepts alternate Bluetooth names. The symbols are
+temporary placeholders for the author's own sketches.

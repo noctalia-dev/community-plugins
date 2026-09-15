@@ -10,10 +10,10 @@ local snapshot = noctalia.state.get(SNAPSHOT_KEY) or {}
 -- Forward declaration: render() is defined below but used by callbacks above.
 local render
 
--- Original, stylised artwork shipped with the plugin (see assets/README.md
--- and tools/generate_art.py). Every model maps to a list of variants; the
--- photo button in the header cycles through them. (snapshot.device_image from
--- the backend, e.g. a user-supplied render, takes precedence when set.)
+-- Generic headphone symbols shipped with the plugin (Tabler Icons, MIT; see
+-- assets/README.md). Every model maps to a list of variants; the photo button
+-- in the header cycles through them. (snapshot.device_image from the backend,
+-- e.g. a user-supplied render, takes precedence when set.)
 local OVER_EAR = "assets/over_ear_%s.webp"
 local IN_EAR = "assets/in_ear_%s.webp"
 
@@ -31,7 +31,7 @@ local DEVICE_ART = {
 	["WH-1000XM4"] = artset(OVER_EAR, { "black", "white" }),
 	["WH-1000XX"] = artset(OVER_EAR, { "black", "white" }),
 	["WH-CH720N"] = artset(OVER_EAR, { "black", "white" }),
-	["WH-1000XM4C"] = artset(OVER_EAR, { "black", "silver", "lavender" }),
+	["WH-1000XM4C"] = artset(OVER_EAR, { "black", "white" }),
 	["WF-1000XM5"] = artset(IN_EAR, { "black", "white" }),
 	["WF-1000XM6"] = artset(IN_EAR, { "black", "white" }),
 }
