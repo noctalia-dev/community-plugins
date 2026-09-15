@@ -175,12 +175,11 @@ end
 
 -- -------------------------------------------------------------------------
 -- Color picker
--- Each swatch = outer "halo" wrapper (fill = primary when selected, surface
--- when not) → inner coloured column (fill = hex, always the real color) →
--- ghost button click target. The wrapper's fill provides an unmissable
--- selection ring without touching the swatch's own fill.
--- IMPORTANT: never pass selected = true on the inner button — its theme
--- background paints over the column's fill (the swatch would appear blue).
+-- Each swatch = outer clickable wrapper (fill = primary when selected,
+-- transparent otherwise) → inner ui.box with the real color. The wrapper
+-- owns onClick directly so there is no ghost-button hover fill to overflow
+-- the swatch (the old ghost button painted its hover background over the
+-- color, producing the green blob).
 -- -------------------------------------------------------------------------
 local function colorPicker(note)
   local swatches = {}
@@ -195,30 +194,23 @@ local function colorPicker(note)
     end
     table.insert(swatches, ui.column({
       key     = "wrap-" .. c.id,
-      fill    = isSelected and "primary" or "surface",
+      fill    = isSelected and "primary" or "surface/0",
       padding = 3,
       radius  = 10,
-      align   = "stretch",
-      justify = "stretch",
+      align   = "center",
+      justify = "center",
+      onClick = function()
+        sendCmd({ op = "update", id = note.id, color = c.id })
+      end,
     }, {
-      ui.column({
-        key     = "sw-" .. c.id,
-        fill    = fill,
-        width   = 26,
-        height  = 26,
-        radius  = 7,
-        align   = "stretch",
-        justify = "center",
-      }, {
-        ui.button({
-          key      = "sw-btn-" .. c.id,
-          variant  = "ghost",
-          flexGrow = 1,
-          tooltip  = noctalia.tr(c.labelKey),
-          onClick  = function()
-            sendCmd({ op = "update", id = note.id, color = c.id })
-          end,
-        }),
+      ui.box({
+        key         = "sw-" .. c.id,
+        fill        = fill,
+        width       = 26,
+        height      = 26,
+        radius      = 7,
+        borderWidth = 1,
+        border      = "outline",
       }),
     }))
   end
@@ -349,19 +341,21 @@ local function notePreviewCard(note)
     }, {
       body,
       ui.separator({}),
-      ui.row({ gap = 6, align = "center", justify = "center" }, {
+      ui.row({ gap = 6, align = "center", justify = "space_between" }, {
         ui.label({ text = noctalia.tr("panel.confirm-delete"), fontSize = 11, color = textColor }),
-        ui.button({
-          glyph = "check", text = noctalia.tr("panel.delete-yes"),
-          variant = "destructive", controlSize = "sm",
-          onClick = function()
-            local id = note.id; pendingDeleteId = nil
-            sendCmd({ op = "remove", id = id })
-          end,
-        }),
-        ui.button({
-          glyph = "close", variant = "outline", controlSize = "sm",
-          onClick = function() pendingDeleteId = nil; render() end,
+        ui.row({ gap = 6, align = "center" }, {
+          ui.button({
+            glyph = "check", text = noctalia.tr("panel.delete-yes"),
+            variant = "destructive", controlSize = "sm", fontSize = 11,
+            onClick = function()
+              local id = note.id; pendingDeleteId = nil
+              sendCmd({ op = "remove", id = id })
+            end,
+          }),
+          ui.button({
+            glyph = "close", variant = "outline", controlSize = "sm",
+            onClick = function() pendingDeleteId = nil; render() end,
+          }),
         }),
       }),
     })
@@ -525,18 +519,28 @@ local function editView(note)
   local fill = noteStyle(note.color)
   local fontSize = noctalia.getConfig("font_size") or 13
   local content = editingContent or note.content or ""
+  local showColors = noctalia.getConfig("no_colors") ~= true
 
-  local card = ui.column({
-    flexGrow = 1, fill = fill, radius = 8, padding = 10, gap = 6,
-    align    = "stretch",
-  }, {
-    colorPicker(note),
-    ui.separator({}),
-    ui.scroll({ flexGrow = 1, align = "stretch", justify = "start" }, {
+  -- Panel height is fixed at 500 (see [[panel]] height in plugin.toml).
+  -- Size the editor wrapper so short notes still reach the bottom of the
+  -- card instead of leaving a dead gap below the input frame. flexGrow does
+  -- not stretch children inside ui.scroll, so derive the fill height from
+  -- the panel chrome (logical px): root padding (16) + gaps (16) + header
+  -- (32) + separator (~9) + footer (32) + card gap (6) + card padding (20),
+  -- plus the color-picker block (picker ~40 + gap 6 + separator ~9) when
+  -- colors are shown. Long notes still grow past this via max() and scroll.
+  local fillHeight = 500 - 134 - (showColors and 55 or 0)
+
+  local cardChildren = {}
+  if showColors then
+    table.insert(cardChildren, colorPicker(note))
+    table.insert(cardChildren, ui.separator({}))
+  end
+  table.insert(cardChildren, ui.scroll({ flexGrow = 1, align = "stretch", justify = "start" }, {
       -- Put the content height on a wrapper instead of the input itself. An
       -- explicit input height also scales its native frame, producing a huge
       -- corner radius; flex-growing inside this wrapper keeps normal styling.
-      ui.column({ height = editorContentHeight(content, fontSize), align = "stretch" }, {
+      ui.column({ minHeight = math.max(editorContentHeight(content, fontSize), fillHeight), align = "stretch" }, {
         ui.input({
           key           = "inp-" .. note.id .. "-" .. tostring(editKey),
           value         = content,
@@ -556,25 +560,31 @@ local function editView(note)
           end,
         }),
       }),
-    }),
-  })
+    }))
+
+  local card = ui.column({
+    flexGrow = 1, fill = fill, radius = 8, padding = 10, gap = 6,
+    align    = "stretch",
+  }, cardChildren)
 
   -- Footer sits OUTSIDE the coloured card so ghost buttons stay visible.
   local footer
   if pendingDeleteId == note.id then
-    footer = ui.row({ gap = 6, align = "center", justify = "center" }, {
+    footer = ui.row({ gap = 6, align = "center", justify = "space_between" }, {
       ui.label({ text = noctalia.tr("panel.confirm-delete"), fontSize = 11, color = "on_surface_variant" }),
-      ui.button({
-        glyph = "check", text = noctalia.tr("panel.delete-yes"),
-        variant = "destructive", controlSize = "sm",
-        onClick = function()
-          local id = note.id; pendingDeleteId = nil; editingId = nil; editingContent = nil
-          sendCmd({ op = "remove", id = id })
-        end,
-      }),
-      ui.button({
-        glyph = "close", variant = "ghost", controlSize = "sm",
-        onClick = function() pendingDeleteId = nil; render() end,
+      ui.row({ gap = 6, align = "center" }, {
+        ui.button({
+          glyph = "check", text = noctalia.tr("panel.delete-yes"),
+          variant = "destructive", controlSize = "sm", fontSize = 11,
+          onClick = function()
+            local id = note.id; pendingDeleteId = nil; editingId = nil; editingContent = nil
+            sendCmd({ op = "remove", id = id })
+          end,
+        }),
+        ui.button({
+          glyph = "close", variant = "ghost", controlSize = "sm",
+          onClick = function() pendingDeleteId = nil; render() end,
+        }),
       }),
     })
   else
