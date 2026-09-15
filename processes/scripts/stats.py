@@ -5,6 +5,32 @@
 
 import os
 import sys
+import traceback
+import json
+
+# The following exits cleanly on Ctrl-C or EPIPE
+# while treating other exceptions as before.
+def std_exceptions(etype, value, tb):
+    sys.excepthook = sys.__excepthook__
+    save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
+    if os.path.exists(f"{save_path}/noctalia_tordex_procs.json"):
+        os.remove(f"{save_path}/noctalia_tordex_procs.json")
+    if os.path.exists(f"{save_path}/noctalia_tordex_procs_cpu_usage.png"):
+        os.remove(f"{save_path}/noctalia_tordex_procs_cpu_usage.png")
+    if os.path.exists(f"{save_path}/noctalia_tordex_procs_mem_usage.png"):
+        os.remove(f"{save_path}/noctalia_tordex_procs_mem_usage.png")
+
+    if issubclass(etype, KeyboardInterrupt) or issubclass(etype, IOError) and value.errno == errno.EPIPE:
+        print("tordex/procs:done:" + json.dumps({"status": "ok", "message": "Interrupted by user"}))
+    else:
+        #sys.__excepthook__(etype, value, tb)
+        tb_lines = traceback.format_exception(value)
+        print("tordex/procs:done:" + json.dumps({"status": "error", "message": "".join(tb_lines)}))
+
+
+sys.excepthook = std_exceptions
+
+
 import errno
 import json
 import time
@@ -20,23 +46,6 @@ gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gio, GioUnix
 from gi.repository import Gtk
-
-# The following exits cleanly on Ctrl-C or EPIPE
-# while treating other exceptions as before.
-def std_exceptions(etype, value, tb):
-    sys.excepthook = sys.__excepthook__
-    if issubclass(etype, KeyboardInterrupt) or issubclass(etype, IOError) and value.errno == errno.EPIPE:
-        save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
-        if os.path.exists(f"{save_path}/noctalia_tordex_procs.json"):
-            os.remove(f"{save_path}/noctalia_tordex_procs.json")
-        if os.path.exists(f"{save_path}/noctalia_tordex_procs_cpu_usage.png"):
-            os.remove(f"{save_path}/noctalia_tordex_procs_cpu_usage.png")
-        if os.path.exists(f"{save_path}/noctalia_tordex_procs_mem_usage.png"):
-            os.remove(f"{save_path}/noctalia_tordex_procs_mem_usage.png")
-    else:
-        sys.__excepthook__(etype, value, tb)
-
-sys.excepthook = std_exceptions
 
 PAGESIZE = os.sysconf("SC_PAGE_SIZE") / 1024 #KiB
 self_pid = os.getpid()
@@ -922,7 +931,7 @@ def main():
                 json.dump(output_data, f, sort_keys=True)
             print(f"tordex/procs:ready:{filename}", flush=True)
         except FileNotFoundError as e:
-            print(f"tordex/procs:error:Failed to write JSON file: {e}", flush=True)
+            print(f"tordex/procs:error:" + json.dumps({"message": f"Failed to write JSON file: {e}"}), flush=True)
 
         processes = []
         time.sleep(interval)
