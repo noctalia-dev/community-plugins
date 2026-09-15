@@ -1,0 +1,27 @@
+{
+  "settings": {
+    "default_volume": {
+      "label": "Default volume",
+      "description": "Volume for mpv playback, 0-100. Used on play and until the widget, panel or launcher changes it."
+    },
+    "search_limit": {
+      "label": "Search results",
+      "description": "How many stations to fetch per search or top list, 5-50."
+    },
+    "country": {
+      "label": "Country filter",
+      "description": "Optional country name to limit top lists and searches, e.g. Germany. Empty means worldwide."
+    },
+    "mpv_bin": {
+      "label": "mpv binary",
+      "description": "mpv executable used for headless playback. Change only if mpv is not on PATH."
+    },
+    "show_name": {
+      "label": "Show station name"
+    },
+    "max_length": {
+      "label": "Station name length",
+      "description": "Maximum characters of the station name shown in the bar, 5-60."
+    }
+  }
+}
