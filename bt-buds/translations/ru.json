@@ -1,0 +1,49 @@
+{
+  "panel": {
+    "left": "Левое",
+    "right": "Правое",
+    "case": "Кейс",
+    "closed": "Закрыт",
+    "noise_control": "Шумоподавление",
+    "mode": {
+      "anc": "Шумоподавление",
+      "transparency": "Прозрачность",
+      "off": "Выкл"
+    },
+    "codec": "Кодеки",
+    "connect": "Подключить",
+    "disconnect": "Отключить",
+    "disconnected": "Отключено",
+    "equalizer": "Эквалайзер",
+    "eq": {
+      "normal": "Нормально",
+      "more_bass": "Басс",
+      "boost_vocals": "Голос",
+      "more_highs": "Высокие"
+    }
+  },
+  "widget": {
+    "name": "Buds 6 Lite",
+    "off": "Наушники выкл",
+    "tip_connected": "Redmi Buds 6 Lite: подключены",
+    "tip_disconnected": "Redmi Buds 6 Lite: отключены",
+    "tip_help": "ЛКМ: панель | ПКМ: имя/батарея/режим | СКМ: режимы",
+    "left_short": "Л",
+    "right_short": "П",
+    "case_short": "Кейс",
+    "closed_short": "Закрыт",
+    "mode_anc_short": "Шум",
+    "mode_tr_short": "Прозр",
+    "mode_off_short": "Выкл"
+  },
+  "settings": {
+    "language": {
+      "label": "Язык",
+      "options": {
+        "auto": "Авто",
+        "en": "Английский",
+        "ru": "Русский"
+      }
+    }
+  }
+}

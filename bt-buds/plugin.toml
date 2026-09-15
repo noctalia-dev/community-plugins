@@ -1,0 +1,37 @@
+id = "jswift/bt-buds"
+name = "BT Buds"
+version = "0.2.0"
+plugin_api = 21
+author = "jswift"
+license = "MIT"
+icon = "bluetooth"
+description = "Bluetooth headset on the bar: battery, ANC, codec, EQ via ffmpeg."
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["python3", "ffmpeg", "pactl", "bluetoothctl"]
+
+[[setting]]
+key = "language"
+type = "select"
+default = "auto"
+label_key = "settings.language.label"
+options = [
+  { value = "auto", label_key = "settings.language.options.auto" },
+  { value = "en", label_key = "settings.language.options.en" },
+  { value = "ru", label_key = "settings.language.options.ru" },
+]
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+open_near_click = true
+placement = "floating"
+width = 340
+height = 620
+
+[[service]]
+id = "service"
+entry = "service.luau"
