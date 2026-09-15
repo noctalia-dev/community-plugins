@@ -1,0 +1,73 @@
+{
+  "shortcut": {
+    "label": "Themes"
+  },
+  "widget": {
+    "label": "Themes"
+  },
+  "carousel": {
+    "title": "Theme Switcher",
+    "add": "Add theme",
+    "empty": "No themes yet. Add one to get started."
+  },
+  "source": {
+    "builtin": "Built-in",
+    "wallpaper": "Wallpaper",
+    "community": "Community",
+    "custom": "Custom"
+  },
+  "apply": {
+    "ok_title": "Theme applied",
+    "ok_body": "{title}",
+    "err_title": "Couldn't apply theme",
+    "err_body": "{title}"
+  },
+  "editor": {
+    "title_new": "New Theme",
+    "title_edit": "Edit Theme",
+    "title": "Title",
+    "title_placeholder": "Theme name",
+    "source": "Palette source",
+    "palette": "Palette",
+    "loading": "Loading…",
+    "wallpaper": "Wallpaper",
+    "wallpaper_placeholder": "Wallpaper image path",
+    "wallpapers": "Wallpapers",
+    "no_wallpapers": "No wallpapers yet.",
+    "wallpaper_browse": "Browse",
+    "current_wallpaper": "Use current wallpaper",
+    "wallpaper_current_fail": "Couldn't find the current wallpaper.",
+    "screenshot": "Screenshot",
+    "screenshot_placeholder": "Screenshot path",
+    "capture": "Capture desktop",
+    "capturing": "Capturing…",
+    "browse_title": "Pick an image",
+    "no_images": "No images found in this directory.",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save",
+    "missing_title": "Add a title first.",
+    "saved": "Theme saved",
+    "saved_body": "{title}",
+    "deleted": "Theme deleted",
+    "deleted_body": "{title}",
+    "capture_fail_title": "Capture failed",
+    "capture_fail_body": "Couldn't find a new screenshot. Make sure Save to file is enabled in the screenshot settings."
+  },
+  "wallpapers": {
+    "title": "Wallpapers",
+    "shortcut": "Wallpaper",
+    "none_applied": "No theme is currently applied.",
+    "no_wallpapers": "This theme has no wallpapers.",
+    "add": "Add wallpaper",
+    "browse_title": "Browse",
+    "no_images_found": "No images found in this directory.",
+    "applied": "Wallpaper applied"
+  },
+  "random": {
+    "shortcut": "Random wallpaper",
+    "none_applied": "No theme is currently applied.",
+    "no_wallpapers": "This theme has no wallpapers.",
+    "applied": "Random wallpaper applied"
+  }
+}
