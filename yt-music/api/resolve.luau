@@ -94,7 +94,7 @@ function EXPO.cache_audio(video_id, callback)
     end
 
     local cmd = string.format(
-        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' %s 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
+        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp --extractor-args \"youtube:player_client=mweb,web\" -f 'bestaudio/best' -o '%s' %s 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
         AUDIO_DIR, path, cookie_opt, safe_id
     )
     local launched = network.runAsync(cmd, function(res)

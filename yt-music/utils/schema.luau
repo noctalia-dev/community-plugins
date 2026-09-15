@@ -43,6 +43,7 @@ local function new()
 		artist_related = {},
 		quick_picks = {},
 		refreshing_quick_picks = false,
+		refreshing_library = false,
 		home_mixes = {},
 		cache_stats = {},
 		settings = { autoplay = true },

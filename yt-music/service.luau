@@ -89,6 +89,20 @@ local ACTIONS = {
 	refresh_playlist = function(r)
 		playlist.refresh(r.id or r.playlist_id)
 	end,
+	refresh_library = function(r)
+		if not network.isOnline() then
+			log("refresh_library: skipped because offline")
+			return
+		end
+		if state.refreshing_library then
+			return
+		end
+		if api and api.library then
+			state.refreshing_library = true
+			store.publish()
+			api.library()
+		end
+	end,
 	fetch_next_page = function(r)
 		playlist.fetch_next_page(r.playlist_id, r.token)
 	end,
@@ -225,29 +239,36 @@ noctalia.state.watch(REQ_KEY, function(req)
 		return
 	end
 	handled_nonce = req.nonce
-	log("request nonce=" .. req.nonce .. " action=" .. tostring(req.action))
+	local action = tostring(req.action or "")
+	log("request nonce=" .. req.nonce .. " action=" .. action)
 
-	local handler = ACTIONS[tostring(req.action or "")]
+	local handler = ACTIONS[action]
 	if handler then
-		handler(req)
+		noctalia.runAsync("true", function()
+			local ok, err = pcall(handler, req)
+			if not ok then
+				log("request error in '" .. action .. "': " .. tostring(err))
+			end
+		end)
 	else
-		log("request: unhandled action '" .. tostring(req.action) .. "'")
+		log("request: unhandled action '" .. action .. "'")
 	end
 end)
 
 function update()
 	if api.library_pending() then
 		api.finish_library(function(playlists)
-			state.library = type(playlists) == "table" and playlists or {}
-			store.publish()
-			if type(playlists) == "table" then
+			state.refreshing_library = false
+			if type(playlists) == "table" and #playlists > 0 then
+				state.library = playlists
 				log("ytmusic: loaded " .. #playlists .. " library playlists")
 				noctalia.runAsync("true", function()
 					api.ensure_thumbnails(state.library, store.publish, "library")
 				end)
 			else
-				log("ytmusic: library decode failed")
+				log("ytmusic: library fetch failed or empty, keeping existing library")
 			end
+			store.publish()
 		end)
 	end
 
@@ -257,7 +278,7 @@ function update()
 	if probe_tick >= 20 then
 		probe_tick = 0
 		noctalia.runAsync(
-			"curl -s -o /dev/null -m 3 https://music.youtube.com && echo 'NET=UP' || echo 'NET=DOWN'",
+			"curl -s -o /dev/null -m 6 https://music.youtube.com && echo 'NET=UP' || echo 'NET=DOWN'",
 			function(res)
 				local out = (type(res) == "table" and res.stdout) or ""
 				local now_online = out:find("NET=UP", 1, true) ~= nil
@@ -277,6 +298,11 @@ noctalia.setUpdateInterval(1000)
 
 log("boot: service started, api=" .. tostring(type(api)) .. " library=" .. tostring(type(api and api.library)))
 log_boot_env()
+local const = require("./api/constants.luau")
+if noctalia.fileExists(const.COOKIE_PATH) then
+	state.status = "ready"
+	state.cookies_path = const.COOKIE_PATH
+end
 mpv.kill()
 library.load_offline_meta()
 auth.detect_browsers()
