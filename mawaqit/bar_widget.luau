@@ -42,6 +42,7 @@ local displayMode  = MODE_COUNTDOWN
 local hasData      = false
 local errorMsg     = ""
 local isJumuah     = false
+local azanPlaying  = false
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,15 @@ end
 -- ── Display ───────────────────────────────────────────────────────────────────
 
 local function updateDisplay()
+    if azanPlaying then
+        barWidget.setGlyph("player-stop-filled")
+        barWidget.setText("Azan")
+        barWidget.setColor(activeColor ~= "" and activeColor or "primary")
+        barWidget.setGlyphColor(activeColor ~= "" and activeColor or "primary")
+        barWidget.setTooltip("Azan playing - right-click to stop")
+        return
+    end
+
     if not hasData then
         barWidget.setGlyph(widgetIcon ~= "" and widgetIcon or "building-mosque")
         barWidget.setText(errorMsg ~= "" and "!" or "...")
@@ -133,6 +143,8 @@ local function updateDisplay()
 
     local currentIdx, nextIdx, secondsToNext, secondsElapsed = findCurrentPrayer()
     local displayPrayer, isActive, timeStr = nil, false, ""
+    local isNow = currentIdx ~= nil and secondsElapsed ~= nil
+        and secondsElapsed >= 0 and secondsElapsed < 300
 
     local showingElapsed = false
     if showElapsed and currentIdx ~= nil and secondsElapsed ~= nil then
@@ -152,6 +164,10 @@ local function updateDisplay()
             elseif displayMode == MODE_STATIC then
                 timeStr = prayers[currentIdx].time
             end
+        elseif isNow and currentIdx ~= nil then
+            displayPrayer = prayers[currentIdx].name
+            isActive = true
+            if displayMode ~= MODE_NAME_ONLY then timeStr = "now" end
         elseif secondsToNext ~= nil and secondsToNext <= 60 then
             isActive = true
             if displayMode ~= MODE_NAME_ONLY then timeStr = "now" end
@@ -172,6 +188,10 @@ local function updateDisplay()
             elseif displayMode == MODE_STATIC then
                 timeStr = prayers[currentIdx].time
             end
+        elseif isNow and currentIdx ~= nil then
+            displayPrayer = prayers[currentIdx].name
+            isActive = true
+            if displayMode ~= MODE_NAME_ONLY then timeStr = "now" end
         elseif secondsToNext ~= nil then
             if displayMode == MODE_COUNTDOWN and showCountdown then
                 timeStr = formatCountdown(secondsToNext)
@@ -228,6 +248,11 @@ noctalia.state.watch("isJumuah", function(val)
     isJumuah = (val == true)
 end)
 
+noctalia.state.watch("azanPlaying", function(val)
+    azanPlaying = (val == true)
+    updateDisplay()
+end)
+
 noctalia.state.watch("error", function(val)
     if type(val) == "string" and val ~= "" then
         errorMsg = val
@@ -246,6 +271,10 @@ function onClick()
 end
 
 function onRightClick()
+    if azanPlaying then
+        noctalia.state.set("command", { action = "stopAzan" })
+        return
+    end
     if displayMode == MODE_COUNTDOWN then
         displayMode = MODE_STATIC
     elseif displayMode == MODE_STATIC then
@@ -285,5 +314,7 @@ local existingTomorrow = noctalia.state.get("tomorrowFajr")
 if existingTomorrow then tomorrowFajr = tonumber(existingTomorrow) end
 local existingJumuah = noctalia.state.get("isJumuah")
 if existingJumuah ~= nil then isJumuah = (existingJumuah == true) end
+local existingAzan = noctalia.state.get("azanPlaying")
+if existingAzan ~= nil then azanPlaying = (existingAzan == true) end
 
 updateDisplay()
