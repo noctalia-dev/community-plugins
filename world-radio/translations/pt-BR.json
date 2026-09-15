@@ -1,0 +1,68 @@
+{
+  "panel": {
+    "back_tooltip": "Voltar",
+    "add_custom_cancel": "Cancelar",
+    "add_custom_name_placeholder": "Nome da estacao (opcional)",
+    "add_custom_save": "Salvar",
+    "add_custom_subtitle": "Toque qualquer stream a partir de uma URL",
+    "add_custom_title": "Adicionar radio local",
+    "add_custom_tooltip": "Adicionar radio local",
+    "add_custom_url_placeholder": "https://exemplo.com/stream.mp3",
+    "countries_empty": "Nenhum pais encontrado",
+    "custom_count": "{count} salvas",
+    "custom_empty": "Nenhuma radio local ainda. Toque em + para adicionar uma com a URL da sua stream.",
+    "custom_title": "Radios locais",
+    "error_network": "Nao foi possivel acessar radio-browser.info. Verifique sua conexao.",
+    "favorite_tooltip": "Favoritar",
+    "favorites_count": "{count} salvas",
+    "favorites_empty": "Nenhuma favorita ainda. Toque na estrela de qualquer estacao.",
+    "favorites_title": "Favoritas",
+    "genre_stations": "Estacoes por genero",
+    "decades_title": "Decadas",
+    "decade_stations": "Estacoes por decada",
+    "genres_title": "Generos",
+    "goto_list_tooltip": "Mostrar na lista",
+    "load_more": "Carregar mais",
+    "loading": "Carregando...",
+    "next_tooltip": "Proxima estacao",
+    "play_tooltip": "Tocar",
+    "prev_tooltip": "Estacao anterior",
+    "random_tooltip": "Tocar radio aleatoria",
+    "remove_custom_tooltip": "Remover",
+    "search_countries_placeholder": "Buscar paises...",
+    "search_countries_hint": "Digite o nome de um pais para filtrar a lista",
+    "search_stations_placeholder": "Buscar estacoes pelo nome...",
+    "station_count": "{count} estacoes",
+    "stations_empty": "Nenhuma estacao encontrada",
+    "stations_none_match": "Nenhuma estacao corresponde a busca",
+    "stop_tooltip": "Parar",
+    "title": "Radio Mundial",
+    "total_countries": "Paises",
+    "total_stations": "Total de estacoes",
+    "all_stations_title": "Todas as estacoes",
+    "all_countries_title": "Todos os paises",
+    "all_countries_subtitle": "Mostrando {shown} de {total}",
+    "unfavorite_tooltip": "Desfavoritar",
+    "top_countries": "Paises principais",
+    "all_countries": "Todos os paises ({count})",
+    "search_title": "Buscar radios",
+    "search_subtitle": "Todos os paises",
+    "search_global_placeholder": "Busque por nome ou palavra-chave da estacao...",
+    "search_hint": "Digite pelo menos 2 caracteres para buscar em todos os paises",
+    "search_no_results": "Nenhuma estacao encontrada para essa busca"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icone mostrado na barra para este widget.",
+      "label": "Icone"
+    },
+    "show_now_playing": {
+      "description": "Mostrar o nome da estacao tocando agora ao lado do icone.",
+      "label": "Mostrar tocando agora"
+    }
+  },
+  "widget": {
+    "playing_tooltip": "Tocando agora: {name}",
+    "tooltip": "Abrir Radio Mundial"
+  }
+}

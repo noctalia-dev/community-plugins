@@ -1,0 +1,68 @@
+{
+  "panel": {
+    "back_tooltip": "Back",
+    "add_custom_cancel": "Cancel",
+    "add_custom_name_placeholder": "Station name (optional)",
+    "add_custom_save": "Save",
+    "add_custom_subtitle": "Play any stream from a URL",
+    "add_custom_title": "Add local radio",
+    "add_custom_tooltip": "Add local radio",
+    "add_custom_url_placeholder": "https://example.com/stream.mp3",
+    "countries_empty": "No countries found",
+    "custom_count": "{count} saved",
+    "custom_empty": "No local radios yet. Tap + to add one with your own stream URL.",
+    "custom_title": "Local radios",
+    "error_network": "Could not reach radio-browser.info. Check your connection.",
+    "favorite_tooltip": "Favorite",
+    "favorites_count": "{count} saved",
+    "favorites_empty": "No favorites yet. Tap the star on any station.",
+    "favorites_title": "Favorites",
+    "genre_stations": "Stations by genre",
+    "decades_title": "Decades",
+    "decade_stations": "Stations by decade",
+    "genres_title": "Genres",
+    "goto_list_tooltip": "Show in list",
+    "load_more": "Load more",
+    "loading": "Loading...",
+    "next_tooltip": "Next station",
+    "play_tooltip": "Play",
+    "prev_tooltip": "Previous station",
+    "random_tooltip": "Play random station",
+    "remove_custom_tooltip": "Remove",
+    "search_countries_placeholder": "Search countries...",
+    "search_countries_hint": "Type a country name to filter the list",
+    "search_stations_placeholder": "Search stations by name...",
+    "station_count": "{count} stations",
+    "stations_empty": "No stations found",
+    "stations_none_match": "No station matches your search",
+    "stop_tooltip": "Stop",
+    "title": "World Radio",
+    "total_countries": "Countries",
+    "total_stations": "Total stations",
+    "all_stations_title": "All stations",
+    "all_countries_title": "All countries",
+    "all_countries_subtitle": "Showing {shown} of {total}",
+    "unfavorite_tooltip": "Unfavorite",
+    "top_countries": "Top countries",
+    "all_countries": "All countries ({count})",
+    "search_title": "Search radios",
+    "search_subtitle": "All countries",
+    "search_global_placeholder": "Search station name or keyword...",
+    "search_hint": "Type at least 2 characters to search across all countries",
+    "search_no_results": "No stations found for this search"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icon shown in the bar for this widget.",
+      "label": "Icon"
+    },
+    "show_now_playing": {
+      "description": "Show the currently playing station name next to the icon.",
+      "label": "Show now playing"
+    }
+  },
+  "widget": {
+    "playing_tooltip": "Now playing: {name}",
+    "tooltip": "Open World Radio"
+  }
+}
