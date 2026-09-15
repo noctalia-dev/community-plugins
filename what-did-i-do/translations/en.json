@@ -1,0 +1,149 @@
+{
+  "format": {
+    "duration_hours_minutes": "{h}h {m}m",
+    "duration_hours": "{h}h",
+    "duration_minutes": "{m}m",
+    "duration_seconds": "{s}s",
+    "duration_under_minute": "<1m",
+    "duration_minutes_seconds": "{m}m {s}s"
+  },
+  "desktop_widget": {
+    "empty_apps": "No application activity yet"
+  },
+  "launcher": {
+    "delete_confirm": "Delete all history",
+    "delete_confirm_sub": "Permanently removes every stored session on this device",
+    "deleted": "History deleted",
+    "empty": "No activity recorded yet",
+    "loading": "Waiting for the tracker…",
+    "open_panel": "Open dashboard",
+    "open_panel_sub": "Applications, sessions and weekly overview",
+    "pause": "Pause tracking",
+    "pause_sub": "Stop recording until you resume it",
+    "resume": "Resume tracking",
+    "resume_sub": "Continue recording application activity",
+    "stats_apps": {
+      "one": "1 application today",
+      "other": "{count} applications today"
+    },
+    "toggle_failed": "Tracker service is not answering"
+  },
+  "notifications": {
+    "delete_done": "History deleted",
+    "delete_done_body": "All recorded activity was removed from this device.",
+    "paused": "Tracking paused",
+    "resumed": "Tracking resumed"
+  },
+  "panel": {
+    "app_id_tip": "App ID:",
+    "about": {
+      "storage": "Storage",
+      "storage_body": "Sessions are written locally to Noctalia's per-plugin data directory. Deleting the plugin keeps the data until you remove it from disk.",
+      "title": "About & privacy",
+      "tracking": "Tracking",
+      "tracking_body": "The service polls the compositor for the focused application. Idle time, screen lock, suspend and paused tracking are never counted. Nothing ever leaves this device: no network access, no telemetry, no analytics.",
+      "titles": "Window titles",
+      "titles_body": "Window titles can contain private information (documents, chats, URLs), so they are not recorded by default. Enable title tracking to store them locally alongside sessions."
+    },
+    "apps_count": {
+      "one": "1 application",
+      "other": "{count} applications"
+    },
+    "current_session": "Current session",
+    "delete": {
+      "body": "This permanently removes every recorded session from this device. It cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "title": "Delete history"
+    },
+    "empty_guide": "Start using your computer and your activity will show up here.",
+    "empty_hint": "Your usage stays on this device.",
+    "empty_history": "No activity recorded yet",
+    "idle": "No application focused",
+    "loading": "Waiting for the tracker…",
+    "paused_banner": "Tracking paused",
+    "paused_day_hint": "Nothing was recorded while tracking was paused.",
+    "retention_note": {
+      "one": "Sessions older than 1 day are removed automatically.",
+      "other": "Sessions older than {count} days are removed automatically."
+    },
+    "sessions_count": {
+      "one": "1 session",
+      "other": "{count} sessions"
+    },
+    "settings_hint": "Settings",
+    "tab": {
+      "today": "Today",
+      "week": "7 days",
+      "yesterday": "Yesterday"
+    },
+    "title": "What Did I Do",
+    "top_apps": "Top applications",
+    "unavailable": "Activity tracking is unavailable for this compositor.",
+    "unavailable_body": "Your existing history is still available.",
+    "waiting_for_tracker": "Waiting for the tracker…",
+    "week": {
+      "average": "Daily average",
+      "per_day": "Per day",
+      "total": "Active (7 days)",
+      "top_apps": "Top applications (7 days)"
+    }
+  },
+  "settings": {
+    "glyph": {
+      "description": "Icon shown next to the tracked time in the bar.",
+      "label": "Widget icon"
+    },
+    "history_retention_days": {
+      "description": "Delete stored sessions older than this many days. One day removes everything but today.",
+      "label": "Keep history for (days)"
+    },
+    "idle_after_seconds": {
+      "description": "Compositor idle time after which tracking pauses automatically (10-600 s).",
+      "label": "Count user as idle after (seconds)"
+    },
+    "persist_every_seconds": {
+      "description": "How often open sessions are flushed to disk (5-600 s).",
+      "label": "Save to disk every (seconds)"
+    },
+    "poll_interval": {
+      "description": "How often the focused application is sampled, in seconds (1-60).",
+      "label": "Poll interval (seconds)"
+    },
+    "show_bar_widget": {
+      "description": "Hide the bar widget without removing it from your bar layout.",
+      "label": "Show bar widget"
+    },
+    "show_glyph": {
+      "description": "Show the icon next to the tracked time.",
+      "label": "Show icon"
+    },
+    "show_text": {
+      "description": "Show today's total time in the bar. Turn off for an icon-only widget.",
+      "label": "Show time in bar"
+    },
+    "track_window_titles": {
+      "description": "Store window titles locally with each session. Titles can contain private information such as document names or chats.",
+      "label": "Track window titles"
+    },
+    "tracking_enabled": {
+      "description": "Record which application is focused. Existing history is kept when disabled.",
+      "label": "Track activity"
+    }
+  },
+  "shortcut": {
+    "description": "Tracking paused",
+    "label": "Track activity"
+  },
+  "widget": {
+    "tooltip": {
+      "active": "Active today",
+      "apps": {
+        "one": "1 application",
+        "other": "{count} applications"
+      },
+      "paused": "Tracking paused",
+      "title": "What Did I Do"
+    }
+  }
+}
