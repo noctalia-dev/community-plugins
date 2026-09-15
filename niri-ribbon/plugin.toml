@@ -17,9 +17,9 @@
 
 id = "luochen1990/niri-ribbon"
 name = "Niri Ribbon"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 3
-author = "luochen1990"
+author = "luochen1990, thatonecalculator"
 license = "MIT"
 dependencies = ["niri"]
 icon = "view-column"
