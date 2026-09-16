@@ -4,10 +4,11 @@ Quickly search and open books in Calibre library. Type `/cb` in the launcher.
 
 ## Plugin
 
-| Field           | Value                  |
-| --------------- | ---------------------- |
-| ID              | `congluantran/calibre` |
-| Launcher Prefix | `/cb`                  |
+| Field           | Value                         |
+| --------------- | ----------------------------- |
+| ID              | `congluantran/calibre`        |
+| Entries         | Launcher provider: `launcher` |
+| Launcher Prefix | `/cb`                         |
 
 ## Requirements
 
