@@ -828,16 +828,20 @@ end
 
 local function isPlayerProcess(pid)
   local procRoot = "/proc/" .. tostring(pid)
-  if not noctalia.fileExists(procRoot) then
+  local ok, exists = pcall(noctalia.fileExists, procRoot)
+  if not ok or not exists then
     return false
   end
-  local comm = noctalia.readFile(procRoot .. "/comm")
-  if comm ~= nil and (comm:find("mpv", 1, true) ~= nil or comm:find("ffplay", 1, true) ~= nil) then
+  local ok2, comm = pcall(noctalia.readFile, procRoot .. "/comm")
+  if ok2 and comm ~= nil and (comm:find("mpv", 1, true) ~= nil or comm:find("ffplay", 1, true) ~= nil) then
     return true
   end
-  local cmdline = noctalia.readFile(procRoot .. "/cmdline")
-  if cmdline ~= nil and (cmdline:find("mpv", 1, true) ~= nil or cmdline:find("ffplay", 1, true) ~= nil) then
+  local ok3, cmdline = pcall(noctalia.readFile, procRoot .. "/cmdline")
+  if ok3 and cmdline ~= nil and (cmdline:find("mpv", 1, true) ~= nil or cmdline:find("ffplay", 1, true) ~= nil) then
     return true
+  end
+  if not ok2 and not ok3 then
+    return nil
   end
   return false
 end
@@ -848,7 +852,11 @@ local function storedPlayerPid()
   if pid == nil or pid <= 0 then
     return nil
   end
-  if not isPlayerProcess(pid) then
+  local ok, result = pcall(isPlayerProcess, pid)
+  if not ok or result == nil then
+    return pid
+  end
+  if not result then
     return nil
   end
   return pid
