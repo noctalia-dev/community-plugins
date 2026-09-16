@@ -263,6 +263,8 @@ local savePlayingState
 local clearPlayingState
 local playerAlive
 local restorePlayingState
+local isPlayerProcess
+local storedPlayerPid
 
 local function tr(key, subst)
   if subst == nil then
@@ -826,7 +828,7 @@ clearPlayingState = function()
   noctalia.removeFile(playingPath())
 end
 
-local function isPlayerProcess(pid)
+isPlayerProcess = function(pid)
   local procRoot = "/proc/" .. tostring(pid)
   local ok, exists = pcall(noctalia.fileExists, procRoot)
   if not ok or not exists then
@@ -846,7 +848,7 @@ local function isPlayerProcess(pid)
   return false
 end
 
-local function storedPlayerPid()
+storedPlayerPid = function()
   local raw = noctalia.readFile(getDataDir() .. "/player.pid")
   local pid = tonumber((tostring(raw or ""):match("%d+")))
   if pid == nil or pid <= 0 then
