@@ -102,7 +102,7 @@ local function makeRows(projects, filter)
 	local rows = {}
 	for _, project in projects do
 		local isRemote = project.remoteConnectionId ~= nil
-		local supported = not isRemote or project.kind == "ssh"
+		local supported = not isRemote or (project.kind == "ssh" and project.host ~= nil)
 		if supported then
 			local name = projectName(project.path)
 			local score = filter == "" and 0 or noctalia.fuzzyScore(filter, name)
