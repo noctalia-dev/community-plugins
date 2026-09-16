@@ -85,24 +85,48 @@ local function loadProjects(onDone)
 	end)
 end
 
+local function remoteTarget(project)
+	local target = "ssh://"
+	if project.user then
+		target = target .. project.user .. "@"
+	end
+	target = target .. project.host
+	if project.port then
+		target = target .. ":" .. tostring(project.port)
+	end
+	return target .. project.path
+end
+
 local function makeRows(projects, filter)
 	local home = noctalia.getenv("HOME") or ""
 	local rows = {}
-	for _, path in projects do
-		local name = projectName(path)
-		local score = filter == "" and 0 or noctalia.fuzzyScore(filter, name)
-		if score == nil then
-			score = noctalia.fuzzyScore(filter, path)
-		end
-		if filter == "" or score ~= nil then
-			local display = (home ~= "" and path:sub(1, #home) == home) and "~" .. path:sub(#home + 1) or path
-			table.insert(rows, {
-				id = path,
-				title = name,
-				subtitle = display,
-				icon = "zed",
-				score = filter == "" and nil or score,
-			})
+	for _, project in projects do
+		local isRemote = project.remoteConnectionId ~= nil
+		local supported = not isRemote or project.kind == "ssh"
+		if supported then
+			local name = projectName(project.path)
+			local score = filter == "" and 0 or noctalia.fuzzyScore(filter, name)
+			if score == nil then
+				score = noctalia.fuzzyScore(filter, project.path)
+			end
+			if filter == "" or score ~= nil then
+				local id, subtitle
+				if isRemote then
+					id = remoteTarget(project)
+					subtitle = (project.user and project.user .. "@" or "") .. project.host .. ":" .. project.path
+				else
+					id = project.path
+					subtitle = (home ~= "" and project.path:sub(1, #home) == home) and "~" .. project.path:sub(#home + 1)
+						or project.path
+				end
+				table.insert(rows, {
+					id = id,
+					title = name,
+					subtitle = subtitle,
+					icon = "zed",
+					score = filter == "" and nil or score,
+				})
+			end
 		end
 	end
 	return rows
