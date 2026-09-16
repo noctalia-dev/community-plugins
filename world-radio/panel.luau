@@ -187,6 +187,8 @@ local failedFavicons = {}
 local customStations = {}
 local customFormName = ""
 local customFormUrl = ""
+local customFormCover = ""
+local customFormIndex = nil
 local currentSongTitle = ""
 local lastSongPoll = 0
 local SONG_POLL_INTERVAL = 3000
@@ -685,22 +687,54 @@ local function stopPlayback()
   stopLivePulse()
   clearPlayingState()
   publishPlaying()
-  noctalia.runAsync("kill $(cat " .. shellQuote(getDataDir() .. "/player.pid") .. " 2>/dev/null) 2>/dev/null")
+  local pid = storedPlayerPid()
+  if pid ~= nil then
+    noctalia.runAsync("kill " .. tostring(pid))
+  end
   render()
 end
 
 local faviconJobs = {}
 
-local function faviconDest(station)
-  if station.favicon == "" then
+local function sanitizeThumbId(raw)
+  local id = tostring(raw or ""):gsub("%.%.", ""):gsub("[^%w%-_]", "_")
+  id = id:gsub("^[_]+", ""):gsub("[_]+$", "")
+  if id == "" then
+    return "station-" .. tostring((os.time() * 1000) % 0xffffffff)
+  end
+  return id
+end
+
+local function validRemoteImageUrl(url)
+  local scheme = tostring(url or ""):match("^([%a][%w%+%-%.]*)://")
+  if scheme == nil then
+    return false
+  end
+  scheme = scheme:lower()
+  return scheme == "http" or scheme == "https"
+end
+
+local function artSource(station)
+  if station.favicon ~= "" then
+    return station.favicon
+  end
+  return station.cover or ""
+end
+
+local function artDest(station)
+  local src = artSource(station)
+  if src == "" or not validRemoteImageUrl(src) then
     return nil
   end
-  local ext = station.favicon:match("%.png$") and ".png" or ".jpg"
-  return getDataDir() .. "/thumbs/" .. station.uuid .. ext
+  local ext = src:match("%.([%w]+)$")
+  if ext == "png" or ext == "gif" or ext == "bmp" or ext == "webp" then
+    return getDataDir() .. "/thumbs/" .. sanitizeThumbId(station.uuid) .. "." .. ext
+  end
+  return getDataDir() .. "/thumbs/" .. sanitizeThumbId(station.uuid) .. ".jpg"
 end
 
 local function ensureFavicon(station, onDone)
-  local dest = faviconDest(station)
+  local dest = artDest(station)
   if dest == nil then
     onDone(nil)
     return
@@ -722,8 +756,19 @@ local function ensureFavicon(station, onDone)
   list = { onDone }
   faviconJobs[station.uuid] = list
   thumbPending[station.uuid] = true
+  local src = artSource(station)
+  if not validRemoteImageUrl(src) then
+    thumbPending[station.uuid] = nil
+    faviconJobs[station.uuid] = nil
+    failedFavicons[station.uuid] = true
+    render()
+    for _, cb in ipairs(list) do
+      cb(nil)
+    end
+    return
+  end
   noctalia.mkdirAll(getDataDir() .. "/thumbs")
-  noctalia.download(station.favicon, dest, function(ok)
+  noctalia.download(src, dest, function(ok)
     thumbPending[station.uuid] = nil
     faviconJobs[station.uuid] = nil
     if ok then
@@ -740,6 +785,18 @@ end
 
 local function loadFavicon(station)
   ensureFavicon(station, function() end)
+end
+
+local function clearArt(station)
+  local id = sanitizeThumbId(station.uuid)
+  thumbs[station.uuid] = nil
+  failedFavicons[station.uuid] = nil
+  for _, ext in ipairs({ "jpg", "png", "gif", "bmp", "webp" }) do
+    local path = getDataDir() .. "/thumbs/" .. id .. "." .. ext
+    if noctalia.fileInfo(path) ~= nil then
+      pcall(noctalia.removeFile, path)
+    end
+  end
 end
 
 local playingPath = function()
@@ -769,13 +826,36 @@ clearPlayingState = function()
   noctalia.removeFile(playingPath())
 end
 
-playerAlive = function()
+local function isPlayerProcess(pid)
+  local procRoot = "/proc/" .. tostring(pid)
+  if not noctalia.fileExists(procRoot) then
+    return false
+  end
+  local comm = noctalia.readFile(procRoot .. "/comm")
+  if comm ~= nil and (comm:find("mpv", 1, true) ~= nil or comm:find("ffplay", 1, true) ~= nil) then
+    return true
+  end
+  local cmdline = noctalia.readFile(procRoot .. "/cmdline")
+  if cmdline ~= nil and (cmdline:find("mpv", 1, true) ~= nil or cmdline:find("ffplay", 1, true) ~= nil) then
+    return true
+  end
+  return false
+end
+
+local function storedPlayerPid()
   local raw = noctalia.readFile(getDataDir() .. "/player.pid")
   local pid = tonumber((tostring(raw or ""):match("%d+")))
   if pid == nil or pid <= 0 then
-    return false
+    return nil
   end
-  return noctalia.fileExists("/proc/" .. tostring(pid))
+  if not isPlayerProcess(pid) then
+    return nil
+  end
+  return pid
+end
+
+playerAlive = function()
+  return storedPlayerPid() ~= nil
 end
 
 restorePlayingState = function()
@@ -881,7 +961,7 @@ local function playStation(station, sourceView)
   savePlayingState()
   local cover = nil
   if playerName == "mpv" then
-    local dest = faviconDest(station)
+    local dest = artDest(station)
     if dest ~= nil and noctalia.fileInfo(dest) ~= nil then
       cover = dest
     end
@@ -890,9 +970,13 @@ local function playStation(station, sourceView)
   if cover ~= nil then
     coverArg = " --cover-art-files=" .. shellQuote(cover)
   end
+  local oldPid = storedPlayerPid()
+  if oldPid ~= nil then
+    noctalia.runAsync("kill " .. tostring(oldPid))
+  end
   local cmd = string.format(
-    "kill $(cat %s 2>/dev/null) 2>/dev/null; %s %s%s %s >/dev/null 2>&1 & echo $! > %s",
-    shellQuote(pidFile), playerName, playerArgs, coverArg, shellQuote(station.url), shellQuote(pidFile)
+    "%s %s%s %s >/dev/null 2>&1 & echo $! > %s",
+    playerName, playerArgs, coverArg, shellQuote(station.url), shellQuote(pidFile)
   )
   noctalia.runAsync(cmd)
   if cover == nil then
@@ -953,7 +1037,19 @@ local function loadCustomStations()
   end
   local ok, val = pcall(noctalia.json.decode, raw)
   if ok and type(val) == "table" then
-    customStations = val
+    local clean = {}
+    for _, s in ipairs(val) do
+      if type(s) == "table" then
+        table.insert(clean, s)
+      end
+    end
+    customStations = clean
+    for _, s in ipairs(customStations) do
+      local dest = artDest(s)
+      if dest ~= nil and noctalia.fileInfo(dest) ~= nil then
+        thumbs[s.uuid] = thumbs[s.uuid] or dest
+      end
+    end
   end
 end
 
@@ -967,6 +1063,10 @@ end
 local function openCustom()
   view = "custom"
   errorMessage = ""
+  customFormName = ""
+  customFormUrl = ""
+  customFormCover = ""
+  customFormIndex = nil
   render()
 end
 
@@ -974,6 +1074,21 @@ local function openAddCustom()
   view = "add_custom"
   customFormName = ""
   customFormUrl = ""
+  customFormCover = ""
+  customFormIndex = nil
+  render()
+end
+
+local function openEditCustom(index)
+  local s = customStations[index]
+  if s == nil then
+    return
+  end
+  customFormIndex = index
+  customFormName = s.name or ""
+  customFormUrl = s.url or ""
+  customFormCover = s.cover or ""
+  view = "add_custom"
   render()
 end
 
@@ -986,16 +1101,47 @@ local function saveCustomStation()
   if name == "" then
     name = url:match("^%a+://([^/:]+)") or url
   end
-  table.insert(customStations, {
-    uuid = "custom-" .. tostring(os.time()) .. "-" .. tostring(#customStations + 1),
-    name = name,
-    url = url,
-    favicon = "",
-    codec = "",
-    bitrate = 0,
-    votes = 0,
-  })
-  saveCustomStations()
+  local cover = noctalia.string.trim(customFormCover)
+  local edited = nil
+  if customFormIndex ~= nil then
+    local candidate = customStations[customFormIndex]
+    if type(candidate) == "table" then
+      edited = candidate
+    end
+  end
+  if edited ~= nil then
+    local oldCover = edited.cover or ""
+    edited.name = name
+    edited.url = url
+    edited.cover = cover
+    saveCustomStations()
+    if oldCover ~= cover then
+      clearArt(edited)
+      if cover ~= "" then
+        ensureFavicon(edited, function() end)
+      end
+    end
+    if playingUuid == edited.uuid then
+      savePlayingState()
+    end
+  else
+    local station = {
+      uuid = "custom-" .. tostring(os.time()) .. "-" .. tostring(#customStations + 1),
+      name = name,
+      url = url,
+      favicon = "",
+      cover = cover,
+      codec = "",
+      bitrate = 0,
+      votes = 0,
+    }
+    table.insert(customStations, station)
+    saveCustomStations()
+    if cover ~= "" then
+      ensureFavicon(station, function() end)
+    end
+  end
+  customFormIndex = nil
   view = "custom"
   render()
 end
@@ -1733,10 +1879,20 @@ local function customRow(s, index)
   local isPlaying = playingUuid == s.uuid
   local isHovered = (hoveredKey == key)
   local labels = { ui.label({ text = s.name, fontSize = 12, maxLines = 1 }) }
+  local art = thumbs[s.uuid]
   local parts = {
-    ui.glyph({ name = "radio", size = 15, color = "outline" }),
+    art ~= nil
+        and ui.image({ path = art, width = 22, height = 22, radius = 4 })
+      or ui.glyph({ name = "radio", size = 15, color = "outline" }),
     ui.column({ flexGrow = 1, gap = 0 }, labels),
   }
+  table.insert(parts, ui.button({
+    glyph       = "pencil",
+    variant     = "ghost",
+    controlSize = "sm",
+    tooltip     = tr("panel.edit_custom_tooltip"),
+    onClick     = function() openEditCustom(index) end,
+  }))
   table.insert(parts, ui.button({
     glyph       = "trash",
     variant     = "ghost",
@@ -1811,10 +1967,11 @@ end
 renderAddCustom = function()
   local children = {}
 
+  local isEdit = customFormIndex ~= nil
   table.insert(children, ui.row({ gap = 8, align = "center" }, {
-    ui.glyph({ name = "plus", size = 16, color = "primary" }),
+    ui.glyph({ name = isEdit and "pencil" or "plus", size = 16, color = "primary" }),
     ui.column({ flexGrow = 1, gap = 0 }, {
-      ui.label({ text = tr("panel.add_custom_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
+      ui.label({ text = isEdit and tr("panel.edit_custom_title") or tr("panel.add_custom_title"), fontSize = 15, fontWeight = "bold", maxLines = 1 }),
       ui.label({ text = tr("panel.add_custom_subtitle"), fontSize = 11, color = "outline" }),
     }),
   }))
@@ -1833,6 +1990,14 @@ renderAddCustom = function()
     controlSize = "md",
     placeholder = tr("panel.add_custom_url_placeholder"),
     onChange    = function(value) customFormUrl = value or "" end,
+  }))
+
+  table.insert(children, ui.input({
+    key         = "custom-cover-input",
+    value       = customFormCover,
+    controlSize = "md",
+    placeholder = tr("panel.add_custom_cover_placeholder"),
+    onChange    = function(value) customFormCover = value or "" end,
   }))
 
   table.insert(children, ui.row({ gap = 8, align = "center" }, {
@@ -1908,13 +2073,16 @@ local function pinPlaying(list)
 end
 
 local function gotoPlayingStation()
-  if playingUuid == nil or playQueueView == nil then
+  if playingUuid == nil then
     return
   end
   errorMessage = ""
   hoveredKey = nil
   revealNonce = revealNonce + 1
-  if playQueueView == "country" and selectedCode ~= nil then
+  if (playingUuid or ""):match("^custom%-") ~= nil then
+    view = "custom"
+    pinPlaying(customStations)
+  elseif playQueueView == "country" and selectedCode ~= nil then
     view = "country"
     if stations == nil then
       stations = playQueue
@@ -2191,6 +2359,10 @@ end
 
 function onBack()
   if view == "add_custom" then
+    customFormName = ""
+    customFormUrl = ""
+    customFormCover = ""
+    customFormIndex = nil
     view = "custom"
   elseif view == "genre" then
     view = "dashboard"

@@ -1,13 +1,13 @@
 id          = "nilsonlinux/world-radio"
 name        = "World Radio"
-version     = "1.0.0"
+version     = "1.0.4"
 plugin_api  = 24
 author      = "Nilsonlinux"
 license     = "MIT"
 icon        = "radio"
 description = "Browse thousands of radio stations from around the world with country flags."
 tags        = ["audio", "music", "network", "panel", "bar", "utility"]
-dependencies = ["mpv", "ffmpeg"]
+dependencies = ["mpv", "ffmpeg", "playerctl"]
 
 # ---------------------------------------------------------------------------
 # Bar widget: opens the World Radio panel

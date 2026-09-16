@@ -1,12 +1,15 @@
 {
   "panel": {
     "add_custom_cancel": "Cancelar",
+    "add_custom_cover_placeholder": "URL da capa (opcional)",
     "add_custom_name_placeholder": "Nome da estação (opcional)",
     "add_custom_save": "Salvar",
     "add_custom_subtitle": "Toque qualquer stream a partir de uma URL",
     "add_custom_title": "Adicionar rádio local",
     "add_custom_tooltip": "Adicionar rádio local",
     "add_custom_url_placeholder": "https://exemplo.com/stream.mp3",
+    "edit_custom_title": "Editar rádio local",
+    "edit_custom_tooltip": "Editar",
     "all_countries": "Todos os países ({count})",
     "all_countries_subtitle": "Mostrando {shown} de {total}",
     "all_countries_title": "Todos os países",
