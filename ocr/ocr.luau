@@ -122,6 +122,14 @@ function onRightClick()
 	grab(true)
 end
 
+function onIpc(event, payload)
+	if event == "grab" then
+		grab(false) -- region selection
+	elseif event == "grab-whole" then
+		grab(true) -- entire focused output
+	end
+end
+
 function onConfigChanged()
 	render()
 end
