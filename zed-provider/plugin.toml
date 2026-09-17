@@ -25,6 +25,13 @@ default = 20
 min = 1
 max = 100
 
+[[setting]]
+key = "new_window"
+type = "bool"
+label_key = "settings.new_window.label"
+description_key = "settings.new_window.description"
+default = false
+
 [[launcher_provider]]
 id = "provider"
 entry = "zed_provider.luau"
