@@ -49,9 +49,16 @@ Then up to three tabs, each listing items by title and reference:
 - **Code Review** — open, unmerged PR/MRs waiting on your review. **Not available
   on Gitea**, where the tab is hidden; `tea` has no review-requested filter.
 
-On GitLab a check glyph marks a merge request whose `detailed_merge_status` is
-`mergeable`. Click an item to open it on the web in your browser; the panel closes
-as it opens.
+On GitLab, a glyph at the end of a merge request card tells you where the
+discussion stands:
+
+- `message` — the MR has comments (`user_notes_count > 0`).
+- `message-report` — an unresolved thread is waiting on someone
+  (`blocking_discussions_resolved` is `false`), which also blocks the merge.
+
+Both come from `glab mr list` itself, so they cost no extra request. GitHub and
+Gitea do not show these glyphs yet. Click an item to open it on the web in your
+browser; the panel closes as it opens.
 
 Each tab can be hidden with its `show_*` setting, and a hidden tab is not
 fetched at all. Hide every tab and the panel says so instead of showing an empty

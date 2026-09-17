@@ -233,6 +233,25 @@ local function itemCard(item)
     maxLines = 1,
   }))
 
+  -- Trailing glyph: an unresolved thread outranks plain comments, since it is
+  -- the one that blocks the merge until someone answers. Nothing is drawn when
+  -- the item carries neither, or when the platform does not report them yet.
+  local row = {
+    ui.column({ gap = 2, flexGrow = 1 }, {
+      ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
+      ui.row({ gap = 6, align = "center" }, subtitle),
+    }),
+  }
+  local glyph = nil
+  if item.pendingReview then
+    glyph = "message-report"
+  elseif (item.comments or 0) > 0 then
+    glyph = "message"
+  end
+  if glyph then
+    table.insert(row, ui.glyph({ name = glyph, size = 24, color = hovered and "on_tertiary" or "primary" }))
+  end
+
   return ui.column({
     key = key,
     gap = 8,
@@ -247,13 +266,7 @@ local function itemCard(item)
       render()
     end,
   }, {
-    ui.row({ gap = 10, align = "center" }, {
-      ui.column({ gap = 2, flexGrow = 1 }, {
-        ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
-        ui.row({ gap = 6, align = "center" }, subtitle),
-      }),
-      ui.glyph({ name = "circle-check", size = 24, color = hovered and "on_tertiary" or "primary", visible = item.detailed_merge_status == "mergeable" }),
-    }),
+    ui.row({ gap = 10, align = "center" }, row),
   })
 end
 
