@@ -46,6 +46,10 @@
     "stopping": "Stopping wl-mirror…",
     "wl_mirror_missing": "wl-mirror was not found in PATH."
   },
+  "shortcut": {
+    "active": "Screen Mirror On",
+    "inactive": "Screen Mirror Off"
+  },
   "title": "Screen Mirror",
   "widget": {
     "error": "Screen mirror error",
