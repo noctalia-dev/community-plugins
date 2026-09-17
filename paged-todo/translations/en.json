@@ -1,0 +1,42 @@
+{
+  "bar": {
+    "todo_count_singular": "{count} todo",
+    "todo_count_plural": "{count} todos"
+  },
+  "settings": {
+    "show_completed": {
+      "label": "Show completed todos",
+      "description": "Show completed tasks in the current page."
+    },
+    "export_path": {
+      "label": "Export directory",
+      "description": "Folder where Markdown or JSON exports are written."
+    },
+    "export_format": {
+      "label": "Export format",
+      "description": "File format used by the panel's Export button.",
+      "markdown": "Markdown",
+      "json": "JSON"
+    },
+    "export_empty_sections": {
+      "label": "Export empty sections",
+      "description": "Include pages that have no tasks in Markdown exports."
+    },
+    "use_custom_colors": {
+      "label": "Use custom priority colors",
+      "description": "Replace theme colors with the three colors below."
+    },
+    "priority_low_color": {
+      "label": "Low priority color",
+      "description": "Color used for low-priority tasks."
+    },
+    "priority_medium_color": {
+      "label": "Medium priority color",
+      "description": "Color used for medium-priority tasks."
+    },
+    "priority_high_color": {
+      "label": "High priority color",
+      "description": "Color used for high-priority tasks."
+    }
+  }
+}
