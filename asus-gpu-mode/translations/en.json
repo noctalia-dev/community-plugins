@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "asus_gpu_debug": {
+      "label": "Debug logging",
+      "description": "Log status refresh and mode-switch details for troubleshooting."
+    },
+    "asus_gpu_patch_pending": {
+      "label": "Use compatibility action matrix",
+      "description": "Derive the required logout, reboot, or prerequisite from the requested and current modes."
+    },
+    "asus_gpu_polling": {
+      "label": "Poll GPU mode",
+      "description": "Refresh GPU mode status repeatedly while the shortcut is loaded."
+    },
+    "asus_gpu_polling_interval_ms": {
+      "label": "Polling interval (ms)",
+      "description": "Time in milliseconds between GPU mode status checks when polling is enabled."
+    }
+  }
+}
