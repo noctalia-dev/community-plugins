@@ -1,6 +1,6 @@
 id = "mdj2812/thunderbird-companion"
 name = "Thunderbird Companion"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 9
 author = "mdj2812"
 license = "MIT"

@@ -273,6 +273,7 @@ local function run_ask(ask)
   if token_expired() then
     publish_answer(ask, auth_remedy(), true)
     if not panel_showing() then noctalia.notifyError(tr("notify.title"), auth_remedy()) end
+    return
   end
   set_state(EVENT.turn_start)
   -- Accumulate streamed assistant text; the final `result` event also carries
@@ -360,6 +361,9 @@ function onIpc(event, _payload)
   if not path then return end
   local q = noctalia.readFile(path)
   if type(q) ~= "string" then return end
+  -- Consume it before dispatching: left in place, a duplicate poke or a second Enter
+  -- re-runs the same question -- another billed request, claude.answer overwritten.
+  noctalia.runAsync("rm -f " .. shq(path))
   q = trim(q)
   if q == "" then return end
   run_ask(q)

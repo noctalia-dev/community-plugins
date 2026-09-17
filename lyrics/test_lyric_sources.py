@@ -169,6 +169,18 @@ class SPlayerLinesTest(unittest.TestCase):
         self.assertEqual(lines[0]["chars"], [])
 
 
+class MusixmatchParserTest(unittest.TestCase):
+    def test_removes_duplicate_subtitle_entries(self):
+        lines = lyric_sources.dedupe_timed_lines(lyric_sources.parse_lrc(
+            "[00:01.00]First\n[00:01.00]  first  \n[00:01.00]Second\n"
+        ))
+
+        self.assertEqual(
+            [(item["time"], item["text"]) for item in lines],
+            [(1000, "First")],
+        )
+
+
 class SPlayerAdapterTest(unittest.TestCase):
     @mock.patch("lyric_sources.time.sleep")
     @mock.patch("lyric_sources.request_json")

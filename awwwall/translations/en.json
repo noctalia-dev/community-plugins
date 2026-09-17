@@ -1,0 +1,55 @@
+{
+  "notify": {
+    "apply_failed": "awww img failed for {connector}",
+    "awww_missing": "awww command not found. Install awww and awww-daemon."
+  },
+  "settings": {
+    "filter": {
+      "label": "Scaling Filter",
+      "options": {
+        "bilinear": "Bilinear",
+        "catmullrom": "CatmullRom",
+        "lanczos3": "Lanczos3",
+        "mitchell": "Mitchell",
+        "nearest": "Nearest"
+      }
+    },
+    "resize": {
+      "description": "How awww fits the image to the screen",
+      "label": "Resize Mode",
+      "options": {
+        "crop": "Crop",
+        "fit": "Fit",
+        "no": "None",
+        "stretch": "Stretch"
+      }
+    },
+    "transition_duration": {
+      "description": "Transition length in seconds (ignored by the simple transition)",
+      "label": "Transition Duration"
+    },
+    "transition_type": {
+      "label": "Transition Type",
+      "options": {
+        "bottom": "Bottom",
+        "center": "Center",
+        "fade": "Fade",
+        "grow": "Grow",
+        "left": "Left",
+        "none": "None",
+        "outer": "Outer",
+        "random": "Random",
+        "right": "Right",
+        "simple": "Simple",
+        "top": "Top",
+        "wave": "Wave",
+        "wipe": "Wipe"
+      }
+    }
+  },
+  "tooltip": {
+    "not_installed": "Awwwall: awww command not found",
+    "off": "Awwwall: off (click to start awww and mirror the wallpaper picker into it)",
+    "on": "Awwwall: mirroring the wallpaper picker into awww"
+  }
+}

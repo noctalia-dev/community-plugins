@@ -21,9 +21,9 @@ database. `nohup` command is required to launch Zed.
 
 ## Usage
 
-Open the Noctalia launcher and type `/zed` to list recent local Zed workspaces.
-Continue typing to filter projects by name, then select one to open it with
-`zeditor`.
+Open the Noctalia launcher and type `/zed` to list recent Zed workspaces,
+including SSH remotes. Continue typing to filter projects by name, then select
+one to open it with `zeditor`.
 
 ## Settings
 
@@ -33,6 +33,7 @@ Continue typing to filter projects by name, then select one to open it with
 ## Notes
 
 Projects are read from Zed's workspace database, typically at
-`~/.local/share/zed/db/0-stable/db.sqlite`. Remote workspaces are excluded.
-The list is cached for the launcher session and refreshed when you clear the
-query.
+`~/.local/share/zed/db/0-stable/db.sqlite`. SSH remote workspaces are included
+and opened with `zeditor ssh://[user@]host[:port]/path`; other remote kinds
+(if any) are skipped. The list is cached for the launcher session and
+refreshed when you clear the query.

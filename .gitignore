@@ -2,13 +2,13 @@
 noctalia.d.luau
 
 
-/.github/workflows/scripts/__pycache__
-
 # Auto-committer ignored files
 *.tmp
 *.temp
 *.log
 *.cache
+__pycache__/
+*.py[co]
 *.dll
 *.exe
 *.env

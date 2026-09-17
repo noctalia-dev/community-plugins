@@ -16,29 +16,16 @@
 
 local PANEL_ID = "nightwatch75/file-search:panel"
 
+-- Only for searchRoot() and openPath(): the widget shows the folder in its
+-- tooltip and opens it on a right click, and both have to mean exactly what
+-- they mean in the panel (plugin_api >= 22 for the relative import).
+local shared = require("./shared.luau")
+
 local open = false
-
-local function shellQuote(value)
-    return "'" .. value:gsub("'", "'\\''") .. "'"
-end
-
-local function searchRoot()
-    local dir = noctalia.getConfig("search_folder")
-    if dir == nil or dir == "" then
-        dir = noctalia.getenv("HOME") or "/tmp"
-    else
-        dir = noctalia.expandPath(dir)
-    end
-    dir = dir:gsub("/+$", "")
-    if dir == "" then
-        dir = "/"
-    end
-    return dir
-end
 
 local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph"))
-    local root = searchRoot()
+    local root = shared.searchRoot()
     if open then
         barWidget.setGlyphColor("primary")
         barWidget.setTooltip(noctalia.tr("tooltip_open", { path = root }))
@@ -63,7 +50,7 @@ function onClick()
 end
 
 function onRightClick()
-    noctalia.runAsync("xdg-open " .. shellQuote(searchRoot()) .. " >/dev/null 2>&1")
+    shared.openPath(shared.searchRoot())
 end
 
 noctalia.setUpdateInterval(1000)

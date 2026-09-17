@@ -1,0 +1,109 @@
+id = "fel/podcasts"
+name = "Podcasts"
+version = "0.1.0"
+plugin_api = 22
+author = "fel"
+license = "MIT"
+icon = "rss"
+description = "Subscribe to podcasts via RSS or iTunes search and play episodes headless via mpv."
+dependencies = ["mpv", "socat"]
+tags = ["bar", "panel", "launcher", "service", "audio", "media", "utility"]
+
+[[setting]]
+key = "default_volume"
+type = "int"
+label_key = "settings.default_volume.label"
+description_key = "settings.default_volume.description"
+default = 70
+min = 0
+max = 100
+
+[[setting]]
+key = "search_limit"
+type = "int"
+label_key = "settings.search_limit.label"
+description_key = "settings.search_limit.description"
+default = 10
+min = 3
+max = 30
+
+[[setting]]
+key = "mpv_bin"
+type = "string"
+label_key = "settings.mpv_bin.label"
+description_key = "settings.mpv_bin.description"
+default = "mpv"
+
+[[setting]]
+key = "mpris"
+type = "bool"
+label_key = "settings.mpris.label"
+description_key = "settings.mpris.description"
+default = true
+
+[[setting]]
+key = "mpris_path"
+type = "string"
+label_key = "settings.mpris_path.label"
+description_key = "settings.mpris_path.description"
+default = ""
+
+[[setting]]
+key = "podcast_feeds"
+type = "string_list"
+label_key = "settings.podcast_feeds.label"
+description_key = "settings.podcast_feeds.description"
+default = []
+
+[[setting]]
+key = "podindex_key"
+type = "string"
+label_key = "settings.podindex_key.label"
+description_key = "settings.podindex_key.description"
+default = ""
+
+[[setting]]
+key = "podindex_secret"
+type = "string"
+label_key = "settings.podindex_secret.label"
+description_key = "settings.podindex_secret.description"
+default = ""
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_name"
+  type = "bool"
+  label_key = "settings.show_name.label"
+  default = true
+
+  [[widget.setting]]
+  key = "max_length"
+  type = "int"
+  label_key = "settings.max_length.label"
+  description_key = "settings.max_length.description"
+  default = 24
+  min = 5
+  max = 60
+
+[[service]]
+id = "player"
+entry = "player.luau"
+
+[[panel]]
+id = "browser"
+entry = "panel.luau"
+width = 480
+height = 600
+placement = "floating"
+position = "center"
+
+[[launcher_provider]]
+id = "finder"
+entry = "finder.luau"
+prefix = "podcast"
+glyph = "rss"
+include_in_global_search = false
+debounce_ms = 300

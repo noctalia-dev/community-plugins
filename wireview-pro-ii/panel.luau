@@ -39,6 +39,8 @@ local SCREEN_VALUES = { "main", "simple", "current", "temperature", "status" }
 local SCREEN_LABELS = { "Main", "Simple", "Current", "Temperature", "Status" }
 local CURRENT_SCREEN_VALUES = { "", "main", "simple", "current", "temperature", "status" }
 local CURRENT_SCREEN_LABELS = { "Choose screen", "Main", "Simple", "Current", "Temperature", "Status" }
+local ROTATION_VALUES = { 0, 180 }
+local ROTATION_LABELS = { "0°", "180°" }
 local FAULT_BITS = {
   chip_over_temperature = 1,
   sensor_over_temperature = 2,
@@ -1060,6 +1062,7 @@ local function buildChanges(persist)
   changed("averaging_ms", settings.averaging_ms, draft.averaging_ms)
   changed("logging_interval_seconds", settings.logging_interval_seconds, draft.logging_interval_seconds)
   changed("display.default_screen", settings.display.default_screen, draft.display.default_screen)
+  changed("display.rotation_degrees", settings.display.rotation_degrees, draft.display.rotation_degrees)
   changed(
     "fault_thresholds.temperature_c",
     settings.fault_thresholds.temperature_c,
@@ -1191,6 +1194,13 @@ local function configureView()
       controlSize = "sm",
       enabled = controlsEnabled,
       onChange = "onBacklightChanged",
+    })),
+    settingBlock("Screen orientation", tostring(draft.display.rotation_degrees) .. "°", ui.select({
+      options = ROTATION_LABELS,
+      selectedIndex = indexOf(ROTATION_VALUES, draft.display.rotation_degrees),
+      controlSize = "sm",
+      enabled = controlsEnabled,
+      onChange = "onRotationChanged",
     })),
     settingBlock("Sensor averaging", tostring(draft.averaging_ms) .. " ms", ui.select({
       options = AVERAGING_LABELS,
@@ -1508,6 +1518,13 @@ end
 function onDefaultScreenChanged(index)
   if draft ~= nil then
     draft.display.default_screen = valueAt(SCREEN_VALUES, index) or draft.display.default_screen
+    markDraftChanged()
+  end
+end
+
+function onRotationChanged(index)
+  if draft ~= nil then
+    draft.display.rotation_degrees = valueAt(ROTATION_VALUES, index) or draft.display.rotation_degrees
     markDraftChanged()
   end
 end

@@ -183,6 +183,24 @@ def merge_timed(primary, secondary, field, tolerance=500):
     return primary
 
 
+def dedupe_timed_lines(lines):
+    """Keep one Musixmatch subtitle entry per timestamp."""
+    result = []
+    seen_times = set()
+    for item in lines or []:
+        text = clean_text(item.get("text", ""))
+        if not text:
+            continue
+        timestamp = item.get("time", -1)
+        if timestamp in seen_times:
+            continue
+        seen_times.add(timestamp)
+        item = dict(item)
+        item["text"] = text
+        result.append(item)
+    return result
+
+
 def parse_plain(text):
     return [line(-1, text=value) for value in str(text or "").splitlines() if clean_text(value)]
 
@@ -902,7 +920,7 @@ def adapter_musixmatch(track, credentials, options):
     subtitle = first_value(data, ("subtitle_body",))
     if not subtitle:
         return empty(source, "musixmatch: lyrics unavailable")
-    lines = parse_lrc(subtitle)
+    lines = dedupe_timed_lines(parse_lrc(subtitle))
     translated = first_value(data, ("translation_list", "translations"))
     if isinstance(translated, list):
         translated_lines = []

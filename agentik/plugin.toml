@@ -1,0 +1,151 @@
+id = "notfinaldev/agentik"
+name = "Agentik"
+version = "0.1.0"
+plugin_api = 24
+author = "notfinaldev"
+license = "MIT"
+icon = "sparkles"
+description = "Local coding-agent monitoring and safe multi-harness session chat."
+tags = ["bar", "desktop", "panel", "service", "ai", "productivity"]
+dependencies = ["python3", "omp"]
+
+[[setting]]
+key = "show_task"
+type = "bool"
+label_key = "settings.show_task.label"
+description_key = "settings.show_task.description"
+default = true
+
+[[setting]]
+key = "show_attention"
+type = "bool"
+label_key = "settings.show_attention.label"
+description_key = "settings.show_attention.description"
+default = true
+
+
+[[setting]]
+key = "display_label"
+type = "select"
+label_key = "settings.display_label.label"
+description_key = "settings.display_label.description"
+default = "project"
+
+[[setting.options]]
+value = "project"
+label_key = "settings.display_label.option_project"
+
+[[setting.options]]
+value = "agent"
+label_key = "settings.display_label.option_agent"
+
+[[setting.options]]
+value = "model"
+label_key = "settings.display_label.option_model"
+
+[[setting]]
+key = "sort_mode"
+type = "select"
+label_key = "settings.sort_mode.label"
+description_key = "settings.sort_mode.description"
+default = "duration"
+
+[[setting.options]]
+value = "duration"
+label_key = "settings.sort_mode.option_duration"
+
+[[setting.options]]
+value = "attention"
+label_key = "settings.sort_mode.option_attention"
+
+[[setting]]
+key = "filter_attention"
+type = "bool"
+label_key = "settings.filter_attention.label"
+description_key = "settings.filter_attention.description"
+default = false
+
+[[setting]]
+key = "excluded_projects"
+type = "string"
+label_key = "settings.excluded_projects.label"
+description_key = "settings.excluded_projects.description"
+default = ""
+[[setting]]
+key = "chat_enabled"
+type = "bool"
+label_key = "settings.chat_enabled.label"
+description_key = "settings.chat_enabled.description"
+default = true
+
+[[setting]]
+key = "reduce_motion"
+type = "bool"
+label_key = "settings.reduce_motion.label"
+description_key = "settings.reduce_motion.description"
+default = false
+
+[[setting]]
+key = "high_contrast"
+type = "bool"
+label_key = "settings.high_contrast.label"
+description_key = "settings.high_contrast.description"
+default = false
+
+[[widget]]
+id = "agents"
+entry = "widget.luau"
+
+
+
+[[widget.setting]]
+key = "show_count"
+type = "bool"
+label_key = "settings.show_count.label"
+description_key = "settings.show_count.description"
+default = true
+[[widget.setting]]
+key = "show_intent"
+type = "bool"
+label_key = "settings.show_intent.label"
+description_key = "settings.show_intent.description"
+default = true
+[[widget.setting]]
+key = "notify_attention"
+type = "bool"
+label_key = "settings.notify_attention.label"
+description_key = "settings.notify_attention.description"
+default = false
+
+[[widget.setting]]
+key = "notification_cooldown_seconds"
+type = "int"
+label_key = "settings.notification_cooldown_seconds.label"
+description_key = "settings.notification_cooldown_seconds.description"
+default = 300
+min = 30
+max = 3600
+advanced = true
+[[widget.setting]]
+key = "notification_privacy"
+type = "bool"
+label_key = "settings.notification_privacy.label"
+description_key = "settings.notification_privacy.description"
+default = false
+
+
+[[panel]]
+id = "session-panel"
+entry = "panel.luau"
+width = 640
+height = 720
+placement = "floating"
+position = "center"
+
+[[desktop_widget]]
+id = "desktop-agents"
+entry = "desktop_widget.luau"
+
+[[service]]
+id = "monitor"
+entry = "monitor.luau"

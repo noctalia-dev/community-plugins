@@ -835,7 +835,7 @@ local function changelogRows()
         for li, bullet in ipairs(release.lines) do
             table.insert(rows, ui.row({ key = "changelog-" .. ri .. "-" .. li, paddingH = 10, gap = 6 }, {
                 ui.label({ text = "•", fontSize = 11, color = "on_surface_variant" }),
-                ui.label({ text = bullet, fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 3 }),
+                ui.label({ text = bullet, fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
             }))
         end
     end
@@ -979,15 +979,15 @@ end
 local function body()
     local children = {}
 
-    -- The middle of the panel: the live log while updating (and after a
-    -- failure), the changelog, an opened history run, or the package list.
-    -- The live log always wins over the changelog: a run in progress is more
-    -- urgent than release notes.
-    if phaseOf() == "running" or (runFailed() and #logLines() > 0) then
-        table.insert(children, logSection())
-    elseif changelogOpen then
+    -- The middle of the panel: the changelog, the live log while updating
+    -- (and after a failure), an opened history run, or the package list.
+    -- The changelog is checked first so it can be opened during a run: the
+    -- back button returns to the live log, which is otherwise still shown.
+    if changelogOpen then
         table.insert(children, ui.scroll({ key = "changelog-view", flexGrow = 1, gap = 4 }, changelogRows()))
         return children
+    elseif phaseOf() == "running" or (runFailed() and #logLines() > 0) then
+        table.insert(children, logSection())
     else
         local runRows = openedRunAt ~= nil and runViewRows() or nil
         if runRows ~= nil then

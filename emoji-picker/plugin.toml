@@ -1,0 +1,71 @@
+# Emoji & symbol picker — a Raycast-inspired floating panel for Noctalia.
+#
+# Three [[panel]] entries share one script; they differ ONLY in the
+# host-owned surface geometry (manifest width/height are constants — the
+# plugin API has no runtime resize), so a keybinding can pick the tier that
+# suits the output it opens on:
+#   wide     ≥2560  (3440×1440 ultrawide)  9 columns, 34px glyphs
+#   desktop  ≥1600  (1920×1080 class)      8 columns, 30px glyphs
+#   compact  else   (laptop panels)        6 columns, 26px glyphs
+# picker.luau derives the same column/glyph tier from noctalia.outputs() so
+# the grid always fills its panel.
+#
+# capture_keys: while the panel holds keyboard focus (exclusive), arrows and
+# Enter are delivered to onKey() instead of the host; Escape is NOT listed
+# because the host reserves Cancel for itself (a panel can never trap it) —
+# it closes the panel directly. Plain printable keys are routed to the
+# focused search input by the host before capture keys are consulted.
+#
+# The dataset (assets/emoji.json) is committed data generated from pinned
+# Unicode sources by tools/emoji-list-gen.py; see README.md for provenance
+# and the regeneration command.
+id = "liamwh/emoji-picker"
+name = "Emoji & Symbol Picker"
+version = "1.0.0"
+plugin_api = 28
+author = "liamwh"
+license = "MIT"
+dependencies = []
+tags = ["panel", "emoticon", "utility"]
+icon = "mood-smile"
+description = "Raycast-inspired emoji & Unicode symbol browser: instant search, categories, recents."
+
+[[setting]]
+key = "paste_command"
+type = "string"
+label_key = "settings.paste_command.label"
+description_key = "settings.paste_command.description"
+default = ""
+
+[[panel]]
+id = "wide"
+entry = "picker.luau"
+width = 780
+height = 640
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]
+
+[[panel]]
+id = "desktop"
+entry = "picker.luau"
+width = 640
+height = 610
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]
+
+[[panel]]
+id = "compact"
+entry = "picker.luau"
+width = 480
+height = 580
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "left", "right", "enter"]

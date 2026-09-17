@@ -138,7 +138,7 @@ render = function()
         end
     end
 
-    local connCard = ui.column({ gap = 6, fill = "surface_variant", radius = 12, paddingV = 8, paddingH = 10 }, {
+    local connCard = ui.column({ gap = 6, fill = "surface_variant/0.8", radius = 12, paddingV = 8, paddingH = 10 }, {
         ui.label({ text = noctalia.tr("panel.current_connection"), fontSize = 13, fontWeight = "bold", color = "on_surface" }),
         ui.row({ align = "center", justify = "space_between" }, {
             ui.label({ text = connDetails, fontSize = 12, fontWeight = "bold", color = "on_surface" }),
@@ -199,7 +199,7 @@ render = function()
     local leftCard
     if activeLeftCard == "wifi" then
         if not net.wifiEnabled then
-            leftCard = ui.column({ flexGrow = 1, fill = "surface_variant", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { leftHeader, hintRow(noctalia.tr("panel.wifi_off"), "wifi-off") })
+            leftCard = ui.column({ flexGrow = 1, fill = "surface_variant/0.8", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { leftHeader, hintRow(noctalia.tr("panel.wifi_off"), "wifi-off") })
         else
             local wifiList = {}
             local networks = net.availableNetworks or {}
@@ -277,7 +277,7 @@ render = function()
             elseif not net.wifiConnected and not activeNet and #savedNets == 0 then
                 table.insert(wifiList, hintRow(net.refreshing and noctalia.tr("panel.scanning") or noctalia.tr("panel.no_networks"), net.refreshing and spinner or "info-circle"))
             end
-            leftCard = ui.column({ flexGrow = 1, fill = "surface_variant", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { leftHeader, ui.scroll({ flexGrow = 1, gap = 4 }, wifiList) })
+            leftCard = ui.column({ flexGrow = 1, fill = "surface_variant/0.8", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { leftHeader, ui.scroll({ flexGrow = 1, gap = 4 }, wifiList) })
         end
     else
         local cList = hs.clients or {}
@@ -305,7 +305,7 @@ render = function()
                 end
             end
         end
-        leftCard = ui.column({ flexGrow = 1, fill = "surface_variant", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, {
+        leftCard = ui.column({ flexGrow = 1, fill = "surface_variant/0.8", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, {
             leftHeader,
             hintRow(hs.active and ((hs.ssid or "Noctalia-Hotspot") .. " • " .. bandText) or noctalia.tr("panel.hotspot_inactive_tip"), hs.active and "broadcast" or "broadcast-off", hs.active and "primary" or "on_surface_variant"),
             ui.scroll({ flexGrow = 1, gap = 4 }, scrollEl)
@@ -476,7 +476,7 @@ render = function()
                 table.insert(btList, hintRow(bt.scanning and noctalia.tr("panel.bt_scanning") or noctalia.tr("panel.no_bt_devices"), bt.scanning and spinner or "info-circle"))
             end
         end
-        rightCard = ui.column({ flexGrow = 1, fill = "surface_variant", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { rightHeader, ui.scroll({ flexGrow = 1, gap = 4 }, btList) })
+        rightCard = ui.column({ flexGrow = 1, fill = "surface_variant/0.8", radius = 12, paddingV = 8, paddingH = 10, gap = 4 }, { rightHeader, ui.scroll({ flexGrow = 1, gap = 4 }, btList) })
     else
         local dnsList = {}
         local actId = dns.activeProvider or "default"
@@ -494,7 +494,7 @@ render = function()
             ui.input({ placeholder = noctalia.tr("panel.custom_dns_placeholder"), value = customDnsInput, fontSize = 11, flexGrow = 1, onChange = function(v) customDnsInput = v end, onSubmit = applyCust }),
             ui.button({ text = noctalia.tr("panel.apply"), variant = "primary", fontSize = 11, onClick = applyCust })
         }))
-        rightCard = ui.column({ flexGrow = 1, fill = "surface_variant", radius = 12, paddingV = 7, paddingH = 9, gap = 3 }, { rightHeader, ui.scroll({ flexGrow = 1, gap = 2 }, dnsList) })
+        rightCard = ui.column({ flexGrow = 1, fill = "surface_variant/0.8", radius = 12, paddingV = 7, paddingH = 9, gap = 3 }, { rightHeader, ui.scroll({ flexGrow = 1, gap = 2 }, dnsList) })
     end
 
     -- Root layout

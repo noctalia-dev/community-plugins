@@ -1,0 +1,67 @@
+{
+  "action": {
+    "advanced": "Advanced settings",
+    "arrange": "Arrange displays",
+    "refresh": "Re-read displays"
+  },
+  "advanced": {
+    "flips": "Frame delivery",
+    "picture": "Picture",
+    "title": "Advanced",
+    "workspaces": "Workspaces"
+  },
+  "arrange": {
+    "hint": "drop a screen on another to swap, or on a slot to insert",
+    "title": "Arrange displays"
+  },
+  "field": {
+    "direct_scanout": "Direct scanout",
+    "dynamic": "Dynamic",
+    "hdr": "HDR",
+    "refresh": "Refresh rate (Hz)",
+    "resolution": "Resolution",
+    "scale": "Scale",
+    "scrolling_width": "Default column width",
+    "sdr_white": "SDR white (cd/m2)",
+    "static": "Static",
+    "tearing": "Allow tearing",
+    "transform": "Rotation",
+    "vrr": "Adaptive sync",
+    "workspace_axis": "Workspace axis",
+    "workspaces": "Minimum workspaces",
+    "workspaces_count": "Workspace count",
+    "workspaces_mode": "Workspace inventory"
+  },
+  "rescue": {
+    "blind": "No display was reported. Every output was re-enabled.",
+    "body": "{name} was re-enabled: it is the only display left.",
+    "title": "Displays"
+  },
+  "settings": {
+    "glyph": {
+      "label": "Bar glyph"
+    },
+    "outputs_path": {
+      "description": "The file this plugin writes [output.*] sections into. It must be listed in the Umbriel config's [include] files.",
+      "label": "Include file"
+    }
+  },
+  "status": {
+    "applied": "Applied.",
+    "last_output": "The last enabled display cannot be turned off.",
+    "missing_umbriel": "umbriel is not on PATH.",
+    "no_mode": "{name} reports no usable mode.",
+    "no_outputs": "No displays reported.",
+    "query_failed": "umbriel outputs failed.",
+    "unsupported": "This Umbriel does not support '{key}'. Nothing was changed.",
+    "write_failed": "Could not write the include file: {error}"
+  },
+  "title": "Displays",
+  "tray": {
+    "hint": "Drop here to disable",
+    "restore": "Drag one back onto the canvas to turn it on"
+  },
+  "widget": {
+    "tooltip": "Displays"
+  }
+}

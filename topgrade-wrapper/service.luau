@@ -26,9 +26,17 @@
 -- package managers can prompt and sudo can ask for the password on the tty.
 -- While one runs, processMatches() polls for the topgrade process and re-counts
 -- as soon as it is gone, so the bar clears itself.
+--
+-- Since 0.0.9 the topgrade command line is an argument vector (buildArgv,
+-- plugin_api >= 24) and the dry-run check execs it directly, so no shell parses
+-- the configured config path on the automated path. The two lines that still
+-- need a shell keep one: the upgrade, because runInTerminal takes a string, and
+-- each per-manager counter, because those are genuine pipelines.
 
-local STATE_KEY = "topgrade_state"
-local REQUEST_KEY = "topgrade_request"
+local shared = require("./shared.luau")
+
+local UPDATES_SOUND = "topgrade-updates-found" -- name registered with noctalia.sound.load
+local soundReady = false -- true once UPDATES_SOUND has finished loading
 
 local DRY_TIMEOUT_MS = 45000 -- topgrade --dry-run: PATH probes, no network
 local COUNT_TIMEOUT_MS = 60000 -- per manager; several of these hit the network
@@ -210,7 +218,7 @@ local function cfg(key)
 end
 
 local function tr(key, args)
-    return noctalia.tr(key, args)
+    return shared.tr(key, args)
 end
 
 local function trim(value)
@@ -287,31 +295,50 @@ local function commandSignature()
     return tostring(configOverride()) .. "\0" .. table.concat(excludedSteps(), ",")
 end
 
-local function buildCommand(dry)
-    local parts = { "topgrade" }
+-- The topgrade command line as an argument vector — the one source of truth for
+-- both callers. The dry-run check execs it directly (plugin_api >= 24), so
+-- nothing parses the configured config path; the upgrade needs a shell string,
+-- which buildCommand below quotes out of this same vector rather than building
+-- its own and risking the two drifting apart.
+local function buildArgv(dry)
+    local argv = { "topgrade" }
     local override = configOverride()
     if override ~= nil then
-        table.insert(parts, "--config " .. shellQuote(override))
+        table.insert(argv, "--config")
+        table.insert(argv, override)
     end
     -- One flag per step: repeating --disable keeps clap from swallowing the
     -- flags that follow, which a space-separated list would.
     for _, id in ipairs(excludedSteps()) do
-        table.insert(parts, "--disable " .. id)
+        table.insert(argv, "--disable")
+        table.insert(argv, id)
     end
     if dry then
         -- --no-self-update keeps the count from doing a release check it would
         -- never act on in dry mode.
-        table.insert(parts, "--dry-run --no-self-update")
+        table.insert(argv, "--dry-run")
+        table.insert(argv, "--no-self-update")
     else
         if cfg("assume_yes") == true then
-            table.insert(parts, "--yes")
+            table.insert(argv, "--yes")
         end
         if cfg("sudo_loop") == true then
-            table.insert(parts, "--sudoloop")
+            table.insert(argv, "--sudoloop")
         end
         if cfg("keep_terminal_open") == true then
-            table.insert(parts, "--keep")
+            table.insert(argv, "--keep")
         end
+    end
+    return argv
+end
+
+-- The same command as one shell line, for the upgrade: runInTerminal and the
+-- `<term> -e sh -lc` form are both string-only, so that path cannot leave the
+-- shell behind. Every element is quoted, config path included.
+local function buildCommand(dry)
+    local parts = {}
+    for index, value in ipairs(buildArgv(dry)) do
+        parts[index] = shellQuote(value)
     end
     return table.concat(parts, " ")
 end
@@ -319,7 +346,7 @@ end
 local function publish()
     stateNonce += 1
     local config = detectedConfig()
-    noctalia.state.set(STATE_KEY, {
+    noctalia.state.set(shared.STATE_KEY, {
         nonce = stateNonce,
         phase = phase,
         step = step,
@@ -438,6 +465,9 @@ local function finishCheck()
     if total > 0 and cfg("notify_on_updates") == true then
         noctalia.notify(tr("title"), noctalia.trp("notify_updates", total, { count = total }))
     end
+    if total > 0 and soundReady and cfg("sound_on_updates") == true then
+        noctalia.sound.play(UPDATES_SOUND)
+    end
 end
 
 local function failCheck(message)
@@ -518,7 +548,15 @@ startCheck = function()
     step = tr("step_planning")
     publish()
 
-    local started = noctalia.runAsync("export LC_ALL=C; " .. buildCommand(true), function(result)
+    -- LC_ALL=C through `env`: parseDryRun matches topgrade's own English step
+    -- headings, and with no shell in the picture `env` is the only way left to
+    -- fix the locale.
+    local dryArgv = { "env", "LC_ALL=C" }
+    for _, value in ipairs(buildArgv(true)) do
+        table.insert(dryArgv, value)
+    end
+
+    local started = noctalia.runAsync(dryArgv, function(result)
         if result.timedOut then
             failCheck(tr("err_dry_timeout"))
             return
@@ -632,7 +670,7 @@ local function handle(action)
     end
 end
 
-noctalia.state.watch(REQUEST_KEY, function(value)
+noctalia.state.watch(shared.REQUEST_KEY, function(value)
     if type(value) ~= "table" then
         return
     end
@@ -669,6 +707,25 @@ function onConfigChanged()
     publish()
 end
 
+-- plugin_api >= 17. A hot reload (editing this file) tears this VM down and a
+-- fresh one starts moments later, which republishes its own state on load —
+-- nothing to do for "reload". On disable/uninstall/shutdown mid-check/run,
+-- though, nothing ever republishes again: without this, every widget/panel
+-- instance reading the shared state would stay frozen on "checking"/"running"
+-- forever. This cannot (and does not try to) kill the underlying topgrade or
+-- query process — runAsync hands back no killable handle — it only stops
+-- describing it as in progress.
+function onExit(_signal, reason)
+    if reason == "reload" then
+        return
+    end
+    if phase == "checking" or phase == "running" then
+        phase = "idle"
+        step = ""
+        publish()
+    end
+end
+
 function update()
     if phase == "running" then
         runTicks += 1
@@ -697,6 +754,10 @@ function update()
         startCheck()
     end
 end
+
+noctalia.sound.load(UPDATES_SOUND, "sounds/updates-found.wav", function(ok)
+    soundReady = ok == true
+end)
 
 noctalia.setUpdateInterval(1000)
 commandSig = commandSignature()

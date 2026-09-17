@@ -4,7 +4,7 @@
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.5.0"
+version = "1.5.1"
 # Plugin API level this manifest targets — mandatory as of the Noctalia 5 beta
 # manifest parser (replaces the older min_noctalia gate). 3 is the oldest-supported
 # level and covers every feature this plugin uses ([[panel]], ui controls, plugin IPC

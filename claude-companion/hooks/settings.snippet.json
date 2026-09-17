@@ -1,5 +1,5 @@
 {
-  "_comment": "Merge into ~/.claude/settings.json. The attention reflex: Claude Code lifecycle hooks invoke hooks/pulse.py <event>, which reads the hook JSON on stdin, computes live model + token-burn telemetry from the session transcript, and dispatches into the headless aggregator service via `noctalia msg plugin lowcache/claude-companion:pulse-svc all <event> [payload]` (target `all` = every monitor's instance; `focused`/bare connector error when the widget is on multiple bars). payload is a space-free CSV `model,in,out,cacheCreate,cacheRead,session` whose trailing `session` (short id) tags every event, so the service tracks each concurrent session separately and publishes the most urgent state + token-burn telemetry for the widget to render as a tooltip. SessionEnd fires `session_end`, retiring that session in the service and dropping its token cache. The dispatcher is fail-open: if noctalia is offline or the transcript is unreadable it fires the bare event (or nothing) and never errors. Path assumes the plugin is installed/symlinked at ~/.local/share/noctalia/plugins/claude-companion. Verified against noctalia 5.0.0 (`noctalia msg --help`). SessionStart registers the session at idle; the lifecycle drives turn_start -> tool_start -> turn_end; SessionEnd removes it. For the MCP shim (senses/hands), wire it separately via mcpServers/--mcp-config once shim/noctalia-mcp.py is in use. PreToolUse carries a SECOND matcher for the optional consent gate (consent.py): it is scoped to the mutating tools, blocks the call while the consent panel asks you about it, and returns a permissionDecision. It is inert unless the plugin's `consent_mode` setting is learn or enforce, and its 120s timeout is deliberately above the hook's own 110s deadline so the hook \u2014 not Claude Code reaping it \u2014 decides when to fall through. Read/Grep/Glob are never gated.",
+  "_comment": "Merge into ~/.claude/settings.json. The attention reflex: Claude Code lifecycle hooks invoke hooks/pulse.py <event>, which reads the hook JSON on stdin, computes live model + token-burn telemetry from the session transcript, and dispatches into the headless aggregator service via `noctalia msg plugin lowcache/claude-companion:pulse-svc all <event> [payload]` (target `all` = every monitor's instance; `focused`/bare connector error when the widget is on multiple bars). payload is a space-free CSV `model,in,out,cacheCreate,cacheRead,session` whose trailing `session` (short id) tags every event, so the service tracks each concurrent session separately and publishes the most urgent state + token-burn telemetry for the widget to render as a tooltip. SessionEnd fires `session_end`, retiring that session in the service and dropping its token cache. The dispatcher is fail-open: if noctalia is offline or the transcript is unreadable it fires the bare event (or nothing) and never errors. Paths point at where Noctalia MATERIALIZES a catalog install: $HOME/.local/state/noctalia/plugins/materialized/<source>/<plugin>, i.e. materialized/community/claude-companion for this one (source name, then the part of `id` after the `/`). If you instead cloned and symlinked the repo into ~/.local/share/noctalia/plugins/claude-companion, as the README's dev install describes, use that path here instead. A hook whose command does not exist fails silently, so a wrong path here looks exactly like the plugin doing nothing. Verified against noctalia 5.0.0 (`noctalia msg --help`). SessionStart registers the session at idle; the lifecycle drives turn_start -> tool_start -> turn_end; SessionEnd removes it. For the MCP shim (senses/hands), wire it separately via mcpServers/--mcp-config once shim/noctalia-mcp.py is in use. PreToolUse carries a SECOND matcher for the optional consent gate (consent.py): it is scoped to the mutating tools, blocks the call while the consent panel asks you about it, and returns a permissionDecision. It is inert unless the plugin's `consent_mode` setting is learn or enforce, and its 120s timeout is deliberately above the hook's own 110s deadline so the hook \u2014 not Claude Code reaping it \u2014 decides when to fall through. Read/Grep/Glob are never gated.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py idle"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py idle"
           }
         ]
       }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py turn_start"
           }
         ]
       }
@@ -29,16 +29,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py tool_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py tool_start"
           }
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|NotebookEdit",
+        "matcher": "^(Bash|Write|Edit|NotebookEdit)$",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/consent.py",
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/consent.py",
             "timeout": 120
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_start"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py turn_start"
           }
         ]
       }
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py needs_attention"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py needs_attention"
           }
         ]
       }
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py turn_end"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py turn_end"
           }
         ]
       }
@@ -83,7 +83,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $HOME/.local/share/noctalia/plugins/claude-companion/hooks/pulse.py session_end"
+            "command": "python3 $HOME/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse.py session_end"
           }
         ]
       }

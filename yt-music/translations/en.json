@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "debug_logging": {
+      "description": "Write verbose logs to the plugin log file to help troubleshoot issues.",
+      "label": "Debug logging"
+    }
+  }
+}

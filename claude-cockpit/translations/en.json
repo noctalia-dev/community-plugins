@@ -1,0 +1,119 @@
+{
+  "close": "Close",
+  "currency": {
+    "auto_default": "usd"
+  },
+  "daily_activity": "Daily Activity",
+  "day_detail": "{day} · {tokens} tokens · {cost}",
+  "days": "Mo,Tu,We,Th,Fr,Sa,Su",
+  "delete_session_confirm": "Delete this session? This cannot be undone.",
+  "err_claudemd_scan": "Could not scan for CLAUDE.md files",
+  "err_delete_failed": "Could not delete the session",
+  "err_editor_failed": "Could not launch the editor",
+  "err_no_editor": "No editor found — set one in the plugin settings",
+  "err_no_terminal": "Could not open a terminal",
+  "err_sessions_data": "Bad session data",
+  "err_sessions_fetch": "Could not read local sessions",
+  "err_sessions_launch": "Could not launch list-claude-sessions",
+  "global_claude_md": "Global",
+  "loading": "Loading…",
+  "models_this_week": "Models This Week",
+  "month": "Month",
+  "msgs": "msgs",
+  "no": "Cancel",
+  "no_preview": "No preview available",
+  "no_sessions": "No sessions match",
+  "pace": {
+    "on": "On pace",
+    "over": "over pace",
+    "over_quota": "Over quota",
+    "under": "under pace"
+  },
+  "plan": "Plan",
+  "refresh": "Refresh",
+  "refreshing": "Refreshing…",
+  "resets_in": "Resets in",
+  "resetting": "Resetting…",
+  "search_placeholder": "Filter sessions…",
+  "session_untitled": "Session {id}",
+  "sessions": "sessions",
+  "settings": {
+    "currency": {
+      "description": "Currency for displayed costs. Auto follows the interface language.",
+      "label": "Currency",
+      "options": {
+        "aud": "AUD (A$)",
+        "auto": "Auto",
+        "cad": "CAD (C$)",
+        "chf": "CHF",
+        "cny": "CNY (¥)",
+        "eur": "EUR (€)",
+        "gbp": "GBP (£)",
+        "inr": "INR (₹)",
+        "jpy": "JPY (¥)",
+        "usd": "USD ($)"
+      }
+    },
+    "currency_api_url": {
+      "description": "Exchange-rate API get-claude-usage fetches every non-USD rate from.",
+      "label": "Currency API URL"
+    },
+    "editor_command": {
+      "description": "Command to open a CLAUDE.md file. Empty tries \"code\", then \"zed\".",
+      "label": "Editor command"
+    },
+    "glyph": {
+      "description": "The glyph shown for the Claude Cockpit widget on the bar.",
+      "label": "Bar glyph"
+    },
+    "terminal": {
+      "description": "Command to open a terminal for resuming a session. Empty uses the system's own terminal discovery.",
+      "label": "Terminal command"
+    },
+    "usage_percent_display": {
+      "description": "What rides beside the bar glyph: the 5-hour session window, the 7-day weekly one, both, or neither.",
+      "label": "Usage percentage",
+      "options": {
+        "both": "Both (sNN% wMM%)",
+        "none": "Nothing",
+        "session": "Session window (sNN%)",
+        "weekly": "Weekly window (wMM%)"
+      }
+    },
+    "usage_refresh_interval": {
+      "description": "How often to fetch usage data (minutes).",
+      "label": "Usage refresh interval"
+    }
+  },
+  "settings_tooltip": "Plugin settings",
+  "since": "Since",
+  "tab_claudemd": "CLAUDE.md",
+  "tab_sessions": "Sessions",
+  "tab_usage": "Usage",
+  "time_days_ago": "{n}d ago",
+  "time_hours_ago": "{n}h ago",
+  "time_just_now": "just now",
+  "time_minutes_ago": "{n}m ago",
+  "tip_collapse_all": "Collapse all projects",
+  "tip_create_editor": "Create in editor",
+  "tip_delete_session": "Delete session",
+  "tip_expand_all": "Expand all projects",
+  "tip_hide_preview": "Hide preview",
+  "tip_open_editor": "Open in editor",
+  "tip_preview": "Preview",
+  "tip_resume": "Resume in a terminal",
+  "title": "Claude Cockpit",
+  "today": "Today",
+  "token_consumption": "Token Consumption",
+  "unavailable": "Claude Cockpit unavailable",
+  "unknown_project": "Unknown project",
+  "used": "used",
+  "week": "Week",
+  "window": {
+    "other": "Rate window",
+    "scoped": "{model} (7d)",
+    "session": "Session (5h)",
+    "weekly": "Weekly (7d)"
+  },
+  "yes": "Delete"
+}

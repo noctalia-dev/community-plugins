@@ -1,0 +1,175 @@
+{
+  "settings": {
+    "chat_enabled": {
+      "description": "Continue or safely fork OMP sessions, or start full sessions in any supported installed harness from the Agentik panel and optional desktop widget.",
+      "label": "Enable coding session chat"
+    },
+    "display_label": {
+      "description": "What to show as the primary label for each session in the panel: the project directory, the agent-chosen session name, or the active model (name only, without the provider).",
+      "label": "Primary label",
+      "option_agent": "Agent name",
+      "option_model": "Model name",
+      "option_project": "Project"
+    },
+    "excluded_projects": {
+      "description": "Comma-separated project directory names or full paths to omit from Agentik monitoring and chat.",
+      "label": "Excluded projects"
+    },
+    "filter_attention": {
+      "description": "Show only sessions that are waiting or blocked.",
+      "label": "Needs attention only"
+    },
+    "high_contrast": {
+      "description": "Use stronger session backgrounds and primary text contrast.",
+      "label": "Increase contrast"
+    },
+    "notification_cooldown_seconds": {
+      "description": "Minimum time between Agentik attention notifications.",
+      "label": "Notification cooldown (seconds)"
+    },
+    "notification_privacy": {
+      "description": "Keep notification bodies free of project and task names; show only the attention state.",
+      "label": "Privacy notifications"
+    },
+    "notify_attention": {
+      "description": "Notify only when a known active agent changes to waiting or blocked. Disabled by default.",
+      "label": "Notify on attention needed"
+    },
+    "reduce_motion": {
+      "description": "Use static orb frames and reveal live assistant text immediately.",
+      "label": "Reduce motion"
+    },
+    "show_attention": {
+      "description": "Show the active, waiting, or blocked state beside each session in the panel.",
+      "label": "Show attention state"
+    },
+    "show_count": {
+      "description": "Show the ordinal number of the active agent currently displayed by this bar widget.",
+      "label": "Show displayed-agent number"
+    },
+    "show_intent": {
+      "description": "Show the state inferred from active OMP agents' current tool intents in the bar.",
+      "label": "Show intent state"
+    },
+    "show_task": {
+      "description": "Show the current OMP todo item for each session in the panel.",
+      "label": "Show current task"
+    },
+    "sort_mode": {
+      "description": "Order panel sessions by running time or attention-first (blocked, then waiting).",
+      "label": "Sort order",
+      "option_attention": "Attention first",
+      "option_duration": "Running time"
+    }
+  },
+  "ui": {
+    "active_agents": {
+      "one": "1 active agent",
+      "other": "{count} active agents"
+    },
+    "attention_active": "Active",
+    "attention_blocked": "Blocked",
+    "attention_inbox": "Attention",
+    "attention_required": "Attention required",
+    "attention_waiting": "Waiting",
+    "blocked_count": {
+      "one": "1 blocked",
+      "other": "{count} blocked"
+    },
+    "chat_assistant": "Assistant",
+    "chat_cancel": "Cancel",
+    "chat_close": "Close chat",
+    "chat_code": "Code",
+    "chat_collapse_output": "Collapse output",
+    "chat_copy_code": "Copy code",
+    "chat_copy_output": "Copy complete output",
+    "chat_empty": "Send a message to this full coding session. Its harness-native tools, rules, skills, extensions, model, and history are active.",
+    "chat_error": "Coding session bridge returned an invalid response",
+    "chat_error_detail": "Session error: {error}",
+    "chat_event": "Event",
+    "chat_event_session_exit": "Session ended",
+    "chat_event_thinking": "Thinking",
+    "chat_event_todo": "Task update",
+    "chat_event_todo_update": "Todo update",
+    "chat_event_tool_call": "Tool call · {tool}",
+    "chat_event_tool_output": "Tool output · {tool}",
+    "chat_event_tool_start": "Tool started · {tool}",
+    "chat_expand_output": "Expand output",
+    "chat_find_sessions_placeholder": "Find recent sessions",
+    "chat_fork_active": "Active elsewhere · fork on send",
+    "chat_fork_snapshot": "Fork snapshot on send",
+    "chat_harness": "Harness",
+    "chat_loading": "Loading coding sessions...",
+    "chat_loading_conversation": "Loading conversation...",
+    "chat_model": "Model",
+    "chat_model_placeholder": "Type a model name",
+    "chat_model_suggestions": "Suggestions",
+    "chat_new": "New session",
+    "chat_no_sessions": "No OMP sessions found",
+    "chat_open": "Chat",
+    "chat_open_terminal": "Open in terminal",
+    "chat_picker_help": "Continue a finished OMP session, safely fork one that is active elsewhere, or choose an installed harness and model for a new project session.",
+    "chat_placeholder": "Message this coding session...",
+    "chat_project_placeholder": "Project directory",
+    "chat_ready": "Ready to continue",
+    "chat_recent": "Recent OMP sessions",
+    "chat_send": "Send",
+    "chat_session": "Coding session",
+    "chat_show_earlier": "Show {count} earlier events",
+    "chat_start": "Start",
+    "chat_switch": "Switch session",
+    "chat_terminal_active": "Terminal owns this session. Conversation refreshes here; exit the terminal before replying in this panel.",
+    "chat_thinking": "Coding session running...",
+    "chat_title": "Coding session",
+    "chat_unavailable": "Not safely resumable",
+    "chat_you": "You",
+    "choice_needed": "Choice needed",
+    "collapse_group": "Collapse {project}",
+    "copy_choice": "Copy choice: {choice}",
+    "copy_custom_response": "Copy a custom response prefix",
+    "custom_response": "Custom",
+    "done": "Done",
+    "exited_ago": "exited {time} ago",
+    "expand_group": "Expand {project}",
+    "health_not_ready": "No supported coding-agent harness is available",
+    "health_ready": "Available harnesses: {harnesses}",
+    "health_title_action": "Setup needed",
+    "health_title_ready": "Agent runtime ready",
+    "idle": "idle {time}",
+    "more": {
+      "one": " (+1 more)",
+      "other": " (+{count} more)"
+    },
+    "no_attention_sessions": "No sessions need attention",
+    "no_sessions": "No active agents",
+    "open_project": "Open project directory",
+    "session_timeline": "started {started} ago · last activity {activity} ago",
+    "sessions": "Sessions",
+    "state_breathing": "Pausing",
+    "state_composing": "Creating",
+    "state_connecting": "Connecting",
+    "state_description": "{harness} · {state} · {activity}",
+    "state_done": "Finished",
+    "state_listening": "Awaiting input",
+    "state_searching": "Searching",
+    "state_shaping": "Planning",
+    "state_solving": "Verifying",
+    "state_weaving": "Integrating",
+    "state_working": "Working",
+    "status_cancelled": "Cancelled",
+    "status_completed": "Completed",
+    "status_failed": "Failed",
+    "status_running": "Running",
+    "toast_attention": {
+      "one": "Agentik: 1 agent needs attention",
+      "other": "Agentik: {count} agents need attention"
+    },
+    "toast_blocked": "Agentik: blocked",
+    "toast_waiting": "Agentik: waiting for input",
+    "todo_progress": "{completed} of {total} tasks complete",
+    "waiting_count": {
+      "one": "1 waiting",
+      "other": "{count} waiting"
+    }
+  }
+}

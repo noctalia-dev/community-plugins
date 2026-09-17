@@ -1,0 +1,47 @@
+id = "zyrex/run-path"
+name = "Run / Open Path"
+version = "1.0.0"
+plugin_api = 3
+author = "zyrex"
+license = "MIT"
+dependencies = ["xdg-utils"]
+tags = ["launcher", "utility", "productivity"]
+icon = "folder-open"
+description = "Type a path in the launcher to open it, with live completion, or type anything else to run it as a command."
+
+[[launcher_provider]]
+id = "run-path"
+entry = "launcher.luau"
+prefix = "r"
+glyph = "folder-open"
+include_in_global_search = false
+
+[[setting]]
+key = "file_manager"
+type = "string"
+label_key = "settings.file_manager.label"
+description_key = "settings.file_manager.description"
+default = "xdg-open"
+
+[[setting]]
+key = "file_opener"
+type = "string"
+label_key = "settings.file_opener.label"
+description_key = "settings.file_opener.description"
+default = "xdg-open"
+
+[[setting]]
+key = "show_hidden"
+type = "bool"
+label_key = "settings.show_hidden.label"
+description_key = "settings.show_hidden.description"
+default = false
+
+[[setting]]
+key = "max_results"
+type = "int"
+label_key = "settings.max_results.label"
+description_key = "settings.max_results.description"
+default = 20
+min = 1
+max = 200

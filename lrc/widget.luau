@@ -1,20 +1,8 @@
 noctalia.setUpdateInterval(300)
 
 local fetching = false
-local mpdPlayer = "mpd"
 local showSeparator = noctalia.getConfig("show_separator") ~= false
 local separator = noctalia.getConfig("separator") or "| "
-
-noctalia.runAsync("playerctl -l 2>/dev/null", function(r)
-  if r.exitCode == 0 then
-    for name in r.stdout:gmatch("[^\n]+") do
-      if name:match("^mpd%.") then
-        mpdPlayer = name
-        break
-      end
-    end
-  end
-end)
 
 function update()
   if fetching then
@@ -25,18 +13,21 @@ function update()
     return
   end
 
-  noctalia.runAsync("playerctl status --player " .. mpdPlayer .. " 2>/dev/null", function(r)
-    if r.exitCode == 0 and r.stdout:gsub("%s+$", "") == "Playing" then
-      fetchLyrics(mpdPlayer)
-      return
-    end
-    noctalia.runAsync("playerctl status --player spotify 2>/dev/null", function(r2)
-      if r2.exitCode == 0 and r2.stdout:gsub("%s+$", "") == "Playing" then
-        fetchLyrics("spotify")
-        return
+  noctalia.runAsync("playerctl status -a --format '{{playerInstance}} {{status}}' 2>/dev/null", function(r)
+    if r.exitCode == 0 and r.stdout then
+      for line in r.stdout:gmatch("[^\n]+") do
+        local player, status = line:match("^(%S+)%s+(%S+)%s*$")
+        if player and status == "Playing" then
+          if player:match("^firefox") or player:match("^chromium") or player:match("^chrome") or player:match("^brave") or player:match("^mpv") or player:match("^vlc") then
+            -- skip browser/video players
+          else
+            fetchLyrics(player)
+            return
+          end
+        end
       end
-      barWidget.setText("")
-    end)
+    end
+    barWidget.setText("")
   end)
 end
 

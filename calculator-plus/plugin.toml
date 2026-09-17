@@ -1,0 +1,57 @@
+id           = "samuelskovbakke/calculator-plus"
+name         = "Calculator Plus"
+version      = "1.0.0"
+plugin_api   = 28
+author       = "samuelskovbakke"
+license      = "MIT"
+icon         = "calculator"
+description  = "Popup qalc calculator panel with expression history."
+tags         = ["bar", "panel", "utility"]
+dependencies = ["qalc"]
+
+[[setting]]
+key             = "notify_on_copy"
+type            = "bool"
+label_key       = "settings.notify_on_copy.label"
+description_key = "settings.notify_on_copy.description"
+default         = true
+
+[[setting]]
+key             = "repeat_delay_ms"
+type            = "int"
+min             = 0
+max             = 1000
+label_key       = "settings.repeat_delay_ms.label"
+description_key = "settings.repeat_delay_ms.description"
+default         = 400
+
+[[setting]]
+key             = "repeat_interval_ms"
+type            = "int"
+min             = 0
+max             = 1000
+label_key       = "settings.repeat_interval_ms.label"
+description_key = "settings.repeat_interval_ms.description"
+default         = 120
+
+[[widget]]
+id    = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "calculator"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 380
+height          = 480
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+capture_keys    = ["up", "down"]
+

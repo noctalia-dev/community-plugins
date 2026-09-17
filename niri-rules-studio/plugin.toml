@@ -1,0 +1,32 @@
+id = "setyvii/niri-rules-studio"
+name = "Niri Rules Studio"
+version = "0.1.0"
+plugin_api = 24
+author = "SetyVII"
+license = "MIT"
+icon = "adjustments-horizontal"
+description = "Create, validate, and manage Niri window rules with a simple GUI."
+tags = ["bar", "panel", "niri", "utility"]
+dependencies = ["niri"]
+
+[[setting]]
+key = "niri_config"
+type = "file"
+label_key = "settings.niri_config.label"
+description_key = "settings.niri_config.description"
+default = "~/.config/niri/config.kdl"
+
+[[widget]]
+id = "rules"
+entry = "widget.luau"
+
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id = "panel"
+entry = "studio.luau"
+width = 560
+height = 720
+placement = "floating"
+position = "center"

@@ -2,20 +2,29 @@
 # The bar glyph toggles a search panel: the search folder is indexed with
 # `find` (honoring the excluded directories), every keystroke is matched
 # through `fzf --filter`, and picking a result opens it with the system
-# MIME association (xdg-open). The panel's disk button widens the search to
-# the mounted USB/removable volumes, detected with `lsblk`.
+# MIME association (xdg-open). Right-click a result for a context menu with
+# open, reveal in the file manager, copy path and copy name. The panel's disk
+# button widens the search to the mounted USB/removable volumes, detected
+# with `lsblk`.
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.0.25"
-plugin_api = 15
+version = "0.2.0"
+# 28 for panel.openContextMenu: a result row's right-click menu. Also 22 for
+# relative luau imports — the three entries share shared.luau, which owns the
+# index fingerprint they all have to agree on — and 24 for argv process
+# execution: the usage chart spawns `du` with the user's own exclusion patterns
+# as arguments, xdg-open takes a path straight from the index and the reveal
+# call carries a file name inside a GVariant literal, and an argv is exec'd
+# directly, so no shell ever parses any of them.
+plugin_api = 28
 author = "nightwatch75"
 license = "MIT"
 # The exact commands the plugin spawns (fzf, lsblk and gdbus aside, findutils +
 # coreutils + xdg-utils on any Linux desktop). lsblk only runs while the search
 # scope includes the external disks, gdbus only on a reveal-in-file-manager
 # click, and that one falls back to xdg-open when it is missing.
-dependencies = ["fzf", "find", "lsblk", "gdbus", "mktemp", "mv", "wc", "head", "rm", "date", "xdg-open"]
+dependencies = ["fzf", "find", "lsblk", "gdbus", "mktemp", "mv", "wc", "head", "rm", "date", "xdg-open", "du"]
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
@@ -43,6 +52,18 @@ label_key = "settings.show_hidden.label"
 description_key = "settings.show_hidden.description"
 default = false
 
+# Kept apart from exclude_dirs above: that one defaults to hiding .git and
+# node_modules from the index, and a usage chart that hides them answers the
+# wrong question — what fills a source folder usually IS .git. Empty by
+# default, since `du -x` already refuses to cross a filesystem boundary and a
+# slow network or FUSE mount under the search folder costs nothing.
+[[setting]]
+key = "usage_exclude_dirs"
+type = "string"
+label_key = "settings.usage_exclude_dirs.label"
+description_key = "settings.usage_exclude_dirs.description"
+default = ""
+
 [[setting]]
 key = "max_results"
 type = "int"
@@ -53,7 +74,12 @@ min = 10
 max = 200
 
 # Keyboard-first flow: the noctalia launcher provides native arrows + Enter
-# navigation, which plugin panels cannot receive from the current Luau API.
+# navigation over a long result list. A panel cannot match that. Not for want of
+# key events — panel `capture_keys` has existed since plugin_api 13 — but
+# because `ui.scroll` still exposes no way to bring a given child into view
+# (its only programmatic move is scrollToBottomRev, added in 21). A selection
+# driven past the fold would simply go invisible, so keyboard navigation in the
+# panel would need a hand-rolled windowed render to be usable at all.
 [[launcher_provider]]
 id = "launcher"
 entry = "launcher.luau"
@@ -65,7 +91,13 @@ include_in_global_search = false
 id = "panel"
 entry = "panel.luau"
 width = 520
-height = 480
+# 720, up from 480, because the usage chart added ~200px under the results:
+# a 108px donut, seven legend rows, the click hint and the skipped-mounts line,
+# which between them are taller than the chart itself. At 600 the result list
+# was back down to four rows. A panel cannot resize itself — the height is read
+# once, from here — so it is sized for the chart being on, which is the
+# default; with the chart hidden the extra room goes to the results.
+height = 720
 placement = "attached"
 open_near_click = true
 

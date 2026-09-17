@@ -7,7 +7,7 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.9.7"
+version = "1.10.0"
 plugin_api = 24
 author = "dragged"
 license = "MIT"
@@ -246,6 +246,7 @@ entry = "widget.luau"
   # Remappable from the bar widget editor (community pattern: airpods / todo / mimir).
   [widget.actions]
   left = "plugin dragged/cider:bridge all toggle-lyrics-hud"
+  middle = "plugin dragged/cider:bridge all chip-left"
   right = "plugin dragged/cider:bridge all show-osd"
 
   [[widget.setting]]

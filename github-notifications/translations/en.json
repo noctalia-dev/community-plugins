@@ -1,0 +1,75 @@
+{
+  "action": {
+    "mark_all_read": "Mark all as read",
+    "mark_read": "Mark as read",
+    "refresh": "Refresh",
+    "try_again": "Try again"
+  },
+  "empty": {
+    "subtitle": "No unread notifications",
+    "title": "You're all caught up"
+  },
+  "panel": {
+    "multiple_unread": "{count} unread",
+    "one_unread": "1 unread",
+    "title": "GitHub Notifications",
+    "updated_at": "Updated {time}"
+  },
+  "settings": {
+    "hide_when_zero": {
+      "description": "Hide the unread count on the bar widget when there are 0 unread notifications.",
+      "label": "Hide count when zero"
+    },
+    "per_page": {
+      "description": "Maximum number of unread notifications to retrieve from GitHub.",
+      "label": "Notification limit",
+      "options": {
+        "fifty": "50 notifications",
+        "twenty_five": "25 notifications"
+      }
+    },
+    "refresh_interval": {
+      "description": "How often to poll GitHub for new notifications in the background.",
+      "label": "Refresh interval",
+      "options": {
+        "one_twenty": "Every 2 minutes",
+        "six_hundred": "Every 10 minutes",
+        "sixty": "Every 1 minute",
+        "three_hundred": "Every 5 minutes"
+      }
+    },
+    "widget_display_mode": {
+      "description": "Choose whether the bar widget shows both icon and unread count, or only the icon.",
+      "label": "Widget display mode",
+      "options": {
+        "icon_and_count": "Icon and count",
+        "icon_only": "Icon only"
+      }
+    }
+  },
+  "status": {
+    "auth_error": "GitHub CLI is not authenticated",
+    "auth_error_detail": "Run `gh auth login` in your terminal to authenticate your GitHub account.",
+    "auth_error_title": "Authentication Required",
+    "generic_error": "Failed to Load Notifications",
+    "invalid_notification_link": "Invalid or untrusted notification link.",
+    "loading": "Loading notifications…",
+    "missing_gh": "GitHub CLI is not installed",
+    "missing_gh_detail": "Install `gh` on your system PATH to enable GitHub notifications.",
+    "missing_gh_title": "GitHub CLI Not Found",
+    "missing_xdg_open": "xdg-open is required to open links in your browser.",
+    "network_error": "Network request failed. Check your internet connection.",
+    "notification_link_missing": "Notification link is missing.",
+    "permission_denied": "GitHub notifications permission unavailable. Check `gh auth status`.",
+    "rate_limited": "GitHub API rate limit reached",
+    "rate_limited_detail": "You have hit the GitHub API rate limit. Please wait a moment before trying again.",
+    "rate_limited_title": "Rate Limit Exceeded",
+    "request_failed": "GitHub API request failed",
+    "unavailable": "GitHub notifications unavailable"
+  },
+  "widget": {
+    "cached": "cached",
+    "tooltip_empty": "GitHub Notifications · All caught up",
+    "tooltip_unread": "GitHub Notifications · {count} unread"
+  }
+}

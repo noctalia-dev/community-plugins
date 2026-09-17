@@ -46,6 +46,16 @@
       "description": "The percentage as text. Off leaves the gauge to say it.",
       "label": "Show value"
     },
+    "style": {
+      "description": "How this capsule looks in the bar.",
+      "label": "Style",
+      "option": {
+        "gauge": "Gauge and percentage",
+        "label": "Name, gauge and percentage",
+        "meter": "Segments",
+        "pill": "Percentage"
+      }
+    },
     "vendor": {
       "description": "Which plan this capsule tracks. Add the widget twice to watch two.",
       "label": "Provider",
@@ -53,8 +63,9 @@
         "anthropic": "Claude",
         "anthropic_api": "Anthropic API",
         "antigravity": "Antigravity",
-        "auto": "Automatic (busiest)",
+        "auto": "Automatic (primary)",
         "commandcode": "Command Code",
+        "copilot": "GitHub Copilot",
         "cursor": "Cursor",
         "deepseek": "DeepSeek",
         "grok": "Grok",
@@ -63,8 +74,8 @@
         "kiro": "Kiro",
         "minimax": "MiniMax",
         "moonshot": "Moonshot",
-        "novita": "Novita",
         "nous": "Nous Research",
+        "novita": "Novita",
         "openai": "Codex",
         "opencode_go": "OpenCode Go",
         "openrouter": "OpenRouter",
@@ -101,10 +112,13 @@
     "install": "Install page",
     "last_reading": "Last reading, {minutes} min ago",
     "last_reading_now": "Last reading, moments ago",
+    "loading": "Loading…",
     "no_usage": "No usage reported",
     "not_configured": "`{vendor}` is not configured in ai-usagebar",
     "now": "now",
     "plan_changed": "The plan changed; readings taken under the previous one were dropped.",
+    "quota_exhausted": "Quota exhausted",
+    "quota_reset": "Renews in {time}",
     "refresh": "Refresh now",
     "refresh_queued": "Refresh queued",
     "refreshing": "Refreshing usage",

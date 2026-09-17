@@ -1,8 +1,20 @@
 {
   "settings": {
     "links": {
-      "label": "Websites",
-      "description": "Websites shown by /web, formatted as Name|https://example.com."
+      "description": "Websites shown by /web, formatted as Name|https://example.com.",
+      "label": "Websites"
+    },
+    "provider": {
+      "description": "Search engine used for the Search result when activated.",
+      "label": "Search provider",
+      "options": {
+        "bing": "Bing",
+        "brave": "Brave",
+        "duckduckgo": "DuckDuckGo",
+        "ecosia": "Ecosia",
+        "google": "Google",
+        "mojeek": "Mojeek"
+      }
     }
   }
 }

@@ -1,4 +1,7 @@
 {
+  "disclaimer": {
+    "summary": "Unofficial API — not affiliated with Abbott. Not for medical decisions."
+  },
   "error": {
     "account_id": "Could not derive the LibreLinkUp account identifier.",
     "connections_failed": "LibreLinkUp connections could not be loaded.",
@@ -37,9 +40,6 @@
     }
   },
   "title": "LibreLinkUp",
-  "disclaimer": {
-    "summary": "Unofficial API — not affiliated with Abbott. Not for medical decisions."
-  },
   "tooltip": {
     "loading": "Loading glucose data…",
     "measured": "Measured: {time}",

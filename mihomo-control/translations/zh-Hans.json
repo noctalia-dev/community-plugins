@@ -11,15 +11,15 @@
     "proxy_selected_body": "{group} → {proxy}",
     "request_failed": "Mihomo 请求失败",
     "restarting": "Mihomo 正在重启",
-    "server_deleted": "服务器配置已删除",
-    "server_delete_last": "至少保留一个服务器配置",
-    "server_invalid": "请检查服务器名称、主机和端口",
-    "server_saved": "服务器配置已保存",
-    "server_switched": "已切换监控服务器",
     "self_test_failed": "Mihomo 自检失败",
     "self_test_failed_body": "请查看 Noctalia 日志或 mihomo.self_test 状态了解详情。",
     "self_test_passed": "Mihomo 自检通过",
-    "self_test_passed_body": "策略组排序与服务检查均已通过。"
+    "self_test_passed_body": "策略组排序与服务检查均已通过。",
+    "server_delete_last": "至少保留一个服务器配置",
+    "server_deleted": "服务器配置已删除",
+    "server_invalid": "请检查服务器名称、主机和端口",
+    "server_saved": "服务器配置已保存",
+    "server_switched": "已切换监控服务器"
   },
   "panel": {
     "connections": "条连接",

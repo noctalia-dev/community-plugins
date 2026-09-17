@@ -95,6 +95,6 @@
   "widget": {
     "mrs": "MRs",
     "prs": "PRs",
-    "tooltip": "{issues} Issues, {prs} {label}, {reviews} to review"
+    "tooltip": "{issues} Issues, {prs} {label}"
   }
 }

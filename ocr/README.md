@@ -37,6 +37,20 @@ Center → Shortcuts; it mirrors the widget's left/right click mapping.
 While a capture runs, the widget highlights until the result (or an error
 notification) arrives.
 
+## IPC
+
+The OCR bar widget supports the following IPC events:
+
+```bash
+noctalia msg plugin fel/ocr:ocr all ocr-region
+noctalia msg plugin fel/ocr:ocr all ocr-screen
+```
+
+- `ocr-region` — select a screen region with `slurp` and OCR it.
+- `ocr-screen` — OCR the entire focused output without selecting a region.
+
+These events can be used from compositor keybindings or other external commands.
+
 ## Settings
 
 Plugin-level settings live under Settings → Plugins → OCR; both entries share

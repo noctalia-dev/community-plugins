@@ -1,0 +1,27 @@
+{
+  "notify": {
+    "message": "Abriendo {name}",
+    "title": "Sitios web"
+  },
+  "settings": {
+    "command": {
+      "description": "Comando que lanza el sitio web. Ejemplo: \"firefox --new-window\"",
+      "label": "Comando"
+    },
+    "icon_provider": {
+      "description": "Fuente de descarga del icono.",
+      "direct": "El propio favicon del sitio",
+      "duckduckgo": "DuckDuckGo",
+      "google": "Google",
+      "label": "Proovedor del icono"
+    },
+    "links": {
+      "description": "Formato: Nombre|https://url",
+      "label": "Enlaces"
+    },
+    "notify": {
+      "description": "Notificar al abrir un link.",
+      "label": "Notificar"
+    }
+  }
+}

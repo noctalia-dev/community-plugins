@@ -1,5 +1,5 @@
-# link-ip-monitor
-link-ip-monitor pings a list of IPs, hostnames or links on an interval, tracks
+# Link/IP Monitor
+Pings a list of IPs, hostnames or links on an interval, tracks
 each host's online/offline status and response time, and notifies when one
 goes down or comes back up.
 
@@ -22,14 +22,16 @@ Click the widget to open the panel. Use the `+` button in the panel header
 to reveal the add-host form — accepts an IP (`8.8.8.8`), a hostname
 (`example.com`) or a full link (scheme, port, path and query are stripped
 automatically, keeping only the host to ping). An optional description can
-be set alongside it.
+be set alongside it. The gear icon in the header opens the plugin's own
+settings directly.
 
 Each row in the panel shows the label (or the host, if no label was set), a
 status pill, the response time in ms while online — colored green under
 100ms, yellow between 100 and 300ms, and red at 300ms or above — a drag
-handle to reorder the list, and a trash button to remove that entry (asks
-for confirmation). Right-click the widget, or use the refresh button in
-the panel, to force an immediate check.
+handle to reorder the list, a pencil button to edit that entry's host and
+description (reuses the same form, pre-filled), and a trash button to
+remove it (asks for confirmation). Right-click the widget, or use the
+refresh button in the panel, to force an immediate check.
 
 Open the panel directly with:
 ```sh
@@ -43,7 +45,7 @@ noctalia msg plugin nilsonlinux/link-ip-monitor:monitor all refresh
 
 The host list itself is not stored in plugin settings — it lives in the
 service's own persisted state (`pluginDataDir()/state.json`) and is
-managed entirely from the panel (add / remove / reorder), since the
+managed entirely from the panel (add / edit / remove / reorder), since the
 plugin API has no way to write settings back from a script.
 
 ## Settings
@@ -57,10 +59,10 @@ plugin API has no way to write settings back from a script.
 
 ## Notes
 Notification text and panel labels come from `translations/<locale>.json`
-via `noctalia.tr()` (English and `pt-BR` included). `noctalia.notify()` /
-`noctalia.notifyError()` accept only a title and body — the plugin API
-exposes no urgency parameter, so the "host down" alert's appearance (the
-red border from `notifyError`) can't be further customized from the
-plugin. Response time (ms) is parsed from `ping`'s own text output, so it
-depends on that output containing a `=<number> ms` pattern regardless of
-the system's locale.
+via `noctalia.tr()` (English and `pt-BR` included; keys sorted
+alphabetically at every level). `noctalia.notify()` / `noctalia.notifyError()`
+accept only a title and body — the plugin API exposes no urgency
+parameter, so the "host down" alert's appearance (the red border from
+`notifyError`) can't be further customized from the plugin. Response time
+(ms) is parsed from `ping`'s own text output, so it depends on that output
+containing a `=<number> ms` pattern regardless of the system's locale.

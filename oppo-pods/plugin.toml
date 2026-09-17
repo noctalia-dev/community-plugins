@@ -1,0 +1,49 @@
+# OPPO Pods for Noctalia
+# Controls OPPO, OnePlus, and realme Bluetooth earbuds (battery, ANC modes).
+# Author: osp54
+
+id = "osp54/oppo-pods"
+name = "OPPO Pods"
+version = "1.0.0"
+plugin_api = 24
+author = "osp54"
+license = "MIT"
+icon = "headphones"
+description = "OPPO, OnePlus and realme earbuds battery and noise cancellation control in the bar."
+tags = ["audio", "bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["python3"]
+
+[[setting]]
+key = "device_mac"
+type = "string"
+label_key = "settings.device_mac.label"
+description_key = "settings.device_mac.description"
+default = ""
+
+[[widget]]
+id = "oppo-pods"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "panel-toggle osp54/oppo-pods:panel"
+  right = "plugin osp54/oppo-pods:service all cycle-noise"
+
+  [[widget.setting]]
+  key = "hide_when_disconnected"
+  type = "bool"
+  label_key = "settings.hide_when_disconnected.label"
+  description_key = "settings.hide_when_disconnected.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 490
+placement = "floating"
+position = "top_center"
+open_near_click = false
+
+[[service]]
+id = "service"
+entry = "service.luau"

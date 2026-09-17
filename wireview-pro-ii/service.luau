@@ -287,6 +287,10 @@ local enumValues = {
     temperature = true,
     status = true,
   },
+  ["display.rotation_degrees"] = {
+    ["0"] = true,
+    ["180"] = true,
+  },
 }
 
 local integerRanges = {

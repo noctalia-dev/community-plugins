@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "flake_dir": {
+      "description": "Select the directory containing flake.nix. Required for input updates, which modify this directory's flake.lock.",
+      "label": "Flake directory"
+    },
+    "nixos_configuration": {
+      "description": "Optional nixosConfigurations attribute to monitor, such as vm or workstation. Leave empty to disable switch-availability checks.",
+      "label": "NixOS configuration name"
+    },
+    "use_themed_logos": {
+      "description": "Use rendered SVGs from the optional bundled templates (see README). Falls back to the snowflake glyph when a logo file is missing.",
+      "label": "Use themed NixOS logos"
+    }
+  }
+}

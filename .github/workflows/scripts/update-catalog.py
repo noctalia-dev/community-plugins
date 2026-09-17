@@ -89,7 +89,7 @@ def release_history(
     A Noctalia below the tip's `plugin_api` has nothing to install unless the catalog names
     a revision it can run. Walking `<subdir>/plugin.toml` newest-first and keeping only the
     revisions that lower the API level yields a strictly decreasing sequence, so each row is
-    the newest revision at or below its own level -- exactly what the host resolves against.
+    the newest revision at or below its own level, exactly what the host resolves against.
     """
     releases = []
     lowest_api = tip_api

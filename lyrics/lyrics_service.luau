@@ -313,6 +313,35 @@ local function normalizedSources()
   return result
 end
 
+local function needsEmbeddedLyrics()
+  if lyricsSource == "mpris" then return true end
+  if lyricsSource ~= "auto" then return false end
+  for _, source in ipairs(normalizedSources()) do
+    if source == "mpris" then return true end
+  end
+  return false
+end
+
+local function splitMetadata(value, separator)
+  local fields = {}
+  local start = 1
+  while true do
+    local finish = value:find(separator, start, true)
+    if not finish then
+      fields[#fields + 1] = value:sub(start)
+      break
+    end
+    fields[#fields + 1] = value:sub(start, finish - 1)
+    start = finish + #separator
+  end
+  return fields
+end
+
+local function trimMetadataField(value)
+  if #value > 16384 then return "" end
+  return value:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function evictCache()
   local keys = {}
   for k, _ in pairs(cache) do keys[#keys + 1] = k end
@@ -784,7 +813,12 @@ end
 local function poll()
   if pollInFlight then return end
   pollInFlight = true
-  local cmd = [[playerctl --all-players metadata --format "$(printf '{{playerInstance}}\037{{playerName}}\037{{lc(status)}}\037{{title}}\037{{artist}}\037{{album}}\037{{position}}\037{{mpris:length}}\037{{mpris:artUrl}}\037{{mpris:trackid}}\037{{xesam:url}}\037{{xesam:asText}}\036')" 2>/dev/null]]
+  -- xesam:asText can contain an entire lyric file. Only request it when it
+  -- is configured as a lyric source; otherwise it needlessly inflates every
+  -- poll result and can exhaust the async callback CPU budget.
+  local embeddedFormat = needsEmbeddedLyrics() and "{{xesam:asText}}" or ""
+  local cmd = [[playerctl --all-players metadata --format "$(printf '{{playerInstance}}\037{{playerName}}\037{{lc(status)}}\037{{title}}\037{{artist}}\037{{album}}\037{{position}}\037{{mpris:length}}\037{{mpris:artUrl}}\037{{mpris:trackid}}\037{{xesam:url}}\037]]
+    .. embeddedFormat .. [[\036')" 2>/dev/null]]
 
   local started = noctalia.runAsync(cmd, function(r)
     pollInFlight = false
@@ -792,15 +826,19 @@ local function poll()
       clearPlayerState()
       return
     end
+    if #r.stdout > 131072 then
+      clearPlayerState()
+      return
+    end
 
     local players = {}
     local fieldSeparator = string.char(31)
     local recordSeparator = string.char(30)
-    for record in (r.stdout .. recordSeparator):gmatch("(.-)" .. recordSeparator) do
+    for _, record in ipairs(splitMetadata(r.stdout, recordSeparator)) do
       if record ~= "" then
-        local parts = {}
-        for field in (record .. fieldSeparator):gmatch("(.-)" .. fieldSeparator) do
-          parts[#parts + 1] = field:gsub("^%s+", ""):gsub("%s+$", "")
+        local parts = splitMetadata(record, fieldSeparator)
+        for index, field in ipairs(parts) do
+          parts[index] = trimMetadataField(field)
         end
         local player = {
           instance = parts[1] or "",

@@ -1,0 +1,176 @@
+local function getConf(key, default)
+    local value = noctalia.getConfig(key)
+    if value == nil then
+        return default
+    else
+        return value
+    end
+end
+
+local config = {
+    lang = noctalia.getSetting("shell.lang"),
+    grid_layout = getConf("grid_layout", false),
+    columns = getConf("columns", 5),
+}
+
+-- https://github.com/noctalia-dev/noctalia/blob/main/src/system/desktop_entry_launch.cpp#L45
+local function stripFieldCodes(exec)
+    local result = exec:gsub("%%(.?)( ?)", function(nextChar, trailingSpace)
+        if nextChar:match("[fFuUdDnNick]") then
+            return ""
+        elseif nextChar == "%" then
+            return "%" .. trailingSpace
+        else
+            return "%" .. nextChar .. trailingSpace
+        end
+    end)
+
+    result = result:gsub(" +$", "")
+
+    -- Flatpak
+    result = result:gsub("@@u *@@", "")
+
+    return result
+end
+
+local function getContent(appid)
+    local paths = {
+        "~/.local/share/applications/",
+        "~/.local/share/flatpak/exports/share/applications/",
+        "/usr/local/share/applications/",
+        "/usr/share/applications/",
+        "/var/lib/flatpak/exports/share/applications/",
+    }
+
+    for _, path in ipairs(paths) do
+        local content = noctalia.readFile(path .. appid .. ".desktop")
+        if content then
+            return content
+        end
+    end
+
+    return nil
+end
+
+local function parse(appid)
+    local content = getContent(appid)
+    if not content then
+        return nil
+    end
+
+    local localizedKey = config.lang and string.format("Name[%s]", config.lang) or nil
+
+    local data = {}
+    local genericName, localizedName
+    local inEntry = false
+
+    for line in content:gmatch("[^\r\n]+") do
+        local section = line:match("^%s*%[(.-)%]%s*$")
+        if section then
+            if inEntry then
+                break
+            end
+            inEntry = (section == "Desktop Entry")
+        elseif inEntry then
+            local key, value = line:match("^([^=]+)=(.*)$")
+            if key == "Name" then
+                genericName = value
+            elseif localizedKey and key == localizedKey then
+                localizedName = value
+            elseif key == "Exec" then
+                data.exec = stripFieldCodes(value)
+            elseif key == "Terminal" then
+                data.terminal = (value == "true")
+            end
+        end
+    end
+
+    data.name = localizedName or genericName
+    return data
+end
+
+local function appBox(app, data)
+    return ui.column({
+        fill = "surface",
+        padding = 8,
+        radius = 12,
+        align = "center",
+        minWidth = 100,
+        justify = "space_between",
+        gap = 4,
+        onClick = function() launchApp(data.exec, data.terminal) end
+    }, {
+            ui.image({
+                path = noctalia.appIconPath(app),
+                width = 60,
+                height = 60,
+            }),
+            ui.label({
+                text = data.name,
+                fontWeight = "heavy",
+                maxWidth = 84,
+                maxLines = 1,
+                fontSize = 14,
+            })
+        })
+end
+
+local function getApps()
+    local apps = noctalia.getConfig("apps")
+    local appsTable = {}
+
+    for _, app in ipairs(apps) do
+        local data = parse(app)
+        if not data then
+            noctalia.log("desktop-launcher: invalid desktop entry, skipping " .. app)
+            continue
+        end
+
+        table.insert(appsTable, appBox(app, data))
+    end
+
+    return appsTable
+end
+
+local function getRows(apps)
+    local rows = {}
+    local row = {}
+
+    for i, app in ipairs(apps) do
+        table.insert(row, app)
+
+        if #row == config.columns or i == #apps then
+            table.insert(rows,
+                ui.row({ gap = 8 }, row)
+            )
+
+            row = {}
+        end
+    end
+
+    return rows
+end
+
+local function render()
+    local apps = getApps()
+
+    if config.grid_layout then
+        desktopWidget.render(ui.column({ gap = 8, },
+            getRows(apps)
+        ))
+    else
+        desktopWidget.render(ui.row({ gap = 8, },
+            apps
+        ))
+    end
+end
+
+function launchApp(exec, terminal)
+    if terminal then
+        noctalia.runInTerminal(exec)
+    else
+        noctalia.runAsync(exec)
+    end
+end
+
+render()

@@ -135,10 +135,10 @@ local function thresholdPair(name)
 end
 
 local function metricColor(value, thresholds, colors)
-  if not colors.highlightValues or type(value) ~= "number" or thresholds[2] == 0 then return "on_surface" end
+  if not colors.highlightValues or type(value) ~= "number" or thresholds[2] == 0 then return nil end
   if value >= thresholds[2] then return colors.criticalColor end
   if value >= thresholds[1] then return colors.activityColor end
-  return "on_surface"
+  return nil
 end
 
 local function appendDivider(children, key)
@@ -155,8 +155,14 @@ end
 local function appendMetric(group, key, glyph, text, value, thresholds, colors, highlightValue)
   if value == nil and colors.hideUnavailable then return false end
   local color = metricColor(highlightValue, thresholds, colors)
-  table.insert(group, ui.glyph({ key = key .. ":glyph", name = glyph, size = 14, color = color }))
-  table.insert(group, ui.label({ key = key .. ":label", text = text, fontWeight = "medium", color = color }))
+  local glyphProps = { key = key .. ":glyph", name = glyph, size = 14 }
+  local labelProps = { key = key .. ":label", text = text }
+  if color ~= nil then
+    glyphProps.color = color
+    labelProps.color = color
+  end
+  table.insert(group, ui.glyph(glyphProps))
+  table.insert(group, ui.label(labelProps))
   return true
 end
 
@@ -164,7 +170,7 @@ local function renderFallback(glyph, label, tooltip, showTooltip)
   local container = barWidget.isVertical() and ui.column or ui.row
   barWidget.render(container({ gap = 4, align = "center" }, {
     ui.glyph({ name = glyph, size = 14 }),
-    ui.label({ text = label, fontWeight = "medium" }),
+    ui.label({ text = label }),
   }))
   if showTooltip then barWidget.setTooltip(tooltip) else barWidget.clearTooltip() end
 end

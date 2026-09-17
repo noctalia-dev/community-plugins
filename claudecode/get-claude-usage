@@ -1,0 +1,591 @@
+#!/usr/bin/env bash
+set -eu
+
+# Output mode: default prints KEY=value lines (the original contract, exercised by
+# tests/). Pass --json to emit a single JSON object instead, for the Noctalia plugin
+# (parsed with noctalia.json.decode). The computation is identical either way.
+OUTPUT_JSON=false
+for arg in "$@"; do
+    case "$arg" in
+        --json) OUTPUT_JSON=true ;;
+    esac
+done
+
+TMPDIR_ROOT=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_ROOT"' EXIT
+
+CLAUDE_DIR="${HOME}/.claude"
+CREDENTIALS="${CLAUDE_DIR}/.credentials.json"
+STATS_CACHE="${CLAUDE_DIR}/stats-cache.json"
+PROJECTS_DIR="${CLAUDE_DIR}/projects"
+PRICING_CACHE="${CLAUDE_DIR}/pricing-cache.json"
+USAGE_CACHE="${CLAUDE_DIR}/usage-cache.json"
+USAGE_CACHE_TTL=120  # seconds
+LITELLM_URL="https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+
+CLAUDE_VERSION=$(claude --version 2>/dev/null | head -1 | grep -oP '[\d.]+' || echo "2.0.0")
+TODAY=$(date +%Y-%m-%d)
+# Calendar week: Monday to Sunday
+DOW=$(date +%u)  # 1=Monday, 7=Sunday
+WEEK_START=$(date -d "$((DOW - 1)) days ago" +%Y-%m-%d)
+# Calendar month: 1st of current month
+MONTH_START=$(date +%Y-%m-01)
+
+# Defaults
+SUBSCRIPTION_TYPE="unknown"
+RATE_LIMIT_TIER="unknown"
+FIVE_HOUR_UTIL=0
+FIVE_HOUR_RESET=""
+SEVEN_DAY_UTIL=0
+SEVEN_DAY_RESET=""
+# Every rate window the API reports, as a compact JSON array. The legacy
+# five_hour / seven_day fields only cover two of them; a plan can also carry a
+# model-scoped weekly window (kind "weekly_scoped", e.g. Fable), and the array
+# is the only place it appears. Kept generic on purpose: a window the API adds
+# later shows up on its own.
+LIMITS_JSON="[]"
+EXTRA_USAGE_ENABLED="false"
+
+WEEK_TOKENS=0
+WEEK_MESSAGES=0
+WEEK_SESSIONS=0
+MONTH_TOKENS=0
+WEEK_MODELS=""
+DAILY="0,0,0,0,0,0,0"
+
+TODAY_COST="0.00"
+WEEK_COST="0.00"
+MONTH_COST="0.00"
+DAILY_COSTS="0,0,0,0,0,0,0"
+
+ALLTIME_SESSIONS=0
+ALLTIME_MESSAGES=0
+FIRST_SESSION="unknown"
+
+# --- Pricing cache (refresh once per day from LiteLLM) ---
+PRICING_JSON=""
+refresh_pricing() {
+    local raw
+    raw=$(curl -s --max-time 10 "$LITELLM_URL" 2>/dev/null) || return 1
+    # Dynamically extract pricing for all Claude model families
+    # Pattern: "claude-{family}-{major}-{minor}" (no date suffix, no provider prefix)
+    # Groups by family name, takes the latest version per family
+    local result
+    result=$(echo "$raw" | jq -c '{
+        updated: "'"$TODAY"'",
+        models: ([to_entries[]
+            | select(.key | test("^claude-[a-z]+-[0-9]+-[0-9]+$"))
+            | select(.value.input_cost_per_token > 0)
+            | {
+                family: (.key | split("-") | .[1]),
+                key: .key,
+                value: .value
+              }
+        ] | group_by(.family)
+          | map(sort_by(.key) | last
+              | {key: .family, value: {
+                    input: .value.input_cost_per_token,
+                    output: .value.output_cost_per_token,
+                    cache_read: .value.cache_read_input_token_cost,
+                    cache_write: .value.cache_creation_input_token_cost
+                }})
+          | from_entries)
+    }' 2>/dev/null) || return 1
+    # Fetch USD→EUR exchange rate from ECB via Frankfurter
+    local eur_rate
+    eur_rate=$(curl -s --max-time 5 "https://api.frankfurter.app/latest?from=USD&to=EUR" 2>/dev/null \
+        | jq -r '.rates.EUR // empty' 2>/dev/null) || eur_rate=""
+    if [ -n "$eur_rate" ] && [[ "$eur_rate" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        result=$(echo "$result" | jq -c '. + {usd_eur_rate: '"$eur_rate"'}' 2>/dev/null)
+    fi
+
+    # Validate that we got at least one model with pricing
+    local check
+    check=$(echo "$result" | jq -r '.models | to_entries | length' 2>/dev/null) || return 1
+    [ "$check" -gt 0 ] 2>/dev/null && echo "$result" > "$PRICING_CACHE" && return 0
+    return 1
+}
+
+if [ -f "$PRICING_CACHE" ]; then
+    cached_date=$(jq -r '.updated // ""' "$PRICING_CACHE" 2>/dev/null || echo "")
+    if [ "$cached_date" != "$TODAY" ]; then
+        refresh_pricing || true
+    fi
+    PRICING_JSON=$(cat "$PRICING_CACHE")
+else
+    refresh_pricing || true
+    [ -f "$PRICING_CACHE" ] && PRICING_JSON=$(cat "$PRICING_CACHE")
+fi
+
+# Build awk-friendly pricing string: "opus:input:output:cache_read:cache_write,sonnet:...,haiku:..."
+PRICING_AWK=""
+USD_EUR_RATE="0"
+if [ -n "$PRICING_JSON" ]; then
+    PRICING_AWK=$(echo "$PRICING_JSON" | jq -r '
+        [.models | to_entries[] | "\(.key):\(.value.input):\(.value.output):\(.value.cache_read):\(.value.cache_write)"]
+        | join(",")' 2>/dev/null || echo "")
+    USD_EUR_RATE=$(echo "$PRICING_JSON" | jq -r '.usd_eur_rate // 0' 2>/dev/null || echo "0")
+fi
+
+# --- Per-profile token counting ---
+# Usage: count_profile_tokens <projects_dir> <tmpfile>
+# Writes WEEK_TOKENS=N, WEEK_MESSAGES=N, ... to tmpfile
+count_profile_tokens() {
+    local proj_dir="$1"
+    local out_file="$2"
+
+    # Day dates for the calendar week (same logic as outer scope)
+    local day_dates=""
+    for i in $(seq 0 6); do
+        local d
+        d=$(date -d "$WEEK_START + ${i} days" +%Y-%m-%d)
+        day_dates="${day_dates:+${day_dates},}${d}"
+    done
+
+    find "$proj_dir" -name "*.jsonl" -mtime -31 -exec cat {} + 2>/dev/null \
+        | jq -r -R 'fromjson? | select(.type == "assistant") | "\(.timestamp[:10]) \(.message.model // "unknown") \(.message.usage.input_tokens // 0) \(.message.usage.output_tokens // 0) \(.message.usage.cache_read_input_tokens // 0) \(.message.usage.cache_creation_input_tokens // 0) \(.sessionId // "unknown")"' \
+        | awk -v week_start="$WEEK_START" -v month_start="$MONTH_START" -v today="$TODAY" -v day_dates="$day_dates" -v pricing="$PRICING_AWK" '
+        BEGIN {
+            split(day_dates, dates, ",")
+            has_pricing = 0
+            if (pricing != "") {
+                n = split(pricing, pmodels, ",")
+                for (i = 1; i <= n; i++) {
+                    split(pmodels[i], pp, ":")
+                    price_in[pp[1]] = pp[2] + 0
+                    price_out[pp[1]] = pp[3] + 0
+                    price_cr[pp[1]] = pp[4] + 0
+                    price_cw[pp[1]] = pp[5] + 0
+                }
+                has_pricing = 1
+            }
+        }
+        {
+            date = $1; model = $2
+            inp = $3 + 0; out = $4 + 0; cr = $5 + 0; cw = $6 + 0
+            sess = $7
+            total = inp + out + cr + cw
+
+            n_parts = split(model, mparts, "-")
+            family = (n_parts >= 3 && mparts[1] == "claude") ? mparts[2] : model
+
+            day[date] += total
+            if (date >= week_start) {
+                week_model[family] += total
+                week_tokens += total
+                week_msgs++
+                week_sess[sess] = 1
+            }
+            if (date >= month_start) month_tokens += total
+
+            if (has_pricing && (family in price_in)) {
+                cost = inp * price_in[family] + out * price_out[family] + cr * price_cr[family] + cw * price_cw[family]
+                day_cost[date] += cost
+                if (date >= week_start) week_cost += cost
+                if (date >= month_start) month_cost += cost
+            }
+        }
+        END {
+            printf "WEEK_TOKENS=%d\n", week_tokens + 0
+            printf "WEEK_MESSAGES=%d\n", week_msgs + 0
+            n = 0; for (s in week_sess) n++
+            printf "WEEK_SESSIONS=%d\n", n
+            printf "MONTH_TOKENS=%d\n", month_tokens + 0
+
+            daily = ""
+            for (i = 1; i <= 7; i++) {
+                val = (dates[i] in day) ? day[dates[i]] : 0
+                daily = daily (i > 1 ? "," : "") val + 0
+            }
+            printf "DAILY=%s\n", daily
+
+            models = ""
+            first = 1
+            for (m in week_model) {
+                if (week_model[m] > 0) {
+                    # Use "=" as separator (not ":") because model names like
+                    # "claude-3-5-sonnet:thinking" can contain colons.
+                    models = models (first ? "" : ",") m "=" week_model[m]
+                    first = 0
+                }
+            }
+            printf "WEEK_MODELS=%s\n", models
+
+            daily_costs = ""
+            for (i = 1; i <= 7; i++) {
+                val = (dates[i] in day_cost) ? day_cost[dates[i]] : 0
+                daily_costs = daily_costs (i > 1 ? "," : "") sprintf("%.2f", val)
+            }
+            printf "DAILY_COSTS=%s\n", daily_costs
+            printf "TODAY_COST=%.2f\n", (today in day_cost) ? day_cost[today] : 0
+            printf "WEEK_COST=%.2f\n", week_cost + 0
+            printf "MONTH_COST=%.2f\n", month_cost + 0
+        }' > "$out_file" 2>/dev/null || true
+}
+
+# --- Per-profile credentials + API usage fetcher ---
+# Usage: fetch_profile_usage <credentials_file> <cache_file> <out_tmpfile>
+# Writes SUBSCRIPTION_TYPE, RATE_LIMIT_TIER, FIVE_HOUR_UTIL, FIVE_HOUR_RESET,
+#        SEVEN_DAY_UTIL, SEVEN_DAY_RESET, EXTRA_USAGE_ENABLED, LIMITS to out_tmpfile
+fetch_profile_usage() {
+    local creds_file="$1"
+    local cache_file="$2"
+    local out_file="$3"
+
+    local sub_type="unknown"
+    local tier="unknown"
+    local five_util=0 five_reset="" seven_util=0 seven_reset="" extra="false"
+    local limits='[]'
+
+    if [ ! -f "$creds_file" ]; then
+        printf 'SUBSCRIPTION_TYPE=%s\nRATE_LIMIT_TIER=%s\nFIVE_HOUR_UTIL=%s\nFIVE_HOUR_RESET=%s\nSEVEN_DAY_UTIL=%s\nSEVEN_DAY_RESET=%s\nEXTRA_USAGE_ENABLED=%s\nLIMITS=%s\n' \
+            "$sub_type" "$tier" "$five_util" "$five_reset" "$seven_util" "$seven_reset" "$extra" "$limits" > "$out_file"
+        return
+    fi
+
+    sub_type=$(jq -r '.claudeAiOauth.subscriptionType // "unknown"' "$creds_file" 2>/dev/null || echo "unknown")
+    tier=$(jq -r '.claudeAiOauth.rateLimitTier // "unknown"' "$creds_file" 2>/dev/null || echo "unknown")
+
+    # Check cache freshness
+    local api_resp="{}"
+    local use_cache=false
+    if [ -f "$cache_file" ]; then
+        local cache_ts now_ts age
+        cache_ts=$(jq -r '.cached_at // 0' "$cache_file" 2>/dev/null || echo 0)
+        now_ts=$(date +%s)
+        age=$(( now_ts - cache_ts ))
+        [ "$age" -lt "$USAGE_CACHE_TTL" ] && use_cache=true
+    fi
+
+    if [ "$use_cache" = true ]; then
+        api_resp=$(jq -r '.data // {}' "$cache_file" 2>/dev/null || echo '{}')
+    else
+        local token
+        token=$(jq -r '.claudeAiOauth.accessToken // ""' "$creds_file" 2>/dev/null || echo "")
+        if [ -n "$token" ]; then
+            api_resp=$(curl -s --max-time 5 \
+                -H "Authorization: Bearer $token" \
+                -H "Accept: application/json" \
+                -H "Content-Type: application/json" \
+                -H "User-Agent: claude-code/${CLAUDE_VERSION}" \
+                -H "anthropic-beta: oauth-2025-04-20" \
+                "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
+
+            if echo "$api_resp" | jq -e '.five_hour' >/dev/null 2>&1; then
+                jq -n --argjson data "$api_resp" '{cached_at: (now | floor), data: $data}' > "$cache_file" 2>/dev/null || true
+            elif [ -f "$cache_file" ]; then
+                api_resp=$(jq -r '.data // {}' "$cache_file" 2>/dev/null || echo '{}')
+            fi
+        fi
+    fi
+
+    five_util=$(echo "$api_resp" | jq -r '.five_hour.utilization // 0')
+    five_reset=$(echo "$api_resp" | jq -r '.five_hour.resets_at // ""')
+    seven_util=$(echo "$api_resp" | jq -r '.seven_day.utilization // 0')
+    seven_reset=$(echo "$api_resp" | jq -r '.seven_day.resets_at // ""')
+    extra=$(echo "$api_resp" | jq -r '.extra_usage.is_enabled // false')
+
+    # Flatten limits[] into one row per window. `model` is the display name of a
+    # model-scoped window ("Fable") and empty for the plan-wide ones; the UI uses
+    # it to title the row. Emitted on a single line so the KEY=value contract
+    # this function writes stays line-based.
+    limits=$(echo "$api_resp" | jq -c '[ (.limits // [])[] | {
+        kind: (.kind // ""),
+        group: (.group // ""),
+        model: (.scope.model.display_name // ""),
+        percent: (.percent // 0),
+        resets_at: (.resets_at // ""),
+        severity: (.severity // "normal"),
+        is_active: (.is_active // false)
+    } ]' 2>/dev/null || echo '[]')
+    echo "$limits" | jq -e 'type == "array"' >/dev/null 2>&1 || limits='[]'
+
+    printf 'SUBSCRIPTION_TYPE=%s\nRATE_LIMIT_TIER=%s\nFIVE_HOUR_UTIL=%s\nFIVE_HOUR_RESET=%s\nSEVEN_DAY_UTIL=%s\nSEVEN_DAY_RESET=%s\nEXTRA_USAGE_ENABLED=%s\nLIMITS=%s\n' \
+        "$sub_type" "$tier" "$five_util" "$five_reset" "$seven_util" "$seven_reset" "$extra" "$limits" > "$out_file"
+}
+
+# --- Collect profile list: default + CCS instances ---
+PROFILE_DIRS=()
+PROFILE_NAMES=()
+PROFILE_CREDS=()  # credentials file per profile
+
+if [ -d "$PROJECTS_DIR" ]; then
+    PROFILE_DIRS+=("$PROJECTS_DIR")
+    PROFILE_NAMES+=("default")
+    PROFILE_CREDS+=("$CREDENTIALS")
+fi
+
+CCS_INSTANCES_DIR="${HOME}/.ccs/instances"
+if [ -d "$CCS_INSTANCES_DIR" ]; then
+    for inst in "$CCS_INSTANCES_DIR"/*/; do
+        [ -d "${inst}projects" ] || continue
+        name=$(basename "$inst" | tr -d ',|:')
+        [ -z "$name" ] && continue
+        PROFILE_DIRS+=("${inst}projects")
+        PROFILE_NAMES+=("$name")
+        PROFILE_CREDS+=("${inst}.credentials.json")
+    done
+fi
+
+# --- Run token counting + usage fetch in parallel for each profile ---
+TMPFILES=()      # token stats tmpfile per profile
+USAGE_TMPFILES=() # usage/subscription tmpfile per profile
+PIDS=()
+
+for idx in "${!PROFILE_DIRS[@]}"; do
+    tmpf=$(mktemp "$TMPDIR_ROOT/profile_XXXXXX")
+    usage_tmpf=$(mktemp "$TMPDIR_ROOT/usage_XXXXXX")
+    TMPFILES+=("$tmpf")
+    USAGE_TMPFILES+=("$usage_tmpf")
+
+    # Per-profile usage cache: default uses the shared cache, CCS instances get their own
+    pname="${PROFILE_NAMES[$idx]}"
+    if [ "$pname" = "default" ]; then
+        prof_cache="$USAGE_CACHE"
+    else
+        prof_cache="${CLAUDE_DIR}/usage-cache-${pname}.json"
+    fi
+
+    (
+        count_profile_tokens "${PROFILE_DIRS[$idx]}" "$tmpf"
+        fetch_profile_usage "${PROFILE_CREDS[$idx]}" "$prof_cache" "$usage_tmpf"
+    ) &
+    PIDS+=("$!")
+done
+
+for pid in "${PIDS[@]}"; do
+    wait "$pid" || true
+done
+
+# --- Read per-profile results and build aggregate + per-profile output vars ---
+WEEK_TOKENS=0; WEEK_MESSAGES=0; WEEK_SESSIONS=0; MONTH_TOKENS=0
+DAILY_ARR=(0 0 0 0 0 0 0)
+DAILY_COSTS_ARR=(0.00 0.00 0.00 0.00 0.00 0.00 0.00)
+TODAY_COST="0.00"; WEEK_COST="0.00"; MONTH_COST="0.00"
+
+PROF_WEEK_TOKENS_LIST=""
+PROF_MONTH_TOKENS_LIST=""
+PROF_TODAY_COST_LIST=""
+PROF_WEEK_COST_LIST=""
+PROF_MONTH_COST_LIST=""
+PROF_DAILY_LIST=""
+PROF_DAILY_COSTS_LIST=""
+PROF_WEEK_MODELS_LIST=""
+PROF_SUBSCRIPTION_LIST=""
+PROF_TIER_LIST=""
+PROF_FIVE_HOUR_UTIL=""
+PROF_SEVEN_DAY_UTIL=""
+PROF_FIVE_HOUR_RESET_LIST=""
+PROF_SEVEN_DAY_RESET_LIST=""
+PROF_EXTRA_USAGE_LIST=""
+PROFILE_JSON=""   # accumulated per-profile JSON objects (only built in --json mode)
+
+for idx in "${!TMPFILES[@]}"; do
+    tmpf="${TMPFILES[$idx]}"
+    usage_tmpf="${USAGE_TMPFILES[$idx]}"
+    pname="${PROFILE_NAMES[$idx]}"
+    [ -f "$tmpf" ] || continue
+
+    # Read per-profile token stats
+    p_wt=$(grep "^WEEK_TOKENS=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+    p_wm=$(grep "^WEEK_MESSAGES=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+    p_ws=$(grep "^WEEK_SESSIONS=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+    p_mt=$(grep "^MONTH_TOKENS=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+    p_daily=$(grep "^DAILY=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "0,0,0,0,0,0,0")
+    p_models=$(grep "^WEEK_MODELS=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "")
+    p_dc=$(grep "^DAILY_COSTS=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "0.00,0.00,0.00,0.00,0.00,0.00,0.00")
+    p_tc=$(grep "^TODAY_COST=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "0.00")
+    p_wc=$(grep "^WEEK_COST=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "0.00")
+    p_mc=$(grep "^MONTH_COST=" "$tmpf" 2>/dev/null | cut -d= -f2- || echo "0.00")
+
+    # Read per-profile usage/subscription
+    p_sub="unknown"; p_tier="unknown"
+    p_5u=0; p_5r=""; p_7u=0; p_7r=""; p_extra="false"; p_limits="[]"
+    if [ -f "$usage_tmpf" ]; then
+        p_sub=$(grep "^SUBSCRIPTION_TYPE=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "unknown")
+        p_tier=$(grep "^RATE_LIMIT_TIER=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "unknown")
+        p_5u=$(grep "^FIVE_HOUR_UTIL=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+        p_5r=$(grep "^FIVE_HOUR_RESET=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "")
+        p_7u=$(grep "^SEVEN_DAY_UTIL=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo 0)
+        p_7r=$(grep "^SEVEN_DAY_RESET=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "")
+        p_extra=$(grep "^EXTRA_USAGE_ENABLED=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "false")
+        p_limits=$(grep "^LIMITS=" "$usage_tmpf" 2>/dev/null | cut -d= -f2- || echo "[]")
+        # --argjson aborts the whole document on malformed input, so anything that
+        # does not parse as an array degrades to an empty one.
+        echo "$p_limits" | jq -e 'type == "array"' >/dev/null 2>&1 || p_limits="[]"
+    fi
+
+    # Default profile drives the top-level aggregate fields
+    if [ "$pname" = "default" ]; then
+        SUBSCRIPTION_TYPE="$p_sub"
+        RATE_LIMIT_TIER="$p_tier"
+        FIVE_HOUR_UTIL="$p_5u"
+        FIVE_HOUR_RESET="$p_5r"
+        SEVEN_DAY_UTIL="$p_7u"
+        SEVEN_DAY_RESET="$p_7r"
+        EXTRA_USAGE_ENABLED="$p_extra"
+        LIMITS_JSON="$p_limits"
+    fi
+
+    # Aggregate token totals
+    WEEK_TOKENS=$(( WEEK_TOKENS + p_wt ))
+    WEEK_MESSAGES=$(( WEEK_MESSAGES + p_wm ))
+    MONTH_TOKENS=$(( MONTH_TOKENS + p_mt ))
+    WEEK_SESSIONS=$(( WEEK_SESSIONS + p_ws ))
+
+    # Aggregate daily arrays (element-wise addition via awk)
+    DAILY=$(echo "$p_daily" | awk -v cur="$(IFS=,; echo "${DAILY_ARR[*]}")" '
+        BEGIN { split(cur, a, ",") }
+        { split($0, b, ","); for(i=1;i<=7;i++) a[i]+=b[i]+0 }
+        END { for(i=1;i<=7;i++) printf "%s%s", (i>1?",":""), a[i]+0; print "" }
+    ')
+    IFS=',' read -ra DAILY_ARR <<< "$DAILY"
+
+    TODAY_COST=$(awk "BEGIN {printf \"%.2f\", $TODAY_COST + $p_tc}")
+    WEEK_COST=$(awk "BEGIN {printf \"%.2f\", $WEEK_COST + $p_wc}")
+    MONTH_COST=$(awk "BEGIN {printf \"%.2f\", $MONTH_COST + $p_mc}")
+
+    DAILY_COSTS=$(echo "$p_dc" | awk -v cur="$(IFS=,; echo "${DAILY_COSTS_ARR[*]}")" '
+        BEGIN { split(cur, a, ",") }
+        { split($0, b, ","); for(i=1;i<=7;i++) a[i]+=b[i]+0 }
+        END { for(i=1;i<=7;i++) printf "%s%.2f", (i>1?",":""), a[i]+0; print "" }
+    ')
+    IFS=',' read -ra DAILY_COSTS_ARR <<< "$DAILY_COSTS"
+
+    # Per-profile token lists
+    PROF_WEEK_TOKENS_LIST="${PROF_WEEK_TOKENS_LIST:+${PROF_WEEK_TOKENS_LIST},}${pname}:${p_wt}"
+    PROF_MONTH_TOKENS_LIST="${PROF_MONTH_TOKENS_LIST:+${PROF_MONTH_TOKENS_LIST},}${pname}:${p_mt}"
+    PROF_TODAY_COST_LIST="${PROF_TODAY_COST_LIST:+${PROF_TODAY_COST_LIST},}${pname}:${p_tc}"
+    PROF_WEEK_COST_LIST="${PROF_WEEK_COST_LIST:+${PROF_WEEK_COST_LIST},}${pname}:${p_wc}"
+    PROF_MONTH_COST_LIST="${PROF_MONTH_COST_LIST:+${PROF_MONTH_COST_LIST},}${pname}:${p_mc}"
+    PROF_DAILY_LIST="${PROF_DAILY_LIST:+${PROF_DAILY_LIST}|}${pname}:${p_daily}"
+    PROF_DAILY_COSTS_LIST="${PROF_DAILY_COSTS_LIST:+${PROF_DAILY_COSTS_LIST}|}${pname}:${p_dc}"
+    PROF_WEEK_MODELS_LIST="${PROF_WEEK_MODELS_LIST:+${PROF_WEEK_MODELS_LIST}|}${pname}:${p_models}"
+
+    # Per-profile subscription/usage lists
+    PROF_SUBSCRIPTION_LIST="${PROF_SUBSCRIPTION_LIST:+${PROF_SUBSCRIPTION_LIST},}${pname}:${p_sub}"
+    PROF_TIER_LIST="${PROF_TIER_LIST:+${PROF_TIER_LIST},}${pname}:${p_tier}"
+    PROF_FIVE_HOUR_UTIL="${PROF_FIVE_HOUR_UTIL:+${PROF_FIVE_HOUR_UTIL},}${pname}:${p_5u}"
+    PROF_SEVEN_DAY_UTIL="${PROF_SEVEN_DAY_UTIL:+${PROF_SEVEN_DAY_UTIL},}${pname}:${p_7u}"
+    PROF_FIVE_HOUR_RESET_LIST="${PROF_FIVE_HOUR_RESET_LIST:+${PROF_FIVE_HOUR_RESET_LIST},}${pname}:${p_5r}"
+    PROF_SEVEN_DAY_RESET_LIST="${PROF_SEVEN_DAY_RESET_LIST:+${PROF_SEVEN_DAY_RESET_LIST},}${pname}:${p_7r}"
+    PROF_EXTRA_USAGE_LIST="${PROF_EXTRA_USAGE_LIST:+${PROF_EXTRA_USAGE_LIST},}${pname}:${p_extra}"
+
+    # Build this profile's JSON object (only in --json mode). All numeric fields are
+    # coerced inside jq with `tonumber? // 0`, so empty/garbage values stay valid JSON.
+    if [ "$OUTPUT_JSON" = true ]; then
+        prof_obj=$(jq -n \
+            --arg name "$pname" --arg sub "$p_sub" --arg tier "$p_tier" \
+            --arg wt "$p_wt" --arg mt "$p_mt" --arg wm "$p_wm" --arg ws "$p_ws" \
+            --arg tc "$p_tc" --arg wc "$p_wc" --arg mc "$p_mc" \
+            --arg fu "$p_5u" --arg su "$p_7u" --arg fr "$p_5r" --arg sr "$p_7r" \
+            --arg extra "$p_extra" --arg daily "$p_daily" --arg dcosts "$p_dc" --arg models "$p_models" \
+            --argjson limits "$p_limits" \
+            '{
+                name: $name, subscription: $sub, tier: $tier,
+                week_tokens: ($wt|tonumber? // 0), month_tokens: ($mt|tonumber? // 0),
+                week_messages: ($wm|tonumber? // 0), week_sessions: ($ws|tonumber? // 0),
+                today_cost: ($tc|tonumber? // 0), week_cost: ($wc|tonumber? // 0), month_cost: ($mc|tonumber? // 0),
+                five_hour_util: ($fu|tonumber? // 0), seven_day_util: ($su|tonumber? // 0),
+                five_hour_reset: $fr, seven_day_reset: $sr, extra_usage: ($extra == "true"),
+                limits: $limits,
+                daily: ($daily|split(",")|map(tonumber? // 0)),
+                daily_costs: ($dcosts|split(",")|map(tonumber? // 0)),
+                week_models: ([$models|split(",")[]|select(length>0)|split("=")|{(.[0]):(.[1]|tonumber? // 0)}]|add // {})
+            }')
+        PROFILE_JSON="${PROFILE_JSON:+${PROFILE_JSON},}${prof_obj}"
+    fi
+
+    rm -f "$tmpf" "$usage_tmpf"
+done
+
+# --- All-time from stats cache (supplementary) ---
+if [ -f "$STATS_CACHE" ]; then
+    ALLTIME_SESSIONS=$(jq -r '.totalSessions // 0' "$STATS_CACHE" 2>/dev/null || echo 0)
+    ALLTIME_MESSAGES=$(jq -r '.totalMessages // 0' "$STATS_CACHE" 2>/dev/null || echo 0)
+    FIRST_SESSION=$(jq -r '.firstSessionDate // "unknown"' "$STATS_CACHE" 2>/dev/null || echo "unknown")
+    FIRST_SESSION="${FIRST_SESSION%%T*}"
+fi
+
+# Build final strings
+WEEK_MODELS=$(echo "$PROF_WEEK_MODELS_LIST" | tr '|' '\n' | cut -d: -f2- | tr ',' '\n' | grep '=' | \
+    awk -F= '{ acc[$1]+=$2 } END { first=1; for(m in acc) { printf "%s%s=%d", (first?"":","),(m),(acc[m]+0); first=0 } print "" }')
+DAILY=$(IFS=,; printf '%s' "${DAILY_ARR[*]}")
+DAILY_COSTS=$(IFS=,; printf '%s' "${DAILY_COSTS_ARR[*]}")
+PROFILES=$(IFS=,; echo "${PROFILE_NAMES[*]}")
+
+# --- JSON output mode (--json): one object consumed by the Noctalia plugin ---
+if [ "$OUTPUT_JSON" = true ]; then
+    jq -n \
+        --arg sub "$SUBSCRIPTION_TYPE" --arg tier "$RATE_LIMIT_TIER" \
+        --arg fu "$FIVE_HOUR_UTIL" --arg fr "$FIVE_HOUR_RESET" \
+        --arg su "$SEVEN_DAY_UTIL" --arg sr "$SEVEN_DAY_RESET" \
+        --arg extra "$EXTRA_USAGE_ENABLED" \
+        --arg wm "$WEEK_MESSAGES" --arg ws "$WEEK_SESSIONS" --arg wt "$WEEK_TOKENS" --arg mt "$MONTH_TOKENS" \
+        --arg models "$WEEK_MODELS" \
+        --arg as "$ALLTIME_SESSIONS" --arg am "$ALLTIME_MESSAGES" --arg first "$FIRST_SESSION" \
+        --arg daily "$DAILY" --arg dcosts "$DAILY_COSTS" \
+        --arg tc "$TODAY_COST" --arg wc "$WEEK_COST" --arg mc "$MONTH_COST" \
+        --arg rate "$USD_EUR_RATE" --arg profiles "$PROFILES" \
+        --argjson profile_data "[${PROFILE_JSON}]" \
+        --argjson limits "$LIMITS_JSON" \
+        '{
+            subscription_type: $sub, rate_limit_tier: $tier,
+            five_hour_util: ($fu|tonumber? // 0), five_hour_reset: $fr,
+            seven_day_util: ($su|tonumber? // 0), seven_day_reset: $sr,
+            extra_usage_enabled: ($extra == "true"),
+            limits: $limits,
+            week_messages: ($wm|tonumber? // 0), week_sessions: ($ws|tonumber? // 0),
+            week_tokens: ($wt|tonumber? // 0), month_tokens: ($mt|tonumber? // 0),
+            week_models: ([$models|split(",")[]|select(length>0)|split("=")|{(.[0]):(.[1]|tonumber? // 0)}]|add // {}),
+            alltime_sessions: ($as|tonumber? // 0), alltime_messages: ($am|tonumber? // 0),
+            first_session: $first,
+            daily: ($daily|split(",")|map(tonumber? // 0)),
+            daily_costs: ($dcosts|split(",")|map(tonumber? // 0)),
+            today_cost: ($tc|tonumber? // 0), week_cost: ($wc|tonumber? // 0), month_cost: ($mc|tonumber? // 0),
+            usd_eur_rate: ($rate|tonumber? // 0),
+            profiles: ($profiles|split(",")),
+            profile_data: $profile_data
+        }'
+    exit 0
+fi
+
+# Output key=value pairs
+echo "SUBSCRIPTION_TYPE=${SUBSCRIPTION_TYPE}"
+echo "RATE_LIMIT_TIER=${RATE_LIMIT_TIER}"
+echo "FIVE_HOUR_UTIL=${FIVE_HOUR_UTIL}"
+echo "FIVE_HOUR_RESET=${FIVE_HOUR_RESET}"
+echo "SEVEN_DAY_UTIL=${SEVEN_DAY_UTIL}"
+echo "SEVEN_DAY_RESET=${SEVEN_DAY_RESET}"
+echo "EXTRA_USAGE_ENABLED=${EXTRA_USAGE_ENABLED}"
+echo "LIMITS=${LIMITS_JSON}"
+echo "WEEK_MESSAGES=${WEEK_MESSAGES}"
+echo "WEEK_SESSIONS=${WEEK_SESSIONS}"
+echo "WEEK_TOKENS=${WEEK_TOKENS}"
+echo "WEEK_MODELS=${WEEK_MODELS}"
+echo "ALLTIME_SESSIONS=${ALLTIME_SESSIONS}"
+echo "ALLTIME_MESSAGES=${ALLTIME_MESSAGES}"
+echo "FIRST_SESSION=${FIRST_SESSION}"
+echo "DAILY=${DAILY}"
+echo "MONTH_TOKENS=${MONTH_TOKENS}"
+echo "TODAY_COST=${TODAY_COST}"
+echo "WEEK_COST=${WEEK_COST}"
+echo "MONTH_COST=${MONTH_COST}"
+echo "DAILY_COSTS=${DAILY_COSTS}"
+echo "USD_EUR_RATE=${USD_EUR_RATE}"
+echo "PROFILES=${PROFILES}"
+echo "PROFILE_SUBSCRIPTION=${PROF_SUBSCRIPTION_LIST}"
+echo "PROFILE_TIER=${PROF_TIER_LIST}"
+echo "PROFILE_WEEK_TOKENS=${PROF_WEEK_TOKENS_LIST}"
+echo "PROFILE_MONTH_TOKENS=${PROF_MONTH_TOKENS_LIST}"
+echo "PROFILE_TODAY_COST=${PROF_TODAY_COST_LIST}"
+echo "PROFILE_WEEK_COST=${PROF_WEEK_COST_LIST}"
+echo "PROFILE_MONTH_COST=${PROF_MONTH_COST_LIST}"
+echo "PROFILE_DAILY=${PROF_DAILY_LIST}"
+echo "PROFILE_DAILY_COSTS=${PROF_DAILY_COSTS_LIST}"
+echo "PROFILE_WEEK_MODELS=${PROF_WEEK_MODELS_LIST}"
+echo "PROFILE_FIVE_HOUR_UTIL=${PROF_FIVE_HOUR_UTIL}"
+echo "PROFILE_SEVEN_DAY_UTIL=${PROF_SEVEN_DAY_UTIL}"
+echo "PROFILE_FIVE_HOUR_RESET=${PROF_FIVE_HOUR_RESET_LIST}"
+echo "PROFILE_SEVEN_DAY_RESET=${PROF_SEVEN_DAY_RESET_LIST}"
+echo "PROFILE_EXTRA_USAGE=${PROF_EXTRA_USAGE_LIST}"

@@ -1,4 +1,7 @@
 {
+  "disclaimer": {
+    "summary": "API non officielle — non affilié à Abbott. Ne pas utiliser pour des décisions médicales."
+  },
   "error": {
     "account_id": "Impossible de calculer l'identifiant de compte LibreLinkUp.",
     "connections_failed": "Impossible de charger les connexions LibreLinkUp.",
@@ -37,9 +40,6 @@
     }
   },
   "title": "LibreLinkUp",
-  "disclaimer": {
-    "summary": "API non officielle — non affilié à Abbott. Ne pas utiliser pour des décisions médicales."
-  },
   "tooltip": {
     "loading": "Chargement de la glycémie…",
     "measured": "Mesure : {time}",

@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.5.4
+
+- Bound MPRIS metadata output and field processing so unusually large song
+  metadata is discarded instead of exhausting the async callback CPU budget.
+
+## 1.5.3
+
+- Replace pattern-based MPRIS metadata parsing with a linear separator scan so
+  unusually large or malformed player metadata cannot exhaust the async
+  callback CPU budget.
+
+## 1.5.2
+
+- Filter duplicate Musixmatch subtitle entries at the same timestamp so
+  repeated API entries do not flash several unrelated lyric lines during
+  playback.
+
+## 1.5.1
+
+- Fix the service exceeding Noctalia's async callback CPU budget when playback
+  starts by skipping the potentially very large MPRIS `xesam:asText` field
+  unless MPRIS lyrics are enabled as a source.
+
 ## 1.5.0
 
 - Move display mode, lyric layers, karaoke, animation, scrolling, sizing,

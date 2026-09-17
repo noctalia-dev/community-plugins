@@ -2,9 +2,6 @@
 -- Config Swap panel
 
 -- Local variables
-
-local configBox = "~/Config-Swap" 			
-
 local listConfig = nil
 
 local pickSlots = {}
@@ -52,6 +49,34 @@ function isDetect(target: string)
 		return false
 	end
 end
+
+-- Function for data save accross  reset
+
+local function getDataPath()
+	return noctalia.pluginDataDir() .. "/data.json"
+end
+
+local function loadValue()
+	local raw = noctalia.readFile(getDataPath())
+	if not raw then
+		return nil
+	end
+	local ok, decoded = pcall(function()
+		return noctalia.json.decode(raw)
+	end)
+	if not ok or type(decoded) ~= "table" then
+		return nil
+	end
+	return decoded.value
+end
+
+local function saveValue(value)
+	local content = noctalia.json.encode({ value = value })
+	return noctalia.writeFile(getDataPath(), content)
+end
+
+local configBox = loadValue() or "~/Config-Swap"
+local configBoxSave = "~/Config-Swap"
 
 -- Store listing cache
 
@@ -283,6 +308,7 @@ local noctaliaStateDir = resolveStateDir()
 local settingsTomlPath = noctaliaStateDir .. "/settings.toml"	-- Active settings file path
 
 local saveNameInput = "save"
+local customPath = configBox
 
 local function saveConfig()
 	local name = saveNameInput ~= "" and saveNameInput or "save"
@@ -322,7 +348,27 @@ function onSaveNameChange(value)
 	saveNameInput = value
 end
 
-local function renderSetting()
+function onCustomPathChange(value)
+	customPath = value 
+end
+
+function saveCustomPath(value)
+	if value == "" or value == nil then
+		noctalia.notify(tr("title"), tr("error_path"))
+		return
+	end
+	local start = string.sub(value, 1, 2)
+	if start ~= "~/" then
+		noctalia.notify(tr("title"), tr("error_path"))
+		return
+	end
+	configBox = customPath
+	configBox = noctalia.expandPath(value)
+	noctalia.notify(tr("title"), tr("success_path"))
+	saveValue(configBox)
+end
+
+local function renderSetting()				-- Render for setting panel 
 	local rowsSettings = {
 		ui.column({ gap = 8 }, {
 			ui.label({
@@ -336,6 +382,7 @@ local function renderSetting()
 					value = saveNameInput,
 					placeholder = "Save name",
 					onChange = "onSaveNameChange",
+
 					flexGrow = 1,
 				}),
 				ui.button({ text = tr("save"), onClick = function()
@@ -343,6 +390,26 @@ local function renderSetting()
 				end
 				}),
 			}),
+			ui.label({
+				text = "Custom path: enter your custom path following this example: ~/{your path}",
+				fontSize = 12,
+				color = "on_surface_variant",
+			}),
+			ui.row({ flexGrow = 1, gap = 16, align = "center"}, {
+				ui.input({
+					key = "save-name-input",
+					value = customPath,
+					placeholder = "Custom Path",
+					onChange = "onCustomPathChange",
+					flexGrow = 1,
+				}),
+				ui.button({
+					text = "Change path",
+					onClick = function()
+						saveCustomPath(customPath)
+					end
+				})
+			})
 		}),
 	}
 	panel.render(ui.column({ flexGrow = 1, gap = 16 }, {
@@ -494,6 +561,9 @@ end
 
 function getListInstall()
 	local localPath = configBox
+	if not noctalia.fileExists(localPath) then
+		noctalia.mkdirAll(localPath)
+	end
 	local list = noctalia.listDir(localPath)
 	local listShow: { infoConfig } = {}
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Native-messaging bridge between Thunderbird and Noctalia.
 
 Thunderbird owns stdin/stdout using the native-messaging framing protocol.

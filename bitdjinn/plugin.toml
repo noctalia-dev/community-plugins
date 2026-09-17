@@ -1,0 +1,106 @@
+# BitDjinn: Real-time Cryptocurrency & Blockchain Address Tracker for Noctalia
+# Multi-currency price ticker, sparkline trend graphs, and on-chain address watcher with tx alerts.
+
+id = "nirvam/bitdjinn"
+name = "BitDjinn"
+version = "1.0.0"
+plugin_api = 19
+author = "nirvam"
+license = "MIT"
+dependencies = []
+tags = ["utility", "indicator", "network", "panel", "bar"]
+icon = "currency-bitcoin"
+description = "Real-time cryptocurrency ticker, trend charts, and blockchain balance monitoring with transaction alerts."
+
+# ── Plugin-level settings ───────────────────────────────────────────────────
+
+[[setting]]
+key = "currency"
+type = "select"
+label_key = "settings.currency.label"
+description_key = "settings.currency.description"
+default = "usd"
+
+  [[setting.options]]
+  value = "usd"
+  label_key = "settings.currency.usd"
+
+  [[setting.options]]
+  value = "cny"
+  label_key = "settings.currency.cny"
+
+  [[setting.options]]
+  value = "eur"
+  label_key = "settings.currency.eur"
+
+  [[setting.options]]
+  value = "usdt"
+  label_key = "settings.currency.usdt"
+
+  [[setting.options]]
+  value = "usdc"
+  label_key = "settings.currency.usdc"
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 30
+min = 10
+max = 600
+
+[[setting]]
+key = "wallet_interval"
+type = "int"
+label_key = "settings.wallet_interval.label"
+description_key = "settings.wallet_interval.description"
+default = 60
+min = 15
+max = 1800
+
+[[setting]]
+key = "notify_tx"
+type = "bool"
+label_key = "settings.notify_tx.label"
+description_key = "settings.notify_tx.description"
+default = true
+
+[[setting]]
+key = "widget_coin"
+type = "string"
+label_key = "settings.widget_coin.label"
+description_key = "settings.widget_coin.description"
+default = "BTC"
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+# Status Bar Widget: shows current price and 24h trend pill. Click opens panel.
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+# Main Interactive Dashboard Panel: live market cards, sparklines, and wallet watch manager.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 480
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+# Headless Background Service: polls market prices & blockchain APIs, detects balance/tx diffs.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Desktop Widget HUD: persistent desktop card with sparkline chart & portfolio summary.
+[[desktop_widget]]
+id = "desktop"
+entry = "desktop.luau"
+
+# Control Center Shortcut: toggle notifications on/off.
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

@@ -1,0 +1,97 @@
+{
+  "bar": {
+    "tooltip_all_caught_up": "No newly unwatched episodes since the last progress update ({series} watching)",
+    "tooltip_counting": "Counting newly unwatched episodes…",
+    "tooltip_empty": "Nothing watching",
+    "tooltip_loading": "Loading tracking data…",
+    "tooltip_network": "Network error: cannot reach api.bgm.tv",
+    "tooltip_not_configured": "Not configured: add an access token or username in plugin settings",
+    "tooltip_unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "tooltip_unwatched": "{count} newly unwatched since the last progress update ({series} watching)"
+  },
+  "desktop": {
+    "empty": "No watching items",
+    "http_error": "API error: HTTP {status}",
+    "loading": "Loading…",
+    "more": "{count} more not shown",
+    "network_error": "Network error: cannot reach api.bgm.tv",
+    "next_page": "Next page",
+    "not_configured": "Not configured: add a Bangumi access token or username in plugin settings",
+    "open": "Open subject page",
+    "page_range": "{first}-{last} / {total}",
+    "parse_error": "Failed to parse API response",
+    "previous_page": "Previous page",
+    "progress": "W {current}/{total}",
+    "progress_aired": "W {current} · A {aired}/{total}",
+    "progress_unknown": "W {current}",
+    "public_view": "Public collections: {username}",
+    "title": "Bangumi Tracking",
+    "unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "unknown_error": "Unknown error",
+    "watching_count": "{count} watching"
+  },
+  "panel": {
+    "busy": "Updating, please wait",
+    "empty": "No items in this category",
+    "ep_decrement": "Progress -1",
+    "ep_increment": "Progress +1",
+    "episodes_unavailable": "Could not fetch episode list",
+    "filter_done": "Completed",
+    "filter_dropped": "Dropped",
+    "filter_on_hold": "On hold",
+    "filter_watching": "Watching",
+    "filter_wish": "Planned",
+    "http_error": "API error: HTTP {status}",
+    "loading": "Loading…",
+    "logged_in_as": "Signed in: {name} ({username})",
+    "mark_done": "Mark as completed",
+    "network_error": "Network error: cannot reach api.bgm.tv",
+    "no_next_episode": "No next episode to mark",
+    "no_prev_episode": "No previous episode to unmark",
+    "not_configured": "Not configured",
+    "not_configured_hint": "Bangumi is not configured yet. Add a personal access token (recommended) or a username (public collections only) in plugin settings.",
+    "open": "Open subject page",
+    "open_settings": "Open settings",
+    "parse_error": "Failed to parse API response",
+    "progress": "{current}/{total} episodes",
+    "progress_aired": "Watched {current} / aired {aired} / {total} total",
+    "progress_unknown": "{current} episodes watched",
+    "public_view": "Public collections: {username}",
+    "refresh": "Refresh",
+    "score": "Score {score}",
+    "settings": "Settings",
+    "title": "Bangumi Tracking",
+    "unauthorized": "Access token is invalid or expired, update it in plugin settings",
+    "unknown_error": "Unknown error",
+    "updating": "Updating…"
+  },
+  "settings": {
+    "access_token": {
+      "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv (valid about one year). When set, your own collections (including private) are read. When empty, a username below is used to read public collections anonymously.",
+      "label": "Bangumi personal access token"
+    },
+    "glyph": {
+      "label": "Icon"
+    },
+    "refresh_minutes": {
+      "description": "How often to refresh tracking data automatically.",
+      "label": "Refresh interval (minutes)"
+    },
+    "show_covers": {
+      "description": "Show subject covers in the desktop widget.",
+      "label": "Show covers"
+    },
+    "username": {
+      "description": "Used to read public collections anonymously when no access token is set, e.g. sai.",
+      "label": "Username"
+    },
+    "visible_items": {
+      "description": "Number of rows per desktop page; use the previous and next buttons to browse the rest.",
+      "label": "Visible items"
+    },
+    "widget_width": {
+      "description": "Natural desktop widget width in logical pixels. Do not resize its tile in the desktop editor, or the host will still scale the content proportionally.",
+      "label": "Content width"
+    }
+  }
+}

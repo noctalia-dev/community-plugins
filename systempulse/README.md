@@ -1,10 +1,11 @@
 # SystemPulse
 
-A bar widget that displays live CPU and RAM usage, with a detailed panel showing CPU, RAM, Disk, Network, and GPU monitoring. Clicking the widget toggles the panel.
+A bar widget that displays live CPU and RAM usage, with a detailed panel showing CPU, RAM, Disk, Network, and GPU monitoring. Clicking the widget toggles the panel.This plugin is meant to use via IPC only. That's why I did not work on the widget that much.
 
 ## Requirements
 
 Requires `Nvtop` for detailed GPU telemetry (utilization, temperature, clock speeds, fan, power, VRAM, encoder/decoder). Without it, GPU monitoring falls back to basic values from `systemStats()`.
+
 ## Plugin
 
 | Field | Value |
@@ -23,8 +24,9 @@ Add the `sysmon` widget from the Add-widget picker. Clicking the widget opens th
 | `show_cpu` | `bool` | `true` | Display CPU usage percentage in the bar. |
 | `show_ram` | `bool` | `true` | Display RAM usage percentage in the bar. |
 | `show_gpu` | `bool` | `false` | Display GPU usage percentage in the bar. |
-| `show_disk` | `bool` | `false` | Display disk usage percentage in the bar. |
-| `show_network` | `bool` | `false` | Display network usage in the bar. |
+| `show_disk` | `bool` | `false` | Display Disk usage percentage in the bar. |
+| `show_network` | `bool` | `false` | Display Network usage in the bar. |
+| `panel_background_opacity` | `double` | `1.0` | Panel background translucency (0 transparent → 1 opaque); content stays opaque. Uses `fill = "surface/<alpha>"` so graphs, labels and cards remain fully opaque. Edited under Settings → Plugins (gear icon). |
 
 ## IPC
 

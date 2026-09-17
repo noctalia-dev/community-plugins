@@ -167,6 +167,34 @@ end
 
 -- ── HTTP ─────────────────────────────────────────────────────────────────────
 
+-- The host accepts at most eight in-flight noctalia.http requests from one
+-- script and refuses the ninth outright: the call returns false and no
+-- callback ever fires. A poll asks db/status for every monitored folder at
+-- once, so past eight folders each extra one surfaced as "folder status
+-- HTTP 0" (issue #718). Every request therefore goes through a small queue
+-- that keeps the plugin well under that cap, with room left for actions.
+local MAX_IN_FLIGHT = 4
+local inFlight = 0
+local queued = {}
+
+local function pump()
+  while inFlight < MAX_IN_FLIGHT and #queued > 0 do
+    local job = table.remove(queued, 1)
+    inFlight += 1
+    local started = noctalia.http(job.req, function(res)
+      inFlight -= 1
+      job.cb(res.ok, res.status, res.body)
+      pump()
+    end)
+    if not started then
+      -- Refused for a reason other than the cap (offline mode, bad URL):
+      -- report it the way a transport failure is reported.
+      inFlight -= 1
+      job.cb(false, 0, "")
+    end
+  end
+end
+
 -- fetch(path, opts, cb) → cb(ok, status, body). opts: method, body, noauth.
 -- Everything goes through noctalia.http; a self-signed GUI certificate is
 -- handled by allow_insecure_tls (plugin API 7), never by an external client.
@@ -179,18 +207,17 @@ local function fetch(path, opts, cb)
     headers = headers or {}
     table.insert(headers, "Content-Type: application/json")
   end
-  local started = noctalia.http({
-    url = cfg.baseUrl .. path,
-    method = opts.method,
-    headers = headers,
-    body = opts.body,
-    allow_insecure_tls = cfg.insecure,
-  }, function(res)
-    cb(res.ok, res.status, res.body)
-  end)
-  if not started then
-    cb(false, 0, "")
-  end
+  table.insert(queued, {
+    req = {
+      url = cfg.baseUrl .. path,
+      method = opts.method,
+      headers = headers,
+      body = opts.body,
+      allow_insecure_tls = cfg.insecure,
+    },
+    cb = cb,
+  })
+  pump()
 end
 
 -- ── Snapshot building ────────────────────────────────────────────────────────

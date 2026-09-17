@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -109,6 +110,42 @@ class UmbrielWindowProbeTests(unittest.TestCase):
             " zen\tZen Browser\t[tile 1694x1372+3490+51]",
         ]
     )
+    JSON_SAMPLE = [
+        {
+            "id": "cursor-id",
+            "app_id": "cursor",
+            "title": "Cursor Agents",
+            "focused": True,
+            "workspace": "DP-1:1",
+            "active": True,
+        },
+        {
+            "id": "cider-id",
+            "app_id": "cider",
+            "title": "Cider",
+            "focused": False,
+            "workspace": "DP-1:1",
+            "active": False,
+            "xwayland": True,
+        },
+        {
+            "id": "zen-id",
+            "app_id": "zen",
+            "title": "Zen Browser",
+            "focused": False,
+            "workspace": "DP-1:1",
+            "active": False,
+        },
+    ]
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self._prev_state = cider_bridge._STATE_DIR
+        cider_bridge._STATE_DIR = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        cider_bridge._STATE_DIR = self._prev_state
+        self._tmp.cleanup()
 
     def test_parse_umbriel_windows(self) -> None:
         rows = cider_bridge._parse_umbriel_windows(self.SAMPLE)
@@ -121,11 +158,8 @@ class UmbrielWindowProbeTests(unittest.TestCase):
         self.assertEqual(cider_bridge._normalize_app_id("[Xwayland] cider"), "cider")
         self.assertTrue(cider_bridge._is_cider_window("[Xwayland] cider", "Cider"))
 
-    def test_probe_umbriel_from_sample(self) -> None:
-        with mock.patch.object(
-            cider_bridge, "_umbriel_windows_text", return_value=self.SAMPLE
-        ):
-            payload = cider_bridge._probe_umbriel()
+    def test_probe_umbriel_from_json_sample(self) -> None:
+        payload = cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
         self.assertIsNotNone(payload)
         assert payload is not None
         self.assertEqual(payload["compositor"], "umbriel")
@@ -133,6 +167,71 @@ class UmbrielWindowProbeTests(unittest.TestCase):
         self.assertFalse(payload["focused"])
         self.assertTrue(payload["on_screen"])
         self.assertTrue(payload["suppress_notify"])
+        self.assertEqual(payload["id"], "cider-id")
+        loft = cider_bridge._read_loft()
+        self.assertEqual(loft.get("id"), "cider-id")
+        self.assertFalse(loft.get("lofted"))
+
+    def test_unlist_while_session_alive_is_loft_not_quit(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        others = [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
+        payload = cider_bridge.apply_umbriel_listing(others)
+        assert payload is not None
+        self.assertEqual(payload["compositor"], "umbriel")
+        self.assertTrue(payload["present"])
+        self.assertFalse(payload["on_screen"])
+        self.assertFalse(payload["suppress_notify"])
+        self.assertEqual(payload["id"], "cider-id")
+        self.assertTrue(cider_bridge._read_loft().get("lofted"))
+        lyrics = cider_bridge._STATE_DIR / "lyrics.json"
+        lyrics.write_text("{}", encoding="utf-8")
+        self.assertTrue(lyrics.is_file())
+
+    def test_listed_empty_workspace_is_loft_and_keeps_output(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        pad = [
+            self.JSON_SAMPLE[0],
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": False},
+            self.JSON_SAMPLE[2],
+        ]
+        payload = cider_bridge.apply_umbriel_listing(pad)
+        assert payload is not None
+        self.assertTrue(payload["present"])
+        self.assertFalse(payload["on_screen"])
+        self.assertFalse(payload["suppress_notify"])
+        loft = cider_bridge._read_loft()
+        self.assertTrue(loft.get("lofted"))
+        self.assertEqual(loft.get("output"), "DP-1")
+        self.assertEqual(loft.get("id"), "cider-id")
+
+    def test_empty_workspace_infers_output_from_peer(self) -> None:
+        pad = [
+            self.JSON_SAMPLE[0],
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": False},
+            self.JSON_SAMPLE[2],
+        ]
+        payload = cider_bridge.apply_umbriel_listing(pad)
+        assert payload is not None
+        loft = cider_bridge._read_loft()
+        self.assertTrue(loft.get("lofted"))
+        self.assertEqual(loft.get("output"), "DP-1")
+
+    def test_empty_listing_falls_through_without_latch(self) -> None:
+        self.assertIsNone(cider_bridge.apply_umbriel_listing([]))
+
+    def test_empty_listing_keeps_umbriel_when_lofted(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        cider_bridge.apply_umbriel_listing(
+            [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
+        )
+        payload = cider_bridge.apply_umbriel_listing([])
+        assert payload is not None
+        self.assertEqual(payload["compositor"], "umbriel")
+        self.assertTrue(payload["present"])
+        self.assertFalse(payload["on_screen"])
+
+    def test_query_failure_falls_through_without_latch(self) -> None:
+        self.assertIsNone(cider_bridge.apply_umbriel_listing(None))
 
     def test_probe_prefers_umbriel_over_niri(self) -> None:
         with mock.patch.object(
@@ -156,6 +255,166 @@ class UmbrielWindowProbeTests(unittest.TestCase):
             payload = cider_bridge.probe_cider_window()
         self.assertEqual(payload["compositor"], "hyprland")
 
+    def test_empty_umbriel_plus_niri_listing_is_niri(self) -> None:
+        with mock.patch.object(
+            cider_bridge, "_umbriel_windows_json", return_value=[]
+        ), mock.patch.object(
+            cider_bridge,
+            "_probe_niri",
+            return_value={"compositor": "niri", "present": True, "on_screen": True},
+        ):
+            payload = cider_bridge.probe_cider_window()
+        self.assertEqual(payload["compositor"], "niri")
+
+
+class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
+    def _listing(self, *frames: list) -> mock.Mock:
+        queued = list(frames)
+
+        def listing() -> list | None:
+            if queued:
+                return queued.pop(0)
+            return frames[-1]
+
+        return listing
+
+    @staticmethod
+    def _group_toggle(action: str) -> bool:
+        return action == "scratchpad-toggle" or action.startswith("scratchpad-toggle:")
+
+    def test_send_focuses_cider_id_not_foreign_focus(self) -> None:
+        listed = self.JSON_SAMPLE
+        cider_focused = [{**row, "focused": row["id"] == "cider-id"} for row in listed]
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return True
+
+        cider_bridge.toggle_loft(msg=msg, listing=self._listing(listed, cider_focused))
+        self.assertEqual(calls[0], "window-focus:cider-id")
+        self.assertEqual(calls[1], "window-move-to-scratchpad:DP-1")
+        self.assertFalse(any(self._group_toggle(action) for action in calls))
+
+    def test_send_succeeds_when_another_output_also_has_focus(self) -> None:
+        listed = self.JSON_SAMPLE
+        cider_and_steam = [
+            {**row, "focused": row["id"] in {"cider-id", "cursor-id"}}
+            for row in listed
+        ]
+        cider_and_steam[0] = {**listed[0], "focused": True, "workspace": "DP-1:2"}
+        cider_and_steam[1] = {**listed[1], "focused": True}
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return True
+
+        cider_bridge.toggle_loft(msg=msg, listing=self._listing(listed, cider_and_steam))
+        self.assertEqual(calls[1], "window-move-to-scratchpad:DP-1")
+
+    def test_restore_shows_pad_then_restores_window(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        pad = [
+            self.JSON_SAMPLE[0],
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": False},
+            self.JSON_SAMPLE[2],
+        ]
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return True
+
+        cider_bridge.toggle_loft(msg=msg, listing=lambda: pad)
+        self.assertEqual(
+            calls,
+            [
+                "scratchpad-toggle:DP-1",
+                "window-focus:cider-id",
+                "window-restore-from-scratchpad:DP-1",
+            ],
+        )
+
+    def test_visible_pad_restores_without_group_toggle(self) -> None:
+        pad = [
+            {**self.JSON_SAMPLE[0], "focused": False},
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": True},
+            {**self.JSON_SAMPLE[2], "focused": False},
+        ]
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return True
+
+        cider_bridge.toggle_loft(msg=msg, listing=lambda: pad)
+        self.assertEqual(
+            calls,
+            ["window-focus:cider-id", "window-restore-from-scratchpad:DP-1"],
+        )
+        self.assertFalse(any(self._group_toggle(action) for action in calls))
+
+    def test_unlisted_restore_shows_then_restores(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        others = [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
+        cider_bridge.apply_umbriel_listing(others)
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return True
+
+        cider_bridge.toggle_loft(msg=msg, listing=lambda: others)
+        self.assertEqual(
+            calls,
+            [
+                "scratchpad-toggle:DP-1",
+                "window-focus:cider-id",
+                "window-restore-from-scratchpad:DP-1",
+            ],
+        )
+
+    def test_focus_fail_never_runs_pad_action(self) -> None:
+        calls: list[str] = []
+
+        def msg(action: str) -> bool:
+            calls.append(action)
+            return False
+
+        cider_bridge.toggle_loft(msg=msg, listing=lambda: self.JSON_SAMPLE)
+        self.assertEqual(calls, ["window-focus:cider-id"])
+
+    def test_no_cider_id_is_noop(self) -> None:
+        calls: list[str] = []
+        others = [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
+        cider_bridge.toggle_loft(
+            msg=lambda action: calls.append(action) or True,
+            listing=lambda: others,
+        )
+        self.assertEqual(calls, [])
+
+    def test_missing_output_is_noop(self) -> None:
+        listed = [{**self.JSON_SAMPLE[1], "workspace": "", "focused": True}]
+        calls: list[str] = []
+        cider_bridge.toggle_loft(
+            msg=lambda action: calls.append(action) or True,
+            listing=lambda: listed,
+        )
+        self.assertEqual(calls, [])
+
+    def test_cli_does_not_start_bridge(self) -> None:
+        with mock.patch.object(cider_bridge, "toggle_loft", return_value=0) as loft_mock, mock.patch.object(
+            cider_bridge, "CiderBridge"
+        ) as bridge_mock, mock.patch.object(
+            sys,
+            "argv",
+            ["cider_bridge.py", "--toggle-loft", "--state-dir", self._tmp.name],
+        ):
+            self.assertEqual(cider_bridge.main(), 0)
+        loft_mock.assert_called_once()
+        bridge_mock.assert_not_called()
+
 
 class OverlayLauncherContractTests(unittest.TestCase):
     def test_service_does_not_pkill_overlay_by_cmdline_pattern(self) -> None:
@@ -176,6 +435,7 @@ class OverlayLauncherContractTests(unittest.TestCase):
         text = service.read_text(encoding="utf-8")
         self.assertIn("plugin_api = 24", (Path(__file__).resolve().parent.parent / "plugin.toml").read_text(encoding="utf-8"))
         self.assertIn('runArgv({ "python3", script })', text)
+        self.assertIn('runArgv({ "python3", script, "--toggle-loft" })', text)
         self.assertIn('runArgv({ "bash", launcher, baseUrl })', text)
         self.assertIn("noctaliaMsg(", text)
         # No shell-string noctalia msg / nohup launches left.
@@ -186,6 +446,10 @@ class OverlayLauncherContractTests(unittest.TestCase):
         )
         self.assertNotIn('noctalia.runAsync("noctalia msg', code)
         self.assertNotIn("nohup python3", code)
+        self.assertIn('event == "chip-left"', text)
+        self.assertIn('event == "toggle-loft"', text)
+        self.assertIn('compositor or "") == "umbriel"', text)
+        self.assertNotIn("umbriel msg", code)
 
     def test_service_does_not_push_external_lyrics_plugin(self) -> None:
         service = Path(__file__).resolve().parent.parent / "service.luau"
@@ -315,6 +579,9 @@ class GhostNotifyGuardTests(unittest.TestCase):
         self.assertNotIn("function onClick", text)
         toml = (Path(__file__).resolve().parent.parent / "plugin.toml").read_text(encoding="utf-8")
         self.assertIn("[widget.actions]", toml)
+        self.assertIn('left = "plugin dragged/cider:bridge all toggle-lyrics-hud"', toml)
+        self.assertIn('middle = "plugin dragged/cider:bridge all chip-left"', toml)
+        self.assertIn('right = "plugin dragged/cider:bridge all show-osd"', toml)
         self.assertIn("toggle-lyrics-hud", toml)
         self.assertIn('type = "color"', toml)
         self.assertIn("advanced = true", toml)
@@ -329,11 +596,13 @@ class GhostNotifyGuardTests(unittest.TestCase):
         self.assertIn("lastLyricsEvent", text)
         self.assertIn("applyLocalLyrics(lastLyricsEvent)", text)
 
-    def test_cider_window_gone_clears_playback(self) -> None:
+    def test_unlist_does_not_emit_cider_closed(self) -> None:
         bridge = Path(__file__).resolve().parent / "cider_bridge.py"
         text = bridge.read_text(encoding="utf-8")
-        self.assertIn("was_present and not present", text)
-        self.assertIn('message="cider_closed"', text)
+        self.assertNotIn("was_present and not present", text)
+        self.assertNotIn('message="cider_closed"', text)
+        self.assertIn("_clear_loft()", text)
+        self.assertIn('message="disconnected"', text)
         service = Path(__file__).resolve().parent.parent / "service.luau"
         svc = service.read_text(encoding="utf-8")
         self.assertIn("maybeHideWhenCiderClosed", svc)

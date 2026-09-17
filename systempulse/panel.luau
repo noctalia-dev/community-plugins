@@ -8,6 +8,7 @@ local ram = require("./monitors/ram.luau")
 local disk = require("./monitors/disk.luau")
 local network = require("./monitors/network.luau")
 local gpu = require("./monitors/gpu.luau")
+local gpu1 = require("./monitors/gpu1.luau")
 local system = require("./monitors/system.luau")
 
 local monitors = {
@@ -16,6 +17,7 @@ local monitors = {
   disk = disk,
   network = network,
   gpu = gpu,
+  gpu1 = gpu1,
   system = system,
 }
 
@@ -31,6 +33,7 @@ local deviceColors = {
   disk = "secondary",
   network = "error",
   gpu = "secondary",
+  gpu1 = "secondary",
   system = "on_surface_variant",
 }
 
@@ -153,17 +156,31 @@ local function buildSidebar()
     table.insert(appItems, appItem(proc))
   end
 
-  -- Fixed-width column: device cards first, then the app list underneath.
-  return ui.column({ width = 180, gap = 6, fill = "surface_variant/0.4", radius = 10, padding = 6 }, {
-    -- ui.label({ text = "Devices", fontSize = 14, fontWeight = "bold" }),
+  -- Dual-GPU systems get separate GPU 0 / GPU 1 cards; single-GPU systems
+  -- keep the plain GPU card (backed by gpu.luau either way).
+  local dualGpu = gpu1.hasSecondGpu and gpu1.hasSecondGpu() or false
+  local gpuItems = {
+    sidebarItem("gpu", dualGpu and "GPU 0" or "GPU", gpu.getSubtitle and gpu.getSubtitle() or "", gpuVal, gpu),
+  }
+  if dualGpu then
+    local gpu1Val = gpu1.getValue and gpu1.getValue() or "—"
+    table.insert(gpuItems, sidebarItem("gpu1", "GPU 1", gpu1.getSubtitle and gpu1.getSubtitle() or "", gpu1Val, gpu1))
+  end
+
+  local items = {
     sidebarItem("cpu", "CPU", cpu.getSubtitle and cpu.getSubtitle() or "", cpuVal, cpu),
     sidebarItem("ram", "Memory", ram.getSubtitle and ram.getSubtitle() or "", ramVal, ram),
     sidebarItem("disk", "Disk", disk.getSubtitle and disk.getSubtitle() or "", diskVal, disk),
     sidebarItem("network", "Network", network.getSubtitle and network.getSubtitle() or "", netVal, network),
-    sidebarItem("gpu", "GPU", gpu.getSubtitle and gpu.getSubtitle() or "", gpuVal, gpu),
-    sidebarItem("system", "System", "System Info", "", system),
-    ui.column({ gap = 4 }, appItems),
-  })
+  }
+  for _, item in ipairs(gpuItems) do
+    table.insert(items, item)
+  end
+  table.insert(items, sidebarItem("system", "System", "System Info", "", system))
+  table.insert(items, ui.column({ gap = 4 }, appItems))
+
+  -- Fixed-width column: device cards first, then the app list underneath.
+  return ui.column({ width = 180, gap = 6, fill = "surface_variant/0.4", radius = 10, padding = 5 }, items)
 end
 
 -- Main content area: sidebar on the left, the active device's detail view
