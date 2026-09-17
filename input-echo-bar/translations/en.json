@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "timeout_ms": {
+      "label": "Display timeout",
+      "description": "Milliseconds to keep the latest input combination visible in the bar."
+    },
+    "show_mouse_events": {
+      "label": "Show mouse events",
+      "description": "Show mouse buttons and vertical or horizontal wheel movement."
+    }
+  }
+}
