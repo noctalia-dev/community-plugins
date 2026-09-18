@@ -73,7 +73,7 @@ end
 local function render_gpu_list(selected_idx)
     local children = {}
     for idx, gpu in ipairs(nvtop_data) do
-        table.insert(children, 
+        table.insert(children,
             ui.button({
                 selected = idx == selected_idx,
                 glyph = "cpu",
@@ -257,7 +257,7 @@ local processes_data = {
         tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
         flexGrow = 2,
         textAlign = "end",
-        process_value = function(value) return format_memory_size(value) end,
+        process_value = function(value) return value ~= nil and format_memory_size(value) or "n/a" end,
         sort_value = function(value) return tonumber(value) end,
     },
     {
@@ -311,7 +311,7 @@ local processes_data_shared_encode_decode = {
         tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
         flexGrow = 2,
         textAlign = "end",
-        process_value = function(value) return format_memory_size(value) end,
+        process_value = function(value) return value ~= nil and format_memory_size(value) or "n/a" end,
         sort_value = function(value) return tonumber(value) end,
     },
     {
@@ -657,8 +657,8 @@ local function render_processes(gpu_idx)
         padding = 4
     }, {
         render_processes_header(gpu_idx),
-        ui.scroll({ 
-            flexGrow = 1, 
+        ui.scroll({
+            flexGrow = 1,
             border = "outline",
             borderWidth = 1,
             fill = "surface",

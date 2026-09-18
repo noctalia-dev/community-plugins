@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Validate and build the Super Productivity companion archive."""
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import io
@@ -10,7 +8,7 @@ import json
 import os
 import pathlib
 import re
-import tomllib
+import sys
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -20,6 +18,23 @@ ARCHIVE_NAME = "noctalia-super-productivity.zip"
 METADATA_NAME = "companion-package.json"
 FILES = ("manifest.json", "plugin.js", "icon.svg")
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+MIN_PYTHON = (3, 9)
+
+
+def require_supported_python(version_info=None) -> None:
+    if version_info is None:
+        version_info = sys.version_info
+    if tuple(version_info[:2]) >= MIN_PYTHON:
+        return
+    found = ".".join(str(part) for part in version_info[:2])
+    required = ".".join(str(part) for part in MIN_PYTHON)
+    raise SystemExit(
+        f"Python {required} or newer is required to build the companion package; "
+        f"found Python {found}."
+    )
+
+
+require_supported_python()
 
 
 def default_output() -> pathlib.Path:
@@ -43,7 +58,6 @@ def validate_sources() -> dict[str, object]:
     plugin_source = (COMPANION / "plugin.js").read_text(encoding="utf-8")
     service_source = (ROOT / "service.luau").read_text(encoding="utf-8")
     common_source = (ROOT / "common.luau").read_text(encoding="utf-8")
-    plugin_manifest = tomllib.loads((ROOT / "plugin.toml").read_text(encoding="utf-8"))
 
     version = required(r"COMPANION_VERSION = '([^']+)'", plugin_source, "companion version")
     protocol = required(r"PROTOCOL_VERSION = (\d+)", plugin_source, "companion protocol")
@@ -52,8 +66,6 @@ def validate_sources() -> dict[str, object]:
     noctalia_schema = required(r"SCHEMA_VERSION = (\d+)", service_source, "Noctalia schema")
     bridge_name = required(r"BRIDGE_NAME = '([^']+)'", plugin_source, "companion bridge name")
     noctalia_bridge_name = required(r'BRIDGE_NAME = "([^"]+)"', service_source, "Noctalia bridge name")
-    companion_limit = int(required(r"MAX_UPCOMING = (\d+)", plugin_source, "companion task limit"))
-    setting = next(item for item in plugin_manifest["setting"] if item["key"] == "max_upcoming")
 
     if version != manifest.get("version"):
         raise SystemExit("companion version differs between manifest.json and plugin.js")
@@ -63,8 +75,12 @@ def validate_sources() -> dict[str, object]:
         raise SystemExit("schema version differs between the companion and Noctalia")
     if bridge_name != noctalia_bridge_name:
         raise SystemExit("bridge directory name differs between the companion and Noctalia")
-    if int(setting["max"]) > companion_limit:
-        raise SystemExit("Noctalia max_upcoming exceeds the companion payload limit")
+    if bridge_name != DATA_DIR_NAME:
+        raise SystemExit("unexpected companion bridge directory name")
+    if manifest.get("minSupVersion") != "18.21.2":
+        raise SystemExit("unexpected minimum Super Productivity version")
+    if manifest.get("permissions") != ["nodeExecution", "selectTask"]:
+        raise SystemExit("unexpected companion permissions")
     return manifest
 
 
@@ -152,12 +168,13 @@ def verify_generated_package(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check",
         action="store_true",
         help="Validate the companion sources and deterministic archive without writing it.",
     )
-    parser.add_argument(
+    mode.add_argument(
         "--verify",
         action="store_true",
         help="Verify an existing generated package against the bundled source.",
@@ -180,8 +197,6 @@ def main() -> None:
     if build_archive() != archive:
         raise SystemExit("companion archive generation is not deterministic")
 
-    if args.check and args.verify:
-        parser.error("--check and --verify cannot be used together")
 
     output = (args.output or default_output()).expanduser().absolute()
     if args.check:

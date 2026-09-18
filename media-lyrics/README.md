@@ -1,6 +1,6 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS).
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS + NetEase fallback).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -11,14 +11,17 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | Field | Value |
 | --- | --- |
 | ID | `tranzem/media-lyrics` |
-| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640); service: `service`; shortcut: `toggle` |
+| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640), `panel-mini` (360×120); service: `service`; shortcut: `toggle` |
 
 ## Requirements
 
 - Noctalia v5 (plugin API 24+)
 - `busctl` (systemd, present on every Arch install)
-- `curl` — used for the LRCLIB HTTPS fetch (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell; LRCLIB resolves IPv4 faster than the built-in HTTP client on some setups)
-- Outbound HTTPS access to `https://lrclib.net` for synced lyrics
+- `curl` — used for the HTTPS lyric fetches: LRCLIB primary + NetEase Cloud
+  Music fallback (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell;
+  LRCLIB resolves IPv4 faster than the built-in HTTP client on some setups)
+- Outbound HTTPS access to `https://lrclib.net` (primary) and
+  `https://music.163.com` (NetEase fallback) for lyrics
 
 No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus. `sleep` (coreutils) is used for a short refresh delay after transport commands.
 
@@ -39,9 +42,38 @@ a specific preset directly:
 ```sh
 noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
 noctalia msg panel-toggle tranzem/media-lyrics:panel-large
+noctalia msg panel-toggle tranzem/media-lyrics:panel-mini
 ```
 
-Add the `now-playing` widget to your bar to get a compact indicator that opens the panel on click. A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
+`panel-mini` is a compact always-on surface (cover + the current lyric line)
+intended for pinning to the desktop; it does not close on outside clicks.
+
+Add the `now-playing` widget to your bar: a compact chip with the album
+cover and **Title - Artist** of the active MPRIS player. Its gestures mirror
+the shell's built-in media widget:
+
+- **Left click** — open the lyrics panel.
+- **Right click** — play/pause.
+- **Middle click** — this widget's display settings.
+- **Wheel / mouse back / forward** — previous / next track.
+- On a **vertical bar** the chip collapses to the artwork only.
+
+Display options are edited in the widget's own settings popup (middle click):
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `album_art_only` | off | Show only the artwork, no text |
+| `hide_album_art` | off | Hide the artwork and its fallback icon |
+| `hide_artist` | off | Show only the track title |
+| `artist_first` | off | Show `Artist - Title` instead of `Title - Artist` |
+| `min_length` | 80 | Minimum widget length (px) — accepted for parity; plugin chips are sized by the host to their content |
+| `max_length` | 220 | Text area width (px); long titles truncate or scroll to fit |
+| `art_size` | 16 | Artwork size (px) |
+| `title_scroll` | none | Scroll long titles: `none`, `always`, or `on hover` |
+| `hide_when_no_media` | off | Hide the chip when no MPRIS player is active |
+| `show_lyric_line` | off | Show `Title · current line` in the chip instead of `Title - Artist` while synced lyrics are ready (long lines scroll with the marquee; falls back to the artist line otherwise) |
+
+A `toggle` shortcut (control-center tile) is also available. Bind it to a hotkey in Noctalia's shortcut settings, or from your compositor:
 
 ```toml
 "Ctrl+Alt+M" = "spawn:noctalia msg panel-toggle tranzem/media-lyrics:panel"
@@ -55,9 +87,12 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
 - **LRCLIB integration** — exact `/api/get` lookup first, `/api/search` fallback, LRC parsed in pure Luau.
+- **Lyrics variants picker** — the header "list" button (always visible while a track plays) fetches the full LRCLIB search result on demand and lists alternative lyric versions: pick one to switch instantly (the playing lyrics are never interrupted while the list loads), pick **Default** to restore the automatic chain, or switch again at any time — the candidate list stays in memory per track.
+- **NetEase Cloud Music fallback** — no-auth second source for LRCLIB misses (public endpoints, browser headers only): synced LRC wins, candidates ranked by title/artist + duration, metadata lines stripped; instrumental placeholders are filtered.
 - **Local `.lrc` files** — drop `Artist - Title.lrc` into the local lyrics folder; they take priority over the network.
 - **Marquee titles** — long track/artist names hold for 2 s, then scroll slowly instead of wrapping or clipping. Overlap-free (per-slice node recreation).
 - **Album cover + progress bar** — interpolated progress between polls, transport controls (prev / play-pause / next), shuffle and repeat state.
+- **Live lyric line in the chip** — optional `show_lyric_line` widget setting: while synced lyrics are ready the chip shows `Title · current line` instead of the artist (steps with playback, marquee for long lines).
 - **Settings** — lyric timing offset in ms, on-disk cache, local lyrics folder. Translatable UI: strings go through Noctalia's i18n (`noctalia.tr`, English ships in the plugin; other locales via Noctalia Translate).
 
 ## Advantages over alternative lyric plugins
@@ -72,10 +107,12 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `panel_size` | `select` | `medium` | Panel size preset: `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
+| `panel_size` | `select` | `medium` | Panel size preset: `mini` (360×120 chip panel), `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
+| `player_allowlist` | `string` | *(empty)* | Comma-separated identity/bus-name substrings; when set, only matching players are shown (e.g. `spotify, mpd`). |
+| `player_blocklist` | `string` | *(empty)* | Comma-separated substrings of players to exclude (e.g. `firefox` to ignore a browser's MPRIS). |
 
 ## IPC
 
@@ -97,17 +134,30 @@ noctalia msg config-reload
 
 Upcoming work, roughly in priority order:
 
-- [ ] Album cover inside a capsule shape
-- [ ] Additional lyric sources (NetEase, Musixmatch, embedded MPRIS metadata, …)
+- [ ] Album cover inside a capsule shape (panel info row — the bar-widget
+      chip already shows the artwork since 0.9.0)
+- [x] Additional lyric sources — **NetEase fallback DONE in 0.9.1** (no-auth,
+      last in the chain); **embedded MPRIS `xesam:asText` DONE in 0.9.2**
+      (zero-network, position 2 in the chain). Remaining: Musixmatch,
+      Spotify — most need API keys/tokens (see Notes)
+- [x] Lyrics variants picker — switch between alternative LRCLIB versions on
+      the fly (DONE in 0.9.4: header button, on-demand search, Default row)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
-- [ ] Seek on progress-bar click
-- [ ] Compact mode with a pinnable widget
-- [x] Preconfigured widget actions — default gestures declared in the manifest (middle click → play/pause, scroll → track switching) work out of the box (DONE in 0.8.1: `[widget.actions] middle = "none"`)
-- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640; the bar widget itself keeps its hard-coded look)
+- [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
+      report coordinates, so a click position cannot be mapped to a timestamp
+      (only lyric-line clicks and the keyboard cursor can seek)
+- [ ] Compact mode with a pinnable widget — the bar chip + panel presets
+      cover the compact surface; a desktop-pinned view would need a new
+      `[[desktop_widget]]` entry (open question)
+- [x] Preconfigured widget actions — default gestures declared in the manifest (DONE in 0.8.1 and reworked in 0.9.0: now mirrors the built-in media widget — right click = play/pause, back/forward + wheel = prev/next; middle click = widget settings)
+- [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640)
+- [x] Bar widget album cover + display settings (DONE in 0.9.0: artwork chip, `album_art_only` / `hide_album_art` / `hide_artist` / `artist_first` / `min_length` / `max_length` / `art_size` / `title_scroll` / `hide_when_no_media`; vertical bars show the artwork only)
 
 ## Notes
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
-- Lyrics are fetched from the public LRCLIB API with `curl`; nothing is uploaded. Cache and local lyrics live under the plugin data directory and `local_lyrics_dir`.
-- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB fetch, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
+- Lyrics are fetched from public services with `curl` — LRCLIB API primary,
+  NetEase Cloud Music fallback on misses; nothing is uploaded. Cache and
+  local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB + NetEase lyric fetches, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.

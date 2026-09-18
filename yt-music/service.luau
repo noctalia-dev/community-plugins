@@ -11,6 +11,34 @@ local logger = require("./utils/log.luau")
 local network = require("./utils/network.luau")
 local log = logger.module("ytm", "service")
 
+-- Boot environment snapshot: one log line giving the full support picture
+-- (host build, plugin version, distro, session) without interrogating the
+-- user. Host build comes from `noctalia --version`.
+local function read_line(path, pattern)
+	local raw = noctalia.readFile(path)
+	if type(raw) ~= "string" then
+		return "?"
+	end
+	return (raw:match(pattern) or "?"):gsub('"', "")
+end
+
+local function log_boot_env()
+	local plugin_ver = read_line((noctalia.pluginDir() or "") .. "/plugin.toml", 'version%s*=%s*"([^"]+)"')
+	local os_name = read_line("/etc/os-release", 'PRETTY_NAME="([^"]+)"')
+	if os_name == "?" then
+		-- Bazzite/Universal Blue: /etc/os-release may miss; real file lives in /usr
+		os_name = read_line("/usr/lib/os-release", 'PRETTY_NAME="([^"]+)"')
+	end
+	local desktop = noctalia.getenv("XDG_CURRENT_DESKTOP") or "?"
+	local session = noctalia.getenv("XDG_SESSION_TYPE") or "?"
+	noctalia.runAsync("noctalia --version 2>/dev/null | head -1", function(res)
+		local out = (type(res) == "table" and res.stdout) or ""
+		local host = out:match("noctalia%s+(v?[%d%.]+)") or "?"
+		log("env: noctalia=" .. host .. " plugin=" .. plugin_ver .. " os=\"" .. os_name
+			.. "\" desktop=" .. desktop .. " session=" .. session)
+	end)
+end
+
 -- Domain logic lives in dedicated backend modules under modules/.
 -- Service keeps the wiring: logging, and request dispatch.
 local auth = require("./modules/auth.luau")
@@ -61,6 +89,20 @@ local ACTIONS = {
 	refresh_playlist = function(r)
 		playlist.refresh(r.id or r.playlist_id)
 	end,
+	refresh_library = function(r)
+		if not network.isOnline() then
+			log("refresh_library: skipped because offline")
+			return
+		end
+		if state.refreshing_library then
+			return
+		end
+		if api and api.library then
+			state.refreshing_library = true
+			store.publish()
+			api.library()
+		end
+	end,
 	fetch_next_page = function(r)
 		playlist.fetch_next_page(r.playlist_id, r.token)
 	end,
@@ -75,6 +117,9 @@ local ACTIONS = {
 	end,
 	refresh_quick_picks = function(r)
 		home.refresh_quick_picks()
+	end,
+	refresh_health = function(r)
+		auth.check_health()
 	end,
 	download_track = function(r)
 		local vid = (r.item and r.item.id) or r.id or r.video_id
@@ -194,29 +239,36 @@ noctalia.state.watch(REQ_KEY, function(req)
 		return
 	end
 	handled_nonce = req.nonce
-	log("request nonce=" .. req.nonce .. " action=" .. tostring(req.action))
+	local action = tostring(req.action or "")
+	log("request nonce=" .. req.nonce .. " action=" .. action)
 
-	local handler = ACTIONS[tostring(req.action or "")]
+	local handler = ACTIONS[action]
 	if handler then
-		handler(req)
+		noctalia.runAsync("true", function()
+			local ok, err = pcall(handler, req)
+			if not ok then
+				log("request error in '" .. action .. "': " .. tostring(err))
+			end
+		end)
 	else
-		log("request: unhandled action '" .. tostring(req.action) .. "'")
+		log("request: unhandled action '" .. action .. "'")
 	end
 end)
 
 function update()
 	if api.library_pending() then
 		api.finish_library(function(playlists)
-			state.library = type(playlists) == "table" and playlists or {}
-			store.publish()
-			if type(playlists) == "table" then
+			state.refreshing_library = false
+			if type(playlists) == "table" and #playlists > 0 then
+				state.library = playlists
 				log("ytmusic: loaded " .. #playlists .. " library playlists")
 				noctalia.runAsync("true", function()
 					api.ensure_thumbnails(state.library, store.publish, "library")
 				end)
 			else
-				log("ytmusic: library decode failed")
+				log("ytmusic: library fetch failed or empty, keeping existing library")
 			end
+			store.publish()
 		end)
 	end
 
@@ -226,7 +278,7 @@ function update()
 	if probe_tick >= 20 then
 		probe_tick = 0
 		noctalia.runAsync(
-			"curl -s -o /dev/null -m 3 https://music.youtube.com && echo 'NET=UP' || echo 'NET=DOWN'",
+			"curl -s -o /dev/null -m 6 https://music.youtube.com && echo 'NET=UP' || echo 'NET=DOWN'",
 			function(res)
 				local out = (type(res) == "table" and res.stdout) or ""
 				local now_online = out:find("NET=UP", 1, true) ~= nil
@@ -245,9 +297,16 @@ end
 noctalia.setUpdateInterval(1000)
 
 log("boot: service started, api=" .. tostring(type(api)) .. " library=" .. tostring(type(api and api.library)))
+log_boot_env()
+local const = require("./api/constants.luau")
+if noctalia.fileExists(const.COOKIE_PATH) then
+	state.status = "ready"
+	state.cookies_path = const.COOKIE_PATH
+end
 mpv.kill()
 library.load_offline_meta()
 auth.detect_browsers()
+auth.check_health()
 auth.load_cached_cookies()
 if api and api.load_cached_library then
 	local cached_lib = api.load_cached_library()

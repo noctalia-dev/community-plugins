@@ -6,7 +6,7 @@ M.PANEL_ID = "redxtech/super-productivity:details"
 M.SNAPSHOT_KEY = "super-productivity.snapshot"
 M.ACTION_KEY = "super-productivity.action"
 M.INTENT_KEY = "super-productivity.intent"
-M.PROTOCOL_VERSION = 1
+M.PROTOCOL_VERSION = 2
 local request_sequence = 0
 
 function M.without_trailing_slash(path)
@@ -90,13 +90,14 @@ function M.terminal_action(action)
   return action.status == "success" or action.status == "error" or action.status == "unknown"
 end
 
-function M.send_intent(kind, fields)
+function M.send_intent(kind, fields, before_dispatch)
   request_sequence += 1
   local request_id = "ui-" .. tostring(math.floor(noctalia.nowMs())) .. "-" .. tostring(request_sequence)
   local intent = fields or {}
   intent.type = kind
   intent.requestId = request_id
   intent.nonce = noctalia.nowMs()
+  if type(before_dispatch) == "function" then before_dispatch(request_id) end
   noctalia.state.set(M.INTENT_KEY, intent)
   return request_id
 end

@@ -27,14 +27,19 @@ body:
       options:
         - --- SELECT ---
         - 9router-control
+        - agent-glow
+        - agentik
         - ai-usagebar
         - airpods
+        - ambient-sounds
         - anilist
         - arch-updater
         - asus-fan
         - asus-fans-controller-ec
         - audio-switcher
         - awwwall
+        - ayet-kosesi
+        - bangumi-progress
         - battery-graph
         - battery-power-management
         - battery-threshold
@@ -44,18 +49,24 @@ body:
         - bitdjinn
         - bookmarks
         - calculator
+        - calculator-plus
+        - calibre
         - case-convert
         - cat
         - cider
+        - claude-cockpit
         - claude-companion
+        - claudecode
         - cmd-runner
         - codexbar-meter
         - color_picker
         - config-swap
+        - contact-sounds
         - crashes
         - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
+        - default-apps
         - desktop-launcher
         - discord-voice
         - dns-switcher
@@ -69,6 +80,8 @@ body:
         - gamer-mode
         - git_companion
         - github-activity
+        - github-kanban
+        - github-notifications
         - github-prs
         - gocryptfs
         - godot-provider
@@ -82,6 +95,7 @@ body:
         - ideapad-conservation-mode
         - iio_lock
         - imagemagick-clock
+        - inventory-manager
         - ip-monitor
         - jetbrains-provider
         - k8s-status
@@ -89,6 +103,7 @@ body:
         - keymap
         - keyviz
         - kineticwe-layouts
+        - kwallet-secrets
         - launcher-pass
         - layout-fix
         - librelinkup
@@ -96,7 +111,10 @@ body:
         - link-ip-monitor
         - llamanager
         - lrc
+        - lunar-calendar
+        - lunar-workspaces
         - lyrics
+        - mango-displays
         - mango_layouts
         - mangowm-keymode
         - mawaqit
@@ -104,14 +122,18 @@ body:
         - mihomo-control
         - mimir
         - mini-docker
+        - network-control
         - network-toolkit
         - nextboot-selector
         - niri-active-workspace
         - niri-animations
         - niri-displays
+        - niri-ribbon
         - niri-rules-studio
         - nix-monitor
+        - nix-status
         - noctwhspr
+        - nvim-projects
         - nvtop
         - obs-integration
         - obsidian
@@ -121,56 +143,77 @@ body:
         - opencode-companion
         - opencodex-bar
         - opnsense
+        - oppo-pods
         - palette-creator
         - pass
         - phone-connect
         - phone-operate
+        - podcasts
         - pomodoro
         - portctl
+        - printers
         - prismlauncher-instances
+        - processes
         - procmon
         - proton-pass
         - pulsar-mouse
         - qrcode
         - quranwidget
+        - radio
+        - reading-list
+        - region-recorder
         - remmina
         - rss-notifier
         - ruh-vpn
+        - run-path
         - screen-toolkit
         - sharednd
         - shell-command
         - shelly
+        - sing-box-status
+        - sony_headphones
+        - soundcore-buds
         - special-workspaces
+        - speedtest-meter
         - spotify
         - spotify-lyrics
         - spotify-media
         - ssh-launcher
+        - sticky-notes
         - super-productivity
         - syncthing
         - system-monitor
         - system-updater
         - systempulse
+        - taildrop
         - tailnet
         - tailscale
         - thinkpad-fan
         - thinkpad-led
         - thunderbird-companion
+        - timezone-hub
         - tmux-provider
         - todo
         - topgrade-wrapper
         - udiskie
         - um5606_fan_state
+        - umbriel-displays
+        - umbriel-monitor-control
         - upbeat
         - vidi
+        - vm-manager
         - voxtype
+        - vpn-manager
         - w-engine
         - wallpaper-switcher
+        - wallpaper-widget
         - warp
         - web-launcher
         - web-search
         - webapp-maker
         - wireview-pro-ii
         - wl-screen-mirror
+        - world-radio
         - youtube-search
         - yt-music
         - zed-provider

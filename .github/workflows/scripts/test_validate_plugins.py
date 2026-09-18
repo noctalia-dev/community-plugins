@@ -421,5 +421,45 @@ class WidgetActionsTests(unittest.TestCase):
         self.assertIn("actions", validate_plugins.ENTRY_FIELDS["widget"])
 
 
+class PluginFileCountTests(unittest.TestCase):
+    def validate_file_count(self, files: dict[str, int], directories: int = 0) -> list[str]:
+        """`files` maps a directory inside the plugin ("" for its root) to how many it holds."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plugin_dir = root / "example"
+            plugin_dir.mkdir()
+            for relative, count in files.items():
+                target = plugin_dir / relative
+                target.mkdir(parents=True, exist_ok=True)
+                for index in range(count):
+                    (target / f"asset-{index}.svg").write_text("<svg/>", encoding="utf-8")
+            for index in range(directories):
+                (plugin_dir / f"empty-{index}").mkdir()
+            validator = validate_plugins.Validator(root)
+            validator.validate_file_count(plugin_dir / "plugin.toml", plugin_dir)
+            return validator.errors
+
+    def test_accepts_plugin_at_file_limit(self) -> None:
+        limit = validate_plugins.MAX_PLUGIN_FILES
+        self.assertEqual(self.validate_file_count({"": limit // 2, "orbs": limit - limit // 2}), [])
+
+    def test_rejects_plugin_above_file_limit(self) -> None:
+        limit = validate_plugins.MAX_PLUGIN_FILES
+        self.assertEqual(
+            self.validate_file_count({"orbs": limit + 1}),
+            [
+                f"example/plugin.toml: plugin directory ships {limit + 1} files; the limit is {limit} "
+                "(every clone, CI run, and install checks out every file - ship generated asset "
+                "packs as one archive or generate them into the user's cache directory on first run)"
+            ],
+        )
+
+    def test_does_not_count_directories(self) -> None:
+        self.assertEqual(
+            self.validate_file_count({}, directories=validate_plugins.MAX_PLUGIN_FILES + 5),
+            [],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

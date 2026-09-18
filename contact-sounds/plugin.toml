@@ -1,0 +1,133 @@
+id          = "nilsonlinux/contact-sounds"
+name        = "Contact Notification Sounds"
+version     = "1.1.0"
+plugin_api  = 20
+author      = "Nilsonlinux"
+license     = "MIT"
+icon        = "bell-ringing"
+description = "Plays a unique sound (OGG/MP3) for notifications from people in your contact list."
+tags        = ["audio", "utility", "bar", "panel", "service"]
+dependencies = ["dbus-monitor", "gawk", "python3"]
+
+# ---------------------------------------------------------------------------
+# Plugin-level settings (Settings -> Plugins)
+# The maps below back the entry list. They are edited ONLY through the
+# panel (scripts/edit_contacts.sh). They must stay declared here (undeclared
+# keys are not readable via getConfig) but `visible_when` never matches, so
+# they never show up in the Settings GUI:
+#   contacts        map "Person name" -> path to a .ogg/.mp3 file OR a folder
+#                   of sounds (a folder plays the chosen sound, or a random
+#                   one when folder_sounds has no entry for it)
+#   contact_kinds   map "Name" -> "contact" | "group" | "app"
+#   contact_images  map "Name" -> photo/icon path shown in the panel list
+#   folder_sounds   map "Name" -> sound filename picked inside a sounds folder
+#   sound_folders   map "path" -> "" registry of known sound folders, offered
+#                   when adding new entries so the path isn't retyped
+# ---------------------------------------------------------------------------
+
+[[setting]]
+key             = "contacts"
+type            = "string_map"
+label_key       = "settings.contacts.label"
+description_key = "settings.contacts.description"
+default         = {}
+visible_when    = { key = "__never_show_contacts__", values = ["true"] }
+
+[[setting]]
+key             = "contact_kinds"
+type            = "string_map"
+label_key       = "settings.contact_kinds.label"
+description_key = "settings.contact_kinds.description"
+default         = {}
+visible_when    = { key = "__never_show_contact_kinds__", values = ["true"] }
+
+[[setting]]
+key             = "contact_images"
+type            = "string_map"
+label_key       = "settings.contact_images.label"
+description_key = "settings.contact_images.description"
+default         = {}
+visible_when    = { key = "__never_show_contact_images__", values = ["true"] }
+
+[[setting]]
+key             = "folder_sounds"
+type            = "string_map"
+label_key       = "settings.folder_sounds.label"
+description_key = "settings.folder_sounds.description"
+default         = {}
+visible_when    = { key = "__never_show_folder_sounds__", values = ["true"] }
+
+[[setting]]
+key             = "sound_folders"
+type            = "string_map"
+label_key       = "settings.sound_folders.label"
+description_key = "settings.sound_folders.description"
+default         = {}
+visible_when    = { key = "__never_show_sound_folders__", values = ["true"] }
+
+[[setting]]
+key             = "show_widget"
+type            = "bool"
+label_key       = "settings.show_widget.label"
+description_key = "settings.show_widget.description"
+default         = true
+
+[[setting]]
+key             = "match_case_sensitive"
+type            = "bool"
+label_key       = "settings.match_case_sensitive.label"
+description_key = "settings.match_case_sensitive.description"
+default         = false
+advanced        = true
+
+[[setting]]
+key             = "only_apps"
+type            = "string_list"
+label_key       = "settings.only_apps.label"
+description_key = "settings.only_apps.description"
+default         = []
+advanced        = true
+
+# ---------------------------------------------------------------------------
+# Service: listens to D-Bus notifications and plays the contact's sound
+# ---------------------------------------------------------------------------
+
+[[service]]
+id    = "monitor"
+entry = "service.luau"
+
+# ---------------------------------------------------------------------------
+# Panel: lists the contacts and lets you test each sound
+# ---------------------------------------------------------------------------
+
+[[panel]]
+id              = "Panel"
+entry           = "panel.luau"
+width           = 480
+height          = 660
+placement       = "floating"
+position        = "center"
+open_near_click = true
+
+# ---------------------------------------------------------------------------
+# Shortcut: control-center tile that opens the test panel
+# ---------------------------------------------------------------------------
+
+[[shortcut]]
+id    = "sounds"
+entry = "shortcut.luau"
+
+# ---------------------------------------------------------------------------
+# Widget: bar bell that opens the test panel
+# ---------------------------------------------------------------------------
+
+[[widget]]
+id    = "contact-sounds-widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "glyph"
+  type            = "glyph"
+  label_key       = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default         = "bell-ringing"

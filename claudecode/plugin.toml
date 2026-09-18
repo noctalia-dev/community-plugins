@@ -1,0 +1,194 @@
+# Claude Code Usage — Noctalia v5 plugin.
+#
+# Port of the Dank Material Shell "Claude Code Usage" plugin. The data work lives in
+# get-claude-usage (a Bash script run with --json); a headless [[service]] runs it on
+# an interval and publishes the parsed result to the plugin's shared state. The bar
+# [[widget]], the click [[panel]] and the [[desktop_widget]] are thin presentation
+# clients that watch that state — usage is fetched once and mirrored everywhere.
+# Formatting / pacing helpers shared by the clients live in shared.luau (require);
+# ring.luau generates the bar pill's circular progress SVG (Noctalia's ui.* has no
+# arc primitive, but its image loader rasterizes SVG).
+#
+# Requires: jq, curl, and an authenticated Claude Code install (~/.claude/.credentials.json).
+
+id = "jrohland/claudecode"
+name = "Claude Code Usage"
+version = "1.0.0"
+# Oldest API level this plugin actually needs. The gate is noctalia.getSetting (API 26),
+# which ring.luau reads theme.pure_black_dark through; below that the ring picks the wrong
+# palette. The rest of the surface sits lower: runAsync with an argv table (24),
+# wallpaperPath (25), require of a relative module (22), [widget.actions] defaults (14).
+plugin_api = 26
+author = "Nicolas Bellamy (Noctalia port by jrohland)"
+license = "MIT"
+icon = "robot"
+description = "Claude Code subscription usage: rate limits, token burn, cost, daily activity and per-model breakdown."
+tags = ["ai", "development", "indicator", "system", "bar", "desktop", "panel", "service"]
+
+# Every external command the plugin shells out to. jq and curl are the two the service
+# gates on (commandExists) and the only ones a user is likely to be missing; the rest are
+# invoked by get-claude-usage and ship with coreutils / findutils / gawk on every distro.
+# `noctalia` itself is not listed: ring.luau runs `noctalia theme` to re-derive a wallpaper
+# palette, and the shell running this plugin is inherently that command.
+dependencies = [
+  "bash",
+  "jq",
+  "curl",
+  "awk",
+  "grep",
+  "date",
+  "cut",
+  "tr",
+  "wc",
+  "cat",
+  "head",
+  "find",
+  "basename",
+  "mktemp",
+]
+
+# Plugin-level settings: shared by every entry, edited under Settings → Plugins,
+# read anywhere via noctalia.getConfig(key).
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 2
+min = 2
+max = 15
+
+[[setting]]
+key = "currency"
+type = "select"
+label_key = "settings.currency.label"
+description_key = "settings.currency.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.currency.options.auto" },
+  { value = "usd", label_key = "settings.currency.options.usd" },
+  { value = "eur", label_key = "settings.currency.options.eur" },
+]
+
+# Headless background service: owns the fetch loop, publishes "usage" + "status".
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Bar tile: a pill showing the chosen rate-window utilization, colored by pace,
+# with a summary tooltip. Left click opens the panel; right click refreshes.
+[[widget]]
+id = "pill"
+entry = "widget.luau"
+
+  # Gesture defaults (user-editable in the bar's gesture settings). The script's
+  # onClick / onRightClick callbacks do the same thing when a binding is removed.
+  [widget.actions]
+  left = "panel-toggle jrohland/claudecode:popout"
+  right = "plugin jrohland/claudecode:service all refresh"
+
+  [[widget.setting]]
+  key = "pill_metric"
+  type = "select"
+  label_key = "settings.pill_metric.label"
+  description_key = "settings.pill_metric.description"
+  default = "five_hour"
+  options = [
+    { value = "five_hour", label_key = "settings.pill_metric.options.five_hour" },
+    { value = "seven_day", label_key = "settings.pill_metric.options.seven_day" },
+    { value = "both", label_key = "settings.pill_metric.options.both" },
+  ]
+
+  [[widget.setting]]
+  key = "pill_style"
+  type = "select"
+  label_key = "settings.pill_style.label"
+  description_key = "settings.pill_style.description"
+  default = "glyph_text"
+  options = [
+    { value = "glyph_text", label_key = "settings.pill_style.options.glyph_text" },
+    { value = "ring", label_key = "settings.pill_style.options.ring" },
+    { value = "ring_text", label_key = "settings.pill_style.options.ring_text" },
+  ]
+
+  # What rides beside the percentage. Describes the window the ring tracks (the
+  # 5-hour one when the metric is "both"), so the two never disagree.
+  [[widget.setting]]
+  key = "pill_extras"
+  type = "select"
+  label_key = "settings.pill_extras.label"
+  description_key = "settings.pill_extras.description"
+  default = "none"
+  options = [
+    { value = "none", label_key = "settings.pill_extras.options.none" },
+    { value = "countdown", label_key = "settings.pill_extras.options.countdown" },
+    { value = "pace", label_key = "settings.pill_extras.options.pace" },
+    { value = "both", label_key = "settings.pill_extras.options.both" },
+  ]
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+  default = true
+
+  # Ring geometry. Keep the diameter under the bar height or it gets clipped.
+  [[widget.setting]]
+  key = "ring_size"
+  type = "int"
+  label_key = "settings.ring_size.label"
+  description_key = "settings.ring_size.description"
+  default = 16
+  min = 10
+  max = 28
+
+  [[widget.setting]]
+  key = "ring_thickness"
+  type = "int"
+  label_key = "settings.ring_thickness.label"
+  default = 3
+  min = 1
+  max = 6
+
+  # An SVG needs literal hex and the plugin API has no role resolver, so ring.luau
+  # reads the palette files itself. Built-in palettes live inside the shell binary
+  # and cannot be read — these two are the fallback for that case.
+  [[widget.setting]]
+  key = "ring_color"
+  type = "color"
+  label_key = "settings.ring_color.label"
+  description_key = "settings.ring_color.description"
+  default = "#89B4FA"
+
+  [[widget.setting]]
+  key = "ring_track_color"
+  type = "color"
+  label_key = "settings.ring_track_color.label"
+  default = "#585B70"
+
+# Click panel: the DMS popout — rate windows, token columns, daily activity with
+# hover detail, per-model breakdown, all-time stats, profile selector. Attached to
+# the bar pill that opened it. (Id "popout": entry ids are unique across entry
+# types and the desktop tile already owns "panel".)
+[[panel]]
+id = "popout"
+entry = "panel.luau"
+width = 380
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+# Desktop tile: the same detail panel pinned to the desktop.
+[[desktop_widget]]
+id = "panel"
+entry = "desktop.luau"
+
+  [[desktop_widget.setting]]
+  key = "accent"
+  type = "color"
+  label_key = "settings.accent.label"
+  description_key = "settings.accent.description"
+  default = "primary"

@@ -41,7 +41,7 @@ def notify(repo, pull_request) -> int:
 
     pull_request.create_issue_comment(
         f"<!-- {NOTIFY_MARKER} -->\n"
-        f"CC @{author} — this pull request was automatically moved to draft until you have had a chance "
+        f"CC @{author}: this pull request was automatically moved to draft until you have had a chance "
         "to look at it. It will be marked ready for review automatically once you reply here."
     )
 

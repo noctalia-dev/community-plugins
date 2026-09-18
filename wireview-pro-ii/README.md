@@ -65,11 +65,13 @@ column without removing any alarm detail or action.
 Configure edits a deliberately small set of daemon-validated settings:
 
 - Fan mode, temperature source, and minimum/maximum duty
-- Immediate screen selection, plus backlight, sensor averaging, device logging
-  interval, and the default screen used after startup
+- Immediate screen selection, plus backlight, 0° or 180° screen orientation,
+  sensor averaging, device logging interval, and the default screen used after startup
 - Runtime daemon telemetry polling interval
 - Fault limits for temperature, total current, per-wire current, total power,
   conductor imbalance, and the imbalance minimum load
+
+![Device configuration with screen orientation selector](docs/screenshots/screen-orientation.png)
 
 The Faults view can clear each active or recorded alarm directly on the
 WireView device. An over-limit conductor also shows a compact clear action in

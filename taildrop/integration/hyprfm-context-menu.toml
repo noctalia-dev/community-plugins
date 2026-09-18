@@ -1,0 +1,17 @@
+# HyprFM context-menu integration
+#
+# Append this block to ~/.config/hyprfm/config.toml inside the existing
+# [context_menu] section (create the section if absent). It adds a
+# "Send via Taildrop…" entry to the right-click menu.
+#
+# %f is the selected item's absolute path, passed to the helper as a single
+# argv element (no shell). HyprFM runs the action once per selected item;
+# concurrent invocations of a multi-select are coalesced by the plugin into a
+# single dialog.
+#
+# Use the absolute path to the helper if ~/.local/bin isn't on HyprFM's PATH.
+
+[[context_menu.actions]]
+name = "Send via Taildrop…"
+command = "/home/you/.local/bin/noctalia-taildrop %f"
+types = ["*"]

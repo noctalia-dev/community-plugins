@@ -30,6 +30,7 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
         -- Each keyword redacts on a pass of its own, so `api_key_tokens` has this
         -- exemption taken back by the `key` pass.
         keepsReadings = word == "token",
+        quoted = "(" .. name .. "[\"']?%s*[:=]%s*)[\"'].*",
         -- name=value: query string, shell assignment, or the CLI's own TOML.
         assign = "(" .. name .. "%s*=%s*[\"']?)" .. SECRET_VALUE,
         -- name: value: an HTTP header or a JSON field. Captured rather than
@@ -37,8 +38,10 @@ for _, word in ipairs({ "key", "token", "secret", "password" }) do
         colon = "(" .. name .. "[\"']?%s*:%s*[\"']?)(" .. SECRET_VALUE .. ")",
     }
 end
-local BASIC_AUTH_PATTERN = "(" .. anyCase("authorization") .. "[\"']?%s*:%s*[\"']?"
-    .. anyCase("basic") .. "%s+)" .. SECRET_VALUE
+local HEADER_PATTERNS = {}
+for _, word in ipairs({ "authorization", "cookie" }) do
+    HEADER_PATTERNS[word] = "(" .. anyCase(word) .. "[\"']?%s*[:=]%s*).*"
+end
 
 -- A quota is not a credential, but the exemption stays narrow: short, digits
 -- only, and offered to labels that count tokens. The plural separates the two --
@@ -72,6 +75,11 @@ local function safeText(value)
 
     for _, secret in ipairs(SECRET_PATTERNS) do
         if lower:find(secret.word, 1, true) then
+            -- Fail closed on quoted diagnostics, including escaped quotes and
+            -- values cut by the length cap: omit the remainder of the line.
+            if text:find('"', 1, true) or text:find("'", 1, true) then
+                text = text:gsub(secret.quoted, "%1<redacted>")
+            end
             text = text:gsub(secret.assign, "%1<redacted>")
             text = text:gsub(secret.colon, secret.keepsReadings and redactColon or "%1<redacted>")
         end
@@ -81,8 +89,8 @@ local function safeText(value)
         text = text:gsub("([Bb][Ee][Aa][Rr][Ee][Rr]%s+)" .. SECRET_VALUE, "%1<redacted>")
     end
 
-    if lower:find("authorization", 1, true) and lower:find("basic", 1, true) then
-        text = text:gsub(BASIC_AUTH_PATTERN, "%1<redacted>")
+    for word, pattern in pairs(HEADER_PATTERNS) do
+        if lower:find(word, 1, true) then text = text:gsub(pattern, "%1<redacted>") end
     end
 
     -- Credentials in the userinfo half of a URL the CLI echoed back.
@@ -102,7 +110,21 @@ end
 local function scrub(value)
     if type(value) == "string" then return safeText(value) end
     if type(value) ~= "table" then return value end
-    for key, inner in pairs(value) do value[key] = scrub(inner) end
+    for key, inner in pairs(value) do
+        local sensitive = false
+        if type(key) == "string" then
+            local lower = key:lower()
+            sensitive = lower:find("authorization", 1, true) ~= nil
+                or lower:find("cookie", 1, true) ~= nil
+            for _, secret in ipairs(SECRET_PATTERNS) do
+                if lower:find(secret.word, 1, true)
+                    and not (secret.keepsReadings and isReading(key .. ":", tostring(inner))) then
+                    sensitive = true
+                end
+            end
+        end
+        if sensitive then value[key] = "<redacted>" else value[key] = scrub(inner) end
+    end
     return value
 end
 

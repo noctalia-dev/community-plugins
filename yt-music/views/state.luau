@@ -1,6 +1,7 @@
 local schema = require("../utils/schema.luau")
 local request = require("./actions.luau")
 local rerender = require("./rerender.luau")
+local const = require("../api/constants.luau")
 
 local data = schema.new()
 
@@ -22,6 +23,8 @@ local view = {
 
 local function logged_in()
 	return data.status == "ready"
+		or (data.cookie_count and data.cookie_count > 0)
+		or (noctalia.fileExists and noctalia.fileExists(const.COOKIE_PATH))
 end
 
 local function loading_track_id_ok(d)

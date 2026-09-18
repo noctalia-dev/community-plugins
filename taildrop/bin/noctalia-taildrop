@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""noctalia-taildrop — send selected files to a Tailscale device.
+
+Invoked from a file manager with one or more absolute file paths (substituted
+for %f / %F / $selected-file-paths / etc.). Validates every file, then hands
+them to the Taildrop plugin (Noctalia) as a single structured send request so
+the user picks a destination before anything is sent. No shell is used, so
+paths with spaces / quotes / newlines stay intact.
+
+Exit codes: 0 dispatched, 1 local validation/runtime error.
+"""
+import json
+import os
+import subprocess
+import sys
+import uuid
+
+PLUGIN_ENTRY = "carlocamacho/taildrop:service"
+PANEL_ID = "carlocamacho/taildrop:send"
+EVENT = "taildrop_send"
+MAX_PATH = 4096
+MAX_PATHS = 32
+
+
+def fail(msg):
+    print(f"noctalia-taildrop: {msg}", file=sys.stderr)
+    return 1
+
+
+def validate(item):
+    path = os.path.abspath(item)
+    if path != item and not os.path.isabs(item):
+        return None, f"path is not absolute: {item}"
+    if len(path) > MAX_PATH:
+        return None, "path too long"
+    if not os.path.exists(path):
+        return None, f"not found: {path}"
+    if not (os.path.isfile(path) or os.path.isdir(path)):
+        return None, f"not a file or folder: {path}"
+    if not os.access(path, os.R_OK):
+        return None, f"not readable: {path}"
+    return path, None
+
+
+def main(argv):
+    raw = argv[1:]
+    if not raw:
+        return fail("usage: noctalia-taildrop <absolute-file-path> [more absolute file paths ...]")
+    if len(raw) > MAX_PATHS:
+        return fail(f"too many paths (max {MAX_PATHS})")
+
+    paths = []
+    for item in raw:
+        path, err = validate(item)
+        if err is not None:
+            return fail(err)
+        paths.append(path)
+
+    payload = {
+        "v": 1,
+        "requestId": str(uuid.uuid4()),
+        "paths": paths,
+        "origin": "file_manager",
+    }
+    cmd = ["noctalia", "msg", "plugin", PLUGIN_ENTRY, "all", EVENT, json.dumps(payload)]
+    try:
+        r = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        return fail(f"cannot run 'noctalia': {exc}")
+    if r.returncode != 0:
+        detail = (r.stderr or r.stdout or "").strip()
+        return fail(f"dispatch failed: {detail or r.returncode}")
+
+    # Open (or bring forward) the send dialog. `panel-open` is idempotent and
+    # never toggles an already-open panel closed, unlike the plugin's own
+    # togglePanel. Best-effort: the request has already been dispatched.
+    try:
+        subprocess.run(["noctalia", "msg", "panel-open", PANEL_ID],
+                       check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        pass
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

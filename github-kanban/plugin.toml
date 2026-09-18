@@ -1,0 +1,689 @@
+id = "shangshui0302/github-kanban"
+name = "GitHub Kanban"
+version = "0.1.1"
+plugin_api = 24
+author = "Shangshui0302"
+license = "MIT"
+icon = "brand-github"
+description = "A read-only GitHub dashboard for activity, notifications, work, repositories, and Actions."
+tags = ["bar", "panel", "service", "development", "productivity", "network", "utility"]
+dependencies = ["gh", "xdg-open"]
+
+[[setting]]
+key = "refresh_interval_minutes"
+type = "select"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = "15"
+options = [
+  { value = "5", label_key = "settings.refresh_interval.options.five" },
+  { value = "15", label_key = "settings.refresh_interval.options.fifteen" },
+  { value = "30", label_key = "settings.refresh_interval.options.thirty" },
+]
+
+[[setting]]
+key = "default_dashboard"
+type = "select"
+label_key = "settings.general.default_dashboard.label"
+description_key = "settings.general.default_dashboard.description"
+default = "overview"
+options = [
+  { value = "overview", label_key = "panel.overview" },
+  { value = "notifications", label_key = "panel.notifications" },
+  { value = "work", label_key = "panel.activity" },
+  { value = "following", label_key = "panel.feed" },
+  { value = "repositories", label_key = "panel.repositories" },
+]
+
+[[setting]]
+key = "bar_display_mode"
+type = "select"
+label_key = "settings.general.bar_display_mode.label"
+description_key = "settings.general.bar_display_mode.description"
+default = "both"
+options = [
+  { value = "icon", label_key = "settings.general.bar_display_mode.options.icon" },
+  { value = "count", label_key = "settings.general.bar_display_mode.options.count" },
+  { value = "both", label_key = "settings.general.bar_display_mode.options.both" },
+]
+
+# Overview
+[[setting]]
+key = "show_overview"
+type = "bool"
+label_key = "settings.overview.show.label"
+description_key = "settings.overview.show.description"
+default = true
+
+# Notifications
+[[setting]]
+key = "show_notifications"
+type = "bool"
+label_key = "settings.notifications.show.label"
+description_key = "settings.notifications.show.description"
+default = true
+
+[[setting]]
+key = "notification_history_days"
+type = "int"
+label_key = "settings.notifications.history_days.label"
+description_key = "settings.notifications.history_days.description"
+default = 30
+min = 1
+max = 90
+step = 1
+visible_when = { key = "show_notifications", values = ["true"] }
+
+[[setting]]
+key = "notification_default_filter"
+type = "select"
+label_key = "settings.notifications.default_filter.label"
+description_key = "settings.notifications.default_filter.description"
+default = "unread"
+visible_when = { key = "show_notifications", values = ["true"] }
+options = [
+  { value = "all", label_key = "filter.all" },
+  { value = "unread", label_key = "filter.unread" },
+  { value = "read", label_key = "filter.read" },
+]
+
+# Activity
+[[setting]]
+key = "show_activity"
+type = "bool"
+label_key = "settings.activity.show.label"
+description_key = "settings.activity.show.description"
+default = true
+
+[[setting]]
+key = "activity_history_days"
+type = "int"
+label_key = "settings.activity.history_days.label"
+description_key = "settings.activity.history_days.description"
+default = 30
+min = 1
+max = 365
+step = 1
+visible_when = { key = "show_activity", values = ["true"] }
+
+[[setting]]
+key = "pr_default_filter"
+type = "select"
+label_key = "settings.activity.pr_default_filter.label"
+description_key = "settings.activity.pr_default_filter.description"
+default = "all"
+visible_when = { key = "show_activity", values = ["true"] }
+options = [
+  { value = "all", label_key = "filter.all" },
+  { value = "created", label_key = "filter.created_by_me" },
+  { value = "review", label_key = "filter.review_requested" },
+]
+
+[[setting]]
+key = "issue_default_filter"
+type = "select"
+label_key = "settings.activity.issue_default_filter.label"
+description_key = "settings.activity.issue_default_filter.description"
+default = "all"
+visible_when = { key = "show_activity", values = ["true"] }
+options = [
+  { value = "all", label_key = "filter.all" },
+  { value = "created", label_key = "filter.created_by_me" },
+  { value = "assigned", label_key = "filter.assigned_to_me" },
+]
+
+# Following
+[[setting]]
+key = "show_following"
+type = "bool"
+label_key = "settings.following.show.label"
+description_key = "settings.following.show.description"
+default = true
+
+[[setting]]
+key = "following_card_max_height"
+type = "int"
+label_key = "settings.following.card_max_height.label"
+description_key = "settings.following.card_max_height.description"
+default = 260
+min = 140
+max = 500
+step = 20
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_user_limit"
+type = "int"
+label_key = "settings.following.user_limit.label"
+description_key = "settings.following.user_limit.description"
+default = 4
+min = 1
+max = 12
+step = 1
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_events_per_user"
+type = "int"
+label_key = "settings.following.events_per_user.label"
+description_key = "settings.following.events_per_user.description"
+default = 30
+min = 1
+max = 30
+step = 1
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "starred_repository_limit"
+type = "int"
+label_key = "settings.following.starred_repository_limit.label"
+description_key = "settings.following.starred_repository_limit.description"
+default = 100
+min = 10
+max = 100
+step = 10
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_include_prereleases"
+type = "bool"
+label_key = "settings.following.include_prereleases.label"
+description_key = "settings.following.include_prereleases.description"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_hide_bots"
+type = "bool"
+label_key = "settings.following.hide_bots.label"
+description_key = "settings.following.hide_bots.description"
+default = false
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_stars"
+type = "bool"
+label_key = "settings.following.types.stars"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_pushes"
+type = "bool"
+label_key = "settings.following.types.pushes"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_issues"
+type = "bool"
+label_key = "settings.following.types.issues"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_pull_requests"
+type = "bool"
+label_key = "settings.following.types.pull_requests"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_releases"
+type = "bool"
+label_key = "settings.following.types.releases"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_forks"
+type = "bool"
+label_key = "settings.following.types.forks"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_show_other"
+type = "bool"
+label_key = "settings.following.types.other"
+default = true
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_ignored_users"
+type = "string_list"
+label_key = "settings.following.ignored_users.label"
+description_key = "settings.following.ignored_users.description"
+default = []
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_ignored_repositories"
+type = "string_list"
+label_key = "settings.following.ignored_repositories.label"
+description_key = "settings.following.ignored_repositories.description"
+default = []
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_history_days"
+type = "int"
+label_key = "settings.following.history_days.label"
+description_key = "settings.following.history_days.description"
+default = 30
+min = 1
+max = 30
+step = 1
+visible_when = { key = "show_following", values = ["true"] }
+
+# Repositories
+[[setting]]
+key = "show_repositories"
+type = "bool"
+label_key = "settings.repositories.show.label"
+description_key = "settings.repositories.show.description"
+default = true
+
+
+# Appearance · General
+[[setting]]
+key = "appearance_density"
+type = "select"
+label_key = "settings.appearance.appearance_density.label"
+description_key = "settings.appearance.appearance_density.description"
+default = "standard"
+options = [
+  { value = "compact", label_key = "settings.appearance.appearance_density.options.compact" },
+  { value = "standard", label_key = "settings.appearance.appearance_density.options.standard" },
+  { value = "comfortable", label_key = "settings.appearance.appearance_density.options.comfortable" },
+]
+
+[[setting]]
+key = "appearance_font_scale"
+type = "int"
+label_key = "settings.appearance.appearance_font_scale.label"
+description_key = "settings.appearance.appearance_font_scale.description"
+default = 100
+min = 80
+max = 130
+step = 5
+
+[[setting]]
+key = "appearance_card_radius"
+type = "int"
+label_key = "settings.appearance.appearance_card_radius.label"
+description_key = "settings.appearance.appearance_card_radius.description"
+default = 9
+min = 0
+max = 24
+step = 1
+
+[[setting]]
+key = "appearance_card_spacing"
+type = "int"
+label_key = "settings.appearance.appearance_card_spacing.label"
+description_key = "settings.appearance.appearance_card_spacing.description"
+default = 8
+min = 4
+max = 20
+step = 1
+
+[[setting]]
+key = "appearance_card_border"
+type = "select"
+label_key = "settings.appearance.appearance_card_border.label"
+description_key = "settings.appearance.appearance_card_border.description"
+default = "subtle"
+options = [
+  { value = "none", label_key = "settings.appearance.appearance_card_border.options.none" },
+  { value = "subtle", label_key = "settings.appearance.appearance_card_border.options.subtle" },
+  { value = "accent", label_key = "settings.appearance.appearance_card_border.options.accent" },
+]
+
+[[setting]]
+key = "appearance_card_background"
+type = "select"
+label_key = "settings.appearance.appearance_card_background.label"
+description_key = "settings.appearance.appearance_card_background.description"
+default = "tinted"
+options = [
+  { value = "transparent", label_key = "settings.appearance.appearance_card_background.options.transparent" },
+  { value = "tinted", label_key = "settings.appearance.appearance_card_background.options.tinted" },
+  { value = "solid", label_key = "settings.appearance.appearance_card_background.options.solid" },
+]
+
+[[setting]]
+key = "appearance_hover_effect"
+type = "select"
+label_key = "settings.appearance.appearance_hover_effect.label"
+description_key = "settings.appearance.appearance_hover_effect.description"
+default = "background"
+options = [
+  { value = "none", label_key = "settings.appearance.appearance_hover_effect.options.none" },
+  { value = "background", label_key = "settings.appearance.appearance_hover_effect.options.background" },
+  { value = "border", label_key = "settings.appearance.appearance_hover_effect.options.border" },
+]
+
+[[setting]]
+key = "appearance_secondary_text"
+type = "select"
+label_key = "settings.appearance.appearance_secondary_text.label"
+description_key = "settings.appearance.appearance_secondary_text.description"
+default = "truncate"
+options = [
+  { value = "full", label_key = "settings.appearance.appearance_secondary_text.options.full" },
+  { value = "truncate", label_key = "settings.appearance.appearance_secondary_text.options.truncate" },
+  { value = "hidden", label_key = "settings.appearance.appearance_secondary_text.options.hidden" },
+]
+
+[[setting]]
+key = "appearance_time_format"
+type = "select"
+label_key = "settings.appearance.appearance_time_format.label"
+description_key = "settings.appearance.appearance_time_format.description"
+default = "relative"
+options = [
+  { value = "relative", label_key = "settings.appearance.appearance_time_format.options.relative" },
+  { value = "local", label_key = "settings.appearance.appearance_time_format.options.local" },
+  { value = "iso", label_key = "settings.appearance.appearance_time_format.options.iso" },
+]
+
+[[setting]]
+key = "appearance_avatar_size"
+type = "select"
+label_key = "settings.appearance.appearance_avatar_size.label"
+description_key = "settings.appearance.appearance_avatar_size.description"
+default = "medium"
+options = [
+  { value = "small", label_key = "settings.appearance.appearance_avatar_size.options.small" },
+  { value = "medium", label_key = "settings.appearance.appearance_avatar_size.options.medium" },
+  { value = "large", label_key = "settings.appearance.appearance_avatar_size.options.large" },
+]
+
+[[setting]]
+key = "appearance_avatar_shape"
+type = "select"
+label_key = "settings.appearance.appearance_avatar_shape.label"
+description_key = "settings.appearance.appearance_avatar_shape.description"
+default = "circle"
+options = [
+  { value = "circle", label_key = "settings.appearance.appearance_avatar_shape.options.circle" },
+  { value = "rounded", label_key = "settings.appearance.appearance_avatar_shape.options.rounded" },
+]
+
+[[setting]]
+key = "appearance_icon_style"
+type = "select"
+label_key = "settings.appearance.appearance_icon_style.label"
+description_key = "settings.appearance.appearance_icon_style.description"
+default = "theme"
+options = [
+  { value = "color", label_key = "settings.appearance.appearance_icon_style.options.color" },
+  { value = "theme", label_key = "settings.appearance.appearance_icon_style.options.theme" },
+  { value = "muted", label_key = "settings.appearance.appearance_icon_style.options.muted" },
+]
+
+[[setting]]
+key = "appearance_show_empty_illustration"
+type = "bool"
+label_key = "settings.appearance.appearance_show_empty_illustration.label"
+description_key = "settings.appearance.appearance_show_empty_illustration.description"
+default = true
+
+[[setting]]
+key = "appearance_animations"
+type = "bool"
+label_key = "settings.appearance.appearance_animations.label"
+description_key = "settings.appearance.appearance_animations.description"
+default = true
+
+# Appearance · Heatmap
+[[setting]]
+key = "heatmap_cell_size"
+type = "int"
+label_key = "settings.appearance.heatmap_cell_size.label"
+description_key = "settings.appearance.heatmap_cell_size.description"
+default = 13
+min = 8
+max = 16
+step = 1
+
+[[setting]]
+key = "heatmap_cell_gap"
+type = "int"
+label_key = "settings.appearance.heatmap_cell_gap.label"
+description_key = "settings.appearance.heatmap_cell_gap.description"
+default = 1
+min = 1
+max = 4
+step = 1
+
+[[setting]]
+key = "heatmap_cell_radius"
+type = "int"
+label_key = "settings.appearance.heatmap_cell_radius.label"
+description_key = "settings.appearance.heatmap_cell_radius.description"
+default = 2
+min = 0
+max = 4
+step = 1
+
+[[setting]]
+key = "heatmap_levels"
+type = "select"
+label_key = "settings.appearance.heatmap_levels.label"
+description_key = "settings.appearance.heatmap_levels.description"
+default = "5"
+options = [
+  { value = "4", label_key = "settings.appearance.heatmap_levels.options.four" },
+  { value = "5", label_key = "settings.appearance.heatmap_levels.options.five" },
+]
+
+[[setting]]
+key = "heatmap_show_months"
+type = "bool"
+label_key = "settings.appearance.heatmap_show_months.label"
+default = true
+
+[[setting]]
+key = "heatmap_show_weekdays"
+type = "bool"
+label_key = "settings.appearance.heatmap_show_weekdays.label"
+default = true
+
+[[setting]]
+key = "heatmap_show_total"
+type = "bool"
+label_key = "settings.appearance.heatmap_show_total.label"
+default = true
+
+[[setting]]
+key = "heatmap_show_legend"
+type = "bool"
+label_key = "settings.appearance.heatmap_show_legend.label"
+default = true
+
+[[setting]]
+key = "heatmap_empty_style"
+type = "select"
+label_key = "settings.appearance.heatmap_empty_style.label"
+description_key = "settings.appearance.heatmap_empty_style.description"
+default = "background"
+options = [
+  { value = "background", label_key = "settings.appearance.heatmap_empty_style.options.background" },
+  { value = "outline", label_key = "settings.appearance.heatmap_empty_style.options.outline" },
+]
+
+[[setting]]
+key = "heatmap_color_mode"
+type = "select"
+label_key = "settings.appearance.heatmap_color_mode.label"
+description_key = "settings.appearance.heatmap_color_mode.description"
+default = "noctalia"
+options = [
+  { value = "noctalia", label_key = "settings.appearance.heatmap_color_mode.options.noctalia" },
+  { value = "github", label_key = "settings.appearance.heatmap_color_mode.options.github" },
+  { value = "custom", label_key = "settings.appearance.heatmap_color_mode.options.custom" },
+]
+
+[[setting]]
+key = "heatmap_custom_level_0"
+type = "string"
+label_key = "settings.appearance.heatmap_custom_level_0.label"
+description_key = "settings.appearance.heatmap_custom_level_0.description"
+default = ""
+visible_when = { key = "heatmap_color_mode", values = ["custom"] }
+
+[[setting]]
+key = "heatmap_custom_level_1"
+type = "string"
+label_key = "settings.appearance.heatmap_custom_level_1.label"
+description_key = "settings.appearance.heatmap_custom_level_0.description"
+default = ""
+visible_when = { key = "heatmap_color_mode", values = ["custom"] }
+
+[[setting]]
+key = "heatmap_custom_level_2"
+type = "string"
+label_key = "settings.appearance.heatmap_custom_level_2.label"
+description_key = "settings.appearance.heatmap_custom_level_0.description"
+default = ""
+visible_when = { key = "heatmap_color_mode", values = ["custom"] }
+
+[[setting]]
+key = "heatmap_custom_level_3"
+type = "string"
+label_key = "settings.appearance.heatmap_custom_level_3.label"
+description_key = "settings.appearance.heatmap_custom_level_0.description"
+default = ""
+visible_when = { key = "heatmap_color_mode", values = ["custom"] }
+
+[[setting]]
+key = "heatmap_custom_level_4"
+type = "string"
+label_key = "settings.appearance.heatmap_custom_level_4.label"
+description_key = "settings.appearance.heatmap_custom_level_0.description"
+default = ""
+visible_when = { key = "heatmap_color_mode", values = ["custom"] }
+
+# Appearance · Dashboard details
+[[setting]]
+key = "notification_unread_dot"
+type = "bool"
+label_key = "settings.appearance.notification_unread_dot.label"
+default = true
+visible_when = { key = "show_notifications", values = ["true"] }
+
+[[setting]]
+key = "notification_unread_border"
+type = "bool"
+label_key = "settings.appearance.notification_unread_border.label"
+default = true
+visible_when = { key = "show_notifications", values = ["true"] }
+
+[[setting]]
+key = "notification_read_opacity"
+type = "int"
+label_key = "settings.appearance.notification_read_opacity.label"
+description_key = "settings.appearance.notification_read_opacity.description"
+default = 100
+min = 40
+max = 100
+step = 5
+visible_when = { key = "show_notifications", values = ["true"] }
+
+[[setting]]
+key = "activity_show_status_badges"
+type = "bool"
+label_key = "settings.appearance.activity_show_status_badges.label"
+default = true
+visible_when = { key = "show_activity", values = ["true"] }
+
+[[setting]]
+key = "activity_show_type_icons"
+type = "bool"
+label_key = "settings.appearance.activity_show_type_icons.label"
+default = true
+visible_when = { key = "show_activity", values = ["true"] }
+
+[[setting]]
+key = "activity_repository_emphasis"
+type = "bool"
+label_key = "settings.appearance.activity_repository_emphasis.label"
+default = true
+visible_when = { key = "show_activity", values = ["true"] }
+
+[[setting]]
+key = "following_event_spacing"
+type = "int"
+label_key = "settings.appearance.following_event_spacing.label"
+default = 5
+min = 2
+max = 12
+step = 1
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "following_content_lines"
+type = "int"
+label_key = "settings.appearance.following_content_lines.label"
+default = 2
+min = 1
+max = 5
+step = 1
+visible_when = { key = "show_following", values = ["true"] }
+
+[[setting]]
+key = "repositories_layout"
+type = "select"
+label_key = "settings.appearance.repositories_layout.label"
+default = "list"
+visible_when = { key = "show_repositories", values = ["true"] }
+options = [
+  { value = "list", label_key = "settings.appearance.repositories_layout.options.list" },
+  { value = "grid", label_key = "settings.appearance.repositories_layout.options.grid" },
+]
+
+[[setting]]
+key = "repositories_show_language"
+type = "bool"
+label_key = "settings.appearance.repositories_show_language.label"
+default = true
+visible_when = { key = "show_repositories", values = ["true"] }
+
+[[setting]]
+key = "repositories_show_stats"
+type = "bool"
+label_key = "settings.appearance.repositories_show_stats.label"
+default = true
+visible_when = { key = "show_repositories", values = ["true"] }
+
+[[setting]]
+key = "overview_stats_layout"
+type = "select"
+label_key = "settings.appearance.overview_stats_layout.label"
+default = "columns4"
+visible_when = { key = "show_overview", values = ["true"] }
+options = [
+  { value = "columns4", label_key = "settings.appearance.overview_stats_layout.options.columns4" },
+  { value = "grid", label_key = "settings.appearance.overview_stats_layout.options.grid" },
+  { value = "compact", label_key = "settings.appearance.overview_stats_layout.options.compact" },
+]
+
+[[widget]]
+id = "github"
+entry = "widget.luau"
+
+[[panel]]
+id = "kanban"
+entry = "panel.luau"
+width = 860
+height = 620
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[service]]
+id = "sync"
+entry = "service.luau"

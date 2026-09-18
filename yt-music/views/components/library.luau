@@ -2,6 +2,7 @@ local theme = require("../../utils/theme.luau")
 local state = require("../state.luau")
 local common = require("../common.luau")
 local rerender = require("../rerender.luau")
+local request = require("../actions.luau")
 
 local function build_library()
 	local data = state.data
@@ -10,6 +11,7 @@ local function build_library()
 
 	local filter = view.library_filter or "all"
 
+	local is_refreshing_lib = (data.refreshing_library == true)
 	table.insert(
 		child,
 		ui.row({ key = "lib-head", align = "center", justify = "space_between" }, {
@@ -20,6 +22,16 @@ local function build_library()
 					fontSize = theme.fontTitle,
 					color = "on_surface_variant",
 				}),
+			}),
+			ui.button({
+				key = "btn-sync-lib-head",
+				glyph = is_refreshing_lib and "loader" or "refresh",
+				variant = "secondary",
+				controlSize = "md",
+				tooltip = is_refreshing_lib and "Refreshing library..." or "Refresh library",
+				onClick = is_refreshing_lib and nil or function()
+					request("refresh_library", {})
+				end,
 			}),
 		})
 	)

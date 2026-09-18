@@ -53,6 +53,36 @@ function M.saysError(value)
     return tostring(value or ""):lower():find("error:") ~= nil
 end
 
+function M.transportError(value)
+    return tostring(value or ""):lower():match("http%s*:?%s*%d%d%d") ~= nil
+end
+
+local function terminalAuthText(value)
+    local text = tostring(value or ""):lower()
+    local status = text:match("http%s*:?%s*401") ~= nil
+        or text:match("http%s*:?%s*403") ~= nil
+    local rejected = text:find("reject", 1, true) ~= nil
+        or text:find("invalid", 1, true) ~= nil
+        or text:find("expired", 1, true) ~= nil
+        or text:find("forbidden", 1, true) ~= nil
+        or text:find("unauthorized", 1, true) ~= nil
+    return status and text:find("auth", 1, true) ~= nil and rejected
+end
+
+function M.terminalAuth(entry)
+    if type(entry) ~= "table" then return false end
+    if terminalAuthText(entry.error) then return true end
+    local sections = type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text"
+            and terminalAuthText(tostring(section.label or "") .. " "
+                .. tostring(section.value or "")) then
+            return true
+        end
+    end
+    return false
+end
+
 -- A provider the CLI is no longer reading: the entry either fails outright, or
 -- keeps serving cached numbers with a warning saying why they stopped moving.
 -- Both mean the readings are a record, not a gauge.
@@ -73,7 +103,23 @@ function M.warning(entry)
 end
 
 function M.unavailable(entry)
-    return M.warning(entry) ~= ""
+    if type(entry) ~= "table" then return true end
+    if entry.status == "error" or M.warning(entry) ~= "" then return true end
+    if entry.stale ~= true then return false end
+    local sections = type(entry.sections) == "table" and entry.sections or {}
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text"
+            and (M.transportError(section.label) or M.transportError(section.value)) then
+            return true
+        end
+    end
+    return false
+end
+
+-- A parser failure says nothing about the account's availability.
+function M.readFailure(entry)
+    return type(entry) == "table" and entry.status == "error"
+        and tostring(entry.error or ""):find("^schema mismatch:") ~= nil
 end
 
 -- Anything else in the `error` slot means no failure.
@@ -118,10 +164,26 @@ local function formatDuration(seconds)
     return string.format("%dm", rest)
 end
 
+local function formatFixedDuration(seconds)
+    if seconds <= 0 then return noctalia.tr("ui.now") end
+    local minutes = math.floor(seconds / 60)
+    local days = math.floor(minutes / 1440)
+    local hours = math.floor((minutes % 1440) / 60)
+    local rest = minutes % 60
+    if days > 0 then return string.format("%dd %dh", days, hours) end
+    return string.format("%dh %02dm", hours, rest)
+end
+
 function M.countdown(section)
     local at = M.parseIso(section and section.reset_at)
     if at == nil then return "" end
     return formatDuration(at - os.time())
+end
+
+function M.fixedCountdown(section)
+    local at = M.parseIso(section and section.reset_at)
+    if at == nil then return "" end
+    return formatFixedDuration(at - os.time())
 end
 
 -- Where the countdown lands: "14:20" today, "Sat 14:20" past midnight, a date
@@ -158,9 +220,142 @@ function M.pace(detail)
     return last, points, word
 end
 
+-- Kept next to the role both entries colour with, so the tiers cannot be edited
+-- in one file and forgotten in the other. `low` falls through to 0, like
+-- anything the CLI adds later.
+M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
+
+local function isCritical(metric)
+    if type(metric) ~= "table" then return false end
+    local sev = tostring(metric.severity or "")
+    local pct = tonumber(metric.percent) or 0
+    return sev == "critical" or pct >= 100
+end
+M.isCritical = isCritical
+
+-- Severity is a warning, not proof of exhaustion. Only a full quota blocks use.
+function M.blockingMetric(metrics)
+    local blocking = nil
+    for _, metric in ipairs(metrics or {}) do
+        if type(metric) == "table" and (tonumber(metric.percent) or 0) >= 100 then
+            local reset = M.parseIso(metric.reset_at) or -1
+            local previous = M.parseIso(blocking and blocking.reset_at) or -1
+            if blocking == nil or reset > previous then blocking = metric end
+        end
+    end
+    return blocking
+end
+
+function M.headline(entry)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
+    local metrics = entry.metrics
+    if #metrics == 0 then return nil end
+
+    local blocking = M.blockingMetric(metrics)
+    if blocking ~= nil then return blocking end
+
+    -- 1. For Antigravity: always follow active session usage across models
+    if M.baseProvider(entry.id) == "antigravity" then
+        local seen = {}
+        local best = nil
+        local bestPct = -1
+        for _, metric in ipairs(metrics) do
+            if type(metric) == "table" and metric.label ~= nil and metric.label ~= "" then
+                local model = tostring(metric.label)
+                if not seen[model] then
+                    seen[model] = true
+                    local pct = tonumber(metric.percent) or 0
+                    if pct > bestPct then
+                        best = metric
+                        bestPct = pct
+                    end
+                end
+            end
+        end
+        if best ~= nil then return best end
+    end
+
+    -- Otherwise keep the primary window selected by the CLI.
+    for _, metric in ipairs(metrics) do
+        if type(metric) == "table" then return metric end
+    end
+    return nil
+end
+
+function M.modelGlyph(label)
+    local lower = tostring(label or ""):lower()
+    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return "robot" end
+    if lower:find("gemini", 1, true) then return "brand-google" end
+    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "brand-openai" end
+    return "sparkles"
+end
+
+function M.modelDisplayName(label)
+    local lower = tostring(label or ""):lower()
+    if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return tostring(label or "") end
+    if lower:find("gemini", 1, true) then return "Gemini" end
+    if lower:find("gpt", 1, true) or lower:find("openai", 1, true) then return "GPT" end
+    return tostring(label or "")
+end
+
+function M.modelHeadlines(entry)
+    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return {} end
+    if M.baseProvider(entry.id) ~= "antigravity" then return {} end
+
+    local order = {}
+    local byModel = {}
+    for _, metric in ipairs(entry.metrics) do
+        if type(metric) == "table" and metric.label ~= nil and metric.label ~= "" then
+            local model = tostring(metric.label)
+            if byModel[model] == nil then
+                byModel[model] = {}
+                order[#order + 1] = model
+            end
+            byModel[model][#byModel[model] + 1] = metric
+        end
+    end
+
+    local result = {}
+    for _, model in ipairs(order) do
+        local modelMetrics = byModel[model]
+        local sessionMetric = modelMetrics[1]
+        local blockingMetric = M.blockingMetric(modelMetrics)
+        if sessionMetric ~= nil then
+            result[#result + 1] = {
+                model = model,
+                displayName = M.modelDisplayName(model),
+                glyph = M.modelGlyph(model),
+                metric = sessionMetric,
+                metrics = modelMetrics,
+                blockingMetric = blockingMetric,
+            }
+        end
+    end
+    return result
+end
+
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
-    return report.entries
+    local visible, positions = {}, {}
+    for _, entry in ipairs(report.entries) do
+        if type(entry) == "table" and not M.terminalAuth(entry)
+            and (not M.unavailable(entry) or M.readFailure(entry)) then
+            visible[#visible + 1] = entry
+            positions[entry] = #visible
+        end
+    end
+    table.sort(visible, function(a, b)
+        local aMetric = M.headline(a)
+        local bMetric = M.headline(b)
+        local aRank = M.SEVERITY_RANK[tostring(aMetric and aMetric.severity or "")] or 0
+        local bRank = M.SEVERITY_RANK[tostring(bMetric and bMetric.severity or "")] or 0
+        if aRank ~= bRank then return aRank > bRank end
+        local aPercent = type(aMetric) == "table" and tonumber(aMetric.percent) or -1
+        local bPercent = type(bMetric) == "table" and tonumber(bMetric.percent) or -1
+        if aPercent ~= bPercent then return aPercent > bPercent end
+        return positions[a] < positions[b]
+    end)
+    return visible
 end
 
 -- A provider can report more than it was given, so clamp before this becomes a
@@ -171,17 +366,6 @@ function M.ratio(percent)
     if value > 1 then return 1 end
     return value
 end
-
-function M.headline(entry)
-    if type(entry) ~= "table" or type(entry.metrics) ~= "table" then return nil end
-    local first = entry.metrics[1]
-    return type(first) == "table" and first or nil
-end
-
--- Kept next to the role both entries colour with, so the tiers cannot be edited
--- in one file and forgotten in the other. `low` falls through to 0, like
--- anything the CLI adds later.
-M.SEVERITY_RANK = { critical = 3, high = 2, mid = 1 }
 
 -- The CLI tiers every percentage; copying its thresholds here would be a second
 -- source of truth. `calm` is for when it raised nothing.

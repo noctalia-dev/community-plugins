@@ -868,30 +868,45 @@ end
 local function extractLuaStringLiterals(expr)
   local literals = {}
   local index = 1
-  while index <= #expr do
-    local char = expr:sub(index, index)
-    if char == '"' or char == "'" then
-      local quote = char
-      index += 1
+  local len = #expr
+  while index <= len do
+    local q1 = expr:find('"', index, true)
+    local q2 = expr:find("'", index, true)
+    if not q1 and not q2 then
+      break
+    end
+    local quotePos = (q1 and q2) and math.min(q1, q2) or (q1 or q2)
+    local quote = expr:sub(quotePos, quotePos)
+    local closing = expr:find(quote, quotePos + 1, true)
+    if not closing then
+      break
+    end
+    local segment = expr:sub(quotePos + 1, closing - 1)
+    if segment:find("\\", 1, true) == nil then
+      table.insert(literals, segment)
+      index = closing + 1
+    else
       local value = {}
       local escaped = false
-      while index <= #expr do
-        local c = expr:sub(index, index)
+      local i = quotePos + 1
+      while i <= len do
+        local c = expr:sub(i, i)
         if escaped then
           table.insert(value, c)
           escaped = false
         elseif c == "\\" then
           escaped = true
         elseif c == quote then
+          i += 1
           break
         else
           table.insert(value, c)
         end
-        index += 1
+        i += 1
       end
       table.insert(literals, table.concat(value))
+      index = i
     end
-    index += 1
   end
   return literals
 end
@@ -901,49 +916,60 @@ local function scanHyprLuaContent(content, sourceFile, context)
   local includes = {}
   local pendingDescription = false
 
-  for rawLine in (content .. "\n"):gmatch("(.-)\r?\n") do
-    local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
-    if heading ~= nil and heading ~= "" then
-      category = heading
-    end
-
-    local code = rawLine:gsub("%-%-.*$", "")
-    local module = code:match('require%s*%(%s*"([^"]+)"')
-      or code:match("require%s*%(%s*'([^']+)'")
-      or code:match('require%s+"([^"]+)"')
-      or code:match("require%s+'([^']+)'")
-    if module ~= nil then
-      local modulePath = module:gsub("%.", "/") .. ".lua"
-      table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
-    end
-
-    local rhs = code:match('description%s*=%s*(.*)$') or code:match('desc%s*=%s*(.*)$')
-    if rhs ~= nil or pendingDescription then
-      local expr = rhs or code
-      local literals = extractLuaStringLiterals(expr)
-      local nonEmpty = {}
-      for _, str in ipairs(literals) do
-        local cleaned = trim(str)
-        if cleaned ~= "" then
-          table.insert(nonEmpty, str)
-        end
+  for rawLine in content:gmatch("[^\r\n]+") do
+    local commentIndex = rawLine:find("--", 1, true)
+    if commentIndex ~= nil then
+      local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
+      if heading ~= nil and heading ~= "" then
+        category = heading
       end
+    end
 
-      if #nonEmpty > 0 then
-        pendingDescription = false
-        local combined = table.concat(nonEmpty)
-        local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
-        local kind = hasConcat and "prefix" or "exact"
-        local cat = category ~= "" and category or "Other"
+    local code = rawLine
+    if commentIndex ~= nil then
+      code = rawLine:sub(1, commentIndex - 1)
+    end
 
-        table.insert(context.rules, { kind = kind, value = combined, category = cat })
-        for _, piece in ipairs(nonEmpty) do
-          if piece ~= combined then
-            table.insert(context.rules, { kind = "exact", value = piece, category = cat })
+    if code:find("require", 1, true) ~= nil then
+      local module = code:match('require%s*%(%s*"([^"]+)"')
+        or code:match("require%s*%(%s*'([^']+)'")
+        or code:match('require%s+"([^"]+)"')
+        or code:match("require%s+'([^']+)'")
+      if module ~= nil then
+        local modulePath = module:gsub("%.", "/") .. ".lua"
+        table.insert(includes, { path = pathJoin(context.luaRoot, modulePath), optional = false })
+      end
+    end
+
+    if code:find("desc", 1, true) ~= nil or pendingDescription then
+      local rhs = code:match('description%s*=%s*(.*)$') or code:match('desc%s*=%s*(.*)$')
+      if rhs ~= nil or pendingDescription then
+        local expr = rhs or code
+        local literals = extractLuaStringLiterals(expr)
+        local nonEmpty = {}
+        for _, str in ipairs(literals) do
+          local cleaned = trim(str)
+          if cleaned ~= "" then
+            table.insert(nonEmpty, str)
           end
         end
-      elseif rhs ~= nil and #literals == 0 then
-        pendingDescription = true
+
+        if #nonEmpty > 0 then
+          pendingDescription = false
+          local combined = table.concat(nonEmpty)
+          local hasConcat = code:find("..", 1, true) ~= nil or (rhs ~= nil and rhs:find("..", 1, true) ~= nil)
+          local kind = hasConcat and "prefix" or "exact"
+          local cat = category ~= "" and category or "Other"
+
+          table.insert(context.rules, { kind = kind, value = combined, category = cat })
+          for _, piece in ipairs(nonEmpty) do
+            if piece ~= combined then
+              table.insert(context.rules, { kind = "exact", value = piece, category = cat })
+            end
+          end
+        elseif rhs ~= nil and #literals == 0 then
+          pendingDescription = true
+        end
       end
     end
   end
@@ -1030,35 +1056,50 @@ local function modifiersFromMask(mask)
   return result
 end
 
-local function parseHyprJson(raw, rules)
+local function hyprBindingFromEntry(entry)
+  if type(entry) ~= "table" then return nil end
+  local description = entry.has_description == false and "" or (entry.description or "")
+  local key = entry.key or ""
+  if key == "" and tonumber(entry.keycode) ~= nil and tonumber(entry.keycode) ~= 0 then
+    key = "code:" .. tostring(entry.keycode)
+  end
+  local dispatcher = entry.dispatcher or ""
+  local argument = entry.arg or ""
+  if key == "" or dispatcher == "" then return nil end
+  local binding = {
+    compositor = "hyprland",
+    bindingType = entry.mouse == true and "bindm" or "bind",
+    modifiers = modifiersFromMask(entry.modmask),
+    key = key,
+    action = trim(dispatcher .. " " .. argument),
+    description = description,
+    category = "",
+    sourceFile = "hyprctl binds -j",
+    sourceLine = 0,
+    submap = entry.submap or "",
+  }
+  addBinding({}, binding)
+  return binding
+end
+
+local function parseHyprJsonEntries(raw)
   local decoded, err = noctalia.json.decode(raw)
   if type(decoded) ~= "table" then
     return nil, err or "Invalid hyprctl JSON"
   end
+  return decoded, nil
+end
+
+local function parseHyprJson(raw, rules)
+  local decoded, err = parseHyprJsonEntries(raw)
+  if decoded == nil then return nil, err end
   local result = {}
   for _, entry in ipairs(decoded) do
-    if type(entry) == "table" then
-      local description = entry.has_description == false and "" or (entry.description or "")
-      local key = entry.key or ""
-      if key == "" and tonumber(entry.keycode) ~= nil and tonumber(entry.keycode) ~= 0 then
-        key = "code:" .. tostring(entry.keycode)
-      end
-      local dispatcher = entry.dispatcher or ""
-      local argument = entry.arg or ""
-      if key ~= "" and dispatcher ~= "" then
-        addBinding(result, {
-          compositor = "hyprland",
-          bindingType = entry.mouse == true and "bindm" or "bind",
-          modifiers = modifiersFromMask(entry.modmask),
-          key = key,
-          action = trim(dispatcher .. " " .. argument),
-          description = description,
-          category = description ~= "" and categoryFromHyprRules(description, rules) or "",
-          sourceFile = "hyprctl binds -j",
-          sourceLine = 0,
-          submap = entry.submap or "",
-        })
-      end
+    local binding = hyprBindingFromEntry(entry)
+    if binding ~= nil then
+      binding.category = binding.description ~= "" and categoryFromHyprRules(binding.description, rules) or ""
+      binding.baseCategory = binding.category
+      table.insert(result, binding)
     end
   end
   return result, nil
@@ -1451,33 +1492,151 @@ noctalia.state.watch(PARSE_STEP_KEY, function(value)
   parseStep()
 end)
 
-local function refreshHyprLua(generation, request)
-  local scan = scanHyprLua(request.root)
-  if not noctalia.commandExists("hyprctl") then
-    finishRefresh(generation, request, {}, scan.warnings, tr("hyprctl_missing"), scan)
+-- The Hyprland Lua refresh is staged across several state-watch callbacks:
+-- one ~25 ms Luau CPU budget cannot cover decoding the full `hyprctl binds -j`
+-- payload, building every binding, running the Lua category scan, categorizing,
+-- and writing the cache in a single callback — on mid-size configs the callback
+-- is killed mid-flight and the panel is left on "Reading keybinds..." forever
+-- (#606, #663). scheduleHyprStep pings HYPR_STEP_KEY after each phase (decode,
+-- each HYPR_BINDING_SLICE-sized build/categorize slice, scan, finish), and each
+-- state-watch callback continues the job with a fresh budget window.
+local HYPR_STEP_KEY = "keybind-cheatsheet.hypr-step"
+local HYPR_BINDING_SLICE = 16
+local hyprJob = nil
+local hyprStepCounter = 0
+
+local function scheduleHyprStep(job, raw)
+  hyprStepCounter += 1
+  local value = { generation = job.generation, request = job.request, step = hyprStepCounter }
+  if raw ~= nil then value.raw = raw end
+  noctalia.state.set(HYPR_STEP_KEY, value)
+end
+
+local function finishHyprJob(job)
+  if job.generation ~= refreshGeneration or hyprJob ~= job then return end
+  local scan = job.scan
+  local warnings = scan ~= nil and scan.warnings or {}
+  local sourceSnapshot = scan
+  local result = job.bindings or {}
+  local err = job.error
+  hyprJob = nil
+  noctalia.state.set(HYPR_STEP_KEY, nil)
+  finishRefresh(job.generation, job.request, result, warnings, err, sourceSnapshot)
+end
+
+local function hyprStep(value)
+  local job = hyprJob
+  if job == nil or type(value) ~= "table"
+    or value.generation ~= refreshGeneration
+    or value.generation ~= job.generation
+    or value.step ~= hyprStepCounter
+    or not requestsMatch(value.request, job.request) then
     return
   end
 
-  local accepted = noctalia.runAsync("hyprctl binds -j", function(result)
-    if generation ~= refreshGeneration then return end
-    if result.exitCode ~= 0 or result.timedOut then
-      local message = trim(result.stderr)
-      finishRefresh(
-        generation,
-        request,
-        {},
-        scan.warnings,
-        message ~= "" and message or tr("hyprctl_failed"),
-        scan
-      )
+  if job.phase == "decode" then
+    job.raw = value.raw or ""
+    if job.result.exitCode ~= 0 or job.result.timedOut then
+      job.error = trim(job.result.stderr)
+      if job.error == "" then job.error = tr("hyprctl_failed") end
+      job.phase = "scan"
+      scheduleHyprStep(job)
       return
     end
-    local parsed, err = parseHyprJson(result.stdout, scan.rules)
-    finishRefresh(generation, request, parsed or {}, scan.warnings, err, scan)
+    local decoded, err = parseHyprJsonEntries(job.raw)
+    if decoded == nil then
+      job.error = err
+      job.phase = "scan"
+      scheduleHyprStep(job)
+      return
+    end
+    job.entries = decoded
+    job.raw = nil
+    job.index = 1
+    job.bindings = {}
+    job.phase = "build"
+  end
+
+  if job.phase == "build" then
+    local limit = math.min(#job.entries, job.index + HYPR_BINDING_SLICE - 1)
+    while job.index <= limit do
+      local binding = hyprBindingFromEntry(job.entries[job.index])
+      if binding ~= nil then table.insert(job.bindings, binding) end
+      job.index += 1
+    end
+    if job.index <= #job.entries then
+      scheduleHyprStep(job)
+      return
+    end
+    job.phase = "scan"
+    scheduleHyprStep(job)
+    return
+  end
+
+  if job.phase == "scan" then
+    -- Whole-config scan gets its own budget window (this is what
+    -- blew up on large Lua configs in #606).
+    job.scan = scanHyprLua(job.request.root)
+    if job.error ~= nil then
+      job.bindings = {}
+      job.phase = "finish"
+      scheduleHyprStep(job)
+      return
+    end
+    job.index = 1
+    job.phase = "categorize"
+    scheduleHyprStep(job)
+    return
+  end
+
+  if job.phase == "categorize" then
+    local bindings = job.bindings or {}
+    local limit = math.min(#bindings, job.index + HYPR_BINDING_SLICE - 1)
+    while job.index <= limit do
+      local binding = bindings[job.index]
+      if binding ~= nil and binding.description ~= "" then
+        binding.category = categoryFromHyprRules(binding.description, job.scan.rules)
+        binding.baseCategory = binding.category
+      end
+      job.index += 1
+    end
+    if job.index <= #bindings then
+      scheduleHyprStep(job)
+      return
+    end
+    job.phase = "finish"
+    scheduleHyprStep(job)
+    return
+  end
+
+  if job.phase == "finish" then
+    finishHyprJob(job)
+  end
+end
+
+noctalia.state.watch(HYPR_STEP_KEY, hyprStep)
+
+local function refreshHyprLua(generation, request)
+  if not noctalia.commandExists("hyprctl") then
+    finishRefresh(generation, request, {}, {}, tr("hyprctl_missing"), nil)
+    return
+  end
+
+  -- The completion callback only stashes the raw output; parsing continues
+  -- in the staged HYPR_STEP_KEY callbacks above (fresh budget per phase).
+  local accepted = noctalia.runAsync("hyprctl binds -j", function(result)
+    if generation ~= refreshGeneration then return end
+    hyprJob = {
+      generation = generation,
+      request = request,
+      result = result,
+      phase = "decode",
+    }
+    scheduleHyprStep(hyprJob, result.stdout or "")
   end, 10000)
 
   if not accepted then
-    finishRefresh(generation, request, {}, scan.warnings, tr("hyprctl_failed"), scan)
+    finishRefresh(generation, request, {}, {}, tr("hyprctl_failed"), nil)
   end
 end
 

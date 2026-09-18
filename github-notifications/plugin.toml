@@ -1,0 +1,70 @@
+id = "hy4ri/github-notifications"
+name = "GitHub Notifications"
+version = "0.1.0"
+plugin_api = 24
+author = "hy4ri"
+license = "MIT"
+icon = "brand-github"
+description = "A fast, clean GitHub notification inbox for your Noctalia bar."
+tags = ["bar", "panel", "service", "development", "productivity", "utility", "network"]
+dependencies = ["gh", "xdg-open"]
+
+[[setting]]
+key = "refresh_interval_seconds"
+type = "select"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = "120"
+options = [
+  { value = "60", label_key = "settings.refresh_interval.options.sixty" },
+  { value = "120", label_key = "settings.refresh_interval.options.one_twenty" },
+  { value = "300", label_key = "settings.refresh_interval.options.three_hundred" },
+  { value = "600", label_key = "settings.refresh_interval.options.six_hundred" },
+]
+
+[[setting]]
+key = "per_page"
+type = "select"
+label_key = "settings.per_page.label"
+description_key = "settings.per_page.description"
+default = "50"
+options = [
+  { value = "25", label_key = "settings.per_page.options.twenty_five" },
+  { value = "50", label_key = "settings.per_page.options.fifty" },
+]
+
+[[widget]]
+id = "inbox"
+entry = "widget.luau"
+
+[[widget.setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.widget_display_mode.label"
+description_key = "settings.widget_display_mode.description"
+default = "icon_and_count"
+options = [
+  { value = "icon_and_count", label_key = "settings.widget_display_mode.options.icon_and_count" },
+  { value = "icon_only", label_key = "settings.widget_display_mode.options.icon_only" },
+]
+
+[[widget.setting]]
+key = "hide_when_zero"
+type = "bool"
+label_key = "settings.hide_when_zero.label"
+description_key = "settings.hide_when_zero.description"
+default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 440
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[service]]
+id = "sync"
+entry = "service.luau"

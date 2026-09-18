@@ -1,0 +1,5 @@
+wlp0s20f3:wifi:connected:Vodafone-B3A2
+lo:loopback:connected (externally):lo
+p2p-dev-wlp0s20f3:wifi-p2p:disconnected:
+enp59s0:ethernet:unavailable:
+lerd0:dummy:unmanaged:

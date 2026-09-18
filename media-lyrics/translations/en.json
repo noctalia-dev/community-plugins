@@ -4,26 +4,62 @@
     "unknown-artist": "Unknown artist"
   },
   "panel": {
+    "choose-lyrics": "Lyrics variants",
     "loading-lyrics": "Loading lyrics…",
     "lyrics-error": "Lyrics error: ",
     "no-lyrics": "No lyrics found",
     "no-media-player": "No media player",
+    "no-variants": "No alternative lyrics found",
     "now-playing": "NOW PLAYING",
     "reload-lyrics": "Reload lyrics",
     "synced": "synced",
-    "unsynced": "unsynced"
+    "unsynced": "unsynced",
+    "variant-default": "Default"
   },
   "provider": {
     "cache": "Cache",
+    "embedded": "Embedded",
     "local": "Local"
   },
   "service": {
     "lyrics-unreachable": "LRCLIB unreachable (network error)"
   },
   "settings": {
+    "album_art_only": {
+      "description": "Show only the album artwork (no text).",
+      "label": "Album art only"
+    },
+    "art_size": {
+      "description": "Album artwork size in pixels.",
+      "label": "Art size"
+    },
+    "artist_first": {
+      "description": "Show \"Artist - Title\" instead of \"Title - Artist\".",
+      "label": "Artist first"
+    },
+    "hide_album_art": {
+      "description": "Hide the artwork and its fallback icon.",
+      "label": "Hide album art"
+    },
+    "hide_artist": {
+      "description": "Show only the track title.",
+      "label": "Hide artist"
+    },
+    "hide_when_no_media": {
+      "description": "Hide the widget when no MPRIS player is active.",
+      "label": "Hide when no media"
+    },
     "local_lyrics_dir": {
       "description": "Folder with local .lrc files named 'Artist - Title.lrc'; searched before LRCLIB.",
       "label": "Local lyrics folder"
+    },
+    "max_length": {
+      "description": "Maximum widget length in pixels — the text area width (long titles scroll or truncate to fit it).",
+      "label": "Max length"
+    },
+    "min_length": {
+      "description": "Minimum widget length in pixels.",
+      "label": "Min length"
     },
     "offset_ms": {
       "description": "Shift lyric timing: positive values show lines earlier, negative later.",
@@ -35,7 +71,29 @@
       "options": {
         "compact": "Compact (440)",
         "large": "Large (640)",
-        "medium": "Medium (520)"
+        "medium": "Medium (520)",
+        "mini": "Mini"
+      }
+    },
+    "player_allowlist": {
+      "description": "Comma-separated player names (identity or bus name). When set, only matching players are shown. Empty = show any player.",
+      "label": "Player allowlist"
+    },
+    "player_blocklist": {
+      "description": "Comma-separated player names (identity or bus name) to hide. Empty = hide none.",
+      "label": "Player blocklist"
+    },
+    "show_lyric_line": {
+      "description": "Show the current synced lyric line in the chip instead of the artist (title stays).",
+      "label": "Show current lyric line"
+    },
+    "title_scroll": {
+      "description": "Scroll long titles that exceed the max length.",
+      "label": "Title scroll",
+      "options": {
+        "always": "Always",
+        "none": "None",
+        "on_hover": "On hover"
       }
     },
     "use_cache": {

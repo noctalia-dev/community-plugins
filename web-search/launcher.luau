@@ -1,5 +1,22 @@
 --!nonstrict
 
+local PROVIDERS = {
+    google = { label = "Google", domain = "www.google.com", searchUrl = "https://www.google.com/search?q=%s" },
+    duckduckgo = { label = "DuckDuckGo", domain = "duckduckgo.com", searchUrl = "https://duckduckgo.com/?q=%s" },
+    ecosia = { label = "Ecosia", domain = "www.ecosia.org", searchUrl = "https://www.ecosia.org/search?q=%s" },
+    bing = { label = "Bing", domain = "www.bing.com", searchUrl = "https://www.bing.com/search?q=%s" },
+    brave = { label = "Brave", domain = "search.brave.com", searchUrl = "https://search.brave.com/search?q=%s" },
+    mojeek = { label = "Mojeek", domain = "www.mojeek.com", searchUrl = "https://www.mojeek.com/search?q=%s" },
+}
+
+local function currentProvider()
+    local id = noctalia.getConfig("provider")
+    if type(id) ~= "string" or PROVIDERS[id] == nil then
+        id = "google"
+    end
+    return PROVIDERS[id]
+end
+
 local function trim(value)
     return (value:gsub("^%s+", ""):gsub("%s+$", ""))
 end
@@ -145,10 +162,11 @@ local function makeResults(query)
 
     local results = websiteResults(text, query, refresh)
     if text ~= "" then
-        local icon = loadIcon("www.google.com", query, refresh)
+        local provider = currentProvider()
+        local icon = loadIcon(provider.domain, query, refresh)
         table.insert(results, 1, {
             id = "search:" .. text,
-            title = "Search Google",
+            title = "Search " .. provider.label,
             subtitle = text,
             glyph = icon and nil or "world-search",
             icon = icon,
@@ -174,8 +192,7 @@ function onActivate(id)
     if query == nil or query == "" then
         return
     end
-    local command = "xdg-open \"$(python3 -c 'import sys, urllib.parse; print(\"https://www.google.com/search?q=\" + urllib.parse.quote_plus(sys.argv[1]))' "
-        .. shellQuote(query)
-        .. ")\" >/dev/null 2>&1"
-    noctalia.runAsync(command)
+    local provider = currentProvider()
+    local url = provider.searchUrl:format(noctalia.string.urlEncode(query))
+    noctalia.runAsync("xdg-open " .. shellQuote(url) .. " >/dev/null 2>&1")
 end

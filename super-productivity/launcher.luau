@@ -42,8 +42,11 @@ end
 
 function onActivate(id)
   if id == "add" and current_query ~= "" and pending_capture == nil then
-    local request_id = common.send_intent("add", { input = current_query, source = "launcher" })
-    pending_capture = { requestId = request_id, input = current_query }
+    if common.action_busy(noctalia.state.get(common.ACTION_KEY)) then return end
+    common.send_intent("add", { input = current_query, source = "launcher" }, function(request_id)
+      -- register before dispatch because terminal results can arrive synchronously.
+      pending_capture = { requestId = request_id, input = current_query }
+    end)
   elseif id == "open" then
     common.send_intent("launch")
   elseif id == "hint" then
@@ -53,6 +56,10 @@ end
 
 noctalia.state.watch(common.ACTION_KEY, function(next_action)
   if type(pending_capture) ~= "table" or type(next_action) ~= "table" then return end
+  if next_action.rejectedRequestId == pending_capture.requestId then
+    pending_capture = nil
+    return
+  end
   if next_action.requestId ~= pending_capture.requestId or not common.terminal_action(next_action) then return end
   if next_action.status == "success" and current_query == pending_capture.input then
     launcher.setQuery("")

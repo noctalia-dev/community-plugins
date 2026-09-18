@@ -1,0 +1,134 @@
+# Claude Cockpit — Claude Code usage and session manager on the bar.
+#
+# One panel, three tabs: Usage (rate-limit windows, token/cost consumption,
+# daily activity — get-claude-usage, copied from jrohland/claudecode, MIT,
+# does the actual data collection), Sessions
+# (every local Claude Code session, grouped by project, click to resume in a
+# terminal, delete with an inline confirm, expand for a cheap preview) and
+# CLAUDE.md (global + per-project files, opened in an external editor).
+#
+# The bar glyph is deliberately minimal (no rate-limit pill/ring): that
+# would need porting jrohland/claudecode's ring.luau, which needs
+# noctalia.getSetting (plugin_api 26) for a number the Usage tab already
+# shows one click away.
+
+id = "nightwatch75/claude-cockpit"
+name = "Claude Cockpit"
+version = "0.6.5"
+# 24 for direct argv process execution: session delete (rm -rf on two fixed
+# paths) and opening a CLAUDE.md in an editor both exec directly, with no
+# shell parsing the path. 22 for the relative luau imports (shared.luau,
+# sessions.luau).
+plugin_api = 24
+author = "nightwatch75"
+license = "MIT"
+# jq/curl/bash/find/stat/tail/head/grep/tac/awk are what get-claude-usage,
+# list-claude-sessions and find-claude-md (the CLAUDE.md tab's $HOME scan)
+# actually shell out to; rm powers session delete. Every one of them ships
+# with coreutils/findutils/gawk/grep/bash on every distro except jq and
+# curl, which get-claude-usage's own commandExists gate covers.
+dependencies = ["bash", "jq", "curl", "find", "stat", "tail", "head", "grep", "tac", "awk", "rm"]
+tags = ["ai", "development", "bar", "panel", "service", "productivity"]
+icon = "robot"
+description = "Monitor Claude Code usage, browse and manage local sessions, edit CLAUDE.md files."
+
+# Plugin-level settings, shared by the service (usage_refresh_interval) and
+# the panel (terminal for resume, editor_command for CLAUDE.md).
+
+[[setting]]
+key = "usage_refresh_interval"
+type = "int"
+label_key = "settings.usage_refresh_interval.label"
+description_key = "settings.usage_refresh_interval.description"
+default = 2
+min = 2
+max = 15
+
+[[setting]]
+key = "currency"
+type = "select"
+label_key = "settings.currency.label"
+description_key = "settings.currency.description"
+default = "auto"
+options = [
+  { value = "auto", label_key = "settings.currency.options.auto" },
+  { value = "usd", label_key = "settings.currency.options.usd" },
+  { value = "eur", label_key = "settings.currency.options.eur" },
+  { value = "gbp", label_key = "settings.currency.options.gbp" },
+  { value = "jpy", label_key = "settings.currency.options.jpy" },
+  { value = "cny", label_key = "settings.currency.options.cny" },
+  { value = "chf", label_key = "settings.currency.options.chf" },
+  { value = "aud", label_key = "settings.currency.options.aud" },
+  { value = "cad", label_key = "settings.currency.options.cad" },
+  { value = "inr", label_key = "settings.currency.options.inr" },
+]
+
+# Exchange-rate API get-claude-usage fetches every non-USD rate from, in one
+# request (ECB rates via Frankfurter by default).
+[[setting]]
+key = "currency_api_url"
+type = "string"
+label_key = "settings.currency_api_url.label"
+description_key = "settings.currency_api_url.description"
+default = "https://api.frankfurter.dev/v1/latest"
+
+# Empty = Noctalia's own terminal discovery ($TERMINAL, then the usual
+# emulators). Set a command to force one, e.g. "kitty" or "ghostty".
+[[setting]]
+key = "terminal"
+type = "string"
+label_key = "settings.terminal.label"
+description_key = "settings.terminal.description"
+default = ""
+
+# Empty = try "code", then "zed". Set a command to force a specific editor.
+[[setting]]
+key = "editor_command"
+type = "string"
+label_key = "settings.editor_command.label"
+description_key = "settings.editor_command.description"
+default = ""
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 480
+height = 720
+placement = "attached"
+open_near_click = true
+dismiss_on_outside_click = true
+
+[[widget]]
+id = "widget"
+entry = "claude-cockpit.luau"
+
+  [widget.actions]
+  left = "panel-toggle nightwatch75/claude-cockpit:panel"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "robot"
+
+  # What rides beside the glyph: the 5-hour session window, the 7-day weekly
+  # one (the same two numbers jrohland/claudecode's pill shows), both, or
+  # neither — read straight off the state the service already publishes, no
+  # extra fetch either way.
+  [[widget.setting]]
+  key = "usage_percent_display"
+  type = "select"
+  label_key = "settings.usage_percent_display.label"
+  description_key = "settings.usage_percent_display.description"
+  default = "both"
+  options = [
+    { value = "none", label_key = "settings.usage_percent_display.options.none" },
+    { value = "session", label_key = "settings.usage_percent_display.options.session" },
+    { value = "weekly", label_key = "settings.usage_percent_display.options.weekly" },
+    { value = "both", label_key = "settings.usage_percent_display.options.both" },
+  ]

@@ -16,6 +16,10 @@
       "description": "Corner radius of each capsule in logical pixels. Values below 0 are treated as 0.",
       "label": "Capsule radius"
     },
+    "font_size": {
+      "description": "Workspace name font size. Set 0 to use system default.",
+      "label": "Font size"
+    },
     "hide_inactive": {
       "description": "Hide populated special workspaces unless they are currently visible on a monitor.",
       "label": "Hide inactive workspaces"

@@ -1,6 +1,7 @@
 {
   "build_time": "indexed in {duration}",
   "copied_entry": "Path copied to clipboard",
+  "copied_name": "Name copied to clipboard",
   "copied_path": "Search folder path copied to clipboard",
   "counts": "{shown} shown · {total} indexed",
   "counts_disks": " · {disks} external",
@@ -18,6 +19,12 @@
     "reindex_title": "Rebuild search index",
     "scope_next": "Switch to: {next}",
     "scope_title": "Searching: {current}"
+  },
+  "menu": {
+    "copy_name": "Copy name",
+    "copy_path": "Copy full path",
+    "open": "Open",
+    "reveal": "Show in file manager"
   },
   "no_external": "No external disk mounted — plug one in, then rebuild the index",
   "no_results": "No matches for \"{query}\"",
@@ -55,6 +62,10 @@
     "show_hidden": {
       "description": "Index files and folders whose name starts with a dot.",
       "label": "Include hidden entries"
+    },
+    "usage_exclude_dirs": {
+      "description": "Folders left out of the disk usage chart, separated by ',' or ';'. A bare name matches anywhere below the search folder; a path (absolute, or starting with ~) matches that one folder. Folders on another filesystem are already skipped.",
+      "label": "Usage chart: excluded folders"
     }
   },
   "status_indexing": "Indexing {path}…",
@@ -67,8 +78,25 @@
   "tip_refresh": "Rebuild the file index",
   "tip_row_action": "Right click on a result {current}\nClick to switch to: {next}",
   "tip_scope": "Searching: {current}\nClick to search {next}",
+  "tip_scope_free": "{free} free across {count} disk(s)",
   "tip_settings": "Plugin settings",
+  "tip_usage_filter_clear": "Search the whole folder again",
+  "tip_usage_folder": "Search only inside {folder}",
+  "tip_usage_folder_clear": "Stop searching only inside {folder}",
+  "tip_usage_folder_only": "The usage chart only measures the search folder",
+  "tip_usage_hide": "Hide the disk usage chart",
+  "tip_usage_show": "Show what fills the search folder",
   "title": "File Search",
   "tooltip_closed": "File search — {path}\nClick to search · right-click: folder",
-  "tooltip_open": "File search open — {path}\nClick to close"
+  "tooltip_open": "File search open — {path}\nClick to close",
+  "usage_amount": "{size} · {share}%",
+  "usage_center": "used",
+  "usage_error": "Disk usage unavailable ({reason}).",
+  "usage_filter": "Searching inside {folder}",
+  "usage_hint": "click a folder to search inside it",
+  "usage_idle": "Disk usage not measured yet.",
+  "usage_loose": "(loose files)",
+  "usage_other": "other",
+  "usage_scanning": "Measuring disk usage…",
+  "usage_skipped": "not counted: {names} (other filesystem)"
 }

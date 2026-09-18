@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import stat
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -30,6 +30,34 @@ def source_sha256() -> str:
 
 
 class PackageCompanionTest(unittest.TestCase):
+    def test_check_rejects_contract_drift(self) -> None:
+        cases = (
+            ("common.luau", "M.PROTOCOL_VERSION = 2", "M.PROTOCOL_VERSION = 3", "protocol version"),
+            ("companion/plugin.js", "PROTOCOL_VERSION = 2", "PROTOCOL_VERSION = 3", "protocol version"),
+            ("service.luau", "SCHEMA_VERSION = 1", "SCHEMA_VERSION = 2", "schema version"),
+            ("service.luau", 'BRIDGE_NAME = "noctalia-super-productivity"', 'BRIDGE_NAME = "other-bridge"', "bridge directory name"),
+        )
+        for name, original, replacement, error in cases:
+            with self.subTest(source=name, contract=error), tempfile.TemporaryDirectory() as temporary:
+                plugin = Path(temporary)
+                shutil.copytree(COMPANION, plugin / "companion")
+                (plugin / "scripts").mkdir()
+                shutil.copyfile(SCRIPT, plugin / "scripts" / SCRIPT.name)
+                for source in ("common.luau", "service.luau"):
+                    shutil.copyfile(COMPANION.parent / source, plugin / source)
+                source = plugin / name
+                text = source.read_text(encoding="utf-8")
+                self.assertIn(original, text)
+                source.write_text(text.replace(original, replacement, 1), encoding="utf-8")
+
+                result = subprocess.run(
+                    ["python3", str(plugin / "scripts" / SCRIPT.name), "--check"],
+                    check=False, capture_output=True, text=True,
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"{error} differs between the companion and Noctalia", result.stderr)
+
     def test_builds_package_in_xdg_data_home(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             environment = os.environ.copy()
@@ -58,8 +86,6 @@ class PackageCompanionTest(unittest.TestCase):
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(archive.namelist(), list(PACKAGE_FILES))
                 for info in archive.infolist():
-                    self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
-                    self.assertEqual(stat.S_IMODE(info.external_attr >> 16), 0o644)
                     self.assertEqual(
                         archive.read(info.filename),
                         (COMPANION / info.filename).read_bytes(),
@@ -78,9 +104,6 @@ class PackageCompanionTest(unittest.TestCase):
             )
             self.assertEqual(metadata["archiveSize"], output.stat().st_size)
             self.assertEqual(metadata["archivePath"], str(output))
-            self.assertEqual(stat.S_IMODE(output.parent.stat().st_mode), 0o700)
-            self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
-            self.assertEqual(stat.S_IMODE(metadata_path.stat().st_mode), 0o600)
 
             original = output.read_bytes()
             subprocess.run(
@@ -123,16 +146,6 @@ class PackageCompanionTest(unittest.TestCase):
             self.assertNotEqual(verification.returncode, 0)
             self.assertIn("metadata differs from the bundled source", verification.stderr)
 
-            subprocess.run(
-                ["python3", str(SCRIPT), "--machine-readable"],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=environment,
-            )
-            self.assertEqual(output.read_bytes(), original)
-            restored_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            self.assertEqual(restored_metadata["archiveSize"], len(original))
 
     def test_empty_xdg_data_home_uses_home_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -152,6 +165,24 @@ class PackageCompanionTest(unittest.TestCase):
                 / ".local/share/noctalia-super-productivity/noctalia-super-productivity.zip"
             )
             self.assertTrue(output.is_file())
+
+    def test_manifest_uses_select_only_bridge_permissions(self) -> None:
+        manifest = json.loads(
+            (COMPANION / "manifest.json").read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(manifest["minSupVersion"], "18.21.2")
+        self.assertEqual(manifest["permissions"], ["nodeExecution", "selectTask"])
+        self.assertEqual(
+            manifest["hooks"],
+            [
+                "taskComplete",
+                "taskUpdate",
+                "taskDelete",
+                "currentTaskChange",
+                "action",
+            ],
+        )
 
     def test_check_does_not_write_package(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

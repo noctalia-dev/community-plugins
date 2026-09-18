@@ -9,10 +9,13 @@ end
 
 local function loadPanel(entry, failure)
     local watchers = {}
+    local isReport = type(entry) == "table" and type(entry.entries) == "table"
+    local report = isReport and entry or entry ~= nil and { entries = { entry } } or nil
+    local first = report ~= nil and report.entries[1] or nil
     local values = {
-        report = { entries = { entry } },
+        report = report,
         error = failure or { code = "", detail = "" },
-        selected = entry.id,
+        selected = isReport and entry.selected or first ~= nil and first.id or nil,
     }
     local noctalia = {
         state = {
@@ -23,7 +26,10 @@ local function loadPanel(entry, failure)
         commandExists = function() return false end,
         nowMs = function() return 1000 end,
             -- The host substitutes; the harness only needs the key back to assert on.
-        tr = function(key) return key end,
+        tr = function(key, args)
+            if key == "ui.quota_reset" and args then return key .. ": " .. args.time end
+            return key
+        end,
         string = {
             trim = function(value) return tostring(value):match("^%s*(.-)%s*$") end,
         },
@@ -119,6 +125,20 @@ local malformedBody = {
 local bodyOk = pcall(loadPanel, malformedBody)
 assert(bodyOk, "malformed block body should render as an empty block")
 
+local rejectedProvider = {
+    id = "anthropic",
+    display_name = "Claude",
+    plan = "Claude Pro",
+    status = "ready",
+    metrics = {},
+    sections = {
+        { type = "text", label = "HTTP 403", value = "authentication rejected" },
+    },
+}
+local rejectedLabels = labels(loadPanel(rejectedProvider))
+assert(not has(rejectedLabels, "Claude"),
+       "a terminal provider should leave the panel immediately")
+
 -- Antigravity reports each model once per window, under "Session"/"Weekly"
 -- headings the CLI sends as text sections with no value. Claude and Codex send
 -- neither.
@@ -161,7 +181,7 @@ end
 local function cards(node)
     local out = {}
     for _, column in ipairs(collect(node, "column")) do
-        if column.props.fill == "surface_variant/0.45" and #collect(column, "progress") > 0 then
+        if column.props.fill == "surface_variant/0.40" and #collect(column, "progress") > 0 then
             out[#out + 1] = column
         end
     end
@@ -176,7 +196,7 @@ assert(#drawn == 2, "each model gets a card, its windows stacked inside")
 local first = labels(drawn[1])
 assert(first[1] == "Gemini", "the card is titled with the model")
 assert(has(first, "Session") and has(first, "Weekly"), "both windows live in it")
-assert(has(labels(drawn[2]), "Claude & GPT OSS"), "the second model follows below")
+assert(has(labels(drawn[2]), "Claude & GPT OSS"), "the second model keeps its CLI name")
 local geminiTitles = 0
 for _, card in ipairs(drawn) do
     if labels(card)[1] == "Gemini" then geminiTitles = geminiTitles + 1 end
@@ -202,73 +222,15 @@ for _, card in ipairs(drawn) do
     end
 end
 
--- Down: the CLI keeps serving what it cached and says why it stopped moving.
+-- A provider with its own failure leaves the panel until it reports healthy.
 local DOWN = {}
 for index, section in ipairs(WINDOWS) do DOWN[index] = section end
-DOWN[#DOWN + 1] = { type = "title", value = "Account" }
-DOWN[#DOWN + 1] = { type = "text", label = "Balance", value = "$4.20" }
-DOWN[#DOWN + 1] = { type = "block", label = "Credits", body = { "granted: 100" } }
 DOWN[#DOWN + 1] = { type = "text", label = "Warning",
                     value = "credentials error: Antigravity: no local server found." }
 
 local downTree = loadPanel(withSections(DOWN))
-assert(#cards(downTree) == 0, "a provider that is down draws no gauges")
-assert(#collect(downTree, "progress") == 0, "and no bars either")
-local warned = false
-for _, glyph in ipairs(collect(downTree, "glyph")) do
-    if glyph.props.name == "alert-triangle" then warned = true end
-end
-assert(warned, "the warning takes their place")
 local downLabels = labels(downTree)
-assert(not has(downLabels, "credentials error: Antigravity: no local server found."),
-       "the CLI's log prefix is dropped")
-assert(has(downLabels, "Antigravity: no local server found."), "the warning itself survives")
--- The numbers survive as a record, in text.
-assert(has(downLabels, "ui.last_reading_now") or has(downLabels, "ui.last_reading"),
-       "the last reading is kept")
-assert(has(downLabels, "Session 3% · Weekly 8%"), "set as text, not as a gauge")
--- Dropping the gauges is not dropping the report. Everything the CLI said
--- besides the readings is still the CLI talking about this provider.
-assert(has(downLabels, "Account"), "a heading the CLI sent survives")
-assert(has(downLabels, "Balance") and has(downLabels, "$4.20"), "so does its free text")
-assert(has(downLabels, "Credits") and has(downLabels, "granted: 100"), "and its blocks")
-local warnings = 0
-for _, label in ipairs(downLabels) do
-    if label == "Antigravity: no local server found." then warnings = warnings + 1 end
-end
-assert(warnings == 1, "the warning itself is said once, at the top")
-
--- One fetch, one date. The record already says how old the numbers are, so the
--- header must not date the same fetch again in the other tense.
-for _, label in ipairs(downLabels) do
-    -- The header concatenates the age with a clock time, so match on the key.
-    assert(label:find("ui.updated", 1, true) == nil,
-           "a provider that is down is dated once, by its record")
-end
-
--- A plan carries the limits every percentage is measured against, so readings
--- taken under the previous one are dropped rather than shown under the new name.
-local _, publish = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local switched = labels(publish(withSections(DOWN, "Google AI Ultra")))
-assert(has(switched, "ui.plan_changed"), "the change is said out loud")
-assert(not has(switched, "ui.last_reading_now") and not has(switched, "ui.last_reading"),
-       "and the old readings are not kept")
-
--- Same provider, same plan: the record stands.
-local _, again = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local kept = labels(again(withSections(DOWN, "Google AI Pro")))
-assert(has(kept, "ui.last_reading_now") or has(kept, "ui.last_reading"),
-       "an unchanged plan keeps its record")
-
--- A provider that falls over can stop naming its plan at all. Silence is not a
--- new plan, and the reading it was last seen with is still worth keeping.
-local _, silenced = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-local nameless = withSections(DOWN, "Google AI Pro")
-nameless.plan = nil
-local quiet = labels(silenced(nameless))
-assert(not has(quiet, "ui.plan_changed"), "an omitted plan is not a plan change")
-assert(has(quiet, "ui.last_reading_now") or has(quiet, "ui.last_reading"),
-       "so the record it was last seen with stands")
+assert(not has(downLabels, "Antigravity"), "an unavailable provider should leave the panel")
 
 -- A provider that sends no headings keeps one card, its readings heading
 -- themselves: the panel's own header already names Codex.
@@ -285,29 +247,94 @@ local paced = {
           detail = "Resets in 6d 18h · 3% elapsed · 13pts ahead" },
     },
 }
+
+local function provider(id, name, percent)
+    local metric = {
+        type = "metric", label = "Usage", percent = percent,
+        value = tostring(percent) .. "%", detail = "", severity = "low",
+    }
+    return {
+        id = id,
+        display_name = name,
+        plan = "Plan",
+        status = "ready",
+        stale = false,
+        metrics = { metric },
+        sections = { metric },
+    }
+end
+
+local claude = provider("anthropic", "Claude", 0)
+claude.stale = true
+claude.sections[#claude.sections + 1] = {
+    type = "text", label = "HTTP 429", value = "Rate limited",
+}
+local sorted = loadPanel({
+    selected = "anthropic",
+    entries = {
+        claude,
+        provider("openai", "Codex", 32),
+        provider("antigravity", "Antigravity", 99),
+    },
+})
+local providerOrder = {}
+for _, row in ipairs(collect(sorted, "row")) do
+    local key = tostring(row.props.key or "")
+    local id = key:match("^provider%-(.+)$")
+    if id ~= nil then providerOrder[#providerOrder + 1] = id end
+end
+assert(#providerOrder == 2, "providers with their own failures should leave the list")
+assert(providerOrder[1] == "antigravity" and providerOrder[2] == "openai",
+       "the most-used working provider should lead the list")
+
 local plain = cards(loadPanel(paced))
 assert(#plain == 1, "the session and the week share one card here too")
 local plainLabels = labels(plain[1])
 assert(plainLabels[1] == "Codex 5h", "the reading heads itself")
 assert(has(plainLabels, "Codex weekly"), "the week sits under the session")
 
--- The panel outlives every report it draws, so what it remembers between them is
--- only the providers the current one carries. A provider the user removed and
--- added back is met like any other first reading, not accused of a change.
-local _, sequence = loadPanel(withSections(WINDOWS, "Google AI Pro"))
-sequence(paced)
-local returned = labels(sequence(withSections(DOWN, "Google AI Ultra")))
-assert(not has(returned, "ui.plan_changed"), "a provider gone from the report is forgotten")
-assert(has(returned, "ui.last_reading_now") or has(returned, "ui.last_reading"),
-       "and what it does report is kept")
-
 -- A failed read with a report behind it is a banner over numbers that are merely
 -- older than the panel would like, not a reason to blank the panel.
 local failed = loadPanel(paced, { code = "timed_out", detail = "" })
 local failedLabels = labels(failed)
-assert(has(failedLabels, "ui.error.timed_out"), "the failure is named")
+assert(has(failedLabels, "ui.stale_hint"), "cached data names its stale state")
+assert(not has(failedLabels, "ui.error.timed_out"),
+       "a transient failure does not dominate cached data")
 assert(has(failedLabels, "Codex 5h"), "and the readings stay under it")
 assert(#cards(failed) == 1, "the cards are not dropped")
+local retry = false
+for _, button in ipairs(collect(failed, "button")) do
+    if button.props.text == "ui.retry" then retry = true end
+end
+assert(retry, "cached data keeps the retry action")
+local staleGlyph = false
+for _, glyph in ipairs(collect(failed, "glyph")) do
+    if glyph.props.name == "clock-exclamation" and glyph.props.color ~= "error" then
+        staleGlyph = true
+    end
+end
+assert(staleGlyph, "cached data uses a subdued stale glyph")
+
+local rateLimited = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = paced.metrics,
+    sections = {
+        paced.sections[1],
+        { type = "text", label = "HTTP 429", value = "Rate limited" },
+    },
+}
+local rateLimitedTree = loadPanel(rateLimited)
+local rateLimitedLabels = labels(rateLimitedTree)
+assert(not has(rateLimitedLabels, "HTTP 429") and not has(rateLimitedLabels, "Rate limited"),
+       "raw transport details should not become loose content")
+assert(#cards(rateLimitedTree) == 1, "transient provider failures keep cached readings")
+
+local emptyFailure = loadPanel(nil, { code = "timed_out", detail = "" })
+assert(has(labels(emptyFailure), "ui.error.timed_out_hint"),
+       "a failure without cached data keeps the full error state")
 
 -- Every row can be dropped -- a vendor with no key at all is not listed -- and a
 -- report is still a report. The failure is a banner over the panel it arrived
@@ -326,4 +353,170 @@ assert(#collect(dropped, "separator") == 1, "the panel keeps its two panes")
 assert(not has(labels(dropped), "ui.error.timed_out_hint"),
        "and says the failure once, in the pane, not across the whole panel")
 
-io.write("ok: panel degrades safely, groups by model, and stops gauging what is down\n")
+local bottleneckPanelEntry = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 0, severity = "low", value = "0%" },
+        { label = "Codex weekly", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { label = "Codex 5h", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { label = "Codex weekly", percent = 100, severity = "critical", type = "metric", value = "100%" },
+    },
+}
+local bottleneckPanelTree = loadPanel(bottleneckPanelEntry)
+assert(has(labels(bottleneckPanelTree), "100%"),
+       "panel sidebar should display the 100% bottleneck reading")
+
+local agyPanelEntry = {
+    id = "antigravity",
+    display_name = "Antigravity",
+    plan = "Google AI Pro",
+    status = "ready",
+    metrics = {
+        { label = "Gemini", percent = 0, severity = "low", value = "0%" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+        { label = "Gemini", percent = 24, severity = "low", value = "24%" },
+        { label = "Claude & GPT OSS", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { type = "text", label = "Session", value = "" },
+        { label = "Gemini", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { label = "Claude & GPT OSS", percent = 0, severity = "low", type = "metric", value = "0%" },
+        { type = "text", label = "Weekly", value = "" },
+        { label = "Gemini", percent = 24, severity = "low", type = "metric", value = "24%" },
+        { label = "Claude & GPT OSS", percent = 100, severity = "critical", type = "metric", value = "100%" },
+    },
+}
+local agyPanelTree = loadPanel(agyPanelEntry)
+assert(has(labels(agyPanelTree), "Claude & GPT OSS · ui.quota_exhausted"), "notice must identify the exhausted model without relying on color")
+assert(not has(labels(agyPanelTree), "ui.quota_remaining"), "healthy models must not duplicate the detailed quota reading")
+local function hasGlyph(node, name)
+    for _, g in ipairs(collect(node, "glyph")) do
+        if g.props.name == name then return true end
+    end
+    return false
+end
+assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gemini brand glyph")
+assert(hasGlyph(agyPanelTree, "robot"), "panel sidebar should display robot glyph for Claude & GPT OSS")
+assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
+assert(has(labels(agyPanelTree), "/ 24%"), "panel sidebar should display Gemini weekly percentage / 24%")
+assert(has(labels(agyPanelTree), "/ 100%"), "panel sidebar should display Claude weekly percentage / 100%")
+
+local googleGlyphs = {}
+local robotGlyphs = {}
+for _, g in ipairs(collect(agyPanelTree, "glyph")) do
+    if g.props.name == "brand-google" then googleGlyphs[#googleGlyphs + 1] = g end
+    if g.props.name == "robot" then robotGlyphs[#robotGlyphs + 1] = g end
+end
+assert(#googleGlyphs >= 2, "brand-google should appear in both sidebar and model detail card header")
+assert(#robotGlyphs >= 2, "robot should appear in both sidebar and model detail card header")
+
+local agyRows = {}
+for _, row in ipairs(collect(agyPanelTree, "row")) do
+    if row.props.key == "provider-antigravity" then agyRows[#agyRows + 1] = row end
+end
+assert(#agyRows == 1, "antigravity row should exist in panel")
+local agyProgress = collect(agyRows[1], "progress")
+assert(#agyProgress == 4, "antigravity providerRow should have 4 progress bars for Gemini and Claude windows")
+local agySpacers = collect(agyRows[1], "spacer")
+assert(#agySpacers >= 1, "antigravity providerRow should include balancing spacer for centered icon alignment")
+
+local codexDualEntry = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+        { label = "Codex weekly", percent = 16, severity = "low", value = "16%" },
+    },
+    sections = {},
+}
+local codexTree = loadPanel(codexDualEntry)
+local codexRows = {}
+for _, row in ipairs(collect(codexTree, "row")) do
+    if row.props.key == "provider-openai" then codexRows[#codexRows + 1] = row end
+end
+assert(#codexRows == 1, "codex row should exist in panel")
+local codexProgress = collect(codexRows[1], "progress")
+assert(#codexProgress == 2, "codex providerRow should have paired dual progress bars for session and weekly")
+
+local codexWithEmptyCredits = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+        { label = "Codex weekly", percent = 16, severity = "low", value = "16%" },
+    },
+    sections = {
+        { type = "spacer" },
+        { detail = "Resets in 1h 40m", label = "Codex 5h", percent = 100, severity = "critical", type = "metric", value = "100%" },
+        { type = "spacer" },
+        { detail = "Resets in 6d 20h", label = "Codex weekly", percent = 16, severity = "low", type = "metric", value = "16%" },
+        { type = "spacer" },
+        { body = { "balance: 0", "≈ 0-0 local messages", "≈ 0-0 cloud messages" }, label = "Credits", type = "block" },
+    },
+}
+local emptyCreditsTree = loadPanel(codexWithEmptyCredits)
+assert(not has(labels(emptyCreditsTree), "Credits"), "empty credits block should be hidden")
+
+local codexWithActiveCredits = {
+    id = "openai",
+    display_name = "Codex",
+    plan = "ChatGPT Plus",
+    status = "ready",
+    metrics = {
+        { label = "Codex 5h", percent = 100, severity = "critical", value = "100%" },
+    },
+    sections = {
+        { body = { "balance: $12.50", "≈ 50 local messages" }, label = "Credits", type = "block" },
+    },
+}
+local activeCreditsTree = loadPanel(codexWithActiveCredits)
+assert(has(labels(activeCreditsTree), "Credits"), "active credits block with positive balance should be displayed")
+
+io.write("ok: panel degrades safely, sorts usage, and removes unavailable providers\n")
+local parserError = "schema mismatch: openai usage response: invalid type: null"
+local parserPanel = loadPanel({ id = "openai", display_name = "Codex", status = "error",
+    error = parserError, metrics = {}, sections = {} })
+assert(has(labels(parserPanel), "Codex"), "parser failures must not remove Codex from the panel")
+assert(has(labels(parserPanel), "ui.error.failed"), "parser failures should be described as read failures")
+assert(has(labels(parserPanel), parserError), "the panel must retain the diagnostic explaining missing usage")
+
+local oneModelEntry = { id = "antigravity", display_name = "Antigravity", status = "ready", sections = {}, metrics = {
+    { label = "Gemini", percent = 0, severity = "low" },
+    { label = "Gemini", percent = 100, severity = "critical",
+      reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400) },
+} }
+local singleModelTree = loadPanel(oneModelEntry)
+assert(has(labels(singleModelTree), "Gemini · ui.quota_exhausted"), "single-model notice must name the blocked model")
+assert(has(labels(singleModelTree), "ui.quota_reset: 6d 20h"), "notice must show the weekly unlock time")
+oneModelEntry.metrics[1].percent = 100
+oneModelEntry.metrics[1].severity = "critical"
+oneModelEntry.metrics[1].reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
+oneModelEntry.metrics[2].percent = 90
+assert(has(labels(loadPanel(oneModelEntry)), "ui.quota_reset: 2h 00m"), "weekly warning must not override actual session exhaustion")
+local installTree = loadPanel(nil, { code = "not_installed", detail = "" })
+assert(has(labels(installTree), "https://github.com/akitaonrails/ai-usagebar"),
+       "installation instructions must be visible without a browser-opening dependency")
+
+local resetCreditTree = loadPanel({ id = "openai", display_name = "Codex", status = "ready", metrics = {}, sections = {
+    { type = "block", label = "Reset credits", body = {
+        "Full reset (Weekly + 5 hr) · expires Oct 4 19:45 (26d 8h)",
+        "Future credit format without a separator",
+    } },
+} })
+assert(has(labels(resetCreditTree), "Full reset (Weekly + 5 hr)"), "reset type must have its own line")
+assert(has(labels(resetCreditTree), "expires Oct 4 19:45 (26d 8h)"), "credit expiry must remain visible on a separate line")
+assert(has(labels(resetCreditTree), "Future credit format without a separator"), "unknown credit formats must remain readable")
+for _, label in ipairs(collect(resetCreditTree, "label")) do
+    if label.props.text == "expires Oct 4 19:45 (26d 8h)" then
+        assert(label.props.maxLines >= 2, "expiry must wrap instead of truncating at one line")
+    end
+end

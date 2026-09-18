@@ -1,0 +1,120 @@
+{
+  "add_model": {
+    "back": "Torna al combo",
+    "empty": "No hi ha models disponibles.",
+    "no_match": "Cap model coincideix amb la teva cerca.",
+    "search": "Cerca models...",
+    "title": "Afegeix model"
+  },
+  "create": {
+    "back": "Enrere",
+    "cancel": "Cancel·la",
+    "kind_label": "Tipus",
+    "models_hint": "Un model per línia, en ordre de reserva (per exemple, cc/claude-opus-4-7).",
+    "models_label": "Models",
+    "models_placeholder": "cc/claude-opus-4-7\nglm/glm-5.1",
+    "name_label": "Nom",
+    "name_placeholder": "p. ex. la-meva-reserva",
+    "submit": "Crea",
+    "title": "Combo nou"
+  },
+  "detail": {
+    "add_model": "Afegeix model",
+    "back": "Torna als combos",
+    "delete": "Esborra el combo",
+    "delete_confirm": "Esborrar aquest combo?",
+    "delete_no": "Cancel·la",
+    "delete_yes": "Sí, esborra'l",
+    "drag_hint": "Arrossega un model per reordenar-lo",
+    "kind_label": "Tipus",
+    "models_count": "{count} model(s)",
+    "models_title": "Cadena de models",
+    "move_down": "Mou avall",
+    "move_up": "Mou amunt",
+    "no_models": "Aquest combo encara no té models.",
+    "refresh": "Actualitza",
+    "remove_model": "Elimina el model",
+    "rename": "Reanomena",
+    "rename_cancel": "Cancel·la",
+    "rename_placeholder": "Nom nou...",
+    "rename_save": "Desa"
+  },
+  "error": {
+    "add_model_failed": "No s'ha pogut afegir el model",
+    "auth_required": "Cal autenticació",
+    "bad_response": "Resposta inesperada de 9Router",
+    "connection_failed": "No s'ha pogut connectar a 9Router",
+    "create_failed": "No s'ha pogut crear el combo",
+    "delete_failed": "No s'ha pogut esborrar el combo",
+    "dismiss": "Descarta",
+    "http_status": "HTTP {status}",
+    "invalid_name": "El nom només pot contenir lletres, números, -, _ i .",
+    "kind_failed": "No s'ha pogut actualitzar el tipus",
+    "login_failed": "No s'ha pogut iniciar la sessió",
+    "need_name_models": "Cal un nom i almenys un model.",
+    "need_password": "Introdueix la teva contrasenya.",
+    "remove_model_failed": "No s'ha pogut eliminar el model",
+    "rename_failed": "No s'ha pogut reanomenar el combo",
+    "reorder_failed": "No s'han pogut reordenar els models"
+  },
+  "kind": {
+    "fallback": "Reserva",
+    "fusion": "Fusió",
+    "none": "Cap",
+    "round_robin": "Round-robin"
+  },
+  "list": {
+    "delete": "Esborra el combo",
+    "delete_cancel": "Cancel·la",
+    "delete_confirm": "Confirma l'esborrat",
+    "empty": "Encara no hi ha combos. Crea'n un per començar.",
+    "kind": "Tipus: {kind}",
+    "new_combo": "Combo nou",
+    "no_match": "Cap combo coincideix amb la teva cerca.",
+    "open": "Obre el combo",
+    "refresh": "Actualitza",
+    "search": "Cerca combos...",
+    "title": "9Router — Combos"
+  },
+  "login": {
+    "hint": "El panell requereix autenticació. Introdueix la contrasenya de 9Router per continuar.",
+    "password_placeholder": "Contrasenya...",
+    "submit": "Inicia sessió",
+    "title": "Inici de sessió de 9Router"
+  },
+  "settings": {
+    "data_dir": {
+      "description": "Directori de dades de 9Router (es fa servir per calcular el token de CLI quan el panell requereix inici de sessió). Per defecte: ~/.9router.",
+      "label": "Directori de dades"
+    },
+    "debug_logging": {
+      "description": "Mostra missatges de depuració al registre de Noctalia.",
+      "label": "Registre de depuració"
+    },
+    "language": {
+      "description": "Idioma de la interfície d'aquest connector. 'Auto' segueix l'idioma de la shell de Noctalia.",
+      "label": "Idioma",
+      "options": {
+        "auto": "Auto (segueix la shell)",
+        "en": "English",
+        "vi": "Tiếng Việt"
+      }
+    },
+    "server_host": {
+      "description": "Nom de l'amfitrió del panell de 9Router. Per defecte: 127.0.0.1.",
+      "label": "Amfitrió del servidor"
+    },
+    "server_port": {
+      "description": "Port del panell de 9Router. Per defecte: 20128.",
+      "label": "Port del servidor"
+    }
+  },
+  "state": {
+    "combos": "{count} combo(s)",
+    "tip": {
+      "auth_required": "9Router: cal iniciar la sessió",
+      "offline": "9Router: sense connexió",
+      "online": "9Router: connectat"
+    }
+  }
+}

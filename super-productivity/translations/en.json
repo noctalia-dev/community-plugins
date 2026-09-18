@@ -4,12 +4,14 @@
       "add": "Task added.",
       "complete": "Task completed.",
       "default": "Action completed.",
+      "open": "Task opened.",
       "refresh": "Tasks refreshed.",
       "restore": "Task restored.",
       "select": "Task opened.",
       "snooze": "Task rescheduled.",
       "timer_start": "Timer started.",
-      "timer_stop": "Timer stopped."
+      "timer_stop": "Timer stopped.",
+      "undo": "Task restored."
     }
   },
   "actions": {
@@ -45,18 +47,46 @@
     "placeholder": "Write task +Project #tag @tomorrow 30m",
     "title": "Quick capture"
   },
+  "connection_status": {
+    "auth_required": "Authentication required",
+    "checking": "Checking",
+    "companion_missing": "Companion not installed",
+    "degraded": "Degraded",
+    "error": "Error",
+    "loading": "Loading",
+    "missing": "Not installed",
+    "offline": "Offline",
+    "outdated": "Update required",
+    "protocol_mismatch": "Incompatible",
+    "ready": "Ready",
+    "stale": "Stale",
+    "starting": "Starting",
+    "timeout": "Timed out",
+    "unauthorized": "Authentication failed",
+    "unavailable": "Unavailable",
+    "unknown": "Unknown",
+    "waiting": "Waiting for the first update"
+  },
   "diagnostics": {
     "app": "Desktop app",
     "bridge_dir": "Bridge directory",
+    "bridge_error": "Bridge error",
+    "bridge_status": "Companion bridge",
     "companion": "Companion version",
     "due": "Due tasks",
+    "hook_error": "Hook error",
+    "hook_status": "Hook updates",
+    "last_error": "Last error",
     "launch_method": "Launch method",
     "not_running": "Not running",
     "overdue": "Overdue tasks",
     "package": "Companion package",
+    "package_error": "Package error",
     "package_path": "Package path",
     "protocol": "Protocol",
     "required_companion": "Required companion",
+    "rest_error": "REST error",
+    "rest_status": "Local REST API",
     "running": "Running",
     "status": "Status",
     "tasks": "Active tasks",
@@ -88,8 +118,15 @@
     "package_verification_failed": "Noctalia could not verify the generated companion package.",
     "protocol_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
     "python_unavailable": "Noctalia requires python3 to build the companion package.",
+    "rest_auth_required": "Noctalia could not authenticate with Super Productivity's local REST API.",
+    "rest_outcome_unknown": "Super Productivity did not confirm the result. Check the app before trying again.",
+    "rest_request_failed": "The request to Super Productivity's local REST API failed.",
+    "rest_timeout": "Super Productivity's local REST API did not respond in time.",
+    "rest_unavailable": "Noctalia could not connect to Super Productivity's local REST API.",
     "schema_mismatch": "Update the Noctalia plugin and Super Productivity companion together.",
     "task_changed": "The displayed task changed before Noctalia could run the action.",
+    "timer_confirmation_mismatch": "The refreshed timer state does not match the requested change. Check Super Productivity before trying again.",
+    "timer_confirmation_unknown": "The timer change could not be confirmed because refreshing REST state failed. Check Super Productivity before trying again.",
     "xdg_open_unavailable": "Noctalia requires xdg-open to open the package folder."
   },
   "launcher": {
@@ -119,7 +156,8 @@
   "settings": {
     "auto_start": {
       "description": "Starts the desktop app in the background when the companion is unavailable.",
-      "label": "Start Super Productivity automatically"
+      "label": "Start Super Productivity automatically",
+      "rest_description": "Starts the desktop app when the service needs it and Super Productivity is not running."
     },
     "bridge_dir": {
       "description": "Optional path to the companion data directory. When empty, Noctalia detects the path automatically.",
@@ -164,6 +202,10 @@
       "description": "Places the currently tracked task before due tasks while its timer runs.",
       "label": "Show tracked task first"
     },
+    "rest_token_file": {
+      "description": "Optional path to Super Productivity's local REST API token file. An empty value enables native and Flatpak discovery.",
+      "label": "REST token file override"
+    },
     "show_due_text": {
       "description": "Shows the relative due time in the bar widget.",
       "label": "Show due text"
@@ -184,15 +226,45 @@
     "week": "Next week"
   },
   "status": {
+    "auth_required": "REST authentication is required",
+    "bridge_error": "The companion bridge reported an error",
+    "bridge_error_hint": "Automatic refreshes and exact-task opening require a working companion bridge.",
+    "bridge_protocol_mismatch": "The companion bridge is incompatible",
+    "bridge_protocol_mismatch_hint": "Rebuild the companion package and reinstall it with the matching Noctalia plugin version.",
+    "bridge_stale": "The companion bridge status is stale",
+    "bridge_stale_hint": "Automatic refreshes and exact-task opening may be unavailable until the companion reconnects.",
+    "bridge_starting": "Connecting to the companion bridge…",
+    "bridge_starting_hint": "REST provides task data. The companion provides automatic refreshes and exact-task opening.",
+    "bridge_unavailable": "The companion bridge is unavailable",
+    "bridge_unavailable_hint": "Automatic refreshes and exact-task opening require the companion.",
     "companion_missing": "The Super Productivity companion is not installed or enabled",
     "companion_outdated": "The installed companion needs an update",
+    "companion_outdated_hint": "Rebuild the companion package and reinstall the generated ZIP in Super Productivity.",
+    "error": "The local REST API request failed",
+    "hook_error": "Companion hook updates are unavailable",
+    "hook_error_hint": "Changes made in Super Productivity require manual Refresh until the notification error is fixed.",
+    "hook_protocol_mismatch": "Companion hook notifications are incompatible",
+    "hook_protocol_mismatch_hint": "Rebuild the companion package and reinstall it with the matching Noctalia plugin version.",
     "offline": "Super Productivity is not running",
     "package_ready_hint": "Open the package folder. Then select the ZIP file in Super Productivity.",
     "protocol_mismatch": "The companion protocol version is incompatible",
     "ready": "Connected",
+    "rest_auth_required": "Local REST API authentication failed",
+    "rest_auth_required_hint": "Enable the local REST API in Super Productivity Settings → Misc. If needed, set the REST token file override to the active local-rest-api-token file.",
+    "rest_error": "The local REST API request failed",
+    "rest_error_hint": "Super Productivity must be running with its local REST API enabled. Refresh retries the request.",
+    "rest_loading": "Loading REST task data…",
+    "rest_offline": "REST task data is unavailable",
+    "rest_stale": "REST task data is stale",
+    "rest_stale_hint": "Noctalia could not refresh task data. Refresh retries after the REST connection is restored.",
+    "rest_starting": "Loading task data from the local REST API…",
+    "rest_starting_hint": "Noctalia is connecting to the local REST API in the Super Productivity desktop app.",
+    "rest_unavailable": "The local REST API is unavailable",
+    "rest_unavailable_hint": "Super Productivity must be running with its local REST API enabled. Refresh retries the connection.",
     "setup_hint": "Build the companion package. Install it in Super Productivity. Approve the file-access prompt. Then select Refresh.",
     "stale": "Companion data is stale",
-    "starting": "Starting companion…"
+    "starting": "Starting companion…",
+    "unavailable": "REST task data is unavailable"
   },
   "task": {
     "estimate": "Estimate: {value}",
@@ -203,6 +275,8 @@
     "project": "Project: {value}",
     "spent": "Spent: {value}",
     "tags": "Tags: {value}",
+    "unavailable": "Tasks unavailable",
+    "unavailable_hint": "Task loading and actions require a local REST API connection.",
     "untitled": "Untitled task"
   },
   "title": "Super Productivity",

@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.1.0"
+version = "2.2.1"
 plugin_api = 22
 author = "felipeartur"
 license = "MIT"
@@ -74,6 +74,7 @@ options = [
   { value = "nous", label_key = "settings.vendor.option.nous" },
   { value = "opencode-go", label_key = "settings.vendor.option.opencode_go" },
   { value = "commandcode", label_key = "settings.vendor.option.commandcode" },
+  { value = "copilot", label_key = "settings.vendor.option.copilot" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
@@ -165,8 +166,8 @@ default = true
 id = "panel"
 entry = "panel.luau"
 # Master/detail: the provider list on the left, its cards on the right.
-width = 720
-height = 400
+width = 750
+height = 430
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

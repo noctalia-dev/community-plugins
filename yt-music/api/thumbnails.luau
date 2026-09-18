@@ -172,7 +172,10 @@ function EXPO.attach_cached_thumbs(items: { { [string]: any } })
 		local item = items[i]
 		if type(item) == "table" and type(item.id) == "string" and item.id ~= "" then
 			local path = path_for(item.id, item.thumbnail_url)
-			if noctalia.fileExists(path) then
+			if known_thumb_files[path] == nil then
+				known_thumb_files[path] = noctalia.fileExists(path)
+			end
+			if known_thumb_files[path] then
 				item.thumb_path = path
 			end
 		end

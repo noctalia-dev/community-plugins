@@ -20,7 +20,9 @@ Install these tools on your `PATH`:
 - `mpv-mpris` — MPRIS control of mpv *(optional)*
 - `jq` — JSON parsing in YouTube API requests
 - `curl` — YouTube API and thumbnail requests
-- `nc` — mpv socket IPC
+- `nc` — mpv socket IPC (OpenBSD netcat or ncat; traditional/busybox nc lack unix-socket support and won't work)
+
+The plugin's login page shows a health-check card for all of the above if anything is missing, stale, or unsupported.
 
 ## Usage
 

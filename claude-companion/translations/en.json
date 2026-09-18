@@ -5,6 +5,7 @@
   },
   "ask": {
     "delivery": "The answer opens in the answer panel and arrives as a notification.",
+    "dispatch_failed": "Could not hand the question over. Is the noctalia CLI on PATH?",
     "no_runtime": "No XDG_RUNTIME_DIR, so there is nowhere to hand the question over.",
     "placeholder": "One quick question…",
     "send": "Ask",
@@ -17,10 +18,13 @@
     "empty": "Nothing is waiting on you right now.",
     "fallthrough": "No answer here and Claude asks in the terminal instead, as usual.",
     "in_dir": "in {dir}",
+    "promote": "Promote observations",
+    "promote_hint": "{count} observed commands are waiting to be allowlisted.",
     "said": "Claude says: {said}",
     "session": "session {sid}",
     "title": "Permission request",
-    "title_tool": "Claude wants to run {tool}"
+    "title_tool": "Claude wants to run {tool}",
+    "truncated": "… truncated — read the full text in the terminal before approving."
   },
   "launcher": {
     "ask": "Ask Claude (one-shot)",

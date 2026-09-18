@@ -1,19 +1,19 @@
 id          = "redxtech/super-productivity"
 name        = "Super Productivity"
-version     = "1.0.0"
+version     = "2.0.0"
 plugin_api  = 24
 author      = "Gabe Dunn"
 license     = "MIT"
 icon        = "checks"
-description = "Show, capture, complete, track, snooze, and open Super Productivity tasks from Noctalia."
+description = "View, capture, track, reschedule, complete, and open Super Productivity tasks from Noctalia."
 tags        = ["bar", "panel", "service", "launcher", "productivity"]
-dependencies = ["python3", "xdg-open", "flatpak"]
+dependencies = ["python3"]
 
 [[setting]]
 key             = "auto_start"
 type            = "bool"
 label_key       = "settings.auto_start.label"
-description_key = "settings.auto_start.description"
+description_key = "settings.auto_start.rest_description"
 default         = false
 
 [[setting]]
@@ -51,13 +51,11 @@ description_key = "settings.bridge_dir.description"
 default         = ""
 
 [[setting]]
-key             = "poll_seconds"
-type            = "int"
-label_key       = "settings.poll_seconds.label"
-description_key = "settings.poll_seconds.description"
-default         = 2
-min             = 1
-max             = 30
+key             = "rest_token_file"
+type            = "file"
+label_key       = "settings.rest_token_file.label"
+description_key = "settings.rest_token_file.description"
+default         = ""
 
 [[setting]]
 key             = "prefer_tracked_task"

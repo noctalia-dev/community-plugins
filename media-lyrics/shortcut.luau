@@ -3,6 +3,7 @@
 -- panel_size setting: compact / medium / large).
 local function panelIdForSize()
   local sz = noctalia.getConfig("panel_size")
+  if sz == "mini" then return "panel-mini" end
   if sz == "compact" then return "panel-compact" end
   if sz == "large" then return "panel-large" end
   return "panel"

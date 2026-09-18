@@ -90,6 +90,15 @@ local function containsText(node, wanted)
     return false
 end
 
+local function containsGlyph(node, wanted)
+    if type(node) ~= "table" then return false end
+    if type(node.props) == "table" and node.props.name == wanted then return true end
+    for _, child in ipairs(node.children or {}) do
+        if containsGlyph(child, wanted) then return true end
+    end
+    return false
+end
+
 local namedReport = {
     primary = "openai",
     entries = {
@@ -189,22 +198,30 @@ for _, name in ipairs(names) do if name == "Antigravity" then listed = true end 
 assert(not listed, "a provider that is down leaves the bar")
 -- Ranked first on severity, it would have led the capsule; the rest still show.
 -- Each provider contributes its name and then its readings.
-assert(names[1] == "Codex" and names[3] == "Claude", "the rest keep their order")
+assert(names[1] == "Codex" and names[2] == "Claude", "the rest keep their order")
 -- And it is not counted as hidden: hidden means there is more to see.
 for _, row in ipairs(dropped.tooltip()) do
     assert(row.key ~= "ui.hidden_label", "it is dropped, not hidden behind a +1")
 end
 
+local rejected = entry("anthropic", "Claude", 90)
+rejected.sections = {
+    { type = "text", label = "HTTP 403", value = "authentication rejected" },
+}
+local withoutRejected = loadBar({
+    vendor = "auto", account = "", extras = "none", visualization = "none",
+    provider_limit = 2,
+}, { entries = { rejected, entry("openai", "Codex", 20) } })
+local rejectedRows = withoutRejected.tooltip()
+assert(rejectedRows[1].key == "Codex" and #rejectedRows == 1,
+       "a terminal provider should leave the bar immediately")
+
 local pinnedDown = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
 }, { entries = { downEntry("antigravity", "Antigravity", 90) } })
-assert(#pinnedDown.tooltip() > 0, "a pinned provider still explains itself in the tooltip")
--- Configured but unreachable is not the same as never configured, and the
--- tooltip may not call one the other. The CLI already worded the failure.
 local pinnedRow = pinnedDown.tooltip()[1]
-assert(pinnedRow.key == "Antigravity", "a pinned provider that is down keeps its name")
-assert(tostring(pinnedRow.value):find("no local server") ~= nil,
-    "the tooltip repeats the CLI's own words instead of calling it unconfigured")
+assert(pinnedRow.value == "antigravity not configured",
+       "a pinned provider with its own failure should leave the bar")
 
 -- `[ui] primary` can come back as a full account id, and the tie-break has to
 -- recognise it in that form as well as the bare provider one.
@@ -253,4 +270,153 @@ assert(glyphColor(broken.rendered(), "brand-openai") == "error",
 assert(glyphColor(healthy.rendered(), "brand-openai") == "on_surface",
     "a healthy read leaves the mark in its identity colour")
 
-io.write("ok: account selection, malformed metrics, providers that are down, and a steady capsule\n")
+local bottleneckBar = loadBar({
+    vendor = "openai", account = "", extras = "none", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "openai",
+            display_name = "Codex",
+            plan = "ChatGPT Plus",
+            status = "ready",
+            metrics = {
+                { label = "Codex 5h", percent = 0, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "0%" },
+                { label = "Codex weekly", percent = 100, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400), severity = "critical", value = "100%" },
+            },
+        },
+    },
+})
+assert(containsText(bottleneckBar.rendered(), "100%"),
+       "capsule should show the 100% weekly bottleneck when session is 0%")
+assert(not containsText(bottleneckBar.rendered(), "0%"),
+       "capsule should not show 0% when weekly limit is 100%")
+local bottleneckRows = bottleneckBar.tooltip()
+assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100% · 6d 20h",
+       "bottleneckBar tooltip should show when the blocking weekly limit resets")
+
+local agyBar = loadBar({
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 11, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200), severity = "low", value = "11%" },
+                { label = "Claude & GPT OSS", percent = 0, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3600), severity = "low", value = "0%" },
+                { label = "Gemini", percent = 24, severity = "low", value = "24%" },
+                { label = "Claude & GPT OSS", percent = 100, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400), severity = "critical", value = "100%" },
+            },
+        },
+    },
+})
+assert(containsGlyph(agyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
+assert(containsGlyph(agyBar.rendered(), "robot"), "capsule should show robot glyph for Claude & GPT OSS")
+assert(glyphColor(agyBar.rendered(), "robot") == "on_surface", "model glyph should remain neutral on_surface")
+assert(containsText(agyBar.rendered(), "11%"), "available model should keep its active session percentage")
+assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its exhausted long-window percentage")
+assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
+assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
+local agyTooltip = agyBar.tooltip()
+assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
+       "antigravity tooltip first row should be Gemini dual metrics")
+assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
+       "antigravity tooltip second row should be Claude & GPT OSS dual metrics")
+
+local normalAgyBar = loadBar({
+    vendor = "antigravity", account = "", extras = "none", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 11, severity = "low", value = "11%" },
+                { label = "Claude & GPT OSS", percent = 0, severity = "low", value = "0%" },
+                { label = "Gemini", percent = 43, severity = "low", value = "43%" },
+                { label = "Claude & GPT OSS", percent = 78, severity = "high", value = "78%" },
+            },
+        },
+    },
+})
+assert(containsGlyph(normalAgyBar.rendered(), "brand-google"), "capsule should show Gemini brand glyph")
+assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show robot glyph for Claude & GPT OSS")
+assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
+assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
+assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
+
+local countdownBar = loadBar({
+    vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
+}, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            plan = "Google AI Pro",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 64, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 3240), severity = "low", value = "64%" },
+                { label = "Claude & GPT OSS", percent = 69, reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 83100), severity = "low", value = "69%" },
+            },
+        },
+    },
+})
+assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain hours below one hour")
+assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
+assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
+local countdownTooltip = countdownBar.tooltip()
+assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
+assert(countdownTooltip[2].value == "69% · 23h 05m", "tooltip should show fixed hours and minutes")
+
+io.write("ok: account selection, unavailable providers, and a steady capsule\n")
+local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
+    { id = "openai", display_name = "Codex", status = "error", metrics = {}, sections = {},
+      error = "schema mismatch: openai usage response: invalid type: null" },
+} })
+assert(containsGlyph(parserFailure.rendered(), "brand-openai"), "Codex must remain identifiable when its parser fails")
+assert(containsText(parserFailure.rendered(), "—"), "a parser failure must show missing data, not zero usage")
+
+local resetSoon = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
+local resetLater = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 590400)
+local quotaEntry = entry("openai", "Codex", 100)
+quotaEntry.metrics = {
+    { label = "Gemini", percent = 100, severity = "critical", reset_at = resetSoon },
+    { label = "Gemini", percent = 100, severity = "critical", reset_at = resetLater },
+}
+local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
+assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
+assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
+quotaEntry.id = "antigravity"
+quotaEntry.metrics[1].percent = 0
+local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
+assert(containsText(singleModel.rendered(), "100%"), "a single Antigravity model must show weekly exhaustion")
+quotaEntry.metrics[#quotaEntry.metrics + 1] = { label = "Claude & GPT OSS", percent = 95, severity = "critical" }
+local hiddenGlyphs = loadBar({ vendor = "antigravity", show_glyph = false }, { entries = { quotaEntry } })
+assert(not containsGlyph(hiddenGlyphs.rendered(), "brand-google") and not containsGlyph(hiddenGlyphs.rendered(), "robot"),
+       "show_glyph=false must hide every model glyph")
+local function findNode(node, predicate)
+    if predicate(node) then return node end
+    for _, child in ipairs(node.children or {}) do
+        local found = findNode(child, predicate)
+        if found then return found end
+    end
+end
+local uncolored = loadBar({ vendor = "antigravity", color_by_usage = false }, { entries = { quotaEntry } })
+assert(findNode(uncolored.rendered(), function(n) return n.props.text == "100%" end).props.color == "on_surface",
+       "color_by_usage=false must suppress exhausted model tint")
+local after = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none" }, { entries = { quotaEntry } })
+local modelRow = findNode(after.rendered(), function(n)
+    return n.kind == "row" and n.children[1] and n.children[1].props.text == "100%"
+end)
+assert(modelRow and modelRow.children[#modelRow.children].props.name == "brand-google",
+       "glyph_position=after must place the model glyph after its reading")
+local iconOnly = loadBar({ vendor = "antigravity", show_value = false, extras = "none" }, { entries = { quotaEntry } })
+assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(iconOnly.rendered(), "100%"),
+       "show_value=false must preserve enabled model glyphs")
+local quietFailure = loadBar({ vendor = "openai", show_glyph = false }, parserFailure.values.report)
+assert(containsText(quietFailure.rendered(), "—"), "hidden glyph must not create a hole before the parser error label")

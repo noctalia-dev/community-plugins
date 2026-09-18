@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if ! command -v luau >/dev/null 2>&1; then
+    echo "luau is required." >&2
+    echo "Run with: nix shell nixpkgs#luau -c ./scripts/test" >&2
+    exit 1
+fi
+
+exec luau tests/run.luau

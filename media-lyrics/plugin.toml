@@ -10,8 +10,8 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.8.13"
-plugin_api = 24
+version = "0.9.4"
+plugin_api = 30
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
@@ -33,6 +33,7 @@ label_key = "settings.panel_size.label"
 description_key = "settings.panel_size.description"
 default = "medium"
 options = [
+  { value = "mini", label_key = "settings.panel_size.options.mini" },
   { value = "compact", label_key = "settings.panel_size.options.compact" },
   { value = "medium", label_key = "settings.panel_size.options.medium" },
   { value = "large", label_key = "settings.panel_size.options.large" },
@@ -52,15 +53,135 @@ label_key = "settings.local_lyrics_dir.label"
 description_key = "settings.local_lyrics_dir.description"
 default = "~/.local/share/media-lyrics"
 
-# Bar widget: compact now-playing indicator; opens the panel on click.
+# Player filtering: comma-separated identity or bus-name substrings. When
+# allowlist is non-empty, only matching players are shown; blocklist excludes
+# matching players. Empty = no filtering (show the active player).
+[[setting]]
+key = "player_allowlist"
+type = "string"
+label_key = "settings.player_allowlist.label"
+description_key = "settings.player_allowlist.description"
+default = ""
+
+[[setting]]
+key = "player_blocklist"
+type = "string"
+label_key = "settings.player_blocklist.label"
+description_key = "settings.player_blocklist.description"
+default = ""
+
+# Bar widget: compact now-playing chip; opens the panel on click.
 [[widget]]
 id = "now-playing"
 entry = "widget.luau"
 
-  # Free the middle button for play/pause — the host default opens the
-  # widget's settings instead. Declared so onMiddleClick works out of the box.
+  # Gestures mirror the shell's built-in media widget (noctalia-dev/noctalia
+  # src/shell/bar/widget_gesture_defaults.cpp): right toggles playback, thumb
+  # buttons and the scroll wheel skip tracks. Middle is deliberately NOT
+  # bound here — every widget gets the host default `settings-open-widget`,
+  # so middle click opens this widget's settings like any other bar app.
   [widget.actions]
-  middle = "none"
+  right       = "media toggle"
+  back        = "media previous"
+  forward     = "media next"
+  scroll_up   = "media next"
+  scroll_down = "media previous"
+
+  # Display settings — same knobs as the shell's built-in media widget
+  # (media_widget_definition.cpp). Edited in the widget's own settings popup
+  # (middle click) and read with noctalia.getConfig(key) in widget.luau.
+  [[widget.setting]]
+  key = "album_art_only"
+  type = "bool"
+  label_key = "settings.album_art_only.label"
+  description_key = "settings.album_art_only.description"
+  default = false
+
+  [[widget.setting]]
+  key = "hide_album_art"
+  type = "bool"
+  label_key = "settings.hide_album_art.label"
+  description_key = "settings.hide_album_art.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "hide_artist"
+  type = "bool"
+  label_key = "settings.hide_artist.label"
+  description_key = "settings.hide_artist.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "artist_first"
+  type = "bool"
+  label_key = "settings.artist_first.label"
+  description_key = "settings.artist_first.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "min_length"
+  type = "int"
+  label_key = "settings.min_length.label"
+  description_key = "settings.min_length.description"
+  default = 80
+  min = 0
+  max = 800
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "max_length"
+  type = "int"
+  label_key = "settings.max_length.label"
+  description_key = "settings.max_length.description"
+  default = 220
+  min = 40
+  max = 800
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "art_size"
+  type = "int"
+  label_key = "settings.art_size.label"
+  description_key = "settings.art_size.description"
+  default = 16
+  min = 8
+  max = 96
+  visible_when = { key = "hide_album_art", values = ["false"] }
+
+  [[widget.setting]]
+  key = "title_scroll"
+  type = "select"
+  label_key = "settings.title_scroll.label"
+  description_key = "settings.title_scroll.description"
+  default = "none"
+  options = [
+    { value = "none", label_key = "settings.title_scroll.options.none" },
+    { value = "always", label_key = "settings.title_scroll.options.always" },
+    { value = "on_hover", label_key = "settings.title_scroll.options.on_hover" },
+  ]
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  [[widget.setting]]
+  key = "hide_when_no_media"
+  type = "bool"
+  label_key = "settings.hide_when_no_media.label"
+  description_key = "settings.hide_when_no_media.description"
+  default = false
+
+  # Extra (beyond the built-in media widget): show the current synced lyric
+  # line in the chip instead of the artist while lyrics are ready.
+  [[widget.setting]]
+  key = "show_lyric_line"
+  type = "bool"
+  label_key = "settings.show_lyric_line.label"
+  description_key = "settings.show_lyric_line.description"
+  default = false
+  visible_when = { key = "album_art_only", values = ["false"] }
+
+  # (show_progress was dropped — see ROADMAP "show_progress in bar widget")
 
 # Background service: polls D-Bus for player state, fetches + parses lyrics,
 # and publishes a snapshot to noctalia.state for the panel.
@@ -72,6 +193,10 @@ entry = "service.luau"
 # Three size presets share one entry; panel_size selects which one the widget
 # and the control-center tile open. Medium (520) is the default and keeps the
 # historical `panel` id for IPC compatibility.
+# NOTE: the canonical repo also declares layer = "overlay" on every panel
+# (lyrics above fullscreen video); this store copy omits the field until the
+# validator learns it — use the host-injected per-entry Layer dropdown
+# (Settings -> Plugins, Noctalia 5.0.1+) to pick "overlay" instead.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
@@ -97,6 +222,19 @@ width = 640
 height = 640
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
+
+# Compact mini panel: cover + current lyric line only, pinnable to the desktop
+# (placement = "floating", position = "center"). A lightweight always-on
+# karaoke line without the full transport/header chrome.
+[[panel]]
+id = "panel-mini"
+entry = "panel-mini.luau"
+width = 360
+height = 120
+placement = "floating"
+position = "center"
+keyboard_focus = "none"
+dismiss_on_outside_click = false
 
 # Control-center tile: quick panel open.
 [[shortcut]]

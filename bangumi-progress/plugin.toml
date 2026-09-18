@@ -1,0 +1,84 @@
+id = "mirei124/bangumi-progress"
+name = "Bangumi Progress"
+version = "1.1.0"
+plugin_api = 15
+author = "Mirei124"
+license = "MIT"
+icon = "device-tv"
+description = "Track Bangumi anime and episode progress from desktop widgets, and update watched episodes from the panel."
+tags = ["bar", "desktop", "panel", "service", "animation", "media", "network", "productivity"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key = "access_token"
+type = "string"
+label_key = "settings.access_token.label"
+description_key = "settings.access_token.description"
+default = ""
+
+[[setting]]
+key = "username"
+type = "string"
+label_key = "settings.username.label"
+description_key = "settings.username.description"
+default = ""
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 30
+min = 5
+max = 1440
+
+[[desktop_widget]]
+id = "tracker"
+entry = "desktop_widget.luau"
+
+  [[desktop_widget.setting]]
+  key = "show_covers"
+  type = "bool"
+  label_key = "settings.show_covers.label"
+  description_key = "settings.show_covers.description"
+  default = true
+
+  [[desktop_widget.setting]]
+  key = "widget_width"
+  type = "int"
+  label_key = "settings.widget_width.label"
+  description_key = "settings.widget_width.description"
+  default = 320
+  min = 220
+  max = 800
+
+  [[desktop_widget.setting]]
+  key = "visible_items"
+  type = "int"
+  label_key = "settings.visible_items.label"
+  description_key = "settings.visible_items.description"
+  default = 6
+  min = 1
+  max = 20
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "device-tv"
+
+[[panel]]
+id = "library"
+entry = "panel.luau"
+width = 760
+height = 640
+placement = "floating"
+position = "center"
+
+[[service]]
+id = "api"
+entry = "service.luau"

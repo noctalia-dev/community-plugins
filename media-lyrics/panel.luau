@@ -62,6 +62,9 @@ local T = {
 
 local snap = nil       -- latest snapshot from the service
 local cursorLine = 0   -- keyboard/scroll cursor over lyric lines (0 = follow playback)
+local hoveredLine = 0  -- pointer hovered lyric line (0 = none); applied on the next render
+local showCandidates = false -- "choose lyrics" selector open (toggled by the header button)
+local marqueePaused = false -- pointer over the title/artist block pauses marquees
 local lastTrackKey = "" -- track identity for cursor reset on track change
 local lastSnapMs = 0
 tickMarquee = nil      -- set by buildInfoRow; advances marquee clocks
@@ -229,50 +232,107 @@ local function buildLyricsBody(s)
     return { ui.label({ text = noctalia.tr("panel.loading-lyrics"), color = T.colMeta,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
   end
+  if s.lyricsStatus == "choose" and showCandidates then
+    -- Lyrics-variant selector: a "Default" row (restore the automatic chain
+    -- result, shown when any default source actually loaded) followed by the
+    -- LRCLIB search candidates. The active variant is highlighted; picking a
+    -- row applies it WITHOUT clearing the list, so the user can switch again
+    -- immediately. Each row is a button that sends chooseLyrics with the
+    -- 1-based index (0 = Default).
+    local cands = s.lyricsCandidates or {}
+    local rows = {}
+    local vi = s.lyricsVariantIndex or 0
+    -- "Default" row: shown when there is something to restore — either the
+    -- automatic chain lyrics are live right now (variantIndex == 0) or a
+    -- picked variant is active (variantIndex > 0): "Default" re-runs the
+    -- automatic chain for this track.
+    local hasDefault = (vi == 0 and (s.lyricsProvider or "") ~= "" and #(s.lyrics or {}) > 0)
+      or vi > 0
+    if hasDefault then
+      local defLabel = noctalia.tr("panel.variant-default")
+        .. (vi == 0 and s.lyricsProvider ~= "" and (" (" .. s.lyricsProvider .. ")") or "")
+      rows[#rows + 1] = ui.button({
+        key = "candDef",
+        text = defLabel,
+        fontSize = T.fsFarLyric,
+        color = T.lyricActive,
+        fill = "surface_variant/0.4",
+        radius = 8,
+        padding = 6,
+        onClick = function()
+          showCandidates = false
+          noctalia.state.set("panel_req", { action = "chooseLyrics", index = 0 })
+        end,
+      })
+    end
+    for i, c in ipairs(cands) do
+      local label = (c.title or "") .. " — " .. (c.artist or "")
+      if (c.album or "") ~= "" then label = label .. " (" .. c.album .. ")" end
+      local isActive = (s.lyricsVariantIndex == i)
+      rows[#rows + 1] = ui.button({
+        key = "cand" .. i,
+        text = (isActive and "● " or "") .. label,
+        fontSize = T.fsFarLyric,
+        color = isActive and T.lyricActive or T.colTitle,
+        fill = "surface_variant/0.4",
+        radius = 8,
+        padding = 6,
+        onClick = function()
+          showCandidates = false
+          noctalia.state.set("panel_req", { action = "chooseLyrics", index = i })
+        end,
+      })
+    end
+    if #rows == 0 then
+      -- No default loaded and no candidates found (e.g. network down or a
+      -- genuinely unknown track): say so instead of rendering an empty list.
+      return { ui.label({ text = noctalia.tr("panel.no-variants"),
+        color = T.emptyState, fontSize = T.fsFarLyric, textAlign = "center" }) }
+    end
+    return rows
+  end
   if s.lyricsStatus == "error" then
     return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
-  if s.lyricsStatus ~= "ready" or n == 0 then
-    return { ui.label({ text = noctalia.tr("panel.no-lyrics"), color = T.emptyState,
-      fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
-  end
-
-  if not s.synced then
-    -- unsynced: static list inside a clipping scroll (a bare column does not
-    -- clip its children), dimmed, centered, generous line spacing. The
-    -- keyboard cursor still highlights a line (no seek — no timestamps).
-    local rows = {}
-    for i, l in ipairs(lines) do
-      local isCursor = (i == cursorLine)
-      -- Build the children list conditionally — a literal
-      -- `cond and node or nil` inside the children array emits a nil
-      -- child, which the host logs as "ui tree node is not a table".
-      local rowChildren = {}
-      if isCursor then
-        rowChildren[#rowChildren + 1] = ui.glyph({
-          key = "cur" .. i,
-          name = "chevron-right",
-          size = 11,
-          color = T.lyricActive,
+  if (s.lyricsStatus == "choose" or s.lyricsStatus == "ready") and #(s.lyrics or {}) > 0 then
+    -- ready, or "choose" with the picker closed (or a picked variant live):
+    -- render the karaoke/plain lyrics that are actually loaded.
+    if not s.synced then
+      -- unsynced: static list inside a clipping scroll (a bare column does not
+      -- clip its children), dimmed, centered, generous line spacing. The
+      -- keyboard cursor still highlights a line (no seek — no timestamps).
+      local rows = {}
+      for i, l in ipairs(lines) do
+        local isCursor = (i == cursorLine)
+        -- Build the children list conditionally — a literal
+        -- `cond and node or nil` inside the children array emits a nil
+        -- child, which the host logs as "ui tree node is not a table".
+        local rowChildren = {}
+        if isCursor then
+          rowChildren[#rowChildren + 1] = ui.glyph({
+            key = "cur" .. i,
+            name = "chevron-right",
+            size = 11,
+            color = T.lyricActive,
+          })
+        end
+        rowChildren[#rowChildren + 1] = ui.label({
+          key = "lbl" .. i, text = wrapLyric(l.text, T.fsFarLyric, "normal", isCursor and 16 or 0),
+          fontSize = T.fsFarLyric,
+          color = isCursor and T.lyricActive or T.lyricNear,
+          opacity = isCursor and 1 or 0.8, textAlign = "center",
         })
+        rows[#rows + 1] = ui.row({
+          key = "lyr" .. i,
+          align = "center", justify = "center",
+        }, rowChildren)
+        rows[#rows + 1] = ui.spacer({ key = "lgap" .. i, height = T.gapMicro })
       end
-      rowChildren[#rowChildren + 1] = ui.label({
-        key = "lbl" .. i, text = wrapLyric(l.text, T.fsFarLyric, "normal", isCursor and 16 or 0),
-        fontSize = T.fsFarLyric,
-        color = isCursor and T.lyricActive or T.lyricNear,
-        opacity = isCursor and 1 or 0.8, textAlign = "center",
-      })
-      rows[#rows + 1] = ui.row({
-        key = "lyr" .. i,
-        align = "center", justify = "center",
-      }, rowChildren)
-      rows[#rows + 1] = ui.spacer({ key = "lgap" .. i, height = T.gapMicro })
+      return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }
     end
-    return { ui.scroll({ flexGrow = 1, align = "stretch" }, rows) }
-  end
 
-  -- synchronized: carousel around the playback line (karaoke fade ladder)
+    -- synchronized: carousel around the playback line (karaoke fade ladder)
   local pos = interpPos(s)
   local active = -1
   for i = 1, n do
@@ -327,18 +387,22 @@ local function buildLyricsBody(s)
     if idx >= 1 and idx <= n then
       local isActive = (idx == active)
       local isCursor = (idx == cursorLine)
+      local isHover = (idx == hoveredLine)
       local dist = math.abs(idx - active)
       local fontSize = fsArr[idx]
       local fontWeight = wArr[idx]
-      local color = (isActive or isCursor) and T.lyricActive
+      local color = (isActive or isCursor or isHover) and T.lyricActive
         or (dist <= 2 and T.lyricNear or T.lyricFar)
-      local opacity = (isActive or isCursor) and 1
+      local opacity = (isActive or isCursor or isHover) and 1
         or (dist <= 2 and 0.9 or (dist <= 5 and 0.55 or 0.3))
       local lineTime = s.lyrics[idx].time
       -- Clickable line: ui.label does not accept onClick and ui.button
       -- ignores color/fontWeight (would break the karaoke gradient), so wrap
       -- the label in a ui.row that owns the click target. Seek only when the
       -- line has a timestamp. The cursor row gets a leading chevron marker.
+      -- Hovering a row highlights it (fills a faint primary tint) and, for a
+      -- synced line, acts as a lightweight "preview": the fill gives a clear
+      -- hit target and signals it seeks on click.
       local children = {}
       if isCursor then
         children[#children + 1] = ui.glyph({
@@ -357,18 +421,32 @@ local function buildLyricsBody(s)
         opacity = opacity,
         textAlign = "center",
       })
-      rows[k] = ui.row({
+      local rowProps = {
         key = "lyr" .. idx,
         align = "center", justify = "center",
         onClick = (lineTime >= 0) and function()
           sendCmd("seekTo", { sec = lineTime })
         end or nil,
-      }, children)
+      }
+      -- Hover highlight without a crash: NEVER call render() inside onHover —
+      -- re-creating the tree mid-event-dispatch kills the host (plugin got
+      -- disabled). The panel already re-renders ~6x/s on the media watch, so
+      -- hovering only sets a flag and the next watch tick repaints it.
+      rowProps.onHover = function(state)
+        local want = (state == "true") and idx or 0
+        if want ~= hoveredLine then hoveredLine = want end
+      end
+      if isHover then rowProps.fill = "primary/0.10" end
+      rows[k] = ui.row(rowProps, children)
     else
       rows[k] = ui.spacer({ key = "gap" .. k, height = 24 })
     end
   end
   return rows
+  end
+  -- No lyrics after the whole chain (and the picker shows nothing else):
+  return { ui.label({ text = noctalia.tr("panel.no-lyrics"), color = T.emptyState,
+    fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
 end
 
 -- ============================= cover: art + progress =============================
@@ -390,6 +468,7 @@ local function buildCover(s, coverSize)
       onClick = function() sendCmd("toggle") end,
     })
   else
+    -- no art: show a fallback disc glyph
     return ui.box({ key = "coverbox", width = COVER, height = COVER,
       fill = "surface_variant/0.6", border = "outline/0.5", borderWidth = 1,
       radius = T.coverRadius }, {
@@ -572,22 +651,38 @@ local function buildInfoRow(s)
         shown = marqueeSlice(chars, math.floor(off), fs)
       end
     end
-    -- key includes the slice text: the host RETAINS a button whose key is
-    -- unchanged and re-renders its text in place, which visibly overlaps the
-    -- old glyphs with the new ones during a text swap. Keying per slice
-    -- forces a clean node recreation on every step.
+    -- key is STABLE (no slice suffix): the node is kept across scroll frames,
+    -- only its text is re-rendered in place. A per-slice key forced a fresh node
+    -- recreation each frame, which re-dirties the surface and makes the compositor
+    -- re-blur it -> visible blink on some GPUs (issue #649 on AMD Barcelo).
+    -- In-place text swaps may briefly overlap glyphs at the marquee edge, but that
+    -- is far less disruptive than the per-frame surface churn.
     return ui.button({
-      key = key .. "-" .. shown, text = shown, variant = "ghost",
+      key = key, text = shown, variant = "ghost",
       contentAlign = "start", fontSize = fs,
       width = TEXT_W, height = math.floor(fs * 1.35 + 0.5),
     })
   end
 
   -- advance marquee timers between renders (called from update())
+  -- Hovering the title/artist block pauses scrolling: keep the phase frozen
+  -- (do NOT accumulate elapsed) so the marquee does not fast-forward past a
+  -- long hover and resume with a jump.
   tickMarquee = function(deltaSec)
+    if marqueePaused then return end
     for _, st in pairs(marqueeState) do st.elapsed = st.elapsed + deltaSec end
   end
-  local infoCol = ui.column({ key = "infoCol", gap = 3, align = "start" }, {
+  local infoCol = ui.column({
+    key = "infoCol", gap = 3, align = "start",
+    -- hover pauses the marquees under the pointer; onHover true is always
+    -- matched by a false, so a hover-away resumes scrolling cleanly.
+    onHover = function(state, key)
+      local want = (state == "true")
+      if want ~= marqueePaused then
+        marqueePaused = want
+      end
+    end,
+  }, {
     textLine("ttl", singleLine(s.title ~= "" and s.title or noctalia.tr("common.no-title")),
       T.fsTitle, "semibold", T.colTitle),
     textLine("art", artistLine, T.fsMeta, "regular", T.colMeta),
@@ -620,7 +715,7 @@ local function render()
 
   -- footer: provider + mode in one quiet label (empty string hides itself)
   local footerTxt = ""
-  if s.lyricsStatus == "ready" then
+  if s.lyricsStatus == "ready" or ((s.lyricsStatus == "choose") and #(s.lyrics or {}) > 0) then
     footerTxt = (s.lyricsProvider ~= "" and s.lyricsProvider or "")
       .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
         or (" - " .. noctalia.tr("panel.unsynced")))
@@ -632,6 +727,22 @@ local function render()
       ui.label({ text = noctalia.tr("panel.now-playing"), fontSize = T.fsOverline, fontWeight = "semibold",
         color = T.colOverline }),
       ui.row({ gap = T.gapMicro, align = "center" }, {
+        -- "Lyrics variants" button: ALWAYS visible while a track is loaded
+        -- (not only when the chain ended in a "choose" state). Opens the
+        -- variant selector: the service fetches LRCLIB search candidates on
+        -- demand and keeps the playing lyrics untouched until a row is picked.
+        ui.button({ glyph = "list", glyphSize = 14, variant = "ghost", controlSize = "sm",
+          width = 22, height = 22,
+          visible = s.hasPlayer == true and (s.title or "") ~= "",
+          tooltip = noctalia.tr("panel.choose-lyrics"),
+          onClick = function()
+            showCandidates = not showCandidates
+            if showCandidates then
+              -- (re)open: always ask the service for a fresh candidate list
+              noctalia.state.set("panel_req", { action = "openLyricChoices" })
+            end
+            render()
+          end }),
         ui.button({ glyph = "refresh", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,
           tooltip = noctalia.tr("panel.reload-lyrics"),
@@ -677,6 +788,10 @@ noctalia.state.watch("media", function(value)
   if key ~= lastTrackKey then
     lastTrackKey = key
     cursorLine = 0
+    hoveredLine = 0
+    -- a new track invalidates the variant picker: close it and reset local
+    -- open-state (the service drops its own list in invalidateLyrics()).
+    showCandidates = false
   end
   snap = value
   lastSnapMs = nowMs()
@@ -714,6 +829,7 @@ local function moveCursor(delta)
     if cur < 1 then cur = 1 end
   end
   cursorLine = math.max(1, math.min(n, cur + delta))
+  hoveredLine = 0
   render()
 end
 

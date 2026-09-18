@@ -1,0 +1,70 @@
+# Per-output mode, refresh rate, scale and arrangement, written as [output.*]
+# sections into an Umbriel config include. Umbriel watches its include set, so a
+# write applies live and survives a reboot.
+
+id = "prponkshe/umbriel-displays"
+name = "Umbriel Displays"
+version = "1.0.0"
+plugin_api = 22
+author = "prponkshe"
+license = "MIT"
+dependencies = ["umbriel"]
+tags = ["bar", "panel", "service", "hardware", "utility", "umbriel"]
+icon = "device-desktop"
+description = "Set resolution, refresh rate, scale and arrangement per connected display."
+
+[[setting]]
+key = "outputs_path"
+type = "string"
+label_key = "settings.outputs_path.label"
+description_key = "settings.outputs_path.description"
+default = "~/.config/umbriel/outputs.toml"
+
+# keyboard_focus is what makes Escape reach the panel; without it the only way
+# out is a click elsewhere.
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 600
+height = 680
+placement = "attached"
+position = "auto"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[panel]]
+id = "advanced"
+entry = "advanced.luau"
+width = 600
+height = 680
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["escape"]
+
+[[panel]]
+id = "arrange"
+entry = "arrange.luau"
+width = 900
+height = 620
+placement = "floating"
+position = "center"
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+capture_keys = ["escape"]
+
+[[service]]
+id = "watchdog"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "device-desktop"

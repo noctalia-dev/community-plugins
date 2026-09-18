@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -eu
+shopt -s nullglob
+
+# claude-cockpit: list-claude-sessions
+#
+# Enumerates every local Claude Code session and prints one JSON object with
+# a flat "sessions" array. A session is a "<uuid>.jsonl" file living directly
+# inside a project directory under ~/.claude/projects/<encoded-cwd>/ — a
+# sibling "<uuid>/subagents/*.jsonl" dir holds Task/subagent sub-transcripts,
+# not sessions a person would resume, and is excluded by construction
+# (-mindepth 2 -maxdepth 2 never reaches it). Grouping sessions by project is
+# left to sessions.luau, which already filters/sorts this data.
+#
+# A session file, and any single line in it, can exceed 10 MB — matches are
+# found with `grep -m1`/`tac` (line-based, no byte budget) and always piped
+# to jq over stdin, never passed as an argument.
+#
+# Output:
+#   { "generatedAt": <epoch>, "sessions": [
+#       { "id", "cwd", "projectDir", "gitBranch", "version",
+#         "mtime", "size", "title", "firstPrompt", "model", "contextTokens" }, ... ] }
+# "cwd" is the real path Claude Code recorded for the session; "projectDir"
+# is the basename of the project dir the file was found in (the encoded
+# path), used as a fallback when a session states no cwd at all. "firstPrompt"
+# is the session's opening message, used for a preview when there is no
+# "title" yet. "model"/"contextTokens" come from the session's last
+# "assistant" turn: message.model, and input_tokens + cache_read_input_tokens
+# + cache_creation_input_tokens (how full the context window was at that turn).
+
+CLAUDE_DIR="${HOME}/.claude"
+PROJECTS_DIR="${CLAUDE_DIR}/projects"
+
+WORKDIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR"' EXIT
+
+# First line with a cwd field — queue-operation/mode/bridge-session/
+# atis-latch events can precede it, so this is rarely line 1.
+write_head_json() {
+    local file="$1" out="$2"
+    { grep -m1 -F '"cwd":"' -- "$file" 2>/dev/null || printf '\n'; } | jq -R -c '
+        if . == "" then { cwd: "", gitBranch: "", version: "" } else
+            (try fromjson catch {}) as $o
+            | { cwd: ($o.cwd // ""), gitBranch: ($o.gitBranch // ""), version: ($o.version // "") }
+        end
+    ' > "$out"
+}
+
+# ai-title (last occurrence) and the last assistant turn are found in one
+# backward scan; last-prompt uses its first occurrence (the opening
+# message) via a forward scan. All three go to jq over stdin, not as args.
+write_meta_json() {
+    local file="$1" out="$2"
+    local title_line="" assistant_line="" prompt_line=""
+    while IFS= read -r line; do
+        case "$line" in
+            *'"type":"ai-title"'*) [ -z "$title_line" ] && title_line="$line" ;;
+            *'"type":"assistant"'*) [ -z "$assistant_line" ] && assistant_line="$line" ;;
+        esac
+        [ -n "$title_line" ] && [ -n "$assistant_line" ] && break
+    done < <(tac -- "$file" 2>/dev/null || true)
+    prompt_line=$(grep -m1 -F '"type":"last-prompt"' -- "$file" 2>/dev/null || true)
+
+    printf '%s\n%s\n%s\n' "$title_line" "$prompt_line" "$assistant_line" | jq -R -s -c '
+        (split("\n")) as $l
+        | ($l[0] // "") as $t
+        | ($l[1] // "") as $p
+        | ($l[2] // "") as $a
+        | ($a | if . == "" then {} else (try fromjson catch {}) end) as $aObj
+        | ($aObj.message.usage // {}) as $u
+        | {
+            title: ($t | if . == "" then "" else ((try fromjson catch {}).aiTitle // "") end),
+            firstPrompt: ($p | if . == "" then "" else ((try fromjson catch {}).lastPrompt // "") end),
+            model: ($aObj.message.model // ""),
+            contextTokens: (
+                ($u.input_tokens // 0) + ($u.cache_read_input_tokens // 0) + ($u.cache_creation_input_tokens // 0)
+            )
+          }
+    ' > "$out"
+}
+
+if [ -d "$PROJECTS_DIR" ]; then
+    while IFS= read -r -d '' file; do
+        id=$(basename "$file" .jsonl)
+        # A session id is always a UUID; anything else is not a file this
+        # script understands (and never one worth building a path out of).
+        [[ "$id" =~ ^[0-9a-fA-F-]+$ ]] || continue
+
+        stat_out=$(stat -c '%Y %s' -- "$file" 2>/dev/null) || continue
+        mtime="${stat_out%% *}"
+        size="${stat_out##* }"
+        project_dir=$(basename "$(dirname "$file")")
+
+        sess_dir="$WORKDIR/work-$id"
+        mkdir -p "$sess_dir"
+
+        # Base fields are always short: safe as --arg regardless of file size.
+        jq -n \
+            --arg id "$id" --arg projectDir "$project_dir" \
+            --arg mtime "$mtime" --arg size "$size" \
+            '{ id: $id, projectDir: $projectDir,
+               mtime: ($mtime | tonumber? // 0), size: ($size | tonumber? // 0) }' \
+            > "$sess_dir/base.json"
+        write_head_json "$file" "$sess_dir/head.json"
+        write_meta_json "$file" "$sess_dir/meta.json"
+
+        jq -s 'add' "$sess_dir/base.json" "$sess_dir/head.json" "$sess_dir/meta.json" \
+            > "$WORKDIR/$id.json" 2>/dev/null || true
+        rm -rf "$sess_dir"
+    done < <(find "$PROJECTS_DIR" -mindepth 2 -maxdepth 2 -name '*.jsonl' -print0 2>/dev/null)
+fi
+
+SESSION_FILES=("$WORKDIR"/*.json)
+if [ ${#SESSION_FILES[@]} -eq 0 ]; then
+    jq -n '{ generatedAt: (now | floor), sessions: [] }'
+else
+    jq -s '{ generatedAt: (now | floor), sessions: . }' "${SESSION_FILES[@]}"
+fi

@@ -10,6 +10,37 @@ local function configured(key, fallback)
   if value == nil then return fallback end
   return value
 end
+local CONNECTION_STATUS_KEYS = {
+  auth_required = true,
+  checking = true,
+  companion_missing = true,
+  degraded = true,
+  error = true,
+  loading = true,
+  missing = true,
+  offline = true,
+  outdated = true,
+  protocol_mismatch = true,
+  ready = true,
+  stale = true,
+  starting = true,
+  timeout = true,
+  unavailable = true,
+  unauthorized = true,
+  unknown = true,
+}
+
+local function connection_status_text(value)
+  local status = tostring(value or "unknown")
+  if CONNECTION_STATUS_KEYS[status] then return noctalia.tr("connection_status." .. status) end
+  return status
+end
+
+local function displayed_task()
+  if snapshot.status ~= "ready" then return nil end
+  return snapshot.view and snapshot.view.task or nil
+end
+
 
 local function task_colors(task)
   if type(task) ~= "table" then
@@ -46,7 +77,14 @@ local function tooltip(task)
     end
     table.insert(lines, noctalia.tr("bar.gestures"))
   elseif snapshot.status ~= "ready" then
-    table.insert(lines, noctalia.tr("status." .. tostring(snapshot.status or "starting")))
+    local status = tostring(snapshot.status or "starting")
+    local key = status == "offline" and "status.rest_offline"
+      or status == "starting" and "status.rest_loading" or "status." .. status
+    table.insert(lines, noctalia.tr(key))
+    table.insert(lines, noctalia.tr("diagnostics.rest_status") .. ": " .. connection_status_text(snapshot.restStatus))
+    if type(snapshot.restError) == "string" and snapshot.restError ~= "" then
+      table.insert(lines, snapshot.restError)
+    end
   else
     table.insert(lines, noctalia.tr("task.none_due"))
   end
@@ -54,7 +92,7 @@ local function tooltip(task)
 end
 
 local function render()
-  local task = snapshot.view and snapshot.view.task or nil
+  local task = displayed_task()
   local busy = common.action_busy(action)
   local glyph = busy and "loader-2" or configured("glyph", "checks")
   local glyph_color, text_color, due_color = task_colors(task)
@@ -104,14 +142,14 @@ function onClick()
 end
 
 function onRightClick()
-  local task = snapshot.view and snapshot.view.task or nil
+  local task = displayed_task()
   if type(task) == "table" and not common.action_busy(action) then
     common.send_intent("complete", { taskId = task.id })
   end
 end
 
 function onMiddleClick()
-  local task = snapshot.view and snapshot.view.task or nil
+  local task = displayed_task()
   if type(task) == "table" then
     common.send_intent("open", { taskId = task.id })
   else
@@ -121,6 +159,7 @@ end
 
 function onScroll(axis, steps, starts_gesture)
   if axis ~= "vertical" or not starts_gesture then return end
+  if snapshot.status ~= "ready" then return end
   local delta = tonumber(steps) or 0
   if delta == 0 then return end
   common.send_intent("browse", { delta = delta > 0 and 1 or -1 })

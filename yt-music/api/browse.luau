@@ -34,6 +34,10 @@ local EXPO = {}
 local pending_library: any? = nil
 
 function EXPO.library()
+	if not network.isOnline() then
+		log("library: skipped network call because offline")
+		return
+	end
 	log("library called")
 	local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_library_landing" }) or ""
 	local auth = build_auth()
@@ -102,7 +106,7 @@ echo "STATUS=OK"
 			end
 			pending_library = playlists
 		else
-			pending_library = {}
+			pending_library = false
 		end
 	end, 15000)
 end
@@ -115,7 +119,11 @@ function EXPO.finish_library(cb: (any?, string?) -> ()?)
 	local playlists = pending_library
 	pending_library = nil
 	if cb then
-		cb(playlists or {})
+		if type(playlists) == "table" then
+			cb(playlists)
+		else
+			cb(nil)
+		end
 	end
 end
 

@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> None:
     manifest = tomllib.loads((ROOT / "plugin.toml").read_text())
     assert manifest["id"] == "gustav0ar/wireview-pro-ii"
-    assert manifest["version"] == "0.3.0"
+    assert manifest["version"] == "0.4.0"
     assert manifest["plugin_api"] == 9
     assert "wireview" not in manifest["dependencies"]
     assert "python3" in manifest["dependencies"]
@@ -142,6 +142,18 @@ def main() -> None:
     assert "preview-release" not in panel
     assert "Screen shown now" in panel
     assert "Choose screen" in panel
+    assert "Screen orientation" in panel
+    assert 'local ROTATION_VALUES = { 0, 180 }' in panel
+    assert 'changed("display.rotation_degrees"' in panel
+    assert 'onChange = "onRotationChanged"' in panel
+    assert "draft.display.rotation_degrees = valueAt(ROTATION_VALUES, index)" in panel
+    rotation_allowlist = re.search(
+        r'\["display\.rotation_degrees"\] = \{(?P<body>.*?)\n\s*\},',
+        service,
+        re.DOTALL,
+    )
+    assert rotation_allowlist is not None
+    assert set(re.findall(r'\["(\d+)"\] = true', rotation_allowlist["body"])) == {"0", "180"}
     assert 'action = "set"' in panel
     assert 'noctalia.state.watch("wireview.screen.operation"' in panel
 

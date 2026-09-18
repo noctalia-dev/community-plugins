@@ -7,7 +7,6 @@ local scanCounter = 0
 local building = false
 local initOk = true
 local selectedIndex = 0
-local WINDOW_SIZE = 4
 
 local steamCoverDir = ""
 local heroicCoverDir = ""
@@ -333,16 +332,8 @@ end
 
 local function renderGameList()
   local rows = {}
-  local total = #filtered
-  if total == 0 then return rows end
-  local half = math.floor(WINDOW_SIZE / 2)
-  local start = math.max(1, selectedIndex + 1 - half)
-  if start + WINDOW_SIZE > total then
-    start = math.max(1, total - WINDOW_SIZE + 1)
-  end
-  local endIdx = math.min(total, start + WINDOW_SIZE - 1)
-  for i = start, endIdx do
-    table.insert(rows, renderGameRow(filtered[i], i))
+  for i, g in ipairs(filtered) do
+    table.insert(rows, renderGameRow(g, i))
   end
   return rows
 end
@@ -369,18 +360,27 @@ end
 
 local function render()
   local ok, err = pcall(function()
+    local body = renderBody(renderGameList())
+    local bodyWidget
+    if loading or errorMsg ~= "" or #filtered == 0 then
+      bodyWidget = ui.column({ flexGrow = 1, gap = 6 }, body)
+    else
+      bodyWidget = ui.scroll({ flexGrow = 1, gap = 6 }, body)
+    end
     panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 12 }, {
       ui.column({ gap = 8 }, {
         renderHeader(),
         renderSearchBar(),
       }),
-      ui.column({ flexGrow = 1, gap = 6 }, renderBody(renderGameList())),
+      bodyWidget,
     }))
   end)
   if not ok then
     noctalia.log("render error: " .. tostring(err))
   end
 end
+
+local scanGames
 
 local function buildBinary()
   if building then return end
@@ -410,7 +410,7 @@ local function buildBinary()
   end
 end
 
-local function scanGames()
+function scanGames()
   if loading or building then return end
   if not binaryReady() then
     buildBinary()

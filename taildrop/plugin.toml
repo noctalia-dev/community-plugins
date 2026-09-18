@@ -1,0 +1,42 @@
+# Taildrop: send a file to a device on the tailnet from a file manager.
+#
+# This is a standalone, single-purpose plugin. It does NOT replace the full
+# Tailscale frontend — install a Tailscale plugin separately if you want the
+# VPN manager / peers / exit-node UI.
+
+id = "carlocamacho/taildrop"
+name = "Taildrop"
+icon = "network"
+version = "1.0.0"
+plugin_api = 10
+author = "carlocamacho"
+license = "MIT"
+# External commands the plugin shells out to. `tar` + `mktemp` are only used
+# when sending a folder (archived to .tar.gz at send time).
+dependencies = ["tailscale", "tar", "mktemp"]
+tags = ["utility", "network", "productivity", "panel", "service"]
+description = "Pick a device and send a file via Taildrop from a file manager right-click menu."
+
+[[setting]]
+key = "tailscale_bin"
+type = "string"
+label_key = "settings.tailscale_bin.label"
+description_key = "settings.tailscale_bin.description"
+default = "tailscale"
+advanced = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# The one and only "custom dialog": a focused send picker, not a manager.
+[[panel]]
+id = "send"
+entry = "panel.luau"
+width = 560
+height = 440
+placement = "floating"
+position = "center"
+open_near_click = false
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = false
