@@ -14,6 +14,12 @@
     },
     "steampoacher_enabled": {
       "label": "Steampoacher proxy for covers"
+    },
+    "panel_mode": {
+      "label": "Panel style",
+      "description": "Side panel or original panel when opening from the bar widget.",
+      "side": "Side panel",
+      "original": "Original"
     }
   }
 }

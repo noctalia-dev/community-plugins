@@ -1,13 +1,13 @@
 # Game Launcher
 
-Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly from your bar. Opens a floating panel with search, cover art, and one-click launch.
+Browse and launch games from Steam, Lutris, and Heroic Games Launcher directly from your bar. Opens a full-height side panel with search, cover art, and one-click launch — or the original look. One panel, two looks — flipping Panel style under Settings → Plugins re-renders it live.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `alexander/game-launcher` |
-| Entries | Bar widget: `launcher`; panel: `browser`; launcher provider: `search` |
+| Entries | Bar widget: `launcher`; panels: `browser` (sidebar dock), `original` (center box); launcher provider: `search` |
 | Launcher Prefix | `/g` |
 
 ## Requirements
@@ -29,7 +29,7 @@ The scanner binary (`gamelauncher`) is compiled automatically on first use — t
 
 ## Usage
 
-Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open the browser panel.
+Add the bar widget `alexander/game-launcher:launcher` to your bar. The widget shows a gamepad icon — click it to open it (look follows Panel style).
 
 In the panel, use the search bar to filter by name or runner. Click **Launch** on any game to start it.
 
@@ -37,9 +37,12 @@ To open the panel via IPC:
 
 ```sh
 noctalia msg panel-toggle alexander/game-launcher:browser
+noctalia msg panel-toggle alexander/game-launcher:original
 ```
 
 From the launcher, type `/g` followed by a game name to search. Activate a result to launch the game.
+
+In the panel: Up/Down moves the highlight (pages turn automatically), Enter launches the highlighted game. The list is keyboard-only with no scrolling — 8 games per page, covers sized to fill the dock. To dock the panel on the left instead of the right, change its Position under Settings → Plugins.
 
 ## Settings
 
