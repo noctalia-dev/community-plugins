@@ -1,0 +1,8 @@
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.policykit.exec" &&
+        (action.lookup("program") == "/usr/bin/dnf5" || action.lookup("program") == "/usr/bin/dnf") &&
+        subject.active == true && subject.local == true &&
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});

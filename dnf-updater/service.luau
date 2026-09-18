@@ -6,7 +6,7 @@ local checkInterval = noctalia.getConfig("check_interval") or 30
 local enableDnf = noctalia.getConfig("enable_dnf") ~= false
 local enableFlatpak = noctalia.getConfig("enable_flatpak") ~= false
 local notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
-local updateInTerminal = noctalia.getConfig("update_in_terminal") == true
+local updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
 
 local state = {
   status = "IDLE", -- "IDLE" | "CHECKING" | "UPDATING" | "SUCCESS" | "ERROR"
@@ -400,7 +400,8 @@ local function updateDnf(excludedList, onFinished)
   end
 
   if updateInTerminal then
-    local cmd = "pkexec " .. dnfBin .. " upgrade"
+    local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
+    local cmd = sudoCmd .. " " .. dnfBin .. " upgrade"
     if excludeArg then
       cmd = cmd .. " " .. excludeArg
     end
@@ -611,7 +612,7 @@ function onConfigChanged()
   enableDnf = noctalia.getConfig("enable_dnf") ~= false
   enableFlatpak = noctalia.getConfig("enable_flatpak") ~= false
   notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
-  updateInTerminal = noctalia.getConfig("update_in_terminal") == true
+  updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
   elapsedMinutes = 0
   checkAll(true)
 end

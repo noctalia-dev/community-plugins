@@ -17,6 +17,20 @@ The plugin expects the following dependencies on `$PATH`:
 - `flatpak` - optional, Flatpak application manager
 - `pkexec` - (Polkit authentication for non-interactive privileged package installation)
 
+### Passwordless Background Upgrades (Optional)
+
+To enable seamless background upgrades without a password prompt (matching Flatpak's default behavior for `wheel` users), install the included Polkit rule:
+
+```sh
+sudo install -Dm644 polkit/50-dnf-updater.rules /etc/polkit-1/rules.d/50-dnf-updater.rules
+```
+
+To remove it later:
+
+```sh
+sudo rm /etc/polkit-1/rules.d/50-dnf-updater.rules
+```
+
 ## Usage
 
 Add the DNF Updater widget to the bar using Noctalia's bar widget picker. Left-click the widget to open the updates panel. You can also toggle the panel or bind it to a compositor shortcut:
@@ -69,7 +83,7 @@ alias dnf-check="noctalia msg plugin strob3/dnf-updater:service service check"
 | `enable_flatpak` | `bool` | `true` | Enable checking and upgrading Flatpak applications. |
 | `show_widget_when_clean` | `bool` | `true` | Show the widget icon in the bar even when system is up to date. |
 | `notify_on_updates` | `bool` | `true` | Send a desktop notification when new pending updates are found. |
-| `update_in_terminal` | `bool` | `false` | Launch update commands inside your terminal emulator instead of background Polkit execution. |
+| `update_in_terminal` | `bool` | `true` | Launch update commands inside your terminal emulator instead of background Polkit execution. |
 | `glyph` | `glyph` | `package` | Widget icon glyph displayed in the bar. |
 
 ## IPC

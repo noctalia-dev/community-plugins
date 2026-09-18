@@ -51,7 +51,7 @@ key = "update_in_terminal"
 type = "bool"
 label_key = "settings.update_in_terminal.label"
 description_key = "settings.update_in_terminal.description"
-default = false
+default = true
 
 [[service]]
 id = "service"
