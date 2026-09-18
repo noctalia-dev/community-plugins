@@ -18,6 +18,7 @@ local MAX_CHANGE_REASON = 120
 local SOUND_NAME = "task-complete"
 local BRIDGE_POLL_MS = 2000
 local CONNECTION_GRACE_MS = 30000
+local TRACKED_TASK_POLL_MS = 60000
 
 local state = {
   status = "starting",
@@ -70,6 +71,7 @@ local browse_index = 1
 local last_file_poll_ms = 0
 local last_bridge_search_ms = 0
 local last_process_check_ms = 0
+local last_tracked_poll_ms = 0
 local last_due_check_ms = noctalia.nowMs()
 local service_started_at = last_due_check_ms
 local auto_start_attempted = false
@@ -361,6 +363,14 @@ local function rest_failure_message(result)
   return "Super Productivity REST API request failed."
 end
 
+local function resolve_preferred_task_id(new_current_task)
+  local current_id = state.currentTask and state.currentTask.id
+  if noctalia.getConfig("follow_active_task") ~= false and new_current_task and current_id ~= new_current_task.id then
+    return new_current_task.id
+  end
+  return if reset_view_on_refresh then nil else state.view and state.view.task and state.view.task.id
+end
+
 local function rest_status_for_failure(result)
   if result.kind == "auth_required" then return "auth_required" end
   if result.kind == "timeout" then return "timeout" end
@@ -389,7 +399,6 @@ local function complete_refresh(results)
   local confirmation
   if failure == nil then
     local now_ms = noctalia.nowMs()
-    local previous_id = if reset_view_on_refresh then nil else state.view and state.view.task.id or nil
     local normalized = rest_state.normalize(
       results.tasks.data,
       results.projects.data,
@@ -397,6 +406,7 @@ local function complete_refresh(results)
       results.status.data,
       now_ms
     )
+    local preferred_id = resolve_preferred_task_id(normalized.currentTask)
     confirmation = table.freeze({
       currentTask = normalized.currentTask and table.freeze({ id = normalized.currentTask.id }) or nil,
       currentTaskId = results.status.data.currentTaskId,
@@ -409,7 +419,7 @@ local function complete_refresh(results)
     state.restStatus = "ready"
     state.restError = ""
     if reset_view_on_refresh then browse_index = 1 end
-    rebuild_view(previous_id)
+    rebuild_view(preferred_id)
     reset_view_on_refresh = false
   else
     local message = rest_failure_message(failure)
@@ -903,6 +913,10 @@ function update()
     refresh_connection_file()
     refresh_change_file()
     refresh_bridge_error()
+  end
+  if state.currentTask ~= nil and now_ms - last_tracked_poll_ms >= TRACKED_TASK_POLL_MS then
+    last_tracked_poll_ms = now_ms
+    request_rest_state()
   end
   operations:update(now_ms)
   due_notifications(now_ms)
