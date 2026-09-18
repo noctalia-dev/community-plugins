@@ -1,0 +1,59 @@
+id = "notoxus/vietnamese-lunar-calendar"
+name = "Vietnamese Lunar Calendar"
+version = "1.0.0"
+plugin_api = 22
+author = "notoxus"
+license = "MIT"
+dependencies = []
+tags = ["panel", "shortcut", "bar", "time", "utility"]
+icon = "moon-stars"
+description = "Vietnamese lunar calendar with lunar dates, Can Chi and traditional festivals."
+
+[[setting]]
+key = "show_festivals"
+type = "bool"
+label_key = "settings.show_festivals.label"
+description_key = "settings.show_festivals.description"
+default = true
+
+[[setting]]
+key = "show_can_chi"
+type = "bool"
+label_key = "settings.show_can_chi.label"
+description_key = "settings.show_can_chi.description"
+default = true
+advanced = true
+
+[[setting]]
+key = "accent_weekends"
+type = "bool"
+label_key = "settings.accent_weekends.label"
+description_key = "settings.accent_weekends.description"
+default = true
+advanced = true
+
+[[setting]]
+key = "show_timezone"
+type = "bool"
+label_key = "settings.show_timezone.label"
+description_key = "settings.show_timezone.description"
+default = true
+advanced = true
+
+[[widget]]
+id = "lunar"
+entry = "widget.luau"
+
+[[shortcut]]
+id = "calendar-shortcut"
+entry = "shortcut.luau"
+
+[[panel]]
+id = "calendar"
+entry = "panel.luau"
+width = 560
+height = 540
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true

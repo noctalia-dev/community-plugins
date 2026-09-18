@@ -1,0 +1,20 @@
+{
+  "settings": {
+    "accent_weekends": {
+      "description": "Use the accent color for Saturday and Sunday.",
+      "label": "Accent Weekends"
+    },
+    "show_can_chi": {
+      "description": "Show the traditional Can Chi year in the calendar footer.",
+      "label": "Show Can Chi Year"
+    },
+    "show_festivals": {
+      "description": "Highlight common Vietnamese traditional festivals in the calendar.",
+      "label": "Show Traditional Festivals"
+    },
+    "show_timezone": {
+      "description": "Show the UTC+7 calculation time zone below the month title.",
+      "label": "Show Time Zone"
+    }
+  }
+}
