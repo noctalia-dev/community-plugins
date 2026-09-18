@@ -1,9 +1,13 @@
 -- panel.luau
 -- Lists the configured contacts with buttons to play, add and delete them.
 -- Each row shows a photo/icon (contact photo, group photo or app icon) at the
--- start; folder entries get a menu-list of their sounds. The contacts maps
--- live in Noctalia's app-managed settings.toml; edits go through
--- edit_contacts.sh followed by a config-reload.
+-- start; folder entries get a menu-list of their sounds. The contact data is
+-- owned by the service (see service.luau): it is read from Noctalia's
+-- app-managed settings.toml on first run, then synced to the panel through
+-- noctalia.state ("contacts.data"). Every mutation (add/edit/delete/reorder)
+-- is sent as a command ("contacts.cmd") that the service applies and persists
+-- to its own data file — no config-reload, so the panel never closes while
+-- editing, exactly like the inventory-manager plugin.
 
 --!nonstrict
 
@@ -23,6 +27,13 @@ local editingName = nil
 local pendingDelete = nil
 local render
 
+-- Absolute sound path -> duration in seconds, probed lazily by
+-- scripts/sound_durations.py. Used to only offer the stop button for long
+-- sounds (longer than STOP_DURATION_THRESHOLD).
+local durations = {}
+local durationBatchPending = false
+local STOP_DURATION_THRESHOLD = 5
+
 local function tr(key)
   return noctalia.tr(key)
 end
@@ -40,6 +51,18 @@ local function cfgMap(key)
   local out = {}
   for k, val in pairs(v) do
     out[tostring(k)] = tostring(val)
+  end
+  return out
+end
+
+local function cfgList(key)
+  local v = noctalia.getConfig(key) or {}
+  if type(v) ~= "table" then
+    return {}
+  end
+  local out = {}
+  for _, s in ipairs(v) do
+    out[#out + 1] = tostring(s)
   end
   return out
 end
@@ -74,13 +97,70 @@ local function trim(s)
   return (s:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+-- Authoritative contact tables published by the service through noctalia.state
+-- ("contacts.data"). Before the first publish (or the fallback label below) the
+-- panel reads the same keys from config so the first frame is never empty.
+--
+-- state.watch only fires on *changes*, so a panel runtime created after the
+-- service published (e.g. after a plugin reload) would never learn about the
+-- current data and would fall back to the stale settings.toml config — hiding
+-- every contact that only exists in the service's state.json. Seed from the
+-- in-memory channel up front; the watch below covers future publishes.
+local data = noctalia.state.get("contacts.data") -- { contacts, kinds, images, folder_sounds, order, sound_folders }
+
+local function cloneMap(t)
+  local out = {}
+  for k, v in pairs(t) do
+    out[k] = v
+  end
+  return out
+end
+
+local function cloneList(t)
+  local out = {}
+  for i, v in ipairs(t) do
+    out[i] = v
+  end
+  return out
+end
+
+-- The six mutable tables with the current data; used both for rendering and
+-- as a base to build the next state after a mutation.
+local function dataTables()
+  local d = data or noctalia.state.get("contacts.data") or {}
+  return {
+    contacts      = d.contacts or cfgMap("contacts"),
+    kinds         = d.kinds or cfgMap("contact_kinds"),
+    images        = d.images or cfgMap("contact_images"),
+    folder_sounds = d.folder_sounds or cfgMap("folder_sounds"),
+    order         = d.order or cfgList("contact_order"),
+    sound_folders = d.sound_folders or cfgList("sound_folders"),
+  }
+end
+
+-- Builds the next state from copies of the current one after a mutation,
+-- updates the published copy optimistically (so the row moves instantly) and
+-- hands the full tables to the service via noctalia.state, which persists and
+-- republishes — the panel stays open. `seq` lets the service ignore a command
+-- that gets delivered twice (around a service restart), so the "saved"
+-- notification fires exactly once per action. The counter is kept in the state
+-- channel (which survives a panel reload) so it never repeats across reloads.
+local cmdSeq = noctalia.state.get("contacts.cmd_seq") or 0
+local function sendMutate(next)
+  cmdSeq = cmdSeq + 1
+  noctalia.state.set("contacts.cmd_seq", cmdSeq)
+  noctalia.state.set("contacts.cmd", { op = "mutate", data = next, seq = cmdSeq })
+  data = next
+  render()
+end
+
 local function contacts()
   local out = {}
-  local contactsCfg = cfgMap("contacts")
-  local kinds = cfgMap("contact_kinds")
-  local images = cfgMap("contact_images")
-  local folderSounds = cfgMap("folder_sounds")
-  for name, path in pairs(contactsCfg) do
+  local t = dataTables()
+  local kinds = t.kinds
+  local images = t.images
+  local folderSounds = t.folder_sounds
+  for name, path in pairs(t.contacts) do
     local entry = {
       name = name,
       path = path,
@@ -97,17 +177,164 @@ local function contacts()
     end
     table.insert(out, entry)
   end
+  -- Custom order from the `order` list; anything not listed keeps
+  -- alphabetical order after the listed contacts.
+  local order = t.order
+  local rank = {}
+  for i, n in ipairs(order) do
+    if not rank[n] then
+      rank[n] = i
+    end
+  end
   table.sort(out, function(a, b)
+    local ra, rb = rank[a.name], rank[b.name]
+    if ra and rb then
+      return ra < rb
+    end
+    if ra then
+      return true
+    end
+    if rb then
+      return false
+    end
     return a.name < b.name
   end)
   return out
+end
+
+-- ---------------------------------------------------------------------------
+-- Sound durations (probed lazily via scripts/sound_durations.py)
+-- ---------------------------------------------------------------------------
+
+-- The distinct audio files that can actually play (folder members resolved to
+-- their absolute paths), so the stop button can be gated on real durations.
+-- Only the picked member is probed when a folder has an explicit selection;
+-- random folders probe every member because the next play could be any of them.
+local function soundPathsToProbe()
+  local out = {}
+  local seen = {}
+  for _, c in ipairs(contacts()) do
+    local list = {}
+    if c.isFolder then
+      if c.folderSound and c.folderSound ~= "" then
+        for _, s in ipairs(c.sounds) do
+          if s == c.folderSound then
+            list[#list + 1] = c.folderPath .. "/" .. s
+            break
+          end
+        end
+      else
+        for _, s in ipairs(c.sounds) do
+          list[#list + 1] = c.folderPath .. "/" .. s
+        end
+      end
+    else
+      list[#list + 1] = expandPath(c.path)
+    end
+    for i = 1, #list do
+      local p = list[i]
+      if p ~= "" and not seen[p] then
+        seen[p] = true
+        out[#out + 1] = p
+      end
+    end
+  end
+  return out
+end
+
+-- Last path component: the file name shown to the user.
+local function fileName(path)
+  local base = (path or ""):match("([^/]+)$")
+  return base or path or ""
+end
+
+-- Sound this contact actually plays, shown as a small caption under the name.
+-- Folders show the picked member, or the folder name when picking randomly.
+local function contactSoundName(contact)
+  if contact.isFolder then
+    if contact.folderSound and contact.folderSound ~= "" then
+      return fileName(contact.folderSound)
+    end
+    if #(contact.sounds or {}) == 1 then
+      return fileName(contact.sounds[1])
+    end
+    return tr("panel.random_sound")
+  end
+  return fileName(contact.path)
+end
+
+-- Duration of the sound this contact actually plays, or nil while still
+-- unknown. For a folder with a picked sound only that file counts; without a
+-- pick the longest member is used as the worst case for the random choice.
+local function contactDuration(contact)
+  if contact.isFolder then
+    if contact.folderSound and contact.folderSound ~= "" then
+      return durations[contact.folderPath .. "/" .. contact.folderSound]
+    end
+    local best = 0
+    for _, s in ipairs(contact.sounds) do
+      local d = durations[contact.folderPath .. "/" .. s]
+      if d and d > best then
+        best = d
+      end
+    end
+    if best > 0 then
+      return best
+    end
+    return nil
+  end
+  return durations[expandPath(contact.path)]
+end
+
+-- Probes every sound still missing a cached duration in one async batch and
+-- re-renders when it resolves. Called from render(); no-op while a batch is in
+-- flight so repeated frames don't pile up subprocesses.
+local function ensureDurations()
+  local dir = noctalia.pluginDir()
+  if not dir or durationBatchPending then
+    return
+  end
+  local missing = {}
+  for _, p in ipairs(soundPathsToProbe()) do
+    if durations[p] == nil then
+      missing[#missing + 1] = p
+    end
+  end
+  if #missing == 0 then
+    return
+  end
+  durationBatchPending = true
+  local parts = {}
+  for _, p in ipairs(missing) do
+    parts[#parts + 1] = shellQuote(p)
+  end
+  noctalia.runAsync(
+    "python3 " .. shellQuote(dir .. "/scripts/sound_durations.py") .. " " .. table.concat(parts, " "),
+    function(result)
+      durationBatchPending = false
+      if result and result.exitCode == 0 and result.stdout then
+        local i = 1
+        for line in result.stdout:gmatch("[^\n]+") do
+          if missing[i] then
+            local v = tonumber(line)
+            if v then
+              durations[missing[i]] = v
+            end
+          end
+          i = i + 1
+        end
+      end
+      render()
+    end
+  )
 end
 
 -- Known sound-folder paths: the registry (persists even when every entry that
 -- used a folder is deleted) plus any folder still in use, deduplicated.
 local function knownFolders()
   local set = {}
-  for _, path in pairs(cfgMap("contacts")) do
+  local t = dataTables()
+  for _, path in pairs(t.contacts) do
     local abs = expandPath(path)
     local info = noctalia.fileInfo(abs)
     if info and info.isDir then
@@ -117,7 +344,7 @@ local function knownFolders()
       end
     end
   end
-  for path in pairs(cfgMap("sound_folders")) do
+  for _, path in ipairs(t.sound_folders) do
     if path and path ~= "" then
       local abs = expandPath(path):gsub("/+$", "")
       if abs ~= "" then
@@ -140,48 +367,9 @@ end
 -- Editing
 -- ---------------------------------------------------------------------------
 
--- Runs one or more edit_contacts.sh steps, then a config-reload, then (unless
--- noReopen) reopens the panel so the rows refresh.
-local function runEditChain(steps, opts)
-  opts = opts or {}
-  local dir = noctalia.pluginDir()
-  if not dir then
-    return
-  end
-  local parts = {}
-  for _, args in ipairs(steps) do
-    local quoted = {}
-    for _, a in ipairs(args) do
-      quoted[#quoted + 1] = shellQuote(a)
-    end
-    parts[#parts + 1] = "bash " .. shellQuote(dir .. "/scripts/edit_contacts.sh") .. " " .. table.concat(quoted, " ")
-  end
-  local cmd = table.concat(parts, " && ") .. " && noctalia msg config-reload"
-  if not opts.noReopen then
-    cmd = cmd .. " && noctalia msg panel-open nilsonlinux/contact-sounds:Panel"
-  end
-  noctalia.runAsync(cmd, function(result)
-    if result and result.exitCode == 0 then
-      if not opts.noReopen then
-        formVersion = formVersion + 1
-        nameDraft = ""
-        pathDraft = ""
-        soundDraft = ""
-        imageDraft = ""
-        modeDraft = "file"
-        kindDraft = "contact"
-        pathInputMode = "existing"
-      end
-      noctalia.notify(tr("panel.title"), tr("panel.saved"))
-    else
-      noctalia.notifyError(tr("panel.title"), tr("panel.error_saving"))
-    end
-    if opts.onDone then
-      opts.onDone()
-    end
-    render()
-  end)
-end
+-- Every mutation is applied to a copy of the current state and handed to the
+-- service through noctalia.state (see sendMutate); nothing here touches the
+-- filesystem or reloads the config, so the panel never closes while editing.
 
 local function clearForm()
   nameDraft = ""
@@ -196,12 +384,24 @@ local function clearForm()
 end
 
 local function deleteContact(name)
-  runEditChain({ { "del", name } }, {
-    onDone = function()
-      pendingDelete = nil
-      render()
-    end,
-  })
+  local t = dataTables()
+  t.contacts = cloneMap(t.contacts)
+  t.kinds = cloneMap(t.kinds)
+  t.images = cloneMap(t.images)
+  t.folder_sounds = cloneMap(t.folder_sounds)
+  t.order = cloneList(t.order)
+  t.contacts[name] = nil
+  t.kinds[name] = nil
+  t.images[name] = nil
+  t.folder_sounds[name] = nil
+  for i, n in ipairs(t.order) do
+    if n == name then
+      table.remove(t.order, i)
+      break
+    end
+  end
+  pendingDelete = nil
+  sendMutate(t)
 end
 
 local function startEdit(contact)
@@ -234,36 +434,136 @@ local function saveForm()
       return
     end
   end
-  local steps = {}
-  if editingName then
-    if name ~= editingName then
-      steps[#steps + 1] = { "set", editingName, name, path }
-    else
-      steps[#steps + 1] = { "sound", name, path }
+  local t = dataTables()
+  t.contacts = cloneMap(t.contacts)
+  t.kinds = cloneMap(t.kinds)
+  t.images = cloneMap(t.images)
+  t.folder_sounds = cloneMap(t.folder_sounds)
+  t.sound_folders = cloneList(t.sound_folders)
+  t.order = cloneList(t.order)
+
+  local renamed = editingName and name ~= editingName
+  if renamed then
+    t.contacts[editingName] = nil
+    t.kinds[editingName] = nil
+    t.images[editingName] = nil
+    t.folder_sounds[editingName] = nil
+    for i, n in ipairs(t.order) do
+      if n == editingName then
+        t.order[i] = name
+        break
+      end
     end
-  else
-    steps[#steps + 1] = { "add", name, path }
   end
-  steps[#steps + 1] = { "kind", name, kindDraft or "contact" }
-  steps[#steps + 1] = { "image", name, image }
-  if modeDraft == "folder" and path ~= "" and pathInputMode == "new" then
-    steps[#steps + 1] = { "folderadd", path }
-  end
+
+  t.contacts[name] = path
+  t.kinds[name] = kindDraft or "contact"
+  t.images[name] = image
   if modeDraft == "folder" then
-    steps[#steps + 1] = { "fsound", name, soundDraft or "" }
+    t.folder_sounds[name] = soundDraft or ""
+  else
+    t.folder_sounds[name] = ""
   end
-  runEditChain(steps, {
-    onDone = function()
-      editingName = nil
-      showForm = false
-      render()
-    end,
-  })
+
+  if modeDraft == "folder" and path ~= "" and pathInputMode == "new" then
+    local abs = trim(expandPath(path):gsub("/+$", ""))
+    local found = false
+    for _, p in ipairs(t.sound_folders) do
+      if p == abs then
+        found = true
+        break
+      end
+    end
+    if not found then
+      table.insert(t.sound_folders, abs)
+    end
+  end
+
+  if not editingName then
+    table.insert(t.order, name)
+  end
+
+  editingName = nil
+  showForm = false
+  sendMutate(t)
 end
 
 local function playContact(name)
   local safe = shellQuote(name)
   noctalia.runAsync("noctalia msg plugin nilsonlinux/contact-sounds:monitor all play " .. safe)
+end
+
+local function stopSounds()
+  noctalia.runAsync("noctalia msg plugin nilsonlinux/contact-sounds:monitor all stop")
+end
+
+-- Persists a full contact order through the service: the new order list is
+-- merged into the current state and sent as a mutation — no config-reload, so
+-- the panel stays open while reordering.
+local function persistOrder(names)
+  local t = dataTables()
+  t.order = cloneList(names)
+  sendMutate(t)
+end
+
+-- Drag-and-drop handler for the insertion strips: `payload` is the dragged
+-- contact's name, `value` is the strip's position (1 = before the first row,
+-- #contacts+1 = after the last one). The dragged contact is inserted so it
+-- occupies that position in the current order.
+function onContactDrop(payload, value)
+  if type(payload) ~= "string" or payload == "" or type(value) ~= "string" then
+    return
+  end
+  local insertAt = tonumber(value)
+  if insertAt == nil then
+    return
+  end
+  local names = {}
+  for _, c in ipairs(contacts()) do
+    names[#names + 1] = c.name
+  end
+  local n = #names
+  if n == 0 then
+    return
+  end
+  local current = 0
+  for i, nm in ipairs(names) do
+    if nm == payload then
+      current = i
+      break
+    end
+  end
+  if current == 0 then
+    return
+  end
+  local out = {}
+  for i, nm in ipairs(names) do
+    if i ~= current then
+      table.insert(out, nm)
+    end
+  end
+  -- Strip `t` is "before item t" in the current order (t = #names+1 means
+  -- "after the last row"). Once the dragged entry is removed, the insertion
+  -- point shifts down by one when it sat before that item.
+  local target = math.max(1, math.min(insertAt, n + 1))
+  local newPos = target
+  if target > current then
+    newPos = target - 1
+  end
+  table.insert(out, math.max(1, math.min(newPos, #out + 1)), payload)
+  local same = #out == #names
+  if same then
+    for i, nm in ipairs(out) do
+      if nm ~= names[i] then
+        same = false
+        break
+      end
+    end
+  end
+  if same then
+    return
+  end
+  persistOrder(out)
 end
 
 -- ---------------------------------------------------------------------------
@@ -319,38 +619,102 @@ end
 -- Rows
 -- ---------------------------------------------------------------------------
 
--- Compact icon-only button for the action column.
+-- Compact icon-only button for the action column. Every button here is
+-- outlined so the row actions read like the rest of the panel's controls.
 local function iconBtn(extra)
-  local props = { variant = "ghost", controlSize = "sm", height = 24, glyphSize = 14 }
+  local props = { variant = "outline", controlSize = "sm", height = 24, glyphSize = 14 }
   for k, v in pairs(extra) do
     props[k] = v
   end
   return ui.button(props)
 end
 
-local function rowCard(children)
+-- Drag handle for the reorder feature. `liftFromLayout` + `previewAncestor`
+-- make the whole row lift off the layout and follow the pointer while
+-- dragging — live feedback, just like link-ip-monitor.
+local function dragHandle(contact, index)
+  return ui.dragSource({
+    key             = "grip-" .. tostring(index),
+    dragType        = "contact",
+    payload         = contact.name,
+    previewAncestor = 1,
+    liftFromLayout  = true,
+    enabled         = true,
+    width           = 20,
+    height          = 20,
+    align           = "center",
+    justify         = "center",
+    tooltip         = tr("panel.reorder_tooltip"),
+  }, {
+    ui.glyph({ name = "menu-2", size = 14, color = "on_surface_variant" }),
+  })
+end
+
+-- Plain row card. The drop targets are the thin insertion strips between
+-- rows (see insertionZone), matching link-ip-monitor.
+local function rowCard(children, contact)
   return ui.column({
-    gap    = 6,
-    padding = 8,
-    radius = 8,
-    fill   = "surface_variant/0.4",
-    border = "outline",
+    key         = "row-" .. tostring(contact.name),
+    gap         = 6,
+    padding     = 8,
+    radius      = 8,
+    fill        = "surface_variant/0.4",
+    border      = "outline",
     borderWidth = 1,
   }, children)
 end
 
+-- Thin strip between rows (and before the first / after the last) that
+-- accepts a dropped contact. `expandOnDrag` animates it open while the drag
+-- passes over it, so the user sees exactly where the row will land.
+local function insertionZone(index)
+  return ui.dropZone({
+    key          = "gap-" .. tostring(index),
+    accepts      = { "contact" },
+    value        = tostring(index),
+    onDrop       = "onContactDrop",
+    height       = 3,
+    radius       = 4,
+    expandOnDrag = true,
+    hitSlop      = 24,
+  })
+end
+
 render = function()
+  ensureDurations()
   local list = contacts()
+  local showSoundName = noctalia.getConfig("show_sound_name") ~= false
   local rows = {}
 
-  for _, contact in ipairs(list) do
+  for i, contact in ipairs(list) do
+    table.insert(rows, insertionZone(i))
+
     local cardChildren = {}
 
-    -- Main line: avatar + contact name + action buttons (compact).
+    -- Main line: drag handle + avatar + contact name + action buttons. The
+    -- handle is a direct child so `previewAncestor = 1` lifts the row card.
+    local nameChildren = {
+      ui.label({ text = contact.name, fontWeight = "bold", fontSize = 16, maxLines = 1 }),
+    }
+    if showSoundName then
+      table.insert(nameChildren, ui.column({ align = "start" }, {
+        ui.row({
+          gap       = 6,
+          align     = "center",
+          fill      = "surface_variant/0.5",
+          radius    = 999,
+          paddingH  = 10,
+          paddingV  = 3,
+        }, {
+          ui.label({ text = contactSoundName(contact), fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+        }),
+      }))
+    end
     local mainRowChildren = {
+      dragHandle(contact, i),
       ui.row({ gap = 8, align = "center", flexGrow = 1, minWidth = 0 }, {
         avatarFor(contact),
-        ui.label({ text = contact.name, fontWeight = "bold", fontSize = 16, maxLines = 1 }),
+        ui.column({ gap = 4, flexGrow = 1, minWidth = 0 }, nameChildren),
       }),
     }
 
@@ -392,18 +756,28 @@ render = function()
     end
     table.insert(actionButtons, iconBtn({
       glyph       = "player-play",
-      variant     = "primary",
       tooltip     = tr("panel.play_tooltip"),
       onClick     = function()
         playContact(contact.name)
       end,
     }))
+    local duration = contactDuration(contact)
+    if duration and duration > STOP_DURATION_THRESHOLD then
+      table.insert(actionButtons, iconBtn({
+        glyph       = "player-stop",
+        tooltip     = tr("panel.stop_tooltip"),
+        onClick     = function()
+          stopSounds()
+        end,
+      }))
+    end
 
     table.insert(mainRowChildren, ui.row({ gap = 4, align = "center" }, actionButtons))
     table.insert(cardChildren, ui.row({ gap = 8, align = "center", justify = "space_between" }, mainRowChildren))
 
-    table.insert(rows, rowCard(cardChildren))
+    table.insert(rows, rowCard(cardChildren, contact))
   end
+  table.insert(rows, insertionZone(#list + 1))
 
   local body
   if #rows == 0 then
@@ -416,14 +790,18 @@ render = function()
       })
     end
   else
-    body = ui.scroll({ gap = 6, flexGrow = 1 }, rows)
+    body = ui.scroll({ gap = 2, flexGrow = 1 }, rows)
   end
 
   local function openForm()
     modeDraft = "folder"
+    nameDraft = ""
     pathDraft = ""
     soundDraft = ""
+    imageDraft = ""
+    kindDraft = "contact"
     pathInputMode = "existing"
+    editingName = nil
     if #knownFolders() > 0 then
       pathDraft = knownFolders()[1]
     end
@@ -641,7 +1019,7 @@ render = function()
     ui.button({
       text         = isEditing and tr("panel.save_button") or tr("panel.add_button"),
       glyph        = isEditing and "device-floppy" or "plus",
-      variant      = "primary",
+      variant      = "outline",
       flexGrow     = 1,
       contentAlign = "center",
       onClick      = saveForm,
@@ -666,7 +1044,18 @@ function onOpen(_context)
   render()
 end
 
+noctalia.state.watch("contacts.data", function(d)
+  if type(d) == "table" then
+    data = d
+    render()
+  end
+end)
+
 function onConfigChanged()
+  -- Long cache lifetimes would hide that the sound behind a path changed after
+  -- an edit (same path, different duration), so drop it and let the next frame
+  -- re-probe only the paths that are actually used.
+  durations = {}
   render()
 end
 

@@ -1,6 +1,6 @@
 id          = "nilsonlinux/contact-sounds"
 name        = "Contact Notification Sounds"
-version     = "1.1.0"
+version     = "1.5.1"
 plugin_api  = 20
 author      = "Nilsonlinux"
 license     = "MIT"
@@ -23,6 +23,8 @@ dependencies = ["dbus-monitor", "gawk", "python3"]
 #   folder_sounds   map "Name" -> sound filename picked inside a sounds folder
 #   sound_folders   map "path" -> "" registry of known sound folders, offered
 #                   when adding new entries so the path isn't retyped
+#   contact_order   list of contact names defining the panel list order; set
+#                   by drag-and-drop in the panel (scripts/edit_contacts.sh)
 # ---------------------------------------------------------------------------
 
 [[setting]]
@@ -73,6 +75,13 @@ description_key = "settings.show_widget.description"
 default         = true
 
 [[setting]]
+key             = "show_sound_name"
+type            = "bool"
+label_key       = "settings.show_sound_name.label"
+description_key = "settings.show_sound_name.description"
+default         = true
+
+[[setting]]
 key             = "match_case_sensitive"
 type            = "bool"
 label_key       = "settings.match_case_sensitive.label"
@@ -87,6 +96,14 @@ label_key       = "settings.only_apps.label"
 description_key = "settings.only_apps.description"
 default         = []
 advanced        = true
+
+[[setting]]
+key             = "contact_order"
+type            = "string_list"
+label_key       = "settings.contact_order.label"
+description_key = "settings.contact_order.description"
+default         = []
+visible_when    = { key = "__never_show_contact_order__", values = ["true"] }
 
 # ---------------------------------------------------------------------------
 # Service: listens to D-Bus notifications and plays the contact's sound
