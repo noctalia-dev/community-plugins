@@ -7,6 +7,9 @@ local RESULT_KEY = "obs_action_result"
 
 local MAX_RECENT = 40
 local MAX_GIT_FILES = 40
+local PARSE_UPDATE_INTERVAL_MS = 16
+local RECENT_LINES_PER_UPDATE = 2
+local GIT_LINES_PER_UPDATE = 32
 
 local snapshot = {
   available = false,
@@ -40,6 +43,7 @@ local refreshPending = false
 local refreshAgain = false
 local actionBusy = false
 local dataSignature = ""
+local pendingParse = nil
 
 local function trim(v)
   return noctalia.string.trim(tostring(v or ""))
@@ -432,26 +436,21 @@ local function readPreview(path, maxBytes)
   return raw
 end
 
-local function parseGitStatus(stdout)
-  local files = {}
-  local dirty = 0
-  for line in (tostring(stdout or "") .. "\n"):gmatch("(.-)\n") do
-    if line ~= "" then
-      dirty += 1
-      if #files < MAX_GIT_FILES then
-        local xy = line:sub(1, 2)
-        local path = trim(line:sub(4))
-        -- rename: "R  old -> new"
-        path = path:gsub("^.*%->%s*", "")
-        table.insert(files, {
-          id = path,
-          path = path,
-          code = xy,
-        })
-      end
+local function parseGitStatusLine(state, line)
+  if line ~= "" then
+    state.dirty += 1
+    if #state.gitFiles < MAX_GIT_FILES then
+      local xy = line:sub(1, 2)
+      local path = trim(line:sub(4))
+      -- rename: "R  old -> new"
+      path = path:gsub("^.*%->%s*", "")
+      table.insert(state.gitFiles, {
+        id = path,
+        path = path,
+        code = xy,
+      })
     end
   end
-  return dirty, files
 end
 
 local function parseBranchLine(stdout)
@@ -464,26 +463,45 @@ local function parseBranchLine(stdout)
   return branch, ahead, behind, line
 end
 
-local function parseRecent(stdout)
-  local recent = {}
-  for line in (tostring(stdout or "") .. "\n"):gmatch("(.-)\n") do
-    local ts, rel = line:match("^([%d%.]+)\t(.+)$")
-    if rel and rel ~= "" then
-      -- Drop any path find might surface that fails strict relative rules
-      -- (absolute, .., NUL, etc.). open_note also re-checks + assertSafeVaultTarget.
-      local clean = normalizeRelPath(rel)
-      if clean ~= nil and clean ~= "" then
-        local name = clean:match("([^/]+)$") or clean
-        table.insert(recent, {
-          id = clean,
-          rel = clean,
-          name = name:gsub("%.md$", ""),
-          mtime = math.floor(tonumber(ts) or 0),
-        })
-      end
+local function parseRecentLine(recent, line)
+  local ts, rel = line:match("^([%d%.]+)\t(.+)$")
+  if rel and rel ~= "" then
+    -- Drop any path find might surface that fails strict relative rules
+    -- (absolute, .., NUL, etc.). open_note also re-checks + assertSafeVaultTarget.
+    local clean = normalizeRelPath(rel)
+    if clean ~= nil and clean ~= "" then
+      local name = clean:match("([^/]+)$") or clean
+      table.insert(recent, {
+        id = clean,
+        rel = clean,
+        name = name:gsub("%.md$", ""),
+        mtime = math.floor(tonumber(ts) or 0),
+      })
     end
   end
-  return recent
+end
+
+local function lineIterator(text)
+  text = tostring(text or "")
+  local length = #text
+  local position = 1
+
+  return function()
+    if position > length then
+      return nil
+    end
+
+    local newline = text:find("\n", position, true)
+    local line
+    if newline then
+      line = text:sub(position, newline - 1)
+      position = newline + 1
+    else
+      line = text:sub(position)
+      position = length + 1
+    end
+    return line
+  end
 end
 
 local refreshAll
@@ -568,52 +586,26 @@ refreshAll = function()
     finished = true
 
     local function applySnapshot(dailyExists, dailyPreview)
-      local okP, errP = pcall(function()
-        snapshot.dailyExists = dailyExists == true
-        snapshot.dailyPreview = dailyPreview or ""
-        snapshot.recent = parseRecent(bag.recent)
-        local dirty, files = parseGitStatus(bag.gitPorcelain)
-        local branch, ahead, behind, statusLine = parseBranchLine(bag.gitBranch)
-        local isRepo = not bag.gitFailed and (branch ~= "" or statusLine:match("^##") ~= nil)
+      local branch, ahead, behind, statusLine = parseBranchLine(bag.gitBranch)
 
-        snapshot.git = {
-          isRepo = isRepo,
-          branch = branch,
-          dirty = dirty,
-          ahead = ahead,
-          behind = behind,
-          clean = dirty == 0,
-          files = files,
-          statusLine = statusLine,
-          inProgress = gitInProgressKind(),
-        }
-        snapshot.loading = false
-        snapshot.updatedAt = nowSec()
-        refreshPending = false
-        updateRevision(table.concat({
-          snapshot.dailyRel,
-          tostring(snapshot.dailyExists),
-          tostring(#snapshot.recent),
-          branch,
-          tostring(dirty),
-          tostring(ahead),
-          tostring(behind),
-        }, "|"))
-        publishSnapshot()
-      end)
-
-      if not okP then
-        noctalia.log(`obsidian: apply failed: {tostring(errP)}`)
-        snapshot.loading = false
-        snapshot.error = tostring(errP)
-        refreshPending = false
-        publishSnapshot()
-      end
-
-      if refreshAgain then
-        refreshAgain = false
-        refreshAll()
-      end
+      pendingParse = {
+        generation = generation,
+        recentLines = lineIterator(bag.recent),
+        gitLines = lineIterator(bag.gitPorcelain),
+        recentDone = false,
+        gitDone = false,
+        recent = {},
+        gitFiles = {},
+        dirty = 0,
+        dailyExists = dailyExists == true,
+        dailyPreview = dailyPreview or "",
+        branch = branch,
+        ahead = ahead,
+        behind = behind,
+        statusLine = statusLine,
+        isRepo = not bag.gitFailed and (branch ~= "" or statusLine:match("^##") ~= nil),
+      }
+      noctalia.setUpdateInterval(PARSE_UPDATE_INTERVAL_MS)
     end
 
     -- Only read daily preview after symlink/realpath confinement passes
@@ -671,6 +663,98 @@ refreshAll = function()
     end
     finish()
   end, 15000)
+end
+
+local function applyPendingSnapshot(state)
+  snapshot.dailyExists = state.dailyExists
+  snapshot.dailyPreview = state.dailyPreview
+  snapshot.recent = state.recent
+  snapshot.git = {
+    isRepo = state.isRepo,
+    branch = state.branch,
+    dirty = state.dirty,
+    ahead = state.ahead,
+    behind = state.behind,
+    clean = state.dirty == 0,
+    files = state.gitFiles,
+    statusLine = state.statusLine,
+    inProgress = gitInProgressKind(),
+  }
+  snapshot.loading = false
+  snapshot.updatedAt = nowSec()
+  refreshPending = false
+  pendingParse = nil
+  noctalia.setUpdateInterval(refreshIntervalMs())
+  updateRevision(table.concat({
+    snapshot.dailyRel,
+    tostring(snapshot.dailyExists),
+    tostring(#snapshot.recent),
+    state.branch,
+    tostring(state.dirty),
+    tostring(state.ahead),
+    tostring(state.behind),
+  }, "|"))
+  publishSnapshot()
+end
+
+local function processPendingSnapshot()
+  local state = pendingParse
+  if state == nil then
+    return
+  end
+  if state.generation ~= refreshGeneration then
+    pendingParse = nil
+    noctalia.setUpdateInterval(refreshIntervalMs())
+    return
+  end
+
+  local okP, errP = pcall(function()
+    for _ = 1, RECENT_LINES_PER_UPDATE do
+      if state.recentDone then
+        break
+      end
+      local line = state.recentLines()
+      if line == nil then
+        state.recentDone = true
+      else
+        parseRecentLine(state.recent, line)
+      end
+    end
+
+    for _ = 1, GIT_LINES_PER_UPDATE do
+      if state.gitDone then
+        break
+      end
+      local line = state.gitLines()
+      if line == nil then
+        state.gitDone = true
+      else
+        parseGitStatusLine(state, line)
+      end
+    end
+
+    if state.recentDone and state.gitDone then
+      applyPendingSnapshot(state)
+      if refreshAgain then
+        refreshAgain = false
+        refreshAll()
+      end
+    end
+  end)
+
+  if not okP then
+    noctalia.log(`obsidian: apply failed: {tostring(errP)}`)
+    pendingParse = nil
+    noctalia.setUpdateInterval(refreshIntervalMs())
+    snapshot.loading = false
+    snapshot.error = tostring(errP)
+    refreshPending = false
+    publishSnapshot()
+    if refreshAgain then
+      refreshAgain = false
+      refreshAll()
+    end
+  end
 end
 
 local function appendDaily(command)
@@ -979,18 +1063,27 @@ noctalia.setUpdateInterval(refreshIntervalMs())
 refreshAll()
 
 function update()
-  refreshAll()
+  if pendingParse ~= nil then
+    processPendingSnapshot()
+  else
+    refreshAll()
+  end
 end
 
 function onConfigChanged()
+  pendingParse = nil
   noctalia.setUpdateInterval(refreshIntervalMs())
   refreshPending = false
+  refreshAgain = false
   refreshAll()
 end
 
 function onIpc(event, payload)
   if event == "refresh" then
+    pendingParse = nil
+    noctalia.setUpdateInterval(refreshIntervalMs())
     refreshPending = false
+    refreshAgain = false
     refreshAll()
   elseif event == "daily" then
     executeAction({ action = "open_daily", requestId = "ipc-daily" })
