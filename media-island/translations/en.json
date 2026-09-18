@@ -1,8 +1,33 @@
 {
-  "settings.always-scroll-title.label": "Always scroll long titles",
-  "settings.always-scroll-title.description": "Continuously scroll long media titles. By default they scroll only while the pointer is over the pill.",
-  "settings.open-media-panel.label": "Open full media panel on click",
-  "settings.open-media-panel.description": "Open Noctalia's Media panel directly from the bottom pill. By default, the pill reveals the expanded island first; clicking its media content then opens the panel.",
-  "settings.panel-default-position.label": "Use default panel position",
-  "settings.panel-default-position.description": "Open the Media panel at Noctalia's default location instead of attaching it below the expanded island."
+  "settings": {
+    "auto-show": {
+      "label": "Show on playback changes",
+      "description": "Briefly show the island when playback starts or the current track changes."
+    },
+    "preview-seconds": {
+      "label": "Preview duration",
+      "description": "How many seconds an automatic island preview remains visible."
+    }
+  },
+  "widget": {
+    "no-media": "Media",
+    "open-island": "Open Media Island",
+    "unknown-title": "Unknown title"
+  },
+  "tooltip": {
+    "title": "Title",
+    "artist": "Artist",
+    "playback": "Playback",
+    "playing": "Playing",
+    "paused": "Paused"
+  },
+  "panel": {
+    "no-media": "Nothing playing",
+    "no-media-detail": "Start playback in an MPRIS-compatible media app.",
+    "previous": "Previous track",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next track",
+    "close": "Close Media Island"
+  }
 }

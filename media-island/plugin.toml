@@ -1,42 +1,53 @@
 id = "notoxus/media-island"
 name = "Media Island"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 26
 author = "notoxus"
 license = "MIT"
 dependencies = ["busctl"]
-tags = ["bar", "media"]
+tags = ["bar", "media", "panel", "service"]
 icon = "music"
-description = "Playback-aware marquee and controls for the temporary media island."
+description = "Top-center now-playing island with artwork, transport controls, and automatic track-change previews."
 
 [[setting]]
-key = "always_scroll_title"
+key = "auto_show"
 type = "bool"
-label_key = "settings.always-scroll-title.label"
-description_key = "settings.always-scroll-title.description"
-default = false
+label_key = "settings.auto-show.label"
+description_key = "settings.auto-show.description"
+default = true
 
 [[setting]]
-key = "open_media_panel_on_click"
-type = "bool"
-label_key = "settings.open-media-panel.label"
-description_key = "settings.open-media-panel.description"
-default = false
-
-[[setting]]
-key = "panel_at_default_position"
-type = "bool"
-label_key = "settings.panel-default-position.label"
-description_key = "settings.panel-default-position.description"
-default = false
+key = "preview_seconds"
+type = "int"
+label_key = "settings.preview-seconds.label"
+description_key = "settings.preview-seconds.description"
+default = 2
+min = 1
+max = 10
+step = 1
 
 [[service]]
 id = "media-state"
 entry = "service.luau"
 
 [[widget]]
-id = "playback-toggle"
+id = "now-playing"
 entry = "bar.luau"
 
   [widget.actions]
-  left = "media toggle"
+  right = "media toggle"
+  back = "media previous"
+  forward = "media next"
+  scroll_up = "media next"
+  scroll_down = "media previous"
+
+[[panel]]
+id = "island"
+entry = "panel.luau"
+width = 620
+height = 118
+placement = "floating"
+position = "top_center"
+persistent = true
+dismiss_on_outside_click = false
+keyboard_focus = "none"

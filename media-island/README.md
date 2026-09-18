@@ -1,52 +1,71 @@
-# Media Island for Noctalia
+# Media Island
 
-A playback-aware control widget used by this dotfiles repository's temporary
-media island.
+A self-contained, top-center now-playing island for Noctalia. It shows album
+art, track metadata, playback progress, and transport controls without editing
+the user's Noctalia or compositor configuration.
 
-The island uses Noctalia's normal bar auto-hide behavior at the top screen
-edge. The external `noctalia-media-island` watcher additionally reveals it
-when playback starts or the current track changes. It temporarily suspends
-auto-hide, keeps the island visible for 1.5 seconds, then hides it and restores
-normal edge-triggered auto-hide. The plugin follows the same active MPRIS
-player selected by Noctalia. The compact artwork/title stays native so its
-marquee remains pixel-smooth; Play/Pause updates only the shared player state
-and never rebuilds the bar. The plugin also supplies a playback-aware control
-for the expanded island.
-
-##Requirements
-
-- `busctl`
+The island briefly appears when playback starts or the current track changes.
+Open it manually from the bar widget to keep it visible until closed.
 
 ## Plugin
 
 | Field | Value |
-|---|---|
-| Plugin ID | `notoxus/media-island` |
-| Compact pill | Native `media` widget managed by the plugin service |
-| Island control | `notoxus/media-island:playback-toggle` |
+| --- | --- |
+| ID | `notoxus/media-island` |
+| Entries | Bar widget: `now-playing`; panel: `island`; service: `media-state` |
+
+## Requirements
+
+Install `busctl` on `PATH`. It is provided by systemd on most Linux
+distributions. A media application exposing an MPRIS player is also required.
+
+## Usage
+
+Enable **Media Island** in `Settings → Plugins`, then add the
+`notoxus/media-island:now-playing` widget to a bar.
+
+- Left click opens or closes the island.
+- Right click toggles Play/Pause.
+- Scroll, Back, and Forward gestures change tracks.
+- The panel's transport buttons provide Previous, Play/Pause, and Next.
+- The close button dismisses a manually opened island.
+
+The panel can also be toggled from a terminal:
+
+```sh
+noctalia msg panel-toggle notoxus/media-island:island
+```
+
+The panel defaults to a persistent floating surface at the top center. Its
+position and layer can be changed from the plugin's settings; choose the
+`overlay` layer if the island should appear above fullscreen windows.
 
 ## Settings
 
-Three behavior overrides are exposed:
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `auto_show` | `bool` | `true` | Briefly show the island when playback starts or the track changes. |
+| `preview_seconds` | `int` | `2` | Automatic preview duration, from 1 to 10 seconds. |
 
-- **Always scroll long titles** keeps a long title moving continuously. It is
-  off by default, so the title scrolls only while the pill is hovered. Changing
-  this setting reloads the config once; Play/Pause never does.
-- **Open full media panel on click** opens Noctalia's native Media panel when
-  the compact pill is clicked. It is off by default, so a click briefly reveals
-  the expanded media island instead; clicking the native media content inside
-  that island then opens Noctalia's Media panel.
-- **Use default panel position** makes that second click open the Media panel
-  at Noctalia's default location instead of attaching it below the island. It
-  is off by default.
+## IPC
 
-## Installation
+The service accepts panel and playback actions:
 
-Copy this directory to:
-
-```text
-~/.local/share/noctalia/plugins/media-island/
+```sh
+noctalia msg plugin notoxus/media-island:media-state all show
+noctalia msg plugin notoxus/media-island:media-state all hide
+noctalia msg plugin notoxus/media-island:media-state all toggle-panel
+noctalia msg plugin notoxus/media-island:media-state all previous
+noctalia msg plugin notoxus/media-island:media-state all toggle
+noctalia msg plugin notoxus/media-island:media-state all next
 ```
 
-Then enable **Media Island** under `Settings → Plugins`. The tracked bar
-profiles already place the managed native media pill and playback widget.
+## Notes
+
+The service polls Noctalia's MPRIS D-Bus facade with `busctl` every 500 ms so
+it follows the same active player as the built-in media widget. It invokes the
+Noctalia CLI to open and close the persistent panel idempotently.
+
+Remote album artwork is downloaded through Noctalia's runtime API into the
+plugin's persistent data directory. The plugin does not modify user
+configuration files and does not require compositor autostart commands.
