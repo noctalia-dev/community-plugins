@@ -1,7 +1,7 @@
 id = "notoxus/media-island"
 name = "Media Island"
-version = "1.1.0"
-plugin_api = 26
+version = "1.0.0"
+plugin_api = 24
 author = "notoxus"
 license = "MIT"
 dependencies = ["busctl"]
@@ -46,7 +46,6 @@ id = "island"
 entry = "panel.luau"
 width = 620
 height = 118
-placement = "floating"
 position = "top_center"
 persistent = true
 dismiss_on_outside_click = false
