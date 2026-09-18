@@ -1,0 +1,97 @@
+{
+  "title": "DNF Updater",
+  "settings": {
+    "check_interval": {
+      "label": "Check Interval (Minutes)",
+      "description": "How often to automatically check for updates in minutes (0 to disable)."
+    },
+    "enable_dnf": {
+      "label": "Enable DNF",
+      "description": "Check for and manage DNF5 system package updates."
+    },
+    "enable_flatpak": {
+      "label": "Enable Flatpak",
+      "description": "Check for and manage Flatpak application updates."
+    },
+    "show_widget_when_clean": {
+      "label": "Show Widget When Clean",
+      "description": "Show the bar widget even when there are no pending updates."
+    },
+    "notify_on_updates": {
+      "label": "Notify on New Updates",
+      "description": "Send a desktop notification when new pending updates are found."
+    },
+    "update_in_terminal": {
+      "label": "Run Updates in Terminal",
+      "description": "Launch update commands inside a terminal emulator instead of running in background with polkit."
+    },
+    "glyph": {
+      "label": "Widget Icon",
+      "description": "Icon glyph to display in the Noctalia bar widget."
+    }
+  },
+  "status": {
+    "everything_up_to_date": "Everything is up to date.",
+    "checking": "Checking for updates…",
+    "updating": "Updating packages…",
+    "last_checked": "Last checked: {time}",
+    "never_checked": "Never checked",
+    "dnf_idle": "DNF idle",
+    "dnf_checking": "Checking DNF…",
+    "dnf_updating": "Updating DNF…",
+    "dnf_done": "DNF up to date",
+    "dnf_error": "DNF error",
+    "flatpak_idle": "Flatpak idle",
+    "flatpak_checking": "Checking Flatpak…",
+    "flatpak_updating": "Updating Flatpak…",
+    "flatpak_waiting": "Flatpak waiting…",
+    "flatpak_done": "Flatpak up to date",
+    "flatpak_error": "Flatpak error",
+    "skipped": "Skipped"
+  },
+  "actions": {
+    "update_all": "Update All",
+    "update_all_size": "Update All ({count} · {size})",
+    "update_selected": "Update Selected ({count})",
+    "update_selected_size": "Update Selected ({count} · {size})",
+    "include_pkg": "Include in update",
+    "exclude_pkg": "Exclude from update",
+    "select_all": "Select all",
+    "deselect_all": "Deselect all",
+    "update_dnf": "Update DNF",
+    "update_flatpak": "Update Flatpak",
+    "check_now": "Check Now",
+    "open_settings": "Settings",
+    "close": "Close",
+    "expand": "Expand section",
+    "collapse": "Collapse section"
+  },
+  "sections": {
+    "dnf": "DNF · {count} updates",
+    "dnf_selected": "DNF · {selected}/{total} updates",
+    "flatpak": "Flatpak · {count} updates",
+    "flatpak_selected": "Flatpak · {selected}/{total} updates"
+  },
+  "summary": {
+    "dnf": "DNF",
+    "flatpak": "Flatpak",
+    "total": "Total",
+    "storage": "Storage",
+    "download": "Download",
+    "disk_size": "Disk Size"
+  },
+  "notifications": {
+    "updates_available_title": "Updates Available",
+    "updates_available_body": "{count} pending updates are ready to install.",
+    "update_complete_title": "Update Complete",
+    "update_complete_body": "System updates have completed successfully.",
+    "update_failed_title": "Update Failed",
+    "update_failed_body": "An error occurred while installing updates."
+  },
+  "tooltip": {
+    "updates_available": "{count} updates available",
+    "all_up_to_date": "All packages up to date",
+    "download_size": "Download size",
+    "disk_size": "Disk size"
+  }
+}

@@ -1,0 +1,77 @@
+id = "strob3/dnf-updater"
+name = "DNF Updater"
+version = "1.0.0"
+plugin_api = 24
+author = "strob3"
+license = "MIT"
+icon = "package"
+description = "Manage DNF and Flatpak updates."
+dependencies = ["dnf5", "flatpak", "pkexec"]
+tags = ["bar", "panel", "service", "system", "fedora", "utility"]
+
+[[setting]]
+key = "check_interval"
+type = "int"
+label_key = "settings.check_interval.label"
+description_key = "settings.check_interval.description"
+default = 30
+min = 0
+max = 1440
+
+[[setting]]
+key = "enable_dnf"
+type = "bool"
+label_key = "settings.enable_dnf.label"
+description_key = "settings.enable_dnf.description"
+default = true
+
+[[setting]]
+key = "enable_flatpak"
+type = "bool"
+label_key = "settings.enable_flatpak.label"
+description_key = "settings.enable_flatpak.description"
+default = true
+
+[[setting]]
+key = "show_widget_when_clean"
+type = "bool"
+label_key = "settings.show_widget_when_clean.label"
+description_key = "settings.show_widget_when_clean.description"
+default = true
+
+[[setting]]
+key = "notify_on_updates"
+type = "bool"
+label_key = "settings.notify_on_updates.label"
+description_key = "settings.notify_on_updates.description"
+default = true
+
+[[setting]]
+key = "update_in_terminal"
+type = "bool"
+label_key = "settings.update_in_terminal.label"
+description_key = "settings.update_in_terminal.description"
+default = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "package"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 420
+height = 500
+placement = "attached"
+open_near_click = true
