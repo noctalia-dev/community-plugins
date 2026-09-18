@@ -173,8 +173,9 @@ local function openScreenshotPreview()
   end
   if noctalia.commandExists("satty") then noctalia.runAsync("satty --filename " .. shellQuote(targetPath))
   elseif noctalia.commandExists("swappy") then noctalia.runAsync("swappy -f " .. shellQuote(targetPath))
+  elseif noctalia.commandExists("tensaku") then noctalia.runAsync("tensaku -f " .. shellQuote(targetPath))
   elseif noctalia.commandExists("gimp") then noctalia.runAsync("gimp " .. shellQuote(targetPath))
-  else noctalia.notifyError(tr("messages.missing_dep", { dep = "satty (or swappy/gimp)" })) end
+  else noctalia.notifyError(tr("messages.missing_dep", { dep = "satty (or swappy/gimp/tensaku)" })) end
 end
 
 local function openRecordingPreview()

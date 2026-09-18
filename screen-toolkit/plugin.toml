@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.4.1"
+version = "1.4.2"
 plugin_api = 13
 author = "alexander"
 license = "MIT"
@@ -35,6 +35,7 @@ dependencies = [
   "niri",
   "swappy",
   "satty",
+  "tensaku",
   "gimp",
   "gpu-screen-recorder",
   "wl-screenrec",

@@ -509,6 +509,8 @@ local function openAnnotator(file)
   publish("annotateResult", { capturePath = file })
   if noctalia.commandExists("swappy") then
     noctalia.runAsync(`swappy -f {shellQuote(file)}`)
+  elseif noctalia.commandExists("tensaku") then
+    noctalia.runAsync(`tensaku -f {shellQuote(file)}`)
   elseif noctalia.commandExists("satty") then
     local destDir = screenshotDir()
     local out = `{destDir}/{buildFilename("annotate", ".png")}`

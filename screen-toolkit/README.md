@@ -45,8 +45,8 @@ Recording requires at least one backend:
 
 Optional:
 
-- **`swappy`** / **`satty`** — annotation editor (Markup tool)
-- **`gimp`** — fallback annotation editor when swappy/satty are missing
+- **`swappy`** / **`satty`** / **`tensaku`** — annotation editor (Markup tool)
+- **`gimp`** — fallback annotation editor when swappy/satty/tensaku are missing
 - **`translate-shell`** (`trans`) — OCR translation
 - **hyprctl** — annotate the focused window (Hyprland)
 - **`niri`** — annotate the focused window (Niri)
@@ -127,7 +127,7 @@ disabled, the plugin passes grim's `-c` flag to include it. gpu-screen-recorder
 and wl-screenrec receive their corresponding cursor options. wf-recorder does
 not expose a portable cursor flag, so its behavior depends on the compositor.
 
-- **Markup** captures the region and opens it in `swappy` (or `satty`). Saving
+- **Markup** captures the region and opens it in `swappy` (`satty` or `tensaku`). Saving
   happens in that editor; satty saves to your screenshot path automatically.
   **Markup Window** shows a crosshair — click the window you want to annotate
   and it captures that window (Hyprland). On Niri it captures the focused
@@ -259,7 +259,7 @@ Summary of every service command:
 - This is a port of the legacy v4
   [screen-toolkit](https://github.com/noctalia-dev/legacy-v4-plugins/tree/main/screen-toolkit)
   plugin. Tools that relied on freeform v4 QML overlays are adapted: region
-  selection uses `slurp`, annotation hands off to `swappy`/`satty`, and measure
+  selection uses `slurp`, annotation hands off to `swappy`/`satty`/`tensaku`, and measure
   reports region dimensions instead of drawing a line overlay. **Pin** (floating
   screen overlays) and **Webcam Mirror** could not be ported — the v5 plugin UI
   has no canvas or always-on-top surfaces — so they are not included.
