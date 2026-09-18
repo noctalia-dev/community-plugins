@@ -817,7 +817,7 @@ local function poll()
   -- is configured as a lyric source; otherwise it needlessly inflates every
   -- poll result and can exhaust the async callback CPU budget.
   local embeddedFormat = needsEmbeddedLyrics() and "{{xesam:asText}}" or ""
-  local cmd = [[playerctl --all-players metadata --format "$(printf '{{playerInstance}}\037{{playerName}}\037{{lc(status)}}\037{{title}}\037{{artist}}\037{{album}}\037{{position}}\037{{mpris:length}}\037{{mpris:artUrl}}\037{{mpris:trackid}}\037{{xesam:url}}\037]]
+  local cmd = [[timeout 3s playerctl --all-players metadata --format "$(printf '{{playerInstance}}\037{{playerName}}\037{{lc(status)}}\037{{title}}\037{{artist}}\037{{album}}\037{{position}}\037{{mpris:length}}\037{{mpris:artUrl}}\037{{mpris:trackid}}\037{{xesam:url}}\037]]
     .. embeddedFormat .. [[\036')" 2>/dev/null]]
 
   local started = noctalia.runAsync(cmd, function(r)

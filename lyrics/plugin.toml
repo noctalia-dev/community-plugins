@@ -1,10 +1,10 @@
 id = "h465855hgg/lyrics"
 name = "Lyrics"
-version = "1.5.4"
+version = "1.5.5"
 plugin_api = 3
 author = "h465855hgg"
 license = "MIT"
-dependencies = ["playerctl", "python3", "cp", "chmod"]
+dependencies = ["playerctl", "python3", "cp", "chmod", "timeout"]
 tags = ["bar", "panel", "service", "music", "media", "animation"]
 icon = "music"
 description = "Synchronized lyrics with karaoke highlighting, animated transitions, and flexible lyric sources."

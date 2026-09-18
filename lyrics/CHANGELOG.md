@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.5
+
+- Retry MPRIS discovery after a short startup failure instead of leaving the
+  service stuck while `playerctl` waits for the session bus.
+- Add a timeout to each `playerctl` poll so the service remains recoverable
+  when a player is unavailable during login.
+- Use the translated no-lyrics message when the widget is visible without
+  lyrics; the existing hide-when-no-lyrics option still hides it completely.
+
 ## 1.5.4
 
 - Bound MPRIS metadata output and field processing so unusually large song

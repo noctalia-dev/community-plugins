@@ -241,6 +241,9 @@ end
 
 local function getFallbackLabel()
   if not track then return "--" end
+  if displayMode ~= "track" and showMode ~= "track" then
+    return noctalia.tr("no_lyrics")
+  end
   if track.artist and track.artist ~= "" then
     return track.title .. " + " .. track.artist
   end

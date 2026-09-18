@@ -1,4 +1,4 @@
-# Noctalia Lyrics 1.5.4
+# Noctalia Lyrics 1.5.5
 
 Synchronized lyrics for the Noctalia bar, with multiple MPRIS players,
 translation and romanization layers, configurable sources, karaoke highlighting,
@@ -20,6 +20,7 @@ Install these commands on `PATH`:
 - `cp`: preserve local MPRIS artwork in the plugin cache.
 - `chmod`: secures the temporary request directory before credentials are
   written.
+- `timeout`: bounds each `playerctl` metadata poll during startup and runtime.
 
 ## Usage
 
