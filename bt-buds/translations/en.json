@@ -1,0 +1,49 @@
+{
+  "panel": {
+    "left": "Left",
+    "right": "Right",
+    "case": "Case",
+    "closed": "Closed",
+    "noise_control": "Noise control",
+    "mode": {
+      "anc": "Noise cancellation",
+      "transparency": "Transparency",
+      "off": "Off"
+    },
+    "codec": "Codec",
+"equalizer": "EQ",
+    "eq": {
+      "normal": "Normal",
+      "more_bass": "More bass",
+      "boost_vocals": "Vocals",
+      "more_highs": "Highs"
+    },
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "disconnected": "Disconnected"
+  },
+  "widget": {
+    "name": "Buds 6 Lite",
+    "off": "Buds off",
+    "tip_connected": "Redmi Buds 6 Lite: connected",
+    "tip_disconnected": "Redmi Buds 6 Lite: disconnected",
+    "tip_help": "Left: panel | Right: name/battery/mode | Middle: cycle ANC/TR/off",
+    "left_short": "L",
+    "right_short": "R",
+    "case_short": "Case",
+    "closed_short": "Closed",
+    "mode_anc_short": "ANC",
+    "mode_tr_short": "TR",
+    "mode_off_short": "Off"
+  },
+  "settings": {
+    "language": {
+      "label": "Language",
+      "options": {
+        "auto": "Auto",
+        "en": "English",
+        "ru": "Russian"
+      }
+    }
+  }
+}
