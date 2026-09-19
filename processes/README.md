@@ -156,11 +156,12 @@ The panel writes some files to the `${XDG_RUNTIME_DIR}` directory when it is ope
 
 | File name | Description |
 | --- | --- |
+| `noctalia_tordex_procs_params` | The information about processes filters and sorting. |
 | `noctalia_tordex_procs.json` | The information about processes and system. |
 | `noctalia_tordex_procs_cpu_usage.png` | Gauge for CPU usage |
 | `noctalia_tordex_procs_mem_usage.png` | Gauge for memory usage |
 
-These files are deleted when the panel closes.
+`PNG` files are not deleted on panel close to prevent error messages in the noctalia log. Other files are deleted when the panel closes.
 
 The `Application` section in the process list is available with the following supported compositors:
 * Niri

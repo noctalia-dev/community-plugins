@@ -7,10 +7,13 @@
     "one": "hour",
     "other": "hours"
   },
+  "last_update": "Last updated",
   "minutes": {
     "one": "minute",
     "other": "minutes"
   },
+  "num_system_processes": "system",
+  "num_user_processes": "user",
   "procs": {
     "applications_header": "Applications",
     "copied_to_clipboard": "Copied to clipboard",
@@ -56,7 +59,7 @@
       "unknown": "Linux"
     }
   },
-  "search_placeholder": "type to search",
+  "search_placeholder": "press Enter to search",
   "settings": {
     "delay": {
       "description": "Select the refresh rate (seconds)",
@@ -94,6 +97,7 @@
   "tip_options": "View options",
   "tip_settings": "Plugin settings",
   "title": "Processes",
+  "total_processes": "Total processes",
   "user_processes_label": "User",
   "user_processes_tip": "Show only user processes"
 }
