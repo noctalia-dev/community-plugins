@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "scopes": {
+      "label": "Unit scopes",
+      "description": "Which systemd managers to list units from.",
+      "options": {
+        "both": "User and system",
+        "user": "User only",
+        "system": "System only"
+      }
+    },
+    "unit_types": {
+      "label": "Unit types",
+      "description": "Unit types to list, e.g. service, timer, socket."
+    },
+    "system_wrapper": {
+      "label": "System unit wrapper",
+      "description": "Command prepended to systemctl for system units, e.g. \"sudo -n\". Leave empty to rely on polkit."
+    }
+  },
+  "launcher": {
+    "loading": "Loading units…",
+    "no-units": "No units found",
+    "no-matches": "No matching units",
+    "systemctl-missing": "systemctl is not on PATH",
+    "action": {
+      "start": "Start {unit}",
+      "stop": "Stop {unit}",
+      "restart": "Restart {unit}"
+    },
+    "scope": {
+      "user": "user",
+      "system": "system"
+    }
+  },
+  "notify": {
+    "state": "{scope} unit is {state}",
+    "failed": "Failed to {verb} {unit}",
+    "launch-failed": "Could not run systemctl"
+  }
+}
