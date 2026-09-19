@@ -1,0 +1,67 @@
+{
+  "unreachable": "OwnTone: non raggiungibile",
+  "widget_tooltip": "Apri OwnTone Server",
+  "settings": {
+    "host": {
+      "label": "Host OwnTone",
+      "description": "host:porta del tuo server OwnTone, es. 192.168.1.50:3689"
+    },
+    "poll_seconds": {
+      "label": "Intervallo di polling (secondi)",
+      "description": "Frequenza di aggiornamento dei dati da OwnTone"
+    },
+    "username": {
+      "label": "Nome utente",
+      "description": "Nome utente HTTP di OwnTone, lascia vuoto se il server non richiede autenticazione"
+    },
+    "password": {
+      "label": "Password",
+      "description": "Password HTTP di OwnTone (salvata e mostrata in chiaro nelle impostazioni)"
+    },
+    "glyph": {
+      "label": "Icona",
+      "description": "Icona del widget sulla barra"
+    }
+  },
+  "panel": {
+    "title": "OwnTone",
+    "no_track": "Nessun brano in riproduzione",
+    "live_stream": "Streaming dal vivo",
+    "speakers_title": "Uscite Audio",
+    "refresh": "Aggiorna",
+    "close": "Chiudi",
+    "master_volume": "Volume principale",
+    "mute": "Silenzia",
+    "unmute": "Riattiva audio",
+    "shuffle": "Casuale",
+    "repeat": "Ripeti",
+    "play": "Riproduci",
+    "pause": "Pausa",
+    "stop": "Ferma",
+    "prev": "Precedente",
+    "next": "Successivo",
+    "active_one": "attiva",
+    "active_many": "attive",
+    "activate": "Attiva",
+    "deactivate": "Disattiva",
+    "speaker_fallback": "Speaker",
+    "tab_player": "Player",
+    "tab_library": "Libreria",
+    "library_title": "Libreria",
+    "library_artists": "Artisti",
+    "library_albums": "Album",
+    "library_genres": "Generi",
+    "library_playlists": "Playlist",
+    "library_radio": "Radio",
+    "library_search": "Cerca",
+    "loading": "Caricamento…",
+    "library_error": "Impossibile caricare la libreria",
+    "library_empty": "Niente qui",
+    "back": "Indietro",
+    "play_now": "Riproduci ora",
+    "add_to_queue": "Aggiungi alla coda",
+    "search_placeholder": "Cerca artista o album…",
+    "search_hint": "Scrivi il nome di un artista o album",
+    "search": "Cerca"
+  }
+}

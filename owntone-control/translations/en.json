@@ -1,0 +1,67 @@
+{
+  "unreachable": "OwnTone: unreachable",
+  "widget_tooltip": "Open OwnTone Server",
+  "settings": {
+    "host": {
+      "label": "OwnTone host",
+      "description": "host:port of your OwnTone server, e.g. 192.168.1.50:3689"
+    },
+    "poll_seconds": {
+      "label": "Poll interval (seconds)",
+      "description": "How often to refresh now-playing/volume from OwnTone"
+    },
+    "username": {
+      "label": "Username",
+      "description": "OwnTone HTTP username, leave empty if your server has no authentication"
+    },
+    "password": {
+      "label": "Password",
+      "description": "OwnTone HTTP password (stored and shown in plain text in settings)"
+    },
+    "glyph": {
+      "label": "Icon",
+      "description": "Bar widget icon"
+    }
+  },
+  "panel": {
+    "title": "OwnTone",
+    "no_track": "Nothing playing",
+    "live_stream": "Live Stream",
+    "speakers_title": "Audio Outputs",
+    "refresh": "Refresh",
+    "close": "Close",
+    "master_volume": "Master volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "shuffle": "Shuffle",
+    "repeat": "Repeat",
+    "play": "Play",
+    "pause": "Pause",
+    "stop": "Stop",
+    "prev": "Previous",
+    "next": "Next",
+    "active_one": "active",
+    "active_many": "active",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "speaker_fallback": "Speaker",
+    "tab_player": "Player",
+    "tab_library": "Library",
+    "library_title": "Library",
+    "library_artists": "Artists",
+    "library_albums": "Albums",
+    "library_genres": "Genres",
+    "library_playlists": "Playlists",
+    "library_radio": "Radio",
+    "library_search": "Search",
+    "loading": "Loading…",
+    "library_error": "Couldn't load the library",
+    "library_empty": "Nothing here",
+    "back": "Back",
+    "play_now": "Play now",
+    "add_to_queue": "Add to queue",
+    "search_placeholder": "Search artist or album…",
+    "search_hint": "Type an artist or album name",
+    "search": "Search"
+  }
+}
