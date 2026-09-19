@@ -1,7 +1,7 @@
 -- /claude — the hands: launch Claude Code, or a quick one-shot ask.
 --   /claude <task>   → real Claude Code TUI in the terminal (full fidelity)
 --   /claude          → resume last session (claude --continue)
---   /claude ? <q>    → one-shot read-only ask, streamed; answer via notify
+--   /claude ? <q>    → one-shot read-only ask, streamed; answer in the answer panel
 --
 -- Holds the BACKEND CHOKEPOINT (invoke + parse). v5 plugins load each entry as a
 -- single chunk (no module system), and this launcher is the only entry that talks to a model,
@@ -35,24 +35,22 @@ local EVENT = {
 
 -- noctalia launches us with the GUI-session PATH, which lacks ~/.local/bin (it's
 -- added by the user's shell profile, not the graphical session). Claude Code's
--- own session hooks live there (memd, agent-scaffold, …), so a /claude session would
+-- session hooks commonly call tools installed there, so a /claude session would
 -- hit "command not found" that a terminal-started one never does. Prepend it to
 -- every launch so a /claude session inherits the same PATH as a terminal. Fixed,
 -- trusted literal — $HOME/$PATH are meant to expand in the `/bin/sh -c` context.
 local PATH_PREFIX = 'PATH="$HOME/.local/bin:$PATH" '
 
--- A quick-ask answer is delivered as a desktop toast first, and toasts clip
--- after a couple of lines with no scroll — so steer the model toward toast-sized
--- answers at the source. Long answers still arrive intact: the full text goes to
--- the answer panel (see publish_answer below), the toast just leads with less.
+-- A quick-ask answer opens in a small desktop panel, so steer the model toward
+-- short answers at the source. Long answers still arrive intact: the panel scrolls.
 local ASK_NOTE = table.concat({
-  "Your answer is delivered as a desktop notification. Lead with the direct answer",
+  "Your answer is shown in a small desktop panel. Lead with the direct answer",
   "in one or two short sentences; add detail only if the question genuinely needs it.",
   "Plain text only — no markdown formatting.",
 }, " ")
 
 -- claude only; this is the single backend seam.
--- A quick-ask is promised as read-only (README "Usage"), so it must NOT inherit
+-- A quick-ask is promised as read-only (README "Use"), so it must NOT inherit
 -- the user's Claude config, where pre-authorized permissions would let a plain
 -- question run commands or edit files: --tools "" strips every built-in tool,
 -- --strict-mcp-config (with no --mcp-config) strips inherited MCP servers, and
@@ -114,39 +112,20 @@ end
 local function set_state(s) noctalia.state.set("claude.state", s) end
 
 -- ── answer delivery ──────────────────────────────────────────────────────────
--- A toast clips long bodies with no scroll, so it is the preview surface only:
--- the complete answer is published to "claude.answer" and rendered wrapped +
--- scrollable by the answer panel (answer.luau). The panel opens from a click on
--- the bar pulse, the "Show last answer" launcher row, or the CLI.
+-- Every quick-ask outcome (answer, error, remedy) is published to "claude.answer"
+-- and the answer panel (answer.luau) opens on it, wrapped and scrollable. No toast:
+-- one surface per answer. panel-open, not -toggle, so an already-open panel stays
+-- open and live-refreshes. Reopen later from the "Show last answer" row or the CLI.
 local ANSWER_PANEL = "lowcache/claude-companion:answer"
 
-local function publish_answer(q, text, is_err)
+local function deliver(q, text, is_err)
   noctalia.state.set("claude.answer", {
     q = q,
     text = text,
     error = is_err == true,
     at = noctalia.formatTime("%H:%M"),
   })
-end
-
--- Fit the toast: collapse whitespace and cut at a word boundary. Returns the
--- preview and whether anything was dropped (→ the toast gains a pointer to the
--- full answer).
-local PREVIEW_MAX = 200
-local function preview(text: string)
-  local flat = text:gsub("%s+", " ")
-  if #flat <= PREVIEW_MAX then return flat, false end
-  local cut = flat:sub(1, PREVIEW_MAX):match("^(.*)%s%S*$") or flat:sub(1, PREVIEW_MAX)
-  return cut .. " …", true
-end
-
--- ONE surface per answer: while the answer panel is open (it sets this flag) it
--- live-refreshes from claude.answer, so it IS the delivery — a toast on top would
--- duplicate it, and dismissing that toast clicks outside the panel, which the
--- click-shield turns into closing the panel as well (verified live: toast +
--- panel died to one click). Panel open → publish only; panel closed → toast.
-local function panel_showing()
-  return noctalia.state.get("claude.answer.open") == true
+  noctalia.runAsync("noctalia msg panel-open " .. shq(ANSWER_PANEL))
 end
 
 -- ── auth guard ───────────────────────────────────────────────────────────────
@@ -200,11 +179,18 @@ end
 -- irrelevant: /claude opens in the user's project dir, not the plugin dir. We push a
 -- role note, NOT a senses snapshot — a snapshot taken at launch is stale before
 -- the first turn; instead Claude pulls fresh senses on demand via the tools.
--- The shim is assumed at the canonical install path
--- ($HOME/.local/share/noctalia/plugins/<id>). $HOME stays bare for the shell to
--- expand (portable; nothing user-specific is committed). The JSON is fixed and
--- trusted (no user input), so dq() is injection-safe here.
-local SHIM = "$HOME/.local/share/noctalia/plugins/claude-companion/shim/noctalia-mcp.py"
+-- The shim path comes from the host (a catalog install lives under
+-- ~/.local/state/.../materialized, not the dev symlink path). It lands inside JSON
+-- inside dq(), so a dir with a quote, backslash, $ or backtick falls back to the
+-- dev path, which keeps $HOME bare for the shell to expand.
+local function shim_path()
+  local dir = noctalia.pluginDir and noctalia.pluginDir()
+  if type(dir) ~= "string" or dir == "" or dir:find("[\"\\$`]") then
+    dir = "$HOME/.local/share/noctalia/plugins/claude-companion"
+  end
+  return dir .. "/shim/noctalia-mcp.py"
+end
+local SHIM = shim_path()
 local MCP_JSON = '{"mcpServers":{"noctalia":{"command":"python3","args":["' .. SHIM .. '"]}}}'
 
 local SYSTEM_NOTE = table.concat({
@@ -212,7 +198,6 @@ local SYSTEM_NOTE = table.concat({
   "An MCP server named 'noctalia' gives you live desktop senses and hands:",
   "PERCEIVE — get_window (focused app/title), get_workspace (focused output + workspace), get_media (now playing), get_shell_state (shell status), get_power (battery/AC), get_network (connectivity/Wi-Fi), get_processes (top by CPU).",
   "ACT — notify (desktop toast), set_theme_mode (dark/light/auto), set_color_scheme, focus_window (by the id from get_window), switch_workspace (by index/name), move_to_workspace (move focused window), set_wallpaper (path or random).",
-  "MEMORY — remember (persist a durable fact for future sessions).",
   "Call the perceive tools when current desktop context matters instead of assuming it, and use notify for ambient status updates.",
 }, " ")
 
@@ -224,7 +209,7 @@ local CONTEXT_FLAGS =
 local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
 
 -- The last quick-ask answer, if any, earns a launcher row that reopens the
--- answer panel — the recovery path when the toast has already expired.
+-- answer panel after it has been dismissed.
 local function answer_row()
   local a = noctalia.state.get("claude.answer")
   if type(a) ~= "table" or type(a.text) ~= "string" or a.text == "" then return nil end
@@ -271,8 +256,7 @@ local function run_ask(ask)
   -- and the remedy needs a terminal anyway — so say so now and skip the
   -- launch. No claude.state touch: no ask session ever starts.
   if token_expired() then
-    publish_answer(ask, auth_remedy(), true)
-    if not panel_showing() then noctalia.notifyError(tr("notify.title"), auth_remedy()) end
+    deliver(ask, auth_remedy(), true)
     return
   end
   set_state(EVENT.turn_start)
@@ -288,14 +272,9 @@ local function run_ask(ask)
     elseif ev.kind == EVENT.turn_end then
       local final = (ev.text and ev.text ~= "") and ev.text or acc
       if final == "" then
-        noctalia.notify(tr("notify.title"), tr("notify.no_output"))
+        deliver(ask, tr("notify.no_output"), true)
       else
-        publish_answer(ask, final, false)
-        if not panel_showing() then
-          local body, clipped = preview(final)
-          if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
-          noctalia.notify(tr("notify.title"), body)
-        end
+        deliver(ask, final, false)
       end
     elseif ev.kind == EVENT.error then
       local final = (ev.text and ev.text ~= "") and ev.text or acc
@@ -303,12 +282,7 @@ local function run_ask(ask)
       -- a 401 that slipped past the pre-flight: deliver the remedy, not the
       -- raw API error blob
       if is_auth_error(final) then final = auth_remedy() end
-      publish_answer(ask, final, true)
-      if not panel_showing() then
-        local body, clipped = preview(final)
-        if clipped then body = body .. "\n" .. tr("notify.full_answer_hint") end
-        noctalia.notifyError(tr("notify.title"), body)
-      end
+      deliver(ask, final, true)
     end
   end)
 end
@@ -341,7 +315,7 @@ function onActivate(id)
 end
 
 -- ── ask over IPC (the bar-widget entry point) ────────────────────────────────
--- The ask panel (ask.luau, opened by a middle-click on the bar pulse) cannot call
+-- The ask panel (ask.luau, opened by a left-click on the bar pulse) cannot call
 -- run_ask directly: v5 has no plugin module system and entries share no state. So it
 -- hands the question over the same way presence and the consent request do — the text
 -- goes to a file, and a bare poke arrives here — because an IPC payload is a single

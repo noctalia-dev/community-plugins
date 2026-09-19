@@ -57,7 +57,7 @@ vocabulary. Glyph, accent color, and breath animation are widget-side concerns
 ## Payload
 
 ```
-model,in,out,cacheCreate,cacheRead,session
+model,in,out,cacheCreate,cacheRead,session[,pid]
 ```
 
 - `session` (field 6) is the only field that changes behavior: it keys the
@@ -69,6 +69,13 @@ model,in,out,cacheCreate,cacheRead,session
   The widget displays *input* as `in + cacheCreate` (full-rate work) and shows
   `cacheRead` separately. All-zero telemetry is fine — the burn line is simply
   omitted (`model` of `?` or zero in+out hides it).
+- `pid` (field 7, optional, digits only) is the agent process whose exit ends the
+  session. If the service can read `/proc/<pid>/stat` when the pid first arrives,
+  it retires the slot within ~5 s of that process exiting, or of the pid being
+  reused (its start time changes). Send it only when you can name that process
+  exactly: a wrapper that exits early (`timeout`, `env`, a shell) retires a live
+  session. Omit it from another host or PID namespace. Claude's adapter sends it
+  only when `~/.claude/sessions/<pid>.json` on the hook's ancestry names the session.
 - No commas or whitespace inside fields.
 
 **Minimum viable adapter:** fire bare events with just a session id —
@@ -81,9 +88,10 @@ work; you only lose the burn readout.
 - The service aggregates the **most urgent** state across all live slots (priority
   table above) into `claude.pulse`; widgets render this rollup and the tooltip lists
   every session, most recent first, with a Σ burn total.
-- `session_end` retires the slot. Nothing else does — a real session may sit
-  at `idle` or `turn_end` indefinitely and stays listed.
-- Because only the trailing `session` field is read for routing, a `session_end`
+- `session_end` retires the slot, and so does the liveness sweep once the `pid` a
+  slot's events carried has exited. Nothing else does — a session without a `pid`
+  may sit at `idle` or `turn_end` indefinitely and stays listed.
+- Because only the `session` field (6) is read for routing, a `session_end`
   whose payload populates *only* that field is a well-formed retire for one
   session and nothing else: `,,,,,<session>`. The `sessions` panel's Retire
   control emits exactly that, which is why manual retirement needs no new verb —
@@ -133,16 +141,100 @@ hooks/pulse-emit <event> [session] [model] [in] [out] [cacheCreate] [cacheRead]
 ```
 
 POSIX sh, no dependencies beyond `noctalia` on PATH. Omitted fields default to
-`?`/`0`; omitting `session` sends a bare (default-slot) event. Env:
-`PULSE_TARGET` overrides the dispatch id, `PULSE_DRYRUN=1` prints the command
-instead of running it. Examples:
+`?`/`0`; omitting `session` sends a bare (default-slot) event. A `session` of `-`
+reads hook JSON on stdin and uses its first `"session_id"` (Codex and other
+Claude-style hooks). Env: `PULSE_PID` adds the `pid` field (digits only — see
+Payload for when a pid is safe to send), `PULSE_TARGET` overrides the dispatch id,
+`PULSE_DRYRUN=1` prints the command instead of running it. Examples:
 
 ```sh
 pulse-emit turn_start mysess                 # state only
 pulse-emit turn_end mysess gpt-5 12000 800   # with burn figures
 pulse-emit session_end mysess                # retire the slot
 long_build && pulse-emit needs_attention ci  # non-agent uses work too
+pulse-emit tool_start - < hook.json          # session id from hook JSON
+PULSE_PID=$PPID pulse-emit turn_end aider-$PPID  # retire when that process exits
 ```
+
+## Ready-made adapters
+
+These setups call `pulse-emit` by name, so put it on your PATH once (catalog path shown; use your dev symlink if that's how you installed):
+
+```sh
+ln -s ~/.local/state/noctalia/plugins/materialized/community/claude-companion/hooks/pulse-emit ~/.local/bin/pulse-emit
+```
+
+Each one was checked against that project's current source on 2026-09-19; the opencode plugin was also run live, end to end. What you get differs by agent, because each exposes different hooks.
+
+### Gemini CLI
+
+`~/.gemini/settings.json`. Hooks are on by default, and Gemini expands `$GEMINI_SESSION_ID` (shell-escaped) before running the command. Keep these in your user settings: project-level hooks are blocked in untrusted folders.
+
+```json
+{
+  "hooks": {
+    "BeforeAgent":  [{ "hooks": [{ "type": "command", "command": "pulse-emit turn_start $GEMINI_SESSION_ID" }] }],
+    "BeforeTool":   [{ "matcher": "*", "hooks": [{ "type": "command", "command": "pulse-emit tool_start $GEMINI_SESSION_ID" }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "pulse-emit needs_attention $GEMINI_SESSION_ID" }] }],
+    "AfterAgent":   [{ "hooks": [{ "type": "command", "command": "pulse-emit turn_end $GEMINI_SESSION_ID" }] }],
+    "SessionEnd":   [{ "hooks": [{ "type": "command", "command": "pulse-emit session_end $GEMINI_SESSION_ID" }] }]
+  }
+}
+```
+
+`Notification` only fires for tool-permission prompts, which is exactly the needs-you case.
+
+### Codex CLI
+
+`~/.codex/hooks.json` (Codex's Claude-style hooks, enabled by default in current builds). The session id arrives as JSON on stdin, which is what `pulse-emit`'s `-` session argument reads. Two things to know: Codex shows a **Hooks need review** prompt the first time and runs nothing until you trust them, and this file rejects unknown keys, so don't add comments.
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "pulse-emit turn_start -" }] }],
+    "PreToolUse":        [{ "hooks": [{ "type": "command", "command": "pulse-emit tool_start -" }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "pulse-emit needs_attention -" }] }],
+    "Stop":              [{ "hooks": [{ "type": "command", "command": "pulse-emit turn_end -" }] }],
+    "SessionEnd":        [{ "hooks": [{ "type": "command", "command": "pulse-emit session_end -" }] }]
+  }
+}
+```
+
+The older `notify = [...]` setting in `config.toml` still works, but it only fires at the end of a turn and passes JSON as an argument, so the hooks above are the better fit.
+
+### opencode
+
+a plugin at `~/.config/opencode/plugin/pulse.ts`. opencode has no hook for quitting, so the plugin hands over its own process id and the pulse retires the session when opencode exits.
+
+```ts
+// Drives the Noctalia pulse from opencode. pulse-emit must be on PATH.
+export const Pulse = async ({ $ }) => {
+  const emit = (event, sid) =>
+    $`pulse-emit ${event} ${sid}`.env({ ...process.env, PULSE_PID: String(process.pid) }).quiet().nothrow()
+  return {
+    "chat.message": async (input) => { await emit("turn_start", input.sessionID) },
+    "tool.execute.before": async (input) => { await emit("tool_start", input.sessionID) },
+    "permission.ask": async (input) => { await emit("needs_attention", input.sessionID) },
+    event: async ({ event }) => {
+      const p = event.properties
+      if (event.type === "session.idle") await emit("turn_end", p.sessionID)
+      else if (event.type === "session.error" && p.sessionID) await emit("error", p.sessionID)
+      else if (event.type === "session.deleted") await emit("session_end", p.info.id)
+    },
+  }
+}
+```
+
+### aider
+
+`~/.aider.conf.yml`. aider has one hook: a command it runs whenever it's your turn again (a reply finished, or it's asking you to confirm something). It passes no session id, but the command runs as a direct child of aider, so `$PPID` is aider itself: one session per aider, retired when it exits.
+
+```yaml
+notifications: true
+notifications-command: "PULSE_PID=$PPID pulse-emit turn_end aider-$PPID"
+```
+
+Expect less here than elsewhere: a session appears once the first reply lands, there's no working state in between, and that one command can't tell "done" from "please confirm", so it reports done.
 
 ## Control events (not lifecycle)
 
@@ -227,9 +319,11 @@ emits it simply never raises a prompt. The same goes for `presence`.
 
 The headless `pulse-svc` **service** is the **single aggregator**; subscribers (the
 bar dot, the orb, or any future surface) never parse events themselves. On every
-event — never from a timer — it publishes a rollup snapshot to noctalia shared state
-under `claude.pulse` (top-level fields below, plus a `sessions` array of per-session
-`{sid,state,model,tin,tout,cr}` for multi-session tooltips):
+event, and on a 5 s tick only when the liveness sweep or session detection changed
+something, it publishes a rollup snapshot to noctalia shared state under
+`claude.pulse` (top-level fields below, plus a `sessions` array of per-session
+`{sid,state,model,tin,tout,cr,nohooks?}` for multi-session tooltips; `nohooks` is
+`true` for a session known only from Claude Code's session files, with no hook yet):
 
 ```lua
 { state = <most-urgent event name>,   -- "idle" when no sessions

@@ -15,7 +15,6 @@
 -- already sanitised to [A-Za-z0-9_-].
 
 local SELF = "lowcache/claude-companion:consent"
-local HOOK = "$HOME/.local/share/noctalia/plugins/claude-companion/hooks/consent.py"
 local KEY = "claude.consent"
 local KEY_PULSE = "claude.pulse"
 
@@ -37,6 +36,15 @@ end
 
 -- Double-quoted so $HOME still expands, unlike shq. Fixed trusted strings only.
 local function dq(s) return '"' .. tostring(s):gsub('"', '\\"') .. '"' end
+
+-- consent.py ships beside this file. A catalog install lives under
+-- ~/.local/state/noctalia/plugins/materialized/…, not the dev symlink path, so the
+-- host says where; a hardcoded path made every answer a silent no-op there.
+local function hook()
+  local dir = noctalia.pluginDir and noctalia.pluginDir()
+  if type(dir) == "string" and dir ~= "" then return shq(dir .. "/hooks/consent.py") end
+  return dq("$HOME/.local/share/noctalia/plugins/claude-companion/hooks/consent.py")
+end
 
 -- No guessed fallback: without XDG_RUNTIME_DIR there is no request to read, and a
 -- guessed uid path would read some other user's directory. Same stance as the hook.
@@ -137,7 +145,7 @@ end
 -- until their deadlines. Close only once nothing is left.
 local function answer(id, choice)
   if not safe_id(id) then return end
-  noctalia.runAsync("python3 " .. dq(HOOK) .. " reply " .. shq(id) .. " " .. choice)
+  noctalia.runAsync("python3 " .. hook() .. " reply " .. shq(id) .. " " .. choice)
   answered[id] = true
   current = nil
   local nid, nreq = next_pending()
@@ -174,7 +182,7 @@ function render(id, req)
           text = tr("consent.promote"),
           variant = "secondary",
           onClick = function()
-            noctalia.runAsync("python3 " .. dq(HOOK) .. " promote")
+            noctalia.runAsync("python3 " .. hook() .. " promote")
           end,
         }),
       })
@@ -298,7 +306,7 @@ function onClose()
   while true do
     local id = next_pending()
     if not id then break end
-    noctalia.runAsync("python3 " .. dq(HOOK) .. " reply " .. shq(id) .. " dismiss")
+    noctalia.runAsync("python3 " .. hook() .. " reply " .. shq(id) .. " dismiss")
     answered[id] = true
   end
   current = nil

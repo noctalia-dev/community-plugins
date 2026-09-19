@@ -15,11 +15,13 @@ noctalia's documented plugin IPC (`noctalia msg --help`):
 `[payload]` is a single positional token, so the payload is a SPACE-FREE CSV the
 aggregator service (pulse-svc.luau) parses:
 
-    model,in,out,cacheCreate,cacheRead,session
+    model,in,out,cacheCreate,cacheRead,session[,pid]
 
 The `session` (short id) tags EVERY event, so the service can track each concurrent
 session separately. The matching SessionEnd hook fires `session_end`, which retires
-the session in the service and drops its token cache here.
+the session in the service and drops its token cache here. `pid` is the Claude
+process that ran the hook; the service retires the session when that process is gone,
+which covers the exits SessionEnd never sees (terminal closed, kill, crash).
 
 Token accounting is incremental: a per-session cache in $XDG_RUNTIME_DIR stores the
 last byte offset + running sums, so each hook reads only newly-appended transcript
@@ -38,6 +40,7 @@ import sys
 
 PLUGIN = "lowcache/claude-companion:pulse-svc"
 TARGET = "all"
+PROC = "/proc"
 
 
 def _cache_path(session):
@@ -90,6 +93,39 @@ def _accumulate(transcript, session):
     return st
 
 
+def _ppid(pid):
+    """Parent pid from /proc/<pid>/stat (comm may hold spaces or parens), or None."""
+    try:
+        with open(f"{PROC}/{pid}/stat") as f:
+            raw = f.read()
+        return int(raw[raw.rindex(")") + 2:].split()[1])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _claude_pid(session_id):
+    """Pid of the Claude process running this session's hooks, or None.
+
+    Claude Code runs a hook as `sh -c`, so the chain is pulse.py -> sh -> claude, and
+    that process keeps ~/.claude/sessions/<pid>.json naming its session. The file is
+    undocumented, so only an exact sessionId match counts: a guessed pid (a `timeout`
+    wrapper, an outer Claude that launched this one) would retire a live session.
+    """
+    root = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    pid = os.getppid()
+    for _ in range(8):
+        if not pid or pid <= 1:
+            return None
+        try:
+            with open(os.path.join(root, "sessions", f"{pid}.json")) as f:
+                if json.load(f).get("sessionId") == session_id:
+                    return pid
+        except (OSError, ValueError, AttributeError):
+            pass
+        pid = _ppid(pid)
+    return None
+
+
 def _payload(data, event):
     """Build the CSV payload, or None when the event can't be attributed.
 
@@ -110,7 +146,9 @@ def _payload(data, event):
             pass
     model = st["model"].replace("claude-", "") if st["model"] else "?"
     short = session.split("-")[0]
-    return f"{model},{st['in']},{st['out']},{st['cc']},{st['cr']},{short}"
+    csv = f"{model},{st['in']},{st['out']},{st['cc']},{st['cr']},{short}"
+    pid = _claude_pid(session) if event != "session_end" else None
+    return f"{csv},{pid}" if pid else csv
 
 
 def _cleanup(session):

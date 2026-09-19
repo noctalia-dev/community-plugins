@@ -4,7 +4,7 @@
     "title": "Claude — quick ask"
   },
   "ask": {
-    "delivery": "The answer opens in the answer panel and arrives as a notification.",
+    "delivery": "The answer arrives as a notification; open the answer panel to read it in full.",
     "dispatch_failed": "Could not hand the question over. Is the noctalia CLI on PATH?",
     "no_runtime": "No XDG_RUNTIME_DIR, so there is nowhere to hand the question over.",
     "placeholder": "One quick question…",
@@ -36,7 +36,6 @@
   "notify": {
     "ask_failed": "ask failed",
     "auth_remedy": "Claude login expired — start a Claude session in a terminal to refresh it, then re-ask.",
-    "full_answer_hint": "Full answer: click the bar pulse",
     "no_output": "(no output)",
     "title": "Claude"
   },
@@ -53,6 +52,11 @@
   },
   "sessions": {
     "empty": "No live Claude sessions. Start one in a terminal, or with /claude.",
+    "hooks_broken": "Claude Code's hooks for this plugin are missing or point at the wrong place, so sessions won't show up here.",
+    "hooks_repair": "Repair",
+    "hooks_repair_failed": "Couldn't repair the hooks. Run {cmd} in a terminal to see why.",
+    "hooks_repaired": "Hooks repaired. New Claude sessions will show up here; a running one may need /hooks opened or a restart.",
+    "no_hooks": "no hooks",
     "retire": "Retire",
     "title": "Claude — {count} sessions",
     "title_one": "Claude — 1 session"
@@ -70,6 +74,10 @@
         "learn": "Learn (record, never block)",
         "off": "Off"
       }
+    },
+    "detect_sessions": {
+      "description": "Show every running Claude Code session — working, waiting on you, or idle — by reading Claude Code's own session files every few seconds, even before hooks are installed. Hooks add tool detail and token burn on top, and the files correct what hooks miss, like an Esc interrupt. Turn off to rely on hooks alone.",
+      "label": "Detect sessions without hooks"
     },
     "orb_swell": {
       "description": "How far the desktop orb magnifies as it breathes. 0 keeps it a static size; 1.0 is the default; higher swells more.",
