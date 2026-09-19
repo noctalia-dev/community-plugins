@@ -82,3 +82,83 @@ Note that `general:layout` changes the global default, whereas the plugin's `cyc
   -- See https://wiki.hypr.land/Configuring/Layouts/Scrolling-Layout/ for more
   hl.config({ scrolling = { fullscreen_on_one_column = true } })
   ```
+
+## Known issues
+
+### Layouts do not survive `hyprctl reload`
+
+The plugin applies layouts with `hl.workspace_rule(…)` through `hyprctl eval`. Those rules
+live only in the running Hyprland instance — nothing is written to your config. `hyprctl
+reload` re-reads the config from scratch and discards them, so every workspace silently
+falls back to the global `general:layout`.
+
+You can see it directly:
+
+```sh
+noctalia msg plugin maddingo/hypr-layout-switcher:poller all cycle
+hyprctl -j workspacerules   # [{ "workspaceString": "1", "enabled": true }]
+hyprctl activeworkspace -j | grep tiledLayout   # "master"
+
+hyprctl reload
+hyprctl -j workspacerules   # []
+hyprctl activeworkspace -j | grep tiledLayout   # back to "dwindle"
+```
+
+The widget follows along on its next poll, so the bar stays truthful — but the layout you
+picked is gone, and nothing announced it.
+
+### Noctalia's wallpaper rotation triggers that reload
+
+This is the usual way the above is hit, and it is confusing because nothing the user does
+is involved. It applies when the colour scheme is derived from the wallpaper *and* the
+Hyprland theme template is enabled:
+
+```toml
+[theme]
+source = "wallpaper"
+
+    [theme.templates]
+    builtin_ids = [ "alacritty", "hyprland" ]
+```
+
+Every wallpaper change recomputes the palette and regenerates the Hyprland template. That
+generated file is pulled in from `hyprland.lua` with something like
+`require("noctalia").apply_theme()`, which only runs at config load — so the new colours
+reach Hyprland through a reload, and the reload takes the layout rules with it.
+
+With automatic wallpaper rotation enabled, the layout therefore resets **once per rotation
+interval**, on the clock. A user rotating hourly sees every workspace snap back to
+`dwindle` once an hour, at the same minute past the hour, with no input of their own. The
+Noctalia log dates the ticks if you want to confirm the correlation:
+
+```sh
+grep "automation set all outputs" ~/.cache/noctalia/noctalia.log
+stat -c '%y' ~/.config/hypr/noctalia.lua   # written a fraction of a second later
+```
+
+Monitor hotplug can trigger the same thing out of band: an external display that drops the
+link when it power-saves makes Noctalia re-apply the wallpaper for that output, which
+regenerates the template again.
+
+### Workarounds
+
+None of these are fixes in the plugin — pick whichever costs you least:
+
+- **Drop `"hyprland"` from `builtin_ids`.** Wallpaper rotation and the Alacritty template
+  keep working; you lose wallpaper-derived window border colours, and the reloads stop.
+- **Set `source` to a fixed palette** (`builtin`, `community`, or `custom`) instead of
+  `"wallpaper"`, so rotating the wallpaper no longer recomputes the theme.
+- **Turn off wallpaper automation**, if you only ever change wallpapers deliberately.
+- **Declare the layouts in your Hyprland config** so a reload re-applies them:
+
+  ```lua
+  hl.workspace_rule({ workspace = "2", layout = "master" })
+  ```
+
+  Layouts then survive reloads, but a cycled layout still only lasts until the next
+  reload, which returns the workspace to whatever the config declares rather than to
+  `general:layout`.
+
+A real fix would mean persisting the per-workspace layouts outside Hyprland's runtime
+state and re-applying them after a reload — the plugin currently has no settings storage
+and writes no files, so this is left open deliberately.
