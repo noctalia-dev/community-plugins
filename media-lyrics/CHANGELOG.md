@@ -4,6 +4,21 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-09-15
+
+### Added
+
+- **Pinned panel preset** — `panel_size = "pinned"` opens a new `panel-pinned`
+  entry: the same full karaoke view as `panel-large` (640×640), but
+  `persistent = true` (`plugin_api` 11), so it stays open bottom-right near
+  the bar across other panels until closed explicitly. Persistent panels
+  cannot take exclusive keyboard focus, so `panel-pinned` uses
+  `keyboard_focus = "on_demand"` instead — arrow/Return/Space seeking needs a
+  click into the panel first, unlike the other three presets which grab
+  focus the instant they open. Addresses the "compact mode with a pinnable
+  widget" roadmap item for the panel route; a `[[desktop_widget]]` route
+  (no panel needed at all, works on the lockscreen) is still open.
+
 ## [0.9.4] — 2026-09-09
 
 ### Fixed
