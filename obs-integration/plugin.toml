@@ -31,6 +31,6 @@ entry = "widget.luau"
 id = "panel"
 entry = "panel.luau"
 width = 400
-height = 470
+height = 475
 placement = "floating"
 position = "top_center"
