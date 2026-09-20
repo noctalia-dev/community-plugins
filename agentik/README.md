@@ -55,19 +55,20 @@ The panel can continue a completed OMP session, fork a session that is active el
 | Notification cooldown | 300 seconds | Limits attention-notification frequency |
 | Privacy notifications | Off | Removes project and task names from notification bodies |
 
+| Subscription quotas | — | Open the **Subscription quotas** tab in the panel to see remaining authenticated-provider allowances and reset times. |
 Noctalia also supplies the standard placement, position, layer, and open-near-click controls for the panel entry.
 
 ## Detection and local access
 
 Agentik does not use a remote service and does not send session journals anywhere.
 
-- **OMP:** reads `~/.omp/agent/sessions/**/*.jsonl` and `~/.omp/agent/terminal-sessions/pts-*`, then inspects the current user's `/proc/<pid>/fd` links to distinguish live sessions from completed, failed, or cancelled sessions. It calls `omp config get modelRoles --json` and `omp models --json` to populate local model choices. Chat and terminal actions run the selected local `omp` command with its normal configuration.
-- **Hermes Agent:** detects a live `hermes` process under the current user, reads `~/.hermes/state.db` in SQLite read-only mode, and reads `~/.hermes/provider_models_cache.json` for local model choices. Hermes is ignored when it is not installed or running.
+- **OMP:** reads `~/.omp/agent/sessions/**/*.jsonl` and `~/.omp/agent/terminal-sessions/pts-*`, then inspects the current user's `/proc/<pid>/fd` links to distinguish live sessions from completed, failed, or cancelled sessions. It calls `omp config get modelRoles --json` and `omp models --json` to populate local model choices, and `omp usage --json` to read authenticated-provider quota summaries. Chat and terminal actions run the selected local `omp` command with its normal configuration.
+- **Quota privacy:** Agentik retains only provider, plan, limit, remaining amount, reset time, and provider notes from OMP usage output. It does not expose account email addresses, account IDs, organization IDs, credentials, or billing details in the panel.
 - **Cache:** generates the attributed orb animation pack and writes incremental journal metadata below `${XDG_CACHE_HOME:-~/.cache}/agentik/`.
 - **Chat state:** writes selection, lifecycle, locks, and owner-only run logs below `${XDG_STATE_HOME:-~/.local/state}/agentik/chat`.
 - **Project access:** monitoring does not read project files. Journal-derived project actions accept only normalized absolute filesystem paths; URL schemes, relative paths, and option-like values are discarded. **Open project directory** calls `xdg-open` with the path as one argv value. A chat or terminal action intentionally starts the chosen harness in the selected project directory; that harness retains its normal filesystem permissions, tools, provider configuration, and network policy.
 
-Environment overrides used for development and controlled deployments are `AGENTIK_STATE_DIR`, `AGENTIK_SESSIONS_DIR`, `AGENTIK_JOURNAL_INDEX`, `AGENTIK_TERMINAL`, `OMP_BIN`, `HERMES_BIN`, and `HERMES_HOME`.
+Environment overrides used for development and controlled deployments are `AGENTIK_STATE_DIR`, `AGENTIK_SESSIONS_DIR`, `AGENTIK_JOURNAL_INDEX`, `AGENTIK_USAGE_JSON`, `AGENTIK_TERMINAL`, `OMP_BIN`, `HERMES_BIN`, and `HERMES_HOME`.
 
 ## Notes
 

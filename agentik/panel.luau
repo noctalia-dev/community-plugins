@@ -54,6 +54,9 @@ local chat_session_harness = nil
 local chat_new_cwd = ""
 local chat_harnesses = {}
 local chat_health = nil
+local quota_usage = { reports = {} }
+local quota_loading = false
+local quota_return_mode = "sessions"
 local chat_new_harness = nil
 local chat_new_model = nil
 local chat_model_menu_open = false
@@ -389,6 +392,7 @@ local function apply_chat_result(result)
         if type(payload.targets) == "table" then chat_targets = payload.targets end
         if type(payload.harnesses) == "table" then chat_harnesses = payload.harnesses end
         if type(payload.health) == "table" then chat_health = payload.health end
+        if type(payload.usage) == "table" then quota_usage = payload.usage end
         chat_selected = payload.selected == true
         chat_session_id = payload.session_id
         chat_session_title = payload.title
@@ -429,6 +433,20 @@ local function load_chat(scroll_to_bottom)
     noctalia.runAsync(
         {"python3", chat_bridge, "load"},
         apply_chat_result,
+        chat_bridge_timeout_ms
+    )
+end
+
+local function refresh_usage()
+    if quota_loading or chat_busy then return end
+    quota_loading = true
+    render()
+    noctalia.runAsync(
+        {"python3", chat_bridge, "refresh-usage"},
+        function(result)
+            quota_loading = false
+            apply_chat_result(result)
+        end,
         chat_bridge_timeout_ms
     )
 end
@@ -1473,6 +1491,119 @@ local function group_header(group, is_collapsed)
     })
 end
 
+local function quota_remaining(limit)
+    local fraction = limit.remaining_fraction
+    if type(fraction) == "number" then
+        return string.format("%.0f%%", math.min(1, math.max(0, fraction)) * 100)
+    end
+    local remaining = limit.remaining
+    if type(remaining) == "number" then
+        local unit = type(limit.unit) == "string" and limit.unit or ""
+        return tostring(remaining) .. (unit ~= "" and " " .. unit or "")
+    end
+    return noctalia.tr("ui.quota_unknown")
+end
+
+local function quota_reset(limit)
+    if type(limit.resets_at) ~= "number" then return nil end
+    return os.date("%Y-%m-%d %H:%M", math.floor(limit.resets_at / 1000))
+end
+
+local function quota_view()
+    local content = {
+        ui.row({ gap = 8, align = "center" }, {
+            ui.label({ text = noctalia.tr("ui.quota_title"), fontWeight = "bold", flexGrow = 1 }),
+            ui.button({
+                glyph = "refresh",
+                glyphSize = 15,
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = noctalia.tr("ui.quota_refresh"),
+                enabled = not quota_loading and not chat_busy,
+                onClick = refresh_usage,
+            }),
+        }),
+    }
+    if quota_loading then
+        table.insert(content, ui.label({
+            text = noctalia.tr("ui.quota_loading"),
+            color = "on_surface_variant",
+        }))
+    end
+    if type(quota_usage.error) == "string" and quota_usage.error ~= "" then
+        table.insert(content, ui.label({
+            text = quota_usage.error,
+            color = "error",
+            maxLines = 3,
+        }))
+    end
+    local reports = type(quota_usage.reports) == "table" and quota_usage.reports or {}
+    if #reports == 0 and not quota_loading and quota_usage.error == nil then
+        table.insert(content, ui.label({
+            text = noctalia.tr("ui.quota_empty"),
+            color = "on_surface_variant",
+        }))
+    end
+    for report_index, report in ipairs(reports) do
+        if type(report) == "table" then
+            local lines = {
+                ui.row({ gap = 6, align = "center" }, {
+                    ui.label({
+                        text = tostring(report.provider or noctalia.tr("ui.quota_provider")),
+                        fontWeight = "bold",
+                        flexGrow = 1,
+                    }),
+                    type(report.plan) == "string" and ui.label({
+                        text = report.plan,
+                        color = "on_surface_variant",
+                        fontSize = 11,
+                    }) or ui.label({ text = "" }),
+                }),
+            }
+            local limits = type(report.limits) == "table" and report.limits or {}
+            for limit_index, limit in ipairs(limits) do
+                if type(limit) == "table" then
+                    local reset = quota_reset(limit)
+                    table.insert(lines, ui.row({
+                        key = "quota-limit-" .. tostring(report_index) .. "-" .. tostring(limit_index),
+                        gap = 8,
+                        align = "center",
+                    }, {
+                        ui.label({ text = tostring(limit.label or noctalia.tr("ui.quota_usage")), flexGrow = 1 }),
+                        ui.label({
+                            text = noctalia.tr("ui.quota_remaining", { remaining = quota_remaining(limit) }),
+                            color = limit.status == "ok" and "primary" or "on_surface_variant",
+                            fontWeight = "bold",
+                        }),
+                        reset ~= nil and ui.label({
+                            text = noctalia.tr("ui.quota_resets", { time = reset }),
+                            color = "on_surface_variant",
+                            fontSize = 11,
+                        }) or ui.label({ text = "" }),
+                    }))
+                end
+            end
+            for _, note in ipairs(type(report.notes) == "table" and report.notes or {}) do
+                table.insert(lines, ui.label({
+                    text = tostring(note),
+                    color = "on_surface_variant",
+                    fontSize = 11,
+                    maxLines = 3,
+                }))
+            end
+            table.insert(content, ui.column({
+                key = "quota-report-" .. tostring(report_index),
+                gap = 6,
+                paddingH = 10,
+                paddingV = 8,
+                radius = 10,
+                fill = "surface_variant/0.30",
+            }, lines))
+        end
+    end
+    return ui.scroll({ flexGrow = 1, gap = 8, padding = 4 }, content)
+end
+
 render = function()
     local active = tonumber(sessions.active) or 0
     local body = {}
@@ -1554,8 +1685,11 @@ render = function()
             ui.label({
                 text = panel_mode == "chat"
                     and noctalia.tr("ui.chat_title")
-                    or noctalia.trp("ui.active_agents", active),
-                color = (panel_mode == "chat" or active > 0) and "primary" or "on_surface_variant",
+                    or (panel_mode == "usage"
+                        and noctalia.tr("ui.quota_title")
+                        or noctalia.trp("ui.active_agents", active)),
+                color = (panel_mode == "chat" or panel_mode == "usage" or active > 0)
+                    and "primary" or "on_surface_variant",
             }),
         }),
     }
@@ -1591,6 +1725,24 @@ render = function()
         }))
     end
     table.insert(header, ui.button({
+        key = "panel-tab-usage",
+        glyph = "gauge",
+        glyphSize = 16,
+        variant = "ghost",
+        tooltip = noctalia.tr("ui.quota_title"),
+        selected = panel_mode == "usage",
+        onClick = function()
+            if panel_mode == "usage" then
+                panel_mode = quota_return_mode
+            else
+                quota_return_mode = panel_mode
+                panel_mode = "usage"
+                refresh_usage()
+            end
+            render()
+        end,
+    }))
+    table.insert(header, ui.button({
         key = "panel-attention-inbox",
         glyph = "alert-circle",
         glyphSize = 16,
@@ -1613,9 +1765,14 @@ render = function()
     }))
     table.insert(header, ui.button({ key = "panel-close", glyph = "close", onClick = "onCloseClicked" }))
 
-    local content = panel_mode == "chat"
-        and chat_view()
-        or ui.scroll({ flexGrow = 1, gap = 6 }, body)
+    local content
+    if panel_mode == "chat" then
+        content = chat_view()
+    elseif panel_mode == "usage" then
+        content = quota_view()
+    else
+        content = ui.scroll({ flexGrow = 1, gap = 6 }, body)
+    end
     panel.render(ui.column({
         key = "panel-root",
         flexGrow = 1,

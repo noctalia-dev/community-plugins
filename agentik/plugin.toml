@@ -1,6 +1,6 @@
 id = "notfinaldev/agentik"
 name = "Agentik"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 24
 author = "notfinaldev"
 license = "MIT"

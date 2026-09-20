@@ -25,6 +25,7 @@ MAX_TARGETS = 200
 MAX_MODEL_CHARS = 256
 CATALOG_TTL_SECONDS = 300
 STREAM_WRITE_INTERVAL_SECONDS = 0.1
+USAGE_TTL_SECONDS = 60
 STARTUP_GRACE_SECONDS = 5
 CANCEL_GRACE_SECONDS = 2
 ACTIVE_RUN_STATES = frozenset({"starting", "running", "waiting_for_input", "cancelling"})
@@ -738,8 +739,92 @@ def available_harnesses(*, refresh: bool = False) -> list[dict]:
     return harnesses
 
 
+def usage_number(value: object) -> float | int | None:
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def usage_payload(raw: dict) -> dict:
+    reports = []
+    source_reports = raw.get("reports")
+    if not isinstance(source_reports, list):
+        source_reports = []
+    for source in source_reports:
+        if not isinstance(source, dict) or not isinstance(source.get("provider"), str):
+            continue
+        metadata = source.get("metadata")
+        metadata = metadata if isinstance(metadata, dict) else {}
+        limits = []
+        source_limits = source.get("limits")
+        if not isinstance(source_limits, list):
+            source_limits = []
+        for limit in source_limits:
+            if not isinstance(limit, dict):
+                continue
+            amount = limit.get("amount")
+            amount = amount if isinstance(amount, dict) else {}
+            window = limit.get("window")
+            window = window if isinstance(window, dict) else {}
+            limits.append({
+                "label": limit.get("label") if isinstance(limit.get("label"), str) else "Usage",
+                "status": limit.get("status") if isinstance(limit.get("status"), str) else "unknown",
+                "remaining": usage_number(amount.get("remaining")),
+                "remaining_fraction": usage_number(amount.get("remainingFraction")),
+                "unit": amount.get("unit") if isinstance(amount.get("unit"), str) else None,
+                "resets_at": usage_number(window.get("resetsAt")),
+            })
+        notes = source.get("notes")
+        reports.append({
+            "provider": source["provider"],
+            "plan": metadata.get("planType") if isinstance(metadata.get("planType"), str) else None,
+            "limits": limits,
+            "notes": [note[:240] for note in notes if isinstance(note, str)][:3]
+            if isinstance(notes, list) else [],
+        })
+    return {"updated_at": int(time.time() * 1000), "reports": reports}
+
+
+def usage_report(*, refresh: bool = False) -> dict:
+    injected = os.environ.get("AGENTIK_USAGE_JSON")
+    if injected:
+        try:
+            value = json.loads(injected)
+        except json.JSONDecodeError:
+            return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Invalid usage data."}
+        return usage_payload(value) if isinstance(value, dict) else {
+            "updated_at": int(time.time() * 1000), "reports": [], "error": "Invalid usage data.",
+        }
+
+    cache_path = state_root() / "usage.json"
+    if not refresh:
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if (
+                isinstance(cached, dict)
+                and time.time() - float(cached.get("created", 0)) < USAGE_TTL_SECONDS
+                and isinstance(cached.get("payload"), dict)
+            ):
+                return cached["payload"]
+        except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError, ValueError):
+            pass
+
+    omp = executable("omp", "OMP_BIN")
+    if omp is None:
+        return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Oh My Pi is not installed."}
+    value = run_json([omp, "usage", "--json"], timeout=45)
+    if value is None:
+        return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Oh My Pi did not return usage data."}
+    payload = usage_payload(value)
+    try:
+        write_state(cache_path, {"created": time.time(), "payload": payload})
+    except OSError:
+        pass
+    return payload
+
+
 def harness_by_id(harness_id: str, harnesses: list[dict]) -> dict | None:
     return next((item for item in harnesses if item.get("id") == harness_id), None)
+
+
 def live_stream(state: dict) -> dict | None:
     stream = state.get("stream")
     if not isinstance(stream, dict) or stream.get("state") not in ACTIVE_RUN_STATES:
@@ -801,6 +886,7 @@ def public_result(
     *,
     error: str | None = None,
     include_catalog: bool = True,
+    refresh_usage: bool = False,
     since: str | None = None,
 ) -> dict:
     stream = live_stream(state)
@@ -810,6 +896,7 @@ def public_result(
         if isinstance(last_error, str) and last_error:
             error = last_error
     harnesses = available_harnesses() if include_catalog else []
+    usage = usage_report(refresh=refresh_usage) if include_catalog else None
 
     def merged(result: dict) -> dict:
         result["run"] = run_payload(state)
@@ -839,6 +926,7 @@ def public_result(
         "targets": list_targets() if include_catalog else [],
         "harnesses": harnesses,
         "health": health_payload(harnesses) if include_catalog else None,
+        "usage": usage,
     }
     if not isinstance(selection, dict):
         return merged(result)
@@ -1700,6 +1788,8 @@ def dispatch(
                 pass
             available_harnesses(refresh=True)
             return public_result(state)
+        if action == "refresh-usage":
+            return public_result(state, refresh_usage=True)
         if action == "open":
             return open_in_terminal(state)
         if action == "status":
@@ -1774,7 +1864,7 @@ def main() -> int:
     parser.add_argument(
         "action",
         choices=(
-            "load", "send", "reset", "refresh", "new", "select", "select-id",
+            "load", "send", "reset", "refresh", "refresh-usage", "new", "select", "select-id",
             "open", "status", "cancel", "_worker",
         ),
     )
