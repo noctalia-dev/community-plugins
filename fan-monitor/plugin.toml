@@ -1,0 +1,62 @@
+id = "muhamm-ad-ahmad/fan-monitor"
+name = "Fan Speed Monitor"
+version = "1.0.0"
+plugin_api = 15
+author = "muhamm-ad-ahmad"
+license = "MIT"
+icon = "car-fan"
+description = "Live fan speed monitor for laptops (Dell, ThinkPad, ASUS, and generic Linux hwmon)."
+tags = ["hardware", "bar", "system", "indicator", "utility"]
+dependencies = []
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+default = 2000
+min = 500
+max = 10000
+step = 250
+label_key = "settings.poll_interval_ms.label"
+description_key = "settings.poll_interval_ms.description"
+
+[[setting]]
+key = "show_label"
+type = "bool"
+default = true
+label_key = "settings.show_label.label"
+description_key = "settings.show_label.description"
+
+[[setting]]
+key = "show_unit"
+type = "bool"
+default = true
+label_key = "settings.show_unit.label"
+description_key = "settings.show_unit.description"
+
+[[setting]]
+key = "colorize_by_speed"
+type = "bool"
+default = true
+label_key = "settings.colorize_by_speed.label"
+description_key = "settings.colorize_by_speed.description"
+
+[[setting]]
+key = "high_rpm_threshold"
+type = "int"
+default = 4000
+min = 1000
+max = 8000
+step = 100
+label_key = "settings.high_rpm_threshold.label"
+description_key = "settings.high_rpm_threshold.description"
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "fan_speed"
+entry = "widget.luau"
+
+  [widget.actions]
+  left = "plugin muhamm-ad-ahmad/fan-monitor:service all refresh"

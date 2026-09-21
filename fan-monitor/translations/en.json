@@ -1,0 +1,36 @@
+{
+  "name": "Fan Speed Monitor",
+  "description": "Live fan speed monitor for laptops (Dell, ThinkPad, ASUS, and generic Linux hwmon).",
+  "settings": {
+    "poll_interval_ms": {
+      "label": "Poll Interval (ms)",
+      "description": "Interval between sensor queries in milliseconds."
+    },
+    "show_label": {
+      "label": "Show Fan Speed Text",
+      "description": "Show the fan speed numbers in the bar next to the icon."
+    },
+    "show_unit": {
+      "label": "Show RPM Unit",
+      "description": "Append 'RPM' to the fan speed display in the bar."
+    },
+    "colorize_by_speed": {
+      "label": "Colorize by Speed",
+      "description": "Change the icon color based on fan speed (idle, normal, high load)."
+    },
+    "high_rpm_threshold": {
+      "label": "High RPM Alert Threshold",
+      "description": "RPM level at which the fan icon displays a warning color."
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "status": "Sensor Status",
+      "monitoring": "Active",
+      "unavailable": "No sensor detected",
+      "primary_fan": "Primary Fan",
+      "driver": "Driver",
+      "click_hint": "Left-click to refresh immediately"
+    }
+  }
+}
