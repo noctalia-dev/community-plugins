@@ -2,7 +2,7 @@ local REFRESH = 24 * 3600
 local pending = false
 local keysPath: string? = nil
 
-local function shellQupte(s: string): string
+local function shellQuote(s: string): string
     local q = s:gsub("'", "'\\''")
     return "'" .. q .. "'"
 end
@@ -20,9 +20,10 @@ local function refresh()
     end
     pending = true
     logX("refreshing nix-search-tv keys")
-    noctalia.runAsync("setsid -f sh -c " .. shellQupte(
-        "nix-search-tv print > " .. shellQupte(keysPath .. ".tmp")
-        .. " && mv " .. shellQupte(keysPath .. ".tmp") .. " " .. shellQupte(keysPath)))
+    noctalia.runAsync("setsid -f sh -c " .. shellQuote(
+        "nix-search-tv print > " .. shellQuote(keysPath .. ".tmp")
+        .. " && mv " .. shellQuote(keysPath .. ".tmp") .. " " .. shellQuote(keysPath)
+        .. " || rm -f " .. shellQuote(keysPath .. ".tmp")))
 end
 
 local function init()
@@ -46,12 +47,14 @@ end
 
 function update()
     noctalia.setUpdateInterval(5000)
-    if pending and keysPath ~= nil then
+    if pending and keysPath ~= nil and not noctalia.fileExists(keysPath .. ".tmp") then
+        pending = false
         local info = noctalia.fileInfo(keysPath)
-        if info ~= nil and info.size > 2 and not noctalia.fileExists(keysPath .. ".tmp") then
-            pending = false
+        if info ~= nil and info.size > 2 then
             logX("keys ready, " .. info.size .. " bytes")
             noctalia.state.set("keys-ready", info.mtime)
+        else
+            logX("refresh failed")
         end
     end
 end

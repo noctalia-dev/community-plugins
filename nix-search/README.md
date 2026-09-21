@@ -12,7 +12,7 @@ Search nixpkgs, NixOS, Home Manager and NUR from the launcher via nix-search-tv
 
 ## Requirements
 
-Install `nix-search-tv` and `fzf` on `PATH`.
+Install `nix-search-tv` and `fzf` on `PATH`. The *Open …* actions use `xdg-open` from `xdg-utils`.
 
 ## Usage
 
@@ -20,10 +20,12 @@ Type /nix [query] in the launcher to fuzzy-search every index your nix-search-tv
 
 Press Enter on a result to open its action list:
 
+- The first entry shows the description from `nix-search-tv preview`
 - Copy the attribute or option name to the clipboard
-- Show documentation - renders nix-search-tv preview in your terminal
-- nix shell nixpkgs#… - opens a shell with the package (nixpkgs results only)
+- nix shell nixpkgs#… - opens a terminal with the package (nixpkgs results only)
 - Open on search.nixos.org (nixpkgs results only)
+- Copy an `environment.systemPackages` or `home.packages` snippet (nixpkgs results only)
+- Open homepage, when the preview reports one
 
 The key list is refreshed from nix-search-tv once a day in the background. Trigger a refresh manually with:
 

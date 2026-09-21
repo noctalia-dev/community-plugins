@@ -138,7 +138,7 @@ end
 function onActivate(id: string)
     local kind, arg = id:match("^(%w+)|(.+)$")
     if kind == "copy" then noctalia.copyToClipboard(arg, "text/plain")
-    elseif kind == "shell" then noctalia.runInTerminal("nix shell nixpkgs#" .. arg)
+    elseif kind == "shell" then noctalia.runInTerminal("nix shell " .. shellQuote("nixpkgs#" .. arg))
     elseif kind == "web" then noctalia.runAsync({ "xdg-open", arg })
     end
 end
