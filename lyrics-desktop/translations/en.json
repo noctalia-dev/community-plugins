@@ -1,0 +1,41 @@
+{
+  "title": "Lyrics Desktop",
+  "settings": {
+    "current_color": {
+      "label": "Current Line Color",
+      "description": "Color of the currently active lyric line"
+    },
+    "secondary_color": {
+      "label": "Secondary Lines Color",
+      "description": "Color of the surrounding lyric lines"
+    },
+    "width": {
+      "label": "Width",
+      "description": "Width of the lyrics widget"
+    },
+    "current_font_size": {
+      "label": "Current Line Font Size",
+      "description": "Font size of the currently active lyric line"
+    },
+    "secondary_font_size": {
+      "label": "Secondary Lines Font Size",
+      "description": "Font size of the surrounding lyric lines"
+    },
+    "current_opacity": {
+      "label": "Current Line Opacity",
+      "description": "Opacity of the currently active lyric line"
+    },
+    "secondary_opacity": {
+      "label": "Secondary Lines Opacity",
+      "description": "Opacity of the surrounding lyric lines"
+    },
+    "lines_above": {
+      "label": "Lines Above",
+      "description": "Number of lyric lines displayed above the current line"
+    },
+    "lines_below": {
+      "label": "Lines Below",
+      "description": "Number of lyric lines displayed below the current line"
+    }
+  }
+}

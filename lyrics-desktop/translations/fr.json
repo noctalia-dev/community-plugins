@@ -1,0 +1,13 @@
+{
+  "clicks": {
+    "one": "A cliqué {count} fois",
+    "other": "A cliqué {count} fois"
+  },
+  "settings": {
+    "label": {
+      "description": "Texte affiché dans la barre",
+      "label": "Étiquette"
+    }
+  },
+  "title": "Exemple"
+}

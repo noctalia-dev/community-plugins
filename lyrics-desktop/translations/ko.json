@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "{count}회 클릭됨",
+    "other": "{count}회 클릭됨"
+  },
+  "settings": {
+    "glyph": {
+      "description": "라벨 앞에 표시된 글리프",
+      "label": "글리프"
+    },
+    "label": {
+      "description": "바에 표시된 텍스트",
+      "label": "라벨"
+    },
+    "show_glyph": {
+      "label": "글리프 표시"
+    }
+  },
+  "title": "예시"
+}

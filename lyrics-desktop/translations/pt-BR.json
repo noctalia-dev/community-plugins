@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "Clicado {count} vez",
+    "other": "Clicado {count} vezes"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Símbolo exibido antes do rótulo",
+      "label": "Símbolo"
+    },
+    "label": {
+      "description": "Texto exibido na barra",
+      "label": "Rótulo"
+    },
+    "show_glyph": {
+      "label": "Exibir Símbolo"
+    }
+  },
+  "title": "Exemplo"
+}

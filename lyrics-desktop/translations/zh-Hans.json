@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "点击了 {count} 次",
+    "other": "点击了 {count} 次"
+  },
+  "settings": {
+    "glyph": {
+      "description": "显示在标签前的图标",
+      "label": "图标"
+    },
+    "label": {
+      "description": "显示在状态栏的文本",
+      "label": "标签"
+    },
+    "show_glyph": {
+      "label": "显示图标"
+    }
+  },
+  "title": "示例"
+}

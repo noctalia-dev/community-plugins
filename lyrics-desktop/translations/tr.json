@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "{count} defa tıklandı",
+    "other": "{count} defa tıklandı"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Metinden önce gözüken glif.",
+      "label": "Glif"
+    },
+    "label": {
+      "description": "Barda gözüken metin.",
+      "label": "Metin"
+    },
+    "show_glyph": {
+      "label": "Glifi göster"
+    }
+  },
+  "title": "Örnek"
+}

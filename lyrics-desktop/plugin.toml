@@ -1,0 +1,101 @@
+id = "dinho/lyrics-desktop"
+name = "Lyrics Desktop"
+version = "2.0.1"
+plugin_api = 23
+author = "dinho"
+license = "MIT"
+dependencies = ["playerctl"]
+tags = ["desktop", "music"]
+icon = "music-note"
+description = "Synchronized lyrics desktop widget using MPRIS."
+
+
+[[desktop_widget]]
+id = "lyrics"
+entry = "lyrics.luau"
+
+
+[[desktop_widget.setting]]
+key = "current_color"
+type = "color"
+label_key = "settings.current_color.label"
+description_key = "settings.current_color.description"
+default = "primary"
+
+
+[[desktop_widget.setting]]
+key = "secondary_color"
+type = "color"
+label_key = "settings.secondary_color.label"
+description_key = "settings.secondary_color.description"
+default = "secondary"
+
+
+[[desktop_widget.setting]]
+key = "width"
+type = "int"
+label_key = "settings.width.label"
+description_key = "settings.width.description"
+default = 700
+min = 0
+max = 1000
+
+
+[[desktop_widget.setting]]
+key = "current_font_size"
+type = "int"
+label_key = "settings.current_font_size.label"
+description_key = "settings.current_font_size.description"
+default = 36
+min = 8
+max = 96
+
+
+[[desktop_widget.setting]]
+key = "secondary_font_size"
+type = "int"
+label_key = "settings.secondary_font_size.label"
+description_key = "settings.secondary_font_size.description"
+default = 27
+min = 8
+max = 96
+
+
+[[desktop_widget.setting]]
+key = "current_opacity"
+type = "int"
+label_key = "settings.current_opacity.label"
+description_key = "settings.current_opacity.description"
+default = 100
+min = 0
+max = 100
+
+
+[[desktop_widget.setting]]
+key = "secondary_opacity"
+type = "int"
+label_key = "settings.secondary_opacity.label"
+description_key = "settings.secondary_opacity.description"
+default = 73
+min = 0
+max = 100
+
+
+[[desktop_widget.setting]]
+key = "lines_above"
+type = "int"
+label_key = "settings.lines_above.label"
+description_key = "settings.lines_above.description"
+default = 2
+min = 0
+max = 10
+
+
+[[desktop_widget.setting]]
+key = "lines_below"
+type = "int"
+label_key = "settings.lines_below.label"
+description_key = "settings.lines_below.description"
+default = 2
+min = 0
+max = 10

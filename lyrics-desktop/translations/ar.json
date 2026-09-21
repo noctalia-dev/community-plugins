@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "تم النقر {count} مرة",
+    "other": "تم النقر {count} مرات"
+  },
+  "settings": {
+    "glyph": {
+      "description": "الرمز المعروض قبل التسمية",
+      "label": "الرمز"
+    },
+    "label": {
+      "description": "النص المعروض في الشريط",
+      "label": "التسمية"
+    },
+    "show_glyph": {
+      "label": "إظهار الرمز"
+    }
+  },
+  "title": "مثال"
+}

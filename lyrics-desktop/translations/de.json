@@ -1,0 +1,20 @@
+{
+  "clicks": {
+    "one": "{count} Mal geklickt",
+    "other": "{count} Mal geklickt"
+  },
+  "settings": {
+    "glyph": {
+      "description": "Vor der Beschriftung angezeigtes Symbol",
+      "label": "Symbol"
+    },
+    "label": {
+      "description": "In der Leiste angezeigter Text",
+      "label": "Beschriftung"
+    },
+    "show_glyph": {
+      "label": "Symbol anzeigen"
+    }
+  },
+  "title": "Beispiel"
+}
