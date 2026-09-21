@@ -1,6 +1,6 @@
 id           = "damian-ds7/battery-threshold"
 name         = "Battery Threshold Control"
-version      = "1.2.0"
+version      = "2.0.0"
 plugin_api   = 22
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
@@ -35,10 +35,10 @@ include_in_global_search = false
 
 [[setting]]
 key             = "battery_device"
-type            = "folder"
+type            = "string_list"
 label_key       = "settings.battery-device"
 description_key = "settings.battery-device-desc"
-default         = ""
+default         =  []
 
 [[setting]]
 key             = "charge_threshold"

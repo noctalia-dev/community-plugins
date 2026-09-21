@@ -39,10 +39,10 @@ noctalia msg panel-toggle damian-ds7/battery-threshold:panel
 
 ## Settings
 
-| Setting            | Type     | Default                        | Description                                    |
-| ------------------ | -------- | ------------------------------ | ---------------------------------------------- |
-| `battery_device`   | `folder` | `/sys/class/power_supply/BAT0` | Path to the battery sysfs directory.           |
-| `charge_threshold` | `int`    | `80`                           | Default charge threshold percentage (40–100%). |
+| Setting            | Type          | Default                        | Description                                    |
+| ------------------ | ------------- | ------------------------------ | ---------------------------------------------- |
+| `battery_device`   | `string_list` | `/sys/class/power_supply/BAT0` | Paths to the battery sysfs directories.        |
+| `charge_threshold` | `int`         | `80`                           | Default charge threshold percentage (40–100%). |
 
 ## IPC
 

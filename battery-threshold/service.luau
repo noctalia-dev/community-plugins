@@ -3,12 +3,21 @@ local common = require("./common.luau")
 
 local function get_batteries(): { string }
     local configured = noctalia.getConfig(common.CONFIG.BATTERY_DEVICE)
-    if
-        typeof(configured) == "string"
-        and configured ~= ""
-        and noctalia.fileExists(configured .. common.BATTERY_FILES.THRESHOLD)
-    then
-        return { configured }
+
+    if typeof(configured) == "table" then
+        local valid = {}
+        for _, device in ipairs(configured) do
+            if
+                typeof(device) == "string"
+                and device ~= ""
+                and noctalia.fileExists(device .. common.BATTERY_FILES.THRESHOLD)
+            then
+                table.insert(valid, device)
+            end
+        end
+        if #valid > 0 then
+            return valid
+        end
     end
 
     local batteries = {}
