@@ -36,6 +36,7 @@ reported when that feature is started.
 - **`pkill`** — stopping active recording backends
 - **`xdg-open`** — opening URLs, OCR search results, and shared-link targets
 - **`mpv`** — open recording preview in legacy mode subpanel 
+- **`pactl`** — resolve the default audio source for single-source wf-recorder / wl-screenrec recording
 
 Recording requires at least one backend:
 
@@ -269,7 +270,7 @@ Summary of every service command:
   `wl-screenrec` then `wf-recorder`. **Region** capture uses `wl-screenrec` then
   `wf-recorder`, because `gpu-screen-recorder` cannot record an arbitrary
   sub-region. Microphone audio is only supported by `wl-screenrec`; with
-  `wf-recorder` only system audio is available, and gpu-screen-recorder's audio
+  `wf-recorder` only a single audio source (system *or* microphone) is available, and gpu-screen-recorder's audio
   follows its own source selection.
 - Region coordinates are captured in physical pixels; `recordFullscreen`
   multiplies the focused output's logical geometry by its scale.

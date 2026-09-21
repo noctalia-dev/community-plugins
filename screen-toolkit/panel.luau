@@ -37,10 +37,6 @@ local function send(action, payload)
   noctalia.state.set("command", { action = action, payload = payload })
 end
 
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", [['"'"']]) .. "'"
-end
-
 local function getMode()
   local mode = noctalia.getConfig("panel-mode")
   if mode == "standard" or mode == "legacy" then return mode end
@@ -171,10 +167,10 @@ local function openScreenshotPreview()
     noctalia.notifyError("No screenshot preview available yet. Take a capture first!")
     return
   end
-  if noctalia.commandExists("satty") then noctalia.runAsync("satty --filename " .. shellQuote(targetPath))
-  elseif noctalia.commandExists("swappy") then noctalia.runAsync("swappy -f " .. shellQuote(targetPath))
-  elseif noctalia.commandExists("tensaku") then noctalia.runAsync("tensaku -f " .. shellQuote(targetPath))
-  elseif noctalia.commandExists("gimp") then noctalia.runAsync("gimp " .. shellQuote(targetPath))
+  if noctalia.commandExists("satty") then noctalia.runAsync({ "satty", "--filename", targetPath })
+  elseif noctalia.commandExists("swappy") then noctalia.runAsync({ "swappy", "-f", targetPath })
+  elseif noctalia.commandExists("tensaku") then noctalia.runAsync({ "tensaku", "-f", targetPath })
+  elseif noctalia.commandExists("gimp") then noctalia.runAsync({ "gimp", targetPath })
   else noctalia.notifyError(tr("messages.missing_dep", { dep = "satty (or swappy/gimp/tensaku)" })) end
 end
 
@@ -185,7 +181,7 @@ local function openRecordingPreview()
     noctalia.notifyError("No recording preview available yet. Make a recording first!")
     return
   end
-  if noctalia.commandExists("mpv") then noctalia.runAsync("mpv --no-config --title='Recording Preview' " .. shellQuote(targetPath))
+  if noctalia.commandExists("mpv") then noctalia.runAsync({ "mpv", "--no-config", "--title=Recording Preview", targetPath })
   else noctalia.notifyError(tr("messages.missing_dep", { dep = "mpv" })) end
 end
 

@@ -8,7 +8,7 @@
 
 id = "alexander/screen-toolkit"
 name = "Screen Toolkit"
-version = "1.4.2"
+version = "1.4.3"
 plugin_api = 13
 author = "alexander"
 license = "MIT"
@@ -31,6 +31,7 @@ dependencies = [
   "stat",
   "pkill",
   "xdg-open",
+  "pactl",
   "hyprctl",
   "niri",
   "swappy",
