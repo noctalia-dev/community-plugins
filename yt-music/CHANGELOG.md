@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.7] - 2026-09-21
+
+### Added
+- Music artwork in the Noctalia media widget via MPRIS (`mpv-mpris` `cover-art-files`).
+
 ## [0.2.6] - 2026-09-12
 
 ### Fixed

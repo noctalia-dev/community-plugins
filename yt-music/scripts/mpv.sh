@@ -32,8 +32,12 @@ nc_check() {   # $1=sock $2=timeout
   printf '' | nc_send "$1" "$2" >/dev/null 2>&1
 }
 
-mpv_play() {   # $1=volume $2=url_file $3=title_file
+mpv_play() {   # $1=volume $2=url_file $3=title_file $4=cover_file(optional)
   local vol="${1:-100}"
+  # Feed mpv-mpris cover-art-files so system widgets get mpris:artUrl.
+  local cover_opts=""
+  [ -n "$4" ] && [ -f "$4" ] && cover_opts="--cover-art-file=$4"
+
   URL=$(cat "$2")
   TITLE=$(cat "$3" 2>/dev/null)
   START_MS=$(date +%s%N)
@@ -69,6 +73,7 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file
     --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
     --keep-open=yes \
     --force-media-title="$TITLE" \
+    $cover_opts \
     --input-ipc-server="$SOCK" --ao=pulse,pipewire,alsa,auto \
     >/dev/null 2>&1 9>&- &
   echo $! > "$PIDFILE"
@@ -77,7 +82,7 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file
     [ -S "$SOCK" ] && nc_check "$SOCK" 1 && break
     sleep 0.2
   done
-  [ -S "$SOCK" ] && { 
+  [ -S "$SOCK" ] && {
     echo "READY=1 MS=$(( ($(date +%s%N) - START_MS) / 1000000 ))"
     printf '{"command":["set_property","volume",%s]}\n' "$vol" | nc_send "$SOCK" 1 >/dev/null 2>&1
   }
