@@ -1,4 +1,6 @@
 --!nonstrict
+local common = require("./common.luau")
+
 local function get_batteries(): { string }
     local batteries = {}
     local files, _ = noctalia.listDir("/sys/class/power_supply")
@@ -6,7 +8,7 @@ local function get_batteries(): { string }
     if files then
         for _, name in files do
             local path = "/sys/class/power_supply/" .. name
-            if noctalia.fileExists(path .. "/charge_control_end_threshold") then
+            if noctalia.fileExists(path .. common.THRESHOLD_FILE) then
                 table.insert(batteries, path)
             end
         end
@@ -21,7 +23,7 @@ local function get_active_battery(): string?
     if
         typeof(configured) == "string"
         and configured ~= ""
-        and noctalia.fileExists(configured .. "/charge_control_end_threshold")
+        and noctalia.fileExists(configured .. common.THRESHOLD_FILE)
     then
         return configured
     end
@@ -56,21 +58,15 @@ local function set_threshold(value: number)
     if not battery then
         return
     end
-    local threshold_file = battery .. "/charge_control_end_threshold"
+    local threshold_file = battery .. common.THRESHOLD_FILE
 
-    local v = math.floor(value + 0.5)
-    if v < 40 then
-        v = 40
-    end
-    if v > 100 then
-        v = 100
-    end
+    local v = common.clamp(math.floor(value + 0.5))
 
     noctalia.log("Setting charge threshold to " .. tostring(v) .. "% on " .. battery)
 
     local ok, err = noctalia.writeFile(threshold_file, tostring(v) .. "\n")
     if ok then
-        noctalia.state.set("current_threshold", v)
+        noctalia.state.set(common.STATE.CURRENT_THRESHOLD, v)
         if THRESHOLD_FILE_PATH then
             local save_ok, save_err =
                 noctalia.writeFile(THRESHOLD_FILE_PATH, tostring(v))
@@ -95,33 +91,33 @@ end
 local function check_status()
     local battery = get_active_battery()
     if not battery then
-        noctalia.state.set("is_available", false)
-        noctalia.state.set("is_writable", false)
-        noctalia.state.set("current_threshold", 0)
-        noctalia.state.set("battery_model_name", "")
+        noctalia.state.set(common.STATE.IS_AVAILABLE, false)
+        noctalia.state.set(common.STATE.IS_WRITABLE, false)
+        noctalia.state.set(common.STATE.CURRENT_THRESHOLD, 0)
+        noctalia.state.set(common.STATE.BATTERY_MODEL_NAME, "")
         return
     end
 
-    noctalia.state.set("is_available", true)
+    noctalia.state.set(common.STATE.IS_AVAILABLE, true)
 
     local model_name = ""
     local content, err = noctalia.readFile(battery .. "/model_name")
     if content and not err then
         model_name = noctalia.string.trim(content)
     end
-    noctalia.state.set("battery_model_name", model_name)
+    noctalia.state.set(common.STATE.BATTERY_MODEL_NAME, model_name)
 
-    local threshold_file = battery .. "/charge_control_end_threshold"
+    local threshold_file = battery .. common.THRESHOLD_FILE
 
     local threshold_content = noctalia.readFile(threshold_file)
     local current_val = 0
     if threshold_content then
         current_val = tonumber(noctalia.string.trim(threshold_content)) or 0
-        noctalia.state.set("current_threshold", current_val)
+        noctalia.state.set(common.STATE.CURRENT_THRESHOLD, current_val)
     end
 
     check_writable(threshold_file, function(writable)
-        noctalia.state.set("is_writable", writable)
+        noctalia.state.set(common.STATE.IS_WRITABLE, writable)
 
         if writable then
             local saved_val = nil
@@ -146,7 +142,7 @@ local function check_status()
                 end
             end
 
-            if saved_val and saved_val >= 40 and saved_val <= 100 then
+            if saved_val and common.inRange(saved_val) then
                 if saved_val ~= current_val then
                     set_threshold(saved_val)
                 end
@@ -184,16 +180,16 @@ local function run_setup()
             noctalia.tr("notification.setup-fail")
         )
     end
-    noctalia.state.set("run_setup_request", false)
+    noctalia.state.set(common.STATE.RUN_SETUP_REQUEST, false)
 end
 
-noctalia.state.watch("run_setup_request", function(val)
+noctalia.state.watch(common.STATE.RUN_SETUP_REQUEST, function(val)
     if val == true then
         run_setup()
     end
 end)
 
-noctalia.state.watch("set_threshold_request", function(val)
+noctalia.state.watch(common.STATE.SET_THRESHOLD_REQUEST, function(val)
     if val then
         local num = tonumber(val)
         if num then
@@ -206,7 +202,7 @@ function onIpc(event, payload)
     if event == "set" then
         if payload then
             local val = tonumber(payload)
-            if val and val >= 40 and val <= 100 then
+            if val and common.inRange(val) then
                 set_threshold(val)
             end
         end
