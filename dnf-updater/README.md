@@ -19,15 +19,20 @@ The plugin expects the following dependencies on `$PATH`:
 
 ### Passwordless Background Upgrades (Optional)
 
-To enable seamless background upgrades without a password prompt (matching Flatpak's default behavior for `wheel` users), install the included Polkit rule:
+To enable seamless background upgrades without a password prompt (matching Flatpak's default behavior for `wheel` users), install the included hardened helper script and Polkit rule:
 
 ```sh
+# 1. Install the privileged helper (restricts root execution strictly to upgrades)
+sudo install -Dm755 scripts/dnf-updater-helper.sh /usr/local/bin/dnf-updater-helper
+
+# 2. Install the scoped Polkit authorization rule
 sudo install -Dm644 polkit/50-dnf-updater.rules /etc/polkit-1/rules.d/50-dnf-updater.rules
 ```
 
 To remove it later:
 
 ```sh
+sudo rm /usr/local/bin/dnf-updater-helper
 sudo rm /etc/polkit-1/rules.d/50-dnf-updater.rules
 ```
 
@@ -105,4 +110,4 @@ noctalia msg plugin strob3/dnf-updater:service service update
 - **Background Checks**: Update queries use non-blocking JSON queries (`dnf5 check-upgrade --json` and `flatpak remote-ls --updates -j`) to prevent freezing the shell.
 
 ## License
-MIT
+[MIT](LICENSE)

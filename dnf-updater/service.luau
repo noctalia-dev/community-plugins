@@ -63,6 +63,42 @@ local function formatBytes(bytes)
   end
 end
 
+local function parseSizeToBytes(sizeStr)
+  if not sizeStr or type(sizeStr) ~= "string" or sizeStr == "" then
+    return 0
+  end
+  local s = sizeStr:gsub(",", ".")
+  local numStr, unit = s:match("([%d%.]+).-([%a]+)")
+  if not numStr or not unit then
+    return 0
+  end
+  local num = tonumber(numStr)
+  if not num or num <= 0 then
+    return 0
+  end
+  unit = string.upper(unit)
+  if unit == "B" or unit == "BYTES" then
+    return math.floor(num)
+  elseif unit == "KIB" then
+    return math.floor(num * 1024)
+  elseif unit == "KB" or unit == "K" then
+    return math.floor(num * 1000)
+  elseif unit == "MIB" then
+    return math.floor(num * 1024 * 1024)
+  elseif unit == "MB" or unit == "M" then
+    return math.floor(num * 1000 * 1000)
+  elseif unit == "GIB" then
+    return math.floor(num * 1024 * 1024 * 1024)
+  elseif unit == "GB" or unit == "G" then
+    return math.floor(num * 1000 * 1000 * 1000)
+  elseif unit == "TIB" then
+    return math.floor(num * 1024 * 1024 * 1024 * 1024)
+  elseif unit == "TB" or unit == "T" then
+    return math.floor(num * 1000 * 1000 * 1000 * 1000)
+  end
+  return math.floor(num)
+end
+
 local function publishState()
   noctalia.state.set("update_state", state)
 end
@@ -74,6 +110,30 @@ local function getDnfBinary()
     return "dnf"
   end
   return nil
+end
+
+local function isValidPackageName(name)
+  if type(name) ~= "string" or name == "" then
+    return false
+  end
+  if name:sub(1, 1) == "-" then
+    return false
+  end
+  return name:match("^[%w%._+%-]+$") ~= nil
+end
+
+local function isValidFlatpakId(id)
+  if type(id) ~= "string" or id == "" then
+    return false
+  end
+  if id:sub(1, 1) == "-" then
+    return false
+  end
+  return id:match("^[%w%._%-%/]+$") ~= nil and id:find("%.") ~= nil
+end
+
+local function shellQuote(str)
+  return "'" .. string.gsub(str, "'", "'\\''") .. "'"
 end
 
 local function checkDnf(onFinished)
@@ -247,7 +307,7 @@ local function checkFlatpak(onFinished)
   state.flatpak.status = "checking"
   state.flatpak.error = nil
 
-  noctalia.runAsync({ "flatpak", "remote-ls", "--updates", "--columns=name,application,version,branch,origin,installed-size,download-size", "-j" }, function(result)
+  noctalia.runAsync({ "flatpak", "remote-ls", "--updates", "--columns=name,application,version,branch,origin,installed-size,download-size,ref", "-j" }, function(result)
     if result.timedOut then
       state.flatpak.status = "error"
       state.flatpak.error = "Flatpak check timed out"
@@ -272,21 +332,35 @@ local function checkFlatpak(onFinished)
     local decoded, err = noctalia.json.decode(raw)
     if type(decoded) == "table" then
       local packages = {}
+      local flatpakTotalDownload = 0
+      local flatpakTotalInstall = 0
       for _, item in ipairs(decoded) do
         if type(item) == "table" then
+          local dlBytes = parseSizeToBytes(item.download_size)
+          local instBytes = parseSizeToBytes(item.installed_size)
+          flatpakTotalDownload += dlBytes
+          flatpakTotalInstall += instBytes
+
           table.insert(packages, {
             name = item.name or (item.application_id or "Unknown"),
-            id = item.application_id or (item.name or ""),
+            id = (item.application_id and item.application_id ~= "") and item.application_id or (item.ref or (item.name or "")),
+            ref = item.ref or "",
             version = item.version or (item.branch or ""),
             branch = item.branch or "",
             origin = item.origin or "",
-            download_formatted = item.download_size or "",
-            install_formatted = item.installed_size or "",
+            download_bytes = dlBytes,
+            install_bytes = instBytes,
+            download_formatted = (item.download_size and item.download_size ~= "") and item.download_size or formatBytes(dlBytes),
+            install_formatted = (item.installed_size and item.installed_size ~= "") and item.installed_size or formatBytes(instBytes),
           })
         end
       end
       state.flatpak.count = #packages
       state.flatpak.packages = packages
+      state.flatpak.total_download_bytes = flatpakTotalDownload
+      state.flatpak.total_install_bytes = flatpakTotalInstall
+      state.flatpak.total_download_formatted = formatBytes(flatpakTotalDownload)
+      state.flatpak.total_install_formatted = formatBytes(flatpakTotalInstall)
       state.flatpak.status = "done"
       state.flatpak.error = nil
       onFinished(true)
@@ -386,8 +460,19 @@ local function updateDnf(excludedList, onFinished)
     return
   end
 
+  local validExcluded = {}
+  if excludedList and type(excludedList) == "table" then
+    for _, name in ipairs(excludedList) do
+      if isValidPackageName(name) then
+        table.insert(validExcluded, name)
+      else
+        print(string.format("[dnf-updater] Warning: invalid DNF package name skipped: %s", tostring(name)))
+      end
+    end
+  end
+
   local dnfCount = state.dnf.count or 0
-  if excludedList and type(excludedList) == "table" and #excludedList >= dnfCount and dnfCount > 0 then
+  if excludedList and type(excludedList) == "table" and #validExcluded >= dnfCount and dnfCount > 0 then
     state.dnf.status = "done"
     publishState()
     if onFinished then onFinished(true) end
@@ -395,15 +480,15 @@ local function updateDnf(excludedList, onFinished)
   end
 
   local excludeArg = nil
-  if excludedList and type(excludedList) == "table" and #excludedList > 0 then
-    excludeArg = "--exclude=" .. table.concat(excludedList, ",")
+  if #validExcluded > 0 then
+    excludeArg = "--exclude=" .. table.concat(validExcluded, ",")
   end
 
   if updateInTerminal then
     local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
     local cmd = sudoCmd .. " " .. dnfBin .. " upgrade"
     if excludeArg then
-      cmd = cmd .. " " .. excludeArg
+      cmd = cmd .. " " .. shellQuote(excludeArg)
     end
     noctalia.runInTerminal(cmd)
     state.dnf.status = "done"
@@ -416,7 +501,13 @@ local function updateDnf(excludedList, onFinished)
   state.status = "UPDATING"
   publishState()
 
-  local args = { "pkexec", dnfBin, "upgrade", "-y" }
+  local helperBin = "/usr/local/bin/dnf-updater-helper"
+  local args
+  if noctalia.fileExists(helperBin) then
+    args = { "pkexec", helperBin, "upgrade" }
+  else
+    args = { "pkexec", dnfBin, "upgrade", "-y" }
+  end
   if excludeArg then
     table.insert(args, excludeArg)
   end
@@ -443,7 +534,27 @@ local function updateFlatpak(selectedList, onFinished)
     return
   end
 
+  local validSelected = nil
+  if selectedList and type(selectedList) == "table" then
+    validSelected = {}
+    for _, ref in ipairs(selectedList) do
+      if isValidFlatpakId(ref) then
+        table.insert(validSelected, ref)
+      else
+        print(string.format("[dnf-updater] Warning: invalid Flatpak ID skipped: %s", tostring(ref)))
+      end
+    end
+  end
+
   if selectedList and type(selectedList) == "table" and #selectedList == 0 and (state.flatpak.count or 0) > 0 then
+    state.flatpak.status = "done"
+    publishState()
+    if onFinished then onFinished(true) end
+    return
+  end
+
+  if selectedList and type(selectedList) == "table" and #selectedList > 0 and validSelected and #validSelected == 0 then
+    print("[dnf-updater] Warning: all selected Flatpak IDs were invalid; skipping update")
     state.flatpak.status = "done"
     publishState()
     if onFinished then onFinished(true) end
@@ -452,9 +563,9 @@ local function updateFlatpak(selectedList, onFinished)
 
   if updateInTerminal then
     local cmd = "flatpak update"
-    if selectedList and type(selectedList) == "table" and #selectedList > 0 then
-      for _, ref in ipairs(selectedList) do
-        cmd = cmd .. " " .. ref
+    if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
+      for _, ref in ipairs(validSelected) do
+        cmd = cmd .. " " .. shellQuote(ref)
       end
     end
     noctalia.runInTerminal(cmd)
@@ -469,8 +580,8 @@ local function updateFlatpak(selectedList, onFinished)
   publishState()
 
   local args = { "flatpak", "update", "-y", "--noninteractive" }
-  if selectedList and type(selectedList) == "table" and #selectedList > 0 then
-    for _, ref in ipairs(selectedList) do
+  if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
+    for _, ref in ipairs(validSelected) do
       table.insert(args, ref)
     end
   end
@@ -500,17 +611,69 @@ local function updateAll(excludedDnf, selectedFlatpaks)
   local dnfCount = (state.dnf and state.dnf.count) or 0
   local flatpakCount = (state.flatpak and state.flatpak.count) or 0
 
-  local excludedDnfCount = (excludedDnf and type(excludedDnf) == "table") and #excludedDnf or 0
-  local dnfNeedsUpdate = enableDnf and dnfCount > 0 and (excludedDnfCount < dnfCount)
+  local validExcluded = {}
+  if excludedDnf and type(excludedDnf) == "table" then
+    for _, name in ipairs(excludedDnf) do
+      if isValidPackageName(name) then
+        table.insert(validExcluded, name)
+      end
+    end
+  end
+  local dnfNeedsUpdate = enableDnf and dnfCount > 0 and (#validExcluded < dnfCount)
 
+  local validSelected = nil
+  if selectedFlatpaks and type(selectedFlatpaks) == "table" then
+    validSelected = {}
+    for _, ref in ipairs(selectedFlatpaks) do
+      if isValidFlatpakId(ref) then
+        table.insert(validSelected, ref)
+      end
+    end
+  end
   local flatpakNeedsUpdate = enableFlatpak and flatpakCount > 0
-  if flatpakNeedsUpdate and selectedFlatpaks and type(selectedFlatpaks) == "table" and #selectedFlatpaks == 0 then
+  if flatpakNeedsUpdate and selectedFlatpaks and type(selectedFlatpaks) == "table" and #validSelected == 0 then
     flatpakNeedsUpdate = false
   end
 
   if not dnfNeedsUpdate and not flatpakNeedsUpdate then
     isUpdating = false
     checkAll(true)
+    return
+  end
+
+  if updateInTerminal then
+    local cmds = {}
+    local dnfBin = getDnfBinary()
+
+    if dnfNeedsUpdate and dnfBin then
+      local sudoCmd = noctalia.commandExists("sudo") and "sudo" or "pkexec"
+      local dnfCmd = sudoCmd .. " " .. dnfBin .. " upgrade"
+      if #validExcluded > 0 then
+        dnfCmd = dnfCmd .. " " .. shellQuote("--exclude=" .. table.concat(validExcluded, ","))
+      end
+      table.insert(cmds, dnfCmd)
+    end
+
+    if flatpakNeedsUpdate then
+      local fpCmd = "flatpak update"
+      if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
+        for _, ref in ipairs(validSelected) do
+          fpCmd = fpCmd .. " " .. shellQuote(ref)
+        end
+      end
+      table.insert(cmds, fpCmd)
+    end
+
+    if #cmds > 0 then
+      local fullCmd = table.concat(cmds, " && ")
+      noctalia.runInTerminal(fullCmd)
+      if dnfNeedsUpdate then state.dnf.status = "done" end
+      if flatpakNeedsUpdate then state.flatpak.status = "done" end
+      state.status = "SUCCESS"
+      publishState()
+    end
+
+    isUpdating = false
     return
   end
 

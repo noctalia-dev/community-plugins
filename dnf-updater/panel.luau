@@ -33,6 +33,68 @@ local function formatBytes(bytes)
   end
 end
 
+local function parseSizeToBytes(sizeStr)
+  if not sizeStr or type(sizeStr) ~= "string" or sizeStr == "" then
+    return 0
+  end
+  local s = sizeStr:gsub(",", ".")
+  local numStr, unit = s:match("([%d%.]+).-([%a]+)")
+  if not numStr or not unit then
+    return 0
+  end
+  local num = tonumber(numStr)
+  if not num or num <= 0 then
+    return 0
+  end
+  unit = string.upper(unit)
+  if unit == "B" or unit == "BYTES" then
+    return math.floor(num)
+  elseif unit == "KIB" then
+    return math.floor(num * 1024)
+  elseif unit == "KB" or unit == "K" then
+    return math.floor(num * 1000)
+  elseif unit == "MIB" then
+    return math.floor(num * 1024 * 1024)
+  elseif unit == "MB" or unit == "M" then
+    return math.floor(num * 1000 * 1000)
+  elseif unit == "GIB" then
+    return math.floor(num * 1024 * 1024 * 1024)
+  elseif unit == "GB" or unit == "G" then
+    return math.floor(num * 1000 * 1000 * 1000)
+  elseif unit == "TIB" then
+    return math.floor(num * 1024 * 1024 * 1024 * 1024)
+  elseif unit == "TB" or unit == "T" then
+    return math.floor(num * 1000 * 1000 * 1000 * 1000)
+  end
+  return math.floor(num)
+end
+
+local function getPackageDownloadBytes(pkg)
+  if not pkg then return 0 end
+  if pkg.download_bytes and pkg.download_bytes > 0 then
+    return pkg.download_bytes
+  end
+  if pkg.download_formatted and pkg.download_formatted ~= "" then
+    local b = parseSizeToBytes(pkg.download_formatted)
+    if b > 0 then return b end
+  end
+  if pkg.install_bytes and pkg.install_bytes > 0 then
+    return pkg.install_bytes
+  end
+  if pkg.install_formatted and pkg.install_formatted ~= "" then
+    local b = parseSizeToBytes(pkg.install_formatted)
+    if b > 0 then return b end
+  end
+  return 0
+end
+
+local function getFlatpakKey(pkg)
+  if not pkg then return "" end
+  if pkg.ref and pkg.ref ~= "" then return pkg.ref end
+  if pkg.id and pkg.id ~= "" then return pkg.id end
+  return pkg.name or ""
+end
+
 local function toggleExcludeDnf(name)
   if excludedDnf[name] then
     excludedDnf[name] = nil
@@ -80,7 +142,7 @@ end
 local function toggleAllFlatpak(packages)
   local anyExcluded = false
   for _, pkg in ipairs(packages) do
-    local k = pkg.id or pkg.name
+    local k = getFlatpakKey(pkg)
     if excludedFlatpak[k] then
       anyExcluded = true
       break
@@ -88,11 +150,11 @@ local function toggleAllFlatpak(packages)
   end
   if anyExcluded then
     for _, pkg in ipairs(packages) do
-      excludedFlatpak[pkg.id or pkg.name] = nil
+      excludedFlatpak[getFlatpakKey(pkg)] = nil
     end
   else
     for _, pkg in ipairs(packages) do
-      excludedFlatpak[pkg.id or pkg.name] = true
+      excludedFlatpak[getFlatpakKey(pkg)] = true
     end
   end
   if render then
@@ -292,7 +354,7 @@ local function renderDnfSection(state)
   for _, pkg in ipairs(packages) do
     if not excludedDnf[pkg.name] then
       selectedCount += 1
-      selectedBytes += (pkg.download_bytes or 0)
+      selectedBytes += getPackageDownloadBytes(pkg)
     end
   end
 
@@ -437,10 +499,10 @@ local function renderFlatpakSection(state)
   local selectedCount = 0
   local selectedBytes = 0
   for _, pkg in ipairs(packages) do
-    local k = pkg.id or pkg.name
+    local k = getFlatpakKey(pkg)
     if not excludedFlatpak[k] then
       selectedCount += 1
-      selectedBytes += (pkg.download_bytes or pkg.install_bytes or 0)
+      selectedBytes += getPackageDownloadBytes(pkg)
     end
   end
 
@@ -500,7 +562,7 @@ local function renderFlatpakSection(state)
   if not flatpakCollapsed then
 
   for idx, pkg in ipairs(packages) do
-    local pkgKey = pkg.id or pkg.name or tostring(idx)
+    local pkgKey = getFlatpakKey(pkg)
     local isExcluded = excludedFlatpak[pkgKey] == true
 
     local subtitle = pkg.id or pkg.branch or ""
@@ -709,9 +771,9 @@ function onUpdateAll()
   local selectedFlatpakList = {}
   if updateState and updateState.flatpak and updateState.flatpak.packages then
     for _, pkg in ipairs(updateState.flatpak.packages) do
-      local k = pkg.id or pkg.name
+      local k = getFlatpakKey(pkg)
       if not excludedFlatpak[k] then
-        table.insert(selectedFlatpakList, pkg.id or pkg.name)
+        table.insert(selectedFlatpakList, k)
       end
     end
   end
@@ -745,9 +807,9 @@ function onUpdateFlatpak()
   local selectedFlatpakList = {}
   if updateState and updateState.flatpak and updateState.flatpak.packages then
     for _, pkg in ipairs(updateState.flatpak.packages) do
-      local k = pkg.id or pkg.name
+      local k = getFlatpakKey(pkg)
       if not excludedFlatpak[k] then
-        table.insert(selectedFlatpakList, pkg.id or pkg.name)
+        table.insert(selectedFlatpakList, k)
       end
     end
   end
