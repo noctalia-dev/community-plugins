@@ -24,6 +24,15 @@ end
 local function setResult(num: number)
     local rounded = math.floor(num + 0.5)
     local clamped = common.clamp(rounded)
+    if noctalia.state.get(common.STATE.IS_WRITABLE) ~= true then
+        return {
+            id = OPEN_RESULT_ID,
+            title = noctalia.tr("launcher.no-permissions"),
+            subtitle = noctalia.tr("launcher.open-panel-hint"),
+            glyph = "battery-eco",
+        }
+    end
+
     local title = noctalia.tr("launcher.set-title", { value = clamped })
     local subtitle = if clamped ~= rounded
         then noctalia.tr("launcher.set-subtitle-clamped", { min = common.MIN_THRESHOLD, max = common.MAX_THRESHOLD })

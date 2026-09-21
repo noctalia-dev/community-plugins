@@ -5,6 +5,8 @@
   "launcher": {
     "open-title": "Battery Threshold Control",
     "open-subtitle": "Open panel · currently {threshold}%",
+    "no-permissions": "Write access is not set up",
+    "open-panel-hint": "Press Enter to open the panel",
     "set-title": "Set charge threshold to {value}%",
     "set-subtitle": "Press Enter to apply",
     "set-subtitle-clamped": "Clamped to {min}-{max}%. Press Enter to apply",
