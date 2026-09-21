@@ -1,6 +1,6 @@
 id           = "damian-ds7/battery-threshold"
 name         = "Battery Threshold Control"
-version      = "1.0.1"
+version      = "1.1.0"
 plugin_api   = 22
 author       = "Damian D'Souza"
 description  = "Set the battery threshold for laptop batteries to extend battery lifespan"
@@ -25,6 +25,13 @@ height          = 220
 placement       = "floating"
 position        = "center"
 open_near_click = true
+
+[[launcher_provider]]
+id                       = "launcher"
+entry                    = "launcher.luau"
+prefix                   = "batt"
+glyph                    = "battery-eco"
+include_in_global_search = false
 
 [[setting]]
 key             = "battery_device"

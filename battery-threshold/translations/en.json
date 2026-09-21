@@ -2,6 +2,14 @@
   "actions": {
     "widget-settings": "Widget Settings"
   },
+  "launcher": {
+    "open-title": "Battery Threshold Control",
+    "open-subtitle": "Open panel · currently {threshold}%",
+    "set-title": "Set charge threshold to {value}%",
+    "set-subtitle": "Press Enter to apply",
+    "set-subtitle-clamped": "Clamped to {min}-{max}%. Press Enter to apply",
+    "set-notify": "Charge threshold set to {value}%"
+  },
   "notification": {
     "error-msg": "Failed to write battery threshold to {file}",
     "error-title": "Battery Threshold Error",

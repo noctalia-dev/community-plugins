@@ -6,17 +6,19 @@ while plugged in, reducing battery wear and heat.
 
 ## Plugin
 
-| Field   | Value                                                               |
-| ------- | ------------------------------------------------------------------- |
-| ID      | `damian-ds7/battery-threshold`                                      |
-| Entries | Bar widget: `battery-threshold`; panel: `panel`; service: `service` |
+| Field           | Value                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| ID              | `damian-ds7/battery-threshold`                                                            |
+| Entries         | Bar widget: `battery-threshold`; panel: `panel`; service: `service`; launcher: `launcher` |
+| Launcher Prefix | `/batt`                                                                                   |
 
 ## Requirements
 
 - Laptop hardware supporting battery charge threshold control in sysfs
   (`/sys/class/power_supply/*/charge_control_end_threshold`).
 - The following external programs must be available on `PATH`: `test`, `sudo`,
-  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and `chmod`.
+  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`,
+  `chgrp`, and `chmod`.
 
 ## Usage
 
@@ -29,6 +31,11 @@ while plugged in, reducing battery wear and heat.
 ```sh
 noctalia msg panel-toggle damian-ds7/battery-threshold:panel
 ```
+
+- **Launcher (`/batt`)**: Type `/batt` with no arguments to open the panel. Type
+  `/batt <number>` (e.g. `/batt 60`) to set the charge threshold to that
+  percentage directly, without opening the panel; the value is clamped to
+  40–100%.
 
 ## Settings
 
