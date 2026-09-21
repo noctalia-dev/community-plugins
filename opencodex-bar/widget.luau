@@ -67,11 +67,13 @@ local function iconProvider(snapshot)
   return tightestId or fallback
 end
 
--- Provider marks are kept slightly smaller than the base glyph metric so their
--- dense brand shapes match the visual weight of the usage gauge.
-local MARK_SIZE = 13
-local GAUGE_H = 12
-local GAUGE_W = 8
+-- Same box as the shell's outline glyphs (~16px). Stroke-only track, usage
+-- fills the inside — filled pills looked heavier than wifi / bluetooth.
+local MARK_SIZE = 16
+local GAUGE_H = 14
+local GAUGE_W = 9
+local GAUGE_STROKE = 1
+local GAUGE_INSET = 2
 -- Keep a chip large enough that bar hide/show (Control Center) cannot collapse
 -- the plugin InputArea to an unclickable sliver.
 local CHIP_MIN = 18
@@ -87,32 +89,37 @@ end
 -- A vertical gauge for the aggregate figure: it fills as quota is spent, so a
 -- full gauge means no headroom left. ui.progress cannot do this: ProgressBar
 -- supports a Vertical orientation internally, but the reconciler never exposes
--- it, so the gauge is a track column holding a level box pinned to the bottom.
+-- it, so the gauge is an outlined column holding a level box pinned to the bottom.
 -- Always draw the track, even with no quota: a nil icon made the chip vanish
 -- after a bar hide/show until the next snapshot, which ate the first clicks.
 local function usageGauge(used)
+  local ink = usedColorFor(used)
+  local innerH = GAUGE_H - GAUGE_INSET * 2
   local level = type(used) == "number" and math.max(0, math.min(100, used)) / 100 or 0
-  -- Keep a sliver visible at zero so the gauge never reads as "no data".
-  local filled = level <= 0 and 1 or math.max(2, math.floor(GAUGE_H * level + 0.5))
+  local filled = level <= 0 and 0 or math.max(2, math.floor(innerH * level + 0.5))
+  local children = {}
+  if filled > 0 then
+    children[1] = ui.box({
+      key = "level",
+      height = filled,
+      radius = 2,
+      fill = ink,
+    })
+  end
   return ui.column({
     key = "gauge",
     width = GAUGE_W,
     height = GAUGE_H,
     minWidth = GAUGE_W,
     minHeight = GAUGE_H,
-    radius = 3,
-    fill = "on_surface/0.18",
+    radius = 4,
+    padding = GAUGE_INSET,
+    fill = "on_surface/0",
+    border = ink,
+    borderWidth = GAUGE_STROKE,
     justify = "end",
     align = "stretch",
-  }, {
-    ui.box({
-      key = "level",
-      width = GAUGE_W,
-      height = filled,
-      radius = 2,
-      fill = usedColorFor(used),
-    }),
-  })
+  }, children)
 end
 
 local function usedColor(used, status)
