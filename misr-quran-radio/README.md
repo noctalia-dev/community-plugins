@@ -1,4 +1,4 @@
-# Misr Quran Radio
+# Holy Quran Radio
 
 Live stream of the Egyptian Holy Quran Radio (إذاعة القرآن الكريم من القاهرة,
 on air since 1964) with today's programme schedule from

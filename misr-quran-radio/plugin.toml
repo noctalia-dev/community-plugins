@@ -11,7 +11,7 @@
 # outside its own data dir (diagnose dump).
 
 id = "muhammadessam/misr-quran-radio"
-name = "Misr Quran Radio"
+name = "Holy Quran Radio"
 version = "0.1.0"
 plugin_api = 24
 author = "muhammadessam"
