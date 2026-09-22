@@ -59,8 +59,11 @@ local function getScanDirs()
   local guixProfile = noctalia.getenv("GUIX_PROFILE")
   if guixProfile ~= nil then
     add(guixProfile .. "/share/applications")
-  elseif noctalia.getenv("GUIX_ENVIRONMENT") ~= nil then
-    add("~/.guix-profile/share/applications")
+  end
+
+  local guixEnvironment = noctalia.getenv("GUIX_ENVIRONMENT")
+  if guixEnvironment ~= nil then
+    add(guixEnvironment .. "/share/applications")
   end
 
   return dirs
