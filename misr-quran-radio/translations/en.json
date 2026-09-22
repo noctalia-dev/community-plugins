@@ -1,0 +1,51 @@
+{
+  "title": "Misr Quran Radio",
+  "settings": {
+    "stream_url": {
+      "label": "Stream URL",
+      "description": "Live HLS stream. Leave the default unless the station moves it."
+    },
+    "refresh_minutes": {
+      "label": "Schedule refresh",
+      "description": "Minutes between programme schedule fetches."
+    },
+    "show_text": {
+      "label": "Show status text",
+      "description": "Show Live / Quran next to the icon."
+    },
+    "glyph": {
+      "label": "Glyph"
+    }
+  },
+  "bar": {
+    "live": "Live",
+    "idle": "Quran",
+    "confirm_title": "Unconfirmed change"
+  },
+  "panel": {
+    "unavailable": "mpv is not on PATH — install mpv for playback.",
+    "busy": "Working…",
+    "playing": "Playing the live stream.",
+    "stopped": "Stopped.",
+    "play": "Play",
+    "stop": "Stop",
+    "refresh": "Refresh schedule",
+    "now": "On now",
+    "schedule": "Today's programmes",
+    "empty": "No schedule yet — press refresh.",
+    "site": "Station site",
+    "copy": "Copy stream URL",
+    "copied": "Stream URL copied."
+  },
+  "tooltip": {
+    "status": "Status",
+    "now": "On now",
+    "time": "Time",
+    "schedule": "Programmes",
+    "error": "Error",
+    "open": "Open Misr Quran Radio"
+  },
+  "notify": {
+    "play_failed": "Could not start playback"
+  }
+}
