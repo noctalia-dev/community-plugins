@@ -302,20 +302,39 @@ end
 
 local function task_list()
   local list, seen = {}, {}
-  if noctalia.getConfig("prefer_tracked_task") ~= false
-    and type(state.currentTask) == "table"
-    and state.currentTask.isDone ~= true then
-    table.insert(list, state.currentTask)
-    seen[state.currentTask.id] = true
-  end
   local limit = max_upcoming()
-  for _, task in ipairs(state.upcoming or {}) do
-    if type(task) == "table" and task.id ~= nil and not seen[task.id] then
+
+  local function append(task)
+    if #list >= limit then return false end
+    if type(task) == "table" and task.id ~= nil and not seen[task.id] and task.isDone ~= true then
       table.insert(list, task)
       seen[task.id] = true
-      if #list >= limit then break end
+      return true
     end
+    return false
   end
+
+  local prefer_tracked = noctalia.getConfig("prefer_tracked_task") ~= false
+  local follow_active = noctalia.getConfig("follow_active_task") ~= false
+
+  if prefer_tracked then
+    append(state.currentTask)
+  end
+
+  local has_active = type(state.currentTask) == "table" and state.currentTask.id ~= nil and state.currentTask.isDone ~= true
+  local upcoming_limit = (not prefer_tracked and follow_active and has_active) and (limit - 1) or limit
+
+  for _, task in ipairs(state.upcoming or {}) do
+    if #list >= upcoming_limit then
+      break
+    end
+    append(task)
+  end
+
+  if follow_active then
+    append(state.currentTask)
+  end
+
   return list
 end
 
