@@ -9,6 +9,11 @@ Browse saved themes in a carousel and apply palette, wallpaper, and templates to
 | ID | `theblackdon/theme-switcher` |
 | Entries | Shortcut: `open`; shortcut: `wallpaper`; shortcut: `random`; bar widget: `theme-switcher`; panel: `carousel`; panel: `editor`; panel: `wallpapers`; service: `wallpaper-ipc` |
 
+## Requirements
+
+- No dependency is needed to browse, apply, or switch themes and wallpapers.
+- The editor's `Capture desktop` helper needs at least one screenshot tool on `PATH`: `spectacle`, `grim`, `gnome-screenshot`, `scrot`, or `maim`. The first one that exists is used. Without any of them the button reports a capture failure; everything else keeps working.
+
 ## Usage
 
 1. Enable the plugin in Settings → Plugins.
@@ -71,3 +76,5 @@ Applying a theme sets the active wallpaper first, then runs `noctalia msg color-
 - Community palettes are listed from the Noctalia palette catalog over HTTP, with an offline fallback to the plugin's cached copy and the shell's community-palette cache.
 - Custom palettes are read from `~/.config/noctalia/palettes/*.json`.
 - Themes are stored in the plugin's data directory (`themes.json`).
+- `Capture desktop` runs the screenshot tool found on `PATH` directly (no shell) and writes the PNG to `~/Pictures/Screenshots`, then stores that path in the theme. It is the only thing this plugin writes outside its data directory, and it only runs when you press the button.
+- Applying a theme spawns the shell CLI (`noctalia`, or `noctalia-kwe` on this build) for `color-scheme-set` and `templates-apply`. Wallpaper changes go through the shell's own `noctalia.setWallpaper` API.
