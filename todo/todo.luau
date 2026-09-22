@@ -2,10 +2,12 @@
 -- To Do — bar widget that toggles the task panel.
 --
 -- The glyph is configurable (widget setting). It lights up while the panel is
--- open (shared "todo_open" state, published by panel.luau) and its tooltip
--- shows how many tasks are still to do. The count is read straight from
--- todo.json, so it is correct before the panel is ever opened and reflects
--- edits made to the file outside noctalia.
+-- open (shared "todo_open" state, published by panel.luau), carries the total
+-- task count as a "N todo(s)" label next to it (barWidget.setText) unless the
+-- panel's header hash toggle turned that off, and its tooltip shows how many
+-- tasks are still to do. Everything is read straight from todo.json, so it is
+-- correct before the panel is ever opened and reflects edits made to the file
+-- outside noctalia.
 --
 -- Left click is NOT wired here: plugin.toml declares it as a [widget.actions]
 -- default (`left = "panel-toggle nightwatch75/todo:panel"`, plugin_api >= 14),
@@ -17,6 +19,8 @@ local FILE_NAME = "todo.json"
 
 local open = false
 local pending = 0
+local total = 0
+local showCount = true
 local reading = false -- a readFileAsync is in flight
 
 local function todoFile()
@@ -29,31 +33,44 @@ local function todoFile()
     return (dir:gsub("/+$", "")) .. "/" .. FILE_NAME
 end
 
-local function pendingCount(raw)
+-- Returns pending (not-done), total, showCount. Counts are 0 on a
+-- missing/empty/malformed file; showCount defaults true (the panel header's
+-- hash toggle, off only when explicitly turned off).
+local function counts(raw)
     if raw == nil or raw == "" then
-        return 0
+        return 0, 0, true
     end
     local decoded = noctalia.json.decode(raw)
     if type(decoded) ~= "table" then
-        return 0
+        return 0, 0, true
     end
-    -- Object form { version, sort, tasks }; a legacy plain array is read as-is.
+    -- Object form { version, sort, showCount, tasks }; a legacy plain array
+    -- is read as-is, with showCount defaulting to true.
     local list = decoded.tasks ~= nil and decoded.tasks or decoded
     if type(list) ~= "table" then
-        return 0
+        return 0, 0, true
     end
-    local n = 0
+    local pendingN, totalN = 0, 0
     for _, entry in ipairs(list) do
-        if type(entry) == "table" and entry.done ~= true then
-            n += 1
+        if type(entry) == "table" then
+            totalN += 1
+            if entry.done ~= true then
+                pendingN += 1
+            end
         end
     end
-    return n
+    return pendingN, totalN, decoded.showCount ~= false
 end
 
 local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph"))
     barWidget.setGlyphColor(open and "primary" or "on_surface")
+    if showCount then
+        local key = total == 1 and "bar_count_singular" or "bar_count_plural"
+        barWidget.setText(noctalia.tr(key, { count = total }))
+    else
+        barWidget.setText("")
+    end
     barWidget.setTooltip(noctalia.tr("tooltip", { count = pending }))
 end
 
@@ -65,9 +82,9 @@ end
 --
 -- One read at a time: the host allows 4 in flight per plugin, and a read
 -- slower than the tick would otherwise stack them until it starts refusing.
--- A refused or failed read leaves the last known count on screen rather than
+-- A refused or failed read leaves the last known counts on screen rather than
 -- flashing a 0 — except when the file genuinely reads as empty or unparseable,
--- which pendingCount answers with 0 as before.
+-- which counts() answers with 0, 0, true as before.
 local function refreshPending()
     if reading then
         return
@@ -81,9 +98,11 @@ local function refreshPending()
             local _ = err
             return
         end
-        local count = pendingCount(data)
-        if count ~= pending then
-            pending = count
+        local pendingN, totalN, showCountN = counts(data)
+        if pendingN ~= pending or totalN ~= total or showCountN ~= showCount then
+            pending = pendingN
+            total = totalN
+            showCount = showCountN
             render()
         end
     end)

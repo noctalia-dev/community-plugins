@@ -2,11 +2,13 @@
 -- To Do — a prioritised task list in an attached panel.
 --
 -- A task is { id, text, priority, done }. The whole list is persisted to
--- <todo_folder>/todo.json (noctalia.json) as an object { version, sort, tasks }:
--- `tasks` is the array — ALWAYS in manual order — and `sort` records the chosen
--- display mode. A legacy plain-array file is still read (treated as manual
--- order, sort defaulting to "priority"). Empty (blank-text) tasks are never
--- written: they only exist transiently while being entered.
+-- <todo_folder>/todo.json (noctalia.json) as an object
+-- { version, sort, hideCompleted, tasks }: `tasks` is the array — ALWAYS in
+-- manual order — `sort` records the chosen display mode and `hideCompleted`
+-- the header eye toggle (priority mode only, see render's `manual` guard). A
+-- legacy plain-array file is still read (treated as manual order, sort
+-- defaulting to "priority", hideCompleted to false). Empty (blank-text) tasks
+-- are never written: they only exist transiently while being entered.
 --
 -- Ordering has two modes, switched from a header toggle. `items` (and the disk
 -- array) hold the manual order in both; priority mode is a VIEW — a stable sort
@@ -48,7 +50,7 @@
 -- Button pins only a minimum height.
 -- Every constant below mirrors one in noctalia's Style, named so the sum can be
 -- re-checked against the host rather than re-measured by eye.
-local PANEL_WIDTH = 400 -- keep in sync with [[panel]] width in plugin.toml
+local PANEL_WIDTH = 700 -- keep in sync with [[panel]] width in plugin.toml
 local PANEL_PADDING = 14 -- Style::panelPadding, applied left and right
 local SCROLLBAR_GUTTER = 14 -- Style::scrollbarWidth (6) + Style::scrollbarGap (8)
 local ROW_GAP = 8 -- the task row's own gap
@@ -57,13 +59,14 @@ local GRIP_W = 24 -- the ☰ drag grip, manual mode only
 local GLYPH_BTN_W = 30 -- ghost glyph button: 2 × Style::spaceSm + a 14px glyph
 local ROW_CONTENT_W = PANEL_WIDTH - (2 * PANEL_PADDING) - SCROLLBAR_GUTTER
 
--- Width left for the task text once the chip, the optional grip and the
+-- Width left for the task text once the chip, the optional grip, the leading
+-- ☐/☑ done toggle (sits right after the chip, before the text) and the
 -- `trailing` glyph buttons (each preceded by a gap) have taken their share.
--- `trailing` is 3: the ☐/☑ toggle, the pencil (edit) and the trash (delete)
--- buttons — kept on the row alongside the right-click context menu, which
--- offers the same actions plus priority for anyone who prefers it.
+-- `trailing` is 2: the pencil (edit) and the trash (delete) buttons — kept on
+-- the row alongside the right-click context menu, which offers the same
+-- actions plus priority for anyone who prefers it.
 local function taskTextWidth(withGrip, trailing)
-    local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (trailing * (GLYPH_BTN_W + ROW_GAP))
+    local width = ROW_CONTENT_W - CHIP_W - ROW_GAP - (GLYPH_BTN_W + ROW_GAP) - (trailing * (GLYPH_BTN_W + ROW_GAP))
     if withGrip then
         width -= GRIP_W + ROW_GAP
     end
@@ -101,6 +104,8 @@ local idleTicks = 0
 local editingId = nil -- id of the row currently in edit mode (at most one)
 local loaded = false -- guard so an early save() can never truncate the file
 local sortMode = "priority" -- "priority" (auto sort) or "manual" (drag reorder)
+local hideCompleted = false -- header eye toggle: hide done rows from the list
+local showCount = true -- header hash toggle: show the task count on the bar widget
 local confirmingClear = false -- header trash pressed, awaiting confirm/cancel
 local soundReady = false -- true once COMPLETE_SOUND has finished loading
 
@@ -191,6 +196,8 @@ local function load()
     items = state.items
     nextId = state.nextId
     sortMode = state.sortMode
+    hideCompleted = state.hideCompleted
+    showCount = state.showCount
     -- The on-disk order IS the manual order; priority mode sorts at render time.
     loaded = true
 end
@@ -199,7 +206,7 @@ local function save()
     if not loaded then
         return -- never write before the first load reads what is on disk
     end
-    local ok, err = storage.save(filePath, items, sortMode)
+    local ok, err = storage.save(filePath, items, sortMode, hideCompleted, showCount)
     if not ok then
         noctalia.notifyError(tr("title"), err or tr("save_failed"))
         return
@@ -334,6 +341,24 @@ local function setSortMode(mode)
         return
     end
     sortMode = mode
+    save()
+    render()
+end
+
+-- Flip the header eye toggle. Only the flag is persisted — `items` is never
+-- touched, so toggling never loses or reorders a done task, it just hides
+-- its row.
+local function setHideCompleted(value)
+    hideCompleted = value
+    save()
+    render()
+end
+
+-- Flip the header hash toggle. The bar widget (todo.luau) reads this straight
+-- out of todo.json, same as the pending/total counts, so no extra state
+-- channel is needed — see "Widgets re-read the source of truth themselves".
+local function setShowCount(value)
+    showCount = value
     save()
     render()
 end
@@ -479,6 +504,18 @@ local function taskRow(item)
         table.insert(children, grip)
     end
     table.insert(children, chip)
+    if not editing then
+        -- Done toggle sits right after the priority chip, before the task
+        -- text: strikes the text through when checked.
+        table.insert(children, ui.button({
+            glyph = item.done and "square-check" or "square",
+            variant = "ghost",
+            tooltip = tr(item.done and "tip_undone" or "tip_done"),
+            onClick = function()
+                toggleDone(id)
+            end,
+        }))
+    end
 
     if editing then
         table.insert(children, ui.input({
@@ -515,21 +552,12 @@ local function taskRow(item)
             text = item.done and strike(item.text) or item.text,
             variant = "ghost",
             contentAlign = "start",
-            width = taskTextWidth(grip ~= nil, 3),
+            width = taskTextWidth(grip ~= nil, 2),
             onClick = function()
                 enterEdit(id)
             end,
             onRightClick = function()
                 openRowMenu(item)
-            end,
-        }))
-        -- Done toggle: strikes the text through.
-        table.insert(children, ui.button({
-            glyph = item.done and "square-check" or "square",
-            variant = "ghost",
-            tooltip = tr(item.done and "tip_undone" or "tip_done"),
-            onClick = function()
-                toggleDone(id)
             end,
         }))
         -- Explicit edit affordance next to the row, same action as clicking
@@ -628,6 +656,26 @@ render = function()
         ui.spacer({ key = "gap", flexGrow = 1 }),
         sortToggle,
         ui.button({
+            key = "header-hide-completed-" .. tostring(hideCompleted),
+            glyph = hideCompleted and "eye-off" or "eye",
+            text = tr(hideCompleted and "show_completed" or "hide_completed"),
+            variant = "ghost",
+            selected = hideCompleted,
+            enabled = sortMode ~= "manual",
+            tooltip = sortMode == "manual" and tr("tip_hide_completed_manual")
+                or tr(hideCompleted and "tip_show_completed" or "tip_hide_completed"),
+            onClick = "onHideCompletedToggle",
+        }),
+        ui.button({
+            key = "header-show-count-" .. tostring(showCount),
+            glyph = "hash",
+            text = tr(showCount and "hide_count" or "show_count"),
+            variant = "ghost",
+            selected = showCount,
+            tooltip = tr(showCount and "tip_hide_count" or "tip_show_count"),
+            onClick = "onShowCountToggle",
+        }),
+        ui.button({
             key = "header-clear-done" .. (done == 0 and "-off" or ""),
             glyph = "trash",
             variant = "ghost",
@@ -685,18 +733,33 @@ render = function()
         }),
     })
 
+    -- Manual mode's insertion zones number gaps against `items`, so filtering
+    -- hidden-done rows out of the drop targets would desync the gap index
+    -- from moveItemTo's insertAt. The eye toggle is therefore only honoured
+    -- in priority mode (and disabled in manual mode, see sortToggle above).
+    local manual = sortMode == "manual"
+    local visible = displayItems()
+    if hideCompleted and not manual then
+        local kept = {}
+        for _, item in ipairs(visible) do
+            if not item.done then
+                table.insert(kept, item)
+            end
+        end
+        visible = kept
+    end
+
     local body
-    if #items == 0 then
+    if #visible == 0 then
         body = ui.column({ flexGrow = 1, align = "center", justify = "center" }, {
-            ui.label({ text = tr("empty"), color = "on_surface_variant" }),
+            ui.label({ text = (#items == 0 and tr("empty")) or tr("all_hidden"), color = "on_surface_variant" }),
         })
     else
         local rows = {}
         -- Manual mode interleaves an insertion zone before each row (and one
         -- after the last) so a drag can land in any gap. In manual mode the
         -- render order IS the items order, so gap N targets items index N.
-        local manual = sortMode == "manual"
-        for index, item in ipairs(displayItems()) do
+        for index, item in ipairs(visible) do
             if manual then
                 table.insert(rows, insertionZone(index))
             end
@@ -779,6 +842,14 @@ end
 
 function onSortToggle()
     setSortMode(sortMode == "manual" and "priority" or "manual")
+end
+
+function onHideCompletedToggle()
+    setHideCompleted(not hideCompleted)
+end
+
+function onShowCountToggle()
+    setShowCount(not showCount)
 end
 
 -- plugin_api >= 13, declared as capture_keys = ["n", "s"] in plugin.toml. The
