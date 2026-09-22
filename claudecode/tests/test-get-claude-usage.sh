@@ -643,6 +643,142 @@ for i in $(seq 0 6); do
 done
 
 # ============================================================
+echo "=== Test 22: expired access token is refreshed ==="
+# ============================================================
+ENV22=$(setup_env "test22")
+
+# curl mock that answers the token endpoint and the usage endpoint separately.
+MOCK22="$TMPDIR_ROOT/mock22"
+mkdir -p "$MOCK22"
+cat > "$MOCK22/curl" << 'CURLEOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    case "$arg" in
+        *v1/oauth/token)
+            echo '{"access_token":"new-token","refresh_token":"new-refresh","expires_in":28800}'
+            exit 0
+            ;;
+        *api/oauth/usage)
+            echo '{"five_hour":{"utilization":42,"resets_at":"2030-01-01T00:00:00Z"}}'
+            exit 0
+            ;;
+    esac
+done
+echo '{}'
+CURLEOF
+chmod +x "$MOCK22/curl"
+
+EXPIRED_MS=$(( ($(date +%s) - 3600) * 1000 ))
+cat > "$ENV22/.claude/.credentials.json" << CREDEOF
+{
+    "claudeAiOauth": {
+        "subscriptionType": "pro",
+        "rateLimitTier": "t1_pro",
+        "accessToken": "old-token",
+        "refreshToken": "old-refresh",
+        "expiresAt": $EXPIRED_MS
+    }
+}
+CREDEOF
+
+OUTPUT22=$(HOME="$ENV22" PATH="$MOCK22:$PATH" bash "$SCRIPT" 2>/dev/null)
+
+FIVE22=$(echo "$OUTPUT22" | grep "^FIVE_HOUR_UTIL=" | cut -d= -f2)
+assert_eq "$FIVE22" "42" "expired token is refreshed and live utilisation is used"
+
+STORED_AT=$(jq -r '.claudeAiOauth.accessToken' "$ENV22/.claude/.credentials.json")
+assert_eq "$STORED_AT" "new-token" "refreshed access token is persisted"
+
+STORED_RT=$(jq -r '.claudeAiOauth.refreshToken' "$ENV22/.claude/.credentials.json")
+assert_eq "$STORED_RT" "new-refresh" "rotated refresh token is persisted"
+
+STORED_EXP=$(jq -r '.claudeAiOauth.expiresAt' "$ENV22/.claude/.credentials.json")
+NOW_MS=$(( $(date +%s) * 1000 ))
+if [ "$STORED_EXP" -gt "$NOW_MS" ]; then
+    assert_eq "ok" "ok" "persisted expiry is in the future"
+else
+    assert_eq "$STORED_EXP" ">$NOW_MS" "persisted expiry is in the future"
+fi
+
+# ============================================================
+echo "=== Test 23: valid access token is not refreshed ==="
+# ============================================================
+ENV23=$(setup_env "test23")
+
+# Fails the run if the token endpoint is contacted at all.
+MOCK23="$TMPDIR_ROOT/mock23"
+mkdir -p "$MOCK23"
+cat > "$MOCK23/curl" << 'CURLEOF'
+#!/usr/bin/env bash
+for arg in "$@"; do
+    case "$arg" in
+        *v1/oauth/token)
+            echo '{"access_token":"must-not-be-used"}'
+            exit 0
+            ;;
+        *api/oauth/usage)
+            echo '{"five_hour":{"utilization":7,"resets_at":"2030-01-01T00:00:00Z"}}'
+            exit 0
+            ;;
+    esac
+done
+echo '{}'
+CURLEOF
+chmod +x "$MOCK23/curl"
+
+FUTURE_MS=$(( ($(date +%s) + 7200) * 1000 ))
+cat > "$ENV23/.claude/.credentials.json" << CREDEOF
+{
+    "claudeAiOauth": {
+        "subscriptionType": "pro",
+        "rateLimitTier": "t1_pro",
+        "accessToken": "still-valid",
+        "refreshToken": "untouched-refresh",
+        "expiresAt": $FUTURE_MS
+    }
+}
+CREDEOF
+
+HOME="$ENV23" PATH="$MOCK23:$PATH" bash "$SCRIPT" >/dev/null 2>&1
+
+KEPT_AT=$(jq -r '.claudeAiOauth.accessToken' "$ENV23/.claude/.credentials.json")
+assert_eq "$KEPT_AT" "still-valid" "valid token is left alone"
+
+KEPT_EXP=$(jq -r '.claudeAiOauth.expiresAt' "$ENV23/.claude/.credentials.json")
+assert_eq "$KEPT_EXP" "$FUTURE_MS" "valid token expiry is left alone"
+
+# ============================================================
+echo "=== Test 24: refresh failure falls back to the stored token ==="
+# ============================================================
+ENV24=$(setup_env "test24")
+
+MOCK24="$TMPDIR_ROOT/mock24"
+mkdir -p "$MOCK24"
+cat > "$MOCK24/curl" << 'CURLEOF'
+#!/usr/bin/env bash
+echo '{}'
+CURLEOF
+chmod +x "$MOCK24/curl"
+
+EXPIRED24_MS=$(( ($(date +%s) - 3600) * 1000 ))
+cat > "$ENV24/.claude/.credentials.json" << CREDEOF
+{
+    "claudeAiOauth": {
+        "subscriptionType": "pro",
+        "rateLimitTier": "t1_pro",
+        "accessToken": "old-token",
+        "refreshToken": "old-refresh",
+        "expiresAt": $EXPIRED24_MS
+    }
+}
+CREDEOF
+
+HOME="$ENV24" PATH="$MOCK24:$PATH" bash "$SCRIPT" >/dev/null 2>&1
+
+FALLBACK_AT=$(jq -r '.claudeAiOauth.accessToken' "$ENV24/.claude/.credentials.json")
+assert_eq "$FALLBACK_AT" "old-token" "credentials are untouched when the refresh fails"
+
+# ============================================================
 echo ""
 echo "Results: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
