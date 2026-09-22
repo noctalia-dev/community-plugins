@@ -68,13 +68,15 @@ local function iconProvider(snapshot)
 end
 
 -- Same height as the neighbouring glyphs (14). Narrower than those icons so it
--- still reads as a battery. Terminal cap left off. Stroke stays 1px.
+-- still reads as a battery. Terminal cap left off. Stroke is 1.5px, same as
+-- the other icons' straight stems, so the edge fades instead of cutting off.
 local MARK_SIZE = 16
 local GAUGE_H = 14
 local GAUGE_W = 10
 local GAUGE_RADIUS = 2
-local GAUGE_STROKE = 1
+local GAUGE_STROKE = 1.5
 local GAUGE_INSET = 2
+local BAR_INK = "on_surface/0.87"
 -- Keep a chip large enough that bar hide/show (Control Center) cannot collapse
 -- the plugin InputArea to an unclickable sliver.
 local CHIP_MIN = 18
@@ -83,8 +85,8 @@ local lastVisual = nil
 local lastTooltip = nil
 
 local function usedColorFor(used)
-  if used == nil then return "on_surface" end
-  return used >= CRITICAL_USED and pick(RED) or "on_surface"
+  if used == nil then return BAR_INK end
+  return used >= CRITICAL_USED and pick(RED) or BAR_INK
 end
 
 -- Upright battery for the aggregate figure. It fills from the bottom as quota
@@ -123,7 +125,7 @@ end
 
 local function usedColor(used, status)
   if status == "offline" or status == "auth_error" then return pick(RED) end
-  if used == nil then return "on_surface" end
+  if used == nil then return BAR_INK end
   return usedColorFor(used)
 end
 
