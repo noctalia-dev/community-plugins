@@ -8,7 +8,7 @@
 --   noctalia.state.set("misr_quran.state", snapshot)    UI entries render this
 --   noctalia.state.watch("misr_quran.request", handler) actions from bar/panel
 --
--- Playback is one detached mpv process tagged --title=misr-quran-radio, so a
+-- Playback is one detached mpv process tagged --title=MISRQRNLIVE, so a
 -- shell restart never leaves a stray player: the tick re-checks with
 -- processMatches and the snapshot follows the live process list.
 
@@ -403,10 +403,10 @@ function update()
     local before = nil
     local after = nil
     if current ~= nil then
-      before = current.title
+      before = current.title .. "\0" .. tostring(current.fromTime)
     end
     if fresh ~= nil then
-      after = fresh.title
+      after = fresh.title .. "\0" .. tostring(fresh.fromTime)
     end
     if before ~= after then
       current = fresh

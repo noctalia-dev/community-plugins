@@ -7,6 +7,8 @@
 
 local snapshot = { available = false, playing = false, schedule = {} }
 
+local canOpenSite = noctalia.commandExists("xdg-open")
+
 -- Forward declaration, before anything that re-renders: the button callbacks
 -- call render(), and a `local function render` further down would leave them
 -- calling a nil global instead.
@@ -45,6 +47,10 @@ function onCopyUrl()
 end
 
 function onOpenSite()
+  if not canOpenSite then
+    noctalia.notify(tr("title"), tr("panel.site_unavailable"))
+    return
+  end
   noctalia.runAsync("xdg-open https://misrquran.gov.eg/home")
 end
 
@@ -116,9 +122,6 @@ local function scheduleList()
         ui.label({ text = when, color = "on_surface_variant", textAlign = "end" }),
       }))
     end
-    if i >= 30 then
-      break
-    end
   end
   return ui.column({ gap = 12 }, rows)
 end
@@ -161,7 +164,7 @@ function render()
       scheduleList(),
     }),
     ui.row({ gap = 12, align = "center", justify = "end" }, {
-      ui.button({ glyph = "link", text = tr("panel.site"), onClick = onOpenSite }),
+      ui.button({ glyph = "link", text = tr("panel.site"), onClick = onOpenSite, enabled = canOpenSite }),
       ui.button({ glyph = "copy", text = tr("panel.copy"), onClick = onCopyUrl }),
     }),
   }))

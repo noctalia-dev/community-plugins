@@ -13,8 +13,9 @@ https://misrquran.gov.eg/home.
 
 ## Requirements
 
-Install `mpv` and `pkill` (procps) on `PATH`. Playback is one detached
-`mpv --no-video` process; stopping it uses `pkill`.
+Install `mpv`, `pkill` (procps), and `xdg-open` (xdg-utils, for the station-site
+button) on `PATH`. Playback is one detached `mpv --no-video` process; stopping
+it uses `pkill`.
 
 ## Usage
 

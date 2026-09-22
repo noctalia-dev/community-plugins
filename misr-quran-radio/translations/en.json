@@ -34,6 +34,7 @@
     "schedule": "Today's programmes",
     "empty": "No schedule yet — press refresh.",
     "site": "Station site",
+    "site_unavailable": "xdg-open is not installed, the site cannot be opened.",
     "copy": "Copy stream URL",
     "copied": "Stream URL copied."
   },
