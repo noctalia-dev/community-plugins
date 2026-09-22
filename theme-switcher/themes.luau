@@ -74,6 +74,43 @@ function M.byId(id)
 	return nil
 end
 
+-- Resolve a theme from an id, title, or slug, case-insensitively. Exact id wins,
+-- then exact title, then a unique partial match on either. Returns nil when
+-- nothing matches or the partial match is ambiguous.
+function M.find(query)
+	local q = noctalia.string.trim(tostring(query or ""))
+	if q == "" then
+		return nil
+	end
+	local list = M.list()
+	local lower = q:lower()
+
+	for _, theme in ipairs(list) do
+		if theme.id == q then
+			return theme
+		end
+	end
+
+	for _, theme in ipairs(list) do
+		if tostring(theme.title or ""):lower() == lower then
+			return theme
+		end
+	end
+
+	local match = nil
+	for _, theme in ipairs(list) do
+		local title = tostring(theme.title or ""):lower()
+		local id = tostring(theme.id or ""):lower()
+		if title:find(lower, 1, true) ~= nil or id:find(lower, 1, true) ~= nil then
+			if match ~= nil then
+				return nil -- ambiguous
+			end
+			match = theme
+		end
+	end
+	return match
+end
+
 function M.slug(title)
 	local base = tostring(title or ""):lower():gsub("[^%w]+", "-"):gsub("^[%-]+", ""):gsub("[%-]+$", "")
 	if base == "" then

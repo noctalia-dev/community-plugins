@@ -54,6 +54,29 @@ local function addWallpaper(path)
 	themes.upsert(theme)
 end
 
+-- The wallpaper image currently applied to an output, if any.
+local function currentWallpaperPath()
+	local conn = noctalia.focusedOutputName()
+	if conn ~= nil and conn ~= "" then
+		local p = noctalia.wallpaperPath(conn)
+		if p ~= nil and p ~= "" then
+			return p
+		end
+	end
+	local outs = noctalia.outputs()
+	if outs ~= nil then
+		for _, out in ipairs(outs) do
+			if out.name ~= nil then
+				local p = noctalia.wallpaperPath(out.name)
+				if p ~= nil and p ~= "" then
+					return p
+				end
+			end
+		end
+	end
+	return ""
+end
+
 local function nextWallpaper()
 	local theme = appliedTheme()
 	if theme == nil then
@@ -162,6 +185,7 @@ render = function()
 
 	table.insert(children, ui.row({ gap = 8, align = "center" }, {
 		ui.spacer({ flexGrow = 1 }),
+		ui.button({ text = tr("wallpapers.current"), variant = "outline", onClick = "onUseCurrent" }),
 		ui.button({ text = tr("wallpapers.add"), variant = "outline", onClick = "onBrowse" }),
 	}))
 
@@ -208,6 +232,16 @@ end
 
 function onCloseClicked()
 	panel.close()
+end
+
+function onUseCurrent()
+	local p = currentWallpaperPath()
+	if p == "" then
+		noctalia.notifyError(tr("wallpapers.current_fail"))
+		return
+	end
+	addWallpaper(p)
+	render()
 end
 
 function onBrowse()

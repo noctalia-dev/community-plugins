@@ -42,13 +42,17 @@ service, so you can bind these to keys as KWin/KineticWE custom shortcuts
 ```sh
 noctalia-kwe msg plugin theblackdon/theme-switcher:wallpaper-ipc all random
 noctalia-kwe msg plugin theblackdon/theme-switcher:wallpaper-ipc all next
+noctalia-kwe msg plugin theblackdon/theme-switcher:wallpaper-ipc all apply "Rose Pine"
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:carousel
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:wallpapers
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:editor
 ```
 
-> Use `:wallpaper-ipc` for `random`/`next`. Dispatching to the `:wallpapers`
+> Use `:wallpaper-ipc` for `random`/`next`/`apply`. Dispatching to the `:wallpapers`
 > **panel** only works while that panel is open; a service is always ready.
+>
+> `apply` takes a theme id (the slug of its title, e.g. `rose-pine`) or its title
+> (`"Rose Pine"`), case-insensitively. Partial matches work when unambiguous.
 
 Use `noctalia` instead of `noctalia-kwe` if that is the binary name on your system.
 

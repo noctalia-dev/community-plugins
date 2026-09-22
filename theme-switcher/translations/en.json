@@ -22,6 +22,9 @@
     "err_title": "Couldn't apply theme",
     "err_body": "{title}"
   },
+  "ipc": {
+    "not_found": "No theme matches \"{query}\"."
+  },
   "editor": {
     "title_new": "New Theme",
     "title_edit": "Edit Theme",
@@ -60,6 +63,8 @@
     "none_applied": "No theme is currently applied.",
     "no_wallpapers": "This theme has no wallpapers.",
     "add": "Add wallpaper",
+    "current": "Use current wallpaper",
+    "current_fail": "Couldn't find the current wallpaper.",
     "browse_title": "Browse",
     "no_images_found": "No images found in this directory.",
     "applied": "Wallpaper applied"

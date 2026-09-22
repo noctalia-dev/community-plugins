@@ -159,7 +159,7 @@ render = function()
 		}))
 	end
 
-	panel.render(ui.column({ gap = 10, padding = 12 }, root))
+	panel.render(ui.column({ gap = 10, padding = 12, flexGrow = 1 }, root))
 end
 
 function onOpen(_context)
