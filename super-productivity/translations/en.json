@@ -154,9 +154,10 @@
     }
   },
   "settings": {
-    "additional_info_type": {
+    "additional_info_mode": {
       "description": "Select what additional information to display in the bar widget.",
-      "label": "Additional info type",
+      "label": "Additional info mode",
+      "none": "None",
       "due": "Due",
       "spent": "Spent"
     },
@@ -219,10 +220,6 @@
     "rest_token_file": {
       "description": "Optional path to Super Productivity's local REST API token file. An empty value enables native and Flatpak discovery.",
       "label": "REST token file override"
-    },
-    "show_additional_info": {
-      "description": "Shows additional information in the bar widget.",
-      "label": "Show additional info"
     },
     "show_timer_controls": {
       "description": "Shows start and stop tracking controls in the expanded details panel.",

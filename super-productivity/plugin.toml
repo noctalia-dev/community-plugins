@@ -134,27 +134,23 @@ entry = "widget.luau"
   default         = "checks"
 
   [[widget.setting]]
-  key             = "show_additional_info"
-  type            = "bool"
-  label_key       = "settings.show_additional_info.label"
-  description_key = "settings.show_additional_info.description"
-  default         = true
-
-  [[widget.setting]]
-  key             = "additional_info_type"
+  key             = "additional_info_mode"
   type            = "select"
-  label_key       = "settings.additional_info_type.label"
-  description_key = "settings.additional_info_type.description"
+  label_key       = "settings.additional_info_mode.label"
+  description_key = "settings.additional_info_mode.description"
   default         = "due"
-  visible_when    = { key = "show_additional_info", values = ["true"] }
+
+    [[widget.setting.options]]
+    value     = "none"
+    label_key = "settings.additional_info_mode.none"
 
     [[widget.setting.options]]
     value     = "due"
-    label_key = "settings.additional_info_type.due"
+    label_key = "settings.additional_info_mode.due"
 
     [[widget.setting.options]]
     value     = "spent"
-    label_key = "settings.additional_info_type.spent"
+    label_key = "settings.additional_info_mode.spent"
 
   [[widget.setting]]
   key             = "max_title_chars"

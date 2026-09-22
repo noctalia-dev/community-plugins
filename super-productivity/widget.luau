@@ -127,10 +127,9 @@ local function render()
       maxLines = 1,
     }))
 
-    local show_info = configured("show_additional_info", true)
-    if show_info then
-      local info_type = configured("additional_info_type", "due")
-      local info_text = (info_type == "spent") and common.format_duration(task.timeSpent) or common.relative_due(task)
+    local info_mode = configured("additional_info_mode", "due")
+    if info_mode ~= "none" then
+      local info_text = (info_mode == "spent") and common.format_duration(task.timeSpent) or common.relative_due(task)
       table.insert(children, ui.label({
         key = "additional_info",
         text = info_text,
