@@ -67,11 +67,12 @@ local function iconProvider(snapshot)
   return tightestId or fallback
 end
 
--- Same box as the shell's outline glyphs (~16px). Stroke-only track, usage
--- fills the inside — filled pills looked heavier than wifi / bluetooth.
+-- Same height as the neighbouring glyphs (14). Narrower than those icons so it
+-- still reads as a battery. Terminal cap left off. Stroke stays 1px.
 local MARK_SIZE = 16
 local GAUGE_H = 14
-local GAUGE_W = 9
+local GAUGE_W = 10
+local GAUGE_RADIUS = 2
 local GAUGE_STROKE = 1
 local GAUGE_INSET = 2
 -- Keep a chip large enough that bar hide/show (Control Center) cannot collapse
@@ -86,10 +87,8 @@ local function usedColorFor(used)
   return used >= CRITICAL_USED and pick(RED) or "on_surface"
 end
 
--- A vertical gauge for the aggregate figure: it fills as quota is spent, so a
--- full gauge means no headroom left. ui.progress cannot do this: ProgressBar
--- supports a Vertical orientation internally, but the reconciler never exposes
--- it, so the gauge is an outlined column holding a level box pinned to the bottom.
+-- Upright battery for the aggregate figure. It fills from the bottom as quota
+-- is spent, so a full battery means no headroom left. No terminal cap.
 -- Always draw the track, even with no quota: a nil icon made the chip vanish
 -- after a bar hide/show until the next snapshot, which ate the first clicks.
 local function usageGauge(used)
@@ -112,7 +111,7 @@ local function usageGauge(used)
     height = GAUGE_H,
     minWidth = GAUGE_W,
     minHeight = GAUGE_H,
-    radius = 4,
+    radius = GAUGE_RADIUS,
     padding = GAUGE_INSET,
     fill = "on_surface/0",
     border = ink,
