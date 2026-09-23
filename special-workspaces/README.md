@@ -38,10 +38,10 @@ Inactive workspaces appear only while populated and can be hidden with `hide_ina
 | `capsule_min_width` | `int` | `35` | Minimum capsule length along the bar axis, in logical pixels. Negative values are treated as `0`. |
 | `active_style` | `select` | `"fill"` | Active capsule style: `"fill"` or `"ghost"`. |
 | `inactive_style` | `select` | `"fill"` | Inactive capsule style: `"fill"` or `"ghost"`. Hidden when `hide_inactive` is enabled. |
-| `active_color` | `string` | `"primary"` | Fill color of active capsules. Palette role name or hex value. |
-| `active_text_color` | `string` | `"on_primary"` | Label color inside active capsules. |
-| `inactive_color` | `string` | `"secondary"` | Fill color of inactive capsules. |
-| `inactive_text_color` | `string` | `"on_secondary"` | Label color inside inactive capsules. |
+| `active_color` | `color` | `"primary"` | Fill color of active capsules. Palette role name or hex value. |
+| `active_text_color` | `color` | `"on_primary"` | Label color inside active capsules. |
+| `inactive_color` | `color` | `"secondary"` | Fill color of inactive capsules. |
+| `inactive_text_color` | `color` | `"on_secondary"` | Label color inside inactive capsules. |
 
 ## Notes
 

@@ -86,28 +86,28 @@ entry = "widget.luau"
 
   [[widget.setting]]
   key = "active_color"
-  type = "string"
+  type = "color"
   label_key = "settings.active_color.label"
   description_key = "settings.active_color.description"
   default = "primary"
 
   [[widget.setting]]
   key = "active_text_color"
-  type = "string"
+  type = "color"
   label_key = "settings.active_text_color.label"
   description_key = "settings.active_text_color.description"
   default = "on_primary"
 
   [[widget.setting]]
   key = "inactive_color"
-  type = "string"
+  type = "color"
   label_key = "settings.inactive_color.label"
   description_key = "settings.inactive_color.description"
   default = "secondary"
 
   [[widget.setting]]
   key = "inactive_text_color"
-  type = "string"
+  type = "color"
   label_key = "settings.inactive_text_color.label"
   description_key = "settings.inactive_text_color.description"
   default = "on_secondary"
