@@ -28,6 +28,7 @@ local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 local unavailable, warning = shared.unavailable, shared.warning
 
 local failure = NO_FAILURE
+local scrollOffset = 0
 
 -- ── Report helpers ────────────────────────────────────────────────────────────
 
@@ -89,6 +90,16 @@ local function shown()
         return tostring(a.id) < tostring(b.id)
     end)
 
+    if scrollOffset > 0 and #ready > 1 then
+        local offset = scrollOffset % #ready
+        local rotated = {}
+        for i = 1, #ready do
+            local idx = ((i - 1 + offset) % #ready) + 1
+            rotated[i] = ready[idx]
+        end
+        ready = rotated
+    end
+
     local picked = {}
     for i = 1, math.min(limit, #ready) do picked[i] = ready[i] end
     if #picked == 0 then return {}, 0 end
@@ -141,12 +152,15 @@ local function bars(percent, elapsed, tint, width)
     return ui.column({ gap = 1, align = "center" }, stack)
 end
 
-local function chip(entry, flagged)
+local function chip(entry, flagged, isVert)
     if shared.readFailure(entry) then
         local nodes = { ui.label({ text = "—", fontSize = 11, color = "on_surface_variant" }) }
         if showGlyph then
             table.insert(nodes, glyphAfter and #nodes + 1 or 1,
                 ui.glyph({ name = providerGlyph(entry.id), size = 14, color = "error" }))
+        end
+        if isVert then
+            return ui.column({ gap = 2, align = "center" }, nodes)
         end
         return ui.row({ gap = 5, align = "center" }, nodes)
     end
@@ -191,7 +205,7 @@ local function chip(entry, flagged)
                         maxLines = 1,
                     })
                 end
-                if extras == "countdown" or extras == "both" then
+                if (extras == "countdown" or extras == "both") and not isVert then
                     local left = fixedCountdown(shownMetric)
                     if left ~= "" then
                         rowChildren[#rowChildren + 1] = ui.label({
@@ -204,17 +218,23 @@ local function chip(entry, flagged)
                 end
                 if modelGlyph and glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
                 if #parts > 0 and #rowChildren > 0 then
-                    parts[#parts + 1] = ui.label({
-                        text = "·",
-                        fontSize = 11,
-                        color = "on_surface_variant",
-                    })
+                    parts[#parts + 1] = isVert
+                        and ui.box({ width = 10, height = 1, fill = "on_surface_variant", opacity = 0.25 })
+                        or ui.label({
+                            text = "·",
+                            fontSize = 11,
+                            color = "on_surface_variant",
+                        })
                 end
                 if #rowChildren > 0 then
-                    parts[#parts + 1] = ui.row({ gap = 3, align = "center" }, rowChildren)
+                    parts[#parts + 1] = isVert
+                        and ui.column({ gap = 2, align = "center" }, rowChildren)
+                        or ui.row({ gap = 3, align = "center" }, rowChildren)
                 end
             end
-            pct = ui.row({ gap = 7, align = "center" }, parts)
+            pct = isVert
+                and ui.column({ gap = 3, align = "center" }, parts)
+                or ui.row({ gap = 7, align = "center" }, parts)
         else
             pct = ui.label({
                 text = text,
@@ -225,6 +245,15 @@ local function chip(entry, flagged)
             })
         end
     end
+
+    if isVert then
+        local vertNodes = {}
+        if not glyphAfter and glyph ~= nil then vertNodes[#vertNodes + 1] = glyph end
+        if pct ~= nil then vertNodes[#vertNodes + 1] = pct end
+        if glyphAfter and glyph ~= nil then vertNodes[#vertNodes + 1] = glyph end
+        return ui.column({ gap = 2, align = "center" }, vertNodes)
+    end
+
     local name = showName and ui.label({ text = shortName(entry), fontSize = 11,
                                          color = "on_surface_variant", maxLines = 1 }) or nil
 
@@ -353,6 +382,7 @@ local function tooltip(picked, hidden)
 end
 
 local function render()
+    local isVert = type(barWidget.isVertical) == "function" and barWidget.isVertical() or false
     local picked, hidden = shown()
     -- A failed read does not erase the last one: the numbers stay, flagged,
     -- until a good report replaces them. Erasing them blanked the capsule over a
@@ -365,10 +395,11 @@ local function render()
         -- reads as part of the second. A dot, not a rule -- a vertical
         -- `ui.separator` in a row came out two pixels wide by one tall.
         if #children > 0 then
-            children[#children + 1] = ui.label({ text = "·", fontSize = 11,
-                                                 color = "on_surface_variant" })
+            children[#children + 1] = isVert
+                and ui.box({ width = 12, height = 1, fill = "on_surface_variant", opacity = 0.3 })
+                or ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
         end
-        children[#children + 1] = chip(entry, flagged)
+        children[#children + 1] = chip(entry, flagged, isVert)
     end
 
     if #children == 0 then
@@ -383,7 +414,11 @@ local function render()
                                              color = "on_surface_variant", maxLines = 1 })
     end
 
-    barWidget.render(ui.row({ gap = 7, align = "center" }, children))
+    if isVert then
+        barWidget.render(ui.column({ gap = 5, align = "center" }, children))
+    else
+        barWidget.render(ui.row({ gap = 7, align = "center" }, children))
+    end
     barWidget.setTooltip(tooltip(picked, hidden))
 end
 
@@ -393,6 +428,7 @@ noctalia.state.watch("report", function(value)
     if type(value) == "table" then
         report = value
         failure = NO_FAILURE
+        scrollOffset = 0
         render()
     end
 end)
@@ -409,6 +445,23 @@ function onClick()
     noctalia.togglePanel("felipeartur/ai-usagebar:panel")
 end
 
+function onScroll(_axis, steps, _startsGesture)
+    if vendor ~= "auto" then return end
+    local ready = {}
+    for _, entry in ipairs(entries()) do
+        if (entry.status ~= "error" and not unavailable(entry)) or shared.readFailure(entry) then
+            ready[#ready + 1] = entry
+        end
+    end
+    if #ready <= 1 then return end
+
+    if steps > 0 then
+        scrollOffset = (scrollOffset + 1) % #ready
+    elseif steps < 0 then
+        scrollOffset = (scrollOffset - 1 + #ready) % #ready
+    end
+    render()
+end
 
 report = noctalia.state.get("report")
 failure = asFailure(noctalia.state.get("error"))
@@ -420,3 +473,4 @@ render()
 function update()
     render()
 end
+

@@ -183,6 +183,43 @@ local function refresh()
     noctalia.state.set("refresh_queued", false)
     noctalia.state.set("polling", true)
 
+local previousExhausted = {}
+local hasObservedInitial = false
+
+local function checkQuotaNotifications(report)
+    if type(noctalia.notify) ~= "function" then return end
+    if type(report) ~= "table" or type(report.entries) ~= "table" then return end
+
+    for _, entry in ipairs(report.entries) do
+        if type(entry) == "table" and entry.status ~= "error" then
+            local id = tostring(entry.id or "")
+            local name = tostring(entry.display_name or entry.name or id)
+            local blocking = nil
+            local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+            for _, m in ipairs(metrics) do
+                if type(m) == "table" and (tonumber(m.percent) or 0) >= 100 then
+                    blocking = m
+                    break
+                end
+            end
+
+            local wasExhausted = previousExhausted[id] == true
+            local isExhausted = blocking ~= nil
+            previousExhausted[id] = isExhausted
+
+            if hasObservedInitial then
+                if isExhausted and not wasExhausted then
+                    local label = tostring(blocking.label or "Quota")
+                    noctalia.notify(name, label .. " exhausted (100%).")
+                elseif not isExhausted and wasExhausted then
+                    noctalia.notify(name, "Quota reset! Headroom restored.")
+                end
+            end
+        end
+    end
+    hasObservedInitial = true
+end
+
     local started = noctalia.runAsync(COMMAND, function(result)
         inFlight = false
         noctalia.state.set("polling", false)
@@ -192,6 +229,7 @@ local function refresh()
         if type(decoded) == "table" and type(decoded.entries) == "table" then
             -- A failed vendor still comes back as an entry with `status = "error"`,
             -- so a non-zero exit is no reason to drop the report.
+            checkQuotaNotifications(decoded)
             noctalia.state.set("report", scrub(decoded))
             noctalia.state.set("error", failure(""))
         else

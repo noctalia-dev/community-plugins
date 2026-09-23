@@ -68,7 +68,7 @@ local function loadPanel(entry, failure)
         watchers.report(values.report)
         return drawn
     end
-    return drawn, publish
+    return drawn, publish, env
 end
 
 -- Walk the drawn tree; the harness records every ui.* call as {kind, props, children}.
@@ -520,3 +520,32 @@ for _, label in ipairs(collect(resetCreditTree, "label")) do
         assert(label.props.maxLines >= 2, "expiry must wrap instead of truncating at one line")
     end
 end
+
+local installButtons = collect(installTree, "button")
+local hasInstallBtn = false
+for _, btn in ipairs(installButtons) do
+    if btn.props.text == "ui.install" then hasInstallBtn = true end
+end
+assert(hasInstallBtn, "errorBlock must contain ui.install button")
+
+local anthropicTree = loadPanel({ id = "anthropic", display_name = "Claude", status = "ready", metrics = {}, sections = {} })
+local anthropicButtons = collect(anthropicTree, "button")
+local hasExternalLink = false
+for _, btn in ipairs(anthropicButtons) do
+    if btn.props.glyph == "external-link" then hasExternalLink = true end
+end
+assert(hasExternalLink, "provider with dashboard url must have external-link button")
+
+local multiReport = {
+    entries = {
+        { id = "openai", display_name = "Codex", status = "ready", metrics = {}, sections = {} },
+        { id = "anthropic", display_name = "Claude", status = "ready", metrics = {}, sections = {} },
+    },
+    selected = "openai",
+}
+local _, _, panelEnv = loadPanel(multiReport)
+panelEnv.onKey("down", true)
+assert(panelEnv.noctalia.state.get("selected") == "anthropic", "down key selects next provider")
+panelEnv.onKey("up", true)
+assert(panelEnv.noctalia.state.get("selected") == "openai", "up key selects previous provider")
+

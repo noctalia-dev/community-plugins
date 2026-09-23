@@ -177,4 +177,8 @@ assert(#oneHeadline == 1 and oneHeadline[1].blockingMetric == session,
 session.percent, weekly.percent = 0, 100
 assert(shared.headline(oneModel) == weekly, "one model must show its exhausted weekly quota")
 
+assert(shared.providerDashboard("anthropic") == "https://console.anthropic.com/", "anthropic dashboard url")
+assert(shared.providerDashboard("openai@work") == "https://platform.openai.com/usage", "account suffix base provider dashboard")
+assert(shared.providerDashboard("unknown") == nil, "unknown provider returns nil dashboard")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

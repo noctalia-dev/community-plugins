@@ -75,6 +75,7 @@ options = [
   { value = "opencode-go", label_key = "settings.vendor.option.opencode_go" },
   { value = "commandcode", label_key = "settings.vendor.option.commandcode" },
   { value = "copilot", label_key = "settings.vendor.option.copilot" },
+  { value = "gemini", label_key = "settings.vendor.option.gemini" },
 ]
 
 # Named CLI accounts use stable `<provider>@<label>` entry ids. Keeping the
@@ -172,4 +173,6 @@ height = 430
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"
 position = "auto"
+open_near_click = true
 dismiss_on_outside_click = true
+capture_keys = ["escape", "r", "up", "down"]

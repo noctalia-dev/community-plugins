@@ -60,6 +60,7 @@ local function loadBar(config, report, err)
     local barWidget = {
         render = function(node) rendered = node end,
         setTooltip = function(rows) tooltip = rows end,
+        isVertical = function() return config.vertical == true end,
     }
     local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
     local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
@@ -420,3 +421,19 @@ assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(i
        "show_value=false must preserve enabled model glyphs")
 local quietFailure = loadBar({ vendor = "openai", show_glyph = false }, parserFailure.values.report)
 assert(containsText(quietFailure.rendered(), "—"), "hidden glyph must not create a hole before the parser error label")
+
+local vertBar = loadBar({ vendor = "openai", vertical = true }, { entries = { quotaEntry } })
+assert(vertBar.rendered().kind == "column", "vertical bar must render a column")
+
+local multiReport = {
+    entries = {
+        entry("openai", "Codex", 50),
+        entry("anthropic", "Claude", 20),
+    }
+}
+local scrollBar = loadBar({ vendor = "auto" }, multiReport)
+assert(containsText(scrollBar.rendered(), "50%"), "initial auto shows first entry")
+scrollBar.env.onScroll("vertical", 1, true)
+assert(containsText(scrollBar.rendered(), "20%"), "scrolling down rotates to next entry")
+scrollBar.env.onScroll("vertical", -1, true)
+assert(containsText(scrollBar.rendered(), "50%"), "scrolling up returns to first entry")

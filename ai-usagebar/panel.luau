@@ -622,6 +622,15 @@ local function errorBlock()
             text = "https://github.com/akitaonrails/ai-usagebar",
             fontSize = 11, color = "on_surface", maxLines = 2,
         })
+        actions[#actions + 1] = ui.button({
+            text = noctalia.tr("ui.install"), glyph = "brand-github",
+            variant = "outline", controlSize = "sm",
+            onClick = function()
+                if type(noctalia.runAsync) == "function" then
+                    noctalia.runAsync("xdg-open 'https://github.com/akitaonrails/ai-usagebar'")
+                end
+            end,
+        })
     end
     children[#children + 1] = ui.row({ gap = 6, align = "center" }, actions)
 
@@ -661,6 +670,13 @@ local function listPane(entry)
                 tooltip = noctalia.tr("ui.settings"),
                 onClick = function() noctalia.openSettings() end,
             }),
+            ui.button({
+                glyph = "x",
+                variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    if type(panel.close) == "function" then panel.close() end
+                end,
+            }),
         }),
         ui.scroll({ gap = 6, flexGrow = 1 }, rows),
     })
@@ -688,6 +704,18 @@ local function detailPane(entry)
                        color = "on_surface_variant", maxLines = 1 }),
         }) or nil
 
+        local dashUrl = shared.providerDashboard(entry.id)
+        local dashBtn = dashUrl ~= nil and ui.button({
+            glyph = "external-link",
+            variant = "ghost",
+            controlSize = "sm",
+            onClick = function()
+                if type(noctalia.runAsync) == "function" then
+                    noctalia.runAsync("xdg-open '" .. dashUrl .. "'")
+                end
+            end,
+        }) or nil
+
         children[#children + 1] = ui.row({ gap = 10, align = "center" }, {
             ui.glyph({ name = providerGlyph(entry.id), size = 22, color = "on_surface" }),
             ui.column({ gap = 2, flexGrow = 1 }, {
@@ -697,6 +725,7 @@ local function detailPane(entry)
                     planBadge,
                 }),
             }),
+            dashBtn,
         })
     end
 
@@ -941,6 +970,34 @@ end
 
 function onClose()
     panel.setWantsSecondTicks(false)
+end
+
+function onKey(chord, pressed)
+    if not pressed then return end
+    local lower = tostring(chord or ""):lower()
+    if lower == "escape" then
+        if type(panel.close) == "function" then panel.close() end
+    elseif lower == "r" then
+        requestRefresh()
+    elseif lower == "up" or lower == "down" then
+        local list = {}
+        local currentIndex = 1
+        local current = currentEntry()
+        for _, candidate in ipairs(entries()) do
+            if configured(candidate) then
+                list[#list + 1] = candidate
+                if current ~= nil and candidate.id == current.id then
+                    currentIndex = #list
+                end
+            end
+        end
+        if #list > 1 then
+            local nextIndex = lower == "up" and ((currentIndex - 2 + #list) % #list + 1)
+                                             or ((currentIndex % #list) + 1)
+            noctalia.state.set("selected", list[nextIndex].id)
+            render()
+        end
+    end
 end
 
 render()

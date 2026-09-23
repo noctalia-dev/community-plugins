@@ -32,12 +32,33 @@ local PROVIDER_GLYPHS = {
     gemini = "brand-google",
 }
 
+local PROVIDER_DASHBOARDS = {
+    anthropic = "https://console.anthropic.com/",
+    anthropic_api = "https://console.anthropic.com/",
+    openai = "https://platform.openai.com/usage",
+    openrouter = "https://openrouter.ai/activity",
+    cursor = "https://www.cursor.com/settings",
+    deepseek = "https://platform.deepseek.com/",
+    zai = "https://z.ai",
+    kimi = "https://platform.moonshot.cn/",
+    moonshot = "https://platform.moonshot.cn/",
+    grok = "https://console.x.ai/",
+    supergrok = "https://console.x.ai/",
+    gemini = "https://aistudio.google.com/",
+    copilot = "https://github.com/settings/copilot",
+    minimax = "https://platform.minimaxi.com/",
+}
+
 function M.baseProvider(id)
     return (tostring(id or ""):match("^[^@]+") or "")
 end
 
 function M.providerGlyph(id)
     return PROVIDER_GLYPHS[M.baseProvider(id)] or "brain"
+end
+
+function M.providerDashboard(id)
+    return PROVIDER_DASHBOARDS[M.baseProvider(id)]
 end
 
 -- Ask the poller for a read. `at` is never read: it is there so two requests in
