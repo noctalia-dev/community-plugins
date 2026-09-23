@@ -167,8 +167,8 @@ default = true
 id = "panel"
 entry = "panel.luau"
 # Provider tabs at the top, detailed charts and accessory cards below.
-width = 540
-height = 540
+width = 460
+height = 460
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

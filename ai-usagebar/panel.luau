@@ -413,6 +413,9 @@ local function otherCard(section, warned)
             if warned then return nil end
             return noteCard(value)
         end
+        if label:lower() == "source" then
+            return nil
+        end
         return ui.row({
             gap = 6, align = "center", paddingH = 8, paddingV = 4, radius = 6,
             fill = "surface_variant/0.25",
@@ -439,40 +442,44 @@ end
 
 -- ── Provider list ─────────────────────────────────────────────────────────────
 
-local function providerRow(entry, selected)
+local function providerRow(entry, selected, compact)
     local displayName = tostring(entry.display_name or entry.name or entry.id or "")
     local broken = entry.status == "error" or unavailable(entry)
 
     local children = {
         ui.glyph({
             name = providerGlyph(entry.id),
-            size = 15,
+            size = compact and 16 or 15,
             color = selected and "primary" or "on_surface",
         }),
-        ui.label({
+    }
+
+    if not compact then
+        children[#children + 1] = ui.label({
             text = displayName,
             fontSize = 12,
             fontWeight = selected and "bold" or "medium",
             color = selected and "primary" or "on_surface",
             maxLines = 1,
-        }),
-    }
+        })
+    end
 
     if broken then
         children[#children + 1] = ui.glyph({
             name = "alert-circle",
-            size = 13,
+            size = 12,
             color = "error",
         })
     end
 
     return ui.row({
         key = "provider-" .. tostring(entry.id),
-        gap = 8,
+        gap = compact and 4 or 8,
         align = "center",
         justify = "center",
-        paddingH = 14,
-        paddingV = 8,
+        tooltip = compact and displayName or nil,
+        paddingH = compact and 10 or 14,
+        paddingV = compact and 6 or 8,
         radius = 8,
         flexGrow = 1,
         fill = selected and "primary/0.14" or "surface_variant/0.22",
@@ -573,52 +580,6 @@ local function detailPane(entry)
 
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
-    if entry ~= nil then
-        local copyBtn = ui.button({
-            glyph = "copy",
-            variant = "ghost",
-            controlSize = "sm",
-            onClick = function() copySummary(entry) end,
-        })
-
-        local dashUrl = shared.providerDashboard(entry.id)
-        local dashBtn = dashUrl ~= nil and ui.button({
-            glyph = "external-link",
-            variant = "ghost",
-            controlSize = "sm",
-            onClick = function()
-                if type(noctalia.runAsync) == "function" then
-                    noctalia.runAsync("xdg-open '" .. dashUrl .. "'")
-                end
-            end,
-        }) or nil
-
-        local actionButtons = { copyBtn }
-        if dashBtn ~= nil then actionButtons[#actionButtons + 1] = dashBtn end
-
-        local metaParts = {}
-        if not unavailable(entry) then
-            if entry.stale == true then
-                metaParts[#metaParts + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 11, color = "secondary" })
-                metaParts[#metaParts + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
-            end
-            local fetched = parseIso(entry.fetched_at)
-            if fetched ~= nil then
-                metaParts[#metaParts + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
-                metaParts[#metaParts + 1] = ui.label({
-                    text = updatedText(entry) .. " · " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
-                    fontSize = 11, color = "on_surface_variant",
-                })
-            end
-        end
-
-        local subRow = {
-            ui.row({ gap = 4, align = "center" }, metaParts),
-            ui.spacer({ flexGrow = 1 }),
-            ui.row({ gap = 2, align = "center" }, actionButtons),
-        }
-        children[#children + 1] = ui.row({ gap = 6, align = "center" }, subRow)
-    end
 
     -- The read failed, but cached numbers remain the useful answer. Mark their
     -- age quietly instead of making a transient network failure the headline.
@@ -726,7 +687,7 @@ local function detailPane(entry)
     -- A section list that lost every card to a heading would otherwise scroll an
     -- empty column.
     if #cards > 0 then
-        children[#children + 1] = ui.scroll({ gap = 8, flexGrow = 1 }, cards)
+        children[#children + 1] = ui.scroll({ gap = 6, flexGrow = 1, paddingRight = 6, paddingLeft = 2 }, cards)
     elseif entry ~= nil then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),
@@ -735,7 +696,7 @@ local function detailPane(entry)
         children[#children + 1] = ui.spacer({ flexGrow = 1 })
     end
 
-    return ui.column({ gap = 8, paddingH = 2, paddingV = 0, flexGrow = 1 }, children)
+    return ui.column({ gap = 6, paddingH = 0, paddingV = 0, flexGrow = 1 }, children)
 end
 
 function render()
@@ -761,62 +722,103 @@ function render()
         return
     end
 
-    local tabs = {}
+    local candidates = {}
     for _, candidate in ipairs(entries()) do
         if configured(candidate) then
-            tabs[#tabs + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
+            candidates[#candidates + 1] = candidate
         end
     end
+
+    local compactTabs = #candidates > 3
+
+    local tabs = {}
+    for _, candidate in ipairs(candidates) do
+        tabs[#tabs + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id, compactTabs)
+    end
+
+    local headerActions = {}
+
+    local fetched = parseIso(entry and entry.fetched_at)
+    if fetched ~= nil then
+        headerActions[#headerActions + 1] = ui.row({ gap = 3, align = "center" }, {
+            ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
+            ui.label({
+                text = noctalia.formatTime(noctalia.timeFormat(), fetched),
+                fontSize = 11,
+                color = "on_surface_variant",
+                tooltip = updatedText(entry),
+            }),
+        })
+    end
+
+    if entry ~= nil then
+        headerActions[#headerActions + 1] = ui.button({
+            glyph = "copy",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Copy usage summary",
+            onClick = function() copySummary(entry) end,
+        })
+        local dashUrl = shared.providerDashboard(entry.id)
+        if dashUrl ~= nil then
+            headerActions[#headerActions + 1] = ui.button({
+                glyph = "external-link",
+                variant = "ghost",
+                controlSize = "sm",
+                tooltip = "Open dashboard",
+                onClick = function()
+                    if type(noctalia.runAsync) == "function" then
+                        noctalia.runAsync("xdg-open '" .. dashUrl .. "'")
+                    end
+                end,
+            })
+        end
+    end
+
+    headerActions[#headerActions + 1] = ui.button({
+        glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
+        variant = "ghost", controlSize = "sm",
+        tooltip = noctalia.tr(polling and "ui.refreshing"
+            or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
+        enabled = not polling,
+        onClick = requestRefresh,
+    })
+    headerActions[#headerActions + 1] = ui.button({
+        glyph = "settings",
+        variant = "ghost", controlSize = "sm",
+        tooltip = noctalia.tr("ui.settings"),
+        onClick = function() noctalia.openSettings() end,
+    })
+    headerActions[#headerActions + 1] = ui.button({
+        glyph = "x",
+        variant = "ghost", controlSize = "sm",
+        tooltip = "Close",
+        onClick = function()
+            if type(panel.close) == "function" then panel.close() end
+        end,
+    })
 
     local topChildren = {
         ui.row({ gap = 8, align = "center" }, {
             ui.row({
-                width = 28, height = 28, radius = 7,
+                width = 24, height = 24, radius = 6,
                 fill = "primary/0.14", align = "center", justify = "center",
             }, {
-                ui.glyph({ name = "brain", size = 16, color = "primary" }),
+                ui.glyph({ name = "brain", size = 14, color = "primary" }),
             }),
-            ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
+            ui.label({ text = noctalia.tr("ui.title"), fontSize = 14, fontWeight = "bold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
-            ui.button({
-                glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
-                variant = "ghost", controlSize = "sm",
-                tooltip = noctalia.tr(polling and "ui.refreshing"
-                    or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
-                enabled = not polling,
-                onClick = requestRefresh,
-            }),
-            ui.button({
-                glyph = "settings",
-                variant = "ghost", controlSize = "sm",
-                tooltip = noctalia.tr("ui.settings"),
-                onClick = function() noctalia.openSettings() end,
-            }),
-            ui.button({
-                glyph = "x",
-                variant = "ghost", controlSize = "sm",
-                onClick = function()
-                    if type(panel.close) == "function" then panel.close() end
-                end,
-            }),
+            ui.row({ gap = 2, align = "center" }, headerActions),
         }),
     }
 
     if #tabs > 0 then
-        if #tabs <= 3 then
-            topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, tabs)
-        else
-            for i = 1, #tabs, 2 do
-                local chunk = { tabs[i] }
-                if tabs[i + 1] ~= nil then chunk[#chunk + 1] = tabs[i + 1] end
-                topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, chunk)
-            end
-        end
+        topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, tabs)
     end
 
-    panel.render(ui.column({ gap = 8, padding = 12, flexGrow = 1, align = "stretch" }, {
-        ui.column({ gap = 8 }, topChildren),
-        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.20 }),
+    panel.render(ui.column({ gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
+        ui.column({ gap = 6 }, topChildren),
+        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
         detailPane(entry),
     }))
 end
