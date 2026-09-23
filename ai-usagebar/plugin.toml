@@ -168,7 +168,7 @@ id = "panel"
 entry = "panel.luau"
 # Master/detail: the provider list on the left, its cards on the right.
 width = 750
-height = 430
+height = 540
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"

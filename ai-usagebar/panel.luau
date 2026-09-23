@@ -205,7 +205,7 @@ local function stackCard(name, readings)
     local body = {}
     if titled then
         body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
-            ui.box({
+            ui.row({
                 width = 24, height = 24, radius = 6,
                 fill = "primary/0.14", align = "center", justify = "center",
             }, {
@@ -590,28 +590,21 @@ local function providerRow(entry, selected)
         lines[#lines + 1] = ui.spacer({ height = 3 })
     end
 
-    local iconBox = ui.box({
-        width = 30,
-        height = 30,
+    local iconBox = ui.row({
+        width = 32,
+        height = 32,
         radius = 8,
-        fill = selected and "primary/0.16" or "surface_variant/0.45",
-        border = selected and "primary/0.30" or "outline/0.08",
+        fill = selected and "primary/0.18" or "surface_variant/0.45",
+        border = selected and "primary/0.35" or "outline/0.08",
         borderWidth = 1,
         align = "center",
         justify = "center",
     }, {
         ui.glyph({
             name = providerGlyph(entry.id),
-            size = 16,
+            size = 18,
             color = selected and "primary" or "on_surface",
         }),
-    })
-
-    local indicator = ui.box({
-        width = 3,
-        height = 20,
-        radius = 2,
-        fill = selected and "primary" or "surface_variant/0.00",
     })
 
     return ui.row({
@@ -628,7 +621,6 @@ local function providerRow(entry, selected)
             render()
         end,
     }, {
-        indicator,
         iconBox,
         ui.column({ gap = 3, flexGrow = 1 }, lines),
         right,
@@ -693,7 +685,7 @@ local function listPane(entry)
     end
     return ui.column({ gap = 10, padding = 14, width = 295 }, {
         ui.row({ gap = 8, align = "center" }, {
-            ui.box({
+            ui.row({
                 width = 28, height = 28, radius = 7,
                 fill = "primary/0.14", align = "center", justify = "center",
             }, {
@@ -772,7 +764,7 @@ local function detailPane(entry)
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
-        local heroIcon = ui.box({
+        local heroIcon = ui.row({
             width = 42,
             height = 42,
             radius = 11,
@@ -957,9 +949,7 @@ local function detailPane(entry)
     -- A section list that lost every card to a heading would otherwise scroll an
     -- empty column.
     if #cards > 0 then
-        -- 24, not the column's usual 8: the CLI used to pad its own sections and
-        -- dropping that padding would have pulled every provider's cards together.
-        children[#children + 1] = ui.scroll({ gap = 24, flexGrow = 1 }, cards)
+        children[#children + 1] = ui.scroll({ gap = 10, flexGrow = 1 }, cards)
     elseif entry ~= nil then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),

@@ -217,6 +217,8 @@ local function chip(entry, flagged, isVert)
                 local mTint = colorByUsage and isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "on_surface")
                 local mPct = tonumber(shownMetric.percent) or 0
+                local mFill = isCritical(shownMetric) and "error"
+                    or severityRole(shownMetric, "primary")
                 local rowChildren = {}
                 local modelGlyph = showGlyph and ui.glyph({
                         name = item.glyph or providerGlyph(entry.id),
@@ -224,6 +226,9 @@ local function chip(entry, flagged, isVert)
                         color = "on_surface",
                     }) or nil
                 if modelGlyph and not glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
+                if visualization == "gauge" and not isVert and not glyphAfter then
+                    rowChildren[#rowChildren + 1] = bars(mPct, elapsedPercent(shownMetric and shownMetric.detail), mFill, 22)
+                end
                 if showValue then
                     rowChildren[#rowChildren + 1] = ui.label({
                         text = string.format("%d%%", mPct),
@@ -232,6 +237,9 @@ local function chip(entry, flagged, isVert)
                         color = mTint,
                         maxLines = 1,
                     })
+                end
+                if visualization == "gauge" and not isVert and glyphAfter then
+                    rowChildren[#rowChildren + 1] = bars(mPct, elapsedPercent(shownMetric and shownMetric.detail), mFill, 22)
                 end
                 if (extras == "countdown" or extras == "both") and not isVert then
                     local left = fixedCountdown(shownMetric)
@@ -293,7 +301,7 @@ local function chip(entry, flagged, isVert)
 
     if not glyphAfter then add(glyph) end
     add(name)
-    if percent ~= nil and visualization == "gauge" then
+    if percent ~= nil and visualization == "gauge" and not hasSubmodels then
         add(bars(percent, elapsedPercent(metric and metric.detail), fill, 32))
     end
     add(pct)
