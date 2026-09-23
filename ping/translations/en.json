@@ -1,0 +1,56 @@
+{
+  "settings": {
+    "color_bad": {
+      "description": "Color for the offline state and for latencies above the yellow threshold.",
+      "label": "Red"
+    },
+    "color_good": {
+      "description": "Color for latencies below the green threshold.",
+      "label": "Green"
+    },
+    "color_warn": {
+      "description": "Color for latencies between the green and the yellow threshold.",
+      "label": "Yellow"
+    },
+    "host": {
+      "description": "What to ping. An IP avoids depending on DNS.",
+      "label": "Host"
+    },
+    "interval_seconds": {
+      "description": "How often the host is pinged.",
+      "label": "Check interval (s)"
+    },
+    "threshold_good": {
+      "description": "Below this round-trip time the value is green.",
+      "label": "Green below (ms)"
+    },
+    "threshold_warn": {
+      "description": "Below this round-trip time the value is yellow, above it red.",
+      "label": "Yellow below (ms)"
+    },
+    "timeout_seconds": {
+      "description": "How long to wait for a reply before treating it as offline.",
+      "label": "Timeout (s)"
+    },
+    "animate": {
+      "description": "Pulse the dot once per answered ping. Turn off for a steady dot.",
+      "label": "Animate"
+    },
+    "avg_count": {
+      "description": "Average the last n successful pings instead of showing only the latest. 1 shows the latest ping as-is.",
+      "label": "Average over (pings)"
+    },
+    "dot_size": {
+      "description": "Diameter of the dot in pixels.",
+      "label": "Dot size (px)"
+    }
+  },
+  "title": "Ping",
+  "widget": {
+    "offline": "Offline",
+    "tooltip_checked": "Checked",
+    "tooltip_host": "Host",
+    "tooltip_latency": "Latency",
+    "waiting": "…"
+  }
+}

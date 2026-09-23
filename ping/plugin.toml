@@ -1,0 +1,113 @@
+# Ping — internet latency in the bar.
+#
+# One [[widget]] entry, nothing else: it runs `ping` itself on its update
+# interval, so there is no service and no state channel. A second instance on
+# another bar pings independently, which is fine at this rate.
+
+id = "mete/ping"
+name = "Ping"
+version = "1.0.0"
+plugin_api = 9
+author = "mete"
+license = "MIT"
+dependencies = ["ping"]
+tags = ["network", "bar", "indicator", "latency"]
+icon = "activity"
+description = "Shows the round-trip time to a host in the bar, colored by latency, and turns red when it stops answering."
+
+[[widget]]
+id = "latency"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "host"
+  type = "string"
+  label_key = "settings.host.label"
+  description_key = "settings.host.description"
+  default = "1.1.1.1"
+
+  [[widget.setting]]
+  key = "interval_seconds"
+  type = "int"
+  label_key = "settings.interval_seconds.label"
+  description_key = "settings.interval_seconds.description"
+  default = 5
+  min = 1
+  max = 600
+
+  [[widget.setting]]
+  key = "timeout_seconds"
+  type = "int"
+  label_key = "settings.timeout_seconds.label"
+  description_key = "settings.timeout_seconds.description"
+  default = 2
+  min = 1
+  max = 10
+
+  [[widget.setting]]
+  key = "avg_count"
+  type = "int"
+  label_key = "settings.avg_count.label"
+  description_key = "settings.avg_count.description"
+  default = 1
+  min = 1
+  max = 20
+
+  [[widget.setting]]
+  key = "threshold_good"
+  type = "int"
+  label_key = "settings.threshold_good.label"
+  description_key = "settings.threshold_good.description"
+  default = 20
+  min = 1
+  max = 10000
+
+  [[widget.setting]]
+  key = "threshold_warn"
+  type = "int"
+  label_key = "settings.threshold_warn.label"
+  description_key = "settings.threshold_warn.description"
+  default = 100
+  min = 1
+  max = 10000
+
+  [[widget.setting]]
+  key = "color_good"
+  type = "color"
+  label_key = "settings.color_good.label"
+  description_key = "settings.color_good.description"
+  default = "#66BA83"
+  advanced = true
+
+  [[widget.setting]]
+  key = "color_warn"
+  type = "color"
+  label_key = "settings.color_warn.label"
+  description_key = "settings.color_warn.description"
+  default = "#C79E47"
+  advanced = true
+
+  [[widget.setting]]
+  key = "color_bad"
+  type = "color"
+  label_key = "settings.color_bad.label"
+  description_key = "settings.color_bad.description"
+  default = "#E4887A"
+  advanced = true
+
+  [[widget.setting]]
+  key = "animate"
+  type = "bool"
+  label_key = "settings.animate.label"
+  description_key = "settings.animate.description"
+  default = true
+
+  [[widget.setting]]
+  key = "dot_size"
+  type = "int"
+  label_key = "settings.dot_size.label"
+  description_key = "settings.dot_size.description"
+  default = 8
+  min = 4
+  max = 16
+  advanced = true
