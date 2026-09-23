@@ -34,7 +34,7 @@ Add the **status** bar widget (`davemhammer/obsidian:status`):
 Panel tabs:
 
 - **Daily** — type a line and **Add to daily** (appends `- HH:MM text`); open daily
-- **Recent** — last modified markdown notes; open / copy `[[link]]` / path
+- **Recent** — last modified markdown notes; select one to read its text in-panel; open it / copy `[[link]]` / path / **Rename** (renames the file in place, same folder only)
 - **Git** — dirty list; commit (optional message), pull, push, pull+push; **Abort** if rebase/merge stuck
 
 Launcher:
@@ -82,7 +82,8 @@ noctalia msg plugin davemhammer/obsidian:service all capture '{"text":"buy milk"
 
 ## Notes
 
-- **Filesystem:** reads/writes daily note markdown **only under** the configured vault; `daily_folder` / note paths reject `..` and absolute paths; existing path components that are symlinks are refused; `realpath` must keep the target under the vault. Recent scan uses `find -P` (never follows symlinks) for `*.md` mtimes (skips `.obsidian`, `.git`, `.claudian`); listed paths are re-normalized before display and again before open.
+- **Filesystem:** reads/writes daily note markdown **only under** the configured vault; `daily_folder` / note paths reject `..` and absolute paths; existing path components that are symlinks are refused; `realpath` must keep the target under the vault. Recent scan uses `find -P` (never follows symlinks) for `*.md` mtimes (skips `.obsidian`, `.git`, `.claudian`); listed paths are re-normalized before display and again before open. Reading a selected note's text (Recent tab) goes through the same vault-confinement + symlink checks as opening a note.
+- **Rename (Recent tab):** the new name is a bare filename — any `/` typed is stripped, so a rename can never move a note out of its folder. Both the old and new path go through the same symlink/vault-confinement check as everything else, and it refuses to overwrite an existing file or "rename" onto the same name.
 - **Processes:** `find -P`, `sort`, `head` (recent notes); `realpath` + `test -L` (path confinement); `git status|add|commit|pull|push` and `git rebase|merge --abort` when requested; `xdg-open` for `obsidian://` URIs only.
 - **Vault required:** capture and open-daily refuse to create files unless `vault_path` is a real vault (contains `.obsidian`).
 - **Git pull** uses `git pull --no-rebase --autostash` so the vault is not left mid-rebase. If a rebase/merge is already in progress, use **Abort rebase/merge** on the Git tab.

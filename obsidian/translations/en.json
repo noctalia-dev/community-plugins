@@ -12,7 +12,10 @@
     "open_daily": "Open daily",
     "open_note": "Open",
     "open_vault": "Open vault",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "rename": "Rename",
+    "rename_cancel": "Cancel",
+    "rename_save": "Save"
   },
   "filter": {
     "placeholder": "Filter notes…"
@@ -46,6 +49,8 @@
     "git_in_progress": "Git {kind} in progress — abort before other actions",
     "git_nogit": "Not a git repository",
     "loading": "Scanning vault…",
+    "note_loading": "Loading note…",
+    "rename_placeholder": "New file name…",
     "select_hint": "Select a note for actions.",
     "summary": "Daily {daily} · {recent} recent · git {git}",
     "updated": "Updated {time}",
@@ -69,6 +74,11 @@
     "invalid_note_path": "Note path is invalid or outside the vault ({error}).",
     "missing_vault": "Vault not found. Set vault path in settings.",
     "opened": "Opening…",
+    "rename_exists": "A note with that name already exists.",
+    "rename_invalid_name": "Invalid file name.",
+    "rename_missing": "That note no longer exists.",
+    "rename_same": "New name matches the current name.",
+    "renamed": "Renamed to {name}",
     "success": "Done"
   },
   "settings": {

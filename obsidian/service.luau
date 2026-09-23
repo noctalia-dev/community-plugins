@@ -19,6 +19,8 @@ local snapshot = {
   dailyExists = false,
   dailyPreview = "",
   recent = {},
+  notePreviewRel = "",
+  notePreview = "",
   git = {
     isRepo = false,
     branch = "",
@@ -488,9 +490,9 @@ end
 
 local refreshAll
 
-local function finishAction(command, ok, message)
+local function finishAction(command, ok, message, extra)
   actionBusy = false
-  actionResult(command, ok, message)
+  actionResult(command, ok, message, extra)
   if ok then
     notifyOk(message)
   else
@@ -523,6 +525,8 @@ refreshAll = function()
     snapshot.loading = false
     snapshot.error = noctalia.tr("result.missing_vault")
     snapshot.recent = {}
+    snapshot.notePreviewRel = ""
+    snapshot.notePreview = ""
     snapshot.dailyExists = false
     snapshot.dailyPreview = ""
     snapshot.git = {
@@ -929,6 +933,106 @@ local function executeAction(command)
       end
       openNoteRel(clean)
       actionResult(command, true, noctalia.tr("result.opened"))
+    end)
+    return
+  end
+  if action == "read_note" then
+    local rel = trim(command.rel or command.path or command.id)
+    if rel == "" then
+      actionResult(command, false, noctalia.tr("result.failed", { error = "missing note" }))
+      return
+    end
+    local root = vaultRoot()
+    if not isVault(root) then
+      actionResult(command, false, noctalia.tr("result.missing_vault"))
+      return
+    end
+    local abs, clean, err = pathUnderVault(root, rel)
+    if not abs then
+      actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = err or "invalid" }))
+      return
+    end
+    assertSafeVaultTarget(root, abs, clean, function(ok, safeErr)
+      if not ok then
+        actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = safeErr or "unsafe" }))
+        return
+      end
+      snapshot.notePreviewRel = clean
+      snapshot.notePreview = noctalia.fileExists(abs) and readPreview(abs, 4000) or ""
+      publishSnapshot()
+      actionResult(command, true, noctalia.tr("result.success"))
+    end)
+    return
+  end
+  if action == "rename_note" then
+    local oldRel = trim(command.rel or command.path or command.id)
+    if oldRel == "" then
+      actionResult(command, false, noctalia.tr("result.failed", { error = "missing note" }))
+      return
+    end
+    local root = vaultRoot()
+    if not isVault(root) then
+      actionResult(command, false, noctalia.tr("result.missing_vault"))
+      return
+    end
+    local oldAbs, oldClean, oldErr = pathUnderVault(root, oldRel)
+    if not oldAbs then
+      actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = oldErr or "invalid" }))
+      return
+    end
+    if not noctalia.fileExists(oldAbs) then
+      actionResult(command, false, noctalia.tr("result.rename_missing"))
+      return
+    end
+
+    -- New name is a bare filename: strip any path separators the user typed
+    -- rather than honoring them, so rename can never move a note out of its
+    -- folder (that is what Recent/Git are for, via the vault's own tools).
+    local newName = trim(command.name):gsub("[/\\]", ""):gsub("\0", "")
+    if newName == "" or newName == "." or newName == ".." then
+      actionResult(command, false, noctalia.tr("result.rename_invalid_name"))
+      return
+    end
+    if not newName:match("%.[Mm][Dd]$") then
+      newName = newName .. ".md"
+    end
+
+    local dir = oldClean:match("(.+)/[^/]+$")
+    local newRel = dir and (dir .. "/" .. newName) or newName
+    local newAbs, newClean, newErr = pathUnderVault(root, newRel)
+    if not newAbs then
+      actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = newErr or "invalid" }))
+      return
+    end
+    if newClean == oldClean then
+      actionResult(command, false, noctalia.tr("result.rename_same"))
+      return
+    end
+    if noctalia.fileExists(newAbs) then
+      actionResult(command, false, noctalia.tr("result.rename_exists"))
+      return
+    end
+
+    assertSafeVaultTarget(root, oldAbs, oldClean, function(okOld, errOld)
+      if not okOld then
+        actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = errOld or "unsafe" }))
+        return
+      end
+      assertSafeVaultTarget(root, newAbs, newClean, function(okNew, errNew)
+        if not okNew then
+          actionResult(command, false, noctalia.tr("result.invalid_note_path", { error = errNew or "unsafe" }))
+          return
+        end
+        local renamed, renameErr = noctalia.renameFile(oldAbs, newAbs)
+        if not renamed then
+          finishAction(command, false, noctalia.tr("result.failed", { error = renameErr or "rename failed" }))
+          return
+        end
+        if snapshot.notePreviewRel == oldClean then
+          snapshot.notePreviewRel = newClean
+        end
+        finishAction(command, true, noctalia.tr("result.renamed", { name = newClean }), { newRel = newClean })
+      end)
     end)
     return
   end

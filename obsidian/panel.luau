@@ -14,6 +14,8 @@ local snapshot = noctalia.state.get(STATE_KEY) or {
   dailyExists = false,
   dailyPreview = "",
   recent = {},
+  notePreviewRel = "",
+  notePreview = "",
   git = {
     isRepo = false,
     branch = "",
@@ -36,6 +38,9 @@ local captureText = ""
 local captureKey = 0
 local commitText = ""
 local commitKey = 0
+local renaming = false
+local renameText = ""
+local renameKey = 0
 local requestCounter = 0
 local feedback = ""
 local feedbackError = false
@@ -147,6 +152,8 @@ local function recentRows()
         onClick = function()
           selectedId = n.id
           feedback = ""
+          renaming = false
+          send("read_note", { rel = n.rel })
           render()
         end,
       }))
@@ -261,16 +268,44 @@ local function toolbar()
   if tab == "recent" then
     local n = selectedRecent()
     if not n then
+      renaming = false
       return ui.label({ text = tr("panel.select_hint"), color = "on_surface_variant" })
     end
-    return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, {
+    local loaded = snapshot.notePreviewRel == n.rel
+    local rows = {
       ui.label({ text = n.rel, fontWeight = "bold", maxLines = 2 }),
-      ui.row({ gap = 6 }, {
+      ui.label({
+        text = not loaded and tr("panel.note_loading")
+          or (snapshot.notePreview ~= "" and snapshot.notePreview or tr("panel.empty")),
+        color = "on_surface_variant",
+        fontSize = 12,
+        maxLines = 10,
+      }),
+    }
+    if renaming then
+      table.insert(rows, ui.input({
+        key = `rename-{renameKey}`,
+        value = renameText,
+        placeholder = tr("panel.rename_placeholder"),
+        flexGrow = 1,
+        controlSize = "md",
+        onChange = "onRenameChange",
+        onSubmit = "onRenameConfirm",
+        submitOnEnter = true,
+      }))
+      table.insert(rows, ui.row({ gap = 6 }, {
+        ui.button({ text = tr("actions.rename_save"), glyph = "check", variant = "primary", onClick = "onRenameConfirm" }),
+        ui.button({ text = tr("actions.rename_cancel"), glyph = "x", variant = "ghost", onClick = "onRenameCancel" }),
+      }))
+    else
+      table.insert(rows, ui.row({ gap = 6 }, {
         ui.button({ text = tr("actions.open_note"), glyph = "external-link", variant = "primary", onClick = "onOpenNote" }),
         ui.button({ text = tr("actions.copy_link"), glyph = "link", variant = "outline", onClick = "onCopyLink" }),
         ui.button({ text = tr("actions.copy_path"), glyph = "copy", variant = "ghost", onClick = "onCopyPath" }),
-      }),
-    })
+        ui.button({ text = tr("actions.rename"), glyph = "pencil", variant = "ghost", onClick = "onRenameStart" }),
+      }))
+    end
+    return ui.column({ gap = 6, padding = 10, fill = "surface_variant/0.45", radius = 10, align = "stretch" }, rows)
   end
 
   -- git tab
@@ -485,6 +520,12 @@ noctalia.state.watch(RESULT_KEY, function(result)
     commitText = ""
     commitKey += 1
   end
+  if result.ok == true and result.action == "rename_note" then
+    renaming = false
+    if type(result.newRel) == "string" and result.newRel ~= "" then
+      selectedId = result.newRel
+    end
+  end
   dirty = true
 end)
 
@@ -508,18 +549,21 @@ function onOpenDaily() send("open_daily") end
 function onTabDaily()
   tab = "daily"
   selectedId = ""
+  renaming = false
   filterKey += 1
   render()
 end
 function onTabRecent()
   tab = "recent"
   selectedId = ""
+  renaming = false
   filterKey += 1
   render()
 end
 function onTabGit()
   tab = "git"
   selectedId = ""
+  renaming = false
   filterKey += 1
   render()
 end
@@ -554,6 +598,30 @@ end
 function onCopyPath()
   local n = selectedRecent()
   if n then send("copy", { text = n.rel }) end
+end
+
+function onRenameStart()
+  local n = selectedRecent()
+  if not n then return end
+  renaming = true
+  renameText = n.name
+  renameKey += 1
+  render()
+end
+function onRenameChange(value)
+  renameText = if type(value) == "string" then value else ""
+end
+function onRenameConfirm()
+  local n = selectedRecent()
+  if not n then return end
+  local name = noctalia.string.trim(renameText)
+  if name == "" then return end
+  send("rename_note", { rel = n.rel, name = name })
+end
+function onRenameCancel()
+  renaming = false
+  renameKey += 1
+  render()
 end
 
 function onCommitChange(value)
