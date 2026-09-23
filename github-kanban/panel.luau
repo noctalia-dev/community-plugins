@@ -104,6 +104,9 @@ local function loadHeatmapAppearance()
   CELL_SIZE = cfgInt("heatmap_cell_size", 13, 8, 16)
   CELL_GAP = cfgInt("heatmap_cell_gap", 1, 1, 4)
   CELL_RADIUS = cfgInt("heatmap_cell_radius", 2, 0, 4)
+  -- Clamp a full-year grid (~53 weeks) to the fixed 860px panel in both placements.
+  local maxCell = math.floor((760 - 52 * CELL_GAP) / 53)
+  CELL_SIZE = math.clamp(math.min(CELL_SIZE, maxCell), 8, 16)
   local mode = cfg("heatmap_color_mode", "noctalia")
   local themed = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
   if mode == "github" then
@@ -655,9 +658,16 @@ local function profileHeader()
   })
 end
 
+local function heatmapPlaceholderHeight()
+  -- Estimate the real card height so the placeholder swap doesn't jump layout.
+  local gridH = 7 * CELL_SIZE + 6 * CELL_GAP
+  local monthsH = noctalia.getConfig("heatmap_show_months") ~= false and 19 or 0
+  return gridH + monthsH + 18 + densityValue(9, 12, 15) * 2 + cardSpacing()
+end
+
 local function heatmap()
   if not cachedCalendar then
-    return ui.column({ height = 115, align = "center", justify = "center" }, {
+    return ui.column({ flexGrow = 1, minHeight = heatmapPlaceholderHeight(), align = "center", justify = "center" }, {
       ui.label({ text = tr("status.preparing_contribution_calendar"), color = "on_surface_variant", fontSize = 11 }),
     })
   end
@@ -678,24 +688,42 @@ local function heatmap()
   end
   legend[#legend + 1] = ui.label({ text = tr("heatmap.more"), fontSize = font(9), color = "on_surface_variant" })
   local footer = {}
-  if noctalia.getConfig("heatmap_show_total") ~= false then footer[#footer + 1] = ui.label({ text = detail, flexGrow = 1, fontSize = font(10), color = "on_surface_variant" })
+  -- Keyed on content so hover selections re-resolve width with flexGrow applied.
+  if noctalia.getConfig("heatmap_show_total") ~= false then footer[#footer + 1] = ui.label({ key = "heatmap-footer-" .. (selectedDate or "total"), text = detail, flexGrow = 1, fontSize = font(10), color = "on_surface_variant", maxLines = 1 })
   else footer[#footer + 1] = ui.box({ flexGrow = 1 }) end
   if noctalia.getConfig("heatmap_show_legend") ~= false then footer[#footer + 1] = ui.row({ gap = 3, align = "center" }, legend) end
+  -- Footer inset to the grid width (weeks * (CELL + GAP) - GAP), mirroring the
+  -- calendar row's weekday gutter so items align with the grid edges.
+  local gridWidth = math.max(gridWeekCount * (CELL_SIZE + CELL_GAP) - CELL_GAP, CELL_SIZE)
+  local footerRow = ui.row({ width = gridWidth, align = "center", gap = 6 }, footer)
+  local footerZone
+  if noctalia.getConfig("heatmap_show_weekdays") ~= false then
+    footerZone = ui.row({ gap = 10, align = "center", justify = "center" }, {
+      ui.box({ width = 28 }),
+      footerRow,
+    })
+  else
+    footerZone = ui.row({ align = "center", justify = "center" }, { footerRow })
+  end
   return ui.column({
+    flexGrow = 1, justify = "center",
     gap = cardSpacing(), padding = densityValue(9, 12, 15), radius = cardRadius(),
     fill = "surface/0.20", border = "outline/0.45", borderWidth = 1,
   }, {
     cachedCalendar,
-    ui.row({ align = "center", gap = 6 }, footer),
+    footerZone,
   })
 end
 
 local function overview()
   local c = state.contributions
-  return ui.scroll({ flexGrow = 1, gap = 10, align = "stretch" }, {
+  -- Section stretches to fill the panel; air stays inside the heatmap card.
+  return ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
     profileHeader(),
-    ui.label({ text = tr("panel.contributions"), fontSize = 15, fontWeight = "bold" }),
-    heatmap(),
+    ui.column({ flexGrow = 1, gap = 8, align = "stretch" }, {
+      ui.label({ text = tr("panel.contributions"), fontSize = 15, fontWeight = "bold" }),
+      heatmap(),
+    }),
     statsLayout({
       metric(tr("contributions.today"), c.today, "calendar"),
       metric(tr("contributions.current_streak"), c.currentStreak, "flame"),
@@ -944,6 +972,21 @@ render = function()
   }))
 end
 
+local lastRenderMs = 0
+local renderPending = false
+local function requestRender()
+  -- Space data-driven renders so measurement sees settled trees.
+  local now = noctalia.nowMs()
+  if now - lastRenderMs < 400 then
+    renderPending = true
+    panel.setWantsSecondTicks(true)
+    return
+  end
+  lastRenderMs = now
+  renderPending = false
+  render()
+end
+
 local WATCHES = {
   status = "status", error = "error", stale = "stale", lastUpdate = "last_update",
   profile = "profile", contributions = "contributions", notifications = "notifications",
@@ -963,7 +1006,7 @@ for field, key in pairs(WATCHES) do
         panel.setNeedsFrameTick(true)
       end
     end
-    render()
+    requestRender()
   end)
 end
 
@@ -978,8 +1021,8 @@ end
 
 function onOpen()
   panelOpen = true
+  panel.setWantsSecondTicks(true)
   if gridReady and not cachedCalendar then
-    panel.setWantsSecondTicks(true)
     panel.setNeedsFrameTick(true)
   end
   render()
@@ -994,6 +1037,11 @@ function onFrameTick(_deltaMs)
 end
 
 function update()
+  if renderPending then
+    renderPending = false
+    lastRenderMs = noctalia.nowMs()
+    render()
+  end
   prepareGrid()
 end
 

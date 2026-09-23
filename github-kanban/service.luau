@@ -133,16 +133,25 @@ local function cacheFollowingAvatars(users, index)
   end)
 end
 
+local cachedAvatarUrl = nil
+local function avatarDest()
+  local dir = noctalia.pluginDataDir()
+  return dir and (dir .. "/profile-avatar") or nil
+end
 local function cacheProfileAvatar(profile)
   local url = tostring(profile and profile.avatarUrl or "")
-  local dir = noctalia.pluginDataDir()
-  if url == "" or not dir then return end
-  local dest = dir .. "/profile-avatar"
+  local dest = avatarDest()
+  if url == "" or not dest then return end
+  if url == cachedAvatarUrl and noctalia.fileExists(dest) then return end
   noctalia.download(url, dest, function(ok)
     if not ok or dashboard.profile ~= profile then return end
+    local changed = cachedAvatarUrl ~= url or profile.avatarPath ~= dest
+    cachedAvatarUrl = url
     profile.avatarPath = dest
-    publish("profile", profile)
-    persist()
+    if changed then
+      publish("profile", profile)
+      persist()
+    end
   end)
 end
 
@@ -337,7 +346,14 @@ local function refresh()
     end)
   end
 
-  request("profile", commands.profile, Data.profile, function(_, profile)
+  request("profile", commands.profile, function(raw)
+    local value = Data.profile(raw)
+    if value then
+      local dest = avatarDest()
+      if dest and noctalia.fileExists(dest) then value.avatarPath = dest end
+    end
+    return value
+  end, function(_, profile)
     dashboard.login = profile.login
     noctalia.state.set("login", profile.login)
     noctalia.state.set("dashboard", dashboard)

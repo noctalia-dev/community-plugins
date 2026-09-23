@@ -43,7 +43,7 @@ function Data.contributions(raw)
       end
     end
   end
-  local today = os.date("%Y-%m-%d")
+  local today = os.date("!%Y-%m-%d")
   local todayCount, currentStreak, bestStreak = 0, 0, 0
   local endAt
   for i, day in ipairs(days) do
@@ -91,6 +91,13 @@ end
 
 Data.RELEASE_FEED_LIMIT = 20
 
+local function collapseWhitespace(value, maxInput)
+  -- Cap input before collapsing; callers truncate output to ~140-180 chars.
+  value = tostring(value or ""):match("^%s*(.*)$") or ""
+  if #value > maxInput then value = value:sub(1, maxInput) end
+  return value:gsub("[%s\r\n]+", " "):match("^%s*(.-)%s*$") or ""
+end
+
 function Data.starredReleaseFeed(raw)
   local connection = raw and raw.data and raw.data.viewer and raw.data.viewer.starredRepositories
   local repositories, events = {}, {}
@@ -98,7 +105,7 @@ function Data.starredReleaseFeed(raw)
     local owner = item.owner or {}
     local release = item.releases and item.releases.nodes and item.releases.nodes[1]
     if type(release) == "table" and release.url then
-      local description = tostring(release.description or ""):gsub("[%s\r\n]+", " "):match("^%s*(.-)%s*$") or ""
+      local description = collapseWhitespace(release.description, 2000)
       local releaseName = release.name or release.tagName or ""
       local summary = description ~= "" and (releaseName .. " — " .. description) or releaseName
       if #summary > 180 then summary = summary:sub(1, 177) .. "..." end
@@ -279,7 +286,7 @@ local function eventSummary(raw)
   end
   summary = summary or comment.body or pullRequest.title or issue.title or release.name or release.tag_name
     or page.title or commit.message or fork.full_name or member.login or payload.ref or payload.action or ""
-  summary = tostring(summary):gsub("[%s\r\n]+", " "):match("^%s*(.-)%s*$") or ""
+  summary = collapseWhitespace(summary, 2000)
   if #summary > 140 then summary = summary:sub(1, 137) .. "..." end
   return summary, summaryKey, summaryArgs
 end
