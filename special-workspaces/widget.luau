@@ -15,6 +15,21 @@ local capsulePadding = math.max(0, tonumber(noctalia.getConfig("capsule_padding"
 local capsuleMinWidth = math.max(0, tonumber(noctalia.getConfig("capsule_min_width")) or 35)
 local activeStyle = noctalia.getConfig("active_style") or "fill"
 local inactiveStyle = noctalia.getConfig("inactive_style") or "fill"
+
+-- Colors are configurable: each accepts a palette role name ("primary",
+-- "on_surface", ...) or a hex value. The defaults keep the previous behaviour.
+local function colorConfig(key, fallback)
+  local value = noctalia.getConfig(key)
+  if type(value) == "string" and value ~= "" then
+    return value
+  end
+  return fallback
+end
+
+local activeColor = colorConfig("active_color", "primary")
+local activeTextColor = colorConfig("active_text_color", "on_primary")
+local inactiveColor = colorConfig("inactive_color", "secondary")
+local inactiveTextColor = colorConfig("inactive_text_color", "on_secondary")
 local renderedVertical = nil
 
 local function displayName(name)
@@ -61,11 +76,14 @@ local function render(vertical)
       local style = workspace.active and activeStyle or inactiveStyle
       local filled = style == "fill"
       local fill = filled
-          and (workspace.active and "primary" or "secondary")
+          and (workspace.active and activeColor or inactiveColor)
         or "#00000000"
+      -- Ghost capsules are transparent: the active one uses its own color as
+      -- the label color, while inactive ones stay on on_surface, since the
+      -- inactive color may be as dark as the bar.
       local textColor = filled
-          and (workspace.active and "on_primary" or "on_secondary")
-        or (workspace.active and "primary" or "on_surface")
+          and (workspace.active and activeTextColor or inactiveTextColor)
+        or (workspace.active and activeColor or "on_surface")
       local capsuleProps = {
         key = name,
         align = "center",
