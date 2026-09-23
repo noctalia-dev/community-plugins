@@ -81,9 +81,6 @@ end
 -- One reading, without the card around it. `title` names it: the metric's own
 -- label, or the window's name inside a card that stacks a model's readings.
 -- `muted` is for the second case, where the card is already titled.
--- One reading, without the card around it. `title` names it: the metric's own
--- label, or the window's name inside a card that stacks a model's readings.
--- `muted` is for the second case, where the card is already titled.
 local function metricRows(section, title, muted)
     local percent = tonumber(section.percent) or 0
     local tint = severityRole(section, "on_surface")
@@ -103,29 +100,25 @@ local function metricRows(section, title, muted)
 
     local displayTitle = tostring(title or "")
 
-    -- Row 1: Title on Left, Badges + Value + Percentage on Right
+    -- Title on the left; severity and percentage on the right.
     local rightMeta = {}
     local word = severityWord(section)
     if word ~= nil then
         local sevRole = isCritical(section) and "error" or severityRole(section, "secondary")
         rightMeta[#rightMeta + 1] = ui.row({
-            paddingH = 5, paddingV = 1, radius = 4,
+            paddingH = 6, paddingV = 2, radius = 5, align = "center",
             fill = sevRole .. "/0.15",
         }, {
             ui.label({ text = word, fontSize = 10, fontWeight = "bold", color = sevRole }),
         })
     end
 
-    if showValue then
-        rightMeta[#rightMeta + 1] = ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
-    end
-
-    rightMeta[#rightMeta + 1] = ui.label({
-        text = string.format("%d%%", percent),
-        fontSize = 13,
-        fontWeight = "bold",
-        color = tint,
-        textAlign = "end",
+    rightMeta[#rightMeta + 1] = ui.row({
+        paddingH = 6, paddingV = 2, radius = 5, align = "center", justify = "center",
+        fill = tint .. "/0.10",
+    }, {
+        ui.label({ text = string.format("%d%%", percent), fontSize = 12,
+                   fontWeight = "bold", color = tint, textAlign = "center" }),
     })
 
     local topRow = ui.row({ gap = 8, align = "center" }, {
@@ -140,7 +133,7 @@ local function metricRows(section, title, muted)
         ui.row({ gap = 5, align = "center", justify = "end" }, rightMeta),
     })
 
-    -- Row 2: Progress Bar
+    -- Usage bar.
     local progressBar = ui.progress({
         progress = ratio(percent),
         fill = fill,
@@ -149,12 +142,14 @@ local function metricRows(section, title, muted)
         height = 5,
     })
 
-    -- Row 3: Subtitle / Metadata (Reset time on Left, Pace on Right)
+    -- Reset on the left, pace on the right.
     local bottomRowElements = {}
     if resetStr ~= "" then
-        bottomRowElements[#bottomRowElements + 1] = ui.row({ gap = 4, align = "center" }, {
+        bottomRowElements[#bottomRowElements + 1] = ui.row({ gap = 4, align = "center",
+            paddingH = 5, paddingV = 2, radius = 5, fill = "on_surface/0.06" }, {
             ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
-            ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+            ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant",
+                       maxLines = 2, maxWidth = paceText ~= "" and 230 or 340 }),
         })
     end
 
@@ -174,6 +169,11 @@ local function metricRows(section, title, muted)
 
     local body = { topRow, progressBar }
 
+    if showValue then
+        body[#body + 1] = ui.label({ text = value, fontSize = 11,
+                                    color = "on_surface_variant", maxLines = 2 })
+    end
+
     if #bottomRowElements > 0 or #subRight > 0 then
         body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.row({ gap = 4, align = "center" }, bottomRowElements),
@@ -190,10 +190,16 @@ local function metricRows(section, title, muted)
     return body
 end
 
-local CARD = { gap = 4, padding = 8, radius = 9, fill = "surface_variant/0.40",
+local CARD = { gap = 6, padding = 10, radius = 9, fill = "surface_variant/0.34",
                border = "outline/0.08", borderWidth = 1 }
 
-local function stackCard(name, readings)
+local function cardStyle(gap, fill, border)
+    return { gap = gap, padding = CARD.padding, radius = CARD.radius,
+             fill = fill or CARD.fill, border = border or CARD.border,
+             borderWidth = CARD.borderWidth }
+end
+
+local function stackCard(name, readings, glyph)
     local titled = name ~= ""
     local body = {}
     if titled then
@@ -202,9 +208,9 @@ local function stackCard(name, readings)
                 width = 20, height = 20, radius = 5,
                 fill = "primary/0.14", align = "center", justify = "center",
             }, {
-                ui.glyph({ name = modelGlyph(name), size = 12, color = "primary" }),
+                ui.glyph({ name = glyph or modelGlyph(name), size = 12, color = "primary" }),
             }),
-            ui.label({ text = modelDisplayName(name), fontSize = 12, fontWeight = "bold",
+            ui.label({ text = glyph and name or modelDisplayName(name), fontSize = 12, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
     end
@@ -261,9 +267,9 @@ local function blockCard(section)
             })
         end
     end
-    return ui.column({ gap = 4, paddingH = 10, paddingV = 7, radius = 8,
-                       fill = isUnavailable and "error/0.06" or "surface_variant/0.25",
-                       border = isUnavailable and "error/0.18" or "outline/0.06", borderWidth = 1 }, body)
+    return ui.column(cardStyle(4,
+        isUnavailable and "error/0.06" or nil,
+        isUnavailable and "error/0.18" or nil), body)
 end
 
 -- A `text` section the CLI uses for a warning. The `credentials error:` prefix
@@ -284,10 +290,10 @@ local function noteCard(text, failureLabel)
             color = "error",
         }))
     end
-    return ui.row({ gap = 8, align = "start", padding = 12, radius = 10,
-                    fill = failureLabel and "error/0.08" or "secondary/0.08",
-                    border = failureLabel and "error/0.25" or "outline/0.08",
-                    borderWidth = 1 }, {
+    return ui.row({ gap = 8, align = "start", padding = CARD.padding, radius = CARD.radius,
+                    fill = failureLabel and "error/0.07" or "secondary/0.07",
+                    border = failureLabel and "error/0.16" or "outline/0.06",
+                    borderWidth = CARD.borderWidth }, {
         ui.glyph({ name = "alert-triangle", size = 14, color = failureLabel and "error" or "secondary" }),
         ui.column({ gap = 3, flexGrow = 1 }, content),
     })
@@ -304,9 +310,8 @@ local function recordAge(entry)
 end
 
 -- Every reading a provider sent, grouped into the subjects it is read by:
--- Antigravity by model, with the window heading each reading; everyone else
--- under one subject the header already names. The card and the record share this
--- grouping so the two cannot disagree about what belongs together.
+-- Windowed reports group by model; other reports keep their readings in one
+-- provider card. The card and the record share this grouping.
 local function groupReadings(items, windowed)
     local order, byName = {}, {}
     for _, item in ipairs(items) do
@@ -358,8 +363,7 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
-    return ui.column({ gap = 4, padding = 12, radius = 14, fill = "surface_variant/0.40",
-                       border = "outline/0.08", borderWidth = 1 }, body)
+    return ui.column(cardStyle(4), body)
 end
 
 -- Everything in a report that is not a reading: credit blocks, headings,
@@ -416,10 +420,9 @@ local function otherCard(section, warned)
         if label:lower() == "source" then
             return nil
         end
-        return ui.row({
-            gap = 6, align = "center", paddingH = 8, paddingV = 4, radius = 6,
-            fill = "surface_variant/0.25",
-        }, {
+        local props = cardStyle(6)
+        props.align = "center"
+        return ui.row(props, {
             ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
             ui.spacer({ flexGrow = 1 }),
             ui.label({ text = value, fontSize = 10, fontWeight = "medium", color = "on_surface", maxLines = 1 }),
@@ -474,12 +477,13 @@ local function providerRow(entry, selected, compact)
 
     return ui.row({
         key = "provider-" .. tostring(entry.id),
-        gap = compact and 4 or 8,
+        gap = 6,
         align = "center",
         justify = "center",
         tooltip = compact and displayName or nil,
-        paddingH = compact and 10 or 14,
-        paddingV = compact and 6 or 8,
+        paddingH = 10,
+        minHeight = 32,
+        paddingV = 6,
         radius = 8,
         flexGrow = 1,
         fill = selected and "primary/0.14" or "surface_variant/0.22",
@@ -567,6 +571,94 @@ local function copySummary(entry)
     end
 end
 
+local function statusIndicator(entry)
+    if failure.code ~= "" then
+        return ui.row({ gap = 4, align = "center" }, {
+            ui.glyph({ name = "clock-exclamation", size = 12, color = "secondary" }),
+            ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 11,
+                color = "on_surface_variant", maxLines = 1 }),
+            ui.button({ text = noctalia.tr("ui.retry"), glyph = "refresh",
+                variant = "ghost", controlSize = "sm", enabled = not polling,
+                onClick = requestRefresh }),
+        })
+    end
+    if entry == nil then return nil end
+    if unavailable(entry) then
+        return ui.label({ text = noctalia.tr("ui.unavailable"), fontSize = 11,
+            color = "error", maxLines = 1 })
+    end
+
+    if type(entry.metrics) ~= "table" or #entry.metrics == 0 then
+        return ui.label({ text = noctalia.tr("ui.waiting"), fontSize = 11,
+            color = "on_surface_variant", maxLines = 1 })
+    end
+
+    local models = modelHeadlines(entry)
+    if #models == 0 then
+        models = { { displayName = "", glyph = providerGlyph(entry.id), metrics = entry.metrics } }
+    end
+    local notices = {}
+    for _, model in ipairs(models) do
+        local short, weekly = dualMetrics(model.metrics)
+        local affected = {}
+        for index, metric in ipairs(model.metrics or {}) do
+            local percent = tonumber(metric and metric.percent) or 0
+            if percent > 50 then
+                local window = metric == short and "5h" or metric == weekly and "7d" or ""
+                affected[#affected + 1] = { metric = metric, percent = percent,
+                    window = window, index = index }
+            end
+        end
+        table.sort(affected, function(a, b)
+            local aBlocked, bBlocked = a.percent >= 100, b.percent >= 100
+            if aBlocked ~= bBlocked then return aBlocked end
+            if aBlocked and bBlocked then
+                local aReset = parseIso(a.metric.reset_at) or 0
+                local bReset = parseIso(b.metric.reset_at) or 0
+                if aReset ~= bReset then return aReset > bReset end
+            end
+            if a.percent ~= b.percent then return a.percent > b.percent end
+            if a.window ~= b.window then return a.window == "7d" end
+            return a.index < b.index
+        end)
+        if affected[1] ~= nil then
+            affected[1].model = model
+            notices[#notices + 1] = affected[1]
+        end
+    end
+
+    if #notices > 0 then
+        local pills = {}
+        for index = 1, math.min(#notices, 2) do
+            local item = notices[index]
+            local metric = item.metric
+            local blocked = item.percent >= 100
+            local role = blocked and "error" or severityRole(metric, "primary")
+            local modelName = tostring(item.model.displayName or "")
+            if modelName == "Claude & GPT OSS" then modelName = "OSS" end
+            local text = (modelName ~= "" and modelName .. " " or "")
+                .. (item.window ~= "" and item.window .. " " or "")
+                .. tostring(item.percent) .. "%"
+            local severity = tostring(metric.severity or "")
+            local detail = blocked and noctalia.tr("ui.quota_exhausted")
+                or (severity == "high" or severity == "critical")
+                    and noctalia.tr("ui.severity." .. severity)
+                or tostring(item.percent) .. "%"
+            local left = blocked and shared.fixedCountdown(metric) or ""
+            if left ~= "" then detail = detail .. " · " .. noctalia.tr("ui.quota_reset", { time = left }) end
+            pills[#pills + 1] = ui.row({ gap = 3, align = "center", paddingH = 6,
+                paddingV = 2, radius = 5, fill = role .. "/0.10",
+                border = role .. "/0.20", borderWidth = 1 }, {
+                ui.glyph({ name = item.model.glyph, size = 10, color = role }),
+                ui.label({ text = text, tooltip = detail, fontSize = 10,
+                    fontWeight = "bold", color = role, maxLines = 1 }),
+            })
+        end
+        return ui.row({ gap = 4, align = "center" }, pills)
+    end
+    return ui.glyph({ name = "circle-check", size = 13, color = "primary" })
+end
+
 local function detailPane(entry)
     local title = noctalia.tr("ui.title")
     local subtitle = ""
@@ -578,56 +670,7 @@ local function detailPane(entry)
         if subtitle == title then subtitle = "" end
     end
 
-    -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
-
-    -- The read failed, but cached numbers remain the useful answer. Mark their
-    -- age quietly instead of making a transient network failure the headline.
-    if failure.code ~= "" then
-        children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
-            ui.glyph({ name = "clock-exclamation", size = 13, color = "secondary" }),
-            ui.label({ text = noctalia.tr("ui.stale_hint"), fontSize = 11,
-                       color = "on_surface_variant", flexGrow = 1, maxLines = 1 }),
-            ui.button({
-                text = noctalia.tr("ui.retry"), glyph = "refresh",
-                variant = "ghost", controlSize = "sm",
-                enabled = not polling,
-                onClick = requestRefresh,
-            }),
-        })
-    end
-
-    -- Only exhausted quotas need a notice above the detailed windows.
-    if entry ~= nil and not unavailable(entry) then
-        local models = modelHeadlines(entry)
-        if #models == 0 then
-            models = { { displayName = title, metric = headline(entry) } }
-        end
-        local summary = {}
-        for _, model in ipairs(models) do
-            local metric = model.blockingMetric or model.metric
-            if (tonumber(metric and metric.percent) or 0) >= 100 then
-                local left = shared.fixedCountdown(metric)
-                local details = {
-                    ui.label({ text = model.displayName .. " · " .. noctalia.tr("ui.quota_exhausted"),
-                               fontSize = 11, color = "error", maxLines = 1 }),
-                }
-                if left ~= "" then
-                    details[#details + 1] = ui.label({
-                        text = noctalia.tr("ui.quota_reset", { time = left }),
-                        fontSize = 11, color = "on_surface_variant", maxLines = 1,
-                    })
-                end
-                summary[#summary + 1] = ui.row({ gap = 8, paddingH = 10, paddingV = 6, radius = 8,
-                    fill = "error/0.08", border = "error/0.25",
-                    borderWidth = 1, align = "center" }, {
-                    ui.glyph({ name = "alert-circle", size = 15, color = "error" }),
-                    ui.column({ gap = 1, flexGrow = 1 }, details),
-                })
-            end
-        end
-        if #summary > 0 then children[#children + 1] = ui.column({ gap = 6 }, summary) end
-    end
 
     local cards = {}
     local sections = entry ~= nil and type(entry.sections) == "table" and entry.sections or {}
@@ -672,7 +715,23 @@ local function detailPane(entry)
     else
         -- Pass two: every reading a provider sends, in the cards it is read by.
         local order, byName = groupReadings(items, windowed)
-        for _, name in ipairs(order) do cards[#cards + 1] = stackCard(name, byName[name]) end
+        for _, name in ipairs(order) do
+            local cardName, glyph = name, nil
+            local readings = byName[name]
+            if not windowed and entry ~= nil then
+                cardName = tostring(entry.display_name or entry.id)
+                glyph = providerGlyph(entry.id)
+                for _, reading in ipairs(readings) do
+                    local label = tostring(reading.title):lower()
+                    if label:match("5h$") then
+                        reading.title = "Session"
+                    elseif label:match("weekly$") then
+                        reading.title = "Weekly"
+                    end
+                end
+            end
+            cards[#cards + 1] = stackCard(cardName, readings, glyph)
+        end
     end
 
     -- The rest is the same either way: losing the gauges is no reason to lose
@@ -684,10 +743,24 @@ local function detailPane(entry)
         end
     end
 
-    -- A section list that lost every card to a heading would otherwise scroll an
-    -- empty column.
+    -- Keep the same card width in both modes. The scrollbar lives in the
+    -- reserved right gutter, while the provider header remains fixed above.
     if #cards > 0 then
-        children[#children + 1] = ui.scroll({ gap = 6, flexGrow = 1, paddingRight = 6, paddingLeft = 2 }, cards)
+        local needsScroll = #cards >= 3 or (windowed and #cards >= 2)
+        for _, item in ipairs(items) do
+            if item.section.type == "block" and type(item.section.body) == "table"
+                and #item.section.body >= 4 then
+                needsScroll = true
+            end
+        end
+        local props = { gap = 8, paddingLeft = 2, paddingRight = 16,
+            paddingV = 4, align = "stretch" }
+        if needsScroll then
+            props.flexGrow = 1
+            children[#children + 1] = ui.scroll(props, cards)
+        else
+            children[#children + 1] = ui.column(props, cards)
+        end
     elseif entry ~= nil then
         children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = "info-circle", size = 14, color = "on_surface_variant" }),
@@ -696,7 +769,8 @@ local function detailPane(entry)
         children[#children + 1] = ui.spacer({ flexGrow = 1 })
     end
 
-    return ui.column({ gap = 6, paddingH = 0, paddingV = 0, flexGrow = 1 }, children)
+    return ui.column({ gap = 6, paddingH = 0, paddingV = 0, flexGrow = 1,
+                       align = "stretch" }, children)
 end
 
 function render()
@@ -737,13 +811,16 @@ function render()
     end
 
     local headerActions = {}
+    local providerActions = {}
+    local updatedRow = nil
 
     local fetched = parseIso(entry and entry.fetched_at)
     if fetched ~= nil then
-        headerActions[#headerActions + 1] = ui.row({ gap = 3, align = "center" }, {
+        updatedRow = ui.row({ gap = 3, align = "center", paddingH = 6,
+                              paddingV = 2, radius = 5, fill = "on_surface/0.06" }, {
             ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
             ui.label({
-                text = noctalia.formatTime(noctalia.timeFormat(), fetched),
+                text = noctalia.tr("ui.updated") .. " " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
                 fontSize = 11,
                 color = "on_surface_variant",
                 tooltip = updatedText(entry),
@@ -752,7 +829,7 @@ function render()
     end
 
     if entry ~= nil then
-        headerActions[#headerActions + 1] = ui.button({
+        providerActions[#providerActions + 1] = ui.button({
             glyph = "copy",
             variant = "ghost",
             controlSize = "sm",
@@ -761,7 +838,7 @@ function render()
         })
         local dashUrl = shared.providerDashboard(entry.id)
         if dashUrl ~= nil then
-            headerActions[#headerActions + 1] = ui.button({
+            providerActions[#providerActions + 1] = ui.button({
                 glyph = "external-link",
                 variant = "ghost",
                 controlSize = "sm",
@@ -814,6 +891,18 @@ function render()
 
     if #tabs > 0 then
         topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, tabs)
+    end
+
+    local status = statusIndicator(entry)
+    if updatedRow ~= nil or status ~= nil or #providerActions > 0 then
+        local providerMeta = {}
+        if updatedRow ~= nil then providerMeta[#providerMeta + 1] = updatedRow end
+        if status ~= nil then providerMeta[#providerMeta + 1] = status end
+        providerMeta[#providerMeta + 1] = ui.spacer({ flexGrow = 1 })
+        if #providerActions > 0 then
+            providerMeta[#providerMeta + 1] = ui.row({ gap = 2, align = "center" }, providerActions)
+        end
+        topChildren[#topChildren + 1] = ui.row({ key = "meta-row", gap = 4, align = "center" }, providerMeta)
     end
 
     panel.render(ui.column({ gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {

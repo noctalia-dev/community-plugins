@@ -368,11 +368,6 @@ local function chip(entry, flagged, isVert)
                 ui.label({ text = tostring(points), fontSize = 10, color = role, maxLines = 1 }),
             }))
         end
-    else
-        local _, _, word = pace(metric and metric.detail)
-        if word == "ahead" and not hasSubmodels then
-            add(ui.glyph({ name = "arrow-up", size = 10, color = "secondary" }))
-        end
     end
 
     if entry.stale == true then
@@ -564,4 +559,3 @@ render()
 function update()
     render()
 end
-

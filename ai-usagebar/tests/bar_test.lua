@@ -445,7 +445,7 @@ assert(miniGaugeNode ~= nil, "vertical bar with gauge visualization should rende
 local fastEntry = entry("openai", "Codex", 80)
 fastEntry.metrics[1].detail = "Resets in 4h 00m · 20% elapsed · 60pts ahead"
 local pacingBar = loadBar({ vendor = "openai", extras = "none" }, { entries = { fastEntry } })
-assert(containsGlyph(pacingBar.rendered(), "arrow-up"), "ahead of pace cue arrow-up displayed even when extras is none")
+assert(not containsGlyph(pacingBar.rendered(), "arrow-up"), "extras=none should not add an unexplained pace arrow")
 
 local function findAllNodes(node, predicate, acc)
     acc = acc or {}
@@ -498,5 +498,4 @@ assert(agyBars[1].props.height == 6 and agyBars[1].props.progress == 0.15, "Gemi
 assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemini bottom bar is weekly")
 assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
 assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")
-
 

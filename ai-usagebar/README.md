@@ -83,15 +83,21 @@ start = [ "clock", "ai_usage" ]
 The script handles left and middle clicks. Right click is a gesture binding in
 the widget settings, where you can assign another action or choose `none`.
 
-The panel lists providers on the left and shows the selected provider's limits
-on the right. Session and weekly limits share a card; Antigravity has a separate
-card for each model. Each window shows usage above a thinner elapsed-time bar.
+The panel shows provider tabs at the top and the selected provider's limits
+below. With more than three providers, tabs show icons only and reveal names on
+hover. Session and weekly limits share a card; Antigravity has a separate card
+for each model. Each window shows usage above a thinner elapsed-time bar.
 A longer usage bar means consumption is ahead of the window's pace.
 The shared `Claude & GPT OSS` quota keeps the name supplied by the CLI.
 
-Exhausted quotas get a compact notice with the model name and reset countdown.
-The notice uses text and theme colors. The panel displays quota readings, not
-agent process health.
+The row beside the update time shows quota status for every provider: a quiet
+icon through 50% usage, then one compact pill per model above 50%, showing its
+most restrictive window. Hover a pill for its full status and reset countdown.
+Read failures show the last known state. The panel displays quota readings,
+not agent process health.
+
+The header stays fixed while longer reports scroll. Every provider reserves the
+same space beside its cards, so the scrollbar does not change their width.
 
 Opening the panel requests fresh data. The header shows when the last reading
 arrived, a refresh button, and plugin settings. Click outside or click the widget
