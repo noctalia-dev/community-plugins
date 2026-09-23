@@ -585,13 +585,13 @@ local function providerRow(entry, selected)
     local lines = {
         ui.label({
             text = displayName,
-            fontSize = 13, fontWeight = "semibold",
+            fontSize = 12, fontWeight = "bold",
             color = selected and "primary" or "on_surface", maxLines = 1,
         }),
         ui.label({
             text = shared.readFailure(entry) and noctalia.tr("ui.error.failed")
                 or broken and noctalia.tr("ui.unavailable") or planText,
-            fontSize = 11, color = "on_surface_variant", maxLines = 1,
+            fontSize = 10, color = "on_surface_variant", maxLines = 1,
         }),
     }
     if #submodels > 0 and not broken then
@@ -599,27 +599,28 @@ local function providerRow(entry, selected)
     end
 
     local iconBox = ui.row({
-        width = 34,
-        height = 34,
-        radius = 8,
-        fill = selected and "primary/0.18" or "surface_variant/0.45",
-        border = selected and "primary/0.35" or "outline/0.08",
+        width = 28,
+        height = 28,
+        radius = 7,
+        fill = selected and "primary/0.20" or "surface_variant/0.45",
+        border = selected and "primary/0.40" or "outline/0.08",
         borderWidth = 1,
         align = "center",
         justify = "center",
     }, {
         ui.glyph({
             name = providerGlyph(entry.id),
-            size = 18,
+            size = 15,
             color = selected and "primary" or "on_surface",
         }),
     })
 
     return ui.row({
         key = "provider-" .. tostring(entry.id),
-        gap = 8, align = "center", padding = 8, radius = 10,
-        fill = selected and "primary/0.10" or "surface_variant/0.25",
-        border = selected and "primary/0.45" or "outline/0.08",
+        gap = 7, align = "center", padding = 7, radius = 9,
+        flexGrow = 1,
+        fill = selected and "primary/0.14" or "surface_variant/0.22",
+        border = selected and "primary/0.40" or "outline/0.08",
         borderWidth = 1,
         onClick = function()
             noctalia.state.set("selected", tostring(entry.id))
@@ -627,7 +628,7 @@ local function providerRow(entry, selected)
         end,
     }, {
         iconBox,
-        ui.column({ gap = 2, flexGrow = 1 }, lines),
+        ui.column({ gap = 1, flexGrow = 1 }, lines),
         right,
     })
 end
@@ -681,54 +682,6 @@ local function errorBlock()
                        fill = "error/0.06", border = "error/0.12", borderWidth = 1 }, children)
 end
 
-local function listPane(entry)
-    local rows = {}
-    for _, candidate in ipairs(entries()) do
-      if configured(candidate) then
-        rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
-      end
-    end
-    return ui.column({ gap = 10, padding = 14, width = 308 }, {
-        ui.row({ gap = 8, align = "center" }, {
-            ui.row({
-                width = 28, height = 28, radius = 7,
-                fill = "primary/0.14", align = "center", justify = "center",
-            }, {
-                ui.glyph({ name = "brain", size = 16, color = "primary" }),
-            }),
-            -- The accent belongs to the selection and the bars; a title taking
-            -- it too would leave the panel with no quiet level.
-            ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
-            ui.spacer({ flexGrow = 1 }),
-            -- One slot for the read: the button becomes the spinner, instead of
-            -- a second glyph pushing the header around.
-            ui.button({
-                glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
-                variant = "ghost", controlSize = "sm",
-                tooltip = noctalia.tr(polling and "ui.refreshing"
-                    or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
-                enabled = not polling,
-                onClick = requestRefresh,
-            }),
-            -- The capsule answers a middle click with this too, but the panel is
-            -- where that decision is made.
-            ui.button({
-                glyph = "settings",
-                variant = "ghost", controlSize = "sm",
-                tooltip = noctalia.tr("ui.settings"),
-                onClick = function() noctalia.openSettings() end,
-            }),
-            ui.button({
-                glyph = "x",
-                variant = "ghost", controlSize = "sm",
-                onClick = function()
-                    if type(panel.close) == "function" then panel.close() end
-                end,
-            }),
-        }),
-        ui.scroll({ gap = 6, flexGrow = 1 }, rows),
-    })
-end
 
 local function copySummary(entry)
     if entry == nil then return end
@@ -769,27 +722,6 @@ local function detailPane(entry)
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
-        local heroIcon = ui.row({
-            width = 42,
-            height = 42,
-            radius = 11,
-            fill = "surface_variant/0.55",
-            border = "outline/0.12",
-            borderWidth = 1,
-            align = "center",
-            justify = "center",
-        }, {
-            ui.glyph({ name = providerGlyph(entry.id), size = 22, color = "primary" }),
-        })
-
-        local planBadge = subtitle ~= "" and ui.row({
-            gap = 4, align = "center", paddingH = 7, paddingV = 3, radius = 6,
-            fill = "primary/0.10", border = "primary/0.25", borderWidth = 1,
-        }, {
-            ui.label({ text = subtitle, fontSize = 11, fontWeight = "semibold",
-                       color = "primary", maxLines = 1 }),
-        }) or nil
-
         local copyBtn = ui.button({
             glyph = "copy",
             variant = "ghost",
@@ -812,38 +744,28 @@ local function detailPane(entry)
         local actionButtons = { copyBtn }
         if dashBtn ~= nil then actionButtons[#actionButtons + 1] = dashBtn end
 
-        local metaSub = {}
+        local metaParts = {}
         if not unavailable(entry) then
             if entry.stale == true then
-                metaSub[#metaSub + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 11, color = "secondary" })
-                metaSub[#metaSub + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
+                metaParts[#metaParts + 1] = ui.label({ text = noctalia.tr("ui.stale"), fontSize = 11, color = "secondary" })
+                metaParts[#metaParts + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
             end
             local fetched = parseIso(entry.fetched_at)
             if fetched ~= nil then
-                metaSub[#metaSub + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
-                metaSub[#metaSub + 1] = ui.label({
+                metaParts[#metaParts + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
+                metaParts[#metaParts + 1] = ui.label({
                     text = updatedText(entry) .. " · " .. noctalia.formatTime(noctalia.timeFormat(), fetched),
                     fontSize = 11, color = "on_surface_variant",
                 })
             end
         end
 
-        local headerCol = {
-            ui.row({ gap = 8, align = "center" }, {
-                ui.label({ text = title, fontSize = 16, fontWeight = "bold",
-                           color = "on_surface", maxLines = 1 }),
-                planBadge,
-            }),
-        }
-        if #metaSub > 0 then
-            headerCol[#headerCol + 1] = ui.row({ gap = 4, align = "center" }, metaSub)
-        end
-
-        children[#children + 1] = ui.row({ gap = 12, align = "center" }, {
-            heroIcon,
-            ui.column({ gap = 2, flexGrow = 1 }, headerCol),
+        local subRow = {
+            ui.row({ gap = 4, align = "center" }, metaParts),
+            ui.spacer({ flexGrow = 1 }),
             ui.row({ gap = 2, align = "center" }, actionButtons),
-        })
+        }
+        children[#children + 1] = ui.row({ gap = 6, align = "center" }, subRow)
     end
 
     -- The read failed, but cached numbers remain the useful answer. Mark their
@@ -986,11 +908,62 @@ function render()
         return
     end
 
-    -- Both panes must be told to fill the panel, or their ui.scroll children ask
-    -- for their natural height and the cards overflow.
-    panel.render(ui.row({ gap = 0, flexGrow = 1, align = "stretch" }, {
-        listPane(entry),
-        ui.separator({ orientation = "vertical", color = "outline", opacity = 0.28 }),
+    local tabs = {}
+    for _, candidate in ipairs(entries()) do
+        if configured(candidate) then
+            tabs[#tabs + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
+        end
+    end
+
+    local topChildren = {
+        ui.row({ gap = 8, align = "center" }, {
+            ui.row({
+                width = 28, height = 28, radius = 7,
+                fill = "primary/0.14", align = "center", justify = "center",
+            }, {
+                ui.glyph({ name = "brain", size = 16, color = "primary" }),
+            }),
+            ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
+            ui.spacer({ flexGrow = 1 }),
+            ui.button({
+                glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
+                variant = "ghost", controlSize = "sm",
+                tooltip = noctalia.tr(polling and "ui.refreshing"
+                    or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
+                enabled = not polling,
+                onClick = requestRefresh,
+            }),
+            ui.button({
+                glyph = "settings",
+                variant = "ghost", controlSize = "sm",
+                tooltip = noctalia.tr("ui.settings"),
+                onClick = function() noctalia.openSettings() end,
+            }),
+            ui.button({
+                glyph = "x",
+                variant = "ghost", controlSize = "sm",
+                onClick = function()
+                    if type(panel.close) == "function" then panel.close() end
+                end,
+            }),
+        }),
+    }
+
+    if #tabs > 0 then
+        if #tabs <= 3 then
+            topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, tabs)
+        else
+            for i = 1, #tabs, 2 do
+                local chunk = { tabs[i] }
+                if tabs[i + 1] ~= nil then chunk[#chunk + 1] = tabs[i + 1] end
+                topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, chunk)
+            end
+        end
+    end
+
+    panel.render(ui.column({ gap = 8, padding = 12, flexGrow = 1, align = "stretch" }, {
+        ui.column({ gap = 8 }, topChildren),
+        ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.20 }),
         detailPane(entry),
     }))
 end
@@ -1070,7 +1043,7 @@ function onKey(chord, pressed)
         if type(panel.close) == "function" then panel.close() end
     elseif lower == "r" then
         requestRefresh()
-    elseif lower == "up" or lower == "down" then
+    elseif lower == "up" or lower == "down" or lower == "left" or lower == "right" then
         local list = {}
         local currentIndex = 1
         local current = currentEntry()
@@ -1083,8 +1056,8 @@ function onKey(chord, pressed)
             end
         end
         if #list > 1 then
-            local nextIndex = lower == "up" and ((currentIndex - 2 + #list) % #list + 1)
-                                             or ((currentIndex % #list) + 1)
+            local nextIndex = (lower == "up" or lower == "left") and ((currentIndex - 2 + #list) % #list + 1)
+                                                                 or ((currentIndex % #list) + 1)
             noctalia.state.set("selected", list[nextIndex].id)
             render()
         end

@@ -166,8 +166,8 @@ default = true
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# Master/detail: the provider list on the left, its cards on the right.
-width = 750
+# Provider tabs at the top, detailed charts and accessory cards below.
+width = 540
 height = 540
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
@@ -175,4 +175,4 @@ placement = "attached"
 position = "auto"
 open_near_click = true
 dismiss_on_outside_click = true
-capture_keys = ["escape", "r", "up", "down"]
+capture_keys = ["escape", "r", "up", "down", "left", "right"]
