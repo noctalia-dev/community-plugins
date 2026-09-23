@@ -400,11 +400,11 @@ local function hasGlyph(node, name)
     end
     return false
 end
-assert(hasGlyph(agyPanelTree, "brand-google"), "panel sidebar should display Gemini brand glyph")
-assert(hasGlyph(agyPanelTree, "robot"), "panel sidebar should display robot glyph for Claude & GPT OSS")
-assert(has(labels(agyPanelTree), "0%"), "panel sidebar should display active session 0%")
-assert(has(labels(agyPanelTree), "/ 24%"), "panel sidebar should display Gemini weekly percentage / 24%")
-assert(has(labels(agyPanelTree), "/ 100%"), "panel sidebar should display Claude weekly percentage / 100%")
+assert(hasGlyph(agyPanelTree, "brand-google"), "panel detail card should display Gemini brand glyph")
+assert(hasGlyph(agyPanelTree, "robot"), "panel detail card should display robot glyph for Claude & GPT OSS")
+assert(has(labels(agyPanelTree), "0%"), "panel should display active session 0%")
+assert(has(labels(agyPanelTree), "24%"), "panel should display Gemini weekly percentage 24%")
+assert(has(labels(agyPanelTree), "100%"), "panel should display Claude weekly percentage 100%")
 
 local googleGlyphs = {}
 local robotGlyphs = {}
@@ -412,18 +412,17 @@ for _, g in ipairs(collect(agyPanelTree, "glyph")) do
     if g.props.name == "brand-google" then googleGlyphs[#googleGlyphs + 1] = g end
     if g.props.name == "robot" then robotGlyphs[#robotGlyphs + 1] = g end
 end
-assert(#googleGlyphs >= 2, "brand-google should appear in both sidebar and model detail card header")
-assert(#robotGlyphs >= 2, "robot should appear in both sidebar and model detail card header")
+assert(#googleGlyphs >= 1, "brand-google should appear in model detail card header")
+assert(#robotGlyphs >= 1, "robot should appear in model detail card header")
 
 local agyRows = {}
 for _, row in ipairs(collect(agyPanelTree, "row")) do
     if row.props.key == "provider-antigravity" then agyRows[#agyRows + 1] = row end
 end
-assert(#agyRows == 1, "antigravity row should exist in panel")
-local agyProgress = collect(agyRows[1], "progress")
-assert(#agyProgress == 4, "antigravity providerRow should have 4 progress bars for Gemini and Claude windows")
-local agySpacers = collect(agyRows[1], "spacer")
-assert(#agySpacers >= 1, "antigravity providerRow should include balancing spacer for centered icon alignment")
+assert(#agyRows == 1, "antigravity tab button should exist in panel")
+assert(#collect(agyRows[1], "progress") == 0, "antigravity tab button should only contain icon and name, no mini progress bars")
+assert(hasGlyph(agyRows[1], "sparkles"), "antigravity tab button should display sparkles provider glyph")
+assert(has(labels(agyRows[1]), "Antigravity"), "antigravity tab button should display provider name")
 
 local codexDualEntry = {
     id = "openai",
@@ -441,9 +440,10 @@ local codexRows = {}
 for _, row in ipairs(collect(codexTree, "row")) do
     if row.props.key == "provider-openai" then codexRows[#codexRows + 1] = row end
 end
-assert(#codexRows == 1, "codex row should exist in panel")
-local codexProgress = collect(codexRows[1], "progress")
-assert(#codexProgress == 2, "codex providerRow should have paired dual progress bars for session and weekly")
+assert(#codexRows == 1, "codex tab button should exist in panel")
+assert(#collect(codexRows[1], "progress") == 0, "codex tab button should only contain icon and name, no mini progress bars")
+assert(hasGlyph(codexRows[1], "brand-openai"), "codex tab button should display brand-openai provider glyph")
+assert(has(labels(codexRows[1]), "Codex"), "codex tab button should display provider name")
 
 local codexWithEmptyCredits = {
     id = "openai",

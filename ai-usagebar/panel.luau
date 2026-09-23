@@ -15,7 +15,7 @@ local modelGlyph = shared.modelGlyph
 local modelDisplayName = shared.modelDisplayName
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
 local requestRefresh = shared.requestRefresh
-local providerWarning, unavailable = shared.warning, shared.unavailable
+local providerWarning, unavailable, readFailure = shared.warning, shared.unavailable, shared.readFailure
 local saysError, transportError = shared.saysError, shared.transportError
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 
@@ -86,10 +86,20 @@ local function metricRows(section, title, muted)
     local tint = severityRole(section, "on_surface")
     local fill = severityRole(section, "primary")
     local value = tostring(section.value or ""):gsub(" of ", " / ")
-    -- Only worth a column of its own when it says more than the percentage.
     local showValue = value ~= "" and value ~= string.format("%d%%", percent)
 
-    local header = {
+    local left = countdown(section)
+    local clock = resetClock(section)
+    local elapsed = elapsedPercent(section.detail)
+    local paceText, _, paceWord = pace(section.detail)
+
+    local resetStr = ""
+    if left ~= "" then
+        resetStr = left
+        if clock ~= "" then resetStr = resetStr .. " (" .. clock .. ")" end
+    end
+
+    local titleParts = {
         ui.label({
             text = tostring(title or ""),
             fontSize = muted and 12 or 13,
@@ -97,76 +107,38 @@ local function metricRows(section, title, muted)
             color = "on_surface",
             maxLines = 1,
         }),
-        ui.spacer({ flexGrow = 1 }),
     }
-    local word = severityWord(section)
-    if word ~= nil then
-        local sevRole = isCritical(section) and "error" or severityRole(section, "secondary")
-        header[#header + 1] = ui.row({
-            paddingH = 6, paddingV = 1, radius = 5,
-            fill = sevRole .. "/0.14",
-        }, {
-            ui.label({ text = word, fontSize = 10, fontWeight = "bold", color = sevRole }),
+
+    if resetStr ~= "" then
+        titleParts[#titleParts + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
+        titleParts[#titleParts + 1] = ui.row({ gap = 3, align = "center" }, {
+            ui.glyph({ name = "clock", size = 10, color = "on_surface_variant" }),
+            ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
         })
     end
-    if showValue then
-        header[#header + 1] = ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
-    end
-    header[#header + 1] = ui.label({
-        text = string.format("%d%%", percent),
-        fontSize = 14,
-        fontWeight = "bold",
-        color = tint,
-        textAlign = "end",
-    })
 
-    local progressBar = ui.progress({
-        progress = ratio(percent),
-        fill = fill,
-        track = "on_surface/0.12",
-        radius = 3,
-        height = 6,
-    })
-
-    local left = countdown(section)
-    local clock = resetClock(section)
-    local elapsed = elapsedPercent(section.detail)
-    local paceText, _, paceWord = pace(section.detail)
-
-    local infoParts = {}
-    if left ~= "" then
-        infoParts[#infoParts + 1] = ui.glyph({ name = "clock", size = 11, color = "on_surface_variant" })
-        local resetStr = left
-        if clock ~= "" then resetStr = resetStr .. " (" .. clock .. ")" end
-        infoParts[#infoParts + 1] = ui.label({ text = resetStr, fontSize = 11, color = "on_surface_variant" })
-    end
     if elapsed ~= nil then
-        if #infoParts > 0 then
-            infoParts[#infoParts + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
-        end
-        infoParts[#infoParts + 1] = ui.label({
+        titleParts[#titleParts + 1] = ui.label({ text = "·", fontSize = 11, color = "on_surface_variant" })
+        titleParts[#titleParts + 1] = ui.label({
             text = noctalia.tr("ui.elapsed", { percent = elapsed }),
             fontSize = 11, color = "on_surface_variant", maxLines = 1,
         })
     end
 
-    local metaRow = {
-        ui.row({ gap = 4, align = "center" }, infoParts),
-    }
+    local rightMeta = {}
 
     if paceText ~= "" then
-        metaRow[#metaRow + 1] = ui.spacer({ flexGrow = 1 })
         if paceWord == "ahead" then
-            metaRow[#metaRow + 1] = ui.row({
-                gap = 3, align = "center", paddingH = 6, paddingV = 1, radius = 5,
+            rightMeta[#rightMeta + 1] = ui.row({
+                gap = 3, align = "center", paddingH = 5, paddingV = 1, radius = 5,
                 fill = "secondary/0.14",
             }, {
                 ui.glyph({ name = "trending-up", size = 10, color = "secondary" }),
                 ui.label({ text = paceText, fontSize = 10, fontWeight = "semibold", color = "secondary", maxLines = 1 }),
             })
         else
-            metaRow[#metaRow + 1] = ui.row({
-                gap = 3, align = "center", paddingH = 6, paddingV = 1, radius = 5,
+            rightMeta[#rightMeta + 1] = ui.row({
+                gap = 3, align = "center", paddingH = 5, paddingV = 1, radius = 5,
                 fill = "surface_variant/0.50",
             }, {
                 ui.glyph({ name = "trending-down", size = 10, color = "on_surface_variant" }),
@@ -175,45 +147,73 @@ local function metricRows(section, title, muted)
         end
     end
 
+    local word = severityWord(section)
+    if word ~= nil then
+        local sevRole = isCritical(section) and "error" or severityRole(section, "secondary")
+        rightMeta[#rightMeta + 1] = ui.row({
+            paddingH = 5, paddingV = 1, radius = 5,
+            fill = sevRole .. "/0.14",
+        }, {
+            ui.label({ text = word, fontSize = 10, fontWeight = "bold", color = sevRole }),
+        })
+    end
+
+    if showValue then
+        rightMeta[#rightMeta + 1] = ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 })
+    end
+
+    rightMeta[#rightMeta + 1] = ui.label({
+        text = string.format("%d%%", percent),
+        fontSize = 13,
+        fontWeight = "bold",
+        color = tint,
+        textAlign = "end",
+    })
+
+    local progressBar = ui.progress({
+        progress = ratio(percent),
+        fill = fill,
+        track = "on_surface/0.10",
+        radius = 2,
+        height = 5,
+    })
+
     local body = {
-        ui.row({ gap = 6, align = "center" }, header),
+        ui.row({ gap = 6, align = "center" }, {
+            ui.row({ gap = 4, align = "center" }, titleParts),
+            ui.spacer({ flexGrow = 1 }),
+            ui.row({ gap = 4, align = "center", justify = "end" }, rightMeta),
+        }),
         progressBar,
-        ui.row({ gap = 6, align = "center" }, metaRow),
     }
 
     local rest = plainDetail(section.detail)
     if rest ~= "" then
-        body[#body + 1] = ui.label({ text = rest, fontSize = 11, color = "on_surface_variant" })
+        body[#body + 1] = ui.label({ text = rest, fontSize = 10, color = "on_surface_variant" })
     end
 
     return body
 end
 
-local CARD = { gap = 6, padding = 12, radius = 12, fill = "surface_variant/0.40",
+local CARD = { gap = 6, padding = 10, radius = 10, fill = "surface_variant/0.40",
                border = "outline/0.08", borderWidth = 1 }
 
--- A provider's readings share one card, so the session and the week are read
--- together. `name` titles it only where the readings need telling apart by
--- something the panel has not already said: Antigravity reports two models, one
--- reading per window each. Elsewhere the header names the subject.
 local function stackCard(name, readings)
     local titled = name ~= ""
     local body = {}
     if titled then
-        body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
+        body[#body + 1] = ui.row({ gap = 6, align = "center" }, {
             ui.row({
-                width = 24, height = 24, radius = 6,
+                width = 22, height = 22, radius = 6,
                 fill = "primary/0.14", align = "center", justify = "center",
             }, {
-                ui.glyph({ name = modelGlyph(name), size = 14, color = "primary" }),
+                ui.glyph({ name = modelGlyph(name), size = 13, color = "primary" }),
             }),
-            ui.label({ text = modelDisplayName(name), fontSize = 13, fontWeight = "bold",
+            ui.label({ text = modelDisplayName(name), fontSize = 12, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
     end
     for index, reading in ipairs(readings) do
-        -- Two readings in one card run together without a line between them,
-        -- whether or not a title stands over both.
         if index > 1 then
             body[#body + 1] = ui.spacer({ height = 2 })
             body[#body + 1] = ui.box({ height = 1, fill = "outline/0.14" })
@@ -275,14 +275,27 @@ end
 -- A `text` section the CLI uses for a warning. The `credentials error:` prefix
 -- and the repeated provider name are the CLI talking to a log, not to a panel
 -- that already names the provider in its title.
-local function noteCard(text)
+local function noteCard(text, failureLabel)
     local clean = noctalia.string.trim(tostring(text or ""))
     clean = clean:gsub("^[Cc]redentials error:%s*", "")
-    return ui.row({ gap = 8, align = "start", padding = 12, radius = 14,
-                    fill = "secondary/0.08", border = "outline/0.08", borderWidth = 1 }, {
-        ui.glyph({ name = "alert-triangle", size = 14, color = "secondary" }),
+    local content = {
         ui.label({ text = clean, fontSize = 11, color = "on_surface_variant",
                    flexGrow = 1, maxLines = 3 }),
+    }
+    if failureLabel ~= nil and failureLabel ~= "" then
+        table.insert(content, 1, ui.label({
+            text = failureLabel,
+            fontSize = 12,
+            fontWeight = "bold",
+            color = "error",
+        }))
+    end
+    return ui.row({ gap = 8, align = "start", padding = 12, radius = 10,
+                    fill = failureLabel and "error/0.08" or "secondary/0.08",
+                    border = failureLabel and "error/0.25" or "outline/0.08",
+                    borderWidth = 1 }, {
+        ui.glyph({ name = "alert-triangle", size = 14, color = failureLabel and "error" or "secondary" }),
+        ui.column({ gap = 3, flexGrow = 1 }, content),
     })
 end
 
@@ -406,10 +419,13 @@ local function otherCard(section, warned)
             if warned then return nil end
             return noteCard(value)
         end
-        return ui.row({ gap = 6, align = "center" }, {
-            ui.label({ text = label, fontSize = 11, color = "on_surface_variant" }),
+        return ui.row({
+            gap = 6, align = "center", paddingH = 8, paddingV = 4, radius = 6,
+            fill = "surface_variant/0.25",
+        }, {
+            ui.label({ text = label, fontSize = 10, color = "on_surface_variant" }),
             ui.spacer({ flexGrow = 1 }),
-            ui.label({ text = value, fontSize = 11, color = "on_surface", maxLines = 1 }),
+            ui.label({ text = value, fontSize = 10, fontWeight = "medium", color = "on_surface", maxLines = 1 }),
         })
     end
 
@@ -430,207 +446,49 @@ end
 -- ── Provider list ─────────────────────────────────────────────────────────────
 
 local function providerRow(entry, selected)
-    local metric = headline(entry)
-    local percent = metric ~= nil and tonumber(metric.percent) or nil
-    -- Down is down whether the CLI failed the provider outright or kept serving
-    -- what it cached: either way the row stops drawing a gauge for it.
-    local broken = entry.status == "error" or unavailable(entry)
-    local tint = severityRole(metric, "on_surface")
-    local submodels = modelHeadlines(entry)
-    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-
-    -- The reading keeps its severity colour whether or not the row is selected:
-    -- recolouring it hides the one thing the list exists to compare.
-    local right
-    if broken then
-        right = ui.row({ width = 48, justify = "end" }, {
-            ui.glyph({ name = "alert-circle", size = 14, color = "error" }),
-        })
-    elseif #submodels > 0 then
-        local colChildren = {}
-        for _, item in ipairs(submodels) do
-            local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
-            local m1, m2 = dualMetrics(mMetrics)
-            local p1 = m1 and (tonumber(m1.percent) or 0) or 0
-            local p2 = m2 ~= nil and tonumber(m2.percent) or nil
-            local t1 = m1 and (isCritical(m1) and "error" or severityRole(m1, "on_surface")) or "on_surface"
-            local t2 = m2 ~= nil and (isCritical(m2) and "error" or severityRole(m2, "on_surface_variant")) or nil
-            local f1 = m1 and (isCritical(m1) and "error" or severityRole(m1, "primary")) or "primary"
-            local f2 = m2 and (isCritical(m2) and "error" or severityRole(m2, "primary")) or "primary"
-
-            local barsStack = {
-                ui.progress({ progress = ratio(p1), fill = f1, track = "on_surface/0.10", radius = 1, height = 2, width = 22 }),
-            }
-            if p2 ~= nil then
-                barsStack[#barsStack + 1] = ui.progress({ progress = ratio(p2), fill = f2, track = "on_surface/0.10", radius = 1, height = 2, width = 22 })
-            end
-
-            local pctElements = {
-                ui.label({
-                    text = string.format("%d%%", p1),
-                    fontSize = 10,
-                    fontWeight = "bold",
-                    color = t1,
-                    textAlign = "end",
-                    maxLines = 1,
-                }),
-            }
-            if p2 ~= nil then
-                pctElements[#pctElements + 1] = ui.label({
-                    text = string.format("/ %d%%", p2),
-                    fontSize = 10,
-                    fontWeight = "medium",
-                    color = t2,
-                    textAlign = "end",
-                    maxLines = 1,
-                })
-            end
-
-            colChildren[#colChildren + 1] = ui.row({ gap = 4, align = "center", justify = "end" }, {
-                ui.glyph({
-                    name = item.glyph or "sparkles",
-                    size = 11,
-                    color = "on_surface_variant",
-                }),
-                ui.column({ gap = 1 }, barsStack),
-                ui.row({ gap = 2, align = "center", justify = "end" }, pctElements),
-            })
-        end
-        local rightChildren = {
-            ui.column({ gap = 3, align = "end" }, colChildren),
-        }
-        if entry.stale == true then
-            rightChildren[#rightChildren + 1] = ui.glyph({
-                name = "clock-exclamation", size = 12, color = "secondary",
-            })
-        end
-        right = ui.row({ gap = 3, justify = "end", align = "center" }, rightChildren)
-    elseif #metrics >= 2 then
-        local m1, m2 = dualMetrics(metrics)
-        local p1 = m1 and (tonumber(m1.percent) or 0) or 0
-        local p2 = m2 and (tonumber(m2.percent) or 0) or 0
-        local t1 = m1 and severityRole(m1, "on_surface") or "on_surface"
-        local t2 = m2 and severityRole(m2, "on_surface_variant") or "on_surface_variant"
-        local f1 = m1 and (isCritical(m1) and "error" or severityRole(m1, "primary")) or "primary"
-        local f2 = m2 and (isCritical(m2) and "error" or severityRole(m2, "primary")) or "primary"
-
-        local rightChildren = {
-            ui.column({ gap = 2 }, {
-                ui.progress({ progress = ratio(p1), fill = f1, track = "on_surface/0.10", radius = 1, width = 28, height = 3 }),
-                ui.progress({ progress = ratio(p2), fill = f2, track = "on_surface/0.10", radius = 1, width = 28, height = 3 }),
-            }),
-            ui.column({ gap = 1, align = "end" }, {
-                ui.label({
-                    text = string.format("%d%%", p1),
-                    fontSize = 11,
-                    fontWeight = "bold",
-                    color = t1,
-                    textAlign = "end",
-                    maxLines = 1,
-                }),
-                ui.label({
-                    text = string.format("%d%%", p2),
-                    fontSize = 10,
-                    fontWeight = "medium",
-                    color = t2,
-                    textAlign = "end",
-                    maxLines = 1,
-                }),
-            }),
-        }
-        if entry.stale == true then
-            rightChildren[#rightChildren + 1] = ui.glyph({
-                name = "clock-exclamation", size = 12, color = "secondary",
-            })
-        end
-        right = ui.row({ gap = 4, justify = "end", align = "center" }, rightChildren)
-    else
-        local p1 = percent ~= nil and percent or 0
-        local rightChildren = {}
-        if percent ~= nil then
-            rightChildren[#rightChildren + 1] = ui.progress({
-                progress = ratio(p1),
-                fill = severityRole(metric, "primary"),
-                track = "on_surface/0.12",
-                radius = 2,
-                width = 28,
-                height = 4,
-            })
-        end
-        rightChildren[#rightChildren + 1] = ui.label({
-            text = percent ~= nil and string.format("%d%%", percent) or "—",
-            fontSize = 12,
-            fontWeight = "bold",
-            color = tint,
-            textAlign = "end",
-        })
-        if entry.stale == true then
-            rightChildren[#rightChildren + 1] = ui.glyph({
-                name = "clock-exclamation", size = 12, color = "secondary",
-            })
-        end
-        right = ui.row({ gap = 4, justify = "end", align = "center" }, rightChildren)
-    end
-
     local displayName = tostring(entry.display_name or entry.name or entry.id or "")
-    local planText = tostring(entry.plan or "")
-    if planText == displayName or planText == "" then
-        if #submodels > 0 then
-            planText = "Gemini & Claude"
-        else
-            planText = "Active"
-        end
-    end
+    local broken = entry.status == "error" or unavailable(entry)
 
-    local lines = {
-        ui.label({
-            text = displayName,
-            fontSize = 12, fontWeight = "bold",
-            color = selected and "primary" or "on_surface", maxLines = 1,
-        }),
-        ui.label({
-            text = shared.readFailure(entry) and noctalia.tr("ui.error.failed")
-                or broken and noctalia.tr("ui.unavailable") or planText,
-            fontSize = 10, color = "on_surface_variant", maxLines = 1,
-        }),
-    }
-    if #submodels > 0 and not broken then
-        lines[#lines + 1] = ui.spacer({ height = 2 })
-    end
-
-    local iconBox = ui.row({
-        width = 28,
-        height = 28,
-        radius = 7,
-        fill = selected and "primary/0.20" or "surface_variant/0.45",
-        border = selected and "primary/0.40" or "outline/0.08",
-        borderWidth = 1,
-        align = "center",
-        justify = "center",
-    }, {
+    local children = {
         ui.glyph({
             name = providerGlyph(entry.id),
             size = 15,
             color = selected and "primary" or "on_surface",
         }),
-    })
+        ui.label({
+            text = displayName,
+            fontSize = 12,
+            fontWeight = selected and "bold" or "medium",
+            color = selected and "primary" or "on_surface",
+            maxLines = 1,
+        }),
+    }
+
+    if broken then
+        children[#children + 1] = ui.glyph({
+            name = "alert-circle",
+            size = 13,
+            color = "error",
+        })
+    end
 
     return ui.row({
         key = "provider-" .. tostring(entry.id),
-        gap = 7, align = "center", padding = 7, radius = 9,
+        gap = 8,
+        align = "center",
+        justify = "center",
+        paddingH = 14,
+        paddingV = 8,
+        radius = 8,
         flexGrow = 1,
         fill = selected and "primary/0.14" or "surface_variant/0.22",
-        border = selected and "primary/0.40" or "outline/0.08",
+        border = selected and "primary/0.45" or "outline/0.08",
         borderWidth = 1,
         onClick = function()
             noctalia.state.set("selected", tostring(entry.id))
             render()
         end,
-    }, {
-        iconBox,
-        ui.column({ gap = 1, flexGrow = 1 }, lines),
-        right,
-    })
+    }, children)
 end
 
 -- ── Render ────────────────────────────────────────────────────────────────────
@@ -842,7 +700,8 @@ local function detailPane(entry)
     -- follow as a record, unless a plan change made them meaningless.
     local warning = entry ~= nil and providerWarning(entry) or ""
     if warning ~= "" then
-        cards[#cards + 1] = noteCard(warning)
+        local failureLabel = readFailure(entry) and noctalia.tr("ui.error.failed") or nil
+        cards[#cards + 1] = noteCard(warning, failureLabel)
         local id = tostring(entry.id or "")
         local previous = lastPlan[id]
         local current = tostring(entry.plan or "")
