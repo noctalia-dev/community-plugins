@@ -355,6 +355,68 @@ function M.modelHeadlines(entry)
     return result
 end
 
+-- Extracts (shortMetric, weeklyMetric) where shortMetric represents the 5-hour
+-- session limit and weeklyMetric represents the 7-day rate limit.
+function M.dualMetrics(metrics)
+    if type(metrics) ~= "table" or #metrics == 0 then
+        return nil, nil
+    end
+    if #metrics == 1 then
+        local m = metrics[1]
+        local isWeekly = false
+        if type(m) == "table" then
+            local w = tonumber(m.window_secs)
+            local lbl = tostring(m.label or ""):lower()
+            if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+                isWeekly = true
+            end
+        end
+        if isWeekly then
+            return nil, m
+        end
+        return m, nil
+    end
+
+    local shortMetric = nil
+    local weeklyMetric = nil
+
+    for _, m in ipairs(metrics) do
+        if type(m) == "table" then
+            local w = tonumber(m.window_secs)
+            local lbl = tostring(m.label or ""):lower()
+            if w ~= nil then
+                if w <= 86400 and shortMetric == nil then
+                    shortMetric = m
+                elseif w > 86400 and weeklyMetric == nil then
+                    weeklyMetric = m
+                end
+            elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
+                if shortMetric == nil then shortMetric = m end
+            elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+                if weeklyMetric == nil then weeklyMetric = m end
+            end
+        end
+    end
+
+    if shortMetric ~= nil and weeklyMetric ~= nil then
+        return shortMetric, weeklyMetric
+    end
+
+    if shortMetric ~= nil and weeklyMetric == nil and #metrics >= 2 then
+        for _, m in ipairs(metrics) do
+            if m ~= shortMetric then return shortMetric, m end
+        end
+    end
+
+    if weeklyMetric ~= nil and shortMetric == nil and #metrics >= 2 then
+        for _, m in ipairs(metrics) do
+            if m ~= weeklyMetric then return m, weeklyMetric end
+        end
+    end
+
+    return metrics[1], metrics[2]
+end
+
 function M.entries(report)
     if type(report) ~= "table" or type(report.entries) ~= "table" then return {} end
     local visible, positions = {}, {}

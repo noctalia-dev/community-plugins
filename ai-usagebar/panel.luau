@@ -10,7 +10,7 @@ local shared = require("./shared.luau")
 local providerGlyph, parseIso = shared.providerGlyph, shared.parseIso
 local countdown, resetClock = shared.countdown, shared.resetClock
 local ratio, headline, severityRole = shared.ratio, shared.headline, shared.severityRole
-local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
+local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local modelGlyph = shared.modelGlyph
 local modelDisplayName = shared.modelDisplayName
 local elapsedPercent, pace = shared.elapsedPercent, shared.pace
@@ -441,11 +441,10 @@ local function providerRow(entry, selected)
         local modelPairGroups = {}
         for _, item in ipairs(submodels) do
             local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
-            local m1 = mMetrics[1] or item.metric
-            local m2 = mMetrics[2]
-            local p1 = tonumber(m1.percent) or 0
+            local m1, m2 = dualMetrics(mMetrics)
+            local p1 = m1 and (tonumber(m1.percent) or 0) or 0
             local p2 = m2 ~= nil and tonumber(m2.percent) or nil
-            local t1 = isCritical(m1) and "error" or severityRole(m1, "on_surface")
+            local t1 = m1 and (isCritical(m1) and "error" or severityRole(m1, "on_surface")) or "on_surface"
             local t2 = m2 ~= nil and (isCritical(m2) and "error" or severityRole(m2, "on_surface_variant")) or nil
 
             local pctElements = {
@@ -479,9 +478,20 @@ local function providerRow(entry, selected)
             })
 
             local modelBars = {}
-            for _, m in ipairs(mMetrics) do
-                local p = tonumber(m.percent) or 0
-                local f = isCritical(m) and "error" or severityRole(m, "primary")
+            if m1 ~= nil then
+                local p = tonumber(m1.percent) or 0
+                local f = isCritical(m1) and "error" or severityRole(m1, "primary")
+                modelBars[#modelBars + 1] = ui.progress({
+                    progress = ratio(p),
+                    fill = f,
+                    track = "on_surface/0.10",
+                    radius = 1,
+                    height = 2,
+                })
+            end
+            if m2 ~= nil then
+                local p = tonumber(m2.percent) or 0
+                local f = isCritical(m2) and "error" or severityRole(m2, "primary")
                 modelBars[#modelBars + 1] = ui.progress({
                     progress = ratio(p),
                     fill = f,
@@ -503,13 +513,13 @@ local function providerRow(entry, selected)
         end
         right = ui.row({ gap = 3, width = 76, justify = "end", align = "center" }, rightChildren)
     elseif #metrics >= 2 then
-        local m1, m2 = metrics[1], metrics[2]
-        local p1 = tonumber(m1.percent) or 0
-        local p2 = tonumber(m2.percent) or 0
-        local t1 = severityRole(m1, "on_surface")
-        local t2 = severityRole(m2, "on_surface_variant")
-        local f1 = severityRole(m1, "primary")
-        local f2 = severityRole(m2, "primary")
+        local m1, m2 = dualMetrics(metrics)
+        local p1 = m1 and (tonumber(m1.percent) or 0) or 0
+        local p2 = m2 and (tonumber(m2.percent) or 0) or 0
+        local t1 = m1 and severityRole(m1, "on_surface") or "on_surface"
+        local t2 = m2 and severityRole(m2, "on_surface_variant") or "on_surface_variant"
+        local f1 = m1 and (isCritical(m1) and "error" or severityRole(m1, "primary")) or "primary"
+        local f2 = m2 and (isCritical(m2) and "error" or severityRole(m2, "primary")) or "primary"
 
         gaugeNode = ui.column({ gap = 2 }, {
             ui.progress({ progress = ratio(p1), fill = f1, track = "on_surface/0.10", radius = 2, height = 3 }),

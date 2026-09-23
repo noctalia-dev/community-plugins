@@ -447,3 +447,56 @@ fastEntry.metrics[1].detail = "Resets in 4h 00m · 20% elapsed · 60pts ahead"
 local pacingBar = loadBar({ vendor = "openai", extras = "none" }, { entries = { fastEntry } })
 assert(containsGlyph(pacingBar.rendered(), "arrow-up"), "ahead of pace cue arrow-up displayed even when extras is none")
 
+local function findAllNodes(node, predicate, acc)
+    acc = acc or {}
+    if type(node) ~= "table" then return acc end
+    if predicate(node) then acc[#acc + 1] = node end
+    for _, child in ipairs(node.children or {}) do
+        findAllNodes(child, predicate, acc)
+    end
+    return acc
+end
+
+local dualBarTest = loadBar({ vendor = "openai", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "openai",
+            display_name = "Codex",
+            status = "ready",
+            metrics = {
+                { label = "Codex 5h", percent = 10, window_secs = 18000 },
+                { label = "Codex weekly", percent = 95, window_secs = 604800 },
+            },
+        },
+    },
+})
+local progressBars = findAllNodes(dualBarTest.rendered(), function(n) return n.kind == "progress" end)
+assert(#progressBars == 2, "dual metric provider should render 2 progress bars")
+assert(progressBars[1].props.height == 6 and progressBars[1].props.progress == 0.10,
+       "top bar must be the 5h limit with height 6")
+assert(progressBars[2].props.height == 3 and progressBars[2].props.progress == 0.95,
+       "bottom bar must be the weekly limit with height 3")
+
+local agyDualBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 15, window_secs = 18000 },
+                { label = "Claude & GPT OSS", percent = 40, window_secs = 18000 },
+                { label = "Gemini", percent = 80, window_secs = 604800 },
+                { label = "Claude & GPT OSS", percent = 100, window_secs = 604800 },
+            },
+        },
+    },
+})
+local agyBars = findAllNodes(agyDualBar.rendered(), function(n) return n.kind == "progress" end)
+assert(#agyBars == 4, "antigravity with 2 models should render 4 progress bars (2 per model)")
+assert(agyBars[1].props.height == 6 and agyBars[1].props.progress == 0.15, "Gemini top bar is 5h")
+assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemini bottom bar is weekly")
+assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
+assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")
+
+

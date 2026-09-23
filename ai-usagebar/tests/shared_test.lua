@@ -181,4 +181,26 @@ assert(shared.providerDashboard("anthropic") == "https://console.anthropic.com/"
 assert(shared.providerDashboard("openai@work") == "https://platform.openai.com/usage", "account suffix base provider dashboard")
 assert(shared.providerDashboard("unknown") == nil, "unknown provider returns nil dashboard")
 
+local mShort, mWeekly = shared.dualMetrics({
+    { label = "Weekly", percent = 90, window_secs = 604800 },
+    { label = "Session", percent = 20, window_secs = 18000 },
+})
+assert(mShort.percent == 20 and mWeekly.percent == 90, "dualMetrics should sort 5h/session first regardless of input order")
+
+local labelShort, labelWeekly = shared.dualMetrics({
+    { label = "Codex weekly", percent = 80 },
+    { label = "Codex 5h", percent = 15 },
+})
+assert(labelShort.percent == 15 and labelWeekly.percent == 80, "dualMetrics should detect 5h vs weekly from labels")
+
+local singleWeeklyShort, singleWeeklyWeekly = shared.dualMetrics({
+    { label = "Weekly only", percent = 70, window_secs = 604800 },
+})
+assert(singleWeeklyShort == nil and singleWeeklyWeekly.percent == 70, "dualMetrics should identify single weekly metric")
+
+local singleSessionShort, singleSessionWeekly = shared.dualMetrics({
+    { label = "5h only", percent = 30, window_secs = 18000 },
+})
+assert(singleSessionShort.percent == 30 and singleSessionWeekly == nil, "dualMetrics should identify single session metric")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

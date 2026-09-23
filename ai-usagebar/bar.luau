@@ -22,7 +22,7 @@ local shared = require("./shared.luau")
 local providerGlyph, baseProvider = shared.providerGlyph, shared.baseProvider
 local fixedCountdown = shared.fixedCountdown
 local ratio, headline, elapsedPercent = shared.ratio, shared.headline, shared.elapsedPercent
-local modelHeadlines, isCritical = shared.modelHeadlines, shared.isCritical
+local modelHeadlines, isCritical, dualMetrics = shared.modelHeadlines, shared.isCritical, shared.dualMetrics
 local pace, SEVERITY_RANK = shared.pace, shared.SEVERITY_RANK
 local NO_FAILURE, asFailure = shared.NO_FAILURE, shared.asFailure
 local unavailable, warning = shared.unavailable, shared.warning
@@ -138,17 +138,52 @@ end
 
 -- ── Rendering ─────────────────────────────────────────────────────────────────
 
--- Quota above, window elapsed below: a fill longer than the clock bar is spend
--- running ahead of time.
-local function bars(percent, elapsed, tint, width)
+local function metricFill(metric)
+    if not colorByUsage then return "primary" end
+    if isCritical(metric) then return "error" end
+    return severityRole(metric, "primary")
+end
+
+-- Upper and bigger bar (height 6, radius 3): 5h limit (session window)
+-- Lower and thinner bar (height 3, radius 2): weekly limit (7-day rate limit)
+local function bars(mShort, mWeekly, width)
+    if mShort == nil and mWeekly == nil then return nil end
+
+    local pShort = mShort and tonumber(mShort.percent)
+    local pWeekly = mWeekly and tonumber(mWeekly.percent)
+
+    if pShort == nil and pWeekly == nil then return nil end
+
+    local fShort = mShort and metricFill(mShort) or "primary"
+    local fWeekly = mWeekly and metricFill(mWeekly) or "primary"
+
+    -- Upper / bigger bar (height 6): 5h limit (or the single available metric)
+    local topProgress = pShort ~= nil and pShort or (pWeekly or 0)
+    local topFill = pShort ~= nil and fShort or fWeekly
+
     local stack = {
-        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.14",
-                      radius = 3, width = width, height = 6 }),
+        ui.progress({
+            progress = ratio(topProgress),
+            fill = topFill,
+            track = "on_surface/0.14",
+            radius = 3,
+            width = width,
+            height = 6,
+        }),
     }
-    if elapsed ~= nil then
-        stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
-                                          track = "on_surface/0.10", radius = 2, width = width, height = 3 })
+
+    -- Lower / thinner bar (height 3): weekly limit
+    if pWeekly ~= nil and pShort ~= nil then
+        stack[#stack + 1] = ui.progress({
+            progress = ratio(pWeekly),
+            fill = fWeekly,
+            track = "on_surface/0.10",
+            radius = 2,
+            width = width,
+            height = 3,
+        })
     end
+
     return ui.column({ gap = 2, align = "center" }, stack)
 end
 
@@ -226,8 +261,13 @@ local function chip(entry, flagged, isVert)
                         color = "on_surface",
                     }) or nil
                 if modelGlyph and not glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
-                if visualization == "gauge" and not isVert and not glyphAfter then
-                    rowChildren[#rowChildren + 1] = bars(mPct, elapsedPercent(shownMetric and shownMetric.detail), mFill, 22)
+
+                local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
+                local mShort, mWeekly = dualMetrics(mMetrics)
+                local barNode = bars(mShort, mWeekly, 22)
+
+                if visualization == "gauge" and not isVert and not glyphAfter and barNode ~= nil then
+                    rowChildren[#rowChildren + 1] = barNode
                 end
                 if showValue then
                     rowChildren[#rowChildren + 1] = ui.label({
@@ -238,8 +278,8 @@ local function chip(entry, flagged, isVert)
                         maxLines = 1,
                     })
                 end
-                if visualization == "gauge" and not isVert and glyphAfter then
-                    rowChildren[#rowChildren + 1] = bars(mPct, elapsedPercent(shownMetric and shownMetric.detail), mFill, 22)
+                if visualization == "gauge" and not isVert and glyphAfter and barNode ~= nil then
+                    rowChildren[#rowChildren + 1] = barNode
                 end
                 if (extras == "countdown" or extras == "both") and not isVert then
                     local left = fixedCountdown(shownMetric)
@@ -301,8 +341,13 @@ local function chip(entry, flagged, isVert)
 
     if not glyphAfter then add(glyph) end
     add(name)
-    if percent ~= nil and visualization == "gauge" and not hasSubmodels then
-        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 32))
+    if visualization == "gauge" and not hasSubmodels then
+        local mShort, mWeekly = dualMetrics(entry.metrics)
+        local barNode = bars(mShort, mWeekly, 32)
+        if barNode == nil and percent ~= nil then
+            barNode = bars({ percent = percent, severity = metric and metric.severity }, nil, 32)
+        end
+        add(barNode)
     end
     add(pct)
     if glyphAfter then add(glyph) end
@@ -397,14 +442,16 @@ local function tooltip(picked, hidden)
             if #submodels > 0 then
                 for _, item in ipairs(submodels) do
                     local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
-                    local val = formatDualMetric(mMetrics[1], mMetrics[2])
+                    local mShort, mWeekly = dualMetrics(mMetrics)
+                    local val = formatDualMetric(mShort, mWeekly)
                     if val ~= "" then
                         rows[#rows + 1] = { key = item.displayName or item.model, value = val }
                     end
                 end
             else
                 local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-                local val = formatDualMetric(metrics[1], metrics[2])
+                local mShort, mWeekly = dualMetrics(metrics)
+                local val = formatDualMetric(mShort, mWeekly)
                 if val ~= "" then
                     rows[#rows + 1] = { key = title, value = val }
                 elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
