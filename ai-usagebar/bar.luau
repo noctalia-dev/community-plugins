@@ -8,7 +8,7 @@ local account = noctalia.string.trim(tostring(noctalia.getConfig("account") or "
 local extras = tostring(noctalia.getConfig("extras") or "countdown")
 -- Named after the core `sysmon` widget's own keys, so a reading in this capsule
 -- is configured the same way as the CPU one beside it.
-local visualization = tostring(noctalia.getConfig("visualization") or "none")
+local visualization = tostring(noctalia.getConfig("visualization") or "gauge")
 local showValue = noctalia.getConfig("show_value") ~= false
 local showGlyph = noctalia.getConfig("show_glyph") ~= false
 local glyphAfter = tostring(noctalia.getConfig("glyph_position") or "before") == "after"
@@ -142,14 +142,42 @@ end
 -- running ahead of time.
 local function bars(percent, elapsed, tint, width)
     local stack = {
-        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.12",
-                      radius = 3, width = width, height = 5 }),
+        ui.progress({ progress = ratio(percent), fill = tint, track = "on_surface/0.14",
+                      radius = 3, width = width, height = 6 }),
     }
     if elapsed ~= nil then
         stack[#stack + 1] = ui.progress({ progress = ratio(elapsed), fill = "on_surface/0.45",
                                           track = "on_surface/0.10", radius = 2, width = width, height = 3 })
     end
-    return ui.column({ gap = 1, align = "center" }, stack)
+    return ui.column({ gap = 2, align = "center" }, stack)
+end
+
+-- Compact vertical gauge: a track column holding a level box pinned to the bottom.
+-- Ideal for vertical bars and docks.
+local function miniGauge(percent, tint)
+    local level = type(percent) == "number" and math.max(0, math.min(100, percent)) / 100 or 0
+    local h = 14
+    local w = 6
+    local filled = level <= 0 and 1 or math.max(2, math.floor(h * level + 0.5))
+    return ui.column({
+        key = "mini-gauge",
+        width = w,
+        height = h,
+        minWidth = w,
+        minHeight = h,
+        radius = 2,
+        fill = "on_surface/0.16",
+        justify = "end",
+        align = "stretch",
+    }, {
+        ui.box({
+            key = "level",
+            width = w,
+            height = filled,
+            radius = 2,
+            fill = tint,
+        }),
+    })
 end
 
 local function chip(entry, flagged, isVert)
@@ -249,6 +277,9 @@ local function chip(entry, flagged, isVert)
     if isVert then
         local vertNodes = {}
         if not glyphAfter and glyph ~= nil then vertNodes[#vertNodes + 1] = glyph end
+        if percent ~= nil and visualization == "gauge" and not hasSubmodels then
+            vertNodes[#vertNodes + 1] = miniGauge(percent, fill)
+        end
         if pct ~= nil then vertNodes[#vertNodes + 1] = pct end
         if glyphAfter and glyph ~= nil then vertNodes[#vertNodes + 1] = glyph end
         return ui.column({ gap = 2, align = "center" }, vertNodes)
@@ -263,7 +294,7 @@ local function chip(entry, flagged, isVert)
     if not glyphAfter then add(glyph) end
     add(name)
     if percent ~= nil and visualization == "gauge" then
-        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 30))
+        add(bars(percent, elapsedPercent(metric and metric.detail), fill, 32))
     end
     add(pct)
     if glyphAfter then add(glyph) end
@@ -283,6 +314,11 @@ local function chip(entry, flagged, isVert)
                 ui.glyph({ name = ahead and "arrow-up" or "arrow-down", size = 10, color = role }),
                 ui.label({ text = tostring(points), fontSize = 10, color = role, maxLines = 1 }),
             }))
+        end
+    else
+        local _, _, word = pace(metric and metric.detail)
+        if word == "ahead" and not hasSubmodels then
+            add(ui.glyph({ name = "arrow-up", size = 10, color = "secondary" }))
         end
     end
 

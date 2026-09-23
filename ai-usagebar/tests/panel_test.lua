@@ -531,10 +531,13 @@ assert(hasInstallBtn, "errorBlock must contain ui.install button")
 local anthropicTree = loadPanel({ id = "anthropic", display_name = "Claude", status = "ready", metrics = {}, sections = {} })
 local anthropicButtons = collect(anthropicTree, "button")
 local hasExternalLink = false
+local hasCopyBtn = false
 for _, btn in ipairs(anthropicButtons) do
     if btn.props.glyph == "external-link" then hasExternalLink = true end
+    if btn.props.glyph == "copy" then hasCopyBtn = true end
 end
 assert(hasExternalLink, "provider with dashboard url must have external-link button")
+assert(hasCopyBtn, "provider detail header must have copy button")
 
 local multiReport = {
     entries = {

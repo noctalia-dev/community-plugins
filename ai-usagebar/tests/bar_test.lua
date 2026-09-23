@@ -437,3 +437,13 @@ scrollBar.env.onScroll("vertical", 1, true)
 assert(containsText(scrollBar.rendered(), "20%"), "scrolling down rotates to next entry")
 scrollBar.env.onScroll("vertical", -1, true)
 assert(containsText(scrollBar.rendered(), "50%"), "scrolling up returns to first entry")
+
+local vertGaugeBar = loadBar({ vendor = "openai", vertical = true, visualization = "gauge" }, { entries = { entry("openai", "Codex", 65) } })
+local miniGaugeNode = findNode(vertGaugeBar.rendered(), function(n) return n.props.key == "mini-gauge" end)
+assert(miniGaugeNode ~= nil, "vertical bar with gauge visualization should render mini-gauge")
+
+local fastEntry = entry("openai", "Codex", 80)
+fastEntry.metrics[1].detail = "Resets in 4h 00m · 20% elapsed · 60pts ahead"
+local pacingBar = loadBar({ vendor = "openai", extras = "none" }, { entries = { fastEntry } })
+assert(containsGlyph(pacingBar.rendered(), "arrow-up"), "ahead of pace cue arrow-up displayed even when extras is none")
+

@@ -118,17 +118,17 @@ local function metricRows(section, title, muted)
 
     local body = {
         ui.row({ gap = 6, align = "center" }, header),
-        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.10", radius = 3, height = 7 }),
+        ui.progress({ progress = ratio(percent), fill = fill, track = "on_surface/0.12", radius = 4, height = 8 }),
     }
 
     local elapsed = elapsedPercent(section.detail)
     if elapsed ~= nil then
         body[#body + 1] = ui.progress({
             progress = ratio(elapsed),
-            fill = "on_surface/0.45",
+            fill = "on_surface/0.38",
             track = "on_surface/0.08",
             radius = 2,
-            height = 3,
+            height = 4,
         })
     end
 
@@ -136,7 +136,6 @@ local function metricRows(section, title, muted)
     local clock = resetClock(section)
     -- Ahead of the clock is worth flagging; under it means there is room left.
     local paceText, _, paceWord = pace(section.detail)
-    local paceColor = paceWord == "ahead" and "secondary" or "on_surface_variant"
     local timing = {}
     if left ~= "" then
         timing[#timing + 1] = ui.glyph({ name = "clock", size = 12, color = "on_surface_variant" })
@@ -157,9 +156,27 @@ local function metricRows(section, title, muted)
     end
     if paceText ~= "" then
         context[#context + 1] = ui.spacer({ flexGrow = 1 })
-        context[#context + 1] = ui.label({
-            text = paceText, fontSize = 11, fontWeight = "semibold", color = paceColor, maxLines = 1,
-        })
+        if paceWord == "ahead" then
+            context[#context + 1] = ui.row({
+                gap = 4, align = "center", paddingH = 6, paddingV = 2, radius = 6,
+                fill = "secondary/0.14",
+            }, {
+                ui.glyph({ name = "trending-up", size = 11, color = "secondary" }),
+                ui.label({
+                    text = paceText, fontSize = 10, fontWeight = "semibold", color = "secondary", maxLines = 1,
+                }),
+            })
+        else
+            context[#context + 1] = ui.row({
+                gap = 4, align = "center", paddingH = 6, paddingV = 2, radius = 6,
+                fill = "surface_variant/0.50",
+            }, {
+                ui.glyph({ name = "trending-down", size = 11, color = "on_surface_variant" }),
+                ui.label({
+                    text = paceText, fontSize = 10, fontWeight = "medium", color = "on_surface_variant", maxLines = 1,
+                }),
+            })
+        end
     end
     if #timing > 0 then
         body[#body + 1] = ui.row({ gap = 5, align = "center" }, timing)
@@ -188,7 +205,12 @@ local function stackCard(name, readings)
     local body = {}
     if titled then
         body[#body + 1] = ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = modelGlyph(name), size = 16, color = "on_surface" }),
+            ui.box({
+                width = 24, height = 24, radius = 6,
+                fill = "primary/0.14", align = "center", justify = "center",
+            }, {
+                ui.glyph({ name = modelGlyph(name), size = 14, color = "primary" }),
+            }),
             ui.label({ text = modelDisplayName(name), fontSize = 13, fontWeight = "bold",
                        color = "on_surface", maxLines = 1 }),
         })
@@ -198,7 +220,7 @@ local function stackCard(name, readings)
         -- whether or not a title stands over both.
         if index > 1 then
             body[#body + 1] = ui.spacer({ height = 4 })
-            body[#body + 1] = ui.box({ height = 1, fill = "outline/0.18" })
+            body[#body + 1] = ui.box({ height = 1, fill = "outline/0.14" })
             body[#body + 1] = ui.spacer({ height = 4 })
         end
         for _, node in ipairs(metricRows(reading.section, reading.title, titled)) do
@@ -568,22 +590,46 @@ local function providerRow(entry, selected)
         lines[#lines + 1] = ui.spacer({ height = 3 })
     end
 
+    local iconBox = ui.box({
+        width = 30,
+        height = 30,
+        radius = 8,
+        fill = selected and "primary/0.16" or "surface_variant/0.45",
+        border = selected and "primary/0.30" or "outline/0.08",
+        borderWidth = 1,
+        align = "center",
+        justify = "center",
+    }, {
+        ui.glyph({
+            name = providerGlyph(entry.id),
+            size = 16,
+            color = selected and "primary" or "on_surface",
+        }),
+    })
+
+    local indicator = ui.box({
+        width = 3,
+        height = 20,
+        radius = 2,
+        fill = selected and "primary" or "surface_variant/0.00",
+    })
+
     return ui.row({
         -- Keyed, so the click handler survives the second tick the countdowns ride
         -- on instead of being rebuilt under the pointer.
         key = "provider-" .. tostring(entry.id),
-        gap = 8, align = "center", padding = 9, radius = 10,
+        gap = 8, align = "center", padding = 8, radius = 10,
         -- A tint, not a slab: a filled `primary` row inverts every colour in it.
-        fill = selected and "primary/0.10" or "surface_variant/0.30",
-        border = selected and "primary/0.55" or "outline/0.12",
+        fill = selected and "primary/0.10" or "surface_variant/0.25",
+        border = selected and "primary/0.45" or "outline/0.08",
         borderWidth = 1,
         onClick = function()
             noctalia.state.set("selected", tostring(entry.id))
             render()
         end,
     }, {
-        ui.glyph({ name = providerGlyph(entry.id), size = selected and 18 or 16,
-                   color = selected and "primary" or "on_surface" }),
+        indicator,
+        iconBox,
         ui.column({ gap = 3, flexGrow = 1 }, lines),
         right,
     })
@@ -645,9 +691,14 @@ local function listPane(entry)
         rows[#rows + 1] = providerRow(candidate, entry ~= nil and candidate.id == entry.id)
       end
     end
-    return ui.column({ gap = 10, padding = 14, width = 290 }, {
+    return ui.column({ gap = 10, padding = 14, width = 295 }, {
         ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = "brain", size = 18, color = "primary" }),
+            ui.box({
+                width = 28, height = 28, radius = 7,
+                fill = "primary/0.14", align = "center", justify = "center",
+            }, {
+                ui.glyph({ name = "brain", size = 16, color = "primary" }),
+            }),
             -- The accent belongs to the selection and the bars; a title taking
             -- it too would leave the panel with no quiet level.
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 15, fontWeight = "bold", color = "on_surface" }),
@@ -682,6 +733,31 @@ local function listPane(entry)
     })
 end
 
+local function copySummary(entry)
+    if entry == nil then return end
+    local parts = { tostring(entry.display_name or entry.id) }
+    local sub = tostring(entry.plan or "")
+    if sub ~= "" and sub ~= parts[1] then
+        parts[#parts + 1] = "(" .. sub .. ")"
+    end
+    local metricStrs = {}
+    for _, m in ipairs(entry.metrics or {}) do
+        if m.label and m.percent then
+            metricStrs[#metricStrs + 1] = tostring(m.label) .. " " .. tostring(m.percent) .. "%"
+        end
+    end
+    if #metricStrs > 0 then
+        parts[#parts + 1] = "· " .. table.concat(metricStrs, " · ")
+    end
+    local text = table.concat(parts, " ")
+    if type(noctalia.copyToClipboard) == "function" then
+        noctalia.copyToClipboard(text, "text/plain")
+        if type(noctalia.notify) == "function" then
+            noctalia.notify(tostring(entry.display_name or entry.id), text)
+        end
+    end
+end
+
 local function detailPane(entry)
     local title = noctalia.tr("ui.title")
     local subtitle = ""
@@ -696,13 +772,33 @@ local function detailPane(entry)
     -- With no entry the pane stays empty rather than repeating the list's title.
     local children = {}
     if entry ~= nil then
-        local planBadge = subtitle ~= "" and ui.row({
-            gap = 4, align = "center", padding = 4, radius = 6,
-            fill = "surface_variant/0.45", border = "outline/0.08", borderWidth = 1,
+        local heroIcon = ui.box({
+            width = 42,
+            height = 42,
+            radius = 11,
+            fill = "surface_variant/0.55",
+            border = "outline/0.12",
+            borderWidth = 1,
+            align = "center",
+            justify = "center",
         }, {
-            ui.label({ text = subtitle, fontSize = 11, fontWeight = "medium",
-                       color = "on_surface_variant", maxLines = 1 }),
+            ui.glyph({ name = providerGlyph(entry.id), size = 22, color = "primary" }),
+        })
+
+        local planBadge = subtitle ~= "" and ui.row({
+            gap = 4, align = "center", paddingH = 7, paddingV = 3, radius = 6,
+            fill = "primary/0.10", border = "primary/0.25", borderWidth = 1,
+        }, {
+            ui.label({ text = subtitle, fontSize = 11, fontWeight = "semibold",
+                       color = "primary", maxLines = 1 }),
         }) or nil
+
+        local copyBtn = ui.button({
+            glyph = "copy",
+            variant = "ghost",
+            controlSize = "sm",
+            onClick = function() copySummary(entry) end,
+        })
 
         local dashUrl = shared.providerDashboard(entry.id)
         local dashBtn = dashUrl ~= nil and ui.button({
@@ -716,16 +812,19 @@ local function detailPane(entry)
             end,
         }) or nil
 
-        children[#children + 1] = ui.row({ gap = 10, align = "center" }, {
-            ui.glyph({ name = providerGlyph(entry.id), size = 22, color = "on_surface" }),
-            ui.column({ gap = 2, flexGrow = 1 }, {
+        local actionButtons = { copyBtn }
+        if dashBtn ~= nil then actionButtons[#actionButtons + 1] = dashBtn end
+
+        children[#children + 1] = ui.row({ gap = 12, align = "center" }, {
+            heroIcon,
+            ui.column({ gap = 3, flexGrow = 1 }, {
                 ui.row({ gap = 8, align = "center" }, {
                     ui.label({ text = title, fontSize = 16, fontWeight = "bold",
                                color = "on_surface", maxLines = 1 }),
                     planBadge,
                 }),
             }),
-            dashBtn,
+            ui.row({ gap = 2, align = "center" }, actionButtons),
         })
     end
 

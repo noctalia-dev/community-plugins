@@ -95,7 +95,7 @@ key = "visualization"
 type = "select"
 label_key = "settings.visualization.label"
 description_key = "settings.visualization.description"
-default = "none"
+default = "gauge"
 options = [
   { value = "none", label_key = "settings.visualization.option.none" },
   { value = "gauge", label_key = "settings.visualization.option.gauge" },
