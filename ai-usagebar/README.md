@@ -23,8 +23,9 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
 
-When the CLI is missing, the panel displays its project address for installation
-instructions. No browser-opening command or additional dependency is needed.
+When the CLI is missing, the panel displays its project address and can open it
+with `xdg-open`. The same command opens provider dashboards from the panel.
+Install `xdg-open` alongside `ai-usagebar`.
 
 The plugin requires plugin API 22 for `require()`. It will not install on an
 older shell. Plugin version 1.1.0 remains available for API 9.
