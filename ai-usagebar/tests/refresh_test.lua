@@ -80,6 +80,41 @@ assert(#notifications == 2, "a restored quota should notify on the next successf
 assert(notifications[2].message == "Weekly · 25%",
        "restored quota notifications should state the new reading")
 
+decodedReport.entries[1].metrics[2].percent = 100
+now = 13000
+env.onIpc("refresh")
+callbacks[5]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 3 and notifications[3].message == "Weekly · ui.quota_exhausted",
+       "weekly quota should notify when exhausted again")
+
+local metrics = decodedReport.entries[1].metrics
+decodedReport.entries[1].metrics = { metrics[2], metrics[1] }
+decodedReport.entries[1].metrics[1].percent = 25
+now = 15000
+env.onIpc("refresh")
+callbacks[6]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 4 and notifications[4].message == "Weekly · 25%",
+       "restored quota should match the same window after CLI metric reordering")
+
+decodedReport.entries = { { id = "antigravity", display_name = "Antigravity", status = "ready", metrics = {
+    { label = "Gemini", percent = 100, window_secs = 604800 },
+    { label = "Gemini", percent = 10, window_secs = 18000 },
+} } }
+now = 17000
+env.onIpc("refresh")
+callbacks[7]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 5 and notifications[5].message == "Gemini · ui.quota_exhausted",
+       "a shared model label should report exhaustion")
+
+local agyMetrics = decodedReport.entries[1].metrics
+decodedReport.entries[1].metrics = { agyMetrics[2], agyMetrics[1] }
+decodedReport.entries[1].metrics[2].percent = 25
+now = 19000
+env.onIpc("refresh")
+callbacks[8]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 6 and notifications[6].message == "Gemini · 25%",
+       "restoration should match the weekly window even when model labels repeat")
+
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
 local incompleteFailure = shared.asFailure({})

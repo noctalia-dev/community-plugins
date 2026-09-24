@@ -346,7 +346,8 @@ function M.modelHeadlines(entry)
     local result = {}
     for _, model in ipairs(order) do
         local modelMetrics = byModel[model]
-        local sessionMetric = modelMetrics[1]
+        local sessionMetric, weeklyMetric = M.dualMetrics(modelMetrics)
+        sessionMetric = sessionMetric or weeklyMetric
         local blockingMetric = M.blockingMetric(modelMetrics)
         if sessionMetric ~= nil then
             result[#result + 1] = {
@@ -365,9 +366,13 @@ end
 -- Extracts (shortMetric, weeklyMetric) where shortMetric represents the 5-hour
 -- session limit and weeklyMetric represents the 7-day rate limit.
 function M.dualMetrics(metrics)
-    if type(metrics) ~= "table" or #metrics == 0 then
-        return nil, nil
+    if type(metrics) ~= "table" then return nil, nil end
+    local valid = {}
+    for _, metric in ipairs(metrics) do
+        if type(metric) == "table" then valid[#valid + 1] = metric end
     end
+    metrics = valid
+    if #metrics == 0 then return nil, nil end
     if #metrics == 1 then
         local m = metrics[1]
         local isWeekly = false

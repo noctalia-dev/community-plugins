@@ -207,4 +207,18 @@ local singleSessionShort, singleSessionWeekly = shared.dualMetrics({
 })
 assert(singleSessionShort.percent == 30 and singleSessionWeekly == nil, "dualMetrics should identify single session metric")
 
+local malformedShort, malformedWeekly = shared.dualMetrics({ 42, { label = "Weekly", percent = 90, window_secs = 604800 } })
+assert(malformedShort == nil and malformedWeekly.percent == 90,
+    "dualMetrics should discard malformed entries before choosing a window")
+local onlyMalformedShort, onlyMalformedWeekly = shared.dualMetrics({ 42 })
+assert(onlyMalformedShort == nil and onlyMalformedWeekly == nil,
+    "dualMetrics should not return a scalar metric")
+
+local reorderedModels = shared.modelHeadlines({ id = "antigravity", metrics = {
+    { label = "Gemini", percent = 90, window_secs = 604800 },
+    { label = "Gemini", percent = 20, window_secs = 18000 },
+} })
+assert(#reorderedModels == 1 and reorderedModels[1].metric.percent == 20,
+    "Antigravity headline should use the session window when weekly arrives first")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

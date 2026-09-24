@@ -169,6 +169,24 @@ end
 local previousExhausted = {}
 local hasObservedInitial = false
 
+local function restoredMetric(metrics, previous)
+    local matches = {}
+    for _, metric in ipairs(metrics) do
+        if type(metric) == "table" and tostring(metric.label or "Quota") == previous.label then
+            matches[#matches + 1] = metric
+            if previous.windowSecs ~= nil and tonumber(metric.window_secs) == previous.windowSecs then
+                return metric
+            end
+            if previous.windowSecs == nil and previous.resetAt ~= nil
+                and metric.reset_at == previous.resetAt then
+                return metric
+            end
+        end
+    end
+    if previous.windowSecs == nil and #matches == 1 then return matches[1] end
+    return nil
+end
+
 local function checkQuotaNotifications(report)
     if type(noctalia.notify) ~= "function" then return end
     if type(report) ~= "table" or type(report.entries) ~= "table" then return end
@@ -178,30 +196,33 @@ local function checkQuotaNotifications(report)
             local id = tostring(entry.id or "")
             local name = tostring(entry.display_name or entry.name or id)
             local blocking = nil
-            local blockingIndex = nil
             local metrics = type(entry.metrics) == "table" and entry.metrics or {}
-            for index, m in ipairs(metrics) do
+            for _, m in ipairs(metrics) do
                 if type(m) == "table" and (tonumber(m.percent) or 0) >= 100 then
                     blocking = m
-                    blockingIndex = index
                     break
                 end
             end
 
-            local previousIndex = previousExhausted[id]
-            local wasExhausted = previousIndex ~= nil
+            local previous = previousExhausted[id]
+            local wasExhausted = previous ~= nil
             local isExhausted = blocking ~= nil
-            previousExhausted[id] = blockingIndex
+            previousExhausted[id] = blocking and {
+                label = tostring(blocking.label or "Quota"),
+                windowSecs = tonumber(blocking.window_secs),
+                resetAt = blocking.reset_at,
+            } or nil
 
             if hasObservedInitial then
                 if isExhausted and not wasExhausted then
                     local label = tostring(blocking.label or "Quota")
                     noctalia.notify(name, label .. " · " .. noctalia.tr("ui.quota_exhausted"))
                 elseif not isExhausted and wasExhausted then
-                    local metric = metrics[previousIndex] or metrics[1]
-                    local label = tostring(metric and metric.label or "Quota")
-                    local percent = tonumber(metric and metric.percent) or 0
-                    noctalia.notify(name, label .. " · " .. tostring(percent) .. "%")
+                    local metric = restoredMetric(metrics, previous)
+                    local percent = metric and tonumber(metric.percent) or nil
+                    if percent ~= nil then
+                        noctalia.notify(name, previous.label .. " · " .. tostring(percent) .. "%")
+                    end
                 end
             end
         end

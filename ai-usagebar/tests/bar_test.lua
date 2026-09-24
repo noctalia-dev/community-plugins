@@ -362,6 +362,20 @@ assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active 
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
 assert(#normalAgyBar.tooltip() == 2, "models without reset times should not gain empty reset rows")
 
+local reorderedAgyBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "ready", metrics = {
+        { label = "Gemini", percent = 90, window_secs = 604800, severity = "high" },
+        { label = "Gemini", percent = 20, window_secs = 18000, severity = "low" },
+    } },
+} })
+assert(containsText(reorderedAgyBar.rendered(), "20%") and not containsText(reorderedAgyBar.rendered(), "90%"),
+    "Antigravity capsule should show the session percentage when weekly arrives first")
+
+local malformedGauge = loadBar({ vendor = "openai", visualization = "gauge" }, { entries = {
+    { id = "openai", display_name = "Codex", status = "ready", metrics = { 42 } },
+} })
+assert(malformedGauge.rendered() ~= nil, "gauge should survive a non-table metric")
+
 local countdownBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
 }, {

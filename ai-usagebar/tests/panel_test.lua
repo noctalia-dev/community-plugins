@@ -130,6 +130,13 @@ local malformedBody = {
 local bodyOk = pcall(loadPanel, malformedBody)
 assert(bodyOk, "malformed block body should render as an empty block")
 
+local malformedMetricsOk = pcall(loadPanel, {
+    id = "openai", display_name = "Codex", status = "ready",
+    metrics = { 42, { label = "Weekly", percent = 70, window_secs = 604800 } },
+    sections = {},
+})
+assert(malformedMetricsOk, "status pills should ignore non-table metrics")
+
 local rejectedProvider = {
     id = "anthropic",
     display_name = "Claude",

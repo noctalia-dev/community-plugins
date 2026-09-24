@@ -602,8 +602,8 @@ local function statusIndicator(entry)
         local short, weekly = dualMetrics(model.metrics)
         local affected = {}
         for index, metric in ipairs(model.metrics or {}) do
-            local percent = tonumber(metric and metric.percent) or 0
-            if percent > 50 then
+            local percent = type(metric) == "table" and tonumber(metric.percent) or nil
+            if percent ~= nil and percent > 50 then
                 local window = metric == short and "5h" or metric == weekly and "7d" or ""
                 affected[#affected + 1] = { metric = metric, percent = percent,
                     window = window, index = index }
