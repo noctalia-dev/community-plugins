@@ -412,10 +412,7 @@ local function formatDualMetric(m1, m2)
     if str2 ~= nil and str2 ~= "" then
         val = val .. " / " .. str2
     end
-    if left ~= "" then
-        val = val .. " · " .. left
-    end
-    return val
+    return val, left
 end
 
 local function tooltip(picked, hidden)
@@ -451,17 +448,23 @@ local function tooltip(picked, hidden)
                 for _, item in ipairs(submodels) do
                     local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
                     local mShort, mWeekly = dualMetrics(mMetrics)
-                    local val = formatDualMetric(mShort, mWeekly)
+                    local val, left = formatDualMetric(mShort, mWeekly)
                     if val ~= "" then
                         rows[#rows + 1] = { key = item.displayName or item.model, value = val }
+                        if left ~= "" then
+                            rows[#rows + 1] = { key = "Reset", value = left }
+                        end
                     end
                 end
             else
                 local metrics = type(entry.metrics) == "table" and entry.metrics or {}
                 local mShort, mWeekly = dualMetrics(metrics)
-                local val = formatDualMetric(mShort, mWeekly)
+                local val, left = formatDualMetric(mShort, mWeekly)
                 if val ~= "" then
                     rows[#rows + 1] = { key = title, value = val }
+                    if left ~= "" then
+                        rows[#rows + 1] = { key = "Reset", value = left }
+                    end
                 elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
                     rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
                 end

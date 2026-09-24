@@ -297,8 +297,9 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100% · 6d 20h",
-       "bottleneckBar tooltip should show when the blocking weekly limit resets")
+assert(#bottleneckRows == 2 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%"
+       and bottleneckRows[2].key == "Reset" and bottleneckRows[2].value == "6d 20h",
+       "bottleneckBar tooltip should keep the blocking reset on a separate row")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -326,11 +327,15 @@ assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its e
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
-assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
-assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
-       "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
-       "antigravity tooltip second row should be Claude & GPT OSS dual metrics")
+assert(#agyTooltip == 4, "antigravity tooltip should group each model with its reset")
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24%",
+       "antigravity tooltip first row should show Gemini percentages")
+assert(agyTooltip[2].key == "Reset" and agyTooltip[2].value == "2h 00m",
+       "Gemini reset should sit below its percentages")
+assert(agyTooltip[3].key == "Claude & GPT OSS" and agyTooltip[3].value == "0% / 100%",
+       "antigravity tooltip should keep the full long model name")
+assert(agyTooltip[4].key == "Reset" and agyTooltip[4].value == "6d 20h",
+       "Claude & GPT OSS reset should sit below its percentages")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -355,6 +360,7 @@ assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show rob
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
+assert(#normalAgyBar.tooltip() == 2, "models without reset times should not gain empty reset rows")
 
 local countdownBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -376,8 +382,10 @@ assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain h
 assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
 assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
-assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
-assert(countdownTooltip[2].value == "69% · 23h 05m", "tooltip should show fixed hours and minutes")
+assert(countdownTooltip[1].value == "64%" and countdownTooltip[2].value == "0h 54m",
+       "tooltip should put the minutes-only reset on its own row")
+assert(countdownTooltip[3].value == "69%" and countdownTooltip[4].value == "23h 05m",
+       "tooltip should keep fixed hours and minutes visible")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
@@ -396,7 +404,8 @@ quotaEntry.metrics = {
 }
 local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
 assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
-assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
+assert(bothBlocked.tooltip()[1].value == "100% / 100%"
+       and bothBlocked.tooltip()[2].value == "6d 20h", "tooltip must agree with the bar's blocking reset")
 quotaEntry.id = "antigravity"
 quotaEntry.metrics[1].percent = 0
 local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
