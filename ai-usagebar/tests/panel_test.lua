@@ -12,6 +12,7 @@ local function loadPanel(entry, failure)
     local isReport = type(entry) == "table" and type(entry.entries) == "table"
     local report = isReport and entry or entry ~= nil and { entries = { entry } } or nil
     local first = report ~= nil and report.entries[1] or nil
+    local opened = {}
     local values = {
         report = report,
         error = failure or { code = "", detail = "" },
@@ -35,6 +36,10 @@ local function loadPanel(entry, failure)
         },
         formatTime = function() return "12:00" end,
         timeFormat = function() return "%H:%M" end,
+        runAsync = function(command)
+            opened[#opened + 1] = command
+            return true
+        end,
     }
     local ui = setmetatable({}, {
         __index = function(_, kind)
@@ -68,7 +73,7 @@ local function loadPanel(entry, failure)
         watchers.report(values.report)
         return drawn
     end
-    return drawn, publish, env
+    return drawn, publish, env, opened
 end
 
 -- Walk the drawn tree; the harness records every ui.* call as {kind, props, children}.
@@ -403,7 +408,12 @@ local agyPanelEntry = {
         { label = "Claude & GPT OSS", percent = 100, severity = "critical", type = "metric", value = "100%" },
     },
 }
-local agyPanelTree = loadPanel(agyPanelEntry)
+local agyPanelTree, _, _, agyOpened = loadPanel(agyPanelEntry)
+for _, button in ipairs(collect(agyPanelTree, "button")) do
+    if button.props.glyph == "external-link" then button.props.onClick() end
+end
+assert(agyOpened[1] == "xdg-open 'https://antigravity.google/'",
+       "Antigravity action should open the quota provider")
 assert(#collect(agyPanelTree, "scroll") == 1, "two Antigravity model cards should scroll below the fixed header")
 assert(has(labels(agyPanelTree), "OSS 7d 100%"), "exhausted quota should appear in a model-specific pill")
 local metaRows = {}
@@ -502,7 +512,18 @@ local codexDualEntry = {
     },
     sections = {},
 }
-local codexTree = loadPanel(codexDualEntry)
+local codexTree, _, _, codexOpened = loadPanel(codexDualEntry)
+for _, button in ipairs(collect(codexTree, "button")) do
+    if button.props.glyph == "external-link" then button.props.onClick() end
+    if button.props.glyph == "refresh" or button.props.glyph == "settings"
+        or button.props.glyph == "x" or button.props.glyph == "copy"
+        or button.props.glyph == "external-link" then
+        assert(button.props.variant == "outline" and button.props.borderWidth == 1,
+               "header actions should use the outlined square button style")
+    end
+end
+assert(codexOpened[1] == "xdg-open 'https://chatgpt.com/codex/settings/usage'",
+       "Codex should open subscription usage, not OpenAI API billing")
 assert(has(labels(codexTree), "5h 100%"), "Codex session exhaustion needs a short pill")
 codexDualEntry.metrics[2].percent = 100
 codexDualEntry.metrics[2].severity = "critical"
@@ -514,6 +535,9 @@ codexDualEntry.metrics[2].severity = "low"
 local codexRows = {}
 for _, row in ipairs(collect(codexTree, "row")) do
     if row.props.key == "provider-openai" then codexRows[#codexRows + 1] = row end
+    if row.props.key == "tabs-dock" then
+        assert(row.props.justify == "center", "provider tabs should be centered in their dock")
+    end
 end
 assert(#codexRows == 1, "codex tab button should exist in panel")
 assert(#collect(codexRows[1], "progress") == 0, "codex tab button should only contain icon and name, no mini progress bars")
@@ -568,6 +592,17 @@ local codexWithReset = {
 local codexWithResetTree = loadPanel(codexWithReset)
 assert(#collect(codexWithResetTree, "scroll") == 0,
        "Codex limits and reset credits should fit without a scrollbar")
+local tallReport = { id = "openai", display_name = "Codex", status = "ready",
+    metrics = {}, sections = {} }
+for index = 1, 4 do
+    tallReport.sections[#tallReport.sections + 1] = {
+        type = "metric", label = "Window " .. index, percent = index * 10,
+        value = tostring(index * 10) .. "%",
+    }
+end
+local tallTree = loadPanel(tallReport)
+assert(#collect(tallTree, "scroll") == 1,
+       "a single tall provider card must scroll within the fixed header")
 local agyViewport = collect(agyPanelTree, "scroll")[1]
 assert(not has(labels(agyViewport), "OSS 7d 100%"),
        "provider status should remain visible above the scrolling cards")

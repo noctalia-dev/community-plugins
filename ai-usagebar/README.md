@@ -100,8 +100,9 @@ The header stays fixed while longer reports scroll. Every provider reserves the
 same space beside its cards, so the scrollbar does not change their width.
 
 Opening the panel requests fresh data. The header shows when the last reading
-arrived, a refresh button, and plugin settings. Click outside or click the widget
-again to close the panel.
+arrived, refresh and settings buttons, and a link to the selected quota service.
+For Antigravity, both model groups share that service link. Click outside or
+click the widget again to close the panel.
 
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
@@ -204,8 +205,8 @@ The first test reads `safeText` and `scrub` out of `service.luau` rather than
 copying them, then checks that real credential shapes never survive, that ordinary
 readings pass through unchanged, and that scrubbing a four-vendor report stays
 inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state, rejects output from a timed-out process, and checks
-that every provider it knows about has a glyph of its own rather than the fallback.
+the coalesced refresh state, rejects output from a timed-out process, checks
+quota notifications, and checks that every provider has a glyph of its own.
 The third drives the real bar script through default, named, missing and automatic
 account selection, plus malformed metrics. The fourth checks that malformed panel
 sections degrade safely. The fifth verifies UTC parsing through a daylight-saving

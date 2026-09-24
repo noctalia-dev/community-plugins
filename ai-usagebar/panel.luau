@@ -660,16 +660,6 @@ local function statusIndicator(entry)
 end
 
 local function detailPane(entry)
-    local title = noctalia.tr("ui.title")
-    local subtitle = ""
-    if entry ~= nil then
-        -- The provider names the pane, the plan qualifies it, the same order the
-        -- list uses. The CLI keeps them apart: `display_name` vs `plan`.
-        title = tostring(entry.display_name or entry.id)
-        subtitle = tostring(entry.plan or "")
-        if subtitle == title then subtitle = "" end
-    end
-
     local children = {}
 
     local cards = {}
@@ -681,6 +671,7 @@ local function detailPane(entry)
     local windowed = false
     local heading = ""
     local items = {}
+    local metricCount = 0
     for _, section in ipairs(sections) do
         if type(section) == "table" then
             local text = section.type == "text"
@@ -689,6 +680,7 @@ local function detailPane(entry)
                 windowed = windowed or heading ~= ""
             elseif section.type ~= "spacer" then
                 items[#items + 1] = { section = section, window = heading }
+                if section.type == "metric" then metricCount = metricCount + 1 end
             end
         end
     end
@@ -746,7 +738,8 @@ local function detailPane(entry)
     -- Keep the same card width in both modes. The scrollbar lives in the
     -- reserved right gutter, while the provider header remains fixed above.
     if #cards > 0 then
-        local needsScroll = #cards >= 3 or (windowed and #cards >= 2)
+        local needsScroll = #cards >= 3 or metricCount >= 3
+            or (windowed and #cards >= 2)
         for _, item in ipairs(items) do
             if item.section.type == "block" and type(item.section.body) == "table"
                 and #item.section.body >= 4 then
@@ -831,7 +824,7 @@ function render()
     if entry ~= nil then
         providerActions[#providerActions + 1] = ui.button({
             glyph = "copy",
-            variant = "ghost",
+            variant = "outline", border = "outline", borderWidth = 1,
             controlSize = "sm",
             tooltip = "Copy usage summary",
             onClick = function() copySummary(entry) end,
@@ -840,7 +833,7 @@ function render()
         if dashUrl ~= nil then
             providerActions[#providerActions + 1] = ui.button({
                 glyph = "external-link",
-                variant = "ghost",
+                variant = "outline", border = "outline", borderWidth = 1,
                 controlSize = "sm",
                 tooltip = "Open dashboard",
                 onClick = function()
@@ -854,7 +847,7 @@ function render()
 
     headerActions[#headerActions + 1] = ui.button({
         glyph = polling and "loader-2" or refreshQueued and "clock" or "refresh",
-        variant = "ghost", controlSize = "sm",
+        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
         tooltip = noctalia.tr(polling and "ui.refreshing"
             or refreshQueued and "ui.refresh_queued" or "ui.refresh"),
         enabled = not polling,
@@ -862,13 +855,13 @@ function render()
     })
     headerActions[#headerActions + 1] = ui.button({
         glyph = "settings",
-        variant = "ghost", controlSize = "sm",
+        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
         tooltip = noctalia.tr("ui.settings"),
         onClick = function() noctalia.openSettings() end,
     })
     headerActions[#headerActions + 1] = ui.button({
         glyph = "x",
-        variant = "ghost", controlSize = "sm",
+        variant = "outline", border = "outline", borderWidth = 1, controlSize = "sm",
         tooltip = "Close",
         onClick = function()
             if type(panel.close) == "function" then panel.close() end
@@ -885,12 +878,13 @@ function render()
             }),
             ui.label({ text = noctalia.tr("ui.title"), fontSize = 14, fontWeight = "bold", color = "on_surface" }),
             ui.spacer({ flexGrow = 1 }),
-            ui.row({ gap = 2, align = "center" }, headerActions),
+            ui.row({ gap = 4, align = "center" }, headerActions),
         }),
     }
 
     if #tabs > 0 then
-        topChildren[#topChildren + 1] = ui.row({ gap = 6, align = "center" }, tabs)
+        topChildren[#topChildren + 1] = ui.row({ key = "tabs-dock", gap = 6,
+            align = "center", justify = "center" }, tabs)
     end
 
     local status = statusIndicator(entry)
@@ -900,7 +894,7 @@ function render()
         if status ~= nil then providerMeta[#providerMeta + 1] = status end
         providerMeta[#providerMeta + 1] = ui.spacer({ flexGrow = 1 })
         if #providerActions > 0 then
-            providerMeta[#providerMeta + 1] = ui.row({ gap = 2, align = "center" }, providerActions)
+            providerMeta[#providerMeta + 1] = ui.row({ gap = 4, align = "center" }, providerActions)
         end
         topChildren[#topChildren + 1] = ui.row({ key = "meta-row", gap = 4, align = "center" }, providerMeta)
     end

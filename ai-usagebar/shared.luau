@@ -33,9 +33,9 @@ local PROVIDER_GLYPHS = {
 }
 
 local PROVIDER_DASHBOARDS = {
-    anthropic = "https://console.anthropic.com/",
+    anthropic = "https://claude.ai/settings/usage",
     anthropic_api = "https://console.anthropic.com/",
-    openai = "https://platform.openai.com/usage",
+    openai = "https://chatgpt.com/codex/settings/usage",
     openrouter = "https://openrouter.ai/activity",
     cursor = "https://www.cursor.com/settings",
     deepseek = "https://platform.deepseek.com/",
@@ -43,10 +43,17 @@ local PROVIDER_DASHBOARDS = {
     kimi = "https://platform.moonshot.cn/",
     moonshot = "https://platform.moonshot.cn/",
     grok = "https://console.x.ai/",
-    supergrok = "https://console.x.ai/",
+    supergrok = "https://grok.com/",
     gemini = "https://aistudio.google.com/",
     copilot = "https://github.com/settings/copilot",
     minimax = "https://platform.minimaxi.com/",
+    antigravity = "https://antigravity.google/",
+    kilo = "https://app.kilo.ai/usage",
+    novita = "https://novita.ai/console",
+    kiro = "https://app.kiro.dev/",
+    nous = "https://portal.nousresearch.com/",
+    ["opencode-go"] = "https://opencode.ai/console/",
+    commandcode = "https://commandcode.ai/signin",
 }
 
 function M.baseProvider(id)

@@ -29,6 +29,7 @@ local unavailable, warning = shared.unavailable, shared.warning
 
 local failure = NO_FAILURE
 local scrollOffset = 0
+local scrollTargetId = nil
 
 -- ── Report helpers ────────────────────────────────────────────────────────────
 
@@ -89,6 +90,18 @@ local function shown()
         if aPrimary ~= bPrimary then return aPrimary end
         return tostring(a.id) < tostring(b.id)
     end)
+
+    if scrollTargetId ~= nil then
+        local found = false
+        for index, entry in ipairs(ready) do
+            if entry.id == scrollTargetId then
+                scrollOffset = index - 1
+                found = true
+                break
+            end
+        end
+        if not found then scrollTargetId = nil end
+    end
 
     if scrollOffset > 0 and #ready > 1 then
         local offset = scrollOffset % #ready
@@ -514,7 +527,6 @@ noctalia.state.watch("report", function(value)
     if type(value) == "table" then
         report = value
         failure = NO_FAILURE
-        scrollOffset = 0
         render()
     end
 end)
@@ -542,10 +554,14 @@ function onScroll(_axis, steps, _startsGesture)
     if #ready <= 1 then return end
 
     if steps > 0 then
+        scrollTargetId = nil
         scrollOffset = (scrollOffset + 1) % #ready
     elseif steps < 0 then
+        scrollTargetId = nil
         scrollOffset = (scrollOffset - 1 + #ready) % #ready
     end
+    local picked = shown()
+    scrollTargetId = picked[1] ~= nil and picked[1].id or nil
     render()
 end
 

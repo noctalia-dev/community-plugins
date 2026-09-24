@@ -177,8 +177,12 @@ assert(#oneHeadline == 1 and oneHeadline[1].blockingMetric == session,
 session.percent, weekly.percent = 0, 100
 assert(shared.headline(oneModel) == weekly, "one model must show its exhausted weekly quota")
 
-assert(shared.providerDashboard("anthropic") == "https://console.anthropic.com/", "anthropic dashboard url")
-assert(shared.providerDashboard("openai@work") == "https://platform.openai.com/usage", "account suffix base provider dashboard")
+assert(shared.providerDashboard("anthropic") == "https://claude.ai/settings/usage", "Claude plan usage URL")
+assert(shared.providerDashboard("anthropic_api") == "https://console.anthropic.com/", "API usage stays in the console")
+assert(shared.providerDashboard("openai@work") == "https://chatgpt.com/codex/settings/usage", "account suffix keeps Codex usage URL")
+assert(shared.providerDashboard("antigravity") == "https://antigravity.google/", "Antigravity opens its own service")
+assert(shared.providerDashboard("grok") == "https://console.x.ai/", "Grok API stays in the xAI console")
+assert(shared.providerDashboard("supergrok") == "https://grok.com/", "SuperGrok opens the consumer service")
 assert(shared.providerDashboard("unknown") == nil, "unknown provider returns nil dashboard")
 
 local mShort, mWeekly = shared.dualMetrics({

@@ -31,12 +31,13 @@ local function loadBar(config, report, err)
         error = err or { code = "", detail = "" },
     }
     local rendered, tooltip
+    local watchers = {}
     local noctalia = {
         getConfig = function(key) return config[key] end,
         state = {
             get = function(key) return values[key] end,
             set = function(key, value) values[key] = value end,
-            watch = function() end,
+            watch = function(key, callback) watchers[key] = callback end,
         },
         setUpdateInterval = function() end,
         togglePanel = function() end,
@@ -79,6 +80,10 @@ local function loadBar(config, report, err)
         values = values,
         rendered = function() return rendered end,
         tooltip = function() return tooltip end,
+        publish = function(nextReport)
+            values.report = nextReport
+            watchers.report(nextReport)
+        end,
     }
 end
 
@@ -435,6 +440,12 @@ local scrollBar = loadBar({ vendor = "auto" }, multiReport)
 assert(containsText(scrollBar.rendered(), "50%"), "initial auto shows first entry")
 scrollBar.env.onScroll("vertical", 1, true)
 assert(containsText(scrollBar.rendered(), "20%"), "scrolling down rotates to next entry")
+scrollBar.publish({ entries = {
+    entry("openai", "Codex", 50),
+    entry("anthropic", "Claude", 90),
+} })
+assert(containsText(scrollBar.rendered(), "90%"),
+       "refresh should preserve the selected provider even when usage reorders it")
 scrollBar.env.onScroll("vertical", -1, true)
 assert(containsText(scrollBar.rendered(), "50%"), "scrolling up returns to first entry")
 
@@ -498,4 +509,3 @@ assert(agyBars[1].props.height == 6 and agyBars[1].props.progress == 0.15, "Gemi
 assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemini bottom bar is weekly")
 assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
 assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")
-

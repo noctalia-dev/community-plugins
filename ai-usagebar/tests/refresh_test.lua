@@ -9,6 +9,8 @@ end
 
 local values, watchers = {}, {}
 local commands, callbacks = {}, {}
+local notifications = {}
+local decodedReport = { entries = {} }
 local now = 5000
 local intervals = {}
 
@@ -31,7 +33,11 @@ local noctalia = {
         callbacks[#callbacks + 1] = callback
         return true
     end,
-    json = { decode = function() return { entries = {} } end },
+    json = { decode = function() return decodedReport end },
+    notify = function(title, message)
+        notifications[#notifications + 1] = { title = title, message = message }
+    end,
+    tr = function(key) return key end,
     string = { trim = function(value) return value end },
 }
 
@@ -54,6 +60,26 @@ assert(intervals[#intervals] == 5 * 60 * 1000, "active refresh should restore th
 callbacks[2]({ timedOut = true, exitCode = 0, stdout = '{"entries":[]}', stderr = "" })
 assert(values.error.code == "timed_out", "a timed-out command must not publish valid-looking stdout")
 
+decodedReport = { entries = { { id = "openai", display_name = "Codex api_key=topsecret123", status = "ready",
+    metrics = { { label = "Session", percent = 10 },
+        { label = "Weekly", percent = 100 } } } } }
+now = 9000
+env.onIpc("refresh")
+callbacks[3]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 1, "a newly exhausted quota should notify once after the first report")
+assert(not notifications[1].title:find("topsecret123", 1, true),
+       "notifications must use the scrubbed report")
+assert(notifications[1].message == "Weekly · ui.quota_exhausted",
+       "quota notifications should use the available translation")
+
+decodedReport.entries[1].metrics[2].percent = 25
+now = 11000
+env.onIpc("refresh")
+callbacks[4]({ exitCode = 0, stdout = "{}", stderr = "" })
+assert(#notifications == 2, "a restored quota should notify on the next successful read")
+assert(notifications[2].message == "Weekly · 25%",
+       "restored quota notifications should state the new reading")
+
 local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
 local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
 local incompleteFailure = shared.asFailure({})
@@ -74,6 +100,7 @@ assert(#offered > 10, "the vendor dropdown should have been read from the manife
 for _, id in ipairs(offered) do
     -- "brain" is the fallback, so a provider still on it has no glyph of its own.
     assert(shared.providerGlyph(id) ~= "brain", "missing glyph for " .. id)
+    assert(shared.providerDashboard(id) ~= nil, "missing quota service link for " .. id)
 end
 
 -- A named account is drawn with its provider's glyph, not the fallback.
