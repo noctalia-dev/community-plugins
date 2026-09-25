@@ -170,6 +170,11 @@ local function resolveArtwork(player, artUrl)
     currentPlayer.artPath = destination
     publish(currentPlayer)
   end)
+  if not accepted then
+    artworkRequestUrl = ""
+    artworkRetryUrl = artUrl
+    artworkRetryAtMs = nowMs() + 30000
+  end
 end
 
 local function clearPlayer()
