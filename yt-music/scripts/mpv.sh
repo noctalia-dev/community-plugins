@@ -6,6 +6,8 @@ PIDFILE="$DIR/mpv.pid"
 SOCK="$DIR/mpv.sock"
 GENFILE="$DIR/mpv.gen"
 
+# mpv-mpris needs a multi-entry playlist to expose both transport directions.
+DUMMY="av://lavfi:anullsrc=r=48000:cl=stereo"
 mkdir -p "$DIR"
 
 # nc flavor, probed not assumed: OpenBSD nc needs -N to exit after stdin
@@ -69,9 +71,10 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file $4=cover_file(optional)
   rm -f "$SOCK"
   # 9>&-: mpv must not inherit the lock fd, or the lock would outlive this
   # script (held open by the playing mpv) and deadlock the next play.
-  nohup mpv "$URL" --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
+  nohup mpv "$DUMMY" "$URL" "$DUMMY" --playlist-start=1 \
+    --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
     --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
-    --keep-open=yes \
+    --keep-open=always \
     --force-media-title="$TITLE" \
     $cover_opts \
     --input-ipc-server="$SOCK" --ao=pulse,pipewire,alsa,auto \
@@ -141,6 +144,7 @@ echo '{"command":["observe_property",2,"duration"]}'
 echo '{"command":["observe_property",3,"eof-reached"]}'
 echo '{"command":["observe_property",4,"audio-codec-name"]}'
 echo '{"command":["observe_property",5,"audio-params/samplerate"]}'
+echo '{"command":["observe_property",6,"playlist-pos"]}'
 i=0
 while [ -S "$SOCK" ] && kill -0 "$pid" 2>/dev/null && [ "\$(cat "$GENFILE" 2>/dev/null)" = "$gen" ]; do
   echo '{"command":["get_property","time-pos"],"request_id":100}'

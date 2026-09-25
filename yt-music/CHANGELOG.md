@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.8] - 2026-09-24
+
+### Added
+- **Media widget transport**: Next/Previous now work in Noctalia's core media widget (and `playerctl`) while a track plays, advancing the same queue as the miniplayer and full panel.
+
 ## [0.2.7] - 2026-09-21
 
 ### Added
