@@ -10,6 +10,7 @@ local snapshot = {
   loading = true,
   busy = false,
   context = "",
+  contexts = {},
   nodes = {},
   pods = {},
   deployments = {},
@@ -417,6 +418,7 @@ refreshAll = function()
     snapshot.pods = {}
     snapshot.deployments = {}
     snapshot.namespaces = {}
+    snapshot.contexts = {}
     snapshot.readyNodes = 0
     snapshot.nodeCount = 0
     snapshot.problemPods = 0
@@ -454,12 +456,12 @@ refreshAll = function()
     snapshot.available = false
     snapshot.loading = false
     snapshot.error = trim(err) ~= "" and trim(err) or noctalia.tr("result.unreachable")
-    updateRevision("err:" .. snapshot.error)
+    updateRevision("err:" .. snapshot.error .. "|" .. snapshot.context)
     publishSnapshot()
     doneRefresh()
   end
 
-  local function applySuccess(ctx, nodes, pods, deploys, namespaces)
+  local function applySuccess(ctx, nodes, pods, deploys, namespaces, contexts)
     if generation ~= refreshGeneration then
       return
     end
@@ -485,6 +487,7 @@ refreshAll = function()
     snapshot.pods = pods
     snapshot.deployments = deploys
     snapshot.namespaces = namespaces
+    snapshot.contexts = contexts or {}
     snapshot.readyNodes = readyCount
     snapshot.nodeCount = #nodes
     snapshot.problemPods = problemCount
@@ -494,6 +497,7 @@ refreshAll = function()
 
     updateRevision(table.concat({
       snapshot.context,
+      table.concat(snapshot.contexts, ","),
       tostring(readyCount),
       tostring(#nodes),
       tostring(problemCount),
@@ -512,8 +516,9 @@ refreshAll = function()
     podsOut = "",
     deploysOut = "",
     nsOut = "",
+    contextsOut = "",
   }
-  local pending = 5
+  local pending = 6
   local finished = false
 
   local function finishOne()
@@ -527,6 +532,12 @@ refreshAll = function()
     finished = true
 
     if bag.nodesOut == nil then
+      -- Context data comes from the local kubeconfig, not the cluster: keep the
+      -- selector usable even when the current cluster is unreachable.
+      snapshot.context = bag.context
+      local contexts = splitLines(bag.contextsOut)
+      table.sort(contexts)
+      snapshot.contexts = contexts
       fail(bag.nodesErr or "nodes failed")
       return
     end
@@ -567,7 +578,10 @@ refreshAll = function()
       namespaces = nsOrErr
     end
 
-    applySuccess(bag.context, nodes, pods, deploys, namespaces)
+    local contexts = splitLines(bag.contextsOut)
+    table.sort(contexts)
+
+    applySuccess(bag.context, nodes, pods, deploys, namespaces, contexts)
   end
 
   -- context
@@ -664,6 +678,22 @@ refreshAll = function()
     end
     finishOne()
   end, 20000)
+
+  -- contexts (best-effort, feeds the panel selector)
+  local ctxsArgs = baseKubectlArgs()
+  table.insert(ctxsArgs, "config")
+  table.insert(ctxsArgs, "get-contexts")
+  table.insert(ctxsArgs, "-o")
+  table.insert(ctxsArgs, "name")
+  runKubectl(ctxsArgs, function(ctxsResult)
+    if generation ~= refreshGeneration then
+      return
+    end
+    if ctxsResult and ctxsResult.exitCode == 0 then
+      bag.contextsOut = ctxsResult.stdout or ""
+    end
+    finishOne()
+  end, 15000)
 end
 
 local function finishAction(command, ok, message)
@@ -787,6 +817,41 @@ local function restartDeploy(command)
       finishAction(command, false, noctalia.tr("result.failed", { error = err ~= "" and err or "restart failed" }))
     end
   end, 60000)
+end
+
+-- Switches the kubeconfig current-context (kubectx equivalent). Only meaningful
+-- when the "context" setting is empty; a pinned setting overrides every call.
+local function useContext(command)
+  if actionBusy then
+    actionResult(command, false, noctalia.tr("result.busy"))
+    return
+  end
+  local name = trim(command.context)
+  if name == "" then
+    actionResult(command, false, noctalia.tr("result.failed", { error = "missing context" }))
+    return
+  end
+  if trim(noctalia.getConfig("context")) ~= "" then
+    actionResult(command, false, noctalia.tr("result.context_pinned"))
+    return
+  end
+  -- The pinned-context case is rejected above, so baseKubectlArgs() adds no
+  -- --context here; reusing it keeps kubectl invocation consistent.
+  local args = baseKubectlArgs()
+  table.insert(args, "config")
+  table.insert(args, "use-context")
+  table.insert(args, name)
+  actionBusy = true
+  publishSnapshot()
+  runKubectl(args, function(result)
+    local ok = result ~= nil and result.exitCode == 0
+    if ok then
+      finishAction(command, true, noctalia.tr("result.context_switched", { name = name }))
+    else
+      local err = trim(result and result.stderr or "")
+      finishAction(command, false, noctalia.tr("result.failed", { error = err ~= "" and err or "context switch failed" }))
+    end
+  end, 30000)
 end
 
 local function openK9s(command)
@@ -931,6 +996,10 @@ local function executeAction(command)
     restartDeploy(command)
     return
   end
+  if command.action == "use_context" then
+    useContext(command)
+    return
+  end
   if command.action == "k9s" then
     openK9s(command)
     return
@@ -953,10 +1022,14 @@ function onConfigChanged()
   refreshAll()
 end
 
-function onIpc(event, _payload)
+function onIpc(event, payload)
   if event == "refresh" then
     refreshPending = false
     refreshStartedAt = 0
     refreshAll()
+    return
+  end
+  if event == "use_context" then
+    executeAction({ action = "use_context", context = trim(payload), requestId = "ipc" })
   end
 end
