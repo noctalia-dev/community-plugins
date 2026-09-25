@@ -977,7 +977,10 @@ render = function()
     ui.label({ text = tr("panel.temporary_note"), fontSize = 10, color = "on_surface_variant", flexGrow = 1, maxLines = 2 }),
   }))
 
-  panel.render(ui.column({ flexGrow = 1, gap = 5, align = "stretch" }, children))
+  -- The panel is `attached`, and an attached panel's host background follows the
+  -- bar's `background_opacity`. Paint our own surface so the content sits on a
+  -- stable ground at any bar opacity; cards keep their own elevation above it.
+  panel.render(ui.column({ flexGrow = 1, gap = 5, align = "stretch", fill = "surface" }, children))
 end
 
 noctalia.state.watch("display_snapshot", function()
