@@ -1,11 +1,15 @@
 --!nonstrict
 local lunar = require("./lunar.luau")
 
-local WEEKDAYS = { "T2", "T3", "T4", "T5", "T6", "T7", "CN" }
+local WEEKDAYS = {
+    noctalia.tr("weekdays.mon"), noctalia.tr("weekdays.tue"), noctalia.tr("weekdays.wed"),
+    noctalia.tr("weekdays.thu"), noctalia.tr("weekdays.fri"), noctalia.tr("weekdays.sat"),
+    noctalia.tr("weekdays.sun")
+}
 local MONTH_NAMES = {
-    "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4",
-    "Tháng 5", "Tháng 6", "Tháng 7", "Tháng 8",
-    "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
+    noctalia.tr("months.m1"), noctalia.tr("months.m2"), noctalia.tr("months.m3"), noctalia.tr("months.m4"),
+    noctalia.tr("months.m5"), noctalia.tr("months.m6"), noctalia.tr("months.m7"), noctalia.tr("months.m8"),
+    noctalia.tr("months.m9"), noctalia.tr("months.m10"), noctalia.tr("months.m11"), noctalia.tr("months.m12")
 }
 
 local viewMonth = tonumber(noctalia.formatTime("%m"))
@@ -81,7 +85,7 @@ local function render()
         ui.button({
             glyph = "chevron-left",
             variant = "ghost",
-            tooltip = "Tháng trước",
+            tooltip = noctalia.tr("ui.prev_month"),
             onClick = function()
                 goMonth(-1)
                 render()
@@ -94,7 +98,7 @@ local function render()
                 fontWeight = "bold",
             }),
             ui.label({
-                text = showTimezone and "Âm lịch Việt Nam · UTC+7" or "Âm lịch Việt Nam",
+                text = showTimezone and noctalia.tr("ui.timezone_label") or noctalia.tr("ui.timezone_label_short"),
                 fontSize = 12,
                 color = "on_surface/0.6",
             }),
@@ -102,7 +106,7 @@ local function render()
         ui.button({
             glyph = "chevron-right",
             variant = "ghost",
-            tooltip = "Tháng sau",
+            tooltip = noctalia.tr("ui.next_month"),
             onClick = function()
                 goMonth(1)
                 render()
@@ -217,13 +221,13 @@ local function render()
     local selectedLunar = lunar.solarToLunar(selectedDay, selectedMonth, selectedYear, 7)
     local festival = showFestivals and lunar.festival(selectedLunar) or nil
     local lunarDetails = string.format(
-        "%02d/%02d%s âm lịch",
+        "%02d/%02d%s " .. noctalia.tr("ui.lunar_date_suffix"),
         selectedLunar.day,
         selectedLunar.month,
-        selectedLunar.leap and " nhuận" or ""
+        selectedLunarleap and " " .. noctalia.tr("ui.leap") or ""
     )
     if showCanChi then
-        lunarDetails = lunarDetails .. " · Năm " .. lunar.yearCanChi(selectedLunar.year)
+        lunarDetails = lunarDetails .. " · " .. noctalia.tr("ui.year") .. " " .. lunar.yearCanChi(selectedLunar.year)
     end
     if festival then
         lunarDetails = lunarDetails .. " · " .. festival
@@ -254,7 +258,7 @@ local function render()
             }),
         }),
         ui.button({
-            text = "Hôm nay",
+            text = noctalia.tr("ui.today"),
             glyph = "calendar-event",
             variant = "secondary",
             controlSize = "sm",

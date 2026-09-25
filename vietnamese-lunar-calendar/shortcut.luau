@@ -1,7 +1,7 @@
 --!nonstrict
 
 local function render()
-    shortcut.setLabel("Âm lịch")
+    shortcut.setLabel(noctalia.tr("ui.shortcut_label"))
     shortcut.setIcon("moon-stars")
     shortcut.setActive(false)
     shortcut.setEnabled(true)

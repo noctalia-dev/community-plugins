@@ -16,5 +16,24 @@
       "description": "Show the UTC+7 calculation time zone below the month title.",
       "label": "Show Time Zone"
     }
+  },
+  "ui": {
+    "prev_month": "Previous month",
+    "next_month": "Next month",
+    "timezone_label": "Vietnamese Lunar Calendar · UTC+7",
+    "timezone_label_short": "Vietnamese Lunar Calendar",
+    "leap": "leap",
+    "year": "Year",
+    "today": "Today",
+    "shortcut_label": "Lunar",
+    "lunar_date_suffix": "lunar"
+  },
+  "weekdays": {
+    "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"
+  },
+  "months": {
+    "m1": "January", "m2": "February", "m3": "March", "m4": "April",
+    "m5": "May", "m6": "June", "m7": "July", "m8": "August",
+    "m9": "September", "m10": "October", "m11": "November", "m12": "December"
   }
 }

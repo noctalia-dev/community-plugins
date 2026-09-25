@@ -1,11 +1,6 @@
 --!nonstrict
 local lunar = require("./lunar.luau")
 
-local MONTH_ABBR = {
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-}
-
 local function today()
     local d = tonumber(noctalia.formatTime("%d"))
     local m = tonumber(noctalia.formatTime("%m"))
@@ -16,10 +11,10 @@ end
 function update()
     noctalia.setUpdateInterval(60000)
 
-    local d, m, _ = today()
+    local dateText = noctalia.formatTime("%d %b")
 
     barWidget.setGlyph("calendar")
-    barWidget.setText(string.format("%d %s", d, MONTH_ABBR[m]))
+    barWidget.setText(dateText)
 end
 
 function onClick()
