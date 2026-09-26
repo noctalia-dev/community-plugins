@@ -11,6 +11,8 @@ local LOG_LIMIT = 100
 local STUCK_REFRESH_SEC = 12
 local STUCK_LOGS_SEC = 35
 
+-- Published state. `instances` holds one entry per firewall; the top-level
+-- counters are the aggregate the bar widget shows.
 local snapshot = {
   available = false,
   configured = false,
@@ -18,28 +20,44 @@ local snapshot = {
   logsLoading = false,
   busy = false,
   host = "",
-  widgets = {},
-  interfaces = {},
-  gateways = {},
-  services = {},
-  rules = {},
-  logs = {},
-  info = {},
-  resources = {},
+  error = "",
+  instances = {},
   issueCount = 0,
   okCount = 0,
-  blockLogCount = 0,
-  error = "",
   updatedAt = 0,
   revision = 0,
 }
 
-local refreshGeneration = 0
-local refreshPending = false
-local refreshAgain = false
+-- One entry per firewall: config + runtime bookkeeping (`pending`, `generation`,
+-- `startedAt`, `logsPending`, `prevIssues`) + `data` (what gets published).
+-- Rebuilt only when the settings change.
+local instances = {}
+local configGeneration = 0
+local configSignature = ""
+local configError = ""
 local actionBusy = false
 local dataSignature = ""
-local prevIssues = {}
+
+local function newInstanceData()
+  return {
+    available = false,
+    loading = true,
+    logsLoading = false,
+    error = "",
+    widgets = {},
+    interfaces = {},
+    gateways = {},
+    services = {},
+    rules = {},
+    logs = {},
+    info = {},
+    resources = {},
+    issueCount = 0,
+    okCount = 0,
+    blockLogCount = 0,
+    updatedAt = 0,
+  }
+end
 
 local function trim(value)
   return noctalia.string.trim(tostring(value or ""))
@@ -72,8 +90,79 @@ local function updateRevision(signature)
   end
 end
 
+local function instanceOutput(inst)
+  local data = inst.data
+  return {
+    id = inst.id,
+    name = inst.name,
+    host = inst.host,
+    url = inst.url,
+    webUi = inst.webUi,
+    available = data.available,
+    loading = data.loading,
+    logsLoading = data.logsLoading,
+    error = data.error,
+    widgets = data.widgets,
+    interfaces = data.interfaces,
+    gateways = data.gateways,
+    services = data.services,
+    rules = data.rules,
+    logs = data.logs,
+    info = data.info,
+    resources = data.resources,
+    issueCount = data.issueCount,
+    okCount = data.okCount,
+    blockLogCount = data.blockLogCount,
+    updatedAt = data.updatedAt,
+  }
+end
+
 local function publishSnapshot()
+  local out = {}
+  local signature = {}
+  local issues, oks, updated = 0, 0, 0
+  local loading, logsLoading, available = false, false, false
+  local firstError = ""
+
+  for _, inst in ipairs(instances) do
+    local entry = instanceOutput(inst)
+    table.insert(out, entry)
+    issues += entry.issueCount
+    oks += entry.okCount
+    updated = math.max(updated, entry.updatedAt)
+    loading = loading or entry.loading
+    logsLoading = logsLoading or entry.logsLoading
+    available = available or entry.available
+    if firstError == "" and entry.error ~= "" and not entry.available then
+      firstError = #instances > 1 and (entry.name .. ": " .. entry.error) or entry.error
+    end
+    table.insert(signature, table.concat({
+      entry.id,
+      tostring(entry.issueCount),
+      tostring(#entry.interfaces),
+      tostring(#entry.gateways),
+      tostring(#entry.services),
+      tostring(#entry.rules),
+      tostring(#entry.logs),
+    }, ":"))
+  end
+  updateRevision(table.concat(signature, "|"))
+
+  local configured = #instances > 0
+  snapshot.instances = out
+  snapshot.configured = configured
+  snapshot.available = available
+  snapshot.loading = loading
+  snapshot.logsLoading = logsLoading
   snapshot.busy = actionBusy
+  snapshot.issueCount = issues
+  snapshot.okCount = oks
+  snapshot.updatedAt = updated
+  snapshot.host = configured
+    and (#instances == 1 and instances[1].host or noctalia.tr("panel.host_count", { n = #instances }))
+    or ""
+  snapshot.error = configured and firstError
+    or (configError ~= "" and configError or noctalia.tr("result.not_configured"))
   noctalia.state.set(STATE_KEY, snapshot)
 end
 
@@ -100,31 +189,20 @@ local function notifyErr(msg)
   noctalia.notifyError(noctalia.tr("title"), msg)
 end
 
-local function isConfigured()
-  local url = trim(noctalia.getConfig("base_url"))
-  local key = trim(noctalia.getConfig("api_key"))
-  local secret = trim(noctalia.getConfig("api_secret"))
-  return url ~= "" and key ~= "" and secret ~= ""
-end
-
-local function baseUrl()
-  local url = trim(noctalia.getConfig("base_url"))
+local function normalizeUrl(value)
+  local url = trim(value)
   url = url:gsub("/+$", "")
   url = url:gsub("/api$", "")
   return url
 end
 
-local function webUiUrl()
-  local override = trim(noctalia.getConfig("web_ui_url"))
-  if override ~= "" then
-    return override
-  end
-  return baseUrl()
+local function hostOf(url)
+  return url:match("^https?://([^/:]+)") or url
 end
 
-local function hostLabel()
-  local url = baseUrl()
-  return url:match("^https?://([^/:]+)") or url
+-- Global fallback for instances that do not set `insecure` themselves.
+local function defaultInsecure()
+  return noctalia.getConfig("allow_insecure_tls") ~= false
 end
 
 local function nowSec()
@@ -141,18 +219,158 @@ local function shellQuote(v)
   return "'" .. tostring(v):gsub("'", "'\\''") .. "'"
 end
 
-local function apiRequest(method, path, body, callback)
-  local url = baseUrl() .. "/api/" .. path:gsub("^/+", "")
-  local key = trim(noctalia.getConfig("api_key"))
-  local secret = trim(noctalia.getConfig("api_secret"))
-  local insecure = noctalia.getConfig("allow_insecure_tls") ~= false
+local function findInstance(idOrName)
+  local want = lower(trim(idOrName))
+  if want == "" then
+    return nil
+  end
+  for _, inst in ipairs(instances) do
+    if lower(inst.id) == want or lower(inst.name) == want or lower(inst.host) == want then
+      return inst
+    end
+  end
+  return nil
+end
+
+-- `instances` is a JSON array of { name, url, api_key, api_secret, insecure, web_ui_url }.
+-- When it is empty the single-firewall settings below the array are used instead.
+local function parseInstanceConfig()
+  local raw = trim(noctalia.getConfig("instances"))
+  local out = {}
+  local problem = ""
+
+  if raw ~= "" then
+    local decoded, decodeError = noctalia.json.decode(raw)
+    if type(decoded) == "table" and type(decoded.url) == "string" then
+      decoded = { decoded } -- tolerate a lone object instead of an array
+    end
+    if type(decoded) ~= "table" then
+      problem = noctalia.tr("result.instances_invalid", { error = tostring(decodeError or "not a JSON array") })
+    else
+      for _, entry in ipairs(decoded) do
+        if type(entry) == "table" then
+          local url = normalizeUrl(asString(entry.url))
+          local key = asString(entry.api_key)
+          local secret = asString(entry.api_secret)
+          if url == "" or key == "" or secret == "" then
+            noctalia.log("opnsense: skipping instance without url/api_key/api_secret: " .. noctalia.json.encode(entry))
+          else
+            local name = trim(asString(entry.name))
+            if name == "" then
+              name = hostOf(url)
+            end
+            local insecure = entry.insecure
+            if type(insecure) ~= "boolean" then
+              insecure = defaultInsecure()
+            end
+            local webUi = normalizeUrl(asString(entry.web_ui_url))
+            table.insert(out, {
+              id = name,
+              name = name,
+              url = url,
+              key = key,
+              secret = secret,
+              insecure = insecure,
+              webUi = webUi ~= "" and webUi or url,
+              host = hostOf(url),
+            })
+          end
+        end
+      end
+      if #out == 0 then
+        problem = noctalia.tr("result.instances_invalid", { error = "no usable entries" })
+      end
+    end
+  else
+    local url = normalizeUrl(noctalia.getConfig("base_url"))
+    local key = trim(noctalia.getConfig("api_key"))
+    local secret = trim(noctalia.getConfig("api_secret"))
+    if url ~= "" and key ~= "" and secret ~= "" then
+      local webUi = normalizeUrl(noctalia.getConfig("web_ui_url"))
+      table.insert(out, {
+        id = hostOf(url),
+        name = hostOf(url),
+        url = url,
+        key = key,
+        secret = secret,
+        insecure = defaultInsecure(),
+        webUi = webUi ~= "" and webUi or url,
+        host = hostOf(url),
+      })
+    end
+  end
+
+  -- Ids address instances (widget target, panel selection, service actions),
+  -- so two firewalls with the same name still need distinct ids.
+  local seen = {}
+  for _, inst in ipairs(out) do
+    local id = inst.id
+    if seen[id] then
+      local n = 2
+      while seen[id .. " (" .. n .. ")"] do
+        n += 1
+      end
+      id = id .. " (" .. n .. ")"
+      inst.id = id
+    end
+    seen[id] = true
+  end
+  return out, problem
+end
+
+-- Rebuilds the instance list when the settings change; keeps the collected
+-- data of instances that were not edited.
+local function syncInstances()
+  local parsed, problem = parseInstanceConfig()
+  configError = problem
+
+  local parts = {}
+  for _, inst in ipairs(parsed) do
+    table.insert(parts, table.concat({
+      inst.id, inst.url, inst.key, inst.secret, tostring(inst.insecure), inst.webUi,
+    }, "\1"))
+  end
+  local signature = table.concat(parts, "\2")
+  if signature == configSignature then
+    return
+  end
+  configSignature = signature
+  configGeneration += 1
+
+  local previous = {}
+  for _, inst in ipairs(instances) do
+    previous[inst.id] = inst
+  end
+  for _, inst in ipairs(parsed) do
+    local old = previous[inst.id]
+    if old ~= nil and old.url == inst.url and old.key == inst.key and old.secret == inst.secret then
+      inst.data = old.data
+      inst.prevIssues = old.prevIssues or {}
+    else
+      inst.data = newInstanceData()
+      inst.prevIssues = {}
+    end
+    -- Reset bookkeeping: requests in flight for the old list check `configGeneration`.
+    inst.pending = 0
+    inst.generation = 0
+    inst.refreshAgain = false
+    inst.startedAt = 0
+    inst.logsPending = false
+    inst.logsStartedAt = 0
+  end
+  instances = parsed
+  noctalia.log(`opnsense: {#instances} firewall(s) configured`)
+end
+
+local function apiRequest(inst, method, path, body, callback)
+  local url = inst.url .. "/api/" .. path:gsub("^/+", "")
 
   local req = {
     url = url,
     method = method or "GET",
-    basic_username = key,
-    basic_password = secret,
-    allow_insecure_tls = insecure,
+    basic_username = inst.key,
+    basic_password = inst.secret,
+    allow_insecure_tls = inst.insecure,
     headers = { "Accept: application/json" },
   }
   if body ~= nil then
@@ -622,7 +840,7 @@ local function parseLogs(data)
   return list, blockCount
 end
 
-local function notifyNewIssues(widgets, gateways)
+local function notifyNewIssues(inst, widgets, gateways)
   if noctalia.getConfig("notify_on_issue") == false then
     return
   end
@@ -630,8 +848,11 @@ local function notifyNewIssues(widgets, gateways)
   local function consider(name, ok, status)
     if not ok then
       current[name] = true
-      if not prevIssues[name] then
-        notifyErr(noctalia.tr("result.issue", { name = name, status = status }))
+      if not inst.prevIssues[name] then
+        notifyErr(noctalia.tr("result.issue", {
+          name = #instances > 1 and (inst.name .. " · " .. name) or name,
+          status = status,
+        }))
       end
     end
   end
@@ -641,24 +862,16 @@ local function notifyNewIssues(widgets, gateways)
   for _, g in ipairs(gateways) do
     consider("gw:" .. g.name, g.ok, g.status)
   end
-  prevIssues = current
+  inst.prevIssues = current
 end
 
 local refreshAll
 local fetchLogs
-local refreshStartedAt = 0
-local logsFetchPending = false
-local logsStartedAt = 0
 
--- Firewall log JSON is huge (~800KB+). Decoding it in an http callback
--- exceeds the Luau CPU budget, aborts the callback before finish(), and
--- leaves loading stuck forever. Logs are on-demand with ?limit=N + field slim.
-local function applyCoreSnapshot(bag, errors)
-  local widgets = {}
-  local interfaces = {}
-  local gateways = {}
-  local services = {}
-  local rules = {}
+-- Applies one firewall's answers to its own data block.
+local function applyInstanceData(inst, bag, errors)
+  local data = inst.data
+  local widgets, interfaces, gateways, services, rules = {}, {}, {}, {}, {}
   local info, resources = {}, {}
 
   local okParse, errParse = pcall(function()
@@ -670,113 +883,91 @@ local function applyCoreSnapshot(bag, errors)
     info, resources = parseInfo(bag.info, bag.resources, bag.time)
   end)
   if not okParse then
-    noctalia.log(`opnsense: parse error: {tostring(errParse)}`)
+    noctalia.log(`opnsense: parse error on {inst.name}: {tostring(errParse)}`)
     table.insert(errors, "parse: " .. tostring(errParse))
   end
 
   local issues, oks = countIssues(widgets, gateways)
-  pcall(notifyNewIssues, widgets, gateways)
+  pcall(notifyNewIssues, inst, widgets, gateways)
 
   local available = #widgets > 0 or #interfaces > 0 or #services > 0
-    or #gateways > 0 or #rules > 0 or #(snapshot.logs or {}) > 0
-  snapshot.available = available
-  snapshot.loading = false
-  snapshot.error = available and "" or (errors[1] or "no data")
-  snapshot.widgets = widgets
-  snapshot.interfaces = interfaces
-  snapshot.gateways = gateways
-  snapshot.services = services
-  snapshot.rules = rules
+    or #gateways > 0 or #rules > 0 or #(data.logs or {}) > 0
+  data.available = available
+  data.loading = false
+  data.error = available and "" or (errors[1] or "no data")
+  data.widgets = widgets
+  data.interfaces = interfaces
+  data.gateways = gateways
+  data.services = services
+  data.rules = rules
   -- keep previous logs unless fetchLogs updates them
-  snapshot.info = info
-  snapshot.resources = resources
-  snapshot.issueCount = issues
-  snapshot.okCount = oks
-  snapshot.updatedAt = nowSec()
-  refreshPending = false
-  refreshStartedAt = 0
-  noctalia.setUpdateInterval(refreshIntervalMs())
-
-  updateRevision(table.concat({
-    snapshot.host,
-    tostring(issues),
-    tostring(#interfaces),
-    tostring(#gateways),
-    tostring(#services),
-    tostring(#rules),
-    tostring(#(snapshot.logs or {})),
-  }, "|"))
+  data.info = info
+  data.resources = resources
+  data.issueCount = issues
+  data.okCount = oks
+  data.updatedAt = nowSec()
   publishSnapshot()
 end
 
-local function forceUnstick(reason)
-  noctalia.log("opnsense: " .. reason)
-  refreshPending = false
-  refreshStartedAt = 0
-  logsFetchPending = false
-  logsStartedAt = 0
-  snapshot.loading = false
-  snapshot.logsLoading = false
-  if snapshot.error == "" then
-    snapshot.error = reason
+-- A refresh or log fetch that never called back (CPU budget abort, hung
+-- request) must not leave a firewall spinning forever.
+local function recoverStuck()
+  for _, inst in ipairs(instances) do
+    local data = inst.data
+    if inst.pending > 0 and inst.startedAt > 0 and (nowSec() - inst.startedAt) >= STUCK_REFRESH_SEC then
+      noctalia.log(`opnsense: {inst.name} refresh timed out`)
+      inst.pending = 0
+      inst.startedAt = 0
+      data.loading = false
+      if data.error == "" then
+        data.error = "refresh timed out"
+      end
+    end
+    if inst.logsPending and inst.logsStartedAt > 0 and (nowSec() - inst.logsStartedAt) >= STUCK_LOGS_SEC then
+      noctalia.log(`opnsense: {inst.name} log fetch timed out`)
+      inst.logsPending = false
+      inst.logsStartedAt = 0
+      data.logsLoading = false
+    end
   end
-  noctalia.setUpdateInterval(refreshIntervalMs())
-  publishSnapshot()
 end
 
-refreshAll = function()
-  -- Recover from a stuck refresh (CPU-budget abort / hung HTTP).
-  if refreshPending and refreshStartedAt > 0 and (nowSec() - refreshStartedAt) >= STUCK_REFRESH_SEC then
-    forceUnstick("refresh timed out")
+local function instancePending()
+  for _, inst in ipairs(instances) do
+    if inst.pending > 0 then
+      return true
+    end
   end
-  if logsFetchPending and logsStartedAt > 0 and (nowSec() - logsStartedAt) >= STUCK_LOGS_SEC then
-    noctalia.log("opnsense: log fetch timed out")
-    logsFetchPending = false
-    logsStartedAt = 0
-    snapshot.logsLoading = false
-    publishSnapshot()
-  end
+  return false
+end
 
-  if refreshPending then
-    refreshAgain = true
+-- The host rejects requests beyond its HTTP queue (`http queue full`), so only
+-- one firewall is polled at a time: its 8 calls are the same burst a single
+-- firewall always produced. Queue: 4 firewalls then take ~4x a poll to sweep.
+local refreshQueue = {}
+local refreshActive = false
+local pumpRefreshQueue
+
+local function refreshInstance(inst, onDone)
+  if inst.pending > 0 then
+    inst.refreshAgain = true
+    if onDone ~= nil then
+      onDone()
+    end
     return
   end
-  refreshPending = true
-  refreshAgain = false
-  refreshStartedAt = nowSec()
-  refreshGeneration += 1
-  local generation = refreshGeneration
 
-  snapshot.host = hostLabel()
-  snapshot.configured = isConfigured()
-
-  if not snapshot.configured then
-    snapshot.available = false
-    snapshot.loading = false
-    snapshot.error = noctalia.tr("result.not_configured")
-    snapshot.widgets = {}
-    snapshot.interfaces = {}
-    snapshot.gateways = {}
-    snapshot.services = {}
-    snapshot.rules = {}
-    snapshot.logs = {}
-    snapshot.issueCount = 0
-    snapshot.okCount = 0
-    snapshot.blockLogCount = 0
-    refreshPending = false
-    refreshStartedAt = 0
-    updateRevision("not-configured")
-    publishSnapshot()
-    return
-  end
+  inst.refreshAgain = false
+  inst.startedAt = nowSec()
+  inst.generation += 1
+  local generation = inst.generation
+  local confGeneration = configGeneration
+  local data = inst.data
 
   -- Only show "Querying API…" on first load; background polls stay quiet.
-  if not snapshot.available then
-    snapshot.loading = true
-    publishSnapshot()
+  if not data.available then
+    data.loading = true
   end
-  -- Poll faster while a refresh is in flight so stuck recovery is prompt.
-  noctalia.setUpdateInterval(1000)
 
   -- Lean core set — no firewall log dump (on-demand via fetchLogs).
   local paths = {
@@ -790,52 +981,67 @@ refreshAll = function()
 
   -- GETs + rules POST + services POST
   local pending = #paths + 2
+  inst.pending = pending
   local bag = {}
   local errors = {}
   local finished = false
 
+  local function stale()
+    return confGeneration ~= configGeneration or generation ~= inst.generation
+  end
+
   local function finish()
-    if generation ~= refreshGeneration then
+    if stale() then
+      -- The instance list was replaced under us; release the pump so the new
+      -- list still gets polled.
+      if confGeneration ~= configGeneration then
+        inst.pending = 0
+        if onDone ~= nil then
+          onDone()
+        end
+      end
       return
     end
     pending -= 1
-    if pending > 0 then
-      return
-    end
-    if finished then
+    inst.pending = pending
+    if pending > 0 or finished then
       return
     end
     finished = true
+    inst.pending = 0
+    inst.startedAt = 0
 
-    local okApply, errApply = pcall(applyCoreSnapshot, bag, errors)
+    local okApply, errApply = pcall(applyInstanceData, inst, bag, errors)
     if not okApply then
-      noctalia.log(`opnsense: apply snapshot failed: {tostring(errApply)}`)
-      snapshot.loading = false
-      if not snapshot.available then
-        snapshot.error = "refresh failed: " .. tostring(errApply)
+      noctalia.log(`opnsense: apply snapshot failed on {inst.name}: {tostring(errApply)}`)
+      data.loading = false
+      if not data.available then
+        data.error = "refresh failed: " .. tostring(errApply)
       end
-      refreshPending = false
-      refreshStartedAt = 0
-      noctalia.setUpdateInterval(refreshIntervalMs())
       publishSnapshot()
     end
 
-    if refreshAgain then
-      refreshAgain = false
-      refreshAll()
+    if inst.refreshAgain then
+      -- Queued at the back: a firewall asking for an immediate re-poll must not
+      -- starve the ones behind it in this sweep.
+      inst.refreshAgain = false
+      table.insert(refreshQueue, inst)
+    end
+    if onDone ~= nil then
+      onDone()
     end
   end
 
   -- Decode + bag store inside pcall; finish() ALWAYS runs so one bad
   -- response cannot leave loading stuck.
   local function onGet(item, res)
-    if generation ~= refreshGeneration then
+    if stale() then
       return
     end
     local okInner, errInner = pcall(function()
-      local data, err = decodeBody(res)
-      if data ~= nil then
-        bag[item.key] = data
+      local decoded, err = decodeBody(res)
+      if decoded ~= nil then
+        bag[item.key] = decoded
       else
         table.insert(errors, item.path .. ": " .. tostring(err))
       end
@@ -846,88 +1052,138 @@ refreshAll = function()
     finish()
   end
 
+  local function onPost(key, label, res)
+    if stale() then
+      return
+    end
+    local okInner, errInner = pcall(function()
+      local decoded, err = decodeBody(res)
+      if decoded ~= nil then
+        bag[key] = decoded
+      else
+        table.insert(errors, label .. ": " .. tostring(err))
+      end
+    end)
+    if not okInner then
+      table.insert(errors, label .. ": " .. tostring(errInner))
+    end
+    finish()
+  end
+
   for _, item in ipairs(paths) do
     local captured = item
-    apiRequest("GET", captured.path, nil, function(res)
+    apiRequest(inst, "GET", captured.path, nil, function(res)
       onGet(captured, res)
     end)
   end
 
-  apiRequest("POST", "firewall/filter/search_rule", {
+  apiRequest(inst, "POST", "firewall/filter/search_rule", {
     current = 1,
     rowCount = 100,
     sort = {},
     searchPhrase = "",
     show_all = 1,
   }, function(res)
-    if generation ~= refreshGeneration then
-      return
-    end
-    local okInner, errInner = pcall(function()
-      local data, err = decodeBody(res)
-      if data ~= nil then
-        bag.rules = data
-      else
-        table.insert(errors, "rules: " .. tostring(err))
-      end
-    end)
-    if not okInner then
-      table.insert(errors, "rules: " .. tostring(errInner))
-    end
-    finish()
+    onPost("rules", "rules", res)
   end)
 
-  apiRequest("POST", "core/service/search", {
+  apiRequest(inst, "POST", "core/service/search", {
     current = 1,
     rowCount = 50,
     sort = {},
     searchPhrase = "",
   }, function(res)
-    if generation ~= refreshGeneration then
-      return
-    end
-    local okInner, errInner = pcall(function()
-      local data, err = decodeBody(res)
-      if data ~= nil then
-        bag.services = data
-      else
-        table.insert(errors, "services: " .. tostring(err))
-      end
-    end)
-    if not okInner then
-      table.insert(errors, "services: " .. tostring(errInner))
-    end
-    finish()
+    onPost("services", "services", res)
   end)
 end
 
--- On-demand: GET ?limit=N, slim fields with jq so Luau never sees ~800KB.
-fetchLogs = function(command)
-  if not isConfigured() then
-    actionResult(command, false, noctalia.tr("result.not_configured"))
+local function queued(inst)
+  for _, candidate in ipairs(refreshQueue) do
+    if candidate == inst then
+      return true
+    end
+  end
+  return false
+end
+
+pumpRefreshQueue = function()
+  if refreshActive then
     return
   end
-  if logsFetchPending then
-    actionResult(command, false, noctalia.tr("result.busy"))
+  local inst = table.remove(refreshQueue, 1)
+  while inst ~= nil and inst.pending > 0 do
+    inst = table.remove(refreshQueue, 1)
+  end
+  if inst == nil then
+    -- Sweep drained: back to the configured cadence (the fast tick is only for
+    -- recovering stuck requests).
+    if not instancePending() then
+      noctalia.setUpdateInterval(refreshIntervalMs())
+    end
+    return
+  end
+  refreshActive = true
+  refreshInstance(inst, function()
+    refreshActive = false
+    pumpRefreshQueue()
+  end)
+end
+
+-- `force` marks a refresh someone asked for (panel, launcher, CLI, settings
+-- change) as opposed to the plain timer tick. A tick that lands while a sweep
+-- is running must be ignored - honouring it would re-pull the firewall it found
+-- in flight, and with the fast recovery tick that never ends. An explicit
+-- refresh is always queued.
+refreshAll = function(force)
+  syncInstances()
+  recoverStuck()
+
+  if #instances == 0 then
+    publishSnapshot()
+    noctalia.setUpdateInterval(refreshIntervalMs())
     return
   end
 
-  logsFetchPending = true
-  logsStartedAt = nowSec()
-  snapshot.logsLoading = true
+  local sweeping = refreshActive or #refreshQueue > 0 or instancePending()
+  for _, inst in ipairs(instances) do
+    if inst.pending > 0 then
+      if force then
+        inst.refreshAgain = true
+      end
+    elseif (force or not sweeping) and not queued(inst) then
+      table.insert(refreshQueue, inst)
+    end
+  end
+  pumpRefreshQueue()
+  publishSnapshot()
+  sweeping = refreshActive or #refreshQueue > 0 or instancePending()
+  -- Tick fast only while a sweep is in flight, so stuck recovery stays prompt.
+  noctalia.setUpdateInterval(sweeping and 1000 or refreshIntervalMs())
+end
+
+-- Firewall log JSON is huge (~800KB+). Decoding it in an http callback exceeds
+-- the Luau CPU budget and aborts the callback before finish(), so logs are
+-- on-demand: GET ?limit=N piped through jq, which keeps Luau seeing ~KB.
+local function fetchInstanceLogs(inst, command, quiet)
+  if inst.logsPending then
+    if not quiet then
+      actionResult(command, false, noctalia.tr("result.busy"))
+    end
+    return
+  end
+
+  inst.logsPending = true
+  inst.logsStartedAt = nowSec()
+  inst.data.logsLoading = true
   publishSnapshot()
 
-  local key = trim(noctalia.getConfig("api_key"))
-  local secret = trim(noctalia.getConfig("api_secret"))
-  local insecure = noctalia.getConfig("allow_insecure_tls") ~= false
-  local url = baseUrl() .. "/api/diagnostics/firewall/log?limit=" .. tostring(LOG_LIMIT)
-
+  local url = inst.url .. "/api/diagnostics/firewall/log?limit=" .. tostring(LOG_LIMIT)
   local curlArgs = { "curl", "-sS", "--max-time", "20", "-H", "Accept: application/json" }
-  if insecure then
+  if inst.insecure then
     table.insert(curlArgs, "-k")
   end
   table.insert(curlArgs, "-u")
-  table.insert(curlArgs, key .. ":" .. secret)
+  table.insert(curlArgs, inst.key .. ":" .. inst.secret)
   table.insert(curlArgs, url)
 
   local parts = {}
@@ -938,59 +1194,94 @@ fetchLogs = function(command)
   local cmd = table.concat(parts, " ")
     .. " | jq -c 'if type==\"array\" then [.[] | {action,dir,interface,protoname,src,dst,srcport,dstport,label,__timestamp__,__digest__}] else . end'"
 
+  local confGeneration = configGeneration
+
   local function doneLogs()
-    logsFetchPending = false
-    logsStartedAt = 0
-    snapshot.logsLoading = false
+    inst.logsPending = false
+    inst.logsStartedAt = 0
+    inst.data.logsLoading = false
+  end
+
+  local function fail(message)
+    doneLogs()
+    publishSnapshot()
+    if not quiet then
+      actionResult(command, false, noctalia.tr("result.failed", { error = message }))
+    end
   end
 
   local accepted = noctalia.runAsync(cmd, function(result)
+    local data = inst.data
     local okAll, errAll = pcall(function()
+      if confGeneration ~= configGeneration then
+        doneLogs()
+        return
+      end
       if not result or result.exitCode ~= 0 then
         local err = trim(result and (result.stderr ~= "" and result.stderr or result.stdout) or "log fetch failed")
         if err == "" then err = "log fetch failed" end
-        doneLogs()
-        if not snapshot.available then
-          snapshot.error = err
+        if not data.available then
+          data.error = err
         end
-        publishSnapshot()
-        actionResult(command, false, noctalia.tr("result.failed", { error = err }))
+        fail(err)
         return
       end
 
       local parsed = noctalia.json.decode(result.stdout or "")
       if parsed == nil then
-        doneLogs()
-        publishSnapshot()
-        actionResult(command, false, noctalia.tr("result.failed", { error = "log parse failed" }))
+        fail("log parse failed")
         return
       end
 
       local logs, blockLogs = parseLogs(parsed)
-      snapshot.logs = logs
-      snapshot.blockLogCount = blockLogs
-      if snapshot.error:find("log", 1, true) or snapshot.error:find("timed out", 1, true) then
-        snapshot.error = ""
+      data.logs = logs
+      data.blockLogCount = blockLogs
+      if data.error:find("log", 1, true) or data.error:find("timed out", 1, true) then
+        data.error = ""
       end
-      snapshot.updatedAt = nowSec()
+      data.updatedAt = nowSec()
       doneLogs()
-      updateRevision("logs:" .. tostring(#logs) .. ":" .. tostring(blockLogs))
       publishSnapshot()
-      actionResult(command, true, noctalia.tr("result.logs_loaded", { n = #logs }))
+      if not quiet then
+        actionResult(command, true, noctalia.tr("result.logs_loaded", { n = #logs }))
+      end
     end)
     if not okAll then
-      noctalia.log(`opnsense: log fetch failed: {tostring(errAll)}`)
-      doneLogs()
-      publishSnapshot()
-      actionResult(command, false, noctalia.tr("result.failed", { error = "log parse failed" }))
+      noctalia.log(`opnsense: log fetch failed on {inst.name}: {tostring(errAll)}`)
+      fail("log parse failed")
     end
   end, 30000)
 
   if not accepted then
-    doneLogs()
-    publishSnapshot()
-    actionResult(command, false, noctalia.tr("result.failed", { error = "could not start log fetch" }))
+    fail("could not start log fetch")
   end
+end
+
+fetchLogs = function(command)
+  if #instances == 0 then
+    actionResult(command, false, noctalia.tr("result.not_configured"))
+    return
+  end
+
+  local target = trim(command and command.instance or "")
+  if target == "" then
+    -- No firewall named (IPC): fetch every instance and report once.
+    local many = #instances > 1
+    for _, inst in ipairs(instances) do
+      fetchInstanceLogs(inst, command, many)
+    end
+    if many then
+      actionResult(command, true, noctalia.tr("result.success"))
+    end
+    return
+  end
+
+  local inst = findInstance(target)
+  if inst == nil then
+    actionResult(command, false, noctalia.tr("result.failed", { error = "unknown firewall: " .. target }))
+    return
+  end
+  fetchInstanceLogs(inst, command, false)
 end
 
 local function finishAction(command, ok, message)
@@ -1002,7 +1293,20 @@ local function finishAction(command, ok, message)
     notifyErr(message)
   end
   publishSnapshot()
-  refreshAll()
+  refreshAll(true)
+end
+
+-- Resolves the firewall a command targets: an explicit `instance`, or the only
+-- configured one. Returns nil when the command is ambiguous.
+local function commandInstance(command)
+  local target = trim(command and command.instance or "")
+  if target ~= "" then
+    return findInstance(target)
+  end
+  if #instances == 1 then
+    return instances[1]
+  end
+  return nil
 end
 
 local function serviceControl(command, verb)
@@ -1010,8 +1314,9 @@ local function serviceControl(command, verb)
     actionResult(command, false, noctalia.tr("result.busy"))
     return
   end
-  if not isConfigured() then
-    actionResult(command, false, noctalia.tr("result.not_configured"))
+  local inst = commandInstance(command)
+  if inst == nil then
+    actionResult(command, false, noctalia.tr(#instances == 0 and "result.not_configured" or "result.no_instance"))
     return
   end
   local name = trim(command.name or command.id)
@@ -1021,7 +1326,7 @@ local function serviceControl(command, verb)
   end
   actionBusy = true
   publishSnapshot()
-  apiRequest("POST", "core/service/" .. verb .. "/" .. noctalia.string.urlEncode(name), {}, function(res)
+  apiRequest(inst, "POST", "core/service/" .. verb .. "/" .. noctalia.string.urlEncode(name), {}, function(res)
     local data, err = decodeBody(res)
     local ok = data ~= nil and (res.status == nil or res.status < 400)
     if type(data) == "table" and data.result ~= nil then
@@ -1037,10 +1342,14 @@ local function serviceControl(command, verb)
   end)
 end
 
-local function openUi()
-  local url = webUiUrl()
-  if url == "" then return end
-  noctalia.runAsync("xdg-open " .. "'" .. url:gsub("'", "'\\''") .. "'")
+local function openUi(command)
+  local inst = commandInstance(command) or instances[1]
+  if inst == nil then
+    actionResult(command, false, noctalia.tr("result.not_configured"))
+    return
+  end
+  noctalia.runAsync("xdg-open " .. shellQuote(inst.webUi))
+  actionResult(command, true, noctalia.tr("result.success"))
 end
 
 local function executeAction(command)
@@ -1048,7 +1357,7 @@ local function executeAction(command)
     return
   end
   if command.action == "refresh" then
-    refreshAll()
+    refreshAll(true)
     return
   end
   if command.action == "fetch_logs" then
@@ -1056,8 +1365,7 @@ local function executeAction(command)
     return
   end
   if command.action == "open_ui" then
-    openUi()
-    actionResult(command, true, noctalia.tr("result.success"))
+    openUi(command)
     return
   end
   if command.action == "restart_service" then
@@ -1094,19 +1402,25 @@ function update()
 end
 
 function onConfigChanged()
+  -- Settings changed: drop in-flight bookkeeping, rebuild the list, poll again.
+  for _, inst in ipairs(instances) do
+    inst.pending = 0
+    inst.startedAt = 0
+    inst.logsPending = false
+    inst.logsStartedAt = 0
+    inst.data.logsLoading = false
+  end
   noctalia.setUpdateInterval(refreshIntervalMs())
-  refreshPending = false
-  refreshStartedAt = 0
-  logsFetchPending = false
-  snapshot.logsLoading = false
-  refreshAll()
+  refreshAll(true)
 end
 
 function onIpc(event, _payload)
   if event == "refresh" then
-    refreshPending = false
-    refreshStartedAt = 0
-    refreshAll()
+    for _, inst in ipairs(instances) do
+      inst.pending = 0
+      inst.startedAt = 0
+    end
+    refreshAll(true)
   elseif event == "logs" then
     fetchLogs({ action = "fetch_logs", requestId = "ipc-logs" })
   end
