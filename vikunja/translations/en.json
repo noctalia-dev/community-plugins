@@ -1,0 +1,123 @@
+{
+  "actions": {
+    "complete": "Complete",
+    "copy": "Copy title",
+    "open": "Open in Vikunja",
+    "postpone_1": "+1 day",
+    "postpone_3": "+3 days",
+    "refresh": "Refresh",
+    "open_project": "Project tasks",
+    "move_to": "Move to"
+  },
+  "colors": {
+    "error": "Error",
+    "muted": "Muted",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "tertiary": "Tertiary"
+  },
+  "launcher": {
+    "add_subtitle": "New task in {project}, due today",
+    "add_title": "Add “{title}”",
+    "loading": "Loading Vikunja…",
+    "no-matches": "No matches",
+    "task_subtitle": "{project} · {due}",
+    "unavailable": "Vikunja unavailable"
+  },
+  "panel": {
+    "add_button": "Add",
+    "add_hint": "added to {project}, due today",
+    "add_placeholder": "New task title…",
+    "empty": "Nothing due in this view.",
+    "loading": "Loading tasks…",
+    "not_configured": "Set the Vikunja URL and API token under Settings → Plugins → Vikunja.",
+    "projects_loading": "Counting open tasks…",
+    "select_hint": "Pick a task for actions.",
+    "subtitle": "Tasks due today and overdue",
+    "summary": "{today} today · {overdue} overdue · {soon} upcoming",
+    "updated": "Updated {time}",
+    "project_open": "{n} open task(s)",
+    "project_back": "Projects",
+    "bucket_other": "No bucket",
+    "bucket": "Bucket",
+    "bucket_any": "No bucket",
+    "projects_hint": "Pick a project to see its tasks."
+  },
+  "result": {
+    "added": "Added “{title}”",
+    "busy": "Another operation is running.",
+    "completed": "Completed “{title}”",
+    "copied": "Copied “{text}”",
+    "failed": "Failed: {error}",
+    "no_project": "No project to add to — set a default project in the plugin settings.",
+    "not_configured": "Vikunja is not configured.",
+    "overdue_notice": "{n} task(s) overdue: {titles}",
+    "postponed": "Postponed “{title}” to {date}",
+    "project_opened": "Opened “{project}”",
+    "project_closed": "Back to projects",
+    "moved": "Moved “{title}” to {bucket}"
+  },
+  "settings": {
+    "api_token": {
+      "description": "Settings → API Tokens in Vikunja. Needs projects:read and tasks:read, plus tasks:create and tasks:update for add/complete/postpone.",
+      "label": "API token"
+    },
+    "base_url": {
+      "description": "Vikunja origin only, e.g. https://vikunja.example.com (no trailing /api).",
+      "label": "Base URL"
+    },
+    "default_project": {
+      "description": "Project (name or numeric id) that quick add and /vk add use. Empty picks the first project.",
+      "label": "Default project"
+    },
+    "notify_on_due": {
+      "description": "Desktop notification when a task becomes overdue.",
+      "label": "Notify when tasks become overdue"
+    },
+    "ok_color": {
+      "label": "Healthy color"
+    },
+    "refresh_interval": {
+      "description": "How often to poll Vikunja.",
+      "label": "Refresh interval (seconds)"
+    },
+    "show_label": {
+      "description": "Display the today/overdue count next to the icon.",
+      "label": "Show count on bar"
+    },
+    "soon_days": {
+      "description": "How many days ahead the Upcoming tab and the widget lookahead cover.",
+      "label": "Upcoming window (days)"
+    },
+    "timezone": {
+      "description": "IANA time zone used for “today”, day boundaries and due dates sent to Vikunja. Empty uses the server's zone.",
+      "label": "Time zone"
+    },
+    "warn_color": {
+      "label": "Issue color"
+    }
+  },
+  "tabs": {
+    "projects": "Projects",
+    "today": "Today",
+    "upcoming": "Upcoming"
+  },
+  "task": {
+    "due_in": "in {n} day(s)",
+    "due_tomorrow": "tomorrow",
+    "due_today": "today",
+    "overdue": "{n} day(s) overdue",
+    "project": "{project}",
+    "no_due": "no due date"
+  },
+  "title": "Vikunja",
+  "widget": {
+    "label_issues": "{n}",
+    "label_ok": "OK",
+    "refresh_requested": "Refreshing Vikunja…",
+    "tooltip_issues": "Vikunja · {overdue} overdue · {today} today\n{list}",
+    "tooltip_missing": "Set the Vikunja URL and API token under Settings → Plugins → Vikunja.",
+    "tooltip_ok": "Vikunja · {today} today · {soon} upcoming",
+    "tooltip_unavailable": "Vikunja unavailable: {error}"
+  }
+}

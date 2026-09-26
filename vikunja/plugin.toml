@@ -1,0 +1,124 @@
+# Vikunja tasks on the bar: how many are due today or overdue, a panel to add,
+# complete and postpone them, and a /vk launcher provider for quick capture.
+id = "omertahaoztop/vikunja"
+name = "Vikunja"
+version = "1.0.0"
+# 10 covers every capability used here: settings, state sharing, noctalia.http,
+# panel decl. UI with closures (9), bar widget trees and the launcher provider.
+plugin_api = 10
+author = "omertahaoztop"
+license = "MIT"
+dependencies = ["xdg-open"]
+tags = ["bar", "panel", "service", "launcher", "productivity"]
+icon = "checkbox"
+description = "Today's and overdue Vikunja tasks, with quick add, complete and postpone."
+
+[[setting]]
+key = "base_url"
+type = "string"
+label_key = "settings.base_url.label"
+description_key = "settings.base_url.description"
+default = "https://vikunja.example.com"
+
+[[setting]]
+key = "api_token"
+type = "string"
+label_key = "settings.api_token.label"
+description_key = "settings.api_token.description"
+default = ""
+
+[[setting]]
+key = "default_project"
+type = "string"
+label_key = "settings.default_project.label"
+description_key = "settings.default_project.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "soon_days"
+type = "int"
+label_key = "settings.soon_days.label"
+description_key = "settings.soon_days.description"
+default = 7
+min = 1
+max = 60
+
+[[setting]]
+key = "timezone"
+type = "string"
+label_key = "settings.timezone.label"
+description_key = "settings.timezone.description"
+default = "Europe/Istanbul"
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 60
+min = 15
+max = 3600
+
+[[setting]]
+key = "notify_on_due"
+type = "bool"
+label_key = "settings.notify_on_due.label"
+description_key = "settings.notify_on_due.description"
+default = true
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+  [[widget.setting]]
+  key = "ok_color"
+  type = "select"
+  label_key = "settings.ok_color.label"
+  default = "tertiary"
+  options = [
+    { value = "tertiary", label_key = "colors.tertiary" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "secondary", label_key = "colors.secondary" }
+  ]
+
+  [[widget.setting]]
+  key = "warn_color"
+  type = "select"
+  label_key = "settings.warn_color.label"
+  default = "error"
+  options = [
+    { value = "error", label_key = "colors.error" },
+    { value = "primary", label_key = "colors.primary" },
+    { value = "on_surface_variant", label_key = "colors.muted" }
+  ]
+
+[[panel]]
+id = "manager"
+entry = "panel.luau"
+width = 720
+height = 640
+placement = "floating"
+position = "center"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[launcher_provider]]
+id = "vk"
+entry = "launcher.luau"
+prefix = "vk"
+glyph = "checkbox"
+include_in_global_search = false
+debounce_ms = 80
