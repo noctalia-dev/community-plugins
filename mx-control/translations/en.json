@@ -1,0 +1,136 @@
+{
+  "settings": {
+    "show_value": {
+      "label": "Show battery level",
+      "description": "Show the battery percentage next to the mouse icon."
+    }
+  },
+  "state": {
+    "starting": "Starting the MX helper…",
+    "stale": "The MX helper is not responding.",
+    "no_solaar": "Solaar is not installed.",
+    "no_access": "Found a Logitech device but cannot open it.",
+    "no_devices": "No MX devices found."
+  },
+  "hint": {
+    "no_solaar": "Install it with `sudo pacman -S solaar`, then turn the mouse off and on.",
+    "no_access": "Solaar's udev rules apply on reconnect: turn the mouse off and on, or run `sudo udevadm trigger`."
+  },
+  "tab": {
+    "point": "Point & scroll",
+    "buttons": "Buttons & actions",
+    "hosts": "Easy-Switch",
+    "profiles": "Profiles",
+    "shortcuts": "Shortcuts"
+  },
+  "caption": {
+    "action": "Action",
+    "mode": "Mode",
+    "mode_locked": "Mode · used by a shortcut"
+  },
+  "section": {
+    "pointer": "Pointer",
+    "scroll": "Scroll wheel",
+    "thumb": "Thumb wheel",
+    "buttons": "Buttons",
+    "other": "Other",
+    "hosts": "Easy-Switch hosts",
+    "profiles": "Saved profiles",
+    "save_profile": "Save current settings",
+    "assignments": "Assigned shortcuts",
+    "new_shortcut": "New shortcut",
+    "edit_shortcut": "Edit shortcut"
+  },
+  "panel": {
+    "connection": "Connection",
+    "offline": "Offline",
+    "offline_hint": "Turn the device on or wake it to change its settings.",
+    "reading": "Reading settings…",
+    "refresh": "Read again from the device",
+    "host": "Host",
+    "this_computer": "This computer",
+    "switch": "Switch",
+    "confirm_switch": "Click to confirm",
+    "empty_slot": "Empty",
+    "empty_tab": "This device has no settings here.",
+    "no_hosts": "This device has no Easy-Switch hosts.",
+    "hosts_hint": "Switching sends the device to that computer. Use its Easy-Switch button to come back."
+  },
+  "accel": {
+    "system": "System default",
+    "mac": "macOS-style"
+  },
+  "pointer": {
+    "acceleration": "Pointer acceleration",
+    "acceleration_hint": "macOS-style gives slow movements precision and fast ones reach, scaled to the DPI. It is applied through Hyprland's input settings for this mouse."
+  },
+  "profiles": {
+    "apply": "Apply",
+    "delete": "Delete",
+    "confirm_delete": "Click to confirm",
+    "none": "No saved profiles for this device yet.",
+    "name_placeholder": "Profile name",
+    "save": "Save",
+    "overwrite": "Overwrite",
+    "save_hint": "A profile stores this device's hardware settings and pointer acceleration. Saving under an existing name replaces it."
+  },
+  "mode": {
+    "shortcut": "Shortcut or sequence",
+    "gesture": "Directional gestures"
+  },
+  "gesture": {
+    "up": "Up",
+    "down": "Down",
+    "left": "Left",
+    "right": "Right"
+  },
+  "preset": {
+    "copy": "Copy",
+    "paste": "Paste",
+    "undo": "Undo",
+    "back": "Back",
+    "next_tab": "Next tab"
+  },
+  "shortcuts": {
+    "all_apps": "All apps",
+    "other_app": "Another app…",
+    "app_placeholder": "Hyprland window class, e.g. google-chrome",
+    "button": "Button",
+    "choose_button": "Choose a button",
+    "application": "Application",
+    "mode": "Mode",
+    "steps": "Shortcut steps",
+    "click_action": "Click action",
+    "steps_placeholder": "CTRL+c — one shortcut per line, up to 8",
+    "gestures": "Gestures",
+    "gesture_placeholder": "No action",
+    "click": "Click",
+    "control": "Control",
+    "edit": "Edit",
+    "remove": "Remove",
+    "confirm_remove": "Removes overrides too",
+    "save": "Save shortcut",
+    "update": "Update shortcut",
+    "cancel": "Cancel",
+    "none": "No shortcuts assigned to this device.",
+    "unsupported": "This device has no buttons that can run software shortcuts.",
+    "no_hyprland": "Shortcuts need Hyprland, and no Hyprland session was found.",
+    "help": "Shortcuts go to the focused app. Gestures run when the button is released; a small movement counts as a click. Leave a direction empty to do nothing. Add an app override after saving the button's All apps shortcut."
+  },
+  "error": {
+    "shortcut": {
+      "key": "Use a key name such as C, Return, space or XF86AudioPlay after the modifiers.",
+      "modifier": "Modifiers are CTRL, ALT, SHIFT and SUPER.",
+      "no_key": "A shortcut needs a key after its modifiers.",
+      "empty": "Enter at least one shortcut.",
+      "too_many": "Use at most 8 steps."
+    },
+    "draft": {
+      "no_control": "Choose a button.",
+      "no_app": "Enter the app's Hyprland window class, or pick All apps.",
+      "not_regular": "Set this button's Mode to Regular in Buttons & actions first.",
+      "needs_default": "Save an All apps shortcut for this button first, so it also works outside this app.",
+      "no_gesture": "This button does not support directional gestures."
+    }
+  }
+}
