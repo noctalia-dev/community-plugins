@@ -12,7 +12,7 @@
 
 id = "nightwatch75/todo"
 name = "To Do"
-version = "1.2.0"
+version = "1.2.1"
 # 28 for panel.openContextMenu: the row's right-click menu carries edit,
 # priority and delete, which is what let the row drop two glyph buttons. Also
 # 23 for noctalia.readFileAsync — the bar widget re-reads todo.json every 2
@@ -71,3 +71,17 @@ entry = "todo.luau"
   label_key = "settings.glyph.label"
   description_key = "settings.glyph.description"
   default = "checklist"
+
+  [[widget.setting]]
+  key = "show_label"
+  type = "bool"
+  label_key = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default = true
+
+  [[widget.setting]]
+  key = "label"
+  type = "string"
+  label_key = "settings.label.label"
+  description_key = "settings.label.description"
+  default = "To Do"

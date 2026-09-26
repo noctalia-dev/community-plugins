@@ -23,6 +23,14 @@
       "description": "The glyph shown for the To Do widget on the bar.",
       "label": "Bar glyph"
     },
+    "label": {
+      "description": "Text displayed beside the Todo icon",
+      "label": "Label"
+    },
+    "show_label": {
+      "description": "Show/hide the text label beside the bar icon",
+      "label": "Show label"
+    },
     "sound_on_complete": {
       "description": "Play a short sound when a task is marked done.",
       "label": "Sound on complete"

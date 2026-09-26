@@ -123,6 +123,12 @@ automatically.
 | To Do folder        | Where `todo.json` is stored (default `~/Documents/Todo`).   |
 | Sound on complete    | Play a short sound when a task is marked done.               |
 | Bar glyph           | The glyph shown for the widget on the bar.                   |
+| Show label          | Show or hide all bar text beside the glyph (on by default). |
+| Label               | Text shown beside the glyph when Show label is on (`To Do` by default). |
+
+The panel header's count toggle still controls whether the task count follows
+the label. With Show label off, the bar shows only the glyph; the pending count
+remains available in its tooltip.
 
 ## Install
 
