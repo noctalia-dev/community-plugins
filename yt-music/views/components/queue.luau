@@ -12,8 +12,8 @@ local function build_queue()
 
 	table.insert(
 		child,
-		ui.row({ key = "queue-head", align = "center", justify = "space_between" }, {
-			ui.column({ gap = 4 }, {
+		ui.row({ key = "queue-head", align = "center", justify = "space_between", radius = theme.radius }, {
+			ui.column({ gap = 4, radius = theme.radius }, {
 				ui.label({ text = "QUEUE", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
 				ui.label({
 					text = #player.queue == 0 and "No tracks in queue" or (#player.queue .. " tracks in queue"),
@@ -23,7 +23,7 @@ local function build_queue()
 			}),
 		})
 	)
-	table.insert(child, ui.row({ key = "spacer-queue-1", height = 8, borderWidth = 0 }))
+	table.insert(child, ui.row({ key = "spacer-queue-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
     if #player.queue == 0 then
         table.insert(child, ui.label({
@@ -88,14 +88,15 @@ local function build_queue()
             }))
         end
 
-        table.insert(child, ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0 }, rows))
+        table.insert(child, ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows))
         table.insert(child, ui.row({
             key = "q-pagination",
             align = "center",
             justify = "center",
             gap = 12,
             padding = 10,
-            borderWidth = 0
+            borderWidth = 0,
+            radius = theme.radius
         }, page_controls))
     end
 

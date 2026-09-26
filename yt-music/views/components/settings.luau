@@ -7,7 +7,7 @@ local function build_settings()
 	local items = {}
 	table.insert(
 		items,
-		ui.row({ key = "set-head", paddingV = 16, borderWidth = 0 }, {
+		ui.row({ key = "set-head", paddingV = 16, borderWidth = 0, radius = theme.radius }, {
 			ui.label({ text = "Settings", fontSize = theme.fontHero, fontWeight = "bold" }),
 		})
 	)
@@ -29,12 +29,12 @@ local function build_settings()
 		local size = state.data.cache_stats and state.data.cache_stats[c.id] or "0"
 		table.insert(
 			cache_rows,
-			ui.row({ key = "cache-" .. c.id, align = "center", justify = "space_between", paddingV = 12 }, {
-				ui.column({ gap = 2 }, {
+			ui.row({ key = "cache-" .. c.id, align = "center", justify = "space_between", paddingV = 12, radius = theme.radius }, {
+				ui.column({ gap = 2, radius = theme.radius }, {
 					ui.label({ text = c.name, fontSize = theme.fontTitle, fontWeight = "bold" }),
 					ui.label({ text = c.desc, fontSize = theme.fontTitle, color = "on_surface_variant" }),
 				}),
-				ui.row({ gap = 16, align = "center" }, {
+				ui.row({ gap = 16, align = "center", radius = theme.radius }, {
 					ui.label({ text = size, fontSize = theme.fontTitle, fontWeight = "bold", color = "primary" }),
 					ui.button({
 						text = "Clear",
@@ -59,7 +59,7 @@ local function build_settings()
 			borderWidth = 1,
 			border = "outline",
 			fill = "surface_variant/0.2",
-			radius = 12,
+			radius = theme.radius,
 		}, {
 			ui.label({ text = "Storage & Cache", fontSize = theme.fontTitle, fontWeight = "bold" }),
 			ui.label({
@@ -67,11 +67,11 @@ local function build_settings()
 				fontSize = theme.fontTitle,
 				color = "on_surface_variant",
 			}),
-			ui.column({ gap = 0, paddingV = 12 }, cache_rows),
+			ui.column({ gap = 0, paddingV = 12, radius = theme.radius }, cache_rows),
 		})
 	)
 
-	table.insert(items, ui.row({ key = "set-spacer-1", height = 24, borderWidth = 0 }))
+	table.insert(items, ui.row({ key = "set-spacer-1", height = 24, borderWidth = 0, radius = theme.radius }))
 
 	for _, item in ipairs(auth_comp.build_cookies_page()) do
 		table.insert(items, item)

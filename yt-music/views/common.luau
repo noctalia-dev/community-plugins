@@ -41,7 +41,7 @@ end
 
 local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 	if path and file_exists_cached(path) then
-		return ui.image({ path = path, width = size, height = size, fit = "cover" })
+		return ui.image({ path = path, width = size, height = size, fit = "cover", radius = theme.radius })
 	end
 	return ui.row({
 		width = size,
@@ -50,6 +50,7 @@ local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 		justify = "center",
 		fill = fill or "surface_variant/0.3",
 		borderWidth = 0,
+		radius = theme.radius,
 	}, {
 		ui.glyph({ name = glyph or "music", size = glyph_size or 20, color = color or "on_surface_variant" }),
 	})
@@ -80,6 +81,7 @@ local function chunk_rows(cells, per_row, key_prefix, gap)
 				key = key_prefix .. "-pad-" .. (#cells + 1),
 				flexGrow = 1,
 				borderWidth = 0,
+				radius = theme.radius,
 			})
 		)
 	end
@@ -96,6 +98,7 @@ local function chunk_rows(cells, per_row, key_prefix, gap)
 				key = key_prefix .. "-row-" .. i,
 				gap = gap or 10,
 				align = "stretch",
+				radius = theme.radius,
 			}, row_children)
 		)
 	end
@@ -175,6 +178,7 @@ local function media_row(item, idx, custom_click, is_active)
 				align = "center",
 				justify = "center",
 				borderWidth = 0,
+				radius = theme.radius,
 			}, {
 				ui.glyph({ key = row_key .. "-check", name = "check", size = 16, color = "primary" }),
 			})
@@ -189,6 +193,7 @@ local function media_row(item, idx, custom_click, is_active)
 				align = "center",
 				justify = "center",
 				borderWidth = 0,
+				radius = theme.radius,
 			}, {
 				ui.button({
 					key = row_key .. "-dl",
@@ -225,9 +230,10 @@ local function media_row(item, idx, custom_click, is_active)
 			rerender.call()
 		end,
 		onHover = "onTrackHover",
+		radius = theme.radius,
 	}, {
 		track_thumb,
-		ui.column({ gap = 2, flexGrow = 1 }, {
+		ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 			ui.label({
 				text = item.title or "Unknown Track",
 				fontSize = theme.fontTitle,
@@ -236,7 +242,7 @@ local function media_row(item, idx, custom_click, is_active)
 			}),
 			ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" }),
 		}),
-		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center" }, trailing),
+		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center", radius = theme.radius }, trailing),
 		ui.button({
 			key = row_key .. "-playnext",
 			glyph = "playlist-add",

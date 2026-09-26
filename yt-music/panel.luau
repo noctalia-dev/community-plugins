@@ -1,5 +1,6 @@
 local STATE_KEY = "yt_music.state"
 
+local theme = require("./utils/theme.luau")
 local state = require("./views/state.luau")
 local rerender = require("./views/rerender.luau")
 local sidebar_comp = require("./views/components/sidebar.luau")
@@ -13,6 +14,9 @@ local settings_comp = require("./views/components/settings.luau")
 local offline_comp = require("./views/components/offline.luau")
 local artist_comp = require("./views/components/artist.luau")
 local library_comp = require("./views/components/library.luau")
+
+theme.corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
+theme.radius = 12 * theme.corner_radius_scale
 
 local function build_content()
 	local content = {}
@@ -42,7 +46,7 @@ local function build_content()
 		end
 	end
 
-	return ui.scroll({ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12 }, content)
+	return ui.scroll({ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12, radius = theme.radius }, content)
 end
 
 local function render_panel()
@@ -56,6 +60,7 @@ local function render_panel()
 			flexGrow = 1,
 			gap = 12,
 			borderWidth = 0,
+			radius = theme.radius,
 		}, {
 			sidebar_comp.build_sidebar(),
 
@@ -64,6 +69,7 @@ local function render_panel()
 				flexGrow = 1,
 				borderWidth = 0,
 				gap = 0,
+				radius = theme.radius,
 			}, {
 				sidebar_comp.build_topbar(),
 				build_content(),
@@ -71,9 +77,9 @@ local function render_panel()
 		})
 	)
 
-	table.insert(body, ui.row({ key = "player-spacer", height = 12, borderWidth = 0 }))
+	table.insert(body, ui.row({ key = "player-spacer", height = 12, borderWidth = 0, radius = theme.radius }))
 
-	table.insert(body, ui.row({ key = "sep-player", height = 1, fill = "on_surface/0.3", borderWidth = 0 }))
+	table.insert(body, ui.row({ key = "sep-player", height = 1, fill = "on_surface/0.3", borderWidth = 0, radius = theme.radius }))
 
 	table.insert(body, playerbar_comp.build())
 
@@ -82,6 +88,7 @@ local function render_panel()
 		gap = 0,
 		padding = 0,
 		flexGrow = 1,
+		radius = theme.radius,
 	}, body))
 end
 
@@ -98,6 +105,8 @@ function onTrackHover(hover_state, key)
 end
 
 function onOpen(_context)
+	theme.corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
+	theme.radius = 12 * theme.corner_radius_scale
 	local curr = noctalia.state.get(STATE_KEY)
 	if curr then
 		state.apply(curr)

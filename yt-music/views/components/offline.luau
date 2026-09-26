@@ -40,8 +40,8 @@ local function build_offline()
 
 	table.insert(
 		child,
-		ui.row({ key = "off-head", align = "center", justify = "space_between" }, {
-			ui.column({ gap = 4 }, {
+		ui.row({ key = "off-head", align = "center", justify = "space_between", radius = theme.radius }, {
+			ui.column({ gap = 4, radius = theme.radius }, {
 				ui.label({ text = "OFFLINE", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
 				ui.label({
 					text = n_pls
@@ -56,7 +56,7 @@ local function build_offline()
 		})
 	)
 
-	table.insert(child, ui.row({ key = "spacer-off-1", height = 8, borderWidth = 0 }))
+	table.insert(child, ui.row({ key = "spacer-off-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
 	-- Filter chips
 	local filter = view.offline_filter or "all"
@@ -85,6 +85,7 @@ local function build_offline()
 					view.offline_filter = c.id
 					rerender.call()
 				end,
+				radius = theme.radius,
 			}, {
 				ui.label({
 					text = c.label,
@@ -95,8 +96,8 @@ local function build_offline()
 			})
 		)
 	end
-	table.insert(child, ui.row({ key = "off-chips-row", align = "center", gap = 8 }, chip_elems))
-	table.insert(child, ui.row({ key = "spacer-off-2", height = 14, borderWidth = 0 }))
+	table.insert(child, ui.row({ key = "off-chips-row", align = "center", gap = 8, radius = theme.radius }, chip_elems))
+	table.insert(child, ui.row({ key = "spacer-off-2", height = 14, borderWidth = 0, radius = theme.radius }))
 
 	if n_pls == 0 and n_tr == 0 then
 		table.insert(
@@ -116,7 +117,7 @@ local function build_offline()
 	if not show_playlists and not show_tracks then
 		table.insert(
 			child,
-			ui.row({ key = "off-empty-filter", align = "center", justify = "center", padding = 40 }, {
+			ui.row({ key = "off-empty-filter", align = "center", justify = "center", padding = 40, radius = theme.radius }, {
 				ui.label({
 					text = "No offline items match your filter",
 					fontSize = theme.fontTitle,
@@ -152,6 +153,7 @@ local function build_offline()
 					border = "primary/0.4",
 					fill = card_hovered and "primary/0.12" or "primary/0.04",
 					flexGrow = 1,
+					radius = theme.radius,
 					onClick = function()
 						view.hover_key.card = nil
 						state.open_playlist(pl)
@@ -166,7 +168,7 @@ local function build_offline()
 						"primary",
 						card_hovered and "primary/0.2" or "surface_variant/0.6"
 					),
-					ui.column({ gap = 2, flexGrow = 1 }, {
+					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({
 							text = (pl.title or "Playlist"),
 							fontSize = theme.fontTitle,
@@ -195,7 +197,7 @@ local function build_offline()
 	if show_tracks then
 		table.insert(
 			child,
-			ui.row({ key = "off-tracks-head", justify = "space_between", align = "center" }, {
+			ui.row({ key = "off-tracks-head", justify = "space_between", align = "center", radius = theme.radius }, {
 				ui.label({
 					text = "SAVED TRACKS",
 					fontSize = theme.fontHeading,
@@ -231,7 +233,7 @@ local function build_offline()
 				end, data.player.id == t.id)
 			)
 		end
-		table.insert(child, ui.column({ key = "off-tracks-col", gap = 0 }, track_rows))
+		table.insert(child, ui.column({ key = "off-tracks-col", gap = 0, radius = theme.radius }, track_rows))
 
 		local has_prev = (view.offline_view_page > 0)
 		local has_next = (view.offline_view_page < total_pages - 1)
@@ -284,6 +286,7 @@ local function build_offline()
 				gap = 12,
 				padding = 10,
 				borderWidth = 0,
+				radius = theme.radius,
 			}, controls)
 		)
 	end

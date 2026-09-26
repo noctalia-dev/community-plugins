@@ -10,10 +10,10 @@ local function build_home()
     local feed = {}
 
     local is_refreshing = (data.refreshing_quick_picks == true)
-    table.insert(feed, ui.row({ key = "qp-header", align = "center", justify = "space_between" }, {
-        ui.row({ align = "center", gap = 8 }, {
+    table.insert(feed, ui.row({ key = "qp-header", align = "center", justify = "space_between", radius = theme.radius }, {
+        ui.row({ align = "center", gap = 8, radius = theme.radius }, {
             ui.glyph({ name = "sparkles", size = 18, color = "primary" }),
-            ui.column({ gap = 1 }, {
+            ui.column({ gap = 1, radius = theme.radius }, {
                 ui.label({ text = "QUICK PICKS", fontSize = theme.fontHeading, fontWeight = "bold", color = "primary" }),
                 ui.label({ text = "Start listening to tracks picked for you", fontSize = theme.fontTitle, color = "on_surface_variant" })
             })
@@ -45,6 +45,7 @@ local function build_home()
                 borderWidth = 0,
                 fill = is_current and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
                 flexGrow = 1,
+                radius = theme.radius,
                 onClick = function()
                     view.hover_key.track = nil
                     request("play_with_queue", { item = t, index = idx, queue = data.quick_picks })
@@ -64,7 +65,7 @@ local function build_home()
                 end
             }, {
                 thumb,
-                ui.column({ gap = 1, flexGrow = 1 }, {
+                ui.column({ gap = 1, flexGrow = 1, radius = theme.radius }, {
                     ui.label({ text = t.title or "Unknown Track", fontSize = theme.fontTitle, maxLines = 1, color = is_current and "primary" or "on_surface" }),
                     ui.label({ text = t.artist or "", fontSize = theme.fontTitle, maxLines = 1, color = "on_surface_variant" })
                 }),
@@ -93,7 +94,7 @@ local function build_home()
             color = "on_surface_variant"
         }))
     end
-    table.insert(feed, ui.row({ key = "spacer-above-sep-qp", height = 4, borderWidth = 0 }))
+    table.insert(feed, ui.row({ key = "spacer-above-sep-qp", height = 4, borderWidth = 0, radius = theme.radius }))
     table.insert(feed, ui.separator({ key = "sep-qp", color = "outline/0.3" }))
 
     local lib_ids = {}
@@ -129,7 +130,7 @@ local function build_home()
     end
 
     if mixes_source then
-        table.insert(feed, ui.row({ key = "spacer-mixes", height = 4, borderWidth = 0 }))
+        table.insert(feed, ui.row({ key = "spacer-mixes", height = 4, borderWidth = 0, radius = theme.radius }))
         table.insert(feed, ui.label({ text = "RECOMMENDED MIXES & RADIOS", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
         local mix_cards = {}
@@ -146,6 +147,7 @@ local function build_home()
                 border = "primary/0.4",
                 fill = mix_hovered and "primary/0.12" or "primary/0.04",
                 flexGrow = 1,
+                radius = theme.radius,
                 onClick = function()
                     view.hover_key.card = nil
                     state.open_playlist({ id = mix.id, title = item_title })
@@ -153,7 +155,7 @@ local function build_home()
                 onHover = "onCardHover"
             }, {
                 common.thumb_or_placeholder(mix.thumb_path, 200, "disc", 38, "primary", mix_hovered and "primary/0.2" or "surface_variant/0.6"),
-                ui.column({ gap = 2, flexGrow = 1 }, {
+                ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
                     ui.label({ text = item_title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface" }),
                     ui.label({ text = item_sub, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface_variant" })
                 })
@@ -164,9 +166,9 @@ local function build_home()
         end
     end
 
-    table.insert(feed, ui.row({ key = "spacer-above-sep-mixes", height = 4, borderWidth = 0 }))
+    table.insert(feed, ui.row({ key = "spacer-above-sep-mixes", height = 4, borderWidth = 0, radius = theme.radius }))
     table.insert(feed, ui.separator({ key = "sep-mixes", color = "outline/0.3" }))
-    table.insert(feed, ui.row({ key = "spacer-library", height = 4, borderWidth = 0 }))
+    table.insert(feed, ui.row({ key = "spacer-library", height = 4, borderWidth = 0, radius = theme.radius }))
 
     -- Temporarily hidden YOUR LIBRARY section for speed test
     -- table.insert(feed, ui.label({ text = "YOUR LIBRARY", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
