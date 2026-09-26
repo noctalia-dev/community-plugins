@@ -236,8 +236,7 @@ local function deviceCard(d)
 		render()
 	end
 
-	return ui.row({ gap = 10, padding = 12, radius = 10, fill = "surface/0.7",
-		border = "primary/0.2", borderWidth = 1, align = "center" }, {
+	local children = {
 		-- Standalone ui.image (like gamer-mode's circular logo): a ui.image
 		-- nested inside ui.box did not render. Clicking swaps the image.
 		imgPath and ui.image({ path = imgPath, width = 44, height = 44,
@@ -269,7 +268,6 @@ local function deviceCard(d)
 				}),
 			}),
 		}),
-		volumeGroup,
 		ui.column({ gap = 2, align = "center", width = 52 }, {
 			ui.glyph({ name = "antenna", size = 16,
 				color = (reachable and d.networkType and d.networkType ~= "") and "primary" or "on_surface_variant" }),
@@ -279,7 +277,11 @@ local function deviceCard(d)
 			ui.glyph({ name = batteryGlyph(charge, charging), size = 16, color = chargeColor }),
 			ui.label({ text = chargeText, fontSize = 10, fontWeight = "medium", color = chargeColor }),
 		}),
-	})
+	}
+	-- Noctalia expects a dense array of UI nodes; absent volume is not a node.
+	if volumeGroup then table.insert(children, 3, volumeGroup) end
+	return ui.row({ gap = 10, padding = 12, radius = 10, fill = "surface/0.7",
+		border = "primary/0.2", borderWidth = 1, align = "center" }, children)
 end
 
 -- ── Right column: action buttons stacked vertically ─────────────────────────
