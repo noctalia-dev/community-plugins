@@ -2,9 +2,9 @@
 
 local hideWhenEmpty = noctalia.getConfig("hide_when_empty") == true
 local notify = noctalia.getConfig("notify") == true
-local glyph = noctalia.getConfig("glyph") or "download"
+local glyph = noctalia.getConfig("glyph") or "package"
 local terminalApplication = noctalia.string.trim(noctalia.getConfig("terminal_application") or "")
-local clickAction = noctalia.getConfig("click_action") or "open_software_center"
+local clickAction = noctalia.getConfig("click_action") or "run_updater"
 if clickAction ~= "run_updater" then
     clickAction = "open_software_center"
 end
