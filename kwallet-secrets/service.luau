@@ -182,6 +182,19 @@ function onConfigChanged()
   end)
 end
 
+-- The helper is setsid-detached, so nothing takes it down with the plugin: without
+-- this, disabling or uninstalling left it registered and still answering
+-- NetworkManager from the wallet. Stop it on every exit except a hot reload, which
+-- reboots this script in place and finds the running helper by its lock. SIGTERM
+-- (pkill's default) makes the helper unregister from NetworkManager first.
+function onExit(_signal, reason)
+  if reason == "reload" then
+    return
+  end
+  noctalia.runAsync(
+    string.format("pkill -u \"$(id -u)\" -f '%s' >/dev/null 2>&1; exit 0", KILL_PATTERN))
+end
+
 if preflight() then
   noctalia.setUpdateInterval(CHECK_MS)
   update()
