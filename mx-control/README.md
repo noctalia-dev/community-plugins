@@ -41,10 +41,10 @@ noctalia msg panel-toggle gamaraan/mx-control:panel
 
 The panel has five tabs:
 
-- **Point & scroll** – DPI (a slider when the device reports an evenly spaced DPI list),
+- **Point & Scroll** – DPI (a slider when the device reports an evenly spaced DPI list),
   pointer acceleration (system default or macOS-style, mice only), scroll wheel and thumb
   wheel settings, and any other setting the device reports.
-- **Buttons & actions** – one group per button with its hardware action and mode
+- **Buttons & Actions** – one group per button with its hardware action and mode
   (regular, diverted, gestures). A button's mode is locked while it has a shortcut.
 - **Easy-Switch** – the paired hosts. Switching takes a second click, because it sends the
   device to the other computer.

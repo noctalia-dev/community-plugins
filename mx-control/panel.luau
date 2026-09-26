@@ -828,7 +828,6 @@ local function tabBar()
 			selected = active,
 			variant = active and "secondary" or "ghost",
 			controlSize = "sm",
-			flexGrow = 1,
 			onClick = function()
 				activeTab = tab
 				if tab == "shortcuts" then
@@ -838,7 +837,8 @@ local function tabBar()
 			end,
 		})
 	end
-	return ui.row({ gap = 6 }, buttons)
+	-- Sized to their labels: equal widths cut "Buttons & Actions" at 600 px.
+	return ui.row({ gap = 6, justify = "space_between" }, buttons)
 end
 
 local function tabContent(device, code)

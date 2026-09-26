@@ -17,8 +17,8 @@
     "no_access": "Solaar's udev rules apply on reconnect: turn the mouse off and on, or run `sudo udevadm trigger`."
   },
   "tab": {
-    "point": "Point & scroll",
-    "buttons": "Buttons & actions",
+    "point": "Point & Scroll",
+    "buttons": "Buttons & Actions",
     "hosts": "Easy-Switch",
     "profiles": "Profiles",
     "shortcuts": "Shortcuts"
@@ -128,7 +128,7 @@
     "draft": {
       "no_control": "Choose a button.",
       "no_app": "Enter the app's Hyprland window class, or pick All apps.",
-      "not_regular": "Set this button's Mode to Regular in Buttons & actions first.",
+      "not_regular": "Set this button's Mode to Regular in Buttons & Actions first.",
       "needs_default": "Save an All apps shortcut for this button first, so it also works outside this app.",
       "no_gesture": "This button does not support directional gestures."
     }
