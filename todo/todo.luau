@@ -2,10 +2,10 @@
 -- To Do — bar widget that toggles the task panel.
 --
 -- The glyph is configurable (widget setting). It lights up while the panel is
--- open (shared "todo_open" state, published by panel.luau), carries the total
--- task count as a "N todo(s)" label next to it (barWidget.setText) unless the
--- panel's header hash toggle turned that off, and its tooltip shows how many
--- tasks are still to do. Everything is read straight from todo.json, so it is
+-- open (shared "todo_open" state, published by panel.luau). An optional bar
+-- label can include the total task count unless the panel's header hash toggle
+-- turned that off; the tooltip shows how many tasks are still to do. Everything
+-- is read straight from todo.json, so it is
 -- correct before the panel is ever opened and reflects edits made to the file
 -- outside noctalia.
 --
@@ -65,11 +65,16 @@ end
 local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph"))
     barWidget.setGlyphColor(open and "primary" or "on_surface")
-    if showCount then
-        local key = total == 1 and "bar_count_singular" or "bar_count_plural"
-        barWidget.setText(noctalia.tr(key, { count = total }))
-    else
+    if noctalia.getConfig("show_label") ~= true then
         barWidget.setText("")
+    else
+        local label = noctalia.getConfig("label") or "To Do"
+        if showCount then
+            local key = total == 1 and "bar_count_singular" or "bar_count_plural"
+            local count = noctalia.tr(key, { count = total })
+            label = label ~= "" and label .. " · " .. count or count
+        end
+        barWidget.setText(label)
     end
     barWidget.setTooltip(noctalia.tr("tooltip", { count = pending }))
 end
