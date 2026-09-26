@@ -77,7 +77,7 @@ entry = "todo.luau"
   type = "bool"
   label_key = "settings.show_label.label"
   description_key = "settings.show_label.description"
-  default = false
+  default = true
 
   [[widget.setting]]
   key = "label"

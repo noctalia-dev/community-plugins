@@ -65,7 +65,7 @@ end
 local function render()
     barWidget.setGlyph(noctalia.getConfig("glyph"))
     barWidget.setGlyphColor(open and "primary" or "on_surface")
-    if noctalia.getConfig("show_label") ~= true then
+    if noctalia.getConfig("show_label") == false then
         barWidget.setText("")
     else
         local label = noctalia.getConfig("label") or "To Do"
