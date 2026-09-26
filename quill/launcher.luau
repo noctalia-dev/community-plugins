@@ -32,7 +32,7 @@ function onQuery(text)
           results[#results + 1] = result(
             "toggle:" .. todo.path .. ":" .. tostring(todo.line),
             todo.text,
-            "complete · " .. todo.path .. (todo.due ~= nil and (" · " .. todo.due) or ""),
+            "complete · " .. todo.path .. (todo.due ~= nil and (" · " .. todo.due .. (todo.time ~= nil and (" " .. todo.time) or "")) or ""),
             "check",
             50
           )

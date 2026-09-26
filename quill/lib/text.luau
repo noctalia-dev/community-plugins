@@ -205,28 +205,65 @@ function M.daysUntil(iso)
   return math.floor((target - midnight) / 86400)
 end
 
-function M.fmtDue(iso)
+function M.safeTime(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+  local hour, minute = string.match(value, "^(%d%d?):(%d%d)$")
+  hour = tonumber(hour)
+  minute = tonumber(minute)
+  if hour == nil or minute == nil or hour < 0 or hour > 23 or minute < 0 or minute > 59 then
+    return nil
+  end
+  return string.format("%02d:%02d", hour, minute)
+end
+
+function M.nowTime()
+  return os.date("%H:%M")
+end
+
+function M.isOverdue(due, time)
+  return M.overdueOn(due, time, M.todayIso(), M.nowTime())
+end
+
+function M.overdueOn(due, time, today, nowTime)
+  if due == nil or due == "" then
+    return false
+  end
+  if due < today then
+    return true
+  end
+  if due > today or time == nil or time == "" then
+    return false
+  end
+  local cleanTime = M.safeTime(time)
+  return cleanTime ~= nil and cleanTime < nowTime
+end
+
+function M.fmtDue(iso, time)
   local diff = M.daysUntil(iso)
   if diff == nil then
     return nil
   end
+  local label
   if diff == 0 then
-    return "today"
+    label = "today"
+  elseif diff == 1 then
+    label = "tomorrow"
+  elseif diff == -1 then
+    label = "yesterday"
+  elseif diff < 0 then
+    label = tostring(-diff) .. "d overdue"
+  elseif diff <= 7 then
+    label = "in " .. tostring(diff) .. "d"
+  else
+    label = os.date("%b %d", M.isoEpoch(iso))
   end
-  if diff == 1 then
-    return "tomorrow"
+  local cleanTime = M.safeTime(time)
+  if cleanTime ~= nil then
+    label = label .. " " .. cleanTime
   end
-  if diff == -1 then
-    return "yesterday"
-  end
-  if diff < 0 then
-    return tostring(-diff) .. "d overdue"
-  end
-  if diff <= 7 then
-    return "in " .. tostring(diff) .. "d"
-  end
-  local epoch = M.isoEpoch(iso)
-  return os.date("%b %d", epoch)
+  return label
 end
 
 function M.relTime(seconds)
@@ -293,6 +330,224 @@ function M.nextRecurrence(iso, rule)
     return M.addMonths(base, 1)
   end
   return nil
+end
+
+-- Rolls a past recurring due date forward to the next occurrence that is not
+-- before `from`. Times are stepped as whole days, not by the recurrence unit,
+-- so a monthly todo does not drift a day each month.
+-- Unix epoch milliseconds for a due date plus optional "HH:MM", or nil.
+-- Without a time, the date is anchored to local midnight.
+function M.dueEpochMs(iso, time)
+  if iso == nil or iso == "" then
+    return nil
+  end
+  local y, mo, d = string.match(iso, "^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+  if y == nil then
+    return nil
+  end
+  local cleanTime = M.safeTime(time)
+  local hour, minute = 0, 0
+  if cleanTime ~= nil then
+    hour = tonumber(string.match(cleanTime, "^(%d%d)"))
+    minute = tonumber(string.match(cleanTime, ":(%d%d)$"))
+  end
+  local epoch = os.time({
+    year = tonumber(y),
+    month = tonumber(mo),
+    day = tonumber(d),
+    hour = hour,
+    min = minute,
+  })
+  if epoch == nil then
+    return nil
+  end
+  return epoch * 1000
+end
+
+-- Monthly recurrence is capped: stepping is required for correct month-end
+-- clamping, which is linear in the number of months skipped. A todo that has
+-- not been touched in years would otherwise burn hundreds of iterations on
+-- every snapshot build, so past this horizon the date is left alone and shown
+-- as-is instead.
+local MAX_MONTHLY_ROLL = 240
+
+function M.rollRecurrence(due, rule, from)
+  from = from or M.todayIso()
+  if due == nil or due == "" or rule == nil then
+    return due
+  end
+  if due >= from then
+    return due
+  end
+  local step = rule == "weekly" and 7 or 1
+  if rule ~= "daily" and rule ~= "weekly" and rule ~= "monthly" then
+    return due
+  end
+  -- Jump straight to the first occurrence on or after `from` instead of
+  -- walking day by day: a years-old @daily todo would otherwise cost hundreds
+  -- of iterations on every snapshot build.
+  local days = M.daysUntil(due)
+  local target = M.daysUntil(from)
+  if days == nil or target == nil or days > target then
+    return due
+  end
+  local advance = target - days
+  if rule == "monthly" then
+    if advance > MAX_MONTHLY_ROLL * 31 then
+      return due
+    end
+    -- Must step month by month: clamping is not associative, so no jump of
+    -- whole months or years is safe. Skipping a February means a 31st is never
+    -- clamped (2025-01-31 + 12 months is 2026-01-31, not 2026-02-28).
+    local probe = due
+    local guard = 0
+    while probe < from and guard < MAX_MONTHLY_ROLL do
+      local stepped = M.addMonths(probe, 1)
+      if stepped == nil then
+        return due
+      end
+      probe = stepped
+      guard = guard + 1
+    end
+    return probe >= from and probe or due
+  end
+  local jumps = math.floor(advance / step)
+  local candidate = M.addDays(due, jumps * step)
+  while candidate < from do
+    candidate = M.addDays(candidate, step)
+  end
+  return candidate
+end
+
+local WEEKDAYS = {
+  sunday = 7, monday = 1, tuesday = 2, wednesday = 3, thursday = 4, friday = 5, saturday = 6,
+}
+
+local MONTHS = {
+  january = 1, february = 2, march = 3, april = 4, may = 5, june = 6,
+  july = 7, august = 8, september = 9, october = 10, november = 11, december = 12,
+}
+
+local function word(text, token)
+  return string.find(text, "%f[%w]" .. token .. "%f[%W]") ~= nil
+end
+
+local function clockTime(text)
+  local hh, mm = string.match(text, "(%d%d?):(%d%d)")
+  if hh ~= nil then
+    local h, m = tonumber(hh), tonumber(mm)
+    if h <= 23 and m <= 59 then
+      return string.format("%02d:%02d", h, m)
+    end
+    return nil
+  end
+  local h, meridiem = string.match(text, "(%d%d?)%s*am")
+  if h ~= nil then
+    meridiem = "am"
+  else
+    h, meridiem = string.match(text, "(%d%d?)%s*pm")
+    if h ~= nil then
+      meridiem = "pm"
+    else
+      meridiem, h = string.match(text, "(am|pm)%s*(%d%d?)")
+    end
+  end
+  if h ~= nil then
+    local hour = tonumber(h)
+    if hour >= 1 and hour <= 12 then
+      if meridiem == "pm" and hour < 12 then
+        hour = hour + 12
+      elseif meridiem == "am" and hour == 12 then
+        hour = 0
+      end
+      return string.format("%02d:00", hour)
+    end
+  end
+  return nil
+end
+
+-- Deterministic date/time extraction, used when AI structuring is off or
+-- unavailable. Returns "YYYY-MM-DD" and "HH:MM", either of which may be nil.
+function M.parseDueHint(text)
+  local lower = string.lower(tostring(text or ""))
+  local today = M.todayIso()
+  local year = tonumber(os.date("%Y"))
+  local date
+
+  local y, mo, d = string.match(lower, "(%d%d%d%d)%-(%d%d)%-(%d%d)")
+  if d ~= nil then
+    date = string.format("%04d-%02d-%02d", tonumber(y), tonumber(mo), tonumber(d))
+  end
+
+  if date == nil then
+    d, mo = string.match(lower, "(%d%d?)[./](%d%d?)")
+    if d ~= nil then
+      local month, day = tonumber(mo), tonumber(d)
+      if month >= 1 and month <= 12 and day >= 1 and day <= 31 then
+        date = string.format("%04d-%02d-%02d", year, month, day)
+      end
+    end
+  end
+
+  if date == nil then
+    for name, number in pairs(MONTHS) do
+      local short = string.sub(name, 1, 3)
+      local before = string.match(lower, "(%d%d?)%s+" .. short)
+      local after = string.match(lower, short .. "%a*%s+(%d%d?)%f[%W]")
+      local dayNum = tonumber(before or after or "")
+      if dayNum ~= nil and dayNum >= 1 and dayNum <= 31 then
+        date = string.format("%04d-%02d-%02d", year, number, dayNum)
+        break
+      end
+    end
+  end
+
+  if date == nil then
+    if word(lower, "today") then
+      date = today
+    elseif word(lower, "tomorrow") then
+      date = M.addDays(today, 1)
+    elseif word(lower, "yesterday") then
+      date = M.addDays(today, -1)
+    elseif word(lower, "week") and word(lower, "next") then
+      date = M.addDays(today, 7)
+    elseif word(lower, "month") and word(lower, "next") then
+      date = M.addMonths(today, 1)
+    else
+      local n, unit = string.match(lower, "in%s+(%d+)%s*(%a+)")
+      if n ~= nil then
+        local count = tonumber(n)
+        local first = string.sub(unit, 1, 1)
+        if first == "d" then
+          date = M.addDays(today, count)
+        elseif first == "w" then
+          date = M.addDays(today, count * 7)
+        elseif first == "m" then
+          date = M.addMonths(today, count)
+        end
+      end
+    end
+  end
+
+  if date == nil then
+    local todayWeekday = tonumber(os.date("%w", M.isoEpoch(today)))
+    for name, weekday in pairs(WEEKDAYS) do
+      local short = string.sub(name, 1, 3)
+      if word(lower, short) or word(lower, name) then
+        local delta = (weekday - todayWeekday) % 7
+        if delta == 0 then
+          delta = 7
+        end
+        if word(lower, "next") and not word(lower, "next" .. short) then
+          delta = delta + 7
+        end
+        date = M.addDays(today, delta)
+        break
+      end
+    end
+  end
+
+  return date, clockTime(lower)
 end
 
 function M.wikilinks(s)

@@ -17,10 +17,16 @@ local aiCapture = noctalia.getConfig("ai_capture") ~= false
 
 local searchText = ""
 local searchGeneration = 0
+-- Caps how many todos one AI extraction may append, so a runaway or injected
+-- response cannot turn into thousands of whole-file rewrites.
+local EXTRACT_TODO_LIMIT = 100
+
 local newNoteText = ""
 local newNoteGeneration = 0
 local showDone = false
 local todoStatus = nil
+local todoTagFilter = nil
+local dueEditor = nil
 
 local noteRel = nil
 local noteParts = nil
@@ -60,19 +66,31 @@ local function refresh()
   noctalia.state.set("refresh_request", noctalia.nowMs())
 end
 
+-- Noctalia runs terminal commands through a login shell, so every word of
+-- $EDITOR is quoted individually rather than pasted in as one string.
 local function editor()
   local value = noctalia.getenv("EDITOR")
   if value == nil or Text.trim(value) == "" then
-    return "vi"
+    return shellQuote("vi")
   end
-  return value
+  local words = {}
+  for word in string.gmatch(value, "%S+") do
+    words[#words + 1] = shellQuote(word)
+  end
+  if #words == 0 then
+    return shellQuote("vi")
+  end
+  return table.concat(words, " ")
 end
 
 local function todoMeta(todo)
   local parts = { todo.path }
-  local due = Text.fmtDue(todo.due)
+  local due = Text.fmtDue(todo.due, todo.time)
   if due ~= nil then
     parts[#parts + 1] = due
+  end
+  if todo.rolled then
+    parts[#parts + 1] = "recurring"
   end
   if todo.recurrence ~= nil then
     parts[#parts + 1] = "@" .. todo.recurrence
@@ -87,7 +105,7 @@ local function todoMeta(todo)
 end
 
 local function isOverdue(todo)
-  return not todo.done and todo.due ~= nil and todo.due < Text.todayIso()
+  return not todo.done and Text.isOverdue(todo.due, todo.time)
 end
 
 local render
@@ -122,8 +140,9 @@ local function toggleTodo(todo, done)
   end
   if done and todo.recurrence ~= nil then
     local nextDue = Text.nextRecurrence(todo.due, todo.recurrence)
-    Store.appendTodo(todo.text, nextDue, todo.tags, todo.priority, todo.recurrence, todo.path)
-    noctalia.notify("Quill", "Recurring todo rescheduled" .. (nextDue ~= nil and (" for " .. nextDue) or ""))
+    Store.appendTodo(todo.text, nextDue, todo.tags, todo.priority, todo.recurrence, todo.path, todo.time)
+    local nextLabel = nextDue ~= nil and (nextDue .. (todo.time ~= nil and (" " .. todo.time) or "")) or nil
+    noctalia.notify("Quill", "Recurring todo rescheduled" .. (nextLabel ~= nil and (" for " .. nextLabel) or ""))
   end
   Store.markDirty()
   if isOpen then
@@ -144,31 +163,218 @@ local function deleteTodo(todo)
   end
 end
 
-local function nextDue(current)
-  local today = Text.todayIso()
-  if current == nil or current == "" then
-    return today
-  end
-  if current == today then
-    return Text.addDays(today, 1)
-  end
-  if current == Text.addDays(today, 1) then
-    return Text.addDays(today, 7)
-  end
-  return nil
+local function openDueEditor(todo)
+  dueEditor = {
+    path = todo.path,
+    line = todo.line,
+    date = todo.due,
+    time = todo.time,
+    dateInput = todo.due or "",
+    timeInput = todo.time or "",
+    generation = (dueEditor ~= nil and dueEditor.generation or 0) + 1,
+  }
+  render()
 end
 
-local function cycleDue(todo)
-  local due = nextDue(todo.due)
-  local ok, err = Store.setTodoDue(todo.path, todo.line, due)
-  if not ok then
-    noctalia.notifyError("Quill", err or "could not set the due date")
+local function closeDueEditor()
+  dueEditor = nil
+  render()
+end
+
+local function saveDueEditor()
+  if dueEditor == nil then
     return
   end
-  Store.markDirty()
-  if isOpen then
-    render()
+  local dateValue = Text.trim(dueEditor.dateInput or "")
+  if dateValue == "" then
+    dueEditor.date = nil
+  elseif string.match(dateValue, "^%d%d%d%d%-%d%d%-%d%d$") ~= nil and Text.isoEpoch(dateValue) ~= nil then
+    dueEditor.date = dateValue
+  else
+    noctalia.notifyError("Quill", "Use a date in YYYY-MM-DD format")
+    return
   end
+  dueEditor.dateInput = dueEditor.date or ""
+  if dueEditor.date == nil then
+    dueEditor.time = nil
+    dueEditor.timeInput = ""
+  else
+    local timeValue = Text.safeTime(dueEditor.timeInput or "")
+    if timeValue ~= nil then
+      dueEditor.time = timeValue
+      dueEditor.timeInput = timeValue
+    end
+  end
+  local ok, err = Store.setTodoDue(dueEditor.path, dueEditor.line, dueEditor.date, dueEditor.time)
+  if not ok then
+    noctalia.notifyError("Quill", err or "Could not set the due date")
+    return
+  end
+  dueEditor = nil
+  Store.markDirty()
+  render()
+end
+
+local function applyDueDateInput()
+  if dueEditor == nil then
+    return
+  end
+  local value = Text.trim(dueEditor.dateInput or "")
+  if value == "" then
+    dueEditor.date = nil
+    dueEditor.time = nil
+    dueEditor.timeInput = ""
+    render()
+    return
+  end
+  if string.match(value, "^%d%d%d%d%-%d%d%-%d%d$") == nil or Text.isoEpoch(value) == nil then
+    noctalia.notifyError("Quill", "Use a date in YYYY-MM-DD format")
+    return
+  end
+  dueEditor.date = value
+  render()
+end
+
+local function applyDueTimeInput()
+  if dueEditor == nil then
+    return
+  end
+  if dueEditor.date == nil then
+    noctalia.notifyError("Quill", "Choose a date before setting a time")
+    return
+  end
+  local value = Text.safeTime(dueEditor.timeInput or "")
+  if value == nil then
+    noctalia.notifyError("Quill", "Use a 24-hour time in HH:MM format")
+    return
+  end
+  dueEditor.time = value
+  dueEditor.timeInput = value
+  render()
+end
+
+local function dueSelectData()
+  local today = Text.todayIso()
+  local values = { "" }
+  local labels = { "No date" }
+  for offset = 0, 29 do
+    local date = Text.addDays(today, offset)
+    values[#values + 1] = date
+    if offset == 0 then
+      labels[#labels + 1] = "Today · " .. date
+    elseif offset == 1 then
+      labels[#labels + 1] = "Tomorrow · " .. date
+    else
+      labels[#labels + 1] = "In " .. tostring(offset) .. " days · " .. date
+    end
+  end
+  local selected = 0
+  local found = false
+  for index, value in ipairs(values) do
+    if value == (dueEditor ~= nil and dueEditor.date or "") then
+      selected = index - 1
+      found = true
+      break
+    end
+  end
+  if not found and dueEditor ~= nil and dueEditor.date ~= nil and dueEditor.date ~= "" then
+    values[#values + 1] = dueEditor.date
+    labels[#labels + 1] = "Custom · " .. dueEditor.date
+    selected = #values - 1
+  end
+  return values, labels, selected
+end
+
+local function timeSelectData()
+  local values = { "" }
+  local labels = { "No time" }
+  for slot = 0, 95 do
+    local minutes = slot * 15
+    local value = string.format("%02d:%02d", math.floor(minutes / 60), minutes % 60)
+    values[#values + 1] = value
+    labels[#labels + 1] = value
+  end
+  local selected = 0
+  for index, value in ipairs(values) do
+    if value == (dueEditor ~= nil and dueEditor.time or "") then
+      selected = index - 1
+      break
+    end
+  end
+  return values, labels, selected
+end
+
+local function renderDueEditor()
+  if dueEditor == nil then
+    return nil
+  end
+  local dateValues, dateLabels, dateIndex = dueSelectData()
+  local timeValues, timeLabels, timeIndex = timeSelectData()
+  return ui.column({
+    key = "due-editor-" .. tostring(dueEditor.generation),
+    fill = "surface_variant",
+    radius = 10,
+    padding = 10,
+    gap = 6,
+  }, {
+    ui.label({ text = "Due date and time", fontSize = 13, fontWeight = "bold" }),
+    ui.label({ text = "Date", fontSize = 10, color = "on_surface_variant" }),
+    ui.select({
+      key = "due-date-select-" .. tostring(dueEditor.generation),
+      options = dateLabels,
+      selectedIndex = dateIndex,
+      onChange = function(index, _text)
+        local selected = tonumber(index) or 0
+        dueEditor.date = dateValues[selected + 1]
+        dueEditor.dateInput = dueEditor.date or ""
+        if dueEditor.date == nil or dueEditor.date == "" then
+          dueEditor.time = nil
+          dueEditor.timeInput = ""
+        end
+        render()
+      end,
+    }),
+    ui.input({
+      key = "due-date-input-" .. tostring(dueEditor.generation) .. "-" .. tostring(dueEditor.date),
+      value = dueEditor.dateInput,
+      placeholder = "YYYY-MM-DD",
+      onChange = function(value)
+        dueEditor.dateInput = value
+      end,
+      onSubmit = function()
+        applyDueDateInput()
+      end,
+    }),
+    ui.label({ text = "Time", fontSize = 10, color = "on_surface_variant" }),
+    ui.select({
+      key = "due-time-select-" .. tostring(dueEditor.generation),
+      options = timeLabels,
+      selectedIndex = timeIndex,
+      enabled = dueEditor.date ~= nil,
+      onChange = function(index, _text)
+        local selected = tonumber(index) or 0
+        dueEditor.time = timeValues[selected + 1]
+        dueEditor.timeInput = dueEditor.time or ""
+        render()
+      end,
+    }),
+    ui.input({
+      key = "due-time-input-" .. tostring(dueEditor.generation) .. "-" .. tostring(dueEditor.time),
+      value = dueEditor.timeInput,
+      placeholder = "HH:MM (24-hour)",
+      enabled = dueEditor.date ~= nil,
+      onChange = function(value)
+        dueEditor.timeInput = value
+      end,
+      onSubmit = function()
+        applyDueTimeInput()
+      end,
+    }),
+    ui.row({ gap = 6, justify = "end" }, {
+      ui.button({ text = "Cancel", variant = "ghost", onClick = closeDueEditor }),
+      ui.button({ text = "Save", variant = "primary", onClick = saveDueEditor }),
+    }),
+  })
 end
 
 local function clearDone()
@@ -235,7 +441,7 @@ local function buildContext(question)
   local openTodos = {}
   for _, todo in ipairs(snapshot ~= nil and snapshot.todos or {}) do
     if not todo.done then
-      openTodos[#openTodos + 1] = "- " .. todo.text .. (todo.due ~= nil and (" (due " .. todo.due .. ")") or "")
+      openTodos[#openTodos + 1] = "- " .. todo.text .. (todo.due ~= nil and (" (due " .. todo.due .. (todo.time ~= nil and (" " .. todo.time) or "") .. ")") or "")
       if #openTodos >= 30 then
         break
       end
@@ -321,7 +527,7 @@ local function runPlanDay()
   for _, todo in ipairs(snapshot ~= nil and snapshot.todos or {}) do
     if not todo.done then
       todos[#todos + 1] = "- " .. todo.text
-        .. (todo.due ~= nil and (" (due " .. todo.due .. ")") or "")
+        .. (todo.due ~= nil and (" (due " .. todo.due .. (todo.time ~= nil and (" " .. todo.time) or "") .. ")") or "")
         .. (todo.priority == 2 and " (urgent)" or "")
       if #todos >= 40 then
         break
@@ -499,7 +705,7 @@ local function runCommand(text)
       if isOpen then
         render()
       end
-    end)
+    end, Capture.projectContext())
     return
   end
   if cmd == "note" then
@@ -570,7 +776,7 @@ function onCapture(value)
     if isOpen then
       render()
     end
-  end)
+  end, Capture.projectContext())
 end
 
 function onSearchChange(value)
@@ -726,20 +932,28 @@ local function extractTodosFromNote()
     if todos == nil then
       noteStatus = "AI failed: " .. tostring(err)
     else
-      local added = 0
+      local added, skipped = 0, 0
       for _, item in ipairs(todos) do
-        local text = Text.trim(tostring(type(item) == "table" and (item.text or "") or item))
-        if text ~= "" then
-          local due = nil
-          if type(item) == "table" and type(item.due) == "string" and item.due ~= "" then
-            due = item.due
+        if added >= EXTRACT_TODO_LIMIT then
+          skipped = skipped + 1
+        else
+          local text = Text.trim(tostring(type(item) == "table" and (item.text or "") or item))
+          if text ~= "" then
+            local due = nil
+            if type(item) == "table" and type(item.due) == "string" and item.due ~= "" then
+              due = item.due
+            end
+            local priority = type(item) == "table" and (tonumber(item.priority) or 0) or 0
+            local time = type(item) == "table" and Text.safeTime(item.time) or nil
+            Store.appendTodo(Text.truncate(text, 200), due, nil, priority, nil, nil, time)
+            added = added + 1
           end
-          local priority = type(item) == "table" and (tonumber(item.priority) or 0) or 0
-          Store.appendTodo(text, due, nil, priority)
-          added = added + 1
         end
       end
       noteStatus = "Added " .. tostring(added) .. " todo(s) to " .. Store.inboxName()
+      if skipped > 0 then
+        noteStatus = noteStatus .. " · skipped " .. tostring(skipped) .. " over the limit of " .. tostring(EXTRACT_TODO_LIMIT)
+      end
       Store.markDirty()
     end
     if isOpen then
@@ -835,15 +1049,18 @@ local function todoRow(todo)
       }),
     }),
   }
+  if todo.rolled then
+    children[#children + 1] = ui.glyph({ name = "repeat", size = 13, color = "primary" })
+  end
   if todo.priority == 2 then
     children[#children + 1] = ui.glyph({ name = "flame", size = 14, color = "error" })
   end
   children[#children + 1] = ui.button({
     glyph = "calendar-plus",
     variant = "ghost",
-    tooltip = todo.due ~= nil and ("Due " .. (Text.fmtDue(todo.due) or todo.due) .. " · click to change") or "Set due date",
+    tooltip = todo.due ~= nil and ("Due " .. (Text.fmtDue(todo.due, todo.time) or todo.due) .. " · click to edit") or "Set date and time",
     onClick = function()
-      cycleDue(todo)
+      openDueEditor(todo)
     end,
   })
   children[#children + 1] = ui.button({
@@ -911,19 +1128,67 @@ local function renderTodos()
     })
   end
 
+  local dueEditorNode = renderDueEditor()
+  if dueEditorNode ~= nil then
+    children[#children + 1] = dueEditorNode
+    children[#children + 1] = ui.separator({ spacing = 2 })
+  end
+
   local rows = {}
+  local tagFilter = todoTagFilter
   for _, todo in ipairs(snapshot ~= nil and snapshot.todos or {}) do
-    if showDone or not todo.done then
+    local matchesTag = tagFilter == nil
+    if not matchesTag then
+      for _, tag in ipairs(todo.tags or {}) do
+        if tag == tagFilter then
+          matchesTag = true
+          break
+        end
+      end
+    end
+    if (showDone or not todo.done) and matchesTag then
       rows[#rows + 1] = todoRow(todo)
     end
   end
   if #rows == 0 then
     rows[#rows + 1] = ui.label({
-      text = "Nothing to do. Capture something above.",
+      text = tagFilter ~= nil and ("No open todos tagged #" .. tagFilter .. ".") or "Nothing to do. Capture something above.",
       fontSize = 12,
       color = "on_surface_variant",
     })
   end
+
+  local tagList = snapshot ~= nil and snapshot.tags or {}
+  if #tagList > 0 then
+    local chips = {
+      ui.button({
+        text = "All",
+        variant = tagFilter == nil and "primary" or "ghost",
+        onClick = function()
+          todoTagFilter = nil
+          render()
+        end,
+      }),
+    }
+    for index, entry in ipairs(tagList) do
+      if index > 12 then
+        break
+      end
+      local tag = entry.tag
+      chips[#chips + 1] = ui.button({
+        key = "tag-" .. tag,
+        text = "#" .. tag,
+        variant = tagFilter == tag and "primary" or "ghost",
+        tooltip = tostring(entry.count) .. " todo(s) tagged #" .. tag,
+        onClick = function()
+          todoTagFilter = tagFilter == tag and nil or tag
+          render()
+        end,
+      })
+    end
+    children[#children + 1] = ui.row({ gap = 4, wrap = true }, chips)
+  end
+
   children[#children + 1] = ui.scroll({ flexGrow = 1, gap = 2 }, rows)
 
   local c = counts()

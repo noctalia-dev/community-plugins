@@ -92,6 +92,30 @@ function M.model()
   return provider ~= nil and (provider.defaultModel or "") or ""
 end
 
+local LOOPBACK_HOSTS = {
+  ["localhost"] = true,
+  ["127.0.0.1"] = true,
+  ["::1"] = true,
+  ["[::1]"] = true,
+}
+
+-- True when the endpoint would carry the key (and note content) in cleartext.
+-- Anything that is not plain http:// is treated as fine; for http:// only a
+-- loopback host is allowed, so a key never leaves the machine in the clear.
+function M.isInsecureBase(url)
+  local lower = string.lower(Text.trim(tostring(url or "")))
+  local scheme, host = string.match(lower, "^(https?)://([^/%s]+)")
+  if scheme ~= "http" or host == nil then
+    return false
+  end
+  if string.sub(host, 1, 1) == "[" then
+    host = string.match(host, "^%[([^%]]*)%]") or host
+  else
+    host = string.match(host, "^[^:]*") or host
+  end
+  return not LOOPBACK_HOSTS[host]
+end
+
 function M.baseUrl()
   local override = Text.trim(tostring(config("ai_base_url", "")))
   if override ~= "" then
@@ -383,8 +407,17 @@ local function runHttp(messages, opts, cb)
     return
   end
   local key = M.apiKey()
+  if provider.noKey then
+    -- Never attach a stored key to a provider that does not use one: a leftover
+    -- key would otherwise be sent in cleartext to a local endpoint.
+    key = nil
+  end
   if key == nil and not provider.noKey then
     cb(nil, "no API key for " .. M.backend())
+    return
+  end
+  if key ~= nil and M.isInsecureBase(base) then
+    cb(nil, "refusing to send the API key over http:// to " .. tostring(base) .. " — use https, or a localhost address")
     return
   end
   local model = M.model()
@@ -532,8 +565,8 @@ local TODO_RULES = table.concat({
   "- One action per todo, starting with an imperative verb (\"Call the dentist\", not \"Dentist\" or \"I should call\").",
   "- Sentence case, no trailing period, no markdown emphasis, no surrounding quotes, aim for under 80 characters.",
   "- Keep the task itself short; detail belongs in the note body.",
-  "- Metadata goes at the end of the line as bare tokens: due date as 📅 YYYY-MM-DD, tags as #lowercase, priority as !! (urgent) or !p1 (important), recurrence as @daily, @weekly or @monthly.",
-  "- Only add a due date when the text states or clearly implies one. Never invent deadlines.",
+  "- Metadata goes at the end of the line as bare tokens: due date as 📅 YYYY-MM-DD, optionally followed by a 24-hour time such as 📅 YYYY-MM-DD 14:30, tags as #lowercase, priority as !! (urgent) or !p1 (important), recurrence as @daily, @weekly or @monthly.",
+  "- Only add a due date or time when the text states or clearly implies one. Never invent deadlines.",
   "- Only reuse tags that appear in the text or are plainly implied by it. Never invent tags.",
 }, "\n")
 
@@ -547,6 +580,9 @@ M.CAPTURE_SYSTEM = table.concat({
   "- Choose kind \"todo\" for something actionable, or \"note\" for reference material with no single next action.",
   "- For a note, \"text\" is a short title with no trailing period, and \"body\" is a short Markdown body that does not repeat the title as a heading.",
   "- Do not write YAML frontmatter; it is added separately.",
+  "Project rules:",
+  "- For a todo, \"file\" is the project it belongs to: choose the closest existing project from the list, or name a brand-new project in 1-2 words when the item clearly starts a new area of work; use \"\" for one-off tasks that belong in the Inbox.",
+  "- Never invent a project that is unrelated to the item.",
 }, "\n")
 
 M.ASK_SYSTEM = table.concat({
@@ -567,7 +603,7 @@ M.EDIT_SYSTEM = table.concat({
   "- Preserve the author's voice and language. Do not invent facts, names, numbers or dates.",
   "- Keep the Markdown valid and keep the existing heading levels.",
   "- Task lines (`- [ ] ...` and `- [x] ...`) are data, not prose: leave them unchanged unless the instruction explicitly asks you to change the tasks themselves.",
-  "- Never change or drop a task's due date, tags, priority or recurrence tokens.",
+  "- Never change or drop a task's due date, time, tags, priority or recurrence tokens.",
   "- If the instruction does ask you to write or change tasks, follow these rules:",
   TODO_RULES,
 }, "\n")
@@ -580,25 +616,33 @@ M.SUMMARIZE_SYSTEM = table.concat({
 
 M.EXTRACT_SYSTEM = table.concat({
   "You extract action items from one personal Markdown note.",
-  'Reply with JSON only: {"todos":[{"text":"...","due":"YYYY-MM-DD or empty","priority":0}]}',
+  'Reply with JSON only: {"todos":[{"text":"...","due":"YYYY-MM-DD or empty","time":"HH:MM or empty","priority":0}]}',
   "",
   TODO_RULES,
   "",
   "Extract only concrete, actionable items; skip headings, questions and prose.",
 }, "\n")
 
-function M.parseCapture(text, cb)
+function M.parseCapture(text, context, cb)
+  context = Text.trim(tostring(context or ""))
+  local projects = ""
+  if context ~= "" then
+    projects = "\n\n" .. context .. "\n"
+  end
   local prompt = table.concat({
     "Capture text: ",
     text,
     "\n\nToday is ",
     Text.todayIso(),
-    ".\n\n",
-    "Reply with a JSON object with exactly these keys:\n",
+    ".",
+    projects,
+    "\n\nReply with a JSON object with exactly these keys:\n",
     '- "kind": "todo" or "note"\n',
     '- "text": the imperative action for a todo, or a short title for a note\n',
     '- "body": the Markdown body for a note, otherwise ""\n',
     '- "due": "YYYY-MM-DD" if a date is stated or clearly implied, otherwise ""\n',
+    '- "time": "HH:MM" in 24-hour form if a time is stated or clearly implied, otherwise ""\n',
+    '- "file": the project file for the todo: an existing project from the list when one fits, a short new project name (1-2 words) when the todo starts a new area of work, or "" when it is a one-off that belongs in the Inbox\n',
     '- "tags": array of lowercase tag strings without #\n',
     '- "priority": 0 for normal, 1 for important, 2 for urgent\n',
   }, "")

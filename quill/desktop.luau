@@ -44,7 +44,7 @@ local function render()
   local shown = 0
   for _, todo in ipairs(snapshot ~= nil and snapshot.todos or {}) do
     if not todo.done then
-      local overdue = todo.due ~= nil and todo.due < Text.todayIso()
+      local overdue = Text.isOverdue(todo.due, todo.time)
       children[#children + 1] = ui.row({
         key = todo.id,
         gap = 6,
@@ -57,7 +57,7 @@ local function render()
         ui.glyph({ name = "square", size = 12, color = overdue and "error" or "on_surface_variant" }),
         ui.label({ text = todo.text, fontSize = 11, maxLines = 1, flexGrow = 1 }),
         ui.label({
-          text = Text.fmtDue(todo.due) or "",
+          text = Text.fmtDue(todo.due, todo.time) or "",
           fontSize = 9,
           color = overdue and "error" or "on_surface_variant",
         }),

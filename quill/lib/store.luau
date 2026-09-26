@@ -30,6 +30,9 @@ local function safeName(name, fallback)
   if value == "" or value == ".." then
     return fallback
   end
+  if string.sub(value, 1, 1) == "." then
+    return fallback
+  end
   if string.find(value, "/", 1, true) ~= nil or string.find(value, "\\", 1, true) ~= nil then
     return fallback
   end
@@ -140,7 +143,7 @@ local function isUnsafeRel(rel)
     return true
   end
   for segment in string.gmatch(rel, "[^/]+") do
-    if segment == ".." then
+    if segment == ".." or string.sub(segment, 1, 1) == "." then
       return true
     end
   end
@@ -154,6 +157,31 @@ function M.safeAbs(rel)
     return nil
   end
   return M.notesDir() .. "/" .. rel
+end
+
+-- Normalises an AI-supplied project name into a safe relative note path
+-- ("Work", "work.md", "Home Renovation" -> "Work.md"/"home-renovation.md"
+-- style paths are slugified by the caller). Returns nil when unsafe.
+function M.safeProjectPath(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+  local clean = Text.trim(value)
+  clean = string.gsub(clean, "\\", "/")
+  clean = string.gsub(clean, "/+$", "")
+  clean = string.gsub(clean, "//+", "/")
+  if clean == "" or string.sub(clean, 1, 1) == "/" or string.find(clean, "\0", 1, true) ~= nil then
+    return nil
+  end
+  for segment in string.gmatch(clean, "[^/]+") do
+    if segment == ".." or segment == "~" or string.sub(segment, 1, 1) == "." then
+      return nil
+    end
+  end
+  if string.sub(clean, -3) ~= ".md" then
+    clean = clean .. ".md"
+  end
+  return clean
 end
 
 local function absFor(path)
@@ -319,7 +347,11 @@ local function parseTodoLine(line, rel, title, lineNo)
     end
   end
 
-  local due = string.match(rest, "(%d%d%d%d%-%d%d%-%d%d)")
+  local due, todoTime = string.match(rest, "(%d%d%d%d%-%d%d%-%d%d)[T ]+(%d%d?:%d%d)")
+  if due == nil then
+    due = string.match(rest, "(%d%d%d%d%-%d%d%-%d%d)")
+  end
+  todoTime = Text.safeTime(todoTime)
 
   local recurrence = string.match(rest, "@(%a+)")
   if recurrence ~= "daily" and recurrence ~= "weekly" and recurrence ~= "monthly" then
@@ -335,8 +367,18 @@ local function parseTodoLine(line, rel, title, lineNo)
 
   local text = rest
   text = string.gsub(text, "#[%w%-_/]+", "")
-  if due ~= nil then
-    text = string.gsub(text, due, "", 1)
+  local duePattern = due ~= nil and string.gsub(due, "%-", "%%-") or nil
+  if duePattern ~= nil and todoTime ~= nil then
+    text = string.gsub(text, duePattern .. "[T ]+" .. todoTime, "", 1)
+  elseif duePattern ~= nil then
+    text = string.gsub(text, duePattern, "", 1)
+  end
+  local hh, mm = string.match(text, "%s(%d%d?):(%d%d)%s*$")
+  if hh ~= nil and string.find(rest, "%d%d%d%d%-%d%d%-%d%d") ~= nil then
+    local hours, minutes = tonumber(hh), tonumber(mm)
+    if hours ~= nil and minutes ~= nil and hours <= 23 and minutes <= 59 then
+      text = string.gsub(text, "%s*" .. hh .. ":" .. mm .. "%s*$", "")
+    end
   end
   text = string.gsub(text, "[Dd]ue:%s*", "")
   text = string.gsub(text, "\u{1F4C5}%s*", "")
@@ -354,6 +396,7 @@ local function parseTodoLine(line, rel, title, lineNo)
     text = text,
     done = mark == "x" or mark == "X",
     due = due,
+    time = todoTime,
     recurrence = recurrence,
     priority = priority,
     tags = tags,
@@ -361,9 +404,9 @@ local function parseTodoLine(line, rel, title, lineNo)
     line = lineNo,
     title = title,
     raw = line,
+    storedDue = due,
   }
 end
-
 local function noteTitle(meta, body, fallback)
   if meta.title ~= nil and meta.title ~= "" then
     return string.gsub(meta.title, '^"(.*)"$', "%1")
@@ -407,6 +450,13 @@ local function todoLess(a, b)
   end
   if aHas and a.due ~= b.due then
     return a.due < b.due
+  end
+  if aHas then
+    local aTime = a.time or "99:99"
+    local bTime = b.time or "99:99"
+    if aTime ~= bTime then
+      return aTime < bTime
+    end
   end
   if a.priority ~= b.priority then
     return a.priority > b.priority
@@ -491,24 +541,51 @@ local function buildSnapshot(state)
   table.sort(notes, function(a, b)
     return (a.mtime or 0) > (b.mtime or 0)
   end)
+  for _, todo in ipairs(todos) do
+    todo.storedDue = todo.due
+    if not todo.done and todo.recurrence ~= nil then
+      todo.due = Text.rollRecurrence(todo.due, todo.recurrence, Text.todayIso())
+      if todo.due ~= todo.storedDue then
+        todo.rolled = true
+      end
+    end
+  end
   table.sort(todos, todoLess)
 
   local today = Text.todayIso()
-  local counts = { open = 0, done = 0, due_today = 0, overdue = 0, notes = #notes }
+  local counts = { open = 0, done = 0, due_today = 0, overdue = 0, notes = #notes, tags = {} }
   for _, todo in ipairs(todos) do
     if todo.done then
       counts.done = counts.done + 1
     else
       counts.open = counts.open + 1
       if todo.due ~= nil then
-        if todo.due < today then
-          counts.overdue = counts.overdue + 1
-        elseif todo.due == today then
+        if todo.due == today then
           counts.due_today = counts.due_today + 1
+        end
+        if Text.isOverdue(todo.due, todo.time) then
+          if todo.due == today then
+            counts.due_today = counts.due_today - 1
+          end
+          counts.overdue = counts.overdue + 1
         end
       end
     end
+    for _, tag in ipairs(todo.tags or {}) do
+      counts.tags[tag] = (counts.tags[tag] or 0) + 1
+    end
   end
+
+  local tagList = {}
+  for tag, count in pairs(counts.tags) do
+    tagList[#tagList + 1] = { tag = tag, count = count }
+  end
+  table.sort(tagList, function(a, b)
+    if a.count ~= b.count then
+      return a.count > b.count
+    end
+    return a.tag < b.tag
+  end)
 
   return {
     dir = M.notesDir(),
@@ -518,6 +595,7 @@ local function buildSnapshot(state)
     notes = notes,
     todos = todos,
     counts = counts,
+    tags = tagList,
   }
 end
 
@@ -710,12 +788,16 @@ function M.appendLine(path, line)
   M.appendRaw(path, line .. "\n")
 end
 
-function M.appendTodo(text, due, tags, priority, recurrence, targetPath)
+function M.appendTodo(text, due, tags, priority, recurrence, targetPath, time)
   M.ensureDir()
   local line = "- [ ] " .. Text.collapseSpaces(text)
   local cleanDue = safeDue(due)
+  local cleanTime = Text.safeTime(time)
   if cleanDue ~= nil then
     line = line .. " \u{1F4C5} " .. cleanDue
+    if cleanTime ~= nil then
+      line = line .. " " .. cleanTime
+    end
   end
   priority = tonumber(priority) or 0
   if priority == 2 then
@@ -768,7 +850,7 @@ function M.setTodoDone(path, lineNo, done)
   return true
 end
 
-function M.setTodoDue(path, lineNo, due)
+function M.setTodoDue(path, lineNo, due, time)
   local abs = absFor(path)
   if abs == nil then
     return false, "unsafe path"
@@ -787,13 +869,27 @@ function M.setTodoDue(path, lineNo, due)
     return false, "not a todo line"
   end
   local text = rest
+  text = string.gsub(text, "\u{1F4C5}%s*%d%d%d%d%-%d%d%-%d%d[T ]+%d%d?:%d%d", "")
   text = string.gsub(text, "\u{1F4C5}%s*%d%d%d%d%-%d%d%-%d%d", "")
+  text = string.gsub(text, "[Dd]ue:%s*%d%d%d%d%-%d%d%-%d%d[T ]+%d%d?:%d%d", "")
   text = string.gsub(text, "[Dd]ue:%s*%d%d%d%d%-%d%d%-%d%d", "")
   text = string.gsub(text, "@%d%d%d%d%-%d%d%-%d%d", "")
+  local hh, mm = string.match(text, "%s(%d%d?):(%d%d)%s*$")
+  if hh ~= nil and string.find(target, "%d%d%d%d%-%d%d%-%d%d") ~= nil then
+    local hours, minutes = tonumber(hh), tonumber(mm)
+    if hours ~= nil and minutes ~= nil and hours <= 23 and minutes <= 59 then
+      text = string.gsub(text, "%s*" .. hh .. ":" .. mm .. "%s*$", "")
+    end
+  end
   text = Text.collapseSpaces(text)
   local rebuilt = indent .. "- [" .. mark .. "] " .. text
-  if due ~= nil and due ~= "" then
-    rebuilt = rebuilt .. " \u{1F4C5} " .. due
+  local cleanDue = safeDue(due)
+  local cleanTime = Text.safeTime(time)
+  if cleanDue ~= nil then
+    rebuilt = rebuilt .. " \u{1F4C5} " .. cleanDue
+    if cleanTime ~= nil then
+      rebuilt = rebuilt .. " " .. cleanTime
+    end
   end
   M.pushUndo(path)
   lines[lineNo] = rebuilt
@@ -878,10 +974,16 @@ function M.archiveCompleted()
   return removed
 end
 
+-- Refuses to materialise a note larger than the scan cap: the incremental
+-- scanner already truncates, so opening one must not be the way around it.
 function M.readParts(abs)
+  local info = noctalia.fileInfo(abs)
+  if info ~= nil and (info.size or 0) > MAX_PARSE_BYTES then
+    return nil, "note is too large to open (" .. tostring(math.floor((info.size or 0) / 1024)) .. " KB)"
+  end
   local raw = noctalia.readFile(abs)
   if raw == nil then
-    return nil
+    return nil, "could not read " .. tostring(abs)
   end
   local front, body = splitFrontmatter(raw)
   return { raw = raw, frontmatter = front, body = body }
@@ -892,9 +994,9 @@ function M.readNote(rel)
   if abs == nil then
     return nil, "unsafe path"
   end
-  local parts = M.readParts(abs)
+  local parts, reason = M.readParts(abs)
   if parts == nil then
-    return nil, "could not read " .. tostring(rel)
+    return nil, reason
   end
   return parts
 end
@@ -930,17 +1032,19 @@ function M.uniquePath(slug)
   return dir .. "/" .. tostring(math.floor(noctalia.nowMs())) .. ".md"
 end
 
-function M.createNote(title, body)
+function M.createNoteAt(rel, title, body, overwrite)
+  local abs = M.safeAbs(rel)
+  if abs == nil then
+    return nil
+  end
   M.ensureDir()
+  if not overwrite and noctalia.fileExists(abs) then
+    return nil
+  end
   title = Text.collapseSpaces(title)
   if title == "" then
     title = "Untitled"
   end
-  local slug = Text.slugify(title)
-  if slug == "" then
-    slug = "note-" .. tostring(math.floor(noctalia.nowMs() / 1000))
-  end
-  local abs = M.uniquePath(slug)
   body = body or ""
   local content = "---\n"
     .. "title: " .. Text.yamlString(title) .. "\n"
@@ -957,8 +1061,26 @@ function M.createNote(title, body)
   if string.sub(content, -1) ~= "\n" then
     content = content .. "\n"
   end
+  local parent = string.match(abs, "^(.*)/[^/]+$")
+  if parent ~= nil then
+    noctalia.mkdirAll(parent)
+  end
   noctalia.writeFile(abs, content)
   return abs
+end
+
+function M.createNote(title, body)
+  M.ensureDir()
+  title = Text.collapseSpaces(title)
+  if title == "" then
+    title = "Untitled"
+  end
+  local slug = Text.slugify(title)
+  if slug == "" then
+    slug = "note-" .. tostring(math.floor(noctalia.nowMs() / 1000))
+  end
+  local abs = M.uniquePath(slug)
+  return M.createNoteAt(M.relative(abs), title, body)
 end
 
 function M.dailyNote(dateIso)

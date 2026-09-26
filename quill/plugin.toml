@@ -1,12 +1,15 @@
 id          = "fel/quill"
 name        = "Quill"
-version     = "1.0.0"
+version     = "1.1.0"
 plugin_api  = 24
 author      = "fel"
 license     = "MIT"
 icon        = "notes"
 description = "Markdown notes and todos from the bar, with AI capture, summaries, rewriting and Q&A over your notes."
 tags        = ["bar", "panel", "launcher", "ai", "productivity", "utility"]
+# Informational only: Noctalia shows "requires …" in the listing and does not
+# install anything. Notes and todos need neither; `git` is for Git history and
+# `opencode` only for the opencode CLI AI provider.
 dependencies = ["git", "opencode"]
 
 [[setting]]
