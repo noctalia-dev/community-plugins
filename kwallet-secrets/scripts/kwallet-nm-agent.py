@@ -47,6 +47,7 @@ NM_SECRET_AGENT_IFACE = "org.freedesktop.NetworkManager.SecretAgent"
 KWALLET_SERVICE = "org.kde.kwalletd6"                           # legacy KWallet daemon
 KWALLET_PATH = "/modules/kwalletd6"
 KWALLET_IFACE = "org.kde.KWallet"
+UNLOCK_POLL_SECONDS = 5             # how often a locked wallet is checked for unlock
 
 # NMSecretAgentGetSecretsFlags
 FLAG_ALLOW_INTERACTION = 0x1
@@ -92,6 +93,17 @@ class NoSecretsError(dbus.DBusException):
     """Tells NM "not mine" so it moves on to the next registered agent."""
 
     _dbus_error_name = "org.freedesktop.NetworkManager.SecretManager.NoSecrets"
+
+
+class NotAuthorizedError(dbus.DBusException):
+    """Refuses a caller that is not NetworkManager. NM's own error name, the one
+    libnm's agent answers with."""
+
+    _dbus_error_name = "org.freedesktop.NetworkManager.SecretAgent.PermissionDenied"
+
+
+class WalletLockedError(RuntimeError):
+    """The wallet was locked and did not get unlocked for this lookup."""
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +248,17 @@ class Wallet:
         self._allow_prompt = allow_prompt
         self._timeout = timeout
         self._handle = None
+        self._unlock_watch = None
+        # A kwalletd6 restart -- logout/login, crash, package upgrade -- silently
+        # voids every handle it ever issued. Watch for it, rather than finding
+        # out as a run of lookups that fail for no visible reason.
+        bus.watch_name_owner(KWALLET_SERVICE, self._owner_changed)
+
+    def _owner_changed(self, owner):
+        # Fires once with the current owner, then on every kwalletd6 restart.
+        if self._handle is not None:
+            log.info("kwalletd6 restarted; dropping stale wallet handle")
+        self._handle = None
 
     def _iface(self):
         obj = self._bus.get_object(KWALLET_SERVICE, KWALLET_PATH, introspect=False)
@@ -253,20 +276,59 @@ class Wallet:
         name = self.name()
         if self._handle is not None:
             try:
-                if bool(api.isOpen(name, timeout=self._timeout)):
+                # isOpen(i) asks whether *this handle* is still live. The
+                # isOpen(s) overload only reports that the wallet is open for
+                # somebody, which stays true across a kwalletd6 restart -- so
+                # it would hand back a handle the new daemon never issued and
+                # every read against it would come back empty.
+                if bool(api.isOpen(dbus.Int32(self._handle), timeout=self._timeout)):
                     return self._handle
             except dbus.DBusException:
                 pass
             self._handle = None
 
-        if not self._allow_prompt and not bool(api.isOpen(name, timeout=self._timeout)):
-            raise RuntimeError("wallet %r is locked and prompting is disabled" % name)
+        locked = not bool(api.isOpen(name, timeout=self._timeout))
+        if locked and not self._allow_prompt:
+            raise WalletLockedError("wallet %r is locked and prompting is disabled" % name)
 
-        handle = int(api.open(name, dbus.Int64(0), self._app_id, timeout=self._timeout))
+        # On a locked wallet open() blocks on the unlock dialog, so a timeout or
+        # a refusal here means "still locked", not "wallet broken".
+        try:
+            handle = int(api.open(name, dbus.Int64(0), self._app_id, timeout=self._timeout))
+        except dbus.DBusException as exc:
+            if locked:
+                raise WalletLockedError("wallet %r was not unlocked: %s"
+                                        % (name, exc.get_dbus_message()))
+            raise
         if handle <= 0:
+            if locked:
+                raise WalletLockedError("wallet %r was not unlocked (handle %d)" % (name, handle))
             raise RuntimeError("could not open wallet %r (handle %d)" % (name, handle))
         self._handle = handle
         return handle
+
+    def notify_when_unlocked(self, callback):
+        """Call callback once, the next time the wallet is seen open.
+
+        Polled rather than driven by the walletOpened signal: in kwallet 6.30
+        kwalletd6 is a front for ksecretd, and an unlock that happens there (PAM
+        at login, another app's prompt) is not known to reach kwalletd6's signal.
+        The poll only runs while a lookup is waiting on a locked wallet.
+        """
+        if self._unlock_watch is None:
+            self._unlock_watch = GLib.timeout_add_seconds(
+                UNLOCK_POLL_SECONDS, self._poll_unlock, callback)
+
+    def _poll_unlock(self, callback):
+        try:
+            unlocked = bool(self._iface().isOpen(self.name(), timeout=self._timeout))
+        except dbus.DBusException:
+            return True  # daemon not answering yet; keep waiting
+        if not unlocked:
+            return True
+        self._unlock_watch = None
+        callback()
+        return False
 
     def read_map(self, key):
         api = self._iface()
@@ -320,16 +382,32 @@ def connection_ids(connection):
 
 
 class KWalletSecretAgent(dbus.service.Object):
-    def __init__(self, system_bus, wallet, settings):
+    def __init__(self, system_bus, wallet, settings, on_wallet_unlocked, nm_owner):
         super().__init__(system_bus, NM_SECRET_AGENT_PATH)
         self._wallet = wallet
         self._settings = settings
+        self._on_wallet_unlocked = on_wallet_unlocked
+        self._nm_owner = nm_owner
+
+    def _check_caller(self, method, sender):
+        # NM's bus policy lets every root process send to any SecretAgent, and
+        # this agent holds an open wallet: without this check one call from any
+        # root process returns decrypted secrets. Answer NetworkManager only,
+        # as libnm's own agent does.
+        owner = self._nm_owner()
+        if sender is None or sender != owner:
+            log.warning("rejected %s from %s: not NetworkManager (%s)",
+                        method, sender, owner or "not running")
+            raise NotAuthorizedError("caller is not NetworkManager")
 
     # -- NM -> us ----------------------------------------------------------
 
     @dbus.service.method(NM_SECRET_AGENT_IFACE,
-                         in_signature="a{sa{sv}}osasu", out_signature="a{sa{sv}}")
-    def GetSecrets(self, connection, connection_path, setting_name, hints, flags):
+                         in_signature="a{sa{sv}}osasu", out_signature="a{sa{sv}}",
+                         sender_keyword="sender")
+    def GetSecrets(self, connection, connection_path, setting_name, hints, flags,
+                   sender=None):
+        self._check_caller("GetSecrets", sender)
         setting_name = str(setting_name)
         uuid, name = connection_ids(connection)
 
@@ -345,6 +423,14 @@ class KWalletSecretAgent(dbus.service.Object):
 
         try:
             stored = self._wallet.read_map(entry_key(uuid, setting_name))
+        except WalletLockedError as exc:
+            # Typical at login: NM asks before the wallet is unlocked, the
+            # connect fails, and NM blocks it from autoconnecting. Arrange a
+            # retry for when the wallet opens instead of leaving it failed.
+            log.warning("wallet locked for %s (%s): %s; retrying once it unlocks",
+                        name, uuid, exc)
+            self._wallet.notify_when_unlocked(self._on_wallet_unlocked)
+            raise NoSecretsError("wallet locked")
         except (dbus.DBusException, RuntimeError, ValueError) as exc:
             log.warning("wallet lookup failed for %s (%s): %s", name, uuid, exc)
             raise NoSecretsError("wallet unavailable")
@@ -392,13 +478,17 @@ class KWalletSecretAgent(dbus.service.Object):
                     entries["peers"] = peers
         return dbus.Dictionary({setting_name: entries}, signature="sa{sv}")
 
-    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="os", out_signature="")
-    def CancelGetSecrets(self, connection_path, setting_name):
+    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="os", out_signature="",
+                         sender_keyword="sender")
+    def CancelGetSecrets(self, connection_path, setting_name, sender=None):
+        self._check_caller("CancelGetSecrets", sender)
         # Lookups are short and time-boxed, so there is nothing to cancel.
         log.debug("cancel %s %s", connection_path, setting_name)
 
-    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="a{sa{sv}}o", out_signature="")
-    def SaveSecrets(self, connection, connection_path):
+    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="a{sa{sv}}o", out_signature="",
+                         sender_keyword="sender")
+    def SaveSecrets(self, connection, connection_path, sender=None):
+        self._check_caller("SaveSecrets", sender)
         uuid, name = connection_ids(connection)
         for setting_name in self._settings:
             setting = connection.get(setting_name, {})
@@ -435,8 +525,10 @@ class KWalletSecretAgent(dbus.service.Object):
             except (dbus.DBusException, RuntimeError) as exc:
                 log.warning("could not save %s (%s) %s: %s", name, uuid, setting_name, exc)
 
-    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="a{sa{sv}}o", out_signature="")
-    def DeleteSecrets(self, connection, connection_path):
+    @dbus.service.method(NM_SECRET_AGENT_IFACE, in_signature="a{sa{sv}}o", out_signature="",
+                         sender_keyword="sender")
+    def DeleteSecrets(self, connection, connection_path, sender=None):
+        self._check_caller("DeleteSecrets", sender)
         uuid, name = connection_ids(connection)
         for setting_name in self._settings:
             try:
@@ -454,6 +546,7 @@ class Registration:
         self._bus = system_bus
         self._identifier = identifier
         self._registered = False
+        self.owner = None           # NM's unique bus name: the only caller served
         self._bus.watch_name_owner(NM_SERVICE, self._owner_changed)
 
     def _manager(self):
@@ -462,6 +555,7 @@ class Registration:
 
     def _owner_changed(self, owner):
         # Fires once on startup with the current owner, then on every NM restart.
+        self.owner = str(owner) if owner else None
         if not owner:
             log.warning("NetworkManager went away; will re-register when it returns")
             self._registered = False
@@ -484,6 +578,18 @@ class Registration:
         if not self._registered:
             self.register()
         return False
+
+    def reregister(self):
+        """Register afresh so NM retries connections that failed for no secrets.
+
+        NM blocks a connection from autoconnecting after a no-secrets failure
+        and clears that block whenever a secret agent registers.
+        """
+        if not self._registered:
+            return  # NM is away; registering when it returns does the same
+        log.info("wallet unlocked; re-registering so NetworkManager retries")
+        self.unregister()
+        self.register()
 
     def unregister(self):
         if not self._registered:
@@ -576,6 +682,11 @@ def main(argv):
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     session_bus = dbus.SessionBus()
+    # The wallet lives on this bus, so an agent that outlives its session can
+    # serve nothing -- and because the single-instance lock is an abstract
+    # socket held by the process, a survivor would also stop the next session's
+    # agent from ever starting. Exit with the session instead.
+    session_bus.set_exit_on_disconnect(True)
     wallet = Wallet(session_bus, args.wallet, args.folder, args.app_id,
                     not args.no_unlock_prompt, args.timeout)
 
@@ -588,7 +699,12 @@ def main(argv):
         return 0
 
     system_bus = dbus.SystemBus()
-    KWalletSecretAgent(system_bus, wallet, settings)
+    # The agent object is exported before registering, so NM never calls into
+    # a path that does not exist yet; both callbacks only fire later, from the
+    # main loop, by which time registration is bound.
+    KWalletSecretAgent(system_bus, wallet, settings,
+                       on_wallet_unlocked=lambda: registration.reregister(),
+                       nm_owner=lambda: registration.owner)
     # Registration watches NM's bus name and registers as soon as it is there.
     registration = Registration(system_bus, args.identifier)
 

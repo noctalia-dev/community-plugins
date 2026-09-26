@@ -27,8 +27,11 @@ KWallet, so they just connect.
 - `pkill` (from procps-ng) and `systemd-cat` (from systemd), used to supervise
   the helper process and to route its output to the journal.
 - NetworkManager as the network stack, and a KWallet wallet that is unlocked.
-  `kwallet-pam` unlocks it at login; without it, the first lookup of the session
-  raises KWallet's unlock dialog.
+  `kwallet-pam` can unlock it at login, but only once `/usr/lib/pam_kwallet_init`
+  runs in the session. Plasma runs it for you. On any other session, start it
+  from your compositor's startup, ahead of anything that uses the wallet.
+  Otherwise the wallet is locked at login. A connect that finds it locked fails
+  at first, then retries by itself once the wallet is unlocked.
 
 The plugin is compositor-agnostic: nothing in it depends on Hyprland, niri, or
 any particular Wayland session.
@@ -49,7 +52,9 @@ journalctl --user -t noctalia-kwallet-secrets -f
 The first command should list an agent named `io.github.grassyloki.kwalletSecrets`.
 The second follows the plugin's own log, which prints one line per request: a
 `hit` when the password came from the wallet, a `miss` when the wallet had no
-entry for that network.
+entry for that network. A `wallet locked` line means the request arrived before
+the wallet was unlocked. It is followed by `re-registering` once the wallet
+opens, which makes NetworkManager retry the connection.
 
 To see what the wallet actually holds, run the helper directly. It prints entry
 and key *names* only, never a password:
@@ -75,7 +80,7 @@ them restarts the helper.
 | `app_id` | `string` | `Noctalia KWallet Secrets` | The name KWallet shows when it asks whether to grant access to the wallet. |
 | `handle_8021x` | `bool` | `false` | Also answer `802-1x` requests, for WPA-Enterprise networks such as eduroam. Off by default because those profiles often carry certificates that no wallet entry covers. |
 | `handle_vpn` | `bool` | `true` | Also answer `vpn` requests — OpenVPN, vpnc, openconnect, L2TP and the rest — and NetworkManager's own `wireguard` setting, including per-peer preshared keys. On by default, because a VPN secret is agent-owned in every profile plasma-nm imports and so prompts on every single connect. |
-| `unlock_prompt` | `bool` | `true` | Allow KWallet to raise its unlock dialog when the wallet is locked. Turn this off to treat a locked wallet as "no password" instead, so connecting fails quietly rather than popping a dialog. |
+| `unlock_prompt` | `bool` | `true` | Allow KWallet to raise its unlock dialog when the wallet is locked. Turn this off to treat a locked wallet as "no password" instead, so connecting fails quietly rather than popping a dialog. Either way, a connect that failed on a locked wallet is retried once the wallet is unlocked. |
 | `debug_logging` | `bool` | `false` | Log every request, including the ones deliberately declined. Passwords are never logged at any level. |
 
 ## How it works
@@ -116,6 +121,13 @@ NetworkManager makes on an agent:
   reads from.
 - **DeleteSecrets** — removes the wallet entry when the profile is deleted, so
   the wallet does not accumulate orphans.
+
+All three answer NetworkManager and nobody else. NetworkManager's D-Bus policy
+lets any root process call a secret agent, and this one holds an unlocked
+wallet, so without a check a single call from any root process would return a
+decrypted password. The helper tracks which bus name NetworkManager currently
+owns and refuses every other caller with `PermissionDenied`, logging a
+`rejected` line, the same check libnm's own agent makes.
 
 ### VPN secrets are shaped differently
 
