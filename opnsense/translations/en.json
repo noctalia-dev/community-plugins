@@ -52,7 +52,10 @@
     },
     "loading": "Loading OPNsense…",
     "no-matches": "No matches",
-    "unavailable": "OPNsense unavailable"
+    "unavailable": "OPNsense unavailable",
+    "instance-ok": "healthy · {host}",
+    "instance-issues": "{n} issue(s) · {host}",
+    "instance-down": "unreachable · {error}"
   },
   "logs": {
     "flow": "{src} → {dst} · {iface}",
@@ -69,7 +72,13 @@
     "select_hint": "Select an item for actions.",
     "subtitle": "Firewall health & services",
     "summary": "{ok} healthy · {issues} issue(s) · load {load}",
-    "updated": "Updated {time}"
+    "updated": "Updated {time}",
+    "host_count": "{n} firewalls",
+    "overview_hint": "Pick a firewall to see its details, or open one below.",
+    "overview_empty": "No firewall configured.",
+    "instance_ok": "healthy",
+    "instance_issues": "{n} issue(s)",
+    "instance_down": "unreachable · {error}"
   },
   "result": {
     "busy": "Another operation is running.",
@@ -81,7 +90,9 @@
     "restarted": "Restarted {name}",
     "started": "Started {name}",
     "stopped": "Stopped {name}",
-    "success": "Done"
+    "success": "Done",
+    "no_instance": "Select a firewall first, or name one in the command.",
+    "instances_invalid": "The “Additional firewalls” setting is not a usable JSON array: {error}"
   },
   "rule": {
     "detail": "{src} → {dst} · {proto} · {iface}",
@@ -131,6 +142,14 @@
     "web_ui_url": {
       "description": "Optional alternate URL for “Open UI”. Defaults to base URL.",
       "label": "Web UI URL override"
+    },
+    "instances": {
+      "label": "Additional firewalls (JSON)",
+      "description": "Advanced: JSON array of {\"name\",\"url\",\"api_key\",\"api_secret\",\"insecure\",\"web_ui_url\"}. When set, these firewalls replace the Base URL / API key / API secret above."
+    },
+    "instance": {
+      "label": "Show one firewall",
+      "description": "Name of the firewall this bar widget should show. Empty shows the combined status of every firewall."
     }
   },
   "status": {
@@ -143,7 +162,8 @@
     "logs": "Logs",
     "rules": "Rules",
     "services": "Services",
-    "status": "Status"
+    "status": "Status",
+    "overview": "Overview"
   },
   "title": "OPNsense",
   "widget": {
@@ -153,6 +173,11 @@
     "tooltip_down": "Unreachable: {error}",
     "tooltip_issues": "{host} · {issues} issue(s) · {detail}",
     "tooltip_missing": "Configure base URL + API key/secret in plugin settings",
-    "tooltip_ok": "{host} · healthy · {ifaces} interfaces · load {load}"
+    "tooltip_ok": "{host} · healthy · {ifaces} interfaces · load {load}",
+    "tooltip_aggregate": "{n} firewalls · {issues} issue(s) · {down} unreachable",
+    "tooltip_unknown_instance": "No firewall named “{name}” in the instances setting.",
+    "instance_ok": "healthy",
+    "instance_issues": "{n} issue(s)",
+    "instance_down": "unreachable: {error}"
   }
 }
