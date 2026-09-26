@@ -25,6 +25,10 @@ Notes and todos work with no dependencies. The optional extras are:
 * An API key for whichever AI provider you pick, unless you use the opencode CLI
   or a local Ollama. See [AI providers](#ai-providers).
 
+With **AI capture** off, or when the AI is unreachable, a due date in the text is
+still recognised: `tomorrow`, `friday`, `next week`, `in 3 days`, `2026-10-01`,
+`5/10`, `14:30` or `2pm`.
+
 ## Usage
 
 Add the bar widget to your bar in **Settings → Bar** (widget `fel/quill:status`).
@@ -46,9 +50,10 @@ noctalia msg panel-toggle fel/quill:panel
 
 ### Panel
 
-* **Todos** — capture box, open/overdue counts, per-todo check, due-date
-  cycling, delete (click twice), and a click-through to the note a todo lives
-  in. `Clear done` moves completed todos into the archive file.
+* **Todos** — capture box, open/overdue counts, per-todo check, due date and
+  time editor, delete (click twice), a tag filter row, and a click-through to
+  the note a todo lives in. `Clear done` moves completed todos into the
+  archive file.
 * **Notes** — search (titles *and* contents), create, open, edit inline, copy,
   open in `$EDITOR`, delete, and a **Today** button for the daily note. In a
   note you also get **Summarize**, **Extract todos**, **AI edit** (type an
@@ -61,7 +66,9 @@ The Ask box also takes slash commands — type `/help` for the list: `/clear`,
 `/plan`, `/review`, `/todo <text>`, `/note <title>`, `/daily`,
 `/save [title]`, `/copy`, `/undo`.
 
-Every change is undoable from the panel header (one step, whole operation).
+Every change is undoable from the panel header (one step, whole operation). The
+todo list has a tag filter row, and todos with `@daily`/`@weekly`/`@monthly`
+are shown at their next upcoming date even before you tick them.
 
 ### Capture with AI
 
@@ -116,8 +123,13 @@ A **note** is one `.md` file; the first `# heading` is its title and optional
 YAML frontmatter can set `title` and `tags`. A **todo** is any `- [ ]` or `* [x]`
 line anywhere in the folder; ticking a box rewrites that line in place. Inline
 metadata is parsed and hidden in the UI: `📅 2026-09-23` (also `due:` or `@`),
+optionally followed by a 24-hour time such as `📅 2026-09-23 14:30`,
 `@daily`/`@weekly`/`@monthly`, `#tags`, and `!!`/`#urgent` or `!p1`/`#important`.
 Nothing is stored in a database.
+
+AI capture files each todo into a project: the model picks the closest existing
+project file from your notes (or names a new one, which is created as a note),
+and only one-off tasks with no project land in `Inbox.md`.
 
 ### AI providers
 
@@ -192,27 +204,39 @@ to the notes folder only.
 ## Notes
 
 * **Network:** the only requests are to the AI provider you selected, and only
-  when you use an AI feature. For questions, the open todos and up to
-  **Notes in AI context** notes chosen for that request are sent as context;
-  nothing else leaves the machine. There is no telemetry.
+  when you use an AI feature. What is sent depends on the feature: a question
+  sends the open todos and up to **Notes in AI context** notes chosen for that
+  request; **AI capture** sends your sentence plus the relative path and title of
+  up to 40 existing notes so the model can file the todo into a project; and
+  **Summarize**, **Extract todos** and **AI edit** send the body of the note
+  they act on. Nothing else leaves the machine, and there is no telemetry.
 * **Keys:** the **API key** setting is stored in plain text in Noctalia's
   `settings.toml`, so an environment variable is preferable. The key is only
-  ever sent in the provider's own auth header. If no key setting or environment
-  variable is set, the OpenCode Go provider reads the key from opencode's
-  `auth.json`; set a key or switch provider to avoid that read.
+  ever sent in the provider's own auth header, never to a provider that does not
+  need one, and never over plain `http://` to a non-loopback address. If no key
+  setting or environment variable is set, the OpenCode Go provider reads the key
+  from opencode's `auth.json`; set a key or switch provider to avoid that read.
 * **Files written:** only inside the notes folder (notes, the inbox, the daily
   folder, the archive) and the plugin's own data folder (an AI session id and
   reminder state). Every read and write is resolved through a containment check
-  that rejects absolute paths, `~` and `..`, so a note path cannot escape the
-  notes folder.
+  that rejects absolute paths, `~`, `..` and dot-prefixed path segments, so a
+  note path cannot escape the notes folder or reach a hidden file such as
+  `.git/config`. Git history is scoped to the notes folder with `-- .`, and is
+  refused outright if the notes folder is your home directory.
 * **Processes spawned:** `git` (only with Git history) and the `opencode` CLI
   (only with that provider) run with argument arrays, never a shell string. The
-  only shell command is opening `$EDITOR` in a terminal, with the path
-  shell-quoted.
-* **AI output is sanitised** before it is written into notes: due dates must
-  match `YYYY-MM-DD`, tags `[A-Za-z0-9_-/]`, recurrence is a fixed set, and
-  titles have whitespace collapsed, so a model cannot inject extra lines or
-  frontmatter.
+  only shell command is opening `$EDITOR` in a terminal; the note path is
+  shell-quoted and each word of `$EDITOR` is quoted individually, but `$EDITOR`
+  itself is still run through a login shell, so only set it to a command you
+  trust.
+* **AI output is sanitised** before it is written as a **todo**: due dates must
+  match `YYYY-MM-DD`, times `HH:MM`, tags `[A-Za-z0-9_-/]`, recurrence is a fixed
+  set, and text has whitespace collapsed, so a model cannot inject extra lines
+  or frontmatter. A note body captured from the model is written as returned,
+  since its whole purpose is to be Markdown — review it before saving.
+* **Bounded work:** AI extraction adds at most 100 todos at a time, notes larger
+  than 256 KB are skipped rather than loaded, and a recurring todo is rolled
+  forward at most 20 years, so a stale or hostile note cannot stall the panel.
 * **Debugging:** logs go to `~/.cache/noctalia/noctalia.log`; parse failures are
   logged with the file that failed.
 

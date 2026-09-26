@@ -1,110 +1,110 @@
 {
-  "panel": {
-    "ask": "Ask",
-    "notes": "Notes",
-    "title": "Quill",
-    "todos": "Todos"
-  },
   "settings": {
-    "ai-backend": {
-      "anthropic": "Anthropic (Claude)",
-      "desc": "Where AI features send requests. OpenCode Go uses your subscription; the CLI runs the opencode agent; the rest use their own API.",
-      "google": "Google Gemini",
-      "groq": "Groq",
-      "label": "AI provider",
-      "off": "Off",
-      "ollama": "Ollama (local)",
-      "openai": "OpenAI",
-      "openai-compatible": "OpenAI-compatible (custom)",
-      "opencode-cli": "opencode CLI",
-      "opencode-go": "OpenCode Go",
-      "openrouter": "OpenRouter"
-    },
-    "ai-base-url": {
-      "desc": "Override the provider API base URL. Leave empty for the provider default. Required for a custom OpenAI-compatible endpoint, e.g. http://localhost:1234/v1.",
-      "label": "API base URL"
-    },
-    "ai-capture": {
-      "desc": "Let the model turn a captured sentence into a todo or a note with tags and a due date.",
-      "label": "AI capture"
-    },
-    "ai-max-tokens": {
-      "desc": "Maximum tokens per reply. 0 uses the provider's default, which is recommended: reasoning models can otherwise spend the whole budget thinking and return nothing.",
-      "label": "Max reply tokens"
-    },
-    "ai-model": {
-      "desc": "Model id for the selected provider. OpenCode Go defaults to deepseek-v4-flash; set the provider's own model otherwise, e.g. gpt-4o-mini, claude-sonnet-4-5, gemini-2.0-flash, llama3.2.",
-      "label": "AI model"
-    },
-    "api-key": {
-      "desc": "Optional. Stored in plain text in Noctalia's settings file, so prefer an environment variable or a key file where you can.",
-      "label": "API key"
-    },
-    "api-key-env": {
-      "desc": "Name of an environment variable to read the key from, e.g. OPENAI_API_KEY. Checked before the provider's own defaults.",
-      "label": "API key environment variable"
-    },
-    "archive-file": {
-      "desc": "Completed todos are moved here by Clear done. Hidden from the index.",
-      "label": "Archive file"
-    },
-    "daily-dir": {
-      "desc": "Subfolder where the Today button creates YYYY-MM-DD notes.",
-      "label": "Daily notes folder"
-    },
-    "desktop-items": {
-      "desc": "How many open todos the desktop widget shows.",
-      "label": "Desktop tile items"
-    },
-    "due-reminders": {
-      "desc": "Notify once when a todo becomes due or overdue.",
-      "label": "Due reminders"
-    },
-    "git-debounce-ms": {
-      "desc": "How long to wait after the last change before committing, in milliseconds.",
-      "label": "Commit delay"
-    },
-    "git-history": {
-      "desc": "Commit the notes folder after changes. Off by default; enabling it runs git init if the folder is not already a repository.",
-      "label": "Git history"
-    },
-    "hide-when-empty": {
-      "desc": "Hide the widget when there are no open todos and no notes.",
-      "label": "Hide when empty"
-    },
-    "icon-color": {
-      "desc": "Icon color; defaults to the theme's primary. Turns red when something is overdue.",
-      "label": "Icon color"
+    "notes-dir": {
+      "label": "Notes folder",
+      "desc": "Folder scanned for Markdown notes and todos. Created if it does not exist."
     },
     "inbox-file": {
-      "desc": "File inside the notes folder that quick captures are appended to.",
-      "label": "Inbox file"
-    },
-    "max-context-notes": {
-      "desc": "How many notes are sent along with a question.",
-      "label": "Notes in AI context"
-    },
-    "notes-dir": {
-      "desc": "Folder scanned for Markdown notes and todos. Created if it does not exist.",
-      "label": "Notes folder"
+      "label": "Inbox file",
+      "desc": "File inside the notes folder that quick captures are appended to."
     },
     "poll-interval-ms": {
-      "desc": "How often the folder is checked for changes, in milliseconds.",
-      "label": "Rescan interval"
+      "label": "Rescan interval",
+      "desc": "How often the folder is checked for changes, in milliseconds."
     },
     "scan-depth": {
-      "desc": "How many levels of subfolders to scan for .md files.",
-      "label": "Subfolder depth"
+      "label": "Subfolder depth",
+      "desc": "How many levels of subfolders to scan for .md files."
+    },
+    "ai-backend": {
+      "label": "AI provider",
+      "desc": "Where AI features send requests. OpenCode Go uses your subscription; the CLI runs the opencode agent; the rest use their own API.",
+      "opencode-go": "OpenCode Go",
+      "opencode-cli": "opencode CLI",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic (Claude)",
+      "google": "Google Gemini",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "ollama": "Ollama (local)",
+      "openai-compatible": "OpenAI-compatible (custom)",
+      "off": "Off"
+    },
+    "ai-model": {
+      "label": "AI model",
+      "desc": "Model id for the selected provider. OpenCode Go defaults to deepseek-v4-flash; set the provider's own model otherwise, e.g. gpt-4o-mini, claude-sonnet-4-5, gemini-2.0-flash, llama3.2."
+    },
+    "ai-base-url": {
+      "label": "API base URL",
+      "desc": "Override the provider API base URL. Leave empty for the provider default. Required for a custom OpenAI-compatible endpoint, e.g. http://localhost:1234/v1."
+    },
+    "api-key": {
+      "label": "API key",
+      "desc": "Optional. Stored in plain text in Noctalia's settings file, so prefer an environment variable or a key file where you can."
+    },
+    "api-key-env": {
+      "label": "API key environment variable",
+      "desc": "Name of an environment variable to read the key from, e.g. OPENAI_API_KEY. Checked before the provider's own defaults."
+    },
+    "ai-max-tokens": {
+      "label": "Max reply tokens",
+      "desc": "Maximum tokens per reply. 0 uses the provider's default, which is recommended: reasoning models can otherwise spend the whole budget thinking and return nothing."
+    },
+    "ai-capture": {
+      "label": "AI capture",
+      "desc": "Let the model turn a captured sentence into a todo or a note with tags and a due date."
+    },
+    "max-context-notes": {
+      "label": "Notes in AI context",
+      "desc": "How many notes are sent along with a question."
+    },
+    "daily-dir": {
+      "label": "Daily notes folder",
+      "desc": "Subfolder where the Today button creates YYYY-MM-DD notes."
+    },
+    "archive-file": {
+      "label": "Archive file",
+      "desc": "Completed todos are moved here by Clear done. Hidden from the index."
+    },
+    "due-reminders": {
+      "label": "Due reminders",
+      "desc": "Notify once when a todo becomes due or overdue."
+    },
+    "git-history": {
+      "label": "Git history",
+      "desc": "Commit the notes folder after changes. Off by default; enabling it runs git init if the folder is not already a repository."
+    },
+    "git-debounce-ms": {
+      "label": "Commit delay",
+      "desc": "How long to wait after the last change before committing, in milliseconds."
+    },
+    "desktop-items": {
+      "label": "Desktop tile items",
+      "desc": "How many open todos the desktop widget shows."
     },
     "show-label": {
-      "desc": "Show the number of open todos next to the icon.",
-      "label": "Show count"
+      "label": "Show count",
+      "desc": "Show the number of open todos next to the icon."
+    },
+    "hide-when-empty": {
+      "label": "Hide when empty",
+      "desc": "Hide the widget when there are no open todos and no notes."
+    },
+    "icon-color": {
+      "label": "Icon color",
+      "desc": "Icon color; defaults to the theme's primary. Turns red when something is overdue."
     }
   },
   "widget": {
-    "due-today": "Due today",
-    "notes": "Notes",
     "open": "Open todos",
-    "overdue": "Overdue"
+    "due-today": "Due today",
+    "overdue": "Overdue",
+    "notes": "Notes"
+  },
+  "panel": {
+    "title": "Quill",
+    "todos": "Todos",
+    "notes": "Notes",
+    "ask": "Ask"
   }
 }

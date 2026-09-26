@@ -43,7 +43,7 @@ local function tooltipRows()
   local shown = 0
   for _, todo in ipairs(snapshot.todos) do
     if not todo.done then
-      local due = Text.fmtDue(todo.due)
+      local due = Text.fmtDue(todo.due, todo.time)
       rows[#rows + 1] = { Text.truncate(todo.text, 42), due or "" }
       shown = shown + 1
       if shown >= 4 then
@@ -76,7 +76,7 @@ local function render()
         scrollIndex = 1
       end
       local todo = todos[scrollIndex]
-      local due = Text.fmtDue(todo.due)
+      local due = Text.fmtDue(todo.due, todo.time)
       barWidget.setGlyph("checkbox")
       barWidget.setText(Text.truncate(todo.text, 26))
       barWidget.setTooltip({
@@ -180,7 +180,14 @@ function onMiddleClick()
   if editor == nil or Text.trim(editor) == "" then
     editor = "vi"
   end
-  noctalia.runInTerminal(editor .. " " .. shellQuote(Store.inboxPath()))
+  local words = {}
+  for word in string.gmatch(editor, "%S+") do
+    words[#words + 1] = shellQuote(word)
+  end
+  if #words == 0 then
+    words[1] = shellQuote("vi")
+  end
+  noctalia.runInTerminal(table.concat(words, " ") .. " " .. shellQuote(Store.inboxPath()))
 end
 
 render()

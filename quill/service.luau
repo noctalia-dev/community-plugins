@@ -25,6 +25,15 @@ local function publish(snapshot, index)
 end
 
 -- Due reminders -----------------------------------------------------------
+--
+-- Two independent alerts:
+--   * a per-todo alert at its due time (or the moment it is discovered past
+--     due), keyed by a stable todo id so each fires once; and
+--   * a coarse daily summary of overdue/due-today counts.
+--
+-- The update loop asks for a short tick while a timed todo is imminent.
+
+local REMINDER_KEPT = 200
 
 local function reminderPath()
   local dir = noctalia.pluginDataDir()
@@ -47,6 +56,9 @@ local function loadReminders()
   if type(data) ~= "table" then
     return {}
   end
+  if type(data.notified) ~= "table" then
+    data.notified = {}
+  end
   return data
 end
 
@@ -58,44 +70,114 @@ local function saveReminders(data)
   noctalia.writeFile(path, noctalia.json.encode(data))
 end
 
+local function trimNotified(notified)
+  local count = 0
+  for _ in pairs(notified) do
+    count = count + 1
+  end
+  if count <= REMINDER_KEPT then
+    return
+  end
+  local keys = {}
+  for key in pairs(notified) do
+    keys[#keys + 1] = key
+  end
+  table.sort(keys)
+  for index = 1, count - REMINDER_KEPT do
+    notified[keys[index]] = nil
+  end
+end
+
+-- Milliseconds until the next timed todo becomes due, or nil when none has a
+-- future time today/soon. Used to tighten the update interval.
+-- Milliseconds until the next timed todo falls due, or nil. Reads the clock
+-- once, and the result is cached until the next scan because it only changes
+-- when the notes change or time passes: recomputing it on every 250 ms tick
+-- was enough to blow the update() CPU budget on a large vault.
+local nextDueCache = { at = 0, value = nil }
+
+local function nextDueInMs(snapshot)
+  local now = noctalia.nowMs()
+  if nextDueCache.at ~= nil and (now - nextDueCache.at) < 5000 and nextDueCache.value ~= nil then
+    return nextDueCache.value
+  end
+  local soonest
+  for _, todo in ipairs(snapshot.todos) do
+    if not todo.done and todo.due ~= nil and todo.time ~= nil then
+      local dueAt = Text.dueEpochMs(todo.due, todo.time)
+      if dueAt ~= nil then
+        local remaining = dueAt - now
+        if remaining > 0 and (soonest == nil or remaining < soonest) then
+          soonest = remaining
+        end
+      end
+    end
+  end
+  -- Store the absolute due instant so a cached value still shrinks with time.
+  nextDueCache.at = now
+  nextDueCache.value = soonest and (now + soonest) or nil
+  return nextDueCache.value - now
+end
+
+local function invalidateNextDue()
+  nextDueCache.at = 0
+  nextDueCache.value = nil
+end
+
 local function checkReminders(snapshot)
   if noctalia.getConfig("due_reminders") == false then
     return
   end
   local today = Text.todayIso()
+  local now = noctalia.nowMs()
+  local state = loadReminders()
+  local notified = state.notified or {}
+  local notifiedChanged = false
+
+  for _, todo in ipairs(snapshot.todos) do
+    if not todo.done and todo.due ~= nil and Text.isOverdue(todo.due, todo.time) then
+      local key = todo.id .. "@" .. todo.due .. (todo.time ~= nil and ("T" .. todo.time) or "")
+      if notified[key] == nil then
+        notified[key] = now
+        notifiedChanged = true
+        local label = Text.fmtDue(todo.due, todo.time) or todo.due
+        noctalia.notify("Quill", todo.text .. " · " .. label)
+      end
+    end
+  end
+  if notifiedChanged then
+    trimNotified(notified)
+  end
+
   local overdue, dueToday = 0, 0
   for _, todo in ipairs(snapshot.todos) do
     if not todo.done and todo.due ~= nil then
-      if todo.due < today then
+      if Text.isOverdue(todo.due, todo.time) then
         overdue = overdue + 1
       elseif todo.due == today then
         dueToday = dueToday + 1
       end
     end
   end
-  if overdue == 0 and dueToday == 0 then
-    return
+
+  if overdue + dueToday > 0 then
+    local sig = today .. "|" .. tostring(overdue) .. "|" .. tostring(dueToday)
+    if state.sig ~= sig and (state.at == nil or (now - state.at) >= 30 * 60 * 1000) then
+      local parts = {}
+      if dueToday > 0 then
+        parts[#parts + 1] = tostring(dueToday) .. " due today"
+      end
+      if overdue > 0 then
+        parts[#parts + 1] = tostring(overdue) .. " overdue"
+      end
+      noctalia.notify("Quill", table.concat(parts, " · "))
+      state.sig = sig
+      state.at = now
+    end
   end
 
-  local sig = today .. "|" .. tostring(overdue) .. "|" .. tostring(dueToday)
-  local state = loadReminders()
-  if state.sig == sig then
-    return
-  end
-  local now = noctalia.nowMs()
-  if state.at ~= nil and (now - state.at) < 30 * 60 * 1000 then
-    return
-  end
-
-  local parts = {}
-  if dueToday > 0 then
-    parts[#parts + 1] = tostring(dueToday) .. " due today"
-  end
-  if overdue > 0 then
-    parts[#parts + 1] = tostring(overdue) .. " overdue"
-  end
-  noctalia.notify("Quill", table.concat(parts, " · "))
-  saveReminders({ sig = sig, at = now })
+  state.notified = notified
+  saveReminders(state)
 end
 
 -- Git history -------------------------------------------------------------
@@ -111,9 +193,18 @@ local function commitNotes()
   local dir = Store.notesDir()
   local message = "notes: " .. os.date("%Y-%m-%d %H:%M:%S")
 
+  local home = noctalia.expandPath("~")
+  if dir == home or dir == "/" then
+    noctalia.notifyError("Quill", "Git history is off: the notes folder is your home directory")
+    return
+  end
+
+  -- `-- .` keeps every operation scoped to the notes folder, so a notes folder
+  -- that happens to sit inside a larger repository does not stage and commit
+  -- the rest of the user's working tree.
   local function commit()
-    noctalia.runAsync({ "git", "-C", dir, "add", "-A" }, function()
-      noctalia.runAsync({ "git", "-C", dir, "commit", "-q", "-m", message }, function(result)
+    noctalia.runAsync({ "git", "-C", dir, "add", "-A", "--", "." }, function()
+      noctalia.runAsync({ "git", "-C", dir, "commit", "-q", "-m", message, "--", "." }, function(result)
         if result == nil or result.exitCode == 0 then
           return
         end
@@ -122,7 +213,7 @@ local function commitNotes()
             "git", "-C", dir,
             "-c", "user.name=Noctalia Quill",
             "-c", "user.email=quill@localhost",
-            "commit", "-q", "-m", message,
+            "commit", "-q", "-m", message, "--", ".",
           }, function() end)
         end
       end)
@@ -144,6 +235,7 @@ end
 
 local function finishSnapshot(snapshot, index)
   publish(snapshot, index)
+  invalidateNextDue()
   local ok, err = pcall(checkReminders, snapshot)
   if not ok then
     noctalia.log("notes: reminders failed: " .. tostring(err))
@@ -206,6 +298,14 @@ function update()
 
   noctalia.setUpdateInterval(scanPending and SCAN_TICK_MS or interval())
 
+  -- A timed todo about to fall due needs a finer tick than the poll interval,
+  -- otherwise a 14:30 reminder could be up to poll_interval_ms late.
+  local snapshot = noctalia.state.get("snapshot")
+  local dueIn = type(snapshot) == "table" and nextDueInMs(snapshot) or nil
+  if dueIn ~= nil and dueIn <= 60000 then
+    noctalia.setUpdateInterval(SCAN_TICK_MS)
+  end
+
   if gitPendingAt ~= nil then
     local delay = tonumber(noctalia.getConfig("git_debounce_ms")) or 8000
     if noctalia.nowMs() - gitPendingAt >= delay then
@@ -246,6 +346,6 @@ function onIpc(event, payload)
     Capture.capture(text, noctalia.getConfig("ai_capture") ~= false, function(status)
       noctalia.notify("Quill", status)
       Store.markDirty()
-    end)
+    end, Capture.projectContext())
   end
 end
