@@ -481,11 +481,29 @@ local function buildProgressBar(s)
   local total = s.lengthSec or 0
   local cur = interpPos(s)
   local frac = (total > 0) and math.min(1, cur / total) or 0
-  return ui.progress({
-    key = "pbar", progress = frac,
-    fill = T.ringFill, track = T.ringTrack,
-    width = "stretch", height = T.ring, radius = T.ring / 2
-  })
+  local size = noctalia.getConfig("panel_size") or "medium"
+  local barWidth = LYR_WIDTH[size] or LYR_WIDTH.medium
+  local count = 96
+  local segments = {}
+  for index = 1, count do
+    local left = math.floor((index - 1) * barWidth / count)
+    local right = math.floor(index * barWidth / count)
+    local width = right - left
+    local fraction = (left + right) / (2 * barWidth)
+    segments[index] = ui.column({
+      key = "seek-hit-" .. index, width = width, height = 16, justify = "center",
+      onClick = total > 0 and function()
+        sendCmd("seekTo", { sec = fraction * total })
+      end or nil,
+    }, {
+      -- Extend the paint one logical pixel into the next hit zone to hide
+      -- seams where adjacent rectangles land on fractional display pixels.
+      ui.box({ key = "seek-line-" .. index, width = width + (index < count and 1 or 0), height = 3,
+        fill = fraction <= frac and T.ringFill or T.ringTrack,
+        radius = (index == 1 or index == count) and 1.5 or 0 }),
+    })
+  end
+  return ui.row({ key = "pbar", width = barWidth, height = 16, gap = 0 }, segments)
 end
 
 -- ============================= header (cover + info + transport) =============================
