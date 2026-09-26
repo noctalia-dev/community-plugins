@@ -154,6 +154,13 @@
     }
   },
   "settings": {
+    "additional_info_mode": {
+      "description": "Select what additional information to display in the bar widget.",
+      "label": "Additional info mode",
+      "none": "None",
+      "due": "Due",
+      "spent": "Spent"
+    },
     "auto_start": {
       "description": "Starts the desktop app in the background when the companion is unavailable.",
       "label": "Start Super Productivity automatically",
@@ -163,9 +170,17 @@
       "description": "Optional path to the companion data directory. When empty, Noctalia detects the path automatically.",
       "label": "Bridge directory override"
     },
+    "follow_active_task": {
+      "description": "Automatically switch the widget to the active task when tracking starts or changes in Super Productivity.",
+      "label": "Follow active task"
+    },
     "glyph": {
       "description": "Icon shown beside the task title.",
       "label": "Widget glyph"
+    },
+    "hide_when_no_active_task": {
+      "description": "Hides the bar widget when no task is currently running.",
+      "label": "Hide when no active task"
     },
     "launch_method": {
       "auto": "Auto-detect",
@@ -205,10 +220,6 @@
     "rest_token_file": {
       "description": "Optional path to Super Productivity's local REST API token file. An empty value enables native and Flatpak discovery.",
       "label": "REST token file override"
-    },
-    "show_due_text": {
-      "description": "Shows the relative due time in the bar widget.",
-      "label": "Show due text"
     },
     "show_timer_controls": {
       "description": "Shows start and stop tracking controls in the expanded details panel.",
