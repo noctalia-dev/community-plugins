@@ -11,7 +11,7 @@
 -- Progress: verified live on this host build —
 --   * no arc primitive exists, and VERTICAL ui.progress bars do not render
 --     at all, so the v0.1 8-segment perimeter ring and the per-edge bars were
---     dropped for a single native horizontal ui.progress (2.5px) under the art;
+--     dropped for a horizontal seekbar;
 --   * ui.box cannot hold children (host drops them with warnings);
 --   * labels centered by default: text with maxWidth inside a stretched
 --     column loses left alignment -> infoCol hugs content, springer pushes
@@ -52,6 +52,7 @@ local T = {
   colTime = "on_surface_variant",
   ringTrack = "outline/0.5",
   ringFill = "primary",
+  seekTrack = "outline",
   lyricActive = "primary",
   lyricNear = "on_surface",
   lyricFar = "on_surface_variant",
@@ -456,8 +457,7 @@ end
 --   * ui.image renders at DECLARED size only when NOT wrapped in a padded
 --     container (inside a padded plate column it came out oversize), so the
 --     frame is the image's own border (ui.image border/borderWidth/radius);
---   * vertical ui.progress bars do not render at all -> single horizontal
---     native progress bar under the art (agreed auto-fallback).
+--   * vertical ui.progress bars do not render at all -> horizontal seekbar.
 local function buildCover(s, coverSize)
   local COVER = coverSize or T.cover
   if s.artUrl and s.artUrl ~= "" then
@@ -483,27 +483,25 @@ local function buildProgressBar(s)
   local frac = (total > 0) and math.min(1, cur / total) or 0
   local size = noctalia.getConfig("panel_size") or "medium"
   local barWidth = LYR_WIDTH[size] or LYR_WIDTH.medium
-  local count = 96
-  local segments = {}
+  local hitWidth = 4
+  local count = barWidth / hitWidth
+  local hitZones = {}
   for index = 1, count do
-    local left = math.floor((index - 1) * barWidth / count)
-    local right = math.floor(index * barWidth / count)
-    local width = right - left
-    local fraction = (left + right) / (2 * barWidth)
-    segments[index] = ui.column({
-      key = "seek-hit-" .. index, width = width, height = 16, justify = "center",
+    local fraction = (index - 0.5) / count
+    hitZones[index] = ui.column({
+      key = "seek-hit-" .. index, width = hitWidth, height = 16,
       onClick = total > 0 and function()
         sendCmd("seekTo", { sec = fraction * total })
       end or nil,
-    }, {
-      -- Extend the paint one logical pixel into the next hit zone to hide
-      -- seams where adjacent rectangles land on fractional display pixels.
-      ui.box({ key = "seek-line-" .. index, width = width + (index < count and 1 or 0), height = 3,
-        fill = fraction <= frac and T.ringFill or T.ringTrack,
-        radius = (index == 1 or index == count) and 1.5 or 0 }),
-    })
+    }, {})
   end
-  return ui.row({ key = "pbar", width = barWidth, height = 16, gap = 0 }, segments)
+  -- Paint once. The transparent hit zones sit over the progress control.
+  return ui.row({ key = "pbar", width = barWidth, height = 16,
+    gap = -barWidth, align = "center" }, {
+    ui.progress({ key = "seek-line", width = barWidth, height = 3,
+      progress = frac, fill = T.ringFill, track = T.seekTrack, radius = 1.5 }),
+    ui.row({ key = "seek-targets", width = barWidth, height = 16, gap = 0 }, hitZones),
+  })
 end
 
 -- ============================= header (cover + info + transport) =============================
