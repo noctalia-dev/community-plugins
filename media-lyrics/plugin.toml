@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.4"
+version = "0.10.0"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
@@ -37,6 +37,7 @@ options = [
   { value = "compact", label_key = "settings.panel_size.options.compact" },
   { value = "medium", label_key = "settings.panel_size.options.medium" },
   { value = "large", label_key = "settings.panel_size.options.large" },
+  { value = "pinned", label_key = "settings.panel_size.options.pinned" },
 ]
 
 [[setting]]
@@ -221,6 +222,24 @@ entry = "panel.luau"
 width = 640
 height = 640
 keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down", "Return", "Space"]
+
+# Pinned: the same full karaoke view as panel-large, but persistent — stays
+# open across other panels, anchored bottom-right near the bar, until closed
+# explicitly. `persistent` (plugin_api 11) rejects `keyboard_focus = "exclusive"`
+# and requires `dismiss_on_outside_click = false`, so arrow/Return/Space seek
+# only takes effect after a click inside the panel gives it focus, unlike the
+# other three presets which grab focus the instant they open.
+[[panel]]
+id = "panel-pinned"
+entry = "panel.luau"
+width = 640
+height = 640
+placement = "floating"
+position = "bottom_right"
+keyboard_focus = "on_demand"
+dismiss_on_outside_click = false
+persistent = true
 capture_keys = ["Up", "Down", "Return", "Space"]
 
 # Compact mini panel: cover + current lyric line only, pinnable to the desktop
