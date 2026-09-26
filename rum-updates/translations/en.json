@@ -59,10 +59,10 @@
     }
   },
   "tooltip": {
+    "check_now": "Check now",
+    "check_now_hint": "Right-click",
     "checking": "Checking for updates…",
     "error": "Update check failed",
-    "manual_check": "Manual check",
-    "manual_check_hint": "Right-click the widget",
     "package_updates": "RUM package updates",
     "repository": "Repository: {repo}"
   }

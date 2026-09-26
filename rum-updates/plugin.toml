@@ -1,9 +1,9 @@
 id = "etrigan63/rum-updates"
 name = "RUM Updates"
-version = "0.1.5"
+version = "0.1.6"
 author = "etrigan63"
 license = "MIT"
-icon = "download"
+icon = "package"
 description = "Monitor and manage RakuOS updates with rum."
 plugin_api = 3
 tags = ["system", "utility"]
@@ -45,14 +45,14 @@ key = "glyph"
 type = "glyph"
 label_key = "settings.glyph.label"
 description_key = "settings.glyph.description"
-default = "download"
+default = "package"
 
 [[widget.setting]]
 key = "click_action"
 type = "select"
 label_key = "settings.click_action.label"
 description_key = "settings.click_action.description"
-default = "open_software_center"
+default = "run_updater"
 options = [
   { value = "open_software_center", label_key = "settings.click_action.options.open_software_center" },
   { value = "run_updater", label_key = "settings.click_action.options.run_updater" }

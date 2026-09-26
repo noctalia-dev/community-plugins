@@ -12,7 +12,7 @@ The plugin checks for updates in the background, displays the available count in
 | --- | --- |
 | ID | `etrigan63/rum-updates` |
 | Entries | Bar widget: `rum_updates`; service: `update_poller` |
-| Version | `0.1.5` |
+| Version | `0.1.6` |
 | Noctalia plugin API | `3` |
 | License | MIT |
 
@@ -23,6 +23,14 @@ The plugin checks for updates in the background, displays the available count in
 The widget displays a configurable glyph and the number of overlay package updates reported by `rum`.
 
 ![RUM Updates widget in the Noctalia bar showing zero available updates](docs/screenshots/widget-bar.png)
+
+### Manual check
+
+The tooltip ends with a **Check now** row that shows how to start a check on demand and reports progress while it runs.
+
+![RUM Updates tooltip showing the Check now row with the Right-click hint](docs/screenshots/widget-tooltip-idle.png)
+
+![RUM Updates tooltip showing Checking for updates while a manual check runs](docs/screenshots/widget-tooltip-checking.png)
 
 ### Configuration
 
@@ -37,8 +45,8 @@ The plugin settings control polling and notifications. Each bar widget has its o
 - Starts an immediate update check when the widget is right-clicked, with progress shown in the tooltip.
 - Shows the current count as `1 Update`, `0 Updates`, or `RUM error`.
 - Provides package names, installed and available versions, and repository names in the tooltip.
-- Supports a configurable Noctalia glyph.
-- Can open RakuOS Software Center or run `sudo rum system-upgrade` in a terminal.
+- Uses the `package` glyph by default and supports any configurable Noctalia glyph.
+- Runs `sudo rum system-upgrade` in a terminal on click by default, or opens RakuOS Software Center instead.
 - Uses Noctalia's detected terminal by default, with support for a custom terminal executable.
 - Optionally sends a notification when the number of available updates increases.
 - Validates and sorts `rum` JSON output before displaying it.
@@ -82,16 +90,16 @@ Hover over the widget to see:
 - Each package name and architecture.
 - The installed and available versions.
 - The repository associated with each update.
-- The **Manual check** row, which shows how to check for updates on demand.
+- The **Check now** row, which shows how to check for updates on demand.
 
-Right-click the widget to start an immediate update check instead of waiting for the configured interval. While a check is running, **Manual check** changes to **Checking for updates…** and further clicks are ignored. Right-click is always reserved for this check and does not change the configured **Click action**. The widget must be visible, so disable **Hide when empty** if you want to trigger manual checks while no updates are available.
+Right-click the widget to start an immediate update check instead of waiting for the configured interval. While a check is running, **Check now** changes to **Checking for updates…** and further clicks are ignored. Right-click is always reserved for this check and does not change the configured **Click action**. The widget must be visible, so disable **Hide when empty** if you want to trigger checks on demand while no updates are available.
 
-Click the widget to choose one of the configured actions:
+Click the widget to run the configured action. **Run rum system upgrade** is the default:
 
 | Click action | Behavior |
 | --- | --- |
+| **Run rum system upgrade** (default) | Opens a terminal containing `sudo rum system-upgrade`. |
 | **Open RakuOS Software Center** | Opens `rakuos-software` if it is available. |
-| **Run rum system upgrade** | Opens a terminal containing `sudo rum system-upgrade`. |
 
 The updater action does not run an upgrade immediately. Review the command in the terminal and enter your password only when you are ready to proceed.
 
@@ -124,8 +132,8 @@ These settings apply to each **RUM Updates** bar widget instance.
 | Setting | Default | Description |
 | --- | --- | --- |
 | **Hide when empty** | Enabled | Hide the widget while no overlay package updates are available. Disable this to keep the glyph and zero count visible. |
-| **Glyph** | `download` | Select the icon displayed before the update count. |
-| **Click action** | Open RakuOS Software Center | Choose between opening Software Center and running the system updater. |
+| **Glyph** | `package` | Select the icon displayed before the update count. |
+| **Click action** | Run rum system upgrade | Choose between running the system updater and opening Software Center. |
 | **Terminal application** | Empty | Set one terminal executable path or name. Leave empty to use Noctalia's detected terminal. |
 
 Examples for **Terminal application** include:
@@ -179,7 +187,7 @@ Confirm that `rum` is installed and available in `PATH`. If the command succeeds
 
 ### RakuOS Software Center does not open
 
-The Software Center action requires the optional `rakuos-software` application. Alternatively, select **Run rum system upgrade** to use the terminal action.
+The Software Center action requires the optional `rakuos-software` application. It is not the default, so a missing Software Center does not affect the default click action; select **Open RakuOS Software Center** to use it.
 
 ### The count does not change immediately
 
