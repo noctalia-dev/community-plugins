@@ -665,6 +665,11 @@ def parse_args(argv):
 
 
 def main(argv):
+    # Launched from Noctalia, the helper inherits the shell's open files, its log
+    # file and pipes among them. A process that holds secrets has no business
+    # keeping another program's files open, and it needs none of them: close
+    # everything past stdio before anything here opens a descriptor of its own.
+    os.closerange(3, os.sysconf("SC_OPEN_MAX"))
     args = parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
