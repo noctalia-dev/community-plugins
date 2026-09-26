@@ -143,9 +143,7 @@ Upcoming work, roughly in priority order:
 - [x] Lyrics variants picker — switch between alternative LRCLIB versions on
       the fly (DONE in 0.9.4: header button, on-demand search, Default row)
 - [x] Clickable lyric lines — click a line to seek the track to that moment (DONE in 0.8.5: click + Return/Space)
-- [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
-      report coordinates, so a click position cannot be mapped to a timestamp
-      (only lyric-line clicks and the keyboard cursor can seek)
+- [x] Seek on progress-bar click
 - [ ] Compact mode with a pinnable widget — the bar chip + panel presets
       cover the compact surface; a desktop-pinned view would need a new
       `[[desktop_widget]]` entry (open question)
