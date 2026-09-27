@@ -26,7 +26,7 @@
   },
   "panel": {
     "add_button": "Add",
-    "add_hint": "added to {project}, due today",
+    "add_hint": "will be added to {project}, due today",
     "add_placeholder": "New task title…",
     "bucket_any": "No bucket",
     "bucket_other": "No bucket",

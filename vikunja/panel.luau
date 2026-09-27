@@ -3,6 +3,7 @@
 -- row actions (complete, postpone, move between kanban buckets).
 
 local STATE_KEY = "vk_snapshot"
+local REV_KEY = "vk_rev"
 local COMMAND_KEY = "vk_command"
 local RESULT_KEY = "vk_action_result"
 
@@ -37,6 +38,7 @@ local requestCounter = 0
 local feedback = ""
 local feedbackError = false
 local dirty = true
+local opened = false
 
 local render
 
@@ -153,7 +155,9 @@ local function projectRows()
     local selected = (index - 1) == projectIndex
     table.insert(rows, ui.button({
       key = "project-" .. tostring(project.id),
-      text = `{project.title}  ·  {tostring(project.open or 0)} open`,
+      -- The count is only known once the counting pass has run; an unknown
+      -- count must not read as "no tasks".
+      text = project.open ~= nil and `{project.title}  ·  {tostring(project.open)} open` or project.title,
       glyph = "stack-2",
       contentAlign = "start",
       variant = selected and "primary" or "outline",
@@ -187,12 +191,32 @@ local function projectTaskList()
         }),
       }
       for _, task in ipairs(bucket.tasks) do
-        table.insert(children, ui.dragSource({
-          dragType = "vk-task",
-          payload = tostring(task.id),
-          previewAncestor = 1,
-          enabled = snapshot.busy ~= true,
-        }, { taskRow(task) }))
+        -- Only the grip is a drag source: wrapping the whole row swallowed the
+        -- click that selects it (the host owns the drag gesture).
+        table.insert(children, ui.row({ key = "taskline-" .. tostring(task.id), gap = 4, align = "center" }, {
+          ui.dragSource({
+            dragType = "vk-task",
+            payload = tostring(task.id),
+            previewAncestor = 1,
+            enabled = snapshot.busy ~= true,
+          }, {
+            ui.glyph({ name = "grip-vertical", size = 14, color = "on_surface_variant" }),
+          }),
+          ui.button({
+            key = "task-" .. tostring(task.id),
+            text = `{task.title}  ·  {task.project}  ·  {dueLabel(task)}`,
+            glyph = task.bucket == "overdue" and "alert-triangle" or "circle",
+            contentAlign = "start",
+            flexGrow = 1,
+            variant = task.id == selectedId and "primary" or "outline",
+            selected = task.id == selectedId,
+            onClick = function()
+              selectedId = task.id
+              feedback = ""
+              render()
+            end,
+          }),
+        }))
       end
       table.insert(rows, ui.dropZone({
         key = "zone-" .. tostring(bucket.id),
@@ -479,10 +503,9 @@ render = function()
   }))
 end
 
-noctalia.state.watch(STATE_KEY, function(value)
-  if type(value) ~= "table" then
-    return
-  end
+local requestBucketsForSelection  -- assigned below; called while applying a snapshot
+
+local function applySnapshot(value)
   local previousRevision = snapshot.revision
   local previousBusy = snapshot.busy
   local previousLoading = snapshot.loading
@@ -499,38 +522,63 @@ noctalia.state.watch(STATE_KEY, function(value)
 
   snapshot = value
   if #(snapshot.projects or {}) ~= previousProjectCount then
-    projectIndex = math.max(0, math.min(projectIndex, #(snapshot.projects or {}) - 1))
+  projectIndex = math.max(0, math.min(projectIndex, #(snapshot.projects or {}) - 1))
   end
   if #(snapshot.addBuckets or {}) ~= previousAddBuckets then
-    bucketIndex = math.max(0, math.min(bucketIndex, #(snapshot.addBuckets or {})))
+  bucketIndex = math.max(0, math.min(bucketIndex, #(snapshot.addBuckets or {})))
   end
   if selectedId ~= nil and selectedTask() == nil then
-    selectedId = nil
+  selectedId = nil
   end
   if (snapshot.projectOpen ~= nil and snapshot.projectOpen.id or nil) ~= previousOpen
-    and snapshot.projectOpen ~= nil
+  and snapshot.projectOpen ~= nil
   then
-    for index, project in ipairs(snapshot.projects or {}) do
+  for index, project in ipairs(snapshot.projects or {}) do
       if project.id == snapshot.projectOpen.id then
         projectIndex = index - 1
         bucketIndex = 0
       end
-    end
+  end
   end
 
   if value.revision ~= previousRevision
-    or value.busy ~= previousBusy
-    or value.loading ~= previousLoading
-    or value.projectsLoading ~= previousProjectsLoading
-    or value.error ~= previousError
-    or (snapshot.counts or {}).overdue ~= previousOverdue
-    or (selectedProject() or {}).title ~= previousProjectTitle
-    or (snapshot.projectOpen ~= nil and snapshot.projectOpen.id or nil) ~= previousOpen
-    or #(snapshot.projectTasks or {}) ~= previousOpenTasks
-    or #(snapshot.projectBuckets or {}) ~= previousOpenBuckets
-    or snapshot.projectLoading ~= previousProjectLoading
+  or value.busy ~= previousBusy
+  or value.loading ~= previousLoading
+  or value.projectsLoading ~= previousProjectsLoading
+  or value.error ~= previousError
+  or (snapshot.counts or {}).overdue ~= previousOverdue
+  or (selectedProject() or {}).title ~= previousProjectTitle
+  or (snapshot.projectOpen ~= nil and snapshot.projectOpen.id or nil) ~= previousOpen
+  or #(snapshot.projectTasks or {}) ~= previousOpenTasks
+  or #(snapshot.projectBuckets or {}) ~= previousOpenBuckets
+  or snapshot.projectLoading ~= previousProjectLoading
   then
-    dirty = true
+  dirty = true
+  if opened then
+      render()
+  end
+  end
+  requestBucketsForSelection()
+end
+
+-- The snapshot is re-read on every revision push: the big table itself is not
+-- guaranteed to be delivered to the panel.
+noctalia.state.watch(REV_KEY, function(value)
+  if value == nil or value == snapshot.revision then
+    return
+  end
+  local fresh = noctalia.state.get(STATE_KEY)
+  if type(fresh) == "table" then
+    applySnapshot(fresh)
+    if opened then
+      render()
+    end
+  end
+end)
+
+noctalia.state.watch(STATE_KEY, function(value)
+  if type(value) == "table" then
+    applySnapshot(value)
   end
 end)
 
@@ -544,16 +592,35 @@ noctalia.state.watch(RESULT_KEY, function(result)
   feedback = tostring(result.message or "")
   feedbackError = result.ok ~= true
   dirty = true
+  if opened then
+    render()
+  end
 end)
 
-local function requestBuckets()
+local requestedBucketsFor = nil
+local requestBuckets
+requestBuckets = function()
   local project = selectedProject()
   if project ~= nil then
+    requestedBucketsFor = project.id
     send("load_buckets", { projectId = project.id })
   end
 end
 
+-- The project list arrives after the panel opens, so the add row's buckets are
+-- often still unknown at that point: ask again while they are missing.
+function requestBucketsForSelection()
+  if #(snapshot.addBuckets or {}) > 0 then
+    return
+  end
+  local project = selectedProject()
+  if project ~= nil and requestedBucketsFor ~= project.id then
+    requestBuckets()
+  end
+end
+
 function onOpen(_context)
+  opened = true
   feedback = ""
   send("refresh")
   if tab == "projects" then
@@ -563,13 +630,10 @@ function onOpen(_context)
   render()
 end
 
-function update()
-  if dirty then
-    render()
-  end
-end
+
 
 function onClose()
+  opened = false
   panel.close()
 end
 

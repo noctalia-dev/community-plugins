@@ -3,6 +3,7 @@
 
 local PANEL_ID = "omertahaoztop/vikunja:manager"
 local STATE_KEY = "vk_snapshot"
+local REV_KEY = "vk_rev"
 local COMMAND_KEY = "vk_command"
 
 local snapshot = noctalia.state.get(STATE_KEY) or {
@@ -116,6 +117,19 @@ render = function()
   end
   barWidget.setTooltip(head)
 end
+
+-- The snapshot table is not guaranteed to be pushed to every entry; a small
+-- scalar revision always is, so re-read the snapshot when it moves.
+noctalia.state.watch(REV_KEY, function(value)
+  if value == nil then
+    return
+  end
+  local fresh = noctalia.state.get(STATE_KEY)
+  if type(fresh) == "table" then
+    snapshot = fresh
+    render()
+  end
+end)
 
 noctalia.state.watch(STATE_KEY, function(value)
   if type(value) == "table" then

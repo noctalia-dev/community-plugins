@@ -2,7 +2,7 @@
 # complete and postpone them, and a /vk launcher provider for quick capture.
 id = "omertahaoztop/vikunja"
 name = "Vikunja"
-version = "1.0.2"
+version = "1.0.3"
 # 24 for the argument-array form of noctalia.runAsync (opening a task/project);
 # everything else is older: settings, state, noctalia.http, panel decl. UI with
 # closures (9), bar widget trees and the launcher provider.

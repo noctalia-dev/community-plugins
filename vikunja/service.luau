@@ -2,6 +2,10 @@
 -- Vikunja backend: today/overdue counts, task list, add, complete, postpone.
 
 local STATE_KEY = "vk_snapshot"
+-- Entries get a small scalar push reliably; the snapshot itself is big enough
+-- that the host does not deliver every update of it. A revision counter tells
+-- the panel when to re-read the snapshot.
+local REV_KEY = "vk_rev"
 local COMMAND_KEY = "vk_command"
 local RESULT_KEY = "vk_action_result"
 
@@ -51,6 +55,13 @@ local refreshAgain = false
 local refreshStartedAt = 0
 local projectStartedAt = 0
 local actionBusy = false
+-- Wall-clock stamp of the last busy transition: a dropped HTTP callback would
+-- otherwise leave every action rejected as busy forever.
+local actionBusySince = 0
+local function setBusy(value)
+  actionBusy = value and true or false
+  actionBusySince = actionBusy and os.time() or 0
+end
 local dataSignature = ""
 local prevOverdue = {}
 
@@ -365,6 +376,7 @@ local function publishSnapshot()
   snapshot.host = hostLabel()
   snapshot.base = baseUrl()
   noctalia.state.set(STATE_KEY, snapshot)
+  noctalia.state.set(REV_KEY, snapshot.revision)
 end
 
 -- `projectId` is the project being browsed: view payloads leave project_id at 0.
@@ -981,11 +993,6 @@ openProject = function(command)
     actionResult(command, false, noctalia.tr("result.failed", { error = "unknown project" }))
     return
   end
-  -- A slow or stuck load must never swallow the next click: after a few
-  -- seconds the click wins and the load starts over.
-  if snapshot.projectLoading and projectStartedAt > 0 and (nowSec() - projectStartedAt) < 5 then
-    return
-  end
   snapshot.projectLoading = true
   projectStartedAt = nowSec()
   projectGeneration += 1
@@ -1106,14 +1113,14 @@ local function moveTask(command)
     return
   end
   local task = findTask(taskId)
-  actionBusy = true
+  setBusy(true)
   publishSnapshot()
   apiRequestV2("PUT", `projects/{open.id}/views/{open.viewId}/buckets/{bucketId}/tasks`, {
     task_id = taskId,
   }, function(res)
     local data, err = decodeBody(res)
     local ok = data ~= nil and (res.status == nil or res.status < 400)
-    actionBusy = false
+    setBusy(false)
     if ok then
       local bucketTitle = tostring(bucketId)
       for _, bucket in ipairs(snapshot.projectBuckets or {}) do
@@ -1151,7 +1158,7 @@ end
 -- actions
 
 local function finishAction(command, ok, message)
-  actionBusy = false
+  setBusy(false)
   actionResult(command, ok, message)
   if ok then
     notifyOk(message)
@@ -1178,7 +1185,7 @@ local function completeTask(command)
     actionResult(command, false, noctalia.tr("result.failed", { error = "unknown task" }))
     return
   end
-  actionBusy = true
+  setBusy(true)
   publishSnapshot()
   apiRequest("POST", "tasks/" .. task.id, { done = true }, function(res)
     local data, err = decodeBody(res)
@@ -1204,7 +1211,7 @@ local function postponeTask(command)
   local days = tonumber(command.days) or 1
   days = math.max(1, math.min(365, math.floor(days)))
 
-  actionBusy = true
+  setBusy(true)
   publishSnapshot()
   -- Re-read the task so a due date changed elsewhere is respected.
   apiRequest("GET", "tasks/" .. task.id, nil, function(res)
@@ -1273,7 +1280,7 @@ local function addTask(command)
   if bucketId ~= nil and bucketId > 0 then
     body.bucket_id = bucketId
   end
-  actionBusy = true
+  setBusy(true)
   publishSnapshot()
   body.due_date = dueStringFor(target)
   apiRequest("PUT", `projects/{project.id}/tasks`, body, function(res)
@@ -1361,6 +1368,10 @@ noctalia.setUpdateInterval(refreshIntervalMs())
 refreshAll()
 
 function update()
+  if actionBusy and actionBusySince > 0 and os.time() - actionBusySince > 12 then
+    setBusy(false)
+    publishSnapshot()
+  end
   refreshAll()
 end
 
