@@ -5,7 +5,7 @@
 
 id = "gamaraan/mx-control"
 name = "MX Control"
-version = "0.2.1"
+version = "0.2.2"
 plugin_api = 24
 author = "gamaraan"
 license = "GPL-2.0-or-later"

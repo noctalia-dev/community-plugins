@@ -139,6 +139,7 @@ check("evenScale rejects a descending list", shared.evenScale(descending) == nil
 check("runtime-dir output is trimmed", shared.runtimeDirFrom("/run/user/1000/omarchy-mx\n", "/x") == "/run/user/1000/omarchy-mx")
 check("empty runtime-dir output keeps the fallback", shared.runtimeDirFrom("", "/x") == "/x")
 check("a relative runtime-dir output is ignored", shared.runtimeDirFrom("omarchy-mx\n", "/x") == "/x")
+check("no answer yet keeps the path unknown", shared.runtimeDirFrom("", nil) == nil)
 
 -- choiceIndex accepts the {id, name} form jsonable() emits for NamedInt values.
 check("choiceIndex matches an {id,name} value", shared.choiceIndex(ratchet.choices, { id = 1, name = "Freespinning" }) == 0)

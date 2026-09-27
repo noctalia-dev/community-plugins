@@ -11,9 +11,9 @@ local SUPERVISE_EVERY_TICKS = 10
 local COMMAND_MAX_AGE_MS = 5000
 
 local helper = (noctalia.pluginDir() or ".") .. "/backend/mxctl.py"
--- Replaced by the path `runtime-dir` prints, which is what serve really uses.
--- mxctl.py keeps the Omarchy directory names; see UPSTREAM.md.
-local runtimeDir = (noctalia.getenv("XDG_RUNTIME_DIR") or "") .. "/omarchy-mx"
+-- Only ever the path `runtime-dir` prints, the one serve uses; nil until then,
+-- so nothing is read or written at a guessed path. See UPSTREAM.md for the name.
+local runtimeDir = nil
 
 local lastRaw = nil
 local lastTs = nil
@@ -27,7 +27,7 @@ local function statusPath()
 end
 
 local function readStatus()
-	if reading then
+	if reading or runtimeDir == nil then
 		return
 	end
 	reading = true
@@ -83,6 +83,10 @@ end
 
 -- Written under a non-matching name and renamed, so serve never reads half a file.
 local function queueCommand(cmd)
+	if runtimeDir == nil then
+		noctalia.log("mx-control: helper not ready, dropped " .. tostring(cmd.op))
+		return
+	end
 	local text = noctalia.json.encode(cmd)
 	if text == nil then
 		return
