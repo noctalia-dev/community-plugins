@@ -2,13 +2,14 @@
 # complete and postpone them, and a /vk launcher provider for quick capture.
 id = "omertahaoztop/vikunja"
 name = "Vikunja"
-version = "1.0.0"
-# 10 covers every capability used here: settings, state sharing, noctalia.http,
-# panel decl. UI with closures (9), bar widget trees and the launcher provider.
+version = "1.0.2"
+# 24 for the argument-array form of noctalia.runAsync (opening a task/project);
+# everything else is older: settings, state, noctalia.http, panel decl. UI with
+# closures (9), bar widget trees and the launcher provider.
 plugin_api = 24
 author = "omertahaoztop"
 license = "MIT"
-dependencies = ["python3", "xdg-open"]
+dependencies = ["xdg-open"]
 tags = ["bar", "panel", "service", "launcher", "productivity"]
 icon = "checkbox"
 description = "Today's and overdue Vikunja tasks, with quick add, complete and postpone."

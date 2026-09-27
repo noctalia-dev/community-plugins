@@ -576,7 +576,8 @@ end
 function onRefresh()
   send("refresh")
   if tab == "projects" then
-    send("load_projects")
+    -- A manual refresh also recounts the open tasks (skips the cache).
+    send("load_projects", { force = true })
   end
   requestBuckets()
 end

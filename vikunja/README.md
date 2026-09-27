@@ -18,9 +18,6 @@ Today's and overdue Vikunja tasks on the bar, a panel to add, complete and postp
 - An API token from **Settings → API Tokens** in Vikunja. Reading needs `projects:read` and
   `tasks:read`; add/complete/postpone additionally need `tasks:create` and `tasks:update`.
 - `xdg-open` on `PATH` (opens a task or project in Vikunja; declared in `plugin.toml`)
-- `python3` on `PATH` (declared in `plugin.toml`): converts the due hour of a day to UTC through
-  `zoneinfo`, because Luau's own conversion ignores the time zone database. Without it the plugin
-  still sets due dates, using the naive UTC offset.
 
 ## Usage
 
@@ -100,17 +97,21 @@ bucket of the open project — handy from a keybinding or a script.
 
 - **Network calls.** Each poll is one filtered `GET /api/v1/tasks` (lookahead window, 50 per page,
   paginated) plus one `GET /api/v1/projects`. Counting per project adds one paginated sweep over the
-  open tasks (`done = false`); opening a project adds `GET /projects/{id}/views`, its buckets when
-  the chosen view is kanban, and a paginated `GET /projects/{id}/views/{view}/tasks`. Nothing else is
-  fetched, and browsing a project never changes it.
+  open tasks (`done = false`, cached for five minutes and re-run only when you refresh by hand);
+  opening a project adds `GET /projects/{id}/views` and, for a kanban view,
+  `GET /api/v2/projects/{id}/views/{view}/buckets/tasks`, which returns every bucket with the tasks in
+  it — the same call Vikunja's own board makes, and the only one that carries bucket assignments.
+  A list/table/gantt project uses the flat task list instead. Nothing else is fetched, and browsing a
+  project never changes it.
 - **Mutations.** Only what you ask for: `PUT /projects/{id}/tasks` (add, with `bucket_id` when a
   bucket is chosen), `POST /tasks/{id}` (complete, postpone), `PUT /tasks/{id}/comments` (a
   `+Nd (Noctalia)` note when postponing) and
   `POST /projects/{id}/views/{view}/buckets/{bucket}/tasks` (moving between kanban buckets). The
   plugin never deletes anything and never touches a task it did not list.
 - **Due dates.** Add and postpone write the due hour (09:00) of the target day in the configured time
-  zone, converted to UTC with `python3 -c` + `zoneinfo` (Luau's `os.date("!*t")` identity trick
-  ignores the zone database and shifts every date), so a task stays a “today” task in your own day.
+  zone and convert it to UTC in plain Luau (`os.date`/`os.time`, with the runtime's table-fields-are-UTC
+  misbehaviour probed once at startup), so a task stays a “today” task in your own day. No helper
+  process is involved.
 - **Filter.** The lookahead query is `done = false && due_date < now/d+(soon_days+1)d` with
   `filter_timezone` set, which is why dateless open tasks never inflate the counter.
 - **Token.** Stored like any other plugin setting in Noctalia's configuration; a token scoped to the

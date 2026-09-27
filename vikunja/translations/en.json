@@ -39,9 +39,9 @@
     "project_open": "{n} open task(s)",
     "project_back": "Projects",
     "bucket_other": "No bucket",
-    "bucket": "Bucket",
     "bucket_any": "No bucket",
-    "projects_hint": "Pick a project to see its tasks."
+    "projects_hint": "Pick a project to see its tasks.",
+    "busy": "Working…"
   },
   "result": {
     "added": "Added “{title}”",
@@ -55,7 +55,8 @@
     "postponed": "Postponed “{title}” to {date}",
     "project_opened": "Opened “{project}”",
     "project_closed": "Back to projects",
-    "moved": "Moved “{title}” to {bucket}"
+    "moved": "Moved “{title}” to {bucket}",
+    "opened": "Opening “{name}” in Vikunja"
   },
   "settings": {
     "api_token": {
@@ -103,13 +104,10 @@
     "upcoming": "Upcoming"
   },
   "task": {
-    "due_in": "in {n} day(s)",
     "due_tomorrow": "tomorrow",
     "due_today": "today",
     "overdue": "{n} day(s) overdue",
-    "project": "{project}",
-    "no_due": "no due date",
-    "no_project": "no project"
+    "no_due": "no due date"
   },
   "title": "Vikunja",
   "widget": {

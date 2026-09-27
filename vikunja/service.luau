@@ -124,83 +124,70 @@ end
 -- ---------------------------------------------------------------------------
 -- local time helpers (Vikunja stores UTC, the user reads local days)
 
+-- Local DUE_HOUR on the day of `epoch`, expressed as the UTC string Vikunja wants.
+-- Time arithmetic. os.date/os.time honour the system zone (verified in the
+-- shell runtime: os.date("%z") = +0300, os.date("!") = UTC), so everything here
+-- is plain Luau - no helper process needed.
+
+local function localOffsetSeconds()
+  local zone = os.date("%z") -- e.g. "+0300"
+  local sign, hours, minutes = zone:match("^([+-])(%d%d)(%d%d)$")
+  if sign == nil then
+    return 0
+  end
+  local offset = tonumber(hours) * 3600 + tonumber(minutes) * 60
+  return sign == "-" and -offset or offset
+end
+
+-- This runtime reads os.time({...}) fields as UTC even though os.date
+-- honours the zone (os.date("%z") = +0300 here). Probe it once and convert
+-- explicitly, so due dates land on the local day the user picked.
+local timeTableIsUtc = nil
+
+local function tableFieldsAreUtc()
+  if timeTableIsUtc == nil then
+    local now = os.date("*t")
+    local asTable = os.time({
+      year = now.year, month = now.month, day = now.day,
+      hour = now.hour, min = now.min, sec = now.sec,
+    })
+    timeTableIsUtc = math.abs(asTable - os.time()) > 60
+  end
+  return timeTableIsUtc
+end
+
+-- Epoch of the instant whose UTC wall clock is `fields`.
+local function epochFromUtcFields(fields)
+  local epoch = os.time(fields)
+  if tableFieldsAreUtc() then
+    return epoch
+  end
+  return epoch + localOffsetSeconds()
+end
+
+-- Epoch of the instant whose *local* wall clock is `fields`.
+local function epochFromLocalFields(fields)
+  local epoch = os.time(fields)
+  if tableFieldsAreUtc() then
+    return epoch - localOffsetSeconds()
+  end
+  return epoch
+end
+
+-- Parses "2026-10-04T09:00:00Z" / "…+03:00" into a local epoch.
+-- Day helpers, all in local time: the plugin's day boundaries follow the
+-- system zone (startOfLocalDay is midnight today, dayShift moves whole days).
 local function startOfLocalDay(epoch)
   local t = os.date("*t", epoch or os.time())
-  return os.time({ year = t.year, month = t.month, day = t.day, hour = 0, min = 0, sec = 0 })
+  return epochFromLocalFields({ year = t.year, month = t.month, day = t.day, hour = 0, min = 0, sec = 0 })
 end
 
 local function dayShift(epoch, days)
   local t = os.date("*t", epoch)
-  return os.time({
+  return epochFromLocalFields({
     year = t.year, month = t.month, day = t.day + (days or 0),
     hour = 0, min = 0, sec = 0,
   })
-end
-
--- Local DUE_HOUR on the day of `epoch`, expressed as the UTC string Vikunja wants.
--- Local due hour on the day of `epoch`, converted to UTC. Luau's os.date("!*t")
--- identity trick ignores the tz database (+03 mislabeled as UTC), so the real
--- conversion runs through python3's zoneinfo. Nothing synchronous can reach it
--- (the plugin API has no io), hence the async path below; this sync version is
--- the fallback for environments without popen.
-local DUE_HELPER = "from zoneinfo import ZoneInfo\n\n\ndef main() -> int:\n    import sys\n    from datetime import datetime, timezone\n\n    if len(sys.argv) < 2:\n        print(\"usage: <YYYY-MM-DD> [hour] [zone]\", file=sys.stderr)\n        return 1\n    hour = int(sys.argv[2]) if len(sys.argv) > 2 else 9\n    zone_name = sys.argv[3] if len(sys.argv) > 3 else \"Europe/Istanbul\"\n    try:\n        zone = ZoneInfo(zone_name)\n    except Exception as exc:\n        print(f\"invalid timezone: {exc}\", file=sys.stderr)\n        return 1\n    stamp = datetime.strptime(sys.argv[1], \"%Y-%m-%d\").replace(hour=hour, minute=0, second=0, tzinfo=zone)\n    print(stamp.astimezone(timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\"))\n    return 0\n\n\nraise SystemExit(main())\n"
-
-local function dueStringFor(epoch)
-  local day = os.date("%Y-%m-%d", epoch)
-  local zone = trim(noctalia.getConfig("timezone"))
-  local args = { "python3", "-c", DUE_HELPER, day, tostring(DUE_HOUR) }
-  if zone ~= "" then
-    table.insert(args, zone)
-  end
-  local parts = {}
-  for index, value in ipairs(args) do
-    parts[index] = "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-  end
-  if type(io) == "table" and type(io.popen) == "function" then
-    local handle = io.popen(table.concat(parts, " "), "r")
-    local output = handle and handle:read("*l") or ""
-    if handle ~= nil then
-      handle:close()
-    end
-    if output ~= "" and output:match("^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ$") then
-      return output
-    end
-  end
-  local t = os.date("*t", epoch)
-  local stamp = os.time({
-    year = t.year, month = t.month, day = t.day,
-    hour = DUE_HOUR, min = 0, sec = 0,
-  })
-  return os.date("!%Y-%m-%dT%H:%M:%SZ", stamp)
-end
-
--- Preferred path: ask the helper through the async runner (the plugin API has
--- no synchronous process call), then continue with the answer.
-local function dueStringAsync(epoch, onDone)
-  local day = os.date("%Y-%m-%d", epoch)
-  local zone = trim(noctalia.getConfig("timezone"))
-  local args = { "python3", "-c", DUE_HELPER, day, tostring(DUE_HOUR) }
-  if zone ~= "" then
-    table.insert(args, zone)
-  end
-  local parts = {}
-  for index, value in ipairs(args) do
-    parts[index] = "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-  end
-  local accepted = noctalia.runAsync(table.concat(parts, " "), function(result)
-    local text = (result ~= nil and result.exitCode == 0) and trim(result.stdout) or ""
-    if text:match("^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ$") then
-      onDone(text)
-      return
-    end
-    if text ~= "" then
-      noctalia.log("vikunja: due helper said: " .. text)
-    end
-    onDone(dueStringFor(epoch))
-  end, 15000)
-  if not accepted then
-    onDone(dueStringFor(epoch))
-  end
 end
 
 local function dateLabel(epoch)
@@ -211,11 +198,6 @@ local function timeLabel(epoch)
   return os.date("%H:%M", epoch)
 end
 
-local function utcOffsetSeconds()
-  return os.time() - os.time(os.date("!*t"))
-end
-
--- Vikunja sends UTC RFC3339; the plugin works in local days.
 local function parseDue(raw)
   local text = asString(raw)
   if text == "" or text:match("^0001%-01%-01") then
@@ -225,11 +207,27 @@ local function parseDue(raw)
   if year == nil then
     return nil
   end
-  local utcEpoch = os.time({
+  local fields = {
     year = tonumber(year), month = tonumber(month), day = tonumber(day),
     hour = tonumber(hour), min = tonumber(min), sec = tonumber(sec),
+  }
+  local zoneOffset = 0
+  local zoneHour, zoneMinute = text:match("([+-]%d%d):(%d%d)$")
+  if zoneHour ~= nil then
+    zoneOffset = tonumber(zoneHour) * 3600 + tonumber(zoneMinute) * 60
+  end
+  -- The wall clock in the payload is UTC-shifted by its own zone suffix.
+  return epochFromUtcFields(fields) - zoneOffset
+end
+
+-- Local due hour on `epoch`'s day, written the way Vikunja stores it (UTC).
+local function dueStringFor(epoch)
+  local day = os.date("*t", epoch)
+  local stamp = epochFromLocalFields({
+    year = day.year, month = day.month, day = day.day,
+    hour = DUE_HOUR, min = 0, sec = 0,
   })
-  return utcEpoch + utcOffsetSeconds()
+  return os.date("!%Y-%m-%dT%H:%M:%SZ", stamp)
 end
 
 local function dueBucket(dueEpoch)
@@ -261,9 +259,9 @@ end
 -- ---------------------------------------------------------------------------
 -- API plumbing
 
-local function apiRequest(method, path, body, callback)
+local function apiRequestBase(base, method, path, body, callback)
   local req = {
-    url = baseUrl() .. "/api/v1/" .. path:gsub("^/+", ""),
+    url = base .. path:gsub("^/+", ""),
     method = method or "GET",
     headers = { "Accept: application/json", "Authorization: Bearer " .. apiToken() },
   }
@@ -287,6 +285,14 @@ local function apiRequest(method, path, body, callback)
     safeCb({ ok = false, status = 0, body = "http queue full" })
   end
   return ok
+end
+
+local function apiRequest(method, path, body, callback)
+  return apiRequestBase(baseUrl() .. "/api/v1/", method, path, body, callback)
+end
+
+local function apiRequestV2(method, path, body, callback)
+  return apiRequestBase(baseUrl() .. "/api/v2/", method, path, body, callback)
 end
 
 local function decodeBody(res)
@@ -371,8 +377,8 @@ local function parseTask(raw, titles, projectId)
     return nil
   end
   local due = parseDue(raw.due_date)
-  -- View payload'ları project_id'yi hiç göndermiyor ya da 0 gönderiyor; bağlam
-  -- (açılan proje) o durumda tek doğru kaynak.
+  -- View payloads send project_id as 0 (or omit it): the project being browsed
+  -- is then the only trustworthy source.
   local rawProject = tonumber(raw.project_id)
   local projectId = (rawProject ~= nil and rawProject > 0) and rawProject or (tonumber(projectId) or 0)
   return {
@@ -487,8 +493,8 @@ local function applySnapshot(tasks, projects, errors)
   snapshot.today = today
   snapshot.upcoming = upcoming
   snapshot.counts = counts
-  -- Yalnız id/title gelir; açık sayıları loadProjectCounts ayrı alanda tutar ve
-  -- bu atama onları ezmez.
+  -- The API returns id/title only; open counts live in their own field and this
+  -- assignment must not wipe them.
   local counts = snapshot.openCounts or {}
   local merged = {}
   for _, project in ipairs(projects) do
@@ -576,6 +582,7 @@ local function fetchProjects(onDone)
 end
 
 local refreshAll
+local openProject
 
 refreshAll = function()
   if refreshPending and refreshStartedAt > 0 and (nowSec() - refreshStartedAt) >= STUCK_REFRESH_SEC then
@@ -598,8 +605,8 @@ refreshAll = function()
     publishSnapshot()
   end
 
-  -- Bir istek çalışırken tick gelirse refreshAgain'e işaret ediliyordu; bu,
-  -- sıra boşaldığında ekstra tur başlatıp poll saatini bozuyordu.
+  -- A tick arriving while a request is in flight used to set refreshAgain, which
+  -- started an extra round as soon as the queue drained and skewed the poll rate.
   if refreshPending then
     return
   end
@@ -683,9 +690,19 @@ refreshAll = function()
 end
 
 -- On demand: open tasks per project (used by the Projects tab).
-local function loadProjectCounts()
+local COUNT_TTL_SEC = 300
+
+-- Counting open tasks is expensive (a paginated sweep of every open task), so
+-- the result is cached for COUNT_TTL_SEC instead of re-counting on every tab open.
+local function loadProjectCounts(command)
   if not isConfigured() then
     actionResult({ action = "load_projects" }, false, noctalia.tr("result.not_configured"))
+    return
+  end
+  local force = type(command) == "table" and command.force == true
+  local age = nowSec() - (snapshot.openCountsAt or 0)
+  if not force and (snapshot.openCountsAt or 0) > 0 and age < COUNT_TTL_SEC then
+    publishSnapshot()
     return
   end
   if snapshot.projectsLoading then
@@ -767,6 +784,7 @@ local function fetchProjectViews(projectId, onDone)
           title = asString(raw.title),
           kind = lower(asString(raw.view_kind)),
           position = tonumber(raw.position) or 0,
+          defaultBucketId = tonumber(raw.default_bucket_id) or 0,
         })
       end
     end
@@ -841,29 +859,6 @@ local function fetchViewTasks(projectId, viewId, page, acc, onDone)
   end)
 end
 
-local function groupByBucket(tasks, buckets)
-  local groups = {}
-  local index = {}
-  for _, bucket in ipairs(buckets) do
-    table.insert(groups, { id = bucket.id, title = bucket.title, tasks = {} })
-    index[bucket.id] = #groups
-  end
-  local leftover = {}
-  for _, task in ipairs(tasks) do
-    local position = task.bucketId ~= nil and index[task.bucketId] or nil
-    if position ~= nil then
-      table.insert(groups[position].tasks, task)
-    else
-      table.insert(leftover, task)
-    end
-  end
-  if #leftover > 0 then
-    table.insert(groups, { id = 0, title = noctalia.tr("panel.bucket_other"), tasks = leftover })
-  end
-  -- Empty buckets stay visible: they are drop targets in Vikunja itself.
-  return groups
-end
-
 local function projectById(projectId)
   for _, project in ipairs(snapshot.projects or {}) do
     if project.id == projectId then
@@ -875,10 +870,37 @@ end
 
 -- Publishes one project's tasks, grouped by its kanban buckets when it has
 -- any. `buckets` may be empty for a list/table/gantt project.
--- Bir proje açılırken başka bir projeye geçilirse eski yanıtlar düşsün.
+-- Switching to another project while one loads must drop the older answers.
 local projectGeneration = 0
 
-local function publishProject(projectId, project, view, buckets, bucketError, tasks, taskError, generation)
+-- v2 serves a kanban view's buckets with their tasks in one request ("List a
+-- kanban view's buckets with their tasks"). The flat v1 endpoint does not carry
+-- bucket assignments, which is why this path uses v2.
+local function fetchBucketTasks(projectId, viewId, onDone)
+  local path = `projects/{projectId}/views/{viewId}/buckets/tasks?` .. query({
+    { "filter", "done = false" },
+    { "filter_timezone", timezone() },
+    { "per_page", PAGE_SIZE },
+    { "page", 1 },
+  })
+  apiRequestV2("GET", path, nil, function(res)
+    local data, err = decodeBody(res)
+    if data == nil then
+      onDone(nil, err)
+      return
+    end
+    local items = type(data) == "table" and (data.items or data) or nil
+    if type(items) ~= "table" then
+      onDone(nil, "unexpected bucket payload")
+      return
+    end
+    onDone(items, nil)
+  end)
+end
+
+-- When `bucketItems` (the v2 kanban answer) is present the buckets and their
+-- tasks come from it; otherwise a flat task list is processed.
+local function publishProject(projectId, project, view, bucketItems, bucketError, tasks, taskError, generation)
   if generation ~= nil and generation ~= projectGeneration then
     return
   end
@@ -894,8 +916,27 @@ local function publishProject(projectId, project, view, buckets, bucketError, ta
   for _, candidate in ipairs(snapshot.projects or {}) do
     titles[candidate.id] = candidate.title
   end
+
   local parsed = {}
+  local bucketGroups = {}
   local okParse = pcall(function()
+    if type(bucketItems) == "table" and #bucketItems > 0 then
+      for _, rawBucket in ipairs(bucketItems) do
+        if type(rawBucket) == "table" and tonumber(rawBucket.id) ~= nil then
+          local group = { id = tonumber(rawBucket.id), title = asString(rawBucket.title), tasks = {} }
+          for _, rawTask in ipairs(rawBucket.tasks or {}) do
+            local task = parseTask(rawTask, titles, projectId)
+            if task ~= nil then
+              table.insert(group.tasks, task)
+              table.insert(parsed, task)
+            end
+          end
+          sortTasks(group.tasks)
+          table.insert(bucketGroups, group)
+        end
+      end
+      return
+    end
     for _, raw in ipairs(tasks or {}) do
       local task = parseTask(raw, titles, projectId)
       if task ~= nil then
@@ -909,7 +950,7 @@ local function publishProject(projectId, project, view, buckets, bucketError, ta
 
   sortTasks(parsed)
   snapshot.projectTasks = parsed
-  snapshot.projectBuckets = #(buckets or {}) > 0 and groupByBucket(parsed, buckets) or {}
+  snapshot.projectBuckets = bucketGroups
   snapshot.projectOpen = {
     id = project.id,
     title = project.title,
@@ -927,10 +968,14 @@ local function publishProject(projectId, project, view, buckets, bucketError, ta
   publishSnapshot()
   if #errors > 0 and #parsed == 0 then
     actionResult({ action = "open_project" }, false, noctalia.tr("result.failed", { error = errors[1] }))
+  else
+    actionResult({ action = "open_project" }, true, noctalia.tr("result.project_opened", {
+      project = project.title,
+    }))
   end
 end
 
-local function openProject(command)
+openProject = function(command)
   local projectId = tonumber(command.projectId or command.id)
   if projectId == nil then
     actionResult(command, false, noctalia.tr("result.failed", { error = "unknown project" }))
@@ -946,8 +991,8 @@ local function openProject(command)
   projectGeneration += 1
   local generation = projectGeneration
   snapshot.error = ""
-  -- Başka bir projeye geçiliyorsa başlık da temizlenir; aksi hâlde panel eski
-  -- projenin adını yeni (boş) listeyle gösterir.
+  -- Opening a different project clears the header too, otherwise the panel would
+  -- show the previous project's name above a list that is now empty.
   if snapshot.projectOpen ~= nil and snapshot.projectOpen.id ~= projectId then
     snapshot.projectOpen = nil
   end
@@ -967,10 +1012,20 @@ local function openProject(command)
     end)
   end
 
-  -- A project already opened once knows its view and buckets: one request.
+  -- A project already opened once knows which view to use: the extra views call
+  -- is saved, the tasks still come fresh.
   local cached = (snapshot.viewCache or {})[projectId]
   if cached ~= nil then
-    loadTasks(cached, cached.buckets or {}, nil)
+    if cached.kind == "kanban" and cached.id ~= 0 then
+      fetchBucketTasks(projectId, cached.id, function(items, err)
+        if generation ~= projectGeneration then
+          return
+        end
+        publishProject(projectId, project, cached, items, err, nil, nil, generation)
+      end)
+    else
+      loadTasks(cached, {}, nil)
+    end
     return
   end
 
@@ -994,29 +1049,24 @@ local function openProject(command)
       loadTasks(view, {}, nil)
       return
     end
-    -- Buckets and tasks are independent: fetch them together.
-    local pending = 2
-    local buckets, bucketError, tasks, taskError = {}, nil, {}, nil
-    local function ready()
-      pending -= 1
-      if pending > 0 then
+    -- Kanban: v2 returns the buckets together with their tasks in one request.
+    fetchBucketTasks(projectId, view.id, function(items, err)
+      if generation ~= projectGeneration then
         return
       end
-      publishProject(projectId, project, view, buckets, bucketError, tasks, taskError, generation)
-    end
-    fetchBuckets(projectId, view.id, function(result, err)
-      buckets, bucketError = result or {}, err
-      ready()
-    end)
-    fetchViewTasks(projectId, view.id, 1, {}, function(result, err)
-      tasks, taskError = result or {}, err
-      ready()
+      if items == nil then
+        -- No v2 (or it failed): fall back to the flat task list.
+        publishProject(projectId, project, view, nil, nil, {}, err, generation)
+        return
+      end
+      publishProject(projectId, project, view, items, err, nil, nil, generation)
     end)
   end)
 end
 
 -- Buckets of one project's kanban view: what the add row can file a new task
 -- into, and what a drag-and-drop move targets.
+
 local function loadBuckets(command)
   local projectId = tonumber(command.projectId or command.id)
   if projectId == nil then
@@ -1058,7 +1108,7 @@ local function moveTask(command)
   local task = findTask(taskId)
   actionBusy = true
   publishSnapshot()
-  apiRequest("POST", `projects/{open.id}/views/{open.viewId}/buckets/{bucketId}/tasks`, {
+  apiRequestV2("PUT", `projects/{open.id}/views/{open.viewId}/buckets/{bucketId}/tasks`, {
     task_id = taskId,
   }, function(res)
     local data, err = decodeBody(res)
@@ -1110,6 +1160,12 @@ local function finishAction(command, ok, message)
   end
   publishSnapshot()
   refreshAll()
+  -- With a project open, its task list is refreshed too: a new task or a
+  -- postponed date has to show up there.
+  local open = snapshot.projectOpen
+  if open ~= nil then
+    openProject({ action = "open_project", projectId = open.id, requestId = "refresh-open" })
+  end
 end
 
 local function completeTask(command)
@@ -1159,7 +1215,8 @@ local function postponeTask(command)
     end
     local base = due and startOfLocalDay(due) or startOfLocalDay()
     local target = dayShift(base, days)
-    dueStringAsync(target, function(dueString)
+    do
+      local dueString = dueStringFor(target)
       apiRequest("POST", "tasks/" .. task.id, { due_date = dueString }, function(res2)
         local data2, err2 = decodeBody(res2)
         local ok = data2 ~= nil and (res2.status == nil or res2.status < 400)
@@ -1177,7 +1234,7 @@ local function postponeTask(command)
           }))
         end)
       end)
-    end)
+    end
   end)
 end
 
@@ -1218,17 +1275,15 @@ local function addTask(command)
   end
   actionBusy = true
   publishSnapshot()
-  dueStringAsync(target, function(dueString)
-    body.due_date = dueString
-    apiRequest("PUT", `projects/{project.id}/tasks`, body, function(res)
-      local data, err = decodeBody(res)
-      local ok = data ~= nil and (res.status == nil or res.status < 400)
-      if ok then
-        finishAction(command, true, noctalia.tr("result.added", { title = title }))
-      else
-        finishAction(command, false, noctalia.tr("result.failed", { error = err or "add failed" }))
-      end
-    end)
+  body.due_date = dueStringFor(target)
+  apiRequest("PUT", `projects/{project.id}/tasks`, body, function(res)
+    local data, err = decodeBody(res)
+    local ok = data ~= nil and (res.status == nil or res.status < 400)
+    if ok then
+      finishAction(command, true, noctalia.tr("result.added", { title = title }))
+    else
+      finishAction(command, false, noctalia.tr("result.failed", { error = err or "add failed" }))
+    end
   end)
 end
 
@@ -1240,7 +1295,9 @@ local function openTask(command)
     return
   end
   noctalia.runAsync({ "xdg-open", url })
-  actionResult(command, true, noctalia.tr("result.copied", { text = url }))
+  actionResult(command, true, noctalia.tr("result.opened", {
+    name = task ~= nil and task.title or url,
+  }))
 end
 
 local function executeAction(command)
@@ -1252,7 +1309,7 @@ local function executeAction(command)
     return
   end
   if command.action == "load_projects" then
-    loadProjectCounts()
+    loadProjectCounts(command)
     return
   end
   if command.action == "open_project" then
@@ -1320,7 +1377,7 @@ function onIpc(event, _payload)
     refreshStartedAt = 0
     refreshAll()
   elseif event == "projects" then
-    loadProjectCounts()
+    loadProjectCounts({ action = "load_projects" })
   elseif event == "add" then
     -- `add <title>`: quick capture from a keybinding or script.
     addTask({ action = "add", title = tostring(_payload or ""), requestId = "ipc-add" })
