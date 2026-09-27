@@ -1,0 +1,146 @@
+{
+  "settings": {
+    "panel_profile": {
+      "label": "Panel type",
+      "description": "Which OLED technology your screen uses. Changes how much each colour channel wears.",
+      "options": {
+        "generic": "Generic OLED (blue wears fastest)",
+        "woled": "WOLED (LG panels)",
+        "qdoled": "QD-OLED (Samsung panels)"
+      }
+    },
+    "sample_minutes": {
+      "label": "Sampling interval (minutes)",
+      "description": "How often the bar is captured to learn what it shows over the day."
+    },
+    "step_minutes": {
+      "label": "Step time (minutes)",
+      "description": "Time between 1 px moves. Spacers use slightly different multiples so they never move in step."
+    },
+    "max_shift": {
+      "label": "Maximum shift (px)",
+      "description": "Upper limit for how far any group may move."
+    }
+  },
+  "lab": {
+    "title": "Burn-in Lab",
+    "starting": "Starting…",
+    "waiting": "Waiting for the first measurement…",
+    "rescan": "Measure the bar again",
+    "view": {
+      "bar": "Bar",
+      "ghost": "Ghost",
+      "risk": "Risk"
+    },
+    "mode": {
+      "none": "No shift",
+      "strategy": "Strategy"
+    },
+    "exposure": {
+      "none": "Exposure: 1 snapshot",
+      "some": {
+        "one": "Exposure: {count} sample · {hours} h",
+        "other": "Exposure: {count} samples · {hours} h"
+      }
+    },
+    "overview": "Whole bar · left half / right half",
+    "inspect_center": "Bar centre",
+    "inspect_none": "{title} · {zoom}× · no shift",
+    "inspect_strategy": "With strategy",
+    "risk_title": "Visible burn-in risk",
+    "safe": "safe",
+    "risky": "risky",
+    "approximate": "The measurement was noisy, so these results are approximate. Check the spacer placement and measure again.",
+    "moves_nothing": {
+      "one": "One spacer moves nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section.",
+      "other": "{count} spacers move nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section."
+    },
+    "placement": {
+      "start": "Make {widget} the first item of the bar's start section, or it cannot move anything.",
+      "center": "Make {widget} the first or last item of the bar's center section.",
+      "end": "Make {widget} the last item of the bar's end section, or it cannot move anything."
+    },
+    "no_hotspots": "Nothing risky left. Nice bar.",
+    "strategy": "Strategy",
+    "auto": "Auto",
+    "manual": "Manual",
+    "apply": "Apply",
+    "revert": "Revert",
+    "cancel": "Cancel",
+    "reoptimize": "Optimize again",
+    "optimized": "Optimized {time} · {count} strategies · {seconds} s",
+    "not_optimized": "Not optimized yet",
+    "optimizing": "Optimizing… {percent}%",
+    "optimizing_note": "Runs in small slices between frames, so the shell stays responsive.",
+    "best_so_far": "best so far {score}",
+    "scanning": "Measuring the bar. It twitches for a moment.",
+    "calm": "Calm",
+    "max": "Max protection",
+    "pick_title": "Auto pick: {name}",
+    "pick_names": {
+      "calm": "Calm",
+      "balanced": "Balanced",
+      "strong": "Strong",
+      "max": "Maximum"
+    },
+    "pick_note": "Beyond this point each extra pixel of movement buys little extra protection. Re-optimizes by itself when the bar changes and every night.",
+    "chip_px": "{slot} {px} px",
+    "chip_vertical": "Vertical ±{px} px",
+    "chip_step": "1 px / {minutes} min",
+    "allow_vertical": "Allow vertical shift",
+    "allow_vertical_note": "Moves the bar content by a pixel or two through its own config file (zz-pixel-shift.toml). Windows keep their size; the bar blinks briefly on each step, every 30 minutes.",
+    "vertical_error": "Vertical shift had no effect (a GUI setting overrides it) and was turned off.",
+    "manual_vertical": "Vertical",
+    "paused": "Paused: the bar is not shifting.",
+    "resume": "Resume",
+    "onboarding": {
+      "title": "Add Pixel Shift spacers to your bar",
+      "body": "Spacers are invisible widgets. Pixel Shift changes their width over the day, which moves the widgets next to them by a few pixels.",
+      "steps": "1. Open the bar settings and add the **Pixel Shift** spacer widget.\n2. Put one at the **start of the left section**, one at the **end of the right section**, and one on **each side of the center section**.\n3. Come back here: Pixel Shift measures the bar and finds the best strategy by itself.",
+      "open_settings": "Open bar settings"
+    },
+    "no_grim": "grim is not installed. Pixel Shift needs it to measure the bar.",
+    "error": "Measuring failed: {message}",
+    "close": "Close",
+    "anchored": "The {widget} widget is anchored, so the center group cannot move. Set anchor = false on it to let Pixel Shift shift the center.",
+    "curve_title": "Visible burn-in risk for each amount of movement",
+    "curve_h": "horizontal only",
+    "curve_v": "with vertical shift"
+  },
+  "hotspot": {
+    "side": {
+      "left": "Left group",
+      "center": "Center group",
+      "right": "Right group"
+    },
+    "range": "{side} · {x0}–{x1} px"
+  },
+  "cause": {
+    "outside": "outside the bar",
+    "dynamic": "changing content",
+    "wide": "solid fill wider than the shift",
+    "horizontal": "horizontal edge",
+    "bright": "very bright",
+    "static": "static detail"
+  },
+  "hint": {
+    "outside": "Not part of the bar, for example a window border. Pixel Shift cannot move it.",
+    "dynamic": "This content changes often, so the estimate drops as sampling continues.",
+    "wide": "Shifting cannot blur a solid fill this wide. Lower its opacity or use an outline style.",
+    "horizontal": "Horizontal shifting never blurs horizontal edges. Allow vertical shift, or soften the edge.",
+    "bright": "Very bright pixels wear fastest. Dim this colour or use a thinner font weight.",
+    "static": "Stays put even with shifting. A wider range for this group helps."
+  },
+  "slot": {
+    "left": "Left",
+    "center": "Center",
+    "center_l": "Center left",
+    "center_r": "Center right",
+    "right": "Right",
+    "unknown": "Spacer"
+  },
+  "toggle": {
+    "on": "Pixel Shift",
+    "off": "Pixel Shift paused"
+  }
+}

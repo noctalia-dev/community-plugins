@@ -1,0 +1,78 @@
+id = "mgeldi/pixel-shift"
+name = "Pixel Shift"
+version = "1.0.0"
+plugin_api = 30
+author = "mgeldi"
+license = "MIT"
+dependencies = ["grim"]
+tags = ["bar", "panel", "service", "shortcut", "utility", "hardware", "hyprland", "niri", "sway", "labwc", "mangowc"]
+icon = "arrows-move-horizontal"
+description = "Protects OLED screens from bar burn-in: measures your bar, simulates wear and shifts it smartly."
+
+[[setting]]
+key = "panel_profile"
+type = "select"
+label_key = "settings.panel_profile.label"
+description_key = "settings.panel_profile.description"
+default = "generic"
+options = [
+  { value = "generic", label_key = "settings.panel_profile.options.generic" },
+  { value = "woled", label_key = "settings.panel_profile.options.woled" },
+  { value = "qdoled", label_key = "settings.panel_profile.options.qdoled" },
+]
+
+[[setting]]
+key = "sample_minutes"
+type = "int"
+label_key = "settings.sample_minutes.label"
+description_key = "settings.sample_minutes.description"
+default = 10
+min = 2
+max = 60
+
+[[setting]]
+key = "step_minutes"
+type = "int"
+label_key = "settings.step_minutes.label"
+description_key = "settings.step_minutes.description"
+default = 4
+min = 1
+max = 30
+
+[[setting]]
+key = "max_shift"
+type = "int"
+label_key = "settings.max_shift.label"
+description_key = "settings.max_shift.description"
+default = 16
+min = 2
+max = 32
+
+# Invisible spacer. Place one at the start of the left section, one at the end
+# of the right section and one on each side of the center section.
+[[widget]]
+id = "spacer"
+entry = "spacer.luau"
+
+[widget.actions]
+middle = "none"
+
+# Background engine: scans the bar, samples exposure, optimises and plays the
+# shift strategy. Owns all state.
+[[service]]
+id = "engine"
+entry = "engine.luau"
+
+# Burn-in Lab. Open with: noctalia msg panel-toggle mgeldi/pixel-shift:lab
+[[panel]]
+id = "lab"
+entry = "lab.luau"
+width = 980
+height = 840
+placement = "floating"
+position = "center"
+
+# Control-center tile: pause / resume shifting.
+[[shortcut]]
+id = "toggle"
+entry = "toggle.luau"
