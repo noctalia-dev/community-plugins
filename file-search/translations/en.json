@@ -2,7 +2,6 @@
   "build_time": "indexed in {duration}",
   "copied_entry": "Path copied to clipboard",
   "copied_name": "Name copied to clipboard",
-  "copied_path": "Search folder path copied to clipboard",
   "counts": "{shown} shown · {total} indexed",
   "counts_disks": " · {disks} external",
   "counts_stale": " · out of date",
@@ -15,7 +14,6 @@
     "index_missing": "No index for this scope yet",
     "indexing": "Indexing files…",
     "no_results": "No matches",
-    "reindex_done": "Search index dropped — it rebuilds on the next search",
     "reindex_title": "Rebuild search index",
     "scope_next": "Switch to: {next}",
     "scope_title": "Searching: {current}"
@@ -31,10 +29,6 @@
   "ranking": {
     "default": "generic — the shortest path wins",
     "path": "path-aware — a match starting a name wins"
-  },
-  "row_action": {
-    "copy": "copies its path",
-    "reveal": "shows it in the file manager"
   },
   "scope": {
     "all": "search folder + external disks",
@@ -76,7 +70,6 @@
   "tip_ranking": "Ranking: {current}\ne.g. \"config\" → .ssh/config, not …/Steam Controller Configs/\nClick to switch to: {next}",
   "tip_ranking_unsupported": "Path-aware ranking needs fzf 0.36 or newer",
   "tip_refresh": "Rebuild the file index",
-  "tip_row_action": "Right click on a result {current}\nClick to switch to: {next}",
   "tip_scope": "Searching: {current}\nClick to search {next}",
   "tip_scope_free": "{free} free across {count} disk(s)",
   "tip_settings": "Plugin settings",
@@ -86,6 +79,8 @@
   "tip_usage_folder_only": "The usage chart only measures the search folder",
   "tip_usage_hide": "Hide the disk usage chart",
   "tip_usage_show": "Show what fills the search folder",
+  "tip_whole_off": "Searching the whole system (/)\nClick to search only the search folder",
+  "tip_whole_on": "Search the whole system (/)\nRemote, FUSE and removable disks stay excluded",
   "title": "File Search",
   "tooltip_closed": "File search — {path}\nClick to search · right-click: folder",
   "tooltip_open": "File search open — {path}\nClick to close",

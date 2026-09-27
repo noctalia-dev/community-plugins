@@ -5,11 +5,12 @@
 # MIME association (xdg-open). Right-click a result for a context menu with
 # open, reveal in the file manager, copy path and copy name. The panel's disk
 # button widens the search to the mounted USB/removable volumes, detected
-# with `lsblk`.
+# with `lsblk`. The globe button widens the search folder to the whole system
+# (`/`), still pruning network, FUSE and pseudo filesystems.
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.2.0"
+version = "0.3.0"
 # 28 for panel.openContextMenu: a result row's right-click menu. Also 22 for
 # relative luau imports — the three entries share shared.luau, which owns the
 # index fingerprint they all have to agree on — and 24 for argv process
