@@ -34,23 +34,24 @@
     },
     "mode": {
       "none": "No shift",
-      "strategy": "Strategy"
+      "strategy": "With strategy"
     },
     "exposure": {
-      "none": "Exposure: 1 snapshot",
-      "some": {
-        "one": "Exposure: {count} sample · {hours} h",
-        "other": "Exposure: {count} samples · {hours} h"
+      "none": "no samples yet",
+      "first": "1 sample so far",
+      "count": {
+        "one": "{count} sample",
+        "other": "{count} samples"
+      },
+      "span": {
+        "one": "{count} sample · {hours} h",
+        "other": "{count} samples · {hours} h"
       }
     },
-    "overview": "Whole bar · left half / right half",
+    "overview": "Whole bar",
     "inspect_center": "Bar centre",
-    "inspect_none": "{title} · {zoom}× · no shift",
-    "inspect_strategy": "With strategy",
     "risk_title": "Visible burn-in risk",
-    "safe": "safe",
-    "risky": "risky",
-    "approximate": "The measurement was noisy, so these results are approximate. Check the spacer placement and measure again.",
+    "approximate": "The measurement was noisy, so these results are approximate. Check the spacer placement, then measure again.",
     "moves_nothing": {
       "one": "One spacer moves nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section.",
       "other": "{count} spacers move nothing. Spacers move widgets only from the outer edge of a section: first in the start section, first or last in the center, last in the end section."
@@ -60,12 +61,13 @@
       "center": "Make {widget} the first or last item of the bar's center section.",
       "end": "Make {widget} the last item of the bar's end section, or it cannot move anything."
     },
-    "no_hotspots": "Nothing risky left. Nice bar.",
+    "no_hotspots": "No hotspots left. The strongest remaining spot reaches {worst} of 100.",
+    "updating": "updating…",
     "strategy": "Strategy",
     "auto": "Auto",
     "manual": "Manual",
-    "apply": "Apply",
-    "revert": "Revert",
+    "apply": "Apply to bar",
+    "revert": "Undo last apply",
     "cancel": "Cancel",
     "reoptimize": "Optimize again",
     "optimized": "Optimized {time} · {count} strategies · {seconds} s",
@@ -76,19 +78,18 @@
     "scanning": "Measuring the bar. It twitches for a moment.",
     "calm": "Calm",
     "max": "Max protection",
-    "pick_title": "Auto pick: {name}",
+    "pick_title": "{name} protection · {px} px",
     "pick_names": {
       "calm": "Calm",
       "balanced": "Balanced",
       "strong": "Strong",
       "max": "Maximum"
     },
-    "pick_note": "Beyond this point each extra pixel of movement buys little extra protection. Re-optimizes by itself when the bar changes and every night.",
-    "chip_px": "{slot} {px} px",
+    "pick_note": "At {px} px the risk drops to {score} (no shift: {none}). {more} px more would save only {save}.",
+    "chip_px": "{slot} ≤ {px} px",
     "chip_vertical": "Vertical ±{px} px",
-    "chip_step": "1 px / {minutes} min",
     "allow_vertical": "Allow vertical shift",
-    "allow_vertical_note": "Moves the bar content by a pixel or two through its own config file (zz-pixel-shift.toml). Windows keep their size; the bar blinks briefly on each step, every 30 minutes.",
+    "allow_vertical_note": "Moves the bar 1–2 px up and down. It blinks briefly every 30 min; windows keep their size.",
     "vertical_error": "Vertical shift had no effect (a GUI setting overrides it) and was turned off.",
     "manual_vertical": "Vertical",
     "paused": "Paused: the bar is not shifting.",
@@ -103,9 +104,38 @@
     "error": "Measuring failed: {message}",
     "close": "Close",
     "anchored": "The {widget} widget is anchored, so the center group cannot move. Set anchor = false on it to let Pixel Shift shift the center.",
-    "curve_title": "Visible burn-in risk for each amount of movement",
+    "curve_title": "Risk for each amount of movement",
     "curve_h": "horizontal only",
-    "curve_v": "with vertical shift"
+    "curve_v": "with vertical shift",
+    "view_note": {
+      "bar": "Your bar as captured",
+      "ghost": "What it would leave on a grey screen",
+      "risk": "Where the wear concentrates"
+    },
+    "inspect_title": "Hotspot {n} · {side}",
+    "zoom": "{zoom}× zoom",
+    "strip_none": "No shift",
+    "strip_strategy": "With strategy",
+    "spot_change": "peak {a} → {b}",
+    "glow_legend": "glow = where a ghost would form",
+    "with_strategy": "with strategy",
+    "without_shift": "{value} without shifting",
+    "scale_start": "0 · safe",
+    "scale_end": "100 = a white line that never moves",
+    "hotspots": "Hotspots",
+    "strongest_first": "strongest first",
+    "spot_meta": "{side} · {x0}–{x1} px · peak {peak} of 100",
+    "live": "Live on {output} since {time}",
+    "preview": "Preview · not applied",
+    "discard": "Discard",
+    "revert_tip": "Back to the strategy that was live before",
+    "pick_title_v": "{name} protection · {px} px · ±{v} px vertical",
+    "pick_note_last": "At {px} px, the most movement allowed, the risk drops to {score} (no shift: {none}).",
+    "pick_note_tail": "Re-optimizes when the bar changes and every night.",
+    "movement": "Movement per spacer · 1 px every {minutes} min",
+    "measure_again": "Measure again",
+    "hint_vertical": "Allow vertical shift",
+    "pick_note_flat": "At {px} px the risk drops to {score} (no shift: {none}); more movement would not lower it."
   },
   "hotspot": {
     "side": {
@@ -113,12 +143,16 @@
       "center": "Center group",
       "right": "Right group"
     },
-    "range": "{side} · {x0}–{x1} px"
+    "level": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    }
   },
   "cause": {
     "outside": "outside the bar",
     "dynamic": "changing content",
-    "wide": "solid fill wider than the shift",
+    "wide": "wide solid fill",
     "horizontal": "horizontal edge",
     "bright": "very bright",
     "static": "static detail"

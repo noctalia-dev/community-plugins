@@ -134,6 +134,53 @@ function M.groupHist(layers, layout, gi: number, ranges, V: number, rref: number
 	return h
 end
 
+-- The optimiser scores hundreds of candidates per group. The blurs in
+-- risk.map are linear and commute with the spacers' horizontal kernels (the
+-- group's content is zero near its window edges), so a group's window and
+-- content are blurred once per vertical offset, and a candidate only runs
+-- its kernels over the content and its two blurs. Same histogram as
+-- groupHist up to float rounding.
+function M.prepareGroup(layers, layout, gi: number, active)
+	local g = layout.groups[gi]
+	local a0, a1 = rangeOf(layout, gi, active)
+	if a1 <= a0 then
+		return { empty = true }
+	end
+	local a, b = a0 - M.CONTEXT, a1 + M.CONTEXT
+	local W = image.crop(layers.wbg, a, b, "clamp")
+	return {
+		a = a,
+		a0 = a0,
+		a1 = a1,
+		W = W,
+		W1 = image.gauss3(W, risk.FINE_R),
+		W10 = image.gauss3(W, risk.COARSE_R),
+		content = image.maskColumns(image.crop(layers.dw, a, b), g.x0 - a, g.x1 - a),
+		byV = {},
+	}
+end
+
+function M.groupHistPrepared(P, layout, gi: number, ranges, V: number, rref: number)
+	local h = risk.newHist(2 * rref)
+	if P.empty then
+		return h
+	end
+	local vr = M.vRows(layout, V)
+	local S = P.byV[vr]
+	if not S then
+		local C = if vr > 0 then image.dirBoxV(P.content, vr, layout.vDir) else P.content
+		S = { C = C, C1 = image.gauss3(C, risk.FINE_R), C10 = image.gauss3(C, risk.COARSE_R) }
+		P.byV[vr] = S
+	end
+	local C, C1, C10 = S.C, S.C1, S.C10
+	for _, k in ipairs(M.kernels(layout.groups[gi], ranges)) do
+		C, C1, C10 = image.dirBoxH(C, k[1], k[2]), image.dirBoxH(C1, k[1], k[2]), image.dirBoxH(C10, k[1], k[2])
+	end
+	local R = risk.mapParts(P.W, P.W1, P.W10, C, C1, C10)
+	risk.accumulate(h, R, layout.scoreRows[1], layout.scoreRows[2], P.a0 - P.a, P.a1 - P.a)
+	return h
+end
+
 -- Histogram of every column outside the groups' (active) ranges. Those
 -- columns only ever see the static background, whatever the strategy.
 function M.staticHist(layers, layout, rref: number, active)

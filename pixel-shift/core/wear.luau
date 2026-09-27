@@ -9,8 +9,14 @@ local color = require("./color.luau")
 local rf, wf = buffer.readf32, buffer.writef32
 
 local budget = require("./budget.luau")
+local K = require("./kernels.luau")
 
 local M = {}
+
+-- The pixel loop lives in kernels.luau; the engine swaps in its own fast copy.
+function M.install(kernels)
+	K = kernels
+end
 
 M.N = 1.6
 M.PROFILES = {
@@ -59,15 +65,28 @@ function M.linearFromRgb8(img): image.LinearRGB
 	return lin
 end
 
+-- The linear value of each 8-bit level as linearFromRgb8 stores it (f32).
+local lut32 = nil
+local function linearLut()
+	if not lut32 then
+		lut32 = table.create(256, 0)
+		local b = buffer.create(4)
+		for v = 0, 255 do
+			buffer.writef32(b, 0, color.toLinear8(v))
+			lut32[v + 1] = buffer.readf32(b, 0)
+		end
+	end
+	return lut32
+end
+
+-- image.luma(linearFromRgb8(img)) in one pass, bit for bit.
+function M.lumaFromRgb8(img): image.Image
+	return image.lumaRgb8(img, linearLut())
+end
+
 function M.map(p, lin: image.LinearRGB): image.Image
 	local out = image.new(lin.w, lin.h)
-	local rd, gd, bd, d = lin.r.data, lin.g.data, lin.b.data, out.data
-	for o = 0, (lin.w * lin.h - 1) * 4, 4 do
-		if o % 4096 == 0 then
-			budget.check()
-		end
-		wf(d, o, M.pixel(p, rf(rd, o), rf(gd, o), rf(bd, o)))
-	end
+	K.wearMap(lin.r.data, lin.g.data, lin.b.data, lin.w * lin.h, p.k[1], p.k[2], p.k[3], p.white, M.N, out.data)
 	return out
 end
 

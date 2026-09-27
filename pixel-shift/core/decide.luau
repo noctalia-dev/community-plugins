@@ -10,6 +10,7 @@ M.RETRY_MAX = 3600
 M.MISMATCHES = 3 -- agreeing mismatched samples before the bar is measured again
 M.PERSIST_EVERY = 6 -- samples between writes of the exposure file
 M.LAYOUT_FORMAT = 1 -- bump when the saved layout changes shape
+M.VERIFY_REJECT = 2 -- verify error beyond which a measurement did not see the bar (a real one stays below 1)
 
 function M.backoff(attempt: number): number
 	return math.min(M.RETRY_MIN * 2 ^ (math.max(attempt, 1) - 1), M.RETRY_MAX)
@@ -40,8 +41,15 @@ function M.autoApply(layout): boolean
 	return M.anyMoving(layout)
 end
 
-function M.scanOutcome(layout, hadGood: boolean, attempt: number)
-	local moving = M.anyMoving(layout)
+-- verr: how badly the layout predicts the capture with every spacer
+-- widened. A video under a fullscreen window can line up with a spacer shift
+-- by chance; its prediction then misses by orders of magnitude.
+function M.isBar(layout, verr: number?): boolean
+	return M.anyMoving(layout) and (verr == nil or verr <= M.VERIFY_REJECT)
+end
+
+function M.scanOutcome(layout, hadGood: boolean, attempt: number, verr: number?)
+	local moving = M.isBar(layout, verr)
 	return {
 		accept = moving or not hadGood,
 		optimize = moving,

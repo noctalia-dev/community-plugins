@@ -18,6 +18,14 @@ M.BINS = 1024
 
 export type Hist = { bins: { number }, n: number, cap: number }
 
+-- risk.map(W + C) from W's and C's blurs (all blurs are linear): the
+-- optimiser blurs each group's content once instead of once per candidate.
+function M.mapParts(W: image.Image, W1: image.Image, W10: image.Image, C: image.Image, C1: image.Image, C10: image.Image): image.Image
+	local R = image.new(W.w, W.h)
+	K.riskCombineParts(W.data, C.data, W1.data, C1.data, W10.data, C10.data, R.data, W.w * W.h * 4, M.COARSE_W)
+	return R
+end
+
 function M.map(E: image.Image): image.Image
 	local g1 = image.gauss3(E, M.FINE_R)
 	local g2 = image.gauss3(E, M.COARSE_R)

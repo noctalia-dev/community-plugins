@@ -2,6 +2,8 @@
 -- Persistence in the plugin data dir: JSON documents and binary blobs,
 -- written atomically (temp file + rename), plus rendered lab images.
 
+local tasks = require("./tasks.luau")
+
 local M = {}
 
 function M.dir(): string?
@@ -21,6 +23,24 @@ function M.read(name: string): string?
 	end
 	local s = noctalia.readFile(p)
 	return s
+end
+
+-- Inside a task: read without holding the shell's thread while the disk
+-- works. Noctalia's async read stops at 4 MB; bigger files are read directly.
+function M.readAsync(name: string): string?
+	local p = path(name)
+	if not p then
+		return nil
+	end
+	local data = tasks.await(function(done)
+		if not noctalia.readFileAsync(p, done) then
+			done(nil)
+		end
+	end)
+	if data == nil then
+		data = noctalia.readFile(p)
+	end
+	return data
 end
 
 function M.write(name: string, data: string): boolean
@@ -53,40 +73,52 @@ function M.remove(name: string)
 	end
 end
 
--- A new file name per render so ui.image never shows a cached old image;
--- the previous render of the same slot is deleted.
+-- Lab images live in memory-backed $XDG_RUNTIME_DIR when there is one (they
+-- are rewritten often and worthless after a restart), else in the data dir.
+M.KEEP_RENDERS = 8 -- per image slot: the six prepared view/mode pairs and two more
+
+local function renderDir(): string?
+	local run = noctalia.getenv("XDG_RUNTIME_DIR")
+	if run and run ~= "" then
+		return run .. "/pixel-shift-render"
+	end
+	local d = M.dir()
+	return if d then d .. "/render" else nil
+end
+
+-- A new file name per render so ui.image never shows a cached old image.
 local renders = {}
 local counter = 0
 function M.writeImage(slot: string, bytes: string): string?
-	local d = M.dir()
-	if not d then
+	local dir = renderDir()
+	if not dir then
 		return nil
 	end
-	noctalia.mkdirAll(d .. "/render")
+	noctalia.mkdirAll(dir)
 	counter += 1
-	local name = `{d}/render/{slot}-{os.time()}-{counter}.bmp`
+	local name = `{dir}/{slot}-{os.time()}-{counter}.bmp`
 	if not noctalia.writeFile(name, bytes) then
 		return nil
 	end
-	-- keep the previous render too: the panel may still show it while the
-	-- new model is on its way
 	local list = renders[slot] or {}
 	renders[slot] = list
 	table.insert(list, name)
-	while #list > 2 do
+	while #list > M.KEEP_RENDERS do
 		noctalia.removeFile(table.remove(list, 1))
 	end
 	return name
 end
 
 function M.cleanRenders()
+	local dirs = { renderDir() }
 	local d = M.dir()
-	if not d then
-		return
+	if d then
+		table.insert(dirs, d .. "/render") -- older versions wrote here
 	end
-	local files = noctalia.listDir(d .. "/render")
-	for _, f in ipairs(files or {}) do
-		noctalia.removeFile(if string.sub(f, 1, 1) == "/" then f else d .. "/render/" .. f)
+	for _, dir in ipairs(dirs) do
+		for _, f in ipairs(noctalia.listDir(dir) or {}) do
+			noctalia.removeFile(if string.sub(f, 1, 1) == "/" then f else dir .. "/" .. f)
+		end
 	end
 end
 

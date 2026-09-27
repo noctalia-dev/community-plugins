@@ -10,6 +10,7 @@ local tasks = require("./tasks.luau")
 
 local M = {}
 local cached, cachedAt, cachedFor = nil, 0, nil
+local madeFrom, made = nil, nil -- `noctalia theme` builds a whole palette: only when its inputs change
 
 local function run(argv)
 	return tasks.await(function(done)
@@ -52,10 +53,14 @@ function M.resolve(output: string?): string?
 	local primary = nil
 	if source == "wallpaper" and output then
 		local wallpaper = noctalia.wallpaperPath(output)
-		if wallpaper then
+		local inputs = `{name}|{wallpaper}|{dark}`
+		if wallpaper and inputs == madeFrom then
+			primary = made
+		elseif wallpaper then
 			local r = run({ "noctalia", "theme", wallpaper, "--scheme", name, if dark then "--dark" else "--light" })
 			if r and r.exitCode == 0 then
 				primary = primaryFromJson(r.stdout, dark)
+				madeFrom, made = inputs, primary
 			end
 		end
 	elseif source == "custom" and name then

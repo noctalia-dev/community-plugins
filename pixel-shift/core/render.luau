@@ -5,14 +5,16 @@
 
 local image = require("./image.luau")
 local ppm = require("./ppm.luau")
-local color = require("./color.luau")
-
-local rf = buffer.readf32
-local wu8, ru8 = buffer.writeu8, buffer.readu8
-
 local budget = require("./budget.luau")
+local K = require("./kernels.luau")
 
 local M = {}
+
+-- The pixel loops live in kernels.luau; the engine swaps in its own fast
+-- copy (see there for why).
+function M.install(kernels)
+	K = kernels
+end
 
 local function smoothstep(e0, e1, x)
 	local t = math.clamp((x - e0) / (e1 - e0), 0, 1)
@@ -27,14 +29,7 @@ end
 -- What the bar leaves on a flat mid-grey screen: grey 0..1 (sRGB).
 function M.ghostGray(E, eRef: number)
 	local out = image.new(E.w, E.h)
-	local inv = 1 / math.max(eRef, 1e-9)
-	for o = 0, (E.w * E.h - 1) * 4, 4 do
-		if o % 4096 == 0 then
-			budget.check()
-		end
-		local e = math.clamp(rf(E.data, o) * inv, 0, 1)
-		buffer.writef32(out.data, o, (0.60 - 0.40 * e ^ 0.8) * 0.72)
-	end
+	K.ghostGray(E.data, E.w * E.h, 1 / math.max(eRef, 1e-9), out.data)
 	return out
 end
 
@@ -42,29 +37,10 @@ end
 function M.glow(base, R, rTop: number, ramp)
 	local w, h = R.w, R.h
 	local t = image.new(w, h)
-	local inv = 1 / math.max(rTop, 1e-9)
-	for o = 0, (w * h - 1) * 4, 4 do
-		if o % 4096 == 0 then
-			budget.check()
-		end
-		buffer.writef32(t.data, o, math.clamp(rf(R.data, o) * inv, 0, 1))
-	end
+	K.clampScale(R.data, w * h, 1 / math.max(rTop, 1e-9), t.data)
 	local bloom = image.gauss3(t, 1)
 	local out = ppm.new(w, h)
-	for i = 0, w * h - 1 do
-		if i % 1024 == 0 then
-			budget.check()
-		end
-		local o = i * 4
-		local tt = math.min(rf(t.data, o) + 0.35 * rf(bloom.data, o), 1)
-		local a = smoothstep(0.16, 0.55, tt)
-		local c = ramp[math.floor(tt * 255) + 1]
-		local g = rf(base.data, o) * 255
-		local d = i * 3
-		wu8(out.data, d, byte(g * (1 - a) + c[1] * a))
-		wu8(out.data, d + 1, byte(g * (1 - a) + c[2] * a))
-		wu8(out.data, d + 2, byte(g * (1 - a) + c[3] * a))
-	end
+	K.glowPixels(base.data, t.data, bloom.data, w * h, ramp, out.data)
 	return out
 end
 
@@ -74,68 +50,22 @@ end
 
 -- Dimmed bar (20 % of its sRGB luma) with the risk ramp on top.
 function M.riskView(lum, R, rTop: number, ramp)
-	local w, h = R.w, R.h
-	local out = ppm.new(w, h)
-	local inv = 1 / math.max(rTop, 1e-9)
-	for i = 0, w * h - 1 do
-		if i % 1024 == 0 then
-			budget.check()
-		end
-		local o = i * 4
-		local tr = math.clamp(rf(R.data, o) * inv, 0, 1) ^ 0.7
-		local a = math.clamp(1.4 * tr, 0, 1)
-		local g = color.fromLinear(rf(lum.data, o)) * 0.2 * 255
-		local c = ramp[math.floor(tr * 255) + 1]
-		local d = i * 3
-		wu8(out.data, d, byte(g * (1 - a) + c[1] * a))
-		wu8(out.data, d + 1, byte(g * (1 - a) + c[2] * a))
-		wu8(out.data, d + 2, byte(g * (1 - a) + c[3] * a))
-	end
+	local out = ppm.new(R.w, R.h)
+	K.riskPixels(lum.data, R.data, R.w * R.h, 1 / math.max(rTop, 1e-9), ramp, out.data)
 	return out
 end
 
 function M.fromLinear(lin)
 	local out = ppm.new(lin.w, lin.h)
-	for i = 0, lin.w * lin.h - 1 do
-		if i % 1024 == 0 then
-			budget.check()
-		end
-		local o, d = i * 4, i * 3
-		wu8(out.data, d, color.to8(color.fromLinear(rf(lin.r.data, o))))
-		wu8(out.data, d + 1, color.to8(color.fromLinear(rf(lin.g.data, o))))
-		wu8(out.data, d + 2, color.to8(color.fromLinear(rf(lin.b.data, o))))
-	end
+	K.fromLinear3(lin.r.data, lin.g.data, lin.b.data, lin.w * lin.h, out.data)
 	return out
 end
 
 -- Area-average downscale to width newW, keeping the aspect ratio.
 function M.scaleDown(img, newW: number)
-	local f = img.w / newW
-	local newH = math.max(1, math.floor(img.h / f + 0.5))
+	local newH = math.max(1, math.floor(img.h / (img.w / newW) + 0.5))
 	local out = ppm.new(newW, newH)
-	for oy = 0, newH - 1 do
-		budget.check()
-		local sy0 = math.floor(oy * f)
-		local sy1 = math.max(sy0 + 1, math.min(math.floor((oy + 1) * f), img.h))
-		for ox = 0, newW - 1 do
-			local sx0 = math.floor(ox * f)
-			local sx1 = math.max(sx0 + 1, math.min(math.floor((ox + 1) * f), img.w))
-			local r, g, b, n = 0, 0, 0, 0
-			for y = sy0, sy1 - 1 do
-				for x = sx0, sx1 - 1 do
-					local s = (y * img.w + x) * 3
-					r += ru8(img.data, s)
-					g += ru8(img.data, s + 1)
-					b += ru8(img.data, s + 2)
-					n += 1
-				end
-			end
-			local d = (oy * newW + ox) * 3
-			wu8(out.data, d, byte(r / n))
-			wu8(out.data, d + 1, byte(g / n))
-			wu8(out.data, d + 2, byte(b / n))
-		end
-	end
+	K.scaleDown(img.data, img.w, img.h, newW, newH, out.data)
 	return out
 end
 
@@ -156,31 +86,86 @@ function M.halves(img, targetW: number)
 end
 
 -- Nearest-neighbour zoom of a region (pixels stay crisp in the inspector).
+-- Each source row is expanded once and copied for the other z - 1 rows.
 function M.zoom(img, x0: number, x1: number, y0: number, y1: number, z: number)
 	x0, x1 = math.max(x0, 0), math.min(x1, img.w)
 	y0, y1 = math.max(y0, 0), math.min(y1, img.h)
-	local w, h = (x1 - x0) * z, (y1 - y0) * z
+	local cols = x1 - x0
+	local w, h = cols * z, (y1 - y0) * z
 	local out = ppm.new(w, h)
-	for y = 0, h - 1 do
+	local src, dst = img.data, out.data
+	local rowBytes = w * 3
+	for sy = y0, y1 - 1 do
 		budget.check()
-		local sy = y0 + y // z
-		for x = 0, w - 1 do
-			buffer.copy(out.data, (y * w + x) * 3, img.data, (sy * img.w + x0 + x // z) * 3, 3)
+		local first = (sy - y0) * z * rowBytes
+		local s = (sy * img.w + x0) * 3
+		if z == 1 then
+			buffer.copy(dst, first, src, s, cols * 3)
+		else
+			K.zoomRow(src, s, cols, z, dst, first)
+			for r = 1, z - 1 do
+				buffer.copy(dst, first + r * rowBytes, dst, first, rowBytes)
+			end
 		end
 	end
 	return out
 end
 
--- 1 px outline around columns [x0, x1) over the full height, drawn in place.
-function M.frame(img, x0: number, x1: number, rgb)
-	x0, x1 = math.max(x0, 0), math.min(x1, img.w)
-	for x = x0, x1 - 1 do
-		ppm.set(img, x, 0, rgb[1], rgb[2], rgb[3])
-		ppm.set(img, x, img.h - 1, rgb[1], rgb[2], rgb[3])
+function M.copy(img)
+	local out = ppm.new(img.w, img.h)
+	buffer.copy(out.data, 0, img.data, 0, img.w * img.h * 3)
+	return out
+end
+
+-- Outline of the full-width columns [x0, x1) on the two overview halves from
+-- M.halves (fullW wide before halving), drawn in place at the halves' own
+-- resolution so the 1 px line stays crisp.
+function M.frameHalves(left, right, x0: number, x1: number, fullW: number, rgb, thickness: number?)
+	local t = thickness or 1
+	local mid = fullW // 2
+	local function part(img, h0: number, h1: number)
+		local a, b = math.max(x0, h0), math.min(x1, h1)
+		if a >= b then
+			return
+		end
+		local f = img.w / (h1 - h0)
+		local px0 = math.min(math.floor((a - h0) * f), img.w - 1)
+		local px1 = math.max(px0 + 1, math.min(img.w, math.ceil((b - h0) * f)))
+		for k = 0, t - 1 do
+			for x = px0, px1 - 1 do
+				ppm.set(img, x, math.min(k, img.h - 1), rgb[1], rgb[2], rgb[3])
+				ppm.set(img, x, math.max(img.h - 1 - k, 0), rgb[1], rgb[2], rgb[3])
+			end
+			for y = 0, img.h - 1 do
+				if a == x0 then
+					ppm.set(img, math.min(px0 + k, img.w - 1), y, rgb[1], rgb[2], rgb[3])
+				end
+				if b == x1 then
+					ppm.set(img, math.max(px1 - 1 - k, 0), y, rgb[1], rgb[2], rgb[3])
+				end
+			end
+		end
 	end
-	for y = 0, img.h - 1 do
-		ppm.set(img, x0, y, rgb[1], rgb[2], rgb[3])
-		ppm.set(img, x1 - 1, y, rgb[1], rgb[2], rgb[3])
+	part(left, 0, mid)
+	part(right, mid, fullW)
+end
+
+-- A box of `t` px lines around columns [x0, x1) over the full height, drawn
+-- in place (the same language as the overview's frame).
+function M.outline(img, x0: number, x1: number, t: number, rgb)
+	x0, x1 = math.max(x0, 0), math.min(x1, img.w)
+	if x1 <= x0 then
+		return
+	end
+	for k = 0, t - 1 do
+		for x = x0, x1 - 1 do
+			ppm.set(img, x, math.min(k, img.h - 1), rgb[1], rgb[2], rgb[3])
+			ppm.set(img, x, math.max(img.h - 1 - k, 0), rgb[1], rgb[2], rgb[3])
+		end
+		for y = 0, img.h - 1 do
+			ppm.set(img, math.min(x0 + k, img.w - 1), y, rgb[1], rgb[2], rgb[3])
+			ppm.set(img, math.max(x1 - 1 - k, 0), y, rgb[1], rgb[2], rgb[3])
+		end
 	end
 end
 

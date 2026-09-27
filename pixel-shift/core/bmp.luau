@@ -1,9 +1,14 @@
 --!nonstrict
 -- 24-bit uncompressed BMP encoder (bottom-up rows, 4-byte row padding).
 
-local budget = require("./budget.luau")
+local K = require("./kernels.luau")
 
 local M = {}
+
+-- The row loop lives in kernels.luau; the engine swaps in its own fast copy.
+function M.install(kernels)
+	K = kernels
+end
 
 function M.encode(img): string
 	local w, h = img.w, img.h
@@ -22,18 +27,7 @@ function M.encode(img): string
 	buffer.writeu32(b, 34, rowSize * h)
 	buffer.writei32(b, 38, 2835)
 	buffer.writei32(b, 42, 2835)
-	local src = img.data
-	for y = 0, h - 1 do
-		budget.check()
-		local dst = 54 + (h - 1 - y) * rowSize
-		for x = 0, w - 1 do
-			local s = (y * w + x) * 3
-			local d = dst + x * 3
-			buffer.writeu8(b, d, buffer.readu8(src, s + 2))
-			buffer.writeu8(b, d + 1, buffer.readu8(src, s + 1))
-			buffer.writeu8(b, d + 2, buffer.readu8(src, s))
-		end
-	end
+	K.bmpRows(img.data, w, h, b, 54, rowSize)
 	return buffer.tostring(b)
 end
 

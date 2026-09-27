@@ -79,7 +79,13 @@ function Opt:_groupHist(gi, ranges, V)
 	local key = `{gi}|{simulate.kernelKey(simulate.kernels(g, ranges))}|{simulate.vRows(layout, V)}`
 	local h = self.cache[key]
 	if not h then
-		h = simulate.groupHist(self.ctx.layers, layout, gi, ranges, V, self.ctx.rref, self.active)
+		self.prepared = self.prepared or {}
+		local P = self.prepared[gi]
+		if not P then
+			P = simulate.prepareGroup(self.ctx.layers, layout, gi, self.active)
+			self.prepared[gi] = P
+		end
+		h = simulate.groupHistPrepared(P, layout, gi, ranges, V, self.ctx.rref)
 		self.cache[key] = h
 		self.evals += 1
 		coroutine.yield()

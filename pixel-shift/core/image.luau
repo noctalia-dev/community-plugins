@@ -150,23 +150,43 @@ function M.dirBoxV(src: Image, range: number, dir: number): Image
 end
 
 -- Copy where columns [x0, x1) read from x + dx (clamped to the image).
+-- In place: columns [x0, x1) of out read src's column x + dx (clamped to the
+-- edge). The unclamped middle is one buffer.copy per row.
+function M.shiftColumnsFrom(out: Image, src: Image, x0: number, x1: number, dx: number)
+	local w = src.w
+	local a, b = math.max(x0, 0), math.min(x1, w)
+	if b <= a then
+		return
+	end
+	local m0, m1 = math.max(a, -dx), math.min(b, w - dx) -- columns whose source is inside
+	local od, sd = out.data, src.data
+	for y = 0, src.h - 1 do
+		if y % 16 == 0 then
+			budget.check()
+		end
+		local row = y * w
+		if m1 > m0 then
+			buffer.copy(od, (row + m0) * 4, sd, (row + m0 + dx) * 4, (m1 - m0) * 4)
+		end
+		if a < math.min(m0, b) then
+			local v = rf(sd, row * 4)
+			for x = a, math.min(m0, b) - 1 do
+				wf(od, (row + x) * 4, v)
+			end
+		end
+		if math.max(m1, a) < b then
+			local v = rf(sd, (row + w - 1) * 4)
+			for x = math.max(m1, a), b - 1 do
+				wf(od, (row + x) * 4, v)
+			end
+		end
+	end
+end
+
 function M.shiftColumns(img: Image, x0: number, x1: number, dx: number): Image
 	local out = M.copy(img)
-	if dx == 0 then
-		return out
-	end
-	local w = img.w
-	for y = 0, img.h - 1 do
-		budget.check()
-		for x = math.max(x0, 0), math.min(x1, w) - 1 do
-			local sx = x + dx
-			if sx < 0 then
-				sx = 0
-			elseif sx >= w then
-				sx = w - 1
-			end
-			wf(out.data, (y * w + x) * 4, rf(img.data, (y * w + sx) * 4))
-		end
+	if dx ~= 0 then
+		M.shiftColumnsFrom(out, img, x0, x1, dx)
 	end
 	return out
 end
@@ -190,38 +210,16 @@ end
 -- q-quantile (0..1) of the rows [y0, y1), via a 4096-bin histogram.
 function M.percentile(img: Image, q: number, y0: number?, y1: number?): number
 	local a, b = y0 or 0, y1 or img.h
-	local lo, hi = math.huge, -math.huge
-	for y = a, b - 1 do
-		budget.check()
-		for x = 0, img.w - 1 do
-			local v = rf(img.data, (y * img.w + x) * 4)
-			if v < lo then
-				lo = v
-			end
-			if v > hi then
-				hi = v
-			end
-		end
-	end
+	local o, count = a * img.w * 4, (b - a) * img.w
+	local lo, hi = K.minMax(img.data, o, count)
 	if hi <= lo then
 		return lo
 	end
 	local bins = 4096
 	local counts = table.create(bins, 0)
 	local scale = bins / (hi - lo)
-	local n = 0
-	for y = a, b - 1 do
-		budget.check()
-		for x = 0, img.w - 1 do
-			local i = math.floor((rf(img.data, (y * img.w + x) * 4) - lo) * scale)
-			if i >= bins then
-				i = bins - 1
-			end
-			counts[i + 1] += 1
-			n += 1
-		end
-	end
-	local target = q * n
+	K.histogramFrom(counts, img.data, o, count, lo, scale, bins - 1)
+	local target = q * count
 	local acc = 0
 	for i = 1, bins do
 		acc += counts[i]
@@ -239,6 +237,13 @@ end
 function M.rgbMap(lin: LinearRGB, fn: (Image) -> Image): LinearRGB
 	local r, g, b = fn(lin.r), fn(lin.g), fn(lin.b)
 	return { w = r.w, h = r.h, r = r, g = g, b = b }
+end
+
+-- Luma of an 8-bit capture through lut (see wear.lumaFromRgb8).
+function M.lumaRgb8(img, lut): Image
+	local out = M.new(img.w, img.h)
+	K.lumaRgb8(img.data, img.w * img.h, lut, out.data)
+	return out
 end
 
 function M.luma(lin: LinearRGB): Image

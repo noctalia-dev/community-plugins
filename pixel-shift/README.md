@@ -19,8 +19,8 @@ risk is, how much the strategy removes, and what shifting cannot fix.
 Install `grim` on `PATH`. It captures the bar strip, so the plugin works on
 compositors with wlr-screencopy (Hyprland, niri, sway, labwc, mangowc).
 
-When `loginctl` (systemd) is available, Pixel Shift uses it to skip samples while the
-session is locked.
+Captures that do not show the bar (a lock screen, a fullscreen window) are recognised
+from the picture itself and skipped.
 
 ## Usage
 
@@ -59,17 +59,23 @@ session is locked.
    ```
 
    - **Ghost** shows what the bar would leave on a flat grey screen after long use.
-     Hotspots glow in your theme colour, as bright as their risk.
-   - **Risk** and **Bar** show the risk map and the bar itself; **No shift** and
-     **Strategy** compare the two.
-   - The list names each hotspot's cause and what to change, for example a solid fill
-     wider than the shift range. It also names spacers that sit where they cannot
-     move anything.
-   - **Strategy** shows the risk for every amount of movement. In **Auto** mode Pixel
-     Shift picks the point where more movement stops paying off; move the
-     **Calm ↔ Max protection** slider and press **Apply** to choose another point.
-     **Manual** sets each spacer's range yourself. **Revert** goes back to the
-     previous strategy.
+     Hotspots glow in your theme colour, as bright as their risk. **Risk** and **Bar**
+     show the risk map and the bar itself. In the whole-bar view, **No shift** and
+     **With strategy** compare the two.
+   - **Visible burn-in risk** puts both results on one scale from 0 to 100, where 100
+     is a white line that never moves.
+   - **Hotspots** are the places where the simulated ghost would still show with the
+     current strategy: the up to four strongest spots above 15 of 100, strongest
+     first. Each row shows the bar at that spot, its cause and a level (high from 50,
+     medium from 25, low below). Selecting one frames it up close, before and after,
+     and says what to change, for example a solid fill wider than the shift range.
+     The list also names spacers that sit where they cannot move anything.
+   - **Strategy** shows the risk for every amount of movement and what runs on the
+     bar now. In **Auto** mode Pixel Shift picks the point where more movement stops
+     paying off; moving the **Calm ↔ Max protection** slider previews another point,
+     **Apply to bar** makes it live and **Discard** drops it. **Manual** sets each
+     spacer's range yourself. **Undo last apply** goes back to the strategy that was
+     live before.
 
 4. **Pause when you need a still bar.** Add the **Pixel Shift** tile in
    Settings → Control Center. A click pauses or resumes shifting; a right click opens
@@ -104,12 +110,17 @@ noctalia msg plugin mgeldi/pixel-shift:engine all <event> [payload]
 | `view bar\|ghost\|risk`, `mode none\|strategy`, `output <name>`, `hotspot <n>` | Drive the lab. |
 | `lab` | Toggle the Burn-in Lab. |
 | `debug` | Write the engine state to the Noctalia log. |
+| `timing on\|off` | Log how long the lab takes to answer each command. |
 
 ## Notes
 
 **How it works.** For each output, Pixel Shift widens every spacer by a few pixels in
-turn and captures the bar with `grim`. The differences show which columns move with
-which spacer and how far. The capture is split into the static background and the
+turn and captures the bar with `grim`, each time right after a fresh reference
+capture. The differences show which columns move with which spacer and how far. A
+spacer can only move its section by its full width (start and end) or half of it
+(center); a measurement that shows anything else (a widget that changed width in
+between, such as a CPU percentage) is taken again, and the capture with every spacer
+widened must confirm the result. The capture is split into the static background and the
 content that moves. A wear model (per-channel brightness to the power of 1.6, weighted
 by panel type) turns the bar into a wear map. Visible burn-in risk is the difference
 between a pixel's wear and its neighbourhood, at a fine scale (strokes, icon edges) and
@@ -119,8 +130,10 @@ clock: each spacer walks 1 px at a time and spends equal time on every offset.
 Samples captured over the day replace the single snapshot once there are enough of
 them, so changing content like window titles is weighted by how long it is actually
 shown. Samples that do not show the measured bar, such as a lock screen or a
-fullscreen window, are skipped, and a measurement in which no spacer moves anything
-never replaces one that worked. The risk numbers are relative (100 = a 1 px white line that never moves); the
+fullscreen window, are skipped, and a measurement that did not see the bar (nothing
+moved, or a video under a fullscreen window that only seemed to) never replaces one
+that worked. While the bar stays covered, Pixel Shift looks before it measures again,
+so the bars do not twitch under a movie. The risk numbers are relative (100 = a 1 px white line that never moves); the
 plugin makes no lifetime predictions.
 
 **What shifting cannot fix.** A solid fill wider than the shift range keeps a
@@ -154,20 +167,23 @@ picks it up within seconds.
 - `exposure-<output>.bin`: per-pixel running sums of the accepted samples. It keeps no
   individual frames, but while it holds a single sample it equals that capture.
   Written every 6 samples.
-- `render/*.bmp`: the lab's images, including the **Bar** view, which shows the latest
-  capture. The last two per image are kept, and all are removed when the plugin starts.
+Lab images (including the **Bar** view, which shows the latest capture) go to
+`$XDG_RUNTIME_DIR/pixel-shift-render/` (memory, emptied at logout; the data
+directory's `render/` when there is no runtime directory). Up to 8 per image are
+kept for quick switching; all are removed two minutes after the lab closes and when
+the plugin starts.
 
 Captures are written briefly to `$XDG_RUNTIME_DIR/pixel-shift-*.ppm` and deleted after
 reading. With vertical shift on: `zz-pixel-shift.toml` in the Noctalia config
 directory (written as `zz-pixel-shift.toml.tmp` and renamed into place).
 
-**Processes.** `grim` (during a measurement and every `sample_minutes`), `loginctl
-show-session` (before each measurement and sample, when available), `noctalia msg
+**Processes.** `grim` (during a measurement and every `sample_minutes`), `noctalia msg
 config-reload` (after the vertical override is removed, and once more if Noctalia did
 not pick up a new override by itself), `noctalia msg settings-open bar` (the lab's
 onboarding button).
 On Noctalia versions without `noctalia.getColor`, opening the lab runs `noctalia msg
-color-scheme-get` and `noctalia theme <wallpaper>` to find the theme colour.
+color-scheme-get`, and `noctalia theme <wallpaper>` when the scheme or wallpaper
+changed, to find the theme colour.
 
 **Privacy.** Only the bar strip and 8 px below it are captured. The capture from the
 last measurement stays in the data directory (see above) and can show window or media
@@ -176,4 +192,8 @@ the plugin makes no network requests.
 
 **Performance.** Measuring, optimising and rendering run in small slices between
 frames, so the shell stays responsive. A search takes a few seconds of CPU per output,
-spread over a minute or less.
+spread over a minute or less. For someone who opened the lab in the last two weeks,
+Pixel Shift prepares its first view in idle time after the data changed, so it opens
+without waiting; once open, it renders every view of the current strategy in the
+background, so switching views, modes, hotspots and outputs takes a few tens of
+milliseconds. Two minutes after the lab closes, its caches are released.

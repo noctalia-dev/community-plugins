@@ -161,28 +161,34 @@ end
 
 -- Undo the displacement active when the frame was captured: group gi's
 -- content sits disp[gi] px right of home, and vRows rows along vDir.
-function M.unshift(lin, layout, disp, vRows: number)
-	local function fix(img)
-		local out = img
-		for gi, g in ipairs(layout.groups) do
-			local d = disp[gi] or 0
-			if d ~= 0 then
-				out = image.shiftColumns(out, g.x0, g.x1, d)
-			end
+-- One plane. Every group reads the captured frame itself, never a
+-- neighbour already put back.
+function M.unshiftImage(img, layout, disp, vRows: number)
+	local out = image.copy(img)
+	for gi, g in ipairs(layout.groups) do
+		local d = disp[gi] or 0
+		if d ~= 0 then
+			image.shiftColumnsFrom(out, img, g.x0, g.x1, d)
 		end
-		if vRows ~= 0 then
-			out = image.shiftRows(out, vRows * layout.vDir)
-		end
-		return out
 	end
-	return image.rgbMap(lin, fix)
+	if vRows ~= 0 then
+		out = image.shiftRows(out, vRows * layout.vDir)
+	end
+	return out
 end
 
-function M.add(acc, lin, t: number)
+function M.unshift(lin, layout, disp, vRows: number)
+	return image.rgbMap(lin, function(img)
+		return M.unshiftImage(img, layout, disp, vRows)
+	end)
+end
+
+-- L: the frame's luma if the caller has it already.
+function M.add(acc, lin, t: number, L)
 	for name, sum in pairs(acc.wear) do
 		image.add(sum, wear.map(wear.profile(name), lin))
 	end
-	local L = image.luma(lin)
+	L = L or image.luma(lin)
 	image.add(acc.lum, L)
 	image.add(acc.lum2, image.square(L))
 	acc.n += 1

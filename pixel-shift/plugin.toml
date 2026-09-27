@@ -1,6 +1,6 @@
 id = "mgeldi/pixel-shift"
 name = "Pixel Shift"
-version = "1.0.0"
+version = "1.1.0"
 plugin_api = 30
 author = "mgeldi"
 license = "MIT"
@@ -68,7 +68,7 @@ entry = "engine.luau"
 id = "lab"
 entry = "lab.luau"
 width = 980
-height = 840
+height = 920
 placement = "floating"
 position = "center"
 
