@@ -2,12 +2,15 @@
   "actions": {
     "complete": "Complete",
     "copy": "Copy title",
-    "move_to": "Move to",
     "open": "Open in Vikunja",
-    "open_project": "Project tasks",
     "postpone_1": "+1 day",
     "postpone_3": "+3 days",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "open_project": "Project tasks",
+    "move_to": "Move to",
+    "show_done": "Show done",
+    "hide_done": "Hide done",
+    "reopen": "Reopen"
   },
   "colors": {
     "error": "Error",
@@ -28,20 +31,20 @@
     "add_button": "Add",
     "add_hint": "will be added to {project}, due today",
     "add_placeholder": "New task title…",
-    "bucket_any": "No bucket",
-    "bucket_other": "No bucket",
-    "busy": "Working…",
     "empty": "Nothing due in this view.",
     "loading": "Loading tasks…",
     "not_configured": "Set the Vikunja URL and API token under Settings → Plugins → Vikunja.",
-    "project_back": "Projects",
-    "project_open": "{n} open task(s)",
-    "projects_hint": "Pick a project to see its tasks.",
     "projects_loading": "Counting open tasks…",
     "select_hint": "Pick a task for actions.",
     "subtitle": "Tasks due today and overdue",
     "summary": "{today} today · {overdue} overdue · {soon} upcoming",
-    "updated": "Updated {time}"
+    "updated": "Updated {time}",
+    "project_open": "{n} open task(s)",
+    "project_back": "Projects",
+    "bucket_other": "No bucket",
+    "bucket_any": "No bucket",
+    "projects_hint": "Pick a project to see its tasks.",
+    "busy": "Working…"
   },
   "result": {
     "added": "Added “{title}”",
@@ -49,14 +52,18 @@
     "completed": "Completed “{title}”",
     "copied": "Copied “{text}”",
     "failed": "Failed: {error}",
-    "moved": "Moved “{title}” to {bucket}",
     "no_project": "No project to add to — set a default project in the plugin settings.",
     "not_configured": "Vikunja is not configured.",
-    "opened": "Opening “{name}” in Vikunja",
     "overdue_notice": "{n} task(s) overdue: {titles}",
     "postponed": "Postponed “{title}” to {date}",
+    "project_opened": "Opened “{project}”",
     "project_closed": "Back to projects",
-    "project_opened": "Opened “{project}”"
+    "moved": "Moved “{title}” to {bucket}",
+    "opened": "Opening “{name}” in Vikunja",
+    "reopened": "Reopened “{title}”",
+    "done_shown": "Showing done tasks",
+    "done_hidden": "Hiding done tasks",
+    "bucket_gone": "That bucket no longer exists — board reloaded, try again"
   },
   "settings": {
     "api_token": {
@@ -104,10 +111,10 @@
     "upcoming": "Upcoming"
   },
   "task": {
-    "due_today": "today",
     "due_tomorrow": "tomorrow",
-    "no_due": "no due date",
-    "overdue": "{n} day(s) overdue"
+    "due_today": "today",
+    "overdue": "{n} day(s) overdue",
+    "no_due": "no due date"
   },
   "title": "Vikunja",
   "widget": {

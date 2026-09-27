@@ -205,7 +205,8 @@ local function projectTaskList()
           ui.button({
             key = "task-" .. tostring(task.id),
             text = `{task.title}  ·  {task.project}  ·  {dueLabel(task)}`,
-            glyph = task.bucket == "overdue" and "alert-triangle" or "circle",
+            glyph = task.done == true and "check"
+              or (task.bucket == "overdue" and "alert-triangle" or "circle"),
             contentAlign = "start",
             flexGrow = 1,
             variant = task.id == selectedId and "primary" or "outline",
@@ -258,6 +259,13 @@ local function projectHeader()
       fontSize = 12,
     }),
     ui.button({
+      text = snapshot.showDone and tr("actions.hide_done") or tr("actions.show_done"),
+      glyph = "eye",
+      variant = "outline",
+      controlSize = "sm",
+      onClick = "onToggleDone",
+    }),
+    ui.button({
       text = tr("actions.open"),
       glyph = "external-link",
       variant = "outline",
@@ -307,7 +315,7 @@ local function taskToolbar(busy)
     }),
     ui.row({ gap = 6 }, {
       ui.button({
-        text = tr("actions.complete"),
+        text = task.done == true and tr("actions.reopen") or tr("actions.complete"),
         glyph = "check",
         variant = "primary",
         enabled = not busy,
@@ -744,6 +752,10 @@ function onOpenTaskProject()
     send("load_buckets", { projectId = task.projectId })
     send("open_project", { projectId = task.projectId })
   end
+end
+
+function onToggleDone()
+  send("toggle_done")
 end
 
 function onProjectBack()

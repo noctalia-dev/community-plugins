@@ -39,7 +39,10 @@ Panel tabs:
   just as browsable as the due-date driven views. **Open in Vikunja**, **← Projects** and every row
   action work there too; a task's own **Project tasks** button jumps straight to its project.
   Rows can be **dragged onto another bucket** to move the task, and the toolbar offers the same move
-  as buttons (**Move to** …) for keyboard or precise use.
+  as buttons (**Move to** …) for keyboard or precise use. A board hides finished tasks by default;
+  **Show done** in the project header adds them (they keep their bucket and get a check mark), and
+  the toolbar button then reads **Reopen** instead of **Complete** — that is the way back from a task
+  completed from the panel.
 
 The add row at the top creates a task in the selected project (the **Default project** when none is
 selected) due today at the due hour; Enter and the **Add** button do the same. When that project has
