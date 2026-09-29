@@ -60,25 +60,27 @@ local function render()
 	local text, tooltip
 
 	if not usage then
-		text = "\u{2014}"
-		tooltip = "Opencode Go Usage"
+		text = noctalia.tr("bar.empty")
+		tooltip = noctalia.tr("bar.title")
 	elseif not usage.ok then
-		text = "\u{2014}"
-		tooltip = "Opencode Go \u{2014} " .. (usage.message or "unavailable")
+		text = noctalia.tr("bar.empty")
+		tooltip = noctalia.tr("bar.tooltip_text", {
+			text = usage.message or noctalia.tr("bar.unavailable"),
+		})
 	else
 		local pct = card and formatPct(card.percent)
 		if pct then
 			text = pct
-			tooltip = string.format("Opencode Go \u{2014} %s: %s", card.name, pct)
+			tooltip = noctalia.tr("bar.tooltip_meter", { meter = card.name, percent = pct })
 		else
 			-- No meter for the selected limit (or the bar is in icon-only mode):
 			-- fall back to the compact all-limits summary the service composes.
 			local summary = type(usage.message) == "string" and usage.message or ""
-			text = summary ~= "" and summary or "\u{2014}"
-			tooltip = "Opencode Go \u{2014} " .. text
+			text = summary ~= "" and summary or noctalia.tr("bar.empty")
+			tooltip = noctalia.tr("bar.tooltip_text", { text = text })
 		end
-		if usage.tier == "Cancelling" then
-			tooltip = tooltip .. " (cancelling)"
+		if usage.tier == "cancelling" then
+			tooltip = tooltip .. " (" .. noctalia.tr("tier.cancelling") .. ")"
 		end
 	end
 

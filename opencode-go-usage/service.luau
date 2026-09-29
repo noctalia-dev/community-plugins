@@ -69,16 +69,16 @@ local function formatResetLine(ts)
 	end
 	local diff = epoch - os.time()
 	if diff <= 0 then
-		return "Resets now"
+		return noctalia.tr("reset.now")
 	end
 	local hours = diff // 3600
 	local mins = (diff % 3600) // 60
 	if hours >= 24 then
-		return string.format("Resets in %dd %dh", hours // 24, hours % 24)
+		return noctalia.tr("reset.days_hours", { days = hours // 24, hours = hours % 24 })
 	elseif hours > 0 then
-		return string.format("Resets in %dh %dm", hours, mins)
+		return noctalia.tr("reset.hours_mins", { hours = hours, mins = mins })
 	end
-	return string.format("Resets in %dm", mins)
+	return noctalia.tr("reset.mins", { mins = mins })
 end
 
 -- Average headroom per remaining day, as a fraction of the limit.
@@ -106,24 +106,29 @@ end
 
 -- ── state ────────────────────────────────────────────────────────────────────
 
-local function failState(message)
+-- `code` is a stable machine-readable tag; `message` is the already-translated
+-- text for display. Entries branch on `code`, never on the message text, so a
+-- translation can never change behaviour.
+local function failState(code, message)
 	noctalia.state.set("usage", {
 		ready = false,
 		ok = false,
+		code = code,
 		message = message,
 		fiveHour = nil,
 		week = nil,
 		month = nil,
-		tier = "",
+		tier = nil,
 	})
 end
 
 local function limitCard(name, meter, endsAt)
+	local fraction = meterFraction(meter)
 	return {
 		name = name,
-		percent = meterFraction(meter),
+		percent = fraction,
 		reset = formatResetLine(endsAt),
-		daily = dailyRemaining(meterFraction(meter), endsAt),
+		daily = dailyRemaining(fraction, endsAt),
 	}
 end
 
@@ -132,7 +137,7 @@ local function parseUsage(body)
 	local access = data and data.access
 	local meters = access and access.meters
 	if type(meters) ~= "table" then
-		failState("Usage unavailable (check API key)")
+		failState("no_meter", noctalia.tr("status.no_meter"))
 		return
 	end
 
@@ -140,20 +145,26 @@ local function parseUsage(body)
 	local endsAt = access.endsAt
 
 	local parts = {}
-	for _, entry in { { fiveHour, "5h" }, { week, "week" }, { month, "month" } } do
+	for _, entry in {
+		{ fiveHour, "meter.short_five_hour" },
+		{ week, "meter.short_week" },
+		{ month, "meter.short_month" },
+	} do
 		if entry[1] then
-			table.insert(parts, entry[2] .. " " .. pctInt(meterFraction(entry[1])))
+			table.insert(parts, noctalia.tr(entry[2]) .. " " .. pctInt(meterFraction(entry[1])))
 		end
 	end
 
 	noctalia.state.set("usage", {
 		ready = true,
 		ok = true,
+		code = nil,
 		message = table.concat(parts, " \u{b7} "),
-		tier = access.cancelAtPeriodEnd and "Cancelling" or "Active",
-		fiveHour = limitCard("5-hour Usage", fiveHour, fiveHour and fiveHour.resetsAt),
-		week = limitCard("Weekly Usage", week, week and week.resetsAt),
-		month = limitCard("Monthly Usage", month, endsAt),
+		-- Machine value; the panel and bar translate it for display.
+		tier = access.cancelAtPeriodEnd and "cancelling" or "active",
+		fiveHour = limitCard(noctalia.tr("meter.five_hour"), fiveHour, fiveHour and fiveHour.resetsAt),
+		week = limitCard(noctalia.tr("meter.week"), week, week and week.resetsAt),
+		month = limitCard(noctalia.tr("meter.month"), month, endsAt),
 	})
 end
 
@@ -167,13 +178,13 @@ local function fetchUsage()
 	end
 	local apiKey = noctalia.getConfig("api_key")
 	if type(apiKey) ~= "string" or apiKey == "" then
-		failState("Set API key in settings")
+		failState("need_key", noctalia.tr("status.need_key"))
 		return
 	end
 
 	inFlight = true
 	-- headers is a LIST of full "Header: value" lines, not a key/value map.
-	noctalia.http({
+	local accepted = noctalia.http({
 		url = API_URL,
 		headers = {
 			"Authorization: Bearer " .. apiKey,
@@ -183,13 +194,19 @@ local function fetchUsage()
 		inFlight = false
 		-- res.ok is transport success, not HTTP status: a 401 arrives with ok=true.
 		if not res.ok then
-			failState("Usage unavailable (network error)")
+			failState("network", noctalia.tr("status.network"))
 		elseif res.status ~= 200 then
-			failState("Usage unavailable (HTTP " .. res.status .. ", check API key)")
+			failState("http_error", noctalia.tr("status.http_error", { status = res.status }))
 		else
 			parseUsage(res.body)
 		end
 	end)
+	-- http returns false when the host refuses to start the request, in which
+	-- case the callback never runs. Release the guard so later polls still work.
+	if not accepted then
+		inFlight = false
+		failState("refused", noctalia.tr("status.refused"))
+	end
 end
 
 -- Refetch on demand (panel Refresh button).
@@ -205,5 +222,5 @@ end
 
 -- Top-level init: prime the tick rate and do the first fetch immediately, so the
 -- bar has data before the first scheduled tick.
-failState("Loading\u{2026}")
+failState("loading", noctalia.tr("status.loading"))
 fetchUsage()

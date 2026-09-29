@@ -17,7 +17,7 @@ local busy = false
 
 local function formatPct(fraction)
 	if type(fraction) ~= "number" or fraction < 0 then
-		return "\u{2014}"
+		return noctalia.tr("panel.empty")
 	end
 	local v = fraction * 100
 	if v > 999 then
@@ -45,7 +45,7 @@ local function formatDaily(fraction)
 end
 
 local function limitColor(fraction)
-	if fraction >= 0.97 or fraction > 1.0 then
+	if fraction >= 0.97 then
 		return "error"
 	elseif fraction >= 0.70 then
 		return WARNING
@@ -106,12 +106,13 @@ end
 
 local function headerRow()
 	local children = {
-		ui.label({ text = "Opencode Go", fontSize = 16, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
+		ui.label({ text = noctalia.tr("panel.title"), fontSize = 16, fontWeight = "bold", color = "on_surface", maxLines = 1 }),
 	}
 	table.insert(children, ui.spacer({ flexGrow = 1 }))
 	if usage and usage.tier and usage.tier ~= "" then
-		local tierColor = usage.tier == "Cancelling" and "error" or "primary"
-		table.insert(children, chip(usage.tier, tierColor, 11, "semibold"))
+		local cancelling = usage.tier == "cancelling"
+		local tierColor = cancelling and "error" or "primary"
+		table.insert(children, chip(noctalia.tr("tier." .. usage.tier), tierColor, 11, "semibold"))
 	end
 	table.insert(children, ui.button({
 		glyph = "refresh",
@@ -120,7 +121,7 @@ local function headerRow()
 		width = 24,
 		height = 24,
 		glyphSize = 13,
-		tooltip = "Refresh",
+		tooltip = noctalia.tr("panel.refresh"),
 		enabled = not busy,
 		onClick = "onRefresh",
 	}))
@@ -134,18 +135,18 @@ local function render()
 
 	if not usage then
 		table.insert(children, ui.label({
-			text = "Waiting for the usage service\u{2026}",
+			text = noctalia.tr("panel.waiting"),
 			color = "on_surface_variant",
 		}))
 	elseif not usage.ok then
 		table.insert(children, ui.label({
-			text = usage.message or "Usage unavailable",
+			text = usage.message or noctalia.tr("panel.unavailable"),
 			color = "error",
 			fontWeight = "medium",
 		}))
-		if usage.message == "Set API key in settings" then
+		if usage.code == "need_key" then
 			table.insert(children, ui.label({
-				text = "Add your oc_sk_... key under Settings \u{2192} Plugins \u{2192} gear icon.",
+				text = noctalia.tr("panel.key_hint"),
 				fontSize = 12,
 				color = "on_surface_variant",
 			}))
@@ -161,7 +162,7 @@ local function render()
 		end
 		if shown == 0 then
 			table.insert(children, ui.label({
-				text = "No usage meters reported for this account.",
+				text = noctalia.tr("panel.no_meters"),
 				color = "on_surface_variant",
 			}))
 		end
@@ -176,10 +177,6 @@ function onRefresh()
 	busy = true
 	render()
 	noctalia.state.set("usage.cmd", (noctalia.state.get("usage.cmd") or 0) + 1)
-end
-
-function onCloseClicked()
-	panel.close()
 end
 
 noctalia.state.watch("usage", function(value)

@@ -18,5 +18,47 @@
         "none": "Icon only"
       }
     }
+  },
+  "meter": {
+    "five_hour": "5-hour Usage",
+    "week": "Weekly Usage",
+    "month": "Monthly Usage",
+    "short_five_hour": "5h",
+    "short_week": "week",
+    "short_month": "month"
+  },
+  "tier": {
+    "active": "Active",
+    "cancelling": "Cancelling"
+  },
+  "reset": {
+    "now": "Resets now",
+    "days_hours": "Resets in {days}d {hours}h",
+    "hours_mins": "Resets in {hours}h {mins}m",
+    "mins": "Resets in {mins}m"
+  },
+  "status": {
+    "loading": "Loading…",
+    "need_key": "Set API key in settings",
+    "no_meter": "Usage unavailable (check API key)",
+    "network": "Usage unavailable (network error)",
+    "refused": "Usage unavailable (request refused)",
+    "http_error": "Usage unavailable (HTTP {status}, check API key)"
+  },
+  "bar": {
+    "title": "Opencode Go Usage",
+    "unavailable": "unavailable",
+    "empty": "—",
+    "tooltip_meter": "Opencode Go — {meter}: {percent}",
+    "tooltip_text": "Opencode Go — {text}"
+  },
+  "panel": {
+    "title": "Opencode Go",
+    "refresh": "Refresh",
+    "waiting": "Waiting for the usage service…",
+    "unavailable": "Usage unavailable",
+    "key_hint": "Add your oc_sk_... key under Settings → Plugins → gear icon.",
+    "no_meters": "No usage meters reported for this account.",
+    "empty": "—"
   }
 }
