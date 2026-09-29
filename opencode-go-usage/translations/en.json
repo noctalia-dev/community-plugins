@@ -1,12 +1,22 @@
 {
-  "settings.api_key.label": "API key",
-  "settings.api_key.description": "Your Opencode Go key, e.g. oc_sk_...",
-  "settings.refresh_interval.label": "Refresh interval",
-  "settings.refresh_interval.description": "How often to poll opencode.ai for usage, in seconds (60-86400).",
-  "settings.bar_limit.label": "Show in bar",
-  "settings.bar_limit.description": "Which usage limit the bar capsule shows. Choose icon only to hide the percentage.",
-  "settings.bar_limit.option_5h": "5-hour limit",
-  "settings.bar_limit.option_week": "Weekly limit",
-  "settings.bar_limit.option_month": "Monthly limit",
-  "settings.bar_limit.option_none": "Icon only"
+  "settings": {
+    "api_key": {
+      "label": "API key",
+      "description": "Your Opencode Go key, e.g. oc_sk_..."
+    },
+    "refresh_interval": {
+      "label": "Refresh interval",
+      "description": "How often to poll opencode.ai for usage, in seconds (60-86400)."
+    },
+    "bar_limit": {
+      "label": "Show in bar",
+      "description": "Which usage limit the bar capsule shows. Choose icon only to hide the percentage.",
+      "option": {
+        "5h": "5-hour limit",
+        "week": "Weekly limit",
+        "month": "Monthly limit",
+        "none": "Icon only"
+      }
+    }
+  }
 }

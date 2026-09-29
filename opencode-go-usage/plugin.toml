@@ -7,6 +7,7 @@ license = "MIT"
 icon = "brand-openai"
 description = "Opencode Go usage limits in the bar, with a details panel for the 5-hour, weekly and monthly meters."
 tags = ["bar", "panel", "service", "ai", "productivity", "indicator"]
+dependencies = []
 
 # Plugin-level settings: one shared set, edited in Settings -> Plugins, readable
 # from every entry via noctalia.getConfig(key).
@@ -38,10 +39,10 @@ entry = "bar.luau"
   description_key = "settings.bar_limit.description"
   default = "5h"
   options = [
-    { value = "5h", label_key = "settings.bar_limit.option_5h" },
-    { value = "week", label_key = "settings.bar_limit.option_week" },
-    { value = "month", label_key = "settings.bar_limit.option_month" },
-    { value = "none", label_key = "settings.bar_limit.option_none" },
+    { value = "5h", label_key = "settings.bar_limit.option.5h" },
+    { value = "week", label_key = "settings.bar_limit.option.week" },
+    { value = "month", label_key = "settings.bar_limit.option.month" },
+    { value = "none", label_key = "settings.bar_limit.option.none" },
   ]
 
 [[panel]]
