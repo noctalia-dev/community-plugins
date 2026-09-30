@@ -1,0 +1,124 @@
+{
+  "settings": {
+    "enabled": {
+      "label": "Enable",
+      "description": "Off: the panel is left alone."
+    },
+    "connector": {
+      "label": "Output",
+      "description": "Empty: auto-detect at start. Restart the plugin after changing."
+    },
+    "backlight": {
+      "label": "Backlight device",
+      "description": "Empty: auto-detect at start. Restart the plugin after changing."
+    },
+    "learning_profile": {
+      "label": "Use learned thresholds",
+      "description": "On: apply thresholds learned from your changes. Off: use the sliders as set. Recording is always on."
+    },
+    "show_advanced": {
+      "label": "Advanced maps",
+      "description": "Show the raw curve map editors."
+    },
+    "curve_brightness": {
+      "label": "Brightness map (advanced)",
+      "description": "Override: node per row, \"reading:target\" or \"target\". Edit a row and this map replaces the sliders; defaults match them."
+    },
+    "curve_temperature": {
+      "label": "Temperature map (advanced)",
+      "description": "Same shape. Panel kelvin, lower is warmer. Only used with adaptive colour temperature."
+    },
+    "thr_brightness_01": {
+      "label": "Node 1",
+      "description": "sensor lightness counts mapped -> 20.8%"
+    },
+    "thr_brightness_02": {
+      "label": "Node 2",
+      "description": "sensor lightness counts mapped -> 30.7%"
+    },
+    "thr_brightness_03": {
+      "label": "Node 3",
+      "description": "sensor lightness counts mapped -> 39.3%"
+    },
+    "thr_brightness_04": {
+      "label": "Node 4",
+      "description": "sensor lightness counts mapped -> 50.6%"
+    },
+    "thr_brightness_05": {
+      "label": "Node 5",
+      "description": "sensor lightness counts mapped -> 63.4%"
+    },
+    "thr_brightness_06": {
+      "label": "Node 6",
+      "description": "sensor lightness counts mapped -> 70%"
+    },
+    "thr_brightness_07": {
+      "label": "Node 7",
+      "description": "sensor lightness counts mapped -> 78.3%"
+    },
+    "thr_brightness_08": {
+      "label": "Node 8",
+      "description": "sensor lightness counts mapped -> 88.3%"
+    },
+    "thr_brightness_09": {
+      "label": "Node 9",
+      "description": "sensor lightness counts mapped -> 96.8%"
+    },
+    "thr_brightness_10": {
+      "label": "Node 10",
+      "description": "sensor lightness counts mapped -> 100%"
+    },
+    "thr_temperature_01": {
+      "label": "Temp node 1",
+      "description": "sensor ambient temp mapped -> 5100K"
+    },
+    "thr_temperature_02": {
+      "label": "Temp node 2",
+      "description": "sensor ambient temp mapped -> 5240K"
+    },
+    "thr_temperature_03": {
+      "label": "Temp node 3",
+      "description": "sensor ambient temp mapped -> 5380K"
+    },
+    "thr_temperature_04": {
+      "label": "Temp node 4",
+      "description": "sensor ambient temp mapped -> 5520K"
+    },
+    "thr_temperature_05": {
+      "label": "Temp node 5",
+      "description": "sensor ambient temp mapped -> 5660K"
+    },
+    "thr_temperature_06": {
+      "label": "Temp node 6",
+      "description": "sensor ambient temp mapped -> 5800K"
+    },
+    "thr_temperature_07": {
+      "label": "Temp node 7",
+      "description": "sensor ambient temp mapped -> 5940K"
+    },
+    "thr_temperature_08": {
+      "label": "Temp node 8",
+      "description": "sensor ambient temp mapped -> 6080K"
+    },
+    "thr_temperature_09": {
+      "label": "Temp node 9",
+      "description": "sensor ambient temp mapped -> 6220K"
+    },
+    "thr_temperature_10": {
+      "label": "Temp node 10",
+      "description": "sensor ambient temp mapped -> 6500K"
+    },
+    "min_percent": {
+      "label": "Minimum brightness (%)",
+      "description": "Hard floor."
+    },
+    "max_percent": {
+      "label": "Maximum brightness (%)",
+      "description": "Hard ceiling."
+    },
+    "colortemp": {
+      "label": "Adaptive colour temperature",
+      "description": "Warm the panel toward ambient. WARNING: forces night light on and rewrites temperature_night."
+    }
+  }
+}
