@@ -5,12 +5,18 @@ local saveWidgets = noctalia.getConfig("saveWidgets")
 local loadWidgets = noctalia.getConfig("loadWidgets")
 local monitorWidgets = noctalia.state.get("monitorWidgets") or {}
 
+local function saveLayoutsToDisk()
+  local dataDir = noctalia.pluginDataDir()
+  if dataDir then
+    local jsonStr = noctalia.json.encode(monitorWidgets)
+    noctalia.writeFile(dataDir .. "/layouts.json", jsonStr or "{}")
+  end
+end
+
 local function render()
   local widgetRows = {}
 
-  -- Dynamically build a row for each saved wallpaper layout
   for wallpaper, layoutData in pairs(monitorWidgets) do
-    -- Extract just the filename for a cleaner display
     local fileName = wallpaper:match("([^/]+)%.%w+$") or wallpaper
 
     table.insert(widgetRows, ui.row({
@@ -24,6 +30,7 @@ local function render()
         onClick = function()
           monitorWidgets[wallpaper] = nil
           noctalia.state.set("monitorWidgets", monitorWidgets)
+          saveLayoutsToDisk()
           render()
         end
       })
@@ -36,18 +43,13 @@ local function render()
     }))
   end
 
-  -- Render the entire UI tree to the panel
   panel.render(ui.column({ flexGrow = 1, gap = 16, padding = 16 }, {
-    -- Header
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.label({ text = noctalia.tr("settings.title"), fontSize = 16, fontWeight = "bold", color = "on_surface", flexGrow = 1 }),
       ui.button({ glyph = "close", onClick = "onCloseClicked" }),
     }),
 
-    -- Scrollable settings body
     ui.scroll({ flexGrow = 1, gap = 24 }, {
-
-      -- Toggles section
       ui.column({ gap = 8 }, {
         ui.label({ text = noctalia.tr("settings.general"), fontWeight = "medium", color = "on_surface_variant" }),
         ui.row({ gap = 12, align = "center" }, {
@@ -60,7 +62,6 @@ local function render()
         }),
       }),
 
-      -- Saved Layouts list section
       ui.column({ gap = 8 }, {
         ui.row({ align = "center", justify = "space_between" }, {
           ui.label({ text = noctalia.tr("settings.saved_layouts"), fontWeight = "medium", color = "on_surface_variant" }),
@@ -70,6 +71,7 @@ local function render()
             onClick = function()
               monitorWidgets = {}
               noctalia.state.set("monitorWidgets", monitorWidgets)
+              saveLayoutsToDisk()
               noctalia.notify(noctalia.tr("settings.title"), noctalia.tr("settings.nuke_all_notification"))
               render()
             end
@@ -82,10 +84,14 @@ local function render()
 end
 
 function onOpen(_context)
-  -- Fetch the freshest state from the background service whenever the panel opens
   monitorWidgets = noctalia.state.get("monitorWidgets") or {}
-  saveWidgets = noctalia.state.get("saveWidgets") or noctalia.getConfig("saveWidgets")
-  loadWidgets = noctalia.state.get("loadWidgets") or noctalia.getConfig("loadWidgets")
+
+  saveWidgets = noctalia.state.get("saveWidgets")
+  if saveWidgets == nil then saveWidgets = noctalia.getConfig("saveWidgets") end
+  
+  loadWidgets = noctalia.state.get("loadWidgets")
+  if loadWidgets == nil then loadWidgets = noctalia.getConfig("loadWidgets") end
+
   render()
 end
 

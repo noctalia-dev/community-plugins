@@ -7,7 +7,18 @@ if saveWidgets == nil then saveWidgets = true end
 local loadWidgets = noctalia.getConfig("loadWidgets")
 if loadWidgets == nil then loadWidgets = true end
 
-local monitorWidgets = noctalia.state.get("monitorWidgets") or {}
+local monitorWidgets = noctalia.state.get("monitorWidgets")
+if monitorWidgets == nil then
+  local dataDir = noctalia.pluginDataDir()
+  if dataDir then
+    local jsonStr = noctalia.readFile(dataDir .. "/layouts.json")
+    if jsonStr then
+      monitorWidgets = noctalia.json.decode(jsonStr)
+    end
+  end
+  if type(monitorWidgets) ~= "table" then monitorWidgets = {} end
+  noctalia.state.set("monitorWidgets", monitorWidgets)
+end
 
 noctalia.state.watch("saveWidgets", function(value) saveWidgets = value end)
 noctalia.state.watch("loadWidgets", function(value) loadWidgets = value end)
