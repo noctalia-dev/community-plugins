@@ -20,10 +20,6 @@
   "prio_medium": "Medium",
   "save_failed": "Failed to save the task list",
   "settings": {
-    "glyph": {
-      "description": "The glyph shown for the To Do widget on the bar.",
-      "label": "Bar glyph"
-    },
     "count_mode": {
       "description": "Which count the bar label shows next to the task count",
       "label": "Bar count",
@@ -32,6 +28,10 @@
         "pending": "Pending only",
         "total": "Total"
       }
+    },
+    "glyph": {
+      "description": "The glyph shown for the To Do widget on the bar.",
+      "label": "Bar glyph"
     },
     "label": {
       "description": "Text displayed beside the Todo icon",

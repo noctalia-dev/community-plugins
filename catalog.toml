@@ -2557,8 +2557,8 @@ tags = ["bar", "panel", "service", "network", "system", "utility"]
 [[plugin]]
 id = "nilsonlinux/contact-sounds"
 name = "Contact Notification Sounds"
-version = "1.5.1"
-updated_at = 1789910760
+version = "1.5.2"
+updated_at = 1790732854
 added_at = 1789256312
 author = "Nilsonlinux"
 license = "MIT"
@@ -3084,8 +3084,8 @@ tags = ["bar", "indicator", "niri", "productivity", "system"]
 [[plugin]]
 id = "etrigan63/rum-updates"
 name = "RUM Updates"
-version = "0.1.7"
-updated_at = 1790601758
+version = "0.1.8"
+updated_at = 1790736827
 added_at = 1790381127
 author = "etrigan63"
 license = "MIT"
@@ -3132,3 +3132,42 @@ icon = "sparkles"
 description = "Quick bar launcher for the Antigravity Agent CLI (agy)."
 plugin_api = 24
 tags = ["ai", "utility", "bar", "productivity"]
+
+[[plugin]]
+id = "mgeldi/pixel-shift"
+name = "Pixel Shift"
+version = "1.1.0"
+updated_at = 1790732199
+added_at = 1790732199
+author = "mgeldi"
+license = "MIT"
+icon = "arrows-move-horizontal"
+description = "Protects OLED screens from bar burn-in: measures your bar, simulates wear and shifts it smartly."
+plugin_api = 30
+tags = ["bar", "panel", "service", "shortcut", "utility", "hardware", "hyprland", "niri", "sway", "labwc", "mangowc"]
+
+[[plugin]]
+id = "zumik3-del/opencode-go-usage"
+name = "Opencode Go Usage"
+version = "1.2.0"
+updated_at = 1790732739
+added_at = 1790732739
+author = "zumik3-del"
+license = "MIT"
+icon = "brand-openai"
+description = "Opencode Go usage limits in the bar, with a details panel for the 5-hour, weekly and monthly meters."
+plugin_api = 28
+tags = ["bar", "panel", "service", "ai", "productivity", "indicator"]
+
+[[plugin]]
+id = "hakanct/saved-desktop-widgets"
+name = "Saved Desktop Widgets"
+version = "1.0.0"
+updated_at = 1790733266
+added_at = 1790733266
+author = "hakanct"
+license = "MIT"
+icon = "puzzle"
+description = "A plugin that allows you to have multiple setups for your desktop widgets based on the wallpaper."
+plugin_api = 26
+tags = ["bar", "desktop", "panel", "service", "utility", "wallpaper"]

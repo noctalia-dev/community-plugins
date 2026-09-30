@@ -157,6 +157,7 @@ body:
         - omniroute-quota
         - omp-launcher
         - opencode-companion
+        - opencode-go-usage
         - opencodex-bar
         - opnsense
         - oppo-pods
@@ -166,6 +167,7 @@ body:
         - pass
         - phone-connect
         - phone-operate
+        - pixel-shift
         - podcasts
         - pomodoro
         - portctl
@@ -188,6 +190,7 @@ body:
         - ruh-vpn
         - rum-updates
         - run-path
+        - saved-desktop-widgets
         - screen-toolkit
         - share-wifi
         - sharednd

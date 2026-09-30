@@ -144,6 +144,54 @@ local function fail(message)
     showError(message)
 end
 
+local function commitUpdates(parsed)
+    updates = parsed
+    currentError = nil
+    noctalia.state.set("updates", updates)
+    noctalia.state.set("update_error", nil)
+    consumeUpgradeWatchTick(#updates == 0)
+end
+
+-- rum 0.1.0 `check-upgrade` can report a candidate that its own upgrade
+-- resolution will not apply (a phantom version that exists in no repo, e.g.
+-- from within the `updates` repository). Cross-validate the structured update
+-- list against `rum upgrade --dry-run`, which resolves exactly what the
+-- widget's update action will run, and drop any candidate `upgrade` would not
+-- upgrade. If the dry run itself fails, keep the reported updates unchanged.
+local function planMatchesLine(line, name)
+    local prefix = name .. "-"
+    return string.sub(line, 1, #prefix) == prefix
+        and string.sub(line, -1, -1) == ")"
+end
+
+local function crossCheckWithUpgradePlan(parsed)
+    local started = noctalia.runAsync("rum upgrade --dry-run", function(result)
+        if type(result) == "table" and result.timedOut ~= true and result.exitCode == 0 then
+            local stdout = trim(result.stdout)
+            local filtered = {}
+            for _, update in ipairs(parsed) do
+                local found = false
+                for line in string.gmatch(stdout, "[^\r\n]+") do
+                    if planMatchesLine(trim(line), update.name) then
+                        found = true
+                        break
+                    end
+                end
+                if found then
+                    table.insert(filtered, update)
+                end
+            end
+            commitUpdates(filtered)
+        else
+            commitUpdates(parsed)
+        end
+    end, commandTimeoutMs)
+
+    if not started then
+        commitUpdates(parsed)
+    end
+end
+
 local function refresh()
     if isPolling then
         return
@@ -189,11 +237,12 @@ local function refresh()
             return
         end
 
-        updates = parsed
-        currentError = nil
-        noctalia.state.set("updates", updates)
-        noctalia.state.set("update_error", nil)
-        consumeUpgradeWatchTick(#parsed == 0)
+        if #parsed == 0 then
+            commitUpdates(parsed)
+            return
+        end
+
+        crossCheckWithUpgradePlan(parsed)
     end, commandTimeoutMs)
 
     if not started then

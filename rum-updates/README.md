@@ -12,7 +12,7 @@ The plugin checks for updates in the background, displays the available count in
 | --- | --- |
 | ID | `etrigan63/rum-updates` |
 | Entries | Bar widget: `rum_updates`; service: `update_poller` |
-| Version | `0.1.7` |
+| Version | `0.1.8` |
 | Noctalia plugin API | `3` |
 | License | MIT |
 
@@ -51,6 +51,7 @@ The plugin settings control polling and notifications. Each bar widget has its o
 - Uses Noctalia's detected terminal by default, with support for a custom terminal executable.
 - Optionally sends a notification when the number of available updates increases.
 - Validates and sorts `rum` JSON output before displaying it.
+- Cross-checks the reported updates against `rum upgrade --dry-run` and drops any candidate the real upgrade would not apply, so phantom entries never inflate the count.
 - Never starts a privileged upgrade automatically; `sudo` is run only after an explicit widget click.
 
 ## Requirements
@@ -155,12 +156,14 @@ Enter only the executable. Do not add the command you want to run or terminal ar
 
 1. The background service runs `rum check-upgrade --json`.
 2. The command has a 60-second timeout, and overlapping checks are prevented.
-3. The plugin validates every returned update before updating the shared state.
+3. The plugin validates every returned update before updating the shared state, cross-checking them against `rum upgrade --dry-run` so a candidate the upgrade would not apply is never counted.
 4. Available updates are sorted by package name, architecture, and repository.
 5. The bar widget and its tooltip react immediately when the state changes.
 6. If a check fails, the widget displays `RUM error`; its tooltip contains the available diagnostic message.
 
 The widget reports the overlay package updates returned by `rum check-upgrade`. RakuOS base-image and Flatpak updates remain part of the normal full system upgrade flow and are not represented by this count.
+
+Reported candidates are validated against `rum upgrade --dry-run`, the same resolution the update action runs: a candidate that `rum check-upgrade` reports but `rum` cannot actually upgrade is filtered out rather than shown as available.
 
 ## Notifications
 
