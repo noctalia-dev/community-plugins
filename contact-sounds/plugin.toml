@@ -1,6 +1,6 @@
 id          = "nilsonlinux/contact-sounds"
 name        = "Contact Notification Sounds"
-version     = "1.5.1"
+version     = "1.5.2"
 plugin_api  = 20
 author      = "Nilsonlinux"
 license     = "MIT"
