@@ -1,6 +1,6 @@
 --!nonstrict
 
-local g_plugin_version = "2.0.0"
+local g_plugin_version = "2.1.0"
 
 -- Data from the nvtop command, which is updated in real-time.
 local g_data = nil

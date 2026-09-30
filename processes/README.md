@@ -23,7 +23,7 @@ Monitor CPU, memory, disk read/write, and other process metrics.
 | Field | Value |
 | --- | --- |
 | ID | `tordex/processes` |
-| Entries | Panel: `panel` |
+| Entries | Panel: `panel`; bar widget: `widget` |
 
 ## Requirements
 
@@ -99,7 +99,9 @@ environment.systemPackages = with pkgs; [
 
 ## Usage
 
-You can open the panel by binding it in your compositor or by setting an action for `sysmon` widgets:
+Add the **Processes** bar widget in the shell's bar-widget picker and click it to open the process panel.
+
+You can also open the panel by binding it in your compositor or by setting an action for `sysmon` widgets:
 
 ![Actions](screenshots/actions.png)
 

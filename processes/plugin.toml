@@ -1,6 +1,6 @@
 id = "tordex/processes"
 name = "Processes"
-version = "2.0.0"
+version = "2.1.0"
 plugin_api = 24
 author = "tordex"
 license = "MIT"
@@ -59,6 +59,10 @@ type = "bool"
 label_key = "settings.show_processes.label"
 description_key = "settings.show_processes.description"
 default = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
 
 [[panel]]
 id = "panel"
