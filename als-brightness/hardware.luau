@@ -18,7 +18,13 @@ local IIO_DIR = "/sys/bus/iio/devices/"
 local BL_DIR = "/sys/class/backlight/"
 local DRM_DIR = "/sys/class/drm/"
 local LID_DIR = "/proc/acpi/button/lid/"
-local SETTINGS_SUFFIX = "/.local/state/noctalia/settings.toml"
+-- The settings target resolves exactly like Noctalia's own state dir (upstream
+-- file_utils.h stateDir()): $NOCTALIA_STATE_HOME and $XDG_STATE_HOME are
+-- state-home roots -- the noctalia/ dir lives under them -- and empty values
+-- fall through. Splicing a file the shell never reads would silently break
+-- colour temperature and leave a stale block at the default path.
+local STATE_SETTINGS_SUFFIX = "/noctalia/settings.toml"
+local HOME_SETTINGS_SUFFIX = "/.local/state/noctalia/settings.toml"
 
 local function trim(s)
   if s == nil then return nil end
@@ -103,6 +109,25 @@ local function find_drm_entry(env, connector)
     if entry == connector or entry:sub(-#suffix) == suffix then
       return entry
     end
+  end
+  return nil
+end
+
+--- The settings.toml the shell will read, resolved in Noctalia's own order:
+--- $NOCTALIA_STATE_HOME, then $XDG_STATE_HOME, then $HOME/.local/state. An
+--- empty value falls through to the next candidate, matching Noctalia's own
+--- getenv checks. Returns nil when nothing resolves.
+local function find_settings_path(env)
+  if type(env.getenv) ~= "function" then return nil end
+  for _, name in ipairs({ "NOCTALIA_STATE_HOME", "XDG_STATE_HOME" }) do
+    local root = trim(env.getenv(name))
+    if root ~= nil and root ~= "" then
+      return root .. STATE_SETTINGS_SUFFIX
+    end
+  end
+  local home = trim(env.getenv("HOME"))
+  if home ~= nil and home ~= "" then
+    return home .. HOME_SETTINGS_SUFFIX
   end
   return nil
 end
@@ -213,16 +238,15 @@ function M.discover(env, opts)
     deg[#deg + 1] = "no lid switch under " .. LID_DIR .. "; the lid guard is unavailable"
   end
 
-  -- HOME (optional): the colour-temperature splice target. Never guessed --
-  -- there is no sensible fallback for someone else's home directory.
-  local home = nil
-  if type(env.getenv) == "function" then
-    home = trim(env.getenv("HOME"))
-  end
-  if home ~= nil and home ~= "" then
-    paths.settings_path = home .. SETTINGS_SUFFIX
+  -- Settings path (optional): the colour-temperature splice target, resolved
+  -- the way Noctalia resolves its own state dir (find_settings_path). Never
+  -- guessed -- there is no sensible fallback for someone else's settings file.
+  local settings_path = find_settings_path(env)
+  if settings_path ~= nil then
+    paths.settings_path = settings_path
   else
-    deg[#deg + 1] = "HOME is unset; the colour-temperature settings splice is unavailable"
+    deg[#deg + 1] = "no NOCTALIA_STATE_HOME, XDG_STATE_HOME or HOME; "
+        .. "the colour-temperature settings splice is unavailable"
   end
 
   -- Runtime guard inputs, in policy.guard's vocabulary ({dpms=, lid_closed=}).

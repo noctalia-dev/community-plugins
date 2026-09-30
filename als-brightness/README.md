@@ -67,9 +67,11 @@ adaptation. Add this one line to `~/.local/state/noctalia/settings.toml`:
 brightness = false
 ```
 
-The plugin cannot make this change for you — plugins cannot write Noctalia's
-config. The gate is per kind, not per writer, so it also silences the OSD for
-the idle dim and for your own brightness keys.
+The plugin offers no config-write API for this particular setting and will not
+touch your OSD settings on your behalf; the colortemp feature's own splice of
+this same file (see Notes) is a deliberate, documented exception. The gate is
+per kind, not per writer, so it also silences the OSD for the idle dim and for
+your own brightness keys.
 
 ## Settings
 
@@ -128,6 +130,18 @@ overshoot the two nodes it sits between.
 | `thr_temperature_10` | `6500` | Node 10 threshold; panel 6500 K. |
 
 ## Notes
+
+**Files this plugin writes.**
+
+- `profile.json` and `als-brightness.log` in the plugin's data directory (if
+  that directory is unavailable the plugin falls back to `/tmp`).
+- With `colortemp` on, a byte-exact text splice of Noctalia's `settings.toml`,
+  located the way the shell locates it: `NOCTALIA_STATE_HOME`, else
+  `XDG_STATE_HOME`, else `~/.local/state`, then `noctalia/settings.toml` (the
+  file is returned unchanged when
+  nothing changes; the new content is written to a
+  `settings.toml.als-brightness.tmp` scratch file next to it, then atomically
+  renamed over the original, then `noctalia msg config-reload` is run).
 
 **Hardware probe.** At service start the plugin probes the machine once.
 Required: an ambient light sensor under `/sys/bus/iio/devices`
