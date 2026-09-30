@@ -32,12 +32,40 @@ local PROVIDER_GLYPHS = {
     gemini = "brand-google",
 }
 
+local PROVIDER_DASHBOARDS = {
+    anthropic = "https://claude.ai/settings/usage",
+    anthropic_api = "https://console.anthropic.com/",
+    openai = "https://chatgpt.com/codex/settings/usage",
+    openrouter = "https://openrouter.ai/activity",
+    cursor = "https://www.cursor.com/settings",
+    deepseek = "https://platform.deepseek.com/",
+    zai = "https://z.ai",
+    kimi = "https://platform.moonshot.cn/",
+    moonshot = "https://platform.moonshot.cn/",
+    grok = "https://console.x.ai/",
+    supergrok = "https://grok.com/",
+    gemini = "https://aistudio.google.com/",
+    copilot = "https://github.com/settings/copilot",
+    minimax = "https://platform.minimaxi.com/",
+    antigravity = "https://antigravity.google/",
+    kilo = "https://app.kilo.ai/usage",
+    novita = "https://novita.ai/console",
+    kiro = "https://app.kiro.dev/",
+    nous = "https://portal.nousresearch.com/",
+    ["opencode-go"] = "https://opencode.ai/console/",
+    commandcode = "https://commandcode.ai/signin",
+}
+
 function M.baseProvider(id)
     return (tostring(id or ""):match("^[^@]+") or "")
 end
 
 function M.providerGlyph(id)
     return PROVIDER_GLYPHS[M.baseProvider(id)] or "brain"
+end
+
+function M.providerDashboard(id)
+    return PROVIDER_DASHBOARDS[M.baseProvider(id)]
 end
 
 -- Ask the poller for a read. `at` is never read: it is there so two requests in
@@ -318,7 +346,8 @@ function M.modelHeadlines(entry)
     local result = {}
     for _, model in ipairs(order) do
         local modelMetrics = byModel[model]
-        local sessionMetric = modelMetrics[1]
+        local sessionMetric, weeklyMetric = M.dualMetrics(modelMetrics)
+        sessionMetric = sessionMetric or weeklyMetric
         local blockingMetric = M.blockingMetric(modelMetrics)
         if sessionMetric ~= nil then
             result[#result + 1] = {
@@ -332,6 +361,72 @@ function M.modelHeadlines(entry)
         end
     end
     return result
+end
+
+-- Extracts (shortMetric, weeklyMetric) where shortMetric represents the 5-hour
+-- session limit and weeklyMetric represents the 7-day rate limit.
+function M.dualMetrics(metrics)
+    if type(metrics) ~= "table" then return nil, nil end
+    local valid = {}
+    for _, metric in ipairs(metrics) do
+        if type(metric) == "table" then valid[#valid + 1] = metric end
+    end
+    metrics = valid
+    if #metrics == 0 then return nil, nil end
+    if #metrics == 1 then
+        local m = metrics[1]
+        local isWeekly = false
+        if type(m) == "table" then
+            local w = tonumber(m.window_secs)
+            local lbl = tostring(m.label or ""):lower()
+            if (w ~= nil and w > 86400) or lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+                isWeekly = true
+            end
+        end
+        if isWeekly then
+            return nil, m
+        end
+        return m, nil
+    end
+
+    local shortMetric = nil
+    local weeklyMetric = nil
+
+    for _, m in ipairs(metrics) do
+        if type(m) == "table" then
+            local w = tonumber(m.window_secs)
+            local lbl = tostring(m.label or ""):lower()
+            if w ~= nil then
+                if w <= 86400 and shortMetric == nil then
+                    shortMetric = m
+                elseif w > 86400 and weeklyMetric == nil then
+                    weeklyMetric = m
+                end
+            elseif lbl:find("5h", 1, true) or lbl:find("session", 1, true) or lbl:find("hour", 1, true) then
+                if shortMetric == nil then shortMetric = m end
+            elseif lbl:find("week", 1, true) or lbl:find("7d", 1, true) then
+                if weeklyMetric == nil then weeklyMetric = m end
+            end
+        end
+    end
+
+    if shortMetric ~= nil and weeklyMetric ~= nil then
+        return shortMetric, weeklyMetric
+    end
+
+    if shortMetric ~= nil and weeklyMetric == nil and #metrics >= 2 then
+        for _, m in ipairs(metrics) do
+            if m ~= shortMetric then return shortMetric, m end
+        end
+    end
+
+    if weeklyMetric ~= nil and shortMetric == nil and #metrics >= 2 then
+        for _, m in ipairs(metrics) do
+            if m ~= weeklyMetric then return m, weeklyMetric end
+        end
+    end
+
+    return metrics[1], metrics[2]
 end
 
 function M.entries(report)

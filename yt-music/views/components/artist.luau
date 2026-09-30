@@ -14,9 +14,9 @@ local function build_artist()
 
 	table.insert(
 		child,
-		ui.row({ key = "ar-head", gap = 16, align = "center", paddingV = 12 }, {
+		ui.row({ key = "ar-head", gap = 16, align = "center", paddingV = 12, radius = theme.radius }, {
 			common.thumb_or_placeholder(artist.thumb_path, 120, "user", 44, "primary"),
-			ui.column({ gap = 4, flexGrow = 1 }, {
+			ui.column({ gap = 4, flexGrow = 1, radius = theme.radius }, {
 				ui.label({
 					text = "ARTIST",
 					fontSize = theme.fontTitle,
@@ -33,7 +33,7 @@ local function build_artist()
 		})
 	)
 
-	table.insert(child, ui.row({ key = "spacer-artist-1", height = 8, borderWidth = 0 }))
+	table.insert(child, ui.row({ key = "spacer-artist-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
 	if #data.artist_tracks == 0 then
 		table.insert(
@@ -66,7 +66,7 @@ local function build_artist()
 			end, state.data.player.id == t.id)
 		)
 	end
-	table.insert(child, ui.column({ key = "ar-songs-col", gap = 0 }, song_rows))
+	table.insert(child, ui.column({ key = "ar-songs-col", gap = 0, radius = theme.radius }, song_rows))
 
 	if #(data.artist_related or {}) > 0 then
 		table.insert(child, ui.separator({ key = "sep-ar-rel", color = "outline/0.3" }))
@@ -96,6 +96,7 @@ local function build_artist()
 					border = "primary/0.4",
 					fill = card_hovered and "primary/0.12" or "primary/0.04",
 					flexGrow = 1,
+					radius = theme.radius,
 					onClick = function()
 						view.hover_key.card = nil
 						state.open_playlist({
@@ -115,7 +116,7 @@ local function build_artist()
 						"primary",
 						card_hovered and "primary/0.2" or "surface_variant/0.6"
 					),
-					ui.column({ gap = 2, flexGrow = 1 }, {
+					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({
 							text = pl.title or "Album",
 							fontSize = theme.fontTitle,

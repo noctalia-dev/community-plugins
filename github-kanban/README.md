@@ -40,7 +40,7 @@ Add the `github` widget to a Noctalia bar and click it to open the dashboard. Ri
 | `pr_default_filter` | `select` | `all` | `all`, `created`, `review` | Sets the initial pull request filter. |
 | `issue_default_filter` | `select` | `all` | `all`, `created`, `assigned` | Sets the initial issue filter. |
 | `show_following` | `bool` | `true` | — | Enables the Following dashboard section. |
-| `following_card_max_height` | `int` | `260` | 140–500 px, step 20 | Caps the height of each Following person or repository card. |
+| `following_card_max_height` | `int` | `260` | 140–500 px, step 20 | Limits the initial collapsed height of each Following person or repository card; expanding shows all items. |
 | `following_user_limit` | `int` | `4` | 1–12, step 1 | Sets how many followed users are included in the feed. |
 | `following_events_per_user` | `int` | `30` | 1–30, step 1 | Sets the maximum events fetched for each followed user. |
 | `starred_repository_limit` | `int` | `100` | 10–100, step 10 | Sets how many recently starred repositories are checked for latest release data. |
@@ -120,5 +120,5 @@ noctalia msg plugin shangshui0302/github-kanban:sync all refresh
 - The `sync` service makes read-only GitHub API network requests through `gh api`, using the authentication already configured in `gh`. It does not read, store, or display an access token and does not change GitHub state. Individual sources may fail independently; cached sections can remain visible while the panel reports stale or partial data.
 - `noctalia.download` downloads profile, followed-user, and repository-owner avatars from GitHub. The plugin caches `dashboard.json` and downloaded avatars in its Noctalia `pluginDataDir`.
 - Clicking a dashboard item starts `xdg-open` with its GitHub URL.
-- The panel uses the manifest's fixed 860 × 620 dimensions. The current plugin UI API does not expose runtime resizing or sticky section headers.
+- The panel uses the manifest's fixed 860 × 620 dimensions. The current plugin UI API does not expose runtime resizing or sticky section headers. Contribution cells are auto-fitted to the panel width, so large cell/gap combinations are scaled down to prevent overlap in attached and floating placements. The Overview contributions section stretches to fill remaining panel height, distributing air inside its heatmap card while keeping the Contributions label attached to it. Event and release text is truncated before display to keep refreshes within budget. List responses (following events, notifications, search, repositories, Actions runs) are projected to displayed fields with `gh api --jq` so decoding stays within budget. The heatmap footer is inset to the calendar width so its items align with the grid edges.
 - GitHub does not provide the web dashboard's personalized feed through an API, so the Following view combines public events from followed users with latest-release data from recently starred repositories. Repository scanning is bounded by the configured limit to keep refresh work and API use modest.

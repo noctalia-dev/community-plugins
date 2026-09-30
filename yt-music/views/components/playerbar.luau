@@ -46,10 +46,10 @@ local function build_player_bar()
 		is_playing and "primary" or "on_surface_variant"
 	)
 
-	local now_playing = ui.row({ key = "pb-now", align = "center", gap = 10, width = 300 }, {
+	local now_playing = ui.row({ key = "pb-now", align = "center", gap = 10, width = 300, radius = theme.radius }, {
 		player_thumb,
-		ui.column({ gap = 1, flexGrow = 1 }, {
-			ui.row({ key = "pb-title-row", align = "center", gap = 6 }, {
+		ui.column({ gap = 1, flexGrow = 1, radius = theme.radius }, {
+			ui.row({ key = "pb-title-row", align = "center", gap = 6, radius = theme.radius }, {
 				ui.label({
 					text = track_label,
 					fontSize = theme.fontTitle,
@@ -104,7 +104,7 @@ local function build_player_bar()
 					end
 				end)(),
 			}),
-			ui.column({ gap = 3 }, {
+			ui.column({ gap = 3, radius = theme.radius }, {
 				ui.label({
 					text = track_meta,
 					fontSize = theme.fontTitle,
@@ -186,8 +186,9 @@ local function build_player_bar()
 		gap = 1,
 		flexGrow = 1,
 		justify = "center",
+		radius = theme.radius,
 	}, {
-		ui.row({ key = "pb-scrub", align = "center", gap = 10, width = 900 }, {
+		ui.row({ key = "pb-scrub", align = "center", gap = 10, width = 900, radius = theme.radius }, {
 			ui.label({
 				key = "pb-pos-label",
 				text = common.fmt_pos(slider_val),
@@ -223,7 +224,7 @@ local function build_player_bar()
 				color = "on_surface_variant",
 			}),
 		}),
-		ui.row({ key = "pb-controls", align = "center", justify = "center", gap = 3 }, controls),
+		ui.row({ key = "pb-controls", align = "center", justify = "center", gap = 3, radius = theme.radius }, controls),
 	})
 
 	local vol = player.volume or 70
@@ -288,6 +289,7 @@ local function build_player_bar()
 		gap = 8,
 		width = 170,
 		justify = "end",
+		radius = theme.radius,
 	}, pb_right)
 
 	return ui.row({
@@ -299,6 +301,7 @@ local function build_player_bar()
 		borderWidth = 1,
 		border = "primary/0.4",
 		fill = "primary/0.04",
+		radius = theme.radius,
 	}, {
 		now_playing,
 		transport,

@@ -177,4 +177,48 @@ assert(#oneHeadline == 1 and oneHeadline[1].blockingMetric == session,
 session.percent, weekly.percent = 0, 100
 assert(shared.headline(oneModel) == weekly, "one model must show its exhausted weekly quota")
 
+assert(shared.providerDashboard("anthropic") == "https://claude.ai/settings/usage", "Claude plan usage URL")
+assert(shared.providerDashboard("anthropic_api") == "https://console.anthropic.com/", "API usage stays in the console")
+assert(shared.providerDashboard("openai@work") == "https://chatgpt.com/codex/settings/usage", "account suffix keeps Codex usage URL")
+assert(shared.providerDashboard("antigravity") == "https://antigravity.google/", "Antigravity opens its own service")
+assert(shared.providerDashboard("grok") == "https://console.x.ai/", "Grok API stays in the xAI console")
+assert(shared.providerDashboard("supergrok") == "https://grok.com/", "SuperGrok opens the consumer service")
+assert(shared.providerDashboard("unknown") == nil, "unknown provider returns nil dashboard")
+
+local mShort, mWeekly = shared.dualMetrics({
+    { label = "Weekly", percent = 90, window_secs = 604800 },
+    { label = "Session", percent = 20, window_secs = 18000 },
+})
+assert(mShort.percent == 20 and mWeekly.percent == 90, "dualMetrics should sort 5h/session first regardless of input order")
+
+local labelShort, labelWeekly = shared.dualMetrics({
+    { label = "Codex weekly", percent = 80 },
+    { label = "Codex 5h", percent = 15 },
+})
+assert(labelShort.percent == 15 and labelWeekly.percent == 80, "dualMetrics should detect 5h vs weekly from labels")
+
+local singleWeeklyShort, singleWeeklyWeekly = shared.dualMetrics({
+    { label = "Weekly only", percent = 70, window_secs = 604800 },
+})
+assert(singleWeeklyShort == nil and singleWeeklyWeekly.percent == 70, "dualMetrics should identify single weekly metric")
+
+local singleSessionShort, singleSessionWeekly = shared.dualMetrics({
+    { label = "5h only", percent = 30, window_secs = 18000 },
+})
+assert(singleSessionShort.percent == 30 and singleSessionWeekly == nil, "dualMetrics should identify single session metric")
+
+local malformedShort, malformedWeekly = shared.dualMetrics({ 42, { label = "Weekly", percent = 90, window_secs = 604800 } })
+assert(malformedShort == nil and malformedWeekly.percent == 90,
+    "dualMetrics should discard malformed entries before choosing a window")
+local onlyMalformedShort, onlyMalformedWeekly = shared.dualMetrics({ 42 })
+assert(onlyMalformedShort == nil and onlyMalformedWeekly == nil,
+    "dualMetrics should not return a scalar metric")
+
+local reorderedModels = shared.modelHeadlines({ id = "antigravity", metrics = {
+    { label = "Gemini", percent = 90, window_secs = 604800 },
+    { label = "Gemini", percent = 20, window_secs = 18000 },
+} })
+assert(#reorderedModels == 1 and reorderedModels[1].metric.percent == 20,
+    "Antigravity headline should use the session window when weekly arrives first")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

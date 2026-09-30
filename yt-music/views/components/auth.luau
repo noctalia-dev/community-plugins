@@ -62,7 +62,7 @@ local function build_health_card()
                 glyph, color = "check", "primary"
                 text = label .. (ver ~= "" and (": " .. ver) or "")
             end
-            table.insert(rows, ui.row({ key = "health-row-" .. name, gap = 8, align = "center" }, {
+            table.insert(rows, ui.row({ key = "health-row-" .. name, gap = 8, align = "center", radius = theme.radius }, {
                 ui.glyph({ name = glyph, size = 18, color = color }),
                 ui.label({ text = text, fontSize = theme.fontTitle, color = color })
             }))
@@ -72,7 +72,7 @@ local function build_health_card()
         return nil
     end
     local checking = state.data.checking_health == true
-    table.insert(rows, 1, ui.row({ key = "health-header", align = "center", justify = "space_between" }, {
+    table.insert(rows, 1, ui.row({ key = "health-header", align = "center", justify = "space_between", radius = theme.radius }, {
         ui.label({
             text = "HEALTHCHECK",
             fontSize = theme.fontHeading,
@@ -94,7 +94,8 @@ local function build_health_card()
         padding = 14,
         borderWidth = 0,
         fill = "surface_variant/0.5",
-        width = 880
+        width = 880,
+        radius = theme.radius
     }, rows)
 end
 
@@ -118,6 +119,7 @@ local function build_browser_cells()
                 border = "primary",
                 fill = "primary/0.1",
                 flexGrow = 1,
+                radius = theme.radius,
                 onClick = function() request("extract", { browser = b.id }) end
             }, {
                 ui.glyph({ name = "loader", size = 24, color = "primary" })
@@ -134,6 +136,7 @@ local function build_browser_cells()
                 border = is_hovered and "primary" or "outline",
                 fill = is_hovered and "surface_variant/0.8" or "surface_variant/0.4",
                 flexGrow = 1,
+                radius = theme.radius,
                 onClick = function()
                     if state.data.browser == b.id and state.data.status_text:find("Opened") then
                         request("extract", { browser = b.id })
@@ -163,7 +166,8 @@ local function build_browser_cells()
                 borderWidth = 1,
                 border = "outline/0.3",
                 fill = "surface_variant/0.1",
-                flexGrow = 1
+                flexGrow = 1,
+                radius = theme.radius
             }, {
                 ui.glyph({ name = b.icon, size = 24, color = "on_surface_variant/0.4" }),
                 ui.label({ text = b.label, fontSize = theme.fontTitle, fontWeight = "bold", color = "on_surface_variant/0.4" })
@@ -181,19 +185,19 @@ local function build_signin_prompt()
     local prompt_children = {
         ui.glyph({ name = "music", size = 48, color = "primary" }),
         ui.label({ text = "YouTube Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-        ui.row({ height = 4, borderWidth = 0 }),
-        ui.column({ align = "start", gap = 8 }, {
+        ui.row({ height = 4, borderWidth = 0, radius = theme.radius }),
+        ui.column({ align = "start", gap = 8, radius = theme.radius }, {
             ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
             ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
             ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
         }),
-        ui.row({ height = 6, borderWidth = 0 }),
+        ui.row({ height = 6, borderWidth = 0, radius = theme.radius }),
         ui.label({
             text = state.data.status_text,
             fontSize = theme.fontTitle,
             color = state.data.status == "error" and "error" or "primary"
         }),
-        ui.column({ gap = 12, width = "fill" }, browser_rows)
+        ui.column({ gap = 12, width = "fill", radius = theme.radius }, browser_rows)
     }
     local health_card = build_health_card()
     if health_card then
@@ -206,14 +210,15 @@ local function build_signin_prompt()
         justify = "center",
         gap = 16,
         padding = 40,
-        flexGrow = 1
+        flexGrow = 1,
+        radius = theme.radius
     }, prompt_children)
 end
 
 local function build_cookies_page()
     local page = {}
 
-    table.insert(page, ui.row({ key = "cookie-title", align = "center", gap = 8 }, {
+    table.insert(page, ui.row({ key = "cookie-title", align = "center", gap = 8, radius = theme.radius }, {
         ui.glyph({ name = "login", size = 18, color = "primary" }),
         ui.label({ text = "COOKIES & LOGIN", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" })
     }))
@@ -250,21 +255,22 @@ local function build_cookies_page()
         gap = 8,
         padding = 14,
         borderWidth = 0,
-        fill = "surface_variant/0.5"
+        fill = "surface_variant/0.5",
+        radius = theme.radius
     }, status_children))
 
-    table.insert(page, ui.row({ key = "spacer-above-sep-cookie", height = 4, borderWidth = 0 }))
+    table.insert(page, ui.row({ key = "spacer-above-sep-cookie", height = 4, borderWidth = 0, radius = theme.radius }))
     table.insert(page, ui.separator({ key = "sep-cookie", color = "outline/0.3" }))
 
     table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
-    table.insert(page, ui.column({ key = "cookie-steps", gap = 6, padding = 4 }, {
+    table.insert(page, ui.column({ key = "cookie-steps", gap = 6, padding = 4, radius = theme.radius }, {
         ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
         ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
         ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
     }))
 
-    table.insert(page, ui.row({ key = "spacer-above-browser-grid", height = 4, borderWidth = 0 }))
+    table.insert(page, ui.row({ key = "spacer-above-browser-grid", height = 4, borderWidth = 0, radius = theme.radius }))
 
     local cells = build_browser_cells()
     local grid_rows = common.chunk_rows(cells, 3, "browser-grid", 12)

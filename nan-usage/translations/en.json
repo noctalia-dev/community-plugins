@@ -1,0 +1,104 @@
+{
+  "panel": {
+    "cached": "cached",
+    "consumption": "Consumption",
+    "contributions": "Where it went",
+    "copied": "The address is in your clipboard",
+    "copy_failed": "Could not copy the address",
+    "no_data": "No data yet",
+    "no_opener_copied": "No browser opener installed, so the address is in your clipboard",
+    "no_usage": "No usage in this period",
+    "open_failed": "Could not open the NaN panel",
+    "overall": "Overall",
+    "period": "Period",
+    "recent": "{label}: {value}",
+    "resets_in": "resets in {when}",
+    "title": "NaN Usage",
+    "tooltip_refresh": "Refresh now",
+    "tooltip_settings": "Settings",
+    "tooltip_site": "Copy the NaN panel address (cloud.nan.builders)",
+    "waiting": "Waiting for the first poll…",
+    "waiting_hint": "The poller runs inside Noctalia. If this stays empty, check the API key path in the settings."
+  },
+  "settings": {
+    "api_key": {
+      "description": "The file holding your NaN API key.",
+      "label": "API key file"
+    },
+    "glyph": {
+      "description": "The glyph to draw when Show a glyph is on.",
+      "label": "Glyph"
+    },
+    "hide_unused": {
+      "description": "Drop models with no usage from the panel's list.",
+      "label": "Hide unused models"
+    },
+    "icon_style": {
+      "color": "Colour",
+      "description": "Ghost draws the mark in the theme's own ink, white on a dark theme and black on a light one; color draws it as NaN does.",
+      "ghost": "Ghost (themed)",
+      "label": "Logo style"
+    },
+    "interval": {
+      "description": "Seconds between requests to the NaN API.",
+      "label": "Poll interval (seconds)"
+    },
+    "left_click": {
+      "description": "Open the panel, or do nothing. A right click opens these settings.",
+      "label": "What a left click does",
+      "nothing": "Nothing",
+      "panel": "Open the panel"
+    },
+    "panel_gauge": {
+      "bar": "A bar",
+      "description": "Draw a bar beside the text, or nothing at all.",
+      "label": "Gauge",
+      "none": "No gauge, text only"
+    },
+    "panel_model": {
+      "description": "Which model the bar reflects.",
+      "fixed": "A pinned model",
+      "label": "Which model the bar shows",
+      "max": "The fullest",
+      "worst": "The most alarming"
+    },
+    "panel_model_id": {
+      "description": "The model id to pin, spelled as the API does (deepseek-v4-flash).",
+      "label": "Pinned model"
+    },
+    "show_glyph": {
+      "description": "Draw a glyph before the text.",
+      "label": "Show a glyph"
+    },
+    "show_icon": {
+      "description": "Draw the NaN logo before the text.",
+      "label": "Show the NaN logo"
+    },
+    "show_metrics": {
+      "description": "Add the account-wide 24 h, month and 30 d totals to the panel and the tooltip. It costs one more request per poll.",
+      "label": "Show consumption totals"
+    },
+    "show_model": {
+      "description": "Which model the percentage belongs to, abbreviated (ds4f for deepseek-v4-flash).",
+      "label": "Show the model"
+    },
+    "show_percentage": {
+      "description": "The usage figure in the bar.",
+      "label": "Show the percentage"
+    },
+    "show_reset": {
+      "description": "How long until the quota resets, next to the percentage.",
+      "label": "Show the countdown"
+    },
+    "show_tooltip": {
+      "description": "Show a line per model, with tokens used against the cap and the countdown, when you hover the widget.",
+      "label": "Details in the tooltip"
+    },
+    "site_action": {
+      "copy": "Copy the address",
+      "description": "Open NaN's dashboard in your browser, through gio or xdg-open, or copy the address instead.",
+      "label": "What the link button does",
+      "open": "Open in the browser"
+    }
+  }
+}

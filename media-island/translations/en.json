@@ -1,0 +1,33 @@
+{
+  "panel": {
+    "close": "Close Media Island",
+    "next": "Next track",
+    "no-media": "Nothing playing",
+    "no-media-detail": "Start playback in an MPRIS-compatible media app.",
+    "pause": "Pause",
+    "play": "Play",
+    "previous": "Previous track"
+  },
+  "settings": {
+    "auto-show": {
+      "description": "Briefly show the island when playback starts or the current track changes.",
+      "label": "Show on playback changes"
+    },
+    "preview-seconds": {
+      "description": "How many seconds an automatic island preview remains visible.",
+      "label": "Preview duration"
+    }
+  },
+  "tooltip": {
+    "artist": "Artist",
+    "paused": "Paused",
+    "playback": "Playback",
+    "playing": "Playing",
+    "title": "Title"
+  },
+  "widget": {
+    "no-media": "Media",
+    "open-island": "Open Media Island",
+    "unknown-title": "Unknown title"
+  }
+}

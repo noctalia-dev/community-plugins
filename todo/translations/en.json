@@ -1,5 +1,6 @@
 {
   "all_hidden": "All tasks are done — the eye toggle is hiding them",
+  "bar_count_both": "{pending}/{total} todos",
   "bar_count_plural": "{count} todos",
   "bar_count_singular": "{count} todo",
   "clear_done_confirm": "Delete all done entries?",
@@ -22,6 +23,23 @@
     "glyph": {
       "description": "The glyph shown for the To Do widget on the bar.",
       "label": "Bar glyph"
+    },
+    "count_mode": {
+      "description": "Which count the bar label shows next to the task count",
+      "label": "Bar count",
+      "options": {
+        "both": "Pending/total",
+        "pending": "Pending only",
+        "total": "Total"
+      }
+    },
+    "label": {
+      "description": "Text displayed beside the Todo icon",
+      "label": "Label"
+    },
+    "show_label": {
+      "description": "Show/hide the text label beside the bar icon",
+      "label": "Show label"
     },
     "sound_on_complete": {
       "description": "Play a short sound when a task is marked done.",

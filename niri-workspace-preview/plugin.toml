@@ -1,0 +1,231 @@
+id           = "teagar/niri-workspace-preview"
+name         = "Niri Workspace Preview"
+version      = "1.1.0"
+plugin_api   = 17
+author       = "Teagar"
+license      = "MIT"
+dependencies = ["niri"]
+icon         = "layout-dashboard"
+deprecated   = false
+description  = "Shows proportional maps of the active Niri workspaces and their windows in the bar."
+tags         = ["bar", "indicator", "niri", "productivity", "system"]
+
+[[service]]
+id    = "workspace-state"
+entry = "service.luau"
+
+[[widget]]
+id    = "preview"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key             = "output_scope"
+    type            = "select"
+    label_key       = "settings.output_scope.label"
+    description_key = "settings.output_scope.description"
+    default         = "all"
+    options         = [
+        { value = "all",     label_key = "settings.output_scope.all" },
+        { value = "current", label_key = "settings.output_scope.current" },
+        { value = "custom",  label_key = "settings.output_scope.custom" },
+    ]
+
+    [[widget.setting]]
+    key             = "output_names"
+    type            = "string"
+    label_key       = "settings.output_names.label"
+    description_key = "settings.output_names.description"
+    default         = ""
+    visible_when    = { key = "output_scope", values = ["custom"] }
+
+    [[widget.setting]]
+    key             = "size_mode"
+    type            = "select"
+    label_key       = "settings.size_mode.label"
+    description_key = "settings.size_mode.description"
+    default         = "auto"
+    options         = [
+        { value = "auto",  label_key = "settings.size_mode.auto" },
+        { value = "fixed", label_key = "settings.size_mode.fixed" },
+    ]
+
+    [[widget.setting]]
+    key             = "preview_size"
+    type            = "int"
+    label_key       = "settings.preview_size.label"
+    description_key = "settings.preview_size.description"
+    default         = 24
+    min             = 12
+    max             = 48
+    visible_when    = { key = "size_mode", values = ["auto"] }
+
+    [[widget.setting]]
+    key             = "max_output_length"
+    type            = "int"
+    label_key       = "settings.max_output_length.label"
+    description_key = "settings.max_output_length.description"
+    default         = 160
+    min             = 24
+    max             = 320
+    visible_when    = { key = "size_mode", values = ["auto"] }
+
+    [[widget.setting]]
+    key             = "fixed_width"
+    type            = "int"
+    label_key       = "settings.fixed_width.label"
+    description_key = "settings.fixed_width.description"
+    default         = 96
+    min             = 24
+    max             = 320
+    visible_when    = { key = "size_mode", values = ["fixed"] }
+
+    [[widget.setting]]
+    key             = "fixed_height"
+    type            = "int"
+    label_key       = "settings.fixed_height.label"
+    description_key = "settings.fixed_height.description"
+    default         = 24
+    min             = 12
+    max             = 64
+    visible_when    = { key = "size_mode", values = ["fixed"] }
+
+    [[widget.setting]]
+    key             = "output_gap"
+    type            = "int"
+    label_key       = "settings.output_gap.label"
+    description_key = "settings.output_gap.description"
+    default         = 3
+    min             = 0
+    max             = 12
+
+    [[widget.setting]]
+    key             = "window_gap"
+    type            = "int"
+    label_key       = "settings.window_gap.label"
+    description_key = "settings.window_gap.description"
+    default         = 1
+    min             = 0
+    max             = 4
+
+    [[widget.setting]]
+    key             = "viewport_mode"
+    type            = "select"
+    label_key       = "settings.viewport_mode.label"
+    description_key = "settings.viewport_mode.description"
+    default         = "off"
+    options         = [
+        { value = "off",       label_key = "settings.viewport_mode.off" },
+        { value = "highlight", label_key = "settings.viewport_mode.highlight" },
+        { value = "separate",  label_key = "settings.viewport_mode.separate" },
+        { value = "both",      label_key = "settings.viewport_mode.both" },
+    ]
+
+    [[widget.setting]]
+    key             = "viewport_color"
+    type            = "color"
+    label_key       = "settings.viewport_color.label"
+    description_key = "settings.viewport_color.description"
+    default         = "tertiary"
+    visible_when    = { key = "viewport_mode", values = ["highlight", "separate", "both"] }
+
+    [[widget.setting]]
+    key             = "viewport_border_width"
+    type            = "int"
+    label_key       = "settings.viewport_border_width.label"
+    description_key = "settings.viewport_border_width.description"
+    default         = 2
+    min             = 1
+    max             = 4
+    visible_when    = { key = "viewport_mode", values = ["highlight", "separate", "both"] }
+
+    [[widget.setting]]
+    key             = "show_icons"
+    type            = "bool"
+    label_key       = "settings.show_icons.label"
+    description_key = "settings.show_icons.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "normal_color"
+    type            = "color"
+    label_key       = "settings.normal_color.label"
+    description_key = "settings.normal_color.description"
+    default         = "outline"
+
+    [[widget.setting]]
+    key             = "active_color"
+    type            = "color"
+    label_key       = "settings.active_color.label"
+    description_key = "settings.active_color.description"
+    default         = "secondary"
+
+    [[widget.setting]]
+    key             = "urgent_color"
+    type            = "color"
+    label_key       = "settings.urgent_color.label"
+    description_key = "settings.urgent_color.description"
+    default         = "error"
+
+    [[widget.setting]]
+    key             = "show_floating"
+    type            = "bool"
+    label_key       = "settings.show_floating.label"
+    description_key = "settings.show_floating.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "floating_mode"
+    type            = "select"
+    label_key       = "settings.floating_mode.label"
+    description_key = "settings.floating_mode.description"
+    default         = "strip"
+    options         = [
+        { value = "strip", label_key = "settings.floating_mode.strip" },
+        { value = "exact", label_key = "settings.floating_mode.exact" },
+    ]
+    visible_when    = { key = "show_floating", values = ["true"] }
+
+    [[widget.setting]]
+    key             = "floating_color"
+    type            = "color"
+    label_key       = "settings.floating_color.label"
+    description_key = "settings.floating_color.description"
+    default         = "#ffb74d"
+    visible_when    = { key = "show_floating", values = ["true"] }
+
+    [[widget.setting]]
+    key             = "highlight_focused"
+    type            = "bool"
+    label_key       = "settings.highlight_focused.label"
+    description_key = "settings.highlight_focused.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "focused_color"
+    type            = "color"
+    label_key       = "settings.focused_color.label"
+    description_key = "settings.focused_color.description"
+    default         = "primary"
+    visible_when    = { key = "highlight_focused", values = ["true"] }
+
+    [[widget.setting]]
+    key             = "invert_scroll"
+    type            = "bool"
+    label_key       = "settings.invert_scroll.label"
+    description_key = "settings.invert_scroll.description"
+    default         = false
+
+    [[widget.setting]]
+    key             = "highlight_hovered"
+    type            = "bool"
+    label_key       = "settings.highlight_hovered.label"
+    description_key = "settings.highlight_hovered.description"
+    default         = true
+
+    [[widget.setting]]
+    key             = "hover_color"
+    type            = "color"
+    label_key       = "settings.hover_color.label"
+    description_key = "settings.hover_color.description"
+    default         = "secondary"
+    visible_when    = { key = "highlight_hovered", values = ["true"] }

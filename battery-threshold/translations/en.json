@@ -3,14 +3,14 @@
     "widget-settings": "Widget Settings"
   },
   "launcher": {
-    "open-title": "Battery Threshold Control",
-    "open-subtitle": "Open panel · currently {threshold}%",
     "no-permissions": "Write access is not set up",
     "open-panel-hint": "Press Enter to open the panel",
-    "set-title": "Set charge threshold to {value}%",
+    "open-subtitle": "Open panel · currently {threshold}%",
+    "open-title": "Battery Threshold Control",
+    "set-notify": "Charge threshold set to {value}%",
     "set-subtitle": "Press Enter to apply",
     "set-subtitle-clamped": "Clamped to {min}-{max}%. Press Enter to apply",
-    "set-notify": "Charge threshold set to {value}%"
+    "set-title": "Set charge threshold to {value}%"
   },
   "notification": {
     "error-msg": "Failed to write battery threshold to {file}",
@@ -28,7 +28,7 @@
   },
   "settings": {
     "battery-device": "Battery Device",
-    "battery-device-desc": "Battery to configure threshold for (leave empty for all detected batteries)",
+    "battery-device-desc": "Battery to configure threshold for",
     "charge-threshold": "Charge Threshold",
     "charge-threshold-desc": "The percentage at which the battery should stop charging",
     "no-battery-device": "No configurable batteries are available on this system"

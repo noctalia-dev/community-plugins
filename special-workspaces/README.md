@@ -38,13 +38,21 @@ Inactive workspaces appear only while populated and can be hidden with `hide_ina
 | `capsule_min_width` | `int` | `35` | Minimum capsule length along the bar axis, in logical pixels. Negative values are treated as `0`. |
 | `active_style` | `select` | `"fill"` | Active capsule style: `"fill"` or `"ghost"`. |
 | `inactive_style` | `select` | `"fill"` | Inactive capsule style: `"fill"` or `"ghost"`. Hidden when `hide_inactive` is enabled. |
+| `active_color` | `color` | `"primary"` | Fill color of active capsules. Palette role name or hex value. |
+| `active_text_color` | `color` | `"on_primary"` | Label color inside active capsules. |
+| `inactive_color` | `color` | `"secondary"` | Fill color of inactive capsules. |
+| `inactive_text_color` | `color` | `"on_secondary"` | Label color inside inactive capsules. |
 
 ## Notes
 
 - Active means visible on any monitor, not focused.
-- Fill style uses `primary` colors for active workspaces and `secondary` colors
-  for inactive workspaces. Ghost style uses a transparent fill with `primary`
-  or `on_surface` text.
+- Fill style uses the configured colors, which default to `primary` for active
+  workspaces and `secondary` for inactive ones. Ghost style uses a transparent
+  fill with the active color, or `on_surface` text for inactive capsules.
+- Color settings take either a palette role name (`primary`, `secondary`,
+  `tertiary`, `on_surface`, ...) or a hex value such as `#3B4261`. Useful when
+  the bar's own workspace widget already uses one of those roles and the
+  capsules would otherwise be indistinguishable from it.
 - On vertical bars, capsules grow vertically and display one Unicode character
   per line from top to bottom.
 - The service snapshots `hyprctl -j clients` and `hyprctl -j monitors`, then

@@ -16,6 +16,10 @@
 -- mounted USB/removable volume, or those volumes alone. Mounts are detected
 -- with `lsblk` (see probeMounts), only when the scope needs them.
 --
+-- The globe button swaps the search folder for "/" (whole-system search),
+-- still pruning remote, FUSE and pseudo filesystems and the removable disks
+-- (see shared.wholePrunePaths). Unreadable folders are skipped silently.
+--
 -- The index is rebuilt when the panel opens with changed settings, a different
 -- scope or a different set of disks, and on demand via the refresh button. The
 -- bar widget mirrors the panel's open state through the shared
@@ -234,7 +238,7 @@ end
 -- >100 MB, and paying that read on every scope change is what made the button
 -- feel like it wedged the shell.
 local function readTotal(dir)
-    local target = shared.scope
+    local target = shared.cacheTag()
     buildMs = nil -- belongs to the index of this scope, if that one recorded it
     local recorded = noctalia.readFile(dir .. "/count-" .. target)
     if recorded ~= nil then
@@ -265,7 +269,7 @@ local function readTotal(dir)
         if result.exitCode == 0 and not result.timedOut then
             local count = tonumber(shared.trim(result.stdout or "")) or 0
             totals[target] = { count = count, size = info.size, mtime = info.mtime }
-            if shared.scope == target then
+            if shared.cacheTag() == target then
                 total = count
                 render()
             end
@@ -300,7 +304,7 @@ buildIndex = function()
     -- the format of the index being replaced.
     local builtRoots = shared.roots
     local absolute = #builtRoots > 1
-    local builtScope = shared.scope
+    local builtScope = shared.cacheTag()
 
     local cmd = shared.buildCommand(dir, key, absolute)
 
@@ -309,7 +313,7 @@ buildIndex = function()
         indexing = false
         if result.exitCode == 0 and not result.timedOut then
             totals[builtScope] = nil -- size/mtime moved; recount lazily
-            if builtScope ~= shared.scope then
+            if builtScope ~= shared.cacheTag() then
                 -- The scope was cycled while the walk ran, so what just landed
                 -- on disk is not what the panel is showing: none of it — the
                 -- count, the freshness — describes the current scope. Derive
@@ -604,6 +608,12 @@ end
 
 -- ── usage donut ──────────────────────────────────────────────────────────────
 
+-- The chart measures the search folder, and its legend filters records
+-- relative to it: neither holds on a disk scope or on a whole-system index.
+local function usageAvailable()
+    return shared.scope == "folder" and not shared.whole
+end
+
 local USAGE_SIZE = 108
 local USAGE_THICKNESS = 16
 local USAGE_LABEL_MAX = 16
@@ -616,7 +626,7 @@ local USAGE_ROW_HEIGHT = 20
 -- scope: those roots are removable volumes, du over one is a minutes-long
 -- walk, and the panel already refuses to index them unasked.
 local function requestUsage(force)
-    if not showUsage or shared.scope ~= "folder" then
+    if not showUsage or not usageAvailable() then
         return
     end
     local root = shared.searchRoot()
@@ -709,7 +719,7 @@ end
 -- The whole strip, or nil when it is off — which leaves the panel exactly the
 -- shape it had before the chart existed.
 local function usageSection()
-    if not showUsage or shared.scope ~= "folder" then
+    if not showUsage or not usageAvailable() then
         return nil
     end
 
@@ -900,11 +910,22 @@ local function usageButton()
         key = "usage-toggle",
         glyph = "chart-donut",
         variant = showUsage and "secondary" or "ghost",
-        enabled = shared.scope == "folder",
-        tooltip = shared.scope == "folder"
+        enabled = usageAvailable(),
+        tooltip = usageAvailable()
             and shared.tr(showUsage and "tip_usage_hide" or "tip_usage_show")
             or shared.tr("tip_usage_folder_only"),
         onClick = "onToggleUsage",
+    })
+end
+
+-- Whole-system search on/off. Highlighted while on, like the usage toggle.
+local function wholeButton()
+    return ui.button({
+        key = "whole-toggle",
+        glyph = "world",
+        variant = shared.whole and "secondary" or "ghost",
+        tooltip = shared.tr(shared.whole and "tip_whole_off" or "tip_whole_on"),
+        onClick = "onToggleWhole",
     })
 end
 
@@ -951,6 +972,7 @@ render = function()
             ui.spacer({ key = "gap", flexGrow = 1 }),
             rankingButton(),
             usageButton(),
+            wholeButton(),
             scopeButton(),
             ui.button({ key = "refresh", glyph = "refresh", variant = "ghost", tooltip = shared.tr("tip_refresh"), onClick = "onRefreshIndex" }),
             ui.button({ key = "settings", glyph = "settings", variant = "ghost", tooltip = shared.tr("tip_settings"), onClick = "onOpenSettings" }),
@@ -1050,7 +1072,7 @@ applyState = function()
         -- Out of date, and not ours to fix on our own: an index built for
         -- another disk set still answers most queries, so it is searched and
         -- labelled rather than thrown away.
-        haveIndex = noctalia.fileExists(dir .. "/list-" .. shared.scope)
+        haveIndex = noctalia.fileExists(dir .. "/list-" .. shared.cacheTag())
         indexState = haveIndex and "stale" or "missing"
         if haveIndex then
             readTotal(dir)
@@ -1128,6 +1150,7 @@ function onOpen(_context)
         -- Re-read on every open: the launcher may have cycled the scope, and
         -- a script reload drops both of these from memory.
         shared.scope = shared.readScope(dir)
+        shared.whole = shared.readWhole(dir)
         shared.ranking = shared.readRanking(dir)
         showUsage = readShowUsage(dir)
         -- An earlier session's measurement, so the chart is up with the panel
@@ -1185,6 +1208,7 @@ function onConfigChanged()
     local dir = shared.dataDir()
     if dir ~= nil then
         shared.scope = shared.readScope(dir)
+        shared.whole = shared.readWhole(dir)
     end
     -- Expired, not redone: this also fires with the panel closed. A changed
     -- search_folder invalidates itself (usage.fresh compares the root); a
@@ -1232,7 +1256,7 @@ end
 
 -- Hiding does not discard the measurement, so showing it again is instant.
 function onToggleUsage()
-    if shared.scope ~= "folder" then
+    if not usageAvailable() then
         return
     end
     showUsage = not showUsage
@@ -1282,6 +1306,25 @@ function onCycleScope()
     render()
     requestReload(false, false)
     -- A no-op on a disk scope, so this is safe on every leg.
+    requestUsage(false)
+end
+
+-- Same shape as onCycleScope: persist, clear, and let requestReload decide
+-- whether the other index is fresh or needs a walk. Each side keeps its own
+-- cache (shared.cacheTag), so toggling back is instant.
+function onToggleWhole()
+    shared.whole = not shared.whole
+    local dir = shared.dataDir()
+    if dir ~= nil then
+        shared.writeWhole(dir, shared.whole)
+    end
+    shared.mountsAt = 0 -- the folder scope never took a mount list
+    results = {}
+    total = nil
+    errMsg = nil
+    usageFilter = nil
+    render()
+    requestReload(false, false)
     requestUsage(false)
 end
 

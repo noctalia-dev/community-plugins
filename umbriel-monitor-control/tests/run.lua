@@ -3,6 +3,10 @@
 -- The plugin's Luau `require("./config.luau")` is a no-op here; we load the
 -- module from source with the extension swapped.
 
+-- Lua 5.1 has loadstring; 5.2+ moved string chunks into load(). Both spellings
+-- take (source, chunkname) in the same order.
+local compile = loadstring or load
+
 local function loadModule(name)
   local script = arg and arg[0] or "run.lua"
   local path = script:gsub("tests/run%.lua$", "")
@@ -13,8 +17,8 @@ local function loadModule(name)
   local src = file:read("*a")
   file:close()
   -- strip the Luau attribute line; load the module body as a Lua chunk
-  src = src:gsub("^%-%!%S+\n", "")
-  return assert(load(src, name))()
+  src = src:gsub("^%-%!%S+%c*", "")
+  return assert(compile(src, name))()
 end
 
 local config = loadModule("config.luau")
@@ -40,6 +44,7 @@ local FIXTURE = table.concat({
   'mode = "1920x1080@120"                        # WIDTHxHEIGHT',
   "position = [0, 0]                             # Logical top-left",
   "scale = 1.0",
+  'transform = "normal"                          # normal, 90, 180, 270, or a flipped variant',
   "",
   "[output.DP-1]",
   "enabled = true                                # False removes the output",
@@ -135,6 +140,100 @@ check("hz 60000 -> 60", config.hzText(60000) == "60")
 local bad, reason = config.patchConfig(FIXTURE, "", { mode = "x" })
 check("empty name rejected", bad == nil and reason ~= nil)
 
+-- ── transform: the rotate option ─────────────────────────────────────────────
+
+-- replacing an existing transform keeps its trailing comment verbatim
+out = config.patchConfig(FIXTURE, "eDP-1", { transform = "90" })
+check("transform replaced", out:find('transform = "90"', 1, true) ~= nil)
+check("old transform gone from eDP-1", out:find('transform = "normal"') == nil)
+local eTransform = out:match('transform = "90"[^\n]*')
+check("transform comment preserved verbatim",
+  eTransform == 'transform = "90" # normal, 90, 180, 270, or a flipped variant')
+check("transform patch leaves the mode alone", out:find('mode = "1920x1080@120"', 1, true) ~= nil)
+
+-- a section without a transform gets one appended inside its own section,
+-- before the nested header that ends it
+out = config.patchConfig(FIXTURE, "DP-1", { transform = "flipped-90" })
+local dpBlock = out:match("%[output%.DP%-1%](.-)%[output%.DP%-1%.")
+check("transform appended inside DP-1",
+  dpBlock ~= nil and dpBlock:find('transform = "flipped%-90"') ~= nil)
+
+-- every value of Umbriel's vocabulary is written; anything else never is
+local allWritten = true
+for _, value in ipairs(config.TRANSFORMS) do
+  local patched = config.patchConfig(FIXTURE, "DP-1", { transform = value })
+  if patched == nil or patched:find('transform = "' .. value .. '"', 1, true) == nil then
+    allWritten = false
+  end
+end
+check("every vocabulary value is written", allWritten)
+check("an unknown transform changes nothing",
+  config.patchConfig(FIXTURE, "DP-1", { transform = "clockwise" }) == FIXTURE)
+check("a number is not a transform",
+  config.patchConfig(FIXTURE, "DP-1", { transform = 90 }) == FIXTURE)
+
+check("isTransform accepts the whole vocabulary", (function()
+  for _, value in ipairs(config.TRANSFORMS) do
+    if not config.isTransform(value) then
+      return false
+    end
+  end
+  return true
+end)())
+check("isTransform rejects an unknown value", config.isTransform("clockwise") == false)
+check("isTransform rejects nil", config.isTransform(nil) == false)
+check("isTransform rejects a number", config.isTransform(90) == false)
+
+-- select mapping: rotationIndex is zero-based, and nothing known falls back to
+-- the no-rotation slot
+check("rotationIndex normal is 0", config.rotationIndex("normal") == 0)
+check("rotationIndex 90 is 1", config.rotationIndex("90") == 1)
+check("rotationIndex flipped-270 is 7", config.rotationIndex("flipped-270") == 7)
+check("rotationIndex nil is 0", config.rotationIndex(nil) == 0)
+check("rotationIndex of an unknown value is 0", config.rotationIndex("clockwise") == 0)
+check("every transform has its own select slot", (function()
+  local seen = {}
+  for _, value in ipairs(config.TRANSFORMS) do
+    local index = config.rotationIndex(value)
+    if index < 0 or index > #config.TRANSFORMS - 1 or seen[index] then
+      return false
+    end
+    seen[index] = true
+  end
+  return true
+end)())
+
+-- select labels: a human degree reading per transform, and never the raw value
+check("label: normal reads 0°", config.rotationLabel("normal", "flipped") == "0°")
+check("label: 90 reads 90°", config.rotationLabel("90", "flipped") == "90°")
+check("label: 180 reads 180°", config.rotationLabel("180", "flipped") == "180°")
+check("label: 270 reads 270°", config.rotationLabel("270", "flipped") == "270°")
+check("label: flipped reads 0° flipped", config.rotationLabel("flipped", "flipped") == "0° flipped")
+check("label: flipped-90 reads 90° flipped", config.rotationLabel("flipped-90", "flipped") == "90° flipped")
+check("label: flipped-180 reads 180° flipped", config.rotationLabel("flipped-180", "flipped") == "180° flipped")
+check("label: flipped-270 reads 270° flipped", config.rotationLabel("flipped-270", "flipped") == "270° flipped")
+check("label: the flipped word is the caller's", config.rotationLabel("flipped-90", "gespiegelt") == "90° gespiegelt")
+check("label: an unknown value falls through", config.rotationLabel("clockwise", "flipped") == "clockwise")
+check("label: every transform reads as something other than its value", (function()
+  for _, value in ipairs(config.TRANSFORMS) do
+    local label = config.rotationLabel(value, "flipped")
+    if type(label) ~= "string" or label == "" or label == value then
+      return false
+    end
+  end
+  return true
+end)())
+
+-- mode, position and transform together, on a fresh section
+out = config.patchConfig(FIXTURE, "HDMI-A-1", { mode = "3840x2160@60", x = -2160, y = -2160, transform = "90" })
+check("fresh section takes mode, position and transform",
+  out:find("%[output%.HDMI%-A%-1%]%s*mode = \"3840x2160@60\"%s*position = %[%-2160, %-2160%]%s*transform = \"90\"") ~= nil)
+
+-- idempotence, on the commented transform line
+local tOnce = config.patchConfig(FIXTURE, "eDP-1", { transform = "270" })
+local tTwice = config.patchConfig(tOnce, "eDP-1", { transform = "270" })
+check("transform patch is idempotent", tOnce == tTwice)
+
 -- idempotence: patching with the same mode yields identical text, on a plain
 -- key and on a comment-carrying one
 local once = config.patchConfig(FIXTURE, "DP-1", { mode = "1280x720@60" })
@@ -147,12 +246,13 @@ check("idempotent on commented key", cOnce == cTwice)
 
 -- ── layout.luau: the arrangement map the panel draws ─────────────────────────
 
-local function output(name, x, y, w, h, enabled, scale)
+local function output(name, x, y, w, h, enabled, scale, transform)
   return {
     name = name,
     enabled = enabled ~= false,
     position = { x = x, y = y },
     scale = scale or 1.0,
+    transform = transform,
     modes = {
       { width = w, height = h, refresh_mhz = 143999, current = false },
       { width = w, height = h, refresh_mhz = 59940, current = true },
@@ -175,6 +275,39 @@ check("scale divides the mode", (function()
   local scaled = layout.rects({ output("DP-1", 0, 0, 2560, 1440, true, 2.0) })[1]
   return scaled.w == 1280 and scaled.h == 720
 end)())
+
+-- rotation: a 90/270 transform swaps the drawn extents, flipped or not - and
+-- nothing else does
+check("swap: 90", layout.swapsExtents("90") == true)
+check("swap: 270", layout.swapsExtents("270") == true)
+check("swap: flipped-90", layout.swapsExtents("flipped-90") == true)
+check("swap: flipped-270", layout.swapsExtents("flipped-270") == true)
+check("no swap: normal", layout.swapsExtents("normal") == false)
+check("no swap: 180", layout.swapsExtents("180") == false)
+check("no swap: flipped", layout.swapsExtents("flipped") == false)
+check("no swap: flipped-180", layout.swapsExtents("flipped-180") == false)
+check("no swap: nil", layout.swapsExtents(nil) == false)
+
+local portraitRect = layout.rects({ output("DP-1", 0, 0, 2560, 1440, true, 1.0, "flipped-90") })[1]
+check("flipped-90 draws the extents swapped", portraitRect.w == 1440 and portraitRect.h == 2560)
+local upsideDownRect = layout.rects({ output("DP-1", 0, 0, 2560, 1440, true, 1.0, "180") })[1]
+check("180 keeps the extents", upsideDownRect.w == 2560 and upsideDownRect.h == 1440)
+local normalRect = layout.rects({ output("DP-1", 0, 0, 2560, 1440, true, 1.0, "normal") })[1]
+check("normal keeps the extents", normalRect.w == 2560 and normalRect.h == 1440)
+-- a rotated output and its rotated neighbour tile correctly: the dock maths and
+-- the map both work in the rotated (swapped) space
+local portraitStack = layout.rects({
+  output("DP-1", 0, -2560, 2560, 1440, true, 1.0, "90"),
+  output("eDP-1", 0, 0, 1920, 1080),
+})
+check("a rotated monitor docks against swapped extents", portraitStack[1].w == 1440 and portraitStack[1].h == 2560)
+-- a rotated monitor docks against its own swapped extents: a 2560x1440 panel
+-- turned on its side is 1440 wide and 2560 tall, so docking above a 1080-tall
+-- laptop puts it at -2560, not -1440
+local portraitDock = layout.dock(
+  { x = 0, y = 0, w = portraitStack[1].w, h = portraitStack[1].h },
+  { { x = 0, y = 0, w = 1920, h = 1080 } }, "up")
+check("dock uses the rotated height", portraitDock.y == -2560 and portraitDock.x == 0)
 
 local map = layout.map(rects, 400, 150)
 check("stacked arrangement is two bands", #map.bands == 2)

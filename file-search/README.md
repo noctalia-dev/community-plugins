@@ -49,13 +49,14 @@ Header buttons, left to right:
 |---|---|---|
 | 🗠/🗺 | Ranking | Switches how matches are scored (see *Search syntax*) |
 | ◕ | Usage chart | Shows/hides the disk-usage donut |
+| 🌐 | Whole system | Searches all of `/` instead of the search folder (see *Whole-system search*) |
 | 🗀 | Scope | Cycles what the search covers (see *Searching external disks*) |
 | ↻ | Refresh | Rebuilds the index (and, on the folder scope, re-measures disk usage) |
 | ⚙ | Settings | Opens this plugin's page in *Settings → Plugins* (same as `noctalia msg settings-open-plugin nightwatch75/file-search`) |
 | ✕ | Close | Closes the panel |
 
-Every choice made from these buttons (ranking, scope, usage chart shown or
-not) survives a restart. The plugin version sits next to the panel title; the
+Every choice made from these buttons (ranking, whole system, scope, usage
+chart shown or not) survives a restart. The plugin version sits next to the panel title; the
 footer shows how many results are listed, how many entries are indexed, and
 how long the last index build took.
 
@@ -225,6 +226,13 @@ For local development, add your working copy as a path source instead
 noctalia msg plugins source add dev path /path/to/plugins
 noctalia msg plugins enable nightwatch75/file-search
 ```
+
+### Whole-system search
+
+The 🌐 button searches all of `/` instead of the search folder. It is off by
+default. `/proc`, `/sys`, `/dev`, `/run`, remote and FUSE mounts (NFS, CIFS,
+sshfs, rclone, OneDrive…) and removable disks stay excluded. Unreadable
+folders are skipped.
 
 ## Notes
 

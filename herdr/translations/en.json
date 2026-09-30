@@ -1,0 +1,108 @@
+{
+  "action": {
+    "deleted": "Session deleted",
+    "deleting": "Deleting session…",
+    "focused": "Focused session",
+    "focusing": "Focusing agent…",
+    "opened": "Opened session",
+    "opening": "Opening session…",
+    "stopped": "Session stopped",
+    "stopping": "Stopping session…"
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm_delete": "Delete",
+    "delete": "Delete session",
+    "focus_agent": "Focus agent",
+    "open": "Open",
+    "refresh": "Refresh",
+    "start": "Start",
+    "stop": "Stop"
+  },
+  "error": {
+    "bad_session_list": "HerdR returned an invalid session list.",
+    "bad_snapshot": "HerdR returned an invalid session snapshot.",
+    "command_failed": "HerdR command failed.",
+    "command_timed_out": "HerdR command timed out.",
+    "default_delete": "The default session cannot be deleted.",
+    "herdr_missing": "HerdR is not installed or is not available on PATH.",
+    "invalid_session": "Invalid HerdR session name.",
+    "invalid_target": "Invalid HerdR pane target.",
+    "machine_failed": "This machine could not be reached.",
+    "machine_list": "HerdR returned an invalid machine list.",
+    "no_terminal": "No terminal is available to open HerdR.",
+    "session_disappeared": "That HerdR session no longer exists.",
+    "session_list_too_large": "The HerdR session list is too large to read safely.",
+    "snapshot_too_large": "This HerdR session snapshot is too large to read safely."
+  },
+  "notify": {
+    "action_failed": "HerdR action failed"
+  },
+  "panel": {
+    "empty": "No HerdR sessions were found.",
+    "machine": "Remote machine",
+    "nothing_saved": "Nothing saved",
+    "session_counts": "{agents} agents · {blocked} need you · {done} done · {working} working",
+    "stale": "Latest session data could not be refreshed: {error}",
+    "summary": "{sessions} running sessions · {agents} agents",
+    "title": "HerdR",
+    "workspace_agents": {
+      "one": "{count} agent",
+      "other": "{count} agents"
+    },
+    "workspace_meta": "{panes} · {agents}",
+    "workspace_panes": {
+      "one": "{count} pane",
+      "other": "{count} panes"
+    }
+  },
+  "settings": {
+    "color_blocked": {
+      "description": "Color used for agents needing action, in the bar badge and the panel.",
+      "label": "Needs action color"
+    },
+    "color_done": {
+      "description": "Color used for agents that completed their tasks, in the bar badge and the panel.",
+      "label": "Done color"
+    },
+    "color_working": {
+      "description": "Color used for active running agents, in the bar badge and the panel.",
+      "label": "Working color"
+    },
+    "display_mode": {
+      "description": "Choose what to display on the bar widget.",
+      "label": "Display mode",
+      "options": {
+        "icon": "Icon only",
+        "icon_and_count": "Icon and count"
+      }
+    },
+    "hide_agentless_panes": {
+      "description": "Hide panes that are running no agent, so the panel lists agents only.",
+      "label": "Hide panes without an agent"
+    },
+    "hide_count_when_zero": {
+      "description": "Hide the badge count when no agents need action or are done, showing only the icon.",
+      "label": "Hide count when zero"
+    },
+    "show_other_machines": {
+      "description": "Also list sessions from the other machines saved in HerdR while the panel is open.",
+      "label": "Show other machines"
+    }
+  },
+  "status": {
+    "blocked": "Needs you",
+    "done": "Done",
+    "idle": "Ready",
+    "no_agent": "No agent",
+    "running": "Running",
+    "stopped": "Stopped",
+    "unknown": "Unknown",
+    "working": "Working"
+  },
+  "tooltip": {
+    "agents": "Agents",
+    "sessions": "Running sessions"
+  }
+}

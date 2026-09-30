@@ -1,0 +1,37 @@
+{
+  "settings": {
+    "low_battery_threshold": {
+      "description": "Akkustand in Prozent, ab dem eine Warnbenachrichtigung gesendet wird",
+      "label": "Warnschwelle für niedrigen Akkustand (%)"
+    },
+    "show_percentage": {
+      "description": "Prozentzahl neben dem Gerätesymbol in der Leiste anzeigen",
+      "label": "Akkustand in Prozent anzeigen"
+    },
+    "sync_theme_color": {
+      "description": "Razer-LED-Farben automatisch an Noctalias aktive Akzentfarbe anpassen",
+      "label": "RGB mit Theme synchronisieren"
+    }
+  },
+  "ui": {
+    "brightness": "LED-Helligkeit",
+    "custom_color_placeholder": "Hex-Farbe (z. B. #FF0055)",
+    "custom_dpi_placeholder": "Eigene DPI (z. B. 1500)",
+    "daemon_not_running": "OpenRazer-Daemon läuft nicht",
+    "lighting_effect": "Beleuchtungseffekt",
+    "no_devices": "Keine Razer-Geräte gefunden",
+    "no_devices_hint": "Schließe eine unterstützte Razer-Maus, Tastatur oder ein Headset an.",
+    "off": "Aus",
+    "panel_title": "Razer Control Center",
+    "picker": "Farbauswahl",
+    "razer_green": "Razer-Grün",
+    "refresh": "Aktualisieren",
+    "sensitivity": "Empfindlichkeit (DPI)",
+    "set": "Übernehmen",
+    "spectrum": "Spektrum",
+    "start_daemon": "Daemon starten",
+    "start_daemon_hint": "Starte den Daemon mit:\nsystemctl --user start openrazer-daemon",
+    "theme_sync": "Theme-Sync",
+    "wired": "Kabelgebunden"
+  }
+}

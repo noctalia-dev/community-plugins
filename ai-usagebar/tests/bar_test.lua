@@ -31,12 +31,13 @@ local function loadBar(config, report, err)
         error = err or { code = "", detail = "" },
     }
     local rendered, tooltip
+    local watchers = {}
     local noctalia = {
         getConfig = function(key) return config[key] end,
         state = {
             get = function(key) return values[key] end,
             set = function(key, value) values[key] = value end,
-            watch = function() end,
+            watch = function(key, callback) watchers[key] = callback end,
         },
         setUpdateInterval = function() end,
         togglePanel = function() end,
@@ -60,6 +61,7 @@ local function loadBar(config, report, err)
     local barWidget = {
         render = function(node) rendered = node end,
         setTooltip = function(rows) tooltip = rows end,
+        isVertical = function() return config.vertical == true end,
     }
     local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
     local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
@@ -78,6 +80,10 @@ local function loadBar(config, report, err)
         values = values,
         rendered = function() return rendered end,
         tooltip = function() return tooltip end,
+        publish = function(nextReport)
+            values.report = nextReport
+            watchers.report(nextReport)
+        end,
     }
 end
 
@@ -291,8 +297,9 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 1 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100% · 6d 20h",
-       "bottleneckBar tooltip should show when the blocking weekly limit resets")
+assert(#bottleneckRows == 2 and bottleneckRows[1].key == "Codex" and bottleneckRows[1].value == "0% / 100%"
+       and bottleneckRows[2].key == "Reset" and bottleneckRows[2].value == "6d 20h",
+       "bottleneckBar tooltip should keep the blocking reset on a separate row")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -320,11 +327,15 @@ assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its e
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
-assert(#agyTooltip == 2, "antigravity tooltip should have 2 submodel rows")
-assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
-       "antigravity tooltip first row should be Gemini dual metrics")
-assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
-       "antigravity tooltip second row should be Claude & GPT OSS dual metrics")
+assert(#agyTooltip == 4, "antigravity tooltip should group each model with its reset")
+assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24%",
+       "antigravity tooltip first row should show Gemini percentages")
+assert(agyTooltip[2].key == "Reset" and agyTooltip[2].value == "2h 00m",
+       "Gemini reset should sit below its percentages")
+assert(agyTooltip[3].key == "Claude & GPT OSS" and agyTooltip[3].value == "0% / 100%",
+       "antigravity tooltip should keep the full long model name")
+assert(agyTooltip[4].key == "Reset" and agyTooltip[4].value == "6d 20h",
+       "Claude & GPT OSS reset should sit below its percentages")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -349,6 +360,21 @@ assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show rob
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
+assert(#normalAgyBar.tooltip() == 2, "models without reset times should not gain empty reset rows")
+
+local reorderedAgyBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, { entries = {
+    { id = "antigravity", display_name = "Antigravity", status = "ready", metrics = {
+        { label = "Gemini", percent = 90, window_secs = 604800, severity = "high" },
+        { label = "Gemini", percent = 20, window_secs = 18000, severity = "low" },
+    } },
+} })
+assert(containsText(reorderedAgyBar.rendered(), "20%") and not containsText(reorderedAgyBar.rendered(), "90%"),
+    "Antigravity capsule should show the session percentage when weekly arrives first")
+
+local malformedGauge = loadBar({ vendor = "openai", visualization = "gauge" }, { entries = {
+    { id = "openai", display_name = "Codex", status = "ready", metrics = { 42 } },
+} })
+assert(malformedGauge.rendered() ~= nil, "gauge should survive a non-table metric")
 
 local countdownBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -370,8 +396,10 @@ assert(containsText(countdownBar.rendered(), "0h 54m"), "capsule should retain h
 assert(containsText(countdownBar.rendered(), "23h 05m"), "capsule should show hours and minutes below 24 hours")
 assert(containsText(countdownBar.rendered(), "·"), "capsule should show dot separator between submodels")
 local countdownTooltip = countdownBar.tooltip()
-assert(countdownTooltip[1].value == "64% · 0h 54m", "tooltip should show 0h 54m for minutes-only reset")
-assert(countdownTooltip[2].value == "69% · 23h 05m", "tooltip should show fixed hours and minutes")
+assert(countdownTooltip[1].value == "64%" and countdownTooltip[2].value == "0h 54m",
+       "tooltip should put the minutes-only reset on its own row")
+assert(countdownTooltip[3].value == "69%" and countdownTooltip[4].value == "23h 05m",
+       "tooltip should keep fixed hours and minutes visible")
 
 io.write("ok: account selection, unavailable providers, and a steady capsule\n")
 local parserFailure = loadBar({ vendor = "openai", extras = "countdown" }, { entries = {
@@ -390,7 +418,8 @@ quotaEntry.metrics = {
 }
 local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
 assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
-assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
+assert(bothBlocked.tooltip()[1].value == "100% / 100%"
+       and bothBlocked.tooltip()[2].value == "6d 20h", "tooltip must agree with the bar's blocking reset")
 quotaEntry.id = "antigravity"
 quotaEntry.metrics[1].percent = 0
 local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
@@ -420,3 +449,86 @@ assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(i
        "show_value=false must preserve enabled model glyphs")
 local quietFailure = loadBar({ vendor = "openai", show_glyph = false }, parserFailure.values.report)
 assert(containsText(quietFailure.rendered(), "—"), "hidden glyph must not create a hole before the parser error label")
+
+local vertBar = loadBar({ vendor = "openai", vertical = true }, { entries = { quotaEntry } })
+assert(vertBar.rendered().kind == "column", "vertical bar must render a column")
+
+local multiReport = {
+    entries = {
+        entry("openai", "Codex", 50),
+        entry("anthropic", "Claude", 20),
+    }
+}
+local scrollBar = loadBar({ vendor = "auto" }, multiReport)
+assert(containsText(scrollBar.rendered(), "50%"), "initial auto shows first entry")
+scrollBar.env.onScroll("vertical", 1, true)
+assert(containsText(scrollBar.rendered(), "20%"), "scrolling down rotates to next entry")
+scrollBar.publish({ entries = {
+    entry("openai", "Codex", 50),
+    entry("anthropic", "Claude", 90),
+} })
+assert(containsText(scrollBar.rendered(), "90%"),
+       "refresh should preserve the selected provider even when usage reorders it")
+scrollBar.env.onScroll("vertical", -1, true)
+assert(containsText(scrollBar.rendered(), "50%"), "scrolling up returns to first entry")
+
+local vertGaugeBar = loadBar({ vendor = "openai", vertical = true, visualization = "gauge" }, { entries = { entry("openai", "Codex", 65) } })
+local miniGaugeNode = findNode(vertGaugeBar.rendered(), function(n) return n.props.key == "mini-gauge" end)
+assert(miniGaugeNode ~= nil, "vertical bar with gauge visualization should render mini-gauge")
+
+local fastEntry = entry("openai", "Codex", 80)
+fastEntry.metrics[1].detail = "Resets in 4h 00m · 20% elapsed · 60pts ahead"
+local pacingBar = loadBar({ vendor = "openai", extras = "none" }, { entries = { fastEntry } })
+assert(not containsGlyph(pacingBar.rendered(), "arrow-up"), "extras=none should not add an unexplained pace arrow")
+
+local function findAllNodes(node, predicate, acc)
+    acc = acc or {}
+    if type(node) ~= "table" then return acc end
+    if predicate(node) then acc[#acc + 1] = node end
+    for _, child in ipairs(node.children or {}) do
+        findAllNodes(child, predicate, acc)
+    end
+    return acc
+end
+
+local dualBarTest = loadBar({ vendor = "openai", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "openai",
+            display_name = "Codex",
+            status = "ready",
+            metrics = {
+                { label = "Codex 5h", percent = 10, window_secs = 18000 },
+                { label = "Codex weekly", percent = 95, window_secs = 604800 },
+            },
+        },
+    },
+})
+local progressBars = findAllNodes(dualBarTest.rendered(), function(n) return n.kind == "progress" end)
+assert(#progressBars == 2, "dual metric provider should render 2 progress bars")
+assert(progressBars[1].props.height == 6 and progressBars[1].props.progress == 0.10,
+       "top bar must be the 5h limit with height 6")
+assert(progressBars[2].props.height == 3 and progressBars[2].props.progress == 0.95,
+       "bottom bar must be the weekly limit with height 3")
+
+local agyDualBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, {
+    entries = {
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 15, window_secs = 18000 },
+                { label = "Claude & GPT OSS", percent = 40, window_secs = 18000 },
+                { label = "Gemini", percent = 80, window_secs = 604800 },
+                { label = "Claude & GPT OSS", percent = 100, window_secs = 604800 },
+            },
+        },
+    },
+})
+local agyBars = findAllNodes(agyDualBar.rendered(), function(n) return n.kind == "progress" end)
+assert(#agyBars == 4, "antigravity with 2 models should render 4 progress bars (2 per model)")
+assert(agyBars[1].props.height == 6 and agyBars[1].props.progress == 0.15, "Gemini top bar is 5h")
+assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemini bottom bar is weekly")
+assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
+assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")

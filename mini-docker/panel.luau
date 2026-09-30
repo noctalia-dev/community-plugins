@@ -424,7 +424,7 @@ end)
 panel.setWantsSecondTicks(true)
 
 function onOpen(_context)
-  sendCommand("refresh")
+  sendCommand("refresh", { details = true })
   render()
 end
 
@@ -435,7 +435,7 @@ function update()
 end
 
 function onCloseClicked() panel.close() end
-function onRefresh() sendCommand("refresh") end
+function onRefresh() sendCommand("refresh", { details = true }) end
 function onTabContainers() switchTab("containers") end
 function onTabImages() switchTab("images") end
 function onTabVolumes() switchTab("volumes") end

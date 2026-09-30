@@ -7,7 +7,20 @@ local common = require("./common.luau")
 
 -- Breathing room between sections. A separator applies its spacing above and
 -- below the rule, so this is half the gap you actually see.
+-- Hairline (1px) rules vanish against a transparent / wallpapered panel; two
+-- logical pixels plus a stronger outline is still a rule, not a bar.
 local SECTION_SPACING = 9
+local RULE_THICKNESS = 2
+local RULE_COLOR = "on_surface/0.38"
+
+local function sectionRule(key)
+  return ui.separator({
+    key = key,
+    spacing = SECTION_SPACING,
+    thickness = RULE_THICKNESS,
+    color = RULE_COLOR,
+  })
+end
 
 -- Mirrors the OpenCodex dashboard: its quota bar is green below the warn
 -- threshold (`threshold: 80` in the GUI), amber at or above it, and a window is
@@ -556,7 +569,7 @@ local function accountsTab(body)
       }))
     end
     if index < #providers then
-      table.insert(body, ui.separator({ key = "sep:" .. provider.id, spacing = SECTION_SPACING }))
+      table.insert(body, sectionRule("sep:" .. provider.id))
     end
   end
 end
@@ -814,13 +827,13 @@ local function usageTab(body)
     }))
   end
 
-  table.insert(body, ui.separator({ key = "usage:sep1", spacing = SECTION_SPACING }))
+  table.insert(body, sectionRule("usage:sep1"))
   contributionGrid(body, usage.days or {})
 
-  table.insert(body, ui.separator({ key = "usage:sep2", spacing = SECTION_SPACING }))
+  table.insert(body, sectionRule("usage:sep2"))
   providerUsageRows(body, providers, models, totals, excluded)
 
-  table.insert(body, ui.separator({ key = "usage:sep3", spacing = SECTION_SPACING }))
+  table.insert(body, sectionRule("usage:sep3"))
   table.insert(body, ui.label({
     key = "usage:window-title",
     text = noctalia.tr("usage.window", { range = usage.range or "30d" }),

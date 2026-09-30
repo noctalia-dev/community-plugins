@@ -1,6 +1,6 @@
 id           = "thaer99ob/default-apps"
 name         = "Default Apps"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 24
 author       = "Thaer99ob"
 license      = "MIT"

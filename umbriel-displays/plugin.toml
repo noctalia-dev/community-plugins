@@ -4,7 +4,7 @@
 
 id = "prponkshe/umbriel-displays"
 name = "Umbriel Displays"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 22
 author = "prponkshe"
 license = "MIT"

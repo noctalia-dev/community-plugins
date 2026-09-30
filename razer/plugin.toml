@@ -1,0 +1,49 @@
+id           = "detluck/razer"
+name         = "Razer Devices"
+version      = "1.0.0"
+plugin_api   = 9
+author       = "detluck"
+license      = "MIT"
+icon         = "mouse-2"
+description  = "Razer device monitor, battery level indicator, and lighting controller via OpenRazer."
+tags         = ["hardware", "gaming", "theming", "system", "bar", "panel", "service"]
+dependencies = ["openrazer-daemon", "busctl", "systemctl"]
+
+[[setting]]
+key             = "sync_theme_color"
+type            = "bool"
+label_key       = "settings.sync_theme_color.label"
+description_key = "settings.sync_theme_color.description"
+default         = false
+
+[[setting]]
+key             = "low_battery_threshold"
+type            = "int"
+label_key       = "settings.low_battery_threshold.label"
+description_key = "settings.low_battery_threshold.description"
+default         = 20
+min             = 5
+max             = 50
+
+[[widget]]
+id    = "battery"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key             = "show_percentage"
+  type            = "bool"
+  label_key       = "settings.show_percentage.label"
+  description_key = "settings.show_percentage.description"
+  default         = true
+
+[[service]]
+id    = "monitor"
+entry = "service.luau"
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 460
+height    = 620
+placement = "floating"
+position  = "center"

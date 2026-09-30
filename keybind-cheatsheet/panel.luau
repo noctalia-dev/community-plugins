@@ -100,6 +100,21 @@ local function callback(prefix, fn)
   return name
 end
 
+local rowCallbackSlots = {}
+local rowCallbackCount = 0
+
+local function rowCallback(prefix, identity, fn)
+  local slot = rowCallbackSlots[identity]
+  if slot == nil then
+    rowCallbackCount += 1
+    slot = rowCallbackCount
+    rowCallbackSlots[identity] = slot
+  end
+  local name = "keybindCheatsheet_row_" .. prefix .. "_" .. slot
+  env[name] = fn
+  return name
+end
+
 local KEY_LABELS = {
   xf86audioraisevolume = "Vol Up",
   xf86audiolowervolume = "Vol Down",
@@ -667,8 +682,8 @@ local function bindingRow(binding, occurrence)
   local description = effectiveDescription(binding)
   local identity = binding.id .. "#" .. occurrence
   if view == "edit" and editingId == identity then
-    local visibilityChanged = callback("visibility", function()
-      if hidden then
+    local visibilityChanged = rowCallback("visibility", identity, function()
+      if preferences.hidden[binding.id] == true then
         preferences.hidden[binding.id] = nil
       else
         preferences.hidden[binding.id] = true
@@ -676,10 +691,10 @@ local function bindingRow(binding, occurrence)
       savePreferences()
       render()
     end)
-    local inputChanged = callback("editChange", function(value) editDraft = value end)
-    local submit = callback("editSubmit", function(value) saveCustomDescription(binding, value) end)
-    local save = callback("editSave", function() saveCustomDescription(binding, editDraft) end)
-    local cancel = callback("editCancel", function()
+    local inputChanged = rowCallback("editChange", identity, function(value) editDraft = value end)
+    local submit = rowCallback("editSubmit", identity, function(value) saveCustomDescription(binding, value) end)
+    local save = rowCallback("editSave", identity, function() saveCustomDescription(binding, editDraft) end)
+    local cancel = rowCallback("editCancel", identity, function()
       editingId = nil
       editDraft = ""
       render()
@@ -710,13 +725,13 @@ local function bindingRow(binding, occurrence)
     ui.column({ flexGrow = 1, gap = 0, opacity = contentOpacity }, labels),
   }
   if view == "edit" then
-    local edit = callback("edit", function()
+    local edit = rowCallback("edit", identity, function()
       editingId = identity
-      editDraft = description
+      editDraft = effectiveDescription(binding)
       render()
     end)
-    local visibilityChanged = callback("visibility", function()
-      if hidden then
+    local visibilityChanged = rowCallback("visibility", identity, function()
+      if preferences.hidden[binding.id] == true then
         preferences.hidden[binding.id] = nil
       else
         preferences.hidden[binding.id] = true

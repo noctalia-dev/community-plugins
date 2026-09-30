@@ -29,6 +29,7 @@ body:
         - 9router-control
         - agent-glow
         - agentik
+        - agy
         - ai-usagebar
         - airpods
         - ambient-sounds
@@ -64,6 +65,7 @@ body:
         - config-swap
         - contact-sounds
         - crashes
+        - cursor
         - custom-shortcut
         - daily-wallpaper
         - deepseek_usage
@@ -89,6 +91,7 @@ body:
         - godot-provider
         - gslapper
         - hassio
+        - herdr
         - hotspot
         - hypr-layout-switcher
         - hypr-screen-mirror
@@ -100,6 +103,7 @@ body:
         - input-echo-bar
         - inventory-manager
         - ip-monitor
+        - jalali_calendar
         - jetbrains-provider
         - k8s-status
         - keybind-cheatsheet
@@ -121,11 +125,14 @@ body:
         - mango_layouts
         - mangowm-keymode
         - mawaqit
+        - media-island
         - media-lyrics
         - mihomo-control
         - mimir
         - mini-docker
         - misr-quran-radio
+        - mx-control
+        - nan-usage
         - network-control
         - network-toolkit
         - nextboot-selector
@@ -135,9 +142,12 @@ body:
         - niri-displays
         - niri-ribbon
         - niri-rules-studio
+        - niri-workspace-preview
         - nix-monitor
         - nix-search
         - nix-status
+        - noctaproton-vpn
+        - noctes
         - noctwhspr
         - nvim-projects
         - nvtop
@@ -167,13 +177,16 @@ body:
         - proton-pass
         - pulsar-mouse
         - qrcode
+        - quill
         - quranwidget
         - radio
+        - razer
         - reading-list
         - region-recorder
         - remmina
         - rss-notifier
         - ruh-vpn
+        - rum-updates
         - run-path
         - screen-toolkit
         - share-wifi
@@ -212,7 +225,10 @@ body:
         - umbriel-displays
         - umbriel-monitor-control
         - upbeat
+        - vial_keymap
         - vidi
+        - vietnamese-lunar-calendar
+        - vikunja
         - vm-manager
         - voxtype
         - vpn-manager

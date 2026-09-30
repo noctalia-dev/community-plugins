@@ -1,0 +1,54 @@
+{
+  "months": {
+    "m1": "January",
+    "m10": "October",
+    "m11": "November",
+    "m12": "December",
+    "m2": "February",
+    "m3": "March",
+    "m4": "April",
+    "m5": "May",
+    "m6": "June",
+    "m7": "July",
+    "m8": "August",
+    "m9": "September"
+  },
+  "settings": {
+    "accent_weekends": {
+      "description": "Use the accent color for Saturday and Sunday.",
+      "label": "Accent Weekends"
+    },
+    "show_can_chi": {
+      "description": "Show the traditional Can Chi year in the calendar footer.",
+      "label": "Show Can Chi Year"
+    },
+    "show_festivals": {
+      "description": "Highlight common Vietnamese traditional festivals in the calendar.",
+      "label": "Show Traditional Festivals"
+    },
+    "show_timezone": {
+      "description": "Show the UTC+7 calculation time zone below the month title.",
+      "label": "Show Time Zone"
+    }
+  },
+  "ui": {
+    "leap": "leap",
+    "lunar_date_suffix": "lunar",
+    "next_month": "Next month",
+    "prev_month": "Previous month",
+    "shortcut_label": "Lunar",
+    "timezone_label": "Vietnamese Lunar Calendar · UTC+7",
+    "timezone_label_short": "Vietnamese Lunar Calendar",
+    "today": "Today",
+    "year": "Year"
+  },
+  "weekdays": {
+    "fri": "Fri",
+    "mon": "Mon",
+    "sat": "Sat",
+    "sun": "Sun",
+    "thu": "Thu",
+    "tue": "Tue",
+    "wed": "Wed"
+  }
+}

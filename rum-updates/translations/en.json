@@ -1,0 +1,69 @@
+{
+  "bar": {
+    "notify": {
+      "missing_rum": "rum is not available",
+      "missing_software_center": "RakuOS Software Center is not available",
+      "new_updates": {
+        "description": "{count} RUM package updates are available.",
+        "title": "New RUM updates available"
+      },
+      "refresh_failed": "Could not start an update check",
+      "terminal_launch_failed": "Could not open a terminal"
+    },
+    "text": {
+      "error": "RUM error",
+      "plural": "{count} Updates",
+      "single": "1 Update"
+    }
+  },
+  "poller": {
+    "error": {
+      "decode_failed": "rum returned invalid JSON: {error}",
+      "exit": "rum exited with status {code}",
+      "invalid_json": "no JSON object was found",
+      "invalid_payload": "rum returned an invalid update payload",
+      "invalid_result": "rum returned no process result",
+      "launch_failed": "Could not start rum",
+      "missing_rum": "rum is not installed",
+      "timed_out": "rum update check timed out after {seconds} seconds"
+    }
+  },
+  "settings": {
+    "click_action": {
+      "description": "Action performed when the widget is clicked.",
+      "label": "Click action",
+      "options": {
+        "open_software_center": "Open RakuOS Software Center",
+        "run_updater": "Run rum system upgrade"
+      }
+    },
+    "glyph": {
+      "description": "Icon shown before the update count.",
+      "label": "Glyph"
+    },
+    "hide_when_empty": {
+      "description": "Hide the widget when no updates are available.",
+      "label": "Hide when empty"
+    },
+    "interval": {
+      "description": "How often the service checks for updates.",
+      "label": "Refresh seconds"
+    },
+    "notify": {
+      "description": "Show a notification when the available update count increases.",
+      "label": "Notify"
+    },
+    "terminal_application": {
+      "description": "Executable path or name used to run the updater. Leave blank to use Noctalia's detected terminal.",
+      "label": "Terminal application"
+    }
+  },
+  "tooltip": {
+    "check_now": "Check now",
+    "check_now_hint": "Right-click",
+    "checking": "Checking for updates…",
+    "error": "Update check failed",
+    "package_updates": "RUM package updates",
+    "repository": "Repository: {repo}"
+  }
+}

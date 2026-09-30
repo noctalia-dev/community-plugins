@@ -1,0 +1,149 @@
+id = "borderliner/jalali_calendar"
+name = "Jalali Calendar"
+version = "1.0.1"
+plugin_api = 22
+author = "borderliner"
+license = "MIT"
+dependencies = []
+tags = ["time", "clock", "utility"]
+icon = "calendar"
+description = "Iranian Solar Hijri calendar with official holidays, plus Hijri Qamari and Gregorian dates."
+
+[[setting]]
+key = "language"
+type = "select"
+label_key = "settings.language.label"
+description_key = "settings.language.description"
+options = [
+  { value = "persian", label_key = "settings.language.persian" },
+  { value = "latin", label_key = "settings.language.latin" },
+]
+default = "persian"
+
+[[setting]]
+key = "digits"
+type = "select"
+label_key = "settings.digits.label"
+description_key = "settings.digits.description"
+options = [
+  { value = "persian", label_key = "settings.digits.persian" },
+  { value = "latin", label_key = "settings.digits.latin" },
+]
+default = "persian"
+
+[[setting]]
+key = "week_start"
+type = "select"
+label_key = "settings.week_start.label"
+description_key = "settings.week_start.description"
+options = [
+  { value = "saturday", label_key = "settings.week_start.saturday" },
+  { value = "sunday", label_key = "settings.week_start.sunday" },
+  { value = "monday", label_key = "settings.week_start.monday" },
+]
+default = "saturday"
+
+[[setting]]
+key = "scale"
+type = "double"
+label_key = "settings.scale.label"
+description_key = "settings.scale.description"
+default = 1.0
+min = 0.7
+max = 2.0
+step = 0.1
+
+[[setting]]
+key = "events_national"
+type = "bool"
+label_key = "settings.events_national.label"
+description_key = "settings.events_national.description"
+default = true
+
+[[setting]]
+key = "events_ancient"
+type = "bool"
+label_key = "settings.events_ancient.label"
+description_key = "settings.events_ancient.description"
+default = true
+
+[[setting]]
+key = "events_religious"
+type = "bool"
+label_key = "settings.events_religious.label"
+description_key = "settings.events_religious.description"
+default = false
+
+[[setting]]
+key = "events_afghan"
+type = "bool"
+label_key = "settings.events_afghan.label"
+description_key = "settings.events_afghan.description"
+default = false
+
+[[setting]]
+key = "show_hijri"
+type = "bool"
+label_key = "settings.show_hijri.label"
+description_key = "settings.show_hijri.description"
+default = true
+
+[[setting]]
+key = "show_gregorian"
+type = "bool"
+label_key = "settings.show_gregorian.label"
+description_key = "settings.show_gregorian.description"
+default = true
+
+[[setting]]
+key = "show_holidays"
+type = "bool"
+label_key = "settings.show_holidays.label"
+description_key = "settings.show_holidays.description"
+default = true
+
+[[widget]]
+id = "date"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "format"
+  type = "string"
+  label_key = "settings.format.label"
+  description_key = "settings.format.description"
+  default = "{weekday} {day} {month}"
+
+  [[widget.setting]]
+  key = "font_size"
+  type = "int"
+  label_key = "settings.font_size.label"
+  description_key = "settings.font_size.description"
+  default = 0
+  min = 0
+  max = 32
+
+  [[widget.setting]]
+  key = "show_glyph"
+  type = "bool"
+  label_key = "settings.show_glyph.label"
+  description_key = "settings.show_glyph.description"
+  default = true
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  description_key = "settings.glyph.description"
+  default = "calendar"
+
+[[panel]]
+id = "calendar"
+entry = "panel.luau"
+width = 420
+height = 560
+placement = "attached"
+position = "auto"
+
+[[shortcut]]
+id = "open"
+entry = "shortcut.luau"

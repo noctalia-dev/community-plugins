@@ -1,57 +1,57 @@
 {
-  "shortcut": {
-    "label": "Share WiFi",
-    "sharing": "Sharing",
-    "connected": "{count} connected",
-    "off": "Off"
-  },
-  "panel": {
-    "title": "Share WiFi",
-    "status_active": "ACTIVE ({clients}/{max} connected)",
-    "status_off": "OFF",
-    "ssid_label": "Network Name (SSID)",
-    "ssid_placeholder": "Hotspot SSID",
-    "password_label": "Password (min 8 chars)",
-    "password_placeholder": "Hotspot password",
-    "band_label": "Frequency band",
-    "band_auto": "Auto",
-    "band_5g": "5Ghz",
-    "band_24g": "2.4Ghz",
-    "channel_label": "Channel",
-    "channel_placeholder": "Auto",
-    "max_clients_label": "Max clients (1 - 8)",
-    "rescan_tooltip": "Auto-detect Band & Channel from current Wi-Fi",
-    "btn_start": "Start Hotspot",
-    "btn_stop": "Stop Hotspot",
-    "btn_starting": "Starting...",
-    "btn_stopping": "Stopping...",
-    "status_ready": "Ready",
-    "status_starting": "Starting hotspot...",
-    "status_stopping": "Stopping hotspot...",
-    "status_stopped": "Hotspot stopped",
-    "status_active_fmt": "Hotspot active ({band}, ch {channel})",
-    "detected_wifi": "Detected Wi-Fi: {band} (ch {channel})",
-    "no_wifi": "No active Wi-Fi (Ethernet mode)",
-    "synced_status": "Synced with connected Wi-Fi"
-  },
   "notify": {
+    "error_start_failed": "Failed to start",
+    "error_title": "Share WiFi Error",
+    "max_clients_capped": "Max clients is capped at 8",
     "started": "Hotspot started successfully!",
     "stopped": "Hotspot turned off",
-    "synced": "Channel & Band synced!",
-    "max_clients_capped": "Max clients is capped at 8",
-    "error_title": "Share WiFi Error",
-    "error_start_failed": "Failed to start"
+    "synced": "Channel & Band synced!"
   },
-  "widget": {
-    "tooltip_active": "Share WiFi: Active ({clients}/{max} clients)\nClick: Settings\nRight-click: Turn off",
-    "tooltip_starting": "Share WiFi: Starting hotspot...",
-    "tooltip_stopping": "Share WiFi: Stopping hotspot...",
-    "tooltip_off": "Share WiFi: Off\nClick: Settings & Start"
+  "panel": {
+    "band_24g": "2.4Ghz",
+    "band_5g": "5Ghz",
+    "band_auto": "Auto",
+    "band_label": "Frequency band",
+    "btn_start": "Start Hotspot",
+    "btn_starting": "Starting...",
+    "btn_stop": "Stop Hotspot",
+    "btn_stopping": "Stopping...",
+    "channel_label": "Channel",
+    "channel_placeholder": "Auto",
+    "detected_wifi": "Detected Wi-Fi: {band} (ch {channel})",
+    "max_clients_label": "Max clients (1 - 8)",
+    "no_wifi": "No active Wi-Fi (Ethernet mode)",
+    "password_label": "Password (min 8 chars)",
+    "password_placeholder": "Hotspot password",
+    "rescan_tooltip": "Auto-detect Band & Channel from current Wi-Fi",
+    "ssid_label": "Network Name (SSID)",
+    "ssid_placeholder": "Hotspot SSID",
+    "status_active": "ACTIVE ({clients}/{max} connected)",
+    "status_active_fmt": "Hotspot active ({band}, ch {channel})",
+    "status_off": "OFF",
+    "status_ready": "Ready",
+    "status_starting": "Starting hotspot...",
+    "status_stopped": "Hotspot stopped",
+    "status_stopping": "Stopping hotspot...",
+    "synced_status": "Synced with connected Wi-Fi",
+    "title": "Share WiFi"
   },
   "settings": {
     "refresh_interval": {
-      "label": "Refresh interval (seconds)",
-      "description": "How often hotspot status and connected clients are checked."
+      "description": "How often hotspot status and connected clients are checked.",
+      "label": "Refresh interval (seconds)"
     }
+  },
+  "shortcut": {
+    "connected": "{count} connected",
+    "label": "Share WiFi",
+    "off": "Off",
+    "sharing": "Sharing"
+  },
+  "widget": {
+    "tooltip_active": "Share WiFi: Active ({clients}/{max} clients)\nClick: Settings\nRight-click: Turn off",
+    "tooltip_off": "Share WiFi: Off\nClick: Settings & Start",
+    "tooltip_starting": "Share WiFi: Starting hotspot...",
+    "tooltip_stopping": "Share WiFi: Stopping hotspot..."
   }
 }

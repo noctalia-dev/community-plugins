@@ -29,6 +29,46 @@ local SCAN_DIRS = {
   "/var/lib/flatpak/exports/share/applications",
 }
 
+-- Non-FHS systems (Guix, Nix, ...) keep desktop entries outside the paths
+-- above, exposed instead through a user profile symlink. We discover those
+-- generically via XDG_DATA_DIRS, with a Guix-specific fallback in case
+-- XDG_DATA_DIRS wasn't populated for this session.
+local function getScanDirs()
+  local dirs = {}
+  local seen = {}
+  local function add(dir)
+    if dir ~= nil and dir ~= "" and not seen[dir] then
+      seen[dir] = true
+      table.insert(dirs, dir)
+    end
+  end
+
+  for _, dir in ipairs(SCAN_DIRS) do
+    add(dir)
+  end
+
+  local xdgDataDirs = noctalia.getenv("XDG_DATA_DIRS")
+  if xdgDataDirs ~= nil then
+    for dir in string.gmatch(xdgDataDirs, "[^:]+") do
+      add(dir .. "/applications")
+    end
+  end
+
+  -- Fallback for Guix sessions where XDG_DATA_DIRS doesn't include the
+  -- profile (e.g. not sourced from a login shell).
+  local guixProfile = noctalia.getenv("GUIX_PROFILE")
+  if guixProfile ~= nil then
+    add(guixProfile .. "/share/applications")
+  end
+
+  local guixEnvironment = noctalia.getenv("GUIX_ENVIRONMENT")
+  if guixEnvironment ~= nil then
+    add(guixEnvironment .. "/share/applications")
+  end
+
+  return dirs
+end
+
 -- 'pending' tracks unsaved dropdown changes until Apply is clicked.
 local state = { ready = false, defaults = {}, candidates = {}, pending = {} }
 local loadingStatus = noctalia.tr("panel.init")
@@ -228,7 +268,7 @@ local function scanCandidatesAsync(onDone)
   local queue = {}
   loadingStatus = noctalia.tr("panel.locating")
   render()
-  for _, dir in ipairs(SCAN_DIRS) do
+  for _, dir in ipairs(getScanDirs()) do
     local abs = noctalia.expandPath(dir)
     local names = noctalia.listDir(abs)
     if names ~= nil then

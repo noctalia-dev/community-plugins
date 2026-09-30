@@ -1,6 +1,6 @@
 id = "jamesfeeder/special-workspaces"
 name = "Special Workspaces"
-version = "1.6.1"
+version = "1.7.0"
 plugin_api = 3
 author = "jamesfeeder"
 license = "MIT"
@@ -83,3 +83,31 @@ entry = "widget.luau"
     { value = "ghost", label_key = "settings.style.ghost" },
   ]
   visible_when = { key = "hide_inactive", values = ["false"] }
+
+  [[widget.setting]]
+  key = "active_color"
+  type = "color"
+  label_key = "settings.active_color.label"
+  description_key = "settings.active_color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "active_text_color"
+  type = "color"
+  label_key = "settings.active_text_color.label"
+  description_key = "settings.active_text_color.description"
+  default = "on_primary"
+
+  [[widget.setting]]
+  key = "inactive_color"
+  type = "color"
+  label_key = "settings.inactive_color.label"
+  description_key = "settings.inactive_color.description"
+  default = "secondary"
+
+  [[widget.setting]]
+  key = "inactive_text_color"
+  type = "color"
+  label_key = "settings.inactive_text_color.label"
+  description_key = "settings.inactive_text_color.description"
+  default = "on_secondary"

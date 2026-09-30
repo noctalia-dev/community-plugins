@@ -1,0 +1,85 @@
+id = "hy4ri/herdr"
+name = "Herdr"
+version = "1.1.0"
+plugin_api = 26
+author = "Hy4ri"
+license = "MIT"
+dependencies = ["herdr"]
+tags = ["bar", "panel", "service", "ai", "development", "productivity"]
+icon = "robot"
+description = "Monitor Herdr sessions and coding agents from the Noctalia bar."
+
+# Plugin-level settings are seeded into every entry runtime (bar widget, panel and
+# service), so values all three entries read live here. A [[widget.setting]] is
+# seeded into that widget alone, so the panel and the service read those through
+# plugin state published by the widget — see publishSharedSettings() in bar.luau.
+[[setting]]
+key = "show_other_machines"
+type = "bool"
+label_key = "settings.show_other_machines.label"
+description_key = "settings.show_other_machines.description"
+default = false
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "display_mode"
+  type = "select"
+  label_key = "settings.display_mode.label"
+  description_key = "settings.display_mode.description"
+  default = "icon_and_count"
+  options = [
+    { value = "icon_and_count", label_key = "settings.display_mode.options.icon_and_count" },
+    { value = "icon", label_key = "settings.display_mode.options.icon" },
+  ]
+
+  [[widget.setting]]
+  key = "hide_count_when_zero"
+  type = "bool"
+  label_key = "settings.hide_count_when_zero.label"
+  description_key = "settings.hide_count_when_zero.description"
+  default = true
+  visible_when = { key = "display_mode", values = ["icon_and_count"] }
+
+  [[widget.setting]]
+  key = "color_blocked"
+  type = "color"
+  label_key = "settings.color_blocked.label"
+  description_key = "settings.color_blocked.description"
+  default = "error"
+
+  [[widget.setting]]
+  key = "color_done"
+  type = "color"
+  label_key = "settings.color_done.label"
+  description_key = "settings.color_done.description"
+  default = "tertiary"
+
+  [[widget.setting]]
+  key = "color_working"
+  type = "color"
+  label_key = "settings.color_working.label"
+  description_key = "settings.color_working.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "hide_agentless_panes"
+  type = "bool"
+  label_key = "settings.hide_agentless_panes.label"
+  description_key = "settings.hide_agentless_panes.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 440
+height = 560
+placement = "attached"
+position = "auto"
+open_near_click = true

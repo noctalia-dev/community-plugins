@@ -1,9 +1,5 @@
 {
   "settings": {
-    "secret": {
-      "description": "Nightscout API secret or access token",
-      "label": "API Secret"
-    },
     "host": {
       "description": "Nightscout URL (https://your.domain.here/)",
       "label": "Nightscout URL"
@@ -12,11 +8,15 @@
       "description": "API update interval in seconds",
       "label": "Nightscout Update Interval (s)"
     },
+    "secret": {
+      "description": "Nightscout API secret or access token",
+      "label": "API Secret"
+    },
     "unit": {
       "description": "Unit to display blood glucose level",
       "label": "Blood Glucose Unit",
-      "mmol": "mmol/L",
-      "mg": "mg/dL"
+      "mg": "mg/dL",
+      "mmol": "mmol/L"
     }
   }
 }

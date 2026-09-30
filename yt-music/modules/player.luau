@@ -103,7 +103,7 @@ local function player_set(item, stream_url)
 		if ready then
 			start_stream()
 		end
-	end)
+	end, state.player.thumb_path) -- cached art -> mpris:artUrl via mpv-mpris
 	-- Speculative work happens only for settled playback: the song that
 	-- actually starts earns its next-track prefetch and queue thumbnails.
 	-- Skipped-over intents never get here, so rapid skipping spawns nothing
