@@ -35,6 +35,7 @@ local function panelIdForSize()
   if sz == "mini" then return "panel-mini" end
   if sz == "compact" then return "panel-compact" end
   if sz == "large" then return "panel-large" end
+  if sz == "pinned" then return "panel-pinned" end
   return "panel"
 end
 

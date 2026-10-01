@@ -11,7 +11,7 @@ A full-featured media player panel with **time-synced lyrics** for the Noctalia 
 | Field | Value |
 | --- | --- |
 | ID | `tranzem/media-lyrics` |
-| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640), `panel-mini` (360×120); service: `service`; shortcut: `toggle` |
+| Entries | Bar widget: `now-playing`; panels: `panel` (medium 520×520), `panel-compact` (440×440), `panel-large` (640×640), `panel-pinned` (640×640, persistent), `panel-mini` (360×120); service: `service`; shortcut: `toggle` |
 
 ## Requirements
 
@@ -35,18 +35,24 @@ noctalia msg panel-toggle tranzem/media-lyrics:panel
 ```
 
 The panel opens at the size preset selected by the `panel_size` setting
-(compact 440 / medium 520 / large 640). The `now-playing` bar widget and the
-`toggle` control-center tile both open the selected preset; you can also open
-a specific preset directly:
+(compact 440 / medium 520 / large 640 / pinned 640). The `now-playing` bar
+widget and the `toggle` control-center tile both open the selected preset;
+you can also open a specific preset directly:
 
 ```sh
 noctalia msg panel-toggle tranzem/media-lyrics:panel-compact
 noctalia msg panel-toggle tranzem/media-lyrics:panel-large
+noctalia msg panel-toggle tranzem/media-lyrics:panel-pinned
 noctalia msg panel-toggle tranzem/media-lyrics:panel-mini
 ```
 
 `panel-mini` is a compact always-on surface (cover + the current lyric line)
 intended for pinning to the desktop; it does not close on outside clicks.
+`panel-pinned` is the same full karaoke view as `panel-large`, but persistent:
+it opens bottom-right near the bar and stays open across other panels until
+toggled or closed again — the trade-off is that arrow/Return/Space seeking
+needs a click into the panel first (persistent panels cannot take exclusive
+keyboard focus).
 
 Add the `now-playing` widget to your bar: a compact chip with the album
 cover and **Title - Artist** of the active MPRIS player. Its gestures mirror
@@ -107,7 +113,7 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `panel_size` | `select` | `medium` | Panel size preset: `mini` (360×120 chip panel), `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
+| `panel_size` | `select` | `medium` | Panel size preset: `mini` (360×120 chip panel), `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines), `pinned` (640×640, persistent, bottom-right). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
 | `local_lyrics_dir` | `folder` | `~/.local/share/media-lyrics` | Folder with local `.lrc` files named `Artist - Title.lrc`; searched before LRCLIB. |
@@ -146,9 +152,11 @@ Upcoming work, roughly in priority order:
 - [ ] Seek on progress-bar click — **BLOCKED by host**: click handlers do not
       report coordinates, so a click position cannot be mapped to a timestamp
       (only lyric-line clicks and the keyboard cursor can seek)
-- [ ] Compact mode with a pinnable widget — the bar chip + panel presets
-      cover the compact surface; a desktop-pinned view would need a new
-      `[[desktop_widget]]` entry (open question)
+- [x] Compact mode with a pinnable widget — **DONE in 0.10.0 for the panel
+      route**: `panel_size = "pinned"` opens a persistent `panel-pinned`
+      (`plugin_api` 11), which stays on screen across other panels until
+      closed. A `[[desktop_widget]]` route (works without any panel open, on
+      the lockscreen too) is still open for anyone who wants that instead
 - [x] Preconfigured widget actions — default gestures declared in the manifest (DONE in 0.8.1 and reworked in 0.9.0: now mirrors the built-in media widget — right click = play/pause, back/forward + wheel = prev/next; middle click = widget settings)
 - [x] Widget size setting — panel size presets (DONE in 0.8.7: `panel_size` select — compact 440 / medium 520 / large 640)
 - [x] Bar widget album cover + display settings (DONE in 0.9.0: artwork chip, `album_art_only` / `hide_album_art` / `hide_artist` / `artist_first` / `min_length` / `max_length` / `art_size` / `title_scroll` / `hide_when_no_media`; vertical bars show the artwork only)
