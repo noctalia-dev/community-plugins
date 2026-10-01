@@ -1,0 +1,144 @@
+id = "lfdominguez/claude-sessions"
+name = "Claude Sessions"
+version = "1.5.2"
+plugin_api = 24
+author = "lfdominguez"
+icon = "brain"
+license = "MIT"
+description = "Live Claude Code sessions: what each is doing, which need you, plan limits, and jump to its terminal."
+tags = ["bar", "panel", "launcher", "service", "ai", "development", "productivity", "hyprland", "niri", "sway"]
+dependencies = ["jq", "curl", "kitty", "hyprctl", "niri", "swaymsg", "xdg-open"]
+
+[[setting]]
+key = "notify_waiting"
+type = "bool"
+label_key = "settings.notify_waiting.label"
+description_key = "settings.notify_waiting.description"
+default = true
+
+[[setting]]
+key = "notify_finished"
+type = "bool"
+label_key = "settings.notify_finished.label"
+description_key = "settings.notify_finished.description"
+default = true
+
+[[setting]]
+key = "finished_min_minutes"
+type = "int"
+label_key = "settings.finished_min_minutes.label"
+description_key = "settings.finished_min_minutes.description"
+default = 2
+min = 0
+max = 240
+visible_when = { key = "notify_finished", values = ["true"] }
+
+[[setting]]
+key = "hide_idle_hours"
+type = "int"
+label_key = "settings.hide_idle_hours.label"
+description_key = "settings.hide_idle_hours.description"
+default = 0
+min = 0
+max = 720
+
+[[setting]]
+key = "recent_count"
+type = "int"
+label_key = "settings.recent_count.label"
+description_key = "settings.recent_count.description"
+default = 8
+min = 0
+max = 30
+
+[[setting]]
+key = "bar_style"
+type = "select"
+label_key = "settings.bar_style.label"
+default = "dots"
+options = [
+  { value = "dots", label_key = "settings.bar_style.dots" },
+  { value = "counts", label_key = "settings.bar_style.counts" },
+]
+
+[[setting]]
+key = "bar_limits"
+type = "select"
+label_key = "settings.bar_limits.label"
+description_key = "settings.bar_limits.description"
+default = "5h"
+options = [
+  { value = "5h", label_key = "settings.bar_limits.five_hour" },
+  { value = "7d", label_key = "settings.bar_limits.seven_day" },
+  { value = "5h_7d", label_key = "settings.bar_limits.five_and_seven" },
+  { value = "all", label_key = "settings.bar_limits.all" },
+  { value = "none", label_key = "settings.bar_limits.none" },
+]
+
+[[setting]]
+key = "bar_limits_style"
+type = "select"
+label_key = "settings.bar_limits_style.label"
+default = "bar"
+options = [
+  { value = "bar", label_key = "settings.bar_limits_style.bar" },
+  { value = "ring", label_key = "settings.bar_limits_style.ring" },
+]
+visible_when = { key = "bar_limits", values = ["5h", "7d", "5h_7d", "all"] }
+
+[[setting]]
+key = "config_dirs"
+type = "string_list"
+label_key = "settings.config_dirs.label"
+description_key = "settings.config_dirs.description"
+default = []
+
+[[setting]]
+key = "account_labels"
+type = "string_map"
+label_key = "settings.account_labels.label"
+description_key = "settings.account_labels.description"
+default = {}
+advanced = true
+
+[[setting]]
+key = "work_root"
+type = "folder"
+label_key = "settings.work_root.label"
+description_key = "settings.work_root.description"
+default = ""
+
+[[setting]]
+key = "context_window"
+type = "int"
+label_key = "settings.context_window.label"
+description_key = "settings.context_window.description"
+default = 1000000
+min = 100000
+max = 2000000
+advanced = true
+
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 560
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+capture_keys = ["up", "down", "Return", "n", "r", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+[[launcher_provider]]
+id = "search"
+entry = "launcher.luau"
+prefix = "cs"
+glyph = "brain"
