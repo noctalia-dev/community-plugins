@@ -1,10 +1,10 @@
 id = "mgeldi/pixel-shift"
 name = "Pixel Shift"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 30
 author = "mgeldi"
 license = "MIT"
-dependencies = ["grim"]
+dependencies = ["grim", "hyprctl", "swaymsg"]
 tags = ["bar", "panel", "service", "shortcut", "utility", "hardware", "hyprland", "niri", "sway", "labwc", "mangowc"]
 icon = "arrows-move-horizontal"
 description = "Protects OLED screens from bar burn-in: measures your bar, simulates wear and shifts it smartly."

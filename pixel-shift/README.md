@@ -19,6 +19,10 @@ risk is, how much the strategy removes, and what shifting cannot fix.
 Install `grim` on `PATH`. It captures the bar strip, so the plugin works on
 compositors with wlr-screencopy (Hyprland, niri, sway, labwc, mangowc).
 
+`hyprctl` (Hyprland) or `swaymsg` (Sway) lets Pixel Shift notice fullscreen windows,
+see **Fullscreen windows** below. Both come with their compositor; on other
+compositors neither is needed.
+
 Captures that do not show the bar (a lock screen, a fullscreen window) are recognised
 from the picture itself and skipped.
 
@@ -156,6 +160,16 @@ margin and thickness whenever the file is absent, so a change you make to them t
 effect the next time the offset returns to 0; turning vertical shift off and on again
 picks it up within seconds.
 
+**Fullscreen windows.** While a fullscreen window covers a monitor, samples and
+measurements on that monitor wait, and vertical steps wait on all monitors: one config
+reload recreates the bar on every output, and a bar that appears over a fullscreen game
+or video stays there until you leave fullscreen. A measurement also waits on any covered
+monitor while the vertical override is on, because removing it reloads the config too.
+Horizontal shifting continues (spacer widths never recreate the bar), and a hidden bar
+does not wear, so nothing is lost by waiting. Pixel Shift asks the compositor (Hyprland
+and Sway) only at those moments, never in a loop. On other compositors it cannot ask,
+and a vertical step waits when the latest sample did not show the bar.
+
 **Files written.** In the plugin data directory (usually
 `~/.local/state/noctalia/plugins/data/mgeldi/pixel-shift/`):
 
@@ -180,7 +194,11 @@ directory (written as `zz-pixel-shift.toml.tmp` and renamed into place).
 **Processes.** `grim` (during a measurement and every `sample_minutes`), `noctalia msg
 config-reload` (after the vertical override is removed, and once more if Noctalia did
 not pick up a new override by itself), `noctalia msg settings-open bar` (the lab's
-onboarding button).
+onboarding button), `hyprctl --batch "j/monitors;j/clients"` on Hyprland or `swaymsg -r
+-t get_tree` on Sway (only right before a sample, a measurement or a vertical step, and
+once a minute while one waits behind a fullscreen window). The `FALLBACK` output that
+Hyprland creates while every monitor is off is ignored: nothing is measured or captured
+there.
 On Noctalia versions without `noctalia.getColor`, opening the lab runs `noctalia msg
 color-scheme-get`, and `noctalia theme <wallpaper>` when the scheme or wallpaper
 changed, to find the theme colour.

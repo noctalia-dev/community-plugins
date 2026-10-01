@@ -80,9 +80,24 @@ function M.pickOutput(current: string?, outputs): string?
 	return names[1]
 end
 
+-- A step that would reload Noctalia's config waits for the compositor's
+-- answer first: the reload recreates the bar on every output, and a freshly
+-- mapped bar shows above a fullscreen window.
+local function gated(covered, v: number, last: number): (string, number)
+	if covered == nil then
+		return "ask", last -- not known yet: look, then decide again
+	end
+	if covered then
+		return "defer", last -- a fullscreen window is open: try later
+	end
+	return "apply", v
+end
+
 -- st: scanning, allowed, paused, v (scheduled offset), last (applied offset,
 -- -1 = unknown), fileActive, driftDue (a minute since the last repair
--- check). Returns the action and the new `last`.
+-- check), covered (true: a fullscreen window is open, false: none, nil: not
+-- known). Returns the action and the new `last`. Only "apply" depends on
+-- `covered`; what the user asks for (clear) goes through at once.
 function M.verticalAction(st): (string, number)
 	if st.scanning then
 		return "hold", -1 -- the scan removed the override; apply again after it
@@ -91,12 +106,31 @@ function M.verticalAction(st): (string, number)
 		return if st.fileActive then "clear" else "none", 0
 	end
 	if st.v ~= st.last then
-		return "apply", st.v
+		if st.v <= 0 and not st.fileActive then
+			return "apply", st.v -- no file to remove: nothing reloads
+		end
+		return gated(st.covered, st.v, st.last)
 	end
 	if st.driftDue and st.fileActive ~= (st.v > 0) then
-		return "apply", st.v -- the file was deleted, or is left over
+		return gated(st.covered, st.v, st.last) -- the file was deleted, or is left over
 	end
 	return "none", st.last
+end
+
+-- Hyprland names its placeholder output FALLBACK while every monitor is off:
+-- there is no bar on it to measure.
+function M.measurable(name: string): boolean
+	return name ~= "FALLBACK"
+end
+
+-- covered: set of output names a fullscreen window covers. A scan removes
+-- the vertical override, and that config reload recreates the bar on every
+-- output, so with an override in effect any covered output blocks it.
+function M.scanBlocked(covered, name: string, overrideActive: boolean): boolean
+	if type(covered) ~= "table" then
+		return false
+	end
+	return covered[name] == true or (overrideActive == true and next(covered) ~= nil)
 end
 
 -- The user's own margin and thickness, read only while no override is in

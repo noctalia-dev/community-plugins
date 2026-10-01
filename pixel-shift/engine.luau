@@ -16,10 +16,12 @@ local exposure = require("./core/exposure.luau")
 local optimize = require("./core/optimize.luau")
 local schedule = require("./core/schedule.luau")
 local decide = require("./core/decide.luau")
+local fullscreenCore = require("./core/fullscreen.luau")
 local tasks = require("./runtime/tasks.luau")
 local capture = require("./runtime/capture.luau")
 local store = require("./runtime/store.luau")
 local vertical = require("./runtime/vertical.luau")
+local fullscreen = require("./runtime/fullscreen.luau")
 local labmodel = require("./runtime/labmodel.luau")
 local theme = require("./runtime/theme.luau")
 
@@ -693,6 +695,8 @@ local spacerChangedAt = os.time()
 local fingerprintDue = true
 local lastFingerprint, lastSlow, lastVertical, lastDrift = 0, 0, -1, 0
 local verticalCheck = nil -- {at, v, retried}: confirm that an applied override took effect
+local deferUntil = nil -- os.time(): a vertical step waits behind a fullscreen window until then
+local deferLogged = false -- the wait is logged once, not every minute
 local errors = {}
 local lastCmd = nil
 local timing, lastCmdAt = false, 0 -- IPC "timing on": log how long the lab takes to answer
@@ -1002,6 +1006,28 @@ local function refreshVerticalBase()
 	end
 end
 
+-- Does a fullscreen window cover the bar right now? true / false, or nil
+-- when the compositor has to be asked first. Where it cannot be asked
+-- (Niri, ...), the last samples stand in: a bar that was not seen means covered.
+local function coveredNow(now: number): boolean?
+	if fullscreen.kind() then
+		if deferUntil and now < deferUntil then
+			return true -- a step is waiting: assume still covered, ask again after the wait
+		end
+		local fresh = fullscreen.fresh()
+		if fresh then
+			return fullscreenCore.any(fresh)
+		end
+		return nil
+	end
+	for _, O in pairs(outputs) do
+		if O.sampleCovered then
+			return true
+		end
+	end
+	return false
+end
+
 local function playVertical(now: number)
 	refreshVerticalBase()
 	local V = 0
@@ -1009,6 +1035,7 @@ local function playVertical(now: number)
 		V = math.max(V, activeStrategy(name).vertical or 0)
 	end
 	local driftDue = now - lastDrift >= 60
+	local prevDrift = lastDrift
 	if driftDue then
 		lastDrift = now
 	end
@@ -1020,8 +1047,29 @@ local function playVertical(now: number)
 		last = lastVertical,
 		fileActive = vertical.active(),
 		driftDue = driftDue,
+		covered = coveredNow(now),
 	})
 	lastVertical = last
+	if action == "ask" then
+		fullscreen.request()
+		lastDrift = prevDrift -- a repair check stays due until the answer is in
+		return
+	elseif action == "defer" then
+		-- one config reload recreates the bar on every output, and a bar that
+		-- appears over a fullscreen window stays there: wait, look again later
+		if not (deferUntil and now < deferUntil) then
+			deferUntil = now + 60
+		end
+		if not deferLogged then
+			deferLogged = true
+			local names = fullscreenCore.names(fullscreen.fresh())
+			noctalia.log(`pixel-shift: vertical step waits, a fullscreen window is open{if names ~= "" then " on " .. names else ""}`)
+		end
+		return
+	end
+	if action ~= "hold" then
+		deferUntil, deferLogged = nil, false -- nothing waits any more (a scan attempt does not end the wait)
+	end
 	if action == "hold" or action == "clear" then
 		verticalCheck = nil
 		if action == "clear" then
@@ -1037,6 +1085,16 @@ local function playVertical(now: number)
 			return
 		end
 		if not check.retried then
+			-- a reload recreates the bar everywhere: not while a window is fullscreen
+			local covered = coveredNow(now)
+			if covered == nil then
+				fullscreen.request()
+				verticalCheck = { at = now + 1, v = check.v } -- the answer is fresh by then
+				return
+			elseif covered then
+				verticalCheck = { at = now + 60, v = check.v }
+				return
+			end
 			vertical.reload() -- the new file was not picked up: ask once
 			verticalCheck = { at = now + 5, v = check.v, retried = true }
 			return
@@ -1083,6 +1141,21 @@ local function scanTask(name: string)
 				O.needsScan = false
 			end
 			return
+		end
+		-- Removing the vertical override reloads the config, and that recreates
+		-- the bar on every output, so a fullscreen window blocks a measurement
+		-- before anything is widened or removed.
+		if fullscreen.kind() then
+			local cov = fullscreen.query()
+			if decide.scanBlocked(cov, name, vertical.active()) then
+				O.retryAt = os.time() + 60
+				if not O.scanBlockedLogged then
+					O.scanBlockedLogged = true
+					noctalia.log(`pixel-shift: measuring {name} later, a fullscreen window is open`)
+				end
+				return
+			end
+			O.scanBlockedLogged = false
 		end
 		if O.coveredL then
 			-- The last attempt did not see the bar. Look before measuring, so a
@@ -1296,6 +1369,7 @@ local function scanTask(name: string)
 		else
 			O.failures = 0
 			O.needsScan = false
+			O.sampleCovered = false -- the bar was just seen as measured
 		end
 		noctalia.log(`pixel-shift: measured {name}: {#l.groups} groups, verify error {string.format("%.2f", verr)}`)
 		setStatus({ kind = "idle" })
@@ -1321,9 +1395,16 @@ local function sampleTask(name: string)
 		if not out then
 			return
 		end
+		-- a bar under a fullscreen window does not wear: nothing is lost by waiting
+		if fullscreen.kind() and fullscreen.query()[name] then
+			O.sampleCovered = true
+			noctalia.log(`pixel-shift: sample skipped on {name} (fullscreen window)`)
+			return
+		end
 		local geom = util.captureGeometry(out, bar)
 		local img = capture.grab(geom.geometry, geom.transpose)
 		if not img or exposure.isBlank(img, O.info and O.info.bright) then
+			O.sampleCovered = true
 			noctalia.log("pixel-shift: sample skipped on " .. name .. " (no capture or blank output)")
 			return
 		end
@@ -1340,6 +1421,7 @@ local function sampleTask(name: string)
 		-- never pays for the linear planes
 		local backL = exposure.unshiftImage(wear.lumaFromRgb8(img), O.layout, disp, vRows)
 		if not exposure.matchesBaseline(backL, O.baseL, O.layout) then
+			O.sampleCovered = true
 			-- something covers the bar, or it looks different now; measure again
 			-- only when several samples in a row show the same picture
 			local agrees = O.mismatchRef ~= nil and exposure.matchesBaseline(backL, O.mismatchRef, O.layout)
@@ -1352,6 +1434,7 @@ local function sampleTask(name: string)
 			noctalia.log(`pixel-shift: sample on {name} does not match the measured bar{if rescan then ", measuring again" else ""}`)
 			return
 		end
+		O.sampleCovered = false
 		if O.mismatchScan then
 			O.needsScan, O.mismatchScan, O.failures = false, false, 0 -- the bar is back as measured
 		end
@@ -1431,12 +1514,12 @@ end
 -- output bookkeeping -------------------------------------------------------------
 local function refreshOutputs()
 	for _, info in pairs(spacers) do
-		if info.output ~= "" and not outputs[info.output] then
+		if info.output ~= "" and decide.measurable(info.output) and not outputs[info.output] then
 			outputs[info.output] = newOutput(info.output)
 		end
 	end
 	for name in pairs(outputs) do
-		if #spacersOn(name) == 0 then
+		if #spacersOn(name) == 0 or not decide.measurable(name) then
 			outputs[name] = nil
 		end
 	end
@@ -1801,7 +1884,10 @@ function onIpc(event, payload)
 		end
 		table.sort(ws)
 		local heap = if gcinfo then `{math.floor(gcinfo() / 1024)} MB` else "?"
-		noctalia.log(`pixel-shift debug: heap={heap} spacers=[{table.concat(ids, ", ")}] outputs=[{table.concat(outs, "; ")}] status={status.kind} tasks={tasks.active()} optimizer={optimizer ~= nil} widths=[{table.concat(ws, ", ")}]`)
+		local age = fullscreen.age()
+		local names = fullscreenCore.names(fullscreen.last())
+		local fs = `{fullscreen.kind() or "none"}:{if names ~= "" then names else "-"}`
+		noctalia.log(`pixel-shift debug: heap={heap} spacers=[{table.concat(ids, ", ")}] outputs=[{table.concat(outs, "; ")}] status={status.kind} tasks={tasks.active()} optimizer={optimizer ~= nil} widths=[{table.concat(ws, ", ")}] fullscreen={fs} age={if age then math.floor(age) .. " ms" else "-"}`)
 		return
 	end
 	if event == "pause" or event == "resume" or event == "toggle" or event == "rescan" or event == "optimize" then
