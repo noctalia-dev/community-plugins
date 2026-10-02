@@ -1,0 +1,12 @@
+[Unit]
+Description=Xiaomi buds persistent controller (RFCOMM ch29)
+After=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/share/noctalia/plugins/bt-buds/buds-daemon.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
