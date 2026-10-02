@@ -61,6 +61,11 @@ local REQUEST_TIMEOUT_SECONDS = 35
 -- The host allows 8 async callbacks per runtime.
 local MAX_SNAPSHOT_REQUESTS_IN_FLIGHT = 4
 local ENTITY_FLUSH_INTERVAL_SECONDS = 0.2
+-- HA writes a ping on /api/stream every 50s, so a silent stream is a dead socket
+-- (e.g. after suspend or a network change) that will never report a close.
+local STREAM_IDLE_TIMEOUT_SECONDS = 120
+-- update() ticks every second while connected; a much longer gap means we slept.
+local RESUME_GAP_SECONDS = 30
 
 local retryCount = 0
 local maxRetriesNotified = false
@@ -68,6 +73,9 @@ local authFailureNotified = false
 local backoff = false
 local connectionRequestInFlight = false
 local requestStartedAt = nil
+
+local lastStreamActivity = 0
+local lastUpdateAt = os.time()
 
 local entitiesDirty = false
 local lastEntityFlush = 0
@@ -420,6 +428,7 @@ function startSSEStream()
       "Authorization: Bearer " .. cleanToken,
     },
   }, function(line)
+    lastStreamActivity = os.time()
     processSSELine(line)
   end, function(result)
     if streamHandle ~= handle then return end
@@ -446,8 +455,20 @@ function startSSEStream()
 
   streamHandle = handle
   sseActive = true
+  lastStreamActivity = os.time()
   syncUpdateInterval()
   return true
+end
+
+local function dropStream(reason)
+  noctalia.log("Dropping SSE stream (" .. reason .. ")")
+  if streamHandle then
+    streamHandle.stop()
+    streamHandle = nil
+  end
+  sseActive = false
+  currentEvent = {}
+  setStatus("disconnected", reason)
 end
 
 noctalia.state.watch("command", function(cmd)
@@ -513,6 +534,19 @@ function update()
     connectionRequestInFlight = false
     requestStartedAt = nil
     setStatus("disconnected", "request timed out")
+  end
+
+  -- os.time() is wall clock, so unlike os.clock() it advances across suspend.
+  local nowWall = os.time()
+  local sinceLastUpdate = nowWall - lastUpdateAt
+  lastUpdateAt = nowWall
+
+  if sseActive then
+    if sinceLastUpdate >= RESUME_GAP_SECONDS then
+      dropStream("resumed after " .. tostring(sinceLastUpdate) .. "s gap")
+    elseif nowWall - lastStreamActivity > STREAM_IDLE_TIMEOUT_SECONDS then
+      dropStream("no data for " .. tostring(nowWall - lastStreamActivity) .. "s")
+    end
   end
 
   if status == "connected" and not sseActive then
