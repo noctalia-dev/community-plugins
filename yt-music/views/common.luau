@@ -105,7 +105,31 @@ local function chunk_rows(cells, per_row, key_prefix, gap)
 	return rows
 end
 
-local function media_row(item, idx, custom_click, is_active)
+-- spec = { drag_type, payload, enabled? }
+local function drag_grip(row_key, spec, highlighted)
+	return ui.dragSource({
+		key = row_key .. "-grip",
+		dragType = spec.drag_type,
+		payload = tostring(spec.payload),
+		enabled = spec.enabled ~= false,
+		previewAncestor = 2, -- 2 = the onClick wrapper around the row; 1 leaves a hole
+		liftFromLayout = true,
+		width = 20,
+		height = 32,
+		align = "center",
+		justify = "center",
+		tooltip = spec.tooltip or "Drag to reorder",
+	}, {
+		ui.glyph({
+			key = row_key .. "-grip-glyph",
+			name = "grip-vertical",
+			size = 16,
+			color = highlighted and "primary" or "on_surface_variant",
+		}),
+	})
+end
+
+local function media_row(item, idx, custom_click, is_active, drag)
 	local handler = custom_click or function()
 		state.play_item(item)
 	end
@@ -213,25 +237,7 @@ local function media_row(item, idx, custom_click, is_active)
 		)
 	end
 
-	return ui.row({
-		key = row_key,
-		gap = 14,
-		align = "center",
-		padding = 8,
-		borderWidth = 0,
-		fill = (is_loading or is_current) and "primary/0.2"
-			or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
-		onClick = function()
-			state.view.hover_key.track = nil
-			if item and item.id then
-				state.view.loading_track_id = item.id
-			end
-			handler()
-			rerender.call()
-		end,
-		onHover = "onTrackHover",
-		radius = theme.radius,
-	}, {
+	local row_children = {
 		track_thumb,
 		ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 			ui.label({
@@ -256,7 +262,30 @@ local function media_row(item, idx, custom_click, is_active)
 				end
 			end,
 		}),
-	})
+	}
+	if drag then
+		table.insert(row_children, 1, drag_grip(row_key, drag, is_hovered or is_current))
+	end
+
+	return ui.row({
+		key = row_key,
+		gap = 14,
+		align = "center",
+		padding = 8,
+		borderWidth = 0,
+		fill = (is_loading or is_current) and "primary/0.2"
+			or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
+		onClick = function()
+			state.view.hover_key.track = nil
+			if item and item.id then
+				state.view.loading_track_id = item.id
+			end
+			handler()
+			rerender.call()
+		end,
+		onHover = "onTrackHover",
+		radius = theme.radius,
+	}, row_children)
 end
 
 return {

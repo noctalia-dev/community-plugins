@@ -19,7 +19,7 @@ function Mpv.play(url, title, volume, on_ready, cover_path)
         if type(on_ready) == "function" then
             on_ready(ready)
         end
-    end, 10000, tostring(volume or 100), url_file, title_file, cover_path)
+    end, 10000, tostring(volume or 100), url_file, title_file, cover_path or "")
 end
 
 function Mpv.send(payload_json)

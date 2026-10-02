@@ -4,6 +4,7 @@ local store = require("./store.luau")
 local api = require("../api.luau")
 local logger = require("../utils/log.luau")
 local mpv = require("./mpv.luau")
+local QueueOrder = require("../utils/queueorder.luau")
 
 local state = store.state
 local log = logger.module("ytm", "player")
@@ -591,6 +592,23 @@ function Player.cycle_repeat()
 	log("cycle_repeat: " .. tostring(state.player.repeat_mode))
 	publish()
 end
+
+function Player.move(from, to)
+	from = math.floor(tonumber(from) or 0)
+	local q = state.player.queue
+	local insert_at = QueueOrder.move(q, from, to)
+	if insert_at == nil then
+		return
+	end
+	state.player.index = QueueOrder.follow(state.player.index, from, insert_at)
+	original_queue = nil -- manual order supersedes the pre-shuffle snapshot
+	if api and api.prefetch_queue then
+		api.prefetch_queue(q, state.player.index)
+	end
+	log("move: " .. from .. " -> " .. insert_at .. "/" .. #q .. " index=" .. state.player.index)
+	publish()
+end
+
 
 function Player.append_to_queue(track)
 	table.insert(state.player.queue, track)

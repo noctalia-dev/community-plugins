@@ -3,6 +3,37 @@ local state = require("../state.luau")
 local request = require("../actions.luau")
 local common = require("../common.luau")
 local rerender = require("../rerender.luau")
+local QueueOrder = require("../../utils/queueorder.luau")
+
+local DRAG_TYPE = "yt-music.queue.track"
+local function on_track_dropped(payload, value)
+    local from, to = tonumber(payload), tonumber(value)
+    if not from or not to then
+        return
+    end
+    local player = state.data.player
+    local insert_at = QueueOrder.move(player.queue, from, to)
+    if insert_at == nil then
+        return
+    end
+    player.index = QueueOrder.follow(player.index, from, insert_at)
+    state.view.hover_key.track = nil
+    rerender.call()
+    request("move_queue_item", { from = from, to = to })
+end
+
+local function insertion_zone(slot)
+    return ui.dropZone({
+        key = "q-gap-" .. slot,
+        accepts = { DRAG_TYPE },
+        value = tostring(slot),
+        onDrop = "onQueueTrackDropped",
+        height = 4,
+        radius = 6,
+        expandOnDrag = true,
+        hitSlop = 48,
+    })
+end
 
 local function build_queue()
     local player = state.data.player
@@ -45,11 +76,13 @@ local function build_queue()
             local item = player.queue[idx]
             if item then
                 local is_current = (idx == player.index)
+                table.insert(rows, insertion_zone(idx))
                 table.insert(rows, common.media_row(item, idx, function()
                     request("play_queue_index", { index = idx })
-                end, is_current))
+                end, is_current, { drag_type = DRAG_TYPE, payload = idx, enabled = total > 1 }))
             end
         end
+        table.insert(rows, insertion_zone(page_end + 1))
 
         local has_prev = (view.queue_view_page > 0)
         local has_next = (view.queue_view_page < total_pages - 1)
@@ -88,7 +121,16 @@ local function build_queue()
             }))
         end
 
-        table.insert(child, ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows))
+        -- catch-all: a drop anywhere on the list goes to the bottom of the page
+        table.insert(child, ui.dropZone({
+            key = "queue-track-list",
+            accepts = { DRAG_TYPE },
+            value = tostring(page_end + 1),
+            onDrop = "onQueueTrackDropped",
+            gap = 0,
+            borderWidth = 0,
+            radius = theme.radius,
+        }, rows))
         table.insert(child, ui.row({
             key = "q-pagination",
             align = "center",
@@ -103,4 +145,4 @@ local function build_queue()
     return child
 end
 
-return { build = build_queue }
+return { build = build_queue, on_track_dropped = on_track_dropped }
