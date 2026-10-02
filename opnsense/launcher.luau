@@ -10,18 +10,81 @@ local snapshot = noctalia.state.get(STATE_KEY) or {
   available = false,
   configured = false,
   loading = true,
+  host = "",
+  error = "",
+  instances = {},
+  issueCount = 0,
+}
+
+-- Blank slice used before a firewall is selected and when none is configured.
+local EMPTY_VIEW = {
+  id = "",
+  name = "",
+  host = "",
+  available = false,
+  loading = false,
+  logsLoading = false,
+  error = "",
   widgets = {},
   interfaces = {},
   gateways = {},
   services = {},
+  rules = {},
+  logs = {},
+  info = {},
+  resources = {},
   issueCount = 0,
-  host = "",
-  error = "",
+  okCount = 0,
+  blockLogCount = 0,
+  updatedAt = 0,
 }
+
+local view = EMPTY_VIEW
+
+local currentId = ""
+
+local function instanceList()
+  return type(snapshot.instances) == "table" and snapshot.instances or {}
+end
+
+local function instanceById(id)
+  for _, inst in ipairs(instanceList()) do
+    if inst.id == id then
+      return inst
+    end
+  end
+  return nil
+end
+
+-- Matches an instance by id, name or host, in that order.
+local function instanceByName(text)
+  local want = lower(text)
+  if want == "" then
+    return nil
+  end
+  for _, inst in ipairs(instanceList()) do
+    if lower(inst.id) == want or lower(inst.name) == want or lower(inst.host) == want then
+      return inst
+    end
+  end
+  return nil
+end
+
+local function syncView()
+  local inst = instanceById(currentId) or instanceList()[1]
+  if inst == nil then
+    currentId = ""
+    view = EMPTY_VIEW
+    return
+  end
+  currentId = inst.id
+  view = inst
+end
 
 noctalia.state.watch(STATE_KEY, function(value)
   if type(value) == "table" then
     snapshot = value
+    syncView()
   end
 end)
 
@@ -59,6 +122,32 @@ local function statusRow(title, subtitle, glyph)
   return { id = "", title = title, subtitle = subtitle, glyph = glyph or "shield" }
 end
 
+local function instanceRows()
+  local rows = {}
+  for _, inst in ipairs(instanceList()) do
+    local issues = tonumber(inst.issueCount) or 0
+    local ok = inst.available == true and issues == 0
+    local subtitle
+    if inst.available ~= true then
+      subtitle = noctalia.tr("launcher.instance-down", {
+        error = inst.error ~= "" and inst.error or "unknown",
+      })
+    elseif issues > 0 then
+      subtitle = noctalia.tr("launcher.instance-issues", { n = issues, host = inst.host })
+    else
+      subtitle = noctalia.tr("launcher.instance-ok", { host = inst.host })
+    end
+    table.insert(rows, {
+      id = "inst:" .. inst.id,
+      title = inst.name,
+      subtitle = subtitle,
+      glyph = ok and "shield-check" or "shield-x",
+      score = 200,
+    })
+  end
+  return rows
+end
+
 local function topCategories()
   return {
     { id = "cat:status", title = noctalia.tr("launcher.cat.status"), subtitle = noctalia.tr("launcher.cat.status-sub"), glyph = "heart-rate-monitor", score = 100 },
@@ -75,7 +164,7 @@ end
 
 local function listStatus(filter)
   local rows = {}
-  for _, w in ipairs(snapshot.widgets or {}) do
+  for _, w in ipairs(view.widgets or {}) do
     local s = scoreText(filter, w.name, w.status, w.message)
     if s ~= nil then
       table.insert(rows, {
@@ -93,7 +182,7 @@ end
 
 local function listIfaces(filter)
   local rows = {}
-  for _, i in ipairs(snapshot.interfaces or {}) do
+  for _, i in ipairs(view.interfaces or {}) do
     local s = scoreText(filter, i.name, i.description, i.status, i.ipv4)
     if s ~= nil then
       table.insert(rows, {
@@ -111,7 +200,7 @@ end
 
 local function listGateways(filter)
   local rows = {}
-  for _, g in ipairs(snapshot.gateways or {}) do
+  for _, g in ipairs(view.gateways or {}) do
     local s = scoreText(filter, g.name, g.status, g.address)
     if s ~= nil then
       table.insert(rows, {
@@ -128,17 +217,18 @@ local function listGateways(filter)
 end
 
 local function serviceActions(name)
+  local where = view.name ~= "" and view.name or currentId
   return {
-    { id = "svcact:restart:" .. name, title = noctalia.tr("launcher.action.restart"), subtitle = name, glyph = "refresh", score = 100 },
-    { id = "svcact:start:" .. name, title = noctalia.tr("launcher.action.start"), subtitle = name, glyph = "player-play", score = 90 },
-    { id = "svcact:stop:" .. name, title = noctalia.tr("launcher.action.stop"), subtitle = name, glyph = "player-stop", score = 80 },
+    { id = "svcact:restart:" .. name, title = noctalia.tr("launcher.action.restart"), subtitle = name .. " · " .. where, glyph = "refresh", score = 100 },
+    { id = "svcact:start:" .. name, title = noctalia.tr("launcher.action.start"), subtitle = name .. " · " .. where, glyph = "player-play", score = 90 },
+    { id = "svcact:stop:" .. name, title = noctalia.tr("launcher.action.stop"), subtitle = name .. " · " .. where, glyph = "player-stop", score = 80 },
     { id = "svcact:copy:" .. name, title = noctalia.tr("launcher.action.copy"), subtitle = name, glyph = "copy", score = 70 },
   }
 end
 
 local function listServices(filter)
   local rows = {}
-  for _, s in ipairs(snapshot.services or {}) do
+  for _, s in ipairs(view.services or {}) do
     local sc = scoreText(filter, s.name, s.status, s.description)
     if sc ~= nil then
       table.insert(rows, {
@@ -158,12 +248,12 @@ end
 
 local function findService(name)
   name = trim(name)
-  for _, s in ipairs(snapshot.services or {}) do
+  for _, s in ipairs(view.services or {}) do
     if s.name == name or s.id == name then return s end
   end
   local hits = {}
   local q = lower(name)
-  for _, s in ipairs(snapshot.services or {}) do
+  for _, s in ipairs(view.services or {}) do
     if lower(s.name):find(q, 1, true) then table.insert(hits, s) end
   end
   if #hits == 1 then return hits[1] end
@@ -179,15 +269,16 @@ function onQuery(query)
     return
   end
 
-  if snapshot.loading and not snapshot.available then
+  if snapshot.loading and not view.available then
     send("refresh")
-    launcher.setResults(query, { statusRow(noctalia.tr("launcher.loading"), snapshot.host, "loader") })
+    launcher.setResults(query, { statusRow(noctalia.tr("launcher.loading"), snapshot.host ~= "" and snapshot.host or view.host, "loader") })
     return
   end
 
-  if not snapshot.available then
+  if not view.available then
+    local reason = view.error ~= "" and view.error or snapshot.error
     launcher.setResults(query, {
-      statusRow(noctalia.tr("launcher.unavailable"), snapshot.error or "", "cloud-off"),
+      statusRow(noctalia.tr("launcher.unavailable"), reason or "", "cloud-off"),
       { id = "act:refresh", title = noctalia.tr("launcher.cat.refresh"), subtitle = "", glyph = "refresh" },
     })
     return
@@ -195,12 +286,25 @@ function onQuery(query)
 
   local text = trim(query)
   if text == "" then
-    launcher.setResults(query, topCategories())
+    local rows = instanceRows()
+    for _, row in ipairs(topCategories()) do
+      table.insert(rows, row)
+    end
+    launcher.setResults(query, rows)
     return
   end
 
   local tokens = {}
   for t in text:gmatch("%S+") do table.insert(tokens, t) end
+
+  -- `opn site-a gateways …`: the first token may point the launcher at a firewall.
+  local target = instanceByName(tokens[1] or "")
+  if target ~= nil and #tokens > 1 then
+    currentId = target.id
+    syncView()
+    table.remove(tokens, 1)
+  end
+
   local head = lower(tokens[1] or "")
   local rest = table.concat(tokens, " ", 2)
 
@@ -235,6 +339,13 @@ function onQuery(query)
   end
 
   local rows = {}
+  for _, row in ipairs(instanceRows()) do
+    local s = scoreText(text, row.title, row.subtitle)
+    if s ~= nil then
+      row.score = s + 20
+      table.insert(rows, row)
+    end
+  end
   for _, row in ipairs(topCategories()) do
     local s = scoreText(text, row.title, row.id)
     if s ~= nil then
@@ -245,9 +356,12 @@ function onQuery(query)
   for _, r in ipairs(listServices(text)) do
     if r.id ~= "" then table.insert(rows, r) end
   end
+  table.sort(rows, function(a, b) return (a.score or 0) > (b.score or 0) end)
   if #rows == 0 then rows[1] = statusRow(noctalia.tr("launcher.no-matches"), text, "search") end
   launcher.setResults(query, rows)
 end
+
+syncView()
 
 function onActivate(id)
   if id == nil or id == "" then return end
@@ -259,8 +373,16 @@ function onActivate(id)
   if id == "cat:rules" then noctalia.togglePanel(PANEL_ID); return end
   if id == "cat:logs" then noctalia.togglePanel(PANEL_ID); return end
 
+  local inst = id:match("^inst:(.+)$")
+  if inst then
+    currentId = inst
+    syncView()
+    launcher.setQuery(view.name .. " status ")
+    return
+  end
+
   if id == "act:panel" then noctalia.togglePanel(PANEL_ID); return end
-  if id == "act:ui" then send("open_ui"); return end
+  if id == "act:ui" then send("open_ui", { instance = currentId }); return end
   if id == "act:refresh" then
     send("refresh")
     noctalia.notify(noctalia.tr("title"), noctalia.tr("widget.refresh_requested"))
@@ -275,9 +397,9 @@ function onActivate(id)
 
   local act, name = id:match("^svcact:([%w]+):(.+)$")
   if act and name then
-    if act == "restart" then send("restart_service", { name = name })
-    elseif act == "start" then send("start_service", { name = name })
-    elseif act == "stop" then send("stop_service", { name = name })
+    if act == "restart" then send("restart_service", { name = name, instance = currentId })
+    elseif act == "start" then send("start_service", { name = name, instance = currentId })
+    elseif act == "stop" then send("stop_service", { name = name, instance = currentId })
     elseif act == "copy" then send("copy", { name = name })
     end
     return
