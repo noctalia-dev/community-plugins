@@ -1,0 +1,23 @@
+{
+  "title": "HyprPrice",
+  "settings": {
+    "currency": {
+      "label": "Currency",
+      "description": "Quote currency to price the coin against.",
+      "usd": "USD",
+      "eur": "EUR"
+    },
+    "interval": {
+      "label": "Refresh interval (seconds)",
+      "description": "How often to poll Kraken for the latest price."
+    },
+    "show_change": {
+      "label": "Show 24h change",
+      "description": "Display the 24-hour percentage change next to the price."
+    },
+    "coin": {
+      "label": "Fallback default",
+      "description": "Coin or stock id tracked on startup (e.g. monero, bitcoin, stock-aapl) when no default has been saved. Use the Set as default button in the chart panel to pick one without editing settings."
+    }
+  }
+}
