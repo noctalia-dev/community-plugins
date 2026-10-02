@@ -164,12 +164,30 @@ local KEY_LABELS = {
   btn_extra = "Mouse Extra",
 }
 
+local MOUSE_BUTTONS = {
+  [272] = "LMB",
+  [273] = "RMB",
+  [274] = "MMB",
+  [275] = "Mouse 4",
+  [276] = "Mouse 5",
+  [277] = "Mouse Fwd",
+  [278] = "Mouse Back",
+}
+
 local function formatKey(key)
   if key == nil or key == "" then return "" end
   local exact = KEY_LABELS[key]
   if exact ~= nil then return exact end
   local lowered = KEY_LABELS[lower(key)]
   if lowered ~= nil then return lowered end
+  -- Pointer buttons by evdev code (what Hyprland reports): the three
+  -- buttons everyone knows by name, side buttons and the wheel after.
+  local button = key:match("^mouse:(%d+)$") or key:match("^[Mm]ouse (%d+)$")
+  if button ~= nil then
+    local named = MOUSE_BUTTONS[tonumber(button)]
+    if named ~= nil then return named end
+    return "Mouse " .. button
+  end
   return key:gsub("^mouse:", "Mouse ")
 end
 
@@ -314,6 +332,20 @@ local function bucketForKey(key)
   if startsWith(value, "mouse") or startsWith(value, "btn_") or value:find("wheel", 1, true) ~= nil then return "mouse" end
   if value == "print" or value == "prior" or value == "next" then return "print" end
   return "default"
+end
+
+-- Display name for a modifier pill. The `modifier_labels` setting maps a
+-- modifier (as Hyprland names it: MOD3, MOD5, ...) to the name the user
+-- actually calls it, e.g. { MOD3 = "Hyper" } for a Caps-as-Hyper setup.
+local function modifierLabel(modifier)
+  local labels = noctalia.getConfig("modifier_labels")
+  if type(labels) == "table" then
+    local custom = labels[modifier] or labels[lower(modifier)]
+    if type(custom) == "string" and custom ~= "" then
+      return custom
+    end
+  end
+  return modifier:sub(1, 1) .. lower(modifier:sub(2))
 end
 
 local function bucketForModifier(modifier)
@@ -578,9 +610,68 @@ local function restoreHiddenBindings(bindingList, hiddenPreferences)
   end
 end
 
+-- Collapse a run of sibling binds that differ only by a number — "Focus
+-- workspace 1" on 1, "… 2" on 2, … — into one row ("Focus workspace N" on
+-- 1-0 / F1-F3). Same modifiers, same category, descriptions equal once
+-- their digit runs are normalised, and keys all digits or all F-keys.
+-- Never in the edit view, where each bind must stay addressable.
+local function sequenceKind(key)
+  if key:match("^%d$") then return "digit" end
+  if key:match("^[Ff]%d%d?$") then return "fkey" end
+  return nil
+end
+
+local function keyOrdinal(key)
+  if key:match("^%d$") then
+    local n = tonumber(key)
+    return n == 0 and 10 or n -- the number row runs 1..9,0
+  end
+  return tonumber(key:match("%d+")) or 0
+end
+
+local function mergeSequential(list)
+  local out = {}
+  local i = 1
+  while i <= #list do
+    local first = list[i]
+    local kind = sequenceKind(first.key or "")
+    local template = kind and ((first.description or ""):gsub("%d+", "N")) or nil
+    local run = { first }
+    if kind ~= nil and template ~= nil and (first.description or "") ~= "" then
+      local mods = table.concat(first.modifiers or {}, "+")
+      local j = i + 1
+      while j <= #list do
+        local candidate = list[j]
+        if sequenceKind(candidate.key or "") ~= kind then break end
+        if table.concat(candidate.modifiers or {}, "+") ~= mods then break end
+        if ((candidate.description or ""):gsub("%d+", "N")) ~= template then break end
+        if preferences.descriptions[candidate.id] ~= nil then break end
+        table.insert(run, candidate)
+        j += 1
+      end
+    end
+    if #run >= 2 then
+      table.sort(run, function(a, b) return keyOrdinal(a.key) < keyOrdinal(b.key) end)
+      local merged = {}
+      for k, v in pairs(first) do merged[k] = v end
+      merged.id = first.id .. "~" .. run[#run].id
+      merged.key = (kind == "fkey" and "" or "") .. run[1].key .. "-" .. run[#run].key
+      merged.description = template
+      merged.merged = #run
+      table.insert(out, merged)
+      i += #run
+    else
+      table.insert(out, first)
+      i += 1
+    end
+  end
+  return out
+end
+
 local function visibleGroups()
   local showUndescribed = noctalia.getConfig("show_undescribed") ~= false
   local managing = view == "edit"
+  local mergeRuns = noctalia.getConfig("merge_sequential") ~= false and not managing
   local groups = {}
   local byName = {}
   for index, binding in ipairs(bindings) do
@@ -597,6 +688,12 @@ local function visibleGroups()
       binding.displayIndex = index
       table.insert(group.bindings, binding)
       group.weight += 1
+    end
+  end
+  if mergeRuns then
+    for _, group in ipairs(groups) do
+      group.bindings = mergeSequential(group.bindings)
+      group.weight = 1 + #group.bindings
     end
   end
   table.sort(groups, function(a, b)
@@ -675,7 +772,7 @@ local function bindingRow(binding, occurrence)
   local contentOpacity = bindingContentOpacity(hidden)
   local pills = {}
   for index, modifier in ipairs(binding.modifiers) do
-    table.insert(pills, keyPill(modifier == "SUPER" and "Super" or modifier:sub(1, 1) .. lower(modifier:sub(2)), bucketForModifier(modifier), "mod-" .. index))
+    table.insert(pills, keyPill(modifierLabel(modifier), bucketForModifier(modifier), "mod-" .. index))
   end
   table.insert(pills, keyPill(formatKey(binding.key), bucketForKey(binding.key), "key"))
 

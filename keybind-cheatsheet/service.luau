@@ -911,13 +911,39 @@ local function extractLuaStringLiterals(expr)
   return literals
 end
 
+-- Position of the first `--` that starts a comment, i.e. one outside a
+-- string literal. A naive find() stops at the first `--` anywhere, and
+-- Hyprland configs are full of `exec_cmd("tool --flag")` lines whose
+-- description then never gets read (the bind lands in "Other").
+local function luaCommentStart(line)
+  local quote = nil
+  local i = 1
+  local n = #line
+  while i <= n do
+    local ch = line:sub(i, i)
+    if quote ~= nil then
+      if ch == "\\" then
+        i += 1
+      elseif ch == quote then
+        quote = nil
+      end
+    elseif ch == '"' or ch == "'" then
+      quote = ch
+    elseif ch == "-" and line:sub(i + 1, i + 1) == "-" then
+      return i
+    end
+    i += 1
+  end
+  return nil
+end
+
 local function scanHyprLuaContent(content, sourceFile, context)
   local category = ""
   local includes = {}
   local pendingDescription = false
 
   for rawLine in content:gmatch("[^\r\n]+") do
-    local commentIndex = rawLine:find("--", 1, true)
+    local commentIndex = luaCommentStart(rawLine)
     if commentIndex ~= nil then
       local heading = rawLine:match("^%s*%-%-%s*%d+%.%s*(.-)%s*$")
       if heading ~= nil and heading ~= "" then

@@ -76,6 +76,14 @@
     "show_undescribed": {
       "description": "Put bindings without descriptions in a separate section.",
       "label": "Show undescribed bindings"
+    },
+    "merge_sequential": {
+      "label": "Merge numbered runs",
+      "description": "Collapse binds that differ only by a number (workspace 1, 2, 3…) into one row."
+    },
+    "modifier_labels": {
+      "label": "Modifier labels",
+      "description": "Rename modifier pills, e.g. MOD3 → Hyper. Keys are Hyprland modifier names."
     }
   },
   "show_binding": "Show binding",
