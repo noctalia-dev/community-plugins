@@ -194,40 +194,44 @@ local BUILTIN_PALETTES: { [string]: string } = {
   ["rose pine"] = "#EBBCBA",
 }
 
--- Get active theme accent color directly via Noctalia host API
+-- Get active theme accent color directly via Noctalia host API or fallbacks
 function Razer.getThemeColor(): (string, boolean)
-  -- 1. Check built-in palette setting via host API
-  local builtin = noctalia.getSetting("theme.builtin")
-  if type(builtin) == "string" and builtin ~= "" then
-    local mapped = BUILTIN_PALETTES[builtin:lower()]
-    if mapped then
-      return mapped, true
+  -- 1. API native Noctalia (Récupère l'accent color du fond d'écran ou du thème active)
+  if type(noctalia.getColor) == "function" then
+    local ok, col = pcall(function()
+      return noctalia.getColor("on_primary")
+    end)
+    if ok and type(col) == "string" and #col >= 7 then
+      return col:sub(1, 7):upper(), true
     end
   end
 
-  -- 2. Check community palette setting via host API
-  local palette = noctalia.getSetting("theme.palette")
-  if type(palette) == "string" and palette ~= "" then
-    local cat = noctalia.readFile(noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json"))
-    if cat then
-      local pJson = noctalia.json.decode(cat)
-      if type(pJson) == "table" then
-        for _, item in ipairs(pJson) do
-          if item.name and item.name:lower() == palette:lower() then
-            local dark = noctalia.isDarkMode()
-            local prim = (dark and item.dark and item.dark.primary)
-              or (item.light and item.light.primary)
-              or (item.dark and item.dark.primary)
-            if prim and type(prim) == "string" and #prim >= 7 then
-              return prim:upper(), true
-            end
-          end
-        end
+  -- 2. Fallback : Pywal / Wallust / CachyOS (~/.cache/wal/colors)
+  local walOk, walColor = pcall(function()
+    local walData = noctalia.readFile(noctalia.expandPath("~/.cache/wal/colors"))
+    if type(walData) == "string" and #walData > 0 then
+      local idx = 0
+      for hex in walData:gmatch("#%x%x%x%x%x%x") do
+        idx = idx + 1
+        if idx == 2 or idx == 3 then return hex:upper() end
       end
+      return walData:match("#%x%x%x%x%x%x")
     end
+    return nil
+  end)
+  if walOk and walColor and type(walColor) == "string" then
+    return walColor:upper(), true
   end
 
-  -- 3. Fallback to Razer Green when theme accent is unavailable
+  -- 3. Fallback : Thèmes intégrés
+  local builtinOk, builtin = pcall(function()
+    return noctalia.getSetting("theme.builtin")
+  end)
+  if builtinOk and type(builtin) == "string" and builtin ~= "" then
+    local mapped = BUILTIN_PALETTES[builtin:lower()]
+    if mapped then return mapped, true end
+  end
+
   return "#00FF00", false
 end
 
