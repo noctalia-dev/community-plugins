@@ -29,6 +29,11 @@ Add the **status** bar widget (`davemhammer/k8s-status:status`). Click for the p
 
 Panel tabs: **Nodes**, **Pods**, **Deployments**, **Namespaces**. Select a row for describe / logs / shell / restart actions (where applicable).
 
+When the kubeconfig holds multiple contexts and the `context` setting is empty, the panel header shows a context
+selector. Picking one runs `kubectl config use-context` (the kubectx equivalent), so the choice is shared with your
+terminal and persists across restarts. With `context` set in the plugin settings, the selector stays a read-only
+label because the pinned setting overrides every kubectl call.
+
 Launcher examples:
 
 - `/kube` — categories (pods, problems, nodes, …)
@@ -59,11 +64,13 @@ noctalia msg panel-toggle davemhammer/k8s-status:manager
 ```sh
 noctalia msg panel-toggle davemhammer/k8s-status:manager
 noctalia msg plugin davemhammer/k8s-status:service all refresh
+noctalia msg plugin davemhammer/k8s-status:service all use_context <name>
 ```
 
 ## Notes
 
 - Shells out to `kubectl` and `less` (and optionally a terminal via `runInTerminal` for logs/shell/`k9s`).
 - Refresh: nodes, deployments, and namespaces use compact **jsonpath** queries; pods use `kubectl get pods` table output for ready/restart columns.
-- Does not modify cluster state unless you run restart/delete-style actions from the panel or launcher.
+- Modifies your kubeconfig's current-context when you pick a context in the panel selector; does not modify cluster
+  state unless you run restart/delete-style actions from the panel or launcher.
 - Network: only via `kubectl` to the API server from your kubeconfig. No cluster credentials are written into the plugin tree.
