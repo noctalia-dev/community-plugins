@@ -1,0 +1,129 @@
+{
+  "settings": {
+    "auth_mode": {
+      "label": "Mode autentikasi",
+      "description": "Pilih antara token CLI lokal otomatis atau kata sandi dashboard.",
+      "options": {
+        "cli_token": "Token CLI (Berkas rahasia lokal)",
+        "password": "Kata sandi dashboard"
+      }
+    },
+    "cli_token_path": {
+      "label": "Direktori rahasia CLI",
+      "description": "Folder berisi machine-id dan auth/cli-secret (default ~/.9router)."
+    },
+    "dashboard_password": {
+      "label": "Kata sandi dashboard",
+      "description": "Kata sandi untuk autentikasi ke dashboard 9Router."
+    },
+    "dashboard_host": {
+      "label": "Host dashboard",
+      "description": "Nama host atau alamat IP server 9Router (misal localhost, 127.0.0.1)."
+    },
+    "dashboard_port": {
+      "label": "Port dashboard",
+      "description": "Port server 9Router berjalan (default 20128)."
+    },
+    "base_url": {
+      "label": "URL Dasar",
+      "description": "URL lengkap server 9Router."
+    },
+    "refresh_seconds": {
+      "label": "Interval refresh heartbeat (detik)",
+      "description": "Seberapa sering polling status jika stream terputus."
+    },
+    "show_model_label": {
+      "label": "Tampilkan nama model di bar",
+      "description": "Tampilkan teks model pada bar pill. Jika mati, hanya ikon status yang terlihat."
+    },
+    "remember_password": {
+      "label": "Ingat kata sandi dashboard",
+      "description": "Simpan kata sandi dashboard di keyring sistem untuk login ulang otomatis."
+    },
+    "busy_hold_seconds": {
+      "label": "Durasi status aktif (detik)",
+      "description": "Berapa lama status aktif bertahan setelah request selesai."
+    }
+  },
+  "panel": {
+    "title": "9Router",
+    "models_usage": "PENGGUNAAN MODEL",
+    "overview": "RINGKASAN",
+    "total_requests": "Total Request",
+    "total_input_tokens": "Total Token Input",
+    "cached_tokens_label": "Token Tersimpan",
+    "output_tokens": "Token Output",
+    "est_cost": "Estimasi Biaya",
+    "est_cost_sub": "Estimasi, bukan tagihan riil",
+    "recent_requests": "REQUEST TERAKHIR",
+    "no_models_period": "Belum ada penggunaan model pada periode ini.",
+    "active_now": "SEDANG AKTIF",
+    "dashboard_login": "LOGIN DASHBOARD",
+    "login_description": "Sesi kedaluwarsa atau diperlukan autentikasi. Masukkan kata sandi dashboard 9Router Anda.",
+    "password_placeholder": "Kata sandi dashboard",
+    "sign_in": "Masuk",
+    "signing_in": "Sedang masuk…",
+    "show_password": "Lihat",
+    "hide_password": "Sembunyikan",
+    "remember_password": "Simpan kata sandi di keyring sistem",
+    "recent_models": "MODEL TERAKHIR",
+    "no_recent": "Belum ada aktivitas request tercatat. Kirim prompt melalui 9Router dan riwayat akan muncul di sini.",
+    "prompt_tokens": "Token prompt",
+    "completion_tokens": "Token completion",
+    "cached_tokens": "Cached",
+    "cost": "Biaya",
+    "quota_tracker": "KUOTA PROVIDER",
+    "no_quotas": "Tidak ada data kuota yang ditemukan untuk provider.",
+    "quota_used": "terpakai {used} / {total}",
+    "quota_remaining": "sisa {pct}%",
+    "quota_resets_in": "reset dalam {time}",
+    "quota_resets_at": "reset {date}",
+    "unlimited": "Tak terbatas",
+    "connection": "KONEKSI",
+    "host": "Host",
+    "port": "Port",
+    "apply_reconnect": "Terapkan & hubungkan ulang",
+    "invalid_host": "Masukkan hostname atau IP yang valid (tanpa http:// atau path).",
+    "invalid_port": "Port harus berupa angka antara 1 dan 65535.",
+    "connecting_to": "Menghubungkan ke {url}…",
+    "open_dashboard": "Buka dashboard",
+    "refresh": "Segarkan",
+    "logout": "Keluar",
+    "updated_at": "Diperbarui {time} · {url}"
+  },
+  "status": {
+    "request_in_flight": "REQUEST SEDANG BERJALAN",
+    "idle": "STANDBY",
+    "session_expired": "SESI KEDALUWARSA",
+    "offline": "TERPUTUS",
+    "connecting": "MENGHUBUNGKAN…",
+    "no_requests": "Belum ada request",
+    "working": "memproses…",
+    "login_needed": "perlu login"
+  },
+  "tab": {
+    "activity": "Aktivitas",
+    "models": "Model",
+    "quotas": "Pelacak Kuota"
+  },
+  "period": {
+    "today": "Hari ini",
+    "24h": "24j",
+    "7d": "7h",
+    "30d": "30h",
+    "60d": "60h"
+  },
+  "time": {
+    "just_now": "baru saja",
+    "seconds_ago": "{count}d lalu",
+    "minutes_ago": "{count}m lalu",
+    "hours_ago": "{count}j lalu",
+    "days_ago": "{count}h lalu"
+  },
+  "tooltip": {
+    "in_flight": "Request sedang diproses",
+    "last_model": "Model terakhir",
+    "expired": "Sesi 9Router kedaluwarsa — klik untuk login",
+    "offline": "9Router terputus"
+  }
+}

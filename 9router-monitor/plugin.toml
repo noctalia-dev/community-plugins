@@ -1,0 +1,117 @@
+id = "bardiz12/9router-monitor"
+name = "9Router Monitor"
+version = "0.1.0"
+plugin_api = 15
+author = "bardiz12"
+license = "MIT"
+icon = "route"
+description = "Live 9Router monitor: active traffic indicator, last used model, request history, and quota tracker"
+dependencies = ["curl", "secret-tool"]
+tags = ["ai", "indicator", "bar", "panel", "service", "utility"]
+
+# ── Plugin-level settings ─────────────────────────────────────────────────────
+
+[[setting]]
+key = "auth_mode"
+type = "select"
+label_key = "settings.auth_mode.label"
+description_key = "settings.auth_mode.description"
+default = "cli_token"
+options = [
+  { value = "cli_token", label_key = "settings.auth_mode.options.cli_token" },
+  { value = "password", label_key = "settings.auth_mode.options.password" },
+]
+
+[[setting]]
+key = "cli_token_path"
+type = "folder"
+label_key = "settings.cli_token_path.label"
+description_key = "settings.cli_token_path.description"
+default = "~/.9router"
+visible_when = { key = "auth_mode", values = ["cli_token"] }
+
+[[setting]]
+key = "dashboard_password"
+type = "string"
+label_key = "settings.dashboard_password.label"
+description_key = "settings.dashboard_password.description"
+default = ""
+visible_when = { key = "auth_mode", values = ["password"] }
+
+[[setting]]
+key = "dashboard_host"
+type = "string"
+label_key = "settings.dashboard_host.label"
+description_key = "settings.dashboard_host.description"
+default = "localhost"
+
+[[setting]]
+key = "dashboard_port"
+type = "int"
+label_key = "settings.dashboard_port.label"
+description_key = "settings.dashboard_port.description"
+default = 20128
+min = 1
+max = 65535
+
+[[setting]]
+key = "base_url"
+type = "string"
+label_key = "settings.base_url.label"
+description_key = "settings.base_url.description"
+default = "http://localhost:20128"
+
+[[setting]]
+key = "refresh_seconds"
+type = "int"
+label_key = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default = 5
+min = 2
+max = 120
+
+[[setting]]
+key = "show_model_label"
+type = "bool"
+label_key = "settings.show_model_label.label"
+description_key = "settings.show_model_label.description"
+default = true
+
+[[setting]]
+key = "remember_password"
+type = "bool"
+label_key = "settings.remember_password.label"
+description_key = "settings.remember_password.description"
+default = true
+
+[[setting]]
+key = "busy_hold_seconds"
+type = "int"
+label_key = "settings.busy_hold_seconds.label"
+description_key = "settings.busy_hold_seconds.description"
+default = 12
+min = 3
+max = 60
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "pill"
+entry = "widget.luau"
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 460
+height = 620
+placement = "floating"
+position = "auto"
+open_near_click = true
+keyboard_focus = "on_demand"
+dismiss_on_outside_click = true
