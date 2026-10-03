@@ -12,7 +12,7 @@ The plugin checks for updates in the background, displays the available count in
 | --- | --- |
 | ID | `etrigan63/rum-updates` |
 | Entries | Bar widget: `rum_updates`; service: `update_poller` |
-| Version | `0.1.8` |
+| Version | `0.1.9` |
 | Noctalia plugin API | `3` |
 | License | MIT |
 
@@ -52,6 +52,7 @@ The plugin settings control polling and notifications. Each bar widget has its o
 - Optionally sends a notification when the number of available updates increases.
 - Validates and sorts `rum` JSON output before displaying it.
 - Cross-checks the reported updates against `rum upgrade --dry-run` and drops any candidate the real upgrade would not apply, so phantom entries never inflate the count.
+- Shows a result notification at the end of a right-click check, including when there are no updates to install.
 - Never starts a privileged upgrade automatically; `sudo` is run only after an explicit widget click.
 
 ## Requirements
@@ -168,6 +169,8 @@ Reported candidates are validated against `rum upgrade --dry-run`, the same reso
 ## Notifications
 
 When **Notify** is enabled, Noctalia shows a notification only when the number of discovered updates increases. The plugin does not notify for the initial check, unchanged counts, decreases, errors, or updates that disappear.
+
+A right-click check always ends with a result notification: the number of updates that are available, or that there are no updates to install. Failed checks report the error instead.
 
 ## Troubleshooting
 

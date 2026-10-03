@@ -24,6 +24,23 @@ local hasReceivedUpdateState = false
 local count = #stateUpdates
 local updateError = stateError
 local isChecking = noctalia.state.get("update_checking") == true
+-- Set when the user asks for a check (right-click); the completion
+-- notification is shown for that check even when zero updates are found.
+local manualCheckPending = false
+
+local function notifyManualCheckResult(updatesAvailable)
+    if updatesAvailable > 0 then
+        noctalia.notify(
+            noctalia.tr("bar.notify.check_complete.title"),
+            noctalia.tr("bar.notify.check_complete.updates", { count = updatesAvailable })
+        )
+    else
+        noctalia.notify(
+            noctalia.tr("bar.notify.check_complete.title"),
+            noctalia.tr("bar.notify.check_complete.no_updates")
+        )
+    end
+end
 
 local function checkNowRow()
     local hint = noctalia.tr("tooltip.check_now_hint")
@@ -105,7 +122,7 @@ noctalia.state.watch("updates", function(value)
     end
 
     local nextCount = #value
-    if hasReceivedUpdateState and notify and nextCount > previousCount then
+    if not manualCheckPending and hasReceivedUpdateState and notify and nextCount > previousCount then
         noctalia.notify(
             noctalia.tr("bar.notify.new_updates.title"),
             noctalia.tr("bar.notify.new_updates.description", { count = nextCount })
@@ -116,6 +133,12 @@ noctalia.state.watch("updates", function(value)
     count = nextCount
     previousCount = nextCount
     hasReceivedUpdateState = true
+
+    if manualCheckPending then
+        manualCheckPending = false
+        notifyManualCheckResult(nextCount)
+    end
+
     render()
 end)
 
@@ -124,6 +147,10 @@ noctalia.state.watch("update_error", function(value)
         updateError = nil
     else
         updateError = value
+    end
+    if manualCheckPending and updateError ~= nil then
+        manualCheckPending = false
+        noctalia.notifyError("RUM Updates", updateError)
     end
     render()
 end)
@@ -214,7 +241,9 @@ function onRightClick()
             "RUM Updates",
             noctalia.tr("bar.notify.refresh_failed")
         )
+        return
     end
+    manualCheckPending = true
 end
 
 render()

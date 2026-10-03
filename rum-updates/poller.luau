@@ -145,6 +145,7 @@ local function fail(message)
 end
 
 local function commitUpdates(parsed)
+    setChecking(false)
     updates = parsed
     currentError = nil
     noctalia.state.set("updates", updates)
@@ -207,19 +208,20 @@ local function refresh()
 
     setChecking(true)
     local started = noctalia.runAsync("rum check-upgrade --json", function(result)
-        setChecking(false)
-
         if type(result) ~= "table" then
+            setChecking(false)
             fail(noctalia.tr("poller.error.invalid_result"))
             return
         end
         if result.timedOut == true then
+            setChecking(false)
             fail(noctalia.tr("poller.error.timed_out", {
                 seconds = commandTimeoutMs / 1000,
             }))
             return
         end
         if result.exitCode ~= 0 then
+            setChecking(false)
             local message = noctalia.tr("poller.error.exit", {
                 code = tostring(result.exitCode),
             })
@@ -233,6 +235,7 @@ local function refresh()
 
         local parsed, parseError = decodeUpdates(result.stdout)
         if parsed == nil then
+            setChecking(false)
             fail(parseError)
             return
         end

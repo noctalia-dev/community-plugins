@@ -1,6 +1,11 @@
 {
   "bar": {
     "notify": {
+      "check_complete": {
+        "no_updates": "No RUM updates available.",
+        "title": "RUM Updates",
+        "updates": "{count} RUM updates are available."
+      },
       "missing_rum": "rum is not available",
       "missing_software_center": "RakuOS Software Center is not available",
       "new_updates": {
