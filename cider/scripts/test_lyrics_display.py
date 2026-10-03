@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,13 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class BackendSettingTests(unittest.TestCase):
+    def test_internal_notifications_use_supported_ipc_contract(self) -> None:
+        manifest = tomllib.loads((ROOT / "plugin.toml").read_text(encoding="utf-8"))
+        self.assertNotIn("save_to_history", {field["key"] for field in manifest["setting"]})
+        service = (ROOT / "service.luau").read_text(encoding="utf-8")
+        self.assertNotIn("save_history", service)
+        self.assertIn('local icon = "music"', service)
+
     def test_plugin_toml_has_no_lyrics_osd_backend(self) -> None:
         text = (ROOT / "plugin.toml").read_text(encoding="utf-8")
         self.assertNotIn("lyrics_display_backend", text)

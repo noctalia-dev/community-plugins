@@ -36,7 +36,6 @@ local lastCiderPositionMs = -1
 -- Host [[setting]] values live in wipe-prone settings.toml. Mirror effective
 -- config under pluginDataDir (same pattern as local/steam bridge-config.json).
 local displayMode = "notification" -- notification | osd | off
-local saveToHistory = false
 local osdDurationMs = 4500
 local baseUrl = "http://127.0.0.1:10767"
 local apptoken = ""
@@ -103,7 +102,6 @@ local function persistConfig()
   noctalia.mkdirAll(dataDir())
   local encoded = noctalia.json.encode({
     display_mode = displayMode,
-    save_to_history = saveToHistory == true,
     show_osd = displayMode == "osd",
     osd_duration_ms = osdDurationMs,
     base_url = baseUrl,
@@ -220,7 +218,6 @@ end
 local function refreshConfig()
   local durable = loadDurableConfig()
   displayMode = resolveDisplayMode(durable)
-  saveToHistory = cfgBool("save_to_history", false, durable)
   osdDurationMs = cfgNumber("osd_duration_ms", 4500, durable)
   baseUrl = cfgString("base_url", "http://127.0.0.1:10767", durable)
   apptoken = cfgString("apptoken", "", durable)
@@ -271,15 +268,11 @@ local function pluginRoot()
 end
 
 local function trackKey(np)
-  -- Identity for "new song" must NOT include catalog_id — it often arrives on a
-  -- later snapshot and was falsely treated as a track change (cleared lyrics,
-  -- reopened OSD forever).
+  -- Match the bridge/GTK identity: catalog, album, and duration can arrive late.
   if type(np) ~= "table" then return "" end
   return table.concat({
     tostring(np.title or ""),
     tostring(np.artist or ""),
-    tostring(np.album or ""),
-    tostring(np.duration_ms or 0),
   }, "|")
 end
 
@@ -494,7 +487,8 @@ local function showTrackNotification(np)
   if title == "" then
     title = noctalia.tr("osd.not_playing")
   end
-  local icon = "audio-x-generic"
+  -- notification-show interprets bare icon names as Noctalia glyphs.
+  local icon = "music"
   if type(np) == "table" then
     local art = tostring(np.artwork_path or ""):gsub("^file://", "")
     if art ~= "" then
@@ -510,7 +504,6 @@ local function showTrackNotification(np)
     timeout_ms = math.floor(osdDurationMs),
     desktop_entry = "noctalia-now-playing",
     category = "x-noctalia.media",
-    save_history = saveToHistory == true,
   }
   local encoded = noctalia.json.encode(payload)
   if not encoded then
@@ -791,8 +784,10 @@ local function handleEvent(event)
     publishNowPlaying(np)
     local key = trackKey(np)
     local playing = isPlayingState(np.playback_state)
-    if event.type == "track" and key ~= "" and key ~= lastTrackKey then
+    if event.type == "track" and key ~= "" then
       lastTrackKey = key
+      lastNotifyTrackKey = ""
+      lastOsdTrackKey = ""
       setPlaybackAnchor(np.position_ms, playing)
       clearLocalLyrics()
       -- Only toast/OSD when this track is already playing (not queue-load at rest).
@@ -900,7 +895,10 @@ local function pollBridgeFiles()
           handleEvent(decoded)
         elseif type(nowPlaying) == "table" then
           local key = trackKey(decoded)
-          if key ~= "" and key ~= lastTrackKey then
+          local catalog = tostring(decoded.catalog_id or "")
+          local prevCatalog = tostring(nowPlaying.catalog_id or "")
+          if key ~= "" and (key ~= lastTrackKey
+              or (decoded.type == "track" and catalog ~= "" and prevCatalog ~= "" and catalog ~= prevCatalog)) then
             decoded.type = "track"
             handleEvent(decoded)
           elseif decoded.type == "art"
@@ -908,6 +906,11 @@ local function pollBridgeFiles()
                 and decoded.artwork_path ~= nowPlaying.artwork_path) then
             decoded.type = "art"
             handleEvent(decoded)
+          elseif decoded.type == "state" then
+            -- Refresh metadata without applying its unfiltered playback sample.
+            decoded.position_ms = nowPlaying.position_ms
+            decoded.playback_state = nowPlaying.playback_state
+            publishNowPlaying(decoded)
           end
         end
       end

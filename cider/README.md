@@ -2,7 +2,7 @@
 
 Cider track-change alerts as Noctalia notifications or a rich now-playing card, plus a sticky karaoke lyrics HUD.
 
-Replaces the sparse stock media OSD **for Cider only**. Other players keep Noctalia’s default media popups.
+Adds Cider-specific track alerts and lyrics alongside Noctalia’s media controls.
 
 ## Plugin
 
@@ -10,14 +10,16 @@ Replaces the sparse stock media OSD **for Cider only**. Other players keep Nocta
 | ------------ | ---------------------------------------------------------- |
 | ID           | `dragged/cider`                                            |
 | Entries      | Bar widget: `now-playing`; panel: `osd`; service: `bridge` |
-| Dependencies | `python3`, `gtk3`, `gtk-layer-shell`, `python-gobject`     |
+| Dependencies | Base tools and GTK; compositor/audio helpers as described below |
 
 ## Requirements
 
-- Noctalia v5.0.0-beta.9+ (`plugin_api` 24 — argv `runAsync`). Tested on Umbriel 0.1.0 / Noctalia v5.0.1; Niri and Hyprland keep left-click = lyrics HUD.
+- Noctalia v5.2.1 recommended. Manifest, Luau, IPC, and GTK theme integration checked against its official source; `plugin_api` remains 24 (the oldest API used, available since v5.0.0-beta.9). Niri and Hyprland keep left-click = lyrics HUD.
 - Cider with Connectivity / External API enabled
 - `python3` on `PATH`, with `python-socketio`, `requests`, and `websocket-client` (`pip install -r requirements.txt` from this plugin directory)
 - Overlay HUD: `gtk3`, `gtk-layer-shell`, and `python-gobject`. Untimed silence gate optionally uses `parec` (PulseAudio / PipeWire).
+- Base tools: `bash`, `sh`, `pkill`, and `coreutils` (`cat`, `dirname`, `mkdir`, `rm`, `sleep`) launch and stop the bundled helpers. Noctalia's own CLI handles plugin IPC.
+- Conditional helpers: `niri` on Niri, `hyprctl` on Hyprland, or `umbriel` on Umbriel for window probes; `parec` only for the optional silence gate. Install the tools for your compositor/features, not every compositor. The manifest lists these existing commands for disclosure; Noctalia does not block enabling the plugin if a conditional helper is absent.
 - Umbriel loft (middle-click): `umbriel` on `PATH` (0.1.0+). No-op on other compositors.
 
 ## Usage
@@ -39,7 +41,7 @@ save_history = false
 
 Put `cider_app` first in `notification.filter_order`.
 
-6. Optional — hide the stock track-change OSD (this plugin’s rich card replaces it for Cider):
+6. Optional — hide the stock track-change OSD. This shell setting applies to **every player**; leave it enabled to keep stock popups for other players:
 
 ```toml
 [osd.kinds]
@@ -52,7 +54,7 @@ media = false
 noctalia msg panel-toggle dragged/cider:osd
 ```
 
-`osd` is the now-playing card (also opened automatically on track change when **Track alert** is OSD). It is a persistent floating panel. Lyrics always use the gtk-layer-shell overlay. On 5.0.1 the host also injects Attached/Floating/Layer/Open Near Click overrides under **Settings → Plugins** (gear on this plugin).
+`osd` is the now-playing card (also opened automatically on track change when **Track alert** is OSD). It is a persistent floating panel. Lyrics always use the gtk-layer-shell overlay. Noctalia 5.2.1 exposes the panel’s position and layer overrides under **Settings → Plugins** (gear on this plugin).
 
 Cider’s MPRIS has no synced lyrics. The bridge pulls Apple Music TTML via Cider’s amapi (LRCLIB fallback) for the sticky HUD.
 
@@ -75,7 +77,6 @@ Defaults are remappable in the widget editor.
 | `apptoken`                | `string` | `""`                     | Cider Connectivity token. Empty reuses the KDE notifier config file.        |
 | `base_url`                | `string` | `http://127.0.0.1:10767` | Cider HTTP API.                                                             |
 | `display_mode`            | `select` | `notification`           | Track-change alert: notification, `osd` panel, or off.                      |
-| `save_to_history`         | `bool`   | `false`                  | Keep notification alerts in history.                                        |
 | `osd_duration_ms`         | `int`    | `4500`                   | How long the notification or now-playing OSD stays visible (1000–20000 ms). |
 | `lyrics_osd_enabled`      | `bool`   | `true`                   | Master switch for the sticky lyrics HUD.                                    |
 | `lyrics_osd_position`     | `select` | `top_center`             | Overlay HUD edge.                                                           |
@@ -84,9 +85,9 @@ Defaults are remappable in the widget editor.
 | `lyrics_osd_karaoke`      | `bool`   | `true`                   | Word-level sing-along when Apple timings exist.                             |
 | `lyrics_osd_glow`         | `bool`   | `true`                   | Overlay-only drop shadow under glyphs.                                      |
 | `lyrics_karaoke_style`    | `select` | `theme`                  | Theme role tokens vs custom hex.                                            |
-| `lyrics_karaoke_sung`     | `string` | `""`                     | Custom sung-word hex.                                                       |
-| `lyrics_karaoke_active`   | `string` | `""`                     | Custom active-word hex.                                                     |
-| `lyrics_karaoke_upcoming` | `string` | `""`                     | Custom upcoming-word hex.                                                   |
+| `lyrics_karaoke_sung`     | `color`  | `#f2f3f3`                | Custom sung-word hex.                                                       |
+| `lyrics_karaoke_active`   | `color`  | `#83c2c8`                | Custom active-word hex.                                                     |
+| `lyrics_karaoke_upcoming` | `color`  | `#b2b2b8`                | Custom upcoming-word hex.                                                   |
 | `lyrics_osd_show_idle`    | `bool`   | `true`                   | Idle placeholder when the HUD is open with no lyrics.                       |
 | `lyrics_show_untimed`     | `bool`   | `false`                  | Show plain (no-timestamp) lyrics. Off = hide them; synced lyrics still show. |
 | `lyrics_plain_scroll`     | `bool`   | `false`                  | Opt-in / advanced: advance untimed lyrics across the song length.           |
@@ -113,16 +114,18 @@ noctalia msg plugin dragged/cider:bridge all toggle-loft
 
 ## Notes
 
-- **Network:** the Python bridge talks to Cider’s local Connectivity API (`base_url`). Lyrics use Cider `amapi/run-v3` (Apple Music TTML) with an LRCLIB fallback.
+- **Network:** the Python bridge uses HTTP and Socket.IO with Cider’s Connectivity API (`base_url`). Lyrics use Cider `amapi/run-v3` (Apple Music TTML) with `https://lrclib.net/api/get` as fallback. Artwork uses track-supplied cover URLs (normally Apple Music CDN); those requests do not carry the Cider token. No remote code is downloaded or executed.
 - **Processes:** `scripts/start-bridge.sh` launches `scripts/cider_bridge.py`. The lyrics HUD is `scripts/lyrics_overlay.py`. Umbriel loft is a one-shot `python3 cider_bridge.py --toggle-loft` (does not restart the bridge). Disable/uninstall stops helpers via `onExit`.
 - **Filesystem:** runtime JSON, artwork, loft latch, and the Cider API token file live under `~/.cache/noctalia-cider/`. Durable settings also go to `noctalia.pluginDataDir()`. `ui.image` only loads local cover files after the bridge downloads them. Detached process logs: `/tmp/noctalia-cider-bridge.log`, `/tmp/noctalia-cider-lyrics-overlay.log`.
+- **Helpers:** window probes run `niri msg`, `hyprctl`, or `umbriel windows --json`; loft uses `umbriel msg`. The optional audio meter spawns `parec` to read system-output audio for silence detection. Launch/cleanup uses `bash`, `sh`, `pkill` for the bridge, and pidfile-based `kill` for the overlay; `coreutils` supplies file/directory and sleep commands. Helpers write PID files in the cache. The bridge can read the existing token/settings from `~/.config/cider-kde-notifier/config.json` when plugin credentials are empty.
 - **Compositor:** Umbriel loft send/restore uses `umbriel msg` (`window-move-to-scratchpad`, `scratchpad-toggle`, `window-restore-from-scratchpad`). If another client is stored in the same output pad, it can flash for a frame on restore — Umbriel cannot restore a hidden pad member without showing the pad first.
 - **Panels:** `panel-open` / `panel-close` are used instead of `togglePanel` so a persistent toast is never inverted if it is already open.
+- **Notification history:** Noctalia 5.2.1’s internal plugin toasts are never stored in history. The former `save_to_history` switch was removed because the host ignored it.
 - Local path source for development:
 
 ```sh
 noctalia msg plugins source add cider-local path /path/to/noctalia-plugin
 noctalia msg plugins enable dragged/cider
 noctalia msg config-reload
-noctalia plugins lint cider
+noctalia plugins lint /path/to/noctalia-plugin/cider
 ```

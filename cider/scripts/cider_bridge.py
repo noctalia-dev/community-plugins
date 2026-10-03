@@ -26,7 +26,7 @@ import socketio
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
-from lyrics_overlay_cfg import restore_word_spacing  # noqa: E402
+from lyrics_overlay_cfg import display_track_id, restore_word_spacing  # noqa: E402
 
 log = logging.getLogger("cider-bridge")
 
@@ -86,11 +86,12 @@ _POS_ANCHOR_WALL = 0.0
 _POS_PLAYING = False
 _POS_DURATION_MS = 0
 # Clock hygiene for position.json (overlay extrapolates from these anchors).
-# Untrusted poll/state samples: reject tiny forward spikes, ignore mild behind
-# snaps. Trusted time events (real Cider playbackTimeDidChange / new track)
-# always re-anchor so scrubbing seeks track immediately.
+# Ignore small backwards corrections from both live ticks and polls: consumers
+# may already have crossed a lyric boundary by extrapolating the last anchor.
+# Live ticks still accept forward seeks; new tracks explicitly reset the clock.
 _AHEAD_REJECT_MS = 400
-_STALE_REWIND_MIN_MS = 350
+# ponytail: backwards scrubs <1.5s resemble jitter; use explicit seek events if
+# Cider exposes them to distinguish scrubs from routine time ticks.
 _SEEK_ACCEPT_MS = 1500
 
 
@@ -125,16 +126,13 @@ def _write_position(
     duration_ms: int = 0,
     *,
     trust: bool = False,
+    reset: bool = False,
 ) -> None:
     """Write last-known Cider anchor. HUD/Luau extrapolate between ticks.
 
-    Never store wall-clock-extrapolated values here — that double-counts with
-    consumers.
-
-    trust=True  — live playbackTimeDidChange / new track: always re-anchor so
-                  scrubbing seeks move lyrics immediately.
-    trust=False — poll/state snapshots: reject spurious ahead spikes, ignore
-                  mild behind snaps, but accept |delta| >= SEEK as a seek.
+    trust=True accepts live forward seeks; polls reject forward spikes.
+    Both ignore small backwards jitter while playing. A pause freezes the live
+    estimate; reset=True lets a new track start at any position.
     """
     global _POS_ANCHOR_MS, _POS_ANCHOR_WALL, _POS_PLAYING, _POS_DURATION_MS
     position_ms = max(0, int(position_ms))
@@ -142,31 +140,35 @@ def _write_position(
     duration_ms = max(0, int(duration_ms or 0))
 
     with _POS_LOCK:
-        if duration_ms:
+        now = time.time()
+        if duration_ms or reset:
             _POS_DURATION_MS = duration_ms
         dur = _POS_DURATION_MS
-        if (not trust) and _POS_ANCHOR_WALL > 0 and _POS_PLAYING:
-            elapsed = max(0, int((time.time() - _POS_ANCHOR_WALL) * 1000))
+        if not reset and _POS_ANCHOR_WALL > 0 and (_POS_PLAYING or playing):
+            elapsed = max(0, int((now - _POS_ANCHOR_WALL) * 1000)) if _POS_PLAYING else 0
             est = _POS_ANCHOR_MS + elapsed
             if dur > 0:
                 est = min(est, dur)
             delta = position_ms - est  # +ahead of clock, -behind
             if playing:
-                if delta > _AHEAD_REJECT_MS:
+                if not trust and delta > _AHEAD_REJECT_MS:
                     # Spurious forward spike from a poll. Forward seeks arrive on
                     # trusted playbackTimeDidChange ticks instead.
                     return
                 rewind = -delta
-                if _STALE_REWIND_MIN_MS <= rewind < _SEEK_ACCEPT_MS:
-                    # Mild behind from a stale poll — don't scrub.
-                    return
+                if 0 < rewind < _SEEK_ACCEPT_MS:
+                    # Keep the original anchor/t so jitter cannot reverse lyrics.
+                    if _POS_PLAYING:
+                        return
+                    # Resume from the frozen position even if its tick is stale.
+                    position_ms = est
                 # rewind >= SEEK_ACCEPT: treat as scrub/seek backward.
-            elif (-delta) >= _STALE_REWIND_MIN_MS:
+            elif delta < 0 and (not trust or -delta < _SEEK_ACCEPT_MS):
                 # Pause with a stale timestamp: freeze at the live estimate.
                 position_ms = est
 
         _POS_ANCHOR_MS = position_ms
-        _POS_ANCHOR_WALL = time.time()
+        _POS_ANCHOR_WALL = now
         _POS_PLAYING = playing
 
     payload = {
@@ -174,7 +176,7 @@ def _write_position(
         "playing": playing,
         "duration_ms": dur,
         "remaining_ms": max(0, dur - position_ms) if dur else 0,
-        "t": time.time(),
+        "t": now,
     }
     _atomic_write(_STATE_DIR / "position.json", json.dumps(payload, ensure_ascii=False))
 
@@ -652,17 +654,29 @@ def emit(event: TrackEvent) -> None:
     body = json.dumps(payload, ensure_ascii=False)
     with _EMIT_LOCK:
         _STATE_DIR.mkdir(parents=True, exist_ok=True)
+        if event.type == "lyrics":
+            # Validate against the same snapshot lock used by track changes.
+            try:
+                current = json.loads((_STATE_DIR / "state.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return
+            if any(payload.get(field) != current.get(field)
+                   for field in ("title", "artist", "album", "duration_ms", "catalog_id")):
+                return
         # Continuous snapshot for progress polling
         if event.type in {"track", "time", "state", "art"}:
+            if event.type == "track":
+                # Also covers distinct catalog tracks with the same title/artist.
+                (_STATE_DIR / "lyrics.json").unlink(missing_ok=True)
             _atomic_write(_STATE_DIR / "state.json", body)
             if event.type in {"track", "time", "state"} and not skip_position:
                 _write_position(
                     int(event.position_ms or 0),
                     str(event.playback_state or "") == "playing",
                     int(event.duration_ms or 0),
-                    # Live time ticks + new tracks are authoritative (seeks).
-                    # Snapshot/state polls stay filtered against sprint/scrub noise.
+                    # Live time ticks accept seeks; tracks bypass jitter filtering.
                     trust=event.type in {"time", "track"},
+                    reset=event.type == "track",
                 )
         elif event.type == "clear":
             _wipe_playback_sidecars()
@@ -827,6 +841,7 @@ def resolve_catalog_id(attrs: dict[str, Any], play_params: dict[str, Any] | None
     candidates: list[Any] = [
         play_params.get("catalogId"),
         play_params.get("id"),
+        attrs.get("catalog_id"),
         attrs.get("catalogId"),
         attrs.get("songId"),
         attrs.get("id"),
@@ -1180,6 +1195,8 @@ class CiderBridge:
                 artist=str(self._last.get("artist", "")),
                 album=str(self._last.get("album", "")),
                 artwork_path=str(self._last.get("artwork_path", "")),
+                song_id=str(self._last.get("song_id", "")),
+                catalog_id=str(self._last.get("catalog_id", "")),
                 position_ms=position_ms,
                 duration_ms=duration_ms,
                 playback_state=playback_state,
@@ -1198,9 +1215,19 @@ class CiderBridge:
 
         play_params = attrs.get("playParams") if isinstance(attrs.get("playParams"), dict) else {}
         catalog_id = resolve_catalog_id(attrs, play_params)
-        song_id = str(play_params.get("id") or catalog_id or "")
+        song_id = str(play_params.get("id") or attrs.get("song_id") or catalog_id or "")
         isrc = str(attrs.get("isrc") or "")
-        duration_ms = int(attrs.get("durationInMillis") or 0)
+        duration_ms = int(attrs.get("durationInMillis") or attrs.get("duration_ms") or 0)
+        key = display_track_id({"title": title, "artist": artist})
+        catalog_changed = bool(catalog_id) and catalog_id != self._last.get("catalog_id")
+        is_new_track = key != self._track_key or (catalog_changed and bool(self._last.get("catalog_id")))
+        if not is_new_track:
+            catalog_id = catalog_id or str(self._last.get("catalog_id") or "")
+            song_id = song_id or str(self._last.get("song_id") or "")
+            album = album or str(self._last.get("album") or "")
+            duration_ms = duration_ms or int(self._last.get("duration_ms") or 0)
+        lyrics_changed = (catalog_changed or album != self._last.get("album")
+                          or duration_ms != self._last.get("duration_ms"))
         fresh_position = False
         if attrs.get("currentPlaybackTime") is not None:
             position_ms = int(float(attrs["currentPlaybackTime"]) * 1000)
@@ -1215,7 +1242,7 @@ class CiderBridge:
             position_ms = _estimated_position_ms() if self._last else 0
             fresh_position = False
 
-        artwork = attrs.get("artwork") or {}
+        artwork = attrs.get("artwork") or attrs.get("artwork_url") or {}
         artwork_url = ""
         if isinstance(artwork, dict):
             artwork_url = str(artwork.get("url") or "")
@@ -1224,7 +1251,7 @@ class CiderBridge:
         artwork_url = _normalize_artwork_url(artwork_url)
 
         cache_key = catalog_id or song_id or artwork_url
-        artwork_path = self._cache_artwork(artwork_url, cache_key) if artwork_url else ""
+        artwork_path = self._cache_artwork(artwork_url, cache_key) if artwork_url else str(attrs.get("artwork_path") or "")
         # Never default to "playing" — launch / queue-load often has a track at rest.
         raw_state = (
             attrs.get("_playback_state")
@@ -1246,15 +1273,16 @@ class CiderBridge:
         if state not in {"playing", "paused", "stopped"}:
             state = "paused"
 
-        key = f"{catalog_id}|{title}|{artist}|{album}|{duration_ms}"
-        is_new_track = key != self._track_key
+        if is_new_track and not fresh_position:
+            position_ms = 0
         event_type = "track" if is_new_track else ("state" if reason in {"state", "snapshot"} else "state")
         if reason == "track" and is_new_track:
             event_type = "track"
         elif reason == "track" and not is_new_track:
             event_type = "state"
-        # New tracks always need a position anchor; metadata-only snapshots do not.
-        skip_position = (not fresh_position) and event_type != "track"
+        # Metadata-only snapshots leave the clock alone, but pause/resume must
+        # freeze/restart it even when Cider omits a fresh timestamp.
+        skip_position = (not fresh_position) and event_type != "track" and state == self._last.get("playback_state")
         event = TrackEvent(
             type=event_type,
             title=title,
@@ -1268,12 +1296,14 @@ class CiderBridge:
             song_id=song_id,
             catalog_id=catalog_id,
             isrc=isrc,
-            has_lyrics=bool(attrs.get("hasLyrics")),
-            has_synced=bool(attrs.get("hasTimeSyncedLyrics")),
+            has_lyrics=bool(attrs.get("hasLyrics", attrs.get("has_lyrics"))),
+            has_synced=bool(attrs.get("hasTimeSyncedLyrics", attrs.get("has_synced"))),
             skip_position=skip_position,
         )
         self._last = asdict(event)
         self._last["playback_state"] = state
+        if is_new_track:
+            self._lyrics_key = ""
         emit(event)
 
         if is_new_track and artwork_url and not artwork_path:
@@ -1284,11 +1314,11 @@ class CiderBridge:
                 daemon=True,
             ).start()
 
-        if key != self._track_key:
+        if is_new_track or lyrics_changed:
             self._track_key = key
             threading.Thread(
                 target=self._fetch_lyrics,
-                args=(event,),
+                args=(event, key),
                 name="cider-lyrics",
                 daemon=True,
             ).start()
@@ -1347,8 +1377,9 @@ class CiderBridge:
                 )
             )
             return
-    def _fetch_lyrics(self, track: TrackEvent) -> None:
-        if self._lyrics_key == self._track_key:
+    def _fetch_lyrics(self, track: TrackEvent, track_key: str) -> None:
+        lyrics_key = f"{track_key}|{track.album}|{track.duration_ms}|{track.catalog_id}"
+        if self._lyrics_key == lyrics_key:
             return
         lines: list[dict[str, Any]] = []
         lrc = ""
@@ -1363,16 +1394,12 @@ class CiderBridge:
                 synced = True
             elif not lines and lr_lines:
                 lines, lrc = lr_lines, lr_lrc
+        # A slow fetch for the old song/source must not replace current lyrics.
+        if (track_key != self._track_key or track.catalog_id != self._last.get("catalog_id")
+                or track.album != self._last.get("album") or track.duration_ms != self._last.get("duration_ms")):
+            return
         if not lines and not lrc:
-            # Drop stale synced lyrics so the widget does not keep the previous song.
-            lyrics_path = _STATE_DIR / "lyrics.json"
-            try:
-                lyrics_path.unlink(missing_ok=True)
-            except TypeError:
-                if lyrics_path.exists():
-                    lyrics_path.unlink()
-            except Exception:
-                pass
+            # Publishing the empty result clears lyrics under emit's track lock.
             emit(
                 TrackEvent(
                     type="lyrics",
@@ -1390,7 +1417,7 @@ class CiderBridge:
                 )
             )
             return
-        self._lyrics_key = self._track_key
+        self._lyrics_key = lyrics_key
         # Stamp with live clock so first lyrics.json is not stuck at fetch start.
         position_ms = int(self._last.get("position_ms", track.position_ms) or 0)
         duration_ms = int(self._last.get("duration_ms", track.duration_ms) or 0)

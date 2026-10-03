@@ -7,11 +7,11 @@
 
 id = "dragged/cider"
 name = "Cider"
-version = "1.10.0"
+version = "1.10.1"
 plugin_api = 24
 author = "dragged"
 license = "MIT"
-dependencies = ["python3", "gtk3", "gtk-layer-shell", "python-gobject"]
+dependencies = ["python3", "gtk3", "gtk-layer-shell", "python-gobject", "bash", "sh", "pkill", "coreutils", "niri", "hyprctl", "umbriel", "parec"]
 tags = ["media", "music", "audio", "bar", "panel", "service"]
 icon = "music"
 description = "Cider now-playing alerts and a sticky karaoke lyrics HUD."
@@ -57,14 +57,6 @@ min = 1000
 max = 20000
 step = 500
 visible_when = { key = "display_mode", values = ["notification", "osd"] }
-
-[[setting]]
-key = "save_to_history"
-type = "bool"
-label_key = "settings.save_to_history.label"
-description_key = "settings.save_to_history.description"
-default = false
-visible_when = { key = "display_mode", values = ["notification"] }
 
 # ── Lyrics HUD ──────────────────────────────────────────────────────────────
 
