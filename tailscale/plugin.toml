@@ -2,7 +2,7 @@
 
 id = "davemhammer/tailscale"
 name = "Tailscale"
-version = "1.0.6"
+version = "1.1.0"
 plugin_api = 10
 author = "davemhammer"
 license = "MIT"
@@ -61,6 +61,20 @@ entry = "widget.luau"
   label_key = "settings.show_counts.label"
   description_key = "settings.show_counts.description"
   default = true
+
+  [[widget.setting]]
+  key = "hide_when_healthy"
+  type = "bool"
+  label_key = "settings.hide_when_healthy.label"
+  description_key = "settings.hide_when_healthy.description"
+  default = false
+
+  [[widget.setting]]
+  key = "flag_problem"
+  type = "bool"
+  label_key = "settings.flag_problem.label"
+  description_key = "settings.flag_problem.description"
+  default = false
 
 [[panel]]
 id = "manager"
