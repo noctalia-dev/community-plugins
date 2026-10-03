@@ -310,6 +310,36 @@ function M.headline(entry)
     return nil
 end
 
+-- A provider can report a balance instead of a quota. The CLI then sends no
+-- percentage metrics and puts the figure in a `text` section (DeepSeek
+-- `Balance: $2.90`, Nous `Total usable credits: 8.19`). Pick the one a reader
+-- would want on the bar: a total or balance first, then a credit/remaining
+-- line, and never a reset countdown. Returns nil for providers that already
+-- carry a headline metric, so the percentage path is untouched.
+function M.balanceText(entry)
+    if type(entry) ~= "table" or M.headline(entry) ~= nil then return nil end
+    local sections = type(entry.sections) == "table" and entry.sections or nil
+    if sections == nil then return nil end
+
+    local credit = nil
+    for _, section in ipairs(sections) do
+        if type(section) == "table" and section.type == "text" then
+            local value = noctalia.string.trim(tostring(section.value or ""))
+            if value ~= "" and not M.saysError(value) then
+                local label = tostring(section.label or ""):lower()
+                if label:find("total", 1, true) or label:find("balance", 1, true) then
+                    return value
+                end
+                if credit == nil
+                    and (label:find("credit", 1, true) or label:find("remaining", 1, true)) then
+                    credit = value
+                end
+            end
+        end
+    end
+    return credit
+end
+
 function M.modelGlyph(label)
     local lower = tostring(label or ""):lower()
     if lower:find("oss", 1, true) or lower:find("claude", 1, true) then return "robot" end

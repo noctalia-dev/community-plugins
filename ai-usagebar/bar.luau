@@ -241,9 +241,12 @@ local function chip(entry, flagged, isVert)
         return ui.row({ gap = 5, align = "center" }, nodes)
     end
     local metric = headline(entry)
+    -- Balance-only providers carry no percentage; the capsule shows their
+    -- amount where a quota vendor shows its percentage.
+    local balance = metric == nil and shared.balanceText(entry) or nil
     local tint = severityRole(metric, "on_surface")
     local percent = metric ~= nil and tonumber(metric.percent) or nil
-    local text = percent ~= nil and string.format("%d%%", percent) or "—"
+    local text = percent ~= nil and string.format("%d%%", percent) or (balance or "—")
     local fill = severityRole(metric, "primary")
     -- The mark says which provider, never how full it is; severity rides on the
     -- reading and the gauge. A failed read is the one thing that colours it, and
