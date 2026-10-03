@@ -1,0 +1,43 @@
+{
+  "error": {
+    "command_failed": "The bridge service command failed.",
+    "command_not_started": "The bridge service command could not be started.",
+    "plugin_directory": "The plugin directory is unavailable.",
+    "unexpected_state": "The bridge service returned an invalid status response."
+  },
+  "notification": {
+    "failed": {
+      "body": "The bridge service has failed. Use the widget to reset and start it.",
+      "title": "Bridge service failed"
+    },
+    "started": {
+      "body": "The bridge is active. Check the widget for the current idle-protection status.",
+      "title": "Bridge service started"
+    },
+    "stopped": {
+      "body": "The bridge service is inactive. Video protection is unavailable while it is stopped.",
+      "title": "Bridge service stopped"
+    }
+  },
+  "settings": {
+    "auto_start": {
+      "description": "Start the bridge when this plugin loads. Turning this off stops an active bridge; the bar can still start or stop it for this session without changing this setting.",
+      "label": "Start bridge automatically"
+    }
+  },
+  "title": "Niri Media Idle",
+  "tooltip": {
+    "busy": "Checking bridge status. Source: this bridge only.",
+    "failed": "Bridge failed; click to restart. Source: this bridge only.",
+    "inactive": "Bridge stopped; click to start. Source: this bridge only.",
+    "incomplete": "Video: a required inhibitor is missing. Source: this bridge only.",
+    "loading": "Bridge starting; checking protection. Source: this bridge only.",
+    "music_sleep": "Music: sleep blocked; idle remains. Source: this bridge only.",
+    "music_sleep_incomplete": "Music: sleep inhibitor missing. Source: this bridge only.",
+    "normal": "No media; normal idle chain. Source: this bridge only.",
+    "protection_unknown": "No inhibitors confirmed. Source: this bridge only.",
+    "protected": "Video: sleep, idle, ScreenSaver blocked. Source: this bridge only.",
+    "status_error": "Status check failed; click to retry. Source: this bridge only.",
+    "unknown": "Bridge state unknown; click to retry. Source: this bridge only."
+  }
+}

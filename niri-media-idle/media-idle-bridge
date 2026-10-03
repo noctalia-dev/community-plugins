@@ -1,0 +1,1057 @@
+#!/usr/bin/env python3
+"""media-idle-bridge - apply media-specific sleep and idle protection.
+
+Policy (owner-confirmed): video => block sleep and inhibit idle (no dim, screen-off, or lock);
+recognized music => block sleep only, leaving the 50s dim / 70s screen-off / 120s lock chain;
+no media or an unknown player => hold no inhibitor.
+
+Decision (see decide()): every *Playing* MPRIS player is classified per player - music identity
+beats video identity beats the browser rule - and PipeWire playback streams are an allow-listed
+backstop for players without MPRIS (ffplay and friends).  Across players any video wins: an MPRIS
+video *or* a backstop stream inhibits, while a music player never inhibits and never masks the
+backstop.
+
+Inhibitors held while video plays:
+  1. logind `Inhibit("idle")` via `systemd-inhibit`.  Noctalia's idle behaviours consult
+     logind's BlockInhibited (ScreenSaverService::applyLogindBlockInhibited ->
+     IdleManager::setScreenSaverInhibitLocks), so this is what suppresses them.
+  2. niri's `org.freedesktop.ScreenSaver.Inhibit` on the session bus.  niri ORs that into the
+     Wayland idle-notify state (Niri::refresh_idle_inhibit, src/niri.rs:4143), so this also
+     covers any Wayland idle-notify consumer.
+
+Why a custom bridge instead of `noctalia msg caffeine-enable`: caffeine is a user-facing toggle
+(shared state with the control-centre shortcut) and Noctalia's IdleInhibitor prefers logind,
+which swayidle cannot see.  Holding explicit inhibitors keeps the two mechanisms independent.
+
+Structure: classification (classify_player / backstop_video / decide) is a pure implementation
+core - MediaState plus Rules in, Snapshot out - importing no dbus or PyGObject.  MprisSource and
+PipeWireSource are adapters behind the MediaSource seam (snapshot/start/stop); only adapters and
+the live Bridge touch dbus, GLib and subprocesses, and they import those lazily so this module
+loads under plain python3 (the unit suite relies on that).
+
+Usage:
+  media-idle-bridge            run as a daemon (systemd user service)
+  media-idle-bridge --once     print one decision with evidence, then exit
+  media-idle-bridge --debug    verbose logging
+  media-idle-bridge --status-file PATH
+                              write private daemon protection status
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import selectors
+import signal
+import subprocess
+import sys
+import tempfile
+import tomllib
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Literal, Protocol
+
+log = logging.getLogger("media-idle-bridge")
+
+CONFIG_PATH = os.path.expanduser("~/.config/media-idle-bridge/config.toml")
+MPRIS_PREFIX = "org.mpris.MediaPlayer2."
+MPRIS_PATH = "/org/mpris/MediaPlayer2"
+SCREENSAVER_NAME = "org.freedesktop.ScreenSaver"
+SCREENSAVER_PATH = "/ScreenSaver"
+
+DEFAULTS = {
+    # MPRIS Identity (case-insensitive substring) -> always treated as video / music
+    "video_players": ["mpv", "vlc", "celluloid", "haruna", "totem", "smplayer", "mplayer"],
+    "music_players": ["netease", "spotify", "cider", "feishin", "amberol", "gapless", "lollypop"],
+    # Browsers: no reliable audio-vs-video flag in MPRIS, so the URL decides, and
+    # `browser_default` decides when the player exposes no xesam:url.
+    "browser_players": ["firefox", "zen", "librewolf", "waterfox", "nightly", "chromium",
+                        "chrome", "brave", "vivaldi", "opera", "epiphany"],
+    "browser_default": "video",
+    "music_hosts": ["music.youtube.com", "open.spotify.com", "soundcloud.com",
+                    "bandcamp.com", "music.163.com", "y.qq.com", "music.apple.com",
+                    "deezer.com", "tidal.com", "music.amazon"],
+    # PipeWire backstop: only these binaries / media.role values may inhibit.
+    # Browsers are deliberately absent - they are ambiguous (music *and* video) and are
+    # handled by the MPRIS rules; a permanently running UI-sound stream must never latch.
+    # "movie" is measured (VLC reports media.role="Movie"), matched case-insensitively.
+    "video_binaries": ["mpv", "vlc", "celluloid", "haruna", "totem", "smplayer", "ffplay",
+                       "mplayer", "gst-play-1.0"],
+    "video_roles": ["video", "movie"],
+    "deny_binaries": ["noctalia", "easyeffects", "speech-dispatcher", "sd_dummy", "pipewire",
+                      "wireplumber", "pw-cli", "pw-dump", "pw-mon", "wpctl", "systemd-inhibit"],
+}
+
+# The whole accepted domain of browser_default.  Anything else warns and falls back to
+# "video": a missed video is worse than an extra stay-awake (the documented fail-safe).
+BROWSER_DEFAULT_DOMAIN = ("video", "music", "unknown")
+MediaKind = Literal["none", "music", "video", "unknown"]
+
+
+# ── facts ─────────────────────────────────────────────────────────────────────────────────
+# Player / Stream are the only facts the decision core sees; MediaState is what a MediaSource
+# reports.  None of this layer knows dbus, PipeWire or subprocesses.
+
+@dataclass(frozen=True)
+class Player:
+    bus_name: str
+    identity: str = ""
+    status: str = "Stopped"
+    url: str = ""
+    title: str = ""
+
+
+@dataclass(frozen=True)
+class Stream:
+    node_id: int
+    binary: str = ""
+    app: str = ""
+    node: str = ""
+    role: str = ""
+    state: str = ""
+
+
+@dataclass
+class MediaState:
+    """What the session is playing right now - facts only, no verdicts."""
+    players: list[Player] = field(default_factory=list)
+    streams: list[Stream] = field(default_factory=list)
+
+
+# ── rules ─────────────────────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class Rules:
+    """The typed rules contract: exactly the DEFAULTS keys, validated by load_rules()."""
+    video_players: tuple[str, ...]
+    music_players: tuple[str, ...]
+    browser_players: tuple[str, ...]
+    browser_default: str
+    music_hosts: tuple[str, ...]
+    video_binaries: tuple[str, ...]
+    video_roles: tuple[str, ...]
+    deny_binaries: tuple[str, ...]
+
+
+def _rules_from(values: dict) -> Rules:
+    return Rules(**{k: tuple(v) if isinstance(v, list) else v for k, v in values.items()})
+
+
+def default_rules() -> Rules:
+    """Built-in rules; the fallback for every load failure (never crash-loop)."""
+    return _rules_from(DEFAULTS)
+
+
+def _validate(key: str, value, warnings: list[str], path: str):
+    """One user value -> the clean value, or that key's default plus a warning.  Never raises.
+
+    Wrong-typed values are the hazard here: a bare string iterates as CHARACTERS at match time
+    and a scalar raises at evaluation time, which crash-loops the daemon under Restart=on-failure.
+    """
+    default = DEFAULTS[key]
+    if key == "browser_default":
+        if isinstance(value, str) and value.lower() in BROWSER_DEFAULT_DOMAIN:
+            return value.lower()
+        warnings.append(f"{path}: browser_default must be one of "
+                        f"{'/'.join(BROWSER_DEFAULT_DOMAIN)} (got {value!r}) - using {default!r}")
+        return default
+    if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+        warnings.append(f"{path}: {key} must be a list of strings "
+                        f"(got {value!r}) - using built-in default")
+        return list(default)
+    return value
+
+
+def load_rules(path: str = CONFIG_PATH) -> tuple[Rules, list[str]]:
+    """Read the rules file once at startup -> (rules, warnings).  Never raises.
+
+    Contract: unknown keys are dropped with a warning, wrong-typed values fall back to their
+    key's default with a warning, and a bad or missing file yields the built-in defaults.
+    An empty list is valid and disables that rule.
+    """
+    warnings: list[str] = []
+    if not os.path.exists(path):
+        log.info("no rules file at %s - using built-in defaults", path)
+        return default_rules(), warnings
+    try:
+        with open(path, "rb") as fh:
+            user = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError) as err:
+        # Never crash-loop on a bad file: fall back to the safe defaults.
+        log.error("cannot read %s (%s) - using built-in defaults", path, err)
+        return default_rules(), [f"cannot read {path} ({err}) - using built-in defaults"]
+    unknown = set(user) - set(DEFAULTS)
+    if unknown:
+        warnings.append("ignoring unknown config keys in %s: %s"
+                        % (path, ", ".join(sorted(unknown))))
+    values = dict(DEFAULTS)
+    for key in DEFAULTS:
+        if key in user:
+            values[key] = _validate(key, user[key], warnings, path)
+    for w in warnings:
+        log.warning("%s", w)
+    return _rules_from(values), warnings
+
+
+# ── verdicts ──────────────────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class Verdict:
+    """One classification result: the class, the rule that matched, and what it matched."""
+    kind: str        # 'video' | 'music' | 'unknown' | 'none' ('none' = explicitly no inhibit)
+    rule: str        # rules key, derived rule ('browser_url', 'state') or 'none'
+    matched: str     # the needle / URL / state value that decided
+
+    @property
+    def evidence(self) -> str:
+        """Rule name + matched value: the 'why' behind a verdict."""
+        return "no rule matched" if self.rule == "none" else f"{self.rule} matched {self.matched!r}"
+
+
+@dataclass(frozen=True)
+class Reason:
+    """One line of evidence for a Snapshot, carrying the verdict that produced it."""
+    text: str
+    verdict: Verdict
+
+    @property
+    def inhibits(self) -> bool:
+        return self.verdict.kind == "video"
+
+    def __str__(self) -> str:
+        return f"{self.text} ({self.verdict.evidence})"
+
+
+@dataclass
+class Snapshot:
+    """One decision plus its evidence."""
+    state: MediaState
+    reasons: list[Reason] = field(default_factory=list)
+
+    @property
+    def media(self) -> MediaKind:
+        if self.decision:
+            return "video"
+        if any(r.verdict.kind == "music" for r in self.reasons):
+            return "music"
+        if any(p.status.lower() == "playing" for p in self.state.players):
+            return "unknown"
+        return "none"
+
+    @property
+    def decision(self) -> bool:
+        """Inhibit iff some evidence justifies it - MPRIS video or backstop stream."""
+        return any(r.inhibits for r in self.reasons)
+
+
+# ── classification core (pure: MediaState + Rules -> Snapshot) ────────────────────────────
+
+def _match(haystack: str, needles) -> str | None:
+    """The first needle inside haystack, case-insensitively, or None.
+
+    Substring matching is contractual everywhere (e.g. deny_binaries=["pipewire"] must match
+    "pipewire-frontend"), including video_roles since the deepening refactor.
+    """
+    low = haystack.lower()
+    for n in needles:
+        if n.lower() in low:
+            return n
+    return None
+
+
+def _contains(haystack: str, needles) -> bool:
+    return _match(haystack, needles) is not None
+
+
+def classify_player(p: Player, rules: Rules) -> Verdict:
+    """Classify a Playing player.  Per-player order is contractual: music identity beats
+    video identity beats the browser rule."""
+    m = _match(p.identity, rules.music_players)
+    if m:
+        return Verdict("music", "music_players", m)
+    m = _match(p.identity, rules.video_players)
+    if m:
+        return Verdict("video", "video_players", m)
+    m = _match(p.identity, rules.browser_players) or _match(p.bus_name, rules.browser_players)
+    if m:
+        if p.url:
+            host = _match(p.url, rules.music_hosts)
+            if host:
+                return Verdict("music", "music_hosts", host)
+            # Code rule: a URL that is not a music host is video; browser_default applies
+            # only to a browser that exposes no xesam:url at all.
+            return Verdict("video", "browser_url", p.url)
+        return Verdict(rules.browser_default, "browser_default", rules.browser_default)
+    return Verdict("unknown", "none", "")
+
+
+def backstop_video(stream: Stream, rules: Rules) -> Verdict:
+    """PipeWire backstop verdict for one stream: 'video' justifies inhibition, 'none' does not.
+
+    deny_binaries subtracts only - it can veto the backstop but never gates the MPRIS path.
+    """
+    if stream.state != "running":          # paused / corked / suspended streams never inhibit
+        return Verdict("none", "state", stream.state)
+    # Applications populate their PipeWire identity inconsistently: pw-play sets only
+    # application.name/node.name, mpv sets application.process.binary too.  Match on all of them.
+    names = [n for n in (stream.binary, stream.app, stream.node) if n]
+    for n in names:
+        m = _match(n, rules.deny_binaries)
+        if m:
+            return Verdict("none", "deny_binaries", m)
+    for n in names:
+        m = _match(n, rules.video_binaries)
+        if m:
+            return Verdict("video", "video_binaries", m)
+    m = _match(stream.role, rules.video_roles)
+    if m:
+        return Verdict("video", "video_roles", m)
+    return Verdict("none", "none", "")
+
+
+def _player_reason(p: Player, v: Verdict) -> Reason:
+    name = p.identity or p.bus_name
+    if v.kind == "video":
+        text = f"mpris video: {name}" + (f" url={p.url}" if p.url else "")
+    else:
+        text = f"mpris music (no inhibit): {name}"
+    return Reason(text, v)
+
+
+def _stream_reason(s: Stream, v: Verdict) -> Reason:
+    return Reason(f"pipewire stream: {s.binary or s.app or s.node} role={s.role or '-'}", v)
+
+
+def decide(state: MediaState, rules: Rules) -> Snapshot:
+    """The one decision path, shared by the daemon and --once.
+
+    Cross-player precedence: ANY video (MPRIS video or PipeWire backstop) inhibits; a music
+    player alone never does, and never masks the backstop (music + an MPRIS-less ffplay video
+    must still keep the screen awake).  When a music and a video player coexist, video wins.
+    """
+    snap = Snapshot(state=state)
+    playing = [p for p in state.players if p.status.lower() == "playing"]
+    videos: list[Reason] = []
+    music: list[Reason] = []
+    for p in playing:
+        v = classify_player(p, rules)
+        if v.kind == "video":
+            videos.append(_player_reason(p, v))
+        elif v.kind == "music":
+            music.append(_player_reason(p, v))
+    for s in state.streams:
+        v = backstop_video(s, rules)
+        if v.kind == "video":
+            videos.append(_stream_reason(s, v))
+    # Video evidence first (it justifies the inhibit reason), music notes after (diagnostics).
+    snap.reasons = videos + music
+    return snap
+
+
+# ── the one model of pw-dump's node stream ────────────────────────────────────────────────
+
+class _JsonStreamParser:
+    """Split a stream of pretty-printed JSON values (pw-dump --monitor) into values."""
+
+    def __init__(self) -> None:
+        self.buf: list[str] = []
+        self.depth = 0
+        self.in_str = False
+        self.esc = False
+
+    def feed(self, text: str):
+        out = []
+        for ch in text:
+            if self.depth == 0 and not self.in_str and ch.isspace():
+                continue
+            self.buf.append(ch)
+            if self.in_str:
+                if self.esc:
+                    self.esc = False
+                elif ch == "\\":
+                    self.esc = True
+                elif ch == '"':
+                    self.in_str = False
+            elif ch == '"':
+                self.in_str = True
+            elif ch in "[{":
+                self.depth += 1
+            elif ch in "]}":
+                self.depth -= 1
+                if self.depth == 0:
+                    chunk = "".join(self.buf)
+                    self.buf = []
+                    try:
+                        out.append(json.loads(chunk))
+                    except json.JSONDecodeError as err:
+                        log.warning("bad JSON from pw-dump: %s", err)
+        return out
+
+
+def _stream_from_node(node_id: int, info: dict) -> Stream | None:
+    """A Stream for a playback Node's info, or None when it is not one (sinks, sources...)."""
+    props = info.get("props", {}) or {}
+    if not str(props.get("media.class", "")).startswith("Stream/Output"):
+        return None
+    return Stream(
+        node_id=node_id,
+        binary=str(props.get("application.process.binary", "") or ""),
+        app=str(props.get("application.name", "") or ""),
+        node=str(props.get("node.name", "") or ""),
+        role=str(props.get("media.role", "") or ""),
+        state=str(info.get("state", "") or ""),
+    )
+
+
+def ingest(streams: dict[int, Stream], value) -> dict[int, Stream]:
+    """Fold one pw-dump value into the node map and return the new map.  Pure.
+
+    The single model of pw-dump's node stream, used by BOTH the live monitor path and the
+    --once snapshot path (they used to disagree).  Lifecycle semantics are the daemon's
+    production-tested ones: a Node event with an `info` dict is present (upserted when it is
+    a playback stream), a Node event without one is *removed*, and anything that is not a
+    Node object is ignored.
+    """
+    out = dict(streams)
+    for obj in value if isinstance(value, list) else [value]:
+        if not isinstance(obj, dict) or obj.get("type") != "PipeWire:Interface:Node":
+            continue
+        node_id = int(obj.get("id", -1))
+        if not isinstance(obj.get("info"), dict):
+            out.pop(node_id, None)          # missing info = node removed
+            continue
+        stream = _stream_from_node(node_id, obj["info"])
+        if stream is None:
+            out.pop(node_id, None)          # present but not a playback stream -> not ours
+        else:
+            out[node_id] = stream
+    return out
+
+
+# ── MediaSource seam and adapters ─────────────────────────────────────────────────────────
+
+class MediaSource:
+    """Interface: everything a caller must know to see the session's media state.
+
+    snapshot()  -> current MediaState.  Before start() adapters answer from one-shot reads,
+                  so --once and the daemon share this seam.
+    start(on_change)  begin watching; call on_change(label) on every change.
+    stop()  tear down.  Adapters are dead after this; safe to call twice.
+    """
+
+    def snapshot(self) -> MediaState:
+        raise NotImplementedError
+
+    def start(self, on_change: Callable[[str], None]) -> None:
+        raise NotImplementedError
+
+    def stop(self) -> None:
+        raise NotImplementedError
+
+
+def _session_bus():
+    """The session bus, created lazily: importing this module must not need python-dbus.
+
+    Also installs the GLib main loop first - dbus-python binds connections to the default
+    mainloop at creation time, so signals would be silently lost otherwise.
+    """
+    import dbus
+    import dbus.mainloop.glib
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    return dbus.SessionBus()
+
+
+def _prop(props, interface, name):
+    import dbus
+    try:
+        return props.Get(interface, name)
+    except dbus.DBusException:
+        return None
+
+
+class MprisSource(MediaSource):
+    """Adapter: MPRIS players on the session bus (facts only - classification is elsewhere)."""
+
+    def __init__(self, bus=None) -> None:
+        self.bus = bus
+        self._matches: list = []
+
+    def _connect(self):
+        if self.bus is None:
+            self.bus = _session_bus()
+        return self.bus
+
+    def read_players(self) -> list[Player]:
+        """All MPRIS players currently on the session bus."""
+        import dbus
+        bus = self._connect()
+        players: list[Player] = []
+        try:
+            names = [n for n in bus.list_names() if str(n).startswith(MPRIS_PREFIX)]
+        except dbus.DBusException as err:
+            log.warning("cannot list bus names: %s", err)
+            return players
+        for name in names:
+            try:
+                obj = bus.get_object(name, MPRIS_PATH)
+                props = dbus.Interface(obj, "org.freedesktop.DBus.Properties")
+                meta = _prop(props, "org.mpris.MediaPlayer2.Player", "Metadata") or {}
+                players.append(Player(
+                    bus_name=str(name),
+                    identity=str(_prop(props, "org.mpris.MediaPlayer2", "Identity") or ""),
+                    status=str(_prop(props, "org.mpris.MediaPlayer2.Player", "PlaybackStatus") or ""),
+                    url=str(meta.get("xesam:url", "") or ""),
+                    title=str(meta.get("xesam:title", "") or ""),
+                ))
+            except dbus.DBusException as err:
+                log.debug("player %s vanished: %s", name, err)
+        return players
+
+    def snapshot(self) -> MediaState:
+        return MediaState(players=self.read_players())
+
+    def start(self, on_change: Callable[[str], None]) -> None:
+        bus = self._connect()
+        self._matches = [
+            bus.add_signal_receiver(
+                lambda *a, **kw: on_change("mpris property change"),
+                signal_name="PropertiesChanged",
+                dbus_interface="org.freedesktop.DBus.Properties",
+                path=MPRIS_PATH,
+            ),
+            bus.add_signal_receiver(
+                lambda *a, **kw: on_change("player appeared/disappeared"),
+                signal_name="NameOwnerChanged",
+                dbus_interface="org.freedesktop.DBus",
+            ),
+        ]
+
+    def stop(self) -> None:
+        if self._matches:
+            import dbus
+        for match in self._matches:
+            try:
+                match.remove()
+            except dbus.DBusException:   # a dead bus must not keep the daemon from exiting
+                pass
+        self._matches = []
+
+
+class PipeWireSource(MediaSource):
+    """Adapter: playback streams from pw-dump (Popen + parser + node lifecycle + HUP restart)."""
+
+    def __init__(self) -> None:
+        self.streams: dict[int, Stream] = {}
+        self.proc: subprocess.Popen | None = None
+        self.watch: int | None = None
+        self.on_change: Callable[[str], None] | None = None
+        self._started = False
+        self._parser = _JsonStreamParser()
+
+    def snapshot(self) -> MediaState:
+        # Before start() this is the --once path: a one-shot pw-dump folded through the same
+        # ingest model as the monitor stream.
+        if not self._started:
+            return MediaState(streams=self._oneshot())
+        return MediaState(streams=list(self.streams.values()))
+
+    def _oneshot(self) -> list[Stream]:
+        try:
+            dump = subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=15, check=True)
+            return list(ingest({}, json.loads(dump.stdout)).values())
+        except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as err:
+            log.warning("pw-dump snapshot unavailable: %s", err)
+            return []
+
+    def start(self, on_change: Callable[[str], None]) -> None:
+        from gi.repository import GLib
+        self.on_change = on_change
+        self._started = True
+        try:
+            self.proc = subprocess.Popen(
+                ["pw-dump", "--monitor"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            log.warning("pw-dump not found - pipewire backstop disabled, MPRIS only")
+            return
+        os.set_blocking(self.proc.stdout.fileno(), False)
+        self.watch = GLib.io_add_watch(self.proc.stdout, GLib.IO_IN | GLib.IO_HUP, self._on_io)
+        log.info("pipewire backstop watching")
+
+    def _on_io(self, source, condition) -> bool:
+        from gi.repository import GLib
+        if condition & GLib.IO_HUP:
+            log.warning("pw-dump exited - restarting")
+            self.proc = None
+            GLib.timeout_add_seconds(5, self._restart)
+            return False
+        data = source.read()
+        if not data:
+            return True
+        for value in self._parser.feed(data.decode("utf-8", "replace")):
+            self.streams = ingest(self.streams, value)
+        if self.on_change:
+            self.on_change("pipewire change")
+        return True
+
+    def _restart(self) -> bool:
+        if self.proc is None and self._started and self.on_change is not None:
+            self.start(self.on_change)
+        return False
+
+    def stop(self) -> None:
+        self._started = False
+        if self.proc is not None:
+            self.proc.terminate()
+            self.proc = None
+
+
+class DesktopMediaSource(MediaSource):
+    """Adapter: the session's whole media state, composed from the MPRIS and PipeWire adapters."""
+
+    def __init__(self, mpris: MprisSource, pipewire: PipeWireSource) -> None:
+        self.mpris = mpris
+        self.pipewire = pipewire
+
+    def snapshot(self) -> MediaState:
+        return MediaState(players=self.mpris.snapshot().players,
+                          streams=self.pipewire.snapshot().streams)
+
+    def start(self, on_change: Callable[[str], None]) -> None:
+        self.mpris.start(on_change)
+        self.pipewire.start(on_change)
+
+    def stop(self) -> None:
+        self.mpris.stop()
+        self.pipewire.stop()
+
+
+# ── live daemon ───────────────────────────────────────────────────────────────────────────
+
+class InhibitorAdapter(Protocol):
+    def acquire_sleep(self, reason: str) -> bool: ...
+
+    def acquire_logind(self, reason: str) -> bool: ...
+
+    def acquire_screensaver(self, reason: str) -> bool: ...
+
+    def release_sleep(self) -> None: ...
+
+    def release_logind(self) -> None: ...
+
+    def release_screensaver(self) -> None: ...
+
+
+class RetryScheduler(Protocol):
+    def schedule(self, delay_seconds: int, callback: Callable[[], bool]) -> int: ...
+
+    def cancel(self, handle: int) -> None: ...
+
+
+class GLibRetryScheduler:
+    def schedule(self, delay_seconds: int, callback: Callable[[], bool]) -> int:
+        from gi.repository import GLib
+        return GLib.timeout_add_seconds(delay_seconds, callback)
+
+    def cancel(self, handle: int) -> None:
+        from gi.repository import GLib
+        GLib.source_remove(handle)
+
+
+class SystemInhibitors:
+    """Adapter: acquire and release machine-sleep, logind-idle, and ScreenSaver inhibitors."""
+
+    def __init__(self) -> None:
+        self.bus = None
+        self.inhibit_procs: dict[str, subprocess.Popen | None] = {
+            "idle": None,
+            "sleep": None,
+        }
+        self.inhibit_cookie: int | None = None
+
+    def _session_bus(self):
+        if self.bus is None:
+            self.bus = _session_bus()
+        return self.bus
+
+    def _acquire_systemd_block(self, what: str, reason: str) -> bool:
+        proc = self.inhibit_procs[what]
+        if proc is not None:
+            if proc.poll() is None:
+                return True
+            if proc.stdout is not None:
+                proc.stdout.close()
+            self.inhibit_procs[what] = None
+        try:
+            proc = subprocess.Popen(
+                ["systemd-inhibit", f"--what={what}", "--mode=block",
+                 "--who=media-idle-bridge", f"--why={reason}", sys.executable, "-c",
+                 "import os, signal; os.write(1, b'READY\\n'); signal.pause()"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True,
+            )
+        except OSError as err:
+            log.warning("systemd-inhibit unavailable: %s", err)
+            return False
+        self.inhibit_procs[what] = proc
+        if proc.stdout is None:
+            raise RuntimeError("systemd-inhibit readiness pipe was not created")
+        with selectors.DefaultSelector() as selector:
+            selector.register(proc.stdout, selectors.EVENT_READ)
+            ready = selector.select(timeout=2)
+        if not ready or proc.stdout.readline() != b"READY\n":
+            log.warning("systemd-inhibit did not acquire the logind %s lock", what)
+            self._release_systemd_block(what)
+            return False
+        return True
+
+    def acquire_sleep(self, reason: str) -> bool:
+        return self._acquire_systemd_block("sleep", reason)
+
+    def acquire_logind(self, reason: str) -> bool:
+        return self._acquire_systemd_block("idle", reason)
+
+    def acquire_screensaver(self, reason: str) -> bool:
+        if self.inhibit_cookie is not None:
+            return True
+        import dbus
+        try:
+            obj = self._session_bus().get_object(SCREENSAVER_NAME, SCREENSAVER_PATH)
+            cookie = dbus.Interface(obj, SCREENSAVER_NAME).Inhibit("media-idle-bridge", reason)
+            self.inhibit_cookie = int(cookie)
+        except dbus.DBusException as err:
+            log.warning("niri ScreenSaver.Inhibit unavailable: %s", err)
+            return False
+        log.debug("niri ScreenSaver.Inhibit cookie=%s", self.inhibit_cookie)
+        return True
+
+    def _release_systemd_block(self, what: str) -> None:
+        proc = self.inhibit_procs[what]
+        if proc is None:
+            return
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            try:
+                proc.terminate()
+            except ProcessLookupError:
+                pass
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            pass
+        if proc.stdout is not None:
+            proc.stdout.close()
+        self.inhibit_procs[what] = None
+
+    def release_sleep(self) -> None:
+        self._release_systemd_block("sleep")
+
+    def release_logind(self) -> None:
+        self._release_systemd_block("idle")
+
+    def release_screensaver(self) -> None:
+        if self.inhibit_cookie is None:
+            return
+        import dbus
+        try:
+            obj = self._session_bus().get_object(SCREENSAVER_NAME, SCREENSAVER_PATH)
+            dbus.Interface(obj, SCREENSAVER_NAME).UnInhibit(dbus.UInt32(self.inhibit_cookie))
+        except dbus.DBusException as err:
+            log.debug("ScreenSaver.UnInhibit: %s (released on client exit anyway)", err)
+        self.inhibit_cookie = None
+
+
+class Bridge:
+    """The daemon: media decisions plus injected inhibitor and retry-scheduler adapters."""
+
+    def __init__(self, rules: Rules, source: MediaSource,
+                 inhibitors: InhibitorAdapter | None = None,
+                 retry_scheduler: RetryScheduler | None = None,
+                 status_file: str | os.PathLike[str] | None = None) -> None:
+        self.rules = rules
+        self.source = source
+        self.inhibitors: InhibitorAdapter = (
+            inhibitors if inhibitors is not None else SystemInhibitors())
+        self.retry_scheduler = (
+            retry_scheduler if retry_scheduler is not None else GLibRetryScheduler())
+        self.status_file = os.fspath(status_file) if status_file is not None else None
+        self._media: MediaKind = "unknown"
+        self._sleep_held = False
+        self._logind_held = False
+        self._screensaver_held = False
+        self.inhibited = False
+        self.retry_handle: int | None = None
+        self.retry_delay = 2
+        self.pending: int | None = None
+        self.loop = None
+        self._write_status()
+
+    def _write_status(self) -> None:
+        if self.status_file is None:
+            return
+        if self._media == "unknown":
+            state = "unknown"
+        elif self._media == "video":
+            state = ("protected" if self._sleep_held and self._logind_held
+                     and self._screensaver_held else "incomplete")
+        elif self._media == "music":
+            state = "music_sleep" if self._sleep_held else "music_sleep_incomplete"
+        elif self._media == "none":
+            state = ("normal" if not self._sleep_held and not self._logind_held
+                     and not self._screensaver_held else "unknown")
+        else:
+            raise ValueError(f"unknown media classification: {self._media}")
+        record = {
+            "version": 2,
+            "pid": os.getpid(),
+            "media": self._media,
+            "state": state,
+            "logind_idle_held": self._logind_held,
+            "screensaver_held": self._screensaver_held,
+            "sleep_held": self._sleep_held,
+        }
+
+        temporary_path: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=os.path.dirname(self.status_file) or ".",
+                prefix=f".{os.path.basename(self.status_file)}.",
+                delete=False,
+            ) as temporary_file:
+                temporary_path = temporary_file.name
+                os.fchmod(temporary_file.fileno(), 0o600)
+                json.dump(record, temporary_file, separators=(",", ":"))
+                temporary_file.write("\n")
+                temporary_file.flush()
+            if temporary_path is None:
+                raise RuntimeError("protection status temporary file was not created")
+            os.replace(temporary_path, self.status_file)
+            temporary_path = None
+        except OSError as err:
+            log.error("cannot write protection status file %s: %s", self.status_file, err)
+        finally:
+            if temporary_path is not None:
+                try:
+                    os.unlink(temporary_path)
+                except FileNotFoundError:
+                    pass
+                except OSError as err:
+                    log.error("cannot remove temporary protection status file %s: %s",
+                              temporary_path, err)
+
+    def _remove_status_file(self) -> None:
+        if self.status_file is None:
+            return
+        try:
+            with open(self.status_file, encoding="utf-8") as status_file:
+                record = json.load(status_file)
+            if not isinstance(record, dict) or record.get("pid") != os.getpid():
+                return
+            os.unlink(self.status_file)
+        except FileNotFoundError:
+            return
+        except (OSError, json.JSONDecodeError, UnicodeError) as err:
+            log.error("cannot remove protection status file %s: %s", self.status_file, err)
+
+    def _lease_held(self, lease: str) -> bool:
+        if lease == "sleep":
+            return self._sleep_held
+        if lease == "logind":
+            return self._logind_held
+        if lease == "screensaver":
+            return self._screensaver_held
+        raise ValueError(f"unknown inhibitor lease: {lease}")
+
+    def _release_lease(self, lease: str) -> None:
+        if lease == "sleep":
+            self.inhibitors.release_sleep()
+            self._sleep_held = False
+        elif lease == "logind":
+            self.inhibitors.release_logind()
+            self._logind_held = False
+        elif lease == "screensaver":
+            self.inhibitors.release_screensaver()
+            self._screensaver_held = False
+        else:
+            raise ValueError(f"unknown inhibitor lease: {lease}")
+
+    def _acquire_lease(self, lease: str, reason: str) -> None:
+        if lease == "sleep":
+            self._sleep_held = self.inhibitors.acquire_sleep(reason)
+        elif lease == "logind":
+            self._logind_held = self.inhibitors.acquire_logind(reason)
+        elif lease == "screensaver":
+            self._screensaver_held = self.inhibitors.acquire_screensaver(reason)
+        else:
+            raise ValueError(f"unknown inhibitor lease: {lease}")
+
+    def _reconcile(self, media: MediaKind, reason: str) -> None:
+        if media == "video":
+            required = ("logind", "screensaver", "sleep")
+        elif media == "music":
+            required = ("sleep",)
+        elif media in ("none", "unknown"):
+            required = ()
+        else:
+            raise ValueError(f"unknown media classification: {media}")
+
+        for lease in ("logind", "screensaver", "sleep"):
+            if lease not in required and self._lease_held(lease):
+                self._release_lease(lease)
+                log.info("released %s inhibitor", lease)
+
+        self.inhibited = self._logind_held and self._screensaver_held
+        missing = tuple(lease for lease in required if not self._lease_held(lease))
+        if not missing:
+            self._reset_retry()
+            return
+        if self.retry_handle is not None:
+            return
+
+        for lease in missing:
+            self._acquire_lease(lease, reason)
+        self.inhibited = self._logind_held and self._screensaver_held
+        missing = tuple(lease for lease in required if not self._lease_held(lease))
+        if missing:
+            log.warning("media protection incomplete (sleep=%s logind=%s ScreenSaver=%s)",
+                        self._sleep_held, self._logind_held, self._screensaver_held)
+            self._schedule_retry()
+        else:
+            self._reset_retry()
+            log.info("%s protection acquired (%s)", media, reason)
+
+    def release(self) -> None:
+        self._reconcile("none", "")
+
+    def _schedule_retry(self) -> None:
+        if self.retry_handle is not None:
+            return
+        delay = self.retry_delay
+        self.retry_delay = min(delay * 2, 30)
+        self.retry_handle = self.retry_scheduler.schedule(delay, self._retry)
+        log.debug("retrying missing media inhibitor in %ss", delay)
+
+    def _reset_retry(self) -> None:
+        if self.retry_handle is not None:
+            self.retry_scheduler.cancel(self.retry_handle)
+            self.retry_handle = None
+        self.retry_delay = 2
+
+    def _retry(self) -> bool:
+        self.retry_handle = None
+        self.evaluate("inhibitor retry")
+        return False
+
+    # ── main loop ────────────────────────────────────────────────────────────────────────
+    def evaluate(self, source: str = "") -> Snapshot:
+        snap = decide(self.source.snapshot(), self.rules)
+        self._media = snap.media
+        if self._media == "video":
+            reason = "; ".join(str(r) for r in snap.reasons if r.inhibits) or "video playing"
+        elif self._media == "music":
+            reason = "music playback"
+        else:
+            reason = ""
+        self._reconcile(self._media, reason)
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug("evaluate(%s): decision=%s reasons=%s players=%s streams=%s", source,
+                      snap.decision, [str(r) for r in snap.reasons],
+                      [(p.identity, p.status, p.url) for p in snap.state.players],
+                      [(s.binary or s.app or s.node, s.state, s.role) for s in snap.state.streams])
+        self._write_status()
+        return snap
+
+    def schedule_evaluate(self, source: str) -> None:
+        from gi.repository import GLib
+        if self.pending is not None:
+            return
+        self.pending = GLib.timeout_add(250, self._fire, source)
+
+    def _fire(self, source: str) -> bool:
+        self.pending = None
+        self.evaluate(source)
+        return False
+
+    def run(self) -> int:
+        from gi.repository import GLib
+        try:
+            from gi.repository import GLibUnix
+            add_signal = GLibUnix.signal_add
+        except (ImportError, AttributeError):  # older PyGObject
+            add_signal = GLib.unix_signal_add
+        self.loop = GLib.MainLoop()
+        self.source.start(self.schedule_evaluate)
+        self.evaluate("startup")
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            add_signal(GLib.PRIORITY_HIGH, sig, self._shutdown)
+        log.info("watching MPRIS + pipewire for video playback")
+        self.loop.run()
+        return 0
+
+    def _shutdown(self) -> bool:
+        log.info("shutting down")
+        self.release()
+        self.source.stop()
+        self._remove_status_file()
+        self.loop.quit()
+        return False
+
+
+# ── diagnostics and entry point ───────────────────────────────────────────────────────────
+
+def describe(rules: Rules, warnings: list[str], source: MediaSource | None = None) -> tuple[str, int]:
+    """One-shot diagnostic - "what do you think is playing?" - via the same decision path.
+
+    Returns (report, exit code).  A rule warning makes the exit non-zero: the human asked for a
+    diagnosis, so give them the config problems too.
+    """
+    if source is None:
+        source = DesktopMediaSource(MprisSource(), PipeWireSource())
+    snap = decide(source.snapshot(), rules)
+    lines = [f"decision: {'INHIBIT (video playing)' if snap.decision else 'normal idle chain'}"]
+    for r in snap.reasons:
+        lines.append(f"  reason: {r}")
+    for w in warnings:
+        lines.append(f"  rule warning: {w}")
+    for p in snap.state.players:
+        v = classify_player(p, rules)
+        lines.append(f"  player: identity={p.identity!r} status={p.status} "
+                     f"class={v.kind} [{v.evidence}] url={p.url!r} title={p.title!r}")
+    for s in snap.state.streams:
+        v = backstop_video(s, rules)
+        lines.append(f"  stream: binary={s.binary!r} app={s.app!r} node={s.node!r} "
+                     f"state={s.state} role={s.role!r} "
+                     f"backstop={'yes' if v.kind == 'video' else 'no'} [{v.evidence}]")
+    return "\n".join(lines), 1 if warnings else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--once", action="store_true", help="print one decision with evidence, then exit")
+    ap.add_argument("--debug", action="store_true", help="verbose logging")
+    ap.add_argument("--config", default=CONFIG_PATH, help=f"rules file (default: {CONFIG_PATH})")
+    ap.add_argument("--status-file", metavar="PATH",
+                    help="write private protection status to PATH (daemon only)")
+    args = ap.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO,
+                        format="%(asctime)s %(levelname)s %(message)s", stream=sys.stderr)
+    if args.once and args.status_file is not None:
+        ap.error("--status-file can only be used in daemon mode")
+    rules, warnings = load_rules(args.config)
+    if args.once:
+        report, code = describe(rules, warnings)
+        print(report)
+        return code
+    return Bridge(rules, DesktopMediaSource(MprisSource(), PipeWireSource()),
+                  status_file=args.status_file).run()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
