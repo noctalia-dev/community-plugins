@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "feed_1": {
+      "label": "Feed 1 URL"
+    },
+    "title_1": {
+      "label": "Feed 1 title (optional)"
+    },
+    "feed_2": {
+      "label": "Feed 2 URL"
+    },
+    "title_2": {
+      "label": "Feed 2 title (optional)"
+    },
+    "feed_3": {
+      "label": "Feed 3 URL"
+    },
+    "title_3": {
+      "label": "Feed 3 title (optional)"
+    },
+    "feed_4": {
+      "label": "Feed 4 URL"
+    },
+    "title_4": {
+      "label": "Feed 4 title (optional)"
+    },
+    "feed_5": {
+      "label": "Feed 5 URL"
+    },
+    "title_5": {
+      "label": "Feed 5 title (optional)"
+    },
+    "items_per_feed": {
+      "label": "Entries per feed"
+    },
+    "refresh_minutes": {
+      "label": "Refresh interval (minutes)"
+    }
+  }
+}
