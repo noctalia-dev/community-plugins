@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "python": "Python executable",
+    "python_description": "Python with websocket-client installed; accepts a virtual environment path.",
+    "interval": "Status polling interval (milliseconds)",
+    "auto_close": "Close OBS after stopping the last output",
+    "auto_close_description": "Only closes an OBS process this plugin started. Recording, replay, streaming and virtual camera must all be stopped.",
+    "open_videos": "Open the recording folder after stopping a recording",
+    "show_idle": "Show the bar widget while idle",
+    "show_elapsed": "Show recording duration in the bar"
+  },
+  "helper-failed": "OBS helper failed. Check Python and websocket-client installation.",
+  "done": "Done",
+  "working": "Working…",
+  "connected": "Connected to local OBS",
+  "disconnected": "OBS is not connected",
+  "start-record": "Start recording",
+  "stop-record": "Stop recording",
+  "start-replay": "Start replay buffer",
+  "stop-replay": "Stop replay buffer",
+  "save-replay": "Save replay",
+  "start-stream": "Start streaming",
+  "stop-stream": "Stop streaming",
+  "launch": "Launch OBS",
+  "videos": "Recordings"
+}
