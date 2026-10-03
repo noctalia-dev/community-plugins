@@ -115,10 +115,6 @@
       "description": "How long the notification or now-playing OSD stays visible after a track change.",
       "label": "Alert duration (ms)"
     },
-    "save_to_history": {
-      "description": "When using notifications, also keep them in notification history. Off by default.",
-      "label": "Save track alerts to history"
-    },
     "show_cover": {
       "description": "Show the current Cider artwork on the bar chip when a local cover file is available.",
       "label": "Show cover"

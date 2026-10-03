@@ -101,6 +101,209 @@ class WritePositionTests(unittest.TestCase):
         text = source.read_text(encoding="utf-8")
         self.assertIn('trust=event.type in {"time", "track"}', text)
 
+    def test_lyric_boundary_does_not_bounce_on_routine_clock_updates(self) -> None:
+        from lyrics_overlay import resolve_line
+        from lyrics_overlay_cfg import estimated_position_ms
+
+        lines = [{"time": 0, "text": "old"}, {"time": 10_000, "text": "next"}]
+        for event_type in ("time", "state"):
+            for rewind_ms in (1, 100, 349, 500, 1499):
+                with self.subTest(event_type=event_type, rewind_ms=rewind_ms):
+                    with mock.patch.object(cider_bridge.time, "time", return_value=1000.0) as clock:
+                        cider_bridge.emit(cider_bridge.TrackEvent(
+                            type="track", position_ms=9800, duration_ms=180_000,
+                            playback_state="playing",
+                        ))
+                        clock.return_value = 1000.32
+                        path = cider_bridge._STATE_DIR / "position.json"
+                        before = json.loads(path.read_text(encoding="utf-8"))
+                        position = estimated_position_ms(before, now=clock.return_value)
+                        self.assertEqual(resolve_line(lines, int(position))[0]["text"], "next")
+                        cider_bridge.emit(cider_bridge.TrackEvent(
+                            type=event_type, position_ms=int(position) - rewind_ms,
+                            duration_ms=180_000, playback_state="playing",
+                        ))
+                        after = json.loads(path.read_text(encoding="utf-8"))
+                        self.assertEqual(after, before, "jitter must preserve the original anchor")
+                        for now in (1000.32, 1000.44):
+                            shown = estimated_position_ms(after, now=now)
+                            self.assertEqual(resolve_line(lines, int(shown))[0]["text"], "next")
+
+    def test_pause_with_small_stale_tick_freezes_current_lyric(self) -> None:
+        from lyrics_overlay_cfg import estimated_position_ms
+
+        with mock.patch.object(cider_bridge.time, "time", return_value=1000.0) as clock:
+            cider_bridge._write_position(9800, True, 180_000)
+            clock.return_value = 1000.32
+            cider_bridge.emit(cider_bridge.TrackEvent(
+                type="time", position_ms=9900, duration_ms=180_000,
+                playback_state="paused",
+            ))
+            paused = json.loads((cider_bridge._STATE_DIR / "position.json").read_text())
+            self.assertFalse(paused["playing"])
+            self.assertAlmostEqual(estimated_position_ms(paused, now=1001.0), 10_120, delta=1)
+            clock.return_value = 1001.0
+            cider_bridge.emit(cider_bridge.TrackEvent(
+                type="time", position_ms=9900, duration_ms=180_000,
+                playback_state="playing",
+            ))
+            resumed = json.loads((cider_bridge._STATE_DIR / "position.json").read_text())
+            self.assertTrue(resumed["playing"])
+            self.assertEqual(resumed["position_ms"], paused["position_ms"])
+            self.assertAlmostEqual(estimated_position_ms(resumed, now=1001.1), 10_220, delta=2)
+
+    def test_track_change_can_reset_by_less_than_jitter_threshold(self) -> None:
+        with mock.patch.object(cider_bridge.time, "time", return_value=1000.0):
+            cider_bridge.emit(cider_bridge.TrackEvent(
+                type="track", position_ms=1000, duration_ms=180_000,
+                playback_state="playing",
+            ))
+            cider_bridge.emit(cider_bridge.TrackEvent(
+                type="track", position_ms=0, duration_ms=180_000,
+                playback_state="playing",
+            ))
+            self.assertEqual(cider_bridge._POS_ANCHOR_MS, 0)
+
+    def test_paused_seek_and_resume_accept_position(self) -> None:
+        with mock.patch.object(cider_bridge.time, "time", return_value=1000.0) as clock:
+            cider_bridge._write_position(10_000, False, 180_000)
+            cider_bridge._write_position(9900, False, 180_000, trust=True)
+            cider_bridge._write_position(9900, True, 180_000, trust=True)
+            clock.return_value = 1000.1
+            self.assertAlmostEqual(cider_bridge._estimated_position_ms(), 10_000, delta=1)
+
+    def test_new_track_without_timestamp_starts_at_zero(self) -> None:
+        bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+        attrs = {"name": "old", "artistName": "artist", "durationInMillis": 180_000,
+                 "currentPlaybackTime": 40, "_playback_state": "playing"}
+        with mock.patch.object(cider_bridge.threading.Thread, "start"):
+            bridge._emit_from_attrs(attrs, reason="track")
+            bridge._emit_from_attrs({"name": "new", "artistName": "artist",
+                                     "_playback_state": "playing"}, reason="track")
+        self.assertEqual(cider_bridge._POS_ANCHOR_MS, 0)
+        self.assertEqual(cider_bridge._POS_DURATION_MS, 0)
+
+    def test_state_without_timestamp_pauses_and_resumes_clock(self) -> None:
+        bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+        attrs = {"name": "song", "durationInMillis": 180_000, "_playback_state": "playing",
+                 "playParams": {"id": "123"}}
+        with mock.patch.object(cider_bridge.threading.Thread, "start"):
+            with mock.patch.object(cider_bridge.time, "time", return_value=1000.0) as clock:
+                bridge._emit_from_attrs(dict(attrs, currentPlaybackTime=10), reason="track")
+                clock.return_value = 1000.1
+                track_key = bridge._track_key
+                bridge._handle_event("playbackStatus.playbackStateDidChange", {"state": "paused"})
+                self.assertFalse(cider_bridge._POS_PLAYING)
+                self.assertEqual(bridge._track_key, track_key)
+                clock.return_value = 1001.0
+                self.assertAlmostEqual(cider_bridge._estimated_position_ms(), 10_100, delta=1)
+                bridge._handle_event("playbackStatus.playbackStateDidChange", {"state": "playing"})
+                clock.return_value = 1001.1
+                self.assertAlmostEqual(cider_bridge._estimated_position_ms(), 10_200, delta=2)
+
+    def test_late_metadata_does_not_reset_lyric_clock(self) -> None:
+        from lyrics_overlay import resolve_line
+        from lyrics_overlay_cfg import estimated_position_ms
+
+        lines = [{"time": 0, "text": "old"}, {"time": 10_000, "text": "next"}]
+        for metadata in ({"playParams": {"id": "123"}}, {"durationInMillis": 180_000},
+                         {"albumName": "album"}):
+            with self.subTest(metadata=metadata):
+                bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+                attrs = {"name": "song", "artistName": "artist",
+                         "currentPlaybackTime": 9.8, "_playback_state": "playing"}
+                with mock.patch.object(cider_bridge.threading.Thread, "start") as start:
+                    with mock.patch.object(cider_bridge.time, "time", return_value=1000.0) as clock:
+                        bridge._emit_from_attrs(attrs, reason="track")
+                        track_key = bridge._track_key
+                        cider_bridge.emit(cider_bridge.TrackEvent(type="lyrics", title="song",
+                                                                   artist="artist", lyrics_lines=lines))
+                        clock.return_value = 1000.32
+                        bridge._emit_from_attrs(dict(attrs, currentPlaybackTime=9.9, **metadata), reason="snapshot")
+                        self.assertEqual(bridge._track_key, track_key)
+                        payload = json.loads((cider_bridge._STATE_DIR / "position.json").read_text())
+                        shown = estimated_position_ms(payload, now=clock.return_value)
+                        self.assertEqual(resolve_line(lines, int(shown))[0]["text"], "next")
+                        self.assertTrue((cider_bridge._STATE_DIR / "lyrics.json").exists())
+                        self.assertEqual(start.call_count, 2, "late metadata must refresh lyrics")
+
+    def test_distinct_catalog_track_with_same_title_resets_clock(self) -> None:
+        bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+        attrs = {"name": "song", "artistName": "artist", "currentPlaybackTime": 1,
+                 "playParams": {"id": "123"}, "_playback_state": "playing"}
+        with mock.patch.object(cider_bridge.threading.Thread, "start"):
+            bridge._emit_from_attrs(attrs, reason="track")
+            cider_bridge.emit(cider_bridge.TrackEvent(type="lyrics", title="song", artist="artist",
+                                                       catalog_id="123", lyrics_lines=[{"time": 0, "text": "old"}]))
+            bridge._emit_from_attrs(dict(attrs, currentPlaybackTime=0,
+                                         playParams={"id": "456"}), reason="track")
+        self.assertEqual(cider_bridge._POS_ANCHOR_MS, 0)
+        self.assertFalse((cider_bridge._STATE_DIR / "lyrics.json").exists())
+        bridge._handle_event("playbackStatus.playbackTimeDidChange", {
+            "currentPlaybackTime": 0.1, "isPlaying": True,
+        })
+        state = json.loads((cider_bridge._STATE_DIR / "state.json").read_text())
+        self.assertEqual(state["catalog_id"], "456")
+
+    def test_lyrics_refresh_after_metadata_and_discards_old_fetch(self) -> None:
+        bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+        old = cider_bridge.TrackEvent(type="track", title="song", artist="artist")
+        new = cider_bridge.TrackEvent(type="state", title="song", artist="artist", catalog_id="123")
+        key = "song|artist"
+        bridge._track_key = key
+        bridge._last = dict(vars(new))
+        bridge._lyrics_key = f"{key}||0|"
+        cider_bridge.emit(new)
+        lines = [{"time": 1, "text": "new lyrics"}]
+        with mock.patch.object(bridge, "_lyrics_amapi", return_value=(lines, "")) as amapi:
+            bridge._fetch_lyrics(new, key)
+            amapi.assert_called_once_with("123")
+        path = cider_bridge._STATE_DIR / "lyrics.json"
+        fresh = path.read_text()
+        with mock.patch.object(bridge, "_lyrics_lrclib", return_value=([], "")):
+            bridge._fetch_lyrics(old, key)
+        self.assertEqual(path.read_text(), fresh, "stale fetch must not clear current lyrics")
+
+    def test_track_change_between_fetch_validation_and_emit_rejects_old_lyrics(self) -> None:
+        for lines in ([{"time": 1, "text": "old lyrics"}], []):
+            with self.subTest(lines=lines):
+                bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+                old = cider_bridge.TrackEvent(type="track", title="old", catalog_id="123")
+                bridge._track_key = "old|"
+                bridge._last = dict(vars(old))
+                cider_bridge.emit(old)
+                emit = cider_bridge.emit
+
+                def switch_before_publication(event: cider_bridge.TrackEvent) -> None:
+                    if event.type == "lyrics":
+                        bridge._emit_from_attrs({"name": "new", "playParams": {"id": "456"}}, reason="track")
+                        emit(cider_bridge.TrackEvent(type="lyrics", title="new", catalog_id="456",
+                                                    lyrics_lines=[{"time": 1, "text": "new lyrics"}]))
+                    emit(event)
+
+                with mock.patch.object(cider_bridge.threading.Thread, "start"):
+                    with mock.patch.object(bridge, "_lyrics_amapi", return_value=(lines, "")):
+                        with mock.patch.object(bridge, "_lyrics_lrclib", return_value=([], "")):
+                            with mock.patch.object(cider_bridge, "emit", side_effect=switch_before_publication):
+                                bridge._fetch_lyrics(old, "old|")
+                lyrics = json.loads((cider_bridge._STATE_DIR / "lyrics.json").read_text())
+                self.assertEqual(lyrics["title"], "new")
+                self.assertEqual(lyrics["lyrics_lines"][0]["text"], "new lyrics")
+
+    def test_replay_after_song_without_lyrics_fetches_again(self) -> None:
+        bridge = cider_bridge.CiderBridge("http://localhost", "", cider_bridge._STATE_DIR, 1)
+        lines = [{"time": 1, "text": "A lyrics"}]
+        with mock.patch.object(cider_bridge.threading.Thread, "start"):
+            with mock.patch.object(bridge, "_lyrics_amapi", side_effect=[(lines, ""), ([], ""), (lines, "")]) as amapi:
+                with mock.patch.object(bridge, "_lyrics_lrclib", return_value=([], "")):
+                    for name, catalog in (("A", "123"), ("B", "456"), ("A", "123")):
+                        bridge._emit_from_attrs({"name": name, "playParams": {"id": catalog}}, reason="track")
+                        bridge._fetch_lyrics(cider_bridge.TrackEvent(**bridge._last), bridge._track_key)
+        self.assertEqual(amapi.call_count, 3)
+        lyrics = json.loads((cider_bridge._STATE_DIR / "lyrics.json").read_text())
+        self.assertEqual(lyrics["title"], "A")
+        self.assertEqual(lyrics["lyrics_lines"], lines)
+
 
 class UmbrielWindowProbeTests(unittest.TestCase):
     SAMPLE = "\n".join(
