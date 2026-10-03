@@ -720,10 +720,11 @@ local function buildEntityCard(entity)
         or (isControllable(domain) or isAutomation(domain)) and function() actEntity(entity.entity_id) end or "onNoop"
     local iconGlyph = isPending and "loader"
         or isAutomation(domain) and "player-play" or stateGlyph(domain, isOn)
+    local iconVariant = isOn and "primary" or "ghost"
 
     local rowChildren = {
-        ui.button({ glyph = iconGlyph, onClick = iconClick }),
-                ui.column({ flexGrow = 1, gap = 2 }, {
+        ui.button({ glyph = iconGlyph, variant = iconVariant, onClick = iconClick }),
+        ui.column({ flexGrow = 1, gap = 2 }, {
             ui.label({ text = entity.friendly_name or entity.entity_id, fontWeight = "medium" }),
             ui.label({ text = entityStateLabel(entity), color = "on_surface_variant", fontSize = 12 }),
         }),
