@@ -7,6 +7,7 @@ local PROVIDERS = {
     bing = { label = "Bing", domain = "www.bing.com", searchUrl = "https://www.bing.com/search?q=%s" },
     brave = { label = "Brave", domain = "search.brave.com", searchUrl = "https://search.brave.com/search?q=%s" },
     mojeek = { label = "Mojeek", domain = "www.mojeek.com", searchUrl = "https://www.mojeek.com/search?q=%s" },
+    kagi = { label = "Kagi", domain = "kagi.com", searchUrl = "https://kagi.com/search?q=%s" },
 }
 
 local function currentProvider()
