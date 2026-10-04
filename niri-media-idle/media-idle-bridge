@@ -924,7 +924,7 @@ class Bridge:
             self._schedule_retry()
         else:
             self._reset_retry()
-            log.info("%s protection acquired (%s)", media, reason)
+            log.info("%s protection acquired", media)
 
     def release(self) -> None:
         self._reconcile("none", "")
@@ -953,16 +953,20 @@ class Bridge:
         snap = decide(self.source.snapshot(), self.rules)
         self._media = snap.media
         if self._media == "video":
-            reason = "; ".join(str(r) for r in snap.reasons if r.inhibits) or "video playing"
+            # Coarse constant on purpose: this string is published in systemd-inhibit --why,
+            # /proc argv, logind's ListInhibitors metadata, and the ScreenSaver call - all
+            # readable by any local user.  Player identities, titles, and URLs must never
+            # enter it; they stay in describe()'s diagnostics.
+            reason = "video playback"
         elif self._media == "music":
             reason = "music playback"
         else:
             reason = ""
         self._reconcile(self._media, reason)
         if log.isEnabledFor(logging.DEBUG):
-            log.debug("evaluate(%s): decision=%s reasons=%s players=%s streams=%s", source,
-                      snap.decision, [str(r) for r in snap.reasons],
-                      [(p.identity, p.status, p.url) for p in snap.state.players],
+            log.debug("evaluate(%s): decision=%s rules=%s players=%s streams=%s", source,
+                      snap.decision, [r.verdict.rule for r in snap.reasons],
+                      [(p.status, bool(p.url)) for p in snap.state.players],
                       [(s.binary or s.app or s.node, s.state, s.role) for s in snap.state.streams])
         self._write_status()
         return snap

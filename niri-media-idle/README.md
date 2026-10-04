@@ -59,10 +59,11 @@ The v1.2 package pairs this consumer with its version-2 bundled bridge. Legacy v
 
 ## Notes
 
-The plugin makes no network requests and does not read or write Noctalia's idle configuration; it reads only its plugin-level `auto_start` preference. The bundled bridge reads local MPRIS and PipeWire metadata to classify playback, and it uses `systemd-inhibit`, `pw-dump`, and the session D-Bus. Player names, titles, and URLs are not passed to the widget. The transient unit is `noctalia-niri-media-idle.service`, runs as the current user, is collected after it stops, and is tied to `graphical-session.target` and `niri.service`. Bridge diagnostics go to the systemd user journal.
+The plugin makes no network requests and does not read or write Noctalia's idle configuration; it reads only its plugin-level `auto_start` preference. The bundled bridge reads local MPRIS and PipeWire metadata to classify playback, and it uses `systemd-inhibit`, `pw-dump`, and the session D-Bus. Player names, titles, and URLs are not passed to the widget. The same rule holds for everything the bridge publishes outside diagnostics: inhibitor reasons are coarse constants (`video playback`, `music playback`) because they surface in `systemd-inhibit --why`, `/proc` argv, logind's inhibitor metadata, and the ScreenSaver call, all readable by any local user. Full per-player evidence (identities, titles, URLs) appears only in the `--once` diagnostic output. The transient unit is `noctalia-niri-media-idle.service`, runs as the current user, is collected after it stops, and is tied to `graphical-session.target` and `niri.service`. Bridge diagnostics go to the systemd user journal.
 
 These fake-command and fake-Noctalia lifecycle tests do not run the Noctalia UI or a live compositor:
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_control.py' -v
+python3 -m unittest discover -s tests -p 'test_media_bridge.py' -v
 ```
