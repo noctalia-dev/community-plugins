@@ -79,7 +79,7 @@ state.snapshot = {
     expected_version = "1.0.0", helper_available = true, authorization_available = true,
     enable_command = "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' start",
     disable_command = "pkexec '/usr/local/libexec/noctalia-drive-health/manage-collector.sh' pause",
-    install_command = "pkexec '/mock/plugin/packaging/install-system-collector.sh' --interval-minutes 15",
+    install_command = "pkexec bash '/mock/plugin/packaging/install-system-collector.sh' --interval-minutes 15",
     uninstall_command = "pkexec '/usr/local/libexec/noctalia-drive-health/uninstall-collector.sh'",
     interval_command = "pkexec '/usr/local/libexec/noctalia-drive-health/set-collector-interval.sh' 15",
     smart_refresh_minutes = 15 },
