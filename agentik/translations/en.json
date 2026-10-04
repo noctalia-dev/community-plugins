@@ -28,15 +28,19 @@
       "label": "Notification cooldown (seconds)"
     },
     "notification_privacy": {
-      "description": "Keep notification bodies free of project and task names; show only the attention state.",
-      "label": "Privacy notifications"
+      "description": "Keep notifications and attention-pill expansions free of project and task names.",
+      "label": "Privacy notifications and pill"
     },
     "notify_attention": {
       "description": "Notify only when a known active agent changes to waiting or blocked. Disabled by default.",
       "label": "Notify on attention needed"
     },
+    "presentation_mode": {
+      "label": "Presentation mode",
+      "description": "Slow orb motion and session rotation, show longer labels, and use high-contrast presentation styling."
+    },
     "reduce_motion": {
-      "description": "Use static orb frames and reveal live assistant text immediately.",
+      "description": "Use static orbs, stop automatic session rotation, and reveal text and progress immediately.",
       "label": "Reduce motion"
     },
     "show_attention": {
@@ -63,6 +67,19 @@
     }
   },
   "ui": {
+    "pin_session": "Pin session to pill",
+    "unpin_session": "Unpin session",
+    "pinned_session": "Pinned session",
+    "attention_counts": "{blocked} blocked · {waiting} waiting",
+    "attention_target": "Selected attention session",
+    "transcript_back": "Back to sessions",
+    "recent_outcomes": "Recent outcomes",
+    "recent_outcomes_empty": "No recent completed, failed, or cancelled sessions.",
+    "recent_outcomes_retention": "Latest 8 outcomes from the last 10 minutes. Transcripts are read-only.",
+    "monitor_pending": "Monitoring: waiting for first refresh",
+    "monitor_error": "Monitoring failed — displayed sessions may be outdated",
+    "monitor_stale": "Monitoring stale — displayed sessions may be outdated",
+    "monitor_last_success": "Last successful refresh {time} ago",
     "active_agents": {
       "one": "1 active agent",
       "other": "{count} active agents"
@@ -72,10 +89,40 @@
     "attention_inbox": "Attention",
     "attention_required": "Attention required",
     "attention_waiting": "Waiting",
+    "copy_proposal": "Copy {choice}",
+    "copy_proposal_help": "Copy “{choice}” only; paste it in the owning session to respond. Nothing is sent or approved here.",
+    "attention_last_activity": "Last activity at {time}",
+    "attention_open_session": "Open session",
+    "attention_open_session_help": "Open the owning session. Terminal-owned sessions remain read-only here.",
+    "attention_recent_activity": "Recent activity",
+    "attention_copy_task": "Copy task",
+    "recent_activity_read_only": "Read-only recent activity. No response or approval is sent from this view.",
+    "attention_blocked_group": "Blocked · {count}",
+    "attention_waiting_group": "Waiting · {count}",
     "blocked_count": {
       "one": "1 blocked",
       "other": "{count} blocked"
     },
+    "focus_session": "Focus owning terminal",
+    "activity_title": "Live tool activity",
+    "activity_empty": "No recorded tool operations",
+    "attach_files": "Attach files",
+    "attach_screenshot": "Attach screenshot",
+    "attachments_unavailable": "Attachments are not supported by this session",
+    "remove_attachment": "Remove attachment",
+    "request_required": "{field} is required",
+    "request_invalid": "Invalid value for {field}",
+    "request_choose": "Choose an answer",
+    "request_yes": "Yes",
+    "request_no": "No",
+    "request_submit": "Send answer",
+    "request_decline": "Decline",
+    "request_cancel": "Cancel request",
+    "request_waiting_ack": "Response queued · awaiting delivery",
+    "request_submitting": "Sending response...",
+    "request_acknowledged": "Response delivered to harness",
+    "harness_unavailable": "Not installed",
+    "harness_auth_local": "Authenticate using the harness CLI",
     "chat_assistant": "Assistant",
     "chat_cancel": "Cancel",
     "chat_close": "Close chat",
@@ -143,6 +190,7 @@
     "no_attention_sessions": "No sessions need attention",
     "no_sessions": "No active agents",
     "open_project": "Open project directory",
+    "open_agentik": "Open Agentik",
     "quota_empty": "No subscription quotas are available",
     "quota_loading": "Loading subscription quotas...",
     "quota_provider": "Provider",
@@ -152,7 +200,6 @@
     "quota_title": "Subscription quotas",
     "quota_unknown": "Unknown",
     "quota_usage": "Usage",
-    "session_timeline": "started {started} ago · last activity {activity} ago",
     "sessions": "Sessions",
     "state_breathing": "Pausing",
     "state_composing": "Creating",
