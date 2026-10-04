@@ -21,6 +21,8 @@ end
 
 -- ---------- Text / XML helpers ----------
 
+local ENTITIES = { lt = "<", gt = ">", quot = '"', apos = "'", nbsp = " ", amp = "&" }
+
 local function codepoint(cp)
   local ok, ch = pcall(utf8.char, cp)
   return ok and ch or ""
@@ -28,30 +30,49 @@ end
 
 local function decodeText(s)
   if not s then return "" end
-  s = s:gsub("<!%[CDATA%[(.-)%]%]>", "%1")
-  s = s:gsub("<[^>]*>", "")
-  s = s:gsub("&#[xX](%x+);", function(h) return codepoint(tonumber(h, 16)) end)
-  s = s:gsub("&#(%d+);", function(d) return codepoint(tonumber(d)) end)
-  s = s:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"')
-       :gsub("&apos;", "'"):gsub("&nbsp;", " "):gsub("&amp;", "&")
+  if s:find("[<&]") then                      -- fast path for plain text
+    s = s:gsub("<!%[CDATA%[(.-)%]%]>", "%1")
+    s = s:gsub("<[^>]*>", "")
+    if s:find("&#", 1, true) then
+      s = s:gsub("&#[xX](%x+);", function(h) return codepoint(tonumber(h, 16)) end)
+      s = s:gsub("&#(%d+);", function(d) return codepoint(tonumber(d)) end)
+    end
+    s = s:gsub("&(%a+);", ENTITIES)
+  end
   s = s:gsub("%s+", " ")
-  return noctalia.string.trim(s)
+  return (s:match("^ ?(.-) ?$"))
 end
 
-local function parseFeed(body, limit)
+local function parseFeed(body, limit, out)
   local tag = "item"
   if not body:find("<item[%s>]") and body:find("<entry[%s>]") then tag = "entry" end -- Atom
 
-  local head = body:match("^(.-)<" .. tag .. "[%s>]") or body
+  local openPat = "<" .. tag .. "[%s>]"
+  local closeStr = "</" .. tag .. ">"
+
+  local firstEntry = body:find(openPat)
+  local head = firstEntry and body:sub(1, firstEntry - 1) or body
   local title = decodeText(head:match("<title[^>]*>(.-)</title>"))
 
-  local items = {}
-  for chunk in body:gmatch("<" .. tag .. "[%s>].-</" .. tag .. ">") do
+  local items = out.items
+  local pos = 1
+  while #items < limit do
+    local s = body:find(openPat, pos)
+    if not s then break end
+    local _, e = body:find(closeStr, s, true)
+    if not e then break end
+    local chunk = body:sub(s, e)
+    pos = e + 1
+
     local t = decodeText(chunk:match("<title[^>]*>(.-)</title>"))
 
-    local link = chunk:match("<link>(.-)</link>")           -- RSS
-    if not link then                                         -- Atom
-      for attrs in chunk:gmatch("<link%s([^>]*)>") do
+    local link = chunk:match("<link>(.-)</link>")            -- RSS
+    if not link then                                          -- Atom
+      local lp = 1
+      while true do
+        local ls, le, attrs = chunk:find("<link%s([^>]*)>", lp)
+        if not ls then break end
+        lp = le + 1
         local rel  = attrs:match("rel=[\"']([^\"']*)[\"']")
         local href = attrs:match("href=[\"']([^\"']*)[\"']")
         if href and (not rel or rel == "alternate") then
@@ -63,12 +84,11 @@ local function parseFeed(body, limit)
     if not link then link = chunk:match("<guid[^>]*>(.-)</guid>") end
     link = decodeText(link)
 
-    if t ~= "" and link:match("^https?://") then
-      table.insert(items, { title = t, link = link })
-      if #items >= limit then break end
+    if t ~= "" and link:find("^https?://") then
+      items[#items + 1] = { title = t, link = link }
     end
   end
-  return title, items
+  return title
 end
 
 local function openLink(url)
@@ -131,7 +151,7 @@ local function render()
       table.insert(rows, ui.row({ key = "er" .. fi, paddingH = 6 }, {
         ui.label({
           text = "Couldn't load feed (" .. (feed.err or "error") .. ") — retrying",
-          color = "error", fontSize = 12, maxWidth = textWidth, maxLines = 2,
+          color = "error", fontSize = 12, maxWidth = textWidth, maxLines = 5,
         }),
       }))
     elseif feed.status == "loading" and #feed.items == 0 then
@@ -206,15 +226,20 @@ local function fetchFeed(feed)
 
     local failed = true
     if res and res.ok and res.status >= 200 and res.status < 300 then
-      local ok, title, items = pcall(parseFeed, res.body or "", limit)
-      if ok and #items > 0 then
-        if title ~= "" then feed.title = title end
-        feed.items = items
+      local out = { items = {} }
+      local ok, title = pcall(parseFeed, res.body or "", limit, out)
+      if #out.items > 0 then
+        -- Keep whatever was parsed, even if parsing errored out
+        if ok and title ~= "" then feed.title = title end
+        feed.items = out.items
         feed.status = "ok"
         failed = false
+      elseif not ok then
+        feed.status = "error"
+        feed.err = "parse error: " .. tostring(title)
       else
         feed.status = "error"
-        feed.err = "no entries found"
+        feed.err = "no entries found, limit " .. limit .. ", body " .. #(res.body or "") .. " bytes"
       end
     else
       feed.status = "error"
