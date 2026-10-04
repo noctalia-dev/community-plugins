@@ -165,6 +165,8 @@ local function planMatchesLine(line, name)
         and string.sub(line, -1, -1) == ")"
 end
 
+local finishRefresh
+
 local function crossCheckWithUpgradePlan(parsed)
     local started = noctalia.runAsync("rum upgrade --dry-run", function(result)
         if type(result) == "table" and result.timedOut ~= true and result.exitCode == 0 then
@@ -182,15 +184,232 @@ local function crossCheckWithUpgradePlan(parsed)
                     table.insert(filtered, update)
                 end
             end
-            commitUpdates(filtered)
+            finishRefresh(filtered)
         else
-            commitUpdates(parsed)
+            finishRefresh(parsed)
         end
     end, commandTimeoutMs)
 
     if not started then
-        commitUpdates(parsed)
+        finishRefresh(parsed)
     end
+end
+
+local function resultOk(result)
+    return type(result) == "table" and result.timedOut ~= true and result.exitCode == 0
+end
+
+local function parseInstalledVersions(stdout)
+    local installed = {}
+    if type(stdout) ~= "string" then
+        return installed
+    end
+
+    for line in string.gmatch(stdout, "[^\r\n]+") do
+        local text = trim(line)
+        if text ~= "" then
+            local appId, version = text:match("^([^\t]+)\t(.*)$")
+            if appId then
+                installed[appId] = trim(version or "")
+            end
+        end
+    end
+
+    return installed
+end
+
+local function runtimeDetail(lower)
+    if string.sub(lower, -13) == ".gl32.default" then
+        return "Mesa (32-bit)"
+    end
+    if string.sub(lower, -11) == ".gl.default" then
+        return "Mesa"
+    end
+    if string.find(lower, ".gl32.nvidia", 1, true) or string.find(lower, ".gl.nvidia", 1, true) then
+        return "NVIDIA Driver"
+    end
+    if string.find(lower, ".vaapi", 1, true) then
+        return "VA-API"
+    end
+    if string.sub(lower, -13) == ".codecs-extra" then
+        return "Codecs (Extra)"
+    end
+    if string.sub(lower, -7) == ".codecs" then
+        return "Codecs"
+    end
+    if string.sub(lower, -9) == ".openh264" then
+        return "OpenH264"
+    end
+    if string.sub(lower, -12) == ".ffmpeg-full" then
+        return "FFmpeg"
+    end
+    if string.sub(lower, -4) == ".sdk" then
+        return "SDK"
+    end
+    if string.sub(lower, -7) == ".locale" then
+        return "Locale"
+    end
+    return nil
+end
+
+local function runtimeDisplayName(appId)
+    local detail = runtimeDetail(string.lower(appId))
+    local components = {}
+    for part in string.gmatch(appId, "[^.]+") do
+        table.insert(components, part)
+    end
+    local vendor = string.lower(components[2] or "")
+    local vendorNames = {
+        gnome = "GNOME",
+        kde = "KDE",
+        freedesktop = "Freedesktop",
+        gimp = "GIMP",
+        libreoffice = "LibreOffice",
+        mozilla = "Mozilla",
+    }
+    local component = components[3] or appId
+    local last = components[#components] or appId
+    local base = vendorNames[vendor] and (vendorNames[vendor] .. " " .. component) or component
+    if detail then
+        if string.lower(component) == string.lower(last) then
+            return base .. " " .. detail
+        end
+        return base .. " — " .. detail
+    end
+    if string.lower(last) == string.lower(component) then
+        return base
+    end
+    return base .. " — " .. last
+end
+
+local function flatpakName(appId, runtime)
+    if runtime then
+        return runtimeDisplayName(appId)
+    end
+    return appId:match("([^.]+)$") or appId
+end
+
+local function parseFlatpakUpdates(stdout, installed, installation)
+    local entries = {}
+    if type(stdout) ~= "string" then
+        return entries
+    end
+
+    for line in string.gmatch(stdout, "[^\r\n]+") do
+        local text = trim(line)
+        if text ~= "" then
+            local appId, branch, version, refField = text:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t([^\t]*)$")
+            appId = trim(appId or "")
+            if appId ~= "" then
+                local runtime = string.sub(refField or "", 1, 8) == "runtime/"
+                table.insert(entries, {
+                    name = flatpakName(appId, runtime),
+                    current_version = installed[appId] or "",
+                    version = trim(version or ""),
+                    arch = "",
+                    repo = "",
+                    kind = "flatpak",
+                    app_id = appId,
+                    runtime = runtime,
+                    branch = trim(branch or ""),
+                    installation = installation,
+                })
+            end
+        end
+    end
+
+    return entries
+end
+
+local function mergeUpdates(rumUpdates, flatpaks)
+    local combined = {}
+    for _, update in ipairs(rumUpdates) do
+        table.insert(combined, update)
+    end
+    for _, update in ipairs(flatpaks) do
+        table.insert(combined, update)
+    end
+
+    table.sort(combined, function(left, right)
+        if left.kind == right.kind then
+            if left.name == right.name then
+                if (left.arch or "") == (right.arch or "") then
+                    return (left.repo or "") < (right.repo or "")
+                end
+                return (left.arch or "") < (right.arch or "")
+            end
+            return left.name < right.name
+        end
+        if left.kind == "flatpak" then
+            return false
+        end
+        return right.kind == "flatpak"
+    end)
+
+    return combined
+end
+
+local function detectFlatpakUpdates(done)
+    if not noctalia.commandExists("flatpak") then
+        done({})
+        return
+    end
+
+    local combined = {}
+    local steps = {}
+    local scopes = {
+        { scope = "system", flag = "--system" },
+        { scope = "user", flag = "--user" },
+    }
+
+    for _, scope in ipairs(scopes) do
+        local workspace = {}
+        table.insert(steps, {
+            command = string.format("flatpak list %s --columns=application,version", scope.flag),
+            onResult = function(result)
+                if resultOk(result) then
+                    workspace.installed = parseInstalledVersions(result.stdout)
+                end
+            end,
+        })
+        table.insert(steps, {
+            command = string.format("flatpak remote-ls %s --updates --columns=application,branch,version,ref", scope.flag),
+            onResult = function(result)
+                if resultOk(result) then
+                    local found = parseFlatpakUpdates(result.stdout, workspace.installed or {}, scope.scope)
+                    for _, update in ipairs(found) do
+                        table.insert(combined, update)
+                    end
+                end
+            end,
+        })
+    end
+
+    local index = 1
+    local function runNext()
+        if index > #steps then
+            done(combined)
+            return
+        end
+
+        local step = steps[index]
+        index = index + 1
+        local started = noctalia.runAsync(step.command, function(result)
+            step.onResult(result)
+            runNext()
+        end, commandTimeoutMs)
+        if not started then
+            done(combined)
+        end
+    end
+
+    runNext()
+end
+
+finishRefresh = function(rumUpdates)
+    detectFlatpakUpdates(function(flatpaks)
+        commitUpdates(mergeUpdates(rumUpdates, flatpaks))
+    end)
 end
 
 local function refresh()
@@ -241,7 +460,7 @@ local function refresh()
         end
 
         if #parsed == 0 then
-            commitUpdates(parsed)
+            finishRefresh(parsed)
             return
         end
 

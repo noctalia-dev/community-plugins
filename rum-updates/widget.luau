@@ -74,17 +74,19 @@ local function renderTooltip()
     }
 
     for _, update in ipairs(stateUpdates) do
-        local name = string.format("%s.%s", update.name, update.arch)
+        local name = update.kind == "flatpak"
+            and update.name
+            or string.format("%s.%s", update.name, update.arch)
         local change = string.format(
             "%s → %s",
             update.current_version,
             update.version
         )
         table.insert(rows, { key = name, value = change })
-        table.insert(rows, {
-            key = "",
-            value = noctalia.tr("tooltip.repository", { repo = update.repo }),
-        })
+        local detail = update.kind == "flatpak"
+            and noctalia.tr("tooltip.flatpak_scope", { installation = update.installation })
+            or noctalia.tr("tooltip.repository", { repo = update.repo })
+        table.insert(rows, { key = "", value = detail })
     end
 
     table.insert(rows, checkNowRow())
