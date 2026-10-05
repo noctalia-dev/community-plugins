@@ -468,8 +468,15 @@ local function tooltip(picked, hidden)
                     if left ~= "" then
                         rows[#rows + 1] = { key = "Reset", value = left }
                     end
-                elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
-                    rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
+                else
+                    -- A balance-only provider carries no metric: the tooltip shows
+                    -- the same balance the capsule does, ahead of the plan name.
+                    local balance = shared.balanceText(entry)
+                    if balance ~= nil then
+                        rows[#rows + 1] = { key = title, value = balance }
+                    elseif entry.plan ~= nil and tostring(entry.plan) ~= "" then
+                        rows[#rows + 1] = { key = title, value = tostring(entry.plan) }
+                    end
                 end
             end
             if entry.stale == true then

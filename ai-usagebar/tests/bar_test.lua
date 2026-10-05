@@ -562,3 +562,12 @@ assert(containsText(nousBalanceBar.rendered(), "8.19"),
 assert(not containsText(nousBalanceBar.rendered(), "0.00 remaining"),
     "subscription credits should not win when a total is present")
 
+-- The tooltip must agree with the capsule: a balance provider's hover shows the
+-- same figure, not its plan name and not a no-usage line.
+local balanceRows = balanceBar.tooltip()
+assert(#balanceRows == 1 and balanceRows[1].key == "DeepSeek" and balanceRows[1].value == "$2.90",
+    "a balance provider's tooltip should show its balance where the capsule does")
+local nousRows = nousBalanceBar.tooltip()
+assert(#nousRows == 1 and nousRows[1].key == "Nous Research" and nousRows[1].value == "8.19",
+    "a balance provider's tooltip should not report no usage")
+
