@@ -1,6 +1,8 @@
 --!nonstrict
 
 local helper = noctalia.pluginDir() .. "/spotify_backend.py"
+local SEARCH_TIMEOUT_MS = 100000
+local PLAY_TIMEOUT_MS = 75000
 
 local function shellQuote(value)
   return "'" .. string.gsub(value, "'", "'\"'\"'") .. "'"
@@ -43,6 +45,10 @@ function onQuery(text)
 
   local command = "python3 " .. shellQuote(helper) .. " search " .. shellQuote(query)
   local accepted = noctalia.runAsync(command, function(result)
+    if result.timedOut then
+      failureResult(text, "Spotify search timed out", "Spotify or its artwork servers took too long to respond.")
+      return
+    end
     if result.exitCode ~= 0 then
       local detail = noctalia.string.trim(result.stderr)
       if detail == "" then
@@ -78,7 +84,7 @@ function onQuery(text)
       })
     end
     launcher.setResults(text, results)
-  end)
+  end, SEARCH_TIMEOUT_MS)
 
   if not accepted then
     failureResult(text, "Spotify search unavailable", "Could not start the search helper.")
@@ -96,6 +102,10 @@ function onActivate(id)
 
   local command = "python3 " .. shellQuote(helper) .. " play " .. shellQuote(id)
   local accepted = noctalia.runAsync(command, function(result)
+    if result.timedOut then
+      noctalia.notifyError("Spotify playback timed out", "Spotify did not respond before the playback deadline.")
+      return
+    end
     if result.exitCode ~= 0 then
       local detail = noctalia.string.trim(result.stderr)
       if detail == "" then
@@ -103,7 +113,7 @@ function onActivate(id)
       end
       noctalia.notifyError("Spotify playback failed", detail)
     end
-  end)
+  end, PLAY_TIMEOUT_MS)
   if not accepted then
     noctalia.notifyError("Spotify playback failed", "Could not start the playback helper.")
   end

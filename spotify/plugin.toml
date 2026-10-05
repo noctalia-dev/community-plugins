@@ -1,6 +1,6 @@
 id = "notfinaldev/spotify"
 name = "Spotify Search"
-version = "1.0.0"
+version = "1.0.4"
 plugin_api = 3
 author = "notfinaldev"
 license = "MIT"
@@ -15,4 +15,4 @@ entry = "launcher.luau"
 prefix = "sp"
 glyph = "brand-spotify"
 include_in_global_search = false
-debounce_ms = 350
+debounce_ms = 0
