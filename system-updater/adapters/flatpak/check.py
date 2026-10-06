@@ -94,7 +94,7 @@ def run_flatpak_update_interactive():
         if buffer.endswith("Do you want to install it? [Y/n]:"):
             os.write(master_fd, b"y\n")
             buffer = ""
-        elif buffer.endswith("Proceed with these changes to the system installation? [Y/n]:"):
+        elif re.search(r"Proceed with these changes to the .* \[Y/n\]:$", buffer):
             os.write(master_fd, b"n\n")
             buffer = ""
 
