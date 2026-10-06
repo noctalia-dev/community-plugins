@@ -1,6 +1,6 @@
 id = "zhangdm/als-brightness"
 name = "ALS Brightness"
-version = "0.4.1"
+version = "0.5.0"
 # Cumulative API levels. 23 = async-file-read, 24 = direct-argv. Both are used:
 # the service reads sysfs (sync readFile, measured at 0.03 ms, so the async path
 # is not needed here) and launches `noctalia msg` with an argv table rather than
@@ -9,7 +9,7 @@ plugin_api = 24
 author = "zhangdm"
 license = "MIT"
 icon = "sun"
-description = "Adapts panel brightness to the ambient light sensor, and hands control back the moment you touch the brightness keys."
+description = "Adapts panel brightness and keyboard backlight to ambient light, and hands control back the moment you touch the keys."
 dependencies = ["noctalia"]
 tags = ["hardware", "system"]
 
@@ -22,6 +22,61 @@ type = "bool"
 label_key = "settings.learning_profile.label"
 description_key = "settings.learning_profile.description"
 default = false
+
+# Keyboard backlight: opt-in master toggle. Off by default -- the keyboard
+# backlight stays the owner's until they ask for this, and manual (Fn key)
+# changes are adopted rather than fought.
+
+[[setting]]
+key = "keyboard_backlight"
+type = "bool"
+label_key = "settings.keyboard_backlight.label"
+description_key = "settings.keyboard_backlight.description"
+default = false
+
+# Keyboard threshold and dark level. Gated on the toggle above (the host's
+# conditional visibility, same as the temperature sliders on colortemp): the
+# rows would otherwise read as live controls over a dead feature.
+#
+# Every window is a percent of something the owner already has a feel for -- the
+# panel curve, the threshold itself, the LED's max -- never a raw sensor count,
+# which would not translate between machines. Defaults and windows are
+# keyboard.luau DEFAULTS / WINDOWS, checked against these literals by the
+# settings-surface drift check. The dark level's zero means automatic: the
+# lowest non-off level the LED can hold.
+
+[[setting]]
+key = "kbd_anchor_percent"
+type = "int"
+label_key = "settings.kbd_anchor_percent.label"
+description_key = "settings.kbd_anchor_percent.description"
+default = 40
+min = 25
+max = 75
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
+
+[[setting]]
+key = "kbd_buffer_percent"
+type = "int"
+label_key = "settings.kbd_buffer_percent.label"
+description_key = "settings.kbd_buffer_percent.description"
+default = 15
+min = 0
+max = 50
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
+
+[[setting]]
+key = "kbd_dark_percent"
+type = "int"
+label_key = "settings.kbd_dark_percent.label"
+description_key = "settings.kbd_dark_percent.description"
+default = 0
+min = 0
+max = 100
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
 
 # The curves: per-node threshold sliders (Phase 6).
 #

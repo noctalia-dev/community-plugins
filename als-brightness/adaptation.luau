@@ -43,20 +43,31 @@
 --               curve_settings the curve config snapshot rebuilds re-use
 --               cs             the curve_source report (built curves + the
 --                              source strings the log lines quote)
+--               kbd            the keyboard-backlight bookkeeping
+--                              keyboard.decide mutates ({mode=, cmd_raw=,
+--                              inhibit=, changes=, scale=}; scale seeds from
+--                              profile.kbd_scale and is written back into it
+--                              on kbd_learned)
 --   tick      the tick counter, or nil for an event-time call (onIpc): events
 --             are processed either way, the tick body only when tick ~= nil.
 --   observed  the IO snapshot the decision reads (numbers or nil):
 --               raw        ambient counts      percent  panel percent 0-100
 --               ambient_k  colour-temp sensor  guards   {dpms=, lid_closed=}
+--               kbd_raw    keyboard-backlight raw level (manual-change input)
 --   events    ordered timeline events since the previous decision (strings):
 --             "idle-engaged" | "idle-released" | "user-adjusted" | anything
 --             else (logged as unknown). The IPC vocabulary comes from the
 --             idle handshake in docs/DESIGN.md ("The idle handshake").
 --   cfg       policy knobs (policy.DEFAULTS shape) plus
---             enabled / colortemp_enabled.
---   opts      the injected context: now_ms (the clock reading, MILLISECONDS)
---             and paths ({als_raw=, bl_cur=}) -- path strings for the two
---             read-failure lines, never read from inside this module.
+--             enabled / colortemp_enabled, and kbd -- the keyboard-backlight
+--             cfg, keyed exactly as keyboard.DEFAULTS names its setting keys
+--             (enabled / anchor_percent / buffer_percent / dark_percent).
+--   opts      the injected context: now_ms (the clock reading, MILLISECONDS);
+--             paths ({als_raw=, bl_cur=, kbd_cur=, kbd_max=}) -- path strings
+--             for the two read-failure lines, never read from inside this
+--             module, with paths.kbd_cur as the probe's keyboard-presence
+--             decision; and kbd_max (the keyboard LED's max_brightness, read
+--             once at start).
 --
 -- Return: an ordered action list. decide() never performs IO; the executor
 -- (service.luau) walks the list in order. The observation behind a `record`
@@ -69,11 +80,21 @@
 --   {kind="save_profile",   now_s, force}         persist profile.json
 --   {kind="poll_lock"}                            sample `noctalia msg status`
 --   {kind="apply_temperature", kelvin, now_s}     run the settings splice
+--   {kind="set_keyboard",  percent, raw}          command the keyboard backlight
+--   {kind="kbd_manual",    now_s}                 the owner's Fn press took over
+--   {kind="kbd_learned",   now_s}                 kbd.scale moved; persist it
 --
 -- Every log line this module returns is byte-identical to the line service.luau
 -- used to write at the same point -- they are the maintainer's evidence stream.
 -- The IO-side lines (colortemp splice outcomes, hardware/startup diagnostics)
 -- stay with the executor.
+--
+-- The keyboard-backlight step is appended last and rides the tick even when the
+-- panel timeline suspends: keyboard.decide owns its own guard (dpms / lid /
+-- idle / locked) and deliberately excludes the panel's manual-override window
+-- -- per actuator, the Fn keys ARE the keyboard's manual control. The master
+-- switch (cfg.enabled), a failed ambient/backlight read and the override-expiry
+-- tick skip the step: those hold every actuator for the tick.
 
 local M = {}
 
@@ -95,6 +116,7 @@ local curve_source = import("curve_source")
 local profile = import("profile")
 local colortemp = import("colortemp")
 local temperature = import("temperature")
+local keyboard = import("keyboard")
 
 -- Cadence, in ticks (1 Hz ticks). The lock poll is its own slow lane because
 -- `noctalia msg status` is a shell-out (see service.poll_locked).
@@ -210,6 +232,66 @@ function M.decide(session, tick, observed, events, cfg, opts)
   end
   if tick == nil then return actions end
 
+  -- ── the keyboard-backlight step ───────────────────────────────────────────
+  -- The two-state keyboard policy (keyboard.luau) rides the same tick but NOT
+  -- the panel's guard: its own guard decides on dpms / lid / idle / locked, and
+  -- deliberately excludes the panel's manual-override window -- per actuator,
+  -- the Fn keys ARE the keyboard's manual control. That is why this also runs
+  -- on the suspend path: the step must reach keyboard.decide whenever the panel
+  -- holds (an open panel override must not freeze the keyboard), and
+  -- keyboard.decide's own guard is what holds the keyboard back.
+  local function kbd_step()
+    local kbd_cfg = cfg.kbd
+    if type(kbd_cfg) ~= "table" or kbd_cfg.enabled ~= true then return end
+    -- Presence is the probe's decision (hardware.discover fills paths.kbd_cur
+    -- only when a kbd_backlight LED exists), passed in like every path.
+    if opts.paths == nil or opts.paths.kbd_cur == nil then return end
+
+    -- The threshold anchor is where the live panel curve reaches
+    -- anchor_percent. The curve compiles x in the log10(raw + 1) domain
+    -- (curve_source.map_brightness_x), so solve_x answers in that domain and
+    -- the ONE inversion to raw counts happens right here: raw = 10^x - 1.
+    local anchor_pct = kbd_cfg.anchor_percent
+    if not curve.is_finite(anchor_pct) then
+      anchor_pct = keyboard.DEFAULTS.anchor_percent
+    end
+    local anchor_x, why = curve.solve_x(session.cs.brightness.built, anchor_pct)
+    if anchor_x == nil then
+      -- Anchor outside the curve range: skip this tick's keyboard decision
+      -- rather than guess a threshold.
+      actions[#actions + 1] = {
+        kind = "warn_once", key = "kbd-anchor",
+        line = "keyboard skipped: " .. why,
+      }
+      return
+    end
+
+    if session.kbd == nil then
+      session.kbd = { mode = nil, cmd_raw = nil, inhibit = false, changes = {}, scale = 1.0 }
+    end
+
+    local kbd_actions = keyboard.decide(session.kbd, {
+      log = session.log, -- the stabilised reading (policy.log_of domain)
+      raw = observed.raw,
+      kbd_raw = observed.kbd_raw,
+      idle = session.idle,
+      locked = session.locked,
+      guards = observed.guards,
+    }, kbd_cfg, {
+      now_s = now_s, -- SECONDS: the one ms->s conversion, shared with the timeline
+      anchor_raw = 10 ^ anchor_x - 1,
+      kbd_max = opts.kbd_max,
+    })
+    for _, action in ipairs(kbd_actions) do
+      if action.kind == "kbd_learned" then
+        -- Pure bookkeeping, exactly like record() folds observations into the
+        -- profile: the learned scale lands here; the executor persists it.
+        session.profile.kbd_scale = session.kbd.scale
+      end
+      actions[#actions + 1] = action
+    end
+  end
+
   -- Tick timeline, in order. Each stage is a separate pure call so the
   -- ordering is explicit and tested: detect -> record -> poll -> expire ->
   -- guard -> adapt -> temperature.
@@ -285,8 +367,8 @@ function M.decide(session, tick, observed, events, cfg, opts)
     -- The expiry tick does ONLY this transition. Adapting on the same tick
     -- would stomp the re-baseline with a curve write (the panel jumps back to
     -- the curve value before the owner's choice has settled) and the next tick
-    -- would see that write as a fresh manual change. The resume line and the
-    -- first adaptation land on the next tick instead.
+    -- would see that write as a fresh manual change. The resume line, the first
+    -- adaptation and the keyboard step all land on the next tick instead.
     return actions
   end
 
@@ -305,6 +387,9 @@ function M.decide(session, tick, observed, events, cfg, opts)
 
   if not ok then
     suspend_on_change(session, reason, "suspended: " .. reason, log)
+    -- The keyboard is a second actuator with its own guards: it decides on its
+    -- own timeline even while the panel is suspended (see kbd_step above).
+    kbd_step()
     return actions
   end
 
@@ -344,6 +429,9 @@ function M.decide(session, tick, observed, events, cfg, opts)
     end
   end
 
+  -- Keyboard last: its actions are appended after the panel's, so the executor
+  -- performs the panel's timeline before the keyboard's on every tick.
+  kbd_step()
   return actions
 end
 

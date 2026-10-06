@@ -490,6 +490,84 @@ function M.eval(c, x)
   return c.y[i] * h00 + h * c.m[i] * h10 + c.y[i + 1] * h01 + h * c.m[i + 1] * h11
 end
 
+--- At what x does this curve reach y_target? The inverse of eval(), for callers
+-- that hold a panel percent and need the ambient level that commands it (the
+-- keyboard-backlight threshold anchor is the first caller).
+--
+-- `c` is the compiled curve -- exactly what eval() consumes -- and the answer is
+-- in `c`'s own x domain, exactly like eval()'s argument: a curve built with
+-- map_x (the brightness log domain) inverts in that domain, and the caller maps
+-- raw counts in and out. Raw-count knowledge stays out of this module for the
+-- same reason eval() has none: one curve, one domain, one implementation.
+--
+-- Returns `x, nil` on success -- the smallest x in [c.x[1], c.x[n]] whose value
+-- has reached y_target (eval(c, x) >= y_target) -- or `nil, reason` when
+-- y_target lies outside the node outputs (below the first node's y or above the
+-- last node's y) or the input is malformed (no nodes, non-finite y_target). The
+-- reason strings are stable human-readable sentences: callers log them verbatim.
+--
+-- Bisection, never algebra: solving the PCHIP cubic for its root would be a
+-- second expression of the interpolation, and two of those drift apart while
+-- both stay green (DESIGN §9.4). The bracket comes from the node y's plus the
+-- per-interval no-overshoot guarantee: before the first interval whose endpoints
+-- straddle y_target the curve cannot have reached it, so the root found here is
+-- the *first* crossing and not merely a crossing. Tolerance: the bracket halves
+-- until it is relative 1e-9 wide in x, and the upper end is returned because
+-- that is the side that has reached the target (eval there >= it), so the answer
+-- never undershoots by more than the stated tolerance.
+function M.solve_x(c, y_target)
+  local n = type(c) == "table" and c.n or nil
+  if type(n) ~= "number" or n < 1 or type(c.x) ~= "table" or type(c.y) ~= "table" then
+    return nil, "the curve has no nodes to invert"
+  end
+  if not (is_finite(c.x[1]) and is_finite(c.y[1])
+      and is_finite(c.x[n]) and is_finite(c.y[n])) then
+    return nil, "the curve has no nodes to invert"
+  end
+  if not is_finite(y_target) then
+    return nil, "y_target is not a finite number"
+  end
+  if y_target < c.y[1] then
+    return nil, string.format(
+      "y_target %s is below the first node's output %s", tostring(y_target), tostring(c.y[1]))
+  end
+  if y_target > c.y[n] then
+    return nil, string.format(
+      "y_target %s is above the last node's output %s", tostring(y_target), tostring(c.y[n]))
+  end
+  -- At the first node's output the answer is the domain start itself; on a flat
+  -- head the value is already there, and nothing smaller is inside the domain.
+  if y_target == c.y[1] or n == 1 then
+    return c.x[1], nil
+  end
+
+  for i = 1, n - 1 do
+    if c.y[i] <= y_target and y_target <= c.y[i + 1] then
+      -- A y_target that sits on a node is answered by the node itself: the
+      -- per-interval no-overshoot guarantee makes it the exact smallest x, and
+      -- bisection would only chase eval's rounding noise to within 1e-9 of it.
+      if y_target == c.y[i] then return c.x[i], nil end
+      if y_target == c.y[i + 1] then return c.x[i + 1], nil end
+      local lo, hi = c.x[i], c.x[i + 1]
+      for _ = 1, 200 do
+        local mid = (lo + hi) / 2
+        if M.eval(c, mid) >= y_target then
+          hi = mid
+        else
+          lo = mid
+        end
+        if hi - lo <= 1e-9 * math.max(math.abs(lo), math.abs(hi)) then break end
+      end
+      return hi, nil
+    end
+  end
+  -- Unreachable for a compiled curve: the range check above already guarantees a
+  -- bracketing interval exists. Kept so the function is total rather than
+  -- trusting that argument forever.
+  return nil, string.format(
+    "y_target %s is not bracketed by the node outputs", tostring(y_target))
+end
+
 --- Is the node list non-decreasing in y? Used only to warn once, never to edit.
 --
 -- If the owner's numbers make the value fall as x rises, the curve is honoured as
