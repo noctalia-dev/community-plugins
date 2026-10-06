@@ -1,13 +1,13 @@
 id = "ghillb/portforward"
 name = "Port Forwarding"
-version = "0.1.1"
+version = "0.1.2"
 plugin_api = 24
 author = "ghillb"
 license = "MIT"
 icon = "arrows-left-right"
 description = "Named SSH forwards with a standalone CLI and systemd supervision."
 tags = ["bar", "panel", "service", "network", "utility", "development"]
-dependencies = ["python3", "ssh", "systemctl"]
+dependencies = ["python3", "ssh", "systemctl", "xdg-open", "wl-copy", "journalctl"]
 
 [[service]]
 id = "status"

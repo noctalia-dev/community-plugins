@@ -14,6 +14,7 @@ if sys.platform != "linux":
     print("Linux with systemd user services is required.", file=sys.stderr)
     sys.exit(1)
 
+sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from portforward_manager.installation import ensure  # noqa: E402
 
