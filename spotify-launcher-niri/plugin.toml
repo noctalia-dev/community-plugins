@@ -1,0 +1,15 @@
+id         = "poghostick/spotify-launcher-niri"
+name       = "Spotify-launcher for niri"
+version    = "1.0.0"
+plugin_api = 24
+author     = "poghostick"
+license    = "MIT"
+deprecated = false
+icon       = "spotify"
+description= "A bar widget for spotify-launcher for niri"
+tags       = ["music", "media", "niri"]
+dependencies = ["spotify-launcher", "niri"]
+
+[[widget]]
+id    = "spotify-launcher-niri"
+entry = "widget.luau"
