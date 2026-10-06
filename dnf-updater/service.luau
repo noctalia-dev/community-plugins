@@ -7,6 +7,7 @@ local enableDnf = noctalia.getConfig("enable_dnf") ~= false
 local enableFlatpak = noctalia.getConfig("enable_flatpak") ~= false
 local notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
 local updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
+local includeFlatpakRuntimes = noctalia.getConfig("include_flatpak_runtimes") == true
 
 local state = {
   status = "IDLE", -- "IDLE" | "CHECKING" | "UPDATING" | "SUCCESS" | "ERROR"
@@ -129,14 +130,14 @@ local function isValidFlatpakId(id)
   if id:sub(1, 1) == "-" then
     return false
   end
-  return id:match("^[%w%._%-%/]+$") ~= nil and id:find("%.") ~= nil
+  return id:match("^[%w%._%-%/]+$") ~= nil
 end
 
 local function shellQuote(str)
   return "'" .. string.gsub(str, "'", "'\\''") .. "'"
 end
 
-local function checkDnf(onFinished)
+local function checkDnf(onFinished, isRetry)
   if not enableDnf then
     state.dnf.count = 0
     state.dnf.packages = {}
@@ -169,6 +170,11 @@ local function checkDnf(onFinished)
 
   noctalia.runAsync({ dnfBin, "check-upgrade", "--json" }, function(result)
     if result.timedOut then
+      if not isRetry then
+        print("[dnf-updater] DNF check timed out; retrying once...")
+        checkDnf(onFinished, true)
+        return
+      end
       state.dnf.status = "error"
       state.dnf.error = "DNF check timed out"
       onFinished(false)
@@ -246,7 +252,7 @@ local function checkDnf(onFinished)
           state.dnf.status = "done"
           state.dnf.error = nil
           onFinished(true)
-        end)
+        end, 30000)
       else
         state.dnf.total_download_bytes = 0
         state.dnf.total_install_bytes = 0
@@ -274,10 +280,10 @@ local function checkDnf(onFinished)
         onFinished(true)
       end
     end
-  end)
+  end, 30000)
 end
 
-local function checkFlatpak(onFinished)
+local function checkFlatpak(onFinished, isRetry)
   if not enableFlatpak then
     state.flatpak.count = 0
     state.flatpak.packages = {}
@@ -307,8 +313,18 @@ local function checkFlatpak(onFinished)
   state.flatpak.status = "checking"
   state.flatpak.error = nil
 
-  noctalia.runAsync({ "flatpak", "remote-ls", "--updates", "--columns=name,application,version,branch,origin,installed-size,download-size,ref", "-j" }, function(result)
+  local flatpakArgs = { "flatpak", "remote-ls", "--updates", "--columns=name,application,version,branch,origin,installed-size,download-size,ref", "-j" }
+  if not includeFlatpakRuntimes then
+    table.insert(flatpakArgs, 4, "--app")
+  end
+
+  noctalia.runAsync(flatpakArgs, function(result)
     if result.timedOut then
+      if not isRetry then
+        print("[dnf-updater] Flatpak check timed out; retrying once...")
+        checkFlatpak(onFinished, true)
+        return
+      end
       state.flatpak.status = "error"
       state.flatpak.error = "Flatpak check timed out"
       onFinished(false)
@@ -341,6 +357,7 @@ local function checkFlatpak(onFinished)
           flatpakTotalDownload += dlBytes
           flatpakTotalInstall += instBytes
 
+          local isRuntime = (item.ref and item.ref:find("^runtime/") ~= nil) or false
           table.insert(packages, {
             name = item.name or (item.application_id or "Unknown"),
             id = (item.application_id and item.application_id ~= "") and item.application_id or (item.ref or (item.name or "")),
@@ -348,6 +365,7 @@ local function checkFlatpak(onFinished)
             version = item.version or (item.branch or ""),
             branch = item.branch or "",
             origin = item.origin or "",
+            is_runtime = isRuntime,
             download_bytes = dlBytes,
             install_bytes = instBytes,
             download_formatted = (item.download_size and item.download_size ~= "") and item.download_size or formatBytes(dlBytes),
@@ -381,7 +399,7 @@ local function checkFlatpak(onFinished)
         onFinished(true)
       end
     end
-  end)
+  end, 30000)
 end
 
 local function checkAll(force)
@@ -519,11 +537,19 @@ local function updateDnf(excludedList, onFinished)
       if onFinished then onFinished(true) end
     else
       state.dnf.status = "error"
-      state.dnf.error = result.stderr ~= "" and result.stderr or "DNF upgrade failed"
+      local errMsg = "DNF upgrade failed"
+      if result.timedOut then
+        errMsg = "DNF upgrade timed out (consider running updates in terminal)"
+      elseif result.stderr and result.stderr ~= "" then
+        errMsg = result.stderr
+      elseif result.stdout and result.stdout ~= "" then
+        errMsg = result.stdout
+      end
+      state.dnf.error = errMsg
       if onFinished then onFinished(false) end
     end
     publishState()
-  end)
+  end, 600000)
 end
 
 local function updateFlatpak(selectedList, onFinished)
@@ -537,10 +563,12 @@ local function updateFlatpak(selectedList, onFinished)
   local validSelected = nil
   if selectedList and type(selectedList) == "table" then
     validSelected = {}
+    local seen = {}
     for _, ref in ipairs(selectedList) do
-      if isValidFlatpakId(ref) then
+      if isValidFlatpakId(ref) and not seen[ref] then
+        seen[ref] = true
         table.insert(validSelected, ref)
-      else
+      elseif not isValidFlatpakId(ref) then
         print(string.format("[dnf-updater] Warning: invalid Flatpak ID skipped: %s", tostring(ref)))
       end
     end
@@ -561,9 +589,12 @@ local function updateFlatpak(selectedList, onFinished)
     return
   end
 
+  local flatpakCount = (state.flatpak and state.flatpak.count) or 0
+  local hasSubset = validSelected and #validSelected > 0 and #validSelected < flatpakCount
+
   if updateInTerminal then
     local cmd = "flatpak update"
-    if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
+    if hasSubset then
       for _, ref in ipairs(validSelected) do
         cmd = cmd .. " " .. shellQuote(ref)
       end
@@ -580,7 +611,7 @@ local function updateFlatpak(selectedList, onFinished)
   publishState()
 
   local args = { "flatpak", "update", "-y", "--noninteractive" }
-  if validSelected and #validSelected > 0 and #validSelected < flatpakCount then
+  if hasSubset then
     for _, ref in ipairs(validSelected) do
       table.insert(args, ref)
     end
@@ -593,11 +624,19 @@ local function updateFlatpak(selectedList, onFinished)
       if onFinished then onFinished(true) end
     else
       state.flatpak.status = "error"
-      state.flatpak.error = result.stderr ~= "" and result.stderr or "Flatpak update failed"
+      local errMsg = "Flatpak update failed"
+      if result.timedOut then
+        errMsg = "Flatpak update timed out (consider running updates in terminal)"
+      elseif result.stderr and result.stderr ~= "" then
+        errMsg = result.stderr
+      elseif result.stdout and result.stdout ~= "" then
+        errMsg = result.stdout
+      end
+      state.flatpak.error = errMsg
       if onFinished then onFinished(false) end
     end
     publishState()
-  end)
+  end, 600000)
 end
 
 local function updateAll(excludedDnf, selectedFlatpaks)
@@ -624,8 +663,10 @@ local function updateAll(excludedDnf, selectedFlatpaks)
   local validSelected = nil
   if selectedFlatpaks and type(selectedFlatpaks) == "table" then
     validSelected = {}
+    local seen = {}
     for _, ref in ipairs(selectedFlatpaks) do
-      if isValidFlatpakId(ref) then
+      if isValidFlatpakId(ref) and not seen[ref] then
+        seen[ref] = true
         table.insert(validSelected, ref)
       end
     end
@@ -752,7 +793,7 @@ noctalia.state.watch("service_command", function(cmd)
   elseif cmd.action == "update_all" then
     updateAll(cmd.excluded_dnf, cmd.selected_flatpak)
   elseif cmd.action == "update_dnf" then
-    if not isUpdating then
+    if not isUpdating and not isChecking then
       isUpdating = true
       updateDnf(cmd.excluded_dnf, function()
         isUpdating = false
@@ -760,7 +801,7 @@ noctalia.state.watch("service_command", function(cmd)
       end)
     end
   elseif cmd.action == "update_flatpak" then
-    if not isUpdating then
+    if not isUpdating and not isChecking then
       isUpdating = true
       updateFlatpak(cmd.selected_flatpak, function()
         isUpdating = false
@@ -774,6 +815,7 @@ function onConfigChanged()
   checkInterval = noctalia.getConfig("check_interval") or 30
   enableDnf = noctalia.getConfig("enable_dnf") ~= false
   enableFlatpak = noctalia.getConfig("enable_flatpak") ~= false
+  includeFlatpakRuntimes = noctalia.getConfig("include_flatpak_runtimes") == true
   notifyOnUpdates = noctalia.getConfig("notify_on_updates") ~= false
   updateInTerminal = noctalia.getConfig("update_in_terminal") ~= false
   elapsedMinutes = 0

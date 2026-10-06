@@ -1,6 +1,6 @@
 id = "strob3/dnf-updater"
 name = "DNF Updater"
-version = "1.0.1"
+version = "1.0.3"
 plugin_api = 24
 author = "strob3"
 license = "MIT"
@@ -31,6 +31,13 @@ type = "bool"
 label_key = "settings.enable_flatpak.label"
 description_key = "settings.enable_flatpak.description"
 default = true
+
+[[setting]]
+key = "include_flatpak_runtimes"
+type = "bool"
+label_key = "settings.include_flatpak_runtimes.label"
+description_key = "settings.include_flatpak_runtimes.description"
+default = false
 
 [[setting]]
 key = "show_widget_when_clean"

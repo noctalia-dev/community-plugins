@@ -28,7 +28,8 @@
     "dnf": "DNF · {count} updates",
     "dnf_selected": "DNF · {selected}/{total} updates",
     "flatpak": "Flatpak · {count} updates",
-    "flatpak_selected": "Flatpak · {selected}/{total} updates"
+    "flatpak_selected": "Flatpak · {selected}/{total} updates",
+    "runtime": "Runtime"
   },
   "settings": {
     "check_interval": {
@@ -42,6 +43,10 @@
     "enable_flatpak": {
       "description": "Check for and manage Flatpak application updates.",
       "label": "Enable Flatpak"
+    },
+    "include_flatpak_runtimes": {
+      "description": "Include Flatpak runtime and extension updates alongside applications.",
+      "label": "Include Flatpak Runtimes"
     },
     "glyph": {
       "description": "Icon glyph to display in the Noctalia bar widget.",
@@ -84,6 +89,7 @@
     "dnf": "DNF",
     "download": "Download",
     "flatpak": "Flatpak",
+    "last_checked": "Last Checked",
     "storage": "Storage",
     "total": "Total"
   },

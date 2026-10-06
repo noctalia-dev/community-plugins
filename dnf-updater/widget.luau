@@ -47,7 +47,7 @@ local function render()
     if updateState.total_download_formatted and updateState.total_download_formatted ~= "0 B" then
       table.insert(tooltipEntries, { key = noctalia.tr("tooltip.download_size"), value = updateState.total_download_formatted })
     end
-    table.insert(tooltipEntries, { key = "Last checked", value = updateState.last_check or "–" })
+    table.insert(tooltipEntries, { key = noctalia.tr("summary.last_checked"), value = updateState.last_check or "–" })
     barWidget.setTooltip(tooltipEntries)
     barWidget.setVisible(true)
   else
