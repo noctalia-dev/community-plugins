@@ -116,7 +116,7 @@ function M.render(form, busy, callbacks)
     ui.separator({ color = "outline" }),
     ui.row({ gap = 8, paddingH = 16, paddingV = 12, justify = "end" }, {
       ui.button({ text = tr("cancel"), variant = "ghost", enabled = not busy, onClick = callbacks.cancel }),
-      ui.button({ text = tr(form.live and "save_reconnect" or "save"), variant = "primary", enabled = not busy, onClick = callbacks.save }),
+      ui.button({ text = tr(form.live and "save_reconnect" or "save"), variant = "default", enabled = not busy, onClick = callbacks.save }),
     }),
   })
 end

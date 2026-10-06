@@ -41,7 +41,7 @@ function M.render(profile, state, actions)
         }),
       }),
       ui.button({ text = active and tr("disconnect") or failed and tr("retry") or tr("connect"),
-        controlSize = "sm", variant = active and "outline" or "primary", enabled = not state.busy, onClick = actions.control }),
+        controlSize = "sm", variant = active and "outline" or "default", enabled = not state.busy, onClick = actions.control }),
       ui.select({ key = "actions-" .. profile.id, controlSize = "sm", width = 94,
         options = { tr("actions"), tr("edit"), tr("details"), tr("delete") },
         selectedIndex = 0, enabled = not state.busy, onChange = function(value)

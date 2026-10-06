@@ -160,7 +160,7 @@ function M.start(compact)
         ui.glyph({ name = "arrows-left-right", size = 30, color = "on_surface_variant" }),
         ui.label({ text = tr("empty_title"), fontSize = 15, fontWeight = "medium" }),
         ui.label({ text = tr("empty"), fontSize = 12, color = "on_surface_variant", textAlign = "center" }),
-        ui.button({ text = tr("add_profile"), glyph = "plus", variant = "primary", onClick = function() edit(nil) end }),
+        ui.button({ text = tr("add_profile"), glyph = "plus", variant = "default", onClick = function() edit(nil) end }),
       }))
     end
     panel.render(ui.column({ key = "profiles", flexGrow = 1, gap = 0 }, {
