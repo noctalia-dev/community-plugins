@@ -1,0 +1,53 @@
+id = "vavadik/headsetcontrol"                       # "<author>/<plugin>" - globally unique
+name = "Headset Control"
+version = "0.1.0"
+plugin_api = 32                                     # mandatory: oldest plugin API level required
+author = "vavadik"
+license = "MIT"                                     # optional; defaults to MIT
+deprecated = false                                  # optional; defaults to false
+icon = "headphones"                                 # optional
+description = "Headset battery and device info from headsetcontrol"
+tags = ["bar", "panel", "service", "audio", "hardware", "indicator"]  # optional, for catalog search
+dependencies = ["headsetcontrol"]                    # optional, external tools/packages users must install
+
+[[setting]]
+key = "poll_interval"
+type = "int"
+label_key = "settings.poll_interval.label"
+description_key = "settings.poll_interval.description"
+default = 5
+min = 1
+max = 60
+
+# Owns every headsetcontrol call and publishes the "snapshot" state that the
+# widget and panel render.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "show_percentage"
+  type = "bool"
+  label_key = "settings.show_percentage.label"
+  description_key = "settings.show_percentage.description"
+  default = true
+
+  [[widget.setting]]
+  key = "hide_when_unavailable"
+  type = "bool"
+  label_key = "settings.hide_when_unavailable.label"
+  description_key = "settings.hide_when_unavailable.description"
+  default = false
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 380
+height = 440
+placement = "attached"
+position = "auto"
+open_near_click = true
