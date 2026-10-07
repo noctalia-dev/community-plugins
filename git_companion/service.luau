@@ -142,11 +142,10 @@ local function buildCommand(kind)
   return table.concat(parts, " ")
 end
 
--- Every item carries `comments` (how many) and `pendingReview` (a thread is
--- waiting on someone). Only GitLab fills them so far: `glab mr list` already
--- returns user_notes_count and blocking_discussions_resolved, so no extra call
--- is needed. gh and tea need a second command per tab or per PR for the same
--- information; until that lands the other platforms report nothing.
+-- Every item carries `mergeStatus`. Only GitLab fills it so far, from the
+-- detailed_merge_status that `glab mr list` already returns, so no extra call
+-- is needed. gh and tea have no single equivalent; until one is mapped the
+-- other platforms report an empty string.
 local function normalizeItem(raw, kind)
   if platform == "gitlab" then
     local prefix = kind == "issue" and "#" or "!"
@@ -156,8 +155,7 @@ local function normalizeItem(raw, kind)
       url = raw.web_url or "",
       ref = (raw.references and raw.references.full) or (prefix .. (raw.iid or "")),
       targetBranch = raw.target_branch or "",
-      comments = isMr and (raw.user_notes_count or 0) or 0,
-      pendingReview = isMr and raw.blocking_discussions_resolved == false,
+      mergeStatus = isMr and (raw.detailed_merge_status or "") or "",
     }
   end
   if platform == "gitea" then
@@ -166,8 +164,7 @@ local function normalizeItem(raw, kind)
       url = raw.url or "",
       ref = (raw.owner or "") .. "/" .. (raw.repo or "") .. "#" .. (raw.index or ""),
       targetBranch = "",
-      comments = 0,
-      pendingReview = false,
+      mergeStatus = "",
     }
   end
   -- GitHub
@@ -177,8 +174,7 @@ local function normalizeItem(raw, kind)
     url = raw.url or "",
     ref = repoName .. "#" .. (raw.number or ""),
     targetBranch = "",
-    comments = 0,
-    pendingReview = false,
+    mergeStatus = "",
   }
 end
 
@@ -205,17 +201,23 @@ end
 -- The interesting line is rarely the first: tea prefixes a "NOTE: no gitea
 -- login detected..." before the actual "Error: not found". So an explicit
 -- Error line wins, otherwise the last line that is not a note or a warning.
+-- glab draws a box instead, whose header is the bare word "ERROR" and whose
+-- message follows on the next line, wrapped. That header must not win, or the
+-- panel just says "ERROR"; the line after it is the message, and the first of
+-- those lines is the one that carries the point.
 local function errorLine(text)
   local fallback = ""
+  local boxed = false
   for line in tostring(text or ""):gmatch("[^\r\n]+") do
     local trimmed = noctalia.string.trim(line)
     if trimmed ~= "" then
       local lower = trimmed:lower()
-      if lower:match("^error") then
+      if lower:match("^error[%s:]*$") then
+        boxed = true
+      elseif boxed or lower:match("^error") then
         fallback = trimmed
         break
-      end
-      if not (lower:match("^note[:%s]") or lower:match("^warn")) then
+      elseif not (lower:match("^note[:%s]") or lower:match("^warn")) then
         fallback = trimmed
       end
     end
