@@ -1,0 +1,71 @@
+# HyprPrice: a live crypto price widget for the Noctalia bar.
+
+id = "humblemane/hyprprice"
+name = "HyprPrice"
+version = "1.3.2"
+plugin_api = 24
+author = "humblemane"
+license = "MIT"
+dependencies = ["xdg-open"]
+tags = ["bar", "panel", "service", "indicator", "utility"]
+icon = "coin-monero-filled"
+description = "Live crypto and stock prices in the bar, with a chart panel, coin search and logos. Monero by default."
+
+[[setting]]
+key = "currency"
+type = "select"
+label_key = "settings.currency.label"
+description_key = "settings.currency.description"
+default = "usd"
+
+  [[setting.options]]
+  value = "usd"
+  label_key = "settings.currency.usd"
+
+  [[setting.options]]
+  value = "eur"
+  label_key = "settings.currency.eur"
+
+[[setting]]
+key = "interval"
+type = "int"
+label_key = "settings.interval.label"
+description_key = "settings.interval.description"
+default = 30
+min = 15
+max = 600
+
+[[setting]]
+key = "show_change"
+type = "bool"
+label_key = "settings.show_change.label"
+description_key = "settings.show_change.description"
+default = true
+
+[[setting]]
+key = "coin"
+type = "string"
+label_key = "settings.coin.label"
+description_key = "settings.coin.description"
+default = "monero"
+
+# Status bar widget: shows current price and optional 24h change.
+[[widget]]
+id = "price"
+entry = "bar.luau"
+
+# Headless background service: polls Kraken and publishes price/change/history.
+[[service]]
+id = "service"
+entry = "service.luau"
+
+# Dropdown chart panel opened by clicking the bar widget: chart, refresh
+# button, and a coin search bar (see lib/coins.luau).
+[[panel]]
+id = "chart"
+entry = "chart.luau"
+width = 360
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
