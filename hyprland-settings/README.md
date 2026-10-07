@@ -157,5 +157,6 @@ noctalia msg plugin michael-retunzew/hyprland-settings:panel all page displays
 ## Credits
 
 The *Futurista* animation preset comes from
-[Hyprland Visual Editor](https://github.com/noctalia-dev/community-plugins/tree/main/hyprland-visual-editor)
-(MIT) by XimoCP, Hermy and linux-fertxo.
+[Hyprland Visual Editor](https://github.com/XimoCP/hyprland-visual-editor) by XimoCP
+(MIT, Copyright (c) 2026 XimoCP), as ported to Noctalia v5 by Hermy and linux-fertxo.
+Its license notice is kept in `lib/presets/futurista.luau`.
