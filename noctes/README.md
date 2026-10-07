@@ -121,8 +121,10 @@ noctalia msg plugin remo/noctes:service all reload          # re-read notes.json
 ```
 
 `stick` is for a note that has a key but no sheet on this machine, such as one
-from a synced `notes.json`. `gather` also runs by itself whenever an output
-comes or goes; see **Notes**.
+from a synced `notes.json`. `gather` also runs by itself once the outputs have
+held still for a few seconds after one comes or goes, so a monitor that drops
+its link for a moment as the session locks moves nothing, and once per start,
+so a sheet parked by an earlier run goes back; see **Notes**.
 
 `desk`, `new` and `open` all select what they touch, so pairing one with
 `noctalia msg panel-toggle remo/noctes:panel` gives a single-keybind quick note.
