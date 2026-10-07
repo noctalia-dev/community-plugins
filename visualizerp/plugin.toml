@@ -1,0 +1,191 @@
+id = "al3x/visualizerp"
+name = "Visualizer+"
+version = "0.1.0"
+author = "al3x"
+license = "MIT"
+icon = "activity"
+description = "Live oscilloscope of the default audio output rendered in the bar."
+plugin_api = 3
+tags = ["audio", "bar", "utility"]
+dependencies = ["cc", "make", "pkg-config", "libpipewire-0.3"]
+
+# Capture settings are read by service.luau when it starts the helper; changing
+# them takes effect on the next capture start (audio restart or plugin reload).
+
+[[setting]]
+key = "target"
+type = "string"
+label_key = "settings.target.label"
+description_key = "settings.target.description"
+default = ""
+
+[[setting]]
+key = "fps"
+type = "int"
+label_key = "settings.fps.label"
+description_key = "settings.fps.description"
+min = 10
+max = 60
+default = 60
+
+[[setting]]
+key = "cols"
+type = "int"
+label_key = "settings.cols.label"
+description_key = "settings.cols.description"
+min = 16
+max = 128
+default = 128
+
+[[setting]]
+key = "sensitivity"
+type = "double"
+label_key = "settings.sensitivity.label"
+description_key = "settings.sensitivity.description"
+min = 0.05
+max = 4.0
+step = 0.05
+default = 1.0
+
+[[setting]]
+key = "smoothing"
+type = "double"
+label_key = "settings.smoothing.label"
+description_key = "settings.smoothing.description"
+min = 0.0
+max = 0.99
+step = 0.01
+default = 0.2
+
+[[setting]]
+key = "gate"
+type = "double"
+label_key = "settings.gate.label"
+description_key = "settings.gate.description"
+min = 0.0
+max = 0.1
+step = 0.0005
+default = 0.0025
+
+[[service]]
+id = "capture"
+entry = "service.luau"
+
+[[widget]]
+id = "scope"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "width"
+  type = "int"
+  label_key = "settings.width.label"
+  description_key = "settings.width.description"
+  min = 40
+  max = 400
+  default = 188
+
+  [[widget.setting]]
+  key = "height"
+  type = "int"
+  label_key = "settings.height.label"
+  description_key = "settings.height.description"
+  min = 8
+  max = 60
+  default = 30
+
+  [[widget.setting]]
+  key = "color"
+  type = "color"
+  label_key = "settings.color.label"
+  description_key = "settings.color.description"
+  default = "primary"
+
+  [[widget.setting]]
+  key = "color2"
+  type = "color"
+  label_key = "settings.color2.label"
+  description_key = "settings.color2.description"
+  default = "on_surface_variant"
+
+  [[widget.setting]]
+  key = "line_width"
+  type = "int"
+  label_key = "settings.line_width.label"
+  description_key = "settings.line_width.description"
+  min = 1
+  max = 4
+  default = 1
+
+  [[widget.setting]]
+  key = "fill_opacity"
+  type = "double"
+  label_key = "settings.fill_opacity.label"
+  description_key = "settings.fill_opacity.description"
+  min = 0.0
+  max = 0.6
+  step = 0.02
+  default = 0.0
+
+  [[widget.setting]]
+  key = "draw_band"
+  type = "bool"
+  label_key = "settings.draw_band.label"
+  description_key = "settings.draw_band.description"
+  default = false
+
+  [[widget.setting]]
+  key = "show_meter_labels"
+  type = "bool"
+  label_key = "settings.show_meter_labels.label"
+  description_key = "settings.show_meter_labels.description"
+  default = false
+
+  [[widget.setting]]
+  key = "rms_color"
+  type = "color"
+  label_key = "settings.rms_color.label"
+  description_key = "settings.rms_color.description"
+  default = "secondary"
+
+  [[widget.setting]]
+  key = "peak_color"
+  type = "color"
+  label_key = "settings.peak_color.label"
+  description_key = "settings.peak_color.description"
+  default = "tertiary"
+
+  [[widget.setting]]
+  key = "meter_radius"
+  type = "int"
+  label_key = "settings.meter_radius.label"
+  description_key = "settings.meter_radius.description"
+  min = 0
+  max = 6
+  default = 0
+
+  [[widget.setting]]
+  key = "meter_width"
+  type = "int"
+  label_key = "settings.meter_width.label"
+  description_key = "settings.meter_width.description"
+  min = 20
+  max = 80
+  default = 57
+
+  [[widget.setting]]
+  key = "meter_height"
+  type = "int"
+  label_key = "settings.meter_height.label"
+  description_key = "settings.meter_height.description"
+  min = 4
+  max = 16
+  default = 9
+
+  [[widget.setting]]
+  key = "meter_gap"
+  type = "int"
+  label_key = "settings.meter_gap.label"
+  description_key = "settings.meter_gap.description"
+  min = 0
+  max = 24
+  default = 4
