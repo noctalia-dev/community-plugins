@@ -1,6 +1,6 @@
 id = "8bury/mini-docker"
 name = "Mini Docker"
-version = "1.0.5"
+version = "1.0.6"
 plugin_api = 9
 author = "8bury"
 license = "MIT"
@@ -17,6 +17,13 @@ description_key = "settings.refresh_interval.description"
 default = 5
 min = 1
 max = 30
+
+[[setting]]
+key = "respect_socket_activation"
+type = "bool"
+label_key = "settings.respect_socket_activation.label"
+description_key = "settings.respect_socket_activation.description"
+default = false
 
 [[setting]]
 key = "default_network"

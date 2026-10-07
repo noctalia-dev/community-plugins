@@ -40,6 +40,7 @@ The panel has four tabs:
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `refresh_interval` | `int` | `5` | Seconds between Docker state refreshes. |
+| `respect_socket_activation` | `bool` | `false` | Only poll Docker when the daemon or service is actively running. |
 | `default_network` | `string` | `bridge` | Network initially selected when running an image. |
 | `show_count` | `bool` | `true` | Shows the running-container count in the widget. |
 | `glyph_color` | `select` | `on_surface` | Theme color used for the Docker glyph. |
