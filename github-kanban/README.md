@@ -1,13 +1,13 @@
 # GitHub Kanban
 
-GitHub Kanban is a read-only GitHub dashboard for Noctalia. It brings profile and contribution data, notifications, following activity, pull requests, issues, repositories, and recent Actions runs into a themed panel; dashboard items open their canonical GitHub pages for further action.
+GitHub Kanban is a GitHub dashboard for Noctalia with optional notification read-state synchronization. It brings profile and contribution data, notifications, following activity, pull requests, issues, repositories, and recent Actions runs into a themed panel; dashboard items open their canonical GitHub pages for further action.
 
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `shangshui0302/github-kanban` |
-| Entries | Bar widget: `github`; panel: `kanban`; service: `sync` |
+| Entries | Bar widget: `github`; panel: `kanban`; services: `sync`, `notifications` |
 
 ## Requirements
 
@@ -33,7 +33,11 @@ Add the `github` widget to a Noctalia bar and click it to open the dashboard. Ri
 | `bar_display_mode` | `select` | `both` | `icon`, `count`, `both` | Chooses whether the bar widget shows its icon, unread count, or both. |
 | `show_overview` | `bool` | `true` | — | Enables the Overview dashboard section. |
 | `show_notifications` | `bool` | `true` | — | Enables the Notifications dashboard section. |
-| `notification_history_days` | `int` | `30` | 1–90 days, step 1 | Limits notifications fetched to the selected recent period. |
+| `notification_sync_mode` | `select` | `legacy` | `legacy`, `synced` | Keeps the original read-only dashboard refresh behavior, or enables independent notification refresh and GitHub read-state writes. |
+| `notification_refresh_interval_seconds` | `select` | `120` | `60`, `120`, `300` seconds | Sets the independent notification refresh interval in Synced mode. |
+| `notification_refresh_on_open` | `bool` | `true` | — | Refreshes notifications when the panel opens in Synced mode. |
+| `notification_mark_read_on_open` | `bool` | `false` | — | Marks an unread notification read on GitHub after its browser opener starts successfully in Synced mode. |
+| `notification_history_days` | `int` | `30` | 1–90 days, step 1 | Limits read notification history to the selected recent period. All unread notifications remain visible and counted, regardless of age. |
 | `notification_default_filter` | `select` | `unread` | `all`, `unread`, `read` | Sets the initial notification read-state filter. |
 | `show_activity` | `bool` | `true` | — | Enables the Work dashboard section. |
 | `activity_history_days` | `int` | `30` | 1–365 days, step 1 | Limits work items fetched to the selected recent period. |
@@ -117,8 +121,9 @@ noctalia msg plugin shangshui0302/github-kanban:sync all refresh
 
 ## Notes
 
-- The `sync` service makes read-only GitHub API network requests through `gh api`, using the authentication already configured in `gh`. It does not read, store, or display an access token and does not change GitHub state. Individual sources may fail independently; cached sections can remain visible while the panel reports stale or partial data.
-- `noctalia.download` downloads profile, followed-user, and repository-owner avatars from GitHub. The plugin caches `dashboard.json` and downloaded avatars in its Noctalia `pluginDataDir`.
+- The `sync` service makes read-only GitHub API network requests through `gh api`, using the authentication already configured in `gh`. The notification service also uses `gh api`; in Synced mode only, explicit **Mark as read** / **Mark current list as read** actions, or opening a notification with **Mark read when opening a notification** enabled, send `PATCH /notifications/threads/{id}` to GitHub. The batch action only includes unread notifications in the current filtered list. The badge updates immediately while a write is pending. Failed writes restore unread state and can be retried; older in-flight responses cannot overwrite a local read action. An updated thread becomes unread again. Before writing, the service checks the current account and thread version. Pending actions are disabled. Legacy mode remains read-only and refreshes with the dashboard. The plugin does not read, store, or display an access token. Individual sources may fail independently; cached sections can remain visible while errors are reported.
+- Notification requests follow pagination to include the complete read history range (30 days by default) and all unread notifications. Unread items remain visible and counted even when older than the history range. Synced mode refreshes this data independently; opening the panel can also request a refresh. Conditional requests reuse unchanged pages, and refreshes respect GitHub's `X-Poll-Interval` and rate-limit headers. Repeated requests are coalesced.
+- `noctalia.download` downloads profile, followed-user, and repository-owner avatars from GitHub. The plugin caches `dashboard.json`, `notifications.json` (account-scoped notification snapshots and confirmed local read versions), and downloaded avatars in its Noctalia `pluginDataDir`.
 - Clicking a dashboard item starts `xdg-open` with its GitHub URL.
-- The panel uses the manifest's fixed 860 × 620 dimensions. The current plugin UI API does not expose runtime resizing or sticky section headers. Contribution cells are auto-fitted to the panel width, so large cell/gap combinations are scaled down to prevent overlap in attached and floating placements. The Overview contributions section stretches to fill remaining panel height, distributing air inside its heatmap card while keeping the Contributions label attached to it. Event and release text is truncated before display to keep refreshes within budget. List responses (following events, notifications, search, repositories, Actions runs) are projected to displayed fields with `gh api --jq` so decoding stays within budget. The heatmap footer is inset to the calendar width so its items align with the grid edges.
+- The panel uses the manifest's fixed 860 × 620 dimensions. The current plugin UI API does not expose runtime resizing or sticky section headers. Contribution cells are auto-fitted to the panel width, so large cell/gap combinations are scaled down to prevent overlap in attached and floating placements. The Overview contributions section stretches to fill remaining panel height, distributing air inside its heatmap card while keeping the Contributions label attached to it. Event and release text is truncated before display to keep refreshes within budget. List responses (following events, search, repositories, Actions runs) are projected to displayed fields with `gh api --jq` so decoding stays within budget. The heatmap footer is inset to the calendar width so its items align with the grid edges.
 - GitHub does not provide the web dashboard's personalized feed through an API, so the Following view combines public events from followed users with latest-release data from recently starred repositories. Repository scanning is bounded by the configured limit to keep refresh work and API use modest.

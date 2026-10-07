@@ -181,6 +181,7 @@ function Data.notification(raw)
     url = url,
     updatedAt = raw.updated_at or "",
     unread = raw.unread == true,
+    lastReadAt = raw.last_read_at or "",
   }
 end
 
