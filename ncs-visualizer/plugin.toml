@@ -1,0 +1,263 @@
+# NCS Visualizer - the NCS orb from spicetify-visualizer as a Noctalia desktop
+# widget, reacting to whatever your speakers play.
+#
+# The 103,684-dot orb is drawn on the GPU by a small companion renderer,
+# `aurora-ncs` (a dependency, built from the project repo - plugins can't ship
+# compiled code). This plugin is the Noctalia side:
+#   [[desktop_widget]] orb    - place / resize the orb in the desktop-widget editor
+#   [[service]] service       - starts and feeds the renderer, follows the theme
+#   [[shortcut]] toggle       - Control Center tile: show / hide the orb
+#
+# Settings are plugin-level and shared by every orb you place.
+
+id = "tausif/ncs-visualizer"
+name = "NCS Visualizer"
+version = "1.0.0"
+plugin_api = 26
+author = "tausif"
+license = "GPL-3.0-or-later"
+dependencies = ["aurora-ncs", "cava"]
+tags = ["audio", "desktop", "music"]
+icon = "wave-sine"
+description = "The NCS audio-visualizer orb on your desktop: 103k GPU-drawn dots that react to any audio, in your theme colours."
+
+# ── Colour ──────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "color_source"
+type = "select"
+label_key = "settings.color_source.label"
+description_key = "settings.color_source.description"
+default = "theme"
+options = [
+  { value = "theme", label_key = "settings.color_source.options.theme" },
+  { value = "custom", label_key = "settings.color_source.options.custom" },
+]
+
+[[setting]]
+key = "theme_role"
+type = "select"
+label_key = "settings.theme_role.label"
+default = "primary"
+options = [
+  { value = "primary", label_key = "settings.theme_role.options.primary" },
+  { value = "secondary", label_key = "settings.theme_role.options.secondary" },
+  { value = "tertiary", label_key = "settings.theme_role.options.tertiary" },
+]
+visible_when = { key = "color_source", values = ["theme"] }
+
+[[setting]]
+key = "color"
+type = "color"
+label_key = "settings.color.label"
+default = "#ff2e88"
+visible_when = { key = "color_source", values = ["custom"] }
+
+[[setting]]
+key = "glow_mode"
+type = "select"
+label_key = "settings.glow_mode.label"
+description_key = "settings.glow_mode.description"
+default = "same"
+options = [
+  { value = "same", label_key = "settings.glow_mode.options.same" },
+  { value = "theme", label_key = "settings.glow_mode.options.theme" },
+  { value = "custom", label_key = "settings.glow_mode.options.custom" },
+]
+
+[[setting]]
+key = "glow_theme_role"
+type = "select"
+label_key = "settings.glow_theme_role.label"
+default = "tertiary"
+options = [
+  { value = "primary", label_key = "settings.theme_role.options.primary" },
+  { value = "secondary", label_key = "settings.theme_role.options.secondary" },
+  { value = "tertiary", label_key = "settings.theme_role.options.tertiary" },
+]
+visible_when = { key = "glow_mode", values = ["theme"] }
+
+[[setting]]
+key = "glow_color"
+type = "color"
+label_key = "settings.glow_color.label"
+default = "#7a5cff"
+visible_when = { key = "glow_mode", values = ["custom"] }
+
+[[setting]]
+key = "opacity"
+type = "double"
+label_key = "settings.opacity.label"
+default = 1.0
+min = 0.1
+max = 1.0
+step = 0.05
+
+# ── Look ────────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "dot_density"
+type = "select"
+label_key = "settings.dot_density.label"
+description_key = "settings.dot_density.description"
+default = "322"
+options = [
+  { value = "160", label_key = "settings.dot_density.options.low" },
+  { value = "240", label_key = "settings.dot_density.options.medium" },
+  { value = "322", label_key = "settings.dot_density.options.original" },
+  { value = "400", label_key = "settings.dot_density.options.ultra" },
+]
+
+[[setting]]
+key = "orb_scale"
+type = "double"
+label_key = "settings.orb_scale.label"
+description_key = "settings.orb_scale.description"
+default = 1.0
+min = 0.4
+max = 1.0
+step = 0.05
+
+[[setting]]
+key = "dot_scale"
+type = "double"
+label_key = "settings.dot_scale.label"
+default = 1.0
+min = 0.5
+max = 2.5
+step = 0.05
+
+[[setting]]
+key = "glow_scale"
+type = "double"
+label_key = "settings.glow_scale.label"
+default = 1.0
+min = 0.0
+max = 2.5
+step = 0.05
+
+# ── Motion ──────────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "motion_model"
+type = "select"
+label_key = "settings.motion_model.label"
+description_key = "settings.motion_model.description"
+default = "original"
+options = [
+  { value = "original", label_key = "settings.motion_model.options.original" },
+  { value = "aurora", label_key = "settings.motion_model.options.aurora" },
+]
+
+[[setting]]
+key = "sensitivity"
+type = "double"
+label_key = "settings.sensitivity.label"
+description_key = "settings.sensitivity.description"
+default = 1.0
+min = 0.2
+max = 3.0
+step = 0.05
+
+[[setting]]
+key = "flow_speed"
+type = "double"
+label_key = "settings.flow_speed.label"
+default = 1.0
+min = 0.0
+max = 3.0
+step = 0.05
+
+[[setting]]
+key = "punch"
+type = "double"
+label_key = "settings.punch.label"
+description_key = "settings.punch.description"
+default = 0.5
+min = 0.0
+max = 1.5
+step = 0.05
+visible_when = { key = "motion_model", values = ["aurora"] }
+
+[[setting]]
+key = "fps"
+type = "select"
+label_key = "settings.fps.label"
+description_key = "settings.fps.description"
+default = "60"
+options = [
+  { value = "30", label_key = "settings.fps.options.30" },
+  { value = "60", label_key = "settings.fps.options.60" },
+  { value = "120", label_key = "settings.fps.options.120" },
+]
+
+# ── Behaviour ───────────────────────────────────────────────────────────────
+
+[[setting]]
+key = "hide_when_idle"
+type = "bool"
+label_key = "settings.hide_when_idle.label"
+description_key = "settings.hide_when_idle.description"
+default = false
+
+[[setting]]
+key = "idle_seconds"
+type = "int"
+label_key = "settings.idle_seconds.label"
+description_key = "settings.idle_seconds.description"
+default = 5
+min = 1
+max = 120
+
+[[setting]]
+key = "layer"
+type = "select"
+label_key = "settings.layer.label"
+description_key = "settings.layer.description"
+default = "bottom"
+options = [
+  { value = "bottom", label_key = "settings.layer.options.bottom" },
+  { value = "top", label_key = "settings.layer.options.top" },
+]
+
+# ── Audio (advanced) ────────────────────────────────────────────────────────
+
+[[setting]]
+key = "audio_source"
+type = "string"
+label_key = "settings.audio_source.label"
+description_key = "settings.audio_source.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "noise_reduction"
+type = "int"
+label_key = "settings.noise_reduction.label"
+description_key = "settings.noise_reduction.description"
+default = 55
+min = 0
+max = 100
+advanced = true
+
+[[setting]]
+key = "renderer_path"
+type = "file"
+label_key = "settings.renderer_path.label"
+description_key = "settings.renderer_path.description"
+default = ""
+advanced = true
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[desktop_widget]]
+id = "orb"
+entry = "orb.luau"
+
+[[shortcut]]
+id = "toggle"
+entry = "shortcut.luau"

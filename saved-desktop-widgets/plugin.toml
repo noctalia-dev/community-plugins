@@ -1,0 +1,40 @@
+id = "hakanct/saved-desktop-widgets"
+name = "Saved Desktop Widgets"
+version = "1.0.1"
+plugin_api = 26
+author = "hakanct"
+license = "MIT"
+dependencies = []
+tags = ["bar", "desktop", "panel", "service", "utility", "wallpaper"]
+icon = "puzzle"
+description = "A plugin that allows you to have multiple setups for your desktop widgets based on the wallpaper."
+
+[[service]]
+id = "service"
+entry = "main.luau"
+
+[[panel]]
+id = "settings"
+entry = "settings.luau"
+width = 500
+height = 600
+placement = "floating"
+position = "center"
+
+  [[panel.setting]]
+  key = "saveWidgets"
+  type = "bool"
+  label_key = "settings.save_widgets.label"
+  description_key = "settings.save_widgets.description"
+  default = true
+
+  [[panel.setting]]
+  key = "loadWidgets"
+  type = "bool"
+  label_key = "settings.load_widgets.label"
+  description_key = "settings.load_widgets.description"
+  default = true
+
+[[widget]]
+id = "settings_launcher"
+entry = "launcher_widget.luau"

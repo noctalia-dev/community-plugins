@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+.noctalia-cache.json
+noctalia.d.luau
+.DS_Store
+publish.sh

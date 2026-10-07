@@ -4,10 +4,64 @@
 --
 -- The Umbriel config is TOML: we locate the [output.<name>] section (bare or
 -- quoted connector/monitor name, matched case-insensitively like Umbriel
--- itself), replace or append the `mode` / `position` keys in place, and touch
--- nothing else - comments, other sections, and hand edits survive.
+-- itself), replace or append the `mode` / `position` / `transform` keys in
+-- place, and touch nothing else - comments, other sections, and hand edits
+-- survive.
 
 local M = {}
+
+-- The transform vocabulary Umbriel accepts for [output.*] transform, in the
+-- order the compositor prints them: the four rotations, then the same four
+-- mirrored. Only these values are ever written, so a bad rotation cannot
+-- reach the config.
+M.TRANSFORMS = {
+  "normal", "90", "180", "270",
+  "flipped", "flipped-90", "flipped-180", "flipped-270",
+}
+
+function M.isTransform(value)
+  if type(value) ~= "string" then
+    return false
+  end
+  for _, transform in ipairs(M.TRANSFORMS) do
+    if transform == value then
+      return true
+    end
+  end
+  return false
+end
+
+-- Zero-based position of a live transform in TRANSFORMS, for a select field.
+-- An unknown or absent value reads as the first entry (no rotation).
+function M.rotationIndex(value)
+  local live = value or "normal"
+  for index, transform in ipairs(M.TRANSFORMS) do
+    if transform == live then
+      return index - 1
+    end
+  end
+  return 0
+end
+
+-- The label a rotation select shows for a transform value: "normal" and
+-- "flipped" read 0°, "90" and "flipped-90" read 90°, and so on. The mirrored
+-- variants carry the caller's word for "flipped" (the caller passes the
+-- translated one). An unknown value falls through as itself.
+function M.rotationLabel(value, flippedWord)
+  local mirrored = string.match(value, "^flipped%-?(%d*)$")
+  if mirrored ~= nil then
+    local degrees = mirrored == "" and "0" or mirrored
+    return degrees .. "° " .. (flippedWord or "flipped")
+  end
+  local degrees = string.match(value, "^(%d+)$")
+  if degrees ~= nil then
+    return degrees .. "°"
+  end
+  if value == "normal" then
+    return "0°"
+  end
+  return value
+end
 
 function M.splitLines(text)
   local lines = {}
@@ -91,8 +145,8 @@ function M.setKey(lines, start, stop, key, value)
   table.insert(lines, stop, key .. " = " .. value)
 end
 
--- fields.mode / fields.x,y are optional; only present keys are written.
--- Returns patched text, or nil plus a reason.
+-- fields.mode / fields.x,y / fields.transform are optional; only present keys
+-- are written. Returns patched text, or nil plus a reason.
 function M.patchConfig(text, name, fields)
   if type(name) ~= "string" or name == "" then
     return nil, "empty output name"
@@ -113,11 +167,23 @@ function M.patchConfig(text, name, fields)
     start, stop = #lines - 1, #lines + 1
   end
 
+  -- Each write re-locates the section afterwards: setKey inserts AT `stop`, and
+  -- that insert is the new end of the section, so a second key written with the
+  -- stale boundary would land before the first - a freshly appended section
+  -- would come out in reverse key order.
+  local function writeKey(key, value)
+    M.setKey(lines, start, stop, key, value)
+    start, stop = M.findSection(lines, name)
+  end
+
   if type(fields.mode) == "string" then
-    M.setKey(lines, start, stop, "mode", '"' .. fields.mode .. '"')
+    writeKey("mode", '"' .. fields.mode .. '"')
   end
   if type(fields.x) == "number" and type(fields.y) == "number" then
-    M.setKey(lines, start, stop, "position", "[" .. fields.x .. ", " .. fields.y .. "]")
+    writeKey("position", "[" .. fields.x .. ", " .. fields.y .. "]")
+  end
+  if M.isTransform(fields.transform) then
+    writeKey("transform", '"' .. fields.transform .. '"')
   end
   return table.concat(lines, "\n")
 end

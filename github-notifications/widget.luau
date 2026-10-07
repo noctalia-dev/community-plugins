@@ -56,15 +56,46 @@ local function formatText()
   return tostring(count)
 end
 
+local WIDGET_TYPE = "hy4ri/github-notifications:inbox"
+local BAR_FONT_SIZE = 14 -- Noctalia's default bar text size, before any font_scale
+
+-- The widget's own `font_scale` is the one the user edits in the widget settings. The host
+-- multiplies every bar label by it, so the bar number divides it back out and the value is
+-- handed to the panel instead. getConfig cannot see it (not a plugin-declared setting).
+local function widgetFontScale()
+  if not noctalia.getSetting then
+    return 1
+  end
+  local widgets = noctalia.getSetting("widget")
+  if type(widgets) ~= "table" then
+    return 1
+  end
+  for _, def in pairs(widgets) do
+    if type(def) == "table" and def.type == WIDGET_TYPE and type(def.font_scale) == "number" then
+      return math.max(0.2, math.min(2.5, def.font_scale))
+    end
+  end
+  return 1
+end
+
 local function render()
   local count = tonumber(unreadCount) or 0
-  barWidget.setGlyph("brand-github")
-  if count > 0 then
-    barWidget.setGlyphColor("primary")
-  else
-    barWidget.setGlyphColor("default")
+  local scale = widgetFontScale()
+  noctalia.state.set("github_notifications:panel_font_scale", scale)
+
+  local children = {
+    ui.glyph({ name = "brand-github", color = count > 0 and "primary" or "on_surface" }),
+  }
+  local text = formatText()
+  if text ~= "" then
+    table.insert(children, ui.label({
+      text = text,
+      fontSize = BAR_FONT_SIZE / scale,
+      color = "on_surface",
+    }))
   end
-  barWidget.setText(formatText())
+  local container = barWidget.isVertical() and ui.column or ui.row
+  barWidget.render(container({ gap = 5, align = "center" }, children))
   barWidget.setTooltip(formatTooltip())
   barWidget.setVisible(true)
 end
@@ -98,6 +129,10 @@ function onRightClick()
     type = "refresh",
     nonce = noctalia.nowMs(),
   })
+end
+
+function onConfigChanged()
+  render()
 end
 
 render()

@@ -223,6 +223,148 @@ count_profile_tokens() {
         }' > "$out_file" 2>/dev/null || true
 }
 
+# --- OAuth access token ---
+# The stored access token is short lived (about 8 hours). Once it expires the
+# usage endpoint rejects it, fetch_profile_usage falls back to the last cached
+# response, and the panel keeps presenting stale utilisation as if it were
+# current. Exchange the refresh token for a new one the way Claude Code does.
+OAUTH_TOKEN_URL="https://platform.claude.com/v1/oauth/token"
+OAUTH_CLIENT_ID="9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+TOKEN_EXPIRY_SKEW=60      # refresh this many seconds before the stated expiry
+TOKEN_FALLBACK_TTL=3600
+REFRESH_BACKOFF=3600      # leave a refresh token alone this long after it failed
+
+# Identify a token without storing it, so a remembered failure can be tied to
+# the exact refresh token that produced it.
+token_fingerprint() {
+    printf '%s' "$1" | sha256sum 2>/dev/null | cut -c1-16
+}
+
+# Usage: access_token <credentials_file> <refresh_state_file> [force]
+# Prints a usable access token, refreshing and persisting it when the stored
+# one has expired, or when the caller passes force because the usage endpoint
+# rejected it. Prints the stored token unchanged whenever a refresh is not
+# possible or not safe, so a failure degrades to the previous behaviour.
+access_token() {
+    local creds_file="$1"
+    local state_file="$2"
+    local force="${3:-false}"
+    local token expires_at refresh_token now resp new_token new_refresh expires_in tmp fp
+    local failed_fp failed_at
+
+    token=$(jq -r '.claudeAiOauth.accessToken // ""' "$creds_file" 2>/dev/null || echo "")
+    expires_at=$(jq -r '.claudeAiOauth.expiresAt // 0' "$creds_file" 2>/dev/null || echo 0)
+    refresh_token=$(jq -r '.claudeAiOauth.refreshToken // ""' "$creds_file" 2>/dev/null || echo "")
+    now=$(date +%s)
+
+    # expiresAt is milliseconds since the epoch.
+    case "$expires_at" in
+        ''|*[!0-9]*) expires_at=0 ;;
+    esac
+
+    if [ "$force" != "true" ] && [ -n "$token" ] &&
+       [ $(( expires_at / 1000 - TOKEN_EXPIRY_SKEW )) -gt "$now" ]; then
+        printf '%s' "$token"
+        return
+    fi
+
+    if [ -z "$refresh_token" ]; then
+        printf '%s' "$token"
+        return
+    fi
+
+    # Refreshing rotates the token server side. Spending it without being able
+    # to store the result leaves the file holding a dead refresh token, and
+    # nothing, including the CLI itself, can refresh after that. Check first.
+    if [ ! -w "$creds_file" ] || [ ! -w "$(dirname "$creds_file")" ]; then
+        printf 'get-claude-usage: %s is not writable, not spending the refresh token\n' \
+            "$creds_file" >&2
+        printf '%s' "$token"
+        return
+    fi
+
+    # The token endpoint rate limits refresh grants per account and the CLI
+    # draws on the same budget, so a refresh token already known to be rejected
+    # is not retried on every cycle.
+    fp=$(token_fingerprint "$refresh_token")
+    if [ -f "$state_file" ]; then
+        failed_fp=$(jq -r '.fingerprint // ""' "$state_file" 2>/dev/null || echo "")
+        failed_at=$(jq -r '.failed_at // 0' "$state_file" 2>/dev/null || echo 0)
+        case "$failed_at" in
+            ''|*[!0-9]*) failed_at=0 ;;
+        esac
+        if [ "$failed_fp" = "$fp" ] && [ $(( now - failed_at )) -lt "$REFRESH_BACKOFF" ]; then
+            printf '%s' "$token"
+            return
+        fi
+    fi
+
+    resp=$(curl -s --max-time 10 -X POST \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        -H "User-Agent: claude-code/${CLAUDE_VERSION}" \
+        -d "$(jq -n --arg rt "$refresh_token" --arg cid "$OAUTH_CLIENT_ID" \
+              '{grant_type: "refresh_token", refresh_token: $rt, client_id: $cid}')" \
+        "$OAUTH_TOKEN_URL" 2>/dev/null || echo '{}')
+
+    new_token=$(echo "$resp" | jq -r '.access_token // ""' 2>/dev/null || echo "")
+    if [ -z "$new_token" ]; then
+        jq -n --arg fp "$fp" --argjson at "$now" \
+            '{fingerprint: $fp, failed_at: $at}' > "$state_file" 2>/dev/null || true
+        printf '%s' "$token"
+        return
+    fi
+
+    # The endpoint rotates the refresh token, so keep whichever it returned.
+    new_refresh=$(echo "$resp" | jq -r '.refresh_token // ""' 2>/dev/null || echo "")
+    [ -n "$new_refresh" ] || new_refresh="$refresh_token"
+    expires_in=$(echo "$resp" | jq -r '.expires_in // 0' 2>/dev/null || echo 0)
+    case "$expires_in" in
+        ''|*[!0-9]*|0) expires_in=$TOKEN_FALLBACK_TTL ;;
+    esac
+
+    # Same directory as the destination: mktemp in $TMPDIR is routinely a
+    # different filesystem, where rename(2) fails with EXDEV and mv degrades to
+    # copy-then-truncate on the credentials file. It also keeps a crash from
+    # leaving a live access and refresh token behind in /tmp.
+    tmp=$(mktemp "$(dirname "$creds_file")/.credentials.XXXXXX" 2>/dev/null) || tmp=""
+    if [ -z "$tmp" ]; then
+        printf 'get-claude-usage: refreshed token could not be written next to %s\n' \
+            "$creds_file" >&2
+        printf '%s' "$new_token"
+        return
+    fi
+    chmod 600 "$tmp" 2>/dev/null || true
+
+    if jq --arg at "$new_token" --arg rt "$new_refresh" \
+          --argjson ea "$(( (now + expires_in) * 1000 ))" \
+          '.claudeAiOauth.accessToken = $at
+           | .claudeAiOauth.refreshToken = $rt
+           | .claudeAiOauth.expiresAt = $ea' "$creds_file" > "$tmp" 2>/dev/null &&
+       [ -s "$tmp" ] &&
+       { chmod --reference="$creds_file" "$tmp" 2>/dev/null || chmod 600 "$tmp"; } &&
+       mv "$tmp" "$creds_file" 2>/dev/null; then
+        rm -f "$state_file" 2>/dev/null || true
+    else
+        rm -f "$tmp"
+        printf 'get-claude-usage: refresh succeeded but %s could not be updated; the stored refresh token is now stale\n' \
+            "$creds_file" >&2
+    fi
+
+    printf '%s' "$new_token"
+}
+
+# Usage: usage_request <access_token>
+usage_request() {
+    curl -s --max-time 5 \
+        -H "Authorization: Bearer $1" \
+        -H "Accept: application/json" \
+        -H "Content-Type: application/json" \
+        -H "User-Agent: claude-code/${CLAUDE_VERSION}" \
+        -H "anthropic-beta: oauth-2025-04-20" \
+        "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}'
+}
+
 # --- Per-profile credentials + API usage fetcher ---
 # Usage: fetch_profile_usage <credentials_file> <cache_file> <out_tmpfile>
 # Writes SUBSCRIPTION_TYPE, RATE_LIMIT_TIER, FIVE_HOUR_UTIL, FIVE_HOUR_RESET,
@@ -260,16 +402,22 @@ fetch_profile_usage() {
     if [ "$use_cache" = true ]; then
         api_resp=$(jq -r '.data // {}' "$cache_file" 2>/dev/null || echo '{}')
     else
-        local token
-        token=$(jq -r '.claudeAiOauth.accessToken // ""' "$creds_file" 2>/dev/null || echo "")
+        local token state_file retry_token
+        state_file="${cache_file%.json}-refresh.json"
+        token=$(access_token "$creds_file" "$state_file")
         if [ -n "$token" ]; then
-            api_resp=$(curl -s --max-time 5 \
-                -H "Authorization: Bearer $token" \
-                -H "Accept: application/json" \
-                -H "Content-Type: application/json" \
-                -H "User-Agent: claude-code/${CLAUDE_VERSION}" \
-                -H "anthropic-beta: oauth-2025-04-20" \
-                "https://api.anthropic.com/api/oauth/usage" 2>/dev/null || echo '{}')
+            api_resp=$(usage_request "$token")
+
+            # A token can stop working before its stated expiry: revoked, a
+            # password change, a session invalidated from another device. The
+            # clock check cannot see any of that, so treat a response without
+            # .five_hour as a rejection, refresh once and retry.
+            if ! echo "$api_resp" | jq -e '.five_hour' >/dev/null 2>&1; then
+                retry_token=$(access_token "$creds_file" "$state_file" true)
+                if [ -n "$retry_token" ] && [ "$retry_token" != "$token" ]; then
+                    api_resp=$(usage_request "$retry_token")
+                fi
+            fi
 
             if echo "$api_resp" | jq -e '.five_hour' >/dev/null 2>&1; then
                 jq -n --argjson data "$api_resp" '{cached_at: (now | floor), data: $data}' > "$cache_file" 2>/dev/null || true

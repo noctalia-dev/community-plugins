@@ -1,0 +1,49 @@
+{
+  "bar": {
+    "tooltip": "undershell — click: panel · right click: edit the desktop"
+  },
+  "type": {
+    "visualizer": "Visualizer",
+    "clock": "Clock",
+    "now_playing": "Now playing"
+  },
+  "panel": {
+    "refresh": "Refresh",
+    "not_running": "undershell is not running",
+    "not_running_hint": "Its user service starts with your session. Start it now:",
+    "start": "Start undershell",
+    "profiles_off": "One layout for every wallpaper (profiles are off)",
+    "profile_waiting": "Waiting for the wallpaper…",
+    "profile_line": "Layout of {wallpaper} · {count} other wallpaper(s) remembered",
+    "depth_field": "Depth planes ready · the plugin's plane is {level}",
+    "depth_mask": "Depth mask ready (planes appear once the plugin caches the depth map)",
+    "depth_none": "No depth for this wallpaper (enable Wallpaper Depth and generate)",
+    "edit": "Edit the desktop",
+    "edit_done": "Finish editing",
+    "demo": "Demo",
+    "demo_hint": "Visualizers move with a demo spectrum while there is no music",
+    "edit_this": "Edit this widget",
+    "depth": "Behind the scenery",
+    "plane": "Depth plane (higher is nearer)",
+    "plane_auto": "plugin",
+    "tilt": "Tilt",
+    "no_widgets": "No widgets yet. Open the editor and add one with ＋.",
+    "locked": "moving wallpaper",
+    "locked_hint": "Depth is off while a video or scene is the wallpaper.",
+    "depth_motion": "A video or scene is on screen: depth is off until a still wallpaper returns"
+  },
+  "saves": {
+    "title": "Saved profiles",
+    "hint": "Each wallpaper already remembers its own layout. Here you keep named copies to load whenever you like (loading can be undone in the editor with Ctrl+Z).",
+    "placeholder": "Profile name (optional)",
+    "save": "Save",
+    "empty": "No saved profiles yet.",
+    "on_screen": "on screen",
+    "load": "Load",
+    "target": "Load on",
+    "all": "All",
+    "overwrite": "Overwrite with what is on screen",
+    "delete": "Delete",
+    "confirm": "Click again to delete"
+  }
+}

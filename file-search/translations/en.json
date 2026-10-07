@@ -86,6 +86,8 @@
   "tip_usage_folder_only": "The usage chart only measures the search folder",
   "tip_usage_hide": "Hide the disk usage chart",
   "tip_usage_show": "Show what fills the search folder",
+  "tip_whole_off": "Searching the whole system (/)\nClick to search only the search folder",
+  "tip_whole_on": "Search the whole system (/)\nRemote, FUSE and removable disks stay excluded",
   "title": "File Search",
   "tooltip_closed": "File search — {path}\nClick to search · right-click: folder",
   "tooltip_open": "File search open — {path}\nClick to close",

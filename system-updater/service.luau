@@ -38,7 +38,6 @@ local task_checking = {
 }
 
 -- Table with pending and finished tasks for installing updates.
--- 
 local task_updating = {
     pending = {},
     finished = {}
@@ -64,7 +63,7 @@ local function load_adapters()
         noctalia.pluginDir() .. "/adapters",
     }
     if cfg("adapters_folder") ~= nil and cfg("adapters_folder") ~= "" then
-        log("User adapters folder: " .. (cfg("adapters_folder") or "not set")) 
+        log("User adapters folder: " .. (cfg("adapters_folder") or "not set"))
         if noctalia.fileExists(cfg("adapters_folder")) then
             table.insert(dirs, cfg("adapters_folder"))
         end
@@ -124,7 +123,7 @@ local function load_adapters()
             end
         end
     end
-    
+
     return out
 end
 
@@ -386,7 +385,7 @@ end
 -- Validate the package name to ensure it does not contain any invalid characters.
 -- This is used to prevent command injection when updating a single package.
 local function validate_package_name(package_name)
-    if string.find(package_name, "[^%w%+%-%._:]") then
+    if string.find(package_name, "[^%w%+%-%._/:]") then
         err("Package name contains invalid characters: " .. package_name)
         return false
     end

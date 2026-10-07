@@ -1,0 +1,164 @@
+id          = "remo/noctes"
+name        = "Noctes"
+version     = "0.20.0"
+plugin_api  = 26
+author      = "remo"
+license     = "MIT"
+icon        = "note"
+description = "Configurable stickers for your desktop: one widget per note, theme-aware paper, plain-text storage."
+tags        = ["productivity", "utility"]
+dependencies = ["python3"]
+
+# Headless owner of the note list. Every surface below is a thin client that
+# watches noctes.* state and drives it through noctes.cmd.
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+# Bar widget: note count, opens the panel.
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key       = "show_count"
+  type      = "bool"
+  label_key = "settings.show_count.label"
+  default   = true
+
+# Panel: the only surface that can take keyboard focus, so all typing lives here.
+# Floating rather than attached: the board opens it with no bar button to anchor
+# to, and an attached panel has nothing to attach to in that path.
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 420
+height    = 600
+placement = "floating"
+position  = "center"
+
+# Desktop widget: ONE post-it per instance. Add one widget per note you want on
+# the desktop. Background layer-shell surface, so it takes clicks but never the
+# keyboard; editing hands off to the panel.
+[[desktop_widget]]
+id    = "note"
+entry = "note.luau"
+
+  # Which note this post-it shows. A key is a stable handle, so the widget keeps
+  # showing the same note no matter how the list reorders. An unknown key means
+  # the post-it is empty until it is first written to.
+  #
+  # Plumbing, not a choice: the service generates it and noctes-widget writes
+  # it. It stays declared so the host knows it: an undeclared key in a widget's
+  # settings table is flagged by `noctalia config validate` as an unknown
+  # setting. The host has no `hidden` flag, so
+  # the field is kept out of the editor by a visible_when that never matches:
+  # nobody can type the sentinel into a field they cannot see.
+  #
+  # Nothing about the note's content lives here - the paper color is the note's
+  # own, picked in the panel, so a note looks the same on every sheet showing
+  # it. What is left in this list is the sheet: its size, its type, its props.
+  [[desktop_widget.setting]]
+  key          = "key"
+  type         = "string"
+  label_key    = "settings.key.label"
+  default      = ""
+  visible_when = { key = "key", values = ["__never__"] }
+
+  # The host centers a plugin widget's tree at its natural size inside the
+  # widget box, so the paper carries its own size instead of stretching.
+  [[desktop_widget.setting]]
+  key             = "paper_width"
+  type            = "int"
+  label_key       = "settings.paper_width.label"
+  description_key = "settings.paper_size.description"
+  default         = 220
+  min             = 80
+  max             = 900
+
+  [[desktop_widget.setting]]
+  key             = "paper_height"
+  type            = "int"
+  label_key       = "settings.paper_height.label"
+  description_key = "settings.paper_size.description"
+  default         = 200
+  min             = 60
+  max             = 900
+
+  # Patrick Hand has a small x-height, so its comfortable reading size is a
+  # couple of points above a UI font's.
+  [[desktop_widget.setting]]
+  key             = "font_size"
+  type            = "int"
+  label_key       = "settings.font_size.label"
+  description_key = "settings.font_size.description"
+  default         = 16
+  min             = 8
+  max             = 40
+
+  # Handwriting by default, so a post-it does not read as UI text. The bundled
+  # Patrick Hand (SIL OFL, see PatrickHand-OFL.txt) is plugin-relative; any
+  # other .ttf/.otf works by absolute or ~ path, and empty keeps the shell font.
+  [[desktop_widget.setting]]
+  key             = "font_path"
+  type            = "string"
+  label_key       = "settings.font_path.label"
+  description_key = "settings.font_path.description"
+  default         = "PatrickHand-Regular.ttf"
+
+# Plugin-level settings, shared by every surface.
+[[setting]]
+key             = "default_color"
+type            = "select"
+label_key       = "settings.default_color.label"
+description_key = "settings.default_color.description"
+default         = "auto"
+options         = [
+  { value = "auto",   label_key = "color.auto"   },
+  { value = "yellow", label_key = "color.yellow" },
+  { value = "orange", label_key = "color.orange" },
+  { value = "pink",   label_key = "color.pink"   },
+  { value = "red",    label_key = "color.red"    },
+  { value = "purple", label_key = "color.purple" },
+  { value = "blue",   label_key = "color.blue"   },
+  { value = "green",  label_key = "color.green"  },
+  { value = "gray",   label_key = "color.gray"   },
+]
+
+# Paper follows the Noctalia palette instead of the classic paper colors. The
+# palette tracks the wallpaper on a generated theme, so the whole wall recolors
+# whenever the wallpaper does.
+[[setting]]
+key             = "theme_colors"
+type            = "bool"
+label_key       = "settings.theme_colors.label"
+description_key = "settings.theme_colors.description"
+default         = true
+
+# Sheets sit at a small random angle. Off squares every one of them - which
+# means rewriting their rotation in Noctalia's settings, since rotation is host
+# state, so the service runs `tools/noctes-widget tilt` when this changes.
+[[setting]]
+key             = "tilt"
+type            = "bool"
+label_key       = "settings.tilt.label"
+description_key = "settings.tilt.description"
+default         = true
+
+# How solid the paper is, on every sheet. The text stays opaque.
+[[setting]]
+key             = "paper_opacity"
+type            = "double"
+label_key       = "settings.paper_opacity_all.label"
+description_key = "settings.paper_opacity_all.description"
+default         = 0.96
+min             = 0.2
+max             = 1.0
+step            = 0.02
+
+[[setting]]
+key             = "save_path"
+type            = "string"
+label_key       = "settings.save_path.label"
+description_key = "settings.save_path.description"
+default         = ""

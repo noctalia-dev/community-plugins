@@ -1,0 +1,67 @@
+{
+  "title": "Headset Control",
+  "settings": {
+    "poll_interval": {
+      "label": "Poll interval",
+      "description": "Seconds between headset status checks (1–60)."
+    },
+    "show_percentage": {
+      "label": "Show percentage",
+      "description": "Show the battery percentage next to the icon."
+    },
+    "hide_when_unavailable": {
+      "label": "Hide when unavailable",
+      "description": "Hide the widget when no headset is connected or its battery level is unavailable."
+    }
+  },
+  "state": {
+    "missing_dependency": {
+      "title": "headsetcontrol is not installed",
+      "hint": "Install the headsetcontrol package, then refresh."
+    },
+    "no_devices": {
+      "title": "No headset detected",
+      "hint": "Turn the headset on or plug in its USB dongle. If it is connected, make sure headsetcontrol's udev rules are installed."
+    },
+    "error": {
+      "title": "Could not read headset status",
+      "hint": "The last headsetcontrol call failed. Showing the last known data.",
+      "hint_no_data": "The last headsetcontrol calls failed."
+    }
+  },
+  "error": {
+    "timed_out": "headsetcontrol timed out",
+    "invalid_json": "headsetcontrol returned invalid JSON",
+    "failed_to_start": "headsetcontrol could not be started",
+    "exit": "exit {code}: {detail}"
+  },
+  "battery": {
+    "level": "{level}%",
+    "status": {
+      "available": "On battery",
+      "charging": "Charging",
+      "unavailable": "Unavailable",
+      "unknown": "Unknown"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "device": "Device",
+      "battery": "Battery",
+      "chatmix": "Chatmix",
+      "updated": "Updated",
+      "last_refresh_failed": "Last refresh failed",
+      "hints": "Click: details · Right-click: refresh"
+    }
+  },
+  "panel": {
+    "refresh": "Refresh",
+    "close": "Close",
+    "battery": "Battery",
+    "chatmix": "Chatmix",
+    "features": "Supported features",
+    "usb_id": "USB ID {id}",
+    "updated": "Updated {time}",
+    "device_error": "Device error: {error}"
+  }
+}

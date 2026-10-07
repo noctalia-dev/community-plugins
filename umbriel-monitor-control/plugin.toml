@@ -1,23 +1,23 @@
-# Umbriel Monitor Control - display placement, resolution and refresh rate for
-# the Umbriel compositor, from the Noctalia bar.
+# Umbriel Monitor Control - display placement, resolution, refresh rate and
+# rotation for the Umbriel compositor, from the Noctalia bar.
 #
 # One [[service]] owns every compositor call and every config write: it polls
 # `umbriel outputs --json`, applies changes by patching [output.*] sections in
-# the Umbriel config (validated with `umbriel validate`, restored on failure),
-# then triggers `umbriel msg config-reload` so the change persists across
-# reboots. The bar [[widget]], the control-center [[shortcut]] and the [[panel]]
-# are thin clients on the plugin's shared state channels.
+# the Umbriel config (validated with `umbriel config validate`, restored on
+# failure), then triggers `umbriel msg config-reload` so the change persists
+# across reboots. The bar [[widget]], the control-center [[shortcut]] and the
+# [[panel]] are thin clients on the plugin's shared state channels.
 
 id = "muhammadessam/umbriel-monitor-control"
 name = "Umbriel Monitor Control"
-version = "0.2.0"
+version = "0.3.1"
 plugin_api = 24
 author = "muhammadessam"
 license = "MIT"
 dependencies = ["umbriel"]
 tags = ["bar", "panel", "service", "shortcut", "system", "utility", "hardware", "umbriel"]
 icon = "device-desktop"
-description = "Umbriel: place monitors left/right/above/below and set resolution and refresh rate; saved to the config."
+description = "Umbriel: place monitors left/right/above/below and set resolution, refresh rate and rotation; saved to the config."
 
 [[setting]]
 key = "config_path"
@@ -39,7 +39,7 @@ default = true
 id = "service"
 entry = "service.luau"
 
-# Bar tile: focused output's current mode; click opens the panel.
+# Bar tile: the output's refresh rate; click opens the panel.
 [[widget]]
 id = "monitor"
 entry = "bar.luau"
@@ -57,7 +57,8 @@ entry = "bar.luau"
   label_key = "settings.glyph.label"
   default = "device-desktop"
 
-# Control-center tile: the display glyph on its own; click opens the panel.
+# Control-center tile: the display glyph captioned with the focused output's
+# resolution; click opens the panel.
 # Add it from Settings -> Control Center -> Shortcuts.
 [[shortcut]]
 id = "display"

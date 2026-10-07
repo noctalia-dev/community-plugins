@@ -1,8 +1,8 @@
 -- The answer panel — the full-length surface for /claude ? quick-ask answers.
--- A notification toast clips long bodies and cannot scroll, so claude.luau publishes
--- the complete answer to noctalia.state "claude.answer" and this panel renders it
--- wrapped and scrollable. Ways in: click the bar pulse, the "Show last answer"
--- row under /claude, or `noctalia msg panel-open lowcache/claude-companion:answer`.
+-- claude.luau publishes the complete answer to noctalia.state "claude.answer" and
+-- opens this panel, which renders it wrapped and scrollable. Ways back in: the
+-- "Show last answer" row under /claude, or
+-- `noctalia msg panel-open lowcache/claude-companion:answer`.
 --
 -- Pure subscriber, same doctrine as the orb: claude.luau owns the state, this panel
 -- only renders it. state.watch() callbacks proved unreliable for bar widgets
@@ -61,23 +61,11 @@ local function render(a)
   panel.render(ui.column({ padding = PAD, gap = 8, flexGrow = 1 }, rows))
 end
 
--- Visibility flag for claude.luau: while the panel is open it live-refreshes the
--- answer (update below), so a toast for the same answer would be a redundant
--- second surface — and dismissing that toast clicks outside the panel, which
--- the click-shield turns into closing the panel too. claude.luau reads this flag
--- and skips the toast when the panel is already showing.
-local OPEN_KEY = "claude.answer.open"
-
 function onOpen(_context)
   panel.setWantsSecondTicks(true) -- the host stops ticks on close, re-arms on reopen
-  noctalia.state.set(OPEN_KEY, true)
   local a = noctalia.state.get(KEY)
   last = fingerprint(a)
   render(a)
-end
-
-function onClose()
-  noctalia.state.set(OPEN_KEY, false)
 end
 
 function update()

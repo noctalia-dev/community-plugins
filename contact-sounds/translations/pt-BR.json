@@ -33,9 +33,12 @@
     "need_sounds": "A pasta precisa conter um arquivo de áudio (.ogg, .mp3 ou .wav).",
     "path_label": "Som",
     "play_tooltip": "Tocar o som deste contato",
+    "random_sound": "Som aleatório da pasta",
+    "reorder_tooltip": "Arraste para reordenar a lista",
     "save_button": "Salvar",
     "saved": "Lista de contatos atualizada",
     "settings_tooltip": "Abrir configurações do plugin",
+    "stop_tooltip": "Parar o som que está tocando",
     "title": "Sons de Contato"
   },
   "settings": {
@@ -46,6 +49,10 @@
     "contact_kinds": {
       "description": "Tipo da entrada. 'contact' / 'group' combinam com o texto da notificação; 'app' combina apenas com o nome do aplicativo.",
       "label": "Tipos (Contato / Grupo / App)"
+    },
+    "contact_order": {
+      "description": "Ordem dos contatos na lista do painel. Mude arrastando as entradas no painel.",
+      "label": "Ordem da lista"
     },
     "contacts": {
       "description": "Mapa de nomes de pessoas para o som tocado quando uma notificação menciona essa pessoa. Chave: o nome exato. Valor: caminho absoluto de um arquivo .ogg ou .mp3.",
@@ -66,6 +73,10 @@
     "only_apps": {
       "description": "Lista opcional de nomes de aplicativos de notificação para restringir a combinação. Deixe vazio para combinar notificações de qualquer aplicativo.",
       "label": "Somente estes aplicativos"
+    },
+    "show_sound_name": {
+      "description": "Quando desligado, a cápsula com o nome do som abaixo de cada nome é ocultada.",
+      "label": "Mostrar nome do som"
     },
     "show_widget": {
       "description": "Quando desligado, o sino é ocultado da barra.",

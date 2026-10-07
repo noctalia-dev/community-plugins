@@ -14,6 +14,7 @@ classic sticky colors or blend them with the current wallpaper palette.
 
 The plugin uses the standard `mkdir` and `sh` commands to create and resolve
 the save folder, and `xdg-open` to open a web link explicitly stored in a note.
+The `new-note` service event uses the `noctalia` command to open the editor.
 
 ## Usage
 
@@ -31,6 +32,29 @@ Open or close the panel directly:
 ```sh
 noctalia msg panel-toggle ahmedhossamdev/sticky-notes:panel
 ```
+
+### Quick capture
+
+Create a note and open its editor with keyboard focus:
+
+```sh
+noctalia msg plugin ahmedhossamdev/sticky-notes:service all new-note
+```
+
+This works with the panel closed or already open. An existing empty note is
+reused, and any nonempty draft in the current editor is saved before switching.
+The new note uses `default_color`. **Done**, **Back**, or closing the panel
+saves the text; leaving the note empty removes it.
+
+To toggle quick capture open and closed, add this binding inside Niri's `binds`
+block. Pressing it again closes the capture panel and saves the draft:
+
+```kdl
+Mod+Alt+N { spawn "noctalia" "msg" "panel-toggle" "ahmedhossamdev/sticky-notes:panel" "new-note"; }
+```
+
+Other compositors can bind the same command. With `auto_blur` enabled, existing
+previews stay hidden while the empty note opens for capture.
 
 ### Checklists
 

@@ -1,13 +1,12 @@
 -- The sessions panel — per-session detail and actuation for every live Claude
--- session. Right-click the bar pulse to open it (onClick keeps the answer panel).
+-- session. Right-click the bar pulse to open it (left-click is the ask panel).
 --
 -- The bar tooltip already lists concurrent sessions, but a tooltip cannot be acted
 -- on: it vanishes on the way to it. This panel is the actionable form of the same
 -- rollup — one row per session with its state, model and token burn, plus a retire
--- control for the one documented failure mode: a session that ended without its
--- SessionEnd hook firing (terminal killed, hook interrupted mid-distill) sits at
--- idle forever and keeps inflating the count. Retiring it is a local correction
--- that needs no terminal.
+-- control for a session that ended without its SessionEnd hook firing and that the
+-- liveness sweep cannot see (no pid: older hooks, pid-less adapters). Retiring it is
+-- a local correction that needs no terminal.
 --
 -- Pure subscriber, same doctrine as the orb and the answer panel: pulse-svc owns the
 -- session table, this panel only renders it and speaks the documented IPC vocabulary
@@ -33,6 +32,17 @@ local STATE_WORD = {
 }
 
 local last = nil -- fingerprint of the last render (an unconditional one would reset scroll)
+
+-- Hook health. A hook with a wrong path fails silently and this panel just stays
+-- empty, so each open runs hooks/install.py --check; a failure shows a warning with
+-- a one-click repair (the installer backs settings.json up before writing).
+local hooks_note = nil -- tr key of the hook-health line; nil = healthy or unknown
+
+local function installer()
+  local dir = noctalia.pluginDir and noctalia.pluginDir()
+  return dir and (dir .. "/hooks/install.py") or nil
+end
+local repair_hooks -- defined after render(), which it re-runs
 
 local function kfmt(n)
   n = tonumber(n) or 0
@@ -68,6 +78,7 @@ local function session_row(s)
   if (s.cr or 0) > 0 then
     line = line .. " · " .. tr("pulse.cached", { n = kfmt(s.cr) })
   end
+  if s.nohooks then line = line .. " · " .. tr("sessions.no_hooks") end
 
   local cells = {
     ui.label({
@@ -99,6 +110,23 @@ local function render(snap)
   -- prominent in the header, so the disagreement reads as a bug.
   local title = count == 1 and tr("sessions.title_one") or tr("sessions.title", { count = count })
   local rows = { ui.label({ text = title, fontWeight = "bold" }) }
+  if hooks_note then
+    local ok = hooks_note == "sessions.hooks_repaired"
+    local cells = {
+      ui.label({
+        text = tr(hooks_note, { cmd = "python3 " .. tostring(installer()) }),
+        maxWidth = WRAP - (hooks_note == "sessions.hooks_broken" and 92 or 0),
+        maxLines = 4,
+        color = not ok and ERROR_RGB or nil,
+        opacity = ok and 0.7 or nil,
+        flexGrow = 1,
+      }),
+    }
+    if hooks_note == "sessions.hooks_broken" then
+      cells[#cells + 1] = ui.button({ text = tr("sessions.hooks_repair"), variant = "primary", onClick = repair_hooks })
+    end
+    rows[#rows + 1] = ui.row({ gap = 8, align = "center" }, cells)
+  end
 
   local body
   if count == 0 then
@@ -148,17 +176,34 @@ local function fingerprint(snap)
   for i, s in ipairs(snap.sessions) do
     parts[i] = table.concat({
       tostring(s.sid), tostring(s.state), tostring(s.model),
-      tostring(s.tin), tostring(s.tout), tostring(s.cr),
+      tostring(s.tin), tostring(s.tout), tostring(s.cr), tostring(s.nohooks),
     }, "\2")
   end
   return table.concat(parts, "\1")
 end
+
+-- argv-table runAsync skips the shell, so the plugin path needs no quoting.
+local function run_installer(check)
+  local script = installer()
+  if not script then return end
+  noctalia.runAsync({ "python3", script, check and "--check" or nil }, function(r)
+    if type(r) ~= "table" or r.timedOut then return end
+    if check then
+      hooks_note = r.exitCode ~= 0 and "sessions.hooks_broken" or nil
+    else
+      hooks_note = r.exitCode == 0 and "sessions.hooks_repaired" or "sessions.hooks_repair_failed"
+    end
+    render(noctalia.state.get and noctalia.state.get(KEY))
+  end)
+end
+repair_hooks = function() run_installer(false) end
 
 function onOpen(_context)
   panel.setWantsSecondTicks(true) -- host stops ticks on close, re-arms on reopen
   local snap = noctalia.state.get and noctalia.state.get(KEY)
   last = fingerprint(snap)
   render(snap)
+  run_installer(true)
 end
 
 function update()

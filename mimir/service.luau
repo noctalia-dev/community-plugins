@@ -89,6 +89,25 @@ local function isTrustedOpenCodeEndpoint(endpoint)
   return port == nil or port == "443"
 end
 
+local function makeSessionId()
+  -- OpenCode Go requires a stable per-conversation session id in the
+  -- x-opencode-session header (routing + prompt caching). Persisted in the
+  -- plugin data dir so it survives shell restarts; "Clear" empties the file so
+  -- the next request generates a fresh id.
+  local dir = noctalia.pluginDataDir()
+  local path = dir and (dir .. "/session-id") or nil
+  if path then
+    local ok, raw = pcall(noctalia.readFile, path)
+    if ok and type(raw) == "string" and raw ~= "" then return raw end
+  end
+  local seeded = noctalia.state.get("mimir.session_id")
+  local id = (type(seeded) == "string" and seeded ~= "") and seeded
+    or (os.time() .. "-" .. string.format("%08x-%08x", math.random(0, 0x7fffffff), math.random(0, 0x7fffffff)))
+  if path then pcall(noctalia.writeFile, path, id) end
+  noctalia.state.set("mimir.session_id", id)
+  return id
+end
+
 local function isPublicWebUrl(url)
   local scheme, authority = url:match("^(https?)://([^/%?#]+)")
   if not scheme or not authority or authority:find("@", 1, true) then return false end
@@ -255,8 +274,9 @@ local function think(input)
 
   local headers = { "Content-Type: application/json" }
   if config.apiKey ~= "" then
-    table.insert(headers, "Authorization: Bearer " .. config.apiKey)
+    table.insert(headers, "Authorization: *** " .. config.apiKey)
   end
+  table.insert(headers, "x-opencode-session: " .. makeSessionId())
 
   noctalia.http({
     url = url,
@@ -688,18 +708,44 @@ noctalia.state.watch("mimir.clear", function(v)
     M.searchCache = {}
     M.apiRetries = 0
     M.apiRetryPending = false
+    -- Reset the session id: clobber the persisted one; makeSessionId()
+    -- generates a fresh id on the next request because the file reads empty.
+    noctalia.state.set("mimir.session_id", nil)
+    local dir = noctalia.pluginDataDir()
+    if dir then pcall(noctalia.writeFile, dir .. "/session-id", "") end
     noctalia.state.set("mimir.messages", {})
     noctalia.state.set("mimir.command_log", {})
     noctalia.state.set("mimir.pending_tool", false)
+    -- Back to the configured default model after a clear (nil = unset, so the
+    -- models watcher picks the default; empty setting falls back to first).
+    noctalia.state.set("mimir.model", nil)
     setStatus("idle")
   end
 end)
+
+-- Resolve the configured default model against what the endpoint actually
+-- offers: exact id wins, otherwise prefix/partial match, else first listed.
+local function pickDefaultModel(models)
+  local wanted = noctalia.getConfig("default_model")
+  if type(wanted) ~= "string" or wanted == "" then return models[1] end
+  local lower = wanted:lower()
+  for _, m in ipairs(models) do
+    if m:lower() == lower then return m end
+  end
+  for _, m in ipairs(models) do
+    if m:lower():find(lower, 1, true) then return m end
+  end
+  return models[1] -- setting names a model the endpoint doesn't list
+end
 
 local function fetchModels()
   local config = loadConfig()
   if config.endpoint == "" then return end
   local url = config.endpoint .. "/models"
-  noctalia.http({ url = url }, function(res)
+  noctalia.http({
+    url = url,
+    headers = { "x-opencode-session: " .. makeSessionId() },
+  }, function(res)
     if not res.ok then return end
     local ok, data = pcall(noctalia.json.decode, res.body)
     if not ok or not data or type(data.data) ~= "table" then return end
@@ -708,6 +754,16 @@ local function fetchModels()
       if m.id then table.insert(models, m.id) end
     end
     noctalia.state.set("mimir.models", models)
+    -- Apply the configured default when nothing is selected yet (first load,
+    -- after Clear, or when the previous selection vanished from the list).
+    local current = noctalia.state.get("mimir.model")
+    local known = false
+    for _, m in ipairs(models) do
+      if m == current then known = true break end
+    end
+    if not known then
+      noctalia.state.set("mimir.model", pickDefaultModel(models))
+    end
   end)
 end
 
@@ -718,9 +774,6 @@ end)
 noctalia.setUpdateInterval(500)
 
 fetchModels()
-if noctalia.state.get("mimir.model") == nil then
-  noctalia.state.set("mimir.model", "deepseek-v4-flash")
-end
 noctalia.state.set("mimir.status", "idle")
 noctalia.state.set("mimir.messages", {})
 noctalia.state.set("mimir.command_log", {})

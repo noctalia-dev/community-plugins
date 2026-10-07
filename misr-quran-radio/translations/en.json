@@ -1,0 +1,52 @@
+{
+  "bar": {
+    "confirm_title": "Unconfirmed change",
+    "idle": "Quran",
+    "live": "Live"
+  },
+  "notify": {
+    "play_failed": "Could not start playback"
+  },
+  "panel": {
+    "busy": "Working…",
+    "copied": "Stream URL copied.",
+    "copy": "Copy stream URL",
+    "empty": "No schedule yet — press refresh.",
+    "now": "On now",
+    "play": "Play",
+    "playing": "Playing the live stream.",
+    "refresh": "Refresh schedule",
+    "schedule": "Today's programmes",
+    "site": "Station site",
+    "site_unavailable": "xdg-open is not installed, the site cannot be opened.",
+    "stop": "Stop",
+    "stopped": "Stopped.",
+    "unavailable": "mpv is not on PATH — install mpv for playback."
+  },
+  "settings": {
+    "glyph": {
+      "label": "Glyph"
+    },
+    "refresh_minutes": {
+      "description": "Minutes between programme schedule fetches.",
+      "label": "Schedule refresh"
+    },
+    "show_text": {
+      "description": "Show Live / Quran next to the icon.",
+      "label": "Show status text"
+    },
+    "stream_url": {
+      "description": "Live HLS stream. Leave the default unless the station moves it.",
+      "label": "Stream URL"
+    }
+  },
+  "title": "Holy Quran Radio",
+  "tooltip": {
+    "error": "Error",
+    "now": "On now",
+    "open": "Open Misr Quran Radio",
+    "schedule": "Programmes",
+    "status": "Status",
+    "time": "Time"
+  }
+}

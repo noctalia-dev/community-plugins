@@ -29,6 +29,7 @@ one to open it with `zeditor`.
 
 - `db_path` — path to Zed's `db.sqlite` workspace database.
 - `max_results` — maximum number of projects shown in the launcher.
+- `new_window` — to open projects in a new window.
 
 ## Notes
 

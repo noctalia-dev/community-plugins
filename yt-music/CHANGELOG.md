@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.2] - 2026-10-02
+
+### Added
+ - **Media widget transport**: Next/Previous now work in Noctalia's core media widget (and `playerctl`) while a track plays, advancing the same queue as the miniplayer and full panel.
+ 
+## [0.3.1] - 2026-09-28
+
+### Fixed
+- **Player bar artist fallback**: the subtitle line now shows `Unknown artist` when a track is loaded without artist metadata instead of `Pick something to play`.
+
+## [0.3.0] - 2026-09-25
+
+### Added
+- **Shell corner radius scale**: every panel and mini-player surface now follows the shell's `shell.corner_radius_scale` setting via `theme.radius` (default 12 * scale), re-read each time a panel opens.
+
+## [0.2.8] - 2026-09-24
+
+### Fixed
+- **Tracks starting paused**: mpv is now launched with `--pause=no` so songs starts playing immediately instead of being stuck in a paused state.
+
+## [0.2.7] - 2026-09-21
+
+### Added
+- Music artwork in the Noctalia media widget via MPRIS (`mpv-mpris` `cover-art-files`).
+
 ## [0.2.6] - 2026-09-12
 
 ### Fixed

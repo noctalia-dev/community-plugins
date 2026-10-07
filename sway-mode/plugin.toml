@@ -1,0 +1,39 @@
+id = "ismay/sway-mode"
+name = "Sway Mode"
+version = "1.0.0"
+plugin_api = 24
+author = "ismay"
+license = "MIT"
+icon = "square-letter-m"
+description = "Displays the current Sway mode."
+tags = ["bar", "sway", "indicator"]
+dependencies = ["sway", "swaymsg"]
+
+[[widget]]
+id = "sway-mode"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key = "glyph"
+    type = "glyph"
+    label_key = "settings.glyph.label"
+    description_key = "settings.glyph.description"
+    default = "square-letter-m"
+
+    [[widget.setting]]
+    key = "hide_default"
+    type = "bool"
+    label_key = "settings.hide_default.label"
+    description_key = "settings.hide_default.description"
+    default = true
+
+    [[widget.setting]]
+    key = "rename_default"
+    type = "string"
+    label_key = "settings.rename_default.label"
+    description_key = "settings.rename_default.description"
+    default = ""
+
+[[service]]
+id = "service"
+entry = "service.luau"

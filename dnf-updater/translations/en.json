@@ -1,0 +1,103 @@
+{
+  "actions": {
+    "check_now": "Check Now",
+    "close": "Close",
+    "collapse": "Collapse section",
+    "deselect_all": "Deselect all",
+    "exclude_pkg": "Exclude from update",
+    "expand": "Expand section",
+    "include_pkg": "Include in update",
+    "open_settings": "Settings",
+    "select_all": "Select all",
+    "update_all": "Update All",
+    "update_all_size": "Update All ({count} · {size})",
+    "update_dnf": "Update DNF",
+    "update_flatpak": "Update Flatpak",
+    "update_selected": "Update Selected ({count})",
+    "update_selected_size": "Update Selected ({count} · {size})"
+  },
+  "notifications": {
+    "update_complete_body": "System updates have completed successfully.",
+    "update_complete_title": "Update Complete",
+    "update_failed_body": "An error occurred while installing updates.",
+    "update_failed_title": "Update Failed",
+    "updates_available_body": "{count} pending updates are ready to install.",
+    "updates_available_title": "Updates Available"
+  },
+  "sections": {
+    "dnf": "DNF · {count} updates",
+    "dnf_selected": "DNF · {selected}/{total} updates",
+    "flatpak": "Flatpak · {count} updates",
+    "flatpak_selected": "Flatpak · {selected}/{total} updates",
+    "runtime": "Runtime"
+  },
+  "settings": {
+    "check_interval": {
+      "description": "How often to automatically check for updates in minutes (0 to disable).",
+      "label": "Check Interval (Minutes)"
+    },
+    "enable_dnf": {
+      "description": "Check for and manage DNF5 system package updates.",
+      "label": "Enable DNF"
+    },
+    "enable_flatpak": {
+      "description": "Check for and manage Flatpak application updates.",
+      "label": "Enable Flatpak"
+    },
+    "include_flatpak_runtimes": {
+      "description": "Include Flatpak runtime and extension updates alongside applications.",
+      "label": "Include Flatpak Runtimes"
+    },
+    "glyph": {
+      "description": "Icon glyph to display in the Noctalia bar widget.",
+      "label": "Widget Icon"
+    },
+    "notify_on_updates": {
+      "description": "Send a desktop notification when new pending updates are found.",
+      "label": "Notify on New Updates"
+    },
+    "show_widget_when_clean": {
+      "description": "Show the bar widget even when there are no pending updates.",
+      "label": "Show Widget When Clean"
+    },
+    "update_in_terminal": {
+      "description": "Launch update commands inside a terminal emulator instead of running in background with polkit.",
+      "label": "Run Updates in Terminal"
+    }
+  },
+  "status": {
+    "checking": "Checking for updates…",
+    "dnf_checking": "Checking DNF…",
+    "dnf_done": "DNF up to date",
+    "dnf_error": "DNF error",
+    "dnf_idle": "DNF idle",
+    "dnf_updating": "Updating DNF…",
+    "everything_up_to_date": "Everything is up to date.",
+    "flatpak_checking": "Checking Flatpak…",
+    "flatpak_done": "Flatpak up to date",
+    "flatpak_error": "Flatpak error",
+    "flatpak_idle": "Flatpak idle",
+    "flatpak_updating": "Updating Flatpak…",
+    "flatpak_waiting": "Flatpak waiting…",
+    "last_checked": "Last checked: {time}",
+    "never_checked": "Never checked",
+    "skipped": "Skipped",
+    "updating": "Updating packages…"
+  },
+  "summary": {
+    "disk_size": "Disk Size",
+    "dnf": "DNF",
+    "download": "Download",
+    "flatpak": "Flatpak",
+    "last_checked": "Last Checked",
+    "storage": "Storage",
+    "total": "Total"
+  },
+  "title": "DNF Updater",
+  "tooltip": {
+    "all_up_to_date": "All packages up to date",
+    "disk_size": "Disk size",
+    "download_size": "Download size",
+    "updates_available": "{count} updates available"
+  }
+}

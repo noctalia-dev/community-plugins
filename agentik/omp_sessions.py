@@ -18,6 +18,7 @@ PILL_IDLE_SECONDS = 5 * 60
 ACTIVE_SECONDS = 120
 EXITED_WINDOW_SECONDS = 600
 PAUSED_RETENTION_SECONDS = EXITED_WINDOW_SECONDS
+RECENT_OUTCOMES_LIMIT = 8
 JOURNALS = Path.home() / ".omp/agent/sessions"
 HERMES_DB = Path.home() / ".hermes/state.db"
 
@@ -565,10 +566,25 @@ def main(encoded_excluded_projects: str | None = None) -> None:
     active_items.extend(active_hermes_sessions(now))
     active_items.sort(key=lambda item: item["duration"])
     quiet_items.sort(key=lambda item: item["idle"])
-    exited_items.sort(key=lambda item: item["exited"])
+    exited_items.sort(key=lambda item: (item["exited"], item["id"]))
     history_slots = max(0, 8 - len(active_items))
     sessions = active_items + (quiet_items + exited_items)[:history_slots]
-    print(json.dumps({"active": len(active_items), "sessions": sessions}))
+    recent_outcomes = [
+        item for item in exited_items
+        if item["status"] in {"completed", "failed", "cancelled"}
+        and 0 <= item["exited"] <= EXITED_WINDOW_SECONDS
+    ][:RECENT_OUTCOMES_LIMIT]
+    for item in active_items + quiet_items + exited_items:
+        recorded_at = item.get("last_activity_at")
+        if recorded_at is not None:
+            item["last_activity_time"] = datetime.datetime.fromtimestamp(
+                recorded_at
+            ).astimezone().strftime("%d/%m/%Y" if now - recorded_at >= 86400 else "%H:%M")
+    print(json.dumps({
+        "active": len(active_items),
+        "sessions": sessions,
+        "recent_outcomes": recent_outcomes,
+    }))
 
 
 if __name__ == "__main__":

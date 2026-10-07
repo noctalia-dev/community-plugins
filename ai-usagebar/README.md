@@ -23,8 +23,17 @@ tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
 
-When the CLI is missing, the panel displays its project address for installation
-instructions. No browser-opening command or additional dependency is needed.
+The CLI can send its own quota notifications when this plugin polls it. To
+disable them, add this to `~/.config/ai-usagebar/config.toml`:
+
+```toml
+[notifications]
+enabled = false
+```
+
+When the CLI is missing, the panel displays its project address and can open it
+with `xdg-open`. The same command opens provider dashboards from the panel.
+Install `xdg-open` alongside `ai-usagebar`.
 
 The plugin requires plugin API 22 for `require()`. It will not install on an
 older shell. Plugin version 1.1.0 remains available for API 9.
@@ -32,9 +41,13 @@ older shell. Plugin version 1.1.0 remains available for API 9.
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
-one provider's headline percentage beside its icon. Readings use the bar's text
+one provider's headline reading beside its icon. Readings use the bar's text
 color, the theme's `secondary` color for high usage, and `error` for critical
 usage. Icons keep their normal color unless a read fails.
+
+A provider that reports a balance instead of a quota (DeepSeek, Kilo, Novita,
+Moonshot, and Nous top-up credits) has no percentage to draw: the capsule prints
+that balance where a quota vendor prints its percentage.
 
 `Automatic` selects by headline severity, then usage. Raise `provider_limit` to
 show more providers; limits above one also show `+N` for providers that do not
@@ -83,19 +96,26 @@ start = [ "clock", "ai_usage" ]
 The script handles left and middle clicks. Right click is a gesture binding in
 the widget settings, where you can assign another action or choose `none`.
 
-The panel lists providers on the left and shows the selected provider's limits
-on the right. Session and weekly limits share a card; Antigravity has a separate
-card for each model. Each window shows usage above a thinner elapsed-time bar.
+The panel shows provider tabs at the top and the selected provider's limits
+below. With more than three providers, tabs show icons only and reveal names on
+hover. Session and weekly limits share a card; Antigravity has a separate card
+for each model. Each window shows usage above a thinner elapsed-time bar.
 A longer usage bar means consumption is ahead of the window's pace.
 The shared `Claude & GPT OSS` quota keeps the name supplied by the CLI.
 
-Exhausted quotas get a compact notice with the model name and reset countdown.
-The notice uses text and theme colors. The panel displays quota readings, not
-agent process health.
+The row beside the update time shows quota status for every provider: a quiet
+icon through 50% usage, then one compact pill per model above 50%, showing its
+most restrictive window. Hover a pill for its full status and reset countdown.
+Read failures show the last known state. The panel displays quota readings,
+not agent process health.
+
+The header stays fixed while longer reports scroll. Every provider reserves the
+same space beside its cards, so the scrollbar does not change their width.
 
 Opening the panel requests fresh data. The header shows when the last reading
-arrived, a refresh button, and plugin settings. Click outside or click the widget
-again to close the panel.
+arrived, refresh and settings buttons, and a link to the selected quota service.
+For Antigravity, both model groups share that service link. Click outside or
+click the widget again to close the panel.
 
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
@@ -103,6 +123,10 @@ provider with its own refresh failure also leaves the bar and panel, then
 returns automatically after a healthy read. The panel sorts providers by headline
 severity, then usage; equal readings keep the CLI's order. Automatic bar selection
 uses the same priorities, then the configured primary provider and account id.
+
+Antigravity is the exception when its local server briefly disappears: the last
+reading stays visible with a stale indicator and its original update time until
+the server returns. Without an earlier reading, it stays unavailable.
 
 Parser errors are an exception: the provider remains visible with missing usage
 and the CLI error, because a response-format failure does not establish that the
@@ -172,8 +196,9 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all select anthropic
 - The plugin makes no network calls and writes no files of its own. Everything
   it knows arrives on that command's stdout.
 - A provider whose service is down leaves the bar and panel on the first report
-  that says so. It is not counted behind the `+n`, and returns when a report
-  carries a healthy reading for it again.
+  that says so, except for Antigravity's temporary local-server loss described
+  above. It is not counted behind the `+n`, and returns when a report carries a
+  healthy reading for it again.
 - A failed whole-report read keeps the previous report and marks it as stale.
   Without a previous report, the panel shows the failure and its scrubbed
   diagnostic. Raw HTTP details stay out of the reading cards.
@@ -198,8 +223,8 @@ The first test reads `safeText` and `scrub` out of `service.luau` rather than
 copying them, then checks that real credential shapes never survive, that ordinary
 readings pass through unchanged, and that scrubbing a four-vendor report stays
 inside the CPU budget the poller's async callback is given. The second exercises
-the coalesced refresh state, rejects output from a timed-out process, and checks
-that every provider it knows about has a glyph of its own rather than the fallback.
+the coalesced refresh state, rejects output from a timed-out process, checks
+quiet quota changes, and checks that every provider has a glyph of its own.
 The third drives the real bar script through default, named, missing and automatic
 account selection, plus malformed metrics. The fourth checks that malformed panel
 sections degrade safely. The fifth verifies UTC parsing through a daylight-saving

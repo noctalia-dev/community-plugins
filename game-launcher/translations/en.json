@@ -9,6 +9,12 @@
     "lutris_enabled": {
       "label": "Show Lutris games"
     },
+    "panel_mode": {
+      "description": "Side panel or original panel when opening from the bar widget.",
+      "label": "Panel style",
+      "original": "Original",
+      "side": "Side panel"
+    },
     "steam_enabled": {
       "label": "Show Steam games"
     },

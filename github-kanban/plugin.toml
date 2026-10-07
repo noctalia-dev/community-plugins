@@ -1,11 +1,11 @@
 id = "shangshui0302/github-kanban"
 name = "GitHub Kanban"
-version = "0.1.1"
+version = "0.2.4"
 plugin_api = 24
 author = "Shangshui0302"
 license = "MIT"
 icon = "brand-github"
-description = "A read-only GitHub dashboard for activity, notifications, work, repositories, and Actions."
+description = "A GitHub dashboard with optional notification read-state synchronization."
 tags = ["bar", "panel", "service", "development", "productivity", "network", "utility"]
 dependencies = ["gh", "xdg-open"]
 
@@ -62,6 +62,47 @@ type = "bool"
 label_key = "settings.notifications.show.label"
 description_key = "settings.notifications.show.description"
 default = true
+
+[[setting]]
+key = "notification_sync_mode"
+type = "select"
+label_key = "settings.notifications.sync_mode.label"
+description_key = "settings.notifications.sync_mode.description"
+default = "legacy"
+visible_when = { key = "show_notifications", values = ["true"] }
+options = [
+  { value = "legacy", label_key = "settings.notifications.sync_mode.options.legacy" },
+  { value = "synced", label_key = "settings.notifications.sync_mode.options.synced" },
+]
+
+[[setting]]
+key = "notification_refresh_interval_seconds"
+type = "select"
+label_key = "settings.notifications.refresh_interval.label"
+description_key = "settings.notifications.refresh_interval.description"
+default = "120"
+visible_when = { key = "notification_sync_mode", values = ["synced"] }
+options = [
+  { value = "60", label_key = "settings.notifications.refresh_interval.options.sixty" },
+  { value = "120", label_key = "settings.notifications.refresh_interval.options.one_twenty" },
+  { value = "300", label_key = "settings.notifications.refresh_interval.options.three_hundred" },
+]
+
+[[setting]]
+key = "notification_refresh_on_open"
+type = "bool"
+label_key = "settings.notifications.refresh_on_open.label"
+description_key = "settings.notifications.refresh_on_open.description"
+default = true
+visible_when = { key = "notification_sync_mode", values = ["synced"] }
+
+[[setting]]
+key = "notification_mark_read_on_open"
+type = "bool"
+label_key = "settings.notifications.mark_read_on_open.label"
+description_key = "settings.notifications.mark_read_on_open.description"
+default = false
+visible_when = { key = "notification_sync_mode", values = ["synced"] }
 
 [[setting]]
 key = "notification_history_days"
@@ -687,3 +728,7 @@ dismiss_on_outside_click = true
 [[service]]
 id = "sync"
 entry = "service.luau"
+
+[[service]]
+id = "notifications"
+entry = "notifications.luau"

@@ -235,13 +235,9 @@ end
 scrub(sampleReport())
 string.gsub = realGsub
 
--- Bytes, not calls: the count barely moves, since normalising whitespace is one
--- gsub per string either way. What moves is how much text the patterns are handed,
--- 37352 bytes for this report before the rewrite against 17664 after. The ceiling
--- sits between the two, near enough that widening the gate back to all four
--- keywords at once (22400) trips it as surely as moving the cap back after the
--- patterns (37352).
-local MAX_BYTES = 20000
+-- Repeated labels and reset details should only be scrubbed once per report.
+-- Without that cache this fixture hands 17664 bytes to gsub; with it, 10080.
+local MAX_BYTES = 12000
 if bytes > MAX_BYTES then
     fail("the redaction patterns were handed " .. bytes .. " bytes of a four-vendor report"
         .. " in " .. calls .. " gsub calls, past the " .. MAX_BYTES .. " bytes this callback"

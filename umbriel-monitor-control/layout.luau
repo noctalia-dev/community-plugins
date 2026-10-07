@@ -8,6 +8,14 @@
 
 local M = {}
 
+-- A 90/270 transform swaps the extents, flipped or not - that swap is part of
+-- the space `position` lives in.
+function M.swapsExtents(transform)
+  local value = transform or "normal"
+  return value == "90" or value == "270"
+    or value == "flipped-90" or value == "flipped-270"
+end
+
 -- Logical width, height and the current mode of an output (mode / scale), or
 -- nil when the output has no usable mode. A 90/270 transform swaps the extents,
 -- which is the space `position` lives in.
@@ -29,8 +37,7 @@ function M.logicalSize(output)
     return nil
   end
   local w, h = current.width, current.height
-  local transform = output.transform or "normal"
-  if transform == "90" or transform == "270" then
+  if M.swapsExtents(output.transform) then
     w, h = h, w
   end
   return w / scale, h / scale, current
@@ -231,10 +238,12 @@ function M.coordinate(text)
   return value
 end
 
--- The text a coordinate field is seeded with.
+-- The text a coordinate field is seeded with. Zero is spelled "0" whatever the
+-- host's number model does with negative zero (Lua 5.1 keeps -0.0, so tostring
+-- would print "-0").
 function M.coordinateText(value)
   local number = M.coordinate(value)
-  if number == nil then
+  if number == nil or number == 0 then
     return "0"
   end
   return tostring(number)

@@ -15,6 +15,10 @@ local exportsDir = nil
 local collectionsPath = nil
 local collections = {}
 local fetching = {}
+-- Sync polls still read each small note so external edits are detected, but
+-- unchanged notes keep their parsed item instead of spending the callback's
+-- CPU budget decoding the same frontmatter every 30 seconds.
+local itemCache = {}
 local lastError = ""
 
 local VALID_TYPES = { article = true, book = true, image = true }
@@ -43,6 +47,14 @@ end
 
 local function normalizedUrl(url)
   local value = trim(url)
+  if value:match("^//") then
+    value = "https:" .. value
+  elseif not validWebUrl(value)
+      and (value:match("^[%w%-][%w%.%-]*[%.][%w%-]+$")
+        or value:match("^[%w%-][%w%.%-]*[%.][%w%-]+[:/%?#]")
+        or value:match("^localhost$") or value:match("^localhost[:/%?#]")) then
+    value = "https://" .. value
+  end
   value = value:gsub("#.*$", "")
   local question = value:find("?", 1, true)
   if question == nil then return value end
@@ -148,11 +160,22 @@ end
 
 local function decodeScalar(raw)
   raw = trim(raw)
-  local decoded = noctalia.json.decode(raw)
-  if decoded ~= nil then return decoded end
+  -- Values written by serializeItem are overwhelmingly simple JSON scalars.
+  -- Keep those in Luau and reserve the host JSON decoder for arrays and
+  -- escaped strings; hundreds of decoder crossings can exhaust one callback.
   if raw == "true" then return true end
   if raw == "false" then return false end
-  return tonumber(raw) or raw
+  local number = tonumber(raw)
+  if number ~= nil then return number end
+  if raw == "[]" then return {} end
+  if raw == "{}" then return {} end
+  if raw:sub(1, 1) == "\"" and raw:sub(-1) == "\""
+      and raw:find("\\", 2, true) == nil then
+    return raw:sub(2, -2)
+  end
+  local decoded = noctalia.json.decode(raw)
+  if decoded ~= nil then return decoded end
+  return raw
 end
 
 local function mergedCollections(stored)
@@ -305,35 +328,68 @@ local function saveItem(item)
     return false
   end
   local temporary = path .. ".tmp"
-  local ok, err = noctalia.writeFile(temporary, serializeItem(item))
+  local content = serializeItem(item)
+  local ok, err = noctalia.writeFile(temporary, content)
   if ok then ok, err = noctalia.renameFile(temporary, path) end
   if not ok then
     noctalia.removeFile(temporary)
     lastError = err or noctalia.tr("errors.save")
     return false
   end
+  itemCache[item.id .. ".md"] = { raw = content, item = item }
   lastError = ""
   return true
+end
+
+-- The library may live in a sync folder or be edited outside Noctalia. Recreate
+-- its owned directories before retrying a failed listing so a brief mount/sync
+-- race does not leave the panel stuck with a load error.
+local function ensureLibraryDirectories()
+  if itemsDir == nil or assetsDir == nil or exportsDir == nil then
+    return false, noctalia.tr("errors.create-folder")
+  end
+  local ok, err = noctalia.mkdirAll(itemsDir)
+  if ok then ok, err = noctalia.mkdirAll(assetsDir) end
+  if ok then ok, err = noctalia.mkdirAll(exportsDir) end
+  return ok == true, err
 end
 
 local function loadItems()
   if itemsDir == nil then return end
   local names, err = noctalia.listDir(itemsDir)
   if names == nil then
+    -- A folder can disappear temporarily while a cloud/Obsidian sync is
+    -- replacing it. mkdirAll is idempotent, so repair our directories and
+    -- make one fresh attempt before presenting an error to the user.
+    local repaired, repairErr = ensureLibraryDirectories()
+    if repaired then names, err = noctalia.listDir(itemsDir) end
+    if names == nil then
+      lastError = err or repairErr or noctalia.tr("errors.load")
+      publish()
+      return
+    end
+  end
+  if type(names) ~= "table" then
     lastError = err or noctalia.tr("errors.load")
     publish()
     return
   end
   local loaded = {}
+  local refreshedCache = {}
   for _, name in ipairs(names) do
     if name:match("%.md$") then
       local raw = noctalia.readFile(itemsDir .. "/" .. name)
       local fallbackId = name:gsub("%.md$", "")
-      local item = parseItem(raw, fallbackId)
-      if item ~= nil then table.insert(loaded, item) end
+      local cached = itemCache[name]
+      local item = cached ~= nil and cached.raw == raw and cached.item or parseItem(raw, fallbackId)
+      if item ~= nil then
+        table.insert(loaded, item)
+        refreshedCache[name] = { raw = raw, item = item }
+      end
     end
   end
   items = loaded
+  itemCache = refreshedCache
   local queueItems = {}
   for _, item in ipairs(items) do table.insert(queueItems, item) end
   table.sort(queueItems, function(a, b)
@@ -371,11 +427,16 @@ local function htmlDecode(value)
   value = trim(value)
   value = value:gsub("&amp;", "&"):gsub("&quot;", "\"")
   value = value:gsub("&#39;", "'"):gsub("&apos;", "'")
-  value = value:gsub("&lt;", "<"):gsub("&gt;", ">")
+  value = value:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&nbsp;", " ")
+  value = value:gsub("&#[xX]([%da-fA-F]+);", function(n)
+    local code = tonumber(n, 16)
+    local ok, decoded = pcall(utf8.char, code or 0)
+    return ok and decoded or ""
+  end)
   value = value:gsub("&#(%d+);", function(n)
     local code = tonumber(n)
-    if code ~= nil and code >= 32 and code <= 126 then return string.char(code) end
-    return ""
+    local ok, decoded = pcall(utf8.char, code or 0)
+    return ok and decoded or ""
   end)
   return value
 end
@@ -384,24 +445,18 @@ local function tagAttribute(tag, name)
   for attr, quote, value in tag:gmatch("([%w_:%-]+)%s*=%s*([\"'])(.-)%2") do
     if attr:lower() == name:lower() then return value end
   end
+  for attr, value in tag:gmatch("([%w_:%-]+)%s*=%s*([^%s\"'=<>`]+)") do
+    if attr:lower() == name:lower() then return value end
+  end
   return nil
 end
 
-local function metaContent(html, wanted)
-  wanted = wanted:lower()
-  for tag in html:gmatch("<[mM][eE][tT][aA]%s+([^>]-)>") do
-    local name = tagAttribute(tag, "property") or tagAttribute(tag, "name")
-    if type(name) == "string" and name:lower() == wanted then
-      return htmlDecode(tagAttribute(tag, "content") or "")
-    end
+local function firstValue(values, keys)
+  for _, key in ipairs(keys) do
+    local value = trim(values[key] or "")
+    if value ~= "" then return value end
   end
   return ""
-end
-
-local function pageTitle(html)
-  local title = metaContent(html, "og:title")
-  if title ~= "" then return title end
-  return htmlDecode(html:match("<[tT][iI][tT][lL][eE][^>]*>(.-)</[tT][iI][tT][lL][eE]>") or "")
 end
 
 local function resolveUrl(base, candidate)
@@ -416,17 +471,97 @@ local function resolveUrl(base, candidate)
   return directory .. candidate
 end
 
-local function faviconUrl(html, pageUrl)
-  for tag in html:gmatch("<[lL][iI][nN][kK]%s+([^>]-)>") do
-    local rel = tagAttribute(tag, "rel") or ""
-    if rel:lower():find("icon", 1, true) ~= nil then
-      local href = tagAttribute(tag, "href") or ""
-      local resolved = resolveUrl(pageUrl, htmlDecode(href))
-      if resolved ~= "" then return resolved end
+local function pageMetadata(html, pageUrl)
+  html = type(html) == "string" and html or ""
+  local values = {}
+  local title = ""
+  local iconUrl = ""
+  local headEnd = html:find("</[hH][eE][aA][dD]%s*>") or #html
+  local cursor = 1
+
+  -- Walk tags once. Large sites such as YouTube can put metadata hundreds of
+  -- kilobytes into <head>; rescanning the full response for every field trips
+  -- Noctalia's per-callback CPU budget.
+  while cursor <= headEnd do
+    local startAt, endAt, tagName, attributes = html:find("<%s*([%a]+)%s*([^>]*)>", cursor)
+    if startAt == nil or startAt > headEnd then break end
+    cursor = endAt + 1
+    tagName = tagName:lower()
+    if tagName == "meta" then
+      local key = tagAttribute(attributes, "property") or tagAttribute(attributes, "name")
+        or tagAttribute(attributes, "itemprop")
+      local content = tagAttribute(attributes, "content")
+      if type(key) == "string" and type(content) == "string" then
+        key = key:lower()
+        if values[key] == nil then values[key] = htmlDecode(content) end
+      end
+    elseif tagName == "link" then
+      local rel = (tagAttribute(attributes, "rel") or ""):lower()
+      local href = htmlDecode(tagAttribute(attributes, "href") or "")
+      if iconUrl == "" and rel:find("icon", 1, true) ~= nil then
+        iconUrl = resolveUrl(pageUrl, href)
+      end
+      local itemprop = tagAttribute(attributes, "itemprop")
+      local content = tagAttribute(attributes, "content")
+      if type(itemprop) == "string" and type(content) == "string"
+          and values[itemprop:lower()] == nil then
+        values[itemprop:lower()] = htmlDecode(content)
+      end
+    elseif tagName == "title" and title == "" then
+      local closeAt = html:find("</[tT][iI][tT][lL][eE]%s*>", cursor)
+      if closeAt ~= nil and closeAt <= headEnd then
+        title = htmlDecode(html:sub(cursor, closeAt - 1):gsub("<[^>]+>", ""))
+      end
     end
   end
+
   local scheme, host = pageUrl:match("^(https?)://([^/%?#]+)")
-  return scheme ~= nil and (scheme .. "://" .. host .. "/favicon.ico") or ""
+  if iconUrl == "" and scheme ~= nil then iconUrl = scheme .. "://" .. host .. "/favicon.ico" end
+  local metadataTitle = firstValue(values, { "og:title", "twitter:title", "title" })
+  return {
+    title = metadataTitle ~= "" and metadataTitle
+      or (title ~= "" and title or firstValue(values, { "name" })),
+    source = firstValue(values, { "og:site_name", "application-name" }),
+    author = firstValue(values, {
+      "author", "article:author", "twitter:creator", "parsely-author", "dc.creator", "byl",
+    }),
+    description = firstValue(values, {
+      "og:description", "twitter:description", "description",
+    }),
+    imageUrl = resolveUrl(pageUrl, firstValue(values, {
+      "og:image:secure_url", "og:image", "og:image:url", "twitter:image", "twitter:image:src",
+      "image", "thumbnailurl",
+    })),
+    iconUrl = iconUrl,
+  }
+end
+
+local function hostMatches(host, domain)
+  return host == domain or host:sub(-#domain - 1) == "." .. domain
+end
+
+local function providerMetadataUrl(url)
+  local host = (url:match("^https?://([^/%?#]+)") or ""):lower():gsub(":%d+$", "")
+  local videoId = nil
+  if hostMatches(host, "youtu.be") then
+    videoId = url:match("^https?://[^/]+/([%w_-]+)")
+  elseif hostMatches(host, "youtube.com") or hostMatches(host, "youtube-nocookie.com") then
+    videoId = url:match("[?&]v=([%w_-]+)")
+      or url:match("^https?://[^/]+/shorts/([%w_-]+)")
+      or url:match("^https?://[^/]+/embed/([%w_-]+)")
+      or url:match("^https?://[^/]+/live/([%w_-]+)")
+  end
+  if videoId ~= nil then
+    return "https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v="
+      .. videoId .. "&format=json"
+  end
+  if hostMatches(host, "vimeo.com") then
+    local videoNumber = url:match("^https?://[^/]+/(%d+)")
+    if videoNumber ~= nil then
+      return "https://vimeo.com/api/oembed.json?url=https://vimeo.com/" .. videoNumber
+    end
+  end
+  return ""
 end
 
 local function assetExtension(url, fallback)
@@ -459,72 +594,99 @@ local function refreshMetadata(id)
   item.fetching = true
   publish()
 
-  local started = noctalia.http({
-    url = item.url,
-    method = "GET",
-    follow_redirects = true,
-    headers = {
-      "User-Agent: Mozilla/5.0 (compatible; NoctaliaReadingList/1.0)",
-      "Accept: text/html,application/xhtml+xml",
-    },
-  }, function(response)
+  local function fail()
     fetching[id] = nil
     local current = findItem(id)
     if current == nil then return end
     current.fetching = false
-    if not response.ok or response.status < 200 or response.status >= 400 then
-      lastError = noctalia.tr("errors.metadata")
-      publish()
-      return
-    end
+    lastError = noctalia.tr("errors.metadata")
+    publish()
+  end
 
-    local html = response.body or ""
-    local title = pageTitle(html)
-    local source = metaContent(html, "og:site_name")
-    local author = metaContent(html, "author")
-    local description = metaContent(html, "og:description")
-    if description == "" then description = metaContent(html, "description") end
-    if trim(current.title) == "" and title ~= "" then current.title = title end
+  local function apply(metadata)
+    fetching[id] = nil
+    local current = findItem(id)
+    if current == nil then return end
+    current.fetching = false
+    if trim(current.title) == "" and trim(metadata.title) ~= "" then current.title = trim(metadata.title) end
     if trim(current.source) == "" or trim(current.source) == domainFromUrl(current.url) then
-      current.source = source ~= "" and source or domainFromUrl(current.url)
+      current.source = trim(metadata.source) ~= "" and trim(metadata.source) or domainFromUrl(current.url)
     end
-    if trim(current.author) == "" and author ~= "" then current.author = author end
-    if trim(current.description) == "" and description ~= "" then current.description = description end
+    if trim(current.author) == "" and trim(metadata.author) ~= "" then current.author = trim(metadata.author) end
+    if trim(current.description) == "" and trim(metadata.description) ~= "" then
+      current.description = trim(metadata.description)
+    end
 
     local pending = 0
     local function done()
       pending -= 1
       if pending <= 0 then saveItem(current); publish() end
     end
-
-    local iconUrl = faviconUrl(html, current.url)
-    if iconUrl ~= "" then
+    if trim(metadata.iconUrl) ~= "" then
       pending += 1
-      downloadAsset(id, "favicon", iconUrl, function(path)
+      downloadAsset(id, "favicon", metadata.iconUrl, function(path)
         if path ~= "" then current.icon = path end
         done()
       end)
     end
-
-    local coverUrl = resolveUrl(current.url, metaContent(html, "og:image"))
     if noctalia.getConfig("download_previews") ~= false
-        and trim(current.image) == "" and coverUrl ~= "" then
+        and trim(current.image) == "" and trim(metadata.imageUrl) ~= "" then
       pending += 1
-      downloadAsset(id, "cover", coverUrl, function(path)
+      downloadAsset(id, "cover", metadata.imageUrl, function(path)
         if path ~= "" then current.image = path end
         done()
       end)
     end
-
     if pending == 0 then saveItem(current); publish() end
-  end)
-
-  if not started then
-    fetching[id] = nil
-    item.fetching = false
-    lastError = noctalia.tr("errors.metadata")
-    publish()
   end
+
+  local function fetchPage()
+    local started = noctalia.http({
+      url = item.url,
+      method = "GET",
+      follow_redirects = true,
+      headers = {
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml",
+      },
+    }, function(response)
+      local success = type(response) == "table" and response.ok == true
+        and type(response.status) == "number" and response.status >= 200 and response.status < 400
+      if not success then
+        fail()
+        return
+      end
+      apply(pageMetadata(response.body, item.url))
+    end)
+    if not started then fail() end
+  end
+
+  local providerUrl = providerMetadataUrl(item.url)
+  if providerUrl == "" then fetchPage(); return end
+  local started = noctalia.http({
+    url = providerUrl,
+    method = "GET",
+    follow_redirects = true,
+    headers = { "Accept: application/json" },
+  }, function(response)
+    local success = type(response) == "table" and response.ok == true
+      and type(response.status) == "number" and response.status >= 200 and response.status < 400
+    local ok, data = pcall(noctalia.json.decode, success and response.body or "")
+    if ok and type(data) == "table" and trim(data.title) ~= "" then
+      local scheme, host = item.url:match("^(https?)://([^/%?#]+)")
+      apply({
+        title = data.title,
+        source = data.provider_name or domainFromUrl(item.url),
+        author = data.author_name or "",
+        description = data.description or "",
+        imageUrl = data.thumbnail_url or "",
+        iconUrl = scheme ~= nil and (scheme .. "://" .. host .. "/favicon.ico") or "",
+      })
+    else
+      fetchPage()
+    end
+  end)
+  if not started then fetchPage() end
 end
 
 local function parseTopics(value)
@@ -1119,9 +1281,7 @@ local function initialize()
   assetsDir = rootDir .. "/.assets"
   exportsDir = rootDir .. "/Exports"
   collectionsPath = rootDir .. "/Collections.md"
-  local ok, err = noctalia.mkdirAll(itemsDir)
-  if ok then ok, err = noctalia.mkdirAll(assetsDir) end
-  if ok then ok, err = noctalia.mkdirAll(exportsDir) end
+  local ok, err = ensureLibraryDirectories()
   if not ok then lastError = err or noctalia.tr("errors.create-folder") end
   loadItems()
   loadCollections()

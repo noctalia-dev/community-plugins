@@ -10,7 +10,7 @@
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.4"
+version = "0.9.7"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
@@ -25,6 +25,11 @@ type = "int"
 label_key = "settings.offset_ms.label"
 description_key = "settings.offset_ms.description"
 default = 0
+# Without min/max the host falls back to its default slider range (0..100), so
+# the control could not express a shift larger than a tenth of a second and
+# negative values were unreachable. Expose the full useful range.
+min = -2000
+max = 2000
 
 [[setting]]
 key = "panel_size"
@@ -193,10 +198,6 @@ entry = "service.luau"
 # Three size presets share one entry; panel_size selects which one the widget
 # and the control-center tile open. Medium (520) is the default and keeps the
 # historical `panel` id for IPC compatibility.
-# NOTE: the canonical repo also declares layer = "overlay" on every panel
-# (lyrics above fullscreen video); this store copy omits the field until the
-# validator learns it — use the host-injected per-entry Layer dropdown
-# (Settings -> Plugins, Noctalia 5.0.1+) to pick "overlay" instead.
 [[panel]]
 id = "panel"
 entry = "panel.luau"
@@ -223,9 +224,21 @@ height = 640
 keyboard_focus = "exclusive"
 capture_keys = ["Up", "Down", "Return", "Space"]
 
-# Compact mini panel: cover + current lyric line only, pinnable to the desktop
+# Compact mini panel: cover + current lyric line only, PINNED to the desktop
 # (placement = "floating", position = "center"). A lightweight always-on
 # karaoke line without the full transport/header chrome.
+#
+# `persistent = true` (plugin_api 11) is what makes the pinning real: a normal
+# panel is dismissed when any other panel opens (the shell keeps one open at a
+# time), so without this flag the mini chip vanished the moment the user opened
+# the control center or any other panel. A persistent panel lives outside that
+# slot and stays until an explicit toggle / panel.close() /
+# `noctalia ipc panel-close <id>`. Verified live: with the flag the chip
+# survives opening and closing another panel (log: `[persistent-panel] opened`).
+#
+# Persistent panels are always floating and cannot take exclusive keyboard
+# focus - panel-mini already declares keyboard_focus = "none" and
+# dismiss_on_outside_click = false, which is exactly what they require.
 [[panel]]
 id = "panel-mini"
 entry = "panel-mini.luau"
@@ -235,6 +248,7 @@ placement = "floating"
 position = "center"
 keyboard_focus = "none"
 dismiss_on_outside_click = false
+persistent = true
 
 # Control-center tile: quick panel open.
 [[shortcut]]

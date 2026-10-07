@@ -33,9 +33,12 @@
     "need_sounds": "The folder must contain an audio file (.ogg, .mp3 or .wav).",
     "path_label": "Sound",
     "play_tooltip": "Play this contact's sound",
+    "random_sound": "Random sound from folder",
+    "reorder_tooltip": "Drag to reorder the list",
     "save_button": "Save",
     "saved": "Contact list updated",
     "settings_tooltip": "Open plugin settings",
+    "stop_tooltip": "Stop the sound that is currently playing",
     "title": "Contact Sounds"
   },
   "settings": {
@@ -46,6 +49,10 @@
     "contact_kinds": {
       "description": "Entry type. 'contact' / 'group' match notification text, 'app' matches the notification app name only.",
       "label": "Types (Contact / Group / App)"
+    },
+    "contact_order": {
+      "description": "Order contacts appear in the panel list. Change it by dragging entries in the panel.",
+      "label": "List order"
     },
     "contacts": {
       "description": "Map of person names to the sound played when a notification mentions them. Key: the exact name. Value: absolute path to a .ogg or .mp3 file.",
@@ -66,6 +73,10 @@
     "only_apps": {
       "description": "Optional list of notification app names to restrict matching to. Leave empty to match notifications from any app.",
       "label": "Only these apps"
+    },
+    "show_sound_name": {
+      "description": "When off, the sound name capsule below each contact name is hidden.",
+      "label": "Show sound name"
     },
     "show_widget": {
       "description": "When off, the bell icon is hidden from the bar.",

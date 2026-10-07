@@ -15,10 +15,6 @@ def std_exceptions(etype, value, tb):
     save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
     if os.path.exists(f"{save_path}/noctalia_tordex_procs.json"):
         os.remove(f"{save_path}/noctalia_tordex_procs.json")
-    if os.path.exists(f"{save_path}/noctalia_tordex_procs_cpu_usage.png"):
-        os.remove(f"{save_path}/noctalia_tordex_procs_cpu_usage.png")
-    if os.path.exists(f"{save_path}/noctalia_tordex_procs_mem_usage.png"):
-        os.remove(f"{save_path}/noctalia_tordex_procs_mem_usage.png")
 
     if issubclass(etype, KeyboardInterrupt) or issubclass(etype, IOError) and value.errno == errno.EPIPE:
         print("tordex/procs:done:" + json.dumps({"status": "ok", "message": "Interrupted by user"}))
@@ -37,8 +33,10 @@ import time
 import subprocess
 import gi
 import psutil
-import draw_graph
 import pwd
+from pathlib import Path
+import draw_graph
+import proc
 
 gi.require_version('Gio', '2.0')
 gi.require_version('GioUnix', '2.0')
@@ -47,9 +45,11 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gio, GioUnix
 from gi.repository import Gtk
 
-PAGESIZE = os.sysconf("SC_PAGE_SIZE") / 1024 #KiB
 self_pid = os.getpid()
+self_uid = os.getuid()
 
+g_default_icon_path = None
+g_default_icon_size = 0
 
 def get_icon_path(icon_name, size=24):
     theme = Gtk.IconTheme.get_default()
@@ -59,6 +59,8 @@ def get_icon_path(icon_name, size=24):
     return None
 
 def icon_path(icon_name, size=24):
+    global g_default_icon_path, g_default_icon_size
+
     path = get_icon_path(icon_name, size)
     if path:
         return path
@@ -77,209 +79,18 @@ def icon_path(icon_name, size=24):
         if path:
             return path
 
+    # Check if we have a cached default icon for the requested size
+    if g_default_icon_path is not None and g_default_icon_size == size:
+        return g_default_icon_path
+
     # Fallback to a default icon if the specific icon is not found
     default_icon_name = "application-x-executable"  # You can change this to any default icon you prefer
-    return get_icon_path(default_icon_name, size)  # Return None if no icon is found
+    g_default_icon_path = get_icon_path(default_icon_name, size)
+    g_default_icon_size = size
+    return g_default_icon_path  # Return None if no icon is found
 
 
-class Proc:
-    def __init__(self):
-        uname = os.uname()
-        if uname[0] == "FreeBSD":
-            self.proc = '/compat/linux/proc'
-        else:
-            self.proc = '/proc'
-
-    def path(self, *args):
-        return os.path.join(self.proc, *(str(a) for a in args))
-
-    def open(self, *args):
-        try:
-            return open(self.path(*args), errors='ignore')
-        except OSError:
-            if type(args[0]) is not int:
-                raise
-            val = sys.exc_info()[1]
-            if (val.errno == errno.ENOENT or # kernel thread or process gone
-                val.errno == errno.EPERM or
-                val.errno == errno.EACCES):
-                raise LookupError
-            raise
-
-    def get_exe(self, pid):
-        path = self.path(pid, 'exe')
-        try:
-            path = os.readlink(path)
-            # Some symlink targets were seen to contain NULs on RHEL 5 at least
-            path = path.split('\0')[0]
-        except OSError:
-            return None
-        return path
-
-    def get_cmdline(self, pid):
-        try:
-            with self.open(pid, 'cmdline') as f:
-                cmdline = f.read().split("\0")
-                while cmdline[-1] == '' and len(cmdline) > 1:
-                    cmdline = cmdline[:-1]
-                return cmdline
-        except LookupError:
-            return []
-
-    def get_name(self, pid):
-        try:
-            with self.open(pid, 'comm') as f:
-                name = f.read().strip()
-                return name
-        except LookupError:
-            return None
-
-    def get_mem_stats(self, pid):
-        have_swap_pss = False
-        have_pss = False
-        private_lines = []
-        shared_lines = []
-        pss_lines = []
-        rss = (int(proc.open(pid, 'statm').readline().split()[1]) * PAGESIZE)
-        swap_lines = []
-        swap_pss_lines = []
-
-        swap = 0
-
-        try:
-            if os.path.exists(proc.path(pid, 'smaps')):  # stat
-                smaps = 'smaps'
-                if os.path.exists(proc.path(pid, 'smaps_rollup')):
-                    smaps = 'smaps_rollup' # faster to process
-                lines = proc.open(pid, smaps).readlines()  # open
-                for line in lines:
-                    if line.startswith("Shared"):
-                        shared_lines.append(line)
-                    elif line.startswith("Private"):
-                        private_lines.append(line)
-                    elif line.startswith("Pss:"):
-                        pss_lines.append(line)
-                        have_pss = True
-                    elif line.startswith("Swap:"):
-                        swap_lines.append(line)
-                    elif line.startswith("SwapPss:"):
-                        have_swap_pss = True
-                        swap_pss_lines.append(line)
-
-                shared = sum([int(line.split()[1]) for line in shared_lines])
-                private = sum([int(line.split()[1]) for line in private_lines])
-                if have_pss:
-                    pss_adjust = 0.5 # add 0.5KiB as this avg error due to truncation
-                    pss = sum([float(line.split()[1])+pss_adjust for line in pss_lines])
-                    shared = pss - private
-                if have_swap_pss:
-                    swap = sum([int(line.split()[1]) for line in swap_pss_lines])
-                else:
-                    swap = sum([int(line.split()[1]) for line in swap_lines])
-            else:
-                shared = int(proc.open(pid, 'statm').readline().split()[2])
-                shared *= PAGESIZE
-                private = rss - shared
-                swap = 0
-
-            return {
-                "private": int(private * 1024),
-                "shared": int(shared * 1024),
-                "swap": int(swap * 1024),
-                "mem": int((private + shared) * 1024)
-            }
-        except (LookupError, ProcessLookupError):
-            shared = int(proc.open(pid, 'statm').readline().split()[2])
-            shared *= PAGESIZE
-            private = rss - shared
-            return {
-                "private": int(private * 1024),
-                "shared": int(shared * 1024),
-                "swap": int(swap * 1024),
-                "mem": int(private * 1024)
-            }
-
-    def get_cpu_ticks(self, pid: int):
-        """Reads the system's total CPU time and the specific process's ticks."""
-        try:
-            # 1. System time (the first line of /proc/stat: user, nice, system, idle, ...)
-            with self.open("stat") as f:
-                fields = f.readline().split()[1:]
-                total_system_ticks = sum(int(x) for x in fields)
-
-            # 2. Process time (the 14th and 15th fields in /proc/<pid>/stat: utime and stime)
-            with self.open(pid, "stat") as f:
-                stat_content = f.read()
-                # The process name field (comm) may contain spaces and parentheses,
-                # so parse everything strictly after the last closing parenthesis ')'
-                post_comm = stat_content[stat_content.rfind(")") + 2 :].split()
-                utime = int(post_comm[11])  # field 14 (index 11)
-                stime = int(post_comm[12])  # field 15 (index 12)
-                proc_ticks = utime + stime
-                return {
-                    "system_ticks": total_system_ticks,
-                    "ticks": proc_ticks
-                }
-        except (LookupError, ProcessLookupError) as e:
-            return {
-                "system_ticks": None,
-                "ticks": None
-            }
-
-    def get_uid(self, pid: int):
-        """Reads the user ID (UID) of the specific process."""
-        try:
-            with self.open(pid, "status") as f:
-                for line in f:
-                    if line.startswith("Uid:"):
-                        return int(line.split()[1])
-            return -1
-        except (LookupError, ProcessLookupError) as e:
-            return -1
-
-    def get_ppid(self, pid: int):
-        """Reads the parent process ID (PPID) of the specific process."""
-        try:
-            with self.open(pid, "stat") as f:
-                stat_content = f.read()
-                # The process name field (comm) may contain spaces and parentheses,
-                # so parse everything strictly after the last closing parenthesis ')'
-                post_comm = stat_content[stat_content.rfind(")") + 2 :].split()
-                return int(post_comm[1])  # field 4 (index 1)
-        except (LookupError, ProcessLookupError) as e:
-            return None
-
-    def get_io_bytes(self, pid: int):
-        """Reads disk read and write bytes from /proc/<pid>/io."""
-        try:
-            read_b, write_b = 0, 0
-            with self.open(pid, "io") as f:
-                for line in f:
-                    if line.startswith("read_bytes:"):
-                        read_b = int(line.split()[1])
-                    elif line.startswith("write_bytes:"):
-                        write_b = int(line.split()[1])
-            return {
-                "read_b": read_b,
-                "write_b": write_b
-            }
-        except (LookupError, ProcessLookupError, PermissionError):
-            return {
-                "read_b": 0,
-                "write_b": 0
-            }
-
-    def get_cpu_times(self):
-        try:
-            with self.open("stat") as f:
-                fields = [int(column) for column in f.readline().strip().split()[1:]]
-            idle_time = fields[3] + fields[4]  # idle + iowait
-            total_time = sum(fields)
-            return idle_time, total_time
-        except LookupError:
-            return None, None
-
-proc = Proc()
+proc = proc.Proc()
 
 proc_disk_io = {}
 proc_ticks = {}
@@ -289,6 +100,9 @@ cpu_total_time = 0
 
 cpu_idle_time, cpu_total_time = proc.get_cpu_times()
 
+g_order_by = "mem"
+g_show_user_processes = True
+g_search_query = ""
 
 def get_distro_info():
     distro_name = None
@@ -335,7 +149,7 @@ g_username = None
 g_uid = None
 
 def get_system_stats():
-    global cpu_idle_time, cpu_total_time, kernel_version, cpu_name, board_name, board_vendor, g_username, g_uid
+    global cpu_idle_time, cpu_total_time, kernel_version, cpu_name, board_name, board_vendor, g_username, g_uid, self_uid
     # CPU Load
     idle_time, total_time = proc.get_cpu_times()
     idle_delta = idle_time - cpu_idle_time
@@ -414,7 +228,7 @@ def get_system_stats():
         board = board_name
 
     if g_username is None:
-        g_uid = os.getuid()
+        g_uid = self_uid
         try:
             g_username = pwd.getpwuid(g_uid).pw_name
         except KeyError:
@@ -435,8 +249,89 @@ def get_system_stats():
     }
 
 
+def sort_processes(processes):
+    global g_order_by
+    if g_order_by.startswith("-"):
+        key = g_order_by[1:]
+        reverse = False
+    else:
+        key = g_order_by
+        reverse = True
+
+    if key in ["name", "username"]:
+        def_val = ""
+    else:
+        def_val = 0
+
+    keys_to_keep = ["pid", "key", "uid", "ppid", "name", "username", "icon", "cpu", "io_read", "io_write", "io", "mem", "swap", "processes", "shared", "private"]
+    out_processes = []
+    for process in processes:
+        out_process = {k: process[k] for k in keys_to_keep if k in process}
+        out_processes.append(out_process)
+
+    return sorted(out_processes, key=lambda p: (
+        p.get(key, def_val) if p.get(key, None) is not None else def_val,
+        p.get("name", None) if p.get("name", None) is not None else ""
+    ), reverse=reverse)
+
+def filter_process(process):
+    global g_search_query, g_show_user_processes, self_uid
+    if g_search_query == "":
+        return True
+    g_search_query_lower = g_search_query.lower()
+
+    if g_show_user_processes and process["uid"] != self_uid:
+        return False
+
+    if not g_show_user_processes and process["uid"] == self_uid:
+        return False
+
+    try:
+        num = int(g_search_query_lower)
+        if process["pid"] != num and process["ppid"] != num:
+            return False
+        return True
+    except ValueError:
+        pass
+
+    search_fields = ["name", "cmdline", "exe", "comm", "username"]
+
+    for field in search_fields:
+        value = process.get(field, "")
+        if field == "cmdline":
+            value = " ".join(value)
+        if g_search_query_lower in str(value).lower():
+            return True
+
+    return False
+
+
+g_next_id = 1
+g_icons = {}
+
+def reset_icons_cache():
+    global g_icons, g_next_id
+    g_icons = {}
+    g_next_id = 1
+
+def get_icons():
+    global g_icons
+    return {v: k for k, v in g_icons.items()}
+
+def get_icon_id(path):
+    global g_icons, g_next_id
+
+    if path in g_icons:
+        return g_icons[path]
+    ret = str(g_next_id)
+    g_icons[path] = ret
+    g_next_id += 1
+    return ret
+
 def fetch_processes(interval: float):
     processes = {}
+    num_user_processes = 0
+    num_system_processes = 0
     for pid in os.listdir(proc.path("")):
         if not pid.isdigit():
             continue
@@ -512,6 +407,11 @@ def fetch_processes(interval: float):
         except KeyError:
             username = "<unknown>"
 
+        if uid == self_uid:
+            num_system_processes += 1
+        else:
+            num_user_processes += 1
+
         proc_data.update({
             "pid": pid,
             "key": str(pid),
@@ -521,15 +421,17 @@ def fetch_processes(interval: float):
             "comm": comm,
             "uid": uid,
             "username": username,
-            "icon": icon_path(name, 24),
+            "icon": get_icon_id(icon_path(name, 24)),
             "cmdline": cmdline,
             "cpu": round(cpu_usage_percent, 1),
             "io_read": int(delta_read_b / interval),
             "io_write": int(delta_write_b / interval),
             "io": int((delta_read_b + delta_write_b) / interval)
         })
-        processes[pid] = proc_data
-    return processes
+        if filter_process(proc_data):
+            processes[pid] = proc_data
+
+    return processes, num_system_processes, num_user_processes
 
 app_name_cache = {}
 
@@ -760,13 +662,13 @@ def fetch_applications(processes: dict):
             ret[app_id] = {
                 "name": app_name,
                 "key": app_id,
-                "icon": app_icon,
+                "icon": get_icon_id(app_icon),
                 "processes": {}
             }
         fill_app_processes(window["pid"], ret[app_id]["processes"], processes)
 
     for _, app_data in ret.items():
-        app_data["processes"] = list(app_data["processes"].values())
+        app_data["processes"] = sort_processes(app_data["processes"].values())
 
     return ret
 
@@ -847,15 +749,15 @@ def update_group_metrics(grouped_processes: dict):
             "io": total_io,
             "swap": total_swap,
             "username": username,
-            "processes": procs,
+            "processes": sort_processes(procs),
         })
     return output_data
 
 
 def group_processes(processes: dict):
+    global self_uid
     user_processes = {}
     system_processes = {}
-    self_uid = os.getuid()
     for _, proc_data in processes.items():
         uid = proc_data["uid"]
         exe = proc_data["exe"]
@@ -870,28 +772,88 @@ def group_processes(processes: dict):
 
     return update_group_metrics(user_processes), update_group_metrics(system_processes)
 
+
 def nofollow_opener(path, flags):
     return os.open(path, flags | os.O_NOFOLLOW)
 
+g_params_file = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm") + "/noctalia_tordex_procs_params"
+g_params_file_timestamp = 0
+
+def read_params():
+    global g_order_by, g_params_file, g_show_user_processes, g_search_query, g_params_file_timestamp
+
+    try:
+        with open(g_params_file, "r") as f:
+            g_order_by = f.readline().strip()
+            g_show_user_processes = f.readline().strip() == "user"
+            g_search_query = f.readline().strip()
+        g_params_file_timestamp = os.path.getmtime(g_params_file)
+    except FileNotFoundError:
+        g_order_by = "mem"
+        g_show_user_processes = True
+        g_search_query = ""
+
+
+def wait_for_order_by_file_change(timeout: float = 10.0, poll_interval: float = 0.2) -> bool:
+    path = Path(g_params_file)
+    start_time = time.monotonic()
+
+    while time.monotonic() - start_time < timeout:
+        time.sleep(poll_interval)
+        if not path.exists():
+            continue
+        if g_params_file_timestamp == 0:
+            continue
+        try:
+            current_mtime = path.stat().st_mtime
+            if current_mtime != g_params_file_timestamp:
+                return True
+        except FileNotFoundError:
+            continue
+
+    return False
+
+
 def main():
+    global g_params_file, g_order_by, g_show_user_processes, g_search_query
+
     interval = (int)(sys.argv[1]) if len(sys.argv) > 1 else 1
     skin = sys.argv[2] if len(sys.argv) > 2 else "dark"
 
     save_path = os.environ.get("XDG_RUNTIME_DIR", "/dev/shm")
 
     while True:
-        processes = fetch_processes(interval)
-        apps = fetch_applications(processes)
-        update_apps_metrics(apps)
-        user_processes, system_processes = group_processes(processes)
+        read_params()
+        reset_icons_cache()
+        processes, num_system_processes, num_user_processes = fetch_processes(interval)
+        if g_search_query != "" or not g_show_user_processes:
+            apps = {}
+        else:
+            apps = fetch_applications(processes)
+            update_apps_metrics(apps)
+
+        if g_search_query != "":
+            user_processes, system_processes = [], []
+        else:
+            user_processes, system_processes = group_processes(processes)
+
         output_data = {
-            "processes": list(processes.values()),
-            "applications": list(apps.values()),
-            "user_processes": user_processes,
-            "system_processes": system_processes,
+            "processes": [] if g_search_query == "" else sort_processes(processes.values()),
+            "applications": sort_processes(apps.values()),
+            "user_processes": [] if not g_show_user_processes else sort_processes(user_processes),
+            "system_processes": [] if g_show_user_processes else sort_processes(system_processes),
+            "total_processes": num_system_processes + num_user_processes,
+            "num_system_processes": num_system_processes,
+            "num_user_processes": num_user_processes,
+            "icons": get_icons(),
         }
         output_data["system_stats"] = get_system_stats()
         output_data["distro_info"] = get_distro_info()
+
+        user_processes = None
+        system_processes = None
+        apps = None
+        processes = None
 
         cpu_graph_path = f"{save_path}/noctalia_tordex_procs_cpu_usage.png"
         mem_graph_path = f"{save_path}/noctalia_tordex_procs_mem_usage.png"
@@ -928,13 +890,13 @@ def main():
         filename = f"{save_path}/noctalia_tordex_procs.json"
         try:
             with open(filename, "w", opener=nofollow_opener) as f:
-                json.dump(output_data, f, sort_keys=True)
+                json.dump(output_data, f)
             print(f"tordex/procs:ready:{filename}", flush=True)
         except FileNotFoundError as e:
             print(f"tordex/procs:error:" + json.dumps({"message": f"Failed to write JSON file: {e}"}), flush=True)
 
-        processes = []
-        time.sleep(interval)
+        output_data = None
+        wait_for_order_by_file_change(timeout=interval)
 
 if __name__ == '__main__':
     print(f"tordex/procs:pid:{self_pid}")

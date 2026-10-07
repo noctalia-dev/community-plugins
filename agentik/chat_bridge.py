@@ -17,6 +17,13 @@ import subprocess
 import sys
 import time
 import uuid
+import mimetypes
+import stat
+import tempfile
+import threading
+
+from acp_client import run_turn
+from contextlib import closing
 from pathlib import Path
 
 MAX_MESSAGE_CHARS = 4_000
@@ -25,9 +32,93 @@ MAX_TARGETS = 200
 MAX_MODEL_CHARS = 256
 CATALOG_TTL_SECONDS = 300
 STREAM_WRITE_INTERVAL_SECONDS = 0.1
+USAGE_TTL_SECONDS = 60
 STARTUP_GRACE_SECONDS = 5
 CANCEL_GRACE_SECONDS = 2
+MAX_ATTACHMENTS = 8
+MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024
+MAX_ATTACHMENT_TOTAL = 32 * 1024 * 1024
+
+ACP_HARNESSES = {
+    "omp": ("omp", "OMP_BIN", ["acp"], "Oh My Pi", "Install omp"),
+    "hermes": ("hermes", "HERMES_BIN", ["acp"], "Hermes Agent", "Install Hermes Agent"),
+    "claude": ("claude-agent-acp", "CLAUDE_ACP_BIN", [], "Claude Agent", "npm install -g @agentclientprotocol/claude-agent-acp"),
+    "codex": ("codex-acp", "CODEX_ACP_BIN", [], "Codex", "npm install -g @agentclientprotocol/codex-acp"),
+    "gemini": ("gemini", "GEMINI_BIN", ["--experimental-acp"], "Gemini CLI", "npm install -g @google/gemini-cli"),
+    "opencode": ("opencode", "OPENCODE_BIN", ["acp"], "OpenCode", "Install OpenCode"),
+}
+
+def acp_command(harness: str) -> list[str]:
+    details = ACP_HARNESSES.get(harness)
+    if details is None:
+        raise ValueError(f"unsupported harness: {harness}")
+    command = executable(details[0], details[1])
+    if command is None:
+        raise ValueError(f"{details[3]} is not installed: {details[4]}")
+    return [command, *details[2]]
+
+def attachment_metadata(paths: object) -> list[dict]:
+    if not isinstance(paths, list) or len(paths) > MAX_ATTACHMENTS:
+        raise ValueError(f"select at most {MAX_ATTACHMENTS} attachments")
+    attachments = []
+    total = 0
+    for value in paths:
+        if not isinstance(value, str) or "\0" in value or not Path(value).is_absolute():
+            raise ValueError("attachment paths must be absolute local file paths")
+        path = Path(value).resolve(strict=True)
+        if not stat.S_ISREG(path.stat().st_mode):
+            raise ValueError("attachments must be regular files")
+        fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as handle:
+            info = os.fstat(handle.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("attachments must be regular files")
+            if info.st_size > MAX_ATTACHMENT_BYTES:
+                raise ValueError("an attachment exceeds the 16 MiB limit")
+        total += info.st_size
+        if total > MAX_ATTACHMENT_TOTAL:
+            raise ValueError("attachments exceed the 32 MiB total limit")
+        if any(item["path"] == str(path) for item in attachments):
+            continue
+        attachments.append({"path": str(path), "name": path.name,
+                            "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                            "size": info.st_size})
+    return attachments
+
+def pick_attachments() -> dict:
+    if shutil.which("zenity"):
+        command = ["zenity", "--file-selection", "--multiple", "--separator=\n", "--title=Attach context"]
+    elif shutil.which("kdialog"):
+        command = ["kdialog", "--getopenfilename", str(Path.home()), "--multiple", "--separate-output"]
+    else:
+        return {"ok": False, "error": "Install zenity or kdialog to select attachments", "attachments": []}
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+        if result.returncode == 1:
+            return {"ok": True, "attachments": []}
+        if result.returncode != 0:
+            raise ValueError(result.stderr.strip() or "file picker failed")
+        return {"ok": True, "attachments": attachment_metadata(result.stdout.splitlines())}
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        return {"ok": False, "error": str(error), "attachments": []}
+
+def capture_attachment() -> dict:
+    if not shutil.which("grim"):
+        return {"ok": False, "error": "Install grim to attach a screenshot", "attachments": []}
+    directory = state_root() / "attachments"
+    directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+    fd, path = tempfile.mkstemp(suffix=".png", prefix="screen-", dir=directory)
+    os.close(fd)
+    try:
+        result = subprocess.run(["grim", path], capture_output=True, text=True, timeout=20)
+        if result.returncode:
+            raise ValueError(result.stderr.strip() or "screenshot capture failed")
+        return {"ok": True, "attachments": attachment_metadata([path])}
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        Path(path).unlink(missing_ok=True)
+        return {"ok": False, "error": str(error), "attachments": []}
 ACTIVE_RUN_STATES = frozenset({"starting", "running", "waiting_for_input", "cancelling"})
+WORKER_CANCELLED = threading.Event()
 
 
 def state_root() -> Path:
@@ -105,9 +196,9 @@ def decode_value(value: str) -> str:
     return decoded.strip()
 
 
-def decode_message(value: str) -> str:
+def decode_message(value: str, *, allow_empty: bool = False) -> str:
     message = decode_value(value)
-    if not message:
+    if not message and not allow_empty:
         raise ValueError("message is empty")
     if len(message) > MAX_MESSAGE_CHARS:
         raise ValueError(f"message exceeds {MAX_MESSAGE_CHARS} characters")
@@ -731,11 +822,107 @@ def available_harnesses(*, refresh: bool = False) -> list[dict]:
     hermes = executable("hermes", "HERMES_BIN")
     if hermes:
         harnesses.append(hermes_catalog(hermes))
+    for harness in harnesses:
+        harness.update({"available": True, "auth_status": "Uses local credentials; verified at session start"})
+    for identity, details in ACP_HARNESSES.items():
+        if identity in ("omp", "hermes"):
+            continue
+        available = executable(details[0], details[1]) is not None
+        harnesses.append({
+            "id": identity, "name": details[3], "available": available,
+            "models": ["default"], "default_model": "default",
+            "install_hint": details[4],
+            "auth_status": "Authenticate with the harness CLI before sending" if available else "Not installed",
+            "capabilities": {"new": available, "stream": available, "resume": False,
+                             "fork": False, "terminal": False},
+        })
     try:
         write_state(cache_path, {"created": time.time(), "harnesses": harnesses})
     except OSError:
         pass
     return harnesses
+
+
+def usage_number(value: object) -> float | int | None:
+    return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def usage_payload(raw: dict) -> dict:
+    reports = []
+    source_reports = raw.get("reports")
+    if not isinstance(source_reports, list):
+        source_reports = []
+    for source in source_reports:
+        if not isinstance(source, dict) or not isinstance(source.get("provider"), str):
+            continue
+        metadata = source.get("metadata")
+        metadata = metadata if isinstance(metadata, dict) else {}
+        limits = []
+        source_limits = source.get("limits")
+        if not isinstance(source_limits, list):
+            source_limits = []
+        for limit in source_limits:
+            if not isinstance(limit, dict):
+                continue
+            amount = limit.get("amount")
+            amount = amount if isinstance(amount, dict) else {}
+            window = limit.get("window")
+            window = window if isinstance(window, dict) else {}
+            limits.append({
+                "label": limit.get("label") if isinstance(limit.get("label"), str) else "Usage",
+                "status": limit.get("status") if isinstance(limit.get("status"), str) else "unknown",
+                "remaining": usage_number(amount.get("remaining")),
+                "remaining_fraction": usage_number(amount.get("remainingFraction")),
+                "unit": amount.get("unit") if isinstance(amount.get("unit"), str) else None,
+                "resets_at": usage_number(window.get("resetsAt")),
+            })
+        notes = source.get("notes")
+        reports.append({
+            "provider": source["provider"],
+            "plan": metadata.get("planType") if isinstance(metadata.get("planType"), str) else None,
+            "limits": limits,
+            "notes": [note[:240] for note in notes if isinstance(note, str)][:3]
+            if isinstance(notes, list) else [],
+        })
+    return {"updated_at": int(time.time() * 1000), "reports": reports}
+
+
+def usage_report(*, refresh: bool = False) -> dict:
+    injected = os.environ.get("AGENTIK_USAGE_JSON")
+    if injected:
+        try:
+            value = json.loads(injected)
+        except json.JSONDecodeError:
+            return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Invalid usage data."}
+        return usage_payload(value) if isinstance(value, dict) else {
+            "updated_at": int(time.time() * 1000), "reports": [], "error": "Invalid usage data.",
+        }
+
+    cache_path = state_root() / "usage.json"
+    if not refresh:
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if (
+                isinstance(cached, dict)
+                and time.time() - float(cached.get("created", 0)) < USAGE_TTL_SECONDS
+                and isinstance(cached.get("payload"), dict)
+            ):
+                return cached["payload"]
+        except (FileNotFoundError, json.JSONDecodeError, OSError, TypeError, ValueError):
+            pass
+
+    omp = executable("omp", "OMP_BIN")
+    if omp is None:
+        return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Oh My Pi is not installed."}
+    value = run_json([omp, "usage", "--json"], timeout=45)
+    if value is None:
+        return {"updated_at": int(time.time() * 1000), "reports": [], "error": "Oh My Pi did not return usage data."}
+    payload = usage_payload(value)
+    try:
+        write_state(cache_path, {"created": time.time(), "payload": payload})
+    except OSError:
+        pass
+    return payload
 
 
 def harness_by_id(harness_id: str, harnesses: list[dict]) -> dict | None:
@@ -753,6 +940,15 @@ def stream_feed_payload(stream: dict, since: str | None = None) -> dict:
     events = stream.get("events") if isinstance(stream.get("events"), list) else []
     if since == token:
         return {"revision": token, "unchanged": True}
+    def visible(event: dict) -> dict:
+        kind = event.get("kind")
+        mapped = {"assistant_delta": "assistant", "thought": "thinking",
+                  "tool_result": "tool_output", "plan": "todo"}.get(kind)
+        if mapped is None:
+            return event
+        return {**event, "kind": mapped,
+                "text": event.get("detail", event.get("text", "")) if kind == "tool_result" else event.get("text", "")}
+
     if isinstance(since, str):
         prefix = f"run:{stream.get('run_id', '')}:"
         if since.startswith(prefix):
@@ -762,8 +958,8 @@ def stream_feed_payload(stream: dict, since: str | None = None) -> dict:
                 known = -1
             missing = [event for event in events if int(event.get("sequence", 0)) > known]
             if not missing or int(missing[0].get("sequence", 0)) == known + 1:
-                return {"revision": token, "events": missing}
-    return {"revision": token, "reset": True, "events": events}
+                return {"revision": token, "events": [visible(event) for event in missing]}
+    return {"revision": token, "reset": True, "events": [visible(event) for event in events]}
 
 
 def run_payload(state: dict) -> dict | None:
@@ -779,11 +975,11 @@ def run_payload(state: dict) -> dict | None:
 
 def health_payload(harnesses: list[dict]) -> dict:
     root = state_root()
-    available = [str(item.get("name") or item.get("id")) for item in harnesses]
+    available = [str(item.get("name") or item.get("id")) for item in harnesses if item.get("available") is not False]
     state_writable = root.exists() and os.access(root, os.W_OK)
     issues = []
     if not available:
-        issues.append("Install Oh My Pi or Hermes Agent and ensure its executable is on PATH.")
+        issues.append("Install a supported ACP harness and ensure its executable is on PATH.")
     if not state_writable:
         issues.append(f"State directory is not writable: {root}")
     return {
@@ -801,6 +997,7 @@ def public_result(
     *,
     error: str | None = None,
     include_catalog: bool = True,
+    refresh_usage: bool = False,
     since: str | None = None,
 ) -> dict:
     stream = live_stream(state)
@@ -810,6 +1007,7 @@ def public_result(
         if isinstance(last_error, str) and last_error:
             error = last_error
     harnesses = available_harnesses() if include_catalog else []
+    usage = usage_report(refresh=refresh_usage) if include_catalog else None
 
     def merged(result: dict) -> dict:
         result["run"] = run_payload(state)
@@ -817,6 +1015,13 @@ def public_result(
             result["busy"] = True
             result["messages"] = stream.get("messages") or result.get("messages") or []
             result["feed"] = stream_feed_payload(stream, since)
+        source = stream if stream is not None else selection or {}
+        result["capabilities"] = source.get("capabilities", {"attachments": False, "questions": False, "approvals": False})
+        capabilities_source = source if "capabilities" in source else selection or {}
+        result["capabilities"] = capabilities_source.get("capabilities", result["capabilities"])
+        result["capabilities_negotiated"] = "capabilities" in capabilities_source
+        result["pending_requests"] = source.get("pending_requests", []) if stream is not None else []
+        result["request_history"] = source.get("request_history", [])
         return result
 
     selection = state.get("selection")
@@ -839,6 +1044,7 @@ def public_result(
         "targets": list_targets() if include_catalog else [],
         "harnesses": harnesses,
         "health": health_payload(harnesses) if include_catalog else None,
+        "usage": usage,
     }
     if not isinstance(selection, dict):
         return merged(result)
@@ -855,16 +1061,21 @@ def public_result(
             "messages": selection.get("messages", []),
         })
         return merged(result)
-    if kind == "managed" and harness == "hermes":
+    if kind == "managed":
         result.update({
             "selected": True,
             "messages": selection.get("messages", [])[-MAX_TRANSCRIPT_MESSAGES:],
             "session_id": selection.get("session_id"),
             "cwd": selection.get("cwd"),
-            "title": selection.get("title") or "Hermes Agent session",
+            "title": selection.get("title") or f"{harness} session",
             "harness": harness,
             "model": selection.get("model"),
         })
+        if harness == "omp" and isinstance(selection.get("session_id"), str):
+            path = locate_session(selection["session_id"])
+            result["active"] = path is not None and str(path.resolve()) in active_terminal_session_paths()
+        if selection.get("events"):
+            result["feed"] = stream_feed_payload(selection, since)
         return merged(result)
     if kind != "existing" or not isinstance(selection.get("path"), str):
         return merged(result)
@@ -940,6 +1151,13 @@ def persist_stream(state_path: Path, state: dict, stream: dict) -> bool:
             "messages": (stream.get("messages") or [])[-MAX_TRANSCRIPT_MESSAGES:],
             "events": (stream.get("events") or [])[-MAX_FEED_EVENTS:],
         }
+        submitted = {item.get("request_id") for item in current_stream.get("pending_requests", [])
+                     if item.get("submitted")}
+        for request in sanitized.get("pending_requests", []):
+            if request.get("request_id") in submitted:
+                request["submitted"] = True
+        if isinstance(current.get("selection"), dict) and sanitized.get("session_title"):
+            current["selection"]["title"] = sanitized["session_title"]
         current["stream"] = sanitized
         write_state(state_path, current)
         state.clear()
@@ -1004,6 +1222,8 @@ def begin_stream(state: dict, selection: dict, message: str) -> dict:
         "error": None,
         "sequence": 0,
         "events": [],
+        "pending_requests": [],
+        "request_history": [],
         "messages": [*history[-MAX_TRANSCRIPT_MESSAGES:], {"role": "user", "text": message}],
     }
     append_live_event(stream, "run_started", "Starting agent")
@@ -1027,55 +1247,6 @@ def ensure_stream_assistant(stream: dict) -> None:
         messages.append({"role": "assistant", "text": ""})
 
 
-def update_omp_stream(stream: dict, event: dict, text_open: bool) -> bool:
-    kind = event.get("type")
-    if kind == "message_start":
-        message = event.get("message")
-        if isinstance(message, dict) and message.get("role") == "assistant":
-            append_live_event(stream, "assistant_started", "")
-        return text_open
-    if kind == "message_update":
-        assistant_event = event.get("assistantMessageEvent")
-        if not isinstance(assistant_event, dict):
-            return text_open
-        kind2 = assistant_event.get("type")
-        if kind2 == "text_start":
-            append_stream_message(stream, "assistant", "", open_chunk=True)
-            append_live_event(stream, "assistant_started", "")
-            return True
-        if kind2 == "text_delta":
-            delta = assistant_event.get("delta")
-            if isinstance(delta, str) and delta:
-                ensure_stream_assistant(stream)
-                stream["messages"][-1]["text"] = (stream["messages"][-1].get("text") or "") + delta
-                append_live_event(stream, "assistant_delta", delta)
-            return text_open
-        if kind2 == "text_end":
-            ensure_stream_assistant(stream)
-            content = assistant_event.get("content")
-            if isinstance(content, str):
-                stream["messages"][-1]["text"] = content
-                append_live_event(stream, "assistant", content)
-            return False
-        return text_open
-    if kind == "message_end":
-        pair = text_of_message({"type": "message", "message": event.get("message")})
-        if pair is not None and pair[0] == "assistant":
-            append_stream_message(stream, pair[0], pair[1])
-            append_live_event(stream, "assistant", pair[1])
-        return text_open
-    for normalized in journal_events(event):
-        append_live_event(
-            stream,
-            normalized.get("kind", "event"),
-            normalized.get("text", ""),
-            **{
-                key: value
-                for key, value in normalized.items()
-                if key not in ("id", "sequence", "timestamp", "kind", "text")
-            },
-        )
-    return text_open
 
 
 def finish_stream(
@@ -1105,21 +1276,21 @@ def finish_stream(
             "ended": ended,
             "error": error,
         }
-        if error is None and terminal_state == "completed":
-            current["selection"] = state["selection"]
+        snapshot_managed_selection(current, stream)
         current["stream"] = None
         result = public_result(current, error=error, include_catalog=False)
         write_state(state_path, current)
     return result
 
 
-def parse_session_id(output: str) -> str | None:
-    session_id = None
-    for line in output.splitlines():
-        event = parse_record(line)
-        if event is not None and event.get("type") == "session" and isinstance(event.get("id"), str):
-            session_id = event["id"]
-    return session_id
+def snapshot_managed_selection(state: dict, stream: dict) -> None:
+    selection = state.get("selection")
+    if isinstance(selection, dict) and selection.get("kind") == "managed":
+        for key in ("messages", "events", "sequence", "run_id", "request_history"):
+            if key in stream:
+                selection[key] = stream[key]
+
+
 
 
 def locate_session(session_id: str) -> Path | None:
@@ -1128,47 +1299,6 @@ def locate_session(session_id: str) -> Path | None:
     return max(matches, key=lambda path: path.stat().st_mtime, default=None)
 
 
-def omp_command(selection: dict, message: str) -> list[str]:
-    command = [os.environ.get("OMP_BIN", "omp"), "-p", "--mode", "json", "--hide-thinking"]
-    if selection.get("kind") == "existing":
-        option = "--fork" if selection.get("mode") == "fork" else "--resume"
-        command.extend([option, selection["path"]])
-    else:
-        command.extend(["--cwd", selection["cwd"]])
-        if isinstance(selection.get("model"), str) and selection["model"]:
-            command.extend(["--model", selection["model"]])
-    command.extend(["--max-time", "600", message])
-    return command
-
-
-def hermes_command(selection: dict, message: str) -> list[str]:
-    command = [os.environ.get("HERMES_BIN", "hermes")]
-    if selection.get("kind") == "managed" and selection.get("session_id"):
-        command.extend(["--resume", selection["session_id"]])
-    command.extend(["--oneshot", message])
-    model = selection.get("model")
-    if isinstance(model, str) and "/" in model:
-        provider, model_id = model.split("/", 1)
-        command.extend(["--provider", provider, "--model", model_id])
-    elif isinstance(model, str) and model:
-        command.extend(["--model", model])
-    return command
-
-
-def hermes_session_rows() -> dict[str, dict]:
-    database = hermes_home() / "state.db"
-    try:
-        connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=2)
-        rows = connection.execute(
-            "SELECT id, cwd, model, title, last_activity_at FROM sessions WHERE source = 'cli'"
-        ).fetchall()
-        connection.close()
-    except (OSError, sqlite3.Error):
-        return {}
-    return {
-        row[0]: {"cwd": row[1], "model": row[2], "title": row[3], "modified": row[4] or 0}
-        for row in rows if isinstance(row[0], str)
-    }
 
 
 def process_group_alive(process_group: int) -> bool:
@@ -1220,183 +1350,12 @@ def cancel_stream(state_path: Path, state: dict) -> dict:
         "ended": ended,
         "error": None,
     }
+    snapshot_managed_selection(state, stream)
     state["stream"] = None
     write_state(state_path, state)
     return public_result(state, include_catalog=False)
 
 
-def send_omp(state: dict, selection: dict, message: str, run_id: str) -> dict:
-    if selection["kind"] == "existing":
-        descriptor = session_descriptor(Path(selection.get("path", "")))
-        if descriptor is None:
-            return finish_stream(state_root() / "state.json", state, run_id, error="selected session no longer exists")
-        if selection.get("mode") != "fork":
-            if not descriptor["resumable"]:
-                return finish_stream(
-                    state_root() / "state.json",
-                    state,
-                    run_id,
-                    error="session is no longer resumable; select it again to fork it",
-                )
-            selection["signature"] = descriptor["signature"]
-    state_path = state_root() / "state.json"
-    stream = state.get("stream")
-    if not isinstance(stream, dict) or stream.get("run_id") != run_id:
-        return public_result(state, error="run was superseded", include_catalog=False)
-    out_lines: list[str] = []
-    text_open = False
-    last_write = time.monotonic()
-    process = None
-    try:
-        process = subprocess.Popen(
-            omp_command(selection, message),
-            cwd=selection.get("cwd") or None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env={**os.environ, "NO_COLOR": "1"},
-            start_new_session=False,
-        )
-        assert process.stdout is not None
-        with process.stdout:
-            for line in process.stdout:
-                out_lines.append(line)
-                event = parse_record(line)
-                if event is not None:
-                    text_open = update_omp_stream(stream, event, text_open)
-                last_write = maybe_persist_stream(state_path, state, stream, last_write)
-        returncode = process.wait(timeout=630)
-        if returncode != 0:
-            detail = [line.strip() for line in out_lines if line.strip() and not line.lstrip().startswith("{")]
-            raise RuntimeError(detail[-1] if detail else f"OMP exited with status {returncode}")
-        if selection["kind"] == "new" or selection.get("mode") == "fork":
-            session_id = parse_session_id("".join(out_lines))
-            path = locate_session(session_id) if session_id else None
-            if path is None:
-                raise RuntimeError("OMP session journal was not created")
-            selection = {"kind": "existing", "harness": "omp", "path": str(path), "mode": "resume"}
-            state["selection"] = selection
-        descriptor = session_descriptor(Path(selection["path"]))
-        if descriptor is None:
-            raise RuntimeError("OMP session journal could not be read")
-        selection.update({
-            "signature": descriptor["signature"],
-            "session_id": descriptor["id"],
-            "title": descriptor["title"],
-            "model": descriptor["model"],
-            "active": descriptor["active"],
-        })
-    except subprocess.TimeoutExpired:
-        if process is not None:
-            process.kill()
-            process.wait()
-        return finish_stream(state_path, state, run_id, error="command timed out")
-    except (OSError, RuntimeError) as error:
-        return finish_stream(state_path, state, run_id, error=str(error))
-    return finish_stream(state_path, state, run_id)
-
-
-def send_hermes(state: dict, selection: dict, message: str, run_id: str) -> dict:
-    before = hermes_session_rows() if selection.get("kind") == "new" else {}
-    state_path = state_root() / "state.json"
-    stream = state.get("stream")
-    if not isinstance(stream, dict) or stream.get("run_id") != run_id:
-        return public_result(state, error="run was superseded", include_catalog=False)
-    out_lines: list[str] = []
-    last_write = time.monotonic()
-    process = None
-    try:
-        process = subprocess.Popen(
-            hermes_command(selection, message),
-            cwd=selection.get("cwd") or None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env={**os.environ, "NO_COLOR": "1"},
-            start_new_session=False,
-        )
-        assert process.stdout is not None
-        with process.stdout:
-            for line in process.stdout:
-                out_lines.append(line)
-                line = line.rstrip("\n")
-                if line.strip():
-                    messages = stream.setdefault("messages", [])
-                    if messages and messages[-1].get("role") == "assistant":
-                        messages[-1]["text"] = (messages[-1].get("text") or "") + line + "\n"
-                    else:
-                        messages.append({"role": "assistant", "text": line + "\n"})
-                    append_live_event(stream, "assistant_delta", line + "\n")
-                last_write = maybe_persist_stream(state_path, state, stream, last_write)
-        returncode = process.wait(timeout=630)
-        if returncode != 0:
-            detail = [line.strip() for line in out_lines if line.strip() and not line.lstrip().startswith("{")]
-            raise RuntimeError(detail[-1] if detail else f"Hermes exited with status {returncode}")
-        response = "".join(out_lines).strip()
-        if not response:
-            raise RuntimeError("Hermes returned an empty response")
-        if selection.get("kind") == "new":
-            after = hermes_session_rows()
-            candidates = [
-                (identity, details) for identity, details in after.items()
-                if identity not in before and details.get("cwd") == selection.get("cwd")
-            ]
-            if not candidates:
-                candidates = [(identity, details) for identity, details in after.items() if identity not in before]
-            if not candidates:
-                raise RuntimeError("Hermes session was not created")
-            session_id, details = max(candidates, key=lambda item: item[1].get("modified", 0))
-            selection = {
-                "kind": "managed",
-                "harness": "hermes",
-                "session_id": session_id,
-                "cwd": selection["cwd"],
-                "model": selection.get("model"),
-                "title": details.get("title") or "Hermes Agent session",
-                "messages": [],
-            }
-            state["selection"] = selection
-        messages = selection.setdefault("messages", [])
-        messages.extend([
-            {"role": "user", "text": message},
-            {"role": "assistant", "text": response},
-        ])
-        selection["messages"] = messages[-MAX_TRANSCRIPT_MESSAGES:]
-    except subprocess.TimeoutExpired:
-        if process is not None:
-            process.kill()
-            process.wait()
-        return finish_stream(state_path, state, run_id, error="command timed out")
-    except (OSError, RuntimeError) as error:
-        return finish_stream(state_path, state, run_id, error=str(error))
-    return finish_stream(state_path, state, run_id)
-
-
-class HarnessAdapter:
-    id = ""
-
-    def run(self, state: dict, selection: dict, message: str, run_id: str) -> dict:
-        raise NotImplementedError
-
-
-class OmpHarnessAdapter(HarnessAdapter):
-    id = "omp"
-
-    def run(self, state: dict, selection: dict, message: str, run_id: str) -> dict:
-        return send_omp(state, selection, message, run_id)
-
-
-class HermesHarnessAdapter(HarnessAdapter):
-    id = "hermes"
-
-    def run(self, state: dict, selection: dict, message: str, run_id: str) -> dict:
-        return send_hermes(state, selection, message, run_id)
-
-
-HARNESS_ADAPTERS = {
-    adapter.id: adapter
-    for adapter in (OmpHarnessAdapter(), HermesHarnessAdapter())
-}
 
 
 def process_start_time(pid: int) -> str | None:
@@ -1408,30 +1367,165 @@ def process_start_time(pid: int) -> str | None:
 
 
 def run_selected(state: dict, message: str, run_id: str) -> dict:
+    state_path = state_root() / "state.json"
     selection = state.get("selection")
-    if not isinstance(selection, dict) or selection.get("kind") not in ("new", "existing", "managed"):
-        return finish_stream(state_root() / "state.json", state, run_id, error="select or start a session first")
-    harness = selection.get("harness", "omp")
-    adapter = HARNESS_ADAPTERS.get(harness)
-    if adapter is None:
-        return finish_stream(
-            state_root() / "state.json",
-            state,
-            run_id,
-            error=f"unsupported harness: {harness}",
-        )
-    return adapter.run(state, selection, message, run_id)
+    stream = state.get("stream")
+    if not isinstance(selection, dict) or not isinstance(stream, dict) or stream.get("run_id") != run_id:
+        return finish_stream(state_path, state, run_id, error="select or start a session first")
+    guard = threading.RLock()
+    stopped = threading.Event()
+    last_write = 0.0
+
+    def emit(kind: str, text: str = "", **data) -> None:
+        nonlocal last_write
+        with guard:
+            if stopped.is_set():
+                return
+            if kind == "assistant_delta":
+                ensure_stream_assistant(stream)
+                stream["messages"][-1]["text"] += text
+            elif kind == "assistant_started":
+                append_stream_message(stream, "assistant", "", open_chunk=True)
+            elif kind == "request_responded":
+                request_id = data.get("request_id")
+                pending = stream.get("pending_requests", [])
+                request = next((item for item in pending if item.get("request_id") == request_id), None)
+                if request:
+                    stream["pending_requests"] = [item for item in pending if item is not request]
+                    history = stream.setdefault("request_history", [])
+                    history.append({"request_id": request_id, "kind": request["kind"],
+                                    "status": "responded", "action": data.get("action"), "title": request.get("title")})
+                    stream["request_history"] = history[-24:]
+                    stream["state"] = "waiting_for_input" if stream["pending_requests"] else "running"
+                persist_stream(state_path, state, stream)
+                return
+            elif kind == "session_info":
+                if isinstance(data.get("title"), str) and data["title"].strip():
+                    stream["session_title"] = data["title"].strip()
+                    persist_stream(state_path, state, stream)
+                return
+            append_live_event(stream, kind, text, **data)
+            if kind in ("assistant_delta", "thought"):
+                last_write = maybe_persist_stream(state_path, state, stream, last_write)
+            else:
+                persist_stream(state_path, state, stream)
+
+    def session_ready(session_id: str, capabilities: dict) -> None:
+        nonlocal selection
+        with guard:
+            selection = {**selection, "kind": "managed", "session_id": session_id,
+                         "mode": "resume", "capabilities": capabilities}
+            selection.pop("path", None)
+            state["selection"] = selection
+            stream["capabilities"] = capabilities
+            with state_path.with_name("chat.lock").open("a", encoding="utf-8") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                current = read_state(state_path)
+                if (current.get("stream") or {}).get("run_id") != run_id:
+                    raise RuntimeError("run was superseded")
+                current["selection"] = selection
+                write_state(state_path, current)
+            persist_stream(state_path, state, stream)
+
+    def interaction(kind: str, params: dict) -> dict:
+        request_id = params["request_id"]
+        request = {**params, "kind": kind, "run_id": run_id}
+        response_path = state_root() / "responses" / f"{run_id}_{request_id}.json"
+        with guard:
+            stream.setdefault("pending_requests", []).append(request)
+            stream["state"] = "waiting_for_input"
+            persist_stream(state_path, state, stream)
+        deadline = time.monotonic() + 600
+        while not stopped.is_set() and time.monotonic() < deadline:
+            with guard:
+                current = read_state(state_path)
+                current_stream = current.get("stream") or {}
+                if current_stream.get("run_id") != run_id or current_stream.get("cancel_requested"):
+                    break
+                try:
+                    response = json.loads(response_path.read_text(encoding="utf-8"))
+                except FileNotFoundError:
+                    response = None
+                if isinstance(response, dict):
+                    response_path.unlink(missing_ok=True)
+                    return response
+            stopped.wait(0.1)
+        raise RuntimeError("request expired or the agent run ended")
+
+    try:
+        harness = selection.get("harness", "omp")
+        if harness == "omp":
+            if selection.get("kind") == "existing":
+                descriptor = session_descriptor(Path(selection.get("path", "")))
+                if descriptor is None:
+                    raise ValueError("selected session no longer exists")
+                if selection.get("mode") != "fork" and not descriptor["resumable"]:
+                    raise ValueError("session is no longer resumable; select it again to fork it")
+                selection["session_id"] = descriptor["id"]
+            elif selection.get("session_id"):
+                path = locate_session(selection["session_id"])
+                if path is not None and str(path.resolve()) in active_terminal_session_paths():
+                    raise ValueError("session is owned by a terminal; select it again to fork it")
+        native_selection = dict(selection)
+        if native_selection.get("kind") == "existing":
+            native_selection.pop("model", None)  # Journal display IDs are not ACP model selectors.
+        outcome = run_turn(acp_command(harness), native_selection, message, stream.get("attachments", []),
+                           emit, interaction, session_ready, cancel_check=WORKER_CANCELLED.is_set)
+        if outcome.get("stop_reason") == "cancelled":
+            stream["cancel_requested"] = True
+        persist_stream(state_path, state, stream)
+    except (OSError, ValueError, RuntimeError) as error:
+        return finish_stream(state_path, state, run_id, error=str(error))
+    finally:
+        stopped.set()
+    return finish_stream(state_path, state, run_id)
+
+
+def respond_to_request(state: dict, value_hex: str) -> dict:
+    from acp_client import validate_interaction_response
+    try:
+        value = json.loads(decode_value(value_hex))
+        stream = live_stream(state)
+        if not isinstance(value, dict) or stream is None or value.get("run_id") != stream.get("run_id"):
+            raise ValueError("request is no longer active")
+        request = next((item for item in stream.get("pending_requests", [])
+                        if item.get("request_id") == value.get("request_id")), None)
+        if request is None:
+            raise ValueError("request is no longer active")
+        action = value.get("action")
+        if request["kind"] == "permission":
+            if action != "permission":
+                raise ValueError("choose one of the harness permission options")
+            result = {"outcome": {"outcome": "selected", "optionId": value.get("option_id")}}
+        else:
+            result = {"action": action}
+            if action == "accept":
+                result["content"] = value.get("content")
+        validate_interaction_response(request["kind"], request, result)
+        directory = state_root() / "responses"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        path = directory / f"{stream['run_id']}_{request['request_id']}.json"
+        if path.exists() or request.get("submitted"):
+            raise ValueError("a response has already been submitted")
+        write_state(path, result)
+        request["submitted"] = True
+        write_state(state_root() / "state.json", state)
+        return public_result(state, include_catalog=False)
+    except (ValueError, OSError) as error:
+        return public_result(state, error=str(error), include_catalog=False)
 
 
 def worker_log_path(run_id: str) -> Path:
     return state_root() / "runs" / f"{run_id}.log"
 
 
-def start_send(state_path: Path, state: dict, message: str) -> dict:
+def start_send(state_path: Path, state: dict, message: str, attachments: list[dict] | None = None) -> dict:
     selection = state.get("selection")
     if not isinstance(selection, dict) or selection.get("kind") not in ("new", "existing", "managed"):
         return public_result(state, error="select or start a session first")
     stream = begin_stream(state, selection, message)
+    stream["attachments"] = attachments or []
+    stream["messages"][-1]["attachments"] = attachments or []
     run_id = stream["run_id"]
     write_state(state_path, state)
     log_path = worker_log_path(run_id)
@@ -1480,10 +1574,6 @@ def start_send(state_path: Path, state: dict, message: str) -> dict:
 
 
 def run_worker(run_id: str, message_hex: str) -> int:
-    try:
-        message = decode_message(message_hex)
-    except ValueError:
-        return 2
     state_path = state_root() / "state.json"
     with state_path.with_name("chat.lock").open("a", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -1491,9 +1581,17 @@ def run_worker(run_id: str, message_hex: str) -> int:
         stream = state.get("stream")
         if not isinstance(stream, dict) or stream.get("run_id") != run_id:
             return 0
+        try:
+            message = decode_message(message_hex, allow_empty=bool(stream.get("attachments")))
+        except ValueError:
+            return 2
         stream["state"] = "running"
         stream["updated"] = time.time()
         write_state(state_path, state)
+    def terminate_worker(signum, frame):
+        WORKER_CANCELLED.set()
+
+    signal.signal(signal.SIGTERM, terminate_worker)
     run_selected(state, message, run_id)
     return 0
 
@@ -1534,12 +1632,13 @@ def harness_terminal_command(selection: dict) -> list[str] | None:
             return None
         option = "--fork" if selection.get("mode") == "fork" else "--resume"
         return [executable("omp", "OMP_BIN") or "omp", option, path]
-    if kind == "managed" and harness == "hermes":
+    if kind == "managed" and harness in ("omp", "hermes"):
         session_id = selection.get("session_id")
         if not isinstance(session_id, str) or not session_id:
             return None
-        return [executable("hermes", "HERMES_BIN") or "hermes", "--resume", session_id]
-    if kind == "new":
+        details = ACP_HARNESSES[harness]
+        return [executable(details[0], details[1]) or details[0], "--resume", session_id]
+    if kind == "new" and harness in ("omp", "hermes"):
         if harness == "hermes":
             command = [executable("hermes", "HERMES_BIN") or "hermes"]
         else:
@@ -1591,16 +1690,24 @@ def monitored_session_selection(session_id: str) -> dict:
         raise ValueError("invalid session id")
     if session_id.startswith("hermes:"):
         hermes_id = session_id.removeprefix("hermes:")
-        details = hermes_session_rows().get(hermes_id)
+        database = (hermes_home() / "state.db").resolve()
+        try:
+            with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=2)) as connection:
+                details = connection.execute(
+                    "SELECT cwd, model, title FROM sessions WHERE id = ? AND source = 'cli'",
+                    (hermes_id,),
+                ).fetchone()
+        except (OSError, sqlite3.Error) as error:
+            raise ValueError("Hermes session is no longer available") from error
         if details is None:
             raise ValueError("Hermes session is no longer available")
         return {
             "kind": "managed",
             "harness": "hermes",
             "session_id": hermes_id,
-            "cwd": details.get("cwd"),
-            "model": details.get("model"),
-            "title": details.get("title"),
+            "cwd": details[0],
+            "model": details[1],
+            "title": details[2],
             "messages": [],
         }
     if not all(character.isalnum() or character in "-_." for character in session_id):
@@ -1624,9 +1731,10 @@ def monitored_session_selection(session_id: str) -> dict:
 def decode_new_selection(value_hex: str, harness_hex: str | None, model_hex: str | None) -> dict:
     cwd = str(Path(decode_value(value_hex)).expanduser().resolve())
     harnesses = available_harnesses()
-    harness = decode_value(harness_hex) if harness_hex else (harnesses[0].get("id") if harnesses else "")
+    harness = decode_value(harness_hex) if harness_hex else next(
+        (item.get("id") for item in harnesses if item.get("available") is not False), "")
     details = harness_by_id(harness, harnesses)
-    if details is None:
+    if details is None or details.get("available") is False:
         raise ValueError("selected harness is not available")
     model = decode_value(model_hex) if model_hex else details.get("default_model")
     if not isinstance(model, str) or not model or len(model) > MAX_MODEL_CHARS or "\0" in model:
@@ -1660,6 +1768,7 @@ def recover_orphaned_run(state_path: Path, state: dict) -> bool:
         "ended": ended,
         "error": error,
     }
+    snapshot_managed_selection(state, stream)
     state["stream"] = None
     write_state(state_path, state)
     return True
@@ -1674,6 +1783,17 @@ def dispatch(
     root = state_root()
     root.mkdir(parents=True, mode=0o700, exist_ok=True)
     root.chmod(0o700)
+    if action == "pick-attachments":
+        return pick_attachments()
+    if action == "capture-attachment":
+        return capture_attachment()
+    if action in ("activity", "focus-session"):
+        from session_actions import activity, focus_session
+        try:
+            identity = decode_value(value_hex) if value_hex is not None else ""
+            return (activity if action == "activity" else focus_session)(identity)
+        except (ValueError, OSError) as error:
+            return {"ok": False, "error": str(error)}
     state_path = root / "state.json"
     lock_path = root / "chat.lock"
     with lock_path.open("a", encoding="utf-8") as lock:
@@ -1700,6 +1820,8 @@ def dispatch(
                 pass
             available_harnesses(refresh=True)
             return public_result(state)
+        if action == "refresh-usage":
+            return public_result(state, refresh_usage=True)
         if action == "open":
             return open_in_terminal(state)
         if action == "status":
@@ -1714,6 +1836,8 @@ def dispatch(
             return result
         if value_hex is None:
             return public_result(state, error="missing value")
+        if action == "respond":
+            return respond_to_request(state, value_hex)
         if live_stream(state) is not None:
             return public_result(state, error="a coding session is already running")
         if action == "new":
@@ -1762,10 +1886,12 @@ def dispatch(
             return result
         if action == "send":
             try:
-                message = decode_message(value_hex)
-            except ValueError as error:
+                paths = json.loads(decode_value(harness_hex)) if harness_hex else []
+                attachments = attachment_metadata(paths)
+                message = decode_message(value_hex, allow_empty=bool(attachments))
+            except (ValueError, OSError) as error:
                 return public_result(state, error=str(error))
-            return start_send(state_path, state, message)
+            return start_send(state_path, state, message, attachments)
         return public_result(state, error=f"unknown action: {action}")
 
 
@@ -1774,8 +1900,9 @@ def main() -> int:
     parser.add_argument(
         "action",
         choices=(
-            "load", "send", "reset", "refresh", "new", "select", "select-id",
+            "load", "send", "reset", "refresh", "refresh-usage", "new", "select", "select-id",
             "open", "status", "cancel", "_worker",
+            "respond", "activity", "focus-session", "pick-attachments", "capture-attachment",
         ),
     )
     parser.add_argument("values", nargs="*")

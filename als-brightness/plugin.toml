@@ -1,0 +1,436 @@
+id = "zhangdm/als-brightness"
+name = "ALS Brightness"
+version = "0.5.0"
+# Cumulative API levels. 23 = async-file-read, 24 = direct-argv. Both are used:
+# the service reads sysfs (sync readFile, measured at 0.03 ms, so the async path
+# is not needed here) and launches `noctalia msg` with an argv table rather than
+# a shell string, which is API 24.
+plugin_api = 24
+author = "zhangdm"
+license = "MIT"
+icon = "sun"
+description = "Adapts panel brightness and keyboard backlight to ambient light, and hands control back the moment you touch the keys."
+dependencies = ["noctalia"]
+tags = ["hardware", "system"]
+
+# Settings render in declaration order, so this first block is the head of the
+# page. The threshold sliders follow, then the advanced map editors.
+
+[[setting]]
+key = "learning_profile"
+type = "bool"
+label_key = "settings.learning_profile.label"
+description_key = "settings.learning_profile.description"
+default = false
+
+# Keyboard backlight: opt-in master toggle. Off by default -- the keyboard
+# backlight stays the owner's until they ask for this, and manual (Fn key)
+# changes are adopted rather than fought.
+
+[[setting]]
+key = "keyboard_backlight"
+type = "bool"
+label_key = "settings.keyboard_backlight.label"
+description_key = "settings.keyboard_backlight.description"
+default = false
+
+# Keyboard threshold and dark level. Gated on the toggle above (the host's
+# conditional visibility, same as the temperature sliders on colortemp): the
+# rows would otherwise read as live controls over a dead feature.
+#
+# Every window is a percent of something the owner already has a feel for -- the
+# panel curve, the threshold itself, the LED's max -- never a raw sensor count,
+# which would not translate between machines. Defaults and windows are
+# keyboard.luau DEFAULTS / WINDOWS, checked against these literals by the
+# settings-surface drift check. The dark level's zero means automatic: the
+# lowest non-off level the LED can hold.
+
+[[setting]]
+key = "kbd_anchor_percent"
+type = "int"
+label_key = "settings.kbd_anchor_percent.label"
+description_key = "settings.kbd_anchor_percent.description"
+default = 40
+min = 25
+max = 75
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
+
+[[setting]]
+key = "kbd_buffer_percent"
+type = "int"
+label_key = "settings.kbd_buffer_percent.label"
+description_key = "settings.kbd_buffer_percent.description"
+default = 15
+min = 0
+max = 50
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
+
+[[setting]]
+key = "kbd_dark_percent"
+type = "int"
+label_key = "settings.kbd_dark_percent.label"
+description_key = "settings.kbd_dark_percent.description"
+default = 0
+min = 0
+max = 100
+step = 1
+visible_when = { key = "keyboard_backlight", values = ["true"] }
+
+# The curves: per-node threshold sliders (Phase 6).
+#
+# Each slider moves ONE node along the ambient axis. The output the node puts out
+# is a fixed constant -- curve.luau FIXED_BRIGHTNESS_Y / FIXED_TEMPERATURE_Y, echoed
+# in each label -- so the shape of the curve is never in question and the slider
+# only answers "where does this step apply?". Moving a slider past its neighbour is
+# fine: curve.buildNodes sorts the nodes and repairs them to strictly increasing,
+# so crossing thresholds can never break the interpolation.
+#
+# This shape replaced the Phase 3 `string_map` node editor, which proved unusable
+# on the host: each row commits to its own sub-path while the host resolves
+# "overridden" on the map as a whole, so the FIRST edit masks every other row and
+# only the edited value stays live. That is host override semantics, not something
+# a plugin can patch. A scalar setting commits to its own path, so no row here can
+# mask a sibling -- which is exactly why these are 20 plain `int` settings.
+#
+# The defaults below reproduce the shipped nodes exactly (run-tests.sh asserts the
+# sliders rebuild the old maps), so behaviour is unchanged until a slider is moved.
+# Values between nodes are joined with PCHIP (curve.luau), which cannot overshoot
+# the two nodes it sits between.
+
+# Brightness: one slider per node. default = the shipped node's ambient reading
+# (raw sensor counts), min/max ≈ a third / triple of it (the top node is capped at
+# the sensor's 16384-count ceiling). The fixed output at each node lives in
+# curve.luau and is repeated in the label.
+
+[[setting]]
+key = "thr_brightness_01"
+type = "int"
+label_key = "settings.thr_brightness_01.label"
+description_key = "settings.thr_brightness_01.description"
+default = 1
+min = 0
+max = 3
+step = 1
+
+[[setting]]
+key = "thr_brightness_02"
+type = "int"
+label_key = "settings.thr_brightness_02.label"
+description_key = "settings.thr_brightness_02.description"
+default = 4
+min = 1
+max = 12
+step = 1
+
+[[setting]]
+key = "thr_brightness_03"
+type = "int"
+label_key = "settings.thr_brightness_03.label"
+description_key = "settings.thr_brightness_03.description"
+default = 10
+min = 3
+max = 30
+step = 1
+
+[[setting]]
+key = "thr_brightness_04"
+type = "int"
+label_key = "settings.thr_brightness_04.label"
+description_key = "settings.thr_brightness_04.description"
+default = 30
+min = 10
+max = 90
+step = 1
+
+[[setting]]
+key = "thr_brightness_05"
+type = "int"
+label_key = "settings.thr_brightness_05.label"
+description_key = "settings.thr_brightness_05.description"
+default = 100
+min = 33
+max = 300
+step = 1
+
+[[setting]]
+key = "thr_brightness_06"
+type = "int"
+label_key = "settings.thr_brightness_06.label"
+description_key = "settings.thr_brightness_06.description"
+default = 185
+min = 61
+max = 555
+step = 1
+
+[[setting]]
+key = "thr_brightness_07"
+type = "int"
+label_key = "settings.thr_brightness_07.label"
+description_key = "settings.thr_brightness_07.description"
+default = 400
+min = 133
+max = 1200
+step = 1
+
+[[setting]]
+key = "thr_brightness_08"
+type = "int"
+label_key = "settings.thr_brightness_08.label"
+description_key = "settings.thr_brightness_08.description"
+default = 1000
+min = 333
+max = 3000
+step = 1
+
+[[setting]]
+key = "thr_brightness_09"
+type = "int"
+label_key = "settings.thr_brightness_09.label"
+description_key = "settings.thr_brightness_09.description"
+default = 2200
+min = 733
+max = 6600
+step = 1
+
+[[setting]]
+key = "thr_brightness_10"
+type = "int"
+label_key = "settings.thr_brightness_10.label"
+description_key = "settings.thr_brightness_10.description"
+default = 16384
+min = 5461
+max = 16384
+step = 1
+
+# Temperature: one slider per node, default = the shipped node's ambient kelvin,
+# min/max = default ±500 K (floored at 1500 K). Gated on the adaptive colour
+# temperature toggle below via the host's own conditional visibility.
+
+[[setting]]
+key = "thr_temperature_01"
+type = "int"
+label_key = "settings.thr_temperature_01.label"
+description_key = "settings.thr_temperature_01.description"
+default = 2500
+min = 2000
+max = 3000
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_02"
+type = "int"
+label_key = "settings.thr_temperature_02.label"
+description_key = "settings.thr_temperature_02.description"
+default = 2700
+min = 2200
+max = 3200
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_03"
+type = "int"
+label_key = "settings.thr_temperature_03.label"
+description_key = "settings.thr_temperature_03.description"
+default = 3000
+min = 2500
+max = 3500
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_04"
+type = "int"
+label_key = "settings.thr_temperature_04.label"
+description_key = "settings.thr_temperature_04.description"
+default = 3500
+min = 3000
+max = 4000
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_05"
+type = "int"
+label_key = "settings.thr_temperature_05.label"
+description_key = "settings.thr_temperature_05.description"
+default = 4000
+min = 3500
+max = 4500
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_06"
+type = "int"
+label_key = "settings.thr_temperature_06.label"
+description_key = "settings.thr_temperature_06.description"
+default = 4500
+min = 4000
+max = 5000
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_07"
+type = "int"
+label_key = "settings.thr_temperature_07.label"
+description_key = "settings.thr_temperature_07.description"
+default = 5000
+min = 4500
+max = 5500
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_08"
+type = "int"
+label_key = "settings.thr_temperature_08.label"
+description_key = "settings.thr_temperature_08.description"
+default = 5500
+min = 5000
+max = 6000
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_09"
+type = "int"
+label_key = "settings.thr_temperature_09.label"
+description_key = "settings.thr_temperature_09.description"
+default = 6000
+min = 5500
+max = 6500
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+[[setting]]
+key = "thr_temperature_10"
+type = "int"
+label_key = "settings.thr_temperature_10.label"
+description_key = "settings.thr_temperature_10.description"
+default = 6500
+min = 6000
+max = 7000
+step = 50
+visible_when = { key = "colortemp", values = ["true"] }
+
+# Toggle controlling the map editors below. Plugin-owned, so the switch lives in
+# the sheet itself rather than behind the settings window's global Advanced
+# filter, which does not rebuild an open plugin sheet.
+[[setting]]
+key = "show_advanced"
+type = "bool"
+label_key = "settings.show_advanced.label"
+description_key = "settings.show_advanced.description"
+default = false
+
+# The map editors, revealed by the "Advanced maps" toggle (Phase 6).
+#
+# These are the full-curve escape hatch: editing ANY row away from its shipped
+# default makes the map override ALL the sliders above (the service logs which
+# source built the curve). At their shipped defaults they are inert and the
+# sliders are authoritative. Keep them here rather than deleting them -- they are
+# the only way to reshape a curve radically (change a node count or an output).
+#
+# A node is "reading:target". The reading is the raw sensor count for brightness
+# and the ambient kelvin for temperature. Two spellings both work, so the map can
+# be edited without having to keep the key in step:
+#
+#   "00185" = "185:70"   the value carries the whole node
+#   "00185" = "70"       the value is just the target; the key supplies the reading
+#
+# The value always wins; the keys stay zero-padded so rows sort in numeric order.
+# A '#' starts a comment and blank rows are ignored.
+
+[[setting]]
+key = "curve_brightness"
+type = "string_map"
+label_key = "settings.curve_brightness.label"
+description_key = "settings.curve_brightness.description"
+visible_when = { key = "show_advanced", values = ["true"] }
+
+[setting.default]
+"00001" = "1:20.8"
+"00004" = "4:30.7"
+"00010" = "10:39.3"
+"00030" = "30:50.6"
+"00100" = "100:63.4"
+"00185" = "185:70"
+"00400" = "400:78.3"
+"01000" = "1000:88.3"
+"02200" = "2200:96.8"
+"16384" = "16384:100"
+
+[[setting]]
+key = "curve_temperature"
+type = "string_map"
+label_key = "settings.curve_temperature.label"
+description_key = "settings.curve_temperature.description"
+visible_when = { key = "show_advanced", values = ["true"] }
+
+[setting.default]
+"02500" = "2500:5100"
+"02700" = "2700:5240"
+"03000" = "3000:5380"
+"03500" = "3500:5520"
+"04000" = "4000:5660"
+"04500" = "4500:5800"
+"05000" = "5000:5940"
+"05500" = "5500:6080"
+"06000" = "6000:6220"
+"06500" = "6500:6500"
+
+[[setting]]
+key = "enabled"
+type = "bool"
+label_key = "settings.enabled.label"
+description_key = "settings.enabled.description"
+default = true
+
+# Output to drive: empty = the first output Noctalia reports at start (focused
+# preferred), explicit = that output, validated at start. Discovery runs once, so
+# a change here takes effect on the next plugin restart.
+[[setting]]
+key = "connector"
+type = "string"
+label_key = "settings.connector.label"
+description_key = "settings.connector.description"
+default = ""
+
+# Backlight device: empty = first under /sys/class/backlight (sorted), explicit =
+# validated at start against the directory.
+[[setting]]
+key = "backlight"
+type = "string"
+label_key = "settings.backlight.label"
+description_key = "settings.backlight.description"
+default = ""
+
+[[setting]]
+key = "min_percent"
+type = "string"
+label_key = "settings.min_percent.label"
+description_key = "settings.min_percent.description"
+default = "15"
+
+[[setting]]
+key = "max_percent"
+type = "string"
+label_key = "settings.max_percent.label"
+description_key = "settings.max_percent.description"
+default = "100"
+
+[[setting]]
+key = "colortemp"
+type = "bool"
+label_key = "settings.colortemp.label"
+description_key = "settings.colortemp.description"
+default = false
+
+[[service]]
+id = "als"
+entry = "service.luau"

@@ -20,8 +20,8 @@ local editingId = nil
 local editingContent = nil
 local pendingDeleteId = nil
 local editKey = 0
--- -1 so the first state-watch fire (initial load) does not trigger auto-open.
-local prevNoteCount = -1
+local pendingNewNote = false
+local panelOpen = false
 
 -- -------------------------------------------------------------------------
 local function noteStyle(id)
@@ -546,6 +546,7 @@ local function editView(note)
           value         = content,
           placeholder   = noctalia.tr("panel.placeholder"),
           multiline     = true,
+          focus         = true,
           flexGrow      = 1,
           fontSize      = fontSize,
           -- On a multiline input Qt fires the submit signal for Ctrl+Enter;
@@ -677,26 +678,45 @@ end
 -- -------------------------------------------------------------------------
 -- State watches
 -- -------------------------------------------------------------------------
+local function applyAutoBlur()
+  if noctalia.getConfig("auto_blur") == true and not blurred then
+    -- Multiple shortcuts can arrive before the service publishes its reply.
+    sendCmd({ op = "set_blur", value = true })
+  end
+end
+
+local function captureNewNote()
+  if not pendingNewNote or not notesReady then return end
+  pendingNewNote = false
+  -- Wait for loading before applying privacy settings or mutating storage.
+  applyAutoBlur()
+  sendCmd({ op = "add" })
+end
+
 wallpaperPalette.setOnChanged(function() render() end)
 
 noctalia.state.watch("sticky_notes.notes", function(value)
-  local newNotes = type(value) == "table" and value or {}
-  -- Jump to a newly added note (not on initial load). Storage no longer
-  -- appends new notes at the tail (addNote inserts at the top of the
-  -- unpinned group), so find the one whose id wasn't in the old list.
-  if prevNoteCount >= 0 and #newNotes > prevNoteCount then
-    local prevIds = {}
-    for _, n in ipairs(notes) do prevIds[n.id] = true end
-    for _, n in ipairs(newNotes) do
-      if not prevIds[n.id] then
-        editingId = n.id; editingContent = n.content or ""
-        pendingDeleteId = nil; editKey += 1
-        break
-      end
+  notes = type(value) == "table" and value or {}
+  render()
+end)
+
+noctalia.state.watch("sticky_notes.edit_note", function(request)
+  if type(request) ~= "table" or type(request.id) ~= "string" then return end
+  noctalia.state.set("sticky_notes.edit_note", nil)
+  local note = findNote(request.id)
+  if note == nil then return end
+  if not panelOpen then
+    -- Creation can finish after the user closes the panel. Clean up only an
+    -- empty note created by this request; a reused note belongs to the user.
+    if request.created == true and noctalia.string.trim(note.content or "") == "" then
+      sendCmd({ op = "remove", id = note.id })
     end
+    return
   end
-  prevNoteCount = #newNotes
-  notes = newNotes
+  -- A repeated shortcut can acknowledge the same note after typing starts.
+  if editingId ~= note.id then editingContent = note.content or "" end
+  editingId = note.id
+  pendingDeleteId = nil; editKey += 1
   render()
 end)
 
@@ -714,24 +734,38 @@ end)
 
 noctalia.state.watch("sticky_notes.ready", function(value)
   notesReady = value == true
+  captureNewNote()
   render()
 end)
 
 -- -------------------------------------------------------------------------
 -- Lifecycle
 -- -------------------------------------------------------------------------
-function onOpen(_context)
+function onOpen(context)
+  panelOpen = true
+  local currentNote = editingId ~= nil and findNote(editingId) or nil
+  if context == "new-note" and editingId ~= nil
+      and (noctalia.string.trim(editingContent or "") ~= ""
+        or (currentNote ~= nil and noctalia.string.trim(currentNote.content or "") ~= "")) then
+    -- Save changed drafts, including a cleared existing note. Keep an untouched
+    -- empty capture so addNote can reuse it instead of deleting/recreating it.
+    saveEditingDraft()
+  end
   editingId = nil; editingContent = nil; pendingDeleteId = nil
   -- A panel can be instantiated after the service's initial publish. Ask for
   -- the current snapshot so opening it never looks like an empty note list.
   sendCmd({ op = "sync" })
-  local autoBlur = noctalia.getConfig("auto_blur")
-  if autoBlur == true and not blurred then
-    sendCmd({ op = "toggle_blur" })
+  pendingNewNote = context == "new-note"
+  if pendingNewNote then
+    captureNewNote()
+  else
+    applyAutoBlur()
   end
   render()
 end
 
 function onClose()
+  panelOpen = false
+  pendingNewNote = false
   saveEditingDraft()
 end

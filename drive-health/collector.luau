@@ -759,7 +759,7 @@ local function systemCollectorState(raw, source)
     helper_available = enabled
       and noctalia.fileExists(SYSTEM_LIBEXEC .. "/smart-action.sh"),
     authorization_available = pkexecAvailable,
-    install_command = installScript ~= nil and pkexecAvailable and "pkexec "
+    install_command = installScript ~= nil and pkexecAvailable and "pkexec bash "
       .. shellQuote(installScript)
       .. " --interval-minutes " .. tostring(refreshMinutes) or nil,
     uninstall_command = pkexecAvailable and ((noctalia.fileExists(uninstallScript)

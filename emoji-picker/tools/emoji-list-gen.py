@@ -18,13 +18,13 @@ Inputs (all pinned by hash in the Nix module that runs this script):
 Output (stdout): one JSON array — every RGI emoji in browse order, then
 every curated Unicode symbol in browse order:
 
-    {"e": "🚀", "n": "rocket", "l": "rocket", "z": "rocket launch space", "c": "travel", "k": ["launch", "space"]}
-    {"e": "€", "n": "euro", "l": "euro", "z": "euro eur euro sign currency", "c": "chars", "a": ["eur", "euro sign"], "k": ["currency"], "s": 1}
+    {"e": "🚀", "n": "rocket", "l": "rocket", "c": "travel", "k": ["launch", "space"]}
+    {"e": "€", "n": "euro", "l": "euro", "c": "chars", "a": ["eur", "euro sign"], "k": ["currency"], "s": 1}
 
   e — the character itself (copied on selection)
   n — canonical name (footer display + search)
-  l — lower-cased canonical name (search only)
-  z — pre-built lower-cased name/keyword/alias search blob
+  l — lower-cased canonical name (search only; one entry — Åland — needs
+      Unicode-aware lowering, so it cannot be derived in the picker)
   c — category id (smileys | animals | food | activity | travel | objects |
      symbols | flags | chars); "Smileys & Emotion" and "People & Body"
      merge into "smileys" (classic "Smileys & People" section, macOS-style);
@@ -509,17 +509,13 @@ def main():
 
     entries.extend(build_symbol_entries(load_formal_names(unicode_data)))
 
-    # These fields are consumed on every search and used to be constructed
-    # for all ~4,000 entries inside the first onOpen callback. That cold-start
-    # work can exceed Noctalia's hard callback budget under desktop load,
-    # abort initialization halfway, and cause the panel to be auto-disabled.
-    # Generate them once here instead; neither field is rendered.
+    # l is consumed on every search and is lowered here (Python's lower()
+    # is Unicode-aware; one entry — Åland — needs it). The z search blob
+    # (lowered name + keywords + aliases) is NOT shipped: it is a pure
+    # concatenation of l + k + a, so the picker derives it while indexing,
+    # and dropping it cuts the JSON the host must decode by a third —
     for entry in entries:
-        lowered_name = entry["n"].lower()
-        entry["l"] = lowered_name
-        entry["z"] = " ".join(
-            [lowered_name] + entry["k"] + entry.get("a", [])
-        )
+        entry["l"] = entry["n"].lower()
 
     json.dump(entries, sys.stdout, ensure_ascii=False, separators=(",", ":"))
     sys.stdout.write("\n")

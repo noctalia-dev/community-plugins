@@ -1,6 +1,6 @@
 id          = "ahmedhossamdev/reading-list"
 name        = "Reading List"
-version     = "1.0.0"
+version     = "1.0.1"
 plugin_api  = 26
 author      = "ahmedhossamdev"
 license     = "MIT"

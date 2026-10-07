@@ -1,10 +1,10 @@
 # Claude Companion — a Claude Code companion for Noctalia v5.
 # Not a chat client: the terminal does the agentic work; this is the shell-side
-# body — senses, hands, and an attention pulse. See README.md for the design.
+# body — senses, hands, and an attention pulse. See DEVELOPMENT.md for the design.
 
 id = "lowcache/claude-companion"
 name = "Claude Companion"
-version = "1.5.1"
+version = "1.6.0"
 # Plugin API level this manifest targets — mandatory as of the Noctalia 5 beta
 # manifest parser (replaces the older min_noctalia gate). 3 is the oldest-supported
 # level and covers every feature this plugin uses ([[panel]], ui controls, plugin IPC
@@ -82,6 +82,17 @@ options = [
   { value = "enforce", label_key = "settings.consent_mode.option.enforce" },
 ]
 
+# Hookless session detection: pulse-svc reads Claude Code's per-process session files
+# (<config>/sessions/<pid>.json) every 5 s, so sessions show up before any hook is
+# installed, and corrects hooked sessions hooks left stale (Esc interrupt). On by
+# default; off leaves the service purely hook-driven.
+[[setting]]
+key = "detect_sessions"
+type = "bool"
+label_key = "settings.detect_sessions.label"
+description_key = "settings.detect_sessions.description"
+default = true
+
 # The pulse aggregator (headless) — the single source of truth for Claude session
 # state. Receives hook events via onIpc (noctalia msg plugin …:pulse-svc all <event>)
 # and the launcher quick-ask via state.watch("claude.state"), rolls all sessions up,
@@ -108,10 +119,9 @@ entry = "pulse.luau"
 id = "orb"
 entry = "orb.luau"
 
-# The answer panel — full-length scrollable surface for /claude ? quick-ask answers
-# (a notification toast clips long bodies; it carries only a preview). Opens on
-# a click on the bar pulse, from the "Show last answer" launcher row, or via
-# `noctalia msg panel-toggle lowcache/claude-companion:answer`.
+# The answer panel — full-length scrollable surface for /claude ? quick-ask answers.
+# Opens by itself when an answer (or error) lands; reopen it from the "Show last
+# answer" launcher row, or via `noctalia msg panel-toggle lowcache/claude-companion:answer`.
 [[panel]]
 id = "answer"
 entry = "answer.luau"
@@ -121,7 +131,7 @@ height = 420
 # The sessions panel — the actionable form of the bar tooltip. One row per live
 # session (state, model, token burn) plus a retire control for a session whose
 # SessionEnd hook never fired. Opens on a RIGHT-click of the bar pulse (left-click
-# stays the answer panel), or via
+# is the ask panel), or via
 # `noctalia msg panel-toggle lowcache/claude-companion:sessions`.
 [[panel]]
 id = "sessions"
@@ -140,11 +150,10 @@ entry = "consent.luau"
 width = 480
 height = 340
 
-# The ask panel — a one-off question straight from the bar, opened by a MIDDLE-click
-# on the pulse (left is the answer panel, right is sessions). It owns no backend: the
-# question goes to a file and an `ask` poke goes to the claude entry, which runs the
-# same quick-ask path as `/claude ? …`. The answer lands in the answer panel and a
-# toast, exactly as a launcher ask does.
+# The ask panel — a one-off question straight from the bar, opened by a LEFT-click
+# on the pulse (right is sessions). It owns no backend: the question goes to a file
+# and an `ask` poke goes to the claude entry, which runs the same quick-ask path as
+# `/claude ? …`. The answer panel opens with the reply, exactly as for a launcher ask.
 [[panel]]
 id = "ask"
 entry = "ask.luau"

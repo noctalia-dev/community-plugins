@@ -37,8 +37,10 @@ noctalia msg panel-toggle ahmedhossamdev/reading-list:panel
 
 ### Add and edit items
 
-- URLs can fetch their title, website, author, description, favicon, and Open
-  Graph preview automatically.
+- URLs can fetch their title, website, author, description, favicon, and preview
+  automatically. YouTube and Vimeo use their lightweight oEmbed metadata;
+  other pages fall back through Open Graph, Twitter Card, standard meta,
+  itemprop, and HTML title fields.
 - Use **More details** in the editor to add a cover, reading progress, book
   pages, estimated reading time, rating, review, or private notes.
 - Covers and image entries can be selected with the desktop file picker. If

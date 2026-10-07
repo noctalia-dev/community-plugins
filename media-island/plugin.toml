@@ -1,0 +1,52 @@
+id = "notoxus/media-island"
+name = "Media Island"
+version = "1.0.0"
+plugin_api = 24
+author = "notoxus"
+license = "MIT"
+dependencies = ["busctl"]
+tags = ["bar", "media", "panel", "service"]
+icon = "music"
+description = "Top-center now-playing island with artwork, transport controls, and automatic track-change previews."
+
+[[setting]]
+key = "auto_show"
+type = "bool"
+label_key = "settings.auto-show.label"
+description_key = "settings.auto-show.description"
+default = true
+
+[[setting]]
+key = "preview_seconds"
+type = "int"
+label_key = "settings.preview-seconds.label"
+description_key = "settings.preview-seconds.description"
+default = 2
+min = 1
+max = 10
+step = 1
+
+[[service]]
+id = "media-state"
+entry = "service.luau"
+
+[[widget]]
+id = "now-playing"
+entry = "bar.luau"
+
+  [widget.actions]
+  right = "media toggle"
+  back = "media previous"
+  forward = "media next"
+  scroll_up = "media next"
+  scroll_down = "media previous"
+
+[[panel]]
+id = "island"
+entry = "panel.luau"
+width = 620
+height = 118
+position = "top_center"
+persistent = true
+dismiss_on_outside_click = false
+keyboard_focus = "none"

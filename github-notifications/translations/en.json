@@ -1,13 +1,23 @@
 {
   "action": {
+    "mark_all_filtered": "Clear the filter to mark all as read",
     "mark_all_read": "Mark all as read",
+    "mark_done": "Mark as done",
     "mark_read": "Mark as read",
     "refresh": "Refresh",
-    "try_again": "Try again"
+    "refresh_updated": "Refresh · updated {time}",
+    "try_again": "Try again",
+    "undo": "Undo"
   },
   "empty": {
     "subtitle": "No unread notifications",
     "title": "You're all caught up"
+  },
+  "filter": {
+    "all": "All",
+    "ci": "CI",
+    "mentions": "Mentions",
+    "reviews": "Reviews"
   },
   "panel": {
     "multiple_unread": "{count} unread",
@@ -16,9 +26,26 @@
     "updated_at": "Updated {time}"
   },
   "settings": {
+    "appearance_density": {
+      "description": "Spacing between and inside notification cards.",
+      "label": "Density",
+      "options": {
+        "comfortable": "Comfortable",
+        "compact": "Compact",
+        "standard": "Standard"
+      }
+    },
+    "group_by_repo": {
+      "description": "Group notifications under collapsible repository headers.",
+      "label": "Group by repository"
+    },
     "hide_when_zero": {
       "description": "Hide the unread count on the bar widget when there are 0 unread notifications.",
       "label": "Hide count when zero"
+    },
+    "mark_read_on_open": {
+      "description": "Mark a notification as read on GitHub when you click it to open it in the browser. Turn off to peek and keep it unread. The check button marks it as done instead.",
+      "label": "Mark read on open"
     },
     "per_page": {
       "description": "Maximum number of unread notifications to retrieve from GitHub.",
@@ -66,6 +93,12 @@
     "rate_limited_title": "Rate Limit Exceeded",
     "request_failed": "GitHub API request failed",
     "unavailable": "GitHub notifications unavailable"
+  },
+  "undo": {
+    "done_many": "{count} marked as done",
+    "done_one": "Marked as done",
+    "many": "{count} marked as read",
+    "one": "Marked as read"
   },
   "widget": {
     "cached": "cached",

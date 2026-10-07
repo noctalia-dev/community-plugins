@@ -106,22 +106,25 @@ local function copyItem(item)
   }
 end
 
-local function emptyDraft()
-  local clip = noctalia.clipboardText() or ""
-  if not clip:match("^https?://[^%s]+$") then clip = "" end
-  return {
-    type = "article", title = "", url = clip, source = "", author = "",
-    description = "", topics = "", collections = "", status = "unread",
-    progress = 0, currentPage = "0", totalPages = "0", rating = 0,
-    estimatedMinutes = "0", image = "", notes = "", review = "",
-  }
-end
-
 local function clipboardUrl()
   local value = noctalia.clipboardText() or ""
   value = value:gsub("^%s+", ""):gsub("%s+$", "")
   if value:match("^https?://[^%s]+$") then return value end
+  if value:match("^[%w%-][%w%.%-]*[%.][%w%-]+$")
+      or value:match("^[%w%-][%w%.%-]*[%.][%w%-]+[:/%?#]")
+      or value:match("^localhost$") or value:match("^localhost[:/%?#]") then
+    return "https://" .. value
+  end
   return ""
+end
+
+local function emptyDraft()
+  return {
+    type = "article", title = "", url = clipboardUrl(), source = "", author = "",
+    description = "", topics = "", collections = "", status = "unread",
+    progress = 0, currentPage = "0", totalPages = "0", rating = 0,
+    estimatedMinutes = "0", image = "", notes = "", review = "",
+  }
 end
 
 local function fileName(path)
@@ -286,6 +289,7 @@ local function formatDate(ts)
 end
 
 local function matches(item)
+  if filter == "all" and item.status == "archived" then return false end
   if filter == "favorites" and item.favorite ~= true then return false end
   if filter ~= "all" and filter ~= "favorites" and item.status ~= filter then return false end
   if collectionFilter ~= "" then
@@ -556,7 +560,12 @@ local function itemCard(item, queueIndex, queueIds)
     }))
   end
 
-  return ui.column({ key = "card-" .. item.id, fill = "surface_variant", radius = 10,
+  -- Metadata arrives after the item has been rendered. Give the host a fresh
+  -- card identity for that transition so it recalculates text width after a
+  -- cover, title, or description changes instead of waiting for panel reopen.
+  local cardKey = "card-" .. item.id .. "-" .. tostring(item.updatedAt or 0)
+    .. "-" .. (item.fetching and "fetching" or "ready")
+  return ui.column({ key = cardKey, fill = "surface_variant", radius = 10,
     padding = 9, gap = 6, align = "stretch" }, children)
 end
 
@@ -873,9 +882,9 @@ local function editorView()
 
   local footer
   if pendingDelete and editingId ~= nil then
-    footer = ui.row({ gap = 6, align = "center", justify = "space_between" }, {
+    footer = ui.column({ key = "delete-confirmation", gap = 4, align = "stretch" }, {
       ui.label({ text = tr("panel.confirm-delete", "Delete this item?"), color = "on_surface_variant" }),
-      ui.row({ gap = 4 }, {
+      ui.row({ key = "delete-confirmation-actions", gap = 4, align = "center", justify = "end" }, {
         ui.button({ text = tr("panel.cancel", "Cancel"), variant = "ghost", controlSize = "sm",
           onClick = function() pendingDelete = false; render() end }),
         ui.button({ glyph = "trash", text = tr("panel.delete", "Delete"), variant = "destructive", controlSize = "sm",

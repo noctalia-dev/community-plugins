@@ -1,0 +1,67 @@
+id = "ayagmar/obs-control"
+name = "OBS Control"
+version = "1.0.0"
+plugin_api = 24
+author = "ayagmar"
+license = "MIT"
+icon = "video"
+description = "Control OBS Studio recording, replay buffer and streaming from your bar, panel and keyboard."
+tags = ["bar", "panel", "service", "shortcut", "recording", "video"]
+dependencies = ["python3", "websocket-client", "obs", "pgrep", "xdg-open"]
+
+[[setting]]
+key = "python_executable"
+type = "string"
+label_key = "settings.python"
+description_key = "settings.python_description"
+default = "python3"
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+label_key = "settings.interval"
+default = 2500
+min = 1000
+max = 30000
+
+[[setting]]
+key = "auto_close_managed_obs"
+type = "bool"
+label_key = "settings.auto_close"
+description_key = "settings.auto_close_description"
+default = true
+
+[[setting]]
+key = "open_videos_after_stop"
+type = "bool"
+label_key = "settings.open_videos"
+default = true
+
+[[setting]]
+key = "show_when_idle"
+type = "bool"
+label_key = "settings.show_idle"
+default = true
+
+[[setting]]
+key = "show_elapsed_in_bar"
+type = "bool"
+label_key = "settings.show_elapsed"
+default = false
+
+[[service]]
+id = "controller"
+entry = "controller.luau"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+[[panel]]
+id = "controls"
+entry = "panel.luau"
+width = 380
+
+[[shortcut]]
+id = "quick-controls"
+entry = "shortcut.luau"

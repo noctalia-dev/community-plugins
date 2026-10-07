@@ -11,9 +11,10 @@ An AI companion for Noctalia that brings LLM-powered chat and terminal command e
 
 ## Requirements
 
-- A [Noctalia](https://noctalia.app) build supporting `plugin_api >= 16`.
+- A [Noctalia](https://noctalia.app) build supporting `plugin_api >= 21` (Noctalia `v5.0.0-beta.8` or newer) for native Markdown rendering and chat follow-scroll.
 - An **OpenAI-compatible API endpoint** with `/chat/completions` and `/models` endpoints.
-- An API key (for hosted providers) or leave empty for local servers (e.g. Ollama).
+- An API key (for hosted providers) or leave empty for local providers (e.g. Ollama).
+- [OpenCode Go](https://opencode.ai/docs/go) endpoint support: Mimir sends the required `x-opencode-session` header automatically.
 - `curl` and `python3` on `PATH` for the web search and page-fetch features.
 - An internet connection for the no-setup web search feature.
 

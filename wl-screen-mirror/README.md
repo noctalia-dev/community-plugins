@@ -7,7 +7,7 @@ This plugin allows you to easily toggle screen mirroring in Wayland via `wl-mirr
 | Field | Value |
 | --- | --- |
 | ID | `elijaharch/wl-screen-mirror` |
-| Entries | Bar widget: `mirror`; panel: `controls`; service: `mirror-service` |
+| Entries | Bar widget: `mirror`; panel: `controls`; service: `mirror-service`; shortcut: `toggle` |
 
 ## Requirements
 

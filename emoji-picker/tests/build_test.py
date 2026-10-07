@@ -29,7 +29,7 @@ def luau_string(s: str) -> str:
 
 def luau_entry(entry: dict) -> str:
     parts = [f"e={luau_string(entry['e'])}", f"n={luau_string(entry['n'])}",
-             f"l={luau_string(entry['l'])}", f"z={luau_string(entry['z'])}",
+             f"l={luau_string(entry['l'])}",
              f"c={luau_string(entry['c'])}"]
     if "a" in entry:
         parts.append("a={" + ",".join(luau_string(a) for a in entry["a"]) + "}")

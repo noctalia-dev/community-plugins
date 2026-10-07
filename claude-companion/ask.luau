@@ -3,15 +3,15 @@
 -- Quick-ask was only ever reachable as `/claude ? …`, which means opening the
 -- launcher, typing a prefix, and remembering the `?`. That is a lot of ceremony for
 -- the lightest thing this plugin does, and it is why the feature went unused. A
--- middle-click on the bar pulse opens this instead: type, Enter, done.
+-- click on the bar pulse opens this instead: type, Enter, done.
 --
 -- Pure surface, same doctrine as every other panel here. It owns no backend: the
 -- question goes to a file and a bare `ask` poke goes to the claude entry, which runs
 -- the SAME run_ask() the launcher uses. The panel never sees the read-only flags in
 -- backend_command(), so there is no second copy of them to drift.
 --
--- The answer does not come back here — it lands in the answer panel and a toast,
--- exactly as it does for a launcher ask. One delivery path, one place to look.
+-- The answer does not come back here — the answer panel opens with it, exactly as
+-- it does for a launcher ask. One delivery path, one place to look.
 
 local SELF = "lowcache/claude-companion:ask"
 -- The claude ENTRY is a launcher_provider and cannot receive IPC; claude-ask is the
@@ -88,7 +88,7 @@ local function render()
       value = draft,
       placeholder = tr("ask.placeholder"),
       -- The whole point is that this is faster than the launcher, so it takes focus
-      -- on open: middle-click, type, Enter — no click into the field first.
+      -- on open: click, type, Enter — no click into the field first.
       focus = true,
       -- No flexGrow: the parent is a COLUMN, so growth there is VERTICAL — the field
       -- would eat the panel's slack and paint over what follows it. Width comes free

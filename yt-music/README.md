@@ -88,6 +88,10 @@ The bar widget also opens entries directly (`panel-toggle aabidk20/yt-music:mini
   YouTube for playback and preference requests. See [Privacy](#privacy) below.
 - **Processes** — spawns the tools listed in Requirements plus a browser on the
   sign-in page to authenticate.
+- **MPRIS transport** — with `mpv-mpris` installed, a three-entry mpv
+  playlist keeps the media widget and `playerctl` transport controls aligned
+  with the plugin queue. Failed pre-playback streams stop with a notification;
+  builds without lavfi leave those external controls unavailable.
 
 ### Debug log
 

@@ -20,7 +20,7 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
 
     local icon_elem
     if thumb_path and common.file_exists_cached(thumb_path) then
-        icon_elem = ui.image({ path = thumb_path, width = 26, height = 26, fit = "cover" })
+        icon_elem = ui.image({ path = thumb_path, width = 26, height = 26, fit = "cover", radius = theme.radius })
     else
         icon_elem = ui.glyph({ name = icon, size = 17, color = glyph_color })
     end
@@ -36,10 +36,11 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
             state.view.hover_key.sidebar = nil
             onClick()
         end,
-        onHover = "onSidebarHover"
+        onHover = "onSidebarHover",
+        radius = theme.radius
     }, {
         icon_elem,
-        ui.column({ gap = 1, flexGrow = 1 }, {
+        ui.column({ gap = 1, flexGrow = 1, radius = theme.radius }, {
             ui.label({
                 text = label,
                 fontSize = theme.fontTitle,
@@ -58,7 +59,7 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
 end
 
 local function build_topbar()
-    return ui.row({ key = "topbar", align = "center", gap = 12, paddingH = 16, paddingV = 10, borderWidth = 0 }, {
+    return ui.row({ key = "topbar", align = "center", gap = 12, paddingH = 16, paddingV = 10, borderWidth = 0, radius = theme.radius }, {
         ui.input({
             key = "search-input",
             placeholder = "Search songs, artists, albums",
@@ -75,9 +76,9 @@ local function build_sidebar()
     local view = state.view
     local sidebar_items = {}
 
-    table.insert(sidebar_items, ui.row({ key = "side-brand", align = "center", gap = 9, padding = 6, borderWidth = 0 }, {
+    table.insert(sidebar_items, ui.row({ key = "side-brand", align = "center", gap = 9, padding = 6, borderWidth = 0, radius = theme.radius }, {
         ui.glyph({ name = "brand-youtube-filled", size = 30, color = "primary" }),
-        ui.column({ gap = 1, flexGrow = 1 }, {
+        ui.column({ gap = 1, flexGrow = 1, radius = theme.radius }, {
             ui.label({ text = "Music", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface" }),
             ui.label({ text = "for YouTube Music", fontSize = theme.fontTitle, color = "on_surface_variant" })
         })
@@ -100,7 +101,8 @@ local function build_sidebar()
             gap = 8,
             align = "center",
             padding = 6,
-            borderWidth = 0
+            borderWidth = 0,
+            radius = theme.radius
         }, {
             ui.glyph({ name = "wifi-off", size = 15, color = "error" }),
             ui.label({ text = "Offline mode", fontSize = theme.fontTitle, color = "error" })
@@ -113,7 +115,7 @@ local function build_sidebar()
     -- cookies land and status flips to ready.
     if state.logged_in()
         and type(data.recent_playlists) == "table" and #data.recent_playlists > 0 then
-        table.insert(sidebar_items, ui.row({ key = "label-recent", gap = 0, padding = 6, borderWidth = 0 }, {
+        table.insert(sidebar_items, ui.row({ key = "label-recent", gap = 0, padding = 6, borderWidth = 0, radius = theme.radius }, {
             ui.label({
                 text = "RECENTLY PLAYED",
                 fontSize = theme.fontBody,
@@ -136,7 +138,7 @@ local function build_sidebar()
     end
 
     local is_refreshing_lib = (data.refreshing_library == true)
-    table.insert(sidebar_items, ui.row({ key = "label-library", align = "center", justify = "space_between", padding = 6, borderWidth = 0 }, {
+    table.insert(sidebar_items, ui.row({ key = "label-library", align = "center", justify = "space_between", padding = 6, borderWidth = 0, radius = theme.radius }, {
         ui.label({
             text = "YOUR LIBRARY",
             fontSize = theme.fontBody,
@@ -191,9 +193,9 @@ local function build_sidebar()
         end
     end
 
-    table.insert(sidebar_items, ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 0 }, library_list))
+    table.insert(sidebar_items, ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 0, radius = theme.radius }, library_list))
 
-    return ui.column({ key = "sidebar", width = 256, gap = 2, paddingH = 12, paddingV = 12, borderWidth = 1, border = "primary/0.4", fill = "primary/0.04" }, sidebar_items)
+    return ui.column({ key = "sidebar", width = 256, gap = 2, paddingH = 12, paddingV = 12, borderWidth = 1, border = "primary/0.4", fill = "primary/0.04", radius = theme.radius }, sidebar_items)
 end
 
 return {

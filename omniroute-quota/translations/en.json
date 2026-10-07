@@ -29,6 +29,14 @@
     "show_value": {
       "description": "Display the lowest remaining quota percentage.",
       "label": "Show value in bar"
+    },
+    "sort_order": {
+      "description": "Order accounts by usable quota or by name.",
+      "label": "Account order",
+      "option": {
+        "alphabetical": "Alphabetical",
+        "availability": "Available first"
+      }
     }
   },
   "widget": {

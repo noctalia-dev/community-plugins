@@ -16,13 +16,11 @@ via --mcp-config; no daemon to babysit.
 Tool set is the low/medium perception tier only — high-tier senses
 (clipboard/screen/files) stay gated until a local backend lands.
 """
-import datetime
 import json
 import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -207,64 +205,6 @@ def _get_window(a):
         return err
     view = find_focused_view(tree)
     return json.dumps(view) if view else "error: no focused window"
-
-
-def _remember(a):
-    """Persist a durable fact to GLOBAL memory's inbox; memd distills ~/.memory.
-
-    The membrane (decision #25): ephemeral senses -> noctalia.state; durable
-    learnings -> global memd. This is the durable side. Notes are routed:global
-    so memd's curator files them into the system-wide store, not a project."""
-    # Coerce: a model may send a non-string (number/list) — str() keeps the
-    # handler (and the server) from raising on .strip()/.lower().
-    text = str(a.get("text") or "").strip()
-    if not text:
-        return "error: 'text' is required"
-    slug = re.sub(r"[^a-z0-9]+", "-", str(a.get("topic") or "note").lower()).strip("-") or "note"
-    mem = os.path.expanduser("~/.memory")
-    inbox = os.path.join(mem, "inbox")
-    body = (
-        f"---\nrouted: global\ntopic: {slug}\n"
-        f"date: {datetime.date.today()}\nsource: noctalia-mcp/remember\n---\n\n"
-        f"{text}\n"
-    )
-    try:
-        os.makedirs(inbox, exist_ok=True)
-        # Concurrency: every Claude session runs its own shim, and the curator
-        # (memd) reads/clears this inbox in parallel. Two guards:
-        #  1) Unique name — microsecond timestamp + PID, so simultaneous notes
-        #     from different sessions never collide (second-resolution did).
-        #  2) Atomic publish — write a temp file OUTSIDE the inbox, then
-        #     os.replace() it in. A sweep either sees the whole note or not at
-        #     all; it can never read a half-written file mid-write.
-        #  3) Crash durability — fsync the file before publish, then fsync the
-        #     inbox dir after the rename. Without both, a power loss/panic can
-        #     leave a flushed file whose directory entry never landed (lost
-        #     note) or a renamed entry pointing at unflushed data. Cheap
-        #     insurance; matters for an alpha shell on a crash-prone desktop.
-        ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        final = os.path.join(inbox, f"{ts}-{slug}-{os.getpid()}.md")
-        fd, tmp = tempfile.mkstemp(dir=mem, prefix=".remember-", suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w") as f:
-                f.write(body)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, final)
-            dfd = os.open(inbox, os.O_RDONLY)
-            try:
-                os.fsync(dfd)
-            finally:
-                os.close(dfd)
-        except BaseException:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
-        return f"remembered -> {final}"
-    except OSError as e:
-        return f"error: {e}"
 
 
 # ── additional senses (read-only) ────────────────────────────────────────────
@@ -497,19 +437,6 @@ TOOLS = {
         "described is finished and nothing has replaced it.",
         {},
         _clear_presence,
-    ),
-    # ── memory (durable, cross-session) ───────────────────────────────────────
-    "remember": (
-        "Persist a durable fact, preference, or system detail to GLOBAL memory "
-        "(system-wide, cross-project) so future sessions know it. Use for things "
-        "true beyond the current task; memd distills it into ~/.memory.",
-        {
-            "text": {"type": "string", "required": True,
-                     "description": "The durable fact/preference, 1-2 sentences."},
-            "topic": {"type": "string",
-                      "description": "Short kebab-case slug for the note (optional)."},
-        },
-        _remember,
     ),
     # ── hands ─────────────────────────────────────────────────────────────────
     "notify": (

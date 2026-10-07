@@ -23,7 +23,7 @@ Manage system updates inside the noctalia panel. Currently supported PackageKit,
 
 ## Requirements
 
-All adapters require ```python``` to run check update scripts. You have to install ```pycairo``` ```PyGObject``` modules with ```pip```:
+All adapters require ```python3``` to run check update scripts. You have to install ```pycairo``` ```PyGObject``` modules with ```pip```:
 
 ```sh
 pip install pycairo PyGObject
@@ -33,15 +33,15 @@ Other requirements are depend of update adapter. Plugin disables update adapter 
 
 ### PackageKit
 
-PackageKit update adapter requires ```python``` and ```pkgcli``` to be installed into ```$PATH```.
+PackageKit update adapter requires ```python3``` and ```pkgcli``` to be installed into ```$PATH```.
 
 ### Flatpak
 
-Flatpak update adapter requires  ```python``` and ```flatpak``` to be installed into ```$PATH```.
+Flatpak update adapter requires  ```python3``` and ```flatpak``` to be installed into ```$PATH```.
 
 ### Cargo
 
-Cargo update adapter requires  ```cargo```, ```python```, ```cargo-install-update```, `awk` and `bash` to be installed into ```$PATH```.
+Cargo update adapter requires  ```cargo```, ```python3```, ```cargo-install-update```, `awk` and `bash` to be installed into ```$PATH```.
 
 ### pipx
 
@@ -116,8 +116,8 @@ Adpater definitions in format:
 {
     "name": "PackageKit",
     "enabled": true,
-    "dependencies": ["python", "pkgcli"],
-    "check_command": "python {adapter_dir}/check.py",
+    "dependencies": ["python3", "pkgcli"],
+    "check_command": "python3 {adapter_dir}/check.py",
     "update_package_command": "pkgcli -y -q update {package_name}",
     "update_all_command": "pkgcli -y -q offline-update prepare",
     "actions": {

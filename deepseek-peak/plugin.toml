@@ -1,0 +1,124 @@
+# Noctalia v5 plugin manifest (current schema). EXPERIMENTAL: the Luau port has
+# not been published. The JSON v4 manifest stays authoritative for v4.
+id = "alpzy/deepseek-peak"
+name = "DeepSeek Peak Hours"
+version = "1.0.0"
+plugin_api = 22
+author = "Alpzy"
+license = "MIT"
+icon = "zap"
+description = "DeepSeek and Ollama Cloud peak/off-peak API rate windows with a live countdown, progress bar, and policy-drift alerts."
+tags = ["bar", "panel", "indicator", "ai", "countdown"]
+dependencies = []
+
+[[setting]]
+key = "displayMode"
+type = "select"
+label_key = "settings.display-mode.label"
+description_key = "settings.display-mode.description"
+default = "compact"
+
+  [[setting.options]]
+  value = "compact"
+  label_key = "settings.display-mode.compact"
+
+  [[setting.options]]
+  value = "icon"
+  label_key = "settings.display-mode.icon"
+
+  [[setting.options]]
+  value = "full"
+  label_key = "settings.display-mode.full"
+
+[[setting]]
+key = "provider"
+type = "select"
+label_key = "settings.provider.label"
+description_key = "settings.provider.description"
+default = "deepseek"
+
+  [[setting.options]]
+  value = "deepseek"
+  label_key = "provider.deepseek"
+
+  [[setting.options]]
+  value = "ollama"
+  label_key = "provider.ollama"
+
+[[setting]]
+key = "offPeakColor"
+type = "color"
+label_key = "settings.off-peak-color.label"
+description_key = "settings.off-peak-color.description"
+default = "#4ade80"
+
+[[setting]]
+key = "peakColor"
+type = "color"
+label_key = "settings.peak-color.label"
+description_key = "settings.peak-color.description"
+default = "#f87171"
+
+[[setting]]
+key = "driftColor"
+type = "color"
+label_key = "settings.drift-color.label"
+description_key = "settings.drift-color.description"
+default = "#fbbf24"
+
+[[setting]]
+key = "showTooltip"
+type = "bool"
+label_key = "settings.show-tooltip.label"
+description_key = "settings.show-tooltip.description"
+default = true
+
+[[setting]]
+key = "autoCheck"
+type = "bool"
+label_key = "settings.auto-check.label"
+description_key = "settings.auto-check.description"
+default = true
+
+[[setting]]
+key = "offlineOnly"
+type = "bool"
+label_key = "settings.offline-only.label"
+description_key = "settings.offline-only.description"
+default = false
+
+[[setting]]
+key = "checkIntervalH"
+type = "int"
+label_key = "settings.check-interval-h.label"
+description_key = "settings.check-interval-h.description"
+default = 6
+min = 1
+max = 168
+
+[[setting]]
+key = "customSourceUrl"
+type = "string"
+label_key = "settings.custom-source-url.label"
+description_key = "settings.custom-source-url.description"
+default = ""
+
+[[widget]]
+id = "peak"
+entry = "widget.luau"
+
+  [widget.actions]
+  right = "settings-open-plugin alpzy/deepseek-peak"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 340
+height = 520
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "checker"
+entry = "checker.luau"

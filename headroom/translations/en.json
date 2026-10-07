@@ -1,0 +1,185 @@
+{
+  "ago": {
+    "d": "{d}d ago",
+    "h": "{h}h ago",
+    "m": "{m}m ago",
+    "now": "just now"
+  },
+  "bar": {
+    "empty": "Headroom: no AI provider sign-in found"
+  },
+  "duration": {
+    "d": "{d}d",
+    "dh": "{d}d {h}h",
+    "h": "{h}h",
+    "hm": "{h}h {m}m",
+    "lt_minute": "<1m",
+    "m": "{m}m"
+  },
+  "error": {
+    "auth": {
+      "title": "Sign-in rejected"
+    },
+    "expired": {
+      "title": "Session expired"
+    },
+    "network": {
+      "body": "Check your connection. Headroom will try again shortly.",
+      "title": "Can't reach the provider"
+    },
+    "no_plan": {
+      "body": "This account's plan has no usage quota for this product. Headroom checks again every hour.",
+      "title": "No quota on this plan"
+    },
+    "not_configured": {
+      "title": "Not signed in"
+    },
+    "parse": {
+      "body": "The usage format may have changed. Please report it on GitHub.",
+      "title": "Unexpected response"
+    },
+    "rate_limited": {
+      "body": "Too many requests. Headroom will wait, then try again.",
+      "title": "Throttled"
+    },
+    "server": {
+      "body": "The provider returned an error. Headroom will try again shortly.",
+      "title": "Service error"
+    }
+  },
+  "note": {
+    "credits": "Credits",
+    "extra_usage": "Extra usage",
+    "of": "{used} of {limit}",
+    "on": "On",
+    "unlimited": "Unlimited"
+  },
+  "notify": {
+    "body": "{window} is at {percent}%.",
+    "body_reset": "{window} is at {percent}%. Resets in {reset}.",
+    "reset_body": "Usage is back to {percent}%.",
+    "reset_title": "{provider} {window} has reset",
+    "title": "{provider} usage is running low"
+  },
+  "pace": {
+    "exhausted": "Limit reached",
+    "projected": "≈ {percent}% by reset",
+    "projected_left": "≈ {percent}% left at reset",
+    "runs_out": "Runs out in {duration}"
+  },
+  "panel": {
+    "elapsed_tooltip": "{percent}% of this window has elapsed",
+    "empty_body": "Headroom reads the sign-ins your AI coding tools have already saved. Sign in to one and it appears here.",
+    "empty_title": "No signed-in providers",
+    "not_connected": "{provider} · not connected",
+    "not_refreshed": "Not refreshed yet",
+    "open_dashboard": "Open {provider} usage page",
+    "refresh_tooltip": "Refresh now (R)",
+    "remaining_tooltip": "{percent}% of this window remains",
+    "retry": "Retry",
+    "settings_tooltip": "Settings",
+    "showing_cached": "Showing data from {ago}.",
+    "starting": "Starting…",
+    "updated": "Updated {ago}"
+  },
+  "percent": {
+    "left": "{percent}% left",
+    "used": "{percent}% used"
+  },
+  "providers": {
+    "antigravity": {
+      "hint": "Run `agy` once and sign in with Google."
+    },
+    "claude": {
+      "hint": "Run `claude` once to sign in or renew the session."
+    },
+    "codex": {
+      "hint": "Run `codex login` and sign in with ChatGPT."
+    }
+  },
+  "reset": {
+    "in": "Resets in {until_reset}",
+    "now": "Resetting now"
+  },
+  "settings": {
+    "bar_style": {
+      "description": "What each provider shows next to its logo.",
+      "label": "Bar · Style",
+      "option": {
+        "full": "Ring and percentage",
+        "ring": "Ring only",
+        "value": "Percentage only"
+      }
+    },
+    "critical_percent": {
+      "description": "Usage at or above this turns the error color and can send a notification.",
+      "label": "Display · Critical at (%)"
+    },
+    "display": {
+      "description": "Whether numbers, rings and meters show what you've used or what's left. Colors always follow usage.",
+      "label": "Display · Show amounts as",
+      "option": {
+        "remaining": "Remaining",
+        "used": "Used"
+      }
+    },
+    "max_providers": {
+      "description": "The bar shows at most this many. If more qualify, it keeps the ones closest to their limits.",
+      "label": "Bar · Maximum providers"
+    },
+    "notify": {
+      "description": "Notify once when a window crosses the critical threshold, and again when it resets.",
+      "label": "Alerts · Notifications"
+    },
+    "provider": {
+      "description": "Where this provider appears. Off: never fetched or shown.",
+      "option": {
+        "bar": "Bar and panel",
+        "off": "Off",
+        "panel": "Panel only"
+      }
+    },
+    "provider_antigravity": {
+      "label": "Providers · Antigravity"
+    },
+    "provider_claude": {
+      "label": "Providers · Claude"
+    },
+    "provider_codex": {
+      "label": "Providers · Codex"
+    },
+    "refresh_minutes": {
+      "description": "Minutes between fetches for each provider. Failed fetches retry sooner.",
+      "label": "Data · Refresh interval (min)"
+    },
+    "warn_percent": {
+      "description": "Usage at or above this turns the warning color.",
+      "label": "Display · Warning at (%)"
+    },
+    "window": {
+      "description": "Which usage window the bar shows for each provider.",
+      "label": "Bar · Window",
+      "option": {
+        "session": "Session (5-hour)",
+        "tightest": "Closest to limit",
+        "weekly": "Weekly"
+      }
+    }
+  },
+  "status": {
+    "cached": "cached",
+    "fetching": "Fetching usage…",
+    "refreshing": "Refreshing…"
+  },
+  "tooltip": {
+    "forecast": "Forecast",
+    "resets": "Resets"
+  },
+  "window": {
+    "code_review": "Code review",
+    "other": "Limit",
+    "session": "Session",
+    "weekly": "Weekly",
+    "weekly_model": "Weekly · {model}"
+  }
+}

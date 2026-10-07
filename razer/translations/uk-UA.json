@@ -1,0 +1,40 @@
+{
+  "settings": {
+    "low_battery_threshold": {
+      "description": "Відсоток заряду, при якому надсилається попередження",
+      "label": "Поріг низького заряду акумулятора (%)"
+    },
+    "show_percentage": {
+      "description": "Відображати відсоток заряду поруч із піктограмою пристрою на панелі",
+      "label": "Показувати відсоток заряду"
+    },
+    "sync_theme_color": {
+      "description": "Автоматично узгоджувати кольори підсвічування Razer з активним акцентним кольором Noctalia",
+      "label": "Синхронізувати RGB з темою"
+    }
+  },
+  "ui": {
+    "brightness": "Яскравість підсвічування",
+    "custom_color_placeholder": "HEX-колір (напр. #FF0055)",
+    "custom_dpi_placeholder": "Власний DPI (напр. 1500)",
+    "daemon_not_running": "Служба OpenRazer не запущена",
+    "lighting_effect": "Ефект підсвічування",
+    "no_devices": "Пристроїв Razer не знайдено",
+    "no_devices_hint": "Підключіть підтримувану мишу, клавіатуру або гарнітуру Razer.",
+    "off": "Вимкнено",
+    "panel_title": "Центр керування Razer",
+    "picker": "Палітра",
+    "razer_green": "Зелений Razer",
+    "refresh": "Оновити",
+    "sensitivity": "Чутливість (DPI)",
+    "set": "Застосувати",
+    "spectrum": "Спектр",
+    "start_daemon": "Запустити службу",
+    "start_daemon_hint": "Запустіть службу командою:\nsystemctl --user start openrazer-daemon",
+    "theme_fallback": "Колір теми недоступний, застосовано зелений Razer",
+    "theme_role": "Роль палітри",
+    "theme_sync": "Синхронізація з темою",
+    "theme_synced": "Встановлено роль теми: ",
+    "wired": "Дротовий"
+  }
+}

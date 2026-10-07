@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -459,6 +463,118 @@ class PluginFileCountTests(unittest.TestCase):
             self.validate_file_count({}, directories=validate_plugins.MAX_PLUGIN_FILES + 5),
             [],
         )
+
+
+class GitObjectTests(unittest.TestCase):
+    """Plugins must be plain files committed in this repository, never submodule pointers."""
+
+    def setUp(self) -> None:
+        if shutil.which("git") is None:
+            self.skipTest("git is required")
+
+    def run_git(self, root: Path, *args: str) -> None:
+        subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    def git_root(self) -> Path:
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        self.run_git(root, "init", "-q")
+        self.run_git(root, "config", "user.email", "tests@example.com")
+        self.run_git(root, "config", "user.name", "tests")
+        return root
+
+    def validate_git_objects(self, root: Path) -> list[str]:
+        validator = validate_plugins.Validator(root)
+        validator.validate_git_objects()
+        return validator.errors
+
+    def test_rejects_gitlink(self) -> None:
+        root = self.git_root()
+        self.run_git(
+            root,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "160000",
+            "222326f5650aa395cfc2c7b25fb528209ff9bc7d",
+            "saved-desktop-widgets",
+        )
+        self.assertEqual(
+            self.validate_git_objects(root),
+            [
+                "saved-desktop-widgets: is a git submodule (mode 160000); plugins ship plain files "
+                "committed in this repository, so commit the plugin's files instead of a submodule"
+            ],
+        )
+
+    def test_rejects_committed_gitmodules(self) -> None:
+        root = self.git_root()
+        (root / ".gitmodules").write_text(
+            '[submodule "saved-desktop-widgets"]\n\tpath = saved-desktop-widgets\n\turl = https://example.com/x.git\n',
+            encoding="utf-8",
+        )
+        self.run_git(root, "add", ".gitmodules")
+        self.assertEqual(
+            self.validate_git_objects(root),
+            [
+                ".gitmodules: declares git submodules; plugins ship plain files committed in this "
+                "repository"
+            ],
+        )
+
+    def test_rejects_nested_gitmodules(self) -> None:
+        root = self.git_root()
+        plugin_dir = root / "example"
+        plugin_dir.mkdir()
+        (plugin_dir / ".gitmodules").write_text(
+            '[submodule "helper"]\n\tpath = helper\n\turl = https://example.com/x.git\n',
+            encoding="utf-8",
+        )
+        self.run_git(root, "add", "example/.gitmodules")
+        self.assertEqual(
+            self.validate_git_objects(root),
+            [
+                "example/.gitmodules: declares git submodules; plugins ship plain files committed "
+                "in this repository"
+            ],
+        )
+
+    def test_accepts_committed_plugin_files(self) -> None:
+        root = self.git_root()
+        plugin_dir = root / "example"
+        plugin_dir.mkdir()
+        (plugin_dir / "plugin.toml").write_text('id = "author/example"\n', encoding="utf-8")
+        (plugin_dir / "README.md").write_text("# Example\n", encoding="utf-8")
+        self.run_git(root, "add", "--all")
+        self.assertEqual(self.validate_git_objects(root), [])
+
+    def test_skips_directory_outside_a_repository(self) -> None:
+        # A detached temporary directory (no work tree, no git binary reachable from it) must stay
+        # silent instead of failing a manifest run.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "example").mkdir()
+            self.assertEqual(self.validate_git_objects(root), [])
+
+    def test_validate_fails_on_gitlink(self) -> None:
+        root = self.git_root()
+        self.run_git(
+            root,
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            "160000",
+            "222326f5650aa395cfc2c7b25fb528209ff9bc7d",
+            "saved-desktop-widgets",
+        )
+        with contextlib.redirect_stderr(io.StringIO()):
+            exit_code = validate_plugins.Validator(root).validate()
+        self.assertEqual(exit_code, 1)
 
 
 if __name__ == "__main__":
