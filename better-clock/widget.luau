@@ -1,25 +1,29 @@
-local settings = noctalia.settings
+local time_format = noctalia.getConfig("time_format") or "{:%H:%M}"
+local date_format = noctalia.getConfig("date_format") or "{:%A, %B %d}"
+local show_date = noctalia.getConfig("show_date")
 
-local function update()
-  local time_text = noctalia.formatTime(settings.time_format)
+function update()
+  noctalia.setUpdateInterval(1000)
+
+  local time_text = noctalia.formatTime(time_format)
   local date_text = ""
-  if settings.show_date then
-    date_text = noctalia.formatTime(settings.date_format)
+  if show_date then
+    date_text = noctalia.formatTime(date_format)
   end
 
   local content = {
     ui.label({
       text = time_text,
-      fontFamily = "monospace",
+      fontFamily = "Sarasa Mono SC",
       fontSize = 14,
       color = "primary"
     })
   }
 
-  if settings.show_date and date_text ~= "" then
+  if show_date and date_text ~= "" then
     table.insert(content, ui.label({
       text = date_text,
-      fontFamily = "monospace",
+      fontFamily = "Sarasa Mono SC",
       fontSize = 10,
       color = "on_surface_variant"
     }))
@@ -30,7 +34,5 @@ local function update()
     align = "center"
   }, content))
 end
-
-noctalia.setUpdateInterval(1000)
 
 update()
