@@ -66,10 +66,27 @@ local function btTypeGlyph(name)
     return "bluetooth"
 end
 
+local isBuildingAgent = false
 local function ensureAgent()
     local pDir = (type(noctalia.pluginDir) == "function" and noctalia.pluginDir()) or (type(noctalia.pluginDir) == "string" and noctalia.pluginDir) or "/media/SSD/code/github/community-plugins/network-toolkit"
     local bin = pDir .. "/scripts/bluetooth_helper"
-    noctalia.runAsync(string.format("pidof bluetooth_helper >/dev/null 2>&1 || (nohup '%s' >/dev/null 2>&1 &)", bin), function() end, 2000)
+    local buildScript = pDir .. "/scripts/build.sh"
+
+    if noctalia.fileExists and noctalia.fileExists(bin) then
+        noctalia.runAsync(string.format("pidof bluetooth_helper >/dev/null 2>&1 || (nohup '%s' >/dev/null 2>&1 &)", bin), function() end, 2000)
+        return
+    end
+
+    if isBuildingAgent then return end
+    isBuildingAgent = true
+
+    local cmd = string.format("bash '%s' 2>/dev/null || sh '%s' 2>/dev/null || (cd '%s/scripts' && (gcc -O2 bluetooth_helper.c $(pkg-config --cflags --libs dbus-1 2>/dev/null || echo '-I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -ldbus-1') -o bluetooth_helper 2>/dev/null || cc -O2 bluetooth_helper.c -I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include -ldbus-1 -o bluetooth_helper 2>/dev/null))", buildScript, buildScript, pDir)
+    noctalia.runAsync(cmd, function(res)
+        isBuildingAgent = false
+        if noctalia.fileExists and noctalia.fileExists(bin) then
+            noctalia.runAsync(string.format("pidof bluetooth_helper >/dev/null 2>&1 || (nohup '%s' >/dev/null 2>&1 &)", bin), function() end, 2000)
+        end
+    end, 10000)
 end
 
 function BT.init()

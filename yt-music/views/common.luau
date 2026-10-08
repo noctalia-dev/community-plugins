@@ -41,7 +41,7 @@ end
 
 local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 	if path and file_exists_cached(path) then
-		return ui.image({ path = path, width = size, height = size, fit = "cover" })
+		return ui.image({ path = path, width = size, height = size, fit = "cover", radius = theme.radius })
 	end
 	return ui.row({
 		width = size,
@@ -50,6 +50,7 @@ local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 		justify = "center",
 		fill = fill or "surface_variant/0.3",
 		borderWidth = 0,
+		radius = theme.radius,
 	}, {
 		ui.glyph({ name = glyph or "music", size = glyph_size or 20, color = color or "on_surface_variant" }),
 	})
@@ -80,6 +81,7 @@ local function chunk_rows(cells, per_row, key_prefix, gap)
 				key = key_prefix .. "-pad-" .. (#cells + 1),
 				flexGrow = 1,
 				borderWidth = 0,
+				radius = theme.radius,
 			})
 		)
 	end
@@ -96,13 +98,38 @@ local function chunk_rows(cells, per_row, key_prefix, gap)
 				key = key_prefix .. "-row-" .. i,
 				gap = gap or 10,
 				align = "stretch",
+				radius = theme.radius,
 			}, row_children)
 		)
 	end
 	return rows
 end
 
-local function media_row(item, idx, custom_click, is_active)
+-- spec = { drag_type, payload, enabled? }
+local function drag_grip(row_key, spec, highlighted)
+	return ui.dragSource({
+		key = row_key .. "-grip",
+		dragType = spec.drag_type,
+		payload = tostring(spec.payload),
+		enabled = spec.enabled ~= false,
+		previewAncestor = 2, -- 2 = the onClick wrapper around the row; 1 leaves a hole
+		liftFromLayout = true,
+		width = 20,
+		height = 32,
+		align = "center",
+		justify = "center",
+		tooltip = spec.tooltip or "Drag to reorder",
+	}, {
+		ui.glyph({
+			key = row_key .. "-grip-glyph",
+			name = "grip-vertical",
+			size = 16,
+			color = highlighted and "primary" or "on_surface_variant",
+		}),
+	})
+end
+
+local function media_row(item, idx, custom_click, is_active, drag)
 	local handler = custom_click or function()
 		state.play_item(item)
 	end
@@ -175,6 +202,7 @@ local function media_row(item, idx, custom_click, is_active)
 				align = "center",
 				justify = "center",
 				borderWidth = 0,
+				radius = theme.radius,
 			}, {
 				ui.glyph({ key = row_key .. "-check", name = "check", size = 16, color = "primary" }),
 			})
@@ -189,6 +217,7 @@ local function media_row(item, idx, custom_click, is_active)
 				align = "center",
 				justify = "center",
 				borderWidth = 0,
+				radius = theme.radius,
 			}, {
 				ui.button({
 					key = row_key .. "-dl",
@@ -208,6 +237,36 @@ local function media_row(item, idx, custom_click, is_active)
 		)
 	end
 
+	local row_children = {
+		track_thumb,
+		ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
+			ui.label({
+				text = item.title or "Unknown Track",
+				fontSize = theme.fontTitle,
+				maxLines = 1,
+				color = (is_loading or is_current) and "primary" or "on_surface",
+			}),
+			ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" }),
+		}),
+		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center", radius = theme.radius }, trailing),
+		ui.button({
+			key = row_key .. "-playnext",
+			glyph = "playlist-add",
+			variant = "ghost",
+			controlSize = "sm",
+			tooltip = "Play next",
+			onClick = function()
+				state.view.hover_key.track = nil
+				if item and item.id then
+					request("play_next", { item = item })
+				end
+			end,
+		}),
+	}
+	if drag then
+		table.insert(row_children, 1, drag_grip(row_key, drag, is_hovered or is_current))
+	end
+
 	return ui.row({
 		key = row_key,
 		gap = 14,
@@ -225,32 +284,8 @@ local function media_row(item, idx, custom_click, is_active)
 			rerender.call()
 		end,
 		onHover = "onTrackHover",
-	}, {
-		track_thumb,
-		ui.column({ gap = 2, flexGrow = 1 }, {
-			ui.label({
-				text = item.title or "Unknown Track",
-				fontSize = theme.fontTitle,
-				maxLines = 1,
-				color = (is_loading or is_current) and "primary" or "on_surface",
-			}),
-			ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" }),
-		}),
-		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center" }, trailing),
-		ui.button({
-			key = row_key .. "-playnext",
-			glyph = "playlist-add",
-			variant = "ghost",
-			controlSize = "sm",
-			tooltip = "Play next",
-			onClick = function()
-				state.view.hover_key.track = nil
-				if item and item.id then
-					request("play_next", { item = item })
-				end
-			end,
-		}),
-	})
+		radius = theme.radius,
+	}, row_children)
 end
 
 return {

@@ -1,0 +1,236 @@
+id          = "fel/quill"
+name        = "Quill"
+version     = "1.1.2"
+plugin_api  = 24
+author      = "fel"
+license     = "MIT"
+icon        = "notes"
+description = "Markdown notes and todos from the bar, with AI capture, summaries, rewriting and Q&A over your notes."
+tags        = ["bar", "panel", "launcher", "ai", "productivity", "utility"]
+# Informational only: Noctalia shows "requires …" in the listing and does not
+# install anything. Notes and todos need neither; `git` is for Git history and
+# `opencode` only for the opencode CLI AI provider.
+dependencies = ["git", "opencode"]
+
+[[setting]]
+key             = "notes_dir"
+type            = "folder"
+label_key       = "settings.notes-dir.label"
+description_key = "settings.notes-dir.desc"
+default         = "~/notes"
+
+[[setting]]
+key             = "inbox_file"
+type            = "string"
+label_key       = "settings.inbox-file.label"
+description_key = "settings.inbox-file.desc"
+default         = "Inbox.md"
+
+[[setting]]
+key             = "poll_interval_ms"
+type            = "int"
+label_key       = "settings.poll-interval-ms.label"
+description_key = "settings.poll-interval-ms.desc"
+default         = 5000
+min             = 1000
+max             = 120000
+step            = 500
+advanced        = true
+
+[[setting]]
+key             = "scan_depth"
+type            = "int"
+label_key       = "settings.scan-depth.label"
+description_key = "settings.scan-depth.desc"
+default         = 3
+min             = 0
+max             = 6
+step            = 1
+advanced        = true
+
+[[setting]]
+key             = "ai_backend"
+type            = "select"
+label_key       = "settings.ai-backend.label"
+description_key = "settings.ai-backend.desc"
+default         = "opencode-go"
+
+options = [
+  { value = "opencode-go", label_key = "settings.ai-backend.opencode-go" },
+  { value = "opencode-cli", label_key = "settings.ai-backend.opencode-cli" },
+  { value = "openai", label_key = "settings.ai-backend.openai" },
+  { value = "anthropic", label_key = "settings.ai-backend.anthropic" },
+  { value = "google", label_key = "settings.ai-backend.google" },
+  { value = "openrouter", label_key = "settings.ai-backend.openrouter" },
+  { value = "groq", label_key = "settings.ai-backend.groq" },
+  { value = "ollama", label_key = "settings.ai-backend.ollama" },
+  { value = "openai-compatible", label_key = "settings.ai-backend.openai-compatible" },
+  { value = "off", label_key = "settings.ai-backend.off" },
+]
+
+[[setting]]
+key             = "ai_model"
+type            = "string"
+label_key       = "settings.ai-model.label"
+description_key = "settings.ai-model.desc"
+default         = "deepseek-v4-flash"
+
+[[setting]]
+key             = "ai_base_url"
+type            = "string"
+label_key       = "settings.ai-base-url.label"
+description_key = "settings.ai-base-url.desc"
+default         = ""
+advanced        = true
+
+[[setting]]
+key             = "api_key"
+type            = "string"
+label_key       = "settings.api-key.label"
+description_key = "settings.api-key.desc"
+default         = ""
+advanced        = true
+
+[[setting]]
+key             = "api_key_env"
+type            = "string"
+label_key       = "settings.api-key-env.label"
+description_key = "settings.api-key-env.desc"
+default         = ""
+advanced        = true
+
+[[setting]]
+key             = "ai_max_tokens"
+type            = "int"
+label_key       = "settings.ai-max-tokens.label"
+description_key = "settings.ai-max-tokens.desc"
+default         = 0
+min             = 0
+max             = 32768
+step            = 64
+advanced        = true
+
+[[setting]]
+key             = "ai_capture"
+type            = "bool"
+label_key       = "settings.ai-capture.label"
+description_key = "settings.ai-capture.desc"
+default         = true
+
+[[setting]]
+key             = "max_context_notes"
+type            = "int"
+label_key       = "settings.max-context-notes.label"
+description_key = "settings.max-context-notes.desc"
+default         = 4
+min             = 1
+max             = 15
+step            = 1
+advanced        = true
+
+[[setting]]
+key             = "daily_dir"
+type            = "string"
+label_key       = "settings.daily-dir.label"
+description_key = "settings.daily-dir.desc"
+default         = "Daily"
+
+[[setting]]
+key             = "archive_file"
+type            = "string"
+label_key       = "settings.archive-file.label"
+description_key = "settings.archive-file.desc"
+default         = "Archive.md"
+
+[[setting]]
+key             = "due_reminders"
+type            = "bool"
+label_key       = "settings.due-reminders.label"
+description_key = "settings.due-reminders.desc"
+default         = true
+
+[[setting]]
+key             = "git_history"
+type            = "bool"
+label_key       = "settings.git-history.label"
+description_key = "settings.git-history.desc"
+default         = false
+
+[[setting]]
+key             = "git_debounce_ms"
+type            = "int"
+label_key       = "settings.git-debounce-ms.label"
+description_key = "settings.git-debounce-ms.desc"
+default         = 8000
+min             = 1000
+max             = 300000
+step            = 1000
+advanced        = true
+
+[[setting]]
+key             = "desktop_items"
+type            = "int"
+label_key       = "settings.desktop-items.label"
+description_key = "settings.desktop-items.desc"
+default         = 6
+min             = 1
+max             = 20
+step            = 1
+advanced        = true
+
+[[service]]
+id    = "index"
+entry = "service.luau"
+
+[[widget]]
+id    = "status"
+entry = "widget.luau"
+
+  [widget.actions]
+  middle = "none"
+
+  [[widget.setting]]
+  key             = "show_label"
+  type            = "bool"
+  label_key       = "settings.show-label.label"
+  description_key = "settings.show-label.desc"
+  default         = true
+
+  [[widget.setting]]
+  key             = "hide_when_empty"
+  type            = "bool"
+  label_key       = "settings.hide-when-empty.label"
+  description_key = "settings.hide-when-empty.desc"
+  default         = false
+
+  [[widget.setting]]
+  key             = "icon_color"
+  type            = "color"
+  label_key       = "settings.icon-color.label"
+  description_key = "settings.icon-color.desc"
+  default         = "primary"
+
+[[panel]]
+id                      = "panel"
+entry                   = "panel.luau"
+width                   = 480
+height                  = 620
+placement               = "attached"
+dismiss_on_outside_click = true
+keyboard_focus          = "exclusive"
+
+[[shortcut]]
+id    = "toggle"
+entry = "shortcut.luau"
+
+[[desktop_widget]]
+id    = "tile"
+entry = "desktop.luau"
+
+[[launcher_provider]]
+id                      = "capture"
+entry                   = "launcher.luau"
+prefix                  = "nt"
+glyph                   = "notes"
+debounce_ms             = 120
+include_in_global_search = false

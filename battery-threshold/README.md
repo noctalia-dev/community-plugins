@@ -6,17 +6,19 @@ while plugged in, reducing battery wear and heat.
 
 ## Plugin
 
-| Field   | Value                                                               |
-| ------- | ------------------------------------------------------------------- |
-| ID      | `damian-ds7/battery-threshold`                                      |
-| Entries | Bar widget: `battery-threshold`; panel: `panel`; service: `service` |
+| Field           | Value                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| ID              | `damian-ds7/battery-threshold`                                                            |
+| Entries         | Bar widget: `battery-threshold`; panel: `panel`; service: `service`; launcher: `launcher` |
+| Launcher Prefix | `/batt`                                                                                   |
 
 ## Requirements
 
 - Laptop hardware supporting battery charge threshold control in sysfs
   (`/sys/class/power_supply/*/charge_control_end_threshold`).
 - The following external programs must be available on `PATH`: `test`, `sudo`,
-  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`, `chgrp`, and `chmod`.
+  `bash`, `readlink`, `cat`, `getent`, `groupadd`, `usermod`, `udevadm`,
+  `chgrp`, and `chmod`.
 
 ## Usage
 
@@ -30,12 +32,17 @@ while plugged in, reducing battery wear and heat.
 noctalia msg panel-toggle damian-ds7/battery-threshold:panel
 ```
 
+- **Launcher (`/batt`)**: Type `/batt` with no arguments to open the panel. Type
+  `/batt <number>` (e.g. `/batt 60`) to set the charge threshold to that
+  percentage directly, without opening the panel; the value is clamped to
+  40–100%.
+
 ## Settings
 
-| Setting            | Type     | Default                        | Description                                    |
-| ------------------ | -------- | ------------------------------ | ---------------------------------------------- |
-| `battery_device`   | `folder` | `/sys/class/power_supply/BAT0` | Path to the battery sysfs directory.           |
-| `charge_threshold` | `int`    | `80`                           | Default charge threshold percentage (40–100%). |
+| Setting            | Type          | Default                        | Description                                    |
+| ------------------ | ------------- | ------------------------------ | ---------------------------------------------- |
+| `battery_device`   | `string_list` | `/sys/class/power_supply/BAT0` | Paths to the battery sysfs directories.        |
+| `charge_threshold` | `int`         | `80`                           | Default charge threshold percentage (40–100%). |
 
 ## IPC
 
@@ -50,9 +57,9 @@ noctalia msg plugin damian-ds7/battery-threshold:service all setup
 ## Notes
 
 - **Supported Devices**: Only works on laptops with battery charge threshold
-  support (ThinkPad, ASUS), tested on Asus Zenbook 14
+  support (ThinkPad, ASUS), tested on Asus Zenbook 14 and dual-battery ThinkPads
 - **Permissions & Setup**: Requires write access to
-  `/sys/class/power_supply/BAT0/charge_control_end_threshold`. Automated setup
+  `/sys/class/power_supply/BAT*/charge_control_end_threshold`. Automated setup
   creates the `battery_ctl` group, adds the active user to it, and installs
   `99-battery-threshold.rules` to `/etc/udev/rules.d/`.
 - **Relogin / Reboot**: A logout or system reboot is required after running

@@ -15,6 +15,10 @@ local function getMaxResults()
 	return (type(n) == "number" and n > 0) and math.floor(n) or 20
 end
 
+local function getNewWindow()
+	return noctalia.getConfig("new_window") == true
+end
+
 local function trim(s)
 	return s:match("^%s*(.-)%s*$")
 end
@@ -176,6 +180,10 @@ end
 
 function onActivate(id)
 	if id == "" then
+		return
+	end
+	if getNewWindow() then
+		noctalia.runAsync(string.format("nohup zeditor -n %s &>/dev/null &", shellQuote(id)))
 		return
 	end
 	noctalia.runAsync(string.format("nohup zeditor %s &>/dev/null &", shellQuote(id)))

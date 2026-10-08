@@ -1,0 +1,22 @@
+{
+  "error": {
+    "decode_failed": "Failed to decode Sway IPC response.",
+    "initial_state_failed": "Failed to retrieve the initial Sway mode.",
+    "invalid_data": "Invalid data received from Sway.",
+    "stream_failed": "Could not start swaymsg mode subscription."
+  },
+  "settings": {
+    "glyph": {
+      "description": "Glyph to display next to the current Sway mode. Leave empty to hide the glyph.",
+      "label": "Glyph"
+    },
+    "hide_default": {
+      "description": "Hide the widget when Sway is in its default mode",
+      "label": "Hide default mode"
+    },
+    "rename_default": {
+      "description": "Change the name shown in the widget for the default mode",
+      "label": "Rename default mode"
+    }
+  }
+}

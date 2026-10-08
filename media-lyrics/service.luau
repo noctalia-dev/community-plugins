@@ -700,6 +700,87 @@ end
 
 local refreshInFlight = false
 
+-- ── artwork resolution ─────────────────────────────────────────────────────
+-- MPRIS art_url is either a local path (file:// URI, e.g. mpv/zen) or an HTTP(S)
+-- URL (Spotify, Apple Music, web players -> i.scdn.co, etc). ui.image only
+-- renders LOCAL files, so a remote URL must be downloaded first. Without this
+-- the host logged:
+--   [ui-tree] ui tree: image failed to load '<pluginDir>/https://i.scdn.co/...'
+-- and the panel showed an empty cover box (issue #705).
+local ART_DIR = "/art"
+local ART_REVISION_SLOTS = 2 -- cover-0/cover-1: alternating slots dodge a stale read
+local artRevision = 0
+local artCache = {} -- remote url -> local path (per-session memo, avoids re-download)
+
+local function isRemoteArt(url)
+  return type(url) == "string" and (url:match("^https?://") ~= nil)
+end
+
+local function artDir()
+  local dir = noctalia.pluginDataDir()
+  if not dir then return nil end
+  return dir .. ART_DIR
+end
+
+local function artDest(ext)
+  local dir = artDir()
+  if not dir then return nil end
+  return dir .. "/cover-" .. tostring(artRevision % ART_REVISION_SLOTS) .. ext
+end
+
+-- Publish a snapshot carrying a concrete local path (or "" while unresolved).
+local function publishArt(path)
+  snapshot.artUrl = path or ""
+  publish()
+end
+
+-- Resolve an MPRIS art_url to a filesystem path ui.image can render.
+-- syncFn(path) is called immediately with the known-local value (or "" for a
+-- remote URL still being fetched) so the caller keeps its normal control flow.
+local function resolveArt(url, key, syncFn)
+  if type(url) ~= "string" or url == "" then
+    syncFn("")
+    return
+  end
+  -- file:// URI or a bare local path -> already renderable
+  if not isRemoteArt(url) then
+    syncFn((url:gsub("^file://", "")))
+    return
+  end
+  -- remote: serve a memoized copy when we already downloaded this exact URL
+  local memo = artCache[url]
+  if memo and noctalia.fileExists(memo) then
+    syncFn(memo)
+    return
+  end
+  local dir = artDir()
+  if not dir then
+    syncFn("")
+    return
+  end
+
+  -- hand the UI the cached path instantly, then refresh after the download
+  syncFn("")
+
+  artRevision = artRevision + 1
+  local revision = artRevision
+  local ext = url:match("%.png") and ".png" or url:match("%.webp") and ".webp"
+    or url:match("%.jpe?g") and ".jpg" or ".jpg"
+  local destination = artDest(ext)
+  if not destination then return end
+
+  noctalia.mkdirAll(dir)
+  noctalia.download(url, destination, function(ok)
+    if not ok then return end
+    -- a newer track started while this download was in flight
+    if revision ~= artRevision then return end
+    if not noctalia.fileExists(destination) then return end
+    artCache[url] = destination
+    -- same track still playing? then show the art we just fetched
+    if currentTrackKey == key then publishArt(destination) end
+  end)
+end
+
 -- Apply a single player's fields to the snapshot and (on track change) load
 -- lyrics. Shared by the active-player path and the allowlist fallback.
 -- Declared BEFORE refreshPlayer so it is a visible upvalue there.
@@ -707,8 +788,7 @@ local function applyPlayer(f)
     local title = parseBusctlVariant(f.title) or ""
     local artist = parseBusctlVariant(f.artists) or ""
     local album = parseBusctlVariant(f.album) or ""
-    local artUrl = parseBusctlVariant(f.art_url) or ""
-    artUrl = artUrl:gsub("^file://", "")
+    local rawArtUrl = parseBusctlVariant(f.art_url) or ""
     local playing = (parseBusctlVariant(f.playback_status) == "Playing")
     local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
     local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0
@@ -724,12 +804,14 @@ local function applyPlayer(f)
     local key = ident .. "|" .. title .. "|" .. artist .. "|" .. tostring(lengthUs)
     local trackChanged = (not snapshot.hasPlayer) or (currentTrackKey ~= key)
 
+    -- art may be a remote URL: resolve to a local file (async) before rendering
+    resolveArt(rawArtUrl, key, function(path) snapshot.artUrl = path end)
+
     snapshot.hasPlayer = true
     snapshot.playerName = ident
     snapshot.title = title
     snapshot.artist = artist
     snapshot.album = album
-    snapshot.artUrl = artUrl
     snapshot.playing = playing
     snapshot.canSeek = canSeek
     snapshot.canGoNext = canNext
@@ -781,9 +863,9 @@ local function refreshPlayer()
     local title = parseBusctlVariant(f.title) or ""
     local artist = parseBusctlVariant(f.artists) or ""
     local album = parseBusctlVariant(f.album) or ""
-    -- art_url comes as file:// URI; ui.image expects a filesystem path
-    local artUrl = parseBusctlVariant(f.art_url) or ""
-    artUrl = artUrl:gsub("^file://", "")
+    -- art_url is a file:// URI (local path) or an HTTP(S) URL (Spotify/web
+    -- players); resolveArt turns either into a path ui.image can render.
+    local rawArtUrl = parseBusctlVariant(f.art_url) or ""
     local playing = (parseBusctlVariant(f.playback_status) == "Playing")
     local lengthUs = tonumber(parseBusctlVariant(f.length_us)) or 0
     local posUs = tonumber(parseBusctlVariant(f.position_us)) or 0

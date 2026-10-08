@@ -5,8 +5,14 @@ local watchers = {}
 local clock = 1789200000000
 local failRemovePath = nil
 local failNextItemWrite = false
+local failNextList = true
+local pendingHttp = nil
+local pendingHttpRequest = nil
+local downloadedUrls = {}
 local writeTargets = {}
 local removeTargets = {}
+local jsonDecodeCalls = 0
+local syncExternalChanges = false
 
 local function jsonEscape(value)
   return '"' .. value:gsub('\\', '\\\\'):gsub('"', '\\"'):gsub('\n', '\\n') .. '"'
@@ -35,6 +41,7 @@ local function jsonEncode(value)
 end
 
 local function jsonDecode(value)
+  jsonDecodeCalls = jsonDecodeCalls + 1
   if type(value) ~= "string" then return nil end
   local luaValue = value:gsub("%[", "{"):gsub("%]", "}")
     :gsub('"([^"\\]+)"%s*:', '["%1"]='):gsub("null", "nil")
@@ -45,6 +52,10 @@ local function jsonDecode(value)
 end
 
 local function listDir(path)
+  if failNextList then
+    failNextList = false
+    return nil, "forced transient listing failure"
+  end
   local names, seen = {}, {}
   local prefix = path .. "/"
   for filePath, _ in pairs(files) do
@@ -66,7 +77,8 @@ noctalia = {
   tr = function(key) return key end,
   getConfig = function(key)
     if key == "save_path" then return "/library" end
-    if key == "fetch_metadata" or key == "sync_external_changes" then return false end
+    if key == "fetch_metadata" then return false end
+    if key == "sync_external_changes" then return syncExternalChanges end
     return nil
   end,
   expandPath = function(path) return path end,
@@ -110,8 +122,17 @@ noctalia = {
     end,
     watch = function(key, callback) watchers[key] = callback end,
   },
-  http = function() error("metadata fetch should be disabled in tests") end,
-  download = function() error("downloads should be disabled in tests") end,
+  http = function(request, callback)
+    pendingHttpRequest = request
+    pendingHttp = callback
+    return true
+  end,
+  download = function(url, path, callback)
+    table.insert(downloadedUrls, url)
+    files[path] = "downloaded"
+    callback(true)
+    return true
+  end,
 }
 
 local function command(value)
@@ -124,6 +145,11 @@ end
 
 local function findByTitle(title)
   for _, item in ipairs(items()) do if item.title == title then return item end end
+  return nil
+end
+
+local function findByUrl(url)
+  for _, item in ipairs(items()) do if item.url == url then return item end end
   return nil
 end
 
@@ -142,9 +168,72 @@ cover: /library/.assets/../../cover-victim.md
 ]]
 files["/library/.assets/../../cover-victim.md"] = "must survive"
 
+local function scaleFixture(index)
+  local id = "scale" .. tostring(index)
+  return table.concat({
+    "---",
+    "reading_list: true",
+    "id: \"" .. id .. "\"",
+    "type: \"article\"",
+    "title: \"Scale item " .. tostring(index) .. "\"",
+    "url: \"https://example.com/scale/" .. tostring(index) .. "\"",
+    "source: \"Example\"",
+    "author: \"Writer\"",
+    "description: \"A realistic persisted item\"",
+    "topics: []",
+    "collections: []",
+    "status: \"unread\"",
+    "favorite: false",
+    "progress: 0",
+    "current_page: 0",
+    "total_pages: 0",
+    "rating: 0",
+    "estimated_minutes: 0",
+    "queue_order: " .. tostring(index),
+    "created_at: " .. tostring(1789000000 + index),
+    "created: \"2026-09-20\"",
+    "started_at: 0",
+    "updated_at: 0",
+    "finished_at: 0",
+    "favicon: \"\"",
+    "cover: \"\"",
+    "---",
+    "",
+    "Scale note " .. tostring(index),
+    "",
+  }, "\n")
+end
+
+for index = 1, 32 do
+  files["/library/Items/scale" .. tostring(index) .. ".md"] = scaleFixture(index)
+end
+
 math.randomseed(42)
 dofile(servicePath)
 assertEqual(stateValues["reading_list.ready"], true, "service should initialize")
+assertEqual(stateValues["reading_list.error"], "", "a transient startup listing failure should self-repair")
+assertEqual(#items(), 33, "a realistic library should load within the service callback")
+assert(jsonDecodeCalls < 10, "ordinary persisted scalars should not require repeated JSON decoding")
+
+jsonDecodeCalls = 0
+syncExternalChanges = true
+update()
+assertEqual(jsonDecodeCalls, 0, "an unchanged library refresh should reuse parsed items")
+local scaleItem = assert(findByTitle("Scale item 32"), "scale fixture should remain available after refresh")
+command({ op = "set_status", id = scaleItem.id, status = "archived" })
+assertEqual(findByTitle("Scale item 32").status, "archived",
+  "archive commands should persist with a realistically sized library")
+assert(files["/library/Items/scale32.md"]:find('status: "archived"', 1, true),
+  "archived status should be written to the Markdown item")
+files["/library/Items/scale32.md"] = files["/library/Items/scale32.md"]
+  :gsub('status: "archived"', 'status: "reading"')
+command({ op = "sync" })
+assertEqual(findByTitle("Scale item 32").status, "reading",
+  "an externally edited item should invalidate its parsed cache")
+syncExternalChanges = false
+
+for index = 1, 32 do files["/library/Items/scale" .. tostring(index) .. ".md"] = nil end
+command({ op = "sync" })
 
 local traversalFixture = assert(findByTitle("Traversal fixture"), "frontmatter item should load")
 assertEqual(traversalFixture.id, "evil", "unsafe frontmatter id should fall back to the safe filename")
@@ -162,7 +251,7 @@ assertEqual(files["/library/.assets/../../cover-victim.md"], "must survive",
   "frontmatter asset paths must not delete files outside the assets folder")
 
 command({ op = "add", item = {
-  title = "First article", url = "https://example.com/first", source = "Example",
+  title = "First article", url = "example.com/first", source = "Example",
   topics = "lua, testing", collections = "Research", status = "reading",
   description = "A useful article.", rating = 4, review = "Worth reading.",
   notes = "Keep this note.\n\n## Personal heading",
@@ -173,6 +262,50 @@ command({ op = "add", item = {
 assertEqual(#items(), 2, "two items should be added")
 
 local first = assert(findByTitle("First article"))
+assertEqual(first.url, "https://example.com/first", "a bare domain should default to HTTPS")
+command({ op = "refresh_metadata", id = first.id })
+assert(pendingHttp ~= nil, "metadata refresh should start an HTTP request")
+pendingHttp(nil)
+assertEqual(stateValues["reading_list.error"], "errors.metadata", "a missing metadata response should be reported")
+assertEqual(findByTitle("First article").fetching, false, "a failed metadata request should not stay fetching")
+
+local youtubeUrl = "https://www.youtube.com/watch?v=dgawYAH0pO4"
+command({ op = "add", item = { url = youtubeUrl } })
+local youtube = assert(findByUrl(youtubeUrl), "YouTube item should be added")
+command({ op = "refresh_metadata", id = youtube.id })
+assert(pendingHttpRequest.url:find("youtube.com/oembed", 1, true),
+  "YouTube metadata should use the lightweight oEmbed endpoint")
+pendingHttp({ ok = true, status = 200, body = jsonEncode({
+  title = "Design Uber Eats",
+  author_name = "Aced",
+  provider_name = "YouTube",
+  thumbnail_url = "https://i.ytimg.com/vi/dgawYAH0pO4/hqdefault.jpg",
+}) })
+youtube = assert(findByUrl(youtubeUrl))
+assertEqual(youtube.title, "Design Uber Eats", "YouTube oEmbed should provide the title")
+assertEqual(youtube.author, "Aced", "YouTube oEmbed should provide the channel author")
+assertEqual(youtube.source, "YouTube", "YouTube oEmbed should provide the source")
+assert(youtube.image:find("%-cover%.jpg$") ~= nil, "YouTube thumbnail should be downloaded locally")
+
+local fallbackUrl = "https://example.org/metadata"
+command({ op = "add", item = { url = fallbackUrl } })
+local fallback = assert(findByUrl(fallbackUrl), "fallback item should be added")
+command({ op = "refresh_metadata", id = fallback.id })
+assertEqual(pendingHttpRequest.url, fallbackUrl, "ordinary websites should fetch their page directly")
+pendingHttp({ ok = true, status = 200, body = "<html><head><script>" .. string.rep("x", 750000)
+  .. "</script><meta name=twitter:title content='Fallback title'>"
+  .. "<meta property=og:site_name content='Example Docs'>"
+  .. "<meta name=twitter:description content='Useful &amp; resilient'>"
+  .. "<meta itemprop=image content=/cover.webp><link rel=icon href=/icon.svg>"
+  .. "<title>Plain title</title></head><body></body></html>" })
+fallback = assert(findByUrl(fallbackUrl))
+assertEqual(fallback.title, "Fallback title", "Twitter metadata should fall back when Open Graph is absent")
+assertEqual(fallback.source, "Example Docs", "Open Graph site name should be collected")
+assertEqual(fallback.description, "Useful & resilient", "HTML entities should be decoded")
+assert(fallback.image:find("%-cover%.webp$") ~= nil, "relative preview URLs should resolve and download")
+command({ op = "remove", id = youtube.id })
+command({ op = "remove", id = fallback.id })
+
 local second = assert(findByTitle("Second article"))
 assert(first.queueOrder < second.queueOrder, "new items should append to the queue")
 command({ op = "swap_queue", id = second.id, targetId = first.id })

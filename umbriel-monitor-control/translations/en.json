@@ -4,6 +4,7 @@
   },
   "notify": {
     "apply_failed": "Could not apply change",
+    "bad_transform": "Unknown rotation value",
     "reload_failed": "Config saved but the compositor reload failed",
     "revert_failed": "No previous config backup to restore",
     "saved_no_reload": "Saved. Live apply is off, so it lands on the next session.",
@@ -13,6 +14,7 @@
     "apply": "Apply mode",
     "apply_position": "Set this exact position",
     "busy": "Applying...",
+    "flipped": "flipped",
     "layout": "Arrangement",
     "monitors": "Monitors",
     "no_outputs": "No outputs reported by the compositor.",
@@ -30,6 +32,7 @@
     "refresh": "Hz",
     "refresh_state": "Refresh",
     "resolution": "Resolution",
+    "rotation": "Rotation",
     "unavailable": "Monitor Control needs an Umbriel session with the umbriel CLI available."
   },
   "settings": {

@@ -1,6 +1,6 @@
 --!nonstrict
--- Monitor Control panel - pick a monitor, set its resolution and refresh rate,
--- and place it left/right/above/below the others.
+-- Monitor Control panel - pick a monitor, set its resolution, refresh rate and
+-- rotation, and place it left/right/above/below the others.
 --
 -- Every change becomes one "monitor.request" on the plugin's shared state: the
 -- service patches the Umbriel config, validates and reloads it, and answers
@@ -8,7 +8,9 @@
 --
 -- Resolution and refresh are drafted per monitor (two selects that must agree
 -- on one mode line), and only an explicit "Apply" writes the config - so
--- fiddling with the dropdowns never re-modes a live display.
+-- fiddling with the dropdowns never re-modes a live display. Rotation applies
+-- on the pick instead: one select, no second value to agree with, and which of
+-- the eight transforms is the right one is only visible on screen.
 
 local snapshot = { available = false, outputs = {} }
 
@@ -29,8 +31,10 @@ local positionDrafts = {}
 -- would leave them calling a nil global instead.
 local render
 
--- Pure geometry for the arrangement map (see layout.luau + tests/run.lua).
+-- Pure geometry for the arrangement map (see layout.luau + tests/run.lua), and
+-- the transform vocabulary the rotation select offers (config.luau).
 local layout = require("./layout.luau")
+local config = require("./config.luau")
 
 -- Canvas the arrangement is drawn into, and the palette that ties a map
 -- rectangle to its legend row.
@@ -43,6 +47,18 @@ end
 
 local function tr(key, subst)
   return noctalia.tr(key, subst)
+end
+
+-- Labels the rotation select shows, one per transform value in select order
+-- (config.luau holds the vocabulary and the wording of a label; only the word
+-- for "flipped" is local to the UI). Built per render so it follows the UI
+-- language.
+local function rotationOptions()
+  local labels = {}
+  for _, value in ipairs(config.TRANSFORMS) do
+    table.insert(labels, config.rotationLabel(value, tr("panel.flipped")))
+  end
+  return labels
 end
 
 local function hzText(refreshMhz)
@@ -164,6 +180,7 @@ local PLACE_BUTTONS = {
 local function outputCard(output)
   local modes = output.modes or {}
   local draft = draftFor(output)
+  local liveTransform = output.transform or "normal"
   local resolutionsList = resolutions(modes)
 
   local resolutionIndex = 0
@@ -201,6 +218,26 @@ local function outputCard(output)
       end,
     }))
   end
+
+  -- Rotation: one pick, applied at once (see the header note). The key carries
+  -- the live transform, so a select left showing a value whose request the
+  -- service dropped re-seeds from the compositor's own answer.
+  local rotateRow = ui.row({ gap = 6, align = "center" }, {
+    ui.label({ text = tr("panel.rotation"), color = "on_surface_variant", fontSize = 11, width = 54 }),
+    ui.select({
+      key = `rot-{output.name}-{liveTransform}`,
+      options = rotationOptions(),
+      selectedIndex = config.rotationIndex(liveTransform),
+      flexGrow = 1,
+      enabled = snapshot.busy ~= true,
+      onChange = function(index, _text)
+        local value = config.TRANSFORMS[tonumber(index) + 1]
+        if value ~= nil and value ~= liveTransform then
+          request({ action = "rotate", name = output.name, transform = value })
+        end
+      end,
+    }),
+  })
 
   -- Exact position: the two logical-pixel coordinates Umbriel stores in the
   -- config, editable by hand next to the placement buttons. Enter or the
@@ -320,6 +357,8 @@ local function outputCard(output)
     }),
 
     ui.row({ gap = 6 }, placeRow),
+
+    rotateRow,
 
     positionRow,
   }

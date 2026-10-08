@@ -12,6 +12,10 @@
     "max_results": {
       "description": "Maximum number of projects to display.",
       "label": "Maximum results"
+    },
+    "new_window": {
+      "description": "Open selected project in a new Zed window.",
+      "label": "Open in new window"
     }
   }
 }

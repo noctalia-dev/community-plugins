@@ -1,4 +1,5 @@
 local status = noctalia.state.get("status") or "loading"
+local notificationsStatus = noctalia.state.get("notifications_status") or "loading"
 local notificationCount = noctalia.state.get("notifications_count") or 0
 
 local function render()
@@ -11,9 +12,9 @@ local function render()
   else
     barWidget.setText(notificationCount > 0 and tostring(notificationCount) or "")
   end
-  if status == "missing_gh" then
+  if status == "missing_gh" or notificationsStatus == "missing_gh" then
     barWidget.setTooltip(noctalia.tr("status.missing_gh"))
-  elseif status == "auth_error" then
+  elseif status == "auth_error" or notificationsStatus == "auth_error" then
     barWidget.setTooltip(noctalia.tr("status.auth_error"))
   else
     barWidget.setTooltip(noctalia.trp("widget.tooltip", notificationCount, { count = notificationCount }))
@@ -22,6 +23,11 @@ end
 
 noctalia.state.watch("status", function(value)
   status = value or "loading"
+  render()
+end)
+
+noctalia.state.watch("notifications_status", function(value)
+  notificationsStatus = value or "loading"
   render()
 end)
 

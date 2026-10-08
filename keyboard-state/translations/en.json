@@ -1,0 +1,53 @@
+{
+  "settings": {
+    "input_device": {
+      "label": "Input device",
+      "description": "Path to the input device to monitor for keyboard lock key events"
+    },
+    "hide_inactive": {
+      "label": "Hide inactive",
+      "description": "Hide inactive lock keys"
+    },
+    "active_color": {
+      "label": "Active color",
+      "description": "Color to use when a lock key is active"
+    },
+    "inactive_color": {
+      "label": "Inactive color",
+      "description": "Color to use when a lock key is inactive"
+    },
+    "icon_spacing": {
+      "label": "Icon spacing",
+      "description": "Spacing between keyboard state icons in pixels"
+    },
+    "show_caps_lock": {
+      "label": "Show Caps Lock",
+      "description": "Show the Caps Lock state"
+    },
+    "caps_lock_glyph": {
+      "label": "Caps Lock glyph",
+      "description": "Glyph to display for Caps Lock"
+    },
+    "show_num_lock": {
+      "label": "Show Num Lock",
+      "description": "Show the Num Lock state"
+    },
+    "num_lock_glyph": {
+      "label": "Num Lock glyph",
+      "description": "Glyph to display for Num Lock"
+    },
+    "show_scroll_lock": {
+      "label": "Show Scroll Lock",
+      "description": "Show the Scroll Lock state"
+    },
+    "scroll_lock_glyph": {
+      "label": "Scroll Lock glyph",
+      "description": "Glyph to display for Scroll Lock"
+    }
+  },
+  "error": {
+    "failed_initial_query": "Failed to query initial key lock state.",
+    "invalid_input_device": "The configured input device is invalid or does not exist.",
+    "stream_failed": "Could not start the keyboard event stream."
+  }
+}

@@ -1,7 +1,7 @@
 id = "alexander/mimir"
 name = "Mimir"
-version = "0.5.0"
-plugin_api = 16
+version = "0.6.0"
+plugin_api = 21
 author = "Alexander"
 license = "MIT"
 icon = "brain"
@@ -48,6 +48,13 @@ label_key = "settings.api_key.label"
 description_key = "settings.api_key.description"
 default = ""
 advanced = true
+
+[[setting]]
+key = "default_model"
+type = "string"
+label_key = "settings.default_model.label"
+description_key = "settings.default_model.description"
+default = ""
 
 [[setting]]
 key = "tool_permission"

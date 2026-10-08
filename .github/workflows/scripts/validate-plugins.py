@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -1366,6 +1367,68 @@ class Validator:
                 "packs as one archive or generate them into the user's cache directory on first run)",
             )
 
+    def git_index_entries(self) -> list[tuple[str, str]] | None:
+        # Returns (mode, path) for every tracked entry, or None when this is not the repository
+        # checkout (unit tests validate detached temporary directories) or git is unavailable.
+        try:
+            probe = subprocess.run(
+                ["git", "-C", str(self.root), "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return None
+        if probe.returncode != 0:
+            return None
+        try:
+            toplevel = Path(probe.stdout.strip()).resolve()
+        except OSError:
+            return None
+        if toplevel != self.root:
+            return None
+
+        try:
+            listed = subprocess.run(
+                ["git", "-C", str(self.root), "-c", "core.quotePath=false", "ls-files", "--stage"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return None
+        if listed.returncode != 0:
+            return None
+
+        entries: list[tuple[str, str]] = []
+        for line in listed.stdout.splitlines():
+            metadata, separator, path = line.partition("\t")
+            if not separator:
+                continue
+            entries.append((metadata.split(" ", 1)[0], path))
+        return entries
+
+    def validate_git_objects(self) -> None:
+        # Plugins ship as plain files committed in this repository. A gitlink (mode 160000) or a
+        # committed .gitmodules points at content stored elsewhere: a fresh clone checks out an
+        # empty plugin directory, the shell cannot install it, and reviewers cannot inspect it.
+        entries = self.git_index_entries()
+        if entries is None:
+            return
+
+        for mode, path in entries:
+            if mode == "160000":
+                self.add_error(
+                    self.root / path,
+                    "is a git submodule (mode 160000); plugins ship plain files committed in this "
+                    "repository, so commit the plugin's files instead of a submodule",
+                )
+            elif Path(path).name == ".gitmodules":
+                self.add_error(
+                    self.root / path,
+                    "declares git submodules; plugins ship plain files committed in this repository",
+                )
+
     def validate_manifest(self, manifest_path: Path) -> None:
         manifest = self.load_manifest(manifest_path)
         if manifest is None:
@@ -1406,6 +1469,7 @@ class Validator:
 
     def validate(self) -> int:
         self.validate_layout()
+        self.validate_git_objects()
         manifests = sorted(self.root.glob("*/plugin.toml"))
         for manifest_path in manifests:
             self.validate_manifest(manifest_path)

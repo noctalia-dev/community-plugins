@@ -1,50 +1,28 @@
 local inputText = ""
 local inputKey = 0
-local copyTarget = nil
 local modelIdx = 0
 
-local markdownCache = {}
-local parseCache = {}
-local CACHE_MAX = 100
+-- ui.scroll follow-scroll (plugin_api >= 21): stickToBottom pins the chat to the
+-- newest message while the user is already at the bottom; onScroll reports when
+-- they scroll away, and bumping scrollToBottomRev re-pins (after sending, not
+-- while they are reading older messages).
+local atBottom = true
+local scrollRev = 0
 
-local function cacheGet(cache, key)
-  return cache[key]
-end
-
-local function cacheSet(cache, key, value)
-  if cache[key] then return end
-  cache[key] = value
-  local count = 0
-  for _ in pairs(cache) do count += 1 end
-  if count > CACHE_MAX then
-    for k in pairs(cache) do
-      cache[k] = nil
-      break
-    end
+-- Self-contained copy: the live clipboard write happens in the button's own
+-- closure on message click, using the message index captured at that render.
+-- Replaces the old "show message in a textarea" flow, which depended on a
+-- mimir.copy_target watcher that no copy action ever read.
+local function copyMessage(idx)
+  local messages = noctalia.state.get("mimir.messages") or {}
+  local msg = messages[idx]
+  local content = type(msg) == "table" and msg.content or nil
+  if type(content) ~= "string" or content == "" then return end
+  if noctalia.copyToClipboard(content, "text/plain;charset=utf-8") then
+    noctalia.notify("Mimir", "Message copied to clipboard.")
+  else
+    noctalia.notifyError("Mimir", "Failed to copy message.")
   end
-end
-
-noctalia.state.watch("mimir.copy_target", function(value)
-  copyTarget = (value == -1) and nil or value
-  render()
-end)
-
-local function inlineMarkdown(text)
-  local cached = cacheGet(markdownCache, text)
-  if cached then return cached end
-  local out = text
-  out = out:gsub("%*%*%*([^%*]-)%*%*%*", "%1")
-  out = out:gsub("%*%*([^%*]-)%*%*", "%1")
-  out = out:gsub("%*([^%*]-)%*", "%1")
-  out = out:gsub("~~([^~]-)~~", "%1")
-  out = out:gsub("`(.-)`", "%1")
-  out = out:gsub("%[([^%]]*)%]%(([^%)]+)%)", "%1 (%2)")
-  cacheSet(markdownCache, text, out)
-  return out
-end
-
-local function renderText(text, color, fontSize, fontWeight)
-  return ui.label({ text = inlineMarkdown(text), fontSize = fontSize or 13, fontWeight = fontWeight, color = color, maxWidth = 380 })
 end
 
 local function toolCommand(toolCall)
@@ -56,84 +34,6 @@ local function toolCommand(toolCall)
   end
   return nil
 end
-
-local function parseMessage(content)
-  local cached = cacheGet(parseCache, content)
-  if cached then return cached end
-  local nodes = {}
-  local lines = {}
-  for line in (content .. "\n"):gmatch("(.-)\n") do
-    table.insert(lines, line)
-  end
-  local i = 1
-  local function trim(s)
-    return (s:gsub("^%s*(.-)%s*$", "%1"))
-  end
-  while i <= #lines do
-    local line = lines[i]
-    if line:find("^```") then
-      local buf = {}
-      local lang = line:sub(4)
-      i = i + 1
-      while i <= #lines and not lines[i]:find("^```") do
-        table.insert(buf, lines[i])
-        i = i + 1
-      end
-      i = i + 1
-      table.insert(nodes, { type = "code", language = trim(lang), content = table.concat(buf, "\n") })
-    elseif line:match("^#+") and line:gsub("#+", ""):match("%S") then
-      local level, text = line:match("^(#+)%s*(.-)%s*$")
-      level = #level
-      text = text:gsub("#+%s*$", "")
-      table.insert(nodes, { type = "heading", level = level, content = text })
-      i = i + 1
-    elseif line:match("^%s*[-*_]+%s*$") and #line:gsub("%s", "") >= 3 then
-      table.insert(nodes, { type = "hr" })
-      i = i + 1
-    elseif line:match("^%s*>") then
-      local buf = {}
-      while i <= #lines and lines[i]:match("^%s*>") do
-        local t = lines[i]:gsub("^%s*>%s?", "")
-        if t == "" then t = " " end
-        table.insert(buf, t)
-        i = i + 1
-      end
-      table.insert(nodes, { type = "quote", content = table.concat(buf, " ") })
-    elseif line:match("^%s*[-*+]%s+") or line:match("^%s*%d+[.)]%s+") then
-      local items = {}
-      while i <= #lines do
-        local l = lines[i]
-        local bullet = l:match("^%s*[-*+]%s+(.*)")
-        local numbered = l:match("^%s*%d+[.)]%s+(.*)")
-        if bullet then
-          table.insert(items, { ordered = false, content = bullet })
-          i = i + 1
-        elseif numbered then
-          table.insert(items, { ordered = true, content = numbered })
-          i = i + 1
-        else
-          break
-        end
-      end
-      table.insert(nodes, { type = "list", items = items })
-    else
-      local buf = {}
-      while i <= #lines and not lines[i]:match("^```") and not (lines[i]:match("^#+") and lines[i]:gsub("#+", ""):match("%S"))
-        and not (lines[i]:match("^%s*[-*_]+%s*$") and #lines[i]:gsub("%s", "") >= 3) and not lines[i]:match("^%s*>")
-        and not lines[i]:match("^%s*[-*+]%s+") and not lines[i]:match("^%s*%d+[.)]%s+") do
-        table.insert(buf, lines[i])
-        i = i + 1
-      end
-      local para = table.concat(buf, "\n")
-      if trim(para) ~= "" then
-        table.insert(nodes, { type = "text", content = para })
-      end
-    end
-  end
-  cacheSet(parseCache, content, nodes)
-  return nodes
-end
-
 function render()
   local models = noctalia.state.get("mimir.models") or {}
   local messages = noctalia.state.get("mimir.messages") or {}
@@ -149,7 +49,6 @@ function render()
   local statusTexts = { idle = "Ready", thinking = "Thinking...", running_tool = "Running command...", searching = "Searching web...", fetching = "Fetching page...", error = "Error" }
 
   local displayMsgs = {}
-  local copyContent = nil
   for i, msg in ipairs(messages) do
     if msg.role ~= "system" and msg.role ~= "tool" then
       local isUser = msg.role == "user"
@@ -157,34 +56,10 @@ function render()
       local hasText = type(content) == "string" and content:match("%S") ~= nil
       local contentNodes = {}
       if hasText then
-        local isCopying = copyTarget == i
-        if isCopying then copyContent = content end
-        local nodes = parseMessage(content)
-        for _, node in ipairs(nodes) do
-          if node.type == "text" then
-            table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface"))
-          elseif node.type == "code" then
-            table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 6 }, {
-              ui.label({ text = node.content, fontSize = 12, color = "on_surface_variant" }),
-            }))
-          elseif node.type == "heading" then
-            local sizes = { 17, 15, 14, 13, 13, 13 }
-            table.insert(contentNodes, renderText(node.content, isUser and "primary" or "on_surface", sizes[node.level] or 13, "bold"))
-          elseif node.type == "quote" then
-            table.insert(contentNodes, ui.column({ fill = "surface_variant", padding = 8, radius = 4 }, {
-              renderText(node.content, isUser and "primary" or "on_surface_variant", 12),
-            }))
-          elseif node.type == "hr" then
-            table.insert(contentNodes, ui.separator({ thickness = 1, color = "surface_variant" }))
-          elseif node.type == "list" then
-            local listChildren = {}
-            for n, item in ipairs(node.items) do
-              local prefix = item.ordered and (n .. ". ") or "• "
-              table.insert(listChildren, renderText(prefix .. item.content, isUser and "primary" or "on_surface"))
-            end
-            table.insert(contentNodes, ui.column({ gap = 2 }, listChildren))
-          end
-        end
+        -- ui.markdown (plugin_api >= 21): the host parses and renders the
+        -- markdown (headings, lists, code blocks, tables) and re-parses only
+        -- when the text changes, so a growing chat stays cheap.
+        table.insert(contentNodes, ui.markdown({ text = content, width = 380 }))
       end
       if msg.tool_calls then
         for _, toolCall in ipairs(msg.tool_calls) do
@@ -198,11 +73,10 @@ function render()
         end
       end
       if #contentNodes > 0 then
-        local isCopying = copyTarget == i
         table.insert(displayMsgs, ui.column({ key = "m" .. i, gap = 4, paddingH = 4, align = isUser and "end" or "start" }, {
           ui.row({ gap = 4, align = "center" }, {
             ui.label({ text = isUser and "You" or "Mimir", fontSize = 11, color = "on_surface/0.5" }),
-            ui.button({ glyph = isCopying and "close" or "copy", variant = "ghost", onClick = function() noctalia.state.set("mimir.copy_target", isCopying and -1 or i) end }),
+            ui.button({ glyph = "copy", variant = "ghost", tooltip = "Copy message", onClick = function() copyMessage(i) end }),
           }),
           table.unpack(contentNodes),
         }))
@@ -231,16 +105,11 @@ function render()
       ui.select({ options = models, selectedIndex = modelIdx, flexGrow = 1, placeholder = "No models", onChange = "onModelChange" }),
     }),
     ui.separator({ thickness = 1, color = "surface_variant" }),
-    ui.scroll({ flexGrow = 1, gap = 4, padding = 12 }, displayMsgs),
+    ui.scroll({ flexGrow = 1, gap = 4, padding = 12, stickToBottom = true, onScroll = "onChatScroll", scrollToBottomRev = atBottom and scrollRev or nil }, displayMsgs),
     ui.separator({ thickness = 1, color = "surface_variant" }),
   }
-  if copyContent then
-    table.insert(layout, ui.column({ flexGrow = 1, padding = 8, fill = "surface_variant" }, {
-      ui.input({ key = "copy-area", multiline = true, value = copyContent, focus = true, flexGrow = 1, onChange = function() end }),
-    }))
-  end
   table.insert(layout, ui.row({ gap = 8, padding = { left = 12, right = 12, top = 8, bottom = 4 }, align = "center" }, {
-    ui.input({ key = "msg-input-" .. inputKey, value = inputText, placeholder = "Ask me anything...", flexGrow = 1, focus = true, onChange = "onInputChange", onSubmit = "onSubmit" }),
+    ui.input({ key = "msg-input-" .. inputKey, value = inputText, placeholder = "Ask me anything...", flexGrow = 1, focus = true, onChange = "onInputChange", onSubmit = "onSubmit", submitOnEnter = true }),
     ui.button({ glyph = "send", variant = "primary", onClick = "onSubmit" }),
   }))
   table.insert(layout, ui.row({ gap = 12, padding = { left = 12, right = 12, top = 4, bottom = 12 }, align = "center" }, {
@@ -287,7 +156,8 @@ function onSubmit(v)
   inputText = ""
   if text and text ~= "" then
     inputKey += 1
-    noctalia.state.set("mimir.copy_target", -1)
+    atBottom = true
+    scrollRev += 1
     noctalia.state.set("mimir.status", "thinking")
     noctalia.state.set("mimir.input", text)
     render()
@@ -316,9 +186,6 @@ noctalia.state.watch("mimir.models", function()
 end)
 
 noctalia.state.watch("mimir.pending_tool", function()
-  if noctalia.state.get("mimir.pending_tool") then
-    noctalia.state.set("mimir.copy_target", -1)
-  end
   render()
 end)
 
@@ -334,7 +201,14 @@ function onDenyTool()
   noctalia.state.set("mimir.tool_denied", true)
 end
 
+function onChatScroll(offset, maxOffset)
+  -- Both arrive as strings; at the bottom (or empty chat, max = 0) stay pinned.
+  atBottom = tonumber(maxOffset) == 0 or tonumber(offset) >= tonumber(maxOffset) - 2
+end
+
 function onOpen()
+  atBottom = true
+  scrollRev += 1
   noctalia.state.set("mimir.refresh_models", true)
   render()
 end

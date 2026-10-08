@@ -73,6 +73,9 @@ local ACTIONS = {
 	play_queue_index = function(r)
 		player.play_index(r.index or 1)
 	end,
+	move_queue_item = function(r)
+		player.move(r.from, r.to)
+	end,
 	play_with_queue = function(r)
 		if r.queue and #r.queue > 0 then
 			playlist.play_queue(r.queue, r.index, r.source_playlist)

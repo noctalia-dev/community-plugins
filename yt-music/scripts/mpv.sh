@@ -6,6 +6,8 @@ PIDFILE="$DIR/mpv.pid"
 SOCK="$DIR/mpv.sock"
 GENFILE="$DIR/mpv.gen"
 
+# mpv-mpris needs a multi-entry playlist to expose both transport directions.
+DUMMY="av://lavfi:anullsrc=r=48000:cl=stereo"
 mkdir -p "$DIR"
 
 # nc flavor, probed not assumed: OpenBSD nc needs -N to exit after stdin
@@ -32,8 +34,12 @@ nc_check() {   # $1=sock $2=timeout
   printf '' | nc_send "$1" "$2" >/dev/null 2>&1
 }
 
-mpv_play() {   # $1=volume $2=url_file $3=title_file
+mpv_play() {   # $1=volume $2=url_file $3=title_file $4=cover_file(optional)
   local vol="${1:-100}"
+  # Feed mpv-mpris cover-art-files so system widgets get mpris:artUrl.
+  local cover_opts=""
+  [ -n "$4" ] && [ -f "$4" ] && cover_opts="--cover-art-file=$4"
+
   URL=$(cat "$2")
   TITLE=$(cat "$3" 2>/dev/null)
   START_MS=$(date +%s%N)
@@ -65,10 +71,12 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file
   rm -f "$SOCK"
   # 9>&-: mpv must not inherit the lock fd, or the lock would outlive this
   # script (held open by the playing mpv) and deadlock the next play.
-  nohup mpv "$URL" --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
+  nohup mpv "$DUMMY" "$URL" "$DUMMY" --playlist-start=1 \
+    --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
     --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
-    --keep-open=yes \
+    --keep-open=always --pause=no \
     --force-media-title="$TITLE" \
+    $cover_opts \
     --input-ipc-server="$SOCK" --ao=pulse,pipewire,alsa,auto \
     >/dev/null 2>&1 9>&- &
   echo $! > "$PIDFILE"
@@ -77,7 +85,7 @@ mpv_play() {   # $1=volume $2=url_file $3=title_file
     [ -S "$SOCK" ] && nc_check "$SOCK" 1 && break
     sleep 0.2
   done
-  [ -S "$SOCK" ] && { 
+  [ -S "$SOCK" ] && {
     echo "READY=1 MS=$(( ($(date +%s%N) - START_MS) / 1000000 ))"
     printf '{"command":["set_property","volume",%s]}\n' "$vol" | nc_send "$SOCK" 1 >/dev/null 2>&1
   }
@@ -136,6 +144,7 @@ echo '{"command":["observe_property",2,"duration"]}'
 echo '{"command":["observe_property",3,"eof-reached"]}'
 echo '{"command":["observe_property",4,"audio-codec-name"]}'
 echo '{"command":["observe_property",5,"audio-params/samplerate"]}'
+echo '{"command":["observe_property",6,"playlist-pos"]}'
 i=0
 while [ -S "$SOCK" ] && kill -0 "$pid" 2>/dev/null && [ "\$(cat "$GENFILE" 2>/dev/null)" = "$gen" ]; do
   echo '{"command":["get_property","time-pos"],"request_id":100}'

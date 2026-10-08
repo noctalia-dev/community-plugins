@@ -49,9 +49,8 @@ Then up to three tabs, each listing items by title and reference:
 - **Code Review** — open, unmerged PR/MRs waiting on your review. **Not available
   on Gitea**, where the tab is hidden; `tea` has no review-requested filter.
 
-On GitLab a check glyph marks a merge request whose `detailed_merge_status` is
-`mergeable`. Click an item to open it on the web in your browser; the panel closes
-as it opens.
+On GitLab, a glyph at the end of a merge request card shows its
+`detailed_merge_status`
 
 Each tab can be hidden with its `show_*` setting, and a hidden tab is not
 fetched at all. Hide every tab and the panel says so instead of showing an empty
@@ -77,6 +76,10 @@ which **GitHub does not** — see Notes.
 | `show_issues` | `bool` | `true` | Show the Issues tab. |
 | `show_reviews` | `bool` | `true` | Show the Code Review tab. Ignored on Gitea, which cannot fill it. |
 | `count_reviews_with_prs` | `bool` | `false` | Add the review count to the PR/MR number in the bar. Hidden while `show_reviews` is off. |
+| `notify_mr_mergeable` | `bool` | `true` | GitLab only: notify when one of your MRs becomes ready to merge. See **Notifications**. |
+| `notify_mr_pipeline_failed` | `bool` | `true` | GitLab only: notify when the pipeline of one of your MRs fails. |
+| `notify_mr_conflict` | `bool` | `true` | GitLab only: notify when one of your MRs has conflicts or needs a rebase. |
+| `notify_mr_changes_requested` | `bool` | `true` | GitLab only: notify when a reviewer requests changes on one of your MRs. |
 | `branch_badge_primary` | `string_list` | `["develop"]` | Branch patterns badged in the theme's primary accent. |
 | `branch_badge_secondary` | `string_list` | `["release/*"]` | Branch patterns badged in the secondary accent. |
 | `branch_badge_tertiary` | `string_list` | `[]` | Branch patterns badged in the tertiary accent. |
@@ -90,8 +93,9 @@ colours takes the earlier one. A branch matching nothing gets no chip.
 
 The colour is the setting you put the branch in, so there is no colour to type.
 Adding a fifth colour requires a plugin change rather than configuration. The
-chips only appear for providers that report a target branch, which excludes
-GitHub — see Notes.
+chips only appear for providers that report a target branch, which leaves
+GitLab alone, so the four lists are only shown in settings when `platform` is
+`gitlab` — see Notes.
 
 On GitHub the widget lists pull requests **authored by you** and issues **assigned
 to you**. On GitLab it lists merge requests and issues **authored by you** — both
@@ -99,6 +103,36 @@ GitLab lists are filtered by author, not by assignee. On Gitea both lists are
 **authored by you** too: its cross-repository search rejects an assignee filter
 unless a single `repo` is set. The Code Review tab is filtered by **requested
 reviewer** on GitHub and GitLab, and includes drafts; Gitea has no such filter.
+
+### Notifications
+
+On GitLab, a notification is sent when one of **your** merge requests (the
+PRs/MRs tab) enters a merge status that asks something of you. The status comes
+with the regular `glab mr list` call, so watching it costs nothing extra. Each
+case has its own toggle:
+
+| Setting | GitLab status | Meaning |
+| --- | --- | --- |
+| `notify_mr_mergeable` | `mergeable` | Nothing blocks the merge any more. |
+| `notify_mr_pipeline_failed` | `ci_must_pass` | The pipeline finished and failed. |
+| `notify_mr_conflict` | `conflict`, `need_rebase` | The branch has to be rebased. |
+| `notify_mr_changes_requested` | `requested_changes` | A reviewer requested changes. |
+
+Every other status is deliberately left out: running pipelines, pending
+approvals and unresolved threads change too often, drafts and closed MRs are
+your own doing, and the rest depend on project settings.
+
+- The first fetch after the service starts (or after the MRs tab is turned
+  back on) only records the current state, so nothing is replayed at login.
+- A newly opened MR is not notified; its later status changes are.
+- GitLab reports one blocker at a time, so a conflict can stay hidden behind
+  another blocker and be notified only once that one clears.
+- Three or more changes in one refresh are grouped into a single notification.
+- Notifications have no click action: `noctalia.notify` takes a title and a
+  body only. Open the panel to jump to the MR.
+
+Setup errors (missing CLI, missing GitLab scope, no tea login) are notified
+once when they first occur, not on every refresh while they last.
 
 ### Gitea working directory
 

@@ -84,5 +84,7 @@
       "description": "Select the text color for the sort column",
       "label": "Sort column text color"
     }
-  }
+  },
+  "tip_close": "Close",
+  "tip_settings": "Plugin settings"
 }

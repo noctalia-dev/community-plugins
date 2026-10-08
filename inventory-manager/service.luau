@@ -90,6 +90,16 @@ local function loadState()
     
     nextId = computeNextId()
     if dedupeProductIds() then saveState() end
+
+    -- Seed the alert baseline with the currently low-stock products so that
+    -- restarting the system does not re-notify every product that was already
+    -- low before shutdown. Notifications only fire on new transitions.
+    local threshold = noctalia.getConfig("low_stock_threshold") or 3
+    for _, p in ipairs(products) do
+        if (p.available_quantity or 0) <= threshold then
+            previousLowStockProducts[p.id] = true
+        end
+    end
 end
 
 local function checkLowStockAlerts()

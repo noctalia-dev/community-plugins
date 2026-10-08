@@ -11,6 +11,10 @@
       "description": "API key for hosted providers (stored locally and never shared)",
       "label": "API Key"
     },
+    "default_model": {
+      "description": "Model to use on startup and after Clear (must match a model id from the endpoint, e.g. glm-5.3). Empty = first model the endpoint lists",
+      "label": "Default Model"
+    },
     "glyph": {
       "label": "Bar Icon"
     },

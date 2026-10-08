@@ -12,7 +12,6 @@
 -- commands go back over noctalia.state("panel_cmd").
 
 local T = {
-  pad = 8,
   gap = 12,
   cover = 64,
   coverRadius = 12,
@@ -24,6 +23,17 @@ local T = {
   colLyric = "primary",
   colEmpty = "on_surface_variant",
 }
+
+-- ── padding ────────────────────────────────────────────────────────────────
+-- The host already insets panel content by ~13 px on every side. Measured on a
+-- live render: a root row with padding = 0 still leaves 13 px of panel
+-- background at the left edge, and our padding adds 1:1 on top of that - so
+-- padding = 8 produced a 21 px left margin. That base inset is already the
+-- same order as the cover-to-text gap (12 px), which is the spacing the panel
+-- should have everywhere, so the root row carries no padding of its own.
+-- Adding our own only doubled the top/left margins (bug: top/left looked far
+-- too airy while the bottom sat almost flush).
+local PANEL_PAD = 0
 
 local snap = nil
 local lastSnapMs = 0
@@ -67,6 +77,22 @@ local function buildCover(s)
     })
 end
 
+-- Text column width in the 360 px mini panel: width minus root padding
+-- (8*2), the cover and its gap (64+12) = 268 px.
+--
+-- The lyric label MUST carry maxWidth: without an explicit bound the host does
+-- not wrap the label at all - it draws the line straight through the panel edge
+-- and clips mid-word (bug: a long lyric line was cut at the right edge while
+-- the two-line height budget sat unused).
+--
+-- The host's wrap test is a few px optimistic vs what it actually inks: measured
+-- on this host, a line accepted at maxWidth=268 rendered its last glyph ~5 px
+-- past the bound (and flush against the panel border). So the label gets a
+-- small safety gutter - the wrap now lands a couple of px inside the edge
+-- instead of kissing it. Measured live, not guessed.
+local INFO_W = 268   -- 360 - host inset 13 - cover 64 - gap 12 - 3 slack (measured)
+local TEXT_W = INFO_W - 12
+
 -- Line height heuristic shared with the main panel: floor(fs * 1.35 + 0.5).
 local function lineH(fs)
   return math.floor(fs * 1.35 + 0.5)
@@ -83,7 +109,7 @@ local LYRIC_ROW_H = 2 * lineH(T.fsLyric)
 local function render()
   local s = snap
   if not s or not s.hasPlayer then
-    panel.render(ui.column({ padding = T.pad, gap = T.gap, align = "center", justify = "center" }, {
+    panel.render(ui.column({ padding = PANEL_PAD, gap = T.gap, align = "center", justify = "center" }, {
       ui.label({ text = noctalia.tr("panel.no-media-player"), fontSize = T.fsMeta, color = T.colEmpty }),
     }))
     return
@@ -98,17 +124,17 @@ local function render()
   end
 
   local info = ui.column({ key = "info", gap = 2, flexGrow = 1 }, {
-    ui.label({ text = title, fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle, maxLines = 1 }),
-    ui.label({ text = artist, fontSize = T.fsMeta, color = T.colMeta, maxLines = 1 }),
+    ui.label({ text = title, fontSize = T.fsTitle, fontWeight = "semibold", color = T.colTitle, maxLines = 1, maxWidth = TEXT_W }),
+    ui.label({ text = artist, fontSize = T.fsMeta, color = T.colMeta, maxLines = 1, maxWidth = TEXT_W }),
     -- Fixed-height wrapper row: the label inside may render 1 or 2 sub-lines,
     -- but the row always occupies the same vertical budget.
     ui.row({ key = "lyricRow", height = LYRIC_ROW_H, align = "start" }, {
       ui.label({ text = line, fontSize = T.fsLyric, color = T.colLyric, maxLines = 2,
-        visible = line ~= "" }),
+        maxWidth = TEXT_W, visible = line ~= "" }),
     }),
   })
 
-  panel.render(ui.row({ padding = T.pad, gap = T.gap, align = "center" }, {
+  panel.render(ui.row({ padding = PANEL_PAD, gap = T.gap, align = "center" }, {
     buildCover(s),
     info,
   }))

@@ -1,0 +1,34 @@
+{
+  "error": {
+    "decode_failed": "Failed to decode Sway IPC response.",
+    "invalid_data": "Invalid data received from Sway.",
+    "stream_failed": "Could not start `swaymsg subscribe mode`.",
+    "tree_query_failed": "Failed to query the Sway tree."
+  },
+  "settings": {
+    "empty_color": {
+      "description": "Color to use when the scratchpad is empty.",
+      "label": "Empty color"
+    },
+    "empty_glyph": {
+      "description": "Glyph to display when the scratchpad is empty. Leave empty to hide the glyph.",
+      "label": "Empty glyph"
+    },
+    "hide_count": {
+      "description": "Hide the number of windows in the scratchpad",
+      "label": "Hide count"
+    },
+    "hide_empty": {
+      "description": "Hide the widget when the scratchpad is empty",
+      "label": "Hide empty scratchpad"
+    },
+    "populated_color": {
+      "description": "Color to use when the scratchpad contains windows.",
+      "label": "Populated color"
+    },
+    "populated_glyph": {
+      "description": "Glyph to display when the scratchpad contains windows. Leave empty to hide the glyph.",
+      "label": "Populated glyph"
+    }
+  }
+}

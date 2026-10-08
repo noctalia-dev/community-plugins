@@ -1,4 +1,6 @@
 --!nonstrict
+local common = require("./common.luau")
+
 local is_open = false
 
 local function render_panel()
@@ -6,10 +8,10 @@ local function render_panel()
         return
     end
 
-    local is_available = noctalia.state.get("is_available") == true
-    local is_writable = noctalia.state.get("is_writable") == true
-    local threshold = noctalia.state.get("current_threshold") or 0
-    local model_name = noctalia.state.get("battery_model_name") or ""
+    local is_available = noctalia.state.get(common.STATE.IS_AVAILABLE) == true
+    local is_writable = noctalia.state.get(common.STATE.IS_WRITABLE) == true
+    local threshold = noctalia.state.get(common.STATE.CURRENT_THRESHOLD) or 0
+    local model_name = noctalia.state.get(common.STATE.BATTERY_MODEL_NAME) or ""
 
     local title_text = noctalia.tr("panel.title")
     local sub_text = ""
@@ -30,7 +32,7 @@ local function render_panel()
 
     local children = {
         ui.row({ align = "center", justify = "space_between" }, {
-            ui.column({ gap = 2 }, {
+            ui.column({ gap = 2, flexGrow = 1 }, {
                 ui.label({
                     text = title_text,
                     fontSize = 16,
@@ -52,10 +54,7 @@ local function render_panel()
     }
 
     if is_available then
-        table.insert(
-            children,
-            ui.separator({ thickness = 1, color = "outline/0.3", spacing = 8 })
-        )
+        table.insert(children, ui.separator({ thickness = 1, color = "outline/0.3", spacing = 8 }))
 
         if is_writable then
             table.insert(
@@ -76,20 +75,21 @@ local function render_panel()
                     }),
                     ui.row({ align = "center", gap = 8 }, {
                         ui.label({
-                            text = "40%",
+                            text = tostring(common.MIN_THRESHOLD) .. "%",
                             fontSize = 11,
                             color = "on_surface_variant",
                         }),
                         ui.slider({
-                            min = 40,
-                            max = 100,
+                            min = common.MIN_THRESHOLD,
+                            max = common.MAX_THRESHOLD,
                             step = 5,
                             value = threshold,
                             enabled = is_writable,
+                            flexGrow = 1,
                             onChange = "onSliderChange",
                         }),
                         ui.label({
-                            text = "100%",
+                            text = tostring(common.MAX_THRESHOLD) .. "%",
                             fontSize = 11,
                             color = "on_surface_variant",
                         }),
@@ -139,8 +139,7 @@ end
 function onSliderChange(value: string)
     local num = tonumber(value)
     if num then
-        noctalia.state.set("set_threshold_request", num)
-        noctalia.state.set("current_threshold", num)
+        common.requestThreshold(num)
         render_panel()
     end
 end
@@ -150,22 +149,28 @@ function onCloseClicked()
 end
 
 function onRunSetup()
-    noctalia.state.set("run_setup_request", true)
+    noctalia.state.set(common.STATE.RUN_SETUP_REQUEST, true)
 end
 
-noctalia.state.watch("current_threshold", function()
+noctalia.state.watch(common.STATE.CURRENT_THRESHOLD, function()
     if is_open then
         render_panel()
     end
 end)
 
-noctalia.state.watch("is_writable", function()
+noctalia.state.watch(common.STATE.BATTERY_MODEL_NAME, function()
     if is_open then
         render_panel()
     end
 end)
 
-noctalia.state.watch("is_available", function()
+noctalia.state.watch(common.STATE.IS_WRITABLE, function()
+    if is_open then
+        render_panel()
+    end
+end)
+
+noctalia.state.watch(common.STATE.IS_AVAILABLE, function()
     if is_open then
         render_panel()
     end

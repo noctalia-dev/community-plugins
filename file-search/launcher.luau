@@ -80,7 +80,7 @@ local function buildIndex(query)
     -- The format this walk writes follows the roots it is about to visit.
     local builtRoots = shared.roots
     local absolute = #builtRoots > 1
-    local builtScope = shared.scope
+    local builtScope = shared.cacheTag()
     -- The same walk the panel runs, from the same builder: the index and the
     -- count sidecar it leaves behind are readable by either entry. Its stdout
     -- (count and elapsed milliseconds) is only of use to the panel's footer,
@@ -93,7 +93,7 @@ local function buildIndex(query)
         local queued = pendingQuery
         pendingQuery = nil
         if result.exitCode == 0 and not result.timedOut then
-            if builtScope ~= shared.scope then
+            if builtScope ~= shared.cacheTag() then
                 -- The scope row was activated while the walk ran: this index
                 -- is not the one the launcher is showing. Start the query over
                 -- so roots, records and freshness are derived for the scope
@@ -232,6 +232,7 @@ function onQuery(query)
     -- Re-read on every query: the panel may have cycled the scope or the
     -- ranking since the last keystroke, and both files are a single word.
     shared.scope = shared.readScope(dir)
+    shared.whole = shared.readWhole(dir)
     shared.ranking = shared.readRanking(dir)
     withMounts(query, function(current)
         shared.roots = shared.computeRoots()
@@ -255,7 +256,7 @@ function onQuery(query)
             return
         end
         staleIndex = true
-        if noctalia.fileExists(dir .. "/list-" .. shared.scope) then
+        if noctalia.fileExists(dir .. "/list-" .. shared.cacheTag()) then
             runQuery(current)
         else
             launcher.setResults(current, { noopRow("launcher.index_missing"), reindexRow(), scopeRow() })

@@ -1,0 +1,71 @@
+{
+  "settings": {
+    "digits": {
+      "description": "Numerals used for dates: Persian (۱۴۰۵) or Latin (1405).",
+      "label": "Digits",
+      "latin": "Latin (1405)",
+      "persian": "Persian (۱۴۰۵)"
+    },
+    "events_afghan": {
+      "description": "Afghan national days and observances.",
+      "label": "Afghan events"
+    },
+    "events_ancient": {
+      "description": "Pre-Islamic and Zoroastrian festivals such as Mehregan, Sadeh and Yalda.",
+      "label": "Ancient Iranian festivals"
+    },
+    "events_national": {
+      "description": "Cultural, scientific and national commemorations.",
+      "label": "Iranian civil days"
+    },
+    "events_religious": {
+      "description": "Shia and Islamic observances.",
+      "label": "Religious observances"
+    },
+    "font_size": {
+      "description": "Font size for the bar widget in pixels. 0 follows the bar's own size.",
+      "label": "Bar font size"
+    },
+    "format": {
+      "description": "Template for the bar widget. Placeholders: {day} {month} {year} {weekday}.",
+      "label": "Bar format"
+    },
+    "glyph": {
+      "description": "Icon shown on the bar.",
+      "label": "Icon"
+    },
+    "language": {
+      "description": "Script used for month and weekday names, and the direction of the grid.",
+      "label": "Language",
+      "latin": "Latin",
+      "persian": "Persian"
+    },
+    "scale": {
+      "description": "Scales the calendar panel's text and cells. 1.0 is the default size.",
+      "label": "Calendar size"
+    },
+    "show_glyph": {
+      "description": "Show an icon next to the date on the bar.",
+      "label": "Show icon"
+    },
+    "show_gregorian": {
+      "description": "Show the Gregorian day number in each cell.",
+      "label": "Show Gregorian"
+    },
+    "show_hijri": {
+      "description": "Show the lunar Islamic day number in each cell.",
+      "label": "Show Hijri Qamari"
+    },
+    "show_holidays": {
+      "description": "Mark official Iranian holidays and list each day's occasions.",
+      "label": "Show holidays"
+    },
+    "week_start": {
+      "description": "Which weekday the grid starts on. Saturday matches the Iranian week.",
+      "label": "First day of week",
+      "monday": "Monday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    }
+  }
+}

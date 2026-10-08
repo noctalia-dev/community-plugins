@@ -111,6 +111,15 @@ Mod+T hotkey-overlay-title="Terminal" { spawn "foot"; }
 Hyprland Lua category scanning recognizes `-- 1. Applications` headings and
 literal `description` or `desc` fields. Concatenated descriptions such as
 `"Workspace " .. i` are treated as prefixes.
+A `--` inside a string literal (`exec_cmd("tool --flag")`) is not a comment,
+so the description after it is still read.
+
+A run of sibling binds that differ only by a number — same modifiers and
+category, descriptions equal once their digits are normalised, keys all digits
+or all F-keys — renders as one row (`Focus workspace N` on `1-0`,
+`Focus display N` on `F1-F3`) unless `merge_sequential` is off. Edit mode
+always lists every bind. Pointer buttons show by name (`LMB`, `RMB`, `MMB`,
+side and back/forward) rather than by evdev code.
 
 ## Settings
 
@@ -125,6 +134,8 @@ literal `description` or `desc` fields. Concatenated descriptions such as
 | `columns` | `int` | `3` | Maximum balanced columns, from 1 to 4. |
 | `show_undescribed` | `bool` | `true` | Show bindings that have no description. |
 | `show_actions` | `bool` | `false` | Show the compositor action under descriptions. |
+| `merge_sequential` | `bool` | `true` | Collapse binds that differ only by a number into one row (`Focus workspace N` on `1-0`). |
+| `modifier_labels` | `string_map` | `{}` | Display names for modifiers, keyed by the compositor's name: `{ MOD3 = "Hyper" }`. |
 | `glyph` | `glyph` | `keyboard` | Bar widget icon. |
 
 Noctalia v5 owns panel dimensions and does not expose runtime auto-height.

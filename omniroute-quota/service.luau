@@ -36,6 +36,8 @@ local function refresh()
     if noctalia.getConfig("show_inactive") == true then
         command = command .. " --show-inactive"
     end
+    local sort_order = noctalia.getConfig("sort_order")
+    command = command .. " --sort " .. (sort_order == "alphabetical" and "alphabetical" or "availability")
 
     local started = noctalia.runAsync(command, function(result)
         running = false

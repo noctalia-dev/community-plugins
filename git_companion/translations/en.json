@@ -22,6 +22,14 @@
     "gitea_ctx_failed": "Could not prepare tea's working directory.",
     "gitea_login_missing": "No matching tea login. Run `tea login add`.",
     "gitlab_scope_missing": "GitLab requires a repo or group scope in settings.",
+    "merge_status": {
+      "ci_must_pass": "Pipeline failed on {ref}",
+      "conflict": "{ref} has merge conflicts",
+      "mergeable": "{ref} is ready to merge",
+      "need_rebase": "{ref} needs a rebase",
+      "requested_changes": "Changes requested on {ref}"
+    },
+    "mr_status_many": "{count} merge requests changed status",
     "title": "Git Companion"
   },
   "settings": {
@@ -36,7 +44,7 @@
       }
     },
     "branch_badge": {
-      "description": "Choose which target branch to display in a colored badge. (Github not supported)"
+      "description": "Choose which target branch to display in a colored badge."
     },
     "branch_badge_alert": {
       "label": "Badge — alert"
@@ -59,11 +67,27 @@
       "label": "Gitea Login"
     },
     "group": {
-      "description": "Filter by group (GitLab) or owner (GitHub). Leave empty to use repo.",
+      "description": "Filter by group (GitLab) or owner (GitHub, Gitea). Leave empty to use repo.",
       "label": "Group / Owner"
     },
+    "notify_mr_changes_requested": {
+      "description": "Notify when a reviewer requests changes on one of your merge requests.",
+      "label": "Notify: Changes Requested"
+    },
+    "notify_mr_conflict": {
+      "description": "Notify when one of your merge requests has conflicts or needs a rebase.",
+      "label": "Notify: Conflict or Rebase Needed"
+    },
+    "notify_mr_mergeable": {
+      "description": "Notify when one of your merge requests can be merged.",
+      "label": "Notify: MR Ready to Merge"
+    },
+    "notify_mr_pipeline_failed": {
+      "description": "Notify when the pipeline of one of your merge requests fails.",
+      "label": "Notify: Pipeline Failed"
+    },
     "platform": {
-      "description": "Choose between GitHub or GitLab.",
+      "description": "Choose between GitHub, GitLab or Gitea.",
       "label": "Platform",
       "options": {
         "gitea": "Gitea",
@@ -76,7 +100,7 @@
       "label": "Refresh Interval (seconds)"
     },
     "repo": {
-      "description": "e.g. owner/repo (GitHub) or project path (GitLab). Leave empty to use group/owner.",
+      "description": "e.g. owner/repo (GitHub, Gitea) or project path (GitLab). Leave empty to use group/owner.",
       "label": "Repository"
     },
     "show_issues": {

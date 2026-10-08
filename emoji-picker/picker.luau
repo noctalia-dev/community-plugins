@@ -52,9 +52,10 @@ local MAX_SEARCH_RESULTS = 300
 local RECENCY_HALF_LIFE_DAYS = 14.0
 
 -- ── State ──────────────────────────────────────────────────────────────
-local data = nil -- dataset array, lazily loaded atomically on first open
+local data = nil -- dataset array; published only by a fully successful load
 local byCat = nil -- { [catId] = {entry, …} } browse list (no skin-tone variants)
 local emojiIndex = nil -- { [emoji] = entry }
+local loadError = nil -- why the last load attempt failed; nil once loaded
 local usage = nil -- { [emoji] = { c = count, t = last_used_epoch_s } }
 local usagePath = nil
 
@@ -134,45 +135,88 @@ local function frecency(emoji, now)
   return frecencyScore(u.c, u.t, now)
 end
 
+-- A load attempt either publishes a complete dataset or NOTHING: every
+-- failure path (unreadable file, malformed JSON, a CPU-budget overrun
+-- mid-decode — the host's budget interrupt raises a Luau error at the
+-- next VM instruction, which lands inside the pcall below) leaves
+-- data == nil, records why in loadError, and is retried on the next
+-- onOpen. Publishing an empty dataset as if it were valid used to cache
+-- "No results" permanently after one slow first open (#700).
 local function ensureData()
   if data ~= nil then
     return
   end
-  local content = noctalia.readFile("assets/emoji.json")
-  if type(content) ~= "string" then
-    data = {}
-    byCat = {}
-    emojiIndex = {}
-    return
-  end
-  local ok, parsed = pcall(noctalia.json.decode, content)
-  local nextData = (ok and type(parsed) == "table") and parsed or {}
-  local nextByCat = {}
-  local nextEmojiIndex = {}
-  -- l/z and k/a arrive pre-normalised and pre-indexed by the generator.
-  -- Keep this loop allocation-light: it runs in the first onOpen callback,
-  -- which has a hard CPU budget. Build into locals and publish all three
-  -- structures only after the loop completes; a timeout/error can therefore
-  -- never expose a half-indexed dataset to onChange (the former find(nil)
-  -- follow-on failure that made Noctalia disable the panel).
-  for _, e in ipairs(nextData) do
-    nextEmojiIndex[e.e] = e
-    -- Skin-tone variants stay searchable but never clutter the browse grid.
-    if string.find(e.n, "skin tone", 1, true) == nil then
-      local list = nextByCat[e.c]
-      if list == nil then
-        list = {}
-        nextByCat[e.c] = list
-      end
-      table.insert(list, e)
+  local ok, err = pcall(function()
+    local content, readErr = noctalia.readFile("assets/emoji.json")
+    if type(content) ~= "string" then
+      error(readErr or "cannot read assets/emoji.json", 0)
     end
+    local decoded, decodeErr = noctalia.json.decode(content)
+    if type(decoded) ~= "table" then
+      error(decodeErr or "dataset is not a JSON array", 0)
+    end
+    if #decoded == 0 then
+      error("dataset is empty", 0)
+    end
+    -- l/k/a arrive pre-normalised and pre-indexed by the generator. The z
+    -- search blob (lowered name + keywords + aliases) is derived here
+    -- rather than shipped: it is a pure concatenation of the other
+    -- fields, and dropping it cuts the JSON the host must decode by a
+    -- third. Keep this loop allocation-light: it runs inside the
+    -- script-load chunk's CPU budget (see the ensureData() call at the
+    -- bottom of this section), and it publishes all three structures only
+    -- after it completes — a timeout/error can never expose a half-indexed
+    -- dataset to onChange (the former find(nil) follow-on failure that
+    -- made Noctalia disable the panel).
+    local nextByCat = {}
+    local nextEmojiIndex = {}
+    for _, e in ipairs(decoded) do
+      local z = e.l
+      for _, k in ipairs(e.k) do
+        z ..= " " .. k
+      end
+      if e.a ~= nil then
+        for _, x in ipairs(e.a) do
+          z ..= " " .. x
+        end
+      end
+      e.z = z
+      nextEmojiIndex[e.e] = e
+      -- Skin-tone variants stay searchable but never clutter the browse grid.
+      if string.find(e.n, "skin tone", 1, true) == nil then
+        local list = nextByCat[e.c]
+        if list == nil then
+          list = {}
+          nextByCat[e.c] = list
+        end
+        table.insert(list, e)
+      end
+    end
+    data = decoded
+    byCat = nextByCat
+    emojiIndex = nextEmojiIndex
+  end)
+  if ok then
+    loadError = nil
+  else
+    loadError = tostring(err)
+    noctalia.log("emoji-picker: dataset failed to load: " .. loadError)
   end
-  data = nextData
-  byCat = nextByCat
-  emojiIndex = nextEmojiIndex
 end
 
+-- Load once at script load. The chunk runs under the host's script-load
+-- budget (100 ms), while every callback — onOpen included, where this load
+-- used to run — gets 25 ms. Decoding the full dataset does not fit 25 ms on
+-- slower or power-throttled machines: the budget interrupt fired inside the
+-- decode, the pcall above swallowed it, and the panel opened empty forever
+-- (#700). onOpen calls ensureData() again, so a chunk-time failure is
+-- retried on every open rather than cached.
+ensureData()
+
 local function recents(now, n)
+  if emojiIndex == nil then
+    return {}
+  end
   local scored = {}
   for emoji, u in pairs(usage) do
     if emojiIndex[emoji] ~= nil and u.c > 0 then
@@ -326,6 +370,9 @@ local function wordTier(entry, w)
 end
 
 local function search(now)
+  if data == nil then
+    return {}
+  end
   local words = {}
   for w in string.gmatch(string.lower(query), "%S+") do
     table.insert(words, w)
@@ -425,12 +472,13 @@ local function buildView()
     if #recent > 0 then
       addSection(recent)
     end
+    local catData = byCat or {}
     if cat == "all" then
       for _, c in ipairs(CATEGORIES) do
-        addSection(byCat[c.id] or {})
+        addSection(catData[c.id] or {})
       end
     else
-      addSection(byCat[cat] or {})
+      addSection(catData[cat] or {})
     end
   end
 
@@ -603,6 +651,27 @@ local function categoryStrip()
 end
 
 local function gridArea()
+  -- A load failure is never presented as "No results": the dataset is the
+  -- product, so say what broke (and the log carries the same reason).
+  if data == nil then
+    return ui.column({
+      key = "load-error",
+      align = "center",
+      justify = "center",
+      flexGrow = 1,
+      gap = 8,
+    }, {
+      ui.glyph({ name = "alert-triangle", size = 28, color = "on_surface_variant" }),
+      ui.label({ text = "Emoji dataset failed to load", color = "on_surface_variant" }),
+      ui.label({
+        text = loadError or "",
+        fontSize = 11,
+        color = "on_surface_variant",
+        maxLines = 2,
+        textAlign = "center",
+      }),
+    })
+  end
   if #items == 0 then
     local message = if searchActive() then "No results found" else "No results"
     return ui.column({
@@ -683,6 +752,7 @@ local function footer()
   local emoji = if entry ~= nil then entry.e else ""
   local name = if entry ~= nil
     then entry.n
+    elseif data == nil then "Dataset failed to load"
     elseif searchActive() then "No results found" else "Type to search"
   return ui.column({ key = "footer", gap = 8 }, {
     ui.separator({ key = "foot-sep" }),

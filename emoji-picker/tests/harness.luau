@@ -35,6 +35,8 @@ end
 -- ── Host API stubs ─────────────────────────────────────────────────────
 local copied = {}
 local closedPanel = 0
+-- Failure-injection flags read by the stubs at CALL time (see readFile).
+local fs = { fail = false, badJson = false, raiseDecode = false }
 noctalia = {
   nowMs = function()
     return 1700000000000
@@ -43,16 +45,33 @@ noctalia = {
     return "" -- usage file disabled; in-memory usage still works
   end,
   readFile = function(p)
+    -- Behaviour is flag-driven, not stub-swapped: the stock luau CLI
+    -- sandbox snapshots a loadstring chunk's view of global-table fields
+    -- at chunk creation, so tests flip `fs.fail` instead of reassigning
+    -- this stub and every chunk (existing or future) sees the change.
+    if fs.fail then
+      return nil, "cannot open file"
+    end
     if p == "assets/emoji.json" then
       return "DATASET"
     end
     return nil
   end,
   writeFile = function() end,
-  mkdirAll = function() end,
+  log = function() end,
   json = {
     decode = function(s)
       if s == "DATASET" then
+        if fs.badJson then
+          return nil, "bad json"
+        end
+        if fs.raiseDecode then
+          -- Mirror the host's CPU-budget interrupt: it raises a Luau
+          -- error from inside the binding at the next VM instruction,
+          -- which used to land inside a pcall and publish an EMPTY
+          -- dataset as if it were valid (#700).
+          error("script callback 'chunk' exceeded its CPU budget", 0)
+        end
         return DATASET
       end
       return nil
@@ -61,7 +80,6 @@ noctalia = {
       return "{}"
     end,
   },
-  outputs = function() return {} end,
   getConfig = function() return nil end,
   runAsync = function() end,
   copyToClipboard = function(text, mime)
@@ -83,33 +101,51 @@ panel = {
 }
 
 -- ── Load picker.luau with an export tail (runs in the same chunk scope,
--- so the module's locals are reachable) ─────────────────────────────────
-local chunk = assert(
-  loadstring(
-    PICKER_SRC
-      .. "\n\nreturn {\n"
-      .. "  ensureData = ensureData,\n"
-      .. "  loadUsage = loadUsage,\n"
-      .. "  search = search,\n"
-      .. "  buildView = buildView,\n"
-      .. "  recents = recents,\n"
-      .. "  commit = commit,\n"
-      .. "  moveSelection = moveSelection,\n"
-      .. "  setQuery = function(q) query = q end,\n"
-      .. "  getSel = function() return sel end,\n"
-      .. "  setCat = function(c) cat = c end,\n"
-      .. "  categoryIds = function()\n"
-      .. "    local ids = {}\n"
-      .. "    for _, c in ipairs(CATEGORIES) do table.insert(ids, c.id) end\n"
-      .. "    return ids\n"
-      .. "  end,\n"
-      .. "  categoryHas = function(id) return byCat[id] ~= nil and #byCat[id] > 0 end,\n"
-      .. "}\n"
-  )
-)
-local picker = chunk()
+-- so the module's locals are reachable). Note picker.luau loads the
+-- dataset at chunk time now, so simply CONSTRUCTING the chunk performs
+-- the full read → decode → index pass under the stubbed host. ──────────
+local CHUNK_TAIL = "\n\nreturn {\n"
+  .. "  ensureData = ensureData,\n"
+  .. "  loadUsage = loadUsage,\n"
+  .. "  search = search,\n"
+  .. "  buildView = buildView,\n"
+  .. "  recents = recents,\n"
+  .. "  commit = commit,\n"
+  .. "  moveSelection = moveSelection,\n"
+  .. "  setQuery = function(q) query = q end,\n"
+  .. "  getSel = function() return sel end,\n"
+  .. "  setCat = function(c) cat = c end,\n"
+  .. "  dataLoaded = function() return data ~= nil end,\n"
+  .. "  getLoadError = function() return loadError end,\n"
+  .. "  firstEntry = function() return data ~= nil and data[1] or nil end,\n"
+  .. "  categoryIds = function()\n"
+  .. "    local ids = {}\n"
+  .. "    for _, c in ipairs(CATEGORIES) do table.insert(ids, c.id) end\n"
+  .. "    return ids\n"
+  .. "  end,\n"
+  .. "  categoryHas = function(id) return byCat[id] ~= nil and #byCat[id] > 0 end,\n"
+  .. "}\n"
+
+local function freshPicker()
+  return assert(loadstring(PICKER_SRC .. CHUNK_TAIL))()
+end
+
+-- The shipped dataset must not carry the z blob (it is derived while
+-- indexing). Checked BEFORE any picker chunk loads: indexing mutates the
+-- shared DATASET tables in place by setting e.z on them.
+do
+  local shipped = 0
+  for _, e in ipairs(DATASET) do
+    if e.z ~= nil then
+      shipped += 1
+    end
+  end
+  check(shipped == 0, "shipped dataset carries no z blobs")
+end
+
+local picker = freshPicker()
 picker.loadUsage()
-picker.ensureData()
+picker.ensureData() -- a no-op when the chunk-time load already succeeded
 
 local function searchFor(q)
   picker.setQuery(q)
@@ -224,17 +260,18 @@ do
 end
 
 -- ── Contract: search fields arrive pre-lowered/pre-indexed from the
--- generator, and
--- a COLD dataset load stays well inside the host's 25ms script-callback
--- budget (a runtime re-normalisation pass here once blew that budget
--- live: onOpen errored and the host auto-disabled the panel). ────────
+-- generator, the z search blob is DERIVED (name + keywords + aliases —
+-- the shipped dataset no longer carries it), and a COLD chunk-time load
+-- stays well inside the host's 100ms script-load budget (callback
+-- budget is 25ms; a decode that crosses it mid-pcall is exactly what
+-- used to publish a permanently empty dataset, #700). ────────────────
 do
   local notLowered = 0
   for _, e in ipairs(DATASET) do
     -- Luau's string.lower is ASCII-only while the Python generator uses
     -- Unicode-aware lower-casing, so validate the generated index contract
     -- structurally here; exact casing is covered in the Python tests.
-    if type(e.l) ~= "string" or type(e.z) ~= "string" or string.find(e.z, e.l, 1, true) == nil then
+    if type(e.l) ~= "string" then
       notLowered += 1
     end
     for _, k in ipairs(e.k) do
@@ -250,32 +287,88 @@ do
       end
     end
   end
-  check(notLowered == 0, "dataset search fields are pre-normalised")
+  check(notLowered == 0, "dataset search fields are pre-normalised, z derived")
 
-  local fresh = assert(
-    loadstring(PICKER_SRC .. "\n\nreturn { loadUsage = loadUsage, ensureData = ensureData }\n")
-  )()
-  fresh.loadUsage()
+  local first = picker.firstEntry()
+  check(first ~= nil and type(first.z) == "string", "indexed entries carry a derived z blob")
+  if first ~= nil then
+    check(string.find(first.z, first.l, 1, true) == 1, "z starts with the lowered name")
+    local missingKeyword = false
+    for _, k in ipairs(first.k) do
+      if string.find(first.z, k, 1, true) == nil then
+        missingKeyword = true
+      end
+    end
+    check(not missingKeyword, "z contains every keyword")
+  end
+
   local t0 = os.clock()
-  fresh.ensureData()
+  local fresh = freshPicker()
   local loadMs = (os.clock() - t0) * 1000
-  print(("cold ensureData over %d entries: %.2f ms (host budget 25ms)"):format(#DATASET, loadMs))
-  check(loadMs < 15, "cold ensureData stays under 15ms")
+  check(fresh.dataLoaded(), "cold chunk-time load succeeds")
+  print(("cold chunk load (decode stubbed, index+derive) over %d entries: %.2f ms"):format(#DATASET, loadMs))
+  check(loadMs < 15, "cold chunk load indexing stays under 15ms")
+end
+
+-- ── Load failures are never cached and are always observable (#700):
+-- an unreadable dataset must leave the picker unloaded (never "loaded
+-- but empty"), report why, keep search/buildView safe, and a later
+-- attempt must be able to succeed. ─────────────────────────────────────
+do
+  fs.fail = true
+  local broken = freshPicker()
+  check(not broken.dataLoaded(), "read failure leaves dataset unloaded")
+  check(broken.getLoadError() == "cannot open file", "read failure records the reason")
+  broken.loadUsage()
+  fs.fail = false
+  fs.badJson = true
+  local malformed = freshPicker()
+  check(not malformed.dataLoaded(), "decode failure leaves dataset unloaded")
+  check(malformed.getLoadError() == "bad json", "decode failure records the decoder's reason")
+  fs.badJson = false
+
+  -- #700 regression: a budget interrupt raised from inside the decode
+  -- binding must not publish an empty dataset (the old code swallowed
+  -- exactly this error and then cached "loaded-but-empty" forever).
+  fs.raiseDecode = true
+  local throttled = freshPicker()
+  check(not throttled.dataLoaded(), "budget-interrupted decode publishes no dataset")
+  check(
+    string.find(throttled.getLoadError() or "", "CPU budget", 1, true) ~= nil,
+    "budget interruption records the host's reason"
+  )
+  fs.raiseDecode = false
+  throttled.ensureData()
+  check(throttled.dataLoaded(), "budget-interrupted runtime recovers on retry")
+  fs.badJson = true
+  local malformed = freshPicker()
+  check(not malformed.dataLoaded(), "decode failure leaves dataset unloaded")
+  check(malformed.getLoadError() == "bad json", "decode failure records the decoder's reason")
+  fs.badJson = false
+
+  -- The retry path: the same runtime recovers once the file reads again.
+  broken.ensureData()
+  check(broken.dataLoaded(), "ensureData retries after a failed load and recovers")
+  check(broken.getLoadError() == nil, "a recovered load clears the error")
 end
 
 -- Initialization is transactional. A failure halfway through indexing must
 -- not publish partial state: that exact leak previously turned one onOpen
 -- timeout into find(nil) on onChange and triggered Noctalia's auto-disable.
+-- The dataset is corrupted BEFORE the chunk is built, so the chunk-time
+-- load itself hits it; ensureData must swallow it (a chunk-level raise
+-- would kill the whole script) yet leave every structure unpublished.
 do
   local saved = DATASET[50].e
   DATASET[50].e = nil
   local fresh = assert(
-    loadstring(PICKER_SRC .. "\n\nreturn { ensureData = ensureData, dataReady = function() return data ~= nil or byCat ~= nil or emojiIndex ~= nil end }\n")
+    loadstring(PICKER_SRC .. "\n\nreturn { ensureData = ensureData, dataReady = function() return data ~= nil or byCat ~= nil or emojiIndex ~= nil end, getLoadError = function() return loadError end }\n")
   )()
-  local ok = pcall(fresh.ensureData)
+  check(not fresh.dataReady(), "mid-initialization failure publishes no partial state")
+  check(type(fresh.getLoadError()) == "string", "mid-initialization failure records a reason")
   DATASET[50].e = saved
-  check(not ok, "injected mid-initialization failure is observed")
-  check(not fresh.dataReady(), "failed initialization publishes no partial state")
+  fresh.ensureData() -- intact dataset now: the retry completes
+  check(fresh.dataReady(), "retry after mid-initialization failure recovers")
 end
 
 -- ── Performance smoke: a full search over the dataset stays well inside

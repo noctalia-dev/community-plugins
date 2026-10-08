@@ -10,6 +10,7 @@ local snapshot = noctalia.state.get(STATE_KEY) or {
   loading = true,
   busy = false,
   context = "",
+  contexts = {},
   nodes = {},
   pods = {},
   deployments = {},
@@ -455,6 +456,45 @@ local function filterPlaceholder()
   return tr("filter.placeholder_namespaces")
 end
 
+-- Context switcher: a select when the kubeconfig offers multiple contexts and the
+-- "context" setting does not pin one; otherwise the plain read-only label.
+local function contextControl()
+  local pinned = noctalia.string.trim(noctalia.getConfig("context") or "") ~= ""
+  local contexts = snapshot.contexts or {}
+  if pinned or #contexts < 2 then
+    return ui.label({
+      text = tr("panel.context", { name = snapshot.context ~= "" and snapshot.context or "—" }),
+      fontSize = 11,
+      color = "on_surface_variant",
+    })
+  end
+  local selected = 0
+  for i, name in ipairs(contexts) do
+    if name == snapshot.context then
+      selected = i
+      break
+    end
+  end
+  -- Fixed width inside a row + spacer: the title column stretches children to its
+  -- full width, so an unwrapped select would push the header buttons out of line.
+  return ui.row({ align = "center" }, {
+    ui.select({
+      options = contexts,
+      -- selectedIndex is 0-based on the host side; ipairs is 1-based.
+      selectedIndex = selected > 0 and (selected - 1) or nil,
+      placeholder = snapshot.context ~= "" and snapshot.context or "—",
+      controlSize = "sm",
+      width = 220,
+      onChange = function(_, text)
+        if type(text) == "string" and text ~= "" and text ~= snapshot.context then
+          sendCommand("use_context", { context = text })
+        end
+      end,
+    }),
+    ui.spacer({ flexGrow = 1 }),
+  })
+end
+
 render = function()
   dirty = false
   local statusRows = {}
@@ -491,11 +531,7 @@ render = function()
       }),
       ui.column({ flexGrow = 1, gap = 0 }, {
         ui.label({ text = tr("title"), fontSize = 18, fontWeight = "bold" }),
-        ui.label({
-          text = tr("panel.context", { name = snapshot.context ~= "" and snapshot.context or "—" }),
-          fontSize = 11,
-          color = "on_surface_variant",
-        }),
+        contextControl(),
       }),
       ui.button({
         text = tr("actions.open_k9s"),

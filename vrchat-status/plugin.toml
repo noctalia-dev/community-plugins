@@ -1,0 +1,95 @@
+id = "surumeika1987/vrchat-status"
+name = "VRChat Status"
+version = "0.1.0"
+plugin_api = 24
+author = "surumeika1987"
+license = "MIT"
+icon = "message-dots"
+dependencies = ["vrchat-status-helper"]
+description = "Display and update your VRChat status from the Noctalia bar."
+tags = ["bar", "panel", "gaming"]
+
+[[setting]]
+key = "helper_path"
+type = "file"
+label_key = "settings.helper_path.label"
+description_key = "settings.helper_path.description"
+default = "vrchat-status-helper"
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "join_me_color"
+  type = "color"
+  label_key = "settings.join_me_color.label"
+  default = "#3B82F6"
+
+  [[widget.setting]]
+  key = "online_color"
+  type = "color"
+  label_key = "settings.online_color.label"
+  default = "#3CB371"
+
+  [[widget.setting]]
+  key = "ask_me_color"
+  type = "color"
+  label_key = "settings.ask_me_color.label"
+  default = "#F59E0B"
+
+  [[widget.setting]]
+  key = "do_not_disturb_color"
+  type = "color"
+  label_key = "settings.do_not_disturb_color.label"
+  default = "#EF4444"
+
+  [[widget.setting]]
+  key = "offline_color"
+  type = "color"
+  label_key = "settings.offline_color.label"
+  default = "#6B7280"
+
+  [[widget.setting]]
+  key = "message_color_mode"
+  type = "select"
+  label_key = "settings.message_color_mode.label"
+  default = "status"
+  options = [
+    { value = "status", label_key = "settings.message_color_mode.status" },
+    { value = "fixed", label_key = "settings.message_color_mode.fixed" },
+  ]
+
+  [[widget.setting]]
+  key = "message_color"
+  type = "color"
+  label_key = "settings.message_color.label"
+  default = "#FFFFFF"
+  visible_when = { key = "message_color_mode", values = ["fixed"] }
+
+  [[widget.setting]]
+  key = "min_length"
+  type = "int"
+  label_key = "settings.min_length.label"
+  description_key = "settings.min_length.description"
+  default = 100
+  min = 0
+  max = 2000
+
+  [[widget.setting]]
+  key = "max_length"
+  type = "int"
+  label_key = "settings.max_length.label"
+  description_key = "settings.max_length.description"
+  default = 300
+  min = 60
+  max = 2000
+
+[[panel]]
+id = "status-panel"
+entry = "panel.luau"
+width = 460
+height = 210
+placement = "attached"
+open_near_click = true
+keyboard_focus = "on_demand"

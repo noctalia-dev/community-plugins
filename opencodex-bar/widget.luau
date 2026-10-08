@@ -67,11 +67,16 @@ local function iconProvider(snapshot)
   return tightestId or fallback
 end
 
--- Provider marks are kept slightly smaller than the base glyph metric so their
--- dense brand shapes match the visual weight of the usage gauge.
-local MARK_SIZE = 13
-local GAUGE_H = 12
-local GAUGE_W = 8
+-- Same height as the neighbouring glyphs (14). Narrower than those icons so it
+-- still reads as a battery. Terminal cap left off. Stroke is 1.5px, same as
+-- the other icons' straight stems, so the edge fades instead of cutting off.
+local MARK_SIZE = 16
+local GAUGE_H = 14
+local GAUGE_W = 10
+local GAUGE_RADIUS = 2
+local GAUGE_STROKE = 1.5
+local GAUGE_INSET = 2
+local BAR_INK = "on_surface/0.87"
 -- Keep a chip large enough that bar hide/show (Control Center) cannot collapse
 -- the plugin InputArea to an unclickable sliver.
 local CHIP_MIN = 18
@@ -80,44 +85,47 @@ local lastVisual = nil
 local lastTooltip = nil
 
 local function usedColorFor(used)
-  if used == nil then return "on_surface" end
-  return used >= CRITICAL_USED and pick(RED) or "on_surface"
+  if used == nil then return BAR_INK end
+  return used >= CRITICAL_USED and pick(RED) or BAR_INK
 end
 
--- A vertical gauge for the aggregate figure: it fills as quota is spent, so a
--- full gauge means no headroom left. ui.progress cannot do this: ProgressBar
--- supports a Vertical orientation internally, but the reconciler never exposes
--- it, so the gauge is a track column holding a level box pinned to the bottom.
+-- Upright battery for the aggregate figure. It fills from the bottom as quota
+-- is spent, so a full battery means no headroom left. No terminal cap.
 -- Always draw the track, even with no quota: a nil icon made the chip vanish
 -- after a bar hide/show until the next snapshot, which ate the first clicks.
 local function usageGauge(used)
+  local ink = usedColorFor(used)
+  local innerH = GAUGE_H - GAUGE_INSET * 2
   local level = type(used) == "number" and math.max(0, math.min(100, used)) / 100 or 0
-  -- Keep a sliver visible at zero so the gauge never reads as "no data".
-  local filled = level <= 0 and 1 or math.max(2, math.floor(GAUGE_H * level + 0.5))
+  local filled = level <= 0 and 0 or math.max(2, math.floor(innerH * level + 0.5))
+  local children = {}
+  if filled > 0 then
+    children[1] = ui.box({
+      key = "level",
+      height = filled,
+      radius = 2,
+      fill = ink,
+    })
+  end
   return ui.column({
     key = "gauge",
     width = GAUGE_W,
     height = GAUGE_H,
     minWidth = GAUGE_W,
     minHeight = GAUGE_H,
-    radius = 3,
-    fill = "on_surface/0.18",
+    radius = GAUGE_RADIUS,
+    padding = GAUGE_INSET,
+    fill = "on_surface/0",
+    border = ink,
+    borderWidth = GAUGE_STROKE,
     justify = "end",
     align = "stretch",
-  }, {
-    ui.box({
-      key = "level",
-      width = GAUGE_W,
-      height = filled,
-      radius = 2,
-      fill = usedColorFor(used),
-    }),
-  })
+  }, children)
 end
 
 local function usedColor(used, status)
   if status == "offline" or status == "auth_error" then return pick(RED) end
-  if used == nil then return "on_surface" end
+  if used == nil then return BAR_INK end
   return usedColorFor(used)
 end
 

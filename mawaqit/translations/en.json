@@ -1,10 +1,22 @@
 {
+  "calendar": {
+    "in_days": "in {days} days",
+    "loading": "Loading calendar…",
+    "next": "Next month",
+    "previous": "Previous month",
+    "today": "Back to today",
+    "today_label": "Today"
+  },
   "panel": {
     "in": "in",
     "jumuah": "Jumu'ah",
     "loading": "Loading prayer times…",
     "now": "Now",
     "sunrise": "Sunrise",
+    "tabs": {
+      "calendar": "Calendar",
+      "prayers": "Prayer Times"
+    },
     "title": "Prayer Times",
     "tooltip": {
       "in": "In",
@@ -40,6 +52,10 @@
       "description": "Show a sun/moon icon matching the current prayer instead of the fixed icon.",
       "label": "Dynamic prayer icon"
     },
+    "fajr_angle": {
+      "description": "Fajr sun angle for Custom Method. Use a decimal greater than 0 and less than 90.",
+      "label": "Fajr angle"
+    },
     "hide_prayer_name": {
       "description": "Show only the time or countdown without the prayer name.",
       "label": "Hide prayer name in bar"
@@ -54,8 +70,13 @@
     "icon_color": {
       "label": "Bar icon color"
     },
+    "isha_angle": {
+      "description": "Isha sun angle for Custom Method. Use a decimal greater than 0 and less than 90.",
+      "label": "Isha angle"
+    },
     "method": {
       "algeria": "Algeria / MESRS",
+      "custom": "Custom angles",
       "description": "Choose the calculation authority followed in your region.",
       "dubai": "Dubai (experimental)",
       "egypt": "Egyptian General Authority of Survey",
@@ -127,6 +148,13 @@
     "twelve_hour_format": {
       "description": "Show prayer times in 12-hour format (e.g. 5:23 AM) instead of 24-hour.",
       "label": "12-Hour Format"
+    },
+    "week_start_day": {
+      "description": "Choose which day starts the calendar week.",
+      "label": "First day of week",
+      "monday": "Monday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
     },
     "widget_icon": {
       "label": "Bar icon"

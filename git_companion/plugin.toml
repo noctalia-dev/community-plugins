@@ -1,7 +1,7 @@
 id = "tphilippot/git_companion"
 name = "Git Companion"
-version = "1.2.0"
-plugin_api = 23
+version = "1.4.0"
+plugin_api = 24
 author = "thomas-philippot"
 license = "MIT"
 icon = "brand-git"
@@ -97,14 +97,50 @@ description_key = "settings.count_reviews_with_prs.description"
 default = false
 visible_when = { key = "show_reviews", values = ["true"] }
 
+# Merge status notifications: one toggle per status worth acting on (see
+# gitlab.luau). Only glab reports that status, so they are hidden elsewhere.
+[[setting]]
+key = "notify_mr_mergeable"
+type = "bool"
+label_key = "settings.notify_mr_mergeable.label"
+description_key = "settings.notify_mr_mergeable.description"
+default = true
+visible_when = { key = "platform", values = ["gitlab"] }
+
+[[setting]]
+key = "notify_mr_pipeline_failed"
+type = "bool"
+label_key = "settings.notify_mr_pipeline_failed.label"
+description_key = "settings.notify_mr_pipeline_failed.description"
+default = true
+visible_when = { key = "platform", values = ["gitlab"] }
+
+[[setting]]
+key = "notify_mr_conflict"
+type = "bool"
+label_key = "settings.notify_mr_conflict.label"
+description_key = "settings.notify_mr_conflict.description"
+default = true
+visible_when = { key = "platform", values = ["gitlab"] }
+
+[[setting]]
+key = "notify_mr_changes_requested"
+type = "bool"
+label_key = "settings.notify_mr_changes_requested.label"
+description_key = "settings.notify_mr_changes_requested.description"
+default = true
+visible_when = { key = "platform", values = ["gitlab"] }
+
 # Branch badges: one list of branch patterns per theme colour. Declaration
 # order is match priority — the first bucket holding a matching pattern wins.
+# Only glab reports a target branch, so the lists are hidden on other platforms.
 [[setting]]
 key = "branch_badge_primary"
 type = "string_list"
 label_key = "settings.branch_badge_primary.label"
 description_key = "settings.branch_badge.description"
 default = ["develop"]
+visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_secondary"
@@ -112,6 +148,7 @@ type = "string_list"
 label_key = "settings.branch_badge_secondary.label"
 description_key = "settings.branch_badge.description"
 default = ["release/*"]
+visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_tertiary"
@@ -119,6 +156,7 @@ type = "string_list"
 label_key = "settings.branch_badge_tertiary.label"
 description_key = "settings.branch_badge.description"
 default = []
+visible_when = { key = "platform", values = ["gitlab"] }
 
 [[setting]]
 key = "branch_badge_alert"
@@ -126,6 +164,7 @@ type = "string_list"
 label_key = "settings.branch_badge_alert.label"
 description_key = "settings.branch_badge.description"
 default = ["master", "main"]
+visible_when = { key = "platform", values = ["gitlab"] }
 
 # ── Entryfiles ────────────────────────────────────
 

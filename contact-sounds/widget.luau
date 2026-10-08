@@ -27,8 +27,21 @@ local function render()
     end
 end
 
+-- Contacts are owned by the service and published through noctalia.state
+-- ("contacts.data"); the app-managed settings.toml config is only seeded on
+-- first run, so counting getConfig("contacts") shows a stale, partial list.
+-- Prefer the published state, falling back to config before the service has
+-- published (e.g. while the plugin is still starting).
+local function readContacts()
+    local d = noctalia.state.get("contacts.data")
+    if type(d) == "table" and type(d.contacts) == "table" then
+        return d.contacts
+    end
+    return noctalia.getConfig("contacts") or {}
+end
+
 local function refresh()
-    local contacts = noctalia.getConfig("contacts") or {}
+    local contacts = readContacts()
     contactCount = 0
     for _ in pairs(contacts) do
         contactCount = contactCount + 1
@@ -54,3 +67,9 @@ end
 function onRightClick()
     noctalia.togglePanel("nilsonlinux/contact-sounds:Panel")
 end
+
+noctalia.state.watch("contacts.data", function(d)
+    if type(d) == "table" then
+        refresh()
+    end
+end)

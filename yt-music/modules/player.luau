@@ -4,6 +4,7 @@ local store = require("./store.luau")
 local api = require("../api.luau")
 local logger = require("../utils/log.luau")
 local mpv = require("./mpv.luau")
+local QueueOrder = require("../utils/queueorder.luau")
 
 local state = store.state
 local log = logger.module("ytm", "player")
@@ -103,7 +104,7 @@ local function player_set(item, stream_url)
 		if ready then
 			start_stream()
 		end
-	end)
+	end, state.player.thumb_path) -- cached art -> mpris:artUrl via mpv-mpris
 	-- Speculative work happens only for settled playback: the song that
 	-- actually starts earns its next-track prefetch and queue thumbnails.
 	-- Skipped-over intents never get here, so rapid skipping spawns nothing
@@ -592,6 +593,23 @@ function Player.cycle_repeat()
 	publish()
 end
 
+function Player.move(from, to)
+	from = math.floor(tonumber(from) or 0)
+	local q = state.player.queue
+	local insert_at = QueueOrder.move(q, from, to)
+	if insert_at == nil then
+		return
+	end
+	state.player.index = QueueOrder.follow(state.player.index, from, insert_at)
+	original_queue = nil -- manual order supersedes the pre-shuffle snapshot
+	if api and api.prefetch_queue then
+		api.prefetch_queue(q, state.player.index)
+	end
+	log("move: " .. from .. " -> " .. insert_at .. "/" .. #q .. " index=" .. state.player.index)
+	publish()
+end
+
+
 function Player.append_to_queue(track)
 	table.insert(state.player.queue, track)
 end
@@ -631,7 +649,16 @@ local function handle_stream_line(line)
 		return
 	end
 
+	-- Genuine failures only: a skip aborts with "stop", a natural end "eof".
 	if data.event ~= "property-change" then
+        if data.event == "end-file" and data.reason == "error" and state.player.status == "playing" then
+            log("stream: end-file error (" .. tostring(data.file_error or "?") .. ") entry=" .. tostring(data.playlist_entry_id))
+            mpv.kill()
+            state.player.status = "stopped"
+            state.status_text = "Playlist failed to start: " .. tostring(state.player.title or "")
+            publish()
+            noctalia.notify("Youtube Music", state.status_text)
+        end
 		if data.request_id == 100 then
 			local pos = tonumber(data.data)
 			if
@@ -662,6 +689,17 @@ local function handle_stream_line(line)
 			Player.next(true)
 		end
 		return
+	end
+	if name == "playlist-pos" then
+        -- Dummy/URL/dummy: a live 0/2 move is a user skip (failures handled above).
+		local pos = tonumber(data.data)
+		if pos ~= 0 and pos ~= 2 then
+			return
+		end
+		if state.player.status == "stopped" then
+			return
+		end
+		queue_skip(pos == 2 and 1 or -1)
 	end
 	if name == "pause" then
 		if state.player.status == "loading" or state.player.status == "stopped" then

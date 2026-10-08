@@ -135,6 +135,14 @@
     },
     "warn_color": {
       "label": "Disconnected color (grey)"
+    },
+    "hide_when_healthy": {
+      "label": "Hide when healthy",
+      "description": "Hide the widget entirely while Tailscale is running; show it only when the daemon is stopped, needs login, or is unreachable."
+    },
+    "flag_problem": {
+      "label": "Flag problems in red",
+      "description": "Show an error-tinted status dot while Tailscale is not running, instead of the neutral grey one."
     }
   },
   "status": {

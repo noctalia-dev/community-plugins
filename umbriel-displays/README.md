@@ -123,13 +123,13 @@ are, rather than the window growing.
   found under a connector moves to the monitor name on the next write, carrying
   its settings.
 - **Processes spawned.** `umbriel outputs --json` on panel open, on Refresh and
-  on a hotplug event, and `umbriel validate` once per change. There is no
+  on a hotplug event, and `umbriel config validate` once per change. There is no
   polling and no network access.
 - **Nothing lands unvalidated.** A change is written to a candidate file beside
-  the target and handed to `umbriel validate` first; only a config the running
-  compositor accepts is renamed into place. A key your Umbriel is too old for is
-  named back to you and the live file is left alone, so the plugin stays usable
-  on an older build than the one it was written against.
+  the target and handed to `umbriel config validate` first; only a config the
+  running compositor accepts is renamed into place. A key your Umbriel is too
+  old for is named back to you and the live file is left alone, so the plugin
+  stays usable on an older build than the one it was written against.
 - **Never dark.** The `watchdog` service takes `onOutputsChanged`. If no
   connected display is enabled, which happens when you turn one off and then
   unplug the other, it turns the best survivor back on, preferring the internal

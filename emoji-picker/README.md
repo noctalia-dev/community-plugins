@@ -11,13 +11,17 @@ closes the panel — built for a bind-Select-paste flow.
 | Field | Value |
 | --- | --- |
 | ID | `liamwh/emoji-picker` |
-| Entries | Panel: `wide`; panel: `desktop`; panel: `compact` |
+| Entries | Bar widget: `widget`; panel: `wide`; panel: `desktop`; panel: `compact` |
 
 The three panel entries share one script and differ only in window size, so
 you can bind the one that suits each display — `wide` for ultrawide
 monitors, `desktop` for 1080p-class displays, `compact` for laptop panels.
 
 ## Usage
+
+The bar widget (`widget`), listed as "Emoji & Symbol Picker" in the shell's
+bar-widget picker, can be added to the bar; clicking it opens the compact
+picker panel.
 
 Bind a key to the panel that fits your display (Noctalia Settings →
 Shortcuts → Panel, or your compositor's spawn). For example:
@@ -79,9 +83,9 @@ one (see above).
 - **Network**: none. **Processes**: none spawned by default; only the
   optional `paste_command` you configure yourself.
 - Search runs locally over the bundled dataset on every keystroke; the
-  dataset ships pre-indexed (lowered names/keywords/aliases) so a
-  full-dataset search stays well inside the shell's per-callback CPU
-  budget (see `tests/`).
+ dataset ships pre-lowered (names/keywords/aliases) and the search blob
+ is derived once while indexing, so a full-dataset search stays well
+ inside the shell's per-callback CPU budget (see `tests/`).
 - `tests/` holds a self-contained search/ranking/interaction suite
   runnable with the stock `luau` CLI: `python3 tests/build_test.py --out
   /tmp/t.luau && luau /tmp/t.luau`.

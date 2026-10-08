@@ -1,8 +1,14 @@
 {
+  "all_hidden": "All tasks are done — the eye toggle is hiding them",
+  "bar_count_both": "{pending}/{total} todos",
+  "bar_count_plural": "{count} todos",
+  "bar_count_singular": "{count} todo",
   "clear_done_confirm": "Delete all done entries?",
   "clear_done_no": "Cancel",
   "clear_done_yes": "Delete",
   "empty": "No tasks yet — add one with + (or press N)",
+  "hide_completed": "Hide completed",
+  "hide_count": "Hide count",
   "menu_delete": "Delete task",
   "menu_done": "Mark as done",
   "menu_edit": "Edit task",
@@ -14,9 +20,26 @@
   "prio_medium": "Medium",
   "save_failed": "Failed to save the task list",
   "settings": {
+    "count_mode": {
+      "description": "Which count the bar label shows next to the task count",
+      "label": "Bar count",
+      "options": {
+        "both": "Pending/total",
+        "pending": "Pending only",
+        "total": "Total"
+      }
+    },
     "glyph": {
       "description": "The glyph shown for the To Do widget on the bar.",
       "label": "Bar glyph"
+    },
+    "label": {
+      "description": "Text displayed beside the Todo icon",
+      "label": "Label"
+    },
+    "show_label": {
+      "description": "Show/hide the text label beside the bar icon",
+      "label": "Show label"
     },
     "sound_on_complete": {
       "description": "Play a short sound when a task is marked done.",
@@ -27,6 +50,8 @@
       "label": "To Do folder"
     }
   },
+  "show_completed": "Show completed",
+  "show_count": "Show count",
   "sort_manual": "Manual",
   "sort_priority": "Priority",
   "tip_add": "Add a task (N)",
@@ -40,10 +65,15 @@
   "tip_edit": "Edit task",
   "tip_grip": "Drag to reorder",
   "tip_grip_drop": "Click another grip to drop here, or this one to cancel",
+  "tip_hide_completed": "Hide completed tasks",
+  "tip_hide_completed_manual": "Switch to priority order to hide completed tasks",
+  "tip_hide_count": "Hide the task count on the bar widget",
   "tip_set_all_important": "Set every task to Important",
   "tip_set_all_low": "Set every task to Low",
   "tip_set_all_medium": "Set every task to Medium",
   "tip_settings": "Plugin settings",
+  "tip_show_completed": "Show completed tasks",
+  "tip_show_count": "Show the task count on the bar widget",
   "tip_sort": "Switch ordering mode (S)",
   "tip_undone": "Mark as to do",
   "title": "To Do",

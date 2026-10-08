@@ -24,14 +24,15 @@ local hoveredKey = nil
 
 local render
 
+local gitlab = require("./gitlab.luau")
+
 local function tr(key, args) return noctalia.tr("panel." .. key, args) end
 
--- Open a PR/issue URL in the default browser. Single quotes are escaped so the
--- URL can't break out of the shell argument.
+-- Open a PR/issue URL in the default browser. The URL is passed as its own
+-- argv entry, so no shell ever parses it.
 local function openLink(link)
   if not link or link == "" then return end
-  local safe = link:gsub("'", "'\\''")
-  noctalia.runAsync("xdg-open '" .. safe .. "'")
+  noctalia.runAsync({"xdg-open", link})
 end
 
 local function itemsForTab()
@@ -233,6 +234,18 @@ local function itemCard(item)
     maxLines = 1,
   }))
 
+  -- Trailing glyph, picked from the MR's merge status (see gitlab.luau).
+  local row = {
+    ui.column({ gap = 2, flexGrow = 1 }, {
+      ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
+      ui.row({ gap = 6, align = "center" }, subtitle),
+    }),
+  }
+  local glyph = gitlab.mergeStatusGlyph(item.mergeStatus)
+  if glyph then
+    table.insert(row, ui.glyph({ name = glyph, size = 24, color = hovered and "on_tertiary" or "primary" }))
+  end
+
   return ui.column({
     key = key,
     gap = 8,
@@ -247,13 +260,7 @@ local function itemCard(item)
       render()
     end,
   }, {
-    ui.row({ gap = 10, align = "center" }, {
-      ui.column({ gap = 2, flexGrow = 1 }, {
-        ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
-        ui.row({ gap = 6, align = "center" }, subtitle),
-      }),
-      ui.glyph({ name = "circle-check", size = 24, color = hovered and "on_tertiary" or "primary", visible = item.detailed_merge_status == "mergeable" }),
-    }),
+    ui.row({ gap = 10, align = "center" }, row),
   })
 end
 
@@ -364,7 +371,7 @@ function onTabReviews() switchTab("reviews") end
 function onCloseClicked() panel.close() end
 
 function onRefreshClicked()
-  noctalia.runAsync("noctalia msg plugin tphilippot/git_companion:service all refresh")
+  noctalia.runAsync({"noctalia", "msg", "plugin", "tphilippot/git_companion:service", "all", "refresh"})
 end
 
 -- Watch for state changes from the service

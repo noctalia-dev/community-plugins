@@ -47,7 +47,12 @@ function lib.parseLrc(text, offsetMs)
   local fileOffsetMs = 0
   local off = text:match("%[offset%s*:%s*(-?%d+%.?%d*)%]")
   if off then fileOffsetMs = tonumber(off) or 0 end
-  local extraOffset = (fileOffsetMs + (offsetMs or 0)) / 1000.0
+  -- SUBTRACT the user setting: its documented contract is "positive values show
+  -- lines earlier, negative later", i.e. positive must move every timestamp DOWN
+  -- (the lines fire sooner). Adding it did the opposite - a positive value pushed
+  -- the text later than the recording, so the visible setting disagreed with its
+  -- own description. The embedded [offset:] tag keeps its historical handling.
+  local extraOffset = (fileOffsetMs - (offsetMs or 0)) / 1000.0
 
   for line in (text .. "\n"):gmatch("([^\r\n]*)\r?\n") do
     local timestamps = {}

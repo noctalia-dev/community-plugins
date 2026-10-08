@@ -1,11 +1,11 @@
 id = "teagar/omniroute-quota"
 name = "OmniRoute Quota"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 22
 author = "Teagar"
 license = "MIT"
 icon = "route"
-description = "Monitor Codex 5-hour and weekly quotas for every OmniRoute account."
+description = "Monitor Codex quotas for OpenCode and OmniRoute accounts."
 tags = ["ai", "bar", "panel", "service", "indicator", "utility"]
 dependencies = ["node"]
 
@@ -31,6 +31,17 @@ type = "bool"
 default = true
 label_key = "settings.show_value.label"
 description_key = "settings.show_value.description"
+
+[[setting]]
+key = "sort_order"
+type = "select"
+default = "availability"
+label_key = "settings.sort_order.label"
+description_key = "settings.sort_order.description"
+options = [
+  { value = "availability", label_key = "settings.sort_order.option.availability" },
+  { value = "alphabetical", label_key = "settings.sort_order.option.alphabetical" },
+]
 
 [[service]]
 id = "service"

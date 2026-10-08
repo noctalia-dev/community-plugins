@@ -104,6 +104,9 @@ local function loadHeatmapAppearance()
   CELL_SIZE = cfgInt("heatmap_cell_size", 13, 8, 16)
   CELL_GAP = cfgInt("heatmap_cell_gap", 1, 1, 4)
   CELL_RADIUS = cfgInt("heatmap_cell_radius", 2, 0, 4)
+  -- Clamp a full-year grid (~53 weeks) to the fixed 860px panel in both placements.
+  local maxCell = math.floor((760 - 52 * CELL_GAP) / 53)
+  CELL_SIZE = math.clamp(math.min(CELL_SIZE, maxCell), 8, 16)
   local mode = cfg("heatmap_color_mode", "noctalia")
   local themed = { "surface_variant", "primary/0.25", "primary/0.45", "primary/0.70", "primary" }
   if mode == "github" then
@@ -171,6 +174,10 @@ local state = {
   profile = noctalia.state.get("profile") or {},
   contributions = noctalia.state.get("contributions") or {},
   notifications = noctalia.state.get("notifications") or {},
+  notificationsStatus = noctalia.state.get("notifications_status") or "loading",
+  notificationsLastUpdate = noctalia.state.get("notifications_last_update") or "",
+  notificationsError = noctalia.state.get("notifications_error") or "",
+  notificationsPending = noctalia.state.get("notifications_pending") or {},
   followingEvents = noctalia.state.get("following_events") or {},
   followingRepoEvents = noctalia.state.get("following_repo_events") or {},
   prs = noctalia.state.get("my_prs") or {},
@@ -342,7 +349,21 @@ local function openLink(url)
     noctalia.notifyError(tr("panel.title"), tr("status.missing_xdg_open"))
     return
   end
-  noctalia.runAsync({ "xdg-open", url })
+  return noctalia.runAsync({ "xdg-open", url })
+end
+
+local function notificationSynced()
+  return noctalia.getConfig("notification_sync_mode") == "synced"
+end
+
+local function notificationAction(action)
+  action.nonce = noctalia.nowMs()
+  noctalia.state.set("notification_action", action)
+end
+
+local function markNotificationRead(item)
+  if not notificationSynced() or item.unread ~= true or state.notificationsPending[tostring(item.id)] then return end
+  notificationAction({ type = "mark_read", id = item.id, updatedAt = item.updatedAt })
 end
 
 local function button(text, selected, callback)
@@ -410,16 +431,27 @@ local function card(item, glyph, context)
   local secondaryMode = cfg("appearance_secondary_text", "truncate")
   local secondaryLines = secondaryMode == "full" and 4 or 1
   local readOpacity = unread and 1 or cfgInt("notification_read_opacity", 100, 40, 100) / 100
-  return ui.row({
-    key = key, gap = densityValue(7, 10, 13), padding = densityValue(7, 10, 13), radius = cardRadius(),
-    border = border, borderWidth = borderWidth, fill = hoverFill(active, unread), opacity = context == "notifications" and readOpacity or 1,
+  local pending = state.notificationsPending[tostring(item.id)] == true
+  local inlineReadAction = context == "notifications" and notificationSynced() and (unread or pending)
+  local function onCardHover(value)
+    if noctalia.getConfig("appearance_animations") == false then return end
+    hovered = value == "true" and key or nil
+    render()
+  end
+  local content = ui.row({
+    key = key, flexGrow = 1, gap = densityValue(7, 10, 13),
+    padding = inlineReadAction and 0 or densityValue(7, 10, 13), radius = inlineReadAction and 0 or cardRadius(),
+    border = inlineReadAction and "outline/0" or border, borderWidth = inlineReadAction and 0 or borderWidth,
+    fill = inlineReadAction and "transparent" or hoverFill(active, unread),
+    opacity = inlineReadAction and 1 or (context == "notifications" and readOpacity or 1),
     align = "center",
-    onClick = function() openLink(url) end,
-    onHover = function(value)
-      if noctalia.getConfig("appearance_animations") == false then return end
-      hovered = value == "true" and key or nil
-      render()
+    onClick = function()
+      if openLink(url) and context == "notifications" and notificationSynced()
+        and noctalia.getConfig("notification_mark_read_on_open") == true then
+        markNotificationRead(item)
+      end
     end,
+    onHover = not inlineReadAction and onCardHover or nil,
   }, {
     ui.box({ width = 7, height = 7, radius = 4, fill = "primary", visible = unread and noctalia.getConfig("notification_unread_dot") ~= false }),
     leading,
@@ -429,6 +461,20 @@ local function card(item, glyph, context)
     }),
     ui.label({ text = meta, fontSize = font(10), color = active and cfg("appearance_hover_effect", "background") == "background" and "on_tertiary" or "on_surface_variant", maxLines = 1, visible = meta ~= "" and (context ~= "activity" or noctalia.getConfig("activity_show_status_badges") ~= false) }),
     ui.glyph({ name = "external-link", size = 15, color = active and "on_tertiary" or "on_surface_variant", visible = url ~= "" }),
+  })
+  if not inlineReadAction then return content end
+  -- The card owns its border; link content and read action are sibling hit targets.
+  return ui.row({
+    key = "notification-row-" .. key, gap = 6, align = "center",
+    padding = densityValue(7, 10, 13), radius = cardRadius(),
+    border = border, borderWidth = borderWidth, fill = hoverFill(active, unread), opacity = readOpacity,
+    onHover = onCardHover,
+  }, {
+    content,
+    ui.button({ key = "notification-read-" .. key, glyph = pending and "clock" or "check",
+      tooltip = tr(pending and "action.marking_read" or "action.mark_read"),
+      variant = "ghost", controlSize = "sm", enabled = not pending,
+      onClick = function() markNotificationRead(item) end }),
   })
 end
 
@@ -546,7 +592,6 @@ local function followingGroupCard(group)
   local rows = {}
   for index = 1, visibleCount do rows[#rows + 1] = followingEventRow(group.items[index]) end
   local hiddenCount = #group.items - visibleCount
-  local cardHeight = headerHeight + visibleCount * rowHeight + (hiddenCount > 0 and 30 or 0)
   local content = {}
   for _, row in ipairs(rows) do content[#content + 1] = row end
   if hiddenCount > 0 then
@@ -565,7 +610,7 @@ local function followingGroupCard(group)
     gap = densityValue(5, 7, 10), padding = densityValue(7, 10, 13), radius = cardRadius(),
     border = cfg("appearance_card_border", "subtle") == "none" and "outline/0" or (cfg("appearance_card_border", "subtle") == "accent" and "primary" or "outline"),
     borderWidth = cfg("appearance_card_border", "subtle") == "none" and 0 or 1,
-    fill = cardFill(), height = math.min(maxHeight, cardHeight),
+    fill = cardFill(),
   }, {
     ui.row({ gap = 9, align = "center" }, {
       avatar,
@@ -655,9 +700,16 @@ local function profileHeader()
   })
 end
 
+local function heatmapPlaceholderHeight()
+  -- Estimate the real card height so the placeholder swap doesn't jump layout.
+  local gridH = 7 * CELL_SIZE + 6 * CELL_GAP
+  local monthsH = noctalia.getConfig("heatmap_show_months") ~= false and 19 or 0
+  return gridH + monthsH + 18 + densityValue(9, 12, 15) * 2 + cardSpacing()
+end
+
 local function heatmap()
   if not cachedCalendar then
-    return ui.column({ height = 115, align = "center", justify = "center" }, {
+    return ui.column({ flexGrow = 1, minHeight = heatmapPlaceholderHeight(), align = "center", justify = "center" }, {
       ui.label({ text = tr("status.preparing_contribution_calendar"), color = "on_surface_variant", fontSize = 11 }),
     })
   end
@@ -678,24 +730,42 @@ local function heatmap()
   end
   legend[#legend + 1] = ui.label({ text = tr("heatmap.more"), fontSize = font(9), color = "on_surface_variant" })
   local footer = {}
-  if noctalia.getConfig("heatmap_show_total") ~= false then footer[#footer + 1] = ui.label({ text = detail, flexGrow = 1, fontSize = font(10), color = "on_surface_variant" })
+  -- Keyed on content so hover selections re-resolve width with flexGrow applied.
+  if noctalia.getConfig("heatmap_show_total") ~= false then footer[#footer + 1] = ui.label({ key = "heatmap-footer-" .. (selectedDate or "total"), text = detail, flexGrow = 1, fontSize = font(10), color = "on_surface_variant", maxLines = 1 })
   else footer[#footer + 1] = ui.box({ flexGrow = 1 }) end
   if noctalia.getConfig("heatmap_show_legend") ~= false then footer[#footer + 1] = ui.row({ gap = 3, align = "center" }, legend) end
+  -- Footer inset to the grid width (weeks * (CELL + GAP) - GAP), mirroring the
+  -- calendar row's weekday gutter so items align with the grid edges.
+  local gridWidth = math.max(gridWeekCount * (CELL_SIZE + CELL_GAP) - CELL_GAP, CELL_SIZE)
+  local footerRow = ui.row({ width = gridWidth, align = "center", gap = 6 }, footer)
+  local footerZone
+  if noctalia.getConfig("heatmap_show_weekdays") ~= false then
+    footerZone = ui.row({ gap = 10, align = "center", justify = "center" }, {
+      ui.box({ width = 28 }),
+      footerRow,
+    })
+  else
+    footerZone = ui.row({ align = "center", justify = "center" }, { footerRow })
+  end
   return ui.column({
+    flexGrow = 1, justify = "center",
     gap = cardSpacing(), padding = densityValue(9, 12, 15), radius = cardRadius(),
     fill = "surface/0.20", border = "outline/0.45", borderWidth = 1,
   }, {
     cachedCalendar,
-    ui.row({ align = "center", gap = 6 }, footer),
+    footerZone,
   })
 end
 
 local function overview()
   local c = state.contributions
-  return ui.scroll({ flexGrow = 1, gap = 10, align = "stretch" }, {
+  -- Section stretches to fill the panel; air stays inside the heatmap card.
+  return ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
     profileHeader(),
-    ui.label({ text = tr("panel.contributions"), fontSize = 15, fontWeight = "bold" }),
-    heatmap(),
+    ui.column({ flexGrow = 1, gap = 8, align = "stretch" }, {
+      ui.label({ text = tr("panel.contributions"), fontSize = 15, fontWeight = "bold" }),
+      heatmap(),
+    }),
     statsLayout({
       metric(tr("contributions.today"), c.today, "calendar"),
       metric(tr("contributions.current_streak"), c.currentStreak, "flame"),
@@ -736,11 +806,31 @@ local function notifications()
     local reasonMatches = notificationFilter == "all" or notificationGroup(item.reason) == notificationFilter
     if readMatches and reasonMatches then items[#items + 1] = item end
   end
-  return ui.column({ flexGrow = 1, gap = 8 }, {
-    ui.row({ gap = 4 }, readStrip),
-    ui.row({ gap = 4 }, reasonStrip),
-    listView(items, "bell", "notifications"),
-  })
+  local children = { ui.row({ gap = 4 }, readStrip), ui.row({ gap = 4 }, reasonStrip) }
+  if notificationSynced() then
+    local visibleUnread = {}
+    for _, item in ipairs(items) do
+      if item.unread == true and not state.notificationsPending[tostring(item.id)] then
+        visibleUnread[#visibleUnread + 1] = { id = item.id, updatedAt = item.updatedAt }
+      end
+    end
+    children[#children + 1] = ui.row({ gap = 6, align = "center" }, {
+      ui.button({ text = tr("action.mark_visible_read"), glyph = "check", variant = "primary", controlSize = "sm", enabled = #visibleUnread > 0,
+        onClick = function() notificationAction({ type = "mark_visible_read", items = visibleUnread }) end }),
+      ui.label({ text = tr("status.notifications_refreshing"), fontSize = font(11), color = "on_surface_variant", visible = state.notificationsStatus == "loading" }),
+      ui.label({ text = tr("action.marking_read"), fontSize = font(11), color = "on_surface_variant", visible = next(state.notificationsPending) ~= nil }),
+    })
+  end
+  local error = state.notificationsError
+  if error == "" then
+    if state.notificationsStatus == "missing_gh" then error = tr("status.missing_gh")
+    elseif state.notificationsStatus == "auth_error" then error = tr("status.auth_error") end
+  end
+  if error ~= "" then
+    children[#children + 1] = ui.label({ text = error, color = "on_surface_variant", fontSize = font(11), maxLines = 3 })
+  end
+  children[#children + 1] = listView(items, "bell", "notifications")
+  return ui.column({ flexGrow = 1, gap = 8 }, children)
 end
 
 local function work()
@@ -896,6 +986,7 @@ local function enabledTabs()
 end
 
 local function body()
+  if currentTab == "notifications" and notificationSynced() then return notifications() end
   if state.status == "loading" and next(state.profile) == nil then return statusView() end
   if (state.status == "missing_gh" or state.status == "auth_error") and not state.stale then return statusView() end
   if currentTab == "overview" then return overview() end
@@ -919,12 +1010,13 @@ render = function()
       onClick = function() currentTab = id; hovered = nil; render() end,
     })
   end
-  local freshness = state.lastUpdate
+  local independentNotifications = currentTab == "notifications" and notificationSynced()
+  local freshness = independentNotifications and state.notificationsLastUpdate or state.lastUpdate
   if type(freshness) == "number" then freshness = noctalia.formatTime("%H:%M", freshness) end
-  if state.stale then freshness = tr("status.stale") end
+  if state.stale and not independentNotifications then freshness = tr("status.stale") end
   local content = #visibleTabs > 0 and body() or listView({}, "inbox")
   local contentChildren = {}
-  if state.status == "partial" or state.status == "auth_error" then
+  if not independentNotifications and (state.status == "partial" or state.status == "auth_error") then
     contentChildren[#contentChildren + 1] = ui.row({ gap = 7, align = "center", padding = 8, radius = cardRadius(), fill = "primary/0.12" }, {
       ui.glyph({ name = "alert-triangle", size = font(15), color = "primary" }),
       ui.label({ text = state.error ~= "" and state.error or tr("status.request_error"), color = "on_surface_variant", fontSize = font(11), maxLines = 2, flexGrow = 1 }),
@@ -936,7 +1028,10 @@ render = function()
       ui.glyph({ name = "brand-github", size = 25, color = "primary" }),
       ui.label({ text = tr("panel.title"), fontSize = font(19), fontWeight = "bold", flexGrow = 1 }),
       ui.label({ text = freshness, fontSize = font(10), color = "on_surface_variant" }),
-      ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("action.refresh"), onClick = function() noctalia.state.set("refresh_request", noctalia.nowMs()) end }),
+      ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("action.refresh"), onClick = function()
+        if independentNotifications then notificationAction({ type = "refresh" })
+        else noctalia.state.set("refresh_request", noctalia.nowMs()) end
+      end }),
       ui.button({ glyph = "close", variant = "ghost", tooltip = tr("action.close"), onClick = function() panel.close() end }),
     }),
     ui.row({ gap = 3, align = "center" }, tabs),
@@ -944,17 +1039,33 @@ render = function()
   }))
 end
 
+local lastRenderMs = 0
+local renderPending = false
+local function requestRender()
+  -- Space data-driven renders so measurement sees settled trees.
+  local now = noctalia.nowMs()
+  if now - lastRenderMs < 400 then
+    renderPending = true
+    panel.setWantsSecondTicks(true)
+    return
+  end
+  lastRenderMs = now
+  renderPending = false
+  render()
+end
+
 local WATCHES = {
   status = "status", error = "error", stale = "stale", lastUpdate = "last_update",
   profile = "profile", contributions = "contributions", notifications = "notifications",
+  notificationsLastUpdate = "notifications_last_update", notificationsStatus = "notifications_status", notificationsError = "notifications_error", notificationsPending = "notifications_pending",
   followingEvents = "following_events", followingRepoEvents = "following_repo_events", prs = "my_prs",
   reviews = "review_prs", authoredIssues = "authored_issues", issues = "issues", repositories = "repositories", actions = "actions",
 }
 for field, key in pairs(WATCHES) do
   noctalia.state.watch(key, function(value)
     if field == "stale" then state[field] = value == true
-    elseif field == "status" then state[field] = value or "loading"
-    elseif field == "lastUpdate" or field == "error" then state[field] = value or ""
+    elseif field == "status" or field == "notificationsStatus" then state[field] = value or "loading"
+    elseif field == "lastUpdate" or field == "notificationsLastUpdate" or field == "error" or field == "notificationsError" then state[field] = value or ""
     else state[field] = value or {} end
     if field == "contributions" then
       resetGrid(state.contributions)
@@ -963,7 +1074,7 @@ for field, key in pairs(WATCHES) do
         panel.setNeedsFrameTick(true)
       end
     end
-    render()
+    requestRender()
   end)
 end
 
@@ -978,6 +1089,11 @@ end
 
 function onOpen()
   panelOpen = true
+  followingVisibleByGroup = {}
+  panel.setWantsSecondTicks(true)
+  if notificationSynced() and noctalia.getConfig("notification_refresh_on_open") ~= false then
+    notificationAction({ type = "refresh" })
+  end
   if gridReady and not cachedCalendar then
     panel.setWantsSecondTicks(true)
     panel.setNeedsFrameTick(true)
@@ -994,6 +1110,11 @@ function onFrameTick(_deltaMs)
 end
 
 function update()
+  if renderPending then
+    renderPending = false
+    lastRenderMs = noctalia.nowMs()
+    render()
+  end
   prepareGrid()
 end
 

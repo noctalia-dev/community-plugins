@@ -1,11 +1,11 @@
 # Umbriel Monitor Control
 
 Place and tune your monitors from the Noctalia bar: move a display left,
-right, above or below the others, and change its resolution and refresh rate.
-Every change is written into the Umbriel config file (validated before it
-lands, restored if invalid) and reloaded live, so settings persist across
-reboots. The same panel is one click away from the control center, through the
-plugin's `display` tile.
+right, above or below the others, and change its resolution, refresh rate and
+rotation. Every change is written into the Umbriel config file (validated
+before it lands, restored if invalid) and reloaded live, so settings persist
+across reboots. The same panel is one click away from the control center,
+through the plugin's `display` tile.
 
 **Umbriel only.** This plugin drives the Umbriel compositor through its CLI and
 its config file; it does nothing under niri, Hyprland, Sway or any other
@@ -27,16 +27,16 @@ compositor, and hides its widget outside an Umbriel session.
 
 ## Usage
 
-Add the `monitor` widget to the bar: it shows the focused output's current
-mode; click opens the panel. Or open the panel directly:
+Add the `monitor` widget to the bar: it shows the refresh rate of the output
+it sits on; click opens the panel. Or open the panel directly:
 
 ```sh
 noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 ```
 
 The control center can carry a way into the same panel: add the `display` tile
-in **Settings → Control Center → Shortcuts**. It is the display glyph on its
-own — no caption — and opens the panel when clicked.
+in **Settings → Control Center → Shortcuts**. It is the display glyph captioned
+with the focused output's resolution and opens the panel when clicked.
 
 The panel opens with an **arrangement map**: every enabled output drawn as a
 rectangle where the compositor actually has it, scaled to keep its real
@@ -46,10 +46,15 @@ draw in one row. The focused output's rectangle carries the thicker border.
 
 In the panel, each monitor card has a resolution dropdown, a refresh-rate
 dropdown and an Apply button, plus four placement buttons (left / right / up /
-down). A placement moves one axis only: the monitor lands just outside the
-others' edge on that side and level with them on the other axis, so left/right
-produce a row and up/down a column. With the other monitors at the origin that
-is the plain `-x` / `+x` / `-y` / `+y` move (y stays 0, x stays 0).
+down) and a rotation dropdown. The rotation dropdown lists Umbriel's eight
+transforms - 0°, 90°, 180°, 270°, and the same four flipped - and applies on
+the pick: which variant is right is only visible on screen, and the select
+always shows the transform the compositor is actually using.
+
+A placement moves one axis only: the monitor lands just outside the others'
+edge on that side and level with them on the other axis, so left/right produce
+a row and up/down a column. With the other monitors at the origin that is the
+plain `-x` / `+x` / `-y` / `+y` move (y stays 0, x stays 0).
 
 Below them, a **Position** row takes the two coordinates by hand — logical
 pixels, `x` then `y`, as the legend and the map show them (`mode size / scale`;
@@ -63,7 +68,7 @@ fields update to whatever it landed on.
 | --- | --- | --- | --- |
 | `config_path` | `string` | `~/.config/umbriel/config.toml` | Umbriel config file the plugin patches. |
 | `auto_reload` | `bool` | `true` | Reload the compositor after writing; off = persist-only. |
-| `show_text` | `bool` | `true` | Bar widget shows resolution + Hz next to the glyph. |
+| `show_text` | `bool` | `true` | Bar widget shows the refresh rate next to the glyph. |
 | `glyph` | `glyph` | `device-desktop` | Bar widget icon. |
 
 ## IPC
@@ -77,13 +82,19 @@ noctalia msg panel-toggle muhammadessam/umbriel-monitor-control:panel
 - **Files written**: the configured Umbriel config (patched `[output.*]`
   sections only; comments and other keys are preserved) and a rolling backup
   `config.toml.bak` in the plugin's data dir, used to restore if a patched file
-  fails `umbriel validate` or for the revert request.
+  fails `umbriel config validate` or for the revert request.
 - **Commands spawned**: `umbriel outputs --json` (inventory),
-  `umbriel validate -c <file>` (pre-reload gate), `umbriel msg config-reload`
-  (live apply). No network access.
+  `umbriel config validate -c <file>` (pre-reload gate),
+  `umbriel msg config-reload` (live apply). No network access.
 - Resolution/refresh options come from the modes the display advertises, so
   the dropdowns only ever offer something the monitor can do. Umbriel falls
   back to the preferred mode if a saved mode cannot be applied later.
+- Rotation is written as `transform` in the output's section, limited to
+  Umbriel's vocabulary (`normal`, `90`, `180`, `270`, `flipped`, `flipped-90`,
+  `flipped-180`, `flipped-270`); anything else is refused before the file is
+  touched. A 90°/270° transform (flipped or not) swaps the output's logical
+  width and height, which is the space the arrangement map and the position
+  fields work in.
 - Placement uses logical layout coordinates (mode size divided by scale),
   matching Umbriel's own `position` semantics.
 - Known limitation: `[output.*]` headers with the quoted monitor-name form are

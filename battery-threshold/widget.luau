@@ -1,7 +1,9 @@
 --!nonstrict
+local common = require("./common.luau")
+
 local function render_widget()
-    local is_available = noctalia.state.get("is_available") == true
-    local threshold = noctalia.state.get("current_threshold") or 0
+    local is_available = noctalia.state.get(common.STATE.IS_AVAILABLE) == true
+    local threshold = noctalia.state.get(common.STATE.CURRENT_THRESHOLD) or 0
 
     local container = barWidget.isVertical() and ui.column or ui.row
 
@@ -21,11 +23,11 @@ local function render_widget()
     end
 end
 
-noctalia.state.watch("current_threshold", render_widget)
-noctalia.state.watch("is_available", render_widget)
+noctalia.state.watch(common.STATE.CURRENT_THRESHOLD, render_widget)
+noctalia.state.watch(common.STATE.IS_AVAILABLE, render_widget)
 
 function onClick()
-    noctalia.togglePanel("damian-ds7/battery-threshold:panel")
+    noctalia.togglePanel(common.PANEL_ID)
 end
 
 function update()

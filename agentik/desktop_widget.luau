@@ -1,28 +1,8 @@
 -- Desktop widget: live OMP monitoring with an optional full-session client.
 -- Monitoring reads the shared collector state; session chat runs through the
 -- same local bridge as the main Agentik panel.
-local home = noctalia.getenv("HOME") or ""
-local cache_home = noctalia.getenv("XDG_CACHE_HOME")
-if cache_home == nil or cache_home == "" then cache_home = home .. "/.cache" end
-local ORB_DIR = cache_home .. "/agentik/orbs"
-local FRAME_RATE = 30
-local FRAME_COUNT = 60
-local ORBS_READY = false
-local orb_config = noctalia.state.get("agentik_orbs")
-if type(orb_config) == "table" then
-    ORB_DIR = tostring(orb_config.directory or ORB_DIR)
-    FRAME_RATE = tonumber(orb_config.fps) or FRAME_RATE
-    FRAME_COUNT = tonumber(orb_config.frame_count) or FRAME_COUNT
-    ORBS_READY = orb_config.ready == true
-end
-local function orb_image(props)
-    if ORBS_READY then return ui.image(props) end
-    return ui.glyph({
-        name = "sparkles",
-        size = props.width or 20,
-        color = "primary",
-    })
-end
+local Orb = require("./orb.luau")
+local FRAME_RATE = 60
 local CHAT_RENDERED_EVENTS = 12
 local chat_event_limit = CHAT_RENDERED_EVENTS
 local sessions = noctalia.state.get("sessions") or { active = 0, sessions = {} }
@@ -61,10 +41,24 @@ local chat_stream_revealed = 0
 local chat_stream_credit = 0
 local CHAT_STREAM_CHARS_PER_SECOND = 40
 local CHAT_STREAM_MAX_FRAME_MS = 50
+local chat_attachments = {}
+local attachment_busy = false
+local chat_capabilities = {}
+local capabilities_negotiated = false
+local pending_requests = {}
+local request_history = {}
+local request_states = {}
+local activity_open = false
+local activity_session_id = nil
+local activity_events = {}
+local activity_expanded = {}
+local activity_loading = false
+local activity_error = nil
+local activity_last_poll = -3000
+local focus_busy = {}
+local focus_error = nil
+local chat_session_id = nil
 
-local function chat_writable()
-    return not chat_busy and not chat_terminal_owns_session
-end
 
 -- Bridge output is emitted only after the journal is processed; a large
 -- session can take several seconds, past runAsync's 5 s default timeout.
@@ -73,6 +67,10 @@ local function configured_bool(key, default)
     local value = noctalia.getConfig(key)
     if value == nil then return default end
     return value == true or value == "true"
+end
+local function chat_writable()
+    return configured_bool("chat_enabled", true) and chat_selected and not attachment_busy
+        and not chat_busy and not chat_terminal_owns_session
 end
 local valid_states = {
     working = true, searching = true, solving = true, listening = true, connecting = true,
@@ -145,7 +143,8 @@ local function attention_color(item)
     local attention = attention_of(item)
     if attention == "blocked" then return "error" end
     if attention == "waiting" then return "secondary" end
-    return configured_bool("high_contrast", false) and "on_surface" or "on_surface_variant"
+    return (configured_bool("high_contrast", false) or configured_bool("presentation_mode", false))
+        and "on_surface" or "on_surface_variant"
 end
 
 local function model_name(model)
@@ -172,7 +171,12 @@ end
 
 local function frame_index()
     if configured_bool("reduce_motion", false) then return 0 end
-    return math.floor(noctalia.nowMs() * FRAME_RATE / 1000) % FRAME_COUNT
+    return math.floor(noctalia.nowMs() * FRAME_RATE / 1000)
+end
+
+local function animation_time()
+    if configured_bool("reduce_motion", false) then return 0 end
+    return noctalia.nowMs() / 1000 * (configured_bool("presentation_mode", false) and 0.5 or 1)
 end
 
 
@@ -243,19 +247,478 @@ local function select_option(options, index_value, text_value)
     return 1
 end
 
-local function harness_options()
+local function request_key(request)
+    return noctalia.json.encode({ request.run_id, request.request_id })
+end
+
+local function sync_requests(payload)
+    local changed = false
+    if type(payload.capabilities) == "table" then
+        changed = noctalia.json.encode(chat_capabilities) ~= noctalia.json.encode(payload.capabilities)
+        chat_capabilities = payload.capabilities
+    end
+    if type(payload.capabilities_negotiated) == "boolean" then
+        changed = changed or capabilities_negotiated ~= payload.capabilities_negotiated
+        capabilities_negotiated = payload.capabilities_negotiated
+    end
+    if type(payload.request_history) == "table" then
+        changed = changed or noctalia.json.encode(request_history) ~= noctalia.json.encode(payload.request_history)
+        request_history = payload.request_history
+    end
+    if type(payload.pending_requests) ~= "table" then return changed end
+    changed = changed or noctalia.json.encode(pending_requests) ~= noctalia.json.encode(payload.pending_requests)
+    pending_requests = payload.pending_requests
+    local active = {}
+    for _, request in ipairs(pending_requests) do
+        local key = request_key(request)
+        active[key] = true
+        if request.submitted == true then
+            local state = request_states[key] or { values = {} }
+            state.submitting = true
+            state.queued = true
+            request_states[key] = state
+        end
+    end
+    for key in pairs(request_states) do
+        if not active[key] then request_states[key] = nil end
+    end
+    return changed
+end
+
+local function focus_button(item)
+    if item == nil or item.exited ~= nil or type(item.id) ~= "string" then return nil end
+    return ui.button({
+        key = "desktop-focus-" .. item.id, glyph = "terminal", glyphSize = 14,
+        variant = "ghost", controlSize = "sm", enabled = focus_busy[item.id] ~= true,
+        tooltip = noctalia.tr("ui.focus_session"),
+        onClick = function()
+            if focus_busy[item.id] then return end
+            focus_busy[item.id] = true
+            focus_error = nil
+            update()
+            noctalia.runAsync({"python3", chat_bridge, "focus-session", hex_encode(item.id)}, function(result)
+                focus_busy[item.id] = nil
+                local payload = noctalia.json.decode(result.stdout or "")
+                if type(payload) ~= "table" or payload.ok ~= true then
+                    focus_error = type(payload) == "table" and tostring(payload.error or noctalia.tr("ui.chat_error"))
+                        or noctalia.tr("ui.chat_error")
+                end
+                update()
+            end, chat_bridge_timeout_ms)
+        end,
+    })
+end
+
+local function poll_activity(force)
+    if not activity_open or activity_loading or activity_session_id == nil then return end
+    if not force and noctalia.nowMs() - activity_last_poll < 3000 then return end
+    local selected = activity_session_id
+    activity_loading = true
+    activity_last_poll = noctalia.nowMs()
+    noctalia.runAsync({"python3", chat_bridge, "activity", hex_encode(selected)}, function(result)
+        activity_loading = false
+        if activity_session_id ~= selected then
+            poll_activity(true)
+            return
+        end
+        local payload = noctalia.json.decode(result.stdout or "")
+        if type(payload) == "table" and payload.ok == true and payload.session_id == selected then
+            activity_events = type(payload.events) == "table" and payload.events or {}
+            activity_error = nil
+        else
+            activity_error = type(payload) == "table" and tostring(payload.error or noctalia.tr("ui.chat_error"))
+                or noctalia.tr("ui.chat_error")
+        end
+        update()
+    end, chat_bridge_timeout_ms)
+end
+
+local function open_activity(item)
+    activity_open = true
+    chat_open = false
+    if item ~= nil and activity_session_id ~= item.id then
+        activity_session_id = item.id
+        activity_events = {}
+        activity_expanded = {}
+        activity_error = nil
+    end
+    poll_activity(true)
+    update()
+end
+
+local function activity_view()
+    local rows = {}
+    local choices, items, selected_index = {}, {}, 0
+    for _, collection in ipairs({ sessions.sessions or {}, sessions.recent_outcomes or {} }) do
+        for _, item in ipairs(collection) do
+            choices[#choices + 1] = display_label(item) .. " · " .. tostring(item.id)
+            items[#items + 1] = item
+            if item.id == activity_session_id then selected_index = #items - 1 end
+        end
+    end
+    if activity_session_id == nil and items[1] ~= nil then
+        activity_session_id = items[1].id
+        poll_activity(true)
+    end
+    local item = items[selected_index + 1]
+    if item ~= nil and item.id ~= activity_session_id then item = nil end
+    table.insert(rows, ui.row({ gap = 6, align = "center" }, {
+        ui.select({
+            key = "desktop-activity-session", width = 320, options = choices,
+            selectedIndex = selected_index, enabled = #items > 0,
+            onChange = function(index, text)
+                local choice = items[select_option(choices, index, text)]
+                if choice ~= nil then open_activity(choice) end
+            end,
+        }),
+        focus_button(item) or ui.label({ text = "" }),
+    }))
+    if activity_error ~= nil then
+        table.insert(rows, ui.label({ text = activity_error, color = "error", maxLines = 3 }))
+    end
+    if #activity_events == 0 then
+        table.insert(rows, ui.label({
+            text = noctalia.tr(activity_loading and "ui.chat_loading" or "ui.activity_empty"),
+            color = "on_surface_variant", maxLines = 2,
+        }))
+    end
+    for index, event in ipairs(activity_events) do
+        local key = tostring(activity_session_id) .. ":" .. tostring(event.id or index)
+        local expanded = activity_expanded[key] == true
+        local detail = tostring(event.detail or event.text or "")
+        local _, lines = detail:gsub("\n", "\n")
+        table.insert(rows, ui.column({
+            key = "desktop-activity-" .. key, gap = 3, paddingH = 10, paddingV = 7,
+            radius = 8, fill = event.status == "failed" and "error/0.10" or "surface_variant/0.24",
+        }, {
+            ui.row({ gap = 4, align = "center" }, {
+                ui.label({ text = tostring(event.tool or event.kind or "") .. " · " .. tostring(event.status or ""),
+                    color = event.status == "failed" and "error" or "secondary", fontWeight = "bold", flexGrow = 1 }),
+                ui.button({ glyph = expanded and "chevron-up" or "chevron-down", variant = "ghost", controlSize = "sm",
+                    tooltip = noctalia.tr(expanded and "ui.chat_collapse_output" or "ui.chat_expand_output"),
+                    onClick = function() activity_expanded[key] = not expanded; update() end }),
+            }),
+            ui.label({ text = tostring(event.text or ""), maxLines = 2, maxWidth = 520 }),
+            expanded and ui.label({ text = detail, color = "on_surface_variant",
+                maxLines = math.max(4, lines + 1), maxWidth = 520 }) or ui.label({ text = "" }),
+        }))
+    end
+    return ui.scroll({ key = "desktop-activity", flexGrow = 1, gap = 6 }, rows)
+end
+
+local function attachments_supported()
+    return not capabilities_negotiated or chat_capabilities.attachments == true
+end
+
+local function add_attachments(action)
+    if not chat_writable() or not attachments_supported() or attachment_busy then return end
+    attachment_busy = true
+    chat_error = nil
+    update()
+    noctalia.runAsync({"python3", chat_bridge, action}, function(result)
+        attachment_busy = false
+        local payload = noctalia.json.decode(result.stdout or "")
+        if type(payload) == "table" and payload.ok == true then
+            for _, attachment in ipairs(payload.attachments or {}) do
+                local duplicate = false
+                for _, existing in ipairs(chat_attachments) do
+                    if existing.path == attachment.path then duplicate = true end
+                end
+                if type(attachment.path) == "string" and not duplicate then
+                    chat_attachments[#chat_attachments + 1] = attachment
+                end
+            end
+        else
+            chat_error = type(payload) == "table" and tostring(payload.error or noctalia.tr("ui.chat_error"))
+                or noctalia.tr("ui.chat_error")
+        end
+        update()
+    end, chat_bridge_timeout_ms)
+end
+
+local function attachment_controls()
+    local rows = {
+        ui.row({ gap = 4, align = "center" }, {
+            ui.button({ text = noctalia.tr("ui.attach_files"), variant = "ghost", controlSize = "sm",
+                enabled = chat_writable() and not attachment_busy and attachments_supported(),
+                onClick = function() add_attachments("pick-attachments") end }),
+            ui.button({ text = noctalia.tr("ui.attach_screenshot"), variant = "ghost", controlSize = "sm",
+                enabled = chat_writable() and not attachment_busy and attachments_supported(),
+                onClick = function() add_attachments("capture-attachment") end }),
+            not attachments_supported() and ui.label({
+                text = noctalia.tr("ui.attachments_unavailable"), color = "on_surface_variant", fontSize = 11,
+            }) or ui.label({ text = "" }),
+        }),
+    }
+    for index, attachment in ipairs(chat_attachments) do
+        table.insert(rows, ui.row({ gap = 4, align = "center" }, {
+            ui.label({ text = tostring(attachment.name or attachment.path) .. " · " .. tostring(attachment.mime or "")
+                .. " · " .. tostring(attachment.size or 0) .. " B", flexGrow = 1, maxLines = 2, fontSize = 11 }),
+            ui.button({ glyph = "close", variant = "ghost", controlSize = "sm",
+                tooltip = noctalia.tr("ui.remove_attachment"), enabled = chat_writable() and not attachment_busy,
+                onClick = function() table.remove(chat_attachments, index); update() end }),
+        }))
+    end
+    return ui.column({ gap = 2 }, rows)
+end
+
+local function attachment_labels(attachments)
     local labels = {}
-    for _, harness in ipairs(chat_harnesses) do
-        labels[#labels + 1] = tostring(harness.name or harness.id)
+    for _, attachment in ipairs(type(attachments) == "table" and attachments or {}) do
+        labels[#labels + 1] = ui.label({
+            text = tostring(attachment.name or attachment.path or "") .. " · " .. tostring(attachment.mime or "")
+                .. " · " .. tostring(attachment.size or 0) .. " B",
+            color = "on_surface_variant", fontSize = 11, maxLines = 2, maxWidth = 400,
+        })
     end
     return labels
 end
 
-local function harness_index()
-    for index, harness in ipairs(chat_harnesses) do
-        if harness.id == chat_new_harness then return index - 1 end
+local function requests_writable()
+    return configured_bool("chat_enabled", true) and chat_selected
+        and not chat_terminal_owns_session
+end
+
+local function respond_request(request, action, content, option_id)
+    local key = request_key(request)
+    local state = request_states[key] or { values = {} }
+    request_states[key] = state
+    if not requests_writable() or state.submitting then return end
+    local active = false
+    for _, pending in ipairs(pending_requests) do
+        if request_key(pending) == key and pending.submitted ~= true then active = true; break end
     end
-    return 0
+    if not active then return end
+    local response = { run_id = request.run_id, request_id = request.request_id,
+        action = action, option_id = option_id }
+    local encoded, error = noctalia.json.encode(response)
+    if encoded ~= nil and content ~= nil then
+        local fields = {}
+        for name, value in pairs(content) do
+            local serialized, value_error = noctalia.json.encode(value)
+            if type(value) == "table" and #value == 0 then serialized = "[]" end
+            if serialized == nil then encoded = nil; error = value_error; break end
+            fields[#fields + 1] = noctalia.json.encode(name) .. ":" .. serialized
+        end
+        if encoded ~= nil then
+            encoded = encoded:sub(1, -2) .. ',"content":{' .. table.concat(fields, ",") .. "}}"
+        end
+    end
+    if encoded == nil then
+        state.error = tostring(error or noctalia.tr("ui.chat_error"))
+        update()
+        return
+    end
+    state.submitting = true
+    state.error = nil
+    update()
+    noctalia.runAsync({"python3", chat_bridge, "respond", hex_encode(encoded)}, function(result)
+        local payload = noctalia.json.decode(result.stdout or "")
+        if type(payload) == "table" and payload.ok == true then
+            -- Keep the lock until the runtime removes this exact run/request.
+            state.queued = true
+            sync_requests(payload)
+        else
+            state.submitting = false
+            state.error = type(payload) == "table" and tostring(payload.error or noctalia.tr("ui.chat_error"))
+                or noctalia.tr("ui.chat_error")
+        end
+        update()
+    end, chat_bridge_timeout_ms)
+end
+
+local function question_content(request, state)
+    local schema = request.schema or {}
+    local required, content = {}, {}
+    for _, name in ipairs(schema.required or {}) do required[name] = true end
+    for name, property in pairs(schema.properties or {}) do
+        local value = state.values[name]
+        if value == nil or (type(value) == "string" and value == "" and property.type ~= "string") then
+            if required[name] then return nil, noctalia.tr("ui.request_required", { field = property.title or name }) end
+        else
+            if property.type == "number" or property.type == "integer" then
+                value = tonumber(value)
+                if value == nil or (property.type == "integer" and value % 1 ~= 0) then
+                    return nil, noctalia.tr("ui.request_invalid", { field = property.title or name })
+                end
+                if (property.minimum ~= nil and value < property.minimum)
+                    or (property.maximum ~= nil and value > property.maximum) then
+                    return nil, noctalia.tr("ui.request_invalid", { field = property.title or name })
+                end
+            end
+            if type(value) == "string" and required[name] and value == "" then
+                return nil, noctalia.tr("ui.request_required", { field = property.title or name })
+            end
+            if property.type == "array" then
+                if (property.minItems ~= nil and #value < property.minItems)
+                    or (property.maxItems ~= nil and #value > property.maxItems) then
+                    return nil, noctalia.tr("ui.request_invalid", { field = property.title or name })
+                end
+            elseif type(value) == "string" then
+                local length = utf8.len(value) or #value
+                if (property.minLength ~= nil and length < property.minLength)
+                    or (property.maxLength ~= nil and length > property.maxLength) then
+                    return nil, noctalia.tr("ui.request_invalid", { field = property.title or name })
+                end
+            end
+            content[name] = value
+        end
+    end
+    return content
+end
+
+local function schema_options(property)
+    local options = {}
+    for _, value in ipairs(property.enum or {}) do
+        options[#options + 1] = { value = value, label = tostring(value) }
+    end
+    for _, option in ipairs(property.oneOf or property.anyOf or {}) do
+        if option.const ~= nil then
+            options[#options + 1] = { value = option.const, label = tostring(option.title or option.const) }
+        end
+    end
+    if property.type == "boolean" and #options == 0 then
+        options = { { value = true, label = noctalia.tr("ui.request_yes") },
+            { value = false, label = noctalia.tr("ui.request_no") } }
+    end
+    return options
+end
+
+local function request_cards()
+    local cards = {}
+    if not requests_writable() then return cards end
+    for _, request in ipairs(pending_requests) do
+        local permission = request.kind == "permission" and chat_capabilities.approvals == true
+        local question = request.kind == "question" and chat_capabilities.questions == true
+        if permission or question then
+            local key = request_key(request)
+            local state = request_states[key] or { values = {} }
+            request_states[key] = state
+            local rows = { ui.label({ text = tostring(request.title or ""), fontWeight = "bold", maxLines = 3 }) }
+            if request.tool ~= nil then
+                table.insert(rows, ui.label({ text = type(request.tool) == "string" and request.tool
+                    or noctalia.json.encode(request.tool), color = "on_surface_variant", maxLines = 3 }))
+            end
+            if permission then
+                for _, option in ipairs(request.options or {}) do
+                    table.insert(rows, ui.button({
+                        text = tostring(option.label or option.id), variant = "ghost", controlSize = "sm",
+                        enabled = not state.submitting,
+                        onClick = function() respond_request(request, "permission", nil, option.id) end,
+                    }))
+                end
+            else
+                local names = {}
+                for name in pairs((request.schema or {}).properties or {}) do names[#names + 1] = name end
+                table.sort(names)
+                for _, name in ipairs(names) do
+                    local property = request.schema.properties[name]
+                    table.insert(rows, ui.label({ text = tostring(property.title or name), maxLines = 2, fontSize = 11 }))
+                    local options = schema_options(property)
+                    local array_options = type(property.items) == "table" and schema_options(property.items) or {}
+                    if property.type == "array" and #array_options > 0 then
+                        if state.values[name] == nil then state.values[name] = {} end
+                        local selected = state.values[name] or {}
+                        for _, choice in ipairs(array_options) do
+                            local option = choice.value
+                            local found = false
+                            for _, value in ipairs(selected) do if value == option then found = true end end
+                            table.insert(rows, ui.button({
+                                text = choice.label, variant = "ghost", selected = found, enabled = not state.submitting,
+                                onClick = function()
+                                    local values, removed = {}, false
+                                    for _, value in ipairs(state.values[name] or {}) do
+                                        if value == option then removed = true else values[#values + 1] = value end
+                                    end
+                                    if not removed then values[#values + 1] = option end
+                                    state.values[name] = values
+                                    update()
+                                end,
+                            }))
+                        end
+                    elseif #options > 0 then
+                        local labels, selected = { noctalia.tr("ui.request_choose") }, 0
+                        for index, option in ipairs(options) do
+                            labels[#labels + 1] = option.label
+                            if state.values[name] == option.value then selected = index end
+                        end
+                        table.insert(rows, ui.select({
+                            key = "desktop-request-" .. key .. "-" .. name, options = labels, selectedIndex = selected,
+                            width = 320, enabled = not state.submitting,
+                            onChange = function(index, text)
+                                local choice = select_option(labels, index, text)
+                                if choice > 1 then state.values[name] = options[choice - 1].value
+                                else state.values[name] = nil end
+                                update()
+                            end,
+                        }))
+                    else
+                        table.insert(rows, ui.input({
+                            key = "desktop-request-" .. key .. "-" .. name, width = 320,
+                            value = tostring(state.values[name] or ""), enabled = not state.submitting,
+                            onChange = function(value) state.values[name] = tostring(value or "") end,
+                        }))
+                    end
+                end
+                table.insert(rows, ui.row({ gap = 4 }, {
+                    ui.button({ text = noctalia.tr("ui.request_submit"), variant = "primary", enabled = not state.submitting,
+                        onClick = function()
+                            local content, error = question_content(request, state)
+                            if error ~= nil then state.error = error; update(); return end
+                            respond_request(request, "accept", content)
+                        end }),
+                    ui.button({ text = noctalia.tr("ui.request_decline"), variant = "ghost", enabled = not state.submitting,
+                        onClick = function() respond_request(request, "decline") end }),
+                    ui.button({ text = noctalia.tr("ui.request_cancel"), variant = "ghost", enabled = not state.submitting,
+                        onClick = function() respond_request(request, "cancel") end }),
+                }))
+            end
+            if state.error ~= nil then table.insert(rows, ui.label({ text = state.error, color = "error", maxLines = 3 })) end
+            if state.submitting then table.insert(rows, ui.label({
+                text = noctalia.tr(state.queued and "ui.request_waiting_ack" or "ui.request_submitting"),
+                color = "secondary", maxLines = 2,
+            })) end
+            table.insert(cards, ui.column({ key = "desktop-request-" .. key, gap = 4,
+                paddingH = 10, paddingV = 8, radius = 8, fill = "secondary/0.10" }, rows))
+        end
+    end
+    local acknowledged = request_history[#request_history]
+    if type(acknowledged) == "table" and acknowledged.status == "responded" then
+        table.insert(cards, ui.column({ key = "desktop-request-ack", gap = 2,
+            paddingH = 10, paddingV = 6, radius = 8, fill = "primary/0.10" }, {
+            ui.label({ text = noctalia.tr("ui.request_acknowledged"), color = "secondary", maxLines = 2 }),
+            ui.label({ text = tostring(acknowledged.title or ""), color = "on_surface_variant",
+                fontSize = 11, maxLines = 1 }),
+        }))
+    end
+    return cards
+end
+
+
+local function harness_picker()
+    local rows = {}
+    for _, harness in ipairs(chat_harnesses) do
+        local available = harness.available ~= false
+        rows[#rows + 1] = ui.column({ gap = 2 }, {
+            ui.button({ text = tostring(harness.name or harness.id), variant = "ghost", controlSize = "sm",
+                selected = harness.id == chat_new_harness, enabled = available and not chat_busy,
+                onClick = function()
+                    if not available or chat_busy then return end
+                    chat_new_harness = harness.id
+                    chat_new_model = harness.default_model
+                    chat_model_filter = ""
+                    chat_model_menu_open = false
+                    chat_model_input_revision = chat_model_input_revision + 1
+                    update()
+                end }),
+            ui.label({ text = available and tostring(harness.auth_status or noctalia.tr("ui.harness_auth_local"))
+                    or tostring(harness.install_hint or noctalia.tr("ui.harness_unavailable")),
+                color = "on_surface_variant", fontSize = 11, maxLines = 3 }),
+        })
+    end
+    return ui.column({ width = 340, height = 140 }, {
+        ui.scroll({ flexGrow = 1, gap = 3 }, rows),
+    })
 end
 
 local function model_options()
@@ -284,7 +747,7 @@ local function model_picker()
                 width = 304,
                 value = chat_new_model or "",
                 placeholder = noctalia.tr("ui.chat_model_placeholder"),
-                enabled = not chat_busy,
+                enabled = not chat_busy and selected_harness() ~= nil and selected_harness().available ~= false,
                 onChange = function(value)
                     chat_new_model = tostring(value or "")
                     chat_model_filter = chat_new_model
@@ -297,7 +760,7 @@ local function model_picker()
                 variant = "ghost",
                 controlSize = "sm",
                 tooltip = noctalia.tr("ui.chat_model_suggestions"),
-                enabled = not chat_busy and #options > 0,
+                enabled = not chat_busy and selected_harness() ~= nil and selected_harness().available ~= false and #options > 0,
                 onClick = function()
                     chat_model_filter = ""
                     chat_model_menu_open = not chat_model_menu_open
@@ -309,13 +772,15 @@ local function model_picker()
     if chat_model_menu_open and #options > 0 then
         local choices = {}
         for _, option in ipairs(options) do
-            if fuzzy_matches(chat_model_filter, option) then
+            local value = type(option) == "table" and option.id or option
+            local label = type(option) == "table" and tostring(option.label or option.id) or tostring(option)
+            if fuzzy_matches(chat_model_filter, label .. " " .. tostring(value)) then
                 table.insert(choices, ui.button({
-                    text = option,
-                    variant = option == chat_new_model and "primary" or "ghost",
-                    enabled = not chat_busy,
+                    text = label,
+                    variant = value == chat_new_model and "primary" or "ghost",
+                    enabled = not chat_busy and selected_harness().available ~= false,
                     onClick = function()
-                        chat_new_model = option
+                        chat_new_model = value
                         chat_model_filter = ""
                         chat_model_menu_open = false
                         chat_model_input_revision = chat_model_input_revision + 1
@@ -377,6 +842,7 @@ local function apply_chat_result(result)
         update()
         return
     end
+    sync_requests(payload)
     local feed = payload.feed
     if type(feed) == "table" then
         if feed.reset == true and type(feed.events) == "table" then
@@ -398,13 +864,16 @@ local function apply_chat_result(result)
     if type(payload.harnesses) == "table" then chat_harnesses = payload.harnesses end
     if type(payload.health) == "table" then chat_health = payload.health end
     chat_selected = payload.selected == true
+    chat_session_id = payload.session_id
     chat_session_title = payload.title
     chat_session_cwd = payload.cwd
     chat_session_model = payload.model
     chat_session_harness = payload.harness
     chat_terminal_owns_session = payload.active == true and payload.mode == "resume"
-    if chat_new_harness == nil and type(chat_harnesses[1]) == "table" then
-        chat_new_harness = chat_harnesses[1].id
+    if chat_new_harness == nil then
+        for _, harness in ipairs(chat_harnesses) do
+            if harness.available ~= false then chat_new_harness = harness.id; break end
+        end
     end
     local harness = selected_harness()
     if chat_new_model == nil and type(harness) == "table" then
@@ -427,7 +896,7 @@ local function apply_chat_result(result)
 end
 
 local function load_chat()
-    if chat_busy then return end
+    if not configured_bool("chat_enabled", true) or chat_busy then return end
     chat_scroll_to_bottom_on_load = true
     chat_busy = true
     noctalia.runAsync(
@@ -439,24 +908,32 @@ end
 
 local function submit_chat(value)
     local message = tostring(value or ""):match("^%s*(.-)%s*$")
-    if not chat_writable() or message == "" then return end
+    if not chat_writable() or attachment_busy or (message == "" and #chat_attachments == 0) then return end
+    if #chat_attachments > 0 and not attachments_supported() then return end
+    local command = {"python3", chat_bridge, "send", hex_encode(message)}
+    if #chat_attachments > 0 then
+        local paths = {}
+        for _, attachment in ipairs(chat_attachments) do paths[#paths + 1] = attachment.path end
+        local encoded, error = noctalia.json.encode(paths)
+        if encoded == nil then chat_error = tostring(error or noctalia.tr("ui.chat_error")); update(); return end
+        command[#command + 1] = hex_encode(encoded)
+    end
     chat_busy = true
     chat_error = nil
-    chat_draft = ""
-    chat_events = {}
-    chat_feed_revision = nil
-    chat_input_revision = chat_input_revision + 1
-    table.insert(chat_messages, { role = "user", text = message })
-    chat_scroll_revision = chat_scroll_revision + 1
     update()
-    noctalia.runAsync(
-        {"python3", chat_bridge, "send", hex_encode(message)},
-        apply_chat_result,
-        chat_bridge_timeout_ms
-    )
+    noctalia.runAsync(command, function(result)
+        local payload = noctalia.json.decode(result.stdout or "")
+        if type(payload) == "table" and payload.ok == true then
+            chat_draft = ""
+            chat_attachments = {}
+            chat_input_revision = chat_input_revision + 1
+            chat_scroll_revision = chat_scroll_revision + 1
+        end
+        apply_chat_result(result)
+    end, chat_bridge_timeout_ms)
 end
 local function select_chat_session(path)
-    if chat_busy or type(path) ~= "string" then return end
+    if not configured_bool("chat_enabled", true) or chat_busy or type(path) ~= "string" then return end
     chat_scroll_to_bottom_on_load = true
     chat_busy = true
     chat_error = nil
@@ -471,6 +948,7 @@ end
 local function start_chat_session(cwd)
     local path = tostring(cwd or ""):match("^%s*(.-)%s*$")
     if chat_busy or path == "" or chat_new_harness == nil or chat_new_model == nil then return end
+    if not configured_bool("chat_enabled", true) or selected_harness() == nil or selected_harness().available == false then return end
     chat_scroll_to_bottom_on_load = true
     chat_busy = true
     chat_error = nil
@@ -492,10 +970,9 @@ local function start_chat_session(cwd)
 end
 
 local function reset_chat()
-    if chat_busy then return end
+    if not configured_bool("chat_enabled", true) or chat_busy then return end
     chat_busy = true
     chat_error = nil
-    chat_draft = ""
     chat_events = {}
     chat_feed_revision = nil
     chat_input_revision = chat_input_revision + 1
@@ -508,7 +985,7 @@ local function reset_chat()
 end
 
 local function open_chat_terminal()
-    if chat_busy then return end
+    if not configured_bool("chat_enabled", true) or chat_busy then return end
     chat_busy = true
     chat_error = nil
     noctalia.runAsync(
@@ -533,7 +1010,8 @@ local function same_chat_messages(left, right)
         local candidate = right[index]
         if type(candidate) ~= "table"
             or message.role ~= candidate.role
-            or message.text ~= candidate.text then
+            or message.text ~= candidate.text
+            or noctalia.json.encode(message.attachments or {}) ~= noctalia.json.encode(candidate.attachments or {}) then
             return false
         end
     end
@@ -548,7 +1026,8 @@ local function same_chat_events(left, right)
             or event.sequence ~= candidate.sequence
             or event.id ~= candidate.id
             or event.kind ~= candidate.kind
-            or event.text ~= candidate.text then
+            or event.text ~= candidate.text
+            or noctalia.json.encode(event.attachments or {}) ~= noctalia.json.encode(candidate.attachments or {}) then
             return false
         end
     end
@@ -562,7 +1041,7 @@ local function apply_chat_status(result)
         update()
         return
     end
-    local changed = chat_busy ~= (payload.busy == true)
+    local changed = sync_requests(payload) or chat_busy ~= (payload.busy == true)
     chat_busy = payload.busy == true
     local feed = payload.feed
     if type(feed) == "table" then
@@ -626,7 +1105,7 @@ local function chat_picker()
         if target_matches(target) then
             shown = shown + 1
             if shown > 12 then break end
-        local available = target.resumable == true or target.forkable == true
+        local available = target.available ~= false and (target.resumable == true or target.forkable == true)
         local status = target.resumable == true
             and noctalia.tr("ui.chat_ready")
             or (target.active == true and noctalia.tr("ui.chat_fork_active")
@@ -668,23 +1147,7 @@ local function chat_picker()
         }),
         ui.row({ gap = 6, align = "center" }, {
             ui.label({ text = noctalia.tr("ui.chat_harness"), width = 80, color = "on_surface_variant" }),
-            ui.select({
-                key = "desktop-chat-harness",
-                options = harness_options(),
-                selectedIndex = harness_index(),
-                width = 340,
-                enabled = not chat_busy and #chat_harnesses > 0,
-                onChange = function(index, text)
-                    local selected = chat_harnesses[select_option(harness_options(), index, text)]
-                    if type(selected) == "table" then
-                        chat_new_harness = selected.id
-                        chat_new_model = selected.default_model
-                        chat_model_filter = ""
-                        chat_model_menu_open = false
-                        update()
-                    end
-                end,
-            }),
+            harness_picker(),
         }),
         ui.row({ gap = 6, align = "center" }, {
             ui.label({ text = noctalia.tr("ui.chat_model"), width = 80, color = "on_surface_variant" }),
@@ -706,7 +1169,7 @@ local function chat_picker()
                 text = noctalia.tr("ui.chat_start"),
                 variant = "primary",
                 controlSize = "sm",
-                enabled = not chat_busy
+                enabled = not chat_busy and selected_harness() ~= nil and selected_harness().available ~= false
                     and chat_new_cwd:match("%S") ~= nil
                     and chat_new_harness ~= nil
                     and type(chat_new_model) == "string"
@@ -1013,6 +1476,7 @@ local function chat_feed_event(event, index)
             maxWidth = 400,
             maxLines = 3,
         }),
+        ui.column({ gap = 2 }, attachment_labels(event.attachments)),
     })
 end
 
@@ -1055,9 +1519,11 @@ local function chat_view()
                     fontWeight = "bold",
                 }),
                 ui.column({ gap = 1 }, chat_body_labels(animated_chat_text(message, index))),
+                ui.column({ gap = 2 }, attachment_labels(message.attachments)),
             }))
         end
     end
+    for _, card in ipairs(request_cards()) do table.insert(transcript, card) end
     if chat_busy then
         table.insert(transcript, ui.label({
             text = noctalia.tr("ui.chat_thinking"),
@@ -1081,6 +1547,11 @@ local function chat_view()
     if type(chat_session_harness) == "string" then
         detail = chat_session_harness .. " · " .. detail
     end
+    local monitored_item = nil
+    local monitored_id = chat_session_harness == "hermes" and "hermes:" .. tostring(chat_session_id) or chat_session_id
+    for _, item in ipairs(sessions.sessions or {}) do
+        if item.id == monitored_id then monitored_item = item; break end
+    end
     return ui.column({ key = "chat", gap = 6, paddingV = 4 }, {
         ui.row({ gap = 6, align = "center" }, {
             ui.column({ gap = 1, flexGrow = 1 }, {
@@ -1091,6 +1562,7 @@ local function chat_view()
                 }),
                 ui.label({ text = detail, color = "on_surface_variant", fontSize = 11, maxLines = 1 }),
             }),
+            focus_button(monitored_item) or ui.label({ text = "" }),
             ui.button({
                 text = noctalia.tr("ui.chat_open_terminal"),
                 variant = "ghost",
@@ -1113,11 +1585,12 @@ local function chat_view()
             stickToBottom = true,
             scrollToBottomRev = chat_scroll_revision,
         }, transcript),
+        attachment_controls(),
         ui.row({ gap = 6, align = "center" }, {
             ui.input({
                 key = "chat-input-" .. tostring(chat_input_revision),
                 width = 340,
-                value = "",
+                value = chat_draft,
                 placeholder = noctalia.tr("ui.chat_placeholder"),
                 enabled = chat_writable(),
                 focus = true,
@@ -1131,7 +1604,8 @@ local function chat_view()
                 text = noctalia.tr("ui.chat_send"),
                 variant = "primary",
                 controlSize = "md",
-                enabled = chat_writable() and chat_draft:match("%S") ~= nil,
+                enabled = chat_writable() and (chat_draft:match("%S") ~= nil
+                    or (#chat_attachments > 0 and attachments_supported())),
                 onClick = function() submit_chat(chat_draft) end,
             }),
         }),
@@ -1140,28 +1614,29 @@ end
 
 
 local function session_row(item, show_task)
+    local presentation = configured_bool("presentation_mode", false)
     local details = {
-        ui.label({ text = display_label(item), fontWeight = "bold", maxLines = 1 }),
+        ui.label({
+            text = display_label(item),
+            fontWeight = "bold",
+            color = presentation and "on_surface" or nil,
+            maxLines = presentation and 3 or 1,
+        }),
     }
     if show_task and item.task and item.task ~= "" then
         table.insert(details, ui.label({
             text = tostring(item.task),
             color = "primary",
-            maxLines = 1,
+            maxLines = presentation and 3 or 1,
         }))
     end
     table.insert(details, ui.label({
         text = state_description(item),
-        color = "on_surface_variant",
-        maxLines = 1,
+        color = presentation and "on_surface" or "on_surface_variant",
+        maxLines = presentation and 2 or 1,
     }))
-    local orb_frame = frame
     local row = {
-        orb_image({
-            path = ORB_DIR .. "/" .. state_of(item) .. "-20-" .. tostring(orb_frame) .. ".svg",
-            width = 20,
-            height = 20,
-        }),
+        Orb.render({ state = state_of(item), size = 20, time = animation_time() }),
         ui.column({ gap = 2, flexGrow = 1 }, details),
         ui.label({
             text = attention_label(item),
@@ -1170,22 +1645,29 @@ local function session_row(item, show_task)
     }
     local actions = proposal_actions(item)
     if actions then table.insert(row, actions) end
-    return ui.row({ gap = 8, align = "center", paddingV = 2 }, row)
+    local focus = focus_button(item)
+    if focus ~= nil then table.insert(row, focus) end
+    table.insert(row, ui.button({ glyph = "activity", glyphSize = 14, variant = "ghost", controlSize = "sm",
+        tooltip = noctalia.tr("ui.activity_title"), onClick = function() open_activity(item) end }))
+    return ui.row({
+        gap = 8,
+        align = "center",
+        paddingV = presentation and 6 or 2,
+        paddingH = presentation and 6 or nil,
+        radius = presentation and 8 or nil,
+        fill = presentation and "surface" or nil,
+    }, row)
 end
 
 local function render()
     local active = tonumber(sessions.active) or 0
     local show_task = configured_bool("show_task", true)
+    local presentation = configured_bool("presentation_mode", false)
     local children = {}
     local items = sessions.sessions or {}
     local header_icon
     if #items > 0 then
-        local header_frame = frame
-        header_icon = orb_image({
-            path = ORB_DIR .. "/" .. state_of(items[1]) .. "-20-" .. tostring(header_frame) .. ".svg",
-            width = 20,
-            height = 20,
-        })
+        header_icon = Orb.render({ state = state_of(items[1]), size = 20, time = animation_time() })
     else
         header_icon = ui.glyph({ name = "sparkles", size = 18, color = "secondary" })
     end
@@ -1194,17 +1676,26 @@ local function render()
         ui.label({
             text = noctalia.trp("ui.active_agents", active),
             fontWeight = "bold",
+            color = presentation and "on_surface" or nil,
             flexGrow = 1,
-            maxLines = 1,
+            maxLines = presentation and 2 or 1,
         }),
     }
+    table.insert(header, ui.button({ text = noctalia.tr("ui.activity_title"), variant = "ghost",
+        controlSize = "sm", selected = activity_open,
+        onClick = function()
+            activity_open = not activity_open
+            if activity_open then chat_open = false; poll_activity(true) end
+            update()
+        end }))
     if configured_bool("chat_enabled", true) then
         table.insert(header, ui.button({
             text = chat_open and noctalia.tr("ui.chat_close") or noctalia.tr("ui.chat_open"),
-            variant = chat_open and "secondary" or "ghost",
+            variant = chat_open and "secondary" or (presentation and "primary" or "ghost"),
             controlSize = "sm",
             onClick = function()
                 chat_open = not chat_open
+                if chat_open then activity_open = false end
                 if chat_open then load_chat() end
                 update()
             end,
@@ -1214,7 +1705,7 @@ local function render()
     if #items == 0 then
         table.insert(children, ui.label({
             text = noctalia.tr("ui.no_sessions"),
-            color = "on_surface_variant",
+            color = presentation and "on_surface" or "on_surface_variant",
         }))
     else
         for i = 1, #items do
@@ -1224,11 +1715,17 @@ local function render()
     if chat_open and configured_bool("chat_enabled", true) then
         table.insert(children, chat_view())
     end
+    if activity_open then table.insert(children, activity_view()) end
+    if focus_error ~= nil then
+        table.insert(children, ui.label({ text = focus_error, color = "error", maxLines = 3 }))
+    end
     desktopWidget.render(ui.column({ gap = 2, padding = 6 }, children))
 end
 function update()
+    if activity_open then poll_activity(false) end
+    frame = frame_index()
     local active = tonumber(sessions.active) or 0
-    noctalia.setUpdateInterval((chat_busy or (chat_open and chat_selected) or active > 0) and 1000 or 5000)
+    noctalia.setUpdateInterval((activity_open or chat_busy or (chat_open and chat_selected) or active > 0) and 1000 or 5000)
     desktopWidget.setNeedsFrameTick(needs_orb_animation())
     render()
 end
@@ -1249,31 +1746,12 @@ end
 noctalia.state.watch("sessions", function(value)
     sessions = value or { active = 0, sessions = {} }
     local active = tonumber(sessions.active) or 0
-    noctalia.setUpdateInterval((chat_busy or active > 0) and 1000 or 5000)
+    noctalia.setUpdateInterval((activity_open or chat_busy or active > 0) and 1000 or 5000)
     desktopWidget.setNeedsFrameTick(needs_orb_animation())
-    if needs_orb_animation() then frame = frame_index() end
+    frame = frame_index()
     render()
 end)
 
-noctalia.state.watch("agentik_orbs", function(value)
-    if type(value) ~= "table" then return end
-    local fps = tonumber(value.fps)
-    local frame_count = tonumber(value.frame_count)
-    if value.ready ~= true
-        or type(value.directory) ~= "string"
-        or (fps ~= 30 and fps ~= 60)
-        or frame_count ~= fps * 2
-    then
-        return
-    end
-    ORB_DIR = value.directory
-    FRAME_RATE = fps
-    FRAME_COUNT = frame_count
-    ORBS_READY = true
-    frame = frame_index()
-    desktopWidget.setNeedsFrameTick(needs_orb_animation())
-    render()
-end)
 
 noctalia.state.watch("agentik_chat_status", function(result)
     if type(result) == "table" then apply_chat_status(result) end

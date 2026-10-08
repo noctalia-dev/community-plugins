@@ -1,0 +1,42 @@
+id           = "michael-retunzew/hyprland-settings"
+name         = "Hyprland Settings"
+version      = "1.0.0"
+plugin_api   = 32
+author       = "michael-retunzew"
+license      = "MIT"
+icon         = "adjustments"
+description  = "Settings panel for Hyprland's Lua config: displays, input, look. Every change keeps or reverts in 15 s."
+dependencies = ["hyprland", "lua", "util-linux", "systemd"]
+tags         = ["hyprland", "panel", "bar", "launcher", "service", "system", "utility"]
+
+# Plugin-level so the service sees it too.
+[[setting]]
+key             = "config_path"
+type            = "file"
+label_key       = "settings.config_path.label"
+description_key = "settings.config_path.description"
+default         = "~/.config/hypr/hyprland-settings.lua"
+extensions      = [".lua"]
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "button"
+entry = "widget.luau"
+
+[[launcher_provider]]
+id                       = "open"
+entry                    = "launcher.luau"
+prefix                   = "hyprland"
+glyph                    = "adjustments"
+include_in_global_search = true
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 820
+height    = 720
+placement = "floating"
+position  = "center"

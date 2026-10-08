@@ -1,0 +1,78 @@
+{
+  "apply": {
+    "err_body": "{title}",
+    "err_title": "Couldn't apply theme",
+    "ok_body": "{title}",
+    "ok_title": "Theme applied"
+  },
+  "carousel": {
+    "add": "Add theme",
+    "empty": "No themes yet. Add one to get started.",
+    "title": "Theme Switcher"
+  },
+  "editor": {
+    "browse_title": "Pick an image",
+    "cancel": "Cancel",
+    "capture": "Capture desktop",
+    "capture_fail_body": "Couldn't find a new screenshot. Make sure Save to file is enabled in the screenshot settings.",
+    "capture_fail_title": "Capture failed",
+    "capturing": "Capturing…",
+    "current_wallpaper": "Use current wallpaper",
+    "delete": "Delete",
+    "deleted": "Theme deleted",
+    "deleted_body": "{title}",
+    "loading": "Loading…",
+    "missing_title": "Add a title first.",
+    "no_images": "No images found in this directory.",
+    "no_wallpapers": "No wallpapers yet.",
+    "palette": "Palette",
+    "save": "Save",
+    "saved": "Theme saved",
+    "saved_body": "{title}",
+    "screenshot": "Screenshot",
+    "screenshot_placeholder": "Screenshot path",
+    "source": "Palette source",
+    "title": "Title",
+    "title_edit": "Edit Theme",
+    "title_new": "New Theme",
+    "title_placeholder": "Theme name",
+    "wallpaper": "Wallpaper",
+    "wallpaper_browse": "Browse",
+    "wallpaper_current_fail": "Couldn't find the current wallpaper.",
+    "wallpaper_placeholder": "Wallpaper image path",
+    "wallpapers": "Wallpapers"
+  },
+  "ipc": {
+    "not_found": "No theme matches \"{query}\"."
+  },
+  "random": {
+    "applied": "Random wallpaper applied",
+    "no_wallpapers": "This theme has no wallpapers.",
+    "none_applied": "No theme is currently applied.",
+    "shortcut": "Random wallpaper"
+  },
+  "shortcut": {
+    "label": "Themes"
+  },
+  "source": {
+    "builtin": "Built-in",
+    "community": "Community",
+    "custom": "Custom",
+    "wallpaper": "Wallpaper"
+  },
+  "wallpapers": {
+    "add": "Add wallpaper",
+    "applied": "Wallpaper applied",
+    "browse_title": "Browse",
+    "current": "Use current wallpaper",
+    "current_fail": "Couldn't find the current wallpaper.",
+    "no_images_found": "No images found in this directory.",
+    "no_wallpapers": "This theme has no wallpapers.",
+    "none_applied": "No theme is currently applied.",
+    "shortcut": "Wallpaper",
+    "title": "Wallpapers"
+  },
+  "widget": {
+    "label": "Themes"
+  }
+}

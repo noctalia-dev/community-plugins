@@ -1,6 +1,6 @@
 id = "felipeartur/ai-usagebar"
 name = "AI Usage"
-version = "2.2.1"
+version = "2.4.0"
 plugin_api = 22
 author = "felipeartur"
 license = "MIT"
@@ -9,7 +9,7 @@ description = "AI plan usage in the bar, powered by the ai-usagebar CLI."
 tags = ["bar", "panel", "ai", "indicator", "utility"]
 # The CLI owns credentials, vendor endpoints and caching. This plugin only runs
 # `ai-usagebar usage --json` and draws the result.
-dependencies = ["ai-usagebar"]
+dependencies = ["ai-usagebar", "xdg-open"]
 
 # ── Plugin-level settings (shared by the poller, every capsule and the panel) ──
 
@@ -94,7 +94,7 @@ key = "visualization"
 type = "select"
 label_key = "settings.visualization.label"
 description_key = "settings.visualization.description"
-default = "none"
+default = "gauge"
 options = [
   { value = "none", label_key = "settings.visualization.option.none" },
   { value = "gauge", label_key = "settings.visualization.option.gauge" },
@@ -165,11 +165,13 @@ default = true
 [[panel]]
 id = "panel"
 entry = "panel.luau"
-# Master/detail: the provider list on the left, its cards on the right.
-width = 750
-height = 430
+# Provider tabs at the top, detailed charts and accessory cards below.
+width = 460
+height = 460
 # The shell draws the Placement and Position rows for every plugin panel whether
 # or not they are declared; declaring them only picks the default the user gets.
 placement = "attached"
 position = "auto"
+open_near_click = true
 dismiss_on_outside_click = true
+capture_keys = ["escape", "r", "up", "down", "left", "right"]

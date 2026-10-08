@@ -281,7 +281,7 @@ function M.write(sections, onDone)
     return
   end
 
-  noctalia.runAsync({ "umbriel", "validate", "-c", candidate }, function(result)
+  noctalia.runAsync({ "umbriel", "config", "validate", "-c", candidate }, function(result)
     if result.exitCode == 0 then
       local moved, moveErr = noctalia.renameFile(candidate, path)
       onDone(moved, moveErr)

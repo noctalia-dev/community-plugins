@@ -1,0 +1,54 @@
+id           = "riversyx/noctaproton-vpn"
+name         = "NoctaProton VPN"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "RiverSyx"
+license      = "GPL-3.0"
+icon         = "shield-lock"
+description  = "Proton VPN controller for Noctalia: Kill Switch, NetShield, Port Forwarding, Split Tunneling, and live traffic."
+tags         = ["bar", "panel", "service", "shortcut", "network", "privacy", "utility"]
+dependencies = ["proton-vpn-cli", "nmcli", "python"]
+
+[[setting]]
+key             = "refresh_interval"
+type            = "int"
+label_key       = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default         = 5
+min             = 2
+max             = 60
+
+[[setting]]
+key             = "traffic_monitoring"
+type            = "bool"
+label_key       = "settings.traffic_monitoring.label"
+description_key = "settings.traffic_monitoring.description"
+default         = true
+
+[[setting]]
+key             = "notify_on_connect"
+type            = "bool"
+label_key       = "settings.notify_on_connect.label"
+description_key = "settings.notify_on_connect.description"
+default         = true
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 460
+height          = 580
+placement       = "attached"
+position        = "auto"
+open_near_click = true
+
+[[shortcut]]
+id    = "toggle"
+entry = "shortcut.luau"

@@ -142,7 +142,9 @@ local function refresh()
   end)
 end
 
-local function markThreadRead(threadId)
+-- method "PATCH" marks a thread read; "DELETE" marks it done (removes it from the inbox).
+local function markThread(threadId, method)
+  local verb = method == "DELETE" and "done" or "read"
   -- Validate thread ID format before using in REST endpoint path
   if not Notifications.isValidThreadId(threadId) then
     noctalia.log("GitHub Notifications: rejected invalid thread ID: " .. tostring(threadId))
@@ -178,11 +180,11 @@ local function markThreadRead(threadId)
   end
 
   -- Send PATCH request to GitHub API
-  noctalia.runAsync({ "gh", "api", "--method", "PATCH", "notifications/threads/" .. idStr }, function(result)
+  noctalia.runAsync({ "gh", "api", "--method", method, "notifications/threads/" .. idStr }, function(result)
     pendingThreads[idStr] = nil
 
     if result.exitCode ~= 0 then
-      noctalia.log("GitHub Notifications: failed to mark thread " .. idStr .. " as read (exit code " .. tostring(result.exitCode) .. ")")
+      noctalia.log("GitHub Notifications: failed to mark thread " .. idStr .. " as " .. verb .. " (exit code " .. tostring(result.exitCode) .. ")")
 
       -- Roll back optimistic removal on failure
       if targetItem then
@@ -207,6 +209,14 @@ local function markThreadRead(threadId)
       publishState(errStatus, errDetail)
     end
   end)
+end
+
+local function markThreadRead(threadId)
+  markThread(threadId, "PATCH")
+end
+
+local function markThreadDone(threadId)
+  markThread(threadId, "DELETE")
 end
 
 local function markAllRead()
@@ -274,6 +284,12 @@ noctalia.state.watch("github_notifications:action", function(action)
     else
       noctalia.log("GitHub Notifications: received invalid action.id in mark_read")
     end
+  elseif action.type == "mark_done" then
+    if Notifications.isValidThreadId(action.id) then
+      markThreadDone(action.id)
+    else
+      noctalia.log("GitHub Notifications: received invalid action.id in mark_done")
+    end
   elseif action.type == "mark_all_read" then
     markAllRead()
   end
@@ -301,6 +317,12 @@ function onIpc(event, payload)
       markThreadRead(payload)
     else
       noctalia.log("GitHub Notifications: received invalid IPC payload in mark_read: " .. tostring(payload))
+    end
+  elseif event == "mark_done" then
+    if Notifications.isValidThreadId(payload) then
+      markThreadDone(payload)
+    else
+      noctalia.log("GitHub Notifications: received invalid IPC payload in mark_done: " .. tostring(payload))
     end
   elseif event == "mark_all_read" then
     markAllRead()
