@@ -47,6 +47,11 @@ def read_params():
     except FileNotFoundError:
         g_selected_gpu = 1
 
+def to_int(value, default=0):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
 
 def process_buffer(buffer, skin):
     global g_selected_gpu
@@ -63,11 +68,22 @@ def process_buffer(buffer, skin):
     if g_selected_gpu < 1 or g_selected_gpu > len(data):
         g_selected_gpu = 1
 
-    gpu_load = int(data[g_selected_gpu - 1]["gpu_util"][:-1])
-    gpu_temp = data[g_selected_gpu - 1]["temp"]
+    # Draw GPU usage graph
+    if data[g_selected_gpu - 1] is None:
+        gpu_load = 0
+        gpu_load_val_text = "N/A"
+    else:
+        gpu_load = to_int(data[g_selected_gpu - 1]["gpu_util"][:-1])
+        gpu_load_val_text = f"{gpu_load}%"
+
+    if data[g_selected_gpu - 1]["temp"] is None:
+        gpu_temp = "N/A"
+    else:
+        gpu_temp = data[g_selected_gpu - 1]["temp"]
+
     ret = draw_graph.draw_graph(
         percent=gpu_load,
-        val_text=f"{gpu_load}%",
+        val_text=gpu_load_val_text,
         label_text="GPU",
         sub_text=f"{gpu_temp}",
         skin=skin,
@@ -75,13 +91,25 @@ def process_buffer(buffer, skin):
     if not ret:
         gpu_graph_path = None
 
-    mem_used = int(data[g_selected_gpu - 1]["mem_used"])
-    mem_total = int(data[g_selected_gpu - 1]["mem_total"])
+    # Draw VRAM usage graph
+    if data[g_selected_gpu - 1]["mem_used"] is None or data[g_selected_gpu - 1]["mem_total"] is None:
+        mem_used = 0
+        mem_total = 0
+        mem_val_text = "N/A"
+        mem_sub_text = "N/A"
+        mem_percent = 0
+    else:
+        mem_used = to_int(data[g_selected_gpu - 1]["mem_used"])
+        mem_total = to_int(data[g_selected_gpu - 1]["mem_total"])
+        mem_val_text = f"{round(mem_used / (1024 * 1024 * 1024), 1)}G"
+        mem_sub_text = f"+{round((mem_total - mem_used) / (1024 * 1024 * 1024), 1)}G"
+        mem_percent = int(mem_used / mem_total * 100)
+
     ret = draw_graph.draw_graph(
-        percent=int(mem_used / mem_total * 100),
-        val_text=f"{round(mem_used / (1024 * 1024 * 1024), 1)}G",
+        percent=mem_percent,
+        val_text=mem_val_text,
         label_text="VRAM",
-        sub_text=f"+{round((mem_total - mem_used) / (1024 * 1024 * 1024), 1)}G",
+        sub_text=mem_sub_text,
         skin=skin,
         filename=mem_graph_path
     )

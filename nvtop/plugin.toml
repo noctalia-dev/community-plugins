@@ -1,7 +1,7 @@
 id = "tordex/nvtop"
 name = "NVTOP"
-version = "2.2.0"
-plugin_api = 24
+version = "2.3.0"
+plugin_api = 32
 author = "tordex"
 license = "MIT"
 dependencies = ["nvtop", "python3", "pkill", "kill"]
@@ -45,6 +45,13 @@ type = "color"
 label_key = "settings.process_hover_color.label"
 description_key = "settings.process_hover_color.description"
 default = "on_surface_variant"
+
+[[setting]]
+key = "show_tips"
+type = "bool"
+label_key = "settings.show_tips.label"
+description_key = "settings.show_tips.description"
+default = "false"
 
 [[widget]]
 id = "widget"

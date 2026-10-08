@@ -747,6 +747,7 @@ local function render_processes(gpu_idx)
                 gap = 8,
                 padding = 1,
                 radius = 16,
+                tooltip = noctalia.getConfig("show_tips") and process.cmdline or nil,
                 fill = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_fill or "surface",
                 onHover = function(state, key)
                     local old_state = hover_row_key
