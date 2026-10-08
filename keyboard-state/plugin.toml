@@ -11,7 +11,7 @@ dependencies = ["evsieve", "evtest"]
 
 [[setting]]
 key = "input_device"
-type = "string"
+type = "file"
 label_key = "settings.input_device.label"
 description_key = "settings.input_device.description"
 default = ""
