@@ -6,7 +6,6 @@ export type Response = {
 	body: string?,
 }
 
-
 local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "innerTube")
 local sha1 = require("../utils/sha1.luau").sha1

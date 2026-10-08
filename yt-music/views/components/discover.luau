@@ -13,7 +13,12 @@ local function build_discover()
 		view,
 		ui.row({ key = "discover-title", align = "center", justify = "space_between", radius = theme.radius }, {
 			ui.column({ gap = 4, radius = theme.radius }, {
-				ui.label({ text = "SEARCH RESULTS", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+				ui.label({
+					text = "SEARCH RESULTS",
+					fontSize = theme.fontHero,
+					fontWeight = "bold",
+					color = "on_surface",
+				}),
 				ui.label({
 					text = s.query ~= "" and ('"' .. s.query .. '"') or "Search songs, albums, artists, or playlists",
 					fontSize = theme.fontTitle,
@@ -39,30 +44,21 @@ local function build_discover()
 		local key = "search-chip-" .. c.id
 		table.insert(
 			chip_elems,
-			ui.row({
+			ui.button({
 				key = key,
-				align = "center",
-				justify = "center",
-				paddingV = 6,
-				paddingH = 16,
-				borderWidth = 1,
-				border = active and "primary" or "outline/0.4",
-				fill = active and "primary" or "surface_variant/0.2",
+				text = c.label,
+				variant = active and "primary" or "outline",
+				controlSize = "sm",
 				onClick = function()
 					state.on_toggle_search_type(c.id)
 				end,
-				radius = theme.radius,
-			}, {
-				ui.label({
-					text = c.label,
-					fontSize = theme.fontTitle,
-					fontWeight = active and "bold" or "medium",
-					color = active and "on_primary" or "on_surface",
-				}),
 			})
 		)
 	end
-	table.insert(view, ui.row({ key = "search-chips-row", align = "center", gap = 8, radius = theme.radius }, chip_elems))
+	table.insert(
+		view,
+		ui.row({ key = "search-chips-row", align = "center", gap = 8, radius = theme.radius }, chip_elems)
+	)
 	table.insert(view, ui.row({ key = "spacer-disc-2", height = 14, borderWidth = 0, radius = theme.radius }))
 
 	local rows = {}
@@ -136,14 +132,17 @@ local function build_discover()
 				table.insert(
 					rows,
 					common.media_row(t, idx, function()
-						request("play_with_queue", { item = t, index = idx, queue = s.results })
+						request("replace_queue_and_play", { item = t, index = idx, queue = s.results })
 					end, state.data.player.id == t.id)
 				)
 			end
 		end
 	end
 
-	table.insert(view, ui.column({ key = "discover-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows))
+	table.insert(
+		view,
+		ui.column({ key = "discover-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows)
+	)
 
 	return view
 end

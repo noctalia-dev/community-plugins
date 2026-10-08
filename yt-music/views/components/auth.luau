@@ -6,286 +6,412 @@ local rerender = require("../rerender.luau")
 
 local BROWSERS = require("../../utils/browsers.luau")
 
--- Always-on dependency card above the browser grid: every check with its
--- status in both success and failure cases. Returns nil only before the
--- first check has run.
 local DEP_ORDER = { "ytdlp", "mpv", "jq", "nc", "curl" }
 
 local DEP_LABEL = {
-    ytdlp = "yt-dlp",
-    mpv = "mpv",
-    jq = "jq",
-    nc = "netcat",
-    curl = "curl",
+	ytdlp = "yt-dlp",
+	mpv = "mpv",
+	jq = "jq",
+	nc = "netcat",
+	curl = "curl",
+}
+
+local DEP_IMPACT = {
+	ytdlp = "search, playback and downloads won't work",
+	mpv = "no audio playback",
+	jq = "search, library and playlists won't work",
+	nc = "duration, controls and auto-advance won't work",
+	curl = "thumbnails won't load",
+}
+
+local STEP_TEXTS = {
+	"Close any open windows of your browser.",
+	"Pick a browser below — it opens a fresh window. Sign in to YouTube Music there.",
+	"Leave the browser open, then pick the same browser again to pull the cookies in.",
 }
 
 local function short_ver(name, detail)
-    detail = tostring(detail or "")
-    if name == "mpv" or name == "curl" then
-        local a, b = detail:match("^(%S+)%s+(%S+)")
-        if a then
-            return a .. " " .. b
-        end
-        return ""
-    end
-    return detail
+	detail = tostring(detail or "")
+	if name == "mpv" or name == "curl" then
+		local a, b = detail:match("^(%S+)%s+(%S+)")
+		if a then
+			return a .. " " .. b
+		end
+		return ""
+	end
+	return detail
 end
 
-local DEP_IMPACT = {
-    ytdlp = "not found — search, playback and downloads won't work",
-    mpv = "not found — no audio playback",
-    jq = "not found — search, library and playlists won't work",
-    nc = "not found — duration, controls and auto-advance won't work",
-    curl = "not found — thumbnails won't load",
-}
+-- ── Status ───────────────────────────────────────────────────────────────────
+-- One hero card that reads the connection state at a glance. Every state keeps
+-- the same skeleton (glyph, title, message); only the tint and copy change.
 
-local function build_health_card()
-    local h = state.data.health
-    if type(h) ~= "table" or next(h) == nil then
-        return nil
-    end
-    local rows = {}
-    for _, name in ipairs(DEP_ORDER) do
-        local dep = h[name]
-        if dep then
-            local label = DEP_LABEL[name] or name
-            local status = dep.status or "missing"
-            local glyph, text, color
-            if status == "missing" then
-                glyph, color = "x", "error"
-                text = label .. ": " .. (DEP_IMPACT[name] or "not found")
-            elseif status == "warn" then
-                glyph, color = "alert-triangle", "error"
-                text = label .. ": " .. tostring(dep.detail or "")
-            else
-                local ver = short_ver(name, dep.detail)
-                glyph, color = "check", "primary"
-                text = label .. (ver ~= "" and (": " .. ver) or "")
-            end
-            table.insert(rows, ui.row({ key = "health-row-" .. name, gap = 8, align = "center", radius = theme.radius }, {
-                ui.glyph({ name = glyph, size = 18, color = color }),
-                ui.label({ text = text, fontSize = theme.fontTitle, color = color })
-            }))
-        end
-    end
-    if #rows == 0 then
-        return nil
-    end
-    local checking = state.data.checking_health == true
-    table.insert(rows, 1, ui.row({ key = "health-header", align = "center", justify = "space_between", radius = theme.radius }, {
-        ui.label({
-            text = "HEALTHCHECK",
-            fontSize = theme.fontHeading,
-            fontWeight = "bold",
-            color = "on_surface_variant"
-        }),
-        ui.button({
-            key = "btn-health-refresh",
-            glyph = checking and "loader" or "refresh",
-            variant = "ghost",
-            controlSize = "sm",
-            tooltip = checking and "Checking dependencies..." or "Re-check dependencies",
-            onClick = checking and nil or function() request("refresh_health") end
-        })
-    }))
-    return ui.column({
-        key = "health-card",
-        gap = 6,
-        padding = 14,
-        borderWidth = 0,
-        fill = "surface_variant/0.5",
-        width = 880,
-        radius = theme.radius
-    }, rows)
+local function build_status_card()
+	local glyph, color, title = "login", "on_surface_variant", "Not connected"
+	local fill, border = "surface_variant/0.35", nil
+
+	if state.data.status == "ready" then
+		glyph, color, title = "check", "primary", "Connected"
+		fill, border = "primary/0.08", "primary/0.35"
+	elseif state.data.status == "error" then
+		glyph, color, title = "alert-triangle", "error", "Connection failed"
+		fill, border = "error/0.08", "error/0.35"
+	elseif state.data.extracting then
+		glyph, color, title = "loader", "primary", "Extracting cookies..."
+	end
+
+	local text_children = {
+		ui.label({ text = title, fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface" }),
+	}
+	if state.data.status_text and state.data.status_text ~= "" then
+		table.insert(
+			text_children,
+			ui.label({ text = state.data.status_text, fontSize = theme.fontTitle, color = "on_surface_variant" })
+		)
+	end
+	if state.data.status == "error" and state.data.last_error and state.data.last_error ~= "" then
+		local err = state.data.last_error
+		if #err > 160 then
+			err = err:sub(1, 160) .. "..."
+		end
+		table.insert(text_children, ui.label({ text = err, fontSize = theme.fontBody, color = "on_surface_variant" }))
+	end
+
+	local children = {
+		ui.glyph({ name = glyph, size = 26, color = color }),
+		ui.column({ gap = 3, flexGrow = 1, radius = theme.radius }, text_children),
+	}
+	if state.data.status == "ready" and (state.data.cookie_count or 0) > 0 then
+		table.insert(
+			children,
+			ui.column({ gap = 0, align = "end", radius = theme.radius }, {
+				ui.label({
+					text = tostring(state.data.cookie_count),
+					fontSize = theme.fontHero,
+					fontWeight = "bold",
+					color = "primary",
+				}),
+				ui.label({ text = "cookies", fontSize = theme.fontCaption, color = "on_surface_variant" }),
+			})
+		)
+	end
+
+	return ui.row({
+		key = "cookie-status-card",
+		gap = 14,
+		align = "center",
+		padding = 16,
+		borderWidth = border and 1 or 0,
+		border = border,
+		fill = fill,
+		radius = theme.radius,
+	}, children)
 end
+
+-- ── Steps ────────────────────────────────────────────────────────────────────
+-- Numbered badges rather than bare lines, so the sequence reads as a sequence.
+
+local function build_steps()
+	local rows = {}
+	for i, text in ipairs(STEP_TEXTS) do
+		table.insert(
+			rows,
+			ui.row({ key = "cookie-step-" .. i, gap = 12, align = "start", radius = theme.radius }, {
+				ui.row({
+					align = "center",
+					justify = "center",
+					width = 22,
+					height = 22,
+					borderWidth = 0,
+					fill = "primary/0.12",
+					radius = theme.radius,
+				}, {
+					ui.label({ text = tostring(i), fontSize = theme.fontBody, fontWeight = "bold", color = "primary" }),
+				}),
+				ui.label({
+					text = text,
+					fontSize = theme.fontTitle,
+					color = "on_surface_variant",
+					flexGrow = 1,
+				}),
+			})
+		)
+	end
+	return rows
+end
+
+local function section_title(text)
+	return ui.label({
+		text = text,
+		fontSize = theme.fontHeading,
+		fontWeight = "bold",
+		color = "on_surface_variant",
+	})
+end
+
+-- ── Browsers ─────────────────────────────────────────────────────────────────
+-- A launchpad of tiles. Installed ones light up on hover, the one being used
+-- shows a spinner, missing ones stay flat and dim.
 
 local function build_browser_cells()
-    local cells = {}
-    for _, b in ipairs(BROWSERS) do
-        local is_avail = state.data.available[b.id]
-        local is_current = (state.data.extracting and state.data.browser == b.id)
-        local key = "browser-btn-" .. b.id
-        local is_hovered = (state.view.hover_key.card == key)
+	local cells = {}
+	for _, b in ipairs(BROWSERS) do
+		local key = "browser-btn-" .. b.id
+		local is_avail = state.data.available[b.id]
+		local is_current = (state.data.extracting and state.data.browser == b.id)
+		local is_hovered = (state.view.hover_key.card == key)
 
-        if is_current then
-            table.insert(cells, ui.row({
-                key = key,
-                align = "center",
-                justify = "center",
-                gap = 12,
-                paddingV = 16,
-                paddingH = 20,
-                borderWidth = 1,
-                border = "primary",
-                fill = "primary/0.1",
-                flexGrow = 1,
-                radius = theme.radius,
-                onClick = function() request("extract", { browser = b.id }) end
-            }, {
-                ui.glyph({ name = "loader", size = 24, color = "primary" })
-            }))
-        elseif is_avail then
-            table.insert(cells, ui.row({
-                key = key,
-                align = "center",
-                justify = "center",
-                gap = 12,
-                paddingV = 16,
-                paddingH = 20,
-                borderWidth = 1,
-                border = is_hovered and "primary" or "outline",
-                fill = is_hovered and "surface_variant/0.8" or "surface_variant/0.4",
-                flexGrow = 1,
-                radius = theme.radius,
-                onClick = function()
-                    if state.data.browser == b.id and state.data.status_text:find("Opened") then
-                        request("extract", { browser = b.id })
-                    else
-                        request("open_login", { browser = b.id })
-                    end
-                end,
-                onHover = function(h)
-                    if h == "true" then
-                        if state.view.hover_key.card ~= key then state.view.hover_key.card = key; rerender.call() end
-                    else
-                        if state.view.hover_key.card == key then state.view.hover_key.card = nil; rerender.call() end
-                    end
-                end
-            }, {
-                ui.glyph({ name = b.icon, size = 24, color = is_hovered and "primary" or "on_surface" }),
-                ui.label({ text = b.label, fontSize = theme.fontTitle, fontWeight = "bold", color = is_hovered and "primary" or "on_surface" })
-            }))
-        else
-            table.insert(cells, ui.row({
-                key = "browser-off-" .. b.id,
-                align = "center",
-                justify = "center",
-                gap = 12,
-                paddingV = 16,
-                paddingH = 20,
-                borderWidth = 1,
-                border = "outline/0.3",
-                fill = "surface_variant/0.1",
-                flexGrow = 1,
-                radius = theme.radius
-            }, {
-                ui.glyph({ name = b.icon, size = 24, color = "on_surface_variant/0.4" }),
-                ui.label({ text = b.label, fontSize = theme.fontTitle, fontWeight = "bold", color = "on_surface_variant/0.4" })
-            }))
-        end
-    end
-    return cells
+		local glyph, label_color = b.icon, "on_surface"
+		local fill, border = "surface_variant/0.3", "outline"
+		local click = function()
+			if state.data.browser == b.id and state.data.status_text:find("Opened") then
+				request("extract", { browser = b.id })
+			else
+				request("open_login", { browser = b.id })
+			end
+		end
+
+		if is_current then
+			glyph, label_color = "loader", "primary"
+			fill, border = "primary/0.1", "primary"
+			click = function()
+				request("extract", { browser = b.id })
+			end
+		elseif not is_avail then
+			label_color = "on_surface_variant/0.45"
+			fill, border = "surface_variant/0.12", "outline/0.3"
+			click = nil
+		elseif is_hovered then
+			label_color, fill, border = "primary", "primary/0.1", "primary/0.5"
+		end
+
+		table.insert(
+			cells,
+			ui.row({
+				key = key,
+				gap = 10,
+				align = "center",
+				justify = "center",
+				paddingV = 14,
+				paddingH = 12,
+				borderWidth = 1,
+				border = border,
+				fill = fill,
+				flexGrow = 1,
+				radius = theme.radius,
+				onClick = click,
+				onHover = is_avail and "onCardHover" or nil,
+			}, {
+				ui.glyph({ name = glyph, size = 20, color = label_color }),
+				ui.label({ text = b.label, fontSize = theme.fontTitle, color = label_color }),
+			})
+		)
+	end
+	return cells
+end
+
+local function build_browser_grid()
+	local rows = {}
+	for _, row in ipairs(common.chunk_rows(build_browser_cells(), 3, "browser-grid", 12)) do
+		table.insert(rows, row)
+	end
+	return rows
+end
+
+-- ── Health ───────────────────────────────────────────────────────────────────
+-- A spec sheet: name on the left, version or failure reason on the right.
+-- Returns nil until the first check has run.
+
+local function health_fill()
+	local h = state.data.health
+	if type(h) ~= "table" or next(h) == nil then
+		return nil
+	end
+
+	local rows, bad = {}, 0
+	for _, name in ipairs(DEP_ORDER) do
+		local dep = h[name]
+		if dep then
+			local label = DEP_LABEL[name] or name
+			local status = dep.status or "missing"
+			local glyph, color, meta
+
+			if status == "missing" then
+				glyph, color = "x", "error"
+				meta = DEP_IMPACT[name] or "not found"
+				bad = bad + 1
+			elseif status == "warn" then
+				glyph, color = "alert-triangle", "error"
+				meta = tostring(dep.detail or "")
+				bad = bad + 1
+			else
+				glyph, color = "check", "primary"
+				local ver = short_ver(name, dep.detail)
+				meta = ver ~= "" and ver or "ok"
+			end
+
+			table.insert(
+				rows,
+				ui.row(
+					{ key = "health-row-" .. name, gap = 10, align = "center", padding = 6, radius = theme.radius },
+					{
+						ui.glyph({ name = glyph, size = 16, color = color }),
+						ui.label({ text = label, fontSize = theme.fontTitle, color = "on_surface", flexGrow = 1 }),
+						ui.label({ text = meta, fontSize = theme.fontBody, color = "on_surface_variant" }),
+					}
+				)
+			)
+		end
+	end
+
+	if #rows == 0 then
+		return nil
+	end
+	return rows, bad
+end
+
+local function refresh_button()
+	local checking = state.data.checking_health == true
+	return ui.button({
+		key = "btn-health-refresh",
+		glyph = checking and "loader" or "refresh",
+		variant = "ghost",
+		controlSize = "sm",
+		tooltip = checking and "Checking dependencies..." or "Re-check dependencies",
+		onClick = checking and nil or function()
+			request("refresh_health")
+		end,
+	})
+end
+
+local function health_card(rows)
+	return ui.column({
+		key = "health-card",
+		gap = 2,
+		padding = 10,
+		borderWidth = 1,
+		border = "outline/0.3",
+		fill = "surface_variant/0.2",
+		radius = theme.radius,
+	}, rows)
+end
+
+-- `heading` names the block when it is embedded in another page ("HEALTH
+-- CHECK"); omitted, it reports its own verdict as the summary for the Health
+-- tab. Returns nil until the first check has run.
+local function build_health_block(heading)
+	local rows, bad = health_fill()
+	if not rows then
+		return nil
+	end
+
+	local left = heading
+	if not left then
+		left = bad == 0 and ("All " .. #rows .. " dependencies ready")
+			or (bad .. " of " .. #rows .. " dependencies need attention")
+	end
+
+	return {
+		ui.row({ key = "health-head", align = "center", justify = "space_between", radius = theme.radius }, {
+			ui.label({ text = left, fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }),
+			refresh_button(),
+		}),
+		health_card(rows),
+	}
+end
+
+-- Health tab. Unlike the inline section this always renders: while the first
+-- check is still running it shows the spinner instead of an empty tab.
+local function build_health_page()
+	local block = build_health_block(nil)
+	if block then
+		return block
+	end
+	return {
+		ui.row({ key = "health-head", align = "center", justify = "space_between", radius = theme.radius }, {
+			ui.label({
+				text = "Checking dependencies...",
+				fontSize = theme.fontHeading,
+				fontWeight = "bold",
+				color = "on_surface_variant",
+			}),
+			refresh_button(),
+		}),
+	}
+end
+
+local function spacer(height)
+	return ui.row({ key = "spacer-auth-" .. tostring(height), height = height, borderWidth = 0, radius = theme.radius })
+end
+
+-- ── Pages ────────────────────────────────────────────────────────────────────
+
+local function build_cookies_page()
+	local page = {}
+
+	table.insert(page, build_status_card())
+	table.insert(page, spacer(16))
+	table.insert(page, section_title("LOG IN & EXTRACT"))
+	table.insert(page, spacer(10))
+	for _, item in ipairs(build_steps()) do
+		table.insert(page, item)
+	end
+	table.insert(page, spacer(16))
+	table.insert(page, section_title("CHOOSE A BROWSER"))
+	table.insert(page, spacer(10))
+	for _, item in ipairs(build_browser_grid()) do
+		table.insert(page, item)
+	end
+
+	return page
 end
 
 local function build_signin_prompt()
-    local browser_rows = {}
-    for _, row in ipairs(common.chunk_rows(build_browser_cells(), 3, "browser-grid", 12)) do
-        table.insert(browser_rows, row)
-    end
-    local prompt_children = {
-        ui.glyph({ name = "music", size = 48, color = "primary" }),
-        ui.label({ text = "YouTube Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-        ui.row({ height = 4, borderWidth = 0, radius = theme.radius }),
-        ui.column({ align = "start", gap = 8, radius = theme.radius }, {
-            ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
-            ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
-            ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontHeading, fontWeight = "medium", color = "on_surface_variant" }),
-        }),
-        ui.row({ height = 6, borderWidth = 0, radius = theme.radius }),
-        ui.label({
-            text = state.data.status_text,
-            fontSize = theme.fontTitle,
-            color = state.data.status == "error" and "error" or "primary"
-        }),
-        ui.column({ gap = 12, width = "fill", radius = theme.radius }, browser_rows)
-    }
-    local health_card = build_health_card()
-    if health_card then
-        table.insert(prompt_children, 3, health_card)
-    end
+	local hero = ui.column({ key = "signin-hero", gap = 4, align = "center", radius = theme.radius }, {
+		ui.glyph({ name = "brand-youtube-filled", size = 44, color = "primary" }),
+		ui.label({ text = "YouTube Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+		ui.label({
+			text = "Sign in once to browse, search and play from your own account.",
+			fontSize = theme.fontTitle,
+			color = "on_surface_variant",
+		}),
+	})
 
-    return ui.column({
-        key = "signin-prompt",
-        align = "center",
-        justify = "center",
-        gap = 16,
-        padding = 40,
-        flexGrow = 1,
-        radius = theme.radius
-    }, prompt_children)
-end
+	-- Full width, otherwise the grid and the health block shrink to their
+	-- content inside the centred hero.
+	local body = {
+		ui.column(
+			{ key = "cookie-steps", gap = 10, align = "start", width = "fill", radius = theme.radius },
+			build_steps()
+		),
+	}
+	for _, item in ipairs(build_browser_grid()) do
+		table.insert(body, item)
+	end
 
-local function build_cookies_page()
-    local page = {}
+	local health = build_health_block("HEALTH CHECK")
+	if health then
+		for _, item in ipairs(health) do
+			table.insert(body, item)
+		end
+	end
 
-    table.insert(page, ui.row({ key = "cookie-title", align = "center", gap = 8, radius = theme.radius }, {
-        ui.glyph({ name = "login", size = 18, color = "primary" }),
-        ui.label({ text = "COOKIES & LOGIN", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" })
-    }))
-
-    local status_color = "on_surface_variant"
-    if state.data.status == "ready" then
-        status_color = "primary"
-    elseif state.data.status == "error" then
-        status_color = "error"
-    end
-
-    local status_children = {
-        ui.label({ text = "COOKIE STATUS", fontSize = theme.fontHeading, fontWeight = "bold", color = status_color }),
-        ui.label({ text = state.data.status_text, fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface" })
-    }
-    if state.data.status == "ready" then
-        table.insert(status_children, ui.label({
-            text = "YouTube cookies: " .. state.data.cookie_count,
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    elseif state.data.status == "error" and state.data.last_error and state.data.last_error ~= "" then
-        local err = state.data.last_error
-        if #err > 220 then err = err:sub(1, 220) .. "..." end
-        table.insert(status_children, ui.label({
-            text = err,
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    end
-
-    table.insert(page, ui.column({
-        key = "cookie-status-card",
-        gap = 8,
-        padding = 14,
-        borderWidth = 0,
-        fill = "surface_variant/0.5",
-        radius = theme.radius
-    }, status_children))
-
-    table.insert(page, ui.row({ key = "spacer-above-sep-cookie", height = 4, borderWidth = 0, radius = theme.radius }))
-    table.insert(page, ui.separator({ key = "sep-cookie", color = "outline/0.3" }))
-
-    table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
-
-    table.insert(page, ui.column({ key = "cookie-steps", gap = 6, padding = 4, radius = theme.radius }, {
-        ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
-        ui.label({ text = "2. Select the browser below, it'll open a new window. Sign in to your YouTube Music there.", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
-        ui.label({ text = "3. Keep the browser open, then click the button again to extract cookies", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
-    }))
-
-    table.insert(page, ui.row({ key = "spacer-above-browser-grid", height = 4, borderWidth = 0, radius = theme.radius }))
-
-    local cells = build_browser_cells()
-    local grid_rows = common.chunk_rows(cells, 3, "browser-grid", 12)
-    local health_card = build_health_card()
-    if health_card then
-        table.insert(grid_rows, 1, health_card)
-    end
-    for _, row in ipairs(grid_rows) do
-        table.insert(page, row)
-    end
-
-    return page
+	return ui.column({
+		key = "signin-prompt",
+		align = "center",
+		justify = "center",
+		gap = 18,
+		padding = 24,
+		flexGrow = 1,
+		radius = theme.radius,
+	}, {
+		hero,
+		ui.column({ key = "signin-body", gap = 18, width = "fill", radius = theme.radius }, body),
+	})
 end
 
 return {
-    build_signin_prompt = build_signin_prompt,
-    build_cookies_page = build_cookies_page
+	build_signin_prompt = build_signin_prompt,
+	build_cookies_page = build_cookies_page,
+	build_health_page = build_health_page,
 }

@@ -12,6 +12,8 @@ local fmt_seconds = helpers.fmt_seconds
 local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT
 
+local filters = require("../utils/filters.luau")
+
 local scratch = require("../utils/scratch.luau")
 
 local it = require("./innerTube.luau")
@@ -31,13 +33,7 @@ function EXPO.search_playlists(q: string, count: number, cb: ({ types.SearchResu
 	local pages = 0
 
 	local function finish()
-		log(
-			string.format(
-				"search got %d results type='playlists' first='%s'",
-				#out,
-				tostring(out[1] and out[1].title)
-			)
-		)
+		log(string.format("search got %d results type='playlists' first='%s'", #out, tostring(out[1] and out[1].title)))
 		cb(out)
 	end
 
@@ -60,31 +56,10 @@ function EXPO.search_playlists(q: string, count: number, cb: ({ types.SearchResu
 				return
 			end
 			local raw_file = scratch.path("search-raw")
-			local clean_file = scratch.path("search-clean")
 			noctalia.writeFile(raw_file, raw_body)
-			local script = ([=[
-jq '{
-  playlists: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer |
-    # pageType must be read off the RAW row; past the object pipe it no longer exists.
-    (.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") as $pt |
-    {
-    id: (.navigationEndpoint.browseEndpoint.browseId // ""),
-    title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
-    artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
-    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(
-      (.id != "" and .title != "")
-      and ($pt == "MUSIC_PAGE_TYPE_PLAYLIST")
-  )],
-  token: ([.. | objects | select(has("nextContinuationData")) | .nextContinuationData.continuation] | last // "")
-}' "%s" > "%s" 2>/dev/null
-echo "STATUS=OK"
-]=]):format(raw_file, clean_file)
-			noctalia.runAsync(script, function(_res)
-				local data: any = nil
-				if noctalia.fileExists(clean_file) then
-					data = noctalia.json.decode(noctalia.readFile(clean_file) or "")
-				end
+			noctalia.runAsync({ "jq", "-a", filters.SEARCH_PLAYLISTS, raw_file }, function(res)
+				local out_json = (type(res) == "table" and res.stdout) or ""
+				local data = noctalia.json.decode(out_json)
 				local rows = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
 				for _, tr in ipairs(rows) do
 					if not seen[tr.id] then
@@ -145,128 +120,51 @@ function EXPO.search(query: string?, count: any, cb: ({ types.SearchResult }?, s
 			return
 		end
 		local raw_file = scratch.path("search-raw")
-		local clean_file = scratch.path("search-clean")
 		noctalia.writeFile(raw_file, raw_body)
 
-		local script
-		if st == "top" then
-			script = ([=[
-jq '
-  ([.. | objects | select(has("musicCardShelfRenderer")) | .musicCardShelfRenderer] | .[0] // null) as $rawcard
-  |
-  ([
-    .. | objects | select(has("musicCardShelfRenderer")) | .musicCardShelfRenderer |
-    .contents[]? |
-    .. | objects | select(has("musicResponsiveListItemRenderer")) |
-    .musicResponsiveListItemRenderer |
-    (.playlistItemData.videoId // "")
-  ] | map(select(. != ""))) as $skip
-  |
-  # Artist identity lives on the card TITLE navigation only; scanning the
-  # whole subtree would catch per-row "Go to artist" menus of song cards.
-  ([$rawcard.title.runs[]? | select((.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") == "MUSIC_PAGE_TYPE_ARTIST") | .navigationEndpoint.browseEndpoint.browseId] | .[0] // null) as $card_artist_id
-  |
-  ([$rawcard | select(((.onTap.watchEndpoint.videoId // "") != "") or ($card_artist_id != null)) | {
-    id: ((.onTap.watchEndpoint.videoId // $card_artist_id) // ""),
-    kind: (if (.onTap.watchEndpoint.videoId // "") != "" then "song" elif ($card_artist_id != null) then "artist" else "song" end),
-    title: (.title.runs[0].text // ""),
-    artist: ([.subtitle.runs[].text] | join("")),
-    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  }] | .[0] // null) as $card
-  |
-  {
-    results: reduce (
-      ($card // empty),
-      (.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer |
-        ((.playlistItemData.videoId // "") as $vid |
-         (.navigationEndpoint.browseEndpoint.browseId // "") as $bid |
-         (.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") as $pt |
-         select($vid != "" or $bid != "") |
-         select(($skip | index($vid)) == null) |
-         {
-           id: (if $vid != "" then $vid else $bid end),
-           kind: (if $vid != "" then "song" elif $pt == "MUSIC_PAGE_TYPE_ALBUM" or ($bid | test("^MPREb")) then "album" elif $pt == "MUSIC_PAGE_TYPE_PLAYLIST" or ($bid | test("^(VL|RD|PL)")) then "playlist" elif $pt == "MUSIC_PAGE_TYPE_ARTIST" or ($bid | test("^UC")) then "artist" else "other" end),
-           title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
-           artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
-           album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
-           duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
-           thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-         }))
-    ) as $it ([]; if (map(.id) | index($it.id)) then . else . + [$it] end)
-  }
-' "%s" > "%s" 2>/dev/null
-echo "STATUS=OK"
-]=]):format(raw_file, clean_file)
-		else
-            script = ([=[
-jq '{
-  tracks: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
-    id: (.playlistItemData.videoId // .navigationEndpoint.browseEndpoint.browseId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // ""),
-    kind: (
-      (.playlistItemData.videoId // "") as $vid |
-      (.navigationEndpoint.browseEndpoint.browseId // "") as $bid |
-      (.navigationEndpoint.browseEndpoint.browseEndpointContextSupportedConfigs.browseEndpointContextMusicConfig.pageType // "") as $pt |
-      if $vid != "" then "song"
-      elif $pt == "MUSIC_PAGE_TYPE_ARTIST" or ($bid | test("^UC")) then "artist"
-      elif $pt == "MUSIC_PAGE_TYPE_ALBUM" or ($bid | test("^MPREb")) then "album"
-      elif ($bid | test("^(VL|RD|PL)")) then "playlist"
-      else "song"
-      end
-    ),
-    title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
-    artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
-    album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
-    duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
-    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.id != "" and .title != "")] | unique_by(.id)
-}' "%s" > "%s" 2>/dev/null
-echo "STATUS=OK"
-]=]):format(raw_file, clean_file)
-        end
+		local filter = st == "top" and filters.SEARCH_TOP or filters.SEARCH_TRACKS
 
-		noctalia.runAsync(script, function(res)
+		noctalia.runAsync({ "jq", "-a", filter, raw_file }, function(res)
 			local out: { types.SearchResult } = {}
-			if noctalia.fileExists(clean_file) then
-				local raw_clean = noctalia.readFile(clean_file)
-				local data = noctalia.json.decode(raw_clean or "")
-				local raw_key = (st == "top") and "results" or "tracks"
-				local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
-				for idx, tr in ipairs(raw_items) do
-					local item_title = helpers.clean_utf8(tr.title or "")
-					local item_artist = clean_artist(tr.artist)
-					local item_album = helpers.clean_utf8(tr.album or "")
-					local is_top_hero = (st == "top" and idx == 1 and tr.kind == "artist")
-					if tr.kind == "playlist" or tr.kind == "album" or (tr.id and tr.id:sub(1, 5) == "MPREb") then
-						table.insert(out, {
-							type = "playlist",
-							id = tr.id,
-							title = item_title,
-							artist = item_artist,
-							thumbnail_url = tr.thumbnail_url,
-						})
-					elseif tr.kind == "artist" then
-						table.insert(out, {
-							type = "artist",
-							id = tr.id,
-							title = item_title,
-							artist = item_artist,
-							is_hero = is_top_hero,
-							thumbnail_url = tr.thumbnail_url,
-						})
-					else
-						table.insert(out, {
-							id = tr.id,
-							title = item_title,
-							artist = item_artist,
-							album = item_album,
-							duration = fmt_seconds(tr.duration_text),
-							duration_text = tr.duration_text,
-							thumbnail_url = tr.thumbnail_url,
-						})
-					end
-					if #out >= count then
-						break
-					end
+			local out_json = (type(res) == "table" and res.stdout) or ""
+			local data = noctalia.json.decode(out_json)
+			local raw_key = (st == "top") and "results" or "tracks"
+			local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
+			for idx, tr in ipairs(raw_items) do
+				local item_title = helpers.clean_utf8(tr.title or "")
+				local item_artist = clean_artist(tr.artist)
+				local item_album = helpers.clean_utf8(tr.album or "")
+				local is_top_hero = (st == "top" and idx == 1 and tr.kind == "artist")
+				if tr.kind == "playlist" or tr.kind == "album" or (tr.id and tr.id:sub(1, 5) == "MPREb") then
+					table.insert(out, {
+						type = "playlist",
+						id = tr.id,
+						title = item_title,
+						artist = item_artist,
+						thumbnail_url = tr.thumbnail_url,
+					})
+				elseif tr.kind == "artist" then
+					table.insert(out, {
+						type = "artist",
+						id = tr.id,
+						title = item_title,
+						artist = item_artist,
+						is_hero = is_top_hero,
+						thumbnail_url = tr.thumbnail_url,
+					})
+				else
+					table.insert(out, {
+						id = tr.id,
+						title = item_title,
+						artist = item_artist,
+						album = item_album,
+						duration = fmt_seconds(tr.duration_text),
+						duration_text = tr.duration_text,
+						thumbnail_url = tr.thumbnail_url,
+					})
+				end
+				if #out >= count then
+					break
 				end
 			end
 			log(

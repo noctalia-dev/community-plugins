@@ -26,6 +26,7 @@ EXPO.STREAMS_CACHE_DIR = CACHE_ROOT .. "/streams"
 EXPO.AUDIO_DIR = CACHE_ROOT .. "/audio"
 EXPO.STATS_CACHE_PATH = CACHE_ROOT .. "/stats.json"
 EXPO.OFFLINE_META_PATH = CACHE_ROOT .. "/offline_meta.json"
+EXPO.CACHED_META_PATH = CACHE_ROOT .. "/cached_meta.json"
 
 EXPO.CONTEXT = {
 	context = {
