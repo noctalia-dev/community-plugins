@@ -1,6 +1,6 @@
 id = "yugaaank/better-clock"
 name = "Better Clock"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 19
 author = "yugaaank"
 license = "MIT"
