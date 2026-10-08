@@ -31,7 +31,7 @@ local function buildCommand()
 	local function opt(key, value)
 		if value ~= nil and value ~= "" then
 			parts[#parts + 1] = key
-			parts[#parts + 1] = tostring(value)
+			parts[#parts + 1] = shellQuote(tostring(value))
 		end
 	end
 
