@@ -1,40 +1,4 @@
 {
-  "title": "Headset Control",
-  "settings": {
-    "poll_interval": {
-      "label": "Poll interval",
-      "description": "Seconds between headset status checks (1–60)."
-    },
-    "show_percentage": {
-      "label": "Show percentage",
-      "description": "Show the battery percentage next to the icon."
-    },
-    "hide_when_unavailable": {
-      "label": "Hide when unavailable",
-      "description": "Hide the widget when no headset is connected or its battery level is unavailable."
-    }
-  },
-  "state": {
-    "missing_dependency": {
-      "title": "headsetcontrol is not installed",
-      "hint": "Install the headsetcontrol package, then refresh."
-    },
-    "no_devices": {
-      "title": "No headset detected",
-      "hint": "Turn the headset on or plug in its USB dongle. If it is connected, make sure headsetcontrol's udev rules are installed."
-    },
-    "error": {
-      "title": "Could not read headset status",
-      "hint": "The last headsetcontrol call failed. Showing the last known data.",
-      "hint_no_data": "The last headsetcontrol calls failed."
-    }
-  },
-  "error": {
-    "timed_out": "headsetcontrol timed out",
-    "invalid_json": "headsetcontrol returned invalid JSON",
-    "failed_to_start": "headsetcontrol could not be started",
-    "exit": "exit {code}: {detail}"
-  },
   "battery": {
     "level": "{level}%",
     "status": {
@@ -44,24 +8,60 @@
       "unknown": "Unknown"
     }
   },
-  "widget": {
-    "tooltip": {
-      "device": "Device",
-      "battery": "Battery",
-      "chatmix": "Chatmix",
-      "updated": "Updated",
-      "last_refresh_failed": "Last refresh failed",
-      "hints": "Click: details · Right-click: refresh"
-    }
+  "error": {
+    "exit": "exit {code}: {detail}",
+    "failed_to_start": "headsetcontrol could not be started",
+    "invalid_json": "headsetcontrol returned invalid JSON",
+    "timed_out": "headsetcontrol timed out"
   },
   "panel": {
-    "refresh": "Refresh",
-    "close": "Close",
     "battery": "Battery",
     "chatmix": "Chatmix",
+    "close": "Close",
+    "device_error": "Device error: {error}",
     "features": "Supported features",
-    "usb_id": "USB ID {id}",
+    "refresh": "Refresh",
     "updated": "Updated {time}",
-    "device_error": "Device error: {error}"
+    "usb_id": "USB ID {id}"
+  },
+  "settings": {
+    "hide_when_unavailable": {
+      "description": "Hide the widget when no headset is connected or its battery level is unavailable.",
+      "label": "Hide when unavailable"
+    },
+    "poll_interval": {
+      "description": "Seconds between headset status checks (1–60).",
+      "label": "Poll interval"
+    },
+    "show_percentage": {
+      "description": "Show the battery percentage next to the icon.",
+      "label": "Show percentage"
+    }
+  },
+  "state": {
+    "error": {
+      "hint": "The last headsetcontrol call failed. Showing the last known data.",
+      "hint_no_data": "The last headsetcontrol calls failed.",
+      "title": "Could not read headset status"
+    },
+    "missing_dependency": {
+      "hint": "Install the headsetcontrol package, then refresh.",
+      "title": "headsetcontrol is not installed"
+    },
+    "no_devices": {
+      "hint": "Turn the headset on or plug in its USB dongle. If it is connected, make sure headsetcontrol's udev rules are installed.",
+      "title": "No headset detected"
+    }
+  },
+  "title": "Headset Control",
+  "widget": {
+    "tooltip": {
+      "battery": "Battery",
+      "chatmix": "Chatmix",
+      "device": "Device",
+      "hints": "Click: details · Right-click: refresh",
+      "last_refresh_failed": "Last refresh failed",
+      "updated": "Updated"
+    }
   }
 }

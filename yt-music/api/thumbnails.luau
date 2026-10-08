@@ -7,7 +7,6 @@ local THUMB_DIR = const.THUMB_DIR
 
 local scratch = require("../utils/scratch.luau")
 local network = require("../utils/network.luau")
-local Bash = require("../utils/bash.luau")
 
 local EXPO = {}
 
@@ -60,20 +59,12 @@ function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -
 	end
 
 	if type(url) == "string" and url ~= "" then
-		network.runAsync(
-			"mkdir -p "
-				.. Bash.sh_quote(THUMB_DIR)
-				.. " && curl -s -L -o "
-				.. Bash.sh_quote(path)
-				.. " "
-				.. Bash.sh_quote(url),
-			function()
-				if noctalia.fileExists(path) and callback then
-					callback(path)
-				end
-			end,
-			10000
-		)
+		noctalia.mkdirAll(THUMB_DIR)
+		network.runAsync({ "curl", "-s", "-L", "-o", path, url }, function()
+			if noctalia.fileExists(path) and callback then
+				callback(path)
+			end
+		end, 10000)
 	end
 
 	return nil
@@ -82,12 +73,15 @@ end
 local known_thumb_files = {}
 
 local function preload_thumb_cache()
-	noctalia.runAsync("find /tmp -name 'yt-music-thumb-*.jpg' 2>/dev/null", function(res)
-		local out = type(res) == "table" and res.stdout or ""
-		for line in out:gmatch("[^\r\n]+") do
-			known_thumb_files[line] = true
+	noctalia.mkdirAll(THUMB_DIR)
+	do
+		local _e = noctalia.listDir(THUMB_DIR)
+		if type(_e) == "table" then
+			for _, _n in ipairs(_e) do
+				known_thumb_files[THUMB_DIR .. "/" .. tostring(_n)] = true
+			end
 		end
-	end)
+	end
 end
 preload_thumb_cache()
 
@@ -138,17 +132,18 @@ function EXPO.ensure_thumbnails(items, on_updated, tag)
 	end
 	noctalia.writeFile(configFile, table.concat(lines, "\n"))
 
-	local script = ([=[
-mkdir -p "%s"
-if command -v curl >/dev/null 2>&1; then
-  curl -s --parallel --parallel-max 16 --parallel-immediate -K "%s" >/dev/null 2>&1
-fi
-echo "THUMBS_DONE=1"
-]=]):format(THUMB_DIR, configFile)
+	noctalia.mkdirAll(THUMB_DIR)
+	if not noctalia.commandExists("curl") then
+		return
+	end
 
-	network.runAsync(script, function(res)
-		local out = (type(res) == "table" and res.stdout) or ""
-		if out:find("THUMBS_DONE=1") then
+	network.runAsync(
+		{ "curl", "-s", "--parallel", "--parallel-max", "16", "--parallel-immediate", "-K", configFile },
+		function(res)
+			local ok = type(res) == "table" and res.exitCode == 0
+			if not ok then
+				return
+			end
 			for _, m in ipairs(missing) do
 				known_thumb_files[m.path] = true
 				m.item.thumb_path = m.path
@@ -156,8 +151,9 @@ echo "THUMBS_DONE=1"
 			if type(on_updated) == "function" then
 				on_updated()
 			end
-		end
-	end, 15000)
+		end,
+		15000
+	)
 end
 
 function EXPO.attach_cached_thumbs(items: { { [string]: any } })

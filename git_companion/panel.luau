@@ -24,14 +24,15 @@ local hoveredKey = nil
 
 local render
 
+local gitlab = require("./gitlab.luau")
+
 local function tr(key, args) return noctalia.tr("panel." .. key, args) end
 
--- Open a PR/issue URL in the default browser. Single quotes are escaped so the
--- URL can't break out of the shell argument.
+-- Open a PR/issue URL in the default browser. The URL is passed as its own
+-- argv entry, so no shell ever parses it.
 local function openLink(link)
   if not link or link == "" then return end
-  local safe = link:gsub("'", "'\\''")
-  noctalia.runAsync("xdg-open '" .. safe .. "'")
+  noctalia.runAsync({"xdg-open", link})
 end
 
 local function itemsForTab()
@@ -233,21 +234,14 @@ local function itemCard(item)
     maxLines = 1,
   }))
 
-  -- Trailing glyph: an unresolved thread outranks plain comments, since it is
-  -- the one that blocks the merge until someone answers. Nothing is drawn when
-  -- the item carries neither, or when the platform does not report them yet.
+  -- Trailing glyph, picked from the MR's merge status (see gitlab.luau).
   local row = {
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = item.title or tr("untitled"), color = hovered and "on_tertiary" or "on_surface", fontWeight = "bold", maxLines = 2 }),
       ui.row({ gap = 6, align = "center" }, subtitle),
     }),
   }
-  local glyph = nil
-  if item.pendingReview then
-    glyph = "message-report"
-  elseif (item.comments or 0) > 0 then
-    glyph = "message"
-  end
+  local glyph = gitlab.mergeStatusGlyph(item.mergeStatus)
   if glyph then
     table.insert(row, ui.glyph({ name = glyph, size = 24, color = hovered and "on_tertiary" or "primary" }))
   end
@@ -377,7 +371,7 @@ function onTabReviews() switchTab("reviews") end
 function onCloseClicked() panel.close() end
 
 function onRefreshClicked()
-  noctalia.runAsync("noctalia msg plugin tphilippot/git_companion:service all refresh")
+  noctalia.runAsync({"noctalia", "msg", "plugin", "tphilippot/git_companion:service", "all", "refresh"})
 end
 
 -- Watch for state changes from the service

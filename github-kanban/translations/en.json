@@ -470,7 +470,7 @@
         "label": "Notifications · Default status filter"
       },
       "history_days": {
-        "description": "Limits read notification history. Unread notifications are always included, regardless of age.",
+        "description": "Only show notifications updated within this many recent days.",
         "label": "Notifications · History range (days)"
       },
       "mark_read_on_open": {

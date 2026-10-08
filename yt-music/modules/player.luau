@@ -4,6 +4,7 @@ local store = require("./store.luau")
 local api = require("../api.luau")
 local logger = require("../utils/log.luau")
 local mpv = require("./mpv.luau")
+local QueueOrder = require("../utils/queueorder.luau")
 
 local state = store.state
 local log = logger.module("ytm", "player")
@@ -90,11 +91,17 @@ local function player_set(item, stream_url)
 
 	if api and api.cache_audio and item.id and item.id ~= "" then
 		api.cache_audio(item.id, function(ok)
-			-- Keep the tick/bolt state honest right away instead of waiting
-			-- for the next boot-time directory scan.
-			if ok and not state.cached_audio_ids[item.id] then
+			if ok then
+				local was_cached = (state.cached_audio_ids and state.cached_audio_ids[item.id] == true)
+				if not state.cached_audio_ids then
+					state.cached_audio_ids = {}
+				end
 				state.cached_audio_ids[item.id] = true
-				publish()
+				local library = require("./library.luau")
+				library.note_cached_track(item)
+				if not was_cached then
+					library.audit_downloaded_playlists()
+				end
 			end
 		end)
 	end
@@ -334,6 +341,26 @@ function Player.play_next(item)
 	log("play_next: inserted '" .. tostring(item.title) .. "' at queue position " .. insert_at)
 	if state.player.status == "stopped" then
 		Player.play_index(insert_at)
+	else
+		publish()
+	end
+end
+
+function Player.add_to_queue(item)
+	if not item or not item.id or item.id == "" then
+		return
+	end
+	table.insert(state.player.queue, {
+		id = item.id,
+		title = item.title,
+		artist = item.artist or "",
+		duration = tonumber(item.duration) or 0,
+		thumbnail_url = item.thumbnail_url,
+		thumb_path = item.thumb_path,
+	})
+	log("add_to_queue: appended '" .. tostring(item.title) .. "' to queue")
+	if state.player.status == "stopped" then
+		Player.play_index(#state.player.queue)
 	else
 		publish()
 	end
@@ -592,6 +619,22 @@ function Player.cycle_repeat()
 	publish()
 end
 
+function Player.move(from, to)
+	from = math.floor(tonumber(from) or 0)
+	local q = state.player.queue
+	local insert_at = QueueOrder.move(q, from, to)
+	if insert_at == nil then
+		return
+	end
+	state.player.index = QueueOrder.follow(state.player.index, from, insert_at)
+	original_queue = nil -- manual order supersedes the pre-shuffle snapshot
+	if api and api.prefetch_queue then
+		api.prefetch_queue(q, state.player.index)
+	end
+	log("move: " .. from .. " -> " .. insert_at .. "/" .. #q .. " index=" .. state.player.index)
+	publish()
+end
+
 function Player.append_to_queue(track)
 	table.insert(state.player.queue, track)
 end
@@ -633,14 +676,19 @@ local function handle_stream_line(line)
 
 	-- Genuine failures only: a skip aborts with "stop", a natural end "eof".
 	if data.event ~= "property-change" then
-        if data.event == "end-file" and data.reason == "error" and state.player.status == "playing" then
-            log("stream: end-file error (" .. tostring(data.file_error or "?") .. ") entry=" .. tostring(data.playlist_entry_id))
-            mpv.kill()
-            state.player.status = "stopped"
-            state.status_text = "Playlist failed to start: " .. tostring(state.player.title or "")
-            publish()
-            noctalia.notify("Youtube Music", state.status_text)
-        end
+		if data.event == "end-file" and data.reason == "error" and state.player.status == "playing" then
+			log(
+				"stream: end-file error ("
+					.. tostring(data.file_error or "?")
+					.. ") entry="
+					.. tostring(data.playlist_entry_id)
+			)
+			mpv.kill()
+			state.player.status = "stopped"
+			state.status_text = "Playlist failed to start: " .. tostring(state.player.title or "")
+			publish()
+			noctalia.notify("Youtube Music", state.status_text)
+		end
 		if data.request_id == 100 then
 			local pos = tonumber(data.data)
 			if
@@ -673,7 +721,7 @@ local function handle_stream_line(line)
 		return
 	end
 	if name == "playlist-pos" then
-        -- Dummy/URL/dummy: a live 0/2 move is a user skip (failures handled above).
+		-- Dummy/URL/dummy: a live 0/2 move is a user skip (failures handled above).
 		local pos = tonumber(data.data)
 		if pos ~= 0 and pos ~= 2 then
 			return

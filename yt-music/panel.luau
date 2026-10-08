@@ -46,7 +46,10 @@ local function build_content()
 		end
 	end
 
-	return ui.scroll({ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12, radius = theme.radius }, content)
+	return ui.scroll(
+		{ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12, radius = theme.radius },
+		content
+	)
 end
 
 local function render_panel()
@@ -79,8 +82,6 @@ local function render_panel()
 
 	table.insert(body, ui.row({ key = "player-spacer", height = 12, borderWidth = 0, radius = theme.radius }))
 
-	table.insert(body, ui.row({ key = "sep-player", height = 1, fill = "on_surface/0.3", borderWidth = 0, radius = theme.radius }))
-
 	table.insert(body, playerbar_comp.build())
 
 	panel.render(ui.column({
@@ -102,6 +103,14 @@ function onCardHover(hover_state, key)
 end
 function onTrackHover(hover_state, key)
 	state.hover_update("track", hover_state, key)
+end
+
+function onQueueTrackDropped(payload, value)
+	queue_comp.on_track_dropped(payload, value)
+end
+
+function onTrackContextMenu(actionId, trackId)
+	state.handle_track_context_menu(actionId, trackId)
 end
 
 function onOpen(_context)

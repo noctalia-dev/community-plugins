@@ -1,0 +1,101 @@
+{
+  "account": {
+    "all": "All accounts",
+    "cycle_tooltip": "Left click for the next account, right click for the previous one",
+    "with_count": "{name} ({count})"
+  },
+  "empty": {
+    "caught_up": "You're all caught up.",
+    "loading": "Loading…"
+  },
+  "error": {
+    "accounts": "Could not list Basecamp accounts",
+    "check": "Could not check the Basecamp CLI: {reason}",
+    "mark_read": "Could not mark the notification as read",
+    "no_terminal": "Could not open a terminal. Run `basecamp auth login` yourself.",
+    "notifications": "Could not load notifications",
+    "open": "Could not open the notification",
+    "parse": "could not read the Basecamp CLI response",
+    "spawn": "could not run the Basecamp CLI",
+    "timeout": "the Basecamp CLI did not answer in time",
+    "truncated": "the Basecamp CLI response was too large to read",
+    "version": "Could not determine the Basecamp CLI version"
+  },
+  "list": {
+    "load_more": "Load more"
+  },
+  "loading": {
+    "campfire": "Sitting by the campfire",
+    "campsite": "Setting up the campsite",
+    "hillchart": "Climbing the hill chart",
+    "kindling": "Gathering kindling",
+    "marshmallows": "Roasting marshmallows",
+    "tent": "Pitching the tent"
+  },
+  "notification": {
+    "fallback_title": "Basecamp notification"
+  },
+  "ping": {
+    "title": "Ping with {names}"
+  },
+  "section": {
+    "new": "New for you",
+    "previous": "Previous notifications"
+  },
+  "settings": {
+    "mark_read_on_open": {
+      "description": "Clicking a notification marks it as read in Basecamp as well as opening it.",
+      "label": "Mark as read when opened"
+    },
+    "open_command": {
+      "description": "How a notification is opened. {url} is replaced with the Basecamp link. The command is run directly, not through a shell, so pipes and && do not work; point it at a script if you need those. Change this if your browser opens in the background: a plugin cannot hand it the focus token the shell uses.",
+      "label": "Open command"
+    },
+    "refresh_interval": {
+      "description": "Seconds between automatic checks. Opening the panel also refreshes when the data is older than this.",
+      "label": "Refresh interval"
+    },
+    "show_count": {
+      "description": "Show the number of unread notifications next to the logo in the bar.",
+      "label": "Show unread count"
+    }
+  },
+  "setup": {
+    "copied": "Copied",
+    "copy": "Copy command",
+    "missing_body": "This plugin reads your notifications through the Basecamp CLI. Install it, then sign in.",
+    "missing_button": "Installation instructions…",
+    "missing_title": "The Basecamp CLI is not installed",
+    "or_run": "Or run:",
+    "outdated_body": "Version {version} is installed. Older versions cannot mark notifications as read.",
+    "outdated_button": "Update instructions…",
+    "outdated_title": "Basecamp CLI 0.9 or newer is required",
+    "running": "Waiting for sign-in to finish…",
+    "signin_body": "Signing in opens a terminal and your browser. The plugin never reads or stores your Basecamp tokens.",
+    "signin_button": "Sign in to Basecamp…",
+    "signin_title": "Please sign in"
+  },
+  "status": {
+    "credit": "Designed & built by 37signals",
+    "marked": "Marked as read",
+    "marking": "Marking notification as read…",
+    "never": "Not checked yet",
+    "refreshing": "Checking Basecamp…",
+    "updated": "Updated {time}"
+  },
+  "title": "Basecamp",
+  "tooltip": {
+    "account": "Account",
+    "cli_version": "Basecamp CLI",
+    "dismiss": "Mark as read without opening",
+    "last_updated": "Last checked",
+    "refresh": "Check now",
+    "refresh_hint": "Right click to refresh",
+    "settings": "Plugin settings",
+    "unread": "Unread"
+  },
+  "unread_count": {
+    "one": "1 unread notification",
+    "other": "{count} unread notifications"
+  }
+}

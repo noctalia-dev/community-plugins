@@ -1,0 +1,74 @@
+{
+  "age": {
+    "just_now": "just now",
+    "minutes_ago": "{minutes}m ago"
+  },
+  "bar": {
+    "days": "{days}d",
+    "due": "{count} due",
+    "loading": "Loading Beeminder goals…",
+    "no_goals": "No active goals"
+  },
+  "countdown": {
+    "days_hours": "{days}d {hours}h",
+    "hours_minutes": "{hours}h {minutes}m",
+    "minutes": "{minutes}m",
+    "now": "now"
+  },
+  "error": {
+    "bad_json": "Beeminder sent a response that could not be read: {error}",
+    "failed": "Beeminder request failed. {detail}",
+    "http_status": "Beeminder returned HTTP {status}.",
+    "network": "Network request failed.",
+    "no_token": "Set your Beeminder personal auth token in the plugin settings.",
+    "not_started": "The request could not be started.",
+    "unauthorized": "Beeminder rejected the auth token. Check it in the plugin settings."
+  },
+  "menu": {
+    "open_profile": "Open profile",
+    "refresh": "Refresh now",
+    "settings": "Settings"
+  },
+  "panel": {
+    "open_settings": "Open settings",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "title": "Beeminder",
+    "updated": "Updated {age}"
+  },
+  "settings": {
+    "auth_token": {
+      "description": "While logged in, copy the token from https://www.beeminder.com/api/v1/auth_token.json. It is stored in plain text in your Noctalia config.",
+      "label": "Personal Auth Token"
+    },
+    "bar_text": {
+      "description": "What to show next to the bee. Click the bee to see every goal.",
+      "label": "Bar Text",
+      "option": {
+        "at_risk": "Money on the Line — $15",
+        "beemergencies": "Beemergencies — 2 due",
+        "countdown": "Time Until Next Derailment — 4h 12m",
+        "min_buffer": "Safety Margin — 0d",
+        "next_goal_countdown": "Next Goal Countdown — workout · 4h 12m",
+        "next_goal_requirement": "Next Goal Requirement — workout +1 within 1 day",
+        "none": "Just the Bee"
+      }
+    },
+    "ignored_goals": {
+      "description": "Goal slugs left out of the bar text and the bee's color. They still appear in the goals panel.",
+      "label": "Ignored Goals"
+    },
+    "quiet_until_due": {
+      "description": "Hide the bar text until at least one goal is due today. The bee stays visible either way.",
+      "label": "Quiet Until Due"
+    },
+    "refresh_minutes": {
+      "description": "How often to fetch your goals from Beeminder. Countdowns keep ticking between refreshes.",
+      "label": "Refresh Interval (minutes)"
+    },
+    "show_bee": {
+      "description": "Show the bee icon. Turn this off when several instances sit side by side. The bee still appears on errors, or when there is no text to show.",
+      "label": "Show Bee"
+    }
+  }
+}

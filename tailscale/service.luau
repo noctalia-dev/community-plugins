@@ -98,12 +98,26 @@ end
 -- `exit-node list`, not in Peer. `--json` does not apply this, and the raw
 -- dump is large enough to trip Noctalia's 25ms plugin CPU budget.
 local function statusJsonCommand(bin)
+  -- Project only the fields parseStatus reads; whole peer objects (CapMap,
+  -- AllowedIPs, keys) push the Luau decode over the CPU budget on big tailnets.
   local jq = [[
-    .Peer |= with_entries(select(
-      (.value.ExitNodeOption != true)
-      or (.value.ExitNode == true)
-      or ((.value.DNSName // "") | endswith("mullvad.ts.net.") | not)
-    ))
+    {
+      BackendState, Version, MagicDNSSuffix, TailscaleIPs, Health,
+      CurrentTailnet: (.CurrentTailnet | if type == "object" then {Name, MagicDNSSuffix} else null end),
+      ExitNodeStatus: (.ExitNodeStatus | if type == "object" then {ID, Online, TailscaleIPs} else null end),
+      Self: (.Self | if type == "object" then {HostName, DNSName, TailscaleIPs, ExitNodeOption} else null end),
+      Peer: (.Peer // {} | with_entries(
+        select(
+          (.value.ExitNodeOption != true)
+          or (.value.ExitNode == true)
+          or ((.value.DNSName // "") | endswith("mullvad.ts.net.") | not)
+        )
+        | .value |= {
+            ID, HostName, DNSName, TailscaleIPs, Online, Active, OS, Relay,
+            ExitNode, ExitNodeOption, RxBytes, TxBytes, LastSeen
+          }
+      ))
+    }
   ]]
   return shellCommand({ bin, "status", "--json" }) .. " | jq -c " .. shellQuote(jq)
 end

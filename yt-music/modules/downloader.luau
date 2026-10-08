@@ -80,6 +80,18 @@ function Downloader.register_explicit(id, meta)
 		duration = (meta and tonumber(meta.duration)) or existing.duration,
 		thumbnail_url = (meta and meta.thumbnail_url) or existing.thumbnail_url,
 	})
+	if state.cached_tracks then
+		local new_cached = {}
+		for _, tr in ipairs(state.cached_tracks) do
+			if tr.id ~= id then
+				table.insert(new_cached, tr)
+			end
+		end
+		state.cached_tracks = new_cached
+	end
+	if library and library.remove_from_cached_meta then
+		library.remove_from_cached_meta(id)
+	end
 	publish()
 end
 

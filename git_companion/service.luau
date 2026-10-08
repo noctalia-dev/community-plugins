@@ -18,6 +18,8 @@ local PLATFORM_GROUP = {
   gitea = "--owner",
 }
 
+local gitlab = require("./gitlab.luau")
+
 local bin = PLATFORM_BIN[platform] or PLATFORM_BIN.github
 
 local function tr(key, args) return noctalia.tr("service." .. key, args) end
@@ -25,14 +27,10 @@ local function tr(key, args) return noctalia.tr("service." .. key, args) end
 -- Set the refresh interval
 noctalia.setUpdateInterval(refreshInterval * 1000)
 
-local function shellQuote(value)
-  return "'" .. tostring(value or ""):gsub("'", "'\\''") .. "'"
-end
-
 -- Determine scope flags
 local function scopeArgs()
-  if group ~= "" then return {PLATFORM_GROUP[platform], shellQuote(group)} end
-  if repo ~= "" then return {"--repo", shellQuote(repo)} end
+  if group ~= "" then return {PLATFORM_GROUP[platform], group} end
+  if repo ~= "" then return {"--repo", repo} end
   return {}
 end
 
@@ -63,7 +61,7 @@ local function ensureTeaContext(cb)
     return cb(nil)
   end
 
-  noctalia.runAsync("git -C " .. shellQuote(dir) .. " init --quiet", function(res)
+  noctalia.runAsync({"git", "-C", dir, "init", "--quiet"}, function(res)
     if res.exitCode ~= 0 then
       noctalia.log("[Git Companion] git init failed: " .. (res.stderr or ""))
       return cb(nil)
@@ -73,9 +71,14 @@ local function ensureTeaContext(cb)
   end)
 end
 
--- Run a tea invocation from the context repository.
+-- Run a tea invocation from the context repository. runAsync has no cwd
+-- option, so a fixed shell snippet changes directory and execs the rest; the
+-- directory and the tea argv ride along as positional parameters, never parsed
+-- by the shell.
 local function teaCommand(parts)
-  return "cd " .. shellQuote(teaContext) .. " && " .. table.concat(parts, " ")
+  local argv = {"sh", "-c", 'cd "$1" && shift && exec "$@"', "sh", teaContext}
+  for _, v in ipairs(parts) do table.insert(argv, v) end
+  return argv
 end
 
 local function buildCommand(kind)
@@ -91,14 +94,14 @@ local function buildCommand(kind)
     table.insert(parts, "list")
     if giteaLogin ~= "" then
       table.insert(parts, "--login")
-      table.insert(parts, shellQuote(giteaLogin))
+      table.insert(parts, giteaLogin)
     end
     table.insert(parts, "--kind")
     table.insert(parts, kind == "issue" and "issues" or "pulls")
     table.insert(parts, "--state")
     table.insert(parts, "open")
     table.insert(parts, "--author")
-    table.insert(parts, shellQuote(teaUser))
+    table.insert(parts, teaUser)
     table.insert(parts, "--fields")
     table.insert(parts, "index,title,url,state,owner,repo")
     table.insert(parts, "--output")
@@ -139,14 +142,13 @@ local function buildCommand(kind)
     table.insert(parts, "15")
     for _, v in ipairs(scopeArgs()) do table.insert(parts, v) end
   end
-  return table.concat(parts, " ")
+  return parts
 end
 
--- Every item carries `comments` (how many) and `pendingReview` (a thread is
--- waiting on someone). Only GitLab fills them so far: `glab mr list` already
--- returns user_notes_count and blocking_discussions_resolved, so no extra call
--- is needed. gh and tea need a second command per tab or per PR for the same
--- information; until that lands the other platforms report nothing.
+-- Every item carries `mergeStatus`. Only GitLab fills it so far, from the
+-- detailed_merge_status that `glab mr list` already returns, so no extra call
+-- is needed. gh and tea have no single equivalent; until one is mapped the
+-- other platforms report an empty string.
 local function normalizeItem(raw, kind)
   if platform == "gitlab" then
     local prefix = kind == "issue" and "#" or "!"
@@ -156,8 +158,7 @@ local function normalizeItem(raw, kind)
       url = raw.web_url or "",
       ref = (raw.references and raw.references.full) or (prefix .. (raw.iid or "")),
       targetBranch = raw.target_branch or "",
-      comments = isMr and (raw.user_notes_count or 0) or 0,
-      pendingReview = isMr and raw.blocking_discussions_resolved == false,
+      mergeStatus = isMr and (raw.detailed_merge_status or "") or "",
     }
   end
   if platform == "gitea" then
@@ -166,8 +167,7 @@ local function normalizeItem(raw, kind)
       url = raw.url or "",
       ref = (raw.owner or "") .. "/" .. (raw.repo or "") .. "#" .. (raw.index or ""),
       targetBranch = "",
-      comments = 0,
-      pendingReview = false,
+      mergeStatus = "",
     }
   end
   -- GitHub
@@ -177,8 +177,7 @@ local function normalizeItem(raw, kind)
     url = raw.url or "",
     ref = repoName .. "#" .. (raw.number or ""),
     targetBranch = "",
-    comments = 0,
-    pendingReview = false,
+    mergeStatus = "",
   }
 end
 
@@ -197,6 +196,8 @@ end
 -- A hidden tab is never fetched, so its state is emptied instead of keeping a
 -- stale count the bar would still display.
 local function clearList(kind)
+  -- Re-enabling the tab then starts from a fresh, silent baseline.
+  if kind == "pr" then gitlab.resetMergeStatus() end
   noctalia.state.set(kind .. "s", {})
   noctalia.state.set(kind .. "s_count", 0)
 end
@@ -205,17 +206,23 @@ end
 -- The interesting line is rarely the first: tea prefixes a "NOTE: no gitea
 -- login detected..." before the actual "Error: not found". So an explicit
 -- Error line wins, otherwise the last line that is not a note or a warning.
+-- glab draws a box instead, whose header is the bare word "ERROR" and whose
+-- message follows on the next line, wrapped. That header must not win, or the
+-- panel just says "ERROR"; the line after it is the message, and the first of
+-- those lines is the one that carries the point.
 local function errorLine(text)
   local fallback = ""
+  local boxed = false
   for line in tostring(text or ""):gmatch("[^\r\n]+") do
     local trimmed = noctalia.string.trim(line)
     if trimmed ~= "" then
       local lower = trimmed:lower()
-      if lower:match("^error") then
+      if lower:match("^error[%s:]*$") then
+        boxed = true
+      elseif boxed or lower:match("^error") then
         fallback = trimmed
         break
-      end
-      if not (lower:match("^note[:%s]") or lower:match("^warn")) then
+      elseif not (lower:match("^note[:%s]") or lower:match("^warn")) then
         fallback = trimmed
       end
     end
@@ -226,7 +233,7 @@ end
 
 local function fetchList(kind)
   local cmd = buildCommand(kind)
-  noctalia.log("[Git Companion] Running: " .. cmd)
+  noctalia.log("[Git Companion] Running: " .. table.concat(cmd, " "))
   noctalia.runAsync(cmd, function(res)
     -- The failure is reported next to the list rather than over it: the panel
     -- keeps showing what it last fetched. Carrying the CLI's own first line
@@ -239,6 +246,7 @@ local function fetchList(kind)
       return
     end
     local list = processList(kind, res.stdout)
+    if platform == "gitlab" and kind == "pr" then gitlab.notifyMergeStatusChanges(list) end
     noctalia.state.set(kind .. "s", list) -- "issues" or "prs"
     noctalia.state.set(kind .. "s_count", #list)
     noctalia.state.set("last_update", noctalia.formatTime("%H:%M:%S"))
@@ -259,7 +267,7 @@ local function setAvatar(avatarUrl)
 end
 
 local function fetchUser()
-  noctalia.runAsync(bin .. " api user", function(res)
+  noctalia.runAsync({bin, "api", "user"}, function(res)
     if res.exitCode ~= 0 then
       noctalia.log("[Git Companion] User fetch failed: " .. (res.stderr or ""))
       return
@@ -318,10 +326,15 @@ local function supportsKind(kind)
   return not (platform == "gitea" and kind == "review")
 end
 
+-- The last precondition failure that was notified. refresh() runs every tick,
+-- so a lasting failure would otherwise raise the same notification each time.
+local lastFailStatus = nil
+
 local function fetchEnabledLists()
   -- All preconditions met: the panel can render the lists. Individual fetch
   -- failures are logged per-list (see fetchList) and leave the previous list
   -- in place, so they don't flip this back.
+  lastFailStatus = nil
   noctalia.state.set("status", "ok")
   noctalia.state.set("error_detail", "")
 
@@ -343,7 +356,10 @@ end
 
 local function fail(status, args)
   noctalia.state.set("status", status)
-  noctalia.notifyError(tr("title"), tr(status, args))
+  if status ~= lastFailStatus then
+    lastFailStatus = status
+    noctalia.notifyError(tr("title"), tr(status, args))
+  end
   noctalia.log("[Git Companion] Error: " .. status)
 end
 

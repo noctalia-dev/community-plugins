@@ -44,13 +44,13 @@
       "description": "Check for and manage Flatpak application updates.",
       "label": "Enable Flatpak"
     },
-    "include_flatpak_runtimes": {
-      "description": "Include Flatpak runtime and extension updates alongside applications.",
-      "label": "Include Flatpak Runtimes"
-    },
     "glyph": {
       "description": "Icon glyph to display in the Noctalia bar widget.",
       "label": "Widget Icon"
+    },
+    "include_flatpak_runtimes": {
+      "description": "Include Flatpak runtime and extension updates alongside applications.",
+      "label": "Include Flatpak Runtimes"
     },
     "notify_on_updates": {
       "description": "Send a desktop notification when new pending updates are found.",

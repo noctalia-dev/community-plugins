@@ -44,11 +44,13 @@ body:
         - awwwall
         - ayet-kosesi
         - bangumi-progress
+        - basecamp
         - battery-graph
         - battery-power-management
         - battery-threshold
         - battery-widget
         - bazaarsearch
+        - beeminder
         - better-clock
         - bitdjinn
         - bookmarks
@@ -115,6 +117,7 @@ body:
         - jetbrains-provider
         - k8s-status
         - keybind-cheatsheet
+        - keyboard-state
         - keymap
         - keyviz
         - kineticwe-layouts

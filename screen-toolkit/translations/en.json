@@ -7,6 +7,7 @@
     "measure_failed": "Measurement failed.",
     "measure_result": "Measured: {width} × {height} px (copied)",
     "missing_dep": "Missing dependency: {dep}",
+    "no_annotator": "No annotation tool found (install swappy or satty)",
     "no_file": "Screenshot wasn't saved to a file. Enable file saving in Settings → Screenshot.",
     "no_qr": "No QR code detected.",
     "no_recorder": "No screen recorder found. Install wl-screenrec or wf-recorder.",
@@ -28,6 +29,7 @@
   },
   "ocr": {
     "exit_args": "Invalid capture arguments.",
+    "exit_capture": "Screen capture failed.",
     "exit_dep": "Missing dependency: {dep}",
     "exit_process": "Image processing failed.",
     "exit_unknown": "Unknown OCR error (code {code})."
@@ -93,7 +95,7 @@
       "label": "Max GIF Duration"
     },
     "hide_cursor": {
-      "description": "Exclude the cursor from recordings. Screenshots follow the shell's own screenshot cursor setting.",
+      "description": "Exclude the cursor from recordings. Screenshots never include the cursor.",
       "label": "Hide Cursor in Recordings"
     },
     "hide_when_unused": {
@@ -138,6 +140,10 @@
     "record_skip_confirmation": {
       "description": "Automatically save to disk when recording finishes, without showing the save dialog.",
       "label": "Skip Save Confirmation"
+    },
+    "screenshot_path": {
+      "description": "Where screenshots are saved. Leave empty for ~/Pictures/Screenshots.",
+      "label": "Screenshot Path"
     },
     "search_engine_url": {
       "description": "URL used when searching OCR text. Leave empty to use Google. Examples: https://duckduckgo.com/?q= or https://search.brave.com/search?q=",

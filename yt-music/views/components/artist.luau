@@ -62,7 +62,7 @@ local function build_artist()
 		table.insert(
 			song_rows,
 			common.media_row(t, "ar-" .. i, function()
-				request("play_with_queue", { item = t, index = i, queue = data.artist_tracks })
+				request("replace_queue_and_play", { item = t, index = i, queue = data.artist_tracks })
 			end, state.data.player.id == t.id)
 		)
 	end

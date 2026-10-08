@@ -1,98 +1,242 @@
 {
-  "clock_hover": {},
-  "volume_hover": {
+  "active_window_hover": {
     "settings": {
+      "compact_width": {
+        "description": "Text width when not hovering. The title only actually shrinks to this if it's longer -- a short title just stays put.",
+        "label": "Compact width (characters)"
+      },
+      "expand_width": {
+        "description": "Text width while hovering. If the title is still longer than this, it scrolls as a marquee instead of growing further.",
+        "label": "Expanded width (characters)"
+      },
+      "icon_size": {
+        "description": "Per-app icon size when compact (not hovering). Only affects the real app icon -- the generic fallback glyph (shown when no icon can be resolved) is a fixed size, since the plugin API doesn't expose glyph sizing.",
+        "label": "Icon size (px)"
+      },
+      "icon_size_hover": {
+        "description": "Per-app icon size while hovering; animates between this and the compact size along with the text width.",
+        "label": "Icon size on hover (px)"
+      }
+    }
+  },
+  "media_mini": {
+    "settings": {
+      "audio_spectrum": {
+        "description": "Show live audio bars behind background progress, or beside the controls for inline progress. Uses the shell’s shared audio spectrum; rests when paused or silent.",
+        "label": "Audio visualiser"
+      },
+      "audio_spectrum_bands": {
+        "description": "Number of live frequency bands, from 8 to 128. Bars and gaps adapt to fit the widget.",
+        "label": "Visualiser bands"
+      },
+      "background_darkening": {
+        "description": "Darken the unplayed background around the progress. Zero matches the widget background; the progress colour stays at full strength.",
+        "label": "Background darkening (%)"
+      },
+      "background_expand_width": {
+        "description": "Maximum hovered background width. Expansion stops earlier when the whole title fits; longer titles cycle within this limit.",
+        "label": "Expanded background width"
+      },
+      "background_height": {
+        "description": "Thickness of the background progress pill, in pixels.",
+        "label": "Background thickness"
+      },
+      "background_progress_color": {
+        "description": "Pick a theme colour or a custom colour for the background progress fill.",
+        "label": "Progress colour",
+        "options": {
+          "error": "Error",
+          "on_surface": "Text colour",
+          "primary": "Primary",
+          "secondary": "Secondary",
+          "tertiary": "Tertiary"
+        }
+      },
+      "background_seek_strip": {
+        "description": "Right-click a playback button to seek at its position on the background progress. Left-click operates the button; right-click elsewhere opens Media controls.",
+        "label": "Right-click controls to seek"
+      },
+      "background_width": {
+        "description": "Compact background pill width, in pixels; it grows to Expanded background width on hover.",
+        "label": "Background width"
+      },
       "bar_color": {
-        "label": "Bar colour",
-        "description": "Theme colour role used for the classic filled track and circular knob.",
+        "description": "Pick a theme colour or a custom colour for classic progress.",
+        "label": "Progress colour",
         "options": {
-          "primary": "Primary (accent)",
-          "onsurface": "On-surface (text)",
+          "error": "Error",
+          "on_surface": "Text colour",
+          "primary": "Primary",
           "secondary": "Secondary",
-          "tertiary": "Tertiary",
-          "hover": "Hover",
-          "error": "Error"
+          "tertiary": "Tertiary"
         }
       },
-      "slider_width": {
-        "label": "Slider width (px)",
-        "description": "Expanded track width in pixels, independent of thickness and speaker size."
+      "compact_width": {
+        "description": "Text width when not hovering. The text only actually shrinks to this if it's longer -- a short title just stays put.",
+        "label": "Compact width (characters)"
       },
-      "scroll_step": {
-        "label": "Scroll step (%)",
-        "description": "How much one scroll notch changes the volume."
+      "controls_on_hover": {
+        "description": "When Playback controls is enabled, animate those buttons in and out on hover.",
+        "label": "Controls only on hover"
       },
-      "invert_scroll": {
-        "label": "Invert scroll direction",
-        "description": "By default scroll up raises the volume. Turn this on if it feels backwards."
+      "corner_rounding": {
+        "description": "0 = square corners, 100 = fully circular.",
+        "label": "Cover art rounding (%)"
       },
-      "show_percent": {
-        "label": "Show percentage",
-        "description": "Show volume percentage or muted. Click this label to open Audio."
+      "cover_size": {
+        "description": "Size of the cover art icon in place of the play/pause glyph.",
+        "label": "Cover art size (px)"
       },
-      "icon_click": {
-        "label": "Speaker click",
-        "description": "Click the speaker to toggle mute, or open Audio. Click the expanded track to set volume. Percentage/padding and right-click open Audio.",
-        "options": {
-          "mute": "Toggle mute",
-          "panel": "Open Audio panel"
-        }
-      },
-      "slider_thickness": {
-        "label": "Slider thickness (px)",
-        "description": "Track thickness, independent of its width. The circular knob is 1.5 times this size."
-      },
-      "drag_enabled": {
-        "label": "Enable dragging",
-        "description": "Drag the classic volume track. It folds when idle and stays open during an active drag."
-      },
-      "show_knob": {
-        "label": "Show handle",
-        "description": "Show the circle or flat handle at the current volume. Turn off for a plain bar."
-      },
-      "knob_color": {
-        "label": "Handle colour",
-        "description": "Independent knob colour. On-primary matches the knob used by native Settings sliders.",
-        "options": {
-          "on_primary": "On-primary (native slider)",
-          "on_surface": "On-surface",
-          "primary": "Primary (same as bar)",
-          "secondary": "Secondary",
-          "tertiary": "Tertiary",
-          "error": "Error"
-        }
+      "expand_width": {
+        "description": "Maximum title characters on hover. Shorter titles use only the space they need; longer titles cycle within the limit.",
+        "label": "Expanded width (characters)"
       },
       "point_style": {
+        "description": "Rounded or flat moving progress edge. Applies to classic and background progress; the native slider keeps its own style.",
         "label": "Point style",
-        "description": "Rounded or flat moving progress edge. Flat also uses a slim rectangular volume handle.",
         "options": {
-          "rounded": "Rounded",
-          "flat": "Flat"
+          "flat": "Flat",
+          "rounded": "Rounded"
         }
+      },
+      "progress_darkening": {
+        "description": "Darken the played progress fill itself, from 0% (original colour) to 80%. Applies to background and classic progress.",
+        "label": "Progress darkening (%)"
+      },
+      "progress_expand_width": {
+        "description": "Width of the seek slider in this state. Expanded width is at least the compact width. Set both equal for a fixed length.",
+        "label": "Expanded progress width (px)"
+      },
+      "progress_layout": {
+        "description": "Inline seekable bar or progress behind the media content. Click the background title/progress area to seek; artwork and buttons retain playback actions.",
+        "label": "Progress placement",
+        "options": {
+          "background": "Background",
+          "inline": "Inline"
+        }
+      },
+      "progress_style": {
+        "description": "Classic supports clicks. Classic with dragging keeps the same pill, uses expanded width, previews while dragging and seeks on release. Interactive uses the native slider appearance.",
+        "label": "Progress style",
+        "options": {
+          "classic": "Classic (original look)",
+          "classic_drag": "Classic with dragging",
+          "interactive": "Interactive seek slider"
+        }
+      },
+      "progress_thickness": {
+        "description": "Progress bar thickness, independent of cover size and width. Rounded ends stay circular.",
+        "label": "Progress thickness (px)"
+      },
+      "progress_width": {
+        "description": "Width of the seek slider in this state. Expanded width is at least the compact width. Set both equal for a fixed length.",
+        "label": "Compact progress width (px)"
+      },
+      "scroll_action": {
+        "description": "Skip tracks or seek through the current song with the mouse wheel.",
+        "label": "Scroll action",
+        "options": {
+          "seek": "Seek playback",
+          "tracks": "Previous / next track"
+        }
+      },
+      "scroll_seek_step": {
+        "description": "Seconds per wheel step. Scroll up goes forward; down goes back.",
+        "label": "Scroll seek seconds"
+      },
+      "show_controls": {
+        "description": "Show previous, play/pause and next buttons.",
+        "label": "Playback controls"
+      },
+      "show_cover_art": {
+        "description": "Replace the play/pause icon with the track's (rounded) cover art when available.",
+        "label": "Show cover art"
+      },
+      "show_progress_bar": {
+        "description": "Show a playback-position bar next to the icon. It's a rendered image (not text), so it never affects the widget's Font setting -- when cover art is on, the bar sits beside the art; when off, it replaces the play/pause glyph.",
+        "label": "Show progress bar"
+      },
+      "visualiser_color": {
+        "description": "Theme/custom audio-bar colour. In inverted mode this is the lighter background colour; progress mode uses Progress colour.",
+        "label": "Visualiser colour"
+      },
+      "visualiser_height": {
+        "description": "Maximum height of the centred audio bars.",
+        "label": "Visualiser height (px)"
+      },
+      "visualiser_mode": {
+        "description": "Background layout: overlay, show only on played progress, dark on progress/light on background, or use the audio bars as the progress fill. Inline visualisers keep the overlay style.",
+        "label": "Visualiser masking",
+        "options": {
+          "inverted": "Dark on progress / light on background",
+          "overlay": "Overlay everywhere",
+          "played_only": "Only on played progress",
+          "progress": "Visualiser is progress"
+        }
+      },
+      "visualiser_opacity": {
+        "description": "Opacity of the audio visualiser, independent of progress colour and darkening.",
+        "label": "Visualiser opacity (%)"
+      },
+      "visualiser_width": {
+        "description": "Width when progress is inline; background mode uses the media widget’s full width.",
+        "label": "Inline visualiser width (px)"
       }
     }
   },
   "sysmon_cpu": {
     "settings": {
       "gauge": {
-        "label": "Show gauge bar",
-        "description": "Compact display: gauge bar (on) or plain percentage (off)"
+        "description": "Compact display: gauge bar (on) or plain percentage (off)",
+        "label": "Show gauge bar"
       },
       "show_gpu": {
-        "label": "Show GPU usage",
-        "description": "Show GPU utilisation beside CPU usage using Noctalia system monitoring. A dash means the sensor is unavailable or still loading."
+        "description": "Show GPU utilisation beside CPU usage using Noctalia system monitoring. A dash means the sensor is unavailable or still loading.",
+        "label": "Show GPU usage"
+      }
+    }
+  },
+  "sysmon_net_down": {
+    "settings": {
+      "compact_units": {
+        "description": "34K/1.2M instead of 34KB/s/1.2MB/s while not hovering",
+        "label": "Compact units when not hovering"
+      },
+      "hide_completely": {
+        "description": "On: vanishes below the idle threshold. Off: icon stays, only the number hides",
+        "label": "Hide widget entirely when idle"
+      },
+      "threshold_kbps": {
+        "description": "Hide entirely below this; hovering always shows it. 1024 = 1 MB/s",
+        "label": "Idle threshold (KB/s)"
+      }
+    }
+  },
+  "sysmon_net_up": {
+    "settings": {
+      "compact_units": {
+        "description": "34K/1.2M instead of 34KB/s/1.2MB/s while not hovering",
+        "label": "Compact units when not hovering"
+      },
+      "hide_completely": {
+        "description": "On: vanishes below the idle threshold. Off: icon stays, only the number hides",
+        "label": "Hide widget entirely when idle"
+      },
+      "threshold_kbps": {
+        "description": "Hide entirely below this; hovering always shows it. 1024 = 1 MB/s",
+        "label": "Idle threshold (KB/s)"
       }
     }
   },
   "sysmon_ram": {
     "settings": {
-      "gauge": {
-        "label": "Show gauge bar",
-        "description": "Compact display: gauge bar (on) or plain percentage (off)"
-      },
       "amount_first": {
-        "label": "Show used amount by default",
-        "description": "On: shows used GB by default, revealing the percentage and total on hover. Off: shows the percentage by default, revealing used/total GB on hover."
+        "description": "On: shows used GB by default, revealing the percentage and total on hover. Off: shows the percentage by default, revealing used/total GB on hover.",
+        "label": "Show used amount by default"
+      },
+      "gauge": {
+        "description": "Compact display: gauge bar (on) or plain percentage (off)",
+        "label": "Show gauge bar"
       }
     }
   },
@@ -101,231 +245,86 @@
       "show_gpu": {
         "label": "Show GPU temp on hover"
       },
+      "show_hottest_core": {
+        "label": "Show hottest CPU core on hover"
+      },
       "show_nvme": {
         "label": "Show hottest NVMe temp on hover"
       },
       "show_ram": {
         "label": "Show RAM (DIMM) temp on hover"
-      },
-      "show_hottest_core": {
-        "label": "Show hottest CPU core on hover"
       }
     }
   },
-  "sysmon_net_down": {
+  "volume_hover": {
     "settings": {
-      "threshold_kbps": {
-        "label": "Idle threshold (KB/s)",
-        "description": "Hide entirely below this; hovering always shows it. 1024 = 1 MB/s"
-      },
-      "compact_units": {
-        "label": "Compact units when not hovering",
-        "description": "34K/1.2M instead of 34KB/s/1.2MB/s while not hovering"
-      },
-      "hide_completely": {
-        "label": "Hide widget entirely when idle",
-        "description": "On: vanishes below the idle threshold. Off: icon stays, only the number hides"
-      }
-    }
-  },
-  "sysmon_net_up": {
-    "settings": {
-      "threshold_kbps": {
-        "label": "Idle threshold (KB/s)",
-        "description": "Hide entirely below this; hovering always shows it. 1024 = 1 MB/s"
-      },
-      "compact_units": {
-        "label": "Compact units when not hovering",
-        "description": "34K/1.2M instead of 34KB/s/1.2MB/s while not hovering"
-      },
-      "hide_completely": {
-        "label": "Hide widget entirely when idle",
-        "description": "On: vanishes below the idle threshold. Off: icon stays, only the number hides"
-      }
-    }
-  },
-  "media_mini": {
-    "settings": {
-      "show_cover_art": {
-        "label": "Show cover art",
-        "description": "Replace the play/pause icon with the track's (rounded) cover art when available."
-      },
-      "show_progress_bar": {
-        "label": "Show progress bar",
-        "description": "Show a playback-position bar next to the icon. It's a rendered image (not text), so it never affects the widget's Font setting -- when cover art is on, the bar sits beside the art; when off, it replaces the play/pause glyph."
-      },
-      "compact_width": {
-        "label": "Compact width (characters)",
-        "description": "Text width when not hovering. The text only actually shrinks to this if it's longer -- a short title just stays put."
-      },
-      "expand_width": {
-        "label": "Expanded width (characters)",
-        "description": "Maximum title characters on hover. Shorter titles use only the space they need; longer titles cycle within the limit."
-      },
-      "cover_size": {
-        "label": "Cover art size (px)",
-        "description": "Size of the cover art icon in place of the play/pause glyph."
-      },
-      "corner_rounding": {
-        "label": "Cover art rounding (%)",
-        "description": "0 = square corners, 100 = fully circular."
-      },
-      "progress_width": {
-        "label": "Compact progress width (px)",
-        "description": "Width of the seek slider in this state. Expanded width is at least the compact width. Set both equal for a fixed length."
-      },
-      "progress_expand_width": {
-        "label": "Expanded progress width (px)",
-        "description": "Width of the seek slider in this state. Expanded width is at least the compact width. Set both equal for a fixed length."
-      },
-      "progress_style": {
-        "label": "Progress style",
-        "description": "Classic supports clicks. Classic with dragging keeps the same pill, uses expanded width, previews while dragging and seeks on release. Interactive uses the native slider appearance.",
+      "bar_color": {
+        "description": "Theme colour role used for the classic filled track and circular knob.",
+        "label": "Bar colour",
         "options": {
-          "classic": "Classic (original look)",
-          "interactive": "Interactive seek slider",
-          "classic_drag": "Classic with dragging"
+          "error": "Error",
+          "hover": "Hover",
+          "onsurface": "On-surface (text)",
+          "primary": "Primary (accent)",
+          "secondary": "Secondary",
+          "tertiary": "Tertiary"
         }
       },
-      "progress_thickness": {
-        "label": "Progress thickness (px)",
-        "description": "Progress bar thickness, independent of cover size and width. Rounded ends stay circular."
+      "drag_enabled": {
+        "description": "Drag the classic volume track. It folds when idle and stays open during an active drag.",
+        "label": "Enable dragging"
+      },
+      "icon_click": {
+        "description": "Click the speaker to toggle mute, or open Audio. Click the expanded track to set volume. Percentage/padding and right-click open Audio.",
+        "label": "Speaker click",
+        "options": {
+          "mute": "Toggle mute",
+          "panel": "Open Audio panel"
+        }
+      },
+      "invert_scroll": {
+        "description": "By default scroll up raises the volume. Turn this on if it feels backwards.",
+        "label": "Invert scroll direction"
+      },
+      "knob_color": {
+        "description": "Independent knob colour. On-primary matches the knob used by native Settings sliders.",
+        "label": "Handle colour",
+        "options": {
+          "error": "Error",
+          "on_primary": "On-primary (native slider)",
+          "on_surface": "On-surface",
+          "primary": "Primary (same as bar)",
+          "secondary": "Secondary",
+          "tertiary": "Tertiary"
+        }
       },
       "point_style": {
+        "description": "Rounded or flat moving progress edge. Flat also uses a slim rectangular volume handle.",
         "label": "Point style",
-        "description": "Rounded or flat moving progress edge. Applies to classic and background progress; the native slider keeps its own style.",
         "options": {
-          "rounded": "Rounded",
-          "flat": "Flat"
+          "flat": "Flat",
+          "rounded": "Rounded"
         }
       },
-      "show_controls": {
-        "label": "Playback controls",
-        "description": "Show previous, play/pause and next buttons."
+      "scroll_step": {
+        "description": "How much one scroll notch changes the volume.",
+        "label": "Scroll step (%)"
       },
-      "progress_layout": {
-        "label": "Progress placement",
-        "description": "Inline seekable bar or progress behind the media content. Click the background title/progress area to seek; artwork and buttons retain playback actions.",
-        "options": {
-          "inline": "Inline",
-          "background": "Background"
-        }
+      "show_knob": {
+        "description": "Show the circle or flat handle at the current volume. Turn off for a plain bar.",
+        "label": "Show handle"
       },
-      "background_width": {
-        "label": "Background width",
-        "description": "Compact background pill width, in pixels; it grows to Expanded background width on hover."
+      "show_percent": {
+        "description": "Show volume percentage or muted. Click this label to open Audio.",
+        "label": "Show percentage"
       },
-      "background_height": {
-        "label": "Background thickness",
-        "description": "Thickness of the background progress pill, in pixels."
+      "slider_thickness": {
+        "description": "Track thickness, independent of its width. The circular knob is 1.5 times this size.",
+        "label": "Slider thickness (px)"
       },
-      "controls_on_hover": {
-        "label": "Controls only on hover",
-        "description": "When Playback controls is enabled, animate those buttons in and out on hover."
-      },
-      "background_expand_width": {
-        "label": "Expanded background width",
-        "description": "Maximum hovered background width. Expansion stops earlier when the whole title fits; longer titles cycle within this limit."
-      },
-      "bar_color": {
-        "label": "Progress colour",
-        "description": "Pick a theme colour or a custom colour for classic progress.",
-        "options": {
-          "on_surface": "Text colour",
-          "primary": "Primary",
-          "secondary": "Secondary",
-          "tertiary": "Tertiary",
-          "error": "Error"
-        }
-      },
-      "scroll_action": {
-        "label": "Scroll action",
-        "description": "Skip tracks or seek through the current song with the mouse wheel.",
-        "options": {
-          "tracks": "Previous / next track",
-          "seek": "Seek playback"
-        }
-      },
-      "scroll_seek_step": {
-        "label": "Scroll seek seconds",
-        "description": "Seconds per wheel step. Scroll up goes forward; down goes back."
-      },
-      "background_seek_strip": {
-        "label": "Right-click controls to seek",
-        "description": "Right-click a playback button to seek at its position on the background progress. Left-click operates the button; right-click elsewhere opens Media controls."
-      },
-      "background_progress_color": {
-        "label": "Progress colour",
-        "description": "Pick a theme colour or a custom colour for the background progress fill.",
-        "options": {
-          "on_surface": "Text colour",
-          "primary": "Primary",
-          "secondary": "Secondary",
-          "tertiary": "Tertiary",
-          "error": "Error"
-        }
-      },
-      "background_darkening": {
-        "label": "Background darkening (%)",
-        "description": "Darken the unplayed background around the progress. Zero matches the widget background; the progress colour stays at full strength."
-      },
-      "progress_darkening": {
-        "label": "Progress darkening (%)",
-        "description": "Darken the played progress fill itself, from 0% (original colour) to 80%. Applies to background and classic progress."
-      },
-      "audio_spectrum": {
-        "label": "Audio visualiser",
-        "description": "Show live audio bars behind background progress, or beside the controls for inline progress. Uses the shell\u2019s shared audio spectrum; rests when paused or silent."
-      },
-      "visualiser_color": {
-        "label": "Visualiser colour",
-        "description": "Theme/custom audio-bar colour. In inverted mode this is the lighter background colour; progress mode uses Progress colour."
-      },
-      "visualiser_opacity": {
-        "label": "Visualiser opacity (%)",
-        "description": "Opacity of the audio visualiser, independent of progress colour and darkening."
-      },
-      "visualiser_height": {
-        "label": "Visualiser height (px)",
-        "description": "Maximum height of the centred audio bars."
-      },
-      "visualiser_width": {
-        "label": "Inline visualiser width (px)",
-        "description": "Width when progress is inline; background mode uses the media widget\u2019s full width."
-      },
-      "audio_spectrum_bands": {
-        "label": "Visualiser bands",
-        "description": "Number of live frequency bands, from 8 to 128. Bars and gaps adapt to fit the widget."
-      },
-      "visualiser_mode": {
-        "label": "Visualiser masking",
-        "description": "Background layout: overlay, show only on played progress, dark on progress/light on background, or use the audio bars as the progress fill. Inline visualisers keep the overlay style.",
-        "options": {
-          "overlay": "Overlay everywhere",
-          "played_only": "Only on played progress",
-          "inverted": "Dark on progress / light on background",
-          "progress": "Visualiser is progress"
-        }
-      }
-    }
-  },
-  "active_window_hover": {
-    "settings": {
-      "compact_width": {
-        "label": "Compact width (characters)",
-        "description": "Text width when not hovering. The title only actually shrinks to this if it's longer -- a short title just stays put."
-      },
-      "expand_width": {
-        "label": "Expanded width (characters)",
-        "description": "Text width while hovering. If the title is still longer than this, it scrolls as a marquee instead of growing further."
-      },
-      "icon_size": {
-        "label": "Icon size (px)",
-        "description": "Per-app icon size when compact (not hovering). Only affects the real app icon -- the generic fallback glyph (shown when no icon can be resolved) is a fixed size, since the plugin API doesn't expose glyph sizing."
-      },
-      "icon_size_hover": {
-        "label": "Icon size on hover (px)",
-        "description": "Per-app icon size while hovering; animates between this and the compact size along with the text width."
+      "slider_width": {
+        "description": "Expanded track width in pixels, independent of thickness and speaker size.",
+        "label": "Slider width (px)"
       }
     }
   }

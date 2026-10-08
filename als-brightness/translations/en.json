@@ -1,140 +1,140 @@
 {
   "settings": {
-    "enabled": {
-      "label": "Enable",
-      "description": "Off: the panel is left alone."
-    },
-    "connector": {
-      "label": "Output",
-      "description": "Empty: auto-detect at start. Restart the plugin after changing."
-    },
     "backlight": {
-      "label": "Backlight device",
-      "description": "Empty: auto-detect at start. Restart the plugin after changing."
-    },
-    "learning_profile": {
-      "label": "Use learned thresholds",
-      "description": "On: apply thresholds learned from your changes. Off: use the sliders as set. Recording is always on."
-    },
-    "keyboard_backlight": {
-      "label": "Keyboard backlight",
-      "description": "On: the keyboard backlight follows the ambient light, on in the dark and off in the light. Off: left alone."
-    },
-    "kbd_anchor_percent": {
-      "label": "Keyboard threshold anchor",
-      "description": "The panel percent whose ambient crossing defines the keyboard threshold. It tracks the curve you tuned."
-    },
-    "kbd_buffer_percent": {
-      "label": "Keyboard hysteresis width",
-      "description": "Hysteresis half-width as a fraction of the threshold: how far ambient must travel before the keyboard changes state again."
-    },
-    "kbd_dark_percent": {
-      "label": "Keyboard dark level",
-      "description": "The level the keyboard runs at in the dark. Zero means automatic: the lowest level that is not off."
-    },
-    "show_advanced": {
-      "label": "Advanced maps",
-      "description": "Show the raw curve map editors."
-    },
-    "curve_brightness": {
-      "label": "Brightness map (advanced)",
-      "description": "Override: node per row, \"reading:target\" or \"target\". Edit a row and this map replaces the sliders; defaults match them."
-    },
-    "curve_temperature": {
-      "label": "Temperature map (advanced)",
-      "description": "Same shape. Panel kelvin, lower is warmer. Only used with adaptive colour temperature."
-    },
-    "thr_brightness_01": {
-      "label": "Node 1",
-      "description": "sensor lightness counts mapped -> 20.8%"
-    },
-    "thr_brightness_02": {
-      "label": "Node 2",
-      "description": "sensor lightness counts mapped -> 30.7%"
-    },
-    "thr_brightness_03": {
-      "label": "Node 3",
-      "description": "sensor lightness counts mapped -> 39.3%"
-    },
-    "thr_brightness_04": {
-      "label": "Node 4",
-      "description": "sensor lightness counts mapped -> 50.6%"
-    },
-    "thr_brightness_05": {
-      "label": "Node 5",
-      "description": "sensor lightness counts mapped -> 63.4%"
-    },
-    "thr_brightness_06": {
-      "label": "Node 6",
-      "description": "sensor lightness counts mapped -> 70%"
-    },
-    "thr_brightness_07": {
-      "label": "Node 7",
-      "description": "sensor lightness counts mapped -> 78.3%"
-    },
-    "thr_brightness_08": {
-      "label": "Node 8",
-      "description": "sensor lightness counts mapped -> 88.3%"
-    },
-    "thr_brightness_09": {
-      "label": "Node 9",
-      "description": "sensor lightness counts mapped -> 96.8%"
-    },
-    "thr_brightness_10": {
-      "label": "Node 10",
-      "description": "sensor lightness counts mapped -> 100%"
-    },
-    "thr_temperature_01": {
-      "label": "Temp node 1",
-      "description": "sensor ambient temp mapped -> 5100K"
-    },
-    "thr_temperature_02": {
-      "label": "Temp node 2",
-      "description": "sensor ambient temp mapped -> 5240K"
-    },
-    "thr_temperature_03": {
-      "label": "Temp node 3",
-      "description": "sensor ambient temp mapped -> 5380K"
-    },
-    "thr_temperature_04": {
-      "label": "Temp node 4",
-      "description": "sensor ambient temp mapped -> 5520K"
-    },
-    "thr_temperature_05": {
-      "label": "Temp node 5",
-      "description": "sensor ambient temp mapped -> 5660K"
-    },
-    "thr_temperature_06": {
-      "label": "Temp node 6",
-      "description": "sensor ambient temp mapped -> 5800K"
-    },
-    "thr_temperature_07": {
-      "label": "Temp node 7",
-      "description": "sensor ambient temp mapped -> 5940K"
-    },
-    "thr_temperature_08": {
-      "label": "Temp node 8",
-      "description": "sensor ambient temp mapped -> 6080K"
-    },
-    "thr_temperature_09": {
-      "label": "Temp node 9",
-      "description": "sensor ambient temp mapped -> 6220K"
-    },
-    "thr_temperature_10": {
-      "label": "Temp node 10",
-      "description": "sensor ambient temp mapped -> 6500K"
-    },
-    "min_percent": {
-      "label": "Minimum brightness (%)",
-      "description": "Hard floor."
-    },
-    "max_percent": {
-      "label": "Maximum brightness (%)",
-      "description": "Hard ceiling."
+      "description": "Empty: auto-detect at start. Restart the plugin after changing.",
+      "label": "Backlight device"
     },
     "colortemp": {
-      "label": "Adaptive colour temperature",
-      "description": "Warm the panel toward ambient. WARNING: forces night light on and rewrites temperature_night."
+      "description": "Warm the panel toward ambient. WARNING: forces night light on and rewrites temperature_night.",
+      "label": "Adaptive colour temperature"
+    },
+    "connector": {
+      "description": "Empty: auto-detect at start. Restart the plugin after changing.",
+      "label": "Output"
+    },
+    "curve_brightness": {
+      "description": "Override: node per row, \"reading:target\" or \"target\". Edit a row and this map replaces the sliders; defaults match them.",
+      "label": "Brightness map (advanced)"
+    },
+    "curve_temperature": {
+      "description": "Same shape. Panel kelvin, lower is warmer. Only used with adaptive colour temperature.",
+      "label": "Temperature map (advanced)"
+    },
+    "enabled": {
+      "description": "Off: the panel is left alone.",
+      "label": "Enable"
+    },
+    "kbd_anchor_percent": {
+      "description": "The panel percent whose ambient crossing defines the keyboard threshold. It tracks the curve you tuned.",
+      "label": "Keyboard threshold anchor"
+    },
+    "kbd_buffer_percent": {
+      "description": "Hysteresis half-width as a fraction of the threshold: how far ambient must travel before the keyboard changes state again.",
+      "label": "Keyboard hysteresis width"
+    },
+    "kbd_dark_percent": {
+      "description": "The level the keyboard runs at in the dark. Zero means automatic: the lowest level that is not off.",
+      "label": "Keyboard dark level"
+    },
+    "keyboard_backlight": {
+      "description": "On: the keyboard backlight follows the ambient light, on in the dark and off in the light. Off: left alone.",
+      "label": "Keyboard backlight"
+    },
+    "learning_profile": {
+      "description": "On: apply thresholds learned from your changes. Off: use the sliders as set. Recording is always on.",
+      "label": "Use learned thresholds"
+    },
+    "max_percent": {
+      "description": "Hard ceiling.",
+      "label": "Maximum brightness (%)"
+    },
+    "min_percent": {
+      "description": "Hard floor.",
+      "label": "Minimum brightness (%)"
+    },
+    "show_advanced": {
+      "description": "Show the raw curve map editors.",
+      "label": "Advanced maps"
+    },
+    "thr_brightness_01": {
+      "description": "sensor lightness counts mapped -> 20.8%",
+      "label": "Node 1"
+    },
+    "thr_brightness_02": {
+      "description": "sensor lightness counts mapped -> 30.7%",
+      "label": "Node 2"
+    },
+    "thr_brightness_03": {
+      "description": "sensor lightness counts mapped -> 39.3%",
+      "label": "Node 3"
+    },
+    "thr_brightness_04": {
+      "description": "sensor lightness counts mapped -> 50.6%",
+      "label": "Node 4"
+    },
+    "thr_brightness_05": {
+      "description": "sensor lightness counts mapped -> 63.4%",
+      "label": "Node 5"
+    },
+    "thr_brightness_06": {
+      "description": "sensor lightness counts mapped -> 70%",
+      "label": "Node 6"
+    },
+    "thr_brightness_07": {
+      "description": "sensor lightness counts mapped -> 78.3%",
+      "label": "Node 7"
+    },
+    "thr_brightness_08": {
+      "description": "sensor lightness counts mapped -> 88.3%",
+      "label": "Node 8"
+    },
+    "thr_brightness_09": {
+      "description": "sensor lightness counts mapped -> 96.8%",
+      "label": "Node 9"
+    },
+    "thr_brightness_10": {
+      "description": "sensor lightness counts mapped -> 100%",
+      "label": "Node 10"
+    },
+    "thr_temperature_01": {
+      "description": "sensor ambient temp mapped -> 5100K",
+      "label": "Temp node 1"
+    },
+    "thr_temperature_02": {
+      "description": "sensor ambient temp mapped -> 5240K",
+      "label": "Temp node 2"
+    },
+    "thr_temperature_03": {
+      "description": "sensor ambient temp mapped -> 5380K",
+      "label": "Temp node 3"
+    },
+    "thr_temperature_04": {
+      "description": "sensor ambient temp mapped -> 5520K",
+      "label": "Temp node 4"
+    },
+    "thr_temperature_05": {
+      "description": "sensor ambient temp mapped -> 5660K",
+      "label": "Temp node 5"
+    },
+    "thr_temperature_06": {
+      "description": "sensor ambient temp mapped -> 5800K",
+      "label": "Temp node 6"
+    },
+    "thr_temperature_07": {
+      "description": "sensor ambient temp mapped -> 5940K",
+      "label": "Temp node 7"
+    },
+    "thr_temperature_08": {
+      "description": "sensor ambient temp mapped -> 6080K",
+      "label": "Temp node 8"
+    },
+    "thr_temperature_09": {
+      "description": "sensor ambient temp mapped -> 6220K",
+      "label": "Temp node 9"
+    },
+    "thr_temperature_10": {
+      "description": "sensor ambient temp mapped -> 6500K",
+      "label": "Temp node 10"
     }
   }
 }
