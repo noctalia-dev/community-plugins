@@ -1,6 +1,6 @@
 id = "notfinaldev/web-search"
 name = "Web Search"
-version = "1.4.0"
+version = "1.4.1"
 plugin_api = 18
 author = "notfinaldev"
 license = "MIT"
@@ -30,6 +30,7 @@ options = [
     { value = "bing", label_key = "settings.provider.options.bing" },
     { value = "brave", label_key = "settings.provider.options.brave" },
     { value = "mojeek", label_key = "settings.provider.options.mojeek" },
+    { value = "kagi", label_key = "settings.provider.options.kagi" },
 ]
 
 [[setting]]
