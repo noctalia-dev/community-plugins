@@ -2,6 +2,7 @@
   "error": {
     "failed_initial_query": "Failed to query initial key lock state.",
     "invalid_input_device": "The configured input device is invalid or does not exist.",
+    "required_command_missing": "One or more required commands are missing.",
     "stream_failed": "Could not start the keyboard event stream."
   },
   "settings": {

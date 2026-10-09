@@ -1,12 +1,11 @@
 --!nonstrict
 
 -- ============================================================
--- Global variables
+-- State and configuration
 -- ============================================================
 
--- Service state
+-- Required commands
 local hasCommands = noctalia.commandExists("evsieve") and noctalia.commandExists("evtest")
-local isStreaming = false
 
 -- Published state
 local hasError = false
@@ -14,19 +13,18 @@ local capsLocked = false
 local numLocked = false
 local scrollLocked = false
 
--- Settings
+-- Service state and configuration
+local isStreaming = false
 local inputDevice = noctalia.getConfig("input_device")
 
--- ============================================================
--- Constants
--- ============================================================
-
+-- LED identifiers used by evtest
 local evtest = {
   caps = "LED_CAPSL",
   num = "LED_NUML",
   scroll = "LED_SCROLLL",
 }
 
+-- LED identifiers used by evsieve
 local evsieve = {
   caps = "led:capsl",
   num = "led:numl",
@@ -78,6 +76,7 @@ local function queryLedState(key, callback)
     callback(nil)
   end
 end
+
 
 local function getInitialState()
   local keys = { evtest.caps, evtest.num, evtest.scroll }
@@ -157,7 +156,6 @@ local function isValidInputDevice()
   return noctalia.fileExists(inputDevice)
 end
 
-
 -- ============================================================
 -- Keyboard event stream
 -- ============================================================
@@ -191,15 +189,7 @@ local function onLine(line)
 end
 
 local function subscribe()
-  if not hasCommands or isStreaming then
-    return
-  end
-
-  if not isValidInputDevice() then
-    fail(noctalia.tr("error.invalid_input_device"))
-    return
-  end
-
+  -- Only monitor these leds
   local leds = table.concat({
     evsieve.num,
     evsieve.caps,
@@ -219,6 +209,16 @@ end
 -- ============================================================
 -- Start service
 -- ============================================================
+
+if not hasCommands then
+  fail(noctalia.tr("error.required_command_missing"))
+  return
+end
+
+if not isValidInputDevice() then
+  fail(noctalia.tr("error.invalid_input_device"))
+  return
+end
 
 subscribe()
 
