@@ -1,12 +1,13 @@
 id           = "vinioli/currency-exchange"
 name         = "Currency Exchange"
 version      = "1.0.0"
-plugin_api   = 24
+plugin_api   = 9
 author       = "vinioli"
 license      = "MIT"
 icon         = "currency-dollar"
 description  = "Live exchange rates on the bar, plus a converter panel and a /fx launcher provider."
 tags         = ["bar", "launcher", "panel", "utility"]
+dependencies = []
 
 [[setting]]
 key             = "source_currency"

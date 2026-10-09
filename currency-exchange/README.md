@@ -12,7 +12,7 @@ query syntax.
 | Field | Value |
 | --- | --- |
 | ID | `vinioli/currency-exchange` |
-| Entries | Bar widget: `vinioli/currency-exchange:rate`; panel: `vinioli/currency-exchange:converter`; service: `vinioli/currency-exchange:rates` |
+| Entries | Bar widget: `rate`; panel: `converter`; launcher provider: `fx`; service: `rates` |
 | Launcher Prefix | `/fx` |
 
 ## Usage

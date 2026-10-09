@@ -1,12 +1,22 @@
 {
-  "settings.source.label": "Source currency",
-  "settings.source.description": "Three-letter code, e.g. USD",
-  "settings.target.label": "Target currency",
-  "settings.target.description": "Three-letter code, e.g. BRL",
-  "settings.refresh.label": "Refresh (minutes)",
-  "settings.refresh.description": "How often rates are fetched",
-  "settings.display.label": "Bar display",
-  "settings.display.icon": "Icon only",
-  "settings.display.compact": "Rate only",
-  "settings.display.full": "Pair and rate"
+  "settings": {
+    "source": {
+      "label": "Source currency",
+      "description": "Three-letter code, e.g. USD"
+    },
+    "target": {
+      "label": "Target currency",
+      "description": "Three-letter code, e.g. BRL"
+    },
+    "refresh": {
+      "label": "Refresh (minutes)",
+      "description": "How often rates are fetched"
+    },
+    "display": {
+      "label": "Bar display",
+      "icon": "Icon only",
+      "compact": "Rate only",
+      "full": "Pair and rate"
+    }
+  }
 }
