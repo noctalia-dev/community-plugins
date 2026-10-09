@@ -1,8 +1,9 @@
 # Currency Exchange
 
 Shows a live exchange rate on the bar, with a small converter panel and a `/fx` launcher provider for quick
-conversions. Rates come from the free AwesomeAPI market feed, so they track real-time market prices instead of
-once-a-day reference rates.
+conversions. Rates are merged from two free feeds: open.er-api.com covers about 160 currencies with daily reference rates,
+and the AwesomeAPI market feed overrides it with real-time bids for the currencies it lists (including BRL, USD,
+EUR, GBP, JPY, CAD, AUD, CHF, CNY and ILS). If one feed is down, the other still works.
 
 Rewritten for Noctalia v5 from the v4 `currency-exchange` plugin by balor. It keeps that plugin's design and the `/fx`
 query syntax.
@@ -48,9 +49,9 @@ Configured under **Settings → Plugins**, on the gear of this plugin.
 
 ## Notes
 
-- **Network:** one HTTPS GET to `https://economia.awesomeapi.com.br/json/all` on startup and then every
-  `refresh_minutes`. Nothing is sent besides the request itself.
+- **Network:** one HTTPS GET each to `https://open.er-api.com/v6/latest/USD` and
+  `https://economia.awesomeapi.com.br/json/all` on startup and then every `refresh_minutes`. Nothing is sent besides the request itself.
 - **Processes:** the bar widget runs no processes. The panel and launcher copy results with `noctalia.copyToClipboard`.
 - **Files:** none are written.
 - Rates are indicative market bids, not an official or tradable quote. The converter supports the 30 currencies listed
-  in the panel; `/fx` accepts any code the feed returns.
+  in the panel, all of which have a rate; `/fx` accepts any code either feed returns.
