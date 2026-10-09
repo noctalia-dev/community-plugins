@@ -87,6 +87,10 @@
       "description": "How often Mini Docker refreshes Docker state, in seconds.",
       "label": "Refresh interval"
     },
+    "respect_socket_activation": {
+      "description": "Only poll Docker when the daemon or service is actively running.",
+      "label": "Respect socket activation"
+    },
     "show_count": {
       "description": "Show the number of running containers beside the Docker icon.",
       "label": "Show running count"

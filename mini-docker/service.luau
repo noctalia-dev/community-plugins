@@ -50,6 +50,18 @@ local function runDocker(args, callback, timeoutMs)
   return noctalia.runAsync(shellCommand(command), callback, timeoutMs or 30000)
 end
 
+local CHECK_DAEMON_CMD = "systemctl is-active --quiet docker.service 2>/dev/null || pgrep -x dockerd >/dev/null 2>&1 || pidof dockerd >/dev/null 2>&1 || systemctl --user is-active --quiet docker.service 2>/dev/null"
+
+local function checkDaemonActive(callback)
+  local started = noctalia.runAsync(CHECK_DAEMON_CMD, function(result)
+    local active = result ~= nil and result.exitCode == 0
+    callback(active)
+  end, 3000)
+  if not started then
+    callback(false)
+  end
+end
+
 -- Noctalia aborts a luau callback that exceeds its CPU budget (~40-70 decoded
 -- rows), so rows are decoded a small batch per update() tick, never all in the
 -- callback that received the output.
@@ -204,132 +216,162 @@ refreshAll = function(withDetails)
     return
   end
 
-  snapshot.loading = true
-  publishSnapshot()
-
-  local containers = {}
-  local details = {}
-
-  local function recordResult(kind, result)
-    signatureParts[kind] = table.concat({
-      tostring(result and result.exitCode or -1),
-      tostring(result and result.stdout or ""),
-      tostring(result and result.stderr or ""),
-    }, "\0")
-  end
-
-  local function finish(containerResult)
-    if generation ~= refreshGeneration then
-      return
-    end
-    if containerResult == nil or containerResult.exitCode ~= 0 then
-      snapshot.available = false
-      snapshot.error = trim(containerResult and containerResult.stderr)
-      if snapshot.error == "" then
-        snapshot.error = noctalia.tr("result.docker_unreachable")
-      end
-      snapshot.containers = {}
-      snapshot.images = {}
-      snapshot.volumes = {}
-      snapshot.networks = {}
-      snapshot.runningCount = 0
-      detailsStale = detailsStale or detailsLoaded
-      detailsLoaded = false
-    else
-      local runningCount = 0
-      for _, container in ipairs(containers) do
-        if container.state == "running" then
-          runningCount += 1
-        end
-      end
-      if withDetails then
-        local images = details.images or {}
-        markRunningImages(images, containers)
-        snapshot.images = images
-        snapshot.volumes = details.volumes or {}
-        snapshot.networks = details.networks or {}
-        detailsLoaded = true
-        detailsStale = false
-      end
-      snapshot.available = true
-      snapshot.error = ""
-      snapshot.containers = containers
-      snapshot.runningCount = runningCount
-      snapshot.updatedAt = os.time()
-    end
-
-    snapshot.loading = false
-    refreshPending = false
-    updateRevision(table.concat({
-      signatureParts.containers or "",
-      signatureParts.images or "",
-      signatureParts.volumes or "",
-      signatureParts.networks or "",
-    }, "\1"))
+  local function doRefresh()
+    snapshot.loading = true
     publishSnapshot()
-    if refreshAgain then
-      refreshAll(refreshAgainDetails)
+
+    local containers = {}
+    local details = {}
+
+    local function recordResult(kind, result)
+      signatureParts[kind] = table.concat({
+        tostring(result and result.exitCode or -1),
+        tostring(result and result.stdout or ""),
+        tostring(result and result.stderr or ""),
+      }, "\0")
     end
-  end
 
-  local function launch(kind, args, callback)
-    local started = runDocker(args, function(result)
-      if generation ~= refreshGeneration then return end
-      recordResult(kind, result)
-      callback(result)
-    end)
-    if not started then
-      local result = { exitCode = -1, stdout = "", stderr = "could not start Docker", timedOut = false }
-      recordResult(kind, result)
-      callback(result)
-    end
-  end
-
-  local function decode(output, mapper, callback)
-    decodeLines(output, mapper, function(rows)
-      if generation ~= refreshGeneration then return end
-      callback(rows)
-    end)
-  end
-
-  local detailSteps = {
-    { kind = "images", args = { "images", "--format", "{{json .}}" }, mapper = mapImage },
-    { kind = "volumes", args = { "volume", "ls", "--format", "{{json .}}" }, mapper = mapVolume },
-    { kind = "networks", args = { "network", "ls", "--format", "{{json .}}" }, mapper = mapNetwork },
-  }
-
-  local function runDetailStep(containerResult, index)
-    local step = detailSteps[index]
-    if step == nil then
-      finish(containerResult)
-      return
-    end
-    launch(step.kind, step.args, function(result)
-      if result.exitCode ~= 0 then
-        runDetailStep(containerResult, index + 1)
+    local function finish(containerResult)
+      if generation ~= refreshGeneration then
         return
       end
-      decode(result.stdout, step.mapper, function(rows)
-        details[step.kind] = rows
-        runDetailStep(containerResult, index + 1)
+      if containerResult == nil or containerResult.exitCode ~= 0 then
+        snapshot.available = false
+        snapshot.error = trim(containerResult and containerResult.stderr)
+        if snapshot.error == "" then
+          snapshot.error = noctalia.tr("result.docker_unreachable")
+        end
+        snapshot.containers = {}
+        snapshot.images = {}
+        snapshot.volumes = {}
+        snapshot.networks = {}
+        snapshot.runningCount = 0
+        detailsStale = detailsStale or detailsLoaded
+        detailsLoaded = false
+      else
+        local runningCount = 0
+        for _, container in ipairs(containers) do
+          if container.state == "running" then
+            runningCount += 1
+          end
+        end
+        if withDetails then
+          local images = details.images or {}
+          markRunningImages(images, containers)
+          snapshot.images = images
+          snapshot.volumes = details.volumes or {}
+          snapshot.networks = details.networks or {}
+          detailsLoaded = true
+          detailsStale = false
+        end
+        snapshot.available = true
+        snapshot.error = ""
+        snapshot.containers = containers
+        snapshot.runningCount = runningCount
+        snapshot.updatedAt = os.time()
+      end
+
+      snapshot.loading = false
+      refreshPending = false
+      updateRevision(table.concat({
+        signatureParts.containers or "",
+        signatureParts.images or "",
+        signatureParts.volumes or "",
+        signatureParts.networks or "",
+      }, "\1"))
+      publishSnapshot()
+      if refreshAgain then
+        refreshAll(refreshAgainDetails)
+      end
+    end
+
+    local function launch(kind, args, callback)
+      local started = runDocker(args, function(result)
+        if generation ~= refreshGeneration then return end
+        recordResult(kind, result)
+        callback(result)
+      end)
+      if not started then
+        local result = { exitCode = -1, stdout = "", stderr = "could not start Docker", timedOut = false }
+        recordResult(kind, result)
+        callback(result)
+      end
+    end
+
+    local function decode(output, mapper, callback)
+      decodeLines(output, mapper, function(rows)
+        if generation ~= refreshGeneration then return end
+        callback(rows)
+      end)
+    end
+
+    local detailSteps = {
+      { kind = "images", args = { "images", "--format", "{{json .}}" }, mapper = mapImage },
+      { kind = "volumes", args = { "volume", "ls", "--format", "{{json .}}" }, mapper = mapVolume },
+      { kind = "networks", args = { "network", "ls", "--format", "{{json .}}" }, mapper = mapNetwork },
+    }
+
+    local function runDetailStep(containerResult, index)
+      local step = detailSteps[index]
+      if step == nil then
+        finish(containerResult)
+        return
+      end
+      launch(step.kind, step.args, function(result)
+        if result.exitCode ~= 0 then
+          runDetailStep(containerResult, index + 1)
+          return
+        end
+        decode(result.stdout, step.mapper, function(rows)
+          details[step.kind] = rows
+          runDetailStep(containerResult, index + 1)
+        end)
+      end)
+    end
+
+    launch("containers", { "ps", "-a", "--format", "{{json .}}" }, function(containerResult)
+      if containerResult.exitCode ~= 0 then
+        finish(containerResult)
+        return
+      end
+      decode(containerResult.stdout, mapContainer, function(rows)
+        containers = rows
+        if withDetails then
+          runDetailStep(containerResult, 1)
+        else
+          finish(containerResult)
+        end
       end)
     end)
   end
 
-  launch("containers", { "ps", "-a", "--format", "{{json .}}" }, function(containerResult)
-    if containerResult.exitCode ~= 0 then
-      finish(containerResult)
-      return
-    end
-    decode(containerResult.stdout, mapContainer, function(rows)
-      containers = rows
-      if withDetails then
-        runDetailStep(containerResult, 1)
-      else
-        finish(containerResult)
+  if noctalia.getConfig("respect_socket_activation") == true then
+    checkDaemonActive(function(active)
+      if generation ~= refreshGeneration then return end
+      if not active then
+        snapshot.available = false
+        snapshot.loading = false
+        snapshot.error = noctalia.tr("result.docker_unreachable")
+        snapshot.containers = {}
+        snapshot.images = {}
+        snapshot.volumes = {}
+        snapshot.networks = {}
+        snapshot.runningCount = 0
+        detailsStale = detailsStale or detailsLoaded
+        detailsLoaded = false
+        refreshPending = false
+        updateRevision("daemon-inactive")
+        publishSnapshot()
+        if refreshAgain then
+          refreshAll(refreshAgainDetails)
+        end
+        return
       end
+      doRefresh()
     end)
-  end)
+  else
+    doRefresh()
+  end
 end
 
 local function actionResult(command, ok, message, extra)
