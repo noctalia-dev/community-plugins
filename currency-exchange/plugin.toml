@@ -1,0 +1,64 @@
+id           = "vinioli/currency-exchange"
+name         = "Currency Exchange"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "vinioli"
+license      = "MIT"
+icon         = "currency-dollar"
+description  = "Live exchange rates on the bar, plus a converter panel and a /fx launcher provider."
+tags         = ["bar", "launcher", "panel", "utility"]
+
+[[setting]]
+key             = "source_currency"
+type            = "string"
+label_key       = "settings.source.label"
+description_key = "settings.source.description"
+default         = "USD"
+
+[[setting]]
+key             = "target_currency"
+type            = "string"
+label_key       = "settings.target.label"
+description_key = "settings.target.description"
+default         = "EUR"
+
+[[setting]]
+key             = "refresh_minutes"
+type            = "int"
+label_key       = "settings.refresh.label"
+description_key = "settings.refresh.description"
+default         = 30
+min             = 1
+max             = 1440
+
+[[setting]]
+key       = "display_mode"
+type      = "select"
+label_key = "settings.display.label"
+default   = "full"
+options   = [
+  { value = "icon",    label_key = "settings.display.icon" },
+  { value = "compact", label_key = "settings.display.compact" },
+  { value = "full",    label_key = "settings.display.full" },
+]
+
+[[service]]
+id    = "rates"
+entry = "service.luau"
+
+[[widget]]
+id    = "rate"
+entry = "widget.luau"
+
+[[launcher_provider]]
+id     = "fx"
+entry  = "launcher.luau"
+prefix = "fx"
+glyph  = "currency-dollar"
+
+[[panel]]
+id        = "converter"
+entry     = "panel.luau"
+width     = 420
+height    = 250
+placement = "attached"
