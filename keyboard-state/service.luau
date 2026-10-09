@@ -26,12 +26,6 @@ local evsieve = {
   scroll = "led:scrolll",
 }
 
-local grepPattern = table.concat({
-  evsieve.caps,
-  evsieve.num,
-  evsieve.scroll,
-}, "|")
-
 -- Helpers
 local function publish()
   noctalia.state.set("keyboard-state", {
@@ -157,8 +151,14 @@ local function subscribe()
     return
   end
 
+  local leds = table.concat({
+    evsieve.num,
+    evsieve.caps,
+    evsieve.scroll,
+  }, " ")
+
   isStreaming = noctalia.runStream(
-    "evsieve --input " .. shellQuote(inputDevice) .. " --print | grep --line-buffered -E '" .. grepPattern .. "'",
+    "evsieve --input " .. shellQuote(inputDevice) .. " --print " .. leds,
     onLine
   )
 
