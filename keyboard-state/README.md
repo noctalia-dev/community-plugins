@@ -40,7 +40,7 @@ Although `evtest` can also monitor LED state changes, doing so can modify the ke
 
 | Setting             | Type     | Default                     | Description                                                       |
 | ------------------- | -------- | --------------------------- | ----------------------------------------------------------------- |
-| `input_device`      | `file`   | `""`                        | Path to the input device to monitor for keyboard lock key events. |
+| `input_device`      | `string` | `""`                        | Path to the input device to monitor for keyboard lock key events. |
 | `hide_inactive`     | `bool`   | `false`                     | Hide lock key indicators when they are inactive.                  |
 | `active_color`      | `color`  | `"primary"`                 | Color used when a lock key is active.                             |
 | `inactive_color`    | `color`  | `"on_surface"`              | Color used when a lock key is inactive.                           |
