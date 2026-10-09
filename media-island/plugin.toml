@@ -26,6 +26,13 @@ min = 1
 max = 10
 step = 1
 
+[[setting]]
+key = "open_media_panel_on_click"
+type = "bool"
+label_key = "settings.open-media-panel.label"
+description_key = "settings.open-media-panel.description"
+default = false
+
 [[service]]
 id = "media-state"
 entry = "service.luau"
@@ -40,6 +47,13 @@ entry = "bar.luau"
   forward = "media next"
   scroll_up = "media next"
   scroll_down = "media previous"
+
+[[widget]]
+id = "playback-toggle"
+entry = "toggle.luau"
+
+  [widget.actions]
+  left = "media toggle"
 
 [[panel]]
 id = "island"

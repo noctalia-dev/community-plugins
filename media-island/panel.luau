@@ -115,24 +115,33 @@ local function render()
     padding = 12,
     gap = 8,
     align = "stretch",
+    fill = "#000000",
+    radius = 22,
   }, {
     ui.row({ gap = 12, align = "center" }, {
-      artworkNode(player),
-      ui.column({ flexGrow = 1, gap = 4, align = "stretch" }, {
-        ui.label({
-          text = title,
-          fontSize = 17,
-          fontWeight = "bold",
-          color = "on_surface",
-          maxLines = 1,
-          maxWidth = 280,
-        }),
-        ui.label({
-          text = subtitle,
-          fontSize = 12,
-          color = "on_surface_variant",
-          maxLines = 1,
-          maxWidth = 280,
+      ui.row({
+        gap = 12,
+        align = "center",
+        flexGrow = 1,
+        onClick = function() request("open-media-panel") end,
+      }, {
+        artworkNode(player),
+        ui.column({ flexGrow = 1, gap = 4, align = "stretch" }, {
+          ui.label({
+            text = title,
+            fontSize = 17,
+            fontWeight = "bold",
+            color = "#FFFFFF",
+            maxLines = 1,
+            maxWidth = 280,
+          }),
+          ui.label({
+            text = subtitle,
+            fontSize = 12,
+            color = "#A0A0A0",
+            maxLines = 1,
+            maxWidth = 280,
+          }),
         }),
       }),
       ui.row({ gap = 4, align = "center" }, {
@@ -167,7 +176,7 @@ local function render()
         text = formatTime(positionUs),
         width = 36,
         fontSize = 10,
-        color = "on_surface_variant",
+        color = "#A0A0A0",
       }),
       ui.progress({
         progress = progress,
@@ -181,7 +190,7 @@ local function render()
         text = formatTime(lengthUs),
         width = 36,
         fontSize = 10,
-        color = "on_surface_variant",
+        color = "#A0A0A0",
         textAlign = "end",
       }),
     }),

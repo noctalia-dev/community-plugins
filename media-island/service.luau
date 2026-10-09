@@ -150,7 +150,7 @@ local function resolveArtwork(player, artUrl)
   local generation = artworkGeneration
   artworkRequestUrl = artUrl
   local destination = dataDir .. "/artwork-" .. tostring(generation % 2) .. ".img"
-  noctalia.download(artUrl, destination, function(success)
+  local accepted = noctalia.download(artUrl, destination, function(success)
     if generation ~= artworkGeneration then
       return
     end
@@ -170,7 +170,7 @@ local function resolveArtwork(player, artUrl)
     currentPlayer.artPath = destination
     publish(currentPlayer)
   end)
-  if not accepted then
+  if accepted == false then
     artworkRequestUrl = ""
     artworkRetryUrl = artUrl
     artworkRetryAtMs = nowMs() + 30000
@@ -290,6 +290,8 @@ local function handleCommand(command)
     end
   elseif action == "close-panel" then
     closePanel()
+  elseif action == "open-media-panel" then
+    runNoctaliaMessage("panel-toggle", "control-center", "media")
   else
     runMediaCommand(action)
   end

@@ -7,6 +7,10 @@
     "preview-seconds": {
       "label": "Preview duration",
       "description": "How many seconds an automatic island preview remains visible."
+    },
+    "open-media-panel": {
+      "label": "Open Media panel on click",
+      "description": "Left-clicking the bar widget opens Noctalia's Media panel instead of toggling the island."
     }
   },
   "widget": {

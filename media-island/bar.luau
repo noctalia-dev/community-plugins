@@ -88,7 +88,11 @@ noctalia.state.watch("player", function(value)
 end)
 
 function onClick()
-  request("toggle-panel")
+  if noctalia.getConfig("open_media_panel_on_click") == true then
+    request("open-media-panel")
+  else
+    request("toggle-panel")
+  end
 end
 
 function update()

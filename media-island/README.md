@@ -12,7 +12,7 @@ Open it manually from the bar widget to keep it visible until closed.
 | Field | Value |
 | --- | --- |
 | ID | `notoxus/media-island` |
-| Entries | Bar widget: `now-playing`; panel: `island`; service: `media-state` |
+| Entries | Bar widgets: `now-playing`, `playback-toggle`; panel: `island`; service: `media-state` |
 
 ## Requirements
 
@@ -24,11 +24,14 @@ distributions. A media application exposing an MPRIS player is also required.
 Enable **Media Island** in `Settings → Plugins`, then add the
 `notoxus/media-island:now-playing` widget to a bar.
 
-- Left click opens or closes the island.
+- Left click opens or closes the island, or opens Noctalia's Media panel when
+  `open_media_panel_on_click` is enabled.
 - Right click toggles Play/Pause.
 - Scroll, Back, and Forward gestures change tracks.
 - The panel's transport buttons provide Previous, Play/Pause, and Next.
+- Clicking the artwork or title in the panel opens Noctalia's Media panel.
 - The close button dismisses a manually opened island.
+- Add `notoxus/media-island:playback-toggle` for a standalone Play/Pause button.
 
 The panel can also be toggled from a terminal:
 
@@ -36,16 +39,13 @@ The panel can also be toggled from a terminal:
 noctalia msg panel-toggle notoxus/media-island:island
 ```
 
-The panel defaults to a persistent floating surface at the top center. Its
-position and layer can be changed from the plugin's settings; choose the
-`overlay` layer if the island should appear above fullscreen windows.
-
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
 | `auto_show` | `bool` | `true` | Briefly show the island when playback starts or the track changes. |
 | `preview_seconds` | `int` | `2` | Automatic preview duration, from 1 to 10 seconds. |
+| `open_media_panel_on_click` | `bool` | `false` | Left-clicking the bar widget opens Noctalia's Media panel instead of toggling the island. |
 
 ## IPC
 
