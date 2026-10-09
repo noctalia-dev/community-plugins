@@ -1,11 +1,13 @@
 # Claude Cockpit — Claude Code usage and session manager on the bar.
 #
-# One panel, three tabs: Usage (rate-limit windows, token/cost consumption,
+# One panel, four tabs: Usage (rate-limit windows, token/cost consumption,
 # daily activity — get-claude-usage, copied from jrohland/claudecode, MIT,
 # does the actual data collection), Sessions
 # (every local Claude Code session, grouped by project, click to resume in a
 # terminal, delete with an inline confirm, expand for a cheap preview) and
-# CLAUDE.md (global + per-project files, opened in an external editor).
+# CLAUDE.md (global + per-project files, opened in an external editor) and
+# Skills/Mods (installed Claude Code plugins and local skills, managed
+# through `claude plugin`).
 #
 # The bar glyph is deliberately minimal (no rate-limit pill/ring): that
 # would need porting jrohland/claudecode's ring.luau, which needs
@@ -14,7 +16,7 @@
 
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "0.6.5"
+version = "0.7.0"
 # 24 for direct argv process execution: session delete (rm -rf on two fixed
 # paths) and opening a CLAUDE.md in an editor both exec directly, with no
 # shell parsing the path. 22 for the relative luau imports (shared.luau,
@@ -26,11 +28,13 @@ license = "MIT"
 # list-claude-sessions and find-claude-md (the CLAUDE.md tab's $HOME scan)
 # actually shell out to; rm powers session delete. Every one of them ships
 # with coreutils/findutils/gawk/grep/bash on every distro except jq and
-# curl, which get-claude-usage's own commandExists gate covers.
-dependencies = ["bash", "jq", "curl", "find", "stat", "tail", "head", "grep", "tac", "awk", "rm"]
+# curl, which get-claude-usage's own commandExists gate covers. claude runs
+# the Skills/Mods tab (`claude plugin ...`), gated the same way; xdg-open
+# opens a plugin's or skill's repository from that tab.
+dependencies = ["bash", "jq", "curl", "find", "stat", "tail", "head", "grep", "tac", "awk", "rm", "claude", "xdg-open"]
 tags = ["ai", "development", "bar", "panel", "service", "productivity"]
 icon = "robot"
-description = "Monitor Claude Code usage, browse and manage local sessions, edit CLAUDE.md files."
+description = "Monitor Claude Code usage, manage local sessions, skills and mods, edit CLAUDE.md files."
 
 # Plugin-level settings, shared by the service (usage_refresh_interval) and
 # the panel (terminal for resume, editor_command for CLAUDE.md).

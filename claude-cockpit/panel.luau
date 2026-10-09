@@ -1,5 +1,5 @@
 --!nonstrict
--- Claude Cockpit — the attached panel, three tabs over one shared header:
+-- Claude Cockpit — the attached panel, four tabs over one shared header:
 --
 --   Usage     jrohland/claudecode's panel.luau, trimmed port (MIT, see
 --             README Notes) — a thin client of service.luau's "usage"/
@@ -10,12 +10,18 @@
 --             polled.
 --   CLAUDE.md Global file + one row per known project, each opening in an
 --             external editor. Reuses the Sessions tab's project list.
+--   Skills    installed Claude Code plugins (skills and mods) grouped by
+--             marketplace, plus bare ~/.claude/skills folders. Update and
+--             uninstall per row (uninstall behind an inline confirm), refresh/
+--             remove per marketplace, an install box at the bottom. Fetched
+--             on-demand via skills.luau, never polled.
 --
 -- No rename: Claude Code has no command to rename a session after it is
 -- created, so the label is the AI title (or the opening prompt, cut short).
 
 local shared = require("./shared.luau")
 local sessions = require("./sessions.luau")
+local skills = require("./skills.luau")
 
 local function tr(key, args)
     return noctalia.tr(key, args)
@@ -31,8 +37,8 @@ local pluginVersion = (function()
     return ("\n" .. text):match('\nversion%s*=%s*"([^"]+)"') or ""
 end)()
 
-local TABS = { "usage", "sessions", "claudemd" }
-local TAB_LABEL_KEY = { usage = "tab_usage", sessions = "tab_sessions", claudemd = "tab_claudemd" }
+local TABS = { "usage", "sessions", "claudemd", "skills" }
+local TAB_LABEL_KEY = { usage = "tab_usage", sessions = "tab_sessions", claudemd = "tab_claudemd", skills = "tab_skills" }
 
 local isOpen = false
 local activeTab = "usage"
@@ -50,6 +56,13 @@ local searchText = ""
 local expandedGroups = {} -- cwd -> bool, seeded on first load (see loadSessions)
 local expandedSessionId = nil -- one preview open at a time
 local confirmingDeleteId = nil
+
+-- Skills tab: one fetch for plugins + marketplaces + local skill folders.
+local skillsState = { loading = false, error = nil, groups = nil, localSkills = nil }
+local skillBusy = {} -- action key -> true while its `claude plugin` run is in flight
+local confirmingSkillKey = nil -- "plugin:<id>" / "market:<name>" / "local:<name>"
+local installText = ""
+local installRev = 0 -- bumped to clear the uncontrolled install input
 
 local render
 
@@ -121,6 +134,31 @@ local function loadClaudeMd(force)
     end)
 end
 
+local function loadSkills(force)
+    if skillsState.loading then
+        return
+    end
+    if skillsState.groups ~= nil and not force then
+        return
+    end
+    if not skills.available() then
+        skillsState.error = tr("err_no_claude")
+        return
+    end
+    skillsState.loading = true
+    skillsState.error = nil
+    render()
+    skills.refresh(function(data, err)
+        skillsState.loading = false
+        skillsState.error = err
+        if data ~= nil then
+            skillsState.groups = skills.groupByMarketplace(data.plugins, data.marketplaces)
+            skillsState.localSkills = data.localSkills
+        end
+        render()
+    end)
+end
+
 local function setActiveTab(id)
     activeTab = id
     if id == "sessions" or id == "claudemd" then
@@ -128,6 +166,9 @@ local function setActiveTab(id)
     end
     if id == "claudemd" then
         loadClaudeMd(false)
+    end
+    if id == "skills" then
+        loadSkills(false)
     end
     render()
 end
@@ -141,6 +182,8 @@ local function headerRow()
         loading = usageLoading
     elseif activeTab == "sessions" then
         loading = sessionsState.loading
+    elseif activeTab == "skills" then
+        loading = skillsState.loading
     else
         loading = sessionsState.loading or mdState.loading
     end
@@ -154,6 +197,10 @@ local function headerRow()
         onRefresh = function()
             loadSessions(true)
             loadClaudeMd(true)
+        end
+    elseif activeTab == "skills" then
+        onRefresh = function()
+            loadSkills(true)
         end
     end
 
@@ -734,6 +781,229 @@ local function renderClaudeMdTab()
     return ui.scroll({ key = "claudemd-scroll", flexGrow = 1, gap = 8, align = "stretch" }, rows)
 end
 
+-- ── Skills tab ───────────────────────────────────────────────────────────
+
+-- Runs one skills.* action under `key`: glyph spins while busy, the outcome
+-- goes to a notification, the lists reload afterwards.
+local function runSkillAction(key, label, action, arg, after)
+    skillBusy[key] = true
+    confirmingSkillKey = nil
+    render()
+    action(arg, function(ok, message)
+        skillBusy[key] = nil
+        if ok then
+            noctalia.notify(tr("title"), tr("skill_action_done", { name = label }) .. (after and (" " .. after) or ""))
+        else
+            noctalia.notifyError(tr("title"), message ~= "" and message or tr("skill_action_failed", { name = label }))
+        end
+        loadSkills(true)
+    end)
+end
+
+local function glyphButton(key, glyph, tooltip, onClick)
+    local busy = skillBusy[key] == true
+    return ui.button({
+        glyph = busy and "loader-2" or glyph, variant = "ghost", controlSize = "sm",
+        enabled = not busy, tooltip = tooltip,
+        onClick = onClick,
+    })
+end
+
+local function askConfirm(key)
+    confirmingSkillKey = key
+    render()
+end
+
+local function confirmStrip(key, text, yesText, onYes)
+    return ui.row({ key = "confirm-" .. key, gap = 8, align = "center", paddingL = 20 }, {
+        ui.label({ text = text, fontSize = 12, color = "on_surface", flexGrow = 1, maxLines = 2 }),
+        ui.button({ text = yesText, variant = "destructive", controlSize = "sm", onClick = onYes }),
+        ui.button({ text = tr("no"), variant = "ghost", controlSize = "sm", onClick = function() askConfirm(nil) end }),
+    })
+end
+
+-- Children list without the nil holes an optional element would leave.
+local function compact(...)
+    local out = {}
+    for i = 1, select("#", ...) do
+        local v = select(i, ...)
+        if v ~= nil then
+            table.insert(out, v)
+        end
+    end
+    return out
+end
+
+-- Brand glyph for a GitHub link, a generic one for anything else.
+local function linkButton(url)
+    if url == nil then
+        return nil
+    end
+    return ui.button({
+        glyph = url:match("^https://github%.com/") and "brand-github" or "external-link",
+        variant = "ghost", controlSize = "sm", tooltip = url,
+        onClick = function() skills.openUrl(url) end,
+    })
+end
+
+local function pluginRow(p, rows)
+    local key = "plugin:" .. p.id
+    local meta = p.version
+    if p.newVersion then
+        meta = meta .. " → " .. p.newVersion
+    end
+    if not p.enabled then
+        meta = meta .. " · " .. tr("plugin_disabled")
+    end
+    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center", paddingL = 20 }, compact(
+        ui.glyph({ name = "puzzle", size = 14, color = p.enabled and "primary" or "on_surface_variant" }),
+        ui.column({ gap = 0, flexGrow = 1 }, {
+            ui.label({ text = p.name, fontSize = 13, maxLines = 1 }),
+            muted(meta, 10),
+        }),
+        linkButton(p.url),
+        glyphButton("toggle:" .. p.id, p.enabled and "toggle-right" or "toggle-left",
+            tr(p.enabled and "tip_disable_plugin" or "tip_enable_plugin"), function()
+                runSkillAction("toggle:" .. p.id, p.name, skills.setEnabled, p, tr("restart_hint"))
+            end),
+        glyphButton("update:" .. p.id, p.newVersion and "circle-arrow-up" or "download",
+            tr(p.newVersion and "tip_update_available" or "tip_update_plugin"), function()
+            runSkillAction("update:" .. p.id, p.name, skills.updatePlugin, p, tr("restart_hint"))
+        end),
+        glyphButton(key, "trash", tr("tip_uninstall"), function() askConfirm(key) end)
+    )))
+    if confirmingSkillKey == key then
+        table.insert(rows, confirmStrip(key, tr("uninstall_confirm", { name = p.name }), tr("uninstall"), function()
+            runSkillAction(key, p.name, skills.uninstallPlugin, p, tr("restart_hint"))
+        end))
+    end
+end
+
+local function marketplaceHeader(g, rows)
+    local key = "market:" .. g.name
+    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center" }, compact(
+        ui.glyph({ name = "building-store", size = 14, color = "on_surface_variant" }),
+        ui.column({ gap = 0, flexGrow = 1 }, {
+            ui.label({ text = g.name, fontSize = 13, fontWeight = "medium", maxLines = 1 }),
+            muted(g.source or "", 10),
+        }),
+        linkButton(g.url),
+        glyphButton("mupdate:" .. g.name, "refresh", tr("tip_update_marketplace"), function()
+            runSkillAction("mupdate:" .. g.name, g.name, skills.updateMarketplace, g.name)
+        end),
+        glyphButton(key, "trash", tr("tip_remove_marketplace"), function() askConfirm(key) end)
+    )))
+    if confirmingSkillKey == key then
+        -- `marketplace remove` also uninstalls every plugin from it, data included.
+        local text = #g.plugins > 0
+            and tr("remove_marketplace_confirm_plugins", { name = g.name, n = #g.plugins })
+            or tr("remove_marketplace_confirm", { name = g.name })
+        table.insert(rows, confirmStrip(key, text, tr("remove"), function()
+            runSkillAction(key, g.name, skills.removeMarketplace, g.name)
+        end))
+    end
+end
+
+local function localSkillRow(skill, rows)
+    local name = skill.name
+    local key = "local:" .. name
+    table.insert(rows, ui.row({ key = "row-" .. key, gap = 8, align = "center", paddingL = 20 }, compact(
+        ui.glyph({ name = "file-text", size = 14, color = "primary" }),
+        ui.label({ text = name, fontSize = 13, flexGrow = 1, maxLines = 1 }),
+        linkButton(skill.url),
+        glyphButton(key, "trash", tr("tip_uninstall"), function() askConfirm(key) end)
+    )))
+    if confirmingSkillKey == key then
+        table.insert(rows, confirmStrip(key, tr("uninstall_confirm", { name = name }), tr("uninstall"), function()
+            runSkillAction(key, name, skills.removeLocalSkill, name)
+        end))
+    end
+end
+
+local function submitInstall()
+    local text = shared.trim(installText)
+    if skills.classifySource(text) == nil then
+        noctalia.notifyError(tr("title"), tr("err_bad_source"))
+        return
+    end
+    installText = ""
+    installRev += 1
+    runSkillAction("install", text, skills.install, text)
+end
+
+local function installBox()
+    local busy = skillBusy["install"] == true
+    return card({
+        heading(tr("install_heading")),
+        ui.row({ gap = 6, align = "center" }, {
+            ui.input({
+                key = "skill-install-" .. installRev,
+                value = installText,
+                placeholder = tr("install_placeholder"),
+                flexGrow = 1,
+                onChange = function(value) installText = value end,
+                onSubmit = function(value)
+                    installText = value
+                    submitInstall()
+                end,
+            }),
+            ui.button({
+                glyph = busy and "loader-2" or "plus", variant = "ghost", controlSize = "sm",
+                enabled = not busy, tooltip = tr("tip_install"),
+                onClick = function() submitInstall() end,
+            }),
+        }),
+        muted(tr("install_hint"), 10),
+    })
+end
+
+local function renderSkillsTab()
+    loadSkills(false)
+
+    local checking = skillBusy["check"] == true
+    local rows = {
+        ui.row({ key = "skills-tools", gap = 8, align = "center" }, {
+            ui.label({ text = tr("updates_hint"), fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 2 }),
+            ui.button({
+                glyph = checking and "loader-2" or "cloud-search",
+                text = tr("check_updates"), variant = "ghost", controlSize = "sm",
+                enabled = not checking, tooltip = tr("tip_check_updates"),
+                onClick = function() runSkillAction("check", tr("check_updates"), skills.checkUpdates, nil) end,
+            }),
+        }),
+    }
+    if skillsState.error ~= nil then
+        table.insert(rows, ui.label({ text = skillsState.error, color = "error" }))
+    elseif skillsState.groups == nil then
+        table.insert(rows, muted(tr("loading")))
+    else
+        for _, g in ipairs(skillsState.groups) do
+            marketplaceHeader(g, rows)
+            for _, p in ipairs(g.plugins) do
+                pluginRow(p, rows)
+            end
+        end
+        if #skillsState.localSkills > 0 then
+            table.insert(rows, ui.row({ key = "local-hdr", gap = 8, align = "center" }, {
+                ui.glyph({ name = "folder", size = 14, color = "on_surface_variant" }),
+                ui.label({ text = tr("local_skills"), fontSize = 13, fontWeight = "medium", flexGrow = 1 }),
+                muted(skills.LOCAL_SKILLS_DIR, 10),
+            }))
+            for _, skill in ipairs(skillsState.localSkills) do
+                localSkillRow(skill, rows)
+            end
+        end
+        if #skillsState.groups == 0 and #skillsState.localSkills == 0 then
+            table.insert(rows, muted(tr("no_plugins")))
+        end
+    end
+
+    return ui.column({ flexGrow = 1, gap = 10, align = "stretch" }, {
+        ui.scroll({ key = "skills-scroll", flexGrow = 1, gap = 8, align = "stretch" }, rows),
+        installBox(),
+    })
+end
+
 -- ── render / wiring ──────────────────────────────────────────────────────
 
 render = function()
@@ -746,6 +1016,8 @@ render = function()
         body = renderUsageTab()
     elseif activeTab == "sessions" then
         body = renderSessionsTab()
+    elseif activeTab == "skills" then
+        body = renderSkillsTab()
     else
         body = renderClaudeMdTab()
     end
@@ -780,12 +1052,16 @@ function onOpen(_context)
     if activeTab == "claudemd" then
         loadClaudeMd(false)
     end
+    if activeTab == "skills" then
+        loadSkills(false)
+    end
     render()
 end
 
 function onClose()
     isOpen = false
     confirmingDeleteId = nil
+    confirmingSkillKey = nil
     panel.setWantsSecondTicks(false)
     noctalia.state.set("claude_cockpit_open", false)
 end

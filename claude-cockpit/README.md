@@ -4,7 +4,7 @@ Keep an eye on your Claude Code subscription and manage every local session
 from the bar: rate-limit windows and token cost, every session on the
 machine grouped by project with one click to resume it in a terminal, and
 quick access to edit CLAUDE.md files (global and per project) in your own
-editor.
+editor, plus install, update and uninstall for Claude Code skills and mods.
 
 ## Plugin
 
@@ -14,8 +14,8 @@ editor.
 | Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
 
 The `service` entry is headless and owns the usage fetch loop; `panel` is a
-thin client of its published state for the Usage tab, and fetches sessions
-and CLAUDE.md data itself, on demand, for its other two tabs.
+thin client of its published state for the Usage tab, and fetches the data
+for its other three tabs itself, on demand.
 
 ## Requirements
 
@@ -28,6 +28,8 @@ and CLAUDE.md data itself, on demand, for its other two tabs.
 - An authenticated Claude Code install for the Usage tab, i.e.
   `~/.claude/.credentials.json` exists. Sessions and CLAUDE.md work
   regardless.
+- `claude` on `PATH` for the Skills/Mods tab, and `xdg-open` to open a
+  plugin's repository from it.
 - `code` or `zed` on `PATH` to open a CLAUDE.md from the panel (or set
   `editor_command` to something else).
 
@@ -40,7 +42,7 @@ it to open the panel:
 noctalia msg panel-toggle nightwatch75/claude-cockpit:panel
 ```
 
-The panel has three tabs:
+The panel has four tabs:
 
 - **Usage** — rate-limit windows (5-hour session, 7-day plan-wide week, and a
   model-scoped week when the plan has one), token consumption for today,
@@ -62,6 +64,23 @@ The panel has three tabs:
   `node_modules`, `.cache`, `.venv` — and remote/network mounts excluded),
   plus one row per session-linked project that has none yet so it can still
   be created. Each row has a badge and a button that opens it in your editor.
+- **Skills/Mods** — every installed Claude Code plugin (skills and mods ship
+  as plugins), grouped by marketplace, plus bare skill folders under
+  `~/.claude/skills`. Per plugin: enable/disable (toggle glyph), update
+  (download glyph) and uninstall (trash glyph, inline confirm). Per marketplace: refresh and remove (inline
+  confirm; removing a marketplace also uninstalls its plugins). A GitHub
+  glyph (or a link glyph for any other site) opens the project page: the
+  plugin's own `repository`/`homepage`, else its folder in the marketplace
+  repository; for a local skill, the source recorded by the `skills` CLI. Local skill folders can only be removed: nothing tracks where
+  they came from. The install box at the bottom takes `plugin@marketplace`
+  (or a bare plugin name) to install a plugin, or `owner/repo`, a git URL or
+  a path to add a marketplace. Restart Claude Code to apply plugin changes.
+  **Check updates** re-fetches every marketplace (`claude plugin marketplace
+  update`, nothing is installed) and compares versions: a plugin with a newer
+  version shows `old → new` and an up-arrow update glyph. Only on that click,
+  never in the background. A plugin that lives in another repository than
+  its marketplace, with no `version` in the catalog, cannot be checked; its
+  update button still works.
 
 Rename is deliberately not offered: Claude Code has no command to rename a
 session after it is created, so there is nothing this panel could persist
@@ -102,14 +121,21 @@ What this plugin touches, so nothing is a surprise:
 - **Spawns** `get-claude-usage`, `list-claude-sessions` and `find-claude-md`
   through `bash`; `claude --version` (Usage tab, to set the API's
   `User-Agent`); a configured or auto-discovered terminal to resume a
-  session; `code`/`zed` (or `editor_command`) to open a CLAUDE.md.
+  session; `code`/`zed` (or `editor_command`) to open a CLAUDE.md;
+  `claude plugin` (list, install, update, enable, disable, uninstall, marketplace
+  add/update/remove) for the Skills/Mods tab, only on a click or a tab open;
+  `xdg-open` for a project link.
   `find-claude-md` walks `$HOME` on the CLAUDE.md tab's first open and its
   refresh button only, never on a timer — remote/network mounts (NFS, SMB,
   sshfs, and similar) under `$HOME` are detected via `/proc/mounts` and
   excluded, so a stalled share cannot stall it.
 - **Deletes** files: the trash glyph on a session removes its
   `<uuid>.jsonl` transcript and, if present, its `<uuid>/` subagent sidecar
-  directory — after an inline confirm, never without one.
+  directory — after an inline confirm, never without one. On the
+  Skills/Mods tab, uninstall and marketplace remove go through
+  `claude plugin`; removing a local skill deletes its folder under
+  `~/.claude/skills` (a symlinked one loses the link only). Both after an
+  inline confirm.
 
 The Usage tab's data engine, `get-claude-usage`, is copied (MIT) from
 [jrohland/claudecode](https://github.com/jrohland/noctalia-v5-claudecode)
