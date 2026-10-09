@@ -28,6 +28,9 @@ The configured input device must be an existing device under one of these paths:
 - `/dev/input/by-id/*`
 - `/dev/input/by-path/*`
 
+The input device path can only contain ASCII letters (`a-z`, `A-Z`), digits (`0-9`), and the characters `/`, `.`, `_`, `-`, `:`, and `+`.
+It is not allowed to contain path traversal (`..`).
+
 Requires both `evsieve` and `evtest` to be available on `PATH`.
 
 - `evsieve` monitors keyboard LED state changes.
