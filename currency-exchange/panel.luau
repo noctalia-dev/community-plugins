@@ -14,6 +14,7 @@ end
 
 local rates = noctalia.state.get("rates")
 local amountText = "1"
+local openCount = 0
 local fromIdx = indexOf(string.upper(noctalia.getConfig("source_currency") or "USD"))
 local toIdx = indexOf(string.upper(noctalia.getConfig("target_currency") or "EUR"))
 
@@ -76,7 +77,7 @@ render = function()
       ui.button({ glyph = "x", variant = "ghost", tooltip = "Close", onClick = function() panel.close() end }),
     }),
     ui.row({ gap = 8, align = "center" }, {
-      ui.input({ key = "amount", value = amountText, placeholder = "Amount", focus = true,
+      ui.input({ key = "amount" .. openCount, value = amountText, placeholder = "Amount", focus = true,
                  flexGrow = 1, onChange = onAmount }),
       ui.select({ key = "from", options = CODES, selectedIndex = fromIdx - 1, width = 100, onChange = onFrom }),
     }),
@@ -96,6 +97,12 @@ noctalia.state.watch("rates", function(value)
   render()
 end)
 
+-- Luau state outlives a close, so reset to the defaults on every open. The input
+-- is uncontrolled (value only seeds it), so a fresh key is what re-seeds it to "1".
 function onOpen()
+  amountText = "1"
+  openCount = openCount + 1
+  fromIdx = indexOf(string.upper(noctalia.getConfig("source_currency") or "USD"))
+  toIdx = indexOf(string.upper(noctalia.getConfig("target_currency") or "EUR"))
   render()
 end
