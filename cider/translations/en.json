@@ -115,6 +115,10 @@
       "description": "How long the notification or now-playing OSD stays visible after a track change.",
       "label": "Alert duration (ms)"
     },
+    "remember_workspace": {
+      "description": "On Umbriel, switch to Cider's saved workspace before showing it. Off: use your current workspace where supported (Xwayland window control).",
+      "label": "Remember Cider workspace"
+    },
     "show_cover": {
       "description": "Show the current Cider artwork on the bar chip when a local cover file is available.",
       "label": "Show cover"

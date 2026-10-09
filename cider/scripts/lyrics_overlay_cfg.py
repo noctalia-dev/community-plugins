@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 # Overlay HUD paint constants.
-BLEND_MS = 180
+BLEND_MS = 80
+SEEK_TRANSITION_MS = 360
 KARAOKE_IN_MS = 320
 KARAOKE_OUT_MS = 280
 SUNG_RGBA = (1.0, 1.0, 1.0, 1.0)
@@ -100,8 +101,8 @@ def promote_top_y(u: float, current_y: float, next_y: float) -> float:
 
 
 def promote_color_u(u: float) -> float:
-    """Stay upcoming-grey while small; pick up current color as it arrives."""
-    return smoothstep((float(u) - 0.18) / 0.82)
+    """Hand preview paint to source timing without waiting for depth travel."""
+    return smoothstep(float(u) * LINE_ANIM_MS / 60.0)
 
 
 def approach_u(u: float) -> float:
@@ -111,8 +112,7 @@ def approach_u(u: float) -> float:
 
 def successor_next_alpha(u: float) -> float:
     """Opacity follow for the approaching next line."""
-    t = approach_u(u)
-    return 0.4 + 0.6 * t
+    return approach_u(u)
 
 
 def exit_alpha(u: float) -> float:
@@ -482,16 +482,10 @@ def group_karaoke_words(tokens: list[dict[str, Any]]) -> list[list[dict[str, Any
 
 def token_rgba_for_paint(
     token: dict[str, Any],
-    word_start: int,
-    word_end: int,
     pos: float,
     paint: dict[str, Any],
 ) -> tuple[float, float, float, float]:
-    """Unsung stays upcoming-grey. White (sung) only after a syllable is sung.
-
-    Live word remainder uses active, never the word-level settle-to-sung mix —
-    that was painting later syllables white before karaoke reached them.
-    """
+    """Color follows this source span; future syllables remain upcoming-grey."""
     sung = paint.get("sung") or SUNG_RGBA
     active = paint.get("active") or ACTIVE_RGBA
     upcoming = paint.get("upcoming") or NEXT_RGBA
@@ -500,27 +494,15 @@ def token_rgba_for_paint(
     if syl_e < syl_s:
         syl_e = syl_s
     pos_f = float(pos)
-    if pos_f < word_start:
-        return word_rgba_for_paint(word_start, word_end, pos_f, paint)
-    if pos_f >= word_end:
-        return sung
-
-    live = active
-    if live[3] < 0.9:
-        live = mix_rgba(upcoming, active, 0.65)
-        live = (live[0], live[1], live[2], max(live[3], active[3]))
-
-    text = str(token.get("text") or "")
-    if text.isspace():
-        return live
+    if pos_f < syl_s:
+        return upcoming
     if pos_f >= syl_e:
         return sung
-    if pos_f >= syl_s:
-        hot = word_rgba_for_paint(syl_s, syl_e, pos_f, paint)
-        if hot[3] < 0.9:
-            hot = mix_rgba(hot, active, 1.0)
-        return hot
-    return live
+    duration = syl_e - syl_s
+    attack = min(80.0, duration * 0.25)
+    release = min(80.0, duration * 0.25)
+    live = mix_rgba(upcoming, active, smoothstep((pos_f - syl_s) / attack))
+    return mix_rgba(live, sung, smoothstep((pos_f - syl_e + release) / release))
 
 
 def line_only_current_rgba(
@@ -722,6 +704,83 @@ def cue_pulse_scale(index: int, now: float, n: int = CUE_COUNT) -> float:
     count = max(1, int(n))
     phase = (float(now) / CUE_PULSE_PERIOD_S) - (int(index) / count)
     return 1.0 + CUE_PULSE_AMP * math.sin(2.0 * math.pi * phase)
+
+
+def word_pulse_scale(
+    start_ms: float, end_ms: float, next_start_ms: float | None, pos_ms: float,
+) -> float:
+    """A small breath over source word timing, settled before its successor."""
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) for v in (start_ms, end_ms, pos_ms)):
+        return 1.0
+    if isinstance(next_start_ms, (int, float)) and math.isfinite(next_start_ms) and next_start_ms > start_ms:
+        end_ms = min(end_ms, next_start_ms)
+    if end_ms <= start_ms or pos_ms <= start_ms or pos_ms >= end_ms:
+        return 1.0
+    breath = math.sin(math.pi * (pos_ms - start_ms) / (end_ms - start_ms)) ** 2
+    breath = breath ** 3 * (breath * (breath * 6.0 - 15.0) + 10.0)
+    return 1.0 + 0.025 * breath
+
+
+def seek_flight_duration_ms(distance: int) -> float:
+    """More rows travel faster, with a short bounded settling time."""
+    return SEEK_TRANSITION_MS + min(160.0, 40.0 * math.sqrt(max(0, abs(distance) - 1)))
+
+
+def seek_flight_u(elapsed_ms: float, distance: int) -> float:
+    u = max(0.0, min(1.0, elapsed_ms / seek_flight_duration_ms(distance)))
+    return u ** 3 * (u * (u * 6.0 - 15.0) + 10.0)
+
+
+def seek_flight_pose(relative_row: float, height: float) -> tuple[float, float]:
+    """Continuous perspective rail; consecutive full-height planes keep a gap."""
+    past = PAST_FONT_PX / CURRENT_FONT_PX
+    scale = past ** -relative_row
+    return scale, height * past / (past - 1.0) * (1.0 - scale) + NEXT_GAP_PX * relative_row
+
+
+def seek_arrival_alpha(relative_row: float, height: float, body_bottom: float, forward: bool) -> float:
+    """Fade during visible arrival, rather than finishing while still off-screen."""
+    lo, hi = 0.0, 1.0
+    for _ in range(14):
+        distance = (lo + hi) / 2.0
+        scale, y = seek_flight_pose(distance if forward else -distance, height)
+        visible = y + 8.0 * scale < height if forward else y + body_bottom * scale > 0.0
+        if visible:
+            lo = distance
+        else:
+            hi = distance
+    return smoothstep((lo - abs(relative_row)) / max(lo, 0.0001))
+
+
+def seek_line_route(lines: list[dict[str, Any]], outgoing: dict[str, Any] | None,
+                    incoming: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Keep real source rows between endpoints, independent of resolver indexing."""
+    def index(row: dict[str, Any] | None) -> int | None:
+        if row is None:
+            return None
+        for i, candidate in enumerate(lines):
+            if candidate is row:
+                return i
+        for i, candidate in enumerate(lines):
+            if (candidate.get("time"), candidate.get("text")) == (row.get("time"), row.get("text")):
+                return i
+        if row.get("cue") is True and row.get("time") == 0 and lines and int(lines[0].get("time") or 0) > 0:
+            return -1  # Resolver's actual intro cue, before the first source row.
+        return None
+
+    start, end = index(outgoing), index(incoming)
+    if start is None or end is None or start == end:
+        return [outgoing or {}, incoming or {}]
+    step = 1 if end > start else -1
+    return [outgoing or {}, *(lines[i] for i in range(start + step, end, step)), incoming or {}]
+
+
+def seek_depth_poses(elapsed_ms: float, height: float, forward: bool) -> tuple[float, float, float, float]:
+    """Adjacent seek poses on the same continuous rail used by longer flights."""
+    u = seek_flight_u(elapsed_ms, 1)
+    direction = 1 if forward else -1
+    return (*seek_flight_pose(-direction * u, height),
+            *seek_flight_pose(direction * (1.0 - u), height))
 
 
 def outro_lyric_alpha(

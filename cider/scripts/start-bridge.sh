@@ -15,5 +15,5 @@ sleep 0.2
 export CIDER_APPTOKEN="$TOKEN"
 exec python3 "$SCRIPT_DIR/cider_bridge.py" \
   --base-url "$BASE_URL" \
-  --poll 0.5 \
+  --poll 0.1 \
   --state-dir "$STATE_DIR"

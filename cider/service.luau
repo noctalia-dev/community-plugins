@@ -39,6 +39,7 @@ local displayMode = "notification" -- notification | osd | off
 local osdDurationMs = 4500
 local baseUrl = "http://127.0.0.1:10767"
 local apptoken = ""
+local rememberWorkspace = false
 local lyricsOsdEnabled = true
 local lyricsOsdPosition = "top_center"
 local lyricsOsdShowNext = true
@@ -106,6 +107,7 @@ local function persistConfig()
     osd_duration_ms = osdDurationMs,
     base_url = baseUrl,
     apptoken = apptoken,
+    remember_workspace = rememberWorkspace == true,
     lyrics_osd_enabled = lyricsOsdEnabled == true,
     lyrics_osd_position = lyricsOsdPosition,
     lyrics_osd_show_next = lyricsOsdShowNext == true,
@@ -190,6 +192,7 @@ local function publishLyricsOsdCfg()
   local bag = {
     enabled = lyricsOsdEnabled == true,
     backend = "overlay",
+    remember_workspace = rememberWorkspace == true,
     position = lyricsOsdPosition,
     show_next = lyricsOsdShowNext == true,
     animate_cues = lyricsOsdAnimateCues == true,
@@ -221,6 +224,7 @@ local function refreshConfig()
   osdDurationMs = cfgNumber("osd_duration_ms", 4500, durable)
   baseUrl = cfgString("base_url", "http://127.0.0.1:10767", durable)
   apptoken = cfgString("apptoken", "", durable)
+  rememberWorkspace = cfgBool("remember_workspace", false, durable)
   lyricsOsdEnabled = cfgBool("lyrics_osd_enabled", true, durable)
   lyricsOsdPosition = cfgString("lyrics_osd_position", "top_center", durable)
   lyricsOsdShowNext = cfgBool("lyrics_osd_show_next", true, durable)

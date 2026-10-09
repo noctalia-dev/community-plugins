@@ -28,6 +28,8 @@ gi.require_version("GtkLayerShell", "0.1")
 from gi.repository import GLib, Gtk, Gdk, Pango, PangoCairo, GtkLayerShell  # noqa: E402
 
 from lyrics_overlay_cfg import (  # noqa: E402
+    BLEND_MS,
+    SEEK_TRANSITION_MS,
     CUE_BASE_PX,
     CUE_COUNT,
     CUE_DOT_GAP_PX,
@@ -66,6 +68,7 @@ from lyrics_overlay_cfg import (  # noqa: E402
     is_plain_lyrics,
     lyrics_are_plain,
     merge_cfg,
+    mix_rgba,
     next_line_y,
     outro_lyric_alpha,
     overlay_should_show,
@@ -75,6 +78,7 @@ from lyrics_overlay_cfg import (  # noqa: E402
     plain_scroll_silence_enabled,
     approach_u,
     promote_scale,
+    promote_color_u,
     promote_top_y,
     remaining_ms,
     resolve_karaoke_paint,
@@ -86,6 +90,12 @@ from lyrics_overlay_cfg import (  # noqa: E402
     line_only_current_rgba,
     track_cross_alphas,
     group_karaoke_words,
+    word_pulse_scale,
+    seek_flight_duration_ms,
+    seek_flight_u,
+    seek_flight_pose,
+    seek_line_route,
+    seek_arrival_alpha,
 )
 from audio_meter import AudioMeter  # noqa: E402
 
@@ -158,7 +168,7 @@ def _real_words(line: dict[str, Any]) -> list[dict[str, Any]]:
     if not text or not chars:
         return []
     start = int(line.get("time") or 0)
-    dur = int(line.get("duration") or 0) or 3000
+    dur = int(line.get("duration") or 0)
     words: list[dict[str, Any]] = []
     buf = ""
     buf_start: int | None = None
@@ -168,7 +178,7 @@ def _real_words(line: dict[str, Any]) -> list[dict[str, Any]]:
         idx += 1
         if ch.isspace():
             if buf:
-                words.append({"text": buf, "start": buf_start or t, "end": t})
+                words.append({"text": buf, "start": buf_start if buf_start is not None else t, "end": t})
                 buf = ""
                 buf_start = None
             words.append({"text": ch, "start": t, "end": t})
@@ -177,7 +187,8 @@ def _real_words(line: dict[str, Any]) -> list[dict[str, Any]]:
                 buf_start = t
             buf += ch
     if buf:
-        words.append({"text": buf, "start": buf_start or start, "end": start + dur})
+        end = start + dur if dur > 0 else int(chars[-1])
+        words.append({"text": buf, "start": buf_start if buf_start is not None else start, "end": end})
     return restore_word_spacing(words, text)
 
 
@@ -307,6 +318,11 @@ class LyricsHud(Gtk.Window):
         self._position = ""
         self._current: dict[str, Any] | None = None
         self._next = ""
+        self._next_line: dict[str, Any] | None = None
+        self._incoming_line: dict[str, Any] | None = None
+        self._outgoing_line: dict[str, Any] | None = None
+        self._next_slot_y = 0.0
+        self._promote_y = 0.0
         self._is_cue = False
         self._cue_progress = 0.0
         self._pos_ms = 0
@@ -316,6 +332,16 @@ class LyricsHud(Gtk.Window):
         self._anim_ms = float(LINE_ANIM_MS)
         self._anim_forward = True
         self._line_idx = 0
+        self._line_pos_ms = 0.0
+        self._line_tick_at = 0.0
+        self._frame: cairo.Pattern | None = None
+        self._swap_from: cairo.Pattern | None = None
+        self._swap_t0 = 0.0
+        self._swap_through = False
+        self._lyrics_lines: list[dict[str, Any]] = []
+        self._seek_route: list[dict[str, Any]] = []
+        self._seek_frames: dict[int, tuple[cairo.Pattern, float]] = {}
+        self._seek_target_height = float(HUD_HEIGHT)
         self._outgoing_current = ""
         self._outgoing_next = ""
         self._incoming_current = ""
@@ -341,6 +367,7 @@ class LyricsHud(Gtk.Window):
         self._apply_layer_position(str(self._cfg.get("position") or "top_center"))
         self.hide()
 
+        self._drawing.add_tick_callback(self._on_frame)
         GLib.timeout_add(TICK_MS, self._tick)
 
     def _apply_click_through(self, *_args: Any) -> None:
@@ -391,7 +418,7 @@ class LyricsHud(Gtk.Window):
             return
         self._want_visible = want
         self._surface_from = self._surface_u
-        self._surface_t0 = time.time()
+        self._surface_t0 = time.monotonic()
         self._surface_showing = want
         if want:
             self._visible_hud = True
@@ -403,7 +430,7 @@ class LyricsHud(Gtk.Window):
             u = 1.0 if self._want_visible else 0.0
             self._surface_u = u
             return u
-        elapsed = (time.time() - self._surface_t0) * 1000.0
+        elapsed = (time.monotonic() - self._surface_t0) * 1000.0
         u = surface_mix_u(self._surface_from, self._surface_showing, elapsed)
         self._surface_u = u
         if elapsed >= SURFACE_ANIM_MS:
@@ -412,6 +439,14 @@ class LyricsHud(Gtk.Window):
                 self._visible_hud = False
                 self.hide()
         return u
+
+    def _on_frame(self, *_args: Any) -> bool:
+        """Render on GTK's frame clock; sidecar reads stay on the slower timer."""
+        if self._surface_progress() > 0.001:
+            if self._playing and self._line_tick_at > 0:
+                self._pos_ms = self._line_pos_ms + max(0.0, time.monotonic() - self._line_tick_at) * 1000.0
+            self._drawing.queue_draw()
+        return True
 
     def _tick(self) -> bool:
         self._cfg = merge_cfg(_read_json(CFG_PATH))
@@ -423,6 +458,12 @@ class LyricsHud(Gtk.Window):
         surface_u = self._surface_progress()
         if surface_u <= 0.001:
             self._sync_meter(False)
+            self._frame = self._swap_from = None
+            self._swap_t0 = self._line_tick_at = 0.0
+            self._swap_through = False
+            self._seek_route = []
+            self._seek_frames.clear()
+            self._line_key = None
             return True
 
         lyrics = _read_json(LYRICS_PATH) or {}
@@ -439,12 +480,18 @@ class LyricsHud(Gtk.Window):
 
         play_id = display_track_id(state) or display_track_id(lyrics)
         if play_id and self._play_id and play_id != self._play_id:
+            self._line_tick_at = 0.0
             self._hold_current = self._incoming_current or self._current_text()
             self._hold_next = self._incoming_next or self._next
             self._hold_was_cue = self._is_cue
             # Dim from the *outgoing* remaining, not the new track's clock.
             self._track_start_u = 0.40 * (1.0 - prev_outro)
-            self._track_anim_t0 = time.time()
+            self._track_anim_t0 = time.monotonic()
+            self._swap_from = self._frame
+            self._swap_t0 = self._track_anim_t0
+            self._swap_through = False
+            self._seek_route = []
+            self._seek_frames.clear()
             self._awaiting_lyrics = True
             self._anim_t0 = 0.0
             self._anim_ms = float(LINE_ANIM_MS)
@@ -457,11 +504,11 @@ class LyricsHud(Gtk.Window):
             self._play_id = play_id
         lyrics_id = display_track_id(lyrics)
         if self._awaiting_lyrics and lyrics_id == self._play_id:
-            elapsed = (time.time() - self._track_anim_t0) * 1000.0
+            elapsed = (time.monotonic() - self._track_anim_t0) * 1000.0
             elapsed += self._track_start_u * TRACK_CROSS_MS
             self._awaiting_lyrics = False
             if elapsed >= 0.50 * TRACK_CROSS_MS:
-                self._track_anim_t0 = time.time()
+                self._track_anim_t0 = time.monotonic()
                 self._track_start_u = 0.52
 
         plain = lyrics_are_plain(lines, lyrics)
@@ -471,7 +518,7 @@ class LyricsHud(Gtk.Window):
         if silence_gate:
             self._meter.set_threshold(float(self._cfg.get("plain_scroll_silence_level") or 8))
             snap = self._meter.snapshot()
-            now = time.time()
+            now = time.monotonic()
             if self._plain_last_tick > 0 and self._playing and snap.get("active") is True:
                 delta = max(0.0, (now - self._plain_last_tick) * 1000.0)
                 # Cap so a stalled GTK tick cannot jump the scroll clock.
@@ -485,6 +532,7 @@ class LyricsHud(Gtk.Window):
         if plain and not plain_lyrics_allowed(self._cfg):
             lines = []
 
+        self._lyrics_lines = lines
         self._current, self._next, self._is_cue, self._cue_progress, line_idx = resolve_line(
             lines,
             int(self._pos_ms),
@@ -492,6 +540,9 @@ class LyricsHud(Gtk.Window):
             cfg=self._cfg,
             active_ms=active_ms,
         )
+        after_current = next((i + 1 for i, line in enumerate(lines) if line is self._current), 0)
+        self._next_line = next((line for line in lines[after_current:]
+                                if _line_text(line) == self._next), None) if self._next else None
         self._note_line_change(line_idx)
 
         # Match monitor width for centered layout.
@@ -505,7 +556,8 @@ class LyricsHud(Gtk.Window):
                 self._width = max(400, int(geo.width))
         except Exception:
             pass
-        self._hud_h = self._measure_needed_height(self._width)
+        height = self._measure_needed_height(self._width)
+        self._hud_h = max(height, self._hud_h) if self._swap_from is not None or self._anim_t0 > 0 else height
         self.set_size_request(self._width, self._hud_h)
 
         self._drawing.queue_draw()
@@ -529,7 +581,7 @@ class LyricsHud(Gtk.Window):
         glyph_a: float,
     ) -> None:
         """Offset dark glyph copy so lyrics stay readable on wallpaper."""
-        if glyph_a <= 0.05:
+        if glyph_a <= 0.0:
             return
         cr.save()
         cr.set_source_rgba(
@@ -552,7 +604,7 @@ class LyricsHud(Gtk.Window):
         shadow: bool = True,
     ) -> None:
         # Drop shadow first, then sharp letters.
-        if shadow and self._paint.get("glow") is not False and rgba[3] > 0.05:
+        if shadow and self._paint.get("glow") is not False and rgba[3] > 0.0:
             self._draw_drop_shadow(cr, layout, x, y, rgba[3])
         cr.set_source_rgba(*rgba)
         cr.move_to(x, y)
@@ -564,42 +616,93 @@ class LyricsHud(Gtk.Window):
         return _line_text(self._current)
 
     def _note_line_change(self, line_idx: int) -> None:
+        now = time.monotonic()
+        previous = self._incoming_line
+        if self._swap_from is not None and self._swap_through and self._seek_route:
+            distance = len(self._seek_route) - 1
+            phase = seek_flight_u((now - self._swap_t0) * 1000.0, distance)
+            previous = self._seek_route[round(distance * phase)]
+        elapsed_ms = max(0.0, (now - self._line_tick_at) * 1000.0) if self._playing else 0.0
+        seeked = self._line_tick_at > 0 and abs(self._pos_ms - self._line_pos_ms - elapsed_ms) > 250
+        self._line_pos_ms = self._pos_ms
+        self._line_tick_at = now
+        if seeked:
+            through = self._anim_t0 > 0 or (self._swap_from is not None and self._swap_through)
+            self._swap_from = self._frame
+            self._swap_t0 = now
+            self._swap_through = through
+            self._anim_t0 = 0.0
+            self._outgoing_current = ""
+            self._outgoing_next = ""
+            self._hold_current = ""
+            self._hold_next = ""
+            self._hold_was_cue = False
+            if not self._awaiting_lyrics:
+                self._track_anim_t0 = 0.0
+            else:
+                self._track_start_u = 0.52
         incoming = self._current_text()
         key = (incoming, self._next, self._is_cue)
-        if key == self._line_key:
+        if key == self._line_key and int(line_idx) == self._line_idx:
+            if seeked and self._swap_through:
+                self._start_seek_route(previous)
+            self._incoming_line = self._current
             self._line_idx = int(line_idx)
             return
-        if self._line_key is not None and self._track_anim_t0 <= 0:
+        interrupted = self._swap_from is not None or (
+            self._anim_t0 > 0 and (now - self._anim_t0) * 1000.0 < self._anim_ms
+        )
+        if (self._line_key is not None and self._track_anim_t0 <= 0 and not seeked and not interrupted
+                and int(line_idx) == self._line_idx + 1):
             prev_idx = int(self._line_idx)
             next_idx = int(line_idx)
             forward = line_anim_forward_from_index(prev_idx, next_idx)
             prev_u = 1.0
             if self._anim_t0 > 0:
-                elapsed = (time.time() - self._anim_t0) * 1000.0
+                elapsed = (time.monotonic() - self._anim_t0) * 1000.0
                 dur = max(1.0, float(self._anim_ms))
                 if elapsed < dur:
                     prev_u = smoothstep(elapsed / dur)
             self._outgoing_current = self._incoming_current
             self._outgoing_next = self._incoming_next
+            self._outgoing_line = self._incoming_line
+            self._promote_y = self._next_slot_y
             self._anim_forward = forward
             self._anim_ms = float(
                 line_anim_duration_ms(next_idx - prev_idx, LINE_ANIM_MS)
             )
             soft = line_anim_interrupt_elapsed_ms(prev_u, int(self._anim_ms))
-            self._anim_t0 = time.time() - (soft / 1000.0)
+            self._anim_t0 = now - (soft / 1000.0)
         else:
+            if self._line_key is not None and self._track_anim_t0 <= 0:
+                # Travel from the actual pose, without replacing a preview in place.
+                self._swap_from = self._frame
+                self._swap_t0 = now
+                self._swap_through = self._swap_through or int(line_idx) != self._line_idx or incoming != self._line_key[0]
             self._anim_t0 = 0.0
             self._anim_ms = float(LINE_ANIM_MS)
-            self._anim_forward = True
+            self._anim_forward = int(line_idx) >= self._line_idx
+            self._outgoing_current = ""
+            self._outgoing_next = ""
+            if self._swap_through:
+                self._start_seek_route(previous)
         self._incoming_current = incoming
+        self._incoming_line = self._current
         self._incoming_next = self._next
         self._line_key = key
         self._line_idx = int(line_idx)
 
+    def _start_seek_route(self, previous: dict[str, Any] | None) -> None:
+        self._seek_route = seek_line_route(self._lyrics_lines, previous, self._current)
+        self._seek_frames.clear()
+        first, last = self._seek_route[0].get("time"), self._seek_route[-1].get("time")
+        if isinstance(first, (int, float)) and isinstance(last, (int, float)) and first != last:
+            self._anim_forward = last > first
+
     def _mix_alphas(self) -> tuple[float, float, float]:
         """hold (outgoing track), live (current track), mix-dots."""
         if self._track_anim_t0 > 0:
-            elapsed = (time.time() - self._track_anim_t0) * 1000.0
+            elapsed = (time.monotonic() - self._track_anim_t0) * 1000.0
             elapsed += self._track_start_u * TRACK_CROSS_MS
             if self._awaiting_lyrics:
                 elapsed = min(elapsed, 0.52 * TRACK_CROSS_MS)
@@ -620,12 +723,69 @@ class LyricsHud(Gtk.Window):
     def _anim_u(self) -> float:
         if self._anim_t0 <= 0:
             return 1.0
-        elapsed = (time.time() - self._anim_t0) * 1000.0
+        elapsed = (time.monotonic() - self._anim_t0) * 1000.0
         dur = max(1.0, float(self._anim_ms or LINE_ANIM_MS))
         if elapsed >= dur:
             self._anim_t0 = 0.0
             return 1.0
-        return smoothstep(elapsed / dur)
+        return _clamp01(elapsed / dur)
+
+    def _blend_frame(self, cr: Any, frame: cairo.Pattern) -> cairo.Pattern:
+        if self._swap_from is not None:
+            elapsed = (time.monotonic() - self._swap_t0) * 1000.0
+            distance = max(1, len(self._seek_route) - 1)
+            duration = seek_flight_duration_ms(distance) if self._swap_through else BLEND_MS
+            u = smoothstep(elapsed / duration)
+            if u < 1.0:
+                cr.push_group()
+                if self._swap_through:
+                    left, top, right, bottom = cr.clip_extents()
+                    cx = (left + right) / 2.0
+                    travel = distance * seek_flight_u(elapsed, distance)
+                    direction = 1 if self._anim_forward else -1
+                    visible = [i for i in range(max(0, int(travel)), min(distance, int(travel) + 1) + 1)]
+                    self._seek_frames = {i: source for i, source in self._seek_frames.items() if i in visible}
+                    for i in visible:
+                        relative = direction * (i - travel)
+                        scale, y = seek_flight_pose(relative, bottom - top)
+                        cached = self._seek_frames.get(i)
+                        source = self._swap_from if i == 0 else frame if i == distance else cached[0] if cached else None
+                        body_bottom = self._seek_target_height if i == distance else cached[1] if cached else bottom - top
+                        if source is None:
+                            cr.push_group()
+                            row = self._seek_route[i]
+                            if _is_cue(row):
+                                row_h = self._draw_cue_dots(cr, right - left, 8.0, 1.0)
+                            else:
+                                row_h = self._draw_karaoke(cr, right - left, 8.0, line=row)
+                            source = cr.pop_group()
+                            body_bottom = 8.0 + row_h + SHADOW_OFFSET_Y
+                            self._seek_frames[i] = (source, body_bottom)
+                        cr.save()
+                        cr.translate(cx, top + y)
+                        cr.scale(scale, scale)
+                        cr.translate(-cx, -top)
+                        cr.set_source(source)
+                        if i > travel:
+                            cr.paint_with_alpha(seek_arrival_alpha(relative, bottom - top, body_bottom, self._anim_forward))
+                        else:
+                            cr.paint()
+                        cr.restore()
+                else:
+                    cr.set_source(self._swap_from)
+                    cr.paint_with_alpha(1.0 - u)
+                    # Add premultiplied colors so shared glyphs stay opaque.
+                    cr.set_operator(cairo.OPERATOR_ADD)
+                    cr.set_source(frame)
+                    cr.paint_with_alpha(u)
+                frame = cr.pop_group()
+            else:
+                self._swap_from = None
+                self._swap_t0 = 0.0
+                self._seek_route = []
+                self._seek_frames.clear()
+        self._frame = frame
+        return frame
 
     def _wrap_layout(
         self,
@@ -655,10 +815,7 @@ class LyricsHud(Gtk.Window):
         if not body:
             return CURRENT_SLOT_PX
         try:
-            layout, _cw = self._wrap_layout(
-                body, CURRENT_FONT_PX, True, width, CURRENT_MAX_LINES
-            )
-            return max(24, layout.get_pixel_size()[1])
+            return max(24, self._draw_karaoke(None, width, 0))
         except Exception:
             return CURRENT_SLOT_PX
 
@@ -669,10 +826,8 @@ class LyricsHud(Gtk.Window):
         next_h = 0
         if show_next and nxt:
             try:
-                layout, _cw = self._wrap_layout(
-                    nxt, NEXT_FONT_PX, False, width, NEXT_MAX_LINES
-                )
-                next_h = layout.get_pixel_size()[1]
+                next_h = int(self._draw_karaoke(None, width, 0,
+                               line=self._next_line or {"text": nxt}) * NEXT_FONT_PX / CURRENT_FONT_PX)
             except Exception:
                 next_h = 18
         return hud_height_px(current_h, next_h, show_next and bool(nxt), False)
@@ -688,7 +843,7 @@ class LyricsHud(Gtk.Window):
         bold: bool,
         max_lines: int = CURRENT_MAX_LINES,
     ) -> int:
-        if not text or rgba[3] <= 0.01:
+        if not text or rgba[3] <= 0.0:
             return 0
         layout, cw = self._wrap_layout(text, size, bold, width, max_lines)
         _tw, th = layout.get_pixel_size()
@@ -708,14 +863,19 @@ class LyricsHud(Gtk.Window):
         rgba: tuple[float, float, float, float],
         bold: bool,
         max_lines: int,
+        line: dict[str, Any] | None = None,
+        line_alpha: float = 1.0,
     ) -> int:
         """One depth step on the 2D plane: smaller/further ↔ larger/nearer."""
-        if not text or rgba[3] <= 0.01:
+        if not text or rgba[3] <= 0.0:
             return 0
-        layout_px = max(int(start_px), int(dest_px), 1)
+        # Keep rest-pose wrapping while depth scales the glyphs.
+        layout_px = max(1, min(max(int(start_px), int(dest_px)), CURRENT_FONT_PX))
         scale = depth_layout_scale(u, start_px, dest_px, layout_px)
         layout, cw = self._wrap_layout(text, layout_px, bold, width, max_lines)
         _tw, th = layout.get_pixel_size()
+        if line is not None:
+            th = self._draw_karaoke(None, width, 0, line=line)
         if th <= 0:
             return 0
         x0 = (width - cw) / 2.0
@@ -728,7 +888,10 @@ class LyricsHud(Gtk.Window):
         cr.translate(cx, pose_cy)
         cr.scale(scale, scale)
         cr.translate(-cx, -rest_cy)
-        self._draw_text_shadowed(cr, layout, x0, dest_y, rgba)
+        if line is None:
+            self._draw_text_shadowed(cr, layout, x0, dest_y, rgba)
+        else:
+            self._draw_karaoke(cr, width, dest_y, line_alpha, line=line)
         cr.restore()
         return int(max(1, vis_h))
 
@@ -754,9 +917,25 @@ class LyricsHud(Gtk.Window):
         cr.translate(cx, pose_cy)
         cr.scale(scale, scale)
         cr.translate(-cx, -rest_cy)
-        self._draw_karaoke(cr, width, current_y, alpha)
+        self._draw_karaoke(cr, width, current_y, alpha, preview_u=promote_color_u(u))
         cr.restore()
         return int(max(1, vis_h))
+
+    def _draw_next_line(
+        self, cr: Any, width: int, text: str, y: float, alpha: float,
+        u: float = 1.0, start_y: float | None = None, start_px: int = FAR_FONT_PX,
+    ) -> int:
+        """Preview uses current glyph layout, scaled without reflow."""
+        scale = depth_layout_scale(u, start_px, NEXT_FONT_PX, CURRENT_FONT_PX)
+        top = promote_top_y(u, y, y if start_y is None else start_y)
+        cr.save()
+        cr.translate(width / 2.0, top)
+        cr.scale(scale, scale)
+        cr.translate(-width / 2.0, 0)
+        height = self._draw_karaoke(cr, width, 0, alpha,
+                                   line=self._next_line or {"text": text}, preview_u=0.0)
+        cr.restore()
+        return int(max(1, height * scale))
 
     def _draw_arrive_from_past(
         self,
@@ -848,7 +1027,7 @@ class LyricsHud(Gtk.Window):
         gap = CUE_DOT_GAP_PX
         total_w = CUE_COUNT * tw + (CUE_COUNT - 1) * gap
         x = (width - total_w) / 2
-        now = time.time()
+        now = time.monotonic()
         ink_cx = ink_x + ink_w / 2.0
         ink_cy = ink_y + ink_h / 2.0
         for i in range(CUE_COUNT):
@@ -871,25 +1050,41 @@ class LyricsHud(Gtk.Window):
     ) -> tuple[float, float, float, float]:
         return (rgba[0], rgba[1], rgba[2], rgba[3] * alpha)
 
-    def _draw_karaoke(self, cr: Any, width: int, y: float, alpha: float = 1.0) -> int:
-        if not isinstance(self._current, dict):
+    def _draw_karaoke(
+        self, cr: Any, width: int, y: float, alpha: float = 1.0, *,
+        line: dict[str, Any] | None = None, preview_u: float | None = None,
+    ) -> int:
+        line = self._current if line is None else line
+        if not isinstance(line, dict):
             return 0
-        words = _real_words(self._current)
+        words = _real_words(line)
         tagged: list[dict[str, Any]] = []
-        for group in group_karaoke_words(words):
+        groups = group_karaoke_words(words)
+        successor = self._current if line is self._outgoing_line else self._next_line if line is self._current else None
+        successor_words = _real_words(successor) if isinstance(successor, dict) else []
+        following_start = min(int(w["start"]) for w in successor_words) if successor_words else None
+        for g_i, group in enumerate(groups):
             word_start = min(int(t["start"]) for t in group)
             word_end = max(int(t["end"]) for t in group)
+            next_start = min(int(t["start"]) for t in groups[g_i + 1]) if g_i + 1 < len(groups) else following_start
             for t in group:
-                tagged.append({**t, "_ws": word_start, "_we": word_end})
+                tagged.append({**t, "_ws": word_start, "_we": word_end, "_ns": next_start, "_group": g_i})
         font = Pango.FontDescription("Sans Bold 22")
         use_karaoke = self._cfg.get("karaoke") is not False and bool(tagged)
         if not use_karaoke:
+            text = _line_text(line) or "…"
+            if cr is None:
+                layout, _cw = self._wrap_layout(text, CURRENT_FONT_PX, True, width, CURRENT_MAX_LINES)
+                return layout.get_pixel_size()[1]
+            rgba = line_only_current_rgba(self._paint)
+            if preview_u is not None:
+                rgba = mix_rgba(self._paint["next"], rgba, preview_u)
             return self._draw_plain_line(
                 cr,
                 width,
                 y,
-                _line_text(self._current) or "…",
-                self._mul_a(line_only_current_rgba(self._paint), alpha),
+                text,
+                self._mul_a(rgba, alpha),
                 22,
                 True,
                 CURRENT_MAX_LINES,
@@ -897,10 +1092,20 @@ class LyricsHud(Gtk.Window):
         max_w = content_width_px(width)
         rows: list[list[dict[str, Any]]] = [[]]
         row_w = [0]
+        group_widths: dict[int, int] = {}
         for w in tagged:
             layout = self._drawing.create_pango_layout(w["text"])
             layout.set_font_description(font)
             tw, _th = layout.get_pixel_size()
+            w.update({"_tw": tw, "_layout": layout})
+            group_widths[w["_group"]] = group_widths.get(w["_group"], 0) + tw
+        for w in tagged:
+            layout = w["_layout"]
+            tw = w["_tw"]
+            if (rows[-1] and rows[-1][-1]["_group"] != w["_group"]
+                    and row_w[-1] + group_widths[w["_group"]] > max_w):
+                rows.append([])
+                row_w.append(0)
             if tw > max_w:
                 layout.set_width(max_w * Pango.SCALE)
                 layout.set_wrap(Pango.WrapMode.CHAR)
@@ -930,20 +1135,35 @@ class LyricsHud(Gtk.Window):
             span = any(w.get("_span") for w in row)
             x = (width - (max_w if span else row_w[r_i])) / 2
             row_h = 0
+            bounds: dict[int, tuple[float, float]] = {}
+            offset = x
+            for w in row:
+                group = w["_group"]
+                left = bounds[group][0] if group in bounds else offset
+                bounds[group] = (left, offset + w["_tw"])
+                offset += w["_tw"]
             for w in row:
                 layout = w["_layout"]
-                rgba = self._mul_a(
-                    token_rgba_for_paint(
-                        w,
-                        int(w.get("_ws") or w["start"]),
-                        int(w.get("_we") or w["end"]),
-                        float(self._pos_ms),
-                        self._paint,
-                    ),
-                    alpha,
+                rgba = token_rgba_for_paint(
+                    w,
+                    float(self._pos_ms),
+                    self._paint,
                 )
+                if preview_u is not None:
+                    rgba = mix_rgba(self._paint["next"], rgba, preview_u)
+                rgba = self._mul_a(rgba, alpha)
                 _tw, th = layout.get_pixel_size()
-                self._draw_text_shadowed(cr, layout, x, y + used, rgba)
+                if cr is not None:
+                    scale = word_pulse_scale(w["_ws"], w["_we"], w["_ns"], self._pos_ms)
+                    scale = 1.0 + (scale - 1.0) * (1.0 if preview_u is None else preview_u)
+                    cx = sum(bounds[w["_group"]]) / 2.0
+                    cy = y + used + th / 2.0
+                    cr.save()
+                    cr.translate(cx, cy)
+                    cr.scale(scale, scale)
+                    cr.translate(-cx, -cy)
+                    self._draw_text_shadowed(cr, layout, x, y + used, rgba)
+                    cr.restore()
                 x += w["_tw"]
                 row_h = max(row_h, th)
             used += row_h + 2
@@ -965,14 +1185,15 @@ class LyricsHud(Gtk.Window):
 
         alloc = self._drawing.get_allocation()
         width = alloc.width
+        self._seek_target_height = float(alloc.height)
         hold_a, live_a, dots_a = self._mix_alphas()
         anim_u = 1.0 if self._track_anim_t0 > 0 else self._anim_u()
         idle = not self._is_cue and not isinstance(self._current, dict)
         y = 8.0
         next_max = NEXT_MAX_LINES
-        show_hold = hold_a > 0.01 and bool(self._hold_current or self._hold_was_cue)
-        show_live = live_a > 0.01
-        show_mix_dots = dots_a > 0.01 and not (
+        show_hold = hold_a > 0.0 and bool(self._hold_current or self._hold_was_cue)
+        show_live = live_a > 0.0
+        show_mix_dots = dots_a > 0.0 and not (
             (self._is_cue and live_a > 0.25) or (self._hold_was_cue and hold_a > 0.25)
         )
 
@@ -1011,13 +1232,13 @@ class LyricsHud(Gtk.Window):
                 next_slot_y = next_line_y(y, body_h)
                 forward = self._anim_forward
                 if anim_u < 1.0 and self._outgoing_current and not show_hold:
-                    out_a = exit_alpha(anim_u) * live_a
+                    out_a = live_a
                     if is_cue_text(self._outgoing_current):
                         if forward:
                             self._draw_cue_depth(
                                 cr,
                                 width,
-                                y - FAR_DROP_PX,
+                                -CURRENT_SLOT_PX - CUE_PAST_PX - SHADOW_OFFSET_Y,
                                 y,
                                 CUE_PAST_PX,
                                 CUE_BASE_PX,
@@ -1038,11 +1259,18 @@ class LyricsHud(Gtk.Window):
                     else:
                         sung = self._paint["sung"]
                         if forward:
+                            if self._outgoing_line is not None:
+                                outgoing_h = self._draw_karaoke(None, width, 0, line=self._outgoing_line)
+                            else:
+                                layout, _cw = self._wrap_layout(self._outgoing_current, CURRENT_FONT_PX,
+                                                               True, width, CURRENT_MAX_LINES)
+                                outgoing_h = layout.get_pixel_size()[1]
+                            exit_y = -outgoing_h * PAST_FONT_PX / CURRENT_FONT_PX - SHADOW_OFFSET_Y - BAR_GAP_PX
                             self._draw_depth_line(
                                 cr,
                                 width,
                                 self._outgoing_current,
-                                y - PAST_LIFT_PX,
+                                exit_y,
                                 y,
                                 PAST_FONT_PX,
                                 CURRENT_FONT_PX,
@@ -1050,6 +1278,8 @@ class LyricsHud(Gtk.Window):
                                 (sung[0], sung[1], sung[2], sung[3] * out_a),
                                 True,
                                 CURRENT_MAX_LINES,
+                                line=self._outgoing_line,
+                                line_alpha=out_a,
                             )
                         elif self._incoming_next == self._outgoing_current:
                             # One-line skip-back: demote into the next slot.
@@ -1124,7 +1354,7 @@ class LyricsHud(Gtk.Window):
                             width,
                             self._incoming_current,
                             y,
-                            next_slot_y,
+                            self._promote_y,
                             anim_u,
                             live_a,
                         )
@@ -1146,6 +1376,8 @@ class LyricsHud(Gtk.Window):
                 next_slot_y = next_line_y(y, current_h)
 
             y = next_slot_y
+            self._seek_target_height = next_slot_y - NEXT_GAP_PX + SHADOW_OFFSET_Y
+            self._next_slot_y = y
             if self._cfg.get("show_next") is not False:
                 if show_hold and self._hold_next:
                     r, g, b, a = self._paint["next"]
@@ -1209,30 +1441,21 @@ class LyricsHud(Gtk.Window):
                         r, g, b, a = self._paint["next"]
                         if anim_u < 1.0:
                             if self._anim_forward:
-                                au = approach_u(anim_u)
-                                if au > 0.01:
-                                    self._draw_depth_line(
+                                au = _clamp01((anim_u - 0.22) / 0.78)
+                                if au > 0.0:
+                                    self._draw_next_line(
                                         cr,
                                         width,
                                         self._incoming_next,
                                         y,
-                                        y + FAR_DROP_PX,
-                                        NEXT_FONT_PX,
-                                        FAR_FONT_PX,
+                                        successor_next_alpha(anim_u) * live_a,
                                         au,
-                                        (
-                                            r,
-                                            g,
-                                            b,
-                                            a * successor_next_alpha(anim_u) * live_a,
-                                        ),
-                                        False,
-                                        next_max,
+                                        y + FAR_DROP_PX,
                                     )
                             else:
                                 # Multi-line rewind: new next settles from past.
-                                au = approach_u(anim_u)
-                                if au > 0.01:
+                                au = _clamp01((anim_u - 0.22) / 0.78)
+                                if au > 0.0:
                                     self._draw_depth_line(
                                         cr,
                                         width,
@@ -1252,18 +1475,16 @@ class LyricsHud(Gtk.Window):
                                         next_max,
                                     )
                         else:
-                            self._draw_plain_line(
+                            next_h = self._draw_next_line(
                                 cr,
                                 width,
-                                y,
                                 self._incoming_next,
-                                (r, g, b, a * live_a),
-                                NEXT_FONT_PX,
-                                False,
-                                next_max,
+                                y,
+                                live_a,
                             )
+                            self._seek_target_height = y + next_h + SHADOW_OFFSET_Y
 
-        cr.pop_group_to_source()
+        cr.set_source(self._blend_frame(cr, cr.pop_group()))
         cr.translate(0, dy)
         cr.paint_with_alpha(u)
         return False
