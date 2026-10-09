@@ -375,6 +375,93 @@ class UmbrielWindowProbeTests(unittest.TestCase):
         self.assertEqual(loft.get("id"), "cider-id")
         self.assertFalse(loft.get("lofted"))
 
+    def test_visible_pad_uses_activation_without_workspace_focus(self) -> None:
+        pad = [
+            {**self.JSON_SAMPLE[0], "active": False},
+            {
+                **self.JSON_SAMPLE[1],
+                "workspace": "",
+                "floating": True,
+                "focused": False,
+                "active": True,
+            },
+            self.JSON_SAMPLE[2],
+        ]
+        payload = cider_bridge.apply_umbriel_listing(pad)
+        assert payload is not None
+        self.assertTrue(payload["focused"])
+        self.assertTrue(payload["on_screen"])
+        self.assertTrue(payload["suppress_notify"])
+        self.assertTrue(cider_bridge._read_loft().get("lofted"))
+
+    def test_inactive_workspace_remembered_focus_is_not_visible(self) -> None:
+        listed = [
+            self.JSON_SAMPLE[0],
+            {**self.JSON_SAMPLE[1], "workspace": "DP-1:2", "focused": True},
+            self.JSON_SAMPLE[2],
+        ]
+        payload = cider_bridge.apply_umbriel_listing(listed)
+        assert payload is not None
+        self.assertFalse(payload["focused"])
+        self.assertFalse(payload["on_screen"])
+        self.assertFalse(payload["suppress_notify"])
+
+    def test_pad_output_prefers_active_peer_over_remembered_focus(self) -> None:
+        pad = [
+            {**self.JSON_SAMPLE[0], "workspace": "HDMI-A-1:1", "active": False},
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True},
+            {**self.JSON_SAMPLE[2], "focused": True, "active": True},
+        ]
+        payload = cider_bridge.apply_umbriel_listing(pad)
+        assert payload is not None
+        self.assertEqual(payload["output"], "DP-1")
+
+    def test_miniplayer_selection_and_visibility_ignore_listing_order(self) -> None:
+        main = {**self.JSON_SAMPLE[1], "focused": True, "active": True}
+        mini = {
+            **self.JSON_SAMPLE[1],
+            "id": "mini-id",
+            "title": "Cider - Mini Player",
+            "workspace": "",
+            "floating": True,
+        }
+        for main_visible in (True, False):
+            main_row = {
+                **main,
+                "workspace": "DP-1:1" if main_visible else "",
+                "focused": main_visible,
+                "active": main_visible,
+            }
+            mini_row = {
+                **mini,
+                "workspace": "" if main_visible else "DP-1:1",
+                "active": not main_visible,
+            }
+            for rows in ([main_row, mini_row], [mini_row, main_row]):
+                with self.subTest(main_visible=main_visible, order=[row["id"] for row in rows]):
+                    payload = cider_bridge.apply_umbriel_listing(rows)
+                    assert payload is not None
+                    self.assertEqual(payload["id"], "mini-id")
+                    self.assertTrue(payload["focused"])
+                    self.assertTrue(payload["on_screen"])
+                    self.assertTrue(payload["suppress_notify"])
+
+    def test_selection_prefers_active_then_cached_then_main(self) -> None:
+        main = self.JSON_SAMPLE[1]
+        other = {**main, "id": "other-id", "title": "Cider Settings", "active": True}
+        payload = cider_bridge.apply_umbriel_listing([main, other])
+        assert payload is not None
+        self.assertEqual(payload["id"], "other-id")
+        payload = cider_bridge.apply_umbriel_listing([main, {**other, "active": False}])
+        assert payload is not None
+        self.assertEqual(payload["id"], "other-id")
+        cider_bridge._clear_loft()
+        for rows in ([other, main], [main, other]):
+            inactive = [{**row, "active": False} for row in rows]
+            payload = cider_bridge.apply_umbriel_listing(inactive)
+            assert payload is not None
+            self.assertEqual(payload["id"], "cider-id")
+
     def test_unlist_while_session_alive_is_loft_not_quit(self) -> None:
         cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
         others = [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
@@ -470,7 +557,60 @@ class UmbrielWindowProbeTests(unittest.TestCase):
         self.assertEqual(payload["compositor"], "niri")
 
 
+def _umbriel_desktop(windows: list[dict], pad_visible: bool | None = None):
+    rows = [dict(row) for row in windows]
+    calls: list[str] = []
+    if pad_visible is None:
+        pad_visible = any(not row.get("workspace") and row.get("active") for row in rows)
+    homes = {row["id"]: row.get("workspace") or "DP-1:1" for row in rows}
+
+    def listing():
+        return [dict(row) for row in rows]
+
+    def send(action: str) -> bool:
+        nonlocal pad_visible
+        calls.append(action)
+        name, _, arg = action.partition(":")
+        if name == "scratchpad-toggle":
+            pad_visible = not pad_visible
+            if not pad_visible:
+                for row in rows:
+                    if not row.get("workspace"):
+                        row.update(active=False, focused=False)
+        elif name == "window-focus":
+            target = next((row for row in rows if row["id"] == arg), None)
+            if target is None:
+                return False
+            if not target.get("workspace") and not pad_visible:
+                return True
+            for row in rows:
+                row["active"] = row is target
+                row["focused"] = row is target and bool(row.get("workspace"))
+        else:
+            target = next((row for row in rows if row.get("active")), None)
+            if target is None:
+                return False
+            if name == "window-toggle-floating":
+                target["floating"] = not target.get("floating", False)
+            elif name == "window-move-to-scratchpad":
+                homes[target["id"]] = target["workspace"]
+                target.update(workspace="", floating=True, focused=False, active=False)
+            elif name == "window-restore-from-scratchpad":
+                target.update(workspace=homes[target["id"]], focused=True)
+                if not any(not row.get("workspace") for row in rows):
+                    pad_visible = False
+        return True
+
+    return rows, calls, send, listing
+
+
 class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
+    def setUp(self) -> None:
+        super().setUp()
+        fade = mock.patch.object(cider_bridge, "_umbriel_fade_seconds", return_value=0.0)
+        fade.start()
+        self.addCleanup(fade.stop)
+
     def _listing(self, *frames: list) -> mock.Mock:
         queued = list(frames)
 
@@ -487,7 +627,10 @@ class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
 
     def test_send_focuses_cider_id_not_foreign_focus(self) -> None:
         listed = self.JSON_SAMPLE
-        cider_focused = [{**row, "focused": row["id"] == "cider-id"} for row in listed]
+        cider_focused = [
+            {**row, "focused": row["id"] == "cider-id", "active": row["id"] == "cider-id"}
+            for row in listed
+        ]
         calls: list[str] = []
 
         def msg(action: str) -> bool:
@@ -505,8 +648,8 @@ class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
             {**row, "focused": row["id"] in {"cider-id", "cursor-id"}}
             for row in listed
         ]
-        cider_and_steam[0] = {**listed[0], "focused": True, "workspace": "DP-1:2"}
-        cider_and_steam[1] = {**listed[1], "focused": True}
+        cider_and_steam[0] = {**listed[0], "focused": True, "workspace": "DP-1:2", "active": False}
+        cider_and_steam[1] = {**listed[1], "focused": True, "active": True}
         calls: list[str] = []
 
         def msg(action: str) -> bool:
@@ -523,17 +666,14 @@ class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
             {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": False},
             self.JSON_SAMPLE[2],
         ]
-        calls: list[str] = []
-
-        def msg(action: str) -> bool:
-            calls.append(action)
-            return True
-
-        cider_bridge.toggle_loft(msg=msg, listing=lambda: pad)
+        _, calls, msg, listing = _umbriel_desktop(pad)
+        cider_bridge.toggle_loft(msg=msg, listing=listing)
         self.assertEqual(
             calls,
             [
+                "window-focus:cider-id",
                 "scratchpad-toggle:DP-1",
+                "window-focus:cider-id",
                 "window-focus:cider-id",
                 "window-restore-from-scratchpad:DP-1",
             ],
@@ -541,42 +681,26 @@ class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
 
     def test_visible_pad_restores_without_group_toggle(self) -> None:
         pad = [
-            {**self.JSON_SAMPLE[0], "focused": False},
-            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": True},
+            {**self.JSON_SAMPLE[0], "active": False},
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True, "focused": False, "active": True},
             {**self.JSON_SAMPLE[2], "focused": False},
         ]
-        calls: list[str] = []
-
-        def msg(action: str) -> bool:
-            calls.append(action)
-            return True
-
-        cider_bridge.toggle_loft(msg=msg, listing=lambda: pad)
+        _, calls, msg, listing = _umbriel_desktop(pad)
+        cider_bridge.toggle_loft(msg=msg, listing=listing)
         self.assertEqual(
             calls,
             ["window-focus:cider-id", "window-restore-from-scratchpad:DP-1"],
         )
         self.assertFalse(any(self._group_toggle(action) for action in calls))
 
-    def test_unlisted_restore_shows_then_restores(self) -> None:
+    def test_unlisted_cached_window_never_restores_foreign_pad(self) -> None:
         cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
         others = [row for row in self.JSON_SAMPLE if row["app_id"] != "cider"]
+        others[1] = {**others[1], "workspace": "", "floating": True}
         cider_bridge.apply_umbriel_listing(others)
-        calls: list[str] = []
-
-        def msg(action: str) -> bool:
-            calls.append(action)
-            return True
-
-        cider_bridge.toggle_loft(msg=msg, listing=lambda: others)
-        self.assertEqual(
-            calls,
-            [
-                "scratchpad-toggle:DP-1",
-                "window-focus:cider-id",
-                "window-restore-from-scratchpad:DP-1",
-            ],
-        )
+        _, calls, msg, listing = _umbriel_desktop(others)
+        cider_bridge.toggle_loft(msg=msg, listing=listing)
+        self.assertEqual(calls, [])
 
     def test_focus_fail_never_runs_pad_action(self) -> None:
         calls: list[str] = []
@@ -617,6 +741,412 @@ class UmbrielLoftActuationTests(UmbrielWindowProbeTests):
             self.assertEqual(cider_bridge.main(), 0)
         loft_mock.assert_called_once()
         bridge_mock.assert_not_called()
+
+
+class UmbrielWindowLifecycleTests(unittest.TestCase):
+    JSON_SAMPLE = UmbrielWindowProbeTests.JSON_SAMPLE
+    tearDown = UmbrielWindowProbeTests.tearDown
+
+    def setUp(self) -> None:
+        UmbrielWindowProbeTests.setUp(self)
+        fade = mock.patch.object(cider_bridge, "_umbriel_fade_seconds", return_value=0.0)
+        fade.start()
+        self.addCleanup(fade.stop)
+
+    def _mini(self, **changes):
+        return {
+            **self.JSON_SAMPLE[1],
+            "id": "mini-id",
+            "title": "Cider - Mini Player",
+            "floating": False,
+            **changes,
+        }
+
+    def test_focus_check_uses_actual_activation_and_legacy_fallback(self) -> None:
+        row = {**self.JSON_SAMPLE[1], "focused": True, "active": False}
+        self.assertFalse(cider_bridge._window_is_focused([row], "cider-id"))
+        row.update(focused=False, active=True)
+        self.assertTrue(cider_bridge._window_is_focused([row], "cider-id"))
+        row.pop("active")
+        row["focused"] = True
+        self.assertTrue(cider_bridge._window_is_focused([row], "cider-id"))
+
+    def test_restore_focus_failure_never_restores_foreign_pad(self) -> None:
+        pad = [
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True},
+            {**self.JSON_SAMPLE[2], "workspace": "", "floating": True, "active": True},
+        ]
+        for accepted in (False, True):
+            with self.subTest(focus_command_accepted=accepted):
+                calls = []
+
+                def send(action):
+                    calls.append(action)
+                    return accepted if action.startswith("window-focus:") else True
+
+                restored = cider_bridge._restore_umbriel_window(
+                    "cider-id", "DP-1", pad, send, lambda: pad
+                )
+                self.assertFalse(restored)
+                self.assertNotIn("window-restore-from-scratchpad:DP-1", calls)
+                if not accepted:
+                    self.assertEqual(calls, ["window-focus:cider-id"])
+
+    def test_visible_unfocused_pad_restores_without_toggling_visibility(self) -> None:
+        pad = [
+            self.JSON_SAMPLE[0],
+            {**self.JSON_SAMPLE[1], "workspace": "", "floating": True},
+        ]
+        rows, calls, send, listing = _umbriel_desktop(pad, pad_visible=True)
+        self.assertTrue(cider_bridge._restore_umbriel_window(
+            "cider-id", "DP-1", listing(), send, listing
+        ))
+        self.assertEqual(rows[1]["workspace"], "DP-1:1")
+        self.assertNotIn("scratchpad-toggle:DP-1", calls)
+
+    def test_restore_failed_focus_query_never_toggles_scratchpad(self) -> None:
+        pad = [{**self.JSON_SAMPLE[1], "workspace": "", "floating": True}]
+        calls = []
+
+        def send(action):
+            calls.append(action)
+            return True
+
+        self.assertFalse(cider_bridge._restore_umbriel_window(
+            "cider-id", "DP-1", pad, send, lambda: None
+        ))
+        self.assertEqual(calls, ["window-focus:cider-id"])
+
+    def test_restore_failure_rolls_back_only_pad_opened_by_operation(self) -> None:
+        for failure in ("focus", "final-focus", "restore"):
+            with self.subTest(failure=failure):
+                pad = [self.JSON_SAMPLE[0], {**self.JSON_SAMPLE[1], "workspace": "", "floating": True}]
+                rows, calls, send, listing = _umbriel_desktop(pad)
+
+                def failing_send(action):
+                    opened = "scratchpad-toggle:DP-1" in calls
+                    if (failure == "focus" and opened and action == "window-focus:cider-id") or (
+                        failure == "final-focus" and action == "window-focus:cider-id"
+                        and calls.count("window-focus:cider-id") == 2
+                    ) or (
+                        failure == "restore" and action == "window-restore-from-scratchpad:DP-1"
+                    ):
+                        calls.append(action)
+                        return False
+                    return send(action)
+
+                self.assertFalse(cider_bridge._restore_umbriel_window(
+                    "cider-id", "DP-1", listing(), failing_send, listing
+                ))
+                self.assertEqual(calls.count("scratchpad-toggle:DP-1"), 2)
+                self.assertEqual(calls[-1], "scratchpad-toggle:DP-1")
+                self.assertEqual(rows[1]["workspace"], "")
+                self.assertFalse(rows[1]["active"])
+                if failure != "restore":
+                    self.assertNotIn("window-restore-from-scratchpad:DP-1", calls)
+                before_hidden_focus = listing()
+                send("window-focus:cider-id")
+                self.assertEqual(listing(), before_hidden_focus)
+
+    def test_show_existing_window_prefers_mini_in_both_orders(self) -> None:
+        for rows in ([self.JSON_SAMPLE[1], self._mini()], [self._mini(), self.JSON_SAMPLE[1]]):
+            with self.subTest(order=[row["id"] for row in rows]):
+                _, calls, send, listing = _umbriel_desktop(rows)
+                with mock.patch.object(cider_bridge, "_umbriel_windows_json", side_effect=listing), mock.patch.object(
+                    cider_bridge, "_umbriel_msg", side_effect=send
+                ):
+                    self.assertEqual(cider_bridge.show_cider_window(), 0)
+                self.assertEqual(calls, ["window-focus:mini-id"])
+
+    def test_show_hidden_existing_window_restores_it(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        pad = [self.JSON_SAMPLE[0], {**self.JSON_SAMPLE[1], "workspace": "", "floating": True}]
+        rows, calls, send, listing = _umbriel_desktop(pad)
+        with mock.patch.object(cider_bridge, "_umbriel_windows_json", side_effect=listing), mock.patch.object(
+            cider_bridge, "_umbriel_msg", side_effect=send
+        ):
+            self.assertEqual(cider_bridge.show_cider_window(), 0)
+        self.assertEqual(rows[1]["workspace"], "DP-1:1")
+        self.assertIn("window-restore-from-scratchpad:DP-1", calls)
+
+    def test_show_without_existing_window_does_not_use_stale_loft_id(self) -> None:
+        cider_bridge.apply_umbriel_listing(self.JSON_SAMPLE)
+        for windows in ([], [self.JSON_SAMPLE[0]]):
+            with self.subTest(windows=windows), mock.patch.object(
+                cider_bridge, "_umbriel_windows_json", return_value=windows
+            ), mock.patch.object(cider_bridge, "_umbriel_msg") as send:
+                self.assertEqual(cider_bridge.show_cider_window(), 1)
+                send.assert_not_called()
+
+    def test_show_ipc_failure_does_not_authorize_relaunch_on_umbriel(self) -> None:
+        with mock.patch.object(cider_bridge, "_umbriel_windows_json", return_value=None):
+            for desktop, status in (("umbriel", 2), ("niri", 1)):
+                with self.subTest(desktop=desktop), mock.patch.dict("os.environ", {"XDG_CURRENT_DESKTOP": desktop}):
+                    self.assertEqual(cider_bridge.show_cider_window(), status)
+
+    def test_show_failed_restore_does_not_authorize_duplicate_launch(self) -> None:
+        with mock.patch.object(cider_bridge, "_umbriel_windows_json", return_value=self.JSON_SAMPLE), mock.patch.object(
+            cider_bridge, "_umbriel_msg", return_value=False
+        ):
+            self.assertEqual(cider_bridge.show_cider_window(), 2)
+
+    def test_show_cli_exits_without_starting_bridge(self) -> None:
+        with mock.patch.object(cider_bridge, "show_cider_window", return_value=1) as show, mock.patch.object(
+            cider_bridge, "CiderBridge"
+        ) as bridge, mock.patch.object(
+            sys, "argv", ["cider_bridge.py", "--show-window", "--state-dir", self._tmp.name]
+        ):
+            self.assertEqual(cider_bridge.main(), 1)
+        show.assert_called_once()
+        bridge.assert_not_called()
+
+    def test_show_cli_helper_or_transaction_failure_returns_error_without_bridge(self) -> None:
+        for failure in ("helper", "transaction"):
+            with self.subTest(failure=failure), mock.patch.object(
+                cider_bridge, "_window_transaction"
+            ) as transaction, mock.patch.object(cider_bridge, "show_cider_window") as show, mock.patch.object(
+                cider_bridge, "CiderBridge"
+            ) as bridge, mock.patch.object(cider_bridge.log, "error") as error, mock.patch.object(
+                sys, "argv", ["cider_bridge.py", "--show-window", "--state-dir", self._tmp.name]
+            ):
+                if failure == "helper":
+                    show.side_effect = RuntimeError("helper failed")
+                else:
+                    transaction.return_value.__enter__.side_effect = PermissionError("lock denied")
+                self.assertEqual(cider_bridge.main(), 2)
+                bridge.assert_not_called()
+                error.assert_called_once()
+                if failure == "helper":
+                    show.assert_called_once()
+                else:
+                    show.assert_not_called()
+
+    def test_miniplayer_lifecycle_hides_once_and_restores_owned_main(self) -> None:
+        for mini_first in (False, True):
+            for floating in (False, True):
+                with self.subTest(mini_first=mini_first, floating=floating):
+                    main = {**self.JSON_SAMPLE[1], "active": True, "focused": True}
+                    mini = self._mini(floating=floating)
+                    windows = [mini, main] if mini_first else [main, mini]
+                    rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[2], *windows])
+                    cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+                    self.assertTrue(next(row for row in rows if row["id"] == "mini-id")["floating"])
+                    self.assertEqual(next(row for row in rows if row["id"] == "cider-id")["workspace"], "")
+                    self.assertTrue(next(row for row in rows if row["id"] == "mini-id")["active"])
+                    self.assertEqual(calls.count("window-toggle-floating"), int(not floating))
+                    self.assertEqual(calls.count("window-move-to-scratchpad:DP-1"), 1)
+                    self.assertTrue((cider_bridge._STATE_DIR / "miniplayer.json").is_file())
+                    first_tick = list(calls)
+                    cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+                    self.assertEqual(calls, first_tick)
+                    rows[:] = [row for row in rows if row["id"] != "mini-id"]
+                    cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+                    self.assertEqual(next(row for row in rows if row["id"] == "cider-id")["workspace"], "DP-1:1")
+                    self.assertEqual(rows[0]["id"], "zen-id")
+                    self.assertEqual(rows[0]["workspace"], "DP-1:1")
+                    self.assertEqual(calls.count("window-restore-from-scratchpad:DP-1"), 1)
+                    last_tick = list(calls)
+                    cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+                    self.assertEqual(calls, last_tick)
+
+    def test_miniplayer_never_restores_manually_hidden_main(self) -> None:
+        main = {**self.JSON_SAMPLE[1], "workspace": "", "floating": True}
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[0], main, self._mini()])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        rows[:] = [row for row in rows if row["id"] != "mini-id"]
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(rows[1]["workspace"], "")
+        self.assertNotIn("window-move-to-scratchpad:DP-1", calls)
+        self.assertNotIn("window-restore-from-scratchpad:DP-1", calls)
+
+    def test_miniplayer_query_failure_and_closed_main_touch_no_other_window(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[0], self.JSON_SAMPLE[1], self._mini()])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        before_failure = list(calls)
+        cider_bridge.reconcile_miniplayer(None, msg=send, listing=listing)
+        self.assertEqual(calls, before_failure)
+        self.assertTrue((cider_bridge._STATE_DIR / "miniplayer.json").is_file())
+        rows[:] = [row for row in rows if row["app_id"] != "cider"]
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(calls, before_failure)
+
+    def test_miniplayer_close_never_restores_replacement_main_id(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[0], self.JSON_SAMPLE[1], self._mini()])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        before_close = list(calls)
+        rows[:] = [row for row in rows if row["id"] != "mini-id"]
+        rows[1]["id"] = "replacement-main-id"
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(calls, before_close)
+        self.assertEqual(rows[1]["workspace"], "")
+
+    def test_recreated_miniplayer_keeps_owned_main_until_final_close(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[1], self._mini()])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        rows[1].update(id="replacement-mini-id", floating=False)
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(rows[0]["workspace"], "")
+        self.assertTrue(rows[1]["floating"])
+        self.assertEqual(calls.count("window-move-to-scratchpad:DP-1"), 1)
+        self.assertNotIn("window-restore-from-scratchpad:DP-1", calls)
+        rows.pop()
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(rows[0]["workspace"], "DP-1:1")
+        self.assertEqual(calls.count("window-restore-from-scratchpad:DP-1"), 1)
+
+    def test_rejected_main_focus_leaves_miniplayer_alive_and_retries_hide(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[1], self._mini()])
+        reject_main_focus = True
+
+        def guarded_send(action):
+            if action == "window-focus:cider-id" and reject_main_focus:
+                calls.append(action)
+                return False
+            return send(action)
+
+        cider_bridge.reconcile_miniplayer(listing(), msg=guarded_send, listing=listing)
+        self.assertEqual(rows[0]["workspace"], "DP-1:1")
+        self.assertEqual(rows[1]["id"], "mini-id")
+        self.assertTrue(rows[1]["floating"])
+        self.assertTrue(rows[1]["active"])
+        self.assertFalse((cider_bridge._STATE_DIR / "miniplayer.json").exists())
+        reject_main_focus = False
+        cider_bridge.reconcile_miniplayer(listing(), msg=guarded_send, listing=listing)
+        self.assertEqual(rows[0]["workspace"], "")
+        self.assertTrue(rows[1]["active"])
+        self.assertEqual(calls.count("window-move-to-scratchpad:DP-1"), 1)
+        self.assertTrue((cider_bridge._STATE_DIR / "miniplayer.json").is_file())
+
+    def test_main_mapping_after_miniplayer_is_hidden_and_owned(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self._mini(active=True)])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        rows[0]["active"] = False
+        rows.append({**self.JSON_SAMPLE[1], "active": True, "focused": True})
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(rows[1]["workspace"], "")
+        self.assertTrue(rows[0]["active"])
+        self.assertEqual(calls.count("window-toggle-floating"), 1)
+        self.assertEqual(calls.count("window-move-to-scratchpad:DP-1"), 1)
+        rows.pop(0)
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(rows[0]["workspace"], "DP-1:1")
+        self.assertEqual(calls.count("window-restore-from-scratchpad:DP-1"), 1)
+
+    def test_observed_manual_restore_releases_ownership_before_manual_hide(self) -> None:
+        rows, calls, send, listing = _umbriel_desktop([self.JSON_SAMPLE[1], self._mini()])
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        send("scratchpad-toggle:DP-1")
+        send("window-focus:cider-id")
+        send("window-restore-from-scratchpad:DP-1")
+        self.assertEqual(rows[0]["workspace"], "DP-1:1")
+        before_observation = list(calls)
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(calls, before_observation)
+        send("window-focus:cider-id")
+        send("window-move-to-scratchpad:DP-1")
+        before_close = list(calls)
+        rows.pop()
+        cider_bridge.reconcile_miniplayer(listing(), msg=send, listing=listing)
+        self.assertEqual(calls, before_close)
+        self.assertEqual(rows[0]["workspace"], "")
+
+
+class UmbrielFadeConfigTests(unittest.TestCase):
+    INVALID_DURATIONS = ("inf", "nan", "350.0", "10001", "-1", "0", "true", "false", '"350"')
+    setUp = UmbrielWindowProbeTests.setUp
+    tearDown = UmbrielWindowProbeTests.tearDown
+
+    def _config(self, content: str) -> float:
+        config = Path(self._tmp.name) / "config.toml"
+        config.write_text(content, encoding="utf-8")
+        with mock.patch.dict("os.environ", {"CIDER_UMBRIEL_CONFIG": str(config)}):
+            return cider_bridge._umbriel_fade_seconds()
+
+    def test_fade_uses_native_default_and_scratchpad_override(self) -> None:
+        self.assertEqual(self._config(
+            "[animation]\nenabled=true\nduration_ms=350\n[animation.scratchpad]\nenabled=true\n"
+        ), 0.35)
+        self.assertEqual(self._config(
+            "[animation]\nenabled=true\nduration_ms=350\n[animation.scratchpad]\nenabled=true\nduration_ms=175\n"
+        ), 0.175)
+
+    def test_either_animation_disable_makes_fade_instant(self) -> None:
+        for master_enabled, pad_enabled in (("false", "true"), ("true", "false")):
+            with self.subTest(master=master_enabled, pad=pad_enabled):
+                self.assertEqual(self._config(
+                    f"[animation]\nenabled={master_enabled}\n[animation.scratchpad]\nenabled={pad_enabled}\nduration_ms=350\n"
+                ), 0.0)
+
+    def test_invalid_event_duration_inherits_valid_global(self) -> None:
+        for value in self.INVALID_DURATIONS:
+            with self.subTest(duration=value):
+                self.assertEqual(self._config(
+                    f"[animation]\nduration_ms=350\n[animation.scratchpad]\nenabled=true\nduration_ms={value}\n"
+                ), 0.35)
+
+    def test_invalid_global_duration_uses_native_default(self) -> None:
+        for value in self.INVALID_DURATIONS:
+            with self.subTest(duration=value):
+                self.assertEqual(self._config(
+                    f"[animation]\nduration_ms={value}\n[animation.scratchpad]\nenabled=true\n"
+                ), 0.25)
+
+    def test_native_duration_boundaries_are_valid_for_global_and_event(self) -> None:
+        for duration in (1, 10000):
+            for section in ("animation", "animation.scratchpad"):
+                with self.subTest(duration=duration, section=section):
+                    content = f"[{section}]\nduration_ms={duration}\n"
+                    content += "enabled=true\n" if section == "animation.scratchpad" else "[animation.scratchpad]\nenabled=true\n"
+                    self.assertEqual(self._config(content), duration / 1000)
+
+    def test_malformed_enabled_values_follow_native_defaults(self) -> None:
+        for value in ("0", "1", '"false"', '"true"'):
+            with self.subTest(master_enabled=value):
+                self.assertEqual(self._config(
+                    f"[animation]\nenabled={value}\nduration_ms=350\n[animation.scratchpad]\nenabled=true\n"
+                ), 0.35)
+            with self.subTest(pad_enabled=value):
+                self.assertEqual(self._config(
+                    f"[animation]\nduration_ms=350\n[animation.scratchpad]\nenabled={value}\n"
+                ), 0.0)
+
+    def test_includes_merge_in_order_and_root_overrides_included_duration(self) -> None:
+        first = Path(self._tmp.name) / "first.toml"
+        second = Path(self._tmp.name) / "second.toml"
+        first.write_text("[animation.scratchpad]\nenabled=true\nduration_ms=150\n", encoding="utf-8")
+        second.write_text("[animation.scratchpad]\nduration_ms=275\n", encoding="utf-8")
+        includes = '[include]\nfiles=["first.toml", "second.toml"]\n[animation]\nenabled=true\n'
+        self.assertEqual(self._config(includes), 0.275)
+        self.assertEqual(self._config(includes + "[animation.scratchpad]\nduration_ms=350\n"), 0.35)
+
+    def test_unavailable_or_invalid_config_uses_fallback(self) -> None:
+        for invalid in ("[animation", "[animation]\nscratchpad=7\n", '[animation.scratchpad]\nenabled=true\nduration_ms="bad"\n'):
+            with self.subTest(config=invalid):
+                self.assertEqual(self._config(invalid), 0.25)
+        missing = Path(self._tmp.name) / "missing.toml"
+        with mock.patch.dict("os.environ", {"CIDER_UMBRIEL_CONFIG": str(missing)}):
+            self.assertEqual(cider_bridge._umbriel_fade_seconds(), 0.25)
+
+    def test_restore_waits_remaining_configured_fade_before_workspace_reattach(self) -> None:
+        config = Path(self._tmp.name) / "config.toml"
+        config.write_text("[animation.scratchpad]\nenabled=true\nduration_ms=350\n", encoding="utf-8")
+        pad = [{**UmbrielWindowProbeTests.JSON_SAMPLE[1], "workspace": "", "floating": True}]
+        _, calls, send, listing = _umbriel_desktop(pad)
+        events = []
+
+        def recording_send(action):
+            events.append(action)
+            return send(action)
+
+        with mock.patch.dict("os.environ", {"CIDER_UMBRIEL_CONFIG": str(config)}), mock.patch.object(
+            cider_bridge.time, "monotonic", side_effect=[10.0, 10.075]
+        ), mock.patch.object(cider_bridge.time, "sleep", side_effect=lambda delay: events.append(delay)):
+            self.assertTrue(cider_bridge._restore_umbriel_window(
+                "cider-id", "DP-1", listing(), recording_send, listing
+            ))
+        self.assertAlmostEqual(events[-3], 0.275)
+        self.assertEqual(events[-2:], ["window-focus:cider-id", "window-restore-from-scratchpad:DP-1"])
+        self.assertEqual(calls.count("scratchpad-toggle:DP-1"), 1)
 
 
 class OverlayLauncherContractTests(unittest.TestCase):

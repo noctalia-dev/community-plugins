@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import logging
@@ -14,10 +15,12 @@ import subprocess
 import sys
 import threading
 import time
+import tomllib
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 from urllib.parse import quote, urlparse
 
 import requests
@@ -246,7 +249,7 @@ def _umbriel_in_scratchpad(window: dict[str, Any] | None) -> bool:
 
 
 def _umbriel_peer_output(windows: list[dict[str, Any]]) -> str:
-    focused = next((w for w in windows if w.get("focused") is True), None)
+    focused = next((w for w in windows if w.get("active", w.get("focused")) is True), None)
     if focused is not None:
         output = _umbriel_output_from_workspace(focused.get("workspace"))
         if output:
@@ -310,13 +313,32 @@ def _parse_umbriel_windows(text: str) -> list[tuple[bool, str, str]]:
 
 
 def _umbriel_on_screen(cider: dict[str, Any], windows: list[dict[str, Any]]) -> bool:
-    if cider.get("focused") is True:
+    if cider.get("active", cider.get("focused")) is True:
         return True
     cider_ws = str(cider.get("workspace") or "")
-    focused = next((w for w in windows if w.get("focused") is True), None)
+    focused = next((w for w in windows if w.get("active", w.get("focused")) is True), None)
     if focused is None:
-        return bool(cider.get("active") is True)
+        return False
     return cider_ws != "" and cider_ws == str(focused.get("workspace") or "")
+
+
+def _select_cider_window(
+    windows: list[dict[str, Any]], cached_id: str = ""
+) -> dict[str, Any] | None:
+    cider_windows = [
+        w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))
+    ]
+    return min(
+        cider_windows,
+        key=lambda w: (
+            str(w.get("title") or "").strip().lower() != "cider - mini player",
+            w.get("active", w.get("focused")) is not True,
+            str(w.get("id") or "") != cached_id,
+            str(w.get("title") or "").strip().lower() != "cider",
+            str(w.get("id") or ""),
+        ),
+        default=None,
+    )
 
 
 def apply_umbriel_listing(windows: list[dict[str, Any]] | None) -> dict[str, Any] | None:
@@ -329,20 +351,18 @@ def apply_umbriel_listing(windows: list[dict[str, Any]] | None) -> dict[str, Any
             return _lofted_window_payload(loft)
         return None
 
-    cider = next(
-        (w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))),
-        None,
-    )
+    cider = _select_cider_window(windows, cached_id)
     if cider is not None:
         wid = str(cider.get("id") or cached_id)
         ws_output = _umbriel_output_from_workspace(cider.get("workspace"))
         lofted = _umbriel_in_scratchpad(cider)
         output = ws_output or str(loft.get("output") or "") or _umbriel_peer_output(windows)
         _write_loft({"id": wid, "output": output, "lofted": lofted})
-        if lofted:
-            return _lofted_window_payload({"id": wid, "output": output, "lofted": True})
-        focused = cider.get("focused") is True
-        on_screen = _umbriel_on_screen(cider, windows)
+        cider_windows = [
+            w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))
+        ]
+        focused = any(w.get("active", w.get("focused")) is True for w in cider_windows)
+        on_screen = any(_umbriel_on_screen(w, windows) for w in cider_windows)
         payload = _empty_window_probe()
         payload["compositor"] = "umbriel"
         payload["present"] = True
@@ -398,7 +418,186 @@ def _umbriel_action(name: str, output: str) -> str:
 def _window_is_focused(windows: list[dict[str, Any]] | None, wid: str) -> bool:
     if not windows or not wid:
         return False
-    return any(str(w.get("id") or "") == wid and w.get("focused") is True for w in windows)
+    return any(
+        str(w.get("id") or "") == wid
+        and w.get("active", w.get("focused")) is True
+        for w in windows
+    )
+
+
+@contextmanager
+def _window_transaction() -> Iterator[None]:
+    """Serialize the polling bridge and one-shot widget/launcher helpers."""
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with (_STATE_DIR / "window.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def _focus_umbriel_window(
+    wid: str,
+    send: Callable[[str], bool],
+    list_windows: Callable[[], list[dict[str, Any]] | None],
+) -> bool | None:
+    if not send(f"window-focus:{wid}"):
+        return None
+    for attempt in range(3):
+        windows = list_windows()
+        if windows is None:
+            return None
+        if _window_is_focused(windows, wid):
+            return True
+        if attempt < 2:
+            time.sleep(0.03)
+    return False
+
+
+def _umbriel_fade_seconds() -> float:
+    """Wait for the compositor's fade before reattaching the window to its workspace."""
+    path = Path(os.environ.get("CIDER_UMBRIEL_CONFIG") or (
+        Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "umbriel/config.toml"
+    )).expanduser()
+    animation: dict[str, Any] = {}
+    scratchpad: dict[str, Any] = {}
+    seen: set[Path] = set()
+
+    def read(config: Path) -> None:
+        config = config.resolve()
+        if config in seen:
+            return
+        seen.add(config)
+        with config.open("rb") as file:
+            data = tomllib.load(file)
+        for name in data.get("include", {}).get("files", []):
+            included = Path(name).expanduser()
+            read(included if included.is_absolute() else config.parent / included)
+        section = data.get("animation", {})
+        animation.update({k: v for k, v in section.items() if k != "scratchpad"})
+        scratchpad.update(section.get("scratchpad", {}))
+
+    try:
+        read(path)
+        if animation.get("enabled") is False or scratchpad.get("enabled") is not True:
+            return 0.0
+        duration = 250
+        for value in (animation.get("duration_ms"), scratchpad.get("duration_ms")):
+            if type(value) is int and 1 <= value <= 10000:
+                duration = value
+        return duration / 1000.0
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        log.debug("Umbriel animation config unavailable: %s", exc)
+        return 0.25
+
+
+def _restore_umbriel_window(
+    wid: str,
+    output: str,
+    windows: list[dict[str, Any]],
+    send: Callable[[str], bool],
+    list_windows: Callable[[], list[dict[str, Any]] | None],
+) -> bool:
+    row = next((w for w in windows if str(w.get("id") or "") == wid), None)
+    if row is None or not output:
+        return False
+    if not _umbriel_in_scratchpad(row):
+        return _focus_umbriel_window(wid, send, list_windows) is True
+    # Visibility and activation differ. Focusing a visible but unfocused pad
+    # works; toggling it first would hide it. Hidden pads ignore focus on 0.1.0.
+    focused = _focus_umbriel_window(wid, send, list_windows)
+    if focused is None:
+        return False
+    opened_pad = not focused
+    restored = False
+    if opened_pad and not send(_umbriel_action("scratchpad-toggle", output)):
+        return False
+    try:
+        if opened_pad:
+            shown_at = time.monotonic()
+            if not _focus_umbriel_window(wid, send, list_windows):
+                return False
+            time.sleep(max(0.0, _umbriel_fade_seconds() - (time.monotonic() - shown_at)))
+            if not _focus_umbriel_window(wid, send, list_windows):
+                return False
+        restored = send(_umbriel_action("window-restore-from-scratchpad", output))
+        return restored
+    finally:
+        # Undo only the visibility change this operation made, including errors.
+        if opened_pad and (not restored or any(
+            str(w.get("id") or "") != wid and _umbriel_in_scratchpad(w)
+            for w in windows
+        )):
+            send(_umbriel_action("scratchpad-toggle", output))
+
+
+def show_cider_window() -> int:
+    """Launcher hook: restore the existing mini/main; 1 lets the launcher start Cider."""
+    windows = _umbriel_windows_json()
+    if windows is None:
+        return 2 if "umbriel" in os.environ.get("XDG_CURRENT_DESKTOP", "").lower() else 1
+    row = _select_cider_window(windows)
+    if row is None:
+        return 1
+    payload = apply_umbriel_listing(windows)
+    output = str((payload or {}).get("output") or "")
+    return 0 if _restore_umbriel_window(
+        str(row.get("id") or ""), output, windows, _umbriel_msg, _umbriel_windows_json
+    ) else 2
+
+
+def reconcile_miniplayer(
+    windows: list[dict[str, Any]] | None,
+    msg: Callable[[str], bool] | None = None,
+    listing: Callable[[], list[dict[str, Any]] | None] | None = None,
+) -> None:
+    """Hide the main only for a new mini, and restore only the main we hid."""
+    send = msg or _umbriel_msg
+    list_windows = listing or _umbriel_windows_json
+    path = _STATE_DIR / "miniplayer.json"
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        state = {}
+    if not isinstance(state, dict):
+        state = {}
+    if windows is None:
+        return
+    mini = next((w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))
+                 and str(w.get("title") or "").lower() == "cider - mini player"), None)
+    if mini is None:
+        main_id = str(state.get("main_id") or "")
+        main = next((w for w in windows if str(w.get("id") or "") == main_id
+                     and _is_cider_window(w.get("app_id"), w.get("title"))), None)
+        if main is not None and _umbriel_in_scratchpad(main) and state.get("restore_main", True):
+            if not _restore_umbriel_window(main_id, str(state.get("output") or ""),
+                                           windows, send, list_windows):
+                return
+        path.unlink(missing_ok=True)
+        return
+    mini_id = str(mini.get("id") or "")
+    if not mini_id:
+        return
+    if state.get("mini_id") != mini_id and mini.get("floating") is False:
+        if not _focus_umbriel_window(mini_id, send, list_windows) or not send("window-toggle-floating"):
+            return
+    main = next((w for w in windows if _is_cider_window(w.get("app_id"), w.get("title"))
+                 and str(w.get("title") or "").lower() == "cider"), None)
+    previous = state
+    state = {"mini_id": mini_id}
+    if main is not None and str(main.get("id") or "") == previous.get("main_id"):
+        state.update(main_id=previous["main_id"], output=previous.get("output", ""),
+                     restore_main=previous.get("restore_main", True) and _umbriel_in_scratchpad(main))
+    if main is not None and not _umbriel_in_scratchpad(main) and (
+        previous.get("main_id") != main.get("id") or previous.get("mini_id") != mini_id
+    ):
+        main_id = str(main.get("id") or "")
+        output = _umbriel_output_from_workspace(main.get("workspace"))
+        if not main_id or not output or not _focus_umbriel_window(main_id, send, list_windows):
+            return
+        if not send(_umbriel_action("window-move-to-scratchpad", output)):
+            return
+        state.update(main_id=main_id, output=output, restore_main=True)
+        _focus_umbriel_window(mini_id, send, list_windows)
+    _atomic_write(path, json.dumps(state))
 
 
 def toggle_loft(
@@ -418,30 +617,10 @@ def toggle_loft(
     if not wid or not output:
         return 0
     was_lofted = loft.get("lofted") is True
-    cider_now = next(
-        (w for w in (windows or []) if str(w.get("id") or "") == wid),
-        None,
-    )
-    pad_visible = (
-        was_lofted
-        and cider_now is not None
-        and cider_now.get("focused") is True
-    )
     if was_lofted:
-        # Hidden pad members ignore window-focus. Restore needs the pad shown first.
-        # https://docs.noctalia.dev/umbriel/scratchpads/
-        if not pad_visible:
-            show = _umbriel_action("scratchpad-toggle", output)
-            if show:
-                send(show)
-        send(f"window-focus:{wid}")
-        restore = _umbriel_action("window-restore-from-scratchpad", output)
-        if restore:
-            send(restore)
+        _restore_umbriel_window(wid, output, windows or [], send, list_windows)
         return 0
-    if not send(f"window-focus:{wid}"):
-        return 0
-    if _window_is_focused(list_windows(), wid) is False:
+    if not _focus_umbriel_window(wid, send, list_windows):
         return 0
     pad = _umbriel_action("window-move-to-scratchpad", output)
     if not pad:
@@ -1081,7 +1260,9 @@ class CiderBridge:
         last_body = ""
         while not self._stop.is_set():
             try:
-                payload = probe_cider_window()
+                with _window_transaction():
+                    reconcile_miniplayer(_umbriel_windows_json())
+                    payload = probe_cider_window()
                 # Unlist while the session is alive is loft (KTD1). Chip hide
                 # waits for socket/API death, not a missing window row.
                 body = json.dumps(payload, ensure_ascii=False)
@@ -1554,14 +1735,22 @@ def main() -> int:
         action="store_true",
         help="One-shot Umbriel loft send/restore; do not start the bridge.",
     )
+    parser.add_argument("--show-window", action="store_true",
+                        help="One-shot launcher restore; exit 1 when Cider needs launching.")
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.WARNING))
     global _STATE_DIR
     _STATE_DIR = Path(args.state_dir).expanduser()
-    _STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-    if args.toggle_loft:
-        return toggle_loft()
+    if args.toggle_loft or args.show_window:
+        try:
+            with _window_transaction():
+                return show_cider_window() if args.show_window else toggle_loft()
+        except Exception as exc:
+            log.error("Cider window action failed: %s", exc)
+            return 2
+
+    _STATE_DIR.mkdir(parents=True, exist_ok=True)
 
     if not args.token:
         token_file = _STATE_DIR / "apptoken"

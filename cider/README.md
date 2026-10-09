@@ -16,11 +16,11 @@ Adds Cider-specific track alerts and lyrics alongside Noctalia’s media control
 
 - Noctalia v5.2.1 recommended. Manifest, Luau, IPC, and GTK theme integration checked against its official source; `plugin_api` remains 24 (the oldest API used, available since v5.0.0-beta.9). Niri and Hyprland keep left-click = lyrics HUD.
 - Cider with Connectivity / External API enabled
-- `python3` on `PATH`, with `python-socketio`, `requests`, and `websocket-client` (`pip install -r requirements.txt` from this plugin directory)
+- Python 3.11+ (`python3` on `PATH`), with `python-socketio`, `requests`, and `websocket-client` (`pip install -r requirements.txt` from this plugin directory)
 - Overlay HUD: `gtk3`, `gtk-layer-shell`, and `python-gobject`. Untimed silence gate optionally uses `parec` (PulseAudio / PipeWire).
 - Base tools: `bash`, `sh`, `pkill`, and `coreutils` (`cat`, `dirname`, `mkdir`, `rm`, `sleep`) launch and stop the bundled helpers. Noctalia's own CLI handles plugin IPC.
 - Conditional helpers: `niri` on Niri, `hyprctl` on Hyprland, or `umbriel` on Umbriel for window probes; `parec` only for the optional silence gate. Install the tools for your compositor/features, not every compositor. The manifest lists these existing commands for disclosure; Noctalia does not block enabling the plugin if a conditional helper is absent.
-- Umbriel loft (middle-click): `umbriel` on `PATH` (0.1.0+). No-op on other compositors.
+- Umbriel loft (middle-click): `umbriel` on `PATH` with output-based scratchpad IPC (verified on 0.1.0). No-op on other compositors.
 
 ## Usage
 
@@ -67,6 +67,53 @@ Defaults are remappable in the widget editor.
 | Left | Lyrics HUD | Lyrics HUD |
 | Middle | Loft that Cider window (scratchpad send/restore) | Lyrics HUD (`chip-left` dispatcher) |
 | Right | Track OSD | Track OSD |
+
+### Cider windows on Umbriel
+
+The bridge prefers `Cider - Mini Player` while it exists. Opening it hides the main window in the scratchpad; closing it restores the main only if the bridge hid it. Restoring the main yourself releases that ownership once the bridge observes it. A manually hidden main stays hidden. Middle-click and the launcher restore hook target the mini while it is open.
+
+For compact sizing from the first frame, put this after any catch-all tiling rule in your Umbriel config:
+
+```toml
+[[window_rule]]
+match.app_id = "^[Cc]ider$"
+match.title = "^Cider - Mini Player$"
+default_floating = true
+```
+
+The bridge also floats a newly detected mini when no rule is installed, but a rule avoids the initial tiled frame. Existing stretched minis must close and reopen once to recover their natural size.
+
+Scratchpad transitions have their own animation switch. To use a smooth fade without a dimmed backdrop:
+
+```toml
+[animation.scratchpad]
+enabled = true
+duration_ms = 250
+curve = "easeout"
+dim = 0.0
+blur = false
+```
+
+This affects all scratchpads. The plugin leaves compositor configuration to the user.
+
+Restore waits for this native fade before returning the window to its workspace, so tiling cannot cut the fade short. Timing is read from `$XDG_CONFIG_HOME/umbriel/config.toml` (normally `~/.config/umbriel/config.toml`) and its included files. For a custom `umbriel -c` file, set `CIDER_UMBRIEL_CONFIG` to that path in the environment of both Noctalia and the Cider launcher. If the file cannot be read, restoration waits 250 ms.
+
+Noctalia 5.2.1 excludes scratchpad windows from dock window candidates, so a pinned dock item launches its desktop entry while Cider is hidden. Add this to your existing Cider launcher before its original launch command, replacing the script path with your installed plugin path:
+
+```bash
+if [[ $# -eq 0 ]]; then
+  python3 /absolute/path/to/cider/scripts/cider_bridge.py --show-window
+  case $? in
+    0) exit 0 ;; # Existing mini/main restored; do not relaunch Cider.
+    2) exit 2 ;; # IPC/restore failed; do not launch a duplicate.
+  esac
+fi
+# Keep the original Cider launch command and "$@" below this block.
+```
+
+Keep the desktop entry's `Exec` pointing at that launcher. URL arguments bypass the hook and reach the original Cider command. Exit 1 means no existing Cider window was found, or another compositor is in use. The hook never starts the playback bridge or changes playback sidecars.
+
+These actions use Umbriel's output-based scratchpad IPC, verified on 0.1.0. Other hidden members in the same pad may briefly appear while a target is restored; previously hidden siblings are hidden again afterward. Newer named-scratchpad IPC requires matching compositor integration.
 
 `toggle-loft` is also a bindable IPC event. It is a no-op when Cider is not running or the window id is unknown. Lyrics and OSD IPC stay unaliased.
 
@@ -115,10 +162,10 @@ noctalia msg plugin dragged/cider:bridge all toggle-loft
 ## Notes
 
 - **Network:** the Python bridge uses HTTP and Socket.IO with Cider’s Connectivity API (`base_url`). Lyrics use Cider `amapi/run-v3` (Apple Music TTML) with `https://lrclib.net/api/get` as fallback. Artwork uses track-supplied cover URLs (normally Apple Music CDN); those requests do not carry the Cider token. No remote code is downloaded or executed.
-- **Processes:** `scripts/start-bridge.sh` launches `scripts/cider_bridge.py`. The lyrics HUD is `scripts/lyrics_overlay.py`. Umbriel loft is a one-shot `python3 cider_bridge.py --toggle-loft` (does not restart the bridge). Disable/uninstall stops helpers via `onExit`.
-- **Filesystem:** runtime JSON, artwork, loft latch, and the Cider API token file live under `~/.cache/noctalia-cider/`. Durable settings also go to `noctalia.pluginDataDir()`. `ui.image` only loads local cover files after the bridge downloads them. Detached process logs: `/tmp/noctalia-cider-bridge.log`, `/tmp/noctalia-cider-lyrics-overlay.log`.
+- **Processes:** `scripts/start-bridge.sh` launches `scripts/cider_bridge.py`. The lyrics HUD is `scripts/lyrics_overlay.py`. Umbriel loft and launcher restoration are one-shot `python3 cider_bridge.py --toggle-loft` / `--show-window` (do not restart the bridge). Disable/uninstall stops helpers via `onExit`.
+- **Filesystem:** runtime JSON, artwork, loft latch, miniplayer ownership (`miniplayer.json`), the window-action lock, and the Cider API token file live under `~/.cache/noctalia-cider/`. Durable settings also go to `noctalia.pluginDataDir()`. `ui.image` only loads local cover files after the bridge downloads them. Detached process logs: `/tmp/noctalia-cider-bridge.log`, `/tmp/noctalia-cider-lyrics-overlay.log`.
 - **Helpers:** window probes run `niri msg`, `hyprctl`, or `umbriel windows --json`; loft uses `umbriel msg`. The optional audio meter spawns `parec` to read system-output audio for silence detection. Launch/cleanup uses `bash`, `sh`, `pkill` for the bridge, and pidfile-based `kill` for the overlay; `coreutils` supplies file/directory and sleep commands. Helpers write PID files in the cache. The bridge can read the existing token/settings from `~/.config/cider-kde-notifier/config.json` when plugin credentials are empty.
-- **Compositor:** Umbriel loft send/restore uses `umbriel msg` (`window-move-to-scratchpad`, `scratchpad-toggle`, `window-restore-from-scratchpad`). If another client is stored in the same output pad, it can flash for a frame on restore — Umbriel cannot restore a hidden pad member without showing the pad first.
+- **Compositor:** Umbriel window handling uses `umbriel msg` (`window-focus`, `window-toggle-floating`, `window-move-to-scratchpad`, `scratchpad-toggle`, `window-restore-from-scratchpad`). Window focus is verified before acting on the compositor's focused window. No compositor config, launcher, or desktop entry is rewritten by the plugin.
 - **Panels:** `panel-open` / `panel-close` are used instead of `togglePanel` so a persistent toast is never inverted if it is already open.
 - **Notification history:** Noctalia 5.2.1’s internal plugin toasts are never stored in history. The former `save_to_history` switch was removed because the host ignored it.
 - Local path source for development:
