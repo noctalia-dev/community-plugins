@@ -2,7 +2,7 @@
 
 # RUM Updates
 
-A Noctalia bar widget for monitoring and managing RakuOS overlay package updates with [`rum`](https://gitlab.com/rakuos/packages/rakuos/rakuos-rum).
+A Noctalia bar widget for monitoring and managing RakuOS overlay and Flatpak updates with [`rum`](https://gitlab.com/rakuos/packages/rakuos/rakuos-rum).
 
 The plugin checks for updates in the background, displays the available count in your bar, provides package details on hover, and can open either RakuOS Software Center or the `rum` system upgrade command in a terminal.
 
@@ -12,7 +12,7 @@ The plugin checks for updates in the background, displays the available count in
 | --- | --- |
 | ID | `etrigan63/rum-updates` |
 | Entries | Bar widget: `rum_updates`; service: `update_poller` |
-| Version | `0.1.8` |
+| Version | `0.2.0` |
 | Noctalia plugin API | `3` |
 | License | MIT |
 
@@ -41,10 +41,11 @@ The plugin settings control polling and notifications. Each bar widget has its o
 ## Features
 
 - Checks for RakuOS overlay package updates with `rum check-upgrade --json`.
+- Also reports Flatpak app and runtime updates by querying `flatpak remote-ls --updates` for the system and user installations, read-only.
 - Updates the bar automatically at a configurable interval.
 - Starts an immediate update check when the widget is right-clicked, with progress shown in the tooltip.
 - Shows the current count as `1 Update`, `0 Updates`, or `RUM error`.
-- Provides package names, installed and available versions, and repository names in the tooltip.
+- Provides package names, installed and available versions, and the repository or Flatpak installation scope in the tooltip.
 - Uses the `package` glyph by default and supports any configurable Noctalia glyph.
 - Runs `sudo rum system-upgrade` in a terminal on click by default, or opens RakuOS Software Center instead.
 - Clears the update count shortly after a completed upgrade, without waiting for the next scheduled check.
@@ -52,6 +53,7 @@ The plugin settings control polling and notifications. Each bar widget has its o
 - Optionally sends a notification when the number of available updates increases.
 - Validates and sorts `rum` JSON output before displaying it.
 - Cross-checks the reported updates against `rum upgrade --dry-run` and drops any candidate the real upgrade would not apply, so phantom entries never inflate the count.
+- Shows a result notification at the end of a right-click check, including when there are no updates to install.
 - Never starts a privileged upgrade automatically; `sudo` is run only after an explicit widget click.
 
 ## Requirements
@@ -60,6 +62,7 @@ The plugin settings control polling and notifications. Each bar widget has its o
 - A Noctalia release that supports plugin API 3.
 - `rakuos-software` is optional and only needed for the **Open RakuOS Software Center** click action.
 - `sh` and `sudo` are used only when launching the optional terminal updater.
+- `flatpak` is used for the optional read-only Flatpak update check; when it is unavailable the widget reports rum package updates only.
 - A terminal emulator is optional and only needed for the **Run rum system upgrade** click action.
 
 ## Installation
@@ -88,10 +91,10 @@ The update service starts as soon as the plugin is enabled and performs an initi
 
 Hover over the widget to see:
 
-- The number of available overlay package updates.
+- The number of available updates.
 - Each package name and architecture.
 - The installed and available versions.
-- The repository associated with each update.
+- The repository for rum packages, or the Flatpak installation scope (system or user) for Flatpak entries.
 - The **Check now** row, which shows how to check for updates on demand.
 
 Right-click the widget to start an immediate update check instead of waiting for the configured interval. While a check is running, **Check now** changes to **Checking for updates…** and further clicks are ignored. Right-click is always reserved for this check and does not change the configured **Click action**. The widget must be visible, so disable **Hide when empty** if you want to trigger checks on demand while no updates are available.
@@ -154,20 +157,22 @@ Enter only the executable. Do not add the command you want to run or terminal ar
 
 ## How it works
 
-1. The background service runs `rum check-upgrade --json`.
+1. The background service runs `rum check-upgrade --json` and, when `flatpak` is available, read-only `flatpak remote-ls --updates` queries for the system and user installations.
 2. The command has a 60-second timeout, and overlapping checks are prevented.
 3. The plugin validates every returned update before updating the shared state, cross-checking them against `rum upgrade --dry-run` so a candidate the upgrade would not apply is never counted.
-4. Available updates are sorted by package name, architecture, and repository.
+4. Available updates are merged and sorted by package name, architecture, and repository, with rum packages before Flatpak entries.
 5. The bar widget and its tooltip react immediately when the state changes.
 6. If a check fails, the widget displays `RUM error`; its tooltip contains the available diagnostic message.
 
-The widget reports the overlay package updates returned by `rum check-upgrade`. RakuOS base-image and Flatpak updates remain part of the normal full system upgrade flow and are not represented by this count.
+The widget reports the overlay package updates returned by `rum check-upgrade`, plus the Flatpak app and runtime updates detected by read-only `flatpak remote-ls --updates` queries for the system and user installations. RakuOS base-image updates require root to check and remain part of the normal full system upgrade flow; they are not represented by this count.
 
 Reported candidates are validated against `rum upgrade --dry-run`, the same resolution the update action runs: a candidate that `rum check-upgrade` reports but `rum` cannot actually upgrade is filtered out rather than shown as available.
 
 ## Notifications
 
 When **Notify** is enabled, Noctalia shows a notification only when the number of discovered updates increases. The plugin does not notify for the initial check, unchanged counts, decreases, errors, or updates that disappear.
+
+A right-click check always ends with a result notification: the number of updates that are available, or that there are no updates to install. Failed checks report the error instead.
 
 ## Troubleshooting
 
@@ -208,7 +213,7 @@ noctalia msg plugin etrigan63/rum-updates:update_poller all refresh
 
 ### Security and privileges
 
-- Update checks run as the current user and do not use `sudo`.
+- Update checks run as the current user and do not use `sudo`; the Flatpak queries are read-only.
 - No upgrade is started automatically.
 - The privileged command is launched only when **Run rum system upgrade** is selected and the widget is clicked.
 - The plugin does not implement independent telemetry. Network access during update checks is performed by `rum` and its configured repositories.

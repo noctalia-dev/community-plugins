@@ -1,6 +1,9 @@
 {
   "action": {
     "close": "Close",
+    "mark_read": "Mark as read",
+    "mark_visible_read": "Mark current list as read",
+    "marking_read": "Marking as read…",
     "open": "Open on GitHub",
     "refresh": "Refresh"
   },
@@ -470,9 +473,34 @@
         "description": "Only show notifications updated within this many recent days.",
         "label": "Notifications · History range (days)"
       },
+      "mark_read_on_open": {
+        "description": "In Synced mode, mark an unread notification read on GitHub after its browser opener starts successfully.",
+        "label": "Notifications · Mark read when opening a notification"
+      },
+      "refresh_interval": {
+        "description": "How often Synced mode refreshes notifications independently of the dashboard.",
+        "label": "Notifications · Refresh interval",
+        "options": {
+          "one_twenty": "Every 120 seconds",
+          "sixty": "Every 60 seconds",
+          "three_hundred": "Every 300 seconds"
+        }
+      },
+      "refresh_on_open": {
+        "description": "Refresh notifications when the dashboard panel opens in Synced mode.",
+        "label": "Notifications · Refresh when panel opens"
+      },
       "show": {
         "description": "Show the Notifications dashboard tab.",
         "label": "Notifications · Show dashboard"
+      },
+      "sync_mode": {
+        "description": "Legacy keeps notifications read-only and follows the dashboard refresh interval. Synced refreshes independently and can mark notifications read on GitHub.",
+        "label": "Notifications · Sync mode",
+        "options": {
+          "legacy": "Legacy (read-only)",
+          "synced": "Synced"
+        }
       }
     },
     "overview": {
@@ -506,6 +534,8 @@
     "loading": "Loading GitHub data…",
     "missing_gh": "GitHub CLI (gh) is required.",
     "missing_xdg_open": "xdg-open is required to open GitHub.",
+    "notification_changed": "This notification has a newer update. Refresh and read the new content before marking it as read.",
+    "notifications_refreshing": "Refreshing notifications…",
     "preparing_contribution_calendar": "Preparing contribution calendar…",
     "request_error": "Some GitHub data could not be refreshed.",
     "stale": "Showing the latest cached data.",

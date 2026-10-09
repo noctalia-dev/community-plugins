@@ -1,6 +1,6 @@
 id = "kenn/keybind-cheatsheet"
 name = "Keybind Cheatsheet"
-version = "0.2.8"
+version = "0.3.0"
 plugin_api = 9
 author = "kenn"
 license = "MIT"
@@ -89,6 +89,20 @@ type = "bool"
 label_key = "settings.show_actions.label"
 description_key = "settings.show_actions.description"
 default = false
+
+[[setting]]
+key = "merge_sequential"
+type = "bool"
+label_key = "settings.merge_sequential.label"
+description_key = "settings.merge_sequential.description"
+default = true
+
+[[setting]]
+key = "modifier_labels"
+type = "string_map"
+label_key = "settings.modifier_labels.label"
+description_key = "settings.modifier_labels.description"
+default = {}
 
 [[panel]]
 id = "cheatsheet"

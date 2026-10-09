@@ -1,0 +1,135 @@
+{
+  "notify": {
+    "no_orb": "Place an NCS Visualizer widget on the desktop first (desktop widget editor).",
+    "off": "NCS Visualizer off",
+    "on": "NCS Visualizer on"
+  },
+  "settings": {
+    "audio_source": {
+      "description": "PipeWire/PulseAudio source for CAVA. Empty uses the default output (what you hear)",
+      "label": "Audio source"
+    },
+    "color": {
+      "label": "Orb colour"
+    },
+    "color_source": {
+      "description": "Follow the Noctalia theme (changes with your wallpaper) or pick a fixed colour",
+      "label": "Colour",
+      "options": {
+        "custom": "Custom",
+        "theme": "Theme"
+      }
+    },
+    "dot_density": {
+      "description": "Dots per side of the grid. Original is 322 (103,684 dots); lower is lighter on the GPU",
+      "label": "Dot density",
+      "options": {
+        "low": "Low (25,600)",
+        "medium": "Medium (57,600)",
+        "original": "Original (103,684)",
+        "ultra": "Ultra (160,000)"
+      }
+    },
+    "dot_scale": {
+      "label": "Dot size"
+    },
+    "flow_speed": {
+      "label": "Flow speed"
+    },
+    "fps": {
+      "description": "Higher is smoother but costs more GPU",
+      "label": "Frame rate",
+      "options": {
+        "30": "30 fps",
+        "60": "60 fps",
+        "120": "120 fps"
+      }
+    },
+    "glow_color": {
+      "label": "Glow colour"
+    },
+    "glow_mode": {
+      "description": "Colour of the soft glow around the dots",
+      "label": "Glow",
+      "options": {
+        "custom": "Custom",
+        "same": "Same as the orb",
+        "theme": "Theme colour"
+      }
+    },
+    "glow_scale": {
+      "label": "Glow strength"
+    },
+    "glow_theme_role": {
+      "label": "Glow theme colour"
+    },
+    "hide_when_idle": {
+      "description": "Fade the orb out while nothing is playing",
+      "label": "Hide when silent"
+    },
+    "idle_seconds": {
+      "description": "Seconds without sound before the orb stops moving (and hides, if enabled)",
+      "label": "Silence timeout (s)"
+    },
+    "layer": {
+      "description": "Behind windows like other desktop widgets, or always on top of them",
+      "label": "Layer",
+      "options": {
+        "bottom": "Behind windows",
+        "top": "Above windows"
+      }
+    },
+    "motion_model": {
+      "description": "Original matches spicetify-visualizer exactly; Aurora adds a spring and punches on each beat",
+      "label": "Motion",
+      "options": {
+        "aurora": "Aurora (beat punch)",
+        "original": "Original"
+      }
+    },
+    "noise_reduction": {
+      "description": "CAVA noise reduction, 0-100. Higher is smoother but slower to react",
+      "label": "Smoothing"
+    },
+    "opacity": {
+      "label": "Opacity"
+    },
+    "orb_scale": {
+      "description": "Size of the orb inside the widget box",
+      "label": "Orb size"
+    },
+    "punch": {
+      "description": "How hard the orb pops on each beat",
+      "label": "Beat punch"
+    },
+    "renderer_path": {
+      "description": "Path to the aurora-ncs binary. Empty searches PATH and ~/.local/bin",
+      "label": "Renderer path"
+    },
+    "sensitivity": {
+      "description": "How strongly the orb reacts to the audio level",
+      "label": "Sensitivity"
+    },
+    "theme_role": {
+      "label": "Theme colour",
+      "options": {
+        "primary": "Primary",
+        "secondary": "Secondary",
+        "tertiary": "Tertiary"
+      }
+    }
+  },
+  "shortcut": {
+    "label": "NCS Visualizer"
+  },
+  "widget": {
+    "crashed": "Renderer keeps exiting",
+    "crashed_hint": "Run aurora-ncs --config {path} in a terminal to see why.",
+    "disabled": "NCS Visualizer is off",
+    "disabled_hint": "Turn it on from the Control Center tile.",
+    "missing_cava": "CAVA not installed",
+    "missing_cava_hint": "Install the cava package to capture audio.",
+    "missing_renderer": "Renderer not installed",
+    "missing_renderer_hint": "Install aurora-ncs - see the plugin page for the one-line build."
+  }
+}

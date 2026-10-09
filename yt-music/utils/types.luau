@@ -4,32 +4,32 @@
 -- ----------------------------------------------------------------------------
 
 export type Track = {
-    id: string,
-    title: string,
-    artist: string,
-    album: string?,
-    duration: number?,
-    duration_text: string?,
-    thumbnail_url: string?,
-    thumb_path: string?,
+	id: string,
+	title: string,
+	artist: string,
+	album: string?,
+	duration: number?,
+	duration_text: string?,
+	thumbnail_url: string?,
+	thumb_path: string?,
 }
 
 -- Library rows (browse.luau) carry count; search playlist rows carry artist.
 -- Tracks are NOT nested on the playlist object; use playlist_page's result for those.
 export type Playlist = {
-    id: string,
-    title: string,
-    subtitle: string?,
-    count: number?,
-    artist: string?,
-    thumbnail_url: string?,
-    thumb_path: string?,
+	id: string,
+	title: string,
+	subtitle: string?,
+	count: number?,
+	artist: string?,
+	thumbnail_url: string?,
+	thumb_path: string?,
 }
 
 export type PlaylistPageResult = {
-    tracks: { Track },
-    next_token: string?,
-    total_count: number?,
+	tracks: { Track },
+	next_token: string?,
+	total_count: number?,
 }
 
 -- Search results mix song rows (Track, no type) and playlist rows
@@ -37,25 +37,25 @@ export type PlaylistPageResult = {
 export type SearchResult = Track | (Playlist & { type: string? })
 
 export type Player = {
-    status: string,
-    title: string,
-    artist: string,
-    id: string,
-    position: number,
-    duration: number,
-    volume: number,
-    index: number,
-    shuffle: boolean,
-    repeat_mode: string,
-    queue: { Track },
-    thumbnail_url: string?,
-    thumb_path: string?,
-    codec_fetched: boolean?,
-    bitrate: number?,
-    codec: string?,
-    samplerate: number?,
-    views: number?,
-    likes: number?,
+	status: string,
+	title: string,
+	artist: string,
+	id: string,
+	position: number,
+	duration: number,
+	volume: number,
+	index: number,
+	shuffle: boolean,
+	repeat_mode: string,
+	queue: { Track },
+	thumbnail_url: string?,
+	thumb_path: string?,
+	codec_fetched: boolean?,
+	bitrate: number?,
+	codec: string?,
+	samplerate: number?,
+	views: number?,
+	likes: number?,
 }
 
 return {}

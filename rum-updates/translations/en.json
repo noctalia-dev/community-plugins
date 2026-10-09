@@ -1,6 +1,11 @@
 {
   "bar": {
     "notify": {
+      "check_complete": {
+        "no_updates": "No updates available.",
+        "title": "RUM Updates",
+        "updates": "{count} updates are available."
+      },
       "missing_rum": "rum is not available",
       "missing_software_center": "RakuOS Software Center is not available",
       "new_updates": {
@@ -63,6 +68,7 @@
     "check_now_hint": "Right-click",
     "checking": "Checking for updates…",
     "error": "Update check failed",
+    "flatpak_scope": "Flatpak ({installation})",
     "package_updates": "RUM package updates",
     "repository": "Repository: {repo}"
   }

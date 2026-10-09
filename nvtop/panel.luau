@@ -6,11 +6,32 @@ local nvtop_data = {}
 local nvtop_pid = -1
 -- The index of the currently selected GPU, which is used to display the correct GPU info.
 local selected_gpu = 1
+-- Set when run_nvtop.py finished with error
+local g_error_message = nil
+
+local g_gpu_graph_path = nil
+local g_mem_graph_path = nil
+
+-- Data load time in milliseconds. Used as part of key for gauge images controls.
+local g_data_load_ms = "none"
 
 local g_order_by_context = "mem"
 
 -- Forward declaration of the render function to allow it to be called from other functions.
 local render
+
+-- Get the file path for the stats data.
+local function get_params_file_path()
+    local path = noctalia.getenv("XDG_RUNTIME_DIR") or "/dev/shm"
+    return path .. "/noctalia_tordex_nvtop_params"
+end
+
+local function write_params()
+    local params = tostring(selected_gpu)
+
+    noctalia.writeFile(get_params_file_path(), params)
+end
+
 
 -- Render a single row of GPU info with a label, value, and glyph.
 local function gpu_info_row(label, value, glyph)
@@ -19,18 +40,23 @@ local function gpu_info_row(label, value, glyph)
     },{
         ui.glyph({
             name = glyph,
-            color = "on_surface",
+            color = "on_surface_variant",
         }),
         ui.label({
             text = label .. ":",
-            color = "on_surface",
+            color = "on_surface_variant",
         })
     }), ui.label({
             text = value,
             flexGrow = 1,
             fontWeight = "bold",
-            color = "on_surface",
+            color = "on_surface_variant",
         })
+end
+
+-- Helper function to check if a string starts with a given prefix.
+local function starts_with(str: string, prefix: string): boolean
+    return string.sub(str, 1, #prefix) == prefix
 end
 
 -- Format memory size in bytes to a human-readable string in M or G.
@@ -47,23 +73,62 @@ end
 -- Render a message when there is no data available.
 local function render_no_data_message()
     if #nvtop_data == 0 then
-        panel.render(ui.row({
-            key = "no-data-row",
-            fill = "surface_variant",
-            border = "outline",
-            padding = 16,
-            radius = 12,
-            gap = 8,
-        },{
-            ui.glyph({
-                key = "no-data-glyph",
-                name = "info-triangle"
-            }),
-            ui.label({
-                key = "no-data-label",
-                text = noctalia.tr("nvtop.nodata"),
-            })
-        }))
+        if g_error_message == nil then
+            panel.render(ui.row({
+                key = "no-data-row",
+                fill = "surface_variant",
+                border = "outline",
+                padding = 16,
+                radius = 12,
+                gap = 8,
+            },{
+                ui.glyph({
+                    key = "no-data-glyph",
+                    name = "info-circle",
+                    color = "on_surface_variant",
+                    size = 20,
+                }),
+                ui.label({
+                    key = "no-data-label",
+                    text = noctalia.tr("nvtop.nodata"),
+                    color = "on_surface_variant",
+                    fontSize = 20,
+                })
+            }))
+        else
+            panel.render(ui.column({
+                key = "no-data-row",
+                fill = "error",
+                border = "outline",
+                padding = 16,
+                radius = 12,
+                gap = 8,
+            },{
+                ui.row({
+                    key = "no-data-row",
+                    fill = "error",
+                    gap = 8,
+                },{
+                    ui.glyph({
+                        key = "no-data-glyph",
+                        name = "exclamation-circle",
+                        color = "on_error",
+                        size = 20,
+                    }),
+                    ui.label({
+                        key = "no-data-label",
+                        text = noctalia.tr("nvtop.nodata"),
+                        color = "on_error",
+                        fontSize = 20,
+                    })
+                }),
+                ui.label({
+                    key = "no-data-label",
+                    text = g_error_message,
+                    color = "on_error",
+                })
+            }))
+        end
         return true
     end
     return false
@@ -71,7 +136,17 @@ end
 
 -- Render the list of GPUs as buttons, and highlight the selected GPU.
 local function render_gpu_list(selected_idx)
-    local children = {}
+    local children = {
+        ui.glyph({ name = "cpu", size = 16 }),
+        ui.label({
+            key = "title",
+            text = "NVTOP",
+            fontSize = 16,
+            fontWeight = "bold",
+            color = "on_surface",
+        }),
+        ui.spacer({ key = "title-gap-2", flexGrow = 0, width = 8 }),
+    }
     for idx, gpu in ipairs(nvtop_data) do
         table.insert(children,
             ui.button({
@@ -81,13 +156,42 @@ local function render_gpu_list(selected_idx)
                 variant = "outline",
                 onClick = function()
                     selected_gpu = idx
+                    write_params()
                     render()
                 end
             })
         )
     end
+
+    table.insert(children,
+        ui.spacer({ key = "title-gap-2", flexGrow = 1 })
+    )
+    table.insert(children,
+        ui.button({
+            key = "settings",
+            glyph = "settings",
+            variant = "ghost",
+            tooltip = noctalia.tr("tip_settings"),
+            onClick = function()
+                noctalia.openSettings()
+            end,
+        })
+    )
+    table.insert(children,
+        ui.button({
+            key = "close",
+            glyph = "close",
+            variant = "ghost",
+            tooltip = noctalia.tr("tip_close"),
+            onClick = function()
+                panel.close()
+            end,
+        })
+    )
+
     return ui.row({
         gap = 4,
+        align = "center",
     }, children)
 end
 
@@ -190,6 +294,24 @@ local function render_gpu_info(selected_idx)
         }, column.values))
     end
 
+    -- Include the GPU and memory graph images if available.
+    if g_gpu_graph_path ~= nil and noctalia.fileExists(g_gpu_graph_path) then
+        table.insert(children, ui.image({
+            key = "img-gpu-" .. g_data_load_ms,
+            path = g_gpu_graph_path,
+            width = 110,
+            height = 110,
+        }))
+    end
+    if g_mem_graph_path ~= nil and noctalia.fileExists(g_mem_graph_path) then
+        table.insert(children, ui.image({
+            key = "img-mem-" .. g_data_load_ms,
+            path = g_mem_graph_path,
+            width = 110,
+            height = 110,
+        }))
+    end
+
     return ui.row({
         gap = 8,
         padding = 8,
@@ -255,7 +377,7 @@ local processes_data = {
         context_key = {"mem"},
         label = noctalia.tr("nvtop.process.gpu_mem.label"),
         tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
-        flexGrow = 2,
+        flexGrow = 2.3,
         textAlign = "end",
         process_value = function(value) return value ~= nil and format_memory_size(value) or "n/a" end,
         sort_value = function(value) return tonumber(value) end,
@@ -265,7 +387,7 @@ local processes_data = {
         context_key = {"cmd"},
         label = noctalia.tr("nvtop.process.cmdline.label"),
         tip = noctalia.tr("nvtop.process.cmdline.tip"),
-        flexGrow = 10,
+        flexGrow = 8,
         textAlign = "start",
         process_value = function(value) return value end,
         sort_value = function(value) return tostring(value) end,
@@ -309,7 +431,7 @@ local processes_data_shared_encode_decode = {
         context_key = {"mem"},
         label = noctalia.tr("nvtop.process.gpu_mem.label"),
         tip = noctalia.tr("nvtop.process.gpu_mem.tip"),
-        flexGrow = 2,
+        flexGrow = 2.3,
         textAlign = "end",
         process_value = function(value) return value ~= nil and format_memory_size(value) or "n/a" end,
         sort_value = function(value) return tonumber(value) end,
@@ -319,7 +441,7 @@ local processes_data_shared_encode_decode = {
         context_key = {"cmd"},
         label = noctalia.tr("nvtop.process.cmdline.label"),
         tip = noctalia.tr("nvtop.process.cmdline.tip"),
-        flexGrow = 10,
+        flexGrow = 9,
         textAlign = "start",
         process_value = function(value) return value end,
         sort_value = function(value) return tostring(value) end,
@@ -507,7 +629,7 @@ local function render_processes(gpu_idx)
         local process_children = {}
         local is_hovered = hover_row_key == "proc-row-" .. process.pid
         for _, column in ipairs(get_processes_data(gpu_idx)) do
-            local fill = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_fill or "surface"
+            local fill = "surface/0.0"
             local color = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_color or "on_surface"
             local fontWeight = "medium"
             if order_by == column.data_key or order_by == "-" .. column.data_key then
@@ -519,16 +641,19 @@ local function render_processes(gpu_idx)
             end
             table.insert(process_children, ui.column({
                 flexGrow = column.flexGrow,
-                paddingH = 2,
+                paddingH = 8,
+                paddingV = 1,
                 fill = fill,
+                radius = 16,
             }, {
                 ui.label({
                     text = column.process_value(process[column.data_key]),
                     maxLines = 1,
                     flexGrow = 1,
-                    color = process[column.data_key] and color or color .. "/0.4",
+                    color = color,
                     textAlign = column.textAlign,
                     fontWeight = fontWeight,
+                    opacity = process[column.data_key] and 1 or 0.4,
                 })
             }))
         end
@@ -536,8 +661,6 @@ local function render_processes(gpu_idx)
         if expanded_pid ~= nil and expanded_pid == process.pid then
             table.insert(children, ui.column({
                 radius = 2,
-                border = "outline",
-                borderWidth = 1,
                 padding = 1,
                 fill = default_hover_fill
             }, {
@@ -623,9 +746,8 @@ local function render_processes(gpu_idx)
                 key = "proc-row-" .. process.pid,
                 gap = 8,
                 padding = 1,
-                radius = 2,
-                border = "outline",
-                borderWidth = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and 1 or 0,
+                radius = 16,
+                tooltip = noctalia.getConfig("show_tips") and process.cmdline or nil,
                 fill = (is_hovered or (expanded_pid ~= nil and expanded_pid == process.pid)) and default_hover_fill or "surface",
                 onHover = function(state, key)
                     local old_state = hover_row_key
@@ -663,6 +785,7 @@ local function render_processes(gpu_idx)
             borderWidth = 1,
             fill = "surface",
             radius = 10,
+            gap = 2,
         }, children)
     })
 end
@@ -694,22 +817,49 @@ render = function()
     }, children))
 end
 
--- Wrap the update command to capture the PID and exit code, so that we can track the progress of the update.
-local function wrap_command(cmd)
-    return "echo tordex/nvtop:pid:$$;" .. cmd .. " 2>&1;echo tordex/nvtop:done:$?"
-end
 
 local function run_nvtop()
-    local nvtop_cmd = wrap_command("nvtop -s | jq -c . ; nvtop -l -d " .. noctalia.getConfig("delay") .. " | jq -c .")
+    local plugin_dir = noctalia.pluginDir()
+    local theme
+    if noctalia.isDarkMode() then
+        theme = "dark"
+    else
+        theme = "light"
+    end
+    local nvtop_cmd = "python3 " .. plugin_dir .. "/scripts/run_nvtop.py " .. tostring(noctalia.getConfig("delay")) .. " " .. theme
+    g_error_message = nil
     noctalia.runStream(nvtop_cmd, function(line)
         if line:find("tordex/nvtop:pid:") then
             nvtop_pid = tonumber(line:match("tordex/nvtop:pid:(%d+)"))
-        elseif not line:find("tordex/nvtop:done:") then
-            local data = noctalia.json.decode(line) or nil
-            if data then
-                nvtop_data = data
-                sort_all_processes()
-                render()
+        elseif starts_with(line, "tordex/nvtop:ready:") then
+            local in_data = line:match("tordex/nvtop:ready:(.+)")
+            local decoded_in_data = noctalia.json.decode(in_data) or nil
+            local filename = decoded_in_data and decoded_in_data.data or nil
+            g_gpu_graph_path = decoded_in_data and decoded_in_data.gpu_graph or g_gpu_graph_path
+            g_mem_graph_path = decoded_in_data and decoded_in_data.mem_graph or g_mem_graph_path
+            if filename then
+                noctalia.readFileAsync(filename, function(content, err)
+                    if content then
+                        local decoded = noctalia.json.decode(content) or nil
+                        if decoded then
+                            nvtop_data = decoded
+                            g_data_load_ms = tostring(noctalia.nowMs())
+                            sort_all_processes()
+                            render()
+                        end
+                    end
+                end)
+            end
+        elseif starts_with(line, "tordex/nvtop:done:") then
+            local message = line:match("tordex/nvtop:done:(.+)")
+            -- You can handle the done message here if needed
+            local decoded = noctalia.json.decode(message) or nil
+            if decoded then
+                if decoded.status == "error" then
+                    g_error_message = decoded.message or "Unknown error"
+                    nvtop_data = {}
+                    render()
+                end
             end
         end
     end)
@@ -730,6 +880,7 @@ function onOpen(context)
         sort_all_processes()
         render()
     end
+    write_params()
     stop_nvtop()
     run_nvtop()
 end
@@ -737,6 +888,8 @@ end
 -- Handle the panel closing event, and stop the nvtop process.
 function onClose()
     stop_nvtop()
+    local params_file = get_params_file_path()
+    if noctalia.fileExists(params_file) then
+        noctalia.removeFile(params_file)
+    end
 end
-
-render()

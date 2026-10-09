@@ -55,17 +55,29 @@ M.DEFAULTS = {
 -- Try the host form first, fall back to the interpreter form (same as
 -- adaptation.luau).
 local is_finite
+-- The learned keyboard scale is clamped into keyboard.luau's own bounds on
+-- load; importing their ONE home beats restating two numbers here (the same
+-- one-authority rule as the curve constants).
+local keyboard
 do
   local ok, mod = pcall(require, "./curve.luau")
   if not ok then
     mod = require("./curve")
   end
   is_finite = mod.is_finite
+
+  ok, mod = pcall(require, "./keyboard.luau")
+  if not ok then
+    mod = require("./keyboard")
+  end
+  keyboard = mod
 end
 
---- A fresh, empty profile.
+--- A fresh, empty profile. `kbd_scale` is the learned keyboard threshold
+--- multiplier (keyboard.luau's state.scale), 1.0 neutral: the only learned
+--- number in here that is not a curve threshold.
 function M.new()
-  return { version = 1, observations = {}, nodes = {}, updated_at = nil }
+  return { version = 1, observations = {}, nodes = {}, kbd_scale = 1.0, updated_at = nil }
 end
 
 --- Which node a manual change belongs to: the one whose fixed output is nearest
@@ -204,6 +216,20 @@ function M.sanitise(value)
       end
     end
   end
+
+  -- The learned keyboard threshold multiplier. Profiles written before the
+  -- keyboard feature lack the field and load unchanged at the neutral 1.0; a
+  -- hand-edited value is clamped into keyboard's own scale bounds rather than
+  -- trusted, so a corrupted file cannot park the threshold off its leash.
+  local scale = value.kbd_scale
+  if not is_finite(scale) then
+    scale = 1.0
+  elseif scale < keyboard.DEFAULTS.scale_min then
+    scale = keyboard.DEFAULTS.scale_min
+  elseif scale > keyboard.DEFAULTS.scale_max then
+    scale = keyboard.DEFAULTS.scale_max
+  end
+  clean.kbd_scale = scale
 
   return clean
 end

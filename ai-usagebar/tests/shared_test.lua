@@ -221,4 +221,35 @@ local reorderedModels = shared.modelHeadlines({ id = "antigravity", metrics = {
 assert(#reorderedModels == 1 and reorderedModels[1].metric.percent == 20,
     "Antigravity headline should use the session window when weekly arrives first")
 
+local balanceDeepseek = {
+    id = "deepseek", status = "ready", stale = false, metrics = {},
+    sections = {
+        { type = "spacer" },
+        { type = "text", label = "Balance", value = "$2.90" },
+        { type = "block", label = "Breakdown", body = { "granted $0.00 · topped-up $2.90" } },
+    },
+}
+assert(shared.balanceText(balanceDeepseek) == "$2.90",
+    "a balance section should surface as the capsule reading")
+
+local balanceNous = {
+    id = "nous", status = "ready", stale = false, metrics = {},
+    sections = {
+        { type = "text", label = "Subscription credits", value = "0.00 remaining" },
+        { type = "text", label = "Top-up credits", value = "8.19 remaining" },
+        { type = "text", label = "Total usable credits", value = "8.19" },
+        { type = "text", label = "Renews", value = "25d 20h" },
+    },
+}
+assert(shared.balanceText(balanceNous) == "8.19",
+    "total usable credits should win over the reset countdown")
+assert(shared.balanceText({ id = "nous", metrics = {}, sections = {
+    { type = "text", label = "Top-up credits", value = "8.19 remaining" },
+} }) == "8.19 remaining", "a lone credit line is still a balance")
+assert(shared.balanceText(usageEntry("openai", 12)) == nil,
+    "a percentage provider must keep its metric and report no balance text")
+assert(shared.balanceText({ id = "deepseek", metrics = {}, sections = {
+    { type = "text", label = "Balance", value = "credentials error: no API key" },
+} }) == nil, "an error line is not a balance")
+
 io.write("ok: shared timestamps, availability, and provider order\n")

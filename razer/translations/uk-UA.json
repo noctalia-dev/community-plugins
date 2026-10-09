@@ -31,7 +31,10 @@
     "spectrum": "Спектр",
     "start_daemon": "Запустити службу",
     "start_daemon_hint": "Запустіть службу командою:\nsystemctl --user start openrazer-daemon",
+    "theme_fallback": "Колір теми недоступний, застосовано зелений Razer",
+    "theme_role": "Роль палітри",
     "theme_sync": "Синхронізація з темою",
+    "theme_synced": "Встановлено роль теми: ",
     "wired": "Дротовий"
   }
 }

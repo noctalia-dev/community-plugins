@@ -18,6 +18,8 @@
 --   colortemp.luau   the night-light config splice and its guard rail
 --   temperature.luau the night-light temperature write path: the splice gate
 --                    and the applied-K bookkeeping (one function, injected IO)
+--   keyboard.luau    the keyboard-backlight two-state policy (pure decision +
+--                    bookkeeping over injected inputs)
 --
 -- What is left here is a thin, boring shim: read settings and sysfs into one
 -- snapshot, hand it to adaptation.decide() with the injected clock, and perform
@@ -29,6 +31,7 @@ local policy = require("./policy.luau")
 local adaptation = require("./adaptation.luau")
 local curve_source = require("./curve_source.luau")
 local temperature = require("./temperature.luau")
+local keyboard = require("./keyboard.luau")
 local profile = require("./profile.luau")
 local hardware = require("./hardware.luau")
 
@@ -42,6 +45,7 @@ local hardware = require("./hardware.luau")
 local HW  -- the full discovery report: paths, devices, reason lists, guard_state
 local HW_OK = false
 local HW_ENV  -- injected env, shared by the probe and the per-tick guard reads
+local KBD_MAX  -- the keyboard LED's max_brightness (number|nil), read once at start
 
 -- ── config ───────────────────────────────────────────────────────────────────
 -- Every reader tolerates the wrong type rather than trusting the stored config,
@@ -111,7 +115,9 @@ end
 -- ── config-derived state ─────────────────────────────────────────────────────
 local CFG = {}
 for k, v in pairs(policy.DEFAULTS) do CFG[k] = v end
--- CFG.enabled / CFG.colortemp_enabled are filled by reload() below.
+-- CFG.enabled / CFG.colortemp_enabled are filled by reload() below, and so is
+-- CFG.kbd: the keyboard-backlight cfg, keyed exactly as keyboard.DEFAULTS names
+-- its setting keys (keyboard.luau owns the tolerance for the rest).
 
 -- ── the adaptation session ───────────────────────────────────────────────────
 -- One explicit state table, owned by adaptation.decide()'s timeline: what the
@@ -127,6 +133,10 @@ for k, v in pairs(policy.DEFAULTS) do CFG[k] = v end
 -- tick evaluates, and why. curve_settings is one snapshot of the curve config
 -- keys, so the per-observation rebuild re-lays learned nudges on the exact
 -- thresholds reload() saw instead of re-reading config mid-flight.
+--
+-- kbd is the keyboard-backlight bookkeeping keyboard.decide mutates through
+-- adaptation.decide; its scale seeds from the profile at load and is written
+-- back into it on kbd_learned.
 local SESSION = {
   log = nil,            -- stabilised log10 reading
   last_written = nil,   -- percent we last commanded
@@ -137,6 +147,7 @@ local SESSION = {
   last_ms = nil,        -- injected clock, MILLISECONDS
   applied_k = nil,      -- night-light temperature we last wrote
   last_temp_s = nil,
+  kbd = { mode = nil, cmd_raw = nil, inhibit = false, changes = {}, scale = 1.0 },
   profile = profile.new(),
   curve_settings = {},
   cs = nil,
@@ -152,6 +163,9 @@ local function load_profile()
     return
   end
   SESSION.profile = profile.sanitise(decoded)
+  -- The learned keyboard scale rides the same file; seed the keyboard's
+  -- bookkeeping from it (sanitise already clamped it to keyboard's bounds).
+  SESSION.kbd.scale = SESSION.profile.kbd_scale
 end
 
 local LAST_SAVE_S = nil
@@ -181,6 +195,16 @@ local function reload()
   -- (hardware is probed once).
   CFG.min_percent = setting_number("min_percent", 15)
   CFG.max_percent = setting_number("max_percent", 100)
+
+  -- The keyboard-backlight cfg, keyed exactly as keyboard.DEFAULTS expects;
+  -- the setting keys are the manifest's. The learning constants are not
+  -- settings: keyboard.decide falls back to its own DEFAULTS for them.
+  CFG.kbd = {
+    enabled = setting_bool("keyboard_backlight", keyboard.DEFAULTS.enabled),
+    anchor_percent = setting_number("kbd_anchor_percent", keyboard.DEFAULTS.anchor_percent),
+    buffer_percent = setting_number("kbd_buffer_percent", keyboard.DEFAULTS.buffer_percent),
+    dark_percent = setting_number("kbd_dark_percent", keyboard.DEFAULTS.dark_percent),
+  }
 
   -- Which curve is live, and why: curve_source absorbs the curve-key readers,
   -- the map-vs-sliders precedence, the learned nudges and every curve log line.
@@ -227,6 +251,24 @@ local function write_percent(pct)
   -- back: the readback path has its own transfer curve (actual ~= requested), but
   -- `brightness` is the value both brightnessctl and Noctalia agree on, and it is
   -- what we compare against.
+end
+
+-- ── the keyboard backlight ──────────────────────────────────────────────────
+-- `noctalia msg keyboard-backlight-set <percent>` takes an INTEGER percent (the
+-- host parses it with std::from_chars into int) and prints `error:` on stdout
+-- when it refuses -- hence the callback: a failed write is a warn-once, not a
+-- crash, and exactly once per run because a dead LED would otherwise repeat
+-- every tick.
+local function set_keyboard(percent)
+  noctalia.runAsync({ "noctalia", "msg", "keyboard-backlight-set", tostring(percent) },
+    function(result)
+      if result ~= nil and result.exitCode == 0 then return end
+      local detail = result and trim(result.stdout) or ""
+      if detail == "" then
+        detail = "exit code " .. tostring(result and result.exitCode)
+      end
+      warn_once("kbd-write", "keyboard backlight write failed: " .. detail)
+    end, 4000)
 end
 
 -- ── the learned profile ──────────────────────────────────────────────────────
@@ -289,6 +331,18 @@ perform = function(actions)
       poll_locked()
     elseif kind == "apply_temperature" then
       apply_temperature(action.kelvin, action.now_s)
+    elseif kind == "set_keyboard" then
+      set_keyboard(action.percent)
+    elseif kind == "kbd_manual" then
+      -- The owner's Fn press took over: the physical level stands until ambient
+      -- crosses the band edge that would have changed it (keyboard.luau).
+      log("keyboard: manual change adopted; auto adaptation held")
+    elseif kind == "kbd_learned" then
+      -- The scale was already folded into SESSION.profile (adaptation.decide's
+      -- pure half, exactly like record()); learning events are rare (a habit
+      -- burst), so unlike observations they are persisted immediately.
+      DIRTY = true
+      save_profile(action.now_s, true)
     end
   end
 end
@@ -301,6 +355,11 @@ local function read_observed()
   observed.raw = read_num(HW.paths.als_raw)
   observed.percent = policy.percent_of(read_num(HW.paths.bl_cur), read_num(HW.paths.bl_max))
   observed.guards = HW.guard_state(HW_ENV)
+  -- The keyboard raw level: what decide()'s manual-change detection compares
+  -- its last command against. Only read when the probe found the LED.
+  if HW.paths.kbd_cur ~= nil then
+    observed.kbd_raw = read_num(HW.paths.kbd_cur)
+  end
   if CFG.colortemp_enabled then
     observed.ambient_k = read_num(HW.paths.als_ct)
   end
@@ -322,7 +381,7 @@ function update()
   local now_ms = noctalia.nowMs()
   local observed = read_observed()
   perform(adaptation.decide(SESSION, ticks, observed, {}, CFG,
-    { now_ms = now_ms, paths = HW.paths }))
+    { now_ms = now_ms, paths = HW.paths, kbd_max = KBD_MAX }))
 end
 
 -- ── hooks ────────────────────────────────────────────────────────────────────
@@ -343,7 +402,7 @@ function onIpc(event, _payload)
   local now_ms = noctalia.nowMs()
   local observed = read_observed()
   perform(adaptation.decide(SESSION, nil, observed, { event }, CFG,
-    { now_ms = now_ms, paths = HW.paths }))
+    { now_ms = now_ms, paths = HW.paths, kbd_max = KBD_MAX }))
 end
 
 function onConfigChanged()
@@ -380,6 +439,11 @@ if #HW.required_missing > 0 then
   return
 end
 HW_OK = true
+
+-- The keyboard LED's max_brightness is static; read it once, like the probe
+-- paths, and hand decide() the number (keyboard.decide maps percents to raw
+-- levels with it). Nil when the probe found no LED or the read fails.
+KBD_MAX = HW.paths.kbd_max ~= nil and read_num(HW.paths.kbd_max) or nil
 
 load_profile()
 reload()

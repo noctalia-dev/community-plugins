@@ -1,0 +1,121 @@
+{
+  "panel": {
+    "active_now": "ACTIVE NOW",
+    "apply_reconnect": "Apply & reconnect",
+    "cached_tokens": "Cached",
+    "cached_tokens_label": "Cached Tokens",
+    "completion_tokens": "Completion tokens",
+    "connecting_to": "Connecting to {url}…",
+    "connection": "CONNECTION",
+    "cost": "Cost",
+    "dashboard_login": "DASHBOARD LOGIN",
+    "est_cost": "Est. Cost",
+    "est_cost_sub": "Estimated, not actual billing",
+    "hide_password": "Hide",
+    "host": "Host",
+    "invalid_host": "Please enter a valid hostname or IP (no http:// or path).",
+    "invalid_port": "Port must be a number between 1 and 65535.",
+    "login_description": "Session expired or authentication required. Enter your 9Router dashboard password to sign in.",
+    "logout": "Log out",
+    "models_usage": "MODEL USAGE",
+    "no_models_period": "No model usage recorded in this period.",
+    "no_quotas": "No quota data found for any provider.",
+    "no_recent": "No requests recorded yet. Send a prompt through 9Router and it will appear here.",
+    "open_dashboard": "Open dashboard",
+    "output_tokens": "Output Tokens",
+    "overview": "OVERVIEW",
+    "password_placeholder": "Dashboard password",
+    "port": "Port",
+    "prompt_tokens": "Prompt tokens",
+    "quota_remaining": "{pct}% remaining",
+    "quota_resets_at": "resets {date}",
+    "quota_resets_in": "resets in {time}",
+    "quota_tracker": "PROVIDER QUOTAS",
+    "quota_used": "{used} / {total} used",
+    "recent_models": "RECENT MODELS",
+    "recent_requests": "RECENT REQUESTS",
+    "refresh": "Refresh",
+    "remember_password": "Save password in system keyring",
+    "show_password": "Show",
+    "sign_in": "Sign in",
+    "signing_in": "Signing in…",
+    "title": "9Router",
+    "total_input_tokens": "Total Input Tokens",
+    "total_requests": "Total Requests",
+    "unlimited": "Unlimited",
+    "updated_at": "Updated {time} · {url}"
+  },
+  "period": {
+    "24h": "24h",
+    "30d": "30d",
+    "60d": "60d",
+    "7d": "7d",
+    "today": "Today"
+  },
+  "settings": {
+    "auth_mode": {
+      "description": "Choose between automatic local CLI token or dashboard password.",
+      "label": "Authentication mode",
+      "options": {
+        "cli_token": "CLI Token (Local secrets)",
+        "password": "Dashboard password"
+      }
+    },
+    "base_url": {
+      "description": "Full base URL of the 9Router server.",
+      "label": "Base URL"
+    },
+    "busy_hold_seconds": {
+      "description": "How long to keep the active glow after a request finishes.",
+      "label": "Active hold duration (s)"
+    },
+    "cli_token_path": {
+      "description": "Path to folder containing machine-id and auth/cli-secret (default ~/.9router).",
+      "label": "CLI secrets directory"
+    },
+    "dashboard_password": {
+      "description": "Password used to authenticate with 9Router dashboard.",
+      "label": "Dashboard password"
+    },
+    "refresh_seconds": {
+      "description": "How often to poll for status updates if the stream disconnects.",
+      "label": "Heartbeat refresh interval (s)"
+    },
+    "remember_password": {
+      "description": "Store dashboard password in login keyring for automatic re-login.",
+      "label": "Remember dashboard password"
+    },
+    "show_model_label": {
+      "description": "Show model text in the bar pill. If off, only shows the status glyph.",
+      "label": "Show model name in bar"
+    }
+  },
+  "status": {
+    "connecting": "CONNECTING…",
+    "idle": "IDLE",
+    "login_needed": "login needed",
+    "no_requests": "No requests yet",
+    "offline": "OFFLINE",
+    "request_in_flight": "REQUEST IN FLIGHT",
+    "session_expired": "SESSION EXPIRED",
+    "working": "working…"
+  },
+  "tab": {
+    "activity": "Activity",
+    "models": "Models",
+    "quotas": "Quota Tracker"
+  },
+  "time": {
+    "days_ago": "{count}d ago",
+    "hours_ago": "{count}h ago",
+    "just_now": "just now",
+    "minutes_ago": "{count}m ago",
+    "seconds_ago": "{count}s ago"
+  },
+  "tooltip": {
+    "expired": "9Router session expired — click to log in",
+    "in_flight": "Request in flight",
+    "last_model": "Last model",
+    "offline": "9Router is offline"
+  }
+}

@@ -322,6 +322,20 @@ local function gatherSheets()
   end)
 end
 
+-- An output change only arms a countdown, and the gather runs once the set of
+-- outputs has held still for SETTLE_TICKS update ticks (two to four seconds).
+-- A monitor that drops its link for a moment, as some do when the session
+-- locks and they go to standby, comes back within a second, and every
+-- connector does not come back at once. A gather run in between saw one
+-- screen back and the other still gone: it parked all of the other's sheets
+-- on the first, and nothing ever sent them home.
+local SETTLE_TICKS = 2
+local gatherIn = nil
+
+local function gatherSoon()
+  gatherIn = SETTLE_TICKS
+end
+
 -- Called by a sheet that has no note yet: it knows its key, not whether
 -- anything answers to it.
 local function ensureKey(key)
@@ -427,9 +441,10 @@ end
 
 -- A monitor came or went. A sheet bound to the connector that left is still in
 -- settings.toml and still bound to a note, and is drawn on nothing at all, so
--- it comes to a screen that exists - and goes back when its own returns.
+-- it comes to a screen that exists - and goes back when its own returns. Not
+-- right away: see gatherSoon.
 function onOutputsChanged()
-  gatherSheets()
+  gatherSoon()
 end
 
 -- Settings changed. The host calls this in place, without restarting the
@@ -446,6 +461,13 @@ end
 
 function update()
   store.flush()
+  if gatherIn ~= nil then
+    gatherIn = gatherIn - 1
+    if gatherIn <= 0 then
+      gatherIn = nil
+      gatherSheets()
+    end
+  end
 end
 
 function onExit()
@@ -467,3 +489,6 @@ loadNotes()
 -- Once per start: adopt keyless sheets, and drop settings an older noctes left
 -- on its sheets, which the host would otherwise warn about on every load.
 tidySheets()
+-- And once the outputs have settled, send home any sheet a previous run parked:
+-- that run can have ended before the output it was waiting for came back.
+gatherSoon()

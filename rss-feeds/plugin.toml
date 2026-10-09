@@ -1,0 +1,90 @@
+id           = "pmason314/rss-feeds"
+name         = "RSS Feeds"
+version      = "1.0.0"
+author       = "Peter Mason"
+license      = "MIT"
+icon         = "rss"
+description  = "Displays recent entries from up to 5 RSS feeds of your choice."
+plugin_api   = 24
+tags         = ["desktop", "utility"]
+dependencies = ["xdg-open"]
+
+[[setting]]
+key       = "feed_1"
+type      = "string"
+label_key = "settings.feed_1.label"
+default   = ""
+
+[[setting]]
+key       = "title_1"
+type      = "string"
+label_key = "settings.title_1.label"
+default   = ""
+
+[[setting]]
+key       = "feed_2"
+type      = "string"
+label_key = "settings.feed_2.label"
+default   = ""
+
+[[setting]]
+key       = "title_2"
+type      = "string"
+label_key = "settings.title_2.label"
+default   = ""
+
+[[setting]]
+key       = "feed_3"
+type      = "string"
+label_key = "settings.feed_3.label"
+default   = ""
+
+[[setting]]
+key       = "title_3"
+type      = "string"
+label_key = "settings.title_3.label"
+default   = ""
+
+[[setting]]
+key       = "feed_4"
+type      = "string"
+label_key = "settings.feed_4.label"
+default   = ""
+
+[[setting]]
+key       = "title_4"
+type      = "string"
+label_key = "settings.title_4.label"
+default   = ""
+
+[[setting]]
+key       = "feed_5"
+type      = "string"
+label_key = "settings.feed_5.label"
+default   = ""
+
+[[setting]]
+key       = "title_5"
+type      = "string"
+label_key = "settings.title_5.label"
+default   = ""
+
+[[setting]]
+key       = "items_per_feed"
+type      = "int"
+label_key = "settings.items_per_feed.label"
+default   = 5
+min       = 1
+max       = 15
+
+[[setting]]
+key       = "refresh_minutes"
+type      = "int"
+label_key = "settings.refresh_minutes.label"
+default   = 30
+min       = 5
+max       = 1440
+
+[[desktop_widget]]
+id    = "feeds"
+entry = "widget.luau"

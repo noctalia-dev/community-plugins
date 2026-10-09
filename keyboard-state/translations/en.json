@@ -1,0 +1,53 @@
+{
+  "error": {
+    "failed_initial_query": "Failed to query initial key lock state.",
+    "invalid_input_device": "The configured input device is invalid or does not exist.",
+    "stream_failed": "Could not start the keyboard event stream."
+  },
+  "settings": {
+    "active_color": {
+      "description": "Color to use when a lock key is active",
+      "label": "Active color"
+    },
+    "caps_lock_glyph": {
+      "description": "Glyph to display for Caps Lock",
+      "label": "Caps Lock glyph"
+    },
+    "hide_inactive": {
+      "description": "Hide inactive lock keys",
+      "label": "Hide inactive"
+    },
+    "icon_spacing": {
+      "description": "Spacing between keyboard state icons in pixels",
+      "label": "Icon spacing"
+    },
+    "inactive_color": {
+      "description": "Color to use when a lock key is inactive",
+      "label": "Inactive color"
+    },
+    "input_device": {
+      "description": "Path to the input device to monitor for keyboard lock key events",
+      "label": "Input device"
+    },
+    "num_lock_glyph": {
+      "description": "Glyph to display for Num Lock",
+      "label": "Num Lock glyph"
+    },
+    "scroll_lock_glyph": {
+      "description": "Glyph to display for Scroll Lock",
+      "label": "Scroll Lock glyph"
+    },
+    "show_caps_lock": {
+      "description": "Show the Caps Lock state",
+      "label": "Show Caps Lock"
+    },
+    "show_num_lock": {
+      "description": "Show the Num Lock state",
+      "label": "Show Num Lock"
+    },
+    "show_scroll_lock": {
+      "description": "Show the Scroll Lock state",
+      "label": "Show Scroll Lock"
+    }
+  }
+}

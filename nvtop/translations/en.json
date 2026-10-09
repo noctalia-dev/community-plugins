@@ -76,6 +76,10 @@
       "description": "Select the text color for hovered process rows",
       "label": "Process hover text color"
     },
+    "show_tips": {
+      "description": "Enable or disable tooltips for process rows",
+      "label": "Show tooltips"
+    },
     "sort_column_background": {
       "description": "Select the background color for the sort column",
       "label": "Sort column background"
@@ -84,5 +88,7 @@
       "description": "Select the text color for the sort column",
       "label": "Sort column text color"
     }
-  }
+  },
+  "tip_close": "Close",
+  "tip_settings": "Plugin settings"
 }

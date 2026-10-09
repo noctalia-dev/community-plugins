@@ -1,0 +1,96 @@
+# Basecamp - notifications from every authorized Basecamp account, in the bar.
+#
+# Ported from the MIT-licensed Omarchy/Quickshell plugin by 37signals
+# (https://github.com/basecamp/omarchy-basecamp-plugin). Unofficial and
+# unaffiliated: the Basecamp mark belongs to 37signals.
+#
+# service -> the only entry that runs `basecamp`. Polls every account in turn,
+#            publishes one snapshot, and executes refresh / mark-read / open /
+#            filter requests that arrive on the request channel.
+# bar     -> the Basecamp logo plus the unread count, coloured when unread.
+#            Left click opens the panel, right or middle click refreshes.
+# panel   -> the notification list (unread first) with an account filter, a
+#            Load more button, keyboard navigation, and a setup card when the
+#            CLI is missing or the user is signed out.
+
+id = "kjvdven/basecamp"
+name = "Basecamp"
+version = "0.1.0"
+plugin_api = 24
+author = "kjvdven"
+license = "MIT"
+dependencies = ["basecamp", "jq", "xdg-open"]
+tags = ["bar", "panel", "service", "productivity", "indicator"]
+icon = "campfire"
+description = "Unread and recent notifications from every authorized Basecamp account, via the Basecamp CLI."
+
+# ── Plugin-level settings ────────────────────────────────────────────────────
+# [[service]] entries cannot carry settings (only widget, panel, desktop_widget
+# and launcher_provider can), so everything the poller needs lives at the root
+# and is read with noctalia.getConfig() from service.luau.
+#
+# Never change the `type` of a key that has shipped: a stored value whose type
+# no longer matches makes the shell reject every settings write. Add a new key.
+
+[[setting]]
+key = "refresh_interval"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 600
+min = 60
+max = 3600
+step = 60
+
+[[setting]]
+key = "mark_read_on_open"
+type = "bool"
+label_key = "settings.mark_read_on_open.label"
+description_key = "settings.mark_read_on_open.description"
+default = true
+
+[[setting]]
+key = "open_command"
+type = "string"
+label_key = "settings.open_command.label"
+description_key = "settings.open_command.description"
+default = "xdg-open {url}"
+advanced = true
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "service"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Left click is declared rather than hard-coded in onClick, so the user can
+  # remap it from the bar's own gesture settings like any built-in widget.
+  # middle = "none" is what frees onMiddleClick: every widget otherwise defaults
+  # to "settings-open-widget", and a bound action runs instead of the callback.
+  [widget.actions]
+  left = "panel-toggle kjvdven/basecamp:panel"
+  middle = "none"
+
+  [[widget.setting]]
+  key = "show_count"
+  type = "bool"
+  label_key = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default = true
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 430
+height = 620
+placement = "attached"
+position = "auto"
+open_near_click = true
+# Escape is deliberately absent: the host always reserves it to dismiss a panel,
+# so declaring it would be dead weight. r is a safe printable chord here because
+# this panel contains no ui.input to claim it.
+capture_keys = ["up", "down", "left", "right", "return", "r"]

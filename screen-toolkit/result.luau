@@ -20,6 +20,7 @@ local ocrEditText = type(ocrResult) == "table" and ocrResult.text or ""
 local translateResult = noctalia.state.get("translateResult")
 local qrResult = noctalia.state.get("qrResult")
 local paletteColors = noctalia.state.get("paletteColors") or {}
+local paletteCapture = noctalia.state.get("paletteCapture")
 local ocrTab = "original"
 local selectedTranslateLang = "ar"
 local translateLanguages = {
@@ -148,6 +149,7 @@ local function refresh()
   translateResult = noctalia.state.get("translateResult")
   qrResult = noctalia.state.get("qrResult")
   paletteColors = noctalia.state.get("paletteColors") or {}
+  paletteCapture = noctalia.state.get("paletteCapture")
 end
 
 -- ── Header ─────────────────────────────────────────────────────────────────
@@ -514,7 +516,9 @@ local function renderPalette()
         for i, hex in ipairs(paletteColors) do buf[#buf + 1] = `--palette-{i}: {hex};` end
         copyText(table.concat(buf, "\n"))
       end),
-      actionButton("share", tr("panel.share"), function() send("share", "/tmp/screen-toolkit-palette.png") end),
+      actionButton("share", tr("panel.share"), function()
+        if paletteCapture and paletteCapture ~= "" then send("share", paletteCapture) end
+      end),
     }),
     ui.row({ gap = 6 }, tiles),
   })
@@ -580,3 +584,4 @@ noctalia.state.watch("translateResult", function(v)
 end)
 noctalia.state.watch("qrResult", function(v) qrResult = v; if panelOpen then render() end end)
 noctalia.state.watch("paletteColors", function(v) paletteColors = v or {}; if panelOpen then render() end end)
+noctalia.state.watch("paletteCapture", function(v) paletteCapture = v; if panelOpen then render() end end)

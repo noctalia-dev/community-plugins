@@ -180,56 +180,20 @@ function Razer.setDPI(serial: string, dpi: number, callback: ((boolean) -> ())?)
   end)
 end
 
--- Known built-in Noctalia palettes
-local BUILTIN_PALETTES: { [string]: string } = {
-  ["catppuccin"] = "#CBA6F7",
-  ["dracula"] = "#BD93F9",
-  ["gruvbox"] = "#D79921",
-  ["nord"] = "#88C0D0",
-  ["tokyo-night"] = "#7AA2F7",
-  ["ayu"] = "#39BAE6",
-  ["eldritch"] = "#A48CF2",
-  ["kanagawa"] = "#7E9CD8",
-  ["rosé pine"] = "#EBBCBA",
-  ["rose pine"] = "#EBBCBA",
-}
-
--- Get active theme accent color directly via Noctalia host API
-function Razer.getThemeColor(): (string, boolean)
-  -- 1. Check built-in palette setting via host API
-  local builtin = noctalia.getSetting("theme.builtin")
-  if type(builtin) == "string" and builtin ~= "" then
-    local mapped = BUILTIN_PALETTES[builtin:lower()]
-    if mapped then
-      return mapped, true
+-- Get active theme color directly via Noctalia host API noctalia.getColor(role)
+function Razer.getThemeColor(role: string?): (string, boolean)
+  local targetRole = role or "primary"
+  if type(noctalia.getColor) == "function" then
+    local hex = noctalia.getColor(targetRole)
+    if hex and type(hex) == "string" and #hex >= 4 then
+      return hex:upper(), true
     end
   end
 
-  -- 2. Check community palette setting via host API
-  local palette = noctalia.getSetting("theme.palette")
-  if type(palette) == "string" and palette ~= "" then
-    local cat = noctalia.readFile(noctalia.expandPath("~/.local/state/noctalia/community-palettes/.catalog/palettes.json"))
-    if cat then
-      local pJson = noctalia.json.decode(cat)
-      if type(pJson) == "table" then
-        for _, item in ipairs(pJson) do
-          if item.name and item.name:lower() == palette:lower() then
-            local dark = noctalia.isDarkMode()
-            local prim = (dark and item.dark and item.dark.primary)
-              or (item.light and item.light.primary)
-              or (item.dark and item.dark.primary)
-            if prim and type(prim) == "string" and #prim >= 7 then
-              return prim:upper(), true
-            end
-          end
-        end
-      end
-    end
-  end
-
-  -- 3. Fallback to Razer Green when theme accent is unavailable
+  -- Fallback strictly to Razer Green when theme color is unavailable
   return "#00FF00", false
 end
 
 return Razer
+
 

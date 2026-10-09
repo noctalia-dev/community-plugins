@@ -1,4 +1,5 @@
 # DNF Updater
+![dnf-updater thumbnail](thumbnail.webp)
 
 DNF Updater monitors and manages pending DNF5 and Flatpak updates directly from the Noctalia bar. It provides a lightweight update badge in the bar, per-package selection to skip or apply specific upgrades, download size estimation, and safe execution through Polkit (`pkexec`) or an interactive terminal.
 
@@ -19,21 +20,23 @@ The plugin expects the following dependencies on `$PATH`:
 
 ### Passwordless Background Upgrades (Optional)
 
-To enable seamless background upgrades without a password prompt (matching Flatpak's default behavior for `wheel` users), install the included hardened helper script and Polkit rule:
+To enable background upgrades without a password prompt, install the included hardened helper script and Polkit rule with:
 
 ```sh
-# 1. Install the privileged helper (restricts root execution strictly to upgrades)
-sudo install -Dm755 scripts/dnf-updater-helper.sh /usr/local/bin/dnf-updater-helper
-
-# 2. Install the scoped Polkit authorization rule
-sudo install -Dm644 polkit/50-dnf-updater.rules /etc/polkit-1/rules.d/50-dnf-updater.rules
+curl -fsSL https://raw.githubusercontent.com/strob3/dnf-updater/main/scripts/install.sh | sudo bash
 ```
 
-To remove it later:
+Alternatively, if you have cloned the repository locally:
 
 ```sh
-sudo rm /usr/local/bin/dnf-updater-helper
-sudo rm /etc/polkit-1/rules.d/50-dnf-updater.rules
+sudo ./scripts/install.sh
+```
+
+To remove the helper and Polkit rule later:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/strob3/dnf-updater/main/scripts/install.sh | sudo bash -s -- --uninstall
+# or: sudo ./scripts/install.sh --uninstall
 ```
 
 ## Usage

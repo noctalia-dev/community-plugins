@@ -11,6 +11,25 @@ local function tr(key: string, defaultText: string): string
   return defaultText
 end
 
+local THEME_ROLES = {
+  "primary",
+  "on_primary",
+  "secondary",
+  "on_secondary",
+  "tertiary",
+  "on_tertiary",
+  "surface",
+  "on_surface",
+  "surface_variant",
+  "on_surface_variant",
+  "hover",
+  "on_hover",
+  "outline",
+  "shadow",
+  "error",
+  "on_error",
+}
+
 local lastRenderedSignature = ""
 
 function onOpen()
@@ -30,11 +49,14 @@ function update()
   local devices = noctalia.state.get("razer_devices") or {}
 
   -- Build state signature to skip re-rendering if nothing changed
-  local sigParts = { tostring(daemonActive), tostring(#devices) }
+  local themePrimary = Razer.getThemeColor("primary")
+  local sigParts = { tostring(daemonActive), tostring(#devices), tostring(themePrimary) }
   for _, dev in ipairs(devices) do
-    table.insert(sigParts, string.format("%s:%d:%d:%d:%s:%s",
+    local currentHex = Razer.getThemeColor(dev.themeRole or "primary")
+    table.insert(sigParts, string.format("%s:%d:%d:%d:%s:%s:%s:%s:%s",
       dev.serial, dev.dpi or 0, dev.brightness or 0, dev.battery or 0,
-      dev.activeLightingMode or "", dev.currentColorHex or ""))
+      dev.activeLightingMode or "", dev.currentColorHex or "", dev.themeRole or "",
+      tostring(dev.roleMenuOpen or false), tostring(currentHex)))
   end
   local sig = table.concat(sigParts, "|")
   if sig == lastRenderedSignature and lastRenderedSignature ~= "" then
@@ -293,7 +315,7 @@ function update()
     table.insert(devChildren, ui.row({ align = "center", justify = "space_between", paddingV = 2 }, {
       ui.label({ text = tr("ui.lighting_effect", "Lighting Effect"), fontSize = 12, fontWeight = "bold" }),
       ui.label({
-        text = activeMode == "theme" and tr("ui.theme_sync", "Theme Sync")
+        text = activeMode == "theme" and (tr("ui.theme_sync", "Theme Sync") .. (dev.themeRole and (" (" .. dev.themeRole .. ")") or ""))
           or activeMode == "green" and tr("ui.razer_green", "Razer Green")
           or activeMode == "spectrum" and tr("ui.spectrum", "Spectrum")
           or activeMode == "custom" and activeColor
@@ -317,16 +339,17 @@ function update()
           noctalia.state.set("razer_devices", devices)
           lastRenderedSignature = ""
           update()
-          local primaryHex, found = Razer.getThemeColor()
+          local currentRole = dev.themeRole or "primary"
+          local primaryHex, found = Razer.getThemeColor(currentRole)
           local cleanHex = primaryHex:gsub("#", "")
           local r = tonumber(cleanHex:sub(1, 2), 16) or 0
           local g = tonumber(cleanHex:sub(3, 4), 16) or 255
           local b = tonumber(cleanHex:sub(5, 6), 16) or 0
           Razer.setStatic(dev.serial, r, g, b)
           if found then
-            noctalia.notify("Razer Lighting", "Synced with theme: #" .. cleanHex)
+            noctalia.notify("Razer Lighting", tr("ui.theme_synced", "Theme role set to: ") .. currentRole .. " (" .. primaryHex .. ")")
           else
-            noctalia.notify("Razer Lighting", "Theme accent unavailable, defaulted to Razer Green")
+            noctalia.notify("Razer Lighting", tr("ui.theme_fallback", "Theme color unavailable, defaulted to Razer Green"))
           end
         end
       }),
@@ -373,6 +396,126 @@ function update()
         end
       }),
     }))
+
+    -- Palette Role Selector (when Theme Sync is active)
+    if activeMode == "theme" then
+      local currentRole = dev.themeRole or "primary"
+      local currentHex = Razer.getThemeColor(currentRole)
+
+      local isMenuOpen = (dev.roleMenuOpen == true)
+
+      -- Role Selector Trigger / Header Button
+      table.insert(devChildren, ui.row({ align = "center", justify = "space_between", paddingV = 2 }, {
+        ui.label({ text = tr("ui.theme_role", "Palette Role"), fontSize = 12, fontWeight = "bold" }),
+        ui.row({
+          align = "center",
+          justify = "space_between",
+          gap = 8,
+          paddingH = 10,
+          paddingV = 5,
+          fill = "surface_variant/0.5",
+          radius = 6,
+          border = isMenuOpen and "primary" or "outline",
+          borderWidth = 1,
+          onClick = function()
+            dev.roleMenuOpen = not isMenuOpen
+            noctalia.state.set("razer_devices", devices)
+            lastRenderedSignature = ""
+            update()
+          end
+        }, {
+          ui.row({ align = "center", gap = 8 }, {
+            ui.box({
+              width = 14,
+              height = 14,
+              radius = 7,
+              fill = currentHex,
+              border = "outline",
+              borderWidth = 1,
+            }),
+            ui.label({ text = currentRole, fontSize = 12, fontWeight = "bold" }),
+          }),
+          ui.glyph({
+            name = isMenuOpen and "chevron-up" or "chevron-down",
+            size = 14,
+            color = isMenuOpen and "primary" or "on_surface_variant",
+          }),
+        })
+      }))
+
+      -- Dropdown menu showing preview circle next to each role
+      if isMenuOpen then
+        local menuItems = {}
+        for _, rName in ipairs(THEME_ROLES) do
+          local rHex = Razer.getThemeColor(rName)
+          local isSelected = (currentRole == rName)
+          table.insert(menuItems, ui.row({
+            key = "menu-item-" .. dev.serial .. "-" .. rName,
+            align = "center",
+            justify = "space_between",
+            paddingH = 8,
+            paddingV = 6,
+            radius = 6,
+            fill = isSelected and "primary/0.2" or "transparent",
+            onClick = function()
+              dev.themeRole = rName
+              dev.roleMenuOpen = false
+              dev.activeLightingMode = "theme"
+              noctalia.state.set("razer_devices", devices)
+              lastRenderedSignature = ""
+              update()
+
+              local roleHex, found = Razer.getThemeColor(rName)
+              local clean = roleHex:gsub("#", "")
+              local r = tonumber(clean:sub(1, 2), 16) or 0
+              local g = tonumber(clean:sub(3, 4), 16) or 255
+              local b = tonumber(clean:sub(5, 6), 16) or 0
+              Razer.setStatic(dev.serial, r, g, b)
+              if found then
+                noctalia.notify("Razer Lighting", tr("ui.theme_synced", "Theme role set to: ") .. rName .. " (" .. roleHex .. ")")
+              else
+                noctalia.notify("Razer Lighting", tr("ui.theme_fallback", "Theme color unavailable, defaulted to Razer Green"))
+              end
+            end
+          }, {
+            ui.row({ align = "center", gap = 8 }, {
+              ui.box({
+                width = 14,
+                height = 14,
+                radius = 7,
+                fill = rHex,
+                border = isSelected and "primary" or "outline",
+                borderWidth = 1,
+              }),
+              ui.label({
+                text = rName,
+                fontSize = 12,
+                fontWeight = isSelected and "bold" or "normal",
+                color = isSelected and "primary" or "on_surface",
+              }),
+            }),
+            ui.row({ align = "center", gap = 6 }, {
+              ui.label({
+                text = rHex,
+                fontSize = 11,
+                color = isSelected and "primary" or "on_surface_variant",
+              }),
+              isSelected and ui.glyph({ name = "check", size = 14, color = "primary" }) or nil,
+            }),
+          }))
+        end
+
+        table.insert(devChildren, ui.column({
+          fill = "surface_variant/0.4",
+          radius = 8,
+          border = "outline",
+          borderWidth = 1,
+          padding = 4,
+        }, {
+          ui.scroll({ height = 180, gap = 2 }, menuItems)
+        }))
+      end
+    end
 
     -- Custom Color Input Field + Palette Color Picker Button
     table.insert(devChildren, ui.row({ gap = 6, align = "center", paddingV = 2 }, {

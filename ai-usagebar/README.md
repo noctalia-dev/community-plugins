@@ -41,9 +41,13 @@ older shell. Plugin version 1.1.0 remains available for API 9.
 ## Usage
 
 Add `felipeartur/ai-usagebar:bar` to a bar in Settings, Bar. The capsule shows
-one provider's headline percentage beside its icon. Readings use the bar's text
+one provider's headline reading beside its icon. Readings use the bar's text
 color, the theme's `secondary` color for high usage, and `error` for critical
 usage. Icons keep their normal color unless a read fails.
+
+A provider that reports a balance instead of a quota (DeepSeek, Kilo, Novita,
+Moonshot, and Nous top-up credits) has no percentage to draw: the capsule prints
+that balance where a quota vendor prints its percentage.
 
 `Automatic` selects by headline severity, then usage. Raise `provider_limit` to
 show more providers; limits above one also show `+N` for providers that do not

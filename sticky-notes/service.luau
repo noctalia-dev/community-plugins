@@ -16,6 +16,8 @@
 --   sticky_notes.blurred    -> bool
 --   sticky_notes.ready      -> bool (saved notes have finished loading)
 --   sticky_notes.save_path  -> string (resolved absolute dir, informational)
+--   sticky_notes.edit_note  -> { id, created } for the empty note to edit
+-- IPC: new-note opens the panel with quick-capture context.
 -- Commands (sticky_notes.cmd):
 --   { op = "add" }
 --   { op = "remove",     id = "..." }
@@ -24,6 +26,7 @@
 --   { op = "toggle_note_blur", id = "..." }
 --   { op = "move",       id = "...", group = "p" | "u", index = N }
 --   { op = "toggle_blur" }
+--   { op = "set_blur", value = true | false }
 --   { op = "sync" }
 --
 -- Storage invariant: `notes` is kept in display order — pinned notes first
@@ -36,6 +39,7 @@ local notes = {}
 local blurred = false
 local resolvedDir = nil
 local loaded = false
+local pendingAdd = false
 
 -- -------------------------------------------------------------------------
 -- Path / format helpers
@@ -261,11 +265,11 @@ local function makeId()
   return tostring(noctalia.nowMs()) .. tostring(math.random(1000, 9999))
 end
 
-local function hasEmptyNote()
+local function emptyNote()
   for _, n in ipairs(notes) do
-    if noctalia.string.trim(n.content or "") == "" then return true end
+    if noctalia.string.trim(n.content or "") == "" then return n end
   end
-  return false
+  return nil
 end
 
 local function pinnedCount()
@@ -288,9 +292,16 @@ local function sortDisplay()
 end
 
 local function addNote()
-  if hasEmptyNote() then
+  if not loaded then
+    -- A shortcut may arrive while the asynchronous save-path setup is running.
+    pendingAdd = true
+    return
+  end
+  local existing = emptyNote()
+  if existing ~= nil then
     -- Don't pile up empty notes; surface the existing empty one instead.
     publish()
+    noctalia.state.set("sticky_notes.edit_note", { id = existing.id, created = false })
     return
   end
   local color = noctalia.getConfig("default_color") or "yellow"
@@ -306,6 +317,7 @@ local function addNote()
   table.insert(notes, pinnedCount() + 1, note)
   saveData()
   publish()
+  noctalia.state.set("sticky_notes.edit_note", { id = note.id, created = true })
 end
 
 local function removeNote(id)
@@ -425,6 +437,12 @@ noctalia.state.watch("sticky_notes.cmd", function(cmd)
     moveTo(cmd.id, cmd.group, cmd.index)
   elseif op == "toggle_blur" then
     toggleBlur()
+  elseif op == "set_blur" then
+    if type(cmd.value) == "boolean" and blurred ~= cmd.value then
+      blurred = cmd.value
+      saveData()
+      publish()
+    end
   elseif op == "sync" then
     -- Panels may start after this service has published its initial state.
     -- Re-publish on open so they always receive the persisted note list.
@@ -437,9 +455,27 @@ function update()
   publish()
 end
 
+function onIpc(event, _payload)
+  if event ~= "new-note" then return end
+  -- panel-open keeps an already-open panel visible and delivers the context
+  -- again. Let the panel save its local draft before asking us to add a note.
+  noctalia.runAsync({
+    "noctalia", "msg", "panel-open", "ahmedhossamdev/sticky-notes:panel", "new-note",
+  }, function(result)
+    if result.exitCode ~= 0 then
+      noctalia.log("StickyNotes: could not open quick capture: " .. (result.stderr or ""))
+    end
+  end)
+end
+
 initSavePath(function()
   loadData()
   sortDisplay()
   loaded = true
-  publish()
+  if pendingAdd then
+    pendingAdd = false
+    addNote()
+  else
+    publish()
+  end
 end)

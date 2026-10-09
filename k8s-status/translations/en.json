@@ -102,6 +102,8 @@
   },
   "result": {
     "busy": "Another operation is running.",
+    "context_pinned": "Context is pinned in the plugin settings.",
+    "context_switched": "Switched to context {name}",
     "copied": "Copied {name}",
     "deleted": "Deleted pod {name}",
     "describe_started": "Describing {name}…",

@@ -34,8 +34,18 @@ local function log_boot_env()
 	noctalia.runAsync("noctalia --version 2>/dev/null | head -1", function(res)
 		local out = (type(res) == "table" and res.stdout) or ""
 		local host = out:match("noctalia%s+(v?[%d%.]+)") or "?"
-		log("env: noctalia=" .. host .. " plugin=" .. plugin_ver .. " os=\"" .. os_name
-			.. "\" desktop=" .. desktop .. " session=" .. session)
+		log(
+			"env: noctalia="
+				.. host
+				.. " plugin="
+				.. plugin_ver
+				.. ' os="'
+				.. os_name
+				.. '" desktop='
+				.. desktop
+				.. " session="
+				.. session
+		)
 	end)
 end
 
@@ -50,6 +60,7 @@ local downloader = require("./modules/downloader.luau")
 local playlist = require("./modules/playlist.luau")
 local search = require("./modules/search.luau")
 local cacheops = require("./modules/cacheops.luau")
+local const = require("./api/constants.luau")
 
 local ACTIONS = {
 	extract = function(r)
@@ -67,15 +78,21 @@ local ACTIONS = {
 	play_next = function(r)
 		player.play_next(r.item or {})
 	end,
+	add_to_queue = function(r)
+		player.add_to_queue(r.item or {})
+	end,
 	play_suggestion = function(r)
 		player.play_now(r.item or {})
 	end,
 	play_queue_index = function(r)
 		player.play_index(r.index or 1)
 	end,
-	play_with_queue = function(r)
+	move_queue_item = function(r)
+		player.move(r.from, r.to)
+	end,
+	replace_queue_and_play = function(r)
 		if r.queue and #r.queue > 0 then
-			playlist.play_queue(r.queue, r.index, r.source_playlist)
+			playlist.play_queue(r.queue, r.index, r.source_playlist, r.filtered)
 		elseif r.item then
 			player.play(r.item)
 		end
@@ -134,6 +151,21 @@ local ACTIONS = {
 			end
 		end
 	end,
+	remove_download = function(r)
+		local vid = (r.item and r.item.id) or r.id or r.video_id
+		if vid and vid ~= "" then
+			local path = const.AUDIO_DIR .. "/" .. vid .. ".opus"
+			if noctalia.fileExists(path) then
+				noctalia.removeFile(path)
+			end
+			if state.offline_meta then
+				state.offline_meta[vid] = nil
+				library.save_offline_meta()
+			end
+			library.sync_audio_cache()
+			cacheops.fetch_stats()
+		end
+	end,
 	download_playlist = function(r)
 		downloader.enqueue_playlist(state.playlist.tracks, state.playlist.id)
 	end,
@@ -179,16 +211,22 @@ local ACTIONS = {
 		if bid == "" then
 			return
 		end
-		state.artist =
-			{ id = bid, title = tostring(r.title or "Artist"), thumbnail_url = r.thumbnail_url or "", thumb_path = r.thumb_path or nil }
-		
+		state.artist = {
+			id = bid,
+			title = tostring(r.title or "Artist"),
+			thumbnail_url = r.thumbnail_url or "",
+			thumb_path = r.thumb_path or nil,
+		}
+
 		local cached = api and api.load_cached_artist and api.load_cached_artist(bid)
 		if cached then
 			if type(cached.artist) == "table" then
 				if cached.artist.thumb_path and noctalia.fileExists(cached.artist.thumb_path) then
 					state.artist.thumb_path = cached.artist.thumb_path
 				end
-				if (not state.artist.thumbnail_url or state.artist.thumbnail_url == "") and cached.artist.thumbnail_url then
+				if
+					(not state.artist.thumbnail_url or state.artist.thumbnail_url == "") and cached.artist.thumbnail_url
+				then
 					state.artist.thumbnail_url = cached.artist.thumbnail_url
 				end
 			end
@@ -209,7 +247,10 @@ local ACTIONS = {
 			state.artist_related = res.related or {}
 			store.publish()
 			if api and api.save_artist_cache then
-				api.save_artist_cache(bid, { artist = state.artist, tracks = state.artist_tracks, related = state.artist_related })
+				api.save_artist_cache(
+					bid,
+					{ artist = state.artist, tracks = state.artist_tracks, related = state.artist_related }
+				)
 			end
 			local items = { state.artist }
 			for _, t in ipairs(state.artist_tracks) do
@@ -298,7 +339,6 @@ noctalia.setUpdateInterval(1000)
 
 log("boot: service started, api=" .. tostring(type(api)) .. " library=" .. tostring(type(api and api.library)))
 log_boot_env()
-local const = require("./api/constants.luau")
 if noctalia.fileExists(const.COOKIE_PATH) then
 	state.status = "ready"
 	state.cookies_path = const.COOKIE_PATH

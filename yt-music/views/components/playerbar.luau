@@ -29,12 +29,13 @@ local function build_player_bar()
 	local view = state.view
 	local is_playing = (player.status == "playing")
 	local track_label = player.title or ""
-  local has_track = track_label ~= ""
+	local has_track = track_label ~= ""
 	if not has_track then
 		track_label = "Nothing playing"
 	end
 
-	local track_meta = (player.artist ~= nil and player.artist ~= "") and player.artist or (has_track and "Unknown artist" or "Pick something to play")
+	local track_meta = (player.artist ~= nil and player.artist ~= "") and player.artist
+		or (has_track and "Unknown artist" or "Pick something to play")
 
 	local duration = tonumber(player.duration) or 0
 	local position = math.min(tonumber(player.position) or 0, duration)
@@ -77,7 +78,9 @@ local function build_player_bar()
 				}),
 				(function()
 					local pid = player.id
-					if not pid or pid == "" then return nil end
+					if not pid or pid == "" then
+						return nil
+					end
 					local id_on_disk = (state.data.cached_audio_ids and state.data.cached_audio_ids[pid] == true)
 					local is_explicit = (id_on_disk and state.data.offline_meta and state.data.offline_meta[pid] ~= nil)
 					if is_explicit then

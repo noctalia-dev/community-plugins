@@ -58,7 +58,6 @@ local function runTool(action)
 end
 
 local RECORD_THUMB = "/tmp/screen-toolkit-record-thumb.png"
-local ANNOTATE_THUMB = "/tmp/screen-toolkit-annotate.png"
 local lastCapturePath, lastRecordPath = nil, nil
 
 local function refreshPreview()
@@ -66,8 +65,6 @@ local function refreshPreview()
   local recordPath = noctalia.state.get("recordPath")
   if annotateResult and type(annotateResult) == "table" and annotateResult.capturePath and annotateResult.capturePath ~= "" then
     lastCapturePath = annotateResult.capturePath
-  elseif noctalia.fileExists and noctalia.fileExists(ANNOTATE_THUMB) then
-    lastCapturePath = ANNOTATE_THUMB
   end
   if recordPath and type(recordPath) == "string" and recordPath ~= "" then lastRecordPath = recordPath end
 end
@@ -162,16 +159,12 @@ end
 -- Preview handlers for record and annotate subpanels.
 local function openScreenshotPreview()
   refreshPreview()
-  local targetPath = lastCapturePath or (noctalia.fileExists and noctalia.fileExists(ANNOTATE_THUMB) and ANNOTATE_THUMB or nil)
+  local targetPath = lastCapturePath
   if not targetPath or targetPath == "" or (noctalia.fileExists and not noctalia.fileExists(targetPath)) then
     noctalia.notifyError("No screenshot preview available yet. Take a capture first!")
     return
   end
-  if noctalia.commandExists("satty") then noctalia.runAsync({ "satty", "--filename", targetPath })
-  elseif noctalia.commandExists("swappy") then noctalia.runAsync({ "swappy", "-f", targetPath })
-  elseif noctalia.commandExists("tensaku") then noctalia.runAsync({ "tensaku", "-f", targetPath })
-  elseif noctalia.commandExists("gimp") then noctalia.runAsync({ "gimp", targetPath })
-  else noctalia.notifyError(tr("messages.missing_dep", { dep = "satty (or swappy/gimp/tensaku)" })) end
+  noctalia.runAsync({ "noctalia", "msg", "annotate", targetPath })
 end
 
 local function openRecordingPreview()
@@ -339,7 +332,7 @@ local function MarkupSubpanel()
     border = isPreviewFocused and "primary" or "outline", borderWidth = isPreviewFocused and 2 or 1, onClick = openScreenshotPreview,
   }, hasCaptureFile and {
     ui.image({ path = lastCapturePath, width = 200, height = 130, fit = "contain", radius = 6 }),
-    ui.label({ text = "Click to open in Satty", fontSize = 10, fontWeight = "bold", color = "primary" }),
+    ui.label({ text = "Click to annotate", fontSize = 10, fontWeight = "bold", color = "primary" }),
   } or {
     ui.glyph({ name = "pencil", size = 28, color = "on_surface_variant" }),
     ui.label({ text = "No screenshot yet", fontSize = 11, color = "on_surface_variant" }),

@@ -93,63 +93,125 @@ local function build_playlist_view()
 		})
 	end
 
+	-- Which rows are on screen: the filter decides, and the pagination below
+	-- walks this list. Filter first, then paginate, exactly like the queue page.
+	local query = view.playlist_text_filter or ""
+	local filtering = query ~= ""
+	local order = {}
+	if filtering then
+		for idx, item in ipairs(pl.tracks) do
+			if common.fuzzy_match(query, (item.title or "") .. " " .. (item.artist or "")) then
+				table.insert(order, idx)
+			end
+		end
+	else
+		for idx = 1, #pl.tracks do
+			order[idx] = idx
+		end
+	end
+
+	-- What a click queues: the matches when filtering, otherwise the playlist
+	-- itself (shared, not copied). Rows and Play all both use this, so the queue
+	-- always matches what is on screen.
+	local queue_items = pl.tracks
+	if filtering then
+		queue_items = {}
+		for _, idx in ipairs(order) do
+			table.insert(queue_items, pl.tracks[idx])
+		end
+	end
+
+	-- Subtitle mirrors the queue/offline headers: one muted line under the title.
+	local declared_total = state.data.playlist.count
+	local playlist_total_text
+	if declared_total and declared_total > #pl.tracks then
+		playlist_total_text = #pl.tracks .. " of " .. declared_total .. " total"
+	else
+		playlist_total_text = #pl.tracks .. " total"
+	end
+
+	-- Filter sits with the actions, ahead of the buttons, and only appears when
+	-- there is something to filter — same rule as the queue and offline headers.
+	local header_right = {}
+	if #pl.tracks > 0 then
+		table.insert(
+			header_right,
+			ui.input({
+				key = "playlist-filter-input",
+				placeholder = "Filter...",
+				value = view.playlist_text_filter or "",
+				width = 270,
+				onChange = function(val)
+					view.playlist_text_filter = val or ""
+					view.playlist_view_page = 0
+					rerender.call()
+				end,
+			})
+		)
+	end
+	table.insert(header_right, download_btn)
+	table.insert(
+		header_right,
+		ui.button({
+			key = "btn-sync-pl",
+			glyph = "refresh",
+			variant = "secondary",
+			controlSize = "md",
+			tooltip = "Refresh playlist",
+			onClick = function()
+				request("refresh_playlist", { playlist_id = pl.id })
+			end,
+		})
+	)
+	table.insert(
+		header_right,
+		ui.button({
+			key = "btn-play-all",
+			text = "Play all",
+			glyph = "player-play",
+			variant = "primary",
+			controlSize = "md",
+			onClick = function()
+				-- Filtered: queue what is on screen. Otherwise stay on the existing
+				-- path, which also covers the window where a refresh has cleared the
+				-- list and only the cache is available to play.
+				if filtering and #queue_items > 0 then
+					request(
+						"replace_queue_and_play",
+						{ index = 1, queue = queue_items, source_playlist = pl.id, filtered = true }
+					)
+				else
+					state.play_playlist(pl)
+				end
+			end,
+		})
+	)
+
 	table.insert(
 		child,
 		ui.row({ key = "pl-header", align = "center", justify = "space_between", radius = theme.radius }, {
-			ui.row({ key = "pl-title-row", align = "center", gap = 10, radius = theme.radius }, {
+			ui.column({ key = "pl-title-col", gap = 4, radius = theme.radius }, {
 				ui.label({
 					text = pl.title or "Playlist",
 					fontSize = theme.fontHero,
 					fontWeight = "bold",
 					color = "on_surface",
 				}),
-			}),
-			ui.row({ gap = 8, align = "center", radius = theme.radius }, {
-				ui.column({ key = "pl-count-col", gap = 1, align = "end", radius = theme.radius }, {
-					ui.label({
-						key = "pl-downloaded-label",
-						text = downloaded_count .. " downloaded",
-						fontSize = theme.fontTitle,
-						fontWeight = "medium",
-						color = "on_surface",
-					}),
-					ui.label({
-						key = "pl-total-label",
-						text = (state.data.playlist.count and state.data.playlist.count > #pl.tracks)
-								and (#pl.tracks .. " of " .. state.data.playlist.count .. " total")
-							or (#pl.tracks .. " total"),
-						fontSize = theme.fontTitle,
-						color = "on_surface_variant",
-					}),
-				}),
-				download_btn,
-				ui.button({
-					key = "btn-sync-pl",
-					glyph = "refresh",
-					variant = "secondary",
-					controlSize = "md",
-					tooltip = "Refresh playlist",
-					onClick = function()
-						request("refresh_playlist", { playlist_id = pl.id })
-					end,
-				}),
-				ui.button({
-					key = "btn-play-all",
-					text = "Play all",
-					glyph = "player-play",
-					variant = "primary",
-					controlSize = "md",
-					onClick = function()
-						state.play_playlist(pl)
-					end,
+				ui.label({
+					key = "pl-subtitle-label",
+					text = downloaded_count .. " downloaded • " .. playlist_total_text,
+					fontSize = theme.fontTitle,
+					color = "on_surface_variant",
 				}),
 			}),
+			ui.row({ gap = 8, align = "center", radius = theme.radius }, header_right),
 		})
 	)
 
 	table.insert(child, ui.row({ key = "spacer-pl-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
-	local total = #pl.tracks
+	local total = #order
+
 	local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
 	if view.playlist_view_page >= total_pages then
 		view.playlist_view_page = math.max(0, total_pages - 1)
@@ -162,6 +224,8 @@ local function build_playlist_view()
 		local empty_text
 		if pl.fetching then
 			empty_text = "Loading tracks..."
+		elseif filtering then
+			empty_text = 'No tracks match "' .. query .. '".'
 		elseif state.data.online == false then
 			empty_text = "You're offline — this playlist isn't downloaded."
 		else
@@ -176,16 +240,23 @@ local function build_playlist_view()
 			})
 		)
 	else
-		for abs_idx = page_start, page_end do
-			local t = pl.tracks[abs_idx]
+		for pos = page_start, page_end do
+			local abs_idx = order[pos]
+			local t = abs_idx and pl.tracks[abs_idx]
+			-- Position within the queued list: the matches when filtering, the
+			-- playlist otherwise (identical to abs_idx without a filter).
+			local queue_pos = pos
 			if t then
 				table.insert(
 					tracks,
 					common.media_row(t, abs_idx, function()
-						request(
-							"play_with_queue",
-							{ item = t, index = abs_idx, queue = pl.tracks, source_playlist = pl.id }
-						)
+						request("replace_queue_and_play", {
+							item = t,
+							index = queue_pos,
+							queue = queue_items,
+							source_playlist = pl.id,
+							filtered = filtering,
+						})
 					end, state.data.player.id == t.id)
 				)
 			end
@@ -193,7 +264,10 @@ local function build_playlist_view()
 
 		local has_prev = (view.playlist_view_page > 0)
 		local has_next_page = (view.playlist_view_page < total_pages - 1)
-		local can_fetch_more = (pl.next_token and pl.next_token ~= "")
+		-- While filtering, Next only walks the matches: reaching for another
+		-- continuation mid-filter would stream in rows the user never asked for.
+		local can_fetch_more = not filtering
+			and (pl.next_token ~= nil and pl.next_token ~= "")
 			-- YT hands out continuations even for fully-loaded lists; once the
 			-- declared count is on screen there is nothing real left to fetch
 			and not ((pl.count or 0) > 0 and #pl.tracks >= pl.count)
@@ -216,18 +290,19 @@ local function build_playlist_view()
 			)
 		end
 
+		local label_total
+		if filtering then
+			label_total = total
+		elseif state.data.playlist.count and state.data.playlist.count > total then
+			label_total = state.data.playlist.count
+		else
+			label_total = total
+		end
+
 		table.insert(
 			page_controls,
 			ui.label({
-				text = page_start
-					.. "–"
-					.. page_end
-					.. " of "
-					.. (
-						(state.data.playlist.count and state.data.playlist.count > total)
-							and state.data.playlist.count
-						or total
-					),
+				text = page_start .. "–" .. page_end .. " of " .. label_total,
 				fontSize = theme.fontBody,
 				fontWeight = "medium",
 				color = "on_surface_variant",
@@ -278,7 +353,15 @@ local function build_playlist_view()
 	-- YT's suggestion shelf for this playlist: rendered outside pagination,
 	-- clicking a row plays it now while the rest of the queue continues.
 	local sugg = pl.suggestions or {}
-	if #sugg > 0 then
+	-- The shelf is filtered by the same query, and its heading is dropped
+	-- entirely when nothing matches rather than sitting over an empty list.
+	local shown_sugg = {}
+	for si, s in ipairs(sugg) do
+		if common.fuzzy_match(query, (s.title or "") .. " " .. (s.artist or "")) then
+			table.insert(shown_sugg, { si = si, item = s })
+		end
+	end
+	if #shown_sugg > 0 then
 		table.insert(tracks, ui.row({ key = "spacer-suggestions", height = 6, borderWidth = 0, radius = theme.radius }))
 		table.insert(tracks, ui.separator({ key = "sep-suggestions", color = "outline/0.3" }))
 		table.insert(
@@ -290,11 +373,11 @@ local function build_playlist_view()
 				color = "on_surface_variant",
 			})
 		)
-		for si, s in ipairs(sugg) do
+		for _, entry in ipairs(shown_sugg) do
 			table.insert(
 				tracks,
-				common.media_row(s, "sug-" .. si, function()
-					request("play_suggestion", { item = s })
+				common.media_row(entry.item, "sug-" .. entry.si, function()
+					request("play_suggestion", { item = entry.item })
 				end)
 			)
 		end

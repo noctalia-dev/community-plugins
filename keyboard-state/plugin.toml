@@ -1,0 +1,101 @@
+id = "ismay/keyboard-state"
+name = "Keyboard State"
+version = "1.0.0"
+plugin_api = 24
+author = "ismay"
+license = "MIT"
+icon = "keyboard"
+description = "Displays the status of the keyboard lock keys."
+tags = ["bar", "indicator"]
+dependencies = ["evsieve", "evtest"]
+
+[[setting]]
+key = "input_device"
+type = "file"
+label_key = "settings.input_device.label"
+description_key = "settings.input_device.description"
+default = ""
+
+[[widget]]
+id = "keyboard-state"
+entry = "widget.luau"
+
+    [[widget.setting]]
+    key = "hide_inactive"
+    type = "bool"
+    label_key = "settings.hide_inactive.label"
+    description_key = "settings.hide_inactive.description"
+    default = false
+
+    [[widget.setting]]
+    key = "active_color"
+    type = "color"
+    label_key = "settings.active_color.label"
+    description_key = "settings.active_color.description"
+    default = "primary"
+
+    [[widget.setting]]
+    key = "inactive_color"
+    type = "color"
+    label_key = "settings.inactive_color.label"
+    description_key = "settings.inactive_color.description"
+    default = "on_surface"
+    visible_when = { key = "hide_inactive", values = ["false"] }
+
+    [[widget.setting]]
+    key = "icon_spacing"
+    type = "int"
+    label_key = "settings.icon_spacing.label"
+    description_key = "settings.icon_spacing.description"
+    default = 4
+    min = 0
+    max = 48
+
+    [[widget.setting]]
+    key = "show_caps_lock"
+    type = "bool"
+    label_key = "settings.show_caps_lock.label"
+    description_key = "settings.show_caps_lock.description"
+    default = true
+
+    [[widget.setting]]
+    key = "caps_lock_glyph"
+    type = "glyph"
+    label_key = "settings.caps_lock_glyph.label"
+    description_key = "settings.caps_lock_glyph.description"
+    default = "square-letter-a-filled"
+    visible_when = { key = "show_caps_lock", values = ["true"] }
+
+    [[widget.setting]]
+    key = "show_num_lock"
+    type = "bool"
+    label_key = "settings.show_num_lock.label"
+    description_key = "settings.show_num_lock.description"
+    default = true
+
+    [[widget.setting]]
+    key = "num_lock_glyph"
+    type = "glyph"
+    label_key = "settings.num_lock_glyph.label"
+    description_key = "settings.num_lock_glyph.description"
+    default = "square-number-1-filled"
+    visible_when = { key = "show_num_lock", values = ["true"] }
+
+    [[widget.setting]]
+    key = "show_scroll_lock"
+    type = "bool"
+    label_key = "settings.show_scroll_lock.label"
+    description_key = "settings.show_scroll_lock.description"
+    default = true
+
+    [[widget.setting]]
+    key = "scroll_lock_glyph"
+    type = "glyph"
+    label_key = "settings.scroll_lock_glyph.label"
+    description_key = "settings.scroll_lock_glyph.description"
+    default = "square-arrow-down-filled"
+    visible_when = { key = "show_scroll_lock", values = ["true"] }
+
+[[service]]
+id = "service"
+entry = "service.luau"

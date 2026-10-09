@@ -1,6 +1,6 @@
 id = "hy4ri/github-notifications"
 name = "GitHub Notifications"
-version = "0.1.0"
+version = "0.3.0"
 plugin_api = 24
 author = "hy4ri"
 license = "MIT"
@@ -31,6 +31,32 @@ default = "50"
 options = [
   { value = "25", label_key = "settings.per_page.options.twenty_five" },
   { value = "50", label_key = "settings.per_page.options.fifty" },
+]
+
+[[setting]]
+key = "mark_read_on_open"
+type = "bool"
+label_key = "settings.mark_read_on_open.label"
+description_key = "settings.mark_read_on_open.description"
+default = true
+
+[[setting]]
+key = "group_by_repo"
+type = "bool"
+label_key = "settings.group_by_repo.label"
+description_key = "settings.group_by_repo.description"
+default = false
+
+[[setting]]
+key = "appearance_density"
+type = "select"
+label_key = "settings.appearance_density.label"
+description_key = "settings.appearance_density.description"
+default = "standard"
+options = [
+  { value = "compact", label_key = "settings.appearance_density.options.compact" },
+  { value = "standard", label_key = "settings.appearance_density.options.standard" },
+  { value = "comfortable", label_key = "settings.appearance_density.options.comfortable" },
 ]
 
 [[widget]]

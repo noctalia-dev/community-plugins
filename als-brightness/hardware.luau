@@ -3,9 +3,11 @@
 --
 -- The service calls discover() exactly ONCE, at start, before it reads a profile,
 -- builds a curve or touches the panel. Which iio device carries the sensor, which
--- backlight exists, which DRM connector the panel sits behind, whether a lid
--- switch is present -- every one of those is answered here and nowhere else, so
--- the rest of the plugin never guesses a path and never hardcodes a device number.
+-- backlight exists, which LED (if any) carries the keyboard backlight, which DRM
+-- connector the panel sits behind, whether a lid switch is present -- every one
+-- of those is answered here and nowhere else, so the rest of the plugin never
+-- guesses a path, never hardcodes a device number and never names one vendor's
+-- keyboard-backlight LED.
 --
 -- The environment is injected (listDir / readFile / outputs / getenv), so tests
 -- substitute a fake machine; this module performs no reads of its own outside
@@ -16,6 +18,7 @@ local M = {}
 
 local IIO_DIR = "/sys/bus/iio/devices/"
 local BL_DIR = "/sys/class/backlight/"
+local LED_DIR = "/sys/class/leds/"
 local DRM_DIR = "/sys/class/drm/"
 local LID_DIR = "/proc/acpi/button/lid/"
 -- The settings target resolves exactly like Noctalia's own state dir (upstream
@@ -102,11 +105,13 @@ local function find_connector(env, requested)
   return first, nil
 end
 
---- DRM entry backing a connector ("card1-eDP-1" or plain "eDP-1"), or nil.
-local function find_drm_entry(env, connector)
-  local suffix = "-" .. connector
-  for _, entry in ipairs(sorted_dir(env, DRM_DIR)) do
-    if entry == connector or entry:sub(-#suffix) == suffix then
+--- The keyboard-backlight LED, or nil. Kernel names carry a vendor prefix
+--- ("asus::kbd_backlight", "tpacpi::kbd_backlight", ...) but all of them share
+--- the literal `kbd_backlight` tail, so match that substring plainly (a pattern
+--- `-` is a quantifier) and take the sorted-first hit, like every other probe.
+local function find_kbd_led(env)
+  for _, entry in ipairs(sorted_dir(env, LED_DIR)) do
+    if entry:find("kbd_backlight", 1, true) then
       return entry
     end
   end
@@ -132,6 +137,17 @@ local function find_settings_path(env)
   return nil
 end
 
+--- DRM entry backing a connector ("card1-eDP-1" or plain "eDP-1"), or nil.
+local function find_drm_entry(env, connector)
+  local suffix = "-" .. connector
+  for _, entry in ipairs(sorted_dir(env, DRM_DIR)) do
+    if entry == connector or entry:sub(-#suffix) == suffix then
+      return entry
+    end
+  end
+  return nil
+end
+
 --- Discover the hardware the service needs. Returns a report:
 ---   paths           resolved paths; each is nil when unavailable
 ---   devices         human-readable names, for the startup log
@@ -142,6 +158,13 @@ end
 ---
 --- opts.backlight  raw `backlight` setting ("" = auto-detect)
 --- opts.connector  raw `connector` setting ("" = auto-detect)
+---
+--- The keyboard backlight is optional hardware, probed like every other device
+--- but never assumed: paths.kbd_cur/kbd_max and devices.kbd appear only when a
+--- `kbd_backlight` LED carries both brightness files. A machine without one --
+--- or with a half-readable one -- is degraded ("keyboard backlight unavailable"),
+--- never required_missing: panel adaptation must survive machines that have no
+--- keyboard backlight at all.
 ---
 --- The contract: anything in required_missing means "do not touch the panel";
 --- anything in degraded means "carry on without that feature or guard".
@@ -201,6 +224,23 @@ function M.discover(env, opts)
       paths.bl_cur, paths.bl_max = nil, nil
       req[#req + 1] = "backlight '" .. bl .. "' is not readable under " .. BL_DIR
     end
+  end
+
+  -- Keyboard-backlight LED (optional): both brightness files must exist before
+  -- any path or name leaks out, and absence degrades -- machines without a
+  -- keyboard backlight must keep adapting, so this can never be required.
+  local kbd = find_kbd_led(env)
+  if kbd ~= nil then
+    local cur, max = LED_DIR .. kbd .. "/brightness", LED_DIR .. kbd .. "/max_brightness"
+    if exists(env, cur) and exists(env, max) then
+      paths.kbd_cur, paths.kbd_max = cur, max
+      devices.kbd = kbd
+    else
+      deg[#deg + 1] = "keyboard backlight unavailable; '" .. kbd
+          .. "' lacks brightness/max_brightness under " .. LED_DIR
+    end
+  else
+    deg[#deg + 1] = "keyboard backlight unavailable; no kbd_backlight LED under " .. LED_DIR
   end
 
   -- Connector (required): every brightness write is addressed to it, and an

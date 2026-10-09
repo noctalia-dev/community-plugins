@@ -5,7 +5,7 @@ local Data = require("./lib/data.luau")
 
 local CACHE_FILE = "dashboard.json"
 local DATA_KEYS = {
-  "profile", "contributions", "notifications", "following_events", "following_repos",
+  "profile", "contributions", "following_events", "following_repos",
   "following_repo_events", "my_prs", "review_prs", "authored_issues", "issues", "repositories", "actions",
 }
 local dashboard = { errors = {} }
@@ -21,10 +21,6 @@ end
 
 local function followingHistoryDays()
   return math.clamp(tonumber(noctalia.getConfig("following_history_days")) or 30, 1, 30)
-end
-
-local function notificationHistoryDays()
-  return math.clamp(tonumber(noctalia.getConfig("notification_history_days")) or 30, 1, 90)
 end
 
 local function activityHistoryDays()
@@ -94,14 +90,6 @@ end
 local persist
 
 local function list() return {} end
-
-local function unreadCount(items)
-  local count = 0
-  for _, item in ipairs(type(items) == "table" and items or {}) do
-    if item.unread == true then count += 1 end
-  end
-  return count
-end
 
 local function publishFollowingAvatar(login, path)
   followingAvatarPaths[login] = path
@@ -208,12 +196,10 @@ local function loadCache()
   end
   hasCachedData = true
   dashboard.errors = {}
-  dashboard.notifications_count = unreadCount(dashboard.notifications)
   if type(cached.last_update) == "number" then dashboard.last_update = cached.last_update end
   dashboard.stale = true
   dashboard.status = "stale"
   noctalia.state.set("dashboard", dashboard)
-  noctalia.state.set("notifications_count", dashboard.notifications_count)
   noctalia.state.set("last_update", dashboard.last_update or "")
   noctalia.state.set("stale", true)
   noctalia.state.set("status", "stale")
@@ -360,13 +346,7 @@ local function refresh()
     cacheProfileAvatar(profile)
   end)
   request("contributions", commands.contributions, Data.contributions)
-  request("notifications", commands.notifications, function(raw)
-    return recentItems(Data.notifications(raw), notificationHistoryDays())
-  end, function(_, items)
-    local unread = unreadCount(items)
-    dashboard.notifications_count = unread
-    noctalia.state.set("notifications_count", unread)
-  end, nil, requestRepositories)
+  requestRepositories()
   request("following", commands.following, function(raw)
     local out = {}
     local ignoredUsers = configSet("following_ignored_users")
@@ -464,10 +444,8 @@ for _, key in ipairs(DATA_KEYS) do
   if dashboard[key] == nil then dashboard[key] = {} end
   noctalia.state.set(key, dashboard[key])
 end
-dashboard.notifications_count = 0
 dashboard.stale = false
 dashboard.status = "idle"
-noctalia.state.set("notifications_count", 0)
 noctalia.state.set("stale", false)
 noctalia.state.set("status", "idle")
 noctalia.state.set("dashboard", dashboard)
@@ -480,7 +458,11 @@ function onConfigChanged()
   noctalia.setUpdateInterval(refreshInterval())
   refresh()
 end
-function onIpc(event)
-  if event == "refresh" then refresh() end
+local function refreshAll()
+  noctalia.state.set("notification_action", { type = "refresh", nonce = noctalia.nowMs() })
+  refresh()
 end
-noctalia.state.watch("refresh_request", function() refresh() end)
+function onIpc(event)
+  if event == "refresh" then refreshAll() end
+end
+noctalia.state.watch("refresh_request", refreshAll)

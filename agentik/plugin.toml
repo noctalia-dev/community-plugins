@@ -1,13 +1,19 @@
 id = "notfinaldev/agentik"
 name = "Agentik"
-version = "0.1.1"
+version = "0.2.0"
 plugin_api = 24
 author = "notfinaldev"
 license = "MIT"
 icon = "sparkles"
 description = "Local coding-agent monitoring and safe multi-harness session chat."
 tags = ["bar", "desktop", "panel", "service", "ai", "productivity"]
-dependencies = ["python3", "omp"]
+dependencies = [
+    "python3",
+    "omp", "hermes", "claude-agent-acp", "codex-acp", "gemini", "opencode",
+    "zenity", "kdialog", "grim", "niri", "hyprctl", "wl-copy", "xdg-open",
+    "sh", "xdg-terminal-exec", "ghostty", "kitty", "foot", "alacritty",
+    "gnome-terminal", "kgx", "konsole",
+]
 
 [[setting]]
 key = "show_task"
@@ -90,6 +96,13 @@ key = "high_contrast"
 type = "bool"
 label_key = "settings.high_contrast.label"
 description_key = "settings.high_contrast.description"
+default = false
+
+[[setting]]
+key = "presentation_mode"
+type = "bool"
+label_key = "settings.presentation_mode.label"
+description_key = "settings.presentation_mode.description"
 default = false
 
 [[widget]]

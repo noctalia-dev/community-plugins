@@ -1,24 +1,25 @@
 /* Noctalia DNF Updater - Passwordless Update Policy
  *
  * Grants authorization for the dedicated dnf-updater-helper script
- * to active local users in the wheel group.
+ * to active local users in the wheel or sudo group.
  *
  * The helper strictly restricts operations to 'upgrade' with validated
  * exclusions, preventing arbitrary command execution as root.
  *
  * Install:
- *   sudo install -Dm755 scripts/dnf-updater-helper.sh /usr/local/bin/dnf-updater-helper
- *   sudo install -Dm644 polkit/50-dnf-updater.rules /etc/polkit-1/rules.d/50-dnf-updater.rules
+ *   curl -fsSL https://raw.githubusercontent.com/strob3/dnf-updater/main/scripts/install.sh | sudo bash
+ *   (or locally: sudo ./scripts/install.sh)
  *
  * Remove:
- *   sudo rm /usr/local/bin/dnf-updater-helper
- *   sudo rm /etc/polkit-1/rules.d/50-dnf-updater.rules
+ *   sudo ./scripts/install.sh --uninstall
  */
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.policykit.exec" &&
         action.lookup("program") == "/usr/local/bin/dnf-updater-helper" &&
         subject.active == true && subject.local == true &&
-        subject.isInGroup("wheel")) {
+        (subject.isInGroup("wheel") || subject.isInGroup("sudo"))) {
         return polkit.Result.YES;
     }
+
+    return polkit.Result.NOT_HANDLED;
 });

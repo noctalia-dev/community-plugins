@@ -31,7 +31,10 @@
     "spectrum": "Spectrum",
     "start_daemon": "Start Daemon",
     "start_daemon_hint": "Start the daemon with:\nsystemctl --user start openrazer-daemon",
+    "theme_fallback": "Theme color unavailable, defaulted to Razer Green",
+    "theme_role": "Palette Role",
     "theme_sync": "Theme Sync",
+    "theme_synced": "Theme role set to: ",
     "wired": "Wired"
   }
 }

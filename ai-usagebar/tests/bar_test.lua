@@ -532,3 +532,42 @@ assert(agyBars[1].props.height == 6 and agyBars[1].props.progress == 0.15, "Gemi
 assert(agyBars[2].props.height == 3 and agyBars[2].props.progress == 0.80, "Gemini bottom bar is weekly")
 assert(agyBars[3].props.height == 6 and agyBars[3].props.progress == 0.40, "Claude top bar is 5h")
 assert(agyBars[4].props.height == 3 and agyBars[4].props.progress == 1.0, "Claude bottom bar is weekly")
+
+-- A balance-only provider has no percentage to draw: the capsule prints its
+-- balance where a quota vendor prints a percentage, and keeps its identity mark.
+local balanceBar = loadBar({ vendor = "deepseek", extras = "countdown", visualization = "gauge" }, {
+    entries = {
+        { id = "deepseek", display_name = "DeepSeek", plan = "DeepSeek", status = "ready",
+          metrics = {}, sections = {
+            { type = "text", label = "Balance", value = "$2.90" },
+        } },
+    },
+})
+assert(containsGlyph(balanceBar.rendered(), "fish"), "a balance provider keeps its provider mark")
+assert(containsText(balanceBar.rendered(), "$2.90"), "a balance-only provider should show its balance")
+assert(not containsText(balanceBar.rendered(), "—"),
+    "a balance-only provider should not fall back to the missing-data dash")
+
+local nousBalanceBar = loadBar({ vendor = "nous", extras = "none", visualization = "none" }, {
+    entries = {
+        { id = "nous", display_name = "Nous Research", status = "ready", metrics = {}, sections = {
+            { type = "text", label = "Subscription credits", value = "0.00 remaining" },
+            { type = "text", label = "Total usable credits", value = "8.19" },
+            { type = "text", label = "Renews", value = "25d 20h" },
+        } },
+    },
+})
+assert(containsText(nousBalanceBar.rendered(), "8.19"),
+    "the capsule should prefer the usable total over zero credits or the renewal")
+assert(not containsText(nousBalanceBar.rendered(), "0.00 remaining"),
+    "subscription credits should not win when a total is present")
+
+-- The tooltip must agree with the capsule: a balance provider's hover shows the
+-- same figure, not its plan name and not a no-usage line.
+local balanceRows = balanceBar.tooltip()
+assert(#balanceRows == 1 and balanceRows[1].key == "DeepSeek" and balanceRows[1].value == "$2.90",
+    "a balance provider's tooltip should show its balance where the capsule does")
+local nousRows = nousBalanceBar.tooltip()
+assert(#nousRows == 1 and nousRows[1].key == "Nous Research" and nousRows[1].value == "8.19",
+    "a balance provider's tooltip should not report no usage")
+

@@ -62,8 +62,8 @@
       "label": "Min length"
     },
     "offset_ms": {
-      "label": "Lyrics offset (ms)",
-      "description": "Shift lyric timing in milliseconds (range -2000 to 2000). Positive values show lines earlier, negative values later."
+      "description": "Shift lyric timing: positive values show lines earlier, negative later.",
+      "label": "Lyrics offset (ms)"
     },
     "panel_size": {
       "description": "Size preset of the lyrics panel: compact (440), medium (520), large (640). The bar widget and control-center tile open this preset.",

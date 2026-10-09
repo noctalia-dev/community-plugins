@@ -1,7 +1,7 @@
 --!strict
 local Razer = require("./razer_dbus.luau")
 
-local lastAppliedColor = ""
+local lastAppliedColorMap: { [string]: string } = {}
 local lastDpiMap: { [string]: number } = {}
 local lastBrightnessMap: { [string]: number } = {}
 local lowBatteryWarned: { [string]: boolean } = {}
@@ -55,8 +55,14 @@ function update()
                   dev.activeLightingMode = old.activeLightingMode
                   dev.currentColorHex = old.currentColorHex
                   dev.customColorInput = old.customColorInput
+                  dev.themeRole = old.themeRole
+                  dev.roleMenuOpen = old.roleMenuOpen
                   break
                 end
+              end
+
+              if not dev.activeLightingMode then
+                dev.activeLightingMode = "theme"
               end
 
               if lastDpiMap[dev.serial] ~= dev.dpi or lastBrightnessMap[dev.serial] ~= dev.brightness then
@@ -73,11 +79,8 @@ function update()
               noctalia.runAsync({"noctalia", "msg", "plugin", "detluck/razer:panel", "all", "refresh"})
             end
 
-            -- Auto-sync theme color if enabled
-            local syncEnabled = noctalia.getConfig("sync_theme_color")
-            if syncEnabled then
-              syncThemeColor(devices)
-            end
+            -- Auto-sync theme color for devices in theme mode
+            syncThemeColor(devices)
           end
         end)
       end
@@ -87,30 +90,45 @@ end
 
 function syncThemeColor(devices: { any }?)
   local targetDevices = devices or noctalia.state.get("razer_devices") or {}
-  local primaryHex = Razer.getThemeColor()
-  if not primaryHex or primaryHex == lastAppliedColor then
-    return
-  end
-
-  local cleanHex = primaryHex:gsub("#", "")
-  if #cleanHex ~= 6 then return end
-
-  local r = tonumber(cleanHex:sub(1, 2), 16) or 0
-  local g = tonumber(cleanHex:sub(3, 4), 16) or 255
-  local b = tonumber(cleanHex:sub(5, 6), 16) or 0
+  local anyColorChanged = false
 
   for _, dev in ipairs(targetDevices) do
-    Razer.setStatic(dev.serial, r, g, b)
+    if dev.activeLightingMode == "theme" then
+      local role = dev.themeRole or "primary"
+      local themeHex = Razer.getThemeColor(role)
+      if themeHex and themeHex ~= lastAppliedColorMap[dev.serial] then
+        local cleanHex = themeHex:gsub("#", "")
+        if #cleanHex == 6 then
+          local r = tonumber(cleanHex:sub(1, 2), 16) or 0
+          local g = tonumber(cleanHex:sub(3, 4), 16) or 255
+          local b = tonumber(cleanHex:sub(5, 6), 16) or 0
+          Razer.setStatic(dev.serial, r, g, b)
+          lastAppliedColorMap[dev.serial] = themeHex
+          dev.currentColorHex = themeHex
+          anyColorChanged = true
+          noctalia.log(string.format("Synced %s lighting to theme (%s): #%s", dev.name, role, cleanHex))
+        end
+      end
+    else
+      lastAppliedColorMap[dev.serial] = nil
+    end
   end
 
-  lastAppliedColor = primaryHex
-  noctalia.log("Synced Razer lighting to theme: #" .. cleanHex)
+  if anyColorChanged then
+    noctalia.state.set("razer_devices", targetDevices)
+    noctalia.runAsync({"noctalia", "msg", "plugin", "detluck/razer:panel", "all", "refresh"})
+  end
 end
 
 function onIpc(event: string, payload: string)
   if event == "sync_theme" then
-    lastAppliedColor = "" -- force sync
-    syncThemeColor()
+    lastAppliedColorMap = {} -- force sync
+    local devs = noctalia.state.get("razer_devices") or {}
+    for _, dev in ipairs(devs) do
+      dev.activeLightingMode = "theme"
+    end
+    noctalia.state.set("razer_devices", devs)
+    syncThemeColor(devs)
   elseif event == "refresh" then
     update()
   end

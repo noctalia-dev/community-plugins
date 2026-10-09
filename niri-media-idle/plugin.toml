@@ -1,0 +1,25 @@
+id = "zhangdm-520/niri-media-idle"
+name = "Niri Media Idle"
+version = "1.2.0"
+plugin_api = 30
+author = "ZhangDM-520"
+license = "MIT"
+icon = "player-play"
+description = "Control the bundled media-idle bridge without exposing player details or changing idle policy."
+tags = ["bar", "indicator", "media", "niri", "service", "system", "utility", "video"]
+dependencies = ["python3", "systemctl", "systemd-run", "systemd-inhibit", "pw-dump"]
+
+[[setting]]
+key = "auto_start"
+type = "bool"
+label_key = "settings.auto_start.label"
+description_key = "settings.auto_start.description"
+default = true
+
+[[service]]
+id = "niri-media-idle-service"
+entry = "service.luau"
+
+[[widget]]
+id = "niri-media-idle"
+entry = "widget.luau"
