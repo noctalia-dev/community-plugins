@@ -96,20 +96,49 @@ local function getInitialState()
   end
 end
 
--- Ensure that we don't try to monitor an invalid path
+-- Input device validation
+local function isAllowedDeviceByte(byte)
+  return (byte >= 48 and byte <= 57) -- 0-9
+    or (byte >= 65 and byte <= 90) -- A-Z
+    or (byte >= 97 and byte <= 122) -- a-z
+    or byte == 47 -- /
+    or byte == 46 -- .
+    or byte == 95 -- _
+    or byte == 45 -- -
+    or byte == 58 -- :
+    or byte == 43 -- +
+end
+
+local function isAllowedDevicePath(path)
+  return path:match("^/dev/input/event") ~= nil
+    or path:match("^/dev/input/by%-id/") ~= nil
+    or path:match("^/dev/input/by%-path/") ~= nil
+end
+
 local function isValidInputDevice()
+  -- Must be a non empty string
   if type(inputDevice) ~= "string" or inputDevice == "" then
     return false
   end
 
-  local isValidPath = inputDevice:match("^/dev/input/event") ~= nil
-    or inputDevice:match("^/dev/input/by%-id/") ~= nil
-    or inputDevice:match("^/dev/input/by%-path/") ~= nil
-
-  if not isValidPath then
+  -- Must use an allowed device path
+  if not isAllowedDevicePath(inputDevice) then
     return false
   end
 
+  -- Must not contain path traversal
+  if inputDevice:find("..", 1, true) ~= nil then
+    return false
+  end
+
+  -- Must not use disallowed characters
+  for i = 1, #inputDevice do
+    if not isAllowedDeviceByte(inputDevice:byte(i)) then
+      return false
+    end
+  end
+
+  -- Must be an existing device
   return noctalia.fileExists(inputDevice)
 end
 
