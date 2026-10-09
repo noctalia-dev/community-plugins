@@ -247,13 +247,25 @@ local function parseInstanceConfig()
     if type(decoded) ~= "table" then
       problem = noctalia.tr("result.instances_invalid", { error = tostring(decodeError or "not a JSON array") })
     else
-      for _, entry in ipairs(decoded) do
+      for entryIndex, entry in ipairs(decoded) do
         if type(entry) == "table" then
           local url = normalizeUrl(asString(entry.url))
           local key = asString(entry.api_key)
           local secret = asString(entry.api_secret)
           if url == "" or key == "" or secret == "" then
-            noctalia.log("opnsense: skipping instance without url/api_key/api_secret: " .. noctalia.json.encode(entry))
+            -- Never log the entry itself: it still holds the API key and secret.
+            local missing = {}
+            if url == "" then table.insert(missing, "url") end
+            if key == "" then table.insert(missing, "api_key") end
+            if secret == "" then table.insert(missing, "api_secret") end
+            local label = trim(asString(entry.name))
+            if label == "" then
+              label = hostOf(url)
+            end
+            if label == "" then
+              label = "instance " .. tostring(entryIndex)
+            end
+            noctalia.log(`opnsense: skipping {label} — missing {table.concat(missing, ", ")}`)
           else
             local name = trim(asString(entry.name))
             if name == "" then
@@ -992,9 +1004,11 @@ local function refreshInstance(inst, onDone)
 
   local function finish()
     if stale() then
-      -- The instance list was replaced under us; release the pump so the new
-      -- list still gets polled.
-      if confGeneration ~= configGeneration then
+      -- This run was abandoned: the instance list or the instance itself was
+      -- replaced under us. Release exactly once, or refreshActive stays set and
+      -- no firewall is ever polled again.
+      if not finished then
+        finished = true
         inst.pending = 0
         if onDone ~= nil then
           onDone()
@@ -1036,6 +1050,8 @@ local function refreshInstance(inst, onDone)
   -- response cannot leave loading stuck.
   local function onGet(item, res)
     if stale() then
+      -- finish() handles the release; without it the in-flight slot leaks.
+      finish()
       return
     end
     local okInner, errInner = pcall(function()
@@ -1054,6 +1070,8 @@ local function refreshInstance(inst, onDone)
 
   local function onPost(key, label, res)
     if stale() then
+      -- finish() handles the release; without it the in-flight slot leaks.
+      finish()
       return
     end
     local okInner, errInner = pcall(function()
@@ -1403,9 +1421,14 @@ end
 
 function onConfigChanged()
   -- Settings changed: drop in-flight bookkeeping, rebuild the list, poll again.
+  -- The queue and the pump flag must be dropped too: a sweep that was running
+  -- when the list was replaced would otherwise keep refreshActive set forever.
+  refreshQueue = {}
+  refreshActive = false
   for _, inst in ipairs(instances) do
     inst.pending = 0
     inst.startedAt = 0
+    inst.refreshAgain = false
     inst.logsPending = false
     inst.logsStartedAt = 0
     inst.data.logsLoading = false

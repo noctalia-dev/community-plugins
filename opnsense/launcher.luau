@@ -56,6 +56,17 @@ local function instanceById(id)
   return nil
 end
 
+-- These must be declared before the functions that call them: a call from a
+-- function defined above the declaration would resolve the global `lower`
+-- (nil) and crash every non-empty query.
+local function trim(s)
+  return noctalia.string.trim(tostring(s or ""))
+end
+
+local function lower(s)
+  return string.lower(tostring(s or ""))
+end
+
 -- Matches an instance by id, name or host, in that order.
 local function instanceByName(text)
   local want = lower(text)
@@ -87,14 +98,6 @@ noctalia.state.watch(STATE_KEY, function(value)
     syncView()
   end
 end)
-
-local function trim(s)
-  return noctalia.string.trim(tostring(s or ""))
-end
-
-local function lower(s)
-  return string.lower(tostring(s or ""))
-end
 
 local function send(action, values)
   local command = { action = action, requestId = "launcher-" .. tostring(os.time()) }
@@ -276,12 +279,26 @@ function onQuery(query)
   end
 
   if not view.available then
-    local reason = view.error ~= "" and view.error or snapshot.error
-    launcher.setResults(query, {
-      statusRow(noctalia.tr("launcher.unavailable"), reason or "", "cloud-off"),
-      { id = "act:refresh", title = noctalia.tr("launcher.cat.refresh"), subtitle = "", glyph = "refresh" },
-    })
-    return
+    -- The selected firewall is down: switch to a healthy one so queries still
+    -- resolve, instead of dead-ending every launcher query.
+    local healthy = nil
+    for _, inst in ipairs(instanceList()) do
+      if inst.available == true and inst.id ~= view.id then
+        healthy = inst
+        break
+      end
+    end
+    if healthy ~= nil then
+      currentId = healthy.id
+      syncView()
+    else
+      local reason = view.error ~= "" and view.error or snapshot.error
+      launcher.setResults(query, {
+        statusRow(noctalia.tr("launcher.unavailable"), reason or "", "cloud-off"),
+        { id = "act:refresh", title = noctalia.tr("launcher.cat.refresh"), subtitle = "", glyph = "refresh" },
+      })
+      return
+    end
   end
 
   local text = trim(query)
@@ -297,12 +314,23 @@ function onQuery(query)
   local tokens = {}
   for t in text:gmatch("%S+") do table.insert(tokens, t) end
 
-  -- `opn site-a gateways …`: the first token may point the launcher at a firewall.
-  local target = instanceByName(tokens[1] or "")
-  if target ~= nil and #tokens > 1 then
+  -- `opn site-a gateways …`: a leading firewall name may point the launcher at
+  -- one instance. Names can contain spaces ("Site B"), so match the longest
+  -- prefix instead of only the first token.
+  local target, consumed = nil, 0
+  for n = #tokens - 1, 1, -1 do
+    local candidate = instanceByName(table.concat(tokens, " ", 1, n))
+    if candidate ~= nil then
+      target, consumed = candidate, n
+      break
+    end
+  end
+  if target ~= nil then
     currentId = target.id
     syncView()
-    table.remove(tokens, 1)
+    for _ = 1, consumed do
+      table.remove(tokens, 1)
+    end
   end
 
   local head = lower(tokens[1] or "")
