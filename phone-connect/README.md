@@ -75,3 +75,16 @@ Supported ops: `ring`, `ping`, `clipboard`, `share_text`, `share_url`, `share_fi
 - Communicates with KDE Connect via DBus (`gdbus call`) and CLI (`kdeconnect-cli`)
 - Persists user preferences to `pluginDataDir()/state.json`
 - No external network requests; all logic runs locally
+
+## Development tests
+
+The mocked regression checks run the plugin's Lua-compatible code with Lua 5.4,
+without Noctalia, a phone, filesystem writes, or spawned commands:
+
+```sh
+lua phone-connect/tests/regressions.lua phone-connect service
+lua phone-connect/tests/regressions.lua phone-connect panel
+```
+
+They cover a connected phone without a cellular report and device cards with
+missing, present, and offline media volume.

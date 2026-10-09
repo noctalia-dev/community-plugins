@@ -164,6 +164,8 @@ local deviceOrder= {}
 -- forward-declared: fetchMpris re-evaluates the poll interval; the definition
 -- lives in the Lifecycle section below.
 local intervalMs
+-- Connectivity callbacks below also use the CLI helper defined later.
+local runCli
 
 local function snapshotDevices()
 	local snap = {}
@@ -625,7 +627,7 @@ local function pollPendingPick()
 	end
 end
 
-local function runCli(args, cb)
+runCli = function(args, cb)
 	noctalia.runAsync("kdeconnect-cli " .. args, function(res)
 		if res and res.error then
 			noctalia.notifyError(t("error.cli_failed"), res.error)
