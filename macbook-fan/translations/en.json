@@ -1,0 +1,92 @@
+{
+  "notify": {
+    "fan_auto_set": "Fan switched to automatic thermal control",
+    "fan_manual_set": "Fan set to manual speed: %d RPM",
+    "setup_started": "Running MacBook Fan requirements check and setup...",
+    "title": "MacBook Fan"
+  },
+  "panel": {
+    "apply": "Apply",
+    "auto_desc": "Fan speed dynamically managed by CPU thermal curve",
+    "auto_status": "Automatic Thermal Automation",
+    "close": "Close",
+    "control_auto": "Auto (Temp)",
+    "control_manual": "Manual",
+    "control_title": "Fan Speed Control",
+    "controller": "Controller",
+    "controller_daemon": "mbpfan active",
+    "controller_manual": "Manual Control",
+    "controller_stopped": "mbpfan stopped",
+    "display_mode": "Bar Display Mode",
+    "done": "Done",
+    "driver": "Kernel Driver",
+    "driver_loaded": "applesmc loaded",
+    "driver_missing": "applesmc missing",
+    "gauge_limits": "1200 - 6500 RPM",
+    "health_diagnostics": "Requirements & Health",
+    "health_hide": "Hide Requirements & Health",
+    "mode_both": "Both",
+    "mode_percent": "Percent",
+    "mode_rpm": "RPM",
+    "prereqs_title": "Requirements & Health",
+    "preset_max": "Max",
+    "preset_mid": "Mid",
+    "preset_min": "Min",
+    "preset_tooltip_max": "Set maximum speed (6500 RPM)",
+    "preset_tooltip_mid1": "Set moderate speed (2800 RPM)",
+    "preset_tooltip_mid2": "Set high speed (4500 RPM)",
+    "preset_tooltip_min": "Set minimum speed (1200 RPM)",
+    "rpm_input_placeholder": "RPM or %",
+    "run_setup": "Run Requirements Setup",
+    "service_inactive": "mbpfan inactive",
+    "service_running": "mbpfan running",
+    "setup": "Setup",
+    "stepper_decrease": "Decrease target speed by 250 RPM",
+    "stepper_increase": "Increase target speed by 250 RPM",
+    "target_format": "Target: %d RPM (%d%%)",
+    "target_speed": "Target Speed",
+    "telemetry_title": "Thermal & Limits",
+    "temperature": "CPU Temperature",
+    "title": "MacBook Fan & Thermal",
+    "verify_drivers": "Verify / Reinstall Drivers"
+  },
+  "settings": {
+    "allow_popup": {
+      "description": "Open the detailed fan and thermal panel when clicking the widget",
+      "label": "Click opens popup panel"
+    },
+    "colorize_by_temp": {
+      "description": "Colorize the fan widget glyph and badge based on thermal load",
+      "label": "Colorize by temperature"
+    },
+    "display_mode": {
+      "description": "Show fan speed as RPM, percentage of maximum (6500 RPM), or both",
+      "label": "Display mode",
+      "options": {
+        "both": "RPM and Percentage",
+        "percent": "Percentage",
+        "rpm": "RPM"
+      }
+    },
+    "poll_interval_ms": {
+      "description": "Polling interval for hardware telemetry in milliseconds",
+      "label": "Update interval (ms)"
+    }
+  },
+  "tooltip": {
+    "controller": "Controller",
+    "limits": "Operating limits",
+    "mode": "Control mode",
+    "speed": "Fan speed",
+    "status": "Thermal load",
+    "temperature": "CPU temperature"
+  },
+  "widget": {
+    "mode_auto": "Auto (mbpfan)",
+    "mode_manual": "Manual (%d RPM)",
+    "no_smc": "No SMC",
+    "status_elevated": "Elevated Temperature",
+    "status_heavy": "Heavy Load (Throttling Risk)",
+    "status_normal": "Normal / Optimal"
+  }
+}
