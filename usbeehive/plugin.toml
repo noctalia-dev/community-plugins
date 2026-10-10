@@ -1,0 +1,93 @@
+# USB devices and USB-C charging wattage in the bar, powered by usbeehive
+# (https://github.com/abrauchli/usbeehive).
+#
+# A headless [[service]] owns the single `usbeehive --watch --json` stream and
+# publishes a pre-digested snapshot over noctalia.state; the bar [[widget]] and
+# the [[panel]] are thin views over that snapshot.
+
+id = "yangkx/usbeehive"
+name = "usbeehive"
+version = "0.1.1"
+plugin_api = 24 # ui-callback-closures (9), module-require (22), direct-argv (24)
+author = "yangkx"
+license = "MIT"
+icon = "usb"
+tags = ["bar", "panel", "service", "hardware", "indicator"]
+dependencies = ["usbeehive", "jq"]
+description = "Connected USB devices and USB-C charging wattage, via usbeehive."
+
+# ── Plugin-level settings (shared by service, widget and panel) ─────────────
+
+[[setting]]
+key = "usbeehive_path"
+type = "file"
+label_key = "settings.usbeehive_path.label"
+description_key = "settings.usbeehive_path.description"
+default = "usbeehive"
+
+[[setting]]
+key = "poll_interval_s"
+type = "int"
+label_key = "settings.poll_interval_s.label"
+description_key = "settings.poll_interval_s.description"
+default = 5
+min = 1
+max = 60
+
+[[setting]]
+key = "hide_internal"
+type = "bool"
+label_key = "settings.hide_internal.label"
+description_key = "settings.hide_internal.description"
+default = true
+
+[[setting]]
+key = "show_hubs"
+type = "bool"
+label_key = "settings.show_hubs.label"
+description_key = "settings.show_hubs.description"
+default = false
+
+[[setting]]
+key = "notify_hotplug"
+type = "bool"
+label_key = "settings.notify_hotplug.label"
+description_key = "settings.notify_hotplug.description"
+default = true
+
+[[setting]]
+key = "notify_warnings"
+type = "bool"
+label_key = "settings.notify_warnings.label"
+description_key = "settings.notify_warnings.description"
+default = true
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "monitor"
+entry = "service.luau"
+
+[[widget]]
+id = "usb"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "idle_display"
+  type = "select"
+  label_key = "settings.idle_display.label"
+  description_key = "settings.idle_display.description"
+  default = "count"
+  options = [
+    { value = "count", label_key = "settings.idle_display.options.count" },
+    { value = "icon", label_key = "settings.idle_display.options.icon" },
+    { value = "hidden", label_key = "settings.idle_display.options.hidden" },
+  ]
+
+[[panel]]
+id = "devices"
+entry = "panel.luau"
+width = 420
+height = 520
+placement = "attached"
+open_near_click = true

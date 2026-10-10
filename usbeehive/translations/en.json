@@ -1,0 +1,82 @@
+{
+  "settings": {
+    "usbeehive_path": {
+      "label": "usbeehive binary",
+      "description": "Command name on PATH, or an absolute / ~ path (e.g. ~/.cargo/bin/usbeehive)"
+    },
+    "poll_interval_s": {
+      "label": "Wattage refresh (seconds)",
+      "description": "How often to re-read power while a USB-C port is charging"
+    },
+    "hide_internal": {
+      "label": "Hide internal devices",
+      "description": "Hide devices the kernel marks as fixed (built-in Bluetooth, webcams, card readers)"
+    },
+    "show_hubs": {
+      "label": "Show hubs",
+      "description": "List USB hubs alongside devices"
+    },
+    "notify_hotplug": {
+      "label": "Notify on connect / disconnect",
+      "description": "Show a notification when a USB device is plugged in or removed"
+    },
+    "notify_warnings": {
+      "label": "Notify on charging problems",
+      "description": "Show a notification when usbeehive detects a cable or charger bottleneck"
+    },
+    "idle_display": {
+      "label": "When not charging",
+      "description": "What the bar widget shows when no USB-C power is flowing",
+      "options": {
+        "count": "Icon and device count",
+        "icon": "Icon only",
+        "hidden": "Hide the widget"
+      }
+    }
+  },
+  "status": {
+    "starting": "Waiting for usbeehive…"
+  },
+  "power": {
+    "up_to": "up to {watts}",
+    "max": "{watts} max"
+  },
+  "tooltip": {
+    "error": "Error",
+    "charging": "Charging",
+    "supplying": "Supplying power",
+    "devices": "USB devices"
+  },
+  "notify": {
+    "connected": "USB device connected",
+    "disconnected": "USB device disconnected"
+  },
+  "error": {
+    "watcher_exited": "The usbeehive watcher stopped: {reason}. Check that usbeehive and jq are installed, or set the usbeehive binary in the plugin settings. Retrying shortly.",
+    "no_reason": "no error output",
+    "stream_failed": "Could not start the usbeehive watcher."
+  },
+  "panel": {
+    "title": "USB devices",
+    "refresh": "Refresh",
+    "open_settings": "Plugin settings",
+    "empty": "No USB devices to show.",
+    "charging": "Charging",
+    "charging_at": "Charging · up to {watts}",
+    "supplying": "Supplying power",
+    "supplying_at": "Supplying · up to {watts}",
+    "requested_note": "Operating point the device negotiated over USB PD, not a metered reading",
+    "contract_note": "The charger's active profile; this system doesn't report the device's requested draw",
+    "id": "ID",
+    "driver": "Driver",
+    "usb": "USB",
+    "link": "Link",
+    "status": "Status",
+    "power_in": "Power in",
+    "power_out": "Power out",
+    "contract": "Contract",
+    "cable": "Cable",
+    "charger": "Charger",
+    "diagnosis": "Diagnosis"
+  }
+}
