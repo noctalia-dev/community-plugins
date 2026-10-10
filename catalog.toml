@@ -265,15 +265,21 @@ tags = ["audio", "bar", "recording", "utility"]
 [[plugin]]
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.3.0"
-updated_at = 1790519222
+version = "0.4.0"
+updated_at = 1791639775
 added_at = 1784296152
 author = "nightwatch75"
 license = "MIT"
 icon = "search"
 description = "Search files and folders as you type, fuzzy-matched with fzf; open results with the system MIME association."
-plugin_api = 28
+plugin_api = 33
 tags = ["bar", "launcher", "panel", "utility", "productivity"]
+
+[[plugin.release]]
+plugin_api = 28
+version = "0.3.0"
+updated_at = 1790519222
+rev = "c395ed20913218df9be45d466c66f38070cd1b47"
 
 [[plugin.release]]
 plugin_api = 15
