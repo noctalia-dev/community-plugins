@@ -458,15 +458,21 @@ tags = ["bar", "panel", "service", "time", "utility"]
 [[plugin]]
 id = "dotnetrob/cat"
 name = "Cat"
-version = "1.2.0"
-updated_at = 1785022475
+version = "1.3.0"
+updated_at = 1791604745
 added_at = 1784595702
 author = "DotNetRob"
 license = "MIT"
 icon = "paw"
 description = "An animated running cat bar widget whose speed reflects CPU usage."
-plugin_api = 3
+plugin_api = 12
 tags = ["bar", "animation", "system", "fun"]
+
+[[plugin.release]]
+plugin_api = 3
+version = "1.2.0"
+updated_at = 1785022475
+rev = "00da2cd2910b2c562ceebd9b3f72829884b16946"
 
 [[plugin]]
 id = "alexander/game-launcher"
