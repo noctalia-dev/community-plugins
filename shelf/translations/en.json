@@ -1,0 +1,146 @@
+{
+  "common": {
+    "files": {
+      "one": "{count} file",
+      "other": "{count} files"
+    }
+  },
+  "widget": {
+    "tooltip": {
+      "title": "Shelf",
+      "empty": "Empty",
+      "latest": "Latest",
+      "click": "Click",
+      "right_click": "Right-click",
+      "open_panel": "Open shelf",
+      "drop_window": "Toggle drop window"
+    }
+  },
+  "panel": {
+    "title": "Shelf",
+    "summary": {
+      "empty": "Keep files handy for later"
+    },
+    "drop_window": {
+      "open": "Drop window",
+      "close": "Hide window",
+      "tooltip": "A floating window you can drag files into, and out of into any app"
+    },
+    "empty": {
+      "title": "Nothing on the shelf",
+      "body": "Open the drop window and drag files onto it. They wait here until you drag them out again."
+    },
+    "paste": {
+      "label": "Paste",
+      "tooltip": "Add copied files, or file paths, from the clipboard"
+    },
+    "copy_all": {
+      "label": "Copy all",
+      "tooltip": "Copy every file, ready to paste in a file manager"
+    },
+    "clear": {
+      "label": "Clear",
+      "tooltip": "Remove everything from the shelf. Files on disk are not touched."
+    },
+    "remove_missing": {
+      "one": "Remove {count} missing",
+      "other": "Remove {count} missing"
+    },
+    "row": {
+      "missing": "Missing",
+      "folder": "Folder",
+      "reveal": "Show in folder",
+      "copy": "Copy file",
+      "remove": "Remove from shelf",
+      "reorder": "Drag to reorder"
+    },
+    "flash": {
+      "copied": {
+        "one": "Copied {count} file",
+        "other": "Copied {count} files"
+      },
+      "added": {
+        "one": "Added {count} file",
+        "other": "Added {count} files"
+      },
+      "paste_empty": "No files or paths on the clipboard",
+      "nothing_to_copy": "Nothing to copy: the files are missing",
+      "missing": "That file is gone"
+    },
+    "shortcut": {
+      "button": "Keyboard shortcut",
+      "title": "Keyboard shortcut",
+      "summary": "{keys} opens and closes the drop window.",
+      "invalid": "The shortcut setting is not a key combination like Super+Shift+D. Change it in Settings → Plugins → Shelf.",
+      "config": "{compositor} · {path}",
+      "installed": "Added to your {compositor} config",
+      "copy": "Copy line",
+      "copy_command": "Copy command",
+      "add": "Add for me",
+      "remove": "Remove",
+      "confirm": "This adds the line to {path}. A backup is saved next to it as .shelf-backup.",
+      "confirm_add": "Add it",
+      "cancel": "Cancel",
+      "desktop": "Open System Settings → Keyboard → Shortcuts and add a custom shortcut for {keys} that runs:",
+      "unknown": "Bind {keys} in your compositor's config to this command:",
+      "flash": {
+        "copied": "Copied",
+        "added": "Shortcut added",
+        "removed": "Shortcut removed"
+      },
+      "error": "Could not change the config: {error}"
+    }
+  },
+  "notify": {
+    "no_data_dir": "Shelf cannot find its data folder",
+    "launch_failed": "Shelf could not start the drop window",
+    "missing_deps": {
+      "title": "Shelf needs GTK 4 for Python",
+      "body": "Install python3-gobject and gtk4 (python-gobject on Arch), or point the Python setting at an interpreter that has them."
+    }
+  },
+  "settings": {
+    "window_position": {
+      "label": "Drop window position",
+      "description": "Where the drop window opens. Drag its header to move it. Needs gtk4-layer-shell; without it the compositor places the window.",
+      "cursor": "At the cursor",
+      "last": "Where you last moved it (at the cursor until then)",
+      "right": "Right",
+      "left": "Left",
+      "top": "Top",
+      "bottom": "Bottom",
+      "top_right": "Top right",
+      "top_left": "Top left",
+      "bottom_right": "Bottom right",
+      "bottom_left": "Bottom left",
+      "center": "Center"
+    },
+    "remove_after_drag": {
+      "label": "Remove after dragging out",
+      "description": "Take files off the shelf once they are dropped into another app."
+    },
+    "close_after_drag": {
+      "label": "Close window after dragging out",
+      "description": "Hide the drop window once files are dropped into another app."
+    },
+    "python": {
+      "label": "Python interpreter",
+      "description": "Leave empty to use /usr/bin/python3. Set it when your GTK 4 bindings live in another interpreter."
+    },
+    "glyph": {
+      "label": "Icon"
+    },
+    "show_count": {
+      "label": "Show count",
+      "description": "Show how many files are on the shelf next to the icon."
+    },
+    "hide_when_empty": {
+      "label": "Hide when empty",
+      "description": "Hide the widget while the shelf is empty."
+    },
+    "shortcut": {
+      "label": "Keyboard shortcut",
+      "description": "Keys that open and close the drop window, like Super+Shift+D. Wayland compositors own the keyboard, so open the Shelf panel and use the keyboard button to add the shortcut to your compositor."
+    }
+  }
+}
