@@ -50,35 +50,43 @@ function M.parse(text: string, filters: Filters): { Listener }
     if filters.hideSystemPorts and port < 1024 then
       continue
     end
-    local process, pidText = string.match(line, 'users:%(%("(.-)",pid=(%d+)')
-    local pid = tonumber(pidText) or 0
-    if filters.onlyOwnProcesses and pid == 0 then
-      continue
-    end
-
     address = string.gsub(address, "%%.*$", "")
     address = string.gsub(address, "^%[", "")
     address = string.gsub(address, "%]$", "")
 
-    local key = `{proto}:{port}:{pid}`
-    local listener = byKey[key]
-    if listener == nil then
-      listener = {
-        key = key,
-        port = port,
-        proto = proto,
-        pid = pid,
-        process = process or "",
-        addresses = {},
-        localOnly = true,
-      }
-      byKey[key] = listener
-      table.insert(result, listener)
-      order[listener] = #result
+    -- A socket shared after fork lists every owner; each gets its own row so Stop names one process.
+    local owners = {}
+    for process, pidText in string.gmatch(line, '%("(.-)",pid=(%d+)') do
+      table.insert(owners, { process = process, pid = tonumber(pidText) })
     end
-    if not table.find(listener.addresses, address) then
-      table.insert(listener.addresses, address)
-      listener.localOnly = listener.localOnly and isLoopback(address)
+    if #owners == 0 then
+      table.insert(owners, { process = "", pid = 0 })
+    end
+
+    for _, owner in owners do
+      if filters.onlyOwnProcesses and owner.pid == 0 then
+        continue
+      end
+      local key = `{proto}:{port}:{owner.pid}`
+      local listener = byKey[key]
+      if listener == nil then
+        listener = {
+          key = key,
+          port = port,
+          proto = proto,
+          pid = owner.pid,
+          process = owner.process,
+          addresses = {},
+          localOnly = true,
+        }
+        byKey[key] = listener
+        table.insert(result, listener)
+        order[listener] = #result
+      end
+      if not table.find(listener.addresses, address) then
+        table.insert(listener.addresses, address)
+        listener.localOnly = listener.localOnly and isLoopback(address)
+      end
     end
   end
 

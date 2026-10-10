@@ -20,10 +20,16 @@ local resolved = { key = "tcp:53:0", port = 53, proto = "tcp", pid = 0, process 
 local llmnr = { key = "tcp:5355:0", port = 5355, proto = "tcp", pid = 0, process = "", addresses = { "::" }, localOnly = false }
 local dhcp = { key = "udp:546:0", port = 546, proto = "udp", pid = 0, process = "", addresses = { "fe80::dff3:6e2f:8009:2255" }, localOnly = false }
 
+local shared = 'tcp LISTEN 0 128 127.0.0.1:8766 0.0.0.0:* users:(("gunicorn",pid=301,fd=3),("gunicorn",pid=302,fd=3),("gunicorn",pid=300,fd=3))'
+local function worker(pid)
+  return { key = `tcp:8766:{pid}`, port = 8766, proto = "tcp", pid = pid, process = "gunicorn", addresses = { "127.0.0.1" }, localOnly = true }
+end
+
 local cases = {
   { name = "defaults", filters = { includeUdp = false, hideSystemPorts = true, onlyOwnProcesses = false }, expected = { node, t3code, electron, llmnr } },
   { name = "no filters", filters = { includeUdp = true, hideSystemPorts = false, onlyOwnProcesses = false }, expected = { node, t3code, electron, resolved, dhcp, llmnr } },
   { name = "only own processes", filters = { includeUdp = true, hideSystemPorts = false, onlyOwnProcesses = true }, expected = { node, t3code, electron } },
+  { name = "every owner of a shared socket", filters = { includeUdp = false, hideSystemPorts = true, onlyOwnProcesses = false }, expected = { worker(301), worker(302), worker(300) }, text = shared },
   { name = "empty input", filters = { includeUdp = true, hideSystemPorts = false, onlyOwnProcesses = false }, expected = {}, text = "" },
 }
 
