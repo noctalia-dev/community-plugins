@@ -1,0 +1,137 @@
+# Formula 1 for Noctalia: a countdown pill in the bar and a tabbed panel with the
+# session schedule, circuit outline, starting grid, live timing, last race
+# result and both championships.
+#
+# Ported from Snackwrap/omarchy-f1 (MIT) to Noctalia's Luau plugin API.
+# Data: Jolpica-F1 (schedule, standings, results) and OpenF1 (live timing).
+# Circuit outlines: bacinger/f1-circuits (MIT). See README.md for credits.
+
+id = "gcap0n1/f1"
+name = "Formula 1"
+version = "0.1.0"
+plugin_api = 31
+author = "gcap0n1"
+license = "MIT"
+icon = "flag"
+description = "Next-race countdown, schedule, circuit map, live timing and standings for Formula 1."
+tags = ["bar", "panel", "indicator", "countdown"]
+# Every network request goes through noctalia.http, so there is no curl
+# dependency. xdg-open is only used to open Wikipedia links from table rows.
+dependencies = ["xdg-open"]
+
+# ── Plugin-level settings (shared by the poller, the capsule and the panel) ───
+
+[[setting]]
+key = "time_format"
+type = "select"
+label_key = "settings.time_format.label"
+description_key = "settings.time_format.description"
+default = "24h"
+options = [
+  { value = "24h", label_key = "settings.time_format.option.24h" },
+  { value = "12h", label_key = "settings.time_format.option.12h" },
+]
+
+[[setting]]
+key = "countdown_target"
+type = "select"
+label_key = "settings.countdown_target.label"
+description_key = "settings.countdown_target.description"
+default = "race"
+options = [
+  { value = "race", label_key = "settings.countdown_target.option.race" },
+  { value = "session", label_key = "settings.countdown_target.option.session" },
+]
+
+[[setting]]
+key = "default_tab"
+type = "select"
+label_key = "settings.default_tab.label"
+description_key = "settings.default_tab.description"
+default = "schedule"
+options = [
+  { value = "schedule", label_key = "settings.default_tab.option.schedule" },
+  { value = "drivers", label_key = "settings.default_tab.option.drivers" },
+  { value = "constructors", label_key = "settings.default_tab.option.constructors" },
+]
+
+[[setting]]
+key = "team_colors"
+type = "bool"
+label_key = "settings.team_colors.label"
+description_key = "settings.team_colors.description"
+default = true
+
+[[setting]]
+key = "animations"
+type = "bool"
+label_key = "settings.animations.label"
+description_key = "settings.animations.description"
+default = true
+
+[[setting]]
+key = "favorite_driver"
+type = "string"
+label_key = "settings.favorite_driver.label"
+description_key = "settings.favorite_driver.description"
+default = ""
+
+[[setting]]
+key = "favorite_team"
+type = "string"
+label_key = "settings.favorite_team.label"
+description_key = "settings.favorite_team.description"
+default = ""
+
+[[setting]]
+key = "notify_race"
+type = "bool"
+label_key = "settings.notify_race.label"
+description_key = "settings.notify_race.description"
+default = false
+
+[[setting]]
+key = "notify_lead_min"
+type = "int"
+label_key = "settings.notify_lead_min.label"
+description_key = "settings.notify_lead_min.description"
+default = 10
+min = 0
+max = 120
+visible_when = { key = "notify_race", values = ["true"] }
+
+[[setting]]
+key = "debug_force_tabs"
+type = "bool"
+label_key = "settings.debug_force_tabs.label"
+description_key = "settings.debug_force_tabs.description"
+default = false
+advanced = true
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+# One poller for the whole shell: every capsule and the panel read what it
+# publishes, so a second monitor does not double the requests.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Right click refreshes now. Declared (not an onRightClick callback) so the
+  # binding shows up in the widget's settings and the user can repoint it.
+  [widget.actions]
+  right = "plugin gcap0n1/f1:poller all refresh"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 500
+height = 640
+placement = "attached"
+position = "auto"
+open_near_click = true
+dismiss_on_outside_click = true
+capture_keys = ["escape", "left", "right", "r"]

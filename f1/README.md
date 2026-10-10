@@ -1,0 +1,140 @@
+# Formula 1
+
+Next-race countdown in the bar, and a panel with the session schedule in local
+time, the circuit outline, the starting grid, live timing, the last race result
+and both championships.
+
+## Plugin
+
+| Field | Value |
+| --- | --- |
+| ID | `gcap0n1/f1` |
+| Entries | Bar widget: `bar`; panel: `panel`; service: `poller` |
+
+## Requirements
+
+Install `xdg-open` (from `xdg-utils`) on `PATH`. It is only used to open a
+Wikipedia page when you click a driver, team or race row.
+
+The plugin has no other dependency: every request goes through
+`noctalia.http`, so `curl` is not needed.
+
+**Live timing needs an OpenF1 account.** OpenF1 serves real-time data, and
+during a session the whole API, only to subscribers (see
+[openf1.org](https://openf1.org)). Without an account the Live tab explains this
+and everything else keeps working. To enable it, export your credentials in the
+environment Noctalia runs in:
+
+```sh
+OPENF1_USERNAME=you@example.com
+OPENF1_PASSWORD=your-password
+```
+
+They are read with `noctalia.getenv`, exchanged for a one-hour bearer token at
+`https://api.openf1.org/token`, and never written to the plugin settings or to
+disk. This login path could not be tested without a subscription.
+
+## Usage
+
+Add the bar widget `gcap0n1/f1:bar` from Noctalia's widget picker, or by hand:
+
+```toml
+[widget.f1]
+type = "gcap0n1/f1:bar"
+
+[bar.default]
+end = [ "f1", "tray" ]
+```
+
+Left click opens the panel, right click refreshes the data, and middle click
+opens the widget's settings. The pill shows the time left to the race (or to the
+next session) and turns to the accent colour with `LIVE` while a session is on.
+
+Open the panel from a script or a compositor binding:
+
+```sh
+noctalia msg panel-toggle gcap0n1/f1:panel
+```
+
+Tabs: **Schedule**, **Grid** (after qualifying until the race), **Live**,
+**Last**, **Drivers** and **Teams**. With the panel focused, `Left` and `Right`
+change tab, `r` refreshes and `Escape` closes it. A table row with a link opens
+its Wikipedia page.
+
+### Session times
+
+Session times come from the published calendar and are **not** updated when a
+session is delayed. Correct one by hand; the correction applies to the bar, the
+countdown, the session list and the live window until the round changes:
+
+```sh
+noctalia msg plugin gcap0n1/f1:poller all delay "quali 30"
+```
+
+## Settings
+
+Edited under Settings → Plugins.
+
+| Setting | Type | Default | Description |
+| --- | --- | --- | --- |
+| `time_format` | `select` | `24h` | 24-hour or 12-hour session times. |
+| `countdown_target` | `select` | `race` | Whether the pill counts down to the race or to the next session. |
+| `default_tab` | `select` | `schedule` | Tab the panel opens on. Live and Grid take over when they apply. |
+| `team_colors` | `bool` | `true` | Coloured chip beside each driver and team. |
+| `animations` | `bool` | `true` | Fade in the circuit and run the start lights on race day. |
+| `favorite_driver` | `string` | empty | Three-letter code, for example `VER`, shown in the accent colour. |
+| `favorite_team` | `string` | empty | Team id as the data source writes it, for example `ferrari`. |
+| `notify_race` | `bool` | `false` | One desktop notification before lights out. |
+| `notify_lead_min` | `int` | `10` | Minutes before the race for that notification, 0 to 120. |
+| `debug_force_tabs` | `bool` | `false` | Advanced. Show Grid and Live outside a race weekend, using the last session. |
+
+## IPC
+
+```sh
+# Refresh everything now (also bound to right click on the widget)
+noctalia msg plugin gcap0n1/f1:poller all refresh
+
+# Correct a session start by N minutes (-720..720); 0 undoes that session
+noctalia msg plugin gcap0n1/f1:poller all delay "<fp1|fp2|fp3|sprint_quali|sprint|quali|race> <minutes>"
+
+# Drop every manual correction
+noctalia msg plugin gcap0n1/f1:poller all delay_clear
+
+# Select a tab of an open panel
+noctalia msg plugin gcap0n1/f1:panel all tab drivers
+```
+
+## Notes
+
+Network access, all HTTPS GET without credentials unless you set the OpenF1
+variables above:
+
+- `api.jolpi.ca` (Jolpica-F1): next race, driver and constructor standings, last
+  result and qualifying. The schedule refreshes every 6 hours, standings every 3
+  hours.
+- `api.openf1.org`: drivers, positions and race control, only from 15 minutes
+  before a session until 3 hours after, every 15 seconds. `POST /token` only when
+  credentials are set.
+
+Files: the plugin writes small SVG files of the circuit outline into its own
+data directory (`noctalia.pluginDataDir()`), one per circuit and colour. It
+reads `tracks.txt` from its own directory. It spawns `xdg-open` only when you
+click a link, and only for `https` links to Wikipedia.
+
+Everything fetched is length-limited and stripped of control and bidirectional
+characters before it is shown.
+
+`tracks.txt` is data, not code. `tools/build-tracks.py` rebuilds it from
+[bacinger/f1-circuits](https://github.com/bacinger/f1-circuits).
+
+Jolpica-F1 data is published under CC BY-NC-SA 4.0 for non-commercial use, see
+its [terms](https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md). This is an
+unofficial project, not associated with Formula 1 companies. F1, FORMULA ONE and
+related marks belong to their owners.
+
+## Credits
+
+Ported from [Snackwrap/omarchy-f1](https://github.com/Snackwrap/omarchy-f1) by
+Robert (leafbox), MIT. Circuit outlines from
+[bacinger/f1-circuits](https://github.com/bacinger/f1-circuits) by Tomislav
+Bacinger, MIT. Live data from [OpenF1](https://openf1.org).
