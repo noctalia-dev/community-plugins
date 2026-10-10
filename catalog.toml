@@ -3532,3 +3532,16 @@ icon = "brain"
 description = "AI quota triage, smart model routing and rolling window kickstarting."
 plugin_api = 22
 tags = ["bar", "panel", "ai", "indicator", "utility"]
+
+[[plugin]]
+id = "ismay/media-player-icon"
+name = "Media Player Icon"
+version = "1.0.0"
+updated_at = 1791640157
+added_at = 1791640157
+author = "ismay"
+license = "MIT"
+icon = "music"
+description = "Displays the media player status as a single icon."
+plugin_api = 24
+tags = ["bar", "audio", "indicator"]
