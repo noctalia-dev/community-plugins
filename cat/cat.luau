@@ -1,7 +1,8 @@
 --!nonstrict
--- Cat: an animated running cat bar widget. Pace reflects CPU usage, sampled
--- from /proc/stat, with separately configurable walk/run thresholds. Color
--- follows the theme's secondary role by default, or a pinned custom color.
+-- Cat: an animated running cat bar widget. Pace reflects CPU usage, read
+-- from the host's system monitor, with separately configurable walk/run
+-- thresholds. Color follows the theme's secondary role by default, or a
+-- pinned custom color.
 --
 -- The cat shape is a custom pictographic font (fonts/catwalk2.otf, traced
 -- from the MIT-licensed CatWalk plasmoid by Driglu4it) so it can be colored
@@ -40,40 +41,19 @@ local frameDurationMs = WALK_MAX_MS
 
 local sampleElapsed = pollIntervalMs -- sample immediately on first tick
 local cpuPercent = 0
-local prevTotal, prevIdle = nil, nil
 
+-- CPU usage comes from the host's system monitor rather than our own
+-- /proc/stat parsing. The host refreshes that sample on its own cadence
+-- ([system.monitor] cpu_poll_seconds, 2s by default), so poll_interval only
+-- throttles how often we pick it up. nil means the monitor is disabled or has
+-- no sample yet; keep the last reading (0 until the first one) in that case.
 local function sampleCpu()
-  local stat = noctalia.readFile("/proc/stat")
-  if not stat then
+  local stats = noctalia.systemStats()
+  if stats == nil or stats.cpu == nil or stats.cpu.usagePercent == nil then
     return
   end
 
-  local line = stat:match("^cpu%s+(.-)\n") or stat:match("^cpu%s+(.-)$")
-  if not line then
-    return
-  end
-
-  local fields = {}
-  for n in line:gmatch("%d+") do
-    table.insert(fields, tonumber(n))
-  end
-
-  local idle = (fields[4] or 0) + (fields[5] or 0)
-  local total = 0
-  for _, v in fields do
-    total += v
-  end
-
-  if prevTotal then
-    local totalDelta = total - prevTotal
-    local idleDelta = idle - prevIdle
-    if totalDelta > 0 then
-      cpuPercent = math.clamp((totalDelta - idleDelta) / totalDelta * 100, 0, 100)
-    end
-  end
-
-  prevTotal = total
-  prevIdle = idle
+  cpuPercent = math.clamp(stats.cpu.usagePercent, 0, 100)
 end
 
 -- Returns ("idle" | "walk" | "run", frame-duration-ms-for-that-pace).
