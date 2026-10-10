@@ -9,6 +9,7 @@ local M = {}
 
 M.JOLPICA = "https://api.jolpi.ca/ergast/f1/"
 M.OPENF1 = "https://api.openf1.org/v1/"
+M.F1_TIMING = "https://livetiming.formula1.com/static/"
 M.USER_AGENT = "User-Agent: gcap0n1-noctalia-f1/0.1"
 
 -- Ceilings for anything that comes back from the network. noctalia.http has no
@@ -114,6 +115,19 @@ function M.parseIso(text)
         t = sign == "+" and (t - offset) or (t + offset)
     end
     return t
+end
+
+-- The F1 timing feed gives local wall-clock times plus the circuit's offset:
+-- "2026-10-10T21:30:00" with GmtOffset "08:00:00" (or "-05:00:00"). -> Unix seconds.
+function M.parseLocal(dateTime, gmtOffset)
+    local y, mo, d, hh, mm, ss = tostring(dateTime or ""):match("^(%d%d%d%d)-(%d%d)-(%d%d)T(%d%d):(%d%d):(%d%d)")
+    if y == nil then return nil end
+    local sign, oh, om = tostring(gmtOffset or ""):match("^([+-]?)(%d%d):(%d%d)")
+    if oh == nil then return nil end
+    local offset = tonumber(oh) * 3600 + tonumber(om) * 60
+    if sign == "-" then offset = -offset end
+    return daysFromCivil(tonumber(y), tonumber(mo), tonumber(d)) * 86400
+        + tonumber(hh) * 3600 + tonumber(mm) * 60 + tonumber(ss) - offset
 end
 
 -- Whole seconds since the epoch. os.time() is the host clock in UTC seconds.

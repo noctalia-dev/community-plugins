@@ -63,9 +63,16 @@ its Wikipedia page.
 
 ### Session times
 
-Session times come from the published calendar and are **not** updated when a
-session is delayed. Correct one by hand; the correction applies to the bar, the
-countdown, the session list and the live window until the round changes:
+Times follow delays by themselves. The schedule comes from Jolpica, which
+publishes planned times only, so once a minute during a race weekend the plugin
+also reads the start time of the current session from F1's own live-timing feed
+(`SessionInfo.json`, the same one F1's apps use) and shows that one instead. A
+session that was moved by 30 minutes because of rain shows the new time with a
+"+30 min vs. published time" note, in the panel, the bar countdown and the
+live window.
+
+If that feed is ever unavailable you can correct a time by hand. The correction
+wins over both sources until the round changes:
 
 ```sh
 noctalia msg plugin gcap0n1/f1:poller all delay "quali 30"
@@ -109,6 +116,10 @@ noctalia msg plugin gcap0n1/f1:panel all tab drivers
 Network access, all HTTPS GET without credentials unless you set the OpenF1
 variables above:
 
+- `livetiming.formula1.com`: `static/SessionInfo.json`, a few hundred bytes, once
+  a minute from 3 hours before the first session of the weekend until 4 hours
+  after the race. It is an unofficial, undocumented feed that F1's timing apps
+  use; if its format changes, times simply fall back to the published ones.
 - `api.jolpi.ca` (Jolpica-F1): next race, driver and constructor standings, last
   result and qualifying. The schedule refreshes every 6 hours, standings every 3
   hours.

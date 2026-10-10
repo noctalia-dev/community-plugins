@@ -17,6 +17,8 @@
 -- Network calls made by this file, all HTTPS GET, no credentials:
 --   api.jolpi.ca  current/next, current/driverStandings, current/constructorStandings,
 --                 current/last/results, current/<round>/qualifying
+--   livetiming.formula1.com  static/SessionInfo.json (the start time of the current session),
+--                 once a minute from 3 h before the first session of the weekend to 4 h after the race.
 --   api.openf1.org drivers, position, race_control with session_key=latest, polled
 --                 every 15 s only from 15 minutes before a session until 3 hours after.
 -- This file writes nothing to disk and spawns no process.
@@ -34,7 +36,8 @@ local OPENF1 = shared.OPENF1
 local race = nil                      -- processed race table, mirrored in state
 local sessions = {}                   -- effective sessions (published times + manual fixes)
 local rawSessions = {}                -- sessions exactly as the schedule API gave them
-local fixedTs = {}                    -- session id -> corrected start (Unix seconds), set by `delay`
+local fixedTs = {}                    -- session id -> start corrected by hand (`delay`), Unix seconds
+local autoTs = {}                     -- session id -> start reported by the F1 timing feed
 local forceTabs = noctalia.getConfig("debug_force_tabs") == true
 
 -- Next time (Unix seconds) each dataset is due, and in-flight guards.
@@ -88,6 +91,7 @@ local function getJson(url, onData, onFail, opts)
             if onFail then onFail("size", res.status) end
             return
         end
+        if body:sub(1, 3) == "\239\187\191" then body = body:sub(4) end   -- UTF-8 BOM
         local decoded = noctalia.json.decode(body)
         if type(decoded) ~= "table" then
             if onFail then onFail("parse", res.status) end
@@ -119,19 +123,22 @@ local function lastOf(list)
     return nil
 end
 
--- ── Manual session times ─────────────────────────────────────────────────────
+-- ── Session times ────────────────────────────────────────────────────────────
 
 -- The schedule API publishes planned times and is not updated when a session is
--- delayed (rain, red flags), and OpenF1 is closed to anonymous clients during a
--- session. `delay` lets the user correct a time by hand; the correction is an
--- absolute time, so it stays right if the API later catches up, and each entry
--- carries `delay` (minutes against the published time) for the panel to show.
+-- delayed (rain, red flags). F1's own timing feed (SessionInfo.json) is: it
+-- carries the start time the organisers are currently running to, so that is
+-- what overrides the published time, automatically. A correction made by hand
+-- with `delay` takes precedence over both and is only a fallback for the case
+-- where that feed is unavailable. Corrections are absolute times, so they stay
+-- right if the API later catches up, and each entry carries `delay` (minutes
+-- against the published time) for the panel to show.
 local KNOWN_SESSIONS = { fp1 = true, fp2 = true, fp3 = true, sprint_quali = true, sprint = true, quali = true, race = true }
 
 local function effectiveSessions()
     local out = {}
     for _, base in ipairs(rawSessions) do
-        local ts = fixedTs[base.id] or base.ts
+        local ts = fixedTs[base.id] or autoTs[base.id] or base.ts
         out[#out + 1] = { id = base.id, ts = ts, delay = math.floor((ts - base.ts) / 60) }
     end
     table.sort(out, function(a, b) return a.ts < b.ts end)
@@ -150,7 +157,7 @@ end
 
 local function resetPerRaceData()
     generation += 1
-    fixedTs = {}
+    fixedTs, autoTs = {}, {}
     gridRound = nil
     busy.grid, busy.ofDrivers, busy.ofPos, busy.ofFlag = nil, nil, nil, nil
     noctalia.state.set("grid", { loaded = false, rows = {} })
@@ -196,6 +203,45 @@ local function loadSchedule()
         busy.schedule = false
         due.schedule = shared.nowSec() + 120
         setStatus(false, reason)
+    end)
+end
+
+-- ── Session times from F1's timing feed ──────────────────────────────────────
+
+-- Feed session names -> our session ids.
+local FEED_SESSIONS = {
+    ["Practice 1"] = "fp1", ["Practice 2"] = "fp2", ["Practice 3"] = "fp3",
+    ["Sprint Qualifying"] = "sprint_quali", ["Sprint Shootout"] = "sprint_quali",
+    ["Sprint"] = "sprint", ["Qualifying"] = "quali", ["Race"] = "race",
+}
+local MAX_FEED_SHIFT = 12 * 3600          -- ignore a feed time further than this from the calendar
+local SESSION_INFO_EVERY = 60             -- seconds, inside the weekend window
+local sessionInfoAt = 0
+
+local function loadSessionInfo()
+    if busy.sessionInfo or race == nil then return end
+    busy.sessionInfo = true
+    getJson(shared.F1_TIMING .. "SessionInfo.json", function(info)
+        busy.sessionInfo = false
+        local meeting = type(info.Meeting) == "table" and info.Meeting or {}
+        -- Only the weekend this plugin is showing: the feed carries one session
+        -- at a time and keeps the last one between weekends.
+        if tonumber(meeting.Number) ~= tonumber(race.round) then return end
+        local id = FEED_SESSIONS[tostring(info.Name or "")]
+        local ts = shared.parseLocal(info.StartDate, info.GmtOffset)
+        if id == nil or ts == nil then return end
+        for _, base in ipairs(rawSessions) do
+            if base.id == id then
+                if math.abs(ts - base.ts) > MAX_FEED_SHIFT then return end
+                if autoTs[id] ~= ts then
+                    autoTs[id] = ts
+                    republishRace()
+                end
+                return
+            end
+        end
+    end, function()
+        busy.sessionInfo = false
     end)
 end
 
@@ -537,6 +583,20 @@ function update()
         due.schedule, due.standings, due.results = now, now, now
     end
 
+    -- F1's timing feed: follow delays from a few hours before the first session
+    -- until a few hours after the race, once a minute.
+    if race ~= nil and #rawSessions > 0 and now - sessionInfoAt >= SESSION_INFO_EVERY then
+        local first, last = rawSessions[1].ts, rawSessions[#rawSessions].ts
+        for _, base in ipairs(rawSessions) do
+            if base.ts < first then first = base.ts end
+            if base.ts > last then last = base.ts end
+        end
+        if now >= first - 3 * 3600 and now <= last + 4 * 3600 then
+            sessionInfoAt = now
+            loadSessionInfo()
+        end
+    end
+
     -- Starting grid: needed once qualifying is over, or always in debug mode.
     if race ~= nil and (forceTabs or shared.gridApplicable(sessions, now)) then
         if gridRound ~= race.round or gridDebug ~= forceTabs then loadGrid() end
@@ -591,6 +651,7 @@ function onIpc(event, payload)
     end
     if event == "delay_clear" then
         fixedTs = {}
+        sessionInfoAt = 0
         republishRace()
         return
     end
