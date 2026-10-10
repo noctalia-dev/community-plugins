@@ -39,7 +39,7 @@ Open the main panel from IPC:
 noctalia msg panel-toggle mahmoudomiesh/network-monitor:panel
 ```
 
-The panel shows download/upload history and a scrollable listener list. Hover a row for Open in browser and Stop. Opening a port closes the panel. Stop acts immediately, keeps the panel open, and refreshes the list about 600 ms after the command finishes. UDP rows only offer Stop.
+The panel shows download/upload history and a scrollable listener list. Hover a row for Open in browser and Stop. Opening a port closes the panel. Stop acts immediately, keeps the panel open, and refreshes the list about 600 ms after the command finishes. UDP rows only offer Stop. When Stop needs authentication, Noctalia's password prompt replaces the panel.
 
 The menu can also be opened from IPC:
 
