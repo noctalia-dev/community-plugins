@@ -1,0 +1,37 @@
+{
+  "error": {
+    "initial_query_failed": "Failed to query the initial media player status.",
+    "required_command_missing": "The required command playerctl is missing.",
+    "stream_failed": "Could not start the media player status stream."
+  },
+  "settings": {
+    "playing_glyph": {
+      "description": "Glyph to display when a media player is playing",
+      "label": "Playing glyph"
+    },
+    "playing_color": {
+      "description": "Color to use for the playing status glyph",
+      "label": "Playing color"
+    },
+    "paused_glyph": {
+      "description": "Glyph to display when a media player is paused",
+      "label": "Paused glyph"
+    },
+    "paused_color": {
+      "description": "Color to use for the paused status glyph",
+      "label": "Paused color"
+    },
+    "hide_stopped": {
+      "description": "Hide the media player indicator when playback is stopped",
+      "label": "Hide Stopped"
+    },
+    "stopped_glyph": {
+      "description": "Glyph to display when a media player is stopped",
+      "label": "Stopped glyph"
+    },
+    "stopped_color": {
+      "description": "Color to use for the stopped status glyph",
+      "label": "Stopped color"
+    }
+  }
+}
