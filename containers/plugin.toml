@@ -1,0 +1,135 @@
+# Containers: Docker + Podman services, plus your own host services, each with a
+# web UI.
+
+id          = "davinci13/containers"
+name        = "Containers"
+version     = "1.2.0"
+plugin_api  = 9
+author      = "daVinci13"
+license     = "MIT"
+dependencies = ["awk", "cut", "docker", "podman", "ss", "systemctl", "xdg-open"]
+icon        = "container"
+description = "List Docker and Podman containers plus host services with a web UI, and open them in your browser."
+tags        = ["utility", "service", "system"]
+
+# ---------------------------------------------------------------------------
+# Plugin-level settings
+# ---------------------------------------------------------------------------
+
+[[setting]]
+key             = "view_mode"
+type            = "select"
+label_key       = "settings.view_mode.label"
+description_key = "settings.view_mode.description"
+default         = "table"
+options         = [
+  { value = "table", label_key = "settings.view_mode.table" },
+  { value = "cards", label_key = "settings.view_mode.cards" },
+]
+
+[[setting]]
+key             = "hide_missing_runtimes"
+type            = "bool"
+label_key       = "settings.hide_missing_runtimes.label"
+description_key = "settings.hide_missing_runtimes.description"
+default         = true
+
+[[setting]]
+key             = "refresh_seconds"
+type            = "int"
+label_key       = "settings.refresh_seconds.label"
+description_key = "settings.refresh_seconds.description"
+default         = 5
+min             = 1
+max             = 300
+
+[[setting]]
+key             = "show_stopped"
+type            = "bool"
+label_key       = "settings.show_stopped.label"
+description_key = "settings.show_stopped.description"
+default         = false
+
+[[setting]]
+key             = "show_host_services"
+type            = "bool"
+label_key       = "settings.show_host_services.label"
+description_key = "settings.show_host_services.description"
+default         = true
+
+[[setting]]
+key             = "open_host"
+type            = "string"
+label_key       = "settings.open_host.label"
+description_key = "settings.open_host.description"
+default         = "localhost"
+
+[[setting]]
+key             = "command_prefix"
+type            = "string"
+label_key       = "settings.command_prefix.label"
+description_key = "settings.command_prefix.description"
+default         = ""
+
+[[setting]]
+key             = "browser_command"
+type            = "string"
+label_key       = "settings.browser_command.label"
+description_key = "settings.browser_command.description"
+default         = ""
+
+# ---------------------------------------------------------------------------
+# Entries
+# ---------------------------------------------------------------------------
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "glyph"
+  type      = "glyph"
+  label_key = "settings.glyph.label"
+  default   = "container"
+
+  [[widget.setting]]
+  key             = "label_format"
+  type            = "select"
+  label_key       = "settings.label_format.label"
+  description_key = "settings.label_format.description"
+  default         = "web_and_total"
+  options         = [
+    { value = "web_and_total", label_key = "settings.label_format.web_and_total" },
+    { value = "web_only", label_key = "settings.label_format.web_only" },
+    { value = "total_only", label_key = "settings.label_format.total_only" },
+  ]
+
+  [[widget.setting]]
+  key             = "show_label"
+  type            = "bool"
+  label_key       = "settings.show_label.label"
+  description_key = "settings.show_label.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "hide_when_empty"
+  type            = "bool"
+  label_key       = "settings.hide_when_empty.label"
+  description_key = "settings.hide_when_empty.description"
+  default         = false
+
+[[panel]]
+id        = "panel"
+entry     = "panel.luau"
+width     = 480
+height    = 560
+placement = "attached"
+position  = "auto"
+
+[[shortcut]]
+id    = "shortcut"
+entry = "shortcut.luau"

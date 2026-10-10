@@ -1,0 +1,123 @@
+{
+  "title": "Containers",
+
+  "settings": {
+    "view_mode": {
+      "label": "Default view layout",
+      "description": "Choose between a compact tabular view or card layout.",
+      "table": "Table (Compact)",
+      "cards": "Cards"
+    },
+    "hide_missing_runtimes": {
+      "label": "Hide missing runtimes",
+      "description": "Hide Docker or Podman when not installed on this machine."
+    },
+    "glyph": {
+      "label": "Widget icon"
+    },
+    "label_format": {
+      "label": "Bar counter format",
+      "description": "How the counter is formatted on the status bar.",
+      "web_and_total": "Web UIs / Total (e.g. 2 / 4)",
+      "web_only": "Web UIs only (e.g. 2)",
+      "total_only": "Total services (e.g. 4)"
+    },
+    "show_label": {
+      "label": "Show counter on the bar",
+      "description": "Display the number of services next to the icon."
+    },
+    "hide_when_empty": {
+      "label": "Hide when nothing is running",
+      "description": "Hide the bar widget when no container and no host service is listed."
+    },
+    "refresh_seconds": {
+      "label": "Refresh interval",
+      "description": "Seconds between lookups."
+    },
+    "show_stopped": {
+      "label": "Include stopped containers",
+      "description": "Query every container instead of only the running ones."
+    },
+    "show_host_services": {
+      "label": "Include host services",
+      "description": "Also list the services running directly on this machine that listen on a TCP port."
+    },
+    "open_host": {
+      "label": "Host used for links",
+      "description": "Hostname used to build the URL when a port is published on every interface. Ports published on a specific address keep that address."
+    },
+    "command_prefix": {
+      "label": "Command prefix",
+      "description": "Optional prefix in front of every lookup command, for example \"sudo -n\". Leave empty to run them as your own user. It also lets ss see the ports of other users, and systemd-resolved or cups."
+    },
+    "browser_command": {
+      "label": "Browser command",
+      "description": "Optional browser command used to open a service. Leave empty to use xdg-open, your default browser."
+    }
+  },
+
+  "panel": {
+    "title": "Containers",
+    "refresh": "Refresh",
+    "settings": "Options",
+    "close": "Close",
+    "view_mode_table": "Switch to cards view",
+    "view_mode_cards": "Switch to table view",
+    "search_placeholder": "Search services, ports, images…",
+    "loading": {
+      "title": "Looking for containers…",
+      "hint": "The service is still polling docker and podman."
+    },
+    "hint": "Click a service or port to open in browser · Right-click to copy URL",
+    "runtime": {
+      "docker": "Docker",
+      "podman": "Podman",
+      "host": "Host",
+      "missing": "not installed",
+      "nodaemon": "daemon not reachable",
+      "error": "query failed"
+    },
+    "empty": {
+      "title": "No containers",
+      "body": "Publish a port (docker run -p 8080:80) and it shows up here.",
+      "host": "Nothing of yours is listening on a TCP port right now."
+    },
+    "no-ports": "no published port",
+    "no-image": "no image",
+    "port": {
+      "internal": "{url} (inside the container)"
+    },
+    "ports-overflow": "+{count}",
+    "unit": {
+      "one": "container",
+      "other": "containers"
+    },
+    "unit_web": {
+      "one": "with a web UI",
+      "other": "with a web UI"
+    }
+  },
+
+  "widget": {
+    "total": "Total",
+    "web": "Web UI",
+    "loading": "checking…",
+    "hint_key": "Click",
+    "hint": "Open the container list"
+  },
+
+  "shortcut": {
+    "label": "Containers"
+  },
+
+  "errors": {
+    "open_failed": "Could not open {url}"
+  },
+
+  "notify": {
+    "copied": {
+      "title": "Copied",
+      "body": "{url}"
+    }
+  }
+}
