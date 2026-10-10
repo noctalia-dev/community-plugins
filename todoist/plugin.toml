@@ -7,7 +7,7 @@ license = "MIT"
 icon = "checkbox"
 description = "Bar widget with your overdue and due-today Todoist task count, and upcoming tasks in the tooltip."
 dependencies = ["xdg-open"]
-tags = ["bar", "productivity", "tasks"]
+tags = ["bar", "productivity", "indicator"]
 
 [[setting]]
 key = "token_file"
