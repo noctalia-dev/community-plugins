@@ -12,6 +12,8 @@
   "err_claudemd_scan": "Could not scan for CLAUDE.md files",
   "err_delete_failed": "Could not delete the session",
   "err_editor_failed": "Could not launch the editor",
+  "err_focus_failed": "Could not find the session's window (niri and Umbriel only)",
+  "err_live_fetch": "Could not read live sessions",
   "err_no_claude": "The claude command was not found",
   "err_no_editor": "No editor found — set one in the plugin settings",
   "err_no_terminal": "Could not open a terminal",
@@ -24,6 +26,12 @@
   "install_heading": "Install",
   "install_hint": "plugin@marketplace installs a plugin. owner/repo, a git URL or a path adds a marketplace.",
   "install_placeholder": "plugin@marketplace or owner/repo",
+  "live_idle": "IDLE",
+  "live_needs_you": "NEEDS YOU",
+  "live_none": "No Claude Code session is running",
+  "live_summary": "{cost} across {n} live sessions",
+  "live_waiting": "Waiting for input",
+  "live_working": "WORKING",
   "loading": "Loading…",
   "local_skills": "Local skills",
   "models_this_week": "Models This Week",
@@ -86,8 +94,8 @@
       "label": "Terminal command"
     },
     "usage_percent_display": {
-      "description": "What rides beside the bar glyph: the 5-hour session window, the 7-day weekly one, both, or neither.",
-      "label": "Usage percentage",
+      "description": "Which usage windows the bar widget shows, in both modes: the 5-hour session window, the 7-day weekly one, both, or neither. Activity mode draws a ring before each percentage.",
+      "label": "Usage limits shown",
       "options": {
         "both": "Both (sNN% wMM%)",
         "none": "Nothing",
@@ -98,6 +106,14 @@
     "usage_refresh_interval": {
       "description": "How often to fetch usage data (minutes).",
       "label": "Usage refresh interval"
+    },
+    "display_mode": {
+      "label": "Display mode",
+      "description": "Classic shows usage percentages. Activity shows one dot per live session (red needs you, accent working, grey idle) and fill rings for the session and weekly limits.",
+      "options": {
+        "classic": "Classic",
+        "activity": "Activity"
+      }
     }
   },
   "settings_tooltip": "Plugin settings",
@@ -105,6 +121,7 @@
   "skill_action_done": "{name}: done.",
   "skill_action_failed": "{name}: failed",
   "tab_claudemd": "CLAUDE.md",
+  "tab_live": "Live",
   "tab_sessions": "Sessions",
   "tab_skills": "Skills/Mods",
   "tab_usage": "Usage",
@@ -119,9 +136,11 @@
   "tip_disable_plugin": "Disable",
   "tip_enable_plugin": "Enable",
   "tip_expand_all": "Expand all projects",
+  "tip_focus_terminal": "Focus the terminal",
   "tip_hide_preview": "Hide preview",
   "tip_install": "Install",
   "tip_open_editor": "Open in editor",
+  "tip_open_web": "Open on claude.ai",
   "tip_preview": "Preview",
   "tip_remove_marketplace": "Remove marketplace",
   "tip_resume": "Resume in a terminal",

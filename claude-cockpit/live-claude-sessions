@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -eu
+shopt -s nullglob
+
+# claude-cockpit: live-claude-sessions <cache-dir>
+#
+# Prints every RUNNING Claude Code session as one JSON object, for the Live
+# tab. Claude Code itself keeps one ~/.claude/sessions/<pid>.json per live
+# process (status busy/idle/waiting, waitingFor, name, cwd, ...); a file whose
+# process is gone, or whose pid was reused (procStart no longer matches field
+# 22 of /proc/<pid>/stat), is a crash leftover and is skipped.
+#
+# Per-session stats (model, context size, cost, title, last prompt, branch,
+# permission mode) come from the session transcript. A transcript can be
+# many MB, so its stats are cached in <cache-dir>/<sessionId>.json keyed on
+# size+mtime and recomputed only when the transcript changed: an idle
+# session costs one stat() per run. Cost is priced with the same
+# pricing-cache.json get-claude-usage maintains (USD; null when absent).
+# Assistant lines repeat per content block with the same message.id and
+# usage, so usage is counted once per message id.
+#
+# Output: { "sessions": [ { pid, sessionId, cwd, name, status, waitingFor,
+#   statusUpdatedAt, startedAt, bridgeSessionId, title, lastPrompt, model,
+#   contextTokens, costUSD, gitBranch, permissionMode } ] }
+
+CLAUDE_DIR="${HOME}/.claude"
+SESSIONS_DIR="${CLAUDE_DIR}/sessions"
+PROJECTS_DIR="${CLAUDE_DIR}/projects"
+PRICING_CACHE="${CLAUDE_DIR}/pricing-cache.json"
+CACHE_DIR="${1:?usage: live-claude-sessions <cache-dir>}"
+mkdir -p -- "$CACHE_DIR"
+
+PRICING='{}'
+[ -f "$PRICING_CACHE" ] && PRICING=$(jq -c '.models // {}' "$PRICING_CACHE" 2>/dev/null || echo '{}')
+
+transcript_stats() {
+    jq -c -R -n --argjson price "$PRICING" '
+        reduce (inputs | fromjson? | select(type == "object")) as $o (
+            { usage: {}, model: "", ctx: 0, title: "", prompt: "", branch: "", mode: "" };
+            if $o.type == "assistant" and ($o.message.usage | type) == "object" then
+                ($o.message.usage) as $u
+                | .usage[($o.message.id // ($o.uuid // ""))] = { model: ($o.message.model // ""), u: $u }
+                | .model = ($o.message.model // .model)
+                | .ctx = (($u.input_tokens // 0) + ($u.cache_read_input_tokens // 0) + ($u.cache_creation_input_tokens // 0))
+            elif $o.type == "ai-title" then .title = ($o.aiTitle // .title)
+            elif $o.type == "last-prompt" then .prompt = ($o.lastPrompt // .prompt)
+            elif $o.type == "permission-mode" then .mode = ($o.permissionMode // .mode)
+            else . end
+            | if ($o.gitBranch | type) == "string" and $o.gitBranch != "" then .branch = $o.gitBranch else . end
+        )
+        | . as $s
+        | {
+            title: .title, lastPrompt: .prompt, model: .model, contextTokens: .ctx,
+            gitBranch: .branch, permissionMode: .mode,
+            costUSD: (if ($price | length) == 0 then null else
+                ([ $s.usage[] | (.model | split("-") | if .[0] == "claude" then .[1] else .[0] end) as $f
+                   | ($price[$f] // null) as $p
+                   | if $p == null then 0 else
+                       (.u.input_tokens // 0) * ($p.input // 0)
+                       + (.u.output_tokens // 0) * ($p.output // 0)
+                       + (.u.cache_read_input_tokens // 0) * ($p.cache_read // 0)
+                       + (.u.cache_creation_input_tokens // 0) * ($p.cache_write // 0)
+                     end ] | add // 0)
+            end)
+          }
+    '
+}
+
+OUT="$CACHE_DIR/.out.$$"
+trap 'rm -f "$OUT"' EXIT
+: > "$OUT"
+declare -A LIVE=()
+
+# One jq per session on the hot path: line 1 = "pid<TAB>sessionId<TAB>procStart",
+# line 2 = the fields kept. A cache hit then costs one stat and a file read.
+for state in "$SESSIONS_DIR"/*.json; do
+    { IFS=$'\t' read -r pid sid want && IFS= read -r meta; } < <(jq -r '
+        ([(.pid // "" | tostring), (.sessionId // ""), (.procStart // "" | tostring)] | @tsv),
+        ({pid, sessionId, cwd, name, status, waitingFor, statusUpdatedAt, startedAt, bridgeSessionId} | tojson)
+    ' "$state" 2>/dev/null) || continue
+    [[ "$pid" =~ ^[0-9]+$ ]] || continue
+    [[ "$sid" =~ ^[0-9a-fA-F-]+$ ]] || continue
+    [ -r "/proc/$pid/stat" ] || continue
+    if [ -n "$want" ]; then
+        # comm (field 2) may hold spaces/parens: count fields after the last ")".
+        stat_line=$(< "/proc/$pid/stat") || continue
+        rest=${stat_line##*) }
+        read -r -a f <<<"$rest"
+        [ "${f[19]:-}" = "$want" ] || continue
+    fi
+    LIVE[$sid]=1
+
+    stats='{}'
+    files=("$PROJECTS_DIR"/*/"$sid".jsonl)
+    if [ ${#files[@]} -gt 0 ]; then
+        key=$(stat -c '%s:%Y' -- "${files[0]}" 2>/dev/null || echo "")
+        cache="$CACHE_DIR/$sid.json"
+        if [ -n "$key" ] && [ -f "$cache.key" ] && [ "$(< "$cache.key")" = "$key" ] && [ -f "$cache" ]; then
+            stats=$(< "$cache")
+        else
+            stats=$(transcript_stats < "${files[0]}" 2>/dev/null || echo '{}')
+            [ -n "$stats" ] || stats='{}'
+            printf '%s\n' "$stats" > "$cache.tmp" && mv -f -- "$cache.tmp" "$cache"
+            printf '%s\n' "$key" > "$cache.key"
+        fi
+    fi
+    printf '%s\n%s\n' "$meta" "$stats" >> "$OUT"
+done
+
+# Drop the cache of every session that is no longer running.
+for cache in "$CACHE_DIR"/*.json; do
+    sid=${cache##*/}
+    sid=${sid%.json}
+    [ -n "${LIVE[$sid]:-}" ] || rm -f -- "$cache" "$cache.key"
+done
+
+# Pairs of lines (meta, stats) -> one object per session.
+jq -s -c '{ sessions: [ range(0; length; 2) as $i | .[$i] + .[$i + 1] ] }' "$OUT"
