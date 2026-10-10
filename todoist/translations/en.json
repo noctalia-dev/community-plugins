@@ -1,0 +1,21 @@
+{
+  "settings.token_file.label": "API token file",
+  "settings.token_file.description": "File holding your Todoist API token (Settings → Integrations → Developer). Keep it chmod 600. The TODOIST_TOKEN environment variable takes precedence.",
+  "settings.refresh_minutes.label": "Refresh interval (minutes)",
+  "settings.refresh_minutes.description": "How often tasks are fetched. Right-click the widget to refresh immediately.",
+  "settings.glyph.label": "Icon",
+  "settings.max_upcoming.label": "Upcoming tasks in tooltip",
+  "settings.max_upcoming.description": "How many upcoming tasks the tooltip lists after the overdue ones.",
+  "settings.overdue_color.label": "Overdue color",
+  "settings.today_color.label": "Due today color",
+  "settings.clear_color.label": "All clear color",
+  "tooltip.overdue": "Overdue ({count})",
+  "tooltip.upcoming": "Upcoming",
+  "tooltip.none": "No upcoming tasks",
+  "tooltip.stale": "Showing cached tasks: {error}",
+  "due.today": "Today",
+  "due.tomorrow": "Tomorrow",
+  "error.no_token": "No API token. Set the token file in the plugin settings.",
+  "error.http": "Todoist request failed (HTTP {status})",
+  "error.parse": "Could not read Todoist's response"
+}

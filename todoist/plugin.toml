@@ -1,0 +1,63 @@
+id = "turja-roy/todoist"
+name = "Todoist"
+version = "1.0.0"
+plugin_api = 32
+author = "turja-roy"
+license = "MIT"
+icon = "checkbox"
+description = "Bar widget with your overdue and due-today Todoist task count, and upcoming tasks in the tooltip."
+dependencies = ["xdg-open"]
+tags = ["bar", "productivity", "tasks"]
+
+[[setting]]
+key = "token_file"
+type = "file"
+label_key = "settings.token_file.label"
+description_key = "settings.token_file.description"
+default = "~/.config/todoist/token"
+
+[[setting]]
+key = "refresh_minutes"
+type = "int"
+label_key = "settings.refresh_minutes.label"
+description_key = "settings.refresh_minutes.description"
+default = 5
+min = 1
+max = 120
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key = "glyph"
+  type = "glyph"
+  label_key = "settings.glyph.label"
+  default = "checkbox"
+
+  [[widget.setting]]
+  key = "max_upcoming"
+  type = "int"
+  label_key = "settings.max_upcoming.label"
+  description_key = "settings.max_upcoming.description"
+  default = 10
+  min = 0
+  max = 50
+
+  [[widget.setting]]
+  key = "overdue_color"
+  type = "color"
+  label_key = "settings.overdue_color.label"
+  default = "error"
+
+  [[widget.setting]]
+  key = "today_color"
+  type = "color"
+  label_key = "settings.today_color.label"
+  default = "tertiary"
+
+  [[widget.setting]]
+  key = "clear_color"
+  type = "color"
+  label_key = "settings.clear_color.label"
+  default = "on_surface"
