@@ -1,0 +1,156 @@
+{
+  "bar": {
+    "live": "LIVE"
+  },
+  "constructors": {
+    "header": "CONSTRUCTOR STANDINGS"
+  },
+  "countdown": {
+    "in": "in {time}",
+    "live": "live",
+    "live_now": "live now",
+    "under_minute": "<1m"
+  },
+  "drivers": {
+    "header": "DRIVER STANDINGS"
+  },
+  "flag": {
+    "blue": "Blue flag",
+    "chequered": "Chequered flag",
+    "clear": "Track clear",
+    "double_yellow": "Double yellow",
+    "green": "Green flag",
+    "red": "Red flag",
+    "safety_car": "Safety car",
+    "vsc": "Virtual safety car",
+    "vsc_ending": "VSC ending",
+    "yellow": "Yellow flag"
+  },
+  "grid": {
+    "header": "STARTING GRID",
+    "provisional": "Provisional — excludes penalties"
+  },
+  "header": {
+    "round": "Round {round} · {season}"
+  },
+  "live": {
+    "auth": "OpenF1 only serves live data to accounts with a subscription. Set OPENF1_USERNAME and OPENF1_PASSWORD in your environment to enable it (see the README).",
+    "badge": "● LIVE",
+    "badge_part": "● LIVE · {session}",
+    "clock_left": "{time} left",
+    "header": "LIVE TIMING",
+    "idle": "No session running right now.",
+    "idle_hint": "Live positions and track flags appear here automatically during practice, qualifying and the race.",
+    "login": "OpenF1 rejected the username and password in OPENF1_USERNAME and OPENF1_PASSWORD.",
+    "next": "Next: {name} · {time}",
+    "nocurl": "The F1 live-timing stream needs curl, which was not found.",
+    "out": "out Q{part}",
+    "rate": "The live feed is rate limited; it will retry shortly.",
+    "token": "OpenF1 refused the access token. A new one is requested automatically.",
+    "unavailable": "A session is running, but live timing is not available."
+  },
+  "notify": {
+    "lights_out": "Lights out {time}"
+  },
+  "results": {
+    "header": "LAST RACE · {race}"
+  },
+  "schedule": {
+    "delay": "{minutes} min vs. published time",
+    "sessions": "SESSIONS"
+  },
+  "session": {
+    "fp1": "Practice 1",
+    "fp2": "Practice 2",
+    "fp3": "Practice 3",
+    "quali": "Qualifying",
+    "race": "Race",
+    "sprint": "Sprint",
+    "sprint_quali": "Sprint Quali"
+  },
+  "settings": {
+    "animations": {
+      "description": "Fade in the circuit and run the start lights when the Schedule tab opens.",
+      "label": "Animated intro"
+    },
+    "countdown_target": {
+      "description": "What the pill in the bar counts down to.",
+      "label": "Bar countdown target",
+      "option": {
+        "race": "Next race",
+        "session": "Next session"
+      }
+    },
+    "debug_force_tabs": {
+      "description": "Shows the Grid and Live tabs outside a race weekend, using the data of the last session. Turn it off for normal use.",
+      "label": "Debug: force Grid and Live tabs"
+    },
+    "default_tab": {
+      "description": "The tab the panel opens on. The live timing and the starting grid take over automatically when they apply.",
+      "label": "Default tab",
+      "option": {
+        "constructors": "Teams",
+        "drivers": "Drivers",
+        "schedule": "Schedule"
+      }
+    },
+    "favorite_driver": {
+      "description": "Three-letter driver code, for example VER. Shown in the accent colour in every table.",
+      "label": "Highlight driver"
+    },
+    "favorite_team": {
+      "description": "Team id as the data source writes it, for example ferrari or red_bull.",
+      "label": "Highlight team"
+    },
+    "live_source": {
+      "description": "OpenF1 is the documented source and needs a subscription. The F1 live-timing stream is experimental: it reads the unofficial stream behind F1's own live timing page with curl, needs no account, and may stop working or be restricted by F1 at any time.",
+      "label": "Live timing source",
+      "option": {
+        "f1_feed": "F1 live-timing stream (experimental)",
+        "openf1": "OpenF1 (needs an account)"
+      }
+    },
+    "notify_lead_min": {
+      "description": "Minutes before the race start, 0 to 120.",
+      "label": "Notification lead time"
+    },
+    "notify_race": {
+      "description": "Send one desktop notification shortly before lights out.",
+      "label": "Notify before the race"
+    },
+    "team_colors": {
+      "description": "A coloured chip beside each driver and team.",
+      "label": "Show team colors"
+    },
+    "time_format": {
+      "description": "How session times are written in the panel and the tooltip.",
+      "label": "Time format",
+      "option": {
+        "12h": "12-hour",
+        "24h": "24-hour"
+      }
+    }
+  },
+  "state": {
+    "error": "Couldn't load ({reason})",
+    "loading": "Loading…",
+    "no_grid": "No grid available",
+    "no_race": "No upcoming race",
+    "no_results": "No results yet",
+    "no_standings": "No standings available"
+  },
+  "tab": {
+    "constructors": "Teams",
+    "drivers": "Drivers",
+    "grid": "Grid",
+    "live": "Live",
+    "live_active": "● Live",
+    "results": "Last",
+    "schedule": "Schedule"
+  },
+  "tooltip": {
+    "flag": "Track",
+    "leader": "Leader",
+    "title": "Formula 1"
+  }
+}
