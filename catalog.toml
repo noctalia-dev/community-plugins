@@ -2496,15 +2496,21 @@ tags = ["bar", "panel", "service", "hardware", "utility", "umbriel"]
 [[plugin]]
 id = "nightwatch75/claude-cockpit"
 name = "Claude Cockpit"
-version = "0.7.0"
-updated_at = 1791552209
+version = "1.0.0"
+updated_at = 1791639110
 added_at = 1789089483
 author = "nightwatch75"
 license = "MIT"
 icon = "robot"
-description = "Monitor Claude Code usage, manage local sessions, skills and mods, edit CLAUDE.md files."
-plugin_api = 24
+description = "Live Claude Code sessions and usage on the bar; manage sessions, skills and mods, edit CLAUDE.md files."
+plugin_api = 31
 tags = ["ai", "development", "bar", "panel", "service", "productivity"]
+
+[[plugin.release]]
+plugin_api = 24
+version = "0.7.0"
+updated_at = 1791552209
+rev = "383f15af66f1b48ff3f0311a2b544884dd24586f"
 
 [[plugin]]
 id = "muhammadessam/umbriel-monitor-control"
