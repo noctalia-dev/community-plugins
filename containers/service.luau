@@ -440,23 +440,23 @@ done
 end
 
 local function commandFor(runtimeId)
-  local parts = {}
-  if settings.command_prefix ~= "" then
-    parts[#parts + 1] = settings.command_prefix
-  end
   if runtimeId == "host" then
     -- One detached command, three sections: listening sockets, system units,
     -- user units. Sockets are optional because without root `ss` cannot name
     -- the owner of another user's sockets - the host list is then just the
     -- services it did manage to see.
-    parts[#parts + 1] = table.concat({
-      "{ ss -ltnpH 2>/dev/null || ss -ltnp 2>/dev/null; }; ",
+    local ssCli = settings.command_prefix ~= "" and (settings.command_prefix .. " ss") or "ss"
+    return table.concat({
+      ssCli, " -ltnpH 2>/dev/null || ", ssCli, " -ltnp 2>/dev/null; ",
       "echo '", MARKER_UNITS, "'; ",
-      "systemctl show --no-pager --property=Id --property=Description --property=SubState --property=MainPID '*.service' 2>/dev/null; ",
+      "systemctl show --no-pager --property=Id --property=Description --property=SubState --property=MainPID '*.service' 2>/dev/null || true; ",
       "echo '", MARKER_USER_UNITS, "'; ",
-      "systemctl --user show --no-pager --property=Id --property=Description --property=SubState --property=MainPID '*.service' 2>/dev/null",
+      "systemctl --user show --no-pager --property=Id --property=Description --property=SubState --property=MainPID '*.service' 2>/dev/null || true",
     }, "")
-    return table.concat(parts, " ")
+  end
+  local parts = {}
+  if settings.command_prefix ~= "" then
+    parts[#parts + 1] = settings.command_prefix
   end
   local cli = runtimeId == "podman" and "podman" or "docker"
   local probeCli = settings.command_prefix ~= "" and (settings.command_prefix .. " " .. cli) or cli
@@ -685,6 +685,15 @@ local function handleResult(runtimeId, result)
     runtimeErrors[runtimeId] = "panel.runtime.error"
     return
   end
+  if runtimeId == "host" then
+    local out = result.stdout or ""
+    local prevCount = #info.containers
+    addHostServices(out)
+    if #info.containers > prevCount or out:find("LISTEN ", 1, true) ~= nil or numberOr(result.exitCode, 1) == 0 then
+      return
+    end
+  end
+
   if numberOr(result.exitCode, 1) ~= 0 then
     -- For a runtime this is almost always "no socket / permission denied".
     local stderr = trim(result.stderr)
@@ -692,11 +701,6 @@ local function handleResult(runtimeId, result)
       noctalia.log(string.format("containers: %s failed: %s", runtimeId, stderr))
     end
     runtimeErrors[runtimeId] = runtimeId == "host" and "panel.runtime.error" or "panel.runtime.nodaemon"
-    return
-  end
-
-  if runtimeId == "host" then
-    addHostServices(result.stdout or "")
     return
   end
 
