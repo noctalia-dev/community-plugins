@@ -174,7 +174,8 @@ function render()
   end
   table.insert(body, ui.scroll({ gap = 6, flexGrow = 1 }, list))
 
-  panel.render(ui.column({ gap = 12, padding = 4 }, body))
+  -- flexGrow fills the panel so the scroll list below can take the remaining height.
+  panel.render(ui.column({ gap = 12, padding = 4, flexGrow = 1 }, body))
 end
 
 noctalia.state.watch("snapshot", function(value)

@@ -7,7 +7,7 @@
 
 id = "yangkx/usbeehive"
 name = "usbeehive"
-version = "0.1.0"
+version = "0.1.1"
 plugin_api = 24 # ui-callback-closures (9), module-require (22), direct-argv (24)
 author = "yangkx"
 license = "MIT"
