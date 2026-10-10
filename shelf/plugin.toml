@@ -1,0 +1,120 @@
+id           = "alok-debnath/shelf"
+name         = "Shelf"
+version      = "1.2.2"
+plugin_api   = 24
+author       = "alok-debnath"
+license      = "MIT"
+icon         = "stack-2"
+description  = "A drop shelf for files: drag files in, keep them handy, and drag them out into any app later."
+tags         = ["bar", "panel", "service", "productivity", "utility", "hyprland"]
+dependencies = ["python3", "python3-gobject", "gtk4", "xdg-utils", "wl-clipboard"]
+
+# Plugin-level settings, shared by the service, panel, and widget.
+
+[[setting]]
+key             = "window_position"
+type            = "select"
+label_key       = "settings.window_position.label"
+description_key = "settings.window_position.description"
+default         = "last"
+
+  [[setting.options]]
+  value     = "last"
+  label_key = "settings.window_position.last"
+  [[setting.options]]
+  value     = "cursor"
+  label_key = "settings.window_position.cursor"
+  [[setting.options]]
+  value     = "right"
+  label_key = "settings.window_position.right"
+  [[setting.options]]
+  value     = "left"
+  label_key = "settings.window_position.left"
+  [[setting.options]]
+  value     = "top"
+  label_key = "settings.window_position.top"
+  [[setting.options]]
+  value     = "bottom"
+  label_key = "settings.window_position.bottom"
+  [[setting.options]]
+  value     = "top_right"
+  label_key = "settings.window_position.top_right"
+  [[setting.options]]
+  value     = "top_left"
+  label_key = "settings.window_position.top_left"
+  [[setting.options]]
+  value     = "bottom_right"
+  label_key = "settings.window_position.bottom_right"
+  [[setting.options]]
+  value     = "bottom_left"
+  label_key = "settings.window_position.bottom_left"
+  [[setting.options]]
+  value     = "center"
+  label_key = "settings.window_position.center"
+
+[[setting]]
+key             = "shortcut"
+type            = "string"
+label_key       = "settings.shortcut.label"
+description_key = "settings.shortcut.description"
+default         = "Super+Shift+D"
+
+[[setting]]
+key             = "remove_after_drag"
+type            = "bool"
+label_key       = "settings.remove_after_drag.label"
+description_key = "settings.remove_after_drag.description"
+default         = false
+
+[[setting]]
+key             = "close_after_drag"
+type            = "bool"
+label_key       = "settings.close_after_drag.label"
+description_key = "settings.close_after_drag.description"
+default         = false
+
+[[setting]]
+key             = "python"
+type            = "file"
+label_key       = "settings.python.label"
+description_key = "settings.python.description"
+default         = ""
+advanced        = true
+
+[[widget]]
+id    = "shelf"
+entry = "widget.luau"
+
+  [[widget.setting]]
+  key       = "glyph"
+  type      = "glyph"
+  label_key = "settings.glyph.label"
+  default   = "stack-2"
+
+  [[widget.setting]]
+  key             = "show_count"
+  type            = "bool"
+  label_key       = "settings.show_count.label"
+  description_key = "settings.show_count.description"
+  default         = true
+
+  [[widget.setting]]
+  key             = "hide_when_empty"
+  type            = "bool"
+  label_key       = "settings.hide_when_empty.label"
+  description_key = "settings.hide_when_empty.description"
+  default         = false
+
+# Owns the drop window process and applies what it reports to the shelf.
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 420
+height          = 540
+placement       = "attached"
+position        = "auto"
+open_near_click = true
