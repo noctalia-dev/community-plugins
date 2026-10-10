@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -eu
+
+# claude-cockpit: focus-claude-session <pid>
+#
+# Focuses the terminal window a live Claude Code session runs in: walks the
+# session's process ancestors (claude -> shell -> terminal) and focuses the
+# first one that owns a compositor window. Supports niri and Umbriel, the
+# two compositors whose window list carries a pid. Exits 1 when no window
+# was found or the compositor is not supported. Only window ids and pids
+# are read, never window titles.
+
+pid="${1:?usage: focus-claude-session <pid>}"
+[[ "$pid" =~ ^[0-9]+$ ]] || exit 1
+
+ancestors=()
+while [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] && [ -r "/proc/$pid/stat" ]; do
+    ancestors+=("$pid")
+    stat_line=$(< "/proc/$pid/stat")
+    rest=${stat_line##*) }
+    read -r -a f <<<"$rest"
+    pid=${f[1]:-0}
+done
+[ ${#ancestors[@]} -gt 0 ] || exit 1
+pids=$(printf '%s\n' "${ancestors[@]}" | jq -R 'tonumber' | jq -s -c '.')
+
+# Closest ancestor that owns a window wins (a terminal may host many tabs).
+pick='[ .[] | select(.pid != null) | . as $w | ($pids | index($w.pid)) as $i | select($i != null) | {id: $w.id, i: $i} ]
+      | sort_by(.i) | .[0].id // empty'
+
+if [ -n "${NIRI_SOCKET:-}" ] && command -v niri >/dev/null 2>&1; then
+    id=$(niri msg --json windows 2>/dev/null | jq -r --argjson pids "$pids" "$pick")
+    [ -n "$id" ] || exit 1
+    exec niri msg action focus-window --id "$id"
+fi
+
+if command -v umbriel >/dev/null 2>&1 && umbriel windows --json >/dev/null 2>&1; then
+    id=$(umbriel windows --json 2>/dev/null | jq -r --argjson pids "$pids" "$pick")
+    [[ "$id" =~ ^[0-9a-zA-Z_-]+$ ]] || exit 1
+    exec umbriel msg "window-focus:$id"
+fi
+
+exit 1

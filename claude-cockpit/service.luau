@@ -9,13 +9,25 @@
 -- button), never polled — scanning every session file on a tick would scan
 -- 60+ MB of transcripts for no reason most of the time.
 --
+-- Live sessions ARE polled here, every LIVE_TICK_MS, but only while someone
+-- asks for them: the bar widget in activity mode and the panel on its Live
+-- tab stamp "live_wanted_at" every tick; with no stamp in the last
+-- LIVE_WANTED_SECS the poll stops. One poller, however many readers.
+--
 --   noctalia.state.set("usage", <table>)   -- the parsed usage object
 --   noctalia.state.set("status", {...})    -- loading / ready / error + availability
+--   noctalia.state.set("live", { groups, error })  -- see live.luau
 --
 -- Force a refresh from the shell:
 --   noctalia msg plugin nightwatch75/claude-cockpit:service all refresh
 
+local live = require("./live.luau")
+
 local scriptPath = `{noctalia.pluginDir()}/get-claude-usage`
+local LIVE_TICK_MS = 2000
+local LIVE_WANTED_SECS = 5
+local livePolling = false
+local lastUsageFetch = nil
 local depsOk = noctalia.commandExists("jq") and noctalia.commandExists("curl")
 local fetching = false
 local started = false
@@ -24,19 +36,20 @@ local function publishStatus(state, message)
     noctalia.state.set("status", { state = state, available = depsOk, message = message or "" })
 end
 
--- usage_refresh_interval is in minutes (2–15); convert to the update() cadence in ms.
-local function intervalMs()
+-- usage_refresh_interval is in minutes (2–15).
+local function intervalSecs()
     local mins = noctalia.getConfig("usage_refresh_interval")
     if type(mins) ~= "number" or mins < 1 then
         mins = 2
     end
-    return math.floor(mins * 60000)
+    return math.floor(mins * 60)
 end
 
 local function fetch()
     if fetching then
         return
     end
+    lastUsageFetch = os.time()
     if not depsOk then
         publishStatus("error", "jq and curl are required")
         return
@@ -76,18 +89,40 @@ local function fetch()
     end
 end
 
--- update() fires immediately at load and then on the interval — refresh on
--- start, then every N minutes.
+local function pollLive()
+    if livePolling then
+        return
+    end
+    livePolling = true
+    live.refresh(function(groups, err)
+        livePolling = false
+        noctalia.state.set("live", { groups = groups, error = err })
+    end)
+end
+
+-- update() fires immediately at load and then every LIVE_TICK_MS: usage on
+-- start and then every N minutes, live sessions only while wanted.
 function update()
-    noctalia.setUpdateInterval(intervalMs())
+    noctalia.setUpdateInterval(LIVE_TICK_MS)
     if not started then
         started = true
         if not depsOk then
             publishStatus("error", "jq and curl are required")
         end
     end
-    fetch()
+    if lastUsageFetch == nil or os.time() - lastUsageFetch >= intervalSecs() then
+        fetch()
+    end
+    local wanted = tonumber(noctalia.state.get("live_wanted_at"))
+    if wanted ~= nil and os.time() - wanted <= LIVE_WANTED_SECS then
+        pollLive()
+    end
 end
+
+-- Bumped by a reader that wants fresh data now (tab switch, refresh button).
+noctalia.state.watch("live_nonce", function()
+    pollLive()
+end)
 
 -- The panel bumps this nonce (its refresh button) to force an out-of-band fetch.
 noctalia.state.watch("refresh_nonce", function()

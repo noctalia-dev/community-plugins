@@ -1,10 +1,12 @@
 # Claude Cockpit
 
-Keep an eye on your Claude Code subscription and manage every local session
-from the bar: rate-limit windows and token cost, every session on the
-machine grouped by project with one click to resume it in a terminal, and
-quick access to edit CLAUDE.md files (global and per project) in your own
-editor, plus install, update and uninstall for Claude Code skills and mods.
+Watch your Claude Code sessions and plan limits from the bar. One panel
+shows the running sessions, usage and cost, every past session, your
+CLAUDE.md files, and the installed skills and mods.
+
+![Live tab with one running session](images/live.png)
+
+*The Live tab: every running session, grouped by what it needs from you.*
 
 ## Plugin
 
@@ -13,140 +15,144 @@ editor, plus install, update and uninstall for Claude Code skills and mods.
 | ID | `nightwatch75/claude-cockpit` |
 | Entries | Bar widget: `widget`; panel: `panel`; service: `service` |
 
-The `service` entry is headless and owns the usage fetch loop; `panel` is a
-thin client of its published state for the Usage tab, and fetches the data
-for its other three tabs itself, on demand.
+The headless `service` fetches usage and polls the live sessions. The
+widget and the Live and Usage tabs only show what it publishes.
 
 ## Requirements
 
-- `jq` and `curl` on `PATH` — required for the Usage tab (the service checks
-  for both and reports a status instead of running when either is missing).
-- `bash`, plus the base userland `get-claude-usage` and
-  `list-claude-sessions` call: `find`, `stat`, `grep`, `tac`, `awk`, `head`,
-  `tail`, `rm`. These ship with coreutils, findutils, gawk, grep and bash on
-  every supported distribution.
-- An authenticated Claude Code install for the Usage tab, i.e.
-  `~/.claude/.credentials.json` exists. Sessions and CLAUDE.md work
-  regardless.
-- `claude` on `PATH` for the Skills/Mods tab, and `xdg-open` to open a
-  plugin's repository from it.
-- `code` or `zed` on `PATH` to open a CLAUDE.md from the panel (or set
-  `editor_command` to something else).
+- `bash`, `jq` and `curl`.
+- The base tools the scripts call: `find`, `stat`, `grep`, `tac`, `awk`,
+  `head`, `tail`, `rm`, `mkdir`, `mv`. Every distribution ships them.
+- `claude` on `PATH` for the Skills/Mods tab, and a logged-in Claude Code
+  (`~/.claude/.credentials.json`) for the Usage tab.
+- `xdg-open` to open a project page.
+- Optional: `niri` or `umbriel` to focus a session's terminal from the
+  Live tab.
+- Optional: `code` or `zed` to open a CLAUDE.md, or set `editor_command`.
 
 ## Usage
 
-Add the **Claude Cockpit** widget to a bar from the Add-widget picker. Click
-it to open the panel:
+Add **Claude Cockpit** to a bar from the Add-widget picker. Click it to
+open the panel, or:
 
 ```sh
 noctalia msg panel-toggle nightwatch75/claude-cockpit:panel
 ```
 
-The panel has four tabs:
+### Bar widget
 
-- **Usage** — rate-limit windows (5-hour session, 7-day plan-wide week, and a
-  model-scoped week when the plan has one), token consumption for today,
-  this week and this month with estimated cost, a Monday-to-Sunday activity
-  chart (hover a bar for that day's detail), a per-model breakdown and
-  all-time session/message stats.
-- **Sessions** — every local Claude Code session, grouped by the project
-  (working directory) it ran in, most recent first. Click a session to
-  resume it (`claude --resume <id>`) in a terminal, opened in that project's
-  directory. The brain glyph opens that project's `CLAUDE.md` in the editor
-  (offering to create it if missing); the eye glyph expands a preview (the
-  session's opening prompt); the trash glyph deletes the session's transcript
-  after an inline confirm. The
-  search box filters by title, opening prompt or project path. Fetched when the
-  tab is first opened and on the header refresh button — never polled in the
-  background.
-- **CLAUDE.md** — the global file, every CLAUDE.md `find-claude-md` finds
-  under `$HOME` (symlinks to e.g. `AGENTS.md` included, noise dirs — `.git`,
-  `node_modules`, `.cache`, `.venv` — and remote/network mounts excluded),
-  plus one row per session-linked project that has none yet so it can still
-  be created. Each row has a badge and a button that opens it in your editor.
-- **Skills/Mods** — every installed Claude Code plugin (skills and mods ship
-  as plugins), grouped by marketplace, plus bare skill folders under
-  `~/.claude/skills`. Per plugin: enable/disable (toggle glyph), update
-  (download glyph) and uninstall (trash glyph, inline confirm). Per marketplace: refresh and remove (inline
-  confirm; removing a marketplace also uninstalls its plugins). A GitHub
-  glyph (or a link glyph for any other site) opens the project page: the
-  plugin's own `repository`/`homepage`, else its folder in the marketplace
-  repository; for a local skill, the source recorded by the `skills` CLI. Local skill folders can only be removed: nothing tracks where
-  they came from. The install box at the bottom takes `plugin@marketplace`
-  (or a bare plugin name) to install a plugin, or `owner/repo`, a git URL or
-  a path to add a marketplace. Restart Claude Code to apply plugin changes.
-  **Check updates** re-fetches every marketplace (`claude plugin marketplace
-  update`, nothing is installed) and compares versions: a plugin with a newer
-  version shows `old → new` and an up-arrow update glyph. Only on that click,
-  never in the background. A plugin that lives in another repository than
-  its marketplace, with no `version` in the catalog, cannot be checked; its
-  update button still works.
+![Bar widget in activity mode](images/widget.png)
 
-Rename is deliberately not offered: Claude Code has no command to rename a
-session after it is created, so there is nothing this panel could persist
-that Claude's own `/resume` picker would also show. A session's label is its
-AI-generated title, or its last prompt cut short when no title exists yet.
+*Activity mode, the default. The tooltip lists the live sessions and the
+usage figures.*
+
+- The glyph turns into a red bell when a session waits for you.
+- One dot per running session: red needs you, accent is working, grey is
+  idle. After 8 dots it shows `+N`.
+- Rings and percentages show the 5-hour session and the 7-day weekly
+  window. They turn amber or red when usage runs ahead of the clock.
+
+Set `display_mode` to `classic` for the glyph and percentages only.
+
+### Live
+
+See the screenshot at the top. Sessions are grouped into *Needs you*,
+*Working* and *Idle*. Each card shows the title, the time in its state, the
+path and git branch, what it waits for, the last prompt, the model, the
+context size and the cost. Click a card to focus its terminal (niri and
+Umbriel). The globe opens the session on claude.ai while Remote Control is
+on.
+
+### Usage
+
+![Usage tab](images/usage.png)
+
+*Plan limits, token use and cost, daily activity and models.*
+
+Cost is an estimate from token counts and public prices, in the currency
+you choose.
+
+### Sessions
+
+![Sessions tab](images/sessions.png)
+
+*Every past session, grouped by project. Work project names are blurred in
+this screenshot.*
+
+Click a session to resume it (`claude --resume <id>`) in a terminal, in its
+project directory. The search box filters by title, prompt or path.
+
+### CLAUDE.md
+
+![CLAUDE.md tab](images/claude-md.png)
+
+*Every CLAUDE.md in your home directory. Paths are blurred in this
+screenshot.*
+
+The list also has a row for each session project without a CLAUDE.md, so
+you can create one. Network mounts and noise folders (`.git`,
+`node_modules`, `.cache`, `.venv`) are skipped.
+
+### Skills/Mods
+
+![Skills/Mods tab](images/skills-mods.png)
+
+*Installed plugins grouped by marketplace, with the install box at the
+bottom.*
+
+- Skills and mods are Claude Code plugins, so this tab drives
+  `claude plugin`. Bare skill folders in `~/.claude/skills` are listed too.
+  You can only remove them.
+- **Check updates** fetches every marketplace and marks a plugin with a
+  newer version as `old → new`. It installs nothing.
+- Removing a marketplace also uninstalls its plugins.
+- The install box takes `plugin@marketplace` to install a plugin, or
+  `owner/repo`, a git URL or a path to add a marketplace.
+- Restart Claude Code to apply plugin changes.
 
 ## Settings
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `usage_refresh_interval` | `int` | `2` | Minutes between background usage fetches (2–15). |
-| `currency` | `select` | `auto` | Cost display: `auto` follows the locale, or force one of `usd`, `eur`, `gbp`, `jpy`, `cny`, `chf`, `aud`, `cad`, `inr`. |
-| `currency_api_url` | `string` | `https://api.frankfurter.dev/v1/latest` | Exchange-rate API `get-claude-usage` fetches non-USD rates from (ECB rates via Frankfurter by default). |
-| `terminal` | `string` | `""` | Command to open a terminal for resuming a session. Empty uses the system's own terminal discovery ($TERMINAL, then the usual emulators). |
-| `editor_command` | `string` | `""` | Command to open a CLAUDE.md file. Empty tries `code`, then `zed`. |
-| `glyph` | `glyph` | `robot` | Bar widget glyph. |
-| `usage_percent_display` | `select` | `both` | What rides beside the glyph: `session` (`sNN%`, the 5-hour window), `weekly` (`wMM%`, the 7-day window), `both`, or `none`. |
+| `usage_refresh_interval` | `int` | `2` | Minutes between usage fetches (2–15). |
+| `currency` | `select` | `auto` | Cost currency: `auto` follows the locale, or one of `usd`, `eur`, `gbp`, `jpy`, `cny`, `chf`, `aud`, `cad`, `inr`. |
+| `currency_api_url` | `string` | `https://api.frankfurter.dev/v1/latest` | Exchange-rate API for non-USD currencies. |
+| `terminal` | `string` | `""` | Terminal to resume a session in. Empty uses `$TERMINAL`, then the usual emulators. |
+| `editor_command` | `string` | `""` | Command to open a CLAUDE.md. Empty tries `code`, then `zed`. |
+| `display_mode` | `select` | `activity` | Widget mode: `activity` (dots, rings, percentages) or `classic` (glyph and percentages). |
+| `glyph` | `glyph` | `robot` | Widget glyph. |
+| `usage_percent_display` | `select` | `both` | Windows the widget shows, in both modes: `session` (`sNN%`), `weekly` (`wNN%`), `both`, or `none`. |
 
 ## Notes
 
-What this plugin touches, so nothing is a surprise:
+What the plugin touches:
 
-- **Reads** `~/.claude/.credentials.json` for the OAuth token that
-  authorizes the usage query, `~/.claude/stats-cache.json` for all-time
-  session/message stats (Usage tab only), and every
-  `~/.claude/projects/**/*.jsonl` session transcript — never a whole file,
-  only small `grep`/`tac`+`awk` slices, since a single line in one of these
-  files can itself be hundreds of KB.
-- **Writes** `~/.claude/pricing-cache.json` (LiteLLM model prices + currency
-  rates, refreshed daily) and `~/.claude/usage-cache.json` (the rate-window
-  API response, cached 120s) — both Usage tab only, both disposable caches
-  safe to delete.
-- **Network**: the Anthropic usage API for your account's rate windows;
-  LiteLLM's public model-price table to cost the tokens; the `currency_api_url`
-  exchange-rate API (Frankfurter/ECB by default) for USD to the configured
-  currency. All over HTTPS, on the usage refresh interval — the Sessions and
-  CLAUDE.md tabs make no network calls.
-- **Spawns** `get-claude-usage`, `list-claude-sessions` and `find-claude-md`
-  through `bash`; `claude --version` (Usage tab, to set the API's
-  `User-Agent`); a configured or auto-discovered terminal to resume a
-  session; `code`/`zed` (or `editor_command`) to open a CLAUDE.md;
-  `claude plugin` (list, install, update, enable, disable, uninstall, marketplace
-  add/update/remove) for the Skills/Mods tab, only on a click or a tab open;
-  `xdg-open` for a project link.
-  `find-claude-md` walks `$HOME` on the CLAUDE.md tab's first open and its
-  refresh button only, never on a timer — remote/network mounts (NFS, SMB,
-  sshfs, and similar) under `$HOME` are detected via `/proc/mounts` and
-  excluded, so a stalled share cannot stall it.
-- **Deletes** files: the trash glyph on a session removes its
-  `<uuid>.jsonl` transcript and, if present, its `<uuid>/` subagent sidecar
-  directory — after an inline confirm, never without one. On the
-  Skills/Mods tab, uninstall and marketplace remove go through
-  `claude plugin`; removing a local skill deletes its folder under
-  `~/.claude/skills` (a symlinked one loses the link only). Both after an
-  inline confirm.
+- **Reads** `~/.claude/sessions/*.json` and the transcripts of running
+  sessions, every 2 seconds, only while the widget is in activity mode or
+  the Live tab is open. A transcript is parsed again only when it changes.
+  The Usage and Sessions tabs read the other transcripts in small slices.
+- **Reads** `~/.claude/.credentials.json` for the token of the usage query.
+- **Writes** two caches you can delete: `~/.claude/pricing-cache.json` and
+  `~/.claude/usage-cache.json`. In the plugin data dir: `live/` (session
+  stats) and `rings/` (widget ring images).
+- **Network**: the Anthropic usage API, the LiteLLM price table and the
+  exchange-rate API, all over HTTPS. The Sessions and CLAUDE.md tabs make
+  no network calls.
+- **Spawns** the plugin's own scripts through `bash`, `claude plugin` on a
+  click in the Skills/Mods tab, your terminal, your editor, `xdg-open`, and
+  `niri msg` or `umbriel msg` to focus a window (window ids and pids only,
+  never titles).
+- **Deletes**, always after an inline confirm: a session transcript (trash
+  glyph), a plugin or marketplace (through `claude plugin`), a local skill
+  folder (a symlink loses the link only).
+- No rename: Claude Code cannot rename a session after it starts.
 
-The Usage tab's data engine, `get-claude-usage`, is copied (MIT) from
-[jrohland/claudecode](https://github.com/jrohland/noctalia-v5-claudecode)
-with the Frankfurter exchange-rate API URL updated (`frankfurter.app` moved
-to `frankfurter.dev`) and its Claude Code Switch (`~/.ccs/instances`)
-multi-account scan removed — this plugin only ever reads the default
-`~/.claude` account; see its own header comment and this plugin's `LICENSE`
-for attribution. This plugin's own `shared.luau` is a trimmed port of its
-formatters, same account scope.
+The Usage engine, `get-claude-usage`, is copied (MIT) from
+[jrohland/claudecode](https://github.com/jrohland/noctalia-v5-claudecode),
+reading only the default `~/.claude` account. See its header comment and
+`LICENSE`.
 
-Localized in English. Translations for other locales are welcome through
+Localized in English. Translations are welcome through
 [Noctalia Translate](https://i18n.noctalia.dev).
 
 ## License
