@@ -1,10 +1,14 @@
 --!nonstrict
 -- Codex (ChatGPT Plus / Pro / Business / Enterprise plans, as used by the Codex CLI).
 --
--- Credentials: the ChatGPT sign-in the Codex CLI stores in
---   $CODEX_HOME/auth.json   (default ~/.codex/auth.json)
+-- Accounts: one per Codex home (ctx.home): the default $CODEX_HOME or ~/.codex,
+-- homes Headroom added, and ~/.codex-* homes found next to it (see
+-- lib/accounts.luau).
+--
+-- Credentials: the ChatGPT sign-in the Codex CLI stores in <home>/auth.json,
 -- read-only, for the same reason as the Claude adapter: the Codex CLI owns
--- token refresh. API-key-only setups have no plan limits to report.
+-- token refresh. API-key-only setups have no plan limits to report. The id
+-- token in the same file names the account and its email.
 --
 -- Endpoint: GET https://chatgpt.com/backend-api/wham/usage, the one the Codex
 -- CLI's /status reads. Undocumented, so every field is treated as optional.
@@ -30,11 +34,7 @@ local PLAN_NAMES = {
 }
 
 local function authPath(ctx): string
-  local home = ctx.env("CODEX_HOME")
-  if home ~= nil and home ~= "" then
-    return `{home}/auth.json`
-  end
-  return ctx.expandPath("~/.codex/auth.json")
+  return `{ctx.home}/auth.json`
 end
 
 local function planLabel(planType: any): string?
@@ -145,6 +145,28 @@ return provider.define({
     tint = "on_surface",
     glyph = "brand-openai",
     dashboard = "https://chatgpt.com/codex/settings/usage",
+  },
+
+  accounts = {
+    env = "CODEX_HOME",
+    default = "~/.codex",
+    siblingPrefix = ".codex-",
+    command = "codex",
+    login = { "login" },
+    identity = function(ctx)
+      local auth = ctx.readJson(authPath(ctx))
+      local tokens = type(auth) == "table" and auth.tokens or nil
+      if type(tokens) ~= "table" then
+        return nil
+      end
+      local claims = jwt.claims(tokens.id_token, ctx.decodeJson) or {}
+      local openai = type(claims[AUTH_CLAIMS]) == "table" and claims[AUTH_CLAIMS] or {}
+      local id = tokens.account_id or openai.chatgpt_account_id
+      if type(id) ~= "string" or id == "" then
+        return nil
+      end
+      return { id = id, email = if type(claims.email) == "string" then claims.email else nil }
+    end,
   },
 
   isConfigured = function(ctx)

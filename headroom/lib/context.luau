@@ -5,6 +5,7 @@
 -- can do is exactly this table. The service and the tests both build their
 -- context here, so neither can drift from the other.
 
+local accounts = require("./accounts.luau")
 local http = require("./http.luau")
 local time = require("./time.luau")
 
@@ -47,7 +48,27 @@ function M.new(host, userAgent: string)
     duration = time.duration,
     tr = host.tr,
     userAgent = userAgent,
+    -- Per account (see forAccount); `home` stays nil for providers without
+    -- account folders.
+    mayRenew = true,
+    inHome = function(argv: { string })
+      return argv
+    end,
   }
+end
+
+-- The context for one account (lib/accounts.luau): `home` is its config
+-- folder, `inHome(argv)` points a command at that folder, and `mayRenew` is
+-- false for folders Headroom neither owns nor is the CLI's default: their
+-- sessions are renewed by whoever runs the CLI there.
+function M.forAccount(base, spec, account)
+  local ctx = table.clone(base)
+  ctx.home = account.home
+  ctx.mayRenew = account.kind ~= "found"
+  ctx.inHome = function(argv: { string })
+    return accounts.inHome(spec, account, argv)
+  end
+  return ctx
 end
 
 return M

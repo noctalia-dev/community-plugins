@@ -11,16 +11,16 @@
 
 id = "ayagmar/headroom"
 name = "Headroom"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 32
 author = "ayagmar"
 license = "MIT"
 icon = "gauge"
-description = "How much of your Claude, Codex and Antigravity plan limits is left, with reset times and forecasts."
+description = "How much of your Claude, Codex and Antigravity plan limits is left, per account, with reset times and forecasts."
 tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
 # All optional: each powers one feature listed in the README's Requirements,
 # and that feature is skipped when the tool is missing.
-dependencies = ["xdg-open", "secret-tool", "claude", "agy", "env"]
+dependencies = ["xdg-open", "secret-tool", "claude", "codex", "agy", "env", "rm"]
 
 # ── Settings ────────────────────────────────────────────────────────────────
 # One page, read top to bottom in groups whose labels carry the group name
@@ -101,6 +101,17 @@ options = [
   { value = "full", label_key = "settings.bar_style.option.full" },
   { value = "value", label_key = "settings.bar_style.option.value" },
   { value = "ring", label_key = "settings.bar_style.option.ring" },
+]
+
+[[setting]]
+key = "bar_accounts"
+type = "select"
+label_key = "settings.bar_accounts.label"
+description_key = "settings.bar_accounts.description"
+default = "default"
+options = [
+  { value = "default", label_key = "settings.bar_accounts.option.default" },
+  { value = "all", label_key = "settings.bar_accounts.option.all" },
 ]
 
 # Display ·

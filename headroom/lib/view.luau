@@ -132,32 +132,53 @@ function M.pace(window, now: number): (string?, string?, pace.Pace?)
   return nil, nil, p
 end
 
--- Signed-in providers, in registry order.
+-- The name an account goes by on compact surfaces: the provider's alone when
+-- it has one account, "Claude · Work" when it has several.
+function M.accountName(provider, account): string
+  if #provider.accounts <= 1 then
+    return provider.name
+  end
+  return `{provider.name} · {account.label or noctalia.tr("accounts.default")}`
+end
+
+-- Signed-in accounts as { provider, account } pairs, in display order.
 function M.signedIn(report): { any }
   local out = {}
   for _, provider in (if type(report) == "table" and report.providers then report.providers else {}) do
-    if provider.status ~= "absent" then
-      table.insert(out, provider)
+    for _, account in provider.accounts or {} do
+      if account.status ~= "absent" then
+        table.insert(out, { provider = provider, account = account })
+      end
     end
   end
   return out
 end
 
--- What a bar capsule shows: a list of { view, window? } pairs, registry order.
+-- What a bar capsule shows: a list of { provider, account, name, window? },
+-- in display order.
 --   shown(id):    whether the user wants this provider in the bar
 --   windowPref:   "tightest" | "session" | "weekly"
---   maxProviders: when more match, the most urgent ones are kept
+--   maxItems:     when more match, the most urgent ones are kept
 --                 (forecast-aware severity first, then usage)
-function M.barItems(report, shown: (string) -> boolean, windowPref: string, maxProviders: number, now: number): { any }
+--   allAccounts:  every signed-in account, or only each provider's default
+function M.barItems(report, shown: (string) -> boolean, windowPref: string, maxItems: number, now: number, allAccounts: boolean?): { any }
   local items = {}
-  for index, provider in M.signedIn(report) do
-    if shown(provider.id) then
-      local window = model.pick(provider.snapshot and provider.snapshot.windows or {}, windowPref)
+  for index, entry in M.signedIn(report) do
+    local provider, account = entry.provider, entry.account
+    if shown(provider.id) and (allAccounts or account.kind == "default") then
+      local window = model.pick(account.snapshot and account.snapshot.windows or {}, windowPref)
       local urgency = if window then RANK[M.severity(window, now)] * 1000 + window.usedPercent else -1
-      table.insert(items, { view = provider, window = window, order = index, urgency = urgency })
+      table.insert(items, {
+        provider = provider,
+        account = account,
+        name = M.accountName(provider, account),
+        window = window,
+        order = index,
+        urgency = urgency,
+      })
     end
   end
-  if #items <= maxProviders then
+  if #items <= maxItems then
     return items
   end
   table.sort(items, function(a, b)
@@ -166,7 +187,7 @@ function M.barItems(report, shown: (string) -> boolean, windowPref: string, maxP
     end
     return a.order < b.order
   end)
-  local kept = table.move(items, 1, maxProviders, 1, {})
+  local kept = table.move(items, 1, maxItems, 1, {})
   table.sort(kept, function(a, b)
     return a.order < b.order
   end)

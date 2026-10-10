@@ -1,14 +1,23 @@
 --!nonstrict
 -- Claude (Pro / Max / Team / Enterprise subscriptions, as used by Claude Code).
 --
--- Credentials: the OAuth session Claude Code stores in
---   $CLAUDE_CONFIG_DIR/.credentials.json   (default ~/.claude/.credentials.json)
+-- Accounts: one per Claude Code config folder (ctx.home): the default
+-- $CLAUDE_CONFIG_DIR or ~/.claude, folders Headroom added, and ~/.claude-*
+-- folders found next to it (see lib/accounts.luau).
+--
+-- Credentials: the OAuth session Claude Code stores in <folder>/.credentials.json,
 -- read-only. Headroom never refreshes or rewrites the token itself: refresh
 -- tokens rotate, and spending one here could sign Claude Code out. When the
 -- access token has expired, Claude Code renews it: we run
 --   claude -p /status --no-session-persistence
--- which starts the CLI's sign-in check (renewing and saving the session), makes
--- no model call and keeps no transcript, then read the credentials again.
+-- (with CLAUDE_CONFIG_DIR set to the account's folder unless it is the
+-- default), which starts the CLI's sign-in check (renewing and saving the
+-- session), makes no model call and keeps no transcript, then read the
+-- credentials again. Found folders are left to whoever runs Claude Code there.
+--
+-- Identity: the account and email in Claude Code's profile (~/.claude.json for
+-- the default folder, <folder>/.claude.json for any other), for tooltips and to
+-- spot one account signed in to two folders.
 --
 -- Endpoint: GET https://api.anthropic.com/api/oauth/usage, the one Claude Code's
 -- own /usage screen reads. It is not a documented public API, so parsing is
@@ -37,11 +46,17 @@ local PLAN_NAMES = {
 }
 
 local function credentialsPath(ctx): string
-  local dir = ctx.env("CLAUDE_CONFIG_DIR")
-  if dir ~= nil and dir ~= "" then
-    return `{dir}/.credentials.json`
+  return `{ctx.home}/.credentials.json`
+end
+
+-- Claude Code keeps the profile beside its default folder (~/.claude.json)
+-- and inside any other one, including ~/.claude named by CLAUDE_CONFIG_DIR.
+local function profilePath(ctx): string
+  local configured = ctx.env("CLAUDE_CONFIG_DIR")
+  if (configured == nil or configured == "") and ctx.home == ctx.expandPath("~/.claude") then
+    return ctx.expandPath("~/.claude.json")
   end
-  return ctx.expandPath("~/.claude/.credentials.json")
+  return `{ctx.home}/.claude.json`
 end
 
 local function planLabel(oauth): string?
@@ -173,6 +188,26 @@ return provider.define({
     dashboard = "https://claude.ai/settings/usage",
   },
 
+  accounts = {
+    env = "CLAUDE_CONFIG_DIR",
+    default = "~/.claude",
+    siblingPrefix = ".claude-",
+    command = "claude",
+    fallbacks = CLAUDE_FALLBACKS,
+    login = { "auth", "login" },
+    identity = function(ctx)
+      local profile = ctx.readJson(profilePath(ctx))
+      local account = type(profile) == "table" and profile.oauthAccount or nil
+      if type(account) ~= "table" or type(account.accountUuid) ~= "string" then
+        return nil
+      end
+      -- One person can sit in several organizations, each with its own limits.
+      local org = if type(account.organizationUuid) == "string" then account.organizationUuid else ""
+      local email = if type(account.emailAddress) == "string" then account.emailAddress else nil
+      return { id = `{account.accountUuid}/{org}`, email = email }
+    end,
+  },
+
   isConfigured = function(ctx)
     return ctx.fileExists(credentialsPath(ctx))
   end,
@@ -201,12 +236,12 @@ return provider.define({
       query(oauth)
       return
     end
-    local claude = if err.code == E.Expired then renew.findCommand(ctx, "claude", CLAUDE_FALLBACKS) else nil
+    local claude = if err.code == E.Expired and ctx.mayRenew then renew.findCommand(ctx, "claude", CLAUDE_FALLBACKS) else nil
     if claude == nil then
       done(nil, err)
       return
     end
-    renewSession(ctx, { claude, table.unpack(RENEW_ARGS) }, function()
+    renewSession(ctx, ctx.inHome({ claude, table.unpack(RENEW_ARGS) }), function()
       local renewed, stillErr = readOauth(ctx)
       if stillErr then
         done(nil, stillErr)

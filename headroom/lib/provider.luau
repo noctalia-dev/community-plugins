@@ -32,6 +32,10 @@ export type Context = {
   duration: (seconds: number) -> string, -- "3h 12m", localized
   tr: (key: string, subst: { [string]: any }?) -> string,
   userAgent: string, -- "headroom-noctalia/<version>"; identify honestly to vendors
+  -- The account being fetched (providers with `accounts` only, see below).
+  home: string?, -- its config folder: read credentials from here
+  inHome: (argv: { string }) -> { string }, -- points a CLI command at that folder
+  mayRenew: boolean, -- false: never run the CLI to renew this account's session
 }
 
 export type Brand = {
@@ -39,6 +43,21 @@ export type Brand = {
   tint: string, -- logo color: "#rrggbb" or a palette role ("on_surface")
   glyph: string, -- Tabler glyph fallback where an image cannot be used
   dashboard: string?, -- the vendor's usage page, opened from the panel card
+}
+
+-- For providers whose CLI keeps its sign-in in a config folder that an
+-- environment variable can move. With it, Headroom shows one account per folder
+-- (see lib/accounts.luau) and can add accounts through the CLI's own login.
+export type Accounts = {
+  env: string, -- the variable the CLI reads its folder from ("CLAUDE_CONFIG_DIR")
+  default: string, -- the folder when the variable is unset ("~/.claude")
+  siblingPrefix: string, -- other folders in $HOME that hold accounts (".claude-")
+  command: string, -- the CLI
+  fallbacks: { string }?, -- where the CLI may live when it is not on PATH
+  login: { string }, -- its interactive login arguments ({ "auth", "login" })
+  -- Who is signed in at ctx.home: a stable id (to spot the same account in two
+  -- folders) and the email for tooltips. nil when unknown. Local reads only.
+  identity: (ctx: Context) -> { id: string, email: string? }?,
 }
 
 export type Provider = {
@@ -52,6 +71,8 @@ export type Provider = {
   fetch: (ctx: Context, done: (model.Snapshot?, model.ProviderError?) -> ()) -> (),
   -- How to fix a not_configured / expired / auth state, already translated.
   signInHint: (ctx: Context) -> string,
+  -- Optional: several accounts, one per config folder.
+  accounts: Accounts?,
   -- Optional: the pure vendor-JSON -> Snapshot step, exposed for fixture tests.
   parse: ((...any) -> (model.Snapshot?, model.ProviderError?))?,
 }
@@ -65,6 +86,11 @@ function M.define(spec): Provider
   assert(spec.id:match("^[a-z0-9][a-z0-9_-]*$"), `provider id '{spec.id}' must be lowercase [a-z0-9_-]`)
   for _, key in { "logo", "tint", "glyph" } do
     assert(spec.brand[key] ~= nil, `provider '{spec.id}' brand is missing '{key}'`)
+  end
+  if spec.accounts then
+    for _, key in { "env", "default", "siblingPrefix", "command", "login", "identity" } do
+      assert(spec.accounts[key] ~= nil, `provider '{spec.id}' accounts is missing '{key}'`)
+    end
   end
   return spec
 end

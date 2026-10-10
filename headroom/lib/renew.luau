@@ -26,18 +26,19 @@ end
 
 export type Renewer = (ctx: any, argv: { string }, done: (renewed: boolean) -> ()) -> ()
 
--- A renewer allows one attempt per `cooldown` seconds; done(true) means the
--- command ran and exited cleanly (the caller re-reads the credentials to know
--- whether that produced a fresh token).
+-- A renewer allows one attempt per `cooldown` seconds for each account folder
+-- (ctx.home); done(true) means the command ran and exited cleanly (the caller
+-- re-reads the credentials to know whether that produced a fresh token).
 function M.new(cooldown: number, timeoutMs: number): Renewer
-  local lastAttemptAt = -math.huge
+  local lastAttemptAt: { [string]: number } = {}
   return function(ctx, argv, done)
     local now = ctx.now()
-    if now - lastAttemptAt < cooldown then
+    local key = ctx.home or ""
+    if now - (lastAttemptAt[key] or -math.huge) < cooldown then
       done(false)
       return
     end
-    lastAttemptAt = now
+    lastAttemptAt[key] = now
     ctx.run(argv, timeoutMs, function(result)
       done(result ~= nil and result.exitCode == 0)
     end)

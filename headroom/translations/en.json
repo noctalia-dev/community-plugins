@@ -1,4 +1,35 @@
 {
+  "accounts": {
+    "add_help": "{provider}'s own sign-in opens in a terminal. To add an account other than the one your browser is signed in to, open the sign-in link in a private window.",
+    "add_title": "Add a {provider} account",
+    "add_tooltip": "Add a {provider} account",
+    "cancel": "Cancel",
+    "copied": "Copied",
+    "copy_tooltip": "Copy the command that starts {provider} as this account",
+    "count": "{n} accounts",
+    "default": "Default",
+    "default_tooltip": "The account {provider} uses unless you pick another",
+    "duplicate_body": "Both folders are signed in to one account, so they share limits. Remove this one, or sign in again with another account in a private browser window.",
+    "duplicate_title": "Same account as {account}",
+    "hide_confirm": "Hide?",
+    "hide_tooltip": "Hide this account. Its folder stays as it is.",
+    "hint": "Sign in again to see this account's usage.",
+    "login_done": "Done. Press Enter to close.",
+    "login_intro": "Headroom: signing in to {provider} as \"{account}\". To use an account other than the one your browser is signed in to, open the sign-in link in a private window.",
+    "name_placeholder": "Name, e.g. Work",
+    "no_terminal_body": "Set $TERMINAL to your terminal emulator and try again.",
+    "no_terminal_title": "Headroom couldn't open a terminal",
+    "not_signed_in": "Not signed in",
+    "remove_confirm": "Remove?",
+    "remove_tooltip": "Remove this account and delete its folder",
+    "rename_save": "Save",
+    "rename_tooltip": "Rename",
+    "sign_in": "Sign in",
+    "sign_in_again": "Sign in again",
+    "sign_in_tooltip": "Opens the sign-in in a terminal",
+    "unnamed": "Account {n}",
+    "waiting": "Waiting for sign-in…"
+  },
   "ago": {
     "d": "{d}d ago",
     "h": "{h}h ago",
@@ -102,6 +133,14 @@
     "now": "Resetting now"
   },
   "settings": {
+    "bar_accounts": {
+      "description": "Which accounts the bar shows when a provider has several. The panel always shows them all.",
+      "label": "Bar · Accounts",
+      "option": {
+        "all": "Every account",
+        "default": "Default account only"
+      }
+    },
     "bar_style": {
       "description": "What each provider shows next to its logo.",
       "label": "Bar · Style",
@@ -125,7 +164,7 @@
     },
     "max_providers": {
       "description": "The bar shows at most this many. If more qualify, it keeps the ones closest to their limits.",
-      "label": "Bar · Maximum providers"
+      "label": "Bar · Maximum shown"
     },
     "notify": {
       "description": "Notify once when a window crosses the critical threshold, and again when it resets.",
