@@ -1,0 +1,82 @@
+id           = "mahmoudomiesh/network-monitor"
+name         = "Network Monitor"
+version      = "2.0.0"
+plugin_api   = 26
+author       = "Mahmoud Omiesh"
+license      = "MIT"
+icon         = "network"
+description  = "Network speed and listening ports, with quick actions to open a port or stop its process."
+tags         = ["bar", "panel", "service", "network", "development", "indicator"]
+dependencies = ["ss", "kill", "fuser", "pkexec", "xdg-open"]
+
+[[setting]]
+key             = "show_speed"
+type            = "bool"
+label_key       = "settings.show_speed.label"
+description_key = "settings.show_speed.description"
+default         = true
+
+[[setting]]
+key             = "show_ports"
+type            = "bool"
+label_key       = "settings.show_ports.label"
+description_key = "settings.show_ports.description"
+default         = true
+
+[[setting]]
+key             = "refresh_interval"
+type            = "int"
+label_key       = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default         = 5
+min             = 1
+max             = 30
+
+[[setting]]
+key             = "hide_system_ports"
+type            = "bool"
+label_key       = "settings.hide_system_ports.label"
+description_key = "settings.hide_system_ports.description"
+default         = true
+
+[[setting]]
+key             = "only_own_processes"
+type            = "bool"
+label_key       = "settings.only_own_processes.label"
+description_key = "settings.only_own_processes.description"
+default         = false
+
+[[setting]]
+key             = "include_udp"
+type            = "bool"
+label_key       = "settings.include_udp.label"
+description_key = "settings.include_udp.description"
+default         = false
+
+[[service]]
+id    = "scanner"
+entry = "scanner.luau"
+
+[[widget]]
+id    = "indicator"
+entry = "indicator.luau"
+
+  # Middle click refreshes instead of opening the widget settings.
+  [widget.actions]
+  middle = "none"
+
+[[panel]]
+id              = "panel"
+entry           = "panel.luau"
+width           = 420
+height          = 560
+placement       = "attached"
+open_near_click = true
+
+[[panel]]
+id              = "menu"
+entry           = "menu.luau"
+width           = 190
+height          = 112
+placement       = "attached"
+open_near_click = true
