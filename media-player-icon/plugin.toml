@@ -1,0 +1,73 @@
+id = "ismay/media-player-icon"
+name = "Media Player Icon"
+version = "1.0.0"
+plugin_api = 24
+author = "ismay"
+license = "MIT"
+icon = "music"
+description = "Displays the media player status as a single icon."
+tags = ["bar", "audio", "indicator"]
+dependencies = ["playerctl"]
+
+[[widget]]
+id = "media-player-icon"
+entry = "widget.luau"
+
+[widget.actions]
+left = "media toggle"
+right = "panel-open control-center media"
+
+    [[widget.setting]]
+    key = "playing_glyph"
+    type = "glyph"
+    label_key = "settings.playing_glyph.label"
+    description_key = "settings.playing_glyph.description"
+    default = "player-play-filled"
+
+    [[widget.setting]]
+    key = "playing_color"
+    type = "color"
+    label_key = "settings.playing_color.label"
+    description_key = "settings.playing_color.description"
+    default = "primary"
+
+    [[widget.setting]]
+    key = "paused_glyph"
+    type = "glyph"
+    label_key = "settings.paused_glyph.label"
+    description_key = "settings.paused_glyph.description"
+    default = "player-pause-filled"
+
+    [[widget.setting]]
+    key = "paused_color"
+    type = "color"
+    label_key = "settings.paused_color.label"
+    description_key = "settings.paused_color.description"
+    default = "on_surface"
+
+    [[widget.setting]]
+    key = "hide_stopped"
+    type = "bool"
+    label_key = "settings.hide_stopped.label"
+    description_key = "settings.hide_stopped.description"
+    default = false
+
+    [[widget.setting]]
+    key = "stopped_glyph"
+    type = "glyph"
+    label_key = "settings.stopped_glyph.label"
+    description_key = "settings.stopped_glyph.description"
+    default = "player-stop-filled"
+    visible_when = { key = "hide_stopped", values = ["false"] }
+
+    [[widget.setting]]
+    key = "stopped_color"
+    type = "color"
+    label_key = "settings.stopped_color.label"
+    description_key = "settings.stopped_color.description"
+    default = "on_surface"
+    visible_when = { key = "hide_stopped", values = ["false"] }
+
+[[service]]
+id = "service"
+entry = "service.luau"
