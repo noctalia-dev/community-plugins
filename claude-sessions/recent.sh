@@ -8,6 +8,20 @@ for cfg in "$@"; do [ -d "$cfg/projects" ] && printf '%s\0' "$cfg/projects"; don
 while read -r t f; do
   cfg=${f%/projects/*}
   sid=$(basename "$f" .jsonl)
+  # Config dirs may share one projects dir (e.g. ~/.claude-work/projects -> ~/.claude/projects), so
+  # the path alone does not say which account ran the session. Claude Code creates
+  # <config dir>/session-env/<sid> in the dir a session starts (or resumes) in: prefer the one
+  # created first, which is the account the session was started in. Resuming rewrites the hook
+  # files inside, so the mtime moves; use the birth time when the filesystem has it.
+  owner=; owner_t=
+  for c in "$@"; do
+    d=$c/session-env/$sid
+    [ -d "$d" ] || continue
+    ct=$(stat -c %W "$d" 2>/dev/null) || continue
+    [ "$ct" -gt 0 ] 2>/dev/null || ct=$(stat -c %Y "$d" 2>/dev/null) || continue
+    if [ -z "$owner" ] || [ "$ct" -lt "$owner_t" ]; then owner=$c; owner_t=$ct; fi
+  done
+  [ -n "$owner" ] && cfg=$owner
   cwd=$(grep -m1 -o '"cwd":"[^"]*"' "$f" | cut -d'"' -f4)
   [ -n "$cwd" ] || continue
   title=$(grep -F '"type":"ai-title"' "$f" | tail -n 1 | jq -r '.aiTitle // empty')

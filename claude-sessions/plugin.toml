@@ -1,6 +1,6 @@
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.5.2"
+version = "1.5.3"
 plugin_api = 24
 author = "lfdominguez"
 icon = "brain"
