@@ -57,7 +57,6 @@
   },
   "schedule": {
     "delay": "{minutes} min vs. published time",
-    "lights_out": "GREEN LIGHTS",
     "sessions": "SESSIONS"
   },
   "session": {

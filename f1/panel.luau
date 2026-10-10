@@ -349,7 +349,6 @@ local function scheduleTab(now)
     left[#left + 1] = label((r.locality ~= "" and r.country ~= "") and (r.locality .. ", " .. r.country) or (r.locality .. r.country),
         { fontSize = 12, color = MUTED, maxLines = 1 })
     left[#left + 1] = ui.spacer({ height = 6 })
-    left[#left + 1] = sectionHeader(noctalia.tr("schedule.lights_out"))
     left[#left + 1] = lightsGantry(now)
     left[#left + 1] = ui.spacer({ height = 2 })
     left[#left + 1] = label(target ~= nil and shared.fmtLong(target - now) or "", {
