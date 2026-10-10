@@ -25,6 +25,7 @@ local MUTED = "on_surface_variant"
 local ACCENT = "primary"
 -- A depiction of a physical signal, not a palette choice, so it ignores the theme.
 local LIGHT_ON = "#E10600"
+local LIGHT_GO = "#1FBF5B"   -- green once the race is under way
 local LIGHT_OFF = "#3A3F44"
 
 local LIGHT_COLUMNS = 5
@@ -83,14 +84,6 @@ end
 local function raceTs()
     local r = currentRace()
     return r ~= nil and shared.sessionTs(r.sessions, "race") or nil
-end
-
--- The gantry only means something around the race itself: from three hours
--- before lights out until roughly the flag.
-local function raceDay(now)
-    if forceTabs() then return true end
-    local ts = raceTs()
-    return ts ~= nil and now >= ts - 3 * 3600 and now < ts + 3 * 3600
 end
 
 local function raceUnderway(now)
@@ -316,24 +309,23 @@ local function standingRow(row, primary, secondary)
 end
 
 local function lightsGantry(now)
-    -- How many columns are lit and whether the sequence has blacked out.
-    local lit, blackout = 0, false
+    -- How many columns are lit, and whether they have turned green. Red holds
+    -- until the race starts; from then on the whole gantry is green.
+    local lit, go = LIGHT_COLUMNS, raceUnderway(now)
     if animMs ~= nil then
         lit = math.min(LIGHT_COLUMNS, animMs // LIGHT_STEP_MS)
         local doneAt = LIGHT_COLUMNS * LIGHT_STEP_MS + LIGHT_HOLD_MS
-        if animMs >= doneAt and raceUnderway(now) then blackout = true end
-    elseif raceDay(now) then
-        -- Not animating (animations off, or the sequence finished): rest state.
-        lit = raceUnderway(now) and 0 or LIGHT_COLUMNS
+        go = animMs >= doneAt and raceUnderway(now)
+        if go then lit = LIGHT_COLUMNS end
     end
 
     local columns = {}
     for i = 1, LIGHT_COLUMNS do
-        local on = (not blackout) and lit >= i
+        local on = lit >= i
         local function lamp()
             return ui.box({
                 width = 12, height = 12, radius = 6,
-                fill = on and LIGHT_ON or LIGHT_OFF,
+                fill = on and (go and LIGHT_GO or LIGHT_ON) or LIGHT_OFF,
                 opacity = on and 1 or 0.55,
             })
         end
@@ -358,10 +350,8 @@ local function scheduleTab(now)
         { fontSize = 12, color = MUTED, maxLines = 1 })
     left[#left + 1] = ui.spacer({ height = 6 })
     left[#left + 1] = sectionHeader(noctalia.tr("schedule.lights_out"))
-    if raceDay(now) then
-        left[#left + 1] = lightsGantry(now)
-        left[#left + 1] = ui.spacer({ height = 2 })
-    end
+    left[#left + 1] = lightsGantry(now)
+    left[#left + 1] = ui.spacer({ height = 2 })
     left[#left + 1] = label(target ~= nil and shared.fmtLong(target - now) or "", {
         fontSize = 22, fontWeight = "bold", color = ACCENT, maxLines = 1,
     })
@@ -414,6 +404,12 @@ local function gridTab()
     return out
 end
 
+-- "07:45" from seconds.
+local function clockText(seconds)
+    local s = math.max(0, math.floor(seconds))
+    return string.format("%02d:%02d", s // 60, s % 60)
+end
+
 local function liveTab(now)
     local r = currentRace()
     local out = {}
@@ -428,7 +424,7 @@ local function liveTab(now)
             out[#out + 1] = label(noctalia.tr("live.idle"), { fontSize = 13, maxLines = 2 })
             out[#out + 1] = hint(noctalia.tr("live.idle_hint"))
         end
-        if problem == "auth" or problem == "login" or problem == "token" or problem == "rate" then
+        if problem == "auth" or problem == "login" or problem == "token" or problem == "rate" or problem == "nocurl" then
             out[#out + 1] = hint(noctalia.tr("live." .. problem))
         end
         local nextSession = r ~= nil and shared.nextSession(r.sessions, now) or nil
@@ -441,23 +437,52 @@ local function liveTab(now)
         return out
     end
 
-    local flag = shared.friendlyFlag(data.live.flag)
-    out[#out + 1] = ui.row({ gap = 8, align = "center" }, {
-        label(noctalia.tr("live.badge"), { fontSize = 12, fontWeight = "bold", color = ACCENT }),
-        label(flag, { fontSize = 12, color = MUTED }),
-    })
-    for i, row in ipairs(data.live.rows) do
-        if i > 20 then break end
+    local live = data.live
+    local session = type(live.session) == "table" and live.session or nil
+    local title = noctalia.tr("live.badge")
+    if session ~= nil and session.name ~= "" then
+        title = noctalia.tr("live.badge_part", { session = session.name .. (session.part > 0 and (" Q" .. session.part) or "") })
+    end
+    local head = { label(title, { fontSize = 12, fontWeight = "bold", color = ACCENT }) }
+    local clock = type(live.clock) == "table" and live.clock or nil
+    if clock ~= nil then
+        local left = clock.remaining - (clock.running and (now - clock.at) or 0)
+        head[#head + 1] = label(noctalia.tr("live.clock_left", { time = clockText(left) }), { fontSize = 12, color = TEXT })
+    end
+    local flag = shared.friendlyFlag(live.flag)
+    if flag ~= "" then head[#head + 1] = label(flag, { fontSize = 12, color = MUTED }) end
+    out[#out + 1] = ui.row({ gap = 10, align = "center" }, head)
+
+    local fd = tostring(noctalia.getConfig("favorite_driver") or ""):upper():gsub("%s", "")
+    for i, row in ipairs(live.rows) do
+        if i > 24 then break end
+        local dimmed = row.state == "out" or row.state == "prev"
         local children = {}
         if noctalia.getConfig("team_colors") == true and row.color ~= "" then
             children[#children + 1] = chip(row.color)
         end
         children[#children + 1] = posLabel(row.pos)
-        local fd = tostring(noctalia.getConfig("favorite_driver") or ""):upper():gsub("%s", "")
-        children[#children + 1] = label(row.code, {
-            width = 48, fontSize = 13, fontWeight = "bold", color = (fd ~= "" and row.code == fd) and ACCENT or TEXT,
+        children[#children + 1] = cell(46, "start", label(row.code, {
+            fontSize = 13, fontWeight = "bold",
+            color = (fd ~= "" and row.code == fd) and ACCENT or (row.state == "out" and MUTED or TEXT),
+        }))
+        local teamText = row.team
+        if row.state == "out" and (row.outPart or 0) > 0 then
+            teamText = noctalia.tr("live.out", { part = row.outPart })
+        elseif row.inPit then
+            teamText = row.team .. "  ·  PIT"
+        end
+        children[#children + 1] = ui.row({ flexGrow = 1, justify = "start", align = "center" }, {
+            label(teamText, { fontSize = 13, color = MUTED, maxLines = 1 }),
         })
-        children[#children + 1] = label(row.team, { flexGrow = 1, fontSize = 13, color = MUTED, maxLines = 1, textAlign = "start" })
+        if row.best ~= "" or row.gap ~= "" then
+            children[#children + 1] = cell(84, "end", label(row.best or "", {
+                fontSize = 13, color = dimmed and MUTED or TEXT, maxLines = 1,
+            }))
+            children[#children + 1] = cell(64, "end", label(row.gap or "", {
+                fontSize = 12, color = row.state == "danger" and "error" or MUTED, maxLines = 1,
+            }))
+        end
         out[#out + 1] = ui.row({ gap = 8, align = "center", paddingV = 3, paddingH = 4 }, children)
     end
     return out

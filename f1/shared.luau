@@ -228,6 +228,19 @@ function M.nearSession(sessions, now)
     return false
 end
 
+-- End of the live window that `now` is in (3 hours after the session that opened
+-- it), or nil outside every window.
+function M.windowEnd(sessions, now)
+    local latest = nil
+    for _, s in ipairs(sessions or {}) do
+        if now >= s.ts - 15 * 60 and now <= s.ts + 3 * 3600 then
+            local e = s.ts + 3 * 3600
+            if latest == nil or e > latest then latest = e end
+        end
+    end
+    return latest
+end
+
 -- The starting grid exists once qualifying is over (plus an hour of buffer) and
 -- the race has not started.
 function M.gridApplicable(sessions, now)
@@ -279,6 +292,9 @@ local FLAG_KEYS = {
     ["RED"] = "flag.red",
     ["CHEQUERED"] = "flag.chequered",
     ["BLUE"] = "flag.blue",
+    ["SAFETY CAR"] = "flag.safety_car",
+    ["VSC"] = "flag.vsc",
+    ["VSC ENDING"] = "flag.vsc_ending",
 }
 
 function M.friendlyFlag(flag)

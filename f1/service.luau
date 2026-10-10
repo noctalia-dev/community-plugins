@@ -11,7 +11,8 @@
 --   constructors  { loaded, rows = { {pos, name, teamId, pts, gap, url} } }
 --   grid          { loaded, rows = { {pos, code, team, teamId, detail, url} } }
 --   results       { loaded, raceName, rows = { {pos, code, team, teamId, detail, pts, url} } }
---   live          { rows = { {pos, code, color, team} }, flag, latestSec, error }
+--   live          { rows = { {pos, code, color, team, best, gap, state, outPart, inPit} },
+--                   flag, latestSec, error, source, session, clock }
 --   status        { loading, error }
 --
 -- Network calls made by this file, all HTTPS GET, no credentials:
@@ -24,6 +25,7 @@
 -- This file writes nothing to disk and spawns no process.
 
 local shared = require("./shared.luau")
+local f1feed = require("./f1feed.luau")
 
 local SCHEDULE_EVERY = 6 * 3600       -- refetch the schedule every 6 hours
 local STANDINGS_EVERY = 3 * 3600      -- standings and last result every 3 hours
@@ -389,12 +391,18 @@ local function credentials()
     return nil, nil
 end
 
+local liveSession, liveClock = nil, nil
+local liveSourceName = "openf1"
+
 local function publishLive()
     noctalia.state.set("live", {
         rows = liveRows,
         flag = liveFlag,
         latestSec = liveLatest,
         error = liveError or "",
+        source = liveSourceName,
+        session = liveSession or false,
+        clock = liveClock or false,
     })
 end
 
@@ -540,6 +548,63 @@ end
 
 -- ── Notification ─────────────────────────────────────────────────────────────
 
+-- ── Experimental: F1's live-timing stream ───────────────────────────────────
+
+-- Off by default (setting live_source). It reads the same stream F1's own live
+-- timing page uses, through f1-live.sh (curl), because the server needs a
+-- cookie that noctalia.http cannot read back. Needs no account, but the stream
+-- is unofficial and undocumented.
+local streamRunning = false
+local streamRetryAtMs = 0
+local feedDirty = false
+
+local function useF1Feed()
+    return noctalia.getConfig("live_source") == "f1_feed"
+end
+
+local function startF1Stream(now)
+    if streamRunning or noctalia.nowMs() < streamRetryAtMs then return end
+    local dir = noctalia.pluginDir()
+    if dir == nil then return end
+    if not noctalia.commandExists("curl") then
+        liveError = "nocurl"
+        publishLive()
+        streamRetryAtMs = noctalia.nowMs() + 300000
+        return
+    end
+    local untilTs = shared.windowEnd(sessions, now) or (now + 3600)
+    local seconds = math.max(120, math.min(untilTs - now, 4 * 3600))
+    -- The path comes from the host, not from the network; quoting keeps spaces safe.
+    local quoted = "'" .. (dir:gsub("'", "'\\''")) .. "/f1-live.sh'"
+    streamRunning = true
+    local started = noctalia.runStream("sh " .. quoted .. " " .. tostring(math.floor(seconds)), function(line)
+        if line == "closed" then
+            streamRunning = false
+            streamRetryAtMs = noctalia.nowMs() + 15000
+            return
+        end
+        if f1feed.handleLine(line) then feedDirty = true end
+    end)
+    if not started then
+        streamRunning = false
+        streamRetryAtMs = noctalia.nowMs() + 60000
+        liveError = "net"
+        publishLive()
+    end
+end
+
+local function runF1Feed(now)
+    liveSourceName = "f1_feed"
+    startF1Stream(now)
+    if not feedDirty then return end
+    feedDirty = false
+    local view = f1feed.view(now)
+    if view == nil then return end
+    liveRows, liveFlag, liveLatest, liveError = view.rows, view.flag, view.latestSec, nil
+    liveSession, liveClock = view.session, view.clock
+    publishLive()
+end
+
 local function checkNotify(now)
     if noctalia.getConfig("notify_race") ~= true or race == nil then return end
     local raceTs = shared.sessionTs(sessions, "race")
@@ -604,20 +669,38 @@ function update()
 
     -- Live timing: only near a session.
     if shared.nearSession(sessions, now) or forceTabs then
-        local ms = noctalia.nowMs()
-        if ms - lastLiveMs >= LIVE_EVERY_MS and ms >= liveBackoffUntilMs then
-            lastLiveMs = ms
-            pollLive()
+        if useF1Feed() then
+            runF1Feed(now)
+        else
+            liveSourceName, liveSession, liveClock = "openf1", nil, nil
+            local ms = noctalia.nowMs()
+            if ms - lastLiveMs >= LIVE_EVERY_MS and ms >= liveBackoffUntilMs then
+                lastLiveMs = ms
+                pollLive()
+            end
         end
     elseif #liveRows > 0 or liveLatest ~= 0 or liveError ~= nil then
         liveRows, liveFlag, liveLatest, liveError, driversMap = {}, "", 0, nil, nil
+        liveSession, liveClock = nil, nil
+        f1feed.reset()
         publishLive()
     end
 
     checkNotify(now)
 end
 
+local lastSourceF1 = false
+
 function onConfigChanged()
+    if useF1Feed() ~= lastSourceF1 then
+        lastSourceF1 = useF1Feed()
+        liveRows, liveFlag, liveLatest, liveError, driversMap = {}, "", 0, nil, nil
+        liveSession, liveClock = nil, nil
+        f1feed.reset()
+        feedDirty = false
+        lastLiveMs = 0
+        publishLive()
+    end
     local nowForced = noctalia.getConfig("debug_force_tabs") == true
     if nowForced ~= forceTabs then
         forceTabs = nowForced

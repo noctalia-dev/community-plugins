@@ -16,14 +16,17 @@ and both championships.
 Install `xdg-open` (from `xdg-utils`) on `PATH`. It is only used to open a
 Wikipedia page when you click a driver, team or race row.
 
-The plugin has no other dependency: every request goes through
-`noctalia.http`, so `curl` is not needed.
+Install `curl` only if you turn on the experimental F1 live-timing stream below.
+Everything else goes through `noctalia.http`.
 
-**Live timing needs an OpenF1 account.** OpenF1 serves real-time data, and
-during a session the whole API, only to subscribers (see
-[openf1.org](https://openf1.org)). Without an account the Live tab explains this
-and everything else keeps working. To enable it, export your credentials in the
-environment Noctalia runs in:
+### Live timing sources
+
+The Live tab has two possible sources, chosen with the `live_source` setting.
+
+**OpenF1 (default).** OpenF1 serves real-time data, and during a session the
+whole API, only to subscribers (see [openf1.org](https://openf1.org)). Without
+an account the Live tab says so and everything else keeps working. To enable it,
+export your credentials in the environment Noctalia runs in:
 
 ```sh
 OPENF1_USERNAME=you@example.com
@@ -32,7 +35,19 @@ OPENF1_PASSWORD=your-password
 
 They are read with `noctalia.getenv`, exchanged for a one-hour bearer token at
 `https://api.openf1.org/token`, and never written to the plugin settings or to
-disk. This login path could not be tested without a subscription.
+disk. This login path could not be tested without a subscription. This source
+shows the running order and the track flag.
+
+**F1 live-timing stream (experimental, off by default).** Reads the stream
+behind F1's own live-timing page, with no account. During qualifying it shows
+the part (Q1, Q2 or Q3) and the time left, each driver's best time and gap,
+who is in the elimination zone and who is out; in a race, the gaps to the
+leader. It needs `curl`, because the server hands out a load balancer cookie
+that `noctalia.http` cannot read back, so a small script
+(`f1-live.sh`) keeps it. **This stream is unofficial and undocumented.** It
+may stop working, change format, or be restricted by F1 at any time, and F1's
+terms may not allow automated use of it: turn it on only if you accept that.
+It connects only from 15 minutes before a session until 3 hours after it.
 
 ## Usage
 
@@ -88,11 +103,12 @@ Edited under Settings → Plugins.
 | `countdown_target` | `select` | `race` | Whether the pill counts down to the race or to the next session. |
 | `default_tab` | `select` | `schedule` | Tab the panel opens on. Live and Grid take over when they apply. |
 | `team_colors` | `bool` | `true` | Coloured chip beside each driver and team. |
-| `animations` | `bool` | `true` | Fade in the circuit and run the start lights on race day. |
+| `animations` | `bool` | `true` | Fade in the circuit and run the start lights (red until the race starts, green after) when the Schedule tab opens. |
 | `favorite_driver` | `string` | empty | Three-letter code, for example `VER`, shown in the accent colour. |
 | `favorite_team` | `string` | empty | Team id as the data source writes it, for example `ferrari`. |
 | `notify_race` | `bool` | `false` | One desktop notification before lights out. |
 | `notify_lead_min` | `int` | `10` | Minutes before the race for that notification, 0 to 120. |
+| `live_source` | `select` | `openf1` | `openf1` or `f1_feed` (experimental, see above). |
 | `debug_force_tabs` | `bool` | `false` | Advanced. Show Grid and Live outside a race weekend, using the last session. |
 
 ## IPC
@@ -123,6 +139,8 @@ variables above:
 - `api.jolpi.ca` (Jolpica-F1): next race, driver and constructor standings, last
   result and qualifying. The schedule refreshes every 6 hours, standings every 3
   hours.
+- `livetiming.formula1.com/signalrcore`: only with `live_source = f1_feed`, through
+  `curl` (see below), from 15 minutes before a session until 3 hours after.
 - `api.openf1.org`: drivers, positions and race control, only from 15 minutes
   before a session until 3 hours after, every 15 seconds. `POST /token` only when
   credentials are set.
@@ -130,7 +148,10 @@ variables above:
 Files: the plugin writes small SVG files of the circuit outline into its own
 data directory (`noctalia.pluginDataDir()`), one per circuit and colour. It
 reads `tracks.txt` from its own directory. It spawns `xdg-open` only when you
-click a link, and only for `https` links to Wikipedia.
+click a link, and only for `https` links to Wikipedia. With `live_source =
+f1_feed` it also runs `sh f1-live.sh <seconds>` (a script in the plugin
+directory) which runs `curl` against `livetiming.formula1.com`, keeps a cookie
+jar in a temporary file, and removes it when it ends.
 
 Everything fetched is length-limited and stripped of control and bidirectional
 characters before it is shown.

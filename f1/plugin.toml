@@ -15,9 +15,9 @@ license = "MIT"
 icon = "flag"
 description = "Next-race countdown, schedule, circuit map, live timing and standings for Formula 1."
 tags = ["bar", "panel", "indicator", "countdown"]
-# Every network request goes through noctalia.http, so there is no curl
-# dependency. xdg-open is only used to open Wikipedia links from table rows.
-dependencies = ["xdg-open"]
+# Requests go through noctalia.http. xdg-open opens Wikipedia links from table
+# rows; curl is used only by the optional, off-by-default F1 live-timing stream.
+dependencies = ["xdg-open", "curl"]
 
 # ── Plugin-level settings (shared by the poller, the capsule and the panel) ───
 
@@ -99,6 +99,17 @@ default = 10
 min = 0
 max = 120
 visible_when = { key = "notify_race", values = ["true"] }
+
+[[setting]]
+key = "live_source"
+type = "select"
+label_key = "settings.live_source.label"
+description_key = "settings.live_source.description"
+default = "openf1"
+options = [
+  { value = "openf1", label_key = "settings.live_source.option.openf1" },
+  { value = "f1_feed", label_key = "settings.live_source.option.f1_feed" },
+]
 
 [[setting]]
 key = "debug_force_tabs"

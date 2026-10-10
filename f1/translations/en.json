@@ -21,6 +21,9 @@
     "double_yellow": "Double yellow",
     "green": "Green flag",
     "red": "Red flag",
+    "safety_car": "Safety car",
+    "vsc": "Virtual safety car",
+    "vsc_ending": "VSC ending",
     "yellow": "Yellow flag"
   },
   "grid": {
@@ -33,11 +36,15 @@
   "live": {
     "auth": "OpenF1 only serves live data to accounts with a subscription. Set OPENF1_USERNAME and OPENF1_PASSWORD in your environment to enable it (see the README).",
     "badge": "● LIVE",
+    "badge_part": "● LIVE · {session}",
+    "clock_left": "{time} left",
     "header": "LIVE TIMING",
     "idle": "No session running right now.",
     "idle_hint": "Live positions and track flags appear here automatically during practice, qualifying and the race.",
     "login": "OpenF1 rejected the username and password in OPENF1_USERNAME and OPENF1_PASSWORD.",
     "next": "Next: {name} · {time}",
+    "nocurl": "The F1 live-timing stream needs curl, which was not found.",
+    "out": "out Q{part}",
     "rate": "The live feed is rate limited; it will retry shortly.",
     "token": "OpenF1 refused the access token. A new one is requested automatically.",
     "unavailable": "A session is running, but live timing is not available."
@@ -50,7 +57,7 @@
   },
   "schedule": {
     "delay": "{minutes} min vs. published time",
-    "lights_out": "LIGHTS OUT",
+    "lights_out": "GREEN LIGHTS",
     "sessions": "SESSIONS"
   },
   "session": {
@@ -64,7 +71,7 @@
   },
   "settings": {
     "animations": {
-      "description": "Fade in the circuit and run the start lights when the Schedule tab opens on race day.",
+      "description": "Fade in the circuit and run the start lights when the Schedule tab opens.",
       "label": "Animated intro"
     },
     "countdown_target": {
@@ -95,6 +102,14 @@
     "favorite_team": {
       "description": "Team id as the data source writes it, for example ferrari or red_bull.",
       "label": "Highlight team"
+    },
+    "live_source": {
+      "description": "OpenF1 is the documented source and needs a subscription. The F1 live-timing stream is experimental: it reads the unofficial stream behind F1's own live timing page with curl, needs no account, and may stop working or be restricted by F1 at any time.",
+      "label": "Live timing source",
+      "option": {
+        "f1_feed": "F1 live-timing stream (experimental)",
+        "openf1": "OpenF1 (needs an account)"
+      }
     },
     "notify_lead_min": {
       "description": "Minutes before the race start, 0 to 120.",
