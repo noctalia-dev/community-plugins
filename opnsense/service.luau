@@ -222,6 +222,13 @@ local function pushWidget(widgets, name, info)
   if type(info) ~= "table" then
     return
   end
+  local id = tostring(name)
+  -- A subsystem can arrive twice: inside metadata and as its sibling list.
+  for _, existing in ipairs(widgets) do
+    if existing.id == id then
+      return
+    end
+  end
   local status = asString(info.status)
   local code = tonumber(info.statusCode or info.status)
   local ok = true
@@ -239,7 +246,7 @@ local function pushWidget(widgets, name, info)
     title = tostring(name)
   end
   table.insert(widgets, {
-    id = tostring(name),
+    id = id,
     name = title,
     status = status ~= "" and status or (ok and "OK" or "Issue"),
     message = asString(info.message),
@@ -253,19 +260,30 @@ local function parseSystemStatus(data)
   if type(data) ~= "table" then
     return widgets
   end
+  -- OPNsense reports subsystem health either as an array inside metadata or as
+  -- an object keyed by subsystem name next to it, so both shapes are read.
+  local function addSubsystems(subsystems)
+    if type(subsystems) ~= "table" then
+      return
+    end
+    for key, sub in pairs(subsystems) do
+      if type(sub) == "table" then
+        local name = asString(sub.name or sub.title)
+        if name == "" then
+          name = type(key) == "string" and key or ("sub-" .. tostring(key))
+        end
+        pushWidget(widgets, name, sub)
+      end
+    end
+  end
+
   -- OPNsense 26+: { metadata = { system = { status, message, title }, subsystems = [...] } }
   if type(data.metadata) == "table" then
     local meta = data.metadata
     if type(meta.system) == "table" then
       pushWidget(widgets, "System", meta.system)
     end
-    if type(meta.subsystems) == "table" then
-      for i, sub in ipairs(meta.subsystems) do
-        if type(sub) == "table" then
-          pushWidget(widgets, asString(sub.name or sub.title or ("sub-" .. i)), sub)
-        end
-      end
-    end
+    addSubsystems(meta.subsystems)
     -- other metadata keys that look like widgets
     for name, info in pairs(meta) do
       if name ~= "system" and name ~= "subsystems" and name ~= "translations" and type(info) == "table" then
@@ -282,6 +300,9 @@ local function parseSystemStatus(data)
       end
     end
   end
+  -- A string system status ("OK", "ERROR") comes with the subsystem list as a
+  -- sibling of metadata, which is not a metadata key at all.
+  addSubsystems(data.subsystems)
   table.sort(widgets, function(a, b)
     if a.ok ~= b.ok then
       return not a.ok
