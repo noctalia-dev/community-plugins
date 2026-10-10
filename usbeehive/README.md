@@ -1,4 +1,4 @@
-# USB Beehive
+# usbeehive
 
 Shows your connected USB devices and USB-C charging wattage in the bar, using
 [usbeehive](https://github.com/abrauchli/usbeehive). It also tells you when a cable or charger is
@@ -27,7 +27,7 @@ the bottleneck.
 
 ## Usage
 
-Enable the plugin, then add the **USB Beehive** bar widget from the Add-widget picker, or configure
+Enable the plugin, then add the **usbeehive** bar widget from the Add-widget picker, or configure
 it by hand:
 
 ```toml
@@ -59,7 +59,7 @@ device is connected or disconnected, and when a new charging bottleneck appears.
 
 ## Settings
 
-Plugin settings live under **Settings → Plugins → USB Beehive** (the gear).
+Plugin settings live under **Settings → Plugins → usbeehive** (the gear).
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
