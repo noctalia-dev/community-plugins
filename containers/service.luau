@@ -469,9 +469,11 @@ local function commandFor(runtimeId)
   if settings.show_stopped then
     parts[#parts + 1] = "-a"
   end
-  -- One marker opens the internal section; the probe then emits bare
-  -- name|ip|ports lines.
-  parts[#parts + 1] = "&& { echo '" .. MARKER_INTERNAL .. "'; " .. internalProbe(probeCli) .. " }"
+  -- Internal port probe only runs when host services / host inspection is enabled
+  -- as documented in README.md.
+  if settings.show_host then
+    parts[#parts + 1] = "&& { echo '" .. MARKER_INTERNAL .. "'; " .. internalProbe(probeCli) .. " }"
+  end
   return table.concat(parts, " ")
 end
 

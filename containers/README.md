@@ -185,10 +185,19 @@ noctalia msg panel-toggle davinci13/containers:panel
 
 ## Requirements
 
-Every source is optional on its own — the plugin works with any of them:
+External command dependencies declared in `plugin.toml`:
 
-- `docker` (and a reachable daemon for your user)
-- `podman`
-- `ss` (from iproute2) for host services; `systemctl` is optional and only makes
-  the host rows carry unit names instead of process names
-- `xdg-open` (or set a browser command)
+### Container Runtimes (Optional)
+- `docker`: Optional container runtime CLI (requires a reachable daemon for your user). When installed, running and stopped Docker containers are listed.
+- `podman`: Optional container runtime CLI. When installed, Podman containers are listed.
+
+### Host Service Discovery (Optional)
+- `ss`: Optional socket statistics tool (from `iproute2`), used to discover listening TCP services on the host when host service discovery is enabled.
+- `systemctl`: Optional service manager CLI (systemd), used to enrich host service entries with unit names and descriptions. When unavailable, host services fall back to process names and PIDs.
+
+### Internal Container Port Discovery
+- `awk`: Used by the internal port probe to inspect `/proc/$pid/net/tcp` and `/proc/$pid/net/tcp6`. **Requires GNU awk (`gawk`)** with `strtonum` support to decode hexadecimal socket ports.
+- `cut`: Used by the internal container probe pipeline to parse container inspect fields.
+
+### URL Launching
+- `xdg-open`: Default tool used to open container and host URLs in your web browser. Can be overridden with the `browser_command` setting.
