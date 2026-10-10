@@ -38,10 +38,14 @@ plugin. Use the panel's settings button, or the command below.
 
 ### The panel
 
-| Key     | Action                             |
-|---------|--------------------------------------|
-| `Enter` | Open the top match                 |
-| `Esc`   | Close the panel (noctalia default) |
+| Key     | Action                                                  |
+|---------|---------------------------------------------------------|
+| ↑ / ↓   | Move the selection through the results (hold to repeat) |
+| `Enter` | Open the selected result (the top match until moved)    |
+| `Esc`   | Close the panel (noctalia default)                      |
+
+The list scrolls to keep the selection in view. The mouse wheel still scrolls
+freely; the next ↑ or ↓ brings the selection back.
 
 Header buttons, left to right:
 
@@ -194,11 +198,12 @@ results whenever the index is out of date.
 
 ## Requirements
 
-- noctalia with `plugin_api = 28` (v5.0.0-beta.9 or newer; on beta.8 the
-  plugin store keeps serving 0.0.29) — for the row context menu, relative
-  Luau imports (the three entries share `shared.luau`) and direct argv
-  process execution, so `du`, `xdg-open` and the reveal call take their
-  arguments with no shell parsing them
+- noctalia with `plugin_api = 33` (the release after v5.2.1 that adds
+  `revealKey` on `ui.scroll`, which keeps the keyboard selection in view; an
+  older shell keeps being served the last version it can load) — also for
+  the row context menu, relative Luau imports (the three entries share
+  `shared.luau`) and direct argv process execution, so `du`, `xdg-open` and
+  the reveal call take their arguments with no shell parsing them
 - [`fzf`](https://github.com/junegunn/fzf) — the fuzzy matcher. 0.36 or newer
   for path-aware ranking; older builds work with fzf's default ranking
 - `find` (GNU findutils) — walks the roots into the index
@@ -263,6 +268,8 @@ folders are skipped.
 - Excluded entries match by folder/file name (`find -name`), not by path;
   entries containing `/` are skipped and logged. Unreadable subtrees are
   silently skipped.
+- `tests/run.sh` exercises the panel's keyboard model (selection, wrap,
+  hold-to-repeat, Enter) under the stock `luau` CLI with the host stubbed.
 
 ## License
 

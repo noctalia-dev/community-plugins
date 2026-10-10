@@ -6,9 +6,10 @@
 -- after that every keystroke runs `fzf --filter=<query>` over the cache, so
 -- typing stays responsive even on large trees. Results update live; picking
 -- one opens it with the system MIME association (xdg-open) — directories
--- open in the file manager. Enter opens the top match. Right-clicking a row
--- raises a native context menu (plugin_api >= 28) with open, reveal in the
--- file manager, copy path and copy name.
+-- open in the file manager. Up/Down move a selection through the results,
+-- Enter opens it (the top match until moved). Right-clicking a row raises a
+-- native context menu (plugin_api >= 28) with open, reveal in the file
+-- manager, copy path and copy name.
 --
 -- The roots come from the search scope, cycled with the panel's disk button
 -- and persisted in the plugin data directory so the launcher entry follows the
@@ -85,6 +86,18 @@ local showUsage = true  -- the usage donut, toggled from the header
 -- instead of being fzf syntax to recognise and edit out.
 local usageFilter = nil
 
+-- Keyboard selection: Up/Down move it, Enter opens it. `revealKey` on the
+-- scroll view (plugin_api >= 33) keeps the selected row in view.
+local sel = 1 -- index into `results`
+-- capture_keys filters key repeat (one press, one release), so holding an
+-- arrow is repeated from the frame tick. It stops at the end of the list
+-- instead of wrapping, which also bounds it should a release ever go missing.
+local KEY_STEPS = { up = -1, down = 1 }
+local REPEAT_DELAY_MS = 350
+local REPEAT_STEP_MS = 60
+local heldStep = 0
+local repeatInMs = 0
+
 local render
 local runSearch
 local buildIndex
@@ -106,12 +119,17 @@ local spinnerIndex = 1
 local spinnerAccumMs = 0
 local spinnerTicking = false
 
+-- The frame tick has two users, the spinner and a held arrow key.
+local function syncFrameTick()
+    panel.setNeedsFrameTick(spinnerTicking or heldStep ~= 0)
+end
+
 local function setSpinnerTicking(on)
     if on == spinnerTicking then
         return
     end
     spinnerTicking = on
-    panel.setNeedsFrameTick(on)
+    syncFrameTick()
     if not on then
         spinnerAccumMs = 0
         spinnerIndex = 1
@@ -397,6 +415,7 @@ runSearch = function()
             for line in (result.stdout or ""):gmatch("[^\n]+") do
                 table.insert(results, line)
             end
+            sel = 1
         end
         -- The query moved on while this search ran: chase it. The stale
         -- rows rendered below are overwritten as soon as it completes.
@@ -544,6 +563,7 @@ local function resultRow(rel, index)
         text = shown,
         variant = "ghost",
         contentAlign = "start",
+        selected = index == sel,
         onClick = function()
             openEntry(rel) -- always the full record, never the elided label
         end,
@@ -951,8 +971,36 @@ local function scopeButton()
     })
 end
 
+-- Move the selection by `step` rows. A fresh press wraps around the ends; a
+-- repeat does not. Returns whether it moved.
+local function moveSelection(step, wrap)
+    local count = #results
+    if count == 0 then
+        return false
+    end
+    local target = sel + step
+    if target < 1 or target > count then
+        if not wrap then
+            return false
+        end
+        target = target < 1 and count or 1
+    end
+    if target == sel then
+        return false
+    end
+    sel = target
+    return true
+end
+
+local function stopKeyRepeat()
+    heldStep = 0
+    syncFrameTick()
+end
+
 render = function()
     setSpinnerTicking(indexing and #results == 0)
+    -- Clamped here, so a list that shrank or emptied needs no call of its own.
+    sel = math.max(1, math.min(sel, #results))
 
     -- Every child of the panel and of the header carries a stable key, so the
     -- reconciler matches roles instead of guessing by position and type.
@@ -984,7 +1032,7 @@ render = function()
             focus = true,
             placeholder = shared.tr("search_placeholder"),
             onChange = "onQueryChanged",
-            onSubmit = "onOpenFirst",
+            onSubmit = "onOpenSelected",
         }),
         syntaxLegend(),
     }
@@ -1028,7 +1076,7 @@ render = function()
         for index, rel in ipairs(results) do
             table.insert(rows, resultRow(rel, index))
         end
-        body = ui.scroll({ key = "hits", flexGrow = 1, gap = 2 }, rows)
+        body = ui.scroll({ key = "hits", flexGrow = 1, gap = 2, revealKey = "hit-" .. sel }, rows)
     end
     table.insert(children, ui.column({ key = "body", flexGrow = 1, align = "stretch" }, { body }))
     -- Below the results: the chart describes the folder, not the query.
@@ -1143,6 +1191,7 @@ function onOpen(_context)
     -- launcher can cycle it), so nothing is searched until reload() has
     -- checked the fingerprint of the cache this scope actually uses.
     haveIndex = false
+    sel = 1
     inputRev += 1
     noctalia.state.set("file_search_open", true)
     local dir = shared.dataDir()
@@ -1178,6 +1227,7 @@ function onClose()
     -- Stop the frame tick even mid-build; the next onOpen re-arms it if the
     -- build is somehow still running (buildIndex survives the panel closing).
     setSpinnerTicking(false)
+    stopKeyRepeat() -- a key held while the panel closes never reports its release
     noctalia.state.set("file_search_open", false)
 end
 
@@ -1185,6 +1235,17 @@ end
 -- actual tick rate; render() itself flips setNeedsFrameTick off once indexing
 -- ends or results stop being empty, so this never spins forever unattended.
 function onFrameTick(deltaMs)
+    if heldStep ~= 0 then
+        repeatInMs -= deltaMs
+        if repeatInMs <= 0 then
+            repeatInMs = REPEAT_STEP_MS
+            if moveSelection(heldStep, false) then
+                render()
+            else
+                stopKeyRepeat()
+            end
+        end
+    end
     if not spinnerTicking then
         return
     end
@@ -1222,10 +1283,33 @@ function onQueryChanged(value)
     runSearch()
 end
 
-function onOpenFirst(value)
+-- Enter in the query input: opens the selected row, which is the top match
+-- until an arrow key has moved it.
+function onOpenSelected(value)
     query = value
-    if results[1] ~= nil then
-        openEntry(results[1])
+    if results[sel] ~= nil then
+        openEntry(results[sel])
+    end
+end
+
+-- The chords listed under capture_keys in plugin.toml. They arrive here even
+-- while the query input has focus; typing still goes to the input.
+function onKey(chord, pressed)
+    local step = KEY_STEPS[chord]
+    if step == nil then
+        return
+    end
+    if not pressed then
+        if heldStep == step then
+            stopKeyRepeat()
+        end
+        return
+    end
+    heldStep = step
+    repeatInMs = REPEAT_DELAY_MS
+    syncFrameTick()
+    if moveSelection(step, true) then
+        render()
     end
 end
 

@@ -10,15 +10,16 @@
 
 id = "nightwatch75/file-search"
 name = "File Search"
-version = "0.3.0"
-# 28 for panel.openContextMenu: a result row's right-click menu. Also 22 for
-# relative luau imports — the three entries share shared.luau, which owns the
-# index fingerprint they all have to agree on — and 24 for argv process
-# execution: the usage chart spawns `du` with the user's own exclusion patterns
-# as arguments, xdg-open takes a path straight from the index and the reveal
-# call carries a file name inside a GVariant literal, and an argv is exec'd
-# directly, so no shell ever parses any of them.
-plugin_api = 28
+version = "0.4.0"
+# 33 for `revealKey` on ui.scroll: the result list follows the keyboard
+# selection. Also 28 for panel.openContextMenu, a result row's right-click
+# menu; 22 for relative luau imports — the three entries share shared.luau,
+# which owns the index fingerprint they all have to agree on — and 24 for
+# argv process execution: the usage chart spawns `du` with the user's own
+# exclusion patterns as arguments, xdg-open takes a path straight from the
+# index and the reveal call carries a file name inside a GVariant literal,
+# and an argv is exec'd directly, so no shell ever parses any of them.
+plugin_api = 33
 author = "nightwatch75"
 license = "MIT"
 # The exact commands the plugin spawns (fzf, lsblk and gdbus aside, findutils +
@@ -75,12 +76,8 @@ min = 10
 max = 200
 
 # Keyboard-first flow: the noctalia launcher provides native arrows + Enter
-# navigation over a long result list. A panel cannot match that. Not for want of
-# key events — panel `capture_keys` has existed since plugin_api 13 — but
-# because `ui.scroll` still exposes no way to bring a given child into view
-# (its only programmatic move is scrollToBottomRev, added in 21). A selection
-# driven past the fold would simply go invisible, so keyboard navigation in the
-# panel would need a hand-rolled windowed render to be usable at all.
+# navigation over a long result list. The panel has its own (see capture_keys
+# below), with `revealKey` on its ui.scroll keeping the selected row in view.
 [[launcher_provider]]
 id = "launcher"
 entry = "launcher.luau"
@@ -99,6 +96,9 @@ width = 520
 # once, from here — so it is sized for the chart being on, which is the
 # default; with the chart hidden the extra room goes to the results.
 height = 720
+# Up/Down move the selection through the results (onKey in panel.luau). Enter
+# is not listed: the query input's onSubmit already delivers it.
+capture_keys = ["up", "down"]
 placement = "attached"
 open_near_click = true
 
