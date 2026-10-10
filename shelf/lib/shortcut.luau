@@ -205,11 +205,13 @@ local function splitLines(text)
 end
 
 -- Drops our marker comment, the bind line under it, and the blank line we
--- put before an appended block.
+-- put before an appended block. The line under the marker goes only when it
+-- runs our command: if the user deleted the bind by hand, the next line is
+-- theirs (in niri it can be the closing brace of binds).
 local function withoutOurs(lines)
   local out, skip = {}, false
   for _, line in ipairs(lines) do
-    if skip then
+    if skip and string.find(line, M.COMMAND, 1, true) then
       skip = false
     elseif string.find(line, M.MARKER, 1, true) then
       skip = true
@@ -217,6 +219,7 @@ local function withoutOurs(lines)
         table.remove(out)
       end
     else
+      skip = false
       table.insert(out, line)
     end
   end

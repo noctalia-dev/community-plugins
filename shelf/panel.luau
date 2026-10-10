@@ -16,6 +16,11 @@ local totalBytes, missingCount = 0, 0
 local hovered = nil
 local flash = nil -- { text = string, untilMs = number, isError = bool }
 local helperOpen = noctalia.state.get(store.HELPER_KEY) == true
+-- While the panel is closed nothing is stat'ed or rendered: fileInfo runs on
+-- the shell's thread, and a large shelf or a stalled network mount would stall
+-- the shell for a panel nobody sees. onOpen catches up.
+local isOpen = noctalia.state.get(store.PANEL_OPEN_KEY) == true -- true after a hot reload while open
+local CLOSED_POLL_MS = 60000
 
 local render -- forward declaration
 
@@ -36,6 +41,10 @@ local function refreshInfos()
 end
 
 local function showFlash(text, isError)
+  if not isOpen then
+    -- An async result (a paste) can land after the panel closed.
+    return
+  end
   flash = { text = text, untilMs = noctalia.nowMs() + (isError and FLASH_MS * 3 or FLASH_MS), isError = isError }
   noctalia.setUpdateInterval(250)
   render()
@@ -101,13 +110,15 @@ local function allPaths()
 end
 
 local function pasteFromClipboard()
-  local paths = store.pathsFromText(noctalia.clipboardText())
-  if #paths == 0 then
-    showFlash(noctalia.tr("panel.flash.paste_empty"))
-    return
-  end
-  local added = store.add(paths)
-  showFlash(noctalia.trp("panel.flash.added", added))
+  store.readClipboardPaths(function(paths)
+    if paths == nil then
+      showFlash(noctalia.tr("panel.flash.paste_no_wl_paste"), true)
+    elseif #paths == 0 then
+      showFlash(noctalia.tr("panel.flash.paste_empty"))
+    else
+      showFlash(noctalia.trp("panel.flash.added", store.add(paths)))
+    end
+  end)
 end
 
 local function removeMissing()
@@ -483,7 +494,10 @@ local function row(item, info)
       key = "grip-" .. path,
       dragType = DRAG_TYPE,
       payload = path,
-      previewAncestor = 1,
+      -- The row is clickable, so the host wraps it in an input area. Lifting
+      -- only the row (1) leaves that wrapper in the list at full height, an
+      -- empty gap next to the drop gap; lift the wrapper (2) instead.
+      previewAncestor = 2,
       liftFromLayout = true,
       width = 14,
       height = 40,
@@ -533,6 +547,9 @@ local function footer(missingCount)
 end
 
 render = function()
+  if not isOpen then
+    return
+  end
   local summary
   if #items == 0 then
     summary = noctalia.tr("panel.summary.empty")
@@ -580,8 +597,10 @@ end
 noctalia.state.watch(store.ITEMS_KEY, function(value)
   if type(value) == "table" then
     items = value
-    refreshInfos()
-    render()
+    if isOpen then
+      refreshInfos()
+      render()
+    end
   end
 end)
 
@@ -623,6 +642,7 @@ noctalia.state.watch(store.PANEL_VIEW_KEY, function(request)
 end)
 
 function onOpen()
+  isOpen = true
   noctalia.state.set(store.PANEL_OPEN_KEY, true)
   applyView(noctalia.state.get(store.PANEL_VIEW_KEY))
   noctalia.setUpdateInterval(OPEN_POLL_MS)
@@ -634,15 +654,19 @@ function onOpen()
 end
 
 function onClose()
+  isOpen = false
   noctalia.state.set(store.PANEL_OPEN_KEY, false)
   shortcutOpen = false
   shortcutConfirm = false
   flash = nil
   hovered, rowHovered, buttonHovered = nil, nil, nil
-  noctalia.setUpdateInterval(60000)
+  noctalia.setUpdateInterval(CLOSED_POLL_MS)
 end
 
 function update()
+  if not isOpen then
+    return
+  end
   local changed = false
   if flash ~= nil and noctalia.nowMs() >= flash.untilMs then
     flash = nil
@@ -658,4 +682,9 @@ function update()
   if changed then
     render()
   end
+end
+
+if isOpen then
+  refreshInfos()
+  render()
 end

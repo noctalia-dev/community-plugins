@@ -64,6 +64,7 @@
         "other": "Added {count} files"
       },
       "paste_empty": "No files or paths on the clipboard",
+      "paste_no_wl_paste": "Paste needs wl-paste. Install wl-clipboard.",
       "nothing_to_copy": "Nothing to copy: the files are missing",
       "missing": "That file is gone"
     },

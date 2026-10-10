@@ -237,6 +237,47 @@ function M.pathsFromText(text)
   return paths
 end
 
+-- noctalia.clipboardText() returns the clipboard history's last text entry, which
+-- never holds files copied in a file manager. wl-paste reads the live selection
+-- and can ask for the file formats, preferred in this order.
+local PASTE_TYPES = {
+  "text/uri-list", "x-special/gnome-copied-files",
+  "text/plain;charset=utf-8", "text/plain", "UTF8_STRING",
+}
+local CLIPBOARD_TIMEOUT_MS = 2000
+
+-- Calls onPaths with the existing paths on the clipboard (maybe none), or with
+-- nil when wl-paste is not installed.
+function M.readClipboardPaths(onPaths)
+  if not noctalia.commandExists("wl-paste") then
+    onPaths(nil)
+    return
+  end
+  noctalia.runAsync({ "wl-paste", "--list-types" }, function(listed)
+    -- wl-paste exits non-zero when nothing is copied.
+    local offered = {}
+    if listed.exitCode == 0 then
+      for line in string.gmatch(listed.stdout, "[^\r\n]+") do
+        offered[noctalia.string.trim(line)] = true
+      end
+    end
+    local mimeType = nil
+    for _, candidate in ipairs(PASTE_TYPES) do
+      if offered[candidate] then
+        mimeType = candidate
+        break
+      end
+    end
+    if mimeType == nil then
+      onPaths({})
+      return
+    end
+    noctalia.runAsync({ "wl-paste", "--no-newline", "--type", mimeType }, function(result)
+      onPaths(M.pathsFromText(result.exitCode == 0 and result.stdout or nil))
+    end, CLIPBOARD_TIMEOUT_MS)
+  end, CLIPBOARD_TIMEOUT_MS)
+end
+
 function M.formatSize(bytes)
   if bytes == nil then
     return ""

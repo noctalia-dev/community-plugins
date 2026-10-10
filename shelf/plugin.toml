@@ -1,13 +1,13 @@
 id           = "alok-debnath/shelf"
 name         = "Shelf"
-version      = "1.2.1"
+version      = "1.2.2"
 plugin_api   = 24
 author       = "alok-debnath"
 license      = "MIT"
 icon         = "stack-2"
 description  = "A drop shelf for files: drag files in, keep them handy, and drag them out into any app later."
 tags         = ["bar", "panel", "service", "productivity", "utility", "hyprland"]
-dependencies = ["python3", "python3-gobject", "gtk4", "xdg-utils"]
+dependencies = ["python3", "python3-gobject", "gtk4", "xdg-utils", "wl-clipboard"]
 
 # Plugin-level settings, shared by the service, panel, and widget.
 

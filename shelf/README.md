@@ -23,6 +23,7 @@ Noctalia plugins cannot take part in Wayland drag and drop yet, so Shelf ships a
 - `python3-gobject` (PyGObject; `python-gobject` on Arch)
 - `gtk4`
 - `xdg-utils`, for opening files and folders from the panel
+- `wl-clipboard`, for **Paste** in the panel (`wl-paste` reads the files you copied)
 
 Optional: install `gtk4-layer-shell` and the drop window opens at your mouse cursor (or a screen edge you pick), above
 your windows, and you can drag it anywhere by its header. Without it the window opens as a normal floating window and
@@ -30,9 +31,9 @@ your compositor decides where it goes.
 
 ```sh
 # Fedora
-sudo dnf install python3-gobject gtk4 gtk4-layer-shell
+sudo dnf install python3-gobject gtk4 wl-clipboard gtk4-layer-shell
 # Arch
-sudo pacman -S python-gobject gtk4 gtk4-layer-shell
+sudo pacman -S python-gobject gtk4 wl-clipboard gtk4-layer-shell
 ```
 
 ## Usage
@@ -106,6 +107,7 @@ noctalia msg plugin alok-debnath/shelf:service all toggle        # open or close
 noctalia msg plugin alok-debnath/shelf:service all open          # open (or raise) the drop window
 noctalia msg plugin alok-debnath/shelf:service all close         # close the drop window
 noctalia msg plugin alok-debnath/shelf:service all add /path     # put a file on the shelf
+noctalia msg plugin alok-debnath/shelf:service all paste         # add the files or paths on the clipboard
 noctalia msg plugin alok-debnath/shelf:service all clear         # empty the shelf
 noctalia msg plugin alok-debnath/shelf:service all panel         # toggle the panel
 noctalia msg plugin alok-debnath/shelf:service all shortcut      # open the panel at the keyboard shortcut section
@@ -114,13 +116,14 @@ noctalia msg plugin alok-debnath/shelf:service all shortcut      # open the pane
 ## Notes
 
 - **Files written**: when you press **Add for me** or **Remove** in the panel's shortcut section, your compositor's
-  config file (after saving a copy as `<config>.shelf-backup`). Otherwise the shelf list at `<plugin data dir>/shelf.json`, usually
+  config file. **Add for me** first saves your file as `<config>.shelf-backup`; **Remove** takes out only Shelf's two
+  lines and leaves that backup as it was. Otherwise the shelf list at `<plugin data dir>/shelf.json`, usually
   `~/.local/state/noctalia/plugins/data/alok-debnath/shelf/shelf.json`, and the drop window's last position next to
   it in `window.json`. Shelf never copies, moves, or deletes your files.
 - **Processes spawned**: the drop window (`python3 helper/shelf-window.py`), a one-time `python3 -c` check that GTK 4
-  is importable, `xdg-open` to open files and folders, `hyprctl` to find the cursor (Hyprland only), and `gdbus` to
-  show and hide the drop window and to ask the file manager to highlight a file
-  (`org.freedesktop.FileManager1.ShowItems`), falling back to opening the folder.
+  is importable, `xdg-open` to open files and folders, `wl-paste` to read the clipboard when you press **Paste**,
+  `hyprctl` to find the cursor (Hyprland only), and `gdbus` to show and hide the drop window and to ask the file
+  manager to highlight a file (`org.freedesktop.FileManager1.ShowItems`), falling back to opening the folder.
 - **Network**: none.
 - The drop window only reads the shelf file. It reports actions (add, remove, clear) as JSON lines on stdout, and the
   plugin service applies them. `gdbus` ships with GLib, which GTK 4 already depends on.
