@@ -48,25 +48,26 @@ M.is_finite = is_finite
 -- fallback and the settings page are the same table rather than two lists that
 -- merely ought to match.
 --
--- Brightness: ten log-spaced points spanning the measured 4..16653 raw range,
--- with an exact hit on the owner's one measured datum (185 raw -> 70%). They
--- reproduce the pre-Phase-2 formula
+-- Brightness: ten points spanning the measured 4..16653 raw range, with an
+-- exact hit on the owner's room anchor (61 raw -> 70%). The positions are the
+-- maintainer's hand-tuned values (2026-10-11, taken from live settings and
+-- screenshots) -- shipped as-is, never "improved" by a later refactor. They
+-- deliberately no longer reproduce the pre-Phase-2 formula
 --     pct = 70 + 25 * (log10(raw + 1) - log10(186))
--- to within a fraction of a percent across the operating range. The top end is
--- deliberately *not* identical: that formula clipped to 100% at raw ~ 2947, i.e.
--- full brightness barely 3x the measured room level. Splitting it into
--- 2200 -> 96.8 and 16384 -> 100 gives the top of the range somewhere to go.
+-- that the previous node set tracked: that formula pinned 70% at 185 raw and
+-- clipped to 100% at raw ~ 2947, and the rebaseline moves the anchor and gives
+-- the top of the range more room (96.8 at 4800, 100 at 14200).
 M.DEFAULT_BRIGHTNESS = {
-  ["00001"] = "1:20.8",
-  ["00004"] = "4:30.7",
-  ["00010"] = "10:39.3",
-  ["00030"] = "30:50.6",
-  ["00100"] = "100:63.4",
-  ["00185"] = "185:70",
-  ["00400"] = "400:78.3",
-  ["01000"] = "1000:88.3",
-  ["02200"] = "2200:96.8",
-  ["16384"] = "16384:100",
+  ["00000"] = "0:20.8",
+  ["00001"] = "1:30.7",
+  ["00003"] = "3:39.3",
+  ["00010"] = "10:50.6",
+  ["00033"] = "33:63.4",
+  ["00061"] = "61:70",
+  ["00560"] = "560:78.3",
+  ["01680"] = "1680:88.3",
+  ["04800"] = "4800:96.8",
+  ["14200"] = "14200:100",
 }
 
 -- Temperature: ambient K -> panel K. Warm floor 5100 K, cool ceiling 6500 K,
@@ -78,16 +79,16 @@ M.DEFAULT_BRIGHTNESS = {
 -- visible row is unique, and the compiled curve keeps its floor/ceiling
 -- character (14 nodes under the hood, 10 rows in the UI).
 M.DEFAULT_TEMPERATURE = {
-  ["02500"] = "2500:5100",
-  ["02700"] = "2700:5240",
-  ["03000"] = "3000:5380",
-  ["03500"] = "3500:5520",
-  ["04000"] = "4000:5660",
-  ["04500"] = "4500:5800",
-  ["05000"] = "5000:5940",
-  ["05500"] = "5500:6080",
-  ["06000"] = "6000:6220",
-  ["06500"] = "6500:6500",
+  ["02000"] = "2000:5100",
+  ["02200"] = "2200:5240",
+  ["02500"] = "2500:5380",
+  ["03000"] = "3000:5520",
+  ["03500"] = "3500:5660",
+  ["04000"] = "4000:5800",
+  ["04500"] = "4500:5940",
+  ["05000"] = "5000:6080",
+  ["05500"] = "5500:6220",
+  ["06000"] = "6000:6500",
 }
 
 -- ── fixed outputs and default thresholds (Phase 6) ───────────────────────────
@@ -108,20 +109,34 @@ M.DEFAULT_TEMPERATURE = {
 -- Brightness thresholds are raw sensor counts (the slider domain); the log
 -- transform happens later, in buildNodes. Temperature thresholds are ambient K.
 M.FIXED_BRIGHTNESS_Y = { 20.8, 30.7, 39.3, 50.6, 63.4, 70, 78.3, 88.3, 96.8, 100 }
-M.DEFAULT_BRIGHTNESS_X = { 1, 4, 10, 30, 100, 185, 400, 1000, 2200, 16384 }
+M.DEFAULT_BRIGHTNESS_X = { 0, 1, 3, 10, 33, 61, 560, 1680, 4800, 14200 }
 
 M.FIXED_TEMPERATURE_Y = { 5100, 5240, 5380, 5520, 5660, 5800, 5940, 6080, 6220, 6500 }
-M.DEFAULT_TEMPERATURE_X = { 2500, 2700, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500 }
+M.DEFAULT_TEMPERATURE_X = { 2000, 2200, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000 }
 
 --- The min, max and step of one threshold slider, exactly as plugin.toml
 --- declares it. One function for both sides: the manifest literals and the
 --- learning bounds below cannot drift apart silently, because run-tests.sh diffs
 --- them. `kind` is "brightness" or "temperature"; `index` is 1..10.
 ---
---- The windows are deliberately per-node (about a third to triple the default,
---- +/-500 K for temperature): the brightness range is 4000:1, so one shared
---- window would be unusable at one end or the other, while radical reshaping
---- stays possible in the advanced map editors.
+--- Every window is CENTERED on its default: the default the owner sees at rest
+--- must sit at the exact midpoint of the slider track, so the node has equal
+--- room to move either way. The old [d/3, 3d] rule parked the default at 25% of
+--- the track, which owners read as a slider that came mis-calibrated. The width
+--- is still per-node: the brightness domain spans 4000:1, so one shared window
+--- would be unusable at one end or the other, while radical reshaping stays
+--- possible in the advanced map editors.
+---
+--- Brightness: half-width h = max(d, 1), so the window is [0, 2d] for every
+--- d > 0. The d = 0 node CANNOT be centered on a non-negative axis -- it is the
+--- one documented exception to the midpoint rule (named in tests/curve.test.luau
+--- and tests/settings_spec.test.luau) and gets [0, 2] instead. There is
+--- deliberately no sensor-ceiling cap any more: raw readings above the sensor's
+--- 16383 ceiling are unreachable, so a threshold up there is inert -- but where
+--- a node sits is the owner's judgement, not ours.
+--- Temperature: lo = max(d - 500, 1500), hi = min(d + 500, 8000), step 50 --
+--- the same shape as always, which is already centered (with the shipped
+--- defaults neither clamp engages, so every default sits mid-track).
 function M.threshold_window(kind, index)
   local defaults
   if kind == "brightness" then
@@ -133,10 +148,10 @@ function M.threshold_window(kind, index)
   if d == nil then return nil end
 
   if kind == "brightness" then
-    local lo = math.floor(d / 3)
+    local h = math.max(d, 1) -- d = 0 still needs a half-width to move into
+    local lo = d - h
     if lo < 0 then lo = 0 end
-    local hi = d * 3
-    if hi > 16384 then hi = 16384 end -- the sensor's own ceiling
+    local hi = 2 * h -- = 2d for d > 0; = 2 for d = 0 (the documented exception)
     return lo, hi, 1
   end
   local lo = d - 500
@@ -157,7 +172,7 @@ end
 --   * a `string_list` -- an array of node strings. Still accepted: the curve is a
 --     plain list of numbers, and nothing about that needs enforcing.
 --
--- They are told apart by the *key* type, not by `#items`: a map keyed "00185" has
+-- They are told apart by the *key* type, not by `#items`: a map keyed "00061" has
 -- no integer keys at all, so `#items` is 0 for a map of any size. Getting that
 -- wrong would silently drop the whole curve.
 local function normalise(items)
@@ -193,7 +208,7 @@ end
 
 --- Read one row into x and y, plus an optional note about a key that disagrees.
 --
---   "185:70" -> x=185, y=70   the value carries the whole node
+--   "61:70" -> x=61, y=70   the value carries the whole node
 --   "70"     -> x from key    the value is just the target
 --
 -- The value always wins over the key. A stale key must never be able to move a

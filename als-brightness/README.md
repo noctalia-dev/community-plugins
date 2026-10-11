@@ -108,8 +108,8 @@ Configured in Noctalia's Settings UI, or via
 | `kbd_anchor_percent` | `int` | `40` | The **panel brightness percent** (window 25–75) that defines the keyboard threshold: the threshold is the ambient level where the *live* panel curve reaches this percent, so it tracks your sliders and learning instead of a fixed lux count. |
 | `kbd_buffer_percent` | `int` | `15` | Hysteresis half-width as a **fraction of the threshold** (15 ⇒ the band is threshold × 0.85 … × 1.15): how far ambient must travel past the threshold before the keyboard changes state again. |
 | `kbd_dark_percent` | `int` | `0` | The level (0–100) the keyboard runs at in the dark. **Zero = automatic: the lowest non-off level the LED can hold** — the host IPC is integer-only, so on a small `max_brightness` the first lit level sits well above 1 %. |
-| `thr_brightness_01` … `thr_brightness_10` | `int` | 1, 4, 10, 30, 100, 185, 400, 1000, 2200, 16384 | **One slider per curve node.** Each chooses the ambient reading (raw sensor counts) where that node takes over; what the node outputs (20.8 % … 100 %) is fixed. |
-| `thr_temperature_01` … `thr_temperature_10` | `int` | 2500 … 6500 | The panel-warmth thresholds, same idea. Shown only while `colortemp` is on. |
+| `thr_brightness_01` … `thr_brightness_10` | `int` | 0, 1, 3, 10, 33, 61, 560, 1680, 4800, 14200 | **One slider per curve node.** Each chooses the ambient reading (raw sensor counts) where that node takes over; what the node outputs (20.8 % … 100 %) is fixed. Each window is centered on its default, so the value shown at rest sits mid-track. |
+| `thr_temperature_01` … `thr_temperature_10` | `int` | 2000 … 6000 | The panel-warmth thresholds, same idea. Shown only while `colortemp` is on. |
 | `show_advanced` | `bool` | `false` | **Advanced maps.** On: reveal the two raw map editors below; Off: hidden. |
 | `curve_brightness` | `string_map` | 10 nodes | **Advanced** (behind `show_advanced`). Power-user override: one row per node, `reading:target`. Edit it and it wins over the sliders. |
 | `curve_temperature` | `string_map` | 10 nodes | **Advanced.** Same shape. |
@@ -178,10 +178,10 @@ hatch: one row per node, key the reading, value the target.
 
 ```toml
 [plugin_settings."zhangdm/als-brightness".curve_brightness]
-"00001" = "1:20.8"
-"00030" = "30:50.6"
-"00185" = "185:70"
-"16384" = "16384:100"
+"00001" = "1:30.7"
+"00033" = "33:63.4"
+"00061" = "61:70"
+"14200" = "14200:100"
 ```
 
 **A map wins over the sliders exactly when it has been edited** — judged by
@@ -194,7 +194,7 @@ back to the sliders.
 
 Two habits make map editing pleasant:
 
-* **Keys are zero-padded** (`"00185"`, not `"185"`). The editor sorts rows by key
+* **Keys are zero-padded** (`"00061"`, not `"61"`). The editor sorts rows by key
   as text, so the padding is what keeps the curve reading in numeric order down
   the page. A row you add with an unpadded key still works — it just sorts to the
   bottom.
@@ -216,9 +216,9 @@ defined against counts you can read directly:
 cat /sys/bus/iio/devices/iio:device*/in_illuminance_raw
 ```
 
-The ten shipped nodes reproduce "25 percentage points per decade of ambient light"
-around the one datum measured on the reference machine — 185 counts → 70% —
-which is why a fresh install behaves sensibly.
+The ten shipped node positions are the maintainer's hand-tuned values (2026-10)
+— node 6 sits at 61 counts → 70 % — which is why a fresh install behaves
+sensibly.
 
 ### The learned profile
 

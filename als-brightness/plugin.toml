@@ -1,6 +1,6 @@
 id = "zhangdm/als-brightness"
 name = "ALS Brightness"
-version = "0.5.0"
+version = "0.6.0"
 # Cumulative API levels. 23 = async-file-read, 24 = direct-argv. Both are used:
 # the service reads sysfs (sync readFile, measured at 0.03 ms, so the async path
 # is not needed here) and launches `noctalia msg` with an argv table rather than
@@ -100,18 +100,22 @@ visible_when = { key = "keyboard_backlight", values = ["true"] }
 # the two nodes it sits between.
 
 # Brightness: one slider per node. default = the shipped node's ambient reading
-# (raw sensor counts), min/max ≈ a third / triple of it (the top node is capped at
-# the sensor's 16384-count ceiling). The fixed output at each node lives in
-# curve.luau and is repeated in the label.
+# (raw sensor counts). min/max = [0, 2 x default] -- centered on the default, so
+# the node sits at the exact middle of its track and can move equally either way
+# (thr_brightness_01, default 0, is the one documented exception: 0 cannot be
+# centered on a non-negative axis, and gets [0, 2]). No sensor-ceiling cap: raw
+# readings above the sensor's 16383 ceiling are unreachable, so a threshold up
+# there is inert -- but where a node sits is the owner's judgement. The fixed
+# output at each node lives in curve.luau and is repeated in the label.
 
 [[setting]]
 key = "thr_brightness_01"
 type = "int"
 label_key = "settings.thr_brightness_01.label"
 description_key = "settings.thr_brightness_01.description"
-default = 1
+default = 0
 min = 0
-max = 3
+max = 2
 step = 1
 
 [[setting]]
@@ -119,9 +123,9 @@ key = "thr_brightness_02"
 type = "int"
 label_key = "settings.thr_brightness_02.label"
 description_key = "settings.thr_brightness_02.description"
-default = 4
-min = 1
-max = 12
+default = 1
+min = 0
+max = 2
 step = 1
 
 [[setting]]
@@ -129,9 +133,9 @@ key = "thr_brightness_03"
 type = "int"
 label_key = "settings.thr_brightness_03.label"
 description_key = "settings.thr_brightness_03.description"
-default = 10
-min = 3
-max = 30
+default = 3
+min = 0
+max = 6
 step = 1
 
 [[setting]]
@@ -139,9 +143,9 @@ key = "thr_brightness_04"
 type = "int"
 label_key = "settings.thr_brightness_04.label"
 description_key = "settings.thr_brightness_04.description"
-default = 30
-min = 10
-max = 90
+default = 10
+min = 0
+max = 20
 step = 1
 
 [[setting]]
@@ -149,9 +153,9 @@ key = "thr_brightness_05"
 type = "int"
 label_key = "settings.thr_brightness_05.label"
 description_key = "settings.thr_brightness_05.description"
-default = 100
-min = 33
-max = 300
+default = 33
+min = 0
+max = 66
 step = 1
 
 [[setting]]
@@ -159,9 +163,9 @@ key = "thr_brightness_06"
 type = "int"
 label_key = "settings.thr_brightness_06.label"
 description_key = "settings.thr_brightness_06.description"
-default = 185
-min = 61
-max = 555
+default = 61
+min = 0
+max = 122
 step = 1
 
 [[setting]]
@@ -169,9 +173,9 @@ key = "thr_brightness_07"
 type = "int"
 label_key = "settings.thr_brightness_07.label"
 description_key = "settings.thr_brightness_07.description"
-default = 400
-min = 133
-max = 1200
+default = 560
+min = 0
+max = 1120
 step = 1
 
 [[setting]]
@@ -179,9 +183,9 @@ key = "thr_brightness_08"
 type = "int"
 label_key = "settings.thr_brightness_08.label"
 description_key = "settings.thr_brightness_08.description"
-default = 1000
-min = 333
-max = 3000
+default = 1680
+min = 0
+max = 3360
 step = 1
 
 [[setting]]
@@ -189,9 +193,9 @@ key = "thr_brightness_09"
 type = "int"
 label_key = "settings.thr_brightness_09.label"
 description_key = "settings.thr_brightness_09.description"
-default = 2200
-min = 733
-max = 6600
+default = 4800
+min = 0
+max = 9600
 step = 1
 
 [[setting]]
@@ -199,9 +203,9 @@ key = "thr_brightness_10"
 type = "int"
 label_key = "settings.thr_brightness_10.label"
 description_key = "settings.thr_brightness_10.description"
-default = 16384
-min = 5461
-max = 16384
+default = 14200
+min = 0
+max = 28400
 step = 1
 
 # Temperature: one slider per node, default = the shipped node's ambient kelvin,
@@ -213,9 +217,9 @@ key = "thr_temperature_01"
 type = "int"
 label_key = "settings.thr_temperature_01.label"
 description_key = "settings.thr_temperature_01.description"
-default = 2500
-min = 2000
-max = 3000
+default = 2000
+min = 1500
+max = 2500
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -224,9 +228,9 @@ key = "thr_temperature_02"
 type = "int"
 label_key = "settings.thr_temperature_02.label"
 description_key = "settings.thr_temperature_02.description"
-default = 2700
-min = 2200
-max = 3200
+default = 2200
+min = 1700
+max = 2700
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -235,9 +239,9 @@ key = "thr_temperature_03"
 type = "int"
 label_key = "settings.thr_temperature_03.label"
 description_key = "settings.thr_temperature_03.description"
-default = 3000
-min = 2500
-max = 3500
+default = 2500
+min = 2000
+max = 3000
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -246,9 +250,9 @@ key = "thr_temperature_04"
 type = "int"
 label_key = "settings.thr_temperature_04.label"
 description_key = "settings.thr_temperature_04.description"
-default = 3500
-min = 3000
-max = 4000
+default = 3000
+min = 2500
+max = 3500
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -257,9 +261,9 @@ key = "thr_temperature_05"
 type = "int"
 label_key = "settings.thr_temperature_05.label"
 description_key = "settings.thr_temperature_05.description"
-default = 4000
-min = 3500
-max = 4500
+default = 3500
+min = 3000
+max = 4000
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -268,9 +272,9 @@ key = "thr_temperature_06"
 type = "int"
 label_key = "settings.thr_temperature_06.label"
 description_key = "settings.thr_temperature_06.description"
-default = 4500
-min = 4000
-max = 5000
+default = 4000
+min = 3500
+max = 4500
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -279,9 +283,9 @@ key = "thr_temperature_07"
 type = "int"
 label_key = "settings.thr_temperature_07.label"
 description_key = "settings.thr_temperature_07.description"
-default = 5000
-min = 4500
-max = 5500
+default = 4500
+min = 4000
+max = 5000
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -290,9 +294,9 @@ key = "thr_temperature_08"
 type = "int"
 label_key = "settings.thr_temperature_08.label"
 description_key = "settings.thr_temperature_08.description"
-default = 5500
-min = 5000
-max = 6000
+default = 5000
+min = 4500
+max = 5500
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -301,9 +305,9 @@ key = "thr_temperature_09"
 type = "int"
 label_key = "settings.thr_temperature_09.label"
 description_key = "settings.thr_temperature_09.description"
-default = 6000
-min = 5500
-max = 6500
+default = 5500
+min = 5000
+max = 6000
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -312,9 +316,9 @@ key = "thr_temperature_10"
 type = "int"
 label_key = "settings.thr_temperature_10.label"
 description_key = "settings.thr_temperature_10.description"
-default = 6500
-min = 6000
-max = 7000
+default = 6000
+min = 5500
+max = 6500
 step = 50
 visible_when = { key = "colortemp", values = ["true"] }
 
@@ -340,8 +344,8 @@ default = false
 # and the ambient kelvin for temperature. Two spellings both work, so the map can
 # be edited without having to keep the key in step:
 #
-#   "00185" = "185:70"   the value carries the whole node
-#   "00185" = "70"       the value is just the target; the key supplies the reading
+#   "00061" = "61:70"   the value carries the whole node
+#   "00061" = "70"       the value is just the target; the key supplies the reading
 #
 # The value always wins; the keys stay zero-padded so rows sort in numeric order.
 # A '#' starts a comment and blank rows are ignored.
@@ -354,16 +358,16 @@ description_key = "settings.curve_brightness.description"
 visible_when = { key = "show_advanced", values = ["true"] }
 
 [setting.default]
-"00001" = "1:20.8"
-"00004" = "4:30.7"
-"00010" = "10:39.3"
-"00030" = "30:50.6"
-"00100" = "100:63.4"
-"00185" = "185:70"
-"00400" = "400:78.3"
-"01000" = "1000:88.3"
-"02200" = "2200:96.8"
-"16384" = "16384:100"
+"00000" = "0:20.8"
+"00001" = "1:30.7"
+"00003" = "3:39.3"
+"00010" = "10:50.6"
+"00033" = "33:63.4"
+"00061" = "61:70"
+"00560" = "560:78.3"
+"01680" = "1680:88.3"
+"04800" = "4800:96.8"
+"14200" = "14200:100"
 
 [[setting]]
 key = "curve_temperature"
@@ -373,16 +377,16 @@ description_key = "settings.curve_temperature.description"
 visible_when = { key = "show_advanced", values = ["true"] }
 
 [setting.default]
-"02500" = "2500:5100"
-"02700" = "2700:5240"
-"03000" = "3000:5380"
-"03500" = "3500:5520"
-"04000" = "4000:5660"
-"04500" = "4500:5800"
-"05000" = "5000:5940"
-"05500" = "5500:6080"
-"06000" = "6000:6220"
-"06500" = "6500:6500"
+"02000" = "2000:5100"
+"02200" = "2200:5240"
+"02500" = "2500:5380"
+"03000" = "3000:5520"
+"03500" = "3500:5660"
+"04000" = "4000:5800"
+"04500" = "4500:5940"
+"05000" = "5000:6080"
+"05500" = "5500:6220"
+"06000" = "6000:6500"
 
 [[setting]]
 key = "enabled"
