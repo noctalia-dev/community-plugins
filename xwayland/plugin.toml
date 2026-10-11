@@ -1,0 +1,44 @@
+# XWayland Indicator - Indicator showing whether the active window is using XWayland in Umbriel.
+#
+# bar     -> shows XWayland or Wayland glyph
+# service -> the only entry that shells out to `umbriel`
+
+id = "tordex/xwayland"
+name = "XWayland Indicator"
+version = "1.0.0"
+plugin_api = 28
+author = "tordex"
+license = "MIT"
+dependencies = ["umbriel"]
+tags = ["umbriel", "bar", "utility"]
+icon = "circle-letter-x"
+description = "Indicator showing whether the active window is using XWayland in Umbriel"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  [[widget.setting]]
+  key = "xwayland_glyph"
+  type = "glyph"
+  label_key = "settings.xwayland_glyph.label"
+  description_key = "settings.xwayland_glyph.description"
+  default = "letter-x"
+
+  [[widget.setting]]
+  key = "wayland_glyph"
+  type = "glyph"
+  label_key = "settings.wayland_glyph.label"
+  description_key = "settings.wayland_glyph.description"
+  default = "letter-w"
+
+  [[widget.setting]]
+  key = "hide_on_wayland"
+  type = "bool"
+  label_key = "settings.hide_on_wayland.label"
+  description_key = "settings.hide_on_wayland.description"
+  default = true
+
+[[service]]
+id = "service"
+entry = "service.luau"

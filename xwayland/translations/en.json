@@ -1,0 +1,19 @@
+{
+  "error": {
+    "stream_failed": "Could not start `umbriel subscribe workspaces`."
+  },
+  "settings": {
+    "hide_on_wayland": {
+      "description": "Hide the bar widget on a Wayland windows is focused.",
+      "label": "Hide on Wayland window"
+    },
+    "wayland_glyph": {
+      "description": "Glyph for Wayland windows",
+      "label": "Wayland glyph"
+    },
+    "xwayland_glyph": {
+      "description": "Glyph for XWayland windows",
+      "label": "XWayland glyph"
+    }
+  }
+}
