@@ -1,0 +1,122 @@
+# Neuralwatt account on the bar: energy usage in kWh, the subscription drawing
+# it down, the account balance, and the model catalog — one panel, two tabs. One
+# headless service owns every network call; the capsule and the panel only read
+# the state it publishes.
+id = "omertahaoztop/neuralwatt"
+name = "Neuralwatt"
+version = "1.0.0"
+# 22 for require("./lib/util.luau") (shared formatting, severity and dates) and
+# 10 for keyboard_focus = "exclusive" on the panels. Everything else is older:
+# declarative ui.* trees, panel/service entries, noctalia.http, shared state and
+# noctalia.getConfig.
+plugin_api = 22
+author = "omertahaoztop"
+license = "MIT"
+icon = "bolt"
+description = "Neuralwatt energy usage in kWh, subscription and balance on the bar, with a model catalog panel."
+tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
+dependencies = []
+
+# Plugin-level settings: shared by the poller service, the bar capsule and both
+# panels, read from every entry via noctalia.getConfig(key).
+[[setting]]
+key = "api_key"
+type = "string"
+label_key = "settings.api_key.label"
+description_key = "settings.api_key.description"
+default = ""
+
+[[setting]]
+key = "refresh_interval_sec"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 600
+min = 60
+max = 86400
+
+[[setting]]
+key = "warn_percent"
+type = "int"
+label_key = "settings.warn_percent.label"
+description_key = "settings.warn_percent.description"
+default = 70
+min = 1
+max = 99
+
+[[setting]]
+key = "critical_percent"
+type = "int"
+label_key = "settings.critical_percent.label"
+description_key = "settings.critical_percent.description"
+default = 90
+min = 1
+max = 100
+
+# Palette roles for the allowance reading, so the capsule and the meter can use
+# a colour other than the theme's primary when it clashes with the rest of the
+# bar.
+[[setting]]
+key = "ok_color"
+type = "select"
+label_key = "settings.ok_color.label"
+description_key = "settings.ok_color.description"
+default = "primary"
+options = [
+  { value = "primary", label_key = "colors.primary" },
+  { value = "secondary", label_key = "colors.secondary" },
+  { value = "tertiary", label_key = "colors.tertiary" },
+  { value = "on_surface", label_key = "colors.neutral" },
+]
+
+[[setting]]
+key = "warn_color"
+type = "select"
+label_key = "settings.warn_color.label"
+description_key = "settings.warn_color.description"
+default = "secondary"
+options = [
+  { value = "secondary", label_key = "colors.secondary" },
+  { value = "tertiary", label_key = "colors.tertiary" },
+  { value = "error", label_key = "colors.error" },
+  { value = "primary", label_key = "colors.primary" },
+]
+
+# One poller feeds every capsule and both panels, so extra bar instances cost no
+# extra API calls.
+[[service]]
+id = "poller"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+  # Widget entry setting: this bar capsule's own reading.
+  [[widget.setting]]
+  key = "bar_mode"
+  type = "select"
+  label_key = "settings.bar_mode.label"
+  description_key = "settings.bar_mode.description"
+  default = "used"
+  options = [
+    { value = "used", label_key = "settings.bar_mode.option.used" },
+    { value = "remaining", label_key = "settings.bar_mode.option.remaining" },
+    { value = "percent", label_key = "settings.bar_mode.option.percent" },
+    { value = "none", label_key = "settings.bar_mode.option.none" },
+  ]
+
+# The panel floats and follows the click, so a capsule on the right of the bar
+# opens it on the right; its two tabs (usage, model catalog) share that one
+# surface, so switching to the catalog never moves the window. Users can change
+# placement, position, layer and open-near-click under Settings → Plugins.
+[[panel]]
+id = "usage"
+entry = "panel.luau"
+width = 420
+height = 480
+placement = "floating"
+position = "auto"
+open_near_click = true
+keyboard_focus = "exclusive"
+dismiss_on_outside_click = true
