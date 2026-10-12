@@ -1,6 +1,6 @@
 id           = "samuelskovbakke/calculator-plus"
 name         = "Calculator Plus"
-version      = "1.0.0"
+version      = "1.0.1"
 plugin_api   = 28
 author       = "samuelskovbakke"
 license      = "MIT"
@@ -15,6 +15,15 @@ type            = "bool"
 label_key       = "settings.notify_on_copy.label"
 description_key = "settings.notify_on_copy.description"
 default         = true
+
+[[setting]]
+key             = "history_size"
+type            = "int"
+min             = 0
+max             = 64
+label_key       = "settings.history_size.label"
+description_key = "settings.history_size.description"
+default         = 4
 
 [[setting]]
 key             = "repeat_delay_ms"

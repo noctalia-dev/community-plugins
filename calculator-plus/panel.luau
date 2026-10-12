@@ -14,10 +14,13 @@ local isEvaluating = false
 local hoveredRow = nil
 
 local notifyOnCopy = noctalia.getConfig("notify_on_copy")
+local historySize = noctalia.getConfig("history_size")
 local heldChord = nil
 local heldElapsedMs = 0
 local REPEAT_DELAY_MS = noctalia.getConfig("repeat_delay_ms")       -- pause before repeat kicks in
 local REPEAT_INTERVAL_MS = noctalia.getConfig("repeat_interval_ms") -- how fast it repeats after that
+local dir = noctalia.pluginDataDir()
+local path = dir .. "/data.json"
 
 local ROW_GAP = 8
 local ROW_RADIUS = 8
@@ -25,7 +28,21 @@ local ROW_PADDING = 8
 
 local function pushHistory(expr, result, isErr)
 	table.insert(history, { expr = expr, result = result, isError = isErr })
+	noctalia.writeFile(path, noctalia.json.encode(history))
+	checkHistorySize()
 	scrollRev = scrollRev + 1
+end
+
+function checkHistorySize()
+	local info = noctalia.fileInfo(path)
+	if info then
+		local size = info.size
+		while size > historySize * 1024^2 do
+			table.remove(history, 1)
+			noctalia.writeFile(path, noctalia.json.encode(history))
+			size = noctalia.fileInfo(path).size
+		end
+	end
 end
 
 local function historyRows()
@@ -56,9 +73,9 @@ local function historyRows()
 				fill = (hoveredRow == key) and "surface_variant/0.6" or "surface_variant/0.4",
 				onClick = function()
 					noctalia.copyToClipboard(h.result, "text/plain")
-          if notifyOnCopy then
-            noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.result }))
-          end
+					if notifyOnCopy then
+						noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.result }))
+					end
 				end,
 				onHover = "onRowHover",
 			}, {
@@ -107,11 +124,11 @@ local function header()
 			enabled = #history > 0,
 		}),
 		ui.button({
-      glyph = "x", 
-      variant = "ghost", 
-      controlSize = "sm", 
+			glyph = "x", 
+			variant = "ghost", 
+			controlSize = "sm", 
 			tooltip = noctalia.tr("panel.close"),
-      onClick = "onCloseClicked"
+			onClick = "onCloseClicked"
     }),
 	})
 end
@@ -231,7 +248,7 @@ function onEvaluate()
 	if expr == "exit" then
     panel.close()
     currentInput = ""
-   -- inputGen = inputGen + 1
+		-- inputGen = inputGen + 1
 		return
 	end
 	if expr == "clear" then
@@ -248,6 +265,7 @@ function onClear()
 	sessionExprs = {}
 	lastLineCount = 0
 	scrollRev = scrollRev + 1
+	noctalia.writeFile(path, noctalia.json.encode(history))
 	render()
 end
 
@@ -330,7 +348,7 @@ function onRowMenuAction(actionId, index)
 	elseif actionId == "copyExpr" then
     noctalia.copyToClipboard(h.expr, "text/plain")
     if notifyOnCopy then
-      noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
+		noctalia.notify(noctalia.tr("panel.title"), noctalia.tr("panel.copied", { value = h.expr }))
     end
 	elseif actionId == "delete" then
 		table.remove(history, index)
@@ -343,6 +361,9 @@ function onCloseClicked()
 end
 
 function onOpen(context)
-  heldChord = nil
+	heldChord = nil
+	inputGen = inputGen + 1
+	local raw = noctalia.readFile(path)
+	if raw then history = noctalia.json.decode(raw) end
 	render()
 end

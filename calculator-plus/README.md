@@ -32,6 +32,7 @@ expression history. Click a history row to copy its result to the clipboard.
 | Setting              | Type    | Default      | Description                                                                      |
 | -------------------- | ------- | ------------ | -------------------------------------------------------------------------------- |
 | `notify_on_copy`     | `bool`  | `true`       | Send a notification whenever an expression or result is copied to the clipboard. |
+| `history_size`       | `int`   | `4`          | Size of the history stored.                                                      |
 | `repeat_delay_ms`    | `int`   | `400`        | Change repeat delay of up/down arrow for history navigation.                     |
 | `repeat_interval_ms` | `int`   | `120`        | Change repeat interval of up/down arrow for history navigation.                  |
 | `glyph`              | `glyph` | `calculator` | Icon glyph name.                                                                 |
@@ -51,9 +52,10 @@ noctalia msg panel-toggle samuelskovbakke/calculator-plus:panel
   argument-array form (no shell interpolation), so the panel does not spawn a
   shell. Session variables persist across evaluations by re-reading the full
   expression history from that file each time.
-- The visible history list is kept only for the lifetime of plugin enablement
-  and is not persisted, it can be cleared with a button or by writing `clear` in
-  the input field. (The scratch file used internally to replay session variables
-  to `qalc` does live in the plugin's data directory, but it holds only the raw
-  expression text already visible in the history above, not anything separately
-  sensitive, and is overwritten on every evaluation.)
+- The visible history list is stored and persisted in `data.json` in the plugin's data directory,
+  and it can be cleared with a button or by writing `clear` in the input field. (The scratch file
+  used internally to replay session variables to `qalc` does live in the plugin's data directory,
+  but it holds only the raw expression text already visible in the history above, not anything
+  separately sensitive, and is overwritten on every evaluation.) The history's size limit can be
+  set by the setting `history_size`
+

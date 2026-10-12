@@ -23,6 +23,10 @@
       "description": "Send a notification whenever an expression or result is copied to the clipboard.",
       "label": "Notify on copy"
     },
+    "history_size": {
+      "description": "Size of the history stored.",
+      "label": "History size in MB"
+    },
     "repeat_delay_ms": {
       "description": "Change repeat delay of up/down arrow for history navigation.",
       "label": "Repeat delay in ms"
