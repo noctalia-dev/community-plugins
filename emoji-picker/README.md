@@ -6,17 +6,6 @@ frequently-used section that learns from what you pick. Selecting an entry
 copies it to the clipboard (and can optionally run a paste command), then
 closes the panel — built for a bind-Select-paste flow.
 
-## Before / after
-
-| Before | After |
-| --- | --- |
-| ![Before: black band around the panel, right column under the scrollbar, no tabs](screenshots/before.png) | ![After: clean panel edge, fitted grid, category tabs](screenshots/after.png) |
-
-The 1.2.0 pass fixed three long-standing presentation issues at once: the black
-band around the panel (a plugin-side root background double-painting the host's
-inside drop shadow), the rightmost grid column sliding under the overlay
-scrollbar, and the category tab strip that was built but never mounted.
-
 ## Plugin
 
 | Field | Value |
