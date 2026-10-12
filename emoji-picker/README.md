@@ -1,7 +1,7 @@
 # Emoji & Symbol Picker
 
 A Raycast-inspired emoji and Unicode symbol browser for Noctalia: instant
-fuzzy search over ~4,000 emoji and symbols, category browsing, and a
+fuzzy search over ~4,300 emoji and symbols, category browsing, and a
 frequently-used section that learns from what you pick. Selecting an entry
 copies it to the clipboard (and can optionally run a paste command), then
 closes the panel — built for a bind-Select-paste flow.
@@ -41,8 +41,22 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
   "euro", "plusminus", or paste a character itself to find it.
 - **Arrows** move the selection, **Enter** copies the selected entry and
   closes the panel, **Escape** closes without copying.
-- Without a query, the panel shows **Frequently Used** (ranked by a
-  recency-decayed frequency score) plus category tabs along the top.
+- Without a query, the panel shows category tabs along the top — **All**
+  plus the nine categories (Smileys & People, Animals & Nature, Food &
+  Drink, Activities, Travel & Places, Objects, Symbols, Characters,
+  Flags) — with **Frequently Used** (ranked by a recency-decayed
+  frequency score) pinned at the top of every tab. The picker opens on
+  Smileys & People; clicking a tab switches the grid to that category
+  (**All** shows every section and is slower).
+- While a query is active the tab strip hides: search spans all
+  categories.
+- The tile grid fits the panel: the column count comes from the panel
+  width minus its padding, and tiles grow to fill the row so the margins
+  stay thin; a scrollbar gutter is reserved so the rightmost column never
+  slides under the scrollbar (rows keep equal left/right margins). Since
+  the plugin API does not report which panel entry is open, the grid fits
+  the narrowest entry (`compact`); opening with a context string of
+  `wide`, `desktop` or `compact` fits that entry's width instead.
 - Queries that name a symbol ("euro", "gbp", "check") rank the plain
   character (€, £, ✓) above related emoji, so text symbols are one
   keystroke away too.
@@ -72,9 +86,11 @@ one (see above).
 ## Notes
 
 - **Data**: `assets/emoji.json` is committed data generated from pinned
-  Unicode sources (CLDR 47 English annotations + Unicode 16.0
-  emoji-test.txt and UnicodeData.txt) by `tools/emoji-list-gen.py`.
-  Regenerate with that script; see its docstring for the exact inputs.
+  Unicode sources (CLDR 48.2 English annotations + Emoji 18.0
+  emoji-test.txt and UnicodeData.txt from UCD 18.0.0) by
+  `tools/emoji-list-gen.py` — 4,323 entries: 3,963 emoji plus 360
+  curated Unicode symbols. Regenerate with that script; see its
+  docstring for the exact inputs.
   Licensing: CLDR data is Unicode-licensed, Unicode data files are
   Unicode-licensed; the generated dataset and this plugin's code are MIT.
 - **Files written**: one — `<plugin data dir>/usage.json`, the
@@ -89,3 +105,6 @@ one (see above).
 - `tests/` holds a self-contained search/ranking/interaction suite
   runnable with the stock `luau` CLI: `python3 tests/build_test.py --out
   /tmp/t.luau && luau /tmp/t.luau`.
+- **Panel chrome**: the panel draws on the host-owned surface — the card
+  background, rounded corners, outline and shadow belong to the shell,
+  so the plugin paints no background of its own.

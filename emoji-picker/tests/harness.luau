@@ -32,9 +32,19 @@ local function indexOf(results, char)
   return nil
 end
 
+local function entryByName(name)
+  for _, e in ipairs(DATASET) do
+    if e.n == name then
+      return e
+    end
+  end
+  return nil
+end
+
 -- ── Host API stubs ─────────────────────────────────────────────────────
 local copied = {}
 local closedPanel = 0
+local renderedTree = nil -- last tree handed to panel.render (ui nodes below)
 -- Failure-injection flags read by the stubs at CALL time (see readFile).
 local fs = { fail = false, badJson = false, raiseDecode = false }
 noctalia = {
@@ -88,13 +98,17 @@ noctalia = {
 }
 ui = setmetatable({}, {
   __index = function(_, k)
-    return function(opts)
-      return { kind = k, opts = opts }
+    return function(opts, children)
+      return { kind = k, opts = opts, children = children }
     end
   end,
 })
 panel = {
-  render = function() end,
+  -- Flag/field-driven like the fs stubs above: every picker chunk must
+  -- see the SAME panel.render closure (chunk-time global snapshots).
+  render = function(tree)
+    renderedTree = tree
+  end,
   close = function()
     closedPanel += 1
   end,
@@ -109,12 +123,14 @@ local CHUNK_TAIL = "\n\nreturn {\n"
   .. "  loadUsage = loadUsage,\n"
   .. "  search = search,\n"
   .. "  buildView = buildView,\n"
+  .. "  render = render,\n"
   .. "  recents = recents,\n"
   .. "  commit = commit,\n"
   .. "  moveSelection = moveSelection,\n"
   .. "  setQuery = function(q) query = q end,\n"
   .. "  getSel = function() return sel end,\n"
   .. "  setCat = function(c) cat = c end,\n"
+  .. "  getCat = function() return cat end,\n"
   .. "  dataLoaded = function() return data ~= nil end,\n"
   .. "  getLoadError = function() return loadError end,\n"
   .. "  firstEntry = function() return data ~= nil and data[1] or nil end,\n"
@@ -124,6 +140,17 @@ local CHUNK_TAIL = "\n\nreturn {\n"
   .. "    return ids\n"
   .. "  end,\n"
   .. "  categoryHas = function(id) return byCat[id] ~= nil and #byCat[id] > 0 end,\n"
+  .. "  fitGrid = fitGrid,\n"
+  .. "  fitWidthFor = fitWidthFor,\n"
+  .. "  gridInfo = function() return gridCols, gridCell end,\n"
+  .. "  TIERS = TIERS,\n"
+  .. "  GAP = GAP,\n"
+  .. "  TILE_CHROME = TILE_CHROME,\n"
+  .. "  SCROLLBAR_GUTTER = SCROLLBAR_GUTTER,\n"
+  .. "  ROOT_PADDING = ROOT_PADDING,\n"
+  .. "  HOST_PADDING = HOST_PADDING,\n"
+  .. "  gridRowWidth = function() return gridRowWidth end,\n"
+  .. "  PANEL_WIDTHS = { PANEL_WIDTH_BY_ID.wide, PANEL_WIDTH_BY_ID.desktop, PANEL_WIDTH_BY_ID.compact },\n"
   .. "}\n"
 
 local function freshPicker()
@@ -141,6 +168,28 @@ do
     end
   end
   check(shipped == 0, "shipped dataset carries no z blobs")
+end
+
+-- ── Emoji 18.0 additions: presence + the tone-variant dataset contract ──
+for _, name in ipairs({ "cracking face", "orca", "trombone", "lighthouse", "ballet dancer", "leftwards thumb sign" }) do
+  check(entryByName(name) ~= nil, "dataset contains new emoji " .. name)
+end
+
+do
+  -- Tone variants ship as their own rows whose names carry the "skin
+  -- tone" marker picker.luau's browse filter keys on (searchable rows,
+  -- never browse-grid clutter) — assert the dataset contract only here.
+  local allPresent = true
+  for _, tone in ipairs({ "light", "medium-light", "medium", "medium-dark", "dark" }) do
+    local row = entryByName("leftwards thumb sign: " .. tone .. " skin tone")
+    if row == nil or string.find(row.n, "skin tone", 1, true) == nil then
+      allPresent = false
+    end
+  end
+  check(allPresent, "leftwards thumb sign ships all five tone rows carrying the 'skin tone' marker")
+  local base = entryByName("leftwards thumb sign")
+  check(base ~= nil and string.find(base.n, "skin tone", 1, true) == nil, "base rows carry no tone marker")
+  check(entryByName("ballet dancer: dark skin tone") ~= nil, "ballet dancer ships tone rows")
 end
 
 local picker = freshPicker()
@@ -172,7 +221,40 @@ local cases = {
   { "check", "✓" }, { "tick", "✓" }, { "cross", "✕" },
   { "nbsp", "\u{00A0}" }, { "command", "⌘" }, { "option", "⌥" },
   { "half", "½" }, { "squared", "²" }, { "celsius", "℃" },
+  -- Curated symbol waves from the Emoji 18.0 dataset refresh.
+  { "maps to", "↦" }, { "mapsto", "↦" }, { "maps from", "↤" },
+  { "long right arrow", "⟶" }, { "onto", "↠" }, { "equilibrium", "⇌" },
+  { "caps lock", "⇪" }, { "return arrow", "↵" },
+  { "line", "─" }, { "pipe", "│" }, { "corner", "┌" },
+  { "full block", "█" }, { "block", "█" }, { "shade", "▓" },
+  { "greek cross", "✚" }, { "heavy asterisk", "✱" }, { "care of", "℅" },
+  { "integers", "ℤ" }, { "natural numbers", "ℕ" }, { "aleph", "ℵ" },
+  { "rx", "℞" }, { "liter", "ℓ" }, { "estimated", "℮" }, { "telephone", "℡" },
 }
+
+-- Broad queries keep surfacing the expected glyphs in the top results
+-- after the curated waves: the new arrow/box symbols must find
+-- themselves without crowding out the classics.
+do
+  local res = searchFor("arrow")
+  check(firstChar(res) == "↑", "arrow: up arrow stays first")
+  local right = indexOf(res, "→")
+  check(right ~= nil and right <= 5, "arrow: → in top 5")
+  local ret = indexOf(res, "↵")
+  check(ret ~= nil and ret <= 5, "arrow: new ↵ in top 5")
+
+  res = searchFor("box")
+  local boxCross = indexOf(res, "┼")
+  check(boxCross ~= nil and boxCross <= 5, "box: new ┼ in top 5")
+  local ballot = indexOf(res, "☐")
+  check(ballot ~= nil and ballot <= 8, "box: ☐ in top results")
+
+  check(firstChar(searchFor("degree")) == "°", "degree: ° stays first")
+  res = searchFor("check")
+  check(firstChar(res) == "✓", "check: ✓ stays first")
+  local heavy = indexOf(res, "✔")
+  check(heavy ~= nil and heavy <= 5, "check: ✔ in top 5")
+end
 for _, case in ipairs(cases) do
   local q, expected = case[1], case[2]
   check(firstChar(searchFor(q)) == expected, ("query %q -> %s (got %s)"):format(q, expected, tostring(firstChar(searchFor(q)))))
@@ -257,6 +339,238 @@ do
   picker.setQuery("")
   picker.buildView()
   check(closedPanel == 1, "browse buildView keeps panel state intact")
+end
+
+-- ── Tabs: the category strip is browse-only chrome ─────────────────────
+-- The strip is a row of toggle buttons (All + the nine categories) mounted
+-- above the grid while no query is active. Clicking a tab switches `cat`
+-- and rebuilds the view: fresh grid scroll container (the tab opens at its
+-- top), selection reset, Frequently Used re-pinned above the new section.
+local function keyOf(node)
+  return node.opts ~= nil and node.opts.key or nil
+end
+
+local function walkTree(node, fn)
+  if node == nil then
+    return
+  end
+  fn(node)
+  for _, child in ipairs(node.children or {}) do
+    walkTree(child, fn)
+  end
+end
+
+local function findNodes(pred)
+  local out = {}
+  walkTree(renderedTree, function(n)
+    if pred(n) then
+      table.insert(out, n)
+    end
+  end)
+  return out
+end
+
+local function tabButtons()
+  return findNodes(function(n)
+    return n.kind == "button" and type(keyOf(n)) == "string" and string.sub(keyOf(n), 1, 4) == "cat-"
+  end)
+end
+
+local function labelShown(text)
+  return #findNodes(function(n)
+    return n.kind == "label" and n.opts.text == text
+  end) > 0
+end
+
+do
+  picker.setCat("smileys")
+  picker.setQuery("")
+  picker.buildView()
+  picker.render()
+
+  -- Default view: Frequently Used pinned above the smileys section.
+  check(labelShown("Frequently Used"), "default view pins a Frequently Used section")
+  check(labelShown("Smileys & People"), "default view shows the smileys section")
+
+  -- The strip is mounted in browse view: All + every category id.
+  check(#findNodes(function(n) return keyOf(n) == "cats" end) == 1, "browse view mounts the category strip")
+  local tabs = tabButtons()
+  check(#tabs == 10, "strip renders 10 tabs (All + 9 categories), got " .. tostring(#tabs))
+  local byKey = {}
+  for _, b in ipairs(tabs) do
+    byKey[string.sub(keyOf(b), 5)] = b
+  end
+  local coversAll = byKey["all"] ~= nil
+  for _, id in ipairs(picker.categoryIds()) do
+    if byKey[id] == nil then
+      coversAll = false
+    end
+  end
+  check(coversAll, "strip covers All plus every category id")
+  check(
+    byKey["smileys"] ~= nil and byKey["smileys"].opts.variant == "secondary",
+    "smileys tab is the selected variant by default"
+  )
+  check(byKey["all"] ~= nil and byKey["all"].opts.variant == "ghost", "unselected tabs use the ghost variant")
+
+  -- Clicking a tab switches cat and rebuilds the grid content.
+  local scrollBefore = findNodes(function(n) return n.kind == "scroll" end)[1]
+  local flagsTab = byKey["flags"]
+  check(flagsTab ~= nil, "strip exposes the flags tab")
+  if flagsTab ~= nil then
+    flagsTab.opts.onClick()
+  end
+  check(picker.getCat() == "flags", "clicking the flags tab switches cat to flags")
+  check(picker.getSel() == 1, "tab click resets the keyboard selection")
+  check(labelShown("Flags"), "flags tab renders the Flags section")
+  -- Flag glyphs = pairs of regional indicators (U+1F1E6..U+1F1FF), which
+  -- share their first three UTF-8 bytes.
+  local RI_PREFIX = string.sub("\u{1F1E6}", 1, 3)
+  local flagTiles = 0
+  for _, b in ipairs(findNodes(function(n)
+    return n.kind == "button" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^t%d+$") ~= nil
+  end)) do
+    if type(b.opts.text) == "string" and string.sub(b.opts.text, 1, 3) == RI_PREFIX then
+      flagTiles += 1
+    end
+  end
+  check(flagTiles > 0, "flags tab grid shows flag glyphs")
+  local scrollAfter = findNodes(function(n) return n.kind == "scroll" end)[1]
+  check(
+    scrollBefore ~= nil and scrollAfter ~= nil and keyOf(scrollBefore) ~= keyOf(scrollAfter),
+    "tab switch rebuilds the grid scroll container"
+  )
+  check(#tabButtons() == 10, "strip stays mounted after the switch")
+  local afterKeys = {}
+  for _, b in ipairs(tabButtons()) do
+    afterKeys[string.sub(keyOf(b), 5)] = b
+  end
+  check(
+    afterKeys["flags"] ~= nil
+      and afterKeys["flags"].opts.variant == "secondary"
+      and afterKeys["smileys"] ~= nil
+      and afterKeys["smileys"].opts.variant == "ghost",
+    "selected tab follows the click"
+  )
+
+  -- Search spans all categories: the strip disappears while a query is
+  -- active and comes back when the query clears.
+  picker.setQuery("arrow")
+  picker.buildView()
+  picker.render()
+  check(#findNodes(function(n) return keyOf(n) == "cats" end) == 0, "category strip hides while a query is active")
+  check(#tabButtons() == 0, "no tab buttons while a query is active")
+  picker.setQuery("")
+  picker.buildView()
+  picker.render()
+  check(#tabButtons() == 10, "strip returns when the query clears")
+end
+
+-- The root column is layout-only: the host-owned surface paints the card
+-- chrome, so a root fill/radius would double-paint (the panel-ring fix).
+do
+  check(renderedTree ~= nil and keyOf(renderedTree) == "root", "render mounts the root column")
+  check(
+    renderedTree ~= nil and renderedTree.opts.fill == nil and renderedTree.opts.radius == nil,
+    "root column carries no fill/radius (host-owned chrome)"
+  )
+end
+
+-- ── Grid fit: a rendered row never runs under the overlay scrollbar ────
+-- The ui.scroll scrollbar is an overlay (reserves no width) and ui.button
+-- draws padding+border OUTSIDE its width/height content box, so the row
+-- budget must cover the RENDERED tile width and reserve SCROLLBAR_GUTTER.
+-- fitGrid guarantees that for every manifest panel width and every tier;
+-- the rendered tree must then spend exactly what fitGrid derived.
+do
+  check(picker.SCROLLBAR_GUTTER > 0, "scrollbar gutter is reserved (overlay scrollbar needs it)")
+
+  for _, w in ipairs(picker.PANEL_WIDTHS) do
+    local available = w - 2 * (picker.HOST_PADDING + picker.ROOT_PADDING)
+    for ti, t in ipairs(picker.TIERS) do
+      local cols, cell = picker.fitGrid(available, picker.GAP, t.cols, t.cell)
+      local rowW = cols * cell + (cols - 1) * picker.GAP
+      check(
+        picker.SCROLLBAR_GUTTER > 0
+          and cols >= 1
+          and cell > picker.TILE_CHROME
+          and rowW + picker.SCROLLBAR_GUTTER <= available,
+        ("fit invariant: tier %d on %dpx panel reserves the gutter (row %dpx + gutter %d <= %d)")
+          :format(ti, w, rowW, picker.SCROLLBAR_GUTTER, available)
+      )
+    end
+  end
+
+  -- fitWidth default and the onOpen(context) override.
+  check(
+    picker.fitWidthFor(nil) == picker.PANEL_WIDTHS[3],
+    "no context fits the narrowest manifest panel"
+  )
+  check(
+    picker.fitWidthFor("mystery-context") == picker.PANEL_WIDTHS[3],
+    "unknown context falls back to the narrowest manifest panel"
+  )
+  check(
+    picker.fitWidthFor("wide") == picker.PANEL_WIDTHS[1] and picker.fitWidthFor("compact") == picker.PANEL_WIDTHS[3],
+    "entry-id context overrides the fit width"
+  )
+
+  picker.setCat("smileys")
+  picker.setQuery("")
+  picker.buildView()
+  picker.render()
+  local cols, cell = picker.gridInfo()
+  local avail = picker.PANEL_WIDTHS[3] - 2 * (picker.HOST_PADDING + picker.ROOT_PADDING)
+  check(
+    cols == picker.fitGrid(avail, picker.GAP, picker.TIERS[1].cols, picker.TIERS[1].cell),
+    "load-time grid derives cols from the narrowest manifest panel"
+  )
+  -- Rendered rows must spend exactly the fit budget: tile nodes declare
+  -- the content box, so rendered tile = w + TILE_CHROME = gridCell, and
+  -- n tiles + gaps + gutter must fit the panel minus the root padding.
+  local rows = findNodes(function(n)
+    return n.kind == "row" and type(keyOf(n)) == "string" and string.find(keyOf(n), "^r%d+%-%d+$") ~= nil
+  end)
+  check(#rows > 0, "grid renders tile rows")
+  local budgetOk = true
+  local chromeOk = true
+  local centeredOk = true
+  for _, r in ipairs(rows) do
+    local n = #(r.children or {})
+    if r.opts.width ~= picker.gridRowWidth() or r.opts.justify ~= "center" then
+      centeredOk = false
+    end
+    if n > 0 then
+      local w0 = r.children[1].opts.width
+      if n * (w0 + picker.TILE_CHROME) + (n - 1) * picker.GAP + picker.SCROLLBAR_GUTTER > avail then
+        budgetOk = false
+      end
+      for _, tileNode in ipairs(r.children) do
+        if tileNode.opts.width + picker.TILE_CHROME ~= cell then
+          chromeOk = false
+        end
+      end
+    end
+  end
+  check(budgetOk, "rendered row budget (tiles + gaps + gutter) fits the panel minus both paddings")
+  check(chromeOk, "tile content width + TILE_CHROME equals the derived grid cell")
+  check(centeredOk, "tile rows span the row area (width) and center their tiles (justify)")
+  local scrolls = findNodes(function(n) return n.kind == "scroll" end)
+  check(
+    #scrolls == 1 and scrolls[1].opts.align == "center",
+    "grid scroll centers its children (row boxes) horizontally"
+  )
+  local labelsOk = true
+  local labelNodes = findNodes(function(n)
+    return n.kind == "label" and type(keyOf(n)) == "string" and string.sub(keyOf(n), 1, 1) == "h"
+  end)
+  check(#labelNodes > 0, "section labels render in browse view")
+  for _, n in ipairs(labelNodes) do
+    if n.opts.width ~= picker.gridRowWidth() or n.opts.textAlign ~= "left" then
+      labelsOk = false
+    end
+  end
+  check(labelsOk, "section labels share the row box and stay left-aligned")
 end
 
 -- ── Contract: search fields arrive pre-lowered/pre-indexed from the
