@@ -49,6 +49,11 @@ end
 local function esc(s)
     return (s:gsub("([\\;,\":])", "\\%1"))
 end
+-- nmcli -g output ends with a newline; strip only the trailing CR/LF so the
+-- value itself (e.g. a password ending in a space) is preserved verbatim.
+local function trimOutput(s)
+    return ((s or ""):gsub("[\r\n]+$", ""))
+end
 
 -- Run argv (no shell) and call cb(result). Dynamic values always travel as argv
 -- entries, so quoting and injection are non-issues.
@@ -151,9 +156,13 @@ local function clipBody()
         if qb ~= nil then table.insert(rows, qb) end
 
         if clip.qr ~= nil then
-            table.insert(rows, ui.button({
-                text = noctalia.tr("qr.copy"), glyph = "copy", variant = "secondary",
-                controlSize = "sm", onClick = "onCopyQr",
+            -- Wrapped in a centered row: as a bare child of the stretched body
+            -- it would span the whole panel.
+            table.insert(rows, ui.row({ justify = "center" }, {
+                ui.button({
+                    text = noctalia.tr("qr.copy"), glyph = "copy", variant = "secondary",
+                    controlSize = "sm", onClick = "onCopyQr",
+                }),
             }))
         end
     else
@@ -163,7 +172,10 @@ local function clipBody()
         }))
     end
 
-    return ui.column({ gap = 10, align = "center" }, rows)
+    -- align="stretch" so the input group spans the panel; with "center" it
+    -- shrink-wrapped to the button row below it (input only as wide as the
+    -- buttons).
+    return ui.column({ gap = 10, align = "stretch" }, rows)
 end
 
 render = function()
@@ -199,21 +211,29 @@ render = function()
 end
 
 -- ── QR generation ─────────────────────────────────────────────────────────────
--- Every QR request bumps `qrGen`. If the panel is closed (or another QR is
--- requested) while qrencode is still running, the callback sees a stale
--- generation and deletes the file it just produced. Without this, a PNG could
--- "come back to life" right after onClose() cleaned up.
+-- `qrGen` is a lifecycle token. A request captures one with newGen() BEFORE its
+-- first async call and passes it through the whole callback chain; every step
+-- re-checks it. onClose() bumps the counter, so anything still in flight stops
+-- early and deletes any file it just produced. This is what makes the
+-- "no password survives the panel" guarantee in README.md hold for every
+-- interleaving, including a close while the Wi-Fi loader is still reading nmcli.
 local qrGen = 0
+
+local function newGen()
+    qrGen += 1
+    return qrGen
+end
 
 -- path  : destination PNG
 -- payload: QR contents (already formatted)
+-- gen   : lifecycle token captured by the caller before it started loading
 -- done  : callback(ok, stale)
-local function makeQr(path, payload, done)
-    qrGen += 1
-    local gen = qrGen
-
+local function makeQr(path, payload, gen, done)
     rmFile(path)
-    run({ "qrencode", "-s", "8", "-m", "2", "-o", path, payload }, function(res)
+    -- "--" ends option parsing: a payload starting with "-" (e.g. a clipboard
+    -- line beginning with "--read-from=") must be encoded literally, never
+    -- interpreted by qrencode as an option.
+    run({ "qrencode", "-s", "8", "-m", "2", "-o", path, "--", payload }, function(res)
         local ok = (res.exitCode or 1) == 0 and noctalia.fileExists(path)
 
         if gen ~= qrGen then
@@ -235,6 +255,9 @@ end
 function onLoadWifi()
     if busy then return end
     busy, errMsg = true, nil
+    -- Capture the lifecycle token before the first async call: a close from
+    -- here on makes every later callback of this chain stale.
+    local gen = newGen()
 
     -- Delete the old file BEFORE rendering: the other order leaves the freshly
     -- rendered tree pointing at a path that is about to vanish, which logs
@@ -247,48 +270,64 @@ function onLoadWifi()
         render(); return
     end
 
-    -- Find the active Wi-Fi connection name (no user input involved).
-    run({ "nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active" }, function(res)
-        local ssid = nil
+    -- Find the active Wi-Fi connection. Match on UUID, not NAME: a profile's
+    -- connection.id is independent of the network it joins.
+    run({ "nmcli", "-t", "-f", "UUID,TYPE", "connection", "show", "--active" }, function(res)
+        if gen ~= qrGen then return end
+        local uuid = nil
         for line in (res.stdout or ""):gmatch("[^\r\n]+") do
-            local name, typ = line:match("^(.*):([^:]+)$")
-            if typ == "802-11-wireless" and name ~= nil and name ~= "" then
-                ssid = name
+            local u, typ = line:match("^(.-):([^:]+)$")
+            if typ == "802-11-wireless" and u ~= nil and u ~= "" then
+                uuid = u
                 break
             end
         end
 
-        if ssid == nil then
+        if uuid == nil then
             busy, errMsg = false, noctalia.tr("wifi.empty")
             render(); return
         end
 
-        wifi.ssid = ssid
+        -- Read the real SSID from the profile (802-11-wireless.ssid); the
+        -- connection name is not necessarily the network's SSID.
+        run({ "nmcli", "-g", "802-11-wireless.ssid",
+              "connection", "show", "uuid", uuid }, function(r2)
+            if gen ~= qrGen then return end
+            local ssid = trimOutput(r2.stdout)
 
-        -- Read the PSK (argv, so an odd SSID cannot break the call).
-        run({ "nmcli", "-s", "-g", "802-11-wireless-security.psk",
-              "connection", "show", "id", ssid }, function(r2)
-            local psk = (r2.stdout or ""):gsub("%s+$", "")
-            local payload
-            if psk == "" then
-                wifi.security = noctalia.tr("wifi.open")
-                payload = "WIFI:T:nopass;S:" .. esc(ssid) .. ";;"
-            else
-                wifi.security = "WPA"
-                payload = "WIFI:T:WPA;S:" .. esc(ssid) .. ";P:" .. esc(psk) .. ";;"
+            if ssid == "" then
+                busy, errMsg = false, noctalia.tr("wifi.empty")
+                render(); return
             end
 
-            local path = qrPath("wifi")
-            makeQr(path, payload, function(ok, stale)
-                busy = false
-                if stale then return end    -- panel closed / another QR requested
-                if ok then
-                    wifi.qr = path
-                    wifi.loaded = true
+            wifi.ssid = ssid
+
+            -- Read the PSK (argv, so an odd SSID cannot break the call).
+            run({ "nmcli", "-s", "-g", "802-11-wireless-security.psk",
+                  "connection", "show", "uuid", uuid }, function(r3)
+                if gen ~= qrGen then return end
+                local psk = trimOutput(r3.stdout)
+                local payload
+                if psk == "" then
+                    wifi.security = noctalia.tr("wifi.open")
+                    payload = "WIFI:T:nopass;S:" .. esc(ssid) .. ";;"
                 else
-                    errMsg = noctalia.tr("wifi.failed")
+                    wifi.security = "WPA"
+                    payload = "WIFI:T:WPA;S:" .. esc(ssid) .. ";P:" .. esc(psk) .. ";;"
                 end
-                render()
+
+                local path = qrPath("wifi")
+                makeQr(path, payload, gen, function(ok, stale)
+                    busy = false
+                    if stale then return end    -- panel closed / another QR requested
+                    if ok then
+                        wifi.qr = path
+                        wifi.loaded = true
+                    else
+                        errMsg = noctalia.tr("wifi.failed")
+                    end
+                    render()
+                end)
             end)
         end)
     end)
@@ -319,7 +358,8 @@ local function makeClipQr(text, source)
 
     render()
     local path = qrPath("clip")
-    makeQr(path, text, function(ok, stale)
+    local gen = newGen()
+    makeQr(path, text, gen, function(ok, stale)
         busy = false
         if stale then return end        -- panel closed / another QR requested
         if ok then
@@ -448,9 +488,9 @@ end
 
 function onClose()
 
-    -- Cancel any QR still being generated: its callback will discard the file
-    -- that just appeared, so no PNG "comes back to life" after this cleanup.
-    qrGen += 1
+    -- Cancel anything still in flight: every later callback sees a stale token,
+    -- stops early, and deletes whatever it produced.
+    newGen()
 
     -- Remove the PNGs so no Wi-Fi password or clipboard content stays on disk.
     rmFile(wifi.qr); wifi.qr = nil
