@@ -154,6 +154,7 @@ body:
         - network-control
         - network-monitor
         - network-toolkit
+        - neuralwatt
         - nextboot-selector
         - nightscout-monitor
         - niri-active-workspace

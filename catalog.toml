@@ -3623,3 +3623,16 @@ icon = "circle-letter-x"
 description = "Indicator showing whether the active window is using XWayland in Umbriel"
 plugin_api = 28
 tags = ["umbriel", "bar", "utility"]
+
+[[plugin]]
+id = "omertahaoztop/neuralwatt"
+name = "Neuralwatt"
+version = "1.0.0"
+updated_at = 1791809402
+added_at = 1791809402
+author = "omertahaoztop"
+license = "MIT"
+icon = "bolt"
+description = "Neuralwatt energy usage in kWh, subscription and balance on the bar, with a model catalog panel."
+plugin_api = 22
+tags = ["bar", "panel", "service", "ai", "indicator", "productivity"]
