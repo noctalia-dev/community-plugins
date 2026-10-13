@@ -1,0 +1,89 @@
+id           = "vinioli/openvpn3"
+name         = "OpenVPN 3"
+version      = "1.0.0"
+plugin_api   = 24
+author       = "vinioli"
+license      = "MIT"
+icon         = "shield-lock"
+description  = "Import profiles, connect, answer password and OTP prompts and monitor OpenVPN 3 Linux client sessions."
+tags         = ["bar", "panel", "service", "shortcut", "network", "privacy", "indicator"]
+dependencies = ["openvpn3", "busctl"]
+
+[[setting]]
+key             = "default_profile"
+type            = "string"
+label_key       = "settings.default_profile.label"
+description_key = "settings.default_profile.description"
+default         = ""
+
+[[setting]]
+key             = "notifications"
+type            = "bool"
+label_key       = "settings.notifications.label"
+description_key = "settings.notifications.description"
+default         = true
+
+[[setting]]
+key             = "single_session"
+type            = "bool"
+label_key       = "settings.single_session.label"
+description_key = "settings.single_session.description"
+default         = true
+
+[[setting]]
+key             = "connect_timeout"
+type            = "int"
+label_key       = "settings.connect_timeout.label"
+description_key = "settings.connect_timeout.description"
+default         = 45
+min             = 10
+max             = 300
+
+[[setting]]
+key             = "poll_seconds"
+type            = "int"
+label_key       = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default         = 5
+min             = 2
+max             = 60
+
+[[setting]]
+key       = "display_mode"
+type      = "select"
+label_key = "settings.display.label"
+default   = "name"
+options   = [
+  { value = "icon", label_key = "settings.display.icon" },
+  { value = "name", label_key = "settings.display.name" },
+]
+
+[[service]]
+id    = "service"
+entry = "service.luau"
+
+[[widget]]
+id    = "bar"
+entry = "widget.luau"
+
+[[shortcut]]
+id    = "toggle"
+entry = "shortcut.luau"
+
+[[panel]]
+id             = "panel"
+entry          = "panel.luau"
+width          = 420
+height         = 520
+placement      = "attached"
+position       = "auto"
+open_near_click = true
+
+[[panel]]
+id                = "picker"
+entry             = "picker.luau"
+width             = 560
+height            = 480
+placement         = "floating"
+position          = "center"
+keyboard_focus    = "on_demand"
