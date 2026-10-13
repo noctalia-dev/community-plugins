@@ -1,18 +1,59 @@
 {
   "months": {
-    "m1": "January", "m2": "February", "m3": "March", "m4": "April",
-    "m5": "May", "m6": "June", "m7": "July", "m8": "August",
-    "m9": "September", "m10": "October", "m11": "November", "m12": "December"
+    "m1": "January",
+    "m2": "February",
+    "m3": "March",
+    "m4": "April",
+    "m5": "May",
+    "m6": "June",
+    "m7": "July",
+    "m8": "August",
+    "m9": "September",
+    "m10": "October",
+    "m11": "November",
+    "m12": "December"
   },
   "weekdays": {
-    "mon": "Mon", "tue": "Tue", "wed": "Wed", "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun",
-    "t2": "Mon", "t3": "Tue", "t4": "Wed", "t5": "Thu", "t6": "Fri", "t7": "Sat", "cn": "Sun"
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat",
+    "sun": "Sun",
+    "t2": "Mon",
+    "t3": "Tue",
+    "t4": "Wed",
+    "t5": "Thu",
+    "t6": "Fri",
+    "t7": "Sat",
+    "cn": "Sun"
   },
   "settings": {
-    "accent_weekends": { "description": "Use the accent color for Saturday and Sunday.", "label": "Accent Weekends" },
-    "show_can_chi": { "description": "Show the traditional Can Chi year in the calendar footer.", "label": "Show Can Chi Year" },
-    "show_festivals": { "description": "Highlight common Vietnamese traditional festivals in the calendar.", "label": "Show Traditional Festivals" },
-    "show_timezone": { "description": "Show the UTC+7 calculation time zone below the month title.", "label": "Show Time Zone" }
+    "accent_weekends": {
+      "description": "Use the accent color for Saturday and Sunday.",
+      "label": "Accent Weekends"
+    },
+    "show_can_chi": {
+      "description": "Show the traditional Can Chi year in the calendar footer.",
+      "label": "Show Can Chi Year"
+    },
+    "show_festivals": {
+      "description": "Highlight common Vietnamese traditional festivals in the calendar.",
+      "label": "Show Traditional Festivals"
+    },
+    "show_timezone": {
+      "description": "Show the UTC+7 calculation time zone below the month title.",
+      "label": "Show Time Zone"
+    },
+    "font_scale": {
+      "label": "Text Size",
+      "description": "Scale all calendar text (1.0 = original size, 1.2 = 20% larger)."
+    },
+    "max_events": {
+      "label": "Desktop Widget Events",
+      "description": "How many upcoming events the desktop widget lists."
+    }
   },
   "ui": {
     "prev_month": "Previous month",
@@ -42,7 +83,9 @@
       "enter_name": "Enter an event name",
       "time_format": "Start time must look like 09:30",
       "duration_range": "Duration must be 1-1440 minutes"
-    }
+    },
+    "manage_tooltip": "Add events & manage categories",
+    "new_event": "New event"
   },
   "upcoming": {
     "all_day": "All day",

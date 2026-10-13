@@ -89,3 +89,5 @@ end
 function onClick()
     noctalia.togglePanel(PANEL_ID)
 end
+
+

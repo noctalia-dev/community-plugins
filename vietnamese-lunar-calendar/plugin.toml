@@ -1,11 +1,11 @@
 id = "notoxus/vietnamese-lunar-calendar"
 name = "Vietnamese Lunar Calendar"
-version = "1.1.0"
+version = "1.1.1"
 plugin_api = 22
 author = "notoxus"
 license = "MIT"
 dependencies = []
-tags = ["panel", "shortcut", "bar", "time", "utility"]
+tags = ["panel", "shortcut", "bar", "desktop", "time", "utility"]
 icon = "moon-stars"
 description = "Vietnamese lunar calendar with lunar dates, Can Chi and traditional festivals."
 
@@ -40,9 +40,31 @@ description_key = "settings.show_timezone.description"
 default = true
 advanced = true
 
+[[setting]]
+key = "font_scale"
+type = "double"
+label_key = "settings.font_scale.label"
+description_key = "settings.font_scale.description"
+default = 1.2
+min = 0.8
+max = 2.0
+
+[[setting]]
+key = "max_events"
+type = "int"
+label_key = "settings.max_events.label"
+description_key = "settings.max_events.description"
+default = 4
+min = 1
+max = 10
+
 [[widget]]
 id = "lunar"
 entry = "upcoming.luau"
+
+[[desktop_widget]]
+id = "calendar-desktop"
+entry = "desktop.luau"
 
 [[shortcut]]
 id = "calendar-shortcut"
@@ -51,8 +73,8 @@ entry = "shortcut.luau"
 [[panel]]
 id = "calendar"
 entry = "panel.luau"
-width = 560
-height = 540
+width = 600
+height = 580
 placement = "attached"
 position = "auto"
 open_near_click = true

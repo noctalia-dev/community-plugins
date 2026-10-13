@@ -36,6 +36,12 @@ local colorEditing = nil
 local commandSerial = 0
 local render
 
+-- Text size multiplier (Settings -> Plugins -> Vietnamese Lunar Calendar).
+local function fs(size)
+    local scale = tonumber(noctalia.getConfig("font_scale")) or 1.0
+    return math.floor(size * scale + 0.5)
+end
+
 local function today()
     return tonumber(noctalia.formatTime("%d")),
         tonumber(noctalia.formatTime("%m")),
@@ -139,6 +145,7 @@ local function addEvent()
     })
     formTitle = ""
     formSerial += 1
+    mode = "agenda"
     render()
 end
 
@@ -168,7 +175,7 @@ local function headerSection(children)
         }),
         ui.label({
             text = MONTH_NAMES[viewMonth] .. "  ·  " .. tostring(viewYear),
-            fontSize = 19,
+            fontSize = fs(19),
             fontWeight = "bold",
         }),
         ui.button({
@@ -190,7 +197,7 @@ local function gridSection(children, cats, byDate)
         table.insert(weekdayNodes, ui.label({
             key = "weekday-" .. tostring(i),
             text = name,
-            fontSize = 12,
+            fontSize = fs(12),
             fontWeight = "bold",
             textAlign = "center",
             flexGrow = 1,
@@ -228,12 +235,12 @@ local function gridSection(children, cats, byDate)
                     end,
                 }, {
                     ui.label({
-                        text = tostring(day), fontSize = 15,
+                        text = tostring(day), fontSize = fs(15),
                         fontWeight = (isToday or isSelected) and "bold" or "medium",
                         textAlign = "center",
                         color = (isToday or isSelected) and "primary" or accentWeekends and weekday >= 6 and "primary/0.85" or "on_surface",
                     }),
-                    ui.label({ text = lunarText(l), fontSize = 10, textAlign = "center", color = festival and "primary" or "on_surface/0.55" }),
+                    ui.label({ text = lunarText(l), fontSize = fs(10), textAlign = "center", color = festival and "primary" or "on_surface/0.55" }),
                     ui.row({ gap = 3, align = "center", justify = "center", minHeight = 6 }, dotsFor(byDate[key], cats)),
                 }))
             end
@@ -258,18 +265,18 @@ local function dayHeaderSection(children)
     table.insert(children, ui.separator({ spacing = 2 }))
     table.insert(children, ui.row({ align = "center", justify = "space_between", gap = 8 }, {
         ui.column({ gap = 2, flexGrow = 1 }, {
-            ui.label({ text = string.format("%02d tháng %02d, %d", selectedDay, selectedMonth, selectedYear), fontSize = 13, fontWeight = "medium" }),
-            ui.label({ text = details, fontSize = 12, color = "on_surface/0.65" }),
+            ui.label({ text = string.format("%02d tháng %02d, %d", selectedDay, selectedMonth, selectedYear), fontSize = fs(13), fontWeight = "medium" }),
+            ui.label({ text = details, fontSize = fs(12), color = "on_surface/0.65" }),
         }),
         ui.button({
-            text = noctalia.tr("ui.today"), glyph = "calendar-event", variant = "secondary", controlSize = "sm",
+            glyph = mode == "manage" and "calendar" or "settings",
+            variant = mode == "manage" and "primary" or "outline",
+            tooltip = mode == "manage" and noctalia.tr("agenda.agenda_tab") or noctalia.tr("agenda.manage_tooltip"),
+            onClick = function() mode = mode == "manage" and "agenda" or "manage"; colorEditing = nil; render() end,
+        }),
+        ui.button({
+            text = noctalia.tr("ui.today"), glyph = "calendar-event", variant = "secondary",
             onClick = function() viewMonth, viewYear = todayMonth, todayYear; selectedDay, selectedMonth, selectedYear = todayDay, todayMonth, todayYear; render() end,
-        }),
-        ui.button({
-            glyph = mode == "agenda" and "tags" or "calendar",
-            text = mode == "agenda" and noctalia.tr("agenda.categories_tab") or noctalia.tr("agenda.agenda_tab"),
-            variant = "outline", controlSize = "sm",
-            onClick = function() mode = mode == "agenda" and "categories" or "agenda"; colorEditing = nil; render() end,
         }),
     }))
 end
@@ -286,8 +293,8 @@ local function agendaSection(cats, byDate)
         if #group > 0 then
             table.insert(nodes, ui.row({ key = "grp-" .. cat.id, gap = 8, align = "center" }, {
                 ui.box({ width = 4, height = 16, radius = 2, fill = cat.color or store.DEFAULT_COLOR }),
-                ui.label({ text = cat.name, fontSize = 13, fontWeight = "bold" }),
-                ui.label({ text = tostring(#group), fontSize = 11, color = "on_surface/0.5" }),
+                ui.label({ text = cat.name, fontSize = fs(13), fontWeight = "bold" }),
+                ui.label({ text = tostring(#group), fontSize = fs(11), color = "on_surface/0.5" }),
             }))
             for _, ev in ipairs(group) do
                 local when = noctalia.tr("agenda.all_day")
@@ -295,8 +302,8 @@ local function agendaSection(cats, byDate)
                     when = store.fmtTime(ev.start) .. " – " .. store.fmtTime((ev.start or 0) + (ev.duration or 0))
                 end
                 table.insert(nodes, ui.row({ key = "ev-" .. ev.id, gap = 8, align = "center", paddingH = 12 }, {
-                    ui.label({ text = when, fontSize = 12, color = "on_surface/0.7", width = 104 }),
-                    ui.label({ text = ev.title, fontSize = 13, flexGrow = 1, maxLines = 1 }),
+                    ui.label({ text = when, fontSize = fs(12), color = "on_surface/0.7", width = 104 }),
+                    ui.label({ text = ev.title, fontSize = fs(13), flexGrow = 1, maxLines = 1 }),
                     ui.button({
                         glyph = "trash", variant = "ghost", controlSize = "sm", tooltip = noctalia.tr("agenda.delete"),
                         onClick = function() send({ action = "delete_event", id = ev.id }) end,
@@ -307,43 +314,45 @@ local function agendaSection(cats, byDate)
     end
 
     if #nodes == 0 then
-        table.insert(nodes, ui.label({ text = noctalia.tr("agenda.no_events"), fontSize = 12, color = "on_surface/0.55", textAlign = "center" }))
+        table.insert(nodes, ui.label({ text = noctalia.tr("agenda.no_events"), fontSize = fs(12), color = "on_surface/0.55", textAlign = "center" }))
     end
 
     return ui.scroll({ flexGrow = 1, minHeight = 110, gap = 6 }, nodes)
 end
 
-local function addRow(cats)
+local function addForm(cats)
     local names = {}
     for _, cat in ipairs(cats) do table.insert(names, cat.name) end
     if formCategory >= #names then formCategory = 0 end
 
-    return ui.row({ gap = 6, align = "center" }, {
+    return ui.column({ gap = 8 }, {
+        ui.label({ text = noctalia.tr("agenda.new_event"), fontSize = fs(14), fontWeight = "bold" }),
         ui.input({
             key = "ev-title-" .. formSerial, placeholder = noctalia.tr("agenda.event_name_placeholder"),
-            controlSize = "sm", flexGrow = 1,
             onChange = function(text) formTitle = tostring(text) end,
             onSubmit = function() addEvent() end,
         }),
         ui.select({
-            options = names, selectedIndex = formCategory, controlSize = "sm", width = 112,
+            options = names, selectedIndex = formCategory,
             onChange = function(index) formCategory = tonumber(index) or 0; render() end,
         }),
-        ui.input({
-            key = "ev-start", value = formStart, placeholder = "HH:MM", controlSize = "sm", width = 66,
-            enabled = not formAllDay, onChange = function(text) formStart = tostring(text) end,
+        ui.row({ gap = 8, align = "center" }, {
+            ui.input({
+                key = "ev-start", value = formStart, placeholder = "HH:MM", flexGrow = 1,
+                enabled = not formAllDay, onChange = function(text) formStart = tostring(text) end,
+            }),
+            ui.input({
+                key = "ev-duration", value = formDuration, placeholder = "min", flexGrow = 1,
+                enabled = not formAllDay, onChange = function(text) formDuration = tostring(text) end,
+            }),
+            ui.toggle({
+                checked = formAllDay,
+                onChange = function(value) formAllDay = value == "true" or value == true; render() end,
+            }),
+            ui.label({ text = noctalia.tr("agenda.all_day"), fontSize = fs(12), color = "on_surface/0.7" }),
         }),
-        ui.input({
-            key = "ev-duration", value = formDuration, placeholder = "min", controlSize = "sm", width = 54,
-            enabled = not formAllDay, onChange = function(text) formDuration = tostring(text) end,
-        }),
-        ui.toggle({
-            checked = formAllDay,
-            onChange = function(value) formAllDay = value == "true" or value == true; render() end,
-        }),
-        ui.label({ text = noctalia.tr("agenda.all_day"), fontSize = 11, color = "on_surface/0.7" }),
         ui.button({
-            text = noctalia.tr("agenda.add_btn"), glyph = "plus", variant = "primary", controlSize = "sm",
+            text = noctalia.tr("agenda.add_btn"), glyph = "plus", variant = "primary",
             onClick = function() addEvent() end,
         }),
     })
@@ -407,7 +416,16 @@ local function categoriesSection(cats)
         }),
     }))
 
-    return ui.scroll({ flexGrow = 1, minHeight = 110, gap = 8 }, nodes)
+    return ui.column({ gap = 8 }, nodes)
+end
+
+local function manageSection(cats)
+    return ui.scroll({ flexGrow = 1, minHeight = 110, gap = 12 }, {
+        addForm(cats),
+        ui.separator({ spacing = 2 }),
+        ui.label({ text = noctalia.tr("agenda.categories_tab"), fontSize = fs(14), fontWeight = "bold" }),
+        categoriesSection(cats),
+    })
 end
 
 render = function()
@@ -420,12 +438,10 @@ render = function()
     gridSection(children, cats, byDate)
     dayHeaderSection(children)
 
-    if mode == "agenda" then
-        table.insert(children, agendaSection(cats, byDate))
-        table.insert(children, ui.separator({ spacing = 2 }))
-        table.insert(children, addRow(cats))
+    if mode == "manage" then
+        table.insert(children, manageSection(cats))
     else
-        table.insert(children, categoriesSection(cats))
+        table.insert(children, agendaSection(cats, byDate))
     end
 
     panel.render(ui.column({ gap = 8, padding = 16 }, children))
@@ -450,3 +466,5 @@ end
 function onClose()
     panelIsOpen = false
 end
+
+
