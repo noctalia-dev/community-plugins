@@ -97,6 +97,18 @@ to remove that saved login.
 
 An existing personal token remains the default until you explicitly sign in through the browser. After successful browser sign-in, the saved OAuth session takes precedence over the manual token and username. Under **Account**, **Switch account** starts another browser authorization. **Manual settings** opens plugin settings while preserving the current OAuth session; it does not log out. To disconnect browser sign-in, use **Disconnect** and confirm in the panel. Disconnect removes the local OAuth session and uses an already configured manual token or username; without manual settings the plugin becomes signed out. This clears local credentials only and does not claim to revoke access at Bangumi. To revoke access remotely, use Bangumi's own application authorization controls.
 
+Temporary token-refresh failures retain the same account's cached collections,
+episode data and newly-unwatched badge state. Once credentials expire, cached
+items remain visible read-only and progress controls are disabled. The service
+retries temporary failures automatically; **Account → Retry refresh** also lets
+you retry immediately. Revoked authorization or a changed application requires
+signing in again, without erasing the cached display first.
+
+**Disconnect** clears account data only after the helper confirms success. If
+it fails or times out, the plugin checks the saved session and restores usable
+access when possible. Otherwise it keeps the cached account read-only with
+recovery controls; it does not silently switch to a different manual account.
+
 ### Shared application and maintainer migration
 
 `oauth-client.shared.json` is a tracked application profile shipped with the

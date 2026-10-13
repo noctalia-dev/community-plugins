@@ -123,6 +123,12 @@ local function publishSnapshot()
   -- OAuth completion can restore collections, covers and badge data in one
   -- callback. Serialize that large snapshot once after the callback settles.
   if snapshotPublicationDepth > 0 then return end
+  snapshot.oauthReadOnly = snapshot.authSource == "oauth"
+    and (not authReady or accessToken == "" or os.time() >= oauthExpiresAt)
+  snapshot.canWrite = authReady and snapshot.authMode == "token" and accessToken ~= ""
+    and not snapshot.oauthBusy and not snapshot.oauthReadOnly
+  snapshot.oauthCanRetry = snapshot.authSource == "oauth" and not snapshot.oauthBusy
+    and oauthRetryAt ~= math.huge
   snapshot.revision += 1
   noctalia.state.set("bgm_snapshot", snapshot)
 end
@@ -1276,14 +1282,15 @@ local UNWATCHED_MAX_CONCURRENT = 2
 local airedEpBySubject = {}    -- subjectId -> airedEp, retained across refreshes
 local badgeBaselines = {}      -- subjectId -> unwatched count at the last progress action
 
-local function clearAccountState()
-  -- Persist the old identity's pending paths before clearing or switching it.
+-- Cancel old callbacks without discarding the last account's display/cache.
+-- This is also used while logout is pending, before success is known.
+local function suspendAccountRequests()
   flushCoverPersistence()
   sessionGeneration += 1
   cancelCalendar()
   fetchInFlight = {}
   barCountRequests = {}
-  snapshot.barCounts = {}
+  for _, count in pairs(snapshot.barCounts) do count.loading = false end
   lastBarWatchingAttemptAt = 0
   coversInFlight = {}
   failedCoverUrls = {}
@@ -1293,6 +1300,20 @@ local function clearAccountState()
   snapshot.loading = false
   snapshot.refreshing = false
   snapshot.busy = false
+  profileState.inFlight = false
+  profileState.startedAt = 0
+  profileState.avatarInFlight = nil
+  profileState.requestGeneration += 1
+  unwatchedQueue = {}
+  unwatchedQueued = {}
+  unwatchedInFlight = {}
+  activeUnwatchedFetches = 0
+end
+
+local function clearAccountState()
+  -- Persist pending paths under the old identity before an actual account clear.
+  suspendAccountRequests()
+  snapshot.barCounts = {}
   snapshot.viewer = nil
   profileState = { key = "", fetchedAt = 0, attemptedAt = 0, result = nil, inFlight = false, startedAt = 0, avatarInFlight = nil, avatarAttemptedAt = 0, avatarAttemptedUrl = nil, requestGeneration = 0 }
   snapshot.unwatched = nil
@@ -1300,10 +1321,6 @@ local function clearAccountState()
   episodeCache = {}
   airedEpBySubject = {}
   badgeBaselines = {}
-  unwatchedQueue = {}
-  unwatchedQueued = {}
-  unwatchedInFlight = {}
-  activeUnwatchedFetches = 0
   for _, collection in ipairs(snapshot.collections) do
     collection.loaded = false
     collection.total = 0
@@ -1843,6 +1860,12 @@ local function useOAuthSession()
   restoreProfile(snapshot.viewer)
   authReady = true
   oauthRetryAt = 0
+  if session.relogin_required == true then
+    accessToken = ""
+    oauthRetryAt = math.huge
+    snapshot.oauthError = "oauth_invalid_grant"
+    snapshot.error = "unauthorized"
+  end
   lastAutoRefreshAt = 0
   -- OAuth helper has validated this session's user ID. Scope private data by
   -- that ID and auth source so token rotation preserves the same account cache.
@@ -1951,14 +1974,47 @@ cancelOAuth = function()
   end, attempt)
 end
 
+local function recoverAfterLogout(errorCode)
+  -- Logout may have failed before deletion, or finished without a usable reply.
+  -- Ask the helper to validate the surviving session/application before reuse.
+  runOAuth("status", function(result)
+    if result.ok and result.authenticated then
+      if useOAuthSession() then
+        if snapshot.oauthError == "" then snapshot.oauthError = errorCode end
+        if oauthExpired() then snapshot.error = "unauthorized" end
+        return
+      end
+    elseif result.ok then
+      -- No session remains: keep the old display read-only until the user
+      -- signs in again or explicitly completes disconnect. Never switch PATs.
+      oauthRetryAt = math.huge
+      snapshot.oauthError = if result.configured == false then "oauth_not_configured"
+        else "oauth_not_authenticated"
+    else
+      if result.error == "oauth_client_changed" or result.error == "oauth_invalid_grant" then
+        oauthRetryAt = math.huge
+      end
+      snapshot.oauthError = tostring(result.error or errorCode)
+    end
+    accessToken = ""
+    authReady = false
+    snapshot.error = "unauthorized"
+  end)
+end
+
 logoutOAuth = function(returnToManual)
   if snapshot.oauthOperation == "logout" then return end
-  -- Invalidate old API responses immediately, before the helper clears the session.
-  clearAccountState()
+  -- Stop reads/writes and ignore old callbacks, but retain account data until
+  -- the helper confirms deletion. A failure can then restore the same cache.
+  suspendAccountRequests()
   accessToken = ""
   authReady = false
   runOAuth("logout", function(result)
     if result.ok then
+      clearAccountState()
+      oauthExpiresAt = 0
+      snapshot.oauthExpiresAt = nil
+      oauthRetryAt = 0
       local dir = noctalia.pluginDataDir()
       if dir then
         noctalia.removeFile(dir .. "/" .. CACHE_FILE)
@@ -1973,28 +2029,28 @@ logoutOAuth = function(returnToManual)
         resumeManual()
       end
     else
-      snapshot.oauthError = tostring(result.error or "oauth_unknown_error")
+      recoverAfterLogout(tostring(result.error or "oauth_unknown_error"))
     end
   end)
 end
 
-refreshOAuth = function()
+refreshOAuth = function(force)
   if snapshot.authSource ~= "oauth" or snapshot.oauthBusy or snapshot.busy
-    or snapshot.loading or snapshot.refreshing or os.time() < oauthRetryAt then return end
+    or snapshot.loading or snapshot.refreshing or oauthRetryAt == math.huge
+    or (not force and os.time() < oauthRetryAt) then return end
   oauthRetryAt = os.time() + 60
   runOAuth("refresh", function(result)
-    if result.ok then
-      useOAuthSession()
-    else
-      snapshot.oauthError = tostring(result.error or "oauth_unknown_error")
-      if result.error == "oauth_invalid_grant" or result.error == "oauth_client_changed" then
-        oauthRetryAt = math.huge
-      end
-      if oauthExpired() then
-        clearAccountState()
-        accessToken = ""
-        snapshot.error = "unauthorized"
-      end
+    if result.ok and useOAuthSession() then return end
+    snapshot.oauthError = if result.ok then snapshot.oauthError
+      else tostring(result.error or "oauth_unknown_error")
+    local needsSignIn = result.error == "oauth_invalid_grant" or result.error == "oauth_client_changed"
+    if needsSignIn then oauthRetryAt = math.huge end
+    if needsSignIn or oauthExpired() or result.ok then
+      -- Expired/revoked credentials disable authenticated operations, but
+      -- transient network errors must not erase collections, episodes/badges.
+      suspendAccountRequests()
+      accessToken = ""
+      snapshot.error = "unauthorized"
     end
   end)
 end
@@ -2006,6 +2062,8 @@ local function processCommand(command)
   local action = command.action
   if action == "oauth_login" then
     startOAuth()
+  elseif action == "oauth_refresh" then
+    refreshOAuth(true)
   elseif action == "oauth_cancel" then
     cancelOAuth()
   elseif action == "oauth_logout" then
@@ -2023,6 +2081,11 @@ local function processCommand(command)
     if mode == "today_all" or mode == "today_watching" or mode == "newly_unwatched" or BAR_COLLECTION_TYPES[mode] then
       loadBarData(mode)
     end
+  elseif action == "open_subject" then
+    openSubject(tonumber(command.subjectId))
+  elseif action == "refresh" and snapshot.authSource == "oauth"
+    and (not authReady or oauthExpired()) then
+    if command.silent ~= true then refreshOAuth(true) end
   elseif not authReady then
     return
   elseif action == "refresh" then
@@ -2044,8 +2107,6 @@ local function processCommand(command)
     updateAnimeProgress(tonumber(command.subjectId), -1)
   elseif action == "complete" then
     markDone(tonumber(command.subjectId))
-  elseif action == "open_subject" then
-    openSubject(tonumber(command.subjectId))
   end
 end
 
@@ -2106,6 +2167,7 @@ function update()
       snapshot.oauthOperation = ""
     end
     snapshot.oauthError = "oauth_timeout"
+    if action == "logout" then recoverAfterLogout("oauth_timeout") end
     publishSnapshot()
   end
   if not authReady then return end
@@ -2139,7 +2201,11 @@ function onIpc(event, _payload)
   elseif event == "refresh_calendar" then
     loadCalendar(true)
   elseif event == "refresh" then
-    refreshAll(true)
+    if snapshot.authSource == "oauth" and (not authReady or oauthExpired()) then
+      refreshOAuth(true)
+    else
+      refreshAll(true)
+    end
   elseif event == "logout" then
     if snapshot.authSource == "oauth" or snapshot.oauthBusy then
       logoutOAuth(false)

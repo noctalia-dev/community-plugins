@@ -107,6 +107,8 @@
     "oauth_internal_error": "Browser sign-in could not finish. Please try again.",
     "oauth_manual_settings": "Manual settings",
     "oauth_disconnect": "Disconnect",
+    "oauth_retry_refresh": "Retry refresh",
+    "oauth_cached_read_only": "Cached data is shown read-only. Retry refresh or sign in again to restore authenticated access.",
     "oauth_disconnect_hint": "This removes browser sign-in from this device and switches to your configured personal token or username. If neither is configured, you will be signed out.",
     "oauth_keep_signed_in": "Keep signed in",
     "oauth_confirm_disconnect": "Confirm disconnect",

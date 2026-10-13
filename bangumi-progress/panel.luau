@@ -346,7 +346,15 @@ local function renderCover(row, width, height)
   })
 end
 
+local function canUpdateProgress()
+  return snapshot.authMode == "token" and snapshot.canWrite ~= false
+    and not snapshot.oauthBusy and not snapshot.busy
+    and (snapshot.authSource ~= "oauth" or not snapshot.oauthExpiresAt
+      or os.time() < snapshot.oauthExpiresAt)
+end
+
 local function renderRow(row)
+  local canWrite = canUpdateProgress()
   local plain = appearance.rowStyle == "plain"
   local originalSize = plain and appearance.density == "standard"
   local subjectId = row.subjectId
@@ -378,15 +386,15 @@ local function renderRow(row)
       if originalSize then 56 else density.listCoverHeight) else nil,
     ui.column({ gap = density.gap - 3, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
     ui.row({ width = 66, gap = 2, align = "center" }, {
-      ui.button({ glyph = "minus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_decrement"),
-        onClick = (current > 0 and not snapshot.busy) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = "plus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_increment"),
-        onClick = not snapshot.busy and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
+      ui.button({ glyph = "minus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
+        onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
+      ui.button({ glyph = "plus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
+        onClick = canWrite and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
     }),
     ui.row({ width = 66, gap = 2, align = "center" }, {
       ui.button({ glyph = if isDone then "check" else "circle-check", width = 32, height = 32,
-        variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"),
-        onClick = snapshot.busy and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
+        variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"), enabled = canWrite,
+        onClick = not canWrite and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
       ui.button({ glyph = "external-link", width = 32, height = 32, variant = "ghost", tooltip = tr("open"),
         onClick = function() sendCommand("open_subject", { subjectId = subjectId }) end }),
     })
@@ -394,6 +402,7 @@ local function renderRow(row)
 end
 
 local function renderGridCard(row)
+  local canWrite = canUpdateProgress()
   local subjectId = row.subjectId
   local current, total = row.epStatus or 0, row.eps or 0
   local isDone = total > 0 and current >= total
@@ -419,13 +428,13 @@ local function renderGridCard(row)
     ui.row({ gap = 5, align = "center", height = 18 }, progressChildren),
     if appearance.progressBar then ui.progress({ progress = if total > 0 then math.clamp(current / total, 0, 1) else 0, height = 4, radius = 2 }) else nil,
     ui.row({ key = "grid-actions-" .. tostring(subjectId), gap = 2, align = "center", justify = "center" }, {
-      ui.button({ glyph = "minus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_decrement"),
-        onClick = (current > 0 and not snapshot.busy) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = "plus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_increment"),
-        onClick = not snapshot.busy and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
+      ui.button({ glyph = "minus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
+        onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
+      ui.button({ glyph = "plus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
+        onClick = canWrite and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
       ui.button({ glyph = if isDone then "check" else "circle-check", width = density.actionSize, height = density.actionSize,
-        variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"),
-        onClick = snapshot.busy and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
+        variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"), enabled = canWrite,
+        onClick = not canWrite and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
       ui.button({ glyph = "external-link", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("open"),
         onClick = function() sendCommand("open_subject", { subjectId = subjectId }) end }),
     })
@@ -709,6 +718,10 @@ local function renderAuthControls(initial)
       onClick = function() clearDisconnect(); sendCommand("oauth_login") end,
     }))
     if snapshot.authSource == "oauth" then
+      if snapshot.oauthError and snapshot.oauthError ~= "" and snapshot.oauthCanRetry then
+        table.insert(actions, ui.button({ text = tr("oauth_retry_refresh"), variant = "ghost",
+          onClick = function() clearDisconnect(); sendCommand("oauth_refresh") end }))
+      end
       table.insert(actions, ui.button({ text = tr("oauth_disconnect"), variant = "ghost",
         onClick = snapshot.busy and "onNoop" or function()
           if snapshot.authSource == "oauth" and not snapshot.oauthBusy and not snapshot.busy then
@@ -739,6 +752,10 @@ local function renderAuthControls(initial)
           render()
         end }),
     }))
+  end
+  if snapshot.oauthReadOnly then
+    table.insert(controls, ui.label({ key = "auth-read-only", text = tr("oauth_cached_read_only"),
+      fontSize = 12, color = "on_surface_variant", maxLines = 3 }))
   end
   if snapshot.oauthError and snapshot.oauthError ~= "" then
     local key = if OAUTH_ERRORS[snapshot.oauthError] then snapshot.oauthError else "oauth_unknown_error"
