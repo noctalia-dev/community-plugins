@@ -5,8 +5,8 @@ local snapshot = noctalia.state.get("bgm_snapshot") or {}
 
 local COVER_WIDTH = 40
 local COVER_HEIGHT = 56
-local ROW_HEIGHT = 62
-local ROW_GAP = 4
+local ROW_HEIGHT = 64
+local ROW_GAP = 6
 local HEADER_HEIGHT = 28
 local ROOT_PADDING = 12
 local ROOT_GAP = 8
@@ -31,7 +31,9 @@ local function errorText(code)
   if code == "not_configured" then
     return tr("not_configured")
   elseif code == "unauthorized" then
-    return tr("unauthorized")
+    return tr(if snapshot.authSource == "oauth" then "oauth_unauthorized" else "unauthorized")
+  elseif code == "forbidden" then
+    return tr("forbidden")
   elseif code == "network" then
     return tr("network_error")
   elseif code == "parse" then
@@ -131,12 +133,24 @@ local function renderRow(row, showCovers, rowWidth)
   if showCovers then
     detailWidth = detailWidth - COVER_WIDTH - 8
   end
-  table.insert(children, ui.column({ width = detailWidth, minWidth = 0, gap = 4, justify = "center" }, {
-    ui.label({ text = row.title or "?", fontSize = 12, maxLines = 1, color = titleColor }),
-    ui.row({ width = detailWidth, gap = 8, align = "center" }, {
-      ui.progress({ progress = progressRatio(row), flexGrow = 1, height = 5, radius = 2 }),
-      ui.label({ text = progressText(row), fontSize = 10, color = "on_surface_variant" }),
+  detailWidth = math.max(0, detailWidth)
+  table.insert(children, ui.column({ width = detailWidth, minWidth = 0, gap = 2, justify = "center" }, {
+    ui.label({
+      text = row.title or "?",
+      fontSize = 13,
+      fontWeight = "medium",
+      maxLines = 2,
+      minWidth = 0,
+      color = titleColor,
     }),
+    ui.label({
+      text = progressText(row),
+      fontSize = 10,
+      color = "on_surface_variant",
+      maxLines = 1,
+      minWidth = 0,
+    }),
+    ui.progress({ progress = progressRatio(row), width = detailWidth, height = 5, radius = 2 }),
   }))
 
   local subjectId = row.subjectId
@@ -182,6 +196,8 @@ local function render()
       fontWeight = "bold",
       color = "primary",
       flexGrow = 1,
+      minWidth = 0,
+      maxLines = 1,
     }),
   }
   if #rows > visibleItems then
@@ -189,10 +205,14 @@ local function render()
       text = tr("page_range", { first = pageOffset + 1, last = lastIndex, total = #rows }),
       fontSize = 10,
       color = "on_surface_variant",
+      minWidth = 0,
+      maxLines = 1,
     }))
     table.insert(headerChildren, ui.button({
       glyph = "chevron-left",
       variant = "ghost",
+      width = OPEN_BUTTON_SIZE,
+      height = OPEN_BUTTON_SIZE,
       tooltip = tr("previous_page"),
       onClick = function()
         pageOffset = math.max(0, pageOffset - visibleItems)
@@ -202,6 +222,8 @@ local function render()
     table.insert(headerChildren, ui.button({
       glyph = "chevron-right",
       variant = "ghost",
+      width = OPEN_BUTTON_SIZE,
+      height = OPEN_BUTTON_SIZE,
       tooltip = tr("next_page"),
       onClick = function()
         pageOffset = math.min(maxOffset, pageOffset + visibleItems)

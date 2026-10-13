@@ -7,7 +7,19 @@
     "tooltip_network": "Network error: cannot reach api.bgm.tv",
     "tooltip_not_configured": "Not configured: add an access token or username in plugin settings",
     "tooltip_unauthorized": "Access token is invalid or expired, update it in plugin settings",
-    "tooltip_unwatched": "{count} newly unwatched since the last progress update ({series} watching)"
+    "tooltip_unwatched": "{count} newly unwatched since the last progress update ({series} watching)",
+    "tooltip_oauth_unauthorized": "Bangumi sign-in is invalid or expired. Open the panel and sign in again.",
+    "tooltip_forbidden": "Authorization does not allow this action. Check your Bangumi access permissions.",
+    "tooltip_icon_only": "Bangumi Tracking",
+    "tooltip_mode_watching": "{count} watching titles",
+    "tooltip_mode_completed": "{count} completed titles",
+    "tooltip_mode_wish": "{count} planned titles",
+    "tooltip_mode_on_hold": "{count} titles on hold",
+    "tooltip_mode_dropped": "{count} dropped titles",
+    "tooltip_mode_today_watching": "{count} watching titles on today's Bangumi calendar (reference schedule, not confirmed aired episodes)",
+    "tooltip_mode_today_all": "{count} titles on today's Bangumi calendar (reference schedule, not confirmed aired episodes)",
+    "tooltip_cached": "Cached: {message}",
+    "tooltip_cached_error": "Cached: {message} · Refresh failed: {error}"
   },
   "desktop": {
     "empty": "No watching items",
@@ -28,7 +40,9 @@
     "title": "Bangumi Tracking",
     "unauthorized": "Access token is invalid or expired, update it in plugin settings",
     "unknown_error": "Unknown error",
-    "watching_count": "{count} watching"
+    "watching_count": "{count} watching",
+    "oauth_unauthorized": "Bangumi sign-in is invalid or expired. Open the panel and sign in again.",
+    "forbidden": "Authorization does not allow this action. Check your Bangumi access permissions."
   },
   "panel": {
     "busy": "Updating, please wait",
@@ -49,7 +63,7 @@
     "no_next_episode": "No next episode to mark",
     "no_prev_episode": "No previous episode to unmark",
     "not_configured": "Not configured",
-    "not_configured_hint": "Bangumi is not configured yet. Add a personal access token (recommended) or a username (public collections only) in plugin settings.",
+    "not_configured_hint": "Sign in with Bangumi to read your collection and update progress. You can also add a personal access token or a username (public collections only) in settings.",
     "open": "Open subject page",
     "open_settings": "Open settings",
     "parse_error": "Failed to parse API response",
@@ -63,11 +77,91 @@
     "title": "Bangumi Tracking",
     "unauthorized": "Access token is invalid or expired, update it in plugin settings",
     "unknown_error": "Unknown error",
-    "updating": "Updating…"
+    "updating": "Updating…",
+    "oauth_sign_in": "Sign in with Bangumi",
+    "oauth_sign_in_again": "Switch account",
+    "oauth_cancel": "Cancel",
+    "oauth_waiting": "Complete sign-in in your browser. You can close this panel; sign-in will continue in the background.",
+    "oauth_working": "Checking Bangumi sign-in…",
+    "oauth_unauthorized": "Bangumi sign-in is invalid or expired. Sign in again to continue.",
+    "oauth_not_configured": "The maintainer has not configured browser sign-in for this build. Use a personal token in settings.",
+    "oauth_unavailable": "Browser sign-in requires python3 on PATH. Use a personal token in settings.",
+    "browser_open_failed": "Could not open the browser. Check that xdg-open is available, then try again.",
+    "callback_port_in_use": "The local sign-in port is in use. Close the other sign-in session and try again.",
+    "oauth_timeout": "Browser sign-in timed out. Try signing in again.",
+    "oauth_cancelled": "Browser sign-in cancelled.",
+    "oauth_exchange_failed": "Bangumi could not complete sign-in. Try again.",
+    "oauth_invalid_grant": "Bangumi sign-in has expired or was revoked. Sign in again.",
+    "oauth_profile_failed": "Could not verify your Bangumi account. Try signing in again.",
+    "oauth_storage_error": "Could not save Bangumi sign-in locally. Check access to the plugin data directory.",
+    "oauth_client_changed": "The browser sign-in application changed. Sign in again.",
+    "oauth_busy": "A Bangumi sign-in operation is already running. Please wait.",
+    "oauth_unknown_error": "Browser sign-in failed. Try again or use a personal token in settings.",
+    "oauth_network": "Could not reach Bangumi during sign-in. Check your connection and try again.",
+    "forbidden": "Authorization does not allow this action. Check your Bangumi access permissions.",
+    "oauth_forbidden": "Authorization does not allow this action. Check the permissions granted to the Bangumi application; you can sign in again to authorize access.",
+    "oauth_invalid_attempt": "This browser sign-in attempt is no longer valid. Start a new sign-in.",
+    "oauth_access_denied": "Bangumi authorization was declined. Sign in again to grant access, or use manual settings.",
+    "oauth_network_error": "Could not reach Bangumi during sign-in. Check your connection and try again.",
+    "oauth_not_authenticated": "No saved Bangumi browser sign-in was found. Sign in again.",
+    "oauth_internal_error": "Browser sign-in could not finish. Please try again.",
+    "oauth_manual_settings": "Manual settings",
+    "oauth_disconnect": "Disconnect",
+    "oauth_disconnect_hint": "This removes browser sign-in from this device and switches to your configured personal token or username. If neither is configured, you will be signed out.",
+    "oauth_keep_signed_in": "Keep signed in",
+    "oauth_confirm_disconnect": "Confirm disconnect",
+    "oauth_signed_in": "Signed in to Bangumi. Reopen the panel to view your collection.",
+    "oauth_signed_in_title": "Bangumi sign-in",
+    "oauth_already_completed": "Sign-in finished before it could be cancelled. Your Bangumi account is now connected.",
+    "view_collections": "Collections",
+    "view_timeline": "Airing timeline",
+    "timeline_today": "Today",
+    "timeline_week": "This week",
+    "timeline_watching": "Watching",
+    "timeline_all": "All calendar",
+    "timeline_reference_hint": "Bangumi calendar is a reference schedule by weekday. It may include future premieres and long-running series. Dates use your local week; there are no exact broadcast times or confirmations that an episode has aired.",
+    "timeline_premiere": "Premiere: {date}",
+    "timeline_premiere_unknown": "Premiere date unavailable",
+    "timeline_loading": "Loading calendar…",
+    "timeline_error": "Calendar could not refresh: {error}",
+    "timeline_retry": "Retry calendar",
+    "timeline_update_unknown": "unknown",
+    "timeline_cached": "Showing cached calendar · updated {date}",
+    "timeline_updated": "Calendar updated {date}",
+    "timeline_watching_error": "Your Watching list could not load: {error}",
+    "timeline_watching_loading": "Loading your Watching list…",
+    "timeline_watching_unloaded": "Your Watching list has not loaded. Refresh Collections to load it, or choose All calendar.",
+    "timeline_unlisted": "{count} Watching titles have no schedule in this calendar.",
+    "timeline_day": "{day} · {date} · {count} titles",
+    "timeline_today_heading": "Today · {heading}",
+    "timeline_empty_watching": "No matching Watching titles for the selected dates. Check This week or All calendar; items absent from the calendar have no schedule here.",
+    "timeline_empty_calendar": "No calendar titles for the selected dates. Future premieres are hidden until their premiere date.",
+    "timeline_unloaded": "Calendar has not loaded yet.",
+    "timeline_weekday_1": "Monday",
+    "timeline_weekday_2": "Tuesday",
+    "timeline_weekday_3": "Wednesday",
+    "timeline_weekday_4": "Thursday",
+    "timeline_weekday_5": "Friday",
+    "timeline_weekday_6": "Saturday",
+    "timeline_weekday_7": "Sunday",
+    "account": "Account",
+    "timeline_info": "Info",
+    "timeline_summary": "Weekly schedule · local dates",
+    "newly_unwatched": "{count} new unwatched",
+    "collection_status": "Collection status",
+    "timeline_dates": "Dates",
+    "timeline_titles": "Titles",
+    "layout_list": "List view",
+    "layout_grid": "Grid view",
+    "grid_progress": "{current}/{total} episodes",
+    "grid_progress_unknown": "{current} watched",
+    "grid_page": "Page {page}/{pages} · {total} titles",
+    "grid_previous": "Previous page",
+    "grid_next": "Next page"
   },
   "settings": {
     "access_token": {
-      "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv (valid about one year). When set, your own collections (including private) are read. When empty, a username below is used to read public collections anonymously.",
+      "description": "Generate at next.bgm.tv/demo/access-token while logged into bgm.tv. Reads your own collections (including private entries) and allows progress updates. A saved browser sign-in takes precedence. Disconnect browser sign-in in the panel to use this token.",
       "label": "Bangumi personal access token"
     },
     "glyph": {
@@ -82,7 +176,7 @@
       "label": "Show covers"
     },
     "username": {
-      "description": "Used to read public collections anonymously when no access token is set, e.g. sai.",
+      "description": "Used to read public collections anonymously when there is no saved browser sign-in or personal access token, e.g. sai.",
       "label": "Username"
     },
     "visible_items": {
@@ -92,6 +186,130 @@
     "widget_width": {
       "description": "Natural desktop widget width in logical pixels. Do not resize its tile in the desktop editor, or the host will still scale the content proportionally.",
       "label": "Content width"
+    },
+    "panel_default_view": {
+      "label": "Opening view",
+      "description": "Choose the view shown when the panel starts.",
+      "options": {
+        "collections": "Collections",
+        "timeline": "Airing timeline"
+      }
+    },
+    "collection_layout": {
+      "label": "Collection layout",
+      "description": "Remember the last layout, or choose the starting layout. You can still switch layouts in the panel.",
+      "options": {
+        "remember": "Remember last choice",
+        "list": "List",
+        "grid": "Cover grid"
+      }
+    },
+    "timeline_layout": {
+      "label": "Timeline layout",
+      "description": "Remember the timeline's last layout, or choose its starting layout independently of collections.",
+      "options": {
+        "remember": "Remember last choice",
+        "list": "List",
+        "grid": "Cover grid"
+      }
+    },
+    "timeline_density": {
+      "label": "Timeline density",
+      "description": "Choose cover sizes and spacing for the timeline independently of collections.",
+      "options": {
+        "inherit": "Use collection density",
+        "compact": "Compact",
+        "standard": "Balanced",
+        "comfortable": "Comfortable"
+      }
+    },
+    "timeline_show_covers": {
+      "label": "Show timeline covers",
+      "description": "Display and locally cache covers for titles in the selected timeline dates and filter."
+    },
+    "appearance_density": {
+      "label": "Collection density",
+      "description": "Adjust collection cover sizes and spacing. The timeline follows this unless its own density is selected.",
+      "options": {
+        "compact": "Compact",
+        "standard": "Balanced",
+        "comfortable": "Comfortable"
+      }
+    },
+    "collection_row_style": {
+      "label": "Collection list style",
+      "description": "Keep the original plain rows, or opt into cards with backgrounds and extra padding.",
+      "options": {
+        "plain": "Original plain rows",
+        "cards": "Cards"
+      }
+    },
+    "count_mode": {
+      "label": "Bar number",
+      "description": "Choose what the number next to this bar icon represents. Today's counts are scheduled titles, not confirmed episode releases.",
+      "options": {
+        "newly_unwatched": "Newly unwatched episodes (original)",
+        "none": "None (icon only)",
+        "watching": "Watching",
+        "completed": "Completed",
+        "wish": "Planned",
+        "on_hold": "On hold",
+        "dropped": "Dropped",
+        "today_watching": "Today's watching schedule",
+        "today_all": "Today's full schedule"
+      }
+    },
+    "collection_page_size": {
+      "label": "Titles per page",
+      "description": "Maximum collection titles displayed on each page."
+    },
+    "show_profile_avatar": {
+      "label": "Show profile avatar",
+      "description": "Display and locally cache the current account avatar."
+    },
+    "show_profile_identity": {
+      "label": "Show username and ID",
+      "description": "Display the account username and numeric Bangumi ID below the nickname."
+    },
+    "show_profile_bio": {
+      "label": "Show profile bio",
+      "description": "Show up to two lines of the account bio when available."
+    },
+    "show_collection_covers": {
+      "label": "Show collection covers",
+      "description": "Show collection cover images in list and grid layouts. Timeline covers have a separate switch."
+    },
+    "show_collection_metadata": {
+      "label": "Show collection details",
+      "description": "Show ratings and premiere dates alongside watched progress in list view."
+    },
+    "show_progress_bar": {
+      "label": "Show progress bars",
+      "description": "Show visual progress bars on collection cards."
+    },
+    "timeline_default_range": {
+      "label": "Timeline date range",
+      "description": "Choose the initial date range for the airing timeline.",
+      "options": {
+        "today": "Today",
+        "week": "This week"
+      }
+    },
+    "timeline_default_filter": {
+      "label": "Timeline titles",
+      "description": "Choose the initial collection filter for the airing timeline.",
+      "options": {
+        "watching": "Watching",
+        "all": "All calendar"
+      }
+    },
+    "timeline_show_empty_days": {
+      "label": "Show days without titles",
+      "description": "Include a compact date heading for days without matching titles."
+    },
+    "timeline_show_details": {
+      "label": "Show timeline details",
+      "description": "Show premiere dates, update time and the count of titles missing from the calendar."
     }
   }
 }

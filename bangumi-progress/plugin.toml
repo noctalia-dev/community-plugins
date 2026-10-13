@@ -1,13 +1,13 @@
 id = "mirei124/bangumi-progress"
 name = "Bangumi Progress"
-version = "1.1.0"
+version = "1.2.0"
 plugin_api = 15
 author = "Mirei124"
 license = "MIT"
 icon = "device-tv"
-description = "Track Bangumi anime and episode progress from desktop widgets, and update watched episodes from the panel."
+description = "Track Bangumi anime and episode progress, browse the airing calendar, and update watched episodes from the panel."
 tags = ["bar", "desktop", "panel", "service", "animation", "media", "network", "productivity"]
-dependencies = ["xdg-open"]
+dependencies = ["xdg-open", "python3"]
 
 [[setting]]
 key = "access_token"
@@ -31,6 +31,171 @@ description_key = "settings.refresh_minutes.description"
 default = 30
 min = 5
 max = 1440
+
+[[setting]]
+key = "panel_default_view"
+type = "select"
+label_key = "settings.panel_default_view.label"
+description_key = "settings.panel_default_view.description"
+default = "collections"
+options = [
+  { value = "collections", label_key = "settings.panel_default_view.options.collections" },
+  { value = "timeline", label_key = "settings.panel_default_view.options.timeline" },
+]
+
+[[setting]]
+key = "collection_layout"
+type = "select"
+label_key = "settings.collection_layout.label"
+description_key = "settings.collection_layout.description"
+default = "remember"
+options = [
+  { value = "remember", label_key = "settings.collection_layout.options.remember" },
+  { value = "list", label_key = "settings.collection_layout.options.list" },
+  { value = "grid", label_key = "settings.collection_layout.options.grid" },
+]
+
+[[setting]]
+key = "timeline_layout"
+type = "select"
+label_key = "settings.timeline_layout.label"
+description_key = "settings.timeline_layout.description"
+default = "remember"
+options = [
+  { value = "remember", label_key = "settings.timeline_layout.options.remember" },
+  { value = "list", label_key = "settings.timeline_layout.options.list" },
+  { value = "grid", label_key = "settings.timeline_layout.options.grid" },
+]
+
+[[setting]]
+key = "timeline_density"
+type = "select"
+label_key = "settings.timeline_density.label"
+description_key = "settings.timeline_density.description"
+default = "inherit"
+options = [
+  { value = "inherit", label_key = "settings.timeline_density.options.inherit" },
+  { value = "compact", label_key = "settings.timeline_density.options.compact" },
+  { value = "standard", label_key = "settings.timeline_density.options.standard" },
+  { value = "comfortable", label_key = "settings.timeline_density.options.comfortable" },
+]
+
+[[setting]]
+key = "timeline_show_covers"
+type = "bool"
+label_key = "settings.timeline_show_covers.label"
+description_key = "settings.timeline_show_covers.description"
+default = true
+
+[[setting]]
+key = "appearance_density"
+type = "select"
+label_key = "settings.appearance_density.label"
+description_key = "settings.appearance_density.description"
+default = "standard"
+options = [
+  { value = "compact", label_key = "settings.appearance_density.options.compact" },
+  { value = "standard", label_key = "settings.appearance_density.options.standard" },
+  { value = "comfortable", label_key = "settings.appearance_density.options.comfortable" },
+]
+
+[[setting]]
+key = "collection_row_style"
+type = "select"
+label_key = "settings.collection_row_style.label"
+description_key = "settings.collection_row_style.description"
+default = "plain"
+options = [
+  { value = "plain", label_key = "settings.collection_row_style.options.plain" },
+  { value = "cards", label_key = "settings.collection_row_style.options.cards" },
+]
+
+[[setting]]
+key = "collection_page_size"
+type = "int"
+label_key = "settings.collection_page_size.label"
+description_key = "settings.collection_page_size.description"
+default = 24
+min = 12
+max = 60
+
+[[setting]]
+key = "show_profile_avatar"
+type = "bool"
+label_key = "settings.show_profile_avatar.label"
+description_key = "settings.show_profile_avatar.description"
+default = false
+
+[[setting]]
+key = "show_profile_identity"
+type = "bool"
+label_key = "settings.show_profile_identity.label"
+description_key = "settings.show_profile_identity.description"
+default = false
+
+[[setting]]
+key = "show_profile_bio"
+type = "bool"
+label_key = "settings.show_profile_bio.label"
+description_key = "settings.show_profile_bio.description"
+default = false
+
+[[setting]]
+key = "show_collection_covers"
+type = "bool"
+label_key = "settings.show_collection_covers.label"
+description_key = "settings.show_collection_covers.description"
+default = true
+
+[[setting]]
+key = "show_collection_metadata"
+type = "bool"
+label_key = "settings.show_collection_metadata.label"
+description_key = "settings.show_collection_metadata.description"
+default = true
+
+[[setting]]
+key = "show_progress_bar"
+type = "bool"
+label_key = "settings.show_progress_bar.label"
+description_key = "settings.show_progress_bar.description"
+default = false
+
+[[setting]]
+key = "timeline_default_range"
+type = "select"
+label_key = "settings.timeline_default_range.label"
+description_key = "settings.timeline_default_range.description"
+default = "today"
+options = [
+  { value = "today", label_key = "settings.timeline_default_range.options.today" },
+  { value = "week", label_key = "settings.timeline_default_range.options.week" },
+]
+
+[[setting]]
+key = "timeline_default_filter"
+type = "select"
+label_key = "settings.timeline_default_filter.label"
+description_key = "settings.timeline_default_filter.description"
+default = "watching"
+options = [
+  { value = "watching", label_key = "settings.timeline_default_filter.options.watching" },
+  { value = "all", label_key = "settings.timeline_default_filter.options.all" },
+]
+
+[[setting]]
+key = "timeline_show_empty_days"
+type = "bool"
+label_key = "settings.timeline_show_empty_days.label"
+description_key = "settings.timeline_show_empty_days.description"
+default = false
+
+[[setting]]
+key = "timeline_show_details"
+type = "bool"
+label_key = "settings.timeline_show_details.label"
+description_key = "settings.timeline_show_details.description"
+default = false
 
 [[desktop_widget]]
 id = "tracker"
@@ -71,11 +236,29 @@ entry = "bar.luau"
   label_key = "settings.glyph.label"
   default = "device-tv"
 
+  [[widget.setting]]
+  key = "count_mode"
+  type = "select"
+  label_key = "settings.count_mode.label"
+  description_key = "settings.count_mode.description"
+  default = "newly_unwatched"
+  options = [
+    { value = "newly_unwatched", label_key = "settings.count_mode.options.newly_unwatched" },
+    { value = "none", label_key = "settings.count_mode.options.none" },
+    { value = "watching", label_key = "settings.count_mode.options.watching" },
+    { value = "completed", label_key = "settings.count_mode.options.completed" },
+    { value = "wish", label_key = "settings.count_mode.options.wish" },
+    { value = "on_hold", label_key = "settings.count_mode.options.on_hold" },
+    { value = "dropped", label_key = "settings.count_mode.options.dropped" },
+    { value = "today_watching", label_key = "settings.count_mode.options.today_watching" },
+    { value = "today_all", label_key = "settings.count_mode.options.today_all" },
+  ]
+
 [[panel]]
 id = "library"
 entry = "panel.luau"
 width = 760
-height = 640
+height = 720
 placement = "floating"
 position = "center"
 
