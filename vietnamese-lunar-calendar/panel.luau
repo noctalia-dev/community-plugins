@@ -466,5 +466,3 @@ end
 function onClose()
     panelIsOpen = false
 end
-
-

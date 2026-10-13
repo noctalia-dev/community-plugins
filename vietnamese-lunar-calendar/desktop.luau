@@ -20,7 +20,7 @@ local viewYear = tonumber(noctalia.formatTime("%Y"))
 local data = noctalia.state.get("calendar")
 
 local function fs(size)
-    local scale = tonumber(desktopWidget.getConfig("font_scale")) or 1.0
+    local scale = tonumber(noctalia.getConfig("font_scale")) or 1.0
     return math.floor(size * scale + 0.5)
 end
 
@@ -142,7 +142,7 @@ local function todayInfo()
 end
 
 local function upcomingList()
-    local maxItems = math.max(1, math.floor(tonumber(desktopWidget.getConfig("max_events")) or 4))
+    local maxItems = math.max(1, math.floor(tonumber(noctalia.getConfig("max_events")) or 4))
     local nowMinutes = store.parseTime(noctalia.formatTime("%H:%M")) or 0
     local list = store.upcoming(data, maxItems, noctalia.formatTime("%Y-%m-%d"), nowMinutes)
     local nodes = {}
