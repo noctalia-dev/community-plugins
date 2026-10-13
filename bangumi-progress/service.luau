@@ -72,6 +72,9 @@ local COVER_PERSIST_INTERVAL_MS = 1000
 local lastAutoRefreshAt = 0
 local sessionGeneration = 0
 local persistCache
+local pendingEpisodePersistence = false
+local episodePersistDueAt = 0
+local EPISODE_PERSIST_INTERVAL_MS = 1000
 local authReady = false
 local oauthExpiresAt = 0
 local oauthRetryAt = 0
@@ -1208,11 +1211,46 @@ local function todayString()
   return os.date("%Y-%m-%d")
 end
 
+-- Batch episode metadata while broadcast requests are active. Keep a fixed
+-- deadline so a slow/continuous queue cannot postpone persistence indefinitely.
+local unwatchedQueue = {}
+local unwatchedQueued = {}     -- subjectId -> true
+local unwatchedInFlight = {}   -- subjectId -> true
+local activeUnwatchedFetches = 0
+local activeEpisodeFetches = 0
+
+local function flushEpisodePersistence()
+  if not pendingEpisodePersistence then return end
+  persistCache()
+  syncInterval()
+end
+
+local function flushDrainedEpisodes()
+  if activeEpisodeFetches == 0 and activeUnwatchedFetches == 0 and #unwatchedQueue == 0 then
+    flushEpisodePersistence()
+  end
+end
+
 local function fetchEpisodes(subjectId, cb, force)
   local generation = sessionGeneration
   if not force and episodeCache[subjectId] and fresh(episodeCache[subjectId].fetchedAt) then
     cb(episodeCache[subjectId])
     return
+  end
+  activeEpisodeFetches += 1
+  local function complete(cache)
+    activeEpisodeFetches -= 1
+    if cache then
+      episodeCache[subjectId] = cache
+      pendingEpisodePersistence = true
+      if episodePersistDueAt == 0 then
+        episodePersistDueAt = noctalia.nowMs() + EPISODE_PERSIST_INTERVAL_MS
+      end
+      syncInterval()
+    end
+    -- The caller applies aired progress to the current rows before persistence.
+    cb(cache)
+    if generation == sessionGeneration then flushDrainedEpisodes() end
   end
   local byEp = {}
   local maxEp = 0
@@ -1226,17 +1264,17 @@ local function fetchEpisodes(subjectId, cb, force)
         return
       end
       if not ok or status ~= 200 then
-        cb(nil)
+        complete(nil)
         return
       end
       local parsedOk, parsed = pcall(noctalia.json.decode, body)
       if not parsedOk or type(parsed) ~= "table" then
-        cb(nil)
+        complete(nil)
         return
       end
       local page = parsed.data
       if type(page) ~= "table" then
-        cb(nil)
+        complete(nil)
         return
       end
       for _, e in ipairs(page) do
@@ -1259,11 +1297,7 @@ local function fetchEpisodes(subjectId, cb, force)
         nextPage()
       else
         local cache = { byEp = byEp, maxEp = maxEp, airedEp = airedEp, fetchedAt = os.time() }
-        episodeCache[subjectId] = cache
-        if persistCache then
-          persistCache()
-        end
-        cb(cache)
+        complete(cache)
       end
     end)
   end
@@ -1274,10 +1308,6 @@ end
 -- For unfinished Watching entries, count aired but unwatched episodes
 -- (airedEp - epStatus). The bar reports additions since the last progress
 -- update. airedEpBySubject preserves broadcast progress across row refreshes.
-local unwatchedQueue = {}
-local unwatchedQueued = {}     -- subjectId -> true
-local unwatchedInFlight = {}   -- subjectId -> true
-local activeUnwatchedFetches = 0
 local UNWATCHED_MAX_CONCURRENT = 2
 local airedEpBySubject = {}    -- subjectId -> airedEp, retained across refreshes
 local badgeBaselines = {}      -- subjectId -> unwatched count at the last progress action
@@ -1286,6 +1316,7 @@ local badgeBaselines = {}      -- subjectId -> unwatched count at the last progr
 -- This is also used while logout is pending, before success is known.
 local function suspendAccountRequests()
   flushCoverPersistence()
+  flushEpisodePersistence()
   sessionGeneration += 1
   cancelCalendar()
   fetchInFlight = {}
@@ -1308,6 +1339,7 @@ local function suspendAccountRequests()
   unwatchedQueued = {}
   unwatchedInFlight = {}
   activeUnwatchedFetches = 0
+  activeEpisodeFetches = 0
 end
 
 local function clearAccountState()
@@ -1425,6 +1457,9 @@ persistCache = function()
     episodes = episodes,
   }
   noctalia.writeFile(dir .. "/" .. CACHE_FILE, noctalia.json.encode(payload))
+  -- Collection/progress writes already include all completed episode metadata.
+  pendingEpisodePersistence = false
+  episodePersistDueAt = 0
 end
 
 local function loadPersistentCache(mode, configuredUsername)
@@ -1586,6 +1621,8 @@ processUnwatchedQueue = function()
       processUnwatchedQueue()
     end, true)
   end
+  -- Cache-hit callbacks may complete synchronously without a network response.
+  flushDrainedEpisodes()
 end
 
 local function patchEpisodes(subjectId, episodeIds, epType, cb)
@@ -2128,12 +2165,14 @@ syncInterval = function()
     ms = 2000
   end
   if pendingCoverCollections or pendingCoverCalendar then ms = math.min(ms, COVER_PERSIST_INTERVAL_MS) end
+  if pendingEpisodePersistence then ms = math.min(ms, EPISODE_PERSIST_INTERVAL_MS) end
   noctalia.setUpdateInterval(ms)
 end
 
 function update()
   syncInterval()
   if coverPersistDueAt > 0 and noctalia.nowMs() >= coverPersistDueAt then flushCoverPersistence() end
+  if episodePersistDueAt > 0 and noctalia.nowMs() >= episodePersistDueAt then flushEpisodePersistence() end
   local barCountsChanged = false
   for key, request in pairs(barCountRequests) do
     if request.inFlight and noctalia.nowMs() - request.startedAt >= BAR_COUNT_TIMEOUT_MS then

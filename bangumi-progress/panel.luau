@@ -368,7 +368,7 @@ local function renderRow(row)
     table.insert(titleChildren, ui.glyph({ name = "check", size = 13, color = "primary" }))
   end
   table.insert(titleChildren, ui.label({ text = row.title or "?", fontSize = density.fontSize,
-    fontWeight = "medium", maxLines = 1, flexGrow = 1,
+    fontWeight = "medium", maxLines = 1, width = 0, flexGrow = 1, minWidth = 0,
     color = if isDone then "primary" else "on_surface" }))
   local subtitle = subtitleText(row)
   if hasNew then subtitle = subtitle .. " · " .. tr("newly_unwatched", { count = row.newlyUnwatched }) end
@@ -384,7 +384,7 @@ local function renderRow(row)
     radius = if plain then 0 else 8, fill = if plain then nil else "surface_variant" }, childrenWithOptions(
     if appearance.covers then renderCover(row, if originalSize then 40 else density.listCoverWidth,
       if originalSize then 56 else density.listCoverHeight) else nil,
-    ui.column({ gap = density.gap - 3, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
+    ui.column({ key = "entry-details-" .. tostring(subjectId), gap = density.gap - 3, width = 0, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
     ui.row({ width = 66, gap = 2, align = "center" }, {
       ui.button({ glyph = "minus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
         onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
@@ -428,14 +428,14 @@ local function renderGridCard(row)
     ui.row({ gap = 5, align = "center", height = 18 }, progressChildren),
     if appearance.progressBar then ui.progress({ progress = if total > 0 then math.clamp(current / total, 0, 1) else 0, height = 4, radius = 2 }) else nil,
     ui.row({ key = "grid-actions-" .. tostring(subjectId), gap = 2, align = "center", justify = "center" }, {
-      ui.button({ glyph = "minus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
+      ui.button({ glyph = "minus", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
         onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = "plus", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
+      ui.button({ glyph = "plus", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
         onClick = canWrite and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = if isDone then "check" else "circle-check", width = density.actionSize, height = density.actionSize,
+      ui.button({ glyph = if isDone then "check" else "circle-check", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize,
         variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"), enabled = canWrite,
         onClick = not canWrite and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
-      ui.button({ glyph = "external-link", width = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("open"),
+      ui.button({ glyph = "external-link", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("open"),
         onClick = function() sendCommand("open_subject", { subjectId = subjectId }) end }),
     })
   )
@@ -519,7 +519,7 @@ local function renderTimelineRow(row, watching)
   return ui.row({ key = "timeline-entry-" .. tostring(row.subjectId), gap = density.rowGap, align = "center",
     padding = density.rowPadding, radius = 8, fill = "surface_variant" }, childrenWithOptions(
     if appearance.timelineCovers then renderCover(cover, density.listCoverWidth, density.listCoverHeight) else nil,
-    ui.column({ gap = density.gap - 3, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
+    ui.column({ key = "timeline-entry-details-" .. tostring(row.subjectId), gap = density.gap - 3, width = 0, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
     ui.button({ glyph = "external-link", width = 32, height = 32, variant = "ghost", tooltip = tr("open"),
       onClick = function() sendCommand("open_subject", { subjectId = row.subjectId }) end })
   ))
@@ -635,10 +635,14 @@ local function renderTimeline()
         total += #rows
         if #rows > 0 or appearance.emptyDays then
           local heading = tr("timeline_day", { day = tr("timeline_weekday_" .. tostring(weekday)), date = date, count = #rows })
-          if date == today then heading = tr("timeline_today_heading", { heading = heading }) end
-          local dayChildren = { ui.label({ text = heading, fontSize = density.fontSize - 1,
-            fontWeight = if date == today then "bold" else "medium",
-            color = if date == today then "primary" else "on_surface_variant" }) }
+          local dayChildren = { ui.row({ key = "timeline-day-heading-" .. tostring(weekday), gap = 8, align = "center" }, childrenWithOptions(
+            ui.label({ key = "timeline-day-label-" .. tostring(weekday), text = heading, fontSize = density.fontSize - 1,
+              flexGrow = 1, minWidth = 0, maxLines = 1,
+              fontWeight = if date == today then "bold" else "medium",
+              color = if date == today then "primary" else "on_surface_variant" }),
+            if date == today then ui.label({ key = "timeline-today-marker", text = tr("timeline_today"),
+              fontSize = density.fontSize - 1, fontWeight = "bold", color = "primary" }) else nil
+          )) }
           if #rows > 0 then
             local entries = {}
             if timelineLayout == "grid" then
@@ -659,7 +663,10 @@ local function renderTimeline()
             table.insert(dayChildren, ui.column({ gap = density.gap - 2, align = "stretch" }, entries))
           end
           table.insert(content, ui.column({ key = "timeline-day-" .. tostring(weekday), gap = density.gap - 2,
-            padding = if #rows > 0 then (if timelineLayout == "grid" then 0 else 4) else { left = 4, right = 4, top = 2, bottom = 2 },
+            -- The scroll viewport owns the horizontal inset for every date.
+            -- Empty headings and both entry layouts must share that same edge.
+            padding = { top = if #rows == 0 then 2 elseif timelineLayout == "list" then 4 else 0,
+              bottom = if #rows == 0 then 2 elseif timelineLayout == "list" then 4 else 0 },
             align = "stretch" }, dayChildren))
         end
       end
@@ -859,19 +866,18 @@ local function renderContent()
         if filter.type ~= activeType then setFilter(filter.type) end
       end }))
   end
-  table.insert(children, ui.row({ key = "collection-controls", gap = 8, paddingH = 4, align = "center" }, {
-    ui.row({ gap = 4, align = "center", flexGrow = 1, minWidth = 0 }, filterButtons),
-    ui.row({ gap = 2, align = "center" }, {
-      ui.button({ key = "collection-layout-list", glyph = "list", width = 30, height = 30,
-        tooltip = tr("layout_list"), selected = collectionLayout == "list",
-        variant = if collectionLayout == "list" then "primary" else "ghost",
-        onClick = function() setCollectionLayout("list") end }),
-      ui.button({ key = "collection-layout-grid", glyph = "layout-grid", width = 30, height = 30,
-        tooltip = tr("layout_grid"), selected = collectionLayout == "grid",
-        variant = if collectionLayout == "grid" then "primary" else "ghost",
-        onClick = function() setCollectionLayout("grid") end }),
-    }),
-  }))
+  -- Give status labels their own width; layout controls share the page toolbar.
+  table.insert(children, ui.row({ key = "collection-controls", gap = 4, paddingH = 4, align = "center" }, filterButtons))
+  local layoutControls = ui.row({ gap = 2, align = "center" }, {
+    ui.button({ key = "collection-layout-list", glyph = "list", width = 30, height = 30,
+      tooltip = tr("layout_list"), selected = collectionLayout == "list",
+      variant = if collectionLayout == "list" then "primary" else "ghost",
+      onClick = function() setCollectionLayout("list") end }),
+    ui.button({ key = "collection-layout-grid", glyph = "layout-grid", width = 30, height = 30,
+      tooltip = tr("layout_grid"), selected = collectionLayout == "grid",
+      variant = if collectionLayout == "grid" then "primary" else "ghost",
+      onClick = function() setCollectionLayout("grid") end }),
+  })
 
   -- Status message
   if snapshot.loading then
@@ -884,6 +890,9 @@ local function renderContent()
   local collection = collectionOf(activeType)
   local rows = collection and collection.rows or {}
   if #rows == 0 then
+    table.insert(children, ui.row({ key = "collection-toolbar", gap = 6, paddingH = 4, align = "center" }, {
+      ui.spacer({ flexGrow = 1 }), layoutControls,
+    }))
     if not snapshot.loading and (not snapshot.error or snapshot.error == "" or snapshot.error == "empty") then
       table.insert(children, ui.label({ text = tr("empty"), color = "on_surface_variant" }))
     end
@@ -911,7 +920,8 @@ local function renderContent()
     local last = math.min(gridPage * appearance.pageSize, #displayRows)
     table.insert(children, ui.row({ key = "grid-pagination", gap = 6, paddingH = 4, align = "center" }, {
       ui.label({ text = tr("grid_page", { page = gridPage, pages = pageCount, total = #displayRows }),
-        fontSize = 11, color = "on_surface_variant", flexGrow = 1 }),
+        fontSize = 11, color = "on_surface_variant", flexGrow = 1, minWidth = 0, maxLines = 1 }),
+      layoutControls,
       ui.button({ key = "grid-previous", glyph = "chevron-left", width = 30, height = 30, variant = "ghost",
         tooltip = tr("grid_previous"), onClick = if gridPage > 1 then function() gridPage -= 1; render() end else "onNoop" }),
       ui.button({ key = "grid-next", glyph = "chevron-right", width = 30, height = 30, variant = "ghost",
