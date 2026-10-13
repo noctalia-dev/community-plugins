@@ -2,7 +2,7 @@
 
 Track anime from [bgm.tv](https://bgm.tv) on the Noctalia desktop. See newly aired episodes, browse every collection status, and update watched progress without leaving the panel.
 
-> Browser sign-in is optional and requires a maintainer-provided application profile. Application credentials are excluded from Git; the maintainer must choose how to supply a configured release. Personal access tokens and public username access remain available without that profile.
+> Browser sign-in uses the shared Bangumi application included with the plugin. Users authorize their own accounts in the browser; no API application registration or client configuration is needed. Personal access tokens and public username access remain available.
 
 ## Plugin
 
@@ -14,7 +14,7 @@ Track anime from [bgm.tv](https://bgm.tv) on the Noctalia desktop. See newly air
 ## Requirements
 
 - Network access to `api.bgm.tv` and cover hosts such as `lain.bgm.tv`; browser sign-in also contacts `bgm.tv`.
-- Browser sign-in requires a maintainer-provided application profile, `python3`, and `xdg-open` on `PATH`.
+- Browser sign-in requires `python3` and `xdg-open` on `PATH`; the application profile is bundled.
 - A saved browser sign-in or a [Bangumi personal access token](https://next.bgm.tv/demo/access-token) is required to update progress or read private entries. A username alone provides read-only access to public collections.
 - `xdg-open` opens subject and profile pages and the browser sign-in page.
 
@@ -27,7 +27,7 @@ information is blurred in these user-provided screenshots.
 ![Collection cover grid](screenshots/collection-grid.png)
 
 1. Enable **Bangumi Progress** in Settings → Plugins.
-2. Enter a personal access token or a Bangumi username in plugin settings. In a build configured for browser sign-in, you can instead open **Account → Sign in with Bangumi** and authorize access in your browser; ordinary users do not register an API application.
+2. Enter a personal access token or a Bangumi username in plugin settings. Alternatively, open **Account → Sign in with Bangumi** and authorize access in your browser; ordinary users do not register an API application.
 3. Add the `tracker` desktop widget and/or the `bar` bar widget to your layout.
 
 The `tracker` desktop widget lists currently watching anime with cover art, watched progress, aired progress, and total episodes. Titles with newly available unwatched episodes are pinned first. Use its paging controls when the list exceeds the configured number of visible entries, and use an entry's open button to visit its Bangumi page.
@@ -89,7 +89,7 @@ noctalia msg panel-open mirei124/bangumi-progress:library timeline
 
 ## Browser sign-in
 
-When the maintainer has configured this feature, **Sign in with Bangumi** opens the browser and starts a temporary callback listener on `127.0.0.1:47871`. Complete authorization within 180 seconds, or use **Cancel** in the panel. The listener closes when the operation finishes, is cancelled, or times out. Account checking and token refresh show a waiting status without a Cancel button.
+**Sign in with Bangumi** opens the browser and starts a temporary callback listener on `127.0.0.1:47871`. Complete authorization within 180 seconds, or use **Cancel** in the panel. The listener closes when the operation finishes, is cancelled, or times out. Account checking and token refresh show a waiting status without a Cancel button.
 
 If sign-in has already finished when you select **Cancel**, the plugin shows
 the connected account and explains that sign-in completed. Use **Disconnect**
@@ -97,21 +97,41 @@ to remove that saved login.
 
 An existing personal token remains the default until you explicitly sign in through the browser. After successful browser sign-in, the saved OAuth session takes precedence over the manual token and username. Under **Account**, **Switch account** starts another browser authorization. **Manual settings** opens plugin settings while preserving the current OAuth session; it does not log out. To disconnect browser sign-in, use **Disconnect** and confirm in the panel. Disconnect removes the local OAuth session and uses an already configured manual token or username; without manual settings the plugin becomes signed out. This clears local credentials only and does not claim to revoke access at Bangumi. To revoke access remotely, use Bangumi's own application authorization controls.
 
-### Maintainer setup and release gate
+### Shared application and maintainer migration
 
-Ordinary users are not asked for a client ID or client secret. The maintainer must register an application once and supply a plugin-root `oauth-client.json` based on `oauth-client.example.json`:
+`oauth-client.shared.json` is a tracked application profile shipped with the
+plugin. It supplies the shared App ID, App Secret and registered loopback
+callback. These identify the desktop application; they are intentionally
+readable by anyone installing or inspecting it and are not a user's access
+or refresh token. No attempt is made to hide them or claim client-side secrecy.
+User tokens are stored separately in the private plugin data directory and
+are never included in the source or application profile.
 
-```json
-{
-  "client_id": "",
-  "client_secret": "",
-  "redirect_uri": "http://127.0.0.1:47871/callback"
-}
-```
+Ordinary users only select **Sign in with Bangumi** and authorize their own
+Bangumi account. They do not copy configuration files or register an application.
 
-The example intentionally contains no usable credentials. The service reads `oauth-client.json` from the plugin directory at runtime; it is not a normal user setting. The local profile is Git-ignored to avoid publishing credentials accidentally; how a configured release will supply it still needs to be agreed with the maintainer. Preserve manual PAT access in builds without this file. Changing the application profile requires signing in again.
+To replace the shared application with one owned by the maintainer:
 
-A client secret shipped to desktop users cannot be kept confidential. Before publishing a configured build, the maintainer needs to choose how to supply application credentials and confirm that Bangumi accepts that desktop distribution model. The plugin supports the registered loopback callback above and uses the expiry returned by Bangumi; it does not assume a fixed token lifetime.
+1. Register a Bangumi application under the maintainer's account with the callback
+   `http://127.0.0.1:47871/callback`.
+2. For local verification, copy `oauth-client.example.json` to `oauth-client.json`
+   and fill in `client_id`, `client_secret` and the identical `redirect_uri`.
+   This optional local override remains Git-ignored and takes precedence over
+   the shared profile. An invalid override does not silently use another app.
+3. After verification, replace the three fields in the tracked
+   `oauth-client.shared.json` and ship that change to users. Keeping them only
+   in a local override does not configure community installations. Credentials
+   put into the shared profile are public desktop application credentials.
+4. Remove the local override when checking the shipped profile. Changing any
+   profile field requires existing OAuth users to sign in again; sessions for
+   the previous application are not reused. PAT and username modes are retained.
+
+The example intentionally has empty credentials; the shipped shared profile
+is the working default. Bangumi's [OAuth documentation](https://github.com/bangumi/api/blob/master/docs-raw/How-to-Auth.md)
+requires the App Secret for token exchange and refresh. The helper uses the
+configured callback and expiry returned by Bangumi, without assuming a fixed
+lifetime. A shared application change or revocation can require users to
+reauthorize, so maintainers should announce such changes.
 
 ## Settings
 
@@ -202,7 +222,7 @@ When browser sign-in is active, the `logout` event clears the private OAuth sess
 ## Notes
 
 - Browser sign-in starts the local Python helper `scripts/bangumi_oauth.py` as a process and invokes `xdg-open`. The helper uses the fixed `https://bgm.tv/oauth/authorize` and `https://bgm.tv/oauth/access_token` endpoints and verifies identity through `https://api.bgm.tv/v0/me`. It sends authorization codes, application credentials, and refresh tokens only to the token endpoint; access tokens go to `api.bgm.tv`.
-- OAuth session data is stored in `pluginDataDir/oauth/oauth-session.json` using atomic writes and owner-only file permissions (`0600`). Credentials are not published in the panel snapshot or logged. The application profile is separate from session storage.
+- OAuth session data is stored in `pluginDataDir/oauth/oauth-session.json` using atomic writes and owner-only file permissions (`0600`). Credentials are not published in the panel snapshot or logged. The bundled public application profile and optional private development override are separate from user session storage.
 - OAuth access and refresh credentials remain in the private session file. The helper uses the provider's returned expiry and saves a rotated refresh token when one is returned.
 - The service sends the active access token to `api.bgm.tv` as a Bearer token. A normal bgm.tv website login cookie cannot authenticate the v0 API.
 - It calls `/v0/me`, collection, and episode endpoints on `api.bgm.tv`, and downloads cover images from URLs returned by the API, normally on `lain.bgm.tv`.

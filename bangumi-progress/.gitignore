@@ -1,4 +1,4 @@
-# Local maintainer credentials must not be included in a patch by accident.
+# Private development overrides are excluded; oauth-client.shared.json is shipped.
 oauth-client.json
 scripts/__pycache__/
 

@@ -1750,7 +1750,7 @@ local function openSubject(subjectId)
   noctalia.runAsync("xdg-open " .. shellQuote("https://bgm.tv/subject/" .. tostring(subjectId)) .. " >/dev/null 2>&1")
 end
 
--- OAuth credentials stay in the private helper session file and this service.
+-- User OAuth tokens stay in the private helper session file and this service.
 -- The shared snapshot contains only UI status, never tokens, codes, or app secrets.
 local function oauthPaths()
   local pluginDir = noctalia.pluginDir()
@@ -1758,9 +1758,14 @@ local function oauthPaths()
   if not pluginDir or not dataDir then
     return nil
   end
+  -- Development overrides remain private; normal installs use the shipped app.
+  -- A present but invalid override is an error, not a silent app switch.
+  local localClient = pluginDir .. "/oauth-client.json"
+  local client = if noctalia.fileExists(localClient) then localClient
+    else pluginDir .. "/oauth-client.shared.json"
   return {
     script = pluginDir .. "/scripts/bangumi_oauth.py",
-    client = pluginDir .. "/oauth-client.json",
+    client = client,
     data = dataDir .. "/oauth",
     session = dataDir .. "/oauth/oauth-session.json",
   }
