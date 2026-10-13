@@ -20,11 +20,11 @@ Track anime from [bgm.tv](https://bgm.tv) on the Noctalia desktop. See newly air
 
 ## Usage
 
-Timeline previews below use a fabricated account and synthetic local cover
-images; they contain no real account or collection data.
+Previews show the airing timeline and collection cover grids. Account profile
+information is blurred in these user-provided screenshots.
 
-![Airing timeline cover grid](screenshots/timeline-grid-today.png)
-![Airing timeline list](screenshots/timeline-list.png)
+![Airing timeline cover grid](screenshots/timeline-grid-week.png)
+![Collection cover grid](screenshots/collection-grid.png)
 
 1. Enable **Bangumi Progress** in Settings → Plugins.
 2. Enter a personal access token or a Bangumi username in plugin settings. In a build configured for browser sign-in, you can instead open **Account → Sign in with Bangumi** and authorize access in your browser; ordinary users do not register an API application.
