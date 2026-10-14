@@ -2,6 +2,7 @@
 -- Every Claude Code account is a config dir (~/.claude, or whatever CLAUDE_CONFIG_DIR points at).
 -- In each, Claude Code writes sessions/<pid>.json with status busy|idle|waiting (+ waitingFor).
 -- Files of crashed sessions linger, so keep only those whose pid is still alive.
+-- Sessions with Remote Control on also carry bridgeSessionId, their claude.ai/code session id.
 -- Per-session details (title, current tool, cost, ...) come from the transcript via details.sh,
 -- re-read only when the transcript's mtime changes. Recently closed sessions come from recent.sh.
 local PLUGIN = noctalia.pluginDir()
@@ -21,13 +22,18 @@ local DASHBOARD_DIR = noctalia.expandPath("~/.cache/claude-dashboard")
 local LIMITS = { { key = "five_hour", label = "5h" }, { key = "seven_day", label = "7d" },
   { key = "seven_day_fable", label = "Fable 7d" }, { key = "seven_day_sonnet", label = "Sonnet 7d" } }
 
-local accounts = {} -- dir -> { dir, label, email, hash, limits, api = { windows, at, lastTry, pending } }
+-- Remote Control sessions on other machines: polled from Claude's session list via remote.sh.
+local REMOTE_MS = 60000
+
+local accounts = {} -- dir -> { dir, label, email, hash, limits, api = { windows, at, lastTry, pending }, remote = { list, lastTry, pending } }
 local details = {} -- pid -> { mtime, data, pending }
 local terminals = {} -- pid -> terminal kind; a process's env never changes
 local tracked = {} -- pid -> { status, busySince }
 local current = {}
 local ticks = 0
 local recentPending = false
+local localBridges = {} -- claude.ai/code session ids of Remote Control sessions running on this machine
+local remoteSeen = {} -- remote session id -> last status category (for notifications)
 
 local function cfg(key, fallback)
   local v = noctalia.getConfig(key)
@@ -77,7 +83,7 @@ end
 local function addAccount(dir)
   dir = normDir(dir)
   if not dir or accounts[dir] or not noctalia.fileExists(dir) then return false end
-  local a = { dir = dir, api = { at = 0, lastTry = -math.huge } }
+  local a = { dir = dir, api = { at = 0, lastTry = -math.huge }, remote = { list = {}, lastTry = -math.huge } }
   accounts[dir] = a
   refreshAccountInfo(a)
   return true
@@ -93,11 +99,20 @@ local function saveAccounts()
   noctalia.writeFile(SAVED, noctalia.json.encode(dirs))
 end
 
--- Known accounts: the default dir, the `config_dirs` setting, dirs seen before, and (async, via
--- running.sh) the config dirs of running claude processes.
+-- Known accounts: the default dir, the `config_dirs` setting, config dirs inside the `workspace_dirs`
+-- folders, dirs seen before, and (async, via running.sh) the config dirs of running claude processes.
 local function discoverAccounts()
   local added = addAccount(DEFAULT_DIR)
   for _, d in ipairs(cfg("config_dirs", {}) or {}) do added = addAccount(d) or added end
+  for _, root in ipairs(cfg("workspace_dirs", {}) or {}) do
+    root = normDir(root)
+    for _, name in ipairs(root and noctalia.listDir(root) or {}) do
+      local d = string.find(name, "/") and name or root .. "/" .. name
+      if noctalia.fileExists(d .. "/projects") or noctalia.fileExists(d .. "/sessions") then
+        added = addAccount(d) or added
+      end
+    end
+  end
   local saved = SAVED and noctalia.json.decode(noctalia.readFile(SAVED) or "")
   for _, d in ipairs(type(saved) == "table" and saved or {}) do added = addAccount(d) or added end
   for dir, a in pairs(accounts) do
@@ -208,6 +223,53 @@ local function readLimits(a)
     setLimits(a, dash.windows, dash.timestamp, "claude-dashboard")
   end
   if now - api.lastTry >= FRESH_MS then fetchApiLimits(a) end
+end
+
+-- ── Remote Control sessions elsewhere ───────────────────────────────────────
+
+-- Live Remote Control sessions of every account, minus the ones running here, as "elsewhere".
+local function publishElsewhere()
+  local out, alive = {}, {}
+  local on = cfg("show_elsewhere", true)
+  for _, a in pairs(accounts) do
+    for _, r in ipairs(on and a.remote.list or {}) do
+      if not localBridges[r.id] then
+        r.account, r.url, r.since = a.dir, "https://claude.ai/code/" .. r.id, isoToMs(r.lastEventAt) or 0
+        out[#out + 1] = r
+        alive[r.id] = true
+        local was = remoteSeen[r.id]
+        if was and was ~= "need_input" and r.category == "need_input" and cfg("notify_waiting", true) then
+          local multi = #accountList() > 1
+          noctalia.notify("Claude needs you (elsewhere)",
+            (multi and `[{a.label}] ` or "") .. r.title .. (r.needs ~= "" and (": " .. r.needs) or ""))
+        end
+        remoteSeen[r.id] = r.category or ""
+      end
+    end
+  end
+  for id in pairs(remoteSeen) do if not alive[id] then remoteSeen[id] = nil end end
+  table.sort(out, function(x, y)
+    if (x.category == "need_input") ~= (y.category == "need_input") then return x.category == "need_input" end
+    return x.since > y.since
+  end)
+  noctalia.state.set("elsewhere", out)
+end
+
+local function fetchRemote(a)
+  local rem = a.remote
+  if rem.pending or noctalia.nowMs() - rem.lastTry < REMOTE_MS then return end
+  rem.pending, rem.lastTry = true, noctalia.nowMs()
+  local started = noctalia.runAsync({ PLUGIN .. "/remote.sh", a.dir }, function(r)
+    rem.pending = false
+    local list = r.exitCode == 0 and noctalia.json.decode(r.stdout) or nil
+    if type(list) == "table" then
+      rem.list = list
+      publishElsewhere()
+    elseif (r.stderr or "") ~= "" then
+      noctalia.log(`claude-sessions: remote sessions ({a.label}): {noctalia.string.trim(r.stderr)}`)
+    end
+  end, 20000)
+  if not started then rem.pending = false end
 end
 
 -- ── Sessions ────────────────────────────────────────────────────────────────
@@ -337,6 +399,7 @@ local function readSessions(a, into)
           waitingFor = s.waitingFor or "",
           since = s.statusUpdatedAt or s.updatedAt or 0,
           terminal = terminalOf(s.pid),
+          remote = type(s.bridgeSessionId) == "string" and "https://claude.ai/code/" .. s.bridgeSessionId or nil,
         }
       end
     end
@@ -351,6 +414,11 @@ local function poll()
   for _, a in pairs(accounts) do
     readSessions(a, sessions)
     readLimits(a)
+    if cfg("show_elsewhere", true) then fetchRemote(a) end
+  end
+  localBridges = {}
+  for _, s in ipairs(sessions) do
+    if s.remote then localBridges[string.match(s.remote, "[^/]+$")] = true end
   end
   local gone = track(sessions)
   local shown = {}
@@ -366,12 +434,16 @@ local function poll()
   for _, s in ipairs(sessions) do refreshDetails(s) end
   publishAccounts()
   publish()
+  publishElsewhere()
   if gone or ticks % SLOW_EVERY == 1 then refreshRecent() end
   ticks += 1
 end
 
 noctalia.state.watch("command", function(v)
-  if type(v) == "table" and v.action == "refresh" then ticks = 0; poll() end
+  if type(v) == "table" and v.action == "refresh" then
+    for _, a in pairs(accounts) do a.remote.lastTry = -math.huge end
+    ticks = 0; poll()
+  end
 end)
 function update() poll() end
 function onIpc(event) if event == "refresh" then ticks = 0; poll() end end

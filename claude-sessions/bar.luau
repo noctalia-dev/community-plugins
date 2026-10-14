@@ -1,6 +1,7 @@
 --!nonstrict
 local sessions = noctalia.state.get("sessions") or {}
 local accounts = noctalia.state.get("accounts") or {}
+local elsewhere = noctalia.state.get("elsewhere") or {}
 local style = noctalia.getConfig("bar_style") or "dots"
 local limitsMode = noctalia.getConfig("bar_limits") or "5h" -- "5h" | "7d" | "5h_7d" | "all" | "none"
 local gaugeStyle = noctalia.getConfig("bar_limits_style") or "bar" -- "bar" | "ring"
@@ -74,6 +75,12 @@ local function render()
       or s.status == "busy" and (d.tool or "working") or "idle"
     local title = d.title or s.name
     rows[#rows + 1] = { multi and `[{labels[s.account] or "?"}] {title}` or title, what }
+  end
+  -- Remote Control sessions on other machines get no dots, only the bell and a tooltip row.
+  for _, r in ipairs(elsewhere) do
+    if r.category == "need_input" then waiting += 1 end
+    local what = r.category == "need_input" and (r.needs ~= "" and r.needs or "needs input") or "remote"
+    rows[#rows + 1] = { (multi and `[{labels[r.account] or "?"}] ` or "") .. r.title .. " (elsewhere)", what }
   end
 
   local vertical = barWidget.isVertical()
@@ -152,6 +159,7 @@ end
 
 noctalia.state.watch("sessions", function(v) sessions = v or {}; render() end)
 noctalia.state.watch("accounts", function(v) accounts = v or {}; render() end)
+noctalia.state.watch("elsewhere", function(v) elsewhere = v or {}; render() end)
 function onClick() noctalia.togglePanel("lfdominguez/claude-sessions:panel") end
 -- `noctalia msg plugin lfdominguez/claude-sessions:bar focused click` toggles the panel (e.g. from a keybind)
 function onIpc(ev) if ev == "click" then onClick() end end

@@ -1,6 +1,6 @@
 id = "lfdominguez/claude-sessions"
 name = "Claude Sessions"
-version = "1.5.4"
+version = "1.6.3"
 plugin_api = 24
 author = "lfdominguez"
 icon = "brain"
@@ -32,6 +32,13 @@ default = 2
 min = 0
 max = 240
 visible_when = { key = "notify_finished", values = ["true"] }
+
+[[setting]]
+key = "show_elsewhere"
+type = "bool"
+label_key = "settings.show_elsewhere.label"
+description_key = "settings.show_elsewhere.description"
+default = true
 
 [[setting]]
 key = "hide_idle_hours"
@@ -91,6 +98,13 @@ key = "config_dirs"
 type = "string_list"
 label_key = "settings.config_dirs.label"
 description_key = "settings.config_dirs.description"
+default = []
+
+[[setting]]
+key = "workspace_dirs"
+type = "string_list"
+label_key = "settings.workspace_dirs.label"
+description_key = "settings.workspace_dirs.description"
 default = []
 
 [[setting]]

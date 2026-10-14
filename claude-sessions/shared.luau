@@ -50,7 +50,13 @@ function M.claudeArgv(account, ...)
   return argv
 end
 
-function M.focus(pid) noctalia.runAsync({ PLUGIN .. "/focus.sh", tostring(pid) }) end
+-- Brings the session's terminal to the front; a Remote Control session without a findable
+-- window (e.g. `claude remote-control` running headless) opens on claude.ai instead.
+function M.focus(s)
+  noctalia.runAsync({ PLUGIN .. "/focus.sh", tostring(s.pid) }, function(r)
+    if r.exitCode ~= 0 and s.remote then noctalia.runAsync({ "xdg-open", s.remote }) end
+  end, 10000)
+end
 
 -- Runs argv (or a shell when empty) in dir: a new tab in the most recently focused kitty when
 -- kitty remote control is available, otherwise Noctalia's configured terminal.

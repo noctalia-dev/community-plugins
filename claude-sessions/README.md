@@ -14,6 +14,9 @@ and jump to any session's terminal in one click, down to the exact kitty tab.
   progress, your last prompt, model, permission mode, context size and estimated cost.
 - 📊 **Plan limits.** 5-hour, 7-day and per-model weekly usage (e.g. Fable) with reset countdowns.
 - 🎯 **Jump to the terminal.** Click a session to focus its window; on kitty it lands on the exact tab or split.
+- 📱 **Remote Control.** Sessions shared with `/remote-control` get a *remote* chip and open on claude.ai/code in
+  one click. Your Remote Control sessions on other machines show up under *Elsewhere* and notify you when they need
+  input. See [Remote Control](#remote-control).
 - ⏪ **Resume and start sessions.** Reopen recently closed sessions, or start a new one in a recent project.
 - ⌨️ **Keyboard and launcher.** Navigate the panel without a mouse, or search sessions from the launcher with `/cs`.
 - 👥 **Multiple accounts.** Sessions started with different `CLAUDE_CONFIG_DIR`s (e.g. personal and work) are
@@ -102,6 +105,7 @@ From top to bottom:
 
 | Action | What it does |
 | --- | --- |
+| Open on claude.ai *(Remote Control only)* | Opens the session on claude.ai/code |
 | ▶ Resume *(recent only)* | Reopens the session with `claude --resume` in a new terminal tab |
 | Shell | Opens a shell in the project folder |
 | Folder | Opens the project folder in your file manager |
@@ -136,7 +140,13 @@ CLAUDE_CONFIG_DIR=~/.claude-work claude
 
 The plugin picks up the config dir of every running session automatically and remembers it, so that account's
 recent sessions stay available after you close it. To show an account before you start any session in it, add its
-dir to **Extra Claude config dirs**.
+dir to **Extra Claude config dirs**. If you keep all your accounts in one folder (e.g. `~/Claudes/work`,
+`~/Claudes/client`), add that folder to **Additional paths for Claude workspaces** instead: every config dir inside it
+shows up, including ones you add later.
+
+Sessions that get their account by bind-mounting another dir over `~/.claude` in their own mount namespace (for
+example `bwrap --bind ~/.claude-work ~/.claude claude`) are detected too: the plugin reads the mount from
+`/proc/<pid>/mountinfo`.
 
 Config dirs may share one `projects` dir (for example through a symlink, so that `claude --resume` sees every
 session from every account). Recent sessions are still attributed to the account that started them, using the
@@ -157,6 +167,34 @@ With more than one account:
 An account's name comes from its dir: `~/.claude` is *default*, and `~/.claude-work` is *work*. To rename one, use
 **Account names**.
 
+### Remote Control
+
+Remote Control lets you drive a Claude Code session from
+claude.ai/code or the Claude app. The plugin handles it in two ways.
+
+**Sessions on this machine.** A session you shared with `/remote-control` (or started with
+`claude --remote-control`) gets a *remote* chip and an **Open on claude.ai** action. Clicking the card still jumps
+to its terminal. If it has no terminal window to focus, as with a headless `claude remote-control`, it opens on
+claude.ai instead.
+
+**Sessions on other machines.** Every account's live Remote Control sessions that aren't running here are listed
+under **Elsewhere** at the end of that account's section:
+
+- Each card shows the session's title, what it's waiting on (or its latest status line), and its model, permission
+  mode and context use.
+- Clicking a card opens the session on claude.ai/code. Its actions are **Open on claude.ai** and **Copy link**.
+- Sessions waiting for you are sorted first, get a red border, turn the bar's bell red and send a
+  *Claude needs you (elsewhere)* notification (if **Notify when a session needs you** is on).
+- They're in the bar tooltip and the `/cs` launcher too, but don't get dots on the bar.
+
+The list is checked once a minute per account, and again whenever you open the panel, so it can lag a little behind
+claude.ai. Claude doesn't report which machine a session runs on, so cards just say *elsewhere*.
+
+> [!NOTE]
+> The list comes from the internal endpoint Claude Code uses for its own session list, not a public API, so a Claude
+> Code update can change or break it. If it fails, the *Elsewhere* group just disappears and the reason goes to the
+> log. Turn it off with **Show Remote Control sessions on other machines**.
+
 ### Launcher
 
 Type `/cs` followed by part of a session title or project path, for example `/cs api`. Live sessions are listed
@@ -173,12 +211,14 @@ Open them from **Settings → Plugins → Claude Sessions**.
 | `notify_waiting` | `bool` | `true` | Desktop notification when a session starts waiting for input or a permission. |
 | `notify_finished` | `bool` | `true` | Desktop notification when a session goes from working to idle. |
 | `finished_min_minutes` | `int` | `2` | Only send the "finished" notification for turns at least this many minutes long. |
+| `show_elsewhere` | `bool` | `true` | List your live Remote Control sessions running on other machines (checked every minute). See [Remote Control](#remote-control). |
 | `hide_idle_hours` | `int` | `0` | Hide live sessions that have been idle longer than this many hours. `0` shows all. |
 | `recent_count` | `int` | `8` | Closed sessions listed under Recent and in the launcher. `0` disables Recent. |
 | `bar_style` | `select` | `dots` | `dots`: one dot per session. `counts`: waiting count and busy/total. |
 | `bar_limits` | `select` | `5h` | Plan usage shown on the bar after each account's dots: `5h`, `7d`, `5h_7d`, `all` (every window, including per-model ones like Fable 7d) or `none`. |
 | `bar_limits_style` | `select` | `bar` | How each limit is drawn on the bar: a linear `bar` or a circular `ring`. |
 | `config_dirs` | `string_list` | empty | Claude config dirs (`CLAUDE_CONFIG_DIR`) to always show, one per account. Dirs of running sessions are detected automatically. |
+| `workspace_dirs` | `string_list` | empty | Folders that hold one config dir per account (e.g. `~/Claudes`). Every subfolder with a `projects` or `sessions` dir is shown as an account. |
 | `account_labels` | `string_map` | empty | Display name per config dir, e.g. `~/.claude-work` → `Work`. *(Advanced)* |
 | `work_root` | `folder` | empty | Project paths under this folder are shown relative to it (e.g. `~/Work`). Empty shows full paths. |
 | `context_window` | `int` | `1000000` | Context window size in tokens, used to draw the context gauge. |
@@ -197,17 +237,19 @@ noctalia msg plugin lfdominguez/claude-sessions:poller all refresh
 
 ### Privacy and data access
 
-Everything is read locally. The only network access is the optional plan-limits call described below.
+Everything is read locally, except for two calls to `api.anthropic.com` described below: plan limits, and the
+list of Remote Control sessions on other machines.
 
 | What | Where it comes from |
 | --- | --- |
-| Accounts | `~/.claude`, the `config_dirs` setting, and the `CLAUDE_CONFIG_DIR` of running `claude` processes, found by `running.sh` once a minute. The account email is read from `.claude.json`. |
+| Accounts | `~/.claude`, the `config_dirs` setting, config dirs inside the `workspace_dirs` folders, and the `CLAUDE_CONFIG_DIR` of running `claude` processes (or, in a separate mount namespace, the dir mounted over `~/.claude`, from `/proc/<pid>/mountinfo`), found by `running.sh` once a minute. The account email is read from `.claude.json`. |
 | Live sessions | `<config dir>/sessions/*.json`, written by Claude Code and read every 2 seconds. Leftover files from crashed sessions are ignored by checking `/proc/<pid>`. |
 | Session details | The session transcript in `<config dir>/projects/`, read by `details.sh` only when it changes. |
 | Recent sessions | Transcripts in `<config dir>/projects/`, plus whether `<config dir>/session-env/<session id>` exists and when it was created, to tell which account a session belongs to when config dirs share a `projects` dir. Read by `recent.sh` once a minute. |
 | Last prompt | `<config dir>/history.jsonl` |
 | Cost | Estimated from token usage and `pricing-cache.json`. |
 | Terminal | The session process's environment (`/proc/<pid>/environ`), checked once for `KITTY_PID`, `KITTY_WINDOW_ID` and `TERM_PROGRAM`. Nothing else from it is kept. |
+| Remote Control | `bridgeSessionId` in `<config dir>/sessions/*.json` for sessions on this machine. Other machines: see below. |
 | Plan limits | See below. |
 
 **Plan limits** are fetched separately for each account. If the
@@ -222,6 +264,11 @@ where the hash is the first 16 hex characters of the SHA-256 of the account's to
 - never logged or handed to the plugin's Luau code.
 
 If the token has expired, the call is skipped until Claude Code refreshes it.
+
+**Remote Control sessions on other machines** (if `show_elsewhere` is on) come from `remote.sh`, which calls
+`https://api.anthropic.com/v1/code/sessions` once a minute per account. It uses the same OAuth token, handled the
+same way as above, plus the account's organization ID from `.claude.json`. Only live Remote Control sessions are
+kept, and only their title, status summary, model, permission mode, context use and branch.
 
 **Processes it runs:**
 
@@ -240,4 +287,7 @@ If the token has expired, the call is skipped until Claude Code refreshes it.
   above to `kitty.conf` and restart kitty; windows opened before the change keep the old behaviour.
 - **Plan limits are missing.** Make sure Claude Code is logged in. If you rely on `claude-dashboard`, its cache only
   refreshes while a session is redrawing its status line.
+- **No Elsewhere group, although a session is running on another machine.** It has to have Remote Control on and be
+  connected, and be logged in to the same account. Errors from `remote.sh` are logged as
+  `claude-sessions: remote sessions (<account>)`.
 - **Logs.** Script errors are logged to `~/.cache/noctalia/noctalia.log` under `[luau]`.

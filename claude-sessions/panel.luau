@@ -5,6 +5,7 @@ local CTX = tonumber(noctalia.getConfig("context_window")) or 1000000
 local sessions = noctalia.state.get("sessions") or {}
 local recent = noctalia.state.get("recent") or {}
 local accounts = noctalia.state.get("accounts") or {}
+local elsewhere = noctalia.state.get("elsewhere") or {} -- live Remote Control sessions on other machines
 local collapsed = {} -- account dir -> true when its section is folded (multi-account only)
 local pickAccount = nil -- account a new session starts under (picker)
 -- Hover: only the innermost interactive node under the pointer reports, so the card and its
@@ -88,6 +89,14 @@ local function sections()
   return out
 end
 
+local function remoteOf(account)
+  local out = {}
+  for _, r in ipairs(elsewhere) do
+    if account == nil or r.account == account then out[#out + 1] = r end
+  end
+  return out
+end
+
 local function items()
   local out = {}
   for _, sec in ipairs(sections()) do
@@ -96,6 +105,7 @@ local function items()
       for _, g in ipairs(GROUPS) do
         for _, s in ipairs(by[g.status]) do out[#out + 1] = { key = "live:" .. s.pid, live = s } end
       end
+      for _, r in ipairs(remoteOf(sec.account)) do out[#out + 1] = { key = "remote:" .. r.id, remote = r } end
     end
   end
   if showRecent then
@@ -105,7 +115,8 @@ local function items()
 end
 
 local function activate(item)
-  if item.live then shared.focus(item.live.pid) else shared.resume(item.recent.account, item.recent.cwd, item.recent.sessionId) end
+  if item.remote then noctalia.runAsync({ "xdg-open", item.remote.url })
+  elseif item.live then shared.focus(item.live) else shared.resume(item.recent.account, item.recent.cwd, item.recent.sessionId) end
   panel.close()
 end
 
@@ -213,6 +224,7 @@ local function liveCard(s)
 
   local chips = {}
   chips[#chips + 1] = chip("terminal", s.terminal or "terminal")
+  if s.remote then chips[#chips + 1] = chip("device-mobile", "remote") end
   if d.model then chips[#chips + 1] = chip("cpu", d.model) end
   if d.mode then chips[#chips + 1] = chip(MODE_GLYPH[d.mode] or "shield", d.mode) end
   if d.context then
@@ -226,6 +238,11 @@ local function liveCard(s)
   if #chips > 0 then body[#body + 1] = ui.row({ gap = 4, align = "center" }, chips) end
 
   local actions = commonActions(s.account, s.cwd, s.sessionId)
+  if s.remote then
+    table.insert(actions, 1, cardAction("external-link", "Open on claude.ai (Remote Control)", function()
+      noctalia.runAsync({ "xdg-open", s.remote }); panel.close()
+    end))
+  end
   local armed = armedKill == s.pid and noctalia.nowMs() - armedAt < 3000
   actions[#actions + 1] = cardAction("power", "Stop this session (click twice)", function()
       if armed then
@@ -241,7 +258,52 @@ local function liveCard(s)
   return cardShell(key, s.status, {
     badge(look.glyph, look.color),
     ui.column({ gap = 5, flexGrow = 1 }, body),
-  }, function() shared.focus(s.pid); panel.close() end)
+  }, function() shared.focus(s); panel.close() end)
+end
+
+-- ── Remote Control session on another machine ───────────────────────────────
+
+local function remoteCard(r)
+  local key = "remote:" .. r.id
+  local waiting = r.category == "need_input"
+  local function open() noctalia.runAsync({ "xdg-open", r.url }); panel.close() end
+  local body = {
+    ui.row({ gap = 8, align = "center" }, {
+      ui.label({ text = r.title, fontSize = 13, fontWeight = "bold", color = "on_surface", maxLines = 1, flexGrow = 1 }),
+      ui.label({ text = r.since > 0 and shared.ago(r.since) or "", fontSize = 11, color = waiting and "error" or "secondary" }),
+    }),
+  }
+  local actions = {
+    cardAction("external-link", "Open on claude.ai", open),
+    cardAction("copy", "Copy link", function()
+      noctalia.copyToClipboard(r.url, "text/plain")
+      noctalia.notify("Copied", r.url)
+    end),
+  }
+  body[#body + 1] = ui.row({ gap = 5, align = "center" }, {
+    ui.glyph({ name = "world", size = 12, color = "on_surface_variant" }),
+    ui.label({ text = r.branch and `elsewhere · {r.branch}` or "elsewhere", fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+    ui.spacer({ flexGrow = 1 }),
+    actionsRow(key, actions),
+  })
+  if waiting then
+    body[#body + 1] = iconLine("alert-circle", r.needs ~= "" and r.needs or "Needs your input", "error", 12)
+  elseif r.detail ~= "" then
+    body[#body + 1] = iconLine("info-circle", r.detail)
+  end
+  local chips = { chip("device-mobile", "remote") }
+  if r.model then chips[#chips + 1] = chip("cpu", r.model) end
+  if r.mode then chips[#chips + 1] = chip(MODE_GLYPH[r.mode] or "shield", r.mode) end
+  if r.context then
+    local p = math.min(1, r.context / (r.maxContext or CTX))
+    chips[#chips + 1] = chip("stack-2", tokens(r.context),
+      ui.progress({ progress = p, width = 36, height = 4, fill = p > 0.8 and "error" or "primary" }))
+  end
+  body[#body + 1] = ui.row({ gap = 4, align = "center" }, chips)
+  return cardShell(key, waiting and "waiting" or "remote", {
+    badge(waiting and "bell-ringing" or "world", waiting and "error" or "secondary"),
+    ui.column({ gap = 5, flexGrow = 1 }, body),
+  }, open)
 end
 
 -- ── Recent (closed) session card ────────────────────────────────────────────
@@ -414,12 +476,18 @@ function render()
           for _, s in ipairs(list) do content[#content + 1] = liveCard(s) end
         end
       end
+      local remote = remoteOf(sec.account)
+      if #remote > 0 then
+        any = true
+        content[#content + 1] = sectionHeader("Elsewhere", #remote, "secondary", nil, "world")
+        for _, r in ipairs(remote) do content[#content + 1] = remoteCard(r) end
+      end
       if sec.account and not any then
         content[#content + 1] = iconLine("moon", "No sessions running", "on_surface_variant")
       end
     end
   end
-  if #sessions == 0 and not multi() then
+  if #sessions == 0 and #elsewhere == 0 and not multi() then
     content[#content + 1] = ui.column({ gap = 8, align = "center", justify = "center", paddingV = 40 }, {
       ui.glyph({ name = "moon", size = 36, color = "on_surface_variant" }),
       ui.label({ text = "No Claude sessions running", color = "on_surface_variant" }),
@@ -467,10 +535,12 @@ end
 noctalia.state.watch("sessions", function(v) sessions = v or {}; render() end)
 noctalia.state.watch("recent", function(v) recent = v or {}; render() end)
 noctalia.state.watch("accounts", function(v) accounts = v or {}; render() end)
+noctalia.state.watch("elsewhere", function(v) elsewhere = v or {}; render() end)
 function onOpen(_ctx)
   sessions = noctalia.state.get("sessions") or {}
   recent = noctalia.state.get("recent") or {}
   accounts = noctalia.state.get("accounts") or {}
+  elsewhere = noctalia.state.get("elsewhere") or {}
   hoverCount, selected, showPicker, armedKill = {}, nil, false, nil
   noctalia.state.set("command", { action = "refresh", at = noctalia.nowMs() })
   panel.setWantsSecondTicks(true)

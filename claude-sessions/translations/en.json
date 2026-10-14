@@ -51,9 +51,17 @@
       "description": "Closed sessions listed in the Recent section and the launcher. 0 disables it.",
       "label": "Recent sessions to show"
     },
+    "show_elsewhere": {
+      "description": "Lists your live Remote Control sessions running elsewhere (checked every minute through Claude's session list). Clicking one opens it on claude.ai.",
+      "label": "Show Remote Control sessions on other machines"
+    },
     "work_root": {
       "description": "Project paths under this folder are shown relative to it. Empty shows full paths.",
       "label": "Projects root"
+    },
+    "workspace_dirs": {
+      "description": "Folders that hold one config dir per account, e.g. ~/Claudes with ~/Claudes/work and ~/Claudes/client. Every subfolder with a projects or sessions dir is shown as an account.",
+      "label": "Additional paths for Claude workspaces"
     }
   }
 }
