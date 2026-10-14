@@ -1,14 +1,14 @@
 # Emoji & symbol picker — a Raycast-inspired floating panel for Noctalia.
 #
-# Three [[panel]] entries share one script; they differ ONLY in the
-# host-owned surface geometry (manifest width/height are constants — the
-# plugin API has no runtime resize), so a keybinding can pick the tier that
-# suits the output it opens on:
-#   wide     ≥2560  (3440×1440 ultrawide)  9 columns, 34px glyphs
-#   desktop  ≥1600  (1920×1080 class)      8 columns, 30px glyphs
-#   compact  else   (laptop panels)        6 columns, 26px glyphs
-# picker.luau derives the same column/glyph tier from noctalia.outputs() so
-# the grid always fills its panel.
+# Three [[panel]] entries, one shared picker core (picker.luau). Each entry
+# is a thin shim (wide.luau / desktop.luau / compact.luau) that binds the
+# core to its manifest width — the entry is the only size signal available
+# (panel.* has no size query and onOpen's context is the user's string), so
+# the grid fills whatever panel it runs in:
+#   wide     (780)  9 columns, 34px glyphs
+#   desktop  (640)  8 columns, 30px glyphs
+#   compact  (480)  6 columns, 26px glyphs
+# A keybinding can pick the tier that suits the output it opens on.
 #
 # capture_keys: while the panel holds keyboard focus (exclusive), arrows and
 # Enter are delivered to onKey() instead of the host; Escape is NOT listed
@@ -43,7 +43,7 @@ entry = "widget.luau"
 
 [[panel]]
 id = "wide"
-entry = "picker.luau"
+entry = "wide.luau"
 width = 780
 height = 640
 placement = "floating"
@@ -54,7 +54,7 @@ capture_keys = ["up", "down", "left", "right", "enter"]
 
 [[panel]]
 id = "desktop"
-entry = "picker.luau"
+entry = "desktop.luau"
 width = 640
 height = 610
 placement = "floating"
@@ -65,7 +65,7 @@ capture_keys = ["up", "down", "left", "right", "enter"]
 
 [[panel]]
 id = "compact"
-entry = "picker.luau"
+entry = "compact.luau"
 width = 480
 height = 580
 placement = "floating"

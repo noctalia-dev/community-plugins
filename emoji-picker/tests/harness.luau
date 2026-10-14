@@ -118,7 +118,10 @@ panel = {
 -- so the module's locals are reachable). Note picker.luau loads the
 -- dataset at chunk time now, so simply CONSTRUCTING the chunk performs
 -- the full read → decode → index pass under the stubbed host. ──────────
-local CHUNK_TAIL = "\n\nreturn {\n"
+-- The core now exports M.onOpen/M.onKey (the entry shims define the real
+-- globals); the aliases below let the harness drive them by their old
+-- global names.
+local CHUNK_TAIL = "\n\nonOpen = M.onOpen\nonKey = M.onKey\nreturn {\n"
   .. "  ensureData = ensureData,\n"
   .. "  loadUsage = loadUsage,\n"
   .. "  search = search,\n"
@@ -141,7 +144,7 @@ local CHUNK_TAIL = "\n\nreturn {\n"
   .. "  end,\n"
   .. "  categoryHas = function(id) return byCat[id] ~= nil and #byCat[id] > 0 end,\n"
   .. "  fitGrid = fitGrid,\n"
-  .. "  fitWidthFor = fitWidthFor,\n"
+  .. "  tierForWidth = tierForWidth,\n"
   .. "  gridInfo = function() return gridCols, gridCell end,\n"
   .. "  TIERS = TIERS,\n"
   .. "  GAP = GAP,\n"
@@ -394,11 +397,12 @@ do
 
   -- The strip is mounted in browse view: All + every category id.
   check(#findNodes(function(n) return keyOf(n) == "cats" end) == 1, "browse view mounts the category strip")
-  -- The strip centers over the fitted grid width, not the left edge
-  -- (review feedback: tabs must be centered like the grid below them).
+  -- The strip centers by stretching across the content box and justifying
+  -- its buttons — no explicit width, so it shares the input's exact span
+  -- (review feedback: tabs must sit at the panel's center).
   local catsRow = findNodes(function(n) return keyOf(n) == "cats" end)[1]
-  check(catsRow.opts.width == picker.gridRowWidth() and catsRow.opts.justify == "center",
-    "category strip centers over the fitted grid width")
+  check(catsRow.opts.width == nil and catsRow.opts.justify == "center",
+    "category strip spans the content box and centers its tabs")
   local tabs = tabButtons()
   check(#tabs == 10, "strip renders 10 tabs (All + 9 categories), got " .. tostring(#tabs))
   local byKey = {}
@@ -506,18 +510,22 @@ do
     end
   end
 
-  -- fitWidth default and the onOpen(context) override.
+  -- Entry width picks the tier: the entry shim is the size signal.
   check(
-    picker.fitWidthFor(nil) == picker.PANEL_WIDTHS[3],
-    "no context fits the narrowest manifest panel"
+    picker.tierForWidth(780).cols == 9,
+    "wide entry (780) gets 9 columns"
   )
   check(
-    picker.fitWidthFor("mystery-context") == picker.PANEL_WIDTHS[3],
-    "unknown context falls back to the narrowest manifest panel"
+    picker.tierForWidth(640).cols == 8,
+    "desktop entry (640) gets 8 columns"
   )
   check(
-    picker.fitWidthFor("wide") == picker.PANEL_WIDTHS[1] and picker.fitWidthFor("compact") == picker.PANEL_WIDTHS[3],
-    "entry-id context overrides the fit width"
+    picker.tierForWidth(480).cols == 6,
+    "compact entry (480) gets 6 columns"
+  )
+  check(
+    picker.tierForWidth(123) == picker.TIERS[#picker.TIERS],
+    "unknown entry width falls back to the smallest tier"
   )
 
   picker.setCat("smileys")

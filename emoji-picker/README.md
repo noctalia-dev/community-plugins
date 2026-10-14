@@ -50,13 +50,11 @@ noctalia msg panel-toggle liamwh/emoji-picker:compact
   (**All** shows every section and is slower).
 - While a query is active the tab strip hides: search spans all
   categories.
-- The tile grid fits the panel: the column count comes from the panel
-  width minus its padding, and tiles grow to fill the row so the margins
-  stay thin; a scrollbar gutter is reserved so the rightmost column never
-  slides under the scrollbar (rows keep equal left/right margins). Since
-  the plugin API does not report which panel entry is open, the grid fits
-  the narrowest entry (`compact`); opening with a context string of
-  `wide`, `desktop` or `compact` fits that entry's width instead.
+- The tile grid fits its panel: each entry binds the shared picker to its
+  manifest width (`wide` → 9 columns, `desktop` → 8, `compact` → 6), tiles
+  grow to fill the row so the margins stay thin, and a scrollbar gutter is
+  reserved so the rightmost column never slides under the scrollbar (rows
+  keep equal left/right margins).
 - Queries that name a symbol ("euro", "gbp", "check") rank the plain
   character (€, £, ✓) above related emoji, so text symbols are one
   keystroke away too.

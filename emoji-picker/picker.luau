@@ -36,15 +36,17 @@ local CATEGORIES = {
   { id = "flags",    label = "Flags",            glyph = "flag" },
 }
 
--- Layout tiers, selected by the focused output's logical width. The
--- thresholds pair with the [[panel]] entries in plugin.toml: bind the
--- entry whose size suits the output you open it on. cols/cell are the
--- PREFERRED grid; fitGrid below re-derives the effective values from the
--- panel width actually available (rendered tile size included).
+local M = {}
+
+-- Layout tiers, one per [[panel]] entry (panel = that entry's manifest
+-- width in plugin.toml — the entry IS the size signal; see the Layout note
+-- below). cols/cell are the PREFERRED grid; fitGrid below re-derives the
+-- effective values from the panel width actually available (rendered tile
+-- size included).
 local TIERS = {
-  { min = 2560, cols = 9, cell = 72, glyph = 34, panel = 780 }, -- ultrawide / wide
-  { min = 1600, cols = 8, cell = 66, glyph = 30, panel = 640 }, -- 1080p class / desktop
-  { min = 0,    cols = 6, cell = 58, glyph = 26, panel = 480 }, -- laptop / compact
+  { cols = 9, cell = 72, glyph = 34, panel = 780 }, -- wide
+  { cols = 8, cell = 66, glyph = 30, panel = 640 }, -- desktop
+  { cols = 6, cell = 58, glyph = 26, panel = 480 }, -- compact
 }
 
 local GAP = 6
@@ -89,22 +91,16 @@ local function fitGrid(availableWidth, gap, wantCols, wantCell)
   return cols, cell
 end
 
--- The plugin API exposes no surface/panel size (verified against
--- noctalia.d.luau: panel.* has no size query and onOpen's context is the
--- USER's context string, not the entry id), so the grid fits the
--- NARROWEST manifest panel: every [[panel]] entry then renders a fitting
--- row — wider entries just center the same row with equal margins. The
--- tier-paired width overflows whenever the bound entry is narrower than
--- the tier's assumption (exactly the compact-on-a-2304px-output defect).
--- onOpen(context) optionally overrides this with the entry id.
+-- ── Layout ──────────────────────────────────────────────────────────────────
+-- Each [[panel]] entry binds this module through a tiny shim (wide.luau /
+-- desktop.luau / compact.luau) that passes its manifest width: the entry IS
+-- the size signal. (The API offers none — panel.* has no size query,
+-- togglePanel takes no context, and onOpen's context is the USER's string —
+-- so guessing from the focused output only pairs correctly when the bound
+-- entry matches the output and misfits everywhere else: the wide entry on a
+-- 2304-logical output rendered 5 columns and a massive margin.)
 local PANEL_WIDTH_BY_ID = { wide = 780, desktop = 640, compact = 480 }
-local fitWidth = PANEL_WIDTH_BY_ID.compact
-local function fitWidthFor(context)
-  if type(context) == "string" and PANEL_WIDTH_BY_ID[context] ~= nil then
-    return PANEL_WIDTH_BY_ID[context]
-  end
-  return PANEL_WIDTH_BY_ID.compact
-end
+local fitWidth = PANEL_WIDTH_BY_ID.compact -- replaced by the shim's width at onOpen
 local MAX_SEARCH_RESULTS = 300
 local RECENCY_HALF_LIFE_DAYS = 14.0
 
@@ -728,10 +724,13 @@ local function categoryStrip()
   for _, c in ipairs(CATEGORIES) do
     catButton(c.id, c.glyph, c.label)
   end
-  -- Centered over the fitted grid width (the same area the tile rows use),
-  -- so the strip sits over the columns rather than hugging the left edge.
+  -- Centered by stretching: the root column is align="stretch", so the row
+  -- fills the same content box the search input spans and justify="center"
+  -- centers the buttons in the REAL width. No width estimate here — a
+  -- computed width (even the fitted contentWidth) anchors left of the input
+  -- by the estimate's error, which shows up as a few px of drift.
   return ui.row({ key = "cats", gap = 2, align = "center",
-    width = gridRowWidth, justify = "center" }, buttons)
+    justify = "center" }, buttons)
 end
 
 local function gridArea()
@@ -914,33 +913,26 @@ render = function()
 end
 
 -- ── Lifecycle ──────────────────────────────────────────────────────────
-local function pickTier()
-  local width = 0
-  for _, out in ipairs(noctalia.outputs()) do
-    if out.focused then
-      width = tonumber(out.width) or 0
-      break
-    end
-  end
+-- The tier follows the entry width the shim passed (wide→9 columns,
+-- desktop→8, compact→6). The old focused-output heuristic is gone: it
+-- paired entry and output only when the binding matched the tier comment,
+-- and misfit everywhere else.
+local function tierForWidth(width)
   for _, t in ipairs(TIERS) do
-    if width >= t.min then
-      tier = t
-      applyGridFit()
-      return
+    if t.panel == width then
+      return t
     end
   end
-  tier = TIERS[#TIERS]
-  applyGridFit()
+  return TIERS[#TIERS]
 end
 
-function onOpen(context)
+function M.onOpen(entryWidth)
   ensureData()
   loadUsage()
-  -- The manifest entry id may arrive as the user context string: when it
-  -- names a panel width, fit the grid to THAT panel instead of the
-  -- narrowest-manifest default.
-  fitWidth = fitWidthFor(context)
-  pickTier()
+  -- The entry shim passes its manifest width: the entry is the size signal.
+  fitWidth = if type(entryWidth) == "number" then entryWidth
+    else PANEL_WIDTH_BY_ID.compact
+  tier = tierForWidth(fitWidth)
   applyGridFit()
   query = ""
   cat = "smileys"
@@ -950,7 +942,7 @@ function onOpen(context)
   render()
 end
 
-function onKey(chord, pressed)
+function M.onKey(chord, pressed)
   if not pressed then
     return
   end
@@ -968,3 +960,5 @@ function onKey(chord, pressed)
   end
   render()
 end
+
+return M
