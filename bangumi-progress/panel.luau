@@ -85,6 +85,9 @@ local confirmDisconnect = false
 local disconnectEpoch = 0
 local accountExpanded = false
 local render -- Forward declaration for functions such as setFilter and onOpen.
+local ensureSelectedCollection
+local pendingCategoryCheck = false
+local categoryRequestKey = nil
 
 local function tr(key, subst)
   return noctalia.tr("panel." .. key, subst)
@@ -155,6 +158,7 @@ end
 local function setView(view)
   activeView = view
   if view == "timeline" then loadCalendar(false) end
+  if view == "collections" then ensureSelectedCollection() end
   dirty = true
   render()
 end
@@ -212,9 +216,30 @@ local function collectionOf(type)
   return nil
 end
 
+-- Selection can change while another read/write or login is in progress.
+-- Retain that intent and issue it once the service is ready. A failed request
+-- stays visible as an error instead of being retried on every snapshot.
+ensureSelectedCollection = function()
+  if activeView ~= "collections" or not snapshot.viewer
+    or not snapshot.authMode or snapshot.authMode == "none"
+    or snapshot.oauthReadOnly == true
+    or snapshot.loading or snapshot.refreshing or snapshot.oauthBusy or snapshot.busy then return end
+  local collection = collectionOf(activeType)
+  local requestKey = accountIdentity(snapshot) .. ":" .. tostring(activeType)
+  local hasError = snapshot.error and snapshot.error ~= "" and snapshot.error ~= "empty"
+  if not pendingCategoryCheck and (collection and collection.loaded or hasError
+    or categoryRequestKey == requestKey) then return end
+  -- Set these before sending: the host may immediately publish a snapshot.
+  pendingCategoryCheck = false
+  categoryRequestKey = requestKey
+  sendCommand("load_type", { type = activeType })
+end
+
 local function requestVisibleCovers(rows, first, last)
   if not appearance.covers then return end
-  local ids, signatureParts = {}, {accountIdentity(snapshot), collectionLayout, tostring(activeType), tostring(gridPage)}
+  local collection = collectionOf(activeType)
+  local ids, signatureParts = {}, {accountIdentity(snapshot), collectionLayout, tostring(activeType), tostring(gridPage),
+    tostring(collection and collection.fetchedAt)}
   for index = first, last do
     local id = rows[index].subjectId
     table.insert(ids, id)
@@ -275,9 +300,9 @@ local function setFilter(type)
   activeType = type
   gridPage = 1
   -- Loaded categories can expire too; the service owns their TTL.
-  if not snapshot.loading and not snapshot.oauthBusy and not snapshot.busy then
-    sendCommand("load_type", { type = type })
-  end
+  pendingCategoryCheck = true
+  categoryRequestKey = nil
+  ensureSelectedCollection()
   dirty = true
   render()
 end
@@ -348,6 +373,7 @@ end
 local function canUpdateProgress()
   return snapshot.authMode == "token" and snapshot.canWrite ~= false
     and not snapshot.oauthBusy and not snapshot.busy
+    and not snapshot.loading and not snapshot.refreshing
     and (snapshot.authSource ~= "oauth" or not snapshot.oauthExpiresAt
       or os.time() < snapshot.oauthExpiresAt)
 end
@@ -883,7 +909,10 @@ local function renderContent()
     table.insert(filterButtons, ui.button({ key = "collection-status-" .. tostring(filter.type),
       width = 0, flexGrow = 1, height = 32, fontSize = 12, contentAlign = "center", text = label, variant = if selected then "primary" else "ghost", selected = selected,
       controlSize = "sm", onClick = function()
-        if filter.type ~= activeType then setFilter(filter.type) end
+        local current = collectionOf(filter.type)
+        local failedUnloaded = (not current or not current.loaded)
+          and snapshot.error and snapshot.error ~= "" and snapshot.error ~= "empty"
+        if filter.type ~= activeType or failedUnloaded then setFilter(filter.type) end
       end }))
   end
   -- Give status labels their own width; layout controls share the page toolbar.
@@ -914,7 +943,7 @@ local function renderContent()
       ui.spacer({ flexGrow = 1 }), layoutControls,
     }))
     if not snapshot.loading and (not snapshot.error or snapshot.error == "" or snapshot.error == "empty") then
-      table.insert(children, ui.label({ text = tr("empty"), color = "on_surface_variant" }))
+      table.insert(children, ui.label({ text = tr(if collection and collection.loaded then "empty" else "loading"), color = "on_surface_variant" }))
     end
   else
     local displayRows = {}
@@ -986,11 +1015,15 @@ noctalia.state.watch("bgm_snapshot", function(value)
     if accountIdentity(snapshot) ~= accountIdentity(value) then
       clearDisconnect()
       accountExpanded = false
+      categoryRequestKey = nil
+      pendingCategoryCheck = false
+      gridPage = 1
     elseif value.oauthBusy or value.busy then
       clearDisconnect()
     end
     snapshot = value
     loadProfile()
+    if noctalia.state.get("bgm_open") then ensureSelectedCollection() end
     dirty = true
     render()
   end
@@ -1009,19 +1042,29 @@ function onOpen(_context)
   accountExpanded = false
   -- Hidden panels can miss watcher callbacks; use the service's latest state.
   local current = noctalia.state.get("bgm_snapshot")
-  if type(current) == "table" then snapshot = current end
+  if type(current) == "table" then
+    if accountIdentity(snapshot) ~= accountIdentity(current) then
+      categoryRequestKey = nil
+      pendingCategoryCheck = false
+      gridPage = 1
+    end
+    snapshot = current
+  end
   noctalia.state.set("bgm_open", true)
   loadProfile()
   if _context == "timeline" then activeView = "timeline" end
   if activeView == "timeline" then
     loadCalendar(false)
   elseif snapshot.authMode and snapshot.authMode ~= "none" and not snapshot.oauthBusy and not snapshot.loading and not snapshot.busy then
+    pendingCategoryCheck = activeType ~= 3
     sendCommand("refresh", { silent = true })
     -- Refresh already checks Watching; other selected categories have their
     -- own TTL and must be checked even when their cached rows are loaded.
     if activeType ~= 3 then
-      sendCommand("load_type", { type = activeType })
+      ensureSelectedCollection()
     end
+  else
+    pendingCategoryCheck = true
   end
   dirty = true
   render()
@@ -1047,6 +1090,7 @@ function update()
   if dirty then
     render()
   end
+  if noctalia.state.get("bgm_open") then ensureSelectedCollection() end
 end
 
 function onNoop() end

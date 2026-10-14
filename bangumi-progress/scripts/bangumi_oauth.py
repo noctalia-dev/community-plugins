@@ -12,6 +12,7 @@ import contextlib
 import fcntl
 import hashlib
 import http.server
+import io
 import json
 import math
 import os
@@ -31,6 +32,9 @@ TOKEN_URL = "https://bgm.tv/oauth/access_token"
 ME_URL = "https://api.bgm.tv/v0/me"
 USER_AGENT = "Noctalia-Bangumi-Progress/1.2.0 (https://github.com/noctalia-dev/community-plugins)"
 ATTEMPT_PATTERN = re.compile(r"[A-Za-z0-9_-]{16,128}\Z")
+CALLBACK_REQUEST_TIMEOUT = 2
+CALLBACK_POLL_INTERVAL = 0.2
+CALLBACK_HEADER_LIMIT = 64 * 1024
 
 
 class OAuthError(Exception):
@@ -154,6 +158,13 @@ class Store:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self.path(name))
+            # Persist the rename too: a rotated refresh token must not revert to
+            # the old directory entry after a sudden shutdown.
+            directory_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
@@ -342,10 +353,51 @@ class Helper:
         state = secrets.token_urlsafe(32)
         received = {}
         expected_host = "127.0.0.1:" + str(config["port"])
+        monotonic = self.monotonic
+
+        def check_login():
+            if not self.active(generation, attempt_id):
+                raise OAuthError("oauth_cancelled")
+            if self.monotonic() >= deadline:
+                raise OAuthError("oauth_timeout")
+            if launcher is not True and launcher.poll() not in (None, 0):
+                raise OAuthError("browser_open_failed")
 
         class Callback(http.server.BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
+
+            def handle(self):
+                # BaseHTTPRequestHandler's buffered readline only enforces an
+                # idle timeout. Read one complete header with an absolute bound
+                # first, so continuously dripped bytes cannot hold the operation
+                # lock. Poll login state independently of header completion.
+                request_deadline = monotonic() + CALLBACK_REQUEST_TIMEOUT
+                header = bytearray()
+                while len(header) < CALLBACK_HEADER_LIMIT:
+                    check_login()
+                    remaining = min(request_deadline, deadline) - monotonic()
+                    if remaining <= 0:
+                        return
+                    self.connection.settimeout(min(CALLBACK_POLL_INTERVAL, remaining))
+                    try:
+                        chunk = self.connection.recv(min(4096, CALLBACK_HEADER_LIMIT - len(header)))
+                    except TimeoutError:
+                        continue
+                    if not chunk or monotonic() >= request_deadline:
+                        return
+                    header.extend(chunk)
+                    if b"\r\n\r\n" in header or b"\n\n" in header:
+                        check_login()
+                        original_rfile = self.rfile
+                        try:
+                            self.rfile = io.BytesIO(header)
+                            self.close_connection = True
+                            self.handle_one_request()
+                        finally:
+                            self.rfile.close()
+                            self.rfile = original_rfile
+                        return
 
             def reply(self, status, text):
                 body = text.encode("utf-8")
@@ -381,11 +433,6 @@ class Helper:
             # TIME_WAIT. This still refuses another active listening socket.
             allow_reuse_address = True
 
-            def get_request(self):
-                connection, address = super().get_request()
-                connection.settimeout(1)
-                return connection, address
-
             def handle_error(self, _request, _client_address):
                 pass  # Never print a callback URL or traceback containing a code.
 
@@ -393,8 +440,8 @@ class Helper:
             server = Server(("127.0.0.1", config["port"]), Callback)
         except OSError:
             raise OAuthError("callback_port_in_use") from None
-        server.timeout = 0.2
-        deadline = self.monotonic() + self.login_timeout
+        server.timeout = CALLBACK_POLL_INTERVAL
+        deadline = monotonic() + self.login_timeout
         try:
             url = AUTHORIZE_URL + "?" + urllib.parse.urlencode({
                 "client_id": config["client_id"], "response_type": "code",
@@ -403,15 +450,9 @@ class Helper:
             if not launcher:
                 raise OAuthError("browser_open_failed")
             while not received:
-                if not self.active(generation, attempt_id):
-                    raise OAuthError("oauth_cancelled")
-                if self.monotonic() >= deadline:
-                    raise OAuthError("oauth_timeout")
-                if launcher is not True and launcher.poll() not in (None, 0):
-                    raise OAuthError("browser_open_failed")
+                check_login()
                 server.handle_request()
-            if not self.active(generation, attempt_id):
-                raise OAuthError("oauth_cancelled")
+            check_login()
             if "error" in received:
                 raise OAuthError(received["error"])
             response = self.transport("POST", TOKEN_URL, data={

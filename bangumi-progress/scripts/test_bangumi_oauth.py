@@ -111,6 +111,46 @@ class OAuthTests(unittest.TestCase):
         return self.helper.store.read("oauth-session.json")
 
     @contextlib.contextmanager
+    def slow_callback(self):
+        """Keep sending incomplete headers faster than an idle timeout."""
+        connection = socket.create_connection(("127.0.0.1", self.port), timeout=2)
+        stopped, started = threading.Event(), threading.Event()
+        connection.sendall(b"GET /callback?code=fixture-code HTTP/1.1\r\nX-Slow: ")
+
+        def drip():
+            try:
+                while not stopped.is_set():
+                    connection.sendall(b"x")
+                    started.set()
+                    stopped.wait(0.03)
+            except OSError:
+                pass  # The expected server close may race the next send.
+
+        sender = threading.Thread(target=drip)
+        sender.start()
+        try:
+            self.assertTrue(started.wait(1), "slow callback did not start")
+            yield connection
+        finally:
+            stopped.set()
+            connection.close()
+            sender.join(2)
+            self.assertFalse(sender.is_alive(), "slow callback sender did not stop")
+
+    def assert_disconnected(self, connection):
+        try:
+            self.assertEqual(connection.recv(1), b"", "callback connection is still open")
+        except ConnectionResetError:
+            pass
+
+    def login_again(self):
+        self.browser_ready.clear()
+        self.helper.login_timeout = 3
+        thread, result = self.start(attempt=ATTEMPT + "-next")
+        self.assertEqual(self.callback()[0], 200)
+        self.assertTrue(self.finish(thread, result)["ok"])
+
+    @contextlib.contextmanager
     def fake_xdg_open(self, *, exit_code=None):
         """A real launcher held open until teardown; never starts a browser."""
         binary_dir = Path(self.temp.name) / "bin"
@@ -209,6 +249,39 @@ class OAuthTests(unittest.TestCase):
         self.assertEqual(self.calls[0][2]["grant_type"], "authorization_code")
         self.assertEqual(self.calls[1][0:2], ("GET", oauth.ME_URL))
 
+    def test_atomic_storage_syncs_parent_after_private_file_replace(self):
+        operations = []
+        original_fsync, original_replace = os.fsync, os.replace
+
+        def sync(fd):
+            info = os.fstat(fd)
+            operations.append("directory" if stat.S_ISDIR(info.st_mode) else "file")
+            original_fsync(fd)
+
+        def replace(source, destination):
+            operations.append("replace")
+            original_replace(source, destination)
+
+        with mock.patch.object(oauth.os, "fsync", side_effect=sync), \
+                mock.patch.object(oauth.os, "replace", side_effect=replace):
+            self.helper.store.write("fixture.json", {"synthetic": True})
+        self.assertEqual(operations, ["file", "replace", "directory"])
+        self.assertEqual(stat.S_IMODE((self.directory / "fixture.json").stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(self.directory.stat().st_mode), 0o700)
+
+    def test_directory_sync_failure_is_reported_without_private_exception_text(self):
+        original_fsync = os.fsync
+
+        def sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError("fixture-private-storage")
+            original_fsync(fd)
+
+        with mock.patch.object(oauth.os, "fsync", side_effect=sync):
+            answer = self.helper.run("cancel", ATTEMPT)
+        self.assertEqual(answer, oauth.error("oauth_storage_error"))
+        self.assertEqual(list(self.directory.glob(".oauth-*")), [])
+
     def test_wrong_state_host_and_path_rejected_then_valid_code_once(self):
         thread, result = self.start()
         self.assertEqual(self.callback(state="wrong-state")[0], 400)
@@ -234,6 +307,57 @@ class OAuthTests(unittest.TestCase):
         self.assertTrue(self.helper.run("cancel", ATTEMPT)["ok"])
         self.assertEqual(self.finish(thread, result), oauth.error("oauth_cancelled"))
         self.assertIsNone(self.session())
+
+    def test_slow_header_request_has_absolute_deadline_then_valid_callback_works(self):
+        with mock.patch.object(oauth, "CALLBACK_REQUEST_TIMEOUT", 0.35):
+            thread, result = self.start()
+            with self.slow_callback() as connection:
+                started = time.monotonic()
+                self.assert_disconnected(connection)
+                self.assertLess(time.monotonic() - started, 1)
+                self.assertTrue(thread.is_alive(), "request timeout must leave login available")
+                self.assertEqual(self.calls, [])
+                self.assertEqual(self.callback()[0], 200)
+                self.assertTrue(self.finish(thread, result)["ok"])
+
+    def test_slow_header_login_deadline_closes_socket_and_releases_next_login(self):
+        self.helper.login_timeout = 0.3
+        thread, result = self.start()
+        with self.slow_callback() as connection:
+            thread.join(1)
+            self.assertFalse(thread.is_alive(), "dripped headers extended the login deadline")
+            self.assertEqual(result, [oauth.error("oauth_timeout")])
+            self.assert_disconnected(connection)
+            self.assertIsNone(self.session())
+            self.assertEqual(self.calls, [])
+            # The first client's socket remains open while we reuse the port and
+            # operation lock, so client teardown cannot make this assertion pass.
+            self.login_again()
+
+    def test_slow_header_cancel_closes_socket_and_releases_next_login(self):
+        thread, result = self.start()
+        with self.slow_callback() as connection:
+            self.assertTrue(self.helper.run("cancel", ATTEMPT)["cancelled"])
+            thread.join(1)
+            self.assertFalse(thread.is_alive(), "dripped headers blocked cancellation")
+            self.assertEqual(result, [oauth.error("oauth_cancelled")])
+            self.assert_disconnected(connection)
+            self.assertIsNone(self.session())
+            self.assertEqual(self.calls, [])
+            self.login_again()
+
+    def test_oversized_incomplete_header_is_closed_without_exchanging_tokens(self):
+        thread, result = self.start()
+        with socket.create_connection(("127.0.0.1", self.port), timeout=2) as connection:
+            try:
+                connection.sendall(b"GET /callback HTTP/1.1\r\nX-Large: "
+                                   + b"x" * oauth.CALLBACK_HEADER_LIMIT)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            self.assert_disconnected(connection)
+            self.assertEqual(self.calls, [])
+            self.assertEqual(self.callback()[0], 200)
+            self.assertTrue(self.finish(thread, result)["ok"])
 
     def test_cancel_wrong_attempt_does_not_cancel_login(self):
         thread, result = self.start()

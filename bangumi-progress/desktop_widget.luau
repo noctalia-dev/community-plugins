@@ -12,6 +12,7 @@ local ROOT_PADDING = 12
 local ROOT_GAP = 8
 local OPEN_BUTTON_SIZE = 28
 local pageOffset = 0
+local coverRequestSignature = nil
 
 local function tr(key, subst)
   return noctalia.tr("desktop." .. key, subst)
@@ -186,6 +187,26 @@ local function render()
   local maxOffset = math.max(0, #rows - visibleItems)
   pageOffset = math.max(0, math.min(maxOffset, pageOffset))
   local lastIndex = math.min(#rows, pageOffset + visibleItems)
+  if showCovers and lastIndex > pageOffset then
+    local viewer = snapshot.viewer or {}
+    local fetchedAt
+    for _, collection in ipairs(snapshot.collections or {}) do
+      if collection.type == 3 then fetchedAt = collection.fetchedAt; break end
+    end
+    local ids, parts = {}, {tostring(snapshot.authSource), tostring(snapshot.authMode),
+      tostring(viewer.id or viewer.username or ""), tostring(pageOffset), tostring(fetchedAt)}
+    for index = pageOffset + 1, lastIndex do
+      table.insert(ids, rows[index].subjectId)
+      table.insert(parts, tostring(rows[index].subjectId))
+    end
+    local signature = table.concat(parts, ":")
+    if signature ~= coverRequestSignature then
+      coverRequestSignature = signature
+      sendCommand("load_covers", { type = 3, subjectIds = ids })
+    end
+  else
+    coverRequestSignature = nil
+  end
   local rootHeight = nil
   local headerChildren = {
     ui.label({
@@ -274,6 +295,7 @@ end
 
 function onConfigChanged()
   pageOffset = 0
+  coverRequestSignature = nil
   render()
 end
 

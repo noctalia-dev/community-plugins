@@ -52,6 +52,21 @@ noctalia msg panel-toggle mirei124/bangumi-progress:library
 
 The `api` service runs in the background. It refreshes collections, resolves aired episode counts, downloads covers, persists cache data, and processes progress changes requested by the panel.
 
+Collection reads and progress changes run separately so a refresh cannot replace
+a successful progress update. Progress controls are temporarily disabled during
+collection reads and until a progress action finishes. A category selected while
+the service is busy is loaded when it becomes ready; unread categories are not
+presented as empty. Titles with an unknown total episode count still resolve
+episode metadata for update indicators and the completion action.
+
+Episode results, update indicators and badge baseline writes are batched with
+a fixed one-second deadline, with the remaining batch flushed when the queue
+finishes. User progress changes persist immediately. Existing cover files are
+reused before any download is queued. The panel prefetches at most the first 32
+collection covers while open with covers enabled; its current page has priority.
+The desktop widget requests only its displayed entries. A closed panel or hidden
+collection covers do not trigger background collection-cover downloads.
+
 ## Airing timeline
 
 Open **Airing timeline** in the panel and use its date selector to browse **Today** or **This week**. The
@@ -94,6 +109,11 @@ noctalia msg panel-open mirei124/bangumi-progress:library timeline
 ## Browser sign-in
 
 **Sign in with Bangumi** opens the browser and starts a temporary callback listener on `127.0.0.1:47871`. Complete authorization within 180 seconds, or use **Cancel** in the panel. The listener closes when the operation finishes, is cancelled, or times out. Account checking and token refresh show a waiting status without a Cancel button.
+
+Incomplete callback requests have a two-second total read limit and a bounded
+header size. Cancellation and the overall login deadline remain active while a
+request is arriving. Session writes atomically replace the file and synchronize
+both its contents and parent directory before reporting success.
 
 If sign-in has already finished when you select **Cancel**, the plugin shows
 the connected account and explains that sign-in completed. Use **Disconnect**

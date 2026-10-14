@@ -61,6 +61,7 @@ local accessToken = ""
 local username = ""
 local refreshMs = 30 * 60000
 local fetchInFlight = {} -- type -> true
+local collectionRefreshActive = false -- Covers the whole multi-category refresh chain.
 local coversInFlight = {} -- subjectId -> true
 local failedCoverUrls = {} -- subjectId -> { url, at }; short cooldown after failed downloads
 local coverQueue = {}     -- rows waiting for a download slot
@@ -73,6 +74,9 @@ local lastAutoRefreshAt = 0
 local sessionGeneration = 0
 local persistCache
 local pendingEpisodePersistence = false
+local pendingUnwatchedUpdate = false
+local pendingBadgePersistence = false
+local flushBadgePersistence
 local episodePersistDueAt = 0
 local EPISODE_PERSIST_INTERVAL_MS = 1000
 local authReady = false
@@ -150,6 +154,30 @@ local function collectionOf(type)
     end
   end
   return nil
+end
+
+-- Rebuild on list replacement; download completions then touch only matching rows.
+local collectionRowsBySubject = {}
+local calendarRowsBySubject = {}
+local function rebuildCollectionIndex()
+  collectionRowsBySubject = {}
+  for _, collection in ipairs(snapshot.collections) do
+    for _, row in ipairs(collection.rows) do
+      if row.subjectId ~= nil then
+        local rows = collectionRowsBySubject[row.subjectId] or {}
+        table.insert(rows, row)
+        collectionRowsBySubject[row.subjectId] = rows
+      end
+    end
+  end
+end
+local function rebuildCalendarIndex()
+  calendarRowsBySubject = {}
+  for _, day in ipairs(snapshot.calendar.days) do
+    for _, row in ipairs(day.rows) do
+      calendarRowsBySubject[row.subjectId] = row
+    end
+  end
 end
 
 local function rememberCollectionTotal(collection, error)
@@ -288,6 +316,7 @@ local function loadCalendarCache()
   end
   snapshot.calendar.loaded = true
   snapshot.calendar.days = days
+  rebuildCalendarIndex()
   snapshot.calendar.fetchedAt = parsed.fetchedAt
 end
 
@@ -333,6 +362,7 @@ local function loadCalendar(force)
     if days then
       calendar.loaded = true
       calendar.days = days
+      rebuildCalendarIndex()
       calendar.fetchedAt = os.time()
       persistCalendar()
     end
@@ -724,21 +754,16 @@ end
 -- by subject ID so a calendar/collection refresh cannot lose the local path.
 local function applyCoverPath(subjectId, path)
   local collectionsChanged, calendarChanged = false, false
-  for _, collection in ipairs(snapshot.collections) do
-    for _, current in ipairs(collection.rows) do
-      if current.subjectId == subjectId and current.coverPath ~= path then
-        current.coverPath = path
-        collectionsChanged = true
-      end
+  for _, row in ipairs(collectionRowsBySubject[subjectId] or {}) do
+    if row.coverPath ~= path then
+      row.coverPath = path
+      collectionsChanged = true
     end
   end
-  for _, day in ipairs(snapshot.calendar.days) do
-    for _, current in ipairs(day.rows) do
-      if current.subjectId == subjectId and current.coverPath ~= path then
-        current.coverPath = path
-        calendarChanged = true
-      end
-    end
+  local row = calendarRowsBySubject[subjectId]
+  if row and row.coverPath ~= path then
+    row.coverPath = path
+    calendarChanged = true
   end
   return collectionsChanged, calendarChanged
 end
@@ -843,7 +868,12 @@ local function queueCovers(rows, prioritize)
       cachedCalendarChanged = cachedCalendarChanged or changedCalendar
       row.coverPath = cached
     end
-    if row.coverPath and not noctalia.fileExists(row.coverPath) then row.coverPath = nil end
+    if row.coverPath and not noctalia.fileExists(row.coverPath) then
+      local changedCollections, changedCalendar = applyCoverPath(row.subjectId, nil)
+      cachedCollectionsChanged = cachedCollectionsChanged or changedCollections
+      cachedCalendarChanged = cachedCalendarChanged or changedCalendar
+      row.coverPath = nil
+    end
     if row.coverUrl and not row.coverPath and not coversInFlight[row.subjectId] then
       coversInFlight[row.subjectId] = true
       table.insert(coverQueue, row)
@@ -971,7 +1001,7 @@ local buildUnwatchedQueue
 local processUnwatchedQueue
 
 local function loadWatching(silent, cb)
-  if snapshot.loading then
+  if snapshot.loading or snapshot.busy then
     return
   end
   snapshot.loading = true
@@ -987,7 +1017,7 @@ local function loadWatching(silent, cb)
       return
     end
     snapshot.loading = false
-    snapshot.refreshing = false
+    snapshot.refreshing = collectionRefreshActive
     if result.error then
       rememberCollectionTotal(collection, result.error)
       setError(result.error)
@@ -999,10 +1029,11 @@ local function loadWatching(silent, cb)
     collection.loaded = true
     collection.total = result.total or #result.rows
     collection.rows = result.rows
+    rebuildCollectionIndex()
     collection.fetchedAt = os.time()
     rememberCollectionTotal(collection)
     lastAutoRefreshAt = noctalia.nowMs()
-    queueCovers(result.rows)
+    if noctalia.state.get("bgm_open") == true and noctalia.getConfig("show_collection_covers") ~= false then queueCollectionCovers(collection) end
     buildUnwatchedQueue()
     publishSnapshot()
     persistCache()
@@ -1057,6 +1088,10 @@ end
 
 -- Lazy-load a non-watching type for the panel.
 local function loadType(collectionType, cb, force)
+  if snapshot.loading or snapshot.busy then
+    if cb then cb(false) end
+    return
+  end
   local collection = collectionOf(collectionType)
   if not collection then
     if cb then
@@ -1065,7 +1100,7 @@ local function loadType(collectionType, cb, force)
     return
   end
   if (collection.loaded and fresh(collection.fetchedAt) and not force) or fetchInFlight[tostring(collectionType)] then
-    queueCollectionCovers(collection)
+    if noctalia.state.get("bgm_open") == true and noctalia.getConfig("show_collection_covers") ~= false then queueCollectionCovers(collection) end
     if cb then
       cb(true)
     end
@@ -1090,9 +1125,10 @@ local function loadType(collectionType, cb, force)
     collection.loaded = true
     collection.total = result.total or #result.rows
     collection.rows = result.rows
+    rebuildCollectionIndex()
     collection.fetchedAt = os.time()
     rememberCollectionTotal(collection)
-    queueCollectionCovers(collection)
+    if noctalia.state.get("bgm_open") == true and noctalia.getConfig("show_collection_covers") ~= false then queueCollectionCovers(collection) end
     publishSnapshot()
     persistCache()
     if cb then
@@ -1106,9 +1142,12 @@ local lastPanelRefreshAt = 0
 local panelRefresh -- Forward declaration; implemented after refreshAll.
 
 local function refreshAll(silent)
-  if not authReady or snapshot.loading or oauthExpired() then
+  if not authReady or snapshot.loading or snapshot.busy or collectionRefreshActive or oauthExpired() then
     return
   end
+  local generation = sessionGeneration
+  collectionRefreshActive = true
+  snapshot.refreshing = true
   -- Reload the watching list first, then every panel category already loaded.
   local reloadTypes = {}
   for _, t in ipairs(ALL_TYPES) do
@@ -1120,19 +1159,32 @@ local function refreshAll(silent)
     end
   end
   local function loadNext(index)
+    if generation ~= sessionGeneration then return end
     local t = reloadTypes[index]
     if not t then
+      collectionRefreshActive = false
+      snapshot.refreshing = false
+      publishSnapshot()
       return
     end
     loadType(t, function(ok)
       if ok then
         loadNext(index + 1)
+      else
+        collectionRefreshActive = false
+        snapshot.refreshing = false
+        publishSnapshot()
       end
     end, true)
   end
   loadWatching(silent, function(ok)
+    if generation ~= sessionGeneration then return end
     if ok then
       loadNext(1)
+    else
+      collectionRefreshActive = false
+      snapshot.refreshing = false
+      publishSnapshot()
     end
   end)
 end
@@ -1251,8 +1303,14 @@ local activeUnwatchedFetches = 0
 local activeEpisodeFetches = 0
 
 local function flushEpisodePersistence()
-  if not pendingEpisodePersistence then return end
-  persistCache()
+  local changed = pendingUnwatchedUpdate
+  if changed then
+    pendingUnwatchedUpdate = false
+    recomputeUnwatched(true)
+  end
+  if pendingEpisodePersistence then persistCache() end
+  flushBadgePersistence()
+  if changed then publishSnapshot() end
   syncInterval()
 end
 
@@ -1349,6 +1407,7 @@ local function suspendAccountRequests()
   flushCoverPersistence()
   flushEpisodePersistence()
   sessionGeneration += 1
+  collectionRefreshActive = false
   cancelCalendar()
   fetchInFlight = {}
   barCountRequests = {}
@@ -1390,6 +1449,7 @@ local function clearAccountState()
     collection.rows = {}
     collection.fetchedAt = nil
   end
+  rebuildCollectionIndex()
 end
 
 local function loadBadgeBaselines(mode)
@@ -1431,6 +1491,7 @@ local function loadBadgeBaselines(mode)
 end
 
 local function saveBadgeBaselines()
+  pendingBadgePersistence = false
   local dir = noctalia.pluginDataDir()
   if not dir then
     return
@@ -1449,15 +1510,25 @@ local function saveBadgeBaselines()
   }))
 end
 
+flushBadgePersistence = function()
+  if pendingBadgePersistence then saveBadgeBaselines() end
+end
+
 local function acknowledgeRow(row)
   if row.airedEp == nil then
     return
   end
   badgeBaselines[row.subjectId] = math.max(0, row.airedEp - (row.epStatus or 0))
-  saveBadgeBaselines()
+  pendingBadgePersistence = true
 end
 
 persistCache = function()
+  if pendingUnwatchedUpdate then
+    pendingUnwatchedUpdate = false
+    recomputeUnwatched(true)
+    flushBadgePersistence()
+    publishSnapshot()
+  end
   local dir = noctalia.pluginDataDir()
   if not dir then
     return
@@ -1489,6 +1560,7 @@ persistCache = function()
   }
   noctalia.writeFile(dir .. "/" .. CACHE_FILE, noctalia.json.encode(payload))
   -- Collection/progress writes already include all completed episode metadata.
+  pendingUnwatchedUpdate = false
   pendingEpisodePersistence = false
   episodePersistDueAt = 0
 end
@@ -1549,7 +1621,8 @@ local function loadPersistentCache(mode, configuredUsername)
         -- Do not start downloads for unvisited categories during restoration.
         for _, row in ipairs(collection.rows) do
           local cached = existingDisplayCover(row.subjectId)
-          if cached then row.coverPath = cached end
+          if cached then row.coverPath = cached
+          elseif row.coverPath and not noctalia.fileExists(row.coverPath) then row.coverPath = nil end
         end
         collection.fetchedAt = tonumber(cachedCollection.fetchedAt) or 0
       end
@@ -1577,10 +1650,11 @@ local function loadPersistentCache(mode, configuredUsername)
       end
     end
   end
+  rebuildCollectionIndex()
   return true
 end
 
-recomputeUnwatched = function()
+recomputeUnwatched = function(deferPublication)
   local total = 0
   local anyKnown = false
   local baselinesChanged = false
@@ -1603,18 +1677,20 @@ recomputeUnwatched = function()
       end
     end
   end
-  if baselinesChanged then
-    saveBadgeBaselines()
-  end
+  if baselinesChanged then pendingBadgePersistence = true end
   snapshot.unwatched = anyKnown and total or nil
-  publishSnapshot()
+  if not deferPublication then
+    pendingUnwatchedUpdate = false
+    flushBadgePersistence()
+    publishSnapshot()
+  end
 end
 
 buildUnwatchedQueue = function()
   local watching = collectionOf(TYPE_WATCHING)
   local rows = watching and watching.rows or {}
   for _, row in ipairs(rows) do
-    if row.eps and row.eps > 0 and (row.epStatus or 0) < row.eps then
+    if positiveInteger(row.subjectId) and ((row.eps or 0) <= 0 or (row.epStatus or 0) < row.eps) then
       local subjectId = row.subjectId
       local cached = airedEpBySubject[subjectId]
       local cache = episodeCache[subjectId]
@@ -1646,15 +1722,11 @@ processUnwatchedQueue = function()
       unwatchedInFlight[subjectId] = nil
       if cache then
         airedEpBySubject[subjectId] = cache.airedEp or 0
-        local watching = collectionOf(TYPE_WATCHING)
-        for _, row in ipairs(watching and watching.rows or {}) do
-          if row.subjectId == subjectId then
-            row.airedEp = cache.airedEp or 0
-            break
-          end
+        for _, row in ipairs(collectionRowsBySubject[subjectId] or {}) do
+          row.airedEp = cache.airedEp or 0
         end
+        pendingUnwatchedUpdate = true
       end
-      recomputeUnwatched()
       processUnwatchedQueue()
     end, true)
   end
@@ -1667,11 +1739,6 @@ local function patchEpisodes(subjectId, episodeIds, epType, cb)
     cb({ error = "unauthorized" })
     return
   end
-  if snapshot.busy then
-    cb({ error = "busy" })
-    return
-  end
-  snapshot.busy = true
   local generation = sessionGeneration
   publishSnapshot()
   local url = API_BASE .. "/v0/users/-/collections/" .. tostring(subjectId) .. "/episodes"
@@ -1685,7 +1752,6 @@ local function patchEpisodes(subjectId, episodeIds, epType, cb)
     if generation ~= sessionGeneration then
       return
     end
-    snapshot.busy = false
     local ok = resp.ok == true
     local status = resp.status or 0
     if not ok then
@@ -1707,20 +1773,13 @@ local function patchEpisodes(subjectId, episodeIds, epType, cb)
     cb({ error = "http_" .. tostring(status) })
   end)
   if not accepted then
-    snapshot.busy = false
     cb({ error = "network" })
   end
 end
 
 local function rowFor(subjectId)
-  for _, c in ipairs(snapshot.collections) do
-    for _, row in ipairs(c.rows) do
-      if row.subjectId == subjectId then
-        return row
-      end
-    end
-  end
-  return nil
+  local rows = collectionRowsBySubject[subjectId]
+  return rows and rows[1] or nil
 end
 
 local function failWrite(errorCode)
@@ -1728,25 +1787,64 @@ local function failWrite(errorCode)
   publishSnapshot()
 end
 
+local function beginProgress()
+  if not authReady or accessToken == "" or oauthExpired() then
+    failWrite("unauthorized")
+    return false
+  end
+  if snapshot.busy or snapshot.oauthBusy or snapshot.loading or collectionRefreshActive or next(fetchInFlight) ~= nil then
+    failWrite("busy")
+    return false
+  end
+  snapshot.busy = true
+  snapshot.error = ""
+  syncInterval()
+  publishSnapshot()
+  return true
+end
+
+local function finishProgress(errorCode)
+  snapshot.busy = false
+  if errorCode then snapshot.error = errorCode end
+  syncInterval()
+  publishSnapshot()
+end
+
+local function applyProgress(subjectId, progress, cache)
+  -- Resolve current indexed rows defensively even though collection reads are locked.
+  for _, row in ipairs(collectionRowsBySubject[subjectId] or {}) do
+    row.epStatus = progress
+    row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    if cache then row.airedEp = cache.airedEp or 0 end
+    acknowledgeRow(row)
+  end
+  pendingUnwatchedUpdate = false
+  recomputeUnwatched(true)
+  flushBadgePersistence()
+  persistCache()
+  finishProgress()
+end
+
 local function updateAnimeProgress(subjectId, delta)
   local row = rowFor(subjectId)
   if not row then
     return
   end
+  if not beginProgress() then return end
   local generation = sessionGeneration
   fetchEpisodes(subjectId, function(cache)
     if generation ~= sessionGeneration then
       return
     end
     if not cache then
-      failWrite("episodes_unavailable")
+      finishProgress("episodes_unavailable")
       return
     end
     if delta > 0 then
       local nextEp = row.epStatus + 1
       local eid = cache.byEp[nextEp]
       if not eid then
-        failWrite("no_next_episode")
+        finishProgress("no_next_episode")
         return
       end
       patchEpisodes(subjectId, { eid }, 2, function(result)
@@ -1754,20 +1852,16 @@ local function updateAnimeProgress(subjectId, delta)
           return
         end
         if result.ok then
-          row.epStatus = nextEp
-          row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
-          acknowledgeRow(row)
-          recomputeUnwatched()
-          persistCache()
+          applyProgress(subjectId, nextEp, cache)
         else
-          failWrite(result.error)
+          finishProgress(result.error)
         end
       end)
     else
       local curEp = row.epStatus
       local eid = cache.byEp[curEp]
       if curEp <= 0 or not eid then
-        failWrite("no_prev_episode")
+        finishProgress("no_prev_episode")
         return
       end
       patchEpisodes(subjectId, { eid }, 0, function(result)
@@ -1775,13 +1869,9 @@ local function updateAnimeProgress(subjectId, delta)
           return
         end
         if result.ok then
-          row.epStatus = curEp - 1
-          row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
-          acknowledgeRow(row)
-          recomputeUnwatched()
-          persistCache()
+          applyProgress(subjectId, curEp - 1, cache)
         else
-          failWrite(result.error)
+          finishProgress(result.error)
         end
       end)
     end
@@ -1793,16 +1883,17 @@ local function markDone(subjectId)
   if not row then
     return
   end
-  if row.epStatus >= (row.eps or 0) then
+  if (row.eps or 0) > 0 and row.epStatus >= row.eps then
     return
   end
+  if not beginProgress() then return end
   local generation = sessionGeneration
   fetchEpisodes(subjectId, function(cache)
     if generation ~= sessionGeneration then
       return
     end
     if not cache then
-      failWrite("episodes_unavailable")
+      finishProgress("episodes_unavailable")
       return
     end
     local ids = {}
@@ -1813,11 +1904,7 @@ local function markDone(subjectId)
       end
     end
     if #ids == 0 then
-      row.epStatus = math.max(row.epStatus, cache.maxEp)
-      row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
-      acknowledgeRow(row)
-      recomputeUnwatched()
-      persistCache()
+      applyProgress(subjectId, math.max(row.epStatus, cache.maxEp), cache)
       return
     end
     patchEpisodes(subjectId, ids, 2, function(result)
@@ -1825,13 +1912,9 @@ local function markDone(subjectId)
         return
       end
       if result.ok then
-        row.epStatus = math.max(row.epStatus, cache.maxEp)
-        row.updatedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
-        acknowledgeRow(row)
-        recomputeUnwatched()
-        persistCache()
+        applyProgress(subjectId, math.max(row.epStatus, cache.maxEp), cache)
       else
-        failWrite(result.error)
+        finishProgress(result.error)
       end
     end)
   end)
@@ -1895,7 +1978,7 @@ local function resumeManual()
   if loadPersistentCache(snapshot.authMode, username) then
     local watching = collectionOf(TYPE_WATCHING)
     if watching and watching.loaded then
-      queueCovers(watching.rows)
+      if noctalia.state.get("bgm_open") == true and noctalia.getConfig("show_collection_covers") ~= false then queueCollectionCovers(watching) end
       buildUnwatchedQueue()
     end
     publishSnapshot()
@@ -1950,7 +2033,7 @@ local function useOAuthSession()
   publishSnapshot()
   local watching = collectionOf(TYPE_WATCHING)
   if watching and watching.loaded then
-    queueCovers(watching.rows)
+    if noctalia.state.get("bgm_open") == true and noctalia.getConfig("show_collection_covers") ~= false then queueCollectionCovers(watching) end
     if not oauthExpired() then buildUnwatchedQueue() end
   end
   if watching and watching.loaded and fresh(watching.fetchedAt) then
@@ -2202,7 +2285,9 @@ syncInterval = function()
     ms = 2000
   end
   if pendingCoverCollections or pendingCoverCalendar then ms = math.min(ms, COVER_PERSIST_INTERVAL_MS) end
-  if pendingEpisodePersistence then ms = math.min(ms, EPISODE_PERSIST_INTERVAL_MS) end
+  if pendingEpisodePersistence or pendingUnwatchedUpdate or pendingBadgePersistence then
+    ms = math.min(ms, EPISODE_PERSIST_INTERVAL_MS)
+  end
   noctalia.setUpdateInterval(ms)
 end
 
