@@ -1,8 +1,0 @@
-{
-  "settings": {
-    "show_text": {
-      "description": "Show the current layout name next to the glyph in the bar. When off, only the glyph is shown.",
-      "label": "Show layout name"
-    }
-  }
-}

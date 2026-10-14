@@ -1,2 +1,0 @@
-WIFI-HW  WIFI     WWAN-HW  WWAN    
-enabled  enabled  missing  enabled 

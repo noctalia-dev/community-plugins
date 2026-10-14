@@ -1,7 +1,0 @@
-{
-  "languageMode": "nonstrict",
-  "lint": {
-    "FunctionUnused": false
-  },
-  "lintErrors": false
-}

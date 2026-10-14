@@ -1,7 +1,0 @@
-__pycache__/
-*.py[cod]
-.env
-.env.*
-*.pem
-*.key
-*.token
