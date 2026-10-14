@@ -1,0 +1,27 @@
+id = "soul/palettes"
+name = "Palettes"
+version = "1.0.0"
+plugin_api = 9
+author = "soul"
+license = "MIT"
+dependencies = []
+tags = ["development, panel, theming, utility"]
+icon = "palette"
+description = "Create, manage and copy colors from local palettes or builtin picks from the community."
+
+[[panel]]
+id = "palettes"
+entry = "panel.luau"
+width = 800
+height = 700
+placement = "floating"
+position = "center"
+
+  [[panel.setting]]
+  key = "columns"
+  type = "int"
+  label_key = "settings.columns.label"
+  description_key = "settings.columns.description"
+  default = 3
+  min = 1
+  max = 3

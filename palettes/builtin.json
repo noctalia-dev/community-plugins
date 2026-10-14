@@ -1,0 +1,62 @@
+[
+  { "name": "Catppuccin Latte", "colors": [
+    { "name": "Rosewater", "hex": "#dc8a78" }, { "name": "Flamingo", "hex": "#dd7878" },
+    { "name": "Pink", "hex": "#ea76cb" }, { "name": "Mauve", "hex": "#8839ef" },
+    { "name": "Red", "hex": "#d20f39" }, { "name": "Maroon", "hex": "#e64553" },
+    { "name": "Peach", "hex": "#fe640b" }, { "name": "Yellow", "hex": "#df8e1d" },
+    { "name": "Green", "hex": "#40a02b" }, { "name": "Teal", "hex": "#179299" },
+    { "name": "Sky", "hex": "#04a5e5" }, { "name": "Sapphire", "hex": "#209fb5" },
+    { "name": "Blue", "hex": "#1e66f5" }, { "name": "Lavender", "hex": "#7287fd" },
+    { "name": "Text", "hex": "#4c4f69" }, { "name": "Subtext 1", "hex": "#5c5f77" },
+    { "name": "Subtext 0", "hex": "#6c6f85" }, { "name": "Overlay 2", "hex": "#7c7f93" },
+    { "name": "Overlay 1", "hex": "#8c8fa1" }, { "name": "Overlay 0", "hex": "#9ca0b0" },
+    { "name": "Surface 2", "hex": "#acb0be" }, { "name": "Surface 1", "hex": "#bcc0cc" },
+    { "name": "Surface 0", "hex": "#ccd0da" }, { "name": "Base", "hex": "#eff1f5" },
+    { "name": "Mantle", "hex": "#e6e9ef" }, { "name": "Crust", "hex": "#dce0e8" }
+  ] },
+  { "name": "Catppuccin Frappé", "colors": [
+    { "name": "Rosewater", "hex": "#f2d5cf" }, { "name": "Flamingo", "hex": "#eebebe" },
+    { "name": "Pink", "hex": "#f4b8e4" }, { "name": "Mauve", "hex": "#ca9ee6" },
+    { "name": "Red", "hex": "#e78284" }, { "name": "Maroon", "hex": "#ea999c" },
+    { "name": "Peach", "hex": "#ef9f76" }, { "name": "Yellow", "hex": "#e5c890" },
+    { "name": "Green", "hex": "#a6d189" }, { "name": "Teal", "hex": "#81c8be" },
+    { "name": "Sky", "hex": "#99d1db" }, { "name": "Sapphire", "hex": "#85c1dc" },
+    { "name": "Blue", "hex": "#8caaee" }, { "name": "Lavender", "hex": "#babbf1" },
+    { "name": "Text", "hex": "#c6d0f5" }, { "name": "Subtext 1", "hex": "#b5bfe2" },
+    { "name": "Subtext 0", "hex": "#a5adce" }, { "name": "Overlay 2", "hex": "#949cbb" },
+    { "name": "Overlay 1", "hex": "#838ba7" }, { "name": "Overlay 0", "hex": "#737994" },
+    { "name": "Surface 2", "hex": "#626880" }, { "name": "Surface 1", "hex": "#51576d" },
+    { "name": "Surface 0", "hex": "#414559" }, { "name": "Base", "hex": "#303446" },
+    { "name": "Mantle", "hex": "#292c3c" }, { "name": "Crust", "hex": "#232634" }
+  ] },
+  { "name": "Catppuccin Macchiato", "colors": [
+    { "name": "Rosewater", "hex": "#f4dbd6" }, { "name": "Flamingo", "hex": "#f0c6c6" },
+    { "name": "Pink", "hex": "#f5bde6" }, { "name": "Mauve", "hex": "#c6a0f6" },
+    { "name": "Red", "hex": "#ed8796" }, { "name": "Maroon", "hex": "#ee99a0" },
+    { "name": "Peach", "hex": "#f5a97f" }, { "name": "Yellow", "hex": "#eed49f" },
+    { "name": "Green", "hex": "#a6da95" }, { "name": "Teal", "hex": "#8bd5ca" },
+    { "name": "Sky", "hex": "#91d7e3" }, { "name": "Sapphire", "hex": "#7dc4e4" },
+    { "name": "Blue", "hex": "#8aadf4" }, { "name": "Lavender", "hex": "#b7bdf8" },
+    { "name": "Text", "hex": "#cad3f5" }, { "name": "Subtext 1", "hex": "#b8c0e0" },
+    { "name": "Subtext 0", "hex": "#a5adcb" }, { "name": "Overlay 2", "hex": "#939ab7" },
+    { "name": "Overlay 1", "hex": "#8087a2" }, { "name": "Overlay 0", "hex": "#6e738d" },
+    { "name": "Surface 2", "hex": "#5b6078" }, { "name": "Surface 1", "hex": "#494d64" },
+    { "name": "Surface 0", "hex": "#363a4f" }, { "name": "Base", "hex": "#24273a" },
+    { "name": "Mantle", "hex": "#1e2030" }, { "name": "Crust", "hex": "#181926" }
+  ] },
+  { "name": "Catppuccin Mocha", "colors": [
+    { "name": "Rosewater", "hex": "#f5e0dc" }, { "name": "Flamingo", "hex": "#f2cdcd" },
+    { "name": "Pink", "hex": "#f5c2e7" }, { "name": "Mauve", "hex": "#cba6f7" },
+    { "name": "Red", "hex": "#f38ba8" }, { "name": "Maroon", "hex": "#eba0ac" },
+    { "name": "Peach", "hex": "#fab387" }, { "name": "Yellow", "hex": "#f9e2af" },
+    { "name": "Green", "hex": "#a6e3a1" }, { "name": "Teal", "hex": "#94e2d5" },
+    { "name": "Sky", "hex": "#89dceb" }, { "name": "Sapphire", "hex": "#74c7ec" },
+    { "name": "Blue", "hex": "#89b4fa" }, { "name": "Lavender", "hex": "#b4befe" },
+    { "name": "Text", "hex": "#cdd6f4" }, { "name": "Subtext 1", "hex": "#bac2de" },
+    { "name": "Subtext 0", "hex": "#a6adc8" }, { "name": "Overlay 2", "hex": "#9399b2" },
+    { "name": "Overlay 1", "hex": "#7f849c" }, { "name": "Overlay 0", "hex": "#6c7086" },
+    { "name": "Surface 2", "hex": "#585b70" }, { "name": "Surface 1", "hex": "#45475a" },
+    { "name": "Surface 0", "hex": "#313244" }, { "name": "Base", "hex": "#1e1e2e" },
+    { "name": "Mantle", "hex": "#181825" }, { "name": "Crust", "hex": "#11111b" }
+  ] }
+]
