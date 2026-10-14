@@ -1,13 +1,15 @@
 --!nonstrict
 -- Theme editor panel: create or edit a saved theme (title, palette source +
--- selection, wallpaper, screenshot). Opens from the carousel; the id of the
--- theme to edit is handed over through noctalia.state.editThemeId ("" = new).
+-- selection, one or more wallpapers, screenshot). Opens from the carousel; the
+-- id of the theme to edit is handed over through noctalia.state.editThemeId
+-- ("" = new). The Browse button opens the multi-select wallpaper picker.
 
 local themes = require("./themes.luau")
 local palette = require("./palette.luau")
 
 local tr = noctalia.tr
 local EDITOR_PANEL = "theblackdon/theme-switcher:editor"
+local PICKER_PANEL = "theblackdon/theme-switcher:wallpaper-picker"
 
 local isOpen = false
 local draft = nil -- editable theme candidate
@@ -15,9 +17,6 @@ local editId = nil -- nil | "" = create new, otherwise the theme id
 local paletteOptions = {}
 local communityNames = {}
 local communityLoaded = false
-local showBrowse = false
-local browseDir = ""
-local browseFiles = {}
 local screenshotBusy = false
 -- ui.input is uncontrolled: its value seeds only when the control is first
 -- created. Bumping these keys when we set a path programmatically forces a
@@ -31,7 +30,6 @@ local formSeed = 0
 local render
 
 local SOURCE_KEYS = palette.SOURCES
-local IMAGE_EXTS = { "png", "jpg", "jpeg", "webp", "bmp", "gif" }
 
 local function indexOf(list, value)
 	for i, v in ipairs(list) do
@@ -151,30 +149,6 @@ local function rebuildPaletteOptions()
 	end
 end
 
-local function listImages(dir)
-	local files = {}
-	if dir ~= nil and dir ~= "" then
-		local entries = noctalia.listDir(dir)
-		if entries ~= nil then
-			for _, name in ipairs(entries) do
-				local ext = name:match("%.([^.]+)$")
-				if ext ~= nil then
-					local lower = string.lower(ext)
-					for _, e in ipairs(IMAGE_EXTS) do
-						if lower == e then
-							table.insert(files, name)
-							break
-						end
-					end
-				end
-			end
-		end
-	end
-	table.sort(files)
-	return files
-end
-
--- The wallpaper image currently applied to an output, if any.
 local function currentWallpaperPath()
 	local conn = noctalia.focusedOutputName()
 	if conn ~= nil and conn ~= "" then
@@ -284,20 +258,6 @@ render = function()
 		}),
 	}
 
-	if showBrowse then
-		local browseBody
-		if #browseFiles == 0 then
-			browseBody = ui.label({ text = tr("editor.no_images") })
-		else
-			browseBody = ui.select({ key = "ed-browse", options = browseFiles, selectedIndex = 0, onChange = "onBrowsePick" })
-		end
-		table.insert(body, ui.row({ gap = 8, align = "center" }, {
-			ui.label({ text = tr("editor.browse_title"), fontSize = 12, flexGrow = 1 }),
-			browseBody,
-			ui.button({ glyph = "close", variant = "ghost", onClick = "onBrowseCancel" }),
-		}))
-	end
-
 	table.insert(children, ui.scroll({ flexGrow = 1, gap = 8, padding = 0 }, {
 		ui.column({ gap = 8, align = "stretch" }, body),
 	}))
@@ -320,7 +280,8 @@ function onOpen(_context)
 	formSeed = formSeed + 1
 	local savedDraft = noctalia.state.get("editorDraft")
 	if type(savedDraft) == "table" then
-		-- Reopening after a capture hid the panel: restore the stashed form as-is.
+		-- Reopening after a capture or the wallpaper picker hid the panel:
+		-- restore the stashed form as-is.
 		draft = savedDraft
 		local savedEditId = noctalia.state.get("editorEditId")
 		editId = (type(savedEditId) == "string" and savedEditId ~= "") and savedEditId or nil
@@ -344,7 +305,6 @@ function onOpen(_context)
 	end
 	communityLoaded = false
 	communityNames = {}
-	showBrowse = false
 	rebuildPaletteOptions()
 	if draft.source == "community" then
 		ensureCommunity()
@@ -398,32 +358,14 @@ function onUseCurrent()
 end
 
 function onWallpaperBrowse()
-	local dir = noctalia.wallpaperDirectory()
-	if type(dir) ~= "string" or dir == "" then
-		dir = noctalia.expandPath("~/Pictures/Wallpapers")
-	end
-	browseDir = dir
-	browseFiles = listImages(dir)
-	showBrowse = true
-	render()
-end
-
-function onBrowsePick(index)
-	local idx = tonumber(index) or 0
-	local name = browseFiles[idx + 1]
-	if name ~= nil then
-		if type(draft.wallpapers) ~= "table" then
-			draft.wallpapers = {}
-		end
-		table.insert(draft.wallpapers, browseDir .. "/" .. name)
-	end
-	showBrowse = false
-	render()
-end
-
-function onBrowseCancel()
-	showBrowse = false
-	render()
+	-- Stash the working draft and hand off to the multi-select picker panel.
+	-- The picker appends to `editorDraft` and reopens the editor, whose onOpen
+	-- restores the stashed draft.
+	noctalia.state.set("editorDraft", draft)
+	noctalia.state.set("editorEditId", editId or "")
+	noctalia.state.set("pickerReturn", EDITOR_PANEL)
+	noctalia.state.set("pickerTarget", "editor")
+	noctalia.togglePanel(PICKER_PANEL)
 end
 
 function onCapture()

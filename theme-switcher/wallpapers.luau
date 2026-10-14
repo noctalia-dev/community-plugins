@@ -1,20 +1,15 @@
 --!nonstrict
 -- Wallpaper panel: browse the wallpapers that belong to the currently applied
--- theme in a 2-column scroll grid, switch between them, and add new ones from a
--- browse dropdown (without re-applying the palette).
+-- theme in a 2-column scroll grid, switch between them, and add several new
+-- ones at once from the multi-select picker (without re-applying the palette).
 
 local themes = require("./themes.luau")
 local tr = noctalia.tr
 
 local COLUMNS = 2
-local IMAGE_EXTS = { "png", "jpg", "jpeg", "webp", "bmp", "gif" }
+local PICKER_PANEL = "theblackdon/theme-switcher:wallpaper-picker"
 
 local isOpen = false
-local showBrowse = false
-local browseDir = ""
-local browseFiles = {}
-
--- Forward declaration so closures defined below capture the assigned upvalue.
 local render
 
 local function appliedTheme()
@@ -93,29 +88,6 @@ local function nextWallpaper()
 	switchWallpaper(idx)
 end
 
-local function listImages(dir)
-	local files = {}
-	if dir ~= nil and dir ~= "" then
-		local entries = noctalia.listDir(dir)
-		if entries ~= nil then
-			for _, name in ipairs(entries) do
-				local ext = name:match("%.([^.]+)$")
-				if ext ~= nil then
-					local lower = string.lower(ext)
-					for _, e in ipairs(IMAGE_EXTS) do
-						if lower == e then
-							table.insert(files, name)
-							break
-						end
-					end
-				end
-			end
-		end
-	end
-	table.sort(files)
-	return files
-end
-
 local function cardLabel(wp, selected)
 	local row = { ui.label({ text = wp, fontSize = 11, maxLines = 1, flexGrow = 1 }) }
 	if selected then
@@ -146,7 +118,7 @@ render = function()
 
 	if theme == nil then
 		table.insert(children, ui.label({ text = tr("wallpapers.none_applied") }))
-	elseif #wps == 0 and not showBrowse then
+	elseif #wps == 0 then
 		table.insert(children, ui.label({ text = tr("wallpapers.no_wallpapers", { title = theme.title }) }))
 	elseif #wps > 0 then
 		local rows = {}
@@ -189,26 +161,11 @@ render = function()
 		ui.button({ text = tr("wallpapers.add"), variant = "outline", onClick = "onBrowse" }),
 	}))
 
-	if showBrowse then
-		local body
-		if #browseFiles == 0 then
-			body = ui.label({ text = tr("wallpapers.no_images_found") })
-		else
-			body = ui.select({ key = "wp-browse", options = browseFiles, selectedIndex = 0, onChange = "onBrowsePick" })
-		end
-		table.insert(children, ui.row({ gap = 8, align = "center" }, {
-			ui.label({ text = tr("wallpapers.browse_title"), fontSize = 12, flexGrow = 1 }),
-			body,
-			ui.button({ glyph = "close", variant = "ghost", onClick = "onBrowseCancel" }),
-		}))
-	end
-
 	panel.render(ui.column({ flexGrow = 1, gap = 8, padding = 12, align = "stretch" }, children))
 end
 
 function onOpen(_context)
 	isOpen = true
-	showBrowse = false
 	render()
 end
 
@@ -245,34 +202,11 @@ function onUseCurrent()
 end
 
 function onBrowse()
-	if showBrowse then
-		showBrowse = false
-		render()
-		return
-	end
-	local dir = noctalia.wallpaperDirectory()
-	if type(dir) ~= "string" or dir == "" then
-		dir = noctalia.expandPath("~/Pictures/Wallpapers")
-	end
-	browseDir = dir
-	browseFiles = listImages(dir)
-	showBrowse = true
-	render()
-end
-
-function onBrowsePick(index)
-	local idx = tonumber(index) or 0
-	local name = browseFiles[idx + 1]
-	if name ~= nil then
-		addWallpaper(browseDir .. "/" .. name)
-	end
-	showBrowse = false
-	render()
-end
-
-function onBrowseCancel()
-	showBrowse = false
-	render()
+	-- Hand off to the multi-select picker panel; it appends to the applied
+	-- theme and reopens this panel, which renders the updated list.
+	noctalia.state.set("pickerReturn", "theblackdon/theme-switcher:wallpapers")
+	noctalia.state.set("pickerTarget", "applied")
+	noctalia.togglePanel(PICKER_PANEL)
 end
 
 noctalia.state.watch("themes", function()

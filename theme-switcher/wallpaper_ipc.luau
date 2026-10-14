@@ -41,7 +41,6 @@ local function applyTheme(query)
 	applyMod.apply(theme, function(ok)
 		if ok then
 			themes.setLastApplied(theme.id)
-			noctalia.notify(tr("apply.ok_title"), tr("apply.ok_body", { title = theme.title }))
 		else
 			noctalia.notifyError(tr("apply.err_title"), tr("apply.err_body", { title = theme.title }))
 		end

@@ -1,10 +1,10 @@
 id = "theblackdon/theme-switcher"
 name = "Theme Switcher"
-version = "0.1.0"
+version = "0.2.0"
 plugin_api = 28
 author = "theblackdon"
 license = "MIT"
-dependencies = ["spectacle", "grim", "gnome-screenshot", "scrot", "maim"]
+dependencies = []
 tags = ["theming"]
 icon = "palette"
 description = "Browse saved themes in a carousel and apply palette, wallpaper, and templates in one click."
@@ -51,6 +51,16 @@ width = 720
 height = 560
 placement = "attached"
 position = "auto"
+
+[[panel]]
+id = "wallpaper-picker"
+entry = "wallpaper_picker.luau"
+width = 920
+height = 640
+placement = "floating"
+position = "auto"
+keyboard_focus = "on_demand"
+dismiss_on_outside_click = false
 
 [[service]]
 id = "wallpaper-ipc"

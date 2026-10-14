@@ -7,12 +7,7 @@ Browse saved themes in a carousel and apply palette, wallpaper, and templates to
 | Field | Value |
 | --- | --- |
 | ID | `theblackdon/theme-switcher` |
-| Entries | Shortcut: `open`; shortcut: `wallpaper`; shortcut: `random`; bar widget: `theme-switcher`; panel: `carousel`; panel: `editor`; panel: `wallpapers`; service: `wallpaper-ipc` |
-
-## Requirements
-
-- No dependency is needed to browse, apply, or switch themes and wallpapers.
-- The editor's `Capture desktop` helper needs at least one screenshot tool on `PATH`: `spectacle`, `grim`, `gnome-screenshot`, `scrot`, or `maim`. The first one that exists is used. Without any of them the button reports a capture failure; everything else keeps working.
+| Entries | Shortcut: `open`; shortcut: `wallpaper`; shortcut: `random`; bar widget: `theme-switcher`; panel: `carousel`; panel: `editor`; panel: `wallpapers`; panel: `wallpaper-picker`; service: `wallpaper-ipc` |
 
 ## Usage
 
@@ -24,17 +19,19 @@ Browse saved themes in a carousel and apply palette, wallpaper, and templates to
    ```
 
 3. In the carousel, click a theme card to apply it immediately (palette source + selection, wallpaper, and templates). Use the pencil button on a card to edit it, the plus button to add a new one.
-4. The editor lets you pick a palette source (built-in, wallpaper, community, or custom), the matching palette or generator scheme, one or more wallpapers, a screenshot path (including a "Capture desktop" helper), and a title. Open the editor directly with:
+4. The editor lets you pick a palette source (built-in, wallpaper, community, or custom), the matching palette or generator scheme, one or more wallpapers, a screenshot path (including a "Capture desktop" helper), and a title. Use the `Browse` button to open the multi-select wallpaper picker and add several images at once. Open the editor directly with:
 
    ```sh
    noctalia msg panel-toggle theblackdon/theme-switcher:editor
    ```
 
-5. The `wallpaper` shortcut opens the wallpapers panel, which lets you browse and switch the wallpapers of the currently applied theme without re-applying the palette. Open it with:
+5. The `wallpaper` shortcut opens the wallpapers panel, which lets you browse and switch the wallpapers of the currently applied theme without re-applying the palette. The `Add wallpaper` button opens a multi-select thumbnail picker (paged, with a name filter and select all/clear) and appends every checked image at once. It browses the shell's wallpaper folder and generates small thumbnails in the background, so even a folder of hundreds of large wallpapers stays responsive. Open the panel with:
 
    ```sh
    noctalia msg panel-toggle theblackdon/theme-switcher:wallpapers
    ```
+
+   The picker can also be opened directly with `noctalia msg panel-toggle theblackdon/theme-switcher:wallpaper-picker`.
 
 6. The `random` shortcut applies a random wallpaper from the currently applied theme with a single click.
 
@@ -50,6 +47,7 @@ noctalia-kwe msg plugin theblackdon/theme-switcher:wallpaper-ipc all next
 noctalia-kwe msg plugin theblackdon/theme-switcher:wallpaper-ipc all apply "Rose Pine"
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:carousel
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:wallpapers
+noctalia-kwe msg panel-toggle theblackdon/theme-switcher:wallpaper-picker
 noctalia-kwe msg panel-toggle theblackdon/theme-switcher:editor
 ```
 
@@ -76,5 +74,4 @@ Applying a theme sets the active wallpaper first, then runs `noctalia msg color-
 - Community palettes are listed from the Noctalia palette catalog over HTTP, with an offline fallback to the plugin's cached copy and the shell's community-palette cache.
 - Custom palettes are read from `~/.config/noctalia/palettes/*.json`.
 - Themes are stored in the plugin's data directory (`themes.json`).
-- `Capture desktop` runs the screenshot tool found on `PATH` directly (no shell) and writes the PNG to `~/Pictures/Screenshots`, then stores that path in the theme. It is the only thing this plugin writes outside its data directory, and it only runs when you press the button.
-- Applying a theme spawns the shell CLI (`noctalia`, or `noctalia-kwe` on this build) for `color-scheme-set` and `templates-apply`. Wallpaper changes go through the shell's own `noctalia.setWallpaper` API.
+- Picker thumbnails are generated in the background with the first available tool (`magick`, `convert`, `vipsthumbnail`, or `ffmpeg`) and cached under the plugin data dir. If none is installed, the picker falls back to a filename checklist.
