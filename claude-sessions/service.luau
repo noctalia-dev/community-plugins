@@ -214,7 +214,10 @@ local function terminalOf(pid)
   if string.find(env, "KITTY_WINDOW_ID=", 1, true) then
     t = "kitty"
   else
-    t = string.match(env, "TERM_PROGRAM=([^%z]+)") or "terminal"
+    -- Plain find + anchored match: an unanchored pattern over the ~15 KB env costs ~10 ms per
+    -- process in the shell's runtime, so a few new sessions blew the 25 ms callback budget.
+    local _, e = string.find(env, "TERM_PROGRAM=", 1, true)
+    t = e and string.match(env, "^[^%z]+", e + 1) or "terminal"
   end
   terminals[pid] = t
   return t
