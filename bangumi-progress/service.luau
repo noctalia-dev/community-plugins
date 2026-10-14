@@ -190,14 +190,22 @@ local function calendarCoverUrl(value)
   return if type(value) == "string" and value:match("^https?://") then value else nil
 end
 
-local function existingCalendarCover(subjectId)
+local function existingDisplayCover(subjectId)
   local dir = noctalia.pluginDataDir()
   if not dir then return nil end
-  -- Reuse collection covers without downloading the whole public calendar.
+  -- This lookup is synchronous and never consumes a download slot.
   for _, extension in ipairs({ "jpg", "png", "webp" }) do
     local path = dir .. "/" .. COVER_DIR .. "/" .. tostring(subjectId) .. "-display." .. extension
     if noctalia.fileExists(path) then return path end
   end
+  return nil
+end
+
+local function existingCalendarCover(subjectId)
+  local display = existingDisplayCover(subjectId)
+  if display then return display end
+  local dir = noctalia.pluginDataDir()
+  if not dir then return nil end
   for _, extension in ipairs({ "jpg", "png", "webp", "jpeg" }) do
     local path = dir .. "/" .. COVER_DIR .. "/" .. tostring(subjectId) .. "." .. extension
     if noctalia.fileExists(path) then return path end
@@ -628,7 +636,7 @@ local function normalizeRow(item)
     volumes = tonumber(subject.volumes) or 0,
     score = subject.score,
     coverUrl = coverUrl,
-    coverPath = nil,
+    coverPath = existingDisplayCover(tonumber(item.subject_id) or 0),
   }
 end
 
@@ -823,13 +831,36 @@ local function processCoverQueue()
 end
 
 -- Queue cover downloads for rows that still need one (deduplicated).
-local function queueCovers(rows)
+local function queueCovers(rows, prioritize)
+  local cachedCollectionsChanged, cachedCalendarChanged = false, false
   for _, row in ipairs(rows) do
+    -- Disk hits must be resolved before the in-flight guard or queue capacity:
+    -- another slow download must never delay an already available local image.
+    local cached = existingDisplayCover(row.subjectId)
+    if cached then
+      local changedCollections, changedCalendar = applyCoverPath(row.subjectId, cached)
+      cachedCollectionsChanged = cachedCollectionsChanged or changedCollections
+      cachedCalendarChanged = cachedCalendarChanged or changedCalendar
+      row.coverPath = cached
+    end
     if row.coverPath and not noctalia.fileExists(row.coverPath) then row.coverPath = nil end
     if row.coverUrl and not row.coverPath and not coversInFlight[row.subjectId] then
       coversInFlight[row.subjectId] = true
       table.insert(coverQueue, row)
     end
+  end
+  scheduleCoverPersistence(cachedCollectionsChanged, cachedCalendarChanged)
+  if cachedCollectionsChanged or cachedCalendarChanged then publishSnapshot() end
+  if prioritize then
+    -- Keep the two already-running transfers, but let the visible page take
+    -- the next slots ahead of background work from a previously browsed type.
+    local wanted, front, back = {}, {}, {}
+    for _, row in ipairs(rows) do wanted[row.subjectId] = true end
+    for _, row in ipairs(coverQueue) do
+      table.insert(if wanted[row.subjectId] then front else back, row)
+    end
+    coverQueue = front
+    for _, row in ipairs(back) do table.insert(coverQueue, row) end
   end
   processCoverQueue()
 end
@@ -848,7 +879,7 @@ local function queueCollectionCovers(collection, subjectIds)
       table.insert(rows, row)
     end
   end
-  queueCovers(rows)
+  queueCovers(rows, type(subjectIds) == "table")
 end
 
 local function queueCalendarCovers(subjectIds)
@@ -879,7 +910,7 @@ local function queueCalendarCovers(subjectIds)
   end
   scheduleCoverPersistence(cachedCollectionsChanged, cachedCalendarChanged)
   if cachedCollectionsChanged or cachedCalendarChanged then publishSnapshot() end
-  queueCovers(rows)
+  queueCovers(rows, true)
 end
 
 -- The /v0/me identity cache uses the configured refresh_minutes lifetime.
@@ -1514,6 +1545,12 @@ local function loadPersistentCache(mode, configuredUsername)
         collection.loaded = cachedCollection.loaded == true
         collection.total = tonumber(cachedCollection.total) or #cachedCollection.rows
         collection.rows = cachedCollection.rows
+        -- Repair paths before the restored collection reaches its first snapshot.
+        -- Do not start downloads for unvisited categories during restoration.
+        for _, row in ipairs(collection.rows) do
+          local cached = existingDisplayCover(row.subjectId)
+          if cached then row.coverPath = cached end
+        end
         collection.fetchedAt = tonumber(cachedCollection.fetchedAt) or 0
       end
     end
