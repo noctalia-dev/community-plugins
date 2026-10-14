@@ -394,6 +394,11 @@ do
 
   -- The strip is mounted in browse view: All + every category id.
   check(#findNodes(function(n) return keyOf(n) == "cats" end) == 1, "browse view mounts the category strip")
+  -- The strip centers over the fitted grid width, not the left edge
+  -- (review feedback: tabs must be centered like the grid below them).
+  local catsRow = findNodes(function(n) return keyOf(n) == "cats" end)[1]
+  check(catsRow.opts.width == picker.gridRowWidth() and catsRow.opts.justify == "center",
+    "category strip centers over the fitted grid width")
   local tabs = tabButtons()
   check(#tabs == 10, "strip renders 10 tabs (All + 9 categories), got " .. tostring(#tabs))
   local byKey = {}

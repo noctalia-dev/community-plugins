@@ -728,7 +728,10 @@ local function categoryStrip()
   for _, c in ipairs(CATEGORIES) do
     catButton(c.id, c.glyph, c.label)
   end
-  return ui.row({ key = "cats", gap = 2, align = "center" }, buttons)
+  -- Centered over the fitted grid width (the same area the tile rows use),
+  -- so the strip sits over the columns rather than hugging the left edge.
+  return ui.row({ key = "cats", gap = 2, align = "center",
+    width = gridRowWidth, justify = "center" }, buttons)
 end
 
 local function gridArea()
