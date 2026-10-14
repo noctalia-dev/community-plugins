@@ -496,7 +496,7 @@ local function renderTimelineGridCard(row, watching)
   local detail = timelineDetailText(row, watching)
   return ui.column({ key = "timeline-grid-entry-" .. tostring(row.subjectId), width = 0, flexGrow = 1,
     minWidth = 0, gap = density.gap - 2, padding = density.cardPadding,
-    radius = 8, fill = "surface_variant", align = "stretch" }, childrenWithOptions(
+    radius = 8, fill = "surface", align = "stretch" }, childrenWithOptions(
     if appearance.timelineCovers then renderCover(cover, nil, density.coverHeight) else nil,
     ui.column({ key = "timeline-grid-title-slot-" .. tostring(row.subjectId), height = 48, minHeight = 48,
       align = "stretch", justify = "start" }, {
@@ -526,7 +526,7 @@ local function renderTimelineRow(row, watching)
   if detail ~= "" then table.insert(details, ui.label({ text = detail, fontSize = density.detailSize,
     color = "on_surface_variant", maxLines = 1 })) end
   return ui.row({ key = "timeline-entry-" .. tostring(row.subjectId), gap = density.rowGap, align = "center",
-    padding = density.rowPadding, radius = 8, fill = "surface_variant" }, childrenWithOptions(
+    padding = density.rowPadding, radius = 8, fill = "surface" }, childrenWithOptions(
     if appearance.timelineCovers then renderCover(cover, density.listCoverWidth, density.listCoverHeight) else nil,
     ui.column({ key = "timeline-entry-details-" .. tostring(row.subjectId), gap = density.gap - 3, width = 0, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
     ui.button({ glyph = "external-link", width = 32, height = 32, variant = "ghost", tooltip = tr("open"),
@@ -643,13 +643,26 @@ local function renderTimeline()
         total += #rows
         if #rows > 0 or appearance.emptyDays then
           local heading = tr("timeline_day", { day = tr("timeline_weekday_" .. tostring(weekday)), date = date, count = #rows })
-          local dayChildren = { ui.row({ key = "timeline-day-heading-" .. tostring(weekday), gap = 8, align = "center" }, childrenWithOptions(
-            ui.label({ key = "timeline-day-label-" .. tostring(weekday), text = heading, fontSize = density.fontSize - 1,
-              flexGrow = 1, maxLines = 1,
-              fontWeight = if date == today then "bold" else "medium",
-              color = if date == today then "primary" else "on_surface_variant" }),
-            if date == today then ui.label({ key = "timeline-today-marker", text = tr("timeline_today"),
-              fontSize = density.fontSize - 1, fontWeight = "bold", color = "primary" }) else nil
+          local dayChildren = { ui.row({ key = "timeline-day-heading-" .. tostring(weekday), gap = 8,
+            align = "center", tooltip = heading }, childrenWithOptions(
+            ui.column({ key = "timeline-day-identity-" .. tostring(weekday), flexGrow = 1,
+              minWidth = 0, gap = 2, align = "stretch" }, {
+              ui.label({ key = "timeline-day-label-" .. tostring(weekday), text = tr("timeline_weekday_" .. tostring(weekday)),
+                fontSize = density.fontSize + 1, maxLines = 1, fontWeight = "bold",
+                color = if date == today then "primary" else "on_surface" }),
+              ui.label({ key = "timeline-day-date-" .. tostring(weekday), text = date,
+                fontSize = density.detailSize, color = "on_surface_variant", maxLines = 1 }),
+            }),
+            ui.column({ key = "timeline-day-count-" .. tostring(weekday), paddingH = 8, paddingV = 4,
+              radius = 6, fill = "surface_variant", align = "center", justify = "center" }, {
+              ui.label({ text = tr(if #rows == 1 then "timeline_day_count_one" else "timeline_day_count_many", { count = #rows }),
+                fontSize = density.detailSize, color = "on_surface_variant", maxLines = 1 }),
+            }),
+            if date == today then ui.column({ paddingH = 8, paddingV = 4, radius = 6,
+              fill = "primary/0.12", align = "center", justify = "center" }, {
+              ui.label({ key = "timeline-today-marker", text = tr("timeline_today"),
+                fontSize = density.detailSize, fontWeight = "bold", color = "primary", maxLines = 1 }),
+            }) else nil
           )) }
           if #rows > 0 then
             local entries = {}
@@ -670,11 +683,12 @@ local function renderTimeline()
             end
             table.insert(dayChildren, ui.column({ gap = density.gap - 2, align = "stretch" }, entries))
           end
-          table.insert(content, ui.column({ key = "timeline-day-" .. tostring(weekday), gap = density.gap - 2,
-            -- The scroll viewport owns the horizontal inset for every date.
-            -- Empty headings and both entry layouts must share that same edge.
-            paddingH = 0, paddingV = 4,
-            align = "stretch" }, dayChildren))
+          -- Every date is a single card; header and nested entries share its
+          -- numeric inset in both layouts, including optional empty dates.
+          table.insert(content, ui.column({ key = "timeline-day-" .. tostring(weekday), gap = 12,
+            padding = 12, radius = 12, fill = "surface_variant/0.35",
+            border = if date == today then "primary/0.45" else "on_surface_variant/0.18",
+            borderWidth = 1, align = "stretch" }, dayChildren))
         end
       end
       if total == 0 then

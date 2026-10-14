@@ -159,7 +159,9 @@
     "grid_progress_unknown": "{current} watched",
     "grid_page": "Page {page}/{pages} · {total} titles",
     "grid_previous": "Previous page",
-    "grid_next": "Next page"
+    "grid_next": "Next page",
+    "timeline_day_count_one": "1 title",
+    "timeline_day_count_many": "{count} titles"
   },
   "settings": {
     "access_token": {
