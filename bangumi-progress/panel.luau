@@ -321,7 +321,6 @@ local function childrenWithOptions(...)
 end
 
 local function renderCover(row, width, height)
-  width = width or density.listCoverWidth
   height = height or density.listCoverHeight
   if row.coverPath then
     return ui.image({
@@ -353,6 +352,20 @@ local function canUpdateProgress()
       or os.time() < snapshot.oauthExpiresAt)
 end
 
+-- Use one scroll viewport for all panel sections. Its built-in inset and
+-- scrollbar gutter must affect navigation and cards together.
+local function panelFrame(children)
+  return ui.column({ key = "panel-frame", padding = 16, flexGrow = 1, align = "stretch" }, {
+    ui.scroll({ key = "panel-scroll", flexGrow = 1, paddingH = 0, paddingV = 0, align = "stretch" }, {
+      ui.column({ key = "panel-content", gap = 12, align = "stretch" }, children),
+    }),
+  })
+end
+
+local function markerSlot(marker, size)
+  return ui.column({ width = size, height = size, align = "center", justify = "center" }, childrenWithOptions(marker))
+end
+
 local function renderRow(row)
   local canWrite = canUpdateProgress()
   local plain = appearance.rowStyle == "plain"
@@ -361,15 +374,13 @@ local function renderRow(row)
   local current, total = row.epStatus or 0, row.eps or 0
   local isDone = total > 0 and current >= total
   local hasNew = (row.newlyUnwatched or 0) > 0
+  local marker = if hasNew then ui.box({ width = 7, height = 7, radius = 4, fill = "error" })
+    elseif isDone then ui.glyph({ name = "check", size = 13, color = "primary" }) else nil
   local titleChildren = {}
-  if hasNew then
-    table.insert(titleChildren, ui.box({ width = 7, height = 7, radius = 4, fill = "error" }))
-  elseif isDone then
-    table.insert(titleChildren, ui.glyph({ name = "check", size = 13, color = "primary" }))
-  end
   table.insert(titleChildren, ui.label({ text = row.title or "?", fontSize = density.fontSize,
-    fontWeight = "medium", maxLines = 1, width = 0, flexGrow = 1, minWidth = 0,
+    fontWeight = "medium", maxLines = 1, flexGrow = 1,
     color = if isDone then "primary" else "on_surface" }))
+  table.insert(titleChildren, markerSlot(marker, 14))
   local subtitle = subtitleText(row)
   if hasNew then subtitle = subtitle .. " · " .. tr("newly_unwatched", { count = row.newlyUnwatched }) end
   local details = {
@@ -379,19 +390,17 @@ local function renderRow(row)
   if appearance.progressBar and total > 0 then
     table.insert(details, ui.progress({ progress = math.clamp(current / total, 0, 1), height = 4, radius = 2 }))
   end
-  return ui.row({ key = "entry-" .. tostring(subjectId), gap = if plain then 8 else density.rowGap, align = "center",
-    padding = if plain then { top = 6, bottom = 6 } else density.rowPadding,
-    radius = if plain then 0 else 8, fill = if plain then nil else "surface_variant" }, childrenWithOptions(
+  return ui.row({ key = "entry-" .. tostring(subjectId), gap = 12, align = "center",
+    paddingH = if plain then 0 else density.rowPadding, paddingV = if plain then 6 else density.rowPadding,
+    radius = if plain then 0 else 8, fill = if plain then "#00000000" else "surface_variant" }, childrenWithOptions(
     if appearance.covers then renderCover(row, if originalSize then 40 else density.listCoverWidth,
       if originalSize then 56 else density.listCoverHeight) else nil,
     ui.column({ key = "entry-details-" .. tostring(subjectId), gap = density.gap - 3, width = 0, flexGrow = 1, minWidth = 0, align = "stretch", justify = "center" }, details),
-    ui.row({ width = 66, gap = 2, align = "center" }, {
+    ui.row({ key = "entry-actions-" .. tostring(subjectId), width = 140, height = 32, gap = 4, align = "center" }, {
       ui.button({ glyph = "minus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
         onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
       ui.button({ glyph = "plus", width = 32, height = 32, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
         onClick = canWrite and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
-    }),
-    ui.row({ width = 66, gap = 2, align = "center" }, {
       ui.button({ glyph = if isDone then "check" else "circle-check", width = 32, height = 32,
         variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"), enabled = canWrite,
         onClick = not canWrite and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
@@ -409,33 +418,33 @@ local function renderGridCard(row)
   local hasNew = (row.newlyUnwatched or 0) > 0
   local detail = if total > 0 then tr("grid_progress", { current = current, total = total })
     else tr("grid_progress_unknown", { current = current })
+  local marker = if hasNew then ui.box({ width = 6, height = 6, radius = 3, fill = "error" })
+    elseif isDone then ui.glyph({ name = "check", size = 12, color = "primary" }) else nil
   local progressChildren = {}
-  if hasNew then
-    table.insert(progressChildren, ui.box({ width = 6, height = 6, radius = 3, fill = "error" }))
-  elseif isDone then
-    table.insert(progressChildren, ui.glyph({ name = "check", size = 12, color = "primary" }))
-  end
   table.insert(progressChildren, ui.label({ text = detail, fontSize = density.detailSize, maxLines = 1, flexGrow = 1,
     color = if hasNew then "primary" else "on_surface_variant" }))
+  table.insert(progressChildren, markerSlot(marker, 12))
   local children = childrenWithOptions(
-    if appearance.covers then renderCover(row, "100%", density.coverHeight) else nil,
-    ui.column({ key = "grid-title-slot-" .. tostring(subjectId), height = 36, minHeight = 36,
+    if appearance.covers then renderCover(row, nil, density.coverHeight) else nil,
+    ui.column({ key = "grid-title-slot-" .. tostring(subjectId), height = 48, minHeight = 48,
       align = "stretch", justify = "start" }, {
       ui.label({ key = "grid-title-" .. tostring(subjectId), text = row.title or "?", fontSize = density.fontSize - 1,
         fontWeight = "medium", maxLines = 2,
         color = if isDone then "primary" else "on_surface" }),
     }),
-    ui.row({ gap = 5, align = "center", height = 18 }, progressChildren),
-    if appearance.progressBar then ui.progress({ progress = if total > 0 then math.clamp(current / total, 0, 1) else 0, height = 4, radius = 2 }) else nil,
+    ui.row({ gap = 4, align = "center", height = 24 }, progressChildren),
+    ui.column({ height = 4, minHeight = 4, align = "stretch" }, childrenWithOptions(
+      if appearance.progressBar then ui.progress({ progress = if total > 0 then math.clamp(current / total, 0, 1) else 0, height = 4, radius = 2 }) else nil
+    )),
     ui.row({ key = "grid-actions-" .. tostring(subjectId), gap = 2, align = "center", justify = "center" }, {
-      ui.button({ glyph = "minus", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
+      ui.button({ glyph = "minus", width = 0, flexGrow = 1, height = 32, variant = "ghost", tooltip = tr("ep_decrement"), enabled = canWrite and current > 0,
         onClick = (current > 0 and canWrite) and function() sendCommand("decrement", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = "plus", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
+      ui.button({ glyph = "plus", width = 0, flexGrow = 1, height = 32, variant = "ghost", tooltip = tr("ep_increment"), enabled = canWrite,
         onClick = canWrite and function() sendCommand("increment", { subjectId = subjectId }) end or "onNoop" }),
-      ui.button({ glyph = if isDone then "check" else "circle-check", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize,
+      ui.button({ glyph = if isDone then "check" else "circle-check", width = 0, flexGrow = 1, height = 32,
         variant = if isDone then "primary" else "ghost", tooltip = tr("mark_done"), enabled = canWrite,
         onClick = not canWrite and "onNoop" or function() sendCommand("complete", { subjectId = subjectId }) end }),
-      ui.button({ glyph = "external-link", width = 0, flexGrow = 1, minWidth = 0, maxWidth = density.actionSize, height = density.actionSize, variant = "ghost", tooltip = tr("open"),
+      ui.button({ glyph = "external-link", width = 0, flexGrow = 1, height = 32, variant = "ghost", tooltip = tr("open"),
         onClick = function() sendCommand("open_subject", { subjectId = subjectId }) end }),
     })
   )
@@ -488,20 +497,20 @@ local function renderTimelineGridCard(row, watching)
   return ui.column({ key = "timeline-grid-entry-" .. tostring(row.subjectId), width = 0, flexGrow = 1,
     minWidth = 0, gap = density.gap - 2, padding = density.cardPadding,
     radius = 8, fill = "surface_variant", align = "stretch" }, childrenWithOptions(
-    if appearance.timelineCovers then renderCover(cover, "100%", density.coverHeight) else nil,
-    ui.column({ key = "timeline-grid-title-slot-" .. tostring(row.subjectId), height = 36, minHeight = 36,
+    if appearance.timelineCovers then renderCover(cover, nil, density.coverHeight) else nil,
+    ui.column({ key = "timeline-grid-title-slot-" .. tostring(row.subjectId), height = 48, minHeight = 48,
       align = "stretch", justify = "start" }, {
       ui.label({ text = row.title or row.nameCn or row.name or "?", fontSize = density.fontSize - 1,
         fontWeight = "medium", maxLines = 2 }),
     }),
     ui.column({ key = "timeline-grid-detail-slot-" .. tostring(row.subjectId),
-      height = 2 * (density.detailSize + 5), minHeight = 2 * (density.detailSize + 5),
+      height = 40, minHeight = 40,
       align = "stretch", justify = "start" }, childrenWithOptions(
       if detail ~= "" then ui.label({ text = detail, fontSize = density.detailSize,
         color = "on_surface_variant", maxLines = 2 }) else nil
     )),
     ui.row({ align = "center", justify = "center" }, {
-      ui.button({ glyph = "external-link", width = density.actionSize, height = density.actionSize,
+      ui.button({ glyph = "external-link", width = 32, height = 32,
         variant = "ghost", tooltip = tr("open"),
         onClick = function() sendCommand("open_subject", { subjectId = row.subjectId }) end }),
     })
@@ -534,32 +543,31 @@ end
 
 local function renderTimeline()
   local density = timelineDensity
-  local children = { ui.row({ key = "timeline-controls", gap = 24, paddingH = 4, align = "center" }, {
-    ui.row({ gap = 8, align = "center" }, {
+  local children = { ui.row({ key = "timeline-controls", gap = 12, align = "center" }, {
+    ui.column({ gap = 4, flexGrow = 1, minWidth = 0, align = "stretch" }, {
       ui.label({ text = tr("timeline_dates"), fontSize = 11, color = "on_surface_variant" }),
-      ui.select({ key = "timeline-range", width = 160, controlSize = "sm",
+      ui.select({ key = "timeline-range", height = 32, controlSize = "sm",
         options = { tr("timeline_today"), tr("timeline_week") }, selectedIndex = if timelineRange == "today" then 0 else 1,
         onChange = function(index)
           local range = selectedOption(index, { "today", "week" })
           if range and range ~= timelineRange then timelineRange = range; dirty = true; render() end
         end }),
     }),
-    ui.row({ gap = 8, align = "center" }, {
+    ui.column({ gap = 4, flexGrow = 1, minWidth = 0, align = "stretch" }, {
       ui.label({ text = tr("timeline_titles"), fontSize = 11, color = "on_surface_variant" }),
-      ui.select({ key = "timeline-filter", width = 180, controlSize = "sm",
+      ui.select({ key = "timeline-filter", height = 32, controlSize = "sm",
         options = { tr("timeline_watching"), tr("timeline_all") }, selectedIndex = if timelineFilter == "watching" then 0 else 1,
         onChange = function(index)
           local filter = selectedOption(index, { "watching", "all" })
           if filter and filter ~= timelineFilter then timelineFilter = filter; dirty = true; render() end
         end }),
     }),
-    ui.spacer({ flexGrow = 1 }),
-    ui.row({ gap = 2, align = "center" }, {
-      ui.button({ key = "timeline-layout-list", glyph = "list", width = 30, height = 30,
+    ui.row({ width = 68, height = 52, gap = 4, align = "end" }, {
+      ui.button({ key = "timeline-layout-list", glyph = "list", width = 32, height = 32,
         tooltip = tr("layout_list"), selected = timelineLayout == "list",
         variant = if timelineLayout == "list" then "primary" else "ghost",
         onClick = function() setTimelineLayout("list") end }),
-      ui.button({ key = "timeline-layout-grid", glyph = "layout-grid", width = 30, height = 30,
+      ui.button({ key = "timeline-layout-grid", glyph = "layout-grid", width = 32, height = 32,
         tooltip = tr("layout_grid"), selected = timelineLayout == "grid",
         variant = if timelineLayout == "grid" then "primary" else "ghost",
         onClick = function() setTimelineLayout("grid") end }),
@@ -575,7 +583,7 @@ local function renderTimeline()
     table.insert(content, ui.row({ gap = 6, align = "center" }, {
       ui.label({ text = tr("timeline_error", { error = errorText(calendar.error) }),
         color = "error", flexGrow = 1, maxLines = 2 }),
-      ui.button({ text = tr("timeline_retry"), variant = "ghost",
+      ui.button({ height = 32, contentAlign = "center", text = tr("timeline_retry"), variant = "ghost",
         onClick = function() loadCalendar(true) end }),
     }))
   end
@@ -637,7 +645,7 @@ local function renderTimeline()
           local heading = tr("timeline_day", { day = tr("timeline_weekday_" .. tostring(weekday)), date = date, count = #rows })
           local dayChildren = { ui.row({ key = "timeline-day-heading-" .. tostring(weekday), gap = 8, align = "center" }, childrenWithOptions(
             ui.label({ key = "timeline-day-label-" .. tostring(weekday), text = heading, fontSize = density.fontSize - 1,
-              flexGrow = 1, minWidth = 0, maxLines = 1,
+              flexGrow = 1, maxLines = 1,
               fontWeight = if date == today then "bold" else "medium",
               color = if date == today then "primary" else "on_surface_variant" }),
             if date == today then ui.label({ key = "timeline-today-marker", text = tr("timeline_today"),
@@ -665,8 +673,7 @@ local function renderTimeline()
           table.insert(content, ui.column({ key = "timeline-day-" .. tostring(weekday), gap = density.gap - 2,
             -- The scroll viewport owns the horizontal inset for every date.
             -- Empty headings and both entry layouts must share that same edge.
-            padding = { top = if #rows == 0 then 2 elseif timelineLayout == "list" then 4 else 0,
-              bottom = if #rows == 0 then 2 elseif timelineLayout == "list" then 4 else 0 },
+            paddingH = 0, paddingV = 4,
             align = "stretch" }, dayChildren))
         end
       end
@@ -679,10 +686,8 @@ local function renderTimeline()
     table.insert(content, ui.label({ text = tr("timeline_unloaded"), color = "on_surface_variant" }))
   end
   requestTimelineCovers(coverIds)
-  table.insert(children, ui.scroll({ key = "timeline-scroll", flexGrow = 1, minWidth = 0, paddingH = 4, align = "stretch" }, {
-    ui.column({ width = "100%", minWidth = 0, gap = density.gap, align = "stretch" }, content),
-  }))
-  return ui.column({ key = "timeline-content", gap = density.gap, flexGrow = 1 }, children)
+  table.insert(children, ui.column({ key = "timeline-scroll", gap = density.gap, align = "stretch" }, content))
+  return ui.column({ key = "timeline-content", gap = 12, align = "stretch" }, children)
 end
 
 local OAUTH_ERRORS = {
@@ -715,21 +720,22 @@ local function renderAuthControls(initial)
     table.insert(controls, ui.row({ key = "auth-waiting", gap = 8, align = "center" }, {
       ui.label({ key = "auth-waiting-text", text = tr(if waitingForBrowser then "oauth_waiting" else "oauth_working"),
         fontSize = 12, color = "on_surface_variant", flexGrow = 1, maxLines = 3 }),
-      if waitingForBrowser then ui.button({ text = tr("oauth_cancel"), variant = "ghost",
+      if waitingForBrowser then ui.button({ height = 32, contentAlign = "center", text = tr("oauth_cancel"), variant = "ghost",
         onClick = function() sendCommand("oauth_cancel") end }) else nil,
     }))
   else
     table.insert(actions, ui.button({
+      flexGrow = if initial then 0 else 1, height = 32, contentAlign = "center",
       text = tr(if snapshot.authSource == "oauth" then "oauth_sign_in_again" else "oauth_sign_in"),
       variant = if snapshot.authSource == "oauth" then "ghost" else "primary",
       onClick = function() clearDisconnect(); sendCommand("oauth_login") end,
     }))
     if snapshot.authSource == "oauth" then
       if snapshot.oauthError and snapshot.oauthError ~= "" and snapshot.oauthCanRetry then
-        table.insert(actions, ui.button({ text = tr("oauth_retry_refresh"), variant = "ghost",
+        table.insert(actions, ui.button({ height = 32, contentAlign = "center", text = tr("oauth_retry_refresh"), variant = "ghost",
           onClick = function() clearDisconnect(); sendCommand("oauth_refresh") end }))
       end
-      table.insert(actions, ui.button({ text = tr("oauth_disconnect"), variant = "ghost",
+      table.insert(actions, ui.button({ height = 32, contentAlign = "center", text = tr("oauth_disconnect"), variant = "ghost",
         onClick = snapshot.busy and "onNoop" or function()
           if snapshot.authSource == "oauth" and not snapshot.oauthBusy and not snapshot.busy then
             clearDisconnect()
@@ -739,7 +745,7 @@ local function renderAuthControls(initial)
         end,
       }))
     end
-    table.insert(actions, ui.button({ text = tr("oauth_manual_settings"), variant = "ghost", onClick = "onSettings" }))
+    table.insert(actions, ui.button({ height = 32, contentAlign = "center", text = tr("oauth_manual_settings"), variant = "ghost", onClick = "onSettings" }))
     table.insert(controls, ui.row({ key = "auth-actions", gap = 6, align = "center", justify = if initial then "center" else "start" }, actions))
   end
   if confirmDisconnect and snapshot.authSource == "oauth" then
@@ -747,9 +753,9 @@ local function renderAuthControls(initial)
     table.insert(controls, ui.label({ key = "auth-disconnect-hint", text = tr("oauth_disconnect_hint"), fontSize = 11,
       color = "on_surface_variant", maxLines = 3 }))
     table.insert(controls, ui.row({ key = "auth-confirmation", gap = 8, align = "center" }, {
-      ui.button({ text = tr("oauth_keep_signed_in"), variant = "ghost",
+      ui.button({ height = 32, contentAlign = "center", text = tr("oauth_keep_signed_in"), variant = "ghost",
         onClick = function() clearDisconnect(); render() end }),
-      ui.button({ text = tr("oauth_confirm_disconnect"), variant = "ghost",
+      ui.button({ height = 32, contentAlign = "center", text = tr("oauth_confirm_disconnect"), variant = "ghost",
         onClick = function()
           if confirmationEpoch ~= disconnectEpoch then return end
           local canDisconnect = confirmDisconnect and snapshot.authSource == "oauth"
@@ -797,9 +803,9 @@ local function renderContent()
         else tr("public_view", { username = username }) }))
   end
   table.insert(children, ui.row({ key = "panel-header", align = "center", gap = 8 }, {
-    ui.glyph({ name = "device-tv", size = 22, color = "primary" }),
-    ui.column({ key = "plugin-heading", gap = 2, flexGrow = 1, minWidth = 0 }, heading),
-    ui.button({ text = tr("account"), variant = if accountExpanded then "primary" else "ghost",
+    markerSlot(ui.glyph({ name = "device-tv", size = 22, color = "primary" }), 32),
+    ui.column({ key = "plugin-heading", gap = 2, width = 0, flexGrow = 1, minWidth = 0 }, heading),
+    ui.button({ text = tr("account"), height = 32, contentAlign = "center", variant = if accountExpanded then "primary" else "ghost",
       onClick = function() accountExpanded = not accountExpanded; clearDisconnect(); render() end }),
     ui.button({ key = "panel-settings", glyph = "settings", width = 32, height = 32,
       variant = "ghost", tooltip = tr("settings"), onClick = "onSettings" }),
@@ -823,7 +829,7 @@ local function renderContent()
       table.insert(profileChildren, ui.label({ key = "profile-bio", text = viewer.bio,
         fontSize = density.detailSize, color = "on_surface_variant", maxLines = 2 }))
     end
-    local avatarSize = density.listCoverWidth + 4
+    local avatarSize = 56
     local avatar
     if appearance.avatar and snapshot.viewer then
       avatar = if type(viewer.avatarPath) == "string" and viewer.avatarPath:sub(1, 1) == "/" then
@@ -833,24 +839,24 @@ local function renderContent()
           ui.glyph({ name = "user", size = density.fontSize + 6, color = "on_surface_variant" }),
         })
     end
-    table.insert(children, ui.row({ key = "profile-header", align = "center", gap = density.gap }, childrenWithOptions(
+    table.insert(children, ui.row({ key = "profile-header", align = "center", gap = 12 }, childrenWithOptions(
       avatar,
-      ui.column({ key = "profile-details", gap = 3, flexGrow = 1, minWidth = 0 }, profileChildren)
+      ui.column({ key = "profile-details", gap = 3, width = 0, flexGrow = 1, minWidth = 0 }, profileChildren)
     )))
   end
   if accountExpanded or snapshot.oauthBusy or (snapshot.oauthError and snapshot.oauthError ~= "") then
     table.insert(children, renderAuthControls(false))
   end
 
-  table.insert(children, ui.row({ key = "main-navigation", gap = 6, padding = 4, radius = 8, fill = "surface_variant" }, {
-    ui.button({ key = "main-navigation-collections", width = 0, flexGrow = 1, text = tr("view_collections"), variant = if activeView == "collections" then "primary" else "ghost",
+  table.insert(children, ui.row({ key = "main-navigation", gap = 0, padding = 0, radius = 8, fill = "surface_variant" }, {
+    ui.button({ key = "main-navigation-collections", width = 0, flexGrow = 1, height = 38, contentAlign = "center", text = tr("view_collections"), variant = if activeView == "collections" then "primary" else "ghost",
       onClick = function() setView("collections") end }),
-    ui.button({ key = "main-navigation-timeline", width = 0, flexGrow = 1, text = tr("view_timeline"), variant = if activeView == "timeline" then "primary" else "ghost",
+    ui.button({ key = "main-navigation-timeline", width = 0, flexGrow = 1, height = 38, contentAlign = "center", text = tr("view_timeline"), variant = if activeView == "timeline" then "primary" else "ghost",
       onClick = function() setView("timeline") end }),
   }))
   if activeView == "timeline" then
     table.insert(children, renderTimeline())
-    return ui.column({ key = "panel-content", gap = density.gap + 2, padding = 16, flexGrow = 1, justify = "start" }, children)
+    return panelFrame(children)
   end
 
   -- Collection status is secondary to the main Collections / Timeline navigation.
@@ -861,19 +867,19 @@ local function renderContent()
     if collection and collection.total and collection.total > 0 then label = label .. " " .. tostring(collection.total) end
     local selected = filter.type == activeType
     table.insert(filterButtons, ui.button({ key = "collection-status-" .. tostring(filter.type),
-      text = label, variant = if selected then "primary" else "ghost", selected = selected,
+      width = 0, flexGrow = 1, height = 32, fontSize = 12, contentAlign = "center", text = label, variant = if selected then "primary" else "ghost", selected = selected,
       controlSize = "sm", onClick = function()
         if filter.type ~= activeType then setFilter(filter.type) end
       end }))
   end
   -- Give status labels their own width; layout controls share the page toolbar.
-  table.insert(children, ui.row({ key = "collection-controls", gap = 4, paddingH = 4, align = "center" }, filterButtons))
-  local layoutControls = ui.row({ gap = 2, align = "center" }, {
-    ui.button({ key = "collection-layout-list", glyph = "list", width = 30, height = 30,
+  table.insert(children, ui.row({ key = "collection-controls", gap = 4, height = 32, align = "center" }, filterButtons))
+  local layoutControls = ui.row({ width = 68, height = 32, gap = 4, align = "center" }, {
+    ui.button({ key = "collection-layout-list", glyph = "list", width = 32, height = 32,
       tooltip = tr("layout_list"), selected = collectionLayout == "list",
       variant = if collectionLayout == "list" then "primary" else "ghost",
       onClick = function() setCollectionLayout("list") end }),
-    ui.button({ key = "collection-layout-grid", glyph = "layout-grid", width = 30, height = 30,
+    ui.button({ key = "collection-layout-grid", glyph = "layout-grid", width = 32, height = 32,
       tooltip = tr("layout_grid"), selected = collectionLayout == "grid",
       variant = if collectionLayout == "grid" then "primary" else "ghost",
       onClick = function() setCollectionLayout("grid") end }),
@@ -890,7 +896,7 @@ local function renderContent()
   local collection = collectionOf(activeType)
   local rows = collection and collection.rows or {}
   if #rows == 0 then
-    table.insert(children, ui.row({ key = "collection-toolbar", gap = 6, paddingH = 4, align = "center" }, {
+    table.insert(children, ui.row({ key = "collection-toolbar", gap = 4, height = 32, align = "center" }, {
       ui.spacer({ flexGrow = 1 }), layoutControls,
     }))
     if not snapshot.loading and (not snapshot.error or snapshot.error == "" or snapshot.error == "empty") then
@@ -918,13 +924,13 @@ local function renderContent()
     gridPage = math.clamp(gridPage, 1, pageCount)
     local first = (gridPage - 1) * appearance.pageSize + 1
     local last = math.min(gridPage * appearance.pageSize, #displayRows)
-    table.insert(children, ui.row({ key = "grid-pagination", gap = 6, paddingH = 4, align = "center" }, {
+    table.insert(children, ui.row({ key = "grid-pagination", gap = 4, height = 32, align = "center" }, {
       ui.label({ text = tr("grid_page", { page = gridPage, pages = pageCount, total = #displayRows }),
-        fontSize = 11, color = "on_surface_variant", flexGrow = 1, minWidth = 0, maxLines = 1 }),
+        fontSize = 11, color = "on_surface_variant", flexGrow = 1, maxLines = 1 }),
       layoutControls,
-      ui.button({ key = "grid-previous", glyph = "chevron-left", width = 30, height = 30, variant = "ghost",
+      ui.button({ key = "grid-previous", glyph = "chevron-left", width = 32, height = 32, variant = "ghost",
         tooltip = tr("grid_previous"), onClick = if gridPage > 1 then function() gridPage -= 1; render() end else "onNoop" }),
-      ui.button({ key = "grid-next", glyph = "chevron-right", width = 30, height = 30, variant = "ghost",
+      ui.button({ key = "grid-next", glyph = "chevron-right", width = 32, height = 32, variant = "ghost",
         tooltip = tr("grid_next"), onClick = if gridPage < pageCount then function() gridPage += 1; render() end else "onNoop" }),
     }))
     requestVisibleCovers(displayRows, first, last)
@@ -944,15 +950,11 @@ local function renderContent()
         table.insert(listChildren, renderRow(displayRows[index]))
       end
     end
-    -- Keep one stretched layout root inside the viewport. During the initial
-    -- burst of snapshot updates, independently measured scroll children can
-    -- otherwise retain their content width and collapse later rows.
-    table.insert(children, ui.scroll({ key = "collection-scroll", flexGrow = 1, minWidth = 0, paddingH = 4, align = "stretch" }, {
-      ui.column({ width = "100%", minWidth = 0, gap = density.gap, align = "stretch" }, listChildren),
-    }))
+    -- All rows share the same parent width inside the panel-wide viewport.
+    table.insert(children, ui.column({ key = "collection-scroll", gap = density.gap, align = "stretch" }, listChildren))
   end
 
-  return ui.column({ key = "panel-content", gap = density.gap + 2, padding = 16, flexGrow = 1, justify = "start" }, children)
+  return panelFrame(children)
 end
 
 render = function()

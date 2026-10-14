@@ -134,13 +134,12 @@ local function renderRow(row, showCovers, rowWidth)
     detailWidth = detailWidth - COVER_WIDTH - 8
   end
   detailWidth = math.max(0, detailWidth)
-  table.insert(children, ui.column({ width = detailWidth, minWidth = 0, gap = 2, justify = "center" }, {
+  table.insert(children, ui.column({ width = detailWidth, minWidth = 0, gap = 2, align = "stretch", justify = "center" }, {
     ui.label({
       text = row.title or "?",
       fontSize = 13,
       fontWeight = "medium",
       maxLines = 2,
-      minWidth = 0,
       color = titleColor,
     }),
     ui.label({
@@ -148,7 +147,6 @@ local function renderRow(row, showCovers, rowWidth)
       fontSize = 10,
       color = "on_surface_variant",
       maxLines = 1,
-      minWidth = 0,
     }),
     ui.progress({ progress = progressRatio(row), width = detailWidth, height = 5, radius = 2 }),
   }))
@@ -196,7 +194,6 @@ local function render()
       fontWeight = "bold",
       color = "primary",
       flexGrow = 1,
-      minWidth = 0,
       maxLines = 1,
     }),
   }
@@ -205,7 +202,6 @@ local function render()
       text = tr("page_range", { first = pageOffset + 1, last = lastIndex, total = #rows }),
       fontSize = 10,
       color = "on_surface_variant",
-      minWidth = 0,
       maxLines = 1,
     }))
     table.insert(headerChildren, ui.button({
@@ -232,7 +228,7 @@ local function render()
     }))
   end
   local children = {
-    ui.row({ height = HEADER_HEIGHT, align = "center", gap = 4 }, headerChildren),
+    ui.row({ width = widgetWidth - ROOT_PADDING * 2, height = HEADER_HEIGHT, align = "center", gap = 4 }, headerChildren),
   }
 
   if snapshot.loading and #rows == 0 then
@@ -253,7 +249,7 @@ local function render()
     table.insert(children, ui.column({
       width = rowWidth,
       height = viewportHeight,
-      gap = ROW_GAP,
+      gap = ROW_GAP, align = "stretch",
     }, rowNodes))
   end
 
@@ -261,7 +257,7 @@ local function render()
     width = widgetWidth,
     height = rootHeight,
     gap = ROOT_GAP,
-    padding = ROOT_PADDING,
+    padding = ROOT_PADDING, align = "stretch",
   }, children))
 end
 
