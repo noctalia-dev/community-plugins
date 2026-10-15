@@ -1,0 +1,71 @@
+id = "blackx16/macbook-fan"
+name = "MacBook Fan"
+version = "1.2.0"
+plugin_api = 12
+author = "blackx16"
+license = "MIT"
+icon = "car-fan"
+description = "MacBook fan speed and thermal monitor with dual surface panel, manual RPM control, and mbpfan integration."
+tags = ["hardware", "bar", "panel", "service", "system", "indicator", "utility"]
+dependencies = ["cat", "sh", "systemctl", "bash", "sudo", "modprobe", "tee"]
+
+[[setting]]
+key = "display_mode"
+type = "select"
+label_key = "settings.display_mode.label"
+description_key = "settings.display_mode.description"
+default = "rpm"
+options = [
+  { value = "rpm", label_key = "settings.display_mode.options.rpm" },
+  { value = "percent", label_key = "settings.display_mode.options.percent" },
+  { value = "both", label_key = "settings.display_mode.options.both" },
+]
+
+[[setting]]
+key = "colorize_by_temp"
+type = "bool"
+label_key = "settings.colorize_by_temp.label"
+description_key = "settings.colorize_by_temp.description"
+default = true
+
+[[setting]]
+key = "poll_interval_ms"
+type = "int"
+label_key = "settings.poll_interval_ms.label"
+description_key = "settings.poll_interval_ms.description"
+default = 2000
+min = 500
+max = 30000
+
+[[setting]]
+key = "allow_popup"
+type = "bool"
+label_key = "settings.allow_popup.label"
+description_key = "settings.allow_popup.description"
+default = true
+
+[[widget]]
+id = "widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 340
+height = 348
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[panel]]
+id = "panel_manual"
+entry = "panel.luau"
+width = 340
+height = 435
+placement = "attached"
+position = "auto"
+open_near_click = true
+
+[[service]]
+id = "service"
+entry = "service.luau"
