@@ -218,7 +218,10 @@ function render()
   }, {
     ui.input({
       key         = "search",
+      value       = searchQuery,
+      focus       = true,
       placeholder = noctalia.tr("panel.search_placeholder"),
+      width       = 260,
       flexGrow    = 1,
       onChange    = "onSearchChange",
     }),

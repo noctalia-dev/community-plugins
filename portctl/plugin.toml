@@ -2,7 +2,7 @@
 
 id           = "rxtsel/portctl"
 name         = "Portctl"
-version      = "0.2.2"
+version      = "0.2.3"
 plugin_api = 9
 author       = "Cristhian Melo"
 license      = "MIT"
@@ -55,8 +55,8 @@ entry = "service.luau"
 [[panel]]
 id              = "panel"
 entry           = "panel.luau"
-width           = 428
-height          = 280
+width           = 560
+height          = 520
 open_near_click = true
 
 [[widget]]
