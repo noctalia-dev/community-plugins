@@ -10,9 +10,10 @@ local plugin_dir = noctalia.pluginDir() or ""
 -- Rebuild the list when it is missing or older than this (the newest archive of
 -- each show changes at most daily, so six hours is plenty fresh).
 local MAX_AGE = 6 * 3600
--- An update tick while a download is in flight, and while idle.
+-- An update tick while a download is in flight, and while idle. Idle only
+-- re-checks the age of a six-hour-old list, so it can be slow.
 local REFRESH_INTERVAL = 1000
-local IDLE_INTERVAL = 5000
+local IDLE_INTERVAL = 60000
 -- Give up on a download that has not written a new list after this long.
 local TIMEOUT = 360
 
@@ -33,12 +34,18 @@ local function configure(key, fallback)
   return value
 end
 
+-- Single-quote a value for the shell, so a path containing $, ` or " can never
+-- be expanded into a second command.
+local function shq(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
 local function resolvePaths()
   data_dir = noctalia.pluginDataDir()
   plugin_dir = noctalia.pluginDir() or ""
   tsv_path = configure("tsv_path", data_dir .. "/latest-archives.tsv")
   refresh_cmd = configure("refresh_cmd", string.format(
-    "python3 %q --out %q", plugin_dir .. "/scripts/wfmu_archives.py", tsv_path))
+    "python3 %s --out %s", shq(plugin_dir .. "/scripts/wfmu_archives.py"), shq(tsv_path)))
 end
 
 local function listAge()

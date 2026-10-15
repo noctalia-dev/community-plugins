@@ -14,7 +14,28 @@ local function configure(key, fallback)
   return value
 end
 
+-- Single-quote a value for the shell, so a crafted URL or path containing $, `
+-- or " can never be expanded into a second command.
+local function shq(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
 local tsv_path = configure("tsv_path", data_dir .. "/latest-archives.tsv")
+
+-- Static live streams, mirrored from scripts/wfmu_archives.py, so the widget can
+-- still play something before the archive list has downloaded. Keep in sync.
+local SEED_TSV = table.concat({
+  "WFMU 91.1 East Orange, NJ\thttp://stream2.wfmu.org/freeform-128k",
+  "WFMU Give the Drummer Radio\thttp://stream0.wfmu.org/drummer",
+  "WFMU Rock'n'Soul Radio\thttps://wfmu.org/wfmu_rock.pls",
+  "WFMU Sheena's Jungle Room\thttps://wfmu.org/wfmu_sheena.pls",
+}, "\n") .. "\n"
+
+-- Fall back to the live streams when the archive list is not there yet.
+local function readList()
+  return noctalia.readFile(tsv_path) or SEED_TSV
+end
+
 local refreshing = false
 local lastMetaPoll = 0
 local lastLiveTitle = nil
@@ -22,8 +43,8 @@ local lastLiveTitle = nil
 local function stopPlayback()
   if pid_file ~= "" then
     noctalia.runAsync(string.format(
-      "if [ -f %q ]; then kill $(cat %q) 2>/dev/null; rm -f %q; fi; rm -f %q",
-      pid_file, pid_file, pid_file, ipc_sock))
+      "if [ -f %s ]; then kill $(cat %s) 2>/dev/null; rm -f %s; fi; rm -f %s",
+      shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock)))
   end
   noctalia.state.set("now", nil)
   noctalia.state.set("paused", false)
@@ -33,8 +54,8 @@ end
 
 local function startPlayback(name, url)
   noctalia.runAsync(string.format(
-    "if [ -f %q ]; then kill $(cat %q) 2>/dev/null; fi; rm -f %q %q; mpv --no-video --input-ipc-server=%q %q >/dev/null 2>&1 & echo $! > %q",
-    pid_file, pid_file, pid_file, ipc_sock, ipc_sock, url, pid_file))
+    "if [ -f %s ]; then kill $(cat %s) 2>/dev/null; fi; rm -f %s %s; mpv --no-video --input-ipc-server=%s %s >/dev/null 2>&1 & echo $! > %s",
+    shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock), shq(ipc_sock), shq(url), shq(pid_file)))
   noctalia.state.set("now", name or "WFMU")
   noctalia.state.set("last_name", name)
   noctalia.state.set("last_url", url)
@@ -43,11 +64,7 @@ local function startPlayback(name, url)
 end
 
 local function playRandom()
-  local raw = noctalia.readFile(tsv_path)
-  if not raw then
-    noctalia.notifyError("WFMU", "no stream list yet")
-    return
-  end
+  local raw = readList()
   local list = {}
   for line in raw:gmatch("[^\r\n]+") do
     local tab = string.find(line, "\t", 1, true)
@@ -79,7 +96,7 @@ try:
  t=str(d.get("data") or "")
 except Exception:
  t=""
-open(sys.argv[2],"w").write(t)' %q %q
+open(sys.argv[2],"w").write(t)' %s %s
 ]====]
 
 local function pollLiveTitle()
@@ -92,7 +109,7 @@ local function pollLiveTitle()
     return
   end
   lastMetaPoll = t
-  noctalia.runAsync(string.format(fetch_cmd, ipc_sock, meta_path))
+  noctalia.runAsync(string.format(fetch_cmd, shq(ipc_sock), shq(meta_path)))
   local raw = noctalia.readFile(meta_path)
   if raw then
     local title = noctalia.string.trim(raw)
@@ -138,11 +155,7 @@ refreshing = noctalia.state.get("refreshing") == true
 show()
 
 local function playDefault()
-  local raw = noctalia.readFile(tsv_path)
-  if not raw then
-    noctalia.notifyError("WFMU", "no stream list yet")
-    return
-  end
+  local raw = readList()
   for line in raw:gmatch("[^\r\n]+") do
     local tab = string.find(line, "\t", 1, true)
     if tab then

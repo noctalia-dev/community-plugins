@@ -13,7 +13,23 @@ local function configure(key, fallback)
   return value
 end
 
+-- Single-quote a value for the shell, so a crafted URL or path containing $, `
+-- or " can never be expanded into a second command.
+local function shq(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
 local tsv_path = configure("tsv_path", data_dir .. "/latest-archives.tsv")
+
+-- The live streams are static, so seed the view with them: the panel shows
+-- something the moment it opens, while the service is still downloading the
+-- archive list. Keep in sync with LIVE_STREAMS in scripts/wfmu_archives.py.
+local LIVE_SEED = table.concat({
+  "WFMU 91.1 East Orange, NJ\thttp://stream2.wfmu.org/freeform-128k",
+  "WFMU Give the Drummer Radio\thttp://stream0.wfmu.org/drummer",
+  "WFMU Rock'n'Soul Radio\thttps://wfmu.org/wfmu_rock.pls",
+  "WFMU Sheena's Jungle Room\thttps://wfmu.org/wfmu_sheena.pls",
+}, "\n") .. "\n"
 
 local items = {}
 local query = ""
@@ -85,18 +101,11 @@ loadFavorites()
 local function stopPlayback()
   if pid_file ~= "" then
     noctalia.runAsync(string.format(
-      "if [ -f %q ]; then kill $(cat %q) 2>/dev/null; rm -f %q; fi; rm -f %q",
-      pid_file, pid_file, pid_file, ipc_sock))
+      "if [ -f %s ]; then kill $(cat %s) 2>/dev/null; rm -f %s; fi; rm -f %s",
+      shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock)))
   end
   noctalia.state.set("now", nil)
   noctalia.state.set("paused", false)
-end
-
-local function isSeekable(url)
-  return string.find(url, "mp3archives.wfmu.org", 1, true) ~= nil
-    or string.find(url, "/archive/", 1, true) ~= nil
-    or string.sub(url, -4) == ".mp3"
-    or string.sub(url, -4) == ".mp4"
 end
 
 local function isArchiveUrl(url)
@@ -105,6 +114,9 @@ local function isArchiveUrl(url)
     or string.sub(url, -4) == ".mp3"
     or string.sub(url, -4) == ".mp4"
 end
+
+-- Archives are the seekable streams; live radio is not.
+local isSeekable = isArchiveUrl
 
 local function parseList(contents)
   local out = {}
@@ -126,13 +138,16 @@ local function parseList(contents)
   return out
 end
 
+-- Show the live streams straight away; the downloaded list replaces these.
+items = parseList(LIVE_SEED)
+
 local function startPlayback(name, url)
   noctalia.state.set("last_name", name)
   noctalia.state.set("last_url", url)
   noctalia.state.set("seekable", isSeekable(url))
   local ok = noctalia.runAsync(string.format(
-    "if [ -f %q ]; then kill $(cat %q) 2>/dev/null; fi; rm -f %q %q; mpv --no-video --input-ipc-server=%q %q >/dev/null 2>&1 & echo $! > %q",
-    pid_file, pid_file, pid_file, ipc_sock, ipc_sock, url, pid_file))
+    "if [ -f %s ]; then kill $(cat %s) 2>/dev/null; fi; rm -f %s %s; mpv --no-video --input-ipc-server=%s %s >/dev/null 2>&1 & echo $! > %s",
+    shq(pid_file), shq(pid_file), shq(pid_file), shq(ipc_sock), shq(ipc_sock), shq(url), shq(pid_file)))
   if not ok then
     noctalia.notifyError("WFMU", "could not start mpv")
     return false
@@ -166,14 +181,14 @@ end
 
 local function seekBy(delta)
   noctalia.runAsync(string.format(
-    "python3 -c 'import socket,sys,json;s=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.send((json.dumps({\"command\":[\"seek\",sys.argv[2]]})+\"\\n\").encode())' %q %d",
-    ipc_sock, delta))
+    "python3 -c 'import socket,sys,json;s=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.send((json.dumps({\"command\":[\"seek\",sys.argv[2]]})+\"\\n\").encode())' %s %d",
+    shq(ipc_sock), delta))
 end
 
 local function setPaused(paused)
   noctalia.runAsync(string.format(
-    "python3 -c 'import socket,sys,json;s=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.send((json.dumps({\"command\":[\"set_property\",\"pause\",sys.argv[2]]})+\"\\n\").encode())' %q %s",
-    ipc_sock, paused and "yes" or "no"))
+    "python3 -c 'import socket,sys,json;s=socket.socket(socket.AF_UNIX);s.connect(sys.argv[1]);s.send((json.dumps({\"command\":[\"set_property\",\"pause\",sys.argv[2]]})+\"\\n\").encode())' %s %s",
+    shq(ipc_sock), paused and "yes" or "no"))
 end
 
 local function togglePause()
@@ -247,9 +262,9 @@ render = function()
     ui.label({ text = tostring(viewCount) .. " stream" .. (viewCount == 1 and "" or "s"), fontSize = 12 }),
     ui.button({ glyph = "shuffle", variant = "ghost", controlSize = "sm", tooltip = "Play random stream", onClick = "onPlayRandom" }),
   }
-  if now ~= "" and nowUrl ~= "" and isArchiveUrl(nowUrl) then
+  if now and now ~= "" and nowUrl ~= "" and isArchiveUrl(nowUrl) then
     local nowKey = showKey(now)
-    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favourites" or "Add to favourites", selected = favorites[nowKey] == true, variant = "ghost", controlSize = "sm", onClick = function()
+    headerRow[#headerRow + 1] = ui.button({ key = "fav-now", glyph = "star", tooltip = favorites[nowKey] and "Remove from favourites" or "Add to favourites", selected = favorites[nowKey] ~= nil, variant = "ghost", controlSize = "sm", onClick = function()
       toggleFavorite({ name = now, url = nowUrl })
     end })
   end
@@ -321,8 +336,8 @@ end)
 local function loadList()
   noctalia.readFileAsync(tsv_path, function(contents)
     if contents == nil then
-      -- No list yet: the service is downloading it, or we ask it to.
-      items = {}
+      -- No list yet: show the live streams while the service downloads it.
+      items = parseList(LIVE_SEED)
       if not refreshing then
         noctalia.state.set("refresh_requested", true)
       end

@@ -42,6 +42,10 @@ LIVE_STREAMS = (
 DEFAULT_CACHE_TTL = 3600
 DEFAULT_MAX_AGE_DAYS = 30
 WORKERS = 6
+# Cap a single response so a misbehaving host cannot make us read forever.
+MAX_BYTES = 8 * 1024 * 1024
+# Drop cache files older than this, so the cache cannot grow without bound.
+CACHE_MAX_AGE = 7 * 24 * 3600
 
 
 class Fetcher:
@@ -52,6 +56,22 @@ class Fetcher:
         self.ttl = ttl
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
+            self._prune()
+
+    def _prune(self) -> None:
+        """Drop cache files that are far too old to ever be reused."""
+        cutoff = time.time() - CACHE_MAX_AGE
+        try:
+            names = os.listdir(self.cache_dir)
+        except OSError:
+            return
+        for name in names:
+            path = os.path.join(self.cache_dir, name)
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+            except OSError:
+                pass
 
     def _cached(self, url: str) -> bytes | None:
         if not self.cache_dir or self.ttl <= 0:
@@ -79,8 +99,8 @@ class Fetcher:
         for attempt in range(attempts):
             try:
                 with urllib.request.urlopen(request, timeout=30) as response:
-                    body = response.read()
-                if body:
+                    body = response.read(MAX_BYTES + 1)
+                if body and len(body) <= MAX_BYTES:
                     self._store(url, body)
                     return body
             except (urllib.error.URLError, TimeoutError, OSError):
@@ -109,6 +129,10 @@ def parse_shows(page: str) -> dict[str, dict[str, str]]:
 
 
 def latest_episode(feed_bytes: bytes) -> dict[str, str] | None:
+    # Refuse any feed that declares entities: those enable "billion laughs"
+    # style expansion, which a plain ElementTree parser would happily run.
+    if b"<!ENTITY" in feed_bytes:
+        return None
     root = ET.fromstring(feed_bytes)
     items = root.findall(".//item")
     if not items:
@@ -123,6 +147,8 @@ def latest_episode(feed_bytes: bytes) -> dict[str, str] | None:
 
 def resolve_stream(fetcher: Fetcher, listen_url: str) -> str | None:
     """Follow a show's listen link to the first line that is a direct URL."""
+    if listen_url.endswith((".mp3", ".mp4")):
+        return listen_url
     body = fetcher.get(listen_url, attempts=4)
     if body is None:
         return None
