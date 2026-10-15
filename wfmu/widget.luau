@@ -2,11 +2,9 @@
 -- WFMU bar widget: shows the current stream and opens the browse panel.
 
 local data_dir = noctalia.pluginDataDir()
-local plugin_dir = noctalia.pluginDir() or ""
 local pid_file = data_dir .. "/mpv.pid"
 local ipc_sock = data_dir .. "/mpv.sock"
 local idle_interval = 5000
-local refresh_interval = 1000
 
 local function configure(key, fallback)
   local value = noctalia.getConfig(key)
@@ -17,12 +15,7 @@ local function configure(key, fallback)
 end
 
 local tsv_path = configure("tsv_path", data_dir .. "/latest-archives.tsv")
-local refresh_cmd = configure("refresh_cmd", string.format(
-  "python3 %q --out %q", plugin_dir .. "/scripts/wfmu_archives.py", tsv_path))
 local refreshing = false
-local refreshStartedAt = 0
-local refreshBaseMtime = 0
-local refreshSeq = 0
 local lastMetaPoll = 0
 local lastLiveTitle = nil
 
@@ -74,49 +67,6 @@ local function playRandom()
   startPlayback(pick.name, pick.url)
 end
 
-local function refreshDone(timedOut)
-  refreshing = false
-  noctalia.setUpdateInterval(idle_interval)
-  refreshSeq = refreshSeq + 1
-  noctalia.state.set("refresh_seq", refreshSeq)
-  if timedOut then
-    noctalia.notifyError("WFMU", "refresh timed out")
-  else
-    noctalia.notify("WFMU", "Archives refreshed")
-  end
-end
-
-local function checkRefresh()
-  if not refreshing then
-    return
-  end
-  if os.time() - refreshStartedAt >= 360 then
-    refreshDone(true)
-    return
-  end
-  local info = tsv_path and noctalia.fileInfo(tsv_path)
-  if info and info.mtime and info.mtime > refreshBaseMtime then
-    refreshDone()
-  end
-end
-
-local function refresh()
-  if refreshing then
-    return
-  end
-  local ok = noctalia.runAsync(refresh_cmd)
-  if not ok then
-    noctalia.notifyError("WFMU", "could not start refresh")
-    return
-  end
-  refreshStartedAt = os.time()
-  local info = tsv_path and noctalia.fileInfo(tsv_path)
-  refreshBaseMtime = info and info.mtime or 0
-  refreshing = true
-  noctalia.setUpdateInterval(refresh_interval)
-  noctalia.state.set("refresh_requested", false)
-end
-
 local meta_path = data_dir .. "/mpv-title.txt"
 local fetch_cmd = [====[
 python3 -c 'import socket,json,sys,time
@@ -154,15 +104,8 @@ local function pollLiveTitle()
 end
 
 function update()
-  checkRefresh()
   pollLiveTitle()
 end
-
-noctalia.state.watch("refresh_requested", function(value)
-  if value then
-    refresh()
-  end
-end)
 
 noctalia.setUpdateInterval(idle_interval)
 
@@ -176,6 +119,9 @@ local function show()
       lines[#lines + 1] = np
     end
   end
+  if refreshing then
+    lines[#lines + 1] = "updating stream list…"
+  end
   barWidget.setTooltip(table.concat(lines, "\n"))
 end
 
@@ -183,7 +129,12 @@ barWidget.setGlyph("dog")
 
 noctalia.state.watch("now", show)
 noctalia.state.watch("now_playing", show)
+noctalia.state.watch("refreshing", function(value)
+  refreshing = value == true
+  show()
+end)
 
+refreshing = noctalia.state.get("refreshing") == true
 show()
 
 local function playDefault()
@@ -227,7 +178,7 @@ function onIpc(event, _payload)
   if event == "stop" then
     stopPlayback()
   elseif event == "refresh" then
-    refresh()
+    noctalia.state.set("refresh_requested", true)
   elseif event == "random" then
     playRandom()
   elseif event == "play" then

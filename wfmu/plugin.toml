@@ -23,6 +23,12 @@ label_key       = "settings.tsv_path.label"
 description_key = "settings.tsv_path.description"
 default         = ""
 
+# Headless service: downloads the stream list on load and keeps it fresh, so the
+# panel is populated the first time it is opened instead of starting empty.
+[[service]]
+id    = "fetcher"
+entry = "service.luau"
+
 [[widget]]
 id    = "control"
 entry = "widget.luau"

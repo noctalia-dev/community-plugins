@@ -8,7 +8,7 @@ episode of each WFMU show.
 | Field | Value |
 | --- | --- |
 | ID | `quaversa/wfmu` |
-| Entries | Bar widget: `control`; panel: `browse` |
+| Entries | Bar widget: `control`; panel: `browse`; service: `fetcher` |
 | Launcher Prefix | — |
 
 ## Requirements
@@ -34,10 +34,12 @@ noctalia msg panel-toggle quaversa/wfmu:browse
 
 The panel has three groups: **Live** (the WFMU live streams), **Favourites**,
 and **Archives** (each show's most recent episode). Click a stream or archive to play it in
-mpv, and favorite a show to pin it. 
+mpv, and favorite a show to pin it.
 
-You will need to click "refresh" once from the panel header or the
-widget's right-click action to build the stream list.
+The stream list is downloaded automatically the first time the plugin is enabled,
+so the panel is populated on first open. The background `fetcher` service downloads
+it when it is missing and refreshes it when it goes stale, and the panel header
+button (or the `refresh` IPC action) forces a download at any time.
 
 Widget actions:
 
@@ -71,6 +73,10 @@ noctalia msg plugin quaversa/wfmu:control all play URL
 
 ## Notes
 
+- **Refresh:** the headless `fetcher` service rebuilds the list when it is
+  missing or older than six hours, and on demand. The widget and panel read the
+  list from the plugin data directory, so a fresh install is populated without
+  any manual step.
 - **Network:** `scripts/wfmu_archives.py` fetches the WFMU show index, one RSS
   archive feed per show, and each show's latest episode link, then writes the
   stream list. Fetched pages are cached for one hour in

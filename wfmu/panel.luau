@@ -17,7 +17,7 @@ local tsv_path = configure("tsv_path", data_dir .. "/latest-archives.tsv")
 
 local items = {}
 local query = ""
-local refreshing = false
+local refreshing = noctalia.state.get("refreshing") == true
 local open = false
 local render
 local favorites_path = data_dir .. "/favorites.json"
@@ -220,7 +220,9 @@ render = function()
   }
   for _, section in ipairs(sections) do
     if #section.items > 0 then
-      rows[#rows + 1] = ui.label({ text = section.label, fontSize = 12, fontWeight = "bold", color = "secondary", paddingTop = 4 })
+      rows[#rows + 1] = ui.column({ key = "section-" .. section.label, paddingV = 4 }, {
+        ui.label({ text = section.label, fontSize = 12, fontWeight = "bold", color = "secondary" }),
+      })
     end
     for _, it in ipairs(section.items) do
       local row = {
@@ -286,7 +288,11 @@ render = function()
   children[#children + 1] = ui.input({ key = "search", placeholder = "Filter streams…", onChange = "onSearch", controlSize = "sm", focus = true })
 
   if refreshing then
-    children[#children + 1] = ui.label({ text = "Refreshing…", fontSize = 12 })
+    children[#children + 1] = ui.label({ text = "Downloading stream list…", fontSize = 12, color = "secondary" })
+  elseif #items == 0 then
+    children[#children + 1] = ui.label({ text = "No streams yet — the list downloads automatically, or press refresh.", fontSize = 12, color = "secondary" })
+  elseif viewCount == 0 then
+    children[#children + 1] = ui.label({ text = "No streams match your filter.", fontSize = 12, color = "secondary" })
   end
 
   children[#children + 1] = ui.scroll({ flexGrow = 1, gap = 2 }, rows)
@@ -313,9 +319,16 @@ noctalia.state.watch("now_playing", function()
 end)
 
 local function loadList()
-  noctalia.readFileAsync(tsv_path, function(contents, err)
+  noctalia.readFileAsync(tsv_path, function(contents)
     if contents == nil then
-      noctalia.notifyError("WFMU", "could not read stream list: " .. tostring(err))
+      -- No list yet: the service is downloading it, or we ask it to.
+      items = {}
+      if not refreshing then
+        noctalia.state.set("refresh_requested", true)
+      end
+      if open then
+        render()
+      end
       return
     end
     items = parseList(contents)
@@ -327,16 +340,17 @@ local function loadList()
 end
 
 local function refresh()
-  if refreshing then
-    return
-  end
-  refreshing = true
   noctalia.state.set("refresh_requested", true)
-  render()
 end
 
+noctalia.state.watch("refreshing", function(value)
+  refreshing = value == true
+  if open then
+    render()
+  end
+end)
+
 noctalia.state.watch("refresh_seq", function()
-  refreshing = false
   if open then
     loadList()
   end
