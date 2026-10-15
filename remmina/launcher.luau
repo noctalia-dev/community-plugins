@@ -97,7 +97,15 @@ function onQuery(query)
     return
   end
 
-  local list, err = shared.profiles(noctalia.getConfig("profiles_path"))
+  local list, err, isLoading = shared.profiles(noctalia.getConfig("profiles_path"), function()
+    onQuery(query)
+  end)
+  if list == nil and isLoading then
+    launcher.setResults(query, {
+      statusRow(noctalia.tr("panel.loading"), "", "screen-share"),
+    })
+    return
+  end
   if list == nil then
     launcher.setResults(query, {
       statusRow(noctalia.tr("profiles-missing"), err ~= nil and err or shared.profilesPath(noctalia.getConfig("profiles_path")), "file-x"),

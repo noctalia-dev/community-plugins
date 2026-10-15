@@ -35,6 +35,7 @@ local GLYPHS = {
 local cache = nil
 local cacheStamp = nil
 local cacheDir = nil
+local loadError = nil
 
 local function trim(s)
   return noctalia.string.trim(s or "")
@@ -54,17 +55,26 @@ function M.glyphFor(protocol)
   return GLYPHS[protocol] or "device-desktop-share"
 end
 
--- Remmina writes one lowercase `key=value` per line, no quoting and no
--- sections that matter here, so a plain split is enough.
+-- Remmina writes one lowercase `key=value` per line, no quoting. A profile
+-- carries ~100 keys and only five are used here, so each one is looked up with
+-- a single anchored match instead of walking every line in Luau: with a few
+-- dozen profiles the line walk alone overran the 25 ms callback budget on a
+-- slow CPU, and the host disabled the panel.
+local function field(content, key)
+  local value = content:match("\n" .. key .. "=([^\r\n]*)")
+  return value ~= nil and trim(value) or nil
+end
+
 local function parseProfile(content)
-  local fields = {}
-  for line in content:gmatch("[^\r\n]+") do
-    local key, value = line:match("^(%w+)=(.*)$")
-    if key ~= nil then
-      fields[key:lower()] = trim(value)
-    end
-  end
-  return fields
+  -- leading newline so the first line matches the same anchored pattern
+  content = "\n" .. content
+  return {
+    name = field(content, "name"),
+    group = field(content, "group"),
+    protocol = field(content, "protocol"),
+    server = field(content, "server"),
+    username = field(content, "username"),
+  }
 end
 
 -- "user@host", or whichever half exists.
@@ -75,38 +85,24 @@ function M.targetOf(profile)
   return profile.server ~= "" and profile.server or profile.username
 end
 
-local function loadProfiles(directory)
-  local entries, err = noctalia.listDir(directory)
-  if entries == nil then
-    return nil, err
+local function profileFrom(path, content)
+  local fields = parseProfile(content)
+  local name = fields.name ~= nil and fields.name or ""
+  if name == "" then
+    -- Fall back to the file name so a profile is never invisible.
+    name = (path:match("([^/]+)$") or path):sub(1, -#PROFILE_SUFFIX - 1)
   end
+  return {
+    path = path,
+    name = name,
+    group = fields.group or "",
+    protocol = (fields.protocol or ""):upper(),
+    server = fields.server or "",
+    username = fields.username or "",
+  }
+end
 
-  local profiles = {}
-  for _, entry in ipairs(entries) do
-    if entry:sub(-#PROFILE_SUFFIX) == PROFILE_SUFFIX then
-      -- listDir may hand back bare names or full paths depending on the host;
-      -- only prepend the directory when the entry is not already absolute.
-      local path = entry:sub(1, 1) == "/" and entry or (directory .. "/" .. entry)
-      local content = noctalia.readFile(path)
-      if type(content) == "string" and content ~= "" then
-        local fields = parseProfile(content)
-        local name = fields.name ~= nil and fields.name or ""
-        if name == "" then
-          -- Fall back to the file name so a profile is never invisible.
-          name = (entry:match("([^/]+)$") or entry):sub(1, -#PROFILE_SUFFIX - 1)
-        end
-        table.insert(profiles, {
-          path = path,
-          name = name,
-          group = fields.group or "",
-          protocol = (fields.protocol or ""):upper(),
-          server = fields.server or "",
-          username = fields.username or "",
-        })
-      end
-    end
-  end
-
+local function sortProfiles(profiles)
   table.sort(profiles, function(a, b)
     if a.group ~= b.group then
       -- Ungrouped profiles sort last rather than first.
@@ -117,27 +113,121 @@ local function loadProfiles(directory)
     end
     return a.name:lower() < b.name:lower()
   end)
-  return profiles, nil
 end
+
+-- The host allows four outstanding readFileAsync calls per runtime.
+local MAX_IN_FLIGHT = 4
+
+-- Reads the profiles with readFileAsync and calls done(profiles) or
+-- done(nil, err). Reading them synchronously did not fit the 25 ms callback
+-- budget with a few dozen profiles on a slow CPU or an encrypted home
+-- (ecryptfs decrypts on every read), and the host disabled the panel. Each
+-- completion runs in its own callback, so the work is spread across calls.
+local function loadProfiles(directory, done)
+  local entries, err = noctalia.listDir(directory)
+  if entries == nil then
+    done(nil, err)
+    return
+  end
+
+  local paths = {}
+  for _, entry in ipairs(entries) do
+    if entry:sub(-#PROFILE_SUFFIX) == PROFILE_SUFFIX then
+      -- listDir may hand back bare names or full paths depending on the host;
+      -- only prepend the directory when the entry is not already absolute.
+      table.insert(paths, entry:sub(1, 1) == "/" and entry or (directory .. "/" .. entry))
+    end
+  end
+
+  local profiles = {}
+  local nextIndex, pending = 1, 0
+
+  local function finishIfDone()
+    if pending == 0 and nextIndex > #paths then
+      sortProfiles(profiles)
+      done(profiles, nil)
+    end
+  end
+
+  local startNext
+  local function accept(path, content)
+    if type(content) == "string" and content ~= "" then
+      table.insert(profiles, profileFrom(path, content))
+    end
+  end
+
+  startNext = function()
+    while pending < MAX_IN_FLIGHT and nextIndex <= #paths do
+      local path = paths[nextIndex]
+      nextIndex += 1
+      pending += 1
+      local queued = noctalia.readFileAsync(path, function(content)
+        pending -= 1
+        accept(path, content)
+        startNext()
+        finishIfDone()
+      end)
+      if not queued then
+        -- Queue full despite the cap: read this one inline rather than lose it.
+        pending -= 1
+        accept(path, noctalia.readFile(path))
+      end
+    end
+  end
+
+  startNext()
+  finishIfDone()
+end
+
+local loading = false
+local waiters = {}
 
 -- Parsed once, then re-read only when the folder's mtime changes, so typing in
 -- the launcher and re-rendering the panel do no disk I/O.
-function M.profiles(configuredPath)
+--
+-- Returns profiles, err, isLoading. While a (re)load is running it returns the
+-- previous list (nil on the first load) with isLoading = true, and calls
+-- onReady() once the new list is in place, so the caller can redraw.
+function M.profiles(configuredPath, onReady)
   local directory = M.profilesPath(configuredPath)
   local info = noctalia.fileInfo(directory)
   local stamp = info ~= nil and tostring(info.mtime) or nil
   if cache ~= nil and stamp == cacheStamp and directory == cacheDir then
-    return cache, nil
+    return cache, nil, false
   end
-  local loaded, err = loadProfiles(directory)
-  if loaded == nil then
-    return nil, err
+
+  if onReady ~= nil then
+    table.insert(waiters, onReady)
   end
-  cache = loaded
-  cacheStamp = stamp
-  cacheDir = directory
-  return cache, nil
+  if not loading then
+    loading = true
+    loadProfiles(directory, function(loaded, err)
+      loading = false
+      if loaded ~= nil then
+        cache = loaded
+        cacheStamp = stamp
+        cacheDir = directory
+      else
+        cache, cacheStamp, cacheDir = nil, nil, nil
+        loadError = err
+      end
+      local ready = waiters
+      waiters = {}
+      for _, cb in ipairs(ready) do
+        cb()
+      end
+    end)
+  end
+  if not loading and cache == nil then
+    -- listDir failed synchronously: report the error right away.
+    return nil, loadError, false
+  end
+  if not loading then
+    return cache, nil, false
+  end
+  return cache, nil, true
 end
+
 
 -- ── Pinned profiles ─────────────────────────────────────────────────────────
 

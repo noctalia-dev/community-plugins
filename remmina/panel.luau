@@ -166,7 +166,15 @@ function render()
     return
   end
 
-  local profiles, err = shared.profiles(noctalia.getConfig("profiles_path"))
+  local profiles, err, isLoading = shared.profiles(noctalia.getConfig("profiles_path"), render)
+  if profiles == nil and isLoading then
+    -- first load still reading the files: render() runs again when it lands
+    panel.render(ui.column({ gap = 10, padding = 14, height = PANEL_HEIGHT }, {
+      header(0),
+      ui.label({ text = tr("panel.loading"), fontSize = 12, color = "on_surface/0.7" }),
+    }))
+    return
+  end
   if profiles == nil then
     panel.render(ui.column({ gap = 10, padding = 14, height = PANEL_HEIGHT }, {
       header(0),

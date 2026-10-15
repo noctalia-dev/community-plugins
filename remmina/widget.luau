@@ -6,8 +6,12 @@ local shared = require("./shared.luau")
 
 local PANEL_ID = "rylos/remmina:connections"
 
-local function refreshTooltip()
-  local profiles = shared.profiles(noctalia.getConfig("profiles_path"))
+local refreshTooltip
+refreshTooltip = function()
+  local profiles, _, isLoading = shared.profiles(noctalia.getConfig("profiles_path"), refreshTooltip)
+  if profiles == nil and isLoading then
+    return -- refreshTooltip runs again when the profiles are read
+  end
   if profiles == nil then
     barWidget.setTooltip(noctalia.tr("profiles-missing"))
     return

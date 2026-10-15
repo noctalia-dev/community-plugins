@@ -74,6 +74,11 @@ window, including the stored password.
 - **Profiles are cached** and re-read only when the profile folder's mtime
   changes, so typing in the launcher does no disk I/O. A profile added or
   removed from Remmina therefore shows up on the next query.
+- **Profiles are read asynchronously** (`readFileAsync`, four at a time). Each
+  plugin callback has a 25 ms budget, and reading a few dozen profiles in one
+  go overran it on a slow CPU or an encrypted home, so the host disabled the
+  panel. While the first read is running the panel and the launcher show
+  "Reading connections…" and refresh on their own when it lands.
 - A profile with no `name` falls back to its file name, so it is never
   invisible. Profiles with no group are listed last, under "Ungrouped".
 - The launcher filter is fuzzy; the panel filter is a plain substring match on

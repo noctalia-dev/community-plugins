@@ -1,6 +1,6 @@
 id = "rylos/remmina"
 name = "Remmina"
-version = "1.0.0"
+version = "1.0.1"
 plugin_api = 24
 author = "Marco Ziliani"
 license = "MIT"

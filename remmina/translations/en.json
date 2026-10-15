@@ -7,6 +7,7 @@
   "panel": {
     "count": "{count} saved connections",
     "filter": "Filter connections…",
+    "loading": "Reading connections…",
     "open-remmina": "Open the Remmina window",
     "open-tooltip": "Open {name}",
     "pin-tooltip": "Pin to the top",
