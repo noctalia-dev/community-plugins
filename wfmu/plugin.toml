@@ -1,6 +1,6 @@
 id           = "quaversa/wfmu"
 name         = "WFMU"
-version      = "1.4.0"
+version      = "1.0.0"
 plugin_api   = 32
 author       = "quaversa"
 license      = "MIT"
