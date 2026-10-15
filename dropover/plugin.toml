@@ -1,0 +1,22 @@
+id = "pyrider3/dropover"
+name = "Dropover"
+version = "1.0.0"
+plugin_api = 13
+author = "pyrider3"
+license = "MIT"
+icon = "inbox"
+description = "Floating file staging shelf and in-place drag target for Noctalia shell and Niri."
+dependencies = ["python3", "wl-copy"]
+tags = ["bar", "panel", "productivity", "utility", "niri"]
+
+[[widget]]
+id = "dropover-widget"
+entry = "widget.luau"
+
+[[panel]]
+id = "dropover-panel"
+entry = "panel.luau"
+width = 500
+height = 580
+keyboard_focus = "on_demand"
+capture_keys = ["Space", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
