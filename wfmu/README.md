@@ -1,7 +1,7 @@
 # WFMU
 
-Browse WFMU's live streams or listen to the most recent archived
-episode of every WFMU show.
+Play WFMU's live streams or browse the most recent archived
+episode of each WFMU show.
 
 ## Plugin
 
