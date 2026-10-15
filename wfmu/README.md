@@ -24,7 +24,8 @@ The fetcher makes network requests to `wfmu.org`, `mp3archives.wfmu.org`, and
 
 ## Usage
 
-Add the **WFMU** bar widget (`control`) from Settings, then click it to open the panel. 
+Add the **WFMU** bar widget (`control`) from Settings.
+
 The panel can also be toggled directly:
 
 ```sh
