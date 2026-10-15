@@ -2,7 +2,7 @@
 
 id           = "rxtsel/portctl"
 name         = "Portctl"
-version      = "0.2.2"
+version      = "0.2.3"
 plugin_api = 9
 author       = "Cristhian Melo"
 license      = "MIT"
