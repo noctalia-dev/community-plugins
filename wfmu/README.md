@@ -34,7 +34,7 @@ noctalia msg panel-toggle quaversa/wfmu:browse
 
 The panel has three groups: **Live** (the WFMU live streams), **Favourites**,
 and **Archives** (each show's most recent episode). Click a stream or archive to play it in
-mpv, and favorite a stream to pin it. 
+mpv, and favorite a show to pin it. 
 
 You will need to click "refresh" once from the panel header or the
 widget's right-click action to build the stream list.
