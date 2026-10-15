@@ -1,9 +1,7 @@
 # WFMU
 
-Browse WFMU's live streams and jump straight into the most recent archived
-episode of every WFMU show, without opening a browser or a playlist file. A bar
-widget shows what is playing, and a panel lists every stream and drives mpv
-playback.
+Browse WFMU's live streams or listen to the most recent archived
+episode of every WFMU show.
 
 ## Plugin
 
@@ -26,19 +24,18 @@ The fetcher makes network requests to `wfmu.org`, `mp3archives.wfmu.org`, and
 
 ## Usage
 
-Add the **WFMU** bar widget (`control`) from Settings, then click it to open the
-browse panel. The panel can also be toggled directly:
+Add the **WFMU** bar widget (`control`) from Settings, then click it to open the panel. 
+The panel can also be toggled directly:
 
 ```sh
 noctalia msg panel-toggle quaversa/wfmu:browse
 ```
 
 The panel has three groups: **Live** (the WFMU live streams), **Favourites**,
-and **Archives** (each show's most recent episode). Click any row to play it in
-mpv. The header offers shuffle, refresh, and the current stream is shown with
-pause, seek, and stop controls when it is an archive.
+and **Archives** (each show's most recent episode). Click a stream or archive to play it in
+mpv, and favorite a stream to pin it. 
 
-While nothing has been fetched yet, refresh once from the panel header or the
+You will need to click "refresh" once from the panel header or the
 widget's right-click action to build the stream list.
 
 Widget actions:
