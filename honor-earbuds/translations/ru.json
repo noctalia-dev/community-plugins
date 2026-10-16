@@ -1,0 +1,44 @@
+{
+  "panel": {
+    "title": "Honor Earbuds",
+    "status": {
+      "connected": "Подключено",
+      "disconnected": "Отключено"
+    },
+    "left": "Левый",
+    "right": "Правый",
+    "case": "Кейс",
+    "charging": "Зарядка",
+    "noise_control": "ШУМОПОДАВЛЕНИЕ",
+    "mode": {
+      "anc": "Шумоподавление",
+      "transparency": "Прозрачность",
+      "off": "Обычный (Выкл)"
+    }
+  },
+  "widget": {
+    "mode": "Режим",
+    "not_connected": "Наушники не подключены",
+    "action": {
+      "left_click": "Открыть панель",
+      "right_click": "Переключить ANC"
+    }
+  },
+  "notify": {
+    "mode_changed": "Режим ANC: %s"
+  },
+  "settings": {
+    "device_mac": {
+      "label": "MAC-адрес устройства",
+      "description": "Переопределить Bluetooth MAC-адрес (опционально, определяется автоматически)"
+    },
+    "hide_when_disconnected": {
+      "label": "Скрывать при отключении",
+      "description": "Скрывать виджет на панели, когда наушники отключены"
+    },
+    "notify_on_connect": {
+      "label": "Уведомление при подключении",
+      "description": "Показывать всплывающее уведомление с зарядом батареи при подключении наушников"
+    }
+  }
+}
