@@ -9,7 +9,6 @@ episode of each WFMU show.
 | --- | --- |
 | ID | `quaversa/wfmu` |
 | Entries | Bar widget: `control`; panel: `browse`; service: `fetcher` |
-| Launcher Prefix | — |
 
 ## Requirements
 
@@ -32,13 +31,13 @@ The panel can also be toggled directly:
 noctalia msg panel-toggle quaversa/wfmu:browse
 ```
 
-The panel has three groups: **Live** (the WFMU live streams), **Favourites**,
+The panel has three sections: **Live** (the WFMU live streams), **Favourites**,
 and **Archives** (each show's most recent episode). Click a stream or archive to play it in
-mpv, and favorite a show to pin it.
+mpv, and favorite a playing archived show from the panel header to pin it.
 
-The stream list is downloaded automatically the first time the plugin is enabled,
-so the panel is populated on first open. The background `fetcher` service downloads
-it when it is missing and refreshes it when it goes stale, and the panel header
+The stream list is downloaded the first time the plugin is enabled.
+The background `fetcher` service downloads
+it and refreshes it when it goes stale, and the panel header refresh
 button (or the `refresh` IPC action) forces a download at any time.
 
 Widget actions:
@@ -87,5 +86,3 @@ noctalia msg plugin quaversa/wfmu:control all play URL
 - **Files written:** the stream list, `mpv.pid`, `mpv.sock`, `mpv-title.txt`,
   and `favorites.json` all live in the plugin data directory. Override the
   stream list with the `tsv_path` setting.
-- **Live stream URLs** are built into the fetcher and may need updating if WFMU
-  changes them.
