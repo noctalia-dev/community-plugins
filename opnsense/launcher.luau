@@ -67,11 +67,21 @@ local function lower(s)
   return string.lower(tostring(s or ""))
 end
 
--- Matches an instance by id, name or host, in that order.
+-- Matches an instance by exact id first, then by id, name or host.
 local function instanceByName(text)
-  local want = lower(text)
+  local raw = trim(text)
+  local want = lower(raw)
   if want == "" then
     return nil
+  end
+  -- Ids are unique; names are not (two firewalls can differ only in case, or a
+  -- name can equal another firewall's host). Without the exact-id pass, picking
+  -- the second of such a pair resolves back to the first, and a later
+  -- start/stop/restart command then reaches the wrong firewall.
+  for _, inst in ipairs(instanceList()) do
+    if inst.id == raw then
+      return inst
+    end
   end
   for _, inst in ipairs(instanceList()) do
     if lower(inst.id) == want or lower(inst.name) == want or lower(inst.host) == want then
@@ -272,15 +282,12 @@ function onQuery(query)
     return
   end
 
-  if snapshot.loading and not view.available then
-    send("refresh")
-    launcher.setResults(query, { statusRow(noctalia.tr("launcher.loading"), snapshot.host ~= "" and snapshot.host or view.host, "loader") })
-    return
-  end
-
   if not view.available then
     -- The selected firewall is down: switch to a healthy one so queries still
-    -- resolve, instead of dead-ending every launcher query.
+    -- resolve, instead of dead-ending every launcher query. This runs before the
+    -- loading gate below: snapshot.loading is the OR of every instance's flag, so
+    -- a down firewall plus any poll in flight would otherwise pin every keystroke
+    -- to "Loading" and send a forced refresh on each one.
     local healthy = nil
     for _, inst in ipairs(instanceList()) do
       if inst.available == true and inst.id ~= view.id then
@@ -291,6 +298,10 @@ function onQuery(query)
     if healthy ~= nil then
       currentId = healthy.id
       syncView()
+    elseif view.loading or (view.id == "" and snapshot.loading) then
+      send("refresh")
+      launcher.setResults(query, { statusRow(noctalia.tr("launcher.loading"), view.host ~= "" and view.host or snapshot.host, "loader") })
+      return
     else
       local reason = view.error ~= "" and view.error or snapshot.error
       launcher.setResults(query, {
@@ -299,6 +310,10 @@ function onQuery(query)
       })
       return
     end
+  elseif view.loading then
+    send("refresh")
+    launcher.setResults(query, { statusRow(noctalia.tr("launcher.loading"), view.host ~= "" and view.host or snapshot.host, "loader") })
+    return
   end
 
   local text = trim(query)
