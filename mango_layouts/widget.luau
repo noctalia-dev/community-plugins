@@ -24,7 +24,8 @@ local show_text = (show_text_raw == true) or (show_text_raw == "true")
 local custom_color = noctalia.getConfig("custom_color")
 
 function update()
-  noctalia.setUpdateInterval(1000)
+  local updateInterval = noctalia.getConfig("update_interval")
+  noctalia.setUpdateInterval(updateInterval)
   noctalia.runAsync(
     "mmsg get all-monitors | jq -r '.monitors[] | select(.active == true) | .layout_symbol'",
     function(result)

@@ -1,6 +1,6 @@
 id         = "ezequiel/mango_layouts"
 name       = "Mango Layouts"
-version    = "1.0.0"
+version    = "1.0.1"
 plugin_api = 14
 author     = "ezequiel"
 license    = "MIT"
@@ -33,6 +33,15 @@ type    = "string"
 label_key = "custom_color_label"
 description_key = "custom_color_desc"
 default = ""
+
+[[widget.setting]]
+key = "update_interval"
+type = "int"
+label_key = "update_interval_label"
+description_key = "update_interval_desc"
+default = 1000
+min = 1
+max = 2000
 
 [[panel]]
 id = "panel"

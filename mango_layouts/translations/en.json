@@ -31,5 +31,7 @@
   "name_vertical_scroller": "Vertical Scroller",
   "name_vertical_tile": "Vertical Tile",
   "show_icon_label": "Show Icon",
-  "show_text_label": "Show Text"
+  "show_text_label": "Show Text",
+  "update_interval_label": "Update Interval (ms)",
+  "update_interval_desc": "Time it takes to update the icon/label (ms)"
 }
