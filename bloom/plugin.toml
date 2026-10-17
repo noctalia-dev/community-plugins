@@ -1,0 +1,26 @@
+id = "teslaoruz/bloom"
+name = "Bloom"
+version = "1.0.0"
+# 32: container tooltips. Also uses closures (9), require (22), readFileAsync (23), argv runAsync (24).
+plugin_api = 32
+author = "teslaoruz"
+license = "MIT"
+icon = "flower"
+description = "Claude Code on your bar: a spinner while it works, the real /status limits, live sessions, last 7 days."
+tags = ["ai", "development", "indicator", "bar", "panel", "niri"]
+# The panel focuses a session's terminal through bloom-bar's focus.sh, which calls niri.
+# The data comes from bloom-bar's backend (Claude Code hooks + a small Python daemon); see README.
+dependencies = ["niri", "python3"]
+
+[[widget]]
+id = "status"
+entry = "widget.luau"
+
+[[panel]]
+id = "panel"
+entry = "panel.luau"
+width = 360
+height = 600
+placement = "attached"
+position = "auto"
+open_near_click = true
