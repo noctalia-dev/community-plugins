@@ -979,6 +979,41 @@ assert(not has(labels(setupHost.tree()), "ui.setup_credentials_found"), "failed 
 setupHost.publishState("catalog_loading", true)
 assert(has(labels(setupHost.tree()), "ui.setup_loading"), "catalog acquisition must expose loading state")
 
+do
+-- Noctalia matches controls by (type, key) and retains omitted layout props.
+-- Exercise the same reuse rule: a growing diagnostics pane must never become
+-- the usage header when returning from diagnostics.
+local function reconcileLayout(previous, desired)
+    local reusable = previous and previous.kind == desired.kind
+        and previous.key == desired.props.key
+    local node = reusable and previous or { props = {}, children = {} }
+    node.kind, node.key = desired.kind, desired.props.key
+    for key, value in pairs(desired.props) do node.props[key] = value end
+    local oldChildren, nextChildren, used = node.children, {}, {}
+    for _, child in ipairs(desired.children) do
+        local match
+        for index, old in ipairs(oldChildren) do
+            if not used[index] and old.kind == child.kind and old.key == child.props.key then
+                match, used[index] = old, true
+                break
+            end
+        end
+        nextChildren[#nextChildren + 1] = reconcileLayout(match, child)
+    end
+    node.children = nextChildren
+    return node
+end
+
+local tree, _, _, _, _, _, host = loadPanel(provider("openai", "Codex", 42))
+local layout = reconcileLayout(nil, tree)
+clickButton(openActions(tree, host), "ui.provider_setup")
+layout = reconcileLayout(layout, host.tree())
+clickButton(host.tree(), "ui.back_to_usage")
+layout = reconcileLayout(layout, host.tree())
+assert((layout.children[1].props.flexGrow or 0) == 0,
+    "returning from diagnostics must not let the usage header consume free space")
+end
+
 local failureReport = { entries = {
     provider("openai", "Codex", 42),
     { id = "openai@work", display_name = "Codex · work", status = "error",

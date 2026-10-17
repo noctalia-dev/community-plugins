@@ -329,9 +329,10 @@ assert(containsText(bottleneckBar.rendered(), "100%"),
 assert(not containsText(bottleneckBar.rendered(), "0%"),
        "capsule should not show 0% when weekly limit is 100%")
 local bottleneckRows = bottleneckBar.tooltip()
-assert(#bottleneckRows == 2 and bottleneckRows[1].key == "Codex"
-       and bottleneckRows[1].value == "0% / 100% · 6d 20h",
-       "the compact tooltip keeps the blocking reset beside both quotas")
+assert(#bottleneckRows == 3
+       and bottleneckRows[1].key == "Codex 5h" and bottleneckRows[1].value == "0% · 2h 00m"
+       and bottleneckRows[2].key == "Codex 7d" and bottleneckRows[2].value == "100% · 6d 20h",
+       "the tooltip shows each quota window with its own percentage and reset countdown")
 
 local agyBar = loadBar({
     vendor = "antigravity", account = "", extras = "countdown", visualization = "none",
@@ -359,11 +360,13 @@ assert(containsText(agyBar.rendered(), "100%"), "blocked model should show its e
 assert(not containsText(agyBar.rendered(), "0%"), "blocked model should hide its irrelevant active session percentage")
 assert(containsText(agyBar.rendered(), "6d 20h"), "blocked model should show its long-window unlock time")
 local agyTooltip = agyBar.tooltip()
-assert(#agyTooltip == 3, "one row per model plus mode keeps the tooltip compact")
-assert(agyTooltip[1].key == "Gemini" and agyTooltip[1].value == "11% / 24% · 2h 00m",
-       "Gemini quotas and reset belong together")
-assert(agyTooltip[2].key == "Claude & GPT OSS" and agyTooltip[2].value == "0% / 100% · 6d 20h",
-       "the full model name and later blocking reset survive compaction")
+assert(#agyTooltip == 5, "each dual-window model gets 5h and 7d rows plus the mode row")
+assert(agyTooltip[1].key == "Gemini 5h" and agyTooltip[1].value == "11% · 2h 00m"
+       and agyTooltip[2].key == "Gemini 7d" and agyTooltip[2].value == "24%",
+       "Gemini 5h and 7d quotas and resets are shown on their own rows")
+assert(agyTooltip[3].key == "Claude & GPT OSS 5h" and agyTooltip[3].value == "0% · 1h 00m"
+       and agyTooltip[4].key == "Claude & GPT OSS 7d" and agyTooltip[4].value == "100% · 6d 20h",
+       "the full model name and both window resets survive without eliding")
 
 local normalAgyBar = loadBar({
     vendor = "antigravity", account = "", extras = "none", visualization = "none",
@@ -388,7 +391,7 @@ assert(containsGlyph(normalAgyBar.rendered(), "robot"), "capsule should show rob
 assert(containsText(normalAgyBar.rendered(), "11%"), "capsule should show active session percentage (11%)")
 assert(containsText(normalAgyBar.rendered(), "0%"), "capsule should show active session percentage (0%)")
 assert(not containsText(normalAgyBar.rendered(), "78%"), "capsule should not stick to weekly percentage (78%)")
-assert(#normalAgyBar.tooltip() == 3, "models without reset times should not gain empty reset rows")
+assert(#normalAgyBar.tooltip() == 5, "models without reset times keep one row per window plus mode")
 
 local reorderedAgyBar = loadBar({ vendor = "antigravity", visualization = "gauge" }, { entries = {
     { id = "antigravity", display_name = "Antigravity", status = "ready", metrics = {
@@ -444,7 +447,9 @@ quotaEntry.metrics = {
 }
 local bothBlocked = loadBar({ vendor = "openai", extras = "countdown" }, { entries = { quotaEntry } })
 assert(containsText(bothBlocked.rendered(), "6d 20h"), "two exhausted quotas must display the later reset")
-assert(bothBlocked.tooltip()[1].value == "100% / 100% · 6d 20h", "tooltip must agree with the bar's blocking reset")
+assert(bothBlocked.tooltip()[1].value == "100% · 2h 00m"
+    and bothBlocked.tooltip()[2].value == "100% · 6d 20h",
+    "tooltip shows each exhausted window's own reset")
 quotaEntry.id = "antigravity"
 quotaEntry.metrics[1].percent = 0
 local singleModel = loadBar({ vendor = "antigravity" }, { entries = { quotaEntry } })
@@ -797,16 +802,57 @@ end
 crowdedEntries[#crowdedEntries + 1] = entry("openai", "Codex", 10)
 local crowded = loadBar({ provider_limit = 4, usage_display = "remaining" }, { entries = crowdedEntries })
 local crowdedRows = crowded.tooltip()
-assert(#crowdedRows == 6, "the six-row budget includes readings, mode, hidden providers and the panel hint")
+assert(#crowdedRows == 10, "the ten-row budget includes readings, mode, hidden providers and the panel hint")
 assert(crowdedRows[1].key == "Antigravity · conta 1 · Gemini"
     and crowdedRows[1].value == "21% · 2h 00m", "named accounts and remaining mode survive compaction")
 assert(crowdedRows[2].key == "Antigravity · conta 1 · Gemini 4 Argon",
     "model pool details remain in the hover when there is room")
-assert(crowdedRows[4].key == "ui.remaining" and crowdedRows[4].value == "settings.quota_window.option.auto",
+assert(crowdedRows[8].key == "ui.remaining" and crowdedRows[8].value == "settings.quota_window.option.auto",
     "the mode and selected window are never displaced by model rows")
-assert(crowdedRows[5].key == "ui.hidden_label" and crowdedRows[5].value == "1 provider(s)",
+assert(crowdedRows[9].key == "ui.hidden_label" and crowdedRows[9].value == "1 provider(s)",
     "hidden counts providers outside the capsule, not omitted model rows")
-assert(crowdedRows[6].value == "ui.tooltip_more", "overflow directs the user to the full panel")
+assert(crowdedRows[10].value == "ui.tooltip_more", "overflow directs the user to the full panel")
+
+local codexAndAgy = loadBar({ provider_limit = 2 }, {
+    entries = {
+        {
+            id = "openai",
+            display_name = "Codex",
+            status = "ready",
+            metrics = {
+                { label = "Codex 5h", percent = 94, window_secs = 18000, reset_at = resetSoon, severity = "high" },
+                { label = "Codex weekly", percent = 15, window_secs = 604800, reset_at = resetLater, severity = "low" },
+            },
+        },
+        {
+            id = "antigravity",
+            display_name = "Antigravity",
+            status = "ready",
+            metrics = {
+                { label = "Gemini", percent = 0, window_secs = 18000, reset_at = resetSoon, severity = "low" },
+                { label = "Gemini", percent = 0, window_secs = 604800, reset_at = resetLater, severity = "low" },
+                { label = "Claude & GPT OSS", percent = 0, window_secs = 18000, reset_at = resetSoon, severity = "low" },
+                { label = "Claude & GPT OSS", percent = 0, window_secs = 604800, reset_at = resetLater, severity = "low" },
+                { label = "Gemini 4 Argon", percent = 2, model_pool = true, window_secs = 604800, reset_at = resetLater, severity = "low" },
+            },
+        },
+    },
+})
+local codexAndAgyRows = codexAndAgy.tooltip()
+assert(#codexAndAgyRows == 8,
+    "Codex and Antigravity dual windows plus pool and mode fit without dropping models")
+assert(codexAndAgyRows[1].key == "Codex 5h" and codexAndAgyRows[1].value == "94% · 2h 00m"
+    and codexAndAgyRows[2].key == "Codex 7d" and codexAndAgyRows[2].value == "15% · 6d 20h"
+    and codexAndAgyRows[3].key == "Gemini 5h" and codexAndAgyRows[3].value == "0% · 2h 00m"
+    and codexAndAgyRows[4].key == "Gemini 7d" and codexAndAgyRows[4].value == "0% · 6d 20h"
+    and codexAndAgyRows[5].key == "Claude & GPT OSS 5h" and codexAndAgyRows[5].value == "0% · 2h 00m"
+    and codexAndAgyRows[6].key == "Claude & GPT OSS 7d" and codexAndAgyRows[6].value == "0% · 6d 20h"
+    and codexAndAgyRows[7].key == "Gemini 4 Argon" and codexAndAgyRows[7].value == "2% · 6d 20h",
+    "every window and model pool displays its own percentage and reset countdown")
+for i = 1, 7 do
+    assert(#codexAndAgyRows[i].key <= 19 and #codexAndAgyRows[i].value <= 14,
+        "reading rows stay within Noctalia's non-truncating peer column budget")
+end
 
 local ordinary = loadBar({ provider_limit = 4 }, { entries = {
     entry("openai", "Codex", 80), entry("claude", "Claude", 70),

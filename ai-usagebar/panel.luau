@@ -1022,7 +1022,7 @@ end
 
 function render()
     if showSetup then
-        panel.render(ui.column({ gap = 8, padding = 10, flexGrow = 1, align = "stretch" }, {
+        panel.render(ui.column({ key = "diagnostics", gap = 8, padding = 10, flexGrow = 1, align = "stretch" }, {
             ui.row({ gap = 8, align = "center" }, {
                 ui.label({ text = noctalia.tr("ui.provider_setup"), fontSize = 14,
                     fontWeight = "bold", color = "on_surface" }),
@@ -1043,7 +1043,7 @@ function render()
         -- The panel keeps its manifest size, and a failure has nowhere near
         -- 720x400 to say. Bounded and centred, the empty surround reads as
         -- composition rather than a half-drawn frame.
-        panel.render(ui.column({ flexGrow = 1, padding = 14, align = "center", justify = "center" }, {
+        panel.render(ui.column({ key = "error", flexGrow = 1, padding = 14, align = "center", justify = "center" }, {
             ui.column({ gap = 10, width = 320 }, {
                 ui.row({ gap = 8, align = "center" }, {
                     ui.glyph({ name = "brain", size = 18, color = "primary" }),
@@ -1168,7 +1168,8 @@ function render()
         footer = ui.row({ key = "meta-row", gap = 4, align = "center" }, providerMeta)
     end
 
-    panel.render(ui.column({ gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
+    -- Distinct screens must not reuse controls with different retained layout props.
+    panel.render(ui.column({ key = "usage", gap = 6, paddingH = 10, paddingV = 8, flexGrow = 1, align = "stretch" }, {
         ui.column({ gap = 6 }, topChildren),
         ui.separator({ orientation = "horizontal", color = "outline", opacity = 0.15 }),
         detailPane(entry),

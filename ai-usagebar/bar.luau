@@ -429,28 +429,29 @@ local function chip(entry, flagged, isVert)
     return ui.row({ gap = 4, align = "center" }, nodes)
 end
 
-local function formatDualMetric(m1, m2)
-    if m1 == nil and m2 == nil then return "" end
-    local values = {}
-    if m1 ~= nil then values[#values + 1] = shared.metricText(m1, usageDisplay) end
-    if m2 ~= nil then values[#values + 1] = shared.metricText(m2, usageDisplay) end
-    -- The latest exhausted window decides when the model can be used again.
-    local metrics = m1 ~= nil and { m1, m2 } or { m2 }
-    local blocking = shared.blockingMetric(metrics)
-    local left = blocking ~= nil and fixedCountdown(blocking) or ""
-    if left == "" and m1 ~= nil then left = fixedCountdown(m1) end
-    if left == "" and m2 ~= nil then left = fixedCountdown(m2) end
-    local value = table.concat(values, " / ")
+local MAX_TOOLTIP_ROWS = 10
+local WINDOW_TAG = { session = "5h", weekly = "7d", monthly = "30d" }
+
+local function windowTitle(title, metric, fallback)
+    local tag = WINDOW_TAG[shared.metricWindow(metric)] or fallback
+    if tag == nil or tag == "" then return title end
+    return title .. " " .. tag
+end
+
+local function formatMetric(metric)
+    if metric == nil then return "" end
+    local value = shared.metricText(metric, usageDisplay)
     if quotaWindow ~= "auto" then
-        local metric = m1 or m2
         value = tostring(metric.label or quotaWindow) .. ": " .. value
     end
+    local left = fixedCountdown(metric)
     if left ~= "" then value = value .. " · " .. left end
     return value
 end
 
 -- Native structured tooltips elide long fields, but do not cap their height.
--- Six rows include the mode, hidden providers and any panel navigation hint.
+-- Giving each quota window its own row keeps both percentages and reset times
+-- within the peer column width budget while bounding total tooltip height.
 local function tooltipSummary(picked, hidden)
     local more = { key = noctalia.tr("ui.title"), value = noctalia.tr("ui.tooltip_more") }
     if failure.code ~= "" then
@@ -472,19 +473,27 @@ local function tooltipSummary(picked, hidden)
 
     local readings = {}
     local hasQuota, needsPanel = false, false
-    local function addReading(title, metrics, selected, entry)
-        local first, second = gaugeMetrics(metrics, selected)
-        local value = formatDualMetric(first, second)
-        if #metrics > 0 then
-            hasQuota = true
-            if value == "" and quotaWindow ~= "auto" then value = noctalia.tr("ui.window_unavailable") end
-        end
-        if value == "" then value = shared.balanceText(entry) or noctalia.tr("ui.no_usage") end
+    local function finishReading(rowKey, value, entry)
         if entry.stale == true then
             value = value .. " · " .. noctalia.tr("ui.stale")
             needsPanel = true
         end
-        readings[#readings + 1] = { key = title, value = value }
+        readings[#readings + 1] = { key = rowKey, value = value }
+    end
+    local function addReading(title, metrics, selected, entry)
+        local first, second = gaugeMetrics(metrics, selected)
+        if #metrics > 0 then hasQuota = true end
+        if first ~= nil and second ~= nil then
+            finishReading(windowTitle(title, first, "5h"), formatMetric(first), entry)
+            finishReading(windowTitle(title, second, "7d"), formatMetric(second), entry)
+            return
+        end
+        local value = formatMetric(first or second)
+        if #metrics > 0 and value == "" and quotaWindow ~= "auto" then
+            value = noctalia.tr("ui.window_unavailable")
+        end
+        if value == "" then value = shared.balanceText(entry) or noctalia.tr("ui.no_usage") end
+        finishReading(title, value, entry)
     end
     for _, entry in ipairs(picked) do
         local title = tostring(entry.display_name or entry.id)
@@ -513,8 +522,8 @@ local function tooltipSummary(picked, hidden)
     if hidden > 0 then
         footer[#footer + 1] = { key = noctalia.tr("ui.hidden_label"), value = noctalia.tr("ui.hidden_value", { count = hidden }) }
     end
-    local omitted = #readings + #footer > 6
-    local budget = 6 - #footer - ((omitted or needsPanel) and 1 or 0)
+    local omitted = #readings + #footer > MAX_TOOLTIP_ROWS
+    local budget = MAX_TOOLTIP_ROWS - #footer - ((omitted or needsPanel) and 1 or 0)
     local rows = {}
     for i = 1, math.min(budget, #readings) do rows[#rows + 1] = readings[i] end
     for _, row in ipairs(footer) do rows[#rows + 1] = row end

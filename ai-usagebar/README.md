@@ -101,8 +101,8 @@ auto_providers = [ "openai", "antigravity" ]
 start = [ "clock", "ai_usage" ]
 ```
 
-- Hover shows a compact summary of at most six rows. Each reading keeps its
-  reset on the same line. Open the panel for all windows, models and diagnostics.
+- Hover shows a compact summary of at most ten rows, with each quota window and
+  its reset countdown on its own line. Open the panel for all windows, models and diagnostics.
 - When a long window is exhausted, the capsule replaces the short-window value
   with `100%` and counts down to the blocking window's reset. If several windows
   are exhausted, it uses the latest reset. A critical warning below 100% does
