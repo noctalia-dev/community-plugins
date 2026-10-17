@@ -143,13 +143,13 @@ the collector control before disabling in that sequence.
 
 ## NixOS
 
-On NixOS the optional system collector is managed declaratively; the imperative
-`packaging/install-system-collector.sh` installer does not apply. The plugin
-detects NixOS from `/etc/os-release` (`ID=nixos`) or `/etc/NIXOS`, hides the
-`pkexec` install buttons, and shows a hint instead. A collector writing
-`/run/noctalia-drive-health/raw.json` is recognised as installed.
+`/etc/systemd/system` is generated from system config on NixOS, so the installer
+exits instead of writing to it. The plugin detects NixOS from `/etc/os-release`
+(`ID=nixos`) or `/etc/NIXOS`, hides the `pkexec` install buttons, and shows a
+hint instead. A collector writing `/run/noctalia-drive-health/raw.json` is
+recognised as installed.
 
-Add a unit and timer to your NixOS configuration that run the plugin's
+Add the equivalent declaratively: a unit and timer that run the plugin's
 `scripts/collect_raw.sh`. Point `pluginDir` at the plugin checkout so the
 collector version stays in sync with the plugin, and set `user` to the desktop
 user that reads the cache:
@@ -157,7 +157,7 @@ user that reads the cache:
 ```nix
 { config, pkgs, ... }:
 let
-  user = "alice";
+  user = "<you>";
   pluginDir = "/path/to/drive-health"; # absolute path of the plugin directory
 in
 {
