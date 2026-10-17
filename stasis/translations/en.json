@@ -1,0 +1,21 @@
+{
+  "title": "Stasis",
+  "status.not_running": "Stasis is not running",
+  "status.unparsed": "Could not read stasis info --json",
+  "settings.interval.label": "Refresh interval",
+  "settings.interval.description": "Seconds between stasis info --json calls.",
+  "settings.show_tooltip.label": "Show tooltip",
+  "settings.show_tooltip.description": "Show the full Stasis status as a hover tooltip.",
+  "settings.glyph_active.label": "Glyph: active",
+  "settings.glyph_active.description": "Glyph for the active and idle_active states.",
+  "settings.glyph_idle_waiting.label": "Glyph: idle waiting",
+  "settings.glyph_idle_waiting.description": "Glyph while waiting to go idle.",
+  "settings.glyph_manually_inhibited.label": "Glyph: manually inhibited",
+  "settings.glyph_manually_inhibited.description": "Glyph when idle is inhibited manually.",
+  "settings.glyph_idle_inhibited.label": "Glyph: idle inhibited",
+  "settings.glyph_idle_inhibited.description": "Glyph when idle is inhibited by an app or rule.",
+  "settings.glyph_not_running.label": "Glyph: not running",
+  "settings.glyph_not_running.description": "Glyph when Stasis is not running.",
+  "settings.glyph_unknown.label": "Glyph: unknown",
+  "settings.glyph_unknown.description": "Fallback glyph for an unrecognised state."
+}
