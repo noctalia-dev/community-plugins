@@ -272,12 +272,12 @@ local function chip(entry, flagged, isVert)
         local nodes = { ui.label({ text = "—", color = "on_surface_variant" }) }
         if showGlyph then
             table.insert(nodes, glyphAfter and #nodes + 1 or 1,
-                ui.glyph({ name = providerGlyph(entry.id), color = "error" }))
+                ui.glyph({ name = providerGlyph(entry.id, entry.brand), color = "error" }))
         end
         if isVert then
             return ui.column({ gap = 2, align = "center" }, nodes)
         end
-        return ui.row({ gap = 5, align = "center" }, nodes)
+        return ui.row({ gap = 4, align = "center" }, nodes)
     end
     local metric = capsuleMetric(entry)
     -- Balance-only providers carry no percentage; the capsule shows their
@@ -285,7 +285,7 @@ local function chip(entry, flagged, isVert)
     local balance = metric == nil and shared.balanceText(entry) or nil
     local tint = severityRole(metric, "on_surface")
     local percent = shared.displayPercent(metric, usageDisplay)
-    local text = percent ~= nil and string.format("%d%%", percent) or (balance or "—")
+    local text = metric ~= nil and shared.metricText(metric, usageDisplay) or (balance or "—")
     local fill = severityRole(metric, "primary")
     -- The mark says which provider, never how full it is; severity rides on the
     -- reading and the gauge. A failed read is the one thing that colours it, and
@@ -296,7 +296,7 @@ local function chip(entry, flagged, isVert)
     local hasSubmodels = #submodels > 0
 
     local glyph = (showGlyph and not hasSubmodels)
-        and ui.glyph({ name = providerGlyph(entry.id),
+        and ui.glyph({ name = providerGlyph(entry.id, entry.brand),
                        color = flagged and "error" or "on_surface" }) or nil
     local pct = nil
     if showValue or hasSubmodels then
@@ -307,33 +307,35 @@ local function chip(entry, flagged, isVert)
                     or shared.capsuleMetric({ metrics = item.metrics }, quotaWindow)
                 local mTint = colorByUsage and isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "on_surface")
-                local mPct = shared.displayPercent(shownMetric, usageDisplay)
                 local mFill = isCritical(shownMetric) and "error"
                     or severityRole(shownMetric, "primary")
                 local rowChildren = {}
                 local modelGlyph = showGlyph and ui.glyph({
-                        name = item.glyph or providerGlyph(entry.id),
+                        name = item.glyph or providerGlyph(entry.id, entry.brand),
                         color = flagged and "error" or "on_surface",
                     }) or nil
                 if modelGlyph and not glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
+                if showName and not isVert then
+                    rowChildren[#rowChildren + 1] = ui.label({
+                        text = item.displayName or item.model,
+                        color = "on_surface_variant", maxLines = 1, maxWidth = 140,
+                    })
+                end
 
                 local mMetrics = type(item.metrics) == "table" and item.metrics or { item.metric }
                 local mShort, mWeekly = gaugeMetrics(mMetrics, shownMetric)
                 local barNode = bars(mShort, mWeekly, 22)
 
-                if visualization == "gauge" and not isVert and not glyphAfter and barNode ~= nil then
+                if visualization == "gauge" and not isVert and barNode ~= nil then
                     rowChildren[#rowChildren + 1] = barNode
                 end
                 local value = showValue and ui.label({
-                    text = mPct ~= nil and string.format("%d%%", mPct) or "—",
+                    text = shared.metricText(shownMetric, usageDisplay),
                     color = mTint,
                     maxLines = 1,
                 }) or nil
                 local reading = withCountdown(value, shownMetric, isVert)
                 if reading ~= nil then rowChildren[#rowChildren + 1] = reading end
-                if visualization == "gauge" and not isVert and glyphAfter and barNode ~= nil then
-                    rowChildren[#rowChildren + 1] = barNode
-                end
                 if modelGlyph and glyphAfter then rowChildren[#rowChildren + 1] = modelGlyph end
                 if #parts > 0 and #rowChildren > 0 then
                     parts[#parts + 1] = isVert
@@ -346,12 +348,12 @@ local function chip(entry, flagged, isVert)
                 if #rowChildren > 0 then
                     parts[#parts + 1] = isVert
                         and ui.column({ gap = 2, align = "center" }, rowChildren)
-                        or ui.row({ gap = 3, align = "center" }, rowChildren)
+                        or ui.row({ gap = 4, align = "center" }, rowChildren)
                 end
             end
             pct = isVert
                 and ui.column({ gap = 3, align = "center" }, parts)
-                or ui.row({ gap = 7, align = "center" }, parts)
+                or ui.row({ gap = 8, align = "center" }, parts)
         else
             pct = ui.label({
                 text = text,
@@ -375,7 +377,7 @@ local function chip(entry, flagged, isVert)
         return ui.column({ gap = 2, align = "center" }, vertNodes)
     end
 
-    local name = showName and ui.label({ text = shortName(entry),
+    local name = showName and not hasSubmodels and ui.label({ text = shortName(entry),
                                          color = "on_surface_variant", maxLines = 1, maxWidth = 140 }) or nil
 
     local nodes = {}
@@ -409,7 +411,7 @@ local function chip(entry, flagged, isVert)
     if entry.stale == true then
         add(ui.glyph({ name = "clock-exclamation", size = 11, color = "secondary" }))
     end
-    return ui.row({ gap = 5, align = "center" }, nodes)
+    return ui.row({ gap = 4, align = "center" }, nodes)
 end
 
 local function formatDualMetric(m1, m2)
@@ -543,13 +545,11 @@ local function render()
 
     local children = {}
     for _, entry in ipairs(picked) do
-        -- Two providers run together on a gap alone: the countdown of the first
-        -- reads as part of the second. A dot, not a rule -- a vertical
-        -- `ui.separator` in a row came out two pixels wide by one tall.
+        -- A divider separates providers; dots join models within one provider.
         if #children > 0 then
             children[#children + 1] = isVert
                 and ui.box({ width = 12, height = 1, fill = "on_surface_variant", opacity = 0.3 })
-                or ui.label({ text = "·", color = "on_surface_variant" })
+                or ui.box({ width = 1, height = 14, fill = "on_surface_variant", opacity = 0.3 })
         end
         children[#children + 1] = chip(entry, flagged, isVert)
     end
@@ -569,7 +569,7 @@ local function render()
     if isVert then
         barWidget.render(ui.column({ gap = 5, align = "center" }, children))
     else
-        barWidget.render(ui.row({ gap = 7, align = "center" }, children))
+        barWidget.render(ui.row({ gap = 8, align = "center" }, children))
     end
     barWidget.setTooltip(tooltip(picked, hidden))
 end

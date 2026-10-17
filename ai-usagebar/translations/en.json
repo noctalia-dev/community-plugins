@@ -39,12 +39,12 @@
       "label": "Show icon"
     },
     "show_name": {
-      "description": "Add the provider name beside the reading.",
-      "label": "Show provider name"
+      "description": "Show provider or model names beside their readings.",
+      "label": "Show names"
     },
     "show_value": {
-      "description": "Show the quota percentage as text.",
-      "label": "Show percentage"
+      "description": "Show the reported percentage or amount.",
+      "label": "Show value"
     },
     "vendor": {
       "description": "Automatic ranks by severity, then usage.",
@@ -70,7 +70,17 @@
         "opencode_go": "OpenCode Go",
         "openrouter": "OpenRouter",
         "supergrok": "SuperGrok",
-        "zai": "Z.AI"
+        "zai": "Z.AI",
+        "deepinfra": "DeepInfra",
+        "grokbot": "Grok Bot",
+        "ollama": "Ollama Cloud",
+        "orcarouter": "OrcaRouter",
+        "modelstudio": "Model Studio",
+        "lyceum": "Lyceum",
+        "devin": "Devin",
+        "cline": "Cline",
+        "muse_code": "Muse Code",
+        "synthetic": "Synthetic"
       }
     },
     "visualization": {

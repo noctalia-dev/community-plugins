@@ -5,7 +5,9 @@ Track AI plan usage, quota resets, and consumption pace in the Noctalia bar.
 The numbers come from [ai-usagebar](https://github.com/akitaonrails/ai-usagebar),
 a Rust CLI that reads Claude, Codex, GitHub Copilot, Cursor, Antigravity, Kiro,
 Z.AI, Nous Research, OpenCode Go, Command Code, OpenRouter, DeepSeek, Kimi and Grok, among
-others. The plugin runs `ai-usagebar usage --json` and displays the report.
+others. The selector also includes DeepInfra, Grok Bot, Ollama Cloud, OrcaRouter,
+Model Studio, Lyceum, Devin, Cline, Muse Code and Synthetic. The plugin runs
+`ai-usagebar usage --json` and displays the report.
 The provider catalog is read separately with `ai-usagebar vendors --json` when requested.
 It does not call provider APIs or read credential files.
 
@@ -23,6 +25,12 @@ path setting. It ships as `ai-usagebar-bin` on the AUR, and as release
 tarballs on the project's GitHub Releases page. Configure your providers once in
 `~/.config/ai-usagebar/config.toml`; the CLI manages credentials and provider
 connections.
+
+The plugin accepts the optional fields in ai-usagebar 1.40.1, including
+Antigravity model pools and Synthetic. Older CLI reports remain supported; a
+provider appears only when the installed CLI can report it. Since 1.40.1, the CLI
+may run `agy -p "/quota" --output-format json` when `agy` is installed to read
+Antigravity quotas. The plugin does not start or configure `agy` itself.
 
 The CLI can send its own quota notifications when this plugin polls it. To
 disable them, add this to `~/.config/ai-usagebar/config.toml`:
@@ -52,7 +60,9 @@ usage. Icons keep their normal color unless a read fails.
 
 A provider that reports a balance instead of a quota (DeepSeek, Kilo, Novita,
 Moonshot, and Nous top-up credits) has no percentage to draw: the capsule prints
-that balance where a quota vendor prints its percentage.
+that balance where a quota vendor prints its percentage. When the CLI selects a
+monetary value as the headline, the capsule keeps that amount even if a supporting
+percentage is available. Used/remaining changes quota readings, not money.
 
 `Automatic` selects by headline severity, then usage. Raise `provider_limit` to
 show more providers; limits above one also show `+N` for providers that do not
@@ -67,7 +77,10 @@ Settings use the same names as the core `sysmon` widget. Set `visualization` to
 `gauge` for short-window usage above a thinner long-window usage bar, or
 `none` to hide the bars. A provider with one available window shows one bar. `show_value`,
 `show_glyph` and `glyph_position` control the percentage and icon placement,
-including Antigravity's individual model readings.
+including Antigravity's individual model readings. Provider groups use a subtle
+divider; models within one provider use dots. Enable `show_name` to distinguish
+individual model names, including Gemini 4 Argon. Names remain bounded so they
+do not take over the bar.
 
 `extras` adds the reset countdown (`3h 51m`), consumption pace (`↑3` means three
 percentage points ahead of elapsed time; `↓3` means three behind), both, or
@@ -130,7 +143,9 @@ service link. Click outside or click the widget again to close the panel.
 The list contains only providers with a usable reading. A provider the CLI
 reports no API key for never appears, because it was never set up. A configured
 provider with its own refresh failure also leaves the bar and panel, then
-returns automatically after a healthy read. The panel sorts providers by headline
+returns automatically after a healthy read. Model-specific pools retain their own
+name, reset and usage. A full Gemini 4 Argon pool does not mark Antigravity as
+exhausted while its shared windows remain available. The panel sorts providers by headline
 severity, then usage; equal readings keep the CLI's order. Automatic bar selection
 uses the same priorities, then the configured primary provider and account id.
 
@@ -148,6 +163,11 @@ and high or critical severity labels. Raw values appear when they add informatio
 to the percentage. Credit blocks and free text are also shown; zero credit
 balances are hidden. Codex reset credits show the reset type and expiry on
 separate lines, with wrapping for longer descriptions.
+
+Cursor On-Demand spending has its own meter when the CLI reports a positive cap
+and percentage. Its currency amount stays visible; used/remaining does not invert
+spending. An uncapped amount stays text. Synthetic shows the subscription quota
+and request count supplied by the CLI, without assuming a reset window.
 
 A whole-report failure is different: it cannot identify one broken provider,
 so it keeps the last list and marks those readings as old instead of blanking
@@ -177,12 +197,12 @@ Per widget instance, so two capsules can follow two providers:
 | `quota_window` | `select` | `auto` | Keep the default windows, or choose `session`, `weekly` or `monthly`. An exhausted window takes priority. A window the provider does not report shows no percentage. |
 | `auto_providers` | `string_list` | `[]` | Limit automatic selection, scroll and `+N` to these provider or account IDs. A provider ID includes all its accounts; `provider@account` selects that account. Empty includes all. Ignored for a pinned provider. |
 | `visualization` | `select` | `gauge` | `gauge` or `none`, as described above. |
-| `show_value` | `bool` | `true` | Show the percentage as text. |
+| `show_value` | `bool` | `true` | Show the reported percentage or amount as text. |
 | `show_glyph` | `bool` | `true` | Show the provider's icon. |
 | `glyph_position` | `select` | `before` | `before` or `after` the reading. |
 | `provider_limit` | `int` | `1` | How many providers one capsule carries, busiest first, from 1 to 4. Only applies on `auto`. |
 | `extras` | `select` | `countdown` | Information beside the percentage: `countdown`, `pace`, `both` or `none`. |
-| `show_name` | `bool` | `false` | Show the provider name beside the reading. Long names are shortened; tooltips keep the full label. |
+| `show_name` | `bool` | `false` | Show the provider name, or each model name for Antigravity. Long names are shortened; tooltips keep the full label. |
 | `color_by_usage` | `bool` | `true` | Color readings by quota severity. Turning it off does not hide error indicators. |
 
 ## Diagnostics
@@ -242,6 +262,8 @@ noctalia msg plugin felipeartur/ai-usagebar:poller all catalog
   with a five-second timeout and one query in flight. It contacts no provider
   endpoint. The CLI may enforce restrictive permissions on its own configuration
   file when loading it, as it does for quota reads.
+- Custom providers can use a known brand icon supplied by the CLI. Unknown brands
+  use the provider fallback. Brand metadata never chooses a dashboard URL.
 - The plugin makes no network calls and writes no files of its own. Everything
   it knows arrives on those commands' stdout. Catalog state retains only provider
   names, IDs and configuration flags, without login commands or environment fields.

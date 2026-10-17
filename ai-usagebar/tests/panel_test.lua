@@ -1,5 +1,13 @@
 -- Host harness for malformed collection handling in panel.luau.
 
+-- Keep exact countdown assertions independent of second boundaries during rendering.
+local os = (function(runtime)
+    return setmetatable({ time = function(date)
+        if date ~= nil then return runtime.time(date) end
+        return 1792166400
+    end }, { __index = runtime })
+end)(os)
+
 local function read(path)
     local file = assert(io.open(path, "r"))
     local source = file:read("*a")
@@ -64,12 +72,13 @@ local function loadPanel(entry, failure, config)
         render = function(tree) drawn = tree end,
         setWantsSecondTicks = function() end,
     }
-    local sharedEnv = setmetatable({ noctalia = noctalia }, { __index = _G })
+    local sharedEnv = setmetatable({ noctalia = noctalia, os = os }, { __index = _G })
     local shared = assert(load(read("shared.luau"), "shared", "t", sharedEnv))()
     local env = setmetatable({
         noctalia = noctalia,
         ui = ui,
         panel = panel,
+        os = os,
         require = function(path)
             assert(path == "./shared.luau")
             return shared
@@ -777,6 +786,25 @@ oneModelEntry.metrics[1].severity = "critical"
 oneModelEntry.metrics[1].reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 7200)
 oneModelEntry.metrics[2].percent = 90
 assert(has(labels(loadPanel(oneModelEntry)), "Gemini 5h 100%"), "weekly warning must not override actual session exhaustion")
+do
+    local threeModelEntry = { id = "antigravity", display_name = "Antigravity", status = "ready", sections = {}, metrics = {
+        { label = "Gemini", percent = 60, window_secs = 18000 },
+        { label = "Claude & GPT OSS", percent = 65, window_secs = 18000 },
+        { label = "Gemini 4 Argon", percent = 100, window_secs = 604800, model_pool = true },
+    } }
+    local threeModelLabels = labels(loadPanel(threeModelEntry))
+    assert(has(threeModelLabels, "Gemini 4 Argon 7d 100%") and has(threeModelLabels, "OSS 5h 65%")
+        and not has(threeModelLabels, "Gemini 5h 60%"),
+        "the two footer warnings must include the exhausted third model before less-used quotas")
+    for _, metric in ipairs(threeModelEntry.metrics) do metric.percent = 100 end
+    threeModelEntry.metrics[3].reset_at = os.date("!%Y-%m-%dT%H:%M:%SZ", os.time() + 604800)
+    local ranked = {}
+    for _, text in ipairs(labels(loadPanel(threeModelEntry))) do
+        if text:match(" [57][hd] 100%%$") then ranked[#ranked + 1] = text end
+    end
+    assert(ranked[1] == "Gemini 4 Argon 7d 100%" and ranked[2] == "Gemini 5h 100%" and #ranked == 2,
+        "blocked notices must rank later resets first and preserve model order on ties")
+end
 local installTree = loadPanel(nil, { code = "not_installed", detail = "" })
 assert(has(labels(installTree), "https://github.com/akitaonrails/ai-usagebar"),
        "installation instructions must be visible without a browser-opening dependency")
@@ -867,6 +895,15 @@ local function clickButton(tree, key)
         end
     end
     error("missing action " .. key)
+end
+
+do
+    local malformedCopyTree, _, _, _, malformedCopied, _, malformedCopyHost = loadPanel({
+        id = "openai", display_name = "Codex", status = "ready", metrics = 42, sections = {},
+    })
+    clickButton(openActions(malformedCopyTree, malformedCopyHost), "ui.copy_summary")
+    assert(#malformedCopied == 1 and malformedCopied[1].text == "Codex",
+        "copying a tolerated scalar metric collection must still copy the provider name")
 end
 
 -- Setup must remain reachable when quota acquisition has never succeeded.
@@ -1209,4 +1246,36 @@ for _, card in ipairs(collect(host.tree(), "column")) do
     if card.props.tooltip == cause and has(labels(card), "ui.setup_required") then preserved = true end
 end
 assert(preserved, "the credential setup cause must remain available verbatim in its tooltip")
+end
+
+-- On-demand spend is separate from subscription quota and has no reset window.
+do
+local function spendTree(limit, percent, mode, failed)
+    return loadPanel({ id = "cursor", display_name = "Cursor", status = failed and "error" or "ready",
+        error = failed and "schema mismatch: unexpected field" or nil,
+        metrics = {}, sections = {
+            { type = "text", label = "On-Demand", value = "$1.25 / $5.00",
+              used_cents = 125, limit_cents = limit, percent = percent, severity = "low" },
+        } }, nil, { usage_display = mode })
+end
+for _, mode in ipairs({ "used", "remaining" }) do
+    local tree = spendTree(500, 25, mode)
+    local meters = collect(tree, "progress")
+    assert(#meters == 1 and meters[1].props.progress == 0.25,
+        "on-demand spend must show the used fraction even in remaining quota mode")
+    assert(has(labels(tree), "$1.25 / $5.00") and has(labels(tree), "On-Demand"),
+        "the CLI's money text must survive metering unchanged")
+    assert(not hasGlyph(tree, "clock"), "on-demand spend must not invent a reset window")
+end
+for _, invalid in ipairs({ { percent = 25 }, { limit = 0, percent = 25 },
+    { limit = -1, percent = 25 }, { limit = math.huge, percent = 25 },
+    { limit = 500 }, { limit = 500, percent = "25" }, { limit = 500, percent = 0 / 0 },
+    { limit = 500, percent = math.huge }, { limit = 500, percent = -math.huge } }) do
+    local tree = spendTree(invalid.limit, invalid.percent)
+    assert(#collect(tree, "progress") == 0 and has(labels(tree), "$1.25 / $5.00"),
+        "missing or invalid spend limits and percentages must keep the money text without a meter")
+end
+local stale = spendTree(500, 25, "used", true)
+assert(#collect(stale, "progress") == 0 and has(labels(stale), "$1.25 / $5.00"),
+    "failed providers must preserve old spend text without a live meter")
 end

@@ -99,8 +99,7 @@ end
 
 -- One reading, without the card around it. `title` names it: the metric's own
 -- label, or the window's name inside a card that stacks a model's readings.
--- `muted` is for the second case, where the card is already titled.
-local function metricRows(section, title, muted)
+local function metricRows(section, title)
     local percent = shared.displayPercent(section, displayMode())
     local usedPercent = tonumber(section.percent) or 0
     local tint = severityRole(section, "on_surface")
@@ -137,7 +136,7 @@ local function metricRows(section, title, muted)
         ui.column({ tooltip = timeTooltip }, {
             ui.label({
                 text = displayTitle,
-                fontSize = muted and 12 or 13,
+                fontSize = 12,
                 fontWeight = "semibold",
                 color = "on_surface",
                 maxLines = 1,
@@ -230,7 +229,7 @@ local function stackCard(name, readings, glyph)
         if index > 1 then
             body[#body + 1] = ui.box({ height = 1, fill = "outline/0.14" })
         end
-        for _, node in ipairs(metricRows(reading.section, reading.title, titled)) do
+        for _, node in ipairs(metricRows(reading.section, reading.title)) do
             body[#body + 1] = node
         end
     end
@@ -255,7 +254,7 @@ local function blockCard(section)
     local body = {
         ui.row({ gap = 6, align = "center" }, {
             ui.glyph({ name = iconName, size = 13, color = iconColor }),
-            ui.label({ text = label, fontSize = 11, fontWeight = "bold",
+            ui.label({ text = label, fontSize = 12, fontWeight = "bold",
                        color = isUnavailable and "error" or "on_surface", maxLines = 1 }),
         }),
     }
@@ -279,7 +278,7 @@ local function blockCard(section)
             })
         end
     end
-    return ui.column(cardStyle(4,
+    return ui.column(cardStyle(CARD.gap,
         isUnavailable and "error/0.06" or nil,
         isUnavailable and "error/0.18" or nil), body)
 end
@@ -351,7 +350,7 @@ local function recordCard(entry, items, windowed)
     if #order == 0 then return nil end
 
     local body = {
-        ui.label({ text = recordAge(entry), fontSize = 11, fontWeight = "semibold",
+        ui.label({ text = recordAge(entry), fontSize = 12, fontWeight = "semibold",
                    color = "on_surface", maxLines = 1 }),
     }
     for _, name in ipairs(order) do
@@ -377,7 +376,7 @@ local function recordCard(entry, items, windowed)
                                         maxLines = 1 })
         end
     end
-    return ui.column(cardStyle(4), body)
+    return ui.column(CARD, body)
 end
 
 -- Everything in a report that is not a reading: credit blocks, headings,
@@ -434,6 +433,19 @@ local function otherCard(section, warned)
         if label:lower() == "source" then
             return nil
         end
+        local limit, percent = section.limit_cents, section.percent
+        if not warned and type(limit) == "number" and limit > 0 and limit < math.huge
+            and type(percent) == "number" and percent == percent and math.abs(percent) < math.huge then
+            return ui.column(CARD, {
+                ui.row({ gap = 6, align = "center" }, {
+                    ui.label({ text = label, fontSize = 12, fontWeight = "semibold", color = "on_surface", maxLines = 1 }),
+                    ui.spacer({ flexGrow = 1 }),
+                    ui.label({ text = value, fontSize = 11, color = "on_surface_variant", maxLines = 1 }),
+                }),
+                ui.progress({ progress = ratio(percent), height = 5, radius = 2,
+                    fill = severityRole(section, "primary"), track = "on_surface/0.10" }),
+            })
+        end
         local props = cardStyle(6)
         props.align = "center"
         return ui.row(props, {
@@ -465,7 +477,7 @@ local function providerRow(entry, selected, compact)
 
     local children = {
         ui.glyph({
-            name = providerGlyph(entry.id),
+            name = providerGlyph(entry.id, entry.brand),
             size = compact and 16 or 15,
             color = selected and "primary" or "on_surface",
         }),
@@ -568,7 +580,8 @@ local function copySummary(entry)
         parts[#parts + 1] = "(" .. sub .. ")"
     end
     local metricStrs = {}
-    for _, m in ipairs(entry.metrics or {}) do
+    local metrics = type(entry.metrics) == "table" and entry.metrics or {}
+    for _, m in ipairs(metrics) do
         if type(m) == "table" and m.label and shared.displayPercent(m, displayMode()) ~= nil then
             metricStrs[#metricStrs + 1] = tostring(m.label) .. " " .. percentText(m)
         end
@@ -617,7 +630,7 @@ local function statusIndicator(entry)
 
     local models = modelHeadlines(entry)
     if #models == 0 then
-        models = { { displayName = "", glyph = providerGlyph(entry.id), metrics = entry.metrics } }
+        models = { { displayName = "", glyph = providerGlyph(entry.id, entry.brand), metrics = entry.metrics } }
     end
     local notices = {}
     for _, model in ipairs(models) do
@@ -654,11 +667,23 @@ local function statusIndicator(entry)
         end)
         if affected[1] ~= nil then
             affected[1].model = model
+            affected[1].modelIndex = #notices + 1
             notices[#notices + 1] = affected[1]
         end
     end
 
     if #notices > 0 then
+        table.sort(notices, function(a, b)
+            local aBlocked, bBlocked = a.percent >= 100, b.percent >= 100
+            if aBlocked ~= bBlocked then return aBlocked end
+            if aBlocked then
+                local aReset = parseIso(a.metric.reset_at) or 0
+                local bReset = parseIso(b.metric.reset_at) or 0
+                if aReset ~= bReset then return aReset > bReset end
+            end
+            if a.percent ~= b.percent then return a.percent > b.percent end
+            return a.modelIndex < b.modelIndex
+        end)
         local pills = {}
         for index = 1, math.min(#notices, 2) do
             local item = notices[index]

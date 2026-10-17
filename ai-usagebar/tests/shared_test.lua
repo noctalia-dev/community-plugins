@@ -272,3 +272,49 @@ assert(shared.capsuleMetric({ metrics = "invalid" }, "weekly") == nil,
        "an explicit window must reject malformed metric collections without crashing")
 assert(shared.capsuleMetric({ metrics = 42 }, "monthly") == nil,
        "numeric metric collections must not crash explicit window selection")
+
+-- A model-specific exhausted pool does not exhaust the provider's shared quota.
+local sharedSession = { label = "Gemini", percent = 55, window_secs = 18000 }
+local sharedWeek = { label = "Gemini", percent = 39, window_secs = 604800 }
+local argonPool = { label = "Gemini 4 Argon", percent = 100, window_secs = 604800,
+    reset_at = "2026-10-24T12:00:00Z", model_pool = true }
+local pooled = { id = "antigravity", metrics = { argonPool, sharedSession, sharedWeek } }
+assert(shared.headline(pooled) == sharedSession,
+    "a full Argon pool must not replace usable shared quota in the provider headline")
+assert(shared.capsuleMetric(pooled, "weekly") == sharedWeek,
+    "explicit weekly selection must choose the shared weekly quota")
+local pooledShort, pooledWeek = shared.dualMetrics(pooled.metrics)
+assert(pooledShort == sharedSession and pooledWeek == sharedWeek,
+    "provider gauges must use shared windows when model-specific pools are present")
+local modelRows = shared.modelHeadlines(pooled)
+assert(modelRows[1].displayName == "Gemini 4 Argon" and modelRows[1].metric == argonPool
+    and modelRows[1].blockingMetric == argonPool,
+    "a model pool retains its name, full usage and reset in its own row")
+assert(shared.headline({ id = "antigravity", metrics = { argonPool } }) == argonPool,
+    "a pool-only response must remain readable")
+assert(shared.capsuleMetric({ metrics = { argonPool } }, "session") == argonPool,
+    "an exhausted pool still blocks its own row when a window is selected")
+sharedWeek.percent = 100
+assert(shared.headline(pooled) == sharedWeek, "an exhausted shared quota still blocks the provider")
+assert(shared.capsuleMetric({ metrics = { sharedSession, argonPool } }, "weekly") == nil,
+    "a model pool must not fill a missing shared pinned window")
+
+local money = { headline = "value", value = "$12.50", percent = 75 }
+assert(shared.metricText(money, "used") == "$12.50"
+    and shared.metricText(money, "remaining") == "$12.50",
+    "a monetary headline must stay an amount regardless of percentage direction")
+assert(shared.metricText({ headline = "value", percent = 75 }, "used") == "—",
+    "missing headline amount cannot silently become a percentage")
+assert(shared.metricText({ headline = "value", value = "  " }, "used") == "—",
+    "empty headline amount is missing data")
+assert(shared.metricText({ percent = 25 }, "used") == "25%"
+    and shared.metricText({ percent = 25 }, "remaining") == "75%",
+    "legacy percent metrics retain used and remaining readings")
+assert(shared.providerGlyph("custom", "openai") == shared.providerGlyph("openai"),
+    "a custom provider can borrow a known local mark")
+assert(shared.providerGlyph("openai", "../../evil.svg") == shared.providerGlyph("openai"),
+    "untrusted brands cannot load files or replace the known fallback")
+assert(shared.providerGlyph("unknown", "evil") == "brain",
+    "unknown custom brands keep the generic mark")
+assert(shared.providerDashboard("custom", "openai") == nil,
+    "borrowing an icon must never borrow an unrelated account dashboard")

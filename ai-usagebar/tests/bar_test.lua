@@ -469,12 +469,35 @@ end
 local uncolored = loadBar({ vendor = "antigravity", color_by_usage = false }, { entries = { quotaEntry } })
 assert(findNode(uncolored.rendered(), function(n) return n.props.text == "100%" end).props.color == "on_surface",
        "color_by_usage=false must suppress exhausted model tint")
-local after = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none" }, { entries = { quotaEntry } })
+local after = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none", visualization = "none" }, { entries = { quotaEntry } })
 local modelRow = findNode(after.rendered(), function(n)
     return n.kind == "row" and n.children[1] and n.children[1].props.text == "100%"
 end)
 assert(modelRow and modelRow.children[#modelRow.children].props.name == "brand-google",
        "glyph_position=after must place the model glyph after its reading")
+local afterGauge = loadBar({ vendor = "antigravity", glyph_position = "after", extras = "none" }, { entries = { quotaEntry } })
+local gaugeRow = findNode(afterGauge.rendered(), function(n)
+    return n.kind == "row" and n.children[#n.children] and n.children[#n.children].props.name == "brand-google"
+end)
+assert(gaugeRow and gaugeRow.children[1].kind == "column" and gaugeRow.children[2].props.text == "100%",
+       "moving the model glyph must preserve the gauge-before-value layout used by other providers")
+local poolReport = { entries = { {
+    id = "antigravity", display_name = "Antigravity", status = "ready",
+    metrics = {
+        { label = "Gemini", percent = 10 },
+        { label = "Gemini 4 Argon", percent = 35, model_pool = true },
+    },
+} } }
+local namedPools = loadBar({ vendor = "antigravity", show_name = true }, poolReport)
+assert(containsText(namedPools.rendered(), "Gemini") and containsText(namedPools.rendered(), "Gemini 4 Argon"),
+       "show_name must distinguish model pools that share a provider glyph")
+assert(not containsText(namedPools.rendered(), "Antigravity"), "model names replace the aggregate provider name")
+local quietPools = loadBar({ vendor = "antigravity", show_name = false }, poolReport)
+assert(not containsText(quietPools.rendered(), "Gemini") and not containsText(quietPools.rendered(), "Gemini 4 Argon"),
+       "model names stay hidden by default")
+local verticalPools = loadBar({ vendor = "antigravity", show_name = true, vertical = true }, poolReport)
+assert(not containsText(verticalPools.rendered(), "Gemini 4 Argon"), "model names must not widen a vertical bar")
+assert(namedPools.tooltip()[2].key == "Gemini 4 Argon", "the tooltip preserves the full model pool name")
 local iconOnly = loadBar({ vendor = "antigravity", show_value = false, extras = "none" }, { entries = { quotaEntry } })
 assert(containsGlyph(iconOnly.rendered(), "brand-google") and not containsText(iconOnly.rendered(), "100%"),
        "show_value=false must preserve enabled model glyphs")
@@ -713,3 +736,21 @@ assert(not containsText(subsetHidden.rendered(), "+1"), "hidden count excludes p
 local unmatchedFilter = loadBar({ vendor = "auto", auto_providers = { "missing-provider" } }, namedReport)
 assert(unmatchedFilter.tooltip()[1].value == "ui.no_matching_providers",
     "an unmatched automatic filter should explain the empty selection")
+
+local amountEntry = entry("custom", "Custom credits", 75)
+amountEntry.brand = "openai"
+amountEntry.metrics[1].headline = "value"
+amountEntry.metrics[1].value = "$12.50"
+for _, mode in ipairs({ "used", "remaining" }) do
+    local amountBar = loadBar({ vendor = "custom", quota_window = "session", usage_display = mode, visualization = "none" },
+        { entries = { amountEntry } })
+    assert(containsText(amountBar.rendered(), "$12.50") and not containsText(amountBar.rendered(), "75%"),
+        "bar amount headlines preserve the reported currency in " .. mode .. " mode")
+    assert(findNode(amountBar.rendered(), function(node)
+        return node.kind == "glyph" and node.props.name == "brand-openai"
+    end), "a custom bar entry can use its known local brand mark")
+end
+amountEntry.metrics[1].value = nil
+local missingAmount = loadBar({ vendor = "custom", visualization = "none" }, { entries = { amountEntry } })
+assert(containsText(missingAmount.rendered(), "—") and not containsText(missingAmount.rendered(), "75%"),
+    "a missing amount does not substitute a believable percentage")
