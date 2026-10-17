@@ -953,8 +953,12 @@ local function applyInstanceData(inst, bag, errors)
   local issues, oks = countIssues(widgets, gateways)
   pcall(notifyNewIssues, inst, widgets, gateways)
 
+  -- Availability comes from this poll's own answers: `data.logs` is kept from an
+  -- earlier fetchLogs call, so counting it here would report a firewall that
+  -- failed every core request as up (and healthy, since it also clears the
+  -- error) until a log fetch failed or the settings changed.
   local available = #widgets > 0 or #interfaces > 0 or #services > 0
-    or #gateways > 0 or #rules > 0 or #(data.logs or {}) > 0
+    or #gateways > 0 or #rules > 0
   data.available = available
   data.loading = false
   data.error = available and "" or (errors[1] or "no data")

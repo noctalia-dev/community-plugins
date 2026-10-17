@@ -92,7 +92,7 @@
     "stopped": "Stopped {name}",
     "success": "Done",
     "no_instance": "Select a firewall first, or name one in the command.",
-    "instances_invalid": "The “Additional firewalls” setting is not a usable JSON array: {error}"
+    "instances_invalid": "The “Firewalls (JSON)” setting is not a usable JSON array: {error}"
   },
   "rule": {
     "detail": "{src} → {dst} · {proto} · {iface}",
